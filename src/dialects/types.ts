@@ -69,6 +69,8 @@ export interface MachineEmulator {
   renderTo(ctx: CanvasRenderingContext2D): void;
   /** Returns true when the key event was consumed. */
   keyEvent(e: KeyboardEvent, down: boolean): boolean;
+  /** Emulation speed multiplier (1 = real time). */
+  setSpeed(multiplier: number): void;
   readonly displayWidth: number;
   readonly displayHeight: number;
   dispose(): void;
@@ -102,5 +104,13 @@ export interface Dialect {
   romUrl: string;
   createEmulator(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }): MachineEmulator;
   buildTargets: BuildTarget[];
+  /** Cassette-audio loading support, when the machine loads from tape. */
+  audio?: {
+    sampleRate: number;
+    /** Throws when the source has tokenizer errors. */
+    buildSamples(source: string, programName: string, robust: boolean): Float32Array;
+    /** Loading instructions shown to the user, e.g. how to type LOAD "". */
+    loadInstructions: string;
+  };
   aiProfile: AiProfile;
 }

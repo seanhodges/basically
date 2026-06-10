@@ -21,5 +21,6 @@
 
     "types": ["w3c-web-serial"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
 }
