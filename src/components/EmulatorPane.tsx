@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
-import { computeIntegerScale, SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
+import {
+  computeIntegerScale,
+  SCREEN_WIDTH,
+  SCREEN_HEIGHT,
+} from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
 import { VirtualKeyboard } from '../keyboard/VirtualKeyboard';
 
@@ -143,17 +147,21 @@ export function EmulatorPane() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetRequest]);
 
-  useEffect(() => () => {
-    stopLoop();
-    machineRef.current?.releaseAllKeys();
-    machineRef.current?.dispose();
-    machineRef.current = null;
-  }, [stopLoop]);
+  useEffect(
+    () => () => {
+      stopLoop();
+      machineRef.current?.releaseAllKeys();
+      machineRef.current?.dispose();
+      machineRef.current = null;
+    },
+    [stopLoop],
+  );
 
   // Backgrounding pauses the rAF loop; clear the matrix so no key stays held.
   useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') machineRef.current?.releaseAllKeys();
+      if (document.visibilityState === 'hidden')
+        machineRef.current?.releaseAllKeys();
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
@@ -205,7 +213,9 @@ export function EmulatorPane() {
 
   return (
     <div className="emulator-pane" ref={containerRef}>
-      <div className={`screen-shell ${crtEffect ? 'crt' : ''} ${focused ? 'focused' : ''}`}>
+      <div
+        className={`screen-shell ${crtEffect ? 'crt' : ''} ${focused ? 'focused' : ''}`}
+      >
         <canvas
           ref={canvasRef}
           width={SCREEN_WIDTH}
@@ -236,7 +246,11 @@ export function EmulatorPane() {
         <button
           className={`vk-toggle ${virtualKeyboard ? 'active' : ''}`}
           aria-pressed={virtualKeyboard}
-          title={virtualKeyboard ? 'Hide on-screen keyboard' : 'Show on-screen keyboard'}
+          title={
+            virtualKeyboard
+              ? 'Hide on-screen keyboard'
+              : 'Show on-screen keyboard'
+          }
           onClick={() => setVirtualKeyboard(!virtualKeyboard)}
         >
           ⌨

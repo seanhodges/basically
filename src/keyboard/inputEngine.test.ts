@@ -32,10 +32,31 @@ const layout: KeyboardLayout = {
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows: [
     [
-      { id: 'Shift', spanX: 1, emits: ['Shift'], modifier: 'shift', labels: [{ text: 'SHIFT' }, null] },
-      { id: 'KeyP', spanX: 1, emits: ['KeyP'], labels: [{ text: 'P' }, { text: '"' }] },
-      { id: 'KeyH', spanX: 1, emits: ['KeyH'], labels: [{ text: 'H' }, { text: '**' }] },
-      { id: 'x-quote', spanX: 1, emits: ['Shift', 'KeyP'], labels: [{ text: '"' }, null] },
+      {
+        id: 'Shift',
+        spanX: 1,
+        emits: ['Shift'],
+        modifier: 'shift',
+        labels: [{ text: 'SHIFT' }, null],
+      },
+      {
+        id: 'KeyP',
+        spanX: 1,
+        emits: ['KeyP'],
+        labels: [{ text: 'P' }, { text: '"' }],
+      },
+      {
+        id: 'KeyH',
+        spanX: 1,
+        emits: ['KeyH'],
+        labels: [{ text: 'H' }, { text: '**' }],
+      },
+      {
+        id: 'x-quote',
+        spanX: 1,
+        emits: ['Shift', 'KeyP'],
+        labels: [{ text: '"' }, null],
+      },
     ],
   ],
   glyphs: {},
@@ -44,7 +65,10 @@ const layout: KeyboardLayout = {
 
 function setup() {
   const machine = new FakeMachine();
-  const engine = new KeyboardInputEngine(layout, () => machine as unknown as MachineEmulator);
+  const engine = new KeyboardInputEngine(
+    layout,
+    () => machine as unknown as MachineEmulator,
+  );
   return { machine, engine };
 }
 

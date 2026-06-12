@@ -1,4 +1,9 @@
-import type { GlyphRegistry, KeyDef, KeyLabel, KeyboardLayout } from '../../keyboard/layoutSchema';
+import type {
+  GlyphRegistry,
+  KeyDef,
+  KeyLabel,
+  KeyboardLayout,
+} from '../../keyboard/layoutSchema';
 
 /**
  * The authentic ZX81 membrane keyboard as virtual-keyboard layout data.
@@ -27,11 +32,18 @@ const QUAD = {
 };
 
 /** 2px chequerboard covering the given area; phase flips which cells fill. */
-function chequer(x0: number, y0: number, w: number, h: number, phase = 0): string {
+function chequer(
+  x0: number,
+  y0: number,
+  w: number,
+  h: number,
+  phase = 0,
+): string {
   const cells: string[] = [];
   for (let y = 0; y < h / 2; y++) {
     for (let x = 0; x < w / 2; x++) {
-      if ((x + y + phase) % 2 === 0) cells.push(`M${x0 + x * 2} ${y0 + y * 2}h2v2h-2Z`);
+      if ((x + y + phase) % 2 === 0)
+        cells.push(`M${x0 + x * 2} ${y0 + y * 2}h2v2h-2Z`);
     }
   }
   return cells.join('');
@@ -69,10 +81,20 @@ const zx81Glyphs: GlyphRegistry = {
 // Key data. Label tuple order matches `layers` below:
 // [main, shift, keyword, function, graphic]
 
-type Legends = [string, string | null, string | null, string | null, string | null];
+type Legends = [
+  string,
+  string | null,
+  string | null,
+  string | null,
+  string | null,
+];
 
-function key(token: string, [main, shift, keyword, fn, graphic]: Legends): KeyDef {
-  const lbl = (text: string | null): KeyLabel | null => (text === null ? null : { text });
+function key(
+  token: string,
+  [main, shift, keyword, fn, graphic]: Legends,
+): KeyDef {
+  const lbl = (text: string | null): KeyLabel | null =>
+    text === null ? null : { text };
   return {
     id: token,
     spanX: 4,
@@ -144,7 +166,10 @@ const rows: KeyDef[][] = [
     key('KeyN', ['N', '<', 'NEXT', 'NOT', null]),
     key('KeyM', ['M', '>', 'PAUSE', 'PI', null]),
     key('Period', ['.', ',', null, null, null]),
-    { ...key('Space', ['SPACE', '£', null, null, 'solid']), style: 'small-main' },
+    {
+      ...key('Space', ['SPACE', '£', null, null, 'solid']),
+      style: 'small-main',
+    },
   ],
   // Convenience extras (not on the real machine): common shift chords as
   // single keys, handy on touch screens.

@@ -90,7 +90,9 @@ const autosaved = typeof localStorage !== 'undefined' ? loadAutosave() : null;
 /** Default the virtual keyboard to shown on touch/small-screen devices. */
 function defaultVirtualKeyboard(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.matchMedia?.(MOBILE_QUERY).matches || navigator.maxTouchPoints > 0;
+  return (
+    window.matchMedia?.(MOBILE_QUERY).matches || navigator.maxTouchPoints > 0
+  );
 }
 
 export const useIdeStore = create<IdeState>((set) => ({
@@ -109,15 +111,19 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined'
       ? (getVirtualKeyboard() ?? defaultVirtualKeyboard())
       : false,
-  keyboardSound: typeof localStorage !== 'undefined' ? getKeyboardSound() : false,
-  keyboardHaptics: typeof localStorage !== 'undefined' ? getKeyboardHaptics() : true,
+  keyboardSound:
+    typeof localStorage !== 'undefined' ? getKeyboardSound() : false,
+  keyboardHaptics:
+    typeof localStorage !== 'undefined' ? getKeyboardHaptics() : true,
   mobileTab: 'editor',
   splitRatio: typeof localStorage !== 'undefined' ? getSplitRatio() : 0.5,
   aiPanelOpen: false,
   transferOpen: false,
   settingsOpen: false,
-  autoLineNumbering: typeof localStorage !== 'undefined' ? getAutoLineNumbering() : true,
-  lineNumberIncrement: typeof localStorage !== 'undefined' ? getLineNumberIncrement() : 10,
+  autoLineNumbering:
+    typeof localStorage !== 'undefined' ? getAutoLineNumbering() : true,
+  lineNumberIncrement:
+    typeof localStorage !== 'undefined' ? getLineNumberIncrement() : 10,
   renumberRequest: 0,
 
   setSource: (text) => set({ source: text, dirty: true }),
@@ -166,5 +172,6 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistLineNumberIncrement(n);
     set({ lineNumberIncrement: n });
   },
-  requestRenumber: () => set((s) => ({ renumberRequest: s.renumberRequest + 1 })),
+  requestRenumber: () =>
+    set((s) => ({ renumberRequest: s.renumberRequest + 1 })),
 }));

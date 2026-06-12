@@ -20,7 +20,11 @@ const KEYBOARD_POINTER_ID = -1;
 /** Below this container width there isn't room for every legend at once. */
 const COMPACT_MAX_WIDTH = 520;
 
-function GlyphSvg({ glyph }: { glyph?: { viewBox: string; paths: { d: string; fill?: string }[] } }) {
+function GlyphSvg({
+  glyph,
+}: {
+  glyph?: { viewBox: string; paths: { d: string; fill?: string }[] };
+}) {
   if (!glyph) return null;
   // Constrained path data only — never raw SVG markup (XSS surface for
   // future community layouts).
@@ -33,9 +37,14 @@ function GlyphSvg({ glyph }: { glyph?: { viewBox: string; paths: { d: string; fi
   );
 }
 
-function keyAriaLabel(def: KeyDef, layout: KeyboardLayout, activeLayerId: string): string {
+function keyAriaLabel(
+  def: KeyDef,
+  layout: KeyboardLayout,
+  activeLayerId: string,
+): string {
   const activeIdx = layout.layers.findIndex((l) => l.id === activeLayerId);
-  const label = def.labels[activeIdx] ?? def.labels.find((l) => l !== null) ?? null;
+  const label =
+    def.labels[activeIdx] ?? def.labels.find((l) => l !== null) ?? null;
   return label?.text ?? (label?.glyph ? `graphic ${label.glyph}` : def.id);
 }
 
@@ -95,7 +104,8 @@ export function VirtualKeyboard({
   }, []);
 
   const baseLayer = useMemo(
-    () => layout.layers.find((l) => l.activeWhen.length === 0) ?? layout.layers[0]!,
+    () =>
+      layout.layers.find((l) => l.activeWhen.length === 0) ?? layout.layers[0]!,
     [layout],
   );
   const secondaryLayers = useMemo(
@@ -105,7 +115,9 @@ export function VirtualKeyboard({
   const [legendChoice, setLegendChoice] = useState<string | null>(null);
   useEffect(() => setLegendChoice(null), [layout]);
   const legendLayerId =
-    legendChoice ?? layout.options?.compactDefaultLayer ?? secondaryLayers[0]?.id;
+    legendChoice ??
+    layout.options?.compactDefaultLayer ??
+    secondaryLayers[0]?.id;
 
   // Any path that can lose pointers clears all matrix state (R5).
   useEffect(() => {
@@ -161,7 +173,9 @@ export function VirtualKeyboard({
     // so the physical keyboard keeps working.
     e.preventDefault();
     if (!enabled) return;
-    const keyId = (e.target as Element).closest('[data-keyid]')?.getAttribute('data-keyid');
+    const keyId = (e.target as Element)
+      .closest('[data-keyid]')
+      ?.getAttribute('data-keyid');
     if (!keyId) return;
     // Capture on the container: pointermove keeps firing here while we
     // hit-test slides with elementFromPoint.
@@ -200,7 +214,9 @@ export function VirtualKeyboard({
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       const dir = e.key === 'ArrowDown' ? 1 : -1;
       const rowLen = layout.rows[0]?.length ?? 1;
-      setFocusIdx((i) => (i + dir * rowLen + flatKeys.length) % flatKeys.length);
+      setFocusIdx(
+        (i) => (i + dir * rowLen + flatKeys.length) % flatKeys.length,
+      );
       e.preventDefault();
     } else if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
       const key = flatKeys[focusIdx];
@@ -242,7 +258,11 @@ export function VirtualKeyboard({
       onBlur={() => engine.pointerUp(KEYBOARD_POINTER_ID)}
     >
       {compact && secondaryLayers.length > 1 && (
-        <div className="vk-legend-bar" role="radiogroup" aria-label="Key legends shown">
+        <div
+          className="vk-legend-bar"
+          role="radiogroup"
+          aria-label="Key legends shown"
+        >
           {secondaryLayers.map((layer) => (
             <button
               key={layer.id}
@@ -267,10 +287,13 @@ export function VirtualKeyboard({
           style={{ gridTemplateColumns: `repeat(${layout.gridColumns}, 1fr)` }}
         >
           {row.map((def) => {
-            const modState = def.modifier ? engine.getModifierState(def.modifier) : 'off';
+            const modState = def.modifier
+              ? engine.getModifierState(def.modifier)
+              : 'off';
             const classes = ['vk-key'];
             if (pressed.has(def.id)) classes.push('vk-pressed');
-            if (modState === 'held' || modState === 'sticky') classes.push('vk-mod-engaged');
+            if (modState === 'held' || modState === 'sticky')
+              classes.push('vk-mod-engaged');
             if (modState === 'locked') classes.push('vk-mod-locked');
             if (def.style) classes.push(`vk-style-${def.style}`);
             if (def.id === focusKeyId) classes.push('vk-focus');
@@ -284,14 +307,20 @@ export function VirtualKeyboard({
                 tabIndex={-1}
                 aria-label={keyAriaLabel(def, layout, activeLayer.id)}
                 aria-pressed={
-                  def.modifier ? modState !== 'off' : pressed.has(def.id) || undefined
+                  def.modifier
+                    ? modState !== 'off'
+                    : pressed.has(def.id) || undefined
                 }
               >
                 <span className="vk-keycap" aria-hidden="true">
                   {layout.layers.map((layer, layerIdx) => {
                     const label = def.labels[layerIdx];
                     if (!label) return null;
-                    if (compact && layer !== baseLayer && layer.id !== visibleSecondaryId)
+                    if (
+                      compact &&
+                      layer !== baseLayer &&
+                      layer.id !== visibleSecondaryId
+                    )
                       return null;
                     const cls = [
                       'vk-label',

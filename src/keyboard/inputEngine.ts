@@ -54,8 +54,10 @@ export class KeyboardInputEngine {
     private readonly layout: KeyboardLayout,
     private readonly getMachine: () => MachineEmulator | null,
   ) {
-    this.minHoldFrames = layout.options?.minHoldFrames ?? DEFAULT_MIN_HOLD_FRAMES;
-    for (const row of layout.rows) for (const k of row) this.keyById.set(k.id, k);
+    this.minHoldFrames =
+      layout.options?.minHoldFrames ?? DEFAULT_MIN_HOLD_FRAMES;
+    for (const row of layout.rows)
+      for (const k of row) this.keyById.set(k.id, k);
     for (const m of layout.modifiers) this.modifierStates.set(m.id, 'off');
   }
 
@@ -111,7 +113,8 @@ export class KeyboardInputEngine {
     this.presses.clear();
     this.pendingReleases.length = 0;
     this.tokenCounts.clear();
-    for (const id of this.modifierStates.keys()) this.modifierStates.set(id, 'off');
+    for (const id of this.modifierStates.keys())
+      this.modifierStates.set(id, 'off');
     this.usedWhileHeld.clear();
     this.getMachine()?.releaseAllKeys();
     this.notify();
@@ -231,13 +234,21 @@ export class KeyboardInputEngine {
     this.usedWhileHeld.delete(id);
   }
 
-  private setModifierOff(id: string, tokens: string[], pressedAtFrame: number): void {
+  private setModifierOff(
+    id: string,
+    tokens: string[],
+    pressedAtFrame: number,
+  ): void {
     this.modifierStates.set(id, 'off');
     this.scheduleTokenRelease(tokens, pressedAtFrame, []);
   }
 
   private scheduleRelease(press: ActivePress): void {
-    this.scheduleTokenRelease(press.tokens, press.pressedAtFrame, press.consumesModifiers);
+    this.scheduleTokenRelease(
+      press.tokens,
+      press.pressedAtFrame,
+      press.consumesModifiers,
+    );
   }
 
   /** Release now if the press is mature, else defer until it is (R2). */
@@ -247,8 +258,10 @@ export class KeyboardInputEngine {
     consumesModifiers: string[],
   ): void {
     const releaseAtFrame = pressedAtFrame + this.minHoldFrames;
-    if (this.frame >= releaseAtFrame) this.finishRelease(tokens, consumesModifiers);
-    else this.pendingReleases.push({ tokens, releaseAtFrame, consumesModifiers });
+    if (this.frame >= releaseAtFrame)
+      this.finishRelease(tokens, consumesModifiers);
+    else
+      this.pendingReleases.push({ tokens, releaseAtFrame, consumesModifiers });
   }
 
   private finishRelease(tokens: string[], consumesModifiers: string[]): void {
