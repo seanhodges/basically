@@ -103,6 +103,14 @@ export function VirtualKeyboard({
   const modeRef = useRef(mode);
   modeRef.current = mode;
 
+  // Key pages (the BBC's ABC / symbols tabs). Shown for both targets; absent
+  // on single-page keyboards (ZX81/Spectrum), which render `layout.rows`.
+  const tabs = layout.tabs ?? [];
+  const [tabId, setTabId] = useState<string | null>(null);
+  useEffect(() => setTabId(null), [layout]);
+  const activeTab = tabs.find((t) => t.id === tabId) ?? tabs[0] ?? null;
+  const displayRows = activeTab?.rows ?? layout.rows;
+
   const baseLayer = useMemo(
     () =>
       layout.layers.find((l) => l.activeWhen.length === 0) ?? layout.layers[0]!,
@@ -212,6 +220,12 @@ export function VirtualKeyboard({
     engine.cancelAll();
     stopAllRepeatsRef.current();
   }, [modeId, engine]);
+
+  // Switching key pages preserves modifier/lock state (a Shift-Lock set for
+  // shifted symbols should carry across tabs) but stops in-flight repeats.
+  useEffect(() => {
+    stopAllRepeatsRef.current();
+  }, [tabId]);
 
   // Compact mode: too narrow to render every legend without overlap, so
   // show the base layer plus one selectable secondary layer per key.
@@ -350,7 +364,7 @@ export function VirtualKeyboard({
 
   // Roving focus: the whole keyboard is one tab stop; arrows move between
   // keys, Enter/Space presses the focused key.
-  const flatKeys = useMemo(() => layout.rows.flat(), [layout]);
+  const flatKeys = useMemo(() => displayRows.flat(), [displayRows]);
   const [focusIdx, setFocusIdx] = useState(0);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -361,7 +375,7 @@ export function VirtualKeyboard({
       e.preventDefault();
     } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       const dir = e.key === 'ArrowDown' ? 1 : -1;
-      const rowLen = layout.rows[0]?.length ?? 1;
+      const rowLen = displayRows[0]?.length ?? 1;
       setFocusIdx(
         (i) => (i + dir * rowLen + flatKeys.length) % flatKeys.length,
       );
@@ -418,6 +432,29 @@ export function VirtualKeyboard({
       onKeyUp={onKeyUp}
       onBlur={() => engine.pointerUp(KEYBOARD_POINTER_ID)}
     >
+      {tabs.length > 0 && (
+        <div
+          className="vk-legend-bar vk-tab-bar"
+          role="radiogroup"
+          aria-label="Keyboard page"
+        >
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              className={`vk-legend-btn${t.id === activeTab?.id ? ' active' : ''}`}
+              role="radio"
+              aria-checked={t.id === activeTab?.id}
+              tabIndex={-1}
+              onPointerDown={(e) => {
+                e.preventDefault(); // keep canvas/editor focus (R4)
+                setTabId(t.id);
+              }}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
       {editorModes.length > 0 ? (
         <div
           className="vk-legend-bar vk-mode-bar"
@@ -466,7 +503,7 @@ export function VirtualKeyboard({
           </div>
         )
       )}
-      {layout.rows.map((row, rowIdx) => (
+      {displayRows.map((row, rowIdx) => (
         <div
           key={rowIdx}
           className="vk-row"
