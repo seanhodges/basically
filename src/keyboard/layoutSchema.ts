@@ -16,7 +16,15 @@ export interface KeyboardLayout {
   gridColumns: number;
   layers: LayerDef[];
   modifiers: ModifierDef[];
+  /** Default key page, used when `tabs` is absent (a single-page keyboard). */
   rows: KeyDef[][];
+  /**
+   * Optional key pages shown one at a time behind an always-visible tab bar
+   * (e.g. the BBC Micro's ABC / symbols split). The bar is shown for both the
+   * machine and editor targets, unlike `editorModes`. When present, `rows` is
+   * unused; rows shared between pages are simply referenced by each tab.
+   */
+  tabs?: KeyboardTabDef[];
   glyphs: GlyphRegistry;
   /**
    * Input modes offered when the keyboard targets the text editor (the
@@ -57,6 +65,14 @@ export interface LayerDef {
 export type EditorKeyAction =
   | { insert: string }
   | { action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down' };
+
+/** A swappable key page selected from the keyboard's tab bar. */
+export interface KeyboardTabDef {
+  id: string;
+  /** Tab-bar caption, e.g. "ABC" or "#+=". */
+  name: string;
+  rows: KeyDef[][];
+}
 
 /** A selectable editor-target input mode (mirrors the ZX81 K/F/G cursor). */
 export interface EditorModeDef {

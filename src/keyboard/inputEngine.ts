@@ -70,8 +70,12 @@ export class KeyboardInputEngine {
       target.kind === 'editor'
         ? 0
         : (layout.options?.minHoldFrames ?? DEFAULT_MIN_HOLD_FRAMES);
-    for (const row of layout.rows)
-      for (const k of row) this.keyById.set(k.id, k);
+    // Index every key across all tab pages (or `rows` when single-page) so
+    // lookups resolve regardless of which page is currently shown.
+    const allRows = layout.tabs
+      ? layout.tabs.flatMap((t) => t.rows)
+      : layout.rows;
+    for (const row of allRows) for (const k of row) this.keyById.set(k.id, k);
     for (const m of layout.modifiers) this.modifierStates.set(m.id, 'off');
   }
 

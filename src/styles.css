@@ -566,6 +566,20 @@ textarea {
   font-size: 10px;
 }
 
+/* Key-page tabs (the BBC's ABC / #+= pages): always visible for both targets,
+   so they get the larger tap target and the active page reads clearly. */
+.vk-tab-bar .vk-legend-btn {
+  padding: 7px 2px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.vk-tab-bar .vk-legend-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #15151b;
+}
+
 /* Keys that do nothing in the current editor mode. */
 .vk-key.vk-noaction .vk-keycap {
   opacity: 0.45;
