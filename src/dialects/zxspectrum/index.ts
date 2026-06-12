@@ -13,7 +13,7 @@ import { spectrumSamples } from './samples';
 
 export const zxspectrum: Dialect = {
   id: 'zxspectrum',
-  name: 'ZX Spectrum BASIC',
+  name: 'ZX Spectrum',
   fileExtensions: ['.bas'],
   keywords: spectrumKeywords,
   charset: spectrumCharset,
