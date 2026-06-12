@@ -5,6 +5,7 @@ const KEYS = {
   dialectId: 'mbide.dialectId',
   autoLineNumbering: 'mbide.autoLineNumbering',
   lineNumberIncrement: 'mbide.lineNumberIncrement',
+  showLineNumberGutter: 'mbide.showLineNumberGutter',
   crtEffect: 'mbide.crtEffect',
   splitRatio: 'mbide.splitRatio',
   emulatorSpeed: 'mbide.emulatorSpeed',
@@ -54,6 +55,14 @@ export function getLineNumberIncrement(): number {
 
 export function setLineNumberIncrement(n: number): void {
   localStorage.setItem(KEYS.lineNumberIncrement, String(n));
+}
+
+export function getShowLineNumberGutter(): boolean {
+  return localStorage.getItem(KEYS.showLineNumberGutter) === 'true'; // default off
+}
+
+export function setShowLineNumberGutter(on: boolean): void {
+  localStorage.setItem(KEYS.showLineNumberGutter, on ? 'true' : 'false');
 }
 
 export function getCrtEffect(): boolean {

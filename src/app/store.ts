@@ -7,6 +7,7 @@ import {
   setDialectId as persistDialectId,
   getAutoLineNumbering,
   getLineNumberIncrement,
+  getShowLineNumberGutter,
   getCrtEffect,
   getSplitRatio,
   getEmulatorSpeed,
@@ -15,6 +16,7 @@ import {
   getKeyboardHaptics,
   setAutoLineNumbering as persistAutoLineNumbering,
   setLineNumberIncrement as persistLineNumberIncrement,
+  setShowLineNumberGutter as persistShowLineNumberGutter,
   setCrtEffect as persistCrtEffect,
   setEmulatorSpeed as persistEmulatorSpeed,
   setVirtualKeyboard as persistVirtualKeyboard,
@@ -65,6 +67,8 @@ interface IdeState {
   autoLineNumbering: boolean;
   /** Step between auto-generated line numbers. */
   lineNumberIncrement: number;
+  /** Whether the CodeMirror line number gutter is visible. */
+  showLineNumberGutter: boolean;
   /** Bumped to ask the editor to renumber the current line. */
   renumberRequest: number;
 
@@ -89,6 +93,7 @@ interface IdeState {
   setSettingsOpen(open: boolean): void;
   setAutoLineNumbering(on: boolean): void;
   setLineNumberIncrement(n: number): void;
+  setShowLineNumberGutter(on: boolean): void;
   requestRenumber(): void;
 }
 
@@ -155,6 +160,8 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getAutoLineNumbering() : true,
   lineNumberIncrement:
     typeof localStorage !== 'undefined' ? getLineNumberIncrement() : 10,
+  showLineNumberGutter:
+    typeof localStorage !== 'undefined' ? getShowLineNumberGutter() : false,
   renumberRequest: 0,
 
   setDialect: (id) =>
@@ -225,6 +232,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   setLineNumberIncrement: (n) => {
     persistLineNumberIncrement(n);
     set({ lineNumberIncrement: n });
+  },
+  setShowLineNumberGutter: (on) => {
+    persistShowLineNumberGutter(on);
+    set({ showLineNumberGutter: on });
   },
   requestRenumber: () =>
     set((s) => ({ renumberRequest: s.renumberRequest + 1 })),
