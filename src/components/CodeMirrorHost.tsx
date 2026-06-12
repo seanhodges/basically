@@ -114,6 +114,12 @@ function renumberCurrentLine(view: EditorView): boolean {
   return true;
 }
 
+const gutterCompartment = new Compartment();
+
+function gutterExt(show: boolean) {
+  return show ? [lineNumbers(), highlightActiveLineGutter()] : [];
+}
+
 /** Suppresses the native on-screen keyboard while the virtual keyboard is on
     (the editor stays focusable and physical keyboards are unaffected). */
 const inputModeCompartment = new Compartment();
@@ -189,8 +195,9 @@ export function CodeMirrorHost({
             { key: 'Mod-Alt-r', run: renumberCurrentLine },
           ]),
         ),
-        lineNumbers(),
-        highlightActiveLineGutter(),
+        gutterCompartment.of(
+          gutterExt(useIdeStore.getState().showLineNumberGutter),
+        ),
         highlightActiveLine(),
         drawSelection(),
         history(),
@@ -247,6 +254,13 @@ export function CodeMirrorHost({
       effects: inputModeCompartment.reconfigure(inputModeExt(virtualKeyboard)),
     });
   }, [virtualKeyboard]);
+
+  const showLineNumberGutter = useIdeStore((s) => s.showLineNumberGutter);
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: gutterCompartment.reconfigure(gutterExt(showLineNumberGutter)),
+    });
+  }, [showLineNumberGutter]);
 
   useEffect(() => {
     const view = viewRef.current;

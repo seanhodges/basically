@@ -5,8 +5,10 @@ import { getApiKey, setApiKey } from '../storage/settings';
 export function SettingsForm() {
   const autoLineNumbering = useIdeStore((s) => s.autoLineNumbering);
   const lineNumberIncrement = useIdeStore((s) => s.lineNumberIncrement);
+  const showLineNumberGutter = useIdeStore((s) => s.showLineNumberGutter);
   const setAutoLineNumbering = useIdeStore((s) => s.setAutoLineNumbering);
   const setLineNumberIncrement = useIdeStore((s) => s.setLineNumberIncrement);
+  const setShowLineNumberGutter = useIdeStore((s) => s.setShowLineNumberGutter);
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const setCrtEffect = useIdeStore((s) => s.setCrtEffect);
   const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
@@ -29,6 +31,14 @@ export function SettingsForm() {
   return (
     <div className="settings-form">
       <h3>Editor</h3>
+      <label className="inline">
+        <input
+          type="checkbox"
+          checked={showLineNumberGutter}
+          onChange={(e) => setShowLineNumberGutter(e.target.checked)}
+        />
+        Show line number gutter
+      </label>
       <label className="inline">
         <input
           type="checkbox"
