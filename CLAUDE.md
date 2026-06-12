@@ -43,20 +43,20 @@ colocated `*.test.ts` rather than only checking by hand.
 
 ## Architecture
 
-| Path                          | Role                                                                                                        |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `src/dialects/types.ts`       | The `Dialect` / `MachineEmulator` contracts — the app's only seam                                           |
-| `src/dialects/registry.ts`    | Registers available dialects (`getDialect(id)`)                                                             |
-| `src/dialects/zx81/`          | Entire ZX81 implementation (tokenizer, charset, keywords, `pfile`, emulator, audio, `aiProfile`, `targets`) |
-| `src/dialects/zx81/emulator/` | ZX81 hardware: memory map, display, keyboard, wiring the Z80 core                                           |
-| `src/emulator/z80/`           | Vendored Z80 CPU core (machine-independent)                                                                 |
-| `src/editor/`                 | Generic CodeMirror builders: BASIC language, completions, lint, line numbering                              |
-| `src/app/`                    | Zustand store (`store.ts`) and app-level hooks/utilities                                                    |
-| `src/components/`             | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`, status bar                                     |
-| `src/ai/`                     | Anthropic SDK client, prompt builder, AI code extractor/merge                                               |
-| `src/transfer/`               | Hardware export: WAV cassette, `.P`, WebSerial protocol                                                     |
-| `src/storage/`                | localStorage settings + autosave                                                                            |
-| `src/samples/`                | Bundled sample `.bas` programs                                                                              |
+| Path                           | Role                                                                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `src/dialects/types.ts`        | The `Dialect` / `MachineEmulator` contracts — the app's only seam                                           |
+| `src/dialects/registry.ts`     | Registers available dialects (`getDialect(id)`)                                                             |
+| `src/dialects/zx81/`           | Entire ZX81 implementation (tokenizer, charset, keywords, `pfile`, emulator, audio, `aiProfile`, `targets`) |
+| `src/dialects/zx81/emulator/`  | ZX81 hardware: memory map, display, keyboard, wiring the Z80 core                                           |
+| `src/emulator/z80/`            | Vendored Z80 CPU core (machine-independent)                                                                 |
+| `src/editor/`                  | Generic CodeMirror builders: BASIC language, completions, lint, line numbering                              |
+| `src/app/`                     | Zustand store (`store.ts`) and app-level hooks/utilities                                                    |
+| `src/components/`              | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`, status bar                                     |
+| `src/ai/`                      | Anthropic SDK client, prompt builder, AI code extractor/merge                                               |
+| `src/transfer/`                | Hardware export: WAV cassette, `.P`, WebSerial protocol                                                     |
+| `src/storage/`                 | localStorage settings + autosave                                                                            |
+| `src/dialects/<name>/samples/` | Bundled sample `.bas` programs for that dialect (registered in its `samples.ts`)                            |
 
 **Run-a-program data flow:**
 

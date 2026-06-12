@@ -31,4 +31,18 @@ describe('zxspectrum sample programs', () => {
     }
     expect(blueCells).toBeGreaterThan(100);
   });
+
+  it('maze draws its walls in the emulator', () => {
+    const maze = spectrumSamples.find((s) => s.name === 'maze.bas')!;
+    const { bytes } = tokenizeProgram(maze.text);
+    const machine = new SpectrumMachine({ rom });
+    machine.loadProgram(buildTap(bytes));
+    for (let i = 0; i < 200; i++) machine.runFrame();
+    // The maze prints 9x14 cells with INK 4 on PAPER 0 (attribute 0x04).
+    let mazeCells = 0;
+    for (let a = 0x5800; a < 0x5b00; a++) {
+      if (machine.mem.read(a) === 0x04) mazeCells++;
+    }
+    expect(mazeCells).toBeGreaterThan(100);
+  });
 });

@@ -1,0 +1,25 @@
+10 REM BREAKOUT
+20 BORDER 0: PAPER 0: INK 7: CLS
+30 LET x=15: LET bx=15: LET by=5: LET dx=1: LET dy=1: LET s=0
+40 FOR i=0 TO 31
+50 PRINT AT 1,i; INK 6;"▀"
+60 NEXT i
+70 PRINT AT 20,x; INK 5;"▀▀▀▀"
+80 PRINT AT by,bx; INK 2;"O"
+90 LET k$=INKEY$
+100 IF k$="5" AND x>0 THEN LET x=x-2
+110 IF k$="8" AND x<28 THEN LET x=x+2
+120 PRINT AT 20,0;"                                "
+130 PRINT AT 20,x; INK 5;"▀▀▀▀"
+140 PRINT AT by,bx;" "
+150 LET bx=bx+dx: LET by=by+dy
+160 IF bx<1 OR bx>30 THEN LET dx=-dx
+170 IF by<2 THEN LET dy=-dy
+180 IF by=2 THEN LET s=s+1
+190 IF by<19 THEN GO TO 80
+200 IF bx>=x AND bx<=x+3 THEN LET dy=-dy
+210 IF by<21 THEN GO TO 80
+220 PRINT AT 10,10; FLASH 1;"GAME OVER"
+230 PRINT AT 12,10;"SCORE ";s
+240 PAUSE 300
+250 RUN

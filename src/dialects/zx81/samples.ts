@@ -5,8 +5,8 @@ import dodger from './samples/dodger.bas?raw';
 import circles from './samples/circles.bas?raw';
 import maze from './samples/maze.bas?raw';
 
-/** ZX Spectrum example programs; the first is the starter for a fresh document. */
-export const spectrumSamples: SampleFile[] = [
+/** ZX81 example programs; the first is the starter for a fresh document. */
+export const zx81Samples: SampleFile[] = [
   { name: 'hello.bas', title: 'Hello world', text: hello },
   { name: 'breakout.bas', title: 'Breakout', text: breakout },
   { name: 'dodger.bas', title: 'Dodger', text: dodger },
