@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore, type MobileTab } from '../app/store';
-import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
+import {
+  useMediaQuery,
+  useOverlayLayout,
+  MOBILE_QUERY,
+} from '../app/useMediaQuery';
 import { useProgramStats } from '../app/useProgramStats';
 import {
   setSplitRatio as persistSplitRatio,
@@ -13,7 +17,7 @@ import {
   type KeyboardTarget,
 } from '../keyboard/VirtualKeyboard';
 import { CodeMirrorHost } from './CodeMirrorHost';
-import { EmulatorPane } from './EmulatorPane';
+import { EmulatorPane, type MachineApi } from './EmulatorPane';
 import { AiPanel } from './AiPanel';
 import { SettingsForm } from './SettingsForm';
 import { MobileTabBar } from './MobileTabBar';
@@ -82,11 +86,13 @@ export function Workspace() {
   const requestRun = useIdeStore((s) => s.requestRun);
 
   const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
+  const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
   const editorFocused = useIdeStore((s) => s.editorFocused);
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
 
   const isMobile = useMediaQuery(MOBILE_QUERY);
+  const overlayLayout = useOverlayLayout();
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -102,10 +108,40 @@ export function Workspace() {
     }),
     [],
   );
+
+  // The overlay keyboard (tablet landscape) routes to the emulator through a
+  // handle EmulatorPane populates. Empty deps keep the object identity stable,
+  // which VirtualKeyboard requires; the indirection reads the latest handle.
+  const machineApiRef = useRef<MachineApi | null>(null);
+  const machineTarget = useMemo<KeyboardTarget>(
+    () => ({
+      kind: 'machine',
+      getMachine: () => machineApiRef.current?.getMachine() ?? null,
+      registerFrameHook: (cb) => machineApiRef.current?.registerFrameHook(cb),
+    }),
+    [],
+  );
+
   const showEditorKeyboard = useDebouncedFalse(
     editorFocused,
     EDITOR_KB_HIDE_DELAY_MS,
   );
+
+  // Tablet overlay: focusing the editor re-opens the keyboard if it was hidden.
+  // Edge-triggered (only on the false→true transition) so a manual close while
+  // the editor stays focused isn't immediately undone.
+  const prevEditorFocused = useRef(editorFocused);
+  useEffect(() => {
+    if (
+      overlayLayout &&
+      editorFocused &&
+      !prevEditorFocused.current &&
+      !useIdeStore.getState().virtualKeyboard
+    ) {
+      setVirtualKeyboard(true);
+    }
+    prevEditorFocused.current = editorFocused;
+  }, [editorFocused, overlayLayout, setVirtualKeyboard]);
 
   const hidden = (tab: MobileTab) =>
     isMobile && mobileTab !== tab ? 'tab-hidden' : '';
@@ -164,7 +200,9 @@ export function Workspace() {
             </button>
           )}
         </div>
-        {virtualKeyboard && showEditorKeyboard && (
+        {/* The per-pane editor keyboard is replaced by the full-width overlay
+            in the tablet-landscape layout. */}
+        {virtualKeyboard && showEditorKeyboard && !overlayLayout && (
           <div className="editor-vk-host">
             <VirtualKeyboard
               layout={dialect.keyboardLayout}
@@ -183,7 +221,7 @@ export function Workspace() {
         onPointerUp={onDividerUp}
       />
       <div className={`monitor-pane ${hidden('preview')}`}>
-        <EmulatorPane />
+        <EmulatorPane apiRef={overlayLayout ? machineApiRef : undefined} />
       </div>
       {isMobile && (
         <div className={`settings-pane ${hidden('settings')}`}>
@@ -197,6 +235,22 @@ export function Workspace() {
         </div>
       )}
       {isMobile && <MobileTabBar />}
+      {/* Tablet landscape: a single full-width keyboard overlay routed to the
+          editor when it has focus, otherwise to the emulator. Keyed by the
+          debounced focus so each target switch remounts cleanly (no stale
+          engine/pointer state) and the first key after a switch isn't lost. */}
+      {overlayLayout && virtualKeyboard && (
+        <div className="workspace-vk-overlay">
+          <VirtualKeyboard
+            key={showEditorKeyboard ? 'editor' : 'machine'}
+            layout={dialect.keyboardLayout}
+            target={showEditorKeyboard ? editorTarget : machineTarget}
+            enabled
+            sound={keyboardSound}
+            haptics={keyboardHaptics}
+          />
+        </div>
+      )}
     </div>
   );
 }

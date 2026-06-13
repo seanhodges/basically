@@ -1,11 +1,17 @@
 import { useIdeStore } from '../app/store';
 import { useProgramStats } from '../app/useProgramStats';
+import { useOverlayLayout } from '../app/useMediaQuery';
 
 export function StatusBar() {
   const dialect = useIdeStore((s) => s.dialect);
   const fileName = useIdeStore((s) => s.fileName);
   const dirty = useIdeStore((s) => s.dirty);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
+  const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
+  const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
+  const variableWatcher = useIdeStore((s) => s.variableWatcher);
+  const setVariableWatcher = useIdeStore((s) => s.setVariableWatcher);
+  const overlayLayout = useOverlayLayout();
 
   const stats = useProgramStats();
 
@@ -30,6 +36,40 @@ export function StatusBar() {
       <span className={`status-emu ${emulatorStatus}`}>
         emulator: {emulatorStatus}
       </span>
+      {/* Tablet landscape: the keyboard/watcher toggles live here, freeing
+          vertical space in the preview pane. */}
+      {overlayLayout && (
+        <div className="status-toggles">
+          <button
+            className={`vk-toggle watcher-toggle ${variableWatcher ? 'active' : ''}`}
+            aria-pressed={variableWatcher}
+            title={
+              variableWatcher
+                ? 'Hide variable watcher'
+                : 'Show variable watcher'
+            }
+            onClick={() => {
+              const next = !variableWatcher;
+              setVariableWatcher(next);
+              if (next) setVirtualKeyboard(false); // mutually exclusive
+            }}
+          >
+            {'{x}'}
+          </button>
+          <button
+            className={`vk-toggle ${virtualKeyboard ? 'active' : ''}`}
+            aria-pressed={virtualKeyboard}
+            title={
+              virtualKeyboard
+                ? 'Hide on-screen keyboard'
+                : 'Show on-screen keyboard'
+            }
+            onClick={() => setVirtualKeyboard(!virtualKeyboard)}
+          >
+            ⌨
+          </button>
+        </div>
+      )}
     </div>
   );
 }

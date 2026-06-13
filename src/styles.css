@@ -178,6 +178,8 @@ textarea {
   display: grid;
   /* grid-template-columns is set inline (driven by the split ratio) */
   min-height: 0;
+  /* Anchor for the tablet-landscape keyboard overlay. */
+  position: relative;
 }
 
 .workspace.dragging {
@@ -254,6 +256,16 @@ textarea {
   padding: 14px;
   background: var(--bg-panel);
   overflow: auto;
+}
+
+/* Tablet landscape: pin the screen to the top so the bottom-40% keyboard
+   overlay can never cover it. The JS fit caps the canvas to 60% height. */
+.emulator-pane.overlay {
+  justify-content: flex-start;
+}
+
+.emulator-pane.overlay .screen-shell {
+  max-height: 60%;
 }
 
 .screen-shell {
@@ -346,6 +358,46 @@ textarea {
   width: 100%;
   max-width: 600px;
   flex-shrink: 0;
+}
+
+/* ---------- Tablet-landscape keyboard overlay ---------- */
+/* One full-width keyboard pinned to the bottom 40% of the workspace, with
+   responsive side padding so keys aren't stretched on wide tablets. */
+.workspace-vk-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40%;
+  z-index: 5;
+  display: flex;
+  padding: 6px clamp(8px, 6vw, 96px) calc(6px + env(safe-area-inset-bottom));
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgb(0 0 0 / 30%);
+}
+
+/* The keyboard fills the overlay height: only the key rows grow, so keycaps
+   scale to fill the 40% rather than staying at their fixed 58px. */
+.workspace-vk-overlay .virtual-keyboard {
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-vk-overlay .vk-row {
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-vk-overlay .vk-key {
+  height: 100%;
+}
+
+/* Keyboard + watcher toggles relocated to the status bar in overlay mode. */
+.status-toggles {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
 }
 
 /* ---------- Variable watcher ---------- */
@@ -811,6 +863,7 @@ textarea {
 /* ---------- Status bar ---------- */
 .status-bar {
   display: flex;
+  align-items: center;
   gap: 18px;
   padding: 4px 12px;
   font-size: 12px;
