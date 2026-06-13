@@ -21,7 +21,7 @@
 210 IF K$="X" THEN V%=X%+1
 220 IF K$=":" THEN U%=Y%-1
 230 IF K$="/" THEN U%=Y%+1
-240 IF MID$(M$(U%),V%,1)<>"#" THEN VDU 31,6+X%,Y%,32:X%=V%:Y%=U%:PROCplayer
+240 IF (V%<>X% OR U%<>Y%) AND MID$(M$(U%),V%,1)<>"#" THEN VDU 31,7+X%,Y%,32:X%=V%:Y%=U%:PROCplayer
 250 UNTIL MID$(M$(Y%),X%,1)="E"
 260 PRINT TAB(8,14);CHR$(130);CHR$(136);"YOU ESCAPED!"
 270 END
@@ -36,5 +36,5 @@
 360 ENDPROC
 370 DEF PROCplayer
 380 F%=1-F%
-390 VDU 31,6+X%,Y%,185+45*F%
+390 VDU 31,7+X%,Y%,185+45*F%
 400 ENDPROC
