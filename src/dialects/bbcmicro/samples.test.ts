@@ -83,6 +83,25 @@ describe('bbcmicro sample programs', () => {
     }
     expect(blocks).toBeGreaterThan(40);
     expect(flash).toBeGreaterThan(0);
+
+    // The player is drawn one line below the prompts (line 160), so wait for it.
+    // It is no longer a colour-switched solid block but an animated zig-zag sixel
+    // sprite — frame 0 = CHR$(185) (0xB9), frame 1 = CHR$(230) (0xE6) — that
+    // inherits the walls' graphics-cyan colour. So it must NOT emit the old
+    // graphics-yellow control CHR$(147).
+    const hasSprite = () => {
+      for (let addr = 0x7c00; addr < 0x8000; addr++) {
+        const b = machine.processor.readmem(addr);
+        if (b === 0xb9 || b === 0xe6) return true;
+      }
+      return false;
+    };
+    expect(await runUntil(machine, hasSprite)).toBe(true);
+    let yellow = 0;
+    for (let addr = 0x7c00; addr < 0x8000; addr++) {
+      if (machine.processor.readmem(addr) === 147) yellow++;
+    }
+    expect(yellow).toBe(0);
     machine.dispose();
   }, 60000);
 });
