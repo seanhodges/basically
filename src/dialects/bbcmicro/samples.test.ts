@@ -61,7 +61,7 @@ describe('bbcmicro sample programs', () => {
     expect(bbcmicro.samples[0]!.name).toBe('hello.bas');
   });
 
-  it('the mode-7 maze draws its walls in the emulator', async () => {
+  it('the mode-7 maze draws its walls as teletext block graphics', async () => {
     const maze = bbcSamples.find((s) => s.name === 'maze.bas')!;
     const { bytes } = tokenizeProgram(maze.text);
     const machine = new BbcMachine();
@@ -72,12 +72,17 @@ describe('bbcmicro sample programs', () => {
       screenText(machine).includes('REACH E TO WIN'),
     );
     expect(drawn).toBe(true);
-    // Teletext stores '#' as 0x5F (0x23 renders as '£'); count the wall cells.
-    let walls = 0;
+    // Walls are solid 2x3 sixel blocks: CHR$(255). The flashing exit uses the
+    // teletext flash control CHR$(136). Count both in screen RAM.
+    let blocks = 0;
+    let flash = 0;
     for (let addr = 0x7c00; addr < 0x8000; addr++) {
-      if (machine.processor.readmem(addr) === 0x5f) walls++;
+      const b = machine.processor.readmem(addr);
+      if (b === 0xff) blocks++;
+      if (b === 136) flash++;
     }
-    expect(walls).toBeGreaterThan(40);
+    expect(blocks).toBeGreaterThan(40);
+    expect(flash).toBeGreaterThan(0);
     machine.dispose();
   }, 60000);
 });
