@@ -1,29 +1,23 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type MutableRefObject,
 } from 'react';
 import { useIdeStore } from '../app/store';
-import {
-  useMediaQuery,
-  useOverlayLayout,
-  MOBILE_QUERY,
-} from '../app/useMediaQuery';
+import { useMediaQuery, HAS_TOUCH, MOBILE_QUERY } from '../app/useMediaQuery';
 import {
   computeIntegerScale,
   SCREEN_WIDTH,
   SCREEN_HEIGHT,
 } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
-import { VirtualKeyboard } from '../keyboard/VirtualKeyboard';
 import { VariableWatcher } from './VariableWatcher';
 
 const romCache = new Map<string, Promise<Uint8Array>>();
 
-/** The machine handle the (overlay) virtual keyboard needs to send keys. */
+/** The machine handle the virtual-keyboard overlay needs to send keys. */
 export interface MachineApi {
   getMachine: () => MachineEmulator | null;
   registerFrameHook: (cb: (() => void) | null) => void;
@@ -31,8 +25,8 @@ export interface MachineApi {
 
 interface EmulatorPaneProps {
   /**
-   * When the keyboard lives outside this pane (tablet-landscape overlay), the
-   * parent passes a ref that we populate so the shared keyboard can drive the
+   * The keyboard lives outside this pane (the workspace overlay), so the parent
+   * passes a ref that we populate so the shared keyboard can drive the
    * emulator. Assigned synchronously during render (see below).
    */
   apiRef?: MutableRefObject<MachineApi | null>;
@@ -67,8 +61,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const setVariableWatcher = useIdeStore((s) => s.setVariableWatcher);
-  const keyboardSound = useIdeStore((s) => s.keyboardSound);
-  const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
 
   const display = dialect.displaySize ?? {
     width: SCREEN_WIDTH,
@@ -78,7 +70,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const desktopCssWidth = display.width * (display.width <= 480 ? 2 : 1);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const keyboardHostRef = useRef<HTMLDivElement>(null);
   const watcherHostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const machineRef = useRef<MachineEmulator | null>(null);
@@ -88,7 +79,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const [focused, setFocused] = useState(false);
   const [scale, setScale] = useState(1);
   const isMobile = useMediaQuery(MOBILE_QUERY);
-  const overlayLayout = useOverlayLayout();
 
   const stopLoop = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -227,26 +217,22 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     if (virtualKeyboard) setVariableWatcher(false);
   }, [virtualKeyboard, setVariableWatcher]);
 
-  // Fit-to-pane scaling. On mobile this is integer-perfect; in the tablet
-  // overlay it caps the screen to the top 60% (the keyboard owns the bottom
-  // 40%) and scales fractionally. Fires on rotation, address-bar collapse, and
-  // when the Preview tab becomes visible again.
+  // Fit-to-pane scaling. When the keyboard overlay is up it caps the screen to
+  // the top 60% (the keyboard owns the bottom 40%) and scales fractionally; on
+  // mobile without the keyboard it's integer-perfect. Fires on rotation,
+  // address-bar collapse, and when the Preview tab becomes visible again.
   useEffect(() => {
-    if (!isMobile && !overlayLayout) return;
+    if (!isMobile && !virtualKeyboard) return;
     const container = containerRef.current;
     if (!container) return;
     const update = () => {
       const rect = container.getBoundingClientRect();
-      // The keyboard or the watcher shares the pane (only one shows at a time);
-      // the screen gets what's left. In overlay mode the keyboard is elsewhere,
-      // so only the watcher host (if open) contributes here.
-      const panelHeight =
-        (keyboardHostRef.current?.offsetHeight ?? 0) +
-        (watcherHostRef.current?.offsetHeight ?? 0);
+      // The watcher (if open) shares the pane below the screen.
+      const panelHeight = watcherHostRef.current?.offsetHeight ?? 0;
       const availWidth = rect.width - 2 * MOBILE_BEZEL;
-      // Overlay: never grow past 60% of the pane so the bottom-40% keyboard
+      // With the keyboard up, never grow past 60% of the pane so the bottom-40%
       // overlay can never cover the screen.
-      const heightBudget = overlayLayout
+      const heightBudget = virtualKeyboard
         ? Math.min(rect.height, rect.height * 0.6)
         : rect.height;
       const availHeight =
@@ -254,7 +240,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         2 * MOBILE_BEZEL -
         (panelHeight > 0 ? panelHeight + 10 : 0);
       let next: number;
-      if (overlayLayout) {
+      if (virtualKeyboard) {
         // Fractional scale: fill the available 60% region, retaining aspect.
         next =
           availWidth > 0 && availHeight > 0
@@ -281,12 +267,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     update();
     const observer = new ResizeObserver(update);
     observer.observe(container);
-    if (keyboardHostRef.current) observer.observe(keyboardHostRef.current);
     if (watcherHostRef.current) observer.observe(watcherHostRef.current);
     return () => observer.disconnect();
   }, [
     isMobile,
-    overlayLayout,
     virtualKeyboard,
     variableWatcher,
     display.width,
@@ -297,10 +281,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const registerFrameHook = useCallback((cb: (() => void) | null) => {
     frameHookRef.current = cb;
   }, []);
-  const keyboardTarget = useMemo(
-    () => ({ kind: 'machine' as const, getMachine, registerFrameHook }),
-    [getMachine, registerFrameHook],
-  );
 
   // Publish the machine handle to a parent-owned ref so the overlay keyboard
   // (rendered outside this pane) can drive the emulator. Assigned during render
@@ -327,7 +307,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
   return (
     <div
-      className={`emulator-pane ${overlayLayout ? 'overlay' : ''}`}
+      className={`emulator-pane ${virtualKeyboard ? 'overlay' : ''}`}
       ref={containerRef}
     >
       <div
@@ -339,7 +319,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           height={display.height}
           className="emulator-screen"
           style={
-            isMobile || overlayLayout
+            isMobile || virtualKeyboard
               ? {
                   width: display.width * scale,
                   height: display.height * scale,
@@ -351,8 +331,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           onKeyUp={(e) => handleKey(e, false)}
           onFocus={() => {
             setFocused(true);
-            // Touching the screen re-opens the (overlay) keyboard if hidden.
-            if (overlayLayout && !useIdeStore.getState().virtualKeyboard)
+            // On touch, tapping the screen re-opens the keyboard if hidden.
+            if (HAS_TOUCH && !useIdeStore.getState().virtualKeyboard)
               setVirtualKeyboard(true);
           }}
           onBlur={() => setFocused(false)}
@@ -368,53 +348,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
                 : 'running — click screen to type'
             : 'stopped'}
         </span>
-        {/* In the tablet overlay the keyboard/watcher toggles live in the
-            status bar instead, to save vertical space. */}
-        {!overlayLayout && (
-          <div className="emulator-toggles">
-            <button
-              className={`vk-toggle watcher-toggle ${variableWatcher ? 'active' : ''}`}
-              aria-pressed={variableWatcher}
-              title={
-                variableWatcher
-                  ? 'Hide variable watcher'
-                  : 'Show variable watcher'
-              }
-              onClick={() => {
-                const next = !variableWatcher;
-                setVariableWatcher(next);
-                if (next) setVirtualKeyboard(false); // mutually exclusive
-              }}
-            >
-              {'{x}'}
-            </button>
-            <button
-              className={`vk-toggle ${virtualKeyboard ? 'active' : ''}`}
-              aria-pressed={virtualKeyboard}
-              title={
-                virtualKeyboard
-                  ? 'Hide on-screen keyboard'
-                  : 'Show on-screen keyboard'
-              }
-              onClick={() => setVirtualKeyboard(!virtualKeyboard)}
-            >
-              ⌨
-            </button>
-          </div>
-        )}
       </div>
       {error && <div className="emulator-error">{error}</div>}
-      {virtualKeyboard && !overlayLayout && (
-        <div className="vk-host" ref={keyboardHostRef}>
-          <VirtualKeyboard
-            layout={dialect.keyboardLayout}
-            target={keyboardTarget}
-            enabled={emulatorStatus === 'running'}
-            sound={keyboardSound}
-            haptics={keyboardHaptics}
-          />
-        </div>
-      )}
       {variableWatcher && !virtualKeyboard && (
         <div className="watcher-host" ref={watcherHostRef}>
           <VariableWatcher

@@ -21,15 +21,5 @@ export function useMediaQuery(query: string): boolean {
 }
 
 /** Touch capability is fixed per device, so it's read once at module load. */
-const HAS_TOUCH =
+export const HAS_TOUCH =
   typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
-
-/**
- * True for touch devices in the wide (non-mobile) layout — i.e. a tablet held
- * in landscape. Drives the full-width keyboard overlay, the top-pinned
- * emulator, and the status-bar toggles. Only the viewport width is reactive;
- * touch capability never changes at runtime.
- */
-export function useOverlayLayout(): boolean {
-  return !useMediaQuery(MOBILE_QUERY) && HAS_TOUCH;
-}
