@@ -113,10 +113,26 @@ satisfies and the zx81 file to mirror.
    `docs/file-formats.md` and `docs/serial-protocol.md`. Mirror `zx81/targets.ts`.
 
 10. **`samples.ts`** — a `SampleFile[]` (`name`, `title`, `text`) of example
-    programs **in this dialect's own BASIC**. The **first entry is the starter**
-    shown for a fresh document and swapped in when the user selects this machine.
-    Mirror `zxspectrum/samples.ts` (raw `.bas` files under `samples/`). Don't
-    point a new dialect at the zx81 `src/samples/` programs — they won't run.
+    programs **in this dialect's own BASIC**, imported as raw `.bas` files under
+    `samples/`. Mirror `zxspectrum/samples.ts`. **Every dialect ships the same
+    canonical five samples, in this order** — port each to the new machine's BASIC
+    (match the _behaviour_, not a byte-for-byte copy; use whatever input, colour,
+    and graphics idioms the machine actually supports). The **first entry
+    (`hello`) is the starter** shown for a fresh document and swapped in when the
+    user selects this machine.
+
+    | `name`         | `title`       | What it does                                                                                    |
+    | -------------- | ------------- | ----------------------------------------------------------------------------------------------- |
+    | `hello.bas`    | `Hello world` | Starter. Prints a greeting; show off the machine's text colour / display.                       |
+    | `breakout.bas` | `Breakout`    | Bat-and-ball: a paddle the player moves left/right bounces a ball; score on hits, lose on miss. |
+    | `dodger.bas`   | `Dodger`      | Player moves left/right to dodge falling blocks; score per block survived, end on collision.    |
+    | `circles.bas`  | `Circles`     | A graphics demo drawing concentric circles, showcasing the machine's colour graphics.           |
+    | `maze.bas`     | `Maze`        | A fixed wall map (string array); move a marker with the cursor keys to reach the exit.          |
+
+    Compare the existing `zx81/`, `zxspectrum/`, and `bbcmicro/` sample folders to
+    see the same five expressed three ways (ZX81/Spectrum use block-graphic text;
+    BBC uses pixel graphics for the games and teletext for the maze). Don't point a
+    new dialect at another machine's `.bas` programs — they won't run.
 
 11. **`index.ts`** — assemble and export the `Dialect` object from all the pieces
     above. Mirror `zx81/index.ts` exactly (it shows how `tokenize`, `detokenize`,
