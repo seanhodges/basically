@@ -70,11 +70,14 @@ export class KeyboardInputEngine {
       target.kind === 'editor'
         ? 0
         : (layout.options?.minHoldFrames ?? DEFAULT_MIN_HOLD_FRAMES);
-    // Index every key across all tab pages (or `rows` when single-page) so
-    // lookups resolve regardless of which page is currently shown.
-    const allRows = layout.tabs
-      ? layout.tabs.flatMap((t) => t.rows)
-      : layout.rows;
+    // Index every key across the wide single-page layout (`rows`) and all tab
+    // pages, so lookups resolve regardless of which responsive variant or page
+    // is currently shown. Keys shared by reference or by duplicate id (same
+    // emits) collapse to one entry harmlessly.
+    const allRows = [
+      ...(layout.rows ?? []),
+      ...(layout.tabs?.flatMap((t) => t.rows) ?? []),
+    ];
     for (const row of allRows) for (const k of row) this.keyById.set(k.id, k);
     for (const m of layout.modifiers) this.modifierStates.set(m.id, 'off');
   }

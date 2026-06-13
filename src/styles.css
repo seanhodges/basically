@@ -1278,3 +1278,24 @@ code {
   line-height: 1.2;
   color: #ec6a6a;
 }
+
+/* ---------------------------------------------------------------------------
+   BBC Micro keyboard theme: the red f0–f9 (and Break) function strip, like the
+   real machine. Activated by the layout's `theme: 'vk-theme-bbc'`. */
+.vk-theme-bbc .vk-style-fn .vk-keycap {
+  background: linear-gradient(#b5302a, #8f221d);
+}
+
+.vk-theme-bbc .vk-style-fn .vk-label {
+  color: #fff;
+}
+
+/* Non-interactive filler used to right-align the symbol page's keys. */
+.vk-key.vk-style-spacer {
+  pointer-events: none;
+}
+
+.vk-key.vk-style-spacer .vk-keycap {
+  background: none;
+  box-shadow: none;
+}
