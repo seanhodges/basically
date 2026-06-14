@@ -1,10 +1,27 @@
-import { StreamLanguage, LanguageSupport } from '@codemirror/language';
+import {
+  StreamLanguage,
+  LanguageSupport,
+  HighlightStyle,
+} from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import type { KeywordInfo } from '../dialects/types';
 
 interface BasicStreamState {
   afterRem: boolean;
 }
+
+/**
+ * Colours commands, functions, operators and variables distinctly. Pairs with
+ * the token tags emitted by {@link buildBasicLanguage}; everything else
+ * (strings, numbers, comments, line numbers) falls back to the default style.
+ */
+export const basicHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: '#708' }, // commands (purple)
+  { tag: tags.function(tags.variableName), color: '#c85000' }, // functions (dark orange)
+  { tag: tags.variableName, color: '#000080' }, // variables (navy)
+  { tag: tags.operator, color: '#000080' }, // operators (navy)
+]);
 
 /**
  * Build a CodeMirror LanguageSupport for a line-numbered BASIC dialect from
@@ -15,14 +32,18 @@ export function buildBasicLanguage(
   keywords: KeywordInfo[],
   completionSource: CompletionSource,
 ): LanguageSupport {
-  const words = new Set(
-    keywords.map((k) => k.word).filter((w) => /^[A-Z]/.test(w)),
+  // word -> kind, for alphabetic keywords (symbolic ops never match here).
+  const kinds = new Map<string, KeywordInfo['kind']>(
+    keywords.filter((k) => /^[A-Z]/.test(k.word)).map((k) => [k.word, k.kind]),
   );
-  const maxWordLen = Math.max(...[...words].map((w) => w.length));
+  const maxWordLen = Math.max(...[...kinds.keys()].map((w) => w.length));
 
   const language = StreamLanguage.define<BasicStreamState>({
     name: 'basic',
     startState: () => ({ afterRem: false }),
+    tokenTable: {
+      functionName: tags.function(tags.variableName),
+    },
     token(stream, state) {
       if (stream.sol()) {
         state.afterRem = false;
@@ -49,7 +70,8 @@ export function buildBasicLanguage(
         // Longest keyword prefix of this identifier-run
         for (let len = Math.min(text.length, maxWordLen); len >= 2; len--) {
           const candidate = text.slice(0, len);
-          if (!words.has(candidate)) continue;
+          const kind = kinds.get(candidate);
+          if (kind === undefined) continue;
           // keyword must consume the whole identifier-run unless it ends in $
           if (len === text.length || candidate.endsWith('$')) {
             for (let i = 0; i < len; i++) stream.next();
@@ -57,6 +79,10 @@ export function buildBasicLanguage(
               state.afterRem = true;
               return 'keyword';
             }
+            // Colour by role: functions orange, operators (AND/OR/TO…) navy,
+            // commands purple.
+            if (kind === 'function') return 'functionName';
+            if (kind === 'operator') return 'operator';
             return 'keyword';
           }
         }

@@ -42,6 +42,7 @@ import {
 import type { Dialect } from '../dialects/types';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { dialectLinter } from '../editor/lintIntegration';
+import { basicHighlightStyle } from '../editor/basicLanguage';
 import { useIdeStore } from '../app/store';
 import type { EditorCommandName } from '../app/store';
 import {
@@ -274,7 +275,8 @@ export function CodeMirrorHost({
         history(),
         autocompletion({ activateOnTyping: true }),
         highlightSelectionMatches(),
-        syntaxHighlighting(defaultHighlightStyle),
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        syntaxHighlighting(basicHighlightStyle),
         dialect.languageSupport(),
         dialectLinter(dialect),
         lintGutter(),
