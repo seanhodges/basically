@@ -205,18 +205,21 @@ export function Toolbar() {
           )}
         </div>
 
-        <select
-          className="dialect-select"
-          value={dialect.id}
-          onChange={(e) => setDialect(e.target.value)}
-          title="Target machine"
-        >
-          {dialects.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
+        <label className={styles.dialectLabel}>
+          Target Machine:
+          <select
+            className="dialect-select"
+            value={dialect.id}
+            onChange={(e) => setDialect(e.target.value)}
+            title="Target machine"
+          >
+            {dialects.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className={styles.toolbarRight}>
