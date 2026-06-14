@@ -7,13 +7,11 @@
 
 # Basically
 
-A web IDE for microcomputer BASIC dialects — write, run and ship games for
-real retro hardware from your browser. It's built around a dialect abstraction:
-each target machine plugs in its own tokenizer, emulator and hardware export, so
-support grows over time rather than being fixed to a particular machine. Targets
-that ship today include the **Sinclair ZX81**, **ZX Spectrum** and **BBC
-Micro**, with more addable through the dialect interface. (Examples below use
-the ZX81 for concreteness.)
+A web IDE for microcomputer BASIC - write, run and ship games for
+real retro hardware from your browser. 
+
+Support includes the **Sinclair ZX81**, **ZX Spectrum** and **BBC
+Micro**.
 
 <p align="center">
   <img alt="The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard" src="docs/assets/screenshot.jpg" width="900" />
@@ -30,7 +28,7 @@ the ZX81 for concreteness.)
   your source to a machine image and flash-loads it through the ROM's own
   tape/load path.
 - **AI code generation** — a chat panel backed by the Claude API (bring your
-  own key, stored only in your browser). Claude is given each machine's dialect
+  own key, stored in your browser). Claude is given each machine's dialect
   rules (for the ZX81, that means one statement per line, mandatory LET, INKEY$
   game loops, PRINT AT) and generated programs land in your editor with one
   click (replace, merge by line number, or replace+run).
@@ -44,7 +42,7 @@ the ZX81 for concreteness.)
 - **Save/load `.bas`** with the File System Access API (download fallback),
   autosave to localStorage, and bundled sample games.
 - **Installable PWA** — add Basically to your home screen and run it
-  standalone. On phone-sized screens the UI is locked to portrait; tablets and
+  standalone. On phone-sized screens the UI is locked to portrait due to vertical screen size constraints; tablets and
   larger screens support both portrait and landscape.
 
 ## Getting started
@@ -53,7 +51,7 @@ the ZX81 for concreteness.)
 npm install
 npm run dev    # IDE on http://localhost:5173
 npm test       # unit tests, incl. booting the emulator ROM
-npm run build  # static site in dist/ (deployable to GitHub Pages)
+npm run build  # static site in dist/
 ```
 
 Open the IDE, pick **File ▸ Samples ▸ Breakout**, press **▶ Run** (or
@@ -68,12 +66,12 @@ One numbered line per statement, keywords as words. Specials: block graphics
 as unicode (`█▀▌▒`…) or escapes (`\::`), inverse video as `%A`, `**` for
 power. See [docs/file-formats.md](docs/file-formats.md).
 
-## Running on real hardware (ZX81 example)
+## Running on real hardware
 
-1. **Cassette**: connect your headphone jack to the ZX81 EAR socket, volume
-   to max. On the ZX81 type `LOAD ""` and press NEW LINE; in the IDE choose
+1. **Cassette**: connect your headphone jack to the aux socket, volume
+   to max. On the machine run `LOAD ""` (or equiv.); in the IDE choose
    **⇥ Hardware ▸ Play through speakers**. Use _robust mode_ if loads fail.
-2. **ZXpand / SD interfaces**: download the `.P` file and copy it across.
+2. **SD interfaces**: download the `.P` or `.TAP` file and copy it across.
 3. **Serial bridge**: any microcontroller implementing the
    [bridge protocol](docs/serial-protocol.md) can receive programs via
    WebSerial (Chrome/Edge).
@@ -82,15 +80,11 @@ power. See [docs/file-formats.md](docs/file-formats.md).
 
 ```
 src/dialects/types.ts      the Dialect interface — the contract for a machine
-src/dialects/zx81/         everything ZX81: charset, tokenizer, .P builder,
-                           emulator, cassette encoder, AI profile
-src/dialects/zxspectrum/   ZX Spectrum dialect + emulator
-src/dialects/bbcmicro/     BBC Micro dialect (embeds the jsbeeb emulator)
+src/dialects/              Dialect logic and data per machine: charset, tokenizer, .P builder, emulator, cassette encoder, AI profile
 src/emulator/z80/          vendored MIT Z80 core (Molly Howell) + patches
 src/editor/                generic CM6 language/completion/lint builders
 src/ai/                    Claude API client, prompt builder, code extractor
 src/transfer/              WAV writer, audio player, WebSerial, protocol
-docs/adding-a-dialect.md   how to add the next machine
 ```
 
 ## ROM licensing
