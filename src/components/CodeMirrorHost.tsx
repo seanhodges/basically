@@ -30,6 +30,8 @@ import {
 import { lintGutter, lintKeymap } from '@codemirror/lint';
 import {
   openSearchPanel,
+  closeSearchPanel,
+  searchPanelOpen,
   searchKeymap,
   highlightSelectionMatches,
 } from '@codemirror/search';
@@ -163,21 +165,20 @@ async function runEditorCommand(
       break;
     }
     case 'find':
+      // The panel contains both find and replace rows; one entry covers both.
       openSearchPanel(view);
       break;
-    case 'replace':
-      openSearchPanel(view);
-      // The default search panel contains both find and replace rows; drop the
-      // cursor into the replace field once the panel DOM is mounted.
-      requestAnimationFrame(() => {
-        view.dom.querySelector<HTMLInputElement>('[name="replace"]')?.focus();
-      });
+    case 'closeFind':
+      // Dismiss the panel without stealing focus back into the editor (so a tap
+      // on the emulator that triggered this keeps its own focus).
+      closeSearchPanel(view);
       break;
     case 'renumber':
       renumberCurrentLine(view);
       break;
   }
-  if (name !== 'find' && name !== 'replace') view.focus();
+  // The find/replace panel manages its own focus; everything else returns to the editor.
+  if (name !== 'find' && name !== 'closeFind') view.focus();
 }
 
 const gutterCompartment = new Compartment();
@@ -252,6 +253,9 @@ export function CodeMirrorHost({
 
   useEffect(() => {
     if (!hostRef.current) return;
+    // Mirror the search panel's open state into the store, and hide the virtual
+    // keyboard the moment it opens (covers both the menu and the Mod-f shortcut).
+    let searchOpen = false;
     const state = EditorState.create({
       doc: override.text,
       extensions: [
@@ -286,6 +290,26 @@ export function CodeMirrorHost({
             onChangeRef.current(update.state.doc.toString());
           if (update.focusChanged)
             useIdeStore.getState().setEditorFocused(update.view.hasFocus);
+          const open = searchPanelOpen(update.state);
+          if (open !== searchOpen) {
+            searchOpen = open;
+            const store = useIdeStore.getState();
+            store.setFindReplaceOpen(open);
+            if (open) store.setVirtualKeyboard(false);
+          }
+        }),
+        // Tapping/clicking the editor body dismisses the find/replace panel.
+        // Returns false so the click still positions the cursor; the panel's own
+        // inputs live outside contentDOM, so typing there never triggers this.
+        EditorView.domEventHandlers({
+          mousedown: (_event, view) => {
+            if (searchPanelOpen(view.state)) closeSearchPanel(view);
+            return false;
+          },
+          touchstart: (_event, view) => {
+            if (searchPanelOpen(view.state)) closeSearchPanel(view);
+            return false;
+          },
         }),
         inputModeCompartment.of(
           inputModeExt(useIdeStore.getState().virtualKeyboard),
@@ -327,6 +351,13 @@ export function CodeMirrorHost({
       effects: gutterCompartment.reconfigure(gutterExt(showLineNumberGutter)),
     });
   }, [showLineNumberGutter]);
+
+  // Switching the mobile view tab dismisses the find/replace panel.
+  const mobileTab = useIdeStore((s) => s.mobileTab);
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view && searchPanelOpen(view.state)) closeSearchPanel(view);
+  }, [mobileTab]);
 
   useEffect(() => {
     const view = viewRef.current;

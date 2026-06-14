@@ -35,7 +35,7 @@ export type EditorCommandName =
   | 'copy'
   | 'paste'
   | 'find'
-  | 'replace'
+  | 'closeFind'
   | 'renumber';
 
 interface IdeState {
@@ -71,6 +71,11 @@ interface IdeState {
   keyboardHaptics: boolean;
   /** Whether the code editor currently has focus (drives its keyboard). */
   editorFocused: boolean;
+  /**
+   * Mirror of the CodeMirror find/replace panel's open state (CodeMirror is the
+   * source of truth). Lets other panes dismiss the panel on interaction.
+   */
+  findReplaceOpen: boolean;
   /** Active tab in the mobile (portrait) layout. */
   mobileTab: MobileTab;
   /** Editor/monitor split position on desktop (fraction of workspace width). */
@@ -104,6 +109,7 @@ interface IdeState {
   setKeyboardSound(on: boolean): void;
   setKeyboardHaptics(on: boolean): void;
   setEditorFocused(on: boolean): void;
+  setFindReplaceOpen(on: boolean): void;
   setMobileTab(tab: MobileTab): void;
   setSplitRatio(n: number): void;
   setEmulatorStatus(status: EmulatorStatus): void;
@@ -171,6 +177,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   keyboardHaptics:
     typeof localStorage !== 'undefined' ? getKeyboardHaptics() : true,
   editorFocused: false,
+  findReplaceOpen: false,
   mobileTab: 'editor',
   splitRatio: typeof localStorage !== 'undefined' ? getSplitRatio() : 0.5,
   aiPanelOpen: false,
@@ -249,6 +256,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     set({ keyboardHaptics: on });
   },
   setEditorFocused: (on) => set({ editorFocused: on }),
+  setFindReplaceOpen: (on) => set({ findReplaceOpen: on }),
   setMobileTab: (tab) => set({ mobileTab: tab }),
   setSplitRatio: (n) => set({ splitRatio: n }),
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
