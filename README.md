@@ -8,7 +8,7 @@
 # Basically
 
 A web IDE for microcomputer BASIC - write, run and ship games for
-real retro hardware from your browser. 
+real retro hardware from your browser.
 
 Support includes the **Sinclair ZX81**, **ZX Spectrum** and **BBC
 Micro**.
