@@ -27,6 +27,16 @@ import { MOBILE_QUERY, isMobileViewport } from './useMediaQuery';
 
 export type EmulatorStatus = 'stopped' | 'running';
 export type MobileTab = 'editor' | 'preview' | 'settings' | 'ai';
+/** Editor operations the toolbar's Edit menu asks CodeMirrorHost to run. */
+export type EditorCommandName =
+  | 'undo'
+  | 'redo'
+  | 'cut'
+  | 'copy'
+  | 'paste'
+  | 'find'
+  | 'replace'
+  | 'renumber';
 
 interface IdeState {
   /** Active target machine. Switching it rebuilds the editor, emulator and keyboard. */
@@ -74,8 +84,11 @@ interface IdeState {
   lineNumberIncrement: number;
   /** Whether the CodeMirror line number gutter is visible. */
   showLineNumberGutter: boolean;
-  /** Bumped to ask the editor to renumber the current line. */
-  renumberRequest: number;
+  /**
+   * Bump seq to ask the editor (CodeMirrorHost holds the EditorView) to run an
+   * Edit-menu command. Shaped like docOverride: name + monotonic seq.
+   */
+  editorCommand: { name: EditorCommandName; seq: number };
 
   setDialect(id: string): void;
   setSource(text: string): void;
@@ -100,7 +113,7 @@ interface IdeState {
   setAutoLineNumbering(on: boolean): void;
   setLineNumberIncrement(n: number): void;
   setShowLineNumberGutter(on: boolean): void;
-  requestRenumber(): void;
+  requestEditorCommand(name: EditorCommandName): void;
 }
 
 const autosaved = typeof localStorage !== 'undefined' ? loadAutosave() : null;
@@ -169,7 +182,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getLineNumberIncrement() : 10,
   showLineNumberGutter:
     typeof localStorage !== 'undefined' ? getShowLineNumberGutter() : false,
-  renumberRequest: 0,
+  editorCommand: { name: 'renumber', seq: 0 },
 
   setDialect: (id) =>
     set((s) => {
@@ -254,6 +267,6 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistShowLineNumberGutter(on);
     set({ showLineNumberGutter: on });
   },
-  requestRenumber: () =>
-    set((s) => ({ renumberRequest: s.renumberRequest + 1 })),
+  requestEditorCommand: (name) =>
+    set((s) => ({ editorCommand: { name, seq: s.editorCommand.seq + 1 } })),
 }));
