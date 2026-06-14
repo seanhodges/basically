@@ -140,6 +140,13 @@ textarea {
   box-shadow: 0 6px 24px rgb(0 0 0 / 50%);
 }
 
+/* The Run menu sits at the right edge of the toolbar, so its dropdown opens
+   leftward to stay on-screen. */
+.menu.mobile-only .menu-items {
+  left: auto;
+  right: 0;
+}
+
 .menu-items button {
   background: none;
   border: none;
@@ -991,10 +998,20 @@ code {
   display: none;
 }
 
+/* Mobile-only affordances (e.g. the toolbar Run menu) are hidden on desktop and
+   revealed inside the mobile breakpoint below. */
+.mobile-only {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .toolbar .desktop-only,
   .toolbar .icon-btn {
     display: none;
+  }
+
+  .toolbar .mobile-only {
+    display: block;
   }
 
   .toolbar {

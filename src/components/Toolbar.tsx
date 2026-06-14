@@ -26,27 +26,49 @@ export function Toolbar() {
   const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
 
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const [runMenuOpen, setRunMenuOpen] = useState(false);
   const [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // The file menu and the on-screen keyboard are mutually exclusive: opening the
-  // keyboard (its toggle lives in the emulator pane) closes the menu.
+  // The menus and the on-screen keyboard are mutually exclusive: opening the
+  // keyboard (its toggle lives in the emulator pane) closes them.
   useEffect(() => {
-    if (virtualKeyboard) setFileMenuOpen(false);
+    if (virtualKeyboard) {
+      setFileMenuOpen(false);
+      setRunMenuOpen(false);
+    }
   }, [virtualKeyboard]);
 
-  // Opening the file menu hides the keyboard; on mobile, run/stop/reset jump to
-  // the preview tab so the user sees the emulator they just acted on.
+  // Opening a menu hides the keyboard and the other menu; on mobile,
+  // run/stop/reset jump to the preview tab so the user sees the emulator they
+  // just acted on.
   const toggleFileMenu = () => {
     const next = !fileMenuOpen;
     setFileMenuOpen(next);
-    if (next) setVirtualKeyboard(false);
+    if (next) {
+      setRunMenuOpen(false);
+      setVirtualKeyboard(false);
+    }
+  };
+  const toggleRunMenu = () => {
+    const next = !runMenuOpen;
+    setRunMenuOpen(next);
+    if (next) {
+      setFileMenuOpen(false);
+      setVirtualKeyboard(false);
+    }
+  };
+  const playProgram = () => {
+    setRunMenuOpen(false);
+    requestRun();
   };
   const stopProgram = () => {
+    setRunMenuOpen(false);
     requestStop();
     if (isMobileViewport()) setMobileTab('preview');
   };
   const resetProgram = () => {
+    setRunMenuOpen(false);
     requestReset();
     if (isMobileViewport()) setMobileTab('preview');
   };
@@ -152,22 +174,47 @@ export function Toolbar() {
       <div className="toolbar-right">
         {error && <span className="toolbar-error">{error}</span>}
         <button
-          className="run"
+          className="run desktop-only"
           onClick={requestRun}
           title="Build and run in the emulator (Ctrl+Enter)"
         >
           ▶ Run
         </button>
         <button
+          className="desktop-only"
           onClick={stopProgram}
           disabled={emulatorStatus === 'stopped'}
           title="Stop / break the running program"
         >
           ■ Stop
         </button>
-        <button onClick={resetProgram} title="Reset the machine">
+        <button
+          className="desktop-only"
+          onClick={resetProgram}
+          title="Reset the machine"
+        >
           ↺ Reset
         </button>
+        <div className="menu mobile-only">
+          <button className="run" onClick={toggleRunMenu}>
+            ▶ Run ▾
+          </button>
+          {runMenuOpen && (
+            <div
+              className="menu-items"
+              onMouseLeave={() => setRunMenuOpen(false)}
+            >
+              <button onClick={playProgram}>▶ Play</button>
+              <button
+                onClick={stopProgram}
+                disabled={emulatorStatus === 'stopped'}
+              >
+                ■ Stop
+              </button>
+              <button onClick={resetProgram}>↺ Reset</button>
+            </div>
+          )}
+        </div>
         <button
           className={`icon-btn ${aiPanelOpen ? 'active' : ''}`}
           onClick={toggleAiPanel}
