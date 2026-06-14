@@ -2,12 +2,12 @@
 name: adding-a-target-system
 description: >-
   Add a new target system (BASIC dialect + emulator + virtual keyboard) to
-  micro-basic-ide. Use when the user wants to support a new microcomputer or
+  Basically. Use when the user wants to support a new microcomputer or
   BASIC dialect, port the IDE to another machine, add an emulator for a new
   CPU/bus, or build a virtual keyboard layout for a new target machine.
 ---
 
-# Adding a new target system to micro-basic-ide
+# Adding a new target system to Basically
 
 A **target system** is one microcomputer's worth of support: a BASIC **dialect**
 (tokenizer, charset, keywords), an **emulator** (CPU bus + display + I/O), and a

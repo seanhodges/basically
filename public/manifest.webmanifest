@@ -1,0 +1,11 @@
+{
+  "name": "Basically",
+  "short_name": "Basically",
+  "description": "Browser-based IDE for microcomputer BASIC dialects.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#16181d",
+  "theme_color": "#16181d"
+}

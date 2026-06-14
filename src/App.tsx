@@ -49,6 +49,21 @@ export default function App() {
       <StatusBar />
       <AiSettingsDialog />
       <TransferDialog />
+      <div
+        className={styles.rotateOverlay}
+        role="alertdialog"
+        aria-live="polite"
+      >
+        <div className={styles.rotateInner}>
+          <span className={styles.rotateIcon} aria-hidden="true">
+            📱
+          </span>
+          <p>Please rotate your device to portrait.</p>
+          <p className={styles.rotateHint}>
+            This app supports landscape on tablets and larger screens.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

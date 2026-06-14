@@ -1,9 +1,10 @@
-# Micro BASIC IDE
+# Basically
 
 A web IDE for microcomputer BASIC dialects — write, run and ship games for
-real retro hardware from your browser. The first supported machine is the
-**Sinclair ZX81**; the architecture is built around a dialect abstraction so
-other machines (Spectrum, C64…) can plug in later.
+real retro hardware from your browser. Supported machines are the
+**Sinclair ZX81**, **ZX Spectrum** and **BBC Micro**; the architecture is
+built around a dialect abstraction so other machines can plug in later. (Most
+of this README uses the ZX81 as its worked example.)
 
 ![ZX81 BASIC in the editor, running in the built-in emulator]
 
@@ -30,13 +31,16 @@ other machines (Spectrum, C64…) can plug in later.
     ([protocol spec](docs/serial-protocol.md)).
 - **Save/load `.bas`** with the File System Access API (download fallback),
   autosave to localStorage, and bundled sample games.
+- **Installable PWA** — add Basically to your home screen and run it
+  standalone. On phone-sized screens the UI is locked to portrait; tablets and
+  larger screens support both portrait and landscape.
 
 ## Getting started
 
 ```sh
 npm install
 npm run dev    # IDE on http://localhost:5173
-npm test       # 44 unit tests incl. booting the emulator ROM
+npm test       # unit tests, incl. booting the emulator ROM
 npm run build  # static site in dist/ (deployable to GitHub Pages)
 ```
 
@@ -68,6 +72,8 @@ power. See [docs/file-formats.md](docs/file-formats.md).
 src/dialects/types.ts      the Dialect interface — the contract for a machine
 src/dialects/zx81/         everything ZX81: charset, tokenizer, .P builder,
                            emulator, cassette encoder, AI profile
+src/dialects/zxspectrum/   ZX Spectrum dialect + emulator
+src/dialects/bbcmicro/     BBC Micro dialect (embeds the jsbeeb emulator)
 src/emulator/z80/          vendored MIT Z80 core (Molly Howell) + patches
 src/editor/                generic CM6 language/completion/lint builders
 src/ai/                    Claude API client, prompt builder, code extractor
