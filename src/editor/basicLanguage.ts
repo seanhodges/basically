@@ -37,12 +37,14 @@ export interface BasicLanguageOptions {
  */
 export const basicHighlightStyle = HighlightStyle.define([
   { tag: tags.keyword, color: '#708' }, // commands (purple)
+  { tag: tags.comment, color: '#708' }, // REM comments (purple, like keywords)
   { tag: tags.function(tags.variableName), color: '#c85000' }, // functions (dark orange)
-  { tag: tags.variableName, color: '#000080' }, // variables (navy)
+  { tag: tags.labelName, color: '#9a7d00' }, // line numbers (dark yellow)
+  { tag: tags.variableName, color: '#006600' }, // variables (dark green)
   { tag: tags.operator, color: '#000080' }, // operators (navy)
-  { tag: tags.string, color: '#a00000' }, // string literals (dark red)
-  { tag: tags.number, color: '#a00000' }, // numeric literals (dark red)
-  { tag: tags.atom, color: '#a00000' }, // graphics glyphs (dark red)
+  { tag: tags.string, color: '#000000' }, // string literals (black)
+  { tag: tags.number, color: '#000000' }, // numeric literals (black)
+  { tag: tags.atom, color: '#000000' }, // graphics glyphs (black)
 ]);
 
 /**
