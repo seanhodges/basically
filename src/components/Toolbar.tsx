@@ -3,6 +3,7 @@ import { useIdeStore } from '../app/store';
 import { isMobileViewport } from '../app/useMediaQuery';
 import { openTextFile, openBinaryFile, saveTextFile } from '../storage/files';
 import { dialects } from '../dialects/registry';
+import styles from './Toolbar.module.css';
 
 export function Toolbar() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -128,13 +129,13 @@ export function Toolbar() {
   const openShare = guard(() => setTransferOpen(true));
 
   return (
-    <div className="toolbar">
-      <div className="toolbar-left">
-        <div className="menu" ref={menuRef}>
+    <div className={styles.toolbar}>
+      <div className={styles.toolbarLeft}>
+        <div className={styles.menu} ref={menuRef}>
           <button onClick={toggleFileMenu}>File ▾</button>
           {fileMenuOpen && (
             <div
-              className="menu-items"
+              className={styles.menuItems}
               onMouseLeave={() => setFileMenuOpen(false)}
             >
               <button onClick={newFile}>New</button>
@@ -146,8 +147,8 @@ export function Toolbar() {
               )}
               <button onClick={saveFile}>Save .bas</button>
               <button onClick={openShare}>Share / Export…</button>
-              <div className="menu-separator" />
-              <div className="menu-label">Samples</div>
+              <div className={styles.menuSeparator} />
+              <div className={styles.menuLabel}>Samples</div>
               {dialect.samples.map((s) => (
                 <button key={s.name} onClick={() => loadSample(s.name, s.text)}>
                   {s.title}
@@ -157,22 +158,22 @@ export function Toolbar() {
           )}
         </div>
 
-        <div className="menu">
+        <div className={styles.menu}>
           <button onClick={toggleEditMenu}>Edit ▾</button>
           {editMenuOpen && (
             <div
-              className="menu-items"
+              className={styles.menuItems}
               onMouseLeave={() => setEditMenuOpen(false)}
             >
               <button onClick={editAction('undo')}>Undo</button>
               <button onClick={editAction('redo')}>Redo</button>
-              <div className="menu-separator" />
+              <div className={styles.menuSeparator} />
               <button onClick={editAction('cut')}>Cut</button>
               <button onClick={editAction('copy')}>Copy</button>
               <button onClick={editAction('paste')}>Paste</button>
-              <div className="menu-separator" />
+              <div className={styles.menuSeparator} />
               <button onClick={editAction('find')}>Find/Replace</button>
-              <div className="menu-separator" />
+              <div className={styles.menuSeparator} />
               <button
                 onClick={editAction('renumber')}
                 title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
@@ -183,13 +184,13 @@ export function Toolbar() {
           )}
         </div>
 
-        <div className="menu mobile-only">
+        <div className={`${styles.menu} mobile-only`}>
           <button className="run" onClick={toggleRunMenu}>
             ▶ Run ▾
           </button>
           {runMenuOpen && (
             <div
-              className="menu-items"
+              className={styles.menuItems}
               onMouseLeave={() => setRunMenuOpen(false)}
             >
               <button onClick={playProgram}>▶ Play</button>
@@ -205,7 +206,7 @@ export function Toolbar() {
         </div>
       </div>
 
-      <div className="toolbar-center">
+      <div className={styles.toolbarCenter}>
         <select
           className="dialect-select"
           value={dialect.id}
@@ -220,8 +221,8 @@ export function Toolbar() {
         </select>
       </div>
 
-      <div className="toolbar-right">
-        {error && <span className="toolbar-error">{error}</span>}
+      <div className={styles.toolbarRight}>
+        {error && <span className={styles.toolbarError}>{error}</span>}
         <button
           className="run desktop-only"
           onClick={requestRun}

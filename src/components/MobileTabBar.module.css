@@ -1,0 +1,26 @@
+.tabBar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .tabBar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+  }
+
+  .tabBar button {
+    flex: 1;
+    padding: 12px 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    font-size: 13px;
+  }
+
+  .tabBar button:global(.active) {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+}

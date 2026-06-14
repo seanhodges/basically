@@ -8,6 +8,7 @@ import type {
 } from './layoutSchema';
 import { KeyboardInputEngine } from './inputEngine';
 import { isRepeatable, resolveEditorAction } from './editorActions';
+import './VirtualKeyboard.css';
 
 /**
  * Where key presses go. Callers must keep the object identity stable

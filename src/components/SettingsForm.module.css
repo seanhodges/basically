@@ -1,0 +1,30 @@
+.settingsForm h3 {
+  margin: 12px 0 4px;
+  font-size: 14px;
+}
+
+.settingsForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.settingsForm label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.settingsForm p {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.settingsSaved {
+  color: var(--ok);
+  font-size: 13px;
+  align-self: center;
+}

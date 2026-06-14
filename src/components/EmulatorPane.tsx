@@ -14,6 +14,7 @@ import {
 } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
 import { VariableWatcher } from './VariableWatcher';
+import styles from './EmulatorPane.module.css';
 
 const romCache = new Map<string, Promise<Uint8Array>>();
 
@@ -317,18 +318,20 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
   return (
     <div
-      className={`emulator-pane ${virtualKeyboard ? 'overlay' : ''}`}
+      className={`${styles.emulatorPane} ${virtualKeyboard ? styles.overlay : ''}`}
       ref={containerRef}
       onPointerDown={dismissFindReplace}
     >
       <div
-        className={`screen-shell ${crtEffect ? 'crt' : ''} ${focused ? 'focused' : ''}`}
+        className={`${styles.screenShell} ${crtEffect ? styles.crt : ''} ${
+          focused ? styles.focused : ''
+        }`}
       >
         <canvas
           ref={canvasRef}
           width={display.width}
           height={display.height}
-          className="emulator-screen"
+          className={styles.emulatorScreen}
           style={
             isMobile || virtualKeyboard
               ? {
@@ -353,8 +356,12 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           keyboard (Esc-to-release / click-to-type). On touch it just wastes a
           row of vertical height, so hide it there. */}
       {!HAS_TOUCH && (
-        <div className="emulator-status-row">
-          <span className={`emulator-state ${emulatorStatus}`}>
+        <div className={styles.emulatorStatusRow}>
+          <span
+            className={`${styles.emulatorState} ${
+              emulatorStatus === 'running' ? styles.running : ''
+            }`}
+          >
             {emulatorStatus === 'running'
               ? focused
                 ? `running — keys go to ${dialect.name} (Esc to release)`
@@ -365,9 +372,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           </span>
         </div>
       )}
-      {error && <div className="emulator-error">{error}</div>}
+      {error && <div className={styles.emulatorError}>{error}</div>}
       {variableWatcher && !virtualKeyboard && (
-        <div className="watcher-host" ref={watcherHostRef}>
+        <div className={styles.watcherHost} ref={watcherHostRef}>
           <VariableWatcher
             getMachine={getMachine}
             running={emulatorStatus === 'running'}

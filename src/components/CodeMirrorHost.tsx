@@ -51,6 +51,7 @@ import {
   MIN_LINE_NO,
   MAX_LINE_NO,
 } from '../editor/lineNumbering';
+import styles from './CodeMirrorHost.module.css';
 
 /** Replace the whole document and drop the cursor at the end of `cursorLine`. */
 function replaceDoc(
@@ -379,5 +380,5 @@ export function CodeMirrorHost({
     if (view) void runEditorCommand(view, editorCommand.name);
   }, [editorCommand]);
 
-  return <div className="cm-host" ref={hostRef} />;
+  return <div className={styles.cmHost} ref={hostRef} />;
 }

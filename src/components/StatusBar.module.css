@@ -1,0 +1,48 @@
+.statusBar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+}
+
+.statusErrors {
+  color: var(--error);
+}
+
+.statusEmu.running {
+  color: var(--ok);
+}
+
+/* Keyboard + watcher toggles relocated to the status bar in overlay mode. */
+.statusToggles {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.vkToggle {
+  padding: 2px 8px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.vkToggle:global(.active) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.watcherToggle {
+  font-family: var(--mono, monospace);
+}
+
+@media (max-width: 768px) {
+  /* Slim status bar: just the emulator status + toggles, right-aligned. */
+  .statusBar.slim {
+    justify-content: flex-end;
+    gap: 10px;
+  }
+}

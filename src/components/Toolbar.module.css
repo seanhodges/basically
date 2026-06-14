@@ -1,0 +1,91 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbarLeft,
+.toolbarCenter,
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.appTitle {
+  font-weight: 600;
+  margin-right: 8px;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+
+.menu {
+  position: relative;
+}
+
+.menuItems {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 50%);
+}
+
+.menuItems button {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 4px;
+}
+
+.menuItems button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.menuSeparator {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 2px;
+}
+
+.menuLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 4px 10px 2px;
+}
+
+.toolbarError {
+  color: var(--error);
+  font-size: 12px;
+  max-width: 300px;
+}
+
+@media (max-width: 768px) {
+  .toolbar :global(.desktop-only),
+  .toolbar :global(.icon-btn) {
+    display: none;
+  }
+
+  .toolbar :global(.mobile-only) {
+    display: block;
+  }
+
+  .toolbar {
+    padding: 6px;
+    gap: 6px;
+  }
+}

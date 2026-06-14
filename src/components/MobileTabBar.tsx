@@ -1,4 +1,5 @@
 import { useIdeStore, type MobileTab } from '../app/store';
+import styles from './MobileTabBar.module.css';
 
 const TABS: { id: MobileTab; label: string }[] = [
   { id: 'editor', label: 'Editor' },
@@ -12,7 +13,7 @@ export function MobileTabBar() {
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
 
   return (
-    <div className="tab-bar" role="tablist">
+    <div className={styles.tabBar} role="tablist">
       {TABS.map((t) => (
         <button
           key={t.id}

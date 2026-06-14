@@ -1,0 +1,459 @@
+/* ---------- Virtual keyboard ----------
+   The virtual keyboard builds its class names from runtime data (theme, key
+   style, label position), so its styles stay global (plain, un-hashed) rather
+   than CSS Modules. They live here, colocated with VirtualKeyboard.tsx, and are
+   imported for their side effects. */
+
+.virtual-keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 6px 4px;
+  border-radius: 8px;
+  background: #16161a;
+  border: 1px solid #000;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  /* Mobile font boosting would inflate the tiny legends past their keys. */
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  contain: layout style;
+  outline: none;
+}
+
+.virtual-keyboard:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.virtual-keyboard.vk-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Switching the displayed legends is harmless while stopped. */
+.virtual-keyboard.vk-disabled .vk-legend-btn {
+  pointer-events: auto;
+}
+
+.vk-row {
+  display: grid;
+  gap: 3px;
+}
+
+.vk-key {
+  position: relative;
+  height: 58px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The whole .vk-key box plus half the surrounding gap is the touch target;
+   the visible keycap is smaller (R8: no dead zones between keys). */
+.vk-key::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
+
+.vk-keycap {
+  position: absolute;
+  inset: 0 0 12px;
+  border-radius: 4px;
+  background: #0a0a0a;
+  box-shadow:
+    0 2px 0 rgb(0 0 0 / 80%),
+    inset 0 1px 0 rgb(255 255 255 / 7%);
+  transition: transform 60ms ease;
+  pointer-events: none;
+}
+
+.vk-keycap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(255 255 255 / 16%);
+  opacity: 0;
+  transition: opacity 60ms ease;
+}
+
+.vk-key.vk-pressed .vk-keycap {
+  transform: translateY(2px) scale(0.97);
+}
+
+.vk-key.vk-pressed .vk-keycap::after {
+  opacity: 1;
+}
+
+/* Modifier states: held/sticky = outline glow, locked = inverted fill. */
+.vk-key.vk-mod-engaged .vk-keycap {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 2px 0 rgb(0 0 0 / 80%);
+}
+
+.vk-key.vk-mod-locked .vk-keycap {
+  background: #d9dce4;
+}
+
+.vk-key.vk-mod-locked .vk-label {
+  color: #16161a;
+}
+
+.virtual-keyboard:focus-visible .vk-key.vk-focus .vk-keycap {
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 2px 0 rgb(0 0 0 / 80%);
+}
+
+.vk-label {
+  position: absolute;
+  color: #ececec;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0.92;
+}
+
+.vk-label.vk-active {
+  opacity: 1;
+}
+
+.vk-pos-center {
+  top: 9px;
+  left: 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.vk-pos-tr {
+  top: 4px;
+  right: 4px;
+  max-width: calc(100% - 6px);
+  overflow: hidden;
+  font-size: 8px;
+}
+
+.vk-pos-bl {
+  left: 0;
+  right: 0;
+  bottom: 15px;
+  overflow: hidden;
+  text-align: center;
+  font-size: 7px;
+  color: #c4c4c4;
+}
+
+.vk-pos-br {
+  right: 3px;
+  bottom: 15px;
+  color: #bdbdbd;
+}
+
+.vk-pos-br svg {
+  width: 9px;
+  height: 9px;
+  display: block;
+}
+
+.vk-pos-below {
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  overflow: hidden;
+  text-align: center;
+  font-size: 7px;
+  color: #c75555;
+}
+
+.vk-layer-shift {
+  color: #e25555;
+}
+
+.vk-layer-shift.vk-active {
+  color: #ff8585;
+  font-weight: 700;
+}
+
+/* Wide-legend keys (SHIFT, NEW LINE) centre a smaller main label. */
+.vk-style-shift .vk-pos-center,
+.vk-style-small-main .vk-pos-center {
+  inset: 0 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Compact mode: not enough width for every legend — each key shows the main
+   legend plus one secondary layer picked in the legend bar (or forced by an
+   engaged modifier). With the clutter gone, the survivors get bigger. */
+.vk-legend-bar {
+  display: flex;
+  gap: 4px;
+  padding: 0 2px 5px;
+}
+
+.vk-legend-btn {
+  flex: 1;
+  padding: 5px 2px;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  background: #23232b;
+  border: 1px solid #34343e;
+  border-radius: 4px;
+  color: #9aa0ad;
+}
+
+.vk-legend-btn.active {
+  color: #ececec;
+  border-color: var(--accent);
+}
+
+/* Editor-target input modes (the ZX81 K/F/G cursor as a selector bar):
+   slightly larger tap targets than the display-only legend bar. */
+.vk-mode-bar .vk-legend-btn {
+  padding: 7px 2px;
+  font-size: 10px;
+}
+
+/* Key-page tabs (the BBC's ABC / #+= pages): always visible for both targets,
+   so they get the larger tap target and the active page reads clearly. */
+.vk-tab-bar .vk-legend-btn {
+  padding: 7px 2px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.vk-tab-bar .vk-legend-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #15151b;
+}
+
+/* Keys that do nothing in the current editor mode. */
+.vk-key.vk-noaction .vk-keycap {
+  opacity: 0.45;
+}
+
+.vk-key.vk-noaction .vk-label {
+  opacity: 0.5;
+}
+
+/* Only one secondary legend is visible at a time in compact mode, so all
+   on-key positions collapse into a single clean bottom-centre slot, with the
+   main legend centred above it. */
+.vk-compact
+  .vk-key:not(.vk-style-shift):not(.vk-style-small-main):not(.vk-style-extra)
+  .vk-pos-center {
+  top: 6px;
+  left: 0;
+  right: 0;
+  text-align: center;
+}
+
+/* Slot coordinates are relative to the keycap (the labels' positioned
+   ancestor), not the full key box. */
+.vk-compact .vk-pos-tr,
+.vk-compact .vk-pos-bl,
+.vk-compact .vk-pos-br {
+  inset: auto 1px 2px;
+  max-width: none;
+  overflow: hidden;
+  text-align: center;
+  font-size: 8px;
+}
+
+.vk-compact .vk-pos-below {
+  font-size: 8px;
+}
+
+.vk-compact .vk-pos-br svg {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+}
+
+/* Convenience extras row: shorter, lighter keys without the function strip. */
+.vk-key.vk-style-extra {
+  height: 40px;
+}
+
+.vk-style-extra .vk-keycap {
+  inset: 0 0 2px;
+  background: #23232b;
+}
+
+.vk-style-extra .vk-pos-center {
+  inset: 0 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .vk-pos-center {
+    top: 7px;
+    left: 5px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .vk-pos-center {
+    font-size: clamp(12px, 3.4vw, 15px);
+  }
+}
+
+/* Height-constrained landscape (phones): the overlay's flex-fill keeps keys
+   inside the bottom 46%; here we just tighten gaps/padding and the legend
+   strips so shallow keys stay legible. */
+@media (orientation: landscape) and (max-height: 560px) {
+  /* Shallow keys: tighten gaps/padding and shrink the function strip below
+     the keycap so the whole keyboard stays under ~46vh (compact mode is
+     forced at this height). */
+  .virtual-keyboard {
+    gap: 2px;
+    padding: 4px 6px 2px;
+  }
+
+  .vk-row {
+    gap: 2px;
+  }
+
+  .vk-legend-bar {
+    padding-bottom: 3px;
+  }
+
+  .vk-mode-bar .vk-legend-btn {
+    padding: 5px 2px;
+  }
+
+  .vk-keycap {
+    inset: 0 0 6px;
+  }
+
+  .vk-pos-center {
+    top: 3px;
+    left: 4px;
+    font-size: 11px;
+  }
+
+  .vk-compact
+    .vk-key:not(.vk-style-shift):not(.vk-style-small-main):not(.vk-style-extra)
+    .vk-pos-center {
+    top: 2px;
+  }
+
+  .vk-compact .vk-pos-tr,
+  .vk-compact .vk-pos-bl,
+  .vk-compact .vk-pos-br {
+    inset: auto 1px 1px;
+    font-size: 7px;
+  }
+
+  .vk-compact .vk-pos-br svg {
+    width: 9px;
+    height: 9px;
+  }
+
+  .vk-pos-below {
+    bottom: 0;
+    font-size: 6px;
+  }
+
+  .vk-style-shift .vk-pos-center,
+  .vk-style-small-main .vk-pos-center {
+    inset: 0 0 6px;
+    font-size: 8px;
+  }
+
+  .vk-style-extra .vk-pos-center {
+    font-size: 10px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   ZX Spectrum keyboard theme: grey rubber keys with the rainbow accent, red
+   SYMBOL SHIFT legends and green extended-mode functions. Activated by the
+   layout's `theme: 'vk-theme-zxspectrum'`. */
+.virtual-keyboard.vk-theme-zxspectrum {
+  background: #1b1b1f;
+  border-top: 3px solid;
+  border-image: linear-gradient(
+      90deg,
+      #d12d2d 0 25%,
+      #d1c52d 25% 50%,
+      #2dbf3c 50% 75%,
+      #2db5d1 75% 100%
+    )
+    1;
+}
+
+.vk-theme-zxspectrum .vk-keycap {
+  background: linear-gradient(#3a3a40, #2a2a2e);
+}
+
+/* CAPS SHIFT legend (top-left): the edit/cursor functions in cyan. */
+.vk-theme-zxspectrum .vk-pos-tl {
+  top: 4px;
+  left: 4px;
+  font-size: 8px;
+  color: #5fc4d6;
+}
+
+/* SYMBOL SHIFT symbols (top-right) in Spectrum red. */
+.vk-theme-zxspectrum .vk-pos-tr {
+  color: #ec6a6a;
+}
+
+/* K-mode keyword (bottom-left) in clean white. */
+.vk-theme-zxspectrum .vk-pos-bl {
+  color: #e8e8e8;
+}
+
+/* Extended-mode functions (below the key) in Spectrum green. */
+.vk-theme-zxspectrum .vk-pos-below {
+  color: #62c46f;
+}
+
+/* SYMBOL SHIFT key itself tinted red to match the legends. */
+.vk-theme-zxspectrum .vk-style-symshift .vk-pos-center {
+  inset: 0 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  color: #ec6a6a;
+}
+
+/* ---------------------------------------------------------------------------
+   BBC Micro keyboard theme: the red f0–f9 (and Break) function strip, like the
+   real machine. Activated by the layout's `theme: 'vk-theme-bbc'`. */
+.vk-theme-bbc .vk-style-fn .vk-keycap {
+  background: linear-gradient(#b5302a, #8f221d);
+}
+
+.vk-theme-bbc .vk-style-fn .vk-label {
+  color: #fff;
+}
+
+/* Non-interactive filler used to right-align the symbol page's keys. */
+.vk-key.vk-style-spacer {
+  pointer-events: none;
+}
+
+.vk-key.vk-style-spacer .vk-keycap {
+  background: none;
+  box-shadow: none;
+}

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { getApiKey, setApiKey } from '../storage/settings';
+import styles from './SettingsForm.module.css';
+import dialog from './Dialog.module.css';
 
 export function SettingsForm() {
   const autoLineNumbering = useIdeStore((s) => s.autoLineNumbering);
@@ -29,9 +31,9 @@ export function SettingsForm() {
   };
 
   return (
-    <div className="settings-form">
+    <div className={styles.settingsForm}>
       <h3>Editor</h3>
-      <label className="inline">
+      <label className={styles.inline}>
         <input
           type="checkbox"
           checked={showLineNumberGutter}
@@ -39,7 +41,7 @@ export function SettingsForm() {
         />
         Show line number gutter
       </label>
-      <label className="inline">
+      <label className={styles.inline}>
         <input
           type="checkbox"
           checked={autoLineNumbering}
@@ -62,7 +64,7 @@ export function SettingsForm() {
         />
       </label>
       <h3>Monitor</h3>
-      <label className="inline">
+      <label className={styles.inline}>
         <input
           type="checkbox"
           checked={crtEffect}
@@ -70,7 +72,7 @@ export function SettingsForm() {
         />
         CRT scanline effect
       </label>
-      <label className="inline">
+      <label className={styles.inline}>
         Emulation speed
         <select
           value={emulatorSpeed}
@@ -82,7 +84,7 @@ export function SettingsForm() {
         </select>
       </label>
       <h3>On-screen keyboard</h3>
-      <label className="inline">
+      <label className={styles.inline}>
         <input
           type="checkbox"
           checked={virtualKeyboard}
@@ -90,7 +92,7 @@ export function SettingsForm() {
         />
         Show virtual keyboard
       </label>
-      <label className="inline">
+      <label className={styles.inline}>
         <input
           type="checkbox"
           checked={keyboardSound}
@@ -98,7 +100,7 @@ export function SettingsForm() {
         />
         Key click sound
       </label>
-      <label className="inline">
+      <label className={styles.inline}>
         <input
           type="checkbox"
           checked={keyboardHaptics}
@@ -124,15 +126,15 @@ export function SettingsForm() {
           onChange={(e) => setKey(e.target.value)}
         />
       </label>
-      <p className="modal-warning">
+      <p className={dialog.modalWarning}>
         The key is stored only in this browser&apos;s localStorage and sent only
         to api.anthropic.com. Don&apos;t use this on a shared computer.
       </p>
-      <div className="modal-actions left">
+      <div className={`${dialog.modalActions} ${dialog.left}`}>
         <button className="primary" onClick={saveKey}>
           Save API key
         </button>
-        {keySaved && <span className="settings-saved">Saved ✓</span>}
+        {keySaved && <span className={styles.settingsSaved}>Saved ✓</span>}
       </div>
     </div>
   );

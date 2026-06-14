@@ -1,0 +1,10 @@
+.transferGroup {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+
+.transferStatus {
+  color: var(--ok);
+}

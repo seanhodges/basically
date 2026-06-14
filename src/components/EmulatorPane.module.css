@@ -1,0 +1,122 @@
+.emulatorPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+  background: var(--bg-panel);
+  overflow: auto;
+}
+
+/* Tablet landscape: pin the screen to the top so the bottom-46% keyboard
+   overlay can never cover it. The JS fit caps the canvas to 54% height. */
+.emulatorPane.overlay {
+  justify-content: flex-start;
+}
+
+.emulatorPane.overlay .screenShell {
+  max-height: 54%;
+}
+
+.screenShell {
+  position: relative;
+  border: 14px solid #111;
+  border-radius: 10px;
+  line-height: 0;
+  max-width: 100%;
+}
+
+.screenShell.focused {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.screenShell.crt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 1px,
+      rgb(0 0 0 / 6%) 2px,
+      transparent 3px 4px
+    ),
+    radial-gradient(ellipse at center, transparent 62%, rgb(0 0 0 / 22%) 100%);
+}
+
+.emulatorScreen {
+  /* Width comes from an inline style (per-dialect display size); height
+     follows the canvas's intrinsic aspect ratio. */
+  height: auto;
+  max-width: 100%;
+  image-rendering: pixelated;
+  background: #fff;
+  outline: none;
+  display: block;
+}
+
+.emulatorState {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.emulatorState.running {
+  color: var(--ok);
+}
+
+.emulatorError {
+  color: var(--error);
+  font-size: 13px;
+  max-width: 480px;
+}
+
+.emulatorStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* Pin the ⌨ toggle to the pane edge: the status text changes length when
+     the canvas gains/loses focus, and a shifting button mid-press would
+     swallow the click. */
+  width: 100%;
+  max-width: 600px;
+  justify-content: space-between;
+}
+
+.watcherHost {
+  width: 100%;
+  max-width: 600px;
+  max-height: 240px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .emulatorPane {
+    padding: 8px;
+  }
+
+  .screenShell {
+    border-width: 8px;
+  }
+
+  .emulatorScreen {
+    width: auto;
+    height: auto;
+    max-width: none;
+  }
+
+  .watcherHost {
+    max-width: none;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .watcherHost {
+    max-width: none;
+  }
+}
