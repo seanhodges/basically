@@ -4,6 +4,7 @@ import { Toolbar } from './components/Toolbar';
 import { Workspace } from './components/Workspace';
 import { AiSettingsDialog } from './components/AiSettingsDialog';
 import { TransferDialog } from './components/TransferDialog';
+import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { StatusBar } from './components/StatusBar';
 import { saveAutosave } from './storage/settings';
 import { isMobileViewport } from './app/useMediaQuery';
@@ -49,6 +50,7 @@ export default function App() {
       <StatusBar />
       <AiSettingsDialog />
       <TransferDialog />
+      <SwitchTargetDialog />
       <div
         className={styles.rotateOverlay}
         role="alertdialog"

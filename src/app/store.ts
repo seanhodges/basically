@@ -41,6 +41,12 @@ export type EditorCommandName =
 interface IdeState {
   /** Active target machine. Switching it rebuilds the editor, emulator and keyboard. */
   dialect: Dialect;
+  /**
+   * Id of a target the user picked that needs confirmation before switching
+   * (the editor holds their own code). Drives the SwitchTargetDialog; null when
+   * no switch is pending.
+   */
+  pendingDialectId: string | null;
   fileName: string;
   /** Mirror of the editor document (editor itself is the source of truth). */
   source: string;
@@ -96,6 +102,10 @@ interface IdeState {
   editorCommand: { name: EditorCommandName; seq: number };
 
   setDialect(id: string): void;
+  /** Resolve a pending target switch: start fresh or keep the current code. */
+  confirmDialectSwitch(mode: 'new' | 'keep'): void;
+  /** Dismiss a pending target switch, leaving the current machine in place. */
+  cancelDialectSwitch(): void;
   setSource(text: string): void;
   replaceDocument(text: string, fileName?: string): void;
   markSaved(fileName: string): void;
@@ -142,14 +152,39 @@ function defaultVirtualKeyboard(): boolean {
 }
 
 /**
- * True when the document is "untouched" — blank, or exactly one dialect's
- * starter program. Only such a document is swapped for the new starter when
- * the target machine changes; anything the user wrote or loaded is left alone.
+ * Name of the current dialect's sample whose text matches `source`, else null.
+ * Covers the starter too, since the starter is just `samples[0]`. A non-null
+ * result means the document is a pristine sample, safe to swap for the matching
+ * sample on the new target.
  */
-function isStarterOrEmpty(source: string): boolean {
-  return (
-    source.trim() === '' || dialects.some((d) => d.samples[0]?.text === source)
-  );
+function matchingSampleName(dialect: Dialect, source: string): string | null {
+  return dialect.samples.find((s) => s.text === source)?.name ?? null;
+}
+
+/**
+ * State patch that performs an actual target switch: persist the choice, swap
+ * the dialect, push `text` into the (rebuilt) editor, and stop the emulator.
+ * Shared by the immediate path and the confirmation dialog.
+ */
+function applyDialectSwitch(
+  s: IdeState,
+  next: Dialect,
+  text: string,
+): Partial<IdeState> {
+  persistDialectId(next.id);
+  return {
+    dialect: next,
+    pendingDialectId: null,
+    source: text,
+    docOverride: { text, seq: s.docOverride.seq + 1 },
+    // The emulator pane tears down the old machine when `dialect` changes; mark
+    // it stopped so the UI reflects the switch immediately. Also bump
+    // stopRequest so any in-flight run loop is explicitly halted.
+    emulatorStatus: 'stopped',
+    stopRequest: s.stopRequest + 1,
+    // On mobile, surface the change in the editor the user is now editing.
+    ...(isMobileViewport() ? { mobileTab: 'editor' as MobileTab } : {}),
+  };
 }
 
 const startupDialect = initialDialect();
@@ -157,6 +192,7 @@ const startupText = autosaved?.text ?? startupDialect.samples[0]?.text ?? '';
 
 export const useIdeStore = create<IdeState>((set) => ({
   dialect: startupDialect,
+  pendingDialectId: null,
   fileName: autosaved?.name ?? 'untitled.bas',
   source: startupText,
   docOverride: { text: startupText, seq: 0 },
@@ -193,30 +229,51 @@ export const useIdeStore = create<IdeState>((set) => ({
 
   setDialect: (id) =>
     set((s) => {
+      // No code, or the same machine: switch immediately, nothing to preserve.
       if (id === s.dialect.id) return {};
-      persistDialectId(id);
       const next = getDialect(id);
-      // Swap in the new machine's starter only when the document is untouched;
-      // never clobber the user's own code. Either way refresh docOverride so the
-      // editor (rebuilt on dialect change) shows the right text, not stale
-      // content.
-      const swap = isStarterOrEmpty(s.source);
-      const text = swap ? (next.samples[0]?.text ?? '') : s.source;
-      return {
-        dialect: next,
-        source: text,
-        docOverride: { text, seq: s.docOverride.seq + 1 },
-        dirty: swap ? false : s.dirty,
-        fileName: swap ? 'untitled.bas' : s.fileName,
-        // The emulator pane tears down the old machine when `dialect` changes;
-        // mark it stopped so the UI reflects the switch immediately. Also bump
-        // stopRequest so any in-flight run loop is explicitly halted.
-        emulatorStatus: 'stopped',
-        stopRequest: s.stopRequest + 1,
-        // On mobile, surface the change in the editor the user is now editing.
-        ...(isMobileViewport() ? { mobileTab: 'editor' as MobileTab } : {}),
-      };
+
+      // Empty editor: switch and load the new machine's starter.
+      if (s.source.trim() === '') {
+        return {
+          ...applyDialectSwitch(s, next, next.samples[0]?.text ?? ''),
+          fileName: 'untitled.bas',
+          dirty: false,
+        };
+      }
+
+      // Pristine starter or sample: swap in the same-named sample for the new
+      // target (falling back to its starter), keeping the document "untouched".
+      const sampleName = matchingSampleName(s.dialect, s.source);
+      if (sampleName !== null) {
+        const sample =
+          next.samples.find((x) => x.name === sampleName) ?? next.samples[0];
+        return {
+          ...applyDialectSwitch(s, next, sample?.text ?? ''),
+          fileName: sample?.name ?? 'untitled.bas',
+          dirty: false,
+        };
+      }
+
+      // The user's own code: defer to the confirmation dialog. Don't switch or
+      // persist the choice yet.
+      return { pendingDialectId: id };
     }),
+  confirmDialectSwitch: (mode) =>
+    set((s) => {
+      if (s.pendingDialectId === null) return {};
+      const next = getDialect(s.pendingDialectId);
+      if (mode === 'new') {
+        return {
+          ...applyDialectSwitch(s, next, next.samples[0]?.text ?? ''),
+          fileName: 'untitled.bas',
+          dirty: false,
+        };
+      }
+      // Keep the existing code as-is on the new machine.
+      return applyDialectSwitch(s, next, s.source);
+    }),
+  cancelDialectSwitch: () => set({ pendingDialectId: null }),
   setSource: (text) => set({ source: text, dirty: true }),
   replaceDocument: (text, fileName) =>
     set((s) => ({
