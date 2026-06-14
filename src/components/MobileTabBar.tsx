@@ -2,7 +2,7 @@ import { useIdeStore, type MobileTab } from '../app/store';
 
 const TABS: { id: MobileTab; label: string }[] = [
   { id: 'editor', label: 'Editor' },
-  { id: 'preview', label: 'Preview' },
+  { id: 'preview', label: 'Run' },
   { id: 'ai', label: 'AI' },
   { id: 'settings', label: 'Settings' },
 ];

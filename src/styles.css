@@ -991,10 +991,20 @@ code {
   display: none;
 }
 
+/* Mobile-only affordances (e.g. the toolbar Run menu) are hidden on desktop and
+   revealed inside the mobile breakpoint below. */
+.mobile-only {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .toolbar .desktop-only,
   .toolbar .icon-btn {
     display: none;
+  }
+
+  .toolbar .mobile-only {
+    display: block;
   }
 
   .toolbar {
