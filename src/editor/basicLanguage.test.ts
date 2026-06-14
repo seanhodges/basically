@@ -4,6 +4,9 @@ import { ensureSyntaxTree } from '@codemirror/language';
 import { highlightTree, tagHighlighter, tags } from '@lezer/highlight';
 import { buildBasicLanguage } from './basicLanguage';
 import type { KeywordInfo } from '../dialects/types';
+import { zx81Keywords } from '../dialects/zx81/keywords';
+import { spectrumKeywords } from '../dialects/zxspectrum/keywords';
+import { bbcKeywords } from '../dialects/bbcmicro/keywords';
 
 const testKeywords: KeywordInfo[] = [
   { word: 'PRINT', token: 1, kind: 'command' },
@@ -26,9 +29,12 @@ const probe = tagHighlighter([
   { tag: tags.labelName, class: 'label' },
 ]);
 
-/** Highlight `doc` with the test dialect, returning [text, class] per token. */
-function classify(doc: string): Array<[string, string]> {
-  const language = buildBasicLanguage(testKeywords, () => null).language;
+/** Highlight `doc` with the given dialect, returning [text, class] per token. */
+function classify(
+  doc: string,
+  keywords: KeywordInfo[] = testKeywords,
+): Array<[string, string]> {
+  const language = buildBasicLanguage(keywords, () => null).language;
   const state = EditorState.create({ doc, extensions: [language] });
   const tree = ensureSyntaxTree(state, doc.length, 1e9);
   if (!tree) throw new Error('no syntax tree');
@@ -74,5 +80,17 @@ describe('buildBasicLanguage highlighting', () => {
     // PRINTED begins with PRINT but is one identifier run -> variable.
     const tokens = classify('60 PRINTED');
     expect(tokens).toContainEqual(['PRINTED', 'var']);
+  });
+
+  // Guards against a future keyword-table entry (e.g. a 2-char $ keyword)
+  // silently mis-colouring a plain variable in any shipped dialect.
+  describe.each([
+    ['zx81', zx81Keywords],
+    ['zxspectrum', spectrumKeywords],
+    ['bbcmicro', bbcKeywords],
+  ] as const)('variable detection for %s', (_name, keywords) => {
+    it.each(['A', 'k$'])('tags %s as a variable', (name) => {
+      expect(classify(`10 ${name}`, keywords)).toContainEqual([name, 'var']);
+    });
   });
 });
