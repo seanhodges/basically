@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.png" />
+    <img alt="Basically — Micro BASIC IDE" src="docs/assets/logo-light.png" width="640" />
+  </picture>
+</p>
+
 # Basically
 
 A web IDE for microcomputer BASIC dialects — write, run and ship games for
