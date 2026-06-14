@@ -14,5 +14,7 @@ export function bbcLanguageSupport(): Extension {
     nameChars: '_',
     suffixChars: '$%',
     graphicsEscapes: false,
+    hexPrefix: '&',
+    binaryPrefix: '%',
   });
 }

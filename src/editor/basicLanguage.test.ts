@@ -98,7 +98,13 @@ describe('buildBasicLanguage highlighting', () => {
   });
 
   describe('dialect lexical options', () => {
-    const bbc = { nameChars: '_', suffixChars: '$%', graphicsEscapes: false };
+    const bbc = {
+      nameChars: '_',
+      suffixChars: '$%',
+      graphicsEscapes: false,
+      hexPrefix: '&',
+      binaryPrefix: '%',
+    };
 
     it('treats BBC integer (%) and underscore variables as one variable', () => {
       expect(classify('10 A%', testKeywords, bbc)).toContainEqual([
@@ -135,6 +141,22 @@ describe('buildBasicLanguage highlighting', () => {
 
     it('real BBC dialect tags A% as a variable', () => {
       expect(classify('10 A%', bbcKeywords, bbc)).toContainEqual(['A%', 'var']);
+    });
+
+    it('tags BBC hex (&) and binary (%) literals as numbers', () => {
+      // &FFFF must not be mis-read as a variable named FFFF.
+      const hex = classify('10 A=&FF00', testKeywords, bbc);
+      expect(hex).toContainEqual(['&FF00', 'number']);
+      expect(hex).not.toContainEqual(['FF00', 'var']);
+
+      expect(classify('20 B=%1010', testKeywords, bbc)).toContainEqual([
+        '%1010',
+        'number',
+      ]);
+    });
+
+    it('tags the caret exponent operator', () => {
+      expect(classify('10 A=B^2')).toContainEqual(['^', 'op']);
     });
   });
 });

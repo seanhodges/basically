@@ -23,6 +23,10 @@ export interface BasicLanguageOptions {
    *  (ZX81/Spectrum block graphics). Default true; false for BBC, where `%`
    *  is a variable suffix / binary-literal prefix. */
   graphicsEscapes?: boolean;
+  /** Prefix introducing a hexadecimal number literal (e.g. `&` for BBC). */
+  hexPrefix?: string;
+  /** Prefix introducing a binary number literal (e.g. `%` for BBC). */
+  binaryPrefix?: string;
 }
 
 /**
@@ -56,6 +60,12 @@ export function buildBasicLanguage(
   const nameChars = options.nameChars ?? '';
   const suffixChars = options.suffixChars ?? '$';
   const graphicsEscapes = options.graphicsEscapes ?? true;
+  const hexRe = options.hexPrefix
+    ? new RegExp(`^${options.hexPrefix}[0-9A-Fa-f]+`)
+    : null;
+  const binRe = options.binaryPrefix
+    ? new RegExp(`^${options.binaryPrefix}[01]+`)
+    : null;
   // Leading identifier run for keyword-prefix matching: letters, name extras and
   // `$` (for CHR$ etc.) but no digits, so e.g. GOTO100 still reads as a keyword.
   const headRe = new RegExp(`^[A-Za-z][A-Za-z${nameChars}$]*`);
@@ -117,9 +127,11 @@ export function buildBasicLanguage(
       }
 
       if (stream.match(/^\d+(\.\d*)?(E[+-]?\d+)?/i)) return 'number';
+      if (hexRe && stream.match(hexRe)) return 'number'; // BBC &FF
+      if (binRe && stream.match(binRe)) return 'number'; // BBC %1010
       if (stream.match(/^(\*\*|<=|>=|<>)/)) return 'operator';
       if (graphicsEscapes && stream.match(/^[%\\]../)) return 'atom'; // graphics escape / inverse
-      if (stream.match(/^[+\-*/=<>;,():?$£.]/)) return 'operator';
+      if (stream.match(/^[+\-*/=<>;,():?$£^.]/)) return 'operator';
       stream.next();
       return null;
     },
