@@ -4,6 +4,8 @@ import { downloadBlob } from '../storage/files';
 import { samplesToWav } from '../transfer/wav';
 import { playSamples, type AudioPlayback } from '../transfer/audioPlayer';
 import { sendOverSerial, webSerialSupported } from '../transfer/webserial';
+import styles from './TransferDialog.module.css';
+import dialog from './Dialog.module.css';
 
 export function TransferDialog() {
   const open = useIdeStore((s) => s.transferOpen);
@@ -97,8 +99,8 @@ export function TransferDialog() {
   });
 
   return (
-    <div className="modal-backdrop" onClick={() => setOpen(false)}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className={dialog.modalBackdrop} onClick={() => setOpen(false)}>
+      <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
         <h2>Run on real hardware</h2>
         <label>
           Program name (tape header)
@@ -110,14 +112,14 @@ export function TransferDialog() {
         </label>
 
         {dialect.audio && (
-          <div className="transfer-group">
+          <div className={styles.transferGroup}>
             <h3>Cassette audio</h3>
             <p>
               Connect this device&apos;s headphone output to the machine&apos;s
               EAR socket and set the volume to maximum.{' '}
               {dialect.audio.loadInstructions}
             </p>
-            <label className="inline">
+            <label className={dialog.inline}>
               <input
                 type="checkbox"
                 checked={robust}
@@ -125,7 +127,7 @@ export function TransferDialog() {
               />
               Robust mode (slower encoding, for temperamental hardware)
             </label>
-            <div className="modal-actions left">
+            <div className={`${dialog.modalActions} ${dialog.left}`}>
               {playing ? (
                 <button onClick={stopAudio}>■ Stop audio</button>
               ) : (
@@ -136,9 +138,9 @@ export function TransferDialog() {
           </div>
         )}
 
-        <div className="transfer-group">
+        <div className={styles.transferGroup}>
           <h3>Files &amp; serial</h3>
-          <div className="modal-actions left">
+          <div className={`${dialog.modalActions} ${dialog.left}`}>
             {dialect.buildTargets
               // wav is offered through the cassette section above
               .filter((t) => !(dialect.audio && t.fileExtension === 'wav'))
@@ -161,8 +163,8 @@ export function TransferDialog() {
           </div>
         </div>
 
-        {status && <p className="transfer-status">{status}</p>}
-        <div className="modal-actions">
+        {status && <p className={styles.transferStatus}>{status}</p>}
+        <div className={dialog.modalActions}>
           <button onClick={() => setOpen(false)}>Close</button>
         </div>
       </div>

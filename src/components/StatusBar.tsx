@@ -1,6 +1,7 @@
 import { useIdeStore } from '../app/store';
 import { useProgramStats } from '../app/useProgramStats';
 import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
+import styles from './StatusBar.module.css';
 
 export function StatusBar() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -19,7 +20,7 @@ export function StatusBar() {
   const pct = Math.min(100, Math.round((stats.bytes / ramBudget) * 100));
 
   return (
-    <div className={`status-bar ${isMobile ? 'slim' : ''}`}>
+    <div className={`${styles.statusBar} ${isMobile ? styles.slim : ''}`}>
       {/* The verbose stats are dropped on narrow screens to keep the bar slim;
           the keyboard/watcher toggles always show (they have no other home on
           mobile, where the status bar replaces the per-pane toggles). */}
@@ -33,19 +34,25 @@ export function StatusBar() {
           <span title="Tokenized program size">
             {stats.bytes.toLocaleString()} bytes ({pct}% of 16K budget)
           </span>
-          <span className={stats.errors > 0 ? 'status-errors' : ''}>
+          <span className={stats.errors > 0 ? styles.statusErrors : ''}>
             {stats.errors === 0
               ? 'no errors'
               : `${stats.errors} error${stats.errors > 1 ? 's' : ''}`}
           </span>
         </>
       )}
-      <span className={`status-emu ${emulatorStatus}`}>
+      <span
+        className={`${styles.statusEmu} ${
+          emulatorStatus === 'running' ? styles.running : ''
+        }`}
+      >
         emulator: {emulatorStatus}
       </span>
-      <div className="status-toggles">
+      <div className={styles.statusToggles}>
         <button
-          className={`vk-toggle watcher-toggle ${variableWatcher ? 'active' : ''}`}
+          className={`${styles.vkToggle} ${styles.watcherToggle} ${
+            variableWatcher ? 'active' : ''
+          }`}
           aria-pressed={variableWatcher}
           title={
             variableWatcher ? 'Hide variable watcher' : 'Show variable watcher'
@@ -59,7 +66,7 @@ export function StatusBar() {
           {'{x}'}
         </button>
         <button
-          className={`vk-toggle ${virtualKeyboard ? 'active' : ''}`}
+          className={`${styles.vkToggle} ${virtualKeyboard ? 'active' : ''}`}
           aria-pressed={virtualKeyboard}
           title={
             virtualKeyboard

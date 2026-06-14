@@ -17,6 +17,7 @@ import { EmulatorPane, type MachineApi } from './EmulatorPane';
 import { AiPanel } from './AiPanel';
 import { SettingsForm } from './SettingsForm';
 import { MobileTabBar } from './MobileTabBar';
+import styles from './Workspace.module.css';
 
 const AI_PANEL_WIDTH = 340;
 const DIVIDER_WIDTH = 6;
@@ -50,7 +51,7 @@ function ProgramStats() {
   const pct = Math.min(100, Math.round((stats.bytes / ramBudget) * 100));
 
   return (
-    <div className="program-stats">
+    <div className={styles.programStats}>
       <h3>Program</h3>
       <p>
         {fileName}
@@ -59,12 +60,16 @@ function ProgramStats() {
       <p title="Tokenized program size">
         {stats.bytes.toLocaleString()} bytes ({pct}% of 16K budget)
       </p>
-      <p className={stats.errors > 0 ? 'status-errors' : ''}>
+      <p className={stats.errors > 0 ? styles.statusErrors : ''}>
         {stats.errors === 0
           ? 'no errors'
           : `${stats.errors} error${stats.errors > 1 ? 's' : ''}`}
       </p>
-      <p className={`status-emu ${emulatorStatus}`}>
+      <p
+        className={`${styles.statusEmu} ${
+          emulatorStatus === 'running' ? styles.running : ''
+        }`}
+      >
         emulator: {emulatorStatus}
       </p>
     </div>
@@ -150,7 +155,7 @@ export function Workspace() {
   }, [editorFocused, setVirtualKeyboard]);
 
   const hidden = (tab: MobileTab) =>
-    isMobile && mobileTab !== tab ? 'tab-hidden' : '';
+    isMobile && mobileTab !== tab ? styles.tabHidden : '';
 
   const onDividerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -182,19 +187,19 @@ export function Workspace() {
 
   return (
     <div
-      className={`workspace ${isMobile ? 'mobile' : ''} ${dragging ? 'dragging' : ''} ${
-        overlayVisible && routeToEditor ? 'kb-open' : ''
-      }`}
+      className={`${styles.workspace} ${isMobile ? styles.mobile : ''} ${
+        dragging ? styles.dragging : ''
+      } ${overlayVisible && routeToEditor ? styles.kbOpen : ''}`}
       ref={workspaceRef}
       style={cols ? { gridTemplateColumns: cols } : undefined}
     >
       {/* On mobile the tab bar sits directly above the panels it controls, so
           switching tabs swaps the panel shown beneath it. */}
       {isMobile && <MobileTabBar />}
-      <div className={`editor-pane ${hidden('editor')}`}>
+      <div className={`${styles.editorPane} ${hidden('editor')}`}>
         {/* The FAB anchors to this box so the docked keyboard below never
             sits underneath it. */}
-        <div className="editor-main">
+        <div className={styles.editorMain}>
           <CodeMirrorHost
             dialect={dialect}
             override={docOverride}
@@ -203,7 +208,7 @@ export function Workspace() {
           />
           {isMobile && mobileTab === 'editor' && (
             <button
-              className="fab-run"
+              className={styles.fabRun}
               onClick={requestRun}
               title="Build and run in the emulator"
             >
@@ -213,22 +218,22 @@ export function Workspace() {
         </div>
       </div>
       <div
-        className="divider"
+        className={styles.divider}
         onPointerDown={onDividerDown}
         onPointerMove={onDividerMove}
         onPointerUp={onDividerUp}
       />
-      <div className={`monitor-pane ${hidden('preview')}`}>
+      <div className={`${styles.monitorPane} ${hidden('preview')}`}>
         <EmulatorPane apiRef={machineApiRef} />
       </div>
       {isMobile && (
-        <div className={`settings-pane ${hidden('settings')}`}>
+        <div className={`${styles.settingsPane} ${hidden('settings')}`}>
           <SettingsForm />
           <ProgramStats />
         </div>
       )}
       {(aiPanelOpen || isMobile) && (
-        <div className={`ai-host ${isMobile ? hidden('ai') : ''}`}>
+        <div className={`${styles.aiHost} ${isMobile ? hidden('ai') : ''}`}>
           <AiPanel />
         </div>
       )}
@@ -237,7 +242,7 @@ export function Workspace() {
           by the route so each target switch remounts cleanly (no stale
           engine/pointer state) and the first key after a switch isn't lost. */}
       {overlayVisible && (
-        <div className="workspace-vk-overlay">
+        <div className={styles.workspaceVkOverlay}>
           <VirtualKeyboard
             key={routeToEditor ? 'editor' : 'machine'}
             layout={dialect.keyboardLayout}

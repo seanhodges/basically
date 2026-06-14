@@ -1,0 +1,100 @@
+.aiPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  min-width: 0;
+}
+
+.aiHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.aiThread {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.aiHint {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.aiMsg {
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.aiUser {
+  background: #2c3a55;
+  align-self: flex-end;
+  max-width: 95%;
+}
+
+.aiAssistant {
+  background: var(--bg-raised);
+}
+
+.aiAssistant p {
+  margin: 4px 0;
+}
+
+.aiCode {
+  background: #11131a;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 6px 0;
+}
+
+.aiCode pre {
+  margin: 0;
+  padding: 8px;
+  overflow-x: auto;
+  font-size: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.aiCodeActions {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.aiCodeActions button {
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
+.aiError {
+  color: var(--error);
+  font-size: 13px;
+}
+
+.aiInput {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.aiInput textarea {
+  flex: 1;
+  resize: none;
+  font-family: inherit;
+}

@@ -1,5 +1,6 @@
 import { useIdeStore } from '../app/store';
 import { SettingsForm } from './SettingsForm';
+import dialog from './Dialog.module.css';
 
 export function AiSettingsDialog() {
   const open = useIdeStore((s) => s.settingsOpen);
@@ -8,11 +9,11 @@ export function AiSettingsDialog() {
   if (!open) return null;
 
   return (
-    <div className="modal-backdrop" onClick={() => setOpen(false)}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className={dialog.modalBackdrop} onClick={() => setOpen(false)}>
+      <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
         <h2>Settings</h2>
         <SettingsForm />
-        <div className="modal-actions">
+        <div className={dialog.modalActions}>
           <button onClick={() => setOpen(false)}>Close</button>
         </div>
       </div>

@@ -9,6 +9,7 @@ import {
 import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
 import { extractCodeBlocks, mergeBasicLines } from '../ai/codeExtractor';
 import { getApiKey } from '../storage/settings';
+import styles from './AiPanel.module.css';
 
 interface DisplayMessage extends ChatMessage {
   streaming?: boolean;
@@ -110,7 +111,7 @@ export function AiPanel() {
   const renderMessage = (msg: DisplayMessage, idx: number) => {
     if (msg.role === 'user') {
       return (
-        <div key={idx} className="ai-msg ai-user">
+        <div key={idx} className={`${styles.aiMsg} ${styles.aiUser}`}>
           {msg.content}
         </div>
       );
@@ -128,9 +129,9 @@ export function AiPanel() {
         rest = fenceEnd >= 0 ? rest.slice(fenceEnd + 3) : '';
       }
       parts.push(
-        <div key={`c${bi}`} className="ai-code">
+        <div key={`c${bi}`} className={styles.aiCode}>
           <pre>{block.code}</pre>
-          <div className="ai-code-actions">
+          <div className={styles.aiCodeActions}>
             <button
               onClick={() => applyReplace(block.code)}
               title="Replace the whole program"
@@ -160,32 +161,32 @@ export function AiPanel() {
     if (parts.length === 0 && msg.streaming)
       parts.push(<p key="thinking">…</p>);
     return (
-      <div key={idx} className="ai-msg ai-assistant">
+      <div key={idx} className={`${styles.aiMsg} ${styles.aiAssistant}`}>
         {parts}
       </div>
     );
   };
 
   return (
-    <div className="ai-panel">
-      <div className="ai-header">
+    <div className={styles.aiPanel}>
+      <div className={styles.aiHeader}>
         <strong>AI assistant</strong>
         <button className="linklike" onClick={() => setSettingsOpen(true)}>
           key…
         </button>
       </div>
-      <div className="ai-thread" ref={scrollRef}>
+      <div className={styles.aiThread} ref={scrollRef}>
         {messages.length === 0 && (
-          <div className="ai-hint">
+          <div className={styles.aiHint}>
             Ask for a game and it lands in your editor. Try:
             <em> “write a breakout game”</em>, <em>“make the paddle faster”</em>
             ,<em> “fix the errors”</em>.
           </div>
         )}
         {messages.map(renderMessage)}
-        {error && <div className="ai-error">{error}</div>}
+        {error && <div className={styles.aiError}>{error}</div>}
       </div>
-      <div className="ai-input">
+      <div className={styles.aiInput}>
         <textarea
           value={input}
           rows={2}

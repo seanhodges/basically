@@ -7,6 +7,7 @@ import { TransferDialog } from './components/TransferDialog';
 import { StatusBar } from './components/StatusBar';
 import { saveAutosave } from './storage/settings';
 import { isMobileViewport } from './app/useMediaQuery';
+import styles from './App.module.css';
 
 export default function App() {
   const requestRun = useIdeStore((s) => s.requestRun);
@@ -42,7 +43,7 @@ export default function App() {
   }, [runRequest]);
 
   return (
-    <div className="app">
+    <div className={styles.app}>
       <Toolbar />
       <Workspace />
       <StatusBar />

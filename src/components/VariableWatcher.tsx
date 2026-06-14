@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { MachineEmulator, MachineVariable } from '../dialects/types';
+import styles from './VariableWatcher.module.css';
 
 interface Props {
   /** Accessor for the live emulator (null until a program has been run). */
@@ -48,24 +49,24 @@ export function VariableWatcher({ getMachine, running }: Props) {
   const machine = getMachine();
   if (machine && typeof machine.readVariables !== 'function') {
     return (
-      <div className="watcher-empty">
+      <div className={styles.watcherEmpty}>
         Variable watching isn’t available for this machine yet.
       </div>
     );
   }
   if (!running) {
     return (
-      <div className="watcher-empty">
+      <div className={styles.watcherEmpty}>
         Run a program to inspect its variables.
       </div>
     );
   }
   if (vars.length === 0) {
-    return <div className="watcher-empty">No variables defined yet.</div>;
+    return <div className={styles.watcherEmpty}>No variables defined yet.</div>;
   }
 
   return (
-    <table className="watcher-table">
+    <table className={styles.watcherTable}>
       <thead>
         <tr>
           <th>Name</th>
@@ -76,10 +77,10 @@ export function VariableWatcher({ getMachine, running }: Props) {
       <tbody>
         {vars.map((v) => (
           <tr key={v.name}>
-            <td className="watcher-name">{v.name}</td>
-            <td className="watcher-kind">{KIND_LABELS[v.kind]}</td>
-            <td className="watcher-value">
-              <span className="watcher-value-text">{v.value}</span>
+            <td className={styles.watcherName}>{v.name}</td>
+            <td className={styles.watcherKind}>{KIND_LABELS[v.kind]}</td>
+            <td className={styles.watcherValue}>
+              <span className={styles.watcherValueText}>{v.value}</span>
             </td>
           </tr>
         ))}
