@@ -6,6 +6,8 @@
   padding: 6px 10px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
+  container-type: inline-size;
+  container-name: toolbar;
 }
 
 .toolbarLeft,
@@ -74,6 +76,16 @@
   font-size: 12px;
   color: var(--text-dim);
   white-space: nowrap;
+}
+
+.dialectLabelText {
+  display: inline;
+}
+
+@container toolbar (max-width: 480px) {
+  .dialectLabelText {
+    display: none;
+  }
 }
 
 .toolbarError {

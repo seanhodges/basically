@@ -206,7 +206,7 @@ export function Toolbar() {
         </div>
 
         <label className={styles.dialectLabel}>
-          Target Machine:
+          <span className={styles.dialectLabelText}>Target:</span>
           <select
             className="dialect-select"
             value={dialect.id}
