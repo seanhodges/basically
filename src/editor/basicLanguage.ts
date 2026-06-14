@@ -30,15 +30,19 @@ export interface BasicLanguageOptions {
 }
 
 /**
- * Colours commands, functions, operators and variables distinctly. Pairs with
- * the token tags emitted by {@link buildBasicLanguage}; everything else
- * (strings, numbers, comments, line numbers) falls back to the default style.
+ * Colours commands, functions, operators, variables and literals distinctly.
+ * Pairs with the token tags emitted by {@link buildBasicLanguage}: every token
+ * known to the dialect gets its own dark colour, while unknown/invalid tokens
+ * fall through to the default (grey) style so they stand out as suspect.
  */
 export const basicHighlightStyle = HighlightStyle.define([
   { tag: tags.keyword, color: '#708' }, // commands (purple)
   { tag: tags.function(tags.variableName), color: '#c85000' }, // functions (dark orange)
   { tag: tags.variableName, color: '#000080' }, // variables (navy)
   { tag: tags.operator, color: '#000080' }, // operators (navy)
+  { tag: tags.string, color: '#a00000' }, // string literals (dark red)
+  { tag: tags.number, color: '#a00000' }, // numeric literals (dark red)
+  { tag: tags.atom, color: '#a00000' }, // graphics glyphs (dark red)
 ]);
 
 /**
