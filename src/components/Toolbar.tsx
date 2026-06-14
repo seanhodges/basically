@@ -27,49 +27,60 @@ export function Toolbar() {
 
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [editMenuOpen, setEditMenuOpen] = useState(false);
+  const [runMenuOpen, setRunMenuOpen] = useState(false);
   const [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const closeMenus = () => {
+    setFileMenuOpen(false);
+    setEditMenuOpen(false);
+    setRunMenuOpen(false);
+  };
 
   // The dropdown menus and the on-screen keyboard are mutually exclusive:
   // opening the keyboard (its toggle lives in the emulator pane) closes them.
   useEffect(() => {
-    if (virtualKeyboard) {
-      setFileMenuOpen(false);
-      setEditMenuOpen(false);
-    }
+    if (virtualKeyboard) closeMenus();
   }, [virtualKeyboard]);
 
-  // Opening either menu closes the other menu and the keyboard; on mobile,
+  // Opening a menu hides the keyboard and the other menus; on mobile,
   // run/stop/reset jump to the preview tab so the user sees the emulator they
   // just acted on.
   const toggleFileMenu = () => {
     const next = !fileMenuOpen;
+    closeMenus();
     setFileMenuOpen(next);
-    if (next) {
-      setEditMenuOpen(false);
-      setVirtualKeyboard(false);
-    }
+    if (next) setVirtualKeyboard(false);
   };
   const toggleEditMenu = () => {
     const next = !editMenuOpen;
+    closeMenus();
     setEditMenuOpen(next);
-    if (next) {
-      setFileMenuOpen(false);
-      setVirtualKeyboard(false);
-    }
+    if (next) setVirtualKeyboard(false);
+  };
+  const toggleRunMenu = () => {
+    const next = !runMenuOpen;
+    closeMenus();
+    setRunMenuOpen(next);
+    if (next) setVirtualKeyboard(false);
+  };
+  const playProgram = () => {
+    setRunMenuOpen(false);
+    requestRun();
   };
   const stopProgram = () => {
+    setRunMenuOpen(false);
     requestStop();
     if (isMobileViewport()) setMobileTab('preview');
   };
   const resetProgram = () => {
+    setRunMenuOpen(false);
     requestReset();
     if (isMobileViewport()) setMobileTab('preview');
   };
 
   const guard = (fn: () => Promise<void> | void) => () => {
-    setFileMenuOpen(false);
-    setEditMenuOpen(false);
+    closeMenus();
     setError('');
     Promise.resolve(fn()).catch((e: unknown) =>
       setError(e instanceof Error ? e.message : String(e)),
@@ -172,6 +183,27 @@ export function Toolbar() {
             </div>
           )}
         </div>
+
+        <div className="menu mobile-only">
+          <button className="run" onClick={toggleRunMenu}>
+            ▶ Run ▾
+          </button>
+          {runMenuOpen && (
+            <div
+              className="menu-items"
+              onMouseLeave={() => setRunMenuOpen(false)}
+            >
+              <button onClick={playProgram}>▶ Play</button>
+              <button
+                onClick={stopProgram}
+                disabled={emulatorStatus === 'stopped'}
+              >
+                ■ Stop
+              </button>
+              <button onClick={resetProgram}>↺ Reset</button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="toolbar-center">
@@ -192,20 +224,25 @@ export function Toolbar() {
       <div className="toolbar-right">
         {error && <span className="toolbar-error">{error}</span>}
         <button
-          className="run"
+          className="run desktop-only"
           onClick={requestRun}
           title="Build and run in the emulator (Ctrl+Enter)"
         >
           ▶ Run
         </button>
         <button
+          className="desktop-only"
           onClick={stopProgram}
           disabled={emulatorStatus === 'stopped'}
           title="Stop / break the running program"
         >
           ■ Stop
         </button>
-        <button onClick={resetProgram} title="Reset the machine">
+        <button
+          className="desktop-only"
+          onClick={resetProgram}
+          title="Reset the machine"
+        >
           ↺ Reset
         </button>
         <button
