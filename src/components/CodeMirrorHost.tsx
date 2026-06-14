@@ -19,6 +19,8 @@ import {
   historyKeymap,
   indentWithTab,
   insertNewlineAndIndent,
+  redo,
+  undo,
 } from '@codemirror/commands';
 import {
   autocompletion,
@@ -26,7 +28,11 @@ import {
   completionStatus,
 } from '@codemirror/autocomplete';
 import { lintGutter, lintKeymap } from '@codemirror/lint';
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import {
+  openSearchPanel,
+  searchKeymap,
+  highlightSelectionMatches,
+} from '@codemirror/search';
 import {
   syntaxHighlighting,
   defaultHighlightStyle,
@@ -35,6 +41,7 @@ import type { Dialect } from '../dialects/types';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { dialectLinter } from '../editor/lintIntegration';
 import { useIdeStore } from '../app/store';
+import type { EditorCommandName } from '../app/store';
 import {
   insertNumberedLineBelow,
   parseLines,
@@ -114,6 +121,65 @@ function renumberCurrentLine(view: EditorView): boolean {
   return true;
 }
 
+/**
+ * Range to act on for copy/cut: the main selection, or — when it's empty — the
+ * whole current line (incl. trailing newline), mirroring CodeMirror's default
+ * clipboard behaviour for an empty selection.
+ */
+function clipboardRange(view: EditorView): { from: number; to: number } {
+  const sel = view.state.selection.main;
+  if (!sel.empty) return { from: sel.from, to: sel.to };
+  const line = view.state.doc.lineAt(sel.head);
+  return { from: line.from, to: Math.min(line.to + 1, view.state.doc.length) };
+}
+
+/** Run an Edit-menu command against the editor. */
+async function runEditorCommand(
+  view: EditorView,
+  name: EditorCommandName,
+): Promise<void> {
+  switch (name) {
+    case 'undo':
+      undo(view);
+      break;
+    case 'redo':
+      redo(view);
+      break;
+    case 'copy':
+    case 'cut': {
+      const { from, to } = clipboardRange(view);
+      await navigator.clipboard.writeText(view.state.sliceDoc(from, to));
+      if (name === 'cut') {
+        view.dispatch({ changes: { from, to }, userEvent: 'delete.cut' });
+      }
+      break;
+    }
+    case 'paste': {
+      const text = await navigator.clipboard.readText();
+      if (text)
+        view.dispatch(view.state.replaceSelection(text), {
+          userEvent: 'input.paste',
+        });
+      break;
+    }
+    case 'find':
+      openSearchPanel(view);
+      break;
+    case 'replace':
+      openSearchPanel(view);
+      // The default search panel contains both find and replace rows; drop the
+      // cursor into the replace field once the panel DOM is mounted.
+      requestAnimationFrame(() => {
+        view.dom.querySelector<HTMLInputElement>('[name="replace"]')?.focus();
+      });
+      break;
+    case 'renumber':
+      renumberCurrentLine(view);
+      break;
+  }
+  if (name !== 'find' && name !== 'replace') view.focus();
+}
+
 const gutterCompartment = new Compartment();
 
 function gutterExt(show: boolean) {
@@ -181,8 +247,8 @@ export function CodeMirrorHost({
   const lastSeq = useRef(-1);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  const renumberRequest = useIdeStore((s) => s.renumberRequest);
-  const lastRenumber = useRef(renumberRequest);
+  const editorCommand = useIdeStore((s) => s.editorCommand);
+  const lastCommand = useRef(editorCommand.seq);
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -273,14 +339,14 @@ export function CodeMirrorHost({
     }
   }, [override]);
 
-  // Toolbar "Renumber line" button bumps renumberRequest; run the command here
-  // where we hold the EditorView.
+  // The toolbar's Edit menu bumps editorCommand.seq; run the requested command
+  // here where we hold the EditorView.
   useEffect(() => {
-    if (renumberRequest === lastRenumber.current) return;
-    lastRenumber.current = renumberRequest;
+    if (editorCommand.seq === lastCommand.current) return;
+    lastCommand.current = editorCommand.seq;
     const view = viewRef.current;
-    if (view) renumberCurrentLine(view);
-  }, [renumberRequest]);
+    if (view) void runEditorCommand(view, editorCommand.name);
+  }, [editorCommand]);
 
   return <div className="cm-host" ref={hostRef} />;
 }

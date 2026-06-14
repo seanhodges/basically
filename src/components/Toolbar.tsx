@@ -20,27 +20,43 @@ export function Toolbar() {
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
-  const requestRenumber = useIdeStore((s) => s.requestRenumber);
+  const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
   const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
   const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
 
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const [editMenuOpen, setEditMenuOpen] = useState(false);
   const [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // The file menu and the on-screen keyboard are mutually exclusive: opening the
-  // keyboard (its toggle lives in the emulator pane) closes the menu.
+  // The dropdown menus and the on-screen keyboard are mutually exclusive:
+  // opening the keyboard (its toggle lives in the emulator pane) closes them.
   useEffect(() => {
-    if (virtualKeyboard) setFileMenuOpen(false);
+    if (virtualKeyboard) {
+      setFileMenuOpen(false);
+      setEditMenuOpen(false);
+    }
   }, [virtualKeyboard]);
 
-  // Opening the file menu hides the keyboard; on mobile, run/stop/reset jump to
-  // the preview tab so the user sees the emulator they just acted on.
+  // Opening either menu closes the other menu and the keyboard; on mobile,
+  // run/stop/reset jump to the preview tab so the user sees the emulator they
+  // just acted on.
   const toggleFileMenu = () => {
     const next = !fileMenuOpen;
     setFileMenuOpen(next);
-    if (next) setVirtualKeyboard(false);
+    if (next) {
+      setEditMenuOpen(false);
+      setVirtualKeyboard(false);
+    }
+  };
+  const toggleEditMenu = () => {
+    const next = !editMenuOpen;
+    setEditMenuOpen(next);
+    if (next) {
+      setFileMenuOpen(false);
+      setVirtualKeyboard(false);
+    }
   };
   const stopProgram = () => {
     requestStop();
@@ -53,11 +69,15 @@ export function Toolbar() {
 
   const guard = (fn: () => Promise<void> | void) => () => {
     setFileMenuOpen(false);
+    setEditMenuOpen(false);
     setError('');
     Promise.resolve(fn()).catch((e: unknown) =>
       setError(e instanceof Error ? e.message : String(e)),
     );
   };
+
+  const editAction = (name: Parameters<typeof requestEditorCommand>[0]) =>
+    guard(() => requestEditorCommand(name));
 
   const confirmDiscard = () =>
     !dirty || window.confirm('Discard unsaved changes?');
@@ -116,19 +136,39 @@ export function Toolbar() {
               <button onClick={saveFile}>Save .bas</button>
               <button onClick={openShare}>Share / Export…</button>
               <div className="menu-separator" />
-              <button
-                onClick={guard(requestRenumber)}
-                title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
-              >
-                # Renumber line
-              </button>
-              <div className="menu-separator" />
               <div className="menu-label">Samples</div>
               {dialect.samples.map((s) => (
                 <button key={s.name} onClick={() => loadSample(s.name, s.text)}>
                   {s.title}
                 </button>
               ))}
+            </div>
+          )}
+        </div>
+
+        <div className="menu">
+          <button onClick={toggleEditMenu}>Edit ▾</button>
+          {editMenuOpen && (
+            <div
+              className="menu-items"
+              onMouseLeave={() => setEditMenuOpen(false)}
+            >
+              <button onClick={editAction('undo')}>Undo</button>
+              <button onClick={editAction('redo')}>Redo</button>
+              <div className="menu-separator" />
+              <button onClick={editAction('cut')}>Cut</button>
+              <button onClick={editAction('copy')}>Copy</button>
+              <button onClick={editAction('paste')}>Paste</button>
+              <div className="menu-separator" />
+              <button onClick={editAction('find')}>Find</button>
+              <button onClick={editAction('replace')}>Replace</button>
+              <div className="menu-separator" />
+              <button
+                onClick={editAction('renumber')}
+                title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
+              >
+                Renumber line
+              </button>
             </div>
           )}
         </div>
