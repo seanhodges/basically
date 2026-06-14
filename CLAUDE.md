@@ -5,7 +5,7 @@ Guidance for working in this repository. Read the **Commands** and
 
 ## What this is
 
-`micro-basic-ide` is a browser-based IDE for microcomputer BASIC dialects. The
+**Basically** is a browser-based IDE for microcomputer BASIC dialects. The
 first (and currently only) dialect is the **Sinclair ZX81**, with an in-browser
 Z80 emulator, hardware export (cassette audio / `.P` files / WebSerial), and an
 optional Claude-powered code assistant.

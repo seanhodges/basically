@@ -1,4 +1,4 @@
-# Micro BASIC IDE
+# Basically
 
 A web IDE for microcomputer BASIC dialects — write, run and ship games for
 real retro hardware from your browser. The first supported machine is the
