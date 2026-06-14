@@ -4,3 +4,51 @@
   height: 100%;
   overflow: hidden;
 }
+
+/* ---------- Portrait lock (mobile-sized screens) ----------
+   A browser tab can't hard-lock orientation, so we block landscape on
+   phone-sized screens with a full-screen prompt. Phones in landscape have a
+   short viewport (the smallest tablet's landscape height is >= 768px) and a
+   coarse pointer; tablets and desktops are unaffected and keep both
+   orientations. */
+.rotateOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  color: var(--text);
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.rotateInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.rotateIcon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.rotateInner p {
+  margin: 0;
+  font-size: 16px;
+}
+
+.rotateHint {
+  color: var(--text-dim);
+  font-size: 13px !important;
+}
+
+@media screen and (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .rotateOverlay {
+    display: flex;
+  }
+}
