@@ -140,13 +140,6 @@ textarea {
   box-shadow: 0 6px 24px rgb(0 0 0 / 50%);
 }
 
-/* The Run menu sits at the right edge of the toolbar, so its dropdown opens
-   leftward to stay on-screen. */
-.menu.mobile-only .menu-items {
-  left: auto;
-  right: 0;
-}
-
 .menu-items button {
   background: none;
   border: none;

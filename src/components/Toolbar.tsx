@@ -154,6 +154,26 @@ export function Toolbar() {
             </div>
           )}
         </div>
+        <div className="menu mobile-only">
+          <button className="run" onClick={toggleRunMenu}>
+            ▶ Run ▾
+          </button>
+          {runMenuOpen && (
+            <div
+              className="menu-items"
+              onMouseLeave={() => setRunMenuOpen(false)}
+            >
+              <button onClick={playProgram}>▶ Play</button>
+              <button
+                onClick={stopProgram}
+                disabled={emulatorStatus === 'stopped'}
+              >
+                ■ Stop
+              </button>
+              <button onClick={resetProgram}>↺ Reset</button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="toolbar-center">
@@ -195,26 +215,6 @@ export function Toolbar() {
         >
           ↺ Reset
         </button>
-        <div className="menu mobile-only">
-          <button className="run" onClick={toggleRunMenu}>
-            ▶ Run ▾
-          </button>
-          {runMenuOpen && (
-            <div
-              className="menu-items"
-              onMouseLeave={() => setRunMenuOpen(false)}
-            >
-              <button onClick={playProgram}>▶ Play</button>
-              <button
-                onClick={stopProgram}
-                disabled={emulatorStatus === 'stopped'}
-              >
-                ■ Stop
-              </button>
-              <button onClick={resetProgram}>↺ Reset</button>
-            </div>
-          )}
-        </div>
         <button
           className={`icon-btn ${aiPanelOpen ? 'active' : ''}`}
           onClick={toggleAiPanel}
