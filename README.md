@@ -13,7 +13,9 @@ real retro hardware from your browser. Supported machines are the
 built around a dialect abstraction so other machines can plug in later. (Most
 of this README uses the ZX81 as its worked example.)
 
-![ZX81 BASIC in the editor, running in the built-in emulator]
+<p align="center">
+  <img alt="The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard" src="docs/assets/screenshot.jpg" width="900" />
+</p>
 
 ## Features
 
