@@ -64,6 +64,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const setVariableWatcher = useIdeStore((s) => s.setVariableWatcher);
+  const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
+
+  // Interacting with the emulator dismisses an open find/replace panel.
+  const dismissFindReplace = useCallback(() => {
+    if (useIdeStore.getState().findReplaceOpen)
+      requestEditorCommand('closeFind');
+  }, [requestEditorCommand]);
 
   const display = dialect.displaySize ?? {
     width: SCREEN_WIDTH,
@@ -312,6 +319,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     <div
       className={`emulator-pane ${virtualKeyboard ? 'overlay' : ''}`}
       ref={containerRef}
+      onPointerDown={dismissFindReplace}
     >
       <div
         className={`screen-shell ${crtEffect ? 'crt' : ''} ${focused ? 'focused' : ''}`}

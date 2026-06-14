@@ -171,8 +171,7 @@ export function Toolbar() {
               <button onClick={editAction('copy')}>Copy</button>
               <button onClick={editAction('paste')}>Paste</button>
               <div className="menu-separator" />
-              <button onClick={editAction('find')}>Find</button>
-              <button onClick={editAction('replace')}>Replace</button>
+              <button onClick={editAction('find')}>Find/Replace</button>
               <div className="menu-separator" />
               <button
                 onClick={editAction('renumber')}
