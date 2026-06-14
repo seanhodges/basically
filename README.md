@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.png" />
+    <img alt="Basically — Micro BASIC IDE" src="docs/assets/logo-light.png" width="640" />
+  </picture>
+</p>
+
 # Basically
 
 A web IDE for microcomputer BASIC dialects — write, run and ship games for
@@ -6,7 +13,9 @@ real retro hardware from your browser. Supported machines are the
 built around a dialect abstraction so other machines can plug in later. (Most
 of this README uses the ZX81 as its worked example.)
 
-![ZX81 BASIC in the editor, running in the built-in emulator]
+<p align="center">
+  <img alt="The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard" src="docs/assets/screenshot.jpg" width="900" />
+</p>
 
 ## Features
 
