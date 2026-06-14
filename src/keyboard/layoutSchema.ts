@@ -16,15 +16,29 @@ export interface KeyboardLayout {
   gridColumns: number;
   layers: LayerDef[];
   modifiers: ModifierDef[];
-  /** Default key page, used when `tabs` is absent (a single-page keyboard). */
+  /**
+   * The single-page key layout. When `tabs` is also present this is the wide
+   * variant, shown on screens wide enough for every key at once; otherwise it
+   * is simply the whole keyboard.
+   */
   rows: KeyDef[][];
   /**
    * Optional key pages shown one at a time behind an always-visible tab bar
    * (e.g. the BBC Micro's ABC / symbols split). The bar is shown for both the
-   * machine and editor targets, unlike `editorModes`. When present, `rows` is
-   * unused; rows shared between pages are simply referenced by each tab.
+   * machine and editor targets, unlike `editorModes`. When both `rows` and
+   * `tabs` are present they are responsive variants of one keyboard: `rows` is
+   * the wide single page and `tabs` is the narrow page set; VirtualKeyboard
+   * picks one by container width. Rows shared between pages are simply
+   * referenced by each tab.
    */
   tabs?: KeyboardTabDef[];
+  /**
+   * Grid column count used while the tabbed narrow variant (`tabs`) is shown.
+   * Defaults to `gridColumns`. Lets a layout serve an authentic wide
+   * single-page layout (`rows`/`gridColumns`) and a denser tabbed mobile
+   * layout (`tabs`/`narrowGridColumns`) from one object.
+   */
+  narrowGridColumns?: number;
   glyphs: GlyphRegistry;
   /**
    * Input modes offered when the keyboard targets the text editor (the

@@ -37,6 +37,10 @@ const KEYBOARD_POINTER_ID = -1;
 /** Below this container width there isn't room for every legend at once. */
 const COMPACT_MAX_WIDTH = 520;
 
+/** At or above this container width a tabbed keyboard shows its full
+    single-page layout instead of the narrow per-tab pages. */
+const WIDE_MIN_WIDTH = 600;
+
 /** Below this viewport height keys shrink too far for every legend (must
     match the landscape media query in styles.css). */
 const COMPACT_MAX_VIEWPORT_HEIGHT = 560;
@@ -111,7 +115,6 @@ export function VirtualKeyboard({
   const [tabId, setTabId] = useState<string | null>(null);
   useEffect(() => setTabId(null), [layout]);
   const activeTab = tabs.find((t) => t.id === tabId) ?? tabs[0] ?? null;
-  const displayRows = activeTab?.rows ?? layout.rows;
 
   const baseLayer = useMemo(
     () =>
@@ -237,14 +240,21 @@ export function VirtualKeyboard({
       (window.innerWidth < 600 ||
         window.innerHeight < COMPACT_MAX_VIEWPORT_HEIGHT),
   );
+  // Wide mode: enough horizontal room to show a tabbed keyboard's full
+  // single-page layout instead of its narrow per-tab pages.
+  const [wide, setWide] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= WIDE_MIN_WIDTH,
+  );
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const update = () =>
+    const update = () => {
       setCompact(
         el.clientWidth < COMPACT_MAX_WIDTH ||
           window.innerHeight < COMPACT_MAX_VIEWPORT_HEIGHT,
       );
+      setWide(el.clientWidth >= WIDE_MIN_WIDTH);
+    };
     const observer = new ResizeObserver(update);
     observer.observe(el);
     window.addEventListener('resize', update);
@@ -253,6 +263,14 @@ export function VirtualKeyboard({
       window.removeEventListener('resize', update);
     };
   }, []);
+
+  // A tabbed keyboard collapses to its per-tab pages only when narrow; wide
+  // enough, it shows the full single-page `rows` layout with no tab bar.
+  const useTabs = !wide && tabs.length > 0;
+  const displayRows = useTabs ? (activeTab?.rows ?? layout.rows) : layout.rows;
+  const gridCols = useTabs
+    ? (layout.narrowGridColumns ?? layout.gridColumns)
+    : layout.gridColumns;
 
   const secondaryLayers = useMemo(
     () => layout.layers.filter((l) => l !== baseLayer),
@@ -366,7 +384,10 @@ export function VirtualKeyboard({
 
   // Roving focus: the whole keyboard is one tab stop; arrows move between
   // keys, Enter/Space presses the focused key.
-  const flatKeys = useMemo(() => displayRows.flat(), [displayRows]);
+  const flatKeys = useMemo(
+    () => displayRows.flat().filter((k) => k.emits.length > 0 || k.modifier),
+    [displayRows],
+  );
   const [focusIdx, setFocusIdx] = useState(0);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -432,7 +453,7 @@ export function VirtualKeyboard({
       onKeyUp={onKeyUp}
       onBlur={() => engine.pointerUp(KEYBOARD_POINTER_ID)}
     >
-      {tabs.length > 0 && (
+      {useTabs && (
         <div
           className="vk-legend-bar vk-tab-bar"
           role="radiogroup"
@@ -507,7 +528,7 @@ export function VirtualKeyboard({
         <div
           key={rowIdx}
           className="vk-row"
-          style={{ gridTemplateColumns: `repeat(${layout.gridColumns}, 1fr)` }}
+          style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
         >
           {row.map((def) => {
             const modState = def.modifier
