@@ -8,10 +8,12 @@
 # Basically
 
 A web IDE for microcomputer BASIC dialects — write, run and ship games for
-real retro hardware from your browser. Supported machines are the
-**Sinclair ZX81**, **ZX Spectrum** and **BBC Micro**; the architecture is
-built around a dialect abstraction so other machines can plug in later. (Most
-of this README uses the ZX81 as its worked example.)
+real retro hardware from your browser. It's built around a dialect abstraction:
+each target machine plugs in its own tokenizer, emulator and hardware export, so
+support grows over time rather than being fixed to a particular machine. Targets
+that ship today include the **Sinclair ZX81**, **ZX Spectrum** and **BBC
+Micro**, with more addable through the dialect interface. (Examples below use
+the ZX81 for concreteness.)
 
 <p align="center">
   <img alt="The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard" src="docs/assets/screenshot.jpg" width="900" />
@@ -19,23 +21,24 @@ of this README uses the ZX81 as its worked example.)
 
 ## Features
 
-- **Editor** — CodeMirror 6 with ZX81 BASIC syntax highlighting, keyword
+- **Editor** — CodeMirror 6 with per-dialect BASIC syntax highlighting, keyword
   autocomplete (with per-keyword documentation), live tokenizer linting, and
-  a byte counter against the 16K RAM budget.
-- **Built-in emulator** — a TypeScript ZX81: vendored Z80 core, the real ROM,
-  SLOW/FAST display hardware emulation, keyboard mapping. One click
-  tokenizes your source to a `.P` image and flash-loads it through the ROM's
-  own tape-LOAD path.
+  a byte counter against the target machine's RAM budget.
+- **Built-in emulator** — a per-target emulator in TypeScript (a vendored Z80
+  core drives the Sinclair machines; the BBC Micro embeds jsbeeb), running the
+  real ROM with hardware-accurate display and keyboard. One click tokenizes
+  your source to a machine image and flash-loads it through the ROM's own
+  tape/load path.
 - **AI code generation** — a chat panel backed by the Claude API (bring your
-  own key, stored only in your browser). Claude knows the ZX81's rules — one
-  statement per line, mandatory LET, INKEY$ game loops, PRINT AT — and
-  generated programs land in your editor with one click (replace, merge by
-  line number, or replace+run).
-- **Real hardware transfer**
-  - **Cassette audio**: play the ZX81 tape signal straight out of your
-    speakers into the EAR port, or download it as a `.wav`.
-  - **`.P` file** download for ZXpand and friends, and import of existing
-    `.P` files back into editable text.
+  own key, stored only in your browser). Claude is given each machine's dialect
+  rules (for the ZX81, that means one statement per line, mandatory LET, INKEY$
+  game loops, PRINT AT) and generated programs land in your editor with one
+  click (replace, merge by line number, or replace+run).
+- **Real hardware transfer** (capabilities vary by machine)
+  - **Cassette audio**: play the tape signal straight out of your speakers
+    into the machine's EAR port, or download it as a `.wav`.
+  - **Machine image** download (e.g. the ZX81 `.P` file for ZXpand and friends)
+    and import of existing images back into editable text.
   - **WebSerial** push to a microcontroller bridge
     ([protocol spec](docs/serial-protocol.md)).
 - **Save/load `.bas`** with the File System Access API (download fallback),
@@ -59,13 +62,13 @@ Ctrl+Enter), click the screen and play with the 5 and 8 keys.
 For AI generation, click **✦ AI**, add your Anthropic API key (created at
 [platform.claude.com](https://platform.claude.com/)), and ask for a game.
 
-## Writing ZX81 BASIC
+## Writing BASIC (ZX81 example)
 
 One numbered line per statement, keywords as words. Specials: block graphics
 as unicode (`█▀▌▒`…) or escapes (`\::`), inverse video as `%A`, `**` for
 power. See [docs/file-formats.md](docs/file-formats.md).
 
-## Running on real hardware
+## Running on real hardware (ZX81 example)
 
 1. **Cassette**: connect your headphone jack to the ZX81 EAR socket, volume
    to max. On the ZX81 type `LOAD ""` and press NEW LINE; in the IDE choose
@@ -92,17 +95,20 @@ docs/adding-a-dialect.md   how to add the next machine
 
 ## ROM licensing
 
-`public/roms/zx81.rom` is © Amstrad, distributed under Amstrad's
-long-standing permission for emulator use — see
+The bundled ROM images under `public/roms/` are third-party copyrighted works,
+included unmodified solely for use with the built-in emulators — the Sinclair
+ROMs under Amstrad's long-standing permission for emulator use, the Acorn ROMs
+on the same de-facto basis as other BBC Micro emulators. Per-ROM copyright and
+provenance is documented in
 [public/roms/ATTRIBUTION.md](public/roms/ATTRIBUTION.md).
 
 ## License
 
 This project is licensed under the **GNU GPL v3.0 or later** — see
-[LICENSE](LICENSE). The BBC Micro target embeds the
+[LICENSE](LICENSE). It embeds the
 [jsbeeb](https://github.com/mattgodbolt/jsbeeb) emulator
-(© Matt Godbolt and contributors, GPL-3.0-or-later), which is what places
-the combined work under the GPL. The vendored Z80 core
+(© Matt Godbolt and contributors, GPL-3.0-or-later), which is what places the
+combined work under the GPL. The vendored Z80 core
 (`src/emulator/z80/`, MIT, © Molly Howell) keeps its own GPL-compatible
 license. ROM images are third-party copyrighted works — see
 [public/roms/ATTRIBUTION.md](public/roms/ATTRIBUTION.md).
