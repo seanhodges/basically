@@ -11,6 +11,20 @@ interface BasicStreamState {
   afterRem: boolean;
 }
 
+/** Dialect-specific lexical quirks for variable names and escapes. */
+export interface BasicLanguageOptions {
+  /** Extra characters allowed inside a variable name, beyond letters/digits
+   *  (e.g. `_` for BBC BASIC). Default none. */
+  nameChars?: string;
+  /** Type-suffix characters that may terminate a variable name. Default `$`
+   *  (string vars); BBC adds `%` for integer vars. */
+  suffixChars?: string;
+  /** Whether `%`/`\` introduce a two-char graphics/inverse-video escape
+   *  (ZX81/Spectrum block graphics). Default true; false for BBC, where `%`
+   *  is a variable suffix / binary-literal prefix. */
+  graphicsEscapes?: boolean;
+}
+
 /**
  * Colours commands, functions, operators and variables distinctly. Pairs with
  * the token tags emitted by {@link buildBasicLanguage}; everything else
@@ -31,12 +45,24 @@ export const basicHighlightStyle = HighlightStyle.define([
 export function buildBasicLanguage(
   keywords: KeywordInfo[],
   completionSource: CompletionSource,
+  options: BasicLanguageOptions = {},
 ): LanguageSupport {
   // word -> kind, for alphabetic keywords (symbolic ops never match here).
   const kinds = new Map<string, KeywordInfo['kind']>(
     keywords.filter((k) => /^[A-Z]/.test(k.word)).map((k) => [k.word, k.kind]),
   );
   const maxWordLen = Math.max(...[...kinds.keys()].map((w) => w.length));
+
+  const nameChars = options.nameChars ?? '';
+  const suffixChars = options.suffixChars ?? '$';
+  const graphicsEscapes = options.graphicsEscapes ?? true;
+  // Leading identifier run for keyword-prefix matching: letters, name extras and
+  // `$` (for CHR$ etc.) but no digits, so e.g. GOTO100 still reads as a keyword.
+  const headRe = new RegExp(`^[A-Za-z][A-Za-z${nameChars}$]*`);
+  // The whole variable token, including digits, name extras and a type suffix.
+  const varRe = new RegExp(
+    `^[A-Za-z][A-Za-z0-9${nameChars}]*[${suffixChars}]?`,
+  );
 
   const language = StreamLanguage.define<BasicStreamState>({
     name: 'basic',
@@ -64,7 +90,7 @@ export function buildBasicLanguage(
         return 'string';
       }
 
-      const word = stream.match(/^[A-Za-z][A-Za-z$]*/, false);
+      const word = stream.match(headRe, false);
       if (word) {
         const text = (word as RegExpMatchArray)[0].toUpperCase();
         // Longest keyword prefix of this identifier-run
@@ -86,13 +112,13 @@ export function buildBasicLanguage(
             return 'keyword';
           }
         }
-        stream.match(/^[A-Za-z][A-Za-z0-9$]*/);
+        stream.match(varRe);
         return 'variableName';
       }
 
       if (stream.match(/^\d+(\.\d*)?(E[+-]?\d+)?/i)) return 'number';
       if (stream.match(/^(\*\*|<=|>=|<>)/)) return 'operator';
-      if (stream.match(/^[%\\]../)) return 'atom'; // graphics escape / inverse
+      if (graphicsEscapes && stream.match(/^[%\\]../)) return 'atom'; // graphics escape / inverse
       if (stream.match(/^[+\-*/=<>;,():?$£.]/)) return 'operator';
       stream.next();
       return null;
