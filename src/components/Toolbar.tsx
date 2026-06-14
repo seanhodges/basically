@@ -186,7 +186,7 @@ export function Toolbar() {
 
         <div className={`${styles.menu} mobile-only`}>
           <button className="run" onClick={toggleRunMenu}>
-            ▶ Run ▾
+            Run ▾
           </button>
           {runMenuOpen && (
             <div
@@ -204,21 +204,22 @@ export function Toolbar() {
             </div>
           )}
         </div>
-      </div>
 
-      <div className={styles.toolbarCenter}>
-        <select
-          className="dialect-select"
-          value={dialect.id}
-          onChange={(e) => setDialect(e.target.value)}
-          title="Target machine"
-        >
-          {dialects.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
+        <label className={styles.dialectLabel}>
+          Target Machine:
+          <select
+            className="dialect-select"
+            value={dialect.id}
+            onChange={(e) => setDialect(e.target.value)}
+            title="Target machine"
+          >
+            {dialects.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className={styles.toolbarRight}>

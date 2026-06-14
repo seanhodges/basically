@@ -9,7 +9,6 @@
 }
 
 .toolbarLeft,
-.toolbarCenter,
 .toolbarRight {
   display: flex;
   align-items: center;
@@ -66,6 +65,15 @@
   text-transform: uppercase;
   color: var(--text-dim);
   padding: 4px 10px 2px;
+}
+
+.dialectLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .toolbarError {
