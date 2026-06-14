@@ -186,7 +186,7 @@ export function Toolbar() {
 
         <div className={`${styles.menu} mobile-only`}>
           <button className="run" onClick={toggleRunMenu}>
-            ▶ Run ▾
+            Run ▾
           </button>
           {runMenuOpen && (
             <div
@@ -204,9 +204,7 @@ export function Toolbar() {
             </div>
           )}
         </div>
-      </div>
 
-      <div className={styles.toolbarCenter}>
         <select
           className="dialect-select"
           value={dialect.id}

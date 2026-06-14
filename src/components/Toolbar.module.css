@@ -9,7 +9,6 @@
 }
 
 .toolbarLeft,
-.toolbarCenter,
 .toolbarRight {
   display: flex;
   align-items: center;
