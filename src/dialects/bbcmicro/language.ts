@@ -8,5 +8,13 @@ export const bbcCompletionSource: CompletionSource =
   buildCompletionSource(bbcKeywords);
 
 export function bbcLanguageSupport(): Extension {
-  return buildBasicLanguage(bbcKeywords, bbcCompletionSource);
+  // BBC variable names may contain '_' and end in '%' (integer) or '$' (string);
+  // '%'/'\' are not block-graphics escapes here.
+  return buildBasicLanguage(bbcKeywords, bbcCompletionSource, {
+    nameChars: '_',
+    suffixChars: '$%',
+    graphicsEscapes: false,
+    hexPrefix: '&',
+    binaryPrefix: '%',
+  });
 }
