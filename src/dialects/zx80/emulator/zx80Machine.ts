@@ -4,9 +4,18 @@ import type { MachineEmulator } from '../../types';
 import { Zx80Memory } from './memory';
 import { Zx81Keyboard } from '../../zx81/emulator/keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
-import { D_FILE } from '../sysvars';
+import {
+  SYSVARS_BASE,
+  E_LINE,
+  D_FILE,
+  ROM_LOAD_TRAP,
+  ROM_POST_LOAD,
+} from '../sysvars';
 
 const TSTATES_PER_FRAME = 65000; // ~3.25MHz / 50Hz
+const MAX_BOOT_FRAMES = 600;
+/** Inverse-cursor character the editor shows on the empty edit line once ready. */
+const EDIT_CURSOR = 0xb0;
 
 /**
  * The Sinclair ZX80: Z80 + 4K ROM + RAM + the minimal hardware the unmodified
@@ -37,6 +46,8 @@ export class Zx80Machine implements MachineEmulator {
   private speed = 1;
   private imageData: ImageData | null = null;
   private disposed = false;
+  /** `.O` image waiting to be injected when the ROM reaches its LOAD loop. */
+  private pendingImage: Uint8Array | null = null;
 
   constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
     this.memory = new Zx80Memory(opts.rom, opts.ramKb);
@@ -73,6 +84,19 @@ export class Zx80Machine implements MachineEmulator {
     const budget = TSTATES_PER_FRAME * this.speed;
     let cycles = 0;
     while (cycles < budget) {
+      // Flash-load trap: when LOAD sits in its tape leader-detection loop,
+      // drop the queued .O image into RAM at 0x4000 and continue at the same
+      // place a real tape LOAD hands control back (0x0283) — which rebuilds
+      // the edit line and display file from the loaded system variables.
+      if (this.pendingImage && this.cpu.getPC() === ROM_LOAD_TRAP) {
+        const image = this.pendingImage;
+        this.pendingImage = null;
+        for (let i = 0; i < image.length; i++) {
+          this.memory.write(SYSVARS_BASE + i, image[i]!);
+        }
+        this.keyboard.releaseAll();
+        this.cpu.setPC(ROM_POST_LOAD);
+      }
       let t: number;
       if (this.cpu.isHalted()) {
         const r = this.cpu.getR();
@@ -92,14 +116,51 @@ export class Zx80Machine implements MachineEmulator {
     }
   }
 
-  loadProgram(_image: Uint8Array): void {
-    // FOUNDATION ONLY: this machine boots the real ZX80 ROM and renders its
-    // display, but program injection is not yet wired. Unlike the ZX81 — which
-    // has a documented tape-LOAD trap and inline floating-point literals — the
-    // ZX80's load/run entry points and its software-timed keyboard editor still
-    // need mapping against a ROM disassembly before a .O image can be injected
-    // and auto-run. Tracked in docs/dialect-roadmap.md.
-    void _image;
+  /**
+   * Run whole frames until the ROM has booted to the empty edit cursor, then a
+   * few more so the keyboard scan is live — the cursor appears ~15 frames in
+   * but the editor does not capture keystrokes reliably until a little later.
+   */
+  private bootToReady(): void {
+    for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
+      this.runFrame();
+      if (
+        frame >= 10 &&
+        this.memory.read(this.memory.readWord(E_LINE)) === EDIT_CURSOR
+      ) {
+        for (let settle = 0; settle < 40; settle++) this.runFrame();
+        return;
+      }
+    }
+    throw new Error('ZX80 ROM did not boot — emulator bug');
+  }
+
+  /** Hold a key chord for a few frames, then release it. */
+  private tapKeys(codes: string[]): void {
+    for (const c of codes) this.keyboard.setKey(c, true);
+    for (let i = 0; i < 6; i++) this.runFrame();
+    for (const c of codes) this.keyboard.setKey(c, false);
+    for (let i = 0; i < 8; i++) this.runFrame();
+  }
+
+  loadProgram(image: Uint8Array): void {
+    this.reset();
+    this.bootToReady();
+    // Queue the image, then type LOAD + NEW LINE. When the ROM reaches its
+    // tape leader-detection loop the trap in runFrame() injects the image —
+    // the authentic load path, the same one a real cassette would drive.
+    this.pendingImage = image;
+    this.tapKeys(['KeyW']); // LOAD (keyword key in K mode)
+    this.tapKeys(['Enter']);
+    for (let i = 0; i < 200 && this.pendingImage; i++) this.runFrame();
+    if (this.pendingImage) {
+      this.pendingImage = null;
+      throw new Error('ZX80 ROM never reached the LOAD trap');
+    }
+    // The ZX80 (unlike the ZX81) does not auto-run a freshly loaded program,
+    // so type RUN + NEW LINE to start it — the same thing a user would do.
+    this.tapKeys(['KeyR']); // RUN
+    this.tapKeys(['Enter']);
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
