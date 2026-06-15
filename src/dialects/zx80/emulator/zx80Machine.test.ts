@@ -4,19 +4,42 @@ import path from 'node:path';
 import { Zx80Machine } from './zx80Machine';
 import { renderDisplay } from './display';
 import { VARS, E_LINE, D_FILE } from '../sysvars';
+import { tokenizeProgram } from '../tokenizer';
+import { buildOFile } from '../ofile';
+
+/** Read the first non-empty display-file row back as plain ASCII text. */
+function firstTextRow(machine: Zx80Machine): string {
+  const dFile = machine.mem.readWord(D_FILE);
+  let addr = dFile;
+  for (let row = 0; row < 24; row++) {
+    let text = '';
+    for (let col = 0; col < 32; col++) {
+      const b = machine.mem.read(addr++);
+      if (b === 0x76) break;
+      const c = b & 0x7f;
+      if (c >= 0x1c && c <= 0x25) text += String.fromCharCode(48 + (c - 0x1c));
+      else if (c >= 0x26 && c <= 0x3f)
+        text += String.fromCharCode(65 + (c - 0x26));
+      else if (c !== 0) text += '?';
+      else text += ' ';
+    }
+    if (text.trim() !== '') return text.trim();
+  }
+  return '';
+}
 
 const ROM = new Uint8Array(
   readFileSync(path.resolve(__dirname, '../../../../public/roms/zx80.rom')),
 );
 
 /**
- * Foundation test for the ZX80 machine. The emulator wires the vendored Z80
- * core to the 4K ZX80 ROM with the ZX81-style display trick (minus the NMI
- * generator the ZX80 lacks). This proves the unmodified ROM boots and sets up
- * its system variables; the full BASIC load/run path is still being mapped
- * (see docs/dialect-roadmap.md and Zx80Machine.loadProgram).
+ * Tests for the ZX80 machine. The emulator wires the vendored Z80 core to the
+ * 4K ZX80 ROM with the ZX81-style display trick (minus the NMI generator the
+ * ZX80 lacks). These prove the unmodified ROM boots and sets up its system
+ * variables, and that the full tokenize → buildOFile → loadProgram → run path
+ * produces the program's output on screen.
  */
-describe('Zx80Machine (foundation)', () => {
+describe('Zx80Machine', () => {
   it('rejects a ROM that is not 4K', () => {
     expect(
       () => new Zx80Machine({ rom: new Uint8Array(8192), ramKb: 16 }),
@@ -58,6 +81,17 @@ describe('Zx80Machine (foundation)', () => {
     expect(() =>
       renderDisplay(machine.mem, machine.mem.readWord(D_FILE), pixels),
     ).not.toThrow();
+    machine.dispose();
+  });
+
+  it('loads and auto-runs a program, producing its output', () => {
+    const { bytes, errors } = tokenizeProgram('10 PRINT 6+7');
+    expect(errors).toEqual([]);
+    const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+    machine.loadProgram(buildOFile(bytes));
+    // After LOAD + RUN the program prints 13 to the display file.
+    for (let i = 0; i < 40; i++) machine.runFrame();
+    expect(firstTextRow(machine)).toBe('13');
     machine.dispose();
   });
 });

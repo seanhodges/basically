@@ -48,24 +48,40 @@ independent) rather than poked into the buffer.
 Low-to-medium effort: the CPU is free, the video is simple (character display
 or a straightforward bitmap).
 
-| Status | Machine                    | CPU | BASIC                    | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------ | -------------------------- | --- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅     | Sinclair ZX81              | Z80 | Sinclair BASIC           | `zx81`; the reference Z80 integration (FAST/SLOW, NMI generator)                                                                                                                                                                                                                                                                                                                                                                                           |
-| ✅     | Sinclair ZX Spectrum 48K   | Z80 | Sinclair BASIC           | `zxspectrum`                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| 🔨     | Sinclair ZX80              | Z80 | ZX80 integer BASIC       | `src/dialects/zx80/` — **emulator foundation present**: the 4K ROM is bundled, the machine boots it (memory map, system variables and display rendering reverse-engineered and tested), and the ZX81 keyboard matrix is reused. **Remaining:** the integer-BASIC tokenizer/`.O` format and the program load/run path — the ZX80's load/list entry points and its software-timed keyboard editor need mapping against a ROM disassembly. Not yet registered |
-| ⬜     | ZX Spectrum 128K / +2 / +3 | Z80 | Sinclair BASIC           | Extend `zxspectrum` with memory paging and AY-3-8912 sound                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ⬜     | TRS-80 Model I / III       | Z80 | Microsoft Level II BASIC | Simple monochrome character display; Microsoft BASIC tokenizer                                                                                                                                                                                                                                                                                                                                                                                             |
+| Status | Machine                    | CPU | BASIC                    | Notes                                                                                                                                                                                                                                                                                                                           |
+| ------ | -------------------------- | --- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅     | Sinclair ZX81              | Z80 | Sinclair BASIC           | `zx81`; the reference Z80 integration (FAST/SLOW, NMI generator)                                                                                                                                                                                                                                                                |
+| ✅     | Sinclair ZX Spectrum 48K   | Z80 | Sinclair BASIC           | `zxspectrum`                                                                                                                                                                                                                                                                                                                    |
+| ✅     | Sinclair ZX80              | Z80 | ZX80 integer BASIC       | `src/dialects/zx80/` — registered and runnable: integer-BASIC tokenizer/detokenizer, `.O` image format, the authentic tape-LOAD trap + auto-RUN load path, cassette WAV export and a ZX80 virtual keyboard. **Known gap:** ZX80 functions (RND, PEEK, USR, CHR$, CODE, ABS, STR$, TL$) are not yet tokenized — see detail below |
+| ⬜     | ZX Spectrum 128K / +2 / +3 | Z80 | Sinclair BASIC           | Extend `zxspectrum` with memory paging and AY-3-8912 sound                                                                                                                                                                                                                                                                      |
+| ⬜     | TRS-80 Model I / III       | Z80 | Microsoft Level II BASIC | Simple monochrome character display; Microsoft BASIC tokenizer                                                                                                                                                                                                                                                                  |
 
-**ZX80 progress detail.** The ZX80 is essentially the ZX81 in FAST mode only
-(no NMI generator, no SLOW mode), so its machine wiring is the ZX81's minus the
-NMI path. Confirmed against the real ROM (CRC32 `4c7fc597`): 4K ROM mirrored to
-0x3FFF, character bitmaps at ROM `0x0E00`, and the system-variable pointers
+**ZX80 implementation detail.** The ZX80 is essentially the ZX81 in FAST mode
+only (no NMI generator, no SLOW mode), so its machine wiring is the ZX81's minus
+the NMI path. Confirmed against the real ROM (CRC32 `4c7fc597`): 4K ROM mirrored
+to 0x3FFF, character bitmaps at ROM `0x0E00`, and the system-variable pointers
 `VARS=0x4008`, `E_LINE=0x400A`, `D_FILE=0x400C` (the display file sits at the
-top of memory with no leading NEWLINE, unlike the ZX81). The ROM's keyword
-table was extracted (THEN, TO, NOT, AND, OR, LIST … LET, NEXT, PRINT, NEW, RUN,
-STOP, CONTINUE, IF, GO SUB, LOAD, CLEAR, REM); the command block LIST…CONTINUE
-maps to tokens `0xED…0xFD`, but a handful of tail tokens and the load/run
-trigger still need confirming before the dialect is wired up and registered.
+top of memory with no leading NEWLINE, unlike the ZX81).
+
+The token table was finalised against the ROM's keyword-decode routine at
+`0x05A9` (string table based at `0x00BA`) and verified on the live machine:
+operators **and** separators are single tokens `0xD5`–`0xE5` (so `+` is `0xDD`,
+not a character code as on the ZX81), and the commands run `0xE6`–`0xFE`
+(`PRINT=0xF4`, `RUN=0xF7`, `LOAD=0xFC`, `REM=0xFE`). Lines are stored as
+`u16 BE line number` + body + `0x76` with **no** length field, and integer
+literals are their digit characters only (no NUMBER_MARKER/float).
+
+The load/run path is the authentic one: `loadProgram` boots the ROM, types LOAD
+on the emulated keyboard, traps the tape leader-detection loop at `0x020C` to
+drop the `.O` image into RAM at `0x4000`, and resumes at `0x0283` (where a real
+tape LOAD rebuilds the edit line and display). Because the ZX80 — unlike the
+ZX81 — does not auto-run a loaded program, it then types RUN. An end-to-end test
+loads `10 PRINT 6+7` and asserts `13` appears in the display file.
+
+**Remaining gap:** ZX80 functions (RND, PEEK, USR, CHR$, CODE, ABS, STR$, TL$)
+are recognised by the ROM via a separate name-matching table at `0x0BBA` rather
+than a simple token range, so they are not yet tokenized; the `aiProfile` tells
+the assistant to avoid them. Wiring those up is the natural follow-up.
 
 ## Tier 3 — Reuse the Z80 core, but with complex custom video / sound
 
