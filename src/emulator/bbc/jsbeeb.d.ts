@@ -14,8 +14,11 @@ declare module 'jsbeeb/src/models.js' {
     isMaster: boolean;
     isAtom: boolean;
   }
-  /** Resolve a model by name/synonym, e.g. 'B' = "BBC B with 8271 (DFS 0.9)". */
-  export function findModel(name: string): Model;
+  /**
+   * Resolve a model by name/synonym, e.g. 'B' = "BBC B with 8271 (DFS 0.9)"
+   * or 'Master' = "BBC Master 128 (DFS)". Returns null for an unknown name.
+   */
+  export function findModel(name: string): Model | null;
   /** Hidden Master used by the in-ROM BASIC tokenizer (loads master/mos3.20). */
   export const basicOnly: Model;
 }

@@ -8,6 +8,10 @@ now held by Amstrad plc (acquired by Sky in 2007).
 copyright © 1982 Sinclair Research Ltd / Nine Tiles Networks Ltd, with rights
 now held by Amstrad plc (CRC32 ddee531f — the standard 48K image).
 
+`zx80.rom` is the 4K Sinclair ZX80 BASIC ROM, copyright © 1980 Nine Tiles
+Networks Ltd / Sinclair Research Ltd, with rights now held by Amstrad plc
+(CRC32 4c7fc597 — the standard ZX80 image).
+
 Amstrad has long granted permission for the distribution of Sinclair ROM
 images for use with emulators, provided the copyright notice remains intact
 and no fee is charged for the ROM itself. This is the same basis on which

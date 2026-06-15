@@ -15,12 +15,22 @@ export const BBC_DISPLAY_HEIGHT = 600;
 
 const CPU_HZ = 2_000_000;
 const CYCLES_PER_FRAME = CPU_HZ / 50;
-/** Cycles from hard reset to the BASIC prompt (bbcmicrobot-proven value). */
-const BOOT_CYCLES = 725_000;
+/**
+ * Cycles from hard reset to the point the OS has set PAGE and is ready for a
+ * program. The Model B value is bbcmicrobot-proven; the Master's longer MOS
+ * 3.20 power-on (RAM test, configuration) only sets PAGE at ~1.45M cycles, so
+ * it gets a larger budget with headroom.
+ */
+const BOOT_CYCLES_B = 725_000;
+const BOOT_CYCLES_MASTER = 1_750_000;
 
-/** OS 1.20 keyboard buffer: page-3 offset pointer at 0x2E1, wraps to 0xE0. */
-const KBD_BUFFER_BASE = 0x300;
-const KBD_BUFFER_INSERT_PTR = 0x2e1;
+// Auto-RUN is typed through the key matrix rather than poked into the OS
+// keyboard buffer, whose page-2 pointers differ between OS 1.20 (Model B) and
+// MOS 3.20 (Master). Each key is held across several 100Hz keyboard scans so
+// the OS reliably registers it, then released — both spans stay well under the
+// ~32cs auto-repeat delay, so each key registers exactly once on both models.
+const KEY_DOWN_CYCLES = 80_000;
+const KEY_UP_CYCLES = 40_000;
 
 // In the browser, jsbeeb fetches 'roms/…' relative to this base; the images
 // are committed under public/roms/ in the layout jsbeeb expects.
@@ -34,14 +44,17 @@ export function configureNodeRomPath(jsbeebRoot: string): void {
 }
 
 /**
- * The BBC Micro Model B, wrapped around the jsbeeb emulator
- * (https://github.com/mattgodbolt/jsbeeb, GPL-3.0-or-later).
+ * An Acorn machine wrapped around the jsbeeb emulator
+ * (https://github.com/mattgodbolt/jsbeeb, GPL-3.0-or-later). The jsbeeb model
+ * is selected by name ('B' = BBC Micro Model B, 'Master' = BBC Master) —
+ * any model `findModel` resolves and whose ROMs are present under public/roms/.
  *
  * Unlike the in-tree Z80 machines this adapter delegates all hardware
  * emulation — 6502, video ULA + CRTC + SAA5050 teletext, VIAs, keyboard — to
  * jsbeeb and only maps its API onto the MachineEmulator contract. The dialect
  * tokenizes BASIC to the genuine BASIC II byte layout (see
- * src/dialects/bbcmicro/tokenizer.ts), so loading is simply: poke the image at
+ * src/dialects/bbcmicro/tokenizer.ts) — BASIC IV on the Master uses the same
+ * token bytes for shared keywords — so loading is simply: poke the image at
  * PAGE, fix up TOP/VARTOP, then type RUN into the OS keyboard buffer.
  */
 export class BbcMachine implements MachineEmulator {
@@ -49,6 +62,7 @@ export class BbcMachine implements MachineEmulator {
   readonly displayHeight = BBC_DISPLAY_HEIGHT;
 
   private readonly cpu: Cpu6502;
+  private readonly bootCycles: number;
   private readonly hostKeyboard: BbcHostKeyboard;
   private readonly fb8 = new Uint8Array(FB_WIDTH * FB_HEIGHT * 4);
   /** Snapshot of the last complete frame, copied at paint time. */
@@ -66,8 +80,13 @@ export class BbcMachine implements MachineEmulator {
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
 
-  constructor() {
-    const model = findModel('B');
+  /**
+   * @param modelName jsbeeb model name/synonym, e.g. 'B' (default) or 'Master'.
+   */
+  constructor(modelName = 'B') {
+    const model = findModel(modelName);
+    if (!model) throw new Error(`Unknown jsbeeb model: ${modelName}`);
+    this.bootCycles = model.isMaster ? BOOT_CYCLES_MASTER : BOOT_CYCLES_B;
     const fb32 = new Uint32Array(this.fb8.buffer);
     const video = new Video(model.isMaster, fb32, (minx, miny, maxx, maxy) => {
       this.lastPaint = { minx, miny, maxx, maxy };
@@ -124,7 +143,7 @@ export class BbcMachine implements MachineEmulator {
         try {
           this.cpu.sysvia.clearKeys();
           this.cpu.reset(true);
-          this.cpu.execute(BOOT_CYCLES);
+          this.cpu.execute(this.bootCycles);
           const page = this.cpu.readmem(0x18) << 8;
           if (page === 0) throw new Error('BBC OS did not boot to BASIC');
           for (let i = 0; i < image.length; i++) {
@@ -136,7 +155,7 @@ export class BbcMachine implements MachineEmulator {
           this.cpu.writemem(0x03, (end >>> 8) & 0xff);
           this.cpu.writemem(0x12, end & 0xff);
           this.cpu.writemem(0x13, (end >>> 8) & 0xff);
-          this.typeIntoOsBuffer('RUN\r');
+          this.typeViaMatrix('RUN\r');
         } finally {
           this.injecting = false;
         }
@@ -149,15 +168,21 @@ export class BbcMachine implements MachineEmulator {
     })();
   }
 
-  /** Write keystrokes straight into the OS 1.20 keyboard buffer. */
-  private typeIntoOsBuffer(text: string): void {
-    let ptr = this.cpu.readmem(KBD_BUFFER_INSERT_PTR);
-    for (let i = 0; i < text.length; i++) {
-      this.cpu.writemem(KBD_BUFFER_BASE + ptr, text.charCodeAt(i));
-      ptr++;
-      if (ptr > 0xff) ptr = 0xe0;
+  /**
+   * Type a short command by driving the key matrix, pressing and releasing one
+   * key at a time with the CPU running in between so the OS keyboard scan picks
+   * each up. Used to auto-RUN a freshly loaded program; '\r' is Enter.
+   */
+  private typeViaMatrix(text: string): void {
+    for (const ch of text) {
+      const token = ch === '\r' ? 'Enter' : `Key${ch.toUpperCase()}`;
+      const pos = matrixForToken(token);
+      if (!pos) continue;
+      this.cpu.sysvia.keyDownRaw(pos);
+      this.cpu.execute(KEY_DOWN_CYCLES);
+      this.cpu.sysvia.keyUpRaw(pos);
+      this.cpu.execute(KEY_UP_CYCLES);
     }
-    this.cpu.writemem(KBD_BUFFER_INSERT_PTR, ptr);
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
