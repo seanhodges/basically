@@ -46,7 +46,7 @@ export function configureNodeRomPath(jsbeebRoot: string): void {
 /**
  * An Acorn machine wrapped around the jsbeeb emulator
  * (https://github.com/mattgodbolt/jsbeeb, GPL-3.0-or-later). The jsbeeb model
- * is selected by name ('B' = BBC Micro Model B, 'Master' = BBC Master 128) —
+ * is selected by name ('B' = BBC Micro Model B, 'Master' = BBC Master) —
  * any model `findModel` resolves and whose ROMs are present under public/roms/.
  *
  * Unlike the in-tree Z80 machines this adapter delegates all hardware

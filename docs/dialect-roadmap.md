@@ -16,7 +16,7 @@ are the limiting factor, so they define the tiers:
    wiring, and video.
 2. **jsbeeb** (`jsbeeb@1.13.1`, GPL-3.0) — a full 6502 + Acorn hardware
    emulator. Powers the BBC Micro Model B. Its `findModel()` also resolves the
-   **BBC Master 128** and the **Acorn Atom**; it does **not** include the Acorn
+   **BBC Master** and the **Acorn Atom**; it does **not** include the Acorn
    Electron in this pinned version.
 
 **Status legend:** ✅ shipped · 🔨 in progress · ⬜ planned · ⛔ blocked / needs a
@@ -32,7 +32,7 @@ tokenizer/charset and pointing `BbcMachine` at a different `findModel()` name.
 | Status | Machine           | CPU   | BASIC        | Notes                                                                                                                                              |
 | ------ | ----------------- | ----- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ✅     | BBC Micro Model B | 6502  | BBC BASIC II | `bbcmicro`; reference jsbeeb integration                                                                                                           |
-| ✅     | BBC Master 128    | 65C12 | BBC BASIC IV | `bbcmaster`; reuses the whole BBC language layer (BASIC IV shares BASIC II's tokens) — only the jsbeeb model differs. MOS 3.20 ROM already bundled |
+| ✅     | BBC Master        | 65C12 | BBC BASIC IV | `bbcmaster`; reuses the whole BBC language layer (BASIC IV shares BASIC II's tokens) — only the jsbeeb model differs. MOS 3.20 ROM already bundled |
 | ⬜     | Acorn Atom        | 6502  | Atom BASIC   | jsbeeb-supported (`findModel('Atom')`), but needs the Atom ROM set added and a genuinely new BASIC dialect (different tokenizer/charset/keywords)  |
 | ⛔     | Acorn Electron    | 6502  | BBC BASIC II | Not in jsbeeb 1.13.1. Would need a jsbeeb bump (newer jsbeeb gained Electron support) or a different core                                          |
 

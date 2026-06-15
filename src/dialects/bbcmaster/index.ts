@@ -21,7 +21,7 @@ import {
 } from '../../emulator/bbc/bbcMachine';
 
 /**
- * BBC Master 128 dialect.
+ * BBC Master dialect.
  *
  * Reuses the BBC Micro dialect's BASIC II tokenizer (BASIC IV keeps the same
  * token bytes for the shared keyword set) and delegates hardware emulation to
@@ -30,7 +30,7 @@ import {
  */
 export const bbcmaster: Dialect = {
   id: 'bbcmaster',
-  name: 'BBC Master 128',
+  name: 'BBC Master',
   fileExtensions: ['.bas'],
   keywords: bbcKeywords,
   charset: bbcCharset,
