@@ -6,12 +6,8 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useIdeStore } from '../app/store';
-import { useMediaQuery, HAS_TOUCH, MOBILE_QUERY } from '../app/useMediaQuery';
-import {
-  computeIntegerScale,
-  SCREEN_WIDTH,
-  SCREEN_HEIGHT,
-} from '../app/screenScale';
+import { HAS_TOUCH } from '../app/useMediaQuery';
+import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
 import { VariableWatcher } from './VariableWatcher';
 import styles from './EmulatorPane.module.css';
@@ -77,9 +73,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
   };
-  // Classic small displays render at 2× on desktop; large framebuffers at 1×.
-  const desktopCssWidth = display.width * (display.width <= 480 ? 2 : 1);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const watcherHostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -89,7 +82,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const [error, setError] = useState('');
   const [focused, setFocused] = useState(false);
   const [scale, setScale] = useState(1);
-  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   const stopLoop = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -228,12 +220,12 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     if (virtualKeyboard) setVariableWatcher(false);
   }, [virtualKeyboard, setVariableWatcher]);
 
-  // Fit-to-pane scaling. When the keyboard overlay is up it caps the screen to
-  // the top 54% (the keyboard owns the bottom 46%) and scales fractionally; on
-  // mobile without the keyboard it's integer-perfect. Fires on rotation,
-  // address-bar collapse, and when the Preview tab becomes visible again.
+  // Fit-to-pane scaling. The screen is top-aligned and always scales
+  // fractionally to fill the available width, retaining aspect ratio and never
+  // overflowing the height budget. With the keyboard overlay up that budget is
+  // capped to the top 54% (the keyboard owns the bottom 46%). Fires on resize,
+  // rotation, address-bar collapse, and when the Preview tab becomes visible.
   useEffect(() => {
-    if (!isMobile && !virtualKeyboard) return;
     const container = containerRef.current;
     if (!container) return;
     const update = () => {
@@ -250,29 +242,12 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         heightBudget -
         2 * (MOBILE_BEZEL + MOBILE_PANE_PAD) -
         (panelHeight > 0 ? panelHeight + 10 : 0);
-      let next: number;
-      if (virtualKeyboard) {
-        // Fractional scale: fill the available 54% region, retaining aspect.
-        next =
-          availWidth > 0 && availHeight > 0
-            ? Math.min(availWidth / display.width, availHeight / display.height)
-            : 1;
-      } else {
-        next = computeIntegerScale(
-          availWidth,
-          availHeight,
-          display.width,
-          display.height,
-        );
-        // Displays too large for even 1× (e.g. the BBC's 896×600) shrink
-        // fractionally instead of overflowing the pane.
-        if (display.width * next > availWidth && availWidth > 0) {
-          next = Math.min(
-            availWidth / display.width,
-            availHeight / display.height,
-          );
-        }
-      }
+      // Fill the available width; clamp to the height budget so wide/short
+      // panes stay height-limited. Aspect ratio preserved by the min().
+      const next =
+        availWidth > 0 && availHeight > 0
+          ? Math.min(availWidth / display.width, availHeight / display.height)
+          : 1;
       setScale(next);
     };
     update();
@@ -280,13 +255,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     observer.observe(container);
     if (watcherHostRef.current) observer.observe(watcherHostRef.current);
     return () => observer.disconnect();
-  }, [
-    isMobile,
-    virtualKeyboard,
-    variableWatcher,
-    display.width,
-    display.height,
-  ]);
+  }, [virtualKeyboard, variableWatcher, display.width, display.height]);
 
   const getMachine = useCallback(() => machineRef.current, []);
   const registerFrameHook = useCallback((cb: (() => void) | null) => {
@@ -332,14 +301,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           width={display.width}
           height={display.height}
           className={styles.emulatorScreen}
-          style={
-            isMobile || virtualKeyboard
-              ? {
-                  width: display.width * scale,
-                  height: display.height * scale,
-                }
-              : { width: desktopCssWidth }
-          }
+          style={{
+            width: display.width * scale,
+            height: display.height * scale,
+          }}
           tabIndex={0}
           onKeyDown={(e) => handleKey(e, true)}
           onKeyUp={(e) => handleKey(e, false)}

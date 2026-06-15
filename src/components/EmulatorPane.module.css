@@ -3,19 +3,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
   padding: 14px;
   background: var(--bg-panel);
   overflow: auto;
 }
 
-/* Tablet landscape: pin the screen to the top so the bottom-46% keyboard
-   overlay can never cover it. The JS fit caps the canvas to 54% height. */
-.emulatorPane.overlay {
-  justify-content: flex-start;
-}
-
+/* Tablet landscape: the bottom-46% keyboard overlay must never cover the
+   screen. The JS fit caps the canvas to 54% height; this is the CSS backstop. */
 .emulatorPane.overlay .screenShell {
   max-height: 54%;
 }
