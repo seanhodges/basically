@@ -99,6 +99,12 @@ describe('zx80 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('KeyC')!, 'shift')).toEqual({
       insert: '?',
     });
+    expect(resolveEditorAction(layout, byId.get('KeyY')!, 'shift')).toEqual({
+      insert: '"',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyU')!, 'shift')).toEqual({
+      insert: '$',
+    });
     expect(resolveEditorAction(layout, byId.get('Space')!, 'shift')).toEqual({
       insert: '£',
     });
