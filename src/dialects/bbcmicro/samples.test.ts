@@ -50,8 +50,8 @@ describe('bbcmicro sample programs', () => {
   it('matches the canonical sample set shared with the other dialects', () => {
     expect(bbcSamples.map((s) => s.name)).toEqual([
       'hello.bas',
-      'breakout.bas',
       'circles.bas',
+      'breakout.bas',
       'maze.bas',
     ]);
   });

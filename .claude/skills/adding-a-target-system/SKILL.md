@@ -114,24 +114,25 @@ satisfies and the zx81 file to mirror.
 
 10. **`samples.ts`** — a `SampleFile[]` (`name`, `title`, `text`) of example
     programs **in this dialect's own BASIC**, imported as raw `.bas` files under
-    `samples/`. Mirror `zxspectrum/samples.ts`. **Every dialect ships the same
-    canonical five samples, in this order** — port each to the new machine's BASIC
+    `samples/`. Mirror `zxspectrum/samples.ts`. **The canonical sample set, in
+    this order**, is the table below — port each to the new machine's BASIC
     (match the _behaviour_, not a byte-for-byte copy; use whatever input, colour,
-    and graphics idioms the machine actually supports). The **first entry
-    (`hello`) is the starter** shown for a fresh document and swapped in when the
-    user selects this machine.
+    and graphics idioms the machine actually supports). **Degrade gracefully**: if
+    the machine can't reasonably support one, omit it but keep the rest in the same
+    relative order (e.g. the ZX80, with no usable graphics, ships only `hello` and
+    `circles`). The **first entry (`hello`) is the starter** shown for a fresh
+    document and swapped in when the user selects this machine.
 
-    | `name`         | `title`       | What it does                                                                                    |
-    | -------------- | ------------- | ----------------------------------------------------------------------------------------------- |
-    | `hello.bas`    | `Hello world` | Starter. Prints a greeting; show off the machine's text colour / display.                       |
-    | `breakout.bas` | `Breakout`    | Bat-and-ball: a paddle the player moves left/right bounces a ball; score on hits, lose on miss. |
-    | `dodger.bas`   | `Dodger`      | Player moves left/right to dodge falling blocks; score per block survived, end on collision.    |
-    | `circles.bas`  | `Circles`     | A graphics demo drawing concentric circles, showcasing the machine's colour graphics.           |
-    | `maze.bas`     | `Maze`        | A fixed wall map (string array); move a marker with the cursor keys to reach the exit.          |
+    | `name`         | `title`       | What it does                                                                                                                                                                 |
+    | -------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+    | `hello.bas`    | `Hello world` | Starter. Prints a greeting; show off the machine's text colour / display.                                                                                                    |
+    | `circles.bas`  | `Circles`     | A graphics demo drawing concentric circles, showcasing the machine's colour graphics.                                                                                        |
+    | `breakout.bas` | `Breakout`    | Bat-and-ball: a paddle the player moves left/right bounces a ball off a wall of blocks, destroying each block it hits and scoring; lose when the ball drops past the paddle. |
+    | `maze.bas`     | `Maze`        | A fixed wall map (string array); move a marker with the cursor keys to reach the exit.                                                                                       |
 
     Compare the existing `zx81/`, `zxspectrum/`, and `bbcmicro/` sample folders to
-    see the same five expressed three ways (ZX81/Spectrum use block-graphic text;
-    BBC uses pixel graphics for the games and teletext for the maze). Don't point a
+    see the same set expressed three ways (ZX81/Spectrum use block-graphic text;
+    BBC uses pixel graphics for breakout and teletext for the maze). Don't point a
     new dialect at another machine's `.bas` programs — they won't run.
 
 11. **`index.ts`** — assemble and export the `Dialect` object from all the pieces
