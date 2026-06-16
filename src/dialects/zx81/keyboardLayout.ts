@@ -5,6 +5,7 @@ import type {
   KeyLabel,
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
+import { QUAD, chequer, glyph } from '../../keyboard/sinclairGlyphs';
 
 /**
  * The authentic ZX81 membrane keyboard as virtual-keyboard layout data.
@@ -23,36 +24,8 @@ import type {
 
 // ---------------------------------------------------------------------------
 // Block-graphics glyphs. 16×16 viewBox, 2×2 quadrants of 8px; grey areas are
-// a 2px chequerboard. Rendered with fill: currentColor.
-
-const QUAD = {
-  tl: 'M0 0H8V8H0Z',
-  tr: 'M8 0H16V8H8Z',
-  bl: 'M0 8H8V16H0Z',
-  br: 'M8 8H16V16H8Z',
-};
-
-/** 2px chequerboard covering the given area; phase flips which cells fill. */
-function chequer(
-  x0: number,
-  y0: number,
-  w: number,
-  h: number,
-  phase = 0,
-): string {
-  const cells: string[] = [];
-  for (let y = 0; y < h / 2; y++) {
-    for (let x = 0; x < w / 2; x++) {
-      if ((x + y + phase) % 2 === 0)
-        cells.push(`M${x0 + x * 2} ${y0 + y * 2}h2v2h-2Z`);
-    }
-  }
-  return cells.join('');
-}
-
-function glyph(...ds: string[]): { viewBox: string; paths: { d: string }[] } {
-  return { viewBox: '0 0 16 16', paths: ds.map((d) => ({ d })) };
-}
+// a 2px chequerboard. Rendered with fill: currentColor. The QUAD/chequer/glyph
+// builders are shared with the ZX80 (see ../../keyboard/sinclairGlyphs).
 
 const zx81Glyphs: GlyphRegistry = {
   quadTL: glyph(QUAD.tl),
