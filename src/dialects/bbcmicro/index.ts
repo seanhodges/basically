@@ -3,7 +3,11 @@ import { bbcCharset } from './charset';
 import { bbcKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
-import { bbcBuildTargets } from './targets';
+import {
+  bbcBuildTargets,
+  buildCassetteSamples,
+  CASSETTE_SAMPLE_RATE,
+} from './targets';
 import { bbcLanguageSupport, bbcCompletionSource } from './language';
 import { bbcAiProfile } from './aiProfile';
 import { bbcKeyboardLayout } from './keyboardLayout';
@@ -67,6 +71,14 @@ export const bbcmicro: Dialect = {
   buildTargets: bbcBuildTargets,
 
   binaryImport: { extension: '.bbc', label: 'Import .BBC…' },
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the BBC type *TAPE then CHAIN "" and press RETURN before starting playback.',
+  },
 
   aiProfile: bbcAiProfile,
 };

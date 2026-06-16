@@ -9,7 +9,11 @@ import { bbcCharset } from '../bbcmicro/charset';
 import { bbcKeywords } from '../bbcmicro/keywords';
 import { tokenizeProgram } from '../bbcmicro/tokenizer';
 import { detokenizeProgram } from '../bbcmicro/detokenizer';
-import { bbcBuildTargets } from '../bbcmicro/targets';
+import {
+  bbcBuildTargets,
+  buildCassetteSamples,
+  CASSETTE_SAMPLE_RATE,
+} from '../bbcmicro/targets';
 import { bbcLanguageSupport, bbcCompletionSource } from '../bbcmicro/language';
 import { bbcKeyboardLayout } from '../bbcmicro/keyboardLayout';
 import { bbcSamples } from '../bbcmicro/samples';
@@ -71,6 +75,14 @@ export const bbcmaster: Dialect = {
   buildTargets: bbcBuildTargets,
 
   binaryImport: { extension: '.bbc', label: 'Import .BBC…' },
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the BBC Master type *TAPE then CHAIN "" and press RETURN before starting playback.',
+  },
 
   aiProfile: bbcMasterAiProfile,
 };

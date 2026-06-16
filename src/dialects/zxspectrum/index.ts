@@ -6,7 +6,11 @@ import { detokenizeProgram } from './detokenizer';
 import { buildTap, parseTap } from './tapfile';
 import { spectrumLanguageSupport, spectrumCompletionSource } from './language';
 import { spectrumAiProfile } from './aiProfile';
-import { spectrumBuildTargets } from './targets';
+import {
+  spectrumBuildTargets,
+  buildCassetteSamples,
+  CASSETTE_SAMPLE_RATE,
+} from './targets';
 import { SpectrumMachine } from './emulator/spectrumMachine';
 import { spectrumKeyboardLayout } from './keyboardLayout';
 import { spectrumSamples } from './samples';
@@ -50,6 +54,14 @@ export const zxspectrum: Dialect = {
   buildTargets: spectrumBuildTargets,
 
   binaryImport: { extension: '.tap', label: 'Import .TAP…' },
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the Spectrum type LOAD "" — press J for LOAD, then symbol-shift-P twice for the quotes — and press ENTER before starting playback.',
+  },
 
   aiProfile: spectrumAiProfile,
 };
