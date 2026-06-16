@@ -87,8 +87,8 @@ describe('bbcmicro sample programs', () => {
     const { bytes } = tokenizeProgram(maze.text);
     const machine = new BbcMachine();
     machine.loadProgram(bytes);
-    // The maze prints a 9-row wall map, then the "REACH E TO WIN" prompt on the
-    // line below it — so the prompt only appears once every wall row is drawn.
+    // The maze prints a full 21-row wall map, then the "REACH E TO WIN" prompt
+    // below it — so the prompt only appears once every wall row is drawn.
     const drawn = await runUntil(machine, () =>
       screenText(machine).includes('REACH E TO WIN'),
     );

@@ -39,7 +39,7 @@ describe('zxspectrum sample programs', () => {
     const machine = new SpectrumMachine({ rom });
     machine.loadProgram(buildTap(bytes));
     for (let i = 0; i < 200; i++) machine.runFrame();
-    // The maze prints 9x14 cells with INK 4 on PAPER 0 (attribute 0x04).
+    // The maze prints a full 31x19 wall map with INK 4 on PAPER 0 (attr 0x04).
     let mazeCells = 0;
     for (let a = 0x5800; a < 0x5b00; a++) {
       if (machine.mem.read(a) === 0x04) mazeCells++;
