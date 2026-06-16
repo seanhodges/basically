@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Zx80Machine } from './zx80Machine';
 import { renderDisplay } from './display';
-import { VARS, E_LINE, D_FILE } from '../sysvars';
+import { VARS, E_LINE, D_FILE, DF_END } from '../sysvars';
+import { Zx80Memory } from './memory';
+import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
+import { NEWLINE } from '../charset';
 import { tokenizeProgram } from '../tokenizer';
 import { buildOFile } from '../ofile';
 
@@ -102,7 +105,12 @@ describe('Zx80Machine', () => {
     );
     // Render directly via the exported helper to avoid a DOM canvas in node.
     expect(() =>
-      renderDisplay(machine.mem, machine.mem.readWord(D_FILE), pixels),
+      renderDisplay(
+        machine.mem,
+        machine.mem.readWord(D_FILE),
+        machine.mem.readWord(DF_END),
+        pixels,
+      ),
     ).not.toThrow();
     machine.dispose();
   });
@@ -131,4 +139,74 @@ describe('Zx80Machine', () => {
     expect(displayContains(machine, [0x2d, 0x2a, 0x31, 0x31, 0x34])).toBe(true);
     machine.dispose();
   });
+
+  it('stops rendering at DF_END instead of overrunning the display file', () => {
+    // Regression: the ZX80 display file is collapsed and ends at DF_END. The
+    // renderer used to draw a fixed 24 rows, spilling the program/edit area
+    // above the display file onto the screen as garbage (a stray source
+    // listing). It must stop at DF_END and leave later rows blank.
+    const memory = new Zx80Memory(ROM, 16);
+    const dfile = 0x4400;
+    let a = dfile;
+    // Two content rows: 'H'+NEWLINE, 'E'+NEWLINE.
+    for (const b of [0x2d, NEWLINE, 0x2a, NEWLINE]) memory.write(a++, b);
+    const dfEnd = a;
+    // "Garbage" sitting immediately past DF_END that must NOT be drawn.
+    for (const b of [0x3f, 0x3f, 0x3f, NEWLINE]) memory.write(a++, b);
+
+    const pixels = new Uint8ClampedArray(DISPLAY_WIDTH * DISPLAY_HEIGHT * 4);
+    renderDisplay(memory, dfile, dfEnd, pixels);
+
+    expect(rowHasInk(pixels, 0)).toBe(true); // 'H'
+    expect(rowHasInk(pixels, 1)).toBe(true); // 'E'
+    expect(rowHasInk(pixels, 2)).toBe(false); // garbage past DF_END: blank
+  });
+
+  it('renders a looping PRINT program without garbage below its output', () => {
+    // Full path: the hello sample prints 5 lines + a banner, then idles in a
+    // delay loop (FOR J...NEXT J). During that idle the only on-screen content
+    // is rows 0-7; everything below must stay blank (no source-listing spill).
+    const src = [
+      '10 REM HELLO',
+      '20 CLS',
+      '30 FOR I=1 TO 5',
+      '40 PRINT "HELLO FROM THE ZX80"',
+      '50 NEXT I',
+      '60 PRINT',
+      '70 PRINT "B A S I C A L L Y"',
+      '80 FOR J=1 TO 2000',
+      '90 NEXT J',
+      '100 GOTO 20',
+    ].join('\n');
+    const { bytes, errors } = tokenizeProgram(src);
+    expect(errors).toEqual([]);
+    const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+    machine.loadProgram(buildOFile(bytes));
+    for (let i = 0; i < 60; i++) machine.runFrame();
+
+    const pixels = new Uint8ClampedArray(DISPLAY_WIDTH * DISPLAY_HEIGHT * 4);
+    renderDisplay(
+      machine.mem,
+      machine.mem.readWord(D_FILE),
+      machine.mem.readWord(DF_END),
+      pixels,
+    );
+    // Output occupies the top 8 character rows; the rest of the screen is blank.
+    expect(rowHasInk(pixels, 1)).toBe(true); // a "HELLO" line
+    for (let row = 8; row < 24; row++) {
+      expect(rowHasInk(pixels, row)).toBe(false);
+    }
+    machine.dispose();
+  });
 });
+
+/** True if any pixel in character row `row` (8px tall) is darker than white. */
+function rowHasInk(pixels: Uint8ClampedArray, row: number): boolean {
+  const y0 = row * 8;
+  for (let y = y0; y < y0 + 8; y++) {
+    for (let x = 0; x < DISPLAY_WIDTH; x++) {
+      if (pixels[(y * DISPLAY_WIDTH + x) * 4] < 0x80) return true;
+    }
+  }
+  return false;
+}

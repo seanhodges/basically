@@ -11,24 +11,35 @@ const CHARSET_ROM_OFFSET = 0x0e00;
  *
  * Like the ZX81 the D_FILE is a sequence of NEWLINE-terminated rows, and the
  * glyph bitmaps come from the 4K ROM at 0x0E00. Unlike the ZX81 the ZX80
- * D_FILE has no leading NEWLINE — it points straight at the first of 24 rows.
- * This is a frame snapshot, faithful for BASIC programs without cycle-exact
- * video.
+ * D_FILE has no leading NEWLINE — it points straight at the first of up to 24
+ * rows. This is a frame snapshot, faithful for BASIC programs without
+ * cycle-exact video.
+ *
+ * The ZX80 display file is *collapsed*: a blank row is a single NEWLINE rather
+ * than 32 spaces + NEWLINE, and the file ends at DF_END (`dfEnd`) — usually far
+ * short of a full 24×33 buffer. We must stop at that end: reading on would
+ * spill the program/edit/variables area that lives just above the display file
+ * onto the screen as garbage (the source-listing "overrun" symptom).
  */
 export function renderDisplay(
   memory: Zx80Memory,
   dfile: number,
+  dfEnd: number,
   pixels: Uint8ClampedArray,
 ): void {
   pixels.fill(0xff); // white background (and alpha)
 
   if (dfile < 0x4000 || dfile > 0xffff) return;
 
+  // Bound rendering at DF_END when it looks sane; otherwise fall back to the
+  // 24-row cap alone (e.g. before the ROM has set the pointer up at boot).
+  const end = dfEnd > dfile && dfEnd <= 0x10000 ? dfEnd : 0x10000;
+
   let addr = dfile;
 
-  for (let row = 0; row < 24; row++) {
+  for (let row = 0; row < 24 && addr < end; row++) {
     let col = 0;
-    for (;;) {
+    while (addr < end) {
       const c = memory.read(addr);
       addr++;
       if (c === NEWLINE) break;

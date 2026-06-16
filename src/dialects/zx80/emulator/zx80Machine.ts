@@ -8,6 +8,7 @@ import {
   SYSVARS_BASE,
   E_LINE,
   D_FILE,
+  DF_END,
   ROM_LOAD_TRAP,
   ROM_POST_LOAD,
 } from '../sysvars';
@@ -170,6 +171,7 @@ export class Zx80Machine implements MachineEmulator {
     renderDisplay(
       this.memory,
       this.memory.readWord(D_FILE),
+      this.memory.readWord(DF_END),
       this.imageData.data,
     );
     ctx.putImageData(this.imageData, 0, 0);
