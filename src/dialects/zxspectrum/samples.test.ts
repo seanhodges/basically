@@ -24,12 +24,13 @@ describe('zxspectrum sample programs', () => {
     const machine = new SpectrumMachine({ rom });
     machine.loadProgram(buildTap(bytes));
     for (let i = 0; i < 80; i++) machine.runFrame();
-    // The starter sets PAPER 1 (blue); attribute memory should hold paper-1 cells.
-    let blueCells = 0;
+    // The starter prints 21 lines with INK 1-6 on PAPER 0; attribute cells should hold coloured ink.
+    let colouredCells = 0;
     for (let a = 0x5800; a < 0x5b00; a++) {
-      if ((machine.mem.read(a) & 0x38) === 0x08) blueCells++; // paper bits = 1
+      const ink = machine.mem.read(a) & 0x07;
+      if (ink >= 1 && ink <= 6) colouredCells++;
     }
-    expect(blueCells).toBeGreaterThan(100);
+    expect(colouredCells).toBeGreaterThan(100);
   });
 
   it('maze draws its walls in the emulator', () => {
