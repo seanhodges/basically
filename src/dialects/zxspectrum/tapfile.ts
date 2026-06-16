@@ -44,8 +44,8 @@ function blockWithParity(flag: number, payload: Uint8Array): Uint8Array {
   return block;
 }
 
-function encodeBlock(flag: number, payload: Uint8Array): Uint8Array {
-  const block = blockWithParity(flag, payload);
+/** Prepend the `u16 LE length` prefix that frames a block inside a `.TAP`. */
+function withLengthPrefix(block: Uint8Array): Uint8Array {
   const out = new Uint8Array(block.length + 2);
   out[0] = block.length & 0xff;
   out[1] = (block.length >> 8) & 0xff;
@@ -61,10 +61,24 @@ function programName(name: string): Uint8Array {
   return bytes;
 }
 
-export function buildTap(
+/** One tape block: its flag byte and the full block bytes (flag + payload + parity). */
+export interface TapBlock {
+  /** 0x00 for a header block, 0xff for a data block. */
+  flag: number;
+  /** Flag byte, payload and parity byte — the bytes a real tape carries. */
+  bytes: Uint8Array;
+}
+
+/**
+ * The two tape blocks (header then data) for a BASIC program, each as the raw
+ * flag+payload+parity bytes a real tape carries — i.e. the `.TAP` body without
+ * the per-block length prefixes. Shared by {@link buildTap} (which adds the
+ * prefixes) and the cassette-audio encoder.
+ */
+export function tapBlocks(
   programBytes: Uint8Array,
   opts: TapOptions = {},
-): Uint8Array {
+): [TapBlock, TapBlock] {
   const firstLine =
     programBytes.length >= 2 ? (programBytes[0]! << 8) | programBytes[1]! : 0;
   const autoStart = opts.autoStart === undefined ? firstLine : opts.autoStart;
@@ -84,8 +98,19 @@ export function buildTap(
   header[15] = programBytes.length & 0xff;
   header[16] = (programBytes.length >> 8) & 0xff;
 
-  const headerBlock = encodeBlock(0x00, header);
-  const dataBlock = encodeBlock(0xff, data);
+  return [
+    { flag: 0x00, bytes: blockWithParity(0x00, header) },
+    { flag: 0xff, bytes: blockWithParity(0xff, data) },
+  ];
+}
+
+export function buildTap(
+  programBytes: Uint8Array,
+  opts: TapOptions = {},
+): Uint8Array {
+  const [header, data] = tapBlocks(programBytes, opts);
+  const headerBlock = withLengthPrefix(header.bytes);
+  const dataBlock = withLengthPrefix(data.bytes);
   const out = new Uint8Array(headerBlock.length + dataBlock.length);
   out.set(headerBlock, 0);
   out.set(dataBlock, headerBlock.length);

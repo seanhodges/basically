@@ -1,6 +1,10 @@
 import type { BuildTarget } from '../types';
 import { tokenizeProgram } from './tokenizer';
-import { buildTap } from './tapfile';
+import { buildTap, tapBlocks } from './tapfile';
+import { encodeSpectrumTape } from './audio/cassetteEncoder';
+import { samplesToWav } from '../../transfer/wav';
+
+export const CASSETTE_SAMPLE_RATE = 44100;
 
 function buildProgramBytes(source: string): Uint8Array {
   const { bytes, errors } = tokenizeProgram(source);
@@ -23,6 +27,20 @@ export function buildTapImage(
   return buildTap(buildProgramBytes(source), { name: programName });
 }
 
+/** Build the cassette audio samples for a program (used by play + wav). */
+export function buildCassetteSamples(
+  source: string,
+  programName: string,
+  robust = false,
+): Float32Array {
+  const blocks = tapBlocks(buildProgramBytes(source), { name: programName });
+  return encodeSpectrumTape(blocks, {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    pilotScale: robust ? 2 : 1,
+    blockPauseMs: robust ? 2000 : 1000,
+  });
+}
+
 export const spectrumBuildTargets: BuildTarget[] = [
   {
     id: 'tap-file',
@@ -33,6 +51,18 @@ export const spectrumBuildTargets: BuildTarget[] = [
         new Blob([buildTapImage(source, programName) as BlobPart], {
           type: 'application/octet-stream',
         }),
+      ),
+  },
+  {
+    id: 'wav',
+    label: 'Export cassette .wav',
+    fileExtension: 'wav',
+    build: (source, { programName }) =>
+      Promise.resolve(
+        samplesToWav(
+          buildCassetteSamples(source, programName),
+          CASSETTE_SAMPLE_RATE,
+        ),
       ),
   },
 ];
