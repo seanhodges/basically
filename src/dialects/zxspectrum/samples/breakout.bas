@@ -1,11 +1,12 @@
 10 REM BREAKOUT
 20 BORDER 0: PAPER 0: INK 7: CLS
-30 LET x=15: LET bx=15: LET by=5: LET dx=1: LET dy=1: LET s=0
+30 LET x=15: LET bx=15: LET by=5: LET dx=1: LET dy=-1: LET s=0
 40 FOR i=0 TO 31
 50 PRINT AT 1,i; INK 6;"▀"
 60 NEXT i
 70 PRINT AT 20,x; INK 5;"▀▀▀▀"
 80 PRINT AT by,bx; INK 2;"O"
+85 PAUSE 2
 90 LET k$=INKEY$
 100 IF k$="5" AND x>0 THEN LET x=x-2
 110 IF k$="8" AND x<28 THEN LET x=x+2
