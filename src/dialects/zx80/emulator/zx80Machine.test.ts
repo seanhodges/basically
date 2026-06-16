@@ -7,6 +7,29 @@ import { VARS, E_LINE, D_FILE } from '../sysvars';
 import { tokenizeProgram } from '../tokenizer';
 import { buildOFile } from '../ofile';
 
+/** Read the whole display file back as a flat array of character codes. */
+function displayBytes(machine: Zx80Machine): number[] {
+  const dFile = machine.mem.readWord(D_FILE);
+  const out: number[] = [];
+  let addr = dFile;
+  for (let i = 0; i < 24 * 33 + 1 && addr < 0x10000; i++, addr++) {
+    out.push(machine.mem.read(addr));
+  }
+  return out;
+}
+
+/** True if the given run of character codes appears anywhere on screen. */
+function displayContains(machine: Zx80Machine, needle: number[]): boolean {
+  const d = displayBytes(machine);
+  outer: for (let i = 0; i + needle.length <= d.length; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (d[i + j] !== needle[j]) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
 /** Read the first non-empty display-file row back as plain ASCII text. */
 function firstTextRow(machine: Zx80Machine): string {
   const dFile = machine.mem.readWord(D_FILE);
@@ -92,6 +115,20 @@ describe('Zx80Machine', () => {
     // After LOAD + RUN the program prints 13 to the display file.
     for (let i = 0; i < 40; i++) machine.runFrame();
     expect(firstTextRow(machine)).toBe('13');
+    machine.dispose();
+  });
+
+  it('loads and runs a program that PRINTs a quoted string', () => {
+    // Regression: the ZX80 quote is code 0x01, not the ZX81's 0x0B. With the
+    // wrong quote code the ROM mis-parsed the string and filled the screen with
+    // garbage; here the literal must render verbatim.
+    const { bytes, errors } = tokenizeProgram('10 PRINT "HELLO"');
+    expect(errors).toEqual([]);
+    const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+    machine.loadProgram(buildOFile(bytes));
+    for (let i = 0; i < 40; i++) machine.runFrame();
+    // H E L L O in ZX80 (= ZX81) letter codes.
+    expect(displayContains(machine, [0x2d, 0x2a, 0x31, 0x31, 0x34])).toBe(true);
     machine.dispose();
   });
 });
