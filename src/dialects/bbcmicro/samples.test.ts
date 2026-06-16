@@ -50,9 +50,8 @@ describe('bbcmicro sample programs', () => {
   it('matches the canonical sample set shared with the other dialects', () => {
     expect(bbcSamples.map((s) => s.name)).toEqual([
       'hello.bas',
-      'breakout.bas',
-      'dodger.bas',
       'circles.bas',
+      'breakout.bas',
       'maze.bas',
     ]);
   });
@@ -60,6 +59,28 @@ describe('bbcmicro sample programs', () => {
   it('hello is the starter offered for a fresh document', () => {
     expect(bbcmicro.samples[0]!.name).toBe('hello.bas');
   });
+
+  it('breakout destroys blocks when the ball reaches them', async () => {
+    const breakout = bbcSamples.find((s) => s.name === 'breakout.bas')!;
+    const { bytes } = tokenizeProgram(breakout.text);
+    const machine = new BbcMachine();
+    machine.loadProgram(bytes);
+    // The only place the program raises the score is PROChit, which also erases
+    // the struck block and clears it from B%() — so a non-zero S% proves blocks
+    // are being destroyed. S% is the resident integer at &44C (&400 + 19*4).
+    const readScore = () => {
+      const m = machine.processor;
+      return (
+        m.readmem(0x44c) |
+        (m.readmem(0x44d) << 8) |
+        (m.readmem(0x44e) << 16) |
+        (m.readmem(0x44f) << 24)
+      );
+    };
+    const scored = await runUntil(machine, () => readScore() > 0, 2000);
+    expect(scored, `score stayed at ${readScore()}`).toBe(true);
+    machine.dispose();
+  }, 60000);
 
   it('the mode-7 maze draws its walls as teletext block graphics', async () => {
     const maze = bbcSamples.find((s) => s.name === 'maze.bas')!;
