@@ -4,6 +4,7 @@ import { spectrumKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { buildTap, parseTap } from './tapfile';
+import { decodeCassette } from './audio/cassetteDecoder';
 import { spectrumLanguageSupport, spectrumCompletionSource } from './language';
 import { spectrumAiProfile } from './aiProfile';
 import {
@@ -61,6 +62,15 @@ export const zxspectrum: Dialect = {
       buildCassetteSamples(source, programName, robust),
     loadInstructions:
       'On the Spectrum type LOAD "" — press J for LOAD, then symbol-shift-P twice for the quotes — and press ENTER before starting playback.',
+    decodeSamples: (samples, sampleRate) => {
+      const { name, image } = decodeCassette(samples, sampleRate);
+      return {
+        programName: name,
+        source: detokenizeProgram(parseTap(image).program),
+      };
+    },
+    saveInstructions:
+      'On the Spectrum type SAVE "NAME" — press S, then symbol-shift-P twice for the quotes — and press ENTER; the tape tone plays from the MIC socket. Feed it into this device, then start listening.',
   },
 
   aiProfile: spectrumAiProfile,

@@ -111,6 +111,11 @@ satisfies and the zx81 file to mirror.
    optional `fileExtension`, and `build(source, opts)` → `Blob`), plus optional
    cassette `audio` ({ `sampleRate`, `buildSamples`, `loadInstructions` }). See
    `docs/file-formats.md` and `docs/serial-protocol.md`. Mirror `zx81/targets.ts`.
+   Import is the dialect-agnostic mirror of export and is driven entirely from
+   the `Dialect` interface: add `binaryImports` for file formats `detokenize()`
+   can read back, and `audio.decodeSamples` (the inverse of `buildSamples`, plus
+   `saveInstructions`) to recover a program from recorded cassette audio. The
+   ZX80/ZX81 share the signal→bytes decoder in `src/dialects/sinclairTape.ts`.
 
 10. **`samples.ts`** — a `SampleFile[]` (`name`, `title`, `text`) of example
     programs **in this dialect's own BASIC**, imported as raw `.bas` files under

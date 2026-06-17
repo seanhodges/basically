@@ -8,6 +8,7 @@ import {
   buildCassetteSamples,
   CASSETTE_SAMPLE_RATE,
 } from './targets';
+import { decodeCassette } from './audio/cassetteDecoder';
 import { bbcLanguageSupport, bbcCompletionSource } from './language';
 import { bbcAiProfile } from './aiProfile';
 import { bbcKeyboardLayout } from './keyboardLayout';
@@ -78,6 +79,12 @@ export const bbcmicro: Dialect = {
       buildCassetteSamples(source, programName, robust),
     loadInstructions:
       'On the BBC type *TAPE then CHAIN "" and press RETURN before starting playback.',
+    decodeSamples: (samples, sampleRate) => {
+      const { name, data } = decodeCassette(samples, sampleRate);
+      return { programName: name, source: detokenizeProgram(data) };
+    },
+    saveInstructions:
+      'On the BBC type *TAPE then SAVE "NAME" and press RETURN; the tape tone plays from the cassette port. Feed it into this device, then start listening.',
   },
 
   aiProfile: bbcAiProfile,

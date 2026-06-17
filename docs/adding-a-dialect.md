@@ -16,8 +16,18 @@ BASIC:
      (memory map, ULA ports, contention model as needed).
    - `aiProfile.ts` — a system prompt teaching Claude the dialect's rules.
    - `targets.ts` — `BuildTarget[]` for file exports, plus optional cassette
-     audio support.
+     audio support (`audio.buildSamples`).
    - `index.ts` — assemble and export the `Dialect` object.
+
+   Import is the mirror of export and is just as dialect-agnostic — the app's
+   Import dialog drives it entirely from the interface. Two optional fields turn
+   it on: `binaryImports` lists the file formats `detokenize()` can read back
+   (e.g. `.P` / `.O` / `.TAP` / `.bbc`), and `audio.decodeSamples` recovers a
+   program from recorded cassette audio (the inverse of `audio.buildSamples`).
+   Both are optional: a dialect can ship export before import. See
+   `docs/file-formats.md` § Cassette audio for the per-machine codecs and the
+   shared `src/dialects/sinclairTape.ts` decoder.
+
 2. **Register it** in `src/dialects/registry.ts`.
 3. **Drop the ROM** into `public/roms/` with an attribution note.
 4. **Add tests**: tokenizer round-trip, image-builder pointer consistency,
@@ -56,7 +66,8 @@ a different license.
 ### BBC Micro follow-up checklist
 
 Done: native tokenizer/detokenizer + linter (real `byteSize`, syntax errors
-in the editor), full keyword table, and `.bbc` tokenized-program import/export.
+in the editor), full keyword table, `.bbc` tokenized-program import/export, and
+cassette-audio export **and** import (CFS over Kansas City Standard FSK).
 Still to do: authentic keyboard layout styling/theme, sound (real jsbeeb
 SoundChip + WebAudio), dot-abbreviation expansion in the tokenizer (`P.` →
 `PRINT`), and richer build targets (`.ssd` disc / UEF cassette export).

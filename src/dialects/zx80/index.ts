@@ -4,6 +4,7 @@ import { zx80Keywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { buildOFile, parseOFile } from './ofile';
+import { decodeCassette } from './audio/cassetteDecoder';
 import { zx80LanguageSupport, zx80CompletionSource } from './language';
 import { zx80AiProfile } from './aiProfile';
 import {
@@ -61,6 +62,16 @@ export const zx80: Dialect = {
       buildCassetteSamples(source, programName, robust),
     loadInstructions:
       'On the ZX80 type LOAD — press W in keyword mode — and press NEW LINE before starting playback. When the program has loaded, type RUN.',
+    decodeSamples: (samples, sampleRate) => {
+      const { data } = decodeCassette(samples, sampleRate);
+      // The ZX80 has no named files, so there is no name on the tape.
+      return {
+        programName: '',
+        source: detokenizeProgram(parseOFile(data).program),
+      };
+    },
+    saveInstructions:
+      'On the ZX80 type SAVE — press E in keyword mode — and press NEW LINE; the tape tone plays from the MIC socket. Feed it into this device, then start listening.',
   },
 
   aiProfile: zx80AiProfile,
