@@ -1,0 +1,29 @@
+.group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+
+.status {
+  color: var(--ok);
+}
+
+.device {
+  width: 100%;
+}
+
+.meter {
+  height: 10px;
+  margin: 6px 0 2px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+  background: rgb(0 0 0 / 25%);
+}
+
+.meterFill {
+  height: 100%;
+  background: var(--ok);
+  transition: width 0.05s linear;
+}

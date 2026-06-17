@@ -53,7 +53,7 @@ export const zx80: Dialect = {
 
   buildTargets: zx80BuildTargets,
 
-  binaryImport: { extension: '.o', label: 'Import .O…' },
+  binaryImports: [{ extension: '.o', label: 'Import .O…' }],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,

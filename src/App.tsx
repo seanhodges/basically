@@ -4,6 +4,7 @@ import { Toolbar } from './components/Toolbar';
 import { Workspace } from './components/Workspace';
 import { AiSettingsDialog } from './components/AiSettingsDialog';
 import { TransferDialog } from './components/TransferDialog';
+import { ImportDialog } from './components/ImportDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
 import { StatusBar } from './components/StatusBar';
@@ -51,6 +52,7 @@ export default function App() {
       <StatusBar />
       <AiSettingsDialog />
       <TransferDialog />
+      <ImportDialog />
       <SwitchTargetDialog />
       <ProcedureListDialog />
       <div

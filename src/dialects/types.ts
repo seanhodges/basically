@@ -164,12 +164,13 @@ export interface Dialect {
   samples: SampleFile[];
   buildTargets: BuildTarget[];
   /**
-   * Binary program format this dialect can import back into editable text via
-   * {@link detokenize} (e.g. the ZX81 `.P`, Spectrum `.TAP`, BBC `.bbc`). Drives
-   * the toolbar's Import menu item; absent when the dialect has no binary form.
+   * Binary program formats this dialect can import back into editable text via
+   * {@link detokenize} (e.g. the ZX81 `.P`/`.O`, Spectrum `.TAP`, BBC `.bbc`).
+   * Drives the Import dialog's buttons; one entry per format. Absent/empty when
+   * the dialect has no binary form.
    */
-  binaryImport?: { extension: string; label: string };
-  /** Cassette-audio loading support, when the machine loads from tape. */
+  binaryImports?: { extension: string; label: string }[];
+  /** Cassette-audio support, when the machine loads from / saves to tape. */
   audio?: {
     sampleRate: number;
     /** Throws when the source has tokenizer errors. */
@@ -180,6 +181,17 @@ export interface Dialect {
     ): Float32Array;
     /** Loading instructions shown to the user, e.g. how to type LOAD "". */
     loadInstructions: string;
+    /**
+     * Decode recorded cassette samples back into an editable program (the
+     * inverse of {@link buildSamples}). Throws when no valid signal is found.
+     * Optional: a dialect can export tape audio without supporting import yet.
+     */
+    decodeSamples?(
+      samples: Float32Array,
+      sampleRate: number,
+    ): { programName: string; source: string };
+    /** Saving instructions shown to the user, e.g. how to type SAVE "". */
+    saveInstructions?: string;
   };
   aiProfile: AiProfile;
 }

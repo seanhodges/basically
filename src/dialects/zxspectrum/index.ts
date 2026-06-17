@@ -53,7 +53,7 @@ export const zxspectrum: Dialect = {
 
   buildTargets: spectrumBuildTargets,
 
-  binaryImport: { extension: '.tap', label: 'Import .TAP…' },
+  binaryImports: [{ extension: '.tap', label: 'Import .TAP…' }],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,

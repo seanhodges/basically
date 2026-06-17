@@ -70,7 +70,7 @@ export const bbcmicro: Dialect = {
 
   buildTargets: bbcBuildTargets,
 
-  binaryImport: { extension: '.bbc', label: 'Import .BBC…' },
+  binaryImports: [{ extension: '.bbc', label: 'Import .BBC…' }],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,
