@@ -400,7 +400,14 @@ export function CodeMirrorHost({
     );
     if (row === null) return;
     const line = view.state.doc.line(row);
-    view.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+    // Scroll the target line to the *top* of the viewport (y: 'start') rather
+    // than just bringing it barely into view, so the jump lands the line where
+    // a reader expects it. A plain `scrollIntoView: true` leaves the line
+    // wherever it first becomes visible (often the bottom edge).
+    view.dispatch({
+      selection: { anchor: line.from },
+      effects: EditorView.scrollIntoView(line.from, { y: 'start' }),
+    });
     view.focus();
     if (isMobileViewport()) useIdeStore.getState().setMobileTab('editor');
   }, [jumpTarget]);

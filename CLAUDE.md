@@ -28,6 +28,10 @@ npm test               # run all unit tests once (vitest run)
 npm run test:watch     # vitest in watch mode
 npx vitest run src/dialects/zx81/tokenizer.test.ts   # run a single test file
 
+npm run e2e            # Playwright end-to-end / visual tests (specs in e2e/)
+npm run e2e:headed     # same, with a visible browser
+npm run e2e:report     # open the last Playwright HTML report
+
 npm run typecheck      # fast type check (tsc -b, no bundle)
 npm run lint           # ESLint
 npm run lint:fix       # ESLint with autofix

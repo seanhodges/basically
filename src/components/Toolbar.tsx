@@ -174,19 +174,18 @@ export function Toolbar() {
               <button onClick={editAction('paste')}>Paste</button>
               <div className={styles.menuSeparator} />
               <button onClick={editAction('find')}>Find/Replace</button>
+              <button
+                onClick={guard(() => setProcedureListOpen(true))}
+                title="List procedures, subroutines and jump targets in this program"
+              >
+                Outline…
+              </button>
               <div className={styles.menuSeparator} />
               <button
                 onClick={editAction('renumber')}
                 title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
               >
                 Renumber line
-              </button>
-              <div className={styles.menuSeparator} />
-              <button
-                onClick={guard(() => setProcedureListOpen(true))}
-                title="List procedures, subroutines and jump targets in this program"
-              >
-                Outline…
               </button>
             </div>
           )}
