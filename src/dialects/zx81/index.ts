@@ -4,6 +4,7 @@ import { zx81Keywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { buildPFile, parsePFile } from './pfile';
+import { decodeCassette } from './audio/cassetteDecoder';
 import { zx81LanguageSupport, zx81CompletionSource } from './language';
 import { zx81AiProfile } from './aiProfile';
 import {
@@ -53,7 +54,7 @@ export const zx81: Dialect = {
 
   buildTargets: zx81BuildTargets,
 
-  binaryImport: { extension: '.p', label: 'Import .P…' },
+  binaryImports: [{ extension: '.p', label: 'Import .P…' }],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,
@@ -61,6 +62,15 @@ export const zx81: Dialect = {
       buildCassetteSamples(source, programName, robust),
     loadInstructions:
       'On the ZX81 type LOAD "" — press J for LOAD, then shift-P twice for the quotes — and press NEW LINE before starting playback.',
+    decodeSamples: (samples, sampleRate) => {
+      const { name, data } = decodeCassette(samples, sampleRate);
+      return {
+        programName: name,
+        source: detokenizeProgram(parsePFile(data).program),
+      };
+    },
+    saveInstructions:
+      'On the ZX81 type SAVE "NAME" — press S, then shift-P twice for the quotes — and press NEW LINE; the tape tone plays from the MIC socket. Feed it into this device, then start listening.',
   },
 
   aiProfile: zx81AiProfile,

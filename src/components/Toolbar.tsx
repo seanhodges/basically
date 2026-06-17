@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { isMobileViewport } from '../app/useMediaQuery';
-import { openTextFile, openBinaryFile, saveTextFile } from '../storage/files';
+import { openTextFile, saveTextFile } from '../storage/files';
 import { dialects } from '../dialects/registry';
 import styles from './Toolbar.module.css';
 
@@ -20,6 +20,7 @@ export function Toolbar() {
   const toggleAiPanel = useIdeStore((s) => s.toggleAiPanel);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
+  const setImportOpen = useIdeStore((s) => s.setImportOpen);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
   const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
@@ -106,16 +107,6 @@ export function Toolbar() {
     if (opened) replaceDocument(opened.text, opened.name);
   });
 
-  const importBinary = guard(async () => {
-    const fmt = dialect.binaryImport;
-    if (!fmt || !confirmDiscard()) return;
-    const opened = await openBinaryFile(fmt.extension);
-    if (!opened) return;
-    const text = dialect.detokenize(opened.bytes);
-    const ext = new RegExp(`\\${fmt.extension}$`, 'i');
-    replaceDocument(text, opened.name.replace(ext, '.bas'));
-  });
-
   const saveFile = guard(async () => {
     const saved = await saveTextFile(fileName, source);
     if (saved !== null) markSaved(saved);
@@ -127,6 +118,7 @@ export function Toolbar() {
       replaceDocument(text, name);
     })();
 
+  const openImport = guard(() => setImportOpen(true));
   const openShare = guard(() => setTransferOpen(true));
 
   return (
@@ -141,13 +133,9 @@ export function Toolbar() {
             >
               <button onClick={newFile}>New</button>
               <button onClick={openFile}>Open .bas…</button>
-              {dialect.binaryImport && (
-                <button onClick={importBinary}>
-                  {dialect.binaryImport.label}
-                </button>
-              )}
               <button onClick={saveFile}>Save .bas</button>
-              <button onClick={openShare}>Share / Export…</button>
+              <button onClick={openImport}>Import…</button>
+              <button onClick={openShare}>Export…</button>
               <div className={styles.menuSeparator} />
               <div className={styles.menuLabel}>Samples</div>
               {dialect.samples.map((s) => (

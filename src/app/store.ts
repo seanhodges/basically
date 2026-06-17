@@ -88,6 +88,7 @@ interface IdeState {
   splitRatio: number;
   aiPanelOpen: boolean;
   transferOpen: boolean;
+  importOpen: boolean;
   settingsOpen: boolean;
   /** Program outline dialog (Edit ▸ Outline…). */
   procedureListOpen: boolean;
@@ -133,6 +134,7 @@ interface IdeState {
   setEmulatorStatus(status: EmulatorStatus): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
+  setImportOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setProcedureListOpen(open: boolean): void;
   requestJumpToLine(lineNo: number): void;
@@ -228,6 +230,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   splitRatio: typeof localStorage !== 'undefined' ? getSplitRatio() : 0.5,
   aiPanelOpen: false,
   transferOpen: false,
+  importOpen: false,
   settingsOpen: false,
   procedureListOpen: false,
   jumpTarget: { lineNo: 0, seq: 0 },
@@ -331,6 +334,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setTransferOpen: (open) => set({ transferOpen: open }),
+  setImportOpen: (open) => set({ importOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
   requestJumpToLine: (lineNo) =>

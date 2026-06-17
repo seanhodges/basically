@@ -47,7 +47,7 @@ describe('BBC dialect', () => {
   });
 
   it('declares a .bbc binary import/export format', () => {
-    expect(bbcmicro.binaryImport?.extension).toBe('.bbc');
+    expect(bbcmicro.binaryImports?.[0]?.extension).toBe('.bbc');
     expect(bbcmicro.buildTargets.map((t) => t.fileExtension)).toContain('bbc');
   });
 
