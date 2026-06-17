@@ -1,5 +1,6 @@
 dist/
 public/roms/
 src/emulator/z80/
+src/emulator/6502/
 src/samples/
 package-lock.json

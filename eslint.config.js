@@ -7,7 +7,13 @@ import prettier from 'eslint-config-prettier';
 export default tseslint.config(
   // Vendored / generated / build output — not ours to lint.
   {
-    ignores: ['dist/**', 'src/emulator/z80/**', '*.config.js', '*.config.ts'],
+    ignores: [
+      'dist/**',
+      'src/emulator/z80/**',
+      'src/emulator/6502/**',
+      '*.config.js',
+      '*.config.ts',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
