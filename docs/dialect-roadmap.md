@@ -18,6 +18,11 @@ are the limiting factor, so they define the tiers:
    emulator. Powers the BBC Micro Model B. Its `findModel()` also resolves the
    **BBC Master** and the **Acorn Atom**; it does **not** include the Acorn
    Electron in this pinned version.
+3. **viciious** — `src/emulator/c64/viciious/` (vendored, public domain). A
+   full PAL Commodore 64 (6510 + VIC-II + SID + 2×CIA). Powers the Commodore
+   64. C64-specific, but the same vendor pattern could host a VIC-20/PET core.
+   (An unused 6502 CPU core also sits in `src/emulator/6502/` for future
+   non-C64 6502 machines.)
 
 **Status legend:** ✅ shipped · 🔨 in progress · ⬜ planned · ⛔ blocked / needs a
 new emulator core.
@@ -105,7 +110,8 @@ writing a new CPU/system core first.
 
 | Status | Machine                     | CPU   | Why blocked                                             |
 | ------ | --------------------------- | ----- | ------------------------------------------------------- |
-| ⛔     | Commodore 64 / VIC-20 / PET | 6502  | VIC/VIC-II + SID; jsbeeb can't drive non-Acorn hardware |
+| ✅     | Commodore 64                | 6510  | `commodore64`; shipped on the vendored viciious core (VIC-II + SID + CIAs). Native BASIC v2 tokenizer, `.prg` import/export |
+| ⛔     | VIC-20 / PET                | 6502  | viciious is C64-only; would need a VIC-20/PET core      |
 | ⛔     | Apple II                    | 6502  | Custom video and soft-switch memory map                 |
 | ⛔     | Atari 400 / 800 / XL        | 6502  | ANTIC + GTIA display list hardware                      |
 | ⛔     | Oric-1 / Atmos              | 6502  | Custom ULA                                              |
