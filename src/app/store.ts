@@ -89,6 +89,14 @@ interface IdeState {
   aiPanelOpen: boolean;
   transferOpen: boolean;
   settingsOpen: boolean;
+  /** Program outline dialog (Edit ▸ Outline…). */
+  procedureListOpen: boolean;
+  /**
+   * Bump seq to ask the editor (CodeMirrorHost holds the EditorView) to move the
+   * cursor to a BASIC line number and scroll it into view. Same shape as
+   * docOverride/editorCommand: payload + monotonic seq.
+   */
+  jumpTarget: { lineNo: number; seq: number };
   /** Automatic line-number prefixing on Enter. */
   autoLineNumbering: boolean;
   /** Step between auto-generated line numbers. */
@@ -126,6 +134,8 @@ interface IdeState {
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
+  setProcedureListOpen(open: boolean): void;
+  requestJumpToLine(lineNo: number): void;
   setAutoLineNumbering(on: boolean): void;
   setLineNumberIncrement(n: number): void;
   setShowLineNumberGutter(on: boolean): void;
@@ -219,6 +229,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   aiPanelOpen: false,
   transferOpen: false,
   settingsOpen: false,
+  procedureListOpen: false,
+  jumpTarget: { lineNo: 0, seq: 0 },
   autoLineNumbering:
     typeof localStorage !== 'undefined' ? getAutoLineNumbering() : true,
   lineNumberIncrement:
@@ -320,6 +332,9 @@ export const useIdeStore = create<IdeState>((set) => ({
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setTransferOpen: (open) => set({ transferOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setProcedureListOpen: (open) => set({ procedureListOpen: open }),
+  requestJumpToLine: (lineNo) =>
+    set((s) => ({ jumpTarget: { lineNo, seq: s.jumpTarget.seq + 1 } })),
   setAutoLineNumbering: (on) => {
     persistAutoLineNumbering(on);
     set({ autoLineNumbering: on });

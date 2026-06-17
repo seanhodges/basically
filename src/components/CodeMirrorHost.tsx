@@ -52,6 +52,8 @@ import {
   MIN_LINE_NO,
   MAX_LINE_NO,
 } from '../editor/lineNumbering';
+import { findRowForLineNumber } from '../editor/programOutline';
+import { isMobileViewport } from '../app/useMediaQuery';
 import styles from './CodeMirrorHost.module.css';
 
 /** Replace the whole document and drop the cursor at the end of `cursorLine`. */
@@ -252,6 +254,8 @@ export function CodeMirrorHost({
   onChangeRef.current = onChange;
   const editorCommand = useIdeStore((s) => s.editorCommand);
   const lastCommand = useRef(editorCommand.seq);
+  const jumpTarget = useIdeStore((s) => s.jumpTarget);
+  const lastJump = useRef(jumpTarget.seq);
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -381,6 +385,22 @@ export function CodeMirrorHost({
     const view = viewRef.current;
     if (view) void runEditorCommand(view, editorCommand.name);
   }, [editorCommand]);
+
+  // The outline dialog bumps jumpTarget.seq to move the cursor to a BASIC line
+  // number and scroll it into view. Line numbers aren't 1:1 with editor rows, so
+  // scan for the matching row; no-op if it's gone (outline stale after an edit).
+  useEffect(() => {
+    if (jumpTarget.seq === lastJump.current) return;
+    lastJump.current = jumpTarget.seq;
+    const view = viewRef.current;
+    if (!view) return;
+    const row = findRowForLineNumber(view.state.doc.toString(), jumpTarget.lineNo);
+    if (row === null) return;
+    const line = view.state.doc.line(row);
+    view.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+    view.focus();
+    if (isMobileViewport()) useIdeStore.getState().setMobileTab('editor');
+  }, [jumpTarget]);
 
   return <div className={styles.cmHost} ref={hostRef} />;
 }
