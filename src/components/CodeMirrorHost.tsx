@@ -394,7 +394,10 @@ export function CodeMirrorHost({
     lastJump.current = jumpTarget.seq;
     const view = viewRef.current;
     if (!view) return;
-    const row = findRowForLineNumber(view.state.doc.toString(), jumpTarget.lineNo);
+    const row = findRowForLineNumber(
+      view.state.doc.toString(),
+      jumpTarget.lineNo,
+    );
     if (row === null) return;
     const line = view.state.doc.line(row);
     view.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });

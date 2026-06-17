@@ -174,7 +174,10 @@ export function buildOutline(
     if (caps.hasGoto) collectTargets(scan, gotoRe, gotoTargets);
   }
 
-  const targetItems = (targets: Set<number>, kind: OutlineKind): OutlineItem[] =>
+  const targetItems = (
+    targets: Set<number>,
+    kind: OutlineKind,
+  ): OutlineItem[] =>
     [...targets]
       .filter((n) => indexByLineNo.has(n))
       .sort((a, b) => a - b)
