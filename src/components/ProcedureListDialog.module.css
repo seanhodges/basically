@@ -1,0 +1,58 @@
+.list {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin: 4px 0;
+}
+
+.section {
+  margin-bottom: 12px;
+}
+
+.heading {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--bg-hover, rgb(255 255 255 / 8%));
+  border-color: var(--border);
+}
+
+.lineNo {
+  flex: none;
+  min-width: 3.5em;
+  font-family: 'IBM Plex Mono', 'Fira Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  color: var(--text-dim);
+  font-size: 13px;
+}

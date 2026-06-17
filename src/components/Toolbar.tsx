@@ -21,6 +21,7 @@ export function Toolbar() {
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
+  const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
   const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
@@ -179,6 +180,13 @@ export function Toolbar() {
                 title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
               >
                 Renumber line
+              </button>
+              <div className={styles.menuSeparator} />
+              <button
+                onClick={guard(() => setProcedureListOpen(true))}
+                title="List procedures, subroutines and jump targets in this program"
+              >
+                Outline…
               </button>
             </div>
           )}
