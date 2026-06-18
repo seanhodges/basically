@@ -251,6 +251,7 @@ export function CodeMirrorHost({
   const viewRef = useRef<EditorView | null>(null);
   const lastSeq = useRef(-1);
   const onChangeRef = useRef(onChange);
+  const isApplyingOverride = useRef(false);
   onChangeRef.current = onChange;
   const editorCommand = useIdeStore((s) => s.editorCommand);
   const lastCommand = useRef(editorCommand.seq);
@@ -293,7 +294,7 @@ export function CodeMirrorHost({
           indentWithTab,
         ]),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged)
+          if (update.docChanged && !isApplyingOverride.current)
             onChangeRef.current(update.state.doc.toString());
           if (update.focusChanged)
             useIdeStore.getState().setEditorFocused(update.view.hasFocus);
@@ -371,9 +372,11 @@ export function CodeMirrorHost({
     if (!view || override.seq === lastSeq.current) return;
     lastSeq.current = override.seq;
     if (view.state.doc.toString() !== override.text) {
+      isApplyingOverride.current = true;
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: override.text },
       });
+      isApplyingOverride.current = false;
     }
   }, [override]);
 
