@@ -45,7 +45,7 @@ export function VariableWatcher({ getMachine, running }: Props) {
   }, [running, getMachine]);
 
   // A machine only exists once a program has run; only then can we tell whether
-  // this machine supports introspection (e.g. the BBC Micro does not yet).
+  // this machine supports introspection.
   const machine = getMachine();
   if (machine && typeof machine.readVariables !== 'function') {
     return (

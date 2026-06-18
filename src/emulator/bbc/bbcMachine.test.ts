@@ -74,6 +74,41 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     machine.dispose();
   }, 30000);
 
+  it('reads BASIC variables from a running program', async () => {
+    const machine = new BbcMachine();
+    const src =
+      '10 A=5.5\n20 B%=42\n30 C$="HI"\n40 DIM D(3)\n50 D(1)=7\n55 DIM E(2,4)\n60 END\n';
+    const { bytes } = tokenizeProgram(src);
+    machine.loadProgram(bytes);
+    // Key off the resident integer (high-confidence format) to know the
+    // program has run, then snapshot everything.
+    const ready = await runUntil(machine, () =>
+      machine.readVariables().some((v) => v.name === 'B%' && v.value === '42'),
+    );
+    expect(ready).toBe(true);
+    const vars = machine.readVariables();
+    expect(vars).toContainEqual(
+      expect.objectContaining({ name: 'A', kind: 'number', value: '5.5' }),
+    );
+    expect(vars).toContainEqual(
+      expect.objectContaining({ name: 'B%', kind: 'number', value: '42' }),
+    );
+    expect(vars).toContainEqual(
+      expect.objectContaining({ name: 'C$', kind: 'string', value: '"HI"' }),
+    );
+    expect(vars).toContainEqual(
+      expect.objectContaining({
+        name: 'D(',
+        kind: 'number-array',
+        value: '[3] = 0, 7, 0, 0',
+      }),
+    );
+    expect(vars).toContainEqual(
+      expect.objectContaining({ name: 'E(', kind: 'number-array' }),
+    );
+    machine.dispose();
+  }, 60000);
+
   it('reports 896×600 as its visible display size', () => {
     const machine = new BbcMachine();
     expect(machine.displayWidth).toBe(896);
