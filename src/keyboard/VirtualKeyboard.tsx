@@ -39,10 +39,6 @@ const KEYBOARD_POINTER_ID = -1;
 /** Below this container width there isn't room for every legend at once. */
 const COMPACT_MAX_WIDTH = 520;
 
-/** At or above this container width the keyboard centres and the top strip
-    relocates into the left gutter as a vertical bar. */
-const WIDE_MIN_WIDTH = 600;
-
 /** Below this viewport height keys shrink too far for every legend (must
     match the landscape media query in VirtualKeyboard.css). */
 const COMPACT_MAX_VIEWPORT_HEIGHT = 560;
@@ -258,10 +254,12 @@ export function VirtualKeyboard({
       (window.innerWidth < 600 ||
         window.innerHeight < COMPACT_MAX_VIEWPORT_HEIGHT),
   );
-  // Wide mode: enough horizontal room to centre the keyboard and float the top
-  // strip into the left gutter.
-  const [wide, setWide] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth >= WIDE_MIN_WIDTH,
+  // Landscape: the keyboard centres and the top strip relocates into the left
+  // gutter as a vertical bar. Driven by viewport orientation, not the keyboard's
+  // own box (the overlay is always wider than tall, so the element can't tell).
+  const [landscape, setLandscape] = useState(
+    () =>
+      typeof window !== 'undefined' && window.innerWidth > window.innerHeight,
   );
   useEffect(() => {
     const el = containerRef.current;
@@ -271,7 +269,7 @@ export function VirtualKeyboard({
         el.clientWidth < COMPACT_MAX_WIDTH ||
           window.innerHeight < COMPACT_MAX_VIEWPORT_HEIGHT,
       );
-      setWide(el.clientWidth >= WIDE_MIN_WIDTH);
+      setLandscape(window.innerWidth > window.innerHeight);
     };
     const observer = new ResizeObserver(update);
     observer.observe(el);
@@ -451,7 +449,7 @@ export function VirtualKeyboard({
       ? activeLayer.id
       : (modifierLayer?.id ?? legendLayerId));
 
-  const renderKey = (def: KeyDef) => {
+  const renderKey = (def: KeyDef, inStrip = false) => {
     const modState = def.modifier
       ? engine.getModifierState(def.modifier)
       : 'off';
@@ -474,7 +472,11 @@ export function VirtualKeyboard({
         key={def.id}
         data-keyid={def.id}
         className={classes.join(' ')}
-        style={{ gridColumn: `span ${def.spanX}` }}
+        style={{
+          // In the landscape left strip, function keys lay out in a 2-column
+          // grid (one cell each); everywhere else they span their grid width.
+          gridColumn: inStrip && landscape ? 'auto' : `span ${def.spanX}`,
+        }}
         role="button"
         tabIndex={-1}
         aria-label={keyAriaLabel(def, layout, highlightLayerId)}
@@ -518,7 +520,7 @@ export function VirtualKeyboard({
   return (
     <div
       ref={containerRef}
-      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${wide ? ' vk-wide' : ''}`}
+      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}`}
       role="group"
       aria-label={`${layout.name} on-screen keyboard`}
       tabIndex={0}
@@ -573,9 +575,13 @@ export function VirtualKeyboard({
           {showFnKeys && (
             <div
               className="vk-fn-row"
-              style={{ gridTemplateColumns: `repeat(${fnCols}, 1fr)` }}
+              style={
+                landscape
+                  ? undefined
+                  : { gridTemplateColumns: `repeat(${fnCols}, 1fr)` }
+              }
             >
-              {functionKeys.map(renderKey)}
+              {functionKeys.map((k) => renderKey(k, true))}
             </div>
           )}
         </div>
@@ -587,7 +593,7 @@ export function VirtualKeyboard({
             className="vk-row"
             style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
           >
-            {row.map(renderKey)}
+            {row.map((k) => renderKey(k))}
           </div>
         ))}
       </div>

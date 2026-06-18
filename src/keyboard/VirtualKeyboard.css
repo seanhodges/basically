@@ -408,42 +408,102 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Wide screens: centre the keyboard and float the top strip into the left
-   gutter as a vertical bar, reclaiming a row of height for taller keys. The
-   keys' width is height-derived (var(--vk-aspect)) so they keep their shape. */
-.virtual-keyboard.vk-wide {
+   Landscape: centre the keyboard and float the top strip into the left gutter
+   as a vertical bar, reclaiming a row of height for taller keys. The key block
+   is sized as the largest var(--vk-aspect) box that fits the container (a size
+   container; see .workspaceVkOverlay), so it never distorts or overflows. */
+.virtual-keyboard.vk-landscape {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   grid-template-rows: 100%;
   align-items: stretch;
+  /* Width taken by the left strip + its margin, reserved by the clamp below so
+     the aspect-derived width never collides with the strip. */
+  --vk-rows-reserve: 148px;
 }
 
-.vk-wide .vk-rows {
+.vk-landscape .vk-rows {
   grid-column: 2;
-  height: 100%;
   width: auto;
   max-width: none;
   margin: 0;
+  align-self: center;
   aspect-ratio: var(--vk-aspect);
+  /* Fill height, but clamp so the aspect-derived width stays within the space
+     left of the strip (also covers near-square landscape). Width follows the
+     resolved height via aspect-ratio — no distortion. */
+  height: min(
+    100cqh,
+    calc((100cqw - var(--vk-rows-reserve, 0px)) / var(--vk-aspect))
+  );
 }
 
-.vk-wide .vk-strip {
+.vk-landscape .vk-strip {
   grid-column: 1;
   justify-self: end;
-  align-self: center;
+  align-self: stretch;
   flex-direction: column;
+  justify-content: center;
   width: auto;
+  min-width: 96px;
+  max-width: 132px;
   padding: 0;
   margin-right: 8px;
+  gap: 6px;
 }
 
-.vk-wide .vk-mode-bar {
+.vk-landscape .vk-mode-bar {
   flex-direction: column;
+  justify-content: center;
 }
 
-.vk-wide .vk-fn-row {
-  display: flex;
-  flex-direction: column;
+.vk-landscape .vk-legend-btn {
+  font-size: 12px;
+  padding: 12px 8px;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+/* Function keys lay out as a 2-column grid so 8–10 (BBC/C64) fit without a tall
+   single stack. The component drops the inline repeat(fnCols) template and the
+   per-key span in landscape, so each fn key occupies one cell here. */
+.vk-landscape .vk-fn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 40px;
+  align-content: center;
+  gap: 6px;
+}
+
+.vk-landscape .vk-fn-row .vk-key {
+  height: auto;
+}
+
+.vk-landscape .vk-strip-toggle {
+  min-width: 96px;
+  padding: 8px 6px;
+  font-size: 15px;
+}
+
+/* ---------------------------------------------------------------------------
+   Portrait: vertical stack — the top strip stays above the keys (base flex
+   column). Size the key block to fill the width while keeping its aspect and
+   never exceeding the height left under the strip; centre any leftover height. */
+.virtual-keyboard.vk-portrait {
+  justify-content: center;
+  /* Height taken by the top strip + gap, reserved by the clamp below. */
+  --vk-strip-reserve: 56px;
+}
+
+.vk-portrait .vk-rows {
+  flex: 0 1 auto;
+  width: min(
+    100cqw,
+    calc((100cqh - var(--vk-strip-reserve, 0px)) * var(--vk-aspect))
+  );
+  max-width: none;
+  margin-inline: auto;
+  aspect-ratio: var(--vk-aspect);
 }
 
 /* ---------------------------------------------------------------------------
