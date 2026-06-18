@@ -173,19 +173,6 @@
   }
 }
 
-/* Tablet/desktop landscape: centre the keyboard and cap its width so the keys
-   keep a keyboard-like ratio instead of stretching edge-to-edge (the overlay
-   height stays a fixed 46%). The max-width is tuned against the overlay height. */
-@media (orientation: landscape) and (min-width: 600px) {
-  .workspaceVkOverlay {
-    justify-content: center;
-  }
-
-  .workspaceVkOverlay :global(.virtual-keyboard) {
-    max-width: 105vh;
-  }
-}
-
 /* On a phone the keyboard spans the full width — drop the wide-screen side
    gutters down to a thin edge (keep the safe-area inset at the bottom). */
 @media (max-width: 768px) and (orientation: portrait) {

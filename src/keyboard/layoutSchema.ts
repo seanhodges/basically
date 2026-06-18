@@ -22,30 +22,21 @@ export interface KeyboardLayout {
    * is simply the whole keyboard.
    */
   rows: KeyDef[][];
-  /**
-   * Optional key pages shown one at a time behind an always-visible tab bar
-   * (e.g. the BBC Micro's ABC / symbols split). The bar is shown for both the
-   * machine and editor targets, unlike `editorModes`. When both `rows` and
-   * `tabs` are present they are responsive variants of one keyboard: `rows` is
-   * the wide single page and `tabs` is the narrow page set; VirtualKeyboard
-   * picks one by container width. Rows shared between pages are simply
-   * referenced by each tab.
-   */
-  tabs?: KeyboardTabDef[];
-  /**
-   * Grid column count used while the tabbed narrow variant (`tabs`) is shown.
-   * Defaults to `gridColumns`. Lets a layout serve an authentic wide
-   * single-page layout (`rows`/`gridColumns`) and a denser tabbed mobile
-   * layout (`tabs`/`narrowGridColumns`) from one object.
-   */
-  narrowGridColumns?: number;
   glyphs: GlyphRegistry;
   /**
-   * Input modes offered when the keyboard targets the text editor (the
-   * ZX81's K/F/G cursor modes as a selector bar). Absent = editor target
-   * uses the base layer + modifiers only, with no mode bar.
+   * Input modes offered in the top strip (the ZX81's K/F/G cursor modes as a
+   * selector bar). Each mode pins a layer's legends. Absent = the strip has no
+   * mode tabs. Shown for both the editor and machine targets.
    */
   editorModes?: EditorModeDef[];
+  /**
+   * Machine function keys (e.g. the C64's f1/f3/f5/f7, the BBC's f0–f9) shown
+   * in the top strip when the machine has no extra typing layers, or — when
+   * `editorModes` are also present — behind an icon toggle that flips the strip
+   * between its mode tabs and these keys. Each entry is an ordinary key whose
+   * `emits` tokens drive the matrix; they have no editor action.
+   */
+  functionKeys?: KeyDef[];
   options?: {
     /** Minimum emulated frames a matrix press is held so the ROM scan sees it. */
     minHoldFrames?: number;
@@ -79,14 +70,6 @@ export interface LayerDef {
 export type EditorKeyAction =
   | { insert: string }
   | { action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down' };
-
-/** A swappable key page selected from the keyboard's tab bar. */
-export interface KeyboardTabDef {
-  id: string;
-  /** Tab-bar caption, e.g. "ABC" or "#+=". */
-  name: string;
-  rows: KeyDef[][];
-}
 
 /** A selectable editor-target input mode (mirrors the ZX81 K/F/G cursor). */
 export interface EditorModeDef {

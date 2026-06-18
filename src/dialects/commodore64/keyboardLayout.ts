@@ -1,33 +1,39 @@
-import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
+import type {
+  KeyDef,
+  KeyLabel,
+  KeyboardLayout,
+} from '../../keyboard/layoutSchema';
+import { bottomRow } from '../../keyboard/templateRows';
 
 /**
- * The Commodore 64 keyboard as virtual-keyboard layout data. Each key `emits`
- * a viciious button name (see src/emulator/c64/c64Machine.ts), which the
- * machine maps to the 8×8 key matrix. Shift is a sticky/lockable modifier;
- * the shift layer surfaces the number-row symbols. RESTORE is wired to NMI on
- * the real machine (no matrix position) and is a no-op token here.
+ * The Commodore 64 keyboard on the standard virtual-keyboard template.
+ *
+ * The C64 has no extra text-entry modes, so the top strip carries its function
+ * keys (f1/f3/f5/f7). It has more symbol keys than a uniform ten-key grid holds,
+ * so — trading authenticity for a clean, thumb-sized layout — the operators
+ * (`+ - * / = : ; @ £`) ride the SHIFT layer as editor inserts alongside the
+ * authentic shifted-digit symbols. RUN/STOP, RESTORE, CTRL and the cursor keys
+ * are dropped. Each key `emits` a VIC-II button name (see c64Machine.ts).
  */
 
-/** Build a plain key: base label, optional shifted label, single token. */
+/** A key: base label, optional shifted label, one matrix token. */
 function key(
   id: string,
   emit: string,
   base: string,
   shift?: string,
-  spanX = 2,
+  spanX = 4,
 ): KeyDef {
-  return {
-    id,
-    spanX,
-    emits: [emit],
-    labels: [{ text: base }, shift ? { text: shift } : null],
-  };
+  const labels: (KeyLabel | null)[] = [
+    { text: base },
+    shift ? { text: shift } : null,
+  ];
+  return { id, spanX, emits: [emit], labels };
 }
 
-const letters = (...ids: string[]): KeyDef[] => ids.map((l) => key(l, l, l));
+const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
 
-const numberRow: KeyDef[] = [
-  key('LeftArrow', 'LeftArrow', '←'),
+const numberRow = [
   key('Num1', 'Num1', '1', '!'),
   key('Num2', 'Num2', '2', '"'),
   key('Num3', 'Num3', '3', '#'),
@@ -38,52 +44,99 @@ const numberRow: KeyDef[] = [
   key('Num8', 'Num8', '8', '('),
   key('Num9', 'Num9', '9', ')'),
   key('Num0', 'Num0', '0'),
-  key('Plus', 'Plus', '+'),
-  key('Minus', 'Minus', '-'),
-  key('Pound', 'Pound', '£'),
-  key('ClrHome', 'ClrHome', 'HOME'),
-  key('InstDel', 'InstDel', 'DEL', undefined, 3),
 ];
 
-const qwertyRow: KeyDef[] = [
-  key('Ctrl', 'Ctrl', 'CTRL', undefined, 3),
-  ...letters('Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'),
-  key('At', 'At', '@'),
-  key('Asterisk', 'Asterisk', '*'),
-  key('UpArrow', 'UpArrow', '↑'),
-  key('Restore', 'Restore', 'RESTORE', undefined, 3),
+const qwertyRow = [
+  letter('Q'),
+  letter('W'),
+  letter('E'),
+  letter('R'),
+  letter('T'),
+  letter('Y'),
+  letter('U'),
+  letter('I'),
+  letter('O'),
+  letter('P'),
 ];
 
-const asdfRow: KeyDef[] = [
-  key('RunStop', 'RunStop', 'RUN STOP', undefined, 4),
-  ...letters('A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'),
-  key('Colon', 'Colon', ':', '['),
-  key('Semicolon', 'Semicolon', ';', ']'),
-  key('Equal', 'Equal', '='),
-  key('Return', 'Return', 'RETURN', undefined, 4),
-];
-
-const zxcvRow: KeyDef[] = [
-  key('Commodore', 'Commodore', 'C=', undefined, 3),
+const homeRow = [
+  letter('A', '+'),
+  letter('S', '-'),
+  letter('D', '*'),
+  letter('F', '/'),
+  letter('G', '='),
+  letter('H', ':'),
+  letter('J', ';'),
+  letter('K', '@'),
+  letter('L', '£'),
   {
-    id: 'LeftShift',
-    spanX: 3,
-    emits: ['LeftShift'],
-    modifier: 'shift',
-    labels: [{ text: 'SHIFT' }, { text: 'SHIFT' }],
-  },
-  ...letters('Z', 'X', 'C', 'V', 'B', 'N', 'M'),
+    id: 'Return',
+    spanX: 4,
+    emits: ['Return'],
+    labels: [{ text: '↵', editor: { action: 'newline' } }, null],
+  } satisfies KeyDef,
+];
+
+const zxcvRow = [
+  letter('Z'),
+  letter('X'),
+  letter('C'),
+  letter('V'),
+  letter('B'),
+  letter('N'),
+  letter('M'),
   key('Comma', 'Comma', ',', '<'),
   key('Period', 'Period', '.', '>'),
   key('Slash', 'Slash', '/', '?'),
-  key('CursorUp', 'CursorUp', 'CRSR ↑'),
-  key('CursorDown', 'CursorDown', 'CRSR ↓'),
-  key('CursorLeft', 'CursorLeft', 'CRSR ←'),
-  key('CursorRight', 'CursorRight', 'CRSR →'),
 ];
 
-const spaceRow: KeyDef[] = [
-  key('Space', 'Space', 'SPACE', undefined, 20),
+const shiftKey: KeyDef = {
+  id: 'LeftShift',
+  spanX: 6,
+  emits: ['LeftShift'],
+  modifier: 'shift',
+  style: 'shift',
+  labels: [{ text: '⇧' }, null],
+};
+
+const commodoreKey: KeyDef = {
+  id: 'Commodore',
+  spanX: 5,
+  emits: ['Commodore'],
+  modifier: 'commodore',
+  labels: [{ text: 'C=', editor: null }, null],
+};
+
+const spaceKey = {
+  id: 'Space',
+  emits: ['Space'],
+  style: 'small-main',
+  labels: [{ text: 'SPACE', editor: { insert: ' ' } }, null],
+} satisfies Omit<KeyDef, 'spanX'>;
+
+const quoteKey: KeyDef = {
+  id: 'Quote',
+  spanX: 4,
+  emits: ['LeftShift', 'Num2'],
+  labels: [{ text: '"' }, null],
+};
+
+const backspaceKey: KeyDef = {
+  id: 'InstDel',
+  spanX: 4,
+  emits: ['InstDel'],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null],
+};
+
+const rows: KeyDef[][] = [
+  numberRow,
+  qwertyRow,
+  homeRow,
+  zxcvRow,
+  bottomRow([shiftKey, commodoreKey], spaceKey, [quoteKey, backspaceKey]),
+];
+
+const functionKeys: KeyDef[] = [
   key('F1', 'F1', 'f1'),
   key('F3', 'F3', 'f3'),
   key('F5', 'F5', 'f5'),
@@ -94,14 +147,27 @@ export const c64KeyboardLayout: KeyboardLayout = {
   id: 'commodore64',
   name: 'Commodore 64',
   theme: 'vk-theme-commodore64',
-  gridColumns: 36,
+  gridColumns: 40,
   layers: [
-    { id: 'base', position: 'center', activeWhen: [] },
-    { id: 'shift', position: 'tr', activeWhen: ['shift'] },
+    {
+      id: 'base',
+      position: 'center',
+      activeWhen: [],
+      editorInsertStyle: 'char',
+    },
+    {
+      id: 'shift',
+      name: 'SHIFT',
+      position: 'tr',
+      activeWhen: ['shift'],
+      editorInsertStyle: 'char',
+    },
   ],
   modifiers: [
     { id: 'shift', emits: ['LeftShift'], sticky: true, lockable: true },
+    { id: 'commodore', emits: ['Commodore'], sticky: true, lockable: true },
   ],
-  rows: [numberRow, qwertyRow, asdfRow, zxcvRow, spaceRow],
+  rows,
+  functionKeys,
   glyphs: {},
 };

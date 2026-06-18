@@ -79,17 +79,13 @@ describe('zx81 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('Space')!, 'main')).toEqual({
       insert: ' ',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit0')!, 'shift')).toEqual({
-      action: 'backspace',
+    // The common bottom row carries a single quote and backspace key.
+    expect(resolveEditorAction(layout, byId.get('Quote')!, 'main')).toEqual({
+      insert: '"',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit5')!, 'shift')).toEqual({
-      action: 'left',
-    });
-    // Machine-only commands do nothing in the editor.
-    expect(
-      resolveEditorAction(layout, byId.get('Digit9')!, 'shift'),
-    ).toBeNull();
-    expect(resolveEditorAction(layout, byId.get('x-edit')!, 'main')).toBeNull();
+    expect(resolveEditorAction(layout, byId.get('Backspace')!, 'main')).toEqual(
+      { action: 'backspace' },
+    );
     // Digits keep working in keyword mode via the base-layer fallback.
     expect(resolveEditorAction(layout, byId.get('Digit3')!, 'keyword')).toEqual(
       { insert: '3' },

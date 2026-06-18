@@ -4,19 +4,21 @@ import type {
   KeyLabel,
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
+import { bottomRow, centerRow } from '../../keyboard/templateRows';
 
 /**
- * The ZX Spectrum 48K membrane keyboard as virtual-keyboard layout data.
+ * The ZX Spectrum 48K keyboard on the standard virtual-keyboard template.
  *
- * Each key carries up to five legends, matching the real machine:
+ * Each alphanumeric key carries up to five legends, matching the real machine:
  *  - main:     the big white letter / digit
- *  - caps:     CAPS SHIFT (uppercase; on digits the edit/cursor functions)
+ *  - caps:     CAPS SHIFT (the uppercase letter)
  *  - symbol:   SYMBOL SHIFT — the red symbol
- *  - keyword:  the white K-mode BASIC keyword printed on the key
- *  - function: the green extended-mode function above the key
+ *  - keyword:  the white K-mode BASIC keyword (pinned by the KEYWORD mode tab)
+ *  - function: the green extended-mode function (pinned by the FUNCTION mode tab)
  *
- * The keyboard is entirely data-driven; the generic VirtualKeyboard renders it
- * and drives the emulator's setKey() with each key's matrix tokens.
+ * Per the template the number-row CAPS edit/cursor functions are dropped (the
+ * editor handles cursor placement by touch); CAPS and SYMBOL shift sit on the
+ * common bottom row either side of the space bar, with a quote and backspace.
  */
 
 type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
@@ -37,8 +39,6 @@ const ins = (text: string, insert: string): Legend => ({
   text,
   editor: { insert },
 });
-/** Legend that does nothing in the editor (machine-only modes). */
-const noop = (text: string): Legend => ({ text, editor: null });
 
 const lbl = (legend: Legend): KeyLabel | null =>
   legend === null
@@ -73,112 +73,106 @@ function letter(
   ]);
 }
 
+const numberRow = [
+  key('Digit1', ['1', null, '!', null, null]),
+  key('Digit2', ['2', null, '@', null, null]),
+  key('Digit3', ['3', null, '#', null, null]),
+  key('Digit4', ['4', null, '$', null, null]),
+  key('Digit5', ['5', null, '%', null, null]),
+  key('Digit6', ['6', null, '&', null, null]),
+  key('Digit7', ['7', null, ins("'", "'"), null, null]),
+  key('Digit8', ['8', null, '(', null, null]),
+  key('Digit9', ['9', null, ')', null, null]),
+  key('Digit0', ['0', null, '_', null, null]),
+];
+
+const qwertyRow = [
+  letter('KeyQ', 'q', '<=', 'PLOT', word('SIN')),
+  letter('KeyW', 'w', '<>', 'DRAW', word('COS')),
+  letter('KeyE', 'e', '>=', 'REM', word('TAN')),
+  letter('KeyR', 'r', '<', 'RUN', word('INT')),
+  letter('KeyT', 't', '>', 'RANDOMIZE', word('RND')),
+  letter('KeyY', 'y', word('AND'), 'RETURN', word('STR$')),
+  letter('KeyU', 'u', word('OR'), 'IF', word('CHR$')),
+  letter('KeyI', 'i', word('AT'), 'INPUT', word('CODE')),
+  letter('KeyO', 'o', ';', 'POKE', word('PEEK')),
+  letter('KeyP', 'p', '"', 'PRINT', word('TAB')),
+];
+
+const homeRow = [
+  letter('KeyA', 'a', '~', 'NEW', word('READ')),
+  letter('KeyS', 's', '|', 'SAVE', word('RESTORE')),
+  letter('KeyD', 'd', '\\', 'DIM', word('DATA')),
+  letter('KeyF', 'f', '{', 'FOR', word('SGN')),
+  letter('KeyG', 'g', '}', 'GO TO', word('ABS')),
+  letter('KeyH', 'h', ins('↑', '↑'), 'GO SUB', word('SQR')),
+  letter('KeyJ', 'j', '-', 'LOAD', word('VAL')),
+  letter('KeyK', 'k', '+', 'LIST', word('LEN')),
+  letter('KeyL', 'l', '=', 'LET', word('USR')),
+  key('Enter', [act('↵', 'newline'), null, null, null, null]),
+];
+
+const zxcvRow = centerRow([
+  letter('KeyZ', 'z', ':', 'COPY', word('LN')),
+  letter('KeyX', 'x', ins('£', '£'), 'CLEAR', word('EXP')),
+  letter('KeyC', 'c', '?', 'CONTINUE', word('INKEY$')),
+  letter('KeyV', 'v', '/', 'CLS', word('VAL$')),
+  letter('KeyB', 'b', '*', 'BORDER', word('BIN')),
+  letter('KeyN', 'n', ',', 'NEXT', word('INKEY$')),
+  letter('KeyM', 'm', '.', 'PAUSE', word('PI')),
+]);
+
+const capsKey: KeyDef = {
+  id: 'CapsShift',
+  spanX: 6,
+  emits: ['CapsShift'],
+  modifier: 'caps',
+  style: 'shift',
+  labels: [{ text: '⇧ Cap' }, null, null, null, null],
+};
+
+const symKey: KeyDef = {
+  id: 'SymShift',
+  spanX: 6,
+  emits: ['SymShift'],
+  modifier: 'symbol',
+  style: 'symshift',
+  labels: [{ text: '⇧ Sym' }, null, null, null, null],
+};
+
+const spaceKey = {
+  id: 'Space',
+  emits: ['Space'],
+  style: 'small-main',
+  labels: [{ text: 'SPACE', editor: { insert: ' ' } }, null, null, null, null],
+} satisfies Omit<KeyDef, 'spanX'>;
+
+const quoteKey: KeyDef = {
+  id: 'Quote',
+  spanX: 4,
+  emits: ['SymShift', 'KeyP'],
+  labels: [{ text: '"' }, null, null, null, null],
+};
+
+const backspaceKey: KeyDef = {
+  id: 'Backspace',
+  spanX: 4,
+  emits: ['CapsShift', 'Digit0'],
+  labels: [
+    { text: '⌫', editor: { action: 'backspace' } },
+    null,
+    null,
+    null,
+    null,
+  ],
+};
+
 const rows: KeyDef[][] = [
-  [
-    key('Digit1', ['1', noop('EDIT'), '!', null, null]),
-    key('Digit2', ['2', noop('CAPS'), '@', null, null]),
-    key('Digit3', ['3', noop('T.VID'), '#', null, null]),
-    key('Digit4', ['4', noop('I.VID'), '$', null, null]),
-    key('Digit5', ['5', act('←', 'left'), '%', null, null]),
-    key('Digit6', ['6', act('↓', 'down'), '&', null, null]),
-    key('Digit7', ['7', act('↑', 'up'), ins("'", "'"), null, null]),
-    key('Digit8', ['8', act('→', 'right'), '(', null, null]),
-    key('Digit9', ['9', noop('GRAPH'), ')', null, null]),
-    key('Digit0', ['0', act('⌫', 'backspace'), '_', null, null]),
-  ],
-  [
-    letter('KeyQ', 'q', '<=', 'PLOT', word('SIN')),
-    letter('KeyW', 'w', '<>', 'DRAW', word('COS')),
-    letter('KeyE', 'e', '>=', 'REM', word('TAN')),
-    letter('KeyR', 'r', '<', 'RUN', word('INT')),
-    letter('KeyT', 't', '>', 'RANDOMIZE', word('RND')),
-    letter('KeyY', 'y', word('AND'), 'RETURN', word('STR$')),
-    letter('KeyU', 'u', word('OR'), 'IF', word('CHR$')),
-    letter('KeyI', 'i', word('AT'), 'INPUT', word('CODE')),
-    letter('KeyO', 'o', ';', 'POKE', word('PEEK')),
-    letter('KeyP', 'p', '"', 'PRINT', word('TAB')),
-  ],
-  [
-    letter('KeyA', 'a', '~', 'NEW', word('READ')),
-    letter('KeyS', 's', '|', 'SAVE', word('RESTORE')),
-    letter('KeyD', 'd', '\\', 'DIM', word('DATA')),
-    letter('KeyF', 'f', '{', 'FOR', word('SGN')),
-    letter('KeyG', 'g', '}', 'GO TO', word('ABS')),
-    letter('KeyH', 'h', ins('↑', '↑'), 'GO SUB', word('SQR')),
-    letter('KeyJ', 'j', '-', 'LOAD', word('VAL')),
-    letter('KeyK', 'k', '+', 'LIST', word('LEN')),
-    letter('KeyL', 'l', '=', 'LET', word('USR')),
-    {
-      ...key('Enter', [act('↵', 'newline'), null, null, null, null]),
-    },
-  ],
-  [
-    {
-      id: 'CapsShift',
-      spanX: 4,
-      emits: ['CapsShift'],
-      modifier: 'caps',
-      style: 'shift',
-      labels: [{ text: '⇧ Caps' }, null, null, null, null],
-    },
-    letter('KeyZ', 'z', ':', 'COPY', word('LN')),
-    letter('KeyX', 'x', ins('£', '£'), 'CLEAR', word('EXP')),
-    letter('KeyC', 'c', '?', 'CONTINUE', word('INKEY$')),
-    letter('KeyV', 'v', '/', 'CLS', word('VAL$')),
-    letter('KeyB', 'b', '*', 'BORDER', word('BIN')),
-    letter('KeyN', 'n', ',', 'NEXT', word('INKEY$')),
-    letter('KeyM', 'm', '.', 'PAUSE', word('PI')),
-    {
-      id: 'SymShift',
-      spanX: 4,
-      emits: ['SymShift'],
-      modifier: 'symbol',
-      style: 'symshift',
-      labels: [{ text: '⇧ Sym' }, null, null, null, null],
-    },
-    {
-      ...key('Space', [ins('SPACE', ' '), noop('BREAK'), null, null, null]),
-      style: 'small-main',
-    },
-  ],
-  // Convenience extras (not on the real machine): handy on touch screens.
-  [
-    {
-      id: 'x-left',
-      spanX: 8,
-      emits: ['CapsShift', 'Digit5'],
-      style: 'extra',
-      labels: [act('←', 'left') as KeyLabel, null, null, null, null],
-    },
-    {
-      id: 'x-down',
-      spanX: 8,
-      emits: ['CapsShift', 'Digit6'],
-      style: 'extra',
-      labels: [act('↓', 'down') as KeyLabel, null, null, null, null],
-    },
-    {
-      id: 'x-up',
-      spanX: 8,
-      emits: ['CapsShift', 'Digit7'],
-      style: 'extra',
-      labels: [act('↑', 'up') as KeyLabel, null, null, null, null],
-    },
-    {
-      id: 'x-right',
-      spanX: 8,
-      emits: ['CapsShift', 'Digit8'],
-      style: 'extra',
-      labels: [act('→', 'right') as KeyLabel, null, null, null, null],
-    },
-    {
-      id: 'x-delete',
-      spanX: 8,
-      emits: ['CapsShift', 'Digit0'],
-      style: 'extra',
-      labels: [act('⌫', 'backspace') as KeyLabel, null, null, null, null],
-    },
-  ],
+  numberRow,
+  qwertyRow,
+  homeRow,
+  zxcvRow,
+  bottomRow([capsKey], spaceKey, [quoteKey, backspaceKey, symKey]),
 ];
 
 export const spectrumKeyboardLayout: KeyboardLayout = {

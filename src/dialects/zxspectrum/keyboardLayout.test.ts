@@ -15,6 +15,7 @@ const editorLayerIds = [
 describe('zxspectrum keyboard layout', () => {
   it('labels are index-aligned with the layers', () => {
     for (const key of allKeys) {
+      if (key.style === 'spacer') continue; // inert filler, no labels
       expect(key.labels.length, key.id).toBe(layout.layers.length);
     }
   });
@@ -75,9 +76,13 @@ describe('zxspectrum keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Space')!, 'main')).toEqual({
       insert: ' ',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit0')!, 'caps')).toEqual({
-      action: 'backspace',
+    // The common bottom row carries a single quote and backspace key.
+    expect(resolveEditorAction(layout, byId.get('Quote')!, 'main')).toEqual({
+      insert: '"',
     });
+    expect(resolveEditorAction(layout, byId.get('Backspace')!, 'main')).toEqual(
+      { action: 'backspace' },
+    );
     // Digits keep working in keyword mode via the base-layer fallback.
     expect(resolveEditorAction(layout, byId.get('Digit3')!, 'keyword')).toEqual(
       {

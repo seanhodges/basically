@@ -6,30 +6,23 @@ import type {
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
 import { QUAD, chequer, glyph } from '../../keyboard/sinclairGlyphs';
+import { bottomRow, centerRow } from '../../keyboard/templateRows';
 
 /**
- * The Sinclair ZX80 membrane keyboard as virtual-keyboard layout data.
+ * The Sinclair ZX80 keyboard on the standard virtual-keyboard template.
  *
  * The ZX80 shares the ZX81's 8×5 matrix (so the machine key tokens — `emits` —
- * are identical), but its legends differ. Each key carries up to four legends,
- * matching the real faceplate and what the emulated machine produces:
+ * are identical) but has fewer legends. Each alphanumeric key carries up to
+ * four:
  *  - main:     the letter / digit
- *  - shift:    the symbol typed with SHIFT held (operators are ZX80 tokens, plus
- *              the cursor arrows / HOME / RUBOUT on the number row)
- *  - keyword:  the white K-mode command printed on the key
- *  - graphic:  the block-graphics glyph in the bottom-right corner
+ *  - shift:    the symbol/operator typed with SHIFT held
+ *  - keyword:  the white K-mode command (pinned by the KEYWORD mode tab)
+ *  - graphic:  the block-graphics glyph (pinned by the GRAPHICS mode tab)
  *
- * The ZX80 has no FUNCTION cursor mode like the ZX81 — its "integral functions"
- * (CHR$, PEEK, USR, …) are typed letter-by-letter and are intentionally not key
- * legends — so there is no function layer. Graphics are offered as a GRAPHICS
- * editor mode (the glyph each key inserts is a ZX80 charset block character).
+ * The ZX80 has no FUNCTION cursor mode, so there is no function layer. As with
+ * the rest of the template the dedicated cursor/HOME/RUBOUT keys are dropped and
+ * a quote + backspace key live on the common bottom row.
  */
-
-// ---------------------------------------------------------------------------
-// Block-graphics glyphs. 16×16 viewBox, 2×2 quadrants of 8px; grey areas are a
-// 2px chequerboard. The QUAD/chequer/glyph builders are shared with the ZX81
-// (see ../../keyboard/sinclairGlyphs); the ZX80 has fewer grey variants and
-// none of the ZX81's half-solid/half-grey combos.
 
 const zx80Glyphs: GlyphRegistry = {
   quadTL: glyph(QUAD.tl),
@@ -55,11 +48,6 @@ const zx80Glyphs: GlyphRegistry = {
   greyBInv: glyph(chequer(0, 8, 16, 8, 1)),
 };
 
-// ---------------------------------------------------------------------------
-// What each block-graphics glyph inserts as editor text: the charset's unicode
-// block elements, or backslash escapes for the chequered greys (see charset.ts
-// GRAPHIC_UNICODE / ESCAPES — the escape spellings differ from the ZX81's).
-
 const GRAPHIC_INSERT: Record<string, string> = {
   quadTL: '▘',
   quadTR: '▝',
@@ -84,40 +72,32 @@ const GRAPHIC_INSERT: Record<string, string> = {
   greyBInv: '\\|.',
 };
 
-// ---------------------------------------------------------------------------
-// Key data. Label tuple order matches `layers` below: [main, shift, keyword,
-// graphic]. A text legend is a plain string (editor action derived from the
-// layer's editorInsertStyle) or an object overriding what it does in the editor.
-
+// Label tuple order matches `layers` below: [main, shift, keyword, graphic].
 type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
 
-/** Legend that inserts the keyword/operator plus a trailing space. */
 const word = (text: string): Legend => ({
   text,
   editor: { insert: `${text} ` },
 });
-/** Legend bound to an editing action (backspace, cursor moves, newline). */
 const act = (
   text: string,
   action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down',
 ): Legend => ({ text, editor: { action } });
-/** Legend that inserts different text than it shows. */
 const ins = (text: string, insert: string): Legend => ({
   text,
   editor: { insert },
 });
-/** Legend that does nothing in the editor (machine-only commands). */
-const noop = (text: string): Legend => ({ text, editor: null });
 
 type Legends = [Legend, Legend, Legend, string | null];
 
+const lbl = (legend: Legend): KeyLabel | null =>
+  legend === null
+    ? null
+    : typeof legend === 'string'
+      ? { text: legend }
+      : { text: legend.text, editor: legend.editor };
+
 function key(token: string, [main, shift, keyword, graphic]: Legends): KeyDef {
-  const lbl = (legend: Legend): KeyLabel | null =>
-    legend === null
-      ? null
-      : typeof legend === 'string'
-        ? { text: legend }
-        : { text: legend.text, editor: legend.editor };
   const glyphInsert = graphic === null ? undefined : GRAPHIC_INSERT[graphic];
   return {
     id: token,
@@ -137,119 +117,98 @@ function key(token: string, [main, shift, keyword, graphic]: Legends): KeyDef {
   };
 }
 
+const numberRow = [
+  key('Digit1', ['1', word('NOT'), null, 'quadTL']),
+  key('Digit2', ['2', word('AND'), null, 'quadTR']),
+  key('Digit3', ['3', word('THEN'), null, 'quadBR']),
+  key('Digit4', ['4', word('TO'), null, 'quadBL']),
+  key('Digit5', ['5', null, null, 'halfL']),
+  key('Digit6', ['6', null, null, 'halfB']),
+  key('Digit7', ['7', null, null, 'halfT']),
+  key('Digit8', ['8', null, null, 'halfR']),
+  key('Digit9', ['9', null, null, null]),
+  key('Digit0', ['0', null, null, null]),
+];
+
+const qwertyRow = [
+  key('KeyQ', ['Q', null, 'NEW', 'q3NoTL']),
+  key('KeyW', ['W', null, 'LOAD', 'q3NoTR']),
+  key('KeyE', ['E', null, 'SAVE', 'q3NoBR']),
+  key('KeyR', ['R', null, 'RUN', 'q3NoBL']),
+  key('KeyT', ['T', null, 'CONTINUE', 'diagTRBL']),
+  key('KeyY', ['Y', '"', 'REM', 'diagTLBR']),
+  key('KeyU', ['U', '$', 'IF', null]),
+  key('KeyI', ['I', '(', 'INPUT', null]),
+  key('KeyO', ['O', ')', 'PRINT', null]),
+  key('KeyP', ['P', '*', null, null]),
+];
+
+const homeRow = [
+  key('KeyA', ['A', null, 'LIST', 'grey']),
+  key('KeyS', ['S', null, 'STOP', 'greyT']),
+  key('KeyD', ['D', null, 'DIM', 'greyB']),
+  key('KeyF', ['F', null, 'FOR', 'greyTInv']),
+  key('KeyG', ['G', null, 'GOTO', 'greyBInv']),
+  key('KeyH', ['H', '**', 'POKE', 'greyInv']),
+  // '−' is U+2212 (not in the ZX80 charset); insert the ASCII hyphen.
+  key('KeyJ', ['J', ins('−', '-'), 'RANDOMISE', null]),
+  key('KeyK', ['K', '+', 'LET', null]),
+  key('KeyL', ['L', '=', null, null]),
+  key('Enter', [act('↵', 'newline'), null, null, null]),
+];
+
+const zxcvRow = centerRow([
+  key('KeyZ', ['Z', ':', null, null]),
+  key('KeyX', ['X', ';', 'CLEAR', null]),
+  key('KeyC', ['C', '?', 'CLS', null]),
+  key('KeyV', ['V', '/', 'GOSUB', null]),
+  key('KeyB', ['B', word('OR'), 'RETURN', null]),
+  key('KeyN', ['N', '<', 'NEXT', null]),
+  key('KeyM', ['M', '>', null, null]),
+  key('Period', ['.', ',', null, null]),
+]);
+
+const shiftKey: KeyDef = {
+  id: 'Shift',
+  spanX: 6,
+  emits: ['Shift'],
+  modifier: 'shift',
+  style: 'shift',
+  labels: [{ text: '⇧' }, null, null, null],
+};
+
+const spaceKey = {
+  id: 'Space',
+  emits: ['Space'],
+  style: 'small-main',
+  labels: [
+    { text: 'SPACE', editor: { insert: ' ' } },
+    { text: '£' },
+    null,
+    { glyph: 'solid', editor: { insert: '█' } },
+  ],
+} satisfies Omit<KeyDef, 'spanX'>;
+
+const quoteKey: KeyDef = {
+  id: 'Quote',
+  spanX: 4,
+  emits: ['Shift', 'KeyY'],
+  labels: [{ text: '"' }, null, null, null],
+};
+
+const backspaceKey: KeyDef = {
+  id: 'Backspace',
+  spanX: 4,
+  emits: ['Shift', 'Digit0'],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null, null],
+};
+
 const rows: KeyDef[][] = [
-  [
-    key('Digit1', ['1', word('NOT'), null, 'quadTL']),
-    key('Digit2', ['2', word('AND'), null, 'quadTR']),
-    key('Digit3', ['3', word('THEN'), null, 'quadBR']),
-    key('Digit4', ['4', word('TO'), null, 'quadBL']),
-    key('Digit5', ['5', act('←', 'left'), null, 'halfL']),
-    key('Digit6', ['6', act('↓', 'down'), null, 'halfB']),
-    key('Digit7', ['7', act('↑', 'up'), null, 'halfT']),
-    key('Digit8', ['8', act('→', 'right'), null, 'halfR']),
-    key('Digit9', ['9', noop('HOME'), null, null]),
-    key('Digit0', ['0', act('⌫', 'backspace'), null, null]),
-  ],
-  [
-    key('KeyQ', ['Q', null, 'NEW', 'q3NoTL']),
-    key('KeyW', ['W', null, 'LOAD', 'q3NoTR']),
-    key('KeyE', ['E', null, 'SAVE', 'q3NoBR']),
-    key('KeyR', ['R', null, 'RUN', 'q3NoBL']),
-    key('KeyT', ['T', null, 'CONTINUE', 'diagTRBL']),
-    key('KeyY', ['Y', '"', 'REM', 'diagTLBR']),
-    key('KeyU', ['U', '$', 'IF', null]),
-    key('KeyI', ['I', '(', 'INPUT', null]),
-    key('KeyO', ['O', ')', 'PRINT', null]),
-    key('KeyP', ['P', '*', null, null]),
-  ],
-  [
-    key('KeyA', ['A', null, 'LIST', 'grey']),
-    key('KeyS', ['S', null, 'STOP', 'greyT']),
-    key('KeyD', ['D', null, 'DIM', 'greyB']),
-    key('KeyF', ['F', null, 'FOR', 'greyTInv']),
-    key('KeyG', ['G', null, 'GOTO', 'greyBInv']),
-    key('KeyH', ['H', '**', 'POKE', 'greyInv']),
-    // '−' is U+2212 (not in the ZX80 charset); insert the ASCII hyphen.
-    key('KeyJ', ['J', ins('−', '-'), 'RANDOMISE', null]),
-    key('KeyK', ['K', '+', 'LET', null]),
-    key('KeyL', ['L', '=', null, null]),
-    {
-      ...key('Enter', [act('↵', 'newline'), null, null, null]),
-    },
-  ],
-  [
-    {
-      id: 'Shift',
-      spanX: 4,
-      emits: ['Shift'],
-      modifier: 'shift',
-      style: 'shift',
-      labels: [{ text: '⇧' }, null, null, null],
-    },
-    key('KeyZ', ['Z', ':', null, null]),
-    key('KeyX', ['X', ';', 'CLEAR', null]),
-    key('KeyC', ['C', '?', 'CLS', null]),
-    key('KeyV', ['V', '/', 'GOSUB', null]),
-    key('KeyB', ['B', word('OR'), 'RETURN', null]),
-    key('KeyN', ['N', '<', 'NEXT', null]),
-    key('KeyM', ['M', '>', null, null]),
-    key('Period', ['.', ',', null, null]),
-    {
-      ...key('Space', [ins('SPACE', ' '), '£', null, 'solid']),
-      style: 'small-main',
-    },
-  ],
-  // Convenience extras (not on the real machine): common shift chords as single
-  // keys, handy on touch screens. The ZX80 has no EDIT key (its SHIFT+1 is NOT).
-  [
-    {
-      id: 'x-left',
-      spanX: 4,
-      emits: ['Shift', 'Digit5'],
-      style: 'extra',
-      labels: [{ text: '←', editor: { action: 'left' } }, null, null, null],
-    },
-    {
-      id: 'x-down',
-      spanX: 4,
-      emits: ['Shift', 'Digit6'],
-      style: 'extra',
-      labels: [{ text: '↓', editor: { action: 'down' } }, null, null, null],
-    },
-    {
-      id: 'x-up',
-      spanX: 4,
-      emits: ['Shift', 'Digit7'],
-      style: 'extra',
-      labels: [{ text: '↑', editor: { action: 'up' } }, null, null, null],
-    },
-    {
-      id: 'x-right',
-      spanX: 4,
-      emits: ['Shift', 'Digit8'],
-      style: 'extra',
-      labels: [{ text: '→', editor: { action: 'right' } }, null, null, null],
-    },
-    {
-      id: 'x-quote',
-      spanX: 12,
-      emits: ['Shift', 'KeyY'],
-      style: 'extra',
-      labels: [{ text: '"' }, null, null, null],
-    },
-    {
-      id: 'x-rubout',
-      spanX: 12,
-      emits: ['Shift', 'Digit0'],
-      style: 'extra',
-      labels: [
-        { text: '⌫', editor: { action: 'backspace' } },
-        null,
-        null,
-        null,
-      ],
-    },
-  ],
+  numberRow,
+  qwertyRow,
+  homeRow,
+  zxcvRow,
+  bottomRow([shiftKey], spaceKey, [quoteKey, backspaceKey]),
 ];
 
 export const zx80KeyboardLayout: KeyboardLayout = {

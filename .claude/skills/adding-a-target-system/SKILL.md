@@ -91,11 +91,16 @@ satisfies and the zx81 file to mirror.
    - `releaseAllKeys()`, `setSpeed(multiplier)`, `dispose()`.
 
 7. **`keyboardLayout.ts`** — a `KeyboardLayout` value (pure data: keys, legends,
-   layers, modifiers, glyphs, optional editor modes). **The virtual keyboard is
-   entirely data-driven — `src/keyboard/VirtualKeyboard.tsx` and
-   `src/keyboard/inputEngine.ts` need no changes.** Import types from
-   `src/keyboard/layoutSchema.ts`; copy `zx81/keyboardLayout.ts` (a full
-   5-layer / 4-editor-mode example). Wire the keys into your emulator's
+   layers, modifiers, glyphs, optional editor modes / function keys). **The
+   virtual keyboard is entirely data-driven — `src/keyboard/VirtualKeyboard.tsx`
+   and `src/keyboard/inputEngine.ts` need no changes.** Follow the standard
+   template (`docs/adding-a-virtual-keyboard.md`): a uniform 40-column,
+   ten-key-per-row grid built with the `src/keyboard/templateRows.ts` helpers
+   (number/QWERTY/home/zxcv rows + a common bottom row), with the machine's
+   modes and/or function keys in the top strip and no arrow keys. Import types
+   from `src/keyboard/layoutSchema.ts`; copy `zx81/keyboardLayout.ts` (a full
+   5-layer / 4-mode example) or `bbcmicro/keyboardLayout.ts` (modes + function
+   keys behind a toggle). Wire the keys into your emulator's
    `setKey(token, down)`: the token strings are opaque to the framework, so pick
    whatever maps naturally to your matrix. **Keep separate `physicalDown` and
    `virtualDown` sets and union them when writing the matrix** so a physical keyup

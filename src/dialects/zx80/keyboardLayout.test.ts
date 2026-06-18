@@ -17,6 +17,7 @@ describe('zx80 keyboard layout structure', () => {
   it('every key has a label tuple aligned with layers', () => {
     const layerCount = layout.layers.length;
     for (const key of allKeys) {
+      if (key.style === 'spacer') continue; // inert filler, no labels
       expect(key.labels, key.id).toHaveLength(layerCount);
     }
   });
@@ -114,16 +115,13 @@ describe('zx80 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('Space')!, 'main')).toEqual({
       insert: ' ',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit0')!, 'shift')).toEqual({
-      action: 'backspace',
+    // The common bottom row carries a single quote and backspace key.
+    expect(resolveEditorAction(layout, byId.get('Quote')!, 'main')).toEqual({
+      insert: '"',
     });
-    expect(resolveEditorAction(layout, byId.get('Digit5')!, 'shift')).toEqual({
-      action: 'left',
-    });
-    // HOME is machine-only — it does nothing in the editor.
-    expect(
-      resolveEditorAction(layout, byId.get('Digit9')!, 'shift'),
-    ).toBeNull();
+    expect(resolveEditorAction(layout, byId.get('Backspace')!, 'main')).toEqual(
+      { action: 'backspace' },
+    );
     // Digits keep working in keyword mode via the base-layer fallback.
     expect(resolveEditorAction(layout, byId.get('Digit3')!, 'keyword')).toEqual(
       { insert: '3' },

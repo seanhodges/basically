@@ -1,15 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { bbcKeyboardLayout } from './keyboardLayout';
-import { matrixForToken } from '../../emulator/bbc/keyboard';
+import { c64KeyboardLayout } from './keyboardLayout';
 import { resolveEditorAction } from '../../keyboard/editorActions';
 
-const layout = bbcKeyboardLayout;
+const layout = c64KeyboardLayout;
 const functionKeys = layout.functionKeys ?? [];
 const allKeys = [...layout.rows.flat(), ...functionKeys];
-/** Filler cells (spacers) emit nothing and carry no modifier. */
-const realKeys = allKeys.filter((k) => k.emits.length > 0 || k.modifier);
 
-describe('bbcmicro keyboard layout', () => {
+describe('commodore64 keyboard layout', () => {
   it('uses the standard 40-column template', () => {
     expect(layout.gridColumns).toBe(40);
     expect(layout.rows).toHaveLength(5);
@@ -22,11 +19,9 @@ describe('bbcmicro keyboard layout', () => {
     });
   });
 
-  it('offers ABC and SYM modes plus the f0–f9 function keys', () => {
-    expect((layout.editorModes ?? []).map((m) => m.id)).toEqual(['abc', 'sym']);
-    expect(functionKeys.map((k) => k.id)).toEqual(
-      Array.from({ length: 10 }, (_, i) => `F${i}`),
-    );
+  it('has no modes and carries f1/f3/f5/f7 in the top strip', () => {
+    expect(layout.editorModes).toBeUndefined();
+    expect(functionKeys.map((k) => k.id)).toEqual(['F1', 'F3', 'F5', 'F7']);
   });
 
   it('labels are index-aligned with the layers', () => {
@@ -47,39 +42,24 @@ describe('bbcmicro keyboard layout', () => {
 
   it('every referenced modifier exists', () => {
     const modIds = new Set(layout.modifiers.map((m) => m.id));
-    for (const key of realKeys) {
+    for (const key of allKeys) {
       if (key.modifier) expect(modIds.has(key.modifier), key.id).toBe(true);
     }
   });
 
-  it('every emitted token maps to the BBC matrix', () => {
-    for (const key of realKeys) {
-      for (const token of key.emits) {
-        expect(matrixForToken(token), `${key.id} → ${token}`).toBeDefined();
-      }
-    }
-  });
-
-  it('surfaces the punctuation overflow as SYM-mode editor inserts', () => {
+  it('puts the operators on the SHIFT layer as editor inserts', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'sym')).toEqual({
-      insert: '-',
-    });
-    expect(resolveEditorAction(layout, byId.get('Digit3')!, 'sym')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('A')!, 'shift')).toEqual({
       insert: '+',
     });
-    expect(resolveEditorAction(layout, byId.get('KeyY')!, 'sym')).toEqual({
-      insert: ':',
-    });
-    // Letters with no SYM legend keep typing through the base-layer fallback.
-    expect(resolveEditorAction(layout, byId.get('KeyA')!, 'sym')).toEqual({
-      insert: 'A',
+    expect(resolveEditorAction(layout, byId.get('Num1')!, 'shift')).toEqual({
+      insert: '!',
     });
   });
 
   it('spot checks the common bottom row', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('Enter')!, 'base')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('Return')!, 'base')).toEqual({
       action: 'newline',
     });
     expect(resolveEditorAction(layout, byId.get('Space')!, 'base')).toEqual({
@@ -88,7 +68,7 @@ describe('bbcmicro keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Quote')!, 'base')).toEqual({
       insert: '"',
     });
-    expect(resolveEditorAction(layout, byId.get('Delete')!, 'base')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('InstDel')!, 'base')).toEqual({
       action: 'backspace',
     });
   });

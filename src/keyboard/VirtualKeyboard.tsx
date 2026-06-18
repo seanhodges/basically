@@ -38,12 +38,12 @@ const KEYBOARD_POINTER_ID = -1;
 /** Below this container width there isn't room for every legend at once. */
 const COMPACT_MAX_WIDTH = 520;
 
-/** At or above this container width a tabbed keyboard shows its full
-    single-page layout instead of the narrow per-tab pages. */
+/** At or above this container width the keyboard centres and the top strip
+    relocates into the left gutter as a vertical bar. */
 const WIDE_MIN_WIDTH = 600;
 
 /** Below this viewport height keys shrink too far for every legend (must
-    match the landscape media query in styles.css). */
+    match the landscape media query in VirtualKeyboard.css). */
 const COMPACT_MAX_VIEWPORT_HEIGHT = 560;
 
 /** Hold-to-repeat timing for editor actions (backspace, cursor moves). */
@@ -98,10 +98,9 @@ export function VirtualKeyboard({
   const hapticsRef = useRef(haptics);
   hapticsRef.current = haptics;
 
-  // Input mode (the ZX81 K/F/G cursor as a selector bar). Shown for both
-  // targets so the editor and emulator present an identical mode bar; for the
-  // machine target the mode is purely cosmetic (it emphasises a legend and, in
-  // compact mode, picks the secondary legend) — matrix tokens are unaffected.
+  // Top-strip input modes (the ZX81 K/F/G cursor as a selector bar). Each mode
+  // pins a layer. Shown for both targets; for the machine target the mode is
+  // purely cosmetic (it emphasises a legend) — matrix tokens are unaffected.
   const editorModes = layout.editorModes ?? [];
   const [modeId, setModeId] = useState<string | null>(null);
   useEffect(() => setModeId(null), [layout]);
@@ -110,12 +109,17 @@ export function VirtualKeyboard({
   const modeRef = useRef(mode);
   modeRef.current = mode;
 
-  // Key pages (the BBC's ABC / symbols tabs). Shown for both targets; absent
-  // on single-page keyboards (ZX81/Spectrum), which render `layout.rows`.
-  const tabs = layout.tabs ?? [];
-  const [tabId, setTabId] = useState<string | null>(null);
-  useEffect(() => setTabId(null), [layout]);
-  const activeTab = tabs.find((t) => t.id === tabId) ?? tabs[0] ?? null;
+  // Top-strip function keys (the C64's f1/f3/f5/f7, the BBC's f0–f9). When a
+  // layout has both modes and function keys the strip shows one at a time
+  // behind an icon toggle.
+  const functionKeys = useMemo(() => layout.functionKeys ?? [], [layout]);
+  const hasModes = editorModes.length > 0;
+  const hasFnKeys = functionKeys.length > 0;
+  const hasToggle = hasModes && hasFnKeys;
+  const [stripView, setStripView] = useState<'modes' | 'fn'>('modes');
+  useEffect(() => setStripView('modes'), [layout]);
+  const showModeTabs = hasModes && (!hasToggle || stripView === 'modes');
+  const showFnKeys = hasFnKeys && (!hasToggle || stripView === 'fn');
 
   const baseLayer = useMemo(
     () =>
@@ -227,12 +231,6 @@ export function VirtualKeyboard({
     stopAllRepeatsRef.current();
   }, [modeId, engine]);
 
-  // Switching key pages preserves modifier/lock state (a Shift-Lock set for
-  // shifted symbols should carry across tabs) but stops in-flight repeats.
-  useEffect(() => {
-    stopAllRepeatsRef.current();
-  }, [tabId]);
-
   // Compact mode: too narrow to render every legend without overlap, so
   // show the base layer plus one selectable secondary layer per key.
   const [compact, setCompact] = useState(
@@ -241,8 +239,8 @@ export function VirtualKeyboard({
       (window.innerWidth < 600 ||
         window.innerHeight < COMPACT_MAX_VIEWPORT_HEIGHT),
   );
-  // Wide mode: enough horizontal room to show a tabbed keyboard's full
-  // single-page layout instead of its narrow per-tab pages.
+  // Wide mode: enough horizontal room to centre the keyboard and float the top
+  // strip into the left gutter.
   const [wide, setWide] = useState(
     () => typeof window !== 'undefined' && window.innerWidth >= WIDE_MIN_WIDTH,
   );
@@ -265,24 +263,16 @@ export function VirtualKeyboard({
     };
   }, []);
 
-  // A tabbed keyboard collapses to its per-tab pages only when narrow; wide
-  // enough, it shows the full single-page `rows` layout with no tab bar.
-  const useTabs = !wide && tabs.length > 0;
-  const displayRows = useTabs ? (activeTab?.rows ?? layout.rows) : layout.rows;
-  const gridCols = useTabs
-    ? (layout.narrowGridColumns ?? layout.gridColumns)
-    : layout.gridColumns;
+  const displayRows = layout.rows;
+  const gridCols = layout.gridColumns;
+  const fnCols = functionKeys.reduce((n, k) => n + k.spanX, 0);
 
   const secondaryLayers = useMemo(
     () => layout.layers.filter((l) => l !== baseLayer),
     [layout, baseLayer],
   );
-  const [legendChoice, setLegendChoice] = useState<string | null>(null);
-  useEffect(() => setLegendChoice(null), [layout]);
   const legendLayerId =
-    legendChoice ??
-    layout.options?.compactDefaultLayer ??
-    secondaryLayers[0]?.id;
+    layout.options?.compactDefaultLayer ?? secondaryLayers[0]?.id;
 
   // Any path that can lose pointers clears all matrix state (R5).
   useEffect(() => {
@@ -386,8 +376,11 @@ export function VirtualKeyboard({
   // Roving focus: the whole keyboard is one tab stop; arrows move between
   // keys, Enter/Space presses the focused key.
   const flatKeys = useMemo(
-    () => displayRows.flat().filter((k) => k.emits.length > 0 || k.modifier),
-    [displayRows],
+    () =>
+      [...displayRows.flat(), ...(showFnKeys ? functionKeys : [])].filter(
+        (k) => k.emits.length > 0 || k.modifier,
+      ),
+    [displayRows, showFnKeys, functionKeys],
   );
   const [focusIdx, setFocusIdx] = useState(0);
 
@@ -439,10 +432,74 @@ export function VirtualKeyboard({
       ? activeLayer.id
       : (modifierLayer?.id ?? legendLayerId));
 
+  const renderKey = (def: KeyDef) => {
+    const modState = def.modifier
+      ? engine.getModifierState(def.modifier)
+      : 'off';
+    const classes = ['vk-key'];
+    if (pressed.has(def.id)) classes.push('vk-pressed');
+    if (modState === 'held' || modState === 'sticky')
+      classes.push('vk-mod-engaged');
+    if (modState === 'locked') classes.push('vk-mod-locked');
+    if (def.style) classes.push(`vk-style-${def.style}`);
+    if (def.id === focusKeyId) classes.push('vk-focus');
+    if (
+      target.kind === 'editor' &&
+      !def.modifier &&
+      def.emits.length > 0 &&
+      resolveEditorAction(layout, def, highlightLayerId) === null
+    )
+      classes.push('vk-noaction');
+    return (
+      <div
+        key={def.id}
+        data-keyid={def.id}
+        className={classes.join(' ')}
+        style={{ gridColumn: `span ${def.spanX}` }}
+        role="button"
+        tabIndex={-1}
+        aria-label={keyAriaLabel(def, layout, highlightLayerId)}
+        aria-pressed={
+          def.modifier ? modState !== 'off' : pressed.has(def.id) || undefined
+        }
+      >
+        <span className="vk-keycap" aria-hidden="true">
+          {layout.layers.map((layer, layerIdx) => {
+            const label = def.labels[layerIdx];
+            if (!label) return null;
+            if (
+              compact &&
+              layer !== baseLayer &&
+              layer.id !== visibleSecondaryId
+            )
+              return null;
+            const cls = [
+              'vk-label',
+              `vk-pos-${layer.position}`,
+              `vk-layer-${layer.id}`,
+            ];
+            if (layer.id === highlightLayerId) cls.push('vk-active');
+            return (
+              <span key={layer.id} className={cls.join(' ')}>
+                {label.glyph ? (
+                  <GlyphSvg glyph={layout.glyphs[label.glyph]} />
+                ) : (
+                  label.text
+                )}
+              </span>
+            );
+          })}
+        </span>
+      </div>
+    );
+  };
+
+  const hasStrip = showModeTabs || showFnKeys;
+
   return (
     <div
       ref={containerRef}
-      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}`}
+      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${wide ? ' vk-wide' : ''}`}
       role="group"
       aria-label={`${layout.name} on-screen keyboard`}
       tabIndex={0}
@@ -454,147 +511,67 @@ export function VirtualKeyboard({
       onKeyUp={onKeyUp}
       onBlur={() => engine.pointerUp(KEYBOARD_POINTER_ID)}
     >
-      {useTabs && (
-        <div
-          className="vk-legend-bar vk-tab-bar"
-          role="radiogroup"
-          aria-label="Keyboard page"
-        >
-          {tabs.map((t) => (
+      {hasStrip && (
+        <div className="vk-strip">
+          {hasToggle && (
             <button
-              key={t.id}
-              className={`vk-legend-btn${t.id === activeTab?.id ? ' active' : ''}`}
-              role="radio"
-              aria-checked={t.id === activeTab?.id}
+              className="vk-strip-toggle"
+              aria-label={
+                stripView === 'modes' ? 'Show function keys' : 'Show modes'
+              }
               tabIndex={-1}
               onPointerDown={(e) => {
-                e.preventDefault(); // keep canvas/editor focus (R4)
-                setTabId(t.id);
+                e.preventDefault(); // keep editor/canvas focus (R4)
+                setStripView((v) => (v === 'modes' ? 'fn' : 'modes'));
               }}
             >
-              {t.name}
+              {stripView === 'modes' ? 'ƒ' : '⌨'}
             </button>
-          ))}
+          )}
+          {showModeTabs && (
+            <div
+              className="vk-mode-bar"
+              role="radiogroup"
+              aria-label="Input mode"
+            >
+              {editorModes.map((m) => (
+                <button
+                  key={m.id}
+                  className={`vk-legend-btn${m.id === mode?.id ? ' active' : ''}`}
+                  role="radio"
+                  aria-checked={m.id === mode?.id}
+                  tabIndex={-1}
+                  onPointerDown={(e) => {
+                    e.preventDefault(); // keep editor focus (R4)
+                    setModeId(m.id);
+                  }}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {showFnKeys && (
+            <div
+              className="vk-fn-row"
+              style={{ gridTemplateColumns: `repeat(${fnCols}, 1fr)` }}
+            >
+              {functionKeys.map(renderKey)}
+            </div>
+          )}
         </div>
       )}
-      {editorModes.length > 0 ? (
-        <div
-          className="vk-legend-bar vk-mode-bar"
-          role="radiogroup"
-          aria-label="Input mode"
-        >
-          {editorModes.map((m) => (
-            <button
-              key={m.id}
-              className={`vk-legend-btn${m.id === mode?.id ? ' active' : ''}`}
-              role="radio"
-              aria-checked={m.id === mode?.id}
-              tabIndex={-1}
-              onPointerDown={(e) => {
-                e.preventDefault(); // keep editor focus (R4)
-                setModeId(m.id);
-              }}
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
-      ) : (
-        compact &&
-        secondaryLayers.length > 1 && (
+      <div className="vk-rows">
+        {displayRows.map((row, rowIdx) => (
           <div
-            className="vk-legend-bar"
-            role="radiogroup"
-            aria-label="Key legends shown"
+            key={rowIdx}
+            className="vk-row"
+            style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
           >
-            {secondaryLayers.map((layer) => (
-              <button
-                key={layer.id}
-                className={`vk-legend-btn${layer.id === visibleSecondaryId ? ' active' : ''}`}
-                role="radio"
-                aria-checked={layer.id === visibleSecondaryId}
-                tabIndex={-1}
-                onPointerDown={(e) => {
-                  e.preventDefault(); // keep canvas focus (R4)
-                  setLegendChoice(layer.id);
-                }}
-              >
-                {layer.name ?? layer.id}
-              </button>
-            ))}
+            {row.map(renderKey)}
           </div>
-        )
-      )}
-      {displayRows.map((row, rowIdx) => (
-        <div
-          key={rowIdx}
-          className="vk-row"
-          style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
-        >
-          {row.map((def) => {
-            const modState = def.modifier
-              ? engine.getModifierState(def.modifier)
-              : 'off';
-            const classes = ['vk-key'];
-            if (pressed.has(def.id)) classes.push('vk-pressed');
-            if (modState === 'held' || modState === 'sticky')
-              classes.push('vk-mod-engaged');
-            if (modState === 'locked') classes.push('vk-mod-locked');
-            if (def.style) classes.push(`vk-style-${def.style}`);
-            if (def.id === focusKeyId) classes.push('vk-focus');
-            if (
-              target.kind === 'editor' &&
-              !def.modifier &&
-              resolveEditorAction(layout, def, highlightLayerId) === null
-            )
-              classes.push('vk-noaction');
-            return (
-              <div
-                key={def.id}
-                data-keyid={def.id}
-                className={classes.join(' ')}
-                style={{ gridColumn: `span ${def.spanX}` }}
-                role="button"
-                tabIndex={-1}
-                aria-label={keyAriaLabel(def, layout, highlightLayerId)}
-                aria-pressed={
-                  def.modifier
-                    ? modState !== 'off'
-                    : pressed.has(def.id) || undefined
-                }
-              >
-                <span className="vk-keycap" aria-hidden="true">
-                  {layout.layers.map((layer, layerIdx) => {
-                    const label = def.labels[layerIdx];
-                    if (!label) return null;
-                    if (
-                      compact &&
-                      layer !== baseLayer &&
-                      layer.id !== visibleSecondaryId
-                    )
-                      return null;
-                    const cls = [
-                      'vk-label',
-                      `vk-pos-${layer.position}`,
-                      `vk-layer-${layer.id}`,
-                    ];
-                    if (layer.id === highlightLayerId) cls.push('vk-active');
-                    return (
-                      <span key={layer.id} className={cls.join(' ')}>
-                        {label.glyph ? (
-                          <GlyphSvg glyph={layout.glyphs[label.glyph]} />
-                        ) : (
-                          label.text
-                        )}
-                      </span>
-                    );
-                  })}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
