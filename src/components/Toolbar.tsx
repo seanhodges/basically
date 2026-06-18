@@ -94,7 +94,7 @@ export function Toolbar() {
     guard(() => requestEditorCommand(name));
 
   const confirmDiscard = () =>
-    !dirty || window.confirm('Discard unsaved changes?');
+    !dirty || !source.trim() || window.confirm('Discard unsaved changes?');
 
   const newFile = guard(() => {
     if (!confirmDiscard()) return;

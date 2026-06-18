@@ -99,11 +99,11 @@ describe('confirmDialectSwitch / cancelDialectSwitch', () => {
     });
   });
 
-  it("'new' switches and loads the new starter", () => {
+  it("'new' switches and creates an empty file", () => {
     useIdeStore.getState().confirmDialectSwitch('new');
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('bbcmicro');
-    expect(s.source).toBe(bbc.samples[0]!.text);
+    expect(s.source).toBe('');
     expect(s.fileName).toBe('untitled.bas');
     expect(s.dirty).toBe(false);
     expect(s.pendingDialectId).toBeNull();

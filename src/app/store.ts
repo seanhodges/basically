@@ -280,7 +280,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       const next = getDialect(s.pendingDialectId);
       if (mode === 'new') {
         return {
-          ...applyDialectSwitch(s, next, next.samples[0]?.text ?? ''),
+          ...applyDialectSwitch(s, next, ''),
           fileName: 'untitled.bas',
           dirty: false,
         };
