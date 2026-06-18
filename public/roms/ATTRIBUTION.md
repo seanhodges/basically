@@ -38,3 +38,22 @@ shipped by jsbeeb (https://github.com/mattgodbolt/jsbeeb).
 
 If you are the rights holder and want these files removed, please open an
 issue.
+
+# Commodore ROM attribution
+
+`c64/basic.bin` (Commodore BASIC v2), `c64/kernal.bin` (KERNAL) and
+`c64/chargen.bin` (character generator) are the three Commodore 64 ROMs, the
+firmware originally copyright © 1982 Commodore Business Machines, with rights
+now held by Cloanto / C64 Forever.
+
+These images are assembled from the from-scratch disassembly sources bundled
+with the [viciious](https://github.com/luxocrates/viciious) emulator (see
+`src/emulator/c64/viciious/LICENSE-VICIIOUS.md`) and are functionally
+compatible with the original C64 ROMs. As with the Acorn ROMs there is no
+formal blanket permission from the rights holder, but C64 ROM images have been
+distributed with emulators (VICE, CCS64, and others) for decades on a
+de-facto-tolerated basis. They are included here solely for use with the
+bundled emulator.
+
+If you are the rights holder and want these files removed, please open an
+issue — the IDE also supports supplying your own ROM image at runtime.

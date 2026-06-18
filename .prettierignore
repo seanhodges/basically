@@ -2,5 +2,6 @@ dist/
 public/roms/
 src/emulator/z80/
 src/emulator/6502/
+src/emulator/c64/viciious/
 src/samples/
 package-lock.json

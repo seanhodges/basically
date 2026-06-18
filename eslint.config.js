@@ -11,6 +11,7 @@ export default tseslint.config(
       'dist/**',
       'src/emulator/z80/**',
       'src/emulator/6502/**',
+      'src/emulator/c64/viciious/**',
       '*.config.js',
       '*.config.ts',
     ],

@@ -41,9 +41,10 @@ npm run format:check   # Prettier check (used in CI)
 npm run build          # tsc -b && vite build → dist/
 ```
 
-**Before finishing a change**, run `npm run typecheck`, `npm test`, and
-`npm run lint`. For tokenizer / emulator / charset changes, add or update the
-colocated `*.test.ts` rather than only checking by hand.
+**Before finishing a change**, run `npm run typecheck`, `npm test`,
+`npm run lint`, and `npm run format:check` (or `npm run format` to auto-fix).
+For tokenizer / emulator / charset changes, add or update the colocated
+`*.test.ts` rather than only checking by hand.
 
 ## Architecture
 

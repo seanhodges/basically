@@ -4,6 +4,7 @@ import { zx80 } from './zx80';
 import { zxspectrum } from './zxspectrum';
 import { bbcmicro } from './bbcmicro';
 import { bbcmaster } from './bbcmaster';
+import { commodore64 } from './commodore64';
 
 export const dialects: Dialect[] = [
   zx81,
@@ -11,6 +12,7 @@ export const dialects: Dialect[] = [
   zxspectrum,
   bbcmicro,
   bbcmaster,
+  commodore64,
 ];
 
 export function getDialect(id: string): Dialect {
