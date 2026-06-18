@@ -4,19 +4,37 @@ import type {
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
 import { bottomRow } from '../../keyboard/templateRows';
+import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
 
 /**
  * The Commodore 64 keyboard on the standard virtual-keyboard template.
  *
- * The C64 has no extra text-entry modes, so the top strip carries its function
- * keys (f1/f3/f5/f7). It has more symbol keys than a uniform ten-key grid holds,
- * so — trading authenticity for a clean, thumb-sized layout — the operators
- * (`+ - * / = : ; @ £`) ride the SHIFT layer as editor inserts alongside the
- * authentic shifted-digit symbols. RUN/STOP, RESTORE, CTRL and the cursor keys
- * are dropped. Each key `emits` a VIC-II button name (see c64Machine.ts).
+ * Two top-strip modes let a single key carry an operator *and* its two block
+ * graphics without clashing (the real machine prints both graphics on the key's
+ * front face):
+ *  - **ABC** — letters/digits; SHIFT gives the shifted symbols and the editor
+ *    operators (`+ - * / = : ; @ £`, `! " # …`) that ride the SHIFT layer.
+ *  - **GRAPHICS** — the C= block graphics unmodified, the SHIFT block graphics
+ *    with SHIFT held (`shiftedLayer`).
+ *
+ * The four physical function keys yield eight values (f2/f4/f6/f8 are SHIFT of
+ * the odd keys); all eight are shown as separate keys in the top strip, behind
+ * the strip's mode/function toggle. RUN/STOP, RESTORE and the cursor keys are
+ * dropped. Each key `emits` a VIC-II button name (see c64Machine.ts).
  */
 
-/** A key: base label, optional shifted label, one matrix token. */
+const cmdGfx = new Map(C64_COMMODORE_GRAPHICS.map((g) => [g.key, g.char]));
+const shiftGfx = new Map(C64_SHIFT_GRAPHICS.map((g) => [g.key, g.char]));
+
+/** A block-graphic legend that inserts its own character, or null if none. */
+const gfxLabel = (char: string | undefined): KeyLabel | null =>
+  char === undefined ? null : { text: char, editor: { insert: char } };
+
+/**
+ * A key: base label, optional shifted label, the two block graphics looked up by
+ * id, one matrix token. Label tuple order matches `layers` below:
+ * [base, shift, gfxCommodore, gfxShift].
+ */
 function key(
   id: string,
   emit: string,
@@ -27,11 +45,21 @@ function key(
   const labels: (KeyLabel | null)[] = [
     { text: base },
     shift ? { text: shift } : null,
+    gfxLabel(cmdGfx.get(id)),
+    gfxLabel(shiftGfx.get(id)),
   ];
   return { id, spanX, emits: [emit], labels };
 }
 
 const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
+
+/** A bottom-row / strip key with only a main label (no shift, no graphics). */
+const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [
+  main,
+  null,
+  null,
+  null,
+];
 
 const numberRow = [
   key('Num1', 'Num1', '1', '!'),
@@ -73,7 +101,7 @@ const homeRow = [
     id: 'Return',
     spanX: 4,
     emits: ['Return'],
-    labels: [{ text: '↵', editor: { action: 'newline' } }, null],
+    labels: plainLabels({ text: '↵', editor: { action: 'newline' } }),
   } satisfies KeyDef,
 ];
 
@@ -96,7 +124,7 @@ const shiftKey: KeyDef = {
   emits: ['LeftShift'],
   modifier: 'shift',
   style: 'shift',
-  labels: [{ text: '⇧' }, null],
+  labels: plainLabels({ text: '⇧' }),
 };
 
 const commodoreKey: KeyDef = {
@@ -104,28 +132,28 @@ const commodoreKey: KeyDef = {
   spanX: 5,
   emits: ['Commodore'],
   modifier: 'commodore',
-  labels: [{ text: 'C=', editor: null }, null],
+  labels: plainLabels({ text: 'C=', editor: null }),
 };
 
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: [{ text: 'SPACE', editor: { insert: ' ' } }, null],
+  labels: plainLabels({ text: 'SPACE', editor: { insert: ' ' } }),
 } satisfies Omit<KeyDef, 'spanX'>;
 
 const quoteKey: KeyDef = {
   id: 'Quote',
   spanX: 4,
   emits: ['LeftShift', 'Num2'],
-  labels: [{ text: '"' }, null],
+  labels: plainLabels({ text: '"' }),
 };
 
 const backspaceKey: KeyDef = {
   id: 'InstDel',
   spanX: 4,
   emits: ['InstDel'],
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null],
+  labels: plainLabels({ text: '⌫', editor: { action: 'backspace' } }),
 };
 
 const rows: KeyDef[][] = [
@@ -136,11 +164,24 @@ const rows: KeyDef[][] = [
   bottomRow([shiftKey, commodoreKey], spaceKey, [quoteKey, backspaceKey]),
 ];
 
+// f1/f3/f5/f7 have their own matrix lines; f2/f4/f6/f8 are SHIFT of the odd keys.
+const fnKey = (label: string, emits: string[]): KeyDef => ({
+  id: `F${label.slice(1)}`,
+  spanX: 4,
+  emits,
+  style: 'fn',
+  labels: plainLabels({ text: label, editor: null }),
+});
+
 const functionKeys: KeyDef[] = [
-  key('F1', 'F1', 'f1'),
-  key('F3', 'F3', 'f3'),
-  key('F5', 'F5', 'f5'),
-  key('F7', 'F7', 'f7'),
+  fnKey('f1', ['F1']),
+  fnKey('f2', ['LeftShift', 'F1']),
+  fnKey('f3', ['F3']),
+  fnKey('f4', ['LeftShift', 'F3']),
+  fnKey('f5', ['F5']),
+  fnKey('f6', ['LeftShift', 'F5']),
+  fnKey('f7', ['F7']),
+  fnKey('f8', ['LeftShift', 'F7']),
 ];
 
 export const c64KeyboardLayout: KeyboardLayout = {
@@ -161,6 +202,19 @@ export const c64KeyboardLayout: KeyboardLayout = {
       position: 'tr',
       activeWhen: ['shift'],
       editorInsertStyle: 'char',
+    },
+    // The two graphic sets are pinned by the GRAPHICS mode (not a modifier), so
+    // they stay always-rendered (activeWhen []) and carry their own inserts.
+    { id: 'gfxCommodore', name: 'GRAPHICS', position: 'bl', activeWhen: [] },
+    { id: 'gfxShift', name: 'GRAPHICS ⇧', position: 'br', activeWhen: [] },
+  ],
+  editorModes: [
+    { id: 'abc', name: 'ABC', layer: 'base' },
+    {
+      id: 'graphics',
+      name: 'GRAPHICS',
+      layer: 'gfxCommodore',
+      shiftedLayer: 'gfxShift',
     },
   ],
   modifiers: [

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MachineEmulator } from '../dialects/types';
 import type {
   EditorKeyAction,
+  EditorModeDef,
   KeyDef,
   KeyboardLayout,
   LayerDef,
@@ -70,6 +71,23 @@ function GlyphSvg({
       ))}
     </svg>
   );
+}
+
+/**
+ * The layer a non-base editor mode pins, or null when the mode's layer is the
+ * base layer (there the engaged modifier drives the layer instead). A mode with
+ * a `shiftedLayer` switches to it while SHIFT is engaged, so one mode can carry
+ * two legend sets (e.g. the C64's C= / SHIFT graphics).
+ */
+function modePinnedLayerId(
+  mode: EditorModeDef | null,
+  baseLayerId: string,
+  activeLayer: LayerDef,
+): string | null {
+  if (!mode || mode.layer === baseLayerId) return null;
+  if (mode.shiftedLayer && activeLayer.activeWhen.includes('shift'))
+    return mode.shiftedLayer;
+  return mode.layer;
 }
 
 function keyAriaLabel(
@@ -150,9 +168,10 @@ export function VirtualKeyboard({
       onKeyPress: (key: KeyDef, activeLayer: LayerDef) => {
         const m = modeRef.current;
         // In the base (ABC) mode the engine's layer applies (shift works);
-        // other modes pin the layer regardless of modifiers.
+        // other modes pin the layer (with their optional shifted variant).
         const layerId =
-          m && m.layer !== baseLayerRef.current.id ? m.layer : activeLayer.id;
+          modePinnedLayerId(m, baseLayerRef.current.id, activeLayer) ??
+          activeLayer.id;
         const action = resolveEditorAction(layout, key, layerId);
         lastActionRef.current = action;
         const t = targetRef.current;
@@ -418,9 +437,9 @@ export function VirtualKeyboard({
   const pressed = engine.getPressedKeyIds();
   const activeLayer = engine.getActiveLayer();
   const focusKeyId = flatKeys[focusIdx]?.id;
-  // A non-base editor mode pins the highlighted layer; otherwise an engaged
-  // modifier decides it.
-  const modeLayerId = mode && mode.layer !== baseLayer.id ? mode.layer : null;
+  // A non-base editor mode pins the highlighted layer (honouring its shifted
+  // variant); otherwise an engaged modifier decides it.
+  const modeLayerId = modePinnedLayerId(mode, baseLayer.id, activeLayer);
   const highlightLayerId = modeLayerId ?? activeLayer.id;
   // In compact mode the displayed secondary legends follow the same choice.
   // For the editor target in the base mode, show the modifier-driven layer

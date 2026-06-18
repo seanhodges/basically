@@ -523,3 +523,38 @@
   background: none;
   box-shadow: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Commodore 64 keyboard theme: dark-grey function keys (f1–f8) and the two
+   block-graphic legends (C= bottom-left, SHIFT bottom-right) the GRAPHICS mode
+   pins. Activated by the layout's `theme: 'vk-theme-commodore64'`. */
+.vk-theme-commodore64 .vk-style-fn .vk-keycap {
+  background: linear-gradient(#3a3a3e, #2a2a2e);
+}
+
+.vk-theme-commodore64 .vk-style-fn .vk-label {
+  color: #d7d7db;
+}
+
+/* Two graphics low on the keycap, side by side, like the real key fronts. The
+   compact view collapses secondaries into one centred slot, so skip it there. */
+.vk-theme-commodore64:not(.vk-compact) .vk-pos-bl {
+  left: 4px;
+  right: auto;
+  bottom: 15px;
+  text-align: left;
+  font-size: 9px;
+  color: #8fa6cf;
+}
+
+.vk-theme-commodore64:not(.vk-compact) .vk-pos-br {
+  right: 4px;
+  bottom: 15px;
+  font-size: 9px;
+  color: #8fa6cf;
+}
+
+.vk-theme-commodore64 .vk-pos-bl.vk-active,
+.vk-theme-commodore64 .vk-pos-br.vk-active {
+  color: #cfe0ff;
+}

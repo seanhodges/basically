@@ -90,8 +90,12 @@
   min-height: 0;
 }
 
+/* The 40px touch floor is for stand-alone use; inside the fixed-height overlay
+   the rows must be free to shrink so a taller top strip (e.g. the C64 function
+   keys) never overflows up over it. */
 .workspaceVkOverlay :global(.vk-key) {
   height: 100%;
+  min-height: 0;
 }
 
 /* While the keyboard overlays the editor, pad the editor scroll area so the
