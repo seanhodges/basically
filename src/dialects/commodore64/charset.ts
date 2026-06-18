@@ -1,4 +1,5 @@
 import { CharsetError, type CharsetMapping } from '../types';
+import { C64_GRAPHICS } from './graphics';
 
 /**
  * Commodore 64 PETSCII <-> editor text, for the bytes a BASIC program stores:
@@ -31,9 +32,22 @@ const PETSCII_TO_SPECIAL: Record<number, string> = {
   0xff: 'π',
 };
 
+// Block graphics (C= / SHIFT sets). Forward keeps the first code for chars that
+// several font glyphs collapse onto; reverse is one entry per PETSCII byte.
+const GRAPHIC_TO_PETSCII: Record<string, number> = {};
+const PETSCII_TO_GRAPHIC: Record<number, string> = {};
+for (const { char, petscii } of C64_GRAPHICS) {
+  if (GRAPHIC_TO_PETSCII[char] === undefined)
+    GRAPHIC_TO_PETSCII[char] = petscii;
+  PETSCII_TO_GRAPHIC[petscii] = char;
+}
+
 function charToPetscii(ch: string): number | undefined {
   const special = SPECIAL_TO_PETSCII[ch];
   if (special !== undefined) return special;
+
+  const graphic = GRAPHIC_TO_PETSCII[ch];
+  if (graphic !== undefined) return graphic;
 
   let code = ch.charCodeAt(0);
   // Fold lower case onto the upper-case codes of the default character set.
@@ -71,6 +85,8 @@ export const c64Charset: CharsetMapping = {
     const special = PETSCII_TO_SPECIAL[code];
     if (special !== undefined) return special;
     if (code >= 0x20 && code <= 0x5d) return String.fromCharCode(code);
+    const graphic = PETSCII_TO_GRAPHIC[code];
+    if (graphic !== undefined) return graphic;
     return '?';
   },
 };

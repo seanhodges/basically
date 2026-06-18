@@ -18,6 +18,12 @@ describe('C64 PETSCII charset', () => {
     expect(c64Charset.toUnicode([0x5c, 0x5e, 0x5f, 0xff])).toBe('£↑←π');
   });
 
+  it('round-trips keyboard block graphics (C= and SHIFT sets)', () => {
+    // C= + A -> ┌ (0xb0), SHIFT + A -> ♠ (0xc1), SHIFT + S -> ♥ (0xd3).
+    expect(Array.from(c64Charset.toMachine('┌♠♥'))).toEqual([0xb0, 0xc1, 0xd3]);
+    expect(c64Charset.toUnicode([0xb0, 0xc1, 0xd3])).toBe('┌♠♥');
+  });
+
   it('rejects characters with no C64 equivalent', () => {
     expect(() => c64Charset.toMachine('10 PRINT "█"')).toThrow();
   });

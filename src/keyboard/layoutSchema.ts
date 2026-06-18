@@ -78,6 +78,14 @@ export interface EditorModeDef {
   name: string;
   /** Layer whose editor mapping applies (and is visually emphasised). */
   layer: string;
+  /**
+   * Layer used while the SHIFT modifier is engaged within this mode, letting one
+   * mode carry two legend sets (e.g. the C64's GRAPHICS mode: the C= graphics
+   * unmodified, the SHIFT graphics with shift held). Omit when SHIFT has no
+   * distinct meaning in the mode. Ignored for a mode whose `layer` is the base
+   * layer (there the engaged modifier already drives the layer).
+   */
+  shiftedLayer?: string;
 }
 
 export interface KeyDef {
