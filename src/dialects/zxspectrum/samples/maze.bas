@@ -26,6 +26,7 @@
 260 PRINT AT 21,0;"z x k m to move"
 270 LET y=2: LET x=2
 280 PRINT AT y-1,x-1; INK 6;"O"
+285 REM WAIT FOR KEY
 290 LET k$=INKEY$
 300 IF k$="" THEN GO TO 290
 310 LET u=y: LET v=x

@@ -5,6 +5,7 @@
 50 PRINT AT 1,i; INK 6;"▀"
 60 NEXT i
 70 PRINT AT 20,x; INK 5;"▀▀▀▀"
+75 REM GAME LOOP
 80 PRINT AT by,bx; INK 2;"O"
 85 PAUSE 2
 90 LET k$=INKEY$

@@ -9,6 +9,7 @@
 90 PRINT CHR$(158);"REACH E - MOVE Z X K M";
 100 X=1:Y=1
 110 GOSUB 400
+115 REM WAIT FOR KEY
 120 GET K$:IF K$="" THEN 120
 130 NX=X:NY=Y
 140 IF K$="Z" THEN NX=X-1
@@ -25,6 +26,7 @@
 250 GOTO 120
 260 PRINT CHR$(147);CHR$(30);"YOU ESCAPED!"
 270 END
+395 REM DRAW PLAYER
 400 POKE SC+40*Y+X,81:POKE SC+40*Y+X+CO,7:RETURN
 500 DATA "#######################################"
 510 DATA "#       #                 #     #     #"
