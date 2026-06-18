@@ -83,6 +83,12 @@
 .workspaceVkOverlay :global(.virtual-keyboard) {
   flex: 1;
   min-height: 0;
+  /* Size container so the key block can fit itself to the available width/height
+     with container-query units (see .vk-landscape/.vk-portrait .vk-rows). Scoped
+     to the overlay: container-type:size removes content sizing, which is fine
+     here (definite-height flex child) but would collapse a standalone keyboard,
+     so it must not live on .virtual-keyboard globally. */
+  container-type: size;
 }
 
 .workspaceVkOverlay :global(.vk-row) {
