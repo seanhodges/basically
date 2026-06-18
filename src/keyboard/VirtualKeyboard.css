@@ -487,23 +487,29 @@
 
 /* ---------------------------------------------------------------------------
    Portrait: vertical stack — the top strip stays above the keys (base flex
-   column). Size the key block to fill the width while keeping its aspect and
-   never exceeding the height left under the strip; centre any leftover height. */
-.virtual-keyboard.vk-portrait {
-  justify-content: center;
-  /* Height taken by the top strip + gap, reserved by the clamp below. */
-  --vk-strip-reserve: 56px;
-}
+   column). On tablets (and larger) size the key block to fill the width while
+   keeping its aspect and never exceeding the height left under the strip,
+   centring any leftover height. Phones (≤768px, the codebase's mobile
+   breakpoint) keep the base flex-fill scaling — the aspect-fit sizing was only
+   ever meant for the roomier tablet portrait, where it stops keys stretching;
+   on a phone the keyboard already fills the full overlay width. */
+@media (min-width: 769px) {
+  .virtual-keyboard.vk-portrait {
+    justify-content: center;
+    /* Height taken by the top strip + gap, reserved by the clamp below. */
+    --vk-strip-reserve: 56px;
+  }
 
-.vk-portrait .vk-rows {
-  flex: 0 1 auto;
-  width: min(
-    100cqw,
-    calc((100cqh - var(--vk-strip-reserve, 0px)) * var(--vk-aspect))
-  );
-  max-width: none;
-  margin-inline: auto;
-  aspect-ratio: var(--vk-aspect);
+  .vk-portrait .vk-rows {
+    flex: 0 1 auto;
+    width: min(
+      100cqw,
+      calc((100cqh - var(--vk-strip-reserve, 0px)) * var(--vk-aspect))
+    );
+    max-width: none;
+    margin-inline: auto;
+    aspect-ratio: var(--vk-aspect);
+  }
 }
 
 /* ---------------------------------------------------------------------------
