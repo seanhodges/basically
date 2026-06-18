@@ -112,6 +112,14 @@ const homeRow = [
   key('Enter', [act('↵', 'newline'), null, null, null, null]),
 ];
 
+/** Full stop, to the right of M (SYMBOL SHIFT + M on the real machine). */
+const periodKey: KeyDef = {
+  id: 'Period',
+  spanX: 4,
+  emits: ['SymShift', 'KeyM'],
+  labels: [{ text: '.' }, null, null, null, null],
+};
+
 const zxcvRow = centerRow([
   letter('KeyZ', 'z', ':', 'COPY', word('LN')),
   letter('KeyX', 'x', ins('£', '£'), 'CLEAR', word('EXP')),
@@ -120,6 +128,7 @@ const zxcvRow = centerRow([
   letter('KeyB', 'b', '*', 'BORDER', word('BIN')),
   letter('KeyN', 'n', ',', 'NEXT', word('INKEY$')),
   letter('KeyM', 'm', '.', 'PAUSE', word('PI')),
+  periodKey,
 ]);
 
 const capsKey: KeyDef = {

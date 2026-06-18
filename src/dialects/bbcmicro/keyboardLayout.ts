@@ -105,6 +105,14 @@ const shiftKey: KeyDef = {
   labels: [{ text: '⇧' }, null, null],
 };
 
+/** Escape, to the left of the space bar; a machine key with no editor insert. */
+const escKey: KeyDef = {
+  id: 'Escape',
+  spanX: 4,
+  emits: ['Escape'],
+  labels: [{ text: 'Esc', editor: null }, null, null],
+};
+
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
@@ -131,7 +139,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([shiftKey], spaceKey, [quoteKey, backspaceKey]),
+  bottomRow([shiftKey, escKey], spaceKey, [quoteKey, backspaceKey]),
 ];
 
 const functionKeys: KeyDef[] = Array.from({ length: 10 }, (_, i) => ({
