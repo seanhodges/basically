@@ -5,6 +5,11 @@
    imported for their side effects. */
 
 .virtual-keyboard {
+  /* Minimum tap target (touch floor) and the keyboard's intrinsic width:height
+     ratio (ten ~1.2:1 keys over five rows) used to cap key width on wide
+     screens so keys keep their shape instead of stretching. */
+  --vk-key-min: 40px;
+  --vk-aspect: 2.4;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -37,14 +42,32 @@
   pointer-events: auto;
 }
 
+/* The key rows, wrapped so the top strip can sit beside them (left gutter) on
+   wide screens while the rows stay centred. Fills the keyboard height; on wide
+   screens its width is height-derived (var(--vk-aspect)) so keys keep shape. */
+.vk-rows {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  /* Cap width so keys never stretch too wide; centre the leftover space. */
+  max-width: calc(var(--vk-aspect) * 46vh);
+  margin-inline: auto;
+  width: 100%;
+}
+
 .vk-row {
+  flex: 1;
+  min-height: 0;
   display: grid;
   gap: 3px;
 }
 
 .vk-key {
   position: relative;
-  height: 58px;
+  height: 100%;
+  min-height: var(--vk-key-min);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -189,19 +212,13 @@
   line-height: 1.2;
 }
 
-/* Compact mode: not enough width for every legend — each key shows the main
-   legend plus one secondary layer picked in the legend bar (or forced by an
-   engaged modifier). With the clutter gone, the survivors get bigger. */
-.vk-legend-bar {
-  display: flex;
-  gap: 4px;
-  padding: 0 2px 5px;
-}
-
+/* Mode-tab and legend buttons in the top strip. In compact mode each key shows
+   the main legend plus the one secondary layer the active mode pins (or an
+   engaged modifier forces); with the clutter gone the survivors get bigger. */
 .vk-legend-btn {
   flex: 1;
-  padding: 5px 2px;
-  font-size: 9px;
+  padding: 7px 2px;
+  font-size: 10px;
   letter-spacing: 0.05em;
   line-height: 1;
   background: #23232b;
@@ -213,27 +230,6 @@
 .vk-legend-btn.active {
   color: #ececec;
   border-color: var(--accent);
-}
-
-/* Editor-target input modes (the ZX81 K/F/G cursor as a selector bar):
-   slightly larger tap targets than the display-only legend bar. */
-.vk-mode-bar .vk-legend-btn {
-  padding: 7px 2px;
-  font-size: 10px;
-}
-
-/* Key-page tabs (the BBC's ABC / #+= pages): always visible for both targets,
-   so they get the larger tap target and the active page reads clearly. */
-.vk-tab-bar .vk-legend-btn {
-  padding: 7px 2px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.vk-tab-bar .vk-legend-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #15151b;
 }
 
 /* Keys that do nothing in the current editor mode. */
@@ -279,25 +275,6 @@
   display: inline-block;
 }
 
-/* Convenience extras row: shorter, lighter keys without the function strip. */
-.vk-key.vk-style-extra {
-  height: 40px;
-}
-
-.vk-style-extra .vk-keycap {
-  inset: 0 0 2px;
-  background: #23232b;
-}
-
-.vk-style-extra .vk-pos-center {
-  inset: 0 0 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-}
-
 @media (max-width: 768px) {
   .vk-pos-center {
     top: 7px;
@@ -328,11 +305,11 @@
     gap: 2px;
   }
 
-  .vk-legend-bar {
+  .vk-strip {
     padding-bottom: 3px;
   }
 
-  .vk-mode-bar .vk-legend-btn {
+  .vk-legend-btn {
     padding: 5px 2px;
   }
 
@@ -374,10 +351,99 @@
     inset: 0 0 6px;
     font-size: 8px;
   }
+}
 
-  .vk-style-extra .vk-pos-center {
-    font-size: 10px;
-  }
+/* ---------------------------------------------------------------------------
+   Top strip: the mode tabs and/or function keys, shown above the keys
+   (narrow/portrait) or as a vertical bar in the left gutter (wide). When a
+   layout has both, a small icon toggle flips the strip between them. */
+.vk-strip {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+  padding: 0 2px 5px;
+}
+
+.vk-mode-bar {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+}
+
+.vk-fn-row {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+}
+
+/* Function keys are compact tappable keys (no function-legend strip). */
+.vk-fn-row .vk-key {
+  min-height: 0;
+  height: 34px;
+}
+
+.vk-fn-row .vk-keycap {
+  inset: 0;
+}
+
+.vk-fn-row .vk-pos-center {
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.vk-strip-toggle {
+  flex: 0 0 auto;
+  min-width: 30px;
+  padding: 5px 6px;
+  font-size: 13px;
+  line-height: 1;
+  background: #23232b;
+  border: 1px solid #34343e;
+  border-radius: 4px;
+  color: #ececec;
+}
+
+/* ---------------------------------------------------------------------------
+   Wide screens: centre the keyboard and float the top strip into the left
+   gutter as a vertical bar, reclaiming a row of height for taller keys. The
+   keys' width is height-derived (var(--vk-aspect)) so they keep their shape. */
+.virtual-keyboard.vk-wide {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: 100%;
+  align-items: stretch;
+}
+
+.vk-wide .vk-rows {
+  grid-column: 2;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  aspect-ratio: var(--vk-aspect);
+}
+
+.vk-wide .vk-strip {
+  grid-column: 1;
+  justify-self: end;
+  align-self: center;
+  flex-direction: column;
+  width: auto;
+  padding: 0;
+  margin-right: 8px;
+}
+
+.vk-wide .vk-mode-bar {
+  flex-direction: column;
+}
+
+.vk-wide .vk-fn-row {
+  display: flex;
+  flex-direction: column;
 }
 
 /* ---------------------------------------------------------------------------

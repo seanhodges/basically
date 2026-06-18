@@ -70,15 +70,12 @@ export class KeyboardInputEngine {
       target.kind === 'editor'
         ? 0
         : (layout.options?.minHoldFrames ?? DEFAULT_MIN_HOLD_FRAMES);
-    // Index every key across the wide single-page layout (`rows`) and all tab
-    // pages, so lookups resolve regardless of which responsive variant or page
-    // is currently shown. Keys shared by reference or by duplicate id (same
-    // emits) collapse to one entry harmlessly.
-    const allRows = [
-      ...(layout.rows ?? []),
-      ...(layout.tabs?.flatMap((t) => t.rows) ?? []),
-    ];
-    for (const row of allRows) for (const k of row) this.keyById.set(k.id, k);
+    // Index every key in the layout — the standard rows plus any top-strip
+    // function keys — so pointer events resolve regardless of which strip view
+    // is shown. Keys sharing an id collapse to one entry harmlessly.
+    for (const row of layout.rows)
+      for (const k of row) this.keyById.set(k.id, k);
+    for (const k of layout.functionKeys ?? []) this.keyById.set(k.id, k);
     for (const m of layout.modifiers) this.modifierStates.set(m.id, 'off');
   }
 

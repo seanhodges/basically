@@ -5,6 +5,31 @@ and `inputEngine` contain no machine-specific logic; all you do is produce a
 `KeyboardLayout` object and wire it into your emulator's `setKey()`. Adding a
 keyboard for a new machine never requires touching keyboard code.
 
+## The standard template
+
+Every keyboard uses one common, screen-optimised template — a uniform
+**40-column grid, ten keys per row** (`gridColumns: 40`, each key `spanX: 4`)
+with five bands:
+
+- **Top strip** — mode tabs (`editorModes`) when the machine has extra typing
+  layers, the machine's `functionKeys` when it does not, or both behind an icon
+  toggle. On wide screens the strip relocates into the left gutter beside the
+  centred keyboard.
+- **Number row** — the ten digits.
+- **QWERTY + home rows** — the letters; Enter is the home row's tenth key.
+- **ZXCV row** — the remaining letters and punctuation, centred when short.
+- **Common bottom row** — a centred space bar, a quote and backspace key on the
+  right, and the shift / machine modifiers either side.
+
+Reuse `src/keyboard/templateRows.ts` (`GRID_COLUMNS`, `KEY_SPAN`, the
+`NUMBER_ROW_TOKENS`/`QWERTY_ROW_TOKENS`/… token orders, `centerRow`, and the
+`bottomRow` factory) so your layout supplies only its legends and modifiers and
+inherits the template's proportions. Prefer icons/abbreviations (`⇧ ⌫ ↵ "`) over
+wide text; do **not** add arrow keys (the editor handles cursor placement by
+touch). Deviate from the template only where the machine genuinely requires it
+(see the BBC's SYM mode and the C64's SHIFT-layer symbols for examples of
+trading authenticity for a clean, thumb-sized grid).
+
 ## Overview
 
 Three things are needed:
@@ -27,7 +52,7 @@ export const myMachineKeyboardLayout: KeyboardLayout = {
   id: 'mymachine', // unique id
   name: 'My Machine', // shown in the UI
   theme: 'vk-theme-mymachine', // CSS class on the keyboard root
-  gridColumns: 40, // total grid units across one row (drives proportional key widths)
+  gridColumns: 40, // standard template grid: ten spanX:4 keys per row
   layers: [
     /* ... */
   ],
@@ -38,6 +63,10 @@ export const myMachineKeyboardLayout: KeyboardLayout = {
     /* ... */
   ],
   glyphs: {},
+  // editorModes? — top-strip mode tabs (omit if the base layer + modifiers
+  //   cover everything).
+  // functionKeys? — top-strip machine keys (e.g. f1/f3/f5/f7); shown behind a
+  //   toggle when editorModes are also present.
   options: { minHoldFrames: 3 },
 };
 ```
@@ -158,9 +187,9 @@ Reference a glyph in a label with `glyph: 'arrowUp'` instead of `text`.
 
 ### Editor modes (optional)
 
-If your machine has multiple text-entry modes (like the ZX81's K/F/G cursor),
-expose them as a mode-bar selector. Each mode activates a specific layer in the
-editor target only.
+If your machine has multiple typing layers (like the ZX81's K/F/G cursor, or a
+SYM layer for punctuation overflow), expose them as top-strip mode tabs. Each
+tab pins a layer's legends and editor inserts.
 
 ```ts
 editorModes: [
@@ -170,6 +199,31 @@ editorModes: [
 ```
 
 Omit `editorModes` entirely if the base layer + modifiers cover everything.
+
+### Function keys (optional)
+
+Machine function keys (e.g. the C64's f1/f3/f5/f7, the BBC's f0–f9) live in the
+top strip as ordinary keys — they `emit` matrix tokens and have no editor
+action:
+
+```ts
+functionKeys: [
+  { id: 'F1', spanX: 4, emits: ['F1'], style: 'fn', labels: [{ text: 'f1', editor: null }] },
+  // …
+],
+```
+
+When a layout has **only** `functionKeys` the strip shows them; with **only**
+`editorModes` it shows the mode tabs; with **both** it shows a leading icon
+toggle that flips the strip between the two.
+
+### Sizing
+
+The template keeps keys evenly proportioned and large enough to thumb-type:
+keys hold a minimum touch size (`--vk-key-min`) and, above that, a consistent
+width:height ratio (`--vk-aspect`). On wide screens the keyboard centres and its
+key width is height-derived so keys never stretch. You don't size anything in
+the layout — just keep to `spanX: 4` for ordinary keys.
 
 ## 2. Wiring `setKey()` in the emulator
 
@@ -341,10 +395,12 @@ and the physical+virtual key union behaviour (see
 
 ## Key files to reference
 
-| File                                     | What it shows                            |
-| ---------------------------------------- | ---------------------------------------- |
-| `src/keyboard/layoutSchema.ts`           | All type definitions                     |
-| `src/dialects/zx81/keyboardLayout.ts`    | Full 5-layer, 4-editor-mode example      |
-| `src/dialects/zx81/emulator/keyboard.ts` | 8×5 matrix + dual press-source pattern   |
-| `src/keyboard/inputEngine.ts`            | Frame-count hold, modifier state machine |
-| `src/keyboard/VirtualKeyboard.tsx`       | React component (no changes needed)      |
+| File                                      | What it shows                                 |
+| ----------------------------------------- | --------------------------------------------- |
+| `src/keyboard/layoutSchema.ts`            | All type definitions                          |
+| `src/keyboard/templateRows.ts`            | Shared grid constants, token orders, helpers  |
+| `src/dialects/zx81/keyboardLayout.ts`     | Full 5-layer, 4-mode template example         |
+| `src/dialects/bbcmicro/keyboardLayout.ts` | Modes + function keys (toggle) + SYM overflow |
+| `src/dialects/zx81/emulator/keyboard.ts`  | 8×5 matrix + dual press-source pattern        |
+| `src/keyboard/inputEngine.ts`             | Frame-count hold, modifier state machine      |
+| `src/keyboard/VirtualKeyboard.tsx`        | React component (no changes needed)           |

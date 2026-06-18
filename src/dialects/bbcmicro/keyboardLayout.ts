@@ -1,360 +1,152 @@
 import type {
+  EditorKeyAction,
   KeyDef,
   KeyLabel,
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
+import { bottomRow, centerRow } from '../../keyboard/templateRows';
 
 /**
- * The BBC Micro Model B keyboard as virtual-keyboard layout data.
+ * The BBC Micro Model B keyboard on the standard virtual-keyboard template.
  *
- * Two layers: the base legend and the shifted legend (top-left, like the
- * shifted symbols printed on the real keycaps). The layout is responsive:
+ * Three layers:
+ *  - base:     the unshifted character
+ *  - shifted:  the shifted symbol (top-left), active while SHIFT is held
+ *  - sym:      the punctuation overflow (pinned by the SYM mode tab)
  *
- *   - On wide screens (tablets, wide landscape) the authentic single-page
- *     layout in `rows` is shown — every key at once, like the real machine.
- *   - On narrow phones the keys are split across two pages (see `tabs`): an
- *     "ABC" page with the letters/digits and a "#+=" page with the punctuation
- *     symbols, so no row carries more than ten regular keys.
- *
- * VirtualKeyboard chooses between them by container width.
- *
- * The red f0–f9 strip and the non-typing specials (Esc, Tab, Caps Lock, Break)
- * sit on the function strip; on the narrow pages Ctrl/Shift-Lock/Copy/Shift/
- * arrows share the bottom row with the space bar, and both shared strips appear
- * on every page. Matrix tokens are resolved by the BBC adapter
- * (src/emulator/bbc/keyboard.ts); 'Break' is the reset line, not a matrix key.
+ * The BBC has far more dedicated punctuation keys than fit a uniform ten-key
+ * grid, so — trading authenticity for a clean, thumb-sized layout — the overflow
+ * symbols (`- = + * @ £ ^ \ [ ] ~ | { } : ;`) are surfaced as the SYM mode's
+ * editor inserts on the number and QWERTY rows rather than as their own matrix
+ * keys. Code is written in the editor (where these inserts apply); the keyboard
+ * therefore optimises for that path. The f0–f9 function keys live in the top
+ * strip behind the mode/function toggle.
  */
 
-type Legend = string | null;
+type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
+type Legends = [Legend, Legend, Legend];
 
-/** Grid columns for the wide authentic single-page layout. */
-const GRID = 66;
-/** Grid columns for the narrow tabbed layout: regular keys span 6 (ten/row). */
-const NARROW_GRID = 60;
-
-const lbl = (text: Legend): KeyLabel | null =>
-  text === null ? null : { text };
-
-/** A key with a base legend and an optional shifted legend. */
-function key(
-  token: string,
-  base: Legend,
-  shifted: Legend = null,
-  spanX = 6,
-  opts: Partial<KeyDef> = {},
-): KeyDef {
-  return {
-    id: token,
-    spanX,
-    emits: [token],
-    labels: [lbl(base), lbl(shifted)],
-    ...opts,
-  };
-}
-
-/** A key bound to an editor action instead of the layer default. */
-function actKey(
-  token: string,
-  base: string,
+/** Legend bound to an editing action. */
+const act = (
+  text: string,
   action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down',
-  spanX = 6,
-): KeyDef {
-  return {
-    id: token,
-    spanX,
-    emits: [token],
-    labels: [{ text: base, editor: { action } }, null],
-  };
+): Legend => ({ text, editor: { action } });
+
+const lbl = (legend: Legend): KeyLabel | null =>
+  legend === null
+    ? null
+    : typeof legend === 'string'
+      ? { text: legend }
+      : { text: legend.text, editor: legend.editor };
+
+/** A standard key: [base, shifted, sym] legends, one matrix token. */
+function key(token: string, legends: Legends): KeyDef {
+  return { id: token, spanX: 4, emits: [token], labels: legends.map(lbl) };
 }
 
-/** A machine-only key that does nothing when targeting the editor. */
-function machKey(
-  token: string,
-  base: string,
-  spanX = 6,
-  style?: string,
-): KeyDef {
-  return {
-    id: token,
-    spanX,
-    emits: [token],
-    labels: [{ text: base, editor: null }, null],
-    style,
-  };
-}
-
-/** The shift modifier key, reused across pages (distinct ids per spot). */
-function shiftKey(id: string, spanX: number): KeyDef {
-  return {
-    id,
-    spanX,
-    emits: ['Shift'],
-    labels: [{ text: '⇧', editor: null }, null],
-    modifier: 'shift',
-  };
-}
-
-/** A non-interactive filler so grid keys can be right-aligned. Emits nothing,
-    so the input engine and layout tests ignore it. */
-let spacerSeq = 0;
-const spacer = (spanX: number): KeyDef => ({
-  id: `spacer-${spacerSeq++}`,
-  spanX,
-  emits: [],
-  labels: [null, null],
-  style: 'spacer',
-});
-
-// Wide-layout helpers default to span 4 (the authentic dense sizing).
-const wkey = (
-  token: string,
-  base: Legend,
-  shifted: Legend = null,
-  spanX = 4,
-  opts: Partial<KeyDef> = {},
-): KeyDef => key(token, base, shifted, spanX, opts);
-const wmach = (
-  token: string,
-  base: string,
-  spanX = 4,
-  style?: string,
-): KeyDef => machKey(token, base, spanX, style);
-const wact = (
-  token: string,
-  base: string,
-  action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down',
-  spanX = 4,
-): KeyDef => actKey(token, base, action, spanX);
-
-// ===========================================================================
-// Wide authentic single-page layout (66 columns)
-// ===========================================================================
-
-const fnRowW: KeyDef[] = [
-  wmach('Escape', 'Esc', 6),
-  ...Array.from({ length: 10 }, (_, i) => wmach(`F${i}`, `f${i}`, 5, 'fn')),
-  wmach('Break', 'Brk', 10, 'fn'),
+const numberRow = [
+  key('Digit1', ['1', '!', '-']),
+  key('Digit2', ['2', '"', '=']),
+  key('Digit3', ['3', '#', '+']),
+  key('Digit4', ['4', '$', '*']),
+  key('Digit5', ['5', '%', '@']),
+  key('Digit6', ['6', '&', '£']),
+  key('Digit7', ['7', "'", '^']),
+  key('Digit8', ['8', '(', '\\']),
+  key('Digit9', ['9', ')', '[']),
+  key('Digit0', ['0', null, ']']),
 ];
 
-const digitRowW: KeyDef[] = [
-  wkey('Digit1', '1', '!'),
-  wkey('Digit2', '2', '"'),
-  wkey('Digit3', '3', '#'),
-  wkey('Digit4', '4', '$'),
-  wkey('Digit5', '5', '%'),
-  wkey('Digit6', '6', '&'),
-  wkey('Digit7', '7', "'"),
-  wkey('Digit8', '8', '('),
-  wkey('Digit9', '9', ')'),
-  wkey('Digit0', '0'),
-  wkey('Minus', '-', '='),
-  wkey('Caret', '^', '~'),
-  wkey('Backslash', '\\', '|'),
-  wact('ArrowLeft', '←', 'left', 7),
-  wact('ArrowRight', '→', 'right', 7),
+const qwertyRow = [
+  key('KeyQ', ['Q', null, '~']),
+  key('KeyW', ['W', null, '|']),
+  key('KeyE', ['E', null, '{']),
+  key('KeyR', ['R', null, '}']),
+  key('KeyT', ['T', null, '_']),
+  key('KeyY', ['Y', null, ':']),
+  key('KeyU', ['U', null, ';']),
+  key('KeyI', ['I', null, null]),
+  key('KeyO', ['O', null, null]),
+  key('KeyP', ['P', null, null]),
 ];
 
-const qwertyRowW: KeyDef[] = [
-  wmach('Tab', '⇥', 6),
-  wkey('KeyQ', 'Q'),
-  wkey('KeyW', 'W'),
-  wkey('KeyE', 'E'),
-  wkey('KeyR', 'R'),
-  wkey('KeyT', 'T'),
-  wkey('KeyY', 'Y'),
-  wkey('KeyU', 'U'),
-  wkey('KeyI', 'I'),
-  wkey('KeyO', 'O'),
-  wkey('KeyP', 'P'),
-  wkey('At', '@'),
-  wkey('BracketLeft', '[', '{'),
-  wkey('Underscore', '_', '£'),
-  wact('ArrowUp', '↑', 'up', 4),
-  wact('ArrowDown', '↓', 'down', 4),
+const homeRow = [
+  key('KeyA', ['A', null, null]),
+  key('KeyS', ['S', null, null]),
+  key('KeyD', ['D', null, null]),
+  key('KeyF', ['F', null, null]),
+  key('KeyG', ['G', null, null]),
+  key('KeyH', ['H', null, null]),
+  key('KeyJ', ['J', null, null]),
+  key('KeyK', ['K', null, null]),
+  key('KeyL', ['L', null, null]),
+  key('Enter', [act('↵', 'newline'), null, null]),
 ];
 
-const homeRowW: KeyDef[] = [
-  wmach('CapsLock', '⇪', 5),
-  wmach('Ctrl', 'Ctrl', 5),
-  wkey('KeyA', 'A'),
-  wkey('KeyS', 'S'),
-  wkey('KeyD', 'D'),
-  wkey('KeyF', 'F'),
-  wkey('KeyG', 'G'),
-  wkey('KeyH', 'H'),
-  wkey('KeyJ', 'J'),
-  wkey('KeyK', 'K'),
-  wkey('KeyL', 'L'),
-  wkey('Semicolon', ';', '+'),
-  wkey('Colon', ':', '*'),
-  wkey('BracketRight', ']', '}'),
-  wact('Enter', '↵', 'newline', 8),
+const zxcvRow = centerRow([
+  key('KeyZ', ['Z', null, null]),
+  key('KeyX', ['X', null, null]),
+  key('KeyC', ['C', null, null]),
+  key('KeyV', ['V', null, null]),
+  key('KeyB', ['B', null, null]),
+  key('KeyN', ['N', null, null]),
+  key('KeyM', ['M', null, null]),
+  key('Comma', [',', '<', null]),
+  key('Period', ['.', '>', null]),
+  key('Slash', ['/', '?', null]),
+]);
+
+const shiftKey: KeyDef = {
+  id: 'Shift',
+  spanX: 6,
+  emits: ['Shift'],
+  modifier: 'shift',
+  style: 'shift',
+  labels: [{ text: '⇧' }, null, null],
+};
+
+const spaceKey = {
+  id: 'Space',
+  emits: ['Space'],
+  style: 'small-main',
+  labels: [{ text: 'SPACE', editor: { insert: ' ' } }, null, null],
+} satisfies Omit<KeyDef, 'spanX'>;
+
+const quoteKey: KeyDef = {
+  id: 'Quote',
+  spanX: 4,
+  emits: ['Shift', 'Digit2'],
+  labels: [{ text: '"' }, null, null],
+};
+
+const backspaceKey: KeyDef = {
+  id: 'Delete',
+  spanX: 4,
+  emits: ['Delete'],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null],
+};
+
+const rows: KeyDef[][] = [
+  numberRow,
+  qwertyRow,
+  homeRow,
+  zxcvRow,
+  bottomRow([shiftKey], spaceKey, [quoteKey, backspaceKey]),
 ];
 
-const bottomRowW: KeyDef[] = [
-  wmach('ShiftLock', '⇧ Lk', 5),
-  shiftKey('ShiftL', 6),
-  wkey('KeyZ', 'Z'),
-  wkey('KeyX', 'X'),
-  wkey('KeyC', 'C'),
-  wkey('KeyV', 'V'),
-  wkey('KeyB', 'B'),
-  wkey('KeyN', 'N'),
-  wkey('KeyM', 'M'),
-  wkey('Comma', ',', '<'),
-  wkey('Period', '.', '>'),
-  wkey('Slash', '/', '?'),
-  shiftKey('ShiftR', 6),
-  wact('Delete', '⌫', 'backspace', 5),
-  wmach('Copy', 'Copy', 4),
-];
-
-const spaceRowW: KeyDef[] = [
-  {
-    id: 'Space',
-    spanX: 66,
-    emits: ['Space'],
-    labels: [{ text: ' ', editor: { insert: ' ' } }, null],
-  },
-];
-
-const wideRows = [
-  fnRowW,
-  digitRowW,
-  qwertyRowW,
-  homeRowW,
-  bottomRowW,
-  spaceRowW,
-];
-
-// ===========================================================================
-// Narrow tabbed layout (60 columns)
-// ===========================================================================
-
-// ---- Shared rows (rendered on every narrow page) --------------------------
-
-/** Esc, the red f0–f9 strip, and Break (Tab/Caps Lock drop on narrow). */
-const fnStrip: KeyDef[] = [
-  machKey('Escape', 'Esc', 5),
-  ...Array.from({ length: 10 }, (_, i) => machKey(`F${i}`, `f${i}`, 5, 'fn')),
-  machKey('Break', 'Brk', 5, 'fn'),
-];
-
-/** Ctrl / Shift-Lock / Copy / Shift on the left, then the centred space bar
-    with the arrow cluster to its right. */
-const bottomRow: KeyDef[] = [
-  machKey('Ctrl', 'Ctrl', 5),
-  machKey('ShiftLock', '⇧ Lk', 5),
-  machKey('Copy', 'Copy', 5),
-  shiftKey('ShiftBottom', 5),
-  {
-    id: 'Space',
-    spanX: 20,
-    emits: ['Space'],
-    labels: [{ text: ' ', editor: { insert: ' ' } }, null],
-  },
-  actKey('ArrowLeft', '←', 'left', 5),
-  actKey('ArrowDown', '↓', 'down', 5),
-  actKey('ArrowUp', '↑', 'up', 5),
-  actKey('ArrowRight', '→', 'right', 5),
-];
-
-// ---- "ABC" page: letters and digits ---------------------------------------
-
-const digitRow: KeyDef[] = [
-  key('Digit1', '1', '!'),
-  key('Digit2', '2', '"'),
-  key('Digit3', '3', '#'),
-  key('Digit4', '4', '$'),
-  key('Digit5', '5', '%'),
-  key('Digit6', '6', '&'),
-  key('Digit7', '7', "'"),
-  key('Digit8', '8', '('),
-  key('Digit9', '9', ')'),
-  key('Digit0', '0'),
-];
-
-const qwertyRow: KeyDef[] = [
-  key('KeyQ', 'Q'),
-  key('KeyW', 'W'),
-  key('KeyE', 'E'),
-  key('KeyR', 'R'),
-  key('KeyT', 'T'),
-  key('KeyY', 'Y'),
-  key('KeyU', 'U'),
-  key('KeyI', 'I'),
-  key('KeyO', 'O'),
-  key('KeyP', 'P'),
-];
-
-const homeRow: KeyDef[] = [
-  key('KeyA', 'A'),
-  key('KeyS', 'S'),
-  key('KeyD', 'D'),
-  key('KeyF', 'F'),
-  key('KeyG', 'G'),
-  key('KeyH', 'H'),
-  key('KeyJ', 'J'),
-  key('KeyK', 'K'),
-  key('KeyL', 'L'),
-  actKey('Enter', '↵', 'newline'),
-];
-
-const zxcvRow: KeyDef[] = [
-  shiftKey('ShiftL', 9),
-  key('KeyZ', 'Z'),
-  key('KeyX', 'X'),
-  key('KeyC', 'C'),
-  key('KeyV', 'V'),
-  key('KeyB', 'B'),
-  key('KeyN', 'N'),
-  key('KeyM', 'M'),
-  actKey('Delete', '⌫', 'backspace', 9),
-];
-
-// ---- "#+=" page: punctuation in 4 rows of 3, mirroring the BBC's right side.
-// Return sits on the far right of row 3, Delete on the far right of row 4
-// (return above delete); rows 1–2 are padded so the symbol columns line up.
-
-const symRow1: KeyDef[] = [
-  key('Minus', '-', '='),
-  key('Caret', '^', '~'),
-  key('Backslash', '\\', '|'),
-  spacer(42),
-];
-
-const symRow2: KeyDef[] = [
-  key('At', '@'),
-  key('BracketLeft', '[', '{'),
-  key('Underscore', '_', '£'),
-  spacer(42),
-];
-
-const symRow3: KeyDef[] = [
-  key('Semicolon', ';', '+'),
-  key('Colon', ':', '*'),
-  key('BracketRight', ']', '}'),
-  spacer(30),
-  actKey('Enter', '↵', 'newline', 12),
-];
-
-const symRow4: KeyDef[] = [
-  key('Comma', ',', '<'),
-  key('Period', '.', '>'),
-  key('Slash', '/', '?'),
-  spacer(30),
-  actKey('Delete', '⌫', 'backspace', 12),
-];
-
-const abcRows = [fnStrip, digitRow, qwertyRow, homeRow, zxcvRow, bottomRow];
-const symRows = [fnStrip, symRow1, symRow2, symRow3, symRow4, bottomRow];
+const functionKeys: KeyDef[] = Array.from({ length: 10 }, (_, i) => ({
+  id: `F${i}`,
+  spanX: 4,
+  emits: [`F${i}`],
+  style: 'fn',
+  labels: [{ text: `f${i}`, editor: null }, null, null],
+}));
 
 export const bbcKeyboardLayout: KeyboardLayout = {
   id: 'bbcmicro',
   name: 'BBC Micro',
   theme: 'vk-theme-bbc',
-  gridColumns: GRID,
-  narrowGridColumns: NARROW_GRID,
+  gridColumns: 40,
   layers: [
     {
       id: 'base',
@@ -364,17 +156,26 @@ export const bbcKeyboardLayout: KeyboardLayout = {
     },
     {
       id: 'shifted',
+      name: 'SHIFT',
       position: 'tl',
       activeWhen: ['shift'],
       editorInsertStyle: 'char',
     },
+    {
+      id: 'sym',
+      name: 'SYM',
+      position: 'br',
+      activeWhen: [],
+      editorInsertStyle: 'char',
+    },
+  ],
+  editorModes: [
+    { id: 'abc', name: 'ABC', layer: 'base' },
+    { id: 'sym', name: 'SYM', layer: 'sym' },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
-  rows: wideRows,
-  tabs: [
-    { id: 'abc', name: 'ABC', rows: abcRows },
-    { id: 'sym', name: '#+=', rows: symRows },
-  ],
+  rows,
+  functionKeys,
   glyphs: {},
   options: { minHoldFrames: 4 },
 };
