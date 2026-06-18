@@ -208,11 +208,13 @@ export function Toolbar() {
             onChange={(e) => setDialect(e.target.value)}
             title="Target machine"
           >
-            {dialects.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
+            {[...dialects]
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
           </select>
         </label>
       </div>
