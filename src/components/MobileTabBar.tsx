@@ -1,11 +1,11 @@
 import { useIdeStore, type MobileTab } from '../app/store';
 import styles from './MobileTabBar.module.css';
 
-const TABS: { id: MobileTab; label: string }[] = [
+const TABS: { id: MobileTab; label: string; icon?: string }[] = [
   { id: 'editor', label: 'Editor' },
   { id: 'preview', label: 'Run' },
-  { id: 'ai', label: 'AI' },
-  { id: 'settings', label: 'Settings' },
+  { id: 'ai', label: 'AI', icon: '✦' },
+  { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
 export function MobileTabBar() {
@@ -19,10 +19,13 @@ export function MobileTabBar() {
           key={t.id}
           role="tab"
           aria-selected={mobileTab === t.id}
-          className={mobileTab === t.id ? 'active' : ''}
+          aria-label={t.label}
+          className={[mobileTab === t.id ? 'active' : '', t.icon ? styles.iconTab : '']
+            .filter(Boolean)
+            .join(' ')}
           onClick={() => setMobileTab(t.id)}
         >
-          {t.label}
+          {t.icon ?? t.label}
         </button>
       ))}
     </div>

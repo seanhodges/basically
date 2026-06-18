@@ -19,6 +19,12 @@
     font-size: 13px;
   }
 
+  .tabBar button.iconTab {
+    flex: 0;
+    padding: 12px 14px;
+    font-size: 16px;
+  }
+
   .tabBar button:global(.active) {
     color: var(--accent);
     border-bottom-color: var(--accent);
