@@ -20,7 +20,10 @@ export function MobileTabBar() {
           role="tab"
           aria-selected={mobileTab === t.id}
           aria-label={t.label}
-          className={[mobileTab === t.id ? 'active' : '', t.icon ? styles.iconTab : '']
+          className={[
+            mobileTab === t.id ? 'active' : '',
+            t.icon ? styles.iconTab : '',
+          ]
             .filter(Boolean)
             .join(' ')}
           onClick={() => setMobileTab(t.id)}
