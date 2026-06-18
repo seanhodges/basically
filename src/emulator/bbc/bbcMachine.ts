@@ -3,8 +3,9 @@ import { findModel } from 'jsbeeb/src/models.js';
 import { Video } from 'jsbeeb/src/video.js';
 import { FakeSoundChip } from 'jsbeeb/src/soundchip.js';
 import * as utils from 'jsbeeb/src/utils.js';
-import type { MachineEmulator } from '../../dialects/types';
+import type { MachineEmulator, MachineVariable } from '../../dialects/types';
 import { BbcHostKeyboard, matrixForToken } from './keyboard';
+import { readBbcVariables } from './vars';
 
 /** jsbeeb's Video ULA renders into a fixed 1024×625 RGBA framebuffer… */
 const FB_WIDTH = 1024;
@@ -253,6 +254,19 @@ export class BbcMachine implements MachineEmulator {
 
   setSpeed(multiplier: number): void {
     this.speed = Math.max(0.1, multiplier);
+  }
+
+  /**
+   * Snapshot the running program's BASIC variables out of 6502 RAM. Safe to
+   * call mid-frame: `readmem` is a side-effect-free main-RAM read. Returns
+   * nothing until the machine is up.
+   */
+  readVariables(): MachineVariable[] {
+    if (!this.initialised || this.disposed) return [];
+    return readBbcVariables({
+      read: (a) => this.cpu.readmem(a),
+      readWord: (a) => this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8),
+    });
   }
 
   dispose(): void {
