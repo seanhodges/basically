@@ -188,9 +188,17 @@ function classifyPulses(lengths: number[]): PulseKind[] {
 }
 
 /**
- * Recover pulse lengths (in samples) from the waveform: high-pass, Schmitt-gate
- * with hysteresis, and measure the gap between consecutive rising edges — one
- * per full square-wave cycle.
+ * Recover pulse lengths (in samples) from the waveform: high-pass, then measure
+ * the gap between consecutive upward zero-crossings — one per full square-wave
+ * cycle. A Schmitt gate (±0.25 peak) only *confirms* each crossing belongs to a
+ * real cycle rather than noise; the length itself is timed at the zero-crossing.
+ *
+ * Timing at the zero-crossing (not at the ±gate level) is what lets this survive
+ * a speaker→microphone recording. A room echo adds a slowly-varying offset to
+ * the signal; that offset shifts a fixed-level trigger by several samples —
+ * enough to drag a pulse across C64's tight S/M/L boundaries (the on-tape ratios
+ * are only 1.0 / 1.44 / 1.89) — but it barely moves the zero-crossing, where the
+ * slope is steepest.
  */
 function pulseLengths(samples: Float32Array, sampleRate: number): number[] {
   const hp = highPass(samples, sampleRate, 5);
@@ -199,15 +207,18 @@ function pulseLengths(samples: Float32Array, sampleRate: number): number[] {
   const gate = peak * 0.25;
 
   const lengths: number[] = [];
-  let state = -1; // -1 low, +1 high
-  let lastRise = -1;
-  for (let i = 0; i < hp.length; i++) {
-    const v = hp[i]!;
-    if (state <= 0 && v > gate) {
-      if (lastRise >= 0) lengths.push(i - lastRise);
-      lastRise = i;
+  let state = -1; // hysteresis state: -1 low, +1 high
+  let lastUpZero = -1; // most recent upward zero-crossing (candidate edge time)
+  let prevRise = -1; // last committed cycle boundary (an upward zero-crossing)
+  for (let i = 1; i < hp.length; i++) {
+    if (hp[i - 1]! <= 0 && hp[i]! > 0) lastUpZero = i;
+    if (state <= 0 && hp[i]! > gate) {
+      // A real rising cycle: book its boundary at the preceding zero-crossing.
+      const edge = lastUpZero >= 0 ? lastUpZero : i;
+      if (prevRise >= 0) lengths.push(edge - prevRise);
+      prevRise = edge;
       state = 1;
-    } else if (state >= 0 && v < -gate) {
+    } else if (state >= 0 && hp[i]! < -gate) {
       state = -1;
     }
   }

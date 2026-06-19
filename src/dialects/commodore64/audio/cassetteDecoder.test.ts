@@ -62,6 +62,69 @@ function resample(samples: Float32Array, factor: number): Float32Array {
   return out;
 }
 
+/** One-pole low-pass to mimic the HF roll-off of a speaker + air + microphone. */
+function lowPass(
+  samples: Float32Array,
+  sampleRate: number,
+  cutoffHz: number,
+): Float32Array {
+  const rc = 1 / (2 * Math.PI * cutoffHz);
+  const dt = 1 / sampleRate;
+  const alpha = dt / (rc + dt);
+  const out = new Float32Array(samples.length);
+  let y = 0;
+  for (let i = 0; i < samples.length; i++) {
+    y += alpha * (samples[i]! - y);
+    out[i] = y;
+  }
+  return out;
+}
+
+/**
+ * Add a fast, damped overshoot after every transition — the edge ringing a real
+ * speaker/microphone introduces. This is what injects the spurious extra
+ * zero-crossings that an over-eager decoder could mistake for carrier cycles.
+ */
+function ring(
+  samples: Float32Array,
+  sampleRate: number,
+  fRing: number,
+  overshoot: number,
+  tau: number,
+): Float32Array {
+  const out = Float32Array.from(samples);
+  const span = Math.round(tau * 5 * sampleRate);
+  for (let i = 1; i < samples.length; i++) {
+    const prev = samples[i - 1]!;
+    const cur = samples[i]!;
+    if ((prev <= 0 && cur > 0) || (prev >= 0 && cur < 0)) {
+      const dir = Math.sign(cur - prev);
+      for (let k = 0; k < span && i + k < out.length; k++) {
+        const t = k / sampleRate;
+        out[i + k]! +=
+          dir *
+          overshoot *
+          Math.exp(-t / tau) *
+          Math.cos(2 * Math.PI * fRing * t);
+      }
+    }
+  }
+  return out;
+}
+
+/** Add a single delayed echo, as a reflective room would. */
+function echo(
+  samples: Float32Array,
+  sampleRate: number,
+  gain: number,
+  delayMs: number,
+): Float32Array {
+  const d = Math.round((delayMs / 1000) * sampleRate);
+  const out = Float32Array.from(samples);
+  for (let i = d; i < samples.length; i++) out[i]! += gain * samples[i - d]!;
+  return out;
+}
+
 describe('decodeCassette (C64)', () => {
   it('round-trips the name and program through encode→decode', () => {
     const src = '10 PRINT "HELLO"\n20 GOTO 10\n';
@@ -109,6 +172,22 @@ describe('decodeCassette (C64)', () => {
 
   it('survives a sample-rate mismatch (decode at 48000)', () => {
     const { name, data } = decodeCassette(clean, 48000);
+    expect(name).toBe('TAPE');
+    expect(Array.from(data)).toEqual(Array.from(expected));
+  });
+
+  it('decodes a simulated speaker→microphone acoustic channel', () => {
+    // Recreate what playing the tape out of a speaker and recording it on
+    // another device's mic does to the signal: resample to the mic's native
+    // 48kHz, roll off the highs, add edge ringing, a room echo, then mild noise.
+    const RECORD_RATE = 48000;
+    let s = resample(clean, RECORD_RATE / RATE);
+    s = lowPass(s, RECORD_RATE, 6000);
+    s = ring(s, RECORD_RATE, 11000, 0.4, 0.00008);
+    s = echo(s, RECORD_RATE, 0.35, 4);
+    s = addNoise(s, 0.03, 5);
+
+    const { name, data } = decodeCassette(s, RECORD_RATE);
     expect(name).toBe('TAPE');
     expect(Array.from(data)).toEqual(Array.from(expected));
   });
