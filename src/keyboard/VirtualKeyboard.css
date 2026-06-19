@@ -510,6 +510,13 @@
     margin-inline: auto;
     aspect-ratio: var(--vk-aspect);
   }
+
+  /* Landscape: drop the empty 1fr side gutters so the panel hugs strip + keys
+     and the overlay centres the whole block (see Workspace.module.css). Strip
+     stays column 1, keys column 2 — now the two auto-sized columns. */
+  .virtual-keyboard.vk-landscape {
+    grid-template-columns: auto auto;
+  }
 }
 
 /* ---------------------------------------------------------------------------
