@@ -190,3 +190,27 @@
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   }
 }
+
+/* ---------- Tablets and larger: float the keyboard ---------- */
+/* The keyboard keeps its current size but floats at the bottom-centre with
+   see-through gutters. The overlay becomes an invisible, full-size *sizing*
+   scaffold (so the container-query maths and the 46% max-height are unchanged);
+   the keyboard's own rounded panel hugs the keys (+ strip) and floats. */
+@media (min-width: 769px) {
+  .workspaceVkOverlay {
+    container-type: size; /* size container moves here from the keyboard */
+    align-items: flex-end; /* keyboard anchored to the bottom of the band */
+    justify-content: center; /* ...and centred horizontally */
+    background: transparent; /* gutters show the editor/emulator behind */
+    border-top: none;
+    box-shadow: none;
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+  }
+
+  .workspaceVkOverlay :global(.virtual-keyboard) {
+    container-type: normal; /* no longer the size container -> can shrink */
+    flex: 0 0 auto; /* hug content instead of filling the width */
+    max-width: 100%;
+    box-shadow: 0 6px 24px rgb(0 0 0 / 45%); /* floating-panel depth */
+  }
+}
