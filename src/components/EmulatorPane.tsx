@@ -217,9 +217,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // fractionally to fill the available width, retaining aspect ratio and never
   // overflowing the height budget. With the keyboard overlay up that budget is
   // capped to the top 54% (the keyboard owns the bottom 46%). The variable
-  // watcher is an overlay (not in the flex flow), so it never shrinks the
-  // screen. Fires on resize, rotation, address-bar collapse, and when the
-  // Preview tab becomes visible.
+  // watcher's height is deliberately NOT subtracted here, so opening it never
+  // shrinks the screen even though it is an in-flow child below the preview.
+  // Fires on resize, rotation, address-bar collapse, and when the Preview tab
+  // becomes visible.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
