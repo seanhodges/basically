@@ -60,7 +60,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
   const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
-  const setVariableWatcher = useIdeStore((s) => s.setVariableWatcher);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
 
   // Interacting with the emulator dismisses an open find/replace panel.
@@ -117,7 +116,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     let cancelled = false;
     (async () => {
       setError('');
-      setVariableWatcher(false); // running hides the watcher (back to the screen)
       try {
         const result = dialect.tokenize(source);
         if (result.errors.length > 0) {
