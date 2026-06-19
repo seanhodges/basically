@@ -1,4 +1,5 @@
-import type { MachineEmulator } from '../../dialects/types';
+import type { MachineEmulator, MachineVariable } from '../../dialects/types';
+import { readC64Variables } from './vars';
 import {
   bringup,
   loadPrg,
@@ -465,6 +466,22 @@ export class C64Machine implements MachineEmulator {
 
   setSpeed(multiplier: number): void {
     this.speed = Math.max(0.1, multiplier);
+  }
+
+  /**
+   * Snapshot the running program's BASIC variables out of the C64's RAM. All
+   * variable storage sits in always-RAM regions below `$A000`, so reads through
+   * the bus are side-effect-free and need no bank switching. Returns nothing
+   * until the machine has booted.
+   */
+  readVariables(): MachineVariable[] {
+    if (!this.booted || this.injecting || this.disposed || !this.c64) return [];
+    const wires = this.c64.wires;
+    const read = (a: number) => wires.cpuRead(a & 0xffff);
+    return readC64Variables({
+      read,
+      readWord: (a) => read(a) | (read(a + 1) << 8),
+    });
   }
 
   dispose(): void {
