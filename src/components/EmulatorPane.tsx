@@ -214,12 +214,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.setSpeed(speed);
   }, [speed]);
 
-  // The on-screen keyboard and the variable watcher share the slot below the
-  // screen; opening the keyboard closes the watcher.
-  useEffect(() => {
-    if (virtualKeyboard) setVariableWatcher(false);
-  }, [virtualKeyboard, setVariableWatcher]);
-
   // Fit-to-pane scaling. The screen is top-aligned and always scales
   // fractionally to fill the available width, retaining aspect ratio and never
   // overflowing the height budget. With the keyboard overlay up that budget is
@@ -338,7 +332,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         </div>
       )}
       {error && <div className={styles.emulatorError}>{error}</div>}
-      {variableWatcher && !virtualKeyboard && (
+      {variableWatcher && (
         <div className={styles.watcherHost} ref={watcherHostRef}>
           <VariableWatcher
             getMachine={getMachine}

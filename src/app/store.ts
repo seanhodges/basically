@@ -66,10 +66,7 @@ interface IdeState {
   crtEffect: boolean;
   /** On-screen virtual keyboard under the monitor. */
   virtualKeyboard: boolean;
-  /**
-   * Variable watcher panel under the monitor (shares the slot with the virtual
-   * keyboard). Transient: not persisted, always starts closed.
-   */
+  /** Variable watcher panel under the monitor. Transient: not persisted. */
   variableWatcher: boolean;
   /** Audible click on virtual key presses. */
   keyboardSound: boolean;
@@ -219,7 +216,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined'
       ? (getVirtualKeyboard() ?? defaultVirtualKeyboard())
       : false,
-  variableWatcher: false,
+  variableWatcher: true,
   keyboardSound:
     typeof localStorage !== 'undefined' ? getKeyboardSound() : false,
   keyboardHaptics:
