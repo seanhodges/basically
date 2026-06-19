@@ -57,11 +57,7 @@ export function StatusBar() {
           title={
             variableWatcher ? 'Hide variable watcher' : 'Show variable watcher'
           }
-          onClick={() => {
-            const next = !variableWatcher;
-            setVariableWatcher(next);
-            if (next) setVirtualKeyboard(false); // mutually exclusive
-          }}
+          onClick={() => setVariableWatcher(!variableWatcher)}
         >
           {'{x}'}
         </button>

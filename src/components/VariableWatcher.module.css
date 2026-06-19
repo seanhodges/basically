@@ -1,5 +1,5 @@
 .watcherTable {
-  width: 100%;
+  margin-left: auto;
   border-collapse: collapse;
   font-family: var(--mono, monospace);
   font-size: 13px;
@@ -28,7 +28,6 @@
 }
 
 .watcherValue {
-  width: 100%;
 }
 
 /* The value sits in its own span so a future edit mode can swap it for an
