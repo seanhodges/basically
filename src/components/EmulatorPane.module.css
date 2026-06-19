@@ -8,6 +8,8 @@
   padding: 14px;
   background: var(--bg-panel);
   overflow: auto;
+  /* Anchor for the variable-watcher overlay (see .watcherHost). */
+  position: relative;
 }
 
 /* Tablet landscape: the bottom-46% keyboard overlay must never cover the
@@ -81,12 +83,19 @@
   justify-content: space-between;
 }
 
+/* The watcher is an overlay anchored to the bottom-right of the pane rather
+   than a flex child, so opening it never shrinks the emulator screen. It draws
+   below the preview and behind the keyboard overlay (z-index 5 at the workspace
+   level); defocusing or hiding the keyboard reveals it. */
 .watcherHost {
-  width: 100%;
-  max-width: 600px;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 50%;
   max-height: 240px;
   overflow-y: auto;
-  flex-shrink: 0;
+  z-index: 1;
+  background: var(--bg-panel);
 }
 
 @media (max-width: 768px) {
@@ -104,15 +113,9 @@
     max-width: none;
   }
 
+  /* Narrow screens: the watcher snaps to the full pane width. */
   .watcherHost {
-    max-width: none;
+    width: 100%;
     max-height: 40vh;
-    overflow-y: auto;
-  }
-}
-
-@media (max-width: 768px) and (orientation: portrait) {
-  .watcherHost {
-    max-width: none;
   }
 }
