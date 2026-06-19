@@ -1,5 +1,10 @@
 import type { BuildTarget } from '../types';
 import { tokenizeProgram } from './tokenizer';
+import { samplesToWav } from '../../transfer/wav';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+} from './audio/cassetteEncoder';
 
 /**
  * Build the loadable .prg image: the 2-byte load address ($0801) followed by
@@ -30,6 +35,18 @@ export const c64BuildTargets: BuildTarget[] = [
         new Blob([buildPrg(source) as BlobPart], {
           type: 'application/octet-stream',
         }),
+      ),
+  },
+  {
+    id: 'c64-wav',
+    label: 'Export cassette .wav',
+    fileExtension: 'wav',
+    build: (source, { programName }) =>
+      Promise.resolve(
+        samplesToWav(
+          buildCassetteSamples(source, programName),
+          CASSETTE_SAMPLE_RATE,
+        ),
       ),
   },
 ];

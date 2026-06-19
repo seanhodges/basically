@@ -9,6 +9,11 @@ import { c64AiProfile } from './aiProfile';
 import { c64KeyboardLayout } from './keyboardLayout';
 import { c64Samples } from './samples';
 import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+} from './audio/cassetteEncoder';
+import { decodeCassette } from './audio/cassetteDecoder';
+import {
   C64Machine,
   C64_DISPLAY_WIDTH,
   C64_DISPLAY_HEIGHT,
@@ -70,6 +75,20 @@ export const commodore64: Dialect = {
   buildTargets: c64BuildTargets,
 
   binaryImports: [{ extension: '.prg', label: 'Import .PRG…' }],
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the C64 type LOAD and press RETURN, then press PLAY on the datasette before starting playback. When it finds the program type RUN.',
+    decodeSamples: (samples, sampleRate) => {
+      const { name, data } = decodeCassette(samples, sampleRate);
+      return { programName: name, source: detokenizeProgram(data) };
+    },
+    saveInstructions:
+      'On the C64 type SAVE "NAME" and press RETURN, then press RECORD and PLAY on the datasette; the tape tone plays from the cassette port. Feed it into this device, then start listening.',
+  },
 
   aiProfile: c64AiProfile,
 };
