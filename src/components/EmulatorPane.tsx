@@ -214,7 +214,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // Fit-to-pane scaling. The screen is top-aligned and always scales
   // fractionally to fill the available width, retaining aspect ratio and never
   // overflowing the height budget. With the keyboard overlay up that budget is
-  // capped to the top 54% (the keyboard owns the bottom 46%). The variable
+  // capped to the top 50% (the keyboard owns the bottom 50%). The variable
   // watcher's height is deliberately NOT subtracted here, so opening it never
   // shrinks the screen even though it is an in-flow child below the preview.
   // Fires on resize, rotation, address-bar collapse, and when the Preview tab
@@ -225,10 +225,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     const update = () => {
       const rect = container.getBoundingClientRect();
       const availWidth = rect.width - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD);
-      // With the keyboard up, never grow past 54% of the pane so the bottom-46%
+      // With the keyboard up, never grow past 50% of the pane so the bottom-50%
       // overlay can never cover the screen.
       const heightBudget = virtualKeyboard
-        ? Math.min(rect.height, rect.height * 0.54)
+        ? Math.min(rect.height, rect.height * 0.5)
         : rect.height;
       const availHeight = heightBudget - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD);
       // Fill the available width; clamp to the height budget so wide/short
