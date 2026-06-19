@@ -16,6 +16,13 @@
  */
 const NO_SPECTRUM_SIGNAL = 'No cassette signal detected';
 
+const TSTATE_MICROS = 1e6 / 3_500_000;
+// The shortest legitimate pulse in the format is the 667 T-state sync pulse;
+// every data/pilot pulse is longer. Any edge-to-edge interval well under it is
+// ringing/echo from a real speaker→air→mic path, not a real pulse.
+const SYNC1_T = 667;
+const MIN_PULSE_FRACTION = 0.5;
+
 export interface DecodeCassetteResult {
   /** Program name from the tape header. */
   name: string;
@@ -85,8 +92,22 @@ function pulseDurations(samples: Float32Array, sampleRate: number): number[] {
     }
   }
 
+  // Debounce: a speaker→air→mic channel rings after each transition, adding
+  // clusters of spurious zero-crossings right after a real edge. Counting them
+  // as pulses would desync the rigid two-pulses-per-bit pairing in readBlocks
+  // and corrupt the whole block. Keep an edge only once the level has held for
+  // at least half the shortest legitimate pulse, collapsing each ring cluster
+  // back to the single real edge that started it.
+  const minPulseSamples =
+    SYNC1_T * TSTATE_MICROS * 1e-6 * sampleRate * MIN_PULSE_FRACTION;
   const pulses: number[] = [];
-  for (let i = 1; i < edges.length; i++) pulses.push(edges[i]! - edges[i - 1]!);
+  let prevKept = edges.length > 0 ? edges[0]! : 0;
+  for (let i = 1; i < edges.length; i++) {
+    const gap = edges[i]! - prevKept;
+    if (gap < minPulseSamples) continue; // ringing glitch — fold into the pulse
+    pulses.push(gap);
+    prevKept = edges[i]!;
+  }
   return pulses;
 }
 
