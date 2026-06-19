@@ -1,248 +1,187 @@
 ---
 name: adding-a-target-system
 description: >-
-  Add a new target system (BASIC dialect + emulator + virtual keyboard) to
-  Basically. Use when the user wants to support a new microcomputer or
-  BASIC dialect, port the IDE to another machine, add an emulator for a new
-  CPU/bus, or build a virtual keyboard layout for a new target machine.
+  Plan and scaffold a new target system (BASIC dialect + emulator + virtual
+  keyboard) for Basically. Use when the user wants to support a new
+  microcomputer or BASIC dialect, port the IDE to another machine, or make an
+  existing half-built dialect feature complete. This skill audits the existing
+  dialects, writes a dependency-ordered multi-stage plan to docs/dialect-plans/,
+  and creates the initial compiling stub folder. It does NOT implement the
+  stages — the user runs each stage later, when they choose.
 ---
 
-# Adding a new target system to Basically
+# Planning & scaffolding a new target system
 
 A **target system** is one microcomputer's worth of support: a BASIC **dialect**
-(tokenizer, charset, keywords), an **emulator** (CPU bus + display + I/O), and a
-**virtual keyboard**. This skill is the workflow that ties those pieces together
-in the right order. It does not replace the reference docs — read them.
+(tokenizer, charset, keywords), an **emulator** (CPU bus + display + I/O), a
+**virtual keyboard**, transfer/tape I/O, an AI profile and samples. That is ~20
+files, and the feature baseline keeps rising — so new dialects routinely ship
+half-finished (e.g. `src/dialects/bbcmaster/` has only `aiProfile.ts` +
+`index.ts`, while `zx81`/`zxspectrum`/`commodore64` are complete).
+
+**This skill does not write the implementation.** It produces a staged plan and
+the initial scaffolding, then stops. Run it to get:
+
+1. an **audit** of what "feature complete" means _today_ (derived from the
+   existing dialects, not a stale checklist);
+2. a **multi-stage plan** at `docs/dialect-plans/<id>.md`, dependency-ordered and
+   grouped into medium, single-session tasks for the coding agent;
+3. a **compiling stub folder** at `src/dialects/<id>/` ready for each stage to
+   fill in.
+
+> **Hard rule:** do not implement any stage, and do not register the dialect.
+> Your output is the plan + stubs. The user decides when each stage runs.
 
 ## The one mental model
 
 The app **only** talks to the `Dialect` and `MachineEmulator` interfaces in
 `src/dialects/types.ts`. Everything machine-specific lives in a single folder,
-`src/dialects/<name>/`, mirroring `src/dialects/zx81/` (the only existing target).
-If you find yourself editing anything outside your new dialect folder — except
-`src/dialects/registry.ts`, a ROM asset, and an optional CSS theme block — stop
-and reconsider: the seam is being violated.
+`src/dialects/<name>/`. The seam means a complete dialect is exactly "every
+member of those interfaces implemented, plus the optional ones the mature
+dialects all carry". Nothing outside the dialect folder should change except
+`src/dialects/registry.ts` (a later stage), a ROM asset, and an optional CSS
+theme block.
 
-## Read first (authoritative references)
+## Phase 1 — Audit the existing dialects
 
-Before writing any code, read these. They contain the binary layouts, type
-shapes, and worked examples this skill only summarizes:
+Read the _complete_ reference dialects rather than trusting a fixed list, so the
+plan reflects the current baseline. Read:
 
-- `docs/adding-a-dialect.md` — the dialect folder and its files.
-- `docs/adding-a-virtual-keyboard.md` — the full keyboard guide (data model,
-  `setKey` wiring, theming, tests).
-- `docs/file-formats.md` — editor text, tokenized program layout, image/`.P`
-  format, cassette audio.
-- `docs/serial-protocol.md` — the WebSerial bridge (only if you add serial
-  transfer).
-- `src/dialects/types.ts` — the exact `Dialect`, `MachineEmulator`, `KeywordInfo`,
-  `CharsetMapping`, `BuildTarget`, `AiProfile` shapes.
+- `src/dialects/types.ts` — the `Dialect` / `MachineEmulator` contract. Note both
+  the **required** members and the optional ones the mature dialects ship:
+  `displaySize`, `binaryImports`, `audio` (incl. `audio.decodeSamples`,
+  `saveInstructions`), and `MachineEmulator.readVariables`.
+- `src/dialects/zx81/` — reference for the **in-tree bus over the vendored Z80
+  core** pattern: `emulator/` (`zx81Machine.ts`, `memory.ts`, `display.ts`,
+  `keyboard.ts`), `pfile.ts` (image builder), `sysvars.ts`, `vars.ts`
+  (`readVariables`), `audio/` (cassette codecs), plus the language files.
+- `src/dialects/commodore64/` and `src/dialects/bbcmicro/` — reference for the
+  **adapter over a third-party emulator** pattern (6502 via viciious / jsbeeb in
+  `src/emulator/<machine>/`), their `targets.ts`, `audio/`, `keyboardLayout.ts`,
+  and the native-tokenizer-over-wrapped-ROM approach.
+- `src/dialects/registry.ts` — how a dialect is registered (a later stage).
 
-Copy from `src/dialects/zx81/` and `src/keyboard/` as you go — those are the
-working examples for every step below.
+Know these dialect-aware seams _outside_ the folder so the plan reuses them and
+does **not** edit them:
 
-## Build order
+| Seam                                                                    | Reuse for                                                                                          |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `src/editor/basicLanguage.ts`                                           | `BasicLanguageOptions`: `nameChars`, `suffixChars`, `graphicsEscapes`, `hexPrefix`, `binaryPrefix` |
+| `src/editor/completions.ts`                                             | generic keyword autocomplete                                                                       |
+| `src/keyboard/layoutSchema.ts`                                          | keyboard layout types                                                                              |
+| `src/keyboard/templateRows.ts`                                          | 40-column row templates                                                                            |
+| `src/keyboard/sinclairGlyphs.ts`                                        | shared block-graphic glyphs                                                                        |
+| `src/keyboard/{VirtualKeyboard,inputEngine}.tsx/.ts`                    | data-driven keyboard (no changes needed)                                                           |
+| `src/dialects/sinclairTape.ts`, `sinclairCharset.ts`, `sinclairVars.ts` | shared Sinclair codecs                                                                             |
+| `src/transfer/{wav,audioRecorder}.ts`                                   | WAV encode / mic record                                                                            |
+| `src/emulator/z80/`                                                     | vendored Z80 core — **use, never edit**                                                            |
 
-Work inside a new `src/dialects/<name>/` folder. Each step names the interface it
-satisfies and the zx81 file to mirror.
+From the audit, produce a **capability checklist** = the union of what the
+complete dialects ship. Then classify the target:
 
-1. **`keywords.ts`** — a `KeywordInfo[]` table (`word`, `token`, `kind`,
-   optional `signature`/`doc`). This alone powers highlighting and autocomplete
-   via the generic builders in `src/editor/`. Mirror `zx81/keywords.ts`.
+- **CPU / bus pattern** — in-tree Z80 bus, or adapter over a third-party package
+  (check the package **license** first; jsbeeb's GPL-3.0 is why this repo is GPL).
+- **Display size** — set `displaySize` if not the classic 256×192.
+- **Tape / image format** — `.p`/`.tap`/`.prg`/`.bbc` equivalent, tape scheme.
+- **Existing state** — if `src/dialects/<id>/` already partly exists (like
+  `bbcmaster`), diff what's present against the checklist and plan **only the
+  gaps**.
 
-2. **`charset.ts`** — a `CharsetMapping` (`toMachine` text→codes throwing
-   `CharsetError` on unmappable input, `toUnicode` codes→text, `glyph` for a
-   single code). Mirror `zx81/charset.ts`.
+## Phase 2 — Write the staged plan
 
-3. **`tokenizer.ts` / `detokenizer.ts`** — text ↔ tokenized program bytes. The
-   tokenizer **collects `TokenizeError[]` (1-based line, 0-based column) — it does
-   not throw** — so errors surface inline in the editor. See `docs/file-formats.md`
-   for the tokenized line layout. Mirror `zx81/tokenizer.ts`.
+Copy the bundled `plan-template.md` into `docs/dialect-plans/<id>.md` and fill it
+in. Keep the template's status legend (✅ shipped / 🔨 in progress / ⬜ planned
+/ ⛔ blocked, matching `docs/dialect-roadmap.md`) and its per-stage structure:
+checklist, files created/filled, dependencies, and a verify line. Add a
+cross-link to the new plan from `docs/dialect-roadmap.md`.
 
-4. **Image builder** — the per-machine equivalent of `zx81/pfile.ts` (e.g. a
-   `.tap`/`.sna`/`.p` builder). Turns tokenized program bytes into the full
-   loadable memory image and parses it back. See `docs/file-formats.md`.
+Group work by dependency into medium, single-session stages. Default breakdown
+(adapt to the audited gaps — drop any stage already satisfied):
 
-5. **`language.ts`** — `languageSupport(): Extension` and a `CompletionSource`,
-   built from the generic builders in `src/editor/`. Mirror `zx81/language.ts`.
+| Stage                                          | Scope                                                                                                                                                                                                                                                                         | Depends on                                       | Verify                                                                                   |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| **1 — Language core**                          | `keywords.ts`, `charset.ts`, `language.ts`, `tokenizer.ts` / `detokenizer.ts`, `lint`, the image builder (`pfile.ts`/`tapfile.ts`/`.prg` equivalent) + colocated tests. No registry change.                                                                                   | types contract                                   | `npm test` (tokenizer round-trip, charset, image-builder pointers) + `npm run typecheck` |
+| **2 — Emulator core**                          | `emulator/` (machine + memory + display + keyboard matrix) implementing `MachineEmulator`, **or** the adapter folder under `src/emulator/<machine>/` when wrapping a package; ROM into `public/roms/<id>.rom` with attribution.                                               | charset (display), image builder (`loadProgram`) | emulator boot test: boot ROM, inject a program, assert on display memory                 |
+| **3 — Wire-up: keyboard + samples + register** | `keyboardLayout.ts` (tokens match emulator `setKey`), `samples.ts` + `samples/*.bas` (canonical `hello`/`circles`/`breakout`/`maze`, degrade gracefully), finalize `aiProfile.ts`, **register in `registry.ts`**, optional `src/styles.css` theme. Now selectable + runnable. | stages 1–2                                       | typecheck + tests + `npm run dev` smoke + `npm run e2e`                                  |
+| **4 — Transfer & tape I/O**                    | `targets.ts` build targets, `audio` (`buildSamples` + `decodeSamples`, load/save instructions), `binaryImports`.                                                                                                                                                              | tokenizer/detokenizer, image builder             | audio round-trip test + import/export in the app                                         |
+| **5 — Polish / optional**                      | `readVariables` + variable watcher, richer build targets, dot-abbreviation/quirks, AI-profile accuracy pass, keyboard theming / function-key strip.                                                                                                                           | stage 3                                          | watcher shows vars; targeted tests                                                       |
 
-6. **`emulator/`** — a `MachineEmulator` implementation. Two proven shapes:
-   - **In-tree bus over a shared CPU core** (Sinclair pattern): **reuse the
-     machine-independent Z80 core at `src/emulator/z80/` — do not modify it**;
-     supply your own bus (memory map, I/O ports, any contention model). Mirror
-     the zx81 split: `emulator/<machine>.ts` (the class), `memory.ts`,
-     `display.ts`, `keyboard.ts`.
-   - **Adapter over an npm emulator** (BBC pattern): wrap the package behind an
-     adapter folder like `src/emulator/bbc/` (jsbeeb) with a hand-written
-     `.d.ts` for the API surface used; copy its ROMs into `public/roms/` in the
-     layout its loader expects; set `displaySize` on the `Dialect` when the
-     screen is not 256×192. **Check the package license first** — jsbeeb's
-     GPL-3.0 is why this project is GPL.
+### Canonical samples (Stage 3)
 
-   Either way, implement every `MachineEmulator` method:
-   - `reset()` — full reset.
-   - `loadProgram(image)` — inject a built image post-boot and arrange for it to
-     run (zx81 does this via a ROM load trap + setting the next-line pointer).
-   - `runFrame()` — advance one 50 Hz display frame of CPU time.
-   - `renderTo(ctx)` — draw the display to the canvas; expose `displayWidth` /
-     `displayHeight`.
-   - `keyEvent(e, down)` — physical keyboard, returns `true` when consumed.
-   - `setKey(token, down)` — virtual keyboard tokens → key matrix (see step 7).
-   - `releaseAllKeys()`, `setSpeed(multiplier)`, `dispose()`.
+Every dialect ships the same four programs, **in this order**, ported to the
+machine's own BASIC (match the _behaviour_, not bytes; degrade gracefully rather
+than dropping). The first (`hello`) is the starter shown for a fresh document.
 
-7. **`keyboardLayout.ts`** — a `KeyboardLayout` value (pure data: keys, legends,
-   layers, modifiers, glyphs, optional editor modes / function keys). **The
-   virtual keyboard is entirely data-driven — `src/keyboard/VirtualKeyboard.tsx`
-   and `src/keyboard/inputEngine.ts` need no changes.** Follow the standard
-   template (`docs/adding-a-virtual-keyboard.md`): a uniform 40-column,
-   ten-key-per-row grid built with the `src/keyboard/templateRows.ts` helpers
-   (number/QWERTY/home/zxcv rows + a common bottom row), with the machine's
-   modes and/or function keys in the top strip and no arrow keys. Import types
-   from `src/keyboard/layoutSchema.ts`; copy `zx81/keyboardLayout.ts` (a full
-   5-layer / 4-mode example) or `bbcmicro/keyboardLayout.ts` (modes + function
-   keys behind a toggle). Wire the keys into your emulator's
-   `setKey(token, down)`: the token strings are opaque to the framework, so pick
-   whatever maps naturally to your matrix. **Keep separate `physicalDown` and
-   `virtualDown` sets and union them when writing the matrix** so a physical keyup
-   never releases a key the virtual keyboard still holds (and vice versa). Full
-   detail and the matrix pattern: `docs/adding-a-virtual-keyboard.md` §1–2;
-   reference `zx81/emulator/keyboard.ts`.
+| `name`         | `title`       | What it does                                                           |
+| -------------- | ------------- | ---------------------------------------------------------------------- |
+| `hello.bas`    | `Hello world` | Prints a greeting; show off text colour / display.                     |
+| `circles.bas`  | `Circles`     | Concentric circles, showcasing colour graphics.                        |
+| `breakout.bas` | `Breakout`    | Paddle bounces a ball off a wall of blocks; score; lose when it drops. |
+| `maze.bas`     | `Maze`        | Fixed wall map; move a marker with cursor keys to the exit.            |
 
-8. **`aiProfile.ts`** — an `AiProfile` (`model`, `systemPrompt`, `maxTokens`)
-   whose system prompt teaches Claude the dialect's rules, constraints, and perf
-   tricks. Mirror `zx81/aiProfile.ts`.
+Only exclude a sample when it genuinely cannot be ported (e.g. the ZX80 drops
+`breakout`); keep the rest in the same relative order. Compare `zx81/`,
+`zxspectrum/`, `bbcmicro/`, `commodore64/` sample folders for the same set
+expressed several ways. Never point a new dialect at another machine's `.bas`.
 
-9. **`targets.ts`** — a `BuildTarget[]` for file exports (each with `id`, `label`,
-   optional `fileExtension`, and `build(source, opts)` → `Blob`), plus optional
-   cassette `audio` ({ `sampleRate`, `buildSamples`, `loadInstructions` }). See
-   `docs/file-formats.md` and `docs/serial-protocol.md`. Mirror `zx81/targets.ts`.
-   Import is the dialect-agnostic mirror of export and is driven entirely from
-   the `Dialect` interface: add `binaryImports` for file formats `detokenize()`
-   can read back, and `audio.decodeSamples` (the inverse of `buildSamples`, plus
-   `saveInstructions`) to recover a program from recorded cassette audio. The
-   ZX80/ZX81 share the signal→bytes decoder in `src/dialects/sinclairTape.ts`.
+## Phase 3 — Create the compiling stub folder
 
-10. **`samples.ts`** — a `SampleFile[]` (`name`, `title`, `text`) of example
-    programs **in this dialect's own BASIC**, imported as raw `.bas` files under
-    `samples/`. Mirror `zxspectrum/samples.ts`. **Always start from the canonical
-    sample set in the table below, in this order** — every dialect ships these
-    same four programs (`hello`, `circles`, `breakout`, `maze`). Port each to the
-    new machine's BASIC: match the _behaviour_, not a byte-for-byte copy, using
-    whatever input, colour, and graphics idioms the machine actually supports.
-    **Degrade gracefully** — re-express a sample in the machine's own terms rather
-    than dropping it (e.g. the C64 has no graphics or structured-programming
-    keywords, so its `circles` plots PETSCII discs on the text grid and its
-    `breakout`/`maze` are `POKE`/`GET`/`PEEK` character games on screen and colour
-    RAM, not `MODE`/`MOVE`/`DRAW`/`PROC`). **Only exclude a sample entirely when it
-    genuinely cannot be ported to the machine at all** — then keep the remaining
-    samples in the same relative order (e.g. the ZX80, which can't run a real-time
-    action game, drops `breakout` but still ships `hello`, `circles`, and `maze`).
-    The **first entry (`hello`) is the starter** shown for a fresh document and
-    swapped in when the user selects this machine.
+Create `src/dialects/<id>/` mirroring the chosen reference dialect, with one
+type-valid throwing stub per planned component, colocated test stubs, and a
+`samples/` directory. **Constraints that keep the build green:**
 
-    | `name`         | `title`       | What it does                                                                                                                                                                 |
-    | -------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-    | `hello.bas`    | `Hello world` | Starter. Prints a greeting; show off the machine's text colour / display.                                                                                                    |
-    | `circles.bas`  | `Circles`     | A graphics demo drawing concentric circles, showcasing the machine's colour graphics.                                                                                        |
-    | `breakout.bas` | `Breakout`    | Bat-and-ball: a paddle the player moves left/right bounces a ball off a wall of blocks, destroying each block it hits and scoring; lose when the ball drops past the paddle. |
-    | `maze.bas`     | `Maze`        | A fixed wall map (string array); move a marker with the cursor keys to reach the exit.                                                                                       |
+- **Stubs must pass `tsc -b`.** Strict mode (`noUnusedLocals`,
+  `noUnusedParameters`) compiles _all_ files under `src/`, registered or not. So
+  prefix unused params with `_`, give every export the exact shape the contract
+  expects, and use bodies like `throw new Error('<id>: not implemented');`.
+- **Do not touch `registry.ts`.** An unregistered stub keeps the app and e2e
+  clean while the dialect is WIP; registration is Stage 3 of the plan.
+- **Test stubs use `describe` + `it.todo(...)`** so `npm test` passes with the
+  stubs present.
+- **Do not fabricate a ROM.** Note the required `public/roms/<id>.rom` and its
+  license/attribution in the plan's target summary instead.
 
-    Compare the existing `zx81/`, `zxspectrum/`, `bbcmicro/`, and `commodore64/`
-    sample folders to see the same set expressed several ways (ZX81/Spectrum use
-    block-graphic text; BBC uses pixel graphics for breakout and teletext for the
-    maze; C64 uses PETSCII screen-RAM `POKE`s and `CHR$()` colour control codes).
-    Don't point a new dialect at another machine's `.bas` programs — they won't
-    run.
+After scaffolding, confirm `npm run typecheck` and `npm test` still pass and that
+`git status` shows changes confined to `src/dialects/<id>/`,
+`docs/dialect-plans/<id>.md`, and the roadmap cross-link — `registry.ts`
+untouched.
 
-11. **`index.ts`** — assemble and export the `Dialect` object from all the pieces
-    above. Mirror `zx81/index.ts` exactly (it shows how `tokenize`, `detokenize`,
-    `lint`, `romUrl`, `createEmulator`, `keyboardLayout`, `samples`,
-    `buildTargets`, `audio`, and `aiProfile` are stitched together).
+## Phase 4 — Stop
 
-## Wire it up
-
-- **Register** the dialect in `src/dialects/registry.ts` — add it to the
-  `dialects[]` array; it is then auto-discovered everywhere.
-- **ROM** — drop the machine ROM in `public/roms/<id>.rom` with an attribution
-  note, and point to it with
-  ``romUrl: `${import.meta.env.BASE_URL}roms/<id>.rom` ``.
-- **Theme (optional)** — add a `.virtual-keyboard.vk-theme-<id>` CSS block in
-  `src/styles.css`; the class must match the `theme` field in your
-  `KeyboardLayout`.
-
-That is all a new dialect needs — the **target-machine dropdown** in
-`src/components/Toolbar.tsx` is generic: it lists every entry in `dialects[]`
-and calls `store.setDialect(id)`, which swaps the active `dialect` and persists
-it (`storage/settings.ts` `getDialectId`/`setDialectId`). Switching rebuilds the
-editor (`CodeMirrorHost` is keyed on `dialect`), tears down and rebuilds the
-emulator (`EmulatorPane` disposes its machine in a `dialect`-keyed effect), and
-re-renders the virtual keyboard from `dialect.keyboardLayout`. So once a dialect
-is registered it is immediately selectable and runnable — **do not re-wire the
-picker per dialect.** If you find the dropdown still shows only one machine,
-check the registry, not the UI. Keep new UI text dialect-driven (e.g.
-`dialect.name`), never a hard-coded machine name.
-
-- **Samples are per-dialect.** The Toolbar's Samples menu lists
-  `dialect.samples`, and switching machines swaps the editor to the new
-  dialect's starter (`samples[0]`) **only when the document is untouched** —
-  blank or exactly some dialect's starter (`store.isStarterOrEmpty`). Code the
-  user wrote or loaded is never replaced. So just provide good `samples`; the
-  swap is generic.
+End by pointing the user at `docs/dialect-plans/<id>.md` and telling them to run
+the stages on demand. Do not start implementing.
 
 ## Conventions (from CLAUDE.md)
 
 - **Strict TypeScript** — `noUnusedLocals` / `noUnusedParameters` /
   `noFallthroughCasesInSwitch` are on; unused symbols fail the build.
-- **Errors, not throws** — the tokenizer returns `TokenizeError[]`, it does not
-  throw.
+- **Errors, not throws** (in real code) — the tokenizer returns
+  `TokenizeError[]` (1-based line, 0-based column), it does not throw. (Stub
+  bodies are the one exception — they throw "not implemented".)
 - **Naming** — components `PascalCase`, functions/vars `camelCase`, hardware
   constants `SCREAMING_SNAKE_CASE` (e.g. `TSTATES_PER_FRAME`).
 - **Formatting** — Prettier (single quotes, semicolons, 2-space, trailing
-  commas). Run `npm run format` before committing.
-
-## Test & verify
-
-Add colocated `*.test.ts` files (Vitest), mirroring the zx81 examples:
-
-- **Tokenizer round-trip** — `zx81/tokenizer.test.ts`.
-- **Image-builder pointer consistency** — `zx81/pfile.test.ts`.
-- **Machine boot** — `zx81/emulator/zx81Machine.test.ts`: boot the real ROM,
-  inject a program, assert on display memory. Emulator tests may read the real ROM
-  from `public/roms/`.
-- **Keyboard layout validation** — `zx81/keyboardLayout.test.ts` (every key's
-  `labels` is index-aligned with `layers`; every referenced modifier and glyph
-  exists).
-- **Keyboard matrix** — `zx81/emulator/keyboard.test.ts`: `setKey`/`readMatrix`
-  and the physical+virtual union.
-
-Then run, from the repo root:
-
-```bash
-npm run typecheck
-npm test
-npm run lint
-npm run dev      # optional: drive the new emulator + keyboard in the browser
-```
+  commas). Run `npm run format` before finishing.
 
 ## Key files to study
 
-| File                                                  | What it shows                                            |
-| ----------------------------------------------------- | -------------------------------------------------------- |
-| `src/dialects/types.ts`                               | Every interface you must implement                       |
-| `src/dialects/zx81/index.ts`                          | How a `Dialect` is assembled                             |
-| `src/dialects/registry.ts`                            | Where to register the new dialect                        |
-| `src/dialects/zx81/emulator/`                         | `MachineEmulator` over the shared Z80 core               |
-| `src/emulator/z80/`                                   | Vendored, machine-independent CPU core — **do not edit** |
-| `src/keyboard/layoutSchema.ts`                        | All keyboard-layout type definitions                     |
-| `src/dialects/zx81/keyboardLayout.ts`                 | Full layered keyboard example                            |
-| `src/dialects/zx81/emulator/keyboard.ts`              | Matrix + dual press-source pattern                       |
-| `src/keyboard/inputEngine.ts` / `VirtualKeyboard.tsx` | Generic kbd — no changes needed                          |
+| File                                                                                | What it shows                                 |
+| ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| `src/dialects/types.ts`                                                             | Every interface a complete dialect implements |
+| `src/dialects/zx81/index.ts`                                                        | How a `Dialect` is assembled (in-tree Z80)    |
+| `src/dialects/commodore64/index.ts`                                                 | A `Dialect` over a wrapped 6502 emulator      |
+| `src/dialects/bbcmaster/`                                                           | A half-built dialect — the gap-audit case     |
+| `src/dialects/registry.ts`                                                          | Where registration happens (Stage 3)          |
+| `src/dialects/zx81/emulator/`                                                       | `MachineEmulator` over the shared Z80 core    |
+| `src/keyboard/layoutSchema.ts`                                                      | All keyboard-layout types                     |
+| `docs/dialect-roadmap.md`                                                           | Tiered roadmap + status legend to cross-link  |
+| `docs/{adding-a-dialect,adding-a-virtual-keyboard,file-formats,serial-protocol}.md` | Per-component reference detail for the stages |
 
 ## Guardrails
 
-- **Don't touch** `src/emulator/z80/` (vendored MIT Z80 core) or existing
-  third-party ROMs under `public/roms/` — fix bus bugs in your dialect's emulator,
-  not in the core.
-- Nothing outside `src/dialects/<name>/` should change except the registry, the
-  new ROM asset, and an optional `src/styles.css` theme block. If a wider change
-  seems necessary, the dialect seam is probably being bypassed.
+- **Plan & scaffold only — never implement a stage or register the dialect.**
+- **Don't touch** `src/emulator/z80/` (vendored Z80 core) or third-party ROMs
+  under `public/roms/` — fix bus bugs in your dialect's emulator, not the core.
+- Nothing outside `src/dialects/<id>/` changes except (later) the registry, the
+  ROM asset, and an optional `src/styles.css` theme block. A wider change means
+  the seam is being bypassed.
