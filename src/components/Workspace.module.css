@@ -29,18 +29,31 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  grid-column: 1;
+  grid-row: 1;
 }
 
-.monitorPane {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
+.divider {
+  grid-column: 2;
+  grid-row: 1;
 }
 
+/* The preview and AI panel share the right-hand grid track: explicit placement
+   keeps the AI pane in the same cell as the preview instead of spilling into a
+   non-existent 4th column. (Ignored under the mobile flex layout below.) */
+.monitorPane,
 .aiHost {
   min-width: 0;
   min-height: 0;
   display: flex;
+  grid-column: 3;
+  grid-row: 1;
+}
+
+/* Non-mobile equivalent of .tabHidden: hide the inactive pane in the shared
+   right slot (overrides the panes' display:flex). */
+.slotHidden {
+  display: none !important;
 }
 
 /* Editor area above the docked keyboard; the run FAB anchors to it. */
