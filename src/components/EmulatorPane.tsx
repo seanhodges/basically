@@ -74,7 +74,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     height: SCREEN_HEIGHT,
   };
   const containerRef = useRef<HTMLDivElement>(null);
-  const watcherHostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const machineRef = useRef<MachineEmulator | null>(null);
   const frameHookRef = useRef<(() => void) | null>(null);
@@ -217,25 +216,22 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // Fit-to-pane scaling. The screen is top-aligned and always scales
   // fractionally to fill the available width, retaining aspect ratio and never
   // overflowing the height budget. With the keyboard overlay up that budget is
-  // capped to the top 54% (the keyboard owns the bottom 46%). Fires on resize,
-  // rotation, address-bar collapse, and when the Preview tab becomes visible.
+  // capped to the top 54% (the keyboard owns the bottom 46%). The variable
+  // watcher is an overlay (not in the flex flow), so it never shrinks the
+  // screen. Fires on resize, rotation, address-bar collapse, and when the
+  // Preview tab becomes visible.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const update = () => {
       const rect = container.getBoundingClientRect();
-      // The watcher (if open) shares the pane below the screen.
-      const panelHeight = watcherHostRef.current?.offsetHeight ?? 0;
       const availWidth = rect.width - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD);
       // With the keyboard up, never grow past 54% of the pane so the bottom-46%
       // overlay can never cover the screen.
       const heightBudget = virtualKeyboard
         ? Math.min(rect.height, rect.height * 0.54)
         : rect.height;
-      const availHeight =
-        heightBudget -
-        2 * (MOBILE_BEZEL + MOBILE_PANE_PAD) -
-        (panelHeight > 0 ? panelHeight + 10 : 0);
+      const availHeight = heightBudget - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD);
       // Fill the available width; clamp to the height budget so wide/short
       // panes stay height-limited. Aspect ratio preserved by the min().
       const next =
@@ -247,9 +243,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     update();
     const observer = new ResizeObserver(update);
     observer.observe(container);
-    if (watcherHostRef.current) observer.observe(watcherHostRef.current);
     return () => observer.disconnect();
-  }, [virtualKeyboard, variableWatcher, display.width, display.height]);
+  }, [virtualKeyboard, display.width, display.height]);
 
   const getMachine = useCallback(() => machineRef.current, []);
   const registerFrameHook = useCallback((cb: (() => void) | null) => {
@@ -333,7 +328,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       )}
       {error && <div className={styles.emulatorError}>{error}</div>}
       {variableWatcher && (
-        <div className={styles.watcherHost} ref={watcherHostRef}>
+        <div className={styles.watcherHost}>
           <VariableWatcher
             getMachine={getMachine}
             running={emulatorStatus === 'running'}
