@@ -19,7 +19,6 @@ import { SettingsForm } from './SettingsForm';
 import { MobileTabBar } from './MobileTabBar';
 import styles from './Workspace.module.css';
 
-const AI_PANEL_WIDTH = 340;
 const DIVIDER_WIDTH = 6;
 
 /** How long the editor keyboard lingers after the editor loses focus —
@@ -157,6 +156,15 @@ export function Workspace() {
   const hidden = (tab: MobileTab) =>
     isMobile && mobileTab !== tab ? styles.tabHidden : '';
 
+  // On non-mobile the preview and the AI panel share the right-hand column;
+  // exactly one shows at a time and the AI panel wins when open. (On mobile the
+  // tab logic in `hidden()` governs instead, so this is a no-op there.)
+  const slotHidden = (view: 'preview' | 'ai') => {
+    if (isMobile) return '';
+    const active = aiPanelOpen ? 'ai' : 'preview';
+    return view === active ? '' : styles.slotHidden;
+  };
+
   const onDividerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     setDragging(true);
@@ -167,7 +175,7 @@ export function Workspace() {
     const workspace = workspaceRef.current;
     if (!workspace) return;
     const rect = workspace.getBoundingClientRect();
-    const width = rect.width - (aiPanelOpen ? AI_PANEL_WIDTH : 0);
+    const width = rect.width;
     if (width <= 0) return;
     const ratio = (e.clientX - rect.left) / width;
     setSplitRatio(Math.min(MAX_SPLIT_RATIO, Math.max(MIN_SPLIT_RATIO, ratio)));
@@ -181,9 +189,7 @@ export function Workspace() {
 
   const cols = isMobile
     ? undefined
-    : `${(splitRatio * 100).toFixed(2)}% ${DIVIDER_WIDTH}px 1fr${
-        aiPanelOpen ? ` ${AI_PANEL_WIDTH}px` : ''
-      }`;
+    : `${(splitRatio * 100).toFixed(2)}% ${DIVIDER_WIDTH}px 1fr`;
 
   return (
     <div
@@ -223,7 +229,11 @@ export function Workspace() {
         onPointerMove={onDividerMove}
         onPointerUp={onDividerUp}
       />
-      <div className={`${styles.monitorPane} ${hidden('preview')}`}>
+      <div
+        className={`${styles.monitorPane} ${hidden('preview')} ${slotHidden(
+          'preview',
+        )}`}
+      >
         <EmulatorPane apiRef={machineApiRef} />
       </div>
       {isMobile && (
@@ -233,7 +243,7 @@ export function Workspace() {
         </div>
       )}
       {(aiPanelOpen || isMobile) && (
-        <div className={`${styles.aiHost} ${isMobile ? hidden('ai') : ''}`}>
+        <div className={`${styles.aiHost} ${hidden('ai')} ${slotHidden('ai')}`}>
           <AiPanel />
         </div>
       )}
