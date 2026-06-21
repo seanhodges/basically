@@ -1,19 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
-import {
-  streamChat,
-  describeAiError,
-  type ChatMessage,
-  type StreamHandle,
-} from '../ai/anthropicClient';
+import { useAiStore, type DisplayMessage } from '../ai/aiStore';
 import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
 import { extractCodeBlocks, mergeBasicLines } from '../ai/codeExtractor';
 import { getApiKey } from '../storage/settings';
 import styles from './AiPanel.module.css';
-
-interface DisplayMessage extends ChatMessage {
-  streaming?: boolean;
-}
 
 export function AiPanel() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -22,14 +13,22 @@ export function AiPanel() {
   const requestRun = useIdeStore((s) => s.requestRun);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
 
-  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  // The conversation and the in-flight stream live in a module-level store, so
+  // they survive this panel unmounting (e.g. toggled closed mid-stream).
+  const messages = useAiStore((s) => s.messages);
+  const busy = useAiStore((s) => s.busy);
+  const error = useAiStore((s) => s.error);
+
   const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const streamRef = useRef<StreamHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const send = async () => {
+  // Keep the thread scrolled to the newest content as it streams or on remount.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
+
+  const send = () => {
     const request = input.trim();
     if (request === '' || busy) return;
     const apiKey = getApiKey();
@@ -37,68 +36,18 @@ export function AiPanel() {
       setSettingsOpen(true);
       return;
     }
-    setError('');
     setInput('');
-    setBusy(true);
-
     const errors = dialect.lint(source);
-    const userContent = buildUserMessage(request, source, errors);
-    const history: ChatMessage[] = [
-      ...messages.map(({ role, content }) => ({ role, content })),
-      { role: 'user', content: userContent },
-    ];
-    // Show the bare request in the thread; the full context goes to the API.
-    setMessages((m) => [
-      ...m,
-      { role: 'user', content: request },
-      { role: 'assistant', content: '', streaming: true },
-    ]);
-
-    const scrollDown = () => {
-      const el = scrollRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
-    };
-
-    try {
-      const handle = streamChat(
-        apiKey,
-        dialect.aiProfile,
-        buildSystemPrompt(dialect),
-        history,
-        (delta) => {
-          setMessages((m) => {
-            const copy = [...m];
-            const last = copy[copy.length - 1]!;
-            copy[copy.length - 1] = { ...last, content: last.content + delta };
-            return copy;
-          });
-          scrollDown();
-        },
-      );
-      streamRef.current = handle;
-      const finalText = await handle.done;
-      setMessages((m) => {
-        const copy = [...m];
-        copy[copy.length - 1] = { role: 'assistant', content: finalText };
-        return copy;
-      });
-    } catch (e) {
-      setError(describeAiError(e));
-      setMessages((m) =>
-        m.filter((msg) => !(msg.streaming && msg.content === '')),
-      );
-      setMessages((m) =>
-        m.map((msg) =>
-          msg.streaming ? { role: msg.role, content: msg.content } : msg,
-        ),
-      );
-    } finally {
-      streamRef.current = null;
-      setBusy(false);
-    }
+    void useAiStore.getState().send({
+      apiKey,
+      profile: dialect.aiProfile,
+      system: buildSystemPrompt(dialect),
+      userContent: buildUserMessage(request, source, errors),
+      displayRequest: request,
+    });
   };
 
-  const stop = () => streamRef.current?.abort();
+  const stop = () => useAiStore.getState().stop();
 
   const applyReplace = (code: string) => {
     replaceDocument(code.endsWith('\n') ? code : code + '\n');
@@ -195,14 +144,14 @@ export function AiPanel() {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              void send();
+              send();
             }
           }}
         />
         {busy ? (
           <button onClick={stop}>Stop</button>
         ) : (
-          <button onClick={() => void send()} disabled={input.trim() === ''}>
+          <button onClick={send} disabled={input.trim() === ''}>
             Send
           </button>
         )}

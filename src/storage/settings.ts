@@ -1,7 +1,17 @@
+import type { ChatMessage } from '../ai/anthropicClient';
+
+/**
+ * A conversation message as persisted. `incomplete` marks an assistant answer
+ * that was still streaming when the page was closed/reloaded — it cannot be
+ * resumed (the streaming API isn't reconnectable), so it is kept as truncated.
+ */
+export type PersistedMessage = ChatMessage & { incomplete?: boolean };
+
 const KEYS = {
   apiKey: 'mbide.anthropicApiKey',
   autosaveDoc: 'mbide.autosave.doc',
   autosaveName: 'mbide.autosave.name',
+  aiConversation: 'mbide.autosave.ai',
   dialectId: 'mbide.dialectId',
   autoLineNumbering: 'mbide.autoLineNumbering',
   lineNumberIncrement: 'mbide.lineNumberIncrement',
@@ -135,5 +145,41 @@ export function saveAutosave(name: string, text: string): void {
     localStorage.setItem(KEYS.autosaveName, name);
   } catch {
     // quota exceeded — autosave is best-effort
+  }
+}
+
+/**
+ * Persisted AI conversation for the active program. Restored on reload so the
+ * thread (and any preserved partial answer) survives orientation changes and
+ * panel toggles. Cleared when a different program is loaded.
+ */
+export function loadAiConversation(): PersistedMessage[] {
+  const raw = localStorage.getItem(KEYS.aiConversation);
+  if (raw === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PersistedMessage[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveAiConversation(messages: PersistedMessage[]): void {
+  try {
+    if (messages.length === 0) {
+      localStorage.removeItem(KEYS.aiConversation);
+    } else {
+      localStorage.setItem(KEYS.aiConversation, JSON.stringify(messages));
+    }
+  } catch {
+    // quota exceeded — persistence is best-effort
+  }
+}
+
+export function clearAiConversation(): void {
+  try {
+    localStorage.removeItem(KEYS.aiConversation);
+  } catch {
+    // best-effort
   }
 }
