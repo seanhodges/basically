@@ -7,3 +7,7 @@
 export const VARS = 0x5c4b;
 /** E_LINE: 16-bit LE pointer just past the variables area (upper bound). */
 export const E_LINE = 0x5c59;
+/** ERR_NR: last report code minus one (0xFF = "0 OK"). See reports.ts. */
+export const ERR_NR = 0x5c3a;
+/** PPC: line number of the statement being / last executed. */
+export const PPC = 0x5c45;

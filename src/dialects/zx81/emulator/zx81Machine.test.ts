@@ -79,6 +79,27 @@ describe('Zx81Machine', () => {
     expect(byName['I']).toMatchObject({ kind: 'number' });
   });
 
+  it('reports a runtime error after running a buggy program', () => {
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    // Using an undefined variable is ZX81 report 2 ("Undefined variable").
+    const { bytes, errors } = tokenizeProgram('10 PRINT A\n');
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildPFile(bytes));
+    for (let i = 0; i < 200; i++) machine.runFrame();
+    const report = machine.readReport();
+    expect(report.isError).toBe(true);
+    expect(report.code).toBe('2');
+    expect(report.line).toBe(10);
+  });
+
+  it('reports no error after a clean program', () => {
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n');
+    machine.loadProgram(buildPFile(bytes));
+    for (let i = 0; i < 200; i++) machine.runFrame();
+    expect(machine.readReport().isError).toBe(false);
+  });
+
   it('disposes idempotently and stays inert afterwards', () => {
     const machine = new Zx81Machine({ rom, ramKb: 16 });
     const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n');

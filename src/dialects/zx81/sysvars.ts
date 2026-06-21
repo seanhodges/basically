@@ -7,6 +7,13 @@ export const PROGRAM_BASE = 0x407d;
 /** Bytes of system variables stored in a .P file before the program. */
 export const SYSVARS_SAVED_LENGTH = PROGRAM_BASE - SYSVARS_BASE; // 0x74
 
+/**
+ * ERR_NR (0x4000) holds the last report code minus one (0xFF = "0 OK"); it sits
+ * below SYSVARS_BASE so it is NOT part of the saved .P image, but it still lives
+ * in RAM and is readable while a program runs. See reports.ts.
+ */
+export const ERR_NR = 0x4000;
+
 export const VERSN = 0x4009;
 export const E_PPC = 0x400a;
 export const D_FILE = 0x400c;

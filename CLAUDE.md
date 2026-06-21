@@ -5,18 +5,23 @@ Guidance for working in this repository. Read the **Commands** and
 
 ## What this is
 
-**Basically** is a browser-based IDE for microcomputer BASIC dialects. The
-first (and currently only) dialect is the **Sinclair ZX81**, with an in-browser
-Z80 emulator, hardware export (cassette audio / `.P` files / WebSerial), and an
-optional Claude-powered code assistant.
+**Basically** is a browser-based IDE for microcomputer BASIC dialects. It ships
+six: the **Sinclair ZX81, ZX80, and ZX Spectrum**, the **BBC Micro and BBC
+Master**, and the **Commodore 64**. Each has an in-browser CPU emulator,
+per-dialect hardware export (cassette audio plus a native binary such as `.P`,
+`.O`, `.TAP`, `.BBC`, or `.prg`, and — for the Sinclair machines — WebSerial),
+and an optional Claude-powered code assistant.
 
 **Stack:** TypeScript (strict), React 18, Vite 6, Vitest 3, CodeMirror 6,
 Zustand 5, and the Anthropic SDK.
 
 **Key mental model:** the app talks only to the `Dialect` interface
-(`src/dialects/types.ts`) and the `MachineEmulator` it returns — never to ZX81
-specifics directly. All machine-specific code lives under one folder
-(`src/dialects/zx81/`). This is the seam that makes new dialects pluggable.
+(`src/dialects/types.ts`) and the `MachineEmulator` it returns — never to a
+machine's specifics directly. Each dialect lives in `src/dialects/<name>/`. The
+Z80 machines (ZX81/ZX80/Spectrum) keep their emulator under that folder, while
+the BBC and C64 wrap larger vendored/third-party cores under `src/emulator/bbc/`
+and `src/emulator/c64/`. The `Dialect` seam is what stays uniform and makes new
+dialects pluggable.
 
 ## Commands
 
@@ -48,29 +53,33 @@ For tokenizer / emulator / charset changes, add or update the colocated
 
 ## Architecture
 
-| Path                           | Role                                                                                                        |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `src/dialects/types.ts`        | The `Dialect` / `MachineEmulator` contracts — the app's only seam                                           |
-| `src/dialects/registry.ts`     | Registers available dialects (`getDialect(id)`)                                                             |
-| `src/dialects/zx81/`           | Entire ZX81 implementation (tokenizer, charset, keywords, `pfile`, emulator, audio, `aiProfile`, `targets`) |
-| `src/dialects/zx81/emulator/`  | ZX81 hardware: memory map, display, keyboard, wiring the Z80 core                                           |
-| `src/emulator/z80/`            | Vendored Z80 CPU core (machine-independent)                                                                 |
-| `src/editor/`                  | Generic CodeMirror builders: BASIC language, completions, lint, line numbering                              |
-| `src/app/`                     | Zustand store (`store.ts`) and app-level hooks/utilities                                                    |
-| `src/components/`              | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`, status bar                                     |
-| `src/ai/`                      | Anthropic SDK client, prompt builder, AI code extractor/merge                                               |
-| `src/transfer/`                | Hardware export: WAV cassette, `.P`, WebSerial protocol                                                     |
-| `src/storage/`                 | localStorage settings + autosave                                                                            |
-| `src/dialects/<name>/samples/` | Bundled sample `.bas` programs for that dialect (registered in its `samples.ts`)                            |
+| Path                           | Role                                                                                                                                      |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/dialects/types.ts`        | The `Dialect` / `MachineEmulator` contracts — the app's only seam                                                                         |
+| `src/dialects/registry.ts`     | Registers available dialects (`getDialect(id)`)                                                                                           |
+| `src/dialects/<name>/`         | One folder per dialect (tokenizer, charset, keywords, samples, `aiProfile`, `targets`); the Z80 dialects also hold their `emulator/` here |
+| `src/emulator/z80/`            | Vendored Z80 CPU core; used by the Sinclair machines (ZX81/ZX80/Spectrum)                                                                 |
+| `src/emulator/bbc/`            | BBC Micro/Master machine (`bbcMachine.ts`), an adapter around the jsbeeb core                                                             |
+| `src/emulator/c64/`            | Commodore 64 machine (`c64Machine.ts`) around the vendored viciious core                                                                  |
+| `src/emulator/6502/`           | Vendored 6502 CPU core (present; not yet wired to a dialect)                                                                              |
+| `src/editor/`                  | Generic CodeMirror builders: BASIC language, completions, lint, line numbering                                                            |
+| `src/app/`                     | Zustand store (`store.ts`) and app-level hooks/utilities                                                                                  |
+| `src/components/`              | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`, status bar                                                                   |
+| `src/ai/`                      | Anthropic SDK client, prompt builder, AI code extractor/merge                                                                             |
+| `src/transfer/`                | Hardware export: WAV cassette, `.P`, WebSerial protocol                                                                                   |
+| `src/storage/`                 | localStorage settings + autosave                                                                                                          |
+| `src/dialects/<name>/samples/` | Bundled sample `.bas` programs for that dialect (registered in its `samples.ts`)                                                          |
 
-**Run-a-program data flow:**
+**Run-a-program data flow** (ZX81 shown; the build step is dialect-specific —
+`buildPFile`/`.P`, `.O`, `.TAP`, raw BBC bytes, `.prg` — but the shape is the
+same for every dialect):
 
 ```
 editor (CodeMirror)
   → store.setSource()
   → dialect.tokenize(source)          # text → program bytes (+ TokenizeError[])
-  → buildPFile(...)                   # bytes → full memory image
-  → zx81Machine.loadProgram(image)
+  → buildPFile(...)                   # bytes → full memory image (dialect-specific)
+  → machine.loadProgram(image)        # the dialect's MachineEmulator
   → runFrame() + renderTo(canvas)     # per 50Hz frame
 ```
 
@@ -79,11 +88,14 @@ The AI path is parallel: prompt + lint errors → `streamChat()` →
 
 ## Adding a dialect
 
-Implement the `Dialect` interface in a new `src/dialects/<name>/` folder
-(mirroring `zx81/`) and register it in `src/dialects/registry.ts`. Nothing
-outside the dialect folder should need to change. Full step-by-step guide:
-**`docs/adding-a-dialect.md`**. See also `docs/file-formats.md` (`.bas` / `.P` /
-cassette audio) and `docs/serial-protocol.md` (the WebSerial bridge).
+Implement the `Dialect` interface in a new `src/dialects/<name>/` folder and
+register it in `src/dialects/registry.ts`. A small self-contained machine can
+live in that folder (mirror `zx81/`); when you wrap a large external core, put
+the machine under `src/emulator/` instead (see `bbc/` and `c64/`). Either way the
+app only ever talks to the `Dialect` seam. Full step-by-step guide:
+**`docs/adding-a-dialect.md`**; see also `docs/dialect-roadmap.md`,
+`docs/file-formats.md` (`.bas` / `.P` / `.O` / `.TAP` / `.BBC` / `.prg` /
+cassette audio), and `docs/serial-protocol.md` (the WebSerial bridge).
 
 ## Conventions
 
@@ -97,11 +109,14 @@ cassette audio) and `docs/serial-protocol.md` (the WebSerial bridge).
   (`useIdeStore((s) => s.source)`). Async work is requested by bumping a counter
   (e.g. `runRequest`) that a `useEffect` watches, not by calling across modules.
 - **Tests** — `*.test.ts` colocated with source; emulator tests may read the
-  real ROM from `public/roms/zx81.rom`.
+  real ROM(s) under `public/roms/` (e.g. `zx81.rom`, `zxspectrum.rom`, `c64/…`).
 - **Formatting** — Prettier (single quotes, semicolons, 2-space, trailing
   commas). Run `npm run format` before committing.
 
 ## ZX81 BASIC gotchas
+
+These rules are ZX81-specific (shown as a worked example); the other dialects —
+Spectrum, BBC, C64 — have their own syntax rules in their dialect folders.
 
 - One numbered statement per line; line numbers are 1–9999 and must be strictly
   ascending. No multi-statement lines, no `ELSE`.
@@ -114,6 +129,9 @@ cassette audio) and `docs/serial-protocol.md` (the WebSerial bridge).
 ## Don't touch
 
 - `src/emulator/z80/` — vendored Z80 core (MIT, Molly Howell). Don't rewrite it;
-  fix bugs upstream-style or in the ZX81 bus instead.
-- `public/roms/zx81.rom` — third-party ROM (© Amstrad, emulator-use permission).
-  Don't modify or relicense.
+  fix bugs upstream-style or in the relevant machine adapter/bus instead.
+- `src/emulator/6502/cpu6502.js` — vendored build output; don't hand-edit.
+- `src/emulator/c64/viciious/` — vendored viciious C64 core (public domain).
+- The **jsbeeb** npm package — wrap it in `src/emulator/bbc/`, don't fork it.
+- `public/roms/**` — third-party ROMs (see `public/roms/ATTRIBUTION.md` for
+  origins and licensing). Don't modify or relicense.

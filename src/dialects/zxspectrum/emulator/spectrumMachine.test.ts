@@ -93,6 +93,26 @@ describe('SpectrumMachine', () => {
     expect(byName['I']).toMatchObject({ kind: 'number' });
   });
 
+  it('reports a runtime error after a buggy program', () => {
+    const machine = new SpectrumMachine({ rom });
+    // Reading an undefined variable is report 2 ("Variable not found").
+    const { bytes, errors } = tokenizeProgram('10 PRINT a\n');
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildTap(bytes));
+    for (let i = 0; i < 60; i++) machine.runFrame();
+    const report = machine.readReport();
+    expect(report.isError).toBe(true);
+    expect(report.code).toBe('2');
+  });
+
+  it('reports no error after a clean program', () => {
+    const machine = new SpectrumMachine({ rom });
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n');
+    machine.loadProgram(buildTap(bytes));
+    for (let i = 0; i < 60; i++) machine.runFrame();
+    expect(machine.readReport().isError).toBe(false);
+  });
+
   it('responds to emulated keypresses via INKEY$', () => {
     const machine = new SpectrumMachine({ rom });
     const src = '10 IF INKEY$="" THEN GO TO 10\n20 PRINT "KEY ";INKEY$\n';

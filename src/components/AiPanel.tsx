@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useAiStore, type DisplayMessage } from '../ai/aiStore';
-import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
+import {
+  buildSystemPrompt,
+  buildUserMessage,
+  buildEditorFix,
+} from '../ai/promptBuilder';
 import { extractCodeBlocks, mergeBasicLines } from '../ai/codeExtractor';
 import { getApiKey } from '../storage/settings';
 import styles from './AiPanel.module.css';
@@ -10,7 +14,8 @@ export function AiPanel() {
   const dialect = useIdeStore((s) => s.dialect);
   const source = useIdeStore((s) => s.source);
   const replaceDocument = useIdeStore((s) => s.replaceDocument);
-  const requestRun = useIdeStore((s) => s.requestRun);
+  const requestAiRun = useIdeStore((s) => s.requestAiRun);
+  const showAiPanel = useIdeStore((s) => s.showAiPanel);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
 
   // The conversation and the in-flight stream live in a module-level store, so
@@ -18,6 +23,7 @@ export function AiPanel() {
   const messages = useAiStore((s) => s.messages);
   const busy = useAiStore((s) => s.busy);
   const error = useAiStore((s) => s.error);
+  const pendingFix = useAiStore((s) => s.pendingFix);
 
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -49,12 +55,57 @@ export function AiPanel() {
 
   const stop = () => useAiStore.getState().stop();
 
+  // After applying AI code, immediately re-lint the new program. Any remaining
+  // tokenizer errors become a one-tap fix prompt (and surface the panel).
+  // Returns whether the new text has editor errors.
+  const checkEditorErrors = (text: string): boolean => {
+    const errors = dialect.lint(text);
+    if (errors.length > 0) {
+      useAiStore.getState().setPendingFix(buildEditorFix(text, errors));
+      showAiPanel();
+      return true;
+    }
+    useAiStore.getState().clearPendingFix();
+    return false;
+  };
+
   const applyReplace = (code: string) => {
-    replaceDocument(code.endsWith('\n') ? code : code + '\n');
+    const text = code.endsWith('\n') ? code : code + '\n';
+    replaceDocument(text);
+    checkEditorErrors(text);
   };
 
   const applyMerge = (code: string) => {
-    replaceDocument(mergeBasicLines(source, code));
+    const text = mergeBasicLines(source, code);
+    replaceDocument(text);
+    checkEditorErrors(text);
+  };
+
+  // "Replace + Run": apply, then either prompt to fix editor errors (the program
+  // can't run with them) or run with the AI runtime-error check armed.
+  const applyReplaceAndRun = (code: string) => {
+    const text = code.endsWith('\n') ? code : code + '\n';
+    replaceDocument(text);
+    if (!checkEditorErrors(text)) requestAiRun();
+  };
+
+  // Accept a one-tap fix: send it to Claude, continuing the conversation.
+  const sendFix = () => {
+    const fix = useAiStore.getState().pendingFix;
+    if (!fix || busy) return;
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      setSettingsOpen(true);
+      return;
+    }
+    useAiStore.getState().clearPendingFix();
+    void useAiStore.getState().send({
+      apiKey,
+      profile: dialect.aiProfile,
+      system: buildSystemPrompt(dialect),
+      userContent: fix.userContent,
+      displayRequest: fix.displayRequest,
+    });
   };
 
   const renderMessage = (msg: DisplayMessage, idx: number) => {
@@ -93,12 +144,7 @@ export function AiPanel() {
             >
               Merge lines
             </button>
-            <button
-              onClick={() => {
-                applyReplace(block.code);
-                requestRun();
-              }}
-            >
+            <button onClick={() => applyReplaceAndRun(block.code)}>
               Replace + Run ▶
             </button>
           </div>
@@ -135,6 +181,22 @@ export function AiPanel() {
         {messages.map(renderMessage)}
         {error && <div className={styles.aiError}>{error}</div>}
       </div>
+      {pendingFix && (
+        <div className={styles.aiFixNotice}>
+          <span className={styles.aiFixSummary}>{pendingFix.summary}</span>
+          <div className={styles.aiFixActions}>
+            <button onClick={sendFix} disabled={busy}>
+              Fix these errors
+            </button>
+            <button
+              className="linklike"
+              onClick={() => useAiStore.getState().clearPendingFix()}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       <div className={styles.aiInput}>
         <textarea
           value={input}
