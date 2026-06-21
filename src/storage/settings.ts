@@ -19,7 +19,7 @@ const KEYS = {
   crtEffect: 'mbide.crtEffect',
   splitRatio: 'mbide.splitRatio',
   emulatorSpeed: 'mbide.emulatorSpeed',
-  virtualKeyboard: 'mbide.virtualKeyboard',
+  keyboardAutoShow: 'mbide.keyboardAutoShow',
   keyboardSound: 'mbide.keyboardSound',
   keyboardHaptics: 'mbide.keyboardHaptics',
   keyboardKeyDisplay: 'mbide.keyboardKeyDisplay',
@@ -84,14 +84,18 @@ export function setCrtEffect(on: boolean): void {
   localStorage.setItem(KEYS.crtEffect, on ? 'true' : 'false');
 }
 
-/** null = never set; the store falls back to a touch-device default. */
-export function getVirtualKeyboard(): boolean | null {
-  const raw = localStorage.getItem(KEYS.virtualKeyboard);
+/**
+ * Whether the on-screen keyboard pops up automatically when the editor or
+ * preview gains focus. null = never set; the store falls back to a touch-device
+ * default.
+ */
+export function getKeyboardAutoShow(): boolean | null {
+  const raw = localStorage.getItem(KEYS.keyboardAutoShow);
   return raw === null ? null : raw === 'true';
 }
 
-export function setVirtualKeyboard(on: boolean): void {
-  localStorage.setItem(KEYS.virtualKeyboard, on ? 'true' : 'false');
+export function setKeyboardAutoShow(on: boolean): void {
+  localStorage.setItem(KEYS.keyboardAutoShow, on ? 'true' : 'false');
 }
 
 export function getKeyboardSound(): boolean {

@@ -11,7 +11,7 @@ import {
   getCrtEffect,
   getSplitRatio,
   getEmulatorSpeed,
-  getVirtualKeyboard,
+  getKeyboardAutoShow,
   getKeyboardSound,
   getKeyboardHaptics,
   getKeyboardKeyDisplay,
@@ -20,12 +20,12 @@ import {
   setShowLineNumberGutter as persistShowLineNumberGutter,
   setCrtEffect as persistCrtEffect,
   setEmulatorSpeed as persistEmulatorSpeed,
-  setVirtualKeyboard as persistVirtualKeyboard,
+  setKeyboardAutoShow as persistKeyboardAutoShow,
   setKeyboardSound as persistKeyboardSound,
   setKeyboardHaptics as persistKeyboardHaptics,
   setKeyboardKeyDisplay as persistKeyboardKeyDisplay,
 } from '../storage/settings';
-import { MOBILE_QUERY, isMobileViewport } from './useMediaQuery';
+import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 
 export type EmulatorStatus = 'stopped' | 'running';
 export type MobileTab = 'editor' | 'preview' | 'settings' | 'ai';
@@ -73,8 +73,11 @@ interface IdeState {
   emulatorSpeed: number;
   /** CRT scanline overlay on the monitor. */
   crtEffect: boolean;
-  /** On-screen virtual keyboard under the monitor. */
+  /** On-screen virtual keyboard under the monitor. Transient: not persisted. */
   virtualKeyboard: boolean;
+  /** Pop the on-screen keyboard up automatically when the editor/preview gains
+   *  focus. Persisted; defaults on for touch devices. */
+  keyboardAutoShow: boolean;
   /** Variable watcher panel under the monitor. Transient: not persisted. */
   variableWatcher: boolean;
   /** Audible click on virtual key presses. */
@@ -133,6 +136,7 @@ interface IdeState {
   setEmulatorSpeed(n: number): void;
   setCrtEffect(on: boolean): void;
   setVirtualKeyboard(on: boolean): void;
+  setKeyboardAutoShow(on: boolean): void;
   setVariableWatcher(on: boolean): void;
   setKeyboardSound(on: boolean): void;
   setKeyboardHaptics(on: boolean): void;
@@ -165,12 +169,12 @@ function initialDialect(): Dialect {
   return dialects[0]!;
 }
 
-/** Default the virtual keyboard to shown on touch/small-screen devices. */
-function defaultVirtualKeyboard(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia?.(MOBILE_QUERY).matches || navigator.maxTouchPoints > 0
-  );
+/**
+ * Default auto-show on for touch-capable devices and off otherwise, so devices
+ * with a physical keyboard prefer it for input.
+ */
+function defaultKeyboardAutoShow(): boolean {
+  return HAS_TOUCH;
 }
 
 /**
@@ -228,9 +232,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   resetRequest: 0,
   emulatorSpeed: typeof localStorage !== 'undefined' ? getEmulatorSpeed() : 1,
   crtEffect: typeof localStorage !== 'undefined' ? getCrtEffect() : true,
-  virtualKeyboard:
+  virtualKeyboard: false,
+  keyboardAutoShow:
     typeof localStorage !== 'undefined'
-      ? (getVirtualKeyboard() ?? defaultVirtualKeyboard())
+      ? (getKeyboardAutoShow() ?? defaultKeyboardAutoShow())
       : false,
   variableWatcher: true,
   keyboardSound:
@@ -332,9 +337,10 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistCrtEffect(on);
     set({ crtEffect: on });
   },
-  setVirtualKeyboard: (on) => {
-    persistVirtualKeyboard(on);
-    set({ virtualKeyboard: on });
+  setVirtualKeyboard: (on) => set({ virtualKeyboard: on }),
+  setKeyboardAutoShow: (on) => {
+    persistKeyboardAutoShow(on);
+    set({ keyboardAutoShow: on });
   },
   setVariableWatcher: (on) => set({ variableWatcher: on }),
   setKeyboardSound: (on) => {

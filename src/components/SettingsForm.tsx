@@ -13,8 +13,8 @@ export function SettingsForm() {
   const setShowLineNumberGutter = useIdeStore((s) => s.setShowLineNumberGutter);
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const setCrtEffect = useIdeStore((s) => s.setCrtEffect);
-  const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
-  const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
+  const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
+  const setKeyboardAutoShow = useIdeStore((s) => s.setKeyboardAutoShow);
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
   const setKeyboardSound = useIdeStore((s) => s.setKeyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
@@ -89,10 +89,10 @@ export function SettingsForm() {
       <label className={styles.inline}>
         <input
           type="checkbox"
-          checked={virtualKeyboard}
-          onChange={(e) => setVirtualKeyboard(e.target.checked)}
+          checked={keyboardAutoShow}
+          onChange={(e) => setKeyboardAutoShow(e.target.checked)}
         />
-        Show virtual keyboard
+        Show automatically on focus
       </label>
       <label className={styles.inline}>
         Key layout
