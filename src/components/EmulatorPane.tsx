@@ -534,6 +534,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           <VariableWatcher
             getMachine={getMachine}
             running={emulatorStatus === 'running'}
+            paused={emulatorStatus === 'paused'}
           />
         </div>
       )}
