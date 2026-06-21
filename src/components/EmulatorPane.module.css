@@ -72,6 +72,32 @@
   background: rgb(0 0 0 / 35%);
 }
 
+.debugBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 600px;
+  flex-wrap: wrap;
+}
+
+.debugBar button {
+  font-size: 13px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.debugBar button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.debugStatus {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
 .emulatorState {
   font-size: 12px;
   color: var(--text-dim);

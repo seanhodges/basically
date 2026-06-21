@@ -64,6 +64,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const runRequest = useIdeStore((s) => s.runRequest);
   const stopRequest = useIdeStore((s) => s.stopRequest);
   const resetRequest = useIdeStore((s) => s.resetRequest);
+  const stepRequest = useIdeStore((s) => s.stepRequest);
+  const continueRequest = useIdeStore((s) => s.continueRequest);
+  const debugMode = useIdeStore((s) => s.debugMode);
+  const debugLine = useIdeStore((s) => s.debugLine);
+  const requestStep = useIdeStore((s) => s.requestStep);
+  const requestContinue = useIdeStore((s) => s.requestContinue);
+  const requestStop = useIdeStore((s) => s.requestStop);
   const speed = useIdeStore((s) => s.emulatorSpeed);
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
@@ -96,6 +103,15 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const aiCheckActiveRef = useRef(false);
   const aiCheckReadyFramesRef = useRef(0); // frames the machine was up, no error
   const aiCheckTotalFramesRef = useRef(0); // all frames since the check armed
+  // A step-through debug session is live (run started in debug mode).
+  const debugActiveRef = useRef(false);
+  // What the current run of slices is doing: 'run' (to next breakpoint) or
+  // 'step' (to the next BASIC line).
+  const debugModeRef = useRef<'run' | 'step'>('run');
+  // The line the debugger last paused on, threaded into every slice so Continue
+  // off a breakpointed line doesn't immediately re-trigger. Null before the
+  // first pause.
+  const debugFromLineRef = useRef<number | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -129,38 +145,67 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     const tick = () => {
       const machine = machineRef.current;
       const canvas = canvasRef.current;
-      if (machine && canvas) {
-        machine.runFrame();
-        frameHookRef.current?.(); // virtual-keyboard frame-counted releases
-        // AI "Replace + Run": watch the freshly-started program for a runtime
-        // error and hand the first one to the assistant, then stop watching.
-        if (aiCheckActiveRef.current && machine.readReport) {
-          const report = machine.readReport();
-          if (report?.isError) {
-            aiCheckActiveRef.current = false;
-            useIdeStore.getState().reportRun(report);
-          } else {
-            // Count toward the window only once the machine is actually up
-            // (report != null); cap total frames so a stuck boot can't hang on.
-            if (report !== null) aiCheckReadyFramesRef.current++;
-            if (
-              aiCheckReadyFramesRef.current >= AI_CHECK_MAX_FRAMES ||
-              ++aiCheckTotalFramesRef.current >= AI_CHECK_ABS_MAX_FRAMES
-            ) {
-              aiCheckActiveRef.current = false;
-            }
-          }
+      if (!machine || !canvas) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      const ctx = canvas.getContext('2d');
+      const render = () => {
+        if (!ctx) return;
+        machine.renderTo(ctx);
+        // The emulator has started rendering: drop the loading overlay.
+        if (firstFrameRef.current) {
+          firstFrameRef.current = false;
+          setLoading(false);
         }
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          machine.renderTo(ctx);
-          // The emulator has started rendering: drop the loading overlay.
-          if (firstFrameRef.current) {
-            firstFrameRef.current = false;
-            setLoading(false);
+      };
+
+      // Debug session: advance by one slice, pausing on a breakpoint ('run') or
+      // at the next BASIC line ('step'). The machine renders progress between
+      // slices so the screen stays live across long-running lines.
+      if (debugActiveRef.current && machine.debugStep) {
+        const res = machine.debugStep({
+          breakpoints: useIdeStore.getState().breakpoints,
+          mode: debugModeRef.current,
+          fromLine: debugFromLineRef.current,
+        });
+        frameHookRef.current?.();
+        render();
+        if (res.paused) {
+          stopLoop();
+          machine.releaseAllKeys(); // nothing stays held while paused
+          debugFromLineRef.current = res.line;
+          const store = useIdeStore.getState();
+          store.setDebugLine(res.line);
+          store.setEmulatorStatus('paused');
+          return; // do not schedule another frame until step/continue
+        }
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      machine.runFrame();
+      frameHookRef.current?.(); // virtual-keyboard frame-counted releases
+      // AI "Replace + Run": watch the freshly-started program for a runtime
+      // error and hand the first one to the assistant, then stop watching.
+      if (aiCheckActiveRef.current && machine.readReport) {
+        const report = machine.readReport();
+        if (report?.isError) {
+          aiCheckActiveRef.current = false;
+          useIdeStore.getState().reportRun(report);
+        } else {
+          // Count toward the window only once the machine is actually up
+          // (report != null); cap total frames so a stuck boot can't hang on.
+          if (report !== null) aiCheckReadyFramesRef.current++;
+          if (
+            aiCheckReadyFramesRef.current >= AI_CHECK_MAX_FRAMES ||
+            ++aiCheckTotalFramesRef.current >= AI_CHECK_ABS_MAX_FRAMES
+          ) {
+            aiCheckActiveRef.current = false;
           }
         }
       }
+      render();
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -208,6 +253,15 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           typeof machine.readReport === 'function';
         aiCheckReadyFramesRef.current = 0;
         aiCheckTotalFramesRef.current = 0;
+        // Start a step-through session when debug mode is armed and the machine
+        // supports it; the loop then advances by debug slices instead of frames.
+        // A session with no breakpoints simply never pauses and runs normally.
+        debugActiveRef.current =
+          useIdeStore.getState().debugMode &&
+          typeof machine.debugStep === 'function';
+        debugModeRef.current = 'run';
+        debugFromLineRef.current = null;
+        useIdeStore.getState().setDebugLine(null);
         setEmulatorStatus('running');
         startLoop();
         canvasRef.current?.focus();
@@ -228,10 +282,35 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     stopLoop();
     machineRef.current?.releaseAllKeys(); // nothing stays held while paused
     aiCheckActiveRef.current = false;
+    debugActiveRef.current = false;
+    debugFromLineRef.current = null;
+    useIdeStore.getState().setDebugLine(null);
     firstFrameRef.current = false;
     setLoading(false);
     setEmulatorStatus('stopped');
   }, [stopRequest, stopLoop, setEmulatorStatus]);
+
+  // Step request: run the paused debugger to the next BASIC line.
+  useEffect(() => {
+    if (stepRequest === 0 || !debugActiveRef.current) return;
+    debugModeRef.current = 'step';
+    useIdeStore.getState().setDebugLine(null);
+    setEmulatorStatus('running');
+    startLoop();
+    canvasRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepRequest]);
+
+  // Continue request: run the paused debugger to the next breakpoint.
+  useEffect(() => {
+    if (continueRequest === 0 || !debugActiveRef.current) return;
+    debugModeRef.current = 'run';
+    useIdeStore.getState().setDebugLine(null);
+    setEmulatorStatus('running');
+    startLoop();
+    canvasRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [continueRequest]);
 
   // Reset requests from the toolbar
   useEffect(() => {
@@ -280,6 +359,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current = null;
     clearCanvas(); // drop the old machine's last frame; next run starts fresh
     aiCheckActiveRef.current = false;
+    debugActiveRef.current = false;
+    debugFromLineRef.current = null;
     firstFrameRef.current = false;
     setLoading(false);
     setError('');
@@ -398,6 +479,35 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           <div className={styles.loadingOverlay}>Emulator loading…</div>
         )}
       </div>
+      {(emulatorStatus === 'paused' ||
+        (debugMode && emulatorStatus === 'running')) && (
+        <div className={styles.debugBar}>
+          <button
+            type="button"
+            onClick={requestStep}
+            disabled={emulatorStatus !== 'paused'}
+            title="Run to the next BASIC line"
+          >
+            ⤵ Step
+          </button>
+          <button
+            type="button"
+            onClick={requestContinue}
+            disabled={emulatorStatus !== 'paused'}
+            title="Continue to the next breakpoint"
+          >
+            ▶ Continue
+          </button>
+          <button type="button" onClick={requestStop} title="Stop debugging">
+            ■ Stop
+          </button>
+          <span className={styles.debugStatus}>
+            {emulatorStatus === 'paused' && debugLine !== null
+              ? `paused at line ${debugLine}`
+              : 'running…'}
+          </span>
+        </div>
+      )}
       {/* The status notice only matters when grabbing input from a physical
           keyboard (Esc-to-release / click-to-type). On touch it just wastes a
           row of vertical height, so hide it there. */}

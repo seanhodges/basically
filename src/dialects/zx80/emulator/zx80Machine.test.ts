@@ -162,6 +162,41 @@ describe('Zx80Machine', () => {
     expect(rowHasInk(pixels, 2)).toBe(false); // garbage past DF_END: blank
   });
 
+  describe('step-through debugging', () => {
+    const LOOP_SRC = '10 FOR I=1 TO 1000\n20 LET A=I\n30 NEXT I\n';
+
+    function load(): Zx80Machine {
+      const { bytes, errors } = tokenizeProgram(LOOP_SRC);
+      expect(errors).toEqual([]);
+      const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+      machine.loadProgram(buildOFile(bytes));
+      return machine;
+    }
+
+    function runToPause(
+      machine: Zx80Machine,
+      mode: 'run' | 'step',
+      breakpoints: Set<number>,
+      fromLine: number | null,
+    ) {
+      for (let i = 0; i < 5000; i++) {
+        const res = machine.debugStep({ breakpoints, mode, fromLine });
+        if (res.paused) return res;
+      }
+      throw new Error('debugStep never paused');
+    }
+
+    it('pauses at a breakpointed line, then steps to the next', () => {
+      const machine = load();
+      const hit = runToPause(machine, 'run', new Set([20]), null);
+      expect(hit).toEqual({ paused: true, line: 20 });
+      const stepped = runToPause(machine, 'step', new Set(), 20);
+      expect(stepped.paused).toBe(true);
+      expect(stepped.line).toBe(30);
+      machine.dispose();
+    });
+  });
+
   it('renders a looping PRINT program without garbage below its output', () => {
     // Full path: the hello sample prints 5 lines + a banner, then idles in a
     // delay loop (FOR J...NEXT J). During that idle the only on-screen content

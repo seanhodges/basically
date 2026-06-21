@@ -1,6 +1,8 @@
 import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core } from '../../../emulator/z80/z80core.js';
 import type {
+  DebugStepOptions,
+  DebugStepResult,
   MachineEmulator,
   MachineReport,
   MachineVariable,
@@ -11,6 +13,7 @@ import { readSpectrumReport } from '../reports';
 import { SpectrumKeyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, parseTap } from '../tapfile';
+import { PPC } from '../sysvars';
 
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
@@ -75,6 +78,21 @@ export class SpectrumMachine implements MachineEmulator {
     this.cpu.reset();
   }
 
+  /**
+   * One CPU step plus the flash-load trap, returning the T-states consumed (0
+   * when the trap was serviced or the CPU is halted). `halted` is set when the
+   * Z80 is in HALT — the frame loop idles until the next interrupt. Shared by
+   * runFrame and debugStep so they never diverge.
+   */
+  private stepInstruction(): { t: number; halted: boolean } {
+    if (this.pending && this.cpu.getPC() === LD_BYTES) {
+      this.serviceLoadTrap();
+      return { t: 0, halted: false };
+    }
+    if (this.cpu.isHalted()) return { t: 0, halted: true };
+    return { t: this.cpu.run_instruction(), halted: false };
+  }
+
   runFrame(): void {
     const budget = TSTATES_PER_FRAME * this.speed;
     let cycles = 0;
@@ -82,14 +100,53 @@ export class SpectrumMachine implements MachineEmulator {
     if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
 
     while (cycles < budget) {
-      if (this.pending && this.cpu.getPC() === LD_BYTES) {
-        this.serviceLoadTrap();
-        continue;
-      }
-      if (this.cpu.isHalted()) break; // idle until the next frame's interrupt
-      cycles += this.cpu.run_instruction();
+      const { t, halted } = this.stepInstruction();
+      if (halted) break; // idle until the next frame's interrupt
+      cycles += t;
     }
     this.frameCount++;
+  }
+
+  /**
+   * The BASIC line currently being executed, read from PPC. Returns null when
+   * it isn't a valid program line (e.g. before a program has run).
+   */
+  currentLine(): number | null {
+    const lineNo = this.memory.readWord(PPC);
+    return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
+  }
+
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    const budget = TSTATES_PER_FRAME * this.speed;
+    let cycles = 0;
+    // Match runFrame's once-per-frame interrupt so timing/keyboard scan hold.
+    if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
+
+    // In run mode, ignore breakpoints until execution has left the line we
+    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
+    // the spot but still re-pauses when the loop comes back around.
+    let armed = opts.fromLine === null;
+    while (cycles < budget) {
+      const { t, halted } = this.stepInstruction();
+      if (halted) break; // idle until the next frame's interrupt
+      cycles += t;
+      const line = this.currentLine();
+      if (line === null) continue;
+      if (opts.mode === 'step') {
+        if (opts.fromLine === null || line !== opts.fromLine) {
+          this.frameCount++;
+          return { paused: true, line };
+        }
+      } else {
+        if (!armed && line !== opts.fromLine) armed = true;
+        if (armed && opts.breakpoints.has(line)) {
+          this.frameCount++;
+          return { paused: true, line };
+        }
+      }
+    }
+    this.frameCount++;
+    return { paused: false, line: this.currentLine() };
   }
 
   /**

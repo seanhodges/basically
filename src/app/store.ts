@@ -27,7 +27,7 @@ import {
 } from '../storage/settings';
 import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 
-export type EmulatorStatus = 'stopped' | 'running';
+export type EmulatorStatus = 'stopped' | 'running' | 'paused';
 export type MobileTab = 'editor' | 'preview' | 'settings' | 'ai';
 /** Editor operations the toolbar's Edit menu asks CodeMirrorHost to run. */
 export type EditorCommandName =
@@ -81,6 +81,26 @@ interface IdeState {
   stopRequest: number;
   /** Bumped to ask the emulator pane to reset the machine. */
   resetRequest: number;
+  /**
+   * Debug mode armed: the next Run starts a step-through session that pauses on
+   * breakpoints. Transient (not persisted); only offered for debuggable dialects.
+   */
+  debugMode: boolean;
+  /**
+   * Breakpointed BASIC line numbers. Keyed by line number (not editor row) so
+   * they survive edits and renumbering. Cleared when a different program loads.
+   */
+  breakpoints: ReadonlySet<number>;
+  /**
+   * When `emulatorStatus === 'paused'`, the BASIC line execution is halted
+   * before; null otherwise. Drives the editor's current-line highlight. Set by
+   * the emulator pane on pause/resume.
+   */
+  debugLine: number | null;
+  /** Bumped to ask the emulator pane to run to the next BASIC line. */
+  stepRequest: number;
+  /** Bumped to ask the emulator pane to continue to the next breakpoint. */
+  continueRequest: number;
   /** Emulation speed multiplier (1, 2 or 8). */
   emulatorSpeed: number;
   /** CRT scanline overlay on the monitor. */
@@ -151,6 +171,18 @@ interface IdeState {
   showAiPanel(): void;
   requestStop(): void;
   requestReset(): void;
+  /** Arm/disarm debug mode (the next Run starts a step-through session). */
+  setDebugMode(on: boolean): void;
+  /** Toggle a breakpoint on a BASIC line number. */
+  toggleBreakpoint(lineNo: number): void;
+  /** Remove every breakpoint. */
+  clearBreakpoints(): void;
+  /** Record the BASIC line the debugger is paused on (pane → store). */
+  setDebugLine(line: number | null): void;
+  /** Ask the debugger to run to the next BASIC line. */
+  requestStep(): void;
+  /** Ask the debugger to continue to the next breakpoint. */
+  requestContinue(): void;
   setEmulatorSpeed(n: number): void;
   setCrtEffect(on: boolean): void;
   setVirtualKeyboard(on: boolean): void;
@@ -228,6 +260,10 @@ function applyDialectSwitch(
     // stopRequest so any in-flight run loop is explicitly halted.
     emulatorStatus: 'stopped',
     stopRequest: s.stopRequest + 1,
+    // Breakpoints are keyed by line number, which belongs to the old program;
+    // start the new target with a clean slate and no paused line.
+    breakpoints: new Set<number>(),
+    debugLine: null,
     // On mobile, surface the change in the editor the user is now editing.
     ...(isMobileViewport() ? { mobileTab: 'editor' as MobileTab } : {}),
   };
@@ -250,6 +286,11 @@ export const useIdeStore = create<IdeState>((set) => ({
   runReport: null,
   stopRequest: 0,
   resetRequest: 0,
+  debugMode: false,
+  breakpoints: new Set<number>(),
+  debugLine: null,
+  stepRequest: 0,
+  continueRequest: 0,
   emulatorSpeed: typeof localStorage !== 'undefined' ? getEmulatorSpeed() : 1,
   crtEffect: typeof localStorage !== 'undefined' ? getCrtEffect() : true,
   virtualKeyboard: false,
@@ -336,8 +377,11 @@ export const useIdeStore = create<IdeState>((set) => ({
       docOverride: { text, seq: s.docOverride.seq + 1 },
       ...(fileName !== undefined ? { fileName } : {}),
       // A named load (New/Open/Sample/Import) is a different program — clear the
-      // AI thread. An in-place apply (AI Replace/Merge) passes no name and keeps it.
-      ...(fileName !== undefined ? { aiResetSeq: s.aiResetSeq + 1 } : {}),
+      // AI thread and any breakpoints (their line numbers belong to the old
+      // program). An in-place apply (AI Replace/Merge) passes no name and keeps both.
+      ...(fileName !== undefined
+        ? { aiResetSeq: s.aiResetSeq + 1, breakpoints: new Set<number>() }
+        : {}),
       dirty: fileName === undefined,
       // On mobile, loading new content stops any running program and brings the
       // user back to the editor showing what was just loaded.
@@ -357,6 +401,19 @@ export const useIdeStore = create<IdeState>((set) => ({
   showAiPanel: () => set({ aiPanelOpen: true, mobileTab: 'ai' }),
   requestStop: () => set((s) => ({ stopRequest: s.stopRequest + 1 })),
   requestReset: () => set((s) => ({ resetRequest: s.resetRequest + 1 })),
+  setDebugMode: (on) => set({ debugMode: on }),
+  toggleBreakpoint: (lineNo) =>
+    set((s) => {
+      const next = new Set(s.breakpoints);
+      if (next.has(lineNo)) next.delete(lineNo);
+      else next.add(lineNo);
+      return { breakpoints: next };
+    }),
+  clearBreakpoints: () => set({ breakpoints: new Set<number>() }),
+  setDebugLine: (line) => set({ debugLine: line }),
+  requestStep: () => set((s) => ({ stepRequest: s.stepRequest + 1 })),
+  requestContinue: () =>
+    set((s) => ({ continueRequest: s.continueRequest + 1 })),
   setEmulatorSpeed: (n) => {
     persistEmulatorSpeed(n);
     set({ emulatorSpeed: n });

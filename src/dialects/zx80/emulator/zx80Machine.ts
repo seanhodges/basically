@@ -1,11 +1,16 @@
 import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core } from '../../../emulator/z80/z80core.js';
-import type { MachineEmulator } from '../../types';
+import type {
+  DebugStepOptions,
+  DebugStepResult,
+  MachineEmulator,
+} from '../../types';
 import { Zx80Memory } from './memory';
 import { Zx81Keyboard } from '../../zx81/emulator/keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import {
   SYSVARS_BASE,
+  PPC,
   E_LINE,
   D_FILE,
   DF_END,
@@ -81,40 +86,79 @@ export class Zx80Machine implements MachineEmulator {
     this.cpu.reset();
   }
 
+  /**
+   * One CPU step plus the ZX80's per-instruction housekeeping (flash-load trap,
+   * halted-refresh handling, maskable INT on R bit-6 falling edge). Returns the
+   * T-states consumed. Shared by runFrame and debugStep so they never diverge.
+   */
+  private stepInstruction(): number {
+    // Flash-load trap: when LOAD sits in its tape leader-detection loop,
+    // drop the queued .O image into RAM at 0x4000 and continue at the same
+    // place a real tape LOAD hands control back (0x0283) — which rebuilds
+    // the edit line and display file from the loaded system variables.
+    if (this.pendingImage && this.cpu.getPC() === ROM_LOAD_TRAP) {
+      const image = this.pendingImage;
+      this.pendingImage = null;
+      for (let i = 0; i < image.length; i++) {
+        this.memory.write(SYSVARS_BASE + i, image[i]!);
+      }
+      this.keyboard.releaseAll();
+      this.cpu.setPC(ROM_POST_LOAD);
+    }
+    let t: number;
+    if (this.cpu.isHalted()) {
+      const r = this.cpu.getR();
+      this.cpu.setR((r & 0x80) | ((r + 1) & 0x7f));
+      t = 4;
+    } else {
+      t = this.cpu.run_instruction();
+    }
+
+    // Maskable INT on falling edge of R bit 6 (refresh address line A6).
+    const rBit6 = (this.cpu.getR() & 0x40) !== 0;
+    if (this.prevRBit6 && !rBit6 && this.cpu.getIFF1()) {
+      this.cpu.interrupt(false, 0xff);
+    }
+    this.prevRBit6 = rBit6;
+    return t;
+  }
+
   runFrame(): void {
     const budget = TSTATES_PER_FRAME * this.speed;
     let cycles = 0;
-    while (cycles < budget) {
-      // Flash-load trap: when LOAD sits in its tape leader-detection loop,
-      // drop the queued .O image into RAM at 0x4000 and continue at the same
-      // place a real tape LOAD hands control back (0x0283) — which rebuilds
-      // the edit line and display file from the loaded system variables.
-      if (this.pendingImage && this.cpu.getPC() === ROM_LOAD_TRAP) {
-        const image = this.pendingImage;
-        this.pendingImage = null;
-        for (let i = 0; i < image.length; i++) {
-          this.memory.write(SYSVARS_BASE + i, image[i]!);
-        }
-        this.keyboard.releaseAll();
-        this.cpu.setPC(ROM_POST_LOAD);
-      }
-      let t: number;
-      if (this.cpu.isHalted()) {
-        const r = this.cpu.getR();
-        this.cpu.setR((r & 0x80) | ((r + 1) & 0x7f));
-        t = 4;
-      } else {
-        t = this.cpu.run_instruction();
-      }
-      cycles += t;
+    while (cycles < budget) cycles += this.stepInstruction();
+  }
 
-      // Maskable INT on falling edge of R bit 6 (refresh address line A6).
-      const rBit6 = (this.cpu.getR() & 0x40) !== 0;
-      if (this.prevRBit6 && !rBit6 && this.cpu.getIFF1()) {
-        this.cpu.interrupt(false, 0xff);
+  /**
+   * The BASIC line currently being executed, read from PPC (which on the ZX80
+   * holds the line number directly). Returns null when it isn't a valid program
+   * line (e.g. while editing, before a RUN, or after the program ends).
+   */
+  currentLine(): number | null {
+    const lineNo = this.memory.readWord(PPC);
+    return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
+  }
+
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    const budget = TSTATES_PER_FRAME * this.speed;
+    let cycles = 0;
+    // In run mode, ignore breakpoints until execution has left the line we
+    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
+    // the spot but still re-pauses when the loop comes back around.
+    let armed = opts.fromLine === null;
+    while (cycles < budget) {
+      cycles += this.stepInstruction();
+      const line = this.currentLine();
+      if (line === null) continue;
+      if (opts.mode === 'step') {
+        if (opts.fromLine === null || line !== opts.fromLine)
+          return { paused: true, line };
+      } else {
+        if (!armed && line !== opts.fromLine) armed = true;
+        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
       }
-      this.prevRBit6 = rBit6;
     }
+    return { paused: false, line: this.currentLine() };
   }
 
   /**

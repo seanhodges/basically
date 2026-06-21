@@ -1,6 +1,8 @@
 import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core } from '../../../emulator/z80/z80core.js';
 import type {
+  DebugStepOptions,
+  DebugStepResult,
   MachineEmulator,
   MachineReport,
   MachineVariable,
@@ -10,7 +12,13 @@ import { readZx81Variables } from '../vars';
 import { readZx81Report } from '../reports';
 import { Zx81Keyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
-import { SYSVARS_BASE, D_FILE, ROM_LOAD_TRAP, ROM_POST_LOAD } from '../sysvars';
+import {
+  SYSVARS_BASE,
+  D_FILE,
+  PPC,
+  ROM_LOAD_TRAP,
+  ROM_POST_LOAD,
+} from '../sysvars';
 import { NEWLINE } from '../charset';
 
 const TSTATES_PER_FRAME = 65000; // 3.25MHz / 50Hz
@@ -90,52 +98,93 @@ export class Zx81Machine implements MachineEmulator {
     this.cpu.reset();
   }
 
+  /**
+   * One CPU step plus the ZX81's per-instruction housekeeping (flash-load trap,
+   * halted-refresh handling, maskable INT on R bit-6 falling edge, NMI
+   * generator). Returns the T-states consumed. Shared by runFrame and debugStep
+   * so they never diverge.
+   */
+  private stepInstruction(): number {
+    // Flash-load trap: when the ROM sits in its tape-read loop (0x0347),
+    // drop the queued .P image into memory and continue at the SLOW/FAST
+    // routine — the same place a real tape LOAD hands control back to.
+    // The interpreter's return address is on the stack at this point, so
+    // it then runs the program via NXTLIN.
+    if (this.pendingImage && this.cpu.getPC() === ROM_LOAD_TRAP) {
+      const image = this.pendingImage;
+      this.pendingImage = null;
+      for (let i = 0; i < image.length; i++) {
+        this.memory.write(SYSVARS_BASE + i, image[i]!);
+      }
+      this.keyboard.releaseAll();
+      this.cpu.setPC(ROM_POST_LOAD);
+    }
+    let t: number;
+    if (this.cpu.isHalted()) {
+      // A halted Z80 still performs refresh cycles: R keeps incrementing,
+      // which is what terminates each display line's HALT via the INT.
+      const r = this.cpu.getR();
+      this.cpu.setR((r & 0x80) | ((r + 1) & 0x7f));
+      t = 4;
+    } else {
+      t = this.cpu.run_instruction();
+    }
+
+    // Maskable INT on falling edge of R bit 6 (refresh address line A6)
+    const rBit6 = (this.cpu.getR() & 0x40) !== 0;
+    if (this.prevRBit6 && !rBit6 && this.cpu.getIFF1()) {
+      this.cpu.interrupt(false, 0xff);
+    }
+    this.prevRBit6 = rBit6;
+
+    // NMI generator: one NMI per scanline while enabled
+    if (this.nmiGeneratorOn) {
+      this.nmiCounter += t;
+      while (this.nmiCounter >= TSTATES_PER_NMI) {
+        this.nmiCounter -= TSTATES_PER_NMI;
+        this.cpu.interrupt(true, 0);
+      }
+    }
+    return t;
+  }
+
   runFrame(): void {
     const budget = TSTATES_PER_FRAME * this.speed;
     let cycles = 0;
+    while (cycles < budget) cycles += this.stepInstruction();
+  }
+
+  /**
+   * The BASIC line currently being executed, read from PPC. Returns null when
+   * it isn't a valid program line (e.g. before a program has run). Note PPC
+   * holds the line being executed, not the next one — NXTLIN leads by a line
+   * during execution, so PPC is the right signal for "where are we".
+   */
+  currentLine(): number | null {
+    const lineNo = this.memory.readWord(PPC);
+    return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
+  }
+
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    const budget = TSTATES_PER_FRAME * this.speed;
+    let cycles = 0;
+    // In run mode, ignore breakpoints until execution has left the line we
+    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
+    // the spot but still re-pauses when the loop comes back around.
+    let armed = opts.fromLine === null;
     while (cycles < budget) {
-      // Flash-load trap: when the ROM sits in its tape-read loop (0x0347),
-      // drop the queued .P image into memory and continue at the SLOW/FAST
-      // routine — the same place a real tape LOAD hands control back to.
-      // The interpreter's return address is on the stack at this point, so
-      // it then runs the program via NXTLIN.
-      if (this.pendingImage && this.cpu.getPC() === ROM_LOAD_TRAP) {
-        const image = this.pendingImage;
-        this.pendingImage = null;
-        for (let i = 0; i < image.length; i++) {
-          this.memory.write(SYSVARS_BASE + i, image[i]!);
-        }
-        this.keyboard.releaseAll();
-        this.cpu.setPC(ROM_POST_LOAD);
-      }
-      let t: number;
-      if (this.cpu.isHalted()) {
-        // A halted Z80 still performs refresh cycles: R keeps incrementing,
-        // which is what terminates each display line's HALT via the INT.
-        const r = this.cpu.getR();
-        this.cpu.setR((r & 0x80) | ((r + 1) & 0x7f));
-        t = 4;
+      cycles += this.stepInstruction();
+      const line = this.currentLine();
+      if (line === null) continue;
+      if (opts.mode === 'step') {
+        if (opts.fromLine === null || line !== opts.fromLine)
+          return { paused: true, line };
       } else {
-        t = this.cpu.run_instruction();
-      }
-      cycles += t;
-
-      // Maskable INT on falling edge of R bit 6 (refresh address line A6)
-      const rBit6 = (this.cpu.getR() & 0x40) !== 0;
-      if (this.prevRBit6 && !rBit6 && this.cpu.getIFF1()) {
-        this.cpu.interrupt(false, 0xff);
-      }
-      this.prevRBit6 = rBit6;
-
-      // NMI generator: one NMI per scanline while enabled
-      if (this.nmiGeneratorOn) {
-        this.nmiCounter += t;
-        while (this.nmiCounter >= TSTATES_PER_NMI) {
-          this.nmiCounter -= TSTATES_PER_NMI;
-          this.cpu.interrupt(true, 0);
-        }
+        if (!armed && line !== opts.fromLine) armed = true;
+        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
       }
     }
+    return { paused: false, line: this.currentLine() };
   }
 
   /** True once the boot screen shows the inverse-K cursor. */

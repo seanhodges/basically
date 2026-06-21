@@ -14,6 +14,14 @@ export const SYSVARS_SAVED_LENGTH = PROGRAM_BASE - SYSVARS_BASE; // 0x74
  */
 export const ERR_NR = 0x4000;
 
+/**
+ * PPC (0x4007) holds the line number of the BASIC statement currently being
+ * executed. Like ERR_NR it sits below SYSVARS_BASE, so it isn't part of the
+ * saved .P image, but it is live in RAM while a program runs — the debugger
+ * reads it to know which line execution is on.
+ */
+export const PPC = 0x4007;
+
 export const VERSN = 0x4009;
 export const E_PPC = 0x400a;
 export const D_FILE = 0x400c;

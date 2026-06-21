@@ -112,6 +112,70 @@ describe('Zx81Machine', () => {
     }).not.toThrow();
   });
 
+  describe('step-through debugging', () => {
+    // A tight loop that revisits lines 20 and 30 every iteration, so the
+    // "about to execute" line cycles 20 → 30 → 20 predictably.
+    const LOOP_SRC = '10 FOR I=1 TO 1000\n20 LET A=I\n30 NEXT I\n';
+
+    function load(): Zx81Machine {
+      const machine = new Zx81Machine({ rom, ramKb: 16 });
+      const { bytes, errors } = tokenizeProgram(LOOP_SRC);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildPFile(bytes));
+      return machine;
+    }
+
+    /** Drive debugStep until it pauses (or give up), returning the result. */
+    function runToPause(
+      machine: Zx81Machine,
+      mode: 'run' | 'step',
+      breakpoints: Set<number>,
+      fromLine: number | null,
+    ) {
+      for (let i = 0; i < 5000; i++) {
+        const res = machine.debugStep({ breakpoints, mode, fromLine });
+        if (res.paused) return res;
+      }
+      throw new Error('debugStep never paused');
+    }
+
+    function readI(machine: Zx81Machine): number {
+      const v = machine.readVariables().find((x) => x.name === 'I');
+      return Number(v?.value);
+    }
+
+    it('reports a current line inside the running program', () => {
+      const machine = load();
+      const line = machine.currentLine();
+      expect(line === 20 || line === 30 || line === 10).toBe(true);
+    });
+
+    it('pauses at a breakpointed line in run mode', () => {
+      const machine = load();
+      const res = runToPause(machine, 'run', new Set([20]), null);
+      expect(res).toEqual({ paused: true, line: 20 });
+    });
+
+    it('steps to the next BASIC line', () => {
+      const machine = load();
+      runToPause(machine, 'run', new Set([20]), null);
+      const res = runToPause(machine, 'step', new Set(), 20);
+      expect(res.paused).toBe(true);
+      expect(res.line).toBe(30);
+    });
+
+    it('continue off a breakpointed line advances a loop iteration', () => {
+      const machine = load();
+      runToPause(machine, 'run', new Set([20]), null);
+      const before = readI(machine);
+      // Continue with line 20 still breakpointed and as the pause origin: it
+      // must leave line 20 before re-pausing there, so the loop counter moves.
+      const res = runToPause(machine, 'run', new Set([20]), 20);
+      expect(res.line).toBe(20);
+      expect(readI(machine)).toBe(before + 1);
+    });
+  });
+
   it('responds to emulated keypresses', () => {
     const machine = new Zx81Machine({ rom, ramKb: 16 });
     const src = '10 IF INKEY$="" THEN GOTO 10\n20 PRINT "KEY ";INKEY$\n';

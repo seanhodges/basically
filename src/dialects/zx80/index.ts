@@ -44,6 +44,8 @@ export const zx80: Dialect = {
 
   romUrl: `${import.meta.env.BASE_URL}roms/zx80.rom`,
 
+  debuggable: true,
+
   createEmulator(opts) {
     return new Zx80Machine(opts);
   },

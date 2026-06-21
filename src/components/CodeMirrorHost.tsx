@@ -1,12 +1,22 @@
 import { useEffect, useRef } from 'react';
-import { Compartment, EditorState, Prec } from '@codemirror/state';
 import {
+  Compartment,
+  EditorState,
+  Prec,
+  StateEffect,
+  StateField,
+} from '@codemirror/state';
+import {
+  Decoration,
   EditorView,
+  gutter,
+  GutterMarker,
   keymap,
   lineNumbers,
   highlightActiveLine,
   highlightActiveLineGutter,
   drawSelection,
+  type DecorationSet,
 } from '@codemirror/view';
 import {
   cursorCharLeft,
@@ -191,6 +201,69 @@ function gutterExt(show: boolean) {
   return show ? [lineNumbers(), highlightActiveLineGutter()] : [];
 }
 
+/** Leading line number of an editor row, or null when the row has none. */
+function rowLineNumber(text: string): number | null {
+  const m = /^\s*(\d+)/.exec(text);
+  return m ? parseInt(m[1]!, 10) : null;
+}
+
+const breakpointCompartment = new Compartment();
+
+/** A red dot rendered in the breakpoint gutter for a breakpointed line. */
+class BreakpointMarker extends GutterMarker {
+  toDOM() {
+    const span = document.createElement('span');
+    span.textContent = '●';
+    span.className = styles.breakpointDot!;
+    return span;
+  }
+}
+const bpMarker = new BreakpointMarker();
+
+/**
+ * The clickable breakpoint gutter. Reads the live breakpoint set (kept by BASIC
+ * line number, so dots track edits/renumbering) and toggles on a gutter click.
+ * Reconfigured via {@link breakpointCompartment} when the set changes.
+ */
+function breakpointGutterExt(breakpoints: ReadonlySet<number>) {
+  return gutter({
+    class: 'cm-breakpoint-gutter',
+    lineMarker(view, line) {
+      const lineNo = rowLineNumber(view.state.doc.lineAt(line.from).text);
+      return lineNo !== null && breakpoints.has(lineNo) ? bpMarker : null;
+    },
+    initialSpacer: () => bpMarker,
+    domEventHandlers: {
+      mousedown(view, line) {
+        const lineNo = rowLineNumber(view.state.doc.lineAt(line.from).text);
+        if (lineNo === null) return false;
+        useIdeStore.getState().toggleBreakpoint(lineNo);
+        return true;
+      },
+    },
+  });
+}
+
+/** Effect carrying the 1-based editor row to highlight as paused (null clears). */
+const setDebugRowEffect = StateEffect.define<number | null>();
+const debugLineMark = Decoration.line({ class: styles.debugCurrentLine! });
+
+/** Highlights the BASIC line the debugger is currently paused on. */
+const debugLineField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setDebugRowEffect)) {
+        if (e.value === null) return Decoration.none;
+        const line = tr.state.doc.line(e.value);
+        return Decoration.set([debugLineMark.range(line.from)]);
+      }
+    }
+    return deco.map(tr.changes);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
 /** Suppresses the native on-screen keyboard while the virtual keyboard is on
     (the editor stays focusable and physical keyboards are unaffected). */
 const inputModeCompartment = new Compartment();
@@ -275,6 +348,10 @@ export function CodeMirrorHost({
         gutterCompartment.of(
           gutterExt(useIdeStore.getState().showLineNumberGutter),
         ),
+        breakpointCompartment.of(
+          breakpointGutterExt(useIdeStore.getState().breakpoints),
+        ),
+        debugLineField,
         highlightActiveLine(),
         drawSelection(),
         history(),
@@ -359,6 +436,38 @@ export function CodeMirrorHost({
       effects: gutterCompartment.reconfigure(gutterExt(showLineNumberGutter)),
     });
   }, [showLineNumberGutter]);
+
+  // Re-render the breakpoint gutter whenever the breakpoint set changes.
+  const breakpoints = useIdeStore((s) => s.breakpoints);
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: breakpointCompartment.reconfigure(
+        breakpointGutterExt(breakpoints),
+      ),
+    });
+  }, [breakpoints]);
+
+  // Highlight (and scroll to) the line the debugger is paused on. Breakpoints
+  // and the paused line are tracked by BASIC line number, so map to an editor
+  // row here; clear the highlight when there's no paused line.
+  const debugLine = useIdeStore((s) => s.debugLine);
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const row =
+      debugLine === null
+        ? null
+        : findRowForLineNumber(view.state.doc.toString(), debugLine);
+    const effects: StateEffect<unknown>[] = [setDebugRowEffect.of(row)];
+    if (row !== null) {
+      effects.push(
+        EditorView.scrollIntoView(view.state.doc.line(row).from, {
+          y: 'center',
+        }),
+      );
+    }
+    view.dispatch({ effects });
+  }, [debugLine]);
 
   // Switching the mobile view tab dismisses the find/replace panel.
   const mobileTab = useIdeStore((s) => s.mobileTab);
