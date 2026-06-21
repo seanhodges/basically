@@ -243,5 +243,9 @@ export class SpectrumMachine implements MachineEmulator {
     if (this.disposed) return;
     this.disposed = true;
     this.keyboard.releaseAll();
+    // Drop the frame buffer and any queued load so they are freed at once
+    // rather than waiting on GC of the whole machine.
+    this.imageData = null;
+    this.pending = null;
   }
 }

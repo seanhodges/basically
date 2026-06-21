@@ -274,5 +274,10 @@ export class BbcMachine implements MachineEmulator {
     this.disposed = true;
     this.loadGeneration++;
     this.cpu.sysvia.clearKeys();
+    // Drop the render scratch canvas. jsbeeb's CPU/video graph and the fixed
+    // framebuffers are readonly and freed by GC once the machine ref is
+    // released (the pane nulls it on swap).
+    this.backCanvas = null;
+    this.backImageData = null;
   }
 }
