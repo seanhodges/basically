@@ -33,7 +33,6 @@ OUTPUT FORMAT
 - After the code, add at most 3 short sentences: controls and anything to verify.`;
 
 export const bbcMasterAiProfile: AiProfile = {
-  model: 'claude-opus-4-8',
   systemPrompt: SYSTEM_PROMPT,
   maxTokens: 8192,
 };

@@ -33,7 +33,6 @@ OUTPUT FORMAT
 - Target a 32K Model B; remember high-resolution modes consume screen RAM.`;
 
 export const bbcAiProfile: AiProfile = {
-  model: 'claude-opus-4-8',
   systemPrompt: SYSTEM_PROMPT,
   maxTokens: 8192,
 };

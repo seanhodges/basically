@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import type { AiProfile } from '../dialects/types';
 import {
   streamChat,
   describeAiError,
   type ChatMessage,
   type StreamHandle,
-} from './anthropicClient';
+} from './aiClient';
+import type { AiProviderId } from './providers/types';
 import {
   loadAiConversation,
   saveAiConversation,
@@ -26,8 +26,13 @@ export interface DisplayMessage extends ChatMessage {
 
 /** Everything `send` needs that depends on the active dialect/editor. */
 export interface SendParams {
+  /** The selected backend; also picks the error-message mapping. */
+  providerId: AiProviderId;
   apiKey: string;
-  profile: AiProfile;
+  /** Model id resolved for the active provider. */
+  model: string;
+  /** Max output tokens (from the dialect's AI profile). */
+  maxTokens: number;
   system: string;
   /** Full context (source + lint errors + request) sent to the API. */
   userContent: string;
@@ -80,7 +85,15 @@ export const useAiStore = create<AiState>((set, get) => ({
   error: '',
   pendingFix: null,
 
-  send: async ({ apiKey, profile, system, userContent, displayRequest }) => {
+  send: async ({
+    providerId,
+    apiKey,
+    model,
+    maxTokens,
+    system,
+    userContent,
+    displayRequest,
+  }) => {
     const prior = get().messages;
     // History for the API: prior turns (role+content only) + the new request.
     const history: ChatMessage[] = [
@@ -101,20 +114,24 @@ export const useAiStore = create<AiState>((set, get) => ({
 
     let lastPersist = 0;
     try {
-      const handle = streamChat(apiKey, profile, system, history, (delta) => {
-        if (gen !== myGen) return; // superseded by reset/new send
-        set((s) => {
-          const copy = [...s.messages];
-          const last = copy[copy.length - 1]!;
-          copy[copy.length - 1] = { ...last, content: last.content + delta };
-          return { messages: copy };
-        });
-        const now = Date.now();
-        if (now - lastPersist > 1000) {
-          lastPersist = now;
-          persist(get().messages);
-        }
-      });
+      const handle = streamChat(
+        providerId,
+        { apiKey, model, maxTokens, system, messages: history },
+        (delta) => {
+          if (gen !== myGen) return; // superseded by reset/new send
+          set((s) => {
+            const copy = [...s.messages];
+            const last = copy[copy.length - 1]!;
+            copy[copy.length - 1] = { ...last, content: last.content + delta };
+            return { messages: copy };
+          });
+          const now = Date.now();
+          if (now - lastPersist > 1000) {
+            lastPersist = now;
+            persist(get().messages);
+          }
+        },
+      );
       activeHandle = handle;
       const finalText = await handle.done;
       if (gen !== myGen) return;
@@ -136,7 +153,7 @@ export const useAiStore = create<AiState>((set, get) => ({
               ? { role: m.role, content: m.content, incomplete: true }
               : m,
           );
-        return { messages, busy: false, error: describeAiError(e) };
+        return { messages, busy: false, error: describeAiError(providerId, e) };
       });
       persist(get().messages);
     } finally {

@@ -1,4 +1,10 @@
-import type { ChatMessage } from '../ai/anthropicClient';
+import type { ChatMessage } from '../ai/providers/types';
+import type { AiProviderId } from '../ai/providers/types';
+import {
+  AI_PROVIDER_IDS,
+  DEFAULT_PROVIDER_ID,
+  getProvider,
+} from '../ai/providers/registry';
 
 /**
  * A conversation message as persisted. `incomplete` marks an assistant answer
@@ -8,7 +14,9 @@ import type { ChatMessage } from '../ai/anthropicClient';
 export type PersistedMessage = ChatMessage & { incomplete?: boolean };
 
 const KEYS = {
-  apiKey: 'mbide.anthropicApiKey',
+  // Per-provider API keys are owned by the provider registry
+  // (`AiProvider.apiKeyStorageKey`), not listed here.
+  aiProvider: 'mbide.aiProvider',
   autosaveDoc: 'mbide.autosave.doc',
   autosaveName: 'mbide.autosave.name',
   aiConversation: 'mbide.autosave.ai',
@@ -32,8 +40,31 @@ export const MAX_SPLIT_RATIO = 0.8;
 
 const EMULATOR_SPEEDS = [1, 2, 8];
 
-export function getApiKey(): string {
-  return localStorage.getItem(KEYS.apiKey) ?? '';
+/** The AI backend the user has selected (defaults to Anthropic). */
+export function getAiProvider(): AiProviderId {
+  const raw = localStorage.getItem(KEYS.aiProvider);
+  return raw !== null && (AI_PROVIDER_IDS as string[]).includes(raw)
+    ? (raw as AiProviderId)
+    : DEFAULT_PROVIDER_ID;
+}
+
+export function setAiProvider(id: AiProviderId): void {
+  localStorage.setItem(KEYS.aiProvider, id);
+}
+
+/**
+ * API key for a specific backend. Each provider persists under its own
+ * localStorage key, so the user can store keys for all three and switch
+ * between them without re-entering anything.
+ */
+export function getProviderApiKey(id: AiProviderId): string {
+  return localStorage.getItem(getProvider(id).apiKeyStorageKey) ?? '';
+}
+
+export function setProviderApiKey(id: AiProviderId, key: string): void {
+  const storageKey = getProvider(id).apiKeyStorageKey;
+  if (key === '') localStorage.removeItem(storageKey);
+  else localStorage.setItem(storageKey, key);
 }
 
 /** Persisted target-machine dialect id, or null when never chosen. */
@@ -43,11 +74,6 @@ export function getDialectId(): string | null {
 
 export function setDialectId(id: string): void {
   localStorage.setItem(KEYS.dialectId, id);
-}
-
-export function setApiKey(key: string): void {
-  if (key === '') localStorage.removeItem(KEYS.apiKey);
-  else localStorage.setItem(KEYS.apiKey, key);
 }
 
 export function getAutoLineNumbering(): boolean {

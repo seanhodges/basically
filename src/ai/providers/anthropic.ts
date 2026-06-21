@@ -1,33 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { AiProfile } from '../dialects/types';
-
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-export interface StreamHandle {
-  /** Resolves with the complete assistant text. */
-  done: Promise<string>;
-  abort(): void;
-}
+import type { AiProvider, StreamHandle, StreamOptions } from './types';
 
 /**
  * Stream a chat completion from the Claude API directly from the browser.
  * The key is supplied by the user and only ever lives in localStorage.
  */
-export function streamChat(
-  apiKey: string,
-  profile: AiProfile,
-  system: string,
-  messages: ChatMessage[],
+function streamChat(
+  { apiKey, model, maxTokens, system, messages }: StreamOptions,
   onText: (delta: string) => void,
 ): StreamHandle {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
   const stream = client.messages.stream({
-    model: profile.model,
-    max_tokens: profile.maxTokens,
+    model,
+    max_tokens: maxTokens,
     thinking: { type: 'adaptive' },
     system,
     messages,
@@ -49,7 +35,7 @@ export function streamChat(
   };
 }
 
-export function describeAiError(err: unknown): string {
+function describeError(err: unknown): string {
   if (err instanceof Anthropic.AuthenticationError) {
     return 'Invalid API key — check it in AI settings.';
   }
@@ -64,3 +50,16 @@ export function describeAiError(err: unknown): string {
   }
   return err instanceof Error ? err.message : String(err);
 }
+
+export const anthropicProvider: AiProvider = {
+  id: 'anthropic',
+  label: 'Anthropic (Claude)',
+  defaultModel: 'claude-opus-4-8',
+  apiKeyStorageKey: 'mbide.anthropicApiKey',
+  keyPlaceholder: 'sk-ant-…',
+  consoleUrl: 'https://platform.claude.com/',
+  consoleLabel: 'platform.claude.com',
+  apiHost: 'api.anthropic.com',
+  streamChat,
+  describeError,
+};

@@ -7,7 +7,8 @@ import {
   buildEditorFix,
 } from '../ai/promptBuilder';
 import { extractCodeBlocks, mergeBasicLines } from '../ai/codeExtractor';
-import { getApiKey } from '../storage/settings';
+import { getAiProvider, getProviderApiKey } from '../storage/settings';
+import { getProvider } from '../ai/providers/registry';
 import styles from './AiPanel.module.css';
 
 export function AiPanel() {
@@ -37,7 +38,9 @@ export function AiPanel() {
   const send = () => {
     const request = input.trim();
     if (request === '' || busy) return;
-    const apiKey = getApiKey();
+    const providerId = getAiProvider();
+    const provider = getProvider(providerId);
+    const apiKey = getProviderApiKey(providerId);
     if (!apiKey) {
       setSettingsOpen(true);
       return;
@@ -45,8 +48,10 @@ export function AiPanel() {
     setInput('');
     const errors = dialect.lint(source);
     void useAiStore.getState().send({
+      providerId,
       apiKey,
-      profile: dialect.aiProfile,
+      model: provider.defaultModel,
+      maxTokens: dialect.aiProfile.maxTokens,
       system: buildSystemPrompt(dialect),
       userContent: buildUserMessage(request, source, errors),
       displayRequest: request,
@@ -93,15 +98,19 @@ export function AiPanel() {
   const sendFix = () => {
     const fix = useAiStore.getState().pendingFix;
     if (!fix || busy) return;
-    const apiKey = getApiKey();
+    const providerId = getAiProvider();
+    const provider = getProvider(providerId);
+    const apiKey = getProviderApiKey(providerId);
     if (!apiKey) {
       setSettingsOpen(true);
       return;
     }
     useAiStore.getState().clearPendingFix();
     void useAiStore.getState().send({
+      providerId,
       apiKey,
-      profile: dialect.aiProfile,
+      model: provider.defaultModel,
+      maxTokens: dialect.aiProfile.maxTokens,
       system: buildSystemPrompt(dialect),
       userContent: fix.userContent,
       displayRequest: fix.displayRequest,
