@@ -101,6 +101,34 @@ export interface MachineReport {
   line?: number;
 }
 
+/** Outcome of one {@link MachineEmulator.debugStep} slice. */
+export interface DebugStepResult {
+  /** True when execution paused on a BASIC line (breakpoint hit or step done). */
+  paused: boolean;
+  /** The BASIC line number about to execute at the pause, or null if unknown. */
+  line: number | null;
+}
+
+export interface DebugStepOptions {
+  /** BASIC line numbers the user has breakpointed. */
+  breakpoints: ReadonlySet<number>;
+  /**
+   * 'run'  — pause when the about-to-execute line is in `breakpoints`.
+   * 'step' — pause as soon as the about-to-execute line differs from
+   *          {@link fromLine} (run-to-next-line).
+   */
+  mode: 'run' | 'step';
+  /**
+   * Line the user resumed from, or null on the first slice of a session. A slice
+   * may exhaust its CPU budget while still on this line (a slow line, SLOW-mode
+   * display HALTs), so the pause origin is threaded through every slice: in 'run'
+   * mode breakpoint matches are ignored until execution leaves `fromLine`, so
+   * Continue off a line that is itself a breakpoint doesn't immediately
+   * re-trigger; in 'step' mode it is the "run until the line differs" reference.
+   */
+  fromLine: number | null;
+}
+
 export interface MachineEmulator {
   reset(): void;
   /** Inject a built image (post-boot) and arrange for it to run. */
@@ -136,6 +164,23 @@ export interface MachineEmulator {
    * dialect. The app detects support via `typeof machine.readReport === 'function'`.
    */
   readReport?(): MachineReport | null;
+  /**
+   * The BASIC line number about to be executed next, or null when none is
+   * determinable (e.g. sitting at the ready/K cursor, mid-edit, or the program
+   * has ended). Used by the debugger to label the paused line and detect line
+   * transitions. Optional: a machine that can't introspect this omits it (and
+   * {@link debugStep}) and offers no debugger. Detected via
+   * `typeof machine.currentLine === 'function'`.
+   */
+  currentLine?(): number | null;
+  /**
+   * Advance emulation by up to one display frame's CPU budget, instruction by
+   * instruction, pausing early per {@link DebugStepOptions}. When it returns
+   * `paused: false` the budget was exhausted without a stop condition and the
+   * caller should render and call again next frame. Optional and detected the
+   * same way as {@link currentLine}; a machine offering one offers both.
+   */
+  debugStep?(opts: DebugStepOptions): DebugStepResult;
 }
 
 export interface AiProfile {
@@ -179,6 +224,13 @@ export interface Dialect {
    * shared by the Sinclair machines when absent.
    */
   displaySize?: { width: number; height: number };
+  /**
+   * True when this dialect's emulator implements the step-through debugger
+   * (`currentLine`/`debugStep`). Drives whether the toolbar offers a Debug
+   * toggle. Absent/false for dialects whose cores can't single-step at BASIC
+   * line granularity.
+   */
+  debuggable?: boolean;
   createEmulator(opts: {
     rom: Uint8Array;
     ramKb: 16 | 32 | 64;

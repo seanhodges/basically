@@ -44,6 +44,8 @@ export const zxspectrum: Dialect = {
 
   romUrl: `${import.meta.env.BASE_URL}roms/zxspectrum.rom`,
 
+  debuggable: true,
+
   createEmulator(opts) {
     return new SpectrumMachine({ rom: opts.rom });
   },

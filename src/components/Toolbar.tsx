@@ -17,6 +17,8 @@ export function Toolbar() {
   const requestStop = useIdeStore((s) => s.requestStop);
   const requestReset = useIdeStore((s) => s.requestReset);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
+  const debugMode = useIdeStore((s) => s.debugMode);
+  const setDebugMode = useIdeStore((s) => s.setDebugMode);
   const toggleAiPanel = useIdeStore((s) => s.toggleAiPanel);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
@@ -243,6 +245,15 @@ export function Toolbar() {
         >
           ↺ Reset
         </button>
+        {dialect.debuggable && (
+          <button
+            className={`desktop-only ${debugMode ? 'active' : ''}`}
+            onClick={() => setDebugMode(!debugMode)}
+            title="Debug mode: pause Run on breakpoints (click the editor gutter to set them)"
+          >
+            🐞 Debug
+          </button>
+        )}
         <button
           className={`icon-btn ${aiPanelOpen ? 'active' : ''}`}
           onClick={toggleAiPanel}

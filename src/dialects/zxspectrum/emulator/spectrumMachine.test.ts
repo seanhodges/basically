@@ -126,4 +126,44 @@ describe('SpectrumMachine', () => {
     for (let i = 0; i < 30; i++) machine.runFrame();
     expect(readScreen(machine, 0, 0, 5)).toBe('KEY q');
   });
+
+  describe('step-through debugging', () => {
+    const LOOP_SRC = '10 FOR i=1 TO 1000\n20 LET a=i\n30 NEXT i\n';
+
+    function load(): SpectrumMachine {
+      const { bytes, errors } = tokenizeProgram(LOOP_SRC);
+      expect(errors).toEqual([]);
+      const machine = new SpectrumMachine({ rom });
+      machine.loadProgram(buildTap(bytes));
+      return machine;
+    }
+
+    function runToPause(
+      machine: SpectrumMachine,
+      mode: 'run' | 'step',
+      breakpoints: Set<number>,
+      fromLine: number | null,
+    ) {
+      for (let i = 0; i < 5000; i++) {
+        const res = machine.debugStep({ breakpoints, mode, fromLine });
+        if (res.paused) return res;
+      }
+      throw new Error('debugStep never paused');
+    }
+
+    it('reports a current line inside the running program', () => {
+      const machine = load();
+      const line = machine.currentLine();
+      expect(line === 10 || line === 20 || line === 30).toBe(true);
+    });
+
+    it('pauses at a breakpointed line, then steps to the next', () => {
+      const machine = load();
+      const hit = runToPause(machine, 'run', new Set([20]), null);
+      expect(hit).toEqual({ paused: true, line: 20 });
+      const stepped = runToPause(machine, 'step', new Set(), 20);
+      expect(stepped.paused).toBe(true);
+      expect(stepped.line).toBe(30);
+    });
+  });
 });

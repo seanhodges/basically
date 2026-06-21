@@ -9,3 +9,20 @@
 .cmHost :global(.cm-editor) {
   height: 100%;
 }
+
+/* Breakpoint gutter: a clickable column showing a red dot per breakpoint. */
+.cmHost :global(.cm-breakpoint-gutter) {
+  width: 16px;
+  cursor: pointer;
+}
+
+.breakpointDot {
+  color: #d22;
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* The BASIC line the debugger is currently paused on. */
+.debugCurrentLine {
+  background: rgb(255 210 0 / 25%);
+}
