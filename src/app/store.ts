@@ -52,6 +52,13 @@ interface IdeState {
   source: string;
   /** Bump seq to push text INTO the editor (file load, AI apply). */
   docOverride: { text: string; seq: number };
+  /**
+   * Bumped whenever a *different* program becomes active (New, Open, Sample,
+   * Import, dialect switch). The AI session store watches this to clear the
+   * conversation. NOT bumped by in-place AI apply (Replace/Merge), which keep
+   * editing the same program.
+   */
+  aiResetSeq: number;
   dirty: boolean;
   emulatorStatus: EmulatorStatus;
   /** Bumped to ask the emulator pane to (re)load + run the current source. */
@@ -186,6 +193,8 @@ function applyDialectSwitch(
     pendingDialectId: null,
     source: text,
     docOverride: { text, seq: s.docOverride.seq + 1 },
+    // A dialect switch is always a new machine/program; clear the AI thread.
+    aiResetSeq: s.aiResetSeq + 1,
     // The emulator pane tears down the old machine when `dialect` changes; mark
     // it stopped so the UI reflects the switch immediately. Also bump
     // stopRequest so any in-flight run loop is explicitly halted.
@@ -205,6 +214,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   fileName: autosaved?.name ?? 'untitled.bas',
   source: startupText,
   docOverride: { text: startupText, seq: 0 },
+  aiResetSeq: 0,
   dirty: false,
   emulatorStatus: 'stopped',
   runRequest: 0,
@@ -292,6 +302,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
       ...(fileName !== undefined ? { fileName } : {}),
+      // A named load (New/Open/Sample/Import) is a different program — clear the
+      // AI thread. An in-place apply (AI Replace/Merge) passes no name and keeps it.
+      ...(fileName !== undefined ? { aiResetSeq: s.aiResetSeq + 1 } : {}),
       dirty: fileName === undefined,
       // On mobile, loading new content stops any running program and brings the
       // user back to the editor showing what was just loaded.
