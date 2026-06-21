@@ -34,7 +34,6 @@ OUTPUT FORMAT
 - Target roughly 16K RAM; keep programs comfortably under 10KB of source.`;
 
 export const zx81AiProfile: AiProfile = {
-  model: 'claude-opus-4-8',
   systemPrompt: SYSTEM_PROMPT,
   maxTokens: 8192,
 };

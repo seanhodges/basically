@@ -3,6 +3,10 @@ import {
   loadAiConversation,
   saveAiConversation,
   clearAiConversation,
+  getAiProvider,
+  setAiProvider,
+  getProviderApiKey,
+  setProviderApiKey,
   type PersistedMessage,
 } from './settings';
 
@@ -71,5 +75,45 @@ describe('AI conversation persistence', () => {
   it('returns [] for non-array JSON', () => {
     localStorage.setItem(KEY, '{"role":"user"}');
     expect(loadAiConversation()).toEqual([]);
+  });
+});
+
+describe('AI provider settings', () => {
+  beforeEach(() => {
+    installLocalStorage();
+  });
+
+  it('defaults to anthropic and round-trips the selected provider', () => {
+    expect(getAiProvider()).toBe('anthropic');
+    setAiProvider('gemini');
+    expect(getAiProvider()).toBe('gemini');
+  });
+
+  it('falls back to anthropic for an unknown stored provider', () => {
+    localStorage.setItem('mbide.aiProvider', 'bogus');
+    expect(getAiProvider()).toBe('anthropic');
+  });
+
+  it('persists each provider key independently', () => {
+    setProviderApiKey('anthropic', 'sk-ant-1');
+    setProviderApiKey('openai', 'sk-oai-2');
+    setProviderApiKey('gemini', 'AIza-3');
+
+    expect(getProviderApiKey('anthropic')).toBe('sk-ant-1');
+    expect(getProviderApiKey('openai')).toBe('sk-oai-2');
+    expect(getProviderApiKey('gemini')).toBe('AIza-3');
+  });
+
+  it('reuses the legacy anthropic key location', () => {
+    setProviderApiKey('anthropic', 'sk-ant-legacy');
+    expect(localStorage.getItem('mbide.anthropicApiKey')).toBe('sk-ant-legacy');
+  });
+
+  it('clearing a key removes it without touching others', () => {
+    setProviderApiKey('openai', 'sk-oai');
+    setProviderApiKey('gemini', 'AIza');
+    setProviderApiKey('openai', '');
+    expect(getProviderApiKey('openai')).toBe('');
+    expect(getProviderApiKey('gemini')).toBe('AIza');
   });
 });

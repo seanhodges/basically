@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { useIdeStore } from '../app/store';
-import { getApiKey, setApiKey } from '../storage/settings';
+import {
+  getAiProvider,
+  setAiProvider,
+  getProviderApiKey,
+  setProviderApiKey,
+} from '../storage/settings';
+import { PROVIDERS, getProvider } from '../ai/providers/registry';
+import type { AiProviderId } from '../ai/providers/types';
 import styles from './SettingsForm.module.css';
 import dialog from './Dialog.module.css';
 
@@ -23,11 +30,22 @@ export function SettingsForm() {
   const setKeyboardKeyDisplay = useIdeStore((s) => s.setKeyboardKeyDisplay);
   const emulatorSpeed = useIdeStore((s) => s.emulatorSpeed);
   const setEmulatorSpeed = useIdeStore((s) => s.setEmulatorSpeed);
-  const [key, setKey] = useState(getApiKey());
+  const [providerId, setProviderId] = useState<AiProviderId>(getAiProvider());
+  const [key, setKey] = useState(getProviderApiKey(getAiProvider()));
   const [keySaved, setKeySaved] = useState(false);
+  const provider = getProvider(providerId);
+
+  // Switching provider persists the choice and swaps the key field to that
+  // provider's stored key, so each backend's key is kept independently.
+  const changeProvider = (id: AiProviderId) => {
+    setProviderId(id);
+    setAiProvider(id);
+    setKey(getProviderApiKey(id));
+    setKeySaved(false);
+  };
 
   const saveKey = () => {
-    setApiKey(key.trim());
+    setProviderApiKey(providerId, key.trim());
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
   };
@@ -123,26 +141,40 @@ export function SettingsForm() {
         Haptic feedback
       </label>
       <h3>AI</h3>
+      <label className={styles.inline}>
+        AI provider
+        <select
+          value={providerId}
+          onChange={(e) => changeProvider(e.target.value as AiProviderId)}
+        >
+          {PROVIDERS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <p>
-        Code generation calls the Claude API directly from your browser. Create
-        an API key at{' '}
-        <a href="https://platform.claude.com/" target="_blank" rel="noreferrer">
-          platform.claude.com
+        Code generation calls the {provider.label} API directly from your
+        browser. Create an API key at{' '}
+        <a href={provider.consoleUrl} target="_blank" rel="noreferrer">
+          {provider.consoleLabel}
         </a>
         .
       </p>
       <label>
-        Anthropic API key
+        {provider.label} API key
         <input
           type="password"
           value={key}
-          placeholder="sk-ant-…"
+          placeholder={provider.keyPlaceholder}
           onChange={(e) => setKey(e.target.value)}
         />
       </label>
       <p className={dialog.modalWarning}>
-        The key is stored only in this browser&apos;s localStorage and sent only
-        to api.anthropic.com. Don&apos;t use this on a shared computer.
+        Each provider&apos;s key is stored separately in this browser&apos;s
+        localStorage and sent only to {provider.apiHost}. Don&apos;t use this on
+        a shared computer.
       </p>
       <div className={`${dialog.modalActions} ${dialog.left}`}>
         <button className="primary" onClick={saveKey}>

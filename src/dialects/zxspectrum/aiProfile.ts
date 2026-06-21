@@ -33,7 +33,6 @@ OUTPUT FORMAT
 - Target 48K; keep programs comfortably under 20KB of source.`;
 
 export const spectrumAiProfile: AiProfile = {
-  model: 'claude-opus-4-8',
   systemPrompt: SYSTEM_PROMPT,
   maxTokens: 8192,
 };

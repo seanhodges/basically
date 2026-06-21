@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AiProfile } from '../dialects/types';
+import type { StreamOptions } from './providers/types';
 
 // Install a localStorage stub and a shared streaming handle BEFORE the modules
 // under test are imported (aiStore reads localStorage at module init).
@@ -24,12 +24,10 @@ const h = vi.hoisted(() => {
   };
 });
 
-vi.mock('./anthropicClient', () => ({
+vi.mock('./aiClient', () => ({
   streamChat: (
-    _apiKey: string,
-    _profile: AiProfile,
-    _system: string,
-    _messages: unknown,
+    _providerId: string,
+    _opts: StreamOptions,
     onText: (d: string) => void,
   ) => {
     let resolve!: (t: string) => void;
@@ -48,7 +46,8 @@ vi.mock('./anthropicClient', () => ({
       },
     };
   },
-  describeAiError: (e: unknown) => (e instanceof Error ? e.message : String(e)),
+  describeAiError: (_providerId: string, e: unknown) =>
+    e instanceof Error ? e.message : String(e),
 }));
 
 import { useAiStore } from './aiStore';
@@ -56,8 +55,10 @@ import { useIdeStore } from '../app/store';
 import { loadAiConversation } from '../storage/settings';
 
 const params = {
+  providerId: 'anthropic' as const,
   apiKey: 'key',
-  profile: {} as AiProfile,
+  model: 'test-model',
+  maxTokens: 1024,
   system: 'sys',
   userContent: 'full context',
   displayRequest: 'make breakout',
