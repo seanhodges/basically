@@ -14,6 +14,7 @@ import {
   getVirtualKeyboard,
   getKeyboardSound,
   getKeyboardHaptics,
+  getKeyboardKeyDisplay,
   setAutoLineNumbering as persistAutoLineNumbering,
   setLineNumberIncrement as persistLineNumberIncrement,
   setShowLineNumberGutter as persistShowLineNumberGutter,
@@ -22,6 +23,7 @@ import {
   setVirtualKeyboard as persistVirtualKeyboard,
   setKeyboardSound as persistKeyboardSound,
   setKeyboardHaptics as persistKeyboardHaptics,
+  setKeyboardKeyDisplay as persistKeyboardKeyDisplay,
 } from '../storage/settings';
 import { MOBILE_QUERY, isMobileViewport } from './useMediaQuery';
 
@@ -79,6 +81,9 @@ interface IdeState {
   keyboardSound: boolean;
   /** Haptic buzz on virtual key presses (where supported). */
   keyboardHaptics: boolean;
+  /** Virtual-keyboard keycap legends: every legend ('authentic') or only the
+   *  active mode's character, centered and larger ('compact'). */
+  keyboardKeyDisplay: 'authentic' | 'compact';
   /** Whether the code editor currently has focus (drives its keyboard). */
   editorFocused: boolean;
   /**
@@ -131,6 +136,7 @@ interface IdeState {
   setVariableWatcher(on: boolean): void;
   setKeyboardSound(on: boolean): void;
   setKeyboardHaptics(on: boolean): void;
+  setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void;
   setEditorFocused(on: boolean): void;
   setFindReplaceOpen(on: boolean): void;
   setMobileTab(tab: MobileTab): void;
@@ -231,6 +237,8 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getKeyboardSound() : false,
   keyboardHaptics:
     typeof localStorage !== 'undefined' ? getKeyboardHaptics() : true,
+  keyboardKeyDisplay:
+    typeof localStorage !== 'undefined' ? getKeyboardKeyDisplay() : 'authentic',
   editorFocused: false,
   findReplaceOpen: false,
   mobileTab: 'editor',
@@ -336,6 +344,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   setKeyboardHaptics: (on) => {
     persistKeyboardHaptics(on);
     set({ keyboardHaptics: on });
+  },
+  setKeyboardKeyDisplay: (v) => {
+    persistKeyboardKeyDisplay(v);
+    set({ keyboardKeyDisplay: v });
   },
   setEditorFocused: (on) => set({ editorFocused: on }),
   setFindReplaceOpen: (on) => set({ findReplaceOpen: on }),
