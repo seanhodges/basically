@@ -342,8 +342,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           onKeyUp={(e) => handleKey(e, false)}
           onFocus={() => {
             setFocused(true);
-            // On touch, tapping the screen re-opens the keyboard if hidden.
-            if (HAS_TOUCH && !useIdeStore.getState().virtualKeyboard)
+            // With auto-show on, tapping the screen re-opens the keyboard if
+            // hidden.
+            const s = useIdeStore.getState();
+            if (s.keyboardAutoShow && !s.virtualKeyboard)
               setVirtualKeyboard(true);
           }}
           onBlur={() => setFocused(false)}

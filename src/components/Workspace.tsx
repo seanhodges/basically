@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore, type MobileTab } from '../app/store';
-import { useMediaQuery, HAS_TOUCH, MOBILE_QUERY } from '../app/useMediaQuery';
+import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
 import { useProgramStats } from '../app/useProgramStats';
 import {
   setSplitRatio as persistSplitRatio,
@@ -87,6 +87,7 @@ export function Workspace() {
 
   const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
   const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
+  const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
   const editorFocused = useIdeStore((s) => s.editorFocused);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
@@ -137,14 +138,15 @@ export function Workspace() {
     virtualKeyboard &&
     (!isMobile || mobileTab === 'editor' || mobileTab === 'preview');
 
-  // Touch devices re-open the keyboard if it was hidden when the editor regains
-  // focus. Edge-triggered (only on the false→true transition) so a manual close
-  // while the editor stays focused isn't immediately undone. Gated to touch so
-  // desktop-mouse users never get a surprise keyboard.
+  // With auto-show on, re-open the keyboard if it was hidden when the editor
+  // regains focus. Edge-triggered (only on the false→true transition) so a
+  // manual close while the editor stays focused isn't immediately undone. Gated
+  // to the setting so users who prefer a physical keyboard never get a surprise
+  // keyboard.
   const prevEditorFocused = useRef(editorFocused);
   useEffect(() => {
     if (
-      HAS_TOUCH &&
+      keyboardAutoShow &&
       editorFocused &&
       !prevEditorFocused.current &&
       !useIdeStore.getState().virtualKeyboard
@@ -152,7 +154,7 @@ export function Workspace() {
       setVirtualKeyboard(true);
     }
     prevEditorFocused.current = editorFocused;
-  }, [editorFocused, setVirtualKeyboard]);
+  }, [editorFocused, keyboardAutoShow, setVirtualKeyboard]);
 
   const hidden = (tab: MobileTab) =>
     isMobile && mobileTab !== tab ? styles.tabHidden : '';
