@@ -14,6 +14,17 @@ import styles from './EmulatorPane.module.css';
 
 const romCache = new Map<string, Promise<Uint8Array>>();
 
+/**
+ * Frames of *running* emulation to watch a freshly-started AI-checked run for a
+ * runtime error before giving up. A genuine error surfaces within a handful of
+ * frames; a clean program (or a game that keeps running) simply never reports
+ * one. Only counts frames where the machine is up (readReport != null), so a
+ * slow async boot (BBC/C64) doesn't eat the window before the program runs.
+ */
+const AI_CHECK_MAX_FRAMES = 150;
+/** Absolute frame cap so a machine that never comes up can't poll forever. */
+const AI_CHECK_ABS_MAX_FRAMES = 600;
+
 /** The machine handle the virtual-keyboard overlay needs to send keys. */
 export interface MachineApi {
   getMachine: () => MachineEmulator | null;
@@ -80,6 +91,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // Set true the moment a (re)start kicks off; the first rendered frame clears
   // both it and the loading overlay (see startLoop / the run + reset effects).
   const firstFrameRef = useRef(false);
+  // While true, the run loop polls machine.readReport() and feeds the first
+  // genuine error back to the AI store (set only for "Replace + Run").
+  const aiCheckActiveRef = useRef(false);
+  const aiCheckReadyFramesRef = useRef(0); // frames the machine was up, no error
+  const aiCheckTotalFramesRef = useRef(0); // all frames since the check armed
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -116,6 +132,25 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       if (machine && canvas) {
         machine.runFrame();
         frameHookRef.current?.(); // virtual-keyboard frame-counted releases
+        // AI "Replace + Run": watch the freshly-started program for a runtime
+        // error and hand the first one to the assistant, then stop watching.
+        if (aiCheckActiveRef.current && machine.readReport) {
+          const report = machine.readReport();
+          if (report?.isError) {
+            aiCheckActiveRef.current = false;
+            useIdeStore.getState().reportRun(report);
+          } else {
+            // Count toward the window only once the machine is actually up
+            // (report != null); cap total frames so a stuck boot can't hang on.
+            if (report !== null) aiCheckReadyFramesRef.current++;
+            if (
+              aiCheckReadyFramesRef.current >= AI_CHECK_MAX_FRAMES ||
+              ++aiCheckTotalFramesRef.current >= AI_CHECK_ABS_MAX_FRAMES
+            ) {
+              aiCheckActiveRef.current = false;
+            }
+          }
+        }
         const ctx = canvas.getContext('2d');
         if (ctx) {
           machine.renderTo(ctx);
@@ -166,6 +201,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         machine.loadProgram(result.image);
         machine.setSpeed(speed);
         firstFrameRef.current = true; // the next rendered frame hides the overlay
+        // Only watch for a runtime error when this run came from "Replace + Run"
+        // and the machine can introspect its error state.
+        aiCheckActiveRef.current =
+          useIdeStore.getState().aiRunCheckSeq === runRequest &&
+          typeof machine.readReport === 'function';
+        aiCheckReadyFramesRef.current = 0;
+        aiCheckTotalFramesRef.current = 0;
         setEmulatorStatus('running');
         startLoop();
         canvasRef.current?.focus();
@@ -185,6 +227,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     if (stopRequest === 0) return;
     stopLoop();
     machineRef.current?.releaseAllKeys(); // nothing stays held while paused
+    aiCheckActiveRef.current = false;
     firstFrameRef.current = false;
     setLoading(false);
     setEmulatorStatus('stopped');
@@ -236,6 +279,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.dispose();
     machineRef.current = null;
     clearCanvas(); // drop the old machine's last frame; next run starts fresh
+    aiCheckActiveRef.current = false;
     firstFrameRef.current = false;
     setLoading(false);
     setError('');

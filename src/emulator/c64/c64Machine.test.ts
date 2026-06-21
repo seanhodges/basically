@@ -63,4 +63,31 @@ describe('C64Machine', () => {
     expect(contains(screen(m), screenCodes('HELLO'))).toBe(true);
     m.dispose();
   });
+
+  it('detects a runtime error after running a buggy program', async () => {
+    // GOTO a non-existent line raises ?UNDEF'D STATEMENT ERROR.
+    const { image, errors } = commodore64.tokenize('10 GOTO 999\n');
+    expect(errors).toEqual([]);
+    const m = new C64Machine({ roms });
+    await m.whenReady();
+    m.loadProgram(image);
+    await new Promise((r) => setTimeout(r, 0));
+    for (let i = 0; i < 400; i++) m.runFrame();
+    const report = m.readReport();
+    expect(report).not.toBeNull();
+    expect(report!.isError).toBe(true);
+    expect(report!.message).toContain('ERROR');
+    m.dispose();
+  });
+
+  it('reports no error after a clean program', async () => {
+    const { image } = commodore64.tokenize('10 PRINT "HELLO"\n');
+    const m = new C64Machine({ roms });
+    await m.whenReady();
+    m.loadProgram(image);
+    await new Promise((r) => setTimeout(r, 0));
+    for (let i = 0; i < 400; i++) m.runFrame();
+    expect(m.readReport()).toBeNull();
+    m.dispose();
+  });
 });

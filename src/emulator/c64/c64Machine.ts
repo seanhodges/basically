@@ -1,5 +1,10 @@
-import type { MachineEmulator, MachineVariable } from '../../dialects/types';
+import type {
+  MachineEmulator,
+  MachineReport,
+  MachineVariable,
+} from '../../dialects/types';
 import { readC64Variables } from './vars';
+import { readC64Report } from './reports';
 import {
   bringup,
   loadPrg,
@@ -482,6 +487,14 @@ export class C64Machine implements MachineEmulator {
       read,
       readWord: (a) => read(a) | (read(a + 1) << 8),
     });
+  }
+
+  readReport(): MachineReport | null {
+    if (!this.booted || this.injecting || this.disposed || !this.c64) {
+      return null;
+    }
+    const wires = this.c64.wires;
+    return readC64Report({ read: (a) => wires.cpuRead(a & 0xffff) });
   }
 
   dispose(): void {

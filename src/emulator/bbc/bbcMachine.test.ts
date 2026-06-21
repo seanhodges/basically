@@ -109,6 +109,32 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     machine.dispose();
   }, 60000);
 
+  it('detects a runtime error after running a buggy program', async () => {
+    const machine = new BbcMachine();
+    // Referencing an undefined variable raises a BASIC error via BRK.
+    const { bytes } = tokenizeProgram('10 PRINT zzq\n');
+    machine.loadProgram(bytes);
+    const faulted = await runUntil(machine, () => {
+      const r = machine.readReport();
+      return r !== null && r.isError;
+    });
+    expect(faulted).toBe(true);
+    const report = machine.readReport()!;
+    expect(report.isError).toBe(true);
+    expect(report.message.length).toBeGreaterThan(0);
+    machine.dispose();
+  }, 60000);
+
+  it('reports no error after a clean program', async () => {
+    const machine = new BbcMachine();
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO BEEB"\n20 END\n');
+    machine.loadProgram(bytes);
+    await runUntil(machine, () => screenText(machine).includes('HELLO BEEB'));
+    for (let i = 0; i < 20; i++) machine.runFrame();
+    expect(machine.readReport()).toBeNull();
+    machine.dispose();
+  }, 60000);
+
   it('reports 896×600 as its visible display size', () => {
     const machine = new BbcMachine();
     expect(machine.displayWidth).toBe(896);

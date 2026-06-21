@@ -85,6 +85,32 @@
   font-size: 13px;
 }
 
+.aiFixNotice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: 13px;
+}
+
+.aiFixSummary {
+  color: var(--error);
+  line-height: 1.4;
+}
+
+.aiFixActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.aiFixActions button {
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
 .aiInput {
   display: flex;
   gap: 6px;

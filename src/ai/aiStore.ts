@@ -12,6 +12,9 @@ import {
   clearAiConversation,
 } from '../storage/settings';
 import { useIdeStore } from '../app/store';
+import { buildRunFix, type PendingFix } from './promptBuilder';
+
+export type { PendingFix } from './promptBuilder';
 
 /** A message as shown in the thread. `streaming`/`incomplete` are UI-only. */
 export interface DisplayMessage extends ChatMessage {
@@ -36,8 +39,15 @@ interface AiState {
   messages: DisplayMessage[];
   busy: boolean;
   error: string;
+  /**
+   * A correction the assistant is offering after an apply/run surfaced problems,
+   * shown as a one-tap prompt in the panel. Null when there is nothing to fix.
+   */
+  pendingFix: PendingFix | null;
   send(params: SendParams): Promise<void>;
   stop(): void;
+  setPendingFix(fix: PendingFix): void;
+  clearPendingFix(): void;
   /** Clear the thread (new/loaded program). Aborts any in-flight stream. */
   reset(): void;
 }
@@ -68,6 +78,7 @@ export const useAiStore = create<AiState>((set, get) => ({
   messages: typeof localStorage !== 'undefined' ? loadAiConversation() : [],
   busy: false,
   error: '',
+  pendingFix: null,
 
   send: async ({ apiKey, profile, system, userContent, displayRequest }) => {
     const prior = get().messages;
@@ -80,6 +91,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     set({
       busy: true,
       error: '',
+      pendingFix: null,
       messages: [
         ...prior,
         { role: 'user', content: displayRequest },
@@ -134,22 +146,39 @@ export const useAiStore = create<AiState>((set, get) => ({
 
   stop: () => activeHandle?.abort(),
 
+  setPendingFix: (fix) => set({ pendingFix: fix }),
+  clearPendingFix: () => set({ pendingFix: null }),
+
   reset: () => {
     gen++;
     activeHandle?.abort();
     activeHandle = null;
     clearAiConversation();
-    set({ messages: [], busy: false, error: '' });
+    set({ messages: [], busy: false, error: '', pendingFix: null });
   },
 }));
 
-// Clear the conversation whenever a different program becomes active. This runs
-// regardless of whether AiPanel is mounted, so loading a program with the panel
-// closed still resets the thread (and storage).
+// Module-level reactions to IDE-store changes. These run regardless of whether
+// AiPanel is mounted, so they work even with the panel closed or, on mobile,
+// while the editor tab is showing.
 let prevReset = useIdeStore.getState().aiResetSeq;
+let prevReportSeq = useIdeStore.getState().runReport?.seq ?? -1;
 useIdeStore.subscribe((state) => {
+  // A different program became active: clear the thread (and storage).
   if (state.aiResetSeq !== prevReset) {
     prevReset = state.aiResetSeq;
     useAiStore.getState().reset();
+  }
+  // The emulator reported a runtime error for an AI-checked run: offer a fix and
+  // surface the panel so the user can review it.
+  const report = state.runReport;
+  if (report && report.seq !== prevReportSeq) {
+    prevReportSeq = report.seq;
+    if (report.report.isError) {
+      useAiStore
+        .getState()
+        .setPendingFix(buildRunFix(state.source, report.report));
+      state.showAiPanel();
+    }
   }
 });

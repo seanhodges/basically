@@ -3,9 +3,14 @@ import { findModel } from 'jsbeeb/src/models.js';
 import { Video } from 'jsbeeb/src/video.js';
 import { FakeSoundChip } from 'jsbeeb/src/soundchip.js';
 import * as utils from 'jsbeeb/src/utils.js';
-import type { MachineEmulator, MachineVariable } from '../../dialects/types';
+import type {
+  MachineEmulator,
+  MachineReport,
+  MachineVariable,
+} from '../../dialects/types';
 import { BbcHostKeyboard, matrixForToken } from './keyboard';
 import { readBbcVariables } from './vars';
+import { readBbcReport, FAULT_PTR } from './reports';
 
 /** jsbeeb's Video ULA renders into a fixed 1024×625 RGBA framebuffer… */
 const FB_WIDTH = 1024;
@@ -156,6 +161,10 @@ export class BbcMachine implements MachineEmulator {
           this.cpu.writemem(0x03, (end >>> 8) & 0xff);
           this.cpu.writemem(0x12, end & 0xff);
           this.cpu.writemem(0x13, (end >>> 8) & 0xff);
+          // Clear the MOS fault pointer so a non-zero value afterwards means
+          // THIS run hit a BASIC error (see readReport / reports.ts).
+          this.cpu.writemem(FAULT_PTR, 0);
+          this.cpu.writemem(FAULT_PTR + 1, 0);
           this.typeViaMatrix('RUN\r');
         } finally {
           this.injecting = false;
@@ -264,6 +273,14 @@ export class BbcMachine implements MachineEmulator {
   readVariables(): MachineVariable[] {
     if (!this.initialised || this.disposed) return [];
     return readBbcVariables({
+      read: (a) => this.cpu.readmem(a),
+      readWord: (a) => this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8),
+    });
+  }
+
+  readReport(): MachineReport | null {
+    if (!this.initialised || this.disposed) return null;
+    return readBbcReport({
       read: (a) => this.cpu.readmem(a),
       readWord: (a) => this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8),
     });

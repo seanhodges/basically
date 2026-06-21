@@ -83,6 +83,24 @@ export interface MachineVariable {
   ref?: unknown;
 }
 
+/**
+ * A BASIC runtime report read back from a running machine. Lets the IDE notice
+ * that a just-run program stopped on an error (and offer a fix) without knowing
+ * anything machine-specific. How it is obtained differs per core — a report code
+ * system variable on the Sinclair ROMs, the MOS error block on the BBC, a screen
+ * scan on the Commodore — but the shape the app sees is uniform.
+ */
+export interface MachineReport {
+  /** True only for a genuine error (not OK / STOP / BREAK / a running program). */
+  isError: boolean;
+  /** Human-readable description, e.g. "Undefined variable". */
+  message: string;
+  /** Displayed report code where the ROM has one (e.g. "2", "D"). */
+  code?: string;
+  /** Line number the report refers to, when known. */
+  line?: number;
+}
+
 export interface MachineEmulator {
   reset(): void;
   /** Inject a built image (post-boot) and arrange for it to run. */
@@ -111,6 +129,13 @@ export interface MachineEmulator {
    * `typeof machine.readVariables === 'function'`.
    */
   readVariables?(): MachineVariable[];
+  /**
+   * The current BASIC runtime report (error / OK / STOP …), or null when none is
+   * detectable. Optional: a machine that can't reliably introspect its error
+   * state simply omits it, and the IDE skips the post-run error check for that
+   * dialect. The app detects support via `typeof machine.readReport === 'function'`.
+   */
+  readReport?(): MachineReport | null;
 }
 
 export interface AiProfile {

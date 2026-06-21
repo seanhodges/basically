@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { getDialect, dialects } from '../dialects/registry';
-import type { Dialect } from '../dialects/types';
+import type { Dialect, MachineReport } from '../dialects/types';
 import {
   loadAutosave,
   getDialectId,
@@ -65,6 +65,18 @@ interface IdeState {
   emulatorStatus: EmulatorStatus;
   /** Bumped to ask the emulator pane to (re)load + run the current source. */
   runRequest: number;
+  /**
+   * When equal to `runRequest`, the current run was launched by the AI panel's
+   * "Replace + Run" and the emulator pane should watch for a runtime error to
+   * feed back to the assistant. A plain toolbar Run never sets this.
+   */
+  aiRunCheckSeq: number;
+  /**
+   * The latest runtime error the emulator pane detected for an AI-checked run,
+   * tagged with the `runRequest` it came from. The AI session store watches this
+   * to offer a fix. Null until one is reported.
+   */
+  runReport: { seq: number; report: MachineReport } | null;
   /** Bumped to ask the emulator pane to stop. */
   stopRequest: number;
   /** Bumped to ask the emulator pane to reset the machine. */
@@ -128,6 +140,12 @@ interface IdeState {
   replaceDocument(text: string, fileName?: string): void;
   markSaved(fileName: string): void;
   requestRun(): void;
+  /** Like {@link requestRun}, but flags the run for the AI runtime-error check. */
+  requestAiRun(): void;
+  /** Record a runtime error the emulator detected during an AI-checked run. */
+  reportRun(report: MachineReport): void;
+  /** Open the AI panel (and, on mobile, switch to its tab). */
+  showAiPanel(): void;
   requestStop(): void;
   requestReset(): void;
   setEmulatorSpeed(n: number): void;
@@ -224,6 +242,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   dirty: false,
   emulatorStatus: 'stopped',
   runRequest: 0,
+  aiRunCheckSeq: 0,
+  runReport: null,
   stopRequest: 0,
   resetRequest: 0,
   emulatorSpeed: typeof localStorage !== 'undefined' ? getEmulatorSpeed() : 1,
@@ -322,6 +342,14 @@ export const useIdeStore = create<IdeState>((set) => ({
     })),
   markSaved: (fileName) => set({ fileName, dirty: false }),
   requestRun: () => set((s) => ({ runRequest: s.runRequest + 1 })),
+  requestAiRun: () =>
+    set((s) => ({
+      runRequest: s.runRequest + 1,
+      aiRunCheckSeq: s.runRequest + 1,
+    })),
+  reportRun: (report) =>
+    set((s) => ({ runReport: { seq: s.runRequest, report } })),
+  showAiPanel: () => set({ aiPanelOpen: true, mobileTab: 'ai' }),
   requestStop: () => set((s) => ({ stopRequest: s.stopRequest + 1 })),
   requestReset: () => set((s) => ({ resetRequest: s.resetRequest + 1 })),
   setEmulatorSpeed: (n) => {
