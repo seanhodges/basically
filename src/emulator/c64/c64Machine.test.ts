@@ -11,6 +11,14 @@ const roms: C64Roms = {
   character: readFileSync(join(ROOT, 'chargen.bin')),
 };
 
+/**
+ * Booting the real C64 ROMs and running a few hundred frames is slow (~2–5s per
+ * test) and can edge past vitest's 5s default under load, so give these a
+ * generous per-test budget. The boot dominates every case, so it's applied
+ * uniformly.
+ */
+const BOOT_TIMEOUT_MS = 20_000;
+
 /** Read `len` bytes of screen RAM ($0400) as C64 screen codes. */
 function screen(m: C64Machine, len = 1000): number[] {
   const c64 = m.machine!;
@@ -43,51 +51,67 @@ function contains(haystack: number[], needle: number[]): boolean {
 }
 
 describe('C64Machine', () => {
-  it('boots the real ROMs to the READY. prompt', async () => {
-    const m = new C64Machine({ roms });
-    await m.whenReady();
-    for (let i = 0; i < 200; i++) m.runFrame();
-    expect(contains(screen(m), screenCodes('READY.'))).toBe(true);
-    m.dispose();
-  });
+  it(
+    'boots the real ROMs to the READY. prompt',
+    async () => {
+      const m = new C64Machine({ roms });
+      await m.whenReady();
+      for (let i = 0; i < 200; i++) m.runFrame();
+      expect(contains(screen(m), screenCodes('READY.'))).toBe(true);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
 
-  it('loads and runs a program tokenized by the dialect', async () => {
-    const { image, errors } = commodore64.tokenize('10 PRINT "HELLO"\n');
-    expect(errors).toEqual([]);
-    const m = new C64Machine({ roms });
-    await m.whenReady();
-    m.loadProgram(image);
-    // loadProgram queues its boot+inject on a microtask; let it finish.
-    await new Promise((r) => setTimeout(r, 0));
-    for (let i = 0; i < 300; i++) m.runFrame();
-    expect(contains(screen(m), screenCodes('HELLO'))).toBe(true);
-    m.dispose();
-  });
+  it(
+    'loads and runs a program tokenized by the dialect',
+    async () => {
+      const { image, errors } = commodore64.tokenize('10 PRINT "HELLO"\n');
+      expect(errors).toEqual([]);
+      const m = new C64Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image);
+      // loadProgram queues its boot+inject on a microtask; let it finish.
+      await new Promise((r) => setTimeout(r, 0));
+      for (let i = 0; i < 300; i++) m.runFrame();
+      expect(contains(screen(m), screenCodes('HELLO'))).toBe(true);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
 
-  it('detects a runtime error after running a buggy program', async () => {
-    // GOTO a non-existent line raises ?UNDEF'D STATEMENT ERROR.
-    const { image, errors } = commodore64.tokenize('10 GOTO 999\n');
-    expect(errors).toEqual([]);
-    const m = new C64Machine({ roms });
-    await m.whenReady();
-    m.loadProgram(image);
-    await new Promise((r) => setTimeout(r, 0));
-    for (let i = 0; i < 400; i++) m.runFrame();
-    const report = m.readReport();
-    expect(report).not.toBeNull();
-    expect(report!.isError).toBe(true);
-    expect(report!.message).toContain('ERROR');
-    m.dispose();
-  });
+  it(
+    'detects a runtime error after running a buggy program',
+    async () => {
+      // GOTO a non-existent line raises ?UNDEF'D STATEMENT ERROR.
+      const { image, errors } = commodore64.tokenize('10 GOTO 999\n');
+      expect(errors).toEqual([]);
+      const m = new C64Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image);
+      await new Promise((r) => setTimeout(r, 0));
+      for (let i = 0; i < 400; i++) m.runFrame();
+      const report = m.readReport();
+      expect(report).not.toBeNull();
+      expect(report!.isError).toBe(true);
+      expect(report!.message).toContain('ERROR');
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
 
-  it('reports no error after a clean program', async () => {
-    const { image } = commodore64.tokenize('10 PRINT "HELLO"\n');
-    const m = new C64Machine({ roms });
-    await m.whenReady();
-    m.loadProgram(image);
-    await new Promise((r) => setTimeout(r, 0));
-    for (let i = 0; i < 400; i++) m.runFrame();
-    expect(m.readReport()).toBeNull();
-    m.dispose();
-  });
+  it(
+    'reports no error after a clean program',
+    async () => {
+      const { image } = commodore64.tokenize('10 PRINT "HELLO"\n');
+      const m = new C64Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image);
+      await new Promise((r) => setTimeout(r, 0));
+      for (let i = 0; i < 400; i++) m.runFrame();
+      expect(m.readReport()).toBeNull();
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
 });
