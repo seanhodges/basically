@@ -7,6 +7,8 @@ interface Props {
   getMachine: () => MachineEmulator | null;
   /** Whether the emulator is currently running. */
   running: boolean;
+  /** Whether the emulator is paused at a breakpoint / single step. */
+  paused: boolean;
 }
 
 /** Poll interval for refreshing variable values (ms). ~6–7Hz reads cheaply. */
@@ -27,11 +29,11 @@ const KIND_LABELS: Record<MachineVariable['kind'], string> = {
  * The value is rendered inside a dedicated span so a future "edit at runtime"
  * mode can swap it for an input without restructuring the row.
  */
-export function VariableWatcher({ getMachine, running }: Props) {
+export function VariableWatcher({ getMachine, running, paused }: Props) {
   const [vars, setVars] = useState<MachineVariable[]>([]);
 
   useEffect(() => {
-    if (!running) {
+    if (!running && !paused) {
       setVars([]);
       return;
     }
@@ -40,9 +42,12 @@ export function VariableWatcher({ getMachine, running }: Props) {
       setVars(machine?.readVariables ? machine.readVariables() : []);
     };
     read();
+    // Paused execution holds memory steady, so a single read suffices — the
+    // values shown are those from the last frame before the pause; no poll.
+    if (paused) return;
     const id = setInterval(read, POLL_MS);
     return () => clearInterval(id);
-  }, [running, getMachine]);
+  }, [running, paused, getMachine]);
 
   // A machine only exists once a program has run; only then can we tell whether
   // this machine supports introspection.
@@ -54,7 +59,7 @@ export function VariableWatcher({ getMachine, running }: Props) {
       </div>
     );
   }
-  if (!running) {
+  if (!running && !paused) {
     return (
       <div className={styles.watcherEmpty}>
         Run a program to inspect its variables.
