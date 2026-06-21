@@ -31,6 +31,9 @@ interface VirtualKeyboardProps {
   enabled: boolean;
   sound: boolean;
   haptics: boolean;
+  /** Keycap legends: every legend ('authentic') or only the active mode's
+   *  character, centered and larger ('compact'). */
+  keyDisplay: 'authentic' | 'compact';
 }
 
 /** Pointer id used for activation via the physical keyboard (a11y path). */
@@ -103,6 +106,7 @@ export function VirtualKeyboard({
   enabled,
   sound,
   haptics,
+  keyDisplay,
 }: VirtualKeyboardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef(target);
@@ -449,6 +453,34 @@ export function VirtualKeyboard({
       ? activeLayer.id
       : (modifierLayer?.id ?? legendLayerId));
 
+  // Compact display: one larger centered legend per key — the active mode's
+  // character. Keys with no legend for the active mode fall back to a dimmed
+  // base (main) legend so the layout stays recognisable.
+  const baseIdx = layout.layers.indexOf(baseLayer);
+  const renderSingleLabel = (def: KeyDef) => {
+    const activeIdx = layout.layers.findIndex((l) => l.id === highlightLayerId);
+    const active = activeIdx >= 0 ? def.labels[activeIdx] : null;
+    const label = active ?? def.labels[baseIdx] ?? null;
+    if (!label) return null;
+    const isFallback = !active;
+    const cls = [
+      'vk-label',
+      'vk-single-label',
+      `vk-layer-${isFallback ? baseLayer.id : highlightLayerId}`,
+    ];
+    if (isFallback) cls.push('vk-single-fallback');
+    else cls.push('vk-active');
+    return (
+      <span className={cls.join(' ')}>
+        {label.glyph ? (
+          <GlyphSvg glyph={layout.glyphs[label.glyph]} />
+        ) : (
+          label.text
+        )}
+      </span>
+    );
+  };
+
   const renderKey = (def: KeyDef, inStrip = false) => {
     const modState = def.modifier
       ? engine.getModifierState(def.modifier)
@@ -485,31 +517,33 @@ export function VirtualKeyboard({
         }
       >
         <span className="vk-keycap" aria-hidden="true">
-          {layout.layers.map((layer, layerIdx) => {
-            const label = def.labels[layerIdx];
-            if (!label) return null;
-            if (
-              compact &&
-              layer !== baseLayer &&
-              layer.id !== visibleSecondaryId
-            )
-              return null;
-            const cls = [
-              'vk-label',
-              `vk-pos-${layer.position}`,
-              `vk-layer-${layer.id}`,
-            ];
-            if (layer.id === highlightLayerId) cls.push('vk-active');
-            return (
-              <span key={layer.id} className={cls.join(' ')}>
-                {label.glyph ? (
-                  <GlyphSvg glyph={layout.glyphs[label.glyph]} />
-                ) : (
-                  label.text
-                )}
-              </span>
-            );
-          })}
+          {keyDisplay === 'compact' && !inStrip
+            ? renderSingleLabel(def)
+            : layout.layers.map((layer, layerIdx) => {
+                const label = def.labels[layerIdx];
+                if (!label) return null;
+                if (
+                  compact &&
+                  layer !== baseLayer &&
+                  layer.id !== visibleSecondaryId
+                )
+                  return null;
+                const cls = [
+                  'vk-label',
+                  `vk-pos-${layer.position}`,
+                  `vk-layer-${layer.id}`,
+                ];
+                if (layer.id === highlightLayerId) cls.push('vk-active');
+                return (
+                  <span key={layer.id} className={cls.join(' ')}>
+                    {label.glyph ? (
+                      <GlyphSvg glyph={layout.glyphs[label.glyph]} />
+                    ) : (
+                      label.text
+                    )}
+                  </span>
+                );
+              })}
         </span>
       </div>
     );
@@ -520,7 +554,7 @@ export function VirtualKeyboard({
   return (
     <div
       ref={containerRef}
-      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}`}
+      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${keyDisplay === 'compact' ? ' vk-single' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}`}
       role="group"
       aria-label={`${layout.name} on-screen keyboard`}
       tabIndex={0}

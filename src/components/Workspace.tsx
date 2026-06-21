@@ -91,6 +91,7 @@ export function Workspace() {
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
+  const keyboardKeyDisplay = useIdeStore((s) => s.keyboardKeyDisplay);
 
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -260,6 +261,7 @@ export function Workspace() {
             enabled={routeToEditor || emulatorStatus === 'running'}
             sound={keyboardSound}
             haptics={keyboardHaptics}
+            keyDisplay={keyboardKeyDisplay}
           />
         </div>
       )}

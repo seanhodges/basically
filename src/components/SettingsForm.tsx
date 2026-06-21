@@ -19,6 +19,8 @@ export function SettingsForm() {
   const setKeyboardSound = useIdeStore((s) => s.setKeyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
   const setKeyboardHaptics = useIdeStore((s) => s.setKeyboardHaptics);
+  const keyboardKeyDisplay = useIdeStore((s) => s.keyboardKeyDisplay);
+  const setKeyboardKeyDisplay = useIdeStore((s) => s.setKeyboardKeyDisplay);
   const emulatorSpeed = useIdeStore((s) => s.emulatorSpeed);
   const setEmulatorSpeed = useIdeStore((s) => s.setEmulatorSpeed);
   const [key, setKey] = useState(getApiKey());
@@ -91,6 +93,18 @@ export function SettingsForm() {
           onChange={(e) => setVirtualKeyboard(e.target.checked)}
         />
         Show virtual keyboard
+      </label>
+      <label className={styles.inline}>
+        Key layout
+        <select
+          value={keyboardKeyDisplay}
+          onChange={(e) =>
+            setKeyboardKeyDisplay(e.target.value as 'authentic' | 'compact')
+          }
+        >
+          <option value="authentic">Authentic</option>
+          <option value="compact">Compact</option>
+        </select>
       </label>
       <label className={styles.inline}>
         <input

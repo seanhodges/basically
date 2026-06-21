@@ -22,6 +22,7 @@ const KEYS = {
   virtualKeyboard: 'mbide.virtualKeyboard',
   keyboardSound: 'mbide.keyboardSound',
   keyboardHaptics: 'mbide.keyboardHaptics',
+  keyboardKeyDisplay: 'mbide.keyboardKeyDisplay',
 } as const;
 
 export const DEFAULT_LINE_INCREMENT = 10;
@@ -107,6 +108,16 @@ export function getKeyboardHaptics(): boolean {
 
 export function setKeyboardHaptics(on: boolean): void {
   localStorage.setItem(KEYS.keyboardHaptics, on ? 'true' : 'false');
+}
+
+export function getKeyboardKeyDisplay(): 'authentic' | 'compact' {
+  return localStorage.getItem(KEYS.keyboardKeyDisplay) === 'compact'
+    ? 'compact'
+    : 'authentic'; // default authentic
+}
+
+export function setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void {
+  localStorage.setItem(KEYS.keyboardKeyDisplay, v);
 }
 
 export function getSplitRatio(): number {
