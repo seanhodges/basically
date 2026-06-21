@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { AiProvider, StreamHandle, StreamOptions } from './types';
+import type { ProviderBackend, StreamHandle, StreamOptions } from './types';
 
 /**
  * Stream a chat completion from the Claude API directly from the browser.
@@ -51,15 +51,4 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export const anthropicProvider: AiProvider = {
-  id: 'anthropic',
-  label: 'Anthropic (Claude)',
-  defaultModel: 'claude-opus-4-8',
-  apiKeyStorageKey: 'mbide.anthropicApiKey',
-  keyPlaceholder: 'sk-ant-…',
-  consoleUrl: 'https://platform.claude.com/',
-  consoleLabel: 'platform.claude.com',
-  apiHost: 'api.anthropic.com',
-  streamChat,
-  describeError,
-};
+export const anthropicBackend: ProviderBackend = { streamChat, describeError };

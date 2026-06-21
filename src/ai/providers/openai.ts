@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { AiProvider, StreamHandle, StreamOptions } from './types';
+import type { ProviderBackend, StreamHandle, StreamOptions } from './types';
 
 /**
  * Stream a chat completion from the OpenAI API directly from the browser.
@@ -56,15 +56,4 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export const openaiProvider: AiProvider = {
-  id: 'openai',
-  label: 'OpenAI (GPT)',
-  defaultModel: 'gpt-4o',
-  apiKeyStorageKey: 'mbide.openaiApiKey',
-  keyPlaceholder: 'sk-…',
-  consoleUrl: 'https://platform.openai.com/api-keys',
-  consoleLabel: 'platform.openai.com',
-  apiHost: 'api.openai.com',
-  streamChat,
-  describeError,
-};
+export const openaiBackend: ProviderBackend = { streamChat, describeError };

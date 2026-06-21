@@ -15,7 +15,7 @@ export type PersistedMessage = ChatMessage & { incomplete?: boolean };
 
 const KEYS = {
   // Per-provider API keys are owned by the provider registry
-  // (`AiProvider.apiKeyStorageKey`), not listed here.
+  // (`ProviderMeta.apiKeyStorageKey`), not listed here.
   aiProvider: 'mbide.aiProvider',
   autosaveDoc: 'mbide.autosave.doc',
   autosaveName: 'mbide.autosave.name',

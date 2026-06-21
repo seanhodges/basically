@@ -1,7 +1,7 @@
 import { GoogleGenAI, ApiError, type Content } from '@google/genai';
 import type {
-  AiProvider,
   ChatMessage,
+  ProviderBackend,
   StreamHandle,
   StreamOptions,
 } from './types';
@@ -73,15 +73,4 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export const geminiProvider: AiProvider = {
-  id: 'gemini',
-  label: 'Google (Gemini)',
-  defaultModel: 'gemini-2.0-flash',
-  apiKeyStorageKey: 'mbide.geminiApiKey',
-  keyPlaceholder: 'AIza…',
-  consoleUrl: 'https://aistudio.google.com/apikey',
-  consoleLabel: 'aistudio.google.com',
-  apiHost: 'generativelanguage.googleapis.com',
-  streamChat,
-  describeError,
-};
+export const geminiBackend: ProviderBackend = { streamChat, describeError };

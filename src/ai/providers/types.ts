@@ -28,10 +28,11 @@ export interface StreamOptions {
 }
 
 /**
- * A pluggable AI backend: UI/runtime metadata plus the two behaviours the app
- * relies on (stream a completion, turn an error into a friendly message).
+ * Synchronous, SDK-free metadata for a backend. Lives in the main bundle (the
+ * settings dropdown and key storage need it eagerly); the heavy SDK code is
+ * kept out of here and loaded on demand — see `ProviderBackend`.
  */
-export interface AiProvider {
+export interface ProviderMeta {
   id: AiProviderId;
   /** Human label for the settings selector. */
   label: string;
@@ -46,6 +47,14 @@ export interface AiProvider {
   consoleLabel: string;
   /** Host the key is sent to (shown in the privacy warning). */
   apiHost: string;
+}
+
+/**
+ * The SDK-backed behaviour of a provider: stream a completion and turn an error
+ * into a friendly message. Each implementation pulls in its vendor SDK, so it
+ * is imported lazily (dynamic `import()`) by `../aiClient` only when selected.
+ */
+export interface ProviderBackend {
   streamChat(
     opts: StreamOptions,
     onText: (delta: string) => void,
