@@ -79,6 +79,18 @@ describe('Zx81Machine', () => {
     expect(byName['I']).toMatchObject({ kind: 'number' });
   });
 
+  it('disposes idempotently and stays inert afterwards', () => {
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n');
+    machine.loadProgram(buildPFile(bytes));
+    machine.dispose();
+    // Releasing keys / disposing again must not throw.
+    expect(() => {
+      machine.releaseAllKeys();
+      machine.dispose();
+    }).not.toThrow();
+  });
+
   it('responds to emulated keypresses', () => {
     const machine = new Zx81Machine({ rom, ramKb: 16 });
     const src = '10 IF INKEY$="" THEN GOTO 10\n20 PRINT "KEY ";INKEY$\n';

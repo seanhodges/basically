@@ -77,7 +77,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const machineRef = useRef<MachineEmulator | null>(null);
   const frameHookRef = useRef<(() => void) | null>(null);
   const rafRef = useRef(0);
+  // Set true the moment a (re)start kicks off; the first rendered frame clears
+  // both it and the loading overlay (see startLoop / the run + reset effects).
+  const firstFrameRef = useRef(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
   const [scale, setScale] = useState(1);
 
@@ -85,6 +89,24 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     cancelAnimationFrame(rafRef.current);
     rafRef.current = 0;
   }, []);
+
+  // Blank the preview so a freshly-started emulator never inherits the previous
+  // machine's last frame. clearRect exposes the canvas's white CSS background.
+  const clearCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  // Let the browser paint at least once. Used to surface the loading overlay
+  // before a synchronous ROM boot (loadProgram) blocks the main thread.
+  const nextPaint = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+    [],
+  );
 
   const startLoop = useCallback(() => {
     stopLoop();
@@ -95,7 +117,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         machine.runFrame();
         frameHookRef.current?.(); // virtual-keyboard frame-counted releases
         const ctx = canvas.getContext('2d');
-        if (ctx) machine.renderTo(ctx);
+        if (ctx) {
+          machine.renderTo(ctx);
+          // The emulator has started rendering: drop the loading overlay.
+          if (firstFrameRef.current) {
+            firstFrameRef.current = false;
+            setLoading(false);
+          }
+        }
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -126,15 +155,22 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           setError('Program is empty');
           return;
         }
+        setLoading(true);
         const machine = await ensureMachine();
         if (cancelled) return;
         stopLoop();
-        machine.loadProgram(result.image); // includes boot, may take ~200ms
+        // loadProgram boots the ROM synchronously (~200ms on the Z80 machines),
+        // blocking the main thread — paint the overlay first so it is visible.
+        await nextPaint();
+        if (cancelled) return;
+        machine.loadProgram(result.image);
         machine.setSpeed(speed);
+        firstFrameRef.current = true; // the next rendered frame hides the overlay
         setEmulatorStatus('running');
         startLoop();
         canvasRef.current?.focus();
       } catch (e) {
+        setLoading(false);
         setError(e instanceof Error ? e.message : String(e));
       }
     })();
@@ -149,6 +185,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     if (stopRequest === 0) return;
     stopLoop();
     machineRef.current?.releaseAllKeys(); // nothing stays held while paused
+    firstFrameRef.current = false;
+    setLoading(false);
     setEmulatorStatus('stopped');
   }, [stopRequest, stopLoop, setEmulatorStatus]);
 
@@ -159,14 +197,17 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     (async () => {
       setError('');
       try {
+        setLoading(true);
         const machine = await ensureMachine();
         if (cancelled) return;
         machine.releaseAllKeys();
         machine.reset();
+        firstFrameRef.current = true; // the next rendered frame hides the overlay
         setEmulatorStatus('running');
         startLoop();
         canvasRef.current?.focus();
       } catch (e) {
+        setLoading(false);
         setError(e instanceof Error ? e.message : String(e));
       }
     })();
@@ -194,8 +235,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
+    clearCanvas(); // drop the old machine's last frame; next run starts fresh
+    firstFrameRef.current = false;
+    setLoading(false);
     setError('');
-  }, [dialect, stopLoop]);
+  }, [dialect, stopLoop, clearCanvas]);
 
   // Backgrounding pauses the rAF loop; clear the matrix so no key stays held.
   useEffect(() => {
@@ -304,6 +348,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           }}
           onBlur={() => setFocused(false)}
         />
+        {loading && (
+          <div className={styles.loadingOverlay}>Emulator loading…</div>
+        )}
       </div>
       {/* The status notice only matters when grabbing input from a physical
           keyboard (Esc-to-release / click-to-type). On touch it just wastes a

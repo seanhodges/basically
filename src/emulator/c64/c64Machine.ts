@@ -489,6 +489,13 @@ export class C64Machine implements MachineEmulator {
     this.disposed = true;
     this.loadGeneration++;
     this.clearKeys();
+    // Release the whole viciious machine (CPU/VIC/SID/CIAs/RAM/ROMs) and the
+    // render scratch canvas now rather than waiting on GC. Every method that
+    // touches `c64` already guards on `disposed`/`!c64`, and the run loop is
+    // stopped before dispose, so dropping it here is safe.
+    this.c64 = null;
+    this.backCanvas = null;
+    this.backImageData = null;
   }
 }
 
