@@ -136,12 +136,15 @@ The heart of the 128K work. Extend the 48K machine wiring rather than forking it
       assert on display memory; a second test exercises a `PLAY`/paging program.
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
-**Verify:** emulator boot test passes. _Note:_ the paging, dual-ROM, AY
-register-file and shadow-screen logic are covered by ROM-free unit tests
-(`memory128.test.ts`, `ay.test.ts`); the menu/boot/`LOAD`-trap path in
-`spectrum128Machine.test.ts` only runs once a real 32K `zxspectrum128.rom` is
-present (it `describe.skip`s otherwise), so that path needs a hardware-ROM run
-to confirm the 128-menu navigation and 128-BASIC `LOAD ""` sequence.
+**Verify:** emulator boot test passes — confirmed against the real 32K
+`public/roms/zxspectrum128.rom`. The boot path drives the 128K menu to
+"128 BASIC" (reading the highlighted item off-screen), types `LOAD ""` to
+flash-load through the ROM-gated `0x0556` trap, then types `RUN` as a direct
+command. The 128 full-screen editor renders its menu/listing with the 48 BASIC
+font (file offset `0x7C00`) and redraws the listing on every keypress, dropping
+keys typed mid-redraw — so `RUN` is typed with a wide inter-key gap. Paging,
+dual-ROM, AY register-file and shadow-screen logic also have ROM-free unit tests
+(`memory128.test.ts`, `ay.test.ts`).
 
 ## Stage 3 — Wire-up: keyboard + samples + register ✅
 

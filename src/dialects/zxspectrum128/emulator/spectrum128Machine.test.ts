@@ -9,11 +9,15 @@ const ROM_PATH = join(__dirname, '../../../../public/roms/zxspectrum128.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 
-/** Map each ROM 0 font glyph (8 bytes) to its char code, for OCR of the screen. */
+/**
+ * Map each ROM font glyph (8 bytes) to its char code, for OCR of the screen. The
+ * 128 BASIC editor renders text with the 48 BASIC font, which lives at 0x3C00
+ * within ROM 1 — file offset 0x4000 + 0x3C00.
+ */
 function fontSignatures(): Map<string, number> {
   const map = new Map<string, number>();
   for (let c = 32; c <= 127; c++) {
-    const base = 0x3c00 + c * 8; // 128 editor ROM (bank 0) font origin
+    const base = 0x4000 + 0x3c00 + c * 8;
     const sig = Array.from({ length: 8 }, (_, i) => rom[base + i]!).join(',');
     if (!map.has(sig)) map.set(sig, c);
   }
@@ -85,5 +89,52 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     );
     expect(byName['A']).toMatchObject({ kind: 'number', value: '5' });
     expect(byName['B$']).toMatchObject({ kind: 'string', value: '"HI"' });
+  });
+
+  it('reports a runtime error after a buggy program', () => {
+    const machine = new Spectrum128Machine({ rom });
+    // Reading an undefined variable is report 2 ("Variable not found").
+    const { bytes } = tokenizeProgram('10 PRINT a\n');
+    machine.loadProgram(buildTap(bytes));
+    for (let i = 0; i < 60; i++) machine.runFrame();
+    const report = machine.readReport();
+    expect(report.isError).toBe(true);
+    expect(report.code).toBe('2');
+  });
+
+  it('pages RAM banks 0-7 and reads them back over the 0xC000 window', () => {
+    const machine = new Spectrum128Machine({ rom });
+    machine.reset();
+    for (let bank = 0; bank < 8; bank++) {
+      machine.mem.writePort7ffd(bank);
+      machine.mem.write(0xc000, 0xa0 + bank);
+    }
+    for (let bank = 0; bank < 8; bank++) {
+      machine.mem.writePort7ffd(bank);
+      expect(machine.mem.read(0xc000)).toBe(0xa0 + bank);
+    }
+  });
+
+  it('steps through a loop and pauses at a breakpoint', () => {
+    const machine = new Spectrum128Machine({ rom });
+    const src = '10 FOR i=1 TO 1000\n20 LET a=i\n30 NEXT i\n';
+    const { bytes, errors } = tokenizeProgram(src);
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildTap(bytes));
+    const line = machine.currentLine();
+    expect(line === 10 || line === 20 || line === 30).toBe(true);
+    let hit: { paused: boolean; line: number | null } | null = null;
+    for (let i = 0; i < 5000; i++) {
+      const res = machine.debugStep({
+        breakpoints: new Set([20]),
+        mode: 'run',
+        fromLine: null,
+      });
+      if (res.paused) {
+        hit = res;
+        break;
+      }
+    }
+    expect(hit).toEqual({ paused: true, line: 20 });
   });
 });

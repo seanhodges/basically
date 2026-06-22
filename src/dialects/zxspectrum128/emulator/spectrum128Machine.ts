@@ -20,7 +20,18 @@ const TSTATES_PER_FRAME = 70908; // 3.5469MHz / ~50.02Hz (128K ULA frame)
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 400; // the 128 menu takes longer than the 48K prompt
 const LD_BYTES = 0x0556; // 48 BASIC ROM tape-loader entry; trapped for flash loading
-const FONT_ORIGIN = 0x3c00; // ROM font: glyph for char code c at FONT_ORIGIN + c*8
+// The 128 menu (drawn by ROM 0) renders text with the 48 BASIC font, which sits
+// at 0x3C00 within ROM 1 — i.e. file offset 0x4000 + 0x3C00. Glyph for char code
+// c is at FONT_ORIGIN + c*8.
+const FONT_ORIGIN = 0x4000 + 0x3c00;
+/** The 128K/+2 boot-menu item labels, used to locate and select an entry. */
+const MENU_ITEMS = [
+  'TAPE LOADER',
+  '128 BASIC',
+  'CALCULATOR',
+  '48 BASIC',
+  'TAPE TESTER',
+];
 
 /**
  * The ZX Spectrum 128K / +2: the 48K machine extended with paged memory, a dual
@@ -212,17 +223,23 @@ export class Spectrum128Machine implements MachineEmulator {
     throw new Error('ZX Spectrum 128K ROM did not boot — emulator bug');
   }
 
-  /** Hold a key chord for a few frames, then release it. */
-  private tapKeys(codes: string[], holdFrames = 4): void {
+  /** Hold a key chord for a few frames, then release it and idle for `gap`. */
+  private tapKeys(codes: string[], holdFrames = 4, gap = 4): void {
     for (const c of codes) this.keyboard.setKey(c, true);
     for (let i = 0; i < holdFrames; i++) this.runFrame();
     for (const c of codes) this.keyboard.setKey(c, false);
-    for (let i = 0; i < 4; i++) this.runFrame();
+    for (let i = 0; i < gap; i++) this.runFrame();
   }
 
-  /** Type a run of letter keys (e.g. a keyword) one at a time. */
-  private typeLetters(word: string): void {
-    for (const ch of word.toUpperCase()) this.tapKeys([`Key${ch}`]);
+  /**
+   * Type a run of letter keys (e.g. a keyword) one at a time. When a program is
+   * listed, the 128 BASIC editor redraws the listing on every keypress and drops
+   * keys pressed mid-redraw, so each letter is given a long idle gap (the redraw
+   * only ever covers the visible 22 lines, so a fixed gap is enough at any
+   * program size). On a fresh editor the gap is harmless.
+   */
+  private typeLetters(word: string, gap = 4): void {
+    for (const ch of word.toUpperCase()) this.tapKeys([`Key${ch}`], 4, gap);
   }
 
   /** Glyph-code lookup table built from the paged-in ROM font, for screen OCR. */
@@ -265,19 +282,20 @@ export class Spectrum128Machine implements MachineEmulator {
   }
 
   /**
-   * Drive the 128K boot menu to "128 BASIC". The menu highlights the selected
-   * item with a non-default paper colour, so rather than assume a fixed key
-   * count we read the highlighted row off the screen and step the cursor toward
-   * the row whose text is "128 BASIC" (the 128K/+2 menu only — the +2A/+3 add a
-   * different layout, out of scope for this 32K-ROM build). Falls back to a
-   * plain ENTER if the menu can't be read (e.g. an unexpected ROM revision).
+   * Drive the 128K boot menu to a named item ("128 BASIC"). Each menu item is
+   * drawn in its own attribute colour and the selected one is highlighted with a
+   * different paper, so rather than assume a fixed key count we read the item
+   * rows off the screen, find the highlighted one (its paper is unique among the
+   * items) and step the cursor toward the target row (the 128K/+2 menu only —
+   * the +2A/+3 add a different layout, out of scope for this 32K-ROM build).
+   * Falls back to a plain ENTER if the menu can't be read.
    */
   private enterMenuItem(label: string): void {
     const sigs = this.fontSignatures();
     for (let attempt = 0; attempt < 12; attempt++) {
-      const rows = this.menuRows(sigs);
-      const target = rows.find((r) => r.text.includes(label));
-      const current = rows.find((r) => r.highlighted);
+      const items = this.menuItemRows(sigs);
+      const target = items.find((r) => r.text.includes(label.toUpperCase()));
+      const current = this.selectedItem(items);
       if (!target || !current) break; // menu not legible — fall through to ENTER
       if (current.row === target.row) break;
       // Cursor down = CAPS SHIFT + 6, up = CAPS SHIFT + 7.
@@ -291,32 +309,43 @@ export class Spectrum128Machine implements MachineEmulator {
   }
 
   /**
-   * The menu's text rows: each row that carries text, its trimmed label, and
-   * whether it is highlighted (its paper colour differs from the screen
-   * background's). Used by enterMenuItem to find and reach an item.
+   * The boot-menu item rows: each screen row whose text matches a known menu
+   * label, with the paper colour it is drawn in (read just inside the menu box).
    */
-  private menuRows(
+  private menuItemRows(
     sigs: Map<string, number>,
-  ): { row: number; text: string; highlighted: boolean }[] {
+  ): { row: number; text: string; paper: number }[] {
+    const out: { row: number; text: string; paper: number }[] = [];
     const bgPaper = (this.memory.readScreen(0x5800) >> 3) & 0x07;
-    const out: { row: number; text: string; highlighted: boolean }[] = [];
     for (let row = 0; row < 24; row++) {
-      const text = this.readScreenText(sigs, row, 0, 32).trim();
-      if (text.length === 0) continue;
-      // Inspect the attribute paper across the row; a highlighted item differs.
-      let highlighted = false;
+      const text = this.readScreenText(sigs, row, 0, 32).trim().toUpperCase();
+      if (!MENU_ITEMS.some((label) => text.includes(label))) continue;
+      // The item's paper is the first cell on the row whose paper differs from
+      // the screen background (the highlighted item differs; others match it).
+      let paper = bgPaper;
       for (let xb = 0; xb < 32; xb++) {
-        const paper =
-          (this.memory.readScreen(0x5800 + row * 32 + xb) >> 3) & 0x07;
-        if (paper !== bgPaper) {
-          highlighted = true;
+        const p = (this.memory.readScreen(0x5800 + row * 32 + xb) >> 3) & 0x07;
+        if (p !== bgPaper) {
+          paper = p;
           break;
         }
       }
-      out.push({ row, text, highlighted });
+      out.push({ row, text, paper });
     }
     return out;
   }
+
+  /** The selected menu item: the one whose paper colour is unique among items. */
+  private selectedItem(
+    items: { row: number; text: string; paper: number }[],
+  ): { row: number; text: string; paper: number } | undefined {
+    return items.find(
+      (it) => items.filter((o) => o.paper === it.paper).length === 1,
+    );
+  }
+
+  /** Idle gap (frames) between keystrokes typed into a redrawn 128 listing. */
+  private static readonly EDITOR_KEY_GAP = 48;
 
   loadProgram(image: Uint8Array): void {
     this.reset();
@@ -325,27 +354,33 @@ export class Spectrum128Machine implements MachineEmulator {
     this.enterMenuItem('128 BASIC');
     for (let i = 0; i < 40; i++) this.runFrame(); // let the editor come up
 
-    // Inject without an auto-start line, then drive RUN: the LOAD-with-LINE
-    // auto-run path skips the CLEAR that sets up the variable/stack pointers,
-    // whereas RUN performs it, so variables behave correctly.
+    // Inject without an auto-start line and drive RUN: the LOAD-with-LINE
+    // auto-run path does a GO TO rather than a RUN, so it skips the CLEAR that
+    // sets up the variable pointers and the variables area reads back wrong.
     const { program } = parseTap(image);
     const { header, data } = parseTap(buildTap(program, { autoStart: null }));
     this.pending = { header, data };
     // In 128 BASIC keywords are typed out in full (no single-key entry): type
-    // LOAD then two SYMBOL SHIFT+P quotes, then ENTER.
+    // LOAD then two SYMBOL SHIFT+P quotes on the fresh editor (no listing yet,
+    // so the normal gap is fine), then ENTER to load.
     this.typeLetters('LOAD');
     this.tapKeys(['SymShift', 'KeyP']);
     this.tapKeys(['SymShift', 'KeyP']);
-    this.tapKeys(['Enter']);
+    this.tapKeys(['Enter'], 2);
     for (let i = 0; i < 200 && this.pending; i++) this.runFrame();
     if (this.pending) {
       this.pending = null;
       throw new Error('ZX Spectrum 128K ROM never reached the LOAD trap');
     }
-    // Start with a proper RUN. The ENTER that submits it is released quickly so
-    // it is no longer held when the program's first statement runs — otherwise
-    // an opening INKEY$ would read the ENTER key instead of "".
-    this.typeLetters('RUN');
+    // The load leaves a "0 OK" report; ENTER dismisses it and lists the loaded
+    // program. Then type RUN as a direct command (slow gap — see typeLetters)
+    // and ENTER. The submitting ENTER is released quickly so it is not still
+    // held when the program's first statement runs (an opening INKEY$ would
+    // otherwise read ENTER instead of "").
+    for (let i = 0; i < 30; i++) this.runFrame();
+    this.tapKeys(['Enter']);
+    for (let i = 0; i < 20; i++) this.runFrame();
+    this.typeLetters('RUN', Spectrum128Machine.EDITOR_KEY_GAP);
     this.tapKeys(['Enter'], 2);
     for (let i = 0; i < 12; i++) this.runFrame();
   }
