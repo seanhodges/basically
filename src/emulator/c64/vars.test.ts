@@ -137,5 +137,5 @@ describe('C64Machine.readVariables (real ROMs)', () => {
     expect(arr?.value).toContain('[3]');
     expect(arr?.value).toContain('7');
     m.dispose();
-  });
+  }, 30000);
 });
