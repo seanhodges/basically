@@ -88,3 +88,17 @@ Each machine uses its own tape encoding:
   block boundaries and reject noise. Code:
   `src/dialects/bbcmicro/audio/cassette{Encoder,Decoder}.ts` (shared by both BBC
   dialects).
+- **Acorn Atom** — the Acorn cassette filing system over Kansas City Standard
+  FSK, but at **300 baud**: `0` = four 1200 Hz cycles, `1` = eight 2400 Hz
+  cycles, each byte framed 8N1 (start `0`, 8 data bits LSB-first, stop `1`) with
+  a 2400 Hz carrier leading in and between blocks. The program is split into
+  ≤256-byte blocks, each four `*` (0x2A) sync bytes then a header (filename +
+  `0x0D`, flag, block number, data length−1, exec address, load address — the
+  addresses big-endian), the data, and a single checksum byte (a plain sum mod
+  256 over the header and data). The flag's bit 7 is set on every block except
+  the last. The decoder classifies half-cycles relative to the carrier and uses
+  the checksum to find block boundaries and reject noise. Code:
+  `src/dialects/atom/audio/cassette{Encoder,Decoder}.ts`. The Atom also exports /
+  imports a native `.atm` binary (the de-facto emulator format: a 22-byte header
+  of name + load + exec + length, then the `#2900` program image); see
+  `src/dialects/atom/atm.ts`.
