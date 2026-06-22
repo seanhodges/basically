@@ -1,20 +1,15 @@
-import type { TokenizeError } from '../types';
+import { tokenizeProgram as tokenizeSpectrum } from '../zxspectrum/tokenizer';
+import { spectrum128Keywords } from './keywords';
 
-export interface TokenizedProgram {
-  /** Tokenized BASIC program bytes (no system variables), mirroring the 48K. */
-  bytes: Uint8Array;
-  errors: TokenizeError[];
-}
+export type { TokenizedProgram } from '../zxspectrum/tokenizer';
 
 /**
- * Stub — filled in by Stage 1 of docs/dialect-plans/zxspectrum128.md.
- *
- * The 128 BASIC tokenizer is the 48K Spectrum tokenizer plus the SPECTRUM
- * (0xA3) and PLAY (0xA4) keywords. Stage 1 should parameterize
- * ../zxspectrum/tokenizer.ts by keyword table (default = spectrumKeywords,
- * backward-compatible) rather than copy the logic. Collect TokenizeError[]
- * (1-based line, 0-based column); do not throw.
+ * The 128 BASIC tokenizer is the 48K Spectrum tokenizer driven by the extended
+ * keyword table (the 48K set plus SPECTRUM (0xA3) and PLAY (0xA4)). The shared
+ * logic in ../zxspectrum/tokenizer.ts is parameterized by keyword table, so
+ * this is a thin binding rather than a copy. Errors are collected, not thrown.
+ * See docs/dialect-plans/zxspectrum128.md.
  */
-export function tokenizeProgram(_source: string): TokenizedProgram {
-  throw new Error('zxspectrum128: tokenizer not implemented');
+export function tokenizeProgram(source: string) {
+  return tokenizeSpectrum(source, spectrum128Keywords);
 }
