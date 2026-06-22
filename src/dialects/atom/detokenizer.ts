@@ -1,4 +1,5 @@
 import { atomCharset } from './charset';
+import { stripAtmHeader } from './atm';
 
 /**
  * Convert an Atom BASIC program image (the `#2900` in-memory layout produced by
@@ -7,8 +8,12 @@ import { atomCharset } from './charset';
  * ends with `0D FF`. Bodies are stored verbatim, so this is a faithful inverse
  * of the tokenizer: line number as decimal digits followed by the body mapped
  * back through the charset.
+ *
+ * Accepts either a bare `#2900` image or a full `.atm` file (header + data);
+ * {@link stripAtmHeader} unwraps the latter, so it drives the `.atm` import too.
  */
-export function detokenizeProgram(image: Uint8Array): string {
+export function detokenizeProgram(file: Uint8Array): string {
+  const image = stripAtmHeader(file);
   const lines: string[] = [];
   let p = 0;
 

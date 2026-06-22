@@ -4,6 +4,11 @@ import { atomKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { atomBuildTargets } from './targets';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+} from './audio/cassetteEncoder';
+import { decodeCassette } from './audio/cassetteDecoder';
 import { atomLanguageSupport, atomCompletionSource } from './language';
 import { atomAiProfile } from './aiProfile';
 import { atomKeyboardLayout } from './keyboardLayout';
@@ -56,5 +61,22 @@ export const atom: Dialect = {
   keyboardLayout: atomKeyboardLayout,
   samples: atomSamples,
   buildTargets: atomBuildTargets,
+
+  binaryImports: [{ extension: '.atm', label: 'Import .ATM…' }],
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the Atom type LOAD"" (or *LOAD"") and press RETURN before starting playback; when the > prompt returns type RUN.',
+    decodeSamples: (samples, sampleRate) => {
+      const { name, data } = decodeCassette(samples, sampleRate);
+      return { programName: name, source: detokenizeProgram(data) };
+    },
+    saveInstructions:
+      'On the Atom type SAVE"NAME" and press RETURN; the tape tone plays from the cassette port. Feed it into this device, then start listening.',
+  },
+
   aiProfile: atomAiProfile,
 };
