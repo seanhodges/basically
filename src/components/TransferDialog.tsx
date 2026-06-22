@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
-import { downloadBlob } from '../storage/files';
+import {
+  downloadBlob,
+  saveTextFile,
+  programNameFromFileName,
+} from '../storage/files';
 import { samplesToWav } from '../transfer/wav';
 import { playSamples, type AudioPlayback } from '../transfer/audioPlayer';
 import { sendOverSerial, webSerialSupported } from '../transfer/webserial';
@@ -13,10 +17,9 @@ export function TransferDialog() {
   const source = useIdeStore((s) => s.source);
   const fileName = useIdeStore((s) => s.fileName);
   const dialect = useIdeStore((s) => s.dialect);
+  const dirty = useIdeStore((s) => s.dirty);
+  const markSaved = useIdeStore((s) => s.markSaved);
 
-  const defaultName =
-    fileName.replace(/\.[^.]*$/, '').toUpperCase() || 'PROGRAM';
-  const [name, setName] = useState(defaultName);
   const [robust, setRobust] = useState(false);
   const [status, setStatus] = useState('');
   const [playing, setPlaying] = useState(false);
@@ -31,7 +34,18 @@ export function TransferDialog() {
     );
   };
 
-  const baseName = name.trim() || 'PROGRAM';
+  // The tape header / program name is inferred from the saved filename. The
+  // save-first gate below ensures this reflects a real, deliberately-named file.
+  const baseName = programNameFromFileName(fileName);
+  const needsSave = dirty || fileName === 'untitled.bas';
+
+  const saveBas = guard(async () => {
+    const saved = await saveTextFile(fileName, source);
+    if (saved !== null) {
+      markSaved(saved);
+      setStatus(`Saved ${saved}.`);
+    }
+  });
 
   const buildImage = (): Uint8Array => {
     const result = dialect.tokenize(source, { programName: baseName });
@@ -102,16 +116,20 @@ export function TransferDialog() {
     <div className={dialog.modalBackdrop} onClick={() => setOpen(false)}>
       <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
         <h2>Run on real hardware</h2>
-        <label>
-          Program name (tape header)
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value.toUpperCase())}
-            maxLength={10}
-          />
-        </label>
 
-        {dialect.audio && (
+        {needsSave && (
+          <div className={styles.transferGroup}>
+            <p>
+              Save your program to a <code>.bas</code> file before exporting —
+              the tape header name is taken from the filename.
+            </p>
+            <div className={`${dialog.modalActions} ${dialog.left}`}>
+              <button onClick={saveBas}>Save as .bas…</button>
+            </div>
+          </div>
+        )}
+
+        {!needsSave && dialect.audio && (
           <div className={styles.transferGroup}>
             <h3>Cassette audio</h3>
             <p>
@@ -138,30 +156,32 @@ export function TransferDialog() {
           </div>
         )}
 
-        <div className={styles.transferGroup}>
-          <h3>Files &amp; serial</h3>
-          <div className={`${dialog.modalActions} ${dialog.left}`}>
-            {dialect.buildTargets
-              // wav is offered through the cassette section above
-              .filter((t) => !(dialect.audio && t.fileExtension === 'wav'))
-              .map((t) => (
-                <button key={t.id} onClick={runFileTarget(t.id)}>
-                  {t.label}
-                </button>
-              ))}
-            <button
-              onClick={sendSerial}
-              disabled={!webSerialSupported()}
-              title={
-                webSerialSupported()
-                  ? 'Send to a microcontroller bridge (see docs/serial-protocol.md)'
-                  : 'WebSerial needs Chrome or Edge'
-              }
-            >
-              Send via serial bridge
-            </button>
+        {!needsSave && (
+          <div className={styles.transferGroup}>
+            <h3>Files &amp; serial</h3>
+            <div className={`${dialog.modalActions} ${dialog.left}`}>
+              {dialect.buildTargets
+                // wav is offered through the cassette section above
+                .filter((t) => !(dialect.audio && t.fileExtension === 'wav'))
+                .map((t) => (
+                  <button key={t.id} onClick={runFileTarget(t.id)}>
+                    {t.label}
+                  </button>
+                ))}
+              <button
+                onClick={sendSerial}
+                disabled={!webSerialSupported()}
+                title={
+                  webSerialSupported()
+                    ? 'Send to a microcontroller bridge (see docs/serial-protocol.md)'
+                    : 'WebSerial needs Chrome or Edge'
+                }
+              >
+                Send via serial bridge
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {status && <p className={styles.transferStatus}>{status}</p>}
         <div className={dialog.modalActions}>
