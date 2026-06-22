@@ -4,14 +4,18 @@ import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
 import { atomKeywords } from './keywords';
 
-/**
- * Generic CodeMirror language support, driven by the (currently empty) Atom
- * keyword table. STUB — Stage 1 sets the real `BasicLanguageOptions` quirks
- * (hex prefix, indirection operators, dot-abbreviation, etc.).
- */
 export const atomCompletionSource: CompletionSource =
   buildCompletionSource(atomKeywords);
 
 export function atomLanguageSupport(): Extension {
-  return buildBasicLanguage(atomKeywords, atomCompletionSource, {});
+  // Atom quirks: hex literals use a '#' prefix (where the BBC uses '&'); there
+  // are no ZX-style block-graphics escapes; the Atom has no '%'/'$' variable
+  // type suffix (strings are addressed via the '$' prefix operator, not a
+  // suffix). '?' (byte) and '!' (word) indirection read as operators via the
+  // shared operator set.
+  return buildBasicLanguage(atomKeywords, atomCompletionSource, {
+    hexPrefix: '#',
+    graphicsEscapes: false,
+    suffixChars: '',
+  });
 }

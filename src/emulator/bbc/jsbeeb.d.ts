@@ -29,6 +29,8 @@ declare module 'jsbeeb/src/video.js' {
       isMaster: boolean,
       fb32: Uint32Array,
       paint: (minx: number, miny: number, maxx: number, maxy: number) => void,
+      /** `{ isAtom: true }` attaches the MC6847 VDG used by the Acorn Atom. */
+      opts?: { isAtom?: boolean },
     );
     /** True while the ULA is in teletext (mode 7) operation. */
     teletextMode: boolean;
@@ -45,6 +47,7 @@ declare module 'jsbeeb/src/fake6502.js' {
   import type { Model } from 'jsbeeb/src/models.js';
   import type { Video } from 'jsbeeb/src/video.js';
   import type { FakeSoundChip } from 'jsbeeb/src/soundchip.js';
+  import type { AtomPPIA } from 'jsbeeb/src/ppia.js';
 
   export interface SysVia {
     keyDown(jsKeyCode: number, shiftDown: boolean): void;
@@ -70,6 +73,8 @@ declare module 'jsbeeb/src/fake6502.js' {
     readmem(addr: number): number;
     writemem(addr: number, value: number): void;
     readonly sysvia: SysVia;
+    /** The 8255 PPIA keyboard/tape interface — present only on the Atom CPU. */
+    readonly atomppia?: AtomPPIA;
   }
 
   export function fake6502(

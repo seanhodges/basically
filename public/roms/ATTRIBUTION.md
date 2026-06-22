@@ -29,6 +29,10 @@ issue — the IDE also supports supplying your own ROM image at runtime.
 (Acorn DFS 0.9) and `master/mos3.20` (Master MOS 3.20, used only by the
 in-emulator BASIC tokenizer) are copyright © 1981–1986 Acorn Computers Ltd.
 
+`atom/Atom_Kernel.rom` (Acorn Atom kernel/MOS), `atom/Atom_FloatingPoint.rom`
+(the Atom floating-point ROM) and `atom/Atom_Basic.rom` (Atom BASIC) are the
+Acorn Atom ROM set, copyright © 1979–1982 Acorn Computers Ltd.
+
 Unlike the Sinclair ROMs there is no formal blanket permission from the
 rights holder, but these images have been distributed with BBC Micro
 emulators (jsbeeb, BeebEm, b-em, MAME and others) for some thirty years on a
