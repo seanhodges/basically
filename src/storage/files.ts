@@ -13,7 +13,7 @@ interface FilePickerWindow extends Window {
   showSaveFilePicker?(options?: unknown): Promise<FileSystemFileHandle>;
 }
 
-const w = window as FilePickerWindow;
+const w = (typeof window !== 'undefined' ? window : {}) as FilePickerWindow;
 
 export async function openTextFile(
   accept = '.bas,.txt',
@@ -99,6 +99,9 @@ export async function saveTextFile(
     try {
       const handle = await w.showSaveFilePicker({
         suggestedName: name,
+        // Drop the "All Files" option, which maps text/plain to .txt and
+        // silently renames our .bas saves to .bas.txt.
+        excludeAcceptAllOption: true,
         types: [
           { description: 'BASIC source', accept: { 'text/plain': ['.bas'] } },
         ],
@@ -114,6 +117,20 @@ export async function saveTextFile(
   }
   downloadBlob(new Blob([text], { type: 'text/plain' }), name);
   return name;
+}
+
+/**
+ * Derive a cassette/tape program name from a filename: strip the extension,
+ * uppercase, keep at most 10 chars. Per-dialect encoders apply their own final
+ * normalisation (allowed charset, length); this just yields a sensible value.
+ * Falls back to 'PROGRAM' when there is no usable stem (e.g. '' or '.bas').
+ */
+export function programNameFromFileName(fileName: string): string {
+  const stem = fileName
+    .replace(/\.[^.]*$/, '')
+    .trim()
+    .toUpperCase();
+  return stem.slice(0, 10) || 'PROGRAM';
 }
 
 export function downloadBlob(blob: Blob, name: string): void {
