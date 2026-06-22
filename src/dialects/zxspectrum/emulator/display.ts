@@ -1,7 +1,15 @@
-import type { SpectrumMemory } from './memory';
-
 export const DISPLAY_WIDTH = 256; // 32 cells x 8 px
 export const DISPLAY_HEIGHT = 192; // 24 cells x 8 px
+
+/**
+ * The renderer only ever reads display memory, so it takes the minimal byte
+ * source rather than a concrete machine. The 48K passes its SpectrumMemory; the
+ * 128K passes a reader that maps the screen window onto the active bank so the
+ * shadow screen renders (see ../../zxspectrum128/emulator/memory128.ts).
+ */
+export interface DisplayMemory {
+  read(addr: number): number;
+}
 
 const SCREEN_BASE = 0x4000;
 const ATTR_BASE = 0x5800;
@@ -33,7 +41,7 @@ function bitmapAddr(y: number, xb: number): number {
  * toggles every ~16 frames; when set, FLASH cells swap ink and paper.
  */
 export function renderDisplay(
-  memory: SpectrumMemory,
+  memory: DisplayMemory,
   pixels: Uint8ClampedArray,
   flashPhase: boolean,
 ): void {

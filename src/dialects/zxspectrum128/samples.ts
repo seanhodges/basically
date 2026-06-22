@@ -1,9 +1,20 @@
 import type { SampleFile } from '../types';
+import hello from './samples/hello.bas?raw';
+import circles from './samples/circles.bas?raw';
+import breakout from './samples/breakout.bas?raw';
+import maze from './samples/maze.bas?raw';
+import music from './samples/music.bas?raw';
 
 /**
- * Stub — populated in Stage 3 of docs/dialect-plans/zxspectrum128.md with the
- * canonical hello / circles / breakout / maze set in Spectrum BASIC (hello is
- * the starter shown for a fresh document), plus a 128-flavoured sample
- * showcasing PLAY (AY music) and/or BRIGHT/FLASH colour.
+ * ZX Spectrum 128K example programs. The 48K-compatible set is shared with the
+ * 48K dialect (the language is identical); `music.bas` is the 128-flavoured one,
+ * showcasing PLAY on the AY chip plus BRIGHT/FLASH colour. The first is the
+ * starter for a fresh document.
  */
-export const spectrum128Samples: SampleFile[] = [];
+export const spectrum128Samples: SampleFile[] = [
+  { name: 'hello.bas', title: 'Hello world', text: hello },
+  { name: 'music.bas', title: '128 music (PLAY)', text: music },
+  { name: 'circles.bas', title: 'Circles', text: circles },
+  { name: 'breakout.bas', title: 'Breakout', text: breakout },
+  { name: 'maze.bas', title: 'Maze', text: maze },
+];

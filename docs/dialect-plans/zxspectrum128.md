@@ -56,8 +56,8 @@ folder.
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
-| 2     | Emulator core (paging + dual ROM)      | ⬜     |
-| 3     | Wire-up: keyboard + samples + register | ⬜     |
+| 2     | Emulator core (paging + dual ROM)      | ✅     |
+| 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Polish / optional (AY sound, +3 disk)  | ⬜     |
 
@@ -93,7 +93,7 @@ change.
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
 
-## Stage 2 — Emulator core (paging + dual ROM) ⬜
+## Stage 2 — Emulator core (paging + dual ROM) ✅
 
 The heart of the 128K work. Extend the 48K machine wiring rather than forking it.
 
@@ -136,9 +136,17 @@ The heart of the 128K work. Extend the 48K machine wiring rather than forking it
       assert on display memory; a second test exercises a `PLAY`/paging program.
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
-**Verify:** emulator boot test passes.
+**Verify:** emulator boot test passes — confirmed against the real 32K
+`public/roms/zxspectrum128.rom`. The boot path drives the 128K menu to
+"128 BASIC" (reading the highlighted item off-screen), types `LOAD ""` to
+flash-load through the ROM-gated `0x0556` trap, then types `RUN` as a direct
+command. The 128 full-screen editor renders its menu/listing with the 48 BASIC
+font (file offset `0x7C00`) and redraws the listing on every keypress, dropping
+keys typed mid-redraw — so `RUN` is typed with a wide inter-key gap. Paging,
+dual-ROM, AY register-file and shadow-screen logic also have ROM-free unit tests
+(`memory128.test.ts`, `ay.test.ts`).
 
-## Stage 3 — Wire-up: keyboard + samples + register ⬜
+## Stage 3 — Wire-up: keyboard + samples + register ✅
 
 - [ ] `keyboardLayout.ts` — **reused** (the matrix is identical to the 48K). The
       stub re-exports `spectrumKeyboardLayout`; Stage 3 may clone it under a
