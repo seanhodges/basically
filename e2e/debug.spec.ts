@@ -9,8 +9,8 @@ import { test, expect, type Page } from '@playwright/test';
  *  2. The debug session survives an orientation change (a viewport flip that
  *     crosses the mobile/desktop breakpoint) — nothing is lost and Step still
  *     works afterwards.
- *  3. Capability gating — Step/Continue only show for debuggable dialects
- *     (hidden for the Commodore 64); Play/Stop show for every machine.
+ *  3. Capability — every shipped dialect is debuggable, so Step/Continue (and
+ *     Play/Stop) show for the Sinclair, BBC and Commodore machines alike.
  *
  * Run with `npm run e2e` (Chromium is pre-installed in the managed env).
  */
@@ -124,32 +124,20 @@ test('debug session survives an orientation change', async ({ page }) => {
   });
 });
 
-test('Step/Continue are gated to debuggable dialects', async ({ page }) => {
+test('Step/Continue show for every dialect', async ({ page }) => {
   await open(page);
   // The Debug toggle is gone — debugging is always on.
   await expect(page.getByRole('button', { name: 'Debug' })).toHaveCount(0);
 
-  // Default target is the ZX81 — debuggable: Step/Continue are present
-  // (alongside Play/Stop, which every machine gets).
-  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Step' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
-
-  // The Commodore 64 wraps a core that can't single-step: no Step/Continue,
-  // but Play and Stop remain.
-  await page
-    .locator('select.dialect-select')
-    .selectOption({ label: 'Commodore 64' });
-  await expect(page.getByRole('button', { name: 'Step' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Continue' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
-
-  // Switching back to a Sinclair machine brings them back.
-  await page
-    .locator('select.dialect-select')
-    .selectOption({ label: 'Spectrum' });
-  await expect(page.getByRole('button', { name: 'Step' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+  const select = page.locator('select.dialect-select');
+  // Every shipped machine implements the step-through debugger, so all four
+  // controls are present whichever dialect is selected — including the BBC and
+  // Commodore cores, which were the last to gain single-stepping.
+  for (const label of ['ZX81', 'Commodore 64', 'BBC Micro', 'Spectrum']) {
+    await select.selectOption({ label });
+    await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Step' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+  }
 });

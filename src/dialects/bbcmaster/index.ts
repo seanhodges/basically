@@ -64,6 +64,8 @@ export const bbcmaster: Dialect = {
 
   displaySize: { width: BBC_DISPLAY_WIDTH, height: BBC_DISPLAY_HEIGHT },
 
+  debuggable: true,
+
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   createEmulator() {
     return new BbcMachine('Master');

@@ -1,4 +1,6 @@
 import type {
+  DebugStepOptions,
+  DebugStepResult,
   MachineEmulator,
   MachineReport,
   MachineVariable,
@@ -36,6 +38,20 @@ import { attach as tape } from './viciious/target/tape.js';
 
 /** PAL frame: 312 rows × 63 cycles. One {@link runFrame} ticks this many cycles. */
 const CYCLES_PER_FRAME = 63 * 312;
+/**
+ * CBM BASIC's "current line number" (`CURLIN`), a 16-bit LE cell updated as each
+ * program line starts. In direct mode the high byte is `$FF`, so any value above
+ * the highest legal line number (63999) means no program line is executing.
+ */
+const CURLIN = 0x39;
+const MAX_BASIC_LINE = 63999;
+/**
+ * Cycles ticked between line checks in {@link C64Machine.debugStep}. Any BASIC
+ * line takes far more cycles than this to execute, so a transition is never
+ * stepped over; checking on this cadence rather than every cycle keeps the
+ * always-on debugger's per-frame overhead small.
+ */
+const DEBUG_SLICE_CYCLES = 8;
 /** Visible canvas dimensions (the crop viciious's own video host uses). */
 export const C64_DISPLAY_WIDTH = 402;
 export const C64_DISPLAY_HEIGHT = 282;
@@ -336,6 +352,52 @@ export class C64Machine implements MachineEmulator {
       c64.sid.tick();
       c64.tape.tick();
     }
+  }
+
+  /**
+   * The BASIC line currently being executed, read from CBM BASIC's CURLIN cell,
+   * or null when none is (at the READY prompt CURLIN holds the `$FFxx` direct-
+   * mode sentinel). Reads go through the bus, so they are side-effect-free and
+   * need no bank switching — CURLIN sits in always-RAM zero page.
+   */
+  currentLine(): number | null {
+    if (!this.booted || this.injecting || this.disposed || !this.c64) {
+      return null;
+    }
+    const read = (a: number) => this.c64!.wires.cpuRead(a);
+    const line = read(CURLIN) | (read(CURLIN + 1) << 8);
+    return line <= MAX_BASIC_LINE ? line : null;
+  }
+
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    if (!this.booted || this.injecting || this.disposed || !this.c64) {
+      return { paused: false, line: null };
+    }
+    const c64 = this.c64;
+    const budget = Math.round(CYCLES_PER_FRAME * this.speed);
+    // In run mode, ignore breakpoints until execution has left the line we
+    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
+    // the spot but still re-pauses when the loop comes back around.
+    let armed = opts.fromLine === null;
+    for (let i = 0; i < budget; i++) {
+      c64.cpu.tick();
+      c64.vic.tick();
+      c64.cias.tick();
+      c64.sid.tick();
+      c64.tape.tick();
+      if (i % DEBUG_SLICE_CYCLES !== 0) continue;
+      const line = this.currentLine();
+      if (line === null) continue;
+      if (opts.mode === 'step') {
+        if (opts.fromLine === null || line !== opts.fromLine) {
+          return { paused: true, line };
+        }
+      } else {
+        if (!armed && line !== opts.fromLine) armed = true;
+        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
+      }
+    }
+    return { paused: false, line: this.currentLine() };
   }
 
   loadProgram(image: Uint8Array): void {

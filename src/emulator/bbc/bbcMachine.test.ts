@@ -141,4 +141,53 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     expect(machine.displayHeight).toBe(600);
     machine.dispose();
   });
+
+  describe('step-through debugging', () => {
+    // A tight loop whose executing line cycles 20 → 30 → 20, so a breakpoint on
+    // 20 trips almost as soon as the program is running.
+    const LOOP_SRC = '10 FOR I=1 TO 1000\n20 A=I\n30 NEXT I\n';
+
+    async function loadLoop(): Promise<BbcMachine> {
+      const machine = new BbcMachine();
+      const { bytes } = tokenizeProgram(LOOP_SRC);
+      machine.loadProgram(bytes);
+      // Run until execution is inside the loop (a real program line shows up).
+      await runUntil(machine, () => {
+        const line = machine.currentLine();
+        return line === 10 || line === 20 || line === 30;
+      });
+      return machine;
+    }
+
+    /** Drive debugStep slices until one pauses, or give up. */
+    function runToPause(
+      machine: BbcMachine,
+      mode: 'run' | 'step',
+      breakpoints: Set<number>,
+      fromLine: number | null,
+    ) {
+      for (let i = 0; i < 5000; i++) {
+        const res = machine.debugStep({ breakpoints, mode, fromLine });
+        if (res.paused) return res;
+      }
+      throw new Error('debugStep never paused');
+    }
+
+    it('reports a current line inside the running program', async () => {
+      const machine = await loadLoop();
+      const line = machine.currentLine();
+      expect(line === 10 || line === 20 || line === 30).toBe(true);
+      machine.dispose();
+    }, 60000);
+
+    it('pauses at a breakpointed line, then steps to the next', async () => {
+      const machine = await loadLoop();
+      const hit = runToPause(machine, 'run', new Set([20]), null);
+      expect(hit).toEqual({ paused: true, line: 20 });
+      const stepped = runToPause(machine, 'step', new Set(), 20);
+      expect(stepped.paused).toBe(true);
+      expect(stepped.line).toBe(30);
+      machine.dispose();
+    }, 60000);
+  });
 });
