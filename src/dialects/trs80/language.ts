@@ -4,11 +4,16 @@ import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
 import { trs80Keywords } from './keywords';
 
-// Stage 1 will pass BasicLanguageOptions here (suffixChars '$%!#', no hex/binary
-// prefix — Level II has no &H/&B). See docs/dialect-plans/trs80.md.
 export const trs80CompletionSource: CompletionSource =
   buildCompletionSource(trs80Keywords);
 
 export function trs80LanguageSupport(): Extension {
-  return buildBasicLanguage(trs80Keywords, trs80CompletionSource);
+  // Level II variable names are letters/digits with an optional type tag — `$`
+  // string, `%` integer, `!` single, `#` double; only the first two characters
+  // are significant. There are no `&H`/`&B` literals (that is Disk BASIC) and no
+  // block-graphics escapes in source, so both stay off.
+  return buildBasicLanguage(trs80Keywords, trs80CompletionSource, {
+    suffixChars: '$%!#',
+    graphicsEscapes: false,
+  });
 }

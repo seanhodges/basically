@@ -57,74 +57,89 @@
 
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
-| 1     | Language core                          | ⬜     |
-| 2     | Emulator core                          | ⬜     |
+| 1     | Language core                          | ✅     |
+| 2     | Emulator core                          | ✅\*   |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Polish / optional                      | ⬜     |
 
+> \* Stage 2 code is complete; the **ROM asset stays blocked** (copyright
+> Tandy/Microsoft — the user must supply `public/roms/trs80.rom`). The boot test
+> skips cleanly until then, and the boot/sysvar-pointer details still need
+> verification against the real ROM. Registration is deferred to Stage 3.
+
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no emulator, no registry change. Level II BASIC
 is Microsoft BASIC — model the tokenizer on `commodore64/tokenizer.ts` (longest-
 match greedy keyword scan; quotes, `REM`/`'` and `DATA` suspend tokenizing) but
 do **not** import it: the token table and the program base address differ.
 
-- [ ] `keywords.ts` — `KeywordInfo[]` for Level II BASIC. Single-byte tokens in
-      the `0x80–0xFB` range (e.g. `END=0x80`, `FOR=0x81`, `PRINT=0xB2`,
-      `GOTO=0x5D`…). Include the function tokens (the `0xFF`-prefixed two-byte
-      forms: Level II encodes functions like `SIN`/`RND`/`USR`/`PEEK` as
-      `0xFF 0x80…`). Include the `?` → `PRINT` and `'` → `REM` abbreviations.
-      Confirm the table against the real ROM (the keyword table near `0x1650`).
-- [ ] `charset.ts` — `CharsetMapping`. Editor text ↔ TRS-80 codes: ASCII
-      `0x20–0x7F` maps to itself (fold lowercase to upper case for the Model I);
-      provide `toUnicode`/`glyph` for the `0x80–0xBF` 2×3 block-graphics cells
-      (use the ▘▝▖▗▌▐▀▄█ Unicode quadrant/half forms, like the Sinclair charsets).
-- [ ] `language.ts` — `languageSupport()` + `completionSource`. Set
-      `BasicLanguageOptions`: `suffixChars: '$%!#'` (string/int/single/double
-      type tags), `nameChars` `A–Z0–9` (two significant chars), `hexPrefix`/
-      `binaryPrefix` **off** (Level II has no `&H`/`&B` — that is Disk BASIC).
-- [ ] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]` (1-based line,
-      0-based column); do not throw. Linked-line layout from `0x42E8`:
-      `u16 link` + `u16 lineNo (LE)` + body + `0x00`, ending `0x0000`. Multi-
-      statement lines (`:`) are allowed (unlike the Sinclair machines).
-- [ ] image builder — the tokenized program poked at `0x42E8` is the loadable
-      image; `detokenize` parses it back. (Native `.cas` export is Stage 4.)
-- [ ] `lint` wired through `tokenize` (in `index.ts`).
-- [ ] tests: tokenizer round-trip, charset, linked-line pointer consistency
-      (`src/dialects/trs80/tokenizer.test.ts`, `charset.test.ts`).
+- [x] `keywords.ts` — `Trs80Keyword[]` for Level II BASIC. **Single-byte tokens**
+      `0x80`–`0xFA` (e.g. `END=0x80`, `FOR=0x81`, `PRINT=0xB2`, `GOTO=0x8D`).
+      Correction to the plan: TRS-80 Level II is the _early_ Microsoft BASIC that
+      tokenizes **every** reserved word — functions included — as a single byte;
+      it does **not** use the later GW-/BASICA-style `0xFF`-prefixed two-byte
+      function tokens. The `?` → `PRINT` and `'` → `REM` abbreviations are
+      tokenizing-only aliases. (The table still wants a final confirmation pass
+      against the real ROM near `0x1650` once it is supplied.)
+- [x] `charset.ts` — `CharsetMapping`. ASCII `0x20–0x7F` maps to itself (folds
+      lowercase to upper case for the Model I). The `0x80–0xBF` 2×3 block-graphics
+      cells render via the Unicode **sextants** (`U+1FB00…`, with SPACE / the two
+      half-blocks / the full block for the four patterns Unicode covers
+      elsewhere) — the 2×2 quadrants the plan suggested can only express 16 of the
+      64 patterns. `0xC0–0xFF` repeat the same patterns.
+- [x] `language.ts` — `languageSupport()` + `completionSource` with
+      `suffixChars: '$%!#'` and `graphicsEscapes`/`hexPrefix`/`binaryPrefix`
+      **off** (Level II has no `&H`/`&B` — that is Disk BASIC).
+- [x] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`; do not
+      throw. Linked-line layout from `0x42E8`: `u16 link` + `u16 lineNo (LE)` +
+      body + `0x00`, ending `0x0000`. Multi-statement `:` lines are allowed. The
+      detokenizer suspends keyword expansion in strings/REM/DATA so a graphics
+      byte that collides with a token value decodes as a glyph.
+- [x] image builder — the tokenized program poked at `0x42E8` is the loadable
+      image (`tokenize` returns `image = program`); `detokenize` parses it back.
+- [x] `lint` wired through `tokenize` (in `index.ts`).
+- [x] tests: tokenizer round-trip, greedy/longest-match, REM/DATA verbatim,
+      multi-statement, alias expansion, string-graphics round-trip, charset
+      (`tokenizer.test.ts`, `charset.test.ts`).
 
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅\* (code complete; ROM asset still blocked)
 
-- [ ] `emulator/trs80Machine.ts` (+ `memory.ts`, `display.ts`, `keyboard.ts`)
+- [x] `emulator/trs80Machine.ts` (+ `memory.ts`, `display.ts`, `keyboard.ts`)
       implementing `MachineEmulator` over `src/emulator/z80/`. Memory map: ROM
       `0x0000–0x2FFF`, keyboard matrix `0x3800–0x3BFF`, video RAM `0x3C00–0x3FFF`,
-      RAM from `0x4000` (TXTTAB `0x42E8`; sysvar pointers TXTTAB `0x40A4`, VARTAB,
-      ARYTAB, STREND just above). Z80 @ ~1.77 MHz → `TSTATES_PER_FRAME ≈ 35500`.
-- [ ] `display.ts` — snapshot video RAM (`0x3C00`, 64×16) to the canvas each
-      frame using a bundled font glyph table (ASCII + the `0x80–0xBF` block
-      graphics). No hardware video chip to emulate — it is a direct character map.
-- [ ] `keyboard.ts` — the memory-mapped key matrix: 8 rows selected one-hot by
-      address (`0x3800 | (1 << row)`), 8 columns returned on the data bus. Mirror
-      the structure of `zx81/emulator/keyboard.ts` but read via `mem_read` of the
-      `0x38xx` range, not an `IN` port.
-- [ ] `reset` / `loadProgram` / `runFrame` / `renderTo` / `keyEvent` / `setKey` /
+      RAM from `0x4000` (TXTTAB `0x42E8`; sysvar pointers `0x40A4`+). Z80 @
+      ~1.77 MHz → `TSTATES_PER_FRAME = 35500`. No NMI / no interrupt source on the
+      base Model I, so a frame is a plain run of instructions.
+- [x] `display.ts` — snapshot video RAM (`0x3C00`, 64×16) to the canvas each
+      frame. ASCII is drawn with the host font via `ctx.fillText`; the `0x80–0xFF`
+      2×3 block graphics are drawn procedurally as 4×4-px sub-cells — this avoids
+      bundling the Model I character-generator ROM (a second copyrighted asset).
+      8×12 cell → the `512×192` canvas.
+- [x] `keyboard.ts` — the memory-mapped 8×8 key matrix: rows selected one-hot by
+      the low address byte, columns returned on the data bus (active **high**,
+      the opposite of the Sinclair active-low matrix). Read via `mem_read` of the
+      `0x38xx` range (intercepted in the machine's bus closure), not an `IN` port.
+- [x] `reset` / `loadProgram` / `runFrame` / `renderTo` / `keyEvent` / `setKey` /
       `releaseAllKeys` / `setSpeed` / `dispose` + `displayWidth`/`displayHeight`.
-      `loadProgram`: boot the ROM, **answer the `MEMORY SIZE?` prompt** (type
-      ENTER) to reach `READY`, poke the tokenized image at `0x42E8`, fix the
-      VARTAB/ARYTAB/STREND pointers to just past the program, then auto-`RUN` by
-      typing `RUN\r` through the key matrix (the ZX80/Atom precedent).
-- [ ] ROM into `public/roms/trs80.rom` **(blocked — see licensing note; the user
-      must supply it)** + `ATTRIBUTION.md` entry.
-- [ ] `displaySize` set on the dialect (`512×192`, not the 256×192 default).
-- [ ] `readVariables` / `readReport` omitted for now (ZX80 precedent; Stage 5).
-- [ ] test: boot the real `public/roms/trs80.rom`, inject a `PRINT` program, run
-      frames, assert on video-RAM contents (`emulator/trs80Machine.test.ts`).
+      `loadProgram` boots the ROM, answers `MEM SIZE?` (ENTER) to reach `READY`,
+      pokes the image at `0x42E8`, fixes the TXTTAB/VARTAB/ARYTAB/STREND pointers,
+      then auto-`RUN`s by typing `RUN\r` through the matrix (ZX80 precedent).
+- [ ] ROM into `public/roms/trs80.rom` **(still blocked — copyright
+      Tandy/Microsoft; the user must supply it)** + `ATTRIBUTION.md` entry. The
+      boot sequence and the `0x40A4` sysvar-pointer addresses are best-effort and
+      **must be verified once the real ROM is in hand.**
+- [x] `displaySize` set on the dialect (`512×192`) — already in `index.ts`.
+- [x] `readVariables` / `readReport` omitted for now (ZX80 precedent; Stage 5).
+- [x] test: boots `public/roms/trs80.rom`, injects a `PRINT` program, runs frames
+      and asserts on video-RAM contents (`emulator/trs80Machine.test.ts`) —
+      **skips cleanly while the ROM is absent.**
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
 **Verify:** emulator boot test passes (skips cleanly if the ROM is absent).
