@@ -139,6 +139,7 @@ emulator, no registry change.
 - [ ] Atom BASIC quirks (dot-abbreviation expansion, `?`/`!` indirection niceties).
 - [ ] AI-profile accuracy pass.
 - [ ] keyboard theming / function-key strip.
+- [ ] debugging support
 
 **Depends on:** Stage 3.
 **Verify:** watcher shows live vars; targeted tests.
