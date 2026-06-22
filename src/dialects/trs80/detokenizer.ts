@@ -1,5 +1,6 @@
 import { trs80Charset } from './charset';
 import { trs80WordByToken } from './keywords';
+import { isCasImage, parseCasImage } from './casfile';
 
 const QUOTE = 0x22;
 const REM_TOKEN = 0x93;
@@ -20,7 +21,11 @@ const STMT_SEP = 0x3a; // ':'
  * the keyword tokens, so a graphics character in a string must decode as a glyph,
  * not as END/FOR/…
  */
-export function detokenizeProgram(program: Uint8Array): string {
+export function detokenizeProgram(image: Uint8Array): string {
+  // Accept a raw `.cas` cassette image as well as the bare program: strip the
+  // leader/sync/marker/filename wrapper so the Import dialog can read `.cas`.
+  const program = isCasImage(image) ? parseCasImage(image).program : image;
+
   const lines: string[] = [];
   let p = 0;
   while (p + 4 <= program.length) {

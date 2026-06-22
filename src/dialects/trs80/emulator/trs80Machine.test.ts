@@ -5,9 +5,9 @@ import { Trs80Machine } from './trs80Machine';
 import { tokenizeProgram } from '../tokenizer';
 
 // The Level II ROM is copyright Tandy/Microsoft and is NOT bundled (see the
-// licensing note in docs/dialect-plans/trs80.md and public/roms/ATTRIBUTION.md).
-// These tests boot the real ROM when the user has supplied it and skip cleanly
-// otherwise, so CI stays green until the ROM question is resolved (Stage 3).
+// licensing note in public/roms/ATTRIBUTION.md). This Z80 + ROM machine is the
+// optional accuracy mode; these tests boot the real ROM when the user has
+// supplied it and skip cleanly otherwise, so CI stays green without it.
 const ROM_PATH = path.resolve(__dirname, '../../../../public/roms/trs80.rom');
 const ROM = existsSync(ROM_PATH)
   ? new Uint8Array(readFileSync(ROM_PATH))

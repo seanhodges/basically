@@ -9,6 +9,11 @@ import { trs80BuildTargets } from './targets';
 import { Trs80InterpreterMachine } from './interpreter/machine';
 import { trs80KeyboardLayout } from './keyboardLayout';
 import { trs80Samples } from './samples';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+} from './audio/cassetteEncoder';
+import { decodeCassette } from './audio/cassetteDecoder';
 
 /**
  * TRS-80 Model I (Level II BASIC). The default backend is the ROM-free
@@ -62,6 +67,22 @@ export const trs80: Dialect = {
   samples: trs80Samples,
 
   buildTargets: trs80BuildTargets,
+
+  binaryImports: [{ extension: '.cas', label: 'Import .CAS…' }],
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the TRS-80 type CLOAD and press ENTER — the blinking * means it is searching the tape — then start playback. When READY returns, type RUN.',
+    decodeSamples: (samples, sampleRate) => {
+      const { programName, data } = decodeCassette(samples, sampleRate);
+      return { programName, source: detokenizeProgram(data) };
+    },
+    saveInstructions:
+      'On the TRS-80 type CSAVE "F" and press ENTER, then press RECORD on the recorder; the program plays out as a 500-baud tape tone you can capture here.',
+  },
 
   aiProfile: trs80AiProfile,
 };
