@@ -1,7 +1,7 @@
 import type { KeywordInfo } from '../types';
 
 /**
- * The TRS-80 Model I **Level II BASIC** keyword table. Level II is Microsoft
+ * The TRS-80 **Level II BASIC** keyword table. Level II is Microsoft
  * BASIC, so — unlike the later GW-/BASICA-style MS dialects that prefix function
  * tokens with 0xFF — every reserved word here is a **single byte** in the
  * 0x80–0xFA range (the values the ROM stores and that LIST decodes). The table

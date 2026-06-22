@@ -5,7 +5,7 @@ import breakout from './samples/breakout.bas?raw';
 import maze from './samples/maze.bas?raw';
 
 /**
- * TRS-80 Model I example programs, ported to Level II BASIC (SET/RESET/POINT
+ * TRS-80 example programs, ported to Level II BASIC (SET/RESET/POINT
  * block graphics, INKEY$, no colour/sound). The first is the starter shown for a
  * fresh document.
  */

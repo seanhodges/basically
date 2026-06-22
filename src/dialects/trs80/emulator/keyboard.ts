@@ -1,5 +1,5 @@
 /**
- * TRS-80 Model I keyboard: an 8×8 matrix memory-mapped at 0x3800–0x3BFF. Unlike
+ * TRS-80 keyboard: an 8×8 matrix memory-mapped at 0x3800–0x3BFF. Unlike
  * the Sinclair machines (which scan the keyboard through IN 0xFE), the rows here
  * are selected by the *address* lines: reading 0x3800 | (1 << row) puts that
  * row's eight column bits on the data bus, and several rows can be read at once

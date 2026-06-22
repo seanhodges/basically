@@ -1,5 +1,5 @@
 /**
- * TRS-80 Model I cassette decoding — the inverse of {@link bytesToCassetteSamples}.
+ * TRS-80 cassette decoding — the inverse of {@link bytesToCassetteSamples}.
  *
  * The recording is a train of brief positive pulses; the information is the
  * spacing between them. We high-pass the signal to kill DC / baseline drift,

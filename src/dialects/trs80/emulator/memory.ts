@@ -1,5 +1,5 @@
 /**
- * TRS-80 Model I memory map:
+ * TRS-80 memory map:
  *   0x0000-0x2FFF  12K Level II BASIC ROM
  *   0x3000-0x37FF  memory-mapped I/O page (disk/printer; open bus here)
  *   0x3800-0x3BFF  keyboard matrix (read-only; handled in the machine, not here)

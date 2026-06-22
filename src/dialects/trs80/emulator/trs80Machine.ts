@@ -30,7 +30,7 @@ const PTR_ARYTAB = 0x40a8;
 const PTR_STREND = 0x40aa;
 
 /**
- * The TRS-80 Model I: a Z80, the 12K Level II BASIC ROM and RAM, with every
+ * The TRS-80: a Z80, the 12K Level II BASIC ROM and RAM, with every
  * peripheral memory-mapped — the keyboard matrix at 0x3800 and the 64×16 video
  * RAM at 0x3C00. There is no NMI generator, no echoed-display trick and no SLOW
  * mode, which makes this the simplest of the project's Z80 buses: the CPU just
