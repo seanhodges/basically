@@ -42,7 +42,7 @@
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core (jsbeeb Atom adapter)    | ✅     |
-| 3     | Wire-up: keyboard + samples + register | ⬜     |
+| 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Polish / optional                      | ⬜     |
 
@@ -108,23 +108,30 @@ CPU's optional `atomppia`.
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
 **Verify:** emulator boot test passes. ✅
 
-## Stage 3 — Wire-up: keyboard + samples + register ⬜
+## Stage 3 — Wire-up: keyboard + samples + register ✅
 
-- [ ] `keyboardLayout.ts` — `KeyboardLayout` data; key tokens match the Atom
-      adapter's `setKey` (`utils_atom.js` matrix). Use `src/keyboard/templateRows.ts`.
-- [ ] `samples/` + `samples.ts` — canonical `hello`/`circles`/`breakout`/`maze`
-      ported to Atom BASIC (degrade gracefully; `hello` is the starter).
-- [ ] finalize `aiProfile.ts` (system prompt teaching Atom BASIC's rules,
-      maxTokens).
-- [ ] `index.ts` — assemble the full `Dialect`; wire `createEmulator()` to
-      `new AtomMachine()`.
-- [ ] **register `atom` in `src/dialects/registry.ts`**.
-- [ ] optional `.virtual-keyboard.vk-theme-atom` block in `src/styles.css`.
-- [ ] tests: keyboard-layout validation, keyboard matrix (physical+virtual union),
-      samples tokenize cleanly.
+- [x] `keyboardLayout.ts` — `KeyboardLayout` data on the shared `templateRows`
+      grid; key tokens match the Atom adapter's `setKey`/`matrixForToken`
+      (`utils_atom.js` matrix). Three layers (base/shifted/SYM) like the BBC, the
+      SYM page surfacing the Atom's `[ ] \ @ ^` overflow as editor inserts.
+- [x] `samples/` + `samples.ts` — canonical `hello`/`circles`/`breakout`/`maze`
+      ported to Atom BASIC (`'` for PRINT newlines, `CLEAR 4` graphics, `DO…UNTIL`;
+      `hello` is the starter). `hello` is verified to actually run on the ROM.
+- [x] finalized `aiProfile.ts` (system prompt teaching Atom BASIC's rules:
+      one statement per line, no ELSE, `'` newlines, `#` hex, `?`/`!`/`$`
+      indirection, integer A–Z + FP ROM maths, `CLEAR 4` graphics; maxTokens 8192).
+- [x] `index.ts` — assembled the full `Dialect`; `createEmulator()` returns
+      `new AtomMachine()`. `displaySize` left omitted (256×192 is the app default).
+- [x] **registered `atom` in `src/dialects/registry.ts`**.
+- [x] `.vk-theme-atom` block in `src/keyboard/VirtualKeyboard.css` (the SYM page
+      legend colour), alongside the other dialect themes.
+- [x] tests: keyboard-layout validation + matrix mapping
+      (`src/dialects/atom/keyboardLayout.test.ts`), samples tokenize cleanly and
+      `hello` runs on the real ROM (`src/dialects/atom/samples.test.ts`);
+      `atom.test.ts` now drives the live `createEmulator()` seam.
 
 **Depends on:** Stages 1–2.
-**Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke + `npm run e2e`.
+**Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke + `npm run e2e`. ✅
 
 ## Stage 4 — Transfer & tape I/O ⬜
 

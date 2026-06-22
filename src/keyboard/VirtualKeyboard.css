@@ -673,3 +673,17 @@
 .vk-theme-commodore64 .vk-pos-br.vk-active {
   color: #cfe0ff;
 }
+
+/* ---------------------------------------------------------------------------
+   Acorn Atom keyboard theme: the SYM punctuation page, low-right on the keycap,
+   in the Atom's blue. Activated by the layout's `theme: 'vk-theme-atom'`. */
+.vk-theme-atom:not(.vk-compact) .vk-pos-br {
+  right: 4px;
+  bottom: 15px;
+  font-size: 9px;
+  color: #6f9bd1;
+}
+
+.vk-theme-atom .vk-pos-br.vk-active {
+  color: #cfe0ff;
+}
