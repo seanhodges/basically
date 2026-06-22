@@ -82,11 +82,6 @@ interface IdeState {
   /** Bumped to ask the emulator pane to reset the machine. */
   resetRequest: number;
   /**
-   * Debug mode armed: the next Run starts a step-through session that pauses on
-   * breakpoints. Transient (not persisted); only offered for debuggable dialects.
-   */
-  debugMode: boolean;
-  /**
    * Breakpointed BASIC line numbers. Keyed by line number (not editor row) so
    * they survive edits and renumbering. Cleared when a different program loads.
    */
@@ -171,8 +166,6 @@ interface IdeState {
   showAiPanel(): void;
   requestStop(): void;
   requestReset(): void;
-  /** Arm/disarm debug mode (the next Run starts a step-through session). */
-  setDebugMode(on: boolean): void;
   /** Toggle a breakpoint on a BASIC line number. */
   toggleBreakpoint(lineNo: number): void;
   /** Remove every breakpoint. */
@@ -286,7 +279,6 @@ export const useIdeStore = create<IdeState>((set) => ({
   runReport: null,
   stopRequest: 0,
   resetRequest: 0,
-  debugMode: false,
   breakpoints: new Set<number>(),
   debugLine: null,
   stepRequest: 0,
@@ -401,7 +393,6 @@ export const useIdeStore = create<IdeState>((set) => ({
   showAiPanel: () => set({ aiPanelOpen: true, mobileTab: 'ai' }),
   requestStop: () => set((s) => ({ stopRequest: s.stopRequest + 1 })),
   requestReset: () => set((s) => ({ resetRequest: s.resetRequest + 1 })),
-  setDebugMode: (on) => set({ debugMode: on }),
   toggleBreakpoint: (lineNo) =>
     set((s) => {
       const next = new Set(s.breakpoints);

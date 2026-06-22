@@ -15,10 +15,11 @@ export function Toolbar() {
   const markSaved = useIdeStore((s) => s.markSaved);
   const requestRun = useIdeStore((s) => s.requestRun);
   const requestStop = useIdeStore((s) => s.requestStop);
-  const requestReset = useIdeStore((s) => s.requestReset);
+  const requestStep = useIdeStore((s) => s.requestStep);
+  const requestContinue = useIdeStore((s) => s.requestContinue);
+  const breakpoints = useIdeStore((s) => s.breakpoints);
+  const clearBreakpoints = useIdeStore((s) => s.clearBreakpoints);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
-  const debugMode = useIdeStore((s) => s.debugMode);
-  const setDebugMode = useIdeStore((s) => s.setDebugMode);
   const toggleAiPanel = useIdeStore((s) => s.toggleAiPanel);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
@@ -69,20 +70,25 @@ export function Toolbar() {
     setRunMenuOpen(next);
     if (next) setVirtualKeyboard(false);
   };
-  const playProgram = () => {
+  // Run/debug actions share the same shape: close the menu, request the action,
+  // and on mobile jump to the preview tab so the emulator that was just acted on
+  // is visible.
+  const runAction = (fn: () => void) => () => {
     setRunMenuOpen(false);
-    requestRun();
+    fn();
+    if (isMobileViewport()) setMobileTab('preview');
   };
-  const stopProgram = () => {
-    setRunMenuOpen(false);
+  const playProgram = runAction(requestRun);
+  const stepProgram = runAction(requestStep);
+  const continueProgram = runAction(requestContinue);
+  // The single Stop halts the program and shuts the emulator down; if any
+  // breakpoints are set it first offers to clear them.
+  const stopProgram = runAction(() => {
+    if (breakpoints.size > 0 && window.confirm('Clear all breakpoints?')) {
+      clearBreakpoints();
+    }
     requestStop();
-    if (isMobileViewport()) setMobileTab('preview');
-  };
-  const resetProgram = () => {
-    setRunMenuOpen(false);
-    requestReset();
-    if (isMobileViewport()) setMobileTab('preview');
-  };
+  });
 
   const guard = (fn: () => Promise<void> | void) => () => {
     closeMenus();
@@ -191,13 +197,28 @@ export function Toolbar() {
               onMouseLeave={() => setRunMenuOpen(false)}
             >
               <button onClick={playProgram}>▶ Play</button>
+              {dialect.debuggable && (
+                <>
+                  <button
+                    onClick={stepProgram}
+                    disabled={emulatorStatus !== 'paused'}
+                  >
+                    ⤵ Step
+                  </button>
+                  <button
+                    onClick={continueProgram}
+                    disabled={emulatorStatus !== 'paused'}
+                  >
+                    ▶ Continue
+                  </button>
+                </>
+              )}
               <button
                 onClick={stopProgram}
                 disabled={emulatorStatus === 'stopped'}
               >
                 ■ Stop
               </button>
-              <button onClick={resetProgram}>↺ Reset</button>
             </div>
           )}
         </div>
@@ -225,35 +246,39 @@ export function Toolbar() {
         {error && <span className={styles.toolbarError}>{error}</span>}
         <button
           className="run desktop-only"
-          onClick={requestRun}
-          title="Build and run in the emulator (Ctrl+Enter)"
+          onClick={playProgram}
+          title="Build and play in the emulator (Ctrl+Enter)"
         >
-          ▶ Run
+          ▶ Play
         </button>
+        {dialect.debuggable && (
+          <>
+            <button
+              className="desktop-only"
+              onClick={stepProgram}
+              disabled={emulatorStatus !== 'paused'}
+              title="Run to the next BASIC line"
+            >
+              ⤵ Step
+            </button>
+            <button
+              className="desktop-only"
+              onClick={continueProgram}
+              disabled={emulatorStatus !== 'paused'}
+              title="Continue to the next breakpoint"
+            >
+              ▶ Continue
+            </button>
+          </>
+        )}
         <button
           className="desktop-only"
           onClick={stopProgram}
           disabled={emulatorStatus === 'stopped'}
-          title="Stop / break the running program"
+          title="Stop the program and shut down the emulator"
         >
           ■ Stop
         </button>
-        <button
-          className="desktop-only"
-          onClick={resetProgram}
-          title="Reset the machine"
-        >
-          ↺ Reset
-        </button>
-        {dialect.debuggable && (
-          <button
-            className={`desktop-only ${debugMode ? 'active' : ''}`}
-            onClick={() => setDebugMode(!debugMode)}
-            title="Debug mode: pause Run on breakpoints (click the editor gutter to set them)"
-          >
-            🐞 Debug
-          </button>
-        )}
         <button
           className={`icon-btn ${aiPanelOpen ? 'active' : ''}`}
           onClick={toggleAiPanel}
