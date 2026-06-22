@@ -63,6 +63,8 @@ export const commodore64: Dialect = {
 
   displaySize: { width: C64_DISPLAY_WIDTH, height: C64_DISPLAY_HEIGHT },
 
+  debuggable: true,
+
   // opts.rom/ramKb are ignored: viciious manages its own ROMs and 64K memory.
   createEmulator() {
     return new C64Machine();

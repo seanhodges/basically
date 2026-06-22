@@ -4,6 +4,8 @@ import { Video } from 'jsbeeb/src/video.js';
 import { FakeSoundChip } from 'jsbeeb/src/soundchip.js';
 import * as utils from 'jsbeeb/src/utils.js';
 import type {
+  DebugStepOptions,
+  DebugStepResult,
   MachineEmulator,
   MachineReport,
   MachineVariable,
@@ -37,6 +39,25 @@ const BOOT_CYCLES_MASTER = 1_750_000;
 // ~32cs auto-repeat delay, so each key registers exactly once on both models.
 const KEY_DOWN_CYCLES = 80_000;
 const KEY_UP_CYCLES = 40_000;
+
+// Step-through debugger constants (see currentLine / debugStep).
+//
+// BBC BASIC's live interpreter pointer is at zero page &0B/&0C; PAGE (the start
+// of the program) is the high byte at &18. Each program line is stored as
+// `[&0D][lineHi][lineLo][len][tokens…]`, the chain ending with `&0D &FF`.
+const TEXT_PTR = 0x0b;
+const PAGE_HI = 0x18;
+const LINE_TERMINATOR = 0x0d;
+const END_OF_PROGRAM = 0xff;
+/** Cap the program walk so a corrupt chain can never spin forever. */
+const MAX_PROGRAM_LINES = 20_000;
+/**
+ * Cycles run between line checks in {@link BbcMachine.debugStep}. Larger than
+ * the longest 6502 instruction (7 cycles) so every `execute` advances by at
+ * least one instruction; far smaller than the hundreds of cycles any BASIC line
+ * takes, so a line transition is never stepped over unseen.
+ */
+const DEBUG_SLICE_CYCLES = 8;
 
 // In the browser, jsbeeb fetches 'roms/…' relative to this base; the images
 // are committed under public/roms/ in the layout jsbeeb expects.
@@ -87,6 +108,14 @@ export class BbcMachine implements MachineEmulator {
   private backImageData: ImageData | null = null;
 
   /**
+   * Last program line the text pointer fell inside, as an `[start, end)` byte
+   * range plus its number. {@link currentLine} is polled every debug slice, so
+   * caching the enclosing line means the program is only re-walked when
+   * execution actually crosses a line boundary (rare relative to the poll rate).
+   */
+  private lineCache: { start: number; end: number; line: number } | null = null;
+
+  /**
    * @param modelName jsbeeb model name/synonym, e.g. 'B' (default) or 'Master'.
    */
   constructor(modelName = 'B') {
@@ -122,6 +151,7 @@ export class BbcMachine implements MachineEmulator {
   reset(): void {
     this.loadGeneration++;
     this.loadError = '';
+    this.lineCache = null;
     void this.ready.then(() => {
       if (!this.disposed) this.cpu.reset(true);
     });
@@ -133,6 +163,66 @@ export class BbcMachine implements MachineEmulator {
   }
 
   /**
+   * The BASIC line currently being executed, or null when none is (sitting at
+   * the `>` prompt, mid-edit, or before a program has run). BBC BASIC keeps no
+   * dedicated current-line cell — only the live interpreter pointer at &0B/&0C —
+   * so the program is walked from PAGE to find the line whose stored byte range
+   * `[start, start+len)` contains that pointer, reading its number from the line
+   * header. A pointer outside every line (e.g. in the command-line buffer at the
+   * prompt) yields null. The {@link lineCache} short-circuits the common case
+   * where the pointer is still inside the previously found line.
+   */
+  currentLine(): number | null {
+    if (!this.initialised || this.disposed) return null;
+    const ptr =
+      this.cpu.readmem(TEXT_PTR) | (this.cpu.readmem(TEXT_PTR + 1) << 8);
+    const cache = this.lineCache;
+    if (cache && ptr >= cache.start && ptr < cache.end) return cache.line;
+
+    let addr = this.cpu.readmem(PAGE_HI) << 8;
+    for (let i = 0; i < MAX_PROGRAM_LINES; i++) {
+      if (this.cpu.readmem(addr) !== LINE_TERMINATOR) break;
+      const hi = this.cpu.readmem(addr + 1);
+      if (hi === END_OF_PROGRAM) break; // `&0D &FF` end-of-program marker
+      const len = this.cpu.readmem(addr + 3);
+      if (len < 4) break; // a sane line is at least its 4-byte header
+      if (ptr >= addr && ptr < addr + len) {
+        const line = (hi << 8) | this.cpu.readmem(addr + 2);
+        this.lineCache = { start: addr, end: addr + len, line };
+        return line;
+      }
+      addr += len;
+    }
+    this.lineCache = null;
+    return null;
+  }
+
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    if (!this.initialised || this.injecting || this.disposed) {
+      return { paused: false, line: null };
+    }
+    const budget = Math.round(CYCLES_PER_FRAME * this.speed);
+    // In run mode, ignore breakpoints until execution has left the line we
+    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
+    // the spot but still re-pauses when the loop comes back around.
+    let armed = opts.fromLine === null;
+    for (let cycles = 0; cycles < budget; cycles += DEBUG_SLICE_CYCLES) {
+      this.cpu.execute(DEBUG_SLICE_CYCLES);
+      const line = this.currentLine();
+      if (line === null) continue;
+      if (opts.mode === 'step') {
+        if (opts.fromLine === null || line !== opts.fromLine) {
+          return { paused: true, line };
+        }
+      } else {
+        if (!armed && line !== opts.fromLine) armed = true;
+        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
+      }
+    }
+    return { paused: false, line: this.currentLine() };
+  }
+
+  /**
    * Inject a tokenized BASIC program (the dialect's "image": the BASIC II
    * in-memory layout, terminated by 0x0D 0xFF). ROM loading is async, so the
    * work is queued; frames render the machine booting in the meantime and the
@@ -141,6 +231,7 @@ export class BbcMachine implements MachineEmulator {
   loadProgram(image: Uint8Array): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
+    this.lineCache = null;
     void (async () => {
       try {
         await this.ready;
