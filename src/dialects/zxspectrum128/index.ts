@@ -9,12 +9,17 @@ import { spectrum128Keywords } from './keywords';
 import { buildTap, parseTap } from './tapfile';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
+import { decodeCassette } from '../zxspectrum/audio/cassetteDecoder';
 import {
   spectrum128LanguageSupport,
   spectrum128CompletionSource,
 } from './language';
 import { spectrum128AiProfile } from './aiProfile';
-import { spectrum128BuildTargets } from './targets';
+import {
+  spectrum128BuildTargets,
+  buildCassetteSamples,
+  CASSETTE_SAMPLE_RATE,
+} from './targets';
 import { Spectrum128Machine } from './emulator/spectrum128Machine';
 import { spectrum128KeyboardLayout } from './keyboardLayout';
 import { spectrum128Samples } from './samples';
@@ -66,6 +71,25 @@ export const zxspectrum128: Dialect = {
   samples: spectrum128Samples,
 
   buildTargets: spectrum128BuildTargets,
+
+  binaryImports: [{ extension: '.tap', label: 'Import .TAP…' }],
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the 128K, choose "128 BASIC" (or "Tape Loader") from the menu, then type LOAD "" and press ENTER before starting playback.',
+    decodeSamples: (samples, sampleRate) => {
+      const { name, image } = decodeCassette(samples, sampleRate);
+      return {
+        programName: name,
+        source: detokenizeProgram(parseTap(image).program),
+      };
+    },
+    saveInstructions:
+      'On the 128K in 128 BASIC type SAVE "NAME" and press ENTER; the tape tone plays from the EAR/MIC socket. Feed it into this device, then start listening.',
+  },
 
   aiProfile: spectrum128AiProfile,
 };
