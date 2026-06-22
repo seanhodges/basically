@@ -6,7 +6,7 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useIdeStore } from '../app/store';
-import { HAS_TOUCH } from '../app/useMediaQuery';
+import { HAS_TOUCH, isMobileViewport } from '../app/useMediaQuery';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
 import { VariableWatcher } from './VariableWatcher';
@@ -174,6 +174,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           const store = useIdeStore.getState();
           store.setDebugLine(res.line);
           store.setEmulatorStatus('paused');
+          // On mobile the Preview tab is showing when a breakpoint trips, so the
+          // frozen screen gives no hint why. Jump to the editor so the user sees
+          // the highlighted line. Only for 'run' (a real breakpoint) — 'step'
+          // already starts from the editor/toolbar.
+          if (debugModeRef.current === 'run' && isMobileViewport()) {
+            store.setMobileTab('editor');
+          }
           return; // do not schedule another frame until step/continue
         }
         rafRef.current = requestAnimationFrame(tick);
