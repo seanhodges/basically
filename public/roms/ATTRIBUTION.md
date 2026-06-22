@@ -12,6 +12,14 @@ now held by Amstrad plc (CRC32 ddee531f — the standard 48K image).
 Networks Ltd / Sinclair Research Ltd, with rights now held by Amstrad plc
 (CRC32 4c7fc597 — the standard ZX80 image).
 
+`zxspectrum128.rom` is the 32K Sinclair ZX Spectrum 128K / +2 ROM (ROM 0 = the
+128 editor/menu, ROM 1 = the 48 BASIC ROM), copyright © 1986 Sinclair Research
+Ltd / Amstrad plc, with rights now held by Amstrad plc. It is *not* committed to
+this repository — supply your own image (the standard 128K/+2 ROM, e.g. the
+"128-0.rom" + "128-1.rom" pair concatenated into one 32768-byte file) at
+`public/roms/zxspectrum128.rom`, or load one at runtime; the emulator boot test
+skips when it is absent.
+
 Amstrad has long granted permission for the distribution of Sinclair ROM
 images for use with emulators, provided the copyright notice remains intact
 and no fee is charged for the ROM itself. This is the same basis on which

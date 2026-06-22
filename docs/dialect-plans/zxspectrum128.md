@@ -56,8 +56,8 @@ folder.
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
-| 2     | Emulator core (paging + dual ROM)      | ⬜     |
-| 3     | Wire-up: keyboard + samples + register | ⬜     |
+| 2     | Emulator core (paging + dual ROM)      | ✅     |
+| 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Polish / optional (AY sound, +3 disk)  | ⬜     |
 
@@ -93,7 +93,7 @@ change.
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
 
-## Stage 2 — Emulator core (paging + dual ROM) ⬜
+## Stage 2 — Emulator core (paging + dual ROM) ✅
 
 The heart of the 128K work. Extend the 48K machine wiring rather than forking it.
 
@@ -136,9 +136,14 @@ The heart of the 128K work. Extend the 48K machine wiring rather than forking it
       assert on display memory; a second test exercises a `PLAY`/paging program.
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
-**Verify:** emulator boot test passes.
+**Verify:** emulator boot test passes. _Note:_ the paging, dual-ROM, AY
+register-file and shadow-screen logic are covered by ROM-free unit tests
+(`memory128.test.ts`, `ay.test.ts`); the menu/boot/`LOAD`-trap path in
+`spectrum128Machine.test.ts` only runs once a real 32K `zxspectrum128.rom` is
+present (it `describe.skip`s otherwise), so that path needs a hardware-ROM run
+to confirm the 128-menu navigation and 128-BASIC `LOAD ""` sequence.
 
-## Stage 3 — Wire-up: keyboard + samples + register ⬜
+## Stage 3 — Wire-up: keyboard + samples + register ✅
 
 - [ ] `keyboardLayout.ts` — **reused** (the matrix is identical to the 48K). The
       stub re-exports `spectrumKeyboardLayout`; Stage 3 may clone it under a

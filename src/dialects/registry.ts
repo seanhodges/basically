@@ -2,6 +2,7 @@ import type { Dialect } from './types';
 import { zx81 } from './zx81';
 import { zx80 } from './zx80';
 import { zxspectrum } from './zxspectrum';
+import { zxspectrum128 } from './zxspectrum128';
 import { bbcmicro } from './bbcmicro';
 import { bbcmaster } from './bbcmaster';
 import { commodore64 } from './commodore64';
@@ -11,6 +12,7 @@ export const dialects: Dialect[] = [
   zx81,
   zx80,
   zxspectrum,
+  zxspectrum128,
   bbcmicro,
   bbcmaster,
   commodore64,
