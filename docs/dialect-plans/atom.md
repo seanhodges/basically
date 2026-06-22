@@ -40,67 +40,73 @@
 
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
-| 1     | Language core                          | ⬜     |
-| 2     | Emulator core (jsbeeb Atom adapter)    | ⬜     |
+| 1     | Language core                          | ✅     |
+| 2     | Emulator core (jsbeeb Atom adapter)    | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Polish / optional                      | ⬜     |
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Atom BASIC is a genuinely new dialect — it shares **none** of the BBC language
 layer (do not import from `src/dialects/bbcmicro/`). Text ↔ program image; no
 emulator, no registry change.
 
-- [ ] `keywords.ts` — `KeywordInfo[]` for Atom BASIC (`PRINT`/`P.`, `DO`/`UNTIL`,
-      `LINK`, `?`/`!` byte/word indirection, `$` string area, `FOR`/`NEXT`,
-      `GOTO`/`GOSUB`, `DIM`, `INPUT`, graphics `PLOT`/`DRAW`/`MOVE`, `CLEAR`,
-      `WAIT`…). Drives highlighting + completion.
-- [ ] `charset.ts` — `CharsetMapping` for the Atom/MC6847 character codes
-      (`toMachine`/`toUnicode`/`glyph`).
-- [ ] `language.ts` — `languageSupport()` + `completionSource` via
-      `buildBasicLanguage`/`buildCompletionSource`; set `BasicLanguageOptions`
-      for Atom quirks (e.g. `hexPrefix: '#'`, dot-abbreviation, indirection
-      operators).
-- [ ] `tokenizer.ts` / `detokenizer.ts` — text ↔ Atom program image. Collect
-      `TokenizeError[]` (1-based line, 0-based column); do not throw. Validate the
-      exact `#2900` line-record byte layout against a known-good image booted in
-      jsbeeb.
-- [ ] image builder (within `tokenizer.ts`/`targets.ts`) — bytes → loadable image
-      and parse back.
-- [ ] `lint` wired through `tokenize`.
-- [ ] tests: tokenizer round-trip, charset, image-builder pointer consistency
-      (mirror `src/dialects/bbcmicro/tokenizer.test.ts`).
+- [x] `keywords.ts` — `KeywordInfo[]` for Atom BASIC (`PRINT`/`P.`, `DO`/`UNTIL`,
+      `LINK`, `$` string area, `FOR`/`NEXT`, `GOTO`/`GOSUB`, `DIM`, `INPUT`,
+      graphics `PLOT`/`DRAW`/`MOVE`, `CLEAR`, `WAIT`…). Drives highlighting +
+      completion. (The Atom does no keyword→byte packing, so `token` is an
+      unused sequential placeholder.)
+- [x] `charset.ts` — `CharsetMapping`. Program lines are stored as plain ASCII,
+      so this maps printable ASCII 0x20–0x7E to itself (the MC6847's _display_
+      codes are an internal screen-RAM encoding handled in the emulator adapter,
+      not here).
+- [x] `language.ts` — `languageSupport()` + `completionSource`; `hexPrefix: '#'`,
+      `graphicsEscapes: false`, `suffixChars: ''` (no `A$`/`A%` type suffix).
+- [x] `tokenizer.ts` / `detokenizer.ts` — text ↔ Atom program image. Collect
+      `TokenizeError[]` (1-based line, 0-based column); do not throw. **Byte
+      layout (verified by booting the real ROM and reading `#2900` back):** each
+      line is `0D <lineHi> <lineLo> <ascii body>` with the line number
+      **big-endian**; the program ends with `0D FF`.
+- [x] image builder — the tokenizer output _is_ the loadable `#2900` image;
+      `detokenize` parses it back. (`targets.ts` export stays Stage 4.)
+- [x] `lint` wired through `tokenize` (in `index.ts`).
+- [x] tests: tokenizer round-trip, charset, image-builder pointer consistency
+      (`src/dialects/atom/tokenizer.test.ts`).
 
 **Depends on:** the `Dialect` contract only.
-**Verify:** `npm test` + `npm run typecheck`.
+**Verify:** `npm test` + `npm run typecheck`. ✅
 
-## Stage 2 — Emulator core (jsbeeb Atom adapter) ⬜
+## Stage 2 — Emulator core (jsbeeb Atom adapter) ✅
 
-- [ ] `src/emulator/atom/atomMachine.ts` — an `AtomMachine` implementing
-      `MachineEmulator`, constructed via `findModel('Atom-Tape-FP')`. Mirror the
-      BBC adapter's `setBaseUrl` → `roms/atom/...` loading, but with Atom-specific:
-      memory map (program at `#2900`, Atom "top of text" pointer), `renderTo()`
-      from the MC6847 framebuffer, and `displayWidth`/`displayHeight`.
-- [ ] `loadProgram(image)` — boot the ROM, poke the image at `#2900`, fix the
-      top-of-text pointer, then auto-`RUN` by typing `RUN\r` through the
-      **AtomPPIA** key matrix (OS-agnostic — reuse the BBC `typeViaMatrix`
-      approach remapped to `utils_atom.js` `ATOM` constants in a new
-      `src/emulator/atom/keyboard.ts`).
-- [ ] `reset` / `runFrame` / `renderTo` / `keyEvent` / `setKey` /
+- [x] `src/emulator/atom/atomMachine.ts` — an `AtomMachine` implementing
+      `MachineEmulator`, constructed via `findModel('Atom-Tape-FP')` with
+      `new Video(false, fb32, paint, { isAtom: true })`. Atom-specific: program
+      at `#2900`, **top-of-text pointer at `#0D/#0E`** (little-endian, just past
+      the `0D FF`), MC6847 framebuffer rendered by cropping the active 512×384
+      picture (centred at ~288,80 in the 1024×625 buffer) down to 256×192.
+- [x] `loadProgram(image)` — boot the ROM (~1.6M cycles), poke the image at
+      `#2900`, fix the top-of-text pointer, then auto-`RUN` by typing `RUN\r`
+      through the **AtomPPIA** key matrix (`src/emulator/atom/keyboard.ts`, built
+      on `utils_atom.js` `ATOM` / `stringToATOMKeys`).
+- [x] `reset` / `runFrame` / `renderTo` / `keyEvent` / `setKey` /
       `releaseAllKeys` / `setSpeed` / `dispose` + `displayWidth`/`displayHeight`.
-- [ ] copy Atom ROMs into `public/roms/atom/` + `ATTRIBUTION.md` entry.
-- [ ] set `displaySize` on the dialect only if not 256×192.
-- [ ] `readVariables` / `readReport` may be omitted at first (ZX80 precedent for a
-      dialect without `readVariables`).
-- [ ] test: boot the real `public/roms/atom/` ROM, inject a `PRINT` program, run
-      frames, assert on the MC6847 display/screen memory (mirror
-      `src/emulator/bbc/bbcMachine.test.ts` / `bbcmicro.test.ts`).
+- [x] copied Atom ROMs into `public/roms/atom/` (Kernel + FloatingPoint + Basic) + `ATTRIBUTION.md` entry.
+- [x] `displaySize` omitted (256×192 is the app default).
+- [x] `readVariables` / `readReport` omitted (ZX80 precedent).
+- [x] test: boots the real `public/roms/atom/` ROM, injects a `PRINT` program,
+      runs frames, asserts on MC6847 screen memory
+      (`src/emulator/atom/atomMachine.test.ts`).
+
+Typings for the Atom corner of jsbeeb live in
+`src/emulator/atom/jsbeeb-atom.d.ts` (`ppia.js`, `utils_atom.js`); the shared
+`src/emulator/bbc/jsbeeb.d.ts` gained the `Video` `{ isAtom }` option and the
+CPU's optional `atomppia`.
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
-**Verify:** emulator boot test passes.
+**Verify:** emulator boot test passes. ✅
 
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 
