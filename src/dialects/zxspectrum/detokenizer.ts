@@ -1,14 +1,32 @@
 import { spectrumCharset, ENTER, NUMBER_MARKER, QUOTE } from './charset';
-import { keywordByToken } from './keywords';
+import type { KeywordInfo } from '../types';
+import { spectrumKeywords } from './keywords';
 
 const WORDLIKE = /[A-Za-z0-9$↑£©▘▝▀▖▌▞▛▗▚▐▜▄▙▟█]/;
+
+const tokenMapCache = new WeakMap<KeywordInfo[], Map<number, KeywordInfo>>();
+
+/** Memoized token→keyword lookup for a given keyword table. */
+function tokenMapFor(keywords: KeywordInfo[]): Map<number, KeywordInfo> {
+  const cached = tokenMapCache.get(keywords);
+  if (cached) return cached;
+  const map = new Map<number, KeywordInfo>(keywords.map((k) => [k.token, k]));
+  tokenMapCache.set(keywords, map);
+  return map;
+}
 
 /**
  * Convert a tokenized ZX Spectrum program area back into editable text.
  * Spacing is normalized (a single space wherever two word-like tokens meet);
  * the inline 5-byte numeric forms are dropped, keeping the printed digits.
+ * The `keywords` table defaults to the 48K set; the 128K passes its extended
+ * table so SPECTRUM/PLAY detokenize.
  */
-export function detokenizeProgram(program: Uint8Array): string {
+export function detokenizeProgram(
+  program: Uint8Array,
+  keywords: KeywordInfo[] = spectrumKeywords,
+): string {
+  const keywordByToken = tokenMapFor(keywords);
   const lines: string[] = [];
   let p = 0;
 

@@ -1,10 +1,6 @@
-import { CharsetError, type TokenizeError } from '../types';
+import { CharsetError, type KeywordInfo, type TokenizeError } from '../types';
 import { spectrumCharset, ENTER, NUMBER_MARKER, QUOTE } from './charset';
-import {
-  keywordsByLength,
-  keywordAliases,
-  statementKeywords,
-} from './keywords';
+import { spectrumKeywords, keywordAliases } from './keywords';
 import { encodeSpectrumNumber } from './numbers';
 
 export interface TokenizedProgram {
@@ -16,23 +12,51 @@ export interface TokenizedProgram {
 const IDENT = /[A-Za-z0-9$]/;
 const WS = /[ \t]/;
 
-/** Canonical-word matches, plus glued aliases, longest first. */
-const MATCHERS: { word: string; canonical: string }[] = [
-  ...keywordsByLength.map((k) => ({ word: k.word, canonical: k.word })),
-  ...Object.entries(keywordAliases).map(([alias, canonical]) => ({
-    word: alias,
-    canonical,
-  })),
-].sort((a, b) => b.word.length - a.word.length);
+/** Per-keyword-table derived tables, cached so each table is built once. */
+interface KeywordTables {
+  /** Canonical-word matches, plus glued aliases, longest first. */
+  matchers: { word: string; canonical: string }[];
+  canonicalToken: Map<string, number>;
+  statementKeywords: Set<string>;
+}
 
-const canonicalToken = new Map(keywordsByLength.map((k) => [k.word, k.token]));
+const tablesCache = new WeakMap<KeywordInfo[], KeywordTables>();
+
+/**
+ * Derive (and memoize) the matcher/token/statement tables for a keyword set.
+ * Defaults to the 48K {@link spectrumKeywords}; the 128K passes its own table
+ * (the 48K set plus SPECTRUM/PLAY) so the shared logic stays single-sourced.
+ */
+function tablesFor(keywords: KeywordInfo[]): KeywordTables {
+  const cached = tablesCache.get(keywords);
+  if (cached) return cached;
+  const matchers = [
+    ...keywords.map((k) => ({ word: k.word, canonical: k.word })),
+    ...Object.entries(keywordAliases).map(([alias, canonical]) => ({
+      word: alias,
+      canonical,
+    })),
+  ].sort((a, b) => b.word.length - a.word.length);
+  const canonicalToken = new Map(keywords.map((k) => [k.word, k.token]));
+  const statementKeywords = new Set(
+    keywords.filter((k) => k.kind === 'command').map((k) => k.word),
+  );
+  const tables: KeywordTables = { matchers, canonicalToken, statementKeywords };
+  tablesCache.set(keywords, tables);
+  return tables;
+}
 
 /**
  * Tokenize plain-text ZX Spectrum BASIC into the program-area byte layout:
  * per line — u16 BE line number, u16 LE length (of body + ENTER), tokenized
- * body, 0x0D.
+ * body, 0x0D. The `keywords` table defaults to the 48K set; the 128K dialect
+ * passes its extended table (adding SPECTRUM/PLAY).
  */
-export function tokenizeProgram(source: string): TokenizedProgram {
+export function tokenizeProgram(
+  source: string,
+  keywords: KeywordInfo[] = spectrumKeywords,
+): TokenizedProgram {
+  const tables = tablesFor(keywords);
   const out: number[] = [];
   const errors: TokenizeError[] = [];
   let prevLineNo = 0;
@@ -72,7 +96,7 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     }
 
     const body = text.slice(m[0].length);
-    const tokens = tokenizeBody(body, editorLine, m[0].length, errors);
+    const tokens = tokenizeBody(body, editorLine, m[0].length, errors, tables);
     if (tokens === null) continue; // error already recorded
 
     prevLineNo = lineNo;
@@ -109,7 +133,9 @@ function tokenizeBody(
   editorLine: number,
   colOffset: number,
   errors: TokenizeError[],
+  tables: KeywordTables,
 ): number[] | null {
+  const { matchers, canonicalToken, statementKeywords } = tables;
   const out: number[] = [];
   const upper = body.toUpperCase();
   let i = 0;
@@ -170,7 +196,7 @@ function tokenizeBody(
 
     // Keywords (longest match, with word-boundary checks for word keywords).
     let matched = false;
-    for (const kw of MATCHERS) {
+    for (const kw of matchers) {
       const consumed = matchKeywordAt(upper, i, kw.word);
       if (consumed < 0) continue;
       const firstCh = kw.word[0]!;

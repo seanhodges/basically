@@ -55,7 +55,7 @@ folder.
 
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
-| 1     | Language core                          | ⬜     |
+| 1     | Language core                          | ✅     |
 | 2     | Emulator core (paging + dual ROM)      | ⬜     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
@@ -63,31 +63,32 @@ folder.
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 128 BASIC is the 48K Spectrum's Sinclair BASIC plus the two tokens the 48K table
 deliberately omits. Text ↔ tokenized program bytes; no emulator, no registry
 change.
 
-- [ ] `keywords.ts` — append the **128-only tokens** to the 48K set:
+- [x] `keywords.ts` — append the **128-only tokens** to the 48K set:
       `SPECTRUM` (`0xA3`) and `PLAY` (`0xA4`). The stub currently re-exports the
       48K `spectrumKeywords` verbatim; replace it with
       `[...spectrumKeywords, SPECTRUM, PLAY]` plus signatures/docs (`PLAY a$[,b$]`
       — play music strings on the AY chip; `SPECTRUM` — return to 48 BASIC).
-- [ ] `charset.ts` — **reused** (`spectrumCharset` re-export); the character set
+- [x] `charset.ts` — **reused** (`spectrumCharset` re-export); the character set
       is identical. No work unless a 128-specific glyph surfaces.
-- [ ] `tokenizer.ts` / `detokenizer.ts` — handle the two extra tokens. Prefer
-      **parameterizing `../zxspectrum/tokenizer.ts` / `detokenizer.ts` by keyword
-      table** (default = `spectrumKeywords`, backward-compatible) over copying the
-      logic — this is the one deliberate touch of the shared 48K layer, analogous
-      to factoring a `bbcShared/` module (see `docs/dialect-roadmap.md`). Collect
-      `TokenizeError[]` (1-based line, 0-based column); do not throw.
-- [ ] image builder — **reused**: `tokenize` wraps the bytes in a `.TAP` via the
-      re-exported `buildTap`; `detokenize` parses with `parseTap`.
-- [ ] `lint` wired through `tokenize` (in `index.ts`).
-- [ ] tests: tokenizer round-trips a program using `PLAY`/`SPECTRUM`; the 48K
-      programs still tokenize to identical bytes (regression guard for the
-      parameterization); `.TAP` pointer consistency.
+- [x] `tokenizer.ts` / `detokenizer.ts` — handle the two extra tokens.
+      `../zxspectrum/tokenizer.ts` / `detokenizer.ts` are now **parameterized by
+      keyword table** (default = `spectrumKeywords`, backward-compatible); the
+      128 stubs are thin bindings that pass `spectrum128Keywords`. Derived
+      matcher/token tables are memoized per keyword array. Collects
+      `TokenizeError[]`; does not throw.
+- [x] image builder — **reused**: `tokenize` wraps the bytes in a `.TAP` via the
+      re-exported `buildTap`; `detokenize` parses with `parseTap` (`index.ts`,
+      unchanged).
+- [x] `lint` wired through `tokenize` (in `index.ts`, unchanged).
+- [x] tests: tokenizer round-trips a `PLAY`/`SPECTRUM` program; 48K-compatible
+      programs tokenize to identical bytes (regression guard); the 48K tokenizer
+      still rejects `PLAY`/`SPECTRUM` (proves the split).
 
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
