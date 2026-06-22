@@ -1,8 +1,13 @@
 import type { SampleFile } from '../types';
+import hello from './samples/hello.bas?raw';
+import circles from './samples/circles.bas?raw';
+import breakout from './samples/breakout.bas?raw';
+import maze from './samples/maze.bas?raw';
 
-/**
- * Acorn Atom example programs. STUB — Stage 3 ports the canonical
- * hello/circles/breakout/maze set to Atom BASIC and drops the `.bas` files in
- * `samples/`. Empty until then.
- */
-export const atomSamples: SampleFile[] = [];
+/** Acorn Atom example programs; the first is the starter for a fresh document. */
+export const atomSamples: SampleFile[] = [
+  { name: 'hello.bas', title: 'Hello world', text: hello },
+  { name: 'circles.bas', title: 'Circles', text: circles },
+  { name: 'breakout.bas', title: 'Breakout', text: breakout },
+  { name: 'maze.bas', title: 'Maze', text: maze },
+];
