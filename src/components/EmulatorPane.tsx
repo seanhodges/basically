@@ -66,11 +66,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const resetRequest = useIdeStore((s) => s.resetRequest);
   const stepRequest = useIdeStore((s) => s.stepRequest);
   const continueRequest = useIdeStore((s) => s.continueRequest);
-  const debugMode = useIdeStore((s) => s.debugMode);
   const debugLine = useIdeStore((s) => s.debugLine);
-  const requestStep = useIdeStore((s) => s.requestStep);
-  const requestContinue = useIdeStore((s) => s.requestContinue);
-  const requestStop = useIdeStore((s) => s.requestStop);
   const speed = useIdeStore((s) => s.emulatorSpeed);
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
@@ -257,8 +253,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // supports it; the loop then advances by debug slices instead of frames.
         // A session with no breakpoints simply never pauses and runs normally.
         debugActiveRef.current =
-          useIdeStore.getState().debugMode &&
-          typeof machine.debugStep === 'function';
+          !!dialect.debuggable && typeof machine.debugStep === 'function';
         debugModeRef.current = 'run';
         debugFromLineRef.current = null;
         useIdeStore.getState().setDebugLine(null);
@@ -479,33 +474,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           <div className={styles.loadingOverlay}>Emulator loading…</div>
         )}
       </div>
-      {(emulatorStatus === 'paused' ||
-        (debugMode && emulatorStatus === 'running')) && (
+      {/* The Step/Continue/Stop controls live in the top-bar Run menu now; this
+          slim bar just reports where the debugger is paused. */}
+      {emulatorStatus === 'paused' && debugLine !== null && (
         <div className={styles.debugBar}>
-          <button
-            type="button"
-            onClick={requestStep}
-            disabled={emulatorStatus !== 'paused'}
-            title="Run to the next BASIC line"
-          >
-            ⤵ Step
-          </button>
-          <button
-            type="button"
-            onClick={requestContinue}
-            disabled={emulatorStatus !== 'paused'}
-            title="Continue to the next breakpoint"
-          >
-            ▶ Continue
-          </button>
-          <button type="button" onClick={requestStop} title="Stop debugging">
-            ■ Stop
-          </button>
-          <span className={styles.debugStatus}>
-            {emulatorStatus === 'paused' && debugLine !== null
-              ? `paused at line ${debugLine}`
-              : 'running…'}
-          </span>
+          <span className={styles.debugStatus}>paused at line {debugLine}</span>
         </div>
       )}
       {/* The status notice only matters when grabbing input from a physical
