@@ -6,6 +6,7 @@ import { bbcmicro } from './bbcmicro';
 import { bbcmaster } from './bbcmaster';
 import { commodore64 } from './commodore64';
 import { atom } from './atom';
+import { trs80 } from './trs80';
 
 export const dialects: Dialect[] = [
   zx81,
@@ -15,6 +16,7 @@ export const dialects: Dialect[] = [
   bbcmaster,
   commodore64,
   atom,
+  trs80,
 ];
 
 export function getDialect(id: string): Dialect {

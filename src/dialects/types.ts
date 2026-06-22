@@ -216,8 +216,12 @@ export interface Dialect {
   detokenize(image: Uint8Array): string;
   /** Tokenizer dry-run for editor linting. */
   lint(source: string): TokenizeError[];
-  /** URL of the machine ROM (resolved against the deployed base path). */
-  romUrl: string;
+  /**
+   * URL of the machine ROM (resolved against the deployed base path). Omitted by
+   * dialects whose emulator needs no ROM image — e.g. a pure high-level
+   * interpreter — in which case the app skips the ROM fetch entirely.
+   */
+  romUrl?: string;
   /**
    * Native emulator canvas size in pixels. Defaults to the classic 256×192
    * shared by the Sinclair machines when absent.

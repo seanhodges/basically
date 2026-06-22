@@ -59,14 +59,25 @@
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅\*   |
-| 3     | Wire-up: keyboard + samples + register | ⬜     |
+| 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ⬜     |
-| 5     | Polish / optional                      | ⬜     |
+| 5     | Polish / optional                      | ✅\*\* |
 
-> \* Stage 2 code is complete; the **ROM asset stays blocked** (copyright
-> Tandy/Microsoft — the user must supply `public/roms/trs80.rom`). The boot test
-> skips cleanly until then, and the boot/sysvar-pointer details still need
-> verification against the real ROM. Registration is deferred to Stage 3.
+> The ROM licensing blocker was resolved by writing a **clean-room high-level
+> Level II BASIC interpreter** in TypeScript (`src/dialects/trs80/interpreter/`),
+> which is now the **registered default** backend — so the dialect ships ROM-free.
+> See the HLE implementation plan and feasibility notes for the rationale and the
+> documented pragmatic-parity divergences (JS float formatting, RND sequence,
+> approximate error text; `POKE`-into-program / machine-code `USR` unsupported).
+>
+> \* Stage 2 (the Z80 + ROM machine) is complete and kept in the tree as an
+> optional "accuracy mode", but its **ROM asset stays blocked** (copyright
+> Tandy/Microsoft); its boot test skips cleanly until a user supplies
+> `public/roms/trs80.rom`.
+>
+> \*\* Stage 5 `readVariables` / `readReport` / step-debugging are implemented on
+> the interpreter backend (`debuggable: true`); the Model III sibling and a
+> deeper AI-profile/keyboard-theming pass remain optional follow-ups.
 
 ---
 

@@ -216,7 +216,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
     if (machineRef.current) return machineRef.current;
-    const rom = await fetchRom(dialect.romUrl);
+    // A dialect without a romUrl needs no ROM image (e.g. a high-level
+    // interpreter); hand its emulator an empty buffer and skip the fetch.
+    const rom = dialect.romUrl
+      ? await fetchRom(dialect.romUrl)
+      : new Uint8Array(0);
     const machine = dialect.createEmulator({ rom, ramKb: 16 });
     machineRef.current = machine;
     return machine;
