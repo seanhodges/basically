@@ -31,8 +31,7 @@ tokenizer/charset and pointing `BbcMachine` at a different `findModel()` name.
 | ------ | ----------------- | ----- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ✅     | BBC Micro Model B | 6502  | BBC BASIC II | `bbcmicro`; reference jsbeeb integration. Cassette WAV export (CFS over Kansas City Standard FSK). Variable watching via `readVariables()`.                                                                                                                                                       |
 | ✅     | BBC Master        | 65C12 | BBC BASIC IV | `bbcmaster`; reuses the entire BBC language layer (BASIC IV shares BASIC II's tokens), keyboard, samples, and build targets — only the jsbeeb model name and AI profile differ. MOS 3.20 ROM already bundled. Cassette WAV export shared with BBC Micro. Variable watching shared with BBC Micro. |
-| ⬜     | Acorn Atom        | 6502  | Atom BASIC   | jsbeeb-supported (`findModel('Atom')`), but needs the Atom ROM set added and a genuinely new BASIC dialect (different tokenizer/charset/keywords).                                                                                                                                                |
-| ⛔     | Acorn Electron    | 6502  | BBC BASIC II | Not in jsbeeb 1.13.1. Would need a jsbeeb bump (newer jsbeeb gained Electron support) or a different core.                                                                                                                                                                                        |
+| ⬜     | Acorn Atom        | 6502  | Atom BASIC   | jsbeeb-supported (`findModel('Atom')`; ROMs already ship in the jsbeeb package), but needs the Atom ROM set copied in and a genuinely new BASIC dialect (different tokenizer/charset/keywords). Staged plan: [`docs/dialect-plans/atom.md`](dialect-plans/atom.md).                               |
 
 **BBC Master implementation notes.** `src/emulator/bbc/bbcMachine.ts` takes a
 model name; the Master needed two adjustments, both already made: its MOS 3.20
@@ -117,10 +116,25 @@ often a sound chip) that must be emulated before BASIC output is visible.
 These popular machines can't reuse any bundled core: jsbeeb only models Acorn
 hardware, viciious is C64-specific, and we have no 6809/68000 core.
 
-| Status | Machine                    | CPU   | Why blocked           |
-| ------ | -------------------------- | ----- | --------------------- |
-| ⛔     | Dragon 32 / 64, Tandy CoCo | 6809  | No 6809 core bundled  |
-| ⛔     | Commodore Amiga, Atari ST  | 68000 | No 68000 core bundled |
+| Status | Machine                    | CPU   | Why blocked                                                                                                                                   |
+| ------ | -------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⛔     | Acorn Electron             | 6502  | Not in jsbeeb — verified against 1.13.1, npm-latest, and upstream `main` (only BBC B / Master / Atom ship). Needs a new core; see note below. |
+| ⛔     | Dragon 32 / 64, Tandy CoCo | 6809  | No 6809 core bundled                                                                                                                          |
+| ⛔     | Commodore Amiga, Atari ST  | 68000 | No 68000 core bundled                                                                                                                         |
+
+**Acorn Electron note.** The Electron was previously (incorrectly) parked in
+Tier 1 on the assumption that a jsbeeb bump would add it; it will not — no
+published or upstream jsbeeb models the Electron's ULA, so it needs its own core
+and belongs in Tier 5. The upside, once a core exists, is cheap: the Electron
+runs **BBC BASIC II**, so its language layer (charset, keywords, tokenizer,
+completions) can be **shared wholesale with `src/dialects/bbcmicro/`** the same
+way `bbcmaster` shares it — the only missing piece is the emulator, not the
+dialect. The most promising browser-JS core is **ElkJS** (`dmcoles/elkjs`:
+`processor.js` 6502, `sheila.js` ULA, `display.js`, `tape.js`/`uef_file.js`), but
+it is **GPL-2.0** and would need a licence-compatibility check against this
+project's GPL-3.0-or-later before vendoring. `0xC0DE6502/electroniq` is a WASM
+(C++/raylib) build — heavier and a poor fit for the thin TypeScript-adapter
+pattern used by the other cores.
 
 ---
 
