@@ -1,10 +1,10 @@
 import { CharsetError, type CharsetMapping } from '../types';
 
 /**
- * TRS-80 Model I character set <-> editor text, for the bytes a Level II BASIC
+ * TRS-80 character set <-> editor text, for the bytes a Level II BASIC
  * program stores: string literals, REM/DATA text and any non-keyword character.
  *
- *  - 0x20–0x7F is ASCII. The Model I has no lower case (a hardware quirk forces
+ *  - 0x20–0x7F is ASCII. The TRS-80 has no lower case (a hardware quirk forces
  *    letters to upper case), so {@link toMachine} folds a–z onto A–Z. The
  *    0x60–0x7F codes still map straight through for completeness even though the
  *    video hardware would show them upper-cased.

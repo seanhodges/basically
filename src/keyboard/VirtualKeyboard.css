@@ -689,7 +689,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   TRS-80 Model I keyboard theme: the SHIFT legend (operators/symbols) sits
+   TRS-80 keyboard theme: the SHIFT legend (operators/symbols) sits
    top-right on the keycap in the machine's silver-grey. Activated by the
    layout's `theme: 'vk-theme-trs80'`. */
 .vk-theme-trs80:not(.vk-compact) .vk-pos-tr {

@@ -1,10 +1,10 @@
 /**
- * TRS-80 Model I display. There is no video chip to emulate: video RAM at 0x3C00
+ * TRS-80 display. There is no video chip to emulate: video RAM at 0x3C00
  * is a direct 64×16 character map, so rendering is a per-frame snapshot of those
  * 1024 bytes. We draw an 8×12 character cell — 64×16 cells fill the 512×192
  * canvas — using the host font for ASCII (0x20–0x7F) and drawing the 2×3
  * block-graphics cells (0x80–0xFF) procedurally as 4×4-pixel sub-cells. That
- * avoids bundling the Model I character-generator ROM (a second copyrighted
+ * avoids bundling the TRS-80 character-generator ROM (a second copyrighted
  * asset); the glyph shapes differ slightly from the real font but the layout is
  * faithful.
  */

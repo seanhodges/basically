@@ -16,7 +16,7 @@ import {
 import { decodeCassette } from './audio/cassetteDecoder';
 
 /**
- * TRS-80 Model I (Level II BASIC). The default backend is the ROM-free
+ * TRS-80 (Level II BASIC). The default backend is the ROM-free
  * high-level interpreter under `interpreter/`, so the dialect needs no `romUrl`.
  * The Z80 + ROM machine (`emulator/trs80Machine.ts`) is kept in the tree as an
  * alternate "accuracy mode" for anyone who supplies their own legally-obtained
@@ -24,7 +24,7 @@ import { decodeCassette } from './audio/cassetteDecoder';
  */
 export const trs80: Dialect = {
   id: 'trs80',
-  name: 'TRS-80 Model I',
+  name: 'TRS-80',
   fileExtensions: ['.bas'],
   keywords: trs80Keywords,
   charset: trs80Charset,

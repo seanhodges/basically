@@ -2,8 +2,8 @@ import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
 import { bottomRow } from '../../keyboard/templateRows';
 
 /**
- * The TRS-80 Model I keyboard on the standard virtual-keyboard template. The
- * Model I is a plain QWERTY with SHIFT — no keyword or graphics typing layers —
+ * The TRS-80 keyboard on the standard virtual-keyboard template. The
+ * TRS-80 is a plain QWERTY with SHIFT — no keyword or graphics typing layers —
  * so there are just two legend layers: base and SHIFT. Each key `emits` the
  * DOM-`code`-style token the interpreter's input adapter understands
  * (`interpreter/input.ts`), and the SHIFT legends double as editor inserts for
@@ -133,7 +133,7 @@ const rows: KeyDef[][] = [
 
 export const trs80KeyboardLayout: KeyboardLayout = {
   id: 'trs80',
-  name: 'TRS-80 Model I',
+  name: 'TRS-80',
   theme: 'vk-theme-trs80',
   gridColumns: 40,
   layers: [

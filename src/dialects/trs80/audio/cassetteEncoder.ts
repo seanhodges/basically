@@ -1,7 +1,7 @@
 /**
- * TRS-80 Model I 500-baud cassette encoding.
+ * TRS-80 500-baud cassette encoding.
  *
- * The Model I records a stream of brief pulses on tape. Every bit cell opens
+ * The TRS-80 records a stream of brief pulses on tape. Every bit cell opens
  * with a *clock* pulse; a 1 bit additionally fires a *data* pulse at the middle
  * of the cell, a 0 bit does not. So the spacing between successive pulses is
  * what carries the data: a 1 is two half-cell gaps (clock→data, data→next
