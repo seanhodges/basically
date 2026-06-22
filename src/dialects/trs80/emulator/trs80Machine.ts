@@ -19,9 +19,10 @@ const KEYBOARD_END = 0x3bff;
  * mark the end of the program / start of variables. After poking a program we
  * fix these so RUN, LIST and the variable allocator see the right boundaries.
  *
- * NOTE: these addresses follow docs/dialect-plans/trs80.md and must be confirmed
- * against the real Level II ROM once it is supplied (Stage 2 is blocked on the
- * ROM licence). The boot test skips while the ROM is absent.
+ * NOTE: these addresses are best-effort and must be confirmed against the real
+ * Level II ROM once it is supplied — this Z80 + ROM machine is the optional
+ * accuracy mode (the default backend is the ROM-free interpreter), and its boot
+ * test skips while the ROM is absent.
  */
 const PTR_TXTTAB = 0x40a4;
 const PTR_VARTAB = 0x40a6;
