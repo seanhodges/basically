@@ -155,27 +155,32 @@ do **not** import it: the token table and the program base address differ.
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
 **Verify:** emulator boot test passes (skips cleanly if the ROM is absent).
 
-## Stage 3 — Wire-up: keyboard + samples + register ⬜
+## Stage 3 — Wire-up: keyboard + samples + register ✅
 
-- [ ] `keyboardLayout.ts` — `KeyboardLayout` data; key tokens (`emits`) match the
-      emulator's `setKey` matrix names. Use `src/keyboard/templateRows.ts`. The
-      Model I keyboard is a straightforward QWERTY + SHIFT + ENTER/BREAK/CLEAR +
-      arrow keys — no extra typing layers (no keyword mode).
-- [ ] `samples/` + `samples.ts` — canonical `hello`/`circles`/`breakout`/`maze`
+- [x] `keyboardLayout.ts` — `KeyboardLayout` data; key tokens (`emits`) match the
+      interpreter input adapter's token names (`interpreter/input.ts`). Uses
+      `src/keyboard/templateRows.ts`. The Model I keyboard is a straightforward
+      QWERTY + SHIFT + ENTER/BREAK + arrow-key backspace — two legend layers
+      (base + SHIFT), no keyword mode.
+- [x] `samples/` + `samples.ts` — canonical `hello`/`circles`/`breakout`/`maze`
       ported to Level II BASIC (`hello` is the starter). `circles`/`breakout`/
       `maze` use `SET(x,y)`/`RESET(x,y)`/`POINT(x,y)` on the 128×48 block-graphics
-      grid; degrade gracefully (no colour). Match behaviour, not bytes — never
-      point at another dialect's `.bas`.
-- [ ] finalize `aiProfile.ts` (system prompt teaching Level II rules: two-char
-      variable names, `:` multi-statement OK, `SET`/`RESET`/`POINT` graphics, no
-      colour/sound, `?`=`PRINT`, integer/`%` and float types).
-- [ ] `index.ts` — assemble the full `Dialect`; wire `createEmulator()` to
-      `new Trs80Machine(opts)`.
-- [ ] **register `trs80` in `src/dialects/registry.ts`** (gated on a usable ROM —
-      keep unregistered until the ROM licence question is resolved).
-- [ ] optional `.virtual-keyboard.vk-theme-trs80` block in `src/styles.css`.
-- [ ] tests: keyboard-layout validation, keyboard matrix (physical+virtual union),
-      samples tokenize cleanly.
+      grid; degrade gracefully (no colour). Each is its own `.bas`.
+- [x] `aiProfile.ts` finalized (system prompt teaches Level II rules: two-char
+      significant variable names, `:` multi-statement OK, `IF/THEN/ELSE`,
+      `SET`/`RESET`/`POINT` graphics, no colour/sound, `?`=`PRINT`, integer/`%`
+      and float `!`/`#` suffixes).
+- [x] `index.ts` — assembles the full `Dialect`; `createEmulator()` returns
+      `new Trs80InterpreterMachine()` (the ROM-free HLE backend), with the Z80 +
+      ROM `Trs80Machine` kept as the optional accuracy mode.
+- [x] **`trs80` registered in `src/dialects/registry.ts`** — unblocked by the
+      ROM-free interpreter backend, so no ROM licence gate remains.
+- [x] `.vk-theme-trs80` block — lives in `src/keyboard/VirtualKeyboard.css`
+      (where this project keeps the per-dialect keyboard themes), not
+      `src/styles.css` as the plan originally guessed.
+- [x] tests: keyboard-layout validation + matrix round-trip
+      (`keyboardLayout.test.ts`), samples tokenize **and run** without error
+      (`samples.test.ts`).
 
 **Depends on:** Stages 1–2.
 **Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke + `npm run e2e`.
