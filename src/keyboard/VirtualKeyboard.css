@@ -279,13 +279,30 @@
 /* Single-character ("Compact") key display: one larger legend filling the
    keycap, centred, replacing the multi-legend layout. Chosen in settings to
    keep keys legible on small screens. */
+/* Each key is its own inline-size container so the single legend can shrink to
+   fit the key's width (long keyword/function words can't wrap, so we scale the
+   font down by character count instead). inline-size containment doesn't create
+   a containing block, so the absolutely-positioned keycap/touch target are
+   unaffected. */
+.vk-single .vk-key {
+  container-type: inline-size;
+}
+
 .vk-single .vk-single-label {
   position: absolute;
   inset: 0 0 12px; /* sit above the function-strip gap, like other centres */
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  /* --vk-single-cap is the large/legible ceiling for short labels; the second
+     term is the width the legend's letters need (--vk-len chars at ~0.62em in
+     the bold UI font, with a little side padding), so longer words shrink to
+     stay inside the keycap. */
+  --vk-single-cap: 20px;
+  font-size: min(
+    var(--vk-single-cap),
+    calc(100cqw / (var(--vk-len, 1) * 0.62))
+  );
   font-weight: 700;
   text-align: center;
   color: #ececec;
@@ -316,7 +333,7 @@
   }
 
   .vk-single .vk-single-label {
-    font-size: clamp(15px, 4.5vw, 20px);
+    --vk-single-cap: clamp(15px, 4.5vw, 20px);
   }
 }
 
@@ -380,7 +397,7 @@
 
   .vk-single .vk-single-label {
     inset: 0 0 6px;
-    font-size: clamp(12px, 5vh, 16px);
+    --vk-single-cap: clamp(12px, 5vh, 16px);
   }
 
   .vk-pos-below {
