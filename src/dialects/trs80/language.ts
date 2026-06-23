@@ -2,10 +2,13 @@ import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
+import { constructsByDialect } from '../../editor/constructs';
 import { trs80Keywords } from './keywords';
 
-export const trs80CompletionSource: CompletionSource =
-  buildCompletionSource(trs80Keywords);
+export const trs80CompletionSource: CompletionSource = buildCompletionSource(
+  trs80Keywords,
+  constructsByDialect.trs80,
+);
 
 export function trs80LanguageSupport(): Extension {
   // Level II variable names are letters/digits with an optional type tag — `$`

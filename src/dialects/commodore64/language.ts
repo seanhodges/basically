@@ -2,10 +2,13 @@ import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
+import { constructsByDialect } from '../../editor/constructs';
 import { c64Keywords } from './keywords';
 
-export const c64CompletionSource: CompletionSource =
-  buildCompletionSource(c64Keywords);
+export const c64CompletionSource: CompletionSource = buildCompletionSource(
+  c64Keywords,
+  constructsByDialect.commodore64,
+);
 
 export function c64LanguageSupport(): Extension {
   // C64 variable names are letters/digits ending optionally in '$' (string) or

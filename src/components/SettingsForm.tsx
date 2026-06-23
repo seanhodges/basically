@@ -15,9 +15,11 @@ export function SettingsForm() {
   const autoLineNumbering = useIdeStore((s) => s.autoLineNumbering);
   const lineNumberIncrement = useIdeStore((s) => s.lineNumberIncrement);
   const showLineNumberGutter = useIdeStore((s) => s.showLineNumberGutter);
+  const fullCodeCompletion = useIdeStore((s) => s.fullCodeCompletion);
   const setAutoLineNumbering = useIdeStore((s) => s.setAutoLineNumbering);
   const setLineNumberIncrement = useIdeStore((s) => s.setLineNumberIncrement);
   const setShowLineNumberGutter = useIdeStore((s) => s.setShowLineNumberGutter);
+  const setFullCodeCompletion = useIdeStore((s) => s.setFullCodeCompletion);
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const setCrtEffect = useIdeStore((s) => s.setCrtEffect);
   const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
@@ -82,6 +84,14 @@ export function SettingsForm() {
             setLineNumberIncrement(Number.isFinite(n) && n >= 1 ? n : 10);
           }}
         />
+      </label>
+      <label className={styles.inline}>
+        <input
+          type="checkbox"
+          checked={fullCodeCompletion}
+          onChange={(e) => setFullCodeCompletion(e.target.checked)}
+        />
+        Full code completion (expand keywords to blocks)
       </label>
       <h3>Monitor</h3>
       <label className={styles.inline}>

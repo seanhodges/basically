@@ -99,6 +99,94 @@ export function makeSpace(
 }
 
 /**
+ * Cascade existing line numbers upward to free `count` consecutive slots
+ * starting at `afterLineNo + 1` (the generalisation of {@link makeSpace}, which
+ * frees a single slot). Walks the lines following `afterLineNo`, bumping each
+ * one that would sit inside the reserved run up to the next free number, until a
+ * natural gap is reached. Returns an old→new map for every line that must move
+ * (empty when nothing needs to move), or null when the cascade would exceed
+ * MAX_LINE_NO so the caller can abort.
+ */
+export function makeSpaceN(
+  lines: BasicLine[],
+  afterLineNo: number,
+  count: number,
+): Map<number, number> | null {
+  const map = new Map<number, number>();
+  let expected = afterLineNo + count + 1; // lowest slot a following line may keep
+  for (const line of lines) {
+    if (line.lineNo <= afterLineNo) continue;
+    if (line.lineNo >= expected) break; // a gap exists from here up; cascade done
+    if (expected > MAX_LINE_NO) return null; // no room — caller aborts
+    map.set(line.lineNo, expected);
+    expected += 1;
+  }
+  return map;
+}
+
+/** Line numbers planned for a multi-line construct expansion. */
+export interface ConstructNumbering {
+  /**
+   * Number to assign the current line when it carried none (the caller prefixes
+   * `"<n> "` onto it); null when the current line already had a number.
+   */
+  currentLineNo: number | null;
+  /** Line numbers for each continuation line, in order. */
+  continuationNos: number[];
+  /** old→new shifts for following lines to free room (empty when none needed). */
+  cascade: Map<number, number>;
+}
+
+/**
+ * Plan the line numbers for expanding a multi-line code construct on physical
+ * line `idx`, which needs `extra` continuation lines below it. Mirrors
+ * {@link insertNumberedLineBelow} but reserves `extra` consecutive slots: it
+ * bootstraps the current line's number when absent, prefers increment-spaced
+ * numbers when the gap to the next line allows, and otherwise falls back to
+ * unit spacing after cascading the following lines via {@link makeSpaceN}.
+ * Returns null when numbering can't fit (so the caller inserts the bare keyword
+ * instead).
+ */
+export function planConstructNumbering(
+  physical: string[],
+  idx: number,
+  increment: number,
+  extra: number,
+): ConstructNumbering | null {
+  if (extra <= 0)
+    return { currentLineNo: null, continuationNos: [], cascade: new Map() };
+
+  const { prev, next: nextNo } = neighbours(physical, idx);
+
+  // Resolve the current line's number, bootstrapping one if it has none.
+  let currentLineNo: number | null = null;
+  let baseNo = lineNumberOf(physical[idx]!);
+  if (baseNo === null) {
+    const r = computeNewLineNumber(prev, nextNo, increment);
+    if (r.makeSpace) return null; // no room even for the current line — bail
+    baseNo = r.lineNo;
+    currentLineNo = r.lineNo;
+  }
+
+  // Prefer increment-spaced numbers; fall back to unit spacing + a cascade.
+  const idealLast = baseNo + extra * increment;
+  if (nextNo === null || idealLast < nextNo) {
+    const continuationNos = Array.from(
+      { length: extra },
+      (_, k) => baseNo! + (k + 1) * increment,
+    );
+    return { currentLineNo, continuationNos, cascade: new Map() };
+  }
+  const cascade = makeSpaceN(parseLines(physical.join('\n')), baseNo, extra);
+  if (cascade === null) return null;
+  const continuationNos = Array.from(
+    { length: extra },
+    (_, k) => baseNo! + k + 1,
+  );
+  return { currentLineNo, continuationNos, cascade };
+}
+
+/**
  * Rewrite line-number references (GOTO/GOSUB/RUN/LIST/LLIST targets) according
  * to `remap`. Numbers inside strings and after REM are left untouched, as are
  * computed targets (e.g. `GOTO X+1`) since only literal integers are matched.
@@ -244,7 +332,7 @@ function neighbours(
  * each numbered line's own prefix and any references, against the original
  * numbers in a single pass.
  */
-function applyMapToPhysical(
+export function applyMapToPhysical(
   physical: string[],
   map: Map<number, number>,
 ): string[] {
