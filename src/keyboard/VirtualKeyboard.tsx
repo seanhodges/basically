@@ -470,8 +470,14 @@ export function VirtualKeyboard({
     ];
     if (isFallback) cls.push('vk-single-fallback');
     else cls.push('vk-active');
+    // Expose the legend's length so CSS can shrink the font to fit the key
+    // width (long keyword/function words would otherwise overflow the keycap).
+    const style =
+      !label.glyph && label.text
+        ? ({ '--vk-len': label.text.length } as React.CSSProperties)
+        : undefined;
     return (
-      <span className={cls.join(' ')}>
+      <span className={cls.join(' ')} style={style}>
         {label.glyph ? (
           <GlyphSvg glyph={layout.glyphs[label.glyph]} />
         ) : (
