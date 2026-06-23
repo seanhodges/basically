@@ -16,7 +16,10 @@ function buildImageOrThrow(source: string): Uint8Array {
   if (bytes.length === 0) {
     throw new Error('Program is empty');
   }
-  return buildPFile(bytes);
+  // Exported images are load-only: NXTLIN is left at the display file so the
+  // program does NOT silently auto-run on real hardware (the user types RUN).
+  // The IDE emulator builds its own auto-running image via dialect.tokenize().
+  return buildPFile(bytes, { autoRun: false });
 }
 
 /** Build the cassette audio samples for a program (used by play + wav). */
