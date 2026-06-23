@@ -457,10 +457,35 @@ export function VirtualKeyboard({
   // character. Keys with no legend for the active mode fall back to a dimmed
   // base (main) legend so the layout stays recognisable.
   const baseIdx = layout.layers.indexOf(baseLayer);
+  const activeLabelIdx = layout.layers.findIndex(
+    (l) => l.id === highlightLayerId,
+  );
+  // The legend shown on a key in single (Compact) display: the active mode's
+  // label, falling back to the dimmed base label when the mode has none.
+  const resolveSingleLabel = (def: KeyDef) => {
+    const active = activeLabelIdx >= 0 ? def.labels[activeLabelIdx] : null;
+    return active ?? def.labels[baseIdx] ?? null;
+  };
+  // Drive every key's font size from the longest legend visible in the active
+  // mode so all keys render at one uniform size (short words don't grow back to
+  // the cap while long words shrink). Wide keys (SHIFT/SPACE/NEW LINE) keep
+  // their own fixed fonts, so they're excluded.
+  const maxSingleLen =
+    keyDisplay === 'compact'
+      ? displayRows.reduce(
+          (max, row) =>
+            row.reduce((m, def) => {
+              if (def.style === 'shift' || def.style === 'small-main') return m;
+              const label = resolveSingleLabel(def);
+              if (!label || label.glyph || !label.text) return m;
+              return Math.max(m, label.text.length);
+            }, max),
+          1,
+        )
+      : 1;
   const renderSingleLabel = (def: KeyDef) => {
-    const activeIdx = layout.layers.findIndex((l) => l.id === highlightLayerId);
-    const active = activeIdx >= 0 ? def.labels[activeIdx] : null;
-    const label = active ?? def.labels[baseIdx] ?? null;
+    const active = activeLabelIdx >= 0 ? def.labels[activeLabelIdx] : null;
+    const label = resolveSingleLabel(def);
     if (!label) return null;
     const isFallback = !active;
     const cls = [
@@ -470,14 +495,8 @@ export function VirtualKeyboard({
     ];
     if (isFallback) cls.push('vk-single-fallback');
     else cls.push('vk-active');
-    // Expose the legend's length so CSS can shrink the font to fit the key
-    // width (long keyword/function words would otherwise overflow the keycap).
-    const style =
-      !label.glyph && label.text
-        ? ({ '--vk-len': label.text.length } as React.CSSProperties)
-        : undefined;
     return (
-      <span className={cls.join(' ')} style={style}>
+      <span className={cls.join(' ')}>
         {label.glyph ? (
           <GlyphSvg glyph={layout.glyphs[label.glyph]} />
         ) : (
@@ -561,6 +580,7 @@ export function VirtualKeyboard({
     <div
       ref={containerRef}
       className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${keyDisplay === 'compact' ? ' vk-single' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}`}
+      style={{ '--vk-max-len': maxSingleLen } as React.CSSProperties}
       role="group"
       aria-label={`${layout.name} on-screen keyboard`}
       tabIndex={0}
