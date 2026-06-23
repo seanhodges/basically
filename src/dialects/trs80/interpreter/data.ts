@@ -12,23 +12,36 @@ function decode(body: Uint8Array, from: number, to: number): string {
   return s;
 }
 
-/** Split one DATA statement's text into items, honouring quotes and trimming. */
+/**
+ * Split one DATA statement's text into items, honouring quotes and trimming.
+ * Mirrors Microsoft BASIC: leading spaces before an item are skipped, so a
+ * quoted item keeps only what is between the quotes (`DATA "###"` is three
+ * characters, not a leading-space-padded four), and anything after a closing
+ * quote up to the next comma is ignored. Unquoted items are trimmed.
+ */
 function splitItems(text: string): string[] {
   const items: string[] = [];
   let cur = '';
   let inQuote = false;
   let quoted = false;
+  let afterQuote = false;
   for (const ch of text) {
     if (inQuote) {
       if (ch === '"') inQuote = false;
       else cur += ch;
-    } else if (ch === '"') {
-      inQuote = true;
-      quoted = true;
     } else if (ch === ',') {
       items.push(quoted ? cur : cur.trim());
       cur = '';
       quoted = false;
+      afterQuote = false;
+    } else if (afterQuote) {
+      // Ignore stray characters between a closing quote and the comma.
+    } else if (ch === '"') {
+      // Drop any leading whitespace gathered before the opening quote.
+      if (cur.trim() === '') cur = '';
+      inQuote = true;
+      quoted = true;
+      afterQuote = true;
     } else {
       cur += ch;
     }

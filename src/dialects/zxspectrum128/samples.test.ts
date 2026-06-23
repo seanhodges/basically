@@ -14,12 +14,13 @@ describe('zxspectrum128 sample programs', () => {
     }
   });
 
-  it('the starter is hello.bas and the music demo uses PLAY', () => {
-    expect(spectrum128Samples[0]!.name).toBe('hello.bas');
-    const music = spectrum128Samples.find((s) => s.name === 'music.bas')!;
-    const { bytes, errors } = tokenizeProgram(music.text);
-    expect(errors).toEqual([]);
-    expect(Array.from(bytes)).toContain(0xa4); // the PLAY token
+  it('ships the canonical four with hello.bas as the starter', () => {
+    expect(spectrum128Samples.map((s) => s.name)).toEqual([
+      'hello.bas',
+      'circles.bas',
+      'breakout.bas',
+      'maze.bas',
+    ]);
   });
 });
 
