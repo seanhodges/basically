@@ -19,12 +19,19 @@ function buildProgramBytes(source: string): Uint8Array {
   return bytes;
 }
 
-/** Build the loadable .TAP image (program + auto-run header). */
+/**
+ * Build the loadable .TAP image. Exported "load only" (autoStart: null) so it
+ * does NOT silently auto-run on a real Spectrum — the user types RUN. The IDE
+ * emulator drives RUN itself after loading, so Start still auto-runs.
+ */
 export function buildTapImage(
   source: string,
   programName = 'program',
 ): Uint8Array {
-  return buildTap(buildProgramBytes(source), { name: programName });
+  return buildTap(buildProgramBytes(source), {
+    name: programName,
+    autoStart: null,
+  });
 }
 
 /** Build the cassette audio samples for a program (used by play + wav). */
@@ -33,7 +40,10 @@ export function buildCassetteSamples(
   programName: string,
   robust = false,
 ): Float32Array {
-  const blocks = tapBlocks(buildProgramBytes(source), { name: programName });
+  const blocks = tapBlocks(buildProgramBytes(source), {
+    name: programName,
+    autoStart: null,
+  });
   return encodeSpectrumTape(blocks, {
     sampleRate: CASSETTE_SAMPLE_RATE,
     pilotScale: robust ? 2 : 1,
