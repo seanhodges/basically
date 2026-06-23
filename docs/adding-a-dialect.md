@@ -7,6 +7,12 @@ BASIC:
 1. **Create `src/dialects/spectrum/`** mirroring `src/dialects/zx81/`:
    - `keywords.ts` — the token table (`KeywordInfo[]`). This alone powers
      highlighting and autocomplete via the generic builders in `src/editor/`.
+   - `language.ts` — wires the keyword table (and any lexical quirks) into the
+     CodeMirror language. Pass the dialect's block templates from
+     `src/editor/constructs.ts` (`constructsByDialect[<id>]`) as the second
+     argument to `buildCompletionSource` so conditionals, loops and
+     subroutines/procedures auto-complete as whole numbered blocks (IntelliJ
+     "live template" style) rather than as a bare keyword.
    - `charset.ts` — a `CharsetMapping` between editor text and machine codes.
    - `tokenizer.ts` / `detokenizer.ts` — text ↔ tokenized program bytes.
    - an image builder (the Spectrum equivalent of `pfile.ts` is a `.tap`/

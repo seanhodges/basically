@@ -53,6 +53,7 @@ import type { Dialect } from '../dialects/types';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { dialectLinter } from '../editor/lintIntegration';
 import { basicHighlightStyle } from '../editor/basicLanguage';
+import { numberingConfig } from '../editor/completions';
 import { useIdeStore } from '../app/store';
 import type { EditorCommandName } from '../app/store';
 import {
@@ -196,6 +197,7 @@ async function runEditorCommand(
 }
 
 const gutterCompartment = new Compartment();
+const numberingCompartment = new Compartment();
 
 function gutterExt(show: boolean) {
   return show ? [lineNumbers(), highlightActiveLineGutter()] : [];
@@ -348,6 +350,12 @@ export function CodeMirrorHost({
         gutterCompartment.of(
           gutterExt(useIdeStore.getState().showLineNumberGutter),
         ),
+        numberingCompartment.of(
+          numberingConfig.of({
+            auto: useIdeStore.getState().autoLineNumbering,
+            increment: useIdeStore.getState().lineNumberIncrement,
+          }),
+        ),
         breakpointCompartment.of(
           breakpointGutterExt(useIdeStore.getState().breakpoints),
         ),
@@ -436,6 +444,21 @@ export function CodeMirrorHost({
       effects: gutterCompartment.reconfigure(gutterExt(showLineNumberGutter)),
     });
   }, [showLineNumberGutter]);
+
+  // Keep the construct-completion numbering facet in step with the auto
+  // line-numbering settings (the editor isn't rebuilt when they change).
+  const autoLineNumbering = useIdeStore((s) => s.autoLineNumbering);
+  const lineNumberIncrement = useIdeStore((s) => s.lineNumberIncrement);
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: numberingCompartment.reconfigure(
+        numberingConfig.of({
+          auto: autoLineNumbering,
+          increment: lineNumberIncrement,
+        }),
+      ),
+    });
+  }, [autoLineNumbering, lineNumberIncrement]);
 
   // Re-render the breakpoint gutter whenever the breakpoint set changes.
   const breakpoints = useIdeStore((s) => s.breakpoints);

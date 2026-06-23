@@ -3,10 +3,12 @@ import {
   parseLines,
   computeNewLineNumber,
   makeSpace,
+  makeSpaceN,
   rewriteReferences,
   renumberLine,
   applyRenumberMap,
   insertNumberedLineBelow,
+  planConstructNumbering,
 } from './lineNumbering';
 
 describe('parseLines', () => {
@@ -189,5 +191,60 @@ describe('insertNumberedLineBelow', () => {
 
   it('skips a blank current line', () => {
     expect(insertNumberedLineBelow([''], 0, 10)).toBeNull();
+  });
+});
+
+describe('makeSpaceN', () => {
+  it('returns an empty map when enough room already exists', () => {
+    const lines = parseLines('10 PRINT\n20 PRINT');
+    expect(makeSpaceN(lines, 10, 2)!.size).toBe(0);
+  });
+
+  it('cascades the run of colliding lines up by the reserved count', () => {
+    const lines = parseLines('10 A\n11 B\n12 C\n40 D');
+    const map = makeSpaceN(lines, 10, 2);
+    // Reserve slots 11 and 12: 11→13, 12→14, then 40 already clears.
+    expect([...map!.entries()]).toEqual([
+      [11, 13],
+      [12, 14],
+    ]);
+  });
+
+  it('returns null when the cascade would overflow', () => {
+    const lines = parseLines('9997 A\n9998 B\n9999 C');
+    expect(makeSpaceN(lines, 9997, 2)).toBeNull();
+  });
+});
+
+describe('planConstructNumbering', () => {
+  it('numbers continuation lines by the increment at the end of file', () => {
+    const plan = planConstructNumbering(['10 FOR'], 0, 10, 2)!;
+    expect(plan.currentLineNo).toBeNull();
+    expect(plan.continuationNos).toEqual([20, 30]);
+    expect(plan.cascade.size).toBe(0);
+  });
+
+  it('bootstraps a number for an unnumbered current line', () => {
+    const plan = planConstructNumbering(['FOR'], 0, 10, 2)!;
+    expect(plan.currentLineNo).toBe(10);
+    expect(plan.continuationNos).toEqual([20, 30]);
+  });
+
+  it('falls back to unit spacing and cascades when the gap is tight', () => {
+    const plan = planConstructNumbering(['10 FOR', '11 PRINT'], 0, 10, 2)!;
+    expect(plan.continuationNos).toEqual([11, 12]);
+    // 11 must move up past the two reserved slots.
+    expect([...plan.cascade.entries()]).toEqual([[11, 13]]);
+  });
+
+  it('uses unit spacing without a cascade when a small gap suffices', () => {
+    const plan = planConstructNumbering(['10 FOR', '20 PRINT'], 0, 10, 2)!;
+    expect(plan.continuationNos).toEqual([11, 12]);
+    expect(plan.cascade.size).toBe(0);
+  });
+
+  it('returns an empty plan when no continuation lines are needed', () => {
+    const plan = planConstructNumbering(['10 IF'], 0, 10, 0)!;
+    expect(plan.continuationNos).toEqual([]);
   });
 });

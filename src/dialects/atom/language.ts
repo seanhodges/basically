@@ -2,10 +2,13 @@ import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
+import { constructsByDialect } from '../../editor/constructs';
 import { atomKeywords } from './keywords';
 
-export const atomCompletionSource: CompletionSource =
-  buildCompletionSource(atomKeywords);
+export const atomCompletionSource: CompletionSource = buildCompletionSource(
+  atomKeywords,
+  constructsByDialect.atom,
+);
 
 export function atomLanguageSupport(): Extension {
   // Atom quirks: hex literals use a '#' prefix (where the BBC uses '&'); there
