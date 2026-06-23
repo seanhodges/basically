@@ -126,6 +126,13 @@ describe('trs80 interpreter — data, arrays, graphics', () => {
     expect(firstText(run(src))).toBe('WORLD');
   });
 
+  it('keeps quoted DATA exact, skipping spaces around the quotes', () => {
+    // The space after DATA (and after the comma) must not pad the quoted value.
+    const src =
+      '10 READ A$,B$\n20 PRINT LEN(A$)+LEN(B$)\n30 DATA "###", "#E#"\n';
+    expect(firstText(run(src))).toBe('6');
+  });
+
   it('SET lights a cell that POINT reads back', () => {
     const src =
       '10 SET(10,10)\n20 IF POINT(10,10) THEN PRINT "ON" ELSE PRINT "OFF"\n';

@@ -1,10 +1,37 @@
-10 REM MAZE - RANDOM DIAGONAL WALLS (THE 10-PRINT MAZE)
+10 REM MAZE - REACH THE E, Z X K M TO MOVE
 20 CLS
-30 FOR Y=0 TO 45 STEP 3
-40 FOR X=0 TO 126 STEP 2
-50 IF RND(2)=1 THEN GOSUB 100 ELSE GOSUB 200
-60 NEXT X
-70 NEXT Y
-80 END
-100 SET(X,Y):SET(X+1,Y+1):SET(X,Y+2):RETURN
-200 SET(X+1,Y):SET(X,Y+1):SET(X+1,Y+2):RETURN
+30 DIM M$(12)
+40 FOR I=0 TO 12:READ M$(I):NEXT
+50 FOR I=0 TO 12:PRINT M$(I):NEXT
+60 PRINT "REACH E   Z X K M TO MOVE";
+70 X=1:Y=1
+80 POKE 15360+Y*64+X,79
+90 K$=INKEY$:IF K$="" THEN 90
+100 NX=X:NY=Y
+110 IF K$="Z" THEN NX=X-1
+120 IF K$="X" THEN NX=X+1
+130 IF K$="K" THEN NY=Y-1
+140 IF K$="M" THEN NY=Y+1
+150 IF NX<0 OR NX>38 OR NY<0 OR NY>12 THEN 90
+160 T$=MID$(M$(NY),NX+1,1)
+170 IF T$="#" THEN 90
+180 POKE 15360+Y*64+X,32
+190 X=NX:Y=NY
+200 POKE 15360+Y*64+X,79
+210 IF T$="E" THEN 230
+220 GOTO 90
+230 CLS:PRINT "YOU ESCAPED!"
+240 END
+250 DATA "#######################################"
+260 DATA "# #   #   #   #               #       #"
+270 DATA "# # # # # # # # ####### # ### ##### # #"
+280 DATA "# # #   #   #     #   # # # # #   # # #"
+290 DATA "# ######### ####### # # # # # # # ### #"
+300 DATA "#   #     # # #     # # # #   # #   # #"
+310 DATA "### # ### # # # ##### ### # ### ### # #"
+320 DATA "# #   # # #   #   # #     # #   # # # #"
+330 DATA "# ##### # ### ### # ####### # # # # # #"
+340 DATA "#       # #   #   # #   #   # # # #   #"
+350 DATA "# ### ### ##### ### # # # ##### # ### #"
+360 DATA "#   #           #     #         #    E#"
+370 DATA "#######################################"
