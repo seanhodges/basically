@@ -295,13 +295,14 @@
   align-items: center;
   justify-content: center;
   /* --vk-single-cap is the large/legible ceiling for short labels; the second
-     term is the width the legend's letters need (--vk-len chars at ~0.62em in
-     the bold UI font, with a little side padding), so longer words shrink to
-     stay inside the keycap. */
+     term is the width the longest visible legend needs (--vk-max-len chars at
+     ~0.62em in the bold UI font, with a little side padding). --vk-max-len is
+     shared by every key in the active mode, so all keys render at one uniform
+     size that still keeps the longest word inside its keycap. */
   --vk-single-cap: 20px;
   font-size: min(
     var(--vk-single-cap),
-    calc(100cqw / (var(--vk-len, 1) * 0.62))
+    calc(100cqw / (var(--vk-max-len, 1) * 0.62))
   );
   font-weight: 700;
   text-align: center;
