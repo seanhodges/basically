@@ -282,11 +282,17 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runRequest]);
 
-  // Stop requests from the toolbar
+  // Stop requests from the toolbar: a full shutdown, not a pause. Tear the
+  // machine down and blank the preview so it reads as switched off rather than
+  // frozen on its last frame. The next Run rebuilds a fresh machine via
+  // ensureMachine (machineRef is null again), exactly like a dialect switch.
   useEffect(() => {
     if (stopRequest === 0) return;
     stopLoop();
-    machineRef.current?.releaseAllKeys(); // nothing stays held while paused
+    machineRef.current?.releaseAllKeys();
+    machineRef.current?.dispose();
+    machineRef.current = null;
+    clearCanvas(); // drop the last frame so the screen looks powered off
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
@@ -294,7 +300,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     firstFrameRef.current = false;
     setLoading(false);
     setEmulatorStatus('stopped');
-  }, [stopRequest, stopLoop, setEmulatorStatus]);
+  }, [stopRequest, stopLoop, clearCanvas, setEmulatorStatus]);
 
   // Step request: run the paused debugger to the next BASIC line.
   useEffect(() => {
