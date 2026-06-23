@@ -30,6 +30,16 @@ export const numberingConfig = Facet.define<NumberingConfig, NumberingConfig>({
 });
 
 /**
+ * Whether full code completion (block constructs) is enabled. When false the
+ * editor offers only the original bare-keyword completions. Provided (and
+ * reconfigured) by the editor host; defaults on so standalone use and tests get
+ * the construct completions.
+ */
+export const fullCompletion = Facet.define<boolean, boolean>({
+  combine: (values) => (values.length ? values[values.length - 1]! : true),
+});
+
+/**
  * Apply a construct template: expand the block, numbering each continuation
  * line, and leave the caret on the first snippet field. Falls back to inserting
  * the bare keyword when numbering can't fit the program.
@@ -108,21 +118,23 @@ export function buildCompletionSource(
 ): CompletionSource {
   const constructLabels = new Set(constructs.map((c) => c.label));
 
-  const keywordOptions: Completion[] = keywords
-    .filter((k) => /^[A-Z]/.test(k.word))
-    .filter((k) => !constructLabels.has(k.word))
-    .map((k) => ({
-      label: k.word,
-      type:
-        k.kind === 'command'
-          ? 'keyword'
-          : k.kind === 'function'
-            ? 'function'
-            : 'operator',
-      detail: k.signature,
-      info: k.doc,
-      boost: k.kind === 'command' ? 1 : 0,
-    }));
+  const toKeywordOption = (k: KeywordInfo): Completion => ({
+    label: k.word,
+    type:
+      k.kind === 'command'
+        ? 'keyword'
+        : k.kind === 'function'
+          ? 'function'
+          : 'operator',
+    detail: k.signature,
+    info: k.doc,
+    boost: k.kind === 'command' ? 1 : 0,
+  });
+
+  const alphabeticKeywords = keywords.filter((k) => /^[A-Z]/.test(k.word));
+
+  // Plain (keyword-only) options — the fallback when full completion is off.
+  const plainOptions: Completion[] = alphabeticKeywords.map(toKeywordOption);
 
   const constructOptions: Completion[] = constructs.map((c) => ({
     label: c.label,
@@ -133,7 +145,13 @@ export function buildCompletionSource(
     apply: makeConstructApply(c),
   }));
 
-  const options = [...constructOptions, ...keywordOptions];
+  // Full options — block constructs plus the keywords they don't supersede.
+  const fullOptions: Completion[] = [
+    ...constructOptions,
+    ...alphabeticKeywords
+      .filter((k) => !constructLabels.has(k.word))
+      .map(toKeywordOption),
+  ];
 
   return (context: CompletionContext): CompletionResult | null => {
     const word = context.matchBefore(/[A-Za-z][A-Za-z$]*/);
@@ -146,7 +164,7 @@ export function buildCompletionSource(
 
     return {
       from: word ? word.from : context.pos,
-      options,
+      options: context.state.facet(fullCompletion) ? fullOptions : plainOptions,
       validFor: /^[A-Za-z$]*$/,
     };
   };

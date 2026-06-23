@@ -8,6 +8,7 @@ import {
   getAutoLineNumbering,
   getLineNumberIncrement,
   getShowLineNumberGutter,
+  getFullCodeCompletion,
   getCrtEffect,
   getSplitRatio,
   getEmulatorSpeed,
@@ -18,6 +19,7 @@ import {
   setAutoLineNumbering as persistAutoLineNumbering,
   setLineNumberIncrement as persistLineNumberIncrement,
   setShowLineNumberGutter as persistShowLineNumberGutter,
+  setFullCodeCompletion as persistFullCodeCompletion,
   setCrtEffect as persistCrtEffect,
   setEmulatorSpeed as persistEmulatorSpeed,
   setKeyboardAutoShow as persistKeyboardAutoShow,
@@ -144,6 +146,12 @@ interface IdeState {
   /** Whether the CodeMirror line number gutter is visible. */
   showLineNumberGutter: boolean;
   /**
+   * Full code completion: completing a conditional/loop/subroutine keyword
+   * expands the whole construct as a block. When off, only the bare keyword is
+   * inserted (the original completion behaviour).
+   */
+  fullCodeCompletion: boolean;
+  /**
    * Bump seq to ask the editor (CodeMirrorHost holds the EditorView) to run an
    * Edit-menu command. Shaped like docOverride: name + monotonic seq.
    */
@@ -198,6 +206,7 @@ interface IdeState {
   setAutoLineNumbering(on: boolean): void;
   setLineNumberIncrement(n: number): void;
   setShowLineNumberGutter(on: boolean): void;
+  setFullCodeCompletion(on: boolean): void;
   requestEditorCommand(name: EditorCommandName): void;
 }
 
@@ -313,6 +322,8 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getLineNumberIncrement() : 10,
   showLineNumberGutter:
     typeof localStorage !== 'undefined' ? getShowLineNumberGutter() : false,
+  fullCodeCompletion:
+    typeof localStorage !== 'undefined' ? getFullCodeCompletion() : true,
   editorCommand: { name: 'renumber', seq: 0 },
 
   setDialect: (id) =>
@@ -454,6 +465,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   setShowLineNumberGutter: (on) => {
     persistShowLineNumberGutter(on);
     set({ showLineNumberGutter: on });
+  },
+  setFullCodeCompletion: (on) => {
+    persistFullCodeCompletion(on);
+    set({ fullCodeCompletion: on });
   },
   requestEditorCommand: (name) =>
     set((s) => ({ editorCommand: { name, seq: s.editorCommand.seq + 1 } })),

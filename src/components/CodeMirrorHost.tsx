@@ -53,7 +53,7 @@ import type { Dialect } from '../dialects/types';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { dialectLinter } from '../editor/lintIntegration';
 import { basicHighlightStyle } from '../editor/basicLanguage';
-import { numberingConfig } from '../editor/completions';
+import { numberingConfig, fullCompletion } from '../editor/completions';
 import { useIdeStore } from '../app/store';
 import type { EditorCommandName } from '../app/store';
 import {
@@ -350,12 +350,13 @@ export function CodeMirrorHost({
         gutterCompartment.of(
           gutterExt(useIdeStore.getState().showLineNumberGutter),
         ),
-        numberingCompartment.of(
+        numberingCompartment.of([
           numberingConfig.of({
             auto: useIdeStore.getState().autoLineNumbering,
             increment: useIdeStore.getState().lineNumberIncrement,
           }),
-        ),
+          fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
+        ]),
         breakpointCompartment.of(
           breakpointGutterExt(useIdeStore.getState().breakpoints),
         ),
@@ -445,20 +446,23 @@ export function CodeMirrorHost({
     });
   }, [showLineNumberGutter]);
 
-  // Keep the construct-completion numbering facet in step with the auto
-  // line-numbering settings (the editor isn't rebuilt when they change).
+  // Keep the completion facets in step with the editor settings (the editor
+  // isn't rebuilt when they change): auto line-numbering drives how construct
+  // blocks are numbered, and full code completion toggles the block constructs.
   const autoLineNumbering = useIdeStore((s) => s.autoLineNumbering);
   const lineNumberIncrement = useIdeStore((s) => s.lineNumberIncrement);
+  const fullCodeCompletion = useIdeStore((s) => s.fullCodeCompletion);
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: numberingCompartment.reconfigure(
+      effects: numberingCompartment.reconfigure([
         numberingConfig.of({
           auto: autoLineNumbering,
           increment: lineNumberIncrement,
         }),
-      ),
+        fullCompletion.of(fullCodeCompletion),
+      ]),
     });
-  }, [autoLineNumbering, lineNumberIncrement]);
+  }, [autoLineNumbering, lineNumberIncrement, fullCodeCompletion]);
 
   // Re-render the breakpoint gutter whenever the breakpoint set changes.
   const breakpoints = useIdeStore((s) => s.breakpoints);

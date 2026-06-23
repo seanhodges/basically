@@ -24,6 +24,7 @@ const KEYS = {
   autoLineNumbering: 'mbide.autoLineNumbering',
   lineNumberIncrement: 'mbide.lineNumberIncrement',
   showLineNumberGutter: 'mbide.showLineNumberGutter',
+  fullCodeCompletion: 'mbide.fullCodeCompletion',
   crtEffect: 'mbide.crtEffect',
   splitRatio: 'mbide.splitRatio',
   emulatorSpeed: 'mbide.emulatorSpeed',
@@ -100,6 +101,14 @@ export function getShowLineNumberGutter(): boolean {
 
 export function setShowLineNumberGutter(on: boolean): void {
   localStorage.setItem(KEYS.showLineNumberGutter, on ? 'true' : 'false');
+}
+
+export function getFullCodeCompletion(): boolean {
+  return localStorage.getItem(KEYS.fullCodeCompletion) !== 'false'; // default on
+}
+
+export function setFullCodeCompletion(on: boolean): void {
+  localStorage.setItem(KEYS.fullCodeCompletion, on ? 'true' : 'false');
 }
 
 export function getCrtEffect(): boolean {

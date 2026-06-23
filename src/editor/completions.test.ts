@@ -4,12 +4,16 @@ import { CompletionContext, type Completion } from '@codemirror/autocomplete';
 import {
   buildCompletionSource,
   numberingConfig,
+  fullCompletion,
   type NumberingConfig,
 } from './completions';
 import type { ConstructTemplate } from './constructs';
 import type { KeywordInfo } from '../dialects/types';
 
-const keywords: KeywordInfo[] = [{ word: 'PRINT', token: 1, kind: 'command' }];
+const keywords: KeywordInfo[] = [
+  { word: 'FOR', token: 1, kind: 'command' },
+  { word: 'PRINT', token: 2, kind: 'command' },
+];
 const constructs: ConstructTemplate[] = [
   { label: 'IF', lines: ['IF ${1:condition} THEN ${0}'] },
   {
@@ -95,5 +99,30 @@ describe('construct completion expansion', () => {
     const view = makeView('FOR', { auto: false, increment: 10 });
     accept(view, 'FOR', 0, 3);
     expect(view.state.doc.toString()).toBe('FOR I=1 TO 10\n\nNEXT I');
+  });
+});
+
+describe('fullCompletion toggle', () => {
+  function optionsFor(full: boolean) {
+    const source = buildCompletionSource(keywords, constructs);
+    const state = EditorState.create({
+      doc: '10 F',
+      extensions: [fullCompletion.of(full)],
+    });
+    return source(new CompletionContext(state, 4, true))!.options;
+  }
+
+  it('offers block constructs (with apply) when enabled', () => {
+    const forOpt = optionsFor(true).find((o) => o.label === 'FOR');
+    expect(typeof forOpt!.apply).toBe('function');
+    expect(optionsFor(true).some((o) => o.label === 'IF')).toBe(true);
+  });
+
+  it('falls back to bare keyword options when disabled', () => {
+    const opts = optionsFor(false);
+    const forOpt = opts.find((o) => o.label === 'FOR');
+    // FOR is back to a plain (apply-less) keyword and IF (construct-only) is gone.
+    expect(forOpt!.apply).toBeUndefined();
+    expect(opts.some((o) => o.label === 'IF')).toBe(false);
   });
 });
