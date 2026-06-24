@@ -27,6 +27,7 @@ import { AtomMachine } from '../../emulator/atom/atomMachine';
 export const atom: Dialect = {
   id: 'atom',
   name: 'Acorn Atom',
+  programRamBytes: 8192,
   fileExtensions: ['.bas'],
   keywords: atomKeywords,
   charset: atomCharset,

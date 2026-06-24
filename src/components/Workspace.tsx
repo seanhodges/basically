@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore, type MobileTab } from '../app/store';
 import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
-import { useProgramStats } from '../app/useProgramStats';
+import { useProgramStats, ramBudget } from '../app/useProgramStats';
 import {
   setSplitRatio as persistSplitRatio,
   MIN_SPLIT_RATIO,
@@ -46,8 +46,7 @@ function ProgramStats() {
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const stats = useProgramStats();
 
-  const ramBudget = 16 * 1024 - 4 * 1024; // rough usable space in 16K
-  const pct = Math.min(100, Math.round((stats.bytes / ramBudget) * 100));
+  const { pct, label } = ramBudget(stats.bytes, dialect.programRamBytes);
 
   return (
     <div className={styles.programStats}>
@@ -57,7 +56,7 @@ function ProgramStats() {
         {dirty ? ' •' : ''} — {dialect.name}
       </p>
       <p title="Tokenized program size">
-        {stats.bytes.toLocaleString()} bytes ({pct}% of 16K budget)
+        {stats.bytes.toLocaleString()} bytes ({pct}% of {label} budget)
       </p>
       <p className={stats.errors > 0 ? styles.statusErrors : ''}>
         {stats.errors === 0

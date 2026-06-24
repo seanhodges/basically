@@ -228,6 +228,14 @@ export interface Dialect {
    */
   displaySize?: { width: number; height: number };
   /**
+   * Estimated free RAM available to a BASIC program on this machine, in
+   * bytes — the byte-counter budget. Based on the machine's documented
+   * "bytes free" figure (program text area after ROM, system variables and
+   * the default display mode), not total installed RAM. An estimate: a
+   * real program's headroom varies with display mode and variable usage.
+   */
+  programRamBytes: number;
+  /**
    * True when this dialect's emulator implements the step-through debugger
    * (`currentLine`/`debugStep`). Drives whether the toolbar offers a Debug
    * toggle. Absent/false for dialects whose cores can't single-step at BASIC

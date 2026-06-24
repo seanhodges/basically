@@ -1,5 +1,5 @@
 import { useIdeStore } from '../app/store';
-import { useProgramStats } from '../app/useProgramStats';
+import { useProgramStats, ramBudget } from '../app/useProgramStats';
 import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
 import styles from './StatusBar.module.css';
 
@@ -16,8 +16,7 @@ export function StatusBar() {
 
   const stats = useProgramStats();
 
-  const ramBudget = 16 * 1024 - 4 * 1024; // rough usable space in 16K
-  const pct = Math.min(100, Math.round((stats.bytes / ramBudget) * 100));
+  const { pct, label } = ramBudget(stats.bytes, dialect.programRamBytes);
 
   return (
     <div className={`${styles.statusBar} ${isMobile ? styles.slim : ''}`}>
@@ -32,7 +31,7 @@ export function StatusBar() {
           </span>
           <span>{dialect.name}</span>
           <span title="Tokenized program size">
-            {stats.bytes.toLocaleString()} bytes ({pct}% of 16K budget)
+            {stats.bytes.toLocaleString()} bytes ({pct}% of {label} budget)
           </span>
           <span className={stats.errors > 0 ? styles.statusErrors : ''}>
             {stats.errors === 0
