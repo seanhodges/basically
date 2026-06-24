@@ -286,6 +286,15 @@ export function Toolbar() {
         >
           ✦
         </button>
+        <a
+          className="icon-btn"
+          href="/docs"
+          target="_blank"
+          rel="noopener"
+          title="Documentation"
+        >
+          ?
+        </a>
         <button
           className="icon-btn"
           onClick={() => setSettingsOpen(true)}

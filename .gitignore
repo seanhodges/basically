@@ -4,6 +4,10 @@ dist
 *.tsbuildinfo
 .DS_Store
 
+# VitePress
+docs/.vitepress/cache
+docs/.vitepress/dist
+
 # Playwright
 /test-results/
 /playwright-report/
