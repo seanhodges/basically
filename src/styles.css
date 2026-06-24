@@ -67,8 +67,28 @@ button.run:hover:not(:disabled) {
   border-color: #7fe89a;
 }
 
-button.icon-btn {
+button.icon-btn,
+a.icon-btn {
   padding: 5px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Anchors don't inherit the base `button` chrome, so give `a.icon-btn`
+   the same look as the icon buttons it sits next to in the toolbar. */
+a.icon-btn {
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+a.icon-btn:hover {
+  border-color: var(--accent);
 }
 
 button.linklike {
