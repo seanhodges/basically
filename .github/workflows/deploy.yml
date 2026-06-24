@@ -25,6 +25,7 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
+      - run: npm run docs:build
 
   build:
     needs: checks
@@ -36,7 +37,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Build the app into dist/ first (vite empties dist/), then build the
+      # docs into dist/docs/ so a single Pages artifact ships both.
       - run: npm run build
+      - run: npm run docs:build
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
