@@ -5,13 +5,11 @@
   </picture>
 </p>
 
-# Basically
-
-A web IDE for microcomputer BASIC - write, run and ship games for
+A web IDE for microcomputer BASIC - write, run and ship games and programs for
 real retro hardware from your browser.
 
-Support includes the **Sinclair ZX81**, **ZX Spectrum** and **BBC
-Micro**.
+Support includes the **Sinclair ZX81**, **ZX Spectrum**, **BBC
+Micro**, among others.
 
 <p align="center">
   <img alt="The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard" src="docs/assets/screenshot.jpg" width="900" />
@@ -55,10 +53,9 @@ npm run build  # static site in dist/
 ```
 
 Open the IDE, pick **File ▸ Samples ▸ Breakout**, press **▶ Run** (or
-Ctrl+Enter), click the screen and play with the 5 and 8 keys.
+Ctrl+Enter), click the screen and follow thebin-game instructions.
 
-For AI generation, click **✦ AI**, add your Anthropic API key (created at
-[platform.claude.com](https://platform.claude.com/)), and ask for a game.
+For AI generation, click **✦ AI**, pick your AI provider and follow the instructions to enter your API key.
 
 ## Writing BASIC (ZX81 example)
 
@@ -94,15 +91,9 @@ included unmodified solely for use with the built-in emulators — the Sinclair
 ROMs under Amstrad's long-standing permission for emulator use, the Acorn ROMs
 on the same de-facto basis as other BBC Micro emulators. Per-ROM copyright and
 provenance is documented in
-[public/roms/ATTRIBUTION.md](public/roms/ATTRIBUTION.md).
+[ATTRIBUTION.md](public/roms/ATTRIBUTION.md).
 
 ## License
 
 This project is licensed under the **GNU GPL v3.0 or later** — see
-[LICENSE](LICENSE). It embeds the
-[jsbeeb](https://github.com/mattgodbolt/jsbeeb) emulator
-(© Matt Godbolt and contributors, GPL-3.0-or-later), which is what places the
-combined work under the GPL. The vendored Z80 core
-(`src/emulator/z80/`, MIT, © Molly Howell) keeps its own GPL-compatible
-license. ROM images are third-party copyrighted works — see
-[public/roms/ATTRIBUTION.md](public/roms/ATTRIBUTION.md).
+[LICENSE](LICENSE) and [ATTRIBUTION](public/roms/ATTRIBUTION.md).
