@@ -25,6 +25,7 @@ import { decodeCassette } from './audio/cassetteDecoder';
 export const trs80: Dialect = {
   id: 'trs80',
   name: 'TRS-80',
+  programRamBytes: 15572,
   fileExtensions: ['.bas'],
   keywords: trs80Keywords,
   charset: trs80Charset,

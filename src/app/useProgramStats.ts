@@ -6,6 +6,16 @@ export interface ProgramStats {
   errors: number;
 }
 
+/**
+ * Byte-counter budget: how full the program is against the machine's
+ * documented free RAM, plus a "NNK" size label for that budget.
+ */
+export function ramBudget(bytes: number, programRamBytes: number) {
+  const pct = Math.min(100, Math.round((bytes / programRamBytes) * 100));
+  const label = `${Math.round(programRamBytes / 1024)}K`;
+  return { pct, label };
+}
+
 /** Debounced tokenizer dry-run for the byte counter / error count. */
 export function useProgramStats(): ProgramStats {
   const dialect = useIdeStore((s) => s.dialect);

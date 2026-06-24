@@ -32,6 +32,7 @@ import {
 export const commodore64: Dialect = {
   id: 'commodore64',
   name: 'Commodore 64',
+  programRamBytes: 38911,
   fileExtensions: ['.bas'],
   keywords: c64Keywords,
   charset: c64Charset,

@@ -36,6 +36,7 @@ import {
 export const bbcmaster: Dialect = {
   id: 'bbcmaster',
   name: 'BBC Master',
+  programRamBytes: 30720,
   fileExtensions: ['.bas'],
   keywords: bbcKeywords,
   charset: bbcCharset,
