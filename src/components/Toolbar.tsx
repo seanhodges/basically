@@ -287,7 +287,7 @@ export function Toolbar() {
           ✦
         </button>
         <a
-          className="icon-btn"
+          className="icon-btn mobile-visible"
           href="/docs"
           target="_blank"
           rel="noopener"

@@ -104,6 +104,10 @@
     display: block;
   }
 
+  .toolbar :global(.mobile-visible) {
+    display: flex;
+  }
+
   .toolbar {
     padding: 6px;
     gap: 6px;
