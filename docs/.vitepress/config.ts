@@ -45,7 +45,7 @@ export default withPwa(
       nav: [
         { text: 'Guide', link: '/guide/getting-started' },
         { text: 'Reference', link: '/reference/file-formats' },
-        { text: 'Contributing', link: '/contributing/adding-a-dialect' },
+        { text: 'Contributing', link: '/contributing/contributing' },
         { text: 'Open the IDE ↗', link: 'https://ba.sical.ly/' },
       ],
 
@@ -74,12 +74,12 @@ export default withPwa(
           text: 'Contributing',
           items: [
             {
-              text: 'Adding a dialect',
-              link: '/contributing/adding-a-dialect',
+              text: 'Contributing guide',
+              link: '/contributing/contributing',
             },
             {
-              text: 'Adding a virtual keyboard',
-              link: '/contributing/adding-a-virtual-keyboard',
+              text: 'Adding a dialect',
+              link: '/contributing/adding-a-dialect',
             },
             {
               text: 'Dialect plans',

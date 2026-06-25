@@ -175,7 +175,7 @@ the stages on demand. Do not start implementing.
 | `src/dialects/zx81/emulator/`                                                       | `MachineEmulator` over the shared Z80 core    |
 | `src/keyboard/layoutSchema.ts`                                                      | All keyboard-layout types                     |
 | `docs/reference/dialect-roadmap.md`                                                           | Tiered roadmap + status legend to cross-link  |
-| `docs/contributing/{adding-a-dialect,adding-a-virtual-keyboard}.md`, `docs/reference/{file-formats,serial-protocol}.md` | Per-component reference detail for the stages |
+| `docs/contributing/adding-a-dialect.md` (dialect folder + virtual keyboard), `docs/reference/{file-formats,serial-protocol}.md` | Per-component reference detail for the stages |
 
 ## Guardrails
 

@@ -15,8 +15,8 @@ dialect complete.
   `src/dialects/registry.ts` until its wire-up stage.
 
 See `docs/reference/dialect-roadmap.md` for the higher-level tiered roadmap (which machines
-to add and why), and `docs/contributing/adding-a-dialect.md` /
-`docs/contributing/adding-a-virtual-keyboard.md` / `docs/reference/file-formats.md` /
+to add and why), and `docs/contributing/adding-a-dialect.md` (dialect folder +
+virtual keyboard) / `docs/reference/file-formats.md` /
 `docs/reference/serial-protocol.md` for the per-component reference detail each stage draws
 on. The plan template lives alongside the skill at
 `.claude/skills/adding-a-target-system/plan-template.md`.
