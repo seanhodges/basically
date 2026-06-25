@@ -48,7 +48,7 @@ Vite.
    npm run dev        # Vite dev server at http://localhost:5173
    ```
 
-Open <http://localhost:5173>, pick a sample from **File → SAMPLES**, and press
+Open `http://localhost:5173`, pick a sample from **File → SAMPLES**, and press
 **▶ Run** to confirm everything works before you change anything.
 
 To work on these docs, use `npm run docs:dev` (VitePress dev server).
