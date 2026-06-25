@@ -39,8 +39,11 @@ export default defineConfig({
           },
         ],
         // The docs live under /docs/ with their own service worker; never let
-        // the app's SPA navigation fallback answer for docs URLs.
-        navigateFallbackDenylist: [/^\/docs\//],
+        // the app's SPA navigation fallback answer for docs URLs. Match the
+        // bare `/docs` too (no trailing slash) so a visit to ba.sical.ly/docs
+        // reaches the server's redirect to /docs/ instead of being served the
+        // app shell.
+        navigateFallbackDenylist: [/^\/docs(\/|$)/],
       },
     }),
   ],
