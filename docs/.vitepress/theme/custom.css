@@ -1,0 +1,6 @@
+/* The nav title text is hidden (siteTitle: false in config.ts), so bump the
+   standalone nav logo a little taller than the default ~24px so its vertical
+   centre lines up with the nav menu items on the right. */
+.VPNavBarTitle .logo {
+  height: 32px;
+}
