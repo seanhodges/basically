@@ -111,6 +111,15 @@
   padding: 3px 8px;
 }
 
+.aiOffline {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .aiInput {
   display: flex;
   gap: 6px;

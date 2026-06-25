@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
+import { useOnline } from '../app/useOnline';
 import { useAiStore, type DisplayMessage } from '../ai/aiStore';
 import {
   buildSystemPrompt,
@@ -26,6 +27,10 @@ export function AiPanel() {
   const error = useAiStore((s) => s.error);
   const pendingFix = useAiStore((s) => s.pendingFix);
 
+  // The AI providers all require the network; there is no offline fallback, so
+  // when the browser goes offline we block sending and tell the user in-panel.
+  const online = useOnline();
+
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -37,7 +42,7 @@ export function AiPanel() {
 
   const send = () => {
     const request = input.trim();
-    if (request === '' || busy) return;
+    if (request === '' || busy || !online) return;
     const providerId = getAiProvider();
     const provider = getProvider(providerId);
     const apiKey = getProviderApiKey(providerId);
@@ -97,7 +102,7 @@ export function AiPanel() {
   // Accept a one-tap fix: send it to Claude, continuing the conversation.
   const sendFix = () => {
     const fix = useAiStore.getState().pendingFix;
-    if (!fix || busy) return;
+    if (!fix || busy || !online) return;
     const providerId = getAiProvider();
     const provider = getProvider(providerId);
     const apiKey = getProviderApiKey(providerId);
@@ -194,7 +199,7 @@ export function AiPanel() {
         <div className={styles.aiFixNotice}>
           <span className={styles.aiFixSummary}>{pendingFix.summary}</span>
           <div className={styles.aiFixActions}>
-            <button onClick={sendFix} disabled={busy}>
+            <button onClick={sendFix} disabled={busy || !online}>
               Fix these errors
             </button>
             <button
@@ -206,11 +211,22 @@ export function AiPanel() {
           </div>
         </div>
       )}
+      {!online && (
+        <div className={styles.aiOffline}>
+          You’re offline — the AI assistant needs an internet connection and is
+          unavailable until you reconnect.
+        </div>
+      )}
       <div className={styles.aiInput}>
         <textarea
           value={input}
           rows={2}
-          placeholder="Describe the game or change you want…"
+          disabled={!online}
+          placeholder={
+            online
+              ? 'Describe the game or change you want…'
+              : 'AI assistant unavailable while offline'
+          }
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -222,7 +238,7 @@ export function AiPanel() {
         {busy ? (
           <button onClick={stop}>Stop</button>
         ) : (
-          <button onClick={send} disabled={input.trim() === ''}>
+          <button onClick={send} disabled={input.trim() === '' || !online}>
             Send
           </button>
         )}
