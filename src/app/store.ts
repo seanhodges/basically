@@ -133,6 +133,8 @@ interface IdeState {
   settingsOpen: boolean;
   /** Program outline dialog (Edit ▸ Outline…). */
   procedureListOpen: boolean;
+  /** First-launch welcome modal (shown once, then persisted as dismissed). */
+  welcomeOpen: boolean;
   /**
    * Bump seq to ask the editor (CodeMirrorHost holds the EditorView) to move the
    * cursor to a BASIC line number and scroll it into view. Same shape as
@@ -202,6 +204,7 @@ interface IdeState {
   setImportOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setProcedureListOpen(open: boolean): void;
+  setWelcomeOpen(open: boolean): void;
   requestJumpToLine(lineNo: number): void;
   setAutoLineNumbering(on: boolean): void;
   setLineNumberIncrement(n: number): void;
@@ -315,6 +318,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   importOpen: false,
   settingsOpen: false,
   procedureListOpen: false,
+  welcomeOpen: false,
   jumpTarget: { lineNo: 0, seq: 0 },
   autoLineNumbering:
     typeof localStorage !== 'undefined' ? getAutoLineNumbering() : true,
@@ -452,6 +456,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   setImportOpen: (open) => set({ importOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
+  setWelcomeOpen: (open) => set({ welcomeOpen: open }),
   requestJumpToLine: (lineNo) =>
     set((s) => ({ jumpTarget: { lineNo, seq: s.jumpTarget.seq + 1 } })),
   setAutoLineNumbering: (on) => {
