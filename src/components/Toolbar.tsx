@@ -333,7 +333,7 @@ export function Toolbar() {
         </button>
         <a
           className="icon-btn mobile-visible"
-          href="/docs"
+          href="/docs/"
           target="_blank"
           rel="noopener"
           title="Documentation"
