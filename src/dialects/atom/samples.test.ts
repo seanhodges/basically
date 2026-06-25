@@ -105,9 +105,9 @@ describe('atom sample programs', () => {
 // The Atom has no INKEY, so the maze is turn-based: it draws once into the
 // fixed #8000 screen RAM (forcing the OS cursor #DE/#DF to home so PRINT lands
 // at row 0), reads walls back from the screen for collision, and moves the
-// player by POKEing the two changed cells. Moves arrive as a direction number
-// via INPUT. This drives the real ROM to prove the draw + read-back + POKE-move
-// path works.
+// player by POKEing the two changed cells. Moves arrive as a Z/X/K/M direction
+// key (read into a buffer via INPUT). This drives the real ROM to prove the
+// draw + read-back + POKE-move path works.
 describe('atom maze in the emulator', () => {
   /** Count '#' wall cells (code 0x23) in the 13 maze rows. */
   function countWalls(machine: AtomMachine): number {
@@ -148,9 +148,9 @@ describe('atom maze in the emulator', () => {
     const before = findPlayer(machine);
     expect(before).toEqual({ row: 1, col: 1 });
 
-    // Pressing 6 (right) + RETURN walks the player into the open cell to its
+    // Pressing X (right) + RETURN walks the player into the open cell to its
     // right; the move is a two-cell POKE, so the wall count is unchanged.
-    await tap(machine, 'Digit6');
+    await tap(machine, 'KeyX');
     await tap(machine, 'Enter');
     await runFrames(machine, 60);
 

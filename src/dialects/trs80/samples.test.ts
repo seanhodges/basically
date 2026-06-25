@@ -60,7 +60,7 @@ describe('trs80 samples', () => {
   // The maze rows come from `DATA "…"` lines; the player is POKEd into video RAM
   // by column, so the maze must render flush to column 0 (this also guards the
   // DATA leading-space fix). Then a breadth-first solver replays a real path of
-  // Z/X/K/M moves and the game must reach its YOU ESCAPED end state.
+  // W/A/S/D moves and the game must reach its YOU ESCAPED end state.
   it('maze renders flush-left and is solvable to the exit', () => {
     const rows = trs80Samples
       .find((s) => s.name === 'maze.bas')!
@@ -77,10 +77,10 @@ describe('trs80 samples', () => {
 
     // BFS for a path from (1,1) to the 'E' cell.
     const dirs: [number, number, string][] = [
-      [0, -1, 'K'],
-      [0, 1, 'M'],
-      [-1, 0, 'Z'],
-      [1, 0, 'X'],
+      [0, -1, 'W'],
+      [0, 1, 'S'],
+      [-1, 0, 'A'],
+      [1, 0, 'D'],
     ];
     const seen = new Set([1 * 100 + 1]);
     const queue: [number, number, string][] = [[1, 1, '']];
@@ -128,8 +128,8 @@ describe('trs80 samples', () => {
     for (let i = 0; i < 6000 && interp.state === 'running'; i++) {
       const bx = Number(interp.getVar('BX'));
       const px = Number(interp.getVar('PX'));
-      if (px < bx - 5) interp.input.setToken('Period', true);
-      else if (px > bx - 5) interp.input.setToken('Comma', true);
+      if (px < bx - 5) interp.input.setToken('KeyD', true);
+      else if (px > bx - 5) interp.input.setToken('KeyA', true);
       interp.runBudget(50);
       bricksGone = Math.max(bricksGone, 32 - Number(interp.getVar('NB')));
     }
