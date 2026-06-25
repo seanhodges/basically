@@ -93,8 +93,7 @@ export default withPwa(
 
       footer: {
         message:
-          'Released under the GNU GPL v3.0 or later. ROM images are third-party copyrighted works.',
-        copyright: 'Basically — a web IDE for microcomputer BASIC.',
+          'Released under GNU GPL v3.0. Some ROM images are third-party copyrighted works, separate to this project, strictly for personal/educational purposes.',
       },
     },
 
