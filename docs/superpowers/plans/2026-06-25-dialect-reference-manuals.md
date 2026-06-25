@@ -13,28 +13,30 @@
 ## Background: what already exists (read before starting)
 
 - **The data source.** Every dialect exposes an editor-facing `keywords: KeywordInfo[]` on its `Dialect` object (`src/dialects/types.ts:206`). `KeywordInfo` (`src/dialects/types.ts:6`) is:
+
   ```ts
   interface KeywordInfo {
-    word: string;                                  // canonical spelling, upper-case, e.g. "PRINT", "INKEY$", "**"
+    word: string; // canonical spelling, upper-case, e.g. "PRINT", "INKEY$", "**"
     token: number;
     kind: 'command' | 'function' | 'operator';
-    signature?: string;                            // e.g. 'PRINT [AT row,col;] items', 'FOR v=a TO b [STEP c]'
-    doc?: string;                                  // one-line description shown in autocomplete
+    signature?: string; // e.g. 'PRINT [AT row,col;] items', 'FOR v=a TO b [STEP c]'
+    doc?: string; // one-line description shown in autocomplete
   }
   ```
+
   `signature` and `doc` are populated for (almost) every keyword already — they are the raw material the generator copies into the draft, and the enrichment passes rewrite.
 
 - **The distinct language sets.** The registry (`src/dialects/registry.ts`) currently registers nine dialects, but several share a keyword set, so there are **seven distinct language sets**. Each set's editor-facing array (the exact export name matters for the generator's imports):
 
-  | Set id         | Page title                       | Machines covered (registry ids)   | Source array export                                              |
-  | -------------- | -------------------------------- | --------------------------------- | --------------------------------------------------------------- |
-  | `zx81`         | ZX81 BASIC                       | `zx81`                            | `zx81Keywords` — `src/dialects/zx81/keywords.ts`                |
-  | `zx80`         | ZX80 integer BASIC               | `zx80`                            | `zx80Keywords` — `src/dialects/zx80/keywords.ts`               |
-  | `zxspectrum`   | ZX Spectrum BASIC (48K & 128K)   | `zxspectrum`, `zxspectrum128`     | `spectrumKeywords` — `src/dialects/zxspectrum/keywords.ts` (+ `SPECTRUM_KEYWORD`, `PLAY_KEYWORD` from `src/dialects/zxspectrum128/keywords.ts`) |
-  | `bbc`          | BBC BASIC (Micro & Master)       | `bbcmicro`, `bbcmaster`           | `bbcKeywords` — `src/dialects/bbcmicro/keywords.ts`            |
-  | `commodore64`  | Commodore BASIC v2               | `commodore64`                     | `c64Keywords` — `src/dialects/commodore64/keywords.ts`         |
-  | `atom`         | Acorn Atom BASIC                 | `atom`                            | `atomKeywords` — `src/dialects/atom/keywords.ts`               |
-  | `trs80`        | TRS-80 Level II BASIC            | `trs80`                           | `trs80Keywords` — `src/dialects/trs80/keywords.ts`            |
+  | Set id        | Page title                     | Machines covered (registry ids) | Source array export                                                                                                                             |
+  | ------------- | ------------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `zx81`        | ZX81 BASIC                     | `zx81`                          | `zx81Keywords` — `src/dialects/zx81/keywords.ts`                                                                                                |
+  | `zx80`        | ZX80 integer BASIC             | `zx80`                          | `zx80Keywords` — `src/dialects/zx80/keywords.ts`                                                                                                |
+  | `zxspectrum`  | ZX Spectrum BASIC (48K & 128K) | `zxspectrum`, `zxspectrum128`   | `spectrumKeywords` — `src/dialects/zxspectrum/keywords.ts` (+ `SPECTRUM_KEYWORD`, `PLAY_KEYWORD` from `src/dialects/zxspectrum128/keywords.ts`) |
+  | `bbc`         | BBC BASIC (Micro & Master)     | `bbcmicro`, `bbcmaster`         | `bbcKeywords` — `src/dialects/bbcmicro/keywords.ts`                                                                                             |
+  | `commodore64` | Commodore BASIC v2             | `commodore64`                   | `c64Keywords` — `src/dialects/commodore64/keywords.ts`                                                                                          |
+  | `atom`        | Acorn Atom BASIC               | `atom`                          | `atomKeywords` — `src/dialects/atom/keywords.ts`                                                                                                |
+  | `trs80`       | TRS-80 Level II BASIC          | `trs80`                         | `trs80Keywords` — `src/dialects/trs80/keywords.ts`                                                                                              |
 
   Notes that the enrichment must honour:
   - **Spectrum 128K** uses `spectrum128Keywords = [...spectrumKeywords, SPECTRUM_KEYWORD, PLAY_KEYWORD]` (`src/dialects/zxspectrum128/keywords.ts`). The Spectrum page covers both: those two extra commands are tagged `128K only`.
@@ -61,18 +63,18 @@ Every table has exactly three visible data columns, per the requirement:
 
 Rewrite each raw `signature` into this notation so all seven pages read consistently:
 
-| Token              | Meaning                                                                 |
-| ------------------ | ----------------------------------------------------------------------- |
-| `<number>`         | a numeric expression                                                    |
-| `<string>`         | a string expression                                                     |
-| `<var>`            | any variable (numeric or string) used as an assignment/read target      |
+| Token                   | Meaning                                                                 |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `<number>`              | a numeric expression                                                    |
+| `<string>`              | a string expression                                                     |
+| `<var>`                 | any variable (numeric or string) used as an assignment/read target      |
 | `<numvar>` / `<strvar>` | a numeric / string variable specifically, when the keyword requires one |
-| `<line>`           | a line number                                                           |
-| `<int>`            | an integer constant/expression where only integers are valid            |
-| `<channel>` / `<file>` | a stream/file/channel number (dialect-specific, e.g. C64 `#<file>`) |
-| `[ … ]`            | optional part (keep existing bracket convention)                        |
-| `…` or `,…`        | repeatable list                                                         |
-| <code>&#124;</code> | alternatives                                                          |
+| `<line>`                | a line number                                                           |
+| `<int>`                 | an integer constant/expression where only integers are valid            |
+| `<channel>` / `<file>`  | a stream/file/channel number (dialect-specific, e.g. C64 `#<file>`)     |
+| `[ … ]`                 | optional part (keep existing bracket convention)                        |
+| `…` or `,…`             | repeatable list                                                         |
+| <code>&#124;</code>     | alternatives                                                            |
 
 Keep the canonical keyword spelling verbatim (including a trailing `$` or, where the dialect's editor view keeps it, a trailing `(`). Argument-less keywords (e.g. `PI`, `RND`, `END`) keep just the name as their syntax. Worked examples appear in each enrichment task.
 
@@ -81,6 +83,7 @@ Keep the canonical keyword spelling verbatim (including a trailing `$` or, where
 ## File structure (what this plan creates / modifies)
 
 **Create:**
+
 - `docs/reference/data/types.ts` — the `ReferenceEntry` / `ReferenceTableData` types.
 - `docs/reference/data/zx81.ts`, `zx80.ts`, `zxspectrum.ts`, `bbc.ts`, `commodore64.ts`, `atom.ts`, `trs80.ts` — one data file per set (generated, then enriched).
 - `docs/reference/data/reference-data.test.ts` — structural integrity test over all seven data files.
@@ -92,6 +95,7 @@ Keep the canonical keyword spelling verbatim (including a trailing `$` or, where
 - `scripts/gen-reference-scaffold.mts` — the one-shot scaffold generator.
 
 **Modify:**
+
 - `vite.config.ts` — widen `test.include` to also match `docs/**/*.test.ts`.
 - `package.json` — add the `gen:reference` script.
 - `docs/.vitepress/theme/index.ts` — register `ReferenceTable` globally via `enhanceApp`.
@@ -104,6 +108,7 @@ Keep the canonical keyword spelling verbatim (including a trailing `$` or, where
 Produces the seven draft data files from the live keyword arrays. The generator is **create-only** (skips a file that already exists) so re-running it later for a brand-new dialect never clobbers enriched content.
 
 **Files:**
+
 - Create: `docs/reference/data/types.ts`
 - Create: `scripts/gen-reference-scaffold.mts`
 - Modify: `package.json` (add `gen:reference` script)
@@ -147,7 +152,10 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { KeywordInfo } from '../src/dialects/types';
-import type { ReferenceEntry, ReferenceTableData } from '../docs/reference/data/types';
+import type {
+  ReferenceEntry,
+  ReferenceTableData,
+} from '../docs/reference/data/types';
 
 import { zx81Keywords } from '../src/dialects/zx81/keywords';
 import { zx80Keywords } from '../src/dialects/zx80/keywords';
@@ -267,7 +275,9 @@ for (const { id, varName, data } of sets) {
     `import type { ReferenceTableData } from './types';\n\n` +
     `export const ${varName}: ReferenceTableData = ${JSON.stringify(data, null, 2)};\n`;
   writeFileSync(file, body, 'utf8');
-  console.log(`wrote docs/reference/data/${id}.ts (${data.entries.length} entries)`);
+  console.log(
+    `wrote docs/reference/data/${id}.ts (${data.entries.length} entries)`,
+  );
 }
 ```
 
@@ -305,6 +315,7 @@ git commit -m "docs: scaffold dialect reference data from keyword tables"
 The interactive behaviour (search, kind filter, column sort) lives in a pure module so it can be unit-tested under Vitest without a Vue test harness. The `.vue` component (Task 3) is a thin shell over these functions.
 
 **Files:**
+
 - Modify: `vite.config.ts` (widen `test.include`)
 - Create: `docs/.vitepress/theme/referenceTable.ts`
 - Test: `docs/.vitepress/theme/referenceTable.test.ts`
@@ -339,10 +350,30 @@ import type { ReferenceEntry } from '../../reference/data/types';
 import { filterEntries, sortEntries } from './referenceTable';
 
 const ENTRIES: ReferenceEntry[] = [
-  { name: 'PRINT', kind: 'command', syntax: 'PRINT [<expr>…]', description: 'Write to the screen.' },
-  { name: 'INPUT', kind: 'command', syntax: 'INPUT [<string>;] <var>', description: 'Read from the keyboard.' },
-  { name: 'RND', kind: 'function', syntax: 'RND', description: 'Random number.' },
-  { name: 'AND', kind: 'operator', syntax: '<number> AND <number>', description: 'Bitwise AND.' },
+  {
+    name: 'PRINT',
+    kind: 'command',
+    syntax: 'PRINT [<expr>…]',
+    description: 'Write to the screen.',
+  },
+  {
+    name: 'INPUT',
+    kind: 'command',
+    syntax: 'INPUT [<string>;] <var>',
+    description: 'Read from the keyboard.',
+  },
+  {
+    name: 'RND',
+    kind: 'function',
+    syntax: 'RND',
+    description: 'Random number.',
+  },
+  {
+    name: 'AND',
+    kind: 'operator',
+    syntax: '<number> AND <number>',
+    description: 'Bitwise AND.',
+  },
 ];
 
 describe('filterEntries', () => {
@@ -351,18 +382,31 @@ describe('filterEntries', () => {
   });
 
   it('matches name, syntax and description case-insensitively', () => {
-    expect(filterEntries(ENTRIES, 'keyboard', 'all').map((e) => e.name)).toEqual(['INPUT']);
-    expect(filterEntries(ENTRIES, 'rnd', 'all').map((e) => e.name)).toEqual(['RND']);
-    expect(filterEntries(ENTRIES, '<string>', 'all').map((e) => e.name)).toEqual(['INPUT']);
+    expect(
+      filterEntries(ENTRIES, 'keyboard', 'all').map((e) => e.name),
+    ).toEqual(['INPUT']);
+    expect(filterEntries(ENTRIES, 'rnd', 'all').map((e) => e.name)).toEqual([
+      'RND',
+    ]);
+    expect(
+      filterEntries(ENTRIES, '<string>', 'all').map((e) => e.name),
+    ).toEqual(['INPUT']);
   });
 
   it('filters by kind', () => {
-    expect(filterEntries(ENTRIES, '', 'function').map((e) => e.name)).toEqual(['RND']);
-    expect(filterEntries(ENTRIES, '', 'operator').map((e) => e.name)).toEqual(['AND']);
+    expect(filterEntries(ENTRIES, '', 'function').map((e) => e.name)).toEqual([
+      'RND',
+    ]);
+    expect(filterEntries(ENTRIES, '', 'operator').map((e) => e.name)).toEqual([
+      'AND',
+    ]);
   });
 
   it('combines query and kind', () => {
-    expect(filterEntries(ENTRIES, 'p', 'command').map((e) => e.name)).toEqual(['PRINT', 'INPUT']);
+    expect(filterEntries(ENTRIES, 'p', 'command').map((e) => e.name)).toEqual([
+      'PRINT',
+      'INPUT',
+    ]);
   });
 });
 
@@ -376,8 +420,15 @@ describe('sortEntries', () => {
   });
 
   it('sorts by kind, breaking ties by name', () => {
-    const byKind = sortEntries(ENTRIES, 'kind', 'asc').map((e) => `${e.kind}:${e.name}`);
-    expect(byKind).toEqual(['command:INPUT', 'command:PRINT', 'function:RND', 'operator:AND']);
+    const byKind = sortEntries(ENTRIES, 'kind', 'asc').map(
+      (e) => `${e.kind}:${e.name}`,
+    );
+    expect(byKind).toEqual([
+      'command:INPUT',
+      'command:PRINT',
+      'function:RND',
+      'operator:AND',
+    ]);
   });
 });
 ```
@@ -425,7 +476,9 @@ export function sortEntries(
   const sign = dir === 'asc' ? 1 : -1;
   return [...entries].sort((a, b) => {
     const primary =
-      key === 'kind' ? a.kind.localeCompare(b.kind) : a.name.localeCompare(b.name);
+      key === 'kind'
+        ? a.kind.localeCompare(b.kind)
+        : a.name.localeCompare(b.name);
     if (primary !== 0) return primary * sign;
     return a.name.localeCompare(b.name) * sign;
   });
@@ -456,6 +509,7 @@ git commit -m "docs: add tested filter/sort logic for the reference table"
 A self-contained, SSR-safe Vue SFC that renders any `ReferenceTableData` with a search box, kind filter, sortable Name/Kind columns, and a live result count. Registered globally so markdown pages can use `<ReferenceTable :data="…" />`.
 
 **Files:**
+
 - Create: `docs/.vitepress/theme/components/ReferenceTable.vue`
 - Modify: `docs/.vitepress/theme/index.ts`
 
@@ -539,9 +593,15 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
       <thead>
         <tr>
           <th :aria-sort="ariaSort('name')">
-            <button type="button" class="reftable-sort" @click="toggleSort('name')">
+            <button
+              type="button"
+              class="reftable-sort"
+              @click="toggleSort('name')"
+            >
               Name
-              <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
+              <span v-if="sortKey === 'name'">{{
+                sortDir === 'asc' ? '▲' : '▼'
+              }}</span>
             </button>
           </th>
           <th>Syntax</th>
@@ -552,14 +612,20 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
         <tr v-for="e in visible" :key="e.name">
           <td class="reftable-name">
             <code>{{ e.name }}</code>
-            <span class="reftable-badge" :class="`kind-${e.kind}`">{{ e.kind }}</span>
+            <span class="reftable-badge" :class="`kind-${e.kind}`">{{
+              e.kind
+            }}</span>
             <span v-if="e.tag" class="reftable-tag">{{ e.tag }}</span>
           </td>
-          <td class="reftable-syntax"><code>{{ e.syntax }}</code></td>
+          <td class="reftable-syntax">
+            <code>{{ e.syntax }}</code>
+          </td>
           <td class="reftable-desc">{{ e.description }}</td>
         </tr>
         <tr v-if="visible.length === 0">
-          <td colspan="3" class="reftable-empty">No keywords match “{{ query }}”.</td>
+          <td colspan="3" class="reftable-empty">
+            No keywords match “{{ query }}”.
+          </td>
         </tr>
       </tbody>
     </table>
@@ -641,8 +707,12 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-text-2);
 }
-.reftable-badge.kind-function { color: var(--vp-c-green-1); }
-.reftable-badge.kind-operator { color: var(--vp-c-yellow-1); }
+.reftable-badge.kind-function {
+  color: var(--vp-c-green-1);
+}
+.reftable-badge.kind-operator {
+  color: var(--vp-c-yellow-1);
+}
 .reftable-tag {
   display: inline-block;
   margin-left: 0.4rem;
@@ -697,6 +767,7 @@ git commit -m "docs: add interactive ReferenceTable component"
 ## Tasks 4a–4g: Enrich each set's data file
 
 One task per data file. Each pass walks **every** entry and:
+
 1. Rewrites `syntax` into the typed `<…>` notation (see the convention table above).
 2. Expands `description` from the terse autocomplete one-liner into a brief but useful explanation, calling out notable behaviours (range limits, side effects, gotchas).
 3. Leaves `name`/`kind`/`tag` untouched.
@@ -717,7 +788,9 @@ Pull supporting detail from the dialect's `aiProfile.ts` (machine quirks, memory
   { name: 'SLOW', kind: 'command', syntax: 'SLOW',
     description: 'Switches to SLOW mode: the display stays on continuously but the CPU runs at about a quarter speed. FAST blanks the screen for full-speed computation.' },
   ```
+
   Run: `npm run typecheck` → exit 0, then commit:
+
   ```bash
   git add docs/reference/data/zx81.ts
   git commit -m "docs: enrich ZX81 reference entries"
@@ -729,7 +802,9 @@ Pull supporting detail from the dialect's `aiProfile.ts` (machine quirks, memory
   { name: 'PRINT', kind: 'command', syntax: 'PRINT [<expr>][;|,]…',
     description: 'Writes to the display. ZX80 BASIC is integer-only, so numeric values print without a fractional part.' },
   ```
+
   Run: `npm run typecheck`, then:
+
   ```bash
   git add docs/reference/data/zx80.ts
   git commit -m "docs: enrich ZX80 reference entries"
@@ -745,7 +820,9 @@ Pull supporting detail from the dialect's `aiProfile.ts` (machine quirks, memory
   { name: 'SPECTRUM', kind: 'command', syntax: 'SPECTRUM', tag: '128K only',
     description: 'Switches the machine back to 48 BASIC. Only meaningful on the 128K models.' },
   ```
+
   Run: `npm run typecheck`, then:
+
   ```bash
   git add docs/reference/data/zxspectrum.ts
   git commit -m "docs: enrich ZX Spectrum reference entries"
@@ -761,7 +838,9 @@ Pull supporting detail from the dialect's `aiProfile.ts` (machine quirks, memory
   { name: 'AND', kind: 'operator', syntax: '<number> AND <number>',
     description: 'Bitwise/logical AND of two integers.' },
   ```
+
   Run: `npm run typecheck`, then:
+
   ```bash
   git add docs/reference/data/bbc.ts
   git commit -m "docs: enrich BBC BASIC reference entries"
@@ -777,7 +856,9 @@ Pull supporting detail from the dialect's `aiProfile.ts` (machine quirks, memory
   { name: 'MID$', kind: 'function', syntax: 'MID$(<string>, <number> [, <number>])',
     description: 'Returns a substring starting at the 1-based position for the optional length (default: to the end of the string).' },
   ```
+
   Run: `npm run typecheck`, then:
+
   ```bash
   git add docs/reference/data/commodore64.ts
   git commit -m "docs: enrich Commodore 64 reference entries"
@@ -789,7 +870,9 @@ Pull supporting detail from the dialect's `aiProfile.ts` (machine quirks, memory
   { name: 'DO', kind: 'command', syntax: 'DO … UNTIL <number>',
     description: 'Begins a loop whose body repeats until the UNTIL condition is true (tested at the bottom, so the body always runs at least once).' },
   ```
+
   Run: `npm run typecheck`, then:
+
   ```bash
   git add docs/reference/data/atom.ts
   git commit -m "docs: enrich Acorn Atom reference entries"
@@ -803,7 +886,9 @@ Pull supporting detail from the dialect's `aiProfile.ts` (machine quirks, memory
   { name: 'PRINT', kind: 'command', syntax: 'PRINT [@ <number>,] [<expr>][;|,]…',
     description: 'Writes to the screen; "PRINT @ n," positions output at screen cell n (0–1023). "," advances to the next print zone, ";" joins items.' },
   ```
+
   Run: `npm run typecheck`, then:
+
   ```bash
   git add docs/reference/data/trs80.ts
   git commit -m "docs: enrich TRS-80 reference entries"
@@ -816,6 +901,7 @@ Pull supporting detail from the dialect's `aiProfile.ts` (machine quirks, memory
 Add one markdown page per set, an overview page, and the navigation entries.
 
 **Files:**
+
 - Create: `docs/reference/index.md`
 - Create: `docs/reference/{zx81,zx80,zxspectrum,bbc,commodore64,atom,trs80}.md`
 - Modify: `docs/.vitepress/config.ts`
@@ -867,14 +953,14 @@ Every command, function and operator in Sinclair ZX81 BASIC.
 
 Create the other six the same way, substituting the heading, intro sentence, import name and data path:
 
-| File                              | Import statement                                             | Heading                          |
-| --------------------------------- | ----------------------------------------------------------- | -------------------------------- |
-| `docs/reference/zx80.md`          | `import { zx80Reference } from './data/zx80';`              | `# ZX80 BASIC reference`         |
-| `docs/reference/zxspectrum.md`    | `import { zxspectrumReference } from './data/zxspectrum';`  | `# ZX Spectrum BASIC reference`  |
-| `docs/reference/bbc.md`           | `import { bbcReference } from './data/bbc';`                | `# BBC BASIC reference`          |
-| `docs/reference/commodore64.md`   | `import { commodore64Reference } from './data/commodore64';`| `# Commodore BASIC v2 reference` |
-| `docs/reference/atom.md`          | `import { atomReference } from './data/atom';`              | `# Acorn Atom BASIC reference`   |
-| `docs/reference/trs80.md`         | `import { trs80Reference } from './data/trs80';`            | `# TRS-80 Level II BASIC reference` |
+| File                            | Import statement                                             | Heading                             |
+| ------------------------------- | ------------------------------------------------------------ | ----------------------------------- |
+| `docs/reference/zx80.md`        | `import { zx80Reference } from './data/zx80';`               | `# ZX80 BASIC reference`            |
+| `docs/reference/zxspectrum.md`  | `import { zxspectrumReference } from './data/zxspectrum';`   | `# ZX Spectrum BASIC reference`     |
+| `docs/reference/bbc.md`         | `import { bbcReference } from './data/bbc';`                 | `# BBC BASIC reference`             |
+| `docs/reference/commodore64.md` | `import { commodore64Reference } from './data/commodore64';` | `# Commodore BASIC v2 reference`    |
+| `docs/reference/atom.md`        | `import { atomReference } from './data/atom';`               | `# Acorn Atom BASIC reference`      |
+| `docs/reference/trs80.md`       | `import { trs80Reference } from './data/trs80';`             | `# TRS-80 Level II BASIC reference` |
 
 Each page's `<ReferenceTable :data="…" />` uses the matching import name (e.g. `:data="bbcReference"`).
 
@@ -928,6 +1014,7 @@ git commit -m "docs: add language reference pages and navigation"
 A structural test guards every data file against regressions (missing fields, bad kinds, duplicate names, empty syntax/description), then a full verification sweep.
 
 **Files:**
+
 - Create: `docs/reference/data/reference-data.test.ts`
 
 - [ ] **Step 1: Write the integrity test**
@@ -967,7 +1054,9 @@ describe.each(SETS)('reference data: %s', (_id, data) => {
       expect(e.name, 'name').toBeTruthy();
       expect(['command', 'function', 'operator']).toContain(e.kind);
       expect(e.syntax, `syntax for ${e.name}`).toBeTruthy();
-      expect(e.description.length, `description for ${e.name}`).toBeGreaterThan(0);
+      expect(e.description.length, `description for ${e.name}`).toBeGreaterThan(
+        0,
+      );
     }
   });
 
@@ -986,6 +1075,7 @@ Expected: PASS. If a description is still empty (a keyword whose source `doc` wa
 - [ ] **Step 3: Full verification sweep**
 
 Run each and confirm a clean result:
+
 - `npm run typecheck` → exit 0
 - `npm test` → all suites pass (includes the two new `docs/**` test files)
 - `npm run lint` → no errors
@@ -1007,4 +1097,7 @@ git commit -m "docs: add reference data integrity test"
 - **Placeholder scan.** Enrichment tasks intentionally show representative rows rather than all ~600, but each gives the exact notation, the source of supporting detail (`aiProfile.ts`), worked examples at target quality, and a per-file verify+commit — so an executor has a concrete, repeatable procedure, not a vague "fill in details". No `TODO`/"handle edge cases"/"similar to above" placeholders remain in code steps.
 - **Type consistency.** `ReferenceEntry`/`ReferenceTableData` are defined once (Task 1) and imported everywhere (generator, logic, component, tests). Export names (`zx81Reference` … `trs80Reference`) are used identically in the generator, the markdown pages and both test files. `filterEntries`/`sortEntries` signatures match between the test (Task 2 Step 2), the implementation (Step 4) and the component (Task 3).
 - **Decisions captured.** Hybrid generate-then-enrich, VitePress + interactive Vue component, one page per distinct language set (Spectrum 48K/128K merged with `128K only` tags; BBC Micro/Master merged) — as agreed.
+
+```
+
 ```
