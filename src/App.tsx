@@ -7,14 +7,22 @@ import { TransferDialog } from './components/TransferDialog';
 import { ImportDialog } from './components/ImportDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
+import { WelcomeDialog } from './components/WelcomeDialog';
 import { StatusBar } from './components/StatusBar';
-import { saveAutosave } from './storage/settings';
+import { getHasSeenWelcome, saveAutosave } from './storage/settings';
 import { isMobileViewport } from './app/useMediaQuery';
 import styles from './App.module.css';
 
 export default function App() {
   const requestRun = useIdeStore((s) => s.requestRun);
   const runRequest = useIdeStore((s) => s.runRequest);
+
+  // Greet first-time visitors with the welcome modal (once per browser).
+  useEffect(() => {
+    if (!getHasSeenWelcome()) {
+      useIdeStore.getState().setWelcomeOpen(true);
+    }
+  }, []);
 
   // Autosave the document every 2s while dirty
   useEffect(() => {
@@ -55,6 +63,7 @@ export default function App() {
       <ImportDialog />
       <SwitchTargetDialog />
       <ProcedureListDialog />
+      <WelcomeDialog />
       <div
         className={styles.rotateOverlay}
         role="alertdialog"

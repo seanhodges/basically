@@ -32,6 +32,7 @@ const KEYS = {
   keyboardSound: 'mbide.keyboardSound',
   keyboardHaptics: 'mbide.keyboardHaptics',
   keyboardKeyDisplay: 'mbide.keyboardKeyDisplay',
+  hasSeenWelcome: 'mbide.hasSeenWelcome',
 } as const;
 
 export const DEFAULT_LINE_INCREMENT = 10;
@@ -117,6 +118,18 @@ export function getCrtEffect(): boolean {
 
 export function setCrtEffect(on: boolean): void {
   localStorage.setItem(KEYS.crtEffect, on ? 'true' : 'false');
+}
+
+/**
+ * Whether the user has seen (and dismissed) the first-launch welcome modal.
+ * Defaults to false so the modal shows once on a fresh browser.
+ */
+export function getHasSeenWelcome(): boolean {
+  return localStorage.getItem(KEYS.hasSeenWelcome) === 'true';
+}
+
+export function setHasSeenWelcome(seen: boolean): void {
+  localStorage.setItem(KEYS.hasSeenWelcome, seen ? 'true' : 'false');
 }
 
 /**

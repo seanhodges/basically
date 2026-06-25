@@ -64,5 +64,6 @@ Basically is an installable PWA — use your browser's _Install_ / _Add to Home
 Screen_ action to run it standalone on desktop or mobile.
 
 The app works almost entirely offline, so you can sit on a flight, train or mountain summit and tinker with that game you're working on at home. There are a couple of things to be aware of:
+
 - **AI support** currently only supports cloud-based solutions and requires Internet access at all times to work. In future we might add local LLM support.
 - **Running the emulator** usually requires downloading a third-party ROM for the target machine, whuch are often large blobs and can have complex licencing rules. You should run the emulator **before** going offline, to ensure any runtime dependencies are cached and ready to use.
