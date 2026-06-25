@@ -35,6 +35,10 @@ export default defineConfig({
 
   themeConfig: {
     logo: { light: '/logo-light.png', dark: '/logo-dark.png' },
+    // The logo image already includes the word "Basically", so hide the
+    // redundant title text next to it in the nav (see theme/custom.css for the
+    // matching logo size bump).
+    siteTitle: false,
 
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },

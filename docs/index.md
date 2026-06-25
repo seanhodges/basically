@@ -5,10 +5,6 @@ hero:
   name: Basically
   text: A web IDE for microcomputer BASIC
   tagline: Write, run and ship games and programs for real retro hardware, straight from your browser.
-  image:
-    light: /logo-light.png
-    dark: /logo-dark.png
-    alt: Basically
   actions:
     - theme: brand
       text: Get started
@@ -32,7 +28,7 @@ features:
     details: Support for many popular AI coding providers; Claude, OpenAI, Gemini. More possible in future.
   - icon: 📼
     title: Real-hardware transfer
-    details: Here's the really fun bit: If you have the real machine you can deploy straight from your Web browser. Export via cassette audio (play via the EAR port or save a .wav), download a native machine image (.P / .TAP / .prg …) for SD card interfaces, or push over WebSerial to a microcontroller bridge (experimental).
+    details: "Here's the really fun bit: If you have the real machine you can deploy straight from your Web browser. Export via cassette audio (play via the EAR port or save a .wav), download a native machine image (.P / .TAP / .prg …) for SD card interfaces, or push over WebSerial to a microcontroller bridge (experimental)."
   - icon: ⌨️
     title: Mobile-first input
     details: Basically IDE ships with machine-specific virtual keyboards; balancing mobile screen usability with an psuedo authentic shift-state experience. At any time you can toggle this off to use your familiar native keyboard.
@@ -40,8 +36,6 @@ features:
     title: Install as an app
     details: Basically is a PWA, you can install to your home screen and run it standalone, on desktop or mobile.
 ---
-
-
 
 ## What is Basically?
 
@@ -82,7 +76,7 @@ writes actually runs (usually!). The agent will also watch the editor linting an
 
 When you're ready to leave the emulator behind, the **Export** tools can
 play the program out as cassette audio, save to a native image file for an SD
-interface, or push it over WebSerial to a microcontroller bridge. 
+interface, or push it over WebSerial to a microcontroller bridge.
 
 Note: WebSerial support is **experimental**, please use with care, and be sure to share back how you get on!
 
