@@ -95,5 +95,7 @@ provenance is documented in
 
 ## License
 
+Copyright © 2026 Sean Hodges.
+
 This project is licensed under the **GNU GPL v3.0 or later** — see
 [LICENSE](LICENSE) and [ATTRIBUTION](public/roms/ATTRIBUTION.md).

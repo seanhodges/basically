@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Sean Hodges
+
 import { useEffect } from 'react';
 import { useIdeStore } from './app/store';
 import { Toolbar } from './components/Toolbar';
