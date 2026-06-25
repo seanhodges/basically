@@ -5,23 +5,25 @@ Guidance for working in this repository. Read the **Commands** and
 
 ## What this is
 
-**Basically** is a browser-based IDE for microcomputer BASIC dialects. It ships
-six: the **Sinclair ZX81, ZX80, and ZX Spectrum**, the **BBC Micro and BBC
-Master**, and the **Commodore 64**. Each has an in-browser CPU emulator,
-per-dialect hardware export (cassette audio plus a native binary such as `.P`,
-`.O`, `.TAP`, `.BBC`, or `.prg`, and — for the Sinclair machines — WebSerial),
-and an optional Claude-powered code assistant.
+**Basically** is a browser-based IDE for microcomputer BASIC dialects spanning
+several classic machines (Sinclair, Acorn/BBC, Commodore, Tandy…). The exact set
+ships in the registry, so don't assume a count or list — check
+`src/dialects/registry.ts` (`getDialect`/the registered dialects) for what's
+actually available. Each dialect has an in-browser CPU emulator, per-dialect
+hardware export (cassette audio plus a native binary such as `.P`, `.O`, `.TAP`,
+`.bbc`, `.prg`, `.cas`, or `.atm`, and a WebSerial bridge), and an optional
+Claude-powered code assistant.
 
 **Stack:** TypeScript (strict), React 18, Vite 6, Vitest 3, CodeMirror 6,
 Zustand 5, and the Anthropic SDK.
 
 **Key mental model:** the app talks only to the `Dialect` interface
 (`src/dialects/types.ts`) and the `MachineEmulator` it returns — never to a
-machine's specifics directly. Each dialect lives in `src/dialects/<name>/`. The
-Z80 machines (ZX81/ZX80/Spectrum) keep their emulator under that folder, while
-the BBC and C64 wrap larger vendored/third-party cores under `src/emulator/bbc/`
-and `src/emulator/c64/`. The `Dialect` seam is what stays uniform and makes new
-dialects pluggable.
+machine's specifics directly. Each dialect lives in `src/dialects/<name>/`. Some
+dialects keep a small self-contained machine under that folder; others wrap a
+larger vendored/third-party core under `src/emulator/` (e.g. the BBC's jsbeeb in
+`src/emulator/bbc/`, the C64's viciious in `src/emulator/c64/`). The `Dialect`
+seam is what stays uniform and makes new dialects pluggable.
 
 ## Commands
 
@@ -115,8 +117,8 @@ cassette audio), and `docs/serial-protocol.md` (the WebSerial bridge).
 
 ## ZX81 BASIC gotchas
 
-These rules are ZX81-specific (shown as a worked example); the other dialects —
-Spectrum, BBC, C64 — have their own syntax rules in their dialect folders.
+These rules are ZX81-specific (shown as a worked example); the other dialects
+have their own syntax rules in their dialect folders.
 
 - One numbered statement per line; line numbers are 1–9999 and must be strictly
   ascending. No multi-statement lines, no `ELSE`.
