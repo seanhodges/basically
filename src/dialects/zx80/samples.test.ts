@@ -73,7 +73,7 @@ describe('zx80 maze in the emulator', () => {
   // will move the display file and break it. This test guards that: if `W` is
   // stale the POKEs land in the wrong cells, so the player stops tracking and
   // the wall count drifts. To recompute `W`, run the maze to INPUT and read
-  // `D_FILE`, then sweep a few values around it until a M-then-NEW-LINE move
+  // `D_FILE`, then sweep a few values around it until a 6-then-NEW-LINE move
   // walks the player down exactly one row with the wall count unchanged.
   it('decodes and draws its walls, then moves the player by POKE', () => {
     const maze = zx80Samples.find((s) => s.name === 'maze.bas')!;
@@ -91,10 +91,10 @@ describe('zx80 maze in the emulator', () => {
     const wallsBefore = countWalls(machine);
     expect(wallsBefore).toBeGreaterThan(40);
 
-    // Pressing M (down) + NEW LINE walks the player into the open cell below.
+    // Pressing 6 (down) + NEW LINE walks the player into the open cell below.
     const before = findPlayer(machine);
     expect(before).not.toBeNull();
-    tap(machine, 'KeyM');
+    tap(machine, 'Digit6');
     tap(machine, 'Enter');
     settle();
     const after = findPlayer(machine);

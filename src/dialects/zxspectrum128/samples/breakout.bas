@@ -1,6 +1,7 @@
 10 REM BREAKOUT
 20 BORDER 0: PAPER 0: INK 7: CLS
 30 LET x=15: LET bx=15: LET by=5: LET dx=1: LET dy=-1: LET s=0
+35 PRINT AT 0,0;"o p to move"
 40 FOR i=0 TO 31
 50 PRINT AT 1,i; INK 6;"▀"
 60 NEXT i
@@ -9,8 +10,8 @@
 80 PRINT AT by,bx; INK 2;"O"
 85 PAUSE 2
 90 LET k$=INKEY$
-100 IF k$="5" AND x>0 THEN LET x=x-2
-110 IF k$="8" AND x<28 THEN LET x=x+2
+100 IF (k$="o" OR k$="O") AND x>0 THEN LET x=x-2
+110 IF (k$="p" OR k$="P") AND x<28 THEN LET x=x+2
 120 PRINT AT 20,0;"                                "
 130 PRINT AT 20,x; INK 5;"▀▀▀▀"
 140 PRINT AT by,bx;" "

@@ -23,17 +23,17 @@
 230 FOR i=1 TO 19: PRINT AT i-1,0; INK 4;a$(i): NEXT i
 240 PRINT AT 17,30; INK 6; FLASH 1;"E"
 250 PRINT AT 20,0;"REACH E TO WIN"
-260 PRINT AT 21,0;"z x k m to move"
+260 PRINT AT 21,0;"5 6 7 8 to move"
 270 LET y=2: LET x=2
 280 PRINT AT y-1,x-1; INK 6;"O"
 285 REM WAIT FOR KEY
 290 LET k$=INKEY$
 300 IF k$="" THEN GO TO 290
 310 LET u=y: LET v=x
-320 IF k$="z" OR k$="Z" THEN LET v=x-1
-330 IF k$="x" OR k$="X" THEN LET v=x+1
-340 IF k$="k" OR k$="K" THEN LET u=y-1
-350 IF k$="m" OR k$="M" THEN LET u=y+1
+320 IF k$="5" THEN LET v=x-1
+330 IF k$="8" THEN LET v=x+1
+340 IF k$="7" THEN LET u=y-1
+350 IF k$="6" THEN LET u=y+1
 360 IF a$(u,v)="█" THEN GO TO 290
 370 PRINT AT y-1,x-1;" "
 380 LET y=u: LET x=v

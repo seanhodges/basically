@@ -24,15 +24,15 @@
 240 M$(21)="#######################################"
 250 FOR R%=1 TO 21:PROCrow(R%):NEXT
 260 PRINT TAB(0,22);"REACH E TO WIN"
-270 PRINT TAB(0,23);"z x k m to move"
+270 PRINT TAB(0,23);"Z X K M TO MOVE"
 280 X%=2:Y%=2:F%=0:PROCplayer
 290 REPEAT
 300 K$=INKEY$(0)
 310 U%=Y%:V%=X%
-320 IF K$="Z" THEN V%=X%-1
-330 IF K$="X" THEN V%=X%+1
-340 IF K$="K" THEN U%=Y%-1
-350 IF K$="M" THEN U%=Y%+1
+320 IF K$="Z" OR K$="z" THEN V%=X%-1
+330 IF K$="X" OR K$="x" THEN V%=X%+1
+340 IF K$="K" OR K$="k" THEN U%=Y%-1
+350 IF K$="M" OR K$="m" THEN U%=Y%+1
 360 IF (V%<>X% OR U%<>Y%) AND MID$(M$(U%),V%,1)<>"#" THEN VDU 31,X%,Y%,32:X%=V%:Y%=U%:PROCplayer
 370 UNTIL MID$(M$(Y%),X%,1)="E"
 380 PRINT TAB(0,24);CHR$(130);CHR$(136);"YOU ESCAPED!"
