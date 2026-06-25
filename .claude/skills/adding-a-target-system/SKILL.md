@@ -165,16 +165,16 @@ the stages on demand. Do not start implementing.
 
 ## Key files to study
 
-| File                                                                                | What it shows                                 |
-| ----------------------------------------------------------------------------------- | --------------------------------------------- |
-| `src/dialects/types.ts`                                                             | Every interface a complete dialect implements |
-| `src/dialects/zx81/index.ts`                                                        | How a `Dialect` is assembled (in-tree Z80)    |
-| `src/dialects/commodore64/index.ts`                                                 | A `Dialect` over a wrapped 6502 emulator      |
-| `src/dialects/bbcmaster/`                                                           | A half-built dialect — the gap-audit case     |
-| `src/dialects/registry.ts`                                                          | Where registration happens (Stage 3)          |
-| `src/dialects/zx81/emulator/`                                                       | `MachineEmulator` over the shared Z80 core    |
-| `src/keyboard/layoutSchema.ts`                                                      | All keyboard-layout types                     |
-| `docs/reference/dialect-roadmap.md`                                                           | Tiered roadmap + status legend to cross-link  |
+| File                                                                                                                            | What it shows                                 |
+| ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `src/dialects/types.ts`                                                                                                         | Every interface a complete dialect implements |
+| `src/dialects/zx81/index.ts`                                                                                                    | How a `Dialect` is assembled (in-tree Z80)    |
+| `src/dialects/commodore64/index.ts`                                                                                             | A `Dialect` over a wrapped 6502 emulator      |
+| `src/dialects/bbcmaster/`                                                                                                       | A half-built dialect — the gap-audit case     |
+| `src/dialects/registry.ts`                                                                                                      | Where registration happens (Stage 3)          |
+| `src/dialects/zx81/emulator/`                                                                                                   | `MachineEmulator` over the shared Z80 core    |
+| `src/keyboard/layoutSchema.ts`                                                                                                  | All keyboard-layout types                     |
+| `docs/reference/dialect-roadmap.md`                                                                                             | Tiered roadmap + status legend to cross-link  |
 | `docs/contributing/adding-a-dialect.md` (dialect folder + virtual keyboard), `docs/reference/{file-formats,serial-protocol}.md` | Per-component reference detail for the stages |
 
 ## Guardrails

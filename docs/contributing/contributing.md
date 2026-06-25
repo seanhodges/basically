@@ -61,19 +61,19 @@ machine's specifics directly. Each machine lives in `src/dialects/<name>/`, and
 that seam is what keeps new machines pluggable. Get comfortable with it before
 making cross-cutting changes.
 
-| Path                       | Role                                                                  |
-| -------------------------- | --------------------------------------------------------------------- |
-| `src/dialects/types.ts`    | The `Dialect` / `MachineEmulator` contracts — the app's only seam     |
-| `src/dialects/registry.ts` | Registers the available dialects (`getDialect(id)`)                   |
-| `src/dialects/<name>/`     | One folder per dialect (tokenizer, charset, keywords, samples, …)     |
-| `src/emulator/`            | Vendored/third-party CPU cores and large machine wrappers             |
-| `src/editor/`              | Generic CodeMirror builders: language, completions, lint              |
-| `src/keyboard/`            | The data-driven virtual keyboard (no per-machine logic)               |
-| `src/app/`                 | Zustand store (`store.ts`) and app-level hooks                        |
-| `src/components/`          | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`           |
-| `src/ai/`                  | AI client, prompt builder, code extractor/merge                       |
-| `src/transfer/`            | Hardware export: WAV cassette, native images, WebSerial               |
-| `docs/`                    | This documentation site (VitePress)                                   |
+| Path                       | Role                                                              |
+| -------------------------- | ----------------------------------------------------------------- |
+| `src/dialects/types.ts`    | The `Dialect` / `MachineEmulator` contracts — the app's only seam |
+| `src/dialects/registry.ts` | Registers the available dialects (`getDialect(id)`)               |
+| `src/dialects/<name>/`     | One folder per dialect (tokenizer, charset, keywords, samples, …) |
+| `src/emulator/`            | Vendored/third-party CPU cores and large machine wrappers         |
+| `src/editor/`              | Generic CodeMirror builders: language, completions, lint          |
+| `src/keyboard/`            | The data-driven virtual keyboard (no per-machine logic)           |
+| `src/app/`                 | Zustand store (`store.ts`) and app-level hooks                    |
+| `src/components/`          | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`       |
+| `src/ai/`                  | AI client, prompt builder, code extractor/merge                   |
+| `src/transfer/`            | Hardware export: WAV cassette, native images, WebSerial           |
+| `docs/`                    | This documentation site (VitePress)                               |
 
 For the full architecture and data-flow diagrams, see the project's `CLAUDE.md`
 at the repository root — it is the most detailed map of the codebase.
