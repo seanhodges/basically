@@ -1,16 +1,16 @@
 # Writing BASIC
 
 You write BASIC as plain text: one numbered line per statement, with keywords
-written as words. Lowercase input is folded to uppercase. The editor highlights
-the active dialect, autocompletes keywords, and underlines tokenizer errors as
-you type.
+written as words. The editor highlights
+the active dialect, autocompletes keywords, and underlines errors as you type.
 
 Each machine has its own dialect with its own rules — the selector in the
-toolbar chooses which one the editor and emulator use. The example below is for
-the **ZX81**; the other machines (ZX Spectrum, BBC, Commodore 64) follow their
-own syntax.
+toolbar chooses which one the editor and emulator use.
 
-## ZX81 example
+## Example
+
+The example below is for
+the **ZX81**; the other machines follow their own syntax.
 
 One numbered line per statement, keywords as words. A few ZX81-specific
 conventions:
@@ -18,8 +18,7 @@ conventions:
 - **Block graphics** as unicode (`█▀▌▒` …) or as escapes (`\::`).
 - **Inverse video** as `%A` … `%9`.
 - **Power** is `**`.
-- Line numbers are `1`–`9999` and must be strictly ascending; one statement per
-  line, no `ELSE`.
+- Line numbers must be strictly ascending; one statement per line, no `ELSE`.
 - Variable names are single letters (`A`–`Z`, optionally with `$` for strings).
 
 ```basic
@@ -38,8 +37,8 @@ conventions:
 
 The status bar shows how many bytes your tokenized program occupies against the
 target machine's available RAM. Keywords tokenize to single bytes; numeric
-literals carry an extra binary form. Keeping an eye on this matters on the
-smaller machines (the unexpanded ZX81 has just 1K).
+literals carry an extra binary form. Keeping an eye on this matters on
+smaller machines in particular (the unexpanded ZX81 has just 1K!).
 
 ## Special characters and tokens
 
@@ -49,7 +48,9 @@ covered in detail under **[File formats](/file-formats)**.
 
 ## Importing existing programs
 
-You can import an existing machine image (such as a ZX81 `.P` file) or decode a
+You can import an existing machine image or decode a
 cassette-audio recording back into editable source. See
 **[Running on real hardware](/guide/hardware)** for the transfer side and
 **[File formats](/file-formats)** for what each format contains.
+
+Please note the Import reads tokenised source code, it does not disassemble machine code. If you want to hack around on third-party commercial programs/games you will need to legally obtain a copy of the source code first.
