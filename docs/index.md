@@ -34,7 +34,7 @@ features:
     details: Basically IDE ships with machine-specific virtual keyboards; balancing mobile screen usability with an psuedo authentic shift-state experience. At any time you can toggle this off to use your familiar native keyboard.
   - icon: 📱
     title: Install as an app
-    details: Basically is a PWA, you can install to your home screen and run it standalone, on desktop or mobile.
+    details: Basically is a PWA, you can install to your home screen and run it standalone, offline, on desktop or mobile.
 ---
 
 ## What is Basically?
