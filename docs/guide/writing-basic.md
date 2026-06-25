@@ -44,13 +44,13 @@ smaller machines in particular (the unexpanded ZX81 has just 1K!).
 
 How source text maps to the machine's character set and tokens — block graphics,
 inverse video, the quote-image character, and how numbers are stored — is
-covered in detail under **[File formats](/file-formats)**.
+covered in detail under **[File formats](/reference/file-formats)**.
 
 ## Importing existing programs
 
 You can import an existing machine image or decode a
 cassette-audio recording back into editable source. See
 **[Running on real hardware](/guide/hardware)** for the transfer side and
-**[File formats](/file-formats)** for what each format contains.
+**[File formats](/reference/file-formats)** for what each format contains.
 
 Please note the Import reads tokenised source code, it does not disassemble machine code. If you want to hack around on third-party commercial programs/games you will need to legally obtain a copy of the source code first.

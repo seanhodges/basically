@@ -14,9 +14,9 @@ dialect complete.
   until each stage fills them in. The dialect is not registered in
   `src/dialects/registry.ts` until its wire-up stage.
 
-See `docs/dialect-roadmap.md` for the higher-level tiered roadmap (which machines
-to add and why), and `docs/adding-a-dialect.md` /
-`docs/adding-a-virtual-keyboard.md` / `docs/file-formats.md` /
-`docs/serial-protocol.md` for the per-component reference detail each stage draws
+See `docs/reference/dialect-roadmap.md` for the higher-level tiered roadmap (which machines
+to add and why), and `docs/contributing/adding-a-dialect.md` /
+`docs/contributing/adding-a-virtual-keyboard.md` / `docs/reference/file-formats.md` /
+`docs/reference/serial-protocol.md` for the per-component reference detail each stage draws
 on. The plan template lives alongside the skill at
 `.claude/skills/adding-a-target-system/plan-template.md`.

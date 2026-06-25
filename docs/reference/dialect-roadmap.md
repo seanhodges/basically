@@ -3,7 +3,7 @@
 Basically is built around one seam — the `Dialect` / `MachineEmulator`
 contracts in `src/dialects/types.ts`. Adding a machine is additive: a folder
 under `src/dialects/<id>/` plus one line in `src/dialects/registry.ts`, with no
-changes to the editor, transfer, or UI layers (see `docs/adding-a-dialect.md`
+changes to the editor, transfer, or UI layers (see `docs/contributing/adding-a-dialect.md`
 and the `adding-a-target-system` skill).
 
 This document tracks which machines we can realistically support, grouped by
@@ -52,7 +52,7 @@ straightforward bitmap driven by the CPU.
 | ✅     | Sinclair ZX81              | Z80 | Sinclair BASIC           | `zx81`; the reference Z80 integration (FAST/SLOW, NMI generator, R-register interrupt). Cassette WAV (Sinclair pulse scheme). Variable watching via `readVariables()`.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ✅     | Sinclair ZX Spectrum 48K   | Z80 | Sinclair BASIC           | `zxspectrum`; `.TAP` format and cassette WAV (standard ROM tape encoding). Variable watching via `readVariables()`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ✅     | Sinclair ZX80              | Z80 | ZX80 integer BASIC       | `zx80`; integer-BASIC tokenizer/detokenizer, `.O` image format, authentic tape-LOAD trap + auto-RUN, cassette WAV export. **Known gaps:** (1) ZX80 functions (`RND`, `PEEK`, `USR`, `CHR$`, `CODE`, `ABS`, `STR$`, `TL$`) are not yet tokenized — they are matched via a separate name table at ROM `0x0BBA` rather than a token range; the `aiProfile` tells the assistant to avoid them. (2) No variable introspection (`readVariables()` not implemented).                                                                                                                                                           |
-| ⬜     | ZX Spectrum 128K / +2 / +3 | Z80 | Sinclair BASIC           | Extend `zxspectrum` with memory paging (port `0x7FFD`), the dual 128/48 ROM and AY-3-8912 sound; reuses the 48K language, charset, `.TAP` and keyboard layers (like `bbcmaster` reuses `bbcmicro`). Staged plan: [`docs/dialect-plans/zxspectrum128.md`](dialect-plans/zxspectrum128.md).                                                                                                                                                                                                                                                                                                                               |
+| ⬜     | ZX Spectrum 128K / +2 / +3 | Z80 | Sinclair BASIC           | Extend `zxspectrum` with memory paging (port `0x7FFD`), the dual 128/48 ROM and AY-3-8912 sound; reuses the 48K language, charset, `.TAP` and keyboard layers (like `bbcmaster` reuses `bbcmicro`). Staged plan: [`docs/contributing/dialect-plans/zxspectrum128.md`](../contributing/dialect-plans/zxspectrum128.md).                                                                                                                                                                                                                                                                                                  |
 | ✅     | TRS-80                     | Z80 | Microsoft Level II BASIC | `trs80`; Microsoft Level II BASIC tokenizer (linked-line layout from `0x42E8`, like the C64), monochrome 64×16 character display, SET/RESET/POINT block graphics, 500-baud `.cas` cassette + WAV export/import, variable watching and step debugging. **Ships ROM-free:** the Level II ROM is copyright Tandy/Microsoft, so the default backend is a clean-room high-level Level II interpreter (`src/dialects/trs80/interpreter/`); the Z80 + ROM machine remains an optional accuracy mode that activates only if a user supplies their own `public/roms/trs80.rom`. Model III sibling dialect is a future follow-up. |
 
 **ZX80 implementation detail.** The ZX80 is essentially the ZX81 in FAST mode
@@ -143,7 +143,7 @@ pattern used by the other cores.
 1. **Tier 1 → shipped:** clone the `bbcmaster` pattern — share the BBC language
    layer if it's an Acorn BASIC, or add a new tokenizer/charset, and point
    `BbcMachine` at the jsbeeb model name (add its ROMs under `public/roms/`).
-2. **Tier 2 → shipped:** follow `docs/adding-a-dialect.md`, reusing the ZX81 /
+2. **Tier 2 → shipped:** follow `docs/contributing/adding-a-dialect.md`, reusing the ZX81 /
    Spectrum Z80 wiring. The work is the tokenizer, the image format, and the
    video snapshot.
 3. **Tier 3 → shipped (C64-adjacent):** adapt the existing `C64Machine` wrapper

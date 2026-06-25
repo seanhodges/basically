@@ -8,7 +8,7 @@ implement, plus notes on delivering the program to each machine.
 The "Send via serial bridge" button is offered for **every** dialect, not just
 the ZX81. The payload is always the active dialect's native binary image — the
 exact bytes it exports as `.P` / `.O` / `.TAP` / `.bbc` / `.prg` / `.cas` /
-`.atm` (see `docs/file-formats.md`). The protocol below is dialect-agnostic; the
+`.atm` (see `docs/reference/file-formats.md`). The protocol below is dialect-agnostic; the
 magic and command name are historical (the ZX81 was the first machine
 supported). It's the bridge's job to know which machine is attached and how to
 turn that image into something the machine loads — § Delivering the image
@@ -70,7 +70,7 @@ families of design work across every dialect:
    tape / EAR input (through a voltage divider to a safe level), and the user
    types the machine's load command first. The per-machine tape encodings are
    the same ones the IDE's `.wav` export uses — fully specified in
-   `docs/file-formats.md` § Cassette audio (pulse counts/lengths, framing,
+   `docs/reference/file-formats.md` § Cassette audio (pulse counts/lengths, framing,
    block layout, checksums) for the ZX81/ZX80, Spectrum (and 128), BBC, C64,
    TRS-80 and Atom. The native image the bridge receives is exactly the input
    those encoders take.
@@ -103,4 +103,4 @@ families of design work across every dialect:
 | Acorn Atom         | `.atm`         | `LOAD ""`                              |
 
 Each payload is exactly the file the IDE exports for that dialect (see
-`docs/file-formats.md` § Native binary formats).
+`docs/reference/file-formats.md` § Native binary formats).

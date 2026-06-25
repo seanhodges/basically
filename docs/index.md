@@ -45,7 +45,7 @@ inline error checking, and test your program in an emulator. When it works, you 
 
 It ships support for many microcomputers already including: Sinclair ZX80, ZX81 and Spectrum, the BBC Micro and Master, Commodore 64, TRS-80, with more being added all the time.
 
-![The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard](./assets/screenshot.jpg)
+![The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard](/screenshot.jpg)
 
 ## A closer look
 
@@ -56,21 +56,21 @@ per-keyword documentation), syntax errors
 are underlined as you type. A byte counter estimates how much of the machine's RAM
 your program might use.
 
-![The editor with BASIC syntax highlighting and inline lint errors](./assets/feature-editor.png)
+![The editor with BASIC syntax highlighting and inline lint errors](/feature-editor.png)
 
 ### Run it on the real machine
 
 Press **▶ Run** (or `Ctrl`+`Enter`) to run your program directly in the emulator the same way the real ROM would load from tape. The display and keyboard attempt to be hardware-accurate — just click the screen
 and play.
 
-![A BASIC game running in the built-in emulator](./assets/feature-emulator.png)
+![A BASIC game running in the built-in emulator](/feature-emulator.png)
 
 ### Generate code with AI
 
 Open the **✦ AI** panel, pick your provider, and ask for a game, a new feature, or a fix. The agent is given a role and the active machine's dialect rules, so the BASIC it
 writes actually runs (usually!). The agent will also watch the editor linting and emulator start state to check its mistakes.
 
-![The AI panel generating a BASIC program](./assets/feature-ai.png)
+![The AI panel generating a BASIC program](/feature-ai.png)
 
 ### Ship to real hardware
 
@@ -80,7 +80,7 @@ interface, or push it over WebSerial to a microcontroller bridge.
 
 Note: WebSerial support is **experimental**, please use with care, and be sure to share back how you get on!
 
-![The hardware transfer dialog](./assets/feature-transfer.png)
+![The hardware transfer dialog](/feature-transfer.png)
 
 ## Getting started
 

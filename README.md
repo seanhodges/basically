@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.png" />
-    <img alt="Basically — Micro BASIC IDE" src="docs/assets/logo-light.png" width="640" />
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/logo-dark.png" />
+    <img alt="Basically — Micro BASIC IDE" src="docs/public/logo-light.png" width="640" />
   </picture>
 </p>
 
@@ -12,7 +12,7 @@ Support includes the **Sinclair ZX81**, **ZX Spectrum**, **BBC
 Micro**, among others.
 
 <p align="center">
-  <img alt="The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard" src="docs/assets/screenshot.jpg" width="900" />
+  <img alt="The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard" src="docs/public/screenshot.jpg" width="900" />
 </p>
 
 ## Features
@@ -36,7 +36,7 @@ Micro**, among others.
   - **Machine image** download (e.g. the ZX81 `.P` file for ZXpand and friends)
     and import of existing images back into editable text.
   - **WebSerial** push to a microcontroller bridge
-    ([protocol spec](docs/serial-protocol.md)).
+    ([protocol spec](docs/reference/serial-protocol.md)).
 - **Save/load `.bas`** with the File System Access API (download fallback),
   autosave to localStorage, and bundled sample games.
 - **Installable PWA** — add Basically to your home screen and run it
@@ -61,7 +61,7 @@ For AI generation, click **✦ AI**, pick your AI provider and follow the instru
 
 One numbered line per statement, keywords as words. Specials: block graphics
 as unicode (`█▀▌▒`…) or escapes (`\::`), inverse video as `%A`, `**` for
-power. See [docs/file-formats.md](docs/file-formats.md).
+power. See [docs/reference/file-formats.md](docs/reference/file-formats.md).
 
 ## Running on real hardware
 
@@ -70,7 +70,7 @@ power. See [docs/file-formats.md](docs/file-formats.md).
    **⇥ Hardware ▸ Play through speakers**. Use _robust mode_ if loads fail.
 2. **SD interfaces**: download the `.P` or `.TAP` file and copy it across.
 3. **Serial bridge**: any microcontroller implementing the
-   [bridge protocol](docs/serial-protocol.md) can receive programs via
+   [bridge protocol](docs/reference/serial-protocol.md) can receive programs via
    WebSerial (Chrome/Edge).
 
 ## Project layout

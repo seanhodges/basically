@@ -5,7 +5,7 @@ description: >-
   keyboard) for Basically. Use when the user wants to support a new
   microcomputer or BASIC dialect, port the IDE to another machine, or make an
   existing half-built dialect feature complete. This skill audits the existing
-  dialects, writes a dependency-ordered multi-stage plan to docs/dialect-plans/,
+  dialects, writes a dependency-ordered multi-stage plan to docs/contributing/dialect-plans/,
   and creates the initial compiling stub folder. It does NOT implement the
   stages — the user runs each stage later, when they choose.
 ---
@@ -24,7 +24,7 @@ the initial scaffolding, then stops. Run it to get:
 
 1. an **audit** of what "feature complete" means _today_ (derived from the
    existing dialects, not a stale checklist);
-2. a **multi-stage plan** at `docs/dialect-plans/<id>.md`, dependency-ordered and
+2. a **multi-stage plan** at `docs/contributing/dialect-plans/<id>.md`, dependency-ordered and
    grouped into medium, single-session tasks for the coding agent;
 3. a **compiling stub folder** at `src/dialects/<id>/` ready for each stage to
    fill in.
@@ -89,11 +89,11 @@ complete dialects ship. Then classify the target:
 
 ## Phase 2 — Write the staged plan
 
-Copy the bundled `plan-template.md` into `docs/dialect-plans/<id>.md` and fill it
+Copy the bundled `plan-template.md` into `docs/contributing/dialect-plans/<id>.md` and fill it
 in. Keep the template's status legend (✅ shipped / 🔨 in progress / ⬜ planned
-/ ⛔ blocked, matching `docs/dialect-roadmap.md`) and its per-stage structure:
+/ ⛔ blocked, matching `docs/reference/dialect-roadmap.md`) and its per-stage structure:
 checklist, files created/filled, dependencies, and a verify line. Add a
-cross-link to the new plan from `docs/dialect-roadmap.md`.
+cross-link to the new plan from `docs/reference/dialect-roadmap.md`.
 
 Group work by dependency into medium, single-session stages. Default breakdown
 (adapt to the audited gaps — drop any stage already satisfied):
@@ -143,12 +143,12 @@ type-valid throwing stub per planned component, colocated test stubs, and a
 
 After scaffolding, confirm `npm run typecheck` and `npm test` still pass and that
 `git status` shows changes confined to `src/dialects/<id>/`,
-`docs/dialect-plans/<id>.md`, and the roadmap cross-link — `registry.ts`
+`docs/contributing/dialect-plans/<id>.md`, and the roadmap cross-link — `registry.ts`
 untouched.
 
 ## Phase 4 — Stop
 
-End by pointing the user at `docs/dialect-plans/<id>.md` and telling them to run
+End by pointing the user at `docs/contributing/dialect-plans/<id>.md` and telling them to run
 the stages on demand. Do not start implementing.
 
 ## Conventions (from CLAUDE.md)
@@ -174,8 +174,8 @@ the stages on demand. Do not start implementing.
 | `src/dialects/registry.ts`                                                          | Where registration happens (Stage 3)          |
 | `src/dialects/zx81/emulator/`                                                       | `MachineEmulator` over the shared Z80 core    |
 | `src/keyboard/layoutSchema.ts`                                                      | All keyboard-layout types                     |
-| `docs/dialect-roadmap.md`                                                           | Tiered roadmap + status legend to cross-link  |
-| `docs/{adding-a-dialect,adding-a-virtual-keyboard,file-formats,serial-protocol}.md` | Per-component reference detail for the stages |
+| `docs/reference/dialect-roadmap.md`                                                           | Tiered roadmap + status legend to cross-link  |
+| `docs/contributing/{adding-a-dialect,adding-a-virtual-keyboard}.md`, `docs/reference/{file-formats,serial-protocol}.md` | Per-component reference detail for the stages |
 
 ## Guardrails
 

@@ -26,7 +26,7 @@ estimate bit timing from the recovered signal, so they tolerate playback-speed
 and clock drift.
 
 The exact tape encoding for each machine is documented under
-**[File formats ▸ Cassette audio](/file-formats#cassette-audio)**.
+**[File formats ▸ Cassette audio](/reference/file-formats#cassette-audio)**.
 
 ## Image files (SD interfaces)
 
@@ -35,7 +35,7 @@ example the ZX81 `.P` file (for ZXpand and friends), a Spectrum `.TAP`, or a
 Commodore `.prg` — and copy it across. You can also import these images back
 into the editor.
 
-See **[File formats](/file-formats)** for the layout of each format.
+See **[File formats](/reference/file-formats)** for the layout of each format.
 
 ## Serial bridge (WebSerial)
 
@@ -47,4 +47,4 @@ it into RAM.
 
 The bridge firmware is out of scope for this repo, but the wire protocol it must
 implement is fully specified under
-**[Serial bridge protocol](/serial-protocol)**.
+**[Serial bridge protocol](/reference/serial-protocol)**.

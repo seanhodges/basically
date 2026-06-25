@@ -47,7 +47,7 @@ escapes defined in their `charset.ts`.
 | Acorn Atom         | `.atm` | `.atm` | 22-byte header + `#2900` program image      |
 
 All of these are built by the dialect's `buildTargets`; the importable ones are
-listed in its `binaryImports`. The serial bridge (`docs/serial-protocol.md`)
+listed in its `binaryImports`. The serial bridge (`docs/reference/serial-protocol.md`)
 sends whichever of these images belongs to the active dialect.
 
 ### ZX81 `.P`
@@ -161,7 +161,7 @@ from the recovered signal rather than assuming absolute durations, so decoding
 is immune to playback / clock speed drift, resampling and sample-rate mismatch.
 Each machine uses its own tape encoding:
 
-- **ZX81 / ZX80** — see `docs/serial-protocol.md` § Delivering a .P image: bytes
+- **ZX81 / ZX80** — see `docs/reference/serial-protocol.md` § Delivering a .P image: bytes
   MSB-first, `0` = 4 pulses, `1` = 9 pulses, ~1300µs inter-bit gap, 2s leader
   (4s robust). The ZX81 prefixes a program-name header (last char +0x80); the
   ZX80 has no named files and writes the raw `.O` image. Encoders:
@@ -220,5 +220,3 @@ Each machine uses its own tape encoding:
   the checksum to find block boundaries and reject noise. Code:
   `src/dialects/atom/audio/cassette{Encoder,Decoder}.ts`. The Atom also exports /
   imports a native `.atm` binary (see above); see `src/dialects/atom/atm.ts`.
-  </content>
-  </invoke>

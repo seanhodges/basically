@@ -9,10 +9,10 @@ import { test, type Page } from '@playwright/test';
  *   npx playwright test e2e/capture-docs-screenshots.spec.ts
  *
  * Each test drives the IDE into one feature state and writes a viewport
- * screenshot into docs/assets/. The landing page references these by name.
+ * screenshot into docs/public/. The landing page references these by name.
  */
 
-const OUT = 'docs/assets';
+const OUT = 'docs/public';
 const VIEWPORT = { width: 1440, height: 900 };
 
 /** Open the IDE, auto-accepting the "Discard unsaved changes?" confirm. */

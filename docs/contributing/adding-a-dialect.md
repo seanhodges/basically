@@ -31,7 +31,7 @@ BASIC:
    (e.g. `.P` / `.O` / `.TAP` / `.bbc`), and `audio.decodeSamples` recovers a
    program from recorded cassette audio (the inverse of `audio.buildSamples`).
    Both are optional: a dialect can ship export before import. See
-   `docs/file-formats.md` § Cassette audio for the per-machine codecs and the
+   `docs/reference/file-formats.md` § Cassette audio for the per-machine codecs and the
    shared `src/dialects/sinclairTape.ts` decoder.
 
 2. **Register it** in `src/dialects/registry.ts`.

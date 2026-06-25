@@ -30,7 +30,7 @@ export default withPwa(
     ignoreDeadLinks: [
       /^\.\.\//, // ../LICENSE, ../public/roms/ATTRIBUTION.md, etc.
       /^\/(?!docs\/)/, // absolute links back into the app (e.g. the IDE itself)
-      /dialect-plans\/.+/, // per-dialect plans are generated on demand by the
+      /contributing\/dialect-plans\/.+/, // per-dialect plans are generated on demand by the
       // adding-a-target-system skill and may not be checked in (e.g. the roadmap
       // links to a plan whose file was removed once the dialect shipped).
     ],
@@ -44,8 +44,8 @@ export default withPwa(
 
       nav: [
         { text: 'Guide', link: '/guide/getting-started' },
-        { text: 'Reference', link: '/file-formats' },
-        { text: 'Contributing', link: '/adding-a-dialect' },
+        { text: 'Reference', link: '/reference/file-formats' },
+        { text: 'Contributing', link: '/contributing/adding-a-dialect' },
         { text: 'Open the IDE ↗', link: 'https://ba.sical.ly/' },
       ],
 
@@ -62,20 +62,29 @@ export default withPwa(
         {
           text: 'Reference',
           items: [
-            { text: 'File formats', link: '/file-formats' },
-            { text: 'Serial bridge protocol', link: '/serial-protocol' },
-            { text: 'Dialect roadmap', link: '/dialect-roadmap' },
+            { text: 'File formats', link: '/reference/file-formats' },
+            {
+              text: 'Serial bridge protocol',
+              link: '/reference/serial-protocol',
+            },
+            { text: 'Dialect roadmap', link: '/reference/dialect-roadmap' },
           ],
         },
         {
           text: 'Contributing',
           items: [
-            { text: 'Adding a dialect', link: '/adding-a-dialect' },
+            {
+              text: 'Adding a dialect',
+              link: '/contributing/adding-a-dialect',
+            },
             {
               text: 'Adding a virtual keyboard',
-              link: '/adding-a-virtual-keyboard',
+              link: '/contributing/adding-a-virtual-keyboard',
             },
-            { text: 'Dialect plans', link: '/dialect-plans/README' },
+            {
+              text: 'Dialect plans',
+              link: '/contributing/dialect-plans/README',
+            },
           ],
         },
       ],

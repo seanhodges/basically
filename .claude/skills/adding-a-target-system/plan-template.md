@@ -1,8 +1,8 @@
 <!--
   Plan template for `adding-a-target-system`.
-  Copy to docs/dialect-plans/<id>.md and fill in. Replace <…> placeholders,
+  Copy to docs/contributing/dialect-plans/<id>.md and fill in. Replace <…> placeholders,
   delete stages the audit shows are already satisfied, and tick the checklist
-  as each stage lands. Add a cross-link to this file from docs/dialect-roadmap.md.
+  as each stage lands. Add a cross-link to this file from docs/reference/dialect-roadmap.md.
 -->
 
 # <Machine name> dialect — implementation plan
