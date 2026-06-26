@@ -12,6 +12,7 @@ import { Ay38912 } from './ay';
 import { readSpectrumVariables } from '../../zxspectrum/vars';
 import { readSpectrumReport } from '../../zxspectrum/reports';
 import { SpectrumKeyboard } from './keyboard';
+import { Beeper, BEEPER_SAMPLE_RATE } from '../../zxspectrum/emulator/beeper';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, parseTap } from '../tapfile';
 import { PPC } from '../../zxspectrum/sysvars';
@@ -46,19 +47,26 @@ const MENU_ITEMS = [
  *  - loadProgram boots to the 128K menu, selects "128 BASIC" by reading the
  *    highlighted item off the screen, then drives LOAD "" + RUN through the key
  *    matrix (in 128 BASIC keywords are typed out in full, not as single keys).
- *  - AY-3-8912 register file on ports 0xFFFD/0xBFFD so PLAY/BEEP run (no audio
- *    output yet — see Stage 5 in docs/dialect-plans/zxspectrum128.md).
+ *  - AY-3-8912 on ports 0xFFFD/0xBFFD, synthesized to audio (3 tones + noise +
+ *    envelope) and summed with the ULA beeper in readAudio() — the 48K beeper
+ *    drives the 128's loudspeaker too (port 0xFE bit 4).
  *
  * ramKb from createEmulator is ignored: the 128K always allocates its own banks.
  */
 export class Spectrum128Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
+  /** Native rate of the mono AY + beeper stream (both render at 44.1kHz). */
+  readonly audioSampleRate = BEEPER_SAMPLE_RATE;
 
   private readonly memory: Spectrum128Memory;
   private readonly keyboard = new SpectrumKeyboard();
   private readonly ay = new Ay38912();
+  /** ULA loudspeaker synthesis, driven by bit 4 of port 0xFE writes. */
+  private readonly beeper = new Beeper();
   private readonly cpu: Z80Core;
+  /** Cycle offset within the current frame, for timestamping beeper writes. */
+  private frameCycle = 0;
   private border = 7;
   private speed = 1;
   private frameCount = 0;
@@ -82,7 +90,12 @@ export class Spectrum128Machine implements MachineEmulator {
         return 0xff;
       },
       io_write: (port: number, value: number) => {
-        if ((port & 0x0001) === 0) this.border = value & 0x07; // ULA border
+        if ((port & 0x0001) === 0) {
+          this.border = value & 0x07; // ULA border
+          // Bit 4 is the loudspeaker; record the flip at the current cycle so
+          // readAudio can replay the square wave (see beeper.ts).
+          this.beeper.write(this.frameCycle, value);
+        }
         // Memory paging on 0x7FFD (A15 low, A1 low).
         if ((port & 0x8002) === 0) this.memory.writePort7ffd(value);
         // AY register select on 0xFFFD, data write on 0xBFFD (A14 low).
@@ -97,9 +110,11 @@ export class Spectrum128Machine implements MachineEmulator {
     this.memory.clearRam();
     this.keyboard.releaseAll();
     this.ay.reset();
+    this.beeper.reset();
     this.pending = null;
     this.border = 7;
     this.frameCount = 0;
+    this.frameCycle = 0;
     this.cpu.reset();
   }
 
@@ -128,11 +143,28 @@ export class Spectrum128Machine implements MachineEmulator {
     if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
 
     while (cycles < budget) {
+      this.frameCycle = cycles; // timestamp any beeper write in this instruction
       const { t, halted } = this.stepInstruction();
       if (halted) break; // idle until the next frame's interrupt
       cycles += t;
     }
     this.frameCount++;
+  }
+
+  /**
+   * Mono audio synthesized over the last frame: the AY-3-8912 (3 tones + noise
+   * + envelope) summed with the ULA beeper, both at {@link audioSampleRate}.
+   * Each drains its own per-frame state; either returns an empty array when
+   * silent, so an idle machine produces nothing.
+   */
+  readAudio(): Float32Array {
+    const ay = this.ay.render();
+    const beep = this.beeper.render(TSTATES_PER_FRAME);
+    if (ay.length === 0) return beep;
+    if (beep.length === 0) return ay;
+    const out = new Float32Array(ay.length);
+    for (let i = 0; i < out.length; i++) out[i] = ay[i]! + beep[i]!;
+    return out;
   }
 
   /**
@@ -154,6 +186,7 @@ export class Spectrum128Machine implements MachineEmulator {
     // back round rather than on the spot.
     let armed = opts.fromLine === null;
     while (cycles < budget) {
+      this.frameCycle = cycles; // timestamp any beeper write in this instruction
       const { t, halted } = this.stepInstruction();
       if (halted) break;
       cycles += t;
@@ -445,6 +478,7 @@ export class Spectrum128Machine implements MachineEmulator {
     if (this.disposed) return;
     this.disposed = true;
     this.keyboard.releaseAll();
+    this.beeper.reset();
     this.imageData = null;
     this.pending = null;
   }
