@@ -16,13 +16,17 @@
   --gc-face-edge: #3d4a5c;
   --gc-hub: #222b36;
   --gc-text: #e6edf3;
+  /* Distance the whole pad sits above the bottom edge, plus a lift of one d-pad
+     button height so thumbs reach the controls a touch more easily. */
+  --gc-bottom: clamp(10px, 4vh, 48px);
+  --gc-lift: calc(clamp(124px, 40vmin, 230px) / 3);
 }
 
 /* ---------- D-pad (cross) ---------- */
 .gc-dpad {
   position: absolute;
   left: clamp(10px, 5vw, 56px);
-  bottom: clamp(10px, 4vh, 48px);
+  bottom: calc(var(--gc-bottom) + var(--gc-lift));
   width: clamp(124px, 40vmin, 230px);
   height: clamp(124px, 40vmin, 230px);
   display: grid;
@@ -92,7 +96,7 @@
 .gc-buttons {
   position: absolute;
   right: clamp(10px, 5vw, 56px);
-  bottom: clamp(10px, 4vh, 48px);
+  bottom: calc(var(--gc-bottom) + var(--gc-lift));
   /* Match the d-pad's height and bottom so centred circles line up exactly with
      the d-pad's centre (its hub). The key caps float below each circle (see
      .gc-fire-cap) so they don't pull the circle off-centre. */
@@ -200,6 +204,10 @@
 }
 
 /* ---------- Landscape: hug the far bottom corners of the short band ---------- */
+.gc-landscape {
+  /* The d-pad is smaller here, so lift by one of its (smaller) button heights. */
+  --gc-lift: calc(clamp(110px, 26vmin, 200px) / 3);
+}
 .gc-landscape .gc-dpad {
   width: clamp(110px, 26vmin, 200px);
   height: clamp(110px, 26vmin, 200px);
