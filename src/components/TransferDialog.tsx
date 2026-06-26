@@ -11,6 +11,30 @@ import { sendOverSerial, webSerialSupported } from '../transfer/webserial';
 import styles from './TransferDialog.module.css';
 import dialog from './Dialog.module.css';
 
+/**
+ * Resolve once the emulator reports stopped (its audio graph torn down), or
+ * after a short timeout as a backstop so a wedged machine can't block export.
+ */
+function waitForEmulatorStopped(timeoutMs = 2000): Promise<void> {
+  return new Promise((resolve) => {
+    if (useIdeStore.getState().emulatorStatus === 'stopped') {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(() => {
+      unsubscribe();
+      resolve();
+    }, timeoutMs);
+    const unsubscribe = useIdeStore.subscribe((s) => {
+      if (s.emulatorStatus === 'stopped') {
+        clearTimeout(timer);
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+}
+
 export function TransferDialog() {
   const open = useIdeStore((s) => s.transferOpen);
   const setOpen = useIdeStore((s) => s.setTransferOpen);
@@ -19,6 +43,7 @@ export function TransferDialog() {
   const dialect = useIdeStore((s) => s.dialect);
   const dirty = useIdeStore((s) => s.dirty);
   const markSaved = useIdeStore((s) => s.markSaved);
+  const requestStop = useIdeStore((s) => s.requestStop);
 
   const [robust, setRobust] = useState(false);
   const [status, setStatus] = useState('');
@@ -74,6 +99,15 @@ export function TransferDialog() {
     const audio = dialect.audio;
     if (!audio)
       throw new Error(`${dialect.name} has no cassette audio support`);
+    // Cassette playback drives the same speaker output as the run-time emulator
+    // audio. If the emulator kept sounding, its output would mix into the tape
+    // tone and corrupt the loading routine — so stop it first (which also tears
+    // down its AudioContext via the EmulatorPane dispose wiring) and wait until
+    // it confirms stopped before emitting the tone.
+    if (useIdeStore.getState().emulatorStatus !== 'stopped') {
+      requestStop();
+      await waitForEmulatorStopped();
+    }
     const samples = audio.buildSamples(source, baseName, robust);
     const playback = playSamples(samples, audio.sampleRate);
     playbackRef.current = playback;

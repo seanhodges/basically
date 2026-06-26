@@ -1,7 +1,7 @@
 import { fake6502, type Cpu6502 } from 'jsbeeb/src/fake6502.js';
 import { findModel } from 'jsbeeb/src/models.js';
 import { Video } from 'jsbeeb/src/video.js';
-import { FakeSoundChip } from 'jsbeeb/src/soundchip.js';
+import { AtomSoundChip } from 'jsbeeb/src/soundchip.js';
 import * as utils from 'jsbeeb/src/utils.js';
 import type { MachineEmulator } from '../../dialects/types';
 import {
@@ -32,6 +32,16 @@ export const ATOM_DISPLAY_HEIGHT = 192;
 
 const CPU_HZ = 1_000_000; // the Atom runs its 6502 at 1 MHz
 const CYCLES_PER_FRAME = CPU_HZ / 50;
+
+/**
+ * Backstop on the audio accumulation buffer (~0.4s at 500 kHz). {@link
+ * AtomMachine.readAudio} drains every frame so it never normally fills; this
+ * only bounds growth if the host stops pulling while the chip keeps flushing.
+ */
+const MAX_AUDIO_SAMPLES = 200_000;
+
+/** Shared empty result so a silent frame allocates nothing. */
+const EMPTY_AUDIO = new Float32Array(0);
 
 /**
  * Cycles from hard reset to the `>` ready prompt with the cursor up. The Atom
@@ -84,8 +94,14 @@ export function configureNodeRomPath(jsbeebRoot: string): void {
 export class AtomMachine implements MachineEmulator {
   readonly displayWidth = ATOM_DISPLAY_WIDTH;
   readonly displayHeight = ATOM_DISPLAY_HEIGHT;
+  /** Native rate of the speaker/sine stream (set from the chip in the ctor). */
+  readonly audioSampleRate: number;
 
   private readonly cpu: Cpu6502;
+  private readonly soundChip: AtomSoundChip;
+  /** Full buffers handed over since the last {@link readAudio} drain. */
+  private audioChunks: Float32Array[] = [];
+  private audioSamples = 0;
   private readonly hostKeyboard: AtomHostKeyboard;
   private readonly fb8 = new Uint8Array(FB_WIDTH * FB_HEIGHT * 4);
   /** Snapshot of the last complete frame, copied at paint time. */
@@ -115,7 +131,24 @@ export class AtomMachine implements MachineEmulator {
       },
       { isAtom: true },
     );
-    this.cpu = fake6502(model, { video, soundChip: new FakeSoundChip() });
+    // The Atom's 1-bit speaker + sine channel, driven by the PPIA. Each filled
+    // buffer is accumulated and drained by readAudio(); initialise() wires its
+    // scheduler, so runFrame() only has to catchUp() to flush per frame.
+    this.soundChip = new AtomSoundChip(
+      (buffer) => {
+        this.audioChunks.push(buffer);
+        this.audioSamples += buffer.length;
+        while (
+          this.audioSamples > MAX_AUDIO_SAMPLES &&
+          this.audioChunks.length
+        ) {
+          this.audioSamples -= this.audioChunks.shift()!.length;
+        }
+      },
+      { cpuSpeed: CPU_HZ },
+    );
+    this.audioSampleRate = this.soundChip.soundchipFreq;
+    this.cpu = fake6502(model, { video, soundChip: this.soundChip });
     if (!this.cpu.atomppia) throw new Error('Atom CPU has no PPIA');
     // The Atom keyboard hangs off the PPIA, not the SysVia.
     this.hostKeyboard = new AtomHostKeyboard(this.cpu.atomppia);
@@ -145,6 +178,7 @@ export class AtomMachine implements MachineEmulator {
   reset(): void {
     this.loadGeneration++;
     this.loadError = '';
+    this.clearAudio();
     void this.ready.then(() => {
       if (!this.disposed) this.cpu.reset(true);
     });
@@ -153,6 +187,26 @@ export class AtomMachine implements MachineEmulator {
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
     this.cpu.execute(Math.round(CYCLES_PER_FRAME * this.speed));
+    // Flush sound generated this frame into the accumulation buffer.
+    this.soundChip.catchUp();
+  }
+
+  /** Native-rate mono samples synthesized since the last call (drains). */
+  readAudio(): Float32Array {
+    if (this.audioSamples === 0) return EMPTY_AUDIO;
+    const out = new Float32Array(this.audioSamples);
+    let offset = 0;
+    for (const chunk of this.audioChunks) {
+      out.set(chunk, offset);
+      offset += chunk.length;
+    }
+    this.clearAudio();
+    return out;
+  }
+
+  private clearAudio(): void {
+    this.audioChunks = [];
+    this.audioSamples = 0;
   }
 
   /**
@@ -180,6 +234,10 @@ export class AtomMachine implements MachineEmulator {
           this.cpu.writemem(TOP_OF_TEXT, end & 0xff);
           this.cpu.writemem(TOP_OF_TEXT + 1, (end >>> 8) & 0xff);
           this.typeViaMatrix('RUN\r');
+          // Drop samples synthesized while booting/typing so the first
+          // readAudio() doesn't replay a boot-time burst.
+          this.soundChip.catchUp();
+          this.clearAudio();
         } finally {
           this.injecting = false;
         }

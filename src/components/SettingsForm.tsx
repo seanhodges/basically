@@ -32,6 +32,10 @@ export function SettingsForm() {
   const setKeyboardKeyDisplay = useIdeStore((s) => s.setKeyboardKeyDisplay);
   const emulatorSpeed = useIdeStore((s) => s.emulatorSpeed);
   const setEmulatorSpeed = useIdeStore((s) => s.setEmulatorSpeed);
+  const emulatorAudio = useIdeStore((s) => s.emulatorAudio);
+  const setEmulatorAudio = useIdeStore((s) => s.setEmulatorAudio);
+  const emulatorVolume = useIdeStore((s) => s.emulatorVolume);
+  const setEmulatorVolume = useIdeStore((s) => s.setEmulatorVolume);
   const [providerId, setProviderId] = useState<AiProviderId>(getAiProvider());
   const [key, setKey] = useState(getProviderApiKey(getAiProvider()));
   const [keySaved, setKeySaved] = useState(false);
@@ -112,6 +116,27 @@ export function SettingsForm() {
           <option value={2}>2×</option>
           <option value={8}>8×</option>
         </select>
+      </label>
+      <h3>Emulator audio</h3>
+      <label className={styles.inline}>
+        <input
+          type="checkbox"
+          checked={emulatorAudio}
+          onChange={(e) => setEmulatorAudio(e.target.checked)}
+        />
+        Enable emulator sound
+      </label>
+      <label className={styles.inline}>
+        Volume
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={emulatorVolume}
+          disabled={!emulatorAudio}
+          onChange={(e) => setEmulatorVolume(Number(e.target.value))}
+        />
       </label>
       <h3>On-screen keyboard</h3>
       <label className={styles.inline}>

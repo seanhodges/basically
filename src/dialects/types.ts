@@ -161,6 +161,22 @@ export interface MachineEmulator {
   readonly displayHeight: number;
   dispose(): void;
   /**
+   * Native sample rate (Hz) of the Float32 mono stream this machine produces.
+   * Present only on machines that synthesize sound; paired with {@link readAudio}.
+   */
+  readonly audioSampleRate?: number;
+  /**
+   * Mono samples generated since the previous call — typically one frame's worth
+   * (~audioSampleRate / 50). Called once per rAF tick, right after
+   * {@link runFrame} (and {@link debugStep}). Returns an empty array when this
+   * machine emits no audio this slice. The host owns buffering, resampling,
+   * volume and scheduling; the machine owns synthesis. A machine "supports audio"
+   * iff `typeof machine.readAudio === 'function'` — detection is per-machine,
+   * like {@link readVariables} / {@link debugStep}, so no Dialect-level flag is
+   * needed.
+   */
+  readAudio?(): Float32Array;
+  /**
    * Snapshot of the running program's BASIC variables, or absent when the
    * machine can't introspect them. Read-only. The watcher detects support via
    * `typeof machine.readVariables === 'function'`.

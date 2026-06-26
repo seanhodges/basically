@@ -64,6 +64,25 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     machine.dispose();
   }, 60000);
 
+  it('exposes the audio seam and drains without error', async () => {
+    const machine = new AtomMachine();
+    // The seam is detected per-machine via these two members.
+    expect(typeof machine.readAudio).toBe('function');
+    expect(machine.audioSampleRate).toBeGreaterThan(0);
+    await machine.whenReady();
+    // Run a few frames and drain; a silent boot yields a finite Float32 stream
+    // (empty or otherwise), never a throw.
+    for (let i = 0; i < 20; i++) {
+      machine.runFrame();
+      const samples = machine.readAudio!();
+      expect(samples).toBeInstanceOf(Float32Array);
+      for (let j = 0; j < samples.length; j++) {
+        expect(Number.isFinite(samples[j]!)).toBe(true);
+      }
+    }
+    machine.dispose();
+  }, 30000);
+
   it('pokes the program image at #2900 and fixes the top-of-text pointer', async () => {
     const machine = new AtomMachine();
     const { bytes } = tokenizeProgram('10 PRINT "HI"\n');
