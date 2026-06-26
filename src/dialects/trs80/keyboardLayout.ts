@@ -158,7 +158,7 @@ export const trs80KeyboardLayout: KeyboardLayout = {
   // WASD movement + Space fire (the convention the bundled TRS-80 games use).
   controller: {
     fireButtons: 1,
-    dpadMode: '8-way',
+    dpadMode: '4-way',
     bindings: {
       up: 'KeyW',
       down: 'KeyS',

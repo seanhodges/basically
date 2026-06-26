@@ -7,7 +7,8 @@ import {
   MIN_SPLIT_RATIO,
   MAX_SPLIT_RATIO,
 } from '../storage/settings';
-import type { EditorKeyAction } from '../keyboard/layoutSchema';
+import type { ControllerRole, EditorKeyAction } from '../keyboard/layoutSchema';
+import { CONTROLLER_ROLE_NAMES } from '../keyboard/controllerConfig';
 import {
   VirtualKeyboard,
   type KeyboardTarget,
@@ -99,12 +100,13 @@ export function Workspace() {
   const controllerBindings = useIdeStore((s) => s.controllerBindings);
   const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
   const setControllerBinding = useIdeStore((s) => s.setControllerBinding);
-  const resetController = useIdeStore((s) => s.resetController);
-  const setControllerDpadMode = useIdeStore((s) => s.setControllerDpadMode);
 
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  // The controller role currently being remapped: while non-null the on-screen
+  // keyboard replaces the controller as a key picker.
+  const [remapRole, setRemapRole] = useState<ControllerRole | null>(null);
 
   // The virtual keyboard types into the editor through this handle; presses
   // preventDefault so the editor never loses focus while typing.
@@ -290,8 +292,9 @@ export function Workspace() {
       )}
       {/* The game-controller overlay floats over the bottom half (transparent
           gaps fall through to the screen). Keyed by dialect so a machine swap
-          remounts a clean engine — no stuck keys. */}
-      {controllerVisible && (
+          remounts a clean engine — no stuck keys. While a remap is in progress
+          the controller hides and the keyboard picker below takes its place. */}
+      {controllerVisible && remapRole === null && (
         <div
           className={`${styles.workspaceVkOverlay} ${styles.workspaceGcOverlay}`}
         >
@@ -303,9 +306,34 @@ export function Workspace() {
             haptics={keyboardHaptics}
             overrides={controllerBindings}
             dpadMode={controllerDpadMode}
-            onRemap={setControllerBinding}
-            onSetDpadMode={setControllerDpadMode}
-            onReset={resetController}
+            onStartRemap={setRemapRole}
+          />
+        </div>
+      )}
+      {/* Remap picker: the machine's real keyboard. Tapping a key binds the
+          long-pressed control to it. */}
+      {controllerVisible && remapRole !== null && (
+        <div
+          className={`${styles.workspaceVkOverlay} ${styles.gamepadRemapOverlay}`}
+        >
+          <div className={styles.gamepadRemapBanner}>
+            <span>
+              Tap a key to map{' '}
+              <strong>{CONTROLLER_ROLE_NAMES[remapRole]}</strong>
+            </span>
+            <button onClick={() => setRemapRole(null)}>Cancel</button>
+          </div>
+          <VirtualKeyboard
+            layout={dialect.keyboardLayout}
+            target={machineTarget}
+            enabled
+            sound={keyboardSound}
+            haptics={keyboardHaptics}
+            keyDisplay={keyboardKeyDisplay}
+            onPickKey={(keyId) => {
+              setControllerBinding(remapRole, keyId);
+              setRemapRole(null);
+            }}
           />
         </div>
       )}

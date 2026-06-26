@@ -9,6 +9,7 @@ import type {
 } from './layoutSchema';
 import { KeyboardInputEngine } from './inputEngine';
 import { isRepeatable, resolveEditorAction } from './editorActions';
+import { pickableKeys } from './controllerConfig';
 import { GlyphSvg } from './GlyphSvg';
 import './VirtualKeyboard.css';
 
@@ -35,6 +36,9 @@ interface VirtualKeyboardProps {
   /** Keycap legends: every legend ('authentic') or only the active mode's
    *  character, centered and larger ('compact'). */
   keyDisplay: 'authentic' | 'compact';
+  /** When set, the keyboard acts as a key picker: a tap on a matrix-driving
+   *  key reports its id instead of typing into the target. */
+  onPickKey?: (keyId: string) => void;
 }
 
 /** Pointer id used for activation via the physical keyboard (a11y path). */
@@ -91,6 +95,7 @@ export function VirtualKeyboard({
   sound,
   haptics,
   keyDisplay,
+  onPickKey,
 }: VirtualKeyboardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef(target);
@@ -99,6 +104,12 @@ export function VirtualKeyboard({
   soundRef.current = sound;
   const hapticsRef = useRef(haptics);
   hapticsRef.current = haptics;
+
+  // In pick mode, the set of key ids a tap may report (matrix-driving keys).
+  const pickableIds = useMemo(
+    () => new Set(pickableKeys(layout).map((k) => k.id)),
+    [layout],
+  );
 
   // Top-strip input modes (the ZX81 K/F/G cursor as a selector bar). Each mode
   // pins a layer. Shown for both targets; for the machine target the mode is
@@ -339,6 +350,12 @@ export function VirtualKeyboard({
     const keyId = (e.target as Element)
       .closest('[data-keyid]')
       ?.getAttribute('data-keyid');
+    // Pick mode: a tap on a matrix key reports its id and does nothing else —
+    // never drive the engine, machine, repeat, or pointer capture.
+    if (onPickKey) {
+      if (keyId && pickableIds.has(keyId)) onPickKey(keyId);
+      return;
+    }
     if (!keyId) return;
     // Capture on the container: pointermove keeps firing here while we
     // hit-test slides with elementFromPoint.
@@ -563,7 +580,7 @@ export function VirtualKeyboard({
   return (
     <div
       ref={containerRef}
-      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${keyDisplay === 'compact' ? ' vk-single' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}`}
+      className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${keyDisplay === 'compact' ? ' vk-single' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}${onPickKey ? ' vk-pickmode' : ''}`}
       style={{ '--vk-max-len': maxSingleLen } as React.CSSProperties}
       role="group"
       aria-label={`${layout.name} on-screen keyboard`}

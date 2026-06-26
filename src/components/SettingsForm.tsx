@@ -12,6 +12,7 @@ import styles from './SettingsForm.module.css';
 import dialog from './Dialog.module.css';
 
 export function SettingsForm() {
+  const dialect = useIdeStore((s) => s.dialect);
   const autoLineNumbering = useIdeStore((s) => s.autoLineNumbering);
   const lineNumberIncrement = useIdeStore((s) => s.lineNumberIncrement);
   const showLineNumberGutter = useIdeStore((s) => s.showLineNumberGutter);
@@ -36,6 +37,9 @@ export function SettingsForm() {
   const setEmulatorAudio = useIdeStore((s) => s.setEmulatorAudio);
   const emulatorVolume = useIdeStore((s) => s.emulatorVolume);
   const setEmulatorVolume = useIdeStore((s) => s.setEmulatorVolume);
+  const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
+  const setControllerDpadMode = useIdeStore((s) => s.setControllerDpadMode);
+  const resetController = useIdeStore((s) => s.resetController);
   const [providerId, setProviderId] = useState<AiProviderId>(getAiProvider());
   const [key, setKey] = useState(getProviderApiKey(getAiProvider()));
   const [keySaved, setKeySaved] = useState(false);
@@ -175,6 +179,26 @@ export function SettingsForm() {
         />
         Haptic feedback
       </label>
+      <h3>Virtual gamepad</h3>
+      <label className={styles.inline}>
+        D-pad directions
+        <select
+          value={controllerDpadMode}
+          onChange={(e) =>
+            setControllerDpadMode(e.target.value as '4-way' | '8-way')
+          }
+        >
+          <option value="4-way">4-way</option>
+          <option value="8-way">8-way (diagonals)</option>
+        </select>
+      </label>
+      <p>
+        Long-press a control on the on-screen gamepad to remap it. These options
+        apply to the current machine ({dialect.name}).
+      </p>
+      <div className={`${dialog.modalActions} ${dialog.left}`}>
+        <button onClick={resetController}>Reset to defaults</button>
+      </div>
       <h3>AI</h3>
       <label className={styles.inline}>
         AI provider

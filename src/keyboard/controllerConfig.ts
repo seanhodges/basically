@@ -16,6 +16,16 @@ export const CONTROLLER_ROLES: ControllerRole[] = [
   'fire2',
 ];
 
+/** Human-readable label for each controller role (UI copy). */
+export const CONTROLLER_ROLE_NAMES: Record<ControllerRole, string> = {
+  up: 'Up',
+  down: 'Down',
+  left: 'Left',
+  right: 'Right',
+  fire1: 'Fire 1',
+  fire2: 'Fire 2',
+};
+
 /** User remap overrides for a dialect: role → KeyDef id. */
 export type ControllerOverrides = Partial<Record<ControllerRole, string>>;
 
