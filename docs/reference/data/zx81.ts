@@ -1,0 +1,410 @@
+// Reference table data for the ZX81 BASIC page.
+// Seeded from the dialect's keyword table by scripts/gen-reference-scaffold.mts,
+// then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
+// the generator skips this file once it exists.
+import type { ReferenceTableData } from './types';
+
+export const zx81Reference: ReferenceTableData = {
+  title: 'ZX81 BASIC',
+  machines: ['Sinclair ZX81'],
+  entries: [
+    {
+      name: 'RND',
+      kind: 'function',
+      syntax: 'RND',
+      description: 'Random number in [0,1). Seed with RAND.',
+    },
+    {
+      name: 'INKEY$',
+      kind: 'function',
+      syntax: 'INKEY$',
+      description:
+        'Currently pressed key as a string, "" if none. The heart of every game loop.',
+    },
+    {
+      name: 'PI',
+      kind: 'function',
+      syntax: 'PI',
+      description: '3.14159265…',
+    },
+    {
+      name: 'AT',
+      kind: 'operator',
+      syntax: 'PRINT AT row,col;',
+      description: 'Position the print cursor: row 0-21, column 0-31.',
+    },
+    {
+      name: 'TAB',
+      kind: 'operator',
+      syntax: 'PRINT TAB n;',
+      description: 'Move print position to column n.',
+    },
+    {
+      name: 'CODE',
+      kind: 'function',
+      syntax: 'CODE s$',
+      description: 'ZX81 character code of the first character of s$.',
+    },
+    {
+      name: 'VAL',
+      kind: 'function',
+      syntax: 'VAL s$',
+      description: 'Evaluate s$ as a numeric expression.',
+    },
+    {
+      name: 'LEN',
+      kind: 'function',
+      syntax: 'LEN s$',
+      description: 'Length of string s$.',
+    },
+    {
+      name: 'SIN',
+      kind: 'function',
+      syntax: 'SIN x',
+      description: 'Sine (radians).',
+    },
+    {
+      name: 'COS',
+      kind: 'function',
+      syntax: 'COS x',
+      description: 'Cosine (radians).',
+    },
+    {
+      name: 'TAN',
+      kind: 'function',
+      syntax: 'TAN x',
+      description: 'Tangent (radians).',
+    },
+    {
+      name: 'ASN',
+      kind: 'function',
+      syntax: 'ASN x',
+      description: 'Arcsine.',
+    },
+    {
+      name: 'ACS',
+      kind: 'function',
+      syntax: 'ACS x',
+      description: 'Arccosine.',
+    },
+    {
+      name: 'ATN',
+      kind: 'function',
+      syntax: 'ATN x',
+      description: 'Arctangent.',
+    },
+    {
+      name: 'LN',
+      kind: 'function',
+      syntax: 'LN x',
+      description: 'Natural logarithm.',
+    },
+    {
+      name: 'EXP',
+      kind: 'function',
+      syntax: 'EXP x',
+      description: 'e to the power x.',
+    },
+    {
+      name: 'INT',
+      kind: 'function',
+      syntax: 'INT x',
+      description: 'Largest integer ≤ x (floors negatives).',
+    },
+    {
+      name: 'SQR',
+      kind: 'function',
+      syntax: 'SQR x',
+      description: 'Square root.',
+    },
+    {
+      name: 'SGN',
+      kind: 'function',
+      syntax: 'SGN x',
+      description: 'Sign of x: -1, 0 or 1.',
+    },
+    {
+      name: 'ABS',
+      kind: 'function',
+      syntax: 'ABS x',
+      description: 'Absolute value.',
+    },
+    {
+      name: 'PEEK',
+      kind: 'function',
+      syntax: 'PEEK addr',
+      description: 'Read a byte of memory. PEEK 16396+256*PEEK 16397 = D_FILE.',
+    },
+    {
+      name: 'USR',
+      kind: 'function',
+      syntax: 'USR addr',
+      description: 'Call machine code at addr; returns BC.',
+    },
+    {
+      name: 'STR$',
+      kind: 'function',
+      syntax: 'STR$ x',
+      description: 'Number as a string.',
+    },
+    {
+      name: 'CHR$',
+      kind: 'function',
+      syntax: 'CHR$ n',
+      description: 'Character with ZX81 code n (NOT ASCII).',
+    },
+    {
+      name: 'NOT',
+      kind: 'function',
+      syntax: 'NOT x',
+      description: 'Logical not: 1 if x=0, else 0.',
+    },
+    {
+      name: '**',
+      kind: 'operator',
+      syntax: 'x ** y',
+      description: 'Power. The ZX81 uses ** rather than ^.',
+    },
+    {
+      name: 'OR',
+      kind: 'operator',
+      syntax: 'a OR b',
+      description: 'Logical or.',
+    },
+    {
+      name: 'AND',
+      kind: 'operator',
+      syntax: 'a AND b',
+      description: 'Logical and.',
+    },
+    {
+      name: '<=',
+      kind: 'operator',
+      syntax: '<=',
+      description: 'Less than or equal — a single ZX81 token.',
+    },
+    {
+      name: '>=',
+      kind: 'operator',
+      syntax: '>=',
+      description: 'Greater than or equal — a single ZX81 token.',
+    },
+    {
+      name: '<>',
+      kind: 'operator',
+      syntax: '<>',
+      description: 'Not equal — a single ZX81 token.',
+    },
+    {
+      name: 'THEN',
+      kind: 'operator',
+      syntax: 'IF cond THEN statement',
+      description:
+        'One statement only — the ZX81 has no ELSE and no multi-statement lines.',
+    },
+    {
+      name: 'TO',
+      kind: 'operator',
+      syntax: 'FOR v=a TO b | s$(a TO b)',
+      description: 'FOR range or string slice.',
+    },
+    {
+      name: 'STEP',
+      kind: 'operator',
+      syntax: 'FOR v=a TO b STEP c',
+      description: 'FOR loop increment.',
+    },
+    {
+      name: 'LPRINT',
+      kind: 'command',
+      syntax: 'LPRINT items',
+      description: 'Print to the ZX printer.',
+    },
+    {
+      name: 'LLIST',
+      kind: 'command',
+      syntax: 'LLIST [line]',
+      description: 'List program to the ZX printer.',
+    },
+    {
+      name: 'STOP',
+      kind: 'command',
+      syntax: 'STOP',
+      description: 'Halt with report 9; CONT resumes.',
+    },
+    {
+      name: 'SLOW',
+      kind: 'command',
+      syntax: 'SLOW',
+      description: 'Compute-and-display mode: screen stays on, ~4x slower.',
+    },
+    {
+      name: 'FAST',
+      kind: 'command',
+      syntax: 'FAST',
+      description:
+        'Display off while computing; screen flickers on input/PAUSE.',
+    },
+    {
+      name: 'NEW',
+      kind: 'command',
+      syntax: 'NEW',
+      description: 'Erase the program.',
+    },
+    {
+      name: 'SCROLL',
+      kind: 'command',
+      syntax: 'SCROLL',
+      description:
+        'Scroll the display up one line. Needed before printing on a full screen.',
+    },
+    {
+      name: 'CONT',
+      kind: 'command',
+      syntax: 'CONT',
+      description: 'Continue after STOP/BREAK.',
+    },
+    {
+      name: 'DIM',
+      kind: 'command',
+      syntax: 'DIM A(n) | DIM A$(n,m)',
+      description: 'Declare an array. Array names are a single letter.',
+    },
+    {
+      name: 'REM',
+      kind: 'command',
+      syntax: 'REM comment',
+      description: 'Comment line (also a common stash for machine code).',
+    },
+    {
+      name: 'FOR',
+      kind: 'command',
+      syntax: 'FOR v=a TO b [STEP c]',
+      description: 'Loop. Control variable is a single letter.',
+    },
+    {
+      name: 'GOTO',
+      kind: 'command',
+      syntax: 'GOTO line',
+      description: 'Jump to line number (computed targets allowed).',
+    },
+    {
+      name: 'GOSUB',
+      kind: 'command',
+      syntax: 'GOSUB line',
+      description: 'Call subroutine; RETURN comes back.',
+    },
+    {
+      name: 'INPUT',
+      kind: 'command',
+      syntax: 'INPUT v',
+      description:
+        'Read a value from the keyboard (stops the program; use INKEY$ in games).',
+    },
+    {
+      name: 'LOAD',
+      kind: 'command',
+      syntax: 'LOAD "name"',
+      description: 'Load a program from tape.',
+    },
+    {
+      name: 'LIST',
+      kind: 'command',
+      syntax: 'LIST [line]',
+      description: 'List the program.',
+    },
+    {
+      name: 'LET',
+      kind: 'command',
+      syntax: 'LET v=expr',
+      description: 'Assignment — LET is mandatory on the ZX81.',
+    },
+    {
+      name: 'PAUSE',
+      kind: 'command',
+      syntax: 'PAUSE n',
+      description:
+        'Wait n frames (50/s) or until a key; 32768+ = forever. POKE 16437,255 after PAUSE avoids a display glitch.',
+    },
+    {
+      name: 'NEXT',
+      kind: 'command',
+      syntax: 'NEXT v',
+      description: 'End of FOR loop.',
+    },
+    {
+      name: 'POKE',
+      kind: 'command',
+      syntax: 'POKE addr,byte',
+      description: 'Write a byte of memory.',
+    },
+    {
+      name: 'PRINT',
+      kind: 'command',
+      syntax: 'PRINT [AT r,c;] items',
+      description:
+        'Print to the screen; , tabs to a 16-column field, ; concatenates.',
+    },
+    {
+      name: 'PLOT',
+      kind: 'command',
+      syntax: 'PLOT x,y',
+      description: 'Set a pixel block: x 0-63, y 0-43 (origin bottom-left).',
+    },
+    {
+      name: 'RUN',
+      kind: 'command',
+      syntax: 'RUN [line]',
+      description: 'Clear variables and run.',
+    },
+    {
+      name: 'SAVE',
+      kind: 'command',
+      syntax: 'SAVE "name"',
+      description: 'Save the program to tape.',
+    },
+    {
+      name: 'RAND',
+      kind: 'command',
+      syntax: 'RAND [n]',
+      description: 'Seed RND; RAND 0 seeds from the frame counter.',
+    },
+    {
+      name: 'IF',
+      kind: 'command',
+      syntax: 'IF cond THEN statement',
+      description:
+        'Conditional; condition uses =, <, >, <=, >=, <>, AND, OR, NOT.',
+    },
+    {
+      name: 'CLS',
+      kind: 'command',
+      syntax: 'CLS',
+      description: 'Clear the screen.',
+    },
+    {
+      name: 'UNPLOT',
+      kind: 'command',
+      syntax: 'UNPLOT x,y',
+      description: 'Clear a pixel block set by PLOT.',
+    },
+    {
+      name: 'CLEAR',
+      kind: 'command',
+      syntax: 'CLEAR',
+      description: 'Delete all variables.',
+    },
+    {
+      name: 'RETURN',
+      kind: 'command',
+      syntax: 'RETURN',
+      description: 'Return from GOSUB.',
+    },
+    {
+      name: 'COPY',
+      kind: 'command',
+      syntax: 'COPY',
+      description: 'Print the screen to the ZX printer.',
+    },
+  ],
+};
