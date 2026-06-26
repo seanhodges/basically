@@ -7,6 +7,7 @@ import type {
 } from '../../dialects/types';
 import { readC64Variables } from './vars';
 import { readC64Report } from './reports';
+import { SidRenderer, SID_SAMPLE_RATE } from './sid';
 import {
   bringup,
   loadPrg,
@@ -210,6 +211,8 @@ function domCodeToTokens(code: string): readonly string[] {
 export class C64Machine implements MachineEmulator {
   readonly displayWidth = C64_DISPLAY_WIDTH;
   readonly displayHeight = C64_DISPLAY_HEIGHT;
+  /** Native rate of the mono software-SID stream. */
+  readonly audioSampleRate = SID_SAMPLE_RATE;
 
   private c64: C64 | null = null;
   private readonly ready: Promise<void>;
@@ -228,6 +231,13 @@ export class C64Machine implements MachineEmulator {
   private setKeyMatrix: (matrix: number[]) => void = () => {};
   private readonly physicalButtons = new Set<string>();
   private readonly virtualButtons = new Set<string>();
+
+  /**
+   * Software SID synthesis. viciious's SID core emulates only the ADSR envelope
+   * and delegates waveform synthesis to the host, so this renderer is wired in
+   * as the audio host and drained by {@link readAudio}.
+   */
+  private readonly sid = new SidRenderer();
 
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
@@ -261,6 +271,7 @@ export class C64Machine implements MachineEmulator {
           attachments: [],
         });
         this.c64.runloop.reset();
+        this.sid.reset();
         this.booted = true;
       })
       .catch((e: unknown) => {
@@ -312,9 +323,9 @@ export class C64Machine implements MachineEmulator {
 
   private attachAudio = (c64: { audio: AudioHost }): void => {
     c64.audio = {
-      reset: () => {},
-      setVoiceVolume: () => {},
-      onRegWrite: () => {},
+      reset: () => this.sid.reset(),
+      setVoiceVolume: this.sid.setVoiceVolume,
+      onRegWrite: this.sid.onRegWrite,
     };
   };
 
@@ -337,7 +348,10 @@ export class C64Machine implements MachineEmulator {
     this.loadError = '';
     this.clearKeys();
     void this.ready.then(() => {
-      if (!this.disposed && this.c64) this.c64.runloop.reset();
+      if (!this.disposed && this.c64) {
+        this.c64.runloop.reset();
+        this.sid.reset();
+      }
     });
   }
 
@@ -352,6 +366,16 @@ export class C64Machine implements MachineEmulator {
       c64.sid.tick();
       c64.tape.tick();
     }
+  }
+
+  /**
+   * Mono audio synthesized over the last frame by the software SID (3 voices:
+   * waveform × ADSR envelope, mixed at master volume), at
+   * {@link audioSampleRate}. Returns an empty array when the chip is silent, so
+   * an idle machine produces nothing.
+   */
+  readAudio(): Float32Array {
+    return this.sid.render();
   }
 
   /**
@@ -414,6 +438,7 @@ export class C64Machine implements MachineEmulator {
           const c64 = this.c64;
           this.clearKeys();
           c64.runloop.reset();
+          this.sid.reset();
           if (!this.tickUntilPc(AWAIT_KEYBOARD_PC, BOOT_CYCLE_CAP)) {
             throw new Error('C64 did not boot to BASIC');
           }
@@ -564,6 +589,7 @@ export class C64Machine implements MachineEmulator {
     this.disposed = true;
     this.loadGeneration++;
     this.clearKeys();
+    this.sid.reset();
     // Release the whole viciious machine (CPU/VIC/SID/CIAs/RAM/ROMs) and the
     // render scratch canvas now rather than waiting on GC. Every method that
     // touches `c64` already guards on `disposed`/`!c64`, and the run loop is

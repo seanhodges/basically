@@ -7,8 +7,8 @@
  * register is written via 0xBFFD (and read back via 0xFFFD). BASIC's PLAY and
  * the 128 BEEP drive it.
  *
- * Synthesis (Stage 3 of docs/contributing/emulator-audio-plan.md) runs the chip
- * as a real PSG: three 12-bit tone counters, a 17-bit noise LFSR, a 16-bit
+ * Synthesis (the ZX Spectrum 128K stage of the emulator-audio work) runs the
+ * chip as a real PSG: three 12-bit tone counters, a 17-bit noise LFSR, a 16-bit
  * envelope generator with the ten classic shapes, and a 4-bit logarithmic
  * volume table. The synth carries its counter/LFSR/envelope state across frames
  * so tones and envelopes are continuous; register writes are applied live (the

@@ -62,8 +62,10 @@ export interface KeyboardHost {
 
 export interface AudioHost {
   reset(): void;
-  setVoiceVolume(): void;
-  onRegWrite(): void;
+  /** A voice's ADSR envelope amplitude changed (voice 0..2, value 0..1). */
+  setVoiceVolume(voice: number, value: number): void;
+  /** A SID register was written (reg 0..0x1f, byte 0..0xff). */
+  onRegWrite(reg: number, byte: number): void;
 }
 
 export interface JoystickHost {
