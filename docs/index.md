@@ -27,8 +27,8 @@ features:
     title: AI support
     details: Support for many popular AI coding providers; Claude, OpenAI, Gemini. More possible in future.
   - icon: 📼
-    title: Real-hardware transfer
-    details: "Here's the really fun bit: If you have the real machine you can deploy straight from your Web browser. Export via cassette audio (play via the EAR port or save a .wav), download a native machine image (.P / .TAP / .prg …) for SD card interfaces, or push over WebSerial to a microcontroller bridge (experimental)."
+    title: Two-way hardware transfer
+    details: "Here's the really fun bit: if you have the real machine, the link runs both ways. Export via cassette audio (play via the EAR port or save a .wav), download a native machine image (.P / .TAP / .prg …) for SD card interfaces, or push over WebSerial to a microcontroller bridge (experimental) — and import the same way, pulling a program off the real machine by recording its tape or loading its image back into the editor."
   - icon: ⌨️
     title: Mobile-first input
     details: Basically IDE ships with machine-specific virtual keyboards; balancing mobile screen usability with an psuedo authentic shift-state experience. At any time you can toggle this off to use your familiar native keyboard.
@@ -72,11 +72,20 @@ writes actually runs (usually!). The agent will also watch the editor linting an
 
 ![The AI panel generating a BASIC program](/feature-ai.png)
 
-### Ship to real hardware
+### Move programs to and from real hardware
 
-When you're ready to leave the emulator behind, the **Export** tools can
-play the program out as cassette audio, save to a native image file for an SD
-interface, or push it over WebSerial to a microcontroller bridge.
+Basically is a **two-way** bridge to the real machine, not just a one-way
+exporter. When you're ready to leave the emulator behind, the **Export** tools
+can play the program out as cassette audio, save it to a native image file for
+an SD interface, or push it over WebSerial to a microcontroller bridge.
+
+The **Import** tools are the mirror image: pull a BASIC program _off_ the real
+machine — record its cassette output (or drop in a `.wav`) and let Basically
+decode it, or load a native image file (`.P` / `.TAP` / `.prg` …) — straight
+back into the editor. So you can grab an old program from real hardware, edit
+and test it in the IDE, and export the updated version back to the machine —
+and if you'd rather make your changes on the physical hardware, you can pull
+those back in too.
 
 Note: WebSerial support is **experimental**, please use with care, and be sure to share back how you get on!
 

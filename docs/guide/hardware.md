@@ -1,10 +1,18 @@
 # Running on real hardware
 
-A program that works in the emulator can be sent to the real machine. Which
-options are available depends on the target, but there are three broad paths:
-**cassette audio**, a **downloadable image file**, and a **serial bridge**.
+Basically is a **two-way bridge** between the IDE and the real machine. A
+program that works in the emulator can be **exported** to the real hardware,
+and a program that already lives on real hardware can be **imported** back into
+the editor. That means you can grab an old program off a real machine, edit and
+test it in the IDE, and export the updated version back — and if you'd rather
+make your changes on the physical hardware, you can pull those back in too.
 
-Open the **⇥ Hardware** dialog to choose.
+Both directions share the same three paths (which are available depends on the
+target): **cassette audio**, a **downloadable image file**, and a **serial
+bridge**.
+
+Open the **⇥ Hardware** dialog to choose. It has an **Export** side (send to
+the machine) and an **Import** side (read back from the machine).
 
 ## Cassette audio
 
