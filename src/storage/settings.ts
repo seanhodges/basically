@@ -5,6 +5,10 @@ import {
   DEFAULT_PROVIDER_ID,
   getProvider,
 } from '../ai/providers/registry';
+import type { ControllerOverrides } from '../keyboard/controllerConfig';
+
+/** Which input overlay docks under the emulator. Persisted so the choice sticks. */
+export type BottomOverlay = 'none' | 'keyboard' | 'controller';
 
 /**
  * A conversation message as persisted. `incomplete` marks an assistant answer
@@ -35,6 +39,9 @@ const KEYS = {
   emulatorAudio: 'mbide.emulatorAudio',
   emulatorVolume: 'mbide.emulatorVolume',
   emulatorMuted: 'mbide.emulatorMuted',
+  bottomOverlay: 'mbide.bottomOverlay',
+  controllerBindings: 'mbide.controllerBindings',
+  controllerDpadMode: 'mbide.controllerDpadMode',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
 } as const;
 
@@ -175,6 +182,67 @@ export function getKeyboardKeyDisplay(): 'authentic' | 'compact' {
 
 export function setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void {
   localStorage.setItem(KEYS.keyboardKeyDisplay, v);
+}
+
+/**
+ * Which input overlay was last shown under the emulator. Restored on load so the
+ * keyboard-vs-controller choice (and a closed overlay) is preserved. Defaults to
+ * 'none' so a fresh browser opens with neither.
+ */
+export function getBottomOverlay(): BottomOverlay {
+  const raw = localStorage.getItem(KEYS.bottomOverlay);
+  return raw === 'keyboard' || raw === 'controller' ? raw : 'none';
+}
+
+export function setBottomOverlay(v: BottomOverlay): void {
+  localStorage.setItem(KEYS.bottomOverlay, v);
+}
+
+/**
+ * Per-dialect game-controller remaps (role → KeyDef id) over the layout
+ * defaults. Stored under a dialect-scoped key so each machine keeps its own
+ * mapping. Returns {} when never set or unparseable.
+ */
+export function getControllerBindings(dialectId: string): ControllerOverrides {
+  const raw = localStorage.getItem(`${KEYS.controllerBindings}.${dialectId}`);
+  if (raw === null) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object'
+      ? (parsed as ControllerOverrides)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+export function setControllerBindings(
+  dialectId: string,
+  bindings: ControllerOverrides,
+): void {
+  const key = `${KEYS.controllerBindings}.${dialectId}`;
+  if (Object.keys(bindings).length === 0) localStorage.removeItem(key);
+  else localStorage.setItem(key, JSON.stringify(bindings));
+}
+
+/** Reset a dialect's controller remaps back to the layout defaults. */
+export function resetControllerBindings(dialectId: string): void {
+  localStorage.removeItem(`${KEYS.controllerBindings}.${dialectId}`);
+}
+
+/** Per-dialect D-pad mode (4-way / 8-way), or null when never chosen. */
+export function getControllerDpadMode(
+  dialectId: string,
+): '4-way' | '8-way' | null {
+  const raw = localStorage.getItem(`${KEYS.controllerDpadMode}.${dialectId}`);
+  return raw === '4-way' || raw === '8-way' ? raw : null;
+}
+
+export function setControllerDpadMode(
+  dialectId: string,
+  mode: '4-way' | '8-way',
+): void {
+  localStorage.setItem(`${KEYS.controllerDpadMode}.${dialectId}`, mode);
 }
 
 /** Master enable for run-time emulator audio. Defaults on. */

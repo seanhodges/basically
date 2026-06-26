@@ -8,8 +8,8 @@ export function StatusBar() {
   const fileName = useIdeStore((s) => s.fileName);
   const dirty = useIdeStore((s) => s.dirty);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
-  const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
-  const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
+  const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
+  const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const setVariableWatcher = useIdeStore((s) => s.setVariableWatcher);
   const isMobile = useMediaQuery(MOBILE_QUERY);
@@ -61,16 +61,38 @@ export function StatusBar() {
           {'{x}'}
         </button>
         <button
-          className={`${styles.vkToggle} ${virtualKeyboard ? 'active' : ''}`}
-          aria-pressed={virtualKeyboard}
+          className={`${styles.vkToggle} ${
+            bottomOverlay === 'keyboard' ? 'active' : ''
+          }`}
+          aria-pressed={bottomOverlay === 'keyboard'}
           title={
-            virtualKeyboard
+            bottomOverlay === 'keyboard'
               ? 'Hide on-screen keyboard'
               : 'Show on-screen keyboard'
           }
-          onClick={() => setVirtualKeyboard(!virtualKeyboard)}
+          onClick={() =>
+            setBottomOverlay(bottomOverlay === 'keyboard' ? 'none' : 'keyboard')
+          }
         >
           ⌨
+        </button>
+        <button
+          className={`${styles.vkToggle} ${
+            bottomOverlay === 'controller' ? 'active' : ''
+          }`}
+          aria-pressed={bottomOverlay === 'controller'}
+          title={
+            bottomOverlay === 'controller'
+              ? 'Hide game controller'
+              : 'Show game controller'
+          }
+          onClick={() =>
+            setBottomOverlay(
+              bottomOverlay === 'controller' ? 'none' : 'controller',
+            )
+          }
+        >
+          🎮
         </button>
       </div>
     </div>

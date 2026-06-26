@@ -1,0 +1,270 @@
+/* Game controller overlay: a cross D-pad bottom-left and fire button(s)
+   bottom-right, floating over the lower half of the screen. The root itself is
+   click-through (pointer-events:none) so taps in the gaps fall through to the
+   emulator; only the controls capture pointers. */
+.game-controller {
+  position: relative;
+  flex: 1 1 auto;
+  /* Fill the overlay band's height even when the parent centres/anchors its
+     child (the ≥769px keyboard overlay sets align-items:flex-end). */
+  align-self: stretch;
+  min-height: 0;
+  width: 100%;
+  pointer-events: none;
+  touch-action: none;
+  --gc-face: #2c3644;
+  --gc-face-edge: #3d4a5c;
+  --gc-hub: #222b36;
+  --gc-text: #e6edf3;
+}
+
+/* ---------- D-pad (cross) ---------- */
+.gc-dpad {
+  position: absolute;
+  left: clamp(10px, 5vw, 56px);
+  bottom: clamp(10px, 4vh, 48px);
+  width: clamp(124px, 40vmin, 230px);
+  height: clamp(124px, 40vmin, 230px);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.gc-arm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gc-face);
+  border: 1px solid var(--gc-face-edge);
+  color: var(--gc-text);
+  font-weight: 700;
+  font-size: clamp(15px, 5vmin, 24px);
+  user-select: none;
+}
+
+.gc-arm-up {
+  grid-area: 1 / 2 / 2 / 3;
+  border-radius: 12px 12px 0 0;
+  border-bottom: none;
+}
+.gc-arm-left {
+  grid-area: 2 / 1 / 3 / 2;
+  border-radius: 12px 0 0 12px;
+  border-right: none;
+}
+.gc-hub {
+  grid-area: 2 / 2 / 3 / 3;
+  background: var(--gc-hub);
+  border-top: 1px solid var(--gc-face-edge);
+  border-bottom: 1px solid var(--gc-face-edge);
+}
+.gc-arm-right {
+  grid-area: 2 / 3 / 3 / 4;
+  border-radius: 0 12px 12px 0;
+  border-left: none;
+}
+.gc-arm-down {
+  grid-area: 3 / 2 / 4 / 3;
+  border-radius: 0 0 12px 12px;
+  border-top: none;
+}
+
+/* Corners stay empty: in 8-way mode the geometry presses two cardinals for a
+   diagonal even though there's no corner key drawn. */
+
+.gc-arm-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.gc-arm-label svg {
+  width: 1.1em;
+  height: 1.1em;
+  fill: currentColor;
+}
+
+/* ---------- Fire buttons ---------- */
+.gc-buttons {
+  position: absolute;
+  right: clamp(10px, 5vw, 56px);
+  bottom: clamp(10px, 4vh, 48px);
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: clamp(12px, 4vmin, 26px);
+  pointer-events: none;
+}
+
+.gc-fire {
+  width: clamp(60px, 18vmin, 104px);
+  height: clamp(60px, 18vmin, 104px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: clamp(20px, 6.5vmin, 32px);
+  background: radial-gradient(circle at 50% 38%, #f85149, #a51d18);
+  border: 2px solid #5a1410;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 40%);
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+}
+
+/* The secondary fire is smaller and amber, offset above-left of fire1. */
+.gc-fire2 {
+  width: clamp(46px, 13vmin, 76px);
+  height: clamp(46px, 13vmin, 76px);
+  font-size: clamp(16px, 5vmin, 26px);
+  background: radial-gradient(circle at 50% 38%, #fbbf3c, #b07a10);
+  border-color: #6b4a0a;
+  color: #2a2106;
+  align-self: flex-start;
+  margin-bottom: clamp(-10px, -2vmin, -4px);
+}
+
+.gc-fire-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.gc-fire-label svg {
+  width: 1.1em;
+  height: 1.1em;
+  fill: currentColor;
+}
+
+/* ---------- Pressed / state feedback ---------- */
+.gc-arm.gc-active {
+  background: var(--accent, #4493f8);
+  border-color: var(--accent, #4493f8);
+  color: #06121f;
+}
+.gc-fire.gc-active {
+  transform: scale(0.93);
+  filter: brightness(1.18);
+}
+.gc-unmapped {
+  opacity: 0.55;
+}
+
+/* Stopped: dim the controls but keep them interactive for long-press remap. */
+.gc-disabled .gc-arm,
+.gc-disabled .gc-fire {
+  opacity: 0.62;
+}
+
+.gc-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  color: var(--text-dim, #8b949e);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ---------- Remap sheet ---------- */
+.gc-remap-backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 35%);
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.gc-remap-sheet {
+  background: var(--bg-panel, #161b22);
+  border: 1px solid var(--accent, #4493f8);
+  border-radius: 12px;
+  padding: 12px;
+  width: min(92%, 440px);
+  max-height: 80%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 50%);
+}
+
+.gc-remap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text, #e6edf3);
+  font-size: 14px;
+}
+.gc-remap-close {
+  padding: 2px 8px;
+}
+
+.gc-remap-keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 6px;
+  overflow: auto;
+  padding: 2px;
+}
+.gc-remap-key {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+.gc-remap-key svg {
+  width: 1.1em;
+  height: 1.1em;
+  fill: currentColor;
+}
+.gc-remap-key.gc-current {
+  border-color: var(--accent, #4493f8);
+  color: var(--accent, #4493f8);
+}
+
+.gc-remap-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gc-dpad-toggle {
+  display: flex;
+  gap: 0;
+}
+.gc-dpad-toggle button {
+  border-radius: 0;
+}
+.gc-dpad-toggle button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+.gc-dpad-toggle button:last-child {
+  border-radius: 0 6px 6px 0;
+}
+.gc-dpad-toggle button.gc-on {
+  border-color: var(--accent, #4493f8);
+  color: var(--accent, #4493f8);
+}
+
+/* ---------- Landscape: hug the far bottom corners of the short band ---------- */
+.gc-landscape .gc-dpad {
+  width: clamp(110px, 26vmin, 200px);
+  height: clamp(110px, 26vmin, 200px);
+  left: clamp(8px, 3vw, 64px);
+}
+.gc-landscape .gc-fire {
+  width: clamp(56px, 14vmin, 96px);
+  height: clamp(56px, 14vmin, 96px);
+}
+.gc-landscape .gc-buttons {
+  right: clamp(8px, 3vw, 64px);
+}

@@ -117,6 +117,18 @@
   min-height: 0;
 }
 
+/* The controller variant: same bottom-half band, but transparent and
+   click-through in the gaps so taps fall to the emulator. Its own controls
+   re-enable pointer events (see GameController.css). */
+.workspaceGcOverlay {
+  background: transparent;
+  border-top: none;
+  box-shadow: none;
+  pointer-events: none;
+  padding: 0 calc(env(safe-area-inset-right))
+    calc(6px + env(safe-area-inset-bottom)) calc(env(safe-area-inset-left));
+}
+
 /* While the keyboard overlays the editor, pad the editor scroll area so the
    caret can scroll clear of the bottom 46% overlay. Layout-agnostic. */
 .workspace.kbOpen :global(.cm-scroller) {
