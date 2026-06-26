@@ -7,7 +7,7 @@ import type {
 import { pickedCompletion, snippet } from '@codemirror/autocomplete';
 import { Facet } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import type { KeywordInfo } from '../dialects/types';
+import type { EditorKeyword } from '../dialects/types';
 import { applyMapToPhysical, planConstructNumbering } from './lineNumbering';
 import { buildConstructSnippet, type ConstructTemplate } from './constructs';
 
@@ -113,12 +113,12 @@ function makeConstructApply(tmpl: ConstructTemplate) {
  * is offered for it.
  */
 export function buildCompletionSource(
-  keywords: KeywordInfo[],
+  keywords: EditorKeyword[],
   constructs: ConstructTemplate[] = [],
 ): CompletionSource {
   const constructLabels = new Set(constructs.map((c) => c.label));
 
-  const toKeywordOption = (k: KeywordInfo): Completion => ({
+  const toKeywordOption = (k: EditorKeyword): Completion => ({
     label: k.word,
     type:
       k.kind === 'command'

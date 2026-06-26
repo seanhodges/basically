@@ -22,7 +22,7 @@ import {
 /**
  * Commodore 64 dialect.
  *
- * Commodore BASIC v2 is tokenized natively in TypeScript (see tokenizer.ts)
+ * Commodore BASIC is tokenized natively in TypeScript (see tokenizer.ts)
  * into the genuine in-memory layout the BASIC ROM keeps from $0801 — the same
  * bytes SAVE writes. That tokenized program, with the 2-byte $0801 load address
  * prepended, is the dialect's "image": the emulator injects it straight into

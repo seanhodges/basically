@@ -29,7 +29,8 @@ seam is what stays uniform and makes new dialects pluggable.
 
 ```bash
 npm install            # install dependencies
-npm run dev            # Vite dev server at http://localhost:5173
+npm run dev            # Vite dev server serving IDE at http://localhost:5173
+npm run docs:dev       # Vite dev server serving docs at http://localhost:5173/docs/
 
 npm test               # run all unit tests once (vitest run)
 npm run test:watch     # vitest in watch mode

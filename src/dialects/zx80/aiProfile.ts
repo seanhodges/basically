@@ -16,7 +16,7 @@ THE DIALECT — STRICT RULES
 - Operators: + - * / ** (power), = < > , AND, OR, NOT. (There are no <=, >=, <> — combine with AND/OR/NOT instead, e.g. NOT A<B for A>=B.)
 - PRINT separators: ; concatenates, , moves to the next field.
 - Strings exist (e.g. PRINT "HELLO"). String variables are limited; prefer numeric work and literal PRINT strings.
-- AVOID functions such as RND, PEEK, CHR$, CODE, ABS, USR, STR$ — this IDE does not yet tokenize ZX80 functions, so do not use them.
+- The ZX80's "integral functions" are available: RND, PEEK, USR, ABS, CODE, CHR$, STR$, TL$ (tail of a string). Type them out letter by letter and ALWAYS use parentheses — e.g. PEEK(16384), ABS(0-X), CODE(A$), CHR$(N), TL$(A$), and RND(N) (on the ZX80, RND takes an argument). They have no keyword token; spelling them out is exactly how the real ZX80 works.
 - Keep line numbers in steps of 10.
 
 OUTPUT FORMAT

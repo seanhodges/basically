@@ -45,9 +45,15 @@ Vite.
 
    ```bash
    npm install        # install dependencies
-   npm run dev        # Vite dev server at http://localhost:5173
+   npm run dev        # Vite dev server serving the IDE at http://localhost:5173
+   npm run docs:dev   # Vite dev server serving docs at http://localhost:5173/docs/ (optional)
+   npm test           # unit tests, incl. booting the emulator ROM
    ```
 
+Open the IDE, pick **File ▸ Samples ▸ Breakout**, press **▶ Run** (or
+Ctrl+Enter), click the screen and follow thebin-game instructions.
+
+For AI generation, click **✦ AI**, pick your AI provider and follow the instructions to enter your API key.
 Open `http://localhost:5173`, pick a sample from **File → SAMPLES**, and press
 **▶ Run** to confirm everything works before you change anything.
 

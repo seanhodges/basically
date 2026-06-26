@@ -140,6 +140,21 @@ describe('Zx80Machine', () => {
     machine.dispose();
   });
 
+  it('runs a typed-out integral function (ABS) via the real ROM', () => {
+    // The ZX80's "integral functions" (RND, PEEK, ABS, CODE, CHR$, …) have no
+    // one-byte token: on real hardware they are typed letter by letter and the
+    // ROM matches them by name at run time. Our tokenizer already stores any
+    // non-keyword letters as their character codes, so ABS arrives as A,B,S and
+    // the unmodified ROM evaluates it. ABS(0-7) must print 7 (not -7).
+    const { bytes, errors } = tokenizeProgram('10 PRINT ABS(0-7)');
+    expect(errors).toEqual([]);
+    const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+    machine.loadProgram(buildOFile(bytes));
+    for (let i = 0; i < 40; i++) machine.runFrame();
+    expect(firstTextRow(machine)).toBe('7');
+    machine.dispose();
+  });
+
   it('stops rendering at DF_END instead of overrunning the display file', () => {
     // Regression: the ZX80 display file is collapsed and ends at DF_END. The
     // renderer used to draw a fixed 24 rows, spilling the program/edit area

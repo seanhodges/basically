@@ -1,7 +1,7 @@
 import type { KeywordInfo } from '../types';
 
 /**
- * The complete Commodore BASIC v2 keyword table. Tokens are the genuine byte
+ * The complete Commodore BASIC keyword table. Tokens are the genuine byte
  * values the BASIC ROM stores (and that LIST decodes): commands/functions/
  * operators run $80–$CB, with π at $FF. Print formatters keep the trailing '('
  * that is part of the token ("TAB(", "SPC("); the editor view strips it (see
