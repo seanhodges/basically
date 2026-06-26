@@ -44,8 +44,8 @@ export default withPwa(
 
       nav: [
         { text: 'Guide', link: '/guide/getting-started' },
-        { text: 'Reference', link: '/reference/file-formats' },
         { text: 'Languages', link: '/reference/' },
+        { text: 'Formats & protocols', link: '/reference/file-formats' },
         { text: 'Contributing', link: '/contributing/contributing' },
         { text: 'Open the IDE', link: 'https://ba.sical.ly/' },
       ],
@@ -61,16 +61,6 @@ export default withPwa(
           ],
         },
         {
-          text: 'Reference',
-          items: [
-            { text: 'File formats', link: '/reference/file-formats' },
-            {
-              text: 'Serial bridge protocol',
-              link: '/reference/serial-protocol',
-            },
-          ],
-        },
-        {
           text: 'Language reference',
           items: [
             { text: 'Overview', link: '/reference/' },
@@ -81,6 +71,16 @@ export default withPwa(
             { text: 'Commodore BASIC', link: '/reference/commodore64' },
             { text: 'Acorn Atom BASIC', link: '/reference/atom' },
             { text: 'TRS-80 Level II BASIC', link: '/reference/trs80' },
+          ],
+        },
+        {
+          text: 'Formats & protocols',
+          items: [
+            { text: 'File formats', link: '/reference/file-formats' },
+            {
+              text: 'Serial bridge protocol',
+              link: '/reference/serial-protocol',
+            },
           ],
         },
         {
