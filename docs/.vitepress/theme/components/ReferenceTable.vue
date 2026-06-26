@@ -73,9 +73,15 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
       <thead>
         <tr>
           <th :aria-sort="ariaSort('name')">
-            <button type="button" class="reftable-sort" @click="toggleSort('name')">
+            <button
+              type="button"
+              class="reftable-sort"
+              @click="toggleSort('name')"
+            >
               Name
-              <span v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
+              <span v-if="sortKey === 'name'">{{
+                sortDir === 'asc' ? '▲' : '▼'
+              }}</span>
             </button>
           </th>
           <th>Syntax</th>
@@ -86,14 +92,20 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
         <tr v-for="e in visible" :key="e.name">
           <td class="reftable-name">
             <code>{{ e.name }}</code>
-            <span class="reftable-badge" :class="`kind-${e.kind}`">{{ e.kind }}</span>
+            <span class="reftable-badge" :class="`kind-${e.kind}`">{{
+              e.kind
+            }}</span>
             <span v-if="e.tag" class="reftable-tag">{{ e.tag }}</span>
           </td>
-          <td class="reftable-syntax"><code>{{ e.syntax }}</code></td>
+          <td class="reftable-syntax">
+            <code>{{ e.syntax }}</code>
+          </td>
           <td class="reftable-desc">{{ e.description }}</td>
         </tr>
         <tr v-if="visible.length === 0">
-          <td colspan="3" class="reftable-empty">No keywords match “{{ query }}”.</td>
+          <td colspan="3" class="reftable-empty">
+            No keywords match “{{ query }}”.
+          </td>
         </tr>
       </tbody>
     </table>
@@ -175,8 +187,12 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-text-2);
 }
-.reftable-badge.kind-function { color: var(--vp-c-green-1); }
-.reftable-badge.kind-operator { color: var(--vp-c-yellow-1); }
+.reftable-badge.kind-function {
+  color: var(--vp-c-green-1);
+}
+.reftable-badge.kind-operator {
+  color: var(--vp-c-yellow-1);
+}
 .reftable-tag {
   display: inline-block;
   margin-left: 0.4rem;

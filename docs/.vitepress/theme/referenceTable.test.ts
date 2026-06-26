@@ -3,10 +3,30 @@ import type { ReferenceEntry } from '../../reference/data/types';
 import { filterEntries, sortEntries } from './referenceTable';
 
 const ENTRIES: ReferenceEntry[] = [
-  { name: 'PRINT', kind: 'command', syntax: 'PRINT [<expr>…]', description: 'Write to the screen.' },
-  { name: 'INPUT', kind: 'command', syntax: 'INPUT [<string>;] <var>', description: 'Read from the keyboard.' },
-  { name: 'RND', kind: 'function', syntax: 'RND', description: 'Random number.' },
-  { name: 'AND', kind: 'operator', syntax: '<number> AND <number>', description: 'Bitwise AND.' },
+  {
+    name: 'PRINT',
+    kind: 'command',
+    syntax: 'PRINT [<expr>…]',
+    description: 'Write to the screen.',
+  },
+  {
+    name: 'INPUT',
+    kind: 'command',
+    syntax: 'INPUT [<string>;] <var>',
+    description: 'Read from the keyboard.',
+  },
+  {
+    name: 'RND',
+    kind: 'function',
+    syntax: 'RND',
+    description: 'Random number.',
+  },
+  {
+    name: 'AND',
+    kind: 'operator',
+    syntax: '<number> AND <number>',
+    description: 'Bitwise AND.',
+  },
 ];
 
 describe('filterEntries', () => {
@@ -15,18 +35,31 @@ describe('filterEntries', () => {
   });
 
   it('matches name, syntax and description case-insensitively', () => {
-    expect(filterEntries(ENTRIES, 'keyboard', 'all').map((e) => e.name)).toEqual(['INPUT']);
-    expect(filterEntries(ENTRIES, 'rnd', 'all').map((e) => e.name)).toEqual(['RND']);
-    expect(filterEntries(ENTRIES, '<string>', 'all').map((e) => e.name)).toEqual(['INPUT']);
+    expect(
+      filterEntries(ENTRIES, 'keyboard', 'all').map((e) => e.name),
+    ).toEqual(['INPUT']);
+    expect(filterEntries(ENTRIES, 'rnd', 'all').map((e) => e.name)).toEqual([
+      'RND',
+    ]);
+    expect(
+      filterEntries(ENTRIES, '<string>', 'all').map((e) => e.name),
+    ).toEqual(['INPUT']);
   });
 
   it('filters by kind', () => {
-    expect(filterEntries(ENTRIES, '', 'function').map((e) => e.name)).toEqual(['RND']);
-    expect(filterEntries(ENTRIES, '', 'operator').map((e) => e.name)).toEqual(['AND']);
+    expect(filterEntries(ENTRIES, '', 'function').map((e) => e.name)).toEqual([
+      'RND',
+    ]);
+    expect(filterEntries(ENTRIES, '', 'operator').map((e) => e.name)).toEqual([
+      'AND',
+    ]);
   });
 
   it('combines query and kind', () => {
-    expect(filterEntries(ENTRIES, 'p', 'command').map((e) => e.name)).toEqual(['PRINT', 'INPUT']);
+    expect(filterEntries(ENTRIES, 'p', 'command').map((e) => e.name)).toEqual([
+      'PRINT',
+      'INPUT',
+    ]);
   });
 });
 
@@ -40,7 +73,14 @@ describe('sortEntries', () => {
   });
 
   it('sorts by kind, breaking ties by name', () => {
-    const byKind = sortEntries(ENTRIES, 'kind', 'asc').map((e) => `${e.kind}:${e.name}`);
-    expect(byKind).toEqual(['command:INPUT', 'command:PRINT', 'function:RND', 'operator:AND']);
+    const byKind = sortEntries(ENTRIES, 'kind', 'asc').map(
+      (e) => `${e.kind}:${e.name}`,
+    );
+    expect(byKind).toEqual([
+      'command:INPUT',
+      'command:PRINT',
+      'function:RND',
+      'operator:AND',
+    ]);
   });
 });

@@ -31,7 +31,9 @@ export function sortEntries(
   const sign = dir === 'asc' ? 1 : -1;
   return [...entries].sort((a, b) => {
     const primary =
-      key === 'kind' ? a.kind.localeCompare(b.kind) : a.name.localeCompare(b.name);
+      key === 'kind'
+        ? a.kind.localeCompare(b.kind)
+        : a.name.localeCompare(b.name);
     if (primary !== 0) return primary * sign;
     return a.name.localeCompare(b.name) * sign;
   });
