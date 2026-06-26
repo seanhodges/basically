@@ -45,6 +45,7 @@ export default withPwa(
       nav: [
         { text: 'Guide', link: '/guide/getting-started' },
         { text: 'Reference', link: '/reference/file-formats' },
+        { text: 'Languages', link: '/reference/' },
         { text: 'Contributing', link: '/contributing/contributing' },
         { text: 'Open the IDE ↗', link: 'https://ba.sical.ly/' },
       ],
@@ -67,6 +68,19 @@ export default withPwa(
               text: 'Serial bridge protocol',
               link: '/reference/serial-protocol',
             },
+          ],
+        },
+        {
+          text: 'Language reference',
+          items: [
+            { text: 'Overview', link: '/reference/' },
+            { text: 'ZX81 BASIC', link: '/reference/zx81' },
+            { text: 'ZX80 integer BASIC', link: '/reference/zx80' },
+            { text: 'ZX Spectrum BASIC', link: '/reference/zxspectrum' },
+            { text: 'BBC BASIC', link: '/reference/bbc' },
+            { text: 'Commodore BASIC v2', link: '/reference/commodore64' },
+            { text: 'Acorn Atom BASIC', link: '/reference/atom' },
+            { text: 'TRS-80 Level II BASIC', link: '/reference/trs80' },
           ],
         },
         {
