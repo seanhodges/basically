@@ -251,7 +251,7 @@ export const zx80KeyboardLayout: KeyboardLayout = {
   // Sinclair joystick convention: 5/6/7/8 = left/down/up/right, 0 = fire.
   controller: {
     fireButtons: 1,
-    dpadMode: '8-way',
+    dpadMode: '4-way',
     bindings: {
       up: 'Digit7',
       down: 'Digit6',

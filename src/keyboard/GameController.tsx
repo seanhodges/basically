@@ -3,8 +3,8 @@ import type { MachineEmulator } from '../dialects/types';
 import type { ControllerRole, KeyboardLayout } from './layoutSchema';
 import {
   type ControllerOverrides,
+  CONTROLLER_ROLE_NAMES,
   controlLabel,
-  pickableKeys,
   resolveControllerConfig,
   resolveRoleKeyId,
   resolveRoleTokens,
@@ -30,9 +30,8 @@ interface GameControllerProps {
   /** Per-dialect user remaps (role → KeyDef id) over the layout defaults. */
   overrides: ControllerOverrides;
   dpadMode: '4-way' | '8-way';
-  onRemap(role: ControllerRole, keyId: string): void;
-  onSetDpadMode(mode: '4-way' | '8-way'): void;
-  onReset(): void;
+  /** Long-press on a control (while stopped) requests a remap of this role. */
+  onStartRemap(role: ControllerRole): void;
 }
 
 /** Hold this long (ms) on a control while stopped to open the remap picker. */
@@ -42,15 +41,6 @@ const LONG_PRESS_MOVE_CANCEL = 12;
 /** Fraction of the pad radius the thumb must leave before a direction fires. */
 const DPAD_DEADZONE = 0.3;
 
-const ROLE_NAMES: Record<ControllerRole, string> = {
-  up: 'Up',
-  down: 'Down',
-  left: 'Left',
-  right: 'Right',
-  fire1: 'Fire 1',
-  fire2: 'Fire 2',
-};
-
 export function GameController({
   layout,
   target,
@@ -58,9 +48,7 @@ export function GameController({
   haptics,
   overrides,
   dpadMode,
-  onRemap,
-  onSetDpadMode,
-  onReset,
+  onStartRemap,
 }: GameControllerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const dpadRef = useRef<HTMLDivElement>(null);
@@ -137,7 +125,6 @@ export function GameController({
   }, []);
 
   // --- remap (long-press while stopped) ------------------------------------
-  const [remapRole, setRemapRole] = useState<ControllerRole | null>(null);
   const longPress = useRef<{
     pointerId: number;
     role: ControllerRole;
@@ -183,7 +170,6 @@ export function GameController({
   const onPointerDown = (e: React.PointerEvent) => {
     // Keep the canvas/editor focused so physical input still works.
     e.preventDefault();
-    if (remapRole !== null) return;
     const targetEl = e.target as Element;
     const roleAttr = targetEl
       .closest('[data-role]')
@@ -203,7 +189,7 @@ export function GameController({
         timer: setTimeout(() => {
           longPress.current = null;
           engine.cancelAll();
-          setRemapRole(role);
+          onStartRemap(role);
         }, LONG_PRESS_MS),
       };
       rootRef.current?.setPointerCapture(e.pointerId);
@@ -272,7 +258,7 @@ export function GameController({
         className={classes.join(' ')}
         data-role={role}
         role="button"
-        aria-label={`${ROLE_NAMES[role]}${content === null ? ' (unmapped)' : ''}`}
+        aria-label={`${CONTROLLER_ROLE_NAMES[role]}${content === null ? ' (unmapped)' : ''}`}
       >
         <span className="gc-arm-label">{content ?? '·'}</span>
       </div>
@@ -293,7 +279,7 @@ export function GameController({
         className={`gc-fire-wrap gc-wrap-${role}`}
         data-role={role}
         role="button"
-        aria-label={`${ROLE_NAMES[role]}${content === null ? ' (unmapped)' : ''}`}
+        aria-label={`${CONTROLLER_ROLE_NAMES[role]}${content === null ? ' (unmapped)' : ''}`}
       >
         <div className={classes.join(' ')} aria-hidden="true" />
         <span className="gc-fire-cap">{content ?? '·'}</span>
@@ -333,118 +319,11 @@ export function GameController({
         {config.fireButtons === 2 && fireButton('fire2')}
       </div>
 
-      {!enabled && remapRole === null && (
+      {!enabled && (
         <div className="gc-hint" aria-hidden="true">
           Hold a control to remap
         </div>
       )}
-
-      {remapRole !== null && (
-        <RemapSheet
-          layout={layout}
-          role={remapRole}
-          currentKeyId={resolveRoleKeyId(config, overrides, remapRole)}
-          dpadMode={dpadMode}
-          onPick={(keyId) => {
-            onRemap(remapRole, keyId);
-            setRemapRole(null);
-          }}
-          onSetDpadMode={onSetDpadMode}
-          onReset={() => {
-            onReset();
-            setRemapRole(null);
-          }}
-          onClose={() => setRemapRole(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-function RemapSheet({
-  layout,
-  role,
-  currentKeyId,
-  dpadMode,
-  onPick,
-  onSetDpadMode,
-  onReset,
-  onClose,
-}: {
-  layout: KeyboardLayout;
-  role: ControllerRole;
-  currentKeyId: string | undefined;
-  dpadMode: '4-way' | '8-way';
-  onPick(keyId: string): void;
-  onSetDpadMode(mode: '4-way' | '8-way'): void;
-  onReset(): void;
-  onClose(): void;
-}) {
-  const keys = useMemo(() => pickableKeys(layout), [layout]);
-  const renderKeyLabel = (keyId: string) => {
-    const label = controlLabel(layout, keyId);
-    if (!label) return keyId;
-    return label.glyph ? (
-      <GlyphSvg glyph={layout.glyphs[label.glyph]} />
-    ) : (
-      label.text
-    );
-  };
-  return (
-    <div className="gc-remap-backdrop" onPointerDown={onClose}>
-      <div
-        className="gc-remap-sheet"
-        role="dialog"
-        aria-label={`Map ${ROLE_NAMES[role]} to a key`}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <div className="gc-remap-head">
-          <span>
-            Map <strong>{ROLE_NAMES[role]}</strong> → key
-          </span>
-          <button
-            className="gc-remap-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="gc-remap-keys">
-          {keys.map((k) => (
-            <button
-              key={k.id}
-              className={`gc-remap-key${k.id === currentKeyId ? ' gc-current' : ''}`}
-              onClick={() => onPick(k.id)}
-            >
-              {renderKeyLabel(k.id)}
-            </button>
-          ))}
-        </div>
-        <div className="gc-remap-foot">
-          <div
-            className="gc-dpad-toggle"
-            role="group"
-            aria-label="D-pad directions"
-          >
-            <button
-              className={dpadMode === '4-way' ? 'gc-on' : ''}
-              onClick={() => onSetDpadMode('4-way')}
-            >
-              4-way
-            </button>
-            <button
-              className={dpadMode === '8-way' ? 'gc-on' : ''}
-              onClick={() => onSetDpadMode('8-way')}
-            >
-              8-way
-            </button>
-          </div>
-          <button className="gc-remap-reset" onClick={onReset}>
-            Reset defaults
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

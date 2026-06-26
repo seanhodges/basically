@@ -129,6 +129,25 @@
     calc(6px + env(safe-area-inset-bottom)) calc(env(safe-area-inset-left));
 }
 
+/* The remap picker: the keyboard plus a banner stacked above it. Override the
+   row layout (and the desktop float) so the banner sits on top full-width. */
+.gamepadRemapOverlay {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.gamepadRemapBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+  color: var(--text);
+  font-size: 14px;
+}
+
 /* While the keyboard overlays the editor, pad the editor scroll area so the
    caret can scroll clear of the bottom 46% overlay. Layout-agnostic. */
 .workspace.kbOpen :global(.cm-scroller) {
