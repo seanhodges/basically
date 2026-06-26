@@ -61,7 +61,7 @@ power. See [docs/reference/file-formats.md](docs/reference/file-formats.md).
 
 ## Contributing to the project
 
-Support welcome! Please see the [contributing](docs/contributing/contributing.md) guide. 
+Support welcome! Please see the [contributing](docs/contributing/contributing.md) guide.
 
 ## ROM licensing
 
