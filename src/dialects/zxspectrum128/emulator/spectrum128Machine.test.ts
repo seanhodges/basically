@@ -77,6 +77,23 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     expect(readScreen(SIGNATURES, machine, 0, 0, 4)).toBe('DONE');
   });
 
+  it('synthesizes AY audio while a PLAY program runs', () => {
+    const machine = new Spectrum128Machine({ rom });
+    expect(machine.audioSampleRate).toBe(44100);
+    const src = '10 PLAY "cdefgab"\n20 GO TO 10\n';
+    const { bytes, errors } = tokenizeProgram(src);
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildTap(bytes));
+    let peak = 0;
+    for (let i = 0; i < 200; i++) {
+      machine.runFrame();
+      const audio = machine.readAudio();
+      for (const s of audio) peak = Math.max(peak, Math.abs(s));
+    }
+    // The PLAY drives the AY, so some frame must carry a non-silent sample.
+    expect(peak).toBeGreaterThan(0.01);
+  });
+
   it('reads program variables after running', () => {
     const machine = new Spectrum128Machine({ rom });
     const src = '10 LET A=5\n20 LET B$="HI"\n30 STOP\n';
