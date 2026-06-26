@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { tokenizeProgram } from '../tokenizer';
 import { COLS } from '../emulator/display';
+import { trs80Samples } from '../samples';
 import { Trs80InterpreterMachine } from './machine';
 
 function screenRow(m: Trs80InterpreterMachine, r: number): string {
@@ -22,6 +23,21 @@ describe('Trs80InterpreterMachine', () => {
     for (let i = 0; i < 5; i++) m.runFrame();
     expect(screenRow(m, 0)).toBe('HELLO');
     expect(m.readReport()).toBeNull(); // clean exit, no error
+    m.dispose();
+  });
+
+  it('runs breakout at a playable rate (no instant game-over)', () => {
+    // Guards STATEMENTS_PER_FRAME calibration: at the old 4000 stmt/frame the
+    // ball's whole fall completed inside the first runFrame() and the player
+    // only saw "GAME OVER". At authentic speed the game is still in play after
+    // several frames of no input.
+    const breakout = trs80Samples.find((s) => s.name === 'breakout.bas')!;
+    const { program, errors } = tokenizeProgram(breakout.text);
+    expect(errors).toEqual([]);
+    const m = new Trs80InterpreterMachine();
+    m.loadProgram(program);
+    for (let i = 0; i < 10; i++) m.runFrame();
+    expect(m.interpreter.state).toBe('running');
     m.dispose();
   });
 
