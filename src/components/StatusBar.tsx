@@ -10,6 +10,8 @@ export function StatusBar() {
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
   const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
+  const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
+  const setControllerEnabled = useIdeStore((s) => s.setControllerEnabled);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const setVariableWatcher = useIdeStore((s) => s.setVariableWatcher);
   const isMobile = useMediaQuery(MOBILE_QUERY);
@@ -61,6 +63,18 @@ export function StatusBar() {
           {'{x}'}
         </button>
         <button
+          className={`${styles.vkToggle} ${controllerEnabled ? 'active' : ''}`}
+          aria-pressed={controllerEnabled}
+          title={
+            controllerEnabled
+              ? 'Disable game controller'
+              : 'Enable game controller'
+          }
+          onClick={() => setControllerEnabled(!controllerEnabled)}
+        >
+          🎮
+        </button>
+        <button
           className={`${styles.vkToggle} ${
             bottomOverlay === 'keyboard' ? 'active' : ''
           }`}
@@ -75,24 +89,6 @@ export function StatusBar() {
           }
         >
           ⌨
-        </button>
-        <button
-          className={`${styles.vkToggle} ${
-            bottomOverlay === 'controller' ? 'active' : ''
-          }`}
-          aria-pressed={bottomOverlay === 'controller'}
-          title={
-            bottomOverlay === 'controller'
-              ? 'Hide game controller'
-              : 'Show game controller'
-          }
-          onClick={() =>
-            setBottomOverlay(
-              bottomOverlay === 'controller' ? 'none' : 'controller',
-            )
-          }
-        >
-          🎮
         </button>
       </div>
     </div>

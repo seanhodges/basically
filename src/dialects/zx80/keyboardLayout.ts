@@ -182,7 +182,7 @@ const spaceKey = {
   emits: ['Space'],
   style: 'small-main',
   labels: [
-    { text: 'SPACE', editor: { insert: ' ' } },
+    { text: '␣', editor: { insert: ' ' } },
     { text: '£' },
     null,
     { glyph: 'solid', editor: { insert: '█' } },

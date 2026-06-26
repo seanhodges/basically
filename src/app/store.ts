@@ -26,6 +26,8 @@ import {
   getEmulatorMuted,
   getBottomOverlay,
   setBottomOverlay as persistBottomOverlay,
+  getControllerEnabled,
+  setControllerEnabled as persistControllerEnabled,
   getControllerBindings,
   setControllerBindings as persistControllerBindings,
   resetControllerBindings as persistResetControllerBindings,
@@ -127,6 +129,13 @@ interface IdeState {
    * so the keyboard-vs-controller choice is preserved across runs.
    */
   bottomOverlay: BottomOverlay;
+  /**
+   * Whether the game-controller toggle is on. Preserved independently of the
+   * keyboard: when on, it overrides the keyboard while the emulator is the
+   * active surface (even with keyboard auto-show enabled), but is ignored while
+   * the editor has focus, where the keyboard behaves normally.
+   */
+  controllerEnabled: boolean;
   /** Active dialect's game-controller remaps (role → KeyDef id). */
   controllerBindings: ControllerOverrides;
   /** Active dialect's D-pad direction mode. */
@@ -221,8 +230,10 @@ interface IdeState {
   requestContinue(): void;
   setEmulatorSpeed(n: number): void;
   setCrtEffect(on: boolean): void;
-  /** Select the docked input overlay (persisted; null choice closes it). */
+  /** Show/hide the docked on-screen keyboard (persisted). */
   setBottomOverlay(v: BottomOverlay): void;
+  /** Turn the game-controller toggle on/off (persisted, independent state). */
+  setControllerEnabled(on: boolean): void;
   /** Remap one controller role to a layout KeyDef id (active dialect). */
   setControllerBinding(role: ControllerRole, keyId: string): void;
   /** Clear the active dialect's controller remaps back to layout defaults. */
@@ -361,6 +372,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   crtEffect: typeof localStorage !== 'undefined' ? getCrtEffect() : true,
   bottomOverlay:
     typeof localStorage !== 'undefined' ? getBottomOverlay() : 'none',
+  controllerEnabled:
+    typeof localStorage !== 'undefined' ? getControllerEnabled() : false,
   controllerBindings: loadControllerBindings(startupDialect),
   controllerDpadMode: loadControllerDpadMode(startupDialect),
   keyboardAutoShow:
@@ -502,6 +515,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   setBottomOverlay: (v) => {
     persistBottomOverlay(v);
     set({ bottomOverlay: v });
+  },
+  setControllerEnabled: (on) => {
+    persistControllerEnabled(on);
+    set({ controllerEnabled: on });
   },
   setControllerBinding: (role, keyId) =>
     set((s) => {

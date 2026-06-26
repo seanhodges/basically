@@ -6,7 +6,12 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useIdeStore } from '../app/store';
-import { HAS_TOUCH, isMobileViewport } from '../app/useMediaQuery';
+import {
+  HAS_TOUCH,
+  isMobileViewport,
+  useMediaQuery,
+  MOBILE_QUERY,
+} from '../app/useMediaQuery';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
 import { EmulatorAudio } from '../audio/emulatorAudio';
@@ -77,7 +82,19 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
   const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
   const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
-  const overlayUp = bottomOverlay !== 'none';
+  const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
+  const editorFocused = useIdeStore((s) => s.editorFocused);
+  const mobileTab = useIdeStore((s) => s.mobileTab);
+  const isMobile = useMediaQuery(MOBILE_QUERY);
+  // The bottom band is occupied (so the screen shrinks to the top half) when the
+  // keyboard is docked, or when the gamepad takes over as the active surface's
+  // overlay — the preview tab on mobile, or the unfocused editor on desktop.
+  const emulatorSurfaceActive = isMobile
+    ? mobileTab === 'preview'
+    : !editorFocused;
+  const overlayUp =
+    bottomOverlay === 'keyboard' ||
+    (controllerEnabled && emulatorSurfaceActive);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
 
@@ -547,9 +564,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           onFocus={() => {
             setFocused(true);
             // With auto-show on, tapping the screen re-opens the keyboard if
-            // hidden.
+            // hidden — unless the gamepad is on, which owns emulator input.
             const s = useIdeStore.getState();
-            if (s.keyboardAutoShow && s.bottomOverlay === 'none')
+            if (
+              s.keyboardAutoShow &&
+              !s.controllerEnabled &&
+              s.bottomOverlay === 'none'
+            )
               setBottomOverlay('keyboard');
           }}
           onBlur={() => setFocused(false)}

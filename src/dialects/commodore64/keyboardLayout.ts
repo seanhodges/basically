@@ -139,7 +139,7 @@ const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: plainLabels({ text: 'SPACE', editor: { insert: ' ' } }),
+  labels: plainLabels({ text: '␣', editor: { insert: ' ' } }),
 } satisfies Omit<KeyDef, 'spanX'>;
 
 const quoteKey: KeyDef = {
