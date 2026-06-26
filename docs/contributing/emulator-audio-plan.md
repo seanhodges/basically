@@ -30,6 +30,7 @@ jsbeeb machines (near-free), then Spectrum beeper, then 128K AY, then an
 approximate C64 SID.
 
 **Decisions (confirmed with user):**
+
 - Phasing: **seam + jsbeeb first**, the rest as follow-on stages.
 - Default: **audio on by default**, with a toolbar mute toggle + volume in settings.
 - C64 SID: **approximation first** (3 voices: waveform + ADSR envelope + basic mix),
@@ -82,6 +83,7 @@ import.meta.url)` so Vite bundles it):
   (lazy `new AudioContext()`, `if (ctx.state === 'suspended') ctx.resume()`).
 
 Wire into the rAF loop in `src/components/EmulatorPane.tsx`:
+
 - In the `runRequest` effect (~line 230), after `ensureMachine()`, create/resume the
   `EmulatorAudio` (the click is the user gesture that satisfies autoplay policy).
 - In `startLoop`'s `tick()` (~line 190), after `machine.runFrame()` /
@@ -93,6 +95,7 @@ Wire into the rAF loop in `src/components/EmulatorPane.tsx`:
 - On Stop / dispose / unmount, dispose the `EmulatorAudio`.
 
 Store + settings (follow the existing `keyboardSound` pattern exactly):
+
 - `src/app/store.ts`: add `emulatorAudio: boolean` (default **true**),
   `emulatorVolume: number` (0..1, default ~0.7), `emulatorMuted: boolean`, with
   setters.
@@ -100,12 +103,14 @@ Store + settings (follow the existing `keyboardSound` pattern exactly):
   `keyboardSound`.
 
 UI:
+
 - A mute/volume **icon button in `src/components/Toolbar.tsx`** (follow the existing
   `icon-btn` toggle pattern used for the AI/settings buttons).
 - A "Emulator audio" section in `src/components/SettingsForm.tsx`: enable checkbox +
   volume `range` (mirrors the existing key-click checkbox / emulation-speed select).
 
 Cassette-audio interaction (required):
+
 - Cassette **export/playback** (`src/transfer/audioPlayer.ts` `playSamples`, invoked
   from `src/components/TransferDialog.tsx:78`) drives the **same speaker output** as
   the new run-time emulator audio. If the emulator keeps running and sounding while a
@@ -120,6 +125,7 @@ Cassette-audio interaction (required):
   exported tape signal.
 
 PWA notes (verified):
+
 - Web Audio **output needs no permission**; only mic input (already used by the
   cassette recorder) needs `getUserMedia`.
 - Autoplay policy requires a **user gesture** to start/resume the context — handled
@@ -134,6 +140,7 @@ PWA notes (verified):
 ## Stages
 
 ### Stage 1 — Seam + host plumbing + first machine (jsbeeb: BBC/BBC Master/Atom)
+
 - Add the seam to `src/dialects/types.ts`.
 - Build `src/audio/emulatorAudio.ts` + `ringBufferProcessor.ts`, store/settings,
   toolbar + settings UI, and the `EmulatorPane` wiring above.
@@ -146,17 +153,20 @@ PWA notes (verified):
 - This proves the whole seam end-to-end with the least synthesis work.
 
 ### Stage 2 — ZX Spectrum 48K beeper
+
 - `src/dialects/zxspectrum/emulator/spectrumMachine.ts`: intercept IO writes to port
   `0xFE`, record `(cycleWithinFrame, bit4Level)` transitions; in `readAudio()` render
   a square wave from the transition timeline, resampled to `audioSampleRate`.
 
 ### Stage 3 — ZX Spectrum 128K (beeper + AY-3-8912)
+
 - Extend `src/dialects/zxspectrum128/emulator/ay.ts` from register-file to a real
   PSG: 3 tone counters, noise LFSR, envelope generator, 4-bit log volume table; tick
   by cycles/frame, mix to Float32. Reuse the Stage-2 beeper, sum beeper + AY in
   `readAudio()`.
 
 ### Stage 4 — Commodore 64 SID (approximation)
+
 - `src/emulator/c64/c64Machine.ts`: replace the no-op `attachAudio` with a software
   SID renderer driven by viciious's `onRegWrite` / `setVoiceVolume` callbacks. Track
   per-voice frequency + waveform (saw/triangle/pulse/noise) and ADSR envelope
@@ -171,23 +181,24 @@ prerequisite for all of them.
 
 ## Critical files
 
-| File | Change |
-| --- | --- |
-| `src/dialects/types.ts` | Add `audioSampleRate?` + `readAudio?()` to `MachineEmulator` |
-| `src/audio/emulatorAudio.ts` *(new)* | Host `AudioContext` + worklet + gain wiring |
-| `src/audio/ringBufferProcessor.ts` *(new)* | AudioWorklet ring buffer + resample + underrun silence |
-| `src/components/EmulatorPane.tsx` | Create/resume context on Run; pull+push audio in `tick()`; realtime gate; dispose on stop |
-| `src/app/store.ts` | `emulatorAudio` / `emulatorVolume` / `emulatorMuted` + setters |
-| `src/storage/settings.ts` | Persist the three audio settings (`mbide.*`) |
-| `src/components/Toolbar.tsx` | Mute/volume `icon-btn` |
-| `src/components/SettingsForm.tsx` | Emulator-audio enable + volume controls |
-| `src/components/TransferDialog.tsx` | Stop the emulator before cassette-audio playback (`playSamples`) |
-| `src/emulator/bbc/bbcMachine.ts`, `src/emulator/atom/atomMachine.ts` | Real jsbeeb `SoundChip`/`AtomSoundChip` (Stage 1) |
-| `src/dialects/zxspectrum/emulator/spectrumMachine.ts` | Beeper synthesis (Stage 2) |
-| `src/dialects/zxspectrum128/emulator/ay.ts` | AY-3-8912 synthesis (Stage 3) |
-| `src/emulator/c64/c64Machine.ts` | Software SID renderer (Stage 4) |
+| File                                                                 | Change                                                                                    |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `src/dialects/types.ts`                                              | Add `audioSampleRate?` + `readAudio?()` to `MachineEmulator`                              |
+| `src/audio/emulatorAudio.ts` _(new)_                                 | Host `AudioContext` + worklet + gain wiring                                               |
+| `src/audio/ringBufferProcessor.ts` _(new)_                           | AudioWorklet ring buffer + resample + underrun silence                                    |
+| `src/components/EmulatorPane.tsx`                                    | Create/resume context on Run; pull+push audio in `tick()`; realtime gate; dispose on stop |
+| `src/app/store.ts`                                                   | `emulatorAudio` / `emulatorVolume` / `emulatorMuted` + setters                            |
+| `src/storage/settings.ts`                                            | Persist the three audio settings (`mbide.*`)                                              |
+| `src/components/Toolbar.tsx`                                         | Mute/volume `icon-btn`                                                                    |
+| `src/components/SettingsForm.tsx`                                    | Emulator-audio enable + volume controls                                                   |
+| `src/components/TransferDialog.tsx`                                  | Stop the emulator before cassette-audio playback (`playSamples`)                          |
+| `src/emulator/bbc/bbcMachine.ts`, `src/emulator/atom/atomMachine.ts` | Real jsbeeb `SoundChip`/`AtomSoundChip` (Stage 1)                                         |
+| `src/dialects/zxspectrum/emulator/spectrumMachine.ts`                | Beeper synthesis (Stage 2)                                                                |
+| `src/dialects/zxspectrum128/emulator/ay.ts`                          | AY-3-8912 synthesis (Stage 3)                                                             |
+| `src/emulator/c64/c64Machine.ts`                                     | Software SID renderer (Stage 4)                                                           |
 
 ## Reuse (don't reinvent)
+
 - Gesture-unlock pattern: `src/keyboard/VirtualKeyboard.tsx` (lazy context + `resume`).
 - Settings/store toggle pattern: `keyboardSound` in `src/app/store.ts` /
   `src/storage/settings.ts` / `src/components/SettingsForm.tsx`.
@@ -196,6 +207,7 @@ prerequisite for all of them.
 - viciious SID register decode + `onRegWrite`/`setVoiceVolume` host callbacks.
 
 ## Out of scope
+
 - ZX81, ZX80, TRS-80 (no standard sound hardware).
 - Full-fidelity SID (filters/ring-mod/sync) — deferred after the approximation.
 - Cassette audio is unaffected (separate `src/transfer/` path).
@@ -205,6 +217,7 @@ prerequisite for all of them.
 ## Verification
 
 Per stage:
+
 1. `npm run dev`, load the dialect, run a sound program (BBC `SOUND 1,-15,100,20`;
    Spectrum `BEEP 1,0`; 128K `PLAY`; C64 SID register pokes / a SID sample) and
    confirm audible output through speakers.
@@ -223,4 +236,5 @@ Per stage:
    without the Web Audio host.
 
 Whole-repo gates before finishing each stage:
+
 - `npm run typecheck`, `npm test`, `npm run lint`, `npm run format:check`.
