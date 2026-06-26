@@ -127,6 +127,43 @@ describe('SpectrumMachine', () => {
     expect(readScreen(machine, 0, 0, 5)).toBe('KEY q');
   });
 
+  it('produces beeper audio while a BEEP statement runs', () => {
+    const machine = new SpectrumMachine({ rom });
+    const { bytes, errors } = tokenizeProgram('10 BEEP 0.3,0\n');
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildTap(bytes));
+
+    // Drain frames; BEEP toggles port 0xFE bit 4, so at least one frame's
+    // readAudio() must carry a real square wave (swings both signs).
+    let sawPositive = false;
+    let sawNegative = false;
+    let peak = 0;
+    for (let i = 0; i < 40; i++) {
+      machine.runFrame();
+      for (const s of machine.readAudio()) {
+        if (s > 0.01) sawPositive = true;
+        if (s < -0.01) sawNegative = true;
+        peak = Math.max(peak, Math.abs(s));
+      }
+    }
+    expect(sawPositive).toBe(true);
+    expect(sawNegative).toBe(true);
+    expect(peak).toBeGreaterThan(0.1);
+  });
+
+  it('is silent (empty audio) at the idle prompt', () => {
+    const machine = new SpectrumMachine({ rom });
+    machine.reset();
+    machine.bootToReady();
+    // A few frames sitting at the prompt should synthesize nothing.
+    let total = 0;
+    for (let i = 0; i < 5; i++) {
+      machine.runFrame();
+      total += machine.readAudio().length;
+    }
+    expect(total).toBe(0);
+  });
+
   describe('step-through debugging', () => {
     const LOOP_SRC = '10 FOR i=1 TO 1000\n20 LET a=i\n30 NEXT i\n';
 

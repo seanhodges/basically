@@ -11,6 +11,7 @@ import { SpectrumMemory } from './memory';
 import { readSpectrumVariables } from '../vars';
 import { readSpectrumReport } from '../reports';
 import { SpectrumKeyboard } from './keyboard';
+import { Beeper, BEEPER_SAMPLE_RATE } from './beeper';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, parseTap } from '../tapfile';
 import { PPC } from '../sysvars';
@@ -38,10 +39,16 @@ const LD_BYTES = 0x0556; // ROM tape-loader entry; trapped for flash loading
 export class SpectrumMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
+  /** Native rate of the mono beeper stream (see beeper.ts). */
+  readonly audioSampleRate = BEEPER_SAMPLE_RATE;
 
   private readonly memory: SpectrumMemory;
   private readonly keyboard = new SpectrumKeyboard();
   private readonly cpu: Z80Core;
+  /** ULA loudspeaker synthesis, driven by bit 4 of port 0xFE writes. */
+  private readonly beeper = new Beeper();
+  /** Cycle offset within the current frame, exposed to the IO write trap. */
+  private frameCycle = 0;
   private border = 7;
   private speed = 1;
   private frameCount = 0;
@@ -63,7 +70,12 @@ export class SpectrumMachine implements MachineEmulator {
         return 0xff;
       },
       io_write: (port: number, value: number) => {
-        if ((port & 0x01) === 0) this.border = value & 0x07;
+        if ((port & 0x01) === 0) {
+          this.border = value & 0x07;
+          // Bit 4 is the loudspeaker; record the flip at the current cycle so
+          // readAudio can replay the square wave (see beeper.ts).
+          this.beeper.write(this.frameCycle, value);
+        }
       },
     });
     this.cpu.reset();
@@ -75,6 +87,8 @@ export class SpectrumMachine implements MachineEmulator {
     this.pending = null;
     this.border = 7;
     this.frameCount = 0;
+    this.frameCycle = 0;
+    this.beeper.reset();
     this.cpu.reset();
   }
 
@@ -100,11 +114,17 @@ export class SpectrumMachine implements MachineEmulator {
     if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
 
     while (cycles < budget) {
+      this.frameCycle = cycles; // timestamp any beeper write in this instruction
       const { t, halted } = this.stepInstruction();
       if (halted) break; // idle until the next frame's interrupt
       cycles += t;
     }
     this.frameCount++;
+  }
+
+  /** Mono beeper samples synthesized over the last frame (drains; see beeper.ts). */
+  readAudio(): Float32Array {
+    return this.beeper.render(TSTATES_PER_FRAME);
   }
 
   /**
@@ -127,6 +147,7 @@ export class SpectrumMachine implements MachineEmulator {
     // the spot but still re-pauses when the loop comes back around.
     let armed = opts.fromLine === null;
     while (cycles < budget) {
+      this.frameCycle = cycles; // timestamp any beeper write in this instruction
       const { t, halted } = this.stepInstruction();
       if (halted) break; // idle until the next frame's interrupt
       cycles += t;
@@ -309,6 +330,7 @@ export class SpectrumMachine implements MachineEmulator {
     if (this.disposed) return;
     this.disposed = true;
     this.keyboard.releaseAll();
+    this.beeper.reset();
     // Drop the frame buffer and any queued load so they are freed at once
     // rather than waiting on GC of the whole machine.
     this.imageData = null;
