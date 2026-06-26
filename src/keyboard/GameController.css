@@ -93,18 +93,22 @@
   position: absolute;
   right: clamp(10px, 5vw, 56px);
   bottom: clamp(10px, 4vh, 48px);
+  /* Match the d-pad's height and bottom so centred circles line up exactly with
+     the d-pad's centre (its hub). The key caps float below each circle (see
+     .gc-fire-cap) so they don't pull the circle off-centre. */
+  height: clamp(124px, 40vmin, 230px);
   display: flex;
   flex-direction: row;
-  align-items: flex-end;
+  align-items: center;
   gap: clamp(14px, 5vmin, 32px);
   pointer-events: none;
 }
 
 .gc-fire-wrap {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(6px, 1.6vmin, 12px);
   pointer-events: auto;
   touch-action: none;
   user-select: none;
@@ -130,8 +134,14 @@
   border: 2px solid #5a1410;
 }
 
-/* The key cap shown under each button, bordered in the button's colour. */
+/* The key cap shown under each button, bordered in the button's colour. Floated
+   out of flow (absolute) so only the circle sits in the row and stays centred. */
 .gc-fire-cap {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: clamp(6px, 1.6vmin, 12px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -201,4 +211,5 @@
 }
 .gc-landscape .gc-buttons {
   right: clamp(8px, 3vw, 64px);
+  height: clamp(110px, 26vmin, 200px);
 }

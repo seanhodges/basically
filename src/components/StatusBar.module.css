@@ -30,6 +30,13 @@
   line-height: 1.2;
 }
 
+/* The gamepad toggle uses an outline icon; centre it like the text glyphs and
+   let it inherit the button's colour (accent when active). */
+.vkToggle svg {
+  display: block;
+  vertical-align: middle;
+}
+
 .vkToggle:global(.active) {
   border-color: var(--accent);
   color: var(--accent);
