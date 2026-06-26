@@ -62,22 +62,6 @@ export function StatusBar() {
         </button>
         <button
           className={`${styles.vkToggle} ${
-            bottomOverlay === 'keyboard' ? 'active' : ''
-          }`}
-          aria-pressed={bottomOverlay === 'keyboard'}
-          title={
-            bottomOverlay === 'keyboard'
-              ? 'Hide on-screen keyboard'
-              : 'Show on-screen keyboard'
-          }
-          onClick={() =>
-            setBottomOverlay(bottomOverlay === 'keyboard' ? 'none' : 'keyboard')
-          }
-        >
-          ⌨
-        </button>
-        <button
-          className={`${styles.vkToggle} ${
             bottomOverlay === 'controller' ? 'active' : ''
           }`}
           aria-pressed={bottomOverlay === 'controller'}
@@ -93,6 +77,22 @@ export function StatusBar() {
           }
         >
           🎮
+        </button>
+        <button
+          className={`${styles.vkToggle} ${
+            bottomOverlay === 'keyboard' ? 'active' : ''
+          }`}
+          aria-pressed={bottomOverlay === 'keyboard'}
+          title={
+            bottomOverlay === 'keyboard'
+              ? 'Hide on-screen keyboard'
+              : 'Show on-screen keyboard'
+          }
+          onClick={() =>
+            setBottomOverlay(bottomOverlay === 'keyboard' ? 'none' : 'keyboard')
+          }
+        >
+          ⌨
         </button>
       </div>
     </div>

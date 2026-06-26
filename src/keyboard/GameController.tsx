@@ -253,6 +253,10 @@ export function GameController({
     const override = config.labels?.[role];
     if (override) return override;
     const keyId = resolveRoleKeyId(config, overrides, role);
+    // The space bar's keyboard legend ('SPACE') is too wide for a round fire
+    // button — show the open-box glyph instead (controller-only; the on-screen
+    // keyboard keeps its full 'SPACE' bar).
+    if (keyId === 'Space') return '␣';
     const label = controlLabel(layout, keyId);
     if (!label) return null;
     return label.glyph ? (
@@ -284,15 +288,19 @@ export function GameController({
     const classes = ['gc-fire', `gc-${role}`];
     if (activeRoles.has(role)) classes.push('gc-active');
     if (content === null) classes.push('gc-unmapped');
+    // Arcade layout: the round button up top, its key cap (same-colour border)
+    // labelled underneath. The wrapper carries data-role so a tap on either the
+    // button or its cap fires the control.
     return (
       <div
         key={role}
-        className={classes.join(' ')}
+        className={`gc-fire-wrap gc-wrap-${role}`}
         data-role={role}
         role="button"
         aria-label={`${ROLE_NAMES[role]}${content === null ? ' (unmapped)' : ''}`}
       >
-        <span className="gc-fire-label">{content ?? '·'}</span>
+        <div className={classes.join(' ')} aria-hidden="true" />
+        <span className="gc-fire-cap">{content ?? '·'}</span>
       </div>
     );
   };
