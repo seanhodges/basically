@@ -67,7 +67,6 @@ export default withPwa(
               text: 'Serial bridge protocol',
               link: '/reference/serial-protocol',
             },
-            { text: 'Dialect roadmap', link: '/reference/dialect-roadmap' },
           ],
         },
         {
@@ -81,9 +80,8 @@ export default withPwa(
               text: 'Adding a dialect',
               link: '/contributing/adding-a-dialect',
             },
-            {
-              text: 'Dialect plans',
-              link: '/contributing/dialect-plans/README',
+            { text: 'Dialect roadmap',
+              link: '/contributing/dialect-roadmap',
             },
           ],
         },
