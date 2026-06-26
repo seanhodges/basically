@@ -11,311 +11,346 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'PRINT',
       kind: 'command',
-      syntax: 'PRINT [expr][,|;|$|!|&|"…"]',
+      syntax: 'PRINT [<number> | "…" | &<number> | $<number>] [, | ; | \'] …',
       description:
-        'Print to the screen. Abbreviate as P. — "," tabs, ";" no-gap, & prints hex, $ prints a string.',
+        "Prints values to the screen (abbreviate as P.); it adds no trailing newline, so use a quote ' to emit a carriage return. A comma tabs to the next field, a semicolon suppresses spacing, & prints a value in hexadecimal, and $<addr> prints the string stored at that address.",
     },
     {
       name: 'INPUT',
       kind: 'command',
-      syntax: 'INPUT ["prompt",] var',
+      syntax: 'INPUT ["…",] <var>',
       description:
-        'Read a number (or string with $) from the keyboard into a variable.',
+        'Reads a number from the keyboard into a numeric variable (A–Z), or text into a string when the target is a $ string. An optional quoted prompt is printed before the cursor.',
     },
     {
       name: 'IF',
       kind: 'command',
-      syntax: 'IF expr THEN statement',
-      description: 'Conditional. Atom BASIC has no ELSE.',
+      syntax: 'IF <number> THEN <statement>',
+      description:
+        'Runs the statement after THEN only when the condition is non-zero (true). Atom BASIC has no ELSE and only one statement per line.',
     },
     {
       name: 'THEN',
       kind: 'command',
-      syntax: 'IF expr THEN …',
-      description: 'Introduces the statement run when an IF condition is true.',
+      syntax: 'IF <number> THEN <statement>',
+      description:
+        'Introduces the single statement executed when the preceding IF condition is true.',
     },
     {
       name: 'GOTO',
       kind: 'command',
-      syntax: 'GOTO line',
+      syntax: 'GOTO <line>',
       description:
-        'Jump to a line number (or computed expression). Abbreviate as G.',
+        'Jumps unconditionally to a line number, which may itself be a computed expression. Abbreviate as G.',
     },
     {
       name: 'GOSUB',
       kind: 'command',
-      syntax: 'GOSUB line',
-      description: 'Call a subroutine; RETURN comes back. Abbreviate as GOS.',
+      syntax: 'GOSUB <line>',
+      description:
+        'Calls the subroutine at the given line; a later RETURN resumes after the GOSUB. Abbreviate as GOS.',
     },
     {
       name: 'RETURN',
       kind: 'command',
       syntax: 'RETURN',
-      description: 'Return from a GOSUB.',
+      description:
+        'Returns from a GOSUB to the statement following the most recent call.',
     },
     {
       name: 'FOR',
       kind: 'command',
-      syntax: 'FOR v=start TO end [STEP s]',
-      description: 'Begin a counted loop closed by NEXT.',
+      syntax: 'FOR <numvar>=<number> TO <number> [STEP <number>]',
+      description:
+        'Begins a counted loop over an integer variable, closed by NEXT. The counter is one of A–Z and steps by 1 unless STEP gives another value.',
     },
     {
       name: 'TO',
       kind: 'operator',
-      syntax: 'FOR v=a TO b',
-      description: 'Loop bound separator in FOR.',
+      syntax: 'FOR <numvar>=<number> TO <number>',
+      description: 'Separates the start and end values of a FOR loop counter.',
     },
     {
       name: 'STEP',
       kind: 'operator',
-      syntax: 'FOR v=a TO b STEP s',
-      description: 'Loop increment (may be negative).',
+      syntax: 'FOR <numvar>=<number> TO <number> STEP <number>',
+      description:
+        'Sets the increment added to the FOR counter on each pass; it may be negative to count down.',
     },
     {
       name: 'NEXT',
       kind: 'command',
-      syntax: 'NEXT [v]',
-      description: 'Close the innermost FOR loop.',
+      syntax: 'NEXT [<numvar>]',
+      description:
+        'Marks the end of a FOR loop and advances the counter, looping back while the limit is not yet passed. Naming the variable is optional.',
     },
     {
       name: 'DO',
       kind: 'command',
-      syntax: 'DO … UNTIL expr',
-      description: 'Begin a loop that repeats UNTIL a condition is true.',
+      syntax: 'DO … UNTIL <number>',
+      description:
+        "Begins a loop whose body repeats until the UNTIL condition is true (tested at the bottom, so the body always runs at least once). Because 0 is false, 'UNTIL 0' loops forever.",
     },
     {
       name: 'UNTIL',
       kind: 'command',
-      syntax: 'UNTIL expr',
-      description: 'Close a DO loop; repeat until the expression is true.',
+      syntax: 'UNTIL <number>',
+      description:
+        'Closes a DO loop, testing its condition at the bottom and repeating the body until the expression is true (non-zero).',
     },
     {
       name: 'REM',
       kind: 'command',
-      syntax: 'REM text',
-      description: 'A comment; the rest of the line is ignored.',
+      syntax: 'REM …',
+      description:
+        'Marks a comment; the rest of the line is ignored by the interpreter.',
     },
     {
       name: 'LET',
       kind: 'command',
-      syntax: 'LET v=expr',
-      description: 'Assign a value (optional — v=expr works too).',
+      syntax: 'LET <var>=<number>',
+      description:
+        'Assigns a value to a variable; the LET keyword is optional, so V=expr works on its own. Only one variable is assigned per statement.',
     },
     {
       name: 'DIM',
       kind: 'command',
-      syntax: 'DIM name(size)',
-      description: 'Reserve space for an array or byte buffer.',
+      syntax: 'DIM <name>(<number>)',
+      description:
+        'Reserves space for an array or a byte buffer of the given size for later indexed or ?/! access.',
     },
     {
       name: 'LINK',
       kind: 'command',
-      syntax: 'LINK addr',
-      description: 'Call a machine-code routine at a hex/decimal address.',
+      syntax: 'LINK <number>',
+      description:
+        'Calls a machine-code routine at the given address; addresses are commonly written as hex with a # prefix (e.g. LINK #FFE3).',
     },
     {
       name: 'WAIT',
       kind: 'command',
       syntax: 'WAIT',
-      description: 'Pause for one frame (≈1/50 s); used to pace animation.',
+      description:
+        'Pauses for one display frame (about 1/50 s), typically used to pace animation.',
     },
     {
       name: 'CLEAR',
       kind: 'command',
-      syntax: 'CLEAR n',
-      description: 'Select a graphics mode (CLEAR 0–4) and clear the screen.',
+      syntax: 'CLEAR <number>',
+      description:
+        'Selects a screen mode and clears it: CLEAR 0 is the 32×16 text screen, while CLEAR 1–4 select graphics modes, with CLEAR 4 the highest resolution (256×192).',
     },
     {
       name: 'MOVE',
       kind: 'command',
-      syntax: 'MOVE x,y',
-      description: 'Move the graphics cursor without drawing.',
+      syntax: 'MOVE <number>,<number>',
+      description:
+        'Moves the graphics cursor to x,y without drawing. The graphics origin is the bottom-left of the screen.',
     },
     {
       name: 'DRAW',
       kind: 'command',
-      syntax: 'DRAW x,y',
-      description: 'Draw a line from the graphics cursor to x,y.',
+      syntax: 'DRAW <number>,<number>',
+      description:
+        "Draws a line from the current graphics cursor to x,y; drawing to the cursor's own point plots a single dot.",
     },
     {
       name: 'PLOT',
       kind: 'command',
-      syntax: 'PLOT mode,x,y',
-      description: 'Plot/draw with a mode controlling set/clear/invert.',
+      syntax: 'PLOT <number>,<number>,<number>',
+      description:
+        'Plots at x,y with a mode that controls whether the point is set, cleared, or inverted. The Atom has no colour list like the BBC.',
     },
     {
       name: 'END',
       kind: 'command',
       syntax: 'END',
-      description: 'Stop the program cleanly.',
+      description: 'Stops the program cleanly and returns to the prompt.',
     },
     {
       name: 'RUN',
       kind: 'command',
       syntax: 'RUN',
-      description: 'Run the program from the lowest line.',
+      description: 'Runs the program in memory from its lowest line number.',
     },
     {
       name: 'LIST',
       kind: 'command',
-      syntax: 'LIST [a,b]',
-      description: 'List the program.',
+      syntax: 'LIST [<line>,<line>]',
+      description:
+        'Lists the program text, optionally restricted to a start and end line range.',
     },
     {
       name: 'NEW',
       kind: 'command',
       syntax: 'NEW',
-      description: 'Erase the program in memory.',
+      description: 'Erases the program currently held in memory.',
     },
     {
       name: 'OLD',
       kind: 'command',
       syntax: 'OLD',
-      description: 'Recover a program after NEW (if intact).',
+      description:
+        'Recovers the previous program after a NEW, provided its text has not yet been overwritten.',
     },
     {
       name: 'LOAD',
       kind: 'command',
-      syntax: 'LOAD "name"',
-      description: 'Load a program from cassette.',
+      syntax: 'LOAD "…"',
+      description: 'Loads a named program from cassette into memory.',
     },
     {
       name: 'SAVE',
       kind: 'command',
-      syntax: 'SAVE "name"',
-      description: 'Save the program to cassette.',
+      syntax: 'SAVE "…"',
+      description: 'Saves the program in memory to cassette under a name.',
     },
     {
       name: 'SHUT',
       kind: 'command',
       syntax: 'SHUT',
-      description: 'Close all open cassette/disc files.',
+      description: 'Closes all open cassette or disc files.',
     },
     {
       name: 'PUT',
       kind: 'command',
-      syntax: 'PUT port,value',
-      description: 'Write a value to an I/O port.',
+      syntax: 'PUT <number>,<number>',
+      description: 'Writes a value to the given hardware I/O port.',
     },
     {
       name: 'STOP',
       kind: 'command',
       syntax: 'STOP',
-      description: 'Halt with a STOP report.',
+      description: 'Halts the program and prints a STOP report.',
     },
     {
       name: 'ABS',
       kind: 'function',
-      syntax: 'ABS(n)',
-      description: 'Absolute value.',
+      syntax: 'ABS(<number>)',
+      description: 'Returns the absolute (unsigned) value of n.',
     },
     {
       name: 'RND',
       kind: 'function',
       syntax: 'RND',
-      description: 'A random number.',
+      description:
+        'Returns a random integer; test its sign for a coin flip since arithmetic on A–Z is integer-only.',
     },
     {
       name: 'TOP',
       kind: 'function',
       syntax: 'TOP',
-      description: 'Address of the byte just past the program text.',
+      description:
+        'Returns the address of the byte just past the end of the program text, marking the start of free memory.',
     },
     {
       name: 'CH',
       kind: 'function',
-      syntax: 'CH n',
-      description: 'Read a character / key code.',
+      syntax: 'CH <number>',
+      description: 'Reads a character or key code.',
     },
     {
       name: 'GET',
       kind: 'function',
-      syntax: 'GET port',
-      description: 'Read a value from an I/O port.',
+      syntax: 'GET <number>',
+      description:
+        'Reads and returns a value from the given hardware I/O port.',
     },
     {
       name: 'SGN',
       kind: 'function',
-      syntax: 'SGN(n)',
-      description: 'Sign of n: -1, 0 or 1.',
+      syntax: 'SGN(<number>)',
+      description: 'Returns the sign of n as -1, 0, or 1.',
     },
     {
       name: 'SQR',
       kind: 'function',
-      syntax: 'SQR(n)',
-      description: 'Square root (floating-point ROM).',
+      syntax: 'SQR(<number>)',
+      description:
+        'Returns the square root of n (requires the floating-point ROM).',
     },
     {
       name: 'SIN',
       kind: 'function',
-      syntax: 'SIN(n)',
-      description: 'Sine, radians (floating-point ROM).',
+      syntax: 'SIN(<number>)',
+      description:
+        'Returns the sine of n in radians (requires the floating-point ROM).',
     },
     {
       name: 'COS',
       kind: 'function',
-      syntax: 'COS(n)',
-      description: 'Cosine, radians (floating-point ROM).',
+      syntax: 'COS(<number>)',
+      description:
+        'Returns the cosine of n in radians (requires the floating-point ROM).',
     },
     {
       name: 'TAN',
       kind: 'function',
-      syntax: 'TAN(n)',
-      description: 'Tangent, radians (floating-point ROM).',
+      syntax: 'TAN(<number>)',
+      description:
+        'Returns the tangent of n in radians (requires the floating-point ROM).',
     },
     {
       name: 'ATN',
       kind: 'function',
-      syntax: 'ATN(n)',
-      description: 'Arctangent (floating-point ROM).',
+      syntax: 'ATN(<number>)',
+      description:
+        'Returns the arctangent of n in radians (requires the floating-point ROM).',
     },
     {
       name: 'EXP',
       kind: 'function',
-      syntax: 'EXP(n)',
-      description: 'e to the power n (floating-point ROM).',
+      syntax: 'EXP(<number>)',
+      description:
+        'Returns e raised to the power n (requires the floating-point ROM).',
     },
     {
       name: 'LN',
       kind: 'function',
-      syntax: 'LN(n)',
-      description: 'Natural logarithm (floating-point ROM).',
+      syntax: 'LN(<number>)',
+      description:
+        'Returns the natural (base-e) logarithm of n (requires the floating-point ROM).',
     },
     {
       name: 'LOG',
       kind: 'function',
-      syntax: 'LOG(n)',
-      description: 'Base-10 logarithm (floating-point ROM).',
+      syntax: 'LOG(<number>)',
+      description:
+        'Returns the base-10 logarithm of n (requires the floating-point ROM).',
     },
     {
       name: 'PI',
       kind: 'function',
       syntax: 'PI',
-      description: '3.14159265 (floating-point ROM).',
+      description:
+        'Returns the constant 3.14159265 (requires the floating-point ROM).',
     },
     {
       name: 'AND',
       kind: 'operator',
-      syntax: 'a AND b',
-      description: 'Bitwise/logical AND.',
+      syntax: '<number> AND <number>',
+      description:
+        'Bitwise/logical AND of two integers, used both for masking and for combining conditions.',
     },
     {
       name: 'OR',
       kind: 'operator',
-      syntax: 'a OR b',
-      description: 'Bitwise/logical OR.',
+      syntax: '<number> OR <number>',
+      description:
+        'Bitwise/logical OR of two integers, used both for setting bits and for combining conditions.',
     },
     {
       name: 'DIV',
       kind: 'operator',
-      syntax: 'a DIV b',
-      description: 'Integer division.',
+      syntax: '<number> DIV <number>',
+      description:
+        'Integer division, discarding any remainder (A–Z arithmetic is integer-only).',
     },
     {
       name: 'MOD',
       kind: 'operator',
-      syntax: 'a MOD b',
-      description: 'Integer remainder.',
+      syntax: '<number> MOD <number>',
+      description: 'Returns the integer remainder after dividing a by b.',
     },
   ],
 };
