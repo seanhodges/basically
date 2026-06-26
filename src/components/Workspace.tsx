@@ -90,6 +90,7 @@ export function Workspace() {
 
   const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
   const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
+  const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
   const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
   const editorFocused = useIdeStore((s) => s.editorFocused);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
@@ -149,15 +150,21 @@ export function Workspace() {
   // both panels are visible, so editor focus does (debounced to avoid remount
   // thrash when focus briefly leaves the editor).
   const routeToEditor = isMobile ? mobileTab === 'editor' : showEditorKeyboard;
-  const showKeyboard = bottomOverlay === 'keyboard';
-  const showController = bottomOverlay === 'controller';
-  // The keyboard belongs over the editor/preview surfaces; the controller is
-  // meaningful only over the preview (it never types into the editor).
+  // The emulator is the active surface whenever the editor isn't claiming input:
+  // the preview tab on mobile, or the editor lacking focus on the split desktop.
+  const emulatorSurfaceActive = isMobile
+    ? mobileTab === 'preview'
+    : !routeToEditor;
+  // The gamepad overrides the keyboard, but only while the emulator is the active
+  // surface — with the editor focused the gamepad is ignored and the keyboard
+  // behaves normally (including auto-show on focus).
+  const controllerVisible = controllerEnabled && emulatorSurfaceActive;
+  // The keyboard belongs over the editor/preview surfaces, but yields to the
+  // controller whenever that's showing.
   const keyboardVisible =
-    showKeyboard &&
+    !controllerVisible &&
+    bottomOverlay === 'keyboard' &&
     (!isMobile || mobileTab === 'editor' || mobileTab === 'preview');
-  const controllerVisible =
-    showController && (!isMobile || mobileTab === 'preview');
 
   // With auto-show on, re-open the keyboard if it was hidden when the editor
   // regains focus. Edge-triggered (only on the false→true transition) so a

@@ -253,10 +253,6 @@ export function GameController({
     const override = config.labels?.[role];
     if (override) return override;
     const keyId = resolveRoleKeyId(config, overrides, role);
-    // The space bar's keyboard legend ('SPACE') is too wide for a round fire
-    // button — show the open-box glyph instead (controller-only; the on-screen
-    // keyboard keeps its full 'SPACE' bar).
-    if (keyId === 'Space') return '␣';
     const label = controlLabel(layout, keyId);
     if (!label) return null;
     return label.glyph ? (
