@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { ReferenceTableData } from '../../../reference/data/types';
+import type {
+  ReferenceEntry,
+  ReferenceTableData,
+} from '../../../reference/data/types';
 import {
   filterEntries,
   sortEntries,
@@ -21,6 +24,33 @@ const KINDS: { value: KindFilter; label: string }[] = [
   { value: 'function', label: 'Functions' },
   { value: 'operator', label: 'Operators' },
 ];
+
+/** Inline Lucide-style SVG paths for each entry kind (rendered at ~14px). */
+const KIND_META: Record<
+  ReferenceEntry['kind'],
+  { label: string; paths: string }
+> = {
+  command: {
+    label: 'Command',
+    paths:
+      '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
+  },
+  function: {
+    label: 'Function',
+    paths:
+      '<path d="M7 4h2a3 3 0 0 0-3 3v3a3 3 0 0 1-3 3 3 3 0 0 1 3 3v3a3 3 0 0 0 3 3H7"/>',
+  },
+  operator: {
+    label: 'Operator',
+    paths:
+      '<line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="14" y1="4" x2="10" y2="20"/>',
+  },
+};
+
+const kindList = Object.entries(KIND_META) as [
+  ReferenceEntry['kind'],
+  { label: string; paths: string },
+][];
 
 const visible = computed(() =>
   sortEntries(
@@ -52,8 +82,8 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
         v-model="query"
         type="search"
         class="reftable-search"
-        :placeholder="`Search ${data.entries.length} keywords…`"
-        aria-label="Search keywords"
+        placeholder="Search keyword names…"
+        aria-label="Search keyword names"
       />
       <div class="reftable-kinds" role="group" aria-label="Filter by kind">
         <button
@@ -68,6 +98,28 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
         </button>
       </div>
     </div>
+
+    <p class="reftable-legend">
+      <span v-for="[k, meta] in kindList" :key="k" class="reftable-legend-item">
+        <span class="reftable-icon-box" :class="`kind-${k}`">
+          <svg
+            class="reftable-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            role="img"
+            :aria-label="meta.label"
+            v-html="meta.paths"
+          />
+        </span>
+        {{ meta.label }}
+      </span>
+    </p>
 
     <table class="reftable-table">
       <thead>
@@ -84,26 +136,42 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
               }}</span>
             </button>
           </th>
-          <th>Syntax</th>
-          <th>Description</th>
+          <th>Syntax &amp; description</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="e in visible" :key="e.name">
           <td class="reftable-name">
+            <span
+              class="reftable-icon-box"
+              :class="`kind-${e.kind}`"
+              :title="KIND_META[e.kind].label"
+            >
+              <svg
+                class="reftable-icon"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                role="img"
+                :aria-label="KIND_META[e.kind].label"
+                v-html="KIND_META[e.kind].paths"
+              />
+            </span>
             <code>{{ e.name }}</code>
-            <span class="reftable-badge" :class="`kind-${e.kind}`">{{
-              e.kind
-            }}</span>
             <span v-if="e.tag" class="reftable-tag">{{ e.tag }}</span>
           </td>
-          <td class="reftable-syntax">
-            <code>{{ e.syntax }}</code>
+          <td class="reftable-detail">
+            <code class="reftable-syntax">{{ e.syntax }}</code>
+            <div class="reftable-desc">{{ e.description }}</div>
           </td>
-          <td class="reftable-desc">{{ e.description }}</td>
         </tr>
         <tr v-if="visible.length === 0">
-          <td colspan="3" class="reftable-empty">
+          <td colspan="2" class="reftable-empty">
             No keywords match “{{ query }}”.
           </td>
         </tr>
@@ -172,26 +240,51 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
   color: var(--vp-c-text-1);
   cursor: pointer;
 }
-.reftable-name code,
-.reftable-syntax code {
+.reftable-table th:first-child,
+.reftable-name {
+  width: 1%;
   white-space: nowrap;
 }
-.reftable-badge {
-  display: inline-block;
-  margin-left: 0.4rem;
-  padding: 0 0.35rem;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+.reftable-name code,
+.reftable-syntax {
+  white-space: nowrap;
+}
+.reftable-icon-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: 0.45rem;
+  vertical-align: -0.28em;
+  border-radius: 5px;
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-text-2);
 }
-.reftable-badge.kind-function {
+.reftable-icon-box.kind-function {
   color: var(--vp-c-green-1);
 }
-.reftable-badge.kind-operator {
+.reftable-icon-box.kind-operator {
   color: var(--vp-c-yellow-1);
+}
+.reftable-icon {
+  display: block;
+}
+.reftable-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.5rem;
+  color: var(--vp-c-text-2);
+  font-size: 0.8rem;
+}
+.reftable-legend-item {
+  display: inline-flex;
+  align-items: center;
+}
+.reftable-syntax {
+  display: inline-block;
+  margin-bottom: 0.25rem;
 }
 .reftable-tag {
   display: inline-block;
@@ -201,9 +294,6 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
   font-size: 0.7rem;
   background: var(--vp-c-brand-soft);
   color: var(--vp-c-brand-1);
-}
-.reftable-desc {
-  width: 50%;
 }
 .reftable-empty,
 .reftable-count {

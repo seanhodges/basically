@@ -4,7 +4,7 @@ export type KindFilter = 'all' | ReferenceEntry['kind'];
 export type SortKey = 'name' | 'kind';
 export type SortDir = 'asc' | 'desc';
 
-/** Case-insensitive substring match across name, syntax and description, plus kind filter. */
+/** Case-insensitive substring match on name, plus kind filter. */
 export function filterEntries(
   entries: ReferenceEntry[],
   query: string,
@@ -14,11 +14,7 @@ export function filterEntries(
   return entries.filter((e) => {
     if (kind !== 'all' && e.kind !== kind) return false;
     if (!q) return true;
-    return (
-      e.name.toLowerCase().includes(q) ||
-      e.syntax.toLowerCase().includes(q) ||
-      e.description.toLowerCase().includes(q)
-    );
+    return e.name.toLowerCase().includes(q);
   });
 }
 

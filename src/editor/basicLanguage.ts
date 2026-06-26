@@ -5,7 +5,7 @@ import {
 } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import type { CompletionSource } from '@codemirror/autocomplete';
-import type { KeywordInfo } from '../dialects/types';
+import type { EditorKeyword } from '../dialects/types';
 
 interface BasicStreamState {
   afterRem: boolean;
@@ -53,12 +53,12 @@ export const basicHighlightStyle = HighlightStyle.define([
  * languageData so several dialects can coexist.
  */
 export function buildBasicLanguage(
-  keywords: KeywordInfo[],
+  keywords: EditorKeyword[],
   completionSource: CompletionSource,
   options: BasicLanguageOptions = {},
 ): LanguageSupport {
   // word -> kind, for alphabetic keywords (symbolic ops never match here).
-  const kinds = new Map<string, KeywordInfo['kind']>(
+  const kinds = new Map<string, EditorKeyword['kind']>(
     keywords.filter((k) => /^[A-Z]/.test(k.word)).map((k) => [k.word, k.kind]),
   );
   const maxWordLen = Math.max(...[...kinds.keys()].map((w) => w.length));

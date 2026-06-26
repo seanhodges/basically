@@ -2,17 +2,26 @@ import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import type { KeyboardLayout } from '../keyboard/layoutSchema';
 
-/** One keyword of a BASIC dialect, driving tokenizing, highlighting and autocomplete. */
-export interface KeywordInfo {
+/**
+ * A keyword as the editor sees it, for highlighting and autocomplete. Carries no
+ * token, so it also covers keywords that are stored as their literal characters
+ * rather than a single byte — e.g. the ZX80's "integral functions" (RND, PEEK,
+ * …), which have no token and are matched by name by the real ROM.
+ */
+export interface EditorKeyword {
   /** Canonical spelling, upper case, e.g. "PRINT" or "**". */
   word: string;
-  /** Token byte emitted by the tokenizer. */
-  token: number;
   kind: 'command' | 'function' | 'operator';
   /** Short usage signature shown in autocomplete, e.g. "PRINT [expr][;|,]". */
   signature?: string;
   /** One-line documentation shown in the autocomplete info popup. */
   doc?: string;
+}
+
+/** A tokenized keyword: an {@link EditorKeyword} the tokenizer emits as one byte. */
+export interface KeywordInfo extends EditorKeyword {
+  /** Token byte emitted by the tokenizer. */
+  token: number;
 }
 
 export class CharsetError extends Error {

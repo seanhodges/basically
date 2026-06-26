@@ -13,6 +13,6 @@ re-sort.
 - [ZX80 integer BASIC](./zx80)
 - [ZX Spectrum BASIC (48K & 128K)](./zxspectrum)
 - [BBC BASIC (Micro & Master)](./bbc)
-- [Commodore BASIC v2](./commodore64)
+- [Commodore BASIC](./commodore64)
 - [Acorn Atom BASIC](./atom)
 - [TRS-80 Level II BASIC](./trs80)

@@ -1,11 +1,11 @@
-// Reference table data for the Commodore BASIC v2 page.
+// Reference table data for the Commodore BASIC page.
 // Seeded from the dialect's keyword table by scripts/gen-reference-scaffold.mts,
 // then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
 // the generator skips this file once it exists.
 import type { ReferenceTableData } from './types';
 
 export const commodore64Reference: ReferenceTableData = {
-  title: 'Commodore BASIC v2',
+  title: 'Commodore BASIC',
   machines: ['Commodore 64'],
   entries: [
     {

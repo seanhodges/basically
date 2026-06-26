@@ -330,27 +330,14 @@ export const atomReference: ReferenceTableData = {
       kind: 'operator',
       syntax: '<number> AND <number>',
       description:
-        'Bitwise/logical AND of two integers, used both for masking and for combining conditions.',
+        'Logical AND used to combine conditions (bitwise masking uses the & operator). Arithmetic on A–Z is integer-only.',
     },
     {
       name: 'OR',
       kind: 'operator',
       syntax: '<number> OR <number>',
       description:
-        'Bitwise/logical OR of two integers, used both for setting bits and for combining conditions.',
-    },
-    {
-      name: 'DIV',
-      kind: 'operator',
-      syntax: '<number> DIV <number>',
-      description:
-        'Integer division, discarding any remainder (A–Z arithmetic is integer-only).',
-    },
-    {
-      name: 'MOD',
-      kind: 'operator',
-      syntax: '<number> MOD <number>',
-      description: 'Returns the integer remainder after dividing a by b.',
+        'Logical OR used to combine conditions (bitwise OR uses the \\ operator). Arithmetic on A–Z is integer-only.',
     },
   ],
 };

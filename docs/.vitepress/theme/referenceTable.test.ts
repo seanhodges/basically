@@ -34,16 +34,17 @@ describe('filterEntries', () => {
     expect(filterEntries(ENTRIES, '', 'all')).toHaveLength(4);
   });
 
-  it('matches name, syntax and description case-insensitively', () => {
-    expect(
-      filterEntries(ENTRIES, 'keyboard', 'all').map((e) => e.name),
-    ).toEqual(['INPUT']);
+  it('matches the name only, case-insensitively', () => {
     expect(filterEntries(ENTRIES, 'rnd', 'all').map((e) => e.name)).toEqual([
       'RND',
     ]);
-    expect(
-      filterEntries(ENTRIES, '<string>', 'all').map((e) => e.name),
-    ).toEqual(['INPUT']);
+    expect(filterEntries(ENTRIES, 'in', 'all').map((e) => e.name)).toEqual([
+      'PRINT',
+      'INPUT',
+    ]);
+    // Syntax and description are no longer searched.
+    expect(filterEntries(ENTRIES, 'keyboard', 'all')).toEqual([]);
+    expect(filterEntries(ENTRIES, '<string>', 'all')).toEqual([]);
   });
 
   it('filters by kind', () => {

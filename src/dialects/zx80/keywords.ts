@@ -1,4 +1,4 @@
-import type { KeywordInfo } from '../types';
+import type { EditorKeyword, KeywordInfo } from '../types';
 
 /**
  * The ZX80 BASIC keyword/token table.
@@ -224,6 +224,76 @@ export const zx80Keywords: KeywordInfo[] = [
     signature: 'REM comment',
     doc: 'Comment line.',
   },
+];
+
+/**
+ * The ZX80's "integral functions" (the 4K manual's own term). Unlike every
+ * keyword above, these have NO one-byte token: on the real machine they were
+ * typed in letter by letter, always with parentheses, and the ROM matched them
+ * by name at run time (via a string table at 0x0BBA). We list them so the
+ * editor highlights and autocompletes them, but they deliberately carry no
+ * token — the tokenizer leaves them as their literal characters, which is
+ * exactly what the unmodified ROM expects to parse.
+ */
+export const zx80IntegralFunctions: EditorKeyword[] = [
+  {
+    word: 'RND',
+    kind: 'function',
+    signature: 'RND(n)',
+    doc: 'Pseudo-random number. On the ZX80 RND takes an argument and parentheses (unlike the ZX81). Seed it with RANDOMISE.',
+  },
+  {
+    word: 'PEEK',
+    kind: 'function',
+    signature: 'PEEK(addr)',
+    doc: 'The byte (0-255) stored at a memory address.',
+  },
+  {
+    word: 'USR',
+    kind: 'function',
+    signature: 'USR(addr)',
+    doc: 'Call machine code at an address; returns the BC register pair.',
+  },
+  {
+    word: 'ABS',
+    kind: 'function',
+    signature: 'ABS(n)',
+    doc: 'Absolute (unsigned) value of n.',
+  },
+  {
+    word: 'CODE',
+    kind: 'function',
+    signature: 'CODE(a$)',
+    doc: 'The ZX80 character code of the first character of a string.',
+  },
+  {
+    word: 'CHR$',
+    kind: 'function',
+    signature: 'CHR$(n)',
+    doc: 'The one-character string for a ZX80 character code (inverse of CODE).',
+  },
+  {
+    word: 'STR$',
+    kind: 'function',
+    signature: 'STR$(n)',
+    doc: 'The number n formatted as a string, as PRINT would show it.',
+  },
+  {
+    word: 'TL$',
+    kind: 'function',
+    signature: 'TL$(a$)',
+    doc: 'Tail of a string: everything after the first character.',
+  },
+];
+
+/**
+ * Every keyword the editor highlights and autocompletes: the tokenized keywords
+ * plus the token-less integral functions. The tokenizer and detokenizer use
+ * {@link zx80Keywords} only, so the integral functions are never tokenized.
+ */
+export const zx80EditorKeywords: EditorKeyword[] = [
+  ...zx80Keywords,
+  ...zx80IntegralFunctions,
 ];
 
 /** Keywords sorted longest-first for greedy tokenizer matching. */

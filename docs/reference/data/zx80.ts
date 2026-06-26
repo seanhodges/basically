@@ -9,6 +9,69 @@ export const zx80Reference: ReferenceTableData = {
   machines: ['Sinclair ZX80'],
   entries: [
     {
+      name: 'RND',
+      kind: 'function',
+      syntax: 'RND(<number>)',
+      tag: 'integral function',
+      description:
+        'Returns a pseudo-random number. On the ZX80, RND takes an argument and must be written with parentheses (unlike the later ZX81). Seed the sequence with RANDOMISE.',
+    },
+    {
+      name: 'PEEK',
+      kind: 'function',
+      syntax: 'PEEK(<number>)',
+      tag: 'integral function',
+      description:
+        'Returns the byte (0–255) stored at the given memory address.',
+    },
+    {
+      name: 'USR',
+      kind: 'function',
+      syntax: 'USR(<number>)',
+      tag: 'integral function',
+      description:
+        'Calls machine code at the given address and returns the value of the BC register pair on RET.',
+    },
+    {
+      name: 'ABS',
+      kind: 'function',
+      syntax: 'ABS(<number>)',
+      tag: 'integral function',
+      description: 'Returns the absolute (unsigned) value of the argument.',
+    },
+    {
+      name: 'CODE',
+      kind: 'function',
+      syntax: 'CODE(<string>)',
+      tag: 'integral function',
+      description:
+        "Returns the ZX80 character code of the first character of the string (0 for the empty string) — the machine's own codes, not ASCII. The inverse of CHR$.",
+    },
+    {
+      name: 'CHR$',
+      kind: 'function',
+      syntax: 'CHR$(<number>)',
+      tag: 'integral function',
+      description:
+        'Returns the single-character string for the given ZX80 character code. The inverse of CODE.',
+    },
+    {
+      name: 'STR$',
+      kind: 'function',
+      syntax: 'STR$(<number>)',
+      tag: 'integral function',
+      description:
+        'Returns the number formatted as a string, exactly as PRINT would display it.',
+    },
+    {
+      name: 'TL$',
+      kind: 'function',
+      syntax: 'TL$(<string>)',
+      tag: 'integral function',
+      description:
+        'Returns the "tail" of a string: everything after the first character (the ZX80 equivalent of MID$(a$, 2) on other machines).',
+    },
+    {
       name: 'THEN',
       kind: 'operator',
       syntax: 'IF <cond> THEN <statement>',
@@ -192,7 +255,7 @@ export const zx80Reference: ReferenceTableData = {
       kind: 'command',
       syntax: 'RANDOMISE [<number>]',
       description:
-        'Seeds the random number generator. RANDOMISE 0 (or with no argument) seeds it from the frame counter for an unpredictable start.',
+        'Seeds the random number generator that the ZX80 RND function draws on. RANDOMISE 0 (or with no argument) seeds it from the frame counter for an unpredictable start.',
     },
     {
       name: 'LET',

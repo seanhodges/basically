@@ -47,7 +47,7 @@ export default withPwa(
         { text: 'Reference', link: '/reference/file-formats' },
         { text: 'Languages', link: '/reference/' },
         { text: 'Contributing', link: '/contributing/contributing' },
-        { text: 'Open the IDE ↗', link: 'https://ba.sical.ly/' },
+        { text: 'Open the IDE', link: 'https://ba.sical.ly/' },
       ],
 
       sidebar: [
@@ -78,7 +78,7 @@ export default withPwa(
             { text: 'ZX80 integer BASIC', link: '/reference/zx80' },
             { text: 'ZX Spectrum BASIC', link: '/reference/zxspectrum' },
             { text: 'BBC BASIC', link: '/reference/bbc' },
-            { text: 'Commodore BASIC v2', link: '/reference/commodore64' },
+            { text: 'Commodore BASIC', link: '/reference/commodore64' },
             { text: 'Acorn Atom BASIC', link: '/reference/atom' },
             { text: 'TRS-80 Level II BASIC', link: '/reference/trs80' },
           ],

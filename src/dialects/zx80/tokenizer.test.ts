@@ -46,6 +46,21 @@ describe('zx80 tokenizer', () => {
     expect(detokenizeProgram(bytes)).toBe(src);
   });
 
+  it('leaves integral functions as letters (no token) and round-trips them', () => {
+    // ABS/CHR$ are integral functions with no token: their letters must be
+    // stored as character codes, never matched to a keyword token. The letters
+    // A,B,S each sit in the letter range (0x26-0x3f), well clear of the keyword
+    // token range (0xD5-0xFE), and the whole program round-trips verbatim.
+    const src = '10 LET A=ABS(0-7)\n20 PRINT CHR$(38)\n';
+    const { bytes, errors } = tokenizeProgram(src);
+    expect(errors).toEqual([]);
+    for (const code of [0x26, 0x27, 0x38]) {
+      // A, B, S letter codes are present in the stored body…
+      expect(Array.from(bytes)).toContain(code);
+    }
+    expect(detokenizeProgram(bytes)).toBe(src);
+  });
+
   it('rejects numbers outside the integer range', () => {
     const { errors } = tokenizeProgram('10 PRINT 40000');
     expect(errors).toHaveLength(1);

@@ -85,7 +85,7 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
     id: 'commodore64',
     varName: 'commodore64Reference',
     data: {
-      title: 'Commodore BASIC v2',
+      title: 'Commodore BASIC',
       machines: ['Commodore 64'],
       entries: dedupe(c64Keywords.map((k) => toEntry(k))),
     },
