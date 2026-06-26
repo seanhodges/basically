@@ -28,7 +28,7 @@ features:
     details: Support for many popular AI coding providers; Claude, OpenAI, Gemini. More possible in future.
   - icon: 📼
     title: Two-way hardware transfer
-    details: "Here's the really fun bit: if you have the real machine, the link runs both ways. Export via cassette audio (play via the EAR port or save a .wav), download a native machine image (.P / .TAP / .prg …) for SD card interfaces, or push over WebSerial to a microcontroller bridge (experimental) — and import the same way, pulling a program off the real machine by recording its tape or loading its image back into the editor."
+    details: "Here's the really fun bit: if you have a real machine, you can save and load directly to the hardware from your Web browser. Export via cassette audio (play via the EAR port or save a .wav), download a native machine image (.P / .TAP / .prg …) for SD card interfaces, or push over WebSerial to a microcontroller bridge (experimental) — and import the same way, pulling a program off the real machine by recording its tape or loading its image back into the editor."
   - icon: ⌨️
     title: Mobile-first input
     details: Basically IDE ships with machine-specific virtual keyboards; balancing mobile screen usability with an psuedo authentic shift-state experience. At any time you can toggle this off to use your familiar native keyboard.
