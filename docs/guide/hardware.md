@@ -45,6 +45,6 @@ the built image to the bridge, which then delivers it to the machine — either 
 re-encoding it as a tape signal on a GPIO pin, or (with bus access) by injecting
 it into RAM.
 
-**This feature is experimental.** The bridge firmware is out of scope for this project, 
+**This feature is experimental.** The bridge firmware is out of scope for this project,
 but the wire protocol it must implement is fully specified under
 **[Serial bridge protocol](/reference/serial-protocol)**.
