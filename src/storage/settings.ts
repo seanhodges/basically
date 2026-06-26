@@ -32,8 +32,13 @@ const KEYS = {
   keyboardSound: 'mbide.keyboardSound',
   keyboardHaptics: 'mbide.keyboardHaptics',
   keyboardKeyDisplay: 'mbide.keyboardKeyDisplay',
+  emulatorAudio: 'mbide.emulatorAudio',
+  emulatorVolume: 'mbide.emulatorVolume',
+  emulatorMuted: 'mbide.emulatorMuted',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
 } as const;
+
+export const DEFAULT_EMULATOR_VOLUME = 0.7;
 
 export const DEFAULT_LINE_INCREMENT = 10;
 export const DEFAULT_SPLIT_RATIO = 0.5;
@@ -170,6 +175,36 @@ export function getKeyboardKeyDisplay(): 'authentic' | 'compact' {
 
 export function setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void {
   localStorage.setItem(KEYS.keyboardKeyDisplay, v);
+}
+
+/** Master enable for run-time emulator audio. Defaults on. */
+export function getEmulatorAudio(): boolean {
+  return localStorage.getItem(KEYS.emulatorAudio) !== 'false'; // default on
+}
+
+export function setEmulatorAudio(on: boolean): void {
+  localStorage.setItem(KEYS.emulatorAudio, on ? 'true' : 'false');
+}
+
+/** Emulator output volume, 0..1. Defaults to {@link DEFAULT_EMULATOR_VOLUME}. */
+export function getEmulatorVolume(): number {
+  const raw = localStorage.getItem(KEYS.emulatorVolume);
+  const n = raw === null ? DEFAULT_EMULATOR_VOLUME : parseFloat(raw);
+  if (!Number.isFinite(n)) return DEFAULT_EMULATOR_VOLUME;
+  return Math.min(1, Math.max(0, n));
+}
+
+export function setEmulatorVolume(n: number): void {
+  localStorage.setItem(KEYS.emulatorVolume, String(n));
+}
+
+/** Transient mute toggle (separate from the master enable). Defaults off. */
+export function getEmulatorMuted(): boolean {
+  return localStorage.getItem(KEYS.emulatorMuted) === 'true'; // default off
+}
+
+export function setEmulatorMuted(on: boolean): void {
+  localStorage.setItem(KEYS.emulatorMuted, on ? 'true' : 'false');
 }
 
 export function getSplitRatio(): number {

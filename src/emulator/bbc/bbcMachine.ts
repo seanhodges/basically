@@ -1,7 +1,7 @@
 import { fake6502, type Cpu6502 } from 'jsbeeb/src/fake6502.js';
 import { findModel } from 'jsbeeb/src/models.js';
 import { Video } from 'jsbeeb/src/video.js';
-import { FakeSoundChip } from 'jsbeeb/src/soundchip.js';
+import { SoundChip } from 'jsbeeb/src/soundchip.js';
 import * as utils from 'jsbeeb/src/utils.js';
 import type {
   DebugStepOptions,
@@ -51,6 +51,16 @@ const LINE_TERMINATOR = 0x0d;
 const END_OF_PROGRAM = 0xff;
 /** Cap the program walk so a corrupt chain can never spin forever. */
 const MAX_PROGRAM_LINES = 20_000;
+
+/**
+ * Backstop on the audio accumulation buffer (~0.4s at 500 kHz). {@link readAudio}
+ * drains every frame so it never normally fills; this only bounds growth if the
+ * host stops pulling (e.g. the rAF loop is paused) while the chip keeps flushing.
+ */
+const MAX_AUDIO_SAMPLES = 200_000;
+
+/** Shared empty result so a silent frame allocates nothing. */
+const EMPTY_AUDIO = new Float32Array(0);
 /**
  * Cycles run between line checks in {@link BbcMachine.debugStep}. Larger than
  * the longest 6502 instruction (7 cycles) so every `execute` advances by at
@@ -87,8 +97,14 @@ export function configureNodeRomPath(jsbeebRoot: string): void {
 export class BbcMachine implements MachineEmulator {
   readonly displayWidth = BBC_DISPLAY_WIDTH;
   readonly displayHeight = BBC_DISPLAY_HEIGHT;
+  /** Native rate of the SN76489 stream (set from the chip in the constructor). */
+  readonly audioSampleRate: number;
 
   private readonly cpu: Cpu6502;
+  private readonly soundChip: SoundChip;
+  /** Full SN76489 buffers handed over since the last {@link readAudio} drain. */
+  private audioChunks: Float32Array[] = [];
+  private audioSamples = 0;
   private readonly bootCycles: number;
   private readonly hostKeyboard: BbcHostKeyboard;
   private readonly fb8 = new Uint8Array(FB_WIDTH * FB_HEIGHT * 4);
@@ -128,7 +144,18 @@ export class BbcMachine implements MachineEmulator {
       // Snapshot now — jsbeeb clears fb32 for the next frame after painting.
       this.completeFb8.set(this.fb8);
     });
-    this.cpu = fake6502(model, { video, soundChip: new FakeSoundChip() });
+    // The real SN76489: each filled buffer is appended to the accumulation list
+    // and drained by readAudio(). The VIA pokes it and initialise() wires its
+    // scheduler, so runFrame() only has to catchUp() to flush per frame.
+    this.soundChip = new SoundChip((buffer) => {
+      this.audioChunks.push(buffer);
+      this.audioSamples += buffer.length;
+      while (this.audioSamples > MAX_AUDIO_SAMPLES && this.audioChunks.length) {
+        this.audioSamples -= this.audioChunks.shift()!.length;
+      }
+    });
+    this.audioSampleRate = this.soundChip.soundchipFreq;
+    this.cpu = fake6502(model, { video, soundChip: this.soundChip });
     this.hostKeyboard = new BbcHostKeyboard(this.cpu.sysvia);
     this.ready = this.cpu.initialise().then(() => {
       this.initialised = true;
@@ -152,6 +179,7 @@ export class BbcMachine implements MachineEmulator {
     this.loadGeneration++;
     this.loadError = '';
     this.lineCache = null;
+    this.clearAudio();
     void this.ready.then(() => {
       if (!this.disposed) this.cpu.reset(true);
     });
@@ -160,6 +188,26 @@ export class BbcMachine implements MachineEmulator {
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
     this.cpu.execute(Math.round(CYCLES_PER_FRAME * this.speed));
+    // Flush sound generated this frame into the accumulation buffer.
+    this.soundChip.catchUp();
+  }
+
+  /** Native-rate mono samples synthesized since the last call (drains). */
+  readAudio(): Float32Array {
+    if (this.audioSamples === 0) return EMPTY_AUDIO;
+    const out = new Float32Array(this.audioSamples);
+    let offset = 0;
+    for (const chunk of this.audioChunks) {
+      out.set(chunk, offset);
+      offset += chunk.length;
+    }
+    this.clearAudio();
+    return out;
+  }
+
+  private clearAudio(): void {
+    this.audioChunks = [];
+    this.audioSamples = 0;
   }
 
   /**
@@ -257,6 +305,10 @@ export class BbcMachine implements MachineEmulator {
           this.cpu.writemem(FAULT_PTR, 0);
           this.cpu.writemem(FAULT_PTR + 1, 0);
           this.typeViaMatrix('RUN\r');
+          // Drop any samples synthesized while booting/typing so the first
+          // readAudio() doesn't replay a boot-time burst.
+          this.soundChip.catchUp();
+          this.clearAudio();
         } finally {
           this.injecting = false;
         }

@@ -9,6 +9,7 @@ import { useIdeStore } from '../app/store';
 import { HAS_TOUCH, isMobileViewport } from '../app/useMediaQuery';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
+import { EmulatorAudio } from '../audio/emulatorAudio';
 import { VariableWatcher } from './VariableWatcher';
 import styles from './EmulatorPane.module.css';
 
@@ -68,6 +69,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const continueRequest = useIdeStore((s) => s.continueRequest);
   const debugLine = useIdeStore((s) => s.debugLine);
   const speed = useIdeStore((s) => s.emulatorSpeed);
+  const emulatorAudio = useIdeStore((s) => s.emulatorAudio);
+  const emulatorVolume = useIdeStore((s) => s.emulatorVolume);
+  const emulatorMuted = useIdeStore((s) => s.emulatorMuted);
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
@@ -89,6 +93,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const machineRef = useRef<MachineEmulator | null>(null);
+  // Run-time emulator audio host (Web Audio graph). Built lazily inside the Run
+  // gesture for sound-capable machines; torn down on Stop / dispose / swap.
+  const audioRef = useRef<EmulatorAudio | null>(null);
   const frameHookRef = useRef<(() => void) | null>(null);
   const rafRef = useRef(0);
   // Set true the moment a (re)start kicks off; the first rendered frame clears
@@ -156,6 +163,24 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         }
       };
 
+      // Drain the machine's synthesized audio and feed the speaker. Always
+      // called (so the machine's accumulation buffer stays bounded even with
+      // audio off), but only pushed to the host at 1× — fast-forward changes
+      // the cycle budget and would pitch-shift the stream, so it gates to
+      // silence (discard) instead.
+      const pumpAudio = () => {
+        if (!machine.readAudio) return;
+        const samples = machine.readAudio();
+        const audio = audioRef.current;
+        if (
+          audio &&
+          samples.length > 0 &&
+          useIdeStore.getState().emulatorSpeed === 1
+        ) {
+          audio.push(samples, machine.audioSampleRate ?? 44100);
+        }
+      };
+
       // Debug session: advance by one slice, pausing on a breakpoint ('run') or
       // at the next BASIC line ('step'). The machine renders progress between
       // slices so the screen stays live across long-running lines.
@@ -166,6 +191,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           fromLine: debugFromLineRef.current,
         });
         frameHookRef.current?.();
+        pumpAudio();
         render();
         if (res.paused) {
           stopLoop();
@@ -189,6 +215,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
       machine.runFrame();
       frameHookRef.current?.(); // virtual-keyboard frame-counted releases
+      pumpAudio();
       // AI "Replace + Run": watch the freshly-started program for a runtime
       // error and hand the first one to the assistant, then stop watching.
       if (aiCheckActiveRef.current && machine.readReport) {
@@ -225,6 +252,27 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current = machine;
     return machine;
   }, [dialect]);
+
+  // Build (once) and resume the audio graph for a sound-capable machine, inside
+  // the Run/Reset gesture so autoplay policy unlocks the context. A no-op when
+  // the machine emits no audio or the master enable is off; volume/mute seed
+  // from settings and then track the store via the effects below.
+  const ensureAudio = useCallback((machine: MachineEmulator) => {
+    const store = useIdeStore.getState();
+    if (!store.emulatorAudio || typeof machine.readAudio !== 'function') return;
+    if (!audioRef.current) {
+      audioRef.current = new EmulatorAudio({
+        volume: store.emulatorVolume,
+        muted: store.emulatorMuted,
+      });
+    }
+    void audioRef.current.resume();
+  }, []);
+
+  const disposeAudio = useCallback(() => {
+    audioRef.current?.dispose();
+    audioRef.current = null;
+  }, []);
 
   // Run requests from the toolbar
   useEffect(() => {
@@ -268,6 +316,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         debugModeRef.current = 'run';
         debugFromLineRef.current = null;
         useIdeStore.getState().setDebugLine(null);
+        ensureAudio(machine);
         setEmulatorStatus('running');
         startLoop();
         canvasRef.current?.focus();
@@ -292,6 +341,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
+    disposeAudio();
     clearCanvas(); // drop the last frame so the screen looks powered off
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
@@ -300,7 +350,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     firstFrameRef.current = false;
     setLoading(false);
     setEmulatorStatus('stopped');
-  }, [stopRequest, stopLoop, clearCanvas, setEmulatorStatus]);
+  }, [stopRequest, stopLoop, clearCanvas, disposeAudio, setEmulatorStatus]);
 
   // Step request: run the paused debugger to the next BASIC line.
   useEffect(() => {
@@ -337,6 +387,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         machine.releaseAllKeys();
         machine.reset();
         firstFrameRef.current = true; // the next rendered frame hides the overlay
+        ensureAudio(machine);
         setEmulatorStatus('running');
         startLoop();
         canvasRef.current?.focus();
@@ -357,8 +408,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       machineRef.current?.releaseAllKeys();
       machineRef.current?.dispose();
       machineRef.current = null;
+      disposeAudio();
     },
-    [stopLoop],
+    [stopLoop, disposeAudio],
   );
 
   // Switching target machine: dispose the old emulator so the next run builds a
@@ -369,6 +421,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
+    disposeAudio();
     clearCanvas(); // drop the old machine's last frame; next run starts fresh
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
@@ -376,7 +429,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     firstFrameRef.current = false;
     setLoading(false);
     setError('');
-  }, [dialect, stopLoop, clearCanvas]);
+  }, [dialect, stopLoop, clearCanvas, disposeAudio]);
 
   // Backgrounding pauses the rAF loop; clear the matrix so no key stays held.
   useEffect(() => {
@@ -391,6 +444,19 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   useEffect(() => {
     machineRef.current?.setSpeed(speed);
   }, [speed]);
+
+  // Live volume / mute changes apply to a running graph immediately.
+  useEffect(() => {
+    audioRef.current?.setVolume(emulatorVolume);
+  }, [emulatorVolume]);
+  useEffect(() => {
+    audioRef.current?.setMuted(emulatorMuted);
+  }, [emulatorMuted]);
+  // Turning the master enable off mid-run tears the graph down; turning it back
+  // on takes effect on the next Run (which rebuilds it inside the gesture).
+  useEffect(() => {
+    if (!emulatorAudio) disposeAudio();
+  }, [emulatorAudio, disposeAudio]);
 
   // Fit-to-pane scaling. The screen is top-aligned and always scales
   // fractionally to fill the available width, retaining aspect ratio and never

@@ -16,6 +16,9 @@ import {
   getKeyboardSound,
   getKeyboardHaptics,
   getKeyboardKeyDisplay,
+  getEmulatorAudio,
+  getEmulatorVolume,
+  getEmulatorMuted,
   setAutoLineNumbering as persistAutoLineNumbering,
   setLineNumberIncrement as persistLineNumberIncrement,
   setShowLineNumberGutter as persistShowLineNumberGutter,
@@ -26,6 +29,9 @@ import {
   setKeyboardSound as persistKeyboardSound,
   setKeyboardHaptics as persistKeyboardHaptics,
   setKeyboardKeyDisplay as persistKeyboardKeyDisplay,
+  setEmulatorAudio as persistEmulatorAudio,
+  setEmulatorVolume as persistEmulatorVolume,
+  setEmulatorMuted as persistEmulatorMuted,
 } from '../storage/settings';
 import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 
@@ -116,6 +122,12 @@ interface IdeState {
   /** Virtual-keyboard keycap legends: every legend ('authentic') or only the
    *  active mode's character, centered and larger ('compact'). */
   keyboardKeyDisplay: 'authentic' | 'compact';
+  /** Master enable for run-time emulator sound (default on). */
+  emulatorAudio: boolean;
+  /** Emulator output volume, 0..1. */
+  emulatorVolume: number;
+  /** Transient mute toggle (toolbar speaker button); separate from the enable. */
+  emulatorMuted: boolean;
   /** Whether the code editor currently has focus (drives its keyboard). */
   editorFocused: boolean;
   /**
@@ -194,6 +206,9 @@ interface IdeState {
   setKeyboardSound(on: boolean): void;
   setKeyboardHaptics(on: boolean): void;
   setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void;
+  setEmulatorAudio(on: boolean): void;
+  setEmulatorVolume(n: number): void;
+  setEmulatorMuted(on: boolean): void;
   setEditorFocused(on: boolean): void;
   setFindReplaceOpen(on: boolean): void;
   setMobileTab(tab: MobileTab): void;
@@ -309,6 +324,12 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getKeyboardHaptics() : true,
   keyboardKeyDisplay:
     typeof localStorage !== 'undefined' ? getKeyboardKeyDisplay() : 'authentic',
+  emulatorAudio:
+    typeof localStorage !== 'undefined' ? getEmulatorAudio() : true,
+  emulatorVolume:
+    typeof localStorage !== 'undefined' ? getEmulatorVolume() : 0.7,
+  emulatorMuted:
+    typeof localStorage !== 'undefined' ? getEmulatorMuted() : false,
   editorFocused: false,
   findReplaceOpen: false,
   mobileTab: 'editor',
@@ -445,6 +466,19 @@ export const useIdeStore = create<IdeState>((set) => ({
   setKeyboardKeyDisplay: (v) => {
     persistKeyboardKeyDisplay(v);
     set({ keyboardKeyDisplay: v });
+  },
+  setEmulatorAudio: (on) => {
+    persistEmulatorAudio(on);
+    set({ emulatorAudio: on });
+  },
+  setEmulatorVolume: (n) => {
+    const v = Math.min(1, Math.max(0, n));
+    persistEmulatorVolume(v);
+    set({ emulatorVolume: v });
+  },
+  setEmulatorMuted: (on) => {
+    persistEmulatorMuted(on);
+    set({ emulatorMuted: on });
   },
   setEditorFocused: (on) => set({ editorFocused: on }),
   setFindReplaceOpen: (on) => set({ findReplaceOpen: on }),

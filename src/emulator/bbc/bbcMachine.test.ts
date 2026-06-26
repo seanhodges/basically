@@ -74,6 +74,35 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     machine.dispose();
   }, 30000);
 
+  it('synthesizes audio for a SOUND command', async () => {
+    const machine = new BbcMachine();
+    // The audio seam is detected per-machine via these two members.
+    expect(typeof machine.readAudio).toBe('function');
+    expect(machine.audioSampleRate).toBeGreaterThan(0);
+
+    const { bytes } = tokenizeProgram('10 SOUND 1,-15,100,200\n20 GOTO 20\n');
+    machine.loadProgram(bytes);
+
+    // Drain readAudio() each frame, tracking the loudest sample seen. A clean
+    // boot leaves the buffer silent; the SOUND tone pushes it well off zero.
+    let peak = 0;
+    const sounded = await runUntil(
+      machine,
+      () => {
+        const samples = machine.readAudio!();
+        for (let i = 0; i < samples.length; i++) {
+          const v = Math.abs(samples[i]!);
+          if (v > peak) peak = v;
+        }
+        return peak > 0.001;
+      },
+      400,
+    );
+    expect(sounded).toBe(true);
+    expect(peak).toBeGreaterThan(0.001);
+    machine.dispose();
+  }, 60000);
+
   it('reads BASIC variables from a running program', async () => {
     const machine = new BbcMachine();
     const src =

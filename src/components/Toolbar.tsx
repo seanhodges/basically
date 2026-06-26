@@ -43,6 +43,26 @@ function BookIcon() {
   );
 }
 
+function SpeakerIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M11 5 6 9H3v6h3l5 4z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M18 6a8 8 0 0 1 0 12" />
+    </svg>
+  );
+}
+
+function SpeakerMutedIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M11 5 6 9H3v6h3l5 4z" />
+      <path d="M22 9l-6 6" />
+      <path d="M16 9l6 6" />
+    </svg>
+  );
+}
+
 export function Toolbar() {
   const dialect = useIdeStore((s) => s.dialect);
   const setDialect = useIdeStore((s) => s.setDialect);
@@ -68,6 +88,9 @@ export function Toolbar() {
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
   const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
   const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
+  const emulatorAudio = useIdeStore((s) => s.emulatorAudio);
+  const emulatorMuted = useIdeStore((s) => s.emulatorMuted);
+  const setEmulatorMuted = useIdeStore((s) => s.setEmulatorMuted);
 
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [editMenuOpen, setEditMenuOpen] = useState(false);
@@ -316,6 +339,24 @@ export function Toolbar() {
           title="Stop the program and shut down the emulator"
         >
           ■ Stop
+        </button>
+        <button
+          className={`icon-btn ${emulatorMuted ? 'active' : ''}`}
+          onClick={() => setEmulatorMuted(!emulatorMuted)}
+          disabled={!emulatorAudio}
+          title={
+            !emulatorAudio
+              ? 'Emulator audio is disabled in settings'
+              : emulatorMuted
+                ? 'Unmute emulator audio'
+                : 'Mute emulator audio'
+          }
+        >
+          {emulatorMuted || !emulatorAudio ? (
+            <SpeakerMutedIcon />
+          ) : (
+            <SpeakerIcon />
+          )}
         </button>
         <button
           className={`icon-btn ${aiPanelOpen ? 'active' : ''}`}

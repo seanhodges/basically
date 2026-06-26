@@ -41,12 +41,37 @@ declare module 'jsbeeb/src/soundchip.js' {
   export class FakeSoundChip {
     constructor();
   }
+  /**
+   * The real SN76489 synthesizer. `onBuffer` is handed a full Float32 mono
+   * buffer (at {@link soundchipFreq} Hz) each time the chip fills one; the CPU's
+   * VIA pokes it automatically and the scheduler is wired in `initialise`, so the
+   * adapter only constructs it and drains via {@link catchUp} once per frame.
+   */
+  export class SoundChip {
+    constructor(onBuffer: (buffer: Float32Array) => void);
+    /** Internal sample rate of the emitted buffers (4 MHz / 8 = 500 kHz). */
+    readonly soundchipFreq: number;
+    /** Flush samples pending since the last call into the buffer / onBuffer. */
+    catchUp(): void;
+    reset(hard: boolean): void;
+  }
+  /**
+   * The Acorn Atom's 1-bit speaker + sine channel, driven by the PPIA. Same
+   * `onBuffer` push model as {@link SoundChip}; `cpuSpeed` tunes the
+   * samples-per-cycle for the Atom's 1 MHz 6502.
+   */
+  export class AtomSoundChip extends SoundChip {
+    constructor(
+      onBuffer: (buffer: Float32Array) => void,
+      opts?: { cpuSpeed?: number },
+    );
+  }
 }
 
 declare module 'jsbeeb/src/fake6502.js' {
   import type { Model } from 'jsbeeb/src/models.js';
   import type { Video } from 'jsbeeb/src/video.js';
-  import type { FakeSoundChip } from 'jsbeeb/src/soundchip.js';
+  import type { FakeSoundChip, SoundChip } from 'jsbeeb/src/soundchip.js';
   import type { AtomPPIA } from 'jsbeeb/src/ppia.js';
 
   export interface SysVia {
@@ -79,7 +104,7 @@ declare module 'jsbeeb/src/fake6502.js' {
 
   export function fake6502(
     model: Model,
-    opts?: { video?: Video; soundChip?: FakeSoundChip },
+    opts?: { video?: Video; soundChip?: FakeSoundChip | SoundChip },
   ): Cpu6502;
 }
 
