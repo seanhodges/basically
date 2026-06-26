@@ -389,7 +389,7 @@ export function CodeMirrorHost({
             searchOpen = open;
             const store = useIdeStore.getState();
             store.setFindReplaceOpen(open);
-            if (open) store.setVirtualKeyboard(false);
+            if (open) store.setBottomOverlay('none');
           }
         }),
         // Tapping/clicking the editor body dismisses the find/replace panel.
@@ -406,7 +406,7 @@ export function CodeMirrorHost({
           },
         }),
         inputModeCompartment.of(
-          inputModeExt(useIdeStore.getState().virtualKeyboard),
+          inputModeExt(useIdeStore.getState().bottomOverlay === 'keyboard'),
         ),
         EditorView.theme({
           '&': { height: '100%', fontSize: '14px' },
@@ -431,13 +431,13 @@ export function CodeMirrorHost({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialect]);
 
-  // Keep the native-OSK suppression in sync with the virtual-keyboard flag.
-  const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
+  // Keep the native-OSK suppression in sync with the on-screen keyboard overlay.
+  const keyboardOverlay = useIdeStore((s) => s.bottomOverlay === 'keyboard');
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: inputModeCompartment.reconfigure(inputModeExt(virtualKeyboard)),
+      effects: inputModeCompartment.reconfigure(inputModeExt(keyboardOverlay)),
     });
-  }, [virtualKeyboard]);
+  }, [keyboardOverlay]);
 
   const showLineNumberGutter = useIdeStore((s) => s.showLineNumberGutter);
   useEffect(() => {

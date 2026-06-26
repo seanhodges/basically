@@ -47,6 +47,39 @@ export interface KeyboardLayout {
      */
     compactDefaultLayer?: string;
   };
+  /**
+   * On-screen game-controller defaults (D-pad + fire buttons) for this machine.
+   * Each role binds to a KeyDef id in this layout: the key's `emits` drive the
+   * matrix and its base-layer label is printed on the control. Optional — when
+   * absent the controller derives a WASD/Space fallback (see controllerConfig).
+   */
+  controller?: ControllerConfig;
+}
+
+/** Abstract game-controller controls a binding can fill. */
+export type ControllerRole =
+  | 'up'
+  | 'down'
+  | 'left'
+  | 'right'
+  | 'fire1'
+  | 'fire2';
+
+/**
+ * A machine's default game-controller mapping. `bindings` reference KeyDef ids
+ * in the owning {@link KeyboardLayout}; the user can override each per dialect,
+ * but always to another real KeyDef so the displayed character and the matrix
+ * tokens both stay valid.
+ */
+export interface ControllerConfig {
+  /** How many fire buttons to show (fire2 present iff this is 2). */
+  fireButtons: 1 | 2;
+  /** Default D-pad mode; the user can flip 4↔8 at runtime. */
+  dpadMode: '4-way' | '8-way';
+  /** role → KeyDef.id in this layout. */
+  bindings: Partial<Record<ControllerRole, string>>;
+  /** Optional display-label overrides; else derive from the KeyDef's base label. */
+  labels?: Partial<Record<ControllerRole, string>>;
 }
 
 export interface LayerDef {

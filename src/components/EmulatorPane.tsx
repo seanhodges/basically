@@ -75,8 +75,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
-  const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
-  const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
+  const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
+  const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
+  const overlayUp = bottomOverlay !== 'none';
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
 
@@ -474,7 +475,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       const availWidth = rect.width - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD);
       // With the keyboard up, never grow past 50% of the pane so the bottom-50%
       // overlay can never cover the screen.
-      const heightBudget = virtualKeyboard
+      const heightBudget = overlayUp
         ? Math.min(rect.height, rect.height * 0.5)
         : rect.height;
       const availHeight = heightBudget - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD);
@@ -490,7 +491,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     const observer = new ResizeObserver(update);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [virtualKeyboard, display.width, display.height]);
+  }, [overlayUp, display.width, display.height]);
 
   const getMachine = useCallback(() => machineRef.current, []);
   const registerFrameHook = useCallback((cb: (() => void) | null) => {
@@ -522,7 +523,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
   return (
     <div
-      className={`${styles.emulatorPane} ${virtualKeyboard ? styles.overlay : ''}`}
+      className={`${styles.emulatorPane} ${overlayUp ? styles.overlay : ''}`}
       ref={containerRef}
       onPointerDown={dismissFindReplace}
     >
@@ -548,8 +549,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             // With auto-show on, tapping the screen re-opens the keyboard if
             // hidden.
             const s = useIdeStore.getState();
-            if (s.keyboardAutoShow && !s.virtualKeyboard)
-              setVirtualKeyboard(true);
+            if (s.keyboardAutoShow && s.bottomOverlay === 'none')
+              setBottomOverlay('keyboard');
           }}
           onBlur={() => setFocused(false)}
         />
@@ -577,8 +578,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             {emulatorStatus === 'running'
               ? focused
                 ? `running — keys go to ${dialect.name} (Esc to release)`
-                : virtualKeyboard
-                  ? 'running — tap the keys below'
+                : overlayUp
+                  ? 'running — use the controls below'
                   : 'running — click screen to type'
               : 'stopped'}
           </span>

@@ -181,4 +181,17 @@ export const atomKeyboardLayout: KeyboardLayout = {
   rows,
   glyphs: {},
   options: { minHoldFrames: 4 },
+  // Acorn convention: Z/X = left/right, K/M = up/down; Space / Return as fire.
+  controller: {
+    fireButtons: 2,
+    dpadMode: '8-way',
+    bindings: {
+      up: 'KeyK',
+      down: 'KeyM',
+      left: 'KeyZ',
+      right: 'KeyX',
+      fire1: 'Space',
+      fire2: 'Enter',
+    },
+  },
 };

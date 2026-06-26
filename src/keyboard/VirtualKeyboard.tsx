@@ -9,6 +9,7 @@ import type {
 } from './layoutSchema';
 import { KeyboardInputEngine } from './inputEngine';
 import { isRepeatable, resolveEditorAction } from './editorActions';
+import { GlyphSvg } from './GlyphSvg';
 import './VirtualKeyboard.css';
 
 /**
@@ -53,23 +54,6 @@ const REPEAT_INTERVAL_MS = 60;
 interface RepeatTimer {
   timeout?: ReturnType<typeof setTimeout>;
   interval?: ReturnType<typeof setInterval>;
-}
-
-function GlyphSvg({
-  glyph,
-}: {
-  glyph?: { viewBox: string; paths: { d: string; fill?: string }[] };
-}) {
-  if (!glyph) return null;
-  // Constrained path data only — never raw SVG markup (XSS surface for
-  // future community layouts).
-  return (
-    <svg viewBox={glyph.viewBox} aria-hidden="true" focusable="false">
-      {glyph.paths.map((p, i) => (
-        <path key={i} d={p.d} fill={p.fill ?? 'currentColor'} />
-      ))}
-    </svg>
-  );
 }
 
 /**

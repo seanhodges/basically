@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { getDialect, dialects } from '../dialects/registry';
 import type { Dialect, MachineReport } from '../dialects/types';
+import type { ControllerRole } from '../keyboard/layoutSchema';
+import {
+  type ControllerOverrides,
+  resolveControllerConfig,
+} from '../keyboard/controllerConfig';
 import {
   loadAutosave,
   getDialectId,
@@ -19,6 +24,14 @@ import {
   getEmulatorAudio,
   getEmulatorVolume,
   getEmulatorMuted,
+  getBottomOverlay,
+  setBottomOverlay as persistBottomOverlay,
+  getControllerBindings,
+  setControllerBindings as persistControllerBindings,
+  resetControllerBindings as persistResetControllerBindings,
+  getControllerDpadMode,
+  setControllerDpadMode as persistControllerDpadMode,
+  type BottomOverlay,
   setAutoLineNumbering as persistAutoLineNumbering,
   setLineNumberIncrement as persistLineNumberIncrement,
   setShowLineNumberGutter as persistShowLineNumberGutter,
@@ -108,8 +121,16 @@ interface IdeState {
   emulatorSpeed: number;
   /** CRT scanline overlay on the monitor. */
   crtEffect: boolean;
-  /** On-screen virtual keyboard under the monitor. Transient: not persisted. */
-  virtualKeyboard: boolean;
+  /**
+   * Which input overlay docks under the emulator: the on-screen keyboard, the
+   * game controller, or neither. Mutually exclusive (only one mounts). Persisted
+   * so the keyboard-vs-controller choice is preserved across runs.
+   */
+  bottomOverlay: BottomOverlay;
+  /** Active dialect's game-controller remaps (role → KeyDef id). */
+  controllerBindings: ControllerOverrides;
+  /** Active dialect's D-pad direction mode. */
+  controllerDpadMode: '4-way' | '8-way';
   /** Pop the on-screen keyboard up automatically when the editor/preview gains
    *  focus. Persisted; defaults on for touch devices. */
   keyboardAutoShow: boolean;
@@ -200,7 +221,13 @@ interface IdeState {
   requestContinue(): void;
   setEmulatorSpeed(n: number): void;
   setCrtEffect(on: boolean): void;
-  setVirtualKeyboard(on: boolean): void;
+  /** Select the docked input overlay (persisted; null choice closes it). */
+  setBottomOverlay(v: BottomOverlay): void;
+  /** Remap one controller role to a layout KeyDef id (active dialect). */
+  setControllerBinding(role: ControllerRole, keyId: string): void;
+  /** Clear the active dialect's controller remaps back to layout defaults. */
+  resetController(): void;
+  setControllerDpadMode(mode: '4-way' | '8-way'): void;
   setKeyboardAutoShow(on: boolean): void;
   setVariableWatcher(on: boolean): void;
   setKeyboardSound(on: boolean): void;
@@ -247,6 +274,22 @@ function defaultKeyboardAutoShow(): boolean {
   return HAS_TOUCH;
 }
 
+/** A dialect's persisted controller remaps, or {} outside the browser. */
+function loadControllerBindings(dialect: Dialect): ControllerOverrides {
+  return typeof localStorage !== 'undefined'
+    ? getControllerBindings(dialect.id)
+    : {};
+}
+
+/** A dialect's D-pad mode: persisted override, else its layout default. */
+function loadControllerDpadMode(dialect: Dialect): '4-way' | '8-way' {
+  const persisted =
+    typeof localStorage !== 'undefined'
+      ? getControllerDpadMode(dialect.id)
+      : null;
+  return persisted ?? resolveControllerConfig(dialect.keyboardLayout).dpadMode;
+}
+
 /**
  * Name of the current dialect's sample whose text matches `source`, else null.
  * Covers the starter too, since the starter is just `samples[0]`. A non-null
@@ -271,6 +314,10 @@ function applyDialectSwitch(
   return {
     dialect: next,
     pendingDialectId: null,
+    // Load the new machine's controller mapping (its own per-dialect remaps and
+    // D-pad mode, falling back to its layout defaults).
+    controllerBindings: loadControllerBindings(next),
+    controllerDpadMode: loadControllerDpadMode(next),
     source: text,
     docOverride: { text, seq: s.docOverride.seq + 1 },
     // A dialect switch is always a new machine/program; clear the AI thread.
@@ -312,7 +359,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   continueRequest: 0,
   emulatorSpeed: typeof localStorage !== 'undefined' ? getEmulatorSpeed() : 1,
   crtEffect: typeof localStorage !== 'undefined' ? getCrtEffect() : true,
-  virtualKeyboard: false,
+  bottomOverlay:
+    typeof localStorage !== 'undefined' ? getBottomOverlay() : 'none',
+  controllerBindings: loadControllerBindings(startupDialect),
+  controllerDpadMode: loadControllerDpadMode(startupDialect),
   keyboardAutoShow:
     typeof localStorage !== 'undefined'
       ? (getKeyboardAutoShow() ?? defaultKeyboardAutoShow())
@@ -449,7 +499,26 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistCrtEffect(on);
     set({ crtEffect: on });
   },
-  setVirtualKeyboard: (on) => set({ virtualKeyboard: on }),
+  setBottomOverlay: (v) => {
+    persistBottomOverlay(v);
+    set({ bottomOverlay: v });
+  },
+  setControllerBinding: (role, keyId) =>
+    set((s) => {
+      const bindings = { ...s.controllerBindings, [role]: keyId };
+      persistControllerBindings(s.dialect.id, bindings);
+      return { controllerBindings: bindings };
+    }),
+  resetController: () =>
+    set((s) => {
+      persistResetControllerBindings(s.dialect.id);
+      return { controllerBindings: {} };
+    }),
+  setControllerDpadMode: (mode) =>
+    set((s) => {
+      persistControllerDpadMode(s.dialect.id, mode);
+      return { controllerDpadMode: mode };
+    }),
   setKeyboardAutoShow: (on) => {
     persistKeyboardAutoShow(on);
     set({ keyboardAutoShow: on });

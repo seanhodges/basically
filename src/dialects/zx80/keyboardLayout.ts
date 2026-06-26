@@ -248,4 +248,16 @@ export const zx80KeyboardLayout: KeyboardLayout = {
   rows,
   glyphs: zx80Glyphs,
   options: { minHoldFrames: 3, compactDefaultLayer: 'keyword' },
+  // Sinclair joystick convention: 5/6/7/8 = left/down/up/right, 0 = fire.
+  controller: {
+    fireButtons: 1,
+    dpadMode: '8-way',
+    bindings: {
+      up: 'Digit7',
+      down: 'Digit6',
+      left: 'Digit5',
+      right: 'Digit8',
+      fire1: 'Digit0',
+    },
+  },
 };

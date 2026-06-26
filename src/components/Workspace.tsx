@@ -12,6 +12,10 @@ import {
   VirtualKeyboard,
   type KeyboardTarget,
 } from '../keyboard/VirtualKeyboard';
+import {
+  GameController,
+  type ControllerMachineTarget,
+} from '../keyboard/GameController';
 import { CodeMirrorHost } from './CodeMirrorHost';
 import { EmulatorPane, type MachineApi } from './EmulatorPane';
 import { AiPanel } from './AiPanel';
@@ -84,14 +88,19 @@ export function Workspace() {
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
   const requestRun = useIdeStore((s) => s.requestRun);
 
-  const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
-  const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
+  const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
+  const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
   const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
   const editorFocused = useIdeStore((s) => s.editorFocused);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
   const keyboardKeyDisplay = useIdeStore((s) => s.keyboardKeyDisplay);
+  const controllerBindings = useIdeStore((s) => s.controllerBindings);
+  const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
+  const setControllerBinding = useIdeStore((s) => s.setControllerBinding);
+  const resetController = useIdeStore((s) => s.resetController);
+  const setControllerDpadMode = useIdeStore((s) => s.setControllerDpadMode);
 
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -122,6 +131,14 @@ export function Workspace() {
     }),
     [],
   );
+  // The controller only ever drives the machine; a stable handle like above.
+  const controllerTarget = useMemo<ControllerMachineTarget>(
+    () => ({
+      getMachine: () => machineApiRef.current?.getMachine() ?? null,
+      registerFrameHook: (cb) => machineApiRef.current?.registerFrameHook(cb),
+    }),
+    [],
+  );
 
   const showEditorKeyboard = useDebouncedFalse(
     editorFocused,
@@ -132,10 +149,15 @@ export function Workspace() {
   // both panels are visible, so editor focus does (debounced to avoid remount
   // thrash when focus briefly leaves the editor).
   const routeToEditor = isMobile ? mobileTab === 'editor' : showEditorKeyboard;
-  // The keyboard belongs over the editor/preview surfaces only.
-  const overlayVisible =
-    virtualKeyboard &&
+  const showKeyboard = bottomOverlay === 'keyboard';
+  const showController = bottomOverlay === 'controller';
+  // The keyboard belongs over the editor/preview surfaces; the controller is
+  // meaningful only over the preview (it never types into the editor).
+  const keyboardVisible =
+    showKeyboard &&
     (!isMobile || mobileTab === 'editor' || mobileTab === 'preview');
+  const controllerVisible =
+    showController && (!isMobile || mobileTab === 'preview');
 
   // With auto-show on, re-open the keyboard if it was hidden when the editor
   // regains focus. Edge-triggered (only on the false→true transition) so a
@@ -148,12 +170,12 @@ export function Workspace() {
       keyboardAutoShow &&
       editorFocused &&
       !prevEditorFocused.current &&
-      !useIdeStore.getState().virtualKeyboard
+      useIdeStore.getState().bottomOverlay === 'none'
     ) {
-      setVirtualKeyboard(true);
+      setBottomOverlay('keyboard');
     }
     prevEditorFocused.current = editorFocused;
-  }, [editorFocused, keyboardAutoShow, setVirtualKeyboard]);
+  }, [editorFocused, keyboardAutoShow, setBottomOverlay]);
 
   const hidden = (tab: MobileTab) =>
     isMobile && mobileTab !== tab ? styles.tabHidden : '';
@@ -197,7 +219,7 @@ export function Workspace() {
     <div
       className={`${styles.workspace} ${isMobile ? styles.mobile : ''} ${
         dragging ? styles.dragging : ''
-      } ${overlayVisible && routeToEditor ? styles.kbOpen : ''}`}
+      } ${keyboardVisible && routeToEditor ? styles.kbOpen : ''}`}
       ref={workspaceRef}
       style={cols ? { gridTemplateColumns: cols } : undefined}
     >
@@ -253,7 +275,7 @@ export function Workspace() {
           editor when it's the active surface, otherwise to the emulator. Keyed
           by the route so each target switch remounts cleanly (no stale
           engine/pointer state) and the first key after a switch isn't lost. */}
-      {overlayVisible && (
+      {keyboardVisible && (
         <div className={styles.workspaceVkOverlay}>
           <VirtualKeyboard
             key={routeToEditor ? 'editor' : 'machine'}
@@ -263,6 +285,27 @@ export function Workspace() {
             sound={keyboardSound}
             haptics={keyboardHaptics}
             keyDisplay={keyboardKeyDisplay}
+          />
+        </div>
+      )}
+      {/* The game-controller overlay floats over the bottom half (transparent
+          gaps fall through to the screen). Keyed by dialect so a machine swap
+          remounts a clean engine — no stuck keys. */}
+      {controllerVisible && (
+        <div
+          className={`${styles.workspaceVkOverlay} ${styles.workspaceGcOverlay}`}
+        >
+          <GameController
+            key={dialect.id}
+            layout={dialect.keyboardLayout}
+            target={controllerTarget}
+            enabled={emulatorStatus === 'running'}
+            haptics={keyboardHaptics}
+            overrides={controllerBindings}
+            dpadMode={controllerDpadMode}
+            onRemap={setControllerBinding}
+            onSetDpadMode={setControllerDpadMode}
+            onReset={resetController}
           />
         </div>
       )}

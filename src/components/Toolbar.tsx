@@ -86,8 +86,8 @@ export function Toolbar() {
   const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
-  const virtualKeyboard = useIdeStore((s) => s.virtualKeyboard);
-  const setVirtualKeyboard = useIdeStore((s) => s.setVirtualKeyboard);
+  const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
+  const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
   const emulatorAudio = useIdeStore((s) => s.emulatorAudio);
   const emulatorMuted = useIdeStore((s) => s.emulatorMuted);
   const setEmulatorMuted = useIdeStore((s) => s.setEmulatorMuted);
@@ -107,8 +107,8 @@ export function Toolbar() {
   // The dropdown menus and the on-screen keyboard are mutually exclusive:
   // opening the keyboard (its toggle lives in the emulator pane) closes them.
   useEffect(() => {
-    if (virtualKeyboard) closeMenus();
-  }, [virtualKeyboard]);
+    if (bottomOverlay !== 'none') closeMenus();
+  }, [bottomOverlay]);
 
   // Opening a menu hides the keyboard and the other menus; on mobile,
   // run/stop/reset jump to the preview tab so the user sees the emulator they
@@ -117,19 +117,19 @@ export function Toolbar() {
     const next = !fileMenuOpen;
     closeMenus();
     setFileMenuOpen(next);
-    if (next) setVirtualKeyboard(false);
+    if (next) setBottomOverlay('none');
   };
   const toggleEditMenu = () => {
     const next = !editMenuOpen;
     closeMenus();
     setEditMenuOpen(next);
-    if (next) setVirtualKeyboard(false);
+    if (next) setBottomOverlay('none');
   };
   const toggleRunMenu = () => {
     const next = !runMenuOpen;
     closeMenus();
     setRunMenuOpen(next);
-    if (next) setVirtualKeyboard(false);
+    if (next) setBottomOverlay('none');
   };
   // Run/debug actions share the same shape: close the menu, request the action,
   // and on mobile jump to the preview tab so the emulator that was just acted on
