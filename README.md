@@ -43,20 +43,6 @@ Micro**, among others.
   standalone. On phone-sized screens the UI is locked to portrait due to vertical screen size constraints; tablets and
   larger screens support both portrait and landscape.
 
-## Getting started
-
-```sh
-npm install
-npm run dev    # IDE on http://localhost:5173
-npm test       # unit tests, incl. booting the emulator ROM
-npm run build  # static site in dist/
-```
-
-Open the IDE, pick **File ▸ Samples ▸ Breakout**, press **▶ Run** (or
-Ctrl+Enter), click the screen and follow thebin-game instructions.
-
-For AI generation, click **✦ AI**, pick your AI provider and follow the instructions to enter your API key.
-
 ## Writing BASIC (ZX81 example)
 
 One numbered line per statement, keywords as words. Specials: block graphics
@@ -73,16 +59,9 @@ power. See [docs/reference/file-formats.md](docs/reference/file-formats.md).
    [bridge protocol](docs/reference/serial-protocol.md) can receive programs via
    WebSerial (Chrome/Edge).
 
-## Project layout
+## Contributing to the project
 
-```
-src/dialects/types.ts      the Dialect interface — the contract for a machine
-src/dialects/              Dialect logic and data per machine: charset, tokenizer, .P builder, emulator, cassette encoder, AI profile
-src/emulator/z80/          vendored MIT Z80 core (Molly Howell) + patches
-src/editor/                generic CM6 language/completion/lint builders
-src/ai/                    Claude API client, prompt builder, code extractor
-src/transfer/              WAV writer, audio player, WebSerial, protocol
-```
+Support welcome! Please see the [contributing](docs/contributing/contributing.md) guide. 
 
 ## ROM licensing
 
