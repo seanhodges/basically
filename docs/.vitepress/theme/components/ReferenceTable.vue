@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type {
   ReferenceEntry,
   ReferenceTableData,
@@ -15,6 +15,13 @@ const props = defineProps<{ data: ReferenceTableData }>();
 
 const query = ref('');
 const kind = ref<KindFilter>('all');
+
+// Seed the search from a `?q=` query param so the in-app docs drawer can deep
+// link to a keyword (context-aware help). Client-only, so SSG stays safe.
+onMounted(() => {
+  const q = new URLSearchParams(window.location.search).get('q');
+  if (q) query.value = q;
+});
 const sortKey = ref<SortKey>('name');
 const sortDir = ref<'asc' | 'desc'>('asc');
 

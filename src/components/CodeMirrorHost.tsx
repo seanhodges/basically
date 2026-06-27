@@ -384,6 +384,14 @@ export function CodeMirrorHost({
             onChangeRef.current(update.state.doc.toString());
           if (update.focusChanged)
             useIdeStore.getState().setEditorFocused(update.view.hasFocus);
+          if (update.selectionSet || update.docChanged) {
+            const sel = update.state.selection.main;
+            useIdeStore
+              .getState()
+              .setEditorSelection(
+                sel.empty ? '' : update.state.sliceDoc(sel.from, sel.to),
+              );
+          }
           const open = searchPanelOpen(update.state);
           if (open !== searchOpen) {
             searchOpen = open;

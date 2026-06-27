@@ -3,6 +3,7 @@ import { useIdeStore } from '../app/store';
 import { isMobileViewport } from '../app/useMediaQuery';
 import { openTextFile, saveTextFile } from '../storage/files';
 import { dialects } from '../dialects/registry';
+import { referenceTopic } from '../app/docsTopic';
 import styles from './Toolbar.module.css';
 
 const iconProps = {
@@ -376,7 +377,17 @@ export function Toolbar() {
         </button>
         <button
           className={`icon-btn mobile-visible ${docsDrawerOpen ? 'active' : ''}`}
-          onClick={() => openDocs()}
+          onClick={() => {
+            // With a keyword selected in the editor, jump straight to that
+            // keyword on the current dialect's reference page; otherwise open
+            // the docs home as before. Read the selection imperatively so the
+            // toolbar doesn't re-render as the cursor moves.
+            const topic = referenceTopic(
+              dialect,
+              useIdeStore.getState().editorSelection,
+            );
+            openDocs(topic ?? undefined);
+          }}
           title="Documentation"
         >
           <BookIcon />
