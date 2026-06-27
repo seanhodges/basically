@@ -72,7 +72,7 @@ writes actually runs (usually!). The agent will also watch the editor linting an
 
 ![The AI panel generating a BASIC program](/feature-ai.png)
 
-### Move programs to and from real hardware
+### Ship to real hardware
 
 Basically is a **two-way** bridge to the real machine, not just a one-way
 exporter. When you're ready to leave the emulator behind, the **Export** tools
