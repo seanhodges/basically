@@ -30,9 +30,14 @@ Micro**, among others.
   rules (for the ZX81, that means one statement per line, mandatory LET, INKEY$
   game loops, PRINT AT) and generated programs land in your editor with one
   click (replace, merge by line number, or replace+run).
-- **Real hardware transfer** (capabilities vary by machine)
+- **Two-way hardware transfer** (capabilities vary by machine) — export to the
+  real machine _and_ import a program back off it: pull an old program from real
+  hardware, edit and test it in the IDE, then export the updated version back —
+  or carry changes made on the physical machine back into the editor.
   - **Cassette audio**: play the tape signal straight out of your speakers
-    into the machine's EAR port, or download it as a `.wav`.
+    into the machine's EAR port, or download it as a `.wav` (export); record the
+    machine's tape output, or drop in a `.wav`, and decode it back to editable
+    source (import).
   - **Machine image** download (e.g. the ZX81 `.P` file for ZXpand and friends)
     and import of existing images back into editable text.
   - **WebSerial** push to a microcontroller bridge
@@ -51,6 +56,11 @@ power. See [docs/reference/file-formats.md](docs/reference/file-formats.md).
 
 ## Running on real hardware
 
+Basically interfaces with real machines **both ways** — export a program to the
+machine, or import one back off it into the editor.
+
+**Export (IDE → machine):**
+
 1. **Cassette**: connect your headphone jack to the aux socket, volume
    to max. On the machine run `LOAD ""` (or equiv.); in the IDE choose
    **⇥ Hardware ▸ Play through speakers**. Use _robust mode_ if loads fail.
@@ -58,6 +68,15 @@ power. See [docs/reference/file-formats.md](docs/reference/file-formats.md).
 3. **Serial bridge**: any microcontroller implementing the
    [bridge protocol](docs/reference/serial-protocol.md) can receive programs via
    WebSerial (Chrome/Edge).
+
+**Import (machine → IDE):**
+
+1. **Cassette**: `SAVE`/`CSAVE` on the machine into your device's mic / line-in
+   (or save a `.wav`); Basically decodes the recording back to editable source.
+2. **SD interfaces**: load an existing native image (`.P` / `.TAP` / `.prg` …)
+   back into the editor.
+
+See [docs/guide/hardware.md](docs/guide/hardware.md) for the full walkthrough.
 
 ## Contributing to the project
 

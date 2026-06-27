@@ -54,9 +54,11 @@ Basically can write BASIC for you with the Claude API:
 
 ## Run on real hardware
 
-When a program works in the emulator, you can send it to a real machine over
-cassette audio, a downloadable image file, or a serial bridge. See
-**[Running on real hardware](/guide/hardware)**.
+The link to the real machine runs **both ways**. When a program works in the
+emulator, you can export it to a real machine over cassette audio, a
+downloadable image file, or a serial bridge — and you can import a program back
+off the machine (by decoding its cassette output or loading its native image)
+to edit and test it in the IDE. See **[Running on real hardware](/guide/hardware)**.
 
 ## Install as an app
 
