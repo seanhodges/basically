@@ -175,6 +175,14 @@ interface IdeState {
   settingsOpen: boolean;
   /** Program outline dialog (Edit ▸ Outline…). */
   procedureListOpen: boolean;
+  /** In-app documentation drawer (replaces opening /docs/ in a new tab). */
+  docsDrawerOpen: boolean;
+  /**
+   * Optional docs sub-path the drawer should open to (e.g. a future
+   * context-aware "help for keyword under cursor" target). `null` opens the
+   * docs home. Detection of the target is not implemented yet.
+   */
+  docsTopic: string | null;
   /** First-launch welcome modal (shown once, then persisted as dismissed). */
   welcomeOpen: boolean;
   /**
@@ -258,6 +266,10 @@ interface IdeState {
   setSettingsOpen(open: boolean): void;
   setProcedureListOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
+  /** Open the docs drawer, optionally to a specific docs sub-path/topic. */
+  openDocs(topic?: string): void;
+  /** Close the docs drawer (leaves the last topic untouched). */
+  closeDocs(): void;
   requestJumpToLine(lineNo: number): void;
   setAutoLineNumbering(on: boolean): void;
   setLineNumberIncrement(n: number): void;
@@ -403,6 +415,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   settingsOpen: false,
   procedureListOpen: false,
   welcomeOpen: false,
+  docsDrawerOpen: false,
+  docsTopic: null,
   jumpTarget: { lineNo: 0, seq: 0 },
   autoLineNumbering:
     typeof localStorage !== 'undefined' ? getAutoLineNumbering() : true,
@@ -577,6 +591,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
   setWelcomeOpen: (open) => set({ welcomeOpen: open }),
+  openDocs: (topic) => set({ docsDrawerOpen: true, docsTopic: topic ?? null }),
+  closeDocs: () => set({ docsDrawerOpen: false }),
   requestJumpToLine: (lineNo) =>
     set((s) => ({ jumpTarget: { lineNo, seq: s.jumpTarget.seq + 1 } })),
   setAutoLineNumbering: (on) => {
