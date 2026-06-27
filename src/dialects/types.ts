@@ -248,6 +248,12 @@ export interface Dialect {
    */
   romUrl?: string;
   /**
+   * Slug of this dialect's docs reference page under `/docs/reference/`.
+   * Defaults to `id` when absent; set it when several dialects share one page
+   * (e.g. bbcmicro/bbcmaster → 'bbc', zxspectrum128 → 'zxspectrum').
+   */
+  docsReference?: string;
+  /**
    * Native emulator canvas size in pixels. Defaults to the classic 256×192
    * shared by the Sinclair machines when absent.
    */
