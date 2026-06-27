@@ -157,6 +157,13 @@ export default withPwa(
         // site (including search) is available offline after first load.
         globPatterns: ['**/*.{js,css,html,json,png,jpg,svg,ico,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // Strip the context-aware help's `?q=` keyword param (alongside the
+        // workbox defaults) before matching a request against the precache.
+        // Without this, a deep link like `reference/commodore64?q=poke` misses
+        // the precached `reference/commodore64.html`, so the SPA NavigationRoute
+        // falls back to the precached home `index.html` — rendering the home
+        // hero above the reference page until VitePress client-routes over it.
+        ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^q$/],
       },
     },
   }),
