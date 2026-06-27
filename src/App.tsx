@@ -11,6 +11,7 @@ import { ImportDialog } from './components/ImportDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
 import { WelcomeDialog } from './components/WelcomeDialog';
+import { DocsDrawer } from './components/DocsDrawer';
 import { StatusBar } from './components/StatusBar';
 import { getHasSeenWelcome, saveAutosave } from './storage/settings';
 import { isMobileViewport } from './app/useMediaQuery';
@@ -67,6 +68,7 @@ export default function App() {
       <SwitchTargetDialog />
       <ProcedureListDialog />
       <WelcomeDialog />
+      <DocsDrawer />
       <div
         className={styles.rotateOverlay}
         role="alertdialog"

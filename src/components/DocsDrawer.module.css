@@ -1,0 +1,68 @@
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  /* Full width on mobile; half the viewport on tablet/desktop (see @media). */
+  width: 100vw;
+  display: flex;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgb(0 0 0 / 35%);
+  /* Below the modal dialogs (z-index 100 in Dialog.module.css) so Settings /
+     Welcome still overlay the drawer. */
+  z-index: 90;
+  transform: translateX(100%);
+  transition: transform 280ms ease;
+}
+
+.drawer.open {
+  transform: translateX(0);
+}
+
+/* Tablet / desktop: half-width drawer, leaving the IDE visible on the left. */
+@media (min-width: 769px) {
+  .drawer {
+    width: 50vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    transition: none;
+  }
+}
+
+/* Touch-friendly tab on the left edge: tap or swipe right to dismiss. */
+.handle {
+  position: absolute;
+  left: -32px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--text-dim, currentColor);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  box-shadow: -4px 0 12px rgb(0 0 0 / 25%);
+  cursor: pointer;
+  /* Allow vertical page scroll but let us capture the horizontal close gesture. */
+  touch-action: pan-y;
+}
+
+.handle:hover {
+  color: var(--text, currentColor);
+}
+
+.frame {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}

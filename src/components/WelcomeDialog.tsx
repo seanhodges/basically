@@ -44,6 +44,7 @@ function CodeIcon({ size = 16 }: { size?: number }) {
 export function WelcomeDialog() {
   const open = useIdeStore((s) => s.welcomeOpen);
   const setOpen = useIdeStore((s) => s.setWelcomeOpen);
+  const openDocs = useIdeStore((s) => s.openDocs);
 
   if (!open) return null;
 
@@ -69,12 +70,13 @@ export function WelcomeDialog() {
         </p>
 
         <div className={styles.cards}>
-          <a
+          <button
+            type="button"
             className={styles.card}
-            href="/docs/"
-            target="_blank"
-            rel="noopener"
-            onClick={dismiss}
+            onClick={() => {
+              openDocs();
+              dismiss();
+            }}
           >
             <span className={styles.cardIcon}>
               <BookIcon size={48} />
@@ -83,7 +85,7 @@ export function WelcomeDialog() {
             <span className={styles.cardSub}>
               Learn the editor, the machines and how to export your programs.
             </span>
-          </a>
+          </button>
 
           <button type="button" className={styles.card} onClick={dismiss}>
             <span className={styles.cardIcon}>

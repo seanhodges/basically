@@ -83,6 +83,8 @@ export function Toolbar() {
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
   const setImportOpen = useIdeStore((s) => s.setImportOpen);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
+  const openDocs = useIdeStore((s) => s.openDocs);
+  const docsDrawerOpen = useIdeStore((s) => s.docsDrawerOpen);
   const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
@@ -372,15 +374,13 @@ export function Toolbar() {
         >
           <GearIcon />
         </button>
-        <a
-          className="icon-btn mobile-visible"
-          href="/docs/"
-          target="_blank"
-          rel="noopener"
+        <button
+          className={`icon-btn mobile-visible ${docsDrawerOpen ? 'active' : ''}`}
+          onClick={() => openDocs()}
           title="Documentation"
         >
           <BookIcon />
-        </a>
+        </button>
       </div>
     </div>
   );
