@@ -28,15 +28,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drawer {
+  .drawer,
+  .handle {
     transition: none;
   }
 }
 
-/* Touch-friendly tab on the left edge: tap or swipe right to dismiss. */
+/* Touch-friendly close tab on the drawer's left edge: tap or swipe right to
+   dismiss. On full-width (mobile) the drawer fills the viewport, so the tab sits
+   just inside the left edge to stay on screen; desktop hangs it in the gap (see
+   the @media block above). */
 .handle {
   position: absolute;
-  left: -32px;
+  left: 0;
   top: 50%;
   transform: translateY(-50%);
   width: 32px;
@@ -48,12 +52,38 @@
   color: var(--text-dim, currentColor);
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-right: none;
-  border-radius: 8px 0 0 8px;
-  box-shadow: -4px 0 12px rgb(0 0 0 / 25%);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 4px 0 12px rgb(0 0 0 / 25%);
   cursor: pointer;
   /* Allow vertical page scroll but let us capture the horizontal close gesture. */
   touch-action: pan-y;
+  /* The handle is a close control. While the drawer is closed it sits off-screen
+     with the rest of the drawer; hide it until the drawer is open so it never
+     pokes back into view on the right edge of the viewport. */
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 280ms ease,
+    visibility 280ms ease;
+}
+
+.drawer.open .handle {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Tablet / desktop: the IDE stays visible to the left of the half-width drawer,
+   so hang the close tab in that gap, just outside the drawer's left edge.
+   Declared after the base rule so it wins at equal specificity. */
+@media (min-width: 769px) {
+  .handle {
+    left: -32px;
+    border-left: none;
+    border-right: 1px solid var(--border);
+    border-radius: 8px 0 0 8px;
+    box-shadow: -4px 0 12px rgb(0 0 0 / 25%);
+  }
 }
 
 .handle:hover {
