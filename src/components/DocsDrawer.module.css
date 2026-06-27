@@ -28,7 +28,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drawer {
+  .drawer,
+  .handle {
     transition: none;
   }
 }
@@ -54,6 +55,20 @@
   cursor: pointer;
   /* Allow vertical page scroll but let us capture the horizontal close gesture. */
   touch-action: pan-y;
+  /* The handle is a close control. While the drawer is closed it sits off-screen
+     with the rest of the drawer, but its negative `left` would otherwise make it
+     poke back out on the right edge of the viewport — hide it until the drawer
+     is open so it only ever appears on the drawer's left edge. */
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 280ms ease,
+    visibility 280ms ease;
+}
+
+.drawer.open .handle {
+  opacity: 1;
+  visibility: visible;
 }
 
 .handle:hover {
