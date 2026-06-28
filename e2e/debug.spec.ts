@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 /**
  * End-to-end checks for the step-through debugger (ZX81 / ZX80 / Spectrum):
