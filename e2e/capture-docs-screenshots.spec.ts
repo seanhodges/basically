@@ -1,4 +1,4 @@
-import { test, type Page } from '@playwright/test';
+import { test, type Page } from './fixtures';
 
 /**
  * Capture the feature screenshots used by the docs site (docs/index.md).
@@ -56,7 +56,9 @@ test('emulator running a program', async ({ page }) => {
 test('AI code generation panel', async ({ page }) => {
   await open(page);
   await loadSample(page, 'Breakout');
-  await page.getByRole('button', { name: '✦', exact: true }).click();
+  // The desktop AI control is the toolbar button (the ✦ tab only exists in the
+  // mobile tab bar, which isn't rendered at this capture viewport).
+  await page.getByRole('button', { name: 'AI code generation' }).click();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/feature-ai.png` });
 });

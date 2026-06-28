@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 /**
  * Visual / behavioural checks for the Edit ▸ Outline… navigation feature:
@@ -24,7 +24,9 @@ async function open(page: Page) {
 async function loadMazeSample(page: Page) {
   await page.getByRole('button', { name: 'File ▾' }).click();
   await page.getByRole('button', { name: 'Maze' }).click();
-  await expect(page.locator('.cm-content')).toContainText('480 RUN');
+  // Assert on the first line (always rendered): CodeMirror virtualizes the long
+  // Maze doc, so the last line isn't reliably in the DOM.
+  await expect(page.locator('.cm-content')).toContainText('10 REM MAZE');
 }
 
 /**

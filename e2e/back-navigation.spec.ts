@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 /**
  * End-to-end checks for browser Back-button navigation over the app's ephemeral
@@ -10,17 +10,12 @@ import { test, expect, type Page } from '@playwright/test';
  * Run with `npm run e2e` (Chromium is pre-installed in the managed env).
  */
 
-/** Load the app, accept native confirms, and dismiss the first-run welcome. */
+/** Load the app and accept native confirms. The welcome modal is suppressed by
+ *  the shared fixture (see e2e/fixtures.ts), so nothing intercepts clicks. */
 async function open(page: Page) {
   page.on('dialog', (d) => d.accept());
   await page.goto('/');
   await expect(page.locator('.cm-content')).toBeVisible();
-  // The welcome modal shows on a fresh browser; dismiss it if present so it
-  // doesn't intercept clicks (and so it isn't itself in history).
-  await page
-    .getByRole('button', { name: 'Start coding' })
-    .click({ timeout: 3000 })
-    .catch(() => {});
 }
 
 test('desktop: Back closes the settings dialog', async ({ page }) => {
