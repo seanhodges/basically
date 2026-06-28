@@ -15,11 +15,17 @@ import { DocsDrawer } from './components/DocsDrawer';
 import { StatusBar } from './components/StatusBar';
 import { getHasSeenWelcome, saveAutosave } from './storage/settings';
 import { isMobileViewport } from './app/useMediaQuery';
+import { useHistorySync } from './app/useHistorySync';
 import styles from './App.module.css';
 
 export default function App() {
   const requestRun = useIdeStore((s) => s.requestRun);
   const runRequest = useIdeStore((s) => s.runRequest);
+
+  // Make the browser Back button close ephemeral UI surfaces (mobile tabs,
+  // settings, AI panel, on-screen keyboard, gamepad, docs) instead of leaving
+  // the app. See src/app/historyNav.ts.
+  useHistorySync();
 
   // Greet first-time visitors with the welcome modal (once per browser).
   useEffect(() => {
