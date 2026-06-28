@@ -63,6 +63,8 @@ export const zxspectrum128: Dialect = {
 
   debuggable: true,
 
+  controllerSupport: true,
+
   // opts.ramKb is ignored: the 128K always provides its eight 16K banks itself.
   createEmulator(opts) {
     return new Spectrum128Machine({ rom: opts.rom });

@@ -8,6 +8,7 @@ import {
 } from '../storage/settings';
 import { PROVIDERS, getProvider } from '../ai/providers/registry';
 import type { AiProviderId } from '../ai/providers/types';
+import type { GamepadMode } from '../keyboard/controllerConfig';
 import styles from './SettingsForm.module.css';
 import dialog from './Dialog.module.css';
 
@@ -40,6 +41,8 @@ export function SettingsForm() {
   const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
   const setControllerDpadMode = useIdeStore((s) => s.setControllerDpadMode);
   const resetController = useIdeStore((s) => s.resetController);
+  const gamepadMode = useIdeStore((s) => s.gamepadMode);
+  const setGamepadMode = useIdeStore((s) => s.setGamepadMode);
   const [providerId, setProviderId] = useState<AiProviderId>(getAiProvider());
   const [key, setKey] = useState(getProviderApiKey(getAiProvider()));
   const [keySaved, setKeySaved] = useState(false);
@@ -180,6 +183,21 @@ export function SettingsForm() {
         Haptic feedback
       </label>
       <h3>Virtual gamepad</h3>
+      <label className={styles.inline}>
+        Input mode
+        <select
+          value={gamepadMode}
+          onChange={(e) => setGamepadMode(e.target.value as GamepadMode)}
+        >
+          <option value="controller">Controller (joystick)</option>
+          <option value="keymapped">Key mapped</option>
+        </select>
+      </label>
+      <p>
+        {gamepadMode === 'controller' && !dialect.controllerSupport
+          ? `${dialect.name} has no joystick port — the gamepad uses Key mapped here.`
+          : 'Controller drives the machine’s real joystick port; Key mapped presses keys instead.'}
+      </p>
       <label className={styles.inline}>
         D-pad directions
         <select

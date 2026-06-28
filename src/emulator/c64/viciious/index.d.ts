@@ -68,9 +68,14 @@ export interface AudioHost {
   onRegWrite(reg: number, byte: number): void;
 }
 
+/**
+ * Host joystick sink: receives a setter for each port that pushes an 8-bit
+ * active-low port value to the CIAs (bit clear = switch closed). Port 1 ($dc01)
+ * is shared with the keyboard matrix; port 2 ($dc00) is dedicated.
+ */
 export interface JoystickHost {
-  setSetJoystick1(): void;
-  setSetJoystick2(): void;
+  setSetJoystick1(setJoystick1: (value: number) => void): void;
+  setSetJoystick2(setJoystick2: (value: number) => void): void;
 }
 
 /** `attach` function for one component; called once by {@link bringup}. */

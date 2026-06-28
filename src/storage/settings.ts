@@ -5,7 +5,10 @@ import {
   DEFAULT_PROVIDER_ID,
   getProvider,
 } from '../ai/providers/registry';
-import type { ControllerOverrides } from '../keyboard/controllerConfig';
+import type {
+  ControllerOverrides,
+  GamepadMode,
+} from '../keyboard/controllerConfig';
 
 /**
  * Whether the on-screen keyboard is docked under the emulator. Persisted so the
@@ -48,6 +51,7 @@ const KEYS = {
   controllerEnabled: 'mbide.controllerEnabled',
   controllerBindings: 'mbide.controllerBindings',
   controllerDpadMode: 'mbide.controllerDpadMode',
+  gamepadMode: 'mbide.gamepadMode',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
 } as const;
 
@@ -266,6 +270,21 @@ export function setControllerDpadMode(
   mode: '4-way' | '8-way',
 ): void {
   localStorage.setItem(`${KEYS.controllerDpadMode}.${dialectId}`, mode);
+}
+
+/**
+ * Preferred virtual-gamepad input mode, applied across all machines. Defaults to
+ * 'controller' (real joystick where the machine supports it); machines without a
+ * joystick port fall back to 'keymapped' at the point of use, not here.
+ */
+export function getGamepadMode(): GamepadMode {
+  return localStorage.getItem(KEYS.gamepadMode) === 'keymapped'
+    ? 'keymapped'
+    : 'controller';
+}
+
+export function setGamepadMode(mode: GamepadMode): void {
+  localStorage.setItem(KEYS.gamepadMode, mode);
 }
 
 /** Master enable for run-time emulator audio. Defaults on. */

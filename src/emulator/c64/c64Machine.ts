@@ -1,6 +1,7 @@
 import type {
   DebugStepOptions,
   DebugStepResult,
+  JoystickState,
   MachineEmulator,
   MachineReport,
   MachineVariable,
@@ -229,6 +230,9 @@ export class C64Machine implements MachineEmulator {
   );
   /** CIA1's matrix setter, registered during keyboard-host attach. */
   private setKeyMatrix: (matrix: number[]) => void = () => {};
+  /** Per-port joystick byte setters, registered during joystick-host attach. */
+  private setJoystick1: (value: number) => void = () => {};
+  private setJoystick2: (value: number) => void = () => {};
   private readonly physicalButtons = new Set<string>();
   private readonly virtualButtons = new Set<string>();
 
@@ -330,7 +334,14 @@ export class C64Machine implements MachineEmulator {
   };
 
   private attachJoystick = (c64: { joystick: JoystickHost }): void => {
-    c64.joystick = { setSetJoystick1: () => {}, setSetJoystick2: () => {} };
+    c64.joystick = {
+      setSetJoystick1: (fn) => {
+        this.setJoystick1 = fn;
+      },
+      setSetJoystick2: (fn) => {
+        this.setJoystick2 = fn;
+      },
+    };
   };
 
   private clearScreen(): void {
@@ -533,6 +544,24 @@ export class C64Machine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.clearKeys();
+  }
+
+  /**
+   * Drive a CIA joystick port. The port byte is active-low (a closed switch
+   * pulls its line low), bits 0-4 = up/down/left/right/fire. The C64 has a
+   * single fire line per port, so `fire2` is folded into the one fire switch.
+   * Port 1 ($dc01) is shared with the keyboard; port 2 ($dc00) is dedicated and
+   * the default the gamepad drives.
+   */
+  setJoystick(port: 1 | 2, state: JoystickState): void {
+    let value = 0xff;
+    if (state.up) value &= ~0x01;
+    if (state.down) value &= ~0x02;
+    if (state.left) value &= ~0x04;
+    if (state.right) value &= ~0x08;
+    if (state.fire1 || state.fire2) value &= ~0x10;
+    if (port === 1) this.setJoystick1(value & 0xff);
+    else this.setJoystick2(value & 0xff);
   }
 
   private clearKeys(): void {

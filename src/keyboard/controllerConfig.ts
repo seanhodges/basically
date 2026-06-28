@@ -1,3 +1,4 @@
+import type { Dialect, JoystickState } from '../dialects/types';
 import type {
   ControllerConfig,
   ControllerRole,
@@ -5,6 +6,9 @@ import type {
   KeyLabel,
   KeyboardLayout,
 } from './layoutSchema';
+
+/** The two virtual-gamepad input modes the user can prefer. */
+export type GamepadMode = 'controller' | 'keymapped';
 
 /** Every controller role, in display order (directions then fire buttons). */
 export const CONTROLLER_ROLES: ControllerRole[] = [
@@ -118,6 +122,38 @@ export function resolveRoleKeyId(
   role: ControllerRole,
 ): string | undefined {
   return overrides[role] ?? config.bindings[role];
+}
+
+/**
+ * Collapse the set of currently-held controller roles into a JoystickState for
+ * "Controller" mode. `fire2` is forced off on single-fire machines/layouts.
+ */
+export function rolesToJoystick(
+  roles: Set<ControllerRole>,
+  fireButtons: 1 | 2,
+): JoystickState {
+  return {
+    up: roles.has('up'),
+    down: roles.has('down'),
+    left: roles.has('left'),
+    right: roles.has('right'),
+    fire1: roles.has('fire1'),
+    fire2: fireButtons >= 2 && roles.has('fire2'),
+  };
+}
+
+/**
+ * The gamepad mode actually in effect: 'controller' only when the user prefers
+ * it AND the dialect's emulator can service a hardware joystick port; otherwise
+ * the gamepad falls back to 'keymapped'. Computable while stopped (no machine).
+ */
+export function effectiveGamepadMode(
+  dialect: Pick<Dialect, 'controllerSupport'>,
+  pref: GamepadMode,
+): GamepadMode {
+  return pref === 'controller' && dialect.controllerSupport
+    ? 'controller'
+    : 'keymapped';
 }
 
 /** Keys the remap picker offers: every layout key that drives the matrix. */

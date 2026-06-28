@@ -4,6 +4,7 @@ import type { Dialect, MachineReport } from '../dialects/types';
 import type { ControllerRole } from '../keyboard/layoutSchema';
 import {
   type ControllerOverrides,
+  type GamepadMode,
   resolveControllerConfig,
 } from '../keyboard/controllerConfig';
 import {
@@ -33,6 +34,8 @@ import {
   resetControllerBindings as persistResetControllerBindings,
   getControllerDpadMode,
   setControllerDpadMode as persistControllerDpadMode,
+  getGamepadMode,
+  setGamepadMode as persistGamepadMode,
   type BottomOverlay,
   setAutoLineNumbering as persistAutoLineNumbering,
   setLineNumberIncrement as persistLineNumberIncrement,
@@ -140,6 +143,13 @@ interface IdeState {
   controllerBindings: ControllerOverrides;
   /** Active dialect's D-pad direction mode. */
   controllerDpadMode: '4-way' | '8-way';
+  /**
+   * Preferred gamepad input mode, across all machines. 'controller' drives a
+   * real joystick port where the machine supports it; 'keymapped' presses keys.
+   * Machines without a joystick port fall back to key mapping at the point of
+   * use (see effectiveGamepadMode), regardless of this preference. Persisted.
+   */
+  gamepadMode: GamepadMode;
   /** Pop the on-screen keyboard up automatically when the editor/preview gains
    *  focus. Persisted; defaults on for touch devices. */
   keyboardAutoShow: boolean;
@@ -255,6 +265,8 @@ interface IdeState {
   /** Clear the active dialect's controller remaps back to layout defaults. */
   resetController(): void;
   setControllerDpadMode(mode: '4-way' | '8-way'): void;
+  /** Choose the preferred gamepad input mode (persisted, global). */
+  setGamepadMode(mode: GamepadMode): void;
   setKeyboardAutoShow(on: boolean): void;
   setVariableWatcher(on: boolean): void;
   setKeyboardSound(on: boolean): void;
@@ -397,6 +409,8 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getControllerEnabled() : false,
   controllerBindings: loadControllerBindings(startupDialect),
   controllerDpadMode: loadControllerDpadMode(startupDialect),
+  gamepadMode:
+    typeof localStorage !== 'undefined' ? getGamepadMode() : 'controller',
   keyboardAutoShow:
     typeof localStorage !== 'undefined'
       ? (getKeyboardAutoShow() ?? defaultKeyboardAutoShow())
@@ -560,6 +574,10 @@ export const useIdeStore = create<IdeState>((set) => ({
       persistControllerDpadMode(s.dialect.id, mode);
       return { controllerDpadMode: mode };
     }),
+  setGamepadMode: (mode) => {
+    persistGamepadMode(mode);
+    set({ gamepadMode: mode });
+  },
   setKeyboardAutoShow: (on) => {
     persistKeyboardAutoShow(on);
     set({ keyboardAutoShow: on });

@@ -3,6 +3,7 @@ import type { MachineEmulator } from '../dialects/types';
 import type { ControllerRole, KeyboardLayout } from './layoutSchema';
 import {
   type ControllerOverrides,
+  type GamepadMode,
   CONTROLLER_ROLE_NAMES,
   controlLabel,
   resolveControllerConfig,
@@ -30,6 +31,13 @@ interface GameControllerProps {
   /** Per-dialect user remaps (role → KeyDef id) over the layout defaults. */
   overrides: ControllerOverrides;
   dpadMode: '4-way' | '8-way';
+  /**
+   * Effective input mode: 'controller' drives the machine's joystick port,
+   * 'keymapped' presses key tokens. Already resolved against machine support.
+   */
+  mode: GamepadMode;
+  /** Joystick port to drive in 'controller' mode (C64 uses 2; others use 1). */
+  port: 1 | 2;
   /** Long-press on a control (while stopped) requests a remap of this role. */
   onStartRemap(role: ControllerRole): void;
 }
@@ -48,6 +56,8 @@ export function GameController({
   haptics,
   overrides,
   dpadMode,
+  mode,
+  port,
   onStartRemap,
 }: GameControllerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -73,9 +83,9 @@ export function GameController({
       new ControllerInputEngine(
         roleTokens,
         { getMachine: () => targetRef.current.getMachine() },
-        minHold,
+        { mode, port, fireButtons: config.fireButtons, minHoldFrames: minHold },
       ),
-    [roleTokens, minHold],
+    [roleTokens, minHold, mode, port, config.fireButtons],
   );
   useEffect(() => () => engine.cancelAll(), [engine]);
 

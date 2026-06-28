@@ -1,4 +1,8 @@
-import { fake6502, type Cpu6502 } from 'jsbeeb/src/fake6502.js';
+import {
+  fake6502,
+  type Cpu6502,
+  type AnalogueSource,
+} from 'jsbeeb/src/fake6502.js';
 import { findModel } from 'jsbeeb/src/models.js';
 import { Video } from 'jsbeeb/src/video.js';
 import { SoundChip } from 'jsbeeb/src/soundchip.js';
@@ -6,6 +10,7 @@ import * as utils from 'jsbeeb/src/utils.js';
 import type {
   DebugStepOptions,
   DebugStepResult,
+  JoystickState,
   MachineEmulator,
   MachineReport,
   MachineVariable,
@@ -80,6 +85,28 @@ export function configureNodeRomPath(jsbeebRoot: string): void {
   utils.setNodeBasePath(jsbeebRoot);
 }
 
+/** ADC midpoint — a centred (idle) analogue axis. */
+const ADC_CENTRE = 0x8000;
+/** ADC full deflection — the BBC convention is left/up = 0xffff, right/down = 0. */
+const ADC_MAX = 0xffff;
+const ADC_MIN = 0x0000;
+
+/**
+ * Feeds the BBC's ADC from a digital D-pad. The on-screen pad only yields
+ * on/off directions, so each axis snaps to an extreme or the centre. Channel 0
+ * is joystick 1's X axis (left = 0xffff, right = 0), channel 1 its Y axis
+ * (up = 0xffff, down = 0); the unused joystick-2 channels read centred.
+ */
+class DigitalJoystickSource implements AnalogueSource {
+  x = ADC_CENTRE;
+  y = ADC_CENTRE;
+  getValue(channel: number): number {
+    if (channel === 0) return this.x;
+    if (channel === 1) return this.y;
+    return ADC_CENTRE;
+  }
+}
+
 /**
  * An Acorn machine wrapped around the jsbeeb emulator
  * (https://github.com/mattgodbolt/jsbeeb, GPL-3.0-or-later). The jsbeeb model
@@ -102,6 +129,8 @@ export class BbcMachine implements MachineEmulator {
 
   private readonly cpu: Cpu6502;
   private readonly soundChip: SoundChip;
+  /** Analogue source backing the gamepad's "Controller" mode (joystick 1). */
+  private readonly joystickSource = new DigitalJoystickSource();
   /** Full SN76489 buffers handed over since the last {@link readAudio} drain. */
   private audioChunks: Float32Array[] = [];
   private audioSamples = 0;
@@ -157,6 +186,9 @@ export class BbcMachine implements MachineEmulator {
     this.audioSampleRate = this.soundChip.soundchipFreq;
     this.cpu = fake6502(model, { video, soundChip: this.soundChip });
     this.hostKeyboard = new BbcHostKeyboard(this.cpu.sysvia);
+    // Wire joystick 1's two analogue axes to the gamepad source (channels 0/1).
+    this.cpu.adconverter.setChannelSource(0, this.joystickSource);
+    this.cpu.adconverter.setChannelSource(1, this.joystickSource);
     this.ready = this.cpu.initialise().then(() => {
       this.initialised = true;
     });
@@ -402,6 +434,28 @@ export class BbcMachine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.cpu.sysvia.clearKeys();
+  }
+
+  /**
+   * Drive the BBC analogue joystick from a digital D-pad. Each axis snaps to an
+   * extreme or centre (BBC convention: left/up = 0xffff, right/down = 0), and
+   * the two FIRE buttons go to the system VIA's PB4/PB5 inputs (active-low,
+   * handled inside jsbeeb). `port` is ignored — the gamepad always drives
+   * joystick 1.
+   */
+  setJoystick(_port: 1 | 2, state: JoystickState): void {
+    this.joystickSource.x = state.left
+      ? ADC_MAX
+      : state.right
+        ? ADC_MIN
+        : ADC_CENTRE;
+    this.joystickSource.y = state.up
+      ? ADC_MAX
+      : state.down
+        ? ADC_MIN
+        : ADC_CENTRE;
+    this.cpu.sysvia.setJoystickButton(0, state.fire1);
+    this.cpu.sysvia.setJoystickButton(1, state.fire2);
   }
 
   setSpeed(multiplier: number): void {

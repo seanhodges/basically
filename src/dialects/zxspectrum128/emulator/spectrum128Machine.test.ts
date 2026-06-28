@@ -49,6 +49,56 @@ function readScreen(
   return s;
 }
 
+/** Read an IO port through the machine's real decode (no ROM needed). */
+function ioRead(machine: Spectrum128Machine, port: number): number {
+  return (machine as unknown as { ioRead(p: number): number }).ioRead(port);
+}
+
+const NEUTRAL = {
+  up: false,
+  down: false,
+  left: false,
+  right: false,
+  fire1: false,
+  fire2: false,
+};
+
+// The Kempston port and IO decode don't depend on ROM contents, so this runs
+// even without public/roms/zxspectrum128.rom — a zeroed 32K stand-in suffices.
+describe('Spectrum128Machine Kempston joystick', () => {
+  const stub = () => new Spectrum128Machine({ rom: new Uint8Array(0x8000) });
+
+  it('reads the active-high joystick byte on port 0x1F', () => {
+    const m = stub();
+    expect(ioRead(m, 0x1f)).toBe(0); // idle: all switches open
+    m.setJoystick(1, { ...NEUTRAL, up: true, fire1: true });
+    // bit3 = up, bit4 = fire.
+    expect(ioRead(m, 0x1f)).toBe(0x08 | 0x10);
+    m.setJoystick(1, { ...NEUTRAL, right: true, left: true, down: true });
+    expect(ioRead(m, 0x1f)).toBe(0x01 | 0x02 | 0x04);
+  });
+
+  it('folds fire2 onto the single Kempston fire bit', () => {
+    const m = stub();
+    m.setJoystick(1, { ...NEUTRAL, fire2: true });
+    expect(ioRead(m, 0x1f) & 0x10).toBe(0x10);
+  });
+
+  it('does not shadow the even ULA keyboard port', () => {
+    const m = stub();
+    m.setJoystick(1, { ...NEUTRAL, up: true, down: true });
+    // 0xFE is even (A0 low) → ULA keyboard read, never the joystick byte.
+    expect(ioRead(m, 0xfefe) & 0x1f).toBe(0x1f); // no key held → all bits high
+  });
+
+  it('clears the joystick on reset', () => {
+    const m = stub();
+    m.setJoystick(1, { ...NEUTRAL, fire1: true });
+    m.reset();
+    expect(ioRead(m, 0x1f)).toBe(0);
+  });
+});
+
 // Stage 2 of docs/dialect-plans/zxspectrum128.md: boot the real 128 ROM, drive
 // the menu to "128 BASIC", inject + run a program, and assert on the displayed
 // bank. Skips cleanly when public/roms/zxspectrum128.rom is absent (it is not

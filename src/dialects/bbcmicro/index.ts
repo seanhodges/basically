@@ -64,6 +64,8 @@ export const bbcmicro: Dialect = {
 
   debuggable: true,
 
+  controllerSupport: true,
+
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   createEmulator() {
     return new BbcMachine();
