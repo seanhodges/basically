@@ -23,7 +23,10 @@ describe('sample programs', () => {
     const { bytes } = tokenizeProgram(breakout.text);
     const machine = new Zx81Machine({ rom, ramKb: 16 });
     machine.loadProgram(buildPFile(bytes));
-    for (let i = 0; i < 300; i++) machine.runFrame();
+    // Dismiss the welcome screen: INKEY$ reads the live key matrix, so holding
+    // "1" (not a paddle key) is enough to satisfy its "press any key" wait.
+    machine.setKey('Digit1', true);
+    for (let i = 0; i < 400; i++) machine.runFrame();
     // The top wall (row of 0x03 / ▀ characters) must be on screen
     const dfile = machine.mem.readWord(0x400c);
     let wallChars = 0;
@@ -38,7 +41,10 @@ describe('sample programs', () => {
     const { bytes } = tokenizeProgram(maze.text);
     const machine = new Zx81Machine({ rom, ramKb: 16 });
     machine.loadProgram(buildPFile(bytes));
-    for (let i = 0; i < 300; i++) machine.runFrame();
+    // Dismiss the welcome screen: INKEY$ reads the live key matrix, so holding
+    // "1" (not a movement key) is enough to satisfy its "press any key" wait.
+    machine.setKey('Digit1', true);
+    for (let i = 0; i < 400; i++) machine.runFrame();
     // The maze walls (0x80 / █ characters) must be on screen
     const dfile = machine.mem.readWord(0x400c);
     let wallChars = 0;

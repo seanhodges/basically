@@ -140,7 +140,11 @@ describe('atom maze in the emulator', () => {
     const machine = new AtomMachine();
     machine.loadProgram(bytes);
 
-    // Run long enough for the one-time draw to reach the INPUT prompt.
+    // The maze now opens on a welcome screen (PRINT title, then INPUT to start).
+    // Reach that prompt, press RETURN to begin, then let the maze draw.
+    await runFrames(machine, 200);
+    await tap(machine, 'Enter');
+    // Run long enough for the one-time draw to reach the move INPUT prompt.
     await runFrames(machine, 500);
 
     const wallsBefore = countWalls(machine);

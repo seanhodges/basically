@@ -38,12 +38,51 @@ describe('zxspectrum sample programs', () => {
     const { bytes } = tokenizeProgram(maze.text);
     const machine = new SpectrumMachine({ rom });
     machine.loadProgram(buildTap(bytes));
-    for (let i = 0; i < 200; i++) machine.runFrame();
+    // Dismiss the welcome screen by holding "1" (keyboard controls, the default);
+    // it is not a movement key (5/6/7/8) so the player stays put while it draws.
+    machine.setKey('Digit1', true);
+    for (let i = 0; i < 300; i++) machine.runFrame();
     // The maze prints a full 31x19 wall map with INK 4 on PAPER 0 (attr 0x04).
     let mazeCells = 0;
     for (let a = 0x5800; a < 0x5b00; a++) {
       if (machine.mem.read(a) === 0x04) mazeCells++;
     }
     expect(mazeCells).toBeGreaterThan(100);
+  });
+
+  it('breakout reads the Kempston joystick (IN 31) to steer the paddle', () => {
+    const breakout = spectrumSamples.find((s) => s.name === 'breakout.bas')!;
+    const { bytes } = tokenizeProgram(breakout.text);
+    const machine = new SpectrumMachine({ rom });
+    machine.loadProgram(buildTap(bytes));
+    // Pick "2. KEMPSTON JOYSTICK" on the welcome screen, then let go.
+    machine.setKey('Digit2', true);
+    for (let i = 0; i < 140; i++) machine.runFrame();
+    machine.setKey('Digit2', false);
+    const paddleX = () =>
+      Number(machine.readVariables().find((v) => v.name === 'X')?.value);
+    // The menu stored the Kempston mode in M, and the paddle starts mid-screen.
+    expect(machine.readVariables().find((v) => v.name === 'M')?.value).toBe(
+      '2',
+    );
+    const start = paddleX();
+
+    // Pushing the Kempston stick right (bit 0) walks the paddle right…
+    const idle = {
+      left: false,
+      right: false,
+      up: false,
+      down: false,
+      fire1: false,
+      fire2: false,
+    };
+    machine.setJoystick!('kempston', { ...idle, right: true });
+    for (let i = 0; i < 60; i++) machine.runFrame();
+    expect(paddleX()).toBeGreaterThan(start);
+
+    // …and pushing it left (bit 1) walks it back.
+    machine.setJoystick!('kempston', { ...idle, left: true });
+    for (let i = 0; i < 60; i++) machine.runFrame();
+    expect(paddleX()).toBeLessThan(start + 1);
   });
 });

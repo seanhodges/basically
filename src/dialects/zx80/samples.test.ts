@@ -85,6 +85,11 @@ describe('zx80 maze in the emulator', () => {
     const settle = () => {
       for (let i = 0; i < 6000; i++) machine.runFrame();
     };
+    // The maze now opens on a welcome screen (PRINT title, then INPUT to start).
+    // Reach that prompt, type a key + NEWLINE to begin, then let the maze draw.
+    settle();
+    tap(machine, 'Digit1');
+    tap(machine, 'Enter');
     settle();
 
     // The █ walls (code 0x80) fill most of the screen.
