@@ -3,6 +3,8 @@ import type { Z80Core } from '../../../emulator/z80/z80core.js';
 import type {
   DebugStepOptions,
   DebugStepResult,
+  JoystickMode,
+  JoystickState,
   MachineEmulator,
   MachineReport,
   MachineVariable,
@@ -11,6 +13,7 @@ import { SpectrumMemory } from './memory';
 import { readSpectrumVariables } from '../vars';
 import { readSpectrumReport } from '../reports';
 import { SpectrumKeyboard } from './keyboard';
+import { applySinclairJoystick, kempstonByte } from './joystick';
 import { Beeper, BEEPER_SAMPLE_RATE } from './beeper';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, parseTap } from '../tapfile';
@@ -50,6 +53,8 @@ export class SpectrumMachine implements MachineEmulator {
   /** Cycle offset within the current frame, exposed to the IO write trap. */
   private frameCycle = 0;
   private border = 7;
+  /** Kempston joystick port byte (active-high: bit0 right … bit4 fire). */
+  private kempston = 0;
   private speed = 1;
   private frameCount = 0;
   private imageData: ImageData | null = null;
@@ -62,13 +67,7 @@ export class SpectrumMachine implements MachineEmulator {
     this.cpu = Z80({
       mem_read: this.memory.read,
       mem_write: this.memory.write,
-      io_read: (port: number) => {
-        if ((port & 0x01) === 0) {
-          // ULA: keyboard on the high address byte (EAR/bits 5-7 read high).
-          return this.keyboard.readPort((port >> 8) & 0xff);
-        }
-        return 0xff;
-      },
+      io_read: this.ioRead,
       io_write: (port: number, value: number) => {
         if ((port & 0x01) === 0) {
           this.border = value & 0x07;
@@ -86,10 +85,34 @@ export class SpectrumMachine implements MachineEmulator {
     this.keyboard.releaseAll();
     this.pending = null;
     this.border = 7;
+    this.kempston = 0;
     this.frameCount = 0;
     this.frameCycle = 0;
     this.beeper.reset();
     this.cpu.reset();
+  }
+
+  /** Z80 IO read decode (ULA keyboard/EAR + Kempston joystick). */
+  private ioRead = (port: number): number => {
+    if ((port & 0x01) === 0) {
+      // ULA: keyboard on the high address byte (EAR/bits 5-7 read high).
+      return this.keyboard.readPort((port >> 8) & 0xff);
+    }
+    // Kempston joystick: loosely decoded on A5 low (canonical port 0x1F). Odd
+    // ports only here — even ports were claimed by the ULA above — so this can't
+    // shadow the keyboard. Bits 5-7 read 0, as on real hardware.
+    if ((port & 0x0020) === 0) return this.kempston;
+    return 0xff;
+  };
+
+  /**
+   * Drive a joystick interface. `native` is the Sinclair interface (joystick 1
+   * mapped to keys 1–5 on the matrix); `kempston` sets the active-high port byte
+   * read at $1F.
+   */
+  setJoystick(mode: JoystickMode, state: JoystickState): void {
+    if (mode === 'kempston') this.kempston = kempstonByte(state);
+    else applySinclairJoystick(this.keyboard, state);
   }
 
   /**

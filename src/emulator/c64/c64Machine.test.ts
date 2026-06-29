@@ -129,37 +129,22 @@ describe('C64Machine', () => {
     BOOT_TIMEOUT_MS,
   );
 
-  describe('joystick port', () => {
+  describe('native joystick (port 2 / $dc00)', () => {
     it(
-      'drives port 2 ($dc00) active-low from setJoystick',
+      'drives the games port active-low from setJoystick',
       async () => {
         const m = new C64Machine({ roms });
         await m.whenReady();
         for (let i = 0; i < 200; i++) m.runFrame();
         // Idle: all five switches float high (bits 0-4 set).
-        m.setJoystick(2, NEUTRAL);
+        m.setJoystick('native', NEUTRAL);
         expect(peek(m, 0xdc00) & 0x1f).toBe(0x1f);
         // Left (bit2) + fire (bit4) pressed pull their lines low.
-        m.setJoystick(2, { ...NEUTRAL, left: true, fire1: true });
+        m.setJoystick('native', { ...NEUTRAL, left: true, fire1: true });
         expect(peek(m, 0xdc00) & 0x1f).toBe(0x1f & ~(0x04 | 0x10));
         // fire2 folds onto the single fire line on the C64.
-        m.setJoystick(2, { ...NEUTRAL, fire2: true });
+        m.setJoystick('native', { ...NEUTRAL, fire2: true });
         expect(peek(m, 0xdc00) & 0x10).toBe(0);
-        m.dispose();
-      },
-      BOOT_TIMEOUT_MS,
-    );
-
-    it(
-      'drives port 1 ($dc01) without disturbing the idle keyboard read',
-      async () => {
-        const m = new C64Machine({ roms });
-        await m.whenReady();
-        for (let i = 0; i < 200; i++) m.runFrame();
-        // With no key held the matrix reads all-high; port 2 stays untouched.
-        m.setJoystick(1, { ...NEUTRAL, up: true });
-        expect(peek(m, 0xdc01) & 0x01).toBe(0); // up = bit0 low
-        expect(peek(m, 0xdc00) & 0x1f).toBe(0x1f); // port 2 unaffected
         m.dispose();
       },
       BOOT_TIMEOUT_MS,

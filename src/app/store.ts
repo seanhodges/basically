@@ -144,10 +144,11 @@ interface IdeState {
   /** Active dialect's D-pad direction mode. */
   controllerDpadMode: '4-way' | '8-way';
   /**
-   * Preferred gamepad input mode, across all machines. 'controller' drives a
-   * real joystick port where the machine supports it; 'keymapped' presses keys.
-   * Machines without a joystick port fall back to key mapping at the point of
-   * use (see effectiveGamepadMode), regardless of this preference. Persisted.
+   * Preferred gamepad input mode, across all machines. A joystick mode
+   * ('native'/'kempston') drives the machine's joystick interface where
+   * supported; 'keymapped' presses keys. A machine that can't service the chosen
+   * mode falls back to key mapping at the point of use (see effectiveGamepadMode),
+   * regardless of this preference. Persisted.
    */
   gamepadMode: GamepadMode;
   /** Pop the on-screen keyboard up automatically when the editor/preview gains
@@ -410,7 +411,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   controllerBindings: loadControllerBindings(startupDialect),
   controllerDpadMode: loadControllerDpadMode(startupDialect),
   gamepadMode:
-    typeof localStorage !== 'undefined' ? getGamepadMode() : 'controller',
+    typeof localStorage !== 'undefined' ? getGamepadMode() : 'native',
   keyboardAutoShow:
     typeof localStorage !== 'undefined'
       ? (getKeyboardAutoShow() ?? defaultKeyboardAutoShow())

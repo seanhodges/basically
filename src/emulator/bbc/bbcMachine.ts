@@ -10,6 +10,7 @@ import * as utils from 'jsbeeb/src/utils.js';
 import type {
   DebugStepOptions,
   DebugStepResult,
+  JoystickMode,
   JoystickState,
   MachineEmulator,
   MachineReport,
@@ -440,10 +441,10 @@ export class BbcMachine implements MachineEmulator {
    * Drive the BBC analogue joystick from a digital D-pad. Each axis snaps to an
    * extreme or centre (BBC convention: left/up = 0xffff, right/down = 0), and
    * the two FIRE buttons go to the system VIA's PB4/PB5 inputs (active-low,
-   * handled inside jsbeeb). `port` is ignored — the gamepad always drives
-   * joystick 1.
+   * handled inside jsbeeb). `_mode` is always `native` — the BBC's analogue port
+   * is its only joystick.
    */
-  setJoystick(_port: 1 | 2, state: JoystickState): void {
+  setJoystick(_mode: JoystickMode, state: JoystickState): void {
     this.joystickSource.x = state.left
       ? ADC_MAX
       : state.right

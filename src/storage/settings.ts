@@ -274,13 +274,15 @@ export function setControllerDpadMode(
 
 /**
  * Preferred virtual-gamepad input mode, applied across all machines. Defaults to
- * 'controller' (real joystick where the machine supports it); machines without a
- * joystick port fall back to 'keymapped' at the point of use, not here.
+ * 'native' (the machine's own joystick interface where supported); a mode the
+ * current machine can't service falls back to 'keymapped' at the point of use,
+ * not here. The legacy 'controller' value migrates to 'native'.
  */
 export function getGamepadMode(): GamepadMode {
-  return localStorage.getItem(KEYS.gamepadMode) === 'keymapped'
-    ? 'keymapped'
-    : 'controller';
+  const raw = localStorage.getItem(KEYS.gamepadMode);
+  if (raw === 'keymapped') return 'keymapped';
+  if (raw === 'kempston') return 'kempston';
+  return 'native';
 }
 
 export function setGamepadMode(mode: GamepadMode): void {

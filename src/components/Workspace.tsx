@@ -164,10 +164,9 @@ export function Workspace() {
   // behaves normally (including auto-show on focus).
   const controllerVisible = controllerEnabled && emulatorSurfaceActive;
   // Resolve the user's gamepad preference against this machine's joystick
-  // support; unsupported machines silently fall back to key mapping. The C64's
-  // games read joystick port 2, the other supported cores expose a single port.
+  // support; machines that don't support the chosen mode silently fall back to
+  // key mapping.
   const effectiveMode = effectiveGamepadMode(dialect, gamepadMode);
-  const gamepadPort = dialect.id === 'commodore64' ? 2 : 1;
   // The keyboard belongs over the editor/preview surfaces, but yields to the
   // controller whenever that's showing.
   const keyboardVisible =
@@ -321,7 +320,6 @@ export function Workspace() {
             overrides={controllerBindings}
             dpadMode={controllerDpadMode}
             mode={effectiveMode}
-            port={gamepadPort}
             onStartRemap={setRemapRole}
           />
         </div>

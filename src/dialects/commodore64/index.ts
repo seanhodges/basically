@@ -66,7 +66,7 @@ export const commodore64: Dialect = {
 
   debuggable: true,
 
-  controllerSupport: true,
+  joystickModes: ['native'],
 
   // opts.rom/ramKb are ignored: viciious manages its own ROMs and 64K memory.
   createEmulator() {

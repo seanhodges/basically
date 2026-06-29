@@ -14,13 +14,11 @@ const DEFAULT_MIN_HOLD_FRAMES = 3;
 
 /** How the engine turns held roles into emulator input. */
 export interface ControllerEngineOptions {
-  /** 'keymapped' presses key tokens; 'controller' drives a joystick port. */
+  /** 'keymapped' presses key tokens; a joystick mode drives `setJoystick`. */
   mode: GamepadMode;
-  /** Joystick port to drive in controller mode (ignored when key-mapped). */
-  port?: 1 | 2;
-  /** Fire-button count; gates `fire2` in controller mode. */
+  /** Fire-button count; gates `fire2` in joystick modes. */
   fireButtons?: 1 | 2;
-  /** Min-hold frames for key-mapped releases (unused in controller mode). */
+  /** Min-hold frames for key-mapped releases (unused in joystick modes). */
   minHoldFrames?: number;
 }
 
@@ -51,7 +49,6 @@ interface PendingRelease {
  */
 export class ControllerInputEngine {
   private readonly mode: GamepadMode;
-  private readonly port: 1 | 2;
   private readonly fireButtons: 1 | 2;
   private readonly minHoldFrames: number;
   private frame = 0;
@@ -71,7 +68,6 @@ export class ControllerInputEngine {
     options: ControllerEngineOptions,
   ) {
     this.mode = options.mode;
-    this.port = options.port ?? 2;
     this.fireButtons = options.fireButtons ?? 1;
     this.minHoldFrames = options.minHoldFrames ?? DEFAULT_MIN_HOLD_FRAMES;
   }
@@ -99,7 +95,7 @@ export class ControllerInputEngine {
     if (roles.size === 0) this.pointerRoles.delete(pointerId);
     else this.pointerRoles.set(pointerId, new Set(roles));
     if (changed) {
-      if (this.mode === 'controller') this.applyJoystick();
+      if (this.mode !== 'keymapped') this.applyJoystick();
       this.notify();
     }
   }
@@ -138,7 +134,7 @@ export class ControllerInputEngine {
     this.tokenCounts.clear();
     this.target.getMachine()?.releaseAllKeys();
     // Centre the joystick / drop fire so nothing is left held after a stop.
-    if (this.mode === 'controller') this.applyJoystick();
+    if (this.mode !== 'keymapped') this.applyJoystick();
     this.notify();
   }
 
@@ -157,8 +153,8 @@ export class ControllerInputEngine {
     if (this.active.has(key)) return;
     const tokens = this.roleTokens[role] ?? [];
     this.active.set(key, { tokens, pressedAtFrame: this.frame });
-    // Controller mode reads the joystick port directly; min-hold/token presses
-    // are a key-mapped-only concern (they survive the ROM's matrix scan).
+    // Joystick modes drive the port directly; min-hold/token presses are a
+    // key-mapped-only concern (they survive the ROM's matrix scan).
     if (this.mode === 'keymapped')
       for (const token of tokens) this.pressToken(token);
   }
@@ -177,12 +173,13 @@ export class ControllerInputEngine {
     }
   }
 
-  /** Push the current direction/fire state to the machine's joystick port. */
+  /** Push the current direction/fire state to the machine's joystick interface. */
   private applyJoystick(): void {
+    if (this.mode === 'keymapped') return;
     this.target
       .getMachine()
       ?.setJoystick?.(
-        this.port,
+        this.mode,
         rolesToJoystick(this.getActiveRoles(), this.fireButtons),
       );
   }

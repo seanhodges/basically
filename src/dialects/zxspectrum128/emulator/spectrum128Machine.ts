@@ -3,11 +3,16 @@ import type { Z80Core } from '../../../emulator/z80/z80core.js';
 import type {
   DebugStepOptions,
   DebugStepResult,
+  JoystickMode,
   JoystickState,
   MachineEmulator,
   MachineReport,
   MachineVariable,
 } from '../../types';
+import {
+  applySinclairJoystick,
+  kempstonByte,
+} from '../../zxspectrum/emulator/joystick';
 import { Spectrum128Memory } from './memory128';
 import { Ay38912 } from './ay';
 import { readSpectrumVariables } from '../../zxspectrum/vars';
@@ -482,18 +487,13 @@ export class Spectrum128Machine implements MachineEmulator {
   };
 
   /**
-   * Drive the Kempston joystick port. Kempston is active-high (a closed switch
-   * pulls its bit to 1), bits 0-4 = right/left/down/up/fire, idle = 0x00. The
-   * port is single-fire, so `fire2` folds into the one fire bit.
+   * Drive a joystick interface. `native` is the Sinclair interface (joystick 1
+   * mapped to keys 1–5 on the matrix); `kempston` sets the active-high port byte
+   * read at $1F.
    */
-  setJoystick(_port: 1 | 2, state: JoystickState): void {
-    let value = 0;
-    if (state.right) value |= 0x01;
-    if (state.left) value |= 0x02;
-    if (state.down) value |= 0x04;
-    if (state.up) value |= 0x08;
-    if (state.fire1 || state.fire2) value |= 0x10;
-    this.kempston = value;
+  setJoystick(mode: JoystickMode, state: JoystickState): void {
+    if (mode === 'kempston') this.kempston = kempstonByte(state);
+    else applySinclairJoystick(this.keyboard, state);
   }
 
   setSpeed(multiplier: number): void {

@@ -68,7 +68,7 @@ export const bbcmaster: Dialect = {
 
   debuggable: true,
 
-  controllerSupport: true,
+  joystickModes: ['native'],
 
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   createEmulator() {

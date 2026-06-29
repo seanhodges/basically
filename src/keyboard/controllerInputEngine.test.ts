@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import type { JoystickState, MachineEmulator } from '../dialects/types';
+import type {
+  JoystickMode,
+  JoystickState,
+  MachineEmulator,
+} from '../dialects/types';
 import type { ControllerRole } from './layoutSchema';
 import {
   ControllerInputEngine,
@@ -9,15 +13,15 @@ import {
 /** Records every setKey / releaseAllKeys / setJoystick call for assertions. */
 function recorder() {
   const events: [string, boolean][] = [];
-  const joystick: [number, JoystickState][] = [];
+  const joystick: [JoystickMode, JoystickState][] = [];
   let releasedAll = 0;
   const machine = {
     setKey: (token: string, down: boolean) => events.push([token, down]),
     releaseAllKeys: () => {
       releasedAll++;
     },
-    setJoystick: (port: number, state: JoystickState) =>
-      joystick.push([port, state]),
+    setJoystick: (mode: JoystickMode, state: JoystickState) =>
+      joystick.push([mode, state]),
   } as unknown as MachineEmulator;
   return {
     machine,
@@ -163,16 +167,16 @@ describe('ControllerInputEngine', () => {
   });
 });
 
-describe('ControllerInputEngine (controller mode)', () => {
+describe('ControllerInputEngine (joystick mode)', () => {
   const controller = (
     rec: ReturnType<typeof recorder>,
     fireButtons: 1 | 2 = 1,
-    port: 1 | 2 = 2,
+    mode: JoystickMode = 'native',
   ) =>
     new ControllerInputEngine(
       ROLE_TOKENS,
       { getMachine: () => rec.machine },
-      { mode: 'controller', port, fireButtons },
+      { mode, fireButtons },
     );
 
   it('pushes joystick state instead of key tokens', () => {
@@ -181,7 +185,7 @@ describe('ControllerInputEngine (controller mode)', () => {
     e.setPointerRoles(1, roles('left'));
     expect(rec.events).toEqual([]); // never touches the key matrix
     expect(rec.joystick.at(-1)).toEqual([
-      2,
+      'native',
       {
         up: false,
         down: false,
@@ -217,6 +221,12 @@ describe('ControllerInputEngine (controller mode)', () => {
     expect(two.joystick.at(-1)![1].fire2).toBe(true);
   });
 
+  it('passes the joystick mode through to setJoystick', () => {
+    const rec = recorder();
+    controller(rec, 1, 'kempston').setPointerRoles(1, roles('right'));
+    expect(rec.joystick.at(-1)![0]).toBe('kempston');
+  });
+
   it('does not defer releases with min-hold (port is level-sensitive)', () => {
     const rec = recorder();
     const e = controller(rec);
@@ -242,11 +252,5 @@ describe('ControllerInputEngine (controller mode)', () => {
       fire1: false,
       fire2: false,
     });
-  });
-
-  it('drives the requested port', () => {
-    const rec = recorder();
-    controller(rec, 1, 1).setPointerRoles(1, roles('right'));
-    expect(rec.joystick.at(-1)![0]).toBe(1);
   });
 });

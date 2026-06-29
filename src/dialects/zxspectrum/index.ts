@@ -47,6 +47,8 @@ export const zxspectrum: Dialect = {
 
   debuggable: true,
 
+  joystickModes: ['native', 'kempston'],
+
   createEmulator(opts) {
     return new SpectrumMachine({ rom: opts.rom });
   },

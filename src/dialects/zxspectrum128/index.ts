@@ -63,7 +63,7 @@ export const zxspectrum128: Dialect = {
 
   debuggable: true,
 
-  controllerSupport: true,
+  joystickModes: ['native', 'kempston'],
 
   // opts.ramKb is ignored: the 128K always provides its eight 16K banks itself.
   createEmulator(opts) {

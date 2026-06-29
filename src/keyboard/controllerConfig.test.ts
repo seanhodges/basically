@@ -128,19 +128,37 @@ describe('rolesToJoystick', () => {
 });
 
 describe('effectiveGamepadMode', () => {
-  it('keeps controller only when the dialect supports it', () => {
+  it('keeps a joystick mode only when the dialect lists it', () => {
+    // C64-like: native only.
+    expect(effectiveGamepadMode({ joystickModes: ['native'] }, 'native')).toBe(
+      'native',
+    );
     expect(
-      effectiveGamepadMode({ controllerSupport: true }, 'controller'),
-    ).toBe('controller');
-    expect(
-      effectiveGamepadMode({ controllerSupport: false }, 'controller'),
+      effectiveGamepadMode({ joystickModes: ['native'] }, 'kempston'),
     ).toBe('keymapped');
-    expect(effectiveGamepadMode({}, 'controller')).toBe('keymapped');
+    // Spectrum-like: both native (Sinclair) and kempston.
+    expect(
+      effectiveGamepadMode(
+        { joystickModes: ['native', 'kempston'] },
+        'kempston',
+      ),
+    ).toBe('kempston');
+    expect(
+      effectiveGamepadMode({ joystickModes: ['native', 'kempston'] }, 'native'),
+    ).toBe('native');
+  });
+
+  it('falls back to keymapped when unsupported or unset', () => {
+    expect(effectiveGamepadMode({ joystickModes: [] }, 'native')).toBe(
+      'keymapped',
+    );
+    expect(effectiveGamepadMode({}, 'native')).toBe('keymapped');
+    expect(effectiveGamepadMode({}, 'kempston')).toBe('keymapped');
   });
 
   it('always honours an explicit keymapped preference', () => {
-    expect(effectiveGamepadMode({ controllerSupport: true }, 'keymapped')).toBe(
-      'keymapped',
-    );
+    expect(
+      effectiveGamepadMode({ joystickModes: ['native'] }, 'keymapped'),
+    ).toBe('keymapped');
   });
 });

@@ -1,4 +1,4 @@
-import type { Dialect, JoystickState } from '../dialects/types';
+import type { Dialect, JoystickMode, JoystickState } from '../dialects/types';
 import type {
   ControllerConfig,
   ControllerRole,
@@ -7,8 +7,11 @@ import type {
   KeyboardLayout,
 } from './layoutSchema';
 
-/** The two virtual-gamepad input modes the user can prefer. */
-export type GamepadMode = 'controller' | 'keymapped';
+/**
+ * The virtual-gamepad input mode the user can prefer: a hardware
+ * {@link JoystickMode} (`native`/`kempston`) or `keymapped` (press keys).
+ */
+export type GamepadMode = JoystickMode | 'keymapped';
 
 /** Every controller role, in display order (directions then fire buttons). */
 export const CONTROLLER_ROLES: ControllerRole[] = [
@@ -143,17 +146,16 @@ export function rolesToJoystick(
 }
 
 /**
- * The gamepad mode actually in effect: 'controller' only when the user prefers
- * it AND the dialect's emulator can service a hardware joystick port; otherwise
- * the gamepad falls back to 'keymapped'. Computable while stopped (no machine).
+ * The gamepad mode actually in effect: the preferred hardware joystick mode only
+ * when the current dialect's emulator can service it, otherwise 'keymapped'.
+ * Computable while stopped (no machine built).
  */
 export function effectiveGamepadMode(
-  dialect: Pick<Dialect, 'controllerSupport'>,
+  dialect: Pick<Dialect, 'joystickModes'>,
   pref: GamepadMode,
 ): GamepadMode {
-  return pref === 'controller' && dialect.controllerSupport
-    ? 'controller'
-    : 'keymapped';
+  if (pref === 'keymapped') return 'keymapped';
+  return dialect.joystickModes?.includes(pref) ? pref : 'keymapped';
 }
 
 /** Keys the remap picker offers: every layout key that drives the matrix. */

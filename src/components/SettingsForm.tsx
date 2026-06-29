@@ -8,7 +8,10 @@ import {
 } from '../storage/settings';
 import { PROVIDERS, getProvider } from '../ai/providers/registry';
 import type { AiProviderId } from '../ai/providers/types';
-import type { GamepadMode } from '../keyboard/controllerConfig';
+import {
+  type GamepadMode,
+  effectiveGamepadMode,
+} from '../keyboard/controllerConfig';
 import styles from './SettingsForm.module.css';
 import dialog from './Dialog.module.css';
 
@@ -189,14 +192,20 @@ export function SettingsForm() {
           value={gamepadMode}
           onChange={(e) => setGamepadMode(e.target.value as GamepadMode)}
         >
-          <option value="controller">Controller (joystick)</option>
+          <option value="native">Native Interface</option>
+          <option value="kempston">Kempston</option>
           <option value="keymapped">Key mapped</option>
         </select>
       </label>
       <p>
-        {gamepadMode === 'controller' && !dialect.controllerSupport
-          ? `${dialect.name} has no joystick port — the gamepad uses Key mapped here.`
-          : 'Controller drives the machine’s real joystick port; Key mapped presses keys instead.'}
+        {gamepadMode !== 'keymapped' &&
+        effectiveGamepadMode(dialect, gamepadMode) === 'keymapped'
+          ? `${dialect.name} has no ${
+              gamepadMode === 'native'
+                ? 'native joystick interface'
+                : 'Kempston interface'
+            } — the gamepad uses Key mapped here.`
+          : 'Native Interface and Kempston drive the machine’s real joystick hardware; Key mapped presses keys instead.'}
       </p>
       <label className={styles.inline}>
         D-pad directions
