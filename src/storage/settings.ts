@@ -5,7 +5,10 @@ import {
   DEFAULT_PROVIDER_ID,
   getProvider,
 } from '../ai/providers/registry';
-import type { ControllerOverrides } from '../keyboard/controllerConfig';
+import type {
+  ControllerOverrides,
+  GamepadMode,
+} from '../keyboard/controllerConfig';
 
 /**
  * Whether the on-screen keyboard is docked under the emulator. Persisted so the
@@ -48,6 +51,7 @@ const KEYS = {
   controllerEnabled: 'mbide.controllerEnabled',
   controllerBindings: 'mbide.controllerBindings',
   controllerDpadMode: 'mbide.controllerDpadMode',
+  gamepadMode: 'mbide.gamepadMode',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
 } as const;
 
@@ -266,6 +270,24 @@ export function setControllerDpadMode(
   mode: '4-way' | '8-way',
 ): void {
   localStorage.setItem(`${KEYS.controllerDpadMode}.${dialectId}`, mode);
+}
+
+/**
+ * Preferred virtual-gamepad input mode, applied across all machines. Defaults to
+ * 'keymapped' — the most widely compatible mode, since not every machine has a
+ * joystick port (e.g. the ZX80). Users can switch to a hardware joystick mode
+ * ('native'/'kempston'), which falls back to 'keymapped' at the point of use on
+ * machines that can't service it.
+ */
+export function getGamepadMode(): GamepadMode {
+  const raw = localStorage.getItem(KEYS.gamepadMode);
+  if (raw === 'native') return 'native';
+  if (raw === 'kempston') return 'kempston';
+  return 'keymapped';
+}
+
+export function setGamepadMode(mode: GamepadMode): void {
+  localStorage.setItem(KEYS.gamepadMode, mode);
 }
 
 /** Master enable for run-time emulator audio. Defaults on. */

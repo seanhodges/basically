@@ -203,4 +203,53 @@ describe('SpectrumMachine', () => {
       expect(stepped.line).toBe(30);
     });
   });
+
+  // The joystick wiring and IO decode don't depend on running the ROM, so these
+  // probe the machine directly. Keys 1-5 live on matrix row selected by ULA high
+  // byte 0xF7 (bit0=1 … bit4=5, active-low).
+  describe('joystick', () => {
+    const NEUTRAL = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      fire1: false,
+      fire2: false,
+    };
+    const ioRead = (m: SpectrumMachine, port: number): number =>
+      (m as unknown as { ioRead(p: number): number }).ioRead(port);
+
+    it('drives the Kempston port ($1F) active-high', () => {
+      const m = new SpectrumMachine({ rom });
+      expect(ioRead(m, 0x1f)).toBe(0); // idle
+      m.setJoystick('kempston', { ...NEUTRAL, up: true, fire1: true });
+      expect(ioRead(m, 0x1f)).toBe(0x08 | 0x10); // bit3 up, bit4 fire
+      m.setJoystick('kempston', { ...NEUTRAL, fire2: true });
+      expect(ioRead(m, 0x1f) & 0x10).toBe(0x10); // fire2 folds onto fire bit
+      // Even ULA ports never read the Kempston byte.
+      expect(ioRead(m, 0xfefe) & 0x1f).toBe(0x1f);
+    });
+
+    it('drives the Sinclair interface (native) via keys 1-5', () => {
+      const m = new SpectrumMachine({ rom });
+      // left = key 1 (bit0); Kempston stays idle in native mode.
+      m.setJoystick('native', { ...NEUTRAL, left: true });
+      expect(ioRead(m, 0xf7fe) & 0x01).toBe(0);
+      expect(ioRead(m, 0x1f)).toBe(0);
+      // up = key 4 (bit3), fire = key 5 (bit4).
+      m.setJoystick('native', { ...NEUTRAL, up: true, fire1: true });
+      expect(ioRead(m, 0xf7fe) & 0x18).toBe(0);
+      expect(ioRead(m, 0xf7fe) & 0x01).toBe(0x01); // left released
+      // Centring releases all five keys.
+      m.setJoystick('native', NEUTRAL);
+      expect(ioRead(m, 0xf7fe) & 0x1f).toBe(0x1f);
+    });
+
+    it('clears the Kempston byte on reset', () => {
+      const m = new SpectrumMachine({ rom });
+      m.setJoystick('kempston', { ...NEUTRAL, fire1: true });
+      m.reset();
+      expect(ioRead(m, 0x1f)).toBe(0);
+    });
+  });
 });

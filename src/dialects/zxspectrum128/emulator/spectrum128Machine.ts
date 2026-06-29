@@ -3,10 +3,16 @@ import type { Z80Core } from '../../../emulator/z80/z80core.js';
 import type {
   DebugStepOptions,
   DebugStepResult,
+  JoystickMode,
+  JoystickState,
   MachineEmulator,
   MachineReport,
   MachineVariable,
 } from '../../types';
+import {
+  applySinclairJoystick,
+  kempstonByte,
+} from '../../zxspectrum/emulator/joystick';
 import { Spectrum128Memory } from './memory128';
 import { Ay38912 } from './ay';
 import { readSpectrumVariables } from '../../zxspectrum/vars';
@@ -68,6 +74,8 @@ export class Spectrum128Machine implements MachineEmulator {
   /** Cycle offset within the current frame, for timestamping beeper writes. */
   private frameCycle = 0;
   private border = 7;
+  /** Kempston joystick port byte (active-high: bit0 right … bit4 fire). */
+  private kempston = 0;
   private speed = 1;
   private frameCount = 0;
   private imageData: ImageData | null = null;
@@ -80,15 +88,7 @@ export class Spectrum128Machine implements MachineEmulator {
     this.cpu = Z80({
       mem_read: this.memory.read,
       mem_write: this.memory.write,
-      io_read: (port: number) => {
-        // ULA keyboard/EAR on any even port (A0 low).
-        if ((port & 0x0001) === 0) {
-          return this.keyboard.readPort((port >> 8) & 0xff);
-        }
-        // AY register read on 0xFFFD (A15 high, A1 low).
-        if ((port & 0xc002) === 0xc000) return this.ay.readData();
-        return 0xff;
-      },
+      io_read: this.ioRead,
       io_write: (port: number, value: number) => {
         if ((port & 0x0001) === 0) {
           this.border = value & 0x07; // ULA border
@@ -113,6 +113,7 @@ export class Spectrum128Machine implements MachineEmulator {
     this.beeper.reset();
     this.pending = null;
     this.border = 7;
+    this.kempston = 0;
     this.frameCount = 0;
     this.frameCycle = 0;
     this.cpu.reset();
@@ -468,6 +469,31 @@ export class Spectrum128Machine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.keyboard.releaseAll();
+  }
+
+  /** Z80 IO read decode (keyboard/EAR, AY, Kempston joystick). */
+  private ioRead = (port: number): number => {
+    // ULA keyboard/EAR on any even port (A0 low).
+    if ((port & 0x0001) === 0) {
+      return this.keyboard.readPort((port >> 8) & 0xff);
+    }
+    // AY register read on 0xFFFD (A15 high, A1 low).
+    if ((port & 0xc002) === 0xc000) return this.ay.readData();
+    // Kempston joystick: loosely decoded on A5 low (canonical port 0x1F). Odd
+    // ports only here — even ports were claimed by the ULA above — so this can't
+    // shadow the keyboard. Bits 5-7 read 0, as on real hardware.
+    if ((port & 0x0020) === 0) return this.kempston;
+    return 0xff;
+  };
+
+  /**
+   * Drive a joystick interface. `native` is the Sinclair interface (joystick 1
+   * mapped to keys 1–5 on the matrix); `kempston` sets the active-high port byte
+   * read at $1F.
+   */
+  setJoystick(mode: JoystickMode, state: JoystickState): void {
+    if (mode === 'kempston') this.kempston = kempstonByte(state);
+    else applySinclairJoystick(this.keyboard, state);
   }
 
   setSpeed(multiplier: number): void {

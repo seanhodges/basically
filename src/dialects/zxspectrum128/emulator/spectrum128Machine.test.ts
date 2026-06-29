@@ -49,6 +49,85 @@ function readScreen(
   return s;
 }
 
+/** Read an IO port through the machine's real decode (no ROM needed). */
+function ioRead(machine: Spectrum128Machine, port: number): number {
+  return (machine as unknown as { ioRead(p: number): number }).ioRead(port);
+}
+
+const NEUTRAL = {
+  up: false,
+  down: false,
+  left: false,
+  right: false,
+  fire1: false,
+  fire2: false,
+};
+
+// The joystick wiring and IO decode don't depend on ROM contents, so this runs
+// even without public/roms/zxspectrum128.rom — a zeroed 32K stand-in suffices.
+// Row 3 (keys 1-5) is selected by ULA high byte 0xF7; bit0=1 … bit4=5, active-low.
+describe('Spectrum128Machine joystick', () => {
+  const stub = () => new Spectrum128Machine({ rom: new Uint8Array(0x8000) });
+
+  describe('kempston', () => {
+    it('reads the active-high joystick byte on port 0x1F', () => {
+      const m = stub();
+      expect(ioRead(m, 0x1f)).toBe(0); // idle: all switches open
+      m.setJoystick('kempston', { ...NEUTRAL, up: true, fire1: true });
+      // bit3 = up, bit4 = fire.
+      expect(ioRead(m, 0x1f)).toBe(0x08 | 0x10);
+      m.setJoystick('kempston', {
+        ...NEUTRAL,
+        right: true,
+        left: true,
+        down: true,
+      });
+      expect(ioRead(m, 0x1f)).toBe(0x01 | 0x02 | 0x04);
+    });
+
+    it('folds fire2 onto the single Kempston fire bit', () => {
+      const m = stub();
+      m.setJoystick('kempston', { ...NEUTRAL, fire2: true });
+      expect(ioRead(m, 0x1f) & 0x10).toBe(0x10);
+    });
+
+    it('does not shadow the even ULA keyboard port', () => {
+      const m = stub();
+      m.setJoystick('kempston', { ...NEUTRAL, up: true, down: true });
+      // 0xFE is even (A0 low) → ULA keyboard read, never the joystick byte.
+      expect(ioRead(m, 0xfefe) & 0x1f).toBe(0x1f); // no key held → all bits high
+    });
+
+    it('clears the joystick on reset', () => {
+      const m = stub();
+      m.setJoystick('kempston', { ...NEUTRAL, fire1: true });
+      m.reset();
+      expect(ioRead(m, 0x1f)).toBe(0);
+    });
+  });
+
+  describe('native (Sinclair interface)', () => {
+    it('maps directions/fire to keys 1-5 on the matrix', () => {
+      const m = stub();
+      // left = key 1 (bit0).
+      m.setJoystick('native', { ...NEUTRAL, left: true });
+      expect(ioRead(m, 0xf7fe) & 0x01).toBe(0);
+      expect(ioRead(m, 0x1f)).toBe(0); // Kempston port stays idle in native mode
+      // up = key 4 (bit3), fire = key 5 (bit4).
+      m.setJoystick('native', { ...NEUTRAL, up: true, fire1: true });
+      expect(ioRead(m, 0xf7fe) & 0x18).toBe(0);
+      expect(ioRead(m, 0xf7fe) & 0x01).toBe(0x01); // left released → key 1 high
+    });
+
+    it('releases the Sinclair keys when centred', () => {
+      const m = stub();
+      m.setJoystick('native', { ...NEUTRAL, right: true });
+      m.setJoystick('native', NEUTRAL);
+      expect(ioRead(m, 0xf7fe) & 0x1f).toBe(0x1f); // all keys 1-5 released
+    });
+  });
+});
+
 // Stage 2 of docs/dialect-plans/zxspectrum128.md: boot the real 128 ROM, drive
 // the menu to "128 BASIC", inject + run a program, and assert on the displayed
 // bank. Skips cleanly when public/roms/zxspectrum128.rom is absent (it is not

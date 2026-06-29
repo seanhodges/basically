@@ -171,6 +171,52 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     machine.dispose();
   });
 
+  describe('analogue joystick', () => {
+    const NEUTRAL = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      fire1: false,
+      fire2: false,
+    };
+    // The ADC source and VIA exist synchronously after construction, so these
+    // need no ROM boot or frames.
+    const axes = (m: BbcMachine) => {
+      const src = (m as unknown as { joystickSource: { x: number; y: number } })
+        .joystickSource;
+      return { x: src.x, y: src.y };
+    };
+    const buttons = (m: BbcMachine) =>
+      (
+        m.processor.sysvia as unknown as {
+          getJoysticks(): { button1: boolean; button2: boolean };
+        }
+      ).getJoysticks();
+
+    it('maps the D-pad to BBC ADC extremes (left/up = 0xffff)', () => {
+      const m = new BbcMachine();
+      expect(axes(m)).toEqual({ x: 0x8000, y: 0x8000 }); // idle = centred
+      m.setJoystick(1, { ...NEUTRAL, left: true, up: true });
+      expect(axes(m)).toEqual({ x: 0xffff, y: 0xffff });
+      m.setJoystick(1, { ...NEUTRAL, right: true, down: true });
+      expect(axes(m)).toEqual({ x: 0x0000, y: 0x0000 });
+      m.setJoystick(1, NEUTRAL);
+      expect(axes(m)).toEqual({ x: 0x8000, y: 0x8000 });
+      m.dispose();
+    });
+
+    it('routes the two fire buttons to the system VIA (active-low PB4/PB5)', () => {
+      const m = new BbcMachine();
+      expect(buttons(m)).toMatchObject({ button1: false, button2: false });
+      m.setJoystick(1, { ...NEUTRAL, fire1: true, fire2: true });
+      expect(buttons(m)).toMatchObject({ button1: true, button2: true });
+      m.setJoystick(1, NEUTRAL);
+      expect(buttons(m)).toMatchObject({ button1: false, button2: false });
+      m.dispose();
+    });
+  });
+
   describe('step-through debugging', () => {
     // A tight loop whose executing line cycles 20 → 30 → 20, so a breakpoint on
     // 20 trips almost as soon as the program is running.

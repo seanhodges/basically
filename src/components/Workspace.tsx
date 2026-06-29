@@ -17,6 +17,7 @@ import {
   GameController,
   type ControllerMachineTarget,
 } from '../keyboard/GameController';
+import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import { CodeMirrorHost } from './CodeMirrorHost';
 import { EmulatorPane, type MachineApi } from './EmulatorPane';
 import { AiPanel } from './AiPanel';
@@ -100,6 +101,7 @@ export function Workspace() {
   const keyboardKeyDisplay = useIdeStore((s) => s.keyboardKeyDisplay);
   const controllerBindings = useIdeStore((s) => s.controllerBindings);
   const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
+  const gamepadMode = useIdeStore((s) => s.gamepadMode);
   const setControllerBinding = useIdeStore((s) => s.setControllerBinding);
 
   const isMobile = useMediaQuery(MOBILE_QUERY);
@@ -161,6 +163,10 @@ export function Workspace() {
   // surface — with the editor focused the gamepad is ignored and the keyboard
   // behaves normally (including auto-show on focus).
   const controllerVisible = controllerEnabled && emulatorSurfaceActive;
+  // Resolve the user's gamepad preference against this machine's joystick
+  // support; machines that don't support the chosen mode silently fall back to
+  // key mapping.
+  const effectiveMode = effectiveGamepadMode(dialect, gamepadMode);
   // The keyboard belongs over the editor/preview surfaces, but yields to the
   // controller whenever that's showing.
   const keyboardVisible =
@@ -306,13 +312,14 @@ export function Workspace() {
           className={`${styles.workspaceVkOverlay} ${styles.workspaceGcOverlay}`}
         >
           <GameController
-            key={dialect.id}
+            key={`${dialect.id}:${effectiveMode}`}
             layout={dialect.keyboardLayout}
             target={controllerTarget}
             enabled={emulatorStatus === 'running'}
             haptics={keyboardHaptics}
             overrides={controllerBindings}
             dpadMode={controllerDpadMode}
+            mode={effectiveMode}
             onStartRemap={setRemapRole}
           />
         </div>

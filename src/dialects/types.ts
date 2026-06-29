@@ -138,6 +138,33 @@ export interface DebugStepOptions {
   fromLine: number | null;
 }
 
+/**
+ * The 8-way direction switches plus up to two fire buttons a virtual game
+ * controller produces in a hardware-joystick mode. The on-screen D-pad only ever
+ * yields digital (boolean) directions, so this doubles as the
+ * lowest-common-denominator for digital ports (C64 CIA, Kempston set switch
+ * bits), analog ports (the BBC maps each axis to its extremes) and the Sinclair
+ * interface (mapped to keyboard keys). `fire2` is meaningful only on
+ * machines/ports that expose a second fire line.
+ */
+export interface JoystickState {
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
+  fire1: boolean;
+  fire2: boolean;
+}
+
+/**
+ * A kind of hardware joystick a machine's emulator can drive:
+ * - `native` — the machine's own/official port: the C64's CIA port, the BBC's
+ *   analogue port, or the Spectrum's Sinclair interface (keys 1–5).
+ * - `kempston` — the third-party Kempston interface (Spectrum port `$1F`).
+ * A dialect advertises which it supports via {@link Dialect.joystickModes}.
+ */
+export type JoystickMode = 'native' | 'kempston';
+
 export interface MachineEmulator {
   reset(): void;
   /** Inject a built image (post-boot) and arrange for it to run. */
@@ -155,6 +182,18 @@ export interface MachineEmulator {
   setKey(token: string, down: boolean): void;
   /** Release every key held by any source (stop, blur, unmount…). */
   releaseAllKeys(): void;
+  /**
+   * Drive a hardware joystick from the on-screen game controller. `mode` selects
+   * which interface to drive (a machine may support several, e.g. the Spectrum's
+   * Sinclair `native` interface and the `kempston` port); the machine realises it
+   * with its own hardware (CIA/analogue port, a Kempston byte, or pressed keys).
+   * The {@link JoystickState} carries the 8-way switches plus up to two fire
+   * buttons. Optional: a machine with no usable joystick simply omits it, and the
+   * controller falls back to key mapping. Supported modes are advertised at the
+   * {@link Dialect} level via {@link Dialect.joystickModes} and double-checked at
+   * the call site via `typeof machine.setJoystick === 'function'`.
+   */
+  setJoystick?(mode: JoystickMode, state: JoystickState): void;
   /** Emulation speed multiplier (1 = real time). */
   setSpeed(multiplier: number): void;
   readonly displayWidth: number;
@@ -273,6 +312,15 @@ export interface Dialect {
    * line granularity.
    */
   debuggable?: boolean;
+  /**
+   * The hardware joystick interface(s) this dialect's emulator can service —
+   * `native` (C64 CIA, BBC analogue, Spectrum Sinclair) and/or `kempston`
+   * (Spectrum `$1F`). Drives which gamepad input modes are offered; a mode the
+   * machine doesn't list (or any machine without this field) falls back to "Key
+   * mapped". Checked while stopped (no machine built), then double-checked at the
+   * call site via `typeof machine.setJoystick === 'function'`.
+   */
+  joystickModes?: JoystickMode[];
   createEmulator(opts: {
     rom: Uint8Array;
     ramKb: 16 | 32 | 64;

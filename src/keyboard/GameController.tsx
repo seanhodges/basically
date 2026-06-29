@@ -3,6 +3,7 @@ import type { MachineEmulator } from '../dialects/types';
 import type { ControllerRole, KeyboardLayout } from './layoutSchema';
 import {
   type ControllerOverrides,
+  type GamepadMode,
   CONTROLLER_ROLE_NAMES,
   controlLabel,
   resolveControllerConfig,
@@ -30,9 +31,29 @@ interface GameControllerProps {
   /** Per-dialect user remaps (role → KeyDef id) over the layout defaults. */
   overrides: ControllerOverrides;
   dpadMode: '4-way' | '8-way';
+  /**
+   * Effective input mode: a joystick mode ('native'/'kempston') drives the
+   * machine's joystick interface, 'keymapped' presses key tokens. Already
+   * resolved against machine support.
+   */
+  mode: GamepadMode;
   /** Long-press on a control (while stopped) requests a remap of this role. */
   onStartRemap(role: ControllerRole): void;
 }
+
+/**
+ * Fixed control labels for the joystick modes: D-pad arrows and numbered fire
+ * buttons (primary = 1, secondary = 2). Unlike key-mapped mode, these never
+ * reflect the underlying key — the gamepad drives a hardware joystick.
+ */
+const CONTROLLER_LABELS: Record<ControllerRole, string> = {
+  up: '↑',
+  down: '↓',
+  left: '←',
+  right: '→',
+  fire1: '1',
+  fire2: '2',
+};
 
 /** Hold this long (ms) on a control while stopped to open the remap picker. */
 const LONG_PRESS_MS = 500;
@@ -48,6 +69,7 @@ export function GameController({
   haptics,
   overrides,
   dpadMode,
+  mode,
   onStartRemap,
 }: GameControllerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -73,9 +95,9 @@ export function GameController({
       new ControllerInputEngine(
         roleTokens,
         { getMachine: () => targetRef.current.getMachine() },
-        minHold,
+        { mode, fireButtons: config.fireButtons, minHoldFrames: minHold },
       ),
-    [roleTokens, minHold],
+    [roleTokens, minHold, mode, config.fireButtons],
   );
   useEffect(() => () => engine.cancelAll(), [engine]);
 
@@ -177,7 +199,10 @@ export function GameController({
     const onDpad = !!targetEl.closest('[data-dpad]');
 
     // Stopped: controls are inert except for the long-press-to-remap gesture.
+    // Remapping a role to a key is meaningless in a joystick mode (the gamepad
+    // drives a hardware joystick), so the gesture is disabled there.
     if (!enabledRef.current) {
+      if (mode !== 'keymapped') return;
       const role = roleAttr;
       if (!role) return;
       clearLongPress();
@@ -236,6 +261,8 @@ export function GameController({
   const activeRoles = engine.getActiveRoles();
 
   const labelFor = (role: ControllerRole) => {
+    // Joystick modes show fixed arrows/numbers, never the bound key.
+    if (mode !== 'keymapped') return CONTROLLER_LABELS[role];
     const override = config.labels?.[role];
     if (override) return override;
     const keyId = resolveRoleKeyId(config, overrides, role);
@@ -319,7 +346,7 @@ export function GameController({
         {config.fireButtons === 2 && fireButton('fire2')}
       </div>
 
-      {!enabled && (
+      {!enabled && mode === 'keymapped' && (
         <div className="gc-hint" aria-hidden="true">
           Hold a control to remap
         </div>

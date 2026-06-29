@@ -1,6 +1,8 @@
 import type {
   DebugStepOptions,
   DebugStepResult,
+  JoystickMode,
+  JoystickState,
   MachineEmulator,
   MachineReport,
   MachineVariable,
@@ -229,6 +231,8 @@ export class C64Machine implements MachineEmulator {
   );
   /** CIA1's matrix setter, registered during keyboard-host attach. */
   private setKeyMatrix: (matrix: number[]) => void = () => {};
+  /** Joystick-port-2 byte setter, registered during joystick-host attach. */
+  private setJoystick2: (value: number) => void = () => {};
   private readonly physicalButtons = new Set<string>();
   private readonly virtualButtons = new Set<string>();
 
@@ -330,7 +334,14 @@ export class C64Machine implements MachineEmulator {
   };
 
   private attachJoystick = (c64: { joystick: JoystickHost }): void => {
-    c64.joystick = { setSetJoystick1: () => {}, setSetJoystick2: () => {} };
+    c64.joystick = {
+      // Port 1 is shared with the keyboard matrix; the gamepad drives port 2
+      // (the games port), so the port-1 setter is left unused.
+      setSetJoystick1: () => {},
+      setSetJoystick2: (fn) => {
+        this.setJoystick2 = fn;
+      },
+    };
   };
 
   private clearScreen(): void {
@@ -533,6 +544,23 @@ export class C64Machine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.clearKeys();
+  }
+
+  /**
+   * Drive the CIA joystick (port 2, $dc00 — the C64's games port; its only
+   * `native` joystick). The port byte is active-low (a closed switch pulls its
+   * line low), bits 0-4 = up/down/left/right/fire. The C64 has a single fire
+   * line, so `fire2` is folded into the one fire switch. `_mode` is always
+   * `native` — the only mode the C64 advertises.
+   */
+  setJoystick(_mode: JoystickMode, state: JoystickState): void {
+    let value = 0xff;
+    if (state.up) value &= ~0x01;
+    if (state.down) value &= ~0x02;
+    if (state.left) value &= ~0x04;
+    if (state.right) value &= ~0x08;
+    if (state.fire1 || state.fire2) value &= ~0x10;
+    this.setJoystick2(value & 0xff);
   }
 
   private clearKeys(): void {

@@ -2,11 +2,14 @@ import { describe, it, expect } from 'vitest';
 import type { KeyDef, KeyboardLayout } from './layoutSchema';
 import {
   controlLabel,
+  effectiveGamepadMode,
   pickableKeys,
   resolveControllerConfig,
   resolveRoleKeyId,
   resolveRoleTokens,
+  rolesToJoystick,
 } from './controllerConfig';
+import type { ControllerRole } from './layoutSchema';
 import { zx81KeyboardLayout } from '../dialects/zx81/keyboardLayout';
 import { c64KeyboardLayout } from '../dialects/commodore64/keyboardLayout';
 
@@ -101,5 +104,61 @@ describe('pickableKeys', () => {
     const ids = keys.map((k) => k.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(keys.every((k) => k.emits.length > 0)).toBe(true);
+  });
+});
+
+describe('rolesToJoystick', () => {
+  const set = (...r: ControllerRole[]) => new Set<ControllerRole>(r);
+
+  it('maps held roles to direction/fire booleans', () => {
+    expect(rolesToJoystick(set('up', 'right', 'fire1'), 2)).toEqual({
+      up: true,
+      down: false,
+      left: false,
+      right: true,
+      fire1: true,
+      fire2: false,
+    });
+  });
+
+  it('drops fire2 on single-fire machines', () => {
+    expect(rolesToJoystick(set('fire2'), 1).fire2).toBe(false);
+    expect(rolesToJoystick(set('fire2'), 2).fire2).toBe(true);
+  });
+});
+
+describe('effectiveGamepadMode', () => {
+  it('keeps a joystick mode only when the dialect lists it', () => {
+    // C64-like: native only.
+    expect(effectiveGamepadMode({ joystickModes: ['native'] }, 'native')).toBe(
+      'native',
+    );
+    expect(
+      effectiveGamepadMode({ joystickModes: ['native'] }, 'kempston'),
+    ).toBe('keymapped');
+    // Spectrum-like: both native (Sinclair) and kempston.
+    expect(
+      effectiveGamepadMode(
+        { joystickModes: ['native', 'kempston'] },
+        'kempston',
+      ),
+    ).toBe('kempston');
+    expect(
+      effectiveGamepadMode({ joystickModes: ['native', 'kempston'] }, 'native'),
+    ).toBe('native');
+  });
+
+  it('falls back to keymapped when unsupported or unset', () => {
+    expect(effectiveGamepadMode({ joystickModes: [] }, 'native')).toBe(
+      'keymapped',
+    );
+    expect(effectiveGamepadMode({}, 'native')).toBe('keymapped');
+    expect(effectiveGamepadMode({}, 'kempston')).toBe('keymapped');
+  });
+
+  it('always honours an explicit keymapped preference', () => {
+    expect(
+      effectiveGamepadMode({ joystickModes: ['native'] }, 'keymapped'),
+    ).toBe('keymapped');
   });
 });

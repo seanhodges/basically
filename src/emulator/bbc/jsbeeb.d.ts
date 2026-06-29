@@ -81,6 +81,28 @@ declare module 'jsbeeb/src/fake6502.js' {
     keyUpRaw(colRow: readonly [number, number]): void;
     clearKeys(): void;
     setKeyLayout(layout: 'physical' | 'natural' | 'gaming'): void;
+    /**
+     * Set an analogue joystick FIRE button (0 = button1 → PB4, 1 = button2 →
+     * PB5). Both are read active-low on the system VIA's port B.
+     */
+    setJoystickButton(buttonNumber: number, pressed: boolean): void;
+  }
+
+  /**
+   * An ADC input source. The converter calls {@link getValue} for the active
+   * channel (0/1 = joystick 1 X/Y, 2/3 = joystick 2 X/Y) and expects a 16-bit
+   * value: per the BBC convention left/up = 0xffff, right/down = 0, centred =
+   * 0x8000.
+   */
+  export interface AnalogueSource {
+    getValue(channel: number): number;
+    dispose?(): void;
+  }
+
+  /** The BBC's µPD7002 4-channel analogue-to-digital converter. */
+  export interface Adc {
+    /** Attach (or replace) the source feeding one ADC channel (0-3). */
+    setChannelSource(channel: number, source: AnalogueSource): boolean;
   }
 
   /**
@@ -98,6 +120,8 @@ declare module 'jsbeeb/src/fake6502.js' {
     readmem(addr: number): number;
     writemem(addr: number, value: number): void;
     readonly sysvia: SysVia;
+    /** The µPD7002 ADC, source of analogue joystick input (absent on the Atom). */
+    readonly adconverter: Adc;
     /** The 8255 PPIA keyboard/tape interface — present only on the Atom CPU. */
     readonly atomppia?: AtomPPIA;
   }
