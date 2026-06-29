@@ -39,19 +39,24 @@ async function runUntil(
   return predicate();
 }
 
-// Every game now opens on a welcome screen whose GET$ blocks until a key is
-// pressed. Boot to that prompt, then *tap* "1" (keyboard controls, the default):
-// a clean press→release edge is what the OS turns into a buffered keypress, so
-// holding a key from reset is not enough. "1" is never a movement key, so the
-// player stays put while the game draws.
+// Boot past the control-selection screen. GET$ blocks until a buffered keypress,
+// so we tap "1" (keyboard controls) then tap Space to clear the "PRESS SPACE TO
+// START" INKEY$(0) gate that follows. A clean press→release edge is what the OS
+// turns into a buffered keypress; holding from reset is not enough for GET$.
 async function startGame(machine: BbcMachine): Promise<void> {
   for (let i = 0; i < 200; i++) {
     machine.runFrame();
     if (i % 10 === 0) await new Promise((r) => setTimeout(r, 0));
   }
+  // Tap "1" to select keyboard controls.
   machine.setKey('Digit1', true);
   for (let i = 0; i < 10; i++) machine.runFrame();
   machine.setKey('Digit1', false);
+  // Let the BBC reach the INKEY$(0) Space-wait loop, then tap Space.
+  for (let i = 0; i < 20; i++) machine.runFrame();
+  machine.setKey('Space', true);
+  for (let i = 0; i < 10; i++) machine.runFrame();
+  machine.setKey('Space', false);
 }
 
 describe('bbcmicro sample programs', () => {

@@ -38,10 +38,17 @@ describe('zxspectrum sample programs', () => {
     const { bytes } = tokenizeProgram(maze.text);
     const machine = new SpectrumMachine({ rom });
     machine.loadProgram(buildTap(bytes));
-    // Dismiss the welcome screen by holding "1" (keyboard controls, the default);
-    // it is not a movement key (5/6/7/8) so the player stays put while it draws.
+    // Tap "1" to select keyboard controls (the default), then release.
     machine.setKey('Digit1', true);
-    for (let i = 0; i < 300; i++) machine.runFrame();
+    for (let i = 0; i < 100; i++) machine.runFrame();
+    machine.setKey('Digit1', false);
+    // Press Space to pass the "PRESS SPACE TO START" gate, then release.
+    for (let i = 0; i < 5; i++) machine.runFrame();
+    machine.setKey('Space', true);
+    for (let i = 0; i < 10; i++) machine.runFrame();
+    machine.setKey('Space', false);
+    // Run remaining frames for the maze to draw.
+    for (let i = 0; i < 200; i++) machine.runFrame();
     // The maze prints a full 31x19 wall map with INK 4 on PAPER 0 (attr 0x04).
     let mazeCells = 0;
     for (let a = 0x5800; a < 0x5b00; a++) {
@@ -55,19 +62,7 @@ describe('zxspectrum sample programs', () => {
     const { bytes } = tokenizeProgram(breakout.text);
     const machine = new SpectrumMachine({ rom });
     machine.loadProgram(buildTap(bytes));
-    // Pick "2. KEMPSTON JOYSTICK" on the welcome screen, then let go.
-    machine.setKey('Digit2', true);
-    for (let i = 0; i < 140; i++) machine.runFrame();
-    machine.setKey('Digit2', false);
-    const paddleX = () =>
-      Number(machine.readVariables().find((v) => v.name === 'X')?.value);
-    // The menu stored the Kempston mode in M, and the paddle starts mid-screen.
-    expect(machine.readVariables().find((v) => v.name === 'M')?.value).toBe(
-      '2',
-    );
-    const start = paddleX();
 
-    // Pushing the Kempston stick right (bit 0) walks the paddle right…
     const idle = {
       left: false,
       right: false,
@@ -76,6 +71,30 @@ describe('zxspectrum sample programs', () => {
       fire1: false,
       fire2: false,
     };
+
+    // Pick "2. KEMPSTON JOYSTICK" on the welcome screen, then let go.
+    machine.setKey('Digit2', true);
+    for (let i = 0; i < 140; i++) machine.runFrame();
+    machine.setKey('Digit2', false);
+
+    // The menu stored the Kempston mode in M, and the paddle starts mid-screen.
+    expect(machine.readVariables().find((v) => v.name === 'M')?.value).toBe(
+      '2',
+    );
+
+    // Press Kempston fire to pass the "PRESS FIRE TO START" gate.
+    for (let i = 0; i < 5; i++) machine.runFrame();
+    machine.setJoystick!('kempston', { ...idle, fire1: true });
+    for (let i = 0; i < 10; i++) machine.runFrame();
+    machine.setJoystick!('kempston', idle);
+
+    // Let the game initialise, then read the starting paddle position.
+    for (let i = 0; i < 30; i++) machine.runFrame();
+    const paddleX = () =>
+      Number(machine.readVariables().find((v) => v.name === 'X')?.value);
+    const start = paddleX();
+
+    // Pushing the Kempston stick right (bit 0) walks the paddle right…
     machine.setJoystick!('kempston', { ...idle, right: true });
     for (let i = 0; i < 60; i++) machine.runFrame();
     expect(paddleX()).toBeGreaterThan(start);
