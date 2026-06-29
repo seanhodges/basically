@@ -16,7 +16,7 @@ const DEFAULT_MIN_HOLD_FRAMES = 3;
 export interface ControllerEngineOptions {
   /** 'keymapped' presses key tokens; a joystick mode drives `setJoystick`. */
   mode: GamepadMode;
-  /** Fire-button count; gates `fire2` in joystick modes. */
+  /** Hardware fire-button count; gates `fire2` in joystick modes. */
   fireButtons?: 1 | 2;
   /** Min-hold frames for key-mapped releases (unused in joystick modes). */
   minHoldFrames?: number;

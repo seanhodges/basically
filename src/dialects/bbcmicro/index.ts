@@ -65,6 +65,8 @@ export const bbcmicro: Dialect = {
   debuggable: true,
 
   joystickModes: ['native'],
+  // The analogue port has two independent fire lines (PB4/PB5).
+  joystickFireButtons: 2,
 
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   createEmulator() {

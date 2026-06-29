@@ -14,15 +14,13 @@ import { spectrumKeyboardLayout } from '../zxspectrum/keyboardLayout';
 export const spectrum128KeyboardLayout: KeyboardLayout = {
   ...spectrumKeyboardLayout,
   controller: {
-    fireButtons: 2,
-    dpadMode: '4-way',
     bindings: {
       up: 'KeyQ',
       down: 'KeyA',
       left: 'KeyO',
       right: 'KeyP',
       fire1: 'Space',
-      fire2: 'KeyM',
+      fire2: 'Enter',
     },
   },
 };

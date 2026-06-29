@@ -43,7 +43,10 @@ export function SettingsForm() {
   const setEmulatorVolume = useIdeStore((s) => s.setEmulatorVolume);
   const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
   const setControllerDpadMode = useIdeStore((s) => s.setControllerDpadMode);
-  const resetController = useIdeStore((s) => s.resetController);
+  const controllerFireButtons = useIdeStore((s) => s.controllerFireButtons);
+  const setControllerFireButtons = useIdeStore(
+    (s) => s.setControllerFireButtons,
+  );
   const gamepadMode = useIdeStore((s) => s.gamepadMode);
   const setGamepadMode = useIdeStore((s) => s.setGamepadMode);
   const [providerId, setProviderId] = useState<AiProviderId>(getAiProvider());
@@ -197,35 +200,37 @@ export function SettingsForm() {
           <option value="kempston">Kempston</option>
         </select>
       </label>
-      <p>
-        {gamepadMode !== 'keymapped' &&
-        effectiveGamepadMode(dialect, gamepadMode) === 'keymapped'
-          ? `${dialect.name} has no ${
+      {gamepadMode !== 'keymapped' &&
+        effectiveGamepadMode(dialect, gamepadMode) === 'keymapped' && (
+          <p>
+            {`${dialect.name} has no ${
               gamepadMode === 'native'
                 ? 'native joystick interface'
                 : 'Kempston interface'
-            } — the gamepad uses Key mapped here.`
-          : 'Native Interface and Kempston drive the machine’s real joystick hardware; Key mapped presses keys instead.'}
-      </p>
+            } — the gamepad uses Key mapped here.`}
+          </p>
+        )}
       <label className={styles.inline}>
-        D-pad directions
+        Gamepad layout
         <select
-          value={controllerDpadMode}
-          onChange={(e) =>
-            setControllerDpadMode(e.target.value as '4-way' | '8-way')
-          }
+          value={`${controllerDpadMode}/${controllerFireButtons}`}
+          onChange={(e) => {
+            const [dpad, fire] = e.target.value.split('/');
+            setControllerDpadMode(dpad as '4-way' | '8-way');
+            setControllerFireButtons(Number(fire) as 1 | 2);
+          }}
         >
-          <option value="4-way">4-way</option>
-          <option value="8-way">8-way (diagonals)</option>
+          <option value="4-way/1">4-way, 1 button</option>
+          <option value="8-way/1">8-way, 1 button</option>
+          <option value="4-way/2">4-way, 2 buttons</option>
+          <option value="8-way/2">8-way, 2 buttons</option>
         </select>
       </label>
       <p>
-        Long-press a control on the on-screen gamepad to remap it. These options
-        apply to the current machine ({dialect.name}).
+        Long-press a control on the on-screen gamepad to remap it to a key on
+        the current machine. On a machine whose joystick has a single fire
+        button, the secondary (B) button only acts in Key mapped mode.
       </p>
-      <div className={`${dialog.modalActions} ${dialog.left}`}>
-        <button onClick={resetController}>Reset to defaults</button>
-      </div>
       <h3>AI</h3>
       <label className={styles.inline}>
         AI provider

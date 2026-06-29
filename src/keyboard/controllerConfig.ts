@@ -89,7 +89,7 @@ function deriveControllerConfig(layout: KeyboardLayout): ControllerConfig {
     right: firstPresent(index, ['KeyD', 'D']),
     fire1: firstPresent(index, ['Space']),
   };
-  return { fireButtons: 1, dpadMode: '4-way', bindings };
+  return { bindings };
 }
 
 /** The layout's explicit controller config, or a derived WASD fallback. */
@@ -129,7 +129,9 @@ export function resolveRoleKeyId(
 
 /**
  * Collapse the set of currently-held controller roles into a JoystickState for
- * "Controller" mode. `fire2` is forced off on single-fire machines/layouts.
+ * "Controller" mode. `fireButtons` is the machine's hardware fire-button count:
+ * `fire2` is forced off when the joystick port exposes only one fire line, so a
+ * 2-button gamepad layout still wires only the primary button there.
  */
 export function rolesToJoystick(
   roles: Set<ControllerRole>,

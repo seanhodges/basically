@@ -92,7 +92,8 @@
 
 /* ---------- Fire buttons ---------- */
 /* Arcade-style: round buttons sit side by side, each with its key cap labelled
-   underneath in a matching-colour box (primary = blue, secondary = red). */
+   underneath in a matching-colour box (primary = red, secondary = blue). The DOM
+   order is fire1 then fire2; row-reverse paints the primary (A) on the right. */
 .gc-buttons {
   position: absolute;
   right: clamp(10px, 5vw, 56px);
@@ -102,7 +103,7 @@
      .gc-fire-cap) so they don't pull the circle off-centre. */
   height: clamp(124px, 40vmin, 230px);
   display: flex;
-  flex-direction: row;
+  flex-direction: row-reverse;
   align-items: center;
   gap: clamp(14px, 5vmin, 32px);
   pointer-events: none;
@@ -126,16 +127,16 @@
   pointer-events: none;
 }
 
-/* Primary fire: blue. */
+/* Primary fire: red. */
 .gc-fire1 {
-  background: radial-gradient(circle at 50% 38%, #58a6ff, #1f6feb);
-  border: 2px solid #0d419d;
-}
-
-/* Secondary fire: red. */
-.gc-fire2 {
   background: radial-gradient(circle at 50% 38%, #f85149, #a51d18);
   border: 2px solid #5a1410;
+}
+
+/* Secondary fire: blue. */
+.gc-fire2 {
+  background: radial-gradient(circle at 50% 38%, #58a6ff, #1f6feb);
+  border: 2px solid #0d419d;
 }
 
 /* The key cap shown under each button, bordered in the button's colour. Floated
@@ -164,12 +165,12 @@
   fill: currentColor;
 }
 .gc-wrap-fire1 .gc-fire-cap {
-  border-color: #1f6feb;
-  color: #58a6ff;
-}
-.gc-wrap-fire2 .gc-fire-cap {
   border-color: #a51d18;
   color: #f85149;
+}
+.gc-wrap-fire2 .gc-fire-cap {
+  border-color: #1f6feb;
+  color: #58a6ff;
 }
 
 /* ---------- Pressed / state feedback ---------- */

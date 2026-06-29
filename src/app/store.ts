@@ -5,7 +5,6 @@ import type { ControllerRole } from '../keyboard/layoutSchema';
 import {
   type ControllerOverrides,
   type GamepadMode,
-  resolveControllerConfig,
 } from '../keyboard/controllerConfig';
 import {
   loadAutosave,
@@ -34,6 +33,8 @@ import {
   resetControllerBindings as persistResetControllerBindings,
   getControllerDpadMode,
   setControllerDpadMode as persistControllerDpadMode,
+  getControllerFireButtons,
+  setControllerFireButtons as persistControllerFireButtons,
   getGamepadMode,
   setGamepadMode as persistGamepadMode,
   type BottomOverlay,
@@ -141,8 +142,10 @@ interface IdeState {
   controllerEnabled: boolean;
   /** Active dialect's game-controller remaps (role → KeyDef id). */
   controllerBindings: ControllerOverrides;
-  /** Active dialect's D-pad direction mode. */
+  /** Global virtual-gamepad D-pad direction mode. */
   controllerDpadMode: '4-way' | '8-way';
+  /** Global virtual-gamepad fire-button count. */
+  controllerFireButtons: 1 | 2;
   /**
    * Preferred gamepad input mode, across all machines. A joystick mode
    * ('native'/'kempston') drives the machine's joystick interface where
@@ -265,7 +268,10 @@ interface IdeState {
   setControllerBinding(role: ControllerRole, keyId: string): void;
   /** Clear the active dialect's controller remaps back to layout defaults. */
   resetController(): void;
+  /** Set the global D-pad direction mode (persisted). */
   setControllerDpadMode(mode: '4-way' | '8-way'): void;
+  /** Set the global fire-button count (persisted). */
+  setControllerFireButtons(n: 1 | 2): void;
   /** Choose the preferred gamepad input mode (persisted, global). */
   setGamepadMode(mode: GamepadMode): void;
   setKeyboardAutoShow(on: boolean): void;
@@ -326,13 +332,18 @@ function loadControllerBindings(dialect: Dialect): ControllerOverrides {
     : {};
 }
 
-/** A dialect's D-pad mode: persisted override, else its layout default. */
-function loadControllerDpadMode(dialect: Dialect): '4-way' | '8-way' {
+/** The global D-pad mode: persisted choice, else the 8-way default. */
+function loadControllerDpadMode(): '4-way' | '8-way' {
   const persisted =
-    typeof localStorage !== 'undefined'
-      ? getControllerDpadMode(dialect.id)
-      : null;
-  return persisted ?? resolveControllerConfig(dialect.keyboardLayout).dpadMode;
+    typeof localStorage !== 'undefined' ? getControllerDpadMode() : null;
+  return persisted ?? '8-way';
+}
+
+/** The global fire-button count: persisted choice, else the 2-button default. */
+function loadControllerFireButtons(): 1 | 2 {
+  const persisted =
+    typeof localStorage !== 'undefined' ? getControllerFireButtons() : null;
+  return persisted ?? 2;
 }
 
 /**
@@ -359,10 +370,9 @@ function applyDialectSwitch(
   return {
     dialect: next,
     pendingDialectId: null,
-    // Load the new machine's controller mapping (its own per-dialect remaps and
-    // D-pad mode, falling back to its layout defaults).
+    // Load the new machine's remaps. The gamepad layout (D-pad mode + fire
+    // buttons) is global, so it carries over the switch untouched.
     controllerBindings: loadControllerBindings(next),
-    controllerDpadMode: loadControllerDpadMode(next),
     source: text,
     docOverride: { text, seq: s.docOverride.seq + 1 },
     // A dialect switch is always a new machine/program; clear the AI thread.
@@ -409,7 +419,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   controllerEnabled:
     typeof localStorage !== 'undefined' ? getControllerEnabled() : false,
   controllerBindings: loadControllerBindings(startupDialect),
-  controllerDpadMode: loadControllerDpadMode(startupDialect),
+  controllerDpadMode: loadControllerDpadMode(),
+  controllerFireButtons: loadControllerFireButtons(),
   gamepadMode:
     typeof localStorage !== 'undefined' ? getGamepadMode() : 'keymapped',
   keyboardAutoShow:
@@ -570,11 +581,14 @@ export const useIdeStore = create<IdeState>((set) => ({
       persistResetControllerBindings(s.dialect.id);
       return { controllerBindings: {} };
     }),
-  setControllerDpadMode: (mode) =>
-    set((s) => {
-      persistControllerDpadMode(s.dialect.id, mode);
-      return { controllerDpadMode: mode };
-    }),
+  setControllerDpadMode: (mode) => {
+    persistControllerDpadMode(mode);
+    set({ controllerDpadMode: mode });
+  },
+  setControllerFireButtons: (n) => {
+    persistControllerFireButtons(n);
+    set({ controllerFireButtons: n });
+  },
   setGamepadMode: (mode) => {
     persistGamepadMode(mode);
     set({ gamepadMode: mode });

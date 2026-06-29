@@ -183,8 +183,6 @@ export const atomKeyboardLayout: KeyboardLayout = {
   options: { minHoldFrames: 4 },
   // Acorn convention: Z/X = left/right, K/M = up/down; Space / Return as fire.
   controller: {
-    fireButtons: 2,
-    dpadMode: '4-way',
     bindings: {
       up: 'KeyK',
       down: 'KeyM',
