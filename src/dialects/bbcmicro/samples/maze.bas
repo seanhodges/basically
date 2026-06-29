@@ -33,6 +33,8 @@
 330 M$(21)="#######################################"
 340 FOR R%=1 TO 21:PROCrow(R%):NEXT
 350 PRINT TAB(0,22);"REACH E TO WIN"
+352 IF M%=1 THEN PRINT TAB(0,23);"Z X K M TO MOVE"
+354 IF M%=2 THEN PRINT TAB(0,23);"JOYSTICK"
 360 X%=2:Y%=2:F%=0:PROCplayer
 370 REPEAT
 380 K$=INKEY$(0)
