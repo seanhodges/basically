@@ -155,7 +155,7 @@ export const trs80KeyboardLayout: KeyboardLayout = {
   rows,
   glyphs: {},
   options: { minHoldFrames: 1 },
-  // WASD movement + Space fire (the convention the bundled TRS-80 games use).
+  // WASD movement + Space/Enter fire (the convention the bundled TRS-80 games use).
   controller: {
     bindings: {
       up: 'KeyW',
@@ -163,6 +163,7 @@ export const trs80KeyboardLayout: KeyboardLayout = {
       left: 'KeyA',
       right: 'KeyD',
       fire1: 'Space',
+      fire2: 'Enter',
     },
   },
 };

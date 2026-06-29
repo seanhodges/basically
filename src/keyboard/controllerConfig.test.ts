@@ -44,7 +44,7 @@ describe('resolveControllerConfig', () => {
   it('returns the layout’s explicit config when present', () => {
     const config = resolveControllerConfig(zx81KeyboardLayout);
     expect(config.bindings.up).toBe('Digit7');
-    expect(config.bindings.fire1).toBe('Digit0');
+    expect(config.bindings.fire1).toBe('Space');
   });
 
   it('derives a WASD + Space fallback when absent', () => {
@@ -64,7 +64,7 @@ describe('resolveRoleTokens', () => {
     const config = resolveControllerConfig(zx81KeyboardLayout);
     const tokens = resolveRoleTokens(zx81KeyboardLayout, config, {});
     expect(tokens.up).toEqual(['Digit7']);
-    expect(tokens.fire1).toEqual(['Digit0']);
+    expect(tokens.fire1).toEqual(['Space']);
   });
 
   it('applies user overrides over the defaults', () => {
@@ -77,8 +77,9 @@ describe('resolveRoleTokens', () => {
   });
 
   it('leaves an unbound role undefined', () => {
-    const config = resolveControllerConfig(zx81KeyboardLayout);
-    const tokens = resolveRoleTokens(zx81KeyboardLayout, config, {});
+    // The derived WASD fallback binds no secondary fire button.
+    const config = resolveControllerConfig(wasdLayout);
+    const tokens = resolveRoleTokens(wasdLayout, config, {});
     expect(tokens.fire2).toBeUndefined();
   });
 });

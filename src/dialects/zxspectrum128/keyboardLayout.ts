@@ -20,7 +20,7 @@ export const spectrum128KeyboardLayout: KeyboardLayout = {
       left: 'KeyO',
       right: 'KeyP',
       fire1: 'Space',
-      fire2: 'KeyM',
+      fire2: 'Enter',
     },
   },
 };

@@ -272,14 +272,16 @@ export const zx81KeyboardLayout: KeyboardLayout = {
   rows,
   glyphs: zx81Glyphs,
   options: { minHoldFrames: 3, compactDefaultLayer: 'keyword' },
-  // Sinclair joystick convention: 5/6/7/8 = left/down/up/right, 0 = fire.
+  // Sinclair joystick convention: 5/6/7/8 = left/down/up/right; Space/Enter as
+  // fire (key-mapped mode).
   controller: {
     bindings: {
       up: 'Digit7',
       down: 'Digit6',
       left: 'Digit5',
       right: 'Digit8',
-      fire1: 'Digit0',
+      fire1: 'Space',
+      fire2: 'Enter',
     },
   },
 };
