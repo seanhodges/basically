@@ -277,12 +277,11 @@ export function setControllerDpadMode(
  * 'keymapped' — the most widely compatible mode, since not every machine has a
  * joystick port (e.g. the ZX80). Users can switch to a hardware joystick mode
  * ('native'/'kempston'), which falls back to 'keymapped' at the point of use on
- * machines that can't service it. The legacy 'controller' value migrates to
- * 'native' to preserve an explicit prior joystick choice.
+ * machines that can't service it.
  */
 export function getGamepadMode(): GamepadMode {
   const raw = localStorage.getItem(KEYS.gamepadMode);
-  if (raw === 'native' || raw === 'controller') return 'native';
+  if (raw === 'native') return 'native';
   if (raw === 'kempston') return 'kempston';
   return 'keymapped';
 }
