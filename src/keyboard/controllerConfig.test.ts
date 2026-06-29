@@ -45,7 +45,6 @@ describe('resolveControllerConfig', () => {
     const config = resolveControllerConfig(zx81KeyboardLayout);
     expect(config.bindings.up).toBe('Digit7');
     expect(config.bindings.fire1).toBe('Digit0');
-    expect(config.fireButtons).toBe(1);
   });
 
   it('derives a WASD + Space fallback when absent', () => {
@@ -57,7 +56,6 @@ describe('resolveControllerConfig', () => {
       right: 'KeyD',
       fire1: 'Space',
     });
-    expect(config.fireButtons).toBe(1);
   });
 });
 
@@ -121,7 +119,7 @@ describe('rolesToJoystick', () => {
     });
   });
 
-  it('drops fire2 on single-fire machines', () => {
+  it('drops fire2 on single-fire hardware', () => {
     expect(rolesToJoystick(set('fire2'), 1).fire2).toBe(false);
     expect(rolesToJoystick(set('fire2'), 2).fire2).toBe(true);
   });

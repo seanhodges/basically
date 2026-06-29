@@ -51,6 +51,7 @@ const KEYS = {
   controllerEnabled: 'mbide.controllerEnabled',
   controllerBindings: 'mbide.controllerBindings',
   controllerDpadMode: 'mbide.controllerDpadMode',
+  controllerFireButtons: 'mbide.controllerFireButtons',
   gamepadMode: 'mbide.gamepadMode',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
 } as const;
@@ -257,19 +258,33 @@ export function resetControllerBindings(dialectId: string): void {
   localStorage.removeItem(`${KEYS.controllerBindings}.${dialectId}`);
 }
 
-/** Per-dialect D-pad mode (4-way / 8-way), or null when never chosen. */
-export function getControllerDpadMode(
-  dialectId: string,
-): '4-way' | '8-way' | null {
-  const raw = localStorage.getItem(`${KEYS.controllerDpadMode}.${dialectId}`);
+/**
+ * Global virtual-gamepad D-pad mode (4-way / 8-way), applied across all
+ * machines. Returns null when never chosen, so the store can fall back to the
+ * 8-way default.
+ */
+export function getControllerDpadMode(): '4-way' | '8-way' | null {
+  const raw = localStorage.getItem(KEYS.controllerDpadMode);
   return raw === '4-way' || raw === '8-way' ? raw : null;
 }
 
-export function setControllerDpadMode(
-  dialectId: string,
-  mode: '4-way' | '8-way',
-): void {
-  localStorage.setItem(`${KEYS.controllerDpadMode}.${dialectId}`, mode);
+export function setControllerDpadMode(mode: '4-way' | '8-way'): void {
+  localStorage.setItem(KEYS.controllerDpadMode, mode);
+}
+
+/**
+ * Global virtual-gamepad fire-button count (1 / 2), applied across all machines.
+ * Returns null when never chosen, so the store can fall back to the 2-button
+ * default. On a machine whose hardware joystick has a single fire line, a
+ * 2-button layout still wires only the primary button (see rolesToJoystick).
+ */
+export function getControllerFireButtons(): 1 | 2 | null {
+  const raw = localStorage.getItem(KEYS.controllerFireButtons);
+  return raw === '1' ? 1 : raw === '2' ? 2 : null;
+}
+
+export function setControllerFireButtons(n: 1 | 2): void {
+  localStorage.setItem(KEYS.controllerFireButtons, String(n));
 }
 
 /**

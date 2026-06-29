@@ -188,8 +188,6 @@ export const bbcKeyboardLayout: KeyboardLayout = {
   options: { minHoldFrames: 4 },
   // BBC convention: Z/X = left/right, K/M = up/down; Space / Return as fire.
   controller: {
-    fireButtons: 2,
-    dpadMode: '4-way',
     bindings: {
       up: 'KeyK',
       down: 'KeyM',

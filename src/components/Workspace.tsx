@@ -101,8 +101,10 @@ export function Workspace() {
   const keyboardKeyDisplay = useIdeStore((s) => s.keyboardKeyDisplay);
   const controllerBindings = useIdeStore((s) => s.controllerBindings);
   const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
+  const controllerFireButtons = useIdeStore((s) => s.controllerFireButtons);
   const gamepadMode = useIdeStore((s) => s.gamepadMode);
   const setControllerBinding = useIdeStore((s) => s.setControllerBinding);
+  const resetController = useIdeStore((s) => s.resetController);
 
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -319,6 +321,8 @@ export function Workspace() {
             haptics={keyboardHaptics}
             overrides={controllerBindings}
             dpadMode={controllerDpadMode}
+            displayFireButtons={controllerFireButtons}
+            hardwareFireButtons={dialect.joystickFireButtons ?? 1}
             mode={effectiveMode}
             onStartRemap={setRemapRole}
           />
@@ -335,6 +339,14 @@ export function Workspace() {
               Tap a key to map{' '}
               <strong>{CONTROLLER_ROLE_NAMES[remapRole]}</strong>
             </span>
+            <button
+              onClick={() => {
+                resetController();
+                setRemapRole(null);
+              }}
+            >
+              Reset to defaults
+            </button>
             <button onClick={() => setRemapRole(null)}>Cancel</button>
           </div>
           <VirtualKeyboard

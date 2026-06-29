@@ -226,8 +226,6 @@ export const c64KeyboardLayout: KeyboardLayout = {
   glyphs: {},
   // WASD movement + Space fire (the convention the bundled C64 games use).
   controller: {
-    fireButtons: 1,
-    dpadMode: '4-way',
     bindings: {
       up: 'W',
       down: 'S',

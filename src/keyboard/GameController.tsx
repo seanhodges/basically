@@ -31,6 +31,14 @@ interface GameControllerProps {
   /** Per-dialect user remaps (role → KeyDef id) over the layout defaults. */
   overrides: ControllerOverrides;
   dpadMode: '4-way' | '8-way';
+  /** How many fire buttons to draw (1 or 2) — the global layout setting. */
+  displayFireButtons: 1 | 2;
+  /**
+   * Independent fire buttons the machine's joystick hardware exposes (1 or 2).
+   * In a joystick mode this gates `fire2`: on a single-fire port a 2-button
+   * layout still wires only the primary button.
+   */
+  hardwareFireButtons: 1 | 2;
   /**
    * Effective input mode: a joystick mode ('native'/'kempston') drives the
    * machine's joystick interface, 'keymapped' presses key tokens. Already
@@ -42,8 +50,8 @@ interface GameControllerProps {
 }
 
 /**
- * Fixed control labels for the joystick modes: D-pad arrows and numbered fire
- * buttons (primary = 1, secondary = 2). Unlike key-mapped mode, these never
+ * Fixed control labels for the joystick modes: D-pad arrows and lettered fire
+ * buttons (primary = A, secondary = B). Unlike key-mapped mode, these never
  * reflect the underlying key — the gamepad drives a hardware joystick.
  */
 const CONTROLLER_LABELS: Record<ControllerRole, string> = {
@@ -51,8 +59,8 @@ const CONTROLLER_LABELS: Record<ControllerRole, string> = {
   down: '↓',
   left: '←',
   right: '→',
-  fire1: '1',
-  fire2: '2',
+  fire1: 'A',
+  fire2: 'B',
 };
 
 /** Hold this long (ms) on a control while stopped to open the remap picker. */
@@ -69,6 +77,8 @@ export function GameController({
   haptics,
   overrides,
   dpadMode,
+  displayFireButtons,
+  hardwareFireButtons,
   mode,
   onStartRemap,
 }: GameControllerProps) {
@@ -95,9 +105,9 @@ export function GameController({
       new ControllerInputEngine(
         roleTokens,
         { getMachine: () => targetRef.current.getMachine() },
-        { mode, fireButtons: config.fireButtons, minHoldFrames: minHold },
+        { mode, fireButtons: hardwareFireButtons, minHoldFrames: minHold },
       ),
-    [roleTokens, minHold, mode, config.fireButtons],
+    [roleTokens, minHold, mode, hardwareFireButtons],
   );
   useEffect(() => () => engine.cancelAll(), [engine]);
 
@@ -343,7 +353,7 @@ export function GameController({
 
       <div className="gc-buttons">
         {fireButton('fire1')}
-        {config.fireButtons === 2 && fireButton('fire2')}
+        {displayFireButtons === 2 && fireButton('fire2')}
       </div>
 
       {!enabled && mode === 'keymapped' && (

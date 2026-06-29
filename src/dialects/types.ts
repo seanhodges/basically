@@ -321,6 +321,14 @@ export interface Dialect {
    * call site via `typeof machine.setJoystick === 'function'`.
    */
   joystickModes?: JoystickMode[];
+  /**
+   * Independent hardware fire buttons this dialect's joystick port exposes (1 or
+   * 2; default 1). Gates the joystick modes only: when the user picks a 2-button
+   * gamepad layout but the hardware has a single fire line, only the primary
+   * (fire1) button is wired and fire2 is dropped. Key-mapped mode always presses
+   * the key bound to each fire button regardless of this field.
+   */
+  joystickFireButtons?: 1 | 2;
   createEmulator(opts: {
     rom: Uint8Array;
     ramKb: 16 | 32 | 64;

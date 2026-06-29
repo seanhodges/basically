@@ -240,8 +240,6 @@ export const spectrumKeyboardLayout: KeyboardLayout = {
   options: { minHoldFrames: 3, compactDefaultLayer: 'keyword' },
   // Sinclair joystick convention: 5/6/7/8 = left/down/up/right; 0/9 as fire.
   controller: {
-    fireButtons: 2,
-    dpadMode: '4-way',
     bindings: {
       up: 'Digit7',
       down: 'Digit6',
