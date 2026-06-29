@@ -39,6 +39,21 @@ async function runUntil(
   return predicate();
 }
 
+// Every game now opens on a welcome screen whose GET$ blocks until a key is
+// pressed. Boot to that prompt, then *tap* "1" (keyboard controls, the default):
+// a clean press→release edge is what the OS turns into a buffered keypress, so
+// holding a key from reset is not enough. "1" is never a movement key, so the
+// player stays put while the game draws.
+async function startGame(machine: BbcMachine): Promise<void> {
+  for (let i = 0; i < 200; i++) {
+    machine.runFrame();
+    if (i % 10 === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  machine.setKey('Digit1', true);
+  for (let i = 0; i < 10; i++) machine.runFrame();
+  machine.setKey('Digit1', false);
+}
+
 describe('bbcmicro sample programs', () => {
   it('all tokenize without errors', () => {
     for (const sample of bbcSamples) {
@@ -65,6 +80,7 @@ describe('bbcmicro sample programs', () => {
     const { bytes } = tokenizeProgram(breakout.text);
     const machine = new BbcMachine();
     machine.loadProgram(bytes);
+    await startGame(machine);
     // The only place the program raises the score is PROChit, which also erases
     // the struck block and clears it from B%() — so a non-zero S% proves blocks
     // are being destroyed. S% is the resident integer at &44C (&400 + 19*4).
@@ -87,6 +103,7 @@ describe('bbcmicro sample programs', () => {
     const { bytes } = tokenizeProgram(maze.text);
     const machine = new BbcMachine();
     machine.loadProgram(bytes);
+    await startGame(machine);
     // The maze prints a full 21-row wall map, then the "REACH E TO WIN" prompt
     // below it — so the prompt only appears once every wall row is drawn.
     const drawn = await runUntil(machine, () =>

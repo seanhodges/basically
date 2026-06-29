@@ -71,6 +71,9 @@ describe('trs80 samples', () => {
     const W = rows[0]!.length;
 
     const interp = load('maze.bas');
+    // Dismiss the welcome screen: INKEY$ pops one queued char, so a single
+    // key press ("1", not a movement key) satisfies its "press any key" wait.
+    interp.input.setToken('Key1', true);
     settle(interp, 60);
     // Top border drawn at column 0 of row 0 ('#' === 0x23): no print offset.
     expect(interp.screen.video[0]).toBe(0x23);
@@ -120,6 +123,10 @@ describe('trs80 samples', () => {
   // enough to clear several bricks.
   it('breakout breaks bricks and scores as the ball returns', () => {
     const interp = load('breakout.bas');
+    // Dismiss the welcome screen (INKEY$ pops the queued "1", not a paddle key)
+    // so the same setup budget lays the bricks. The ball is (re)initialised
+    // after the welcome, so the gameplay phase still matches.
+    interp.input.setToken('Key1', true);
     for (let i = 0; i < 6; i++) interp.runBudget(300);
     expect(Number(interp.getVar('NB'))).toBe(32);
     expect(interp.screen.video.some((c) => c >= 0x80)).toBe(true);
@@ -128,6 +135,10 @@ describe('trs80 samples', () => {
     for (let i = 0; i < 6000 && interp.state === 'running'; i++) {
       const bx = Number(interp.getVar('BX'));
       const px = Number(interp.getVar('PX'));
+      // Clear any unread keypress first so the paddle always chases the ball's
+      // *current* column; otherwise a backlog of stale INKEY$ chars can build up
+      // and steer it the wrong way.
+      interp.input.reset();
       if (px < bx - 5) interp.input.setToken('KeyD', true);
       else if (px > bx - 5) interp.input.setToken('KeyA', true);
       interp.runBudget(50);
