@@ -10,6 +10,12 @@
 100 IF k$="" THEN GO TO 90
 110 IF k$="2" THEN LET m=2
 120 IF k$="3" THEN LET m=3
+121 IF m=1 THEN PRINT AT 16,6; INK 7;"PRESS SPACE TO START"
+122 IF m>1 THEN PRINT AT 16,8; INK 7;"PRESS FIRE TO START"
+123 LET k$=INKEY$
+124 IF m=1 AND k$<>" " THEN GO TO 123
+125 IF m=2 AND INT((IN 31)/16)=0 THEN GO TO 123
+126 IF m=3 AND k$<>"5" THEN GO TO 123
 130 BORDER 0: PAPER 0: INK 7: CLS
 140 DIM a$(19,31)
 150 LET a$(1)="███████████████████████████████"
