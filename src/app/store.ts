@@ -411,7 +411,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   controllerBindings: loadControllerBindings(startupDialect),
   controllerDpadMode: loadControllerDpadMode(startupDialect),
   gamepadMode:
-    typeof localStorage !== 'undefined' ? getGamepadMode() : 'native',
+    typeof localStorage !== 'undefined' ? getGamepadMode() : 'keymapped',
   keyboardAutoShow:
     typeof localStorage !== 'undefined'
       ? (getKeyboardAutoShow() ?? defaultKeyboardAutoShow())

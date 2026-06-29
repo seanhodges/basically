@@ -192,8 +192,8 @@ export function SettingsForm() {
           value={gamepadMode}
           onChange={(e) => setGamepadMode(e.target.value as GamepadMode)}
         >
-          <option value="native">Native Interface</option>
           <option value="keymapped">Key mapped</option>
+          <option value="native">Native Interface</option>
           <option value="kempston">Kempston</option>
         </select>
       </label>
