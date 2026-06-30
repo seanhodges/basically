@@ -58,6 +58,63 @@ for (const vp of [
       expect(railBox!.width).toBeLessThan(80);
       expect(railBox!.height).toBeGreaterThan(vp.height * 0.8);
 
+      // (1b) The File menu must open beside the rail and stay fully on-screen —
+      // the rail used to clip its flyout (overflow on the narrow rail box).
+      const fileTrigger = page
+        .locator('[class*="menu"]')
+        .first()
+        .locator('button')
+        .first();
+      await fileTrigger.click();
+      const fileMenu = page.locator('[class*="menuItems"]');
+      await expect(fileMenu).toBeVisible();
+      const fileBox = await fileMenu.boundingBox();
+      expect(fileBox, 'File menu should have a layout box').not.toBeNull();
+      // Flown out alongside the rail (flush against its content edge, allowing
+      // for the rail's few px of right padding) and within the viewport on
+      // every edge — i.e. not clipped to nothing by the narrow rail.
+      expect(fileBox!.x).toBeGreaterThanOrEqual(railBox!.width - 8);
+      expect(fileBox!.x + fileBox!.width).toBeGreaterThan(railBox!.width);
+      expect(fileBox!.x + fileBox!.width).toBeLessThanOrEqual(vp.width + 1);
+      expect(fileBox!.y).toBeGreaterThanOrEqual(-1);
+      expect(fileBox!.y + fileBox!.height).toBeLessThanOrEqual(vp.height + 1);
+      await fileTrigger.click(); // close before moving on
+
+      // (1c) The overflow ("three dots") trigger fills the rail width like the
+      // sibling Docs icon button, and its menu — anchored at the foot of the
+      // rail — opens upward and stays fully on-screen.
+      await page.getByRole('tab', { name: 'Run' }).click();
+      const docsBox = await page
+        .locator('button[title="Documentation"]')
+        .boundingBox();
+      const overflowTrigger = page.locator('button[title="Run actions"]');
+      const overflowTriggerBox = await overflowTrigger.boundingBox();
+      expect(docsBox).not.toBeNull();
+      expect(overflowTriggerBox).not.toBeNull();
+      expect(Math.abs(overflowTriggerBox!.width - docsBox!.width)).toBeLessThan(
+        6,
+      );
+      await overflowTrigger.click();
+      const overflowMenu = page.locator('[class*="menuItems"]');
+      await expect(overflowMenu).toBeVisible();
+      const overflowBox = await overflowMenu.boundingBox();
+      expect(
+        overflowBox,
+        'overflow menu should have a layout box',
+      ).not.toBeNull();
+      expect(overflowBox!.x).toBeGreaterThanOrEqual(railBox!.width - 8);
+      expect(overflowBox!.x + overflowBox!.width).toBeGreaterThan(
+        railBox!.width,
+      );
+      expect(overflowBox!.x + overflowBox!.width).toBeLessThanOrEqual(
+        vp.width + 1,
+      );
+      expect(overflowBox!.y).toBeGreaterThanOrEqual(-1);
+      expect(overflowBox!.y + overflowBox!.height).toBeLessThanOrEqual(
+        vp.height + 1,
+      );
+      await overflowTrigger.click(); // close before the keyboard checks
+
       // (2) Open the on-screen keyboard from the Run tab and check it is centred
       // in the workspace rather than stretched flush against the rail.
       await page.getByRole('tab', { name: 'Run' }).click();
