@@ -225,7 +225,13 @@
     gap: 8px;
     border-bottom: none;
     border-right: 1px solid var(--border);
-    overflow-y: auto;
+    /* Must stay `visible`: the rail is the containing block for its dropdowns
+       (`.toolbar` sets `container-type: inline-size`), so any clipping value
+       here — including the `overflow-y: auto` that an `overflow-x: visible`
+       silently promotes to `auto` — would hide the flyouts that escape to the
+       right of the 56px rail. The app shell still bounds everything at the
+       viewport. */
+    overflow: visible;
   }
 
   .toolbar.rail .toolbarLeft,
@@ -235,17 +241,36 @@
     gap: 8px;
   }
 
+  /* Menu triggers (File, overflow) are nested in a `.menu` wrapper, so unlike
+     the direct-child icon buttons they don't inherit the rail's stretch — pin
+     them to the full rail width and centre their glyphs to match. */
+  .toolbar.rail .menu > button {
+    width: 100%;
+    justify-content: center;
+  }
+
   /* Action icons (Docs, overflow) sink to the bottom of the rail. */
   .toolbar.rail .toolbarRight {
     margin-top: auto;
   }
 
   /* Dropdowns fly out to the right of the rail instead of below it, so the
-     narrow rail never clips them off-screen. */
-  .toolbar.rail .menuItems,
-  .toolbar.rail .menuItemsRight {
-    top: 0;
+     narrow rail never clips them off-screen. Anchor the vertical edge to the
+     trigger's side of the rail: the File menu sits at the top and grows down,
+     while the overflow menu sits at the foot (toolbarRight has margin-top:auto)
+     and must grow upward so it doesn't spill off the bottom of the screen. */
+  .toolbar.rail .menuItems {
     left: 100%;
     right: auto;
+  }
+
+  .toolbar.rail .toolbarLeft .menuItems {
+    top: 0;
+    bottom: auto;
+  }
+
+  .toolbar.rail .toolbarRight .menuItems {
+    top: auto;
+    bottom: 0;
   }
 }
