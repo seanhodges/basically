@@ -11,6 +11,14 @@
   user-select: none;
 }
 
+/* Phone landscape: the shell is a flex row (rail + workspace). Allow the
+   workspace to shrink below its content's intrinsic min-content (its panes clip
+   via overflow:hidden) so the overflow isn't forced onto the rail, collapsing
+   it. The `.landscape` class is JS-set only in the landscape layout. */
+.workspace.landscape {
+  min-width: 0;
+}
+
 .divider {
   background: var(--border);
   cursor: col-resize;
@@ -249,12 +257,16 @@
   }
 }
 
-/* ---------- Tablets and larger: float the keyboard ---------- */
+/* ---------- Tablets and larger + landscape phones: float the keyboard ---------- */
 /* The keyboard keeps its current size but floats at the bottom-centre with
    see-through gutters. The overlay becomes an invisible, full-size *sizing*
    scaffold (so the container-query maths and the 46% max-height are unchanged);
-   the keyboard's own rounded panel hugs the keys (+ strip) and floats. */
-@media (min-width: 769px) {
+   the keyboard's own rounded panel hugs the keys (+ strip) and floats. The
+   landscape-phone condition is OR-ed in because a sideways phone can be wider or
+   narrower than 769px depending on the device, yet always wants the centred,
+   aspect-sized keyboard (not the stretched full-width phone treatment). */
+@media (min-width: 769px),
+  (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
   .workspaceVkOverlay {
     height: 50%; /* landscape-only: a slightly taller band -> larger keys */
     container-type: size; /* size container moves here from the keyboard */

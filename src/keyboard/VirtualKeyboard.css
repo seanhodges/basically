@@ -570,10 +570,16 @@
     margin-inline: auto;
     aspect-ratio: var(--vk-aspect);
   }
+}
 
-  /* Landscape: drop the empty 1fr side gutters so the panel hugs strip + keys
-     and the overlay centres the whole block (see Workspace.module.css). Strip
-     stays column 1, keys column 2 — now the two auto-sized columns. */
+/* Landscape: drop the empty 1fr side gutters so the panel hugs strip + keys and
+   the overlay centres the whole block (see Workspace.module.css). Strip stays
+   column 1, keys column 2 — now the two auto-sized columns. The landscape-phone
+   condition is OR-ed in alongside the tablet width so a sideways phone (which
+   can be wider or narrower than 769px) gets the same centred treatment as the
+   overlay's matching float rule. */
+@media (min-width: 769px),
+  (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
   .virtual-keyboard.vk-landscape {
     grid-template-columns: auto auto;
   }

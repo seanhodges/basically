@@ -217,7 +217,9 @@
     flex-direction: column;
     justify-content: flex-start;
     align-items: stretch;
-    width: 56px;
+    /* Non-shrinking basis (not a plain width): in the landscape row layout the
+       workspace's intrinsic min-content would otherwise squeeze the rail to 0. */
+    flex: 0 0 56px;
     height: 100%;
     padding: 8px 4px;
     gap: 8px;
