@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore, type MobileTab } from '../app/store';
-import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
+import {
+  useMediaQuery,
+  MOBILE_QUERY,
+  LANDSCAPE_MOBILE_QUERY,
+} from '../app/useMediaQuery';
 import { useProgramStats, ramBudget } from '../app/useProgramStats';
 import {
   setSplitRatio as persistSplitRatio,
@@ -106,6 +110,11 @@ export function Workspace() {
   const resetController = useIdeStore((s) => s.resetController);
 
   const isMobile = useMediaQuery(MOBILE_QUERY);
+  // A touch phone in landscape uses the single-pane tab layout too (its width can
+  // exceed the 768px breakpoint, so `isMobile` alone misses it), plus a few
+  // landscape-only tweaks (left rail, flanking gamepad).
+  const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
+  const tabbed = isMobile || landscape;
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   // The controller role currently being remapped: while non-null the on-screen
@@ -151,19 +160,24 @@ export function Workspace() {
     EDITOR_KB_HIDE_DELAY_MS,
   );
 
-  // On mobile the active tab decides the target; on the desktop/tablet split
-  // both panels are visible, so editor focus does (debounced to avoid remount
-  // thrash when focus briefly leaves the editor).
-  const routeToEditor = isMobile ? mobileTab === 'editor' : showEditorKeyboard;
+  // On the tab layout the active tab decides the target; on the desktop/tablet
+  // split both panels are visible, so editor focus does (debounced to avoid
+  // remount thrash when focus briefly leaves the editor).
+  const routeToEditor = tabbed ? mobileTab === 'editor' : showEditorKeyboard;
   // The emulator is the active surface whenever the editor isn't claiming input:
-  // the preview tab on mobile, or the editor lacking focus on the split desktop.
-  const emulatorSurfaceActive = isMobile
+  // the preview tab on the tab layout, or the editor lacking focus on the split.
+  const emulatorSurfaceActive = tabbed
     ? mobileTab === 'preview'
     : !routeToEditor;
   // The gamepad overrides the keyboard, but only while the emulator is the active
   // surface — with the editor focused the gamepad is ignored and the keyboard
-  // behaves normally (including auto-show on focus).
-  const controllerVisible = controllerEnabled && emulatorSurfaceActive;
+  // behaves normally (including auto-show on focus). In phone landscape the
+  // gamepad is always shown on the preview tab (it flanks the screen, ignoring
+  // the controller-enabled setting), yielding to the keyboard only when its
+  // toggle is on.
+  const controllerVisible = landscape
+    ? emulatorSurfaceActive && bottomOverlay !== 'keyboard'
+    : controllerEnabled && emulatorSurfaceActive;
   // Resolve the user's gamepad preference against this machine's joystick
   // support; machines that don't support the chosen mode silently fall back to
   // key mapping.
@@ -173,7 +187,7 @@ export function Workspace() {
   const keyboardVisible =
     !controllerVisible &&
     bottomOverlay === 'keyboard' &&
-    (!isMobile || mobileTab === 'editor' || mobileTab === 'preview');
+    (!tabbed || mobileTab === 'editor' || mobileTab === 'preview');
 
   // With auto-show on, re-open the keyboard if it was hidden when the editor
   // regains focus. Edge-triggered (only on the false→true transition) so a
@@ -194,13 +208,13 @@ export function Workspace() {
   }, [editorFocused, keyboardAutoShow, setBottomOverlay]);
 
   const hidden = (tab: MobileTab) =>
-    isMobile && mobileTab !== tab ? styles.tabHidden : '';
+    tabbed && mobileTab !== tab ? styles.tabHidden : '';
 
-  // On non-mobile the preview and the AI panel share the right-hand column;
-  // exactly one shows at a time and the AI panel wins when open. (On mobile the
-  // tab logic in `hidden()` governs instead, so this is a no-op there.)
+  // On the split layout the preview and the AI panel share the right-hand column;
+  // exactly one shows at a time and the AI panel wins when open. (On the tab
+  // layout the tab logic in `hidden()` governs instead, so this is a no-op.)
   const slotHidden = (view: 'preview' | 'ai') => {
-    if (isMobile) return '';
+    if (tabbed) return '';
     const active = aiPanelOpen ? 'ai' : 'preview';
     return view === active ? '' : styles.slotHidden;
   };
@@ -227,15 +241,17 @@ export function Workspace() {
     persistSplitRatio(useIdeStore.getState().splitRatio);
   };
 
-  const cols = isMobile
+  const cols = tabbed
     ? undefined
     : `${(splitRatio * 100).toFixed(2)}% ${DIVIDER_WIDTH}px 1fr`;
 
   return (
     <div
-      className={`${styles.workspace} ${isMobile ? styles.mobile : ''} ${
-        dragging ? styles.dragging : ''
-      } ${keyboardVisible && routeToEditor ? styles.kbOpen : ''}`}
+      className={`${styles.workspace} ${tabbed ? styles.mobile : ''} ${
+        landscape ? styles.landscape : ''
+      } ${dragging ? styles.dragging : ''} ${
+        keyboardVisible && routeToEditor ? styles.kbOpen : ''
+      }`}
       ref={workspaceRef}
       style={cols ? { gridTemplateColumns: cols } : undefined}
     >
@@ -251,7 +267,7 @@ export function Workspace() {
             onChange={setSource}
             inputRef={editorInputRef}
           />
-          {isMobile && mobileTab === 'editor' && (
+          {tabbed && mobileTab === 'editor' && (
             <button
               className={styles.fabRun}
               onClick={requestRun}
@@ -275,13 +291,13 @@ export function Workspace() {
       >
         <EmulatorPane apiRef={machineApiRef} />
       </div>
-      {isMobile && (
+      {tabbed && (
         <div className={`${styles.settingsPane} ${hidden('settings')}`}>
           <SettingsForm />
           <ProgramStats />
         </div>
       )}
-      {(aiPanelOpen || isMobile) && (
+      {(aiPanelOpen || tabbed) && (
         <div className={`${styles.aiHost} ${hidden('ai')} ${slotHidden('ai')}`}>
           <AiPanel />
         </div>

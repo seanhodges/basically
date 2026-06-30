@@ -11,6 +11,7 @@ import {
   isMobileViewport,
   useMediaQuery,
   MOBILE_QUERY,
+  LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
@@ -52,6 +53,11 @@ const MOBILE_BEZEL = 8;
 /** Padding of .emulator-pane in the mobile media query (each side). */
 const MOBILE_PANE_PAD = 8;
 
+/** Width reserved on each side of the screen for the flanking gamepad in the
+    phone-landscape layout, so the centred screen never sits under the d-pad or
+    fire buttons. */
+const LANDSCAPE_SIDE_GUTTER = 132;
+
 function fetchRom(url: string): Promise<Uint8Array> {
   let cached = romCache.get(url);
   if (!cached) {
@@ -86,15 +92,20 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const editorFocused = useIdeStore((s) => s.editorFocused);
   const mobileTab = useIdeStore((s) => s.mobileTab);
   const isMobile = useMediaQuery(MOBILE_QUERY);
+  const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
+  const tabbed = isMobile || landscape;
   // The bottom band is occupied (so the screen shrinks to the top half) when the
   // keyboard is docked, or when the gamepad takes over as the active surface's
-  // overlay — the preview tab on mobile, or the unfocused editor on desktop.
-  const emulatorSurfaceActive = isMobile
+  // overlay — the preview tab on the tab layout, or the unfocused editor on the
+  // split. In phone landscape the gamepad instead flanks the screen (full height),
+  // so only the docked keyboard caps the screen there.
+  const emulatorSurfaceActive = tabbed
     ? mobileTab === 'preview'
     : !editorFocused;
-  const overlayUp =
-    bottomOverlay === 'keyboard' ||
-    (controllerEnabled && emulatorSurfaceActive);
+  const overlayUp = landscape
+    ? bottomOverlay === 'keyboard'
+    : bottomOverlay === 'keyboard' ||
+      (controllerEnabled && emulatorSurfaceActive);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
 
@@ -489,7 +500,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     if (!container) return;
     const update = () => {
       const rect = container.getBoundingClientRect();
-      const availWidth = rect.width - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD);
+      // In phone landscape the gamepad flanks the screen, so reserve a gutter on
+      // each side and keep the centred screen clear of the controls.
+      const sideReserve = landscape ? LANDSCAPE_SIDE_GUTTER : 0;
+      const availWidth =
+        rect.width - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD) - 2 * sideReserve;
       // With the keyboard up, never grow past 50% of the pane so the bottom-50%
       // overlay can never cover the screen.
       const heightBudget = overlayUp
@@ -508,7 +523,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     const observer = new ResizeObserver(update);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [overlayUp, display.width, display.height]);
+  }, [overlayUp, landscape, display.width, display.height]);
 
   const getMachine = useCallback(() => machineRef.current, []);
   const registerFrameHook = useCallback((cb: (() => void) | null) => {
@@ -577,6 +592,30 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         />
         {loading && (
           <div className={styles.loadingOverlay}>Emulator loading…</div>
+        )}
+        {/* Phone landscape: the on-screen keyboard is off by default and toggled
+            from this button to the right of the screen. While it's up the
+            workspace hides the flanking gamepad and routes keys to the machine. */}
+        {landscape && mobileTab === 'preview' && (
+          <button
+            type="button"
+            className={`${styles.kbToggle} ${
+              bottomOverlay === 'keyboard' ? styles.kbToggleActive : ''
+            }`}
+            aria-pressed={bottomOverlay === 'keyboard'}
+            title={
+              bottomOverlay === 'keyboard'
+                ? 'Hide on-screen keyboard'
+                : 'Show on-screen keyboard'
+            }
+            onClick={() =>
+              setBottomOverlay(
+                bottomOverlay === 'keyboard' ? 'none' : 'keyboard',
+              )
+            }
+          >
+            ⌨
+          </button>
         )}
       </div>
       {/* The Step/Continue/Stop controls live in the top-bar Run menu now; this

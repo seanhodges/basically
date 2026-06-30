@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
-import { isMobileViewport } from '../app/useMediaQuery';
+import {
+  isMobileViewport,
+  useMediaQuery,
+  LANDSCAPE_MOBILE_QUERY,
+} from '../app/useMediaQuery';
 import { openTextFile, saveTextFile } from '../storage/files';
 import { dialects } from '../dialects/registry';
 import { referenceTopic } from '../app/docsTopic';
@@ -61,6 +65,9 @@ export function Toolbar() {
   // editor/preview tabs carry context actions in the overflow menu; on the
   // other tabs it exists only to host the (collapsed) Target selector.
   const contextTab = mobileTab === 'editor' || mobileTab === 'preview';
+
+  // Phone landscape collapses the toolbar into a narrow vertical left rail.
+  const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
 
   const closeMenus = () => {
     setFileMenuOpen(false);
@@ -163,7 +170,7 @@ export function Toolbar() {
     ));
 
   return (
-    <div className={styles.toolbar}>
+    <div className={`${styles.toolbar} ${landscape ? styles.rail : ''}`}>
       <div className={styles.toolbarLeft}>
         <div className={styles.menu} ref={menuRef}>
           <button onClick={toggleFileMenu}>
