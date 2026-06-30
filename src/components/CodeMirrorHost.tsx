@@ -138,23 +138,8 @@ function renumberCurrentLine(view: EditorView): boolean {
   return true;
 }
 
-/**
- * Range to act on for copy/cut: the main selection, or — when it's empty — the
- * whole current line (incl. trailing newline), mirroring CodeMirror's default
- * clipboard behaviour for an empty selection.
- */
-function clipboardRange(view: EditorView): { from: number; to: number } {
-  const sel = view.state.selection.main;
-  if (!sel.empty) return { from: sel.from, to: sel.to };
-  const line = view.state.doc.lineAt(sel.head);
-  return { from: line.from, to: Math.min(line.to + 1, view.state.doc.length) };
-}
-
 /** Run an Edit-menu command against the editor. */
-async function runEditorCommand(
-  view: EditorView,
-  name: EditorCommandName,
-): Promise<void> {
+function runEditorCommand(view: EditorView, name: EditorCommandName): void {
   switch (name) {
     case 'undo':
       undo(view);
@@ -162,23 +147,6 @@ async function runEditorCommand(
     case 'redo':
       redo(view);
       break;
-    case 'copy':
-    case 'cut': {
-      const { from, to } = clipboardRange(view);
-      await navigator.clipboard.writeText(view.state.sliceDoc(from, to));
-      if (name === 'cut') {
-        view.dispatch({ changes: { from, to }, userEvent: 'delete.cut' });
-      }
-      break;
-    }
-    case 'paste': {
-      const text = await navigator.clipboard.readText();
-      if (text)
-        view.dispatch(view.state.replaceSelection(text), {
-          userEvent: 'input.paste',
-        });
-      break;
-    }
     case 'find':
       // The panel contains both find and replace rows; one entry covers both.
       openSearchPanel(view);

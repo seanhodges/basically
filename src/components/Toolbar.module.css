@@ -43,6 +43,13 @@
   box-shadow: 0 6px 24px rgb(0 0 0 / 50%);
 }
 
+/* Anchor the dropdown to the right edge of its trigger so the far-right
+   overflow ("three dots") menu doesn't spill off-screen. */
+.menuItemsRight {
+  left: auto;
+  right: 0;
+}
+
 .menuItems button {
   background: none;
   border: none;
