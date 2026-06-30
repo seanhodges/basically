@@ -3,30 +3,46 @@
 }
 
 @media (max-width: 768px) {
+  /* The tab bar lives inside the toolbar row, so it borrows the toolbar's
+     background and bottom border rather than drawing its own. */
   .tabBar {
     display: flex;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-panel);
+    align-items: stretch;
+    gap: 2px;
   }
 
   .tabBar button {
-    flex: 1;
-    padding: 12px 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
     border: none;
     border-bottom: 2px solid transparent;
     border-radius: 0;
     background: none;
     font-size: 13px;
-  }
-
-  .tabBar button.iconTab {
-    flex: 0;
-    padding: 12px 14px;
-    font-size: 16px;
+    white-space: nowrap;
   }
 
   .tabBar button:global(.active) {
     color: var(--accent);
     border-bottom-color: var(--accent);
+  }
+
+  .tabLabel {
+    display: inline;
+  }
+}
+
+/* When the toolbar runs short on horizontal space, drop the tab labels and show
+   just the icons. Container query on the toolbar (the tab bar's named-container
+   ancestor) so it reacts to the bar's width, not the viewport's. */
+@container toolbar (max-width: 560px) {
+  .tabLabel {
+    display: none;
+  }
+
+  .tabBar button {
+    padding: 6px;
   }
 }

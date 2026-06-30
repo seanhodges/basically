@@ -1,11 +1,12 @@
 import { useIdeStore, type MobileTab } from '../app/store';
+import { CodeIcon, PlayIcon, SparkleIcon, GearIcon } from './icons';
 import styles from './MobileTabBar.module.css';
 
-const TABS: { id: MobileTab; label: string; icon?: string }[] = [
-  { id: 'editor', label: 'Editor' },
-  { id: 'preview', label: 'Run' },
-  { id: 'ai', label: 'AI', icon: '✦' },
-  { id: 'settings', label: 'Settings', icon: '⚙' },
+const TABS: { id: MobileTab; label: string; Icon: () => JSX.Element }[] = [
+  { id: 'editor', label: 'Editor', Icon: CodeIcon },
+  { id: 'preview', label: 'Run', Icon: PlayIcon },
+  { id: 'ai', label: 'AI', Icon: SparkleIcon },
+  { id: 'settings', label: 'Settings', Icon: GearIcon },
 ];
 
 export function MobileTabBar() {
@@ -14,21 +15,19 @@ export function MobileTabBar() {
 
   return (
     <div className={styles.tabBar} role="tablist">
-      {TABS.map((t) => (
+      {TABS.map(({ id, label, Icon }) => (
         <button
-          key={t.id}
+          key={id}
           role="tab"
-          aria-selected={mobileTab === t.id}
-          aria-label={t.label}
-          className={[
-            mobileTab === t.id ? 'active' : '',
-            t.icon ? styles.iconTab : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          onClick={() => setMobileTab(t.id)}
+          aria-selected={mobileTab === id}
+          // Keep the accessible name stable so it survives icon-only mode
+          // (the e2e specs select tabs by getByRole('tab', { name })).
+          aria-label={label}
+          className={mobileTab === id ? 'active' : ''}
+          onClick={() => setMobileTab(id)}
         >
-          {t.icon ?? t.label}
+          <Icon />
+          <span className={styles.tabLabel}>{label}</span>
         </button>
       ))}
     </div>

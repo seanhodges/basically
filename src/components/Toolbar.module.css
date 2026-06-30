@@ -28,6 +28,42 @@
   position: relative;
 }
 
+/* Menu trigger buttons (File/Edit) align an optional leading icon with their
+   label. Direct-child only, so the dropdown item buttons stay untouched. */
+.menu > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fileLabel {
+  display: inline;
+}
+
+/* The floppy-disk glyph on the File menu is part of the merged mobile bar; the
+   desktop toolbar keeps its original text-only File button. */
+.fileIcon {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .fileIcon {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* The Target selector hosted inside the overflow menu — only used once the bar
+   is narrow enough that the inline Target is hidden (see container query). */
+.targetInOverflow {
+  display: none;
+}
+
+.targetInOverflow select {
+  width: 100%;
+  margin: 2px 0 4px;
+}
+
 .menuItems {
   position: absolute;
   top: 100%;
@@ -89,8 +125,39 @@
   display: inline;
 }
 
+/* The overflow trigger on the AI/Settings tabs exists only to host the Target
+   selector, so keep it hidden until the bar is narrow enough to collapse the
+   inline Target into the menu. The compound selector outranks the global
+   `.mobile-visible` reveal that the button also carries. */
+.toolbar button.overflowTargetOnly {
+  display: none;
+}
+
 @container toolbar (max-width: 480px) {
   .dialectLabelText {
+    display: none;
+  }
+}
+
+/* Tightest tier: the inline Target no longer fits, so hide it and surface the
+   Target selector (and its overflow trigger) inside the "three dots" menu. */
+@container toolbar (max-width: 430px) {
+  .dialectLabel {
+    display: none;
+  }
+
+  .targetInOverflow {
+    display: block;
+  }
+
+  .toolbar button.overflowTargetOnly {
+    display: inline-flex;
+  }
+}
+
+/* Smallest phones: drop the File label to just the floppy icon. */
+@container toolbar (max-width: 380px) {
+  .fileLabel {
     display: none;
   }
 }

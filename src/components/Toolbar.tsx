@@ -4,75 +4,17 @@ import { isMobileViewport } from '../app/useMediaQuery';
 import { openTextFile, saveTextFile } from '../storage/files';
 import { dialects } from '../dialects/registry';
 import { referenceTopic } from '../app/docsTopic';
+import { MobileTabBar } from './MobileTabBar';
+import {
+  SparkleIcon,
+  GearIcon,
+  BookIcon,
+  SpeakerIcon,
+  SpeakerMutedIcon,
+  DotsIcon,
+  FloppyIcon,
+} from './icons';
 import styles from './Toolbar.module.css';
-
-const iconProps = {
-  width: 16,
-  height: 16,
-  viewBox: '0 0 24 24',
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.6,
-  strokeLinecap: 'round',
-  strokeLinejoin: 'round',
-  'aria-hidden': true,
-} as const;
-
-function SparkleIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M12 3l1.9 5.6a3 3 0 0 0 1.9 1.9L21.4 12l-5.6 1.9a3 3 0 0 0-1.9 1.9L12 21.4l-1.9-5.6a3 3 0 0 0-1.9-1.9L2.6 12l5.6-1.9a3 3 0 0 0 1.9-1.9L12 3z" />
-    </svg>
-  );
-}
-
-function GearIcon() {
-  return (
-    <svg {...iconProps}>
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M19.4 13.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.03z" />
-    </svg>
-  );
-}
-
-function BookIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M12 6.5C10.5 5.3 8.6 4.8 4 4.8V18c4.6 0 6.5.5 8 1.7 1.5-1.2 3.4-1.7 8-1.7V4.8c-4.6 0-6.5.5-8 1.7z" />
-      <path d="M12 6.5V19.7" />
-    </svg>
-  );
-}
-
-function SpeakerIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M11 5 6 9H3v6h3l5 4z" />
-      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-      <path d="M18 6a8 8 0 0 1 0 12" />
-    </svg>
-  );
-}
-
-function SpeakerMutedIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M11 5 6 9H3v6h3l5 4z" />
-      <path d="M22 9l-6 6" />
-      <path d="M16 9l6 6" />
-    </svg>
-  );
-}
-
-function DotsIcon() {
-  return (
-    <svg {...iconProps} fill="currentColor" stroke="none">
-      <circle cx="12" cy="5" r="1.7" />
-      <circle cx="12" cy="12" r="1.7" />
-      <circle cx="12" cy="19" r="1.7" />
-    </svg>
-  );
-}
 
 export function Toolbar() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -109,10 +51,16 @@ export function Toolbar() {
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [editMenuOpen, setEditMenuOpen] = useState(false);
   // The mobile "three dots" overflow menu. It is context-aware: it surfaces the
-  // Edit actions on the editor tab and the Run actions on the emulator tab.
+  // Edit actions on the editor tab and the Run actions on the emulator tab, and
+  // on a narrow bar it also hosts the Target machine selector (which no longer
+  // fits inline).
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // editor/preview tabs carry context actions in the overflow menu; on the
+  // other tabs it exists only to host the (collapsed) Target selector.
+  const contextTab = mobileTab === 'editor' || mobileTab === 'preview';
 
   const closeMenus = () => {
     setFileMenuOpen(false);
@@ -206,11 +154,24 @@ export function Toolbar() {
   const openImport = guard(() => setImportOpen(true));
   const openShare = guard(() => setTransferOpen(true));
 
+  const dialectOptions = [...dialects]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((d) => (
+      <option key={d.id} value={d.id}>
+        {d.name}
+      </option>
+    ));
+
   return (
     <div className={styles.toolbar}>
       <div className={styles.toolbarLeft}>
         <div className={styles.menu} ref={menuRef}>
-          <button onClick={toggleFileMenu}>File ▾</button>
+          <button onClick={toggleFileMenu}>
+            <span className={styles.fileIcon}>
+              <FloppyIcon />
+            </span>
+            <span className={styles.fileLabel}>File ▾</span>
+          </button>
           {fileMenuOpen && (
             <div
               className={styles.menuItems}
@@ -231,6 +192,11 @@ export function Toolbar() {
             </div>
           )}
         </div>
+
+        {/* The mobile tab switcher is merged into the toolbar row, immediately
+            right of the File menu. It hides itself on desktop via its own
+            module CSS. */}
+        <MobileTabBar />
 
         <div className={`${styles.menu} desktop-only`}>
           <button onClick={toggleEditMenu}>Edit ▾</button>
@@ -272,13 +238,7 @@ export function Toolbar() {
             onChange={(e) => setDialect(e.target.value)}
             title="Target machine"
           >
-            {[...dialects]
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
+            {dialectOptions}
           </select>
         </label>
       </div>
@@ -369,74 +329,98 @@ export function Toolbar() {
         >
           <BookIcon />
         </button>
-        {/* Mobile "three dots" overflow menu: Edit actions on the editor tab,
-            Run actions on the emulator (preview) tab. Hidden on every other
-            tab and on desktop (where the Edit menu and Run buttons live). */}
-        {(mobileTab === 'editor' || mobileTab === 'preview') && (
-          <div className={`${styles.menu} mobile-only`}>
-            <button
-              className="icon-btn mobile-visible"
-              onClick={toggleOverflowMenu}
-              title={mobileTab === 'editor' ? 'Edit actions' : 'Run actions'}
+        {/* Mobile "three dots" overflow menu. On the editor/preview tabs it
+            carries the Edit/Run actions; on a narrow bar it additionally hosts
+            the Target machine selector that no longer fits inline. On the
+            AI/Settings tabs it carries only the Target selector, so its trigger
+            stays hidden until the bar is narrow enough to collapse it (see
+            .overflowTargetOnly in the stylesheet). */}
+        <div className={`${styles.menu} mobile-only`}>
+          <button
+            className={`icon-btn mobile-visible ${
+              contextTab ? '' : styles.overflowTargetOnly
+            }`}
+            onClick={toggleOverflowMenu}
+            title={
+              contextTab
+                ? mobileTab === 'editor'
+                  ? 'Edit actions'
+                  : 'Run actions'
+                : 'Target machine'
+            }
+          >
+            <DotsIcon />
+          </button>
+          {overflowMenuOpen && (
+            <div
+              className={`${styles.menuItems} ${styles.menuItemsRight}`}
+              onMouseLeave={() => setOverflowMenuOpen(false)}
             >
-              <DotsIcon />
-            </button>
-            {overflowMenuOpen && (
-              <div
-                className={`${styles.menuItems} ${styles.menuItemsRight}`}
-                onMouseLeave={() => setOverflowMenuOpen(false)}
-              >
-                {mobileTab === 'editor' ? (
-                  <>
-                    <button onClick={editAction('undo')}>Undo</button>
-                    <button onClick={editAction('redo')}>Redo</button>
-                    <div className={styles.menuSeparator} />
-                    <button onClick={editAction('find')}>Find/Replace</button>
-                    <button
-                      onClick={guard(() => setProcedureListOpen(true))}
-                      title="List procedures, subroutines and jump targets in this program"
-                    >
-                      Outline…
-                    </button>
-                    <div className={styles.menuSeparator} />
-                    <button
-                      onClick={editAction('renumber')}
-                      title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
-                    >
-                      Renumber line
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={playProgram}>▶ Play</button>
-                    {dialect.debuggable && (
-                      <>
-                        <button
-                          onClick={stepProgram}
-                          disabled={emulatorStatus !== 'paused'}
-                        >
-                          ⤵ Step
-                        </button>
-                        <button
-                          onClick={continueProgram}
-                          disabled={emulatorStatus !== 'paused'}
-                        >
-                          ▶ Continue
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={stopProgram}
-                      disabled={emulatorStatus === 'stopped'}
-                    >
-                      ■ Stop
-                    </button>
-                  </>
-                )}
+              {mobileTab === 'editor' && (
+                <>
+                  <button onClick={editAction('undo')}>Undo</button>
+                  <button onClick={editAction('redo')}>Redo</button>
+                  <div className={styles.menuSeparator} />
+                  <button onClick={editAction('find')}>Find/Replace</button>
+                  <button
+                    onClick={guard(() => setProcedureListOpen(true))}
+                    title="List procedures, subroutines and jump targets in this program"
+                  >
+                    Outline…
+                  </button>
+                  <div className={styles.menuSeparator} />
+                  <button
+                    onClick={editAction('renumber')}
+                    title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
+                  >
+                    Renumber line
+                  </button>
+                </>
+              )}
+              {mobileTab === 'preview' && (
+                <>
+                  <button onClick={playProgram}>▶ Play</button>
+                  {dialect.debuggable && (
+                    <>
+                      <button
+                        onClick={stepProgram}
+                        disabled={emulatorStatus !== 'paused'}
+                      >
+                        ⤵ Step
+                      </button>
+                      <button
+                        onClick={continueProgram}
+                        disabled={emulatorStatus !== 'paused'}
+                      >
+                        ▶ Continue
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={stopProgram}
+                    disabled={emulatorStatus === 'stopped'}
+                  >
+                    ■ Stop
+                  </button>
+                </>
+              )}
+              {/* Target selector — visible only on a narrow bar, where the
+                  inline Target label is hidden (see .targetInOverflow). */}
+              <div className={styles.targetInOverflow}>
+                {contextTab && <div className={styles.menuSeparator} />}
+                <div className={styles.menuLabel}>Target</div>
+                <select
+                  className="dialect-select"
+                  value={dialect.id}
+                  onChange={(e) => setDialect(e.target.value)}
+                  title="Target machine"
+                >
+                  {dialectOptions}
+                </select>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
