@@ -129,6 +129,17 @@
     calc(6px + env(safe-area-inset-bottom)) calc(env(safe-area-inset-left));
 }
 
+/* Phone landscape: the gamepad flanks the full-height emulator (d-pad hugging the
+   left edge, fire buttons the right) instead of floating in the bottom band. The
+   `.landscape` class is JS-set only when the landscape layout is active, so no
+   media query is needed here. */
+.workspace.landscape .workspaceGcOverlay {
+  top: 0;
+  height: 100%;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    calc(6px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
+}
+
 /* The remap picker: the keyboard plus a banner stacked above it. Override the
    row layout (and the desktop float) so the banner sits on top full-width. */
 .gamepadRemapOverlay {
@@ -159,8 +170,11 @@
   display: none;
 }
 
-/* ---------- Mobile (portrait) tabbed layout ---------- */
-@media (max-width: 768px) {
+/* ---------- Tabbed single-pane layout: phone portrait + phone landscape ----------
+   The landscape query is OR-ed in because a phone held sideways can be wider than
+   the 768px breakpoint yet still wants the single-pane tab layout. */
+@media (max-width: 768px),
+  (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
   .workspace.mobile {
     display: flex;
     flex-direction: column;

@@ -14,13 +14,21 @@ import { WelcomeDialog } from './components/WelcomeDialog';
 import { DocsDrawer } from './components/DocsDrawer';
 import { StatusBar } from './components/StatusBar';
 import { getHasSeenWelcome, saveAutosave } from './storage/settings';
-import { isMobileViewport } from './app/useMediaQuery';
+import {
+  isMobileViewport,
+  useMediaQuery,
+  LANDSCAPE_MOBILE_QUERY,
+} from './app/useMediaQuery';
 import { useHistorySync } from './app/useHistorySync';
 import styles from './App.module.css';
 
 export default function App() {
   const requestRun = useIdeStore((s) => s.requestRun);
   const runRequest = useIdeStore((s) => s.runRequest);
+
+  // A touch phone in landscape gets a dedicated layout (left rail, no status bar);
+  // every other form factor keeps the column shell.
+  const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
 
   // Make the browser Back button close ephemeral UI surfaces (mobile tabs,
   // settings, AI panel, on-screen keyboard, gamepad, docs) instead of leaving
@@ -64,10 +72,12 @@ export default function App() {
   }, [runRequest]);
 
   return (
-    <div className={styles.app}>
+    <div className={`${styles.app} ${landscape ? styles.landscape : ''}`}>
       <Toolbar />
       <Workspace />
-      <StatusBar />
+      {/* The status bar is dropped in the phone-landscape layout; its toggles
+          move to the left rail / emulator pane. */}
+      {!landscape && <StatusBar />}
       <AiSettingsDialog />
       <TransferDialog />
       <ImportDialog />
@@ -75,21 +85,6 @@ export default function App() {
       <ProcedureListDialog />
       <WelcomeDialog />
       <DocsDrawer />
-      <div
-        className={styles.rotateOverlay}
-        role="alertdialog"
-        aria-live="polite"
-      >
-        <div className={styles.rotateInner}>
-          <span className={styles.rotateIcon} aria-hidden="true">
-            📱
-          </span>
-          <p>Please rotate your device to portrait.</p>
-          <p className={styles.rotateHint}>
-            This app supports landscape on tablets and larger screens.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }

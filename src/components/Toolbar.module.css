@@ -187,3 +187,63 @@
     gap: 6px;
   }
 }
+
+/* ---------- Phone landscape: vertical left rail ---------- */
+/* Re-apply the mobile toolbar treatment (it keys off 768px width, which a wide
+   landscape phone can exceed), then lay the bar out as a narrow column. The
+   container queries above still fire because the rail's inline-size is tiny, so
+   the File label drops to its icon and the Target selector collapses into the
+   overflow menu on their own. */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .toolbar :global(.desktop-only),
+  .toolbar :global(.icon-btn) {
+    display: none;
+  }
+
+  .toolbar :global(.mobile-only) {
+    display: block;
+  }
+
+  .toolbar :global(.mobile-visible) {
+    display: flex;
+  }
+
+  .fileIcon {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .toolbar.rail {
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    width: 56px;
+    height: 100%;
+    padding: 8px 4px;
+    gap: 8px;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .toolbar.rail .toolbarLeft,
+  .toolbar.rail .toolbarRight {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  /* Action icons (Docs, overflow) sink to the bottom of the rail. */
+  .toolbar.rail .toolbarRight {
+    margin-top: auto;
+  }
+
+  /* Dropdowns fly out to the right of the rail instead of below it, so the
+     narrow rail never clips them off-screen. */
+  .toolbar.rail .menuItems,
+  .toolbar.rail .menuItemsRight {
+    top: 0;
+    left: 100%;
+    right: auto;
+  }
+}

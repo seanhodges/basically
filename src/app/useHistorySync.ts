@@ -3,7 +3,11 @@
 
 import { useEffect, useRef } from 'react';
 import { useIdeStore } from './store';
-import { useMediaQuery, MOBILE_QUERY } from './useMediaQuery';
+import {
+  useMediaQuery,
+  MOBILE_QUERY,
+  LANDSCAPE_MOBILE_QUERY,
+} from './useMediaQuery';
 import { createHistorySync } from './historyNav';
 
 /**
@@ -17,11 +21,15 @@ import { createHistorySync } from './historyNav';
  * layout so mobile and desktop map their surfaces correctly.
  */
 export function useHistorySync(): void {
-  const isMobile = useMediaQuery(MOBILE_QUERY);
+  // The tab layout (mobile surfaces map to history entries) is active for a
+  // narrow viewport or a phone in landscape; the split desktop maps differently.
+  const narrow = useMediaQuery(MOBILE_QUERY);
+  const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
+  const tabbed = narrow || landscape;
   // The subscription is set up once, so read the live layout through a ref
   // rather than re-subscribing on every breakpoint change.
-  const isMobileRef = useRef(isMobile);
-  isMobileRef.current = isMobile;
+  const isMobileRef = useRef(tabbed);
+  isMobileRef.current = tabbed;
 
   useEffect(() => {
     const sync = createHistorySync({

@@ -24,6 +24,32 @@
   max-width: 100%;
 }
 
+/* Phone-landscape keyboard toggle: pinned just outside the right edge of the
+   screen, vertically centred. Sits above the transparent gamepad overlay (which
+   is click-through in its gaps) so it stays tappable while the gamepad flanks. */
+.kbToggle {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 10px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+  line-height: 1;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+.kbToggle.kbToggleActive {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .screenShell.focused {
   box-shadow: 0 0 0 2px var(--accent);
 }
@@ -140,7 +166,8 @@
   background: var(--bg-panel);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px),
+  (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
   .emulatorPane {
     padding: 8px;
   }

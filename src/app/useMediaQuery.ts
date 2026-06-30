@@ -3,9 +3,25 @@ import { useSyncExternalStore } from 'react';
 /** Breakpoint below which the IDE switches to the tabbed mobile layout. */
 export const MOBILE_QUERY = '(max-width: 768px)';
 
+/**
+ * A touch phone held sideways: a short, wide viewport with a coarse pointer.
+ * Tablets/desktops are excluded (their landscape height is >= 768px and/or they
+ * have a fine pointer), so they keep the split layout. Matches the condition the
+ * old "rotate to portrait" overlay used, which the landscape layout replaces.
+ */
+export const LANDSCAPE_MOBILE_QUERY =
+  '(orientation: landscape) and (max-height: 600px) and (pointer: coarse)';
+
 export function isMobileViewport(): boolean {
   return (
     typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches
+  );
+}
+
+export function isLandscapeMobileViewport(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia(LANDSCAPE_MOBILE_QUERY).matches
   );
 }
 

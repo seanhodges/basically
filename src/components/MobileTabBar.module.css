@@ -46,3 +46,36 @@
     padding: 6px;
   }
 }
+
+/* Phone landscape: the toolbar is a vertical rail, so the tab bar stacks its
+   icon-only buttons and marks the active tab with a left edge instead of an
+   underline. Driven by the global landscape query (the width-based 768px query
+   may not match a wide landscape phone). */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .tabBar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .tabBar button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 8px;
+    border: none;
+    border-left: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+  }
+
+  .tabBar button:global(.active) {
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+
+  .tabLabel {
+    display: none;
+  }
+}
