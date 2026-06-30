@@ -242,6 +242,10 @@ export function Toolbar() {
               <button onClick={editAction('undo')}>Undo</button>
               <button onClick={editAction('redo')}>Redo</button>
               <div className={styles.menuSeparator} />
+              <button onClick={editAction('cut')}>Cut</button>
+              <button onClick={editAction('copy')}>Copy</button>
+              <button onClick={editAction('paste')}>Paste</button>
+              <div className={styles.menuSeparator} />
               <button onClick={editAction('find')}>Find/Replace</button>
               <button
                 onClick={guard(() => setProcedureListOpen(true))}

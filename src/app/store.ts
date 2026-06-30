@@ -60,6 +60,9 @@ export type MobileTab = 'editor' | 'preview' | 'settings' | 'ai';
 export type EditorCommandName =
   | 'undo'
   | 'redo'
+  | 'cut'
+  | 'copy'
+  | 'paste'
   | 'find'
   | 'closeFind'
   | 'renumber';
