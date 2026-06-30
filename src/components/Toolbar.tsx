@@ -64,6 +64,16 @@ function SpeakerMutedIcon() {
   );
 }
 
+function DotsIcon() {
+  return (
+    <svg {...iconProps} fill="currentColor" stroke="none">
+      <circle cx="12" cy="5" r="1.7" />
+      <circle cx="12" cy="12" r="1.7" />
+      <circle cx="12" cy="19" r="1.7" />
+    </svg>
+  );
+}
+
 export function Toolbar() {
   const dialect = useIdeStore((s) => s.dialect);
   const setDialect = useIdeStore((s) => s.setDialect);
@@ -89,6 +99,7 @@ export function Toolbar() {
   const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
+  const mobileTab = useIdeStore((s) => s.mobileTab);
   const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
   const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
   const emulatorAudio = useIdeStore((s) => s.emulatorAudio);
@@ -97,14 +108,16 @@ export function Toolbar() {
 
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [editMenuOpen, setEditMenuOpen] = useState(false);
-  const [runMenuOpen, setRunMenuOpen] = useState(false);
+  // The mobile "three dots" overflow menu. It is context-aware: it surfaces the
+  // Edit actions on the editor tab and the Run actions on the emulator tab.
+  const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
   const closeMenus = () => {
     setFileMenuOpen(false);
     setEditMenuOpen(false);
-    setRunMenuOpen(false);
+    setOverflowMenuOpen(false);
   };
 
   // The dropdown menus and the on-screen keyboard are mutually exclusive:
@@ -128,17 +141,17 @@ export function Toolbar() {
     setEditMenuOpen(next);
     if (next) setBottomOverlay('none');
   };
-  const toggleRunMenu = () => {
-    const next = !runMenuOpen;
+  const toggleOverflowMenu = () => {
+    const next = !overflowMenuOpen;
     closeMenus();
-    setRunMenuOpen(next);
+    setOverflowMenuOpen(next);
     if (next) setBottomOverlay('none');
   };
   // Run/debug actions share the same shape: close the menu, request the action,
   // and on mobile jump to the preview tab so the emulator that was just acted on
   // is visible.
   const runAction = (fn: () => void) => () => {
-    setRunMenuOpen(false);
+    setOverflowMenuOpen(false);
     fn();
     if (isMobileViewport()) setMobileTab('preview');
   };
@@ -219,7 +232,7 @@ export function Toolbar() {
           )}
         </div>
 
-        <div className={styles.menu}>
+        <div className={`${styles.menu} desktop-only`}>
           <button onClick={toggleEditMenu}>Edit ▾</button>
           {editMenuOpen && (
             <div
@@ -246,42 +259,6 @@ export function Toolbar() {
                 title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
               >
                 Renumber line
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className={`${styles.menu} mobile-only`}>
-          <button className="run" onClick={toggleRunMenu}>
-            Run ▾
-          </button>
-          {runMenuOpen && (
-            <div
-              className={styles.menuItems}
-              onMouseLeave={() => setRunMenuOpen(false)}
-            >
-              <button onClick={playProgram}>▶ Play</button>
-              {dialect.debuggable && (
-                <>
-                  <button
-                    onClick={stepProgram}
-                    disabled={emulatorStatus !== 'paused'}
-                  >
-                    ⤵ Step
-                  </button>
-                  <button
-                    onClick={continueProgram}
-                    disabled={emulatorStatus !== 'paused'}
-                  >
-                    ▶ Continue
-                  </button>
-                </>
-              )}
-              <button
-                onClick={stopProgram}
-                disabled={emulatorStatus === 'stopped'}
-              >
-                ■ Stop
               </button>
             </div>
           )}
@@ -392,6 +369,74 @@ export function Toolbar() {
         >
           <BookIcon />
         </button>
+        {/* Mobile "three dots" overflow menu: Edit actions on the editor tab,
+            Run actions on the emulator (preview) tab. Hidden on every other
+            tab and on desktop (where the Edit menu and Run buttons live). */}
+        {(mobileTab === 'editor' || mobileTab === 'preview') && (
+          <div className={`${styles.menu} mobile-only`}>
+            <button
+              className="icon-btn mobile-visible"
+              onClick={toggleOverflowMenu}
+              title={mobileTab === 'editor' ? 'Edit actions' : 'Run actions'}
+            >
+              <DotsIcon />
+            </button>
+            {overflowMenuOpen && (
+              <div
+                className={`${styles.menuItems} ${styles.menuItemsRight}`}
+                onMouseLeave={() => setOverflowMenuOpen(false)}
+              >
+                {mobileTab === 'editor' ? (
+                  <>
+                    <button onClick={editAction('undo')}>Undo</button>
+                    <button onClick={editAction('redo')}>Redo</button>
+                    <div className={styles.menuSeparator} />
+                    <button onClick={editAction('find')}>Find/Replace</button>
+                    <button
+                      onClick={guard(() => setProcedureListOpen(true))}
+                      title="List procedures, subroutines and jump targets in this program"
+                    >
+                      Outline…
+                    </button>
+                    <div className={styles.menuSeparator} />
+                    <button
+                      onClick={editAction('renumber')}
+                      title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
+                    >
+                      Renumber line
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={playProgram}>▶ Play</button>
+                    {dialect.debuggable && (
+                      <>
+                        <button
+                          onClick={stepProgram}
+                          disabled={emulatorStatus !== 'paused'}
+                        >
+                          ⤵ Step
+                        </button>
+                        <button
+                          onClick={continueProgram}
+                          disabled={emulatorStatus !== 'paused'}
+                        >
+                          ▶ Continue
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={stopProgram}
+                      disabled={emulatorStatus === 'stopped'}
+                    >
+                      ■ Stop
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
