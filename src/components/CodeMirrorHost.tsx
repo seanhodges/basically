@@ -221,6 +221,25 @@ function renumberCurrentLine(view: EditorView): boolean {
 }
 
 /**
+ * F9: toggle a breakpoint on the BASIC line under the cursor. Reuses the same
+ * row→line-number mapping the clickable gutter uses, so the shortcut and the
+ * gutter click agree. A no-op (but still consumed) on a row without a number.
+ */
+function toggleBreakpointAtCursor(view: EditorView): boolean {
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  const lineNo = rowLineNumber(line.text);
+  if (lineNo === null) return true;
+  useIdeStore.getState().toggleBreakpoint(lineNo);
+  return true;
+}
+
+/** Mod-Shift-O: open the program Outline (mirrors the Edit-menu item). */
+function openOutline(): boolean {
+  useIdeStore.getState().setProcedureListOpen(true);
+  return true;
+}
+
+/**
  * Range to act on for copy/cut: the main selection, or — when it's empty — the
  * whole current line (incl. trailing newline), mirroring CodeMirror's default
  * clipboard behaviour for an empty selection.
@@ -485,6 +504,8 @@ export function CodeMirrorHost({
             { key: 'Enter', run: handleEnter },
             { key: 'Shift-Enter', run: handleShiftEnter },
             { key: 'Mod-Alt-r', run: renumberCurrentLine },
+            { key: 'F9', run: toggleBreakpointAtCursor },
+            { key: 'Mod-Shift-o', run: openOutline },
           ]),
         ),
         gutterCompartment.of(

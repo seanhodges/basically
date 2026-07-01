@@ -5,9 +5,20 @@ import {
   useMediaQuery,
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
-import { openTextFile, saveTextFile } from '../storage/files';
 import { dialects } from '../dialects/registry';
 import { referenceTopic } from '../app/docsTopic';
+import {
+  confirmDiscard,
+  newDocument,
+  openDocument,
+  saveDocument,
+} from '../app/fileCommands';
+import {
+  SHORTCUTS,
+  formatShortcut,
+  formatAllShortcuts,
+  type ShortcutId,
+} from '../app/shortcuts';
 import { MobileTabBar } from './MobileTabBar';
 import {
   SparkleIcon,
@@ -23,11 +34,7 @@ import styles from './Toolbar.module.css';
 export function Toolbar() {
   const dialect = useIdeStore((s) => s.dialect);
   const setDialect = useIdeStore((s) => s.setDialect);
-  const fileName = useIdeStore((s) => s.fileName);
-  const source = useIdeStore((s) => s.source);
-  const dirty = useIdeStore((s) => s.dirty);
   const replaceDocument = useIdeStore((s) => s.replaceDocument);
-  const markSaved = useIdeStore((s) => s.markSaved);
   const requestRun = useIdeStore((s) => s.requestRun);
   const requestStop = useIdeStore((s) => s.requestStop);
   const requestStep = useIdeStore((s) => s.requestStep);
@@ -134,24 +141,9 @@ export function Toolbar() {
   const editAction = (name: Parameters<typeof requestEditorCommand>[0]) =>
     guard(() => requestEditorCommand(name));
 
-  const confirmDiscard = () =>
-    !dirty || !source.trim() || window.confirm('Discard unsaved changes?');
-
-  const newFile = guard(() => {
-    if (!confirmDiscard()) return;
-    replaceDocument('', 'untitled.bas');
-  });
-
-  const openFile = guard(async () => {
-    if (!confirmDiscard()) return;
-    const opened = await openTextFile();
-    if (opened) replaceDocument(opened.text, opened.name);
-  });
-
-  const saveFile = guard(async () => {
-    const saved = await saveTextFile(fileName, source);
-    if (saved !== null) markSaved(saved);
-  });
+  const newFile = guard(newDocument);
+  const openFile = guard(openDocument);
+  const saveFile = guard(saveDocument);
 
   const loadSample = (name: string, text: string) =>
     guard(() => {
@@ -161,6 +153,26 @@ export function Toolbar() {
 
   const openImport = guard(() => setImportOpen(true));
   const openShare = guard(() => setTransferOpen(true));
+
+  // Shortcut hints for menu items and button tooltips, pulled from the central
+  // binding table so they never drift from what the keyboard actually does.
+  const shortcutMap = new Map<ShortcutId, (typeof SHORTCUTS)[number]>(
+    SHORTCUTS.map((s) => [s.id, s]),
+  );
+  /** Primary chord label, e.g. `Ctrl+Alt+N` (empty string if the id is unknown). */
+  const keyHint = (id: ShortcutId): string => {
+    const s = shortcutMap.get(id);
+    return s ? formatShortcut(s) : '';
+  };
+  /** A right-aligned hint span for a dropdown menu item. */
+  const hint = (id: ShortcutId) => (
+    <span className={styles.shortcutHint}>{keyHint(id)}</span>
+  );
+  /** `"<text> (<all chords>)"` for a button `title` tooltip. */
+  const withKeys = (text: string, id: ShortcutId): string => {
+    const s = shortcutMap.get(id);
+    return s ? `${text} (${formatAllShortcuts(s)})` : text;
+  };
 
   // Shared by the Docs book icon and the "Help" overflow item. With a keyword
   // selected in the editor, jump straight to that keyword on the current
@@ -197,11 +209,11 @@ export function Toolbar() {
               className={styles.menuItems}
               onMouseLeave={() => setFileMenuOpen(false)}
             >
-              <button onClick={newFile}>New</button>
-              <button onClick={openFile}>Open .bas…</button>
-              <button onClick={saveFile}>Save .bas</button>
-              <button onClick={openImport}>Import…</button>
-              <button onClick={openShare}>Export…</button>
+              <button onClick={newFile}>New{hint('file.new')}</button>
+              <button onClick={openFile}>Open .bas…{hint('file.open')}</button>
+              <button onClick={saveFile}>Save .bas{hint('file.save')}</button>
+              <button onClick={openImport}>Import…{hint('file.import')}</button>
+              <button onClick={openShare}>Export…{hint('file.export')}</button>
               <div className={styles.menuSeparator} />
               <div className={styles.menuLabel}>Samples</div>
               {dialect.samples.map((s) => (
@@ -225,26 +237,39 @@ export function Toolbar() {
               className={styles.menuItems}
               onMouseLeave={() => setEditMenuOpen(false)}
             >
-              <button onClick={editAction('undo')}>Undo</button>
-              <button onClick={editAction('redo')}>Redo</button>
+              <button onClick={editAction('undo')}>
+                Undo{hint('edit.undo')}
+              </button>
+              <button onClick={editAction('redo')}>
+                Redo{hint('edit.redo')}
+              </button>
               <div className={styles.menuSeparator} />
-              <button onClick={editAction('cut')}>Cut</button>
-              <button onClick={editAction('copy')}>Copy</button>
-              <button onClick={editAction('paste')}>Paste</button>
+              <button onClick={editAction('cut')}>Cut{hint('edit.cut')}</button>
+              <button onClick={editAction('copy')}>
+                Copy{hint('edit.copy')}
+              </button>
+              <button onClick={editAction('paste')}>
+                Paste{hint('edit.paste')}
+              </button>
               <div className={styles.menuSeparator} />
-              <button onClick={editAction('find')}>Find/Replace</button>
+              <button onClick={editAction('find')}>
+                Find/Replace{hint('edit.find')}
+              </button>
               <button
                 onClick={guard(() => setProcedureListOpen(true))}
                 title="List procedures, subroutines and jump targets in this program"
               >
-                Outline…
+                Outline…{hint('edit.outline')}
               </button>
               <div className={styles.menuSeparator} />
               <button
                 onClick={editAction('renumber')}
-                title="Renumber the current line and update GOTO/GOSUB references (Ctrl/Cmd+Alt+R)"
+                title={withKeys(
+                  'Renumber the current line and update GOTO/GOSUB references',
+                  'edit.renumber',
+                )}
               >
-                Renumber line
+                Renumber line{hint('edit.renumber')}
               </button>
             </div>
           )}
@@ -268,7 +293,7 @@ export function Toolbar() {
         <button
           className="run desktop-only"
           onClick={playProgram}
-          title="Build and play in the emulator (Ctrl+Enter)"
+          title={withKeys('Build and play in the emulator', 'run.play')}
         >
           ▶ Play
         </button>
@@ -278,7 +303,7 @@ export function Toolbar() {
               className="desktop-only"
               onClick={stepProgram}
               disabled={emulatorStatus !== 'paused'}
-              title="Run to the next BASIC line"
+              title={withKeys('Run to the next BASIC line', 'run.step')}
             >
               ⤵ Step
             </button>
@@ -286,7 +311,10 @@ export function Toolbar() {
               className="desktop-only"
               onClick={continueProgram}
               disabled={emulatorStatus !== 'paused'}
-              title="Continue to the next breakpoint"
+              title={withKeys(
+                'Continue to the next breakpoint',
+                'run.continue',
+              )}
             >
               ▶ Continue
             </button>
@@ -296,7 +324,10 @@ export function Toolbar() {
           className="desktop-only"
           onClick={stopProgram}
           disabled={emulatorStatus === 'stopped'}
-          title="Stop the program and shut down the emulator"
+          title={withKeys(
+            'Stop the program and shut down the emulator',
+            'run.stop',
+          )}
         >
           ■ Stop
         </button>
@@ -307,9 +338,12 @@ export function Toolbar() {
           title={
             !emulatorAudio
               ? 'Emulator audio is disabled in settings'
-              : emulatorMuted
-                ? 'Unmute emulator audio'
-                : 'Mute emulator audio'
+              : withKeys(
+                  emulatorMuted
+                    ? 'Unmute emulator audio'
+                    : 'Mute emulator audio',
+                  'run.mute',
+                )
           }
         >
           {emulatorMuted || !emulatorAudio ? (
@@ -321,14 +355,14 @@ export function Toolbar() {
         <button
           className={`icon-btn ${aiPanelOpen ? 'active' : ''}`}
           onClick={toggleAiPanel}
-          title="AI code generation"
+          title={withKeys('AI code generation', 'view.ai')}
         >
           <SparkleIcon />
         </button>
         <button
           className="icon-btn"
           onClick={() => setSettingsOpen(true)}
-          title="Settings"
+          title={withKeys('Settings', 'view.settings')}
         >
           <GearIcon />
         </button>
@@ -337,7 +371,7 @@ export function Toolbar() {
             docsDrawerOpen ? 'active' : ''
           }`}
           onClick={openDocumentation}
-          title="Documentation"
+          title={withKeys('Documentation', 'view.docs')}
         >
           <BookIcon />
         </button>

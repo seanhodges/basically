@@ -98,6 +98,10 @@
 }
 
 .menuItems button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
   background: none;
   border: none;
   text-align: left;
@@ -108,6 +112,21 @@
 .menuItems button:hover {
   background: var(--accent);
   color: #fff;
+}
+
+/* The keyboard-shortcut hint on the right of a dropdown item (VS Code style),
+   pulled from the central binding table in Toolbar.tsx. */
+.shortcutHint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.menuItems button:hover .shortcutHint {
+  color: inherit;
+  opacity: 0.85;
 }
 
 .menuSeparator {
@@ -198,6 +217,12 @@
     display: flex;
   }
 
+  /* Keyboard-shortcut hints are meaningless without a physical keyboard, so
+     drop them from the menus that stay visible on touch (e.g. the File menu). */
+  .shortcutHint {
+    display: none;
+  }
+
   .toolbar {
     padding: 6px;
     gap: 6px;
@@ -223,6 +248,11 @@
 
   .toolbar :global(.mobile-visible) {
     display: flex;
+  }
+
+  /* Shortcut hints are desktop-only (see the width-based block above). */
+  .shortcutHint {
+    display: none;
   }
 
   .fileIcon {

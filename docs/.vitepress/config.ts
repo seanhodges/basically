@@ -58,6 +58,10 @@ export default withPwa(
             { text: 'Getting started', link: '/guide/getting-started' },
             { text: 'Writing BASIC', link: '/guide/writing-basic' },
             { text: 'Testing your code', link: '/guide/testing-programs' },
+            {
+              text: 'Keyboard shortcuts (desktop)',
+              link: '/guide/keyboard-shortcuts',
+            },
             { text: 'Running on real hardware', link: '/guide/hardware' },
           ],
         },

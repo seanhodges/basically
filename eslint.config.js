@@ -10,6 +10,7 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
+      'docs/.vitepress/cache/**',
       'src/emulator/z80/**',
       'src/emulator/6502/**',
       'src/emulator/c64/viciious/**',

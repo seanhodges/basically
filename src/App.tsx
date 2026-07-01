@@ -20,10 +20,10 @@ import {
   LANDSCAPE_MOBILE_QUERY,
 } from './app/useMediaQuery';
 import { useHistorySync } from './app/useHistorySync';
+import { useGlobalShortcuts } from './app/useGlobalShortcuts';
 import styles from './App.module.css';
 
 export default function App() {
-  const requestRun = useIdeStore((s) => s.requestRun);
   const runRequest = useIdeStore((s) => s.runRequest);
 
   // A touch phone in landscape gets a dedicated layout (left rail, no status bar);
@@ -34,6 +34,10 @@ export default function App() {
   // settings, AI panel, on-screen keyboard, gamepad, docs) instead of leaving
   // the app. See src/app/historyNav.ts.
   useHistorySync();
+
+  // Central desktop keyboard shortcuts (Run, file ops, panel toggles, …).
+  // See src/app/shortcuts.ts for the full binding table.
+  useGlobalShortcuts();
 
   // Greet first-time visitors with the welcome modal (once per browser).
   useEffect(() => {
@@ -50,18 +54,6 @@ export default function App() {
     }, 2000);
     return () => clearInterval(interval);
   }, []);
-
-  // Ctrl/Cmd+Enter = run
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        requestRun();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [requestRun]);
 
   // On mobile, jump to the Preview tab whenever a run is requested
   // (covers the toolbar Run button, the FAB, and Ctrl+Enter)
