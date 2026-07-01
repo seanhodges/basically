@@ -9,6 +9,12 @@
     display: flex;
     align-items: stretch;
     gap: 2px;
+    /* Sit after the Target selector so the toolbar reads File → Target → tabs,
+       matching the desktop layout where the Target sits with the File/Edit
+       menus. The tab bar is the only order:1 child of `.toolbarLeft`, so the
+       default-order File menu and Target label keep their source order ahead of
+       it. */
+    order: 1;
   }
 
   .tabBar button {
@@ -36,8 +42,10 @@
 
 /* When the toolbar runs short on horizontal space, drop the tab labels and show
    just the icons. Container query on the toolbar (the tab bar's named-container
-   ancestor) so it reacts to the bar's width, not the viewport's. */
-@container toolbar (max-width: 560px) {
+   ancestor) so it reacts to the bar's width, not the viewport's. Kept in step
+   with the File/Target label collapse in Toolbar.module.css so all the toolbar
+   labels drop together before the row would overflow and wrap. */
+@container toolbar (max-width: 640px) {
   .tabLabel {
     display: none;
   }
