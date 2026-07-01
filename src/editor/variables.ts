@@ -89,34 +89,53 @@ function addNames(
   }
 }
 
+/** A variable occurrence found by {@link forEachVariable}. */
+export interface VarToken {
+  /** The variable name as written, including any type suffix. */
+  text: string;
+  /** 0-based index of the token within the scanned `code`. */
+  index: number;
+  /**
+   * The keyword immediately preceding this token on the line (spaces aside), or
+   * null — lets callers spot e.g. a FOR/NEXT control variable.
+   */
+  prevKeyword: string | null;
+}
+
 /**
  * Walk one line of (line-number-stripped, string/REM-blanked) code, calling
- * `emit` for each variable token. Mirrors the highlighter's tokenising order
+ * `visit` for each variable token. Mirrors the highlighter's tokenising order
  * (`basicLanguage.ts` token()): numbers and hex literals are consumed so their
  * letters (`1E5`, `&FF`) aren't read as names, and an identifier run that is a
- * keyword prefix (consuming the whole run, or ending in `$`) is skipped.
+ * keyword prefix (consuming the whole run, or ending in `$`) or a PROC/FN call
+ * is skipped.
  */
-function scanLine(
+export function forEachVariable(
   code: string,
   rules: VarNameRules,
-  emit: (name: string) => void,
+  visit: (token: VarToken) => void,
 ): void {
   let i = 0;
+  let prevKeyword: string | null = null;
   while (i < code.length) {
     const rest = code.slice(i);
     // Numbers first (so 1E5 doesn't leak "E5"), then hex literals (&FF).
     const num = NUMBER_RE.exec(rest);
     if (num) {
       i += num[0].length;
+      prevKeyword = null;
       continue;
     }
     const hex = rules.hexRe?.exec(rest);
     if (hex) {
       i += hex[0].length;
+      prevKeyword = null;
       continue;
     }
     const head = rules.headRe.exec(rest);
     if (!head) {
+      // Keep prevKeyword across spaces (FOR<space>I) but drop it on operators.
+      if (!/\s/.test(rest[0]!)) prevKeyword = null;
       i += 1;
       continue;
     }
@@ -129,6 +148,7 @@ function scanLine(
       )
     ) {
       i += run.length;
+      prevKeyword = null;
       continue;
     }
     // Longest keyword prefix that consumes the whole run (or ends in `$`).
@@ -144,14 +164,25 @@ function scanLine(
       }
     }
     if (keywordLen > 0) {
+      prevKeyword = upper.slice(0, keywordLen);
       i += keywordLen;
       continue;
     }
     const v = rules.varRe.exec(rest);
     const token = v ? v[0] : run;
-    emit(token);
+    visit({ text: token, index: i, prevKeyword });
+    prevKeyword = null;
     i += token.length;
   }
+}
+
+/** Names-only convenience over {@link forEachVariable}. */
+function scanLine(
+  code: string,
+  rules: VarNameRules,
+  emit: (name: string) => void,
+): void {
+  forEachVariable(code, rules, (t) => emit(t.text));
 }
 
 /** The smallest scope region containing `row`, or null when at top level. */

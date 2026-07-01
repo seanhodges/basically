@@ -1,6 +1,7 @@
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
 import { trs80Charset } from './charset';
 import { trs80Keywords } from './keywords';
+import { trs80VariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { trs80LanguageSupport, trs80CompletionSource } from './language';
@@ -47,7 +48,10 @@ export const trs80: Dialect = {
   },
 
   lint(source: string): TokenizeError[] {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...trs80VariableErrors(source, trs80Keywords),
+    ];
   },
 
   // No romUrl: the interpreter backend needs no ROM image.

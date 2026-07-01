@@ -5,6 +5,7 @@ import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { c64BuildTargets } from './targets';
 import { c64LanguageSupport, c64CompletionSource } from './language';
+import { c64VariableErrors } from '../../editor/variableLint';
 import { c64AiProfile } from './aiProfile';
 import { c64KeyboardLayout } from './keyboardLayout';
 import { c64Samples } from './samples';
@@ -55,7 +56,10 @@ export const commodore64: Dialect = {
   },
 
   lint(source: string) {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...c64VariableErrors(source, c64Keywords),
+    ];
   },
 
   // Prefetched by the app for cache warming; the C64 adapter loads the full ROM

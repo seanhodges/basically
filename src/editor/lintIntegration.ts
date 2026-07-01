@@ -13,9 +13,14 @@ export function dialectLinter(dialect: Dialect): Extension {
         if (err.line < 1 || err.line > doc.lines) continue;
         const line = doc.line(err.line);
         const from = Math.min(line.from + (err.column ?? 0), line.to);
+        // Underline exactly the token when its end is known, else to line end.
+        const to =
+          err.endColumn != null
+            ? Math.min(line.from + err.endColumn, line.to)
+            : line.to;
         diagnostics.push({
           from,
-          to: line.to,
+          to: Math.max(from, to),
           severity: 'error',
           message: err.message,
         });

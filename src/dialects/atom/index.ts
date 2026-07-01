@@ -1,6 +1,7 @@
 import type { Dialect, TokenizeResult } from '../types';
 import { atomCharset } from './charset';
 import { atomKeywords } from './keywords';
+import { atomVariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { atomBuildTargets } from './targets';
@@ -45,7 +46,10 @@ export const atom: Dialect = {
   },
 
   lint(source: string) {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...atomVariableErrors(source, atomKeywords),
+    ];
   },
 
   // The jsbeeb adapter loads the full Atom ROM set (Kernel + FloatingPoint +
