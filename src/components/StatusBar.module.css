@@ -46,10 +46,55 @@
   font-family: var(--mono, monospace);
 }
 
+/* Scrolling ticker: shows the full status line on mobile, where the bar is too
+   narrow to lay it out inline. The track holds two identical groups and slides
+   left by exactly one group (-50%) for a seamless loop. */
+.ticker {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  /* Fade the text out at both edges rather than clipping it hard. */
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 12px,
+    #000 calc(100% - 12px),
+    transparent
+  );
+}
+
+.tickerTrack {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 22s linear infinite;
+}
+
+.tickerGroup {
+  display: flex;
+  gap: 18px;
+  padding-right: 18px;
+  white-space: nowrap;
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Respect reduced-motion: park the ticker so the leading items stay readable. */
+@media (prefers-reduced-motion: reduce) {
+  .tickerTrack {
+    animation: none;
+  }
+}
+
 @media (max-width: 768px) {
-  /* Slim status bar: just the emulator status + toggles, right-aligned. */
+  /* Slim status bar: the ticker fills the row and the toggles sit at the right. */
   .statusBar.slim {
-    justify-content: flex-end;
     gap: 10px;
   }
 }
