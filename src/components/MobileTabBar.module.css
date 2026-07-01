@@ -36,8 +36,10 @@
 
 /* When the toolbar runs short on horizontal space, drop the tab labels and show
    just the icons. Container query on the toolbar (the tab bar's named-container
-   ancestor) so it reacts to the bar's width, not the viewport's. */
-@container toolbar (max-width: 560px) {
+   ancestor) so it reacts to the bar's width, not the viewport's. Kept in step
+   with the File/Target label collapse in Toolbar.module.css so all the toolbar
+   labels drop together before the row would overflow and wrap. */
+@container toolbar (max-width: 640px) {
   .tabLabel {
     display: none;
   }

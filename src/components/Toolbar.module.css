@@ -29,11 +29,15 @@
 }
 
 /* Menu trigger buttons (File/Edit) align an optional leading icon with their
-   label. Direct-child only, so the dropdown item buttons stay untouched. */
+   label. Direct-child only, so the dropdown item buttons stay untouched.
+   `white-space: nowrap` keeps the "File ▾" / "Edit ▾" label on one line: when
+   the bar is crowded, flex-shrink can squeeze this button narrower than its
+   label, and without this the label would wrap and stretch the toolbar row. */
 .menu > button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .fileLabel {
@@ -133,7 +137,16 @@
   display: none;
 }
 
-@container toolbar (max-width: 480px) {
+/* Once the toolbar is narrow enough that the mobile tab labels drop to
+   icon-only (the 640px tier in MobileTabBar.module.css), drop the File menu
+   label and the inline "Target:" label to match — leaving the floppy icon and
+   the bare Target selector. Collapsing here (rather than lower) keeps the full
+   labels from overflowing and wrapping the toolbar in the ~570–640px band. */
+@container toolbar (max-width: 640px) {
+  .fileLabel {
+    display: none;
+  }
+
   .dialectLabelText {
     display: none;
   }
@@ -152,13 +165,6 @@
 
   .toolbar button.overflowTargetOnly {
     display: inline-flex;
-  }
-}
-
-/* Smallest phones: drop the File label to just the floppy icon. */
-@container toolbar (max-width: 380px) {
-  .fileLabel {
-    display: none;
   }
 }
 
