@@ -44,28 +44,24 @@ export function StatusBar() {
 
   const { pct, label } = ramBudget(stats.bytes, dialect.programRamBytes);
 
-  return (
-    <div className={`${styles.statusBar} ${isMobile ? styles.slim : ''}`}>
-      {/* The verbose stats are dropped on narrow screens to keep the bar slim;
-          the keyboard/watcher toggles always show (they have no other home on
-          mobile, where the status bar replaces the per-pane toggles). */}
-      {!isMobile && (
-        <>
-          <span>
-            {fileName}
-            {dirty ? ' •' : ''}
-          </span>
-          <span>{dialect.name}</span>
-          <span title="Tokenized program size">
-            {stats.bytes.toLocaleString()} bytes ({pct}% of {label} budget)
-          </span>
-          <span className={stats.errors > 0 ? styles.statusErrors : ''}>
-            {stats.errors === 0
-              ? 'no errors'
-              : `${stats.errors} error${stats.errors > 1 ? 's' : ''}`}
-          </span>
-        </>
-      )}
+  // The full status line. On desktop it lays out inline across the bar; on mobile
+  // it's fed to a scrolling ticker so it fits the narrow width instead of being
+  // dropped.
+  const statusItems = (
+    <>
+      <span>
+        {fileName}
+        {dirty ? ' •' : ''}
+      </span>
+      <span>{dialect.name}</span>
+      <span title="Tokenized program size">
+        {stats.bytes.toLocaleString()} bytes ({pct}% of {label} budget)
+      </span>
+      <span className={stats.errors > 0 ? styles.statusErrors : ''}>
+        {stats.errors === 0
+          ? 'no errors'
+          : `${stats.errors} error${stats.errors > 1 ? 's' : ''}`}
+      </span>
       <span
         className={`${styles.statusEmu} ${
           emulatorStatus === 'running' ? styles.running : ''
@@ -73,6 +69,25 @@ export function StatusBar() {
       >
         emulator: {emulatorStatus}
       </span>
+    </>
+  );
+
+  return (
+    <div className={`${styles.statusBar} ${isMobile ? styles.slim : ''}`}>
+      {isMobile ? (
+        // Marquee: two identical groups translated by -50% loop seamlessly. The
+        // keyboard/watcher toggles keep their fixed home to the right.
+        <div className={styles.ticker}>
+          <div className={styles.tickerTrack}>
+            <div className={styles.tickerGroup}>{statusItems}</div>
+            <div className={styles.tickerGroup} aria-hidden="true">
+              {statusItems}
+            </div>
+          </div>
+        </div>
+      ) : (
+        statusItems
+      )}
       <div className={styles.statusToggles}>
         <button
           className={`${styles.vkToggle} ${styles.watcherToggle} ${

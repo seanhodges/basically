@@ -1,13 +1,46 @@
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.tab {
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tabPanel {
+  min-height: 240px;
+}
+
 .settingsForm h3 {
-  margin: 12px 0 4px;
+  margin: 24px 0 10px;
   font-size: 14px;
+}
+
+/* The first sub-heading in a panel sits right under the tab strip, so trim its
+   top margin to avoid a double gap. */
+.tabPanel > h3:first-child {
+  margin-top: 6px;
 }
 
 .settingsForm label {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 10px 0;
+  margin: 16px 0;
   font-size: 13px;
 }
 
@@ -15,6 +48,16 @@
   flex-direction: row;
   align-items: center;
   gap: 8px;
+}
+
+/* Labelled dropdown / text controls line up in a two-column grid: a fixed-width
+   caption column so every control starts at the same x down the page, with the
+   control filling the rest of the row. */
+.settingsForm label.field {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  gap: 6px 12px;
 }
 
 .settingsForm p {

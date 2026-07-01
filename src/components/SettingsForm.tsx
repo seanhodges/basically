@@ -53,6 +53,9 @@ export function SettingsForm() {
   const [key, setKey] = useState(getProviderApiKey(getAiProvider()));
   const [keySaved, setKeySaved] = useState(false);
   const provider = getProvider(providerId);
+  const [tab, setTab] = useState<'editor' | 'emulator' | 'input' | 'ai'>(
+    'editor',
+  );
 
   // Switching provider persists the choice and swaps the key field to that
   // provider's stored key, so each backend's key is kept independently.
@@ -69,206 +72,246 @@ export function SettingsForm() {
     setTimeout(() => setKeySaved(false), 2000);
   };
 
+  const tabs = [
+    { id: 'editor', label: 'Editor' },
+    { id: 'emulator', label: 'Emulator' },
+    { id: 'input', label: 'Input' },
+    { id: 'ai', label: 'AI' },
+  ] as const;
+
   return (
     <div className={styles.settingsForm}>
-      <h3>Editor</h3>
-      <label className={styles.inline}>
-        <input
-          type="checkbox"
-          checked={showLineNumberGutter}
-          onChange={(e) => setShowLineNumberGutter(e.target.checked)}
-        />
-        Show line number gutter
-      </label>
-      <label className={styles.inline}>
-        <input
-          type="checkbox"
-          checked={autoLineNumbering}
-          onChange={(e) => setAutoLineNumbering(e.target.checked)}
-        />
-        Automatic line numbering
-      </label>
-      <label>
-        Line number increment
-        <input
-          type="number"
-          min={1}
-          max={1000}
-          value={lineNumberIncrement}
-          disabled={!autoLineNumbering}
-          onChange={(e) => {
-            const n = parseInt(e.target.value, 10);
-            setLineNumberIncrement(Number.isFinite(n) && n >= 1 ? n : 10);
-          }}
-        />
-      </label>
-      <label className={styles.inline}>
-        <input
-          type="checkbox"
-          checked={fullCodeCompletion}
-          onChange={(e) => setFullCodeCompletion(e.target.checked)}
-        />
-        Full code completion (expand keywords to blocks)
-      </label>
-      <h3>Monitor</h3>
-      <label className={styles.inline}>
-        <input
-          type="checkbox"
-          checked={crtEffect}
-          onChange={(e) => setCrtEffect(e.target.checked)}
-        />
-        CRT scanline effect
-      </label>
-      <label className={styles.inline}>
-        Emulation speed
-        <select
-          value={emulatorSpeed}
-          onChange={(e) => setEmulatorSpeed(Number(e.target.value))}
-        >
-          <option value={1}>1×</option>
-          <option value={2}>2×</option>
-          <option value={8}>8×</option>
-        </select>
-      </label>
-      <h3>Emulator audio</h3>
-      <label className={styles.inline}>
-        <input
-          type="checkbox"
-          checked={emulatorAudio}
-          onChange={(e) => setEmulatorAudio(e.target.checked)}
-        />
-        Enable emulator sound
-      </label>
-      <label className={styles.inline}>
-        Volume
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.05}
-          value={emulatorVolume}
-          disabled={!emulatorAudio}
-          onChange={(e) => setEmulatorVolume(Number(e.target.value))}
-        />
-      </label>
-      <h3>On-screen keyboard</h3>
-      <label className={styles.inline}>
-        <input
-          type="checkbox"
-          checked={keyboardAutoShow}
-          onChange={(e) => setKeyboardAutoShow(e.target.checked)}
-        />
-        Show automatically on focus
-      </label>
-      <label className={styles.inline}>
-        Key layout
-        <select
-          value={keyboardKeyDisplay}
-          onChange={(e) =>
-            setKeyboardKeyDisplay(e.target.value as 'authentic' | 'compact')
-          }
-        >
-          <option value="authentic">Authentic</option>
-          <option value="compact">Compact</option>
-        </select>
-      </label>
-      <label className={styles.inline}>
-        <input
-          type="checkbox"
-          checked={keyboardSound}
-          onChange={(e) => setKeyboardSound(e.target.checked)}
-        />
-        Key click sound
-      </label>
-      <label className={styles.inline}>
-        <input
-          type="checkbox"
-          checked={keyboardHaptics}
-          onChange={(e) => setKeyboardHaptics(e.target.checked)}
-        />
-        Haptic feedback
-      </label>
-      <h3>Virtual gamepad</h3>
-      <label className={styles.inline}>
-        Input mode
-        <select
-          value={gamepadMode}
-          onChange={(e) => setGamepadMode(e.target.value as GamepadMode)}
-        >
-          <option value="keymapped">Key mapped</option>
-          <option value="native">Native Interface</option>
-          <option value="kempston">Kempston</option>
-        </select>
-      </label>
-      {gamepadMode !== 'keymapped' &&
-        effectiveGamepadMode(dialect, gamepadMode) === 'keymapped' && (
-          <p>
-            {`${dialect.name} has no ${
-              gamepadMode === 'native'
-                ? 'native joystick interface'
-                : 'Kempston interface'
-            } — the gamepad uses Key mapped here.`}
-          </p>
-        )}
-      <label className={styles.inline}>
-        Gamepad layout
-        <select
-          value={`${controllerDpadMode}/${controllerFireButtons}`}
-          onChange={(e) => {
-            const [dpad, fire] = e.target.value.split('/');
-            setControllerDpadMode(dpad as '4-way' | '8-way');
-            setControllerFireButtons(Number(fire) as 1 | 2);
-          }}
-        >
-          <option value="4-way/1">4-way, 1 button</option>
-          <option value="8-way/1">8-way, 1 button</option>
-          <option value="4-way/2">4-way, 2 buttons</option>
-          <option value="8-way/2">8-way, 2 buttons</option>
-        </select>
-      </label>
-      <p>
-        Long-press a control on the on-screen gamepad to remap it to a different
-        key.
-      </p>
-      <h3>AI</h3>
-      <label className={styles.inline}>
-        AI provider
-        <select
-          value={providerId}
-          onChange={(e) => changeProvider(e.target.value as AiProviderId)}
-        >
-          {PROVIDERS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p>
-        Code generation calls the {provider.label} API directly from your
-        browser. Create an API key at{' '}
-        <a href={provider.consoleUrl} target="_blank" rel="noreferrer">
-          {provider.consoleLabel}
-        </a>
-        . The API key is stored separately in this browser&apos;s localStorage
-        and sent only to {provider.apiHost}. Don&apos;t use this on a shared
-        computer.
-      </p>
-      <label>
-        {provider.label} API key
-        <input
-          type="password"
-          value={key}
-          placeholder={provider.keyPlaceholder}
-          onChange={(e) => setKey(e.target.value)}
-        />
-      </label>
-      <div className={`${dialog.modalActions} ${dialog.left}`}>
-        <button className="primary" onClick={saveKey}>
-          Save API key
-        </button>
-        {keySaved && <span className={styles.settingsSaved}>Saved ✓</span>}
+      <div className={styles.tabs} role="tablist">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`${styles.tab} ${tab === t.id ? styles.active : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
+
+      {tab === 'editor' && (
+        <div role="tabpanel" className={styles.tabPanel}>
+          <label className={styles.inline}>
+            <input
+              type="checkbox"
+              checked={showLineNumberGutter}
+              onChange={(e) => setShowLineNumberGutter(e.target.checked)}
+            />
+            Show line number gutter
+          </label>
+          <label className={styles.inline}>
+            <input
+              type="checkbox"
+              checked={autoLineNumbering}
+              onChange={(e) => setAutoLineNumbering(e.target.checked)}
+            />
+            Automatic line numbering
+          </label>
+          <label className={styles.field}>
+            Line number increment
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              value={lineNumberIncrement}
+              disabled={!autoLineNumbering}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                setLineNumberIncrement(Number.isFinite(n) && n >= 1 ? n : 10);
+              }}
+            />
+          </label>
+          <label className={styles.inline}>
+            <input
+              type="checkbox"
+              checked={fullCodeCompletion}
+              onChange={(e) => setFullCodeCompletion(e.target.checked)}
+            />
+            Full code completion (expand keywords to blocks)
+          </label>
+        </div>
+      )}
+
+      {tab === 'emulator' && (
+        <div role="tabpanel" className={styles.tabPanel}>
+          <label className={styles.inline}>
+            <input
+              type="checkbox"
+              checked={crtEffect}
+              onChange={(e) => setCrtEffect(e.target.checked)}
+            />
+            CRT scanline effect
+          </label>
+          <label className={styles.field}>
+            Emulation speed
+            <select
+              value={emulatorSpeed}
+              onChange={(e) => setEmulatorSpeed(Number(e.target.value))}
+            >
+              <option value={1}>1×</option>
+              <option value={2}>2×</option>
+              <option value={8}>8×</option>
+            </select>
+          </label>
+          <h3>Audio</h3>
+          <label className={styles.inline}>
+            <input
+              type="checkbox"
+              checked={emulatorAudio}
+              onChange={(e) => setEmulatorAudio(e.target.checked)}
+            />
+            Enable emulator sound
+          </label>
+          <label className={styles.field}>
+            Volume
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={emulatorVolume}
+              disabled={!emulatorAudio}
+              onChange={(e) => setEmulatorVolume(Number(e.target.value))}
+            />
+          </label>
+        </div>
+      )}
+
+      {tab === 'input' && (
+        <div role="tabpanel" className={styles.tabPanel}>
+          <h3>On-screen keyboard</h3>
+          <label className={styles.inline}>
+            <input
+              type="checkbox"
+              checked={keyboardAutoShow}
+              onChange={(e) => setKeyboardAutoShow(e.target.checked)}
+            />
+            Show automatically on focus
+          </label>
+          <label className={styles.field}>
+            Key layout
+            <select
+              value={keyboardKeyDisplay}
+              onChange={(e) =>
+                setKeyboardKeyDisplay(e.target.value as 'authentic' | 'compact')
+              }
+            >
+              <option value="authentic">Authentic</option>
+              <option value="compact">Compact</option>
+            </select>
+          </label>
+          <label className={styles.inline}>
+            <input
+              type="checkbox"
+              checked={keyboardSound}
+              onChange={(e) => setKeyboardSound(e.target.checked)}
+            />
+            Key click sound
+          </label>
+          <label className={styles.inline}>
+            <input
+              type="checkbox"
+              checked={keyboardHaptics}
+              onChange={(e) => setKeyboardHaptics(e.target.checked)}
+            />
+            Haptic feedback
+          </label>
+          <h3>Virtual gamepad</h3>
+          <label className={styles.field}>
+            Input mode
+            <select
+              value={gamepadMode}
+              onChange={(e) => setGamepadMode(e.target.value as GamepadMode)}
+            >
+              <option value="keymapped">Key mapped</option>
+              <option value="native">Native Interface</option>
+              <option value="kempston">Kempston</option>
+            </select>
+          </label>
+          {gamepadMode !== 'keymapped' &&
+            effectiveGamepadMode(dialect, gamepadMode) === 'keymapped' && (
+              <p>
+                {`${dialect.name} has no ${
+                  gamepadMode === 'native'
+                    ? 'native joystick interface'
+                    : 'Kempston interface'
+                } — the gamepad uses Key mapped here.`}
+              </p>
+            )}
+          <label className={styles.field}>
+            Gamepad layout
+            <select
+              value={`${controllerDpadMode}/${controllerFireButtons}`}
+              onChange={(e) => {
+                const [dpad, fire] = e.target.value.split('/');
+                setControllerDpadMode(dpad as '4-way' | '8-way');
+                setControllerFireButtons(Number(fire) as 1 | 2);
+              }}
+            >
+              <option value="4-way/1">4-way, 1 button</option>
+              <option value="8-way/1">8-way, 1 button</option>
+              <option value="4-way/2">4-way, 2 buttons</option>
+              <option value="8-way/2">8-way, 2 buttons</option>
+            </select>
+          </label>
+          <p>
+            Long-press a control on the on-screen gamepad to remap it to a
+            different key.
+          </p>
+        </div>
+      )}
+
+      {tab === 'ai' && (
+        <div role="tabpanel" className={styles.tabPanel}>
+          <label className={styles.field}>
+            AI provider
+            <select
+              value={providerId}
+              onChange={(e) => changeProvider(e.target.value as AiProviderId)}
+            >
+              {PROVIDERS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p>
+            Code generation calls the {provider.label} API directly from your
+            browser. Create an API key at{' '}
+            <a href={provider.consoleUrl} target="_blank" rel="noreferrer">
+              {provider.consoleLabel}
+            </a>
+            .
+            <br />
+            <br />
+            The API key is stored separately in this browser&apos;s localStorage
+            and sent only to {provider.apiHost}. Don&apos;t use this on a shared
+            computer.
+          </p>
+          <label className={styles.field}>
+            <span>{provider.label} API key</span>
+            <input
+              type="password"
+              value={key}
+              placeholder={provider.keyPlaceholder}
+              onChange={(e) => setKey(e.target.value)}
+            />
+          </label>
+          <div className={`${dialog.modalActions} ${dialog.left}`}>
+            <button className="primary" onClick={saveKey}>
+              Save API key
+            </button>
+            {keySaved && <span className={styles.settingsSaved}>Saved ✓</span>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,7 +6,6 @@ import {
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
-import { useProgramStats, ramBudget } from '../app/useProgramStats';
 import {
   setSplitRatio as persistSplitRatio,
   MIN_SPLIT_RATIO,
@@ -30,41 +29,6 @@ import { SettingsForm } from './SettingsForm';
 import styles from './Workspace.module.css';
 
 const DIVIDER_WIDTH = 6;
-
-function ProgramStats() {
-  const dialect = useIdeStore((s) => s.dialect);
-  const fileName = useIdeStore((s) => s.fileName);
-  const dirty = useIdeStore((s) => s.dirty);
-  const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
-  const stats = useProgramStats();
-
-  const { pct, label } = ramBudget(stats.bytes, dialect.programRamBytes);
-
-  return (
-    <div className={styles.programStats}>
-      <h3>Program</h3>
-      <p>
-        {fileName}
-        {dirty ? ' •' : ''} — {dialect.name}
-      </p>
-      <p title="Tokenized program size">
-        {stats.bytes.toLocaleString()} bytes ({pct}% of {label} budget)
-      </p>
-      <p className={stats.errors > 0 ? styles.statusErrors : ''}>
-        {stats.errors === 0
-          ? 'no errors'
-          : `${stats.errors} error${stats.errors > 1 ? 's' : ''}`}
-      </p>
-      <p
-        className={`${styles.statusEmu} ${
-          emulatorStatus === 'running' ? styles.running : ''
-        }`}
-      >
-        emulator: {emulatorStatus}
-      </p>
-    </div>
-  );
-}
 
 export function Workspace() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -252,7 +216,6 @@ export function Workspace() {
       {tabbed && (
         <div className={`${styles.settingsPane} ${hidden('settings')}`}>
           <SettingsForm />
-          <ProgramStats />
         </div>
       )}
       {(aiPanelOpen || tabbed) && (
