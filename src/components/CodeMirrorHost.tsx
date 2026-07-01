@@ -140,19 +140,20 @@ function handleShiftEnter(view: EditorView): boolean {
  * command has an `interactionDelay` (75ms) guard that rejects a just-opened
  * popup, which is exactly the fast-typed `PR.` case. This mirrors CodeMirror's
  * internal `applyCompletion` — run the option's `apply` (so block constructs
- * still expand), or insert its label for a plain keyword. A raw keydown handler
- * is used because keymap/inputHandler bindings don't reliably fire for a bare
- * printable key. Returns false when no popup is open so `.` inserts normally.
+ * still expand), or insert its label for a plain keyword. Returns false when no
+ * popup is open (a no-op in that case) so the caller inserts `.` normally.
+ *
+ * Shared by all three input paths that can produce a period: the physical-keyboard
+ * `keydown` handler, the native-mobile `inputHandler`, and the on-screen keyboard
+ * via `applyEditorAction`. (A single DOM keydown handler is insufficient — soft
+ * keyboards route through beforeinput/composition and the virtual keyboard never
+ * emits key events.)
  *
  * The replace range is recomputed with the same leading-identifier pattern the
  * completion source matches (see buildCompletionSource in completions.ts); keep
  * the two in step.
  */
-function acceptCompletionOnPeriod(
-  event: KeyboardEvent,
-  view: EditorView,
-): boolean {
-  if (event.key !== '.') return false;
+function acceptCompletionForPeriod(view: EditorView): boolean {
   if (completionStatus(view.state) !== 'active') return false;
   const option = selectedCompletion(view.state);
   if (!option) return false;
@@ -172,6 +173,16 @@ function acceptCompletionOnPeriod(
       annotations: pickedCompletion.of(option),
     });
   }
+  return true;
+}
+
+/** Physical-keyboard seam for {@link acceptCompletionForPeriod}. */
+function acceptCompletionOnPeriod(
+  event: KeyboardEvent,
+  view: EditorView,
+): boolean {
+  if (event.key !== '.') return false;
+  if (!acceptCompletionForPeriod(view)) return false;
   event.preventDefault();
   return true;
 }
@@ -404,6 +415,9 @@ function inputModeExt(virtualKeyboard: boolean) {
 /** Apply one virtual-keyboard action to the editor. */
 function applyEditorAction(view: EditorView, action: EditorKeyAction): void {
   if ('insert' in action) {
+    // A period accepts the open completion (BBC-style abbreviation) rather than
+    // inserting, mirroring the physical/native-keyboard seams.
+    if (action.insert === '.' && acceptCompletionForPeriod(view)) return;
     view.dispatch(view.state.replaceSelection(action.insert), {
       scrollIntoView: true,
       userEvent: 'input.type',
@@ -493,6 +507,11 @@ export function CodeMirrorHost({
         history(),
         autocompletion({ activateOnTyping: true }),
         EditorView.domEventHandlers({ keydown: acceptCompletionOnPeriod }),
+        // Native-mobile seam: soft keyboards commit `.` through beforeinput
+        // rather than a `.`-keyed keydown, so intercept the typed text directly.
+        EditorView.inputHandler.of((view, _from, _to, text) =>
+          text === '.' ? acceptCompletionForPeriod(view) : false,
+        ),
         highlightSelectionMatches(),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         syntaxHighlighting(basicHighlightStyle),

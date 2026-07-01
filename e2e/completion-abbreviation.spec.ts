@@ -50,3 +50,59 @@ test('"." with no popup open inserts a literal period', async ({ page }) => {
   await page.keyboard.type('.');
   await expect(page.locator('.cm-content')).toContainText('.');
 });
+
+/**
+ * The same abbreviation must work from the in-IDE on-screen keyboard, which
+ * inserts through `applyEditorAction` (a document dispatch) rather than a DOM
+ * keydown — the physical-keyboard path never runs here. A mobile viewport puts
+ * the editor tab in charge so the keyboard routes into CodeMirror; the keyboard's
+ * pointer handler preventDefaults, so tapping keycaps keeps the editor focused
+ * (which the completion popup requires).
+ */
+
+/** Locate an on-screen-keyboard keycap by its layout key id. */
+function vkKey(page: Page, keyId: string) {
+  return page.locator(`.virtual-keyboard [data-keyid="${keyId}"]`);
+}
+
+test('on-screen keyboard: "." accepts the top autocomplete suggestion', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await open(page);
+
+  // Show the keyboard, then focus + clear the editor so it stays the active
+  // surface while we tap keycaps.
+  await page.getByTitle('Show on-screen keyboard').click();
+  await expect(page.locator('.virtual-keyboard')).toBeVisible();
+  await clearEditor(page);
+
+  // Tap P then R; activateOnTyping opens the popup with PRINT on top.
+  await vkKey(page, 'KeyP').click();
+  await vkKey(page, 'KeyR').click();
+  const popup = page.locator('.cm-tooltip-autocomplete');
+  await expect(popup).toBeVisible();
+  await expect(popup).toContainText('PRINT');
+
+  // Tap "." — it accepts the suggestion and is consumed, not inserted.
+  await vkKey(page, 'Period').click();
+  const content = page.locator('.cm-content');
+  await expect(content).toContainText('PRINT');
+  await expect(content).not.toContainText('.');
+  await expect(popup).toBeHidden();
+});
+
+test('on-screen keyboard: "." with no popup open inserts a literal period', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await open(page);
+
+  await page.getByTitle('Show on-screen keyboard').click();
+  await expect(page.locator('.virtual-keyboard')).toBeVisible();
+  await clearEditor(page);
+
+  // No completion active, so the keycap falls through to a literal period.
+  await vkKey(page, 'Period').click();
+  await expect(page.locator('.cm-content')).toContainText('.');
+});
