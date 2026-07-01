@@ -89,7 +89,7 @@ function resetStore() {
     mobileTab: 'editor',
     settingsOpen: false,
     aiPanelOpen: false,
-    bottomOverlay: 'none',
+    keyboardEnabled: false,
     controllerEnabled: false,
     docsDrawerOpen: false,
     docsTopic: null,
@@ -111,7 +111,7 @@ describe('computeSnapshot / openKeys', () => {
     useIdeStore.setState({
       settingsOpen: true,
       aiPanelOpen: true,
-      bottomOverlay: 'keyboard',
+      keyboardEnabled: true,
       controllerEnabled: true,
       docsDrawerOpen: true,
       docsTopic: 'reference/zx81',
@@ -165,16 +165,16 @@ describe('opening a surface pushes one entry; Back closes it', () => {
 describe('stacking: LIFO Back', () => {
   it('keyboard then docs → two entries; Back closes docs, then keyboard', () => {
     const { history } = setup(false);
-    useIdeStore.getState().setBottomOverlay('keyboard');
+    useIdeStore.getState().setKeyboardEnabled(true);
     useIdeStore.getState().openDocs();
     expect(history.depth).toBe(2);
 
     history.go(-1); // closes the most recent surface (docs)
     expect(useIdeStore.getState().docsDrawerOpen).toBe(false);
-    expect(useIdeStore.getState().bottomOverlay).toBe('keyboard');
+    expect(useIdeStore.getState().keyboardEnabled).toBe(true);
 
     history.go(-1); // closes the keyboard
-    expect(useIdeStore.getState().bottomOverlay).toBe('none');
+    expect(useIdeStore.getState().keyboardEnabled).toBe(false);
   });
 });
 
@@ -183,13 +183,13 @@ describe('auto-shown keyboard does not trap Back', () => {
     const { history } = setup(false);
     // Editor focused with auto-show on, then the keyboard opens automatically.
     useIdeStore.setState({ keyboardAutoShow: true, editorFocused: true });
-    useIdeStore.getState().setBottomOverlay('keyboard');
+    useIdeStore.getState().setKeyboardEnabled(true);
     expect(history.depth).toBe(0); // not pushed
 
     // Closing it via the UI must not call history.go (no entry to undo).
-    useIdeStore.getState().setBottomOverlay('none');
+    useIdeStore.getState().setKeyboardEnabled(false);
     expect(history.depth).toBe(0);
-    expect(useIdeStore.getState().bottomOverlay).toBe('none');
+    expect(useIdeStore.getState().keyboardEnabled).toBe(false);
   });
 });
 

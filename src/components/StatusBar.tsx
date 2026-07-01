@@ -32,8 +32,8 @@ export function StatusBar() {
   const fileName = useIdeStore((s) => s.fileName);
   const dirty = useIdeStore((s) => s.dirty);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
-  const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
-  const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
+  const keyboardEnabled = useIdeStore((s) => s.keyboardEnabled);
+  const setKeyboardEnabled = useIdeStore((s) => s.setKeyboardEnabled);
   const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
   const setControllerEnabled = useIdeStore((s) => s.setControllerEnabled);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
@@ -99,18 +99,14 @@ export function StatusBar() {
           <GamepadIcon />
         </button>
         <button
-          className={`${styles.vkToggle} ${
-            bottomOverlay === 'keyboard' ? 'active' : ''
-          }`}
-          aria-pressed={bottomOverlay === 'keyboard'}
+          className={`${styles.vkToggle} ${keyboardEnabled ? 'active' : ''}`}
+          aria-pressed={keyboardEnabled}
           title={
-            bottomOverlay === 'keyboard'
+            keyboardEnabled
               ? 'Hide on-screen keyboard'
               : 'Show on-screen keyboard'
           }
-          onClick={() =>
-            setBottomOverlay(bottomOverlay === 'keyboard' ? 'none' : 'keyboard')
-          }
+          onClick={() => setKeyboardEnabled(!keyboardEnabled)}
         >
           ⌨
         </button>

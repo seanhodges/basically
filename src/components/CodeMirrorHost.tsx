@@ -397,7 +397,7 @@ export function CodeMirrorHost({
             searchOpen = open;
             const store = useIdeStore.getState();
             store.setFindReplaceOpen(open);
-            if (open) store.setBottomOverlay('none');
+            if (open) store.setKeyboardEnabled(false);
           }
         }),
         // Tapping/clicking the editor body dismisses the find/replace panel.
@@ -414,7 +414,7 @@ export function CodeMirrorHost({
           },
         }),
         inputModeCompartment.of(
-          inputModeExt(useIdeStore.getState().bottomOverlay === 'keyboard'),
+          inputModeExt(useIdeStore.getState().keyboardEnabled),
         ),
         EditorView.theme({
           '&': { height: '100%', fontSize: '14px' },
@@ -440,7 +440,7 @@ export function CodeMirrorHost({
   }, [dialect]);
 
   // Keep the native-OSK suppression in sync with the on-screen keyboard overlay.
-  const keyboardOverlay = useIdeStore((s) => s.bottomOverlay === 'keyboard');
+  const keyboardOverlay = useIdeStore((s) => s.keyboardEnabled);
   useEffect(() => {
     viewRef.current?.dispatch({
       effects: inputModeCompartment.reconfigure(inputModeExt(keyboardOverlay)),

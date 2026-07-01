@@ -24,8 +24,8 @@ import {
   getEmulatorAudio,
   getEmulatorVolume,
   getEmulatorMuted,
-  getBottomOverlay,
-  setBottomOverlay as persistBottomOverlay,
+  getKeyboardEnabled,
+  setKeyboardEnabled as persistKeyboardEnabled,
   getControllerEnabled,
   setControllerEnabled as persistControllerEnabled,
   getControllerBindings,
@@ -37,7 +37,6 @@ import {
   setControllerFireButtons as persistControllerFireButtons,
   getGamepadMode,
   setGamepadMode as persistGamepadMode,
-  type BottomOverlay,
   setAutoLineNumbering as persistAutoLineNumbering,
   setLineNumberIncrement as persistLineNumberIncrement,
   setShowLineNumberGutter as persistShowLineNumberGutter,
@@ -128,11 +127,11 @@ interface IdeState {
   /** CRT scanline overlay on the monitor. */
   crtEffect: boolean;
   /**
-   * Which input overlay docks under the emulator: the on-screen keyboard, the
-   * game controller, or neither. Mutually exclusive (only one mounts). Persisted
-   * so the keyboard-vs-controller choice is preserved across runs.
+   * Whether the on-screen keyboard is enabled. Persisted so the choice is
+   * preserved across runs. Independent of the game controller — when both are
+   * on the controller takes visual priority (see useInputOverlays).
    */
-  bottomOverlay: BottomOverlay;
+  keyboardEnabled: boolean;
   /**
    * Whether the game-controller toggle is on. Preserved independently of the
    * keyboard: when on, it overrides the keyboard while the emulator is the
@@ -260,8 +259,8 @@ interface IdeState {
   requestContinue(): void;
   setEmulatorSpeed(n: number): void;
   setCrtEffect(on: boolean): void;
-  /** Show/hide the docked on-screen keyboard (persisted). */
-  setBottomOverlay(v: BottomOverlay): void;
+  /** Enable/disable the on-screen keyboard (persisted). */
+  setKeyboardEnabled(v: boolean): void;
   /** Turn the game-controller toggle on/off (persisted, independent state). */
   setControllerEnabled(on: boolean): void;
   /** Remap one controller role to a layout KeyDef id (active dialect). */
@@ -414,8 +413,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   continueRequest: 0,
   emulatorSpeed: typeof localStorage !== 'undefined' ? getEmulatorSpeed() : 1,
   crtEffect: typeof localStorage !== 'undefined' ? getCrtEffect() : true,
-  bottomOverlay:
-    typeof localStorage !== 'undefined' ? getBottomOverlay() : 'none',
+  keyboardEnabled:
+    typeof localStorage !== 'undefined' ? getKeyboardEnabled() : false,
   controllerEnabled:
     typeof localStorage !== 'undefined' ? getControllerEnabled() : false,
   controllerBindings: loadControllerBindings(startupDialect),
@@ -427,7 +426,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined'
       ? (getKeyboardAutoShow() ?? defaultKeyboardAutoShow())
       : false,
-  variableWatcher: true,
+  variableWatcher: false,
   keyboardSound:
     typeof localStorage !== 'undefined' ? getKeyboardSound() : false,
   keyboardHaptics:
@@ -562,9 +561,9 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistCrtEffect(on);
     set({ crtEffect: on });
   },
-  setBottomOverlay: (v) => {
-    persistBottomOverlay(v);
-    set({ bottomOverlay: v });
+  setKeyboardEnabled: (v) => {
+    persistKeyboardEnabled(v);
+    set({ keyboardEnabled: v });
   },
   setControllerEnabled: (on) => {
     persistControllerEnabled(on);
