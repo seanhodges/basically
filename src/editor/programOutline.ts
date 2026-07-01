@@ -10,7 +10,7 @@
  * text after REM are skipped so `PRINT "GOTO 50"` / `REM SEE GOSUB 100` never
  * produce phantom entries.
  */
-import type { KeywordInfo } from '../dialects/types';
+import type { EditorKeyword } from '../dialects/types';
 import { parseLines, type BasicLine } from './lineNumbering';
 
 export type OutlineKind = 'procedure' | 'function' | 'subroutine' | 'goto';
@@ -50,7 +50,7 @@ function normalize(word: string): string {
  * add PROC. We read presence only — the source spellings drive the regexes.
  */
 export function outlineCapabilities(
-  keywords: KeywordInfo[],
+  keywords: EditorKeyword[],
 ): OutlineCapabilities {
   const words = new Set(keywords.map((k) => normalize(k.word)));
   return {
@@ -67,7 +67,7 @@ export function outlineCapabilities(
  * numbers inside them are never matched. Mirrors the string/REM skipping in
  * {@link ./lineNumbering}'s rewriteLineReferences.
  */
-function scannable(body: string): string {
+export function scannable(body: string): string {
   let out = '';
   let i = 0;
   let inString = false;

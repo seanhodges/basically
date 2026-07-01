@@ -97,14 +97,12 @@ describe('bracketed function constructs', () => {
   const lineOf = (id: string, label: string) =>
     constructsByDialect[id]!.find((c) => c.label === label)?.lines[0];
 
-  it('quotes string args and leaves numeric args bare', () => {
-    // Numeric single arg (INKEY), two required strings (INSTR).
+  it('puts one numbered placeholder in brackets per required arg', () => {
+    // One required arg (INKEY), two required args (INSTR); optional 3rd omitted.
     expect(lineOf('bbcmicro', 'INKEY')).toBe('INKEY(${1})');
-    expect(lineOf('bbcmicro', 'INSTR')).toBe('INSTR("${1}", "${2}")');
-    // Mixed string+number: only the string arg is quoted, optional 3rd omitted.
-    expect(lineOf('commodore64', 'MID$')).toBe('MID$("${1}", ${2})');
-    // BBC STRING$ is (number, string); the number stays bare.
-    expect(lineOf('bbcmicro', 'STRING$')).toBe('STRING$(${1}, "${2}")');
+    expect(lineOf('bbcmicro', 'INSTR')).toBe('INSTR(${1}, ${2})');
+    expect(lineOf('commodore64', 'MID$')).toBe('MID$(${1}, ${2})');
+    expect(lineOf('bbcmicro', 'STRING$')).toBe('STRING$(${1}, ${2})');
   });
 
   it('marks function constructs with the function icon type', () => {
@@ -121,7 +119,7 @@ describe('bracketed function constructs', () => {
   });
 
   it('gives the ZX80 bracketed functions but the ZX81 none', () => {
-    expect(lineOf('zx80', 'CODE')).toBe('CODE("${1}")');
+    expect(lineOf('zx80', 'CODE')).toBe('CODE(${1})');
     expect(lineOf('zx80', 'PEEK')).toBe('PEEK(${1})');
     // The ZX81 writes functions with space syntax, so it gets no function
     // constructs at all.
