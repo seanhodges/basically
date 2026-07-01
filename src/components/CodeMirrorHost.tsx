@@ -3,6 +3,7 @@ import {
   Compartment,
   EditorState,
   Prec,
+  RangeSet,
   StateEffect,
   StateField,
 } from '@codemirror/state';
@@ -27,7 +28,6 @@ import {
   deleteCharBackward,
   history,
   historyKeymap,
-  indentWithTab,
   insertNewlineAndIndent,
   redo,
   undo,
@@ -44,7 +44,7 @@ import {
   prevSnippetField,
   selectedCompletion,
 } from '@codemirror/autocomplete';
-import { lintGutter, lintKeymap } from '@codemirror/lint';
+import { lintKeymap, setDiagnosticsEffect } from '@codemirror/lint';
 import {
   openSearchPanel,
   closeSearchPanel,
@@ -282,26 +282,80 @@ function rowLineNumber(text: string): number | null {
 
 const breakpointCompartment = new Compartment();
 
-/** A red dot rendered in the breakpoint gutter for a breakpointed line. */
+/** A breakpoint marker: same size/style as the lint marker, but blue (see CSS). */
 class BreakpointMarker extends GutterMarker {
   toDOM() {
-    const span = document.createElement('span');
-    span.textContent = '●';
-    span.className = styles.breakpointDot!;
-    return span;
+    const el = document.createElement('div');
+    el.className = `cm-lint-marker ${styles.breakpointDot!}`;
+    return el;
   }
 }
 const bpMarker = new BreakpointMarker();
 
+/** Red error marker; DOM matches the default @codemirror/lint error marker. */
+class LintErrorMarker extends GutterMarker {
+  toDOM() {
+    const el = document.createElement('div');
+    el.className = 'cm-lint-marker cm-lint-marker-error';
+    return el;
+  }
+  eq() {
+    return true; // all error markers interchangeable -> stable RangeSet.eq
+  }
+}
+const lintErrorMarker = new LintErrorMarker();
+
 /**
- * The clickable breakpoint gutter. Reads the live breakpoint set (kept by BASIC
- * line number, so dots track edits/renumbering) and toggles on a gutter click.
- * Reconfigured via {@link breakpointCompartment} when the set changes.
+ * One red marker per line carrying a diagnostic. Mirrors lintGutter's own
+ * (unexported) field: rebuild only on setDiagnosticsEffect so the RangeSet
+ * instance stays stable and the combined gutter only redraws when diagnostics
+ * actually change (not on every keystroke or cursor move).
  */
-function breakpointGutterExt(breakpoints: ReadonlySet<number>) {
+const lintGutterMarkerField = StateField.define<RangeSet<GutterMarker>>({
+  create: () => RangeSet.empty,
+  update(markers, tr) {
+    markers = markers.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setDiagnosticsEffect)) {
+        const seen = new Set<number>();
+        const ranges = [];
+        for (const d of e.value ?? []) {
+          const from = tr.state.doc.lineAt(d.from).from;
+          if (!seen.has(from)) {
+            seen.add(from);
+            ranges.push(lintErrorMarker.range(from));
+          }
+        }
+        markers = RangeSet.of(ranges, true);
+      }
+    }
+    return markers;
+  },
+});
+
+/**
+ * The clickable combined gutter. Renders blue breakpoint markers (via lineMarker,
+ * reading the live breakpoint set kept by BASIC line number so dots track
+ * edits/renumbering) and red lint error markers (via the reactive
+ * {@link lintGutterMarkerField}) in a single column. When a line has both, the
+ * lint marker takes priority and the breakpoint is hidden. Toggles a breakpoint
+ * on a gutter click. Reconfigured via {@link breakpointCompartment} when the set
+ * changes.
+ */
+function combinedGutterExt(breakpoints: ReadonlySet<number>) {
   return gutter({
-    class: 'cm-breakpoint-gutter',
+    class: 'cm-combined-gutter',
+    markers: (view) => view.state.field(lintGutterMarkerField),
     lineMarker(view, line) {
+      // A lint marker on this line takes priority over the breakpoint dot.
+      let hasLint = false;
+      view.state
+        .field(lintGutterMarkerField)
+        .between(line.from, line.from, () => {
+          hasLint = true;
+          return false;
+        });
+      if (hasLint) return null;
       const lineNo = rowLineNumber(view.state.doc.lineAt(line.from).text);
       return lineNo !== null && breakpoints.has(lineNo) ? bpMarker : null;
     },
@@ -430,8 +484,9 @@ export function CodeMirrorHost({
           fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
         ]),
         breakpointCompartment.of(
-          breakpointGutterExt(useIdeStore.getState().breakpoints),
+          combinedGutterExt(useIdeStore.getState().breakpoints),
         ),
+        lintGutterMarkerField,
         debugLineField,
         highlightActiveLine(),
         drawSelection(),
@@ -443,14 +498,12 @@ export function CodeMirrorHost({
         syntaxHighlighting(basicHighlightStyle),
         dialect.languageSupport(),
         dialectLinter(dialect),
-        lintGutter(),
         keymap.of([
           ...defaultKeymap,
           ...historyKeymap,
           ...completionKeymap,
           ...searchKeymap,
           ...lintKeymap,
-          indentWithTab,
         ]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged && !isApplyingOverride.current)
@@ -545,12 +598,12 @@ export function CodeMirrorHost({
     });
   }, [autoLineNumbering, lineNumberIncrement, fullCodeCompletion]);
 
-  // Re-render the breakpoint gutter whenever the breakpoint set changes.
+  // Re-render the combined gutter whenever the breakpoint set changes.
   const breakpoints = useIdeStore((s) => s.breakpoints);
   useEffect(() => {
     viewRef.current?.dispatch({
       effects: breakpointCompartment.reconfigure(
-        breakpointGutterExt(breakpoints),
+        combinedGutterExt(breakpoints),
       ),
     });
   }, [breakpoints]);

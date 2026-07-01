@@ -60,7 +60,7 @@ keywords expand to a whole skeleton rather than a bare word. Accepting `FOR`
 drops in a complete counting loop, `IF` an `IF … THEN` line, etc. The cursor
 lands on the first thing you need to fill in (the loop variable, the condition…);
 press **Enter** / **Shift+Enter** to jump forward and back through the remaining
-fields. (**Tab** / **Shift+Tab** is also supported on keyboards that support it)
+fields.
 
 Turn it off to get plain keyword completion only (no block expansion).
 
