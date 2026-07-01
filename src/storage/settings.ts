@@ -11,14 +11,6 @@ import type {
 } from '../keyboard/controllerConfig';
 
 /**
- * Whether the on-screen keyboard is docked under the emulator. Persisted so the
- * choice sticks. The game controller is a separate, independently-preserved
- * toggle (see getControllerEnabled) rather than a third overlay value, so the
- * keyboard and gamepad preferences no longer clobber one another.
- */
-export type BottomOverlay = 'none' | 'keyboard';
-
-/**
  * A conversation message as persisted. `incomplete` marks an assistant answer
  * that was still streaming when the page was closed/reloaded — it cannot be
  * resumed (the streaming API isn't reconnectable), so it is kept as truncated.
@@ -47,7 +39,7 @@ const KEYS = {
   emulatorAudio: 'mbide.emulatorAudio',
   emulatorVolume: 'mbide.emulatorVolume',
   emulatorMuted: 'mbide.emulatorMuted',
-  bottomOverlay: 'mbide.bottomOverlay',
+  keyboardEnabled: 'mbide.keyboardEnabled',
   controllerEnabled: 'mbide.controllerEnabled',
   controllerBindings: 'mbide.controllerBindings',
   controllerDpadMode: 'mbide.controllerDpadMode',
@@ -196,30 +188,24 @@ export function setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void {
 }
 
 /**
- * Whether the on-screen keyboard was last docked under the emulator. Restored on
- * load. A legacy 'controller' value (from when the keyboard and gamepad shared
- * this slot) maps to 'none' here — the gamepad preference is migrated into
- * getControllerEnabled instead. Defaults to 'none'.
+ * Whether the on-screen keyboard was last enabled. Restored on load. Defaults to
+ * false (hidden).
  */
-export function getBottomOverlay(): BottomOverlay {
-  const raw = localStorage.getItem(KEYS.bottomOverlay);
-  return raw === 'keyboard' ? 'keyboard' : 'none';
+export function getKeyboardEnabled(): boolean {
+  return localStorage.getItem(KEYS.keyboardEnabled) === 'true';
 }
 
-export function setBottomOverlay(v: BottomOverlay): void {
-  localStorage.setItem(KEYS.bottomOverlay, v);
+export function setKeyboardEnabled(v: boolean): void {
+  localStorage.setItem(KEYS.keyboardEnabled, v ? 'true' : 'false');
 }
 
 /**
  * Whether the game-controller toggle is on. Preserved independently of the
- * keyboard so the gamepad choice survives keyboard show/hide and auto-show. A
- * never-set value migrates from the legacy combined overlay ('controller').
+ * keyboard so the gamepad choice survives keyboard show/hide and auto-show.
+ * Defaults to false.
  */
 export function getControllerEnabled(): boolean {
-  const raw = localStorage.getItem(KEYS.controllerEnabled);
-  if (raw === 'true') return true;
-  if (raw === 'false') return false;
-  return localStorage.getItem(KEYS.bottomOverlay) === 'controller';
+  return localStorage.getItem(KEYS.controllerEnabled) === 'true';
 }
 
 export function setControllerEnabled(v: boolean): void {

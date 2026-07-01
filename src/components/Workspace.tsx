@@ -5,6 +5,7 @@ import {
   MOBILE_QUERY,
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
+import { useInputOverlays } from '../app/useInputOverlays';
 import { useProgramStats, ramBudget } from '../app/useProgramStats';
 import {
   setSplitRatio as persistSplitRatio,
@@ -29,24 +30,6 @@ import { SettingsForm } from './SettingsForm';
 import styles from './Workspace.module.css';
 
 const DIVIDER_WIDTH = 6;
-
-/** How long the editor keyboard lingers after the editor loses focus —
-    avoids flicker when focus briefly moves (toolbar taps, prompts). */
-const EDITOR_KB_HIDE_DELAY_MS = 250;
-
-/** True immediately when `value` is true; false only after a short delay. */
-function useDebouncedFalse(value: boolean, delayMs: number): boolean {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    if (value) {
-      setDebounced(true);
-      return;
-    }
-    const timer = setTimeout(() => setDebounced(false), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 function ProgramStats() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -93,9 +76,7 @@ export function Workspace() {
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
   const requestRun = useIdeStore((s) => s.requestRun);
 
-  const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
-  const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
-  const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
+  const setKeyboardEnabled = useIdeStore((s) => s.setKeyboardEnabled);
   const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
   const editorFocused = useIdeStore((s) => s.editorFocused);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
@@ -155,39 +136,16 @@ export function Workspace() {
     [],
   );
 
-  const showEditorKeyboard = useDebouncedFalse(
-    editorFocused,
-    EDITOR_KB_HIDE_DELAY_MS,
-  );
+  // The gamepad/keyboard overlay visibility and editor routing are resolved in
+  // one shared hook (see useInputOverlays) so this component and EmulatorPane
+  // can't disagree on which overlay is up during focus transitions.
+  const { controllerVisible, keyboardVisible, routeToEditor } =
+    useInputOverlays();
 
-  // On the tab layout the active tab decides the target; on the desktop/tablet
-  // split both panels are visible, so editor focus does (debounced to avoid
-  // remount thrash when focus briefly leaves the editor).
-  const routeToEditor = tabbed ? mobileTab === 'editor' : showEditorKeyboard;
-  // The emulator is the active surface whenever the editor isn't claiming input:
-  // the preview tab on the tab layout, or the editor lacking focus on the split.
-  const emulatorSurfaceActive = tabbed
-    ? mobileTab === 'preview'
-    : !routeToEditor;
-  // The gamepad overrides the keyboard, but only while the emulator is the active
-  // surface — with the editor focused the gamepad is ignored and the keyboard
-  // behaves normally (including auto-show on focus). In phone landscape the
-  // gamepad is always shown on the preview tab (it flanks the screen, ignoring
-  // the controller-enabled setting), yielding to the keyboard only when its
-  // toggle is on.
-  const controllerVisible = landscape
-    ? emulatorSurfaceActive && bottomOverlay !== 'keyboard'
-    : controllerEnabled && emulatorSurfaceActive;
   // Resolve the user's gamepad preference against this machine's joystick
   // support; machines that don't support the chosen mode silently fall back to
   // key mapping.
   const effectiveMode = effectiveGamepadMode(dialect, gamepadMode);
-  // The keyboard belongs over the editor/preview surfaces, but yields to the
-  // controller whenever that's showing.
-  const keyboardVisible =
-    !controllerVisible &&
-    bottomOverlay === 'keyboard' &&
-    (!tabbed || mobileTab === 'editor' || mobileTab === 'preview');
 
   // With auto-show on, re-open the keyboard if it was hidden when the editor
   // regains focus. Edge-triggered (only on the false→true transition) so a
@@ -200,12 +158,12 @@ export function Workspace() {
       keyboardAutoShow &&
       editorFocused &&
       !prevEditorFocused.current &&
-      useIdeStore.getState().bottomOverlay === 'none'
+      !useIdeStore.getState().keyboardEnabled
     ) {
-      setBottomOverlay('keyboard');
+      setKeyboardEnabled(true);
     }
     prevEditorFocused.current = editorFocused;
-  }, [editorFocused, keyboardAutoShow, setBottomOverlay]);
+  }, [editorFocused, keyboardAutoShow, setKeyboardEnabled]);
 
   const hidden = (tab: MobileTab) =>
     tabbed && mobileTab !== tab ? styles.tabHidden : '';

@@ -48,7 +48,7 @@ export interface NavSnapshot {
   settingsOpen: boolean;
   /** Desktop AI panel. */
   aiPanelOpen: boolean;
-  /** On-screen keyboard docked (`bottomOverlay === 'keyboard'`). */
+  /** On-screen keyboard enabled (`keyboardEnabled`). */
   keyboard: boolean;
   /** Gamepad enabled. */
   controller: boolean;
@@ -77,7 +77,7 @@ export function computeSnapshot(s: StoreState, isMobile: boolean): NavSnapshot {
     mobileTab: isMobile && s.mobileTab !== 'editor' ? s.mobileTab : null,
     settingsOpen: isMobile ? false : s.settingsOpen,
     aiPanelOpen: isMobile ? false : s.aiPanelOpen,
-    keyboard: s.bottomOverlay === 'keyboard',
+    keyboard: s.keyboardEnabled,
     controller: s.controllerEnabled,
     docsOpen: s.docsDrawerOpen,
     docsTopic: s.docsDrawerOpen ? s.docsTopic : null,
@@ -116,7 +116,7 @@ export function isAutoShow(s: StoreState): boolean {
 
 /**
  * Write a snapshot back into the store, calling only the setters whose surface
- * differs from the live state. Persisted setters (`setBottomOverlay`,
+ * differs from the live state. Persisted setters (`setKeyboardEnabled`,
  * `setControllerEnabled`) still write through to localStorage; unrelated state
  * is left untouched. Called only from inside the `popstate` guard.
  */
@@ -135,7 +135,7 @@ export function applySnapshot(target: NavSnapshot, isMobile: boolean): void {
     useIdeStore.setState({ aiPanelOpen: target.aiPanelOpen });
   }
   if (cur.keyboard !== target.keyboard) {
-    s.setBottomOverlay(target.keyboard ? 'keyboard' : 'none');
+    s.setKeyboardEnabled(target.keyboard);
   }
   if (cur.controller !== target.controller) {
     s.setControllerEnabled(target.controller);

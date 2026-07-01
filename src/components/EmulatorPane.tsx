@@ -10,9 +10,9 @@ import {
   HAS_TOUCH,
   isMobileViewport,
   useMediaQuery,
-  MOBILE_QUERY,
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
+import { useInputOverlays } from '../app/useInputOverlays';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
 import { EmulatorAudio } from '../audio/emulatorAudio';
@@ -86,26 +86,15 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
-  const bottomOverlay = useIdeStore((s) => s.bottomOverlay);
-  const setBottomOverlay = useIdeStore((s) => s.setBottomOverlay);
-  const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
-  const editorFocused = useIdeStore((s) => s.editorFocused);
+  const keyboardEnabled = useIdeStore((s) => s.keyboardEnabled);
+  const setKeyboardEnabled = useIdeStore((s) => s.setKeyboardEnabled);
   const mobileTab = useIdeStore((s) => s.mobileTab);
-  const isMobile = useMediaQuery(MOBILE_QUERY);
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
-  const tabbed = isMobile || landscape;
-  // The bottom band is occupied (so the screen shrinks to the top half) when the
-  // keyboard is docked, or when the gamepad takes over as the active surface's
-  // overlay — the preview tab on the tab layout, or the unfocused editor on the
-  // split. In phone landscape the gamepad instead flanks the screen (full height),
-  // so only the docked keyboard caps the screen there.
-  const emulatorSurfaceActive = tabbed
-    ? mobileTab === 'preview'
-    : !editorFocused;
-  const overlayUp = landscape
-    ? bottomOverlay === 'keyboard'
-    : bottomOverlay === 'keyboard' ||
-      (controllerEnabled && emulatorSurfaceActive);
+  // `overlayUp` (the bottom band is occupied, so the emulator screen shrinks to
+  // the top half) comes from the same shared hook that Workspace uses to render
+  // the overlays, so the screen resize and the gamepad/keyboard hand-off stay in
+  // lock-step through focus transitions instead of diverging.
+  const { overlayUp } = useInputOverlays();
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
 
@@ -584,9 +573,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             if (
               s.keyboardAutoShow &&
               !s.controllerEnabled &&
-              s.bottomOverlay === 'none'
+              !s.keyboardEnabled
             )
-              setBottomOverlay('keyboard');
+              setKeyboardEnabled(true);
           }}
           onBlur={() => setFocused(false)}
         />
@@ -600,19 +589,15 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           <button
             type="button"
             className={`${styles.kbToggle} ${
-              bottomOverlay === 'keyboard' ? styles.kbToggleActive : ''
+              keyboardEnabled ? styles.kbToggleActive : ''
             }`}
-            aria-pressed={bottomOverlay === 'keyboard'}
+            aria-pressed={keyboardEnabled}
             title={
-              bottomOverlay === 'keyboard'
+              keyboardEnabled
                 ? 'Hide on-screen keyboard'
                 : 'Show on-screen keyboard'
             }
-            onClick={() =>
-              setBottomOverlay(
-                bottomOverlay === 'keyboard' ? 'none' : 'keyboard',
-              )
-            }
+            onClick={() => setKeyboardEnabled(!keyboardEnabled)}
           >
             ⌨
           </button>
