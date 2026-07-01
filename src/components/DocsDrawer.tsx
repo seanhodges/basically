@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
+import { GearsSpinner } from './GearsSpinner';
 import styles from './DocsDrawer.module.css';
 
 /** How far (px) a rightward drag on the handle must travel to close the drawer. */
@@ -61,6 +62,14 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     if (open) setLoaded(true);
   }, [open]);
 
+  // Show a busy indicator until the iframe fires `load`. The docs bundle can be
+  // slow the first time, and re-pointing `src` at a new topic reloads it, so
+  // reset the flag whenever `src` changes.
+  const [frameLoaded, setFrameLoaded] = useState(false);
+  useEffect(() => {
+    setFrameLoaded(false);
+  }, [src]);
+
   // Track a horizontal drag on the handle so a rightward swipe dismisses the
   // drawer, in addition to a plain tap/click.
   const dragStartX = useRef<number | null>(null);
@@ -98,7 +107,19 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         <ChevronRightIcon />
       </button>
       {loaded && (
-        <iframe className={styles.frame} src={src} title="Documentation" />
+        <>
+          <iframe
+            className={styles.frame}
+            src={src}
+            title="Documentation"
+            onLoad={() => setFrameLoaded(true)}
+          />
+          {!frameLoaded && (
+            <div className={styles.loadingOverlay}>
+              <GearsSpinner />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
