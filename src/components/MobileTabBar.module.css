@@ -9,6 +9,12 @@
     display: flex;
     align-items: stretch;
     gap: 2px;
+    /* Sit after the Target selector so the toolbar reads File → Target → tabs,
+       matching the desktop layout where the Target sits with the File/Edit
+       menus. The tab bar is the only order:1 child of `.toolbarLeft`, so the
+       default-order File menu and Target label keep their source order ahead of
+       it. */
+    order: 1;
   }
 
   .tabBar button {
