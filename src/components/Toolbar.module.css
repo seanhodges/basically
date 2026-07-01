@@ -57,8 +57,9 @@
   }
 }
 
-/* The Target selector hosted inside the overflow menu — only used once the bar
-   is narrow enough that the inline Target is hidden (see container query). */
+/* The Target selector hosted inside the overflow menu — only used in landscape,
+   where the toolbar collapses to a rail with no inline room (see landscape
+   block). */
 .targetInOverflow {
   display: none;
 }
@@ -66,6 +67,12 @@
 .targetInOverflow select {
   width: 100%;
   margin: 2px 0 4px;
+}
+
+/* The Docs entry ("Help") hosted inside the overflow menu — only used once the
+   bar is tight enough that the book icon is dropped (see container query). */
+.helpInOverflow {
+  display: none;
 }
 
 .menuItems {
@@ -152,14 +159,17 @@
   }
 }
 
-/* Tightest tier: the inline Target no longer fits, so hide it and surface the
-   Target selector (and its overflow trigger) inside the "three dots" menu. */
+/* Tightest tier: the bar can no longer spare room for the Docs book icon, so
+   drop it and surface Docs as a "Help" item inside the "three dots" menu (and
+   reveal the trigger so tabs without context actions can still reach it). This
+   fires in narrow portrait and — because the rail's inline-size is tiny — in
+   phone landscape too. */
 @container toolbar (max-width: 430px) {
-  .dialectLabel {
+  .toolbar button.docsButton {
     display: none;
   }
 
-  .targetInOverflow {
+  .helpInOverflow {
     display: block;
   }
 
@@ -197,9 +207,10 @@
 /* ---------- Phone landscape: vertical left rail ---------- */
 /* Re-apply the mobile toolbar treatment (it keys off 768px width, which a wide
    landscape phone can exceed), then lay the bar out as a narrow column. The
-   container queries above still fire because the rail's inline-size is tiny, so
-   the File label drops to its icon and the Target selector collapses into the
-   overflow menu on their own. */
+   Target selector only collapses into the overflow menu in landscape (portrait
+   keeps it inline), so do that explicitly here; the File label still drops to
+   its icon via the container query, whose ≤430 tier also fires because the
+   rail's inline-size is tiny. */
 @media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
   .toolbar :global(.desktop-only),
   .toolbar :global(.icon-btn) {
@@ -217,6 +228,20 @@
   .fileIcon {
     display: inline-flex;
     align-items: center;
+  }
+
+  /* No inline room on the 56px rail — move the Target selector into the
+     overflow menu and reveal the trigger that hosts it. */
+  .dialectLabel {
+    display: none;
+  }
+
+  .targetInOverflow {
+    display: block;
+  }
+
+  .toolbar button.overflowTargetOnly {
+    display: inline-flex;
   }
 
   .toolbar.rail {

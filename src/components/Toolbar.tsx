@@ -56,14 +56,15 @@ export function Toolbar() {
   const [editMenuOpen, setEditMenuOpen] = useState(false);
   // The mobile "three dots" overflow menu. It is context-aware: it surfaces the
   // Edit actions on the editor tab and the Run actions on the emulator tab, and
-  // on a narrow bar it also hosts the Target machine selector (which no longer
-  // fits inline).
+  // it also hosts the items that spill out of a tight bar — Docs (as "Help")
+  // when there's no room for the book icon, and the Target selector in landscape
+  // (where the toolbar collapses to a rail).
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
   // editor/preview tabs carry context actions in the overflow menu; on the
-  // other tabs it exists only to host the (collapsed) Target selector.
+  // other tabs it exists only to host the spilled-out Help / Target items.
   const contextTab = mobileTab === 'editor' || mobileTab === 'preview';
 
   // Phone landscape collapses the toolbar into a narrow vertical left rail.
@@ -160,6 +161,18 @@ export function Toolbar() {
 
   const openImport = guard(() => setImportOpen(true));
   const openShare = guard(() => setTransferOpen(true));
+
+  // Shared by the Docs book icon and the "Help" overflow item. With a keyword
+  // selected in the editor, jump straight to that keyword on the current
+  // dialect's reference page; otherwise open the docs home. Read the selection
+  // imperatively so the toolbar doesn't re-render as the cursor moves.
+  const openDocumentation = () => {
+    const topic = referenceTopic(
+      dialect,
+      useIdeStore.getState().editorSelection,
+    );
+    openDocs(topic ?? undefined);
+  };
 
   const dialectOptions = [...dialects]
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -320,28 +333,20 @@ export function Toolbar() {
           <GearIcon />
         </button>
         <button
-          className={`icon-btn mobile-visible ${docsDrawerOpen ? 'active' : ''}`}
-          onClick={() => {
-            // With a keyword selected in the editor, jump straight to that
-            // keyword on the current dialect's reference page; otherwise open
-            // the docs home as before. Read the selection imperatively so the
-            // toolbar doesn't re-render as the cursor moves.
-            const topic = referenceTopic(
-              dialect,
-              useIdeStore.getState().editorSelection,
-            );
-            openDocs(topic ?? undefined);
-          }}
+          className={`icon-btn mobile-visible ${styles.docsButton} ${
+            docsDrawerOpen ? 'active' : ''
+          }`}
+          onClick={openDocumentation}
           title="Documentation"
         >
           <BookIcon />
         </button>
         {/* Mobile "three dots" overflow menu. On the editor/preview tabs it
-            carries the Edit/Run actions; on a narrow bar it additionally hosts
-            the Target machine selector that no longer fits inline. On the
-            AI/Settings tabs it carries only the Target selector, so its trigger
-            stays hidden until the bar is narrow enough to collapse it (see
-            .overflowTargetOnly in the stylesheet). */}
+            carries the Edit/Run actions; when the bar is tight it additionally
+            hosts Docs (as "Help") and, in landscape, the Target selector. On the
+            AI/Settings tabs it carries only those spilled-out items, so its
+            trigger stays hidden until the bar is narrow enough to surface them
+            (see .overflowTargetOnly in the stylesheet). */}
         <div className={`${styles.menu} mobile-only`}>
           <button
             className={`icon-btn mobile-visible ${
@@ -353,7 +358,7 @@ export function Toolbar() {
                 ? mobileTab === 'editor'
                   ? 'Edit actions'
                   : 'Run actions'
-                : 'Target machine'
+                : 'More actions'
             }
           >
             <DotsIcon />
@@ -411,11 +416,23 @@ export function Toolbar() {
                   </button>
                 </>
               )}
-              {/* Target selector — visible only on a narrow bar, where the
-                  inline Target label is hidden (see .targetInOverflow). */}
+              {/* Docs — surfaced here (as "Help") only when the bar is too
+                  tight to keep the book icon (see .helpInOverflow). */}
+              <div className={styles.helpInOverflow}>
+                {contextTab && <div className={styles.menuSeparator} />}
+                <button
+                  onClick={() => {
+                    setOverflowMenuOpen(false);
+                    openDocumentation();
+                  }}
+                >
+                  Help
+                </button>
+              </div>
+              {/* Target selector — visible only in landscape, where the toolbar
+                  collapses to a rail with no inline room (see .targetInOverflow). */}
               <div className={styles.targetInOverflow}>
                 {contextTab && <div className={styles.menuSeparator} />}
-                <div className={styles.menuLabel}>Target</div>
                 <select
                   className="dialect-select"
                   value={dialect.id}
