@@ -227,8 +227,8 @@ export function SettingsForm() {
         </select>
       </label>
       <p>
-        Long-press a control on the on-screen gamepad to remap it to a 
-        different key.
+        Long-press a control on the on-screen gamepad to remap it to a different
+        key.
       </p>
       <h3>AI</h3>
       <label className={styles.inline}>
@@ -250,9 +250,9 @@ export function SettingsForm() {
         <a href={provider.consoleUrl} target="_blank" rel="noreferrer">
           {provider.consoleLabel}
         </a>
-        . The API key is stored separately in this browser&apos;s
-        localStorage and sent only to {provider.apiHost}. Don&apos;t use this on
-        a shared computer.
+        . The API key is stored separately in this browser&apos;s localStorage
+        and sent only to {provider.apiHost}. Don&apos;t use this on a shared
+        computer.
       </p>
       <label>
         {provider.label} API key

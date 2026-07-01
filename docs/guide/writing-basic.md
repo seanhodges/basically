@@ -35,7 +35,7 @@ conventions:
 
 ## Editor features
 
-The editor offers a rich set of modern features to assist with BASIC coding. 
+The editor offers a rich set of modern features to assist with BASIC coding.
 Everything below is configured from the **Settings** button in the toolbar
 (the **Editor** section) unless noted.
 
