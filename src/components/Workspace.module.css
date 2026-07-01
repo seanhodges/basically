@@ -285,3 +285,20 @@
     box-shadow: 0 6px 24px rgb(0 0 0 / 45%); /* floating-panel depth */
   }
 }
+
+/* ---------- Phone landscape: full-height, click-through keyboard band ----------
+   Override the shared float block above so the band spans the whole workspace
+   (making cqh/cqw resolve against the full workspace — the keyboard then fills up
+   to 75cqh/95cqw; see VirtualKeyboard.css). The keyboard floats over the
+   full-height emulator behind it; the band stays click-through outside the keys
+   so taps on the exposed top of the emulator still land. */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .workspaceVkOverlay {
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .workspaceVkOverlay :global(.virtual-keyboard) {
+    pointer-events: auto;
+  }
+}

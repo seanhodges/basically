@@ -496,10 +496,12 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       const availWidth =
         rect.width - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD) - 2 * sideReserve;
       // With the keyboard up, never grow past 50% of the pane so the bottom-50%
-      // overlay can never cover the screen.
-      const heightBudget = overlayUp
-        ? Math.min(rect.height, rect.height * 0.5)
-        : rect.height;
+      // overlay can never cover the screen — except in phone landscape, where the
+      // keyboard floats over the emulator, so the screen keeps its full height.
+      const heightBudget =
+        overlayUp && !landscape
+          ? Math.min(rect.height, rect.height * 0.5)
+          : rect.height;
       const availHeight = heightBudget - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD);
       // Fill the available width; clamp to the height budget so wide/short
       // panes stay height-limited. Aspect ratio preserved by the min().
@@ -585,27 +587,30 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             <GearsSpinner />
           </div>
         )}
-        {/* Phone landscape: the on-screen keyboard is off by default and toggled
-            from this button to the right of the screen. While it's up the
-            workspace hides the flanking gamepad and routes keys to the machine. */}
-        {landscape && mobileTab === 'preview' && (
-          <button
-            type="button"
-            className={`${styles.kbToggle} ${
-              keyboardEnabled ? styles.kbToggleActive : ''
-            }`}
-            aria-pressed={keyboardEnabled}
-            title={
-              keyboardEnabled
-                ? 'Hide on-screen keyboard'
-                : 'Show on-screen keyboard'
-            }
-            onClick={() => setKeyboardEnabled(!keyboardEnabled)}
-          >
-            ⌨
-          </button>
-        )}
       </div>
+      {/* Phone landscape: the on-screen keyboard is off by default and toggled
+          from this button at the top-right of the pane — its top aligned with the
+          preview and centred above the red fire button. While it's up the
+          workspace hides the flanking gamepad and routes keys to the machine.
+          Anchored to the pane (not the scaled screen) so it lines up with the
+          gamepad's fire button regardless of the screen's fitted size. */}
+      {landscape && mobileTab === 'preview' && (
+        <button
+          type="button"
+          className={`${styles.kbToggle} ${
+            keyboardEnabled ? styles.kbToggleActive : ''
+          }`}
+          aria-pressed={keyboardEnabled}
+          title={
+            keyboardEnabled
+              ? 'Hide on-screen keyboard'
+              : 'Show on-screen keyboard'
+          }
+          onClick={() => setKeyboardEnabled(!keyboardEnabled)}
+        >
+          ⌨
+        </button>
+      )}
       {/* The Step/Continue/Stop controls live in the top-bar Run menu now; this
           slim bar just reports where the debugger is paused. */}
       {emulatorStatus === 'paused' && debugLine !== null && (

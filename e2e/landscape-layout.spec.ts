@@ -80,23 +80,25 @@ for (const vp of [
       expect(fileBox!.y + fileBox!.height).toBeLessThanOrEqual(vp.height + 1);
       await fileTrigger.click(); // close before moving on
 
-      // (1c) The overflow ("three dots") trigger fills the rail width like the
-      // sibling Docs icon button, and its menu — anchored at the foot of the
-      // rail — opens upward and stays fully on-screen.
+      // (1c) The overflow ("three dots") trigger fills the rail width, and its
+      // menu — anchored at the foot of the rail — opens upward and stays fully
+      // on-screen. On the tiny rail the Docs book icon is dropped and surfaced as
+      // a "Help" item inside this menu instead (the @container (max-width: 430px)
+      // tier in Toolbar.module.css), so the trigger is what fills the rail here.
       await page.getByRole('tab', { name: 'Run' }).click();
-      const docsBox = await page
-        .locator('button[title="Documentation"]')
-        .boundingBox();
       const overflowTrigger = page.locator('button[title="Run actions"]');
       const overflowTriggerBox = await overflowTrigger.boundingBox();
-      expect(docsBox).not.toBeNull();
       expect(overflowTriggerBox).not.toBeNull();
-      expect(Math.abs(overflowTriggerBox!.width - docsBox!.width)).toBeLessThan(
-        6,
-      );
+      // Stretched to (near enough) the full rail width, not squished to its glyph.
+      expect(overflowTriggerBox!.width).toBeGreaterThan(railBox!.width - 16);
+      expect(overflowTriggerBox!.width).toBeLessThanOrEqual(railBox!.width + 1);
       await overflowTrigger.click();
       const overflowMenu = page.locator('[class*="menuItems"]');
       await expect(overflowMenu).toBeVisible();
+      // Docs lives here now (as "Help") since the book icon is dropped on the rail.
+      await expect(
+        overflowMenu.getByRole('button', { name: 'Help' }),
+      ).toBeVisible();
       const overflowBox = await overflowMenu.boundingBox();
       expect(
         overflowBox,
@@ -130,9 +132,9 @@ for (const vp of [
       const kbCenter = kbBox!.x + kbBox!.width / 2;
       const wsCenter = wsBox!.x + wsBox!.width / 2;
       expect(Math.abs(kbCenter - wsCenter)).toBeLessThan(48);
-      // The keyboard hugs its aspect-correct content, leaving gutters — so it is
-      // clearly narrower than the workspace, not full-bleed.
-      expect(kbBox!.width).toBeLessThan(wsBox!.width - 48);
+      // The keyboard fills up to ~95% of the workspace width but still leaves a
+      // gutter either side — so it is not full-bleed / flush against the rail.
+      expect(kbBox!.width).toBeLessThanOrEqual(wsBox!.width - 16);
 
       // Key caps are a usable touch size (the row-of-keys width is what matters;
       // height is bounded by the short landscape band).
