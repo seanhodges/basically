@@ -25,10 +25,10 @@ features:
     details: Hardware-specific emulators using popular Web-based solutions, fully integrated into the IDE. One click rapid deployment with no fiddly configuration.
   - icon: ✦
     title: AI support
-    details: Support for many popular AI coding providers; Claude, OpenAI, Gemini. More possible in future.
+    details: Support for many popular AI coding providers; Claude, OpenAI, Gemini. More possible in future. Use AI to troubleshoot problems, add features, even build entire programs and games without leaving the IDE.
   - icon: 📼
-    title: Two-way hardware transfer
-    details: "Here's the really fun bit: if you have a real machine, you can save and load directly to the hardware from your Web browser. Export via cassette audio (play via the EAR port or save a .wav), download a native machine image (.P / .TAP / .prg …) for SD card interfaces, or push over WebSerial to a microcontroller bridge (experimental) — and import the same way, pulling a program off the real machine by recording its tape or loading its image back into the editor."
+    title: Bridge the gap to real hardware
+    details: "Here's the really fun bit: Connect your physical machine directly to your browser. Instantly save, load, and export via cassette audio, SD card images (.TAP, .P, .prg), or WebSerial, and pull data back from your hardware just as easily.."
   - icon: ⌨️
     title: Mobile-first input
     details: Basically IDE ships with machine-specific virtual keyboards; balancing mobile screen usability with an psuedo authentic shift-state experience. At any time you can toggle this off to use your familiar native keyboard.

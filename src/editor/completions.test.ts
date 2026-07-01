@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState, Transaction } from '@codemirror/state';
-import { CompletionContext, type Completion } from '@codemirror/autocomplete';
+import {
+  CompletionContext,
+  hasNextSnippetField,
+  hasPrevSnippetField,
+  nextSnippetField,
+  prevSnippetField,
+  type Completion,
+} from '@codemirror/autocomplete';
 import {
   buildCompletionSource,
   numberingConfig,
@@ -20,6 +27,7 @@ const constructs: ConstructTemplate[] = [
     label: 'FOR',
     lines: ['FOR ${1:I}=${2:1} TO ${3:10}', '${0}', 'NEXT ${1:I}'],
   },
+  { label: 'PRINT', lines: ['PRINT "${0}"'] },
 ];
 
 /**
@@ -99,6 +107,61 @@ describe('construct completion expansion', () => {
     const view = makeView('FOR', { auto: false, increment: 10 });
     accept(view, 'FOR', 0, 3);
     expect(view.state.doc.toString()).toBe('FOR I=1 TO 10\n\nNEXT I');
+  });
+
+  it('expands a string command with the caret between the quotes', () => {
+    const view = makeView('10 PR');
+    accept(view, 'PRINT', 3, 5);
+    expect(view.state.doc.toString()).toBe('10 PRINT ""');
+    const sel = view.state.selection.main;
+    // Single-line construct: no extra numbered lines, caret rests inside "".
+    expect(sel.empty).toBe(true);
+    expect(sel.from).toBe('10 PRINT "'.length);
+  });
+
+  it('expands a string command the same way when auto-numbering is off', () => {
+    const view = makeView('PR', { auto: false, increment: 10 });
+    accept(view, 'PRINT', 0, 2);
+    expect(view.state.doc.toString()).toBe('PRINT ""');
+  });
+});
+
+describe('snippet placeholder navigation', () => {
+  // Mobile has no Tab key, so Return/Shift-Return drive the same
+  // next/prev-placeholder commands the editor binds Enter to. These assert the
+  // construct snippets expose navigable, ordered fields for that remap.
+  const selText = (view: ReturnType<typeof makeView>) => {
+    const sel = view.state.selection.main;
+    return view.state.sliceDoc(sel.from, sel.to);
+  };
+
+  it('advances forward through each placeholder, then stops on the last', () => {
+    const view = makeView('10 FOR');
+    accept(view, 'FOR', 3, 6);
+    expect(selText(view)).toBe('I'); // field 1: loop variable
+
+    expect(hasNextSnippetField(view.state)).toBe(true);
+    nextSnippetField(view);
+    expect(selText(view)).toBe('1'); // field 2: start value
+
+    nextSnippetField(view);
+    expect(selText(view)).toBe('10'); // field 3: limit
+
+    nextSnippetField(view);
+    // Field 0: the resting caret on the (empty) body line — no further field.
+    expect(hasNextSnippetField(view.state)).toBe(false);
+  });
+
+  it('steps back to the previous placeholder', () => {
+    const view = makeView('10 FOR');
+    accept(view, 'FOR', 3, 6);
+    nextSnippetField(view);
+    expect(selText(view)).toBe('1');
+
+    expect(hasPrevSnippetField(view.state)).toBe(true);
+    prevSnippetField(view);
+    expect(selText(view)).toBe('I');
+    expect(hasPrevSnippetField(view.state)).toBe(false);
   });
 });
 

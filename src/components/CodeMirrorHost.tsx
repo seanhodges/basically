@@ -36,6 +36,13 @@ import {
   autocompletion,
   completionKeymap,
   completionStatus,
+  hasNextSnippetField,
+  hasPrevSnippetField,
+  insertCompletionText,
+  nextSnippetField,
+  pickedCompletion,
+  prevSnippetField,
+  selectedCompletion,
 } from '@codemirror/autocomplete';
 import { lintGutter, lintKeymap } from '@codemirror/lint';
 import {
@@ -102,6 +109,70 @@ function autoNumberOnEnter(view: EditorView): boolean {
   );
   if (!result) return false; // nothing to number — fall back to default newline
   replaceDoc(view, result.lines, result.cursorLine);
+  return true;
+}
+
+/**
+ * Enter handler used while editing: when a construct snippet is active, Enter
+ * jumps to the next `${…}` placeholder (mobile has no Tab key, so Return stands
+ * in for it — desktop Tab keeps working too). Otherwise Enter auto-numbers the
+ * new line as before. An open completion popup still consumes Enter first.
+ */
+function handleEnter(view: EditorView): boolean {
+  if (completionStatus(view.state) === 'active') return false;
+  if (hasNextSnippetField(view.state)) return nextSnippetField(view);
+  return autoNumberOnEnter(view);
+}
+
+/** Shift+Enter: step back to the previous snippet placeholder (mirrors Shift+Tab). */
+function handleShiftEnter(view: EditorView): boolean {
+  if (hasPrevSnippetField(view.state)) return prevSnippetField(view);
+  return false;
+}
+
+/**
+ * BBC-style keyword abbreviation: while the autocomplete popup is open, the `.`
+ * key accepts the top (selected) suggestion instead of inserting a period, so
+ * e.g. `PR.` completes to `PRINT`. The period is the abbreviation marker and is
+ * consumed, not inserted.
+ *
+ * We apply the completion ourselves rather than calling `acceptCompletion`: that
+ * command has an `interactionDelay` (75ms) guard that rejects a just-opened
+ * popup, which is exactly the fast-typed `PR.` case. This mirrors CodeMirror's
+ * internal `applyCompletion` — run the option's `apply` (so block constructs
+ * still expand), or insert its label for a plain keyword. A raw keydown handler
+ * is used because keymap/inputHandler bindings don't reliably fire for a bare
+ * printable key. Returns false when no popup is open so `.` inserts normally.
+ *
+ * The replace range is recomputed with the same leading-identifier pattern the
+ * completion source matches (see buildCompletionSource in completions.ts); keep
+ * the two in step.
+ */
+function acceptCompletionOnPeriod(
+  event: KeyboardEvent,
+  view: EditorView,
+): boolean {
+  if (event.key !== '.') return false;
+  if (completionStatus(view.state) !== 'active') return false;
+  const option = selectedCompletion(view.state);
+  if (!option) return false;
+
+  const head = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(head);
+  const before = view.state.sliceDoc(line.from, head);
+  const word = /[A-Za-z][A-Za-z$]*$/.exec(before);
+  const from = word ? head - word[0].length : head;
+
+  const { apply } = option;
+  if (typeof apply === 'function') {
+    apply(view, option, from, head);
+  } else {
+    view.dispatch({
+      ...insertCompletionText(view.state, apply ?? option.label, from, head),
+      annotations: pickedCompletion.of(option),
+    });
+  }
+  event.preventDefault();
   return true;
 }
 
@@ -343,7 +414,8 @@ export function CodeMirrorHost({
       extensions: [
         Prec.highest(
           keymap.of([
-            { key: 'Enter', run: autoNumberOnEnter },
+            { key: 'Enter', run: handleEnter },
+            { key: 'Shift-Enter', run: handleShiftEnter },
             { key: 'Mod-Alt-r', run: renumberCurrentLine },
           ]),
         ),
@@ -365,6 +437,7 @@ export function CodeMirrorHost({
         drawSelection(),
         history(),
         autocompletion({ activateOnTyping: true }),
+        EditorView.domEventHandlers({ keydown: acceptCompletionOnPeriod }),
         highlightSelectionMatches(),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         syntaxHighlighting(basicHighlightStyle),

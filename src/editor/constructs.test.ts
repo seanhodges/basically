@@ -56,6 +56,41 @@ describe('constructsByDialect', () => {
       expect.arrayContaining(['REPEAT', 'DEFPROC', 'PROC', 'DEFFN']),
     );
   });
+
+  it('offers a PRINT string construct for every dialect', () => {
+    for (const id of Object.keys(constructsByDialect)) {
+      const print = constructsByDialect[id]!.find((c) => c.label === 'PRINT');
+      expect(print, id).toBeDefined();
+      expect(print!.lines, id).toEqual(['PRINT "${0}"']);
+    }
+  });
+
+  it('adds PLAY only to the 128K Spectrum, not the 48K', () => {
+    expect(
+      constructsByDialect.zxspectrum128!.some((c) => c.label === 'PLAY'),
+    ).toBe(true);
+    expect(
+      constructsByDialect.zxspectrum!.some((c) => c.label === 'PLAY'),
+    ).toBe(false);
+  });
+
+  it('adds LPRINT to the ZX81 but not the ZX80 (no printer)', () => {
+    expect(constructsByDialect.zx81!.some((c) => c.label === 'LPRINT')).toBe(
+      true,
+    );
+    expect(constructsByDialect.zx80!.some((c) => c.label === 'LPRINT')).toBe(
+      false,
+    );
+  });
+
+  it('gives the per-dialect file-string commands', () => {
+    const bbc = constructsByDialect.bbcmicro!.map((c) => c.label);
+    expect(bbc).toEqual(
+      expect.arrayContaining(['CHAIN', 'OSCLI', 'LOAD', 'SAVE']),
+    );
+    const c64 = constructsByDialect.commodore64!.map((c) => c.label);
+    expect(c64).toContain('VERIFY');
+  });
 });
 
 describe('buildCompletionSource with constructs', () => {

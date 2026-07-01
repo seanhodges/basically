@@ -72,7 +72,35 @@ function gosub(word: string): ConstructTemplate {
   };
 }
 
-const ZX: ConstructTemplate[] = [ifThen(), forNext(), gosub('GOSUB')];
+/**
+ * A command whose argument is a string literal, e.g. `PRINT "…"` or
+ * `LOAD "filename"`. Expands the keyword with an empty quoted argument and drops
+ * the caret between the quotes. Only added for dialects that actually have the
+ * command (see the per-dialect arrays below).
+ */
+function stringCmd(word: string, detail: string): ConstructTemplate {
+  return {
+    label: word,
+    lines: [`${word} "\${0}"`],
+    detail,
+  };
+}
+
+/** The string-literal commands common to both ZX80 and ZX81. */
+const ZX_BASE: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
+];
+/** ZX81 additionally has LPRINT (the ZX80 has no printer support). */
+const ZX81: ConstructTemplate[] = [
+  ...ZX_BASE,
+  stringCmd('LPRINT', 'print a string to the printer'),
+];
+const ZX80: ConstructTemplate[] = ZX_BASE;
 
 /** Spectrum writes the call as two words, "GO SUB", and has DEF FN. */
 const SPECTRUM: ConstructTemplate[] = [
@@ -84,6 +112,17 @@ const SPECTRUM: ConstructTemplate[] = [
     lines: ['DEF FN ${1:f}(${2:x})=${0}'],
     detail: 'define a function',
   },
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LPRINT', 'print a string to the printer'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
+  stringCmd('MERGE', 'merge "filename"'),
+  stringCmd('VERIFY', 'verify "filename"'),
+];
+/** The 128K adds PLAY (music strings on the AY chip); the 48K has no PLAY. */
+const SPECTRUM128: ConstructTemplate[] = [
+  ...SPECTRUM,
+  stringCmd('PLAY', 'play a music string'),
 ];
 
 /** BBC adds REPEAT/UNTIL loops and PROC/FN procedures. */
@@ -103,25 +142,50 @@ const BBC: ConstructTemplate[] = [
     lines: ['DEF FN${1:name}(${2:args})=${0}'],
     detail: 'define a function',
   },
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
+  stringCmd('CHAIN', 'load and run "filename"'),
+  stringCmd('OSCLI', 'run an OS command'),
 ];
 
-const C64: ConstructTemplate[] = [ifThen(), forNext(), gosub('GOSUB')];
+const C64: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
+  stringCmd('VERIFY', 'verify "filename"'),
+];
 
 const ATOM: ConstructTemplate[] = [
   ifThen(),
   forNext(),
   doUntil(),
   gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
 ];
 
-const TRS80: ConstructTemplate[] = [ifThen(), forNext(), gosub('GOSUB')];
+const TRS80: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LPRINT', 'print a string to the printer'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
+  stringCmd('MERGE', 'merge "filename"'),
+];
 
 /** Construct templates per dialect id (see {@link Dialect.id}). */
 export const constructsByDialect: Record<string, ConstructTemplate[]> = {
-  zx81: ZX,
-  zx80: ZX,
+  zx81: ZX81,
+  zx80: ZX80,
   zxspectrum: SPECTRUM,
-  zxspectrum128: SPECTRUM,
+  zxspectrum128: SPECTRUM128,
   bbcmicro: BBC,
   bbcmaster: BBC,
   commodore64: C64,
