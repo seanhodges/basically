@@ -1,5 +1,8 @@
 .emulatorPane {
   flex: 1;
+  /* Anchor for the phone-landscape keyboard toggle, which pins to the pane's
+     right edge (above the fire button) rather than the fitted screen. */
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -24,15 +27,17 @@
   max-width: 100%;
 }
 
-/* Phone-landscape keyboard toggle: pinned just outside the right edge of the
-   screen, vertically centred. Sits above the transparent gamepad overlay (which
-   is click-through in its gaps) so it stays tappable while the gamepad flanks. */
+/* Phone-landscape keyboard toggle: pinned near the top-right of the pane — its
+   top aligned with the top of the preview, and centred horizontally above the red
+   primary fire button. Sits above the transparent gamepad overlay (which is
+   click-through in its gaps) so it stays tappable while the gamepad flanks. */
 .kbToggle {
   position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  margin-left: 10px;
+  top: 8px; /* = mobile pane padding -> aligns with the top of the preview */
+  /* Centre the 44px button over the red primary fire button, which the gamepad
+     anchors to the pane's right edge (see GameController.css .gc-buttons /
+     .gc-fire): centre-from-right = right offset + half the fire width. */
+  right: calc(clamp(10px, 5vw, 56px) + clamp(60px, 18vmin, 104px) / 2 - 22px);
   z-index: 6;
   display: flex;
   align-items: center;
@@ -185,5 +190,13 @@
   .watcherHost {
     max-width: none;
     max-height: 40vh;
+  }
+}
+
+/* Phone landscape: the keyboard floats over the emulator rather than docking in
+   a bottom band, so the screen keeps its full height instead of the 50% cap. */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .emulatorPane.overlay .screenShell {
+    max-height: none;
   }
 }

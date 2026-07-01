@@ -130,9 +130,9 @@ for (const vp of [
       const kbCenter = kbBox!.x + kbBox!.width / 2;
       const wsCenter = wsBox!.x + wsBox!.width / 2;
       expect(Math.abs(kbCenter - wsCenter)).toBeLessThan(48);
-      // The keyboard hugs its aspect-correct content, leaving gutters — so it is
-      // clearly narrower than the workspace, not full-bleed.
-      expect(kbBox!.width).toBeLessThan(wsBox!.width - 48);
+      // The keyboard fills up to ~95% of the workspace width but still leaves a
+      // gutter either side — so it is not full-bleed / flush against the rail.
+      expect(kbBox!.width).toBeLessThanOrEqual(wsBox!.width - 16);
 
       // Key caps are a usable touch size (the row-of-keys width is what matters;
       // height is bounded by the short landscape band).

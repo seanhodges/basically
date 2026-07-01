@@ -498,6 +498,19 @@
   );
 }
 
+/* Phone landscape: the overlay spans the full workspace and floats over the
+   emulator (see Workspace.module.css), so grow the key block to fill up to 75% of
+   the workspace height or 95% of its width — whichever binds first (min() picks
+   it), aspect ratio preserved. */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .vk-landscape .vk-rows {
+    height: min(
+      75cqh,
+      calc((95cqw - var(--vk-rows-reserve, 0px)) / var(--vk-aspect))
+    );
+  }
+}
+
 .vk-landscape .vk-strip {
   grid-column: 1;
   justify-self: end;
