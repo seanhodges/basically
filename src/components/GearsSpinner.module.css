@@ -1,0 +1,39 @@
+/* Rotation for the two interlocked cogs in GearsSpinner.tsx. Each <g> spins
+   about its own centre (transform-box: fill-box); the gears turn in opposite
+   directions and the smaller one turns faster, so their teeth appear to stay
+   meshed. */
+
+.gear {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.big {
+  animation: gears-spin 2.4s linear infinite;
+}
+
+.small {
+  /* Opposite direction and faster, matching the smaller tooth count. */
+  animation: gears-spin-reverse 1.6s linear infinite;
+}
+
+@keyframes gears-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gears-spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+/* Respect the OS "reduce motion" setting: keep the gears visible as a busy
+   indicator, just static (consistent with DocsDrawer.module.css). */
+@media (prefers-reduced-motion: reduce) {
+  .big,
+  .small {
+    animation: none;
+  }
+}

@@ -17,6 +17,7 @@ import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
 import { EmulatorAudio } from '../audio/emulatorAudio';
 import { VariableWatcher } from './VariableWatcher';
+import { GearsSpinner } from './GearsSpinner';
 import styles from './EmulatorPane.module.css';
 
 const romCache = new Map<string, Promise<Uint8Array>>();
@@ -580,7 +581,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           onBlur={() => setFocused(false)}
         />
         {loading && (
-          <div className={styles.loadingOverlay}>Emulator loading…</div>
+          <div className={styles.loadingOverlay}>
+            <GearsSpinner />
+          </div>
         )}
         {/* Phone landscape: the on-screen keyboard is off by default and toggled
             from this button to the right of the screen. While it's up the

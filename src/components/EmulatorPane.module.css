@@ -80,10 +80,11 @@
   display: block;
 }
 
-/* Centred over the preview canvas while a machine is initialising; removed as
-   soon as the emulator paints its first frame (see EmulatorPane.tsx). Sits
-   inside the position: relative .screenShell, above the canvas and any CRT
-   overlay, and never intercepts pointer/keyboard input meant for the screen. */
+/* Centred over the preview canvas while a machine is initialising; hosts the
+   GearsSpinner busy indicator and is removed as soon as the emulator paints its
+   first frame (see EmulatorPane.tsx). Sits inside the position: relative
+   .screenShell, above the canvas and any CRT overlay, and never intercepts
+   pointer/keyboard input meant for the screen. */
 .loadingOverlay {
   position: absolute;
   inset: 0;
@@ -92,8 +93,6 @@
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  font-size: 14px;
-  letter-spacing: 0.04em;
   color: var(--text-dim);
   background: rgb(0 0 0 / 35%);
 }
