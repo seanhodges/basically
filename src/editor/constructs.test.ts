@@ -93,6 +93,66 @@ describe('constructsByDialect', () => {
   });
 });
 
+describe('bracketed function constructs', () => {
+  const lineOf = (id: string, label: string) =>
+    constructsByDialect[id]!.find((c) => c.label === label)?.lines[0];
+
+  it('quotes string args and leaves numeric args bare', () => {
+    // Numeric single arg (INKEY), two required strings (INSTR).
+    expect(lineOf('bbcmicro', 'INKEY')).toBe('INKEY(${1})');
+    expect(lineOf('bbcmicro', 'INSTR')).toBe('INSTR("${1}", "${2}")');
+    // Mixed string+number: only the string arg is quoted, optional 3rd omitted.
+    expect(lineOf('commodore64', 'MID$')).toBe('MID$("${1}", ${2})');
+    // BBC STRING$ is (number, string); the number stays bare.
+    expect(lineOf('bbcmicro', 'STRING$')).toBe('STRING$(${1}, "${2}")');
+  });
+
+  it('marks function constructs with the function icon type', () => {
+    const instr = constructsByDialect.bbcmicro!.find(
+      (c) => c.label === 'INSTR',
+    );
+    expect(instr!.type).toBe('function');
+  });
+
+  it('writes the Spectrum POINT/SCREEN$/ATTR with a space before "("', () => {
+    expect(lineOf('zxspectrum', 'POINT')).toBe('POINT (${1}, ${2})');
+    expect(lineOf('zxspectrum', 'SCREEN$')).toBe('SCREEN$ (${1}, ${2})');
+    expect(lineOf('zxspectrum128', 'ATTR')).toBe('ATTR (${1}, ${2})');
+  });
+
+  it('gives the ZX80 bracketed functions but the ZX81 none', () => {
+    expect(lineOf('zx80', 'CODE')).toBe('CODE("${1}")');
+    expect(lineOf('zx80', 'PEEK')).toBe('PEEK(${1})');
+    // The ZX81 writes functions with space syntax, so it gets no function
+    // constructs at all.
+    const zx81Fns = constructsByDialect.zx81!.filter(
+      (c) => c.type === 'function',
+    );
+    expect(zx81Fns).toHaveLength(0);
+  });
+
+  it('omits pure-math (trig/log) functions, FN and TAB/SPC', () => {
+    for (const id of Object.keys(constructsByDialect)) {
+      const labels = constructsByDialect[id]!.map((c) => c.label);
+      for (const skipped of [
+        'SIN',
+        'COS',
+        'TAN',
+        'ATN',
+        'LOG',
+        'SQR',
+        'FN',
+        'TAB',
+        'SPC',
+      ]) {
+        expect(labels, `${id} should not offer ${skipped}`).not.toContain(
+          skipped,
+        );
+      }
+    }
+  });
+});
+
 describe('buildCompletionSource with constructs', () => {
   const keywords: KeywordInfo[] = [
     { word: 'IF', token: 1, kind: 'command' },

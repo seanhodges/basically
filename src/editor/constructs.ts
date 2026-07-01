@@ -86,6 +86,84 @@ function stringCmd(word: string, detail: string): ConstructTemplate {
   };
 }
 
+/**
+ * One-line descriptions for the bracketed functions, shared across dialects
+ * (a function means the same wherever it appears). Used as the completion
+ * `detail` in {@link fn}.
+ */
+const FN_DETAIL: Record<string, string> = {
+  ABS: 'absolute value',
+  SGN: 'sign (-1, 0 or 1)',
+  INT: 'integer part',
+  USR: 'call machine code',
+  FRE: 'free memory',
+  POS: 'cursor column',
+  RND: 'random number',
+  PEEK: 'read a byte of memory',
+  LEN: 'length of a string',
+  STR$: 'number as a string',
+  VAL: 'string as a number',
+  ASC: 'code of the first character',
+  CHR$: 'character for a code',
+  LEFT$: 'leftmost characters',
+  RIGHT$: 'rightmost characters',
+  MID$: 'substring',
+  STRING$: 'a run of repeated characters',
+  INSTR: 'position of a substring',
+  POINT: 'read a screen pixel',
+  OPENIN: 'open a file for input',
+  OPENUP: 'open a file for update',
+  OPENOUT: 'open a file for output',
+  EVAL: 'evaluate an expression string',
+  INKEY: 'read the keyboard (timed)',
+  INKEY$: 'read a key as a string',
+  ADVAL: 'read an analogue value',
+  VARPTR: 'address of a variable',
+  INP: 'read an I/O port',
+  EOF: 'at end of file?',
+  LOC: 'current file position',
+  LOF: 'length of a file',
+  MKI$: 'integer as bytes',
+  MKS$: 'single as bytes',
+  MKD$: 'double as bytes',
+  CINT: 'convert to integer',
+  CSNG: 'convert to single',
+  CDBL: 'convert to double',
+  FIX: 'truncate to integer',
+  CVI: 'bytes as an integer',
+  CVS: 'bytes as a single',
+  CVD: 'bytes as a double',
+  CODE: 'code of the first character',
+  TL$: 'string without its first character',
+  SCREEN$: 'character at a screen cell',
+  ATTR: 'attributes of a screen cell',
+};
+
+/**
+ * A function-call construct: the required arguments in brackets, one numbered
+ * placeholder each. In `argspec`, `'s'` emits a quoted string field (`"${n}"`)
+ * and any other character a bare field (`${n}`); optional arguments are left
+ * out. `gap` is the text between the name and `(` — a space for the Spectrum's
+ * `POINT (x, y)` idiom, empty elsewhere. e.g. `fn('INSTR', 'ss')` →
+ * `INSTR("${1}", "${2}")`, `fn('INKEY', 'n')` → `INKEY(${1})`.
+ */
+function fn(word: string, argspec: string, gap = ''): ConstructTemplate {
+  const params = [...argspec]
+    .map((t, i) => (t === 's' ? `\${${i + 1}}` : `\${${i + 1}}`))
+    .join(', ');
+  return {
+    label: word,
+    lines: [`${word}${gap}(${params})`],
+    detail: FN_DETAIL[word],
+    type: 'function',
+  };
+}
+
+/** Expand a compact `[word, argspec]` table into function constructs. */
+function fns(table: [string, string][], gap = ''): ConstructTemplate[] {
+  return table.map(([word, argspec]) => fn(word, argspec, gap));
+}
+
 /** The string-literal commands common to both ZX80 and ZX81. */
 const ZX_BASE: ConstructTemplate[] = [
   ifThen(),
@@ -100,7 +178,20 @@ const ZX81: ConstructTemplate[] = [
   ...ZX_BASE,
   stringCmd('LPRINT', 'print a string to the printer'),
 ];
-const ZX80: ConstructTemplate[] = ZX_BASE;
+/** ZX80's functions do use parentheses (unlike the ZX81's space syntax). */
+const ZX80: ConstructTemplate[] = [
+  ...ZX_BASE,
+  ...fns([
+    ['RND', 'n'],
+    ['PEEK', 'n'],
+    ['USR', 'n'],
+    ['ABS', 'n'],
+    ['CODE', 's'],
+    ['CHR$', 'n'],
+    ['STR$', 'n'],
+    ['TL$', 's'],
+  ]),
+];
 
 /** Spectrum writes the call as two words, "GO SUB", and has DEF FN. */
 const SPECTRUM: ConstructTemplate[] = [
@@ -118,6 +209,15 @@ const SPECTRUM: ConstructTemplate[] = [
   stringCmd('SAVE', 'save "filename"'),
   stringCmd('MERGE', 'merge "filename"'),
   stringCmd('VERIFY', 'verify "filename"'),
+  // Spectrum writes these two-argument functions with a space before the '('.
+  ...fns(
+    [
+      ['POINT', 'nn'],
+      ['SCREEN$', 'nn'],
+      ['ATTR', 'nn'],
+    ],
+    ' ',
+  ),
 ];
 /** The 128K adds PLAY (music strings on the AY chip); the 48K has no PLAY. */
 const SPECTRUM128: ConstructTemplate[] = [
@@ -147,6 +247,30 @@ const BBC: ConstructTemplate[] = [
   stringCmd('SAVE', 'save "filename"'),
   stringCmd('CHAIN', 'load and run "filename"'),
   stringCmd('OSCLI', 'run an OS command'),
+  ...fns([
+    ['OPENIN', 's'],
+    ['OPENUP', 's'],
+    ['OPENOUT', 's'],
+    ['ABS', 'n'],
+    ['ADVAL', 'n'],
+    ['ASC', 's'],
+    ['EVAL', 's'],
+    ['INKEY', 'n'],
+    ['INKEY$', 'n'],
+    ['INSTR', 'ss'],
+    ['INT', 'n'],
+    ['LEN', 's'],
+    ['POINT', 'nn'],
+    ['SGN', 'n'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+    ['CHR$', 'n'],
+    ['LEFT$', 'sn'],
+    ['MID$', 'sn'],
+    ['RIGHT$', 'sn'],
+    ['STR$', 'n'],
+    ['STRING$', 'ns'],
+  ]),
 ];
 
 const C64: ConstructTemplate[] = [
@@ -157,6 +281,24 @@ const C64: ConstructTemplate[] = [
   stringCmd('LOAD', 'load "filename"'),
   stringCmd('SAVE', 'save "filename"'),
   stringCmd('VERIFY', 'verify "filename"'),
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['CHR$', 'n'],
+    ['FRE', 'n'],
+    ['INT', 'n'],
+    ['LEFT$', 'sn'],
+    ['LEN', 's'],
+    ['MID$', 'sn'],
+    ['PEEK', 'n'],
+    ['POS', 'n'],
+    ['RIGHT$', 'sn'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+    ['STR$', 'n'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+  ]),
 ];
 
 const ATOM: ConstructTemplate[] = [
@@ -167,6 +309,10 @@ const ATOM: ConstructTemplate[] = [
   stringCmd('PRINT', 'print a string'),
   stringCmd('LOAD', 'load "filename"'),
   stringCmd('SAVE', 'save "filename"'),
+  ...fns([
+    ['ABS', 'n'],
+    ['SGN', 'n'],
+  ]),
 ];
 
 const TRS80: ConstructTemplate[] = [
@@ -178,6 +324,42 @@ const TRS80: ConstructTemplate[] = [
   stringCmd('LOAD', 'load "filename"'),
   stringCmd('SAVE', 'save "filename"'),
   stringCmd('MERGE', 'merge "filename"'),
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['CDBL', 'n'],
+    ['CHR$', 'n'],
+    ['CINT', 'n'],
+    ['CSNG', 'n'],
+    ['CVD', 's'],
+    ['CVI', 's'],
+    ['CVS', 's'],
+    ['EOF', 'n'],
+    ['FIX', 'n'],
+    ['FRE', 'n'],
+    ['INP', 'n'],
+    ['INSTR', 'ss'],
+    ['INT', 'n'],
+    ['LEFT$', 'sn'],
+    ['LEN', 's'],
+    ['LOC', 'n'],
+    ['LOF', 'n'],
+    ['MID$', 'sn'],
+    ['MKD$', 'n'],
+    ['MKI$', 'n'],
+    ['MKS$', 'n'],
+    ['PEEK', 'n'],
+    ['POINT', 'nn'],
+    ['POS', 'n'],
+    ['RIGHT$', 'sn'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+    ['STR$', 'n'],
+    ['STRING$', 'nn'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+    ['VARPTR', 'n'],
+  ]),
 ];
 
 /** Construct templates per dialect id (see {@link Dialect.id}). */

@@ -28,6 +28,7 @@ const constructs: ConstructTemplate[] = [
     lines: ['FOR ${1:I}=${2:1} TO ${3:10}', '${0}', 'NEXT ${1:I}'],
   },
   { label: 'PRINT', lines: ['PRINT "${0}"'] },
+  { label: 'INSTR', lines: ['INSTR("${1}", "${2}")'], type: 'function' },
 ];
 
 /**
@@ -123,6 +124,20 @@ describe('construct completion expansion', () => {
     const view = makeView('PR', { auto: false, increment: 10 });
     accept(view, 'PRINT', 0, 2);
     expect(view.state.doc.toString()).toBe('PRINT ""');
+  });
+
+  it('expands a function with bracketed fields, caret in the first', () => {
+    const view = makeView('10 IN');
+    accept(view, 'INSTR', 3, 5);
+    expect(view.state.doc.toString()).toBe('10 INSTR("", "")');
+    // Field ${1}: the (empty) first quoted argument.
+    const sel = view.state.selection.main;
+    expect(sel.empty).toBe(true);
+    expect(sel.from).toBe('10 INSTR("'.length);
+    // Tab advances to the second quoted argument.
+    nextSnippetField(view);
+    const sel2 = view.state.selection.main;
+    expect(sel2.from).toBe('10 INSTR("", "'.length);
   });
 });
 
