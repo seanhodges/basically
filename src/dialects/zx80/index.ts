@@ -1,6 +1,7 @@
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
 import { zx80Charset } from './charset';
-import { zx80Keywords } from './keywords';
+import { zx80Keywords, zx80EditorKeywords } from './keywords';
+import { zx80VariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { buildOFile, parseOFile } from './ofile';
@@ -40,7 +41,10 @@ export const zx80: Dialect = {
   },
 
   lint(source: string): TokenizeError[] {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...zx80VariableErrors(source, zx80EditorKeywords),
+    ];
   },
 
   romUrl: `${import.meta.env.BASE_URL}roms/zx80.rom`,

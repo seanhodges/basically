@@ -10,16 +10,36 @@
   height: 100%;
 }
 
-/* Breakpoint gutter: a clickable column showing a red dot per breakpoint. */
-.cmHost :global(.cm-breakpoint-gutter) {
-  width: 16px;
+/* Combined gutter: blue breakpoint markers + red lint markers, one clickable column. */
+.cmHost :global(.cm-combined-gutter) {
+  width: 1.4em; /* a single 1em marker plus padding */
   cursor: pointer;
 }
 
+.cmHost :global(.cm-combined-gutter .cm-gutterElement) {
+  display: flex;
+  align-items: center;
+  padding: 0 0.2em;
+}
+
+/* Blue breakpoint marker: same 1em circle as the lint marker, blue instead of red. */
 .breakpointDot {
-  color: #d22;
-  font-size: 12px;
-  line-height: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='15' fill='%2360a5fa' stroke='%232563eb' stroke-width='6'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+/* Reproduce the default lint error marker (fill #f87, stroke #f43, viewBox 0 0 40 40);
+   its theme is dropped along with lintGutter(). */
+.cmHost :global(.cm-lint-marker) {
+  width: 1em;
+  height: 1em;
+}
+
+.cmHost :global(.cm-lint-marker-error) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='15' fill='%23f87' stroke='%23f43' stroke-width='6'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
 }
 
 /* The BASIC line the debugger is currently paused on. */

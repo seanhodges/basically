@@ -6,6 +6,8 @@ import {
 import { tags } from '@lezer/highlight';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import type { EditorKeyword } from '../dialects/types';
+import { outlineCapabilities } from './programOutline';
+import { makeVariableSource, type VarNameRules } from './variables';
 
 interface BasicStreamState {
   afterRem: boolean;
@@ -27,6 +29,27 @@ export interface BasicLanguageOptions {
   hexPrefix?: string;
   /** Prefix introducing a binary number literal (e.g. `%` for BBC). */
   binaryPrefix?: string;
+}
+
+/**
+ * The two identifier regexes a dialect needs, derived from its name/suffix
+ * rules. `headRe` is the leading identifier run used for keyword-prefix matching
+ * (letters + name extras + `$`, no digits, so `GOTO100` still reads as a
+ * keyword); `varRe` is the whole variable token (letter, then letters/digits/
+ * name extras, then an optional single type suffix). Shared by the highlighter
+ * here and the variable scanner in {@link ./variables}, so both agree on what a
+ * variable looks like. Both are anchored at the start (`^`).
+ */
+export function buildIdentifierRegexes(options: BasicLanguageOptions = {}): {
+  headRe: RegExp;
+  varRe: RegExp;
+} {
+  const nameChars = options.nameChars ?? '';
+  const suffixChars = options.suffixChars ?? '$';
+  return {
+    headRe: new RegExp(`^[A-Za-z][A-Za-z${nameChars}$]*`),
+    varRe: new RegExp(`^[A-Za-z][A-Za-z0-9${nameChars}]*[${suffixChars}]?`),
+  };
 }
 
 /**
@@ -63,8 +86,6 @@ export function buildBasicLanguage(
   );
   const maxWordLen = Math.max(...[...kinds.keys()].map((w) => w.length));
 
-  const nameChars = options.nameChars ?? '';
-  const suffixChars = options.suffixChars ?? '$';
   const graphicsEscapes = options.graphicsEscapes ?? true;
   const hexRe = options.hexPrefix
     ? new RegExp(`^${options.hexPrefix}[0-9A-Fa-f]+`)
@@ -72,13 +93,7 @@ export function buildBasicLanguage(
   const binRe = options.binaryPrefix
     ? new RegExp(`^${options.binaryPrefix}[01]+`)
     : null;
-  // Leading identifier run for keyword-prefix matching: letters, name extras and
-  // `$` (for CHR$ etc.) but no digits, so e.g. GOTO100 still reads as a keyword.
-  const headRe = new RegExp(`^[A-Za-z][A-Za-z${nameChars}$]*`);
-  // The whole variable token, including digits, name extras and a type suffix.
-  const varRe = new RegExp(
-    `^[A-Za-z][A-Za-z0-9${nameChars}]*[${suffixChars}]?`,
-  );
+  const { headRe, varRe } = buildIdentifierRegexes(options);
 
   const language = StreamLanguage.define<BasicStreamState>({
     name: 'basic',
@@ -146,7 +161,24 @@ export function buildBasicLanguage(
     },
   });
 
+  // The document-scanning variable source reuses the same identifier regexes
+  // and keyword set, so it agrees with the highlighter on what a variable is.
+  const keywordSet = new Set(kinds.keys());
+  const rules: VarNameRules = {
+    headRe,
+    varRe,
+    keywords: keywordSet,
+    maxWordLen,
+    hexRe,
+    callPrefixes: ['PROC', 'FN'].filter((w) => keywordSet.has(w)),
+  };
+  const variableSource = makeVariableSource(
+    rules,
+    outlineCapabilities(keywords),
+  );
+
   return new LanguageSupport(language, [
     language.data.of({ autocomplete: completionSource }),
+    language.data.of({ autocomplete: variableSource }),
   ]);
 }

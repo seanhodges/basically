@@ -227,9 +227,8 @@ export function SettingsForm() {
         </select>
       </label>
       <p>
-        Long-press a control on the on-screen gamepad to remap it to a key on
-        the current machine. On a machine whose joystick has a single fire
-        button, the secondary (B) button only acts in Key mapped mode.
+        Long-press a control on the on-screen gamepad to remap it to a different
+        key.
       </p>
       <h3>AI</h3>
       <label className={styles.inline}>
@@ -251,7 +250,9 @@ export function SettingsForm() {
         <a href={provider.consoleUrl} target="_blank" rel="noreferrer">
           {provider.consoleLabel}
         </a>
-        .
+        . The API key is stored separately in this browser&apos;s localStorage
+        and sent only to {provider.apiHost}. Don&apos;t use this on a shared
+        computer.
       </p>
       <label>
         {provider.label} API key
@@ -262,11 +263,6 @@ export function SettingsForm() {
           onChange={(e) => setKey(e.target.value)}
         />
       </label>
-      <p className={dialog.modalWarning}>
-        Each provider&apos;s key is stored separately in this browser&apos;s
-        localStorage and sent only to {provider.apiHost}. Don&apos;t use this on
-        a shared computer.
-      </p>
       <div className={`${dialog.modalActions} ${dialog.left}`}>
         <button className="primary" onClick={saveKey}>
           Save API key

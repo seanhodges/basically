@@ -6,6 +6,7 @@ import { detokenizeProgram } from './detokenizer';
 import { buildTap, parseTap } from './tapfile';
 import { decodeCassette } from './audio/cassetteDecoder';
 import { spectrumLanguageSupport, spectrumCompletionSource } from './language';
+import { spectrumVariableErrors } from '../../editor/variableLint';
 import { spectrumAiProfile } from './aiProfile';
 import {
   spectrumBuildTargets,
@@ -40,7 +41,10 @@ export const zxspectrum: Dialect = {
   },
 
   lint(source: string) {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...spectrumVariableErrors(source, spectrumKeywords),
+    ];
   },
 
   romUrl: `${import.meta.env.BASE_URL}roms/zxspectrum.rom`,

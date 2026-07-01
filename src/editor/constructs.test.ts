@@ -56,6 +56,99 @@ describe('constructsByDialect', () => {
       expect.arrayContaining(['REPEAT', 'DEFPROC', 'PROC', 'DEFFN']),
     );
   });
+
+  it('offers a PRINT string construct for every dialect', () => {
+    for (const id of Object.keys(constructsByDialect)) {
+      const print = constructsByDialect[id]!.find((c) => c.label === 'PRINT');
+      expect(print, id).toBeDefined();
+      expect(print!.lines, id).toEqual(['PRINT "${0}"']);
+    }
+  });
+
+  it('adds PLAY only to the 128K Spectrum, not the 48K', () => {
+    expect(
+      constructsByDialect.zxspectrum128!.some((c) => c.label === 'PLAY'),
+    ).toBe(true);
+    expect(
+      constructsByDialect.zxspectrum!.some((c) => c.label === 'PLAY'),
+    ).toBe(false);
+  });
+
+  it('adds LPRINT to the ZX81 but not the ZX80 (no printer)', () => {
+    expect(constructsByDialect.zx81!.some((c) => c.label === 'LPRINT')).toBe(
+      true,
+    );
+    expect(constructsByDialect.zx80!.some((c) => c.label === 'LPRINT')).toBe(
+      false,
+    );
+  });
+
+  it('gives the per-dialect file-string commands', () => {
+    const bbc = constructsByDialect.bbcmicro!.map((c) => c.label);
+    expect(bbc).toEqual(
+      expect.arrayContaining(['CHAIN', 'OSCLI', 'LOAD', 'SAVE']),
+    );
+    const c64 = constructsByDialect.commodore64!.map((c) => c.label);
+    expect(c64).toContain('VERIFY');
+  });
+});
+
+describe('bracketed function constructs', () => {
+  const lineOf = (id: string, label: string) =>
+    constructsByDialect[id]!.find((c) => c.label === label)?.lines[0];
+
+  it('puts one numbered placeholder in brackets per required arg', () => {
+    // One required arg (INKEY), two required args (INSTR); optional 3rd omitted.
+    expect(lineOf('bbcmicro', 'INKEY')).toBe('INKEY(${1})');
+    expect(lineOf('bbcmicro', 'INSTR')).toBe('INSTR(${1}, ${2})');
+    expect(lineOf('commodore64', 'MID$')).toBe('MID$(${1}, ${2})');
+    expect(lineOf('bbcmicro', 'STRING$')).toBe('STRING$(${1}, ${2})');
+  });
+
+  it('marks function constructs with the function icon type', () => {
+    const instr = constructsByDialect.bbcmicro!.find(
+      (c) => c.label === 'INSTR',
+    );
+    expect(instr!.type).toBe('function');
+  });
+
+  it('writes the Spectrum POINT/SCREEN$/ATTR with a space before "("', () => {
+    expect(lineOf('zxspectrum', 'POINT')).toBe('POINT (${1}, ${2})');
+    expect(lineOf('zxspectrum', 'SCREEN$')).toBe('SCREEN$ (${1}, ${2})');
+    expect(lineOf('zxspectrum128', 'ATTR')).toBe('ATTR (${1}, ${2})');
+  });
+
+  it('gives the ZX80 bracketed functions but the ZX81 none', () => {
+    expect(lineOf('zx80', 'CODE')).toBe('CODE(${1})');
+    expect(lineOf('zx80', 'PEEK')).toBe('PEEK(${1})');
+    // The ZX81 writes functions with space syntax, so it gets no function
+    // constructs at all.
+    const zx81Fns = constructsByDialect.zx81!.filter(
+      (c) => c.type === 'function',
+    );
+    expect(zx81Fns).toHaveLength(0);
+  });
+
+  it('omits pure-math (trig/log) functions, FN and TAB/SPC', () => {
+    for (const id of Object.keys(constructsByDialect)) {
+      const labels = constructsByDialect[id]!.map((c) => c.label);
+      for (const skipped of [
+        'SIN',
+        'COS',
+        'TAN',
+        'ATN',
+        'LOG',
+        'SQR',
+        'FN',
+        'TAB',
+        'SPC',
+      ]) {
+        expect(labels, `${id} should not offer ${skipped}`).not.toContain(
+          skipped,
+        );
+      }
+    }
+  });
 });
 
 describe('buildCompletionSource with constructs', () => {

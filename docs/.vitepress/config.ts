@@ -57,6 +57,7 @@ export default withPwa(
             { text: 'Welcome', link: '/' },
             { text: 'Getting started', link: '/guide/getting-started' },
             { text: 'Writing BASIC', link: '/guide/writing-basic' },
+            { text: 'Testing your code', link: '/guide/testing-programs' },
             { text: 'Running on real hardware', link: '/guide/hardware' },
           ],
         },

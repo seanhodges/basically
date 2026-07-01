@@ -40,6 +40,18 @@ export const fullCompletion = Facet.define<boolean, boolean>({
 });
 
 /**
+ * True when the cursor sits inside a string literal (an odd number of quotes
+ * precede it on the line) — completions should be suppressed there. Shared with
+ * the document-scanning variable source in {@link ./variables}.
+ */
+export function isInsideString(context: CompletionContext): boolean {
+  const line = context.state.doc.lineAt(context.pos);
+  const before = context.state.sliceDoc(line.from, context.pos);
+  const quotes = (before.match(/"/g) ?? []).length;
+  return quotes % 2 === 1;
+}
+
+/**
  * Apply a construct template: expand the block, numbering each continuation
  * line, and leave the caret on the first snippet field. Falls back to inserting
  * the bare keyword when numbering can't fit the program.
@@ -157,10 +169,7 @@ export function buildCompletionSource(
     const word = context.matchBefore(/[A-Za-z][A-Za-z$]*/);
     if (!word && !context.explicit) return null;
     // Don't complete inside strings (odd number of quotes before cursor)
-    const line = context.state.doc.lineAt(context.pos);
-    const before = context.state.sliceDoc(line.from, context.pos);
-    const quotes = (before.match(/"/g) ?? []).length;
-    if (quotes % 2 === 1) return null;
+    if (isInsideString(context)) return null;
 
     return {
       from: word ? word.from : context.pos,

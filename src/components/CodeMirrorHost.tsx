@@ -3,6 +3,7 @@ import {
   Compartment,
   EditorState,
   Prec,
+  RangeSet,
   StateEffect,
   StateField,
 } from '@codemirror/state';
@@ -27,7 +28,6 @@ import {
   deleteCharBackward,
   history,
   historyKeymap,
-  indentWithTab,
   insertNewlineAndIndent,
   redo,
   undo,
@@ -36,8 +36,15 @@ import {
   autocompletion,
   completionKeymap,
   completionStatus,
+  hasNextSnippetField,
+  hasPrevSnippetField,
+  insertCompletionText,
+  nextSnippetField,
+  pickedCompletion,
+  prevSnippetField,
+  selectedCompletion,
 } from '@codemirror/autocomplete';
-import { lintGutter, lintKeymap } from '@codemirror/lint';
+import { lintKeymap, setDiagnosticsEffect } from '@codemirror/lint';
 import {
   openSearchPanel,
   closeSearchPanel,
@@ -102,6 +109,70 @@ function autoNumberOnEnter(view: EditorView): boolean {
   );
   if (!result) return false; // nothing to number — fall back to default newline
   replaceDoc(view, result.lines, result.cursorLine);
+  return true;
+}
+
+/**
+ * Enter handler used while editing: when a construct snippet is active, Enter
+ * jumps to the next `${…}` placeholder (mobile has no Tab key, so Return stands
+ * in for it — desktop Tab keeps working too). Otherwise Enter auto-numbers the
+ * new line as before. An open completion popup still consumes Enter first.
+ */
+function handleEnter(view: EditorView): boolean {
+  if (completionStatus(view.state) === 'active') return false;
+  if (hasNextSnippetField(view.state)) return nextSnippetField(view);
+  return autoNumberOnEnter(view);
+}
+
+/** Shift+Enter: step back to the previous snippet placeholder (mirrors Shift+Tab). */
+function handleShiftEnter(view: EditorView): boolean {
+  if (hasPrevSnippetField(view.state)) return prevSnippetField(view);
+  return false;
+}
+
+/**
+ * BBC-style keyword abbreviation: while the autocomplete popup is open, the `.`
+ * key accepts the top (selected) suggestion instead of inserting a period, so
+ * e.g. `PR.` completes to `PRINT`. The period is the abbreviation marker and is
+ * consumed, not inserted.
+ *
+ * We apply the completion ourselves rather than calling `acceptCompletion`: that
+ * command has an `interactionDelay` (75ms) guard that rejects a just-opened
+ * popup, which is exactly the fast-typed `PR.` case. This mirrors CodeMirror's
+ * internal `applyCompletion` — run the option's `apply` (so block constructs
+ * still expand), or insert its label for a plain keyword. A raw keydown handler
+ * is used because keymap/inputHandler bindings don't reliably fire for a bare
+ * printable key. Returns false when no popup is open so `.` inserts normally.
+ *
+ * The replace range is recomputed with the same leading-identifier pattern the
+ * completion source matches (see buildCompletionSource in completions.ts); keep
+ * the two in step.
+ */
+function acceptCompletionOnPeriod(
+  event: KeyboardEvent,
+  view: EditorView,
+): boolean {
+  if (event.key !== '.') return false;
+  if (completionStatus(view.state) !== 'active') return false;
+  const option = selectedCompletion(view.state);
+  if (!option) return false;
+
+  const head = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(head);
+  const before = view.state.sliceDoc(line.from, head);
+  const word = /[A-Za-z][A-Za-z$]*$/.exec(before);
+  const from = word ? head - word[0].length : head;
+
+  const { apply } = option;
+  if (typeof apply === 'function') {
+    apply(view, option, from, head);
+  } else {
+    view.dispatch({
+      ...insertCompletionText(view.state, apply ?? option.label, from, head),
+      annotations: pickedCompletion.of(option),
+    });
+  }
+  event.preventDefault();
   return true;
 }
 
@@ -211,26 +282,80 @@ function rowLineNumber(text: string): number | null {
 
 const breakpointCompartment = new Compartment();
 
-/** A red dot rendered in the breakpoint gutter for a breakpointed line. */
+/** A breakpoint marker: same size/style as the lint marker, but blue (see CSS). */
 class BreakpointMarker extends GutterMarker {
   toDOM() {
-    const span = document.createElement('span');
-    span.textContent = '●';
-    span.className = styles.breakpointDot!;
-    return span;
+    const el = document.createElement('div');
+    el.className = `cm-lint-marker ${styles.breakpointDot!}`;
+    return el;
   }
 }
 const bpMarker = new BreakpointMarker();
 
+/** Red error marker; DOM matches the default @codemirror/lint error marker. */
+class LintErrorMarker extends GutterMarker {
+  toDOM() {
+    const el = document.createElement('div');
+    el.className = 'cm-lint-marker cm-lint-marker-error';
+    return el;
+  }
+  eq() {
+    return true; // all error markers interchangeable -> stable RangeSet.eq
+  }
+}
+const lintErrorMarker = new LintErrorMarker();
+
 /**
- * The clickable breakpoint gutter. Reads the live breakpoint set (kept by BASIC
- * line number, so dots track edits/renumbering) and toggles on a gutter click.
- * Reconfigured via {@link breakpointCompartment} when the set changes.
+ * One red marker per line carrying a diagnostic. Mirrors lintGutter's own
+ * (unexported) field: rebuild only on setDiagnosticsEffect so the RangeSet
+ * instance stays stable and the combined gutter only redraws when diagnostics
+ * actually change (not on every keystroke or cursor move).
  */
-function breakpointGutterExt(breakpoints: ReadonlySet<number>) {
+const lintGutterMarkerField = StateField.define<RangeSet<GutterMarker>>({
+  create: () => RangeSet.empty,
+  update(markers, tr) {
+    markers = markers.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setDiagnosticsEffect)) {
+        const seen = new Set<number>();
+        const ranges = [];
+        for (const d of e.value ?? []) {
+          const from = tr.state.doc.lineAt(d.from).from;
+          if (!seen.has(from)) {
+            seen.add(from);
+            ranges.push(lintErrorMarker.range(from));
+          }
+        }
+        markers = RangeSet.of(ranges, true);
+      }
+    }
+    return markers;
+  },
+});
+
+/**
+ * The clickable combined gutter. Renders blue breakpoint markers (via lineMarker,
+ * reading the live breakpoint set kept by BASIC line number so dots track
+ * edits/renumbering) and red lint error markers (via the reactive
+ * {@link lintGutterMarkerField}) in a single column. When a line has both, the
+ * lint marker takes priority and the breakpoint is hidden. Toggles a breakpoint
+ * on a gutter click. Reconfigured via {@link breakpointCompartment} when the set
+ * changes.
+ */
+function combinedGutterExt(breakpoints: ReadonlySet<number>) {
   return gutter({
-    class: 'cm-breakpoint-gutter',
+    class: 'cm-combined-gutter',
+    markers: (view) => view.state.field(lintGutterMarkerField),
     lineMarker(view, line) {
+      // A lint marker on this line takes priority over the breakpoint dot.
+      let hasLint = false;
+      view.state
+        .field(lintGutterMarkerField)
+        .between(line.from, line.from, () => {
+          hasLint = true;
+          return false;
+        });
+      if (hasLint) return null;
       const lineNo = rowLineNumber(view.state.doc.lineAt(line.from).text);
       return lineNo !== null && breakpoints.has(lineNo) ? bpMarker : null;
     },
@@ -343,7 +468,8 @@ export function CodeMirrorHost({
       extensions: [
         Prec.highest(
           keymap.of([
-            { key: 'Enter', run: autoNumberOnEnter },
+            { key: 'Enter', run: handleEnter },
+            { key: 'Shift-Enter', run: handleShiftEnter },
             { key: 'Mod-Alt-r', run: renumberCurrentLine },
           ]),
         ),
@@ -358,26 +484,26 @@ export function CodeMirrorHost({
           fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
         ]),
         breakpointCompartment.of(
-          breakpointGutterExt(useIdeStore.getState().breakpoints),
+          combinedGutterExt(useIdeStore.getState().breakpoints),
         ),
+        lintGutterMarkerField,
         debugLineField,
         highlightActiveLine(),
         drawSelection(),
         history(),
         autocompletion({ activateOnTyping: true }),
+        EditorView.domEventHandlers({ keydown: acceptCompletionOnPeriod }),
         highlightSelectionMatches(),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         syntaxHighlighting(basicHighlightStyle),
         dialect.languageSupport(),
         dialectLinter(dialect),
-        lintGutter(),
         keymap.of([
           ...defaultKeymap,
           ...historyKeymap,
           ...completionKeymap,
           ...searchKeymap,
           ...lintKeymap,
-          indentWithTab,
         ]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged && !isApplyingOverride.current)
@@ -472,12 +598,12 @@ export function CodeMirrorHost({
     });
   }, [autoLineNumbering, lineNumberIncrement, fullCodeCompletion]);
 
-  // Re-render the breakpoint gutter whenever the breakpoint set changes.
+  // Re-render the combined gutter whenever the breakpoint set changes.
   const breakpoints = useIdeStore((s) => s.breakpoints);
   useEffect(() => {
     viewRef.current?.dispatch({
       effects: breakpointCompartment.reconfigure(
-        breakpointGutterExt(breakpoints),
+        combinedGutterExt(breakpoints),
       ),
     });
   }, [breakpoints]);

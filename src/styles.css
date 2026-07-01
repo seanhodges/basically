@@ -141,6 +141,47 @@ code {
   border-top: 1px solid var(--border);
 }
 
+/* --- CodeMirror tooltips (lint errors, autocomplete, hover) ----------------
+   These float over the editor with a light background but no text colour, so
+   they inherit the app's light --text and render light-on-light (unreadable).
+   CodeMirror's own rule is `&light .cm-tooltip` (specificity 0,2,0, injected at
+   runtime), which outweighs a bare `.cm-tooltip` and equal-specificity rules —
+   so the background/border overrides need !important to win. */
+.cm-tooltip {
+  background: var(--bg-panel) !important;
+  color: var(--text);
+  border: 1px solid var(--border) !important;
+  border-radius: 4px;
+}
+
+/* The arrow some tooltips draw must match the themed surface (its ::before is
+   the border, its ::after the fill). */
+.cm-tooltip .cm-tooltip-arrow::before {
+  border-top-color: var(--border) !important;
+  border-bottom-color: var(--border) !important;
+}
+
+.cm-tooltip .cm-tooltip-arrow::after {
+  border-top-color: var(--bg-panel) !important;
+  border-bottom-color: var(--bg-panel) !important;
+}
+
+/* Lint (syntax error) message: legible text with the app's error accent. */
+.cm-diagnostic {
+  color: var(--text);
+  padding: 4px 8px;
+}
+
+.cm-diagnostic-error {
+  border-left-color: var(--error);
+}
+
+/* Keep the highlighted completion readable against the dark surface. */
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--accent);
+  color: #fff;
+}
+
 .cm-search {
   display: flex;
   flex-wrap: wrap;

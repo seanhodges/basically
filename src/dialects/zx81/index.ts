@@ -6,6 +6,7 @@ import { detokenizeProgram } from './detokenizer';
 import { buildPFile, parsePFile } from './pfile';
 import { decodeCassette } from './audio/cassetteDecoder';
 import { zx81LanguageSupport, zx81CompletionSource } from './language';
+import { zx81VariableErrors } from '../../editor/variableLint';
 import { zx81AiProfile } from './aiProfile';
 import {
   zx81BuildTargets,
@@ -40,7 +41,10 @@ export const zx81: Dialect = {
   },
 
   lint(source: string): TokenizeError[] {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...zx81VariableErrors(source, zx81Keywords),
+    ];
   },
 
   romUrl: `${import.meta.env.BASE_URL}roms/zx81.rom`,

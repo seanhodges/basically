@@ -6,6 +6,7 @@ import type { Dialect, TokenizeError, TokenizeResult } from '../types';
 // bbcmaster reuses bbcmicro. See docs/dialect-plans/zxspectrum128.md.
 import { spectrum128Charset } from './charset';
 import { spectrum128Keywords } from './keywords';
+import { spectrumVariableErrors } from '../../editor/variableLint';
 import { buildTap, parseTap } from './tapfile';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
@@ -56,7 +57,10 @@ export const zxspectrum128: Dialect = {
   },
 
   lint(source: string): TokenizeError[] {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...spectrumVariableErrors(source, spectrum128Keywords),
+    ];
   },
 
   romUrl: `${import.meta.env.BASE_URL}roms/zxspectrum128.rom`,

@@ -49,6 +49,11 @@ export interface TokenizeError {
   line: number;
   /** 0-based column, when known. */
   column?: number;
+  /**
+   * 0-based column just past the offending token, when known. Lets the editor
+   * underline exactly the token; without it the squiggle runs to end of line.
+   */
+  endColumn?: number;
   message: string;
 }
 
