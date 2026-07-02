@@ -276,4 +276,11 @@
   .workspaceVkOverlay :global(.virtual-keyboard) {
     pointer-events: auto;
   }
+
+  /* The landscape keyboard floats bottom-centred and grows up to 75% of the
+     workspace height (see VirtualKeyboard.css) — far taller than the portrait
+     46% band — so lift the run FAB clear of it instead of the 46% above. */
+  .workspace.landscape.kbOpen .fabRun {
+    bottom: calc(75% + 16px);
+  }
 }

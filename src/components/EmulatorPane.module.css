@@ -35,9 +35,11 @@
   position: absolute;
   top: 8px; /* = mobile pane padding -> aligns with the top of the preview */
   /* Centre the 44px button over the red primary fire button, which the gamepad
-     anchors to the pane's right edge (see GameController.css .gc-buttons /
-     .gc-fire): centre-from-right = right offset + half the fire width. */
-  right: calc(clamp(10px, 5vw, 56px) + clamp(60px, 18vmin, 104px) / 2 - 22px);
+     anchors to the pane's right edge (see GameController.css .gc-landscape
+     .gc-buttons / .gc-fire): centre-from-right = right offset + half the fire
+     width. These must track the *landscape* gamepad metrics (3vw / 14vmin), not
+     the base ones, or the toggle drifts off-centre from the fire button. */
+  right: calc(clamp(8px, 3vw, 64px) + clamp(56px, 14vmin, 96px) / 2 - 22px);
   z-index: 6;
   display: flex;
   align-items: center;
