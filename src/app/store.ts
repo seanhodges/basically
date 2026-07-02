@@ -55,6 +55,7 @@ import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 
 export type EmulatorStatus = 'stopped' | 'running' | 'paused';
 export type MobileTab = 'editor' | 'preview' | 'settings' | 'ai';
+export type SettingsTab = 'editor' | 'emulator' | 'input' | 'ai';
 /** Editor operations the toolbar's Edit menu asks CodeMirrorHost to run. */
 export type EditorCommandName =
   | 'undo'
@@ -194,6 +195,8 @@ interface IdeState {
   transferOpen: boolean;
   importOpen: boolean;
   settingsOpen: boolean;
+  /** Active tab within the settings form (dialog on desktop, tab pane on mobile). */
+  settingsTab: SettingsTab;
   /** Program outline dialog (Edit ▸ Outline…). */
   procedureListOpen: boolean;
   /** In-app documentation drawer (replaces opening /docs/ in a new tab). */
@@ -291,6 +294,9 @@ interface IdeState {
   setTransferOpen(open: boolean): void;
   setImportOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
+  setSettingsTab(tab: SettingsTab): void;
+  /** Open the settings surface directly to a given tab. */
+  openSettings(tab: SettingsTab): void;
   setProcedureListOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
   /** Open the docs drawer, optionally to a specific docs sub-path/topic. */
@@ -448,6 +454,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   transferOpen: false,
   importOpen: false,
   settingsOpen: false,
+  settingsTab: 'editor',
   procedureListOpen: false,
   welcomeOpen: false,
   docsDrawerOpen: false,
@@ -632,6 +639,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   setTransferOpen: (open) => set({ transferOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setSettingsTab: (tab) => set({ settingsTab: tab }),
+  openSettings: (tab) => set({ settingsOpen: true, settingsTab: tab }),
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
   setWelcomeOpen: (open) => set({ welcomeOpen: open }),
   openDocs: (topic) => set({ docsDrawerOpen: true, docsTopic: topic ?? null }),

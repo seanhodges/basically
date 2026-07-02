@@ -18,7 +18,7 @@ export function AiPanel() {
   const replaceDocument = useIdeStore((s) => s.replaceDocument);
   const requestAiRun = useIdeStore((s) => s.requestAiRun);
   const showAiPanel = useIdeStore((s) => s.showAiPanel);
-  const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
+  const openSettings = useIdeStore((s) => s.openSettings);
 
   // The conversation and the in-flight stream live in a module-level store, so
   // they survive this panel unmounting (e.g. toggled closed mid-stream).
@@ -47,7 +47,7 @@ export function AiPanel() {
     const provider = getProvider(providerId);
     const apiKey = getProviderApiKey(providerId);
     if (!apiKey) {
-      setSettingsOpen(true);
+      openSettings('ai');
       return;
     }
     setInput('');
@@ -107,7 +107,7 @@ export function AiPanel() {
     const provider = getProvider(providerId);
     const apiKey = getProviderApiKey(providerId);
     if (!apiKey) {
-      setSettingsOpen(true);
+      openSettings('ai');
       return;
     }
     useAiStore.getState().clearPendingFix();
@@ -180,7 +180,7 @@ export function AiPanel() {
     <div className={styles.aiPanel}>
       <div className={styles.aiHeader}>
         <strong>AI assistant</strong>
-        <button className="linklike" onClick={() => setSettingsOpen(true)}>
+        <button className="linklike" onClick={() => openSettings('ai')}>
           key…
         </button>
       </div>
