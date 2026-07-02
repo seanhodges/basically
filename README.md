@@ -78,6 +78,12 @@ machine, or import one back off it into the editor.
 
 See [docs/guide/hardware.md](docs/guide/hardware.md) for the full walkthrough.
 
+## Community
+
+Join the Discord to ask questions, get help, share what you've made, and follow
+development: **[discord.gg/UCK3JPD6ck](https://discord.gg/UCK3JPD6ck)**. See the
+[community page](docs/guide/community.md) for more.
+
 ## Contributing to the project
 
 Support welcome! Please see the [contributing](docs/contributing/contributing.md) guide.

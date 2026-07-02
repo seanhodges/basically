@@ -69,3 +69,9 @@ The app works almost entirely offline, so you can sit on a flight, train or moun
 
 - **AI support** currently only supports cloud-based solutions and requires Internet access at all times to work. In future we might add local LLM support.
 - **Running the emulator** usually requires downloading a third-party ROM for the target machine, whuch are often large blobs and can have complex licencing rules. You should run the emulator **before** going offline, to ensure any runtime dependencies are cached and ready to use.
+
+## Join the community
+
+Got stuck, or made something you want to show off? Join the Basically
+**[Discord](/guide/community)** — it's the quickest way to get help, share your
+programs, and follow what's coming next.
