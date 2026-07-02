@@ -122,7 +122,7 @@ interface IdeState {
   stepRequest: number;
   /** Bumped to ask the emulator pane to continue to the next breakpoint. */
   continueRequest: number;
-  /** Emulation speed multiplier (1, 2 or 8). */
+  /** Emulation speed multiplier (0.25, 0.5, 0.75, 1, 2, 4 or 8). */
   emulatorSpeed: number;
   /** CRT scanline overlay on the monitor. */
   crtEffect: boolean;
