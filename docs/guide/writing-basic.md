@@ -39,6 +39,13 @@ The editor offers a rich set of modern features to assist with BASIC coding.
 Everything below is configured from the **Settings** button in the toolbar
 (the **Editor** section) unless noted.
 
+![Annotated desktop editor showing the code completion popup, the open Edit menu (Renumber line and Outline…), and the Settings button](/editor-features.png)
+
+On a phone the toolbar is tighter: the Edit actions move into the **⋯ overflow
+menu**, and the same code completion popup appears as you type.
+
+<img src="/editor-features-mobile.png" alt="Annotated mobile editor showing the overflow menu's Edit actions and the code completion popup" style="max-width: 340px; width: 100%; height: auto; display: block; margin: 1rem auto;" />
+
 ### Code completion
 
 As you start typing a keyword, a suggestions popup opens automatically, with the
@@ -98,12 +105,3 @@ smaller machines in particular (the unexpanded ZX81 has just 1K!).
 How source text maps to the machine's character set and tokens — block graphics,
 inverse video, the quote-image character, and how numbers are stored — is
 covered in detail under **[File formats](/reference/file-formats)**.
-
-## Importing existing programs
-
-You can import an existing machine image or decode a
-cassette-audio recording back into editable source. See
-**[Running on real hardware](/guide/hardware)** for the transfer side and
-**[File formats](/reference/file-formats)** for what each format contains.
-
-Please note the Import reads tokenised source code, it does not disassemble machine code. If you want to hack around on third-party commercial programs/games you will need to legally obtain a copy of the source code first.

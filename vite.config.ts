@@ -3,7 +3,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// base './' so the built site works on GitHub Pages under any repo path.
 export default defineConfig({
   base: './',
   plugins: [

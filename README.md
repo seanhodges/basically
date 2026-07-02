@@ -12,7 +12,7 @@ Support includes the **Sinclair ZX81**, **ZX Spectrum**, **BBC
 Micro**, among others.
 
 <p align="center">
-  <img alt="The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard" src="docs/public/screenshot.jpg" width="900" />
+  <img alt="The Basically IDE: a Commodore 64 game in the editor, running in the built-in emulator, with the on-screen keyboard" src="docs/public/screenshot.jpg" width="900" />
 </p>
 
 ## Features

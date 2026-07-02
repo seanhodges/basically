@@ -7,6 +7,8 @@ the editor. That means you can grab an old program off a real machine, edit and
 test it in the IDE, and export the updated version back — and if you'd rather
 make your changes on the physical hardware, you can pull those back in too.
 
+<img src="/real-machine.png" alt="A program exported from Basically running on a real machine" width="50%" />
+
 Both directions share the same three paths (which are available depends on the
 target): **cassette audio**, a **downloadable image file**, and a **serial
 bridge**.
@@ -56,3 +58,10 @@ it into RAM.
 **This feature is experimental.** The bridge firmware is out of scope for this project,
 but the wire protocol it must implement is fully specified under
 **[Serial bridge protocol](/reference/serial-protocol)**.
+
+## Importing existing programs
+
+Using **Import** you can import an existing machine image or decode a
+cassette-audio recording back into editable source using the same methods as above.
+
+Please note the Import reads tokenised source code, it does not disassemble machine code. If you want to hack around on third-party commercial programs/games you will need to legally obtain a copy of the source code first.

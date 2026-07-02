@@ -45,7 +45,20 @@ inline error checking, and test your program in an emulator. When it works, you 
 
 It ships support for many microcomputers already including: Sinclair ZX80, ZX81 and Spectrum, the BBC Micro and Master, Commodore 64, TRS-80, with more being added all the time.
 
-![The Basically IDE: a BASIC game in the editor, running in the built-in emulator with the on-screen keyboard](/screenshot.jpg)
+<div style="display: flex; gap: 16px; align-items: flex-start; justify-content: center; flex-wrap: wrap;">
+  <img
+    src="/screenshot.jpg"
+    alt="The Basically IDE on the desktop: a Commodore 64 maze game in the editor, running in the built-in emulator, with the on-screen keyboard"
+    style="flex: 3.3 1 0; min-width: 320px; max-width: 100%; height: auto; border-radius: 6px;"
+  />
+  <img
+    src="/screenshot-mobile.png"
+    alt="Basically on a phone: the emulator tab running a Commodore 64 game with the virtual gamepad"
+    style="flex: 1 1 0; min-width: 130px; max-width: 100%; height: auto; border-radius: 6px;"
+  />
+</div>
+
+_On the desktop it's a multi-column workspace with the on-screen keyboard. On a phone it switches to a tabbed layout with a virtual gamepad._
 
 ## A closer look
 

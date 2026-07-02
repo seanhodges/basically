@@ -81,8 +81,9 @@ making cross-cutting changes.
 | `src/transfer/`            | Hardware export: WAV cassette, native images, WebSerial           |
 | `docs/`                    | This documentation site (VitePress)                               |
 
-For the full architecture and data-flow diagrams, see the project's `CLAUDE.md`
-at the repository root — it is the most detailed map of the codebase.
+For the full layer breakdown and data-flow diagrams, see the
+[architecture overview](/contributing/architecture); the project's `CLAUDE.md`
+at the repository root is the companion quick-reference map.
 
 ## Conventions and best practices
 
