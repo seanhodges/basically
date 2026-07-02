@@ -53,9 +53,8 @@ export function SettingsForm() {
   const [key, setKey] = useState(getProviderApiKey(getAiProvider()));
   const [keySaved, setKeySaved] = useState(false);
   const provider = getProvider(providerId);
-  const [tab, setTab] = useState<'editor' | 'emulator' | 'input' | 'ai'>(
-    'editor',
-  );
+  const tab = useIdeStore((s) => s.settingsTab);
+  const setTab = useIdeStore((s) => s.setSettingsTab);
 
   // Switching provider persists the choice and swaps the key field to that
   // provider's stored key, so each backend's key is kept independently.
