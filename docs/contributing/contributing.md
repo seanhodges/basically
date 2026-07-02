@@ -193,4 +193,5 @@ is compatible, and add attribution where required.
 ## Questions
 
 If you're unsure about anything, open a GitHub issue or start a draft PR early
-and ask. We'd rather help you get the approach right than have you guess.
+and ask. We'd rather help you get the approach right than have you guess. You can
+also drop into the [Discord](/guide/community) for a quicker back-and-forth.

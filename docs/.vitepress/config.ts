@@ -49,6 +49,7 @@ export default withPwa(
           { text: 'Languages', link: '/reference/' },
           { text: 'Formats & protocols', link: '/reference/file-formats' },
           { text: 'Contributing', link: '/contributing/contributing' },
+          { text: 'Community', link: '/guide/community' },
           { text: 'Open the IDE', link: 'https://ba.sical.ly/' },
         ],
 
@@ -65,6 +66,7 @@ export default withPwa(
                 text: 'Keyboard shortcuts (desktop)',
                 link: '/guide/keyboard-shortcuts',
               },
+              { text: 'Community', link: '/guide/community' },
             ],
           },
           {
@@ -115,6 +117,7 @@ export default withPwa(
 
         socialLinks: [
           { icon: 'github', link: 'https://github.com/seanhodges/basically' },
+          { icon: 'discord', link: 'https://discord.gg/FMT2pRyZU' },
         ],
 
         editLink: {
