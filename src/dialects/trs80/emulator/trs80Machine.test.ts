@@ -37,4 +37,33 @@ describe('trs80 machine', () => {
 
     machine.dispose();
   });
+
+  withRom(
+    'takes more frames to finish the same program at a slower speed',
+    () => {
+      // A busy loop long enough that its completion spans many frames, so
+      // the run (not just boot) is what setSpeed throttles.
+      const src = '10 FOR I=1 TO 5000\n20 NEXT I\n30 PRINT "DONE"\n40 END\n';
+      function framesToDone(speed: number): number {
+        const machine = new Trs80Machine({ rom: ROM!, ramKb: 16 });
+        const { program, errors } = tokenizeProgram(src);
+        expect(errors).toEqual([]);
+        machine.loadProgram(program);
+        machine.setSpeed(speed);
+        for (let i = 1; i <= 5000; i++) {
+          machine.runFrame();
+          for (let row = 0; row < 16; row++) {
+            if (machine.readScreenRow(row).includes('DONE')) {
+              machine.dispose();
+              return i;
+            }
+          }
+        }
+        throw new Error('never displayed DONE');
+      }
+      const atFullSpeed = framesToDone(1);
+      const atHalfSpeed = framesToDone(0.5);
+      expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
+    },
+  );
 });

@@ -95,6 +95,36 @@ describe('C64Machine', () => {
   );
 
   it(
+    'takes more frames to finish the same program at a slower speed',
+    async () => {
+      // A busy loop long enough that its completion spans many frames, so
+      // the run (not just boot) is what setSpeed throttles.
+      const src = '10 FOR I=1 TO 1000\n20 NEXT I\n30 PRINT "DONE"\n';
+      async function framesToDone(speed: number): Promise<number> {
+        const { image, errors } = commodore64.tokenize(src);
+        expect(errors).toEqual([]);
+        const m = new C64Machine({ roms });
+        await m.whenReady();
+        m.loadProgram(image);
+        await new Promise((r) => setTimeout(r, 0));
+        m.setSpeed(speed);
+        for (let i = 1; i <= 2000; i++) {
+          m.runFrame();
+          if (contains(screen(m), screenCodes('DONE'))) {
+            m.dispose();
+            return i;
+          }
+        }
+        throw new Error('never displayed DONE');
+      }
+      const atFullSpeed = await framesToDone(1);
+      const atHalfSpeed = await framesToDone(0.5);
+      expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
     'detects a runtime error after running a buggy program',
     async () => {
       // GOTO a non-existent line raises ?UNDEF'D STATEMENT ERROR.

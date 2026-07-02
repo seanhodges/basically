@@ -55,7 +55,7 @@ export const DEFAULT_SPLIT_RATIO = 0.5;
 export const MIN_SPLIT_RATIO = 0.2;
 export const MAX_SPLIT_RATIO = 0.8;
 
-const EMULATOR_SPEEDS = [1, 2, 8];
+const EMULATOR_SPEEDS = [0.25, 0.5, 0.75, 1, 2, 4, 8];
 
 /** The AI backend the user has selected (defaults to Anthropic). */
 export function getAiProvider(): AiProviderId {
@@ -334,7 +334,7 @@ export function setSplitRatio(n: number): void {
 
 export function getEmulatorSpeed(): number {
   const raw = localStorage.getItem(KEYS.emulatorSpeed);
-  const n = raw === null ? 1 : parseInt(raw, 10);
+  const n = raw === null ? 1 : parseFloat(raw);
   return EMULATOR_SPEEDS.includes(n) ? n : 1;
 }
 

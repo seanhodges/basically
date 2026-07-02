@@ -59,6 +59,30 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     machine.dispose();
   }, 60000);
 
+  it('takes more frames to finish the same program at a slower speed', async () => {
+    // A busy loop long enough that its completion spans many frames, so the
+    // run (not just boot) is what setSpeed throttles.
+    const src = '10 FOR I=1 TO 5000\n20 NEXT I\n30 PRINT "DONE"\n40 END\n';
+    async function framesToDone(speed: number): Promise<number> {
+      const machine = new BbcMachine();
+      const { bytes } = tokenizeProgram(src);
+      machine.loadProgram(bytes);
+      machine.setSpeed(speed);
+      for (let i = 1; i <= 3000; i++) {
+        machine.runFrame();
+        if (screenText(machine).includes('DONE')) {
+          machine.dispose();
+          return i;
+        }
+        if (i % 10 === 0) await new Promise((r) => setTimeout(r, 0));
+      }
+      throw new Error('never displayed DONE');
+    }
+    const atFullSpeed = await framesToDone(1);
+    const atHalfSpeed = await framesToDone(0.5);
+    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
+  }, 60000);
+
   it('feeds virtual-keyboard tokens into the key matrix', async () => {
     const machine = new BbcMachine();
     await machine.whenReady();
