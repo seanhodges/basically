@@ -100,6 +100,33 @@ describe('Zx81Machine', () => {
     expect(machine.readReport().isError).toBe(false);
   });
 
+  it('takes more frames to finish the same program at a slower speed', () => {
+    // ZX81 letter codes run A=0x26 .. Z=0x3F.
+    const letter = (ch: string) => 0x26 + (ch.charCodeAt(0) - 65);
+    const DONE = [...'DONE'].map(letter);
+    // A busy loop long enough that its completion spans several frames, so
+    // the run (not just the load handshake) is what setSpeed throttles.
+    const src = '10 FOR I=1 TO 500\n20 NEXT I\n30 PRINT "DONE"\n';
+    // setSpeed is applied after the load handshake (which relies on the
+    // default 1x boot/flash-load timing) so only the run itself is throttled.
+    function framesToDone(speed: number): number {
+      const machine = new Zx81Machine({ rom, ramKb: 16 });
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildPFile(bytes));
+      expect(displayContains(machine, DONE)).toBe(false);
+      machine.setSpeed(speed);
+      for (let i = 1; i <= 2000; i++) {
+        machine.runFrame();
+        if (displayContains(machine, DONE)) return i;
+      }
+      throw new Error('never displayed DONE');
+    }
+    const atFullSpeed = framesToDone(1);
+    const atHalfSpeed = framesToDone(0.5);
+    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
+  });
+
   it('disposes idempotently and stays inert afterwards', () => {
     const machine = new Zx81Machine({ rom, ramKb: 16 });
     const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n');

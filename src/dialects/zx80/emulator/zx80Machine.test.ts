@@ -155,6 +155,35 @@ describe('Zx80Machine', () => {
     machine.dispose();
   });
 
+  it('takes more frames to finish the same program at a slower speed', () => {
+    // A busy loop long enough that its completion spans many frames, so the
+    // run (not just the load/RUN handshake) is what setSpeed throttles.
+    const src = '10 FOR I=1 TO 10000\n20 NEXT I\n30 PRINT "DONE"\n';
+    // setSpeed is applied after loadProgram (which relies on the default 1x
+    // boot/load/RUN handshake timing) so only the run itself is throttled.
+    function framesToDone(speed: number): number {
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+      machine.loadProgram(buildOFile(bytes));
+      machine.setSpeed(speed);
+      for (let i = 1; i <= 3000; i++) {
+        machine.runFrame();
+        // An exact row match (not displayContains) — right after load the
+        // display still shows the program listing, whose "DONE" string
+        // literal would otherwise trip a substring match early.
+        if (firstTextRow(machine) === 'DONE') {
+          machine.dispose();
+          return i;
+        }
+      }
+      throw new Error('never finished the loop');
+    }
+    const atFullSpeed = framesToDone(1);
+    const atHalfSpeed = framesToDone(0.5);
+    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
+  });
+
   it('stops rendering at DF_END instead of overrunning the display file', () => {
     // Regression: the ZX80 display file is collapsed and ends at DF_END. The
     // renderer used to draw a fixed 24 rows, spilling the program/edit area

@@ -51,6 +51,30 @@ describe('Trs80InterpreterMachine', () => {
     m.dispose();
   });
 
+  it('takes more frames to finish the same program at a slower speed', () => {
+    // A busy loop long enough that its completion spans many frames, so the
+    // run (not just the load) is what setSpeed throttles.
+    const src = '10 FOR I=1 TO 1000\n20 NEXT I\n30 PRINT "DONE"\n40 END\n';
+    function framesToDone(speed: number): number {
+      const m = new Trs80InterpreterMachine();
+      const { program, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      m.loadProgram(program);
+      m.setSpeed(speed);
+      for (let i = 1; i <= 2000; i++) {
+        m.runFrame();
+        if (screenRow(m, 0) === 'DONE') {
+          m.dispose();
+          return i;
+        }
+      }
+      throw new Error('never displayed DONE');
+    }
+    const atFullSpeed = framesToDone(1);
+    const atHalfSpeed = framesToDone(0.5);
+    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
+  });
+
   it('surfaces a runtime error through readReport', () => {
     const m = new Trs80InterpreterMachine();
     const { program } = tokenizeProgram('10 PRINT 1/0\n');
