@@ -54,10 +54,28 @@ const MOBILE_BEZEL = 8;
 /** Padding of .emulator-pane in the mobile media query (each side). */
 const MOBILE_PANE_PAD = 8;
 
-/** Width reserved on each side of the screen for the flanking gamepad in the
-    phone-landscape layout, so the centred screen never sits under the d-pad or
-    fire buttons. */
-const LANDSCAPE_SIDE_GUTTER = 132;
+/**
+ * Width reserved on each side of the screen for the flanking gamepad in the
+ * phone-landscape layout, so the centred screen never sits under the d-pad or
+ * fire buttons. The controls scale with `vmin`/`vw` (see `.gc-landscape` in
+ * GameController.css), so a fixed reserve is too small on larger phones — mirror
+ * the same clamp metrics here and take the wider of the two flanks, plus a
+ * little breathing room so the screen never abuts the controls.
+ */
+function landscapeSideGutter(): number {
+  const vmin = Math.min(window.innerWidth, window.innerHeight);
+  const vw = window.innerWidth / 100;
+  const clamp = (lo: number, val: number, hi: number) =>
+    Math.min(Math.max(val, lo), hi);
+  // Fire group (right edge): offset + two fire circles + the gap between them.
+  const fireReach =
+    clamp(8, 3 * vw, 64) +
+    2 * clamp(56, 0.14 * vmin, 96) +
+    clamp(14, 0.05 * vmin, 32);
+  // D-pad (left edge): offset + its width.
+  const dpadReach = clamp(8, 3 * vw, 64) + clamp(110, 0.26 * vmin, 200);
+  return Math.max(fireReach, dpadReach) + 12;
+}
 
 function fetchRom(url: string): Promise<Uint8Array> {
   let cached = romCache.get(url);
@@ -492,7 +510,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       const rect = container.getBoundingClientRect();
       // In phone landscape the gamepad flanks the screen, so reserve a gutter on
       // each side and keep the centred screen clear of the controls.
-      const sideReserve = landscape ? LANDSCAPE_SIDE_GUTTER : 0;
+      const sideReserve = landscape ? landscapeSideGutter() : 0;
       const availWidth =
         rect.width - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD) - 2 * sideReserve;
       // With the keyboard up, never grow past 50% of the pane so the bottom-50%
