@@ -4,14 +4,14 @@ Basically has a Discord server — it's the best place to ask questions, get hel
 share programs and games you've made, talk retro hardware and BASIC dialects, and
 follow along as the project develops.
 
-**Join us: [discord.gg/FMT2pRyZU](https://discord.gg/FMT2pRyZU)**
+**Join us: [discord.gg/UCK3JPD6ck](https://discord.gg/UCK3JPD6ck)**
 
 Or scan the QR code with your phone:
 
 <div style="display: flex; justify-content: center; margin: 1.5rem 0;">
   <img
     src="/discord-qr.png"
-    alt="QR code linking to the Basically Discord invite at discord.gg/FMT2pRyZU"
+    alt="QR code linking to the Basically Discord invite at discord.gg/UCK3JPD6ck"
     style="width: 240px; max-width: 100%; height: auto; border-radius: 6px;"
   />
 </div>

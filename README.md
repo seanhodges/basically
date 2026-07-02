@@ -81,7 +81,7 @@ See [docs/guide/hardware.md](docs/guide/hardware.md) for the full walkthrough.
 ## Community
 
 Join the Discord to ask questions, get help, share what you've made, and follow
-development: **[discord.gg/FMT2pRyZU](https://discord.gg/FMT2pRyZU)**. See the
+development: **[discord.gg/UCK3JPD6ck](https://discord.gg/UCK3JPD6ck)**. See the
 [community page](docs/guide/community.md) for more.
 
 ## Contributing to the project

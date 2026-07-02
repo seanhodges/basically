@@ -117,7 +117,7 @@ export default withPwa(
 
         socialLinks: [
           { icon: 'github', link: 'https://github.com/seanhodges/basically' },
-          { icon: 'discord', link: 'https://discord.gg/FMT2pRyZU' },
+          { icon: 'discord', link: 'https://discord.gg/UCK3JPD6ck' },
         ],
 
         editLink: {
