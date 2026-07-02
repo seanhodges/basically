@@ -11,7 +11,7 @@ files.
 dialects to derive the current "feature complete" baseline, writes a
 dependency-ordered, multi-stage plan to
 `docs/contributing/dialect-plans/<id>.md`, and creates a compiling stub folder
-under `src/dialects/<id>/`. 
+under `src/dialects/<id>/`.
 
 The skill **plans and scaffolds only** — it does not
 implement the stages or register the dialect; you run each stage on demand (see
@@ -21,7 +21,7 @@ keyboard, then wrapping a third-party emulator.
 
 ## Doing it by hand / without Claude
 
-This outlines the basic steps for creating a new dialect. It's not exhaustive but 
+This outlines the basic steps for creating a new dialect. It's not exhaustive but
 serves as a guide for getting basic support working. It's also worth reading `.claude/skills/adding-a-target-system/SKILL.md` as the steps are kept up to date there.
 
 The app only talks to the `Dialect` interface (`src/dialects/types.ts`);

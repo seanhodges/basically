@@ -3,7 +3,7 @@ import { withPwa } from '@vite-pwa/vitepress';
 import { withMermaid } from 'vitepress-plugin-mermaid';
 
 // Docs site for Basically, published at https://ba.sical.ly/docs.
-// The app (a Vite SPA) is served from the root of the same deployment; 
+// The app (a Vite SPA) is served from the root of the same deployment;
 // this site lives under the /docs subpath. `outDir` writes the
 // built docs into the app's `dist/` artifact so a single Pages deploy ships
 // both. See .github/workflows/deploy.yml.

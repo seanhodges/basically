@@ -24,7 +24,7 @@ Only three things ever cross the network:
 2. **AI chat** — streamed HTTPS calls from the browser directly to the AI
    provider you configured (Anthropic, OpenAI, or Gemini), authenticated with
    your own API key. The key lives in `localStorage` and is sent nowhere else.
-3. **Hardware transfer** — cassette audio through your speakers and microphone, 
+3. **Hardware transfer** — cassette audio through your speakers and microphone,
    downloaded image files, or a WebSerial connection to a microcontroller bridge.
 
 ```mermaid
