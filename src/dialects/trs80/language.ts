@@ -8,15 +8,19 @@ import { trs80Keywords } from './keywords';
 export const trs80CompletionSource: CompletionSource = buildCompletionSource(
   trs80Keywords,
   constructsByDialect.trs80,
+  { crunched: true },
 );
 
 export function trs80LanguageSupport(): Extension {
   // Level II variable names are letters/digits with an optional type tag — `$`
   // string, `%` integer, `!` single, `#` double; only the first two characters
   // are significant. There are no `&H`/`&B` literals (that is Disk BASIC) and no
-  // block-graphics escapes in source, so both stay off.
+  // block-graphics escapes in source, so both stay off. The ROM ignores spaces
+  // outside strings/REM ("code crunching": POKEA,10 is valid), so the editor
+  // splits glued keywords the same way.
   return buildBasicLanguage(trs80Keywords, trs80CompletionSource, {
     suffixChars: '$%!#',
     graphicsEscapes: false,
+    crunched: true,
   });
 }

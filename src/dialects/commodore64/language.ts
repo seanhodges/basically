@@ -8,14 +8,18 @@ import { c64Keywords } from './keywords';
 export const c64CompletionSource: CompletionSource = buildCompletionSource(
   c64Keywords,
   constructsByDialect.commodore64,
+  { crunched: true },
 );
 
 export function c64LanguageSupport(): Extension {
   // C64 variable names are letters/digits ending optionally in '$' (string) or
   // '%' (integer); only the first two characters are significant. BASIC v2 has
-  // no hex/binary literals and no block-graphics escapes in source.
+  // no hex/binary literals and no block-graphics escapes in source. The ROM
+  // ignores spaces outside strings/REM ("code crunching": POKEA,10 is valid),
+  // so the editor splits glued keywords the same way.
   return buildBasicLanguage(c64Keywords, c64CompletionSource, {
     suffixChars: '$%',
     graphicsEscapes: false,
+    crunched: true,
   });
 }

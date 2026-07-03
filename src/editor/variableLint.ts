@@ -17,7 +17,12 @@
  * - **Microsoft (C64 / TRS-80):** {@link microsoftVariableErrors}. Only the
  *   first two characters are significant, so two different long names that
  *   collapse to the same two chars clash; and a name embedding a reserved word
- *   (`TOTAL` contains `TO`) is the real `?SYNTAX ERROR`. The dialects differ only
+ *   (`SCORE` contains `OR`) is the real `?SYNTAX ERROR`. These ROMs also ignore
+ *   spaces ("code crunching"), so the scanner runs in crunched mode: glued
+ *   keywords are split ROM-style (`POKEA` is POKE + A, never a variable) and
+ *   only a name with a keyword glued mid-run *where a variable is expected* is
+ *   flagged — in expression position (`FORI=ATOB`) the split is silent, since
+ *   it is indistinguishable from intentional crunch. The dialects differ only
  *   in their type-suffix characters (C64 `$%`, TRS-80 `$%!#`).
  *
  * BBC BASIC has no such rule: its names are fully significant, and the only real
@@ -30,6 +35,7 @@ import {
   type BasicLanguageOptions,
 } from './basicLanguage';
 import { forEachVariable, type VarNameRules } from './variables';
+import { makeCrunchMatcher } from './crunch';
 import { scannable } from './programOutline';
 
 /** Build the scanner's dialect rules from lexical options + the keyword table. */
@@ -51,6 +57,7 @@ function rulesFor(
       ? new RegExp(`^${options.hexPrefix}[0-9A-Fa-f]+`)
       : null,
     callPrefixes: ['PROC', 'FN'].filter((w) => set.has(w)),
+    crunch: options.crunched ? makeCrunchMatcher(set) : null,
   };
 }
 
@@ -67,6 +74,8 @@ interface Occurrence {
   prevKeyword: string | null;
   /** Character immediately after the token (e.g. `(` for an array), or ''. */
   nextChar: string;
+  /** Reserved word glued mid-name where a variable was expected, if any. */
+  embedsKeyword?: string;
 }
 
 /** Visit every variable occurrence in the program, with line/column info. */
@@ -88,6 +97,7 @@ function eachOccurrence(
         endColumn: column + t.text.length,
         prevKeyword: t.prevKeyword,
         nextChar: code[t.index + t.text.length] ?? '',
+        embedsKeyword: t.embedsKeyword,
       });
     });
   });
@@ -202,22 +212,6 @@ export function atomVariableErrors(
 // Microsoft family (C64 / TRS-80)
 // ---------------------------------------------------------------------------
 
-/** First reserved word embedded in `name` (the real `?SYNTAX ERROR`), or null. */
-function embeddedKeyword(name: string, rules: VarNameRules): string | null {
-  const upper = name.toUpperCase();
-  for (let i = 0; i < upper.length; i++) {
-    for (
-      let len = Math.min(upper.length - i, rules.maxWordLen);
-      len >= 2;
-      len--
-    ) {
-      const candidate = upper.slice(i, i + len);
-      if (rules.keywords.has(candidate)) return candidate;
-    }
-  }
-  return null;
-}
-
 /** The two significant characters + type suffix that identify the variable. */
 function significanceKey(name: string, suffixChars: string): string {
   const last = name[name.length - 1]!;
@@ -232,7 +226,10 @@ function microsoftVariableErrors(
   opts: { label: string; suffixChars: string },
 ): TokenizeError[] {
   const { label, suffixChars } = opts;
-  const rules = rulesFor({ suffixChars }, keywords);
+  // Crunching is inherent to the Microsoft family: the scanner ROM-splits
+  // glued keywords (`POKEA` is POKE + A, never a variable) and flags only
+  // names it knows the ROM will mis-read (see forEachVariable).
+  const rules = rulesFor({ suffixChars, crunched: true }, keywords);
   const occs: Occurrence[] = [];
   eachOccurrence(source, rules, (occ) => occs.push(occ));
 
@@ -241,7 +238,7 @@ function microsoftVariableErrors(
 
   // (b) A name that embeds a reserved word is a real ?SYNTAX ERROR.
   occs.forEach((occ, idx) => {
-    const kw = embeddedKeyword(occ.name, rules);
+    const kw = occ.embedsKeyword;
     if (kw) {
       errors.push({
         line: occ.line,

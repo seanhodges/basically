@@ -18,11 +18,13 @@
  */
 import type {
   CompletionContext,
+  CompletionResult,
   CompletionSource,
 } from '@codemirror/autocomplete';
 import { isInsideString } from './completions';
 import { scannable } from './programOutline';
 import type { OutlineCapabilities } from './programOutline';
+import type { CrunchMatcher } from './crunch';
 
 /** The dialect lexical facts the scanner needs (built in `buildBasicLanguage`). */
 export interface VarNameRules {
@@ -42,6 +44,12 @@ export interface VarNameRules {
    * these machines a name can't start with the prefix (`PROCESS` is `PROC ESS`).
    */
   callPrefixes: string[];
+  /**
+   * Set for the crunched (MS-BASIC) dialects: identifier runs are split the
+   * way the ROM tokenizer splits them (`POKEA` → POKE + variable A) instead
+   * of using the whole-run keyword rule. See {@link ./crunch}.
+   */
+  crunch?: CrunchMatcher | null;
 }
 
 /**
@@ -100,6 +108,12 @@ export interface VarToken {
    * null — lets callers spot e.g. a FOR/NEXT control variable.
    */
   prevKeyword: string | null;
+  /**
+   * Crunched dialects only: the reserved word glued inside this name at a
+   * position where a variable was expected (`SCORE` embeds `OR`) — the ROM
+   * will split the name and fail, so lint should warn.
+   */
+  embedsKeyword?: string;
 }
 
 /**
@@ -108,13 +122,18 @@ export interface VarToken {
  * (`basicLanguage.ts` token()): numbers and hex literals are consumed so their
  * letters (`1E5`, `&FF`) aren't read as names, and an identifier run that is a
  * keyword prefix (consuming the whole run, or ending in `$`) or a PROC/FN call
- * is skipped.
+ * is skipped. Dialects with `rules.crunch` set use the ROM-splitting scanner
+ * ({@link forEachVariableCrunched}) instead.
  */
 export function forEachVariable(
   code: string,
   rules: VarNameRules,
   visit: (token: VarToken) => void,
 ): void {
+  if (rules.crunch) {
+    forEachVariableCrunched(code, rules, rules.crunch, visit);
+    return;
+  }
   let i = 0;
   let prevKeyword: string | null = null;
   while (i < code.length) {
@@ -173,6 +192,144 @@ export function forEachVariable(
     visit({ text: token, index: i, prevKeyword });
     prevKeyword = null;
     i += token.length;
+  }
+}
+
+/** Keywords that open a fresh statement, so a variable may follow. */
+const CRUNCH_STMT_OPENERS = ['THEN', 'ELSE'];
+/** Keywords directly followed by a variable reference. */
+const CRUNCH_VAR_EXPECTING = [
+  'LET',
+  'FOR',
+  'NEXT',
+  'DIM',
+  'INPUT',
+  'READ',
+  'GET',
+];
+
+/**
+ * The crunched-dialect scanner: split identifier runs the way the MS-BASIC ROM
+ * tokenizer does (longest keyword at every position — `POKEA` is POKE + A,
+ * `FORI=1TO10` is FOR I = 1 TO 10), so intentional crunch never reads as a
+ * variable name.
+ *
+ * One heuristic keeps the valuable broken-name warning: while scanning, track
+ * whether the ROM expects a *variable* next — at a statement start (line
+ * start, after `:`, after THEN/ELSE) or after LET/FOR/NEXT/DIM/INPUT/READ/GET.
+ * A run with a keyword glued mid-name in that position (`SCORE=1` at a
+ * statement start) is a name the ROM will split and choke on, so it is emitted
+ * whole with `embedsKeyword` set for lint. In expression position the same
+ * run splits silently (`FORI=ATOB` is A TO B, legitimate crunch). A run whose
+ * *first* segment is a keyword always splits silently (`TOTAL` is TO TAL).
+ *
+ * REM stops the scan (rest of line is a comment even when `scannable()`'s
+ * word-boundary check missed it, e.g. `REMARK`); DATA skips to the next `:`
+ * (the ROM keeps DATA items verbatim, so they are not variables).
+ */
+function forEachVariableCrunched(
+  code: string,
+  rules: VarNameRules,
+  crunch: CrunchMatcher,
+  visit: (token: VarToken) => void,
+): void {
+  let i = 0;
+  let prevKeyword: string | null = null;
+  let ctx: 'stmt' | 'var' | 'none' = 'stmt';
+  while (i < code.length) {
+    const rest = code.slice(i);
+    // Numbers first (so 1E5 doesn't leak "E5"), then hex literals (&FF).
+    const num = NUMBER_RE.exec(rest);
+    if (num) {
+      i += num[0].length;
+      prevKeyword = null;
+      ctx = 'none';
+      continue;
+    }
+    const hex = rules.hexRe?.exec(rest);
+    if (hex) {
+      i += hex[0].length;
+      prevKeyword = null;
+      ctx = 'none';
+      continue;
+    }
+    const head = rules.headRe.exec(rest);
+    if (!head) {
+      const ch = rest[0]!;
+      if (ch === ':') {
+        ctx = 'stmt';
+        prevKeyword = null;
+      } else if (/\s/.test(ch)) {
+        // Spaces preserve both the context and prevKeyword (FOR<space>I).
+      } else if (ch === ',' || ch === ';') {
+        // List separators keep the context; they end any keyword adjacency.
+        prevKeyword = null;
+      } else {
+        ctx = 'none';
+        prevKeyword = null;
+      }
+      i += 1;
+      continue;
+    }
+    const run = head[0];
+    const upper = run.toUpperCase();
+    // A PROC/FN call (prefix + name) is not a variable — skip the whole run.
+    if (
+      rules.callPrefixes.some(
+        (p) => upper.length > p.length && upper.startsWith(p),
+      )
+    ) {
+      i += run.length;
+      prevKeyword = null;
+      ctx = 'none';
+      continue;
+    }
+    const kw = crunch.keywordAt(rest, 0);
+    if (kw) {
+      if (kw === 'REM') return; // rest of the line is a comment
+      prevKeyword = kw;
+      if (kw === 'DATA') {
+        // DATA items are verbatim until the next statement.
+        const colon = code.indexOf(':', i + kw.length);
+        if (colon === -1) return;
+        i = colon; // the ':' itself resets ctx on the next pass
+        continue;
+      }
+      ctx = CRUNCH_STMT_OPENERS.includes(kw)
+        ? 'stmt'
+        : CRUNCH_VAR_EXPECTING.includes(kw)
+          ? 'var'
+          : 'none';
+      i += kw.length;
+      continue;
+    }
+    const v = rules.varRe.exec(rest);
+    const token = v ? v[0] : run;
+    // Glued keywords are matched against the raw rest-of-line, not just the
+    // token, so a `$`-suffixed keyword at the token boundary still splits
+    // (`ALEFT$(` is A + LEFT$).
+    const j = crunch.firstInteriorKeyword(rest, token.length);
+    if (j !== -1 && (ctx === 'stmt' || ctx === 'var')) {
+      // A variable was expected here, so the run is one intended name the
+      // ROM will split — keep it whole and flag it for lint.
+      visit({
+        text: token,
+        index: i,
+        prevKeyword,
+        embedsKeyword: crunch.keywordAt(rest, j)!,
+      });
+      i += token.length;
+    } else if (j !== -1) {
+      // Expression position: plausible intentional crunch (A TO B) — emit
+      // the fragment before the keyword and let the keyword match next pass.
+      visit({ text: token.slice(0, j), index: i, prevKeyword });
+      i += j;
+    } else {
+      visit({ text: token, index: i, prevKeyword });
+      i += token.length;
+    }
+    prevKeyword = null;
+    ctx = 'none';
   }
 }
 
@@ -331,9 +488,25 @@ export function makeVariableSource(
     const names = variablesInScopeAt(model, row);
     if (names.length === 0) return null;
 
+    let from = word ? word.from : context.pos;
+    let valid: CompletionResult['validFor'] = validFor;
+    const crunch = rules.crunch;
+    if (crunch && word) {
+      // Crunched dialects: when no known variable matches the whole run, the
+      // run's head is glued keyword(s) (`POKEA`) — re-anchor to the tail so
+      // `A…` names complete. When the typed tail itself grows a glued keyword
+      // (`A` → `ATHEN`), validFor fails and CodeMirror re-queries, which
+      // re-anchors past the new keyword.
+      const upper = word.text.toUpperCase();
+      if (!names.some((n) => n.toUpperCase().startsWith(upper))) {
+        from = word.from + crunch.tailStart(word.text);
+      }
+      valid = (text) => validFor.test(text) && crunch.tailStart(text) === 0;
+    }
+
     return {
-      from: word ? word.from : context.pos,
-      validFor,
+      from,
+      validFor: valid,
       options: names.map((name) => ({ label: name, type: 'variable' })),
     };
   };

@@ -86,6 +86,42 @@ describe('c64VariableErrors', () => {
   it('leaves short, keyword-free names alone', () => {
     expect(c64('10 X=1\n20 HP=2')).toEqual([]);
   });
+
+  describe('crunched (space-less) code', () => {
+    it('never flags glued keywords as variables', () => {
+      expect(c64('10 POKEA,10')).toEqual([]);
+      expect(c64('10 FORI=1TO10\n20 NEXTI')).toEqual([]);
+      expect(c64('10 IFP=QTHENGOTO50')).toEqual([]);
+      expect(c64('10 PRINTX')).toEqual([]);
+    });
+
+    it('accepts a fully crunched program', () => {
+      expect(
+        c64('10 FORI=1TO10:POKE1024+I,160:NEXTI\n20 IFX>YTHENPRINTX'),
+      ).toEqual([]);
+    });
+
+    it('still flags a broken name in variable position, at its columns', () => {
+      const after = c64('10 X=1:SCORE=2');
+      expect(after).toHaveLength(1);
+      expect(after[0]).toMatchObject({ line: 1, column: 7, endColumn: 12 });
+      expect(after[0]!.message).toMatch(/embeds the reserved word 'OR'/);
+
+      expect(c64('10 LETSCORE=1')[0]!.message).toMatch(
+        /'SCORE' embeds the reserved word 'OR'/,
+      );
+    });
+
+    it('lets a name starting with a keyword split silently (TOTAL is TO TAL)', () => {
+      // A warning here would false-positive on FORI=ATOTAL; the TO keyword
+      // highlighting is the user's signal instead.
+      expect(c64('10 TOTAL=5')).toEqual([]);
+    });
+
+    it('treats glued REM as a comment (REMARK is REM ARK)', () => {
+      expect(c64('10 REMARK SETUP')).toEqual([]);
+    });
+  });
 });
 
 describe('spectrumVariableErrors (same single-letter model as ZX81)', () => {
@@ -156,5 +192,24 @@ describe('trs80VariableErrors (Microsoft model with $%!# suffixes)', () => {
     expect(trs80('10 A=1\n20 A!=2')).toEqual([]);
     // ...but same-type long names still do (suffix stripped from the core).
     expect(trs80('10 PLAYER!=1\n20 PLANET!=2')).toHaveLength(2);
+  });
+
+  describe('crunched (space-less) code', () => {
+    it('never flags glued keywords as variables', () => {
+      expect(trs80('10 POKEA,10')).toEqual([]);
+      expect(trs80('10 FORI=1TO10\n20 NEXTI')).toEqual([]);
+      expect(trs80('10 IFP=QTHENGOTO50')).toEqual([]);
+      expect(
+        trs80('10 FORI=1TO10:POKE15360+I,42:NEXTI\n20 IFX>YTHENPRINTX'),
+      ).toEqual([]);
+    });
+
+    it('still flags a broken name after a glued ELSE', () => {
+      const errors = trs80('10 IFA=1THENB=1ELSESCORE=2');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.message).toMatch(
+        /'SCORE' embeds the reserved word 'OR'/,
+      );
+    });
   });
 });

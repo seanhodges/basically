@@ -204,3 +204,49 @@ describe('fullCompletion toggle', () => {
     expect(opts.some((o) => o.label === 'IF')).toBe(false);
   });
 });
+
+describe('crunched completion re-anchoring (C64/TRS-80)', () => {
+  const msKeywords: KeywordInfo[] = [
+    { word: 'POKE', token: 1, kind: 'command' },
+    { word: 'PRINT', token: 2, kind: 'command' },
+    { word: 'FOR', token: 3, kind: 'command' },
+    { word: 'THEN', token: 4, kind: 'operator' },
+  ];
+  const source = buildCompletionSource(msKeywords, [], { crunched: true });
+
+  function resultAt(doc: string, pos: number = doc.length) {
+    const state = EditorState.create({ doc });
+    return source(new CompletionContext(state, pos, true));
+  }
+
+  it('re-anchors past a glued keyword (POKEA completes the tail)', () => {
+    expect(resultAt('10 POKEA')?.from).toBe('10 POKE'.length);
+  });
+
+  it('re-anchors to the last ROM segment (IFATHENPR completes PR)', () => {
+    // IFA has no keyword (IF is not in this table), THEN glues mid-run: the
+    // completable tail is PR, ready to become PRINT.
+    expect(resultAt('10 IFATHENPR')?.from).toBe('10 IFATHEN'.length);
+  });
+
+  it('keeps whole-word anchoring while a keyword still matches it', () => {
+    expect(resultAt('10 POKE')?.from).toBe(3);
+    expect(resultAt('10 PR')?.from).toBe(3);
+  });
+
+  it('invalidates the result when the tail grows a glued keyword', () => {
+    const res = resultAt('10 POKEA');
+    const validFor = res!.validFor as (text: string) => boolean;
+    expect(typeof validFor).toBe('function');
+    expect(validFor('A')).toBe(true);
+    expect(validFor('ATHEN')).toBe(false);
+  });
+
+  it('non-crunched sources keep whole-run anchoring and a RegExp validFor', () => {
+    const plain = buildCompletionSource(msKeywords, []);
+    const state = EditorState.create({ doc: '10 POKEA' });
+    const res = plain(new CompletionContext(state, 8, true));
+    expect(res?.from).toBe(3);
+    expect(res?.validFor).toBeInstanceOf(RegExp);
+  });
+});

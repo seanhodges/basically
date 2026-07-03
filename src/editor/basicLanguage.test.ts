@@ -7,6 +7,7 @@ import type { KeywordInfo } from '../dialects/types';
 import { zx81Keywords } from '../dialects/zx81/keywords';
 import { spectrumKeywords } from '../dialects/zxspectrum/keywords';
 import { bbcKeywords } from '../dialects/bbcmicro/keywords';
+import { c64Keywords } from '../dialects/commodore64/keywords';
 
 const testKeywords: KeywordInfo[] = [
   { word: 'PRINT', token: 1, kind: 'command' },
@@ -157,6 +158,82 @@ describe('buildBasicLanguage highlighting', () => {
 
     it('tags the caret exponent operator', () => {
       expect(classify('10 A=B^2')).toContainEqual(['^', 'op']);
+    });
+  });
+
+  describe('crunched highlighting (C64/TRS-80)', () => {
+    // Mirrors c64LanguageSupport(): the ROM ignores spaces, so glued keywords
+    // must highlight exactly the way the tokenizer will split them.
+    const crunched = {
+      suffixChars: '$%',
+      graphicsEscapes: false,
+      crunched: true,
+    };
+    const c64 = (doc: string) => classify(doc, c64Keywords, crunched);
+
+    it('splits a keyword glued to a variable (POKEA,10)', () => {
+      const tokens = c64('10 POKEA,10');
+      expect(tokens).toContainEqual(['POKE', 'cmd']);
+      expect(tokens).toContainEqual(['A', 'var']);
+    });
+
+    it('splits a fully crunched FOR loop (FORI=1TO10)', () => {
+      const tokens = c64('10 FORI=1TO10');
+      expect(tokens).toContainEqual(['FOR', 'cmd']);
+      expect(tokens).toContainEqual(['I', 'var']);
+      expect(tokens).toContainEqual(['TO', 'op']);
+      expect(tokens).toContainEqual(['10', 'number']);
+    });
+
+    it('splits a keyword glued to trailing letters (PRINTX, PRINTED)', () => {
+      expect(c64('10 PRINTX')).toContainEqual(['PRINT', 'cmd']);
+      expect(c64('10 PRINTX')).toContainEqual(['X', 'var']);
+      // ROM-faithful: PRINTED is PRINT + ED, not one variable.
+      expect(c64('10 PRINTED')).toContainEqual(['PRINT', 'cmd']);
+      expect(c64('10 PRINTED')).toContainEqual(['ED', 'var']);
+    });
+
+    it('shows a keyword embedded mid-name (SCORE is SC OR E)', () => {
+      const tokens = c64('10 SCORE=1');
+      expect(tokens).toContainEqual(['SC', 'var']);
+      expect(tokens).toContainEqual(['OR', 'op']);
+      expect(tokens).toContainEqual(['E', 'var']);
+    });
+
+    it('longest keyword wins (GOTO100 is GOTO, not GO)', () => {
+      const tokens = c64('10 GOTO100');
+      expect(tokens).toContainEqual(['GOTO', 'cmd']);
+      expect(tokens).toContainEqual(['100', 'number']);
+    });
+
+    it('REM glued to text still comments the rest of the line', () => {
+      const tokens = c64('10 REMARKS HERE');
+      expect(tokens).toContainEqual(['REM', 'cmd']);
+      expect(tokens).toContainEqual(['ARKS HERE', 'comment']);
+    });
+
+    it('splits a $-suffixed keyword at a token boundary (ALEFT$)', () => {
+      const tokens = c64('10 B=ALEFT$(A$,1)');
+      expect(tokens).toContainEqual(['A', 'var']);
+      expect(tokens).toContainEqual(['LEFT$', 'fn']);
+    });
+
+    it('never splits inside a string literal', () => {
+      expect(c64('10 PRINT"FORI"')).toContainEqual(['"FORI"', 'str']);
+    });
+
+    it('non-crunched dialects keep the whole-run rule (zx81/bbc)', () => {
+      expect(classify('10 PRINTX', zx81Keywords)).toContainEqual([
+        'PRINTX',
+        'var',
+      ]);
+      expect(
+        classify('10 PRINTX', bbcKeywords, {
+          nameChars: '_',
+          suffixChars: '$%',
+          graphicsEscapes: false,
+        }),
+      ).toContainEqual(['PRINTX', 'var']);
     });
   });
 });
