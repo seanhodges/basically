@@ -50,9 +50,11 @@ test('Outline sits directly below Find/Replace in the Edit menu', async ({
   await expect(page.getByRole('button', { name: 'Outline…' })).toBeVisible();
 
   // Read the visible menu buttons in DOM order and assert adjacency directly.
+  // Labels may carry a trailing keyboard-shortcut hint (e.g. "Find/Replace
+  // Ctrl+F"), so match on the leading label text rather than exact equality.
   const allLabels = await page.getByRole('button').allInnerTexts();
-  const findIdx = allLabels.indexOf('Find/Replace');
-  const outlineIdx = allLabels.indexOf('Outline…');
+  const findIdx = allLabels.findIndex((l) => l.startsWith('Find/Replace'));
+  const outlineIdx = allLabels.findIndex((l) => l.startsWith('Outline…'));
   expect(findIdx).toBeGreaterThanOrEqual(0);
   expect(outlineIdx).toBe(findIdx + 1);
 

@@ -121,6 +121,10 @@ export function StatusBar() {
               ? 'Hide on-screen keyboard'
               : 'Show on-screen keyboard'
           }
+          // Don't steal focus from the editor: a focus loss here would (250ms
+          // later) reroute the freshly opened keyboard to the stopped machine,
+          // leaving it inert (see useInputOverlays' debounced routeToEditor).
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => setKeyboardEnabled(!keyboardEnabled)}
         >
           ⌨

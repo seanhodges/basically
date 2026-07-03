@@ -80,13 +80,21 @@ function openViaInput<T>(
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = accept;
+    // Attached but invisible: iOS Safari is unreliable with clicks on
+    // detached file inputs.
+    input.style.display = 'none';
     input.onchange = () => {
+      input.remove();
       const file = input.files?.[0];
       if (!file) return resolve(null);
       read(file).then(resolve, reject);
     };
     // 'cancel' fires on modern browsers when the dialog is dismissed
-    input.addEventListener('cancel', () => resolve(null));
+    input.addEventListener('cancel', () => {
+      input.remove();
+      resolve(null);
+    });
+    document.body.appendChild(input);
     input.click();
   });
 }
@@ -115,8 +123,20 @@ export async function saveTextFile(
       throw e;
     }
   }
-  downloadBlob(new Blob([text], { type: 'text/plain' }), name);
-  return name;
+  // Download fallback (Firefox/Safari — no save picker): the browser can't
+  // report the chosen filename back, but the app must know it (tape headers,
+  // the export dialog's save gate keys off `untitled.bas`). Mirror the
+  // Chromium picker by asking each save; Enter keeps the suggested name.
+  const chosen =
+    typeof window !== 'undefined' && typeof window.prompt === 'function'
+      ? window.prompt('Save as', name)
+      : name;
+  if (chosen === null) return null; // cancelled
+  const trimmed = chosen.trim();
+  const finalName =
+    trimmed === '' ? name : trimmed.includes('.') ? trimmed : `${trimmed}.bas`;
+  downloadBlob(new Blob([text], { type: 'text/plain' }), finalName);
+  return finalName;
 }
 
 /**
@@ -138,6 +158,10 @@ export function downloadBlob(blob: Blob, name: string): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
+  // Firefox needs the anchor in the document for the download to trigger.
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

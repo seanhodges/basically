@@ -193,6 +193,12 @@ export function createHistorySync(opts: {
   let idx = 0;
   let stack: StackEntry[] = [];
   let applyingPop = false;
+  // True while a history.go() we issued for a UI-initiated close is in
+  // flight. Its popstate must not write the popped snapshot back into the
+  // store: the store already holds the user's state, which may have moved on
+  // during the (async) round-trip — e.g. F1 opening the docs drawer right
+  // after closing Settings with the mouse.
+  let selfPopInFlight = false;
 
   function init(state: StoreState): void {
     last = computeSnapshot(state, getIsMobile());
@@ -251,6 +257,7 @@ export function createHistorySync(opts: {
       }
       if (steps > 0) {
         applyingPop = true;
+        selfPopInFlight = true;
         history.go(-steps);
         return;
       }
@@ -283,6 +290,17 @@ export function createHistorySync(opts: {
       stack.push({ keys: st.keys });
     }
     idx = newIdx;
+
+    if (selfPopInFlight) {
+      // Completion of our own go() for a UI close: don't apply the (stale)
+      // popped snapshot — reconcile forward instead, so anything the user
+      // opened or closed during the round-trip is tracked normally.
+      selfPopInFlight = false;
+      applyingPop = false;
+      last = target;
+      onStoreChange(useIdeStore.getState());
+      return;
+    }
 
     applySnapshot(target, getIsMobile());
     last = target;

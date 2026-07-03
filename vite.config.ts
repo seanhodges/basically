@@ -5,6 +5,21 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   base: './',
+  server: {
+    // In production the VitePress docs build is deployed under /docs/ next to
+    // the app; in dev the docs are a separate server (`npm run docs:dev`).
+    // Without this proxy the SPA fallback answers /docs/ with the IDE shell
+    // itself, so the in-app docs drawer shows the IDE recursively. Proxy
+    // /docs to the docs dev server instead (the e2e suite starts one on 5174;
+    // run `npm run docs:dev -- --port 5174` alongside `npm run dev` to get
+    // live docs in the drawer during development).
+    proxy: {
+      '^/docs(/|$)': {
+        target: `http://localhost:${process.env.DOCS_PORT ?? 5174}`,
+        ws: true,
+      },
+    },
+  },
   plugins: [
     react(),
     // Service worker for the app shell, so the IDE itself works offline once

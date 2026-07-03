@@ -4,9 +4,10 @@ import { test, type Page } from './fixtures';
  * Capture the screenshots used by the docs site (docs/index.md) and the README.
  *
  * This is a utility "spec" — run it on demand to regenerate the images, not as
- * part of the normal test suite:
+ * part of the normal test suite (it's excluded from `npm run e2e` via
+ * `testIgnore` in playwright.config.ts):
  *
- *   npx playwright test e2e/capture-docs-screenshots.spec.ts
+ *   npm run e2e:docs-screenshots
  *
  * Each test drives the IDE into one state and writes a viewport screenshot into
  * docs/public/. The landing page and README reference these by name.
@@ -14,6 +15,13 @@ import { test, type Page } from './fixtures';
  * The showcase machine is the Commodore 64 (colourful, and its Breakout sample
  * drives a joystick — a natural pairing for the virtual-gamepad mobile shot).
  */
+
+// Utility spec: the screenshots only need generating once, so skip the
+// non-Chromium projects of the cross-browser matrix.
+test.skip(
+  ({ browserName }) => browserName !== 'chromium',
+  'docs screenshots are generated once, in Chromium',
+);
 
 const OUT = 'docs/public';
 const VIEWPORT = { width: 1440, height: 900 };

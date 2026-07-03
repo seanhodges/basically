@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useIdeStore } from '../app/store';
+import { useDismiss } from '../app/useDismiss';
 import {
   isMobileViewport,
   useMediaQuery,
@@ -68,7 +69,6 @@ export function Toolbar() {
   // (where the toolbar collapses to a rail).
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const [error, setError] = useState('');
-  const menuRef = useRef<HTMLDivElement>(null);
 
   // editor/preview tabs carry context actions in the overflow menu; on the
   // other tabs it exists only to host the spilled-out Help / Target items.
@@ -77,17 +77,28 @@ export function Toolbar() {
   // Phone landscape collapses the toolbar into a narrow vertical left rail.
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
 
-  const closeMenus = () => {
+  // Stable so the useDismiss effects only re-subscribe when a menu toggles
+  // (the useState setters are referentially stable, so [] deps are correct).
+  const closeMenus = useCallback(() => {
     setFileMenuOpen(false);
     setEditMenuOpen(false);
     setOverflowMenuOpen(false);
-  };
+  }, []);
+
+  // Each dropdown dismisses on an outside pointerdown or Escape while open; the
+  // ref goes on the menu wrapper so clicks on the trigger/panel count as inside.
+  const fileMenuRef = useDismiss<HTMLDivElement>(fileMenuOpen, closeMenus);
+  const editMenuRef = useDismiss<HTMLDivElement>(editMenuOpen, closeMenus);
+  const overflowMenuRef = useDismiss<HTMLDivElement>(
+    overflowMenuOpen,
+    closeMenus,
+  );
 
   // The dropdown menus and the on-screen keyboard are mutually exclusive:
   // opening the keyboard (its toggle lives in the emulator pane) closes them.
   useEffect(() => {
     if (keyboardEnabled) closeMenus();
-  }, [keyboardEnabled]);
+  }, [keyboardEnabled, closeMenus]);
 
   // Opening a menu hides the keyboard and the other menus; on mobile,
   // run/stop/reset jump to the preview tab so the user sees the emulator they
@@ -197,7 +208,7 @@ export function Toolbar() {
   return (
     <div className={`${styles.toolbar} ${landscape ? styles.rail : ''}`}>
       <div className={styles.toolbarLeft}>
-        <div className={styles.menu} ref={menuRef}>
+        <div className={styles.menu} ref={fileMenuRef}>
           <button onClick={toggleFileMenu}>
             <span className={styles.fileIcon}>
               <FloppyIcon />
@@ -205,10 +216,7 @@ export function Toolbar() {
             <span className={styles.fileLabel}>File ▾</span>
           </button>
           {fileMenuOpen && (
-            <div
-              className={styles.menuItems}
-              onMouseLeave={() => setFileMenuOpen(false)}
-            >
+            <div className={styles.menuItems}>
               <button onClick={newFile}>New{hint('file.new')}</button>
               <button onClick={openFile}>Open .bas…{hint('file.open')}</button>
               <button onClick={saveFile}>Save .bas{hint('file.save')}</button>
@@ -230,13 +238,10 @@ export function Toolbar() {
             module CSS. */}
         <MobileTabBar />
 
-        <div className={`${styles.menu} desktop-only`}>
+        <div className={`${styles.menu} desktop-only`} ref={editMenuRef}>
           <button onClick={toggleEditMenu}>Edit ▾</button>
           {editMenuOpen && (
-            <div
-              className={styles.menuItems}
-              onMouseLeave={() => setEditMenuOpen(false)}
-            >
+            <div className={styles.menuItems}>
               <button onClick={editAction('undo')}>
                 Undo{hint('edit.undo')}
               </button>
@@ -381,7 +386,7 @@ export function Toolbar() {
             AI/Settings tabs it carries only those spilled-out items, so its
             trigger stays hidden until the bar is narrow enough to surface them
             (see .overflowTargetOnly in the stylesheet). */}
-        <div className={`${styles.menu} mobile-only`}>
+        <div className={`${styles.menu} mobile-only`} ref={overflowMenuRef}>
           <button
             className={`icon-btn mobile-visible ${
               contextTab ? '' : styles.overflowTargetOnly
@@ -398,10 +403,7 @@ export function Toolbar() {
             <DotsIcon />
           </button>
           {overflowMenuOpen && (
-            <div
-              className={`${styles.menuItems} ${styles.menuItemsRight}`}
-              onMouseLeave={() => setOverflowMenuOpen(false)}
-            >
+            <div className={`${styles.menuItems} ${styles.menuItemsRight}`}>
               {mobileTab === 'editor' && (
                 <>
                   <button onClick={editAction('undo')}>Undo</button>

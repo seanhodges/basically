@@ -72,6 +72,7 @@ import {
 } from '../editor/lineNumbering';
 import { findRowForLineNumber } from '../editor/programOutline';
 import { isMobileViewport } from '../app/useMediaQuery';
+import { isMac } from '../app/shortcuts';
 import styles from './CodeMirrorHost.module.css';
 
 /** Replace the whole document and drop the cursor at the end of `cursorLine`. */
@@ -251,6 +252,53 @@ function clipboardRange(view: EditorView): { from: number; to: number } {
   return { from: line.from, to: Math.min(line.to + 1, view.state.doc.length) };
 }
 
+/**
+ * Write to the clipboard, tolerating browsers/contexts without the async
+ * Clipboard API (insecure http origins; older browsers). Falls back to the
+ * legacy execCommand path via a temporary off-screen textarea. Returns whether
+ * the text actually reached the clipboard.
+ */
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to the legacy path (e.g. permission denied)
+    }
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
+  ta.remove();
+  return ok;
+}
+
+/**
+ * Read the clipboard, or null when this browser doesn't allow it (Firefox
+ * < 125 has no readText; insecure contexts have no navigator.clipboard; the
+ * user may deny the paste permission prompt). There is no legacy read
+ * fallback — execCommand('paste') is blocked in web content.
+ */
+async function readTextFromClipboard(): Promise<string | null> {
+  if (!navigator.clipboard?.readText) return null;
+  try {
+    return await navigator.clipboard.readText();
+  } catch {
+    return null;
+  }
+}
+
 /** Run an Edit-menu command against the editor. */
 async function runEditorCommand(
   view: EditorView,
@@ -266,14 +314,23 @@ async function runEditorCommand(
     case 'copy':
     case 'cut': {
       const { from, to } = clipboardRange(view);
-      await navigator.clipboard.writeText(view.state.sliceDoc(from, to));
-      if (name === 'cut') {
+      const copied = await copyTextToClipboard(view.state.sliceDoc(from, to));
+      // Never cut what didn't reach the clipboard — that would destroy text.
+      if (name === 'cut' && copied) {
         view.dispatch({ changes: { from, to }, userEvent: 'delete.cut' });
       }
       break;
     }
     case 'paste': {
-      const text = await navigator.clipboard.readText();
+      const text = await readTextFromClipboard();
+      if (text === null) {
+        window.alert(
+          `This browser doesn't allow pasting from the menu — press ${
+            isMac() ? '⌘V' : 'Ctrl+V'
+          } in the editor instead.`,
+        );
+        break;
+      }
       if (text)
         view.dispatch(view.state.replaceSelection(text), {
           userEvent: 'input.paste',

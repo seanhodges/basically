@@ -81,6 +81,7 @@
      follows the canvas's intrinsic aspect ratio. */
   height: auto;
   max-width: 100%;
+  image-rendering: crisp-edges; /* Firefox < 93 (no `pixelated`) */
   image-rendering: pixelated;
   background: #fff;
   outline: none;
