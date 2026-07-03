@@ -6,6 +6,7 @@ import type {
   JoystickMode,
   JoystickState,
   MachineEmulator,
+  MachineMemoryStats,
   MachineReport,
   MachineVariable,
 } from '../../types';
@@ -21,7 +22,7 @@ import { SpectrumKeyboard } from './keyboard';
 import { Beeper, BEEPER_SAMPLE_RATE } from '../../zxspectrum/emulator/beeper';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, parseTap } from '../tapfile';
-import { PPC } from '../../zxspectrum/sysvars';
+import { PPC, PROG, STKEND, RAMTOP } from '../../zxspectrum/sysvars';
 
 const TSTATES_PER_FRAME = 70908; // 3.5469MHz / ~50.02Hz (128K ULA frame)
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
@@ -453,6 +454,23 @@ export class Spectrum128Machine implements MachineEmulator {
 
   readReport(): MachineReport {
     return readSpectrumReport(this.memory);
+  }
+
+  /**
+   * Actual RAM figures from the ROM's own pointers — the 128 keeps the 48K
+   * system variables at the same addresses in the fixed bank-5 window, so the
+   * same PROG/STKEND/RAMTOP arithmetic applies (RAMTOP sits below the banked
+   * region in 128 BASIC).
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    const prog = this.memory.readWord(PROG);
+    const stkend = this.memory.readWord(STKEND);
+    const ramtop = this.memory.readWord(RAMTOP);
+    const used = stkend - prog;
+    const free = ramtop - stkend;
+    // Implausible pointers mean the ROM hasn't initialised them yet.
+    if (prog < 0x5c00 || used <= 0 || free < 0) return null;
+    return { used, free };
   }
 
   get borderColor(): number {

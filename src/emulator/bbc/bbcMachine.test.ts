@@ -59,6 +59,27 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     machine.dispose();
   }, 60000);
 
+  it('reports plausible actual RAM figures while a program runs', async () => {
+    const machine = new BbcMachine();
+    expect(machine.readMemoryStats()).toBeNull(); // not initialised yet
+    const { bytes } = tokenizeProgram(
+      '10 DIM A(500)\n20 PRINT "HELLO BEEB"\n30 END\n',
+    );
+    machine.loadProgram(bytes);
+    const ran = await runUntil(machine, () =>
+      screenText(machine).includes('HELLO BEEB'),
+    );
+    expect(ran).toBe(true);
+    const stats = machine.readMemoryStats();
+    expect(stats).not.toBeNull();
+    // 500 five-byte reals ≈ 2.5K of variables beyond the program text.
+    expect(stats!.used).toBeGreaterThan(2500);
+    expect(stats!.free).toBeGreaterThan(0);
+    // PAGE (&0E00) to HIMEM (&7C00 in mode 7) on a Model B.
+    expect(stats!.used + stats!.free).toBeLessThanOrEqual(0x7c00 - 0x0e00);
+    machine.dispose();
+  }, 60000);
+
   it('takes more frames to finish the same program at a slower speed', async () => {
     // A busy loop long enough that its completion spans many frames, so the
     // run (not just boot) is what setSpeed throttles.

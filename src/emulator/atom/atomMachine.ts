@@ -3,7 +3,7 @@ import { findModel } from 'jsbeeb/src/models.js';
 import { Video } from 'jsbeeb/src/video.js';
 import { AtomSoundChip } from 'jsbeeb/src/soundchip.js';
 import * as utils from 'jsbeeb/src/utils.js';
-import type { MachineEmulator } from '../../dialects/types';
+import type { MachineEmulator, MachineMemoryStats } from '../../dialects/types';
 import {
   AtomHostKeyboard,
   isToggleKey,
@@ -69,6 +69,14 @@ const KEY_UP_CYCLES = 40_000;
  */
 const TEXT_START = 0x2900;
 const TOP_OF_TEXT = 0x0d;
+/**
+ * Top of the RAM contiguously available to BASIC text on the emulated
+ * `Atom-Tape-FP` model: RAM runs unbroken from {@link TEXT_START} until the
+ * VDG screen at `#8000` (confirmed by write-probing the booted machine). The
+ * dialect's `programRamBytes` budget is deliberately more conservative; the
+ * live readout reports what this machine actually has.
+ */
+const RAM_TOP = 0x8000;
 
 // In the browser, jsbeeb fetches 'roms/…' relative to this base; the Atom ROM
 // set is committed under public/roms/atom/ in the layout jsbeeb expects.
@@ -173,6 +181,23 @@ export class AtomMachine implements MachineEmulator {
   /** The Atom PPIA, which owns the key matrix and tape/speaker ports. */
   private get ppia(): NonNullable<Cpu6502['atomppia']> {
     return this.cpu.atomppia!;
+  }
+
+  /**
+   * Actual RAM figures from BASIC's own top-of-text pointer (`#0D/#0E`), which
+   * the interpreter advances past the program's `0D FF` end marker and again
+   * as `DIM` allocates arrays — so TEXT_START..TOP is in use and TOP to
+   * {@link RAM_TOP} is free. `readmem` is a side-effect-free main-RAM read.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (!this.initialised || this.injecting || this.disposed) return null;
+    const top =
+      this.cpu.readmem(TOP_OF_TEXT) | (this.cpu.readmem(TOP_OF_TEXT + 1) << 8);
+    const used = top - TEXT_START;
+    const free = RAM_TOP - top;
+    // Implausible pointer means the kernel hasn't initialised BASIC yet.
+    if (top < TEXT_START || free < 0) return null;
+    return { used, free };
   }
 
   reset(): void {

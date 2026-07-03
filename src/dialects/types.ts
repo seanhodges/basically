@@ -170,6 +170,14 @@ export interface JoystickState {
  */
 export type JoystickMode = 'native' | 'kempston';
 
+/** Actual BASIC RAM figures read from a running machine's own pointers. */
+export interface MachineMemoryStats {
+  /** Bytes of BASIC RAM in use (program + variables + workspace/stacks). */
+  used: number;
+  /** Bytes still free to the BASIC program. */
+  free: number;
+}
+
 export interface MachineEmulator {
   reset(): void;
   /** Inject a built image (post-boot) and arrange for it to run. */
@@ -233,6 +241,14 @@ export interface MachineEmulator {
    * dialect. The app detects support via `typeof machine.readReport === 'function'`.
    */
   readReport?(): MachineReport | null;
+  /**
+   * Actual RAM used/free as the machine's own BASIC pointers report them, or
+   * null while the figures are implausible (mid-boot, mid-injection, reset).
+   * Optional: a machine with no real RAM model simply omits it and the IDE
+   * keeps showing the tokenized-size estimate. Detected via
+   * `typeof machine.readMemoryStats === 'function'`.
+   */
+  readMemoryStats?(): MachineMemoryStats | null;
   /**
    * The BASIC line number about to be executed next, or null when none is
    * determinable (e.g. sitting at the ready/K cursor, mid-edit, or the program

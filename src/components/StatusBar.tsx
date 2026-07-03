@@ -1,5 +1,5 @@
 import { useIdeStore } from '../app/store';
-import { useProgramStats, ramBudget } from '../app/useProgramStats';
+import { useProgramStats, ramDisplay } from '../app/useProgramStats';
 import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
 import styles from './StatusBar.module.css';
 
@@ -42,7 +42,16 @@ export function StatusBar() {
 
   const stats = useProgramStats();
 
-  const { pct, label } = ramBudget(stats.bytes, dialect.programRamBytes);
+  // Actual machine figures while running/paused (published by EmulatorPane);
+  // null falls back to the tokenized-size estimate against the budget.
+  const liveMemory = useIdeStore((s) => s.liveMemory);
+  const ram = ramDisplay(stats.bytes, dialect.programRamBytes, liveMemory);
+  const ramClass =
+    ram.severity === 'crit'
+      ? styles.statusRamCrit
+      : ram.severity === 'warn'
+        ? styles.statusRamWarn
+        : '';
 
   // The full status line. On desktop it lays out inline across the bar; on mobile
   // it's fed to a scrolling ticker so it fits the narrow width instead of being
@@ -54,8 +63,13 @@ export function StatusBar() {
         {dirty ? ' •' : ''}
       </span>
       <span>{dialect.name}</span>
-      <span title="Tokenized program size">
-        {stats.bytes.toLocaleString()} bytes ({pct}% of {label} budget)
+      <span
+        className={ramClass}
+        title={
+          liveMemory ? 'Actual machine RAM in use' : 'Tokenized program size'
+        }
+      >
+        {ram.text}
       </span>
       <span className={stats.errors > 0 ? styles.statusErrors : ''}>
         {stats.errors === 0

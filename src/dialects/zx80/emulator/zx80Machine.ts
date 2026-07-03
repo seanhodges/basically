@@ -4,6 +4,7 @@ import type {
   DebugStepOptions,
   DebugStepResult,
   MachineEmulator,
+  MachineMemoryStats,
 } from '../../types';
 import { Zx80Memory } from './memory';
 import { Zx81Keyboard } from '../../zx81/emulator/keyboard';
@@ -228,6 +229,25 @@ export class Zx80Machine implements MachineEmulator {
 
   get processor(): Z80Core {
     return this.cpu;
+  }
+
+  /**
+   * Actual RAM figures from the ROM's own pointers. The ZX80 stacks its
+   * dynamic areas as sysvars → program → variables → edit line → display
+   * file, so DF_END (the end of the display file) is the top of everything in
+   * use; above it to the top of the RAM pack is spare (the machine stack grows
+   * down from there, as on real hardware).
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    // The echo region mirrors the lower 32K, so addressable RAM caps at 0x8000
+    // regardless of pack size.
+    const ramTop = 0x4000 + Math.min(this.memory.ram.length, 0x4000);
+    const dfEnd = this.memory.readWord(DF_END);
+    const used = dfEnd - SYSVARS_BASE;
+    const free = ramTop - dfEnd;
+    // Implausible pointers mean the ROM hasn't initialised them yet.
+    if (dfEnd <= SYSVARS_BASE || used <= 0 || free < 0) return null;
+    return { used, free };
   }
 
   keyEvent(e: KeyboardEvent, down: boolean): boolean {

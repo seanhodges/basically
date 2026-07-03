@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { getDialect, dialects } from '../dialects/registry';
-import type { Dialect, MachineReport } from '../dialects/types';
+import type {
+  Dialect,
+  MachineMemoryStats,
+  MachineReport,
+} from '../dialects/types';
 import type { ControllerRole } from '../keyboard/layoutSchema';
 import {
   type ControllerOverrides,
@@ -91,6 +95,12 @@ interface IdeState {
   aiResetSeq: number;
   dirty: boolean;
   emulatorStatus: EmulatorStatus;
+  /**
+   * Actual machine RAM figures while the emulator is running/paused; null when
+   * stopped or the machine can't report them (the status bar then falls back
+   * to the tokenized-size estimate).
+   */
+  liveMemory: MachineMemoryStats | null;
   /** Bumped to ask the emulator pane to (re)load + run the current source. */
   runRequest: number;
   /**
@@ -291,6 +301,7 @@ interface IdeState {
   setMobileTab(tab: MobileTab): void;
   setSplitRatio(n: number): void;
   setEmulatorStatus(status: EmulatorStatus): void;
+  setLiveMemory(stats: MachineMemoryStats | null): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
   setImportOpen(open: boolean): void;
@@ -387,6 +398,7 @@ function applyDialectSwitch(
     // it stopped so the UI reflects the switch immediately. Also bump
     // stopRequest so any in-flight run loop is explicitly halted.
     emulatorStatus: 'stopped',
+    liveMemory: null,
     stopRequest: s.stopRequest + 1,
     // Breakpoints are keyed by line number, which belongs to the old program;
     // start the new target with a clean slate and no paused line.
@@ -409,6 +421,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   aiResetSeq: 0,
   dirty: false,
   emulatorStatus: 'stopped',
+  liveMemory: null,
   runRequest: 0,
   aiRunCheckSeq: 0,
   runReport: null,
@@ -636,6 +649,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   setMobileTab: (tab) => set({ mobileTab: tab }),
   setSplitRatio: (n) => set({ splitRatio: n }),
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
+  setLiveMemory: (stats) => set({ liveMemory: stats }),
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setTransferOpen: (open) => set({ transferOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
