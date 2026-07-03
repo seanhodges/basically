@@ -15,6 +15,13 @@ import { test } from './fixtures';
  * A landscape touch context is built per-case (the default project is desktop, no
  * touch) at widths above and below the old 769px breakpoint.
  */
+// This spec builds its own Chromium touch contexts (the matrix projects are
+// desktop, no touch) — running it once is enough; skip the other projects.
+test.skip(
+  ({ browserName }) => browserName !== 'chromium',
+  'builds its own Chromium touch contexts',
+);
+
 const WELCOME_SEEN_KEY = 'mbide.hasSeenWelcome';
 
 const LANDSCAPE_QUERY =

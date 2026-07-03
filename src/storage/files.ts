@@ -123,8 +123,20 @@ export async function saveTextFile(
       throw e;
     }
   }
-  downloadBlob(new Blob([text], { type: 'text/plain' }), name);
-  return name;
+  // Download fallback (Firefox/Safari — no save picker): the browser can't
+  // report the chosen filename back, but the app must know it (tape headers,
+  // the export dialog's save gate keys off `untitled.bas`). Mirror the
+  // Chromium picker by asking each save; Enter keeps the suggested name.
+  const chosen =
+    typeof window !== 'undefined' && typeof window.prompt === 'function'
+      ? window.prompt('Save as', name)
+      : name;
+  if (chosen === null) return null; // cancelled
+  const trimmed = chosen.trim();
+  const finalName =
+    trimmed === '' ? name : trimmed.includes('.') ? trimmed : `${trimmed}.bas`;
+  downloadBlob(new Blob([text], { type: 'text/plain' }), finalName);
+  return finalName;
 }
 
 /**

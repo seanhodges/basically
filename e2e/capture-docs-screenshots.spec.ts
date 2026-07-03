@@ -15,6 +15,13 @@ import { test, type Page } from './fixtures';
  * drives a joystick — a natural pairing for the virtual-gamepad mobile shot).
  */
 
+// Utility spec: the screenshots only need generating once, so skip the
+// non-Chromium projects of the cross-browser matrix.
+test.skip(
+  ({ browserName }) => browserName !== 'chromium',
+  'docs screenshots are generated once, in Chromium',
+);
+
 const OUT = 'docs/public';
 const VIEWPORT = { width: 1440, height: 900 };
 const MOBILE_VIEWPORT = { width: 390, height: 800 };
