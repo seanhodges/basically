@@ -279,6 +279,10 @@ export function isMac(): boolean {
 
 /** Does a keyboard event satisfy any of a shortcut's chords? */
 export function matchesShortcut(e: KeyboardEvent, s: Shortcut): boolean {
+  // Windows reports AltGr as Ctrl+Alt, so typing € (AltGr+E on many European
+  // layouts) would otherwise fire the Ctrl+Alt+E shortcut and swallow the
+  // character. The AltGraph modifier state tells the two apart.
+  if (e.getModifierState?.('AltGraph')) return false;
   const mod = e.ctrlKey || e.metaKey;
   return s.keys.some(
     (k) =>

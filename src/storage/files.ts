@@ -80,13 +80,21 @@ function openViaInput<T>(
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = accept;
+    // Attached but invisible: iOS Safari is unreliable with clicks on
+    // detached file inputs.
+    input.style.display = 'none';
     input.onchange = () => {
+      input.remove();
       const file = input.files?.[0];
       if (!file) return resolve(null);
       read(file).then(resolve, reject);
     };
     // 'cancel' fires on modern browsers when the dialog is dismissed
-    input.addEventListener('cancel', () => resolve(null));
+    input.addEventListener('cancel', () => {
+      input.remove();
+      resolve(null);
+    });
+    document.body.appendChild(input);
     input.click();
   });
 }
@@ -138,6 +146,10 @@ export function downloadBlob(blob: Blob, name: string): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
+  // Firefox needs the anchor in the document for the download to trigger.
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

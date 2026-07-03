@@ -8,6 +8,7 @@
 }
 
 .workspace.dragging {
+  -webkit-user-select: none; /* Safari only honours the prefixed form */
   user-select: none;
 }
 

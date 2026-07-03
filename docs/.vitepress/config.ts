@@ -111,6 +111,10 @@ export default withPwa(
                 text: 'Dialect roadmap',
                 link: '/contributing/dialect-roadmap',
               },
+              {
+                text: 'Cross-browser test plan',
+                link: '/contributing/cross-browser-test-plan',
+              },
             ],
           },
         ],

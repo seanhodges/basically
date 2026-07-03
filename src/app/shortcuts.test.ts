@@ -97,6 +97,23 @@ describe('matchesShortcut', () => {
     expect(matchesShortcut(ev('Enter', { mod: true }), run)).toBe(true);
     expect(matchesShortcut(ev('Enter'), run)).toBe(false);
   });
+
+  it('ignores AltGr chords (reported as Ctrl+Alt on Windows)', () => {
+    const exportSc = getShortcut('file.export'); // Mod+Alt+E
+    const altGrE = {
+      code: 'KeyE',
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+      altKey: true,
+      getModifierState: (m: string) => m === 'AltGraph',
+    } as unknown as KeyboardEvent;
+    expect(matchesShortcut(altGrE, exportSc)).toBe(false);
+    // A genuine Ctrl+Alt+E still matches.
+    expect(
+      matchesShortcut(ev('KeyE', { mod: true, alt: true }), exportSc),
+    ).toBe(true);
+  });
 });
 
 describe('formatShortcut', () => {

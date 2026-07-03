@@ -83,6 +83,10 @@ export async function startRecording(
   });
 
   const ctx = new AudioContext();
+  // Safari: the permission prompt can outlive the click's user activation, so
+  // this context may start suspended — with no audio flowing, the session would
+  // record silence forever. Resuming is allowed for capture contexts.
+  if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
   const sampleRate = ctx.sampleRate;
   const source = ctx.createMediaStreamSource(stream);
   const chunks: Float32Array[] = [];

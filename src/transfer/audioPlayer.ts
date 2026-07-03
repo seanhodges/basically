@@ -29,6 +29,10 @@ export function playSamples(
     void ctx.close();
     finished();
   };
+  // Safari can hand back a suspended context even inside a click handler
+  // (autoplay policy). A suspended context never starts the source, so onended
+  // never fires and `done` would hang — resume before starting.
+  if (ctx.state === 'suspended') void ctx.resume();
   source.start();
 
   return {
