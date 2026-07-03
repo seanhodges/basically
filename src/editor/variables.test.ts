@@ -8,10 +8,13 @@ import {
 import type { OutlineCapabilities } from './programOutline';
 import {
   collectVariables,
+  forEachVariable,
   variablesInScopeAt,
   makeVariableSource,
   type VarNameRules,
+  type VarToken,
 } from './variables';
+import { makeCrunchMatcher } from './crunch';
 
 /** Build a dialect rule-set for the scanner from its lexical options + keywords. */
 function makeRules(
@@ -221,5 +224,136 @@ describe('makeVariableSource — completion behaviour', () => {
     // A name that also occurs elsewhere is still offered.
     const res = resultAt('10 score=0\n20 PRINT sco');
     expect(res?.options.map((o) => o.label)).toContain('score');
+  });
+});
+
+describe('forEachVariable — crunched (MS-BASIC) splitting', () => {
+  const MS_KW = [
+    'PRINT',
+    'GOTO',
+    'GOSUB',
+    'IF',
+    'THEN',
+    'LET',
+    'FOR',
+    'NEXT',
+    'TO',
+    'OR',
+    'AND',
+    'INPUT',
+    'READ',
+    'GET',
+    'DIM',
+    'DATA',
+    'REM',
+    'POKE',
+    'DEF',
+    'FN',
+    'LEFT$',
+    'END',
+  ];
+  const msRules: VarNameRules = {
+    ...makeRules({ suffixChars: '$%' }, MS_KW),
+    crunch: makeCrunchMatcher(MS_KW),
+  };
+
+  function tokensOf(code: string): VarToken[] {
+    const out: VarToken[] = [];
+    forEachVariable(code, msRules, (t) => out.push(t));
+    return out;
+  }
+
+  it('splits glued keywords off variables (POKEA, FORI=1TO10)', () => {
+    const model = collectVariables('10 POKEA,10\n20 FORI=1TO10', msRules, {
+      hasProc: false,
+      hasFn: true,
+      hasGosub: true,
+      hasGoto: true,
+    });
+    expect([...model.globals].sort()).toEqual(['A', 'I']);
+  });
+
+  it('keeps the prevKeyword contract for a crunched FOR', () => {
+    expect(tokensOf('FORI=1TO10')).toEqual([
+      { text: 'I', index: 3, prevKeyword: 'FOR' },
+    ]);
+  });
+
+  it('flags a broken name where a variable is expected (SCORE=1)', () => {
+    expect(tokensOf('SCORE=1')).toEqual([
+      { text: 'SCORE', index: 0, prevKeyword: null, embedsKeyword: 'OR' },
+    ]);
+  });
+
+  it('flags after a statement separator and after LET/FOR', () => {
+    expect(tokensOf('X=1:SCORE=2')[1]).toMatchObject({
+      text: 'SCORE',
+      embedsKeyword: 'OR',
+    });
+    expect(tokensOf('LETSCORE=1')[0]).toMatchObject({
+      text: 'SCORE',
+      prevKeyword: 'LET',
+      embedsKeyword: 'OR',
+    });
+    expect(tokensOf('IFATHENSCORE=1')[1]).toMatchObject({
+      text: 'SCORE',
+      embedsKeyword: 'OR',
+    });
+  });
+
+  it('splits silently in expression position (legit crunch)', () => {
+    // Q THEN GOTO — canonical crunched IF; no name may be flagged.
+    const ifTokens = tokensOf('IFP=QTHENGOTO50');
+    expect(ifTokens.map((t) => t.text)).toEqual(['P', 'Q']);
+    expect(ifTokens.every((t) => t.embedsKeyword === undefined)).toBe(true);
+    // A TO B — crunched FOR limit.
+    expect(tokensOf('FORI=ATOB').map((t) => t.text)).toEqual(['I', 'A', 'B']);
+    // An intended name in expression position splits to what the ROM sees.
+    expect(tokensOf('A=SCORE').map((t) => t.text)).toEqual(['A', 'SC', 'E']);
+  });
+
+  it('splits a $-suffixed keyword at the token boundary (ALEFT$)', () => {
+    expect(tokensOf('B=ALEFT$(C$,1)').map((t) => t.text)).toEqual([
+      'B',
+      'A',
+      'C$',
+    ]);
+  });
+
+  it('stops at REM even when glued (REMARK)', () => {
+    expect(tokensOf('REMARK NOTES')).toEqual([]);
+  });
+
+  it('skips DATA items up to the next statement', () => {
+    expect(tokensOf('DATA FORWARD,5:PRINTX').map((t) => t.text)).toEqual(['X']);
+    expect(tokensOf('DATA FORWARD,5')).toEqual([]);
+  });
+
+  describe('completion re-anchoring', () => {
+    const source = makeVariableSource(msRules, {
+      hasProc: false,
+      hasFn: true,
+      hasGosub: true,
+      hasGoto: true,
+    });
+
+    function resultAt(doc: string, pos: number = doc.length) {
+      const state = EditorState.create({ doc });
+      return source(new CompletionContext(state, pos, true));
+    }
+
+    it('re-anchors past a glued keyword (POKEA completes the A)', () => {
+      const doc = '10 A2=1\n20 POKEA';
+      const res = resultAt(doc);
+      expect(res?.from).toBe(doc.length - 1);
+      expect(res?.options.map((o) => o.label)).toContain('A2');
+    });
+
+    it('keeps the whole word when a known name matches it (SCO → SCORE)', () => {
+      const doc = '10 SCORE=1\n20 A=SCO';
+      const res = resultAt(doc);
+      expect(res?.from).toBe(doc.length - 3);
+      expect(res?.options.map((o) => o.label)).toContain('SCORE');
+    });
   });
 });

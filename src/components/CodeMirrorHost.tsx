@@ -61,6 +61,7 @@ import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { dialectLinter } from '../editor/lintIntegration';
 import { basicHighlightStyle } from '../editor/basicLanguage';
 import { numberingConfig, fullCompletion } from '../editor/completions';
+import { crunchMatcher } from '../editor/crunch';
 import { useIdeStore } from '../app/store';
 import type { EditorCommandName } from '../app/store';
 import {
@@ -154,7 +155,9 @@ function handleShiftEnter(view: EditorView): boolean {
  *
  * The replace range is recomputed with the same leading-identifier pattern the
  * completion source matches (see buildCompletionSource in completions.ts); keep
- * the two in step.
+ * the two in step. For crunched dialects (C64/TRS-80) the sources re-anchor
+ * past glued keywords (`POKEA` completes only the `A`), so when the selected
+ * option doesn't match the whole word we re-anchor the same way here.
  */
 function acceptCompletionForPeriod(view: EditorView): boolean {
   if (completionStatus(view.state) !== 'active') return false;
@@ -165,7 +168,15 @@ function acceptCompletionForPeriod(view: EditorView): boolean {
   const line = view.state.doc.lineAt(head);
   const before = view.state.sliceDoc(line.from, head);
   const word = /[A-Za-z][A-Za-z$]*$/.exec(before);
-  const from = word ? head - word[0].length : head;
+  let from = word ? head - word[0].length : head;
+  const crunch = view.state.facet(crunchMatcher);
+  if (
+    crunch &&
+    word &&
+    !option.label.toUpperCase().startsWith(word[0].toUpperCase())
+  ) {
+    from = head - word[0].length + crunch.tailStart(word[0]);
+  }
 
   const { apply } = option;
   if (typeof apply === 'function') {

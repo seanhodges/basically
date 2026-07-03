@@ -8,6 +8,7 @@ import type { CompletionSource } from '@codemirror/autocomplete';
 import type { EditorKeyword } from '../dialects/types';
 import { outlineCapabilities } from './programOutline';
 import { makeVariableSource, type VarNameRules } from './variables';
+import { crunchMatcher, makeCrunchMatcher } from './crunch';
 
 interface BasicStreamState {
   afterRem: boolean;
@@ -29,6 +30,14 @@ export interface BasicLanguageOptions {
   hexPrefix?: string;
   /** Prefix introducing a binary number literal (e.g. `%` for BBC). */
   binaryPrefix?: string;
+  /**
+   * Greedy position-independent keyword matching — Microsoft-BASIC "code
+   * crunching" (C64/TRS-80), where the ROM ignores spaces so `POKEA,10` is
+   * `POKE A,10`. When set, the highlighter, variable scanner and completion
+   * sources split identifier runs the way the ROM tokenizer will, instead of
+   * requiring a keyword to consume the whole run. Default false.
+   */
+  crunched?: boolean;
 }
 
 /**
@@ -94,6 +103,7 @@ export function buildBasicLanguage(
     ? new RegExp(`^${options.binaryPrefix}[01]+`)
     : null;
   const { headRe, varRe } = buildIdentifierRegexes(options);
+  const crunch = options.crunched ? makeCrunchMatcher(kinds.keys()) : null;
 
   const language = StreamLanguage.define<BasicStreamState>({
     name: 'basic',
@@ -122,6 +132,30 @@ export function buildBasicLanguage(
       }
 
       const word = stream.match(headRe, false);
+      if (word && crunch) {
+        // Crunched (MS-BASIC) mode: longest keyword at this exact position,
+        // whatever follows it — `POKEA` is POKE + variable A. No keyword here
+        // means variable characters up to the next glued keyword (`SCORE` is
+        // SC + OR + E, exactly what the ROM stores).
+        const rest = stream.string.slice(stream.pos);
+        const kw = crunch.keywordAt(rest, 0);
+        if (kw) {
+          for (let i = 0; i < kw.length; i++) stream.next();
+          if (kw === 'REM') {
+            state.afterRem = true;
+            return 'keyword';
+          }
+          const kind = kinds.get(kw);
+          if (kind === 'function') return 'functionName';
+          if (kind === 'operator') return 'operator';
+          return 'keyword';
+        }
+        const run = varRe.exec(rest)?.[0] ?? rest[0]!;
+        const j = crunch.firstInteriorKeyword(rest, run.length);
+        const len = j === -1 ? run.length : j;
+        for (let i = 0; i < len; i++) stream.next();
+        return 'variableName';
+      }
       if (word) {
         const text = (word as RegExpMatchArray)[0].toUpperCase();
         // Longest keyword prefix of this identifier-run
@@ -171,6 +205,7 @@ export function buildBasicLanguage(
     maxWordLen,
     hexRe,
     callPrefixes: ['PROC', 'FN'].filter((w) => keywordSet.has(w)),
+    crunch,
   };
   const variableSource = makeVariableSource(
     rules,
@@ -180,5 +215,6 @@ export function buildBasicLanguage(
   return new LanguageSupport(language, [
     language.data.of({ autocomplete: completionSource }),
     language.data.of({ autocomplete: variableSource }),
+    ...(crunch ? [crunchMatcher.of(crunch)] : []),
   ]);
 }

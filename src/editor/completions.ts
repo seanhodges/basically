@@ -10,6 +10,7 @@ import { EditorView } from '@codemirror/view';
 import type { EditorKeyword } from '../dialects/types';
 import { applyMapToPhysical, planConstructNumbering } from './lineNumbering';
 import { buildConstructSnippet, type ConstructTemplate } from './constructs';
+import { makeCrunchMatcher } from './crunch';
 
 /** Auto line-numbering state the construct expansion needs at apply time. */
 export interface NumberingConfig {
@@ -127,6 +128,7 @@ function makeConstructApply(tmpl: ConstructTemplate) {
 export function buildCompletionSource(
   keywords: EditorKeyword[],
   constructs: ConstructTemplate[] = [],
+  options: { crunched?: boolean } = {},
 ): CompletionSource {
   const constructLabels = new Set(constructs.map((c) => c.label));
 
@@ -165,16 +167,44 @@ export function buildCompletionSource(
       .map(toKeywordOption),
   ];
 
+  const wordCharsRe = /^[A-Za-z$]*$/;
+  const crunch = options.crunched
+    ? makeCrunchMatcher(alphabeticKeywords.map((k) => k.word))
+    : null;
+  // Everything the option lists can offer, for the anchor decision below.
+  const allLabels = [
+    ...new Set(
+      [...alphabeticKeywords.map((k) => k.word), ...constructLabels].map((l) =>
+        l.toUpperCase(),
+      ),
+    ),
+  ];
+
   return (context: CompletionContext): CompletionResult | null => {
     const word = context.matchBefore(/[A-Za-z][A-Za-z$]*/);
     if (!word && !context.explicit) return null;
     // Don't complete inside strings (odd number of quotes before cursor)
     if (isInsideString(context)) return null;
 
+    let from = word ? word.from : context.pos;
+    let validFor: CompletionResult['validFor'] = wordCharsRe;
+    if (crunch && word) {
+      // Crunched dialects: when no keyword matches the whole run, its head is
+      // glued keyword(s) (`POKEA`, `THENPR`) — re-anchor to the last ROM
+      // segment so the tail completes. When the typed tail itself grows a
+      // glued keyword, validFor fails and CodeMirror re-queries (re-anchors).
+      const upper = word.text.toUpperCase();
+      if (!allLabels.some((l) => l.startsWith(upper))) {
+        from = word.from + crunch.tailStart(word.text);
+      }
+      validFor = (text) =>
+        wordCharsRe.test(text) && crunch.tailStart(text) === 0;
+    }
+
     return {
-      from: word ? word.from : context.pos,
+      from,
       options: context.state.facet(fullCompletion) ? fullOptions : plainOptions,
-      validFor: /^[A-Za-z$]*$/,
+      validFor,
     };
   };
 }
