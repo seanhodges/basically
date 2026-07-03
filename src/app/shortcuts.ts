@@ -33,6 +33,7 @@ export type ShortcutId =
   | 'edit.find'
   | 'edit.outline'
   | 'edit.renumber'
+  | 'edit.renumberFile'
   | 'edit.breakpoint'
   | 'run.play'
   | 'run.stop'
@@ -162,6 +163,13 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Renumber line',
     category: 'Edit',
     keys: [c('KeyR', { mod: true, alt: true })],
+    native: true,
+  },
+  {
+    id: 'edit.renumberFile',
+    label: 'Renumber file',
+    category: 'Edit',
+    keys: [c('KeyR', { mod: true, shift: true })],
     native: true,
   },
   {

@@ -276,6 +276,15 @@ export function Toolbar() {
               >
                 Renumber line{hint('edit.renumber')}
               </button>
+              <button
+                onClick={editAction('renumberFile')}
+                title={withKeys(
+                  'Renumber the whole program by the line-number increment and update all references',
+                  'edit.renumberFile',
+                )}
+              >
+                Renumber file{hint('edit.renumberFile')}
+              </button>
             </div>
           )}
         </div>

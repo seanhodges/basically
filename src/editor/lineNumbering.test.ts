@@ -6,9 +6,12 @@ import {
   makeSpaceN,
   rewriteReferences,
   renumberLine,
+  renumberProgram,
+  numberLineInPlace,
   applyRenumberMap,
   insertNumberedLineBelow,
   planConstructNumbering,
+  MAX_LINE_NO,
 } from './lineNumbering';
 
 describe('parseLines', () => {
@@ -133,6 +136,134 @@ describe('rewriteReferences', () => {
     expect(rewriteReferences('50 GOTO X+1', new Map([[10, 15]]))).toBe(
       '50 GOTO X+1',
     );
+  });
+
+  it('rewrites the Sinclair-spaced GO TO / GO SUB spellings', () => {
+    expect(rewriteReferences('20 GO TO 10', new Map([[10, 15]]))).toBe(
+      '20 GO TO 15',
+    );
+    expect(rewriteReferences('20 GO SUB 10', new Map([[10, 15]]))).toBe(
+      '20 GO SUB 15',
+    );
+  });
+
+  it('rewrites THEN / ELSE line targets but not statements', () => {
+    expect(rewriteReferences('20 IF A=1 THEN 10', new Map([[10, 15]]))).toBe(
+      '20 IF A=1 THEN 15',
+    );
+    expect(
+      rewriteReferences('20 IF A=1 THEN 10 ELSE 30', new Map([[10, 15]])),
+    ).toBe('20 IF A=1 THEN 15 ELSE 30');
+    expect(
+      rewriteReferences('20 IF A=1 THEN PRINT 10', new Map([[10, 15]])),
+    ).toBe('20 IF A=1 THEN PRINT 10');
+  });
+
+  it('rewrites RESTORE targets', () => {
+    expect(rewriteReferences('20 RESTORE 10', new Map([[10, 15]]))).toBe(
+      '20 RESTORE 15',
+    );
+  });
+
+  it('rewrites every target in an ON X GOTO / GOSUB list', () => {
+    expect(
+      rewriteReferences(
+        '20 ON X GOTO 10, 30 ,40',
+        new Map([
+          [10, 15],
+          [30, 35],
+          [40, 45],
+        ]),
+      ),
+    ).toBe('20 ON X GOTO 15, 35 ,45');
+    expect(rewriteReferences('20 ON X GOSUB 10,30', new Map([[30, 35]]))).toBe(
+      '20 ON X GOSUB 10,35',
+    );
+  });
+});
+
+describe('renumberProgram', () => {
+  it('renumbers to start + increment steps and remaps references', () => {
+    const src = '5 PRINT\n15 GOTO 5\n17 GOSUB 15';
+    expect(renumberProgram(src, 10, 10)).toBe(
+      '10 PRINT\n20 GOTO 10\n30 GOSUB 20',
+    );
+  });
+
+  it('follows a custom increment', () => {
+    const src = '5 PRINT\n15 GOTO 5';
+    expect(renumberProgram(src, 5, 5)).toBe('5 PRINT\n10 GOTO 5');
+  });
+
+  it('remaps ON X GOTO lists across the whole file', () => {
+    const src = '5 ON X GOTO 15,25\n15 PRINT\n25 PRINT';
+    expect(renumberProgram(src, 10, 10)).toBe(
+      '10 ON X GOTO 20,30\n20 PRINT\n30 PRINT',
+    );
+  });
+
+  it('returns the source unchanged for an empty program', () => {
+    expect(renumberProgram('', 10, 10)).toBe('');
+    expect(renumberProgram('   \n\n', 10, 10)).toBe('   \n\n');
+  });
+
+  it('returns null when the highest number would exceed MAX_LINE_NO', () => {
+    // Start at the ceiling so a second line already overflows, whatever the
+    // dialect's MAX_LINE_NO happens to be.
+    expect(renumberProgram('1 A\n2 B', MAX_LINE_NO, 10)).toBeNull();
+  });
+
+  it('numbers text lines that lacked a line number', () => {
+    const src = '10 PRINT\nPRINT "HI"\n20 GOTO 10';
+    expect(renumberProgram(src, 10, 10)).toBe(
+      '10 PRINT\n20 PRINT "HI"\n30 GOTO 10',
+    );
+  });
+
+  it('drops blank lines but keeps unnumbered text lines', () => {
+    const src = '10 A\n\nB\n20 C';
+    expect(renumberProgram(src, 10, 10)).toBe('10 A\n20 B\n30 C');
+  });
+
+  it('remaps references when an unnumbered line shifts a target', () => {
+    // The unnumbered line takes slot 20, pushing old 20 to 30; GOTO 20 must
+    // follow the old line to its new number (30), not the freshly-numbered line.
+    const src = '10 GOTO 20\nPRINT\n20 END';
+    expect(renumberProgram(src, 10, 10)).toBe('10 GOTO 30\n20 PRINT\n30 END');
+  });
+});
+
+describe('numberLineInPlace', () => {
+  it('numbers an unnumbered line between its neighbours', () => {
+    const r = numberLineInPlace(['10 A', 'B', '20 C'], 1, 10)!;
+    expect(r).toEqual({ lines: ['10 A', '15 B', '20 C'], lineNo: 15 });
+  });
+
+  it('appends after the last line at end of file', () => {
+    const r = numberLineInPlace(['10 A', 'B'], 1, 10)!;
+    expect(r).toEqual({ lines: ['10 A', '20 B'], lineNo: 20 });
+  });
+
+  it('cascades following lines and rewrites references when there is no gap', () => {
+    const r = numberLineInPlace(['10 A', 'B', '11 GOTO 11'], 1, 10)!;
+    expect(r).toEqual({
+      lines: ['10 A', '11 B', '12 GOTO 12'],
+      lineNo: 11,
+    });
+  });
+
+  it('bootstraps the first line of a file', () => {
+    const r = numberLineInPlace(['PRINT "HI"'], 0, 10)!;
+    expect(r).toEqual({ lines: ['10 PRINT "HI"'], lineNo: 10 });
+  });
+
+  it('leaves an already-numbered line untouched', () => {
+    const r = numberLineInPlace(['10 A', '20 B'], 1, 10)!;
+    expect(r).toEqual({ lines: ['10 A', '20 B'], lineNo: 20 });
+  });
+
+  it('returns null for a blank line', () => {
+    expect(numberLineInPlace(['10 A', '', '20 B'], 1, 10)).toBeNull();
   });
 });
 

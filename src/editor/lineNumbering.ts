@@ -17,12 +17,32 @@ export interface BasicLine {
   raw: string;
 }
 
-/** Smallest / largest legal ZX81 BASIC line number. */
 export const MIN_LINE_NO = 1;
-export const MAX_LINE_NO = 9999;
+export const MAX_LINE_NO = 65535;
 
-/** Keywords whose immediately-following integer literal is a line reference. */
-const REF_KEYWORDS = ['GOTO', 'GOSUB', 'RUN', 'LIST', 'LLIST'];
+/**
+ * Regex fragments for keywords whose immediately-following integer literal is a
+ * line reference. `GO\s*TO` / `GO\s*SUB` cover both the joined (`GOTO`) and
+ * Sinclair-spaced (`GO TO`) spellings; `THEN`/`ELSE`/`RESTORE` are line targets
+ * too but only when a number follows (the scanner requires `\d+`), so
+ * `THEN PRINT` is left untouched. Longer alternatives come first so, e.g.,
+ * `LLIST` wins over `LIST`.
+ */
+const REF_KEYWORDS = [
+  'GO\\s*TO',
+  'GO\\s*SUB',
+  'RESTORE',
+  'LLIST',
+  'LIST',
+  'THEN',
+  'ELSE',
+  'RUN',
+];
+
+/** Keywords after which a comma-separated list of line numbers may follow
+ * (`ON X GOTO 10,20,30`). Compared against the matched keyword with spaces
+ * stripped and upper-cased. */
+const LIST_KEYWORDS = new Set(['GOTO', 'GOSUB']);
 
 /**
  * Parse source into ordered numbered lines. Blank lines and lines without a
@@ -208,6 +228,9 @@ function rewriteLineReferences(
   remap: Map<number, number>,
 ): string {
   const refRe = new RegExp(`(${REF_KEYWORDS.join('|')})(\\s*)(\\d+)`, 'gi');
+  // Continuation for comma-separated line lists: matches ",<n>" incl. surrounding
+  // whitespace; group 1 is the separator up to the digits, group 2 the number.
+  const listRe = /(\s*,\s*)(\d+)/g;
   let out = '';
   let i = 0;
   let inString = false;
@@ -238,6 +261,18 @@ function rewriteLineReferences(
       const replacement = remap.get(target);
       out += replacement === undefined ? m[0] : `${m[1]}${m[2]}${replacement}`;
       i += m[0].length;
+      // `ON X GOTO 10,20,30` — keep remapping comma-separated targets.
+      if (LIST_KEYWORDS.has(m[1]!.replace(/\s+/g, '').toUpperCase())) {
+        listRe.lastIndex = i;
+        let lm: RegExpExecArray | null;
+        while ((lm = listRe.exec(line)) && lm.index === i) {
+          const n = parseInt(lm[2]!, 10);
+          const rep = remap.get(n);
+          out += rep === undefined ? lm[0] : `${lm[1]}${rep}`;
+          i += lm[0].length;
+          listRe.lastIndex = i;
+        }
+      }
       continue;
     }
     out += ch;
@@ -283,6 +318,52 @@ export function renumberLine(
     l.lineNo === oldNo ? { ...l, lineNo: newNo } : l,
   );
   return joinLines(renumbered);
+}
+
+/**
+ * Renumber the whole program to `start, start+increment, start+2*increment, …`
+ * in source order, rewriting every line-number reference to match. Every
+ * non-blank line becomes a numbered line — text lines that lacked a number are
+ * given one (not dropped) — while blank lines are removed, so the result is a
+ * clean numbered listing. Returns `null` if the highest resulting number would
+ * exceed {@link MAX_LINE_NO} — the caller should surface that and abort. An
+ * empty program (only blank lines) is returned unchanged.
+ */
+export function renumberProgram(
+  source: string,
+  start: number,
+  increment: number,
+): string | null {
+  const physical = source.split('\n');
+  const targets: number[] = [];
+  physical.forEach((raw, i) => {
+    if (raw.trim() !== '') targets.push(i);
+  });
+  if (targets.length === 0) return source;
+  const highest = start + (targets.length - 1) * increment;
+  if (highest > MAX_LINE_NO) return null;
+
+  // Map each already-numbered line to its new number so references remap too.
+  // Unnumbered lines have no old number to reference, so they need no entry.
+  const remap = new Map<number, number>();
+  targets.forEach((idx, k) => {
+    const oldNo = lineNumberOf(physical[idx]!);
+    if (oldNo !== null) remap.set(oldNo, start + k * increment);
+  });
+
+  return targets
+    .map((idx, k) => {
+      const newNo = start + k * increment;
+      const refd = rewriteReferences(physical[idx]!.trim(), remap);
+      // Strip the old leading number when present; unnumbered lines keep their
+      // full text (they can't start with a digit, or they'd have been numbered).
+      const body =
+        lineNumberOf(physical[idx]!) === null
+          ? refd
+          : refd.replace(/^\d+\s?/, '');
+      return body === '' ? `${newNo}` : `${newNo} ${body}`;
+    })
+    .join('\n');
 }
 
 /** Re-emit parsed lines as "<lineNo> <body>", sorted ascending by number. */
@@ -345,6 +426,36 @@ export function applyMapToPhysical(
   });
 }
 
+/**
+ * Give the text-bearing physical line at `idx` a position-appropriate number
+ * when it lacks one, cascading following lines via {@link makeSpace} if there
+ * is no gap. A line that already has a number is returned untouched. Returns the
+ * (possibly cascaded) lines and the line's number, or null when the line is
+ * blank or no number can be fitted (an overflowing cascade).
+ */
+export function numberLineInPlace(
+  physical: string[],
+  idx: number,
+  increment: number,
+): { lines: string[]; lineNo: number } | null {
+  let lines = [...physical];
+  const cur = lines[idx]!.trim();
+  if (cur === '') return null;
+
+  const existing = lineNumberOf(lines[idx]!);
+  if (existing !== null) return { lines, lineNo: existing };
+
+  const { prev, next } = neighbours(lines, idx);
+  const r = computeNewLineNumber(prev, next, increment);
+  if (r.makeSpace) {
+    const map = makeSpace(parseLines(lines.join('\n')), prev ?? 0, increment);
+    if (map.size === 0) return null;
+    lines = applyMapToPhysical(lines, map);
+  }
+  lines[idx] = `${r.lineNo} ${cur}`;
+  return { lines, lineNo: r.lineNo };
+}
+
 export interface InsertResult {
   /** New physical lines. */
   lines: string[];
@@ -366,23 +477,11 @@ export function insertNumberedLineBelow(
   idx: number,
   increment: number,
 ): InsertResult | null {
-  let lines = [...physical];
-  const cur = lines[idx]!.trim();
-  if (cur === '') return null;
-
-  // 1. Ensure the current line carries a number.
-  let curNo = lineNumberOf(lines[idx]!);
-  if (curNo === null) {
-    const { prev, next } = neighbours(lines, idx);
-    const r = computeNewLineNumber(prev, next, increment);
-    if (r.makeSpace) {
-      const map = makeSpace(parseLines(lines.join('\n')), prev ?? 0, increment);
-      if (map.size === 0) return null;
-      lines = applyMapToPhysical(lines, map);
-    }
-    curNo = r.lineNo;
-    lines[idx] = `${curNo} ${cur}`;
-  }
+  // 1. Ensure the current line has text and carries a number.
+  const bootstrapped = numberLineInPlace(physical, idx, increment);
+  if (!bootstrapped) return null;
+  let lines = bootstrapped.lines;
+  const curNo = bootstrapped.lineNo;
 
   // 2. Number the new line being inserted below the current one.
   const { next } = neighbours(lines, idx);
