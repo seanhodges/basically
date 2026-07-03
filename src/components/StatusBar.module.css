@@ -13,6 +13,14 @@
   color: var(--error);
 }
 
+.statusRamWarn {
+  color: var(--warn);
+}
+
+.statusRamCrit {
+  color: var(--error);
+}
+
 .statusEmu.running {
   color: var(--ok);
 }

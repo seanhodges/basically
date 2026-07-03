@@ -64,6 +64,25 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     machine.dispose();
   }, 60000);
 
+  it('reports plausible actual RAM figures while a program runs', async () => {
+    const machine = new AtomMachine();
+    expect(machine.readMemoryStats()).toBeNull(); // not initialised yet
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO ATOM"\n20 END\n');
+    machine.loadProgram(bytes);
+    const ran = await runUntil(machine, () =>
+      screenText(machine).includes('HELLO ATOM'),
+    );
+    expect(ran).toBe(true);
+    const stats = machine.readMemoryStats();
+    expect(stats).not.toBeNull();
+    // At least the injected program text is in use.
+    expect(stats!.used).toBeGreaterThanOrEqual(bytes.length);
+    expect(stats!.free).toBeGreaterThan(0);
+    // TEXT_START (#2900) to the VDG screen (#8000).
+    expect(stats!.used + stats!.free).toBe(0x8000 - 0x2900);
+    machine.dispose();
+  }, 60000);
+
   it('takes more frames to finish the same program at a slower speed', async () => {
     // A busy loop long enough that its completion spans many frames, so the
     // run (not just boot) is what setSpeed throttles.

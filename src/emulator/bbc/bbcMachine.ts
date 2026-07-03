@@ -13,6 +13,7 @@ import type {
   JoystickMode,
   JoystickState,
   MachineEmulator,
+  MachineMemoryStats,
   MachineReport,
   MachineVariable,
 } from '../../dialects/types';
@@ -53,6 +54,11 @@ const KEY_UP_CYCLES = 40_000;
 // `[&0D][lineHi][lineLo][len][tokens…]`, the chain ending with `&0D &FF`.
 const TEXT_PTR = 0x0b;
 const PAGE_HI = 0x18;
+// BASIC's memory-layout pointers for the RAM readout: VARTOP (&02/&03) is the
+// top of program + variables, HIMEM (&06/&07) the top of BASIC's RAM (the
+// BASIC stack grows down from it).
+const VARTOP_PTR = 0x02;
+const HIMEM_PTR = 0x06;
 const LINE_TERMINATOR = 0x0d;
 const END_OF_PROGRAM = 0xff;
 /** Cap the program walk so a corrupt chain can never spin forever. */
@@ -482,6 +488,25 @@ export class BbcMachine implements MachineEmulator {
       read: (a) => this.cpu.readmem(a),
       readWord: (a) => this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8),
     });
+  }
+
+  /**
+   * Actual RAM figures from BASIC's own zero-page pointers: program +
+   * variables occupy PAGE..VARTOP, and VARTOP..HIMEM is free (BASIC's own
+   * stack grows down from HIMEM inside it, as on real hardware). `readmem` is
+   * a side-effect-free main-RAM read.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (!this.initialised || this.injecting || this.disposed) return null;
+    const readWord = (a: number) =>
+      this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8);
+    const page = this.cpu.readmem(PAGE_HI) << 8;
+    const vartop = readWord(VARTOP_PTR);
+    const himem = readWord(HIMEM_PTR);
+    const used = vartop - page;
+    const free = himem - vartop;
+    if (page === 0 || used < 0 || free < 0) return null;
+    return { used, free };
   }
 
   dispose(): void {

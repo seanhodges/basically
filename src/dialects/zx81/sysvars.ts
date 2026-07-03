@@ -15,6 +15,13 @@ export const SYSVARS_SAVED_LENGTH = PROGRAM_BASE - SYSVARS_BASE; // 0x74
 export const ERR_NR = 0x4000;
 
 /**
+ * RAMTOP (0x4004) holds the address of the first byte above BASIC's RAM (the
+ * ROM sets it to 0x8000 on a 16K machine). Like ERR_NR it sits below
+ * SYSVARS_BASE, so it isn't saved in a .P image, but it is live in RAM.
+ */
+export const RAMTOP = 0x4004;
+
+/**
  * PPC (0x4007) holds the line number of the BASIC statement currently being
  * executed. Like ERR_NR it sits below SYSVARS_BASE, so it isn't part of the
  * saved .P image, but it is live in RAM while a program runs — the debugger

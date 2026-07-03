@@ -105,6 +105,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const crtEffect = useIdeStore((s) => s.crtEffect);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
+  const setLiveMemory = useIdeStore((s) => s.setLiveMemory);
   const keyboardEnabled = useIdeStore((s) => s.keyboardEnabled);
   const setKeyboardEnabled = useIdeStore((s) => s.setKeyboardEnabled);
   const mobileTab = useIdeStore((s) => s.mobileTab);
@@ -446,9 +447,32 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       machineRef.current?.dispose();
       machineRef.current = null;
       disposeAudio();
+      setLiveMemory(null);
     },
-    [stopLoop, disposeAudio],
+    [stopLoop, disposeAudio, setLiveMemory],
   );
+
+  // While the machine is up, poll its actual RAM figures for the status bar.
+  // Null (machine missing, no readMemoryStats support, or mid-boot) makes the
+  // status bar fall back to the tokenized-size estimate rather than go stale.
+  useEffect(() => {
+    if (emulatorStatus === 'stopped') {
+      setLiveMemory(null);
+      return;
+    }
+    const read = () => {
+      const m = machineRef.current;
+      setLiveMemory(
+        m && typeof m.readMemoryStats === 'function'
+          ? m.readMemoryStats()
+          : null,
+      );
+    };
+    read();
+    if (emulatorStatus === 'paused') return; // memory is steady while paused
+    const id = setInterval(read, 500);
+    return () => clearInterval(id);
+  }, [emulatorStatus, setLiveMemory]);
 
   // Switching target machine: dispose the old emulator so the next run builds a
   // fresh one with the new dialect's ROM. The editor and virtual keyboard

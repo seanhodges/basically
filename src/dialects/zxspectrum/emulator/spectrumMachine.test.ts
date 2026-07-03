@@ -65,6 +65,23 @@ describe('SpectrumMachine', () => {
     expect(readScreen(machine, 0, 0, 5)).toBe('HELLO');
   });
 
+  it('reports plausible actual RAM figures while a program runs', () => {
+    const machine = new SpectrumMachine({ rom });
+    const { bytes, errors } = tokenizeProgram(
+      '10 DIM a(500)\n20 PRINT "HELLO"\n',
+    );
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildTap(bytes));
+    for (let i = 0; i < 50; i++) machine.runFrame();
+    const stats = machine.readMemoryStats();
+    expect(stats).not.toBeNull();
+    // 500 five-byte floats ≈ 2.5K in use beyond the program text.
+    expect(stats!.used).toBeGreaterThan(2500);
+    expect(stats!.free).toBeGreaterThan(0);
+    // PROG sits above 0x5C00 and RAMTOP within the 64K map.
+    expect(stats!.used + stats!.free).toBeLessThanOrEqual(0x10000 - 0x5c00);
+  });
+
   it('runs a FOR loop printing multiple rows', () => {
     const machine = new SpectrumMachine({ rom });
     const src = '10 FOR i=1 TO 3\n20 PRINT "ROW";i\n30 NEXT i\n';

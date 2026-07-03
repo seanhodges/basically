@@ -126,6 +126,21 @@ describe('Zx80Machine', () => {
     machine.dispose();
   });
 
+  it('reports plausible actual RAM figures while a program runs', () => {
+    const { bytes, errors } = tokenizeProgram('10 PRINT 6+7');
+    expect(errors).toEqual([]);
+    const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+    machine.loadProgram(buildOFile(bytes));
+    for (let i = 0; i < 40; i++) machine.runFrame();
+    const stats = machine.readMemoryStats();
+    expect(stats).not.toBeNull();
+    // Sysvars (0x28 bytes) + program + display file are all in use.
+    expect(stats!.used).toBeGreaterThan(0x28);
+    expect(stats!.free).toBeGreaterThan(0);
+    expect(stats!.used + stats!.free).toBeLessThanOrEqual(16 * 1024);
+    machine.dispose();
+  });
+
   it('loads and runs a program that PRINTs a quoted string', () => {
     // Regression: the ZX80 quote is code 0x01, not the ZX81's 0x0B. With the
     // wrong quote code the ROM mis-parsed the string and filled the screen with

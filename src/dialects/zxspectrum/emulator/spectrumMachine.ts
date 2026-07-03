@@ -6,6 +6,7 @@ import type {
   JoystickMode,
   JoystickState,
   MachineEmulator,
+  MachineMemoryStats,
   MachineReport,
   MachineVariable,
 } from '../../types';
@@ -17,7 +18,7 @@ import { applySinclairJoystick, kempstonByte } from './joystick';
 import { Beeper, BEEPER_SAMPLE_RATE } from './beeper';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, parseTap } from '../tapfile';
-import { PPC } from '../sysvars';
+import { PPC, PROG, STKEND, RAMTOP } from '../sysvars';
 
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
@@ -327,6 +328,23 @@ export class SpectrumMachine implements MachineEmulator {
 
   readReport(): MachineReport {
     return readSpectrumReport(this.memory);
+  }
+
+  /**
+   * Actual RAM figures from the ROM's own pointers: PROG to STKEND (program,
+   * variables, edit line, workspace and calculator stack) is in use; STKEND to
+   * RAMTOP is spare (the machine stack grows down from RAMTOP inside it) —
+   * the same figure the ROM's own "bytes free" check uses.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    const prog = this.memory.readWord(PROG);
+    const stkend = this.memory.readWord(STKEND);
+    const ramtop = this.memory.readWord(RAMTOP);
+    const used = stkend - prog;
+    const free = ramtop - stkend;
+    // Implausible pointers mean the ROM hasn't initialised them yet.
+    if (prog < 0x5c00 || used <= 0 || free < 0) return null;
+    return { used, free };
   }
 
   get borderColor(): number {

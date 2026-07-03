@@ -4,6 +4,7 @@ import type {
   JoystickMode,
   JoystickState,
   MachineEmulator,
+  MachineMemoryStats,
   MachineReport,
   MachineVariable,
 } from '../../dialects/types';
@@ -48,6 +49,15 @@ const CYCLES_PER_FRAME = 63 * 312;
  */
 const CURLIN = 0x39;
 const MAX_BASIC_LINE = 63999;
+/**
+ * CBM BASIC zero-page pointers bounding the program area, used for the RAM
+ * readout: TXTTAB = start of program text, STREND = end of arrays (top of the
+ * upward-growing area), FRETOP = bottom of the downward-growing string heap.
+ */
+const TXTTAB = 0x2b;
+const STREND = 0x31;
+const FRETOP = 0x33;
+const MEMSIZ = 0x37;
 /**
  * Cycles ticked between line checks in {@link C64Machine.debugStep}. Any BASIC
  * line takes far more cycles than this to execute, so a transition is never
@@ -610,6 +620,30 @@ export class C64Machine implements MachineEmulator {
     }
     const wires = this.c64.wires;
     return readC64Report({ read: (a) => wires.cpuRead(a & 0xffff) });
+  }
+
+  /**
+   * Actual RAM figures from CBM BASIC's own zero-page pointers: program +
+   * variables + arrays grow up from TXTTAB to STREND, the string heap grows
+   * down from MEMSIZ to FRETOP, and the gap between them is free — the classic
+   * `FRE(0)` figure before garbage collection. All pointers sit in always-RAM
+   * zero page, so reads are side-effect-free.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (!this.booted || this.injecting || this.disposed || !this.c64) {
+      return null;
+    }
+    const wires = this.c64.wires;
+    const readWord = (a: number) =>
+      wires.cpuRead(a & 0xffff) | (wires.cpuRead((a + 1) & 0xffff) << 8);
+    const txttab = readWord(TXTTAB);
+    const strend = readWord(STREND);
+    const fretop = readWord(FRETOP);
+    const memsiz = readWord(MEMSIZ);
+    const used = strend - txttab + (memsiz - fretop);
+    const free = fretop - strend;
+    if (txttab === 0 || memsiz <= txttab || used < 0 || free < 0) return null;
+    return { used, free };
   }
 
   dispose(): void {

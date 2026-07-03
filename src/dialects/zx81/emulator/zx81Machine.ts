@@ -4,6 +4,7 @@ import type {
   DebugStepOptions,
   DebugStepResult,
   MachineEmulator,
+  MachineMemoryStats,
   MachineReport,
   MachineVariable,
 } from '../../types';
@@ -16,6 +17,8 @@ import {
   SYSVARS_BASE,
   D_FILE,
   PPC,
+  RAMTOP,
+  STKEND,
   ROM_LOAD_TRAP,
   ROM_POST_LOAD,
 } from '../sysvars';
@@ -254,6 +257,22 @@ export class Zx81Machine implements MachineEmulator {
 
   readReport(): MachineReport {
     return readZx81Report(this.memory);
+  }
+
+  /**
+   * Actual RAM figures from the ROM's own pointers: everything from the system
+   * variables up to STKEND (program, display file, variables, workspace and
+   * calculator stack) is in use; STKEND to RAMTOP is spare (the machine stack
+   * grows down from RAMTOP inside it, as on real hardware).
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    const stkend = this.memory.readWord(STKEND);
+    const ramtop = this.memory.readWord(RAMTOP);
+    const used = stkend - SYSVARS_BASE;
+    const free = ramtop - stkend;
+    // Implausible pointers mean the ROM hasn't initialised them yet.
+    if (ramtop <= SYSVARS_BASE || used <= 0 || free < 0) return null;
+    return { used, free };
   }
 
   keyEvent(e: KeyboardEvent, down: boolean): boolean {

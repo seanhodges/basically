@@ -79,6 +79,39 @@ describe('Zx81Machine', () => {
     expect(byName['I']).toMatchObject({ kind: 'number' });
   });
 
+  it('reports plausible actual RAM figures while a program runs', () => {
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    const { bytes, errors } = tokenizeProgram('10 PRINT "HELLO"\n');
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildPFile(bytes));
+    for (let i = 0; i < 200; i++) machine.runFrame();
+    const stats = machine.readMemoryStats();
+    expect(stats).not.toBeNull();
+    // The sysvars alone are 0x74 bytes, so used must exceed them; everything
+    // must fit in the 16K pack (RAMTOP = 0x8000, base = 0x4009).
+    expect(stats!.used).toBeGreaterThan(0x74);
+    expect(stats!.free).toBeGreaterThan(0);
+    expect(stats!.used + stats!.free).toBeLessThanOrEqual(16 * 1024);
+  });
+
+  it('reports more RAM used after DIMming a large array', () => {
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    const before = (() => {
+      const { bytes } = tokenizeProgram('10 PRINT "HI"\n');
+      machine.loadProgram(buildPFile(bytes));
+      for (let i = 0; i < 200; i++) machine.runFrame();
+      return machine.readMemoryStats()!;
+    })();
+    const machine2 = new Zx81Machine({ rom, ramKb: 16 });
+    const { bytes } = tokenizeProgram('10 DIM A(500)\n20 PRINT "HI"\n');
+    machine2.loadProgram(buildPFile(bytes));
+    for (let i = 0; i < 200; i++) machine2.runFrame();
+    const after = machine2.readMemoryStats()!;
+    // 500 five-byte floats ≈ 2.5K more in use.
+    expect(after.used).toBeGreaterThan(before.used + 2000);
+    expect(after.free).toBeLessThan(before.free);
+  });
+
   it('reports a runtime error after running a buggy program', () => {
     const machine = new Zx81Machine({ rom, ramKb: 16 });
     // Using an undefined variable is ZX81 report 2 ("Undefined variable").

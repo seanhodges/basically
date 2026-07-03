@@ -95,6 +95,32 @@ describe('C64Machine', () => {
   );
 
   it(
+    'reports plausible actual RAM figures while a program runs',
+    async () => {
+      const { image, errors } = commodore64.tokenize(
+        '10 DIM A(500)\n20 PRINT "HELLO"\n',
+      );
+      expect(errors).toEqual([]);
+      const m = new C64Machine({ roms });
+      expect(m.readMemoryStats()).toBeNull(); // not booted yet
+      await m.whenReady();
+      m.loadProgram(image);
+      await new Promise((r) => setTimeout(r, 0));
+      for (let i = 0; i < 300; i++) m.runFrame();
+      const stats = m.readMemoryStats();
+      expect(stats).not.toBeNull();
+      // 500 five-byte floats ≈ 2.5K in use beyond the program text.
+      expect(stats!.used).toBeGreaterThan(2500);
+      expect(stats!.free).toBeGreaterThan(0);
+      // Total spans TXTTAB ($0801) to MEMSIZ ($A000): the documented 38911.
+      expect(stats!.used + stats!.free).toBe(38911);
+      m.dispose();
+      expect(m.readMemoryStats()).toBeNull();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
     'takes more frames to finish the same program at a slower speed',
     async () => {
       // A busy loop long enough that its completion spans many frames, so
