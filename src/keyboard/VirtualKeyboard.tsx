@@ -589,6 +589,10 @@ export function VirtualKeyboard({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
+      // A held key registers as a long-press on touch browsers (Chrome mobile),
+      // which fire a contextmenu that steals the pointer and aborts the hold.
+      // Suppress it so keys can be held (repeat, sticky modifiers) uninterrupted.
+      onContextMenu={(e) => e.preventDefault()}
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
       onBlur={() => engine.pointerUp(KEYBOARD_POINTER_ID)}
