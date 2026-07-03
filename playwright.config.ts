@@ -18,11 +18,6 @@ import {
  * `npx playwright install msedge` (or uses a system-installed Edge).
  * To run a subset: `npm run e2e -- --project=chromium --project=firefox`.
  *
- * Reporting: a single consolidated HTML report is written to
- * `playwright-report/` covering the whole matrix — one row per test with a
- * result per browser project, and failure details (error message, trace,
- * screenshot) attached to the failing entry. Open it with `npm run e2e:report`.
- *
  * Browser binaries are resolved from `PLAYWRIGHT_BROWSERS_PATH` when set
  * (the managed environment pre-installs them under `/opt/pw-browsers`).
  */
@@ -40,12 +35,18 @@ const CHROMIUM_PERMISSIONS = ['clipboard-read', 'clipboard-write'];
 
 export default defineConfig({
   testDir: './e2e',
+  // The docs/README screenshot-capture spec is a utility that writes image files
+  // into docs/public/ rather than asserting behaviour, so keep it out of the
+  // normal suite. Run it on demand via `npm run e2e:docs-screenshots`, which
+  // points at playwright.docs.config.ts.
+  testIgnore: '**/capture-docs-screenshots.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: [
     consoleReporter,
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['json', { outputFile: 'playwright-report/results.json' }],
   ],
   use: {
     baseURL: 'http://localhost:5173',
@@ -77,10 +78,21 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      // The in-app docs drawer iframes /docs/, which the IDE dev server
+      // proxies to this VitePress dev server (see vite.config.ts). Without it
+      // the drawer-content assertions (test plan 12.2) have nothing to show.
+      command: 'npm run docs:dev -- --port 5174',
+      url: 'http://localhost:5174/docs/',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });

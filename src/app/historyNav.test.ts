@@ -245,6 +245,37 @@ describe('lateral mobile-tab switch replaces rather than stacks', () => {
   });
 });
 
+describe('surface opened during a UI-close go() round-trip survives', () => {
+  it('does not revert a docs open that lands before the async popstate', () => {
+    // In a real browser history.go() delivers popstate asynchronously; a
+    // surface opened inside that window used to be reverted when the stale
+    // popped snapshot was applied (seen as: close Settings, immediately hit
+    // F1 — the docs drawer flashes open then closes; widest on WebKit).
+    const { history } = setup(false);
+    // Defer popstate delivery to simulate the async gap.
+    let deliver: (() => void) | null = null;
+    const realOnPop = history.onPop!;
+    history.onPop = (e) => {
+      deliver = () => realOnPop(e);
+    };
+
+    useIdeStore.getState().setSettingsOpen(true);
+    useIdeStore.getState().setSettingsOpen(false); // UI close → history.go(-1)
+    expect(deliver).not.toBeNull(); // go() happened, popstate still in flight
+
+    useIdeStore.getState().openDocs('reference/zx81'); // lands in the window
+    history.onPop = realOnPop;
+    deliver!(); // the popstate for the settings close finally arrives
+
+    // The docs drawer must survive the stale snapshot…
+    expect(useIdeStore.getState().docsDrawerOpen).toBe(true);
+    // …and be re-tracked in history so Back still closes it.
+    expect(history.depth).toBe(1);
+    history.go(-1);
+    expect(useIdeStore.getState().docsDrawerOpen).toBe(false);
+  });
+});
+
 describe('popstate with a null state falls back to baseline', () => {
   it('closes everything when navigating to an unknown entry', () => {
     const { sync } = setup(false);

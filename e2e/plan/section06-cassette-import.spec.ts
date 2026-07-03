@@ -25,6 +25,13 @@ test('6.5 wav round trip: export cassette .wav, import and decode it', async ({
   test.setTimeout(120_000); // encoding + decodeAudioData of ~30s of audio
   await forceFallbackFilePickers(page);
   const dialogs = await openApp(page);
+  // Playwright's WebKit build on Windows/Linux ships without Web Audio, which
+  // the import decode needs (decodeAudioData). Feature-detect rather than skip
+  // by browser so the test still runs where WebKit has it (e.g. macOS).
+  test.skip(
+    await page.evaluate(() => typeof AudioContext === 'undefined'),
+    'Web Audio unavailable in this WebKit build',
+  );
   await setEditorSource(page, '10 PRINT "TAPE LOOP"\n20 GOTO 10');
   await saveAsBas(page, dialogs, 'tapeloop');
 

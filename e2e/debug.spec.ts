@@ -38,9 +38,17 @@ async function setEditorSource(page: Page, source: string) {
   await page.keyboard.insertText(source);
 }
 
+/** The breakpoint dot marker (a styled div in the combined gutter). The
+ *  gutter's invisible spacer uses the same marker, so keep visible ones only. */
+function breakpointDot(page: Page) {
+  return page
+    .locator('.cm-combined-gutter [class*="breakpointDot"]')
+    .filter({ visible: true });
+}
+
 /** Toggle the breakpoint gutter cell on the editor row that starts with `lineNo`. */
 async function toggleBreakpointOnLine(page: Page, lineNo: number) {
-  const gutter = page.locator('.cm-breakpoint-gutter');
+  const gutter = page.locator('.cm-combined-gutter');
   const line = page.locator('.cm-line', {
     hasText: new RegExp(`^${lineNo}\\b`),
   });
@@ -61,10 +69,10 @@ test('core flow: breakpoint, run-to-pause, step, continue, stop', async ({
   await setEditorSource(page, LOOP_SRC);
   await expect(page.locator('.cm-content')).toContainText('30 NEXT I');
 
-  // Set a breakpoint on line 20 — a red dot appears in the gutter. Debugging is
-  // always armed now, so there is nothing to toggle first.
+  // Set a breakpoint on line 20 — a dot marker appears in the gutter. Debugging
+  // is always armed now, so there is nothing to toggle first.
   await toggleBreakpointOnLine(page, 20);
-  await expect(page.locator('.cm-breakpoint-gutter')).toContainText('●');
+  await expect(breakpointDot(page)).toBeVisible();
 
   // Play pauses just as line 20 starts executing.
   await page.getByRole('button', { name: 'Play' }).click();
@@ -114,7 +122,7 @@ test('debug session survives an orientation change', async ({ page }) => {
   // The session is intact: still paused on line 20, breakpoint dot and the
   // paused-line highlight preserved.
   await expect(page.getByText('paused at line 20')).toBeVisible();
-  await expect(page.locator('.cm-breakpoint-gutter')).toContainText('●');
+  await expect(breakpointDot(page)).toBeVisible();
   await expect(page.locator('[class*="debugCurrentLine"]')).toHaveCount(1);
 
   // And the controls still drive the (preserved) machine.

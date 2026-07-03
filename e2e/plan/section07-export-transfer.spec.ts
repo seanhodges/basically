@@ -46,6 +46,13 @@ test('7.2 cassette playback starts from the click and stops on demand', async ({
   page,
 }) => {
   await openExportOnSavedDoc(page);
+  // Playwright's WebKit build on Windows/Linux ships without Web Audio, so
+  // playback can't start there. Feature-detect rather than skip by browser so
+  // the test still runs where WebKit has it (e.g. macOS).
+  test.skip(
+    await page.evaluate(() => typeof AudioContext === 'undefined'),
+    'Web Audio unavailable in this WebKit build',
+  );
   await page.getByRole('button', { name: '▶ Play through speakers' }).click();
   // The status must reach "Playing …s" — on Safari-like engines this guards
   // the suspended-AudioContext hang fixed in src/transfer/audioPlayer.ts.

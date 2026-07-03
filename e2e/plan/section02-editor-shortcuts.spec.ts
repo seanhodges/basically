@@ -145,7 +145,13 @@ test('2.7 Mod+, opens Settings; F1 toggles the docs drawer', async ({
 
 test('2.8 AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async ({
   page,
+  browserName,
 }) => {
+  // WebKit's KeyboardEvent constructor ignores the `modifierAltGraph` init
+  // member (getModifierState('AltGraph') stays false), so the synthetic AltGr
+  // premise can't be exercised there. AltGr reported as Ctrl+Alt is a Windows
+  // browser behaviour (Chromium/Firefox/Edge), which the other projects cover.
+  test.skip(browserName === 'webkit', 'WebKit ignores modifierAltGraph');
   await openApp(page);
   const dispatch = (altGraph: boolean) =>
     page.evaluate((withAltGraph) => {

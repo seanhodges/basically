@@ -209,6 +209,17 @@ describe('makeVariableSource — completion behaviour', () => {
 
   it('hides a proc parameter once outside the proc', () => {
     const res = resultAt('10 DEF PROCfoo(width)\n20 ENDPROC\n30 PRINT w');
-    expect(res?.options.map((o) => o.label)).not.toContain('width');
+    // No other names in scope here, so the source may return null outright.
+    expect(res?.options.map((o) => o.label) ?? []).not.toContain('width');
+  });
+
+  it('does not offer the word being typed as its own completion', () => {
+    // "PR" is the only identifier in the doc — offering it back would be
+    // useless and, as an exact match, would outrank keyword suggestions
+    // (breaking the "." abbreviation: "PR." must accept PRINT, not "PR").
+    expect(resultAt('PR')).toBeNull();
+    // A name that also occurs elsewhere is still offered.
+    const res = resultAt('10 score=0\n20 PRINT sco');
+    expect(res?.options.map((o) => o.label)).toContain('score');
   });
 });

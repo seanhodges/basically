@@ -36,6 +36,11 @@ test('4.2 sliding between keys follows the pointer (capture works)', async ({
   const keyH = page.locator('[data-keyid="KeyH"]');
   const keyJ = page.locator('[data-keyid="KeyJ"]');
   await expect(keyH).toBeVisible();
+  // Outwait the editor-focus debounce (EDITOR_KB_HIDE_DELAY_MS): the ⌨ toggle
+  // must not have stolen editor focus, or the keyboard silently reroutes to
+  // the stopped machine here and every press below goes dead (regression
+  // guard — this used to pass only by racing the debounce).
+  await page.waitForTimeout(400);
   const from = await keyH.boundingBox();
   const to = await keyJ.boundingBox();
   expect(from).not.toBeNull();

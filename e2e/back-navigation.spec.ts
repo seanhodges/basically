@@ -88,12 +88,14 @@ test('mobile: Back returns from a deep tab to the editor', async ({ page }) => {
 test('baseline: Back with nothing open leaves the app (no trap)', async ({
   page,
 }) => {
-  // Establish a prior entry so we can observe Back leaving the app.
-  await page.goto('about:blank');
+  // Establish a prior entry so we can observe Back leaving the app. A real
+  // same-origin resource, not about:blank: Firefox doesn't record the initial
+  // about:blank as a session-history entry, so Back would have nowhere to go.
+  await page.goto('/favicon.ico');
   await open(page);
 
   await page.goBack();
-  await expect(page).toHaveURL('about:blank');
+  await expect(page).toHaveURL('/favicon.ico');
 });
 
 test('Back surfaces survive an orientation flip', async ({ page }) => {

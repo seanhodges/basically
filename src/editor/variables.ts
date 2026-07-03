@@ -315,7 +315,18 @@ export function makeVariableSource(
     if (!word && !context.explicit) return null;
     if (isInsideString(context)) return null;
 
-    const model = collectVariables(context.state.doc.toString(), rules, caps);
+    // Blank out the token being typed before scanning: a name whose only
+    // occurrence is the word under the cursor would otherwise complete to
+    // itself — and, as an exact match, outrank the keyword suggestions (which
+    // breaks the "." abbreviation, e.g. "PR." must accept PRINT, not "PR").
+    let docText = context.state.doc.toString();
+    if (word)
+      docText =
+        docText.slice(0, word.from) +
+        ' '.repeat(word.to - word.from) +
+        docText.slice(word.to);
+
+    const model = collectVariables(docText, rules, caps);
     const row = context.state.doc.lineAt(context.pos).number - 1;
     const names = variablesInScopeAt(model, row);
     if (names.length === 0) return null;
