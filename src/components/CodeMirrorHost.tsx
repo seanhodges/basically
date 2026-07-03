@@ -65,8 +65,10 @@ import { useIdeStore } from '../app/store';
 import type { EditorCommandName } from '../app/store';
 import {
   insertNumberedLineBelow,
+  numberLineInPlace,
   parseLines,
   renumberLine,
+  renumberProgram,
   MIN_LINE_NO,
   MAX_LINE_NO,
 } from '../editor/lineNumbering';
@@ -188,12 +190,16 @@ function acceptCompletionOnPeriod(
   return true;
 }
 
-/** Renumber the line under the cursor, prompting for the new number and fixing references. */
+/**
+ * Renumber the line under the cursor. A numbered line prompts for its new number
+ * (and fixes references); a text line with no number is given a
+ * position-appropriate number in place, no prompt.
+ */
 function renumberCurrentLine(view: EditorView): boolean {
   const { state } = view;
   const line = state.doc.lineAt(state.selection.main.head);
   const m = /^\s*(\d+)\s?/.exec(line.text);
-  if (!m) return false; // no line number here
+  if (!m) return numberCurrentLineInPlace(view, line.number - 1);
   const oldNo = parseInt(m[1]!, 10);
 
   const input = window.prompt(`Renumber line ${oldNo} to:`, String(oldNo));
@@ -216,6 +222,70 @@ function renumberCurrentLine(view: EditorView): boolean {
   const ci = newLines.findIndex((l) =>
     new RegExp(`^\\s*${newNo}(\\s|$)`).test(l),
   );
+  replaceDoc(view, newLines, ci < 0 ? newLines.length - 1 : ci);
+  view.focus();
+  return true;
+}
+
+/**
+ * Give the (unnumbered) physical line at `idx` a position-appropriate number in
+ * place — the same number the Enter key would assign — cascading following lines
+ * when there's no gap. A no-op (still consumed) on a blank line or when the
+ * cascade would overflow. Undo reverts.
+ */
+function numberCurrentLineInPlace(view: EditorView, idx: number): boolean {
+  const { state } = view;
+  if (state.doc.line(idx + 1).text.trim() === '') return false; // blank — let the key pass
+  const increment = useIdeStore.getState().lineNumberIncrement;
+  const physical = state.doc.toString().split('\n');
+  const result = numberLineInPlace(physical, idx, increment);
+  if (!result) {
+    window.alert(
+      `No room to number this line without exceeding ${MAX_LINE_NO}.`,
+    );
+    return true;
+  }
+  replaceDoc(view, result.lines, idx);
+  view.focus();
+  return true;
+}
+
+/**
+ * Renumber the whole program to `increment, 2*increment, …` (the "Line number
+ * increment" setting), rewriting every GOTO/GOSUB/etc. reference. No prompt —
+ * Undo reverts. Keeps the cursor on the same program line.
+ */
+function renumberFile(view: EditorView): boolean {
+  const { state } = view;
+  const docText = state.doc.toString();
+  const increment = useIdeStore.getState().lineNumberIncrement;
+  const renumbered = renumberProgram(docText, increment, increment);
+  if (renumbered === null) {
+    window.alert(
+      `Too many lines to renumber with an increment of ${increment} — the ` +
+        `last line would exceed ${MAX_LINE_NO}. Try a smaller increment.`,
+    );
+    return true;
+  }
+  if (renumbered === docText) return true; // empty program — nothing to do
+
+  // Keep the cursor on the same program line. Every non-blank line becomes
+  // numbered in source order, so the cursor line's new number is `increment ×`
+  // its 1-based rank among non-blank lines. A blank cursor line has no rank of
+  // its own and falls back to the nearest line above it (or the file end).
+  const cursorIdx = state.doc.lineAt(state.selection.main.head).number - 1;
+  const physical = docText.split('\n');
+  let rank = 0;
+  for (let i = 0; i <= cursorIdx && i < physical.length; i++) {
+    if (physical[i]!.trim() !== '') rank++;
+  }
+  const newNo = rank === 0 ? null : rank * increment;
+
+  const newLines = renumbered.split('\n');
+  const ci =
+    newNo === null
+      ? newLines.length - 1
+      : newLines.findIndex((l) => new RegExp(`^\\s*${newNo}(\\s|$)`).test(l));
   replaceDoc(view, newLines, ci < 0 ? newLines.length - 1 : ci);
   view.focus();
   return true;
@@ -348,6 +418,9 @@ async function runEditorCommand(
       break;
     case 'renumber':
       renumberCurrentLine(view);
+      break;
+    case 'renumberFile':
+      renumberFile(view);
       break;
   }
   // The find/replace panel manages its own focus; everything else returns to the editor.
@@ -561,6 +634,7 @@ export function CodeMirrorHost({
             { key: 'Enter', run: handleEnter },
             { key: 'Shift-Enter', run: handleShiftEnter },
             { key: 'Mod-Alt-r', run: renumberCurrentLine },
+            { key: 'Mod-Shift-r', run: renumberFile },
             { key: 'F9', run: toggleBreakpointAtCursor },
             { key: 'Mod-Shift-o', run: openOutline },
           ]),

@@ -65,7 +65,8 @@ export type EditorCommandName =
   | 'paste'
   | 'find'
   | 'closeFind'
-  | 'renumber';
+  | 'renumber'
+  | 'renumberFile';
 
 interface IdeState {
   /** Active target machine. Switching it rebuilds the editor, emulator and keyboard. */
