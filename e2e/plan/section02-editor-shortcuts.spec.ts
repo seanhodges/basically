@@ -3,6 +3,7 @@ import {
   EDITOR,
   clearEditor,
   editMenu,
+  expectMenuStaysOpen,
   openApp,
   setEditorSource,
 } from './helpers';
@@ -57,6 +58,26 @@ test('2.3 undo/redo via Edit menu and shortcut', async ({ page }) => {
   await page.locator(EDITOR).click();
   await page.keyboard.press('ControlOrMeta+z');
   await expect(page.locator(EDITOR)).not.toContainText('PRINT "TWO"');
+});
+
+test('2.3b Edit menu opens, stays open, and dismisses on outside click / Escape', async ({
+  page,
+}) => {
+  await openApp(page);
+
+  // Opens on click and stays open when the pointer leaves the panel.
+  await page.getByRole('button', { name: 'Edit ▾' }).click();
+  await expectMenuStaysOpen(page, /^Undo/);
+
+  // Dismisses on a click outside the menu.
+  await page.locator(EDITOR).click();
+  await expect(page.getByRole('button', { name: /^Undo/ })).toBeHidden();
+
+  // Dismisses on Escape.
+  await page.getByRole('button', { name: 'Edit ▾' }).click();
+  await expect(page.getByRole('button', { name: /^Undo/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: /^Undo/ })).toBeHidden();
 });
 
 test('2.4 menu Cut with no selection removes the whole line (copy reached the clipboard)', async ({

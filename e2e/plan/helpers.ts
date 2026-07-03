@@ -174,3 +174,18 @@ export async function editMenu(page: Page, entry: RegExp): Promise<void> {
   await page.getByRole('button', { name: 'Edit ▾' }).click();
   await page.getByRole('button', { name: entry }).click();
 }
+
+/**
+ * Assert a just-opened dropdown stays open after the pointer moves off it.
+ * Guards the Firefox regression where hover-based (`onMouseLeave`) dismissal
+ * closed the menu the instant it appeared. `item` is a visible entry in the
+ * open panel.
+ */
+export async function expectMenuStaysOpen(
+  page: Page,
+  item: RegExp,
+): Promise<void> {
+  await expect(page.getByRole('button', { name: item })).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(page.getByRole('button', { name: item })).toBeVisible();
+}
