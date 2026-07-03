@@ -86,9 +86,11 @@ describe('makeSpace', () => {
     expect(makeSpace(lines, 10, 10)).toEqual(new Map([[11, 12]]));
   });
 
-  it('returns an empty map when the cascade would overflow 9999', () => {
-    const lines = parseLines('9997 A\n9998 B\n9999 C');
-    expect(makeSpace(lines, 9997, 10)).toEqual(new Map());
+  it('returns an empty map when the cascade would overflow the max line number', () => {
+    const lines = parseLines(
+      `${MAX_LINE_NO - 2} A\n${MAX_LINE_NO - 1} B\n${MAX_LINE_NO} C`,
+    );
+    expect(makeSpace(lines, MAX_LINE_NO - 2, 10)).toEqual(new Map());
   });
 });
 
@@ -342,8 +344,10 @@ describe('makeSpaceN', () => {
   });
 
   it('returns null when the cascade would overflow', () => {
-    const lines = parseLines('9997 A\n9998 B\n9999 C');
-    expect(makeSpaceN(lines, 9997, 2)).toBeNull();
+    const lines = parseLines(
+      `${MAX_LINE_NO - 2} A\n${MAX_LINE_NO - 1} B\n${MAX_LINE_NO} C`,
+    );
+    expect(makeSpaceN(lines, MAX_LINE_NO - 2, 2)).toBeNull();
   });
 });
 
