@@ -11,6 +11,7 @@ import type {
 } from '../../dialects/types';
 import { readC64Variables } from './vars';
 import { readC64Report } from './reports';
+import { remapRgb } from './palette';
 import { SidRenderer, SID_SAMPLE_RATE } from './sid';
 import { C64DiskDrive, type Bus, type TrapResult } from './diskDrive';
 import {
@@ -346,9 +347,11 @@ export class C64Machine implements MachineEmulator {
         if (x < 0 || x >= C64_DISPLAY_WIDTH) return;
         if (y < 0 || y >= C64_DISPLAY_HEIGHT) return;
         const i = (y * C64_DISPLAY_WIDTH + x) * 4;
-        this.rgba[i] = r;
-        this.rgba[i + 1] = g;
-        this.rgba[i + 2] = b;
+        // Remap viciious's approximate colours to the Colodore reference palette.
+        const [cr, cg, cb] = remapRgb(r, g, b);
+        this.rgba[i] = cr;
+        this.rgba[i + 1] = cg;
+        this.rgba[i + 2] = cb;
       },
       blit: () => {},
     };
