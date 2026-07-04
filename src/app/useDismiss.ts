@@ -17,6 +17,40 @@ export function isOutside(
 }
 
 /**
+ * Legacy fallback for the same outside-hit test, using `Node.contains(target)`
+ * instead of `composedPath()`. Returns `true` when the event target is neither
+ * the root nor a descendant of it (a null root also counts as outside). The
+ * root is accepted as anything exposing `contains`, so this stays unit-testable
+ * with a plain stub and no DOM — mirroring `isOutside`.
+ *
+ * Only frozen, Windows-7-era Firefox uses this path (see `LEGACY_FIREFOX`);
+ * every other browser keeps the standard `composedPath()` test above.
+ */
+export function isOutsideContains(
+  root: { contains(node: Node | null): boolean } | null,
+  target: EventTarget | null,
+): boolean {
+  return root == null || !root.contains(target as Node | null);
+}
+
+/**
+ * Frozen Windows-7-era Firefox (the last line to install on Win7 is 115)
+ * returns an unreliable `composedPath()` for light-DOM pointer events, so the
+ * standard outside-click test misfires and dismisses the dropdown before it can
+ * be used — the menu appears never to open. Those builds fall back to a
+ * `Node.contains()` hit test, which they support reliably; every other browser
+ * keeps `composedPath()`. This is a deliberately narrow UA check (116 is the
+ * first Firefox line after the final Win7-capable build), the one engine class
+ * that needs the workaround.
+ */
+const LEGACY_FIREFOX =
+  typeof navigator !== 'undefined' &&
+  (() => {
+    const m = /Firefox\/(\d+)/.exec(navigator.userAgent);
+    return m ? Number(m[1]) < 116 : false;
+  })();
+
+/**
  * Dismiss an open overlay (dropdown menu, popover…) on an outside click or the
  * Escape key. Returns a ref to attach to the overlay's root element.
  *
@@ -41,7 +75,10 @@ export function useDismiss<T extends HTMLElement>(
     if (!open) return;
 
     const onPointerDown = (e: PointerEvent) => {
-      if (isOutside(e.composedPath(), ref.current)) onDismiss();
+      const outside = LEGACY_FIREFOX
+        ? isOutsideContains(ref.current, e.target)
+        : isOutside(e.composedPath(), ref.current);
+      if (outside) onDismiss();
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onDismiss();
