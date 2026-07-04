@@ -29,9 +29,51 @@
 
 @media (prefers-reduced-motion: reduce) {
   .drawer,
-  .handle {
+  .handle,
+  .openHandle {
     transition: none;
   }
+}
+
+/* Open tab: the counterpart to the close .handle, hung on the right viewport
+   edge so opening the docs has a visible affordance where the drawer appears.
+   Lives outside the sliding drawer (see DocsDrawer.tsx) so it stays put; it is
+   shown only while the drawer is closed. */
+.openHandle {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  /* Just under the drawer (z-index 90) so the drawer covers it once open. */
+  z-index: 89;
+  width: 32px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--text-dim, currentColor);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  box-shadow: -4px 0 12px rgb(0 0 0 / 25%);
+  cursor: pointer;
+  transition:
+    opacity 280ms ease,
+    visibility 280ms ease;
+}
+
+.openHandle:hover {
+  color: var(--text, currentColor);
+}
+
+/* Hidden while the drawer is open — the drawer slides over its position, so drop
+   it out of view (and out of the way of pointer events). Keyed off the button's
+   own aria-hidden, which DocsDrawer.tsx sets to the open state. */
+.openHandle[aria-hidden='true'] {
+  opacity: 0;
+  visibility: hidden;
 }
 
 /* Touch-friendly close tab on the drawer's left edge: tap or swipe right to

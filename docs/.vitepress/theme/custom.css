@@ -4,3 +4,42 @@
 .VPNavBarTitle .logo {
   height: 32px;
 }
+
+/* ---------- Embedded-in-IDE-drawer chrome ---------- */
+/* `.in-ide-drawer` is added to <html> by Layout.vue only when these docs run
+   inside the app's iframe. Standalone visits never get these rules. */
+
+/* Never collapse the nav into a hamburger inside the drawer: just let the nav
+   links (`.VPNavBarMenu`) drop out at VitePress's stock breakpoint when the
+   drawer is too narrow, leaving the search box (left) and close button (right). */
+.in-ide-drawer .VPNavBarHamburger {
+  display: none !important;
+}
+
+/* Always hide VitePress's nav "extras" flyout (the three-dots menu that carries
+   appearance/social/translation items at narrower widths) inside the drawer — the
+   drawer nav is just search + links + close, nothing to spill into an overflow. */
+.in-ide-drawer .VPNavBarExtra {
+  display: none !important;
+}
+
+/* The drawer close button, injected into the nav bar's #nav-bar-content-after
+   slot (Layout.vue). Mirrors the IDE's dark icon-button chrome — colours are
+   hardcoded (the docs are force-dark and can't reach the app's CSS vars across
+   the iframe); they match src/styles.css :root and .icon-btn. */
+.ide-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  padding: 5px 8px;
+  color: #d8dce6;
+  background: #262a33;
+  border: 1px solid #343945;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ide-drawer-close:hover {
+  border-color: #4f8cff;
+}

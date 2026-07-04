@@ -18,6 +18,7 @@ export default withPwa(
       lang: 'en-GB',
       cleanUrls: true,
       lastUpdated: true,
+      appearance: 'force-dark',
 
       // Shiki has no generic "basic" grammar; alias our ```basic fences to the
       // Visual Basic grammar so BASIC keywords/strings still get highlighted.
@@ -38,26 +39,31 @@ export default withPwa(
       ],
 
       themeConfig: {
-        logo: { light: '/logo-light.png', dark: '/logo-dark.png' },
-        // The logo image already includes the word "Basically", so hide the
-        // redundant title text next to it in the nav (see theme/custom.css for the
-        // matching logo size bump).
         siteTitle: false,
 
         nav: [
-          { text: 'Guide', link: '/guide/getting-started' },
-          { text: 'Languages', link: '/reference/' },
-          { text: 'Formats & protocols', link: '/reference/file-formats' },
-          { text: 'Contributing', link: '/contributing/contributing' },
-          { text: 'Community', link: '/guide/community' },
-          { text: 'Open the IDE', link: 'https://ba.sical.ly/' },
+          {
+            text: 'Guide',
+            activeMatch: '/guide/',
+            link: '/guide/getting-started',
+          },
+          {
+            text: 'Languages',
+            activeMatch: '/reference/',
+            link: '/reference/',
+          },
+          {
+            text: 'Contributing',
+            activeMatch: '/contributing/',
+            link: '/contributing/contributing',
+          },
         ],
 
         sidebar: [
+          { text: 'Welcome', link: '/' },
           {
             text: 'Guide',
             items: [
-              { text: 'Welcome', link: '/' },
               { text: 'Getting started', link: '/guide/getting-started' },
               { text: 'Writing BASIC', link: '/guide/writing-basic' },
               { text: 'Testing your code', link: '/guide/testing-programs' },
@@ -66,7 +72,6 @@ export default withPwa(
                 text: 'Keyboard shortcuts (desktop)',
                 link: '/guide/keyboard-shortcuts',
               },
-              { text: 'Community', link: '/guide/community' },
             ],
           },
           {
@@ -100,6 +105,10 @@ export default withPwa(
                 link: '/contributing/contributing',
               },
               {
+                text: 'Community',
+                link: '/contributing/community',
+              },
+              {
                 text: 'Architecture',
                 link: '/contributing/architecture',
               },
@@ -113,11 +122,6 @@ export default withPwa(
               },
             ],
           },
-        ],
-
-        socialLinks: [
-          { icon: 'github', link: 'https://github.com/seanhodges/basically' },
-          { icon: 'discord', link: 'https://discord.gg/UCK3JPD6ck' },
         ],
 
         editLink: {
