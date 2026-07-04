@@ -432,6 +432,12 @@ export function Toolbar() {
                   >
                     Renumber line
                   </button>
+                  <button
+                    onClick={editAction('renumberFile')}
+                    title="Renumber the whole program by the line-number increment and update all references"
+                  >
+                    Renumber file
+                  </button>
                 </>
               )}
               {mobileTab === 'preview' && (
