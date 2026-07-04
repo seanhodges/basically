@@ -93,6 +93,13 @@ jobs:
                 `https://github.com/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}`;
             }
 
+            body = body
+              .split('\n')
+              .filter((line) => !/^(Co-Authored-By|Claude-Session):/i.test(line.trim()))
+              .join('\n')
+              .replace(/^\s*\n+/, '')
+              .replace(/\n+\s*$/, '');
+
             // Discord embed description hard limit is 4096 chars
             if (body.length > 4000) body = body.slice(0, 3990) + '\n… (truncated)';
 
