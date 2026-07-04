@@ -3,13 +3,18 @@ import { findModel } from 'jsbeeb/src/models.js';
 import { Video } from 'jsbeeb/src/video.js';
 import { AtomSoundChip } from 'jsbeeb/src/soundchip.js';
 import * as utils from 'jsbeeb/src/utils.js';
-import type { MachineEmulator, MachineMemoryStats } from '../../dialects/types';
+import type {
+  MachineEmulator,
+  MachineFileStore,
+  MachineMemoryStats,
+} from '../../dialects/types';
 import {
   AtomHostKeyboard,
   isToggleKey,
   matrixForToken,
   stringToMatrix,
 } from './keyboard';
+import { AtomDiskDrive, type Bus } from './diskDrive';
 
 /** jsbeeb's Video renders into a fixed 1024×625 RGBA framebuffer… */
 const FB_WIDTH = 1024;
@@ -69,6 +74,41 @@ const KEY_UP_CYCLES = 40_000;
  */
 const TEXT_START = 0x2900;
 const TOP_OF_TEXT = 0x0d;
+
+/**
+ * Atom filing-system RAM indirection vectors, in page 2. Every filing OS call
+ * is dispatched through one of these — both the documented `#FFxx` entry points
+ * (`OSFIND #FFCE` = `JMP (FNDVEC)`, etc.) and Atom BASIC's own faster
+ * dispatch land here — so redirecting the vectors (see
+ * {@link AtomMachine.redirectFileVectors}) is what lets the VFS intercept
+ * FIN/FOUT (OSFIND), BGET (OSBGET) and BPUT (OSBPUT). On the `Atom-Tape-FP`
+ * model the kernel defaults point these at the cassette routines
+ * (`#FC38`/`#FBEE`/`#FC7C`), which read/write a (non-existent) tape; we replace
+ * them with sentinels we trap. Whole-file OSLOAD/OSSAVE (`LODVEC`/`SAVVEC`) are
+ * deliberately left alone — whole-program SAVE/LOAD falls through to the real
+ * kernel, mirroring the BBC. (Explicit close, `SHUT`, is a disc/DOS word absent
+ * from this BASIC ROM — output files are written through on every BPUT instead,
+ * see diskDrive.ts — so SHTVEC is not touched.)
+ */
+const BGTVEC = 0x0214;
+const BPTVEC = 0x0216;
+const FNDVEC = 0x0218;
+
+/**
+ * Sentinel PC addresses the file vectors are pointed at. They sit inside the
+ * kernel's *default-vector data table* (`#FF9A-#FFB1`), which the reset routine
+ * only ever reads as data (`LDA $FF9A,X`) and never executes — so the CPU's PC
+ * reaches one only via a redirected `JMP (vector)`, and the trap forges a
+ * return before the byte there could run. Three distinct values let one hook
+ * switch on which call was made.
+ */
+const SENT_FIND = 0xff9a;
+const SENT_BGET = 0xff9e;
+const SENT_BPUT = 0xffa0;
+
+/** Cap on traps serviced within one {@link AtomMachine.runCycles} call, so a
+ *  bug that kept reporting a stop for a non-trap reason couldn't spin forever. */
+const MAX_TRAPS_PER_CALL = 100_000;
 /**
  * Top of the RAM contiguously available to BASIC text on the emulated
  * `Atom-Tape-FP` model: RAM runs unbroken from {@link TEXT_START} until the
@@ -123,10 +163,21 @@ export class AtomMachine implements MachineEmulator {
   private speed = 1;
   private disposed = false;
 
+  /** VFS-backed filing system, or null when no store was wired. */
+  private readonly drive: AtomDiskDrive | null;
+  /** The debugInstruction hook registration, removed on dispose(). */
+  private debugHook: { remove(): void } | null = null;
+
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
 
-  constructor() {
+  /**
+   * @param opts.files sink for program-driven data file I/O (FIN/FOUT, BGET/
+   *   BPUT); omitted, filing calls fall through to the real, filing-system-less
+   *   Atom kernel.
+   */
+  constructor(opts?: { files?: MachineFileStore }) {
+    this.drive = opts?.files ? new AtomDiskDrive(opts.files) : null;
     const model = findModel('Atom-Tape-FP');
     if (!model) throw new Error('jsbeeb has no Atom-Tape-FP model');
     const fb32 = new Uint32Array(this.fb8.buffer);
@@ -158,6 +209,7 @@ export class AtomMachine implements MachineEmulator {
     this.audioSampleRate = this.soundChip.soundchipFreq;
     this.cpu = fake6502(model, { video, soundChip: this.soundChip });
     if (!this.cpu.atomppia) throw new Error('Atom CPU has no PPIA');
+    if (this.drive) this.debugHook = this.installFilingSystemTrap(this.drive);
     // The Atom keyboard hangs off the PPIA, not the SysVia.
     this.hostKeyboard = new AtomHostKeyboard(this.cpu.atomppia);
     this.ready = this.cpu.initialise().then(() => {
@@ -184,6 +236,110 @@ export class AtomMachine implements MachineEmulator {
   }
 
   /**
+   * Register the filing-system trap: on every filing OS call (which arrives at
+   * one of our redirected {@link SENT_FIND}… sentinels), read the live
+   * registers, ask the drive to service the call, and — if it does — forge a
+   * return so the real (filing-system-less) cassette routine never runs.
+   * Returning `true` from the hook halts the CPU before the fetched opcode
+   * executes; `false` leaves everything untouched. Mirrors
+   * {@link import('../bbc/bbcMachine').BbcMachine}'s trap; the difference is
+   * that Atom BASIC dispatches file ops through the page-2 RAM vectors rather
+   * than always via the `#FFxx` entry points, so we redirect the vectors (see
+   * {@link redirectFileVectors}) and trap where they now point.
+   */
+  private installFilingSystemTrap(drive: AtomDiskDrive): { remove(): void } {
+    const cpu = this.cpu;
+    const bus: Bus = {
+      read: (a) => cpu.readmem(a & 0xffff),
+      write: (a, v) => cpu.writemem(a & 0xffff, v & 0xff),
+    };
+    return cpu.debugInstruction.add((pc) => {
+      let result;
+      switch (pc) {
+        case SENT_FIND:
+          // OSFIND: carry set = open input (FIN), clear = open output (FOUT);
+          // X is a zero-page cell holding the filename pointer.
+          result = drive.open(bus, cpu.p.c, cpu.x);
+          break;
+        case SENT_BGET:
+          result = drive.bget(cpu.y);
+          break;
+        case SENT_BPUT:
+          result = drive.bput(cpu.y, cpu.a);
+          break;
+        default:
+          return false;
+      }
+      if (!result.handled) return false;
+      this.forgeReturn(result);
+      return true;
+    });
+  }
+
+  /**
+   * Point the filing-system RAM vectors at our sentinels so every
+   * FIN/FOUT/BGET/BPUT is intercepted by {@link installFilingSystemTrap}.
+   * Called after boot (a hard reset reinstalls the kernel defaults, so this
+   * must run once BASIC is up).
+   */
+  private redirectFileVectors(): void {
+    const set = (vec: number, target: number) => {
+      this.cpu.writemem(vec, target & 0xff);
+      this.cpu.writemem(vec + 1, (target >>> 8) & 0xff);
+    };
+    set(FNDVEC, SENT_FIND);
+    set(BGTVEC, SENT_BGET);
+    set(BPTVEC, SENT_BPUT);
+  }
+
+  /**
+   * Return from a trapped OS call without running it: pop the JSR return
+   * address off the stack (RTS pulls PC then increments), then apply the
+   * handler's result registers and carry flag. The opcode at the trap address
+   * (already fetched but not yet run) is skipped because the caller returns
+   * `true` from the debugInstruction hook right after this. Copied from the
+   * BBC adapter.
+   */
+  private forgeReturn(result: {
+    a?: number;
+    x?: number;
+    y?: number;
+    carry: boolean;
+  }): void {
+    const cpu = this.cpu;
+    const lo = cpu.readmem(0x100 + ((cpu.s + 1) & 0xff));
+    const hi = cpu.readmem(0x100 + ((cpu.s + 2) & 0xff));
+    cpu.s = (cpu.s + 2) & 0xff;
+    cpu.pc = (((hi << 8) | lo) + 1) & 0xffff;
+    if (result.a !== undefined) cpu.a = result.a & 0xff;
+    if (result.x !== undefined) cpu.x = result.x & 0xff;
+    if (result.y !== undefined) cpu.y = result.y & 0xff;
+    cpu.p.c = result.carry;
+  }
+
+  /**
+   * Run for `totalCycles`, transparently resuming after a serviced filing-
+   * system trap. A forged trap halts the CPU having consumed no cycles for the
+   * skipped opcode, so `execute()` returns early having run less than
+   * requested; re-invoking it for the remainder keeps callers oblivious to the
+   * trap. With no drive installed this is exactly `cpu.execute(totalCycles)` —
+   * installing any debug hook forces jsbeeb's slower instruction-by-instruction
+   * path, so programs that never touch VFS must not pay for it.
+   */
+  private runCycles(totalCycles: number): void {
+    if (!this.drive) {
+      this.cpu.execute(totalCycles);
+      return;
+    }
+    let remaining = totalCycles;
+    for (let i = 0; i < MAX_TRAPS_PER_CALL && remaining > 0; i++) {
+      const before = this.cpu.currentCycles;
+      if (this.cpu.execute(remaining)) return; // ran the full remaining budget
+      remaining -= this.cpu.currentCycles - before;
+    }
+  }
+
+  /**
    * Actual RAM figures from BASIC's own top-of-text pointer (`#0D/#0E`), which
    * the interpreter advances past the program's `0D FF` end marker and again
    * as `DIM` allocates arrays — so TEXT_START..TOP is in use and TOP to
@@ -204,6 +360,9 @@ export class AtomMachine implements MachineEmulator {
     this.loadGeneration++;
     this.loadError = '';
     this.clearAudio();
+    // Drop any open channels without flushing: the IDE clears the VFS around a
+    // reset, so a late flush would resurrect stale data.
+    this.drive?.closeAll();
     void this.ready.then(() => {
       if (!this.disposed) this.cpu.reset(true);
     });
@@ -211,7 +370,7 @@ export class AtomMachine implements MachineEmulator {
 
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
-    this.cpu.execute(Math.round(CYCLES_PER_FRAME * this.speed));
+    this.runCycles(Math.round(CYCLES_PER_FRAME * this.speed));
     // Flush sound generated this frame into the accumulation buffer.
     this.soundChip.catchUp();
   }
@@ -250,7 +409,12 @@ export class AtomMachine implements MachineEmulator {
         try {
           this.ppia.clearKeys();
           this.cpu.reset(true);
-          this.cpu.execute(BOOT_CYCLES);
+          // Start each run with no carried-over channels from a previous run.
+          this.drive?.closeAll();
+          this.runCycles(BOOT_CYCLES);
+          // The hard reset above restored the kernel's default (cassette) file
+          // vectors; point them back at our VFS sentinels now BASIC is up.
+          if (this.drive) this.redirectFileVectors();
           for (let i = 0; i < image.length; i++) {
             this.cpu.writemem(TEXT_START + i, image[i]!);
           }
@@ -285,13 +449,13 @@ export class AtomMachine implements MachineEmulator {
     for (const pos of stringToMatrix(text)) {
       if (isToggleKey(pos)) {
         this.ppia.keyToggleRaw(pos);
-        this.cpu.execute(KEY_UP_CYCLES);
+        this.runCycles(KEY_UP_CYCLES);
         continue;
       }
       this.ppia.keyDownRaw(pos);
-      this.cpu.execute(KEY_DOWN_CYCLES);
+      this.runCycles(KEY_DOWN_CYCLES);
       this.ppia.keyUpRaw(pos);
-      this.cpu.execute(KEY_UP_CYCLES);
+      this.runCycles(KEY_UP_CYCLES);
     }
     // Drop any modifier left held by a trailing toggle.
     this.ppia.clearKeys();
@@ -362,6 +526,8 @@ export class AtomMachine implements MachineEmulator {
     if (this.disposed) return;
     this.disposed = true;
     this.loadGeneration++;
+    this.drive?.closeAll();
+    this.debugHook?.remove();
     this.ppia.clearKeys();
     this.backCanvas = null;
     this.backImageData = null;

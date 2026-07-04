@@ -199,6 +199,12 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     doc: 'Close all open cassette/disc files.',
   },
   {
+    word: 'BPUT',
+    kind: 'command',
+    signature: 'BPUT handle,expr',
+    doc: "Write the low byte of expr to an output file opened with FOUT. In the IDE these bytes go to the emulator's virtual filesystem (see the Emulator files viewer).",
+  },
+  {
     word: 'PUT',
     kind: 'command',
     signature: 'PUT port,value',
@@ -219,6 +225,24 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     doc: 'Absolute value.',
   },
   { word: 'RND', kind: 'function', signature: 'RND', doc: 'A random number.' },
+  {
+    word: 'FOUT',
+    kind: 'function',
+    signature: 'FOUT "name"',
+    doc: "Open a file for output and return its handle (for BPUT). In the IDE the file lives in the emulator's virtual filesystem.",
+  },
+  {
+    word: 'FIN',
+    kind: 'function',
+    signature: 'FIN "name"',
+    doc: "Open a file for input and return its handle (for BGET), or 0 if it doesn't exist. Reads from the emulator's virtual filesystem in the IDE.",
+  },
+  {
+    word: 'BGET',
+    kind: 'function',
+    signature: 'BGET handle',
+    doc: 'Read and return the next byte from an input file opened with FIN.',
+  },
   {
     word: 'TOP',
     kind: 'function',

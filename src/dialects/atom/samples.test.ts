@@ -63,11 +63,12 @@ describe('atom sample programs', () => {
     }
   });
 
-  it('ships circles and maze with hello first (no breakout, like the ZX80)', () => {
+  it('ships circles, maze and files with hello first (no breakout, like the ZX80)', () => {
     expect(atomSamples.map((s) => s.name)).toEqual([
       'hello.bas',
       'circles.bas',
       'maze.bas',
+      'files.bas',
     ]);
   });
 
@@ -98,6 +99,32 @@ describe('atom sample programs', () => {
     machine.loadProgram(bytes);
     await runFrames(machine, 2500);
     expect(screenText(machine)).not.toContain('ERROR');
+    machine.dispose();
+  }, 60000);
+
+  // files.bas writes five squares to a VFS file with FOUT/BPUT and reads them
+  // back with FIN/BGET. Running it on the real ROM (with a store wired) proves
+  // the whole file path parses and round-trips: the last square (25) only
+  // appears if the read-back reached the fifth byte.
+  it('runs files.bas and reads its data back through the VFS', async () => {
+    const files = atomSamples.find((s) => s.name === 'files.bas')!;
+    const { bytes } = tokenizeProgram(files.text);
+    const store = new Map<string, Uint8Array>();
+    const machine = new AtomMachine({
+      files: {
+        save: (name, data) => void store.set(name, data.slice()),
+        load: (name) => store.get(name)?.slice() ?? null,
+        list: () => [],
+        delete: (name) => store.delete(name),
+      },
+    });
+    machine.loadProgram(bytes);
+    const ran = await runUntil(machine, () =>
+      screenText(machine).includes('DONE'),
+    );
+    expect(ran).toBe(true);
+    expect(screenText(machine)).toContain('25');
+    expect([...(store.get('SQUARES') ?? [])]).toEqual([1, 4, 9, 16, 25]);
     machine.dispose();
   }, 60000);
 });

@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { AtomMachine, configureNodeRomPath } from './atomMachine';
 import { tokenizeProgram } from '../../dialects/atom/tokenizer';
+import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
 
 // Point jsbeeb's ROM loader at the real ROMs shipped in its npm package.
 beforeAll(() => {
@@ -25,6 +26,25 @@ function screenText(machine: AtomMachine): string {
     text += ascii >= 0x20 && ascii < 0x7f ? String.fromCharCode(ascii) : ' ';
   }
   return text;
+}
+
+/** Map-backed MachineFileStore, same shape as diskDrive.test.ts. */
+function fakeStore() {
+  const files = new Map<string, { data: Uint8Array; kind?: string }>();
+  const store: MachineFileStore = {
+    save: (name, data, meta) =>
+      void files.set(name, { data: data.slice(), kind: meta?.kind }),
+    load: (name) => files.get(name)?.data.slice() ?? null,
+    list: (): MachineFileEntry[] =>
+      [...files.entries()].map(([name, f]) => ({
+        name,
+        size: f.data.length,
+        updatedAt: 1,
+        kind: f.kind,
+      })),
+    delete: (name) => files.delete(name),
+  };
+  return { store, files };
 }
 
 /** Run frames (yielding to the microtask queue) until the predicate holds. */
@@ -162,4 +182,47 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     expect(machine.displayHeight).toBe(192);
     machine.dispose();
   });
+
+  it('round-trips a data file through the VFS (FOUT/BPUT then FIN/BGET)', async () => {
+    const s = fakeStore();
+    const machine = new AtomMachine({ files: s.store });
+    // Write two bytes to "DAT", then open it for input and print them back.
+    const { bytes } = tokenizeProgram(
+      '10 F=FOUT"DAT"\n' +
+        '20 BPUT F,49\n' +
+        '30 BPUT F,50\n' +
+        '40 G=FIN"DAT"\n' +
+        '50 P.BGET G\n' +
+        '60 P.BGET G\n' +
+        '70 END\n',
+    );
+    machine.loadProgram(bytes);
+    // The read-back path (FIN a file the program itself wrote, then BGET the
+    // bytes) only prints "4950" if BASIC's FOUT/BPUT/FIN/BGET were all served
+    // from the VFS and the forged returns round-tripped the handle in A.
+    const ran = await runUntil(machine, () =>
+      screenText(machine).includes('49'),
+    );
+    expect(ran).toBe(true);
+    expect(screenText(machine)).toContain('50');
+    // The write path is visible in the store immediately (write-through: there
+    // is no SHUT on the tape ROM), tagged as data.
+    expect([...(s.files.get('DAT')?.data ?? [])]).toEqual([49, 50]);
+    expect(s.files.get('DAT')!.kind).toBe('data');
+    machine.dispose();
+  }, 60000);
+
+  it('serves FIN of a missing file as absent (handle 0) rather than hanging', async () => {
+    const s = fakeStore();
+    const machine = new AtomMachine({ files: s.store });
+    // FIN returns 0 for a file that does not exist; the program prints a marker.
+    const { bytes } = tokenizeProgram('10 G=FIN"NOPE"\n20 P."H="G\n30 END\n');
+    machine.loadProgram(bytes);
+    const ran = await runUntil(machine, () =>
+      screenText(machine).includes('H='),
+    ); // prints the handle
+    expect(ran).toBe(true);
+    expect(screenText(machine)).toContain('H=       0');
+    machine.dispose();
+  }, 60000);
 });
