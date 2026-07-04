@@ -7,6 +7,7 @@ import { Toolbar } from './components/Toolbar';
 import { Workspace } from './components/Workspace';
 import { AiSettingsDialog } from './components/AiSettingsDialog';
 import { TransferDialog } from './components/TransferDialog';
+import { VfsInspectorDialog } from './components/VfsInspectorDialog';
 import { ImportDialog } from './components/ImportDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
@@ -72,6 +73,7 @@ export default function App() {
       {!landscape && <StatusBar />}
       <AiSettingsDialog />
       <TransferDialog />
+      <VfsInspectorDialog />
       <ImportDialog />
       <SwitchTargetDialog />
       <ProcedureListDialog />

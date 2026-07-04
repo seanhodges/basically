@@ -244,6 +244,121 @@ describe('SpectrumMachine', () => {
     });
   });
 
+  describe('virtual filesystem tape traps', () => {
+    function fakeStore() {
+      const files = new Map<string, { data: Uint8Array; kind?: string }>();
+      const store = {
+        save: (name: string, data: Uint8Array, meta?: { kind?: string }) =>
+          void files.set(name, { data: data.slice(), kind: meta?.kind }),
+        load: (name: string) => files.get(name)?.data.slice() ?? null,
+        list: () =>
+          [...files.entries()].map(([name, f]) => ({
+            name,
+            size: f.data.length,
+            updatedAt: 1,
+            kind: f.kind,
+          })),
+        delete: (name: string) => files.delete(name),
+      };
+      return { store, files };
+    }
+
+    /** The top few screen rows as text, for output that follows tape chatter. */
+    function screenRows(machine: SpectrumMachine, rows = 6): string[] {
+      return Array.from({ length: rows }, (_, r) =>
+        readScreen(machine, r, 0, 32),
+      );
+    }
+
+    function run(
+      machine: SpectrumMachine,
+      src: string,
+      opts: { frames?: number; tapKeyAt?: number } = {},
+    ): void {
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildTap(bytes));
+      const frames = opts.frames ?? 100;
+      for (let i = 0; i < frames; i++) {
+        machine.runFrame();
+        // SAVE waits at "Start tape, then press any key." — tap one.
+        if (opts.tapKeyAt !== undefined && i === opts.tapKeyAt) {
+          machine.setKey('KeyQ', true);
+        }
+        if (opts.tapKeyAt !== undefined && i === opts.tapKeyAt + 5) {
+          machine.setKey('KeyQ', false);
+        }
+      }
+    }
+
+    it('captures SAVE ... DATA into the store and loads it back', () => {
+      const { store, files } = fakeStore();
+      const m1 = new SpectrumMachine({ rom, files: store });
+      run(
+        m1,
+        '10 DIM a(3)\n20 FOR i=1 TO 3\n30 LET a(i)=i*i\n40 NEXT i\n50 SAVE "NUMS" DATA a()\n60 PRINT "SAVED"\n',
+        { frames: 260, tapKeyAt: 60 },
+      );
+      expect(readScreen(m1, 0, 0, 5)).toBe('SAVED');
+      expect([...files.keys()]).toEqual(['NUMS']);
+      expect(files.get('NUMS')!.kind).toBe('data-num');
+
+      const m2 = new SpectrumMachine({ rom, files: store });
+      run(m2, '10 LOAD "NUMS" DATA b()\n20 PRINT "B=";b(2)\n', { frames: 120 });
+      // The ROM prints "Number array: NUMS" chatter first, so scan the rows.
+      expect(screenRows(m2)).toContainEqual(expect.stringContaining('B=4'));
+    });
+
+    it('captures SAVE ... CODE and loads the bytes back with LOAD ... CODE', () => {
+      const { store, files } = fakeStore();
+      const m1 = new SpectrumMachine({ rom, files: store });
+      run(m1, '10 POKE 30000,123\n20 SAVE "S" CODE 30000,4\n30 PRINT "OK"\n', {
+        frames: 260,
+        tapKeyAt: 60,
+      });
+      expect(readScreen(m1, 0, 0, 2)).toBe('OK');
+      expect([...files.keys()]).toEqual(['S']);
+      expect(files.get('S')!.kind).toBe('code');
+
+      const m2 = new SpectrumMachine({ rom, files: store });
+      run(m2, '10 LOAD "S" CODE\n20 PRINT "P=";PEEK 30000\n', { frames: 120 });
+      expect(screenRows(m2)).toContainEqual(expect.stringContaining('P=123'));
+    });
+
+    it('does not capture a BASIC program SAVE (data operations only)', () => {
+      const { store, files } = fakeStore();
+      const machine = new SpectrumMachine({ rom, files: store });
+      // The real SA-BYTES runs against the (absent) tape; give it a while
+      // and confirm nothing landed in the store.
+      run(machine, '10 SAVE "P"\n', { frames: 200, tapKeyAt: 60 });
+      expect(files.size).toBe(0);
+    });
+
+    it('raises "R Tape loading error" for a missing file name', () => {
+      const { store } = fakeStore();
+      const m1 = new SpectrumMachine({ rom, files: store });
+      run(m1, '10 POKE 30000,1\n20 SAVE "X" CODE 30000,2\n', {
+        frames: 260,
+        tapKeyAt: 60,
+      });
+
+      const m2 = new SpectrumMachine({ rom, files: store });
+      run(m2, '10 LOAD "WRONG" CODE\n20 PRINT "NEVER"\n', { frames: 150 });
+      const report = m2.readReport();
+      expect(report.isError).toBe(true);
+      expect(report.code).toBe('R');
+    });
+
+    it('keeps LOAD hanging (BREAK-able) while the store is empty', () => {
+      const { store } = fakeStore();
+      const machine = new SpectrumMachine({ rom, files: store });
+      run(machine, '10 LOAD "ANY" CODE\n20 PRINT "NEVER"\n', { frames: 150 });
+      // No files: the trap must not arm, so the ROM keeps polling the tape.
+      expect(machine.readReport().isError).toBe(false);
+      expect(readScreen(machine, 0, 0, 5)).not.toBe('NEVER');
+    });
+  });
+
   // The joystick wiring and IO decode don't depend on running the ROM, so these
   // probe the machine directly. Keys 1-5 live on matrix row selected by ULA high
   // byte 0xF7 (bit0=1 … bit4=5, active-low).

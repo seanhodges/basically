@@ -170,6 +170,35 @@ export interface JoystickState {
  */
 export type JoystickMode = 'native' | 'kempston';
 
+/** One file as the program-facing virtual filesystem sees it. */
+export interface MachineFileEntry {
+  /** Program-supplied identifier; the target device (tape, disk…) is ignored. */
+  name: string;
+  /** Payload size in bytes. */
+  size: number;
+  /** Epoch ms of the last save. */
+  updatedAt: number;
+  /** Dialect-specific tag, e.g. 'code' | 'data-num' | 'data-str' | 'data'. */
+  kind?: string;
+}
+
+/**
+ * Synchronous file store handed to a machine at construction via
+ * {@link Dialect.createEmulator}. Machines call it from ROM traps or
+ * interpreter statements while a program performs data file I/O; all calls
+ * must therefore be synchronous (no frame stalls mid-instruction). The IDE
+ * owns the store's lifetime and clears it around emulator start/stop.
+ */
+export interface MachineFileStore {
+  save(name: string, data: Uint8Array, meta?: { kind?: string }): void;
+  /** The stored bytes, or null when no file has that name. */
+  load(name: string): Uint8Array | null;
+  /** All files in insertion order (oldest save first, like a tape). */
+  list(): MachineFileEntry[];
+  /** Returns true when a file was removed. */
+  delete(name: string): boolean;
+}
+
 /** Actual BASIC RAM figures read from a running machine's own pointers. */
 export interface MachineMemoryStats {
   /** Bytes of BASIC RAM in use (program + variables + workspace/stacks). */
@@ -353,6 +382,12 @@ export interface Dialect {
   createEmulator(opts: {
     rom: Uint8Array;
     ramKb: 16 | 32 | 64;
+    /**
+     * Sink for program-driven data file I/O (the IDE's virtual filesystem).
+     * Machines that intercept data SAVE/LOAD/OPEN… route it here; machines
+     * without such traps simply ignore it.
+     */
+    files?: MachineFileStore;
   }): MachineEmulator;
   /** On-screen keyboard: authentic layout, labels and theme as pure data. */
   keyboardLayout: KeyboardLayout;

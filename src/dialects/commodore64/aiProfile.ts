@@ -16,6 +16,11 @@ THE DIALECT — STRICT RULES
 - Functions: ABS, ASC, ATN, CHR$, COS, EXP, FRE, INT, LEFT$, LEN, LOG, MID$, PEEK, RIGHT$, RND, SGN, SIN, SQR, STR$, TAN, VAL, and π.
 - Commands: PRINT, POKE, GET, INPUT, FOR/NEXT, IF/THEN, GOTO, GOSUB/RETURN, ON..GOTO, READ/DATA/RESTORE, DIM, DEF FN, SYS, WAIT.
 - Keyboard input in games: GET A$ (non-blocking, returns "" if no key). INPUT halts the program.
+
+DATA FILES (virtual disk, device 8)
+- This IDE gives the C64 a virtual disk on device 8 for saving and loading named sequential data files, so OPEN/PRINT#/INPUT#/GET#/CLOSE work as on a real 1541. (There is no LOAD/SAVE of programs to disk, and no random-access/relative files.)
+- Write: OPEN 2,8,2,"NAME,S,W" : PRINT#2,X$ : PRINT#2,N : CLOSE 2. Read: OPEN 2,8,2,"NAME,S,R" : INPUT#2,X$ : INPUT#2,N : CLOSE 2. Use GET#2,A$ to read one character; check ST for end-of-file (ST AND 64).
+- ALWAYS CLOSE a file you wrote — as on real hardware, an unclosed write file is not saved. Files persist across runs and appear in the IDE's "Emulator files" panel.
 - RND(0) reseeds from timers; RND(1) gives 0..<1. INT(RND(1)*n) for 0..n-1.
 - There are NO graphics or sound BASIC keywords — no PLOT, no CIRCLE, no SPRITE command. Draw with PRINT and PEEK/POKE to screen/colour RAM, or POKE the VIC-II registers directly.
 

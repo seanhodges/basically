@@ -46,6 +46,7 @@ export function Toolbar() {
   const toggleAiPanel = useIdeStore((s) => s.toggleAiPanel);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
+  const setVfsInspectorOpen = useIdeStore((s) => s.setVfsInspectorOpen);
   const setImportOpen = useIdeStore((s) => s.setImportOpen);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
   const openDocs = useIdeStore((s) => s.openDocs);
@@ -164,6 +165,7 @@ export function Toolbar() {
 
   const openImport = guard(() => setImportOpen(true));
   const openShare = guard(() => setTransferOpen(true));
+  const openVfsInspector = guard(() => setVfsInspectorOpen(true));
 
   // Shortcut hints for menu items and button tooltips, pulled from the central
   // binding table so they never drift from what the keyboard actually does.
@@ -222,6 +224,15 @@ export function Toolbar() {
               <button onClick={saveFile}>Save .bas{hint('file.save')}</button>
               <button onClick={openImport}>Import…{hint('file.import')}</button>
               <button onClick={openShare}>Export…{hint('file.export')}</button>
+              <button
+                onClick={openVfsInspector}
+                title={withKeys(
+                  'Inspect files the running program has saved to the virtual filesystem',
+                  'view.vfsInspector',
+                )}
+              >
+                Emulator files…{hint('view.vfsInspector')}
+              </button>
               <div className={styles.menuSeparator} />
               <div className={styles.menuLabel}>Samples</div>
               {dialect.samples.map((s) => (
@@ -464,6 +475,10 @@ export function Toolbar() {
                     disabled={emulatorStatus === 'stopped'}
                   >
                     ■ Stop
+                  </button>
+                  <div className={styles.menuSeparator} />
+                  <button onClick={openVfsInspector}>
+                    Emulator files…{hint('view.vfsInspector')}
                   </button>
                 </>
               )}

@@ -71,7 +71,7 @@ export const zxspectrum128: Dialect = {
 
   // opts.ramKb is ignored: the 128K always provides its eight 16K banks itself.
   createEmulator(opts) {
-    return new Spectrum128Machine({ rom: opts.rom });
+    return new Spectrum128Machine({ rom: opts.rom, files: opts.files });
   },
 
   keyboardLayout: spectrum128KeyboardLayout,

@@ -6,10 +6,12 @@ import type {
   JoystickMode,
   JoystickState,
   MachineEmulator,
+  MachineFileStore,
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
 } from '../../types';
+import { VfsTapeDeck } from '../../zxspectrum/emulator/tapeDeck';
 import {
   applySinclairJoystick,
   kempstonByte,
@@ -28,6 +30,8 @@ const TSTATES_PER_FRAME = 70908; // 3.5469MHz / ~50.02Hz (128K ULA frame)
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 400; // the 128 menu takes longer than the 48K prompt
 const LD_BYTES = 0x0556; // 48 BASIC ROM tape-loader entry; trapped for flash loading
+const SA_BYTES = 0x04c2; // 48 BASIC ROM tape-saver entry; trapped for VFS data saves
+const REPORT_R = 0x0806; // 48 BASIC ROM "R Tape loading error" (RST 8, code 0x1A)
 // The 128 menu (drawn by ROM 0) renders text with the 48 BASIC font, which sits
 // at 0x3C00 within ROM 1 — i.e. file offset 0x4000 + 0x3C00. Glyph for char code
 // c is at FONT_ORIGIN + c*8.
@@ -83,8 +87,15 @@ export class Spectrum128Machine implements MachineEmulator {
   private disposed = false;
   /** Header + data blocks waiting to be injected at the next LOAD. */
   private pending: { header: Uint8Array; data: Uint8Array } | null = null;
+  /**
+   * The virtual filesystem behind the program's own data SAVE/LOAD (CODE and
+   * array blocks), shared with the 48K machine. Null when the IDE supplies
+   * no file store.
+   */
+  private readonly deck: VfsTapeDeck | null;
 
-  constructor(opts: { rom: Uint8Array }) {
+  constructor(opts: { rom: Uint8Array; files?: MachineFileStore }) {
+    this.deck = opts.files ? new VfsTapeDeck(opts.files) : null;
     this.memory = new Spectrum128Memory(opts.rom);
     this.cpu = Z80({
       mem_read: this.memory.read,
@@ -113,6 +124,7 @@ export class Spectrum128Machine implements MachineEmulator {
     this.ay.reset();
     this.beeper.reset();
     this.pending = null;
+    this.deck?.rewind();
     this.border = 7;
     this.kempston = 0;
     this.frameCount = 0;
@@ -127,12 +139,24 @@ export class Spectrum128Machine implements MachineEmulator {
    * T-states consumed (0 when the trap was serviced or the CPU is halted).
    */
   private stepInstruction(): { t: number; halted: boolean } {
-    if (
-      this.pending &&
-      this.memory.currentRomBank === 1 &&
-      this.cpu.getPC() === LD_BYTES
-    ) {
+    // Every tape trap is gated on ROM 1: 0x0556/0x04C2 are the tape routines
+    // only in the 48 BASIC ROM, and 128 BASIC pages ROM 1 in for all tape I/O.
+    const romBank1 = this.memory.currentRomBank === 1;
+    const pc = this.cpu.getPC();
+    if (this.pending && romBank1 && pc === LD_BYTES) {
       this.serviceLoadTrap();
+      return { t: 0, halted: false };
+    }
+    // Program-driven data SAVE: offer the block to the VFS tape deck; declined
+    // blocks (BASIC program saves) run the real SA-BYTES as before.
+    if (this.deck && romBank1 && pc === SA_BYTES && this.serviceSaveTrap()) {
+      return { t: 0, halted: false };
+    }
+    // Program-driven LOAD with no IDE injection queued: serve from the VFS.
+    // Armed only while files exist, keeping the authentic hang-until-BREAK
+    // when the VFS is empty.
+    if (!this.pending && romBank1 && pc === LD_BYTES && this.deck?.hasFiles()) {
+      this.serviceDeckLoad();
       return { t: 0, halted: false };
     }
     if (this.cpu.isHalted()) return { t: 0, halted: true };
@@ -235,6 +259,64 @@ export class Spectrum128Machine implements MachineEmulator {
     st.d = 0;
     st.e = 0;
     st.flags.C = 1; // success
+    this.cpu.setState(st);
+  }
+
+  /**
+   * Offer one ROM SA-BYTES call (A = flag, IX = start, DE = length) to the
+   * VFS tape deck; captured calls complete like a successful save. Declined
+   * (program saves): return false so the ROM runs the real SA-BYTES.
+   * Identical to the 48K machine's trap — memory access goes through the
+   * banked map, so paging needs no extra handling.
+   */
+  private serviceSaveTrap(): boolean {
+    const st = this.cpu.getState();
+    const length = (st.d << 8) | st.e;
+    const payload = new Uint8Array(length);
+    for (let k = 0; k < length; k++) {
+      payload[k] = this.memory.read((st.ix + k) & 0xffff);
+    }
+    if (!this.deck!.recordBlock(st.a, payload)) return false;
+    const ret = this.memory.readWord(st.sp);
+    st.sp = (st.sp + 2) & 0xffff;
+    st.pc = ret;
+    st.ix = (st.ix + length) & 0xffff;
+    st.d = 0;
+    st.e = 0;
+    st.flags.C = 1; // saved
+    this.cpu.setState(st);
+    return true;
+  }
+
+  /**
+   * Satisfy one ROM LD-BYTES call from the VFS tape deck (see the 48K
+   * machine): matching block loads with carry set, mismatch returns carry
+   * clear, and a tape cycled twice with no match jumps to REPORT-R.
+   */
+  private serviceDeckLoad(): void {
+    const st = this.cpu.getState();
+    const length = (st.d << 8) | st.e;
+    const res = this.deck!.nextBlock(st.a);
+    if (res.kind === 'abort') {
+      // RST 8 error path: the ROM restores SP from ERR_SP itself.
+      st.pc = REPORT_R;
+      this.cpu.setState(st);
+      return;
+    }
+    if (res.kind === 'block' && res.payload.length >= length) {
+      for (let k = 0; k < length; k++) {
+        this.memory.write((st.ix + k) & 0xffff, res.payload[k]!);
+      }
+      st.ix = (st.ix + length) & 0xffff;
+      st.d = 0;
+      st.e = 0;
+      st.flags.C = 1; // success
+    } else {
+      st.flags.C = 0; // wrong/short block: tape error for this call
+    }
+    const ret = this.memory.readWord(st.sp);
+    st.sp = (st.sp + 2) & 0xffff;
+    st.pc = ret;
     this.cpu.setState(st);
   }
 

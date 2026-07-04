@@ -117,7 +117,27 @@ export function buildTap(
   return out;
 }
 
-export function parseTap(image: Uint8Array): ParsedTap {
+/**
+ * A two-block `.TAP` from raw header and data payloads (as captured off a
+ * program's own SAVE, where the payloads can describe CODE or arrays, not
+ * just a BASIC program like {@link buildTap}).
+ */
+export function tapFromPayloads(
+  header: Uint8Array,
+  data: Uint8Array,
+): Uint8Array {
+  const headerBlock = withLengthPrefix(blockWithParity(0x00, header));
+  const dataBlock = withLengthPrefix(blockWithParity(0xff, data));
+  const out = new Uint8Array(headerBlock.length + dataBlock.length);
+  out.set(headerBlock, 0);
+  out.set(dataBlock, headerBlock.length);
+  return out;
+}
+
+/** Every block in a `.TAP` image, in tape order, with parity/flag stripped. */
+export function tapBlockScan(
+  image: Uint8Array,
+): { flag: number; payload: Uint8Array }[] {
   const blocks: { flag: number; payload: Uint8Array }[] = [];
   let p = 0;
   while (p + 2 <= image.length) {
@@ -129,6 +149,11 @@ export function parseTap(image: Uint8Array): ParsedTap {
     blocks.push({ flag, payload });
     p += len;
   }
+  return blocks;
+}
+
+export function parseTap(image: Uint8Array): ParsedTap {
+  const blocks = tapBlockScan(image);
 
   const headerBlock = blocks.find(
     (b) => b.flag === 0x00 && b.payload.length === 17,

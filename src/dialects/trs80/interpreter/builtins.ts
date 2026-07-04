@@ -24,6 +24,8 @@ export interface Ctx {
   inkey(): string;
   column(): number;
   callUserFn(name: string, args: BasicValue[]): BasicValue;
+  /** EOF(n) for a sequential file open for input (Disk BASIC). */
+  fileEof(fd: number): boolean;
 }
 
 /** Keyword words that are functions (drive expression parsing). */
@@ -108,6 +110,8 @@ export function evalFunction(
     case 'ERL':
     case 'ERR':
       return 0;
+    case 'EOF':
+      return ctx.fileEof(Math.floor(one(args))) ? REL_TRUE : REL_FALSE;
 
     // --- strings -------------------------------------------------------
     case 'LEN':

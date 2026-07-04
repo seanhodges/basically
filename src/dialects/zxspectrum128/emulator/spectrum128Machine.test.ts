@@ -146,6 +146,51 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     expect(readScreen(SIGNATURES, machine, 0, 0, 5)).toBe('HELLO');
   });
 
+  it('round-trips a data SAVE/LOAD through the virtual filesystem', () => {
+    const files = new Map<string, { data: Uint8Array; kind?: string }>();
+    const store = {
+      save: (name: string, data: Uint8Array, meta?: { kind?: string }) =>
+        void files.set(name, { data: data.slice(), kind: meta?.kind }),
+      load: (name: string) => files.get(name)?.data.slice() ?? null,
+      list: () =>
+        [...files.entries()].map(([name, f]) => ({
+          name,
+          size: f.data.length,
+          updatedAt: 1,
+          kind: f.kind,
+        })),
+      delete: (name: string) => files.delete(name),
+    };
+
+    const m1 = new Spectrum128Machine({ rom, files: store });
+    const save = tokenizeProgram(
+      '10 POKE 30000,77\n20 SAVE "S" CODE 30000,4\n30 PRINT "OK"\n',
+    );
+    expect(save.errors).toEqual([]);
+    m1.loadProgram(buildTap(save.bytes));
+    // SAVE waits at "Start tape, then press any key." — tap one mid-run.
+    for (let i = 0; i < 260; i++) {
+      m1.runFrame();
+      if (i === 60) m1.setKey('KeyQ', true);
+      if (i === 65) m1.setKey('KeyQ', false);
+    }
+    expect(readScreen(SIGNATURES, m1, 0, 0, 2)).toBe('OK');
+    expect([...files.keys()]).toEqual(['S']);
+    expect(files.get('S')!.kind).toBe('code');
+
+    const m2 = new Spectrum128Machine({ rom, files: store });
+    const load = tokenizeProgram(
+      '10 LOAD "S" CODE\n20 PRINT "P=";PEEK 30000\n',
+    );
+    expect(load.errors).toEqual([]);
+    m2.loadProgram(buildTap(load.bytes));
+    for (let i = 0; i < 120; i++) m2.runFrame();
+    const rows = Array.from({ length: 6 }, (_, r) =>
+      readScreen(SIGNATURES, m2, r, 0, 32),
+    );
+    expect(rows).toContainEqual(expect.stringContaining('P=77'));
+  });
+
   it('reports plausible actual RAM figures while a program runs', () => {
     const machine = new Spectrum128Machine({ rom });
     const { bytes, errors } = tokenizeProgram(
