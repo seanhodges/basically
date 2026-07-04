@@ -106,6 +106,9 @@ function dispatch(id: ShortcutId): boolean {
     case 'view.controller':
       s.setControllerEnabled(!s.controllerEnabled);
       return true;
+    case 'view.vfsInspector':
+      s.setVfsInspectorOpen(!s.vfsInspectorOpen);
+      return true;
     default:
       // Native/editor-only shortcuts (undo, copy, renumber, breakpoint, escape…)
       // have no global action — let the browser/editor handle them.

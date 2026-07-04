@@ -226,9 +226,12 @@ export function Toolbar() {
               <button onClick={openShare}>Export…{hint('file.export')}</button>
               <button
                 onClick={openVfsInspector}
-                title="Inspect files the running program has saved to the virtual filesystem"
+                title={withKeys(
+                  'Inspect files the running program has saved to the virtual filesystem',
+                  'view.vfsInspector',
+                )}
               >
-                Emulator files…
+                Emulator files…{hint('view.vfsInspector')}
               </button>
               <div className={styles.menuSeparator} />
               <div className={styles.menuLabel}>Samples</div>
@@ -474,7 +477,9 @@ export function Toolbar() {
                     ■ Stop
                   </button>
                   <div className={styles.menuSeparator} />
-                  <button onClick={openVfsInspector}>Emulator files…</button>
+                  <button onClick={openVfsInspector}>
+                    Emulator files…{hint('view.vfsInspector')}
+                  </button>
                 </>
               )}
               {/* Docs — surfaced here (as "Help") only when the bar is too
