@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
+import { referenceTopic } from '../app/docsTopic';
 import { GearsSpinner } from './GearsSpinner';
 import styles from './DocsDrawer.module.css';
 
@@ -11,6 +12,12 @@ const SWIPE_CLOSE_THRESHOLD = 40;
 
 /** Base path of the bundled VitePress docs site (served alongside the app). */
 const DOCS_BASE = '/docs/';
+
+/**
+ * Message the docs iframe posts to `window.parent` when its in-nav close button
+ * is clicked (see docs/.vitepress/theme/Layout.vue). Kept in sync by string.
+ */
+const DOCS_CLOSE_MESSAGE = 'basically:docs-close';
 
 function ChevronRightIcon() {
   return (
@@ -26,6 +33,24 @@ function ChevronRightIcon() {
       aria-hidden="true"
     >
       <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M15 6l-6 6 6 6" />
     </svg>
   );
 }
@@ -48,7 +73,34 @@ interface DocsDrawerProps {
 export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   const open = useIdeStore((s) => s.docsDrawerOpen);
   const storeTopic = useIdeStore((s) => s.docsTopic);
+  const openDocs = useIdeStore((s) => s.openDocs);
   const closeDocs = useIdeStore((s) => s.closeDocs);
+
+  // The docs render in an iframe, so its in-nav close button (Layout.vue) can't
+  // reach the store directly — it posts a message that we translate to closeDocs.
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      if (
+        e.data &&
+        typeof e.data === 'object' &&
+        e.data.type === DOCS_CLOSE_MESSAGE
+      ) {
+        closeDocs();
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [closeDocs]);
+
+  // Open to the same context-aware topic as the toolbar book button: the current
+  // dialect's reference page anchored to the selected keyword, if any. Read the
+  // selection imperatively so this component doesn't re-render as the cursor moves.
+  const openContextual = () => {
+    const state = useIdeStore.getState();
+    const topic = referenceTopic(state.dialect, state.editorSelection);
+    openDocs(topic ?? undefined);
+  };
 
   // Keep an absolute URL so the docs site's own base ('/docs/') and service
   // worker resolve correctly in production (deployed at the domain root).
@@ -86,41 +138,60 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   };
 
   return (
-    <div
-      className={`${styles.drawer} ${open ? styles.open : ''}`}
-      role="dialog"
-      aria-label="Documentation"
-      aria-hidden={!open}
-    >
+    <>
+      {/* Open tab: mirrors the close handle but sits on the right viewport edge
+          and stays put (it's outside the sliding drawer). Shown only while the
+          drawer is closed, so opening the docs has a visible affordance right
+          where the drawer will appear. */}
       <button
         type="button"
-        className={styles.handle}
-        onClick={closeDocs}
-        onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        title="Close documentation"
-        aria-label="Close documentation"
-        // The drawer is hidden off-screen when closed; keep its controls out of
-        // the tab order so they aren't focusable behind the app.
-        tabIndex={open ? 0 : -1}
+        className={styles.openHandle}
+        onClick={openContextual}
+        title="Open documentation"
+        aria-label="Open documentation"
+        // Keep it out of the tab order (and unclickable) while the drawer is open,
+        // when it's hidden behind the drawer.
+        tabIndex={open ? -1 : 0}
+        aria-hidden={open}
       >
-        <ChevronRightIcon />
+        <ChevronLeftIcon />
       </button>
-      {loaded && (
-        <>
-          <iframe
-            className={styles.frame}
-            src={src}
-            title="Documentation"
-            onLoad={() => setFrameLoaded(true)}
-          />
-          {!frameLoaded && (
-            <div className={styles.loadingOverlay}>
-              <GearsSpinner />
-            </div>
-          )}
-        </>
-      )}
-    </div>
+      <div
+        className={`${styles.drawer} ${open ? styles.open : ''}`}
+        role="dialog"
+        aria-label="Documentation"
+        aria-hidden={!open}
+      >
+        <button
+          type="button"
+          className={styles.handle}
+          onClick={closeDocs}
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
+          title="Close documentation"
+          aria-label="Close documentation"
+          // The drawer is hidden off-screen when closed; keep its controls out of
+          // the tab order so they aren't focusable behind the app.
+          tabIndex={open ? 0 : -1}
+        >
+          <ChevronRightIcon />
+        </button>
+        {loaded && (
+          <>
+            <iframe
+              className={styles.frame}
+              src={src}
+              title="Documentation"
+              onLoad={() => setFrameLoaded(true)}
+            />
+            {!frameLoaded && (
+              <div className={styles.loadingOverlay}>
+                <GearsSpinner />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
   );
 }

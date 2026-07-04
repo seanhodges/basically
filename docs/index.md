@@ -1,20 +1,24 @@
 ---
-layout: home
-
+# Uses the default `doc` layout (not `layout: home`) so the sidebar shows like
+# every other page; the hero + features blocks below are rendered from this
+# frontmatter by theme/Layout.vue's #doc-before slot.
 hero:
   name: Basically
   text: A web IDE for microcomputer BASIC
   tagline: Write, run and ship games and programs for real retro hardware, straight from your browser.
   actions:
     - theme: brand
-      text: Get started
+      text: Guide
       link: /guide/getting-started
+    - theme: alt
+      text: Languages
+      link: /reference
+    - theme: alt
+      text: Contributing
+      link: /contributing/contributing
     - theme: alt
       text: Open the IDE ↗
       link: https://ba.sical.ly/
-    - theme: alt
-      text: View on GitHub
-      link: https://github.com/seanhodges/basically
 
 features:
   - icon: ✍️
