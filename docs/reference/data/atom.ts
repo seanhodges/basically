@@ -212,6 +212,13 @@ export const atomReference: ReferenceTableData = {
       description: 'Closes all open cassette or disc files.',
     },
     {
+      name: 'BPUT',
+      kind: 'command',
+      syntax: 'BPUT <handle>,<number>',
+      description:
+        "Writes the low byte of the value to an output file opened with FOUT. In the IDE these bytes are stored in the emulator's virtual filesystem, viewable via the Emulator files viewer.",
+    },
+    {
       name: 'PUT',
       kind: 'command',
       syntax: 'PUT <number>,<number>',
@@ -235,6 +242,27 @@ export const atomReference: ReferenceTableData = {
       syntax: 'RND',
       description:
         'Returns a random integer; test its sign for a coin flip since arithmetic on A–Z is integer-only.',
+    },
+    {
+      name: 'FOUT',
+      kind: 'function',
+      syntax: 'FOUT "…"',
+      description:
+        "Opens a file for output and returns a handle to pass to BPUT. In the IDE the file lives in the emulator's virtual filesystem (see the Emulator files viewer).",
+    },
+    {
+      name: 'FIN',
+      kind: 'function',
+      syntax: 'FIN "…"',
+      description:
+        'Opens a file for input and returns a handle to pass to BGET, or 0 if no such file exists. In the IDE it reads from the emulator virtual filesystem.',
+    },
+    {
+      name: 'BGET',
+      kind: 'function',
+      syntax: 'BGET <handle>',
+      description:
+        'Reads and returns the next byte from an input file opened with FIN.',
     },
     {
       name: 'TOP',
