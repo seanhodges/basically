@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { BbcMachine, configureNodeRomPath } from './bbcMachine';
 import { tokenizeProgram } from '../../dialects/bbcmicro/tokenizer';
+import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
 
 // Point jsbeeb's ROM loader at the real ROMs shipped in its npm package.
 beforeAll(() => {
@@ -307,6 +308,173 @@ describe('BbcMachine (jsbeeb adapter)', () => {
       const stepped = runToPause(machine, 'step', new Set(), 20);
       expect(stepped.paused).toBe(true);
       expect(stepped.line).toBe(30);
+      machine.dispose();
+    }, 60000);
+  });
+
+  describe('VFS-backed data file I/O', () => {
+    function fakeStore() {
+      const files = new Map<string, { data: Uint8Array; kind?: string }>();
+      const store: MachineFileStore = {
+        save: (name, data, meta) =>
+          void files.set(name, { data: data.slice(), kind: meta?.kind }),
+        load: (name) => files.get(name)?.data.slice() ?? null,
+        list: (): MachineFileEntry[] =>
+          [...files.entries()].map(([name, f]) => ({
+            name,
+            size: f.data.length,
+            updatedAt: 1,
+            kind: f.kind,
+          })),
+        delete: (name) => files.delete(name),
+      };
+      return { store, files };
+    }
+
+    it('round-trips OPENOUT/BPUT#/CLOSE# then OPENIN/BGET#/EOF#/CLOSE# through the VFS', async () => {
+      const s = fakeStore();
+      const machine = new BbcMachine('B', { files: s.store });
+      const src = [
+        '10 X%=OPENOUT("DATA")',
+        '20 BPUT#X%,65',
+        '30 BPUT#X%,66',
+        '40 CLOSE#X%',
+        '50 Y%=OPENIN("DATA")',
+        '60 A%=BGET#Y%',
+        '70 B%=BGET#Y%',
+        '80 IF EOF#Y% THEN PRINT "EOF OK"',
+        '90 CLOSE#Y%',
+        '100 PRINT "DONE"',
+      ].join('\n');
+      const { bytes } = tokenizeProgram(src);
+      machine.loadProgram(bytes);
+      const ran = await runUntil(machine, () =>
+        screenText(machine).includes('DONE'),
+      );
+      expect(ran).toBe(true);
+      expect(screenText(machine)).toContain('EOF OK');
+      expect(machine.readReport()).toBeNull();
+      expect([...(s.files.get('DATA')?.data ?? [])]).toEqual([65, 66]);
+      expect(s.files.get('DATA')!.kind).toBe('data');
+      machine.dispose();
+    }, 60000);
+
+    it('reads back PTR#/EXT# through OSARGS, and OPENUP preserves existing content', async () => {
+      const s = fakeStore();
+      const machine = new BbcMachine('B', { files: s.store });
+      const src = [
+        '10 X%=OPENOUT("DATA")',
+        '20 BPUT#X%,65',
+        '30 BPUT#X%,66',
+        '40 P%=PTR#X%',
+        '50 E%=EXT#X%',
+        '60 CLOSE#X%',
+        '70 Y%=OPENUP("DATA")',
+        '80 Z%=BGET#Y%',
+        '90 PTR#Y%=EXT#Y%',
+        '100 BPUT#Y%,67',
+        '110 CLOSE#Y%',
+        '120 PRINT P%,E%,Z%',
+        '130 PRINT "DONE2"',
+      ].join('\n');
+      const { bytes } = tokenizeProgram(src);
+      machine.loadProgram(bytes);
+      const ran = await runUntil(machine, () =>
+        screenText(machine).includes('DONE2'),
+      );
+      expect(ran).toBe(true);
+      expect(machine.readReport()).toBeNull();
+      // PTR# and EXT# both read back as 2 after two BPUT#s; OPENUP starts
+      // PTR# at 0 (real DFS random-access semantics — not "append"), so the
+      // first BGET# reads back the first byte written earlier (65).
+      expect(screenText(machine)).toMatch(/2\s+2\s+65\s+DONE2/);
+      // Seeking PTR# to EXT# before BPUT# is how a program appends after
+      // OPENUP, so the third byte lands after the original two.
+      expect([...(s.files.get('DATA')?.data ?? [])]).toEqual([65, 66, 67]);
+      machine.dispose();
+    }, 60000);
+
+    it('round-trips PRINT#/INPUT# strings through OPENOUT then OPENUP (regression)', async () => {
+      // Reproduces a user-reported bug: OPENUP followed by INPUT# came back
+      // empty because the channel's read buffer was never populated for
+      // update mode. PRINT#/INPUT# encode strings with the top bit of the
+      // final character set (real BBC BASIC's format), which round-trips
+      // transparently through BPUT#/BGET# since we never touch the payload.
+      const s = fakeStore();
+      const machine = new BbcMachine('B', { files: s.store });
+      const src = [
+        '20 channel=OPENOUT("PLDATA")',
+        '30 PRINT#channel,"ALICE"',
+        '40 PRINT#channel,STR$(48200)',
+        '50 CLOSE#channel',
+        '110 channel=OPENUP("PLDATA")',
+        '120 INPUT#channel,nm$',
+        '130 INPUT#channel,sc$',
+        '140 CLOSE#channel',
+        '150 sc=VAL(sc$)',
+        '230 PRINT "NAME:";nm$',
+        '240 PRINT "SCORE:";sc',
+        '250 PRINT "DONE4"',
+      ].join('\n');
+      const { bytes } = tokenizeProgram(src);
+      machine.loadProgram(bytes);
+      const ran = await runUntil(machine, () =>
+        screenText(machine).includes('DONE4'),
+      );
+      expect(ran).toBe(true);
+      expect(machine.readReport()).toBeNull();
+      expect(screenText(machine)).toContain('NAME:ALICE');
+      expect(screenText(machine)).toContain('SCORE:48200');
+      machine.dispose();
+    }, 60000);
+
+    it('runs programs with no VFS store exactly as before', async () => {
+      const machine = new BbcMachine('B');
+      const { bytes } = tokenizeProgram('10 PRINT "HELLO BEEB"\n20 END\n');
+      machine.loadProgram(bytes);
+      const ran = await runUntil(machine, () =>
+        screenText(machine).includes('HELLO BEEB'),
+      );
+      expect(ran).toBe(true);
+      machine.dispose();
+    }, 60000);
+
+    it('discards an unflushed write on reset without touching the store', async () => {
+      const s = fakeStore();
+      const machine = new BbcMachine('B', { files: s.store });
+      const { bytes } = tokenizeProgram(
+        ['10 X%=OPENOUT("DATA")', '20 BPUT#X%,65', '30 GOTO 30'].join('\n'),
+      );
+      machine.loadProgram(bytes);
+      await runUntil(machine, () => machine.currentLine() === 30);
+      machine.reset();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(s.files.has('DATA')).toBe(false);
+      machine.dispose();
+    }, 60000);
+
+    it('round-trips a data file on the Master (shares the same trap against MOS 3.20)', async () => {
+      const s = fakeStore();
+      const machine = new BbcMachine('Master', { files: s.store });
+      const src = [
+        '10 X%=OPENOUT("DATA")',
+        '20 BPUT#X%,65',
+        '30 CLOSE#X%',
+        '40 Y%=OPENIN("DATA")',
+        '50 A%=BGET#Y%',
+        '60 IF EOF#Y% THEN PRINT "EOF OK"',
+        '70 CLOSE#Y%',
+        '80 PRINT "DONE3"',
+      ].join('\n');
+      const { bytes } = tokenizeProgram(src);
+      machine.loadProgram(bytes);
+      const ran = await runUntil(machine, () =>
+        screenText(machine).includes('DONE3'),
+      );
+      expect(ran).toBe(true);
+      expect(screenText(machine)).toContain('EOF OK');
+      expect(machine.readReport()).toBeNull();
+      expect([...(s.files.get('DATA')?.data ?? [])]).toEqual([65]);
       machine.dispose();
     }, 60000);
   });

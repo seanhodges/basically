@@ -124,6 +124,29 @@ declare module 'jsbeeb/src/fake6502.js' {
     readonly adconverter: Adc;
     /** The 8255 PPIA keyboard/tape interface — present only on the Atom CPU. */
     readonly atomppia?: AtomPPIA;
+    // --- registers/hooks used by the VFS filing-system trap (see diskDrive.ts) ---
+    a: number;
+    x: number;
+    y: number;
+    s: number;
+    pc: number;
+    /** Status flags; only the carry bit is used by the filing-system trap. */
+    readonly p: { c: boolean };
+    /** Cumulative cycles executed so far, used to compute how much of an
+     *  `execute()` budget was actually consumed before an early stop. */
+    readonly currentCycles: number;
+    /**
+     * Fires just before the opcode at `pc` executes (opcode already fetched
+     * but not yet run). A handler returning true halts the CPU immediately
+     * (as if a breakpoint were hit) without running that opcode, leaving `pc`
+     * at the trap address and the stack untouched — the caller can then
+     * forge a return and resume via another `execute()` call.
+     */
+    readonly debugInstruction: {
+      add(handler: (pc: number, opcode: number) => boolean | void): {
+        remove(): void;
+      };
+    };
   }
 
   export function fake6502(
