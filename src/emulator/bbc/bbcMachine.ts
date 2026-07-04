@@ -13,6 +13,7 @@ import type {
   JoystickMode,
   JoystickState,
   MachineEmulator,
+  MachineFileStore,
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
@@ -20,6 +21,7 @@ import type {
 import { BbcHostKeyboard, matrixForToken } from './keyboard';
 import { readBbcVariables } from './vars';
 import { readBbcReport, FAULT_PTR } from './reports';
+import { BbcDiskDrive, type Bus } from './diskDrive';
 
 /** jsbeeb's Video ULA renders into a fixed 1024×625 RGBA framebuffer… */
 const FB_WIDTH = 1024;
@@ -80,6 +82,31 @@ const EMPTY_AUDIO = new Float32Array(0);
  * takes, so a line transition is never stepped over unseen.
  */
 const DEBUG_SLICE_CYCLES = 8;
+
+/**
+ * MOS filing-system entry vectors trapped for VFS data-file I/O (see
+ * diskDrive.ts). These `$FFxx` addresses are documented and stable across
+ * every MOS revision (Model B's OS 1.20 and the Master's MOS 3.20 alike),
+ * analogous to the C64's `$FFxx` KERNAL table. OSGBPB/OSFILE (block
+ * transfers and whole-file save/load, used by `*SAVE`/`*LOAD`/`*CAT`) are
+ * deliberately not trapped — those whole-program paths are out of scope and
+ * fall through to the real, disc-less MOS ROM.
+ */
+const OSFIND = 0xffce;
+const OSBPUT = 0xffd4;
+const OSBGET = 0xffd7;
+const OSARGS = 0xffda;
+/**
+ * OSBYTE — a large, multi-function vector; only function &7F ("examine EOF
+ * status", the real implementation behind BASIC's `EOF#`, confirmed against
+ * jsbeeb's bundled MOS ROM) is trapped. Every other OSBYTE function number
+ * falls straight through to the real MOS ROM.
+ */
+const OSBYTE = 0xfff4;
+const OSBYTE_EXAMINE_EOF = 0x7f;
+/** Cap on traps serviced within one {@link BbcMachine.runCycles} call, so a
+ *  bug that kept reporting a stop for a non-trap reason couldn't spin forever. */
+const MAX_TRAPS_PER_CALL = 100_000;
 
 // In the browser, jsbeeb fetches 'roms/…' relative to this base; the images
 // are committed under public/roms/ in the layout jsbeeb expects.
@@ -156,6 +183,11 @@ export class BbcMachine implements MachineEmulator {
   private speed = 1;
   private disposed = false;
 
+  /** VFS-backed filing system, or null when no store was wired. */
+  private readonly drive: BbcDiskDrive | null;
+  /** The debugInstruction hook registration, removed on dispose(). */
+  private debugHook: { remove(): void } | null = null;
+
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
 
@@ -169,11 +201,15 @@ export class BbcMachine implements MachineEmulator {
 
   /**
    * @param modelName jsbeeb model name/synonym, e.g. 'B' (default) or 'Master'.
+   * @param opts.files sink for program-driven data file I/O (OPENIN/OPENOUT/
+   *   OPENUP, BPUT#/BGET#, PTR#/EXT#, CLOSE#); omitted, filing calls fall
+   *   through to the real, disc-less MOS ROM.
    */
-  constructor(modelName = 'B') {
+  constructor(modelName = 'B', opts?: { files?: MachineFileStore }) {
     const model = findModel(modelName);
     if (!model) throw new Error(`Unknown jsbeeb model: ${modelName}`);
     this.bootCycles = model.isMaster ? BOOT_CYCLES_MASTER : BOOT_CYCLES_B;
+    this.drive = opts?.files ? new BbcDiskDrive(opts.files) : null;
     const fb32 = new Uint32Array(this.fb8.buffer);
     const video = new Video(model.isMaster, fb32, (minx, miny, maxx, maxy) => {
       this.lastPaint = { minx, miny, maxx, maxy };
@@ -192,6 +228,7 @@ export class BbcMachine implements MachineEmulator {
     });
     this.audioSampleRate = this.soundChip.soundchipFreq;
     this.cpu = fake6502(model, { video, soundChip: this.soundChip });
+    if (this.drive) this.debugHook = this.installFilingSystemTrap(this.drive);
     this.hostKeyboard = new BbcHostKeyboard(this.cpu.sysvia);
     // Wire joystick 1's two analogue axes to the gamepad source (channels 0/1).
     this.cpu.adconverter.setChannelSource(0, this.joystickSource);
@@ -209,6 +246,99 @@ export class BbcMachine implements MachineEmulator {
     return this.ready;
   }
 
+  /**
+   * Register the filing-system trap: on every trapped MOS vector, read the
+   * live registers, ask the drive to service the call, and — if it does —
+   * forge a return so the real MOS routine never runs. Returning `true` from
+   * the hook halts the CPU before the fetched opcode executes (see
+   * {@link runCycles}); returning `false` leaves everything untouched and the
+   * real opcode (the vector's `JMP`) runs normally, falling through to the
+   * genuine MOS routine.
+   */
+  private installFilingSystemTrap(drive: BbcDiskDrive): { remove(): void } {
+    const cpu = this.cpu;
+    const bus: Bus = {
+      read: (a) => cpu.readmem(a & 0xffff),
+      write: (a, v) => cpu.writemem(a & 0xffff, v & 0xff),
+    };
+    return cpu.debugInstruction.add((pc) => {
+      let result;
+      switch (pc) {
+        case OSFIND:
+          result = drive.open(bus, cpu.a, cpu.x, cpu.y);
+          break;
+        case OSBGET:
+          result = drive.bget(cpu.y);
+          break;
+        case OSBPUT:
+          result = drive.bput(cpu.y, cpu.a);
+          break;
+        case OSARGS:
+          result = drive.args(bus, cpu.a, cpu.x, cpu.y);
+          break;
+        case OSBYTE:
+          if (cpu.a !== OSBYTE_EXAMINE_EOF) return false;
+          result = drive.eof(cpu.x);
+          break;
+        default:
+          return false;
+      }
+      if (!result.handled) return false;
+      this.forgeReturn(result);
+      return true;
+    });
+  }
+
+  /**
+   * Return from a trapped MOS call without running it: pop the JSR return
+   * address off the stack (RTS pulls PC then increments), then apply the
+   * handler's result registers and carry flag. The opcode at the trap
+   * address (already fetched but not yet run) is skipped entirely because
+   * the caller returns `true` from the debugInstruction hook right after
+   * this, which halts the CPU before `incpc()`/`runner.run()` can execute it.
+   */
+  private forgeReturn(result: {
+    a?: number;
+    x?: number;
+    y?: number;
+    carry: boolean;
+  }): void {
+    const cpu = this.cpu;
+    const lo = cpu.readmem(0x100 + ((cpu.s + 1) & 0xff));
+    const hi = cpu.readmem(0x100 + ((cpu.s + 2) & 0xff));
+    cpu.s = (cpu.s + 2) & 0xff;
+    cpu.pc = (((hi << 8) | lo) + 1) & 0xffff;
+    if (result.a !== undefined) cpu.a = result.a & 0xff;
+    if (result.x !== undefined) cpu.x = result.x & 0xff;
+    if (result.y !== undefined) cpu.y = result.y & 0xff;
+    cpu.p.c = result.carry;
+  }
+
+  /**
+   * Run for `totalCycles`, transparently resuming after a serviced filing-
+   * system trap. A forged trap halts the CPU (see
+   * {@link installFilingSystemTrap}) having consumed no cycles for the
+   * skipped opcode, so `execute()` returns early having run less than
+   * requested; re-invoking it for the remainder keeps callers (runFrame,
+   * debugStep, loadProgram's boot, typeViaMatrix's key holds) oblivious to
+   * the trap, rather than visibly stalling/skipping time. With no drive
+   * installed this is exactly `cpu.execute(totalCycles)` — installing any
+   * debug hook forces jsbeeb's slower instruction-by-instruction path, so
+   * programs that never touch VFS must not pay for it.
+   */
+  private runCycles(totalCycles: number): void {
+    if (!this.drive) {
+      this.cpu.execute(totalCycles);
+      return;
+    }
+    let remaining = totalCycles;
+    for (let i = 0; i < MAX_TRAPS_PER_CALL && remaining > 0; i++) {
+      const before = this.cpu.currentCycles;
+      if (this.cpu.execute(remaining)) return; // ran the full remaining budget
+      remaining -= this.cpu.currentCycles - before;
+    }
+  }
+
   /** Direct CPU access for tests and debugging. */
   get processor(): Cpu6502 {
     return this.cpu;
@@ -219,6 +349,9 @@ export class BbcMachine implements MachineEmulator {
     this.loadError = '';
     this.lineCache = null;
     this.clearAudio();
+    // Drop any open channels without flushing: the IDE clears the VFS around
+    // a reset, so a late flush would resurrect stale data.
+    this.drive?.closeAll(false);
     void this.ready.then(() => {
       if (!this.disposed) this.cpu.reset(true);
     });
@@ -226,7 +359,7 @@ export class BbcMachine implements MachineEmulator {
 
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
-    this.cpu.execute(Math.round(CYCLES_PER_FRAME * this.speed));
+    this.runCycles(Math.round(CYCLES_PER_FRAME * this.speed));
     // Flush sound generated this frame into the accumulation buffer.
     this.soundChip.catchUp();
   }
@@ -294,7 +427,7 @@ export class BbcMachine implements MachineEmulator {
     // the spot but still re-pauses when the loop comes back around.
     let armed = opts.fromLine === null;
     for (let cycles = 0; cycles < budget; cycles += DEBUG_SLICE_CYCLES) {
-      this.cpu.execute(DEBUG_SLICE_CYCLES);
+      this.runCycles(DEBUG_SLICE_CYCLES);
       const line = this.currentLine();
       if (line === null) continue;
       if (opts.mode === 'step') {
@@ -327,7 +460,9 @@ export class BbcMachine implements MachineEmulator {
         try {
           this.cpu.sysvia.clearKeys();
           this.cpu.reset(true);
-          this.cpu.execute(this.bootCycles);
+          // Start each run with no carried-over channels from a previous run.
+          this.drive?.closeAll(false);
+          this.runCycles(this.bootCycles);
           const page = this.cpu.readmem(0x18) << 8;
           if (page === 0) throw new Error('BBC OS did not boot to BASIC');
           for (let i = 0; i < image.length; i++) {
@@ -371,9 +506,9 @@ export class BbcMachine implements MachineEmulator {
       const pos = matrixForToken(token);
       if (!pos) continue;
       this.cpu.sysvia.keyDownRaw(pos);
-      this.cpu.execute(KEY_DOWN_CYCLES);
+      this.runCycles(KEY_DOWN_CYCLES);
       this.cpu.sysvia.keyUpRaw(pos);
-      this.cpu.execute(KEY_UP_CYCLES);
+      this.runCycles(KEY_UP_CYCLES);
     }
   }
 
@@ -513,6 +648,8 @@ export class BbcMachine implements MachineEmulator {
     if (this.disposed) return;
     this.disposed = true;
     this.loadGeneration++;
+    this.drive?.closeAll(false);
+    this.debugHook?.remove();
     this.cpu.sysvia.clearKeys();
     // Drop the render scratch canvas. jsbeeb's CPU/video graph and the fixed
     // framebuffers are readonly and freed by GC once the machine ref is

@@ -73,8 +73,9 @@ export const bbcmaster: Dialect = {
   joystickFireButtons: 2,
 
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
-  createEmulator() {
-    return new BbcMachine('Master');
+  // opts.files is forwarded to service program-driven data file I/O.
+  createEmulator(opts) {
+    return new BbcMachine('Master', { files: opts.files });
   },
 
   keyboardLayout: bbcKeyboardLayout,
