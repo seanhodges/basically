@@ -73,8 +73,10 @@ export const commodore64: Dialect = {
   joystickModes: ['native'],
 
   // opts.rom/ramKb are ignored: viciious manages its own ROMs and 64K memory.
-  createEmulator() {
-    return new C64Machine();
+  // opts.files is the VFS store the C64's KERNAL disk traps (devices 8–11) use
+  // for OPEN/PRINT#/INPUT#/GET#/CLOSE data-file I/O.
+  createEmulator(opts) {
+    return new C64Machine({ files: opts.files });
   },
 
   keyboardLayout: c64KeyboardLayout,

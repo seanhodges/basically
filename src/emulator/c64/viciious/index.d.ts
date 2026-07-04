@@ -11,7 +11,14 @@ export interface Device {
   reset(): void;
 }
 
-/** CPU register/state object returned by `cpu.getState()` (subset used here). */
+/** A CPU micro-op — one tick of the fetch/decode or addressing-mode machine. */
+export type CpuMicroOp = (() => void) | null;
+
+/**
+ * CPU register/state object returned by `cpu.getState()` (subset used here). It
+ * is the CPU's **live, mutable** state, so writing back to it (e.g. forging an
+ * RTS for a KERNAL trap) drives the real CPU.
+ */
 export interface CpuState {
   /** Program counter (16-bit). Polled to detect KERNAL-ready during boot. */
   pc: number;
@@ -20,6 +27,12 @@ export interface CpuState {
   y: number;
   s: number;
   p: number;
+  /** Carry flag (0/1); flags are stored unpacked, not in `p`. */
+  c: number;
+  /** Fetch/decode tick handler; equals `fd_fetch_T0` at an opcode-fetch boundary. */
+  fdTick: CpuMicroOp;
+  /** Addressing-mode tick handler; `null` between instructions. */
+  amTick: CpuMicroOp;
 }
 
 export interface Cpu extends Device {
@@ -132,3 +145,10 @@ export const AWAIT_KEYBOARD_PC: number;
 export const READY_PC: number;
 /** Clear-screen routine address. */
 export const CLEAR_SCREEN_PC: number;
+
+/**
+ * Resolve a CPU micro-op function by its registered name (minification-safe;
+ * the serializer registry keys are string literals). Used to obtain a reference
+ * to `fd_fetch_T0` for KERNAL-trap boundary detection.
+ */
+export function referenceToFunction(name: string): CpuMicroOp;

@@ -63,8 +63,8 @@ export function VfsInspectorDialog() {
       <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
         <h2>Emulator files</h2>
         <p>
-          Files the running program has saved to tape/disk/network. 
-          The files are cleared each time the emulator stops.
+          Files the running program has saved to tape/disk/network. The files
+          are cleared each time the emulator stops.
         </p>
 
         {files.length === 0 ? (

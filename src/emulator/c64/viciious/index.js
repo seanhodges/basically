@@ -9,3 +9,9 @@ export {
   READY_PC,
   CLEAR_SCREEN_PC,
 } from './tools/romLocations.js';
+// Resolves a CPU micro-op by its registered name. The adapter uses this to get a
+// reference to `fd_fetch_T0` — the opcode-fetch tick — so it can detect clean
+// instruction boundaries for KERNAL traps. The serializer registry keys are
+// string literals, so this survives production minification where `fn.name`
+// would not.
+export { referenceToFunction } from './tools/serializerSupport.js';

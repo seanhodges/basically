@@ -84,9 +84,8 @@ async function open(): Promise<VfsDatabase> {
       addRxPlugin(RxDBDevModePlugin);
       // Dev-mode requires a schema-validating storage at the top level; Dexie
       // doesn't validate on its own, so wrap it with the AJV validator.
-      const { wrappedValidateAjvStorage } = await import(
-        'rxdb/plugins/validate-ajv'
-      );
+      const { wrappedValidateAjvStorage } =
+        await import('rxdb/plugins/validate-ajv');
       storage = wrappedValidateAjvStorage({ storage });
     }
   }

@@ -4,6 +4,7 @@ import type {
   JoystickMode,
   JoystickState,
   MachineEmulator,
+  MachineFileStore,
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
@@ -11,11 +12,15 @@ import type {
 import { readC64Variables } from './vars';
 import { readC64Report } from './reports';
 import { SidRenderer, SID_SAMPLE_RATE } from './sid';
+import { C64DiskDrive, type Bus, type TrapResult } from './diskDrive';
 import {
   bringup,
   loadPrg,
+  referenceToFunction,
   AWAIT_KEYBOARD_PC,
   type C64,
+  type CpuState,
+  type CpuMicroOp,
   type VideoHost,
   type KeyboardHost,
   type AudioHost,
@@ -77,6 +82,21 @@ const FIRST_Y = 10;
  * this; the cap only guards against a mis-boot looping forever.
  */
 const BOOT_CYCLE_CAP = 4_000_000;
+
+/**
+ * KERNAL jump-table entry points trapped for VFS disk I/O. These `$FFxx` vectors
+ * are documented and stable across every KERNAL revision (unlike the internal
+ * `$Fxxx` routine bodies) and are always reached by `JSR`, so the caller's
+ * return address sits cleanly on the stack for {@link C64Machine.forgeRts}.
+ */
+const KERNAL_OPEN = 0xffc0;
+const KERNAL_CLOSE = 0xffc3;
+const KERNAL_CHKIN = 0xffc6;
+const KERNAL_CHKOUT = 0xffc9;
+const KERNAL_CLRCHN = 0xffcc;
+const KERNAL_CHRIN = 0xffcf;
+const KERNAL_CHROUT = 0xffd2;
+const KERNAL_GETIN = 0xffe4;
 
 /** Three C64 ROM images, supplied directly (tests) or fetched (browser). */
 export interface C64Roms {
@@ -235,6 +255,15 @@ export class C64Machine implements MachineEmulator {
   private loadError = '';
   private speed = 1;
 
+  /** VFS-backed virtual disk (devices 8–11), or null when no store was wired. */
+  private readonly drive: C64DiskDrive | null;
+  /** Memory accessor handed to the drive's trap handlers; set at bringup. */
+  private bus: Bus | null = null;
+  /** The `fd_fetch_T0` micro-op, used to detect clean opcode-fetch boundaries. */
+  private fetchFn: CpuMicroOp = null;
+  /** KERNAL trap dispatch (entry address → handler); empty when no drive. */
+  private trapTable = new Map<number, (st: CpuState) => TrapResult>();
+
   /** Visible-frame RGBA buffer the VIC writes into via the video host. */
   private readonly rgba = new Uint8ClampedArray(
     C64_DISPLAY_WIDTH * C64_DISPLAY_HEIGHT * 4,
@@ -256,7 +285,8 @@ export class C64Machine implements MachineEmulator {
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
 
-  constructor(opts?: { roms?: C64Roms }) {
+  constructor(opts?: { roms?: C64Roms; files?: MachineFileStore }) {
+    this.drive = opts?.files ? new C64DiskDrive(opts.files) : null;
     // Alpha is fixed; VIC only writes RGB. (Matches viciious's video-canvas.)
     for (let i = 3; i < this.rgba.length; i += 4) this.rgba[i] = 255;
 
@@ -286,6 +316,7 @@ export class C64Machine implements MachineEmulator {
         });
         this.c64.runloop.reset();
         this.sid.reset();
+        if (this.drive) this.installTraps(this.c64);
         this.booted = true;
       })
       .catch((e: unknown) => {
@@ -367,6 +398,9 @@ export class C64Machine implements MachineEmulator {
   reset(): void {
     this.loadGeneration++;
     this.loadError = '';
+    // Drop any open channels without flushing: the IDE clears the VFS around a
+    // reset, so a late flush would resurrect stale data.
+    this.drive?.closeAll(false);
     this.clearKeys();
     void this.ready.then(() => {
       if (!this.disposed && this.c64) {
@@ -378,15 +412,24 @@ export class C64Machine implements MachineEmulator {
 
   runFrame(): void {
     if (!this.booted || this.injecting || this.disposed || !this.c64) return;
-    const c64 = this.c64;
     const n = Math.round(CYCLES_PER_FRAME * this.speed);
-    for (let i = 0; i < n; i++) {
-      c64.cpu.tick();
-      c64.vic.tick();
-      c64.cias.tick();
-      c64.sid.tick();
-      c64.tape.tick();
-    }
+    for (let i = 0; i < n; i++) this.tickOnce();
+  }
+
+  /**
+   * Advance the machine one cycle: service a KERNAL disk trap if one is due at a
+   * clean instruction boundary, then tick the five hardware components. This is
+   * the single tick path shared by {@link runFrame}, {@link debugStep} and
+   * {@link tickUntilPc}, so traps fire identically while running and stepping.
+   */
+  private tickOnce(): void {
+    if (this.drive) this.serviceTrap();
+    const c64 = this.c64!;
+    c64.cpu.tick();
+    c64.vic.tick();
+    c64.cias.tick();
+    c64.sid.tick();
+    c64.tape.tick();
   }
 
   /**
@@ -418,18 +461,13 @@ export class C64Machine implements MachineEmulator {
     if (!this.booted || this.injecting || this.disposed || !this.c64) {
       return { paused: false, line: null };
     }
-    const c64 = this.c64;
     const budget = Math.round(CYCLES_PER_FRAME * this.speed);
     // In run mode, ignore breakpoints until execution has left the line we
     // resumed from, so Continue off a breakpointed line doesn't re-trigger on
     // the spot but still re-pauses when the loop comes back around.
     let armed = opts.fromLine === null;
     for (let i = 0; i < budget; i++) {
-      c64.cpu.tick();
-      c64.vic.tick();
-      c64.cias.tick();
-      c64.sid.tick();
-      c64.tape.tick();
+      this.tickOnce();
       if (i % DEBUG_SLICE_CYCLES !== 0) continue;
       const line = this.currentLine();
       if (line === null) continue;
@@ -458,6 +496,8 @@ export class C64Machine implements MachineEmulator {
         try {
           const c64 = this.c64;
           this.clearKeys();
+          // Start each run with no carried-over channels from a previous run.
+          this.drive?.closeAll(false);
           c64.runloop.reset();
           this.sid.reset();
           if (!this.tickUntilPc(AWAIT_KEYBOARD_PC, BOOT_CYCLE_CAP)) {
@@ -486,14 +526,68 @@ export class C64Machine implements MachineEmulator {
     const c64 = this.c64;
     if (!c64) return false;
     for (let i = 0; i < cap; i++) {
-      c64.cpu.tick();
-      c64.vic.tick();
-      c64.cias.tick();
-      c64.sid.tick();
-      c64.tape.tick();
+      this.tickOnce();
       if (c64.cpu.getState().pc === pc) return true;
     }
     return false;
+  }
+
+  /**
+   * Wire the KERNAL disk traps: capture the opcode-fetch micro-op, build a
+   * memory {@link Bus} over the CPU wires, and map each trapped jump-table entry
+   * to its {@link C64DiskDrive} handler. Called once at bringup, only when a
+   * file store was supplied.
+   */
+  private installTraps(c64: C64): void {
+    const drive = this.drive!;
+    this.fetchFn = referenceToFunction('fd_fetch_T0');
+    const bus: Bus = {
+      read: (a) => c64.wires.cpuRead(a & 0xffff),
+      write: (a, v) => c64.wires.cpuWrite(a & 0xffff, v & 0xff),
+    };
+    this.bus = bus;
+    this.trapTable = new Map<number, (st: CpuState) => TrapResult>([
+      [KERNAL_OPEN, () => drive.open(bus)],
+      [KERNAL_CLOSE, (st) => drive.close(st.a, bus)],
+      [KERNAL_CHKIN, (st) => drive.chkin(st.x, bus)],
+      [KERNAL_CHKOUT, (st) => drive.chkout(st.x, bus)],
+      [KERNAL_CLRCHN, () => drive.clrchn(bus)],
+      [KERNAL_CHRIN, () => drive.chrin(bus)],
+      [KERNAL_CHROUT, (st) => drive.chrout(st.a, bus)],
+      [KERNAL_GETIN, () => drive.getin(bus)],
+    ]);
+  }
+
+  /**
+   * If the CPU is at a clean opcode-fetch boundary (`fd_fetch_T0` about to run,
+   * no addressing-mode tick pending) whose PC is a trapped KERNAL entry, run the
+   * disk handler. When it services the call, forge an RTS so the real ROM
+   * routine is skipped; otherwise leave the CPU untouched so the ROM runs.
+   */
+  private serviceTrap(): void {
+    const st = this.c64!.cpu.getState();
+    if (st.fdTick !== this.fetchFn || st.amTick !== null) return;
+    const handler = this.trapTable.get(st.pc);
+    if (!handler) return;
+    const result = handler(st);
+    if (!result.handled) return;
+    this.forgeRts(st, result);
+  }
+
+  /**
+   * Return from a trapped KERNAL routine without running it: pull the JSR return
+   * address off the stack (RTS pulls PC then increments), then apply the
+   * handler's result — the returned byte / error code in A and success/error in
+   * the carry flag. Mutates the CPU's live state directly.
+   */
+  private forgeRts(st: CpuState, result: { a?: number; carry: 0 | 1 }): void {
+    const read = this.bus!.read;
+    const lo = read(0x100 + ((st.s + 1) & 0xff));
+    const hi = read(0x100 + ((st.s + 2) & 0xff));
+    st.s = (st.s + 2) & 0xff;
+    st.pc = (((hi << 8) | lo) + 1) & 0xffff;
+    if (result.a !== undefined) st.a = result.a & 0xff;
+    st.c = result.carry;
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
@@ -650,6 +744,7 @@ export class C64Machine implements MachineEmulator {
     if (this.disposed) return;
     this.disposed = true;
     this.loadGeneration++;
+    this.drive?.closeAll(false);
     this.clearKeys();
     this.sid.reset();
     // Release the whole viciious machine (CPU/VIC/SID/CIAs/RAM/ROMs) and the
