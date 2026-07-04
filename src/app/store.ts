@@ -204,6 +204,8 @@ interface IdeState {
   splitRatio: number;
   aiPanelOpen: boolean;
   transferOpen: boolean;
+  /** The emulator virtual-filesystem inspector dialog (Emulator files…). */
+  vfsInspectorOpen: boolean;
   importOpen: boolean;
   settingsOpen: boolean;
   /** Active tab within the settings form (dialog on desktop, tab pane on mobile). */
@@ -304,6 +306,7 @@ interface IdeState {
   setLiveMemory(stats: MachineMemoryStats | null): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
+  setVfsInspectorOpen(open: boolean): void;
   setImportOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setSettingsTab(tab: SettingsTab): void;
@@ -466,6 +469,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   splitRatio: typeof localStorage !== 'undefined' ? getSplitRatio() : 0.5,
   aiPanelOpen: false,
   transferOpen: false,
+  vfsInspectorOpen: false,
   importOpen: false,
   settingsOpen: false,
   settingsTab: 'editor',
@@ -652,6 +656,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   setLiveMemory: (stats) => set({ liveMemory: stats }),
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setTransferOpen: (open) => set({ transferOpen: open }),
+  setVfsInspectorOpen: (open) => set({ vfsInspectorOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setSettingsTab: (tab) => set({ settingsTab: tab }),

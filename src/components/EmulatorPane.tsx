@@ -15,6 +15,7 @@ import {
 import { useInputOverlays } from '../app/useInputOverlays';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import type { MachineEmulator } from '../dialects/types';
+import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { EmulatorAudio } from '../audio/emulatorAudio';
 import { VariableWatcher } from './VariableWatcher';
 import { GearsSpinner } from './GearsSpinner';
@@ -286,7 +287,11 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     const rom = dialect.romUrl
       ? await fetchRom(dialect.romUrl)
       : new Uint8Array(0);
-    const machine = dialect.createEmulator({ rom, ramKb: 16 });
+    const machine = dialect.createEmulator({
+      rom,
+      ramKb: 16,
+      files: emulatorVfs,
+    });
     machineRef.current = machine;
     return machine;
   }, [dialect]);
@@ -336,6 +341,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // blocking the main thread — paint the overlay first so it is visible.
         await nextPaint();
         if (cancelled) return;
+        // A start empties the virtual filesystem; only files the new run
+        // saves are visible to it (a pause mid-run does NOT clear).
+        emulatorVfs.clear(dialect.id);
         machine.loadProgram(result.image);
         machine.setSpeed(speed);
         firstFrameRef.current = true; // the next rendered frame hides the overlay
@@ -379,6 +387,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
+    emulatorVfs.clear(); // stop ends the session that owned the files
     disposeAudio();
     clearCanvas(); // drop the last frame so the screen looks powered off
     aiCheckActiveRef.current = false;
@@ -423,6 +432,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         const machine = await ensureMachine();
         if (cancelled) return;
         machine.releaseAllKeys();
+        // Reset reboots into a fresh session: clear the VFS like a start, so
+        // the new session can't read the old session's files.
+        emulatorVfs.clear(dialect.id);
         machine.reset();
         firstFrameRef.current = true; // the next rendered frame hides the overlay
         ensureAudio(machine);
@@ -446,6 +458,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       machineRef.current?.releaseAllKeys();
       machineRef.current?.dispose();
       machineRef.current = null;
+      emulatorVfs.clear(); // unmount skips the stop effect; clear here too
       disposeAudio();
       setLiveMemory(null);
     },
@@ -482,6 +495,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
+    emulatorVfs.clear(dialect.id); // machine gone: its files go with it
     disposeAudio();
     clearCanvas(); // drop the old machine's last frame; next run starts fresh
     aiCheckActiveRef.current = false;

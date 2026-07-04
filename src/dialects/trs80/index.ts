@@ -63,8 +63,8 @@ export const trs80: Dialect = {
   // variable watcher are available.
   debuggable: true,
 
-  createEmulator() {
-    return new Trs80InterpreterMachine();
+  createEmulator(opts) {
+    return new Trs80InterpreterMachine(opts.files);
   },
 
   keyboardLayout: trs80KeyboardLayout,

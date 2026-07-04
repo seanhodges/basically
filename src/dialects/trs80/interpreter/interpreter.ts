@@ -7,8 +7,10 @@ import { Screen } from './screen';
 import { Trs80Input } from './input';
 import { Vars } from './vars';
 import { evalExpr } from './expr';
-import { asNum, formatNumber, type BasicValue } from './values';
+import { asNum, asStr, formatNumber, type BasicValue } from './values';
 import type { Ctx } from './builtins';
+import { SequentialFiles, type PrintSink } from './seqfiles';
+import type { MachineFileStore } from '../../types';
 
 export type RunStatus = 'idle' | 'running' | 'input' | 'ended' | 'error';
 
@@ -35,7 +37,13 @@ interface UserFn {
   lexemes: Lexeme[];
 }
 
-/** Statements with no useful effect in the interpreter; consumed and skipped. */
+/**
+ * Statements with no useful effect in the interpreter; consumed and skipped.
+ * Program save/load (CLOAD/CSAVE/SAVE/LOAD/MERGE/NAME) stays here by design —
+ * the virtual filesystem carries data files only. Random-access Disk BASIC
+ * (FIELD/GET/PUT/LSET/RSET) is unimplemented; the sequential statements
+ * (OPEN/CLOSE/KILL, PRINT#/INPUT#/LINE INPUT#, EOF) are handled below.
+ */
 const IGNORED = new Set([
   'TRON',
   'TROFF',
@@ -45,7 +53,6 @@ const IGNORED = new Set([
   'LOAD',
   'MERGE',
   'NAME',
-  'KILL',
   'SYSTEM',
   'CMD',
   'OUT',
@@ -57,8 +64,6 @@ const IGNORED = new Set([
   'DELETE',
   'NEW',
   'CONT',
-  'OPEN',
-  'CLOSE',
   'FIELD',
   'GET',
   'PUT',
@@ -96,10 +101,18 @@ export class Interpreter implements Ctx {
   private inputTargets: LValue[] = [];
   private inputBuffer = '';
 
+  /** Disk BASIC sequential files over the IDE's virtual filesystem. */
+  private readonly seqFiles = new SequentialFiles();
+
   private seed = 0x2545f4 >>> 0;
 
   get state(): RunStatus {
     return this.status;
+  }
+
+  /** Wire (or unwire) the virtual filesystem behind OPEN/PRINT#/INPUT#…. */
+  setFileStore(store: MachineFileStore | null): void {
+    this.seqFiles.setStore(store);
   }
 
   currentLine(): number | null {
@@ -119,6 +132,9 @@ export class Interpreter implements Ctx {
   }
 
   reset(): void {
+    // Discard (don't flush) open files: reset starts a fresh session and the
+    // IDE has just cleared the VFS — a late flush would resurrect stale data.
+    this.seqFiles.closeAll(false);
     this.vars.clearAll();
     this.mem.fill(0);
     this.screen.cls();
@@ -216,6 +232,8 @@ export class Interpreter implements Ctx {
         message: errorMessage(e.code),
         line: this.program.lines[this.lineIdx]?.lineNo,
       };
+      // Flush open output files so partial data is inspectable in the VFS.
+      this.seqFiles.closeAll(true);
     } else {
       throw e;
     }
@@ -236,6 +254,7 @@ export class Interpreter implements Ctx {
     if (this.lineIdx >= this.program.lines.length) {
       this.status = 'ended';
       this.cur = null;
+      this.seqFiles.closeAll(true); // running off the end closes files
     } else {
       this.cur = new Stream(this.program.lines[this.lineIdx]!.lexemes);
     }
@@ -365,10 +384,62 @@ export class Interpreter implements Ctx {
       case 'END':
       case 'STOP':
         this.status = 'ended';
+        this.seqFiles.closeAll(true); // Disk BASIC END/STOP closes files
         break;
       case 'RUN':
+        this.seqFiles.closeAll(true); // as does RUN, before restarting
         this.reset();
         break;
+      case 'OPEN': {
+        if (!this.seqFiles.active) {
+          this.skipStatement(s);
+          break;
+        }
+        const mode = asStr(evalExpr(s, this));
+        this.expect(s, ',');
+        const fd = Math.floor(asNum(evalExpr(s, this)));
+        this.expect(s, ',');
+        this.seqFiles.open(mode, fd, asStr(evalExpr(s, this)));
+        break;
+      }
+      case 'CLOSE': {
+        if (!this.seqFiles.active) {
+          this.skipStatement(s);
+          break;
+        }
+        if (s.eof() || s.peekPunct() === ':') {
+          this.seqFiles.closeAll(true); // bare CLOSE closes everything
+          break;
+        }
+        do {
+          this.seqFiles.close(Math.floor(asNum(evalExpr(s, this))));
+        } while (s.eatPunct(','));
+        break;
+      }
+      case 'KILL': {
+        if (!this.seqFiles.active) {
+          this.skipStatement(s);
+          break;
+        }
+        this.seqFiles.kill(asStr(evalExpr(s, this)));
+        break;
+      }
+      case 'LINE': {
+        // Only the Disk BASIC `LINE INPUT #n, v$` form is supported; plain
+        // keyboard LINE INPUT stays unimplemented, as before.
+        if (!s.eatKw('INPUT') || s.peekPunct() !== '#') {
+          throw new BasicError('SN');
+        }
+        s.advance(); // '#'
+        const fd = Math.floor(asNum(evalExpr(s, this)));
+        this.expect(s, ',');
+        if (!this.seqFiles.active) {
+          this.skipStatement(s);
+          break;
+        }
+        this.assignLValue(this.readLValue(s), this.seqFiles.readLine(fd));
+        break;
+      }
       default:
         if (IGNORED.has(w)) this.skipStatement(s);
         else throw new BasicError('SN');
@@ -409,6 +480,23 @@ export class Interpreter implements Ctx {
   }
 
   private doPrint(s: Stream): void {
+    // `PRINT #n,` routes the identical formatting to a sequential file.
+    let sink: PrintSink = {
+      text: (t) => this.screen.printText(t),
+      nextZone: () => this.screen.nextZone(),
+      tab: (n) => this.screen.tab(n),
+      newline: () => this.screen.newline(),
+    };
+    if (s.peekPunct() === '#') {
+      s.advance();
+      const fd = Math.floor(asNum(evalExpr(s, this)));
+      this.expect(s, ',');
+      if (!this.seqFiles.active) {
+        this.skipStatement(s); // no VFS wired: skip, like the old IGNORED set
+        return;
+      }
+      sink = this.seqFiles.writer(fd);
+    }
     let trailingSep = false;
     while (!s.eof() && s.peekPunct() !== ':') {
       const p = s.peekPunct();
@@ -419,7 +507,7 @@ export class Interpreter implements Ctx {
       }
       if (p === ',') {
         s.advance();
-        this.screen.nextZone();
+        sink.nextZone();
         trailingSep = true;
         continue;
       }
@@ -428,17 +516,17 @@ export class Interpreter implements Ctx {
         s.advance();
         const n = asNum(evalExpr(s, this));
         this.expect(s, ')');
-        if (w === 'TAB(') this.screen.tab(n);
-        else this.screen.printText(' '.repeat(Math.max(0, Math.floor(n))));
+        if (w === 'TAB(') sink.tab(n);
+        else sink.text(' '.repeat(Math.max(0, Math.floor(n))));
         trailingSep = true;
         continue;
       }
       const v = evalExpr(s, this);
-      if (typeof v === 'string') this.screen.printText(v);
-      else this.screen.printText(`${formatNumber(v)} `);
+      if (typeof v === 'string') sink.text(v);
+      else sink.text(`${formatNumber(v)} `);
       trailingSep = false;
     }
-    if (!trailingSep) this.screen.newline();
+    if (!trailingSep) sink.newline();
   }
 
   private doIf(s: Stream): void {
@@ -551,6 +639,23 @@ export class Interpreter implements Ctx {
   }
 
   private doInput(s: Stream): void {
+    // `INPUT #n,` reads fields from a sequential file instead of the keyboard.
+    if (s.peekPunct() === '#') {
+      s.advance();
+      const fd = Math.floor(asNum(evalExpr(s, this)));
+      this.expect(s, ',');
+      if (!this.seqFiles.active) {
+        this.skipStatement(s); // no VFS wired: skip, like the old IGNORED set
+        return;
+      }
+      do {
+        const lv = this.readLValue(s);
+        const raw = this.seqFiles.readField(fd);
+        const isStr = this.nameIsString(lv.name);
+        this.assignLValue(lv, isStr ? raw : Number(raw.trim()) || 0);
+      } while (s.eatPunct(','));
+      return;
+    }
     const t = s.peek();
     if (t && t.kind === 'str') {
       s.advance();
@@ -690,6 +795,9 @@ export class Interpreter implements Ctx {
   }
   inkey(): string {
     return this.input.inkey();
+  }
+  fileEof(fd: number): boolean {
+    return this.seqFiles.eof(fd);
   }
   rnd(x: number): number {
     if (x < 0) this.seed = (Math.floor(-x) & 0xffffffff) >>> 0 || 1;

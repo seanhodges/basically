@@ -6,10 +6,12 @@ import type {
   JoystickMode,
   JoystickState,
   MachineEmulator,
+  MachineFileStore,
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
 } from '../../types';
+import { VfsTapeDeck } from './tapeDeck';
 import { SpectrumMemory } from './memory';
 import { readSpectrumVariables } from '../vars';
 import { readSpectrumReport } from '../reports';
@@ -24,6 +26,8 @@ const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 200;
 const LD_BYTES = 0x0556; // ROM tape-loader entry; trapped for flash loading
+const SA_BYTES = 0x04c2; // ROM tape-saver entry; trapped for VFS data saves
+const REPORT_R = 0x0806; // ROM "R Tape loading error" report (RST 8, code 0x1A)
 
 /**
  * The ZX Spectrum 48K: Z80 + 16K ROM + 48K RAM + the ULA pieces the unmodified
@@ -62,8 +66,15 @@ export class SpectrumMachine implements MachineEmulator {
   private disposed = false;
   /** Header + data blocks waiting to be injected at the next LOAD. */
   private pending: { header: Uint8Array; data: Uint8Array } | null = null;
+  /**
+   * The virtual filesystem behind the program's own data SAVE/LOAD (CODE and
+   * array blocks). Null when the IDE supplies no file store, in which case
+   * both tape routines behave exactly as real hardware with no tape.
+   */
+  private readonly deck: VfsTapeDeck | null;
 
-  constructor(opts: { rom: Uint8Array }) {
+  constructor(opts: { rom: Uint8Array; files?: MachineFileStore }) {
+    this.deck = opts.files ? new VfsTapeDeck(opts.files) : null;
     this.memory = new SpectrumMemory(opts.rom);
     this.cpu = Z80({
       mem_read: this.memory.read,
@@ -85,6 +96,7 @@ export class SpectrumMachine implements MachineEmulator {
     this.memory.clearRam();
     this.keyboard.releaseAll();
     this.pending = null;
+    this.deck?.rewind();
     this.border = 7;
     this.kempston = 0;
     this.frameCount = 0;
@@ -123,8 +135,22 @@ export class SpectrumMachine implements MachineEmulator {
    * runFrame and debugStep so they never diverge.
    */
   private stepInstruction(): { t: number; halted: boolean } {
-    if (this.pending && this.cpu.getPC() === LD_BYTES) {
+    const pc = this.cpu.getPC();
+    if (this.pending && pc === LD_BYTES) {
       this.serviceLoadTrap();
+      return { t: 0, halted: false };
+    }
+    // Program-driven data SAVE: offer the block to the VFS tape deck. When it
+    // declines (BASIC program saves, nonstandard blocks) the ROM runs the real
+    // SA-BYTES, exactly as before.
+    if (this.deck && pc === SA_BYTES && this.serviceSaveTrap()) {
+      return { t: 0, halted: false };
+    }
+    // Program-driven LOAD with no IDE injection queued: serve blocks from the
+    // VFS. Armed only while files exist, so an empty VFS keeps the authentic
+    // poll-the-tape-until-BREAK behavior.
+    if (!this.pending && pc === LD_BYTES && this.deck?.hasFiles()) {
+      this.serviceDeckLoad();
       return { t: 0, halted: false };
     }
     if (this.cpu.isHalted()) return { t: 0, halted: true };
@@ -224,6 +250,66 @@ export class SpectrumMachine implements MachineEmulator {
   }
 
   /**
+   * Offer one ROM SA-BYTES call (A = flag, IX = start, DE = length) to the
+   * VFS tape deck. Captured: complete the call like a successful save —
+   * pop the return address, advance IX, set carry — and return true.
+   * Declined (program saves): return false and let the ROM execute SA-BYTES
+   * against the real (absent) tape.
+   */
+  private serviceSaveTrap(): boolean {
+    const st = this.cpu.getState();
+    const length = (st.d << 8) | st.e;
+    const payload = new Uint8Array(length);
+    for (let k = 0; k < length; k++) {
+      payload[k] = this.memory.read((st.ix + k) & 0xffff);
+    }
+    if (!this.deck!.recordBlock(st.a, payload)) return false;
+    const ret = this.memory.readWord(st.sp);
+    st.sp = (st.sp + 2) & 0xffff;
+    st.pc = ret;
+    st.ix = (st.ix + length) & 0xffff;
+    st.d = 0;
+    st.e = 0;
+    st.flags.C = 1; // saved
+    this.cpu.setState(st);
+    return true;
+  }
+
+  /**
+   * Satisfy one ROM LD-BYTES call from the VFS tape deck. A matching block
+   * loads like {@link serviceLoadTrap}; a mismatched block returns carry
+   * clear (the ROM retries headers and errors on data, as with real tape);
+   * a tape cycled twice with no match jumps to REPORT-R so `LOAD "missing"`
+   * raises "R Tape loading error" instead of spinning un-BREAK-ably.
+   */
+  private serviceDeckLoad(): void {
+    const st = this.cpu.getState();
+    const length = (st.d << 8) | st.e;
+    const res = this.deck!.nextBlock(st.a);
+    if (res.kind === 'abort') {
+      // RST 8 error path: the ROM restores SP from ERR_SP itself.
+      st.pc = REPORT_R;
+      this.cpu.setState(st);
+      return;
+    }
+    if (res.kind === 'block' && res.payload.length >= length) {
+      for (let k = 0; k < length; k++) {
+        this.memory.write((st.ix + k) & 0xffff, res.payload[k]!);
+      }
+      st.ix = (st.ix + length) & 0xffff;
+      st.d = 0;
+      st.e = 0;
+      st.flags.C = 1; // success
+    } else {
+      st.flags.C = 0; // wrong/short block: tape error for this call
+    }
+    const ret = this.memory.readWord(st.sp);
+    st.sp = (st.sp + 2) & 0xffff;
+    st.pc = ret;
+    this.cpu.setState(st);
+  }
+
+  /**
    * CHARS (0x5C36) becomes 0x3C00 once the boot init has run (the RAM test
    * first fills all RAM with 0x02, so screen contents are not a reliable
    * signal on their own). Interrupts are enabled by then.
@@ -272,7 +358,7 @@ export class SpectrumMachine implements MachineEmulator {
   }
 
   loadProgram(image: Uint8Array): void {
-    this.reset();
+    this.reset(); // also rewinds the VFS tape deck
     this.bootToReady();
     // Inject without an auto-start line, then drive RUN: the LOAD-with-LINE
     // auto-run path skips the CLEAR that sets up the variable/stack pointers,

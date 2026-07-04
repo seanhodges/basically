@@ -21,6 +21,13 @@ const MESSAGES: Record<string, string> = {
   LS: 'String too long',
   UF: 'Undefined user function',
   MO: 'Missing operand',
+  // Disk BASIC sequential-file errors, condensed to the same two-letter style
+  // (the real TRSDOS Disk BASIC spelt these out as numbered messages).
+  BF: 'Bad file number or mode',
+  AO: 'File already open',
+  NO: 'File not open',
+  FF: 'File not found',
+  IE: 'Input past end',
 };
 
 export class BasicError extends Error {

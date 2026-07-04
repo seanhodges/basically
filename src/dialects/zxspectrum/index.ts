@@ -54,7 +54,7 @@ export const zxspectrum: Dialect = {
   joystickModes: ['native', 'kempston'],
 
   createEmulator(opts) {
-    return new SpectrumMachine({ rom: opts.rom });
+    return new SpectrumMachine({ rom: opts.rom, files: opts.files });
   },
 
   keyboardLayout: spectrumKeyboardLayout,

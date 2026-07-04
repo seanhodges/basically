@@ -2,6 +2,7 @@ import type {
   DebugStepOptions,
   DebugStepResult,
   MachineEmulator,
+  MachineFileStore,
   MachineReport,
   MachineVariable,
 } from '../../types';
@@ -39,6 +40,10 @@ export class Trs80InterpreterMachine implements MachineEmulator {
 
   private readonly interp = new Interpreter();
   private speed = 1;
+
+  constructor(files?: MachineFileStore) {
+    this.interp.setFileStore(files ?? null);
+  }
 
   loadProgram(image: Uint8Array): void {
     this.interp.load(image);
