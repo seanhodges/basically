@@ -8,6 +8,11 @@
   border-bottom: 1px solid var(--border);
   container-type: inline-size;
   container-name: toolbar;
+  /* Giving the toolbar its own z-index lifts the whole bar — menu dropdowns 
+     included — above the workspace. Kept below the docs drawer (90)
+     and dialog backdrop (100) so those still cover it. */
+  position: relative;
+  z-index: 40;
 }
 
 .toolbarLeft,
