@@ -46,3 +46,12 @@
 .debugCurrentLine {
   background: rgb(255 210 0 / 25%);
 }
+
+/* While the on-screen keyboard is enabled the editor may hold no DOM focus (we
+   drop focus on backgrounding so the native keyboard can't reappear in front of
+   the virtual one when the app resumes — see CodeMirrorHost). CodeMirror only
+   shows the caret while the editor is focused, so force it visible here: the
+   virtual keyboard still needs a cursor to type at. */
+.vkActive :global(.cm-cursorLayer .cm-cursor) {
+  display: block;
+}

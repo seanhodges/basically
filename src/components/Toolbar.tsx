@@ -231,7 +231,7 @@ export function Toolbar() {
                   'view.vfsInspector',
                 )}
               >
-                Emulator files…{hint('view.vfsInspector')}
+                Emulator files{hint('view.vfsInspector')}
               </button>
               <div className={styles.menuSeparator} />
               <div className={styles.menuLabel}>Samples</div>
@@ -275,7 +275,7 @@ export function Toolbar() {
                 onClick={guard(() => setProcedureListOpen(true))}
                 title="List procedures, subroutines and jump targets in this program"
               >
-                Outline…{hint('edit.outline')}
+                Outline{hint('edit.outline')}
               </button>
               <div className={styles.menuSeparator} />
               <button
@@ -434,7 +434,7 @@ export function Toolbar() {
                     onClick={guard(() => setProcedureListOpen(true))}
                     title="List procedures, subroutines and jump targets in this program"
                   >
-                    Outline…
+                    Outline
                   </button>
                   <div className={styles.menuSeparator} />
                   <button
@@ -478,7 +478,7 @@ export function Toolbar() {
                   </button>
                   <div className={styles.menuSeparator} />
                   <button onClick={openVfsInspector}>
-                    Emulator files…{hint('view.vfsInspector')}
+                    Emulator files{hint('view.vfsInspector')}
                   </button>
                 </>
               )}

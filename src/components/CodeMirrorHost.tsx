@@ -755,6 +755,29 @@ export function CodeMirrorHost({
     });
   }, [keyboardOverlay]);
 
+  // On mobile, switching away from the app and back makes the browser restore
+  // focus to the editor's contenteditable and re-summon the native on-screen
+  // keyboard, which then draws *in front of* the virtual keyboard. The
+  // `inputmode: 'none'` above suppresses the native keyboard when focus is taken
+  // by a tap, but browsers don't reliably re-consult it on this programmatic
+  // resume-refocus (notably iOS Safari). The virtual keyboard types straight
+  // into the view (see applyEditorAction) and never needs the contenteditable
+  // to hold DOM focus, so drop that focus while backgrounding: with no focused
+  // editable, the resume has nothing to summon a keyboard for. Mount-once; reads
+  // the live flag at event time so it survives keyboard toggles.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (
+        document.visibilityState === 'hidden' &&
+        useIdeStore.getState().keyboardEnabled
+      ) {
+        viewRef.current?.contentDOM.blur();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
   const showLineNumberGutter = useIdeStore((s) => s.showLineNumberGutter);
   useEffect(() => {
     viewRef.current?.dispatch({
@@ -867,5 +890,10 @@ export function CodeMirrorHost({
     if (isMobileViewport()) useIdeStore.getState().setMobileTab('editor');
   }, [jumpTarget]);
 
-  return <div className={styles.cmHost} ref={hostRef} />;
+  return (
+    <div
+      className={`${styles.cmHost}${keyboardOverlay ? ` ${styles.vkActive}` : ''}`}
+      ref={hostRef}
+    />
+  );
 }

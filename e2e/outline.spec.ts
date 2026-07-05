@@ -1,9 +1,9 @@
 import { test, expect, type Page } from './fixtures';
 
 /**
- * Visual / behavioural checks for the Edit ▸ Outline… navigation feature:
+ * Visual / behavioural checks for the Edit ▸ Outline navigation feature:
  *
- *  1. "Outline…" sits directly below "Find/Replace" in the Edit menu, so the
+ *  1. "Outline" sits directly below "Find/Replace" in the Edit menu, so the
  *     navigation actions are grouped together.
  *  2. Jumping to an outline entry scrolls the editor so the target BASIC line
  *     lands at the *top* of the editor viewport (not merely scrolled barely
@@ -47,14 +47,14 @@ test('Outline sits directly below Find/Replace in the Edit menu', async ({
   await open(page);
   await loadMazeSample(page);
   await page.getByRole('button', { name: 'Edit ▾' }).click();
-  await expect(page.getByRole('button', { name: 'Outline…' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Outline' })).toBeVisible();
 
   // Read the visible menu buttons in DOM order and assert adjacency directly.
   // Labels may carry a trailing keyboard-shortcut hint (e.g. "Find/Replace
   // Ctrl+F"), so match on the leading label text rather than exact equality.
   const allLabels = await page.getByRole('button').allInnerTexts();
   const findIdx = allLabels.findIndex((l) => l.startsWith('Find/Replace'));
-  const outlineIdx = allLabels.findIndex((l) => l.startsWith('Outline…'));
+  const outlineIdx = allLabels.findIndex((l) => l.startsWith('Outline'));
   expect(findIdx).toBeGreaterThanOrEqual(0);
   expect(outlineIdx).toBe(findIdx + 1);
 
@@ -79,7 +79,7 @@ test('jumping to an outline entry scrolls the target line to the top', async ({
   await expect(page.locator('.cm-content')).toContainText('800 GOTO 300');
 
   await page.getByRole('button', { name: 'Edit ▾' }).click();
-  await page.getByRole('button', { name: 'Outline…' }).click();
+  await page.getByRole('button', { name: 'Outline' }).click();
 
   const dialog = page.getByRole('heading', { name: 'Program outline' });
   await expect(dialog).toBeVisible();

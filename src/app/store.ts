@@ -204,13 +204,13 @@ interface IdeState {
   splitRatio: number;
   aiPanelOpen: boolean;
   transferOpen: boolean;
-  /** The emulator virtual-filesystem inspector dialog (Emulator files…). */
+  /** The emulator virtual-filesystem inspector dialog (Emulator files). */
   vfsInspectorOpen: boolean;
   importOpen: boolean;
   settingsOpen: boolean;
   /** Active tab within the settings form (dialog on desktop, tab pane on mobile). */
   settingsTab: SettingsTab;
-  /** Program outline dialog (Edit ▸ Outline…). */
+  /** Program outline dialog (Edit ▸ Outline). */
   procedureListOpen: boolean;
   /** In-app documentation drawer (replaces opening /docs/ in a new tab). */
   docsDrawerOpen: boolean;

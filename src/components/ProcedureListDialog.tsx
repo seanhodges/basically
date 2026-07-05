@@ -5,7 +5,7 @@ import dialog from './Dialog.module.css';
 import styles from './ProcedureListDialog.module.css';
 
 /**
- * Edit ▸ Outline… — lists the open program's procedures, functions and the line
+ * Edit ▸ Outline — lists the open program's procedures, functions and the line
  * numbers GOSUB/GOTO jump to. Clicking an item moves the editor to that line.
  */
 export function ProcedureListDialog() {

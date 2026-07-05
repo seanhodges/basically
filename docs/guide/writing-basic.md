@@ -39,7 +39,7 @@ The editor offers a rich set of modern features to assist with BASIC coding.
 Everything below is configured from the **Settings** button in the toolbar
 (the **Editor** section) unless noted.
 
-![Annotated desktop editor showing the code completion popup, the open Edit menu (Renumber line and Outline…), and the Settings button](/editor-features.png)
+![Annotated desktop editor showing the code completion popup, the open Edit menu (Renumber line and Outline), and the Settings button](/editor-features.png)
 
 On a phone the toolbar is tighter: the Edit actions move into the **⋯ overflow
 menu**, and the same code completion popup appears as you type.
@@ -87,7 +87,7 @@ to match, so jumps don't break.
 
 ### Outline
 
-**Edit ▸ Outline…** opens the **Program outline**: a list of the program's
+**Edit ▸ Outline** opens the **Program outline**: a list of the program's
 procedures and functions and the line numbers that `GOTO`/`GOSUB` jump to. Click
 any entry to move the editor straight to that line — a quick way to navigate a
 longer program. The outline tool reads nearby REM statements to give more descriptive

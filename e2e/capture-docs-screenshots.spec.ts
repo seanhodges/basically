@@ -316,7 +316,7 @@ test('annotated editor features — desktop', async ({ page }) => {
     },
     {
       sel: '[class*="menuItems"]',
-      text: 'Edit menu — Renumber line and Outline…',
+      text: 'Edit menu — Renumber line and Outline',
       side: 'right',
     },
     {
@@ -347,7 +347,7 @@ test('annotated editor features — mobile', async ({ page }) => {
   await annotate(page, [
     {
       sel: '[class*="menuItems"]',
-      text: 'Overflow menu — Edit actions (Outline…, Renumber line, Find)',
+      text: 'Overflow menu — Edit actions (Outline, Renumber line, Find)',
       side: 'below',
     },
     {

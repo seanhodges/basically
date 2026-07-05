@@ -128,7 +128,7 @@ under the screen on the **Run** tab.
 On the machines that can write non-program data files, the IDE captures these and
 writes to a virtual filesystem so you can see what your program stored.
 
-Open it from **File ▸ Emulator files…** (shortcut **Ctrl/Cmd + Alt + F**). The
+Open it from **File ▸ Emulator files** (shortcut **Ctrl/Cmd + Alt + F**). The
 dialog lists every file the running program has saved to tape, disk, or the
 network, with its **Name**, **Kind** (a dialect-specific tag such as `code`,
 `data`, or `data-str`), **Size**, and the time it was saved. Click a row to
