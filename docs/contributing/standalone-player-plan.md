@@ -141,7 +141,7 @@ Root vitest include stays `src/**`; infra tests run via `cd infra && npx vitest 
 
 ## Stage 7 — Hosting, PWA hardening, full test pass
 
-- GitHub Pages wiring: the `404.html` copy step from Stage 1 ships with the first player deploy; add `VITE_SHARE_API_URL` as a repository variable and pass it into the `npm run build` step in `.github/workflows/deploy.yml` (`env: VITE_SHARE_API_URL: ${{ vars.SHARE_API_URL }}`). Confirm the Stage 4 stack's CORS `allowOrigins` matches the production Pages origin exactly.
+- GitHub Pages wiring: the `404.html` copy step from Stage 1 ships with the first player deploy; add `VITE_SHARE_API_URL` as a repository variable and pass it into the `npm run build` step in `.github/workflows/deploy.yml` as an `env:` entry (`VITE_SHARE_API_URL` from the `SHARE_API_URL` repository variable via the workflow `vars` context — the moustache syntax is not reproduced here because VitePress interpolates it). Confirm the Stage 4 stack's CORS `allowOrigins` matches the production Pages origin exactly.
 - PWA checks: installed-PWA update cycle lands `/run/x` in the player; denylist keeps `/docs` out of the SW fallback; cold (no-SW) deep link exercises the 404.html path.
 - E2E: `e2e/player.spec.ts` (boot via `page.route` stub, canvas renders frames — reuse the canvas assertions from `e2e/debug.spec.ts`, FAB restart, error states, the incompatible-dialect notice + canonical-link redirect, landscape device project mirroring `landscape-layout.spec.ts`), `e2e/share-flow.spec.ts` (verb URL per dialect), open-in-IDE round trip.
 - Docs page + CLAUDE.md architecture-table updates (`src/player/`, `src/share/`, `infra/`).
