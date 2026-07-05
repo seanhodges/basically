@@ -5,7 +5,7 @@
 | Stage                                      | State                        |
 | ------------------------------------------ | ---------------------------- |
 | 1 — Routing foundation & shell split       | ✅ Implemented (this branch) |
-| 2 — Share API client module                | ⬜ Not started               |
+| 2 — Share API client module                | ✅ Implemented (this branch) |
 | 3 — Standalone player UI + auto-start      | ⬜ Not started               |
 | 4 — AWS backend (CDK)                      | ⬜ Not started               |
 | 5 — IDE "Share link" flow                  | ⬜ Not started               |
@@ -82,14 +82,14 @@ Shippable alone: IDE unchanged at `/`; `/run/xxxxxx` renders a player placeholde
 
 **Verify:** `npm run typecheck && npm test && npm run lint && npm run format:check`; dev server: `/` = IDE, `/run/abc234` = placeholder, `/run/bad!` = IDE; `npm run build && vite preview` — spot-check ROM requests hit `/roms/...`.
 
-## Stage 2 — Share API client module
+## Stage 2 — Share API client module ✅
 
 Shippable alone: pure client code with tests; Stages 3 and 4 build against it in parallel.
 
 **New files**
 
-- `src/share/shareClient.ts` — `SharedProgram` type (incl. `compatibleDialects: string[]`), `ShareApiError { kind: 'invalid-id' | 'not-found' | 'expired' | 'network' | 'server' }`, `fetchSharedProgram(id)`, `createShare(req)`; `API_BASE = import.meta.env.VITE_SHARE_API_URL` — required (no same-origin fallback exists on GitHub Pages); when unset, both functions reject with a clear "share API not configured" error so dev without a deployed backend degrades gracefully (+ env typing).
-- `src/share/shareClient.test.ts` — mocked `fetch`: happy path, 404/410 mapping, invalid ID short-circuits without a network call, size cap.
+- `src/share/shareClient.ts` — `SharedProgram` / `CreateShareRequest` types (incl. `compatibleDialects: string[]`), `ShareApiError` with `kind: 'unconfigured' | 'invalid-id' | 'not-found' | 'expired' | 'too-large' | 'rate-limited' | 'network' | 'server'`, `fetchSharedProgram(id)`, `createShare(req)`, and the `SOURCE_LIMIT_BYTES` / `NAME_LIMIT_CHARS` constants. The base URL is read from `import.meta.env.VITE_SHARE_API_URL` at call time — required (no same-origin fallback exists on GitHub Pages); when unset, both functions reject with `'unconfigured'` so dev without a deployed backend degrades gracefully. Env typing lives in `src/vite-env.d.ts`.
+- `src/share/shareClient.test.ts` — mocked `fetch`: happy paths, 404/410/429/400 mapping, invalid ID and unconfigured API short-circuit without a network call, size/name caps, malformed-response rejection.
 
 ## Stage 3 — Standalone player UI + auto-start flow
 
