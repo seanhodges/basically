@@ -154,7 +154,6 @@
      the canvas gains/loses focus, and a shifting button mid-press would
      swallow the click. */
   width: 100%;
-  max-width: 600px;
   justify-content: space-between;
 }
 
@@ -166,7 +165,6 @@
    over it. */
 .watcherHost {
   width: 100%;
-  max-width: 600px;
   max-height: 240px;
   overflow-y: auto;
   flex-shrink: 0;
@@ -187,12 +185,6 @@
     width: auto;
     height: auto;
     max-width: none;
-  }
-
-  /* Narrow screens: let the watcher span the full pane and grow taller. */
-  .watcherHost {
-    max-width: none;
-    max-height: 40vh;
   }
 }
 

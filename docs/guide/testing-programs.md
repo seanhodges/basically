@@ -1,17 +1,17 @@
 # Testing your code
 
 Once you've written some BASIC (see **[Writing BASIC](/guide/writing-basic)**),
-you test it by building it and running it in the built-in emulator — the same
-machine the program would run on for real. This guide covers running a program,
+you can test it by building it and running it in the built-in emulator for the
+same machine(s) the program would run on. This guide covers running a program,
 giving it input from the on-screen keyboard and game controller, and tracking
 down bugs with breakpoints and the variable watcher.
 
 ## Running a program
 
 Press the **▶ Play** button in the toolbar to build the current program and run
-it in the emulator, or use the shortcut **Ctrl/Cmd + Enter**. The program is
-tokenised, loaded into a fresh machine, and started; the emulator pane boots the
-real ROM and takes over from there.
+it in the emulator, or use the shortcut **Ctrl/Cmd + Enter**. The program is loaded
+into a fresh machine, and started; the emulator pane boots the real ROM and takes
+over from there.
 
 If the program still has mistakes, it won't run: the emulator reports
 **Fix N error(s) before running** (the same errors the editor underlines as you
@@ -22,9 +22,7 @@ The status bar shows the emulator state — **stopped**, **running**, or
 **paused** — alongside the byte budget.
 
 To stop, press **■ Stop**. This is a full power-off, not a pause: the machine is
-shut down and the screen blanks, so the next run starts clean. If you have any
-breakpoints set, Stop first asks whether to **Clear all breakpoints?** before
-shutting down.
+shut down and the screen blanks, so the next run starts clean.
 
 ## Running on a phone or tablet
 
@@ -65,7 +63,7 @@ On a phone in landscape the status bar is hidden; there the keyboard has its own
 ### The game controller
 
 For games, press the gamepad button in the status bar to **Enable game
-controller**. This overlays a D-pad and one or two fire buttons over the bottom
+controller**. This overlays a D-pad and fire buttons over the bottom
 of the emulator screen (in phone landscape the controls flank the screen
 instead). Under **Settings ▸ Gamepad** you can choose the **layout** (4- or
 8-way, one or two fire buttons) and the **input mode**:
@@ -118,17 +116,29 @@ array), and current **value**.
 
 While the program is running the watcher refreshes several times a second, so you
 can watch values change in real time. When the program is paused at a breakpoint
-the values hold steady — pairing the watcher with breakpoints is the quickest way
+the values hold steady, pairing the watcher with breakpoints is the quickest way
 to see exactly what state a line leaves behind.
-
-If the program isn't running yet you'll see **Run a program to inspect its
-variables**, and a running program that hasn't assigned anything shows **No
-variables defined yet**. A few machines don't yet expose their variables, in
-which case the watcher says so.
 
 The `{x}` toggle lives in the status bar, so on a phone it's on every tab except
 in landscape (where the status bar is hidden); the watcher panel itself appears
 under the screen on the **Run** tab.
+
+## Inspecting data files
+
+On the machines that can write non-program data files, the IDE captures these and
+writes to a virtual filesystem so you can see what your program stored.
+
+Open it from **File ▸ Emulator files…** (shortcut **Ctrl/Cmd + Alt + F**). The
+dialog lists every file the running program has saved to tape, disk, or the
+network, with its **Name**, **Kind** (a dialect-specific tag such as `code`,
+`data`, or `data-str`), **Size**, and the time it was saved. Click a row to
+expand a **hex dump** of its contents — the quickest way to check that a record
+was written the way you expected. Each row also has a **Download** button that
+saves the raw bytes to your computer for inspection in another tool.
+
+The virtual filesystem is cleared every time the emulator restarts, so
+each run starts with an empty filesystem. The files live only in the browser for the
+current session; if you want to keep one, use the **Download** button before restarting.
 
 When your program runs the way you want, see **[Running on real
 hardware](/guide/hardware)** to get it onto — or off — an actual machine.

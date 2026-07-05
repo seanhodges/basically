@@ -3,6 +3,7 @@
   border-collapse: collapse;
   font-family: var(--mono, monospace);
   font-size: 13px;
+  border: 1px solid var(--border, #333);
 }
 
 .watcherTable th,
@@ -30,11 +31,36 @@
 .watcherValue {
 }
 
-/* The value sits in its own span so a future edit mode can swap it for an
-   input without changing the row layout. */
+/* The value is a button that opens a detail modal with the full value; here it
+   is truncated to a single line so long values never reflow the table. The
+   button chrome is neutralised so it reads as inline text. */
 .watcherValueText {
   display: inline-block;
+  width: 80px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
   padding: 1px 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.watcherValueText:hover,
+.watcherValueText:focus-visible {
+  text-decoration: underline;
+  color: var(--accent);
+}
+
+/* Full value shown in the detail modal — wraps and scrolls (the modal shell
+   caps height and scrolls) rather than truncating. */
+.modalValue {
+  font-family: var(--mono, monospace);
+  white-space: pre-wrap;
   word-break: break-all;
 }
 

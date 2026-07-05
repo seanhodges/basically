@@ -35,7 +35,7 @@ test('desktop: stacked AI panel + docs close in LIFO order', async ({
   // Open the AI panel, then the docs drawer on top of it.
   await page.getByRole('button', { name: 'AI code generation' }).click();
   await expect(page.getByText('AI assistant')).toBeVisible();
-  await page.getByRole('button', { name: 'Documentation' }).click();
+  await page.getByRole('button', { name: 'Open documentation' }).click();
   // Locate the drawer by attribute, not role: once closed it sets
   // aria-hidden="true" and drops out of the accessibility tree.
   const docs = page.locator('[aria-label="Documentation"]');
@@ -101,7 +101,7 @@ test('baseline: Back with nothing open leaves the app (no trap)', async ({
 test('Back surfaces survive an orientation flip', async ({ page }) => {
   await open(page);
   // Open the docs drawer on desktop...
-  await page.getByRole('button', { name: 'Documentation' }).click();
+  await page.getByRole('button', { name: 'Open documentation' }).click();
   const docs = page.locator('[aria-label="Documentation"]');
   await expect(docs).toHaveAttribute('aria-hidden', 'false');
 
