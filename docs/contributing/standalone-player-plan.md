@@ -6,7 +6,7 @@
 | ------------------------------------------ | ---------------------------- |
 | 1 — Routing foundation & shell split       | ✅ Implemented (this branch) |
 | 2 — Share API client module                | ✅ Implemented (this branch) |
-| 3 — Standalone player UI + auto-start      | ⬜ Not started               |
+| 3 — Standalone player UI + auto-start      | ✅ Implemented (this branch) |
 | 4 — AWS backend (CDK)                      | ⬜ Not started               |
 | 5 — IDE "Share link" flow                  | ⬜ Not started               |
 | 6 — Open-in-IDE handover                   | ⬜ Not started               |
@@ -16,14 +16,14 @@ Update this table as stages land.
 
 ## Context
 
-Basically began as a single-view SPA: `src/main.tsx` rendered `<App/>`, which always shows the full IDE — no router, no URL handling, and no backend of any kind. The goal is a **standalone player** — a cut-down, fully responsive UI (emulator screen + virtual keyboard + virtual gamepad, no editor/docs/menus) opened by short URLs like `/run/abc123`, where the path verb picks the machine and the six-character share ID resolves, via an API → AWS Lambda → DynamoDB, to a shared BASIC program that loads and auto-runs. A round green Play button restarts the program; an "Open in IDE" button hands the program over to the main UI. Since nothing today can _create_ share IDs, the plan also covers the write path (a "Share link" action in the IDE) and the AWS infrastructure.
+Basically began as a single-view SPA: `src/main.tsx` rendered `<App/>`, which always shows the full IDE — no router, no URL handling, and no backend of any kind. The goal is a **standalone player** — a cut-down, fully responsive UI (emulator screen + virtual keyboard + virtual gamepad, no editor/docs/menus) opened by short URLs like `/run/abc123`, where the path verb picks the machine and the six-character share ID resolves, via an API → AWS Lambda → DynamoDB, to a shared BASIC program that loads and auto-runs. A round green Play button restarts the program; an "See the Code" button hands the program over to the main UI. Since nothing today can _create_ share IDs, the plan also covers the write path (a "Share link" action in the IDE) and the AWS infrastructure.
 
 **Decisions baked in:**
 
 1. **Unique verb per dialect** — the path deterministically dictates the emulator.
 2. **Full-stack scope** — infra-as-code, read+write API, and an IDE Share flow to mint links.
 3. **Hosting is GitHub Pages** (`.github/workflows/deploy.yml` builds app + docs into one Pages artifact; the site is served at the domain root). GitHub Pages has no rewrite support, so cold deep links use the **`404.html` fallback**: copy `dist/index.html` → `dist/404.html` at build time — Pages serves the root `404.html` for any unknown path, the SPA boots and parses the pathname. The service worker's navigateFallback covers the installed-PWA case. The API is necessarily cross-origin (no same-origin proxy on Pages), so prod uses CORS + a build-time `VITE_SHARE_API_URL`.
-4. **Open in IDE** — opens the main UI with the program pre-loaded and the right dialect selected, via `/?open=<id>` re-fetch (refresh-safe, shareable, no sessionStorage handoff fragility).
+4. **See the Code** — opens the main UI with the program pre-loaded and the right dialect selected, via `/?open=<id>` re-fetch (refresh-safe, shareable, no sessionStorage handoff fragility).
 
 ## Verb table (route → dialect)
 
@@ -109,7 +109,7 @@ Shippable end-to-end in dev/e2e with a stubbed API (Playwright `page.route`); ag
 - `src/player/PlayerApp.tsx` (replaces the Stage-1 placeholder) — boot effect: `fetchSharedProgram(shareId)` → **compatibility check**: if the verb's dialect ∉ `record.compatibleDialects`, phase `'incompatible'` — a notice naming both machines with a one-tap link to `playerPathFor(record.dialectId, shareId)`; otherwise `playerBoot({ dialectId: verbDialectId, ... })` → `requestRun()` (auto-start). Local phase `'loading' | 'running' | 'incompatible' | 'error'` with per-error messages + retry. Renders:
   - `<EmulatorPane apiRef={machineApiRef}/>` full-bleed; keyboard/controller machine targets built exactly like `Workspace.tsx:85–101`.
   - `VirtualKeyboard` (machine target) and `GameController` (`effectiveGamepadMode(dialect, gamepadMode)`; no `onStartRemap` — remap dropped), visibility from `useInputOverlays()`.
-  - Controls rail: round green Play FAB (clone of `.fabRun`, `Workspace.module.css:~205`, `onClick={requestRun}` — Run _is_ restart in this app), "Open in IDE" button (`location.assign('/?open=' + shareId)`), ⌨/🎮 toggles (key-mapped fallback keeps 🎮 useful for dialects without joystick modes), "tap for sound" pill until `resumeAudio()` confirms.
+  - Controls rail: round green Play FAB (clone of `.fabRun`, `Workspace.module.css:~205`, `onClick={requestRun}` — Run _is_ restart in this app), "See the Code" button (`location.assign('/?open=' + shareId)`), ⌨/🎮 toggles (key-mapped fallback keeps 🎮 useful for dialects without joystick modes), "tap for sound" pill until `resumeAudio()` confirms.
 - `src/player/PlayerApp.module.css` — responsive: portrait = screen top / overlay bottom band; landscape ≈ existing phone-landscape layout (copy the relevant `.workspaceVkOverlay`/`.workspaceGcOverlay` rules; keep the flanking-gamepad geometry so `landscapeSideGutter()` in EmulatorPane stays valid); desktop = centered screen + docked keyboard. Theme comes free from `src/styles.css`.
 
 **Verify:** dev server with `page.route`-style stub or a local mock; physical keyboard reaches the machine via the focused canvas (already built into EmulatorPane); all four gates.

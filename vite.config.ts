@@ -4,18 +4,14 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  // Absolute base: the player's short URLs live at nested paths (/run/abc234),
-  // where relative asset URLs would resolve against the route (./roms/… →
-  // /run/roms/… and 404). The site is served at the domain root on Pages.
   base: '/',
   server: {
     // In production the VitePress docs build is deployed under /docs/ next to
     // the app; in dev the docs are a separate server (`npm run docs:dev`).
     // Without this proxy the SPA fallback answers /docs/ with the IDE shell
     // itself, so the in-app docs drawer shows the IDE recursively. Proxy
-    // /docs to the docs dev server instead (the e2e suite starts one on 5174;
-    // run `npm run docs:dev -- --port 5174` alongside `npm run dev` to get
-    // live docs in the drawer during development).
+    // /docs to the docs dev server instead (so running `npm run docs:dev` 
+    // alongside `npm run dev` shows the docs in the drawer during development).
     proxy: {
       '^/docs(/|$)': {
         target: `http://localhost:${process.env.DOCS_PORT ?? 5174}`,
@@ -25,12 +21,9 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    // Service worker for the app shell, so the IDE itself works offline once
-    // installed. The docs site (built separately under /docs/) ships its own
+    // Service worker for the app shell. The docs site ships its own
     // service worker via @vite-pwa/vitepress; the two have nested scopes (/ and
-    // /docs/) and each precaches its own build. The existing hand-written
-    // public/manifest.webmanifest is kept (manifest: false) and stays linked
-    // from index.html.
+    // /docs/) and each precaches its own build.
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
@@ -40,9 +33,7 @@ export default defineConfig({
         // size ceiling so the app shell is fully cached.
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest,woff2,wasm}'],
-        // Third-party ROMs are big and only needed when a machine is actually
-        // run; let them load on demand and cache at runtime rather than
-        // bloating the install.
+        // Third-party ROMs load on demand and cache at runtime.
         globIgnores: ['**/roms/**'],
         runtimeCaching: [
           {
@@ -55,11 +46,10 @@ export default defineConfig({
             },
           },
         ],
-        // The docs live under /docs/ with their own service worker; never let
-        // the app's SPA navigation fallback answer for docs URLs. Match the
-        // bare `/docs` too (no trailing slash) so a visit to ba.sical.ly/docs
-        // reaches the server's redirect to /docs/ instead of being served the
-        // app shell.
+        // Never let the app's SPA navigation fallback answer for docs URLs. 
+        // Match the bare `/docs` too (no trailing slash) so a visit to 
+        // ba.sical.ly/docs reaches the server's redirect to /docs/ instead of 
+        // being served the app shell.
         navigateFallbackDenylist: [/^\/docs(\/|$)/],
       },
     }),

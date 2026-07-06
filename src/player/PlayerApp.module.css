@@ -1,0 +1,247 @@
+/* Standalone player shell: a slim controls bar plus a full-bleed stage holding
+   the emulator screen and the keyboard/gamepad overlays. The overlay geometry
+   mirrors Workspace.module.css (46% portrait band, floating panel on wide
+   screens, flanking gamepad in phone landscape) so EmulatorPane's overlayUp
+   sizing and landscapeSideGutter() maths stay valid here. Theme comes from
+   src/styles.css. */
+
+.player {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Phone landscape: the bar becomes a narrow left rail (mirrors the IDE's
+   landscape shell) so the short viewport keeps its full height for the screen.
+   The `.landscape` class is JS-set from the same media query the IDE uses. */
+.player.landscape {
+  flex-direction: row;
+}
+
+/* ---------- Controls bar ---------- */
+.topBar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  padding-top: max(6px, env(safe-area-inset-top));
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.player.landscape .topBar {
+  flex-direction: column;
+  align-items: center;
+  width: 56px;
+  padding: 8px 4px;
+  padding-left: max(4px, env(safe-area-inset-left));
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+}
+
+.programName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.machineName {
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* No room for names on the landscape rail; the toggles are what matters. */
+.player.landscape .programName,
+.player.landscape .machineName {
+  display: none;
+}
+
+.topActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player.landscape .topActions {
+  margin-left: 0;
+  flex-direction: column;
+}
+
+.toggleActive {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---------- Stage ---------- */
+.stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.notice {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  padding: 24px;
+  text-align: center;
+}
+
+.canonicalLink {
+  font-weight: 600;
+}
+
+/* Round green Play FAB — Run *is* restart in the player. Clone of the IDE's
+   .fabRun (Workspace.module.css), but visible on every form factor. */
+.fabRun {
+  position: absolute;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #08210e;
+  font-size: 22px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
+  z-index: 20;
+}
+
+/* Keyboard band up: lift the FAB clear of the bottom overlay. */
+.fabLifted {
+  bottom: calc(50% + 16px);
+}
+
+/* On the landscape rail the FAB is an in-flow rail button, not a float. */
+.player.landscape .topBar .fabRun {
+  position: static;
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+  box-shadow: none;
+}
+
+/* "Tap for sound" pill: any tap unlocks audio; the pill itself is just the
+   most obvious thing to tap. */
+.soundPill {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  background: var(--bg-raised);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
+}
+
+/* ---------- Input overlays (mirrors Workspace.module.css) ---------- */
+/* Full-width band pinned to the bottom 46% of the stage. */
+.vkOverlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 46%;
+  z-index: 5;
+  display: flex;
+  padding: 6px clamp(8px, 6vw, 96px) calc(6px + env(safe-area-inset-bottom));
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgb(0 0 0 / 30%);
+}
+
+/* The keyboard fills the overlay height: only the key rows grow, so keycaps
+   scale to fill the band rather than staying at their fixed height. */
+.vkOverlay :global(.virtual-keyboard) {
+  flex: 1;
+  min-height: 0;
+  container-type: size;
+}
+
+.vkOverlay :global(.vk-row) {
+  flex: 1;
+  min-height: 0;
+}
+
+.vkOverlay :global(.vk-key) {
+  height: 100%;
+  min-height: 0;
+}
+
+/* The controller variant: same band, but transparent and click-through in the
+   gaps so taps fall to the emulator. Its own controls re-enable pointer
+   events (see GameController.css). */
+.gcOverlay {
+  background: transparent;
+  border-top: none;
+  box-shadow: none;
+  pointer-events: none;
+  padding: 0 calc(env(safe-area-inset-right))
+    calc(6px + env(safe-area-inset-bottom)) calc(env(safe-area-inset-left));
+}
+
+/* Phone landscape: the gamepad flanks the full-height emulator (d-pad hugging
+   the left edge, fire buttons the right) instead of the bottom band. */
+.player.landscape .gcOverlay {
+  top: 0;
+  height: 100%;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    calc(6px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
+}
+
+/* Phone portrait: the keyboard spans the full width — thin edge gutters. */
+@media (max-width: 768px) and (orientation: portrait) {
+  .vkOverlay {
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Tablets/desktop + landscape phones: the keyboard floats bottom-centre with
+   see-through gutters; the overlay becomes an invisible sizing scaffold. */
+@media (min-width: 769px),
+  (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .vkOverlay {
+    height: 50%;
+    container-type: size;
+    align-items: flex-end;
+    justify-content: center;
+    background: transparent;
+    border-top: none;
+    box-shadow: none;
+    padding: 6px 0 calc(2px + env(safe-area-inset-bottom));
+  }
+
+  .vkOverlay :global(.virtual-keyboard) {
+    container-type: normal;
+    flex: 0 0 auto;
+    max-width: 100%;
+    box-shadow: 0 6px 24px rgb(0 0 0 / 45%);
+  }
+}
+
+/* Phone landscape: full-height, click-through keyboard band so cqh/cqw resolve
+   against the whole stage and the keyboard floats over the emulator. */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .vkOverlay {
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .vkOverlay :global(.virtual-keyboard) {
+    pointer-events: auto;
+  }
+}

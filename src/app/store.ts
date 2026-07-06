@@ -247,6 +247,19 @@ interface IdeState {
   editorCommand: { name: EditorCommandName; seq: number };
 
   setDialect(id: string): void;
+  /**
+   * Boot the standalone player with a shared program: swap the dialect and
+   * document in one shot, without the IDE side effects. Deliberately does NOT
+   * persist the dialect (the player must not overwrite the IDE's remembered
+   * machine), never opens the switch-confirmation dialog, and sets
+   * `mobileTab: 'preview'` so the input overlays treat the emulator as the
+   * active surface (the player has no editor).
+   */
+  playerBoot(args: {
+    dialectId: string;
+    source: string;
+    fileName: string;
+  }): void;
   /** Resolve a pending target switch: start fresh or keep the current code. */
   confirmDialectSwitch(mode: 'new' | 'keep'): void;
   /** Dismiss a pending target switch, leaving the current machine in place. */
@@ -279,6 +292,13 @@ interface IdeState {
   setKeyboardEnabled(v: boolean): void;
   /** Turn the game-controller toggle on/off (persisted, independent state). */
   setControllerEnabled(on: boolean): void;
+  /**
+   * Player-only ⌨ toggle: like {@link setKeyboardEnabled} but never persisted —
+   * playing a shared program must not rewire the IDE's saved settings.
+   */
+  setKeyboardEnabledEphemeral(v: boolean): void;
+  /** Player-only 🎮 toggle: {@link setControllerEnabled} without persisting. */
+  setControllerEnabledEphemeral(on: boolean): void;
   /** Remap one controller role to a layout KeyDef id (active dialect). */
   setControllerBinding(role: ControllerRole, keyId: string): void;
   /** Clear the active dialect's controller remaps back to layout defaults. */
@@ -520,6 +540,29 @@ export const useIdeStore = create<IdeState>((set) => ({
       // persist the choice yet.
       return { pendingDialectId: id };
     }),
+  playerBoot: ({ dialectId, source, fileName }) =>
+    set((s) => {
+      const next = getDialect(dialectId);
+      // Not applyDialectSwitch: that persists the dialect choice and flips
+      // mobileTab to 'editor' on mobile — both wrong for the player.
+      return {
+        dialect: next,
+        pendingDialectId: null,
+        controllerBindings: loadControllerBindings(next),
+        source,
+        docOverride: { text: source, seq: s.docOverride.seq + 1 },
+        fileName,
+        dirty: false,
+        emulatorStatus: 'stopped',
+        liveMemory: null,
+        // Line numbers belong to whatever autosave seeded the store with.
+        breakpoints: new Set<number>(),
+        debugLine: null,
+        // The emulator is the player's only surface; useInputOverlays and
+        // EmulatorPane's landscape ⌨ toggle key off the preview tab.
+        mobileTab: 'preview' as MobileTab,
+      };
+    }),
   confirmDialectSwitch: (mode) =>
     set((s) => {
       if (s.pendingDialectId === null) return {};
@@ -594,6 +637,8 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistControllerEnabled(on);
     set({ controllerEnabled: on });
   },
+  setKeyboardEnabledEphemeral: (v) => set({ keyboardEnabled: v }),
+  setControllerEnabledEphemeral: (on) => set({ controllerEnabled: on }),
   setControllerBinding: (role, keyId) =>
     set((s) => {
       const bindings = { ...s.controllerBindings, [role]: keyId };
