@@ -245,10 +245,12 @@ export default function PlayerApp({
   return (
     <div className={`${styles.player} ${landscape ? styles.landscape : ''}`}>
       <header className={styles.topBar}>
-        {record?.name ? (
-          <span className={styles.programName}>{record.name}</span>
-        ) : (
-          <img className={styles.logo} src="/logo-dark.png" alt="Basically" />
+        <img className={styles.logo} src="/logo-dark.png" alt="Basically" />
+        {record?.name && (
+          <>
+            <span className={styles.programName}>{record.name}</span>
+            <span className={styles.separator}>|</span>
+          </>
         )}
         <span className={styles.machineName}>{dialectName(dialectId)}</span>
         <div className={styles.topActions}>

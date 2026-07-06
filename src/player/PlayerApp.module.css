@@ -60,10 +60,15 @@
   white-space: nowrap;
 }
 
+.separator {
+  color: var(--text-dim);
+}
+
 /* No room for names on the landscape rail; the toggles are what matters. */
 .player.landscape .programName,
 .player.landscape .machineName,
-.player.landscape .logo {
+.player.landscape .logo,
+.player.landscape .separator {
   display: none;
 }
 
