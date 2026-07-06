@@ -10,7 +10,7 @@ export default defineConfig({
     // the app; in dev the docs are a separate server (`npm run docs:dev`).
     // Without this proxy the SPA fallback answers /docs/ with the IDE shell
     // itself, so the in-app docs drawer shows the IDE recursively. Proxy
-    // /docs to the docs dev server instead (so running `npm run docs:dev` 
+    // /docs to the docs dev server instead (so running `npm run docs:dev`
     // alongside `npm run dev` shows the docs in the drawer during development).
     proxy: {
       '^/docs(/|$)': {
@@ -46,9 +46,9 @@ export default defineConfig({
             },
           },
         ],
-        // Never let the app's SPA navigation fallback answer for docs URLs. 
-        // Match the bare `/docs` too (no trailing slash) so a visit to 
-        // ba.sical.ly/docs reaches the server's redirect to /docs/ instead of 
+        // Never let the app's SPA navigation fallback answer for docs URLs.
+        // Match the bare `/docs` too (no trailing slash) so a visit to
+        // ba.sical.ly/docs reaches the server's redirect to /docs/ instead of
         // being served the app shell.
         navigateFallbackDenylist: [/^\/docs(\/|$)/],
       },
