@@ -26,8 +26,7 @@ function describeCreateError(e: unknown): {
     switch (e.kind) {
       case 'unconfigured':
         return {
-          message:
-            'No share service available. Share links cannot be created.',
+          message: 'No share service available. Share links cannot be created.',
           retryable: false,
         };
       case 'too-large':
