@@ -4,7 +4,10 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: './',
+  // Absolute base: the player's short URLs live at nested paths (/run/abc234),
+  // where relative asset URLs would resolve against the route (./roms/… →
+  // /run/roms/… and 404). The site is served at the domain root on Pages.
+  base: '/',
   server: {
     // In production the VitePress docs build is deployed under /docs/ next to
     // the app; in dev the docs are a separate server (`npm run docs:dev`).
