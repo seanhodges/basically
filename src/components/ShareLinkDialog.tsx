@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-// The IDE's "Share link…" flow (standalone-player-plan Stage 5): mint a short
+// The IDE's "Publish to Web…" flow (standalone-player-plan Stage 5): mint a short
 // player URL for the current program via the share API. Everything here is
 // named shareLink* - the Toolbar's existing `openShare` handler means the
 // Export/Transfer dialog, not this.
@@ -27,13 +27,13 @@ function describeCreateError(e: unknown): {
       case 'unconfigured':
         return {
           message:
-            'This site has no share service configured, so share links cannot be created.',
+            'No share service available. Share links cannot be created.',
           retryable: false,
         };
       case 'too-large':
         return {
           message:
-            'This program is too large to share - the share service caps programs at 64 KiB.',
+            'This program is too large to share - maximum size is 64 KiB.',
           retryable: false,
         };
       case 'rate-limited':
@@ -159,7 +159,7 @@ export function ShareLinkDialog() {
   return (
     <div className={dialog.modalBackdrop} onClick={close}>
       <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
-        <h2>Share link</h2>
+        <h2>Publish to Web</h2>
 
         {phase === 'blocked' && <p>{blockedReason}</p>}
 

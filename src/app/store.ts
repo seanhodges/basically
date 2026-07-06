@@ -205,7 +205,7 @@ interface IdeState {
   aiPanelOpen: boolean;
   transferOpen: boolean;
   /**
-   * The "Share link…" dialog (mints a player short URL). Named shareLink* -
+   * The "Publish to Web…" dialog (mints a player short URL). Named shareLink* -
    * the Toolbar's `openShare` handler already means the Export/Transfer dialog.
    */
   shareLinkOpen: boolean;

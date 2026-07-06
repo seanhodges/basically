@@ -230,8 +230,9 @@ export function Toolbar() {
                 onClick={openShareLink}
                 title="Create a short link that plays this program in the browser"
               >
-                Share link…
+                Publish to Web…
               </button>
+              <div className={styles.menuSeparator} />
               <button
                 onClick={openVfsInspector}
                 title={withKeys(
