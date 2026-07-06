@@ -7,6 +7,8 @@ import {
   setAiProvider,
   getProviderApiKey,
   setProviderApiKey,
+  getLastShare,
+  setLastShare,
   type PersistedMessage,
 } from './settings';
 
@@ -115,5 +117,48 @@ describe('AI provider settings', () => {
     setProviderApiKey('openai', '');
     expect(getProviderApiKey('openai')).toBe('');
     expect(getProviderApiKey('gemini')).toBe('AIza');
+  });
+});
+
+describe('last share link persistence', () => {
+  beforeEach(() => {
+    installLocalStorage();
+  });
+
+  it('returns null when nothing is stored', () => {
+    expect(getLastShare()).toBeNull();
+  });
+
+  it('round-trips a share entry', () => {
+    setLastShare({
+      source: '10 PRINT "HI"',
+      dialectId: 'zx81',
+      url: 'https://example.com/play/zx81/abc123',
+    });
+    expect(getLastShare()).toEqual({
+      source: '10 PRINT "HI"',
+      dialectId: 'zx81',
+      url: 'https://example.com/play/zx81/abc123',
+    });
+  });
+
+  it('overwrites the previous entry on a new mint', () => {
+    setLastShare({ source: 'a', dialectId: 'zx81', url: 'https://x/1' });
+    setLastShare({ source: 'b', dialectId: 'bbc', url: 'https://x/2' });
+    expect(getLastShare()).toEqual({
+      source: 'b',
+      dialectId: 'bbc',
+      url: 'https://x/2',
+    });
+  });
+
+  it('returns null for corrupt JSON', () => {
+    localStorage.setItem('mbide.lastShare', '{not json');
+    expect(getLastShare()).toBeNull();
+  });
+
+  it('returns null for malformed entries', () => {
+    localStorage.setItem('mbide.lastShare', JSON.stringify({ source: 'a' }));
+    expect(getLastShare()).toBeNull();
   });
 });

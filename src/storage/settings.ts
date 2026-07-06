@@ -46,6 +46,7 @@ const KEYS = {
   controllerFireButtons: 'mbide.controllerFireButtons',
   gamepadMode: 'mbide.gamepadMode',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
+  lastShare: 'mbide.lastShare',
 } as const;
 
 export const DEFAULT_EMULATOR_VOLUME = 0.7;
@@ -393,5 +394,45 @@ export function clearAiConversation(): void {
     localStorage.removeItem(KEYS.aiConversation);
   } catch {
     // best-effort
+  }
+}
+
+/** A share link minted for an exact (source, dialect) pair, for dedupe. */
+export interface LastShare {
+  source: string;
+  dialectId: string;
+  url: string;
+}
+
+/**
+ * The most recently minted share link, so "Publish to Web" can reuse it
+ * instead of creating a new one when the source and target dialect are
+ * unchanged since it was minted.
+ */
+export function getLastShare(): LastShare | null {
+  const raw = localStorage.getItem(KEYS.lastShare);
+  if (raw === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      typeof (parsed as LastShare).source === 'string' &&
+      typeof (parsed as LastShare).dialectId === 'string' &&
+      typeof (parsed as LastShare).url === 'string'
+    ) {
+      return parsed as LastShare;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function setLastShare(entry: LastShare): void {
+  try {
+    localStorage.setItem(KEYS.lastShare, JSON.stringify(entry));
+  } catch {
+    // quota exceeded - dedupe is best-effort
   }
 }

@@ -8,10 +8,10 @@
 
 import { useEffect, useState } from 'react';
 import { useIdeStore } from '../app/store';
-import { getDialect } from '../dialects/registry';
 import { computeCompatibleDialects } from '../share/compatibility';
 import { createShare, ShareApiError } from '../share/shareClient';
 import { playerPathFor } from '../player/routes';
+import { getLastShare, setLastShare } from '../storage/settings';
 import dialog from './Dialog.module.css';
 import styles from './ShareLinkDialog.module.css';
 
@@ -70,10 +70,7 @@ export function ShareLinkDialog() {
     message: string;
     retryable: boolean;
   } | null>(null);
-  const [result, setResult] = useState<{
-    url: string;
-    compatible: string[];
-  } | null>(null);
+  const [result, setResult] = useState<{ url: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [retrySeq, setRetrySeq] = useState(0);
 
@@ -85,6 +82,14 @@ export function ShareLinkDialog() {
     setError(null);
     setResult(null);
     const { dialect, source, fileName } = useIdeStore.getState();
+
+    const cached = getLastShare();
+    if (cached && cached.source === source && cached.dialectId === dialect.id) {
+      setResult({ url: cached.url });
+      setPhase('done');
+      return;
+    }
+
     if (!navigator.onLine) {
       setBlockedReason(
         'You appear to be offline. Reconnect to create a share link.',
@@ -109,15 +114,14 @@ export function ShareLinkDialog() {
         const { id } = await createShare({
           dialectId: dialect.id,
           compatibleDialects: compatible,
-          name: fileName,
+          name: !fileName || fileName === 'untitled.bas' ? '' : fileName,
           source,
         });
         if (cancelled) return;
-        setResult({
-          url: location.origin + playerPathFor(dialect.id, id),
-          compatible,
-        });
+        const url = location.origin + playerPathFor(dialect.id, id);
+        setResult({ url });
         setPhase('done');
+        setLastShare({ source, dialectId: dialect.id, url });
       } catch (e) {
         if (cancelled) return;
         setError(describeCreateError(e));
@@ -150,10 +154,6 @@ export function ShareLinkDialog() {
     const { fileName } = useIdeStore.getState();
     navigator.share({ title: fileName, url: result.url }).catch(() => {});
   };
-
-  const compatibleNames = (result?.compatible ?? []).map(
-    (id) => getDialect(id).name,
-  );
 
   return (
     <div className={dialog.modalBackdrop} onClick={close}>
@@ -189,8 +189,9 @@ export function ShareLinkDialog() {
               {canShareNative && <button onClick={shareNative}>Share…</button>}
             </div>
             <p>
-              Compatible with: <strong>{compatibleNames.join(', ')}</strong>.
-              The link opens on the {dialect.name}.
+              This link opens on the <strong>{dialect.name}</strong>. To share a
+              link for a different system, switch the current target and share
+              again.
             </p>
           </>
         )}
