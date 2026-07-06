@@ -3,7 +3,7 @@
  *
  * A `.TAP` is a sequence of blocks, each `u16 LE length` followed by `length`
  * bytes: a flag byte (0x00 header / 0xFF data), the payload, and a parity byte
- * (XOR of flag + payload). A saved BASIC program is two blocks — a 17-byte
+ * (XOR of flag + payload). A saved BASIC program is two blocks - a 17-byte
  * header describing it, then the program area immediately followed by the
  * variables area (a lone 0x80 end-marker when there are no variables).
  *
@@ -65,13 +65,13 @@ function programName(name: string): Uint8Array {
 export interface TapBlock {
   /** 0x00 for a header block, 0xff for a data block. */
   flag: number;
-  /** Flag byte, payload and parity byte — the bytes a real tape carries. */
+  /** Flag byte, payload and parity byte - the bytes a real tape carries. */
   bytes: Uint8Array;
 }
 
 /**
  * The two tape blocks (header then data) for a BASIC program, each as the raw
- * flag+payload+parity bytes a real tape carries — i.e. the `.TAP` body without
+ * flag+payload+parity bytes a real tape carries - i.e. the `.TAP` body without
  * the per-block length prefixes. Shared by {@link buildTap} (which adds the
  * prefixes) and the cassette-audio encoder.
  */

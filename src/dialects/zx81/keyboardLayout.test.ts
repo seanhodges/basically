@@ -32,7 +32,7 @@ describe('zx81 keyboard layout editor mapping', () => {
     for (const key of allKeys) {
       for (const layerId of ['keyword', 'function']) {
         const layerIdx = layout.layers.findIndex((l) => l.id === layerId);
-        if (!key.labels[layerIdx]) continue; // falls back to main — not a word
+        if (!key.labels[layerIdx]) continue; // falls back to main - not a word
         const action = resolveEditorAction(layout, key, layerId);
         expect(action, `${key.id} on layer ${layerId}`).not.toBeNull();
         if (action && 'insert' in action) {
@@ -69,7 +69,7 @@ describe('zx81 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('KeyA')!, 'graphic')).toEqual({
       insert: '▒',
     });
-    // '−' on the key legend is U+2212 — the editor must get an ASCII hyphen.
+    // '−' on the key legend is U+2212 - the editor must get an ASCII hyphen.
     expect(resolveEditorAction(layout, byId.get('KeyJ')!, 'shift')).toEqual({
       insert: '-',
     });

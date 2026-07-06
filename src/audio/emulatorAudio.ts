@@ -46,7 +46,7 @@ export class EmulatorAudio {
   /**
    * Lazily build the audio graph and resume the context. Must be called from a
    * user gesture (the Run click) the first time so autoplay policy unlocks it.
-   * Safe to call repeatedly — later calls just ensure the context is running.
+   * Safe to call repeatedly - later calls just ensure the context is running.
    */
   async resume(): Promise<void> {
     if (this.disposed) return;
@@ -55,14 +55,14 @@ export class EmulatorAudio {
       await this.ready;
     } catch {
       // A failed init (no Web Audio / worklet load error) leaves audio off; the
-      // emulator still runs. Don't surface — sound is best-effort.
+      // emulator still runs. Don't surface - sound is best-effort.
       return;
     }
     if (this.ctx && this.ctx.state === 'suspended') {
       try {
         await this.ctx.resume();
       } catch {
-        // ignore — resume can reject if the gesture was lost
+        // ignore - resume can reject if the gesture was lost
       }
     }
   }
@@ -99,7 +99,7 @@ export class EmulatorAudio {
   /**
    * Hand a batch of native-rate mono samples to the worklet. The buffer is
    * transferred (zero-copy), so the caller must pass a fresh array it no longer
-   * uses — {@link ../dialects/types.MachineEmulator.readAudio} returns exactly
+   * uses - {@link ../dialects/types.MachineEmulator.readAudio} returns exactly
    * that. A no-op until the graph is built or when given an empty batch.
    */
   push(samples: Float32Array, srcRate: number): void {

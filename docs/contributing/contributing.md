@@ -11,14 +11,14 @@ If you are adding a whole new machine, read this page first, then jump to
 
 ## Ways to contribute
 
-- **Fix a bug or rough edge** — start small; a focused PR is the best way to
+- **Fix a bug or rough edge** - start small; a focused PR is the best way to
   learn the codebase.
-- **Improve a dialect** — better tokenizer accuracy, keyword docs, samples, or
+- **Improve a dialect** - better tokenizer accuracy, keyword docs, samples, or
   emulator fidelity for a machine you know well.
-- **Add a new target machine** — a BASIC dialect, emulator, and virtual
+- **Add a new target machine** - a BASIC dialect, emulator, and virtual
   keyboard. This is a larger effort; see [Adding a dialect](/contributing/adding-a-dialect).
-- **Improve the docs** — these pages live under `docs/` and are always welcome.
-- **Report issues** — a clear bug report with steps to reproduce is a real
+- **Improve the docs** - these pages live under `docs/` and are always welcome.
+- **Report issues** - a clear bug report with steps to reproduce is a real
   contribution.
 
 If you are planning something large, please open a GitHub issue to discuss it
@@ -62,14 +62,14 @@ To work on these docs, use `npm run docs:dev` (VitePress dev server).
 ## How the project fits together
 
 The one mental model: **the app only talks to the `Dialect` interface**
-(`src/dialects/types.ts`) and the `MachineEmulator` it returns — never to a
+(`src/dialects/types.ts`) and the `MachineEmulator` it returns - never to a
 machine's specifics directly. Each machine lives in `src/dialects/<name>/`, and
 that seam is what keeps new machines pluggable. Get comfortable with it before
 making cross-cutting changes.
 
 | Path                       | Role                                                              |
 | -------------------------- | ----------------------------------------------------------------- |
-| `src/dialects/types.ts`    | The `Dialect` / `MachineEmulator` contracts — the app's only seam |
+| `src/dialects/types.ts`    | The `Dialect` / `MachineEmulator` contracts - the app's only seam |
 | `src/dialects/registry.ts` | Registers the available dialects (`getDialect(id)`)               |
 | `src/dialects/<name>/`     | One folder per dialect (tokenizer, charset, keywords, samples, …) |
 | `src/emulator/`            | Vendored/third-party CPU cores and large machine wrappers         |
@@ -92,7 +92,7 @@ at the repository root is the companion quick-reference map.
   `any`.
 - **Respect the seam.** A change that touches the editor, transfer dialog,
   status bar, or emulator pane to support one machine usually means the seam is
-  being bypassed — keep machine-specific code inside `src/dialects/<name>/`.
+  being bypassed - keep machine-specific code inside `src/dialects/<name>/`.
 - **Errors, not throws.** The tokenizer collects `TokenizeError[]` (1-based
   line, 0-based column) for inline display rather than throwing.
 - **State.** A single Zustand store; components subscribe via narrow selectors
@@ -101,7 +101,7 @@ at the repository root is the companion quick-reference map.
 - **Naming.** Components `PascalCase`, functions/vars `camelCase`, hardware
   constants `SCREAMING_SNAKE_CASE` (e.g. `TSTATES_PER_FRAME`).
 - **Tests live next to code.** Add or update colocated `*.test.ts` files,
-  especially for tokenizer, emulator, and charset changes — don't rely on
+  especially for tokenizer, emulator, and charset changes - don't rely on
   manual checking alone. Emulator tests may read the real ROMs under
   `public/roms/`.
 - **Keep changes focused.** One logical change per PR makes review faster and
@@ -111,12 +111,12 @@ at the repository root is the companion quick-reference map.
 
 Some code is vendored or third-party and must not be hand-edited or relicensed:
 
-- `src/emulator/z80/` — vendored Z80 core (fix bugs in the machine adapter
+- `src/emulator/z80/` - vendored Z80 core (fix bugs in the machine adapter
   instead).
-- `src/emulator/6502/cpu6502.js` — vendored build output.
-- `src/emulator/c64/viciious/` — vendored viciious C64 core.
-- The **jsbeeb** npm package — wrap it in `src/emulator/bbc/`, don't fork it.
-- `public/roms/**` — third-party ROMs (see `public/roms/ATTRIBUTION.md`). Never
+- `src/emulator/6502/cpu6502.js` - vendored build output.
+- `src/emulator/c64/viciious/` - vendored viciious C64 core.
+- The **jsbeeb** npm package - wrap it in `src/emulator/bbc/`, don't fork it.
+- `public/roms/**` - third-party ROMs (see `public/roms/ATTRIBUTION.md`). Never
   commit a ROM you don't have the right to distribute.
 
 ## Before you open a PR
@@ -143,7 +143,7 @@ If you changed behaviour, add or update a test that would have caught the bug.
 ## Git workflow: fork, branch, and raise a PR
 
 Basically uses the standard **fork-and-pull-request** model. You don't push to
-the main repository directly — you propose changes from your fork and they get
+the main repository directly - you propose changes from your fork and they get
 reviewed on GitHub before merging.
 
 1. **Sync your fork** with upstream so you branch from the latest `main`:
@@ -176,7 +176,7 @@ reviewed on GitHub before merging.
    screenshots or a short clip for UI changes.
 
 6. **Respond to review.** A maintainer will review your PR. Push follow-up
-   commits to the same branch to address feedback — the PR updates
+   commits to the same branch to address feedback - the PR updates
    automatically. Keep the discussion focused and don't force-push over review
    history unless asked.
 
@@ -187,7 +187,7 @@ Once approved and green, a maintainer will merge it. 🎉
 Basically is licensed under **GPL-3.0-or-later** (see `LICENSE`). This is partly
 because some emulator cores it builds on are themselves GPL (e.g. jsbeeb). By
 contributing, you agree your contribution is licensed under the same terms.
-Before adding a new dependency — especially an emulator core — check its license
+Before adding a new dependency - especially an emulator core - check its license
 is compatible, and add attribution where required.
 
 ## Questions

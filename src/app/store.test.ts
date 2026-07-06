@@ -16,6 +16,7 @@ beforeAll(() => {
 
 const { useIdeStore } = await import('./store');
 const { getDialect } = await import('../dialects/registry');
+const { getDialectId } = await import('../storage/settings');
 
 const zx81 = getDialect('zx81');
 const bbc = getDialect('bbcmicro');
@@ -124,5 +125,42 @@ describe('confirmDialectSwitch / cancelDialectSwitch', () => {
     expect(s.dialect.id).toBe('zx81');
     expect(s.source).toBe('10 REM mine');
     expect(s.pendingDialectId).toBeNull();
+  });
+});
+
+describe('openSharedInIde', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: zx81,
+      pendingDialectId: null,
+      source: '10 REM AUTOSAVED',
+      fileName: 'mine.bas',
+      dirty: true,
+      breakpoints: new Set([10]),
+    });
+  });
+
+  it('switches machine and loads the program without confirmation', () => {
+    useIdeStore.getState().openSharedInIde({
+      dialectId: 'bbcmicro',
+      source: '10 PRINT "SHARED"',
+      fileName: 'demo.bas',
+    });
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.source).toBe('10 PRINT "SHARED"');
+    expect(s.fileName).toBe('demo.bas');
+    expect(s.dirty).toBe(false);
+    expect(s.pendingDialectId).toBeNull();
+    expect(s.breakpoints.size).toBe(0);
+  });
+
+  it('persists the dialect like a real switch', () => {
+    useIdeStore.getState().openSharedInIde({
+      dialectId: 'bbcmicro',
+      source: '10 PRINT "SHARED"',
+      fileName: 'demo.bas',
+    });
+    expect(getDialectId()).toBe('bbcmicro');
   });
 });

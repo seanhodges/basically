@@ -42,10 +42,10 @@ function streamChat(
 
 function describeError(err: unknown): string {
   if (err instanceof OpenAI.AuthenticationError) {
-    return 'Invalid API key — check it in AI settings.';
+    return 'Invalid API key - check it in AI settings.';
   }
   if (err instanceof OpenAI.RateLimitError) {
-    return 'Rate limited by the OpenAI API — wait a moment and try again.';
+    return 'Rate limited by the OpenAI API - wait a moment and try again.';
   }
   if (err instanceof OpenAI.APIError) {
     return `OpenAI API error ${err.status ?? ''}: ${err.message}`;

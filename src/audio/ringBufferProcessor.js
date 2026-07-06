@@ -2,7 +2,7 @@
  * AudioWorklet processor: a ring buffer fed from the main thread that linearly
  * resamples a machine's native sample rate to the AudioContext rate, emitting
  * silence on underrun (no clicks). It runs in the audio rendering thread, so it
- * never blocks the main thread — important because rAF (and thus sample
+ * never blocks the main thread - important because rAF (and thus sample
  * production) pauses when the tab is hidden, starving this buffer; silence is
  * the correct, click-free response to that.
  *
@@ -11,7 +11,7 @@
  * a hashed `.js` asset, so it (a) needs no transpile step the asset pipeline
  * doesn't run and (b) matches the service-worker glob that precaches every JS
  * file, making it available offline. Runs in the AudioWorklet global scope,
- * which the app's tsconfig DOM lib doesn't cover — hence JS plus the scoped
+ * which the app's tsconfig DOM lib doesn't cover - hence JS plus the scoped
  * ESLint globals block.
  *
  * @typedef {{ type: 'samples', samples: Float32Array, srcRate: number }} SamplesMessage

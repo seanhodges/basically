@@ -11,11 +11,11 @@ import {
 } from './helpers';
 
 /**
- * Test plan §5 — Files: open & save.
+ * Test plan §5 - Files: open & save.
  * (docs/contributing/cross-browser-test-plan.md)
  *
  * All tests force the classic file-input/download fallback (see helpers) so
- * one code path runs identically across the matrix — Playwright cannot drive
+ * one code path runs identically across the matrix - Playwright cannot drive
  * the Chromium-native FS Access pickers, so that half of 5.1/5.2 (and dialog
  * cancel behaviour, 5.3) stays a manual check.
  */
@@ -39,7 +39,7 @@ test('5.1b File menu opens, stays open, and dismisses on outside click / Escape'
 }) => {
   await openApp(page);
 
-  // Opens on click and does NOT close when the pointer leaves the panel — the
+  // Opens on click and does NOT close when the pointer leaves the panel - the
   // Firefox regression that hover-based dismissal caused.
   await page.getByRole('button', { name: 'File ▾' }).click();
   await expectMenuStaysOpen(page, /^New/);

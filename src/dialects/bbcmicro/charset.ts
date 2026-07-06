@@ -1,7 +1,7 @@
 import { CharsetError, type CharsetMapping } from '../types';
 
 /**
- * BBC Micro character mapping: 7-bit ASCII with one quirk — code 0x60 (ASCII
+ * BBC Micro character mapping: 7-bit ASCII with one quirk - code 0x60 (ASCII
  * backquote) displays as £ on the Beeb. The editor accepts both '£' and '`'
  * for it and always shows '£'.
  */

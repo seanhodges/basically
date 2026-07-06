@@ -1,6 +1,6 @@
 /**
  * Renders a layout glyph (block graphics, cursor arrows…) as constrained path
- * data only — never raw SVG markup, which would be an XSS surface for future
+ * data only - never raw SVG markup, which would be an XSS surface for future
  * community-authored layouts. Shared by the on-screen keyboard and the game
  * controller so the safe-rendering rule lives in one place.
  */

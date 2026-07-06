@@ -6,13 +6,13 @@
  * high then ~150µs low (300µs period). Every bit is followed by a silence gap,
  * and a few seconds of silence lead in/out. The ZX81 prefixes a program-name
  * header to the .P data; the ZX80 has no named files and writes the raw .O
- * image — that difference is handled by the callers, so the signal→bytes
+ * image - that difference is handled by the callers, so the signal→bytes
  * recovery (the inverse of `encodeCassette`) lives here once.
  *
  * We recover the bits by gating the signal into tone bursts and **counting the
  * carrier half-cycles in each burst**, not by measuring absolute durations:
  * only the 4-vs-9 ratio distinguishes a bit, and that ratio survives
- * playback/clock speed drift, resampling and sample-rate mismatch — the
+ * playback/clock speed drift, resampling and sample-rate mismatch - the
  * dominant real-world failure modes. The 4-vs-9 gap (≈7 vs ≈17 Schmitt
  * transitions) leaves a wide classification margin, so a miscount of a cycle or
  * two never flips a bit.
@@ -23,7 +23,7 @@ const PULSE_PERIOD_MICROS = 300; // 150µs high + 150µs low, per cassetteEncode
 const TRANSITIONS_FOR_0 = 7;
 const TRANSITIONS_FOR_1 = 17;
 const BIT_THRESHOLD = (TRANSITIONS_FOR_0 + TRANSITIONS_FOR_1) / 2; // 12
-// Above this a single burst can't be one bit — it's noise crammed with crossings.
+// Above this a single burst can't be one bit - it's noise crammed with crossings.
 const MAX_PLAUSIBLE_TRANSITIONS = 30;
 
 export const NO_SINCLAIR_SIGNAL = 'No cassette signal detected';
@@ -55,7 +55,7 @@ export function decodeSinclairPulses(
   const hi = floor + range * 0.5;
   const lo = floor + range * 0.25; // hysteresis: don't fragment a burst
 
-  // 4. Gate the envelope into tone bursts — one burst per bit. Merge bursts
+  // 4. Gate the envelope into tone bursts - one burst per bit. Merge bursts
   //    split by a brief noise dip: real inter-bit gaps are ≥1300µs (>4 carrier
   //    periods), so anything closer than ~2 periods is one burst, not two.
   const bursts = mergeBursts(

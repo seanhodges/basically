@@ -12,7 +12,7 @@ import base from './playwright.config';
  *   npm run e2e:docs-screenshots
  *
  * It reuses everything from the base config (web servers, reporters) and only
- * overrides which files match and which browser project to use — the spec skips
+ * overrides which files match and which browser project to use - the spec skips
  * every non-Chromium project itself, so we run it against Chromium alone.
  */
 export default defineConfig({

@@ -22,7 +22,7 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     word: 'PRINT',
     kind: 'command',
     signature: 'PRINT [expr][,|;|$|!|&|"…"]',
-    doc: 'Print to the screen. Abbreviate as P. — "," tabs, ";" no-gap, & prints hex, $ prints a string.',
+    doc: 'Print to the screen. Abbreviate as P. - "," tabs, ";" no-gap, & prints hex, $ prints a string.',
   },
   {
     word: 'INPUT',
@@ -106,7 +106,7 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     word: 'LET',
     kind: 'command',
     signature: 'LET v=expr',
-    doc: 'Assign a value (optional — v=expr works too).',
+    doc: 'Assign a value (optional - v=expr works too).',
   },
   {
     word: 'DIM',

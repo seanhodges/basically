@@ -7,8 +7,8 @@ import {
 /**
  * Playwright end-to-end / cross-browser config.
  *
- * Specs live under `e2e/` (kept out of `src/` so Vitest — which globs
- * `src/**\/*.test.ts` — never tries to run them). The specs under `e2e/plan/`
+ * Specs live under `e2e/` (kept out of `src/` so Vitest - which globs
+ * `src/**\/*.test.ts` - never tries to run them). The specs under `e2e/plan/`
  * automate the numbered items of `docs/contributing/cross-browser-test-plan.md`
  * and carry the plan IDs in their test titles.
  *

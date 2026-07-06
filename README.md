@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/public/logo-dark.png" />
-    <img alt="Basically — Micro BASIC IDE" src="docs/public/logo-light.png" width="640" />
+    <img alt="Basically - Micro BASIC IDE" src="docs/public/logo-light.png" width="640" />
   </picture>
 </p>
 
@@ -17,22 +17,22 @@ Micro**, among others.
 
 ## Features
 
-- **Editor** — CodeMirror 6 with per-dialect BASIC syntax highlighting, keyword
+- **Editor** - CodeMirror 6 with per-dialect BASIC syntax highlighting, keyword
   autocomplete (with per-keyword documentation), live tokenizer linting, and
   a byte counter against the target machine's RAM budget.
-- **Built-in emulator** — a per-target emulator in TypeScript (a vendored Z80
+- **Built-in emulator** - a per-target emulator in TypeScript (a vendored Z80
   core drives the Sinclair machines; the BBC Micro embeds jsbeeb), running the
   real ROM with hardware-accurate display and keyboard. One click tokenizes
   your source to a machine image and flash-loads it through the ROM's own
   tape/load path.
-- **AI code generation** — a chat panel backed by the Claude API (bring your
+- **AI code generation** - a chat panel backed by the Claude API (bring your
   own key, stored in your browser). Claude is given each machine's dialect
   rules (for the ZX81, that means one statement per line, mandatory LET, INKEY$
   game loops, PRINT AT) and generated programs land in your editor with one
   click (replace, merge by line number, or replace+run).
-- **Two-way hardware transfer** (capabilities vary by machine) — export to the
+- **Two-way hardware transfer** (capabilities vary by machine) - export to the
   real machine _and_ import a program back off it: pull an old program from real
-  hardware, edit and test it in the IDE, then export the updated version back —
+  hardware, edit and test it in the IDE, then export the updated version back -
   or carry changes made on the physical machine back into the editor.
   - **Cassette audio**: play the tape signal straight out of your speakers
     into the machine's EAR port, or download it as a `.wav` (export); record the
@@ -44,7 +44,7 @@ Micro**, among others.
     ([protocol spec](docs/reference/serial-protocol.md)).
 - **Save/load `.bas`** with the File System Access API (download fallback),
   autosave to localStorage, and bundled sample games.
-- **Installable PWA** — add Basically to your home screen and run it
+- **Installable PWA** - add Basically to your home screen and run it
   standalone. On phone-sized screens the UI is locked to portrait due to vertical screen size constraints; tablets and
   larger screens support both portrait and landscape.
 
@@ -56,7 +56,7 @@ power. See [docs/reference/file-formats.md](docs/reference/file-formats.md).
 
 ## Running on real hardware
 
-Basically interfaces with real machines **both ways** — export a program to the
+Basically interfaces with real machines **both ways** - export a program to the
 machine, or import one back off it into the editor.
 
 **Export (IDE → machine):**
@@ -91,7 +91,7 @@ Support welcome! Please see the [contributing](docs/contributing/contributing.md
 ## ROM licensing
 
 The bundled ROM images under `public/roms/` are third-party copyrighted works,
-included unmodified solely for use with the built-in emulators — the Sinclair
+included unmodified solely for use with the built-in emulators - the Sinclair
 ROMs under Amstrad's long-standing permission for emulator use, the Acorn ROMs
 on the same de-facto basis as other BBC Micro emulators. Per-ROM copyright and
 provenance is documented in
@@ -101,5 +101,5 @@ provenance is documented in
 
 Copyright © 2026 Sean Hodges.
 
-This project is licensed under the **GNU GPL v3.0 or later** — see
+This project is licensed under the **GNU GPL v3.0 or later** - see
 [LICENSE](LICENSE) and [ATTRIBUTION](public/roms/ATTRIBUTION.md).

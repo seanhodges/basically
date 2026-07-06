@@ -12,19 +12,19 @@ afterwards.
 Basically is a **fully client-side single-page application**. There is no
 backend, no server-side state, and no account system: the IDE (a Vite + React
 SPA) and this documentation site (VitePress) are built into one static artifact
-and served from static hosting. Everything — the editors, the tokenizers, the
-CPU emulators, the cassette-audio codecs — runs in your browser, and both the
+and served from static hosting. Everything - the editors, the tokenizers, the
+CPU emulators, the cassette-audio codecs - runs in your browser, and both the
 IDE and the docs are installable PWAs that work offline.
 
 Only three things ever cross the network:
 
-1. **Static assets** — the app itself and the machine ROMs under
+1. **Static assets** - the app itself and the machine ROMs under
    `public/roms/`, fetched from the same origin (and precached by the service
    worker).
-2. **AI chat** — streamed HTTPS calls from the browser directly to the AI
+2. **AI chat** - streamed HTTPS calls from the browser directly to the AI
    provider you configured (Anthropic, OpenAI, or Gemini), authenticated with
    your own API key. The key lives in `localStorage` and is sent nowhere else.
-3. **Hardware transfer** — cassette audio through your speakers and microphone,
+3. **Hardware transfer** - cassette audio through your speakers and microphone,
    downloaded image files, or a WebSerial connection to a microcontroller bridge.
 
 ```mermaid
@@ -45,11 +45,11 @@ flowchart LR
 Because there is no server, the classic presentation / business-logic / data
 split maps onto in-browser layers. The load-bearing boundary is the **`Dialect`
 seam** (`src/dialects/types.ts`): the app only ever talks to the `Dialect`
-interface and the `MachineEmulator` it creates — never to a machine's
+interface and the `MachineEmulator` it creates - never to a machine's
 specifics directly. Everything above the seam is machine-agnostic; everything
 below it is one machine's private business.
 
-### Presentation layer — React 18 (`src/components/`, `src/keyboard/`)
+### Presentation layer - React 18 (`src/components/`, `src/keyboard/`)
 
 The UI shell. `Workspace` owns the editor/emulator split (tabs on mobile),
 `CodeMirrorHost` wraps the CodeMirror 6 editor, `EmulatorPane` hosts the
@@ -61,7 +61,7 @@ confirmation. The virtual keyboard and game controller (`src/keyboard/`) are
 object (layers, key legends, glyphs, matrix tokens) and the keyboard code
 itself contains no per-machine logic.
 
-### Application state layer — Zustand (`src/app/`)
+### Application state layer - Zustand (`src/app/`)
 
 A single store, `useIdeStore` (`src/app/store.ts`), holds the document
 (source, file name, dirty flag), the active dialect, emulator status,
@@ -83,23 +83,23 @@ flowchart LR
   ep -->|"emulatorStatus · runReport"| store
 ```
 
-### Language toolchain — the `Dialect` seam (`src/dialects/`)
+### Language toolchain - the `Dialect` seam (`src/dialects/`)
 
 The domain layer. `registry.ts` exposes the available dialects
-(`getDialect(id)` — Sinclair, Acorn, Commodore, Tandy machines and counting;
+(`getDialect(id)` - Sinclair, Acorn, Commodore, Tandy machines and counting;
 the registry is the source of truth for what ships). Each dialect folder
 provides, behind the one interface:
 
-- **`tokenize` / `detokenize`** — editor text ⇄ program bytes plus a full
+- **`tokenize` / `detokenize`** - editor text ⇄ program bytes plus a full
   loadable machine image. Errors are collected as `TokenizeError[]` (1-based
   line, 0-based column) for inline display, never thrown.
-- **`lint`** — a tokenizer dry-run for as-you-type diagnostics.
-- **`charset`** — unicode block graphics and escapes ⇄ machine codes.
-- **`keywords`** and **`languageSupport()`** — feed the generic editor
+- **`lint`** - a tokenizer dry-run for as-you-type diagnostics.
+- **`charset`** - unicode block graphics and escapes ⇄ machine codes.
+- **`keywords`** and **`languageSupport()`** - feed the generic editor
   highlighting and autocomplete.
-- **`buildTargets`**, **`binaryImports`**, and **`audio`** — hardware export
+- **`buildTargets`**, **`binaryImports`**, and **`audio`** - hardware export
   and import capabilities.
-- **`aiProfile`** — the machine-specific system prompt for the AI assistant.
+- **`aiProfile`** - the machine-specific system prompt for the AI assistant.
 - **`keyboardLayout`**, **`samples`**, **`programRamBytes`**, and
   **`createEmulator()`**.
 
@@ -107,11 +107,11 @@ provides, behind the one interface:
 
 `Dialect.createEmulator()` returns a `MachineEmulator`: `loadProgram(image)`,
 `runFrame()` (one 50 Hz frame of CPU time), `renderTo(canvas)`, key and
-joystick input, and optional capabilities the app feature-detects per machine
-— `readAudio()`, `readVariables()`, `readReport()` (BASIC runtime errors), and
+joystick input, and optional capabilities the app feature-detects per machine -
+`readAudio()`, `readVariables()`, `readReport()` (BASIC runtime errors), and
 `debugStep()` for the line-level debugger. Small self-contained machines live
 inside their dialect folder; large or vendored cores live under
-`src/emulator/` — the Z80 core shared by the Sinclair machines, a 6502 core,
+`src/emulator/` - the Z80 core shared by the Sinclair machines, a 6502 core,
 the jsbeeb wrapper for the BBC machines, and the viciious core for the C64.
 The vendored cores are third-party code and are not hand-edited (see
 [Don't touch](/contributing/contributing#don-t-touch)).
@@ -127,21 +127,21 @@ knows about any specific machine.
 
 ### Integration services
 
-- **AI (`src/ai/`)** — a provider registry with three lazy-loaded backends
+- **AI (`src/ai/`)** - a provider registry with three lazy-loaded backends
   (Anthropic, OpenAI, Gemini SDKs, code-split behind dynamic `import()`), a
   dispatcher (`aiClient.ts`) exposing one `streamChat()` regardless of
   provider, a prompt builder that combines the dialect's `aiProfile` with the
   current source and lint errors, and a code extractor/merger that lands
   generated BASIC back in the editor.
-- **Transfer (`src/transfer/`)** — WAV packing (`wav.ts`), speaker playback
+- **Transfer (`src/transfer/`)** - WAV packing (`wav.ts`), speaker playback
   and microphone capture (`audioPlayer.ts` / `audioRecorder.ts`), and the
   CRC-checked WebSerial bridge (`protocol.ts` / `webserial.ts`, spec in
   [Serial bridge protocol](/reference/serial-protocol)). The actual cassette
   encoding/decoding and native image formats are per-dialect, reached through
   the seam.
-- **Emulator audio (`src/audio/`)** — a Web Audio `AudioWorklet` ring buffer;
+- **Emulator audio (`src/audio/`)** - a Web Audio `AudioWorklet` ring buffer;
   each frame the run loop pumps `machine.readAudio()` into it.
-- **Storage (`src/storage/`)** — typed `localStorage` accessors under the
+- **Storage (`src/storage/`)** - typed `localStorage` accessors under the
   `mbide.*` namespace (settings, autosave, AI conversation, API keys) and File
   System Access helpers with a download fallback.
 
@@ -149,7 +149,7 @@ knows about any specific machine.
 
 ```mermaid
 flowchart TB
-  subgraph presentation ["Presentation — React 18"]
+  subgraph presentation ["Presentation - React 18"]
     workspace["Workspace · Toolbar · StatusBar"]
     editorui["CodeMirrorHost"]
     emupane["EmulatorPane"]
@@ -158,7 +158,7 @@ flowchart TB
     vkbd["Virtual keyboard + controller<br/>(data-driven)"]
   end
 
-  subgraph state ["Application state — Zustand"]
+  subgraph state ["Application state - Zustand"]
     store["useIdeStore<br/>document · dialect · requests · settings"]
     aistore["useAiStore<br/>chat thread"]
   end
@@ -171,14 +171,14 @@ flowchart TB
     audio["src/audio/<br/>Web Audio worklet"]
   end
 
-  subgraph seam ["The Dialect seam — src/dialects/types.ts"]
+  subgraph seam ["The Dialect seam - src/dialects/types.ts"]
     dialect["Dialect<br/>tokenize · lint · detokenize · charset ·<br/>keywords · buildTargets · aiProfile · keyboardLayout"]
     machine["MachineEmulator<br/>loadProgram · runFrame · renderTo ·<br/>keys · readAudio · readReport · debugStep"]
   end
 
   subgraph machines ["Per-machine code"]
     folders["src/dialects/&lt;name&gt;/<br/>one folder per dialect"]
-    cores["Vendored cores — src/emulator/<br/>Z80 · 6502 · jsbeeb (BBC) · viciious (C64)"]
+    cores["Vendored cores - src/emulator/<br/>Z80 · 6502 · jsbeeb (BBC) · viciious (C64)"]
   end
 
   roms[("public/roms/<br/>third-party ROMs")]
@@ -234,7 +234,7 @@ sequenceDiagram
   participant M as MachineEmulator
 
   U->>T: ▶ Run (Ctrl+Enter)
-  T->>S: requestRun() — bumps runRequest
+  T->>S: requestRun() - bumps runRequest
   S-->>E: useEffect sees runRequest change
   E->>E: fetch + cache ROM (dialect.romUrl)
   E->>D: createEmulator({ rom, ramKb })
@@ -247,29 +247,29 @@ sequenceDiagram
     E->>M: readAudio() → worklet ring buffer
     E->>M: renderTo(canvas)
   end
-  U->>M: keys — DOM events or virtual keyboard setKey()
-  M-->>S: readReport() — runtime error surfaced after an AI-initiated run
+  U->>M: keys - DOM events or virtual keyboard setKey()
+  M-->>S: readReport() - runtime error surfaced after an AI-initiated run
 ```
 
 Step by step:
 
-1. **Edit** — CodeMirror is the source of truth for the text; the store keeps
+1. **Edit** - CodeMirror is the source of truth for the text; the store keeps
    a mirror (`source`) and a dirty flag. Pushing text _into_ the editor (file
    open, AI apply, dialect switch) goes through a `docOverride` sequence value
    rather than a direct handle.
-2. **Request** — `requestRun()` bumps the `runRequest` counter.
-3. **Build the machine** — on first run for a dialect, `EmulatorPane` fetches
+2. **Request** - `requestRun()` bumps the `runRequest` counter.
+3. **Build the machine** - on first run for a dialect, `EmulatorPane` fetches
    and caches the ROM, then calls `dialect.createEmulator()`.
-4. **Tokenize** — `dialect.tokenize(source)` produces the program bytes, the
+4. **Tokenize** - `dialect.tokenize(source)` produces the program bytes, the
    full loadable image, the byte size for the RAM budget, and any errors.
-5. **Load and run** — `machine.loadProgram(image)`, then a
+5. **Load and run** - `machine.loadProgram(image)`, then a
    `requestAnimationFrame` loop calls `runFrame()`, pumps audio, and paints
    the canvas each frame. In debug mode the loop calls `debugStep()` instead,
    pausing on breakpoints at BASIC-line granularity.
 
 ### Editing and linting
 
-While you type, two debounced consumers run the tokenizer as a dry-run — no
+While you type, two debounced consumers run the tokenizer as a dry-run - no
 machine involved:
 
 ```mermaid
@@ -304,14 +304,14 @@ sequenceDiagram
   P->>P: extractCodeBlocks(reply)
   U->>P: Replace · Merge lines · Replace + Run
   P->>E: replaceDocument() / mergeBasicLines()
-  E->>E: re-lint — offer a fix prompt on errors
+  E->>E: re-lint - offer a fix prompt on errors
   P->>M: (Replace + Run) requestAiRun()
   M-->>P: readReport() error → suggested fix in chat
 ```
 
 Key details:
 
-- The system prompt is the dialect's `aiProfile.systemPrompt` — byte-stable
+- The system prompt is the dialect's `aiProfile.systemPrompt` - byte-stable
   per dialect so provider-side prompt caching works. It teaches the model the
   machine's rules (for the ZX81: one statement per line, mandatory `LET`,
   `PRINT AT`, …).
@@ -322,7 +322,7 @@ Key details:
   seconds; a genuine runtime error (not OK/STOP/BREAK) is fed back to the chat
   as a one-click fix request.
 
-### Hardware transfer — export and import
+### Hardware transfer - export and import
 
 Transfer is two-way. Every path funnels through the seam: the dialect owns the
 byte formats and cassette codecs, while `src/transfer/` owns the
@@ -332,18 +332,18 @@ machine-agnostic plumbing (WAV container, speaker/mic, serial framing).
 flowchart LR
   editor["Editor source (.bas)"]
 
-  subgraph export ["Export — IDE → machine"]
+  subgraph export ["Export - IDE → machine"]
     build["dialect.buildTargets[].build()"]
     enc["dialect.audio.buildSamples()"]
     imgfile["native image file<br/>.P · .O · .TAP · .bbc · .prg …"]
     wav["samplesToWav → .wav download"]
     speaker["audioPlayer → speakers → EAR port"]
-    serial["webserial — CRC-checked<br/>bridge protocol"]
+    serial["webserial - CRC-checked<br/>bridge protocol"]
   end
 
-  subgraph import ["Import — machine → IDE"]
+  subgraph import ["Import - machine → IDE"]
     binfile["existing image file"]
-    mic["audioRecorder — mic capture<br/>or dropped .wav"]
+    mic["audioRecorder - mic capture<br/>or dropped .wav"]
     dec["dialect.audio.decodeSamples()"]
     detok["dialect.detokenize()"]
   end
@@ -373,10 +373,10 @@ available, with a download/upload fallback (`src/storage/files.ts`).
 
 ## Where to go next
 
-- [Contributing guide](/contributing/contributing) — setup, conventions, and
+- [Contributing guide](/contributing/contributing) - setup, conventions, and
   the PR workflow.
-- [Adding a dialect](/contributing/adding-a-dialect) — the step-by-step guide
+- [Adding a dialect](/contributing/adding-a-dialect) - the step-by-step guide
   to bringing up a new machine behind the seam.
 - [File formats](/reference/file-formats) and the
-  [serial bridge protocol](/reference/serial-protocol) — the byte-level
+  [serial bridge protocol](/reference/serial-protocol) - the byte-level
   contracts the transfer layer implements.

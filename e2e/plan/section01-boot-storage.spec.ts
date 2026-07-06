@@ -9,7 +9,7 @@ import {
 } from './helpers';
 
 /**
- * Test plan §1 — Boot, storage & first run.
+ * Test plan §1 - Boot, storage & first run.
  * (docs/contributing/cross-browser-test-plan.md)
  *
  * 1.4 (private browsing semantics) stays manual: Playwright contexts are
@@ -76,7 +76,7 @@ test('1.5 blocked localStorage: app still boots and works (no white screen)', as
   });
   await openApp(page);
   // With storage blocked the welcome flag can't persist, so the modal may
-  // show — dismiss it if it did.
+  // show - dismiss it if it did.
   const welcome = page.getByRole('button', { name: /Start coding/ });
   if (await welcome.isVisible().catch(() => false)) await welcome.click();
   // The IDE is fully usable.

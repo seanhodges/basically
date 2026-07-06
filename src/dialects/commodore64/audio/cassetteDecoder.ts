@@ -1,10 +1,10 @@
 /**
- * Commodore 64 cassette decoding — the inverse of {@link encodeC64Tape}.
+ * Commodore 64 cassette decoding - the inverse of {@link encodeC64Tape}.
  *
  * The recording is a square wave whose information is the spacing between edges.
  * We high-pass the signal to kill DC / baseline drift, Schmitt-gate it to a
- * clean square, and measure the interval between successive *rising* edges —
- * one per full pulse — giving a stream of pulse lengths. Each is classified
+ * clean square, and measure the interval between successive *rising* edges -
+ * one per full pulse - giving a stream of pulse lengths. Each is classified
  * short / medium / long **relative to the others**: the pilot tone makes short
  * pulses by far the most common, so the lower cluster sets the short reference
  * and the thresholds scale with it. That makes the decode immune to playback
@@ -126,7 +126,7 @@ function readByte(pulses: PulseKind[], i: number): ReadByte | null {
     const a = pulses[i];
     const c = pulses[i + 1];
     if (a === undefined || c === undefined) return null;
-    if (a === 'L' || c === 'L') return null; // a marker started early — resync
+    if (a === 'L' || c === 'L') return null; // a marker started early - resync
     i += 2;
     if (b < 8) {
       const bit = a === 'M' && c === 'S' ? 1 : 0; // S,M → 0 ; M,S → 1
@@ -189,15 +189,15 @@ function classifyPulses(lengths: number[]): PulseKind[] {
 
 /**
  * Recover pulse lengths (in samples) from the waveform: high-pass, then measure
- * the gap between consecutive upward zero-crossings — one per full square-wave
+ * the gap between consecutive upward zero-crossings - one per full square-wave
  * cycle. A Schmitt gate (±0.25 peak) only *confirms* each crossing belongs to a
  * real cycle rather than noise; the length itself is timed at the zero-crossing.
  *
  * Timing at the zero-crossing (not at the ±gate level) is what lets this survive
  * a speaker→microphone recording. A room echo adds a slowly-varying offset to
- * the signal; that offset shifts a fixed-level trigger by several samples —
+ * the signal; that offset shifts a fixed-level trigger by several samples -
  * enough to drag a pulse across C64's tight S/M/L boundaries (the on-tape ratios
- * are only 1.0 / 1.44 / 1.89) — but it barely moves the zero-crossing, where the
+ * are only 1.0 / 1.44 / 1.89) - but it barely moves the zero-crossing, where the
  * slope is steepest.
  */
 function pulseLengths(samples: Float32Array, sampleRate: number): number[] {

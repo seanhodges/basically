@@ -17,7 +17,7 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
  * Key tokens are the DOM-code-style names the Atom adapter's matrix understands
  * (`matrixForToken` in `src/emulator/atom/keyboard.ts`: 'KeyA', 'Digit1',
  * 'Enter', 'Comma'…). The Atom has more dedicated punctuation keys (`@ [ ] \ ^
- * : ; - =`) than fit a uniform ten-key grid, so — as the BBC layout does — the
+ * : ; - =`) than fit a uniform ten-key grid, so - as the BBC layout does - the
  * overflow symbols are surfaced as the SYM mode's editor inserts on the number
  * row rather than as their own matrix keys; pressing them still emits the base
  * matrix token, but code is written in the editor where the SYM insert applies.

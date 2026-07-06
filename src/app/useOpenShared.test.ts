@@ -1,0 +1,118 @@
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
+
+// The store persists the chosen dialect on a real switch (openSharedInIde is
+// one). The test environment is `node`, so stub localStorage before importing.
+beforeAll(() => {
+  const store = new Map<string, string>();
+  (globalThis as { localStorage?: Storage }).localStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+    removeItem: (k: string) => void store.delete(k),
+    clear: () => store.clear(),
+    key: () => null,
+    length: 0,
+  } as Storage;
+});
+
+const { parseOpenParam, openSharedFromUrl } = await import('./useOpenShared');
+const { useIdeStore } = await import('./store');
+const { getDialect } = await import('../dialects/registry');
+
+const record = {
+  id: 'abc234',
+  dialectId: 'bbcmicro',
+  compatibleDialects: ['bbcmicro', 'bbcmaster'],
+  name: 'demo.bas',
+  source: '10 PRINT "SHARED"',
+  createdAt: '2026-07-05T00:00:00Z',
+};
+
+const fetchMock = vi.fn();
+const replaceStateMock = vi.fn();
+
+beforeEach(() => {
+  vi.stubEnv('VITE_SHARE_API_URL', 'https://api.example.test');
+  vi.stubGlobal('fetch', fetchMock);
+  vi.stubGlobal('location', new URL('http://localhost/?open=abc234'));
+  vi.stubGlobal('history', { state: null, replaceState: replaceStateMock });
+  fetchMock.mockReset();
+  replaceStateMock.mockReset();
+  useIdeStore.setState({
+    dialect: getDialect('zx81'),
+    source: '10 REM AUTOSAVED',
+    fileName: 'mine.bas',
+    dirty: false,
+    statusNotice: null,
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+describe('parseOpenParam', () => {
+  it('extracts a valid share id', () => {
+    expect(parseOpenParam('?open=abc234')).toBe('abc234');
+  });
+
+  it('rejects an invalid id or a missing param', () => {
+    expect(parseOpenParam('?open=NOPE!!')).toBeNull();
+    expect(parseOpenParam('?open=')).toBeNull();
+    expect(parseOpenParam('')).toBeNull();
+    expect(parseOpenParam('?other=abc234')).toBeNull();
+  });
+});
+
+describe('openSharedFromUrl', () => {
+  it('loads the share into the IDE and strips the param', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify(record), { status: 200 }),
+    );
+    await expect(openSharedFromUrl()).resolves.toBe(true);
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.source).toBe('10 PRINT "SHARED"');
+    expect(s.fileName).toBe('demo.bas');
+    expect(s.dirty).toBe(false);
+    expect(s.statusNotice).toBeNull();
+    expect(replaceStateMock).toHaveBeenCalledTimes(1);
+    const strippedUrl = replaceStateMock.mock.calls[0][2] as URL;
+    expect(strippedUrl.searchParams.has('open')).toBe(false);
+  });
+
+  it('does nothing without a valid ?open= param', async () => {
+    vi.stubGlobal('location', new URL('http://localhost/'));
+    await expect(openSharedFromUrl()).resolves.toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(useIdeStore.getState().dialect.id).toBe('zx81');
+  });
+
+  it('reports a failure in the status bar and keeps the param', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'not_found' }), { status: 404 }),
+    );
+    await expect(openSharedFromUrl()).resolves.toBe(false);
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81'); // untouched
+    expect(s.source).toBe('10 REM AUTOSAVED');
+    expect(s.statusNotice).toMatch(/no longer exists/);
+    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to shared.bas when the record has no name', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ ...record, name: '' }), { status: 200 }),
+    );
+    await openSharedFromUrl();
+    expect(useIdeStore.getState().fileName).toBe('shared.bas');
+  });
+});

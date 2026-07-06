@@ -8,10 +8,10 @@
  * clock), a 0 is one full-cell gap (clock→next clock). Bytes are written
  * MSB-first. A block is a long leader of 0x00 bytes (all clock pulses, which
  * lets the reader lock on), the 0xA5 sync byte, the 0xD3 0xD3 0xD3 BASIC marker,
- * a one-character filename and the tokenized program — see {@link buildCasImage}.
+ * a one-character filename and the tokenized program - see {@link buildCasImage}.
  *
  * Each pulse is rendered as one brief positive rectangle, the rest of the cell
- * silence — so every pulse has a single clean rising edge the decoder locks
+ * silence - so every pulse has a single clean rising edge the decoder locks
  * onto. The round-trip through {@link decodeCassette} reproduces the program
  * bytes.
  */
@@ -32,7 +32,7 @@ export interface Trs80TapeOptions {
   amplitude?: number;
 }
 
-/** Encode source to cassette samples — the dialect's `audio.buildSamples`. */
+/** Encode source to cassette samples - the dialect's `audio.buildSamples`. */
 export function buildCassetteSamples(
   source: string,
   programName: string,
@@ -41,7 +41,7 @@ export function buildCassetteSamples(
   const { program, errors } = tokenizeProgram(source);
   if (errors.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) — fix them before building`,
+      `Program has ${errors.length} error(s) - fix them before building`,
     );
   }
   // A bare 0x0000 end link means the program is empty.

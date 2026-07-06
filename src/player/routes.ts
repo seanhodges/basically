@@ -16,15 +16,15 @@ export interface ShareVerb {
 }
 
 export const SHARE_VERBS: readonly ShareVerb[] = [
-  { verb: 'load', dialectId: 'zx81' }, // LOAD — the iconic ZX81 tape command
-  { verb: 'goto', dialectId: 'zx80' }, // GO TO — ZX80 4K BASIC
-  { verb: 'gosub', dialectId: 'zxspectrum' }, // GO SUB — Spectrum BASIC
-  { verb: 'play', dialectId: 'zxspectrum128' }, // PLAY — 128K-exclusive keyword
-  { verb: 'chain', dialectId: 'bbcmicro' }, // CHAIN "" — BBC BASIC load-and-run
-  { verb: 'old', dialectId: 'bbcmaster' }, // OLD — BBC BASIC program recovery
-  { verb: 'run', dialectId: 'commodore64' }, // RUN — after LOAD on the C64
-  { verb: 'link', dialectId: 'atom' }, // LINK — Atom BASIC "execute machine code"
-  { verb: 'cload', dialectId: 'trs80' }, // CLOAD — Level II BASIC tape load
+  { verb: 'load', dialectId: 'zx81' }, // LOAD - the iconic ZX81 tape command
+  { verb: 'goto', dialectId: 'zx80' }, // GO TO - ZX80 4K BASIC
+  { verb: 'gosub', dialectId: 'zxspectrum' }, // GO SUB - Spectrum BASIC
+  { verb: 'play', dialectId: 'zxspectrum128' }, // PLAY - 128K-exclusive keyword
+  { verb: 'chain', dialectId: 'bbcmicro' }, // CHAIN "" - BBC BASIC load-and-run
+  { verb: 'old', dialectId: 'bbcmaster' }, // OLD - BBC BASIC program recovery
+  { verb: 'run', dialectId: 'commodore64' }, // RUN - after LOAD on the C64
+  { verb: 'link', dialectId: 'atom' }, // LINK - Atom BASIC "execute machine code"
+  { verb: 'cload', dialectId: 'trs80' }, // CLOAD - Level II BASIC tape load
 ];
 
 // Six characters from an unambiguous lowercase alphabet (no 0/O/1/l/i).
@@ -38,7 +38,7 @@ export interface PlayerRoute {
 
 /**
  * Match a location.pathname against the player routes. Returns null for
- * anything that is not exactly /<known verb>/<valid share id> — the caller
+ * anything that is not exactly /<known verb>/<valid share id> - the caller
  * falls back to the IDE shell.
  */
 export function parsePlayerPath(pathname: string): PlayerRoute | null {

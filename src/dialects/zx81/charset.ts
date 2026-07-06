@@ -5,7 +5,7 @@ import { createSinclairCharset } from '../sinclairCharset';
  *
  * Source conventions (zxtext2p-compatible where practical):
  *  - Letters, digits and ZX81 punctuation map directly (lowercase accepted,
- *    folded to upper — the ZX81 has no lowercase).
+ *    folded to upper - the ZX81 has no lowercase).
  *  - Block graphics may be written as unicode block elements (▘▝▀▖▌▞▛ etc.)
  *    or as backslash escapes describing the left/right half of the cell:
  *    ' = top, . = bottom, : = full, space = empty.  E.g. \' . = 0x01, \:: = █.

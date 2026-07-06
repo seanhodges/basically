@@ -7,7 +7,7 @@ function isOnline(): boolean {
 
 /**
  * Tracks browser connectivity via the `online`/`offline` events. Used to gate
- * features that need the network — e.g. the AI panel, whose providers have no
+ * features that need the network - e.g. the AI panel, whose providers have no
  * offline fallback. `navigator.onLine` only reliably reports *loss* of
  * connectivity, so treat `true` as "probably online" rather than guaranteed.
  */

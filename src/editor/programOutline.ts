@@ -1,6 +1,6 @@
 /**
  * Builds a navigable outline of a BASIC program: the destinations a reader
- * would want to jump to — named procedure/function definitions and the line
+ * would want to jump to - named procedure/function definitions and the line
  * numbers that GOSUB/GOTO point *at* (entry points), never the call sites.
  *
  * Like {@link ./lineNumbering}, this is a pure, dialect-agnostic editor helper.
@@ -47,7 +47,7 @@ function normalize(word: string): string {
 /**
  * Decide which outline sections a dialect can produce from its keyword set.
  * Sinclair machines expose GOSUB/GOTO (and ZX Spectrum DEF FN); BBC machines
- * add PROC. We read presence only — the source spellings drive the regexes.
+ * add PROC. We read presence only - the source spellings drive the regexes.
  */
 export function outlineCapabilities(
   keywords: EditorKeyword[],

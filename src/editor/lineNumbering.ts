@@ -97,7 +97,7 @@ export function computeNewLineNumber(
  * Walks the lines following `afterLineNo`, bumping each one that collides with
  * the required next slot until a natural gap is reached. Returns an old→new map
  * for every line that must move (empty if nothing needs to move, or if the
- * cascade would exceed MAX_LINE_NO — in which case the caller should abort).
+ * cascade would exceed MAX_LINE_NO - in which case the caller should abort).
  */
 export function makeSpace(
   lines: BasicLine[],
@@ -111,7 +111,7 @@ export function makeSpace(
     if (line.lineNo <= afterLineNo) continue;
     if (line.lineNo > expected) break; // a gap exists at `expected`; cascade done
     const next = expected + 1;
-    if (next > MAX_LINE_NO) return new Map(); // no room — caller aborts
+    if (next > MAX_LINE_NO) return new Map(); // no room - caller aborts
     map.set(line.lineNo, next);
     expected = next;
   }
@@ -137,7 +137,7 @@ export function makeSpaceN(
   for (const line of lines) {
     if (line.lineNo <= afterLineNo) continue;
     if (line.lineNo >= expected) break; // a gap exists from here up; cascade done
-    if (expected > MAX_LINE_NO) return null; // no room — caller aborts
+    if (expected > MAX_LINE_NO) return null; // no room - caller aborts
     map.set(line.lineNo, expected);
     expected += 1;
   }
@@ -183,7 +183,7 @@ export function planConstructNumbering(
   let baseNo = lineNumberOf(physical[idx]!);
   if (baseNo === null) {
     const r = computeNewLineNumber(prev, nextNo, increment);
-    if (r.makeSpace) return null; // no room even for the current line — bail
+    if (r.makeSpace) return null; // no room even for the current line - bail
     baseNo = r.lineNo;
     currentLineNo = r.lineNo;
   }
@@ -261,7 +261,7 @@ function rewriteLineReferences(
       const replacement = remap.get(target);
       out += replacement === undefined ? m[0] : `${m[1]}${m[2]}${replacement}`;
       i += m[0].length;
-      // `ON X GOTO 10,20,30` — keep remapping comma-separated targets.
+      // `ON X GOTO 10,20,30` - keep remapping comma-separated targets.
       if (LIST_KEYWORDS.has(m[1]!.replace(/\s+/g, '').toUpperCase())) {
         listRe.lastIndex = i;
         let lm: RegExpExecArray | null;
@@ -323,10 +323,10 @@ export function renumberLine(
 /**
  * Renumber the whole program to `start, start+increment, start+2*increment, …`
  * in source order, rewriting every line-number reference to match. Every
- * non-blank line becomes a numbered line — text lines that lacked a number are
- * given one (not dropped) — while blank lines are removed, so the result is a
+ * non-blank line becomes a numbered line - text lines that lacked a number are
+ * given one (not dropped) - while blank lines are removed, so the result is a
  * clean numbered listing. Returns `null` if the highest resulting number would
- * exceed {@link MAX_LINE_NO} — the caller should surface that and abort. An
+ * exceed {@link MAX_LINE_NO} - the caller should surface that and abort. An
  * empty program (only blank lines) is returned unchanged.
  */
 export function renumberProgram(

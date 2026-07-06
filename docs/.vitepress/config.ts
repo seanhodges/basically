@@ -12,7 +12,7 @@ export default withPwa(
     defineConfig({
       title: 'Basically',
       description:
-        'A web IDE for microcomputer BASIC — write, run and ship games for real retro hardware from your browser.',
+        'A web IDE for microcomputer BASIC - write, run and ship games for real retro hardware from your browser.',
       base: '/docs/',
       outDir: '../dist/docs',
       lang: 'en-GB',
@@ -183,7 +183,7 @@ export default withPwa(
           // workbox defaults) before matching a request against the precache.
           // Without this, a deep link like `reference/commodore64?q=poke` misses
           // the precached `reference/commodore64.html`, so the SPA NavigationRoute
-          // falls back to the precached home `index.html` — rendering the home
+          // falls back to the precached home `index.html` - rendering the home
           // hero above the reference page until VitePress client-routes over it.
           ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^q$/],
         },

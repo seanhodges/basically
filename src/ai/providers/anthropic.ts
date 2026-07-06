@@ -37,10 +37,10 @@ function streamChat(
 
 function describeError(err: unknown): string {
   if (err instanceof Anthropic.AuthenticationError) {
-    return 'Invalid API key — check it in AI settings.';
+    return 'Invalid API key - check it in AI settings.';
   }
   if (err instanceof Anthropic.RateLimitError) {
-    return 'Rate limited by the Claude API — wait a moment and try again.';
+    return 'Rate limited by the Claude API - wait a moment and try again.';
   }
   if (err instanceof Anthropic.APIError) {
     return `Claude API error ${err.status ?? ''}: ${err.message}`;

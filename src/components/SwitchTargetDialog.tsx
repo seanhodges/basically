@@ -25,7 +25,7 @@ export function SwitchTargetDialog() {
           to {name}?
         </p>
         <p className={dialog.modalWarning}>
-          Keeping your code may not run on {name} — its BASIC dialect differs.
+          Keeping your code may not run on {name} - its BASIC dialect differs.
         </p>
         <div className={dialog.modalActions}>
           <button onClick={cancelDialectSwitch}>Cancel</button>

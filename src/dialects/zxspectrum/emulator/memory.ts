@@ -5,7 +5,7 @@
  *   0x5800-0x5AFF  attribute map (768 bytes)
  *   0x5B00-0xFFFF  general RAM (system variables, program, stacks…)
  *
- * Contended-memory timing is not modelled — it does not affect BASIC results.
+ * Contended-memory timing is not modelled - it does not affect BASIC results.
  */
 export class SpectrumMemory {
   readonly rom: Uint8Array;

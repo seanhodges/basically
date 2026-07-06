@@ -70,7 +70,7 @@ export const zxspectrum: Dialect = {
     buildSamples: (source, programName, robust) =>
       buildCassetteSamples(source, programName, robust),
     loadInstructions:
-      'On the Spectrum type LOAD "" — press J for LOAD, then symbol-shift-P twice for the quotes — and press ENTER before starting playback.',
+      'On the Spectrum type LOAD "" - press J for LOAD, then symbol-shift-P twice for the quotes - and press ENTER before starting playback.',
     decodeSamples: (samples, sampleRate) => {
       const { name, image } = decodeCassette(samples, sampleRate);
       return {
@@ -79,7 +79,7 @@ export const zxspectrum: Dialect = {
       };
     },
     saveInstructions:
-      'On the Spectrum type SAVE "NAME" — press S, then symbol-shift-P twice for the quotes — and press ENTER; the tape tone plays from the MIC socket. Feed it into this device, then start listening.',
+      'On the Spectrum type SAVE "NAME" - press S, then symbol-shift-P twice for the quotes - and press ENTER; the tape tone plays from the MIC socket. Feed it into this device, then start listening.',
   },
 
   aiProfile: spectrumAiProfile,

@@ -15,7 +15,7 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
  *  - sym:      the punctuation overflow (pinned by the SYM mode tab)
  *
  * The BBC has far more dedicated punctuation keys than fit a uniform ten-key
- * grid, so — trading authenticity for a clean, thumb-sized layout — the overflow
+ * grid, so - trading authenticity for a clean, thumb-sized layout - the overflow
  * symbols (`- = + * @ £ ^ \ [ ] ~ | { } : ;`) are surfaced as the SYM mode's
  * editor inserts on the number and QWERTY rows rather than as their own matrix
  * keys. Code is written in the editor (where these inserts apply); the keyboard

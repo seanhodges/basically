@@ -41,8 +41,8 @@ export interface MachineApi {
   /**
    * Unlock run-time emulator sound from a user gesture (the player auto-starts
    * without one, so its "tap for sound" pill calls this on the first tap).
-   * Resolves true when audio is confirmed running — or when there is nothing
-   * to unlock (audio disabled, or the machine emits none) — and false when the
+   * Resolves true when audio is confirmed running - or when there is nothing
+   * to unlock (audio disabled, or the machine emits none) - and false when the
    * machine isn't up yet or the browser still refuses; callers retry on the
    * next gesture. The IDE (Workspace) ignores it: Run/Reset are themselves
    * gestures, so ensureAudio already unlocks inline there.
@@ -69,7 +69,7 @@ const MOBILE_PANE_PAD = 8;
  * Width reserved on each side of the screen for the flanking gamepad in the
  * phone-landscape layout, so the centred screen never sits under the d-pad or
  * fire buttons. The controls scale with `vmin`/`vw` (see `.gc-landscape` in
- * GameController.css), so a fixed reserve is too small on larger phones — mirror
+ * GameController.css), so a fixed reserve is too small on larger phones - mirror
  * the same clamp metrics here and take the wider of the two flanks, plus a
  * little breathing room so the screen never abuts the controls.
  */
@@ -214,7 +214,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
       // Drain the machine's synthesized audio and feed the speaker. Always
       // called (so the machine's accumulation buffer stays bounded even with
-      // audio off), but only pushed to the host at 1× — fast-forward changes
+      // audio off), but only pushed to the host at 1× - fast-forward changes
       // the cycle budget and would pitch-shift the stream, so it gates to
       // silence (discard) instead.
       const pumpAudio = () => {
@@ -251,7 +251,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           store.setEmulatorStatus('paused');
           // On mobile the Preview tab is showing when a breakpoint trips, so the
           // frozen screen gives no hint why. Jump to the editor so the user sees
-          // the highlighted line. Only for 'run' (a real breakpoint) — 'step'
+          // the highlighted line. Only for 'run' (a real breakpoint) - 'step'
           // already starts from the editor/toolbar.
           if (debugModeRef.current === 'run' && isMobileViewport()) {
             store.setMobileTab('editor');
@@ -348,7 +348,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         if (cancelled) return;
         stopLoop();
         // loadProgram boots the ROM synchronously (~200ms on the Z80 machines),
-        // blocking the main thread — paint the overlay first so it is visible.
+        // blocking the main thread - paint the overlay first so it is visible.
         await nextPaint();
         if (cancelled) return;
         // A start empties the virtual filesystem; only files the new run
@@ -562,7 +562,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       const availWidth =
         rect.width - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD) - 2 * sideReserve;
       // With the keyboard up, never grow past 50% of the pane so the bottom-50%
-      // overlay can never cover the screen — except in phone landscape, where the
+      // overlay can never cover the screen - except in phone landscape, where the
       // keyboard floats over the emulator, so the screen keeps its full height.
       const heightBudget =
         overlayUp && !landscape
@@ -589,7 +589,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   }, []);
   const resumeAudio = useCallback(async (): Promise<boolean> => {
     const machine = machineRef.current;
-    if (!machine) return false; // not booted yet — retry on a later gesture
+    if (!machine) return false; // not booted yet - retry on a later gesture
     // Nothing to unlock (sound off, or a silent machine): report success so
     // the caller can drop its prompt.
     if (
@@ -607,7 +607,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
   // Publish the machine handle to a parent-owned ref so the overlay keyboard
   // (rendered outside this pane) can drive the emulator. Assigned during render
-  // — not in an effect — so it's populated before the keyboard's frame-hook
+  // - not in an effect - so it's populated before the keyboard's frame-hook
   // effect runs; otherwise frame-counted key releases would never fire.
   if (apiRef) apiRef.current = { getMachine, registerFrameHook, resumeAudio };
   useEffect(() => {
@@ -654,7 +654,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           onFocus={() => {
             setFocused(true);
             // With auto-show on, tapping the screen re-opens the keyboard if
-            // hidden — unless the gamepad is on, which owns emulator input.
+            // hidden - unless the gamepad is on, which owns emulator input.
             const s = useIdeStore.getState();
             if (
               s.keyboardAutoShow &&
@@ -672,7 +672,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         )}
       </div>
       {/* Phone landscape: the on-screen keyboard is off by default and toggled
-          from this button at the top-right of the pane — its top aligned with the
+          from this button at the top-right of the pane - its top aligned with the
           preview and centred above the red fire button. While it's up the
           workspace hides the flanking gamepad and routes keys to the machine.
           Anchored to the pane (not the scaled screen) so it lines up with the
@@ -713,10 +713,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           >
             {emulatorStatus === 'running'
               ? focused
-                ? `running — keys go to ${dialect.name} (Esc to release)`
+                ? `running - keys go to ${dialect.name} (Esc to release)`
                 : overlayUp
-                  ? 'running — use the controls below'
-                  : 'running — click screen to type'
+                  ? 'running - use the controls below'
+                  : 'running - click screen to type'
               : 'stopped'}
           </span>
         </div>

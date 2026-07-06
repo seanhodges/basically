@@ -1,19 +1,19 @@
 import { atomChecksum } from './cassetteEncoder';
 
 /**
- * Acorn Atom cassette decoding — the inverse of {@link encodeAtomTape}.
+ * Acorn Atom cassette decoding - the inverse of {@link encodeAtomTape}.
  *
  * Bytes are carried by Kansas City Standard FSK at 300 baud: a `0` bit is four
  * 1200 Hz cycles (eight ~417µs half-cycles), a `1` bit is eight 2400 Hz cycles
  * (sixteen ~208µs half-cycles). Each byte is framed 8N1 (start `0`, eight data
- * bits LSB-first, stop `1`), with a continuous 2400 Hz carrier — a run of `1`
- * bits — leading in and between blocks.
+ * bits LSB-first, stop `1`), with a continuous 2400 Hz carrier - a run of `1`
+ * bits - leading in and between blocks.
  *
  * We classify each half-cycle as fast (2400 Hz) or slow (1200 Hz) **relative to
  * the carrier**: the carrier dominates the recording, so the median half-cycle
  * is a fast one, and a threshold at 1.5× that survives playback/clock-speed
  * drift, resampling and sample-rate mismatch. The framed bytes are parsed as
- * Atom blocks — four `*` (0x2A) sync bytes then a header whose trailing checksum
+ * Atom blocks - four `*` (0x2A) sync bytes then a header whose trailing checksum
  * (a plain sum mod 256 over the header and data) has to verify, which is what
  * lets us reject noise and find the block boundaries.
  */

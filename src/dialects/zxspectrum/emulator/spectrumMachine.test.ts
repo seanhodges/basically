@@ -281,7 +281,7 @@ describe('SpectrumMachine', () => {
       const frames = opts.frames ?? 100;
       for (let i = 0; i < frames; i++) {
         machine.runFrame();
-        // SAVE waits at "Start tape, then press any key." — tap one.
+        // SAVE waits at "Start tape, then press any key." - tap one.
         if (opts.tapKeyAt !== undefined && i === opts.tapKeyAt) {
           machine.setKey('KeyQ', true);
         }

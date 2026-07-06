@@ -4,7 +4,7 @@ import type { KeywordInfo } from '../types';
  * One BBC BASIC II keyword, with the extra flags the native tokenizer needs on
  * top of the editor-facing {@link KeywordInfo}. Tokens are the genuine BASIC II
  * values; the flags were derived from (and are regression-tested against) the
- * real BASIC ROM tokeniser — see tokenizer.test.ts.
+ * real BASIC ROM tokeniser - see tokenizer.test.ts.
  */
 export interface BbcKeyword extends KeywordInfo {
   /**
@@ -45,7 +45,7 @@ export const bbcKeywordTable: BbcKeyword[] = [
     word: 'ERROR',
     token: 0x85,
     kind: 'command',
-    doc: 'Part of ON ERROR — trap runtime errors.',
+    doc: 'Part of ON ERROR - trap runtime errors.',
   },
   {
     word: 'LINE',
@@ -431,7 +431,7 @@ export const bbcKeywordTable: BbcKeyword[] = [
     token: 0xbf,
     kind: 'function',
     signature: 'INKEY$(t)',
-    doc: 'Read a key as a string ("" if none) — game input.',
+    doc: 'Read a key as a string ("" if none) - game input.',
   },
   {
     word: 'LEFT$(',

@@ -1,0 +1,22 @@
+.urlRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.url {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.error {
+  color: var(--error);
+}

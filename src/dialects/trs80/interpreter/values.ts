@@ -32,7 +32,7 @@ export function checkNum(n: number): number {
  * 0.1 ≤ |x| < 1e7.
  *
  * This is a pragmatic match, not a bit-for-bit reproduction of the ROM's binary
- * float formatter — small integers and simple decimals render identically;
+ * float formatter - small integers and simple decimals render identically;
  * edge-case rounding of long fractions may differ (a documented divergence).
  */
 export function formatNumber(n: number): string {

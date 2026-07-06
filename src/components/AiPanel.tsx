@@ -213,7 +213,7 @@ export function AiPanel() {
       )}
       {!online && (
         <div className={styles.aiOffline}>
-          You’re offline — the AI assistant needs an internet connection and is
+          You’re offline - the AI assistant needs an internet connection and is
           unavailable until you reconnect.
         </div>
       )}

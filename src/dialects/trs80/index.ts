@@ -80,7 +80,7 @@ export const trs80: Dialect = {
     buildSamples: (source, programName, robust) =>
       buildCassetteSamples(source, programName, robust),
     loadInstructions:
-      'On the TRS-80 type CLOAD and press ENTER — the blinking * means it is searching the tape — then start playback. When READY returns, type RUN.',
+      'On the TRS-80 type CLOAD and press ENTER - the blinking * means it is searching the tape - then start playback. When READY returns, type RUN.',
     decodeSamples: (samples, sampleRate) => {
       const { programName, data } = decodeCassette(samples, sampleRate);
       return { programName, source: detokenizeProgram(data) };

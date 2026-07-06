@@ -6,7 +6,7 @@ import { test as base } from '@playwright/test';
  * A fresh browser context has empty localStorage, so the first-run welcome
  * modal (WelcomeDialog) would show on every spec and its backdrop intercepts
  * clicks. By default this fixture seeds the "welcome already seen" flag before
- * the app loads, keeping the modal hidden — a test-only bypass that never
+ * the app loads, keeping the modal hidden - a test-only bypass that never
  * touches production behaviour (the app still reads the real localStorage flag).
  *
  * A spec that actually needs the welcome modal opts back in with:
@@ -31,7 +31,7 @@ export const test = base.extend<{ welcomeSeen: boolean }>({
         try {
           localStorage.setItem(key, 'true');
         } catch {
-          /* opaque origin — nothing to seed */
+          /* opaque origin - nothing to seed */
         }
       }, WELCOME_SEEN_KEY);
     }

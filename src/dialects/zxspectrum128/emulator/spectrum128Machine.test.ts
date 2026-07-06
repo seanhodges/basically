@@ -12,7 +12,7 @@ const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 /**
  * Map each ROM font glyph (8 bytes) to its char code, for OCR of the screen. The
  * 128 BASIC editor renders text with the 48 BASIC font, which lives at 0x3C00
- * within ROM 1 — file offset 0x4000 + 0x3C00.
+ * within ROM 1 - file offset 0x4000 + 0x3C00.
  */
 function fontSignatures(): Map<string, number> {
   const map = new Map<string, number>();
@@ -64,7 +64,7 @@ const NEUTRAL = {
 };
 
 // The joystick wiring and IO decode don't depend on ROM contents, so this runs
-// even without public/roms/zxspectrum128.rom — a zeroed 32K stand-in suffices.
+// even without public/roms/zxspectrum128.rom - a zeroed 32K stand-in suffices.
 // Row 3 (keys 1-5) is selected by ULA high byte 0xF7; bit0=1 … bit4=5, active-low.
 describe('Spectrum128Machine joystick', () => {
   const stub = () => new Spectrum128Machine({ rom: new Uint8Array(0x8000) });
@@ -131,7 +131,7 @@ describe('Spectrum128Machine joystick', () => {
 // Stage 2 of docs/dialect-plans/zxspectrum128.md: boot the real 128 ROM, drive
 // the menu to "128 BASIC", inject + run a program, and assert on the displayed
 // bank. Skips cleanly when public/roms/zxspectrum128.rom is absent (it is not
-// committed — see ATTRIBUTION.md and the plan's "do not commit a fabricated ROM").
+// committed - see ATTRIBUTION.md and the plan's "do not commit a fabricated ROM").
 const suite = hasRom ? describe : describe.skip;
 
 suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
@@ -168,7 +168,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     );
     expect(save.errors).toEqual([]);
     m1.loadProgram(buildTap(save.bytes));
-    // SAVE waits at "Start tape, then press any key." — tap one mid-run.
+    // SAVE waits at "Start tape, then press any key." - tap one mid-run.
     for (let i = 0; i < 260; i++) {
       m1.runFrame();
       if (i === 60) m1.setKey('KeyQ', true);

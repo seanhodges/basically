@@ -8,8 +8,8 @@
   border-bottom: 1px solid var(--border);
   container-type: inline-size;
   container-name: toolbar;
-  /* Giving the toolbar its own z-index lifts the whole bar — menu dropdowns 
-     included — above the workspace. Kept below the docs drawer (90)
+  /* Giving the toolbar its own z-index lifts the whole bar - menu dropdowns 
+     included - above the workspace. Kept below the docs drawer (90)
      and dialog backdrop (100) so those still cover it. */
   position: relative;
   z-index: 40;
@@ -62,7 +62,7 @@
   }
 }
 
-/* The Target selector hosted inside the overflow menu — only used in landscape,
+/* The Target selector hosted inside the overflow menu - only used in landscape,
    where the toolbar collapses to a rail with no inline room (see landscape
    block). */
 .targetInOverflow {
@@ -74,7 +74,7 @@
   margin: 2px 0 4px;
 }
 
-/* The Docs entry ("Help") hosted inside the overflow menu — only used once the
+/* The Docs entry ("Help") hosted inside the overflow menu - only used once the
    bar is tight enough that the book icon is dropped (see container query). */
 .helpInOverflow {
   display: none;
@@ -172,7 +172,7 @@
 
 /* Once the toolbar is narrow enough that the mobile tab labels drop to
    icon-only (the 640px tier in MobileTabBar.module.css), drop the File menu
-   label and the inline "Target:" label to match — leaving the floppy icon and
+   label and the inline "Target:" label to match - leaving the floppy icon and
    the bare Target selector. Collapsing here (rather than lower) keeps the full
    labels from overflowing and wrapping the toolbar in the ~570–640px band. */
 @container toolbar (max-width: 640px) {
@@ -188,7 +188,7 @@
 /* Tightest tier: the bar can no longer spare room for the Docs book icon, so
    drop it and surface Docs as a "Help" item inside the "three dots" menu (and
    reveal the trigger so tabs without context actions can still reach it). This
-   fires in narrow portrait and — because the rail's inline-size is tiny — in
+   fires in narrow portrait and - because the rail's inline-size is tiny - in
    phone landscape too. */
 @container toolbar (max-width: 430px) {
   .toolbar button.docsButton {
@@ -267,7 +267,7 @@
     align-items: center;
   }
 
-  /* No inline room on the 56px rail — move the Target selector into the
+  /* No inline room on the 56px rail - move the Target selector into the
      overflow menu and reveal the trigger that hosts it. */
   .dialectLabel {
     display: none;
@@ -295,8 +295,8 @@
     border-right: 1px solid var(--border);
     /* Must stay `visible`: the rail is the containing block for its dropdowns
        (`.toolbar` sets `container-type: inline-size`), so any clipping value
-       here — including the `overflow-y: auto` that an `overflow-x: visible`
-       silently promotes to `auto` — would hide the flyouts that escape to the
+       here - including the `overflow-y: auto` that an `overflow-x: visible`
+       silently promotes to `auto` - would hide the flyouts that escape to the
        right of the 56px rail. The app shell still bounds everything at the
        viewport. */
     overflow: visible;
@@ -310,7 +310,7 @@
   }
 
   /* Menu triggers (File, overflow) are nested in a `.menu` wrapper, so unlike
-     the direct-child icon buttons they don't inherit the rail's stretch — pin
+     the direct-child icon buttons they don't inherit the rail's stretch - pin
      them to the full rail width and centre their glyphs to match. */
   .toolbar.rail .menu > button {
     width: 100%;

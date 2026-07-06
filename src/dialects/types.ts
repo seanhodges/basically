@@ -5,7 +5,7 @@ import type { KeyboardLayout } from '../keyboard/layoutSchema';
 /**
  * A keyword as the editor sees it, for highlighting and autocomplete. Carries no
  * token, so it also covers keywords that are stored as their literal characters
- * rather than a single byte — e.g. the ZX80's "integral functions" (RND, PEEK,
+ * rather than a single byte - e.g. the ZX80's "integral functions" (RND, PEEK,
  * …), which have no token and are matched by name by the real ROM.
  */
 export interface EditorKeyword {
@@ -100,9 +100,9 @@ export interface MachineVariable {
 /**
  * A BASIC runtime report read back from a running machine. Lets the IDE notice
  * that a just-run program stopped on an error (and offer a fix) without knowing
- * anything machine-specific. How it is obtained differs per core — a report code
+ * anything machine-specific. How it is obtained differs per core - a report code
  * system variable on the Sinclair ROMs, the MOS error block on the BBC, a screen
- * scan on the Commodore — but the shape the app sees is uniform.
+ * scan on the Commodore - but the shape the app sees is uniform.
  */
 export interface MachineReport {
   /** True only for a genuine error (not OK / STOP / BREAK / a running program). */
@@ -127,8 +127,8 @@ export interface DebugStepOptions {
   /** BASIC line numbers the user has breakpointed. */
   breakpoints: ReadonlySet<number>;
   /**
-   * 'run'  — pause when the about-to-execute line is in `breakpoints`.
-   * 'step' — pause as soon as the about-to-execute line differs from
+   * 'run'  - pause when the about-to-execute line is in `breakpoints`.
+   * 'step' - pause as soon as the about-to-execute line differs from
    *          {@link fromLine} (run-to-next-line).
    */
   mode: 'run' | 'step';
@@ -163,9 +163,9 @@ export interface JoystickState {
 
 /**
  * A kind of hardware joystick a machine's emulator can drive:
- * - `native` — the machine's own/official port: the C64's CIA port, the BBC's
+ * - `native` - the machine's own/official port: the C64's CIA port, the BBC's
  *   analogue port, or the Spectrum's Sinclair interface (keys 1–5).
- * - `kempston` — the third-party Kempston interface (Spectrum port `$1F`).
+ * - `kempston` - the third-party Kempston interface (Spectrum port `$1F`).
  * A dialect advertises which it supports via {@link Dialect.joystickModes}.
  */
 export type JoystickMode = 'native' | 'kempston';
@@ -247,12 +247,12 @@ export interface MachineEmulator {
    */
   readonly audioSampleRate?: number;
   /**
-   * Mono samples generated since the previous call — typically one frame's worth
+   * Mono samples generated since the previous call - typically one frame's worth
    * (~audioSampleRate / 50). Called once per rAF tick, right after
    * {@link runFrame} (and {@link debugStep}). Returns an empty array when this
    * machine emits no audio this slice. The host owns buffering, resampling,
    * volume and scheduling; the machine owns synthesis. A machine "supports audio"
-   * iff `typeof machine.readAudio === 'function'` — detection is per-machine,
+   * iff `typeof machine.readAudio === 'function'` - detection is per-machine,
    * like {@link readVariables} / {@link debugStep}, so no Dialect-level flag is
    * needed.
    */
@@ -332,8 +332,8 @@ export interface Dialect {
   lint(source: string): TokenizeError[];
   /**
    * URL of the machine ROM (resolved against the deployed base path). Omitted by
-   * dialects whose emulator needs no ROM image — e.g. a pure high-level
-   * interpreter — in which case the app skips the ROM fetch entirely.
+   * dialects whose emulator needs no ROM image - e.g. a pure high-level
+   * interpreter - in which case the app skips the ROM fetch entirely.
    */
   romUrl?: string;
   /**
@@ -349,7 +349,7 @@ export interface Dialect {
   displaySize?: { width: number; height: number };
   /**
    * Estimated free RAM available to a BASIC program on this machine, in
-   * bytes — the byte-counter budget. Based on the machine's documented
+   * bytes - the byte-counter budget. Based on the machine's documented
    * "bytes free" figure (program text area after ROM, system variables and
    * the default display mode), not total installed RAM. An estimate: a
    * real program's headroom varies with display mode and variable usage.
@@ -363,7 +363,7 @@ export interface Dialect {
    */
   debuggable?: boolean;
   /**
-   * The hardware joystick interface(s) this dialect's emulator can service —
+   * The hardware joystick interface(s) this dialect's emulator can service -
    * `native` (C64 CIA, BBC analogue, Spectrum Sinclair) and/or `kempston`
    * (Spectrum `$1F`). Drives which gamepad input modes are offered; a mode the
    * machine doesn't list (or any machine without this field) falls back to "Key

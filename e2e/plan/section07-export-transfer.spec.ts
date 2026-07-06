@@ -9,12 +9,12 @@ import {
 } from './helpers';
 
 /**
- * Test plan §7 — Export / transfer to hardware.
+ * Test plan §7 - Export / transfer to hardware.
  * (docs/contributing/cross-browser-test-plan.md)
  *
- * 7.2 asserts the playback flow (status, Stop) — whether the tone is audible
+ * 7.2 asserts the playback flow (status, Stop) - whether the tone is audible
  * and loads on real hardware (7.3's mixing, real machine loading) is manual.
- * 7.5's actual serial transfer needs bridge hardware — manual; the gating
+ * 7.5's actual serial transfer needs bridge hardware - manual; the gating
  * (enabled on Chromium/Edge, disabled+tooltip elsewhere) is automated.
  */
 
@@ -54,7 +54,7 @@ test('7.2 cassette playback starts from the click and stops on demand', async ({
     'Web Audio unavailable in this WebKit build',
   );
   await page.getByRole('button', { name: '▶ Play through speakers' }).click();
-  // The status must reach "Playing …s" — on Safari-like engines this guards
+  // The status must reach "Playing …s" - on Safari-like engines this guards
   // the suspended-AudioContext hang fixed in src/transfer/audioPlayer.ts.
   await expect(page.getByText(/Playing \d+s of cassette audio/)).toBeVisible({
     timeout: 15_000,

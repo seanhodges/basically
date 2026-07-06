@@ -1,10 +1,10 @@
 import type { Dialect, TokenizeResult } from '../types';
 // BBC BASIC IV on the Master is source- and (for shared keywords) token-
-// compatible with the Model B's BASIC II, so the entire language layer —
-// charset, keywords, tokenizer, completions, keyboard, targets — is shared
+// compatible with the Model B's BASIC II, so the entire language layer -
+// charset, keywords, tokenizer, completions, keyboard, targets - is shared
 // with the bbcmicro dialect. Only the machine model and the AI profile differ.
 // (If this sibling-import coupling grows, factor the shared pieces into a
-// src/dialects/bbcShared/ module — see docs/dialect-roadmap.md.)
+// src/dialects/bbcShared/ module - see docs/dialect-roadmap.md.)
 import { bbcCharset } from '../bbcmicro/charset';
 import { bbcKeywords } from '../bbcmicro/keywords';
 import { tokenizeProgram } from '../bbcmicro/tokenizer';
@@ -30,7 +30,7 @@ import {
  *
  * Reuses the BBC Micro dialect's BASIC II tokenizer (BASIC IV keeps the same
  * token bytes for the shared keyword set) and delegates hardware emulation to
- * jsbeeb's 'Master' model — see src/emulator/bbc/bbcMachine.ts. Its MOS 3.20
+ * jsbeeb's 'Master' model - see src/emulator/bbc/bbcMachine.ts. Its MOS 3.20
  * ROM image ships under public/roms/master/.
  */
 export const bbcmaster: Dialect = {

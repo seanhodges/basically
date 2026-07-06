@@ -3,10 +3,10 @@
  * port 0x7FFD.
  *
  * Fixed CPU map:
- *   0x0000-0x3FFF  ROM      — bank 0 (128 editor/menu) or bank 1 (48 BASIC)
- *   0x4000-0x7FFF  RAM      — bank 5 (the normal screen lives here)
- *   0x8000-0xBFFF  RAM      — bank 2
- *   0xC000-0xFFFF  RAM      — the bank selected by 0x7FFD bits 0-2
+ *   0x0000-0x3FFF  ROM      - bank 0 (128 editor/menu) or bank 1 (48 BASIC)
+ *   0x4000-0x7FFF  RAM      - bank 5 (the normal screen lives here)
+ *   0x8000-0xBFFF  RAM      - bank 2
+ *   0xC000-0xFFFF  RAM      - the bank selected by 0x7FFD bits 0-2
  *
  * Port 0x7FFD bits:
  *   0-2  RAM bank paged at 0xC000 (banks 0-7)
@@ -16,10 +16,10 @@
  *
  * read/write/readWord/writeWord stay compatible with ../zxspectrum/{vars,reports}
  * and emulator/display.ts so those reuse unchanged. (+2A/+3 add port 0x1FFD and a
- * 4-ROM set — out of scope for this 32K-ROM build.)
+ * 4-ROM set - out of scope for this 32K-ROM build.)
  */
 const BANK_SIZE = 0x4000; // 16K
-const ROM_BYTES = 0x8000; // 32K — two 16K ROM banks
+const ROM_BYTES = 0x8000; // 32K - two 16K ROM banks
 /** Screen bitmap (0x1800) + attributes (0x300), measured from 0x4000. */
 const SCREEN_LEN = 0x1b00;
 

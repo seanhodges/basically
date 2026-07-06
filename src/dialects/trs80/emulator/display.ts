@@ -1,8 +1,8 @@
 /**
  * TRS-80 display. There is no video chip to emulate: video RAM at 0x3C00
  * is a direct 64×16 character map, so rendering is a per-frame snapshot of those
- * 1024 bytes. We draw an 8×12 character cell — 64×16 cells fill the 512×192
- * canvas — using the host font for ASCII (0x20–0x7F) and drawing the 2×3
+ * 1024 bytes. We draw an 8×12 character cell - 64×16 cells fill the 512×192
+ * canvas - using the host font for ASCII (0x20–0x7F) and drawing the 2×3
  * block-graphics cells (0x80–0xFF) procedurally as 4×4-pixel sub-cells. That
  * avoids bundling the TRS-80 character-generator ROM (a second copyrighted
  * asset); the glyph shapes differ slightly from the real font but the layout is
@@ -56,7 +56,7 @@ export function renderDisplay(
 /**
  * Draw one 2×3 block-graphics cell. The pattern's six bits map to sub-cells:
  * bit0 top-left, bit1 top-right, bit2 mid-left, bit3 mid-right, bit4 bottom-left,
- * bit5 bottom-right — each a quarter-width by third-height rectangle.
+ * bit5 bottom-right - each a quarter-width by third-height rectangle.
  */
 function drawGraphics(
   ctx: CanvasRenderingContext2D,

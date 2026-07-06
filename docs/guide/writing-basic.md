@@ -4,7 +4,7 @@ You write BASIC as plain text: one numbered line per statement, with keywords
 written as words. The editor highlights
 the active dialect, autocompletes keywords, and underlines errors as you type.
 
-Each machine has its own dialect with its own rules — the selector in the
+Each machine has its own dialect with its own rules - the selector in the
 toolbar chooses which one the editor and emulator use.
 
 ## Example
@@ -56,7 +56,7 @@ Press **Enter** to accept the highlighted suggestion.
 ### Dot abbreviation
 
 While the popup is open you can also accept the top suggestion by typing a
-**`.`** (period) — a shortcut inspired by the BBC Micro's keyword abbreviations.
+**`.`** (period) - a shortcut inspired by the BBC Micro's keyword abbreviations.
 The dot is the trigger and is not inserted, so typing `PR.` completes to
 `PRINT`, and `P.` completes to whatever `P…` currently tops the list.
 
@@ -80,7 +80,7 @@ increment** (10 by default).
 
 ### Renumbering
 
-To tidy a line number — or make space where an increment has run out — put the
+To tidy a line number - or make space where an increment has run out - put the
 cursor on the line and choose **Edit ▸ Renumber line** (or press
 **Ctrl/Cmd + Alt + R**). Any `GOTO`/`GOSUB` references to that line are updated
 to match, so jumps don't break.
@@ -89,7 +89,7 @@ to match, so jumps don't break.
 
 **Edit ▸ Outline** opens the **Program outline**: a list of the program's
 procedures and functions and the line numbers that `GOTO`/`GOSUB` jump to. Click
-any entry to move the editor straight to that line — a quick way to navigate a
+any entry to move the editor straight to that line - a quick way to navigate a
 longer program. The outline tool reads nearby REM statements to give more descriptive
 naming of functions and jump points.
 
@@ -102,6 +102,6 @@ smaller machines in particular (the unexpanded ZX81 has just 1K!).
 
 ## Special characters and tokens
 
-How source text maps to the machine's character set and tokens — block graphics,
-inverse video, the quote-image character, and how numbers are stored — is
+How source text maps to the machine's character set and tokens - block graphics,
+inverse video, the quote-image character, and how numbers are stored - is
 covered in detail under **[File formats](/reference/file-formats)**.

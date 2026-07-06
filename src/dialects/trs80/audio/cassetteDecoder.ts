@@ -1,12 +1,12 @@
 /**
- * TRS-80 cassette decoding — the inverse of {@link bytesToCassetteSamples}.
+ * TRS-80 cassette decoding - the inverse of {@link bytesToCassetteSamples}.
  *
  * The recording is a train of brief positive pulses; the information is the
  * spacing between them. We high-pass the signal to kill DC / baseline drift,
  * then time the gap between successive pulse onsets, found with a Schmitt gate
  * (rises through the high threshold, re-arms below the low one) so noise and the
  * pulse's own decay can't fake an extra edge. Each gap is classified short or
- * long *relative to the others* — the leader and the 0-bits make long gaps the
+ * long *relative to the others* - the leader and the 0-bits make long gaps the
  * dominant cluster, so the upper cluster sets the reference and the threshold
  * scales with it, which makes the decode immune to playback-speed drift and
  * sample-rate mismatch.
@@ -91,8 +91,8 @@ function bitsToBytes(bits: number[]): Uint8Array {
  * Recover inter-pulse gaps (in samples) from the waveform: high-pass, then take
  * the distance between consecutive pulse onsets. A Schmitt gate disarms on a
  * rise through the high threshold (0.4 peak) and only re-arms once the signal
- * falls back below the low threshold (0.15 peak), so a single pulse — and its
- * high-passed undershoot — yields exactly one onset.
+ * falls back below the low threshold (0.15 peak), so a single pulse - and its
+ * high-passed undershoot - yields exactly one onset.
  */
 function pulseGaps(samples: Float32Array, sampleRate: number): number[] {
   const hp = highPass(samples, sampleRate, 5);

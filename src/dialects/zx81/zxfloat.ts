@@ -4,8 +4,8 @@
  *
  *   byte 0:      exponent e+0x80, where value = mantissa * 2^e and
  *                mantissa ∈ [0.5, 1). A zero exponent byte means value 0.
- *   bytes 1..4:  mantissa, MSB first. The top bit of byte 1 — which is
- *                always 1 for a normalized mantissa — is replaced by the
+ *   bytes 1..4:  mantissa, MSB first. The top bit of byte 1 - which is
+ *                always 1 for a normalized mantissa - is replaced by the
  *                sign bit (0 = positive, 1 = negative).
  */
 

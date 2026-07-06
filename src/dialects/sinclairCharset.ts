@@ -6,7 +6,7 @@ import { CharsetError, type CharsetMapping } from './types';
  * Both machines share the same text<->code conventions and the same display
  * codes for digits (0x1C-0x25), letters (0x26-0x3F) and inverse video (bit 7),
  * but they assign the *punctuation and block-graphics* region (0x00-0x1B) to
- * different codes — and store strings behind a different quote code. Each
+ * different codes - and store strings behind a different quote code. Each
  * dialect supplies its own tables here; everything else is identical, so the
  * parsing/rendering machinery lives in one place.
  */

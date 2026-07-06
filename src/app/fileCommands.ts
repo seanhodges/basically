@@ -12,7 +12,7 @@ import { useIdeStore } from './store';
 import { openTextFile, saveTextFile } from '../storage/files';
 
 /**
- * True when it's safe to replace the current document — nothing unsaved, an
+ * True when it's safe to replace the current document - nothing unsaved, an
  * empty document, or the user confirms discarding. Mirrors the guard the sample
  * loader uses.
  */

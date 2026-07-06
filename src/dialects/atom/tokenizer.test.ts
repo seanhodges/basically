@@ -50,7 +50,7 @@ describe('atom tokenizer', () => {
   it('keeps the top-of-text pointer consistent (end marker at start+length)', () => {
     const bytes = bytesOf('10 PRINT 1\n20 PRINT 2\n');
     // The image ends with the 0D FF marker, so "top of text" = #2900 + length
-    // lands exactly one byte past FF — what loadProgram pokes into #0D/#0E.
+    // lands exactly one byte past FF - what loadProgram pokes into #0D/#0E.
     expect([...bytes.slice(-2)]).toEqual([0x0d, 0xff]);
     // Walking the records must consume the whole image with nothing left over.
     let p = 0;

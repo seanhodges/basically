@@ -70,8 +70,8 @@ export class KeyboardInputEngine {
       target.kind === 'editor'
         ? 0
         : (layout.options?.minHoldFrames ?? DEFAULT_MIN_HOLD_FRAMES);
-    // Index every key in the layout — the standard rows plus any top-strip
-    // function keys — so pointer events resolve regardless of which strip view
+    // Index every key in the layout - the standard rows plus any top-strip
+    // function keys - so pointer events resolve regardless of which strip view
     // is shown. Keys sharing an id collapse to one entry harmlessly.
     for (const row of layout.rows)
       for (const k of row) this.keyById.set(k.id, k);
@@ -100,7 +100,7 @@ export class KeyboardInputEngine {
   /**
    * Pointer slid onto a key (or off all keys when keyId is null). Sliding off
    * releases the old key; sliding onto a non-modifier key presses it.
-   * Modifier keys don't participate in slides — gaining/losing a modifier
+   * Modifier keys don't participate in slides - gaining/losing a modifier
    * mid-drag would be surprising.
    */
   pointerEnter(keyId: string | null, pointerId: number): void {

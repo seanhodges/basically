@@ -42,7 +42,7 @@ const REPORT_R = 0x0806; // ROM "R Tape loading error" report (RST 8, code 0x1A)
  *    carries an auto-start line).
  *
  * The display is rendered as a per-frame snapshot of screen + attribute memory
- * (see display.ts) — faithful for BASIC programs without cycle-exact video.
+ * (see display.ts) - faithful for BASIC programs without cycle-exact video.
  */
 export class SpectrumMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
@@ -112,7 +112,7 @@ export class SpectrumMachine implements MachineEmulator {
       return this.keyboard.readPort((port >> 8) & 0xff);
     }
     // Kempston joystick: loosely decoded on A5 low (canonical port 0x1F). Odd
-    // ports only here — even ports were claimed by the ULA above — so this can't
+    // ports only here - even ports were claimed by the ULA above - so this can't
     // shadow the keyboard. Bits 5-7 read 0, as on real hardware.
     if ((port & 0x0020) === 0) return this.kempston;
     return 0xff;
@@ -131,7 +131,7 @@ export class SpectrumMachine implements MachineEmulator {
   /**
    * One CPU step plus the flash-load trap, returning the T-states consumed (0
    * when the trap was serviced or the CPU is halted). `halted` is set when the
-   * Z80 is in HALT — the frame loop idles until the next interrupt. Shared by
+   * Z80 is in HALT - the frame loop idles until the next interrupt. Shared by
    * runFrame and debugStep so they never diverge.
    */
   private stepInstruction(): { t: number; halted: boolean } {
@@ -251,8 +251,8 @@ export class SpectrumMachine implements MachineEmulator {
 
   /**
    * Offer one ROM SA-BYTES call (A = flag, IX = start, DE = length) to the
-   * VFS tape deck. Captured: complete the call like a successful save —
-   * pop the return address, advance IX, set carry — and return true.
+   * VFS tape deck. Captured: complete the call like a successful save -
+   * pop the return address, advance IX, set carry - and return true.
    * Declined (program saves): return false and let the ROM execute SA-BYTES
    * against the real (absent) tape.
    */
@@ -346,7 +346,7 @@ export class SpectrumMachine implements MachineEmulator {
         return;
       }
     }
-    throw new Error('ZX Spectrum ROM did not boot — emulator bug');
+    throw new Error('ZX Spectrum ROM did not boot - emulator bug');
   }
 
   /** Hold a key chord for a few frames, then release it. */
@@ -366,7 +366,7 @@ export class SpectrumMachine implements MachineEmulator {
     const { program } = parseTap(image);
     const { header, data } = parseTap(buildTap(program, { autoStart: null }));
     this.pending = { header, data };
-    // Type LOAD "" — J is LOAD in keyword mode, then two SYMBOL SHIFT+P quotes.
+    // Type LOAD "" - J is LOAD in keyword mode, then two SYMBOL SHIFT+P quotes.
     this.tapKeys(['KeyJ']);
     this.tapKeys(['SymShift', 'KeyP']);
     this.tapKeys(['SymShift', 'KeyP']);
@@ -378,7 +378,7 @@ export class SpectrumMachine implements MachineEmulator {
     }
     // Start the program with a proper RUN (R is the RUN keyword in K mode).
     // The ENTER that submits RUN is released quickly so it is no longer held
-    // when the program's first statement runs — otherwise an opening INKEY$
+    // when the program's first statement runs - otherwise an opening INKEY$
     // would read the ENTER key instead of "".
     this.tapKeys(['KeyR']);
     this.tapKeys(['Enter'], 2);
@@ -419,7 +419,7 @@ export class SpectrumMachine implements MachineEmulator {
   /**
    * Actual RAM figures from the ROM's own pointers: PROG to STKEND (program,
    * variables, edit line, workspace and calculator stack) is in use; STKEND to
-   * RAMTOP is spare (the machine stack grows down from RAMTOP inside it) —
+   * RAMTOP is spare (the machine stack grows down from RAMTOP inside it) -
    * the same figure the ROM's own "bytes free" check uses.
    */
   readMemoryStats(): MachineMemoryStats | null {

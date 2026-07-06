@@ -1,5 +1,5 @@
 /**
- * Greedy, position-independent keyword matching — "code crunching" — for the
+ * Greedy, position-independent keyword matching - "code crunching" - for the
  * Microsoft-BASIC dialects (C64, TRS-80). Their ROM tokenizers ignore spaces
  * outside strings/REM and match the longest keyword at every character
  * position, so `POKEA,10` is `POKE A,10` and `FORI=1TO10` is `FOR I=1 TO 10`.
@@ -15,7 +15,7 @@ export interface CrunchMatcher {
   /** First offset j in [1, limit) of `text` where a keyword matches, or -1. */
   firstInteriorKeyword(text: string, limit: number): number;
   /**
-   * Start offset of the last ROM segment of an identifier run — the part a
+   * Start offset of the last ROM segment of an identifier run - the part a
    * completion should replace. 0 when the run doesn't split (`SCOR`), the
    * offset past the glued keyword(s) otherwise (`POKEA` → 4). A run ending
    * exactly on a keyword returns that keyword's start (`IFATHEN` → 3), so the

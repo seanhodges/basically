@@ -2,13 +2,13 @@ import { test, expect } from '../fixtures';
 import { EDITOR, clearEditor, openApp, playAndWaitRunning } from './helpers';
 
 /**
- * Test plan §4 — Virtual keyboard & game controller.
+ * Test plan §4 - Virtual keyboard & game controller.
  * (docs/contributing/cross-browser-test-plan.md)
  *
  * These drive the on-screen input with pointer events (mouse), which shares
  * the code path with touch. Real multi-touch chords (4.3), key sound (4.4),
  * haptics (4.5), device rotation (4.7) and iOS gesture suppression (4.8)
- * still need a physical device — manual. 4.7's layout switching is covered
+ * still need a physical device - manual. 4.7's layout switching is covered
  * on Chromium by e2e/landscape-layout.spec.ts.
  */
 
@@ -39,13 +39,13 @@ test('4.2 sliding between keys follows the pointer (capture works)', async ({
   // Outwait the editor-focus debounce (EDITOR_KB_HIDE_DELAY_MS): the ⌨ toggle
   // must not have stolen editor focus, or the keyboard silently reroutes to
   // the stopped machine here and every press below goes dead (regression
-  // guard — this used to pass only by racing the debounce).
+  // guard - this used to pass only by racing the debounce).
   await page.waitForTimeout(400);
   const from = await keyH.boundingBox();
   const to = await keyJ.boundingBox();
   expect(from).not.toBeNull();
   expect(to).not.toBeNull();
-  // Press on H, slide to J, release — the release lands on J.
+  // Press on H, slide to J, release - the release lands on J.
   await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
   await page.mouse.down();
   await page.mouse.move(to!.x + to!.width / 2, to!.y + to!.height / 2, {

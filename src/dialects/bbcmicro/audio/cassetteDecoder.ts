@@ -1,19 +1,19 @@
 import { crc16 } from './cassetteEncoder';
 
 /**
- * BBC Micro cassette decoding — the inverse of {@link encodeBbcTape}.
+ * BBC Micro cassette decoding - the inverse of {@link encodeBbcTape}.
  *
  * Bytes are carried by Kansas City Standard FSK at 1200 baud: a `0` bit is one
  * 1200 Hz cycle (two ~417µs half-cycles), a `1` bit is two 2400 Hz cycles (four
  * ~208µs half-cycles). Each byte is framed 8N1 (start `0`, eight data bits
- * LSB-first, stop `1`), with a continuous 2400 Hz carrier — a run of `1` bits —
+ * LSB-first, stop `1`), with a continuous 2400 Hz carrier - a run of `1` bits -
  * leading in and between blocks.
  *
  * We classify each half-cycle as fast (2400 Hz) or slow (1200 Hz) **relative to
  * the carrier**: the carrier dominates the recording, so the median half-cycle
  * is a fast one, and a threshold at 1.5× that survives playback/clock speed
  * drift, resampling and sample-rate mismatch. The framed bytes are parsed as a
- * cassette filing system (CFS) file — each block's header and data CRC-16 both
+ * cassette filing system (CFS) file - each block's header and data CRC-16 both
  * have to check out, which is also what lets us reject noise and find the block
  * boundaries even when a `*` (0x2A) sync byte happens to occur inside the data.
  */

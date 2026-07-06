@@ -77,7 +77,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   const closeDocs = useIdeStore((s) => s.closeDocs);
 
   // The docs render in an iframe, so its in-nav close button (Layout.vue) can't
-  // reach the store directly — it posts a message that we translate to closeDocs.
+  // reach the store directly - it posts a message that we translate to closeDocs.
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;

@@ -23,8 +23,8 @@ const MAX_LINE = 32767;
  * Tokenize plain-text Atom BASIC into the in-memory program layout the BASIC
  * ROM uses (and that lives at `#2900`): each line is stored as `0D` then the
  * line number big-endian then the line body as ASCII; the program ends with
- * `0D FF`. The Atom does almost no keyword packing — keywords are kept as text
- * — so the body is the source after the line number, verbatim, mapped through
+ * `0D FF`. The Atom does almost no keyword packing - keywords are kept as text
+ * - so the body is the source after the line number, verbatim, mapped through
  * {@link atomCharset}. This is byte-for-byte what the ROM holds (validated by
  * booting the real ROM and reading `#2900` back), so the emulator can poke it
  * straight in at `#2900`.

@@ -210,7 +210,7 @@ function tokenizeBody(
         statementStart = kw.word === 'THEN' || kw.word === 'ELSE';
         continue;
       }
-      // Not a keyword — consume the whole variable name verbatim.
+      // Not a keyword - consume the whole variable name verbatim.
       let j = i;
       while (j < body.length && ALNUM.test(body[j]!)) j++;
       if (j < body.length && (body[j] === '$' || body[j] === '%')) j++;

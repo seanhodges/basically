@@ -13,7 +13,7 @@ function formatSize(bytes: number): string {
 }
 
 /**
- * "Emulator files" — inspects the virtual filesystem where a running
+ * "Emulator files" - inspects the virtual filesystem where a running
  * program's data file I/O lands (Spectrum tape CODE/DATA blocks, TRS-80
  * sequential files…). Reads the RxDB mirror reactively, so entries appear
  * live while the program runs and survive a breakpoint pause; the list

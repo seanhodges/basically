@@ -6,7 +6,7 @@ const WORDLIKE = /[A-Z0-9$"%▘▝▀▖▌▞▛▒█▟▙▄▜▐▚▗\\]/
 /**
  * Convert a tokenized ZX80 program area back into editable text. Lines are
  * `u16 BE line number` + body + NEWLINE (no length field), and there is no
- * inline numeric value to skip — numbers are stored as their digit characters.
+ * inline numeric value to skip - numbers are stored as their digit characters.
  * Spacing is normalized; re-tokenizing the result round-trips byte-for-byte.
  */
 export function detokenizeProgram(program: Uint8Array): string {

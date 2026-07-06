@@ -6,7 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
-  // Vendored / generated / build output — not ours to lint.
+  // Vendored / generated / build output - not ours to lint.
   {
     ignores: [
       'dist/**',
@@ -20,7 +20,7 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  // The AudioWorklet processor runs in the worklet global scope, not the DOM —
+  // The AudioWorklet processor runs in the worklet global scope, not the DOM -
   // give it the worklet globals so no-undef doesn't fire on them.
   {
     files: ['src/audio/ringBufferProcessor.js'],

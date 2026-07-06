@@ -12,9 +12,9 @@ import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
  * Two top-strip modes let a single key carry an operator *and* its two block
  * graphics without clashing (the real machine prints both graphics on the key's
  * front face):
- *  - **ABC** — letters/digits; SHIFT gives the shifted symbols and the editor
+ *  - **ABC** - letters/digits; SHIFT gives the shifted symbols and the editor
  *    operators (`+ - * / = : ; @ £`, `! " # …`) that ride the SHIFT layer.
- *  - **GRAPHICS** — the C= block graphics unmodified, the SHIFT block graphics
+ *  - **GRAPHICS** - the C= block graphics unmodified, the SHIFT block graphics
  *    with SHIFT held (`shiftedLayer`).
  *
  * The four physical function keys yield eight values (f2/f4/f6/f8 are SHIFT of

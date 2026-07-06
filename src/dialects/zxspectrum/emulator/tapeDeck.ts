@@ -16,9 +16,9 @@ const KIND_BY_TYPE: Record<number, string> = {
 /** What the LD-BYTES trap should do for one ROM block request. */
 export type DeckLoadResult =
   | { kind: 'block'; payload: Uint8Array }
-  /** Wrong block under the head — carry clear; the ROM retries or errors. */
+  /** Wrong block under the head - carry clear; the ROM retries or errors. */
   | { kind: 'error' }
-  /** Whole tape cycled with nothing consumed — jump to REPORT-R. */
+  /** Whole tape cycled with nothing consumed - jump to REPORT-R. */
   | { kind: 'abort' };
 
 /**
@@ -32,7 +32,7 @@ export type DeckLoadResult =
  * Loads are served as an endless multi-file tape: the ROM does its own
  * name/type matching against the headers we serve, so `LOAD "name" CODE`
  * needs no name logic here. When the ROM has cycled the entire tape twice
- * without consuming a data block, nothing matches — {@link nextBlock}
+ * without consuming a data block, nothing matches - {@link nextBlock}
  * signals abort so the machine can raise "R Tape loading error" instead of
  * looping forever (the trap bypasses LD-BYTES' own BREAK check).
  */
@@ -63,8 +63,8 @@ export class VfsTapeDeck {
 
   /**
    * Offer one SA-BYTES call (flag byte + the payload the ROM is about to
-   * write) for capture. Returns true when captured — the trap should then
-   * complete the ROM call — or false to let the ROM save to real tape
+   * write) for capture. Returns true when captured - the trap should then
+   * complete the ROM call - or false to let the ROM save to real tape
    * (program saves, and anything nonstandard).
    */
   recordBlock(flag: number, payload: Uint8Array): boolean {

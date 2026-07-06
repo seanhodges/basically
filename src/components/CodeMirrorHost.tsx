@@ -103,7 +103,7 @@ function autoNumberOnEnter(view: EditorView): boolean {
   const sel = state.selection.main;
   if (!sel.empty) return false;
   const line = state.doc.lineAt(sel.head);
-  if (sel.head !== line.to) return false; // only at end of line — else split normally
+  if (sel.head !== line.to) return false; // only at end of line - else split normally
 
   const physical = state.doc.toString().split('\n');
   const result = insertNumberedLineBelow(
@@ -111,7 +111,7 @@ function autoNumberOnEnter(view: EditorView): boolean {
     line.number - 1,
     lineNumberIncrement,
   );
-  if (!result) return false; // nothing to number — fall back to default newline
+  if (!result) return false; // nothing to number - fall back to default newline
   replaceDoc(view, result.lines, result.cursorLine);
   return true;
 }
@@ -119,7 +119,7 @@ function autoNumberOnEnter(view: EditorView): boolean {
 /**
  * Enter handler used while editing: when a construct snippet is active, Enter
  * jumps to the next `${…}` placeholder (mobile has no Tab key, so Return stands
- * in for it — desktop Tab keeps working too). Otherwise Enter auto-numbers the
+ * in for it - desktop Tab keeps working too). Otherwise Enter auto-numbers the
  * new line as before. An open completion popup still consumes Enter first.
  */
 function handleEnter(view: EditorView): boolean {
@@ -143,13 +143,13 @@ function handleShiftEnter(view: EditorView): boolean {
  * We apply the completion ourselves rather than calling `acceptCompletion`: that
  * command has an `interactionDelay` (75ms) guard that rejects a just-opened
  * popup, which is exactly the fast-typed `PR.` case. This mirrors CodeMirror's
- * internal `applyCompletion` — run the option's `apply` (so block constructs
+ * internal `applyCompletion` - run the option's `apply` (so block constructs
  * still expand), or insert its label for a plain keyword. Returns false when no
  * popup is open (a no-op in that case) so the caller inserts `.` normally.
  *
  * Shared by all three input paths that can produce a period: the physical-keyboard
  * `keydown` handler, the native-mobile `inputHandler`, and the on-screen keyboard
- * via `applyEditorAction`. (A single DOM keydown handler is insufficient — soft
+ * via `applyEditorAction`. (A single DOM keydown handler is insufficient - soft
  * keyboards route through beforeinput/composition and the virtual keyboard never
  * emits key events.)
  *
@@ -214,7 +214,7 @@ function renumberCurrentLine(view: EditorView): boolean {
   const oldNo = parseInt(m[1]!, 10);
 
   const input = window.prompt(`Renumber line ${oldNo} to:`, String(oldNo));
-  if (input === null) return true; // cancelled — but the key was ours
+  if (input === null) return true; // cancelled - but the key was ours
   const newNo = parseInt(input.trim(), 10);
   if (!Number.isInteger(newNo) || newNo < MIN_LINE_NO || newNo > MAX_LINE_NO) {
     window.alert(
@@ -240,13 +240,13 @@ function renumberCurrentLine(view: EditorView): boolean {
 
 /**
  * Give the (unnumbered) physical line at `idx` a position-appropriate number in
- * place — the same number the Enter key would assign — cascading following lines
+ * place - the same number the Enter key would assign - cascading following lines
  * when there's no gap. A no-op (still consumed) on a blank line or when the
  * cascade would overflow. Undo reverts.
  */
 function numberCurrentLineInPlace(view: EditorView, idx: number): boolean {
   const { state } = view;
-  if (state.doc.line(idx + 1).text.trim() === '') return false; // blank — let the key pass
+  if (state.doc.line(idx + 1).text.trim() === '') return false; // blank - let the key pass
   const increment = useIdeStore.getState().lineNumberIncrement;
   const physical = state.doc.toString().split('\n');
   const result = numberLineInPlace(physical, idx, increment);
@@ -263,7 +263,7 @@ function numberCurrentLineInPlace(view: EditorView, idx: number): boolean {
 
 /**
  * Renumber the whole program to `increment, 2*increment, …` (the "Line number
- * increment" setting), rewriting every GOTO/GOSUB/etc. reference. No prompt —
+ * increment" setting), rewriting every GOTO/GOSUB/etc. reference. No prompt -
  * Undo reverts. Keeps the cursor on the same program line.
  */
 function renumberFile(view: EditorView): boolean {
@@ -273,12 +273,12 @@ function renumberFile(view: EditorView): boolean {
   const renumbered = renumberProgram(docText, increment, increment);
   if (renumbered === null) {
     window.alert(
-      `Too many lines to renumber with an increment of ${increment} — the ` +
+      `Too many lines to renumber with an increment of ${increment} - the ` +
         `last line would exceed ${MAX_LINE_NO}. Try a smaller increment.`,
     );
     return true;
   }
-  if (renumbered === docText) return true; // empty program — nothing to do
+  if (renumbered === docText) return true; // empty program - nothing to do
 
   // Keep the cursor on the same program line. Every non-blank line becomes
   // numbered in source order, so the cursor line's new number is `increment ×`
@@ -322,7 +322,7 @@ function openOutline(): boolean {
 }
 
 /**
- * Range to act on for copy/cut: the main selection, or — when it's empty — the
+ * Range to act on for copy/cut: the main selection, or - when it's empty - the
  * whole current line (incl. trailing newline), mirroring CodeMirror's default
  * clipboard behaviour for an empty selection.
  */
@@ -369,7 +369,7 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
  * Read the clipboard, or null when this browser doesn't allow it (Firefox
  * < 125 has no readText; insecure contexts have no navigator.clipboard; the
  * user may deny the paste permission prompt). There is no legacy read
- * fallback — execCommand('paste') is blocked in web content.
+ * fallback - execCommand('paste') is blocked in web content.
  */
 async function readTextFromClipboard(): Promise<string | null> {
   if (!navigator.clipboard?.readText) return null;
@@ -396,7 +396,7 @@ async function runEditorCommand(
     case 'cut': {
       const { from, to } = clipboardRange(view);
       const copied = await copyTextToClipboard(view.state.sliceDoc(from, to));
-      // Never cut what didn't reach the clipboard — that would destroy text.
+      // Never cut what didn't reach the clipboard - that would destroy text.
       if (name === 'cut' && copied) {
         view.dispatch({ changes: { from, to }, userEvent: 'delete.cut' });
       }
@@ -406,7 +406,7 @@ async function runEditorCommand(
       const text = await readTextFromClipboard();
       if (text === null) {
         window.alert(
-          `This browser doesn't allow pasting from the menu — press ${
+          `This browser doesn't allow pasting from the menu - press ${
             isMac() ? '⌘V' : 'Ctrl+V'
           } in the editor instead.`,
         );

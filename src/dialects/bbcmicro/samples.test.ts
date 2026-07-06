@@ -87,7 +87,7 @@ describe('bbcmicro sample programs', () => {
     machine.loadProgram(bytes);
     await startGame(machine);
     // The only place the program raises the score is PROChit, which also erases
-    // the struck block and clears it from B%() — so a non-zero S% proves blocks
+    // the struck block and clears it from B%() - so a non-zero S% proves blocks
     // are being destroyed. S% is the resident integer at &44C (&400 + 19*4).
     const readScore = () => {
       const m = machine.processor;
@@ -110,7 +110,7 @@ describe('bbcmicro sample programs', () => {
     machine.loadProgram(bytes);
     await startGame(machine);
     // The maze prints a full 21-row wall map, then the "REACH E TO WIN" prompt
-    // below it — so the prompt only appears once every wall row is drawn.
+    // below it - so the prompt only appears once every wall row is drawn.
     const drawn = await runUntil(machine, () =>
       screenText(machine).includes('REACH E TO WIN'),
     );
@@ -129,7 +129,7 @@ describe('bbcmicro sample programs', () => {
 
     // The player is drawn one line below the prompts (line 160), so wait for it.
     // It is no longer a colour-switched solid block but an animated zig-zag sixel
-    // sprite — frame 0 = CHR$(185) (0xB9), frame 1 = CHR$(230) (0xE6) — that
+    // sprite - frame 0 = CHR$(185) (0xB9), frame 1 = CHR$(230) (0xE6) - that
     // inherits the walls' graphics-cyan colour. So it must NOT emit the old
     // graphics-yellow control CHR$(147).
     const hasSprite = () => {

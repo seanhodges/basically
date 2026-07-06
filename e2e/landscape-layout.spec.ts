@@ -2,21 +2,21 @@ import { expect, chromium } from '@playwright/test';
 import { test } from './fixtures';
 
 /**
- * Phone-landscape layout (a short, wide, touch viewport — `LANDSCAPE_MOBILE_QUERY`
+ * Phone-landscape layout (a short, wide, touch viewport - `LANDSCAPE_MOBILE_QUERY`
  * in src/app/useMediaQuery.ts). Two regressions are guarded here:
  *
- *  1. The toolbar collapses to a 56px left rail and must stay that width — in the
+ *  1. The toolbar collapses to a 56px left rail and must stay that width - in the
  *     flex-row shell the workspace's intrinsic min-content once squeezed the rail
  *     to 0 (no `flex-shrink: 0` on the rail / no `min-width: 0` on the workspace).
  *  2. The on-screen keyboard must sit centred in the workspace (gutters either
- *     side), not stretched flush against the rail — the centring rule used to be
+ *     side), not stretched flush against the rail - the centring rule used to be
  *     keyed on `min-width: 769px`, which a sideways phone can fall either side of.
  *
  * A landscape touch context is built per-case (the default project is desktop, no
  * touch) at widths above and below the old 769px breakpoint.
  */
 // This spec builds its own Chromium touch contexts (the matrix projects are
-// desktop, no touch) — running it once is enough; skip the other projects.
+// desktop, no touch) - running it once is enough; skip the other projects.
 test.skip(
   ({ browserName }) => browserName !== 'chromium',
   'builds its own Chromium touch contexts',
@@ -31,7 +31,7 @@ for (const vp of [
   { name: 'wide (844x390)', width: 844, height: 390 },
   { name: 'narrow (740x360)', width: 740, height: 360 },
 ]) {
-  test(`phone landscape: left rail + centred keyboard — ${vp.name}`, async () => {
+  test(`phone landscape: left rail + centred keyboard - ${vp.name}`, async () => {
     const browser = await chromium.launch();
     const context = await browser.newContext({
       viewport: { width: vp.width, height: vp.height },
@@ -42,7 +42,7 @@ for (const vp of [
       try {
         localStorage.setItem(key, 'true');
       } catch {
-        /* opaque origin — nothing to seed */
+        /* opaque origin - nothing to seed */
       }
     }, WELCOME_SEEN_KEY);
     const page = await context.newPage();
@@ -56,7 +56,7 @@ for (const vp of [
       );
       expect(landscapeActive, 'LANDSCAPE_MOBILE_QUERY should match').toBe(true);
 
-      // (1) The left rail is visible at its 56px width and runs the full height —
+      // (1) The left rail is visible at its 56px width and runs the full height -
       // not collapsed to ~0 by the workspace beside it.
       const rail = page.locator('[class*="toolbar"]').first();
       const railBox = await rail.boundingBox();
@@ -65,7 +65,7 @@ for (const vp of [
       expect(railBox!.width).toBeLessThan(80);
       expect(railBox!.height).toBeGreaterThan(vp.height * 0.8);
 
-      // (1b) The File menu must open beside the rail and stay fully on-screen —
+      // (1b) The File menu must open beside the rail and stay fully on-screen -
       // the rail used to clip its flyout (overflow on the narrow rail box).
       const fileTrigger = page
         .locator('[class*="menu"]')
@@ -79,7 +79,7 @@ for (const vp of [
       expect(fileBox, 'File menu should have a layout box').not.toBeNull();
       // Flown out alongside the rail (flush against its content edge, allowing
       // for the rail's few px of right padding) and within the viewport on
-      // every edge — i.e. not clipped to nothing by the narrow rail.
+      // every edge - i.e. not clipped to nothing by the narrow rail.
       expect(fileBox!.x).toBeGreaterThanOrEqual(railBox!.width - 8);
       expect(fileBox!.x + fileBox!.width).toBeGreaterThan(railBox!.width);
       expect(fileBox!.x + fileBox!.width).toBeLessThanOrEqual(vp.width + 1);
@@ -88,7 +88,7 @@ for (const vp of [
       await fileTrigger.click(); // close before moving on
 
       // (1c) The overflow ("three dots") trigger fills the rail width, and its
-      // menu — anchored at the foot of the rail — opens upward and stays fully
+      // menu - anchored at the foot of the rail - opens upward and stays fully
       // on-screen. On the tiny rail the Docs book icon is dropped and surfaced as
       // a "Help" item inside this menu instead (the @container (max-width: 430px)
       // tier in Toolbar.module.css), so the trigger is what fills the rail here.
@@ -140,7 +140,7 @@ for (const vp of [
       const wsCenter = wsBox!.x + wsBox!.width / 2;
       expect(Math.abs(kbCenter - wsCenter)).toBeLessThan(48);
       // The keyboard fills up to ~95% of the workspace width but still leaves a
-      // gutter either side — so it is not full-bleed / flush against the rail.
+      // gutter either side - so it is not full-bleed / flush against the rail.
       expect(kbBox!.width).toBeLessThanOrEqual(wsBox!.width - 16);
 
       // Key caps are a usable touch size (the row-of-keys width is what matters;

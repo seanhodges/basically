@@ -15,7 +15,7 @@ import type { RxCollection, RxDatabase, RxJsonSchema, RxStorage } from 'rxdb';
 export interface VfsFileDoc {
   /** Program-supplied filename; the primary key. */
   name: string;
-  /** File bytes, base64-encoded (payloads are small — tens of KB at most). */
+  /** File bytes, base64-encoded (payloads are small - tens of KB at most). */
   dataB64: string;
   /** Payload size in bytes (pre-encoding). */
   size: number;

@@ -11,7 +11,7 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
 /**
  * The Sinclair ZX80 keyboard on the standard virtual-keyboard template.
  *
- * The ZX80 shares the ZX81's 8×5 matrix (so the machine key tokens — `emits` —
+ * The ZX80 shares the ZX81's 8×5 matrix (so the machine key tokens - `emits` -
  * are identical) but has fewer legends. Each alphanumeric key carries up to
  * four:
  *  - main:     the letter / digit

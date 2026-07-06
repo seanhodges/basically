@@ -5,7 +5,7 @@ import { spectrumKeywords } from '../zxspectrum/keywords';
  * The two 128-only tokens the 48K table deliberately omits: SPECTRUM (0xA3)
  * and PLAY (0xA4). They sit just below the 48K block (RND is 0xA5), so the
  * full 128 BASIC table is the 48K set with these two prepended-by-token-value
- * keywords appended to the array — token order in the array does not matter to
+ * keywords appended to the array - token order in the array does not matter to
  * the tokenizer (it matches by word, longest-first) or the detokenizer (it
  * looks up by token byte).
  */

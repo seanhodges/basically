@@ -102,7 +102,7 @@ describe('Ay38912 synthesis', () => {
       sum += s;
     }
     expect(max).toBeGreaterThan(0.05); // swings positive
-    expect(min).toBeLessThan(-0.05); // and negative — DC has been removed
+    expect(min).toBeLessThan(-0.05); // and negative - DC has been removed
     expect(Math.abs(sum / out.length)).toBeLessThan(0.02); // mean near zero
   });
 

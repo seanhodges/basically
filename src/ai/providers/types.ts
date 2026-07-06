@@ -30,7 +30,7 @@ export interface StreamOptions {
 /**
  * Synchronous, SDK-free metadata for a backend. Lives in the main bundle (the
  * settings dropdown and key storage need it eagerly); the heavy SDK code is
- * kept out of here and loaded on demand — see `ProviderBackend`.
+ * kept out of here and loaded on demand - see `ProviderBackend`.
  */
 export interface ProviderMeta {
   id: AiProviderId;

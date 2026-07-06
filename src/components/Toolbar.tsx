@@ -46,6 +46,7 @@ export function Toolbar() {
   const toggleAiPanel = useIdeStore((s) => s.toggleAiPanel);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
+  const setShareLinkOpen = useIdeStore((s) => s.setShareLinkOpen);
   const setVfsInspectorOpen = useIdeStore((s) => s.setVfsInspectorOpen);
   const setImportOpen = useIdeStore((s) => s.setImportOpen);
   const setSettingsOpen = useIdeStore((s) => s.setSettingsOpen);
@@ -65,7 +66,7 @@ export function Toolbar() {
   const [editMenuOpen, setEditMenuOpen] = useState(false);
   // The mobile "three dots" overflow menu. It is context-aware: it surfaces the
   // Edit actions on the editor tab and the Run actions on the emulator tab, and
-  // it also hosts the items that spill out of a tight bar — Docs (as "Help")
+  // it also hosts the items that spill out of a tight bar - Docs (as "Help")
   // when there's no room for the book icon, and the Target selector in landscape
   // (where the toolbar collapses to a rail).
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
@@ -165,6 +166,7 @@ export function Toolbar() {
 
   const openImport = guard(() => setImportOpen(true));
   const openShare = guard(() => setTransferOpen(true));
+  const openShareLink = guard(() => setShareLinkOpen(true));
   const openVfsInspector = guard(() => setVfsInspectorOpen(true));
 
   // Shortcut hints for menu items and button tooltips, pulled from the central
@@ -224,6 +226,12 @@ export function Toolbar() {
               <button onClick={saveFile}>Save .bas{hint('file.save')}</button>
               <button onClick={openImport}>Import…{hint('file.import')}</button>
               <button onClick={openShare}>Export…{hint('file.export')}</button>
+              <button
+                onClick={openShareLink}
+                title="Create a short link that plays this program in the browser"
+              >
+                Share link…
+              </button>
               <button
                 onClick={openVfsInspector}
                 title={withKeys(
@@ -482,7 +490,7 @@ export function Toolbar() {
                   </button>
                 </>
               )}
-              {/* Docs — surfaced here (as "Help") only when the bar is too
+              {/* Docs - surfaced here (as "Help") only when the bar is too
                   tight to keep the book icon (see .helpInOverflow). */}
               <div className={styles.helpInOverflow}>
                 {contextTab && <div className={styles.menuSeparator} />}
@@ -495,7 +503,7 @@ export function Toolbar() {
                   Help
                 </button>
               </div>
-              {/* Target selector — visible only in landscape, where the toolbar
+              {/* Target selector - visible only in landscape, where the toolbar
                   collapses to a rail with no inline room (see .targetInOverflow). */}
               <div className={styles.targetInOverflow}>
                 {contextTab && <div className={styles.menuSeparator} />}

@@ -6,7 +6,7 @@ import {
 } from './keywords';
 
 /**
- * The ZX80's "integral functions" have no one-byte token — on real hardware they
+ * The ZX80's "integral functions" have no one-byte token - on real hardware they
  * are typed letter by letter and the ROM matches them by name. They must be
  * visible to the editor (highlighting + autocomplete) without ever being
  * tokenized, so the tokenizer keeps storing them as their literal characters.

@@ -78,7 +78,7 @@ const c64Caps: OutlineCapabilities = {
   hasGoto: true,
 };
 
-describe('collectVariables — BBC scope', () => {
+describe('collectVariables - BBC scope', () => {
   const src = [
     '10 score=0',
     '20 name$="X"',
@@ -128,7 +128,7 @@ describe('collectVariables — BBC scope', () => {
   });
 });
 
-describe('collectVariables — keywords, numbers and calls are not variables', () => {
+describe('collectVariables - keywords, numbers and calls are not variables', () => {
   const src = [
     '10 PRINT score',
     '20 GOTO100',
@@ -158,7 +158,7 @@ describe('collectVariables — keywords, numbers and calls are not variables', (
   });
 });
 
-describe('collectVariables — per-dialect name spelling', () => {
+describe('collectVariables - per-dialect name spelling', () => {
   it('honours BBC _ and % / $ suffixes', () => {
     const model = collectVariables('10 count%=total_sum+1', bbcRules, bbcCaps);
     expect([...model.globals].sort()).toEqual(['count%', 'total_sum']);
@@ -186,7 +186,7 @@ describe('collectVariables — per-dialect name spelling', () => {
   });
 });
 
-describe('makeVariableSource — completion behaviour', () => {
+describe('makeVariableSource - completion behaviour', () => {
   const source = makeVariableSource(bbcRules, bbcCaps);
 
   function resultAt(doc: string, pos: number = doc.length) {
@@ -217,7 +217,7 @@ describe('makeVariableSource — completion behaviour', () => {
   });
 
   it('does not offer the word being typed as its own completion', () => {
-    // "PR" is the only identifier in the doc — offering it back would be
+    // "PR" is the only identifier in the doc - offering it back would be
     // useless and, as an exact match, would outrank keyword suggestions
     // (breaking the "." abbreviation: "PR." must accept PRINT, not "PR").
     expect(resultAt('PR')).toBeNull();
@@ -227,7 +227,7 @@ describe('makeVariableSource — completion behaviour', () => {
   });
 });
 
-describe('forEachVariable — crunched (MS-BASIC) splitting', () => {
+describe('forEachVariable - crunched (MS-BASIC) splitting', () => {
   const MS_KW = [
     'PRINT',
     'GOTO',
@@ -302,11 +302,11 @@ describe('forEachVariable — crunched (MS-BASIC) splitting', () => {
   });
 
   it('splits silently in expression position (legit crunch)', () => {
-    // Q THEN GOTO — canonical crunched IF; no name may be flagged.
+    // Q THEN GOTO - canonical crunched IF; no name may be flagged.
     const ifTokens = tokensOf('IFP=QTHENGOTO50');
     expect(ifTokens.map((t) => t.text)).toEqual(['P', 'Q']);
     expect(ifTokens.every((t) => t.embedsKeyword === undefined)).toBe(true);
-    // A TO B — crunched FOR limit.
+    // A TO B - crunched FOR limit.
     expect(tokensOf('FORI=ATOB').map((t) => t.text)).toEqual(['I', 'A', 'B']);
     // An intended name in expression position splits to what the ROM sees.
     expect(tokensOf('A=SCORE').map((t) => t.text)).toEqual(['A', 'SC', 'E']);

@@ -27,14 +27,14 @@ export const trs80Reference: ReferenceTableData = {
       kind: 'command',
       syntax: 'RESET(<number>, <number>)',
       description:
-        'Clears the block-graphics cell at (x, y) — x 0–127, y 0–47 on the 128×48 grid. SET lights it; POINT tests it.',
+        'Clears the block-graphics cell at (x, y) - x 0–127, y 0–47 on the 128×48 grid. SET lights it; POINT tests it.',
     },
     {
       name: 'SET',
       kind: 'command',
       syntax: 'SET(<number>, <number>)',
       description:
-        'Lights the block-graphics cell at (x, y) — x 0–127, y 0–47 on the 128×48 grid (each 64×16 text cell is a 2×3 block). RESET clears it; POINT tests it.',
+        'Lights the block-graphics cell at (x, y) - x 0–127, y 0–47 on the 128×48 grid (each 64×16 text cell is a 2×3 block). RESET clears it; POINT tests it.',
     },
     {
       name: 'CLS',
@@ -166,7 +166,7 @@ export const trs80Reference: ReferenceTableData = {
       kind: 'command',
       syntax: 'TRON',
       description:
-        'Turns on the trace, printing each line number in brackets as it executes — useful for debugging flow.',
+        'Turns on the trace, printing each line number in brackets as it executes - useful for debugging flow.',
     },
     {
       name: 'TROFF',
@@ -193,7 +193,7 @@ export const trs80Reference: ReferenceTableData = {
       kind: 'command',
       syntax: 'DEFSNG <letter>[-<letter>]',
       description:
-        'Makes variables whose names begin with the given letter(s) default to single precision (!) — the normal numeric type.',
+        'Makes variables whose names begin with the given letter(s) default to single precision (!) - the normal numeric type.',
     },
     {
       name: 'DEFDBL',
@@ -221,14 +221,14 @@ export const trs80Reference: ReferenceTableData = {
       kind: 'command',
       syntax: 'ERROR <int>',
       description:
-        'Forces the error with the given code, as if it had really occurred — handy for testing an ON ERROR routine.',
+        'Forces the error with the given code, as if it had really occurred - handy for testing an ON ERROR routine.',
     },
     {
       name: 'RESUME',
       kind: 'command',
       syntax: 'RESUME [<line>|0|NEXT]',
       description:
-        'Ends an error-handling routine and continues the program — at the line that erred (default or 0), the line after it (NEXT), or a specified line.',
+        'Ends an error-handling routine and continues the program - at the line that erred (default or 0), the line after it (NEXT), or a specified line.',
     },
     {
       name: 'OUT',
@@ -374,7 +374,7 @@ export const trs80Reference: ReferenceTableData = {
       kind: 'command',
       syntax: 'LIST [<line>][-[<line>]]',
       description:
-        'Lists program lines to the screen — all of them, a single line, or a range; keywords are shown detokenized in their long form.',
+        'Lists program lines to the screen - all of them, a single line, or a range; keywords are shown detokenized in their long form.',
     },
     {
       name: 'LLIST',
@@ -486,7 +486,7 @@ export const trs80Reference: ReferenceTableData = {
       kind: 'function',
       syntax: 'STRING$(<number>, <number>|<string>)',
       description:
-        'Builds a string of n copies of a character, given either as an ASCII code or as the first character of a string — handy for drawing bars and rules.',
+        'Builds a string of n copies of a character, given either as an ASCII code or as the first character of a string - handy for drawing bars and rules.',
     },
     {
       name: 'INSTR',
@@ -500,7 +500,7 @@ export const trs80Reference: ReferenceTableData = {
       kind: 'function',
       syntax: 'POINT(<number>, <number>)',
       description:
-        'Returns true (-1) if the block-graphics cell at (x, y) is lit, false (0) otherwise — used for reading the screen back, e.g. collision detection.',
+        'Returns true (-1) if the block-graphics cell at (x, y) is lit, false (0) otherwise - used for reading the screen back, e.g. collision detection.',
     },
     {
       name: 'TIME$',
@@ -751,7 +751,7 @@ export const trs80Reference: ReferenceTableData = {
       kind: 'function',
       syntax: 'LOF(<file>)',
       description:
-        'Returns the number of the last (highest) record in the given file — its length in records (Disk BASIC).',
+        'Returns the number of the last (highest) record in the given file - its length in records (Disk BASIC).',
     },
     {
       name: 'MKI$',

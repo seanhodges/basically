@@ -200,7 +200,7 @@ describe('manual UI close stays balanced', () => {
     expect(history.depth).toBe(1);
     expect(history.pos).toBe(1);
 
-    // Close via the UI — the sync compensates with one history.go(-1).
+    // Close via the UI - the sync compensates with one history.go(-1).
     useIdeStore.getState().setSettingsOpen(false);
     expect(history.pos).toBe(0); // back at baseline, no dangling deep entry
     expect(useIdeStore.getState().settingsOpen).toBe(false);
@@ -250,7 +250,7 @@ describe('surface opened during a UI-close go() round-trip survives', () => {
     // In a real browser history.go() delivers popstate asynchronously; a
     // surface opened inside that window used to be reverted when the stale
     // popped snapshot was applied (seen as: close Settings, immediately hit
-    // F1 — the docs drawer flashes open then closes; widest on WebKit).
+    // F1 - the docs drawer flashes open then closes; widest on WebKit).
     const { history } = setup(false);
     // Defer popstate delivery to simulate the async gap.
     let deliver: (() => void) | null = null;

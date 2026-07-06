@@ -95,7 +95,7 @@ export function ImportDialog() {
     setListening(false);
     setLevel(0);
     if (samples.length === 0) {
-      setStatus('Stopped — nothing captured.');
+      setStatus('Stopped - nothing captured.');
       return;
     }
     setStatus('Decoding…');
@@ -135,7 +135,7 @@ export function ImportDialog() {
           <div className={styles.group}>
             <h3>From cassette audio</h3>
             <p>
-              Listen for a saved program — either with this device&apos;s
+              Listen for a saved program - either with this device&apos;s
               microphone near the speaker, or with an aux/line-in lead from the
               machine&apos;s tape output. {audio!.saveInstructions}
             </p>

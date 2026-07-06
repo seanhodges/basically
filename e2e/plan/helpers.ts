@@ -119,7 +119,7 @@ export async function stopEmulator(page: Page): Promise<void> {
 
 /**
  * True once the visible emulator canvas contains at least two distinct
- * pixel colours — i.e. the machine has painted something.
+ * pixel colours - i.e. the machine has painted something.
  */
 export function canvasPainted(page: Page): Promise<boolean> {
   return page.evaluate(() => {
