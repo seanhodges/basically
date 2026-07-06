@@ -245,9 +245,13 @@ export default function PlayerApp({
   return (
     <div className={`${styles.player} ${landscape ? styles.landscape : ''}`}>
       <header className={styles.topBar}>
-        <span className={styles.programName}>
-          {record?.name || 'Shared program'}
-        </span>
+        <img className={styles.logo} src="/logo-dark.png" alt="Basically" />
+        {record?.name && (
+          <>
+            <span className={styles.programName}>{record.name}</span>
+            <span className={styles.separator}>|</span>
+          </>
+        )}
         <span className={styles.machineName}>{dialectName(dialectId)}</span>
         <div className={styles.topActions}>
           {phase === 'running' && runButton}
