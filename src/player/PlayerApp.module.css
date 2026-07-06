@@ -102,35 +102,15 @@
   font-weight: 600;
 }
 
-/* Round green Play FAB - Run *is* restart in the player. Clone of the IDE's
-   .fabRun (Workspace.module.css), but visible on every form factor. */
-.fabRun {
-  position: absolute;
-  right: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--ok);
-  border-color: var(--ok);
-  color: #08210e;
-  font-size: 22px;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
-  z-index: 20;
+/* The green Run button (global `run` class) sits in the top bar. Run *is*
+   restart in the auto-running player. On the narrow landscape rail it stretches
+   to the rail width and shows only the ▶ glyph. */
+.runButton {
+  white-space: nowrap;
 }
 
-/* Keyboard band up: lift the FAB clear of the bottom overlay. */
-.fabLifted {
-  bottom: calc(50% + 16px);
-}
-
-/* On the landscape rail the FAB is an in-flow rail button, not a float. */
-.player.landscape .topBar .fabRun {
-  position: static;
-  width: 40px;
-  height: 40px;
-  font-size: 16px;
-  box-shadow: none;
+.player.landscape .runButton {
+  width: 100%;
 }
 
 /* "Tap for sound" pill: any tap unlocks audio; the pill itself is just the

@@ -59,12 +59,6 @@ interface EmulatorPaneProps {
   apiRef?: MutableRefObject<MachineApi | null>;
 }
 
-/** Bezel width of .screen-shell in the mobile media query. */
-const MOBILE_BEZEL = 8;
-
-/** Padding of .emulator-pane in the mobile media query (each side). */
-const MOBILE_PANE_PAD = 8;
-
 /**
  * Width reserved on each side of the screen for the flanking gamepad in the
  * phone-landscape layout, so the centred screen never sits under the d-pad or
@@ -140,6 +134,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     height: SCREEN_HEIGHT,
   };
   const containerRef = useRef<HTMLDivElement>(null);
+  const screenShellRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const machineRef = useRef<MachineEmulator | null>(null);
   // Run-time emulator audio host (Web Audio graph). Built lazily inside the Run
@@ -555,26 +550,70 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     const container = containerRef.current;
     if (!container) return;
     const update = () => {
-      const rect = container.getBoundingClientRect();
+      // Measure the pane's own padding and the screen shell's bezel from the DOM
+      // rather than hard-coding them: they differ per breakpoint (14px desktop,
+      // 8px mobile), and guessing the mobile values on a wide desktop pane
+      // under-reserved ~24px, tipping the screen past the height budget so it
+      // overflowed with a scrollbar. clientWidth/Height exclude any scrollbar,
+      // so a transient bar can't feed back into the fit.
+      const cs = getComputedStyle(container);
+      const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      const shell = screenShellRef.current;
+      let bezelX = 0;
+      let bezelY = 0;
+      if (shell) {
+        const scs = getComputedStyle(shell);
+        bezelX =
+          parseFloat(scs.borderLeftWidth) + parseFloat(scs.borderRightWidth);
+        bezelY =
+          parseFloat(scs.borderTopWidth) + parseFloat(scs.borderBottomWidth);
+      }
+      // Reserve room for the pane's other in-flow rows (the status line, an
+      // error, the debug bar) and the flex gaps between them, so a height-limited
+      // screen leaves space for them instead of pushing them past the pane and
+      // tripping its overflow scrollbar. The variable watcher is deliberately
+      // excluded (see .watcherHost): opening it must not shrink the screen - it
+      // scrolls within the pane instead.
+      const rowGap = parseFloat(cs.rowGap) || 0;
+      let reservedY = 0;
+      for (const child of Array.from(container.children)) {
+        if (child === shell) continue;
+        const ccs = getComputedStyle(child);
+        if (ccs.position === 'absolute') continue; // e.g. the landscape ⌨ toggle
+        if (String(child.className).includes(styles.watcherHost)) continue;
+        const h = child.getBoundingClientRect().height;
+        if (h > 0) reservedY += h + rowGap;
+      }
       // In phone landscape the gamepad flanks the screen, so reserve a gutter on
       // each side and keep the centred screen clear of the controls.
       const sideReserve = landscape ? landscapeSideGutter() : 0;
       const availWidth =
-        rect.width - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD) - 2 * sideReserve;
+        container.clientWidth - padX - bezelX - 2 * sideReserve;
       // With the keyboard up, never grow past 50% of the pane so the bottom-50%
       // overlay can never cover the screen - except in phone landscape, where the
       // keyboard floats over the emulator, so the screen keeps its full height.
       const heightBudget =
         overlayUp && !landscape
-          ? Math.min(rect.height, rect.height * 0.5)
-          : rect.height;
-      const availHeight = heightBudget - 2 * (MOBILE_BEZEL + MOBILE_PANE_PAD);
+          ? container.clientHeight * 0.5
+          : container.clientHeight;
+      const availHeight = heightBudget - padY - bezelY - reservedY;
       // Fill the available width; clamp to the height budget so wide/short
       // panes stay height-limited. Aspect ratio preserved by the min().
       const next =
         availWidth > 0 && availHeight > 0
           ? Math.min(availWidth / display.width, availHeight / display.height)
           : 1;
+      // Anchor the status line under the screen's bottom-left corner. The screen
+      // is centred, so publish half the leftover width as --screen-offset; the
+      // full-width status row left-pads by it to line its start up with the
+      // screen's left edge.
+      const screenBoxWidth = display.width * next + bezelX;
+      const offset = Math.max(
+        0,
+        (container.clientWidth - padX - screenBoxWidth) / 2,
+      );
+      container.style.setProperty('--screen-offset', `${offset}px`);
       setScale(next);
     };
     update();
@@ -635,6 +674,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       onPointerDown={dismissFindReplace}
     >
       <div
+        ref={screenShellRef}
         className={`${styles.screenShell} ${crtEffect ? styles.crt : ''} ${
           focused ? styles.focused : ''
         }`}

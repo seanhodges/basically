@@ -134,6 +134,7 @@
 .emulatorState {
   font-size: 12px;
   color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .emulatorState.running {
@@ -150,11 +151,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  /* Pin the ⌨ toggle to the pane edge: the status text changes length when
-     the canvas gains/loses focus, and a shifting button mid-press would
-     swallow the click. */
   width: 100%;
-  justify-content: space-between;
+  justify-content: flex-start;
+  padding-left: var(--screen-offset, 0);
 }
 
 /* The watcher sits in the flex flow directly beneath the preview (and the

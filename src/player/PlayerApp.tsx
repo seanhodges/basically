@@ -18,6 +18,7 @@ import {
   ShareApiError,
   type SharedProgram,
 } from '../share/shareClient';
+import { getKeyboardAutoShow, setKeyboardAutoShow } from '../storage/settings';
 import { playerPathFor } from './routes';
 import {
   VirtualKeyboard,
@@ -126,7 +127,7 @@ export default function PlayerApp({
   const [audioReady, setAudioReady] = useState(false);
 
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
-  const { controllerVisible, keyboardVisible, overlayUp } = useInputOverlays();
+  const { controllerVisible, keyboardVisible } = useInputOverlays();
   const effectiveMode = effectiveGamepadMode(dialect, gamepadMode);
 
   // The keyboard/controller reach the machine through the handle EmulatorPane
@@ -172,9 +173,16 @@ export default function PlayerApp({
           source: rec.source,
           fileName: rec.name || 'shared.bas',
         });
-        // Player defaults: keyboard up, gamepad opt-in via the 🎮 toggle.
+        // The on-screen keyboard follows the IDE's auto-show preference
+        // (store.keyboardAutoShow already resolves it: on for touch devices,
+        // off otherwise). When the user has never set it - never opened the IDE,
+        // so the key is unset - persist the computed default now so both
+        // surfaces agree from here on. Gamepad stays opt-in via the 🎮 toggle.
         // Ephemeral setters so the IDE's persisted toggles are untouched.
-        store.setKeyboardEnabledEphemeral(true);
+        if (getKeyboardAutoShow() === null) {
+          setKeyboardAutoShow(store.keyboardAutoShow);
+        }
+        store.setKeyboardEnabledEphemeral(store.keyboardAutoShow);
         store.setControllerEnabledEphemeral(false);
         store.requestRun();
         setPhase('running');
@@ -220,16 +228,17 @@ export default function PlayerApp({
     location.assign('/?open=' + shareId);
   };
 
-  const playFab = (
+  // Run *is* restart in the auto-running player. Same green Run button the IDE
+  // toolbar uses (the global `run` class), living in the top bar on every form
+  // factor; the narrow landscape rail shows just the glyph.
+  const runButton = (
     <button
       type="button"
-      className={`${styles.fabRun} ${
-        overlayUp && !landscape ? styles.fabLifted : ''
-      }`}
+      className={`run ${styles.runButton}`}
       onClick={requestRun}
       title="Restart the program"
     >
-      ▶
+      {landscape ? '▶' : '▶ Play'}
     </button>
   );
 
@@ -241,9 +250,7 @@ export default function PlayerApp({
         </span>
         <span className={styles.machineName}>{dialectName(dialectId)}</span>
         <div className={styles.topActions}>
-          {/* In phone landscape the floating FAB would sit on the flanking
-              fire buttons, so Play joins the rail instead. */}
-          {landscape && phase === 'running' && playFab}
+          {phase === 'running' && runButton}
           <button
             type="button"
             className={keyboardEnabled ? styles.toggleActive : ''}
@@ -346,7 +353,6 @@ export default function PlayerApp({
                 />
               </div>
             )}
-            {!landscape && playFab}
             {!audioReady && (
               <button type="button" className={styles.soundPill}>
                 🔊 Tap for sound
