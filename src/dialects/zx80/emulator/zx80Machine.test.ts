@@ -184,7 +184,7 @@ describe('Zx80Machine', () => {
       machine.setSpeed(speed);
       for (let i = 1; i <= 3000; i++) {
         machine.runFrame();
-        // An exact row match (not displayContains) — right after load the
+        // An exact row match (not displayContains) - right after load the
         // display still shows the program listing, whose "DONE" string
         // literal would otherwise trip a substring match early.
         if (firstTextRow(machine) === 'DONE') {

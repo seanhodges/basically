@@ -3,13 +3,13 @@ import { test, expect, type Page } from './fixtures';
 /**
  * End-to-end checks for the step-through debugger (ZX81 / ZX80 / Spectrum):
  *
- *  1. Core flow — debugging is always on, so just set a breakpoint in the
+ *  1. Core flow - debugging is always on, so just set a breakpoint in the
  *     gutter; Play pauses on it, Step advances to the next BASIC line, Continue
  *     re-pauses on the breakpoint, Stop clears the session.
  *  2. The debug session survives an orientation change (a viewport flip that
- *     crosses the mobile/desktop breakpoint) — nothing is lost and Step still
+ *     crosses the mobile/desktop breakpoint) - nothing is lost and Step still
  *     works afterwards.
- *  3. Capability — every shipped dialect is debuggable, so Step/Continue (and
+ *  3. Capability - every shipped dialect is debuggable, so Step/Continue (and
  *     Play/Stop) show for the Sinclair, BBC and Commodore machines alike.
  *
  * Run with `npm run e2e` (Chromium is pre-installed in the managed env).
@@ -69,7 +69,7 @@ test('core flow: breakpoint, run-to-pause, step, continue, stop', async ({
   await setEditorSource(page, LOOP_SRC);
   await expect(page.locator('.cm-content')).toContainText('30 NEXT I');
 
-  // Set a breakpoint on line 20 — a dot marker appears in the gutter. Debugging
+  // Set a breakpoint on line 20 - a dot marker appears in the gutter. Debugging
   // is always armed now, so there is nothing to toggle first.
   await toggleBreakpointOnLine(page, 20);
   await expect(breakpointDot(page)).toBeVisible();
@@ -90,14 +90,14 @@ test('core flow: breakpoint, run-to-pause, step, continue, stop', async ({
     timeout: 20_000,
   });
 
-  // Continue runs to the next breakpoint — the loop comes back round to 20.
+  // Continue runs to the next breakpoint - the loop comes back round to 20.
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('paused at line 20')).toBeVisible({
     timeout: 20_000,
   });
 
   // Stop ends the session and clears the highlight. It first asks whether to
-  // clear the breakpoints — the dialog handler in open() accepts.
+  // clear the breakpoints - the dialog handler in open() accepts.
   await page.getByRole('button', { name: 'Stop' }).click();
   await expect(page.getByText(/paused at line/)).toBeHidden();
   await expect(page.locator('[class*="debugCurrentLine"]')).toHaveCount(0);
@@ -134,12 +134,12 @@ test('debug session survives an orientation change', async ({ page }) => {
 
 test('Step/Continue show for every dialect', async ({ page }) => {
   await open(page);
-  // The Debug toggle is gone — debugging is always on.
+  // The Debug toggle is gone - debugging is always on.
   await expect(page.getByRole('button', { name: 'Debug' })).toHaveCount(0);
 
   const select = page.locator('select.dialect-select');
   // Every shipped machine implements the step-through debugger, so all four
-  // controls are present whichever dialect is selected — including the BBC and
+  // controls are present whichever dialect is selected - including the BBC and
   // Commodore cores, which were the last to gain single-stepping.
   for (const label of ['ZX81', 'Commodore 64', 'BBC Micro', 'Spectrum']) {
     await select.selectOption({ label });

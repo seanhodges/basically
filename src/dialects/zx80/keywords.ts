@@ -11,7 +11,7 @@ import type { EditorKeyword, KeywordInfo } from '../types';
  * stored as 0xDD, and typing on the emulated keyboard stores PRINT as 0xF4).
  *
  * Numbers are stored as their digit characters (0x1C-0x25) with no hidden binary
- * value — the ZX80 is an integer-only BASIC and re-parses literals at run time,
+ * value - the ZX80 is an integer-only BASIC and re-parses literals at run time,
  * so there is no ZX81-style NUMBER_MARKER + 5-byte float.
  *
  * Tokens 0xF1, 0xF2, 0xF5 and 0xFF are unused "?" slots in the ROM table.
@@ -23,7 +23,7 @@ export const zx80Keywords: KeywordInfo[] = [
     token: 0xd5,
     kind: 'operator',
     signature: 'IF cond THEN statement',
-    doc: 'One statement only — the ZX80 has no ELSE and no multi-statement lines.',
+    doc: 'One statement only - the ZX80 has no ELSE and no multi-statement lines.',
   },
   {
     word: 'TO',
@@ -145,7 +145,7 @@ export const zx80Keywords: KeywordInfo[] = [
     token: 0xf0,
     kind: 'command',
     signature: 'LET v=expr',
-    doc: 'Assignment — LET is mandatory on the ZX80.',
+    doc: 'Assignment - LET is mandatory on the ZX80.',
   },
   {
     word: 'NEXT',
@@ -232,7 +232,7 @@ export const zx80Keywords: KeywordInfo[] = [
  * typed in letter by letter, always with parentheses, and the ROM matched them
  * by name at run time (via a string table at 0x0BBA). We list them so the
  * editor highlights and autocompletes them, but they deliberately carry no
- * token — the tokenizer leaves them as their literal characters, which is
+ * token - the tokenizer leaves them as their literal characters, which is
  * exactly what the unmodified ROM expects to parse.
  */
 export const zx80IntegralFunctions: EditorKeyword[] = [

@@ -9,16 +9,16 @@ import {
 } from './helpers';
 
 /**
- * Test plan §2 — Editor & keyboard shortcuts.
+ * Test plan §2 - Editor & keyboard shortcuts.
  * (docs/contributing/cross-browser-test-plan.md)
  *
  * 2.5's outcome legitimately differs per browser: where the async clipboard
  * read is allowed the text pastes; where it isn't (e.g. Firefox denying the
  * read without its interactive paste prompt) the app must show the
- * explanatory alert instead of failing silently — both are passes.
+ * explanatory alert instead of failing silently - both are passes.
  *
  * 2.8 is exercised with synthetic KeyboardEvents (real AltGr needs a Windows
- * machine with a European layout — keep the manual check too).
+ * machine with a European layout - keep the manual check too).
  */
 
 test('2.1 completion popup and live lint errors', async ({ page }) => {
@@ -88,13 +88,13 @@ test('2.4 menu Cut with no selection removes the whole line (copy reached the cl
   // Cursor (no selection) on line 20.
   await page.locator('.cm-line', { hasText: 'CUTME' }).click();
   await editMenu(page, /^Cut/);
-  // The cut only deletes after a successful clipboard write — async API or
+  // The cut only deletes after a successful clipboard write - async API or
   // the execCommand fallback, whichever this browser allows.
   await expect(page.locator(EDITOR)).not.toContainText('CUTME');
   await expect(page.locator(EDITOR)).toContainText('KEEP');
 });
 
-test('2.5 menu Paste pastes or explains itself — never a silent no-op', async ({
+test('2.5 menu Paste pastes or explains itself - never a silent no-op', async ({
   page,
 }) => {
   const dialogs = await openApp(page);
@@ -130,7 +130,7 @@ test('2.6 in-editor find/replace panel on Mod+F, Escape closes', async ({
   await expect(panel).toBeHidden();
 });
 
-test('2.7 F5 runs, Shift+F5 stops — browser defaults suppressed', async ({
+test('2.7 F5 runs, Shift+F5 stops - browser defaults suppressed', async ({
   page,
 }) => {
   await openApp(page);

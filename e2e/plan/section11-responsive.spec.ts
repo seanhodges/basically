@@ -2,7 +2,7 @@ import { test, expect } from '../fixtures';
 import { EDITOR, openApp } from './helpers';
 
 /**
- * Test plan §11 — Responsive layout sweep.
+ * Test plan §11 - Responsive layout sweep.
  * (docs/contributing/cross-browser-test-plan.md)
  *
  * 11.3/11.4 (phone-landscape rail + keyboard overlay) are covered by

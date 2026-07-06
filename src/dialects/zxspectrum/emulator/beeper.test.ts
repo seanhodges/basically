@@ -57,7 +57,7 @@ describe('Beeper', () => {
       sum += s;
     }
     expect(max).toBeGreaterThan(0.1); // swings positive
-    expect(min).toBeLessThan(-0.1); // and negative — DC has been removed
+    expect(min).toBeLessThan(-0.1); // and negative - DC has been removed
     expect(Math.abs(sum / out.length)).toBeLessThan(0.05); // mean near zero
   });
 

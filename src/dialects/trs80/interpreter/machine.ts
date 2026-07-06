@@ -14,7 +14,7 @@ import {
 import { Interpreter } from './interpreter';
 
 /**
- * Statements executed per 50 Hz frame before yielding to render — i.e. the
+ * Statements executed per 50 Hz frame before yielding to render - i.e. the
  * interpreter's emulated speed. Calibrated to authentic TRS-80 Level II BASIC
  * throughput rather than raw host speed: ~20 statements/frame ≈ 1000 stmt/s,
  * matching the Rugg/Feldman BM1 benchmark (`FOR K=1 TO 1000:NEXT` ≈ 1.3 s, so
@@ -24,7 +24,7 @@ import { Interpreter } from './interpreter';
  * The previous value (4000) ran the interpreter ~200× faster than real
  * hardware, which made action games unplayable: the breakout ball's whole fall
  * completed inside a single render frame, so the player only ever saw the final
- * "GAME OVER" — the in-BASIC `FOR T` delays could never throttle it.
+ * "GAME OVER" - the in-BASIC `FOR T` delays could never throttle it.
  */
 const STATEMENTS_PER_FRAME = 20;
 

@@ -23,7 +23,7 @@ export interface CapturedAudio {
 export interface RecordingSession {
   readonly sampleRate: number;
   /**
-   * Resolves with the captured audio when recording stops — manually via
+   * Resolves with the captured audio when recording stops - manually via
    * {@link stop}, or automatically after a stretch of trailing silence. A
    * cancelled session resolves with an empty buffer.
    */
@@ -84,7 +84,7 @@ export async function startRecording(
 
   const ctx = new AudioContext();
   // Safari: the permission prompt can outlive the click's user activation, so
-  // this context may start suspended — with no audio flowing, the session would
+  // this context may start suspended - with no audio flowing, the session would
   // record silence forever. Resuming is allowed for capture contexts.
   if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
   const sampleRate = ctx.sampleRate;

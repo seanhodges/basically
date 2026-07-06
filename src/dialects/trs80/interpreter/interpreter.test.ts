@@ -34,7 +34,7 @@ function firstText(interp: Interpreter): string {
   return '';
 }
 
-describe('trs80 interpreter — output & expressions', () => {
+describe('trs80 interpreter - output & expressions', () => {
   it('prints a string literal', () => {
     expect(firstText(run('10 PRINT "HELLO"\n'))).toBe('HELLO');
   });
@@ -71,7 +71,7 @@ describe('trs80 interpreter — output & expressions', () => {
   });
 });
 
-describe('trs80 interpreter — control flow', () => {
+describe('trs80 interpreter - control flow', () => {
   it('sums a FOR/NEXT loop', () => {
     const src = '10 S=0\n20 FOR I=1 TO 5\n30 S=S+I\n40 NEXT\n50 PRINT S\n';
     expect(firstText(run(src))).toBe('15');
@@ -113,7 +113,7 @@ describe('trs80 interpreter — control flow', () => {
   });
 });
 
-describe('trs80 interpreter — data, arrays, graphics', () => {
+describe('trs80 interpreter - data, arrays, graphics', () => {
   it('reads DATA into an array', () => {
     const src =
       '10 DIM A(3)\n20 FOR I=0 TO 3\n30 READ A(I)\n40 NEXT\n' +

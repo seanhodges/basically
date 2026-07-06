@@ -242,7 +242,7 @@ export function Workspace() {
       )}
       {/* The game-controller overlay floats over the bottom half (transparent
           gaps fall through to the screen). Keyed by dialect so a machine swap
-          remounts a clean engine — no stuck keys. While a remap is in progress
+          remounts a clean engine - no stuck keys. While a remap is in progress
           the controller hides and the keyboard picker below takes its place. */}
       {controllerVisible && remapRole === null && (
         <div

@@ -15,7 +15,7 @@
  * within-frame write timing is inaudible for BASIC sound). {@link render} ticks
  * the synth forward one 50Hz frame and returns mono Float32 samples for the
  * machine to sum with the beeper. A one-pole DC blocker on the mix keeps a
- * steady (DC) channel — common when a program parks a voice at a fixed level —
+ * steady (DC) channel - common when a program parks a voice at a fixed level -
  * from clicking at playback start/stop, exactly as the beeper does.
  */
 
@@ -27,7 +27,7 @@ const SAMPLES_PER_FRAME = AY_SAMPLE_RATE / 50;
 const AY_CLOCK = 1773400;
 /**
  * The generators advance one base step every eight AY clocks. A tone toggles on
- * each step it reaches its period, so a full square cycle is 2×period steps —
+ * each step it reaches its period, so a full square cycle is 2×period steps -
  * giving the datasheet tone frequency clock / (16 × period). Noise and the
  * envelope step every 2×period base steps, matching clock / (16 × period) and
  * the envelope's clock / (256 × period) full-cycle (16 ramp steps).
@@ -115,7 +115,7 @@ export class Ay38912 {
     const r = reg & 0x0f;
     this.regs[r] = value & REG_MASKS[r]!;
     // Writing the envelope-shape register (re)triggers the generator, even when
-    // the value is unchanged — that is how programs retrigger an envelope.
+    // the value is unchanged - that is how programs retrigger an envelope.
     if (r === 13) this.startEnvelope();
   }
 

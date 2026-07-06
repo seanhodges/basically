@@ -10,7 +10,7 @@
  *
  * A one-pole DC blocker sits on the output. Without it a steady speaker line
  * (the common idle state, and the tail of every beep) would be a constant
- * offset — inaudible as a tone but a source of clicks whenever playback starts,
+ * offset - inaudible as a tone but a source of clicks whenever playback starts,
  * stops or underruns. With it, a held level decays smoothly to zero exactly as
  * the real cone settles, while square-wave tones pass through untouched. This is
  * the only stateful synthesis here, which is why it lives in its own pure module
@@ -56,7 +56,7 @@ export class Beeper {
 
   /**
    * Record a write to port 0xFE at the given cycle offset within the current
-   * frame. Only level changes are stored — a write that doesn't flip bit 4
+   * frame. Only level changes are stored - a write that doesn't flip bit 4
    * (e.g. a border-only change) costs nothing.
    */
   write(cycle: number, portValue: number): void {
@@ -69,8 +69,8 @@ export class Beeper {
   /**
    * Render one frame, replaying the recorded transitions across `frameCycles`
    * T-states, then arm the next frame (carrying the held level and DC-blocker
-   * state forward). Returns an empty array once the machine is fully silent —
-   * a steady-low speaker with the DC blocker settled — so idle frames are free.
+   * state forward). Returns an empty array once the machine is fully silent -
+   * a steady-low speaker with the DC blocker settled - so idle frames are free.
    */
   render(frameCycles: number): Float32Array {
     if (

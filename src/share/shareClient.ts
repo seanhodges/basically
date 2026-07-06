@@ -2,8 +2,8 @@
 // Copyright (C) 2026 Sean Hodges
 
 // Client for the share API (contract: docs/contributing/standalone-player-plan.md).
-// The API lives on its own origin — GitHub Pages cannot proxy a same-origin
-// /api — so the base URL comes from VITE_SHARE_API_URL at build time. When it
+// The API lives on its own origin - GitHub Pages cannot proxy a same-origin
+// /api - so the base URL comes from VITE_SHARE_API_URL at build time. When it
 // is unset (no backend deployed), calls reject with kind 'unconfigured' so
 // callers can degrade gracefully instead of firing doomed requests.
 
@@ -129,7 +129,7 @@ export async function createShare(
   if (res.status === 429) {
     throw new ShareApiError(
       'rate-limited',
-      'Too many shares right now — try again shortly',
+      'Too many shares right now - try again shortly',
     );
   }
   if (res.status === 400) {

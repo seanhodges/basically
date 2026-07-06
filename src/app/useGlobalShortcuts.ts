@@ -30,7 +30,7 @@ function report(p: Promise<void>): void {
 
 /**
  * Run the action for a shortcut id. Returns true when the key was consumed (so
- * the caller calls `preventDefault`), false when it was a no-op — e.g. a debug
+ * the caller calls `preventDefault`), false when it was a no-op - e.g. a debug
  * shortcut fired while not paused, or an id with no global action.
  */
 function dispatch(id: ShortcutId): boolean {
@@ -111,7 +111,7 @@ function dispatch(id: ShortcutId): boolean {
       return true;
     default:
       // Native/editor-only shortcuts (undo, copy, renumber, breakpoint, escape…)
-      // have no global action — let the browser/editor handle them.
+      // have no global action - let the browser/editor handle them.
       return false;
   }
 }

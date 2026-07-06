@@ -6,12 +6,12 @@ of scope for this repo; this document specifies the wire protocol it must
 implement, plus notes on delivering the program to each machine.
 
 The "Send via serial bridge" button is offered for **every** dialect, not just
-the ZX81. The payload is always the active dialect's native binary image — the
+the ZX81. The payload is always the active dialect's native binary image - the
 exact bytes it exports as `.P` / `.O` / `.TAP` / `.bbc` / `.prg` / `.cas` /
 `.atm` (see `docs/reference/file-formats.md`). The protocol below is dialect-agnostic; the
 magic and command name are historical (the ZX81 was the first machine
 supported). It's the bridge's job to know which machine is attached and how to
-turn that image into something the machine loads — § Delivering the image
+turn that image into something the machine loads - § Delivering the image
 sketches the options.
 
 ## Link
@@ -41,7 +41,7 @@ sketches the options.
 | cmd    | `0x01` = LOAD_P (payload is the active dialect's native image) |
 | length | payload byte count                                             |
 
-Despite the name, a `LOAD_P` payload is **not** always a ZX81 `.P` — it is
+Despite the name, a `LOAD_P` payload is **not** always a ZX81 `.P` - it is
 whatever native image the selected dialect builds (`dialect.tokenize().image`),
 so the bridge should determine the target machine out of band (a DIP switch,
 config, a separate handshake) rather than from the command byte.
@@ -53,8 +53,8 @@ CRC32 is the standard reflected polynomial `0xEDB88320` (same as zlib).
 
 After each block (bytes + CRC) the bridge replies with a single byte:
 
-- `0x06` ACK — block accepted, send the next one.
-- `0x15` NAK — CRC mismatch, the IDE resends the same block (up to 3 times).
+- `0x06` ACK - block accepted, send the next one.
+- `0x15` NAK - CRC mismatch, the IDE resends the same block (up to 3 times).
 
 After the last block is ACKed the IDE sends `0x04` (EOT). The transfer is
 complete; the bridge now owns delivery to the machine.
@@ -69,7 +69,7 @@ families of design work across every dialect:
    re-encodes the image as the machine's tape signal on a GPIO pin wired to the
    tape / EAR input (through a voltage divider to a safe level), and the user
    types the machine's load command first. The per-machine tape encodings are
-   the same ones the IDE's `.wav` export uses — fully specified in
+   the same ones the IDE's `.wav` export uses - fully specified in
    `docs/reference/file-formats.md` § Cassette audio (pulse counts/lengths, framing,
    block layout, checksums) for the ZX81/ZX80, Spectrum (and 128), BBC, C64,
    TRS-80 and Atom. The native image the bridge receives is exactly the input
@@ -80,15 +80,15 @@ families of design work across every dialect:
    pointers, skipping the tape path entirely. This is hardware-specific and not
    specified here. Examples per machine:
 
-   - **ZX81** — DMA to 0x4009 and patch NXTLIN (ZXpand-style).
-   - **ZX80** — DMA to 0x4000 and patch the system variables.
-   - **ZX Spectrum / 128** — load the `.TAP` program block to PROG and set
+   - **ZX81** - DMA to 0x4009 and patch NXTLIN (ZXpand-style).
+   - **ZX80** - DMA to 0x4000 and patch the system variables.
+   - **ZX Spectrum / 128** - load the `.TAP` program block to PROG and set
      PROG/VARS/E_LINE.
-   - **BBC Micro / Master** — copy the tokenized image to PAGE and set TOP.
-   - **Commodore 64** — copy past the 2-byte load address to $0801 and fix the
+   - **BBC Micro / Master** - copy the tokenized image to PAGE and set TOP.
+   - **Commodore 64** - copy past the 2-byte load address to $0801 and fix the
      BASIC link pointers / end-of-program (a `.prg`-style load).
-   - **TRS-80** — write the tokenized program to 0x42E8.
-   - **Acorn Atom** — write the `#2900` image to memory at #2900.
+   - **TRS-80** - write the tokenized program to 0x42E8.
+   - **Acorn Atom** - write the `#2900` image to memory at #2900.
 
 ### Per-dialect load commands and payloads
 

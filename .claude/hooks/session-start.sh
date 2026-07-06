@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SessionStart hook: make sure a fresh cloud/web checkout is ready to run tests,
-# typecheck, lint, and build. Idempotent and fast — installs only when something
+# typecheck, lint, and build. Idempotent and fast - installs only when something
 # declared in package.json is actually missing.
 set -euo pipefail
 
@@ -17,7 +17,7 @@ install_deps() {
 }
 
 # A cloud/web container can ship a *partial* node_modules snapshot, so "the
-# folder exists" isn't enough — list any declared dependency whose package
+# folder exists" isn't enough - list any declared dependency whose package
 # folder is absent and reconcile if there are any. (This is what previously let
 # @google/genai / openai / vite-plugin-pwa go missing despite node_modules being
 # present.)
@@ -35,8 +35,8 @@ missing=$(node -e '
 ')
 
 if [ -n "$missing" ]; then
-  echo "[session-start] Missing dependencies ($missing) — reconciling..."
+  echo "[session-start] Missing dependencies ($missing) - reconciling..."
   install_deps
 else
-  echo "[session-start] node_modules satisfies package.json — skipping install."
+  echo "[session-start] node_modules satisfies package.json - skipping install."
 fi

@@ -123,7 +123,7 @@ export async function saveTextFile(
       throw e;
     }
   }
-  // Download fallback (Firefox/Safari — no save picker): the browser can't
+  // Download fallback (Firefox/Safari - no save picker): the browser can't
   // report the chosen filename back, but the app must know it (tape headers,
   // the export dialog's save gate keys off `untitled.bas`). Mirror the
   // Chromium picker by asking each save; Enter keeps the suggested name.

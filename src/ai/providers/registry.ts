@@ -3,7 +3,7 @@ import type { AiProviderId, ProviderMeta } from './types';
 /**
  * SDK-free metadata for every selectable backend, in dropdown order. This module
  * deliberately imports no vendor SDK so it (and everything that reads provider
- * metadata — settings, the settings form, the AI panel) stays in the main
+ * metadata - settings, the settings form, the AI panel) stays in the main
  * bundle. The streaming implementations are code-split and loaded on demand by
  * `../aiClient`.
  */

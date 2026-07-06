@@ -6,7 +6,7 @@ import { onMounted, ref } from 'vue';
 const { Layout } = DefaultTheme;
 
 // The home page (index.md) drops `layout: home` so it gets the default `doc`
-// layout — and thus the sidebar — like every other page. We re-render its hero
+// layout - and thus the sidebar - like every other page. We re-render its hero
 // and features from frontmatter via the #doc-before slot below. These VitePress
 // components read `hero`/`features` from frontmatter themselves.
 const { frontmatter } = useData();

@@ -12,7 +12,7 @@ import type {
 
 /**
  * A conversation message as persisted. `incomplete` marks an assistant answer
- * that was still streaming when the page was closed/reloaded — it cannot be
+ * that was still streaming when the page was closed/reloaded - it cannot be
  * resumed (the streaming API isn't reconnectable), so it is kept as truncated.
  */
 export type PersistedMessage = ChatMessage & { incomplete?: boolean };
@@ -275,7 +275,7 @@ export function setControllerFireButtons(n: 1 | 2): void {
 
 /**
  * Preferred virtual-gamepad input mode, applied across all machines. Defaults to
- * 'keymapped' — the most widely compatible mode, since not every machine has a
+ * 'keymapped' - the most widely compatible mode, since not every machine has a
  * joystick port (e.g. the ZX80). Users can switch to a hardware joystick mode
  * ('native'/'kempston'), which falls back to 'keymapped' at the point of use on
  * machines that can't service it.
@@ -356,7 +356,7 @@ export function saveAutosave(name: string, text: string): void {
     localStorage.setItem(KEYS.autosaveDoc, text);
     localStorage.setItem(KEYS.autosaveName, name);
   } catch {
-    // quota exceeded — autosave is best-effort
+    // quota exceeded - autosave is best-effort
   }
 }
 
@@ -384,7 +384,7 @@ export function saveAiConversation(messages: PersistedMessage[]): void {
       localStorage.setItem(KEYS.aiConversation, JSON.stringify(messages));
     }
   } catch {
-    // quota exceeded — persistence is best-effort
+    // quota exceeded - persistence is best-effort
   }
 }
 

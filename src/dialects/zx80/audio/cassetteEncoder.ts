@@ -4,7 +4,7 @@
  * The ZX80 uses the same pulse scheme the ZX81 later inherited: each byte is
  * written MSB first, a '0' bit is 4 pulses and a '1' bit is 9 pulses, one pulse
  * being ~150µs high then ~150µs low, with a ~1300µs silence gap after each bit.
- * The crucial difference from the ZX81 is that the ZX80 has NO named files —
+ * The crucial difference from the ZX81 is that the ZX80 has NO named files -
  * the tape is just the raw `.O` memory image (the RAM dump from 0x4000), with
  * no program-name header.
  */

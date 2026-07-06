@@ -4,7 +4,7 @@ import { PROG_START } from './tokenizer';
  * The Model I Level II BASIC cassette (CSAVE) block, at the byte level. A real
  * tape carries: a long leader of 0x00 sync bytes, the 0xA5 sync byte that ends
  * the leader, the three-byte 0xD3 0xD3 0xD3 BASIC-file marker, a one-character
- * filename, then the tokenized program exactly as it sits from 0x42E8 — which
+ * filename, then the tokenized program exactly as it sits from 0x42E8 - which
  * already ends with its own 0x0000 link, so that doubles as the end marker.
  *
  * This module is the byte ↔ block layer; `audio/cassetteEncoder` renders these
@@ -80,7 +80,7 @@ export function isCasImage(image: Uint8Array): boolean {
 
 /**
  * Parse a Model I BASIC cassette image back into its filename and tokenized
- * program. Tolerates a leader of any length — including none, since the audio
+ * program. Tolerates a leader of any length - including none, since the audio
  * decoder hands over a leaderless block once it has locked onto the 0xA5 sync.
  */
 export function parseCasImage(image: Uint8Array): {

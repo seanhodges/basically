@@ -3,7 +3,7 @@ import { test, type Page } from './fixtures';
 /**
  * Capture the screenshots used by the docs site (docs/index.md) and the README.
  *
- * This is a utility "spec" — run it on demand to regenerate the images, not as
+ * This is a utility "spec" - run it on demand to regenerate the images, not as
  * part of the normal test suite (it's excluded from `npm run e2e` via
  * `testIgnore` in playwright.config.ts):
  *
@@ -13,7 +13,7 @@ import { test, type Page } from './fixtures';
  * docs/public/. The landing page and README reference these by name.
  *
  * The showcase machine is the Commodore 64 (colourful, and its Breakout sample
- * drives a joystick — a natural pairing for the virtual-gamepad mobile shot).
+ * drives a joystick - a natural pairing for the virtual-gamepad mobile shot).
  */
 
 // Utility spec: the screenshots only need generating once, so skip the
@@ -40,7 +40,7 @@ async function open(page: Page) {
 }
 
 /** Switch to a target machine via the toolbar's dialect selector. Safe while the
- *  document is still a pristine sample — it swaps in the same-named sample on the
+ *  document is still a pristine sample - it swaps in the same-named sample on the
  *  new machine without a confirm dialog. */
 async function useDialect(page: Page, label: string) {
   await page.locator('select.dialect-select').first().selectOption({ label });
@@ -107,7 +107,7 @@ async function openCompletionPopup(page: Page) {
  * Draw highlight boxes + leader-line labels over live UI so a doc figure can
  * point at each control. Injected as a fixed overlay measured from the real
  * element rects; `sel` is a CSS selector, `side` places the label, `maxW`/`maxH`
- * cap an over-large highlight (e.g. a full-height gutter). Purely visual — it
+ * cap an over-large highlight (e.g. a full-height gutter). Purely visual - it
  * never touches app state, so the popup/menu it annotates stay open.
  */
 type Anno = {
@@ -116,7 +116,7 @@ type Anno = {
   side: 'right' | 'left' | 'above' | 'below';
   maxW?: number;
   maxH?: number;
-  /** Shift the highlight down from the element's top — handy to point at a lower
+  /** Shift the highlight down from the element's top - handy to point at a lower
    *  slice of a tall element (e.g. the gutter) that another overlay covers. */
   yOffset?: number;
 };
@@ -218,7 +218,7 @@ async function annotate(page: Page, specs: Anno[]) {
   }, specs);
 }
 
-test('desktop hero — editor, emulator and keyboard', async ({ page }) => {
+test('desktop hero - editor, emulator and keyboard', async ({ page }) => {
   await open(page);
   await useDialect(page, DIALECT);
   await loadSample(page, DESKTOP_HERO_SAMPLE);
@@ -232,9 +232,9 @@ test('desktop hero — editor, emulator and keyboard', async ({ page }) => {
   await page.screenshot({ path: `${OUT}/screenshot.jpg` });
 });
 
-test('portrait mobile — emulator tab with gamepad', async ({ page }) => {
+test('portrait mobile - emulator tab with gamepad', async ({ page }) => {
   // Do the dialect switch, sample load, run and game-start while the desktop-only
-  // controls are available, then resize into the tabbed mobile layout — the
+  // controls are available, then resize into the tabbed mobile layout - the
   // emulator keeps running (mid-gameplay) across the resize.
   await open(page);
   await useDialect(page, DIALECT);
@@ -296,7 +296,7 @@ test('hardware transfer dialog', async ({ page }) => {
   await page.screenshot({ path: `${OUT}/feature-transfer.png` });
 });
 
-test('annotated editor features — desktop', async ({ page }) => {
+test('annotated editor features - desktop', async ({ page }) => {
   await open(page);
   await loadSample(page, 'Maze');
   await openCompletionPopup(page);
@@ -311,17 +311,17 @@ test('annotated editor features — desktop', async ({ page }) => {
   await annotate(page, [
     {
       sel: '.cm-tooltip-autocomplete',
-      text: 'Code completion — press Enter, or type “.” to accept the top match',
+      text: 'Code completion - press Enter, or type “.” to accept the top match',
       side: 'right',
     },
     {
       sel: '[class*="menuItems"]',
-      text: 'Edit menu — Renumber line and Outline',
+      text: 'Edit menu - Renumber line and Outline',
       side: 'right',
     },
     {
       sel: 'button[title^="Settings"]',
-      text: 'Settings — block completion, auto line-numbering, and more',
+      text: 'Settings - block completion, auto line-numbering, and more',
       side: 'below',
     },
   ]);
@@ -329,7 +329,7 @@ test('annotated editor features — desktop', async ({ page }) => {
   await page.screenshot({ path: `${OUT}/editor-features.png` });
 });
 
-test('annotated editor features — mobile', async ({ page }) => {
+test('annotated editor features - mobile', async ({ page }) => {
   // Load the sample at desktop size (the File menu's text label collapses to an
   // icon on mobile), then resize into the tabbed layout and open the editor tab.
   await open(page);
@@ -338,7 +338,7 @@ test('annotated editor features — mobile', async ({ page }) => {
   await page.getByRole('tab', { name: 'Editor' }).click();
   await openCompletionPopup(page);
   // Open the "three dots" overflow menu (which carries the Edit actions on the
-  // editor tab) without blurring the editor — see the desktop note above.
+  // editor tab) without blurring the editor - see the desktop note above.
   await page.getByTitle('Edit actions').dispatchEvent('click');
   await page
     .locator('[class*="menuItems"]')
@@ -347,12 +347,12 @@ test('annotated editor features — mobile', async ({ page }) => {
   await annotate(page, [
     {
       sel: '[class*="menuItems"]',
-      text: 'Overflow menu — Edit actions (Outline, Renumber line, Find)',
+      text: 'Overflow menu - Edit actions (Outline, Renumber line, Find)',
       side: 'below',
     },
     {
       sel: '.cm-tooltip-autocomplete',
-      text: 'Code completion — Enter or “.” accepts the top match',
+      text: 'Code completion - Enter or “.” accepts the top match',
       side: 'above',
     },
   ]);

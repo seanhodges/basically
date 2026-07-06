@@ -2,7 +2,7 @@ import { zx81Charset } from '../charset';
 import { decodeSinclairPulses } from '../../sinclairTape';
 
 /**
- * ZX81 cassette decoding — the inverse of {@link encodeCassette}.
+ * ZX81 cassette decoding - the inverse of {@link encodeCassette}.
  *
  * The byte-stream recovery (gating the signal into tone bursts and counting
  * carrier half-cycles) is shared with the ZX80 in {@link decodeSinclairPulses};

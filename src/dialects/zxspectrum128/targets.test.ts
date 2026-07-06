@@ -15,7 +15,7 @@ const normalize = (s: string) =>
     .join('\n');
 
 describe('zxspectrum128 cassette round-trip', () => {
-  // PLAY (0xA4) is a 128-only token the 48K tokenizer rejects — its presence
+  // PLAY (0xA4) is a 128-only token the 48K tokenizer rejects - its presence
   // here proves the audio path is driven by the 128 tokenizer/detokenizer.
   const src = '10 PLAY "C"\n20 PRINT "HELLO"\n30 GO TO 20\n';
 

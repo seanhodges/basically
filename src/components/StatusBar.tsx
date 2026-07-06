@@ -38,6 +38,7 @@ export function StatusBar() {
   const setControllerEnabled = useIdeStore((s) => s.setControllerEnabled);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const setVariableWatcher = useIdeStore((s) => s.setVariableWatcher);
+  const statusNotice = useIdeStore((s) => s.statusNotice);
   const isMobile = useMediaQuery(MOBILE_QUERY);
 
   const stats = useProgramStats();
@@ -83,6 +84,9 @@ export function StatusBar() {
       >
         emulator: {emulatorStatus}
       </span>
+      {statusNotice && (
+        <span className={styles.statusErrors}>{statusNotice}</span>
+      )}
     </>
   );
 

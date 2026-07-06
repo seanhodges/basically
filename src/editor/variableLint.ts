@@ -13,7 +13,7 @@
  *   Sinclair machines (ZX81, ZX Spectrum 48K/128K) require string variables
  *   (`A$`), arrays (`A(`) and FOR/NEXT control variables to be a single letter,
  *   while multi-letter *numeric* names (`BX`) are legal. The ZX80 and Acorn Atom
- *   are stricter — *every* variable is a single letter — selected with `strict`.
+ *   are stricter - *every* variable is a single letter - selected with `strict`.
  * - **Microsoft (C64 / TRS-80):** {@link microsoftVariableErrors}. Only the
  *   first two characters are significant, so two different long names that
  *   collapse to the same two chars clash; and a name embedding a reserved word
@@ -21,7 +21,7 @@
  *   spaces ("code crunching"), so the scanner runs in crunched mode: glued
  *   keywords are split ROM-style (`POKEA` is POKE + A, never a variable) and
  *   only a name with a keyword glued mid-run *where a variable is expected* is
- *   flagged — in expression position (`FORI=ATOB`) the split is silent, since
+ *   flagged - in expression position (`FORI=ATOB`) the split is silent, since
  *   it is indistinguishable from intentional crunch. The dialects differ only
  *   in their type-suffix characters (C64 `$%`, TRS-80 `$%!#`).
  *
@@ -276,7 +276,7 @@ function microsoftVariableErrors(
           .map((n) => `'${n}'`)
           .join(
             ', ',
-          )} — only the first two characters ('${key.slice(0, 2)}') are significant.`,
+          )} - only the first two characters ('${key.slice(0, 2)}') are significant.`,
       });
     }
   }

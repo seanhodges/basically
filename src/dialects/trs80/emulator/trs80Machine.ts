@@ -20,7 +20,7 @@ const KEYBOARD_END = 0x3bff;
  * fix these so RUN, LIST and the variable allocator see the right boundaries.
  *
  * NOTE: these addresses are best-effort and must be confirmed against the real
- * Level II ROM once it is supplied — this Z80 + ROM machine is the optional
+ * Level II ROM once it is supplied - this Z80 + ROM machine is the optional
  * accuracy mode (the default backend is the ROM-free interpreter), and its boot
  * test skips while the ROM is absent.
  */
@@ -31,7 +31,7 @@ const PTR_STREND = 0x40aa;
 
 /**
  * The TRS-80: a Z80, the 12K Level II BASIC ROM and RAM, with every
- * peripheral memory-mapped — the keyboard matrix at 0x3800 and the 64×16 video
+ * peripheral memory-mapped - the keyboard matrix at 0x3800 and the 64×16 video
  * RAM at 0x3C00. There is no NMI generator, no echoed-display trick and no SLOW
  * mode, which makes this the simplest of the project's Z80 buses: the CPU just
  * runs, polling the keyboard and writing characters straight to video RAM.
@@ -123,12 +123,12 @@ export class Trs80Machine implements MachineEmulator {
         return;
       }
     }
-    throw new Error('TRS-80 ROM did not boot to READY — emulator/ROM bug');
+    throw new Error('TRS-80 ROM did not boot to READY - emulator/ROM bug');
   }
 
   /**
    * Boot, poke the tokenized program at TXTTAB (0x42E8), fix the program-end
-   * pointers, then type RUN to start it — the authentic path a user would take.
+   * pointers, then type RUN to start it - the authentic path a user would take.
    * `image` is the bare program bytes (the same {@link tokenizeProgram} output).
    */
   loadProgram(image: Uint8Array): void {

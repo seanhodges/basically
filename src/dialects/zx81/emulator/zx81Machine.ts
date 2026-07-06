@@ -40,7 +40,7 @@ const MAX_BOOT_FRAMES = 600;
  *  - Keyboard matrix on IN (0xFE).
  *
  * Video is rendered as a per-frame D_FILE snapshot (see display.ts) rather
- * than cycle-exact scanline generation — correct for BASIC games.
+ * than cycle-exact scanline generation - correct for BASIC games.
  */
 export class Zx81Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
@@ -110,7 +110,7 @@ export class Zx81Machine implements MachineEmulator {
   private stepInstruction(): number {
     // Flash-load trap: when the ROM sits in its tape-read loop (0x0347),
     // drop the queued .P image into memory and continue at the SLOW/FAST
-    // routine — the same place a real tape LOAD hands control back to.
+    // routine - the same place a real tape LOAD hands control back to.
     // The interpreter's return address is on the stack at this point, so
     // it then runs the program via NXTLIN.
     if (this.pendingImage && this.cpu.getPC() === ROM_LOAD_TRAP) {
@@ -160,7 +160,7 @@ export class Zx81Machine implements MachineEmulator {
   /**
    * The BASIC line currently being executed, read from PPC. Returns null when
    * it isn't a valid program line (e.g. before a program has run). Note PPC
-   * holds the line being executed, not the next one — NXTLIN leads by a line
+   * holds the line being executed, not the next one - NXTLIN leads by a line
    * during execution, so PPC is the right signal for "where are we".
    */
   currentLine(): number | null {
@@ -208,7 +208,7 @@ export class Zx81Machine implements MachineEmulator {
       this.runFrame();
       if (frame >= 10 && this.hasKCursor()) return;
     }
-    throw new Error('ZX81 ROM did not boot — emulator bug');
+    throw new Error('ZX81 ROM did not boot - emulator bug');
   }
 
   /** Hold a key chord for a few frames, then release it. */
@@ -224,7 +224,7 @@ export class Zx81Machine implements MachineEmulator {
     this.bootToBasic();
     // Queue the image, then type LOAD "" on the emulated keyboard. When the
     // ROM reaches its tape-read loop the trap in runFrame() injects the
-    // image — the authentic load path, so the program starts exactly as it
+    // image - the authentic load path, so the program starts exactly as it
     // would from cassette (auto-running if NXTLIN points at line 1).
     this.pendingImage = image;
     this.tapKeys(['KeyJ']); // LOAD (keyword mode)

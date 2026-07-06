@@ -4,7 +4,7 @@ Basically is a **two-way bridge** between the IDE and the real machine. A
 program that works in the emulator can be **exported** to the real hardware,
 and a program that already lives on real hardware can be **imported** back into
 the editor. That means you can grab an old program off a real machine, edit and
-test it in the IDE, and export the updated version back — and if you'd rather
+test it in the IDE, and export the updated version back - and if you'd rather
 make your changes on the physical hardware, you can pull those back in too.
 
 <img src="/real-machine.png" alt="A program exported from Basically running on a real machine" width="50%" />
@@ -22,7 +22,7 @@ For machines that loaded from tape, Basically can synthesise the tape signal:
 
 1. Connect your device's headphone jack to the machine's **EAR** / aux socket
    and turn the volume up to maximum.
-2. On the machine, start a load — on the ZX81 that's `LOAD ""` (or the
+2. On the machine, start a load - on the ZX81 that's `LOAD ""` (or the
    equivalent for your machine).
 3. In the IDE choose **⇥ Hardware ▸ Play through speakers**, or download a
    `.wav` to play later.
@@ -40,9 +40,9 @@ The exact tape encoding for each machine is documented under
 
 ## Image files (SD interfaces)
 
-If your machine has an SD or disk interface, download the native image — for
+If your machine has an SD or disk interface, download the native image - for
 example the ZX81 `.P` file (for ZXpand and friends), a Spectrum `.TAP`, or a
-Commodore `.prg` — and copy it across. You can also import these images back
+Commodore `.prg` - and copy it across. You can also import these images back
 into the editor.
 
 See **[File formats](/reference/file-formats)** for the layout of each format.
@@ -51,7 +51,7 @@ See **[File formats](/reference/file-formats)** for the layout of each format.
 
 Any microcontroller (Arduino, Pi Pico, ESP32 …) running the bridge firmware can
 receive programs directly over **WebSerial** from Chrome or Edge. The IDE pushes
-the built image to the bridge, which then delivers it to the machine — either by
+the built image to the bridge, which then delivers it to the machine - either by
 re-encoding it as a tape signal on a GPIO pin, or (with bus access) by injecting
 it into RAM.
 

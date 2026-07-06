@@ -491,7 +491,7 @@
   aspect-ratio: var(--vk-aspect);
   /* Fill height, but clamp so the aspect-derived width stays within the space
      left of the strip (also covers near-square landscape). Width follows the
-     resolved height via aspect-ratio — no distortion. */
+     resolved height via aspect-ratio - no distortion. */
   height: min(
     100cqh,
     calc((100cqw - var(--vk-rows-reserve, 0px)) / var(--vk-aspect))
@@ -500,7 +500,7 @@
 
 /* Phone landscape: the overlay spans the full workspace and floats over the
    emulator (see Workspace.module.css), so grow the key block to fill up to 75% of
-   the workspace height or 95% of its width — whichever binds first (min() picks
+   the workspace height or 95% of its width - whichever binds first (min() picks
    it), aspect ratio preserved. */
 @media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
   .vk-landscape .vk-rows {
@@ -559,11 +559,11 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Portrait: vertical stack — the top strip stays above the keys (base flex
+   Portrait: vertical stack - the top strip stays above the keys (base flex
    column). On tablets (and larger) size the key block to fill the width while
    keeping its aspect and never exceeding the height left under the strip,
    centring any leftover height. Phones (≤768px, the codebase's mobile
-   breakpoint) keep the base flex-fill scaling — the aspect-fit sizing was only
+   breakpoint) keep the base flex-fill scaling - the aspect-fit sizing was only
    ever meant for the roomier tablet portrait, where it stops keys stretching;
    on a phone the keyboard already fills the full overlay width. */
 @media (min-width: 769px) {
@@ -587,7 +587,7 @@
 
 /* Landscape: drop the empty 1fr side gutters so the panel hugs strip + keys and
    the overlay centres the whole block (see Workspace.module.css). Strip stays
-   column 1, keys column 2 — now the two auto-sized columns. The landscape-phone
+   column 1, keys column 2 - now the two auto-sized columns. The landscape-phone
    condition is OR-ed in alongside the tablet width so a sideways phone (which
    can be wider or narrower than 769px) gets the same centred treatment as the
    overlay's matching float rule. */

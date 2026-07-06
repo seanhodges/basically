@@ -10,7 +10,7 @@ const CHARSET_ROM_OFFSET = 0x1e00;
  * Render the display file into an RGBA pixel buffer (256x192).
  * The D_FILE is walked row by row (rows terminated by NEWLINE/0x76);
  * glyph bitmaps come straight from the ROM character table at 0x1E00.
- * This is a frame snapshot — perfectly faithful for BASIC programs without
+ * This is a frame snapshot - perfectly faithful for BASIC programs without
  * cycle-exact video tricks.
  */
 export function renderDisplay(

@@ -37,8 +37,8 @@ function CodeIcon({ size = 16 }: { size?: number }) {
 /**
  * First-launch welcome modal. Shown once on a fresh browser (opened from
  * App.tsx after checking `getHasSeenWelcome`), then a persisted flag stops it
- * reappearing. Offers two large illustration cards — read the docs, or jump
- * straight into the editor — and notes the docs are reachable any time from the
+ * reappearing. Offers two large illustration cards - read the docs, or jump
+ * straight into the editor - and notes the docs are reachable any time from the
  * toolbar.
  */
 export function WelcomeDialog() {
@@ -66,7 +66,7 @@ export function WelcomeDialog() {
         <h2 id="welcome-title">Welcome to Basically</h2>
         <p>
           A browser-based IDE for classic microcomputer BASIC. Pick a starting
-          point — you can change your mind at any time.
+          point - you can change your mind at any time.
         </p>
 
         <div className={styles.cards}>

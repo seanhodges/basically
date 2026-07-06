@@ -7,11 +7,11 @@ import type { TapBlock } from '../tapfile';
  * holds the EAR line at one level for a number of Z80 T-states (1 T-state =
  * 1/3.5MHz); the next pulse flips it. A block is:
  *
- *   pilot tone  — many 2168 T pulses (8063 for a header, 3223 for data)
- *   sync        — one 667 T pulse then one 735 T pulse
- *   data        — each byte MSB-first; bit 0 = two 855 T pulses, bit 1 = two
+ *   pilot tone  - many 2168 T pulses (8063 for a header, 3223 for data)
+ *   sync        - one 667 T pulse then one 735 T pulse
+ *   data        - each byte MSB-first; bit 0 = two 855 T pulses, bit 1 = two
  *                 1710 T pulses (the flag byte and a parity byte bookend the
- *                 payload — already baked into {@link TapBlock.bytes})
+ *                 payload - already baked into {@link TapBlock.bytes})
  *
  * A short silent pause separates blocks and trails the recording. The two
  * blocks (header then data) come from {@link tapBlocks}, so the audio carries
@@ -87,7 +87,7 @@ export function encodeSpectrumTape(
       Math.round(end * samplesPerMicro),
     );
     micros = end;
-    level = -level; // every pulse flips the line — that's the square wave
+    level = -level; // every pulse flips the line - that's the square wave
   };
 
   const writeSilence = (durMicros: number) => {

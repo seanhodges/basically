@@ -10,7 +10,7 @@ describe('isOutside', () => {
 
   it('is inside when the root is in the event path', () => {
     // A click on the root itself, or on a descendant, both include the root in
-    // composedPath() — inside, so no dismissal.
+    // composedPath() - inside, so no dismissal.
     expect(isOutside([root], root)).toBe(false);
     expect(isOutside([child, root, ancestor], root)).toBe(false);
   });

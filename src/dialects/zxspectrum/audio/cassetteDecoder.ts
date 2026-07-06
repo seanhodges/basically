@@ -1,5 +1,5 @@
 /**
- * ZX Spectrum cassette decoding — the inverse of {@link encodeSpectrumTape}.
+ * ZX Spectrum cassette decoding - the inverse of {@link encodeSpectrumTape}.
  *
  * The signal is a square wave whose level flips on every "pulse"; each pulse
  * holds the EAR line for a number of Z80 T-states. A block is a pilot tone
@@ -104,7 +104,7 @@ function pulseDurations(samples: Float32Array, sampleRate: number): number[] {
   let prevKept = edges.length > 0 ? edges[0]! : 0;
   for (let i = 1; i < edges.length; i++) {
     const gap = edges[i]! - prevKept;
-    if (gap < minPulseSamples) continue; // ringing glitch — fold into the pulse
+    if (gap < minPulseSamples) continue; // ringing glitch - fold into the pulse
     pulses.push(gap);
     prevKept = edges[i]!;
   }
@@ -113,7 +113,7 @@ function pulseDurations(samples: Float32Array, sampleRate: number): number[] {
 
 /**
  * Estimate the pilot pulse length as the median of the longest run of pulses
- * that stay within ±20% of the run's first pulse — the pilot tone is by far the
+ * that stay within ±20% of the run's first pulse - the pilot tone is by far the
  * longest such constant run in any recording.
  */
 function estimatePilot(pulses: number[]): number | null {

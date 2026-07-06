@@ -3,16 +3,16 @@
  * Standard FSK).
  *
  * The Atom records at **300 baud**: a `0` bit is four cycles of 1200 Hz, a `1`
- * bit is eight cycles of 2400 Hz — so every bit lasts 1/300 s (four times slower
+ * bit is eight cycles of 2400 Hz - so every bit lasts 1/300 s (four times slower
  * than the BBC's 1200 baud, though the two tones are the same). Each byte is
  * framed 8N1: a start bit (`0`), eight data bits LSB-first, a stop bit (`1`). A
  * continuous 2400 Hz carrier tone leads in and separates blocks.
  *
  * A file is carried as a sequence of blocks of up to 256 data bytes. Each block
- * is four `*` (0x2A) synchronisation bytes, then a header — filename, a `0x0D`
+ * is four `*` (0x2A) synchronisation bytes, then a header - filename, a `0x0D`
  * terminator, a flag byte, the block number (two bytes, high first), the data
  * length minus one, the execution address and the load address (each two bytes,
- * high first) — followed by the data and a single checksum byte. The checksum is
+ * high first) - followed by the data and a single checksum byte. The checksum is
  * the sum, modulo 256, of every byte from the start of the header to the end of
  * the data. The flag byte's bit 7 is set on every block except the last, and
  * bit 6 is set when the block carries data.
@@ -58,7 +58,7 @@ function nameBytes(name: string): Uint8Array {
   return Uint8Array.from(cleaned, (c) => c.charCodeAt(0));
 }
 
-/** Sum (modulo 256) of a run of bytes — the Atom block checksum. */
+/** Sum (modulo 256) of a run of bytes - the Atom block checksum. */
 export function atomChecksum(bytes: ArrayLike<number>): number {
   let sum = 0;
   for (let i = 0; i < bytes.length; i++) sum = (sum + bytes[i]!) & 0xff;
@@ -191,7 +191,7 @@ export function buildAtomImage(source: string): Uint8Array {
   const { bytes, errors } = tokenizeProgram(source);
   if (errors.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) — fix them before building`,
+      `Program has ${errors.length} error(s) - fix them before building`,
     );
   }
   // A bare end marker (0x0D 0xFF) means the program is empty.

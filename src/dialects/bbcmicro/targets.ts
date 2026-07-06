@@ -14,7 +14,7 @@ export function buildBbcImage(source: string): Uint8Array {
   const { bytes, errors } = tokenizeProgram(source);
   if (errors.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) — fix them before building`,
+      `Program has ${errors.length} error(s) - fix them before building`,
     );
   }
   // A bare end marker (0x0D 0xFF) means the program is empty.

@@ -82,10 +82,10 @@ describe('KeyboardInputEngine', () => {
     engine.pointerDown('KeyH', 1);
     expect(machine.down.has('KeyH')).toBe(true);
     engine.pointerUp(1); // released before any frame ran
-    expect(machine.down.has('KeyH')).toBe(true); // still held — too young
+    expect(machine.down.has('KeyH')).toBe(true); // still held - too young
     frames(engine, 2);
     expect(machine.down.has('KeyH')).toBe(true);
-    frames(engine, 1); // 3rd frame — mature
+    frames(engine, 1); // 3rd frame - mature
     expect(machine.down.has('KeyH')).toBe(false);
   });
 
@@ -190,7 +190,7 @@ describe('KeyboardInputEngine', () => {
     engine.pointerDown('Shift', 1); // holds Shift
     engine.pointerDown('x-quote', 2); // emits Shift+KeyP
     frames(engine, 5);
-    engine.pointerUp(2); // quote key up — Shift still held by finger 1
+    engine.pointerUp(2); // quote key up - Shift still held by finger 1
     expect(machine.down.has('KeyP')).toBe(false);
     expect(machine.down.has('Shift')).toBe(true);
     engine.pointerUp(1);
@@ -208,7 +208,7 @@ describe('KeyboardInputEngine', () => {
     engine.pointerEnter(null, 1); // slid off all keys
     frames(engine, 5);
     expect(machine.down.has('KeyH')).toBe(false);
-    engine.pointerUp(1); // up outside any key — no-op, nothing stuck
+    engine.pointerUp(1); // up outside any key - no-op, nothing stuck
     expect(machine.down.size).toBe(0);
   });
 
@@ -265,7 +265,7 @@ describe('KeyboardInputEngine (editor target)', () => {
     engine.pointerDown('KeyP', 2);
     expect(presses).toEqual([{ keyId: 'KeyP', layerId: 'shift' }]);
     engine.pointerUp(2);
-    // No onFrame() ever ran — releases must not depend on emulator frames.
+    // No onFrame() ever ran - releases must not depend on emulator frames.
     expect(engine.getModifierState('shift')).toBe('off');
     expect(engine.getActiveLayer().id).toBe('main');
   });

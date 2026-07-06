@@ -16,7 +16,7 @@ export function buildCas(source: string, programName: string): Uint8Array {
   const { program, errors } = tokenizeProgram(source);
   if (errors.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) — fix them before building`,
+      `Program has ${errors.length} error(s) - fix them before building`,
     );
   }
   if (program.length <= 2) throw new Error('Program is empty');

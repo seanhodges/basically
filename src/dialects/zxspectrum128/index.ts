@@ -1,5 +1,5 @@
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
-// The 128K / +2 / +3 shares the entire 48K Spectrum language and tape layer —
+// The 128K / +2 / +3 shares the entire 48K Spectrum language and tape layer -
 // only memory paging, the dual ROM, the AY-3-8912 sound chip and the two extra
 // BASIC tokens (SPECTRUM, PLAY) differ. Identical pieces are re-exported from
 // ../zxspectrum (see charset.ts / tapfile.ts / keyboardLayout.ts) the way
@@ -26,7 +26,7 @@ import { spectrum128KeyboardLayout } from './keyboardLayout';
 import { spectrum128Samples } from './samples';
 
 /**
- * ZX Spectrum 128K / +2 / +3 (128 BASIC) — assembled but **not yet registered**
+ * ZX Spectrum 128K / +2 / +3 (128 BASIC) - assembled but **not yet registered**
  * in src/dialects/registry.ts. The tokenizer, emulator, samples and targets are
  * throwing stubs; each stage of docs/dialect-plans/zxspectrum128.md fills one
  * in. Registration is Stage 3, gated on the 32K 128K ROM under

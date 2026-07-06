@@ -56,7 +56,7 @@
   color: var(--accent);
 }
 
-/* Full value shown in the detail modal — wraps and scrolls (the modal shell
+/* Full value shown in the detail modal - wraps and scrolls (the modal shell
    caps height and scrolls) rather than truncating. */
 .modalValue {
   font-family: var(--mono, monospace);

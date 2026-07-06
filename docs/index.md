@@ -77,7 +77,7 @@ your program might use.
 
 ### Run it on the real machine
 
-Press **▶ Run** (or `Ctrl`+`Enter`) to run your program directly in the emulator the same way the real ROM would load from tape. The display and keyboard attempt to be hardware-accurate — just click the screen
+Press **▶ Run** (or `Ctrl`+`Enter`) to run your program directly in the emulator the same way the real ROM would load from tape. The display and keyboard attempt to be hardware-accurate - just click the screen
 and play.
 
 ![A BASIC game running in the built-in emulator](/feature-emulator.png)
@@ -97,10 +97,10 @@ can play the program out as cassette audio, save it to a native image file for
 an SD interface, or push it over WebSerial to a microcontroller bridge.
 
 The **Import** tools are the mirror image: pull a BASIC program _off_ the real
-machine — record its cassette output (or drop in a `.wav`) and let Basically
-decode it, or load a native image file (`.P` / `.TAP` / `.prg` …) — straight
+machine - record its cassette output (or drop in a `.wav`) and let Basically
+decode it, or load a native image file (`.P` / `.TAP` / `.prg` …) - straight
 back into the editor. So you can grab an old program from real hardware, edit
-and test it in the IDE, and export the updated version back to the machine —
+and test it in the IDE, and export the updated version back to the machine -
 and if you'd rather make your changes on the physical hardware, you can pull
 those back in too.
 
@@ -110,7 +110,7 @@ Note: WebSerial support is **experimental**, please use with care, and be sure t
 
 ## Getting started
 
-1. **[Open the IDE](https://ba.sical.ly/)** — nothing to install.
+1. **[Open the IDE](https://ba.sical.ly/)** - nothing to install.
 2. Pick **File** and under `SAMPLES` pick a demo or game, press **▶ Run** (or `Ctrl`+`Enter`).
 
 New here? The **[Getting started guide](/guide/getting-started)** walks through

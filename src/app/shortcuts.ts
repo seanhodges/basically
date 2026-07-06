@@ -68,7 +68,7 @@ export interface Shortcut {
   keys: Combo[];
   /** Only active while the current dialect is debuggable and paused. */
   debugOnly?: boolean;
-  /** Handled natively by the browser/CodeMirror/emulator — listed for display
+  /** Handled natively by the browser/CodeMirror/emulator - listed for display
    * only, never dispatched by the global handler. */
   native?: boolean;
 }

@@ -529,7 +529,7 @@ export const spectrumKeywords: KeywordInfo[] = [
     token: 0xf1,
     kind: 'command',
     signature: 'LET v=expr',
-    doc: 'Assignment — LET is mandatory.',
+    doc: 'Assignment - LET is mandatory.',
   },
   {
     word: 'PAUSE',

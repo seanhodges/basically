@@ -1,5 +1,5 @@
 /**
- * Acorn Atom `.atm` native binary format — the de-facto interchange format used
+ * Acorn Atom `.atm` native binary format - the de-facto interchange format used
  * by Atom emulators (Atomulator, AtoMMC) and the closest thing the Atom has to a
  * "native binary". An `.atm` file is a 22-byte header followed by the raw memory
  * image:

@@ -22,6 +22,6 @@ Every command, function and operator in Acorn Atom BASIC.
 > operators `&` (AND), `\` (OR) and `:` (XOR). It also has the functions/words
 > `LEN`, `COUNT`, `PTR`, `EXT` and `SGET`/`SPUT`. These are not yet handled by
 > this IDE's Atom dialect, so they are absent from the table below. (Atom BASIC
-> has no `DIV` or `MOD` — those are BBC BASIC.)
+> has no `DIV` or `MOD` - those are BBC BASIC.)
 
 <ReferenceTable :data="atomReference" />

@@ -45,7 +45,7 @@ export const zx80Reference: ReferenceTableData = {
       syntax: 'CODE(<string>)',
       tag: 'integral function',
       description:
-        "Returns the ZX80 character code of the first character of the string (0 for the empty string) — the machine's own codes, not ASCII. The inverse of CHR$.",
+        "Returns the ZX80 character code of the first character of the string (0 for the empty string) - the machine's own codes, not ASCII. The inverse of CHR$.",
     },
     {
       name: 'CHR$',
@@ -262,7 +262,7 @@ export const zx80Reference: ReferenceTableData = {
       kind: 'command',
       syntax: 'LET <var>=<expr>',
       description:
-        'Assigns a value to a variable. LET is mandatory on the ZX80 — assignment cannot be written without it.',
+        'Assigns a value to a variable. LET is mandatory on the ZX80 - assignment cannot be written without it.',
     },
     {
       name: 'NEXT',

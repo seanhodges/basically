@@ -33,7 +33,7 @@ describe('Atom cassette block layout', () => {
     expect(block[9]).toBe(0x00);
     // Data length minus one.
     expect(block[10]).toBe(data.length - 1);
-    // Exec (hi, lo) then load (hi, lo) — both #2900 for block 0.
+    // Exec (hi, lo) then load (hi, lo) - both #2900 for block 0.
     expect(Array.from(block.slice(11, 15))).toEqual([0x29, 0x00, 0x29, 0x00]);
     // Data, then a checksum over everything from the filename onward.
     expect(Array.from(block.slice(15, 19))).toEqual([1, 2, 3, 4]);

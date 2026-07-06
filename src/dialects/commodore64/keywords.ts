@@ -7,8 +7,8 @@ import type { KeywordInfo } from '../types';
  * that is part of the token ("TAB(", "SPC("); the editor view strips it (see
  * {@link c64Keywords}).
  *
- * The ROM tokenizes greedily and position-independently — `FORI=1TO5` becomes
- * FOR I =1 TO 5 — so the tokenizer matches the longest keyword at each point
+ * The ROM tokenizes greedily and position-independently - `FORI=1TO5` becomes
+ * FOR I =1 TO 5 - so the tokenizer matches the longest keyword at each point
  * (see {@link c64KeywordsByLength}); there is no BBC-style `conditional` flag.
  */
 export interface C64Keyword extends KeywordInfo {

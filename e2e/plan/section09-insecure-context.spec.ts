@@ -8,7 +8,7 @@ import {
 } from './helpers';
 
 /**
- * Test plan §9 — Insecure context (plain http over LAN), simulated.
+ * Test plan §9 - Insecure context (plain http over LAN), simulated.
  * (docs/contributing/cross-browser-test-plan.md)
  *
  * A dev server on localhost is always a secure context, so these tests

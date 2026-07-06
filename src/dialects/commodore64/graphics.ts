@@ -1,5 +1,5 @@
 /**
- * Commodore 64 keyboard block-graphics — the two PETSCII graphics printed on the
+ * Commodore 64 keyboard block-graphics - the two PETSCII graphics printed on the
  * front face of each letter key:
  *  - the **C= (Commodore) set** (left front face), and
  *  - the **SHIFT set** (right front face).

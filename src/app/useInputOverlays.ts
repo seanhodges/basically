@@ -6,7 +6,7 @@ import {
   LANDSCAPE_MOBILE_QUERY,
 } from './useMediaQuery';
 
-/** How long the editor keyboard lingers after the editor loses focus —
+/** How long the editor keyboard lingers after the editor loses focus -
     avoids flicker when focus briefly moves (toolbar taps, prompts). */
 export const EDITOR_KB_HIDE_DELAY_MS = 250;
 
@@ -57,7 +57,7 @@ export interface InputOverlays {
  * The gamepad and keyboard are independent: each has its own enabled flag
  * (`controllerEnabled`, `keyboardEnabled`). When both are enabled
  * and the emulator is the active surface the gamepad takes priority and the
- * keyboard yields — but its enabled flag is untouched, so disabling the gamepad
+ * keyboard yields - but its enabled flag is untouched, so disabling the gamepad
  * brings the keyboard straight back. Phone landscape keeps its own single-slot
  * behaviour (the flanking gamepad yields to the keyboard whenever its toggle is
  * on, ignoring `controllerEnabled`).

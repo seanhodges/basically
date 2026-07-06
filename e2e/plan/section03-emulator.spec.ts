@@ -8,16 +8,16 @@ import {
 } from './helpers';
 
 /**
- * Test plan §3 — Emulator, every dialect.
+ * Test plan §3 - Emulator, every dialect.
  * (docs/contributing/cross-browser-test-plan.md)
  *
  * 3.1 boots every machine's bundled sample and asserts the screen actually
  * painted (pixel-level check). 3.2 (sharpness), 3.4 (audible sound), 3.5
- * (pitch at speed) and 3.7 (background-tab recovery) need eyes/ears — manual.
+ * (pitch at speed) and 3.7 (background-tab recovery) need eyes/ears - manual.
  * 3.6 (debugger) is covered by e2e/debug.spec.ts.
  */
 
-/** Keep in sync with src/dialects/registry.ts — the guard test below fails
+/** Keep in sync with src/dialects/registry.ts - the guard test below fails
  *  with a helpful message when a machine is added or renamed. */
 const MACHINES = [
   'Acorn Atom',
@@ -40,12 +40,12 @@ test('3.1 guard: automated machine list matches the Target dropdown', async ({
     .allTextContents();
   expect(
     options.sort(),
-    'a machine was added/renamed — update MACHINES in section03-emulator.spec.ts',
+    'a machine was added/renamed - update MACHINES in section03-emulator.spec.ts',
   ).toEqual([...MACHINES].sort());
 });
 
 for (const machine of MACHINES) {
-  test(`3.1 sample boots, runs and paints — ${machine}`, async ({ page }) => {
+  test(`3.1 sample boots, runs and paints - ${machine}`, async ({ page }) => {
     test.setTimeout(120_000); // ROM boot + first frames can be slow in CI
     await openApp(page);
     await selectDialect(page, machine);

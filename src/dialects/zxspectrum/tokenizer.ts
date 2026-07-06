@@ -48,7 +48,7 @@ function tablesFor(keywords: KeywordInfo[]): KeywordTables {
 
 /**
  * Tokenize plain-text ZX Spectrum BASIC into the program-area byte layout:
- * per line — u16 BE line number, u16 LE length (of body + ENTER), tokenized
+ * per line - u16 BE line number, u16 LE length (of body + ENTER), tokenized
  * body, 0x0D. The `keywords` table defaults to the 48K set; the 128K dialect
  * passes its extended table (adding SPECTRUM/PLAY).
  */

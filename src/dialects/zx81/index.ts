@@ -68,7 +68,7 @@ export const zx81: Dialect = {
     buildSamples: (source, programName, robust) =>
       buildCassetteSamples(source, programName, robust),
     loadInstructions:
-      'On the ZX81 type LOAD "" — press J for LOAD, then shift-P twice for the quotes — and press NEW LINE before starting playback.',
+      'On the ZX81 type LOAD "" - press J for LOAD, then shift-P twice for the quotes - and press NEW LINE before starting playback.',
     decodeSamples: (samples, sampleRate) => {
       const { name, data } = decodeCassette(samples, sampleRate);
       return {
@@ -77,7 +77,7 @@ export const zx81: Dialect = {
       };
     },
     saveInstructions:
-      'On the ZX81 type SAVE "NAME" — press S, then shift-P twice for the quotes — and press NEW LINE; the tape tone plays from the MIC socket. Feed it into this device, then start listening.',
+      'On the ZX81 type SAVE "NAME" - press S, then shift-P twice for the quotes - and press NEW LINE; the tape tone plays from the MIC socket. Feed it into this device, then start listening.',
   },
 
   aiProfile: zx81AiProfile,

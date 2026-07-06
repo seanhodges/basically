@@ -140,7 +140,7 @@ interface IdeState {
   crtEffect: boolean;
   /**
    * Whether the on-screen keyboard is enabled. Persisted so the choice is
-   * preserved across runs. Independent of the game controller — when both are
+   * preserved across runs. Independent of the game controller - when both are
    * on the controller takes visual priority (see useInputOverlays).
    */
   keyboardEnabled: boolean;
@@ -189,7 +189,7 @@ interface IdeState {
    * Mirror of the editor's current main-selection text ('' when the selection
    * is empty). CodeMirror is the source of truth; pushed from CodeMirrorHost's
    * update listener. Read imperatively (not via a selector) so it never causes
-   * re-renders on cursor movement — e.g. the docs button uses it to open
+   * re-renders on cursor movement - e.g. the docs button uses it to open
    * context-aware help for the selected keyword.
    */
   editorSelection: string;
@@ -204,6 +204,11 @@ interface IdeState {
   splitRatio: number;
   aiPanelOpen: boolean;
   transferOpen: boolean;
+  /**
+   * The "Share link…" dialog (mints a player short URL). Named shareLink* -
+   * the Toolbar's `openShare` handler already means the Export/Transfer dialog.
+   */
+  shareLinkOpen: boolean;
   /** The emulator virtual-filesystem inspector dialog (Emulator files). */
   vfsInspectorOpen: boolean;
   importOpen: boolean;
@@ -222,6 +227,11 @@ interface IdeState {
   docsTopic: string | null;
   /** First-launch welcome modal (shown once, then persisted as dismissed). */
   welcomeOpen: boolean;
+  /**
+   * Transient notice shown in the status bar (e.g. a failed `?open=` shared
+   * program load). Null when there is nothing to report. Not persisted.
+   */
+  statusNotice: string | null;
   /**
    * Bump seq to ask the editor (CodeMirrorHost holds the EditorView) to move the
    * cursor to a BASIC line number and scroll it into view. Same shape as
@@ -260,6 +270,20 @@ interface IdeState {
     source: string;
     fileName: string;
   }): void;
+  /**
+   * Open a shared program in the IDE (the player's "See the Code" handover).
+   * Unlike {@link playerBoot} this IS a real dialect switch - the user is
+   * moving into the IDE, so persisting the choice is correct - but it bypasses
+   * the confirmation dialog by design: at boot the editor holds only autosave,
+   * and `dirty: false` keeps the autosave loop from clobbering the user's
+   * saved program until they edit the shared one (the same semantics as
+   * loading a sample).
+   */
+  openSharedInIde(args: {
+    dialectId: string;
+    source: string;
+    fileName: string;
+  }): void;
   /** Resolve a pending target switch: start fresh or keep the current code. */
   confirmDialectSwitch(mode: 'new' | 'keep'): void;
   /** Dismiss a pending target switch, leaving the current machine in place. */
@@ -293,7 +317,7 @@ interface IdeState {
   /** Turn the game-controller toggle on/off (persisted, independent state). */
   setControllerEnabled(on: boolean): void;
   /**
-   * Player-only ⌨ toggle: like {@link setKeyboardEnabled} but never persisted —
+   * Player-only ⌨ toggle: like {@link setKeyboardEnabled} but never persisted -
    * playing a shared program must not rewire the IDE's saved settings.
    */
   setKeyboardEnabledEphemeral(v: boolean): void;
@@ -326,6 +350,7 @@ interface IdeState {
   setLiveMemory(stats: MachineMemoryStats | null): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
+  setShareLinkOpen(open: boolean): void;
   setVfsInspectorOpen(open: boolean): void;
   setImportOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
@@ -334,6 +359,7 @@ interface IdeState {
   openSettings(tab: SettingsTab): void;
   setProcedureListOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
+  setStatusNotice(text: string | null): void;
   /** Open the docs drawer, optionally to a specific docs sub-path/topic. */
   openDocs(topic?: string): void;
   /** Close the docs drawer (leaves the last topic untouched). */
@@ -489,12 +515,14 @@ export const useIdeStore = create<IdeState>((set) => ({
   splitRatio: typeof localStorage !== 'undefined' ? getSplitRatio() : 0.5,
   aiPanelOpen: false,
   transferOpen: false,
+  shareLinkOpen: false,
   vfsInspectorOpen: false,
   importOpen: false,
   settingsOpen: false,
   settingsTab: 'editor',
   procedureListOpen: false,
   welcomeOpen: false,
+  statusNotice: null,
   docsDrawerOpen: false,
   docsTopic: null,
   jumpTarget: { lineNo: 0, seq: 0 },
@@ -544,7 +572,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     set((s) => {
       const next = getDialect(dialectId);
       // Not applyDialectSwitch: that persists the dialect choice and flips
-      // mobileTab to 'editor' on mobile — both wrong for the player.
+      // mobileTab to 'editor' on mobile - both wrong for the player.
       return {
         dialect: next,
         pendingDialectId: null,
@@ -563,6 +591,14 @@ export const useIdeStore = create<IdeState>((set) => ({
         mobileTab: 'preview' as MobileTab,
       };
     }),
+  openSharedInIde: ({ dialectId, source, fileName }) =>
+    set((s) => ({
+      // applyDialectSwitch so teardown / AI-reset / breakpoint semantics (and
+      // persisting the dialect) match a real target switch.
+      ...applyDialectSwitch(s, getDialect(dialectId), source),
+      fileName,
+      dirty: false,
+    })),
   confirmDialectSwitch: (mode) =>
     set((s) => {
       if (s.pendingDialectId === null) return {};
@@ -584,7 +620,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
       ...(fileName !== undefined ? { fileName } : {}),
-      // A named load (New/Open/Sample/Import) is a different program — clear the
+      // A named load (New/Open/Sample/Import) is a different program - clear the
       // AI thread and any breakpoints (their line numbers belong to the old
       // program). An in-place apply (AI Replace/Merge) passes no name and keeps both.
       ...(fileName !== undefined
@@ -701,6 +737,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   setLiveMemory: (stats) => set({ liveMemory: stats }),
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setTransferOpen: (open) => set({ transferOpen: open }),
+  setShareLinkOpen: (open) => set({ shareLinkOpen: open }),
   setVfsInspectorOpen: (open) => set({ vfsInspectorOpen: open }),
   setImportOpen: (open) => set({ importOpen: open }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
@@ -708,6 +745,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   openSettings: (tab) => set({ settingsOpen: true, settingsTab: tab }),
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
   setWelcomeOpen: (open) => set({ welcomeOpen: open }),
+  setStatusNotice: (text) => set({ statusNotice: text }),
   openDocs: (topic) => set({ docsDrawerOpen: true, docsTopic: topic ?? null }),
   closeDocs: () => set({ docsDrawerOpen: false }),
   requestJumpToLine: (lineNo) =>

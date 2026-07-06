@@ -76,7 +76,7 @@ export function TransferDialog() {
     const result = dialect.tokenize(source, { programName: baseName });
     if (result.errors.length > 0) {
       throw new Error(
-        `Program has ${result.errors.length} error(s) — fix them first`,
+        `Program has ${result.errors.length} error(s) - fix them first`,
       );
     }
     if (result.image.length === 0) throw new Error('Program is empty');
@@ -101,7 +101,7 @@ export function TransferDialog() {
       throw new Error(`${dialect.name} has no cassette audio support`);
     // Cassette playback drives the same speaker output as the run-time emulator
     // audio. If the emulator kept sounding, its output would mix into the tape
-    // tone and corrupt the loading routine — so stop it first (which also tears
+    // tone and corrupt the loading routine - so stop it first (which also tears
     // down its AudioContext via the EmulatorPane dispose wiring) and wait until
     // it confirms stopped before emitting the tone.
     if (useIdeStore.getState().emulatorStatus !== 'stopped') {
@@ -129,7 +129,7 @@ export function TransferDialog() {
       samplesToWav(samples, audio.sampleRate),
       `${baseName.toLowerCase()}.wav`,
     );
-    setStatus('.wav downloaded — play it into the machine at high volume.');
+    setStatus('.wav downloaded - play it into the machine at high volume.');
   });
 
   const stopAudio = () => {
@@ -154,7 +154,7 @@ export function TransferDialog() {
         {needsSave && (
           <div className={styles.transferGroup}>
             <p>
-              Save your program to a <code>.bas</code> file before exporting —
+              Save your program to a <code>.bas</code> file before exporting -
               the tape header name is taken from the filename.
             </p>
             <div className={`${dialog.modalActions} ${dialog.left}`}>

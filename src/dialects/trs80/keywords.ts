@@ -2,14 +2,14 @@ import type { KeywordInfo } from '../types';
 
 /**
  * The TRS-80 **Level II BASIC** keyword table. Level II is Microsoft
- * BASIC, so — unlike the later GW-/BASICA-style MS dialects that prefix function
- * tokens with 0xFF — every reserved word here is a **single byte** in the
+ * BASIC, so - unlike the later GW-/BASICA-style MS dialects that prefix function
+ * tokens with 0xFF - every reserved word here is a **single byte** in the
  * 0x80–0xFA range (the values the ROM stores and that LIST decodes). The table
  * runs in ROM order from END=0x80 to MID$=0xFA; the operators (+ - * / ↑ AND OR
  * > = <) and the loop/branch words (TO, THEN, STEP, NOT) are tokenized too, the
  * same way the C64 BASIC ROM tokenizes them.
  *
- * `?` is the LIST-time abbreviation for PRINT and `'` for REM — see
+ * `?` is the LIST-time abbreviation for PRINT and `'` for REM - see
  * {@link TRS80_ALIASES}; both fold onto the canonical token so a detokenize/LIST
  * shows the long form, exactly as the real ROM does.
  */
@@ -161,7 +161,7 @@ function makeKeyword(
 }
 
 /**
- * The canonical keywords — what highlighting, autocomplete and the LIST decode
+ * The canonical keywords - what highlighting, autocomplete and the LIST decode
  * (detokenizer) use. Aliases such as `?`/`'` are deliberately excluded so the
  * decode map keeps one spelling per token.
  */
@@ -187,7 +187,7 @@ export const TRS80_ALIASES: Trs80Keyword[] = [
 
 /**
  * Keywords (canonical + aliases) sorted longest-spelling first, for greedy
- * left-to-right matching — `DEFSTR` must beat `DEF`, `INPUT` must beat `INP`.
+ * left-to-right matching - `DEFSTR` must beat `DEF`, `INPUT` must beat `INP`.
  */
 export const trs80KeywordsByLength: Trs80Keyword[] = [
   ...trs80Keywords,

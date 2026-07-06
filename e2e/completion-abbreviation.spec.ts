@@ -54,7 +54,7 @@ test('"." with no popup open inserts a literal period', async ({ page }) => {
 /**
  * The same abbreviation must work from the in-IDE on-screen keyboard, which
  * inserts through `applyEditorAction` (a document dispatch) rather than a DOM
- * keydown — the physical-keyboard path never runs here. A mobile viewport puts
+ * keydown - the physical-keyboard path never runs here. A mobile viewport puts
  * the editor tab in charge so the keyboard routes into CodeMirror; the keyboard's
  * pointer handler preventDefaults, so tapping keycaps keeps the editor focused
  * (which the completion popup requires).
@@ -84,7 +84,7 @@ test('on-screen keyboard: "." accepts the top autocomplete suggestion', async ({
   await expect(popup).toBeVisible();
   await expect(popup).toContainText('PRINT');
 
-  // Tap "." — it accepts the suggestion and is consumed, not inserted.
+  // Tap "." - it accepts the suggestion and is consumed, not inserted.
   await vkKey(page, 'Period').click();
   const content = page.locator('.cm-content');
   await expect(content).toContainText('PRINT');

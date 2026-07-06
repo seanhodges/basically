@@ -1,6 +1,6 @@
 # Getting started
 
-Basically runs entirely in your browser — there is nothing to install to use it.
+Basically runs entirely in your browser - there is nothing to install to use it.
 Open the IDE at **[ba.sical.ly](https://ba.sical.ly/)** and you're ready to go.
 
 This guide walks through running your first program, then generating one with AI.
@@ -9,7 +9,7 @@ This guide walks through running your first program, then generating one with AI
 
 1. Open the IDE at **[ba.sical.ly](https://ba.sical.ly/)**.
 2. The toolbar's machine selector shows the active target (the **ZX81** by
-   default). Each machine has its own dialect and emulator — you can switch at
+   default). Each machine has its own dialect and emulator - you can switch at
    any time.
 3. Choose **File ▸ Samples ▸ Breakout** to load a bundled sample game into the
    editor.
@@ -28,7 +28,7 @@ keywords, autocompletes them (with documentation), and runs the tokenizer as you
 type so mistakes are underlined inline. A byte counter in the status bar shows
 how much of the machine's RAM your program uses.
 
-Each machine has its own BASIC rules — see **[Writing BASIC](/guide/writing-basic)**
+Each machine has its own BASIC rules - see **[Writing BASIC](/guide/writing-basic)**
 for the conventions and the per-machine notes.
 
 ## Generate code with AI
@@ -36,7 +36,7 @@ for the conventions and the per-machine notes.
 Basically can write BASIC for you with the Claude API:
 
 1. Click **✦ AI** to open the assistant panel.
-2. Add your Anthropic API key — create one at
+2. Add your Anthropic API key - create one at
    [platform.claude.com](https://platform.claude.com/). The key is stored only
    in your browser.
 3. Ask for what you want ("write a snake game", "add a high-score counter").
@@ -56,13 +56,13 @@ Basically can write BASIC for you with the Claude API:
 
 The link to the real machine runs **both ways**. When a program works in the
 emulator, you can export it to a real machine over cassette audio, a
-downloadable image file, or a serial bridge — and you can import a program back
+downloadable image file, or a serial bridge - and you can import a program back
 off the machine (by decoding its cassette output or loading its native image)
 to edit and test it in the IDE. See **[Running on real hardware](/guide/hardware)**.
 
 ## Install as an app
 
-Basically is an installable PWA — use your browser's _Install_ / _Add to Home
+Basically is an installable PWA - use your browser's _Install_ / _Add to Home
 Screen_ action to run it standalone on desktop or mobile.
 
 The app works almost entirely offline, so you can sit on a flight, train or mountain summit and tinker with that game you're working on at home. There are a couple of things to be aware of:
@@ -73,5 +73,5 @@ The app works almost entirely offline, so you can sit on a flight, train or moun
 ## Join the community
 
 Got stuck, or made something you want to show off? Join the Basically
-**[Discord](/guide/community)** — it's the quickest way to get help, share your
+**[Discord](/guide/community)** - it's the quickest way to get help, share your
 programs, and follow what's coming next.

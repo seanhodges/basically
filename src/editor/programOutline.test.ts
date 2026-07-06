@@ -47,7 +47,7 @@ describe('outlineCapabilities', () => {
   });
 });
 
-describe('buildOutline — named definitions', () => {
+describe('buildOutline - named definitions', () => {
   it('titles procedures and functions by their name', () => {
     const src = ['10 DEF PROCdraw', '20 ENDPROC', '30 DEF FNsq(x)=x*x'].join(
       '\n',
@@ -68,7 +68,7 @@ describe('buildOutline — named definitions', () => {
   });
 });
 
-describe('buildOutline — GOSUB/GOTO targets (destinations only)', () => {
+describe('buildOutline - GOSUB/GOTO targets (destinations only)', () => {
   it('lists the target line, deduped, not the call sites', () => {
     const src = [
       '10 GOSUB 100',
@@ -103,7 +103,7 @@ describe('buildOutline — GOSUB/GOTO targets (destinations only)', () => {
   });
 });
 
-describe('buildOutline — target titles', () => {
+describe('buildOutline - target titles', () => {
   const sub = (src: string) => section(src, sinclair, 'subroutine')?.items[0];
 
   it('prefers a REM on the target line', () => {
@@ -135,7 +135,7 @@ describe('buildOutline — target titles', () => {
   });
 });
 
-describe('buildOutline — false positives', () => {
+describe('buildOutline - false positives', () => {
   it('ignores GOTO/GOSUB inside strings and after REM', () => {
     const src = [
       '10 PRINT "GOTO 99"',

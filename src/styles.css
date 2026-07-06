@@ -146,7 +146,7 @@ code {
    These float over the editor with a light background but no text colour, so
    they inherit the app's light --text and render light-on-light (unreadable).
    CodeMirror's own rule is `&light .cm-tooltip` (specificity 0,2,0, injected at
-   runtime), which outweighs a bare `.cm-tooltip` and equal-specificity rules —
+   runtime), which outweighs a bare `.cm-tooltip` and equal-specificity rules -
    so the background/border overrides need !important to win. */
 .cm-tooltip {
   background: var(--bg-panel) !important;

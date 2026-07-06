@@ -60,10 +60,10 @@ function streamChat(
 function describeError(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 401 || err.status === 403) {
-      return 'Invalid API key — check it in AI settings.';
+      return 'Invalid API key - check it in AI settings.';
     }
     if (err.status === 429) {
-      return 'Rate limited by the Gemini API — wait a moment and try again.';
+      return 'Rate limited by the Gemini API - wait a moment and try again.';
     }
     return `Gemini API error ${err.status ?? ''}: ${err.message}`;
   }

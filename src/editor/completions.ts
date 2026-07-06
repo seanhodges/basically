@@ -42,7 +42,7 @@ export const fullCompletion = Facet.define<boolean, boolean>({
 
 /**
  * True when the cursor sits inside a string literal (an odd number of quotes
- * precede it on the line) — completions should be suppressed there. Shared with
+ * precede it on the line) - completions should be suppressed there. Shared with
  * the document-scanning variable source in {@link ./variables}.
  */
 export function isInsideString(context: CompletionContext): boolean {
@@ -80,7 +80,7 @@ function makeConstructApply(tmpl: ConstructTemplate) {
     const physical = doc.toString().split('\n');
     const plan = planConstructNumbering(physical, idx, cfg.increment, extra);
     if (!plan) {
-      // No room to number the block — insert just the keyword.
+      // No room to number the block - insert just the keyword.
       view.dispatch({
         changes: { from, to, insert: tmpl.label },
         selection: { anchor: from + tmpl.label.length },
@@ -147,7 +147,7 @@ export function buildCompletionSource(
 
   const alphabeticKeywords = keywords.filter((k) => /^[A-Z]/.test(k.word));
 
-  // Plain (keyword-only) options — the fallback when full completion is off.
+  // Plain (keyword-only) options - the fallback when full completion is off.
   const plainOptions: Completion[] = alphabeticKeywords.map(toKeywordOption);
 
   const constructOptions: Completion[] = constructs.map((c) => ({
@@ -159,7 +159,7 @@ export function buildCompletionSource(
     apply: makeConstructApply(c),
   }));
 
-  // Full options — block constructs plus the keywords they don't supersede.
+  // Full options - block constructs plus the keywords they don't supersede.
   const fullOptions: Completion[] = [
     ...constructOptions,
     ...alphabeticKeywords
@@ -190,7 +190,7 @@ export function buildCompletionSource(
     let validFor: CompletionResult['validFor'] = wordCharsRe;
     if (crunch && word) {
       // Crunched dialects: when no keyword matches the whole run, its head is
-      // glued keyword(s) (`POKEA`, `THENPR`) — re-anchor to the last ROM
+      // glued keyword(s) (`POKEA`, `THENPR`) - re-anchor to the last ROM
       // segment so the tail completes. When the typed tail itself grows a
       // glued keyword, validFor fails and CodeMirror re-queries (re-anchors).
       const upper = word.text.toUpperCase();

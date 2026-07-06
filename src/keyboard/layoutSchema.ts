@@ -31,8 +31,8 @@ export interface KeyboardLayout {
   editorModes?: EditorModeDef[];
   /**
    * Machine function keys (e.g. the C64's f1/f3/f5/f7, the BBC's f0–f9) shown
-   * in the top strip when the machine has no extra typing layers, or — when
-   * `editorModes` are also present — behind an icon toggle that flips the strip
+   * in the top strip when the machine has no extra typing layers, or - when
+   * `editorModes` are also present - behind an icon toggle that flips the strip
    * between its mode tabs and these keys. Each entry is an ordinary key whose
    * `emits` tokens drive the matrix; they have no editor action.
    */
@@ -52,7 +52,7 @@ export interface KeyboardLayout {
    * a KeyDef id in this layout: the key's `emits` drive the matrix and its
    * base-layer label is printed on the control (in key-mapped mode). The number
    * of fire buttons and D-pad directions shown is a global user setting, not a
-   * per-machine default. Optional — when absent the controller derives a
+   * per-machine default. Optional - when absent the controller derives a
    * WASD/Space fallback (see controllerConfig).
    */
   controller?: ControllerConfig;
@@ -157,7 +157,7 @@ export interface ModifierDef {
 }
 
 /**
- * Glyphs are constrained path data rendered into <svg><path/></svg> — never
+ * Glyphs are constrained path data rendered into <svg><path/></svg> - never
  * innerHTML of arbitrary SVG strings, so community layouts can't inject
  * markup. Paths default to fill: currentColor to inherit theme colours.
  */

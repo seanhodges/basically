@@ -8,7 +8,7 @@
  * white-screens on startup in those browsers.
  *
  * If storage is inaccessible, an in-memory stand-in is installed in its place:
- * everything works for the session, nothing persists across reloads — the same
+ * everything works for the session, nothing persists across reloads - the same
  * graceful degradation the app already has for other optional platform APIs.
  */
 

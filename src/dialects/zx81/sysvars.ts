@@ -24,7 +24,7 @@ export const RAMTOP = 0x4004;
 /**
  * PPC (0x4007) holds the line number of the BASIC statement currently being
  * executed. Like ERR_NR it sits below SYSVARS_BASE, so it isn't part of the
- * saved .P image, but it is live in RAM while a program runs — the debugger
+ * saved .P image, but it is live in RAM while a program runs - the debugger
  * reads it to know which line execution is on.
  */
 export const PPC = 0x4007;

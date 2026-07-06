@@ -3,7 +3,7 @@
  * Standard FSK).
  *
  * Bytes are carried by FSK at 1200 baud: a `0` bit is one cycle of 1200 Hz, a
- * `1` bit is two cycles of 2400 Hz — so every bit lasts 1/1200 s. Each byte is
+ * `1` bit is two cycles of 2400 Hz - so every bit lasts 1/1200 s. Each byte is
  * framed 8N1: a start bit (`0`), eight data bits LSB-first, a stop bit (`1`). A
  * continuous 2400 Hz carrier tone leads in and separates blocks.
  *
@@ -36,7 +36,7 @@ export interface BbcTapeOptions {
   trailerMs?: number; // default 500
 }
 
-/** CRC-16/CCITT (poly 0x1021, init 0x0000), MSB-first — the BBC tape CRC. */
+/** CRC-16/CCITT (poly 0x1021, init 0x0000), MSB-first - the BBC tape CRC. */
 export function crc16(data: Uint8Array): number {
   let crc = 0;
   for (const byte of data) {

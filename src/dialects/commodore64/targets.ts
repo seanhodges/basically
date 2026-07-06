@@ -15,7 +15,7 @@ export function buildPrg(source: string): Uint8Array {
   const { program, errors } = tokenizeProgram(source);
   if (errors.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) — fix them before building`,
+      `Program has ${errors.length} error(s) - fix them before building`,
     );
   }
   // A bare 0x0000 end link means the program is empty.

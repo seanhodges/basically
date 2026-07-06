@@ -1,6 +1,6 @@
 # Dialect implementation plans
 
-Generated, per-dialect staged plans — one file per target id (e.g.
+Generated, per-dialect staged plans - one file per target id (e.g.
 `bbcmaster.md`). Each is produced by the `adding-a-target-system` skill, which
 audits the existing dialects to derive the current "feature complete" baseline,
 then writes a dependency-ordered, multi-stage plan to make a new (or half-built)

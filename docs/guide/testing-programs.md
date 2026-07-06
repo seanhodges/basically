@@ -18,8 +18,8 @@ If the program still has mistakes, it won't run: the emulator reports
 type), and an empty program reports **Program is empty**. Fix the highlighted
 lines and press Play again.
 
-The status bar shows the emulator state — **stopped**, **running**, or
-**paused** — alongside the byte budget.
+The status bar shows the emulator state - **stopped**, **running**, or
+**paused** - alongside the byte budget.
 
 To stop, press **■ Stop**. This is a full power-off, not a pause: the machine is
 shut down and the screen blanks, so the next run starts clean.
@@ -31,7 +31,7 @@ top: **Editor**, **Run**, **AI**, and **Settings**. The editor and the emulator
 each get the full screen in turn rather than sitting side by side.
 
 While the **Editor** tab is open, a floating **▶** play button sits in the
-bottom corner of the editor — its tooltip reads **Build and run in the
+bottom corner of the editor - its tooltip reads **Build and run in the
 emulator**. Tapping it builds the program and automatically switches you to the
 **Run** tab so you see the result straight away. (The **Run** tab on its own just
 shows the emulator; the floating button is what actually builds and starts it.)
@@ -46,7 +46,7 @@ from the status bar.
 
 Press the **⌨** button in the status bar to show or hide the on-screen keyboard.
 It reproduces the target machine's real key legends, including its shift/mode
-keys, and sends keystrokes to whichever surface is active — into the editor while
+keys, and sends keystrokes to whichever surface is active - into the editor while
 you're editing, or into the running program when the emulator is in front.
 
 A few options under **Settings ▸ Keyboard** tune it:
@@ -69,7 +69,7 @@ instead). Under **Settings ▸ Gamepad** you can choose the **layout** (4- or
 8-way, one or two fire buttons) and the **input mode**:
 
 - **Native Interface** / **Kempston** drive the machine's real joystick hardware.
-  This is available on the machines that have such hardware — the Commodore 64,
+  This is available on the machines that have such hardware - the Commodore 64,
   the BBC Micro and Master, and the ZX Spectrum family (which also supports
   Kempston).
 - **Key mapped** presses machine keys instead, so the controller works on any
@@ -82,7 +82,7 @@ and falls back to Key mapped for that machine.
 ## Debugging with breakpoints
 
 Debugging lets you halt a running program on a chosen line and inspect what it's
-doing. It's available on the machines that support step debugging — for those,
+doing. It's available on the machines that support step debugging - for those,
 the Step and Continue controls described below appear.
 
 To set a **breakpoint**, click the gutter to the left of a line: a blue dot
@@ -96,8 +96,8 @@ Now run the program as usual. When execution reaches a breakpointed line it
 emulator shows **paused at line N**. From a paused state you have two controls in
 the toolbar:
 
-- **⤵ Step** — run to the next BASIC line.
-- **▶ Continue** — carry on until the next breakpoint (or the program ends).
+- **⤵ Step** - run to the next BASIC line.
+- **▶ Continue** - carry on until the next breakpoint (or the program ends).
 
 **■ Stop** ends the debug session entirely. Both Step and Continue are only
 active while the program is paused.
@@ -132,7 +132,7 @@ Open it from **File ▸ Emulator files** (shortcut **Ctrl/Cmd + Alt + F**). The
 dialog lists every file the running program has saved to tape, disk, or the
 network, with its **Name**, **Kind** (a dialect-specific tag such as `code`,
 `data`, or `data-str`), **Size**, and the time it was saved. Click a row to
-expand a **hex dump** of its contents — the quickest way to check that a record
+expand a **hex dump** of its contents - the quickest way to check that a record
 was written the way you expected. Each row also has a **Download** button that
 saves the raw bytes to your computer for inspection in another tool.
 
@@ -141,4 +141,4 @@ each run starts with an empty filesystem. The files live only in the browser for
 current session; if you want to keep one, use the **Download** button before restarting.
 
 When your program runs the way you want, see **[Running on real
-hardware](/guide/hardware)** to get it onto — or off — an actual machine.
+hardware](/guide/hardware)** to get it onto - or off - an actual machine.

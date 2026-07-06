@@ -9,7 +9,7 @@ import { test, expect, type Page } from './fixtures';
  *     lands at the *top* of the editor viewport (not merely scrolled barely
  *     into view at the bottom edge).
  *
- * These also double as a smoke harness for future manual inspections — run
+ * These also double as a smoke harness for future manual inspections - run
  * with `npm run e2e:headed` to watch, or open the screenshots written below.
  */
 
@@ -67,7 +67,7 @@ test('jumping to an outline entry scrolls the target line to the top', async ({
   await open(page);
 
   // A program tall enough that a mid-document line has a full viewport of lines
-  // below it — so a correct "scroll to top" can actually park line 300 at the
+  // below it - so a correct "scroll to top" can actually park line 300 at the
   // very top (not be capped by the document end, as a short program would be).
   const lines: string[] = [];
   for (let n = 10; n <= 800; n += 10) {
@@ -103,7 +103,7 @@ test('jumping to an outline entry scrolls the target line to the top', async ({
   expect(lineBox).not.toBeNull();
 
   // The target line's top should be within ~1.5 line-heights of the scroller's
-  // top edge — i.e. parked at the top, not floating in the middle/bottom.
+  // top edge - i.e. parked at the top, not floating in the middle/bottom.
   const offsetFromTop = lineBox!.y - scrollerBox!.y;
   expect(offsetFromTop).toBeGreaterThanOrEqual(0);
   expect(offsetFromTop).toBeLessThan(36);

@@ -3,8 +3,8 @@ import type { KeyDef } from './layoutSchema';
 /**
  * Shared building blocks for the standard virtual-keyboard template.
  *
- * Every dialect's keyboard is the same five bands — a top strip (mode tabs or
- * function keys), a number row, three QWERTY rows, and a common bottom row — on
+ * Every dialect's keyboard is the same five bands - a top strip (mode tabs or
+ * function keys), a number row, three QWERTY rows, and a common bottom row - on
  * a uniform grid. Legends and matrix tokens differ per machine, so a layout
  * still authors its own keys; these helpers fix the grid geometry and assemble
  * the common bottom row so the proportions stay identical across machines.

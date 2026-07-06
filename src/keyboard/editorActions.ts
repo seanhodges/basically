@@ -2,14 +2,14 @@ import type { EditorKeyAction, KeyDef, KeyboardLayout } from './layoutSchema';
 
 /**
  * Resolve what a key does when the keyboard targets the text editor, on the
- * given layer. Pure data lookup — all machine specifics live in the layout.
+ * given layer. Pure data lookup - all machine specifics live in the layout.
  *
  * Resolution order:
  *  1. modifier keys never produce editor actions (the engine handles them);
  *  2. an explicit KeyLabel.editor wins (null = forced no-op);
  *  3. a text label on a layer with editorInsertStyle derives an insert
  *     ('char' = verbatim, 'word' = text + trailing space);
- *  4. glyph-only labels have no default — glyph inserts must be explicit;
+ *  4. glyph-only labels have no default - glyph inserts must be explicit;
  *  5. otherwise fall back to the base layer (so digits, SPACE, NEW LINE…
  *     keep working in keyword/function/graphics modes, like the real ZX81).
  */

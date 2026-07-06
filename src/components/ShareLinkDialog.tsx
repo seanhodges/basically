@@ -1,0 +1,205 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Sean Hodges
+
+// The IDE's "Share link…" flow (standalone-player-plan Stage 5): mint a short
+// player URL for the current program via the share API. Everything here is
+// named shareLink* - the Toolbar's existing `openShare` handler means the
+// Export/Transfer dialog, not this.
+
+import { useEffect, useState } from 'react';
+import { useIdeStore } from '../app/store';
+import { getDialect } from '../dialects/registry';
+import { computeCompatibleDialects } from '../share/compatibility';
+import { createShare, ShareApiError } from '../share/shareClient';
+import { playerPathFor } from '../player/routes';
+import dialog from './Dialog.module.css';
+import styles from './ShareLinkDialog.module.css';
+
+type Phase = 'blocked' | 'creating' | 'done' | 'error';
+
+/** A user-facing message (and whether retrying can help) for a create failure. */
+function describeCreateError(e: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  if (e instanceof ShareApiError) {
+    switch (e.kind) {
+      case 'unconfigured':
+        return {
+          message:
+            'This site has no share service configured, so share links cannot be created.',
+          retryable: false,
+        };
+      case 'too-large':
+        return {
+          message:
+            'This program is too large to share - the share service caps programs at 64 KiB.',
+          retryable: false,
+        };
+      case 'rate-limited':
+        return {
+          message: 'The share service is busy - try again in a moment.',
+          retryable: true,
+        };
+      case 'network':
+        return {
+          message:
+            'Could not reach the share service. Check your connection and retry.',
+          retryable: true,
+        };
+      default:
+        return {
+          message: 'The share service returned an unexpected error.',
+          retryable: true,
+        };
+    }
+  }
+  return {
+    message: e instanceof Error ? e.message : String(e),
+    retryable: true,
+  };
+}
+
+export function ShareLinkDialog() {
+  const open = useIdeStore((s) => s.shareLinkOpen);
+  const setOpen = useIdeStore((s) => s.setShareLinkOpen);
+  const dialect = useIdeStore((s) => s.dialect);
+
+  const [phase, setPhase] = useState<Phase>('creating');
+  const [blockedReason, setBlockedReason] = useState('');
+  const [error, setError] = useState<{
+    message: string;
+    retryable: boolean;
+  } | null>(null);
+  const [result, setResult] = useState<{
+    url: string;
+    compatible: string[];
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [retrySeq, setRetrySeq] = useState(0);
+
+  // Mint on open. The document can't change while the modal is up, so the
+  // store is read once here rather than subscribed to.
+  useEffect(() => {
+    if (!open) return;
+    setCopied(false);
+    setError(null);
+    setResult(null);
+    const { dialect, source, fileName } = useIdeStore.getState();
+    if (!navigator.onLine) {
+      setBlockedReason(
+        'You appear to be offline. Reconnect to create a share link.',
+      );
+      setPhase('blocked');
+      return;
+    }
+    const errorCount = dialect.tokenize(source).errors.length;
+    if (errorCount > 0) {
+      setBlockedReason(
+        `This program has ${errorCount} error${errorCount > 1 ? 's' : ''} - ` +
+          'fix them in the editor before sharing, so the link points at a program that runs.',
+      );
+      setPhase('blocked');
+      return;
+    }
+    setPhase('creating');
+    let cancelled = false;
+    (async () => {
+      try {
+        const compatible = computeCompatibleDialects(source);
+        const { id } = await createShare({
+          dialectId: dialect.id,
+          compatibleDialects: compatible,
+          name: fileName,
+          source,
+        });
+        if (cancelled) return;
+        setResult({
+          url: location.origin + playerPathFor(dialect.id, id),
+          compatible,
+        });
+        setPhase('done');
+      } catch (e) {
+        if (cancelled) return;
+        setError(describeCreateError(e));
+        setPhase('error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, retrySeq]);
+
+  if (!open) return null;
+
+  const close = () => setOpen(false);
+  const retry = () => setRetrySeq((n) => n + 1);
+
+  const copyLink = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(result.url).then(
+      () => setCopied(true),
+      () => undefined,
+    );
+  };
+
+  // The native share sheet, where the platform has one (mostly mobile).
+  const canShareNative =
+    typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const shareNative = () => {
+    if (!result) return;
+    const { fileName } = useIdeStore.getState();
+    navigator.share({ title: fileName, url: result.url }).catch(() => {});
+  };
+
+  const compatibleNames = (result?.compatible ?? []).map(
+    (id) => getDialect(id).name,
+  );
+
+  return (
+    <div className={dialog.modalBackdrop} onClick={close}>
+      <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
+        <h2>Share link</h2>
+
+        {phase === 'blocked' && <p>{blockedReason}</p>}
+
+        {phase === 'creating' && <p>Creating share link…</p>}
+
+        {phase === 'error' && error && (
+          <>
+            <p className={styles.error}>{error.message}</p>
+            {error.retryable && (
+              <div className={`${dialog.modalActions} ${dialog.left}`}>
+                <button onClick={retry}>Retry</button>
+              </div>
+            )}
+          </>
+        )}
+
+        {phase === 'done' && result && (
+          <>
+            <p>Anyone can play this program - and view its code - at:</p>
+            <div className={styles.urlRow}>
+              <input
+                className={styles.url}
+                readOnly
+                value={result.url}
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <button onClick={copyLink}>{copied ? 'Copied ✓' : 'Copy'}</button>
+              {canShareNative && <button onClick={shareNative}>Share…</button>}
+            </div>
+            <p>
+              Compatible with: <strong>{compatibleNames.join(', ')}</strong>.
+              The link opens on the {dialect.name}.
+            </p>
+          </>
+        )}
+
+        <div className={dialog.modalActions}>
+          <button onClick={close}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}

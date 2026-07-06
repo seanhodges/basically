@@ -56,7 +56,7 @@ describe('zx80 keyboard layout editor mapping', () => {
   it('keyword inserts end in a space', () => {
     const layerIdx = layout.layers.findIndex((l) => l.id === 'keyword');
     for (const key of allKeys) {
-      if (!key.labels[layerIdx]) continue; // falls back to main — not a word
+      if (!key.labels[layerIdx]) continue; // falls back to main - not a word
       const action = resolveEditorAction(layout, key, 'keyword');
       expect(action, `${key.id} on keyword layer`).not.toBeNull();
       if (action && 'insert' in action) {
@@ -93,7 +93,7 @@ describe('zx80 keyboard layout editor mapping', () => {
     expect(resolveEditorAction(layout, byId.get('Digit1')!, 'shift')).toEqual({
       insert: 'NOT ',
     });
-    // '−' on the key legend is U+2212 — the editor must get an ASCII hyphen.
+    // '−' on the key legend is U+2212 - the editor must get an ASCII hyphen.
     expect(resolveEditorAction(layout, byId.get('KeyJ')!, 'shift')).toEqual({
       insert: '-',
     });

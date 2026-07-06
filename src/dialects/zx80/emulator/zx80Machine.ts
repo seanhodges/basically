@@ -37,7 +37,7 @@ const EDIT_CURSOR = 0xb0;
  *    clear execute as NOP (the ROM "executes" the display file this way).
  *  - The maskable interrupt wired to A6 of the refresh address: fires when the
  *    R register's bit 6 goes low while interrupts are enabled.
- *  - Keyboard matrix on IN (0xFE) — identical to the ZX81, so the ZX81's
+ *  - Keyboard matrix on IN (0xFE) - identical to the ZX81, so the ZX81's
  *    keyboard implementation is reused directly.
  *
  * Video is a per-frame D_FILE snapshot (see display.ts).
@@ -95,7 +95,7 @@ export class Zx80Machine implements MachineEmulator {
   private stepInstruction(): number {
     // Flash-load trap: when LOAD sits in its tape leader-detection loop,
     // drop the queued .O image into RAM at 0x4000 and continue at the same
-    // place a real tape LOAD hands control back (0x0283) — which rebuilds
+    // place a real tape LOAD hands control back (0x0283) - which rebuilds
     // the edit line and display file from the loaded system variables.
     if (this.pendingImage && this.cpu.getPC() === ROM_LOAD_TRAP) {
       const image = this.pendingImage;
@@ -164,7 +164,7 @@ export class Zx80Machine implements MachineEmulator {
 
   /**
    * Run whole frames until the ROM has booted to the empty edit cursor, then a
-   * few more so the keyboard scan is live — the cursor appears ~15 frames in
+   * few more so the keyboard scan is live - the cursor appears ~15 frames in
    * but the editor does not capture keystrokes reliably until a little later.
    */
   private bootToReady(): void {
@@ -178,7 +178,7 @@ export class Zx80Machine implements MachineEmulator {
         return;
       }
     }
-    throw new Error('ZX80 ROM did not boot — emulator bug');
+    throw new Error('ZX80 ROM did not boot - emulator bug');
   }
 
   /** Hold a key chord for a few frames, then release it. */
@@ -193,7 +193,7 @@ export class Zx80Machine implements MachineEmulator {
     this.reset();
     this.bootToReady();
     // Queue the image, then type LOAD + NEW LINE. When the ROM reaches its
-    // tape leader-detection loop the trap in runFrame() injects the image —
+    // tape leader-detection loop the trap in runFrame() injects the image -
     // the authentic load path, the same one a real cassette would drive.
     this.pendingImage = image;
     this.tapKeys(['KeyW']); // LOAD (keyword key in K mode)
@@ -204,7 +204,7 @@ export class Zx80Machine implements MachineEmulator {
       throw new Error('ZX80 ROM never reached the LOAD trap');
     }
     // The ZX80 (unlike the ZX81) does not auto-run a freshly loaded program,
-    // so type RUN + NEW LINE to start it — the same thing a user would do.
+    // so type RUN + NEW LINE to start it - the same thing a user would do.
     this.tapKeys(['KeyR']); // RUN
     this.tapKeys(['Enter']);
   }

@@ -5,7 +5,7 @@ import { createSinclairCharset } from '../sinclairCharset';
  *
  * The ZX80 shares the ZX81's display codes for digits (0x1C-0x25), letters
  * (0x26-0x3F) and inverse video (bit 7), but its 4K ROM font (0x0E00) lays out
- * the *punctuation and block-graphics* region (0x00-0x1B) differently — most
+ * the *punctuation and block-graphics* region (0x00-0x1B) differently - most
  * importantly the string quote is 0x01 (it is 0x0B on the ZX81, where the ZX80
  * has a grey-graphics block instead). Reusing the ZX81 codes here stored the
  * wrong byte for every quote/operator inside a string, so the ROM mis-parsed

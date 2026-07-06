@@ -17,14 +17,14 @@
 }
 
 /* Always hide VitePress's nav "extras" flyout (the three-dots menu that carries
-   appearance/social/translation items at narrower widths) inside the drawer — the
+   appearance/social/translation items at narrower widths) inside the drawer - the
    drawer nav is just search + links + close, nothing to spill into an overflow. */
 .in-ide-drawer .VPNavBarExtra {
   display: none !important;
 }
 
 /* The drawer close button, injected into the nav bar's #nav-bar-content-after
-   slot (Layout.vue). Mirrors the IDE's dark icon-button chrome — colours are
+   slot (Layout.vue). Mirrors the IDE's dark icon-button chrome - colours are
    hardcoded (the docs are force-dark and can't reach the app's CSS vars across
    the iframe); they match src/styles.css :root and .icon-btn. */
 .ide-drawer-close {

@@ -8,7 +8,7 @@
  *
  * The keyboard range is intercepted by {@link Trs80Machine}'s bus closure before
  * it reaches here, so reads of 0x3800-0x3BFF in this class return open-bus 0xFF.
- * All TRS-80 I/O is memory-mapped — there is no echo region and no NMI, which
+ * All TRS-80 I/O is memory-mapped - there is no echo region and no NMI, which
  * makes this the simplest of the Z80 buses in the project.
  */
 const ROM_SIZE = 0x3000; // 12K

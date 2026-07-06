@@ -68,7 +68,7 @@
   color: var(--text, currentColor);
 }
 
-/* Hidden while the drawer is open — the drawer slides over its position, so drop
+/* Hidden while the drawer is open - the drawer slides over its position, so drop
    it out of view (and out of the way of pointer events). Keyed off the button's
    own aria-hidden, which DocsDrawer.tsx sets to the open state. */
 .openHandle[aria-hidden='true'] {

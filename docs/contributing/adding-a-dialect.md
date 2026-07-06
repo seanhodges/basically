@@ -2,7 +2,7 @@
 
 A **target system** is one microcomputer's worth of support: a BASIC **dialect**
 (tokenizer, charset, keywords), an **emulator** (CPU bus + display + I/O), a
-**virtual keyboard**, transfer/tape I/O, an AI profile and samples — roughly 20
+**virtual keyboard**, transfer/tape I/O, an AI profile and samples - roughly 20
 files.
 
 ## Using the Claude skill
@@ -13,7 +13,7 @@ dependency-ordered, multi-stage plan to
 `docs/contributing/dialect-plans/<id>.md`, and creates a compiling stub folder
 under `src/dialects/<id>/`.
 
-The skill **plans and scaffolds only** — it does not
+The skill **plans and scaffolds only** - it does not
 implement the stages or register the dialect; you run each stage on demand (see
 `docs/contributing/dialect-plans/README.md`). This page is the **per-component
 reference** those stages draw on: the dialect file layout, then the virtual
@@ -29,29 +29,29 @@ everything machine-specific lives in one folder. To add, say, ZX Spectrum
 BASIC:
 
 1. **Create `src/dialects/spectrum/`** mirroring `src/dialects/zx81/`:
-   - `keywords.ts` — the token table (`KeywordInfo[]`). This alone powers
+   - `keywords.ts` - the token table (`KeywordInfo[]`). This alone powers
      highlighting and autocomplete via the generic builders in `src/editor/`.
-   - `language.ts` — wires the keyword table (and any lexical quirks) into the
+   - `language.ts` - wires the keyword table (and any lexical quirks) into the
      CodeMirror language. Pass the dialect's block templates from
      `src/editor/constructs.ts` (`constructsByDialect[<id>]`) as the second
      argument to `buildCompletionSource` so conditionals, loops and
      subroutines/procedures auto-complete as whole numbered blocks (IntelliJ
      "live template" style) rather than as a bare keyword.
-   - `charset.ts` — a `CharsetMapping` between editor text and machine codes.
-   - `tokenizer.ts` / `detokenizer.ts` — text ↔ tokenized program bytes.
+   - `charset.ts` - a `CharsetMapping` between editor text and machine codes.
+   - `tokenizer.ts` / `detokenizer.ts` - text ↔ tokenized program bytes.
    - an image builder (the Spectrum equivalent of `pfile.ts` is a `.tap`/
      `.sna` builder).
-   - `emulator/` — a `MachineEmulator` implementation. The Z80 core in
+   - `emulator/` - a `MachineEmulator` implementation. The Z80 core in
      `src/emulator/z80/` is machine-independent; provide your own bus
      (memory map, ULA ports, contention model as needed).
-   - `keyboardLayout.ts` — the data-driven `KeyboardLayout` for the on-screen
+   - `keyboardLayout.ts` - the data-driven `KeyboardLayout` for the on-screen
      keyboard (see [Adding the virtual keyboard](#adding-the-virtual-keyboard)).
-   - `aiProfile.ts` — a system prompt teaching Claude the dialect's rules.
-   - `targets.ts` — `BuildTarget[]` for file exports, plus optional cassette
+   - `aiProfile.ts` - a system prompt teaching Claude the dialect's rules.
+   - `targets.ts` - `BuildTarget[]` for file exports, plus optional cassette
      audio support (`audio.buildSamples`).
-   - `index.ts` — assemble and export the `Dialect` object.
+   - `index.ts` - assemble and export the `Dialect` object.
 
-   Import is the mirror of export and is just as dialect-agnostic — the app's
+   Import is the mirror of export and is just as dialect-agnostic - the app's
    Import dialog drives it entirely from the interface. Two optional fields turn
    it on: `binaryImports` lists the file formats `detokenize()` can read back
    (e.g. `.P` / `.O` / `.TAP` / `.bbc`), and `audio.decodeSamples` recovers a
@@ -81,18 +81,18 @@ keyboard for a new machine never requires touching keyboard code.
 
 #### The standard template
 
-Every keyboard uses one common, screen-optimised template — a uniform
+Every keyboard uses one common, screen-optimised template - a uniform
 **40-column grid, ten keys per row** (`gridColumns: 40`, each key `spanX: 4`)
 with five bands:
 
-- **Top strip** — mode tabs (`editorModes`) when the machine has extra typing
+- **Top strip** - mode tabs (`editorModes`) when the machine has extra typing
   layers, the machine's `functionKeys` when it does not, or both behind an icon
   toggle. On wide screens the strip relocates into the left gutter beside the
   centred keyboard.
-- **Number row** — the ten digits.
-- **QWERTY + home rows** — the letters; Enter is the home row's tenth key.
-- **ZXCV row** — the remaining letters and punctuation, centred when short.
-- **Common bottom row** — a centred space bar, a quote and backspace key on the
+- **Number row** - the ten digits.
+- **QWERTY + home rows** - the letters; Enter is the home row's tenth key.
+- **ZXCV row** - the remaining letters and punctuation, centred when short.
+- **Common bottom row** - a centred space bar, a quote and backspace key on the
   right, and the shift / machine modifiers either side.
 
 Reuse `src/keyboard/templateRows.ts` (`GRID_COLUMNS`, `KEY_SPAN`, the
@@ -106,11 +106,11 @@ trading authenticity for a clean, thumb-sized grid).
 
 Three things are needed:
 
-1. **`keyboardLayout.ts`** in your dialect folder — a `KeyboardLayout` value
+1. **`keyboardLayout.ts`** in your dialect folder - a `KeyboardLayout` value
    describing every key, its legends, its layers, and any modifier behaviour.
-2. **`setKey(token, down)`** in your emulator — translate the opaque token
+2. **`setKey(token, down)`** in your emulator - translate the opaque token
    strings emitted by your keys into your machine's physical matrix.
-3. **`keyboardLayout`** field on your `Dialect` export — exposes the layout to
+3. **`keyboardLayout`** field on your `Dialect` export - exposes the layout to
    the IDE.
 
 #### Overriding editor behaviour
@@ -122,7 +122,7 @@ By default the editor action is derived from the label text + the layer's
 { text: 'NEW LINE', editor: { action: 'newline' } }   // cursor / edit action
 { text: 'RUBOUT',  editor: { action: 'backspace' } }
 { text: '←',       editor: { action: 'left' } }
-{ text: 'SCROLL',  editor: null }          // machine-only — no editor effect
+{ text: 'SCROLL',  editor: null }          // machine-only - no editor effect
 { text: 'PRINT',   editor: { insert: 'PRINT ' } }  // insert different text than shown
 ```
 
@@ -157,7 +157,7 @@ editorModes: [
 Omit `editorModes` entirely if the base layer + modifiers cover everything.
 
 Machine function keys (e.g. the C64's f1/f3/f5/f7, the BBC's f0–f9) live in the
-top strip as ordinary keys — they `emit` matrix tokens and have no editor
+top strip as ordinary keys - they `emit` matrix tokens and have no editor
 action:
 
 ```ts
@@ -177,12 +177,12 @@ The template keeps keys evenly proportioned and large enough to thumb-type:
 keys hold a minimum touch size (`--vk-key-min`) and, above that, a consistent
 width:height ratio (`--vk-aspect`). On wide screens the keyboard centres and its
 key width is height-derived so keys never stretch. You don't size anything in
-the layout — just keep to `spanX: 4` for ordinary keys.
+the layout - just keep to `spanX: 4` for ordinary keys.
 
 #### 2. Wiring `setKey()` in the emulator
 
 The input engine calls `setKey(token, down)` for every key press and release.
-The token strings come directly from `KeyDef.emits` in your layout — they are
+The token strings come directly from `KeyDef.emits` in your layout - they are
 opaque to the framework. Pick whatever strings map naturally to your matrix (DOM
 key-code style strings work well).
 
@@ -226,6 +226,6 @@ in `src/emulator/bbc/`. That pattern looks like:
 - a native tokenizer is still preferred over delegating to the emulated ROM:
   the BBC dialect tokenizes in TypeScript (`src/dialects/bbcmicro/tokenizer.ts`)
   to the genuine BASIC II byte layout, so the emulator just pokes the `image`
-  in at PAGE — the same image used for `.bbc` import/export. Its output is
+  in at PAGE - the same image used for `.bbc` import/export. Its output is
   regression-tested byte-for-byte against jsbeeb's ROM tokeniser
   (`tokenizer.test.ts`), which is how the keyword flags were pinned down.

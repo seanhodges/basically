@@ -15,7 +15,7 @@ import { useIdeStore } from './store';
  * through stacked surfaces in LIFO order, using only the History API. It is a
  * pure observer of the store: when a surface opens it pushes a history entry,
  * and on `popstate` it writes the popped snapshot back into the store via the
- * existing setters. The store stays the single source of truth — no open/close
+ * existing setters. The store stays the single source of truth - no open/close
  * call site changes. A single guard flag stops the writes performed during a
  * `popstate` from re-triggering a push (no feedback loop).
  */
@@ -58,7 +58,7 @@ export interface NavSnapshot {
   docsTopic: string | null;
 }
 
-/** Everything closed — the baseline entry and the fallback for a `null` state. */
+/** Everything closed - the baseline entry and the fallback for a `null` state. */
 export const BASELINE: NavSnapshot = {
   mobileTab: null,
   settingsOpen: false,
@@ -109,7 +109,7 @@ export function openKeys(s: NavSnapshot): NavKey[] {
 }
 
 /** The keyboard is auto-opening (editor gained focus with auto-show on) rather
- *  than being opened by an explicit tap — such opens must not trap Back. */
+ *  than being opened by an explicit tap - such opens must not trap Back. */
 export function isAutoShow(s: StoreState): boolean {
   return s.keyboardAutoShow && s.editorFocused;
 }
@@ -171,9 +171,9 @@ export interface HistoryLike {
 export interface HistorySync {
   /** Seed the baseline entry from the initial store state (never pushes). */
   init(state: StoreState): void;
-  /** React to a store change — push / replace / go as the transition warrants. */
+  /** React to a store change - push / replace / go as the transition warrants. */
   onStoreChange(state: StoreState): void;
-  /** React to a `popstate` — apply the popped snapshot back into the store. */
+  /** React to a `popstate` - apply the popped snapshot back into the store. */
   onPop(event: { state: unknown }): void;
 }
 
@@ -196,7 +196,7 @@ export function createHistorySync(opts: {
   // True while a history.go() we issued for a UI-initiated close is in
   // flight. Its popstate must not write the popped snapshot back into the
   // store: the store already holds the user's state, which may have moved on
-  // during the (async) round-trip — e.g. F1 opening the docs drawer right
+  // during the (async) round-trip - e.g. F1 opening the docs drawer right
   // after closing Settings with the mouse.
   let selfPopInFlight = false;
 
@@ -261,7 +261,7 @@ export function createHistorySync(opts: {
         history.go(-steps);
         return;
       }
-      // Only untracked surfaces closed (e.g. an auto-shown keyboard) — nothing
+      // Only untracked surfaces closed (e.g. an auto-shown keyboard) - nothing
       // in history to undo; just resync our mirror.
       last = next;
       return;
@@ -293,7 +293,7 @@ export function createHistorySync(opts: {
 
     if (selfPopInFlight) {
       // Completion of our own go() for a UI close: don't apply the (stale)
-      // popped snapshot — reconcile forward instead, so anything the user
+      // popped snapshot - reconcile forward instead, so anything the user
       // opened or closed during the round-trip is tracked normally.
       selfPopInFlight = false;
       applyingPop = false;

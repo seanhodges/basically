@@ -43,7 +43,7 @@ function matchKeyword(source: string, pos: number): Trs80Keyword | undefined {
 /**
  * Tokenize one line body (everything after the line number) into program bytes.
  * Level II BASIC, like every Microsoft BASIC, tokenizes greedily and
- * position-independently — `FORI=1TO5` becomes FOR I =1 TO 5 — so we match the
+ * position-independently - `FORI=1TO5` becomes FOR I =1 TO 5 - so we match the
  * longest keyword at each point. Quotes, REM (and its `'` synonym) and DATA
  * suspend tokenizing. `:` separates statements but is otherwise an ordinary
  * character, so multi-statement lines need no special handling.

@@ -9,7 +9,7 @@ export interface ParsedOFile {
 /**
  * Wrap a tokenized program area into a complete ZX80 `.O` image: a straight RAM
  * dump from 0x4000 (the start of the 40-byte system-variable block) up to the
- * byte before E_LINE — exactly what the ROM's SAVE writes and LOAD reads back
+ * byte before E_LINE - exactly what the ROM's SAVE writes and LOAD reads back
  * (the loader fills RAM from 0x4000 until HL reaches the freshly loaded E_LINE).
  *
  * Layout: system variables | program | 0x80 variables-end marker. The edit line

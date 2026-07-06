@@ -234,7 +234,7 @@ export const bbcReference: ReferenceTableData = {
       kind: 'function',
       syntax: 'EXP(<number>)',
       description:
-        'Returns e (about 2.718) raised to the given power — the inverse of LN.',
+        'Returns e (about 2.718) raised to the given power - the inverse of LN.',
     },
     {
       name: 'EXT',
@@ -472,7 +472,7 @@ export const bbcReference: ReferenceTableData = {
       kind: 'function',
       syntax: 'STRING$(<number>, <string>)',
       description:
-        'Returns a string made of the given string repeated n times — handy for drawing rules or padding output.',
+        'Returns a string made of the given string repeated n times - handy for drawing rules or padding output.',
     },
     {
       name: 'EOF',

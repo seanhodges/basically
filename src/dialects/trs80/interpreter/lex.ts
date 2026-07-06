@@ -3,7 +3,7 @@ import { trs80WordByToken } from '../keywords';
 
 /**
  * One lexical unit of a tokenized line body. The interpreter never re-parses
- * source text — it lexes directly over the bytes {@link tokenizeProgram}
+ * source text - it lexes directly over the bytes {@link tokenizeProgram}
  * produced (keyword tokens ≥0x80, ASCII runs for numbers/names, quoted strings),
  * so imported `.bas`/`.cas` images run too.
  */
@@ -25,7 +25,7 @@ function isLetter(b: number): boolean {
 
 /**
  * Lex one tokenized line body (no link / line-number header, no trailing 0x00).
- * Keyword expansion is suspended inside strings — a graphics byte (0x80–0xBF)
+ * Keyword expansion is suspended inside strings - a graphics byte (0x80–0xBF)
  * that collides with a token value is taken as a string character, not a keyword.
  */
 export function lexBody(body: Uint8Array): Lexeme[] {

@@ -6,7 +6,7 @@ released under the ISC license.
 
 It is bundled (with esbuild, into a single ES module) from the project's
 TypeScript source — `index.ts`, `CPU6502.ts`, `cpuOperations.ts`, `types.ts`,
-`util.ts` — at upstream commit
+`util.ts` - at upstream commit
 `e154a827e18e1f7d052fc42f98bd6dee762ab6d3`. `cpu6502.js` is generated build
 output and should not be hand-edited; the patches below were applied to the
 upstream source before bundling (and are marked in-source with the comment
@@ -14,7 +14,7 @@ upstream source before bundling (and are marked in-source with the comment
 
 ## Local modifications
 
-1. **Synchronous `step()`** — the upstream core only runs via an internal,
+1. **Synchronous `step()`** - the upstream core only runs via an internal,
    asynchronous `setTimeout`-driven clock (`executeNextInstruction`). A
    frame-driven host (an emulated machine calling `runFrame`) needs to advance
    the CPU one instruction at a time, synchronously, so a public `step()` was
@@ -23,7 +23,7 @@ upstream source before bundling (and are marked in-source with the comment
    `logInternalState`) applies only to the async clock path and is omitted from
    `step()`.
 
-2. **Interrupt triggers assert the line only** — `reset()`, `triggerIRQB()` and
+2. **Interrupt triggers assert the line only** - `reset()`, `triggerIRQB()` and
    `triggerNMIB()` no longer call `ensureExecutingIfNotPaused()`, i.e. they no
    longer auto-run the async clock. They now only set pending state, which is
    the correct model (asserting an interrupt line should not itself execute
@@ -33,7 +33,7 @@ upstream source before bundling (and are marked in-source with the comment
    (synchronous) or `startClock()` (async); the pending interrupt is serviced on
    the next `step()`.
 
-3. **`BRK` (`0x00`) made browser-safe** — the upstream handler began with
+3. **`BRK` (`0x00`) made browser-safe** - the upstream handler began with
    node-only debug code (`console.log("BRK!")` followed by `process.exit(1)`),
    which crashes in a browser and left the intended `triggerIRQB(true)`
    unreachable. The debug lines were removed, restoring the intended behaviour.

@@ -54,7 +54,7 @@ Test the **Tier 1** set fully; spot-check Tier 2 with the smoke pass.
 | 2    | Chrome / Firefox | Linux           | Serial permissions differ (udev)               |
 
 Where a behaviour is expected to differ by design, it's called out as
-**Expected difference** — those are not bugs.
+**Expected difference** - those are not bugs.
 
 ### Expected differences (by design)
 
@@ -223,7 +223,7 @@ one real `http://<lan-ip>` pass (9.1, 9.5) is still worthwhile._
 
 ## 10. PWA & offline
 
-**The whole section is manual** — the automated suite runs against the dev
+**The whole section is manual** - the automated suite runs against the dev
 server, which has no service worker; install/offline behaviour also depends
 on real browser UI.
 

@@ -102,7 +102,7 @@
   font-weight: 600;
 }
 
-/* Round green Play FAB — Run *is* restart in the player. Clone of the IDE's
+/* Round green Play FAB - Run *is* restart in the player. Clone of the IDE's
    .fabRun (Workspace.module.css), but visible on every form factor. */
 .fabRun {
   position: absolute;
@@ -203,7 +203,7 @@
     calc(6px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
 }
 
-/* Phone portrait: the keyboard spans the full width — thin edge gutters. */
+/* Phone portrait: the keyboard spans the full width - thin edge gutters. */
 @media (max-width: 768px) and (orientation: portrait) {
   .vkOverlay {
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));

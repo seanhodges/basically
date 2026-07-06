@@ -19,7 +19,7 @@ const IDENT_CHAR = /[A-Z0-9$]/;
 
 /**
  * Tokenize plain-text ZX81 BASIC into the program-area byte layout:
- * per line — u16 BE line number, u16 LE length (of body + NEWLINE),
+ * per line - u16 BE line number, u16 LE length (of body + NEWLINE),
  * tokenized body, 0x76.
  */
 export function tokenizeProgram(source: string): TokenizedProgram {

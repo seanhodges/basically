@@ -111,7 +111,7 @@ describe('VfsTapeDeck.nextBlock', () => {
   it('reports error on a flag mismatch and advances the tape', () => {
     const deck = deckWithFiles(['A', 'B']);
     expect(deck.nextBlock(0x00).kind).toBe('block'); // header A
-    // ROM rejects the name and asks for another header — data A is under
+    // ROM rejects the name and asks for another header - data A is under
     // the head, so this call errors, then header B is served.
     expect(deck.nextBlock(0x00).kind).toBe('error');
     const h = deck.nextBlock(0x00);

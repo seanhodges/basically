@@ -87,7 +87,7 @@ function lowPass(
 }
 
 /**
- * Add a fast, damped overshoot after every transition — the edge ringing a real
+ * Add a fast, damped overshoot after every transition - the edge ringing a real
  * speaker/microphone introduces. This is what injects the spurious extra
  * zero-crossings that desync a rigidly-paired decoder.
  */

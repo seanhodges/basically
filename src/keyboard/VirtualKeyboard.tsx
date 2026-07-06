@@ -15,7 +15,7 @@ import './VirtualKeyboard.css';
 
 /**
  * Where key presses go. Callers must keep the object identity stable
- * (useMemo) or the engine — and its sticky-modifier state — resets.
+ * (useMemo) or the engine - and its sticky-modifier state - resets.
  */
 export type KeyboardTarget =
   | {
@@ -113,7 +113,7 @@ export function VirtualKeyboard({
 
   // Top-strip input modes (the ZX81 K/F/G cursor as a selector bar). Each mode
   // pins a layer. Shown for both targets; for the machine target the mode is
-  // purely cosmetic (it emphasises a legend) — matrix tokens are unaffected.
+  // purely cosmetic (it emphasises a legend) - matrix tokens are unaffected.
   const editorModes = layout.editorModes ?? [];
   const [modeId, setModeId] = useState<string | null>(null);
   useEffect(() => setModeId(null), [layout]);
@@ -350,7 +350,7 @@ export function VirtualKeyboard({
     const keyId = (e.target as Element)
       .closest('[data-keyid]')
       ?.getAttribute('data-keyid');
-    // Pick mode: a tap on a matrix key reports its id and does nothing else —
+    // Pick mode: a tap on a matrix key reports its id and does nothing else -
     // never drive the engine, machine, repeat, or pointer capture.
     if (onPickKey) {
       if (keyId && pickableIds.has(keyId)) onPickKey(keyId);
@@ -454,7 +454,7 @@ export function VirtualKeyboard({
       ? activeLayer.id
       : (modifierLayer?.id ?? legendLayerId));
 
-  // Compact display: one larger centered legend per key — the active mode's
+  // Compact display: one larger centered legend per key - the active mode's
   // character. Keys with no legend for the active mode fall back to a dimmed
   // base (main) legend so the layout stays recognisable.
   const baseIdx = layout.layers.indexOf(baseLayer);

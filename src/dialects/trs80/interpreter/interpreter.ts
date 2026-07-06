@@ -39,7 +39,7 @@ interface UserFn {
 
 /**
  * Statements with no useful effect in the interpreter; consumed and skipped.
- * Program save/load (CLOAD/CSAVE/SAVE/LOAD/MERGE/NAME) stays here by design —
+ * Program save/load (CLOAD/CSAVE/SAVE/LOAD/MERGE/NAME) stays here by design -
  * the virtual filesystem carries data files only. Random-access Disk BASIC
  * (FIELD/GET/PUT/LSET/RSET) is unimplemented; the sequential statements
  * (OPEN/CLOSE/KILL, PRINT#/INPUT#/LINE INPUT#, EOF) are handled below.
@@ -133,7 +133,7 @@ export class Interpreter implements Ctx {
 
   reset(): void {
     // Discard (don't flush) open files: reset starts a fresh session and the
-    // IDE has just cleared the VFS — a late flush would resurrect stale data.
+    // IDE has just cleared the VFS - a late flush would resurrect stale data.
     this.seqFiles.closeAll(false);
     this.vars.clearAll();
     this.mem.fill(0);

@@ -48,7 +48,7 @@ export const zx81Reference: ReferenceTableData = {
       kind: 'function',
       syntax: 'CODE <string>',
       description:
-        "Returns the ZX81 character code of the first character of the string (0 for the empty string). These are the machine's own codes, not ASCII — the inverse of CHR$.",
+        "Returns the ZX81 character code of the first character of the string (0 for the empty string). These are the machine's own codes, not ASCII - the inverse of CHR$.",
     },
     {
       name: 'VAL',
@@ -170,7 +170,7 @@ export const zx81Reference: ReferenceTableData = {
       kind: 'function',
       syntax: 'CHR$ <number>',
       description:
-        "Returns the single-character string for the given ZX81 character code (0–255) — these are the machine's own codes, not ASCII. The inverse of CODE.",
+        "Returns the single-character string for the given ZX81 character code (0–255) - these are the machine's own codes, not ASCII. The inverse of CODE.",
     },
     {
       name: 'NOT',
@@ -360,7 +360,7 @@ export const zx81Reference: ReferenceTableData = {
       kind: 'command',
       syntax: 'LET <var> = <expr>',
       description:
-        'Assigns a value to a variable. LET is mandatory on the ZX81 — assignment without it is a syntax error.',
+        'Assigns a value to a variable. LET is mandatory on the ZX81 - assignment without it is a syntax error.',
     },
     {
       name: 'PAUSE',

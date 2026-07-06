@@ -31,7 +31,7 @@ interface GameControllerProps {
   /** Per-dialect user remaps (role → KeyDef id) over the layout defaults. */
   overrides: ControllerOverrides;
   dpadMode: '4-way' | '8-way';
-  /** How many fire buttons to draw (1 or 2) — the global layout setting. */
+  /** How many fire buttons to draw (1 or 2) - the global layout setting. */
   displayFireButtons: 1 | 2;
   /**
    * Independent fire buttons the machine's joystick hardware exposes (1 or 2).
@@ -52,7 +52,7 @@ interface GameControllerProps {
 /**
  * Fixed control labels for the joystick modes: D-pad arrows and lettered fire
  * buttons (primary = A, secondary = B). Unlike key-mapped mode, these never
- * reflect the underlying key — the gamepad drives a hardware joystick.
+ * reflect the underlying key - the gamepad drives a hardware joystick.
  */
 const CONTROLLER_LABELS: Record<ControllerRole, string> = {
   up: '↑',

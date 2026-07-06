@@ -12,7 +12,7 @@ const IDENT_CHAR = /[A-Z0-9$]/;
 
 /**
  * Tokenize plain-text ZX80 BASIC into the program-area byte layout. Each line
- * is `u16 BE line number` + tokenized body + `0x76` — note there is NO 2-byte
+ * is `u16 BE line number` + tokenized body + `0x76` - note there is NO 2-byte
  * length field (that was a ZX81 addition), and numeric literals are stored as
  * their digit characters only (the ZX80 is integer-only and has no inline
  * floating-point value).

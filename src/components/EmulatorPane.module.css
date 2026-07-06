@@ -27,7 +27,7 @@
   max-width: 100%;
 }
 
-/* Phone-landscape keyboard toggle: pinned near the top-right of the pane — its
+/* Phone-landscape keyboard toggle: pinned near the top-right of the pane - its
    top aligned with the top of the preview, and centred horizontally above the red
    primary fire button. Sits above the transparent gamepad overlay (which is
    click-through in its gaps) so it stays tappable while the gamepad flanks. */

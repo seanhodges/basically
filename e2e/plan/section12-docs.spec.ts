@@ -2,11 +2,11 @@ import { test, expect } from '../fixtures';
 import { openApp } from './helpers';
 
 /**
- * Test plan §12 — Documentation.
+ * Test plan §12 - Documentation.
  * (docs/contributing/cross-browser-test-plan.md)
  *
  * The standalone docs site (12.1, 12.3) builds and serves separately
- * (`npm run docs:dev`) — outside this suite's web server, so manual. The
+ * (`npm run docs:dev`) - outside this suite's web server, so manual. The
  * in-app drawer (12.2) is automated here.
  */
 

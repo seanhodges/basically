@@ -23,7 +23,7 @@ import {
  * BBC Micro Model B dialect.
  *
  * BBC BASIC is tokenized natively in TypeScript (see tokenizer.ts) into the
- * genuine BASIC II byte layout — the same bytes the BASIC ROM keeps from PAGE
+ * genuine BASIC II byte layout - the same bytes the BASIC ROM keeps from PAGE
  * and that SAVE writes to disc. That tokenized program is the dialect's
  * "image": the emulator pokes it straight in at PAGE, and it is also the
  * import/export file format (.bbc). Hardware emulation is delegated to jsbeeb

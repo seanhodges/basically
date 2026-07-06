@@ -33,7 +33,7 @@ const LD_BYTES = 0x0556; // 48 BASIC ROM tape-loader entry; trapped for flash lo
 const SA_BYTES = 0x04c2; // 48 BASIC ROM tape-saver entry; trapped for VFS data saves
 const REPORT_R = 0x0806; // 48 BASIC ROM "R Tape loading error" (RST 8, code 0x1A)
 // The 128 menu (drawn by ROM 0) renders text with the 48 BASIC font, which sits
-// at 0x3C00 within ROM 1 — i.e. file offset 0x4000 + 0x3C00. Glyph for char code
+// at 0x3C00 within ROM 1 - i.e. file offset 0x4000 + 0x3C00. Glyph for char code
 // c is at FONT_ORIGIN + c*8.
 const FONT_ORIGIN = 0x4000 + 0x3c00;
 /** The 128K/+2 boot-menu item labels, used to locate and select an entry. */
@@ -59,7 +59,7 @@ const MENU_ITEMS = [
  *    highlighted item off the screen, then drives LOAD "" + RUN through the key
  *    matrix (in 128 BASIC keywords are typed out in full, not as single keys).
  *  - AY-3-8912 on ports 0xFFFD/0xBFFD, synthesized to audio (3 tones + noise +
- *    envelope) and summed with the ULA beeper in readAudio() — the 48K beeper
+ *    envelope) and summed with the ULA beeper in readAudio() - the 48K beeper
  *    drives the 128's loudspeaker too (port 0xFE bit 4).
  *
  * ramKb from createEmulator is ignored: the 128K always allocates its own banks.
@@ -266,7 +266,7 @@ export class Spectrum128Machine implements MachineEmulator {
    * Offer one ROM SA-BYTES call (A = flag, IX = start, DE = length) to the
    * VFS tape deck; captured calls complete like a successful save. Declined
    * (program saves): return false so the ROM runs the real SA-BYTES.
-   * Identical to the 48K machine's trap — memory access goes through the
+   * Identical to the 48K machine's trap - memory access goes through the
    * banked map, so paging needs no extra handling.
    */
   private serviceSaveTrap(): boolean {
@@ -337,7 +337,7 @@ export class Spectrum128Machine implements MachineEmulator {
         return;
       }
     }
-    throw new Error('ZX Spectrum 128K ROM did not boot — emulator bug');
+    throw new Error('ZX Spectrum 128K ROM did not boot - emulator bug');
   }
 
   /** Hold a key chord for a few frames, then release it and idle for `gap`. */
@@ -403,7 +403,7 @@ export class Spectrum128Machine implements MachineEmulator {
    * drawn in its own attribute colour and the selected one is highlighted with a
    * different paper, so rather than assume a fixed key count we read the item
    * rows off the screen, find the highlighted one (its paper is unique among the
-   * items) and step the cursor toward the target row (the 128K/+2 menu only —
+   * items) and step the cursor toward the target row (the 128K/+2 menu only -
    * the +2A/+3 add a different layout, out of scope for this 32K-ROM build).
    * Falls back to a plain ENTER if the menu can't be read.
    */
@@ -413,7 +413,7 @@ export class Spectrum128Machine implements MachineEmulator {
       const items = this.menuItemRows(sigs);
       const target = items.find((r) => r.text.includes(label.toUpperCase()));
       const current = this.selectedItem(items);
-      if (!target || !current) break; // menu not legible — fall through to ENTER
+      if (!target || !current) break; // menu not legible - fall through to ENTER
       if (current.row === target.row) break;
       // Cursor down = CAPS SHIFT + 6, up = CAPS SHIFT + 7.
       this.tapKeys(
@@ -490,7 +490,7 @@ export class Spectrum128Machine implements MachineEmulator {
       throw new Error('ZX Spectrum 128K ROM never reached the LOAD trap');
     }
     // The load leaves a "0 OK" report; ENTER dismisses it and lists the loaded
-    // program. Then type RUN as a direct command (slow gap — see typeLetters)
+    // program. Then type RUN as a direct command (slow gap - see typeLetters)
     // and ENTER. The submitting ENTER is released quickly so it is not still
     // held when the program's first statement runs (an opening INKEY$ would
     // otherwise read ENTER instead of "").
@@ -539,7 +539,7 @@ export class Spectrum128Machine implements MachineEmulator {
   }
 
   /**
-   * Actual RAM figures from the ROM's own pointers — the 128 keeps the 48K
+   * Actual RAM figures from the ROM's own pointers - the 128 keeps the 48K
    * system variables at the same addresses in the fixed bank-5 window, so the
    * same PROG/STKEND/RAMTOP arithmetic applies (RAMTOP sits below the banked
    * region in 128 BASIC).
@@ -580,7 +580,7 @@ export class Spectrum128Machine implements MachineEmulator {
     // AY register read on 0xFFFD (A15 high, A1 low).
     if ((port & 0xc002) === 0xc000) return this.ay.readData();
     // Kempston joystick: loosely decoded on A5 low (canonical port 0x1F). Odd
-    // ports only here — even ports were claimed by the ULA above — so this can't
+    // ports only here - even ports were claimed by the ULA above - so this can't
     // shadow the keyboard. Bits 5-7 read 0, as on real hardware.
     if ((port & 0x0020) === 0) return this.kempston;
     return 0xff;

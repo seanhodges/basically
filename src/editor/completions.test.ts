@@ -33,7 +33,7 @@ const constructs: ConstructTemplate[] = [
 
 /**
  * A minimal stand-in for an EditorView that applies dispatched transactions to
- * an in-memory state — enough to drive a completion's `apply` headlessly (the
+ * an in-memory state - enough to drive a completion's `apply` headlessly (the
  * snippet machinery only touches state, not the DOM).
  */
 function makeView(
@@ -163,7 +163,7 @@ describe('snippet placeholder navigation', () => {
     expect(selText(view)).toBe('10'); // field 3: limit
 
     nextSnippetField(view);
-    // Field 0: the resting caret on the (empty) body line — no further field.
+    // Field 0: the resting caret on the (empty) body line - no further field.
     expect(hasNextSnippetField(view.state)).toBe(false);
   });
 

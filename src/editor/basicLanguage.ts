@@ -31,7 +31,7 @@ export interface BasicLanguageOptions {
   /** Prefix introducing a binary number literal (e.g. `%` for BBC). */
   binaryPrefix?: string;
   /**
-   * Greedy position-independent keyword matching — Microsoft-BASIC "code
+   * Greedy position-independent keyword matching - Microsoft-BASIC "code
    * crunching" (C64/TRS-80), where the ROM ignores spaces so `POKEA,10` is
    * `POKE A,10`. When set, the highlighter, variable scanner and completion
    * sources split identifier runs the way the ROM tokenizer will, instead of
@@ -134,7 +134,7 @@ export function buildBasicLanguage(
       const word = stream.match(headRe, false);
       if (word && crunch) {
         // Crunched (MS-BASIC) mode: longest keyword at this exact position,
-        // whatever follows it — `POKEA` is POKE + variable A. No keyword here
+        // whatever follows it - `POKEA` is POKE + variable A. No keyword here
         // means variable characters up to the next glued keyword (`SCORE` is
         // SC + OR + E, exactly what the ROM stores).
         const rest = stream.string.slice(stream.pos);

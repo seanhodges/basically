@@ -244,7 +244,7 @@ export function SettingsForm() {
                   gamepadMode === 'native'
                     ? 'native joystick interface'
                     : 'Kempston interface'
-                } — the gamepad uses Key mapped here.`}
+                } - the gamepad uses Key mapped here.`}
               </p>
             )}
           <label className={styles.field}>

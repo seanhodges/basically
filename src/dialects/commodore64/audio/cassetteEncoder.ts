@@ -2,8 +2,8 @@
  * Commodore 64 cassette encoding (the authentic KERNAL datasette format).
  *
  * The datasette records a square wave whose information is in the *spacing*
- * between edges, not their amplitude. Three pulse lengths are used — short (S),
- * medium (M) and long (L) — each emitted here as one full square-wave cycle
+ * between edges, not their amplitude. Three pulse lengths are used - short (S),
+ * medium (M) and long (L) - each emitted here as one full square-wave cycle
  * (two equal half-cycles of opposite sign):
  *
  *   bit 0           = S, M       bit 1            = M, S
@@ -56,7 +56,7 @@ export interface C64TapeOptions {
   trailerPulses?: number; // default 100
 }
 
-/** XOR checksum over the bytes — the KERNAL's tape block check byte. */
+/** XOR checksum over the bytes - the KERNAL's tape block check byte. */
 export function checksum(data: Uint8Array): number {
   let acc = 0;
   for (const b of data) acc ^= b;

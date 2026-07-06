@@ -91,7 +91,7 @@ export class SequentialFiles {
 
   /**
    * Close every open file. `flush` writes output buffers to the store (END,
-   * STOP, running off the end, RUN — Disk BASIC closes files there too);
+   * STOP, running off the end, RUN - Disk BASIC closes files there too);
    * false discards them (machine reset, where the IDE has just cleared the
    * VFS for a fresh session and a late flush would resurrect stale data).
    */

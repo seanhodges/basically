@@ -24,11 +24,11 @@ const KIND_LABELS: Record<MachineVariable['kind'], string> = {
 
 /**
  * Read-only live view of the running program's BASIC variables. Polls the
- * emulator a few times a second rather than every frame — imperceptible lag
+ * emulator a few times a second rather than every frame - imperceptible lag
  * for a debug panel, and it keeps a large table from re-rendering at 50Hz.
  *
  * Each value is a button that opens a detail modal showing the variable's name,
- * type and full value — a snapshot taken at click time, not refreshed by later
+ * type and full value - a snapshot taken at click time, not refreshed by later
  * polls, so the modal stays stable (and survives the program stopping).
  */
 export function VariableWatcher({ getMachine, running, paused }: Props) {
@@ -45,7 +45,7 @@ export function VariableWatcher({ getMachine, running, paused }: Props) {
       setVars(machine?.readVariables ? machine.readVariables() : []);
     };
     read();
-    // Paused execution holds memory steady, so a single read suffices — the
+    // Paused execution holds memory steady, so a single read suffices - the
     // values shown are those from the last frame before the pause; no poll.
     if (paused) return;
     const id = setInterval(read, POLL_MS);
@@ -55,7 +55,7 @@ export function VariableWatcher({ getMachine, running, paused }: Props) {
   // A machine only exists once a program has run; only then can we tell whether
   // this machine supports introspection. The per-branch content is assigned to a
   // variable (rather than early-returned) so the detail modal, appended after it
-  // in a single return, survives the program stopping while it is open — which
+  // in a single return, survives the program stopping while it is open - which
   // flips `running` false and empties `vars`, hitting the "not running" branch.
   const machine = getMachine();
   let content;

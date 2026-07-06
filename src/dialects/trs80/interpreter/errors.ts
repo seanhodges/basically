@@ -2,7 +2,7 @@
  * Level II BASIC runtime errors. The ROM reports these as two-letter codes
  * (`?SN ERROR`, `?FC ERROR`, …); the interpreter throws {@link BasicError} with
  * the same codes so {@link readReport} can surface an authentic-looking message.
- * The text is a clean-room paraphrase of the documented Level II error set — not
+ * The text is a clean-room paraphrase of the documented Level II error set - not
  * copied from the ROM.
  */
 const MESSAGES: Record<string, string> = {

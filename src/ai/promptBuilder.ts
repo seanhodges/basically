@@ -14,7 +14,7 @@ export interface PendingFix {
 
 /**
  * The system prompt stays byte-stable per dialect (good for prompt caching);
- * volatile context — current program, lint errors — rides in the user turn.
+ * volatile context - current program, lint errors - rides in the user turn.
  */
 export function buildSystemPrompt(dialect: Dialect): string {
   return dialect.aiProfile.systemPrompt;
@@ -52,7 +52,7 @@ export function buildEditorFix(
 ): PendingFix {
   const n = errors.length;
   return {
-    summary: `${n} editor error${n === 1 ? '' : 's'} after applying — line ${errors[0]!.line}: ${errors[0]!.message}`,
+    summary: `${n} editor error${n === 1 ? '' : 's'} after applying - line ${errors[0]!.line}: ${errors[0]!.message}`,
     userContent: buildUserMessage(
       'The program you just gave me still has the editor errors listed above. Please fix them and return the corrected program.',
       source,

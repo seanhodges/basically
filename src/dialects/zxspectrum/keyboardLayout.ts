@@ -12,7 +12,7 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
  * Each alphanumeric key carries up to five legends, matching the real machine:
  *  - main:     the big white letter / digit
  *  - caps:     CAPS SHIFT (the uppercase letter)
- *  - symbol:   SYMBOL SHIFT — the red symbol
+ *  - symbol:   SYMBOL SHIFT - the red symbol
  *  - keyword:  the white K-mode BASIC keyword (pinned by the KEYWORD mode tab)
  *  - function: the green extended-mode function (pinned by the FUNCTION mode tab)
  *

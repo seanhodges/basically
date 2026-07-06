@@ -13,7 +13,7 @@ export const ERR_NR = 0x5c3a;
 export const PPC = 0x5c45;
 /** PROG: 16-bit LE pointer to the start of the BASIC program. */
 export const PROG = 0x5c53;
-/** STKEND: 16-bit LE pointer past the calculator stack — top of used memory. */
+/** STKEND: 16-bit LE pointer past the calculator stack - top of used memory. */
 export const STKEND = 0x5c65;
 /** RAMTOP: 16-bit LE address of the last byte of BASIC's RAM. */
 export const RAMTOP = 0x5cb2;

@@ -70,7 +70,7 @@ export function DotsIcon() {
   );
 }
 
-// Floppy disk for the File menu — matches the AI/docs/settings line-art theme.
+// Floppy disk for the File menu - matches the AI/docs/settings line-art theme.
 export function FloppyIcon() {
   return (
     <svg {...iconProps}>

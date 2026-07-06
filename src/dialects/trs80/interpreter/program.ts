@@ -3,7 +3,7 @@ import { lexBody, type Lexeme } from './lex';
 export interface BasicLine {
   lineNo: number;
   lexemes: Lexeme[];
-  /** Raw tokenized body bytes (no header / terminator) — used for DATA scan. */
+  /** Raw tokenized body bytes (no header / terminator) - used for DATA scan. */
   body: Uint8Array;
 }
 
@@ -14,9 +14,9 @@ export interface Program {
 }
 
 /**
- * Parse a loadable program image — the linked-line layout {@link tokenizeProgram}
+ * Parse a loadable program image - the linked-line layout {@link tokenizeProgram}
  * emits from 0x42E8 (`u16 link`, `u16 line number`, body, `0x00`, ending in a
- * `0x0000` link) — into executable lines. The absolute link pointers are not
+ * `0x0000` link) - into executable lines. The absolute link pointers are not
  * needed at this level, so records are read sequentially up to the null link.
  */
 export function parseProgram(image: Uint8Array): Program {

@@ -10,7 +10,7 @@ function buildProgramBytes(source: string): Uint8Array {
   const { bytes, errors } = tokenizeProgram(source);
   if (errors.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) — fix them before building`,
+      `Program has ${errors.length} error(s) - fix them before building`,
     );
   }
   if (bytes.length === 0) {
@@ -21,7 +21,7 @@ function buildProgramBytes(source: string): Uint8Array {
 
 /**
  * Build the loadable .TAP image. Exported "load only" (autoStart: null) so it
- * does NOT silently auto-run on a real Spectrum — the user types RUN. The IDE
+ * does NOT silently auto-run on a real Spectrum - the user types RUN. The IDE
  * emulator drives RUN itself after loading, so Start still auto-runs.
  */
 export function buildTapImage(

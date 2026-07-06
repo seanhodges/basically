@@ -2,13 +2,13 @@
  * The emulator virtual filesystem: where a running program's data file I/O
  * lands when a machine traps it (Spectrum tape CODE/DATA blocks, TRS-80
  * sequential files…). The synchronous in-memory map is the authoritative
- * store — ROM traps fire between CPU instructions and cannot await — and
+ * store - ROM traps fire between CPU instructions and cannot await - and
  * every mutation is mirrored fire-and-forget into RxDB/IndexedDB so the
  * inspector dialog can watch the files reactively.
  *
  * Lifetime: the IDE clears the store on every emulator start and stop (and
- * on reset/dialect switch, which end the session just as surely). A pause —
- * breakpoint suspend — does not clear it.
+ * on reset/dialect switch, which end the session just as surely). A pause -
+ * breakpoint suspend - does not clear it.
  */
 import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
 import { bytesToBase64 } from './base64';
@@ -77,7 +77,7 @@ export class EmulatorVfs implements MachineFileStore {
 
   /**
    * Empty the VFS (memory and the RxDB mirror). Called on emulator start,
-   * stop, reset, dialect switch and pane unmount — never on pause.
+   * stop, reset, dialect switch and pane unmount - never on pause.
    */
   clear(nextDialectId?: string): void {
     this.files.clear();

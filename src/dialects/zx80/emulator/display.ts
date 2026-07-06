@@ -11,12 +11,12 @@ const CHARSET_ROM_OFFSET = 0x0e00;
  *
  * Like the ZX81 the D_FILE is a sequence of NEWLINE-terminated rows, and the
  * glyph bitmaps come from the 4K ROM at 0x0E00. Unlike the ZX81 the ZX80
- * D_FILE has no leading NEWLINE — it points straight at the first of up to 24
+ * D_FILE has no leading NEWLINE - it points straight at the first of up to 24
  * rows. This is a frame snapshot, faithful for BASIC programs without
  * cycle-exact video.
  *
  * The ZX80 display file is *collapsed*: a blank row is a single NEWLINE rather
- * than 32 spaces + NEWLINE, and the file ends at DF_END (`dfEnd`) — usually far
+ * than 32 spaces + NEWLINE, and the file ends at DF_END (`dfEnd`) - usually far
  * short of a full 24×33 buffer. We must stop at that end: reading on would
  * spill the program/edit/variables area that lives just above the display file
  * onto the screen as garbage (the source-listing "overrun" symptom).

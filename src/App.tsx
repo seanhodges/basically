@@ -7,6 +7,7 @@ import { Toolbar } from './components/Toolbar';
 import { Workspace } from './components/Workspace';
 import { AiSettingsDialog } from './components/AiSettingsDialog';
 import { TransferDialog } from './components/TransferDialog';
+import { ShareLinkDialog } from './components/ShareLinkDialog';
 import { VfsInspectorDialog } from './components/VfsInspectorDialog';
 import { ImportDialog } from './components/ImportDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
@@ -22,6 +23,7 @@ import {
 } from './app/useMediaQuery';
 import { useHistorySync } from './app/useHistorySync';
 import { useGlobalShortcuts } from './app/useGlobalShortcuts';
+import { useOpenShared } from './app/useOpenShared';
 import styles from './App.module.css';
 
 export default function App() {
@@ -39,6 +41,10 @@ export default function App() {
   // Central desktop keyboard shortcuts (Run, file ops, panel toggles, …).
   // See src/app/shortcuts.ts for the full binding table.
   useGlobalShortcuts();
+
+  // A `?open=<shareId>` URL is the player's "See the Code" handover - fetch
+  // the shared program into the editor once at boot.
+  useOpenShared();
 
   // Greet first-time visitors with the welcome modal (once per browser).
   useEffect(() => {
@@ -73,6 +79,7 @@ export default function App() {
       {!landscape && <StatusBar />}
       <AiSettingsDialog />
       <TransferDialog />
+      <ShareLinkDialog />
       <VfsInspectorDialog />
       <ImportDialog />
       <SwitchTargetDialog />

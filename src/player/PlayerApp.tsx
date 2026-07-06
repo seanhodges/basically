@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 // The standalone player (docs/contributing/standalone-player-plan.md, Stage 3):
-// a cut-down, fully responsive shell — emulator screen + virtual keyboard +
+// a cut-down, fully responsive shell - emulator screen + virtual keyboard +
 // virtual gamepad, no editor/docs/menus. It fetches the shared program behind
 // its /<verb>/<shareId> URL, boots the verb's machine via the store's
 // playerBoot action and auto-runs. Default export so main.tsx can React.lazy()
@@ -50,14 +50,14 @@ function describeShareError(e: unknown): {
       case 'not-found':
         return {
           message:
-            'There is no shared program at this link — it may have been mistyped or deleted.',
+            'There is no shared program at this link - it may have been mistyped or deleted.',
           retryable: false,
         };
       case 'expired':
         return { message: 'This share link has expired.', retryable: false };
       case 'rate-limited':
         return {
-          message: 'The share service is busy — try again in a moment.',
+          message: 'The share service is busy - try again in a moment.',
           retryable: true,
         };
       case 'network':
@@ -130,7 +130,7 @@ export default function PlayerApp({
   const effectiveMode = effectiveGamepadMode(dialect, gamepadMode);
 
   // The keyboard/controller reach the machine through the handle EmulatorPane
-  // populates — built exactly like Workspace's targets (stable identities, the
+  // populates - built exactly like Workspace's targets (stable identities, the
   // indirection reads the latest handle).
   const machineApiRef = useRef<MachineApi | null>(null);
   const machineTarget = useMemo<KeyboardTarget>(

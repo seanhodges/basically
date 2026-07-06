@@ -2,8 +2,8 @@
  * Code-construct (block) completion templates.
  *
  * Where a plain keyword completion inserts just the word, a construct expands
- * the whole skeleton of a conditional, loop or subroutine/procedure — IntelliJ
- * "live template" style — and drops the caret on the first thing the programmer
+ * the whole skeleton of a conditional, loop or subroutine/procedure - IntelliJ
+ * "live template" style - and drops the caret on the first thing the programmer
  * needs to fill in, Tabbing through the rest.
  *
  * A template's {@link ConstructTemplate.lines} use CodeMirror snippet field
@@ -143,7 +143,7 @@ const FN_DETAIL: Record<string, string> = {
  * A function-call construct: the required arguments in brackets, one numbered
  * placeholder each. In `argspec`, `'s'` emits a quoted string field (`"${n}"`)
  * and any other character a bare field (`${n}`); optional arguments are left
- * out. `gap` is the text between the name and `(` — a space for the Spectrum's
+ * out. `gap` is the text between the name and `(` - a space for the Spectrum's
  * `POINT (x, y)` idiom, empty elsewhere. e.g. `fn('INSTR', 'ss')` →
  * `INSTR("${1}", "${2}")`, `fn('INKEY', 'n')` → `INKEY(${1})`.
  */
