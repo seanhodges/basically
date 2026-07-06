@@ -2,15 +2,15 @@
 
 ## Status
 
-| Stage                                      | State                        |
-| ------------------------------------------ | ---------------------------- |
-| 1 — Routing foundation & shell split       | ✅ Implemented (this branch) |
-| 2 — Share API client module                | ✅ Implemented (this branch) |
-| 3 — Standalone player UI + auto-start      | ✅ Implemented (this branch) |
-| 4 — AWS backend (CDK)                      | ⬜ Not started               |
-| 5 — IDE "Share link" flow                  | ⬜ Not started               |
-| 6 — Open-in-IDE handover                   | ⬜ Not started               |
-| 7 — Hosting, PWA hardening, full test pass | ⬜ Not started               |
+| Stage                                      | State                                                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| 1 — Routing foundation & shell split       | ✅ Implemented (this branch)                                                                    |
+| 2 — Share API client module                | ✅ Implemented (this branch)                                                                    |
+| 3 — Standalone player UI + auto-start      | ✅ Implemented (this branch)                                                                    |
+| 4 — AWS backend (CDK)                      | ✅ Implemented ([basically-share-server](https://github.com/seanhodges/basically-share-server)) |
+| 5 — IDE "Share link" flow                  | ⬜ Not started                                                                                  |
+| 6 — Open-in-IDE handover                   | ⬜ Not started                                                                                  |
+| 7 — Hosting, PWA hardening, full test pass | ⬜ Not started                                                                                  |
 
 Update this table as stages land.
 
@@ -50,7 +50,7 @@ Exact assignments are easy to swap in `SHARE_VERBS` (`src/player/routes.ts`); a 
 - **Reuse the existing Zustand store, not a second one** — `EmulatorPane`, `VirtualKeyboard`, and `GameController` are already store-driven and Workspace-independent. New `playerBoot` action deliberately bypasses `setDialect` (confirm-dialog path, `store.ts:491`) and `replaceDocument` (mobile side effect at `store.ts:554`: flips `mobileTab` to `'editor'` and bumps `stopRequest`).
 - **Auto-start with audio-unlock pill.** Browsers block AudioContext without a gesture, so the program runs immediately (video is fine), and a "tap for sound" pill + a one-time root `pointerdown` calls a new `resumeAudio()`. Users tap the virtual keyboard anyway. Fallback if iOS misbehaves: tap-to-play overlay, identical plumbing.
 - **The DynamoDB record stores the authoring `dialectId` plus a `compatibleDialects` list.** The verb deterministically picks the machine; the record's compatibility list is used for program–machine incompatibility checking. At share time the IDE computes `compatibleDialects` by running every registered dialect's `tokenize(source)` and keeping the ids with zero errors — cheap, client-side, reuses the existing tokenizers. On open, if the verb's dialect isn't in `compatibleDialects`, the player shows an incompatibility notice with a one-tap link to the program's canonical URL (`playerPathFor(record.dialectId, id)`) instead of booting a machine that can't run it.
-- **IaC: AWS CDK (TypeScript)** in `infra/` — same language/toolchain as the repo; `NodejsFunction` (esbuild) bundles the verb/dialect table straight from `src/player/routes.ts`, one source of truth for valid dialect IDs.
+- **IaC: AWS CDK (TypeScript)** in the separate [basically-share-server](https://github.com/seanhodges/basically-share-server) repo, checked out as a sibling (`../basically-share-server`) — same language/toolchain as this repo; `NodejsFunction` (esbuild) bundles the verb/dialect table straight from this repo's `src/player/routes.ts` via the sibling checkout, one source of truth for valid dialect IDs.
 - **Share IDs**: 6 chars from the unambiguous lowercase alphabet `23456789abcdefghjkmnpqrstuvwxyz` (~887M IDs; no 0/O/1/l/i), server-generated with `crypto.randomInt`, `ConditionExpression: attribute_not_exists(id)`, retry ×5.
 
 ## API contract (frozen in Stage 2, implemented in Stage 4)
@@ -114,18 +114,18 @@ Shippable end-to-end in dev/e2e with a stubbed API (Playwright `page.route`); ag
 
 **Verify:** dev server with `page.route`-style stub or a local mock; physical keyboard reaches the machine via the focused canvas (already built into EmulatorPane); all four gates.
 
-## Stage 4 — AWS backend (CDK: DynamoDB + Lambda + HTTP API)
+## Stage 4 — AWS backend (CDK: DynamoDB + Lambda + HTTP API) ✅
 
-Shippable alone: `cdk deploy`, then point `.env.local` `VITE_SHARE_API_URL` at the API URL.
+Implemented in the separate **[basically-share-server](https://github.com/seanhodges/basically-share-server)** repo, checked out as a sibling of this one (`../basically-share-server`). Shippable alone: `cdk deploy`, then point `.env.local` `VITE_SHARE_API_URL` at the API URL.
 
-**New tree `infra/`** (own package.json: `aws-cdk-lib`, `constructs`, `@aws-sdk/lib-dynamodb`; dev: `aws-cdk`, `vitest`, `aws-sdk-client-mock`):
+Standalone repo (own package.json: `aws-cdk-lib`, `constructs`, `@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`; dev: `aws-cdk`, `tsx`, `esbuild`, `vitest`, `aws-sdk-client-mock`):
 
-- `infra/bin/app.ts` — CDK app.
-- `infra/lib/shareApiStack.ts` — DynamoDB table `basically-shares` (PK `id`, on-demand, `timeToLiveAttribute: 'expiresAt'` — enabled but unset by default: links are permanent, TTL is an ops lever); one `NodejsFunction` (Node 22, ARM); API Gateway **HTTP API** with `GET /share/{id}` (throttle ~20 rps) and `POST /share` (~2 rps, burst 5); CORS for prod origin + localhost:5173. (HTTP API over a Function URL: two routes, built-in CORS, per-route throttling.)
-- `infra/lambda/shareHandler.ts` — imports `SHARE_VERBS`/`SHARE_ID_RE` from `../../src/player/routes` (dependency-free by design; esbuild bundles it). GET: validate → GetItem → 200/404/410 (410 for expired-not-yet-reaped items). POST: validate dialect/name/size + `compatibleDialects` (non-empty subset of `SHARE_VERBS` dialect ids, must contain `dialectId`) → generate ID → conditional put ×5 → `201 { id }`.
-- `infra/lambda/shareHandler.test.ts` (aws-sdk-client-mock), `infra/lib/shareApiStack.test.ts` (CDK assertions), `infra/README.md` (deploy, env wiring, abuse notes: anonymous public write → throttle + size cap + TTL lever + billing alarm; WAF/captcha future).
+- `bin/app.ts` — CDK app.
+- `lib/shareApiStack.ts` — DynamoDB table `basically-shares` (PK `id`, on-demand, `timeToLiveAttribute: 'expiresAt'` — enabled but unset by default: links are permanent, TTL is an ops lever); one `NodejsFunction` (Node 22, ARM); API Gateway **HTTP API** with `GET /share/{id}` (throttle ~20 rps) and `POST /share` (~2 rps, burst 5); CORS for prod origin + localhost:5173. (HTTP API over a Function URL: two routes, built-in CORS, per-route throttling.)
+- `lambda/shareHandler.ts` — imports `SHARE_VERBS`/`SHARE_ID_RE` from `../../basically/src/player/routes` (this repo, via the sibling checkout — dependency-free by design; esbuild bundles it; its CI checks out both repos side by side). GET: validate → GetItem → 200/404/410 (410 for expired-not-yet-reaped items). POST: validate dialect/name/size + `compatibleDialects` (non-empty subset of `SHARE_VERBS` dialect ids, must contain `dialectId`) → generate ID → conditional put ×5 → `201 { id }`.
+- `lambda/shareHandler.test.ts` (aws-sdk-client-mock), `lib/shareApiStack.test.ts` (CDK assertions), `README.md` (deploy, env wiring, abuse notes: anonymous public write → throttle + size cap + TTL lever + billing alarm; WAF/captcha future).
 
-Root vitest include stays `src/**`; infra tests run via `cd infra && npx vitest run` (optionally a root `test:infra` script).
+Root vitest include stays `src/**`; backend tests run in the other repo (`cd ../basically-share-server && npm test`).
 
 ## Stage 5 — IDE "Share link" flow (write path)
 
@@ -144,7 +144,7 @@ Root vitest include stays `src/**`; infra tests run via `cd infra && npx vitest 
 - GitHub Pages wiring: the `404.html` copy step from Stage 1 ships with the first player deploy; add `VITE_SHARE_API_URL` as a repository variable and pass it into the `npm run build` step in `.github/workflows/deploy.yml` as an `env:` entry (`VITE_SHARE_API_URL` from the `SHARE_API_URL` repository variable via the workflow `vars` context — the moustache syntax is not reproduced here because VitePress interpolates it). Confirm the Stage 4 stack's CORS `allowOrigins` matches the production Pages origin exactly.
 - PWA checks: installed-PWA update cycle lands `/run/x` in the player; denylist keeps `/docs` out of the SW fallback; cold (no-SW) deep link exercises the 404.html path.
 - E2E: `e2e/player.spec.ts` (boot via `page.route` stub, canvas renders frames — reuse the canvas assertions from `e2e/debug.spec.ts`, FAB restart, error states, the incompatible-dialect notice + canonical-link redirect, landscape device project mirroring `landscape-layout.spec.ts`), `e2e/share-flow.spec.ts` (verb URL per dialect), open-in-IDE round trip.
-- Docs page + CLAUDE.md architecture-table updates (`src/player/`, `src/share/`, `infra/`).
+- Docs page + CLAUDE.md architecture-table updates (`src/player/`, `src/share/`, and a pointer to the basically-share-server sibling repo).
 
 **Dependency graph:** 1 → 2 → 3 → 7; 2 → 4 → 5 → 7; (2, 4) → 6 → 7. Stages 3 and 4 parallelize after 2.
 
@@ -167,4 +167,4 @@ Root vitest include stays `src/**`; infra tests run via `cd infra && npx vitest 
 
 ## Verification (per stage + final)
 
-Every stage ends with the CLAUDE.md gates: `npm run typecheck && npm test && npm run lint && npm run format:check`. UI stages additionally: drive the dev server (`npm run dev`), open a player URL with a stubbed/deployed API, confirm the program auto-runs, virtual keyboard/gamepad/physical keyboard all reach the machine, FAB restarts, Open-in-IDE lands in the editor with the program loaded. Final pass: `npm run e2e` including the new `player.spec.ts`/`share-flow.spec.ts`, plus `cd infra && npx vitest run` and a `cdk synth`.
+Every stage ends with the CLAUDE.md gates: `npm run typecheck && npm test && npm run lint && npm run format:check`. UI stages additionally: drive the dev server (`npm run dev`), open a player URL with a stubbed/deployed API, confirm the program auto-runs, virtual keyboard/gamepad/physical keyboard all reach the machine, FAB restarts, Open-in-IDE lands in the editor with the program loaded. Final pass: `npm run e2e` including the new `player.spec.ts`/`share-flow.spec.ts`, plus `cd ../basically-share-server && npm test && npx cdk synth`.
