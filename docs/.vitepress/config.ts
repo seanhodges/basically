@@ -117,6 +117,10 @@ export default withPwa(
                 link: '/contributing/adding-a-dialect',
               },
               {
+                text: 'Standalone player',
+                link: '/contributing/standalone-player',
+              },
+              {
                 text: 'Dialect roadmap',
                 link: '/contributing/dialect-roadmap',
               },

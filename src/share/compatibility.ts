@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-// Which machines a program can be shared to (standalone-player-plan Stage 5):
+// Which machines a program can be shared to (docs/contributing/standalone-player.md):
 // the ids of every registered dialect whose tokenizer accepts the source with
 // zero errors. Purely syntactic - a program may tokenize on a machine yet rely
 // on hardware it lacks - but cheap, client-side, and always includes the

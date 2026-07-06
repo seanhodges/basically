@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-// The standalone player (docs/contributing/standalone-player-plan.md, Stage 3):
+// The standalone player (docs/contributing/standalone-player.md):
 // a cut-down, fully responsive shell - emulator screen + virtual keyboard +
 // virtual gamepad, no editor/docs/menus. It fetches the shared program behind
 // its /<verb>/<shareId> URL, boots the verb's machine via the store's
