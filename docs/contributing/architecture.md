@@ -107,8 +107,8 @@ provides, behind the one interface:
 
 `Dialect.createEmulator()` returns a `MachineEmulator`: `loadProgram(image)`,
 `runFrame()` (one 50 Hz frame of CPU time), `renderTo(canvas)`, key and
-joystick input, and optional capabilities the app feature-detects per machine
-- `readAudio()`, `readVariables()`, `readReport()` (BASIC runtime errors), and
+joystick input, and optional capabilities the app feature-detects per machine -
+`readAudio()`, `readVariables()`, `readReport()` (BASIC runtime errors), and
 `debugStep()` for the line-level debugger. Small self-contained machines live
 inside their dialect folder; large or vendored cores live under
 `src/emulator/` - the Z80 core shared by the Sinclair machines, a 6502 core,

@@ -6,11 +6,11 @@ now held by Amstrad plc (acquired by Sky in 2007).
 
 `zxspectrum.rom` is the 16K Sinclair ZX Spectrum 48K BASIC ROM,
 copyright © 1982 Sinclair Research Ltd / Nine Tiles Networks Ltd, with rights
-now held by Amstrad plc (CRC32 ddee531f - the standard 48K image).
+now held by Amstrad plc (CRC32 ddee531f — the standard 48K image).
 
 `zx80.rom` is the 4K Sinclair ZX80 BASIC ROM, copyright © 1980 Nine Tiles
 Networks Ltd / Sinclair Research Ltd, with rights now held by Amstrad plc
-(CRC32 4c7fc597 - the standard ZX80 image).
+(CRC32 4c7fc597 — the standard ZX80 image).
 
 `zxspectrum128.rom` is the 32K Sinclair ZX Spectrum 128K / +2 ROM, copyright
 © 1986 Sinclair Research Ltd / Amstrad plc, with rights now held by Amstrad plc.
@@ -29,7 +29,7 @@ https://worldofspectrum.org/assets/amstrad-roms.txt (originally posted to
 comp.sys.sinclair, 1999).
 
 If you are the rights holder and want this file removed, please open an
-issue - the IDE also supports supplying your own ROM image at runtime.
+issue — the IDE also supports supplying your own ROM image at runtime.
 
 # Acorn ROM attribution
 
@@ -68,4 +68,4 @@ de-facto-tolerated basis. They are included here solely for use with the
 bundled emulator.
 
 If you are the rights holder and want these files removed, please open an
-issue - the IDE also supports supplying your own ROM image at runtime.
+issue — the IDE also supports supplying your own ROM image at runtime.

@@ -31,9 +31,9 @@ the monitor/debugger UI, and the ROM source modules were intentionally left
 behind. The IDE supplies its own host modules (in-memory video, key-matrix
 keyboard, audio/joystick stubs) from `../c64Machine.ts`.
 
-- `target/` - `bringup`, `runloop`, `wires`, `ram`, `vic`, `sid`, `sid_diag`,
+- `target/` — `bringup`, `runloop`, `wires`, `ram`, `vic`, `sid`, `sid_diag`,
   `cias`, `cpu`, `tape`
-- `tools/` - `romLocations`, `serializerSupport`, `disasm`, `base64`,
+- `tools/` — `romLocations`, `serializerSupport`, `disasm`, `base64`,
   `c64FontCodePoints`, `palettes`, `parser`, `loadPrg`
 - `debug.js`
 
