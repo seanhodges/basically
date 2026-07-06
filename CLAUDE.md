@@ -70,6 +70,8 @@ For tokenizer / emulator / charset changes, add or update the colocated
 | `src/components/`              | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`, status bar                                                                   |
 | `src/ai/`                      | Anthropic SDK client, prompt builder, AI code extractor/merge                                                                             |
 | `src/transfer/`                | Hardware export: WAV cassette, `.P`, WebSerial protocol                                                                                   |
+| `src/player/`                  | Standalone player: URL/verb routing (`routes.ts`) + emulator-only shell (`PlayerApp.tsx`) for short share links                           |
+| `src/share/`                   | Share-link API client (`shareClient.ts`) + syntactic dialect-compatibility check (`compatibility.ts`)                                     |
 | `src/storage/`                 | localStorage settings + autosave                                                                                                          |
 | `src/dialects/<name>/samples/` | Bundled sample `.bas` programs for that dialect (registered in its `samples.ts`)                                                          |
 

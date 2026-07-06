@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-// The IDE's "Publish to Web…" flow (standalone-player-plan Stage 5): mint a short
-// player URL for the current program via the share API. Everything here is
+// The IDE's "Publish to Web…" flow (docs/contributing/standalone-player.md):
+// mint a short player URL for the current program via the share API. Everything here is
 // named shareLink* - the Toolbar's existing `openShare` handler means the
 // Export/Transfer dialog, not this.
 
