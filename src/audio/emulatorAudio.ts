@@ -109,6 +109,11 @@ export class EmulatorAudio {
     ]);
   }
 
+  /** True once the context exists and autoplay policy has let it run. */
+  isRunning(): boolean {
+    return this.ctx?.state === 'running';
+  }
+
   setVolume(v: number): void {
     this.volume = clampVolume(v);
     if (this.gain && !this.muted) this.gain.gain.value = this.volume;

@@ -38,6 +38,16 @@ const AI_CHECK_ABS_MAX_FRAMES = 600;
 export interface MachineApi {
   getMachine: () => MachineEmulator | null;
   registerFrameHook: (cb: (() => void) | null) => void;
+  /**
+   * Unlock run-time emulator sound from a user gesture (the player auto-starts
+   * without one, so its "tap for sound" pill calls this on the first tap).
+   * Resolves true when audio is confirmed running — or when there is nothing
+   * to unlock (audio disabled, or the machine emits none) — and false when the
+   * machine isn't up yet or the browser still refuses; callers retry on the
+   * next gesture. The IDE (Workspace) ignores it: Run/Reset are themselves
+   * gestures, so ensureAudio already unlocks inline there.
+   */
+  resumeAudio: () => Promise<boolean>;
 }
 
 interface EmulatorPaneProps {
@@ -577,12 +587,29 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const registerFrameHook = useCallback((cb: (() => void) | null) => {
     frameHookRef.current = cb;
   }, []);
+  const resumeAudio = useCallback(async (): Promise<boolean> => {
+    const machine = machineRef.current;
+    if (!machine) return false; // not booted yet — retry on a later gesture
+    // Nothing to unlock (sound off, or a silent machine): report success so
+    // the caller can drop its prompt.
+    if (
+      !useIdeStore.getState().emulatorAudio ||
+      typeof machine.readAudio !== 'function'
+    ) {
+      return true;
+    }
+    ensureAudio(machine);
+    const audio = audioRef.current;
+    if (!audio) return true;
+    await audio.resume();
+    return audio.isRunning();
+  }, [ensureAudio]);
 
   // Publish the machine handle to a parent-owned ref so the overlay keyboard
   // (rendered outside this pane) can drive the emulator. Assigned during render
   // — not in an effect — so it's populated before the keyboard's frame-hook
   // effect runs; otherwise frame-counted key releases would never fire.
-  if (apiRef) apiRef.current = { getMachine, registerFrameHook };
+  if (apiRef) apiRef.current = { getMachine, registerFrameHook, resumeAudio };
   useEffect(() => {
     if (!apiRef) return;
     return () => {
