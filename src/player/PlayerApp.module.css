@@ -95,6 +95,26 @@
 .player.landscape .topActions {
   margin-left: 0;
   flex-direction: column;
+  /* Fill the rail height so `margin-top: auto` on the first toggle (below) has
+     free space to absorb, pushing the toggles to the foot of the rail. */
+  flex: 1;
+  align-self: stretch;
+}
+
+/* Landscape rail order (mirrors the IDE rail): Play at the top, See-the-Code
+   second, then the keyboard/gamepad toggles anchored to the bottom. `order`
+   repositions without disturbing the portrait DOM order (and the buttons keep
+   their existing handlers); `margin-top: auto` on the first toggle pushes both
+   toggles to the foot of the column. */
+.player.landscape .seeCode {
+  order: 1;
+}
+.player.landscape .kbToggle {
+  order: 2;
+  margin-top: auto;
+}
+.player.landscape .padToggle {
+  order: 3;
 }
 
 .toggleActive {
@@ -135,6 +155,7 @@
 
 .player.landscape .runButton {
   width: 100%;
+  order: 0;
 }
 
 /* "Tap for sound" pill: any tap unlocks audio; the pill itself is just the

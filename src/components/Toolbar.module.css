@@ -333,6 +333,16 @@
     justify-content: center;
   }
 
+  /* The primary green Play button: a direct rail child so it already stretches;
+     centre its glyph like the other rail buttons. */
+  .toolbar.rail .railPlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
+  }
+
   /* Action icons (Docs, overflow) sink to the bottom of the rail. */
   .toolbar.rail .toolbarRight {
     margin-top: auto;

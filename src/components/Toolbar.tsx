@@ -253,6 +253,22 @@ export function Toolbar() {
           )}
         </div>
 
+        {/* Phone landscape: the primary Play action is a first-class green
+            button in the rail (mirrors the standalone player) rather than being
+            buried in the overflow menu. Sits right after File, before the tabs. */}
+        {landscape && (
+          <button
+            className={`run ${styles.railPlay}`}
+            onClick={() => {
+              setMobileTab('preview');
+              playProgram();
+            }}
+            title="Build and play in the emulator"
+          >
+            ▶
+          </button>
+        )}
+
         {/* The mobile tab switcher is merged into the toolbar row, immediately
             right of the File menu. It hides itself on desktop via its own
             module CSS. */}
@@ -409,26 +425,38 @@ export function Toolbar() {
         >
           <BookIcon />
         </button>
-        {/* Phone landscape: the on-screen keyboard toggle lives in the rail
+        {/* Phone landscape: the keyboard/gamepad toggles live in the rail
             (mirrors the standalone player's sidebar) rather than floating over
-            the emulator. Only relevant on the preview tab, where the emulator is
-            the input surface. */}
+            the emulator, only on the preview tab where the emulator is the input
+            surface. The two are a single either/or slot (resolveInputOverlays:
+            the flanking gamepad shows unless the keyboard is on), so these read
+            as a segmented control - ⌨ turns the keyboard on, 🎮 turns it off
+            (revealing the gamepad) - anchored at the foot of the rail, above ⋯. */}
         {landscape && mobileTab === 'preview' && (
-          <button
-            type="button"
-            className={`${styles.kbToggle} ${
-              keyboardEnabled ? styles.kbToggleActive : ''
-            }`}
-            aria-pressed={keyboardEnabled}
-            title={
-              keyboardEnabled
-                ? 'Hide on-screen keyboard'
-                : 'Show on-screen keyboard'
-            }
-            onClick={() => setKeyboardEnabled(!keyboardEnabled)}
-          >
-            ⌨
-          </button>
+          <>
+            <button
+              type="button"
+              className={`${styles.kbToggle} ${
+                keyboardEnabled ? styles.kbToggleActive : ''
+              }`}
+              aria-pressed={keyboardEnabled}
+              title="Show on-screen keyboard"
+              onClick={() => setKeyboardEnabled(true)}
+            >
+              ⌨
+            </button>
+            <button
+              type="button"
+              className={`${styles.kbToggle} ${
+                !keyboardEnabled ? styles.kbToggleActive : ''
+              }`}
+              aria-pressed={!keyboardEnabled}
+              title="Show game controller"
+              onClick={() => setKeyboardEnabled(false)}
+            >
+              🎮
+            </button>
+          </>
         )}
         {/* Mobile "three dots" overflow menu. On the editor/preview tabs it
             carries the Edit/Run actions; when the bar is tight it additionally
@@ -483,7 +511,8 @@ export function Toolbar() {
               )}
               {mobileTab === 'preview' && (
                 <>
-                  <button onClick={playProgram}>▶ Play</button>
+                  {/* Play is promoted to the green rail button at the top; the
+                      overflow keeps only the debug/stop actions. */}
                   {dialect.debuggable && (
                     <>
                       <button
