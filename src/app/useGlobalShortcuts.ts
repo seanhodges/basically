@@ -51,6 +51,9 @@ function dispatch(id: ShortcutId): boolean {
     case 'file.export':
       s.setTransferOpen(true);
       return true;
+    case 'file.publish':
+      s.setShareLinkOpen(true);
+      return true;
     case 'edit.find':
       s.requestEditorCommand('find');
       return true;

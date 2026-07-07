@@ -20,13 +20,14 @@ debugging, file operations, and toggling the panels.
 
 ## File
 
-| Action       | Shortcut                                   |
-| ------------ | ------------------------------------------ |
-| New          | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd> |
-| Open `.bas`… | <kbd>Mod</kbd>+<kbd>O</kbd>                |
-| Save `.bas`  | <kbd>Mod</kbd>+<kbd>S</kbd>                |
-| Import…      | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> |
-| Export…      | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>E</kbd> |
+| Action          | Shortcut                                     |
+| --------------- | -------------------------------------------- |
+| New             | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd>   |
+| Open `.bas`…    | <kbd>Mod</kbd>+<kbd>O</kbd>                  |
+| Save `.bas`     | <kbd>Mod</kbd>+<kbd>S</kbd>                  |
+| Import…         | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>   |
+| Export…         | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>E</kbd>   |
+| Publish to Web… | <kbd>Mod</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> |
 
 ## Editing
 

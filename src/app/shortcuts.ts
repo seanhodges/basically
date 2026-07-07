@@ -25,6 +25,7 @@ export type ShortcutId =
   | 'file.save'
   | 'file.import'
   | 'file.export'
+  | 'file.publish'
   | 'edit.undo'
   | 'edit.redo'
   | 'edit.cut'
@@ -109,6 +110,12 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Export',
     category: 'File',
     keys: [c('KeyE', { mod: true, alt: true })],
+  },
+  {
+    id: 'file.publish',
+    label: 'Publish to Web',
+    category: 'File',
+    keys: [c('KeyP', { mod: true, shift: true })],
   },
 
   // Edit

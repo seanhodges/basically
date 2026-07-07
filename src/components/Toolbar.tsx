@@ -231,9 +231,12 @@ export function Toolbar() {
               <button onClick={openShare}>Export…{hint('file.export')}</button>
               <button
                 onClick={openShareLink}
-                title="Create a short link that plays this program in the browser"
+                title={withKeys(
+                  'Create a short link that plays this program in the browser',
+                  'file.publish',
+                )}
               >
-                Publish to Web…
+                Publish to Web…{hint('file.publish')}
               </button>
               <div className={styles.menuSeparator} />
               <button
