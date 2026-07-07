@@ -362,6 +362,17 @@ export function saveAutosave(name: string, text: string): void {
 }
 
 /**
+ * Empty the autosave slot. Used when the editor returns to a state that should
+ * not be preserved across reloads - a pristine sample, a New/empty document, or
+ * a pristine dialect switch - so boot falls back to the starter instead of
+ * restoring stale content.
+ */
+export function clearAutosave(): void {
+  localStorage.removeItem(KEYS.autosaveDoc);
+  localStorage.removeItem(KEYS.autosaveName);
+}
+
+/**
  * Persisted AI conversation for the active program. Restored on reload so the
  * thread (and any preserved partial answer) survives orientation changes and
  * panel toggles. Cleared when a different program is loaded.

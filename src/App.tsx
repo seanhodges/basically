@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { useEffect } from 'react';
-import { useIdeStore } from './app/store';
+import { useIdeStore, persistAutosave } from './app/store';
 import { Toolbar } from './components/Toolbar';
 import { Workspace } from './components/Workspace';
 import { AiSettingsDialog } from './components/AiSettingsDialog';
@@ -15,7 +15,7 @@ import { ProcedureListDialog } from './components/ProcedureListDialog';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { DocsDrawer } from './components/DocsDrawer';
 import { StatusBar } from './components/StatusBar';
-import { getHasSeenWelcome, saveAutosave } from './storage/settings';
+import { getHasSeenWelcome } from './storage/settings';
 import {
   isMobileViewport,
   useMediaQuery,
@@ -53,12 +53,11 @@ export default function App() {
     }
   }, []);
 
-  // Autosave the document every 2s while dirty
+  // Mirror the document to autosave every 2s. persistAutosave is self-gating:
+  // it writes only when the content changed, and empties autosave for a pristine
+  // sample or an empty editor, so unmodified samples aren't restored on reload.
   useEffect(() => {
-    const interval = setInterval(() => {
-      const { dirty, fileName, source } = useIdeStore.getState();
-      if (dirty) saveAutosave(fileName, source);
-    }, 2000);
+    const interval = setInterval(persistAutosave, 2000);
     return () => clearInterval(interval);
   }, []);
 

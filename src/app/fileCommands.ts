@@ -24,7 +24,7 @@ export function confirmDiscard(): boolean {
 /** Clear the editor to a fresh untitled program (guarded by {@link confirmDiscard}). */
 export function newDocument(): void {
   if (!confirmDiscard()) return;
-  useIdeStore.getState().replaceDocument('', 'untitled.bas');
+  useIdeStore.getState().loadUnsavedDocument('');
 }
 
 /** Open a `.bas` from disk into the editor (guarded by {@link confirmDiscard}). */

@@ -81,7 +81,8 @@ describe('openSharedFromUrl', () => {
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('bbcmicro');
     expect(s.source).toBe('10 PRINT "SHARED"');
-    expect(s.fileName).toBe('demo.bas');
+    // A shared program isn't a saved local file - it opens untitled.
+    expect(s.fileName).toBe('untitled.bas');
     expect(s.dirty).toBe(false);
     expect(s.statusNotice).toBeNull();
     expect(replaceStateMock).toHaveBeenCalledTimes(1);
@@ -108,11 +109,12 @@ describe('openSharedFromUrl', () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
-  it('falls back to shared.bas when the record has no name', async () => {
+  it('opens the shared program as an untitled document', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ ...record, name: '' }), { status: 200 }),
     );
     await openSharedFromUrl();
-    expect(useIdeStore.getState().fileName).toBe('shared.bas');
+    // The share's name is not a saved local file, so it is not adopted.
+    expect(useIdeStore.getState().fileName).toBe('untitled.bas');
   });
 });
