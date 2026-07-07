@@ -562,14 +562,30 @@ const debugLineField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
-/** Suppresses the native on-screen keyboard while the virtual keyboard is on
-    (the editor stays focusable and physical keyboards are unaffected). */
+/** Suppresses the native on-screen keyboard while the virtual keyboard is the
+    editor's input surface (the editor stays focusable and physical keyboards are
+    unaffected). */
 const inputModeCompartment = new Compartment();
 
 function inputModeExt(virtualKeyboard: boolean) {
   return EditorView.contentAttributes.of(
     virtualKeyboard ? { inputmode: 'none' } : {},
   );
+}
+
+/**
+ * The virtual keyboard is (or will be) the editor's input surface, so the native
+ * OSK must be suppressed pre-emptively (before the focusing tap): either the
+ * explicit toggle is on, or auto-show is on. The editor's contenteditable only
+ * holds focus while the editor surface is active, and auto-show always fires on
+ * the editor surface (the phone-landscape carve-out is emulator-only - see
+ * {@link resolveInputOverlays}), so no layout check is needed here.
+ */
+function shouldSuppressNativeKeyboard(
+  keyboardEnabled: boolean,
+  keyboardAutoShow: boolean,
+): boolean {
+  return keyboardEnabled || keyboardAutoShow;
 }
 
 /** Apply one virtual-keyboard action to the editor. */
@@ -720,7 +736,12 @@ export function CodeMirrorHost({
           },
         }),
         inputModeCompartment.of(
-          inputModeExt(useIdeStore.getState().keyboardEnabled),
+          inputModeExt(
+            shouldSuppressNativeKeyboard(
+              useIdeStore.getState().keyboardEnabled,
+              useIdeStore.getState().keyboardAutoShow,
+            ),
+          ),
         ),
         EditorView.theme({
           '&': { height: '100%', fontSize: '14px' },
@@ -745,13 +766,22 @@ export function CodeMirrorHost({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialect]);
 
-  // Keep the native-OSK suppression in sync with the on-screen keyboard overlay.
+  // Keep the native-OSK suppression in sync: suppress it whenever the virtual
+  // keyboard is (or will be) the editor's input surface - the explicit toggle or
+  // auto-show. Reconfigure when either of those changes.
   const keyboardOverlay = useIdeStore((s) => s.keyboardEnabled);
+  const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
+  const suppressNativeKeyboard = shouldSuppressNativeKeyboard(
+    keyboardOverlay,
+    keyboardAutoShow,
+  );
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: inputModeCompartment.reconfigure(inputModeExt(keyboardOverlay)),
+      effects: inputModeCompartment.reconfigure(
+        inputModeExt(suppressNativeKeyboard),
+      ),
     });
-  }, [keyboardOverlay]);
+  }, [suppressNativeKeyboard]);
 
   // On mobile, switching away from the app and back makes the browser restore
   // focus to the editor's contenteditable and re-summon the native on-screen
