@@ -12,6 +12,8 @@ import {
 } from '../keyboard/controllerConfig';
 import {
   loadAutosave,
+  saveAutosave,
+  clearAutosave,
   getDialectId,
   setDialectId as persistDialectId,
   getAutoLineNumbering,
@@ -276,22 +278,25 @@ interface IdeState {
    * Open a shared program in the IDE (the player's "See the Code" handover).
    * Unlike {@link playerBoot} this IS a real dialect switch - the user is
    * moving into the IDE, so persisting the choice is correct - but it bypasses
-   * the confirmation dialog by design: at boot the editor holds only autosave,
-   * and `dirty: false` keeps the autosave loop from clobbering the user's
-   * saved program until they edit the shared one (the same semantics as
-   * loading a sample).
+   * the confirmation dialog by design. The shared program isn't a saved local
+   * file, so it loads as `untitled.bas`; being real content, it is mirrored to
+   * autosave and survives a reload until replaced.
    */
-  openSharedInIde(args: {
-    dialectId: string;
-    source: string;
-    fileName: string;
-  }): void;
+  openSharedInIde(args: { dialectId: string; source: string }): void;
   /** Resolve a pending target switch: start fresh or keep the current code. */
   confirmDialectSwitch(mode: 'new' | 'keep'): void;
   /** Dismiss a pending target switch, leaving the current machine in place. */
   cancelDialectSwitch(): void;
   setSource(text: string): void;
   replaceDocument(text: string, fileName?: string): void;
+  /**
+   * Replace the editor with a document that has no saved file yet - a loaded
+   * sample, a New program, or an import. Resets `fileName` to `untitled.bas`
+   * (only Open/Save name a document) and empties autosave when the content is
+   * pristine, so an unmodified sample isn't restored on reload. `opts.dirty`
+   * flags genuinely-unsaved content (Import) so the discard guard fires.
+   */
+  loadUnsavedDocument(text: string, opts?: { dirty?: boolean }): void;
   markSaved(fileName: string): void;
   requestRun(): void;
   /** Like {@link requestRun}, but flags the run for the AI runtime-error check. */
@@ -426,6 +431,34 @@ function matchingSampleName(dialect: Dialect, source: string): string | null {
 }
 
 /**
+ * Signature of the document currently mirrored to autosave. Lets
+ * {@link persistAutosave} skip the localStorage write when nothing changed, so
+ * the 2s poll does no I/O while the user is idle. Seeded from the boot document
+ * so the first tick doesn't re-write unchanged content.
+ */
+let lastAutosaveSig: string | null = autosaved
+  ? `${autosaved.name} ${autosaved.text}`
+  : '';
+
+/**
+ * Mirror the current document to autosave, or empty it. Autosave holds only
+ * *real* work: an empty editor or a pristine (unmodified) sample - including the
+ * starter, which is `samples[0]` - is cleared so it isn't restored on reload;
+ * anything else is saved under its `fileName`. Content-derived, not gated on
+ * `dirty`, so Open/Import/Save all persist without special-casing.
+ */
+export function persistAutosave(): void {
+  const { fileName, source, dialect } = useIdeStore.getState();
+  const pristine =
+    source.trim() === '' || matchingSampleName(dialect, source) !== null;
+  const sig = pristine ? '' : `${fileName}\u0000${source}`;
+  if (sig === lastAutosaveSig) return;
+  lastAutosaveSig = sig;
+  if (pristine) clearAutosave();
+  else saveAutosave(fileName, source);
+}
+
+/**
  * State patch that performs an actual target switch: persist the choice, swap
  * the dialect, push `text` into the (rebuilt) editor, and stop the emulator.
  * Shared by the immediate path and the confirmation dialog.
@@ -540,7 +573,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getFullCodeCompletion() : true,
   editorCommand: { name: 'renumber', seq: 0 },
 
-  setDialect: (id) =>
+  setDialect: (id) => {
     set((s) => {
       // No code, or the same machine: switch immediately, nothing to preserve.
       if (id === s.dialect.id) return {};
@@ -557,13 +590,14 @@ export const useIdeStore = create<IdeState>((set) => ({
 
       // Pristine starter or sample: swap in the same-named sample for the new
       // target (falling back to its starter), keeping the document "untouched".
+      // The swapped sample is not a saved file, so fileName stays untitled.
       const sampleName = matchingSampleName(s.dialect, s.source);
       if (sampleName !== null) {
         const sample =
           next.samples.find((x) => x.name === sampleName) ?? next.samples[0];
         return {
           ...applyDialectSwitch(s, next, sample?.text ?? ''),
-          fileName: sample?.name ?? 'untitled.bas',
+          fileName: 'untitled.bas',
           dirty: false,
         };
       }
@@ -571,7 +605,11 @@ export const useIdeStore = create<IdeState>((set) => ({
       // The user's own code: defer to the confirmation dialog. Don't switch or
       // persist the choice yet.
       return { pendingDialectId: id };
-    }),
+    });
+    // A pristine/empty switch loaded the new starter (a sample) - empty autosave
+    // so it isn't restored on reload.
+    persistAutosave();
+  },
   playerBoot: ({ dialectId, source, fileName }) =>
     set((s) => {
       const next = getDialect(dialectId);
@@ -595,15 +633,20 @@ export const useIdeStore = create<IdeState>((set) => ({
         mobileTab: 'preview' as MobileTab,
       };
     }),
-  openSharedInIde: ({ dialectId, source, fileName }) =>
+  openSharedInIde: ({ dialectId, source }) => {
     set((s) => ({
       // applyDialectSwitch so teardown / AI-reset / breakpoint semantics (and
       // persisting the dialect) match a real target switch.
       ...applyDialectSwitch(s, getDialect(dialectId), source),
-      fileName,
+      // A shared program isn't a saved local file - only Open/Save name a
+      // document - so it stays untitled until the user saves it.
+      fileName: 'untitled.bas',
       dirty: false,
-    })),
-  confirmDialectSwitch: (mode) =>
+    }));
+    // Real content: mirror it to autosave so it survives a reload.
+    persistAutosave();
+  },
+  confirmDialectSwitch: (mode) => {
     set((s) => {
       if (s.pendingDialectId === null) return {};
       const next = getDialect(s.pendingDialectId);
@@ -616,17 +659,27 @@ export const useIdeStore = create<IdeState>((set) => ({
       }
       // Keep the existing code as-is on the new machine.
       return applyDialectSwitch(s, next, s.source);
-    }),
+    });
+    persistAutosave();
+  },
   cancelDialectSwitch: () => set({ pendingDialectId: null }),
-  setSource: (text) => set({ source: text, dirty: true }),
-  replaceDocument: (text, fileName) =>
+  setSource: (text) =>
+    set((s) => {
+      // Emptying an unsaved draft returns it to the pristine state (autosave is
+      // cleared by the next poll, since the content rule sees empty text). A
+      // *named* file that's emptied keeps its name and stays dirty, so Ctrl+S
+      // overwrites it rather than opening a Save As. Never rename here.
+      const emptyDraft = text.trim() === '' && s.fileName === 'untitled.bas';
+      return { source: text, dirty: !emptyDraft };
+    }),
+  replaceDocument: (text, fileName) => {
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
       ...(fileName !== undefined ? { fileName } : {}),
-      // A named load (New/Open/Sample/Import) is a different program - clear the
-      // AI thread and any breakpoints (their line numbers belong to the old
-      // program). An in-place apply (AI Replace/Merge) passes no name and keeps both.
+      // A named load (Open) is a different program - clear the AI thread and any
+      // breakpoints (their line numbers belong to the old program). An in-place
+      // apply (AI Replace/Merge) passes no name and keeps both.
       ...(fileName !== undefined
         ? { aiResetSeq: s.aiResetSeq + 1, breakpoints: new Set<number>() }
         : {}),
@@ -636,8 +689,32 @@ export const useIdeStore = create<IdeState>((set) => ({
       ...(isMobileViewport()
         ? { stopRequest: s.stopRequest + 1, mobileTab: 'editor' as MobileTab }
         : {}),
-    })),
-  markSaved: (fileName) => set({ fileName, dirty: false }),
+    }));
+    persistAutosave();
+  },
+  loadUnsavedDocument: (text, opts) => {
+    set((s) => ({
+      source: text,
+      docOverride: { text, seq: s.docOverride.seq + 1 },
+      // Sample/New/Import are not saved files - only Open/Save name a document.
+      fileName: 'untitled.bas',
+      // A different program: clear the AI thread and old-program breakpoints.
+      aiResetSeq: s.aiResetSeq + 1,
+      breakpoints: new Set<number>(),
+      dirty: opts?.dirty ?? false,
+      ...(isMobileViewport()
+        ? { stopRequest: s.stopRequest + 1, mobileTab: 'editor' as MobileTab }
+        : {}),
+    }));
+    // Pristine sample/empty content clears autosave; real imported content is
+    // mirrored so it survives a reload.
+    persistAutosave();
+  },
+  markSaved: (fileName) => {
+    set({ fileName, dirty: false });
+    // Sync autosave to the just-saved document (fileName + source now match disk).
+    persistAutosave();
+  },
   requestRun: () => set((s) => ({ runRequest: s.runRequest + 1 })),
   requestAiRun: () =>
     set((s) => ({

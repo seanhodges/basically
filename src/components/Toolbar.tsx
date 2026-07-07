@@ -36,7 +36,7 @@ import styles from './Toolbar.module.css';
 export function Toolbar() {
   const dialect = useIdeStore((s) => s.dialect);
   const setDialect = useIdeStore((s) => s.setDialect);
-  const replaceDocument = useIdeStore((s) => s.replaceDocument);
+  const loadUnsavedDocument = useIdeStore((s) => s.loadUnsavedDocument);
   const requestRun = useIdeStore((s) => s.requestRun);
   const requestStop = useIdeStore((s) => s.requestStop);
   const requestStep = useIdeStore((s) => s.requestStep);
@@ -159,10 +159,12 @@ export function Toolbar() {
   const openFile = guard(openDocument);
   const saveFile = guard(saveDocument);
 
-  const loadSample = (name: string, text: string) =>
+  const loadSample = (text: string) =>
     guard(() => {
       if (!confirmDiscard()) return;
-      replaceDocument(text, name);
+      // A sample isn't a saved file - it loads untitled and, being pristine,
+      // is not preserved across a reload until the user edits it.
+      loadUnsavedDocument(text);
     })();
 
   const openImport = guard(() => setImportOpen(true));
@@ -246,7 +248,7 @@ export function Toolbar() {
               <div className={styles.menuSeparator} />
               <div className={styles.menuLabel}>Samples</div>
               {dialect.samples.map((s) => (
-                <button key={s.name} onClick={() => loadSample(s.name, s.text)}>
+                <button key={s.name} onClick={() => loadSample(s.text)}>
                   {s.title}
                 </button>
               ))}

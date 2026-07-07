@@ -16,7 +16,7 @@ export function ImportDialog() {
   const setOpen = useIdeStore((s) => s.setImportOpen);
   const dialect = useIdeStore((s) => s.dialect);
   const dirty = useIdeStore((s) => s.dirty);
-  const replaceDocument = useIdeStore((s) => s.replaceDocument);
+  const loadUnsavedDocument = useIdeStore((s) => s.loadUnsavedDocument);
 
   const [status, setStatus] = useState('');
   const [devices, setDevices] = useState<AudioInputDevice[]>([]);
@@ -57,7 +57,9 @@ export function ImportDialog() {
 
   const loadProgram = (programName: string, source: string) => {
     if (!confirmDiscard()) return;
-    replaceDocument(source, (programName.trim() || 'PROGRAM') + '.bas');
+    // Import loads real, not-yet-saved content: untitled (only Open/Save name a
+    // document) but dirty, so the discard guard fires before the next load.
+    loadUnsavedDocument(source, { dirty: true });
     setStatus(`Imported "${programName.trim() || 'PROGRAM'}".`);
     close();
   };
@@ -68,8 +70,7 @@ export function ImportDialog() {
       const opened = await openBinaryFile(fmt.extension);
       if (!opened) return;
       const text = dialect.detokenize(opened.bytes);
-      const ext = new RegExp(`\\${fmt.extension}$`, 'i');
-      replaceDocument(text, opened.name.replace(ext, '.bas'));
+      loadUnsavedDocument(text, { dirty: true });
       setStatus(`Imported ${opened.name}.`);
       close();
     });

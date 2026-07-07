@@ -3,6 +3,9 @@ import {
   loadAiConversation,
   saveAiConversation,
   clearAiConversation,
+  loadAutosave,
+  saveAutosave,
+  clearAutosave,
   getAiProvider,
   setAiProvider,
   getProviderApiKey,
@@ -28,6 +31,27 @@ function installLocalStorage() {
     },
   } as Storage;
 }
+
+describe('autosave persistence', () => {
+  beforeEach(() => {
+    installLocalStorage();
+  });
+
+  it('round-trips a document', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    expect(loadAutosave()).toEqual({ name: 'game.bas', text: '10 PRINT "HI"' });
+  });
+
+  it('returns null when nothing is stored', () => {
+    expect(loadAutosave()).toBeNull();
+  });
+
+  it('clearAutosave empties the slot', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    clearAutosave();
+    expect(loadAutosave()).toBeNull();
+  });
+});
 
 describe('AI conversation persistence', () => {
   beforeEach(() => {
