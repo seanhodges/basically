@@ -71,9 +71,9 @@ test('on-screen keyboard: "." accepts the top autocomplete suggestion', async ({
   await page.setViewportSize({ width: 390, height: 800 });
   await open(page);
 
-  // Show the keyboard, then focus + clear the editor so it stays the active
-  // surface while we tap keycaps.
-  await page.getByTitle('Show on-screen keyboard').click();
+  // Show the keyboard (one click: off → keyboard), then focus + clear the editor
+  // so it stays the active surface while we tap keycaps.
+  await page.getByTestId('input-overlay-toggle').click();
   await expect(page.locator('.virtual-keyboard')).toBeVisible();
   await clearEditor(page);
 
@@ -98,7 +98,7 @@ test('on-screen keyboard: "." with no popup open inserts a literal period', asyn
   await page.setViewportSize({ width: 390, height: 800 });
   await open(page);
 
-  await page.getByTitle('Show on-screen keyboard').click();
+  await page.getByTestId('input-overlay-toggle').click();
   await expect(page.locator('.virtual-keyboard')).toBeVisible();
   await clearEditor(page);
 

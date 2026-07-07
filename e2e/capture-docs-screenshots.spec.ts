@@ -66,17 +66,29 @@ async function runAndBoot(page: Page) {
   await page.waitForTimeout(3000);
 }
 
-/** Hide the on-screen keyboard if it happens to be showing (feature shots that
+/** Cycle the single input-overlay button to a target state ('off' | 'keyboard'
+ *  | 'gamepad'). No-op if the button isn't on screen. */
+async function setOverlayMode(
+  page: Page,
+  target: 'off' | 'keyboard' | 'gamepad',
+) {
+  const toggle = page.getByTestId('input-overlay-toggle');
+  if (!(await toggle.count())) return;
+  for (let i = 0; i < 3; i += 1) {
+    if ((await toggle.getAttribute('data-mode')) === target) return;
+    await toggle.click();
+  }
+}
+
+/** Hide the overlays if a keyboard happens to be showing (feature shots that
  *  don't need it should stay clean). */
 async function hideKeyboard(page: Page) {
-  const hide = page.getByTitle('Hide on-screen keyboard');
-  if (await hide.count()) await hide.click();
+  await setOverlayMode(page, 'off');
 }
 
 /** Show the on-screen keyboard if it isn't already. */
 async function showKeyboard(page: Page) {
-  const show = page.getByTitle('Show on-screen keyboard');
-  if (await show.count()) await show.click();
+  await setOverlayMode(page, 'keyboard');
 }
 
 /** Start the running game so a screenshot shows gameplay rather than the title
@@ -245,8 +257,7 @@ test('portrait mobile - emulator tab with gamepad', async ({ page }) => {
   await page.setViewportSize(MOBILE_VIEWPORT);
   // Show the emulator/preview surface, then flank it with the virtual gamepad.
   await page.getByRole('tab', { name: 'Run' }).click();
-  await hideKeyboard(page);
-  await page.getByTitle('Enable game controller').click();
+  await setOverlayMode(page, 'gamepad');
   await page.waitForTimeout(1000);
   await page.screenshot({ path: `${OUT}/screenshot-mobile.png` });
 });

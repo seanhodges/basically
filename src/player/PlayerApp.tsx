@@ -13,7 +13,6 @@ import { useIdeStore } from '../app/store';
 import { useInputOverlays } from '../app/useInputOverlays';
 import {
   useMediaQuery,
-  isLandscapeMobileViewport,
   MOBILE_QUERY,
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
@@ -35,6 +34,7 @@ import {
 } from '../keyboard/GameController';
 import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import { EmulatorPane, type MachineApi } from '../components/EmulatorPane';
+import { InputOverlayToggle } from '../components/InputOverlayToggle';
 import { CodeIcon } from '../components/icons';
 import styles from './PlayerApp.module.css';
 
@@ -210,21 +210,18 @@ export default function PlayerApp({
           source: rec.source,
           fileName: rec.name || 'shared.bas',
         });
-        // The on-screen keyboard follows the IDE's auto-show preference
-        // (store.keyboardAutoShow already resolves it: on for touch devices,
-        // off otherwise). When the user has never set it - never opened the IDE,
-        // so the key is unset - persist the computed default now so both
-        // surfaces agree from here on. Gamepad stays opt-in via the 🎮 toggle.
-        // Ephemeral setters so the IDE's persisted toggles are untouched.
+        // Start from a clean slate for the two explicit-intent flags and let the
+        // shared resolver derive what shows: with the player's surface fixed to
+        // the emulator, auto-show pops the keyboard on non-landscape touch and
+        // the flanking gamepad is the phone-landscape default (see
+        // useInputOverlays). Ephemeral so the IDE's persisted toggles are
+        // untouched. When the user has never set auto-show - never opened the
+        // IDE, so the key is unset - persist the computed default now so both
+        // surfaces agree from here on.
         if (getKeyboardAutoShow() === null) {
           setKeyboardAutoShow(store.keyboardAutoShow);
         }
-        // Auto-show follows the IDE's keyboardAutoShow preference - except in
-        // phone landscape, where the flanking gamepad is the default surface and
-        // an auto-shown keyboard would cover it. The ⌨ toggle still opens it.
-        store.setKeyboardEnabledEphemeral(
-          isLandscapeMobileViewport() ? false : store.keyboardAutoShow,
-        );
+        store.setKeyboardEnabledEphemeral(false);
         store.setControllerEnabledEphemeral(false);
         store.requestRun();
         setPhase('running');
@@ -299,36 +296,14 @@ export default function PlayerApp({
         <span className={styles.machineName}>{dialectName(dialectId)}</span>
         <div className={styles.topActions}>
           {phase === 'running' && runButton}
-          <button
-            type="button"
-            className={`${styles.kbToggle} ${
-              keyboardEnabled ? styles.toggleActive : ''
-            }`}
-            aria-pressed={keyboardEnabled}
-            title={
-              keyboardEnabled
-                ? 'Hide on-screen keyboard'
-                : 'Show on-screen keyboard'
-            }
-            onClick={() => setKeyboardEnabledEphemeral(!keyboardEnabled)}
-          >
-            ⌨
-          </button>
-          <button
-            type="button"
-            className={`${styles.padToggle} ${
-              controllerEnabled ? styles.toggleActive : ''
-            }`}
-            aria-pressed={controllerEnabled}
-            title={
-              controllerEnabled
-                ? 'Hide game controller'
-                : 'Show game controller'
-            }
-            onClick={() => setControllerEnabledEphemeral(!controllerEnabled)}
-          >
-            🎮
-          </button>
+          <InputOverlayToggle
+            keyboardEnabled={keyboardEnabled}
+            controllerEnabled={controllerEnabled}
+            setKeyboardEnabled={setKeyboardEnabledEphemeral}
+            setControllerEnabled={setControllerEnabledEphemeral}
+            className={styles.kbToggle}
+            activeClassName={styles.toggleActive}
+          />
           <button
             type="button"
             className={styles.seeCode}
