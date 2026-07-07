@@ -53,6 +53,15 @@ export interface InputOverlays {
   keyboardVisible: boolean;
   /** The bottom band is occupied, so the emulator screen shrinks to make room. */
   overlayUp: boolean;
+  /**
+   * The gamepad is a meaningful third position for the input-overlay toggle.
+   * It only is when the gamepad's visibility actually follows the toggle: on the
+   * emulator surface of a non-mobile layout. While editing (rule 3) the gamepad
+   * is never shown, and on mobile it's the default overlay (rule 4) whether the
+   * toggle is on or off — in both cases the toggle should skip gamepad and cycle
+   * only off/auto ↔ keyboard.
+   */
+  gamepadToggleable: boolean;
 }
 
 /**
@@ -118,11 +127,17 @@ export function resolveInputOverlays(input: InputOverlayInput): InputOverlays {
   // the screen height there.
   const overlayUp = keyboardVisible || (controllerVisible && !landscape);
 
+  // The gamepad earns its place in the toggle cycle only where its visibility
+  // tracks the toggle: the emulator surface of a non-mobile layout. On the
+  // editor surface it never shows; on mobile it's the default overlay anyway.
+  const gamepadToggleable = emulatorSurfaceActive && !mobile;
+
   return {
     emulatorSurfaceActive,
     controllerVisible,
     keyboardVisible,
     overlayUp,
+    gamepadToggleable,
   };
 }
 
