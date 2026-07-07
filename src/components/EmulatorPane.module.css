@@ -27,36 +27,6 @@
   max-width: 100%;
 }
 
-/* Phone-landscape keyboard toggle: pinned near the top-right of the pane - its
-   top aligned with the top of the preview, and centred horizontally above the red
-   primary fire button. Sits above the transparent gamepad overlay (which is
-   click-through in its gaps) so it stays tappable while the gamepad flanks. */
-.kbToggle {
-  position: absolute;
-  top: 8px; /* = mobile pane padding -> aligns with the top of the preview */
-  /* Centre the 44px button over the red primary fire button, which the gamepad
-     anchors to the pane's right edge (see GameController.css .gc-landscape
-     .gc-buttons / .gc-fire): centre-from-right = right offset + half the fire
-     width. These must track the *landscape* gamepad metrics (3vw / 14vmin), not
-     the base ones, or the toggle drifts off-centre from the fire button. */
-  right: calc(clamp(8px, 3vw, 64px) + clamp(56px, 14vmin, 96px) / 2 - 22px);
-  z-index: 6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  font-size: 20px;
-  line-height: 1;
-  border-radius: 8px;
-  pointer-events: auto;
-}
-
-.kbToggle.kbToggleActive {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .screenShell.focused {
   box-shadow: 0 0 0 2px var(--accent);
 }

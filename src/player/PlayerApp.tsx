@@ -8,10 +8,15 @@
 // playerBoot action and auto-runs. Default export so main.tsx can React.lazy()
 // it without pulling the player into the IDE bundle (or vice versa).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useInputOverlays } from '../app/useInputOverlays';
-import { useMediaQuery, LANDSCAPE_MOBILE_QUERY } from '../app/useMediaQuery';
+import {
+  useMediaQuery,
+  isLandscapeMobileViewport,
+  MOBILE_QUERY,
+  LANDSCAPE_MOBILE_QUERY,
+} from '../app/useMediaQuery';
 import { getDialect } from '../dialects/registry';
 import {
   fetchSharedProgram,
@@ -30,6 +35,7 @@ import {
 } from '../keyboard/GameController';
 import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import { EmulatorPane, type MachineApi } from '../components/EmulatorPane';
+import { CodeIcon } from '../components/icons';
 import styles from './PlayerApp.module.css';
 
 type Phase = 'loading' | 'running' | 'incompatible' | 'error';
@@ -127,7 +133,38 @@ export default function PlayerApp({
   const [audioReady, setAudioReady] = useState(false);
 
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
+  const isMobile = useMediaQuery(MOBILE_QUERY);
   const { controllerVisible, keyboardVisible } = useInputOverlays();
+
+  // Top-bar overflow handling: when the horizontal bar can't fit everything,
+  // drop the program name first, then the logo. Driven by measuring the header
+  // rather than a fixed breakpoint so it reacts to the actual name length. The
+  // landscape rail hides these via CSS already, so this only runs on the
+  // horizontal bar.
+  const headerRef = useRef<HTMLElement>(null);
+  const programNameRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const measure = () => {
+      if (landscape) return;
+      // Reset to the full layout, then re-measure and hide progressively. Each
+      // scrollWidth read forces a synchronous reflow, so the checks below see
+      // the effect of the attribute set just before them.
+      header.removeAttribute('data-hide-name');
+      header.removeAttribute('data-hide-logo');
+      const name = programNameRef.current;
+      const overflowing = () => header.scrollWidth > header.clientWidth + 1;
+      const nameTruncated = !!name && name.scrollWidth > name.clientWidth + 1;
+      if (nameTruncated || overflowing())
+        header.setAttribute('data-hide-name', '');
+      if (overflowing()) header.setAttribute('data-hide-logo', '');
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [record?.name, landscape]);
   const effectiveMode = effectiveGamepadMode(dialect, gamepadMode);
 
   // The keyboard/controller reach the machine through the handle EmulatorPane
@@ -182,7 +219,12 @@ export default function PlayerApp({
         if (getKeyboardAutoShow() === null) {
           setKeyboardAutoShow(store.keyboardAutoShow);
         }
-        store.setKeyboardEnabledEphemeral(store.keyboardAutoShow);
+        // Auto-show follows the IDE's keyboardAutoShow preference - except in
+        // phone landscape, where the flanking gamepad is the default surface and
+        // an auto-shown keyboard would cover it. The ⌨ toggle still opens it.
+        store.setKeyboardEnabledEphemeral(
+          isLandscapeMobileViewport() ? false : store.keyboardAutoShow,
+        );
         store.setControllerEnabledEphemeral(false);
         store.requestRun();
         setPhase('running');
@@ -244,11 +286,13 @@ export default function PlayerApp({
 
   return (
     <div className={`${styles.player} ${landscape ? styles.landscape : ''}`}>
-      <header className={styles.topBar}>
+      <header className={styles.topBar} ref={headerRef}>
         <img className={styles.logo} src="/logo-dark.png" alt="Basically" />
         {record?.name && (
           <>
-            <span className={styles.programName}>{record.name}</span>
+            <span className={styles.programName} ref={programNameRef}>
+              {record.name}
+            </span>
             <span className={styles.separator}>|</span>
           </>
         )}
@@ -286,7 +330,7 @@ export default function PlayerApp({
             title="Open this program in the Basically IDE"
             onClick={openInIde}
           >
-            {landscape ? 'IDE' : 'See the Code'}
+            {isMobile || landscape ? <CodeIcon /> : 'See the Code'}
           </button>
         </div>
       </header>

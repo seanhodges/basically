@@ -409,6 +409,27 @@ export function Toolbar() {
         >
           <BookIcon />
         </button>
+        {/* Phone landscape: the on-screen keyboard toggle lives in the rail
+            (mirrors the standalone player's sidebar) rather than floating over
+            the emulator. Only relevant on the preview tab, where the emulator is
+            the input surface. */}
+        {landscape && mobileTab === 'preview' && (
+          <button
+            type="button"
+            className={`${styles.kbToggle} ${
+              keyboardEnabled ? styles.kbToggleActive : ''
+            }`}
+            aria-pressed={keyboardEnabled}
+            title={
+              keyboardEnabled
+                ? 'Hide on-screen keyboard'
+                : 'Show on-screen keyboard'
+            }
+            onClick={() => setKeyboardEnabled(!keyboardEnabled)}
+          >
+            ⌨
+          </button>
+        )}
         {/* Mobile "three dots" overflow menu. On the editor/preview tabs it
             carries the Edit/Run actions; when the bar is tight it additionally
             hosts Docs (as "Help") and, in landscape, the Target selector. On the

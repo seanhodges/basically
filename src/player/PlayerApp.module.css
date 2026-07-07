@@ -46,7 +46,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  color: var(--text-dim);
+  font-size: 12px;
 }
 
 .logo {
@@ -62,6 +63,18 @@
 
 .separator {
   color: var(--text-dim);
+}
+
+/* Progressive overflow handling on the horizontal bar: JS in PlayerApp measures
+   the header and drops the program name first, then the logo, when there isn't
+   room. (The landscape rail hides all of these via the rules below.) */
+.topBar[data-hide-name] .programName,
+.topBar[data-hide-name] .separator {
+  display: none;
+}
+
+.topBar[data-hide-logo] .logo {
+  display: none;
 }
 
 /* No room for names on the landscape rail; the toggles are what matters. */
