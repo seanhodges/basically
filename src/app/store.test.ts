@@ -14,7 +14,8 @@ beforeAll(() => {
   } as Storage;
 });
 
-const { useIdeStore, persistAutosave } = await import('./store');
+const { useIdeStore, persistAutosave, initialDocument } =
+  await import('./store');
 const { getDialect } = await import('../dialects/registry');
 const { getDialectId, loadAutosave, saveAutosave } =
   await import('../storage/settings');
@@ -24,6 +25,38 @@ const bbc = getDialect('bbcmicro');
 
 const sample = (id: string, name: string) =>
   getDialect(id).samples.find((s) => s.name === name)!;
+
+describe('initialDocument (boot document choice)', () => {
+  const STARTER = '10 REM STARTER';
+
+  it('restores autosave when present, regardless of launch history', () => {
+    const saved = { name: 'mygame.bas', text: '10 REM SAVED' };
+    expect(initialDocument(saved, false, STARTER)).toEqual({
+      fileName: 'mygame.bas',
+      text: '10 REM SAVED',
+    });
+    expect(initialDocument(saved, true, STARTER)).toEqual({
+      fileName: 'mygame.bas',
+      text: '10 REM SAVED',
+    });
+  });
+
+  it('greets the very first launch with the starter sample', () => {
+    expect(initialDocument(null, false, STARTER)).toEqual({
+      fileName: 'untitled.bas',
+      text: STARTER,
+    });
+  });
+
+  it('starts a returning user with no autosave empty, not the sample', () => {
+    // The regression: clearing your program empties autosave, so a later reload
+    // must not push the starter sample back at you.
+    expect(initialDocument(null, true, STARTER)).toEqual({
+      fileName: 'untitled.bas',
+      text: '',
+    });
+  });
+});
 
 describe('setDialect', () => {
   beforeEach(() => {

@@ -14,6 +14,7 @@ import {
   loadAutosave,
   saveAutosave,
   clearAutosave,
+  getHasLaunched,
   getDialectId,
   setDialectId as persistDialectId,
   getAutoLineNumbering,
@@ -494,13 +495,37 @@ function applyDialectSwitch(
   };
 }
 
+/**
+ * Choose the boot document. Real saved work in autosave always wins. With no
+ * autosave, the very first launch in a fresh browser is greeted with the
+ * starter sample; every later launch starts empty - the user cleared their work
+ * (which empties autosave), so the sample must not be pushed back on reload.
+ *
+ * Exported for unit testing; the store computes its startup document from it.
+ */
+export function initialDocument(
+  saved: { name: string; text: string } | null,
+  launchedBefore: boolean,
+  starterText: string,
+): { fileName: string; text: string } {
+  if (saved) return { fileName: saved.name, text: saved.text };
+  return { fileName: 'untitled.bas', text: launchedBefore ? '' : starterText };
+}
+
 const startupDialect = initialDialect();
-const startupText = autosaved?.text ?? startupDialect.samples[0]?.text ?? '';
+const launchedBefore =
+  typeof localStorage !== 'undefined' ? getHasLaunched() : false;
+const startupDoc = initialDocument(
+  autosaved,
+  launchedBefore,
+  startupDialect.samples[0]?.text ?? '',
+);
+const startupText = startupDoc.text;
 
 export const useIdeStore = create<IdeState>((set) => ({
   dialect: startupDialect,
   pendingDialectId: null,
-  fileName: autosaved?.name ?? 'untitled.bas',
+  fileName: startupDoc.fileName,
   source: startupText,
   docOverride: { text: startupText, seq: 0 },
   aiResetSeq: 0,
