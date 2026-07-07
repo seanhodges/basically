@@ -301,7 +301,9 @@ export default function PlayerApp({
           {phase === 'running' && runButton}
           <button
             type="button"
-            className={keyboardEnabled ? styles.toggleActive : ''}
+            className={`${styles.kbToggle} ${
+              keyboardEnabled ? styles.toggleActive : ''
+            }`}
             aria-pressed={keyboardEnabled}
             title={
               keyboardEnabled
@@ -314,7 +316,9 @@ export default function PlayerApp({
           </button>
           <button
             type="button"
-            className={controllerEnabled ? styles.toggleActive : ''}
+            className={`${styles.padToggle} ${
+              controllerEnabled ? styles.toggleActive : ''
+            }`}
             aria-pressed={controllerEnabled}
             title={
               controllerEnabled
@@ -327,6 +331,7 @@ export default function PlayerApp({
           </button>
           <button
             type="button"
+            className={styles.seeCode}
             title="Open this program in the Basically IDE"
             onClick={openInIde}
           >
