@@ -11,6 +11,7 @@ function split(over: Partial<InputOverlayInput> = {}): InputOverlayInput {
     tabbed: false,
     mobileTab: 'preview',
     routeToEditor: false, // emulator is the active surface
+    paneFocused: false, // no pane focused
     controllerEnabled: false,
     keyboardEnabled: false,
     keyboardAutoShow: false,
@@ -25,6 +26,7 @@ function portrait(over: Partial<InputOverlayInput> = {}): InputOverlayInput {
     tabbed: true,
     mobileTab: 'preview',
     routeToEditor: false,
+    paneFocused: false,
     controllerEnabled: false,
     keyboardEnabled: false,
     keyboardAutoShow: false,
@@ -39,6 +41,7 @@ function landscape(over: Partial<InputOverlayInput> = {}): InputOverlayInput {
     tabbed: true,
     mobileTab: 'preview',
     routeToEditor: false,
+    paneFocused: false,
     controllerEnabled: false,
     keyboardEnabled: false,
     keyboardAutoShow: false,
@@ -84,11 +87,26 @@ describe('resolveInputOverlays', () => {
       expect(r.overlayUp).toBe(false);
     });
 
-    it('auto-shows the keyboard on the emulator surface (rule 3a)', () => {
-      const r = resolveInputOverlays(split({ keyboardAutoShow: true }));
+    it('auto-shows the keyboard on the focused emulator surface (rule 3a)', () => {
+      const r = resolveInputOverlays(
+        split({ keyboardAutoShow: true, paneFocused: true }),
+      );
       expect(r.keyboardVisible).toBe(true);
       expect(r.controllerVisible).toBe(false);
       expect(r.overlayUp).toBe(true);
+    });
+
+    it('does not auto-show the keyboard when no pane is focused', () => {
+      const r = resolveInputOverlays(split({ keyboardAutoShow: true }));
+      expect(r.keyboardVisible).toBe(false);
+      expect(r.controllerVisible).toBe(false);
+      expect(r.overlayUp).toBe(false);
+    });
+
+    it('does not show the keyboard on focus alone when auto-show is off', () => {
+      const r = resolveInputOverlays(split({ paneFocused: true }));
+      expect(r.keyboardVisible).toBe(false);
+      expect(r.controllerVisible).toBe(false);
     });
   });
 
@@ -113,9 +131,13 @@ describe('resolveInputOverlays', () => {
       expect(r.keyboardVisible).toBe(false);
     });
 
-    it('auto-shows the keyboard for the editor (rule 3b)', () => {
+    it('auto-shows the keyboard for the focused editor (rule 3b)', () => {
       const r = resolveInputOverlays(
-        split({ keyboardAutoShow: true, routeToEditor: true }),
+        split({
+          keyboardAutoShow: true,
+          routeToEditor: true,
+          paneFocused: true,
+        }),
       );
       expect(r.keyboardVisible).toBe(true);
       expect(r.controllerVisible).toBe(false);
@@ -130,15 +152,27 @@ describe('resolveInputOverlays', () => {
       expect(r.overlayUp).toBe(true);
     });
 
-    it('auto-show beats the rule-4 gamepad default on the preview tab', () => {
-      const r = resolveInputOverlays(portrait({ keyboardAutoShow: true }));
+    it('auto-show beats the rule-4 gamepad default when a pane is focused', () => {
+      const r = resolveInputOverlays(
+        portrait({ keyboardAutoShow: true, paneFocused: true }),
+      );
       expect(r.keyboardVisible).toBe(true);
       expect(r.controllerVisible).toBe(false);
     });
 
+    it('keeps the rule-4 gamepad default when no pane is focused', () => {
+      const r = resolveInputOverlays(portrait({ keyboardAutoShow: true }));
+      expect(r.controllerVisible).toBe(true);
+      expect(r.keyboardVisible).toBe(false);
+    });
+
     it('the gamepad toggle still wins over auto-show (rule 1)', () => {
       const r = resolveInputOverlays(
-        portrait({ controllerEnabled: true, keyboardAutoShow: true }),
+        portrait({
+          controllerEnabled: true,
+          keyboardAutoShow: true,
+          paneFocused: true,
+        }),
       );
       expect(r.controllerVisible).toBe(true);
       expect(r.keyboardVisible).toBe(false);
@@ -146,7 +180,11 @@ describe('resolveInputOverlays', () => {
 
     it('shows neither overlay on the AI/Settings tabs', () => {
       const r = resolveInputOverlays(
-        portrait({ mobileTab: 'ai', keyboardAutoShow: true }),
+        portrait({
+          mobileTab: 'ai',
+          keyboardAutoShow: true,
+          paneFocused: true,
+        }),
       );
       expect(r.controllerVisible).toBe(false);
       expect(r.keyboardVisible).toBe(false);
@@ -179,7 +217,9 @@ describe('resolveInputOverlays', () => {
     });
 
     it('ignores auto-show (rule 3 excluded), keeping the flanking gamepad', () => {
-      const r = resolveInputOverlays(landscape({ keyboardAutoShow: true }));
+      const r = resolveInputOverlays(
+        landscape({ keyboardAutoShow: true, paneFocused: true }),
+      );
       expect(r.controllerVisible).toBe(true);
       expect(r.keyboardVisible).toBe(false);
     });
