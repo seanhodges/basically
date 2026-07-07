@@ -33,6 +33,9 @@ export interface InputOverlayInput {
   /** The editor is the active input surface (debounced editor focus on the
       split; the editor tab on the tab layout). */
   routeToEditor: boolean;
+  /** The editor or emulator currently holds DOM focus (debounced). Gates
+      auto-show: the keyboard only pops when a pane is actually focused. */
+  paneFocused: boolean;
   controllerEnabled: boolean;
   keyboardEnabled: boolean;
   /** The "pop the keyboard up automatically" preference (persisted, defaults on
@@ -62,7 +65,7 @@ export interface InputOverlays {
  * layout and for the standalone player:
  *   1. gamepad toggle on            → gamepad (all layouts, highest priority)
  *   2. keyboard toggle on           → keyboard
- *   3. auto-show + a pane focused, not mobile-landscape → keyboard
+ *   3. auto-show + editor/emulator focused, not mobile-landscape → keyboard
  *   4. mobile + emulator shown + no keyboard → gamepad (default)
  *   5. otherwise                    → neither
  *
@@ -77,6 +80,7 @@ export function resolveInputOverlays(input: InputOverlayInput): InputOverlays {
     tabbed,
     mobileTab,
     routeToEditor,
+    paneFocused,
     controllerEnabled,
     keyboardEnabled,
     keyboardAutoShow,
@@ -90,9 +94,11 @@ export function resolveInputOverlays(input: InputOverlayInput): InputOverlays {
   // tab layout (portrait or phone landscape), which is where the gamepad is the
   // default emulator overlay (rule 4).
   const mobile = tabbed;
-  // Auto-show never applies in phone landscape (the flanking gamepad is the
+  // Auto-show pops the keyboard only while the editor or emulator actually holds
+  // focus (tapping into a pane), not just because a pane is the default active
+  // surface. It never applies in phone landscape (the flanking gamepad is the
   // default surface there and an auto-shown keyboard would cover it).
-  const autoKeyboard = keyboardAutoShow && !landscape;
+  const autoKeyboard = keyboardAutoShow && !landscape && paneFocused;
 
   const controllerVisible =
     emulatorSurfaceActive &&
@@ -132,6 +138,7 @@ export function useInputOverlays(): UseInputOverlays {
   const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
   const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
   const editorFocused = useIdeStore((s) => s.editorFocused);
+  const emulatorFocused = useIdeStore((s) => s.emulatorFocused);
   const mobileTab = useIdeStore((s) => s.mobileTab);
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
@@ -141,16 +148,26 @@ export function useInputOverlays(): UseInputOverlays {
     editorFocused,
     EDITOR_KB_HIDE_DELAY_MS,
   );
+  const showEmulatorKeyboard = useDebouncedFalse(
+    emulatorFocused,
+    EDITOR_KB_HIDE_DELAY_MS,
+  );
   // On the tab layout the active tab decides the target; on the desktop/tablet
   // split editor focus does (debounced to avoid remount thrash when focus
   // briefly leaves the editor).
   const routeToEditor = tabbed ? mobileTab === 'editor' : showEditorKeyboard;
+  // Auto-show fires only while a pane holds focus. Both signals are debounced so
+  // a brief blur (toolbar tap, tapping an on-screen key) doesn't drop the
+  // keyboard. Hidden panes can't hold DOM focus, so on the tab layout this
+  // naturally tracks the visible pane.
+  const paneFocused = showEditorKeyboard || showEmulatorKeyboard;
 
   const overlays = resolveInputOverlays({
     landscape,
     tabbed,
     mobileTab,
     routeToEditor,
+    paneFocused,
     controllerEnabled,
     keyboardEnabled,
     keyboardAutoShow,

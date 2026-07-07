@@ -185,6 +185,8 @@ interface IdeState {
   emulatorMuted: boolean;
   /** Whether the code editor currently has focus (drives its keyboard). */
   editorFocused: boolean;
+  /** Whether the emulator screen currently has focus (drives auto-show). */
+  emulatorFocused: boolean;
   /**
    * Mirror of the editor's current main-selection text ('' when the selection
    * is empty). CodeMirror is the source of truth; pushed from CodeMirrorHost's
@@ -342,6 +344,7 @@ interface IdeState {
   setEmulatorVolume(n: number): void;
   setEmulatorMuted(on: boolean): void;
   setEditorFocused(on: boolean): void;
+  setEmulatorFocused(on: boolean): void;
   setEditorSelection(text: string): void;
   setFindReplaceOpen(on: boolean): void;
   setMobileTab(tab: MobileTab): void;
@@ -509,6 +512,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   emulatorMuted:
     typeof localStorage !== 'undefined' ? getEmulatorMuted() : false,
   editorFocused: false,
+  emulatorFocused: false,
   editorSelection: '',
   findReplaceOpen: false,
   mobileTab: 'editor',
@@ -729,6 +733,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     set({ emulatorMuted: on });
   },
   setEditorFocused: (on) => set({ editorFocused: on }),
+  setEmulatorFocused: (on) => set({ emulatorFocused: on }),
   setEditorSelection: (text) => set({ editorSelection: text }),
   setFindReplaceOpen: (on) => set({ findReplaceOpen: on }),
   setMobileTab: (tab) => set({ mobileTab: tab }),

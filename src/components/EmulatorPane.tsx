@@ -688,8 +688,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           tabIndex={0}
           onKeyDown={(e) => handleKey(e, true)}
           onKeyUp={(e) => handleKey(e, false)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onFocus={() => {
+            setFocused(true);
+            useIdeStore.getState().setEmulatorFocused(true);
+          }}
+          onBlur={() => {
+            setFocused(false);
+            useIdeStore.getState().setEmulatorFocused(false);
+          }}
         />
         {loading && (
           <div className={styles.loadingOverlay}>

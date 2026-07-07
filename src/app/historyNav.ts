@@ -108,10 +108,10 @@ export function openKeys(s: NavSnapshot): NavKey[] {
   return keys;
 }
 
-/** The keyboard is auto-opening (editor gained focus with auto-show on) rather
+/** The keyboard is auto-opening (a pane gained focus with auto-show on) rather
  *  than being opened by an explicit tap - such opens must not trap Back. */
 export function isAutoShow(s: StoreState): boolean {
-  return s.keyboardAutoShow && s.editorFocused;
+  return s.keyboardAutoShow && (s.editorFocused || s.emulatorFocused);
 }
 
 /**
