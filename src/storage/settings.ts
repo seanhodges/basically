@@ -46,6 +46,7 @@ const KEYS = {
   controllerFireButtons: 'mbide.controllerFireButtons',
   gamepadMode: 'mbide.gamepadMode',
   hasSeenWelcome: 'mbide.hasSeenWelcome',
+  hasLaunched: 'mbide.hasLaunched',
   lastShare: 'mbide.lastShare',
 } as const;
 
@@ -146,6 +147,23 @@ export function getHasSeenWelcome(): boolean {
 
 export function setHasSeenWelcome(seen: boolean): void {
   localStorage.setItem(KEYS.hasSeenWelcome, seen ? 'true' : 'false');
+}
+
+/**
+ * Whether the IDE has been launched before in this browser. Set once the IDE
+ * mounts (App.tsx). Boot uses it to distinguish a fresh browser - which is
+ * greeted with the starter sample - from a returning user who cleared their
+ * work and whose autosave is therefore empty (they should start empty, not have
+ * the sample pushed back). Defaults false. The standalone player never sets it,
+ * so a user whose first visit is a share link still gets the sample the first
+ * time they open the IDE proper.
+ */
+export function getHasLaunched(): boolean {
+  return localStorage.getItem(KEYS.hasLaunched) === 'true';
+}
+
+export function setHasLaunched(launched: boolean): void {
+  localStorage.setItem(KEYS.hasLaunched, launched ? 'true' : 'false');
 }
 
 /**
