@@ -35,6 +35,10 @@ export interface InputOverlayInput {
   routeToEditor: boolean;
   controllerEnabled: boolean;
   keyboardEnabled: boolean;
+  /** The "pop the keyboard up automatically" preference (persisted, defaults on
+      for touch). Fed in so auto-show is a derived rule here, not a side effect
+      that mutates `keyboardEnabled`. */
+  keyboardAutoShow: boolean;
 }
 
 export interface InputOverlays {
@@ -54,13 +58,18 @@ export interface InputOverlays {
  * overlays) and `EmulatorPane` (which sizes the screen via `overlayUp`) derive
  * from this, so they can never disagree during focus transitions.
  *
- * The gamepad and keyboard are independent: each has its own enabled flag
- * (`controllerEnabled`, `keyboardEnabled`). When both are enabled
- * and the emulator is the active surface the gamepad takes priority and the
- * keyboard yields - but its enabled flag is untouched, so disabling the gamepad
- * brings the keyboard straight back. Phone landscape keeps its own single-slot
- * behaviour (the flanking gamepad yields to the keyboard whenever its toggle is
- * on, ignoring `controllerEnabled`).
+ * Resolves the agreed priority list (first match wins), identically for every
+ * layout and for the standalone player:
+ *   1. gamepad toggle on            → gamepad (all layouts, highest priority)
+ *   2. keyboard toggle on           → keyboard
+ *   3. auto-show + a pane focused, not mobile-landscape → keyboard
+ *   4. mobile + emulator shown + no keyboard → gamepad (default)
+ *   5. otherwise                    → neither
+ *
+ * The gamepad is an emulator-surface overlay: while the editor is the active
+ * surface it never shows (the keyboard routes to the editor instead). Auto-show
+ * is derived here rather than mutating `keyboardEnabled`, so the two enabled
+ * flags mean only explicit user intent.
  */
 export function resolveInputOverlays(input: InputOverlayInput): InputOverlays {
   const {
@@ -70,24 +79,35 @@ export function resolveInputOverlays(input: InputOverlayInput): InputOverlays {
     routeToEditor,
     controllerEnabled,
     keyboardEnabled,
+    keyboardAutoShow,
   } = input;
 
   const emulatorSurfaceActive = tabbed
     ? mobileTab === 'preview'
     : !routeToEditor;
+  const editorSurfaceActive = tabbed ? mobileTab === 'editor' : routeToEditor;
+  // A touch phone/tablet uses the single-pane tab layout; "mobile" here means any
+  // tab layout (portrait or phone landscape), which is where the gamepad is the
+  // default emulator overlay (rule 4).
+  const mobile = tabbed;
+  // Auto-show never applies in phone landscape (the flanking gamepad is the
+  // default surface there and an auto-shown keyboard would cover it).
+  const autoKeyboard = keyboardAutoShow && !landscape;
 
-  const controllerVisible = landscape
-    ? emulatorSurfaceActive && !keyboardEnabled
-    : controllerEnabled && emulatorSurfaceActive;
+  const controllerVisible =
+    emulatorSurfaceActive &&
+    (controllerEnabled || // rule 1
+      (mobile && !keyboardEnabled && !autoKeyboard)); // rule 4 default
 
   const keyboardVisible =
     !controllerVisible &&
-    keyboardEnabled &&
-    (!tabbed || mobileTab === 'editor' || mobileTab === 'preview');
+    (keyboardEnabled || autoKeyboard) && // rules 2 & 3
+    (emulatorSurfaceActive || editorSurfaceActive); // never on AI/Settings tabs
 
-  const overlayUp = landscape
-    ? keyboardEnabled
-    : keyboardEnabled || (controllerEnabled && emulatorSurfaceActive);
+  // The bottom band is occupied by a *docked* overlay. The flanking phone-
+  // landscape gamepad doesn't dock (it flanks the screen), so it doesn't shrink
+  // the screen height there.
+  const overlayUp = keyboardVisible || (controllerVisible && !landscape);
 
   return {
     emulatorSurfaceActive,
@@ -110,6 +130,7 @@ export interface UseInputOverlays extends InputOverlays {
 export function useInputOverlays(): UseInputOverlays {
   const keyboardEnabled = useIdeStore((s) => s.keyboardEnabled);
   const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
+  const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
   const editorFocused = useIdeStore((s) => s.editorFocused);
   const mobileTab = useIdeStore((s) => s.mobileTab);
   const isMobile = useMediaQuery(MOBILE_QUERY);
@@ -132,6 +153,7 @@ export function useInputOverlays(): UseInputOverlays {
     routeToEditor,
     controllerEnabled,
     keyboardEnabled,
+    keyboardAutoShow,
   });
 
   return { ...overlays, routeToEditor };

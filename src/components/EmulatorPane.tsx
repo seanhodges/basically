@@ -111,7 +111,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
   const setLiveMemory = useIdeStore((s) => s.setLiveMemory);
-  const setKeyboardEnabled = useIdeStore((s) => s.setKeyboardEnabled);
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
   // `overlayUp` (the bottom band is occupied, so the emulator screen shrinks to
   // the top half) comes from the same shared hook that Workspace uses to render
@@ -689,21 +688,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           tabIndex={0}
           onKeyDown={(e) => handleKey(e, true)}
           onKeyUp={(e) => handleKey(e, false)}
-          onFocus={() => {
-            setFocused(true);
-            // With auto-show on, tapping the screen re-opens the keyboard if
-            // hidden - unless the gamepad is on, which owns emulator input.
-            // Never in phone landscape: the flanking gamepad owns the emulator
-            // there and the keyboard is opened deliberately from the rail toggle.
-            const s = useIdeStore.getState();
-            if (
-              s.keyboardAutoShow &&
-              !s.controllerEnabled &&
-              !s.keyboardEnabled &&
-              !landscape
-            )
-              setKeyboardEnabled(true);
-          }}
+          onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
         {loading && (

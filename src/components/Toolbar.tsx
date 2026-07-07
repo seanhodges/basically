@@ -21,6 +21,7 @@ import {
   type ShortcutId,
 } from '../app/shortcuts';
 import { MobileTabBar } from './MobileTabBar';
+import { InputOverlayToggle } from './InputOverlayToggle';
 import {
   SparkleIcon,
   GearIcon,
@@ -58,6 +59,8 @@ export function Toolbar() {
   const mobileTab = useIdeStore((s) => s.mobileTab);
   const keyboardEnabled = useIdeStore((s) => s.keyboardEnabled);
   const setKeyboardEnabled = useIdeStore((s) => s.setKeyboardEnabled);
+  const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
+  const setControllerEnabled = useIdeStore((s) => s.setControllerEnabled);
   const emulatorAudio = useIdeStore((s) => s.emulatorAudio);
   const emulatorMuted = useIdeStore((s) => s.emulatorMuted);
   const setEmulatorMuted = useIdeStore((s) => s.setEmulatorMuted);
@@ -96,32 +99,30 @@ export function Toolbar() {
     closeMenus,
   );
 
-  // The dropdown menus and the on-screen keyboard are mutually exclusive:
-  // opening the keyboard (its toggle lives in the emulator pane) closes them.
+  // Turning the on-screen keyboard on closes any open dropdown menu. (The
+  // reverse - opening a menu hiding the keyboard - is no longer forced: overlay
+  // visibility is derived in useInputOverlays and the menu panels render above
+  // the overlay, so they don't fight over `keyboardEnabled`.)
   useEffect(() => {
     if (keyboardEnabled) closeMenus();
   }, [keyboardEnabled, closeMenus]);
 
-  // Opening a menu hides the keyboard and the other menus; on mobile,
-  // run/stop/reset jump to the preview tab so the user sees the emulator they
-  // just acted on.
+  // Opening a menu closes the other menus; on mobile, run/stop/reset jump to the
+  // preview tab so the user sees the emulator they just acted on.
   const toggleFileMenu = () => {
     const next = !fileMenuOpen;
     closeMenus();
     setFileMenuOpen(next);
-    if (next) setKeyboardEnabled(false);
   };
   const toggleEditMenu = () => {
     const next = !editMenuOpen;
     closeMenus();
     setEditMenuOpen(next);
-    if (next) setKeyboardEnabled(false);
   };
   const toggleOverflowMenu = () => {
     const next = !overflowMenuOpen;
     closeMenus();
     setOverflowMenuOpen(next);
-    if (next) setKeyboardEnabled(false);
   };
   // Run/debug actions share the same shape: close the menu, request the action,
   // and on mobile jump to the preview tab so the emulator that was just acted on
@@ -425,38 +426,20 @@ export function Toolbar() {
         >
           <BookIcon />
         </button>
-        {/* Phone landscape: the keyboard/gamepad toggles live in the rail
-            (mirrors the standalone player's sidebar) rather than floating over
-            the emulator, only on the preview tab where the emulator is the input
-            surface. The two are a single either/or slot (resolveInputOverlays:
-            the flanking gamepad shows unless the keyboard is on), so these read
-            as a segmented control - ⌨ turns the keyboard on, 🎮 turns it off
-            (revealing the gamepad) - anchored at the foot of the rail, above ⋯. */}
+        {/* Phone landscape: the input-overlay toggle lives in the rail (mirrors
+            the standalone player's sidebar) rather than floating over the
+            emulator, only on the preview tab where the emulator is the input
+            surface. The same shared 3-state button as the status bar / player,
+            anchored at the foot of the rail, above ⋯. */}
         {landscape && mobileTab === 'preview' && (
-          <>
-            <button
-              type="button"
-              className={`${styles.kbToggle} ${
-                keyboardEnabled ? styles.kbToggleActive : ''
-              }`}
-              aria-pressed={keyboardEnabled}
-              title="Show on-screen keyboard"
-              onClick={() => setKeyboardEnabled(true)}
-            >
-              ⌨
-            </button>
-            <button
-              type="button"
-              className={`${styles.kbToggle} ${
-                !keyboardEnabled ? styles.kbToggleActive : ''
-              }`}
-              aria-pressed={!keyboardEnabled}
-              title="Show game controller"
-              onClick={() => setKeyboardEnabled(false)}
-            >
-              🎮
-            </button>
-          </>
+          <InputOverlayToggle
+            keyboardEnabled={keyboardEnabled}
+            controllerEnabled={controllerEnabled}
+            setKeyboardEnabled={setKeyboardEnabled}
+            setControllerEnabled={setControllerEnabled}
+            className={styles.kbToggle}
+            activeClassName={styles.kbToggleActive}
+          />
         )}
         {/* Mobile "three dots" overflow menu. On the editor/preview tabs it
             carries the Edit/Run actions; when the bar is tight it additionally

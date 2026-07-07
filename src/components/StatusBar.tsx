@@ -1,31 +1,8 @@
 import { useIdeStore } from '../app/store';
 import { useProgramStats, ramDisplay } from '../app/useProgramStats';
 import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
+import { InputOverlayToggle } from './InputOverlayToggle';
 import styles from './StatusBar.module.css';
-
-/** Outline icon, matching the Toolbar's currentColor stroke style so it picks
-    up the accent colour when the toggle is active. */
-function GamepadIcon() {
-  return (
-    <svg
-      width={16}
-      height={16}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <line x1="6" y1="11" x2="10" y2="11" />
-      <line x1="8" y1="9" x2="8" y2="13" />
-      <line x1="15" y1="12" x2="15.01" y2="12" />
-      <line x1="18" y1="10" x2="18.01" y2="10" />
-      <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.585-.685-7.258A4 4 0 0 0 17.32 5z" />
-    </svg>
-  );
-}
 
 export function StatusBar() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -119,34 +96,14 @@ export function StatusBar() {
         >
           {'{x}'}
         </button>
-        <button
-          className={`${styles.vkToggle} ${controllerEnabled ? 'active' : ''}`}
-          aria-pressed={controllerEnabled}
-          title={
-            controllerEnabled
-              ? 'Disable game controller'
-              : 'Enable game controller'
-          }
-          onClick={() => setControllerEnabled(!controllerEnabled)}
-        >
-          <GamepadIcon />
-        </button>
-        <button
-          className={`${styles.vkToggle} ${keyboardEnabled ? 'active' : ''}`}
-          aria-pressed={keyboardEnabled}
-          title={
-            keyboardEnabled
-              ? 'Hide on-screen keyboard'
-              : 'Show on-screen keyboard'
-          }
-          // Don't steal focus from the editor: a focus loss here would (250ms
-          // later) reroute the freshly opened keyboard to the stopped machine,
-          // leaving it inert (see useInputOverlays' debounced routeToEditor).
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => setKeyboardEnabled(!keyboardEnabled)}
-        >
-          ⌨
-        </button>
+        <InputOverlayToggle
+          keyboardEnabled={keyboardEnabled}
+          controllerEnabled={controllerEnabled}
+          setKeyboardEnabled={setKeyboardEnabled}
+          setControllerEnabled={setControllerEnabled}
+          className={styles.vkToggle}
+          activeClassName="active"
+        />
       </div>
     </div>
   );

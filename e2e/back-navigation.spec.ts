@@ -53,18 +53,13 @@ test('desktop: stacked AI panel + docs close in LIFO order', async ({
 
 test('desktop: Back closes the on-screen keyboard', async ({ page }) => {
   await open(page);
-  // The toggle's visible glyph (⌨) is its accessible name, so target the title.
-  await page.getByTitle('Show on-screen keyboard').click();
-  await expect(page.getByTitle('Hide on-screen keyboard')).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  // One click on the input-overlay button (off → keyboard) enables the keyboard.
+  const toggle = page.getByTestId('input-overlay-toggle');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('data-mode', 'keyboard');
 
   await page.goBack();
-  await expect(page.getByTitle('Show on-screen keyboard')).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  );
+  await expect(toggle).toHaveAttribute('data-mode', 'off');
 });
 
 test('mobile: Back returns from a deep tab to the editor', async ({ page }) => {

@@ -703,9 +703,7 @@ export function CodeMirrorHost({
           const open = searchPanelOpen(update.state);
           if (open !== searchOpen) {
             searchOpen = open;
-            const store = useIdeStore.getState();
-            store.setFindReplaceOpen(open);
-            if (open) store.setKeyboardEnabled(false);
+            useIdeStore.getState().setFindReplaceOpen(open);
           }
         }),
         // Tapping/clicking the editor body dismisses the find/replace panel.
@@ -767,9 +765,13 @@ export function CodeMirrorHost({
   // the live flag at event time so it survives keyboard toggles.
   useEffect(() => {
     const onVisibility = () => {
+      // The virtual keyboard is in play for the editor when its toggle is on or
+      // when auto-show would pop it on focus - both suppress the native OSK, so
+      // blur on background in either case.
+      const s = useIdeStore.getState();
       if (
         document.visibilityState === 'hidden' &&
-        useIdeStore.getState().keyboardEnabled
+        (s.keyboardEnabled || s.keyboardAutoShow)
       ) {
         viewRef.current?.contentDOM.blur();
       }

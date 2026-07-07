@@ -167,9 +167,9 @@ test.describe('phone landscape', () => {
       await expect(page.locator('.game-controller')).toBeVisible();
       await expect(page.locator('.virtual-keyboard')).toHaveCount(0);
 
-      // The rail ⌨ toggle still brings it up on demand (and hides the gamepad).
-      // The button's accessible name is its glyph; the Show/Hide text is a title.
-      await page.getByRole('button', { name: '⌨', exact: true }).click();
+      // The rail input-overlay button still brings the keyboard up on demand
+      // (one click off → keyboard) and hides the flanking gamepad.
+      await page.getByTestId('input-overlay-toggle').click();
       await expect(page.locator('.virtual-keyboard')).toBeVisible();
       await expect(page.locator('.game-controller')).toHaveCount(0);
     } finally {

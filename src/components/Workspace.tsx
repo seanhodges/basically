@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useIdeStore, type MobileTab } from '../app/store';
 import {
   useMediaQuery,
@@ -40,9 +40,6 @@ export function Workspace() {
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
   const requestRun = useIdeStore((s) => s.requestRun);
 
-  const setKeyboardEnabled = useIdeStore((s) => s.setKeyboardEnabled);
-  const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
-  const editorFocused = useIdeStore((s) => s.editorFocused);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
@@ -110,24 +107,6 @@ export function Workspace() {
   // support; machines that don't support the chosen mode silently fall back to
   // key mapping.
   const effectiveMode = effectiveGamepadMode(dialect, gamepadMode);
-
-  // With auto-show on, re-open the keyboard if it was hidden when the editor
-  // regains focus. Edge-triggered (only on the false→true transition) so a
-  // manual close while the editor stays focused isn't immediately undone. Gated
-  // to the setting so users who prefer a physical keyboard never get a surprise
-  // keyboard.
-  const prevEditorFocused = useRef(editorFocused);
-  useEffect(() => {
-    if (
-      keyboardAutoShow &&
-      editorFocused &&
-      !prevEditorFocused.current &&
-      !useIdeStore.getState().keyboardEnabled
-    ) {
-      setKeyboardEnabled(true);
-    }
-    prevEditorFocused.current = editorFocused;
-  }, [editorFocused, keyboardAutoShow, setKeyboardEnabled]);
 
   const hidden = (tab: MobileTab) =>
     tabbed && mobileTab !== tab ? styles.tabHidden : '';

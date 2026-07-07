@@ -17,13 +17,17 @@ test('4.1 on-screen keyboard toggles and types into the editor', async ({
 }) => {
   await openApp(page);
   await clearEditor(page);
-  await page.getByRole('button', { name: '⌨' }).click();
+  // The single input-overlay button cycles off → keyboard → gamepad. One click
+  // from the default (off) shows the keyboard.
+  const toggle = page.getByTestId('input-overlay-toggle');
+  await toggle.click();
   const keyH = page.locator('[data-keyid="KeyH"]');
   await expect(keyH).toBeVisible();
   await keyH.click();
   await expect(page.locator(EDITOR)).toContainText('H');
-  // Toggle off again.
-  await page.getByRole('button', { name: '⌨' }).click();
+  // Advancing to the gamepad state clears the keyboard - and with the editor
+  // focused the gamepad can't show either, so the overlay goes away.
+  await toggle.click();
   await expect(keyH).toBeHidden();
 });
 
@@ -32,7 +36,7 @@ test('4.2 sliding between keys follows the pointer (capture works)', async ({
 }) => {
   await openApp(page);
   await clearEditor(page);
-  await page.getByRole('button', { name: '⌨' }).click();
+  await page.getByTestId('input-overlay-toggle').click();
   const keyH = page.locator('[data-keyid="KeyH"]');
   const keyJ = page.locator('[data-keyid="KeyJ"]');
   await expect(keyH).toBeVisible();
@@ -63,7 +67,12 @@ test('4.6 game-controller overlay shows while running and takes presses', async 
   test.setTimeout(90_000);
   await openApp(page);
   await playAndWaitRunning(page);
-  await page.getByRole('button', { name: 'Enable game controller' }).click();
+  // Cycle off → keyboard → gamepad. With the emulator the active surface the
+  // gamepad overlay appears.
+  const toggle = page.getByTestId('input-overlay-toggle');
+  await toggle.click();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('data-mode', 'gamepad');
   // D-pad arms and the primary fire button are on screen.
   await expect(page.locator('.gc-arm-up')).toBeVisible();
   const fire = page.locator('.gc-fire').first();
@@ -72,6 +81,7 @@ test('4.6 game-controller overlay shows while running and takes presses', async 
   await fire.dispatchEvent('pointerdown', { pointerId: 1, isPrimary: true });
   await fire.dispatchEvent('pointerup', { pointerId: 1, isPrimary: true });
   await expect(page.getByText('emulator: running')).toBeVisible();
-  await page.getByRole('button', { name: 'Disable game controller' }).click();
+  // gamepad → off hides the overlay again.
+  await toggle.click();
   await expect(page.locator('.gc-arm-up')).toBeHidden();
 });
