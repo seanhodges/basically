@@ -74,12 +74,7 @@ import {
   MAX_LINE_NO,
 } from '../editor/lineNumbering';
 import { findRowForLineNumber } from '../editor/programOutline';
-import {
-  isMobileViewport,
-  isLandscapeMobileViewport,
-  useMediaQuery,
-  LANDSCAPE_MOBILE_QUERY,
-} from '../app/useMediaQuery';
+import { isMobileViewport } from '../app/useMediaQuery';
 import { isMac } from '../app/shortcuts';
 import styles from './CodeMirrorHost.module.css';
 
@@ -581,17 +576,16 @@ function inputModeExt(virtualKeyboard: boolean) {
 /**
  * The virtual keyboard is (or will be) the editor's input surface, so the native
  * OSK must be suppressed pre-emptively (before the focusing tap): either the
- * explicit toggle is on, or auto-show is on in a layout where it fires. Auto-show
- * never applies in phone landscape (the flanking gamepad is the default surface
- * there), so the native keyboard stays available for the editor in that case.
- * Mirrors the auto-show rule in {@link resolveInputOverlays}.
+ * explicit toggle is on, or auto-show is on. The editor's contenteditable only
+ * holds focus while the editor surface is active, and auto-show always fires on
+ * the editor surface (the phone-landscape carve-out is emulator-only - see
+ * {@link resolveInputOverlays}), so no layout check is needed here.
  */
 function shouldSuppressNativeKeyboard(
   keyboardEnabled: boolean,
   keyboardAutoShow: boolean,
-  landscapeMobile: boolean,
 ): boolean {
-  return keyboardEnabled || (keyboardAutoShow && !landscapeMobile);
+  return keyboardEnabled || keyboardAutoShow;
 }
 
 /** Apply one virtual-keyboard action to the editor. */
@@ -746,7 +740,6 @@ export function CodeMirrorHost({
             shouldSuppressNativeKeyboard(
               useIdeStore.getState().keyboardEnabled,
               useIdeStore.getState().keyboardAutoShow,
-              isLandscapeMobileViewport(),
             ),
           ),
         ),
@@ -774,16 +767,13 @@ export function CodeMirrorHost({
   }, [dialect]);
 
   // Keep the native-OSK suppression in sync: suppress it whenever the virtual
-  // keyboard is (or will be) the editor's input surface - the explicit toggle,
-  // or auto-show in a layout where it fires. Reconfigure when any of those
-  // inputs change (including rotating in/out of phone landscape).
+  // keyboard is (or will be) the editor's input surface - the explicit toggle or
+  // auto-show. Reconfigure when either of those changes.
   const keyboardOverlay = useIdeStore((s) => s.keyboardEnabled);
   const keyboardAutoShow = useIdeStore((s) => s.keyboardAutoShow);
-  const landscapeMobile = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
   const suppressNativeKeyboard = shouldSuppressNativeKeyboard(
     keyboardOverlay,
     keyboardAutoShow,
-    landscapeMobile,
   );
   useEffect(() => {
     viewRef.current?.dispatch({

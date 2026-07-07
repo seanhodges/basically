@@ -216,12 +216,25 @@ describe('resolveInputOverlays', () => {
       expect(r.keyboardVisible).toBe(false);
     });
 
-    it('ignores auto-show (rule 3 excluded), keeping the flanking gamepad', () => {
+    it('ignores auto-show on the emulator surface, keeping the flanking gamepad', () => {
       const r = resolveInputOverlays(
         landscape({ keyboardAutoShow: true, paneFocused: true }),
       );
       expect(r.controllerVisible).toBe(true);
       expect(r.keyboardVisible).toBe(false);
+    });
+
+    it('auto-shows the keyboard on the editor tab (the editor has no gamepad)', () => {
+      const r = resolveInputOverlays(
+        landscape({
+          mobileTab: 'editor',
+          keyboardAutoShow: true,
+          paneFocused: true,
+        }),
+      );
+      expect(r.keyboardVisible).toBe(true);
+      expect(r.controllerVisible).toBe(false);
+      expect(r.overlayUp).toBe(true);
     });
   });
 });

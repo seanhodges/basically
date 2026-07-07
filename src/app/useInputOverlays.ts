@@ -65,7 +65,8 @@ export interface InputOverlays {
  * layout and for the standalone player:
  *   1. gamepad toggle on            → gamepad (all layouts, highest priority)
  *   2. keyboard toggle on           → keyboard
- *   3. auto-show + editor/emulator focused, not mobile-landscape → keyboard
+ *   3. auto-show + editor/emulator focused → keyboard (except the phone-landscape
+ *      emulator surface, where the flanking gamepad stays)
  *   4. mobile + emulator shown + no keyboard → gamepad (default)
  *   5. otherwise                    → neither
  *
@@ -96,9 +97,11 @@ export function resolveInputOverlays(input: InputOverlayInput): InputOverlays {
   const mobile = tabbed;
   // Auto-show pops the keyboard only while the editor or emulator actually holds
   // focus (tapping into a pane), not just because a pane is the default active
-  // surface. It never applies in phone landscape (the flanking gamepad is the
-  // default surface there and an auto-shown keyboard would cover it).
-  const autoKeyboard = keyboardAutoShow && !landscape && paneFocused;
+  // surface. In phone landscape only the emulator surface suppresses auto-show
+  // (the flanking gamepad is the default there and an auto-shown keyboard would
+  // cover it); the editor tab has no gamepad, so auto-show still applies to it.
+  const autoKeyboard =
+    keyboardAutoShow && paneFocused && !(landscape && emulatorSurfaceActive);
 
   const controllerVisible =
     emulatorSurfaceActive &&
