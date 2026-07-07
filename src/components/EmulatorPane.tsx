@@ -111,9 +111,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
   const setLiveMemory = useIdeStore((s) => s.setLiveMemory);
-  const keyboardEnabled = useIdeStore((s) => s.keyboardEnabled);
   const setKeyboardEnabled = useIdeStore((s) => s.setKeyboardEnabled);
-  const mobileTab = useIdeStore((s) => s.mobileTab);
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
   // `overlayUp` (the bottom band is occupied, so the emulator screen shrinks to
   // the top half) comes from the same shared hook that Workspace uses to render
@@ -580,7 +578,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       for (const child of Array.from(container.children)) {
         if (child === shell) continue;
         const ccs = getComputedStyle(child);
-        if (ccs.position === 'absolute') continue; // e.g. the landscape ⌨ toggle
+        if (ccs.position === 'absolute') continue; // e.g. the loading overlay
         if (String(child.className).includes(styles.watcherHost)) continue;
         const h = child.getBoundingClientRect().height;
         if (h > 0) reservedY += h + rowGap;
@@ -695,11 +693,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             setFocused(true);
             // With auto-show on, tapping the screen re-opens the keyboard if
             // hidden - unless the gamepad is on, which owns emulator input.
+            // Never in phone landscape: the flanking gamepad owns the emulator
+            // there and the keyboard is opened deliberately from the rail toggle.
             const s = useIdeStore.getState();
             if (
               s.keyboardAutoShow &&
               !s.controllerEnabled &&
-              !s.keyboardEnabled
+              !s.keyboardEnabled &&
+              !landscape
             )
               setKeyboardEnabled(true);
           }}
@@ -711,29 +712,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           </div>
         )}
       </div>
-      {/* Phone landscape: the on-screen keyboard is off by default and toggled
-          from this button at the top-right of the pane - its top aligned with the
-          preview and centred above the red fire button. While it's up the
-          workspace hides the flanking gamepad and routes keys to the machine.
-          Anchored to the pane (not the scaled screen) so it lines up with the
-          gamepad's fire button regardless of the screen's fitted size. */}
-      {landscape && mobileTab === 'preview' && (
-        <button
-          type="button"
-          className={`${styles.kbToggle} ${
-            keyboardEnabled ? styles.kbToggleActive : ''
-          }`}
-          aria-pressed={keyboardEnabled}
-          title={
-            keyboardEnabled
-              ? 'Hide on-screen keyboard'
-              : 'Show on-screen keyboard'
-          }
-          onClick={() => setKeyboardEnabled(!keyboardEnabled)}
-        >
-          ⌨
-        </button>
-      )}
+      {/* The on-screen keyboard is toggled from the sidebar/rail (the Toolbar in
+          the IDE, the top-bar actions in the standalone player) rather than a
+          button floating over the emulator. */}
       {/* The Step/Continue/Stop controls live in the top-bar Run menu now; this
           slim bar just reports where the debugger is paused. */}
       {emulatorStatus === 'paused' && debugLine !== null && (

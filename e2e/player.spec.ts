@@ -16,6 +16,7 @@ import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from './shareStub';
 const LANDSCAPE_MOBILE_QUERY =
   '(orientation: landscape) and (max-height: 600px) and (pointer: coarse)';
 const WELCOME_SEEN_KEY = 'mbide.hasSeenWelcome';
+const KEYBOARD_AUTOSHOW_KEY = 'mbide.keyboardAutoShow';
 
 test('boots a shared program, auto-runs and paints the screen', async ({
   page,
@@ -128,6 +129,49 @@ test.describe('phone landscape', () => {
       await expect(
         page.getByRole('button', { name: '▶', exact: true }),
       ).toBeVisible({ timeout: 30_000 });
+    } finally {
+      await browser.close();
+    }
+  });
+
+  test('never auto-shows the keyboard, even with auto-show enabled', async () => {
+    test.setTimeout(120_000);
+    const browser = await chromium.launch();
+    const context = await browser.newContext({
+      viewport: { width: 844, height: 390 },
+      hasTouch: true,
+      isMobile: true,
+    });
+    await context.addInitScript(
+      ({ welcome, autoShow }) => {
+        try {
+          localStorage.setItem(welcome, 'true');
+          // Explicitly opt into keyboard auto-show: landscape must still suppress
+          // it while the emulator is the surface.
+          localStorage.setItem(autoShow, 'true');
+        } catch {
+          /* opaque origin - nothing to seed */
+        }
+      },
+      { welcome: WELCOME_SEEN_KEY, autoShow: KEYBOARD_AUTOSHOW_KEY },
+    );
+    await context.route(SHARE_GLOB, shareGet({ body: zx81Record() }));
+    const page = await context.newPage();
+    try {
+      await page.goto(`http://localhost:5173/load/${SHARE_ID}`);
+      await expect(
+        page.getByRole('button', { name: '▶', exact: true }),
+      ).toBeVisible({ timeout: 30_000 });
+
+      // The flanking gamepad is the default surface; the keyboard stays hidden.
+      await expect(page.locator('.game-controller')).toBeVisible();
+      await expect(page.locator('.virtual-keyboard')).toHaveCount(0);
+
+      // The rail ⌨ toggle still brings it up on demand (and hides the gamepad).
+      // The button's accessible name is its glyph; the Show/Hide text is a title.
+      await page.getByRole('button', { name: '⌨', exact: true }).click();
+      await expect(page.locator('.virtual-keyboard')).toBeVisible();
+      await expect(page.locator('.game-controller')).toHaveCount(0);
     } finally {
       await browser.close();
     }

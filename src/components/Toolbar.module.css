@@ -210,6 +210,22 @@
   max-width: 300px;
 }
 
+/* Phone-landscape rail keyboard toggle. Only rendered in the landscape rail (see
+   Toolbar.tsx), where `.toolbar.rail .toolbarRight` already stretches and centres
+   direct-child buttons, so it just needs the glyph size and its active accent. */
+.kbToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.kbToggle.kbToggleActive {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 @media (max-width: 768px) {
   .toolbar :global(.desktop-only),
   .toolbar :global(.icon-btn) {
