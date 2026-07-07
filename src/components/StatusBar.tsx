@@ -1,6 +1,7 @@
 import { useIdeStore } from '../app/store';
 import { useProgramStats, ramDisplay } from '../app/useProgramStats';
 import { useMediaQuery, MOBILE_QUERY } from '../app/useMediaQuery';
+import { useInputOverlays } from '../app/useInputOverlays';
 import { InputOverlayToggle } from './InputOverlayToggle';
 import styles from './StatusBar.module.css';
 
@@ -17,6 +18,7 @@ export function StatusBar() {
   const setVariableWatcher = useIdeStore((s) => s.setVariableWatcher);
   const statusNotice = useIdeStore((s) => s.statusNotice);
   const isMobile = useMediaQuery(MOBILE_QUERY);
+  const { gamepadToggleable } = useInputOverlays();
 
   const stats = useProgramStats();
 
@@ -101,6 +103,7 @@ export function StatusBar() {
           controllerEnabled={controllerEnabled}
           setKeyboardEnabled={setKeyboardEnabled}
           setControllerEnabled={setControllerEnabled}
+          gamepadInCycle={gamepadToggleable}
           className={styles.vkToggle}
           activeClassName="active"
         />

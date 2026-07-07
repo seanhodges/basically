@@ -134,7 +134,8 @@ export default function PlayerApp({
 
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
   const isMobile = useMediaQuery(MOBILE_QUERY);
-  const { controllerVisible, keyboardVisible } = useInputOverlays();
+  const { controllerVisible, keyboardVisible, gamepadToggleable } =
+    useInputOverlays();
 
   // Top-bar overflow handling: when the horizontal bar can't fit everything,
   // drop the program name first, then the logo. Driven by measuring the header
@@ -301,6 +302,7 @@ export default function PlayerApp({
             controllerEnabled={controllerEnabled}
             setKeyboardEnabled={setKeyboardEnabledEphemeral}
             setControllerEnabled={setControllerEnabledEphemeral}
+            gamepadInCycle={gamepadToggleable}
             className={styles.kbToggle}
             activeClassName={styles.toggleActive}
           />

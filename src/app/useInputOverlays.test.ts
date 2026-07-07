@@ -108,6 +108,10 @@ describe('resolveInputOverlays', () => {
       expect(r.keyboardVisible).toBe(false);
       expect(r.controllerVisible).toBe(false);
     });
+
+    it('makes the gamepad a toggle position on the emulator surface (3-way)', () => {
+      expect(resolveInputOverlays(split()).gamepadToggleable).toBe(true);
+    });
   });
 
   describe('editor surface (editor focused / editor tab)', () => {
@@ -141,6 +145,12 @@ describe('resolveInputOverlays', () => {
       );
       expect(r.keyboardVisible).toBe(true);
       expect(r.controllerVisible).toBe(false);
+    });
+
+    it('drops the gamepad from the toggle cycle while editing (2-way)', () => {
+      expect(
+        resolveInputOverlays(split({ routeToEditor: true })).gamepadToggleable,
+      ).toBe(false);
     });
   });
 
@@ -189,6 +199,12 @@ describe('resolveInputOverlays', () => {
       expect(r.controllerVisible).toBe(false);
       expect(r.keyboardVisible).toBe(false);
     });
+
+    it('drops the gamepad from the toggle cycle (mobile default overlay)', () => {
+      // Gamepad is the default here whether the toggle is on or off, so the
+      // toggle should skip it and cycle off/auto ↔ keyboard only.
+      expect(resolveInputOverlays(portrait()).gamepadToggleable).toBe(false);
+    });
   });
 
   describe('phone landscape', () => {
@@ -235,6 +251,14 @@ describe('resolveInputOverlays', () => {
       expect(r.keyboardVisible).toBe(true);
       expect(r.controllerVisible).toBe(false);
       expect(r.overlayUp).toBe(true);
+    });
+
+    it('never puts the gamepad in the toggle cycle (mobile layout)', () => {
+      expect(resolveInputOverlays(landscape()).gamepadToggleable).toBe(false);
+      expect(
+        resolveInputOverlays(landscape({ mobileTab: 'editor' }))
+          .gamepadToggleable,
+      ).toBe(false);
     });
   });
 });
