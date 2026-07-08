@@ -16,7 +16,10 @@ over from there.
 If the program still has mistakes, it won't run: the emulator reports
 **Fix N error(s) before running** (the same errors the editor underlines as you
 type), and an empty program reports **Program is empty**. Fix the highlighted
-lines and press Play again.
+lines and press Play again. If you want to run anyway - say, to watch the
+machine's own error report - turn off **Block Run on editor lint errors** under
+**Settings → Emulator**; only errors that break the program build itself will
+stop a run then.
 
 The status bar shows the emulator state - **stopped**, **running**, or
 **paused** - alongside the byte budget.

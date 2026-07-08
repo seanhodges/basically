@@ -1,5 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { ramDisplay, ramSeverity } from './useProgramStats';
+import { countProgramErrors, ramDisplay, ramSeverity } from './useProgramStats';
+import { commodore64 } from '../dialects/commodore64';
+
+describe('countProgramErrors', () => {
+  it('includes editor-lint diagnostics beyond tokenize errors', () => {
+    // PRINCHR$(65) tokenizes cleanly (assignment-shaped), but the editor lint
+    // flags the name for embedding CHR$ - the run gate must count it too.
+    const source = '10 PRINCHR$(65)';
+    expect(commodore64.tokenize(source).errors).toEqual([]);
+    expect(countProgramErrors(commodore64, source)).toBeGreaterThan(0);
+  });
+
+  it('counts tokenizer errors', () => {
+    expect(countProgramErrors(commodore64, '10 PRNT 1')).toBe(1);
+  });
+
+  it('counts a clean program as zero', () => {
+    expect(countProgramErrors(commodore64, '10 PRINT CHR$(65)')).toBe(0);
+  });
+
+  it('skips the editor-lint diagnostics when includeEditorLint is off', () => {
+    expect(countProgramErrors(commodore64, '10 PRINCHR$(65)', false)).toBe(0);
+  });
+
+  it('still counts tokenizer errors when includeEditorLint is off', () => {
+    expect(countProgramErrors(commodore64, '10 PRNT 1', false)).toBe(1);
+  });
+});
 
 describe('ramSeverity', () => {
   it.each([

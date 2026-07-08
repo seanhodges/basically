@@ -39,6 +39,8 @@ export function SettingsForm() {
   const setEmulatorSpeed = useIdeStore((s) => s.setEmulatorSpeed);
   const emulatorAudio = useIdeStore((s) => s.emulatorAudio);
   const setEmulatorAudio = useIdeStore((s) => s.setEmulatorAudio);
+  const runGateLint = useIdeStore((s) => s.runGateLint);
+  const setRunGateLint = useIdeStore((s) => s.setRunGateLint);
   const emulatorVolume = useIdeStore((s) => s.emulatorVolume);
   const setEmulatorVolume = useIdeStore((s) => s.setEmulatorVolume);
   const controllerDpadMode = useIdeStore((s) => s.controllerDpadMode);
@@ -96,6 +98,7 @@ export function SettingsForm() {
 
       {tab === 'editor' && (
         <div role="tabpanel" className={styles.tabPanel}>
+          <h3>Line numbering</h3>
           <label className={styles.inline}>
             <input
               type="checkbox"
@@ -126,6 +129,7 @@ export function SettingsForm() {
               }}
             />
           </label>
+          <h3>Code completion</h3>
           <label className={styles.inline}>
             <input
               type="checkbox"
@@ -139,14 +143,7 @@ export function SettingsForm() {
 
       {tab === 'emulator' && (
         <div role="tabpanel" className={styles.tabPanel}>
-          <label className={styles.inline}>
-            <input
-              type="checkbox"
-              checked={crtEffect}
-              onChange={(e) => setCrtEffect(e.target.checked)}
-            />
-            CRT scanline effect
-          </label>
+          <h3>Behaviour</h3>
           <label className={styles.field}>
             Emulation speed
             <select
@@ -161,6 +158,26 @@ export function SettingsForm() {
               <option value={4}>4×</option>
               <option value={8}>8×</option>
             </select>
+          </label>
+          <label
+            className={styles.inline}
+            title="When off, only tokenizer errors block Run; lint findings still underline in the editor"
+          >
+            <input
+              type="checkbox"
+              checked={runGateLint}
+              onChange={(e) => setRunGateLint(e.target.checked)}
+            />
+            Block Run on editor lint errors
+          </label>
+          <h3>Graphics</h3>
+          <label className={styles.inline}>
+            <input
+              type="checkbox"
+              checked={crtEffect}
+              onChange={(e) => setCrtEffect(e.target.checked)}
+            />
+            CRT scanline effect
           </label>
           <h3>Audio</h3>
           <label className={styles.inline}>
