@@ -6,6 +6,7 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useIdeStore } from '../app/store';
+import { countProgramErrors } from '../app/useProgramStats';
 import {
   HAS_TOUCH,
   isMobileViewport,
@@ -326,11 +327,20 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     (async () => {
       setError('');
       try {
-        const result = dialect.tokenize(source);
-        if (result.errors.length > 0) {
-          setError(`Fix ${result.errors.length} error(s) before running`);
+        // Gate on the full editor lint set (not just tokenizer errors), so
+        // Play refuses exactly the errors the editor underlines - unless the
+        // user has turned the lint gate off in Settings > Emulator, in which
+        // case only tokenizer errors block the run.
+        const errorCount = countProgramErrors(
+          dialect,
+          source,
+          useIdeStore.getState().runGateLint,
+        );
+        if (errorCount > 0) {
+          setError(`Fix ${errorCount} error(s) before running`);
           return;
         }
+        const result = dialect.tokenize(source);
         if (result.image.length === 0) {
           setError('Program is empty');
           return;

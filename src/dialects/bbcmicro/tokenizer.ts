@@ -34,6 +34,9 @@ export function tokenizeProgram(source: string): TokenizedProgram {
   const out: number[] = [];
   const errors: TokenizeError[] = [];
   let prevLineNo = -1;
+  // Inside a [ ... ] assembler block statement validation is suspended; the
+  // block spans lines, so the flag lives here and threads through every body.
+  const asm = { active: false };
 
   const lines = source.split('\n');
   for (let li = 0; li < lines.length; li++) {
@@ -70,7 +73,7 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     }
 
     const colOffset = m[1]!.length;
-    const body = tokenizeBody(m[2]!, editorLine, colOffset, errors);
+    const body = tokenizeBody(m[2]!, editorLine, colOffset, errors, asm);
     if (body === null) continue; // error already recorded
     if (body.length > MAX_BODY) {
       errors.push({
@@ -119,12 +122,25 @@ function tokenizeBody(
   editorLine: number,
   colOffset: number,
   errors: TokenizeError[],
+  asm: { active: boolean },
 ): number[] | null {
   const out: number[] = [];
   let i = 0;
   let statementStart = true;
   let lino = false;
   let failed = false;
+
+  // A statement-start construct the ROM would reject at RUN time with Mistake/
+  // Syntax error. Recorded as a lint error; tokenization continues unchanged so
+  // the byte stream stays ROM-identical for every input.
+  const flagStatement = (at: number, end: number, got: string): void => {
+    errors.push({
+      line: editorLine,
+      column: colOffset + at,
+      endColumn: colOffset + end,
+      message: `Statement must start with a command keyword or assignment (got '${got}')`,
+    });
+  };
 
   const emit = (ch: string, at: number): boolean => {
     try {
@@ -187,6 +203,16 @@ function tokenizeBody(
       const match = matchKeyword(body, i, statementStart);
       if (match) {
         const { kw, token, len } = match;
+        // Only command keywords and the assignable pseudo-variables (those
+        // with a statement-position token, e.g. TIME=0) may open a statement.
+        if (
+          statementStart &&
+          !asm.active &&
+          kw.kind !== 'command' &&
+          kw.statementToken === undefined
+        ) {
+          flagStatement(i, i + len, kw.word);
+        }
         out.push(token);
         i += len;
 
@@ -214,6 +240,16 @@ function tokenizeBody(
       let j = i;
       while (j < body.length && ALNUM.test(body[j]!)) j++;
       if (j < body.length && (body[j] === '$' || body[j] === '%')) j++;
+      // A bare name may only open a statement as an assignment target:
+      // A=…, A(1)=…, or the dyadic indirections A?n=… / A!n=….
+      if (statementStart && !asm.active) {
+        let k = j;
+        while (body[k] === ' ' || body[k] === '\t') k++;
+        const next = body[k];
+        if (next !== '=' && next !== '(' && next !== '?' && next !== '!') {
+          flagStatement(i, j, body.slice(i, j));
+        }
+      }
       for (; i < j; i++) if (!emit(body[i]!, i)) return null;
       statementStart = false;
       continue;
@@ -221,6 +257,7 @@ function tokenizeBody(
 
     // String literal: copied verbatim, nothing inside is tokenized.
     if (ch === '"') {
+      if (statementStart && !asm.active) flagStatement(i, i + 1, '"');
       out.push(0x22);
       i++;
       while (i < body.length && body[i] !== '"') {
@@ -238,6 +275,7 @@ function tokenizeBody(
     // Hex constant: '&' then a run of hex digits, copied so an A–F run isn't
     // mistaken for a keyword.
     if (ch === '&') {
+      if (statementStart && !asm.active) flagStatement(i, i + 1, '&');
       out.push(0x26);
       i++;
       while (i < body.length && HEX.test(body[i]!)) {
@@ -257,6 +295,14 @@ function tokenizeBody(
     }
 
     // Anything else (digits, operators, punctuation) is copied verbatim.
+    // '[' opens the inline assembler (validation off until ']' closes it);
+    // at a statement start only the indirection/system forms ?a=… !a=… $a=…
+    // @%=…, and '=' (a DEF FN result line) are valid openers.
+    if (ch === '[') asm.active = true;
+    else if (ch === ']') asm.active = false;
+    else if (statementStart && !asm.active && !'?!$@='.includes(ch)) {
+      flagStatement(i, i + 1, ch);
+    }
     if (!emit(ch, i)) return null;
     statementStart = false;
     i++;

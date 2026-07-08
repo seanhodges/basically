@@ -1,9 +1,28 @@
 import { useEffect, useState } from 'react';
+import type { Dialect } from '../dialects/types';
 import { useIdeStore } from './store';
 
 export interface ProgramStats {
   bytes: number;
   errors: number;
+}
+
+/**
+ * The diagnostics that gate a run. By default the dialect's full editor lint
+ * set (tokenizer errors plus the ROM-accurate name checks), so the status bar
+ * and the Play gate count exactly what the editor underlines. With
+ * `includeEditorLint` off (the "Block Run on lint errors" setting) only the
+ * tokenizer's own errors count - the program is still buildable garbage-free,
+ * but lint-only findings no longer stop a run.
+ */
+export function countProgramErrors(
+  dialect: Dialect,
+  source: string,
+  includeEditorLint = true,
+): number {
+  return includeEditorLint
+    ? dialect.lint(source).length
+    : dialect.tokenize(source).errors.length;
 }
 
 /**
@@ -72,7 +91,10 @@ export function useProgramStats(): ProgramStats {
   useEffect(() => {
     const t = setTimeout(() => {
       const result = dialect.tokenize(source);
-      setStats({ bytes: result.byteSize, errors: result.errors.length });
+      setStats({
+        bytes: result.byteSize,
+        errors: countProgramErrors(dialect, source),
+      });
     }, 300);
     return () => clearTimeout(t);
   }, [dialect, source]);

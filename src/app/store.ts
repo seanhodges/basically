@@ -22,6 +22,7 @@ import {
   getShowLineNumberGutter,
   getFullCodeCompletion,
   getCrtEffect,
+  getRunGateLint,
   getSplitRatio,
   getEmulatorSpeed,
   getKeyboardAutoShow,
@@ -49,6 +50,7 @@ import {
   setShowLineNumberGutter as persistShowLineNumberGutter,
   setFullCodeCompletion as persistFullCodeCompletion,
   setCrtEffect as persistCrtEffect,
+  setRunGateLint as persistRunGateLint,
   setEmulatorSpeed as persistEmulatorSpeed,
   setKeyboardAutoShow as persistKeyboardAutoShow,
   setKeyboardSound as persistKeyboardSound,
@@ -182,6 +184,8 @@ interface IdeState {
   keyboardKeyDisplay: 'authentic' | 'compact';
   /** Master enable for run-time emulator sound (default on). */
   emulatorAudio: boolean;
+  /** Whether the Run gate counts editor lint errors too (default on). */
+  runGateLint: boolean;
   /** Emulator output volume, 0..1. */
   emulatorVolume: number;
   /** Transient mute toggle (toolbar speaker button); separate from the enable. */
@@ -347,6 +351,7 @@ interface IdeState {
   setKeyboardHaptics(on: boolean): void;
   setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void;
   setEmulatorAudio(on: boolean): void;
+  setRunGateLint(on: boolean): void;
   setEmulatorVolume(n: number): void;
   setEmulatorMuted(on: boolean): void;
   setEditorFocused(on: boolean): void;
@@ -565,6 +570,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getKeyboardKeyDisplay() : 'authentic',
   emulatorAudio:
     typeof localStorage !== 'undefined' ? getEmulatorAudio() : true,
+  runGateLint: typeof localStorage !== 'undefined' ? getRunGateLint() : true,
   emulatorVolume:
     typeof localStorage !== 'undefined' ? getEmulatorVolume() : 0.7,
   emulatorMuted:
@@ -824,6 +830,10 @@ export const useIdeStore = create<IdeState>((set) => ({
   setEmulatorAudio: (on) => {
     persistEmulatorAudio(on);
     set({ emulatorAudio: on });
+  },
+  setRunGateLint: (on) => {
+    persistRunGateLint(on);
+    set({ runGateLint: on });
   },
   setEmulatorVolume: (n) => {
     const v = Math.min(1, Math.max(0, n));

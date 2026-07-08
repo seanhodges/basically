@@ -37,6 +37,7 @@ const KEYS = {
   keyboardHaptics: 'mbide.keyboardHaptics',
   keyboardKeyDisplay: 'mbide.keyboardKeyDisplay',
   emulatorAudio: 'mbide.emulatorAudio',
+  runGateLint: 'mbide.runGateLint',
   emulatorVolume: 'mbide.emulatorVolume',
   emulatorMuted: 'mbide.emulatorMuted',
   keyboardEnabled: 'mbide.keyboardEnabled',
@@ -308,6 +309,19 @@ export function getGamepadMode(): GamepadMode {
 
 export function setGamepadMode(mode: GamepadMode): void {
   localStorage.setItem(KEYS.gamepadMode, mode);
+}
+
+/**
+ * Whether the Run gate counts the full editor lint set (tokenizer errors plus
+ * the ROM-accurate name checks). When off, only tokenizer errors block a run;
+ * lint findings still squiggle in the editor. Defaults on.
+ */
+export function getRunGateLint(): boolean {
+  return localStorage.getItem(KEYS.runGateLint) !== 'false'; // default on
+}
+
+export function setRunGateLint(on: boolean): void {
+  localStorage.setItem(KEYS.runGateLint, on ? 'true' : 'false');
 }
 
 /** Master enable for run-time emulator audio. Defaults on. */

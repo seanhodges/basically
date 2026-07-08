@@ -1,9 +1,10 @@
 /**
  * ROM-accurate variable-name checks, surfaced as editor diagnostics.
  *
- * These are editor-only lint rules (returned from a dialect's `lint()`), not
- * part of `tokenize()`, so a flagged name squiggles in the editor but never
- * blocks a build. Each rule reuses the same dialect-aware variable recognition
+ * These are lint rules (returned from a dialect's `lint()`), not part of
+ * `tokenize()`: a flagged name squiggles in the editor and gates the Run
+ * button / status-bar error count (see `countProgramErrors`), but never blocks
+ * a file/tape export. Each rule reuses the same dialect-aware variable recognition
  * as the highlighter/completion (`forEachVariable` + `buildIdentifierRegexes`),
  * so keywords, numbers and PROC/FN calls are never mistaken for variables.
  *
