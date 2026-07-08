@@ -64,6 +64,7 @@ import { numberingConfig, fullCompletion } from '../editor/completions';
 import { crunchMatcher } from '../editor/crunch';
 import { useIdeStore } from '../app/store';
 import type { EditorCommandName } from '../app/store';
+import { openDroppedFile } from '../app/fileCommands';
 import {
   insertNumberedLineBelow,
   numberLineInPlace,
@@ -733,6 +734,23 @@ export function CodeMirrorHost({
           touchstart: (_event, view) => {
             if (searchPanelOpen(view.state)) closeSearchPanel(view);
             return false;
+          },
+          // Dropping a file onto the editor opens it (like File → Open for
+          // .bas/.txt, or Import for a dialect binary format). Only intercept
+          // file drops - a text drag within the editor still uses CodeMirror's
+          // own drop handling. `preventDefault` + returning true stops both the
+          // browser navigating to the file and CM inserting it as text.
+          dragover: (event) => {
+            if (!event.dataTransfer?.types.includes('Files')) return false;
+            event.preventDefault();
+            return true;
+          },
+          drop: (event) => {
+            const file = event.dataTransfer?.files?.[0];
+            if (!file) return false;
+            event.preventDefault();
+            void openDroppedFile(file);
+            return true;
           },
         }),
         inputModeCompartment.of(

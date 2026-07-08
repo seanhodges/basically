@@ -40,3 +40,46 @@ export async function saveDocument(): Promise<void> {
   const saved = await saveTextFile(fileName, source);
   if (saved !== null) markSaved(saved);
 }
+
+/** Lower-cased extension including the leading dot (e.g. '.bas'), or '' if none. */
+function fileExtension(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot < 0 ? '' : name.slice(dot).toLowerCase();
+}
+
+/**
+ * Open a file dropped onto the editor. A `.bas`/`.txt` file loads as a named
+ * document exactly like File → Open; a file whose extension matches one of the
+ * current dialect's binary import formats (e.g. `.prg`, `.tap`) is detokenized
+ * back into the editor exactly like Import. Both paths are guarded by
+ * {@link confirmDiscard}, so the user is warned before losing unsaved changes.
+ * Unsupported types and read/detokenize failures surface a status-bar notice.
+ */
+export async function openDroppedFile(file: File): Promise<void> {
+  const store = useIdeStore.getState();
+  const { dialect, replaceDocument, loadUnsavedDocument, setStatusNotice } =
+    store;
+  const ext = fileExtension(file.name);
+  const binaryFmt = dialect.binaryImports?.find(
+    (f) => f.extension.toLowerCase() === ext,
+  );
+  try {
+    if (ext === '.bas' || ext === '.txt') {
+      if (!confirmDiscard()) return;
+      replaceDocument(await file.text(), file.name);
+    } else if (binaryFmt) {
+      if (!confirmDiscard()) return;
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      // Import loads real, not-yet-saved content: untitled but dirty, so the
+      // discard guard fires before the next load (mirrors the Import dialog).
+      loadUnsavedDocument(dialect.detokenize(bytes), { dirty: true });
+      setStatusNotice(`Imported ${file.name}.`);
+    } else {
+      setStatusNotice(`Can't open ${file.name} - unsupported file type.`);
+    }
+  } catch (e) {
+    setStatusNotice(
+      e instanceof Error ? e.message : `Could not open ${file.name}.`,
+    );
+  }
+}
