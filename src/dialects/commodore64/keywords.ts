@@ -14,6 +14,8 @@ import type { KeywordInfo } from '../types';
 export interface C64Keyword extends KeywordInfo {
   /** True when REM/DATA: the rest of the statement is stored verbatim. */
   verbatimRest?: 'line' | 'statement';
+  /** A tokenizing-only synonym (`?`); kept out of the LIST decode map. */
+  alias?: boolean;
 }
 
 /** Raw table: [spelling, token, kind, signature?, doc?]. */
@@ -118,10 +120,23 @@ export const c64Keywords: C64Keyword[] = TABLE.map(
   },
 );
 
-/** Keywords sorted longest-spelling first, for greedy left-to-right matching. */
-export const c64KeywordsByLength: C64Keyword[] = [...c64Keywords].sort(
-  (a, b) => b.word.length - a.word.length,
-);
+/**
+ * Tokenizing-only synonyms. `?` enters as PRINT, exactly as the ROM cruncher
+ * expands it; LIST always spells the full keyword, so it stays out of
+ * {@link c64WordByToken}.
+ */
+const c64KeywordAliases: C64Keyword[] = [
+  { word: '?', token: 0x99, kind: 'command', alias: true },
+];
+
+/**
+ * Keywords (canonical + aliases) sorted longest-spelling first, for greedy
+ * left-to-right matching.
+ */
+export const c64KeywordsByLength: C64Keyword[] = [
+  ...c64Keywords,
+  ...c64KeywordAliases,
+].sort((a, b) => b.word.length - a.word.length);
 
 /** token byte -> canonical spelling, for the detokenizer / LIST. */
 export const c64WordByToken = new Map<number, string>(

@@ -147,3 +147,69 @@ describe('BBC tokenizer linting', () => {
     expect(errors[0]!.column).toBe(10);
   });
 });
+
+describe('BBC tokenizer statement validation', () => {
+  it('flags a misspelled keyword at the start of a statement', () => {
+    const { errors } = tokenizeProgram('10 PRNT "HI"');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.line).toBe(1);
+    expect(errors[0]!.column).toBe(3);
+    expect(errors[0]!.message).toMatch(/must start with/i);
+  });
+
+  it('flags a bad statement after a colon', () => {
+    const { errors } = tokenizeProgram('10 PRINT "X":PRNT "Y"');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toMatch(/PRNT/);
+  });
+
+  it('flags a function keyword used as a statement', () => {
+    const { errors } = tokenizeProgram('10 SIN(3)');
+    expect(errors).toHaveLength(1);
+  });
+
+  it('flags a string literal used as a statement', () => {
+    const { errors } = tokenizeProgram('10 "HI"');
+    expect(errors).toHaveLength(1);
+  });
+
+  it('accepts implied-LET assignments and pseudo-variables', () => {
+    const src = [
+      '10 A%=1',
+      '20 K$="X"',
+      '30 TIME=0',
+      '40 A(1)=2',
+      '50 @%=10',
+      '60 TIMER=1:ENDING=2',
+    ].join('\n');
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+
+  it('accepts star commands, PROC calls, indirection and FN results', () => {
+    const src = [
+      '10 *FX 20',
+      '20 PROCfoo',
+      '30 ?&70=1',
+      '40 !&72=2',
+      '50 $&74="X"',
+      '60 X?3=1',
+      '70 =X*2',
+    ].join('\n');
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+
+  it('accepts THEN/ELSE branches with statements or line numbers', () => {
+    const src = [
+      '10 IF A THEN 100 ELSE PRINT "X"',
+      '20 IF A THEN A=1 ELSE 100',
+    ].join('\n');
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+
+  it('does not validate inside an assembler block', () => {
+    const src = ['10 [', '20 LDA #5', '30 RTS', '40 ]', '50 PRINT "OK"'].join(
+      '\n',
+    );
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+});

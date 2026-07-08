@@ -90,3 +90,35 @@ describe('trs80 tokenizer', () => {
     expect(detokenizeProgram(program)).toBe(src);
   });
 });
+
+describe('trs80 tokenizer statement validation', () => {
+  it('flags a misspelled keyword at the start of a statement', () => {
+    const { errors } = tokenizeProgram('10 PRNT "HI"\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.line).toBe(1);
+    expect(errors[0]!.message).toMatch(/must start with/i);
+  });
+
+  it('flags a bad statement after a colon', () => {
+    const { errors } = tokenizeProgram('10 A=1:PRNT 2\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toMatch(/PRNT/);
+  });
+
+  it('flags a function keyword used as a statement', () => {
+    const { errors } = tokenizeProgram('10 SIN(3)\n');
+    expect(errors).toHaveLength(1);
+  });
+
+  it('accepts assignments, abbreviations and THEN/ELSE branches', () => {
+    const src = [
+      '10 A=1:B$="X":A(3)=4',
+      '20 IF A THEN 100 ELSE 200',
+      '30 ?A$',
+      "40 'A COMMENT",
+      '50 IF A THEN B=1 ELSE C=2',
+      '60 IFA=1THEN100',
+    ].join('\n');
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+});

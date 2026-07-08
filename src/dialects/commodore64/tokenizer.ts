@@ -44,6 +44,9 @@ function matchKeyword(source: string, pos: number): C64Keyword | undefined {
  * The C64 ROM tokenizes greedily and position-independently, so we match the
  * longest keyword at each point; quotes, REM and DATA suspend tokenizing.
  */
+const IDENT_HEAD = /[A-Za-z]/;
+const IDENT_TAIL = /[A-Za-z0-9]/;
+
 function tokenizeBody(
   body: string,
   editorLine: number,
@@ -55,6 +58,8 @@ function tokenizeBody(
   let inString = false;
   let remRest = false; // REM: copy the rest of the line verbatim
   let dataMode = false; // DATA: verbatim until an unquoted ':'
+  let stmtStart = true; // at a statement opener (line start, ':', after THEN)
+  let lineNoOk = false; // digits open a statement only right after THEN
 
   const pushChar = (ch: string, col: number): void => {
     const code = petscii(ch);
@@ -67,6 +72,27 @@ function tokenizeBody(
       return;
     }
     out.push(code);
+  };
+
+  // A statement opener the ROM would reject at RUN time with ?SYNTAX ERROR.
+  // Recorded as a lint error; tokenization continues unchanged so the byte
+  // stream stays ROM-identical for every input.
+  const flagStatement = (at: number, end: number, got: string): void => {
+    errors.push({
+      line: editorLine,
+      column: bodyCol + at,
+      endColumn: bodyCol + end,
+      message: `Statement must start with a BASIC command or assignment (got '${got}')`,
+    });
+  };
+
+  // True when the name at `at` opens an assignment: A=…, A$=…, A(3)=….
+  const isAssignmentStart = (at: number): boolean => {
+    let j = at;
+    while (j < body.length && IDENT_TAIL.test(body[j]!)) j++;
+    if (j < body.length && '$%'.includes(body[j]!)) j++;
+    while (body[j] === ' ') j++;
+    return body[j] === '=' || body[j] === '(';
   };
 
   while (pos < body.length) {
@@ -89,6 +115,10 @@ function tokenizeBody(
       continue;
     }
     if (ch === '"') {
+      if (stmtStart) {
+        flagStatement(pos, pos + 1, '"');
+        stmtStart = false;
+      }
       out.push(0x22);
       inString = true;
       pos++;
@@ -98,6 +128,8 @@ function tokenizeBody(
       if (ch === ':') {
         out.push(0x3a);
         dataMode = false;
+        stmtStart = true;
+        lineNoOk = false;
       } else {
         pushChar(ch, col);
       }
@@ -105,13 +137,48 @@ function tokenizeBody(
       continue;
     }
 
+    // Spaces never end a statement opener; ':' begins a new statement.
+    if (ch === ' ') {
+      pushChar(ch, col);
+      pos++;
+      continue;
+    }
+    if (ch === ':') {
+      out.push(0x3a);
+      stmtStart = true;
+      lineNoOk = false;
+      pos++;
+      continue;
+    }
+
     const kw = matchKeyword(body, pos);
     if (kw) {
+      if (stmtStart && kw.kind !== 'command') {
+        flagStatement(pos, pos + kw.word.length, kw.word);
+      }
       out.push(kw.token);
       pos += kw.word.length;
+      stmtStart = kw.word === 'THEN';
+      lineNoOk = stmtStart;
       if (kw.verbatimRest === 'line') remRest = true;
       else if (kw.verbatimRest === 'statement') dataMode = true;
       continue;
+    }
+
+    if (stmtStart) {
+      if (/[0-9]/.test(ch)) {
+        // A line number is a valid statement only right after THEN.
+        if (!lineNoOk) flagStatement(pos, pos + 1, ch);
+      } else if (IDENT_HEAD.test(ch)) {
+        if (!isAssignmentStart(pos)) {
+          let j = pos + 1;
+          while (j < body.length && IDENT_TAIL.test(body[j]!)) j++;
+          flagStatement(pos, j, body.slice(pos, j));
+        }
+      } else {
+        flagStatement(pos, pos + 1, ch);
+      }
+      stmtStart = false;
     }
 
     pushChar(ch, col);

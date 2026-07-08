@@ -63,3 +63,40 @@ describe('C64 tokenizer', () => {
     expect(detokenizeProgram(prg)).toBe('10 PRINT "HI"\n');
   });
 });
+
+describe('C64 tokenizer statement validation', () => {
+  it('flags a misspelled keyword at the start of a statement', () => {
+    const { errors } = tokenizeProgram('10 PRNT "HI"\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.line).toBe(1);
+    expect(errors[0]!.message).toMatch(/must start with/i);
+  });
+
+  it('flags a bad statement after a colon', () => {
+    const { errors } = tokenizeProgram('10 A=1:PRNT 2\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toMatch(/PRNT/);
+  });
+
+  it('flags a function keyword used as a statement', () => {
+    const { errors } = tokenizeProgram('10 SIN(3)\n');
+    expect(errors).toHaveLength(1);
+  });
+
+  it('accepts implied-LET assignments, arrays and TI$', () => {
+    const src = [
+      '10 A=1:B$="X":A(3)=4',
+      '20 TI$="000000"',
+      '30 IF A=1 THEN A=2',
+      '40 IFA=1THEN100',
+    ].join('\n');
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+
+  it('tokenizes the ? shorthand as PRINT, like the ROM cruncher', () => {
+    const { program, errors } = tokenizeProgram('10 ?"HI"\n');
+    expect(errors).toEqual([]);
+    const body = Array.from(program.slice(4, -3));
+    expect(body[0]).toBe(0x99); // PRINT token, not a literal '?'
+  });
+});

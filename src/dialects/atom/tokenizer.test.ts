@@ -91,6 +91,55 @@ describe('atom tokenizer', () => {
   });
 });
 
+describe('atom tokenizer statement validation', () => {
+  it('flags a misspelled keyword at the start of a statement', () => {
+    const { errors } = tokenizeProgram('10 PRNT "HI"\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.line).toBe(1);
+    expect(errors[0]!.message).toMatch(/must start with/i);
+  });
+
+  it('flags a bad statement after a semicolon', () => {
+    const { errors } = tokenizeProgram('10 X=1;PRNT 2\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toMatch(/PRNT/);
+  });
+
+  it('accepts semicolon-separated assignments', () => {
+    expect(tokenizeProgram('10 X=1;Y=2\n').errors).toEqual([]);
+  });
+
+  it('accepts indirection, string pokes and the @ variable', () => {
+    const src = [
+      '10 ?#DE=0',
+      '20 ?(#8000+U*32+V)=#20',
+      '30 !#80=1',
+      '40 INPUT $#7000',
+      '50 $#7000="HI"',
+      '60 @=5',
+      '70 A(1)=2',
+    ].join('\n');
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+
+  it('accepts dot-abbreviations and crunched keywords', () => {
+    const src = [
+      '10 P."HI"',
+      '20 G.10',
+      '30 PRINTA',
+      '40 IF A=1 THEN X=2',
+    ].join('\n');
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+
+  it('does not look inside REM or assembler blocks', () => {
+    const src = ['10 REM PRNT; NOT CHECKED', '20 [', '30 LDA #5', '40 ]'].join(
+      '\n',
+    );
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+});
+
 describe('atom charset', () => {
   it('maps printable ASCII to itself', () => {
     expect([...atomCharset.toMachine('AZ09 ?')]).toEqual([
