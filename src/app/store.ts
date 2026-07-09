@@ -396,11 +396,16 @@ interface IdeState {
   requestEditorCommand(name: EditorCommandName): void;
 }
 
-const autosaved = typeof localStorage !== 'undefined' ? loadAutosave() : null;
+/** Autosave and dialect are per-tab with a localStorage backup - both storages
+ *  must exist (safeStorage installs in-memory stand-ins in the browser). */
+const hasStorage =
+  typeof localStorage !== 'undefined' && typeof sessionStorage !== 'undefined';
+
+const autosaved = hasStorage ? loadAutosave() : null;
 
 /** The persisted dialect if it still exists in the registry, else the first one. */
 function initialDialect(): Dialect {
-  const savedId = typeof localStorage !== 'undefined' ? getDialectId() : null;
+  const savedId = hasStorage ? getDialectId() : null;
   if (savedId && dialects.some((d) => d.id === savedId)) {
     return getDialect(savedId);
   }

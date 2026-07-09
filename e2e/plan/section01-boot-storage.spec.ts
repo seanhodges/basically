@@ -88,6 +88,33 @@ test('1.5 blocked localStorage: app still boots and works (no white screen)', as
   ).toEqual([]);
 });
 
+test('1.5b blocked localStorage AND sessionStorage: app still boots and works', async ({
+  page,
+}) => {
+  const errors = collectErrors(page);
+  // The strictest storage lockdown: both Web Storage globals throw on access.
+  // safeStorage must swap in independent in-memory stand-ins for each.
+  await page.addInitScript(() => {
+    for (const name of ['localStorage', 'sessionStorage']) {
+      Object.defineProperty(window, name, {
+        configurable: true,
+        get() {
+          throw new DOMException('Storage disabled', 'SecurityError');
+        },
+      });
+    }
+  });
+  await openApp(page);
+  const welcome = page.getByRole('button', { name: /Start coding/ });
+  if (await welcome.isVisible().catch(() => false)) await welcome.click();
+  await setEditorSource(page, '10 PRINT "STILL ALIVE"');
+  await expect(page.locator(EDITOR)).toContainText('STILL ALIVE');
+  expect(
+    fatalErrors(errors),
+    `console/page errors: ${fatalErrors(errors).join('\n')}`,
+  ).toEqual([]);
+});
+
 test('1.6 selected target machine is restored after a reload', async ({
   page,
 }) => {
@@ -96,4 +123,45 @@ test('1.6 selected target machine is restored after a reload', async ({
   await page.reload();
   await expect(page.locator(EDITOR)).toBeVisible();
   await expect(page.locator('select.dialect-select')).toHaveValue(/bbc/i);
+});
+
+test('1.7 tabs keep independent programs (sessionStorage isolation)', async ({
+  page,
+  context,
+}) => {
+  await openApp(page);
+  await setEditorSource(page, '10 PRINT "TAB A"');
+  await page.waitForTimeout(2600);
+
+  // A brand-new tab seeds from the shared localStorage backup, so it opens on
+  // the most recently edited program.
+  const pageB = await context.newPage();
+  await pageB.goto('/');
+  await expect(pageB.locator(EDITOR)).toContainText('TAB A');
+
+  // From here the tabs diverge: edits in B must never leak into A.
+  await setEditorSource(pageB, '10 PRINT "TAB B"');
+  await pageB.waitForTimeout(2600);
+
+  await page.reload();
+  await expect(page.locator(EDITOR)).toContainText('TAB A');
+  await expect(page.locator(EDITOR)).not.toContainText('TAB B');
+});
+
+test('1.8 tabs keep independent target machines', async ({ page, context }) => {
+  await openApp(page);
+  await selectDialect(page, 'BBC Micro');
+
+  const pageB = await context.newPage();
+  await pageB.goto('/');
+  await expect(pageB.locator(EDITOR)).toBeVisible();
+  await selectDialect(pageB, 'Commodore 64');
+
+  // Tab A's machine survives a reload despite tab B's later switch.
+  await page.reload();
+  await expect(page.locator(EDITOR)).toBeVisible();
+  await expect(page.locator('select.dialect-select')).toHaveValue(/bbc/i);
+  await expect(pageB.locator('select.dialect-select')).toHaveValue(
+    /commodore|c64/i,
+  );
 });

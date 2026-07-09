@@ -1,20 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreamOptions } from './providers/types';
 
-// Install a localStorage stub and a shared streaming handle BEFORE the modules
-// under test are imported (aiStore reads localStorage at module init).
+// Install storage stubs and a shared streaming handle BEFORE the modules under
+// test are imported (aiStore reads the stored conversation at module init).
 const h = vi.hoisted(() => {
-  const store = new Map<string, string>();
-  globalThis.localStorage = {
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => void store.set(k, String(v)),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => store.clear(),
-    key: (i: number) => [...store.keys()][i] ?? null,
-    get length() {
-      return store.size;
-    },
-  } as Storage;
+  const stub = () => {
+    const store = new Map<string, string>();
+    return {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, String(v)),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+      key: (i: number) => [...store.keys()][i] ?? null,
+      get length() {
+        return store.size;
+      },
+    } as Storage;
+  };
+  globalThis.localStorage = stub();
+  globalThis.sessionStorage = stub();
   return {
     current: null as null | {
       onText: (d: string) => void;
@@ -73,6 +77,7 @@ describe('aiStore', () => {
   beforeEach(() => {
     useAiStore.getState().reset();
     localStorage.clear();
+    sessionStorage.clear();
     h.current = null;
   });
 

@@ -1,17 +1,22 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-// The store persists the chosen dialect to localStorage on every real switch.
-// The test environment is `node`, so provide a minimal stub before importing.
+// The store persists the chosen dialect and autosave (per-tab sessionStorage
+// plus a localStorage backup) on every real switch. The test environment is
+// `node`, so provide minimal, independent stubs for both before importing.
 beforeAll(() => {
-  const store = new Map<string, string>();
-  (globalThis as { localStorage?: Storage }).localStorage = {
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => void store.set(k, v),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => store.clear(),
-    key: () => null,
-    length: 0,
-  } as Storage;
+  const stub = () => {
+    const store = new Map<string, string>();
+    return {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+      key: () => null,
+      length: 0,
+    } as Storage;
+  };
+  (globalThis as { localStorage?: Storage }).localStorage = stub();
+  (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
 });
 
 const { useIdeStore, persistAutosave, initialDocument } =
@@ -321,6 +326,9 @@ describe('persistAutosave', () => {
     });
     persistAutosave();
     expect(loadAutosave()).toBeNull();
+    // The pristine clear reaches the shared localStorage backup too, so a
+    // deliberately cleared program stays cleared across a browser restart.
+    expect(localStorage.getItem('mbide.autosave.doc')).toBeNull();
 
     seedRealAutosave('pristine-b');
     useIdeStore.setState({ source: '' });
@@ -347,6 +355,8 @@ describe('persistAutosave', () => {
     persistAutosave();
     expect(loadAutosave()).not.toBeNull();
     // An external wipe with no document change must not trigger a rewrite.
+    sessionStorage.removeItem('mbide.autosave.doc');
+    sessionStorage.removeItem('mbide.autosave.name');
     localStorage.removeItem('mbide.autosave.doc');
     localStorage.removeItem('mbide.autosave.name');
     persistAutosave();

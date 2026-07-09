@@ -3,21 +3,26 @@
  *
  * When the user blocks cookies/site data (a Firefox and Chrome privacy
  * setting, and some embedded/iframe contexts), merely *accessing*
- * `window.localStorage` throws a SecurityError. Settings, autosave and the AI
- * key store all read `localStorage` directly, so without this the app
+ * `window.localStorage` or `window.sessionStorage` throws a SecurityError.
+ * Settings, autosave (per-tab session slot + localStorage backup) and the AI
+ * key store all read those globals directly, so without this the app
  * white-screens on startup in those browsers.
  *
- * If storage is inaccessible, an in-memory stand-in is installed in its place:
- * everything works for the session, nothing persists across reloads - the same
- * graceful degradation the app already has for other optional platform APIs.
+ * If a storage is inaccessible, an in-memory stand-in is installed in its
+ * place: everything works for the session, nothing persists across reloads -
+ * the same graceful degradation the app already has for other optional
+ * platform APIs. Each storage gets its own stand-in, keeping the local and
+ * session namespaces separate even in fallback mode.
  */
 
-function storageAccessible(): boolean {
+type StorageName = 'localStorage' | 'sessionStorage';
+
+function storageAccessible(name: StorageName): boolean {
   try {
     // Both the property access and the write can throw.
     const probe = '__mbide.storage.probe__';
-    window.localStorage.setItem(probe, '1');
-    window.localStorage.removeItem(probe);
+    window[name].setItem(probe, '1');
+    window[name].removeItem(probe);
     return true;
   } catch {
     return false;
@@ -49,14 +54,18 @@ function memoryStorage(): Storage {
   return storage;
 }
 
-if (typeof window !== 'undefined' && !storageAccessible()) {
-  try {
-    Object.defineProperty(window, 'localStorage', {
-      value: memoryStorage(),
-      configurable: true,
-    });
-  } catch {
-    // If the property can't be replaced there is nothing more we can do; the
-    // app will surface storage errors as before.
+if (typeof window !== 'undefined') {
+  for (const name of ['localStorage', 'sessionStorage'] as const) {
+    if (!storageAccessible(name)) {
+      try {
+        Object.defineProperty(window, name, {
+          value: memoryStorage(),
+          configurable: true,
+        });
+      } catch {
+        // If the property can't be replaced there is nothing more we can do;
+        // the app will surface storage errors as before.
+      }
+    }
   }
 }

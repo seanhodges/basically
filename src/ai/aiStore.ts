@@ -86,7 +86,12 @@ function persist(messages: DisplayMessage[]): void {
 }
 
 export const useAiStore = create<AiState>((set, get) => ({
-  messages: typeof localStorage !== 'undefined' ? loadAiConversation() : [],
+  messages:
+    // The conversation is per-tab with a localStorage backup, so both storages
+    // must exist (safeStorage installs in-memory stand-ins in the browser).
+    typeof localStorage !== 'undefined' && typeof sessionStorage !== 'undefined'
+      ? loadAiConversation()
+      : [],
   busy: false,
   error: '',
   pendingFix: null,

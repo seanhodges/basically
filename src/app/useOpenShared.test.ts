@@ -9,17 +9,22 @@ import {
 } from 'vitest';
 
 // The store persists the chosen dialect on a real switch (openSharedInIde is
-// one). The test environment is `node`, so stub localStorage before importing.
+// one) - to sessionStorage with a localStorage backup. The test environment is
+// `node`, so stub both before importing.
 beforeAll(() => {
-  const store = new Map<string, string>();
-  (globalThis as { localStorage?: Storage }).localStorage = {
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => void store.set(k, v),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => store.clear(),
-    key: () => null,
-    length: 0,
-  } as Storage;
+  const stub = () => {
+    const store = new Map<string, string>();
+    return {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+      key: () => null,
+      length: 0,
+    } as Storage;
+  };
+  (globalThis as { localStorage?: Storage }).localStorage = stub();
+  (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
 });
 
 const { parseOpenParam, openSharedFromUrl } = await import('./useOpenShared');

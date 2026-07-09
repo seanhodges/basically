@@ -59,6 +59,48 @@ const KEYS = {
   lastShare: 'mbide.lastShare',
 } as const;
 
+/**
+ * Read a per-tab value with a shared localStorage backup: the tab's own
+ * sessionStorage slot wins; a backup hit is adopted into the session slot so
+ * the tab's identity is pinned at first read (persistAutosave is
+ * signature-gated, so without adoption a never-edited tab would keep re-reading
+ * the shared backup on every reload, which another tab may have overwritten).
+ */
+function readSessionFirst(key: string): string | null {
+  const own = sessionStorage.getItem(key);
+  if (own !== null) return own;
+  const backup = localStorage.getItem(key);
+  if (backup !== null) {
+    try {
+      sessionStorage.setItem(key, backup);
+    } catch {
+      // quota exceeded - adoption is best-effort
+    }
+  }
+  return backup;
+}
+
+/**
+ * Write a per-tab value: sessionStorage is authoritative, localStorage keeps a
+ * best-effort backup so brand-new tabs and browser restarts (which start with
+ * an empty sessionStorage) seed from the most recently edited program. The
+ * backup is last-writer-wins across tabs; live tabs only ever read their own
+ * session slot.
+ */
+function writeThrough(key: string, value: string): void {
+  sessionStorage.setItem(key, value);
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // quota exceeded - the mirror is best-effort; the session write stands
+  }
+}
+
+function removeBoth(key: string): void {
+  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
+}
+
 export const DEFAULT_EMULATOR_VOLUME = 0.7;
 
 export const DEFAULT_LINE_INCREMENT = 10;
@@ -95,13 +137,17 @@ export function setProviderApiKey(id: AiProviderId, key: string): void {
   else localStorage.setItem(storageKey, key);
 }
 
-/** Persisted target-machine dialect id, or null when never chosen. */
+/**
+ * The active target-machine dialect id, or null when never chosen. Per-tab
+ * (sessionStorage) so tabs can run different machines; localStorage keeps the
+ * "last used machine" that seeds brand-new tabs.
+ */
 export function getDialectId(): string | null {
-  return localStorage.getItem(KEYS.dialectId);
+  return readSessionFirst(KEYS.dialectId);
 }
 
 export function setDialectId(id: string): void {
-  localStorage.setItem(KEYS.dialectId, id);
+  writeThrough(KEYS.dialectId, id);
 }
 
 export function getAutoLineNumbering(): boolean {
@@ -384,18 +430,20 @@ export function setEmulatorSpeed(n: number): void {
 }
 
 export function loadAutosave(): { name: string; text: string } | null {
-  const text = localStorage.getItem(KEYS.autosaveDoc);
+  // Reading the doc first adopts the pair's storage into the session slot, so
+  // the name read that follows resolves from the same storage.
+  const text = readSessionFirst(KEYS.autosaveDoc);
   if (text === null) return null;
   return {
-    name: localStorage.getItem(KEYS.autosaveName) ?? UNTITLED_FILE_NAME,
+    name: readSessionFirst(KEYS.autosaveName) ?? UNTITLED_FILE_NAME,
     text,
   };
 }
 
 export function saveAutosave(name: string, text: string): void {
   try {
-    localStorage.setItem(KEYS.autosaveDoc, text);
-    localStorage.setItem(KEYS.autosaveName, name);
+    writeThrough(KEYS.autosaveDoc, text);
+    writeThrough(KEYS.autosaveName, name);
   } catch {
     // quota exceeded - autosave is best-effort
   }
@@ -405,11 +453,15 @@ export function saveAutosave(name: string, text: string): void {
  * Empty the autosave slot. Used when the editor returns to a state that should
  * not be preserved across reloads - a pristine sample, a New/empty document, or
  * a pristine dialect switch - so boot falls back to the starter instead of
- * restoring stale content.
+ * restoring stale content. Clears the per-tab slot *and* the shared
+ * localStorage backup: clearing work is a deliberate return to pristine and
+ * must survive a browser restart. The backup is last-writer-wins; another live
+ * tab's session slot is unaffected (though it won't re-mirror until its
+ * content next changes).
  */
 export function clearAutosave(): void {
-  localStorage.removeItem(KEYS.autosaveDoc);
-  localStorage.removeItem(KEYS.autosaveName);
+  removeBoth(KEYS.autosaveDoc);
+  removeBoth(KEYS.autosaveName);
 }
 
 /**
@@ -418,7 +470,7 @@ export function clearAutosave(): void {
  * panel toggles. Cleared when a different program is loaded.
  */
 export function loadAiConversation(): PersistedMessage[] {
-  const raw = localStorage.getItem(KEYS.aiConversation);
+  const raw = readSessionFirst(KEYS.aiConversation);
   if (raw === null) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -431,9 +483,9 @@ export function loadAiConversation(): PersistedMessage[] {
 export function saveAiConversation(messages: PersistedMessage[]): void {
   try {
     if (messages.length === 0) {
-      localStorage.removeItem(KEYS.aiConversation);
+      removeBoth(KEYS.aiConversation);
     } else {
-      localStorage.setItem(KEYS.aiConversation, JSON.stringify(messages));
+      writeThrough(KEYS.aiConversation, JSON.stringify(messages));
     }
   } catch {
     // quota exceeded - persistence is best-effort
@@ -442,7 +494,7 @@ export function saveAiConversation(messages: PersistedMessage[]): void {
 
 export function clearAiConversation(): void {
   try {
-    localStorage.removeItem(KEYS.aiConversation);
+    removeBoth(KEYS.aiConversation);
   } catch {
     // best-effort
   }
@@ -458,10 +510,12 @@ export interface LastShare {
 /**
  * The most recently minted share link, so "Publish to Web" can reuse it
  * instead of creating a new one when the source and target dialect are
- * unchanged since it was minted.
+ * unchanged since it was minted. Per-tab (sessionStorage) by design: a link
+ * minted in another tab must not dedupe this tab's publish. Entries written to
+ * localStorage by older versions are intentionally orphaned.
  */
 export function getLastShare(): LastShare | null {
-  const raw = localStorage.getItem(KEYS.lastShare);
+  const raw = sessionStorage.getItem(KEYS.lastShare);
   if (raw === null) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -482,7 +536,7 @@ export function getLastShare(): LastShare | null {
 
 export function setLastShare(entry: LastShare): void {
   try {
-    localStorage.setItem(KEYS.lastShare, JSON.stringify(entry));
+    sessionStorage.setItem(KEYS.lastShare, JSON.stringify(entry));
   } catch {
     // quota exceeded - dedupe is best-effort
   }

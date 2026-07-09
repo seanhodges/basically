@@ -8,18 +8,23 @@ import {
   vi,
 } from 'vitest';
 
-// The store persists to localStorage on load; the test environment is `node`,
-// so provide a minimal stub before importing (mirrors store.test.ts).
+// The store persists to localStorage and sessionStorage on load; the test
+// environment is `node`, so provide minimal stubs before importing (mirrors
+// store.test.ts).
 beforeAll(() => {
-  const store = new Map<string, string>();
-  (globalThis as { localStorage?: Storage }).localStorage = {
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => void store.set(k, v),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => store.clear(),
-    key: () => null,
-    length: 0,
-  } as Storage;
+  const stub = () => {
+    const store = new Map<string, string>();
+    return {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+      key: () => null,
+      length: 0,
+    } as Storage;
+  };
+  (globalThis as { localStorage?: Storage }).localStorage = stub();
+  (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
 });
 
 const { useIdeStore } = await import('./store');
