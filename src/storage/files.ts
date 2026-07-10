@@ -85,7 +85,13 @@ export async function openBinaryFile(
       throw e;
     }
   }
-  return openViaInput(accept, async (file) => ({
+  // Android Chrome / iOS Safari have no File System Access picker, so binary
+  // imports land on the <input> fallback. Those pickers grey out files whose
+  // extension can't be resolved to a MIME type, and the program-image
+  // extensions (.prg, .tap, .o, .cas, .atm, .bbc, .p) are unknown to mobile
+  // MIME tables. Don't restrict the fallback picker — the user chooses the
+  // file, and an extension-only `accept` makes the target unselectable.
+  return openViaInput('*/*', async (file) => ({
     name: file.name,
     bytes: new Uint8Array(await file.arrayBuffer()),
   }));
