@@ -107,18 +107,22 @@ export function centerRow(keys: KeyDef[]): KeyDef[] {
  * then a right cluster (quote, backspace, machine modifiers). The narrower
  * flank is padded with a {@link spacer} so the space bar stays centred, and the
  * space bar is sized to fill the remaining columns. `space` may omit `spanX`.
+ *
+ * `gridColumns` defaults to the standard {@link GRID_COLUMNS}; a layout with a
+ * wider grid (e.g. the C64, which adds a graphics-key column) passes its own.
  */
 export function bottomRow(
   left: KeyDef[],
   space: Omit<KeyDef, 'spanX'> & { spanX?: number },
   right: KeyDef[],
+  gridColumns: number = GRID_COLUMNS,
 ): KeyDef[] {
   const leftWidth = totalSpan(left);
   const rightWidth = totalSpan(right);
   const flank = Math.max(leftWidth, rightWidth);
   const leftPad = flank > leftWidth ? [spacer(flank - leftWidth)] : [];
   const rightPad = flank > rightWidth ? [spacer(flank - rightWidth)] : [];
-  const spaceSpan = Math.max(KEY_SPAN, GRID_COLUMNS - 2 * flank);
+  const spaceSpan = Math.max(KEY_SPAN, gridColumns - 2 * flank);
   return [
     ...left,
     ...leftPad,

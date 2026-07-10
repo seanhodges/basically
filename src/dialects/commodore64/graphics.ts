@@ -16,6 +16,13 @@
  * unicode char; the reverse `petscii -> char` is still unique, and the forward
  * `char -> petscii` simply keeps the first registered code (cosmetically
  * identical line graphics).
+ *
+ * This table is the single source the virtual keyboard reads for its graphic
+ * legends and inserts. The charset round-trip goes through `./petscii` (the
+ * full 256-code table), which owns each glyph's canonical code; where a `char`
+ * below sits on a font-duplicate `petscii` (e.g. the `-`/`£` C= checkerboards),
+ * inserting the `char` tokenizes to that canonical twin, so the `petscii` field
+ * here is documentation of the real key code, not the round-trip code.
  */
 
 export interface C64GraphicEntry {
@@ -55,15 +62,37 @@ const LETTERS: Array<[string, string, number, string, number]> = [
   ['Z', '└', 0xad, '♦', 0xda],
 ];
 
-/** C= (Commodore) graphics, one per letter key. */
-export const C64_COMMODORE_GRAPHICS: C64GraphicEntry[] = LETTERS.map(
-  ([key, char, petscii]) => ({ key, char, petscii }),
-);
+/**
+ * The six non-letter keys that also carry front-face graphics on the real C64
+ * keyboard, in `[key id, C= char, C= petscii, SHIFT char, SHIFT petscii]` form.
+ * `↑` has only a SHIFT graphic (π); it takes no C= graphic (null char).
+ */
+const SYMBOLS: Array<[string, string | null, number, string, number]> = [
+  ['Plus', '▒', 0xa6, '┼', 0xdb],
+  ['Minus', '▒', 0xdc, '│', 0xdd],
+  ['At', '▁', 0xa4, '⌟', 0xba],
+  ['Pound', '▒', 0xa8, '◤', 0xa9],
+  ['Asterisk', '◥', 0xdf, '─', 0xc0],
+  ['UpArrow', null, 0xde, 'π', 0xff],
+];
 
-/** SHIFT graphics, one per letter key. */
-export const C64_SHIFT_GRAPHICS: C64GraphicEntry[] = LETTERS.map(
-  ([key, , , char, petscii]) => ({ key, char, petscii }),
-);
+/** C= (Commodore) graphics: one per letter key, then the symbol keys. */
+export const C64_COMMODORE_GRAPHICS: C64GraphicEntry[] = [
+  ...LETTERS.map(([key, char, petscii]) => ({ key, char, petscii })),
+  ...SYMBOLS.filter(([, char]) => char !== null).map(
+    ([key, char, petscii]) => ({
+      key,
+      char: char!,
+      petscii,
+    }),
+  ),
+];
+
+/** SHIFT graphics: one per letter key, then the symbol keys. */
+export const C64_SHIFT_GRAPHICS: C64GraphicEntry[] = [
+  ...LETTERS.map(([key, , , char, petscii]) => ({ key, char, petscii })),
+  ...SYMBOLS.map(([key, , , char, petscii]) => ({ key, char, petscii })),
+];
 
 /** Every graphic, both sets, for charset round-tripping. */
 export const C64_GRAPHICS: C64GraphicEntry[] = [

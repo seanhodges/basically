@@ -7,8 +7,8 @@ const functionKeys = layout.functionKeys ?? [];
 const allKeys = [...layout.rows.flat(), ...functionKeys];
 
 describe('commodore64 keyboard layout', () => {
-  it('uses the standard 40-column template', () => {
-    expect(layout.gridColumns).toBe(40);
+  it('widens the template to 13 keys for the C64 graphics-key column', () => {
+    expect(layout.gridColumns).toBe(52);
     expect(layout.rows).toHaveLength(5);
   });
 
@@ -57,6 +57,44 @@ describe('commodore64 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('S')!, 'gfxShift')).toEqual({
       insert: '♥',
     });
+  });
+
+  it('adds the C64 graphics keys (+ - @ £ * ↑) with their block graphics', () => {
+    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    for (const id of ['Plus', 'Minus', 'At', 'Pound', 'Asterisk', 'UpArrow']) {
+      expect(byId.has(id), id).toBe(true);
+    }
+    // Base layer types the symbol itself.
+    expect(resolveEditorAction(layout, byId.get('Plus')!, 'base')).toEqual({
+      insert: '+',
+    });
+    expect(resolveEditorAction(layout, byId.get('UpArrow')!, 'base')).toEqual({
+      insert: '↑',
+    });
+    // GRAPHICS mode types the C= graphic; GRAPHICS ⇧ the SHIFT graphic.
+    expect(
+      resolveEditorAction(layout, byId.get('Plus')!, 'gfxCommodore'),
+    ).toEqual({ insert: '▒' });
+    expect(resolveEditorAction(layout, byId.get('Plus')!, 'gfxShift')).toEqual({
+      insert: '┼',
+    });
+    expect(
+      resolveEditorAction(layout, byId.get('Asterisk')!, 'gfxShift'),
+    ).toEqual({ insert: '─' });
+    // ↑ has no C= graphic, only SHIFT π.
+    expect(
+      resolveEditorAction(layout, byId.get('UpArrow')!, 'gfxShift'),
+    ).toEqual({ insert: 'π' });
+    expect(
+      resolveEditorAction(layout, byId.get('UpArrow')!, 'gfxCommodore'),
+    ).toEqual({ insert: '↑' }); // falls back to base (no C= graphic)
+  });
+
+  it('emits the matching VIC-II matrix button for each graphics key', () => {
+    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    expect(byId.get('Plus')!.emits).toEqual(['Plus']);
+    expect(byId.get('Asterisk')!.emits).toEqual(['Asterisk']);
+    expect(byId.get('UpArrow')!.emits).toEqual(['UpArrow']);
   });
 
   it('labels are index-aligned with the layers', () => {
