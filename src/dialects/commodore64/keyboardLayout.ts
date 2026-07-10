@@ -3,8 +3,16 @@ import type {
   KeyLabel,
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
-import { bottomRow } from '../../keyboard/templateRows';
+import {
+  bottomRow,
+  spacer,
+  KEY_SPAN,
+  ROW_KEYS,
+} from '../../keyboard/templateRows';
 import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
+
+/** Thirteen keys per row: the standard ten plus the C64 graphics-key column. */
+const C64_GRID_COLUMNS = 52;
 
 /**
  * The Commodore 64 keyboard on the standard virtual-keyboard template.
@@ -21,6 +29,11 @@ import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
  * the odd keys); all eight are shown as separate keys in the top strip, behind
  * the strip's mode/function toggle. RUN/STOP, RESTORE and the cursor keys are
  * dropped. Each key `emits` a VIC-II button name (see c64Machine.ts).
+ *
+ * The grid is 13 keys wide (not the usual 10): the real C64's right-hand column
+ * of graphics keys - `+ - £` on the top row and `@ * ↑` on QWERTY - is kept so
+ * every keyboard-reachable block graphic is typeable in GRAPHICS mode. The
+ * shorter home/ZXCV rows are padded to width, as the template already does.
  */
 
 const cmdGfx = new Map(C64_COMMODORE_GRAPHICS.map((g) => [g.key, g.char]));
@@ -72,6 +85,10 @@ const numberRow = [
   key('Num8', 'Num8', '8', '('),
   key('Num9', 'Num9', '9', ')'),
   key('Num0', 'Num0', '0'),
+  // The C64's right-hand graphics-key column: + - £ sit past 0 on the top row.
+  key('Plus', 'Plus', '+'),
+  key('Minus', 'Minus', '-'),
+  key('Pound', 'Pound', '£'),
 ];
 
 const qwertyRow = [
@@ -85,6 +102,10 @@ const qwertyRow = [
   letter('I'),
   letter('O'),
   letter('P'),
+  // @ * ↑ sit past P on the real C64, continuing the graphics-key column.
+  key('At', 'At', '@'),
+  key('Asterisk', 'Asterisk', '*'),
+  key('UpArrow', 'UpArrow', '↑'),
 ];
 
 const homeRow = [
@@ -103,6 +124,8 @@ const homeRow = [
     emits: ['Return'],
     labels: plainLabels({ text: '↵', editor: { action: 'newline' } }),
   } satisfies KeyDef,
+  // Pad to the wider grid where the C64's : ; = and omitted right keys sit.
+  spacer(C64_GRID_COLUMNS - ROW_KEYS * KEY_SPAN),
 ];
 
 const zxcvRow = [
@@ -116,6 +139,8 @@ const zxcvRow = [
   key('Comma', 'Comma', ',', '<'),
   key('Period', 'Period', '.', '>'),
   key('Slash', 'Slash', '/', '?'),
+  // Pad to the wider grid (the C64's right shift / cursor keys are dropped).
+  spacer(C64_GRID_COLUMNS - ROW_KEYS * KEY_SPAN),
 ];
 
 const shiftKey: KeyDef = {
@@ -161,7 +186,12 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([shiftKey, commodoreKey], spaceKey, [quoteKey, backspaceKey]),
+  bottomRow(
+    [shiftKey, commodoreKey],
+    spaceKey,
+    [quoteKey, backspaceKey],
+    C64_GRID_COLUMNS,
+  ),
 ];
 
 // f1/f3/f5/f7 have their own matrix lines; f2/f4/f6/f8 are SHIFT of the odd keys.
@@ -188,7 +218,7 @@ export const c64KeyboardLayout: KeyboardLayout = {
   id: 'commodore64',
   name: 'Commodore 64',
   theme: 'vk-theme-commodore64',
-  gridColumns: 40,
+  gridColumns: C64_GRID_COLUMNS,
   layers: [
     {
       id: 'base',

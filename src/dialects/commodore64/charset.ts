@@ -1,5 +1,5 @@
-import { CharsetError, type CharsetMapping } from '../types';
-import { C64_GRAPHICS } from './graphics';
+import { type CharsetMapping } from '../types';
+import { parseC64Char, petsciiToText } from './petscii';
 
 /**
  * Commodore 64 PETSCII <-> editor text, for the bytes a BASIC program stores:
@@ -11,82 +11,35 @@ import { C64_GRAPHICS } from './graphics';
  *    most punctuation share their ASCII codes.
  *  - The four C64-specific glyphs map to their PETSCII codes: £ (0x5C),
  *    ↑ (0x5E), ← (0x5F) and π (0xFF).
+ *  - Block graphics render as their closest Unicode glyph, and control codes
+ *    (cursor moves, colours, reverse on/off…) as petcat-style `{name}` escapes.
+ *    Every byte the font draws identically to another, or leaves undefined,
+ *    round-trips through a numeric `{$xx}` escape.
  *
- * Colour/cursor control codes inside strings are not handled here yet; write
- * them with CHR$(n) for now.
+ * The complete 256-code table lives in {@link ./petscii}; this module is the
+ * thin {@link CharsetMapping} adapter over it.
  */
-
-// Editor glyph -> PETSCII for the handful that differ from ASCII.
-const SPECIAL_TO_PETSCII: Record<string, number> = {
-  '£': 0x5c,
-  '↑': 0x5e,
-  '←': 0x5f,
-  π: 0xff,
-};
-
-// Inverse, for detokenizing.
-const PETSCII_TO_SPECIAL: Record<number, string> = {
-  0x5c: '£',
-  0x5e: '↑',
-  0x5f: '←',
-  0xff: 'π',
-};
-
-// Block graphics (C= / SHIFT sets). Forward keeps the first code for chars that
-// several font glyphs collapse onto; reverse is one entry per PETSCII byte.
-const GRAPHIC_TO_PETSCII: Record<string, number> = {};
-const PETSCII_TO_GRAPHIC: Record<number, string> = {};
-for (const { char, petscii } of C64_GRAPHICS) {
-  if (GRAPHIC_TO_PETSCII[char] === undefined)
-    GRAPHIC_TO_PETSCII[char] = petscii;
-  PETSCII_TO_GRAPHIC[petscii] = char;
-}
-
-function charToPetscii(ch: string): number | undefined {
-  const special = SPECIAL_TO_PETSCII[ch];
-  if (special !== undefined) return special;
-
-  const graphic = GRAPHIC_TO_PETSCII[ch];
-  if (graphic !== undefined) return graphic;
-
-  let code = ch.charCodeAt(0);
-  // Fold lower case onto the upper-case codes of the default character set.
-  if (code >= 0x61 && code <= 0x7a) code -= 0x20;
-  // Printable ASCII (space..]) maps straight through to the same PETSCII code.
-  if (code >= 0x20 && code <= 0x5d) return code;
-  return undefined;
-}
-
 export const c64Charset: CharsetMapping = {
   toMachine(text: string): Uint8Array {
-    const out = new Uint8Array(text.length);
-    for (let i = 0; i < text.length; i++) {
-      const code = charToPetscii(text[i]!);
-      if (code === undefined) {
-        throw new CharsetError(
-          `Character ${JSON.stringify(text[i])} has no Commodore 64 equivalent`,
-          i,
-        );
-      }
-      out[i] = code;
+    const out: number[] = [];
+    let i = 0;
+    while (i < text.length) {
+      const { code, length } = parseC64Char(text, i);
+      out.push(code);
+      i += length;
     }
-    return out;
+    return Uint8Array.from(out);
   },
 
   toUnicode(codes: ArrayLike<number>): string {
     let text = '';
     for (let i = 0; i < codes.length; i++) {
-      text += this.glyph(codes[i]!);
+      text += petsciiToText(codes[i]!);
     }
     return text;
   },
 
   glyph(code: number): string {
-    const special = PETSCII_TO_SPECIAL[code];
-    if (special !== undefined) return special;
-    if (code >= 0x20 && code <= 0x5d) return String.fromCharCode(code);
-    const graphic = PETSCII_TO_GRAPHIC[code];
-    if (graphic !== undefined) return graphic;
-    return '?';
+    return petsciiToText(code);
   },
 };
