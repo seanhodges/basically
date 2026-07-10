@@ -42,19 +42,38 @@ export async function openTextFile(
   }));
 }
 
+/**
+ * Build the File System Access open-picker options for a binary import of a
+ * single extension (e.g. `.prg`). Each format gets a distinct `id` and an
+ * extension-specific `description`; without them Chromium treats every binary
+ * import as the same picker and re-applies the last-used file-type filter, so a
+ * `.prg` import would inherit whichever format (e.g. a Spectrum `.tap`) was
+ * picked before rather than filtering to the one the button chose.
+ */
+export function binaryImportPickerOptions(accept: string): {
+  id: string;
+  types: { description: string; accept: Record<string, string[]> }[];
+} {
+  const ext = accept.replace(/^\./, '');
+  return {
+    id: `import${ext}`,
+    types: [
+      {
+        description: `${ext.toUpperCase()} program image`,
+        accept: { 'application/octet-stream': [accept] },
+      },
+    ],
+  };
+}
+
 export async function openBinaryFile(
   accept = '.p',
 ): Promise<{ name: string; bytes: Uint8Array } | null> {
   if (w.showOpenFilePicker) {
     try {
-      const [handle] = await w.showOpenFilePicker({
-        types: [
-          {
-            description: 'Program image',
-            accept: { 'application/octet-stream': [accept] },
-          },
-        ],
-      });
+      const [handle] = await w.showOpenFilePicker(
+        binaryImportPickerOptions(accept),
+      );
       if (!handle) return null;
       const file = await handle.getFile();
       return {

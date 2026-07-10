@@ -1,5 +1,25 @@
 import { describe, it, expect } from 'vitest';
-import { programNameFromFileName } from './files';
+import { binaryImportPickerOptions, programNameFromFileName } from './files';
+
+describe('binaryImportPickerOptions', () => {
+  it('filters the picker to the requested extension', () => {
+    const options = binaryImportPickerOptions('.prg');
+    expect(options.types[0].accept['application/octet-stream']).toEqual([
+      '.prg',
+    ]);
+    expect(options.types[0].description).toContain('PRG');
+  });
+
+  it('gives each extension its own picker id so Chromium does not reuse the last-used filter', () => {
+    // A shared, generic picker made a .prg import inherit whichever format
+    // (e.g. a Spectrum .tap) was picked before; distinct ids keep them apart.
+    expect(binaryImportPickerOptions('.prg').id).toBe('importprg');
+    expect(binaryImportPickerOptions('.tap').id).toBe('importtap');
+    expect(binaryImportPickerOptions('.prg').id).not.toBe(
+      binaryImportPickerOptions('.tap').id,
+    );
+  });
+});
 
 describe('programNameFromFileName', () => {
   it('strips the extension and uppercases', () => {
