@@ -1,5 +1,5 @@
 import { CharsetError, type TokenizeError } from '../types';
-import { c64Charset } from './charset';
+import { parseC64Char } from './petscii';
 import { c64KeywordsByLength, type C64Keyword } from './keywords';
 
 export interface TokenizedProgram {
@@ -17,16 +17,6 @@ export interface TokenizedProgram {
 const PROG_START = 0x0801;
 /** Highest line number Commodore BASIC accepts. */
 const MAX_LINE = 63999;
-
-/** PETSCII code for one editor character, or undefined if unmappable. */
-function petscii(ch: string): number | undefined {
-  try {
-    return c64Charset.toMachine(ch)[0];
-  } catch (e) {
-    if (e instanceof CharsetError) return undefined;
-    throw e;
-  }
-}
 
 /** Longest keyword whose spelling matches the source at `pos`, or undefined. */
 function matchKeyword(source: string, pos: number): C64Keyword | undefined {
@@ -61,17 +51,25 @@ function tokenizeBody(
   let stmtStart = true; // at a statement opener (line start, ':', after THEN)
   let lineNoOk = false; // digits open a statement only right after THEN
 
-  const pushChar = (ch: string, col: number): void => {
-    const code = petscii(ch);
-    if (code === undefined) {
-      errors.push({
-        line: editorLine,
-        column: col,
-        message: `Character ${JSON.stringify(ch)} has no Commodore 64 equivalent`,
-      });
-      return;
+  // Consume one PETSCII unit (a `{...}` escape or a single character) at `at`,
+  // push its code, and return how many source characters it spanned. Unmappable
+  // input is recorded as a lint error and skipped one character at a time.
+  const pushUnit = (at: number): number => {
+    try {
+      const { code, length } = parseC64Char(body, at);
+      out.push(code);
+      return length;
+    } catch (e) {
+      if (e instanceof CharsetError) {
+        errors.push({
+          line: editorLine,
+          column: bodyCol + at,
+          message: e.message,
+        });
+        return 1;
+      }
+      throw e;
     }
-    out.push(code);
   };
 
   // A statement opener the ROM would reject at RUN time with ?SYNTAX ERROR.
@@ -97,21 +95,19 @@ function tokenizeBody(
 
   while (pos < body.length) {
     const ch = body[pos]!;
-    const col = bodyCol + pos;
 
     if (remRest) {
-      pushChar(ch, col);
-      pos++;
+      pos += pushUnit(pos);
       continue;
     }
     if (inString) {
       if (ch === '"') {
         out.push(0x22);
         inString = false;
+        pos++;
       } else {
-        pushChar(ch, col);
+        pos += pushUnit(pos);
       }
-      pos++;
       continue;
     }
     if (ch === '"') {
@@ -130,17 +126,16 @@ function tokenizeBody(
         dataMode = false;
         stmtStart = true;
         lineNoOk = false;
+        pos++;
       } else {
-        pushChar(ch, col);
+        pos += pushUnit(pos);
       }
-      pos++;
       continue;
     }
 
     // Spaces never end a statement opener; ':' begins a new statement.
     if (ch === ' ') {
-      pushChar(ch, col);
-      pos++;
+      pos += pushUnit(pos);
       continue;
     }
     if (ch === ':') {
@@ -181,8 +176,7 @@ function tokenizeBody(
       stmtStart = false;
     }
 
-    pushChar(ch, col);
-    pos++;
+    pos += pushUnit(pos);
   }
 
   return out;

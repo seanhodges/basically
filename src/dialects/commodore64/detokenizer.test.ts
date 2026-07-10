@@ -40,7 +40,9 @@ describe('Commodore 64 detokenizer', () => {
     expect(text).not.toContain('OR');
     expect(text).not.toContain('COS');
     expect(text).not.toContain('ASC');
-    expect(text).toBe('20 DATA"▔┌▘─"\n');
+    // $A3/$B0/$BE render as their canonical glyphs; $C6 is a duplicate of the
+    // canonical '─' ($C0), so byte-exactness keeps it as a {$xx} escape.
+    expect(text).toBe('20 DATA"▔┌▘{$c6}"\n');
   });
 
   it('round-trips block graphics held in DATA strings', () => {
@@ -59,6 +61,26 @@ describe('Commodore 64 detokenizer', () => {
     ]);
     // Inside: 0xbe -> '▘'. Outside: 0xa6 -> 'SPC('.
     expect(detokenizeProgram(image)).toBe('30 PRINT"▘"SPC(5)\n');
+  });
+
+  it('renders control codes as petcat-style escapes', () => {
+    // PRINT "{down}{rvon}{clr}" — cursor-down, reverse-on, clear-screen codes.
+    const image = buildImage([
+      { lineNo: 40, body: [0x99, 0x22, 0x11, 0x12, 0x93, 0x22] },
+    ]);
+    expect(detokenizeProgram(image)).toBe('40 PRINT"{down}{rvon}{clr}"\n');
+  });
+
+  it('keeps REM and DATA verbatim bytes out of keyword expansion', () => {
+    // A graphics byte ($A6) stored verbatim after REM, and after an unquoted
+    // DATA value, must list as its glyph rather than the SPC( keyword its code
+    // collides with — otherwise it would not re-tokenize to the same byte.
+    const rem = buildImage([{ lineNo: 50, body: [0x8f, 0x20, 0xa6] }]);
+    expect(detokenizeProgram(rem)).toBe('50 REM ▒\n');
+
+    const data = buildImage([{ lineNo: 60, body: [0x83, 0xa6, 0x3a, 0x99] }]);
+    // The unquoted ':' ends DATA, so the following $99 expands to PRINT again.
+    expect(detokenizeProgram(data)).toBe('60 DATA▒:PRINT\n');
   });
 });
 
