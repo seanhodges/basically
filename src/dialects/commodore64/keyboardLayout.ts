@@ -3,37 +3,32 @@ import type {
   KeyLabel,
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
-import {
-  bottomRow,
-  spacer,
-  KEY_SPAN,
-  ROW_KEYS,
-} from '../../keyboard/templateRows';
+import { bottomRow } from '../../keyboard/templateRows';
 import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
 
-/** Thirteen keys per row: the standard ten plus the C64 graphics-key column. */
-const C64_GRID_COLUMNS = 52;
-
 /**
- * The Commodore 64 keyboard on the standard virtual-keyboard template.
+ * The Commodore 64 keyboard on the standard 10-wide virtual-keyboard template.
  *
- * Two top-strip modes let a single key carry an operator *and* its two block
+ * Three top-strip modes let a single key carry an operator *and* its two block
  * graphics without clashing (the real machine prints both graphics on the key's
  * front face):
  *  - **ABC** - letters/digits; SHIFT gives the shifted symbols and the editor
  *    operators (`+ - * / = : ; @ £`, `! " # …`) that ride the SHIFT layer.
+ *  - **SYM** - the six C64 graphics-key characters `+ - £ @ * ↑`, which have no
+ *    dedicated key on the 10-wide grid, surfaced as editor inserts on the number
+ *    row (keys 1-6). Editor-only, like the BBC's SYM overflow layer.
  *  - **GRAPHICS** - the C= block graphics unmodified, the SHIFT block graphics
  *    with SHIFT held (`shiftedLayer`).
+ *
+ * Every keyboard-reachable block graphic stays typeable in GRAPHICS mode: the 26
+ * letters carry theirs, and the six graphics keys' block graphics ride the
+ * number row alongside their SYM characters (Num1-Num6 = `+ - £ @ * ↑`), the
+ * only keys whose graphics faces are otherwise empty.
  *
  * The four physical function keys yield eight values (f2/f4/f6/f8 are SHIFT of
  * the odd keys); all eight are shown as separate keys in the top strip, behind
  * the strip's mode/function toggle. RUN/STOP, RESTORE and the cursor keys are
  * dropped. Each key `emits` a VIC-II button name (see c64Machine.ts).
- *
- * The grid is 13 keys wide (not the usual 10): the real C64's right-hand column
- * of graphics keys - `+ - £` on the top row and `@ * ↑` on QWERTY - is kept so
- * every keyboard-reachable block graphic is typeable in GRAPHICS mode. The
- * shorter home/ZXCV rows are padded to width, as the template already does.
  */
 
 const cmdGfx = new Map(C64_COMMODORE_GRAPHICS.map((g) => [g.key, g.char]));
@@ -45,8 +40,8 @@ const gfxLabel = (char: string | undefined): KeyLabel | null =>
 
 /**
  * A key: base label, optional shifted label, the two block graphics looked up by
- * id, one matrix token. Label tuple order matches `layers` below:
- * [base, shift, gfxCommodore, gfxShift].
+ * id, an empty SYM slot. Label tuple order matches `layers` below:
+ * [base, shift, gfxCommodore, gfxShift, sym].
  */
 function key(
   id: string,
@@ -60,8 +55,33 @@ function key(
     shift ? { text: shift } : null,
     gfxLabel(cmdGfx.get(id)),
     gfxLabel(shiftGfx.get(id)),
+    null, // SYM layer: only the symbol-hosting number keys populate this.
   ];
   return { id, spanX, emits: [emit], labels };
+}
+
+/**
+ * A number-row key that also hosts one of the six C64 graphics-key symbols. It
+ * keeps its digit + SHIFT punctuation, adds the symbol character on the SYM
+ * layer, and carries that symbol's C=/SHIFT block graphics (looked up by the
+ * *symbol's* id, so `UpArrow`'s absent C= graphic stays null). The key still
+ * emits its own digit matrix token, so the SYM character is editor-only.
+ */
+function symbolKey(
+  id: string,
+  base: string,
+  shift: string,
+  symId: string,
+  symChar: string,
+): KeyDef {
+  const labels: (KeyLabel | null)[] = [
+    { text: base },
+    { text: shift },
+    gfxLabel(cmdGfx.get(symId)),
+    gfxLabel(shiftGfx.get(symId)),
+    { text: symChar },
+  ];
+  return { id, spanX: 4, emits: [id], labels };
 }
 
 const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
@@ -72,23 +92,22 @@ const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [
   null,
   null,
   null,
+  null,
 ];
 
+// Keys 1-6 double as the SYM layer's + - £ @ * ↑ (in physical keyboard order)
+// and carry those six graphics keys' block graphics on the GRAPHICS layers.
 const numberRow = [
-  key('Num1', 'Num1', '1', '!'),
-  key('Num2', 'Num2', '2', '"'),
-  key('Num3', 'Num3', '3', '#'),
-  key('Num4', 'Num4', '4', '$'),
-  key('Num5', 'Num5', '5', '%'),
-  key('Num6', 'Num6', '6', '&'),
+  symbolKey('Num1', '1', '!', 'Plus', '+'),
+  symbolKey('Num2', '2', '"', 'Minus', '-'),
+  symbolKey('Num3', '3', '#', 'Pound', '£'),
+  symbolKey('Num4', '4', '$', 'At', '@'),
+  symbolKey('Num5', '5', '%', 'Asterisk', '*'),
+  symbolKey('Num6', '6', '&', 'UpArrow', '↑'),
   key('Num7', 'Num7', '7', "'"),
   key('Num8', 'Num8', '8', '('),
   key('Num9', 'Num9', '9', ')'),
   key('Num0', 'Num0', '0'),
-  // The C64's right-hand graphics-key column: + - £ sit past 0 on the top row.
-  key('Plus', 'Plus', '+'),
-  key('Minus', 'Minus', '-'),
-  key('Pound', 'Pound', '£'),
 ];
 
 const qwertyRow = [
@@ -102,10 +121,6 @@ const qwertyRow = [
   letter('I'),
   letter('O'),
   letter('P'),
-  // @ * ↑ sit past P on the real C64, continuing the graphics-key column.
-  key('At', 'At', '@'),
-  key('Asterisk', 'Asterisk', '*'),
-  key('UpArrow', 'UpArrow', '↑'),
 ];
 
 const homeRow = [
@@ -124,8 +139,6 @@ const homeRow = [
     emits: ['Return'],
     labels: plainLabels({ text: '↵', editor: { action: 'newline' } }),
   } satisfies KeyDef,
-  // Pad to the wider grid where the C64's : ; = and omitted right keys sit.
-  spacer(C64_GRID_COLUMNS - ROW_KEYS * KEY_SPAN),
 ];
 
 const zxcvRow = [
@@ -139,8 +152,6 @@ const zxcvRow = [
   key('Comma', 'Comma', ',', '<'),
   key('Period', 'Period', '.', '>'),
   key('Slash', 'Slash', '/', '?'),
-  // Pad to the wider grid (the C64's right shift / cursor keys are dropped).
-  spacer(C64_GRID_COLUMNS - ROW_KEYS * KEY_SPAN),
 ];
 
 const shiftKey: KeyDef = {
@@ -186,12 +197,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow(
-    [shiftKey, commodoreKey],
-    spaceKey,
-    [quoteKey, backspaceKey],
-    C64_GRID_COLUMNS,
-  ),
+  bottomRow([shiftKey, commodoreKey], spaceKey, [quoteKey, backspaceKey]),
 ];
 
 // f1/f3/f5/f7 have their own matrix lines; f2/f4/f6/f8 are SHIFT of the odd keys.
@@ -218,7 +224,7 @@ export const c64KeyboardLayout: KeyboardLayout = {
   id: 'commodore64',
   name: 'Commodore 64',
   theme: 'vk-theme-commodore64',
-  gridColumns: C64_GRID_COLUMNS,
+  gridColumns: 40,
   layers: [
     {
       id: 'base',
@@ -237,9 +243,18 @@ export const c64KeyboardLayout: KeyboardLayout = {
     // they stay always-rendered (activeWhen []) and carry their own inserts.
     { id: 'gfxCommodore', name: 'GRAPHICS', position: 'bl', activeWhen: [] },
     { id: 'gfxShift', name: 'GRAPHICS ⇧', position: 'br', activeWhen: [] },
+    // The six graphics-key characters (+ - £ @ * ↑), pinned by the SYM mode.
+    {
+      id: 'sym',
+      name: 'SYM',
+      position: 'tl',
+      activeWhen: [],
+      editorInsertStyle: 'char',
+    },
   ],
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'base' },
+    { id: 'sym', name: 'SYM', layer: 'sym' },
     {
       id: 'graphics',
       name: 'GRAPHICS',
