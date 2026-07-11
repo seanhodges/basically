@@ -2,7 +2,7 @@ import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { bbcCharset } from './charset';
 import { bbcKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, detokenizeWithReport } from './detokenizer';
 import {
   bbcBuildTargets,
   buildCassetteSamples,
@@ -50,6 +50,10 @@ export const bbcmicro: Dialect = {
 
   detokenize(image: Uint8Array): string {
     return detokenizeProgram(image);
+  },
+
+  detokenizeWithReport(image: Uint8Array) {
+    return detokenizeWithReport(image);
   },
 
   lint(source: string) {

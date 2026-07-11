@@ -851,10 +851,55 @@ export const bbcKeywordTable: BbcKeyword[] = [
   },
 ];
 
+/**
+ * BASIC IV (BBC Master) adds keywords on top of the BASIC II table that share
+ * its token bytes for the common set. The one the detokenizer/tokenizer need is
+ * EDIT (0xCE) - a full-screen line editor command that fills the single token
+ * BASIC II leaves unused between SAVE (0xCD) and the PTR statement form (0xCF).
+ */
+const basicIVExtraKeywords: BbcKeyword[] = [
+  {
+    word: 'EDIT',
+    token: 0xce,
+    kind: 'command',
+    lino: true,
+    signature: 'EDIT [line]',
+    doc: 'Open a line (or the whole program) in the screen editor (BASIC IV).',
+  },
+];
+
 /** Strip the trailing '(' that print formatters/string functions carry. */
 function displayWord(word: string): string {
   return word.endsWith('(') ? word.slice(0, -1) : word;
 }
+
+/** The matchable letters of a keyword (drops the trailing `$`/`(`). */
+export function keywordLetters(word: string): string {
+  return word.replace(/[($]/g, '');
+}
+
+/**
+ * The order in which the BASIC ROM scans its keyword table when resolving a
+ * dot-abbreviation (`P.` → PRINT). It is NOT token order: typing `P.` skips the
+ * earlier P-tokens (PTR/PAGE/PI/POINT/…) and lands on PRINT because PRINT sits
+ * earlier in this lookup table. The abbreviation for a given prefix is the first
+ * keyword in this order whose letters start with it. Listed by function-form
+ * token (pseudo-variables appear once, in their function form; the statement
+ * form is chosen at emit time). Verified byte-for-byte against the genuine ROM
+ * for every abbreviation in `tokenizer.test.ts`.
+ */
+const ABBREVIATION_TOKEN_ORDER: readonly number[] = [
+  0x80, 0x88, 0x89, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0xb4, 0xb5,
+  0xb6, 0xb7, 0x8a, 0x8c, 0x91, 0xb8, 0xc1, 0xc3, 0xc4, 0xc6, 0xc9, 0x86, 0xaa,
+  0xc0, 0xa9, 0xc8, 0x92, 0xab, 0xcb, 0x84, 0x87, 0x8e, 0xad, 0xae, 0xcd, 0xd4,
+  0xd5, 0xdc, 0x81, 0x9d, 0xc7, 0xdd, 0xde, 0xdf, 0xe1, 0x8b, 0x9e, 0x85, 0x9f,
+  0xa0, 0xa1, 0xa2, 0xc5, 0x82, 0xce, 0xe0, 0xe2, 0xe3, 0xa3, 0xa4, 0xe5, 0xbe,
+  0xa5, 0xe4, 0xe6, 0xe8, 0xa7, 0xa8, 0xbf, 0xa6, 0xe7, 0xe9, 0xea, 0xeb, 0x83,
+  0xec, 0xed, 0xac, 0xca, 0xee, 0xef, 0xbb, 0xbc, 0xf1, 0x8f, 0x90, 0xaf, 0xb0,
+  0xb1, 0xf0, 0xf2, 0xf8, 0xb2, 0xb3, 0xc2, 0xcc, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+  0xf9, 0xfa, 0xfb, 0x9b, 0x9c, 0xd6, 0xd7, 0xbd, 0xd8, 0xd9, 0xda, 0xdb, 0xfc,
+  0xb9, 0xfd, 0xba, 0xfe, 0xff,
+];
 
 /**
  * Editor-facing keyword list (highlighting + autocomplete). Same data as
@@ -880,3 +925,56 @@ for (const k of bbcKeywordTable) {
   if (k.statementToken !== undefined)
     bbcWordByToken.set(k.statementToken, k.word);
 }
+
+/**
+ * A BASIC-version-specific view of the keyword table plus the small tokenizer
+ * policy flags that differ between BASIC II (Model B) and BASIC IV (Master).
+ * The tokenizer and detokenizer are parameterised by this so the two dialects
+ * share one code path (see bbcmaster/index.ts).
+ */
+export interface BbcVariant {
+  /** Keywords sorted longest-first, for greedy matching in the tokenizer. */
+  keywordsByLength: BbcKeyword[];
+  /** token byte (function and statement form) -> spelling, for detokenizing. */
+  wordByToken: Map<number, string>;
+  /**
+   * Keywords in the ROM's dot-abbreviation scan order (see
+   * {@link ABBREVIATION_TOKEN_ORDER}); a typed prefix resolves to the first
+   * entry whose {@link keywordLetters} start with it.
+   */
+  abbreviations: BbcKeyword[];
+  /** BASIC IV accepts `EXT#chan=n` as a statement (set a file's extent). */
+  extAsStatement: boolean;
+}
+
+function variantFrom(table: BbcKeyword[], extAsStatement: boolean): BbcVariant {
+  const wordByToken = new Map<number, string>();
+  const byToken = new Map<number, BbcKeyword>();
+  for (const k of table) {
+    wordByToken.set(k.token, k.word);
+    byToken.set(k.token, k);
+    if (k.statementToken !== undefined)
+      wordByToken.set(k.statementToken, k.word);
+  }
+  // Order this variant's keywords by the ROM abbreviation scan order, dropping
+  // any table entry the order doesn't mention (none today) and any order entry
+  // absent from this variant (e.g. EDIT on BASIC II).
+  const abbreviations = ABBREVIATION_TOKEN_ORDER.map((t) =>
+    byToken.get(t),
+  ).filter((k): k is BbcKeyword => k !== undefined);
+  return {
+    keywordsByLength: [...table].sort((a, b) => b.word.length - a.word.length),
+    wordByToken,
+    abbreviations,
+    extAsStatement,
+  };
+}
+
+/** BBC BASIC II (Model B) - the default. */
+export const BASIC_II: BbcVariant = variantFrom(bbcKeywordTable, false);
+
+/** BBC BASIC IV (Master) - BASIC II plus EDIT and the EXT# statement form. */
+export const BASIC_IV: BbcVariant = variantFrom(
+  [...bbcKeywordTable, ...basicIVExtraKeywords],
+  true,
+);
