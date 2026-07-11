@@ -199,8 +199,12 @@ Fix the context-blind detokenizer and give the BBC an escape notation
       variants threaded through the shared tokenizer/detokenizer; EDIT (0xCE)
       added for BASIC IV; `EXT#ch=` accepted as a statement on the Master;
       TIME$ / TIME$= byte output pinned in `bbcmaster.test.ts`.
-- [ ] Optional (deferred): dot-abbreviation expansion (`P.` → PRINT) for pasted
-      listings — still the documented limitation in `tokenizer.test.ts`.
+- [x] Dot-abbreviation expansion (`P.` → PRINT, `ERR.` → ERROR, `GOS.` →
+      GOSUB) for pasted/typed listings: `matchAbbreviation` resolves a
+      `letters.` run against the ROM's keyword scan order
+      (`ABBREVIATION_TOKEN_ORDER`), consuming the dot for a proper abbreviation
+      and leaving a fully-typed keyword's dot literal. Verified byte-for-byte
+      against the genuine ROM for every abbreviation of every keyword.
 - [x] Round-trip fixtures: a MODE 7 teletext program with colour bytes and
       0x8D inside strings (byte-exact); a truncated `.bbc` (reported, not
       silently shortened).

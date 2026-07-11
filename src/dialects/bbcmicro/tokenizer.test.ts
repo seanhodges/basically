@@ -8,6 +8,7 @@ import { detokenizeProgram, detokenizeWithReport } from './detokenizer';
 import { encodeLineNumber, decodeLineNumber } from './lineNumber';
 import { bbcSamples } from './samples';
 import { bbcmicro } from './index';
+import { BASIC_IV, bbcKeywordTable, keywordLetters } from './keywords';
 import { importRoundTrip, isAcceptableImport } from '../roundTripHarness';
 
 // The genuine BASIC ROM tokeniser, used as the reference oracle.
@@ -73,16 +74,42 @@ describe('BBC tokenizer vs the genuine BASIC ROM', () => {
     }
   }, 30000);
 
-  // Known limitation: the ROM expands dot-abbreviations (P. -> PRINT); the
-  // native tokenizer does not, treating "P" as a variable. The editor and
-  // detokenizer only ever emit full keywords, so this only affects hand-typed
-  // abbreviations.
-  it('does not expand dot-abbreviations (documented limitation)', () => {
-    const { bytes } = tokenizeProgram('10 P."hi"');
-    // 'P' '.' kept literally rather than the PRINT token 0xF1.
-    expect(Array.from(bytes)).not.toContain(0xf1);
-    expect(Array.from(bytes)).toContain('P'.charCodeAt(0));
+  it('expands dot-abbreviations exactly as the ROM does', () => {
+    // Spot-checks of the well-known ones, then an exhaustive sweep below.
+    for (const [src, token] of [
+      ['10 P."hi"', 0xf1], // PRINT
+      ['10 F.I=1TO9', 0xe3], // FOR
+      ['10 N.', 0xed], // NEXT
+      ['10 GOS.100', 0xe4], // GOSUB
+      ['10 V.7', 0xef], // VDU
+    ] as const) {
+      const { bytes, errors } = tokenizeProgram(src, BASIC_IV);
+      expect(errors, src).toEqual([]);
+      expect(Array.from(bytes), src).toContain(token);
+    }
   });
+
+  it('matches the ROM for every abbreviation of every keyword', () => {
+    const names = [
+      ...bbcKeywordTable.map((k) => keywordLetters(k.word)),
+      'EDIT', // BASIC IV
+    ];
+    // The emitted bytes must equal the ROM's in both statement and expression
+    // position (the latter exercises the pseudo-variables' function-form token,
+    // e.g. `TI.` -> 0x91 vs 0xD1). A statement-shape lint may fire (e.g. `A.` ->
+    // AND opening a statement) but never changes the bytes, so we compare bytes.
+    for (const name of names) {
+      for (let n = 1; n <= name.length; n++) {
+        const prefix = name.slice(0, n);
+        for (const src of [`10 ${prefix}.`, `10 A=${prefix}.`]) {
+          expect(
+            Array.from(tokenizeProgram(src, BASIC_IV).bytes),
+            `abbreviation ${src}`,
+          ).toEqual(romBytes(src));
+        }
+      }
+    }
+  }, 30000);
 
   it('tokenizes the bundled samples exactly as the ROM does', () => {
     for (const sample of bbcSamples) {

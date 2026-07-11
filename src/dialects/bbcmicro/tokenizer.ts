@@ -118,13 +118,20 @@ export function tokenizeProgram(
   return { bytes: Uint8Array.from(out), errors };
 }
 
+/** A resolved keyword (full or abbreviated) and the bytes it consumes. */
+interface KeywordMatch {
+  kw: BbcKeyword;
+  token: number;
+  len: number;
+}
+
 /** Match the longest keyword at body[i]; null if none applies here. */
 function matchKeyword(
   body: string,
   i: number,
   statementStart: boolean,
   variant: BbcVariant,
-): { kw: BbcKeyword; token: number; len: number } | null {
+): KeywordMatch | null {
   for (const kw of variant.keywordsByLength) {
     const len = kw.word.length;
     if (!body.startsWith(kw.word, i)) continue;
@@ -141,6 +148,37 @@ function matchKeyword(
     return { kw, token, len };
   }
   return null;
+}
+
+/**
+ * Match a dot-abbreviation at body[i]: a run of (upper-case) keyword letters
+ * immediately followed by '.', e.g. `P.` for PRINT or `GOS.` for GOSUB. The
+ * ROM resolves it to the first keyword in {@link BbcVariant.abbreviations}
+ * whose letters start with the typed prefix; the '.' is consumed. Returns null
+ * when the text isn't a `letters.` shape or no keyword matches. Called only
+ * after {@link matchKeyword} fails, so a fully-typed keyword is never treated
+ * as an abbreviation.
+ */
+function matchAbbreviation(
+  body: string,
+  i: number,
+  statementStart: boolean,
+  variant: BbcVariant,
+): KeywordMatch | null {
+  let j = i;
+  while (j < body.length && LETTER.test(body[j]!)) j++;
+  if (j === i || body[j] !== '.') return null;
+  const prefix = body.slice(i, j);
+  const kw = variant.abbreviations.find((k) => k.word.startsWith(prefix));
+  // No keyword has this prefix, or the prefix is a fully-typed keyword: leave
+  // it to matchKeyword, which keeps the '.' as a literal (`AND.` is AND then
+  // '.', whereas the proper abbreviation `ERR.` becomes ERROR).
+  if (!kw || kw.word === prefix) return null;
+  const token =
+    statementStart && kw.statementToken !== undefined
+      ? kw.statementToken
+      : kw.token;
+  return { kw, token, len: j - i + 1 }; // + 1 for the consumed '.'
 }
 
 function tokenizeBody(
@@ -261,9 +299,14 @@ function tokenizeBody(
 
     // Keywords and variable names.
     if (LETTER.test(ch)) {
-      const match = matchKeyword(body, i, statementStart, variant);
+      // A trailing '.' always marks an abbreviation, even when the letters
+      // spell a complete keyword (`ERR.` is ERROR, not ERR), so try it before
+      // the full-keyword match.
+      const match: KeywordMatch | null =
+        matchAbbreviation(body, i, statementStart, variant) ??
+        matchKeyword(body, i, statementStart, variant);
       if (match) {
-        const { kw, token, len } = match;
+        const { kw, token, len }: KeywordMatch = match;
         // Only command keywords and the assignable pseudo-variables (those
         // with a statement-position token, e.g. TIME=0) may open a statement.
         // BASIC IV additionally allows EXT#chan= (set a file's extent).
