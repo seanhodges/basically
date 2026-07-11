@@ -4,9 +4,11 @@ import path from 'node:path';
 import * as utils from 'jsbeeb/src/utils.js';
 import * as Tokeniser from 'jsbeeb/src/basic-tokenise.js';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, detokenizeWithReport } from './detokenizer';
 import { encodeLineNumber, decodeLineNumber } from './lineNumber';
 import { bbcSamples } from './samples';
+import { bbcmicro } from './index';
+import { importRoundTrip, isAcceptableImport } from '../roundTripHarness';
 
 // The genuine BASIC ROM tokeniser, used as the reference oracle.
 let oracle: Tokeniser.Tokeniser;
@@ -53,7 +55,7 @@ const CORPUS: string[] = [
   '10 A%=5:B$="hi":C=3.14',
   '10 PRINTTIME:ELSEPRINT:GOTOX',
   '10 ON ERROR GOTO 100',
-  '1 PRINT 1\n2 PRINT 2\n65279 PRINT "last"',
+  '1 PRINT 1\n2 PRINT 2\n32767 PRINT "last"',
 ];
 
 describe('BBC tokenizer vs the genuine BASIC ROM', () => {
@@ -112,6 +114,95 @@ describe('BBC detokenizer', () => {
   });
 });
 
+describe('BBC detokenizer is context-aware', () => {
+  // A token-valued byte inside a string is teletext data, not a keyword: a
+  // MODE 7 colour byte 0x81 must not decode to the keyword text "DIV".
+  it('does not decode keyword tokens inside a string', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "{RED}HELLO"');
+    expect(Array.from(bytes)).toContain(0x81); // the raw teletext byte
+    const text = detokenizeProgram(bytes);
+    expect(text).toBe('10 PRINT "{RED}HELLO"\n');
+    expect(text).not.toContain('DIV');
+  });
+
+  // 0x8D collides with the line-number marker; inside a string it is the
+  // teletext double-height code, and must not swallow the next three bytes.
+  it('treats 0x8D inside a string as teletext data, not a line number', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "{DOUBLE HEIGHT}TITLE"');
+    expect(Array.from(bytes)).toContain(0x8d);
+    expect(detokenizeProgram(bytes)).toBe('10 PRINT "{DOUBLE HEIGHT}TITLE"\n');
+  });
+
+  it('keeps token bytes and colons literal inside REM and DATA', () => {
+    const rem = tokenizeProgram('10 REM {RED}see GOTO');
+    expect(detokenizeProgram(rem.bytes)).toBe('10 REM {RED}see GOTO\n');
+    const data = tokenizeProgram('10 DATA {0x0C},x:y');
+    expect(detokenizeProgram(data.bytes)).toBe('10 DATA {0x0C},x:y\n');
+  });
+
+  it('round-trips raw control-code and top-bit escapes in strings', () => {
+    const source = '10 PRINT "{0x0C}beep{0x07}{0xFF}"';
+    const { bytes, errors } = tokenizeProgram(source);
+    expect(errors).toEqual([]);
+    expect(Array.from(bytes)).toEqual(
+      Array.from(tokenizeProgram(detokenizeProgram(bytes)).bytes),
+    );
+    expect(detokenizeProgram(bytes)).toBe(source + '\n');
+  });
+});
+
+describe('BBC detokenize report (Stage 1 warning channel)', () => {
+  it('imports a well-formed program with no warnings', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "HI"\n20 END');
+    expect(detokenizeWithReport(bytes).warnings).toEqual([]);
+  });
+
+  it('warns when the end marker is missing (truncated file)', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n20 END');
+    // Drop the trailing 0x0D 0xFF end marker.
+    const truncated = bytes.slice(0, bytes.length - 2);
+    const report = detokenizeWithReport(truncated);
+    expect(report.warnings.length).toBeGreaterThan(0);
+    expect(report.warnings[0]).toMatch(/end marker|truncat/i);
+  });
+
+  it('warns when a line length byte runs past the end of the image', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO WORLD"\n');
+    const chopped = bytes.slice(0, 8); // header claims a longer line
+    const report = detokenizeWithReport(chopped);
+    expect(report.warnings.length).toBeGreaterThan(0);
+    expect(report.warnings[0]).toMatch(/truncat/i);
+  });
+});
+
+describe('BBC import round-trip fixtures (Stage 5)', () => {
+  it('a MODE 7 teletext program with colour bytes and 0x8D in strings', () => {
+    const source = [
+      '10 MODE 7',
+      '20 PRINT "{RED}RED {YELLOW}YELLOW"',
+      '30 PRINT "{DOUBLE HEIGHT}BIG"',
+      '40 PRINT "{GRAPHICS BLUE}{0xFF}{0xFF}"',
+    ].join('\n');
+    const { image, errors } = bbcmicro.tokenize(source);
+    expect(errors).toEqual([]);
+    const outcome = importRoundTrip(bbcmicro, image);
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.byteExact).toBe(true);
+    expect(isAcceptableImport(outcome)).toBe(true);
+    expect(outcome.source).toBe(source + '\n');
+  });
+
+  it('a truncated .bbc is reported, not silently shortened', () => {
+    const { image } = bbcmicro.tokenize('10 PRINT "HELLO"\n20 GOTO 10\n');
+    const truncated = image.slice(0, image.length - 2);
+    const outcome = importRoundTrip(bbcmicro, truncated);
+    // The loss is reported, which satisfies the Stage 1 acceptance rule even
+    // though the bytes no longer round-trip exactly.
+    expect(outcome.warnings.length).toBeGreaterThan(0);
+    expect(isAcceptableImport(outcome)).toBe(true);
+  });
+});
+
 describe('BBC line-number codec', () => {
   it('round-trips every line number', () => {
     for (const n of [0, 1, 10, 50, 100, 255, 256, 1000, 32767, 65279]) {
@@ -138,6 +229,22 @@ describe('BBC tokenizer linting', () => {
     const errors = tokenizeProgram('70000 PRINT 1\n').errors;
     expect(errors).toHaveLength(1);
     expect(errors[0]!.message).toMatch(/out of range/);
+  });
+
+  it('lints a line above the 32767 entry limit but still builds it', () => {
+    const { bytes, errors } = tokenizeProgram('40000 PRINT 1\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toMatch(/32767/);
+    // Non-fatal: the line is still stored (0x0D, line 40000 = 0x9C40, …).
+    expect(Array.from(bytes.slice(0, 3))).toEqual([0x0d, 0x9c, 0x40]);
+  });
+
+  it('lints a GOTO target above the entry limit (would wrap)', () => {
+    const { errors } = tokenizeProgram('10 GOTO 40000\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toMatch(/target/i);
   });
 
   it('reports charset errors with line and column', () => {

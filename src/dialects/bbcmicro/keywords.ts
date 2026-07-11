@@ -851,6 +851,23 @@ export const bbcKeywordTable: BbcKeyword[] = [
   },
 ];
 
+/**
+ * BASIC IV (BBC Master) adds keywords on top of the BASIC II table that share
+ * its token bytes for the common set. The one the detokenizer/tokenizer need is
+ * EDIT (0xCE) - a full-screen line editor command that fills the single token
+ * BASIC II leaves unused between SAVE (0xCD) and the PTR statement form (0xCF).
+ */
+const basicIVExtraKeywords: BbcKeyword[] = [
+  {
+    word: 'EDIT',
+    token: 0xce,
+    kind: 'command',
+    lino: true,
+    signature: 'EDIT [line]',
+    doc: 'Open a line (or the whole program) in the screen editor (BASIC IV).',
+  },
+];
+
 /** Strip the trailing '(' that print formatters/string functions carry. */
 function displayWord(word: string): string {
   return word.endsWith('(') ? word.slice(0, -1) : word;
@@ -880,3 +897,41 @@ for (const k of bbcKeywordTable) {
   if (k.statementToken !== undefined)
     bbcWordByToken.set(k.statementToken, k.word);
 }
+
+/**
+ * A BASIC-version-specific view of the keyword table plus the small tokenizer
+ * policy flags that differ between BASIC II (Model B) and BASIC IV (Master).
+ * The tokenizer and detokenizer are parameterised by this so the two dialects
+ * share one code path (see bbcmaster/index.ts).
+ */
+export interface BbcVariant {
+  /** Keywords sorted longest-first, for greedy matching in the tokenizer. */
+  keywordsByLength: BbcKeyword[];
+  /** token byte (function and statement form) -> spelling, for detokenizing. */
+  wordByToken: Map<number, string>;
+  /** BASIC IV accepts `EXT#chan=n` as a statement (set a file's extent). */
+  extAsStatement: boolean;
+}
+
+function variantFrom(table: BbcKeyword[], extAsStatement: boolean): BbcVariant {
+  const wordByToken = new Map<number, string>();
+  for (const k of table) {
+    wordByToken.set(k.token, k.word);
+    if (k.statementToken !== undefined)
+      wordByToken.set(k.statementToken, k.word);
+  }
+  return {
+    keywordsByLength: [...table].sort((a, b) => b.word.length - a.word.length),
+    wordByToken,
+    extAsStatement,
+  };
+}
+
+/** BBC BASIC II (Model B) - the default. */
+export const BASIC_II: BbcVariant = variantFrom(bbcKeywordTable, false);
+
+/** BBC BASIC IV (Master) - BASIC II plus EDIT and the EXT# statement form. */
+export const BASIC_IV: BbcVariant = variantFrom(
+  [...bbcKeywordTable, ...basicIVExtraKeywords],
+  true,
+);

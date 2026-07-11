@@ -32,7 +32,7 @@
 | 2     | Sinclair (ZX81/ZX80): total charset                 | ⬜     |
 | 3     | ZX81/ZX80: numeric payloads & tokenizer leniency    | ⬜     |
 | 4     | Spectrum 48/128: code-context bytes & containers    | ⬜     |
-| 5     | BBC: context-aware import, escapes, Master BASIC IV | ⬜     |
+| 5     | BBC: context-aware import, escapes, Master BASIC IV | ✅     |
 | 6     | C64: petcat interop, containers, readability        | ⬜     |
 | 7     | TRS-80: ROM-faithful forms, escapes, runtime        | ⬜     |
 | 8     | Atom: total charset, lint vs buildability, FP ROM   | ⬜     |
@@ -169,34 +169,41 @@ gaps (findings 1–8 of the Spectrum audit).
 **Verify:** `npm test`; a multi-file compilation `.TAP` and a fake-constant
 protected `.TAP` both import with correct warnings and re-export faithfully.
 
-## Stage 5 — BBC: context-aware import, escapes, Master BASIC IV ⬜
+## Stage 5 — BBC: context-aware import, escapes, Master BASIC IV ✅
 
 Fix the context-blind detokenizer and give the BBC an escape notation
 (findings 1–11 of the BBC audit).
 
-- [ ] Make `decodeBody` context-aware (`bbcmicro/detokenizer.ts:32-56`): track
-      quote state and verbatim mode after REM/DATA/`*`, mirroring the
-      tokenizer's own inbound paths (`tokenizer.ts:193/219/259`); stop
-      decoding tokens and 0x8D inside literals.
-- [ ] Add an escape notation for string/REM/DATA contexts covering 0x00–0x1F,
-      0x7F and 0x80–0xFF — style suggestion: Spectrum-like `{0xNN}` plus named
-      teletext escapes (`{RED}`, `{FLASH}`, …) for 0x80–0x9F. Accept in the
-      tokenizer's literal paths, emit from the detokenizer.
-- [ ] Map 0x7F both ways; add a dedicated `charset.test.ts` pinning behaviour
-      for 0x00–0x1F / 0x7F / 0x80–0xFF in both directions.
-- [ ] Report structural problems (truncated `.bbc`, bad length bytes) through
-      the Stage 1 warning channel instead of silently stopping
-      (`detokenizer.ts:16-27`).
-- [ ] Tighten line numbers: reject entered lines > 32767 (matching the ROM
-      and both AI profiles, `tokenizer.ts:17`); lint GOTO/GOSUB targets that
-      would wrap at `tokenizer.ts:178`.
-- [ ] Master/BASIC IV: parameterise the keyword table; add EDIT (0xCE) for
-      detokenize; allow `EXT#ch=` as a statement; pin TIME$ byte output with a
-      test in `bbcmaster.test.ts`.
-- [ ] Optional: dot-abbreviation expansion (`P.` → PRINT) for pasted
-      listings.
-- [ ] Round-trip fixtures: a MODE 7 teletext program with colour bytes and
-      0x8D inside strings; a truncated `.bbc`.
+- [x] Make `decodeBody` context-aware (`bbcmicro/detokenizer.ts`): tracks
+      statement-start, string and verbatim (REM/DATA/`*`) state, mirroring the
+      tokenizer's own inbound paths; keyword tokens and the 0x8D line-number
+      marker are only interpreted in expression context, so a colour byte in a
+      MODE 7 string no longer LISTs as `DIV` and 0x8D-in-a-string no longer
+      eats three data bytes.
+- [x] Escape notation for literal contexts covering 0x00–0x1F, 0x7F and
+      0x80–0xFF: Spectrum-like `{0xNN}` plus named teletext escapes (`{RED}`,
+      `{FLASH}`, `{DOUBLE HEIGHT}`, `{GRAPHICS BLUE}`, …) for 0x80–0x9F
+      (`charset.ts` `TELETEXT_NAMES`/`parseChar`/`decodeSpan`). Accepted in the
+      tokenizer's string/REM/DATA/`*` paths, emitted by the detokenizer.
+- [x] 0x7F mapped both ways (`{0x7F}`); dedicated `bbcmicro/charset.test.ts`
+      pins 0x00–0x1F / 0x7F / 0x80–0xFF in both directions (all 256 bytes
+      round-trip decode→parse).
+- [x] Structural problems reported through the Stage 1 warning channel:
+      `detokenizeWithReport` warns on a bad length byte, a line that runs past
+      the image end, and a missing 0x0D 0xFF end marker (wired into both BBC
+      dialects' `detokenizeWithReport`).
+- [x] Line numbers tightened: entered lines above 32767 are a non-fatal lint
+      (still storable/runnable so imports survive), and lino targets above
+      32767 (which wrap) are linted; `> 65279` stays fatal.
+- [x] Master/BASIC IV: keyword table parameterised into `BASIC_II`/`BASIC_IV`
+      variants threaded through the shared tokenizer/detokenizer; EDIT (0xCE)
+      added for BASIC IV; `EXT#ch=` accepted as a statement on the Master;
+      TIME$ / TIME$= byte output pinned in `bbcmaster.test.ts`.
+- [ ] Optional (deferred): dot-abbreviation expansion (`P.` → PRINT) for pasted
+      listings — still the documented limitation in `tokenizer.test.ts`.
+- [x] Round-trip fixtures: a MODE 7 teletext program with colour bytes and
+      0x8D inside strings (byte-exact); a truncated `.bbc` (reported, not
+      silently shortened).
 
 **Depends on:** Stage 1.
 **Verify:** `npm test` (including the existing jsbeeb-oracle corpus, which

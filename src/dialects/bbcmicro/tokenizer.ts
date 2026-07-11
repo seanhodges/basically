@@ -1,6 +1,6 @@
 import { CharsetError, type TokenizeError } from '../types';
-import { bbcCharset } from './charset';
-import { bbcKeywordsByLength, type BbcKeyword } from './keywords';
+import { bbcCharset, parseChar } from './charset';
+import { BASIC_II, type BbcKeyword, type BbcVariant } from './keywords';
 import { encodeLineNumber } from './lineNumber';
 
 export interface TokenizedProgram {
@@ -15,6 +15,12 @@ const END_HI = 0xff;
 
 /** Highest line number BBC BASIC will store (0xFF00 is the end marker). */
 const MAX_LINE = 65279;
+/**
+ * Highest line number the ROM's line editor accepts when a line is *typed*.
+ * Higher numbers (up to {@link MAX_LINE}) exist in stored programs and RUN, so
+ * they are a non-fatal lint - imported programs that use them still build.
+ */
+const ENTRY_MAX = 32767;
 /** Max tokenized body bytes per line (line length byte is body + 4 ≤ 255). */
 const MAX_BODY = 251;
 
@@ -30,7 +36,10 @@ const HEX = /[0-9A-Fa-f]/;
  * tokeniser produces (regression-tested in tokenizer.test.ts), so the emulator
  * can POKE it straight in at PAGE.
  */
-export function tokenizeProgram(source: string): TokenizedProgram {
+export function tokenizeProgram(
+  source: string,
+  variant: BbcVariant = BASIC_II,
+): TokenizedProgram {
   const out: number[] = [];
   const errors: TokenizeError[] = [];
   let prevLineNo = -1;
@@ -71,9 +80,25 @@ export function tokenizeProgram(source: string): TokenizedProgram {
       });
       continue;
     }
+    if (lineNo > ENTRY_MAX) {
+      // Storable and runnable, but the ROM line editor rejects it when typed.
+      errors.push({
+        line: editorLine,
+        column: 0,
+        message: `Line number ${lineNo} above ${ENTRY_MAX}; a real machine rejects it at the keyboard (it still runs once loaded)`,
+        fatal: false,
+      });
+    }
 
     const colOffset = m[1]!.length;
-    const body = tokenizeBody(m[2]!, editorLine, colOffset, errors, asm);
+    const body = tokenizeBody(
+      m[2]!,
+      editorLine,
+      colOffset,
+      errors,
+      asm,
+      variant,
+    );
     if (body === null) continue; // error already recorded
     if (body.length > MAX_BODY) {
       errors.push({
@@ -98,8 +123,9 @@ function matchKeyword(
   body: string,
   i: number,
   statementStart: boolean,
+  variant: BbcVariant,
 ): { kw: BbcKeyword; token: number; len: number } | null {
-  for (const kw of bbcKeywordsByLength) {
+  for (const kw of variant.keywordsByLength) {
     const len = kw.word.length;
     if (!body.startsWith(kw.word, i)) continue;
     // "Conditional" keywords ending in a letter are only tokenized when not
@@ -123,6 +149,7 @@ function tokenizeBody(
   colOffset: number,
   errors: TokenizeError[],
   asm: { active: boolean },
+  variant: BbcVariant,
 ): number[] | null {
   const out: number[] = [];
   let i = 0;
@@ -160,6 +187,28 @@ function tokenizeBody(
     }
   };
 
+  // Emit one literal unit (a character or a `{...}` escape) inside a string /
+  // REM / DATA / `*` command. Returns the next index, or null on an unmappable
+  // character (already recorded as an error).
+  const emitLiteral = (at: number): number | null => {
+    try {
+      const { codes, length } = parseChar(body, at);
+      for (const b of codes) out.push(b);
+      return at + length;
+    } catch (e) {
+      if (e instanceof CharsetError) {
+        errors.push({
+          line: editorLine,
+          column: colOffset + at,
+          message: e.message,
+        });
+        failed = true;
+        return null;
+      }
+      throw e;
+    }
+  };
+
   while (i < body.length) {
     const ch = body[i]!;
 
@@ -175,8 +224,19 @@ function tokenizeBody(
       if (ch >= '0' && ch <= '9') {
         let j = i;
         while (j < body.length && body[j]! >= '0' && body[j]! <= '9') j++;
-        const n = parseInt(body.slice(i, j), 10) & 0xffff;
-        out.push(...encodeLineNumber(n));
+        const target = parseInt(body.slice(i, j), 10);
+        if (target > ENTRY_MAX) {
+          // Targets above the entry limit wrap (& 0xFFFF) into a bogus line and
+          // can never match a real one; flag it but keep tokenizing.
+          errors.push({
+            line: editorLine,
+            column: colOffset + i,
+            endColumn: colOffset + j,
+            message: `Line-number target ${target} above ${ENTRY_MAX} cannot reference a real line`,
+            fatal: false,
+          });
+        }
+        out.push(...encodeLineNumber(target & 0xffff));
         i = j;
         statementStart = false;
         continue;
@@ -192,24 +252,27 @@ function tokenizeBody(
     // '*' at the start of a statement: an OS command, rest of line is literal.
     if (statementStart && ch === '*') {
       while (i < body.length) {
-        if (!emit(body[i]!, i)) return null;
-        i++;
+        const next = emitLiteral(i);
+        if (next === null) return null;
+        i = next;
       }
       break;
     }
 
     // Keywords and variable names.
     if (LETTER.test(ch)) {
-      const match = matchKeyword(body, i, statementStart);
+      const match = matchKeyword(body, i, statementStart, variant);
       if (match) {
         const { kw, token, len } = match;
         // Only command keywords and the assignable pseudo-variables (those
         // with a statement-position token, e.g. TIME=0) may open a statement.
+        // BASIC IV additionally allows EXT#chan= (set a file's extent).
         if (
           statementStart &&
           !asm.active &&
           kw.kind !== 'command' &&
-          kw.statementToken === undefined
+          kw.statementToken === undefined &&
+          !(variant.extAsStatement && kw.word === 'EXT')
         ) {
           flagStatement(i, i + len, kw.word);
         }
@@ -218,8 +281,9 @@ function tokenizeBody(
 
         if (kw.word === 'REM' || kw.word === 'DATA') {
           while (i < body.length) {
-            if (!emit(body[i]!, i)) return null;
-            i++;
+            const next = emitLiteral(i);
+            if (next === null) return null;
+            i = next;
           }
           statementStart = false;
           continue;
@@ -255,14 +319,16 @@ function tokenizeBody(
       continue;
     }
 
-    // String literal: copied verbatim, nothing inside is tokenized.
+    // String literal: copied verbatim, nothing inside is tokenized (but
+    // `{...}` escapes let control/graphics bytes be authored and round-trip).
     if (ch === '"') {
       if (statementStart && !asm.active) flagStatement(i, i + 1, '"');
       out.push(0x22);
       i++;
       while (i < body.length && body[i] !== '"') {
-        if (!emit(body[i]!, i)) return null;
-        i++;
+        const next = emitLiteral(i);
+        if (next === null) return null;
+        i = next;
       }
       if (i < body.length) {
         out.push(0x22);
