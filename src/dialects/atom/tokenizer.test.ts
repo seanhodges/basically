@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { atomCharset } from './charset';
+import { atom } from './index';
 
 /** Convenience: tokenize and assert there were no errors, returning the bytes. */
 function bytesOf(source: string): Uint8Array {
@@ -137,6 +138,31 @@ describe('atom tokenizer statement validation', () => {
       '\n',
     );
     expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+
+  it('marks statement-shape lint non-fatal (the ROM stores such lines)', () => {
+    const { errors } = tokenizeProgram('10 PRNT "HI"\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+  });
+
+  it('keeps framing errors fatal', () => {
+    const { errors } = tokenizeProgram('99999 PRINT "HI"\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).not.toBe(false);
+  });
+
+  it('still builds a runnable image when only statement lint fires', () => {
+    // Dialect-level: hasFatalErrors gates the image, so a hardware-storable
+    // line (e.g. an imported `*CAT`) keeps its squiggle but stays runnable.
+    const { image, errors } = atom.tokenize('10 *CAT\n');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(image.length).toBeGreaterThan(0);
+  });
+
+  it('builds no image for framing errors', () => {
+    const { image } = atom.tokenize('99999 PRINT "HI"\n');
+    expect(image.length).toBe(0);
   });
 });
 

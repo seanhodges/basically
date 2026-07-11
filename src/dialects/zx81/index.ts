@@ -1,4 +1,9 @@
-import type { Dialect, TokenizeError, TokenizeResult } from '../types';
+import {
+  hasFatalErrors,
+  type Dialect,
+  type TokenizeError,
+  type TokenizeResult,
+} from '../types';
 import { zx81Charset } from './charset';
 import { zx81Keywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
@@ -30,7 +35,7 @@ export const zx81: Dialect = {
   tokenize(source: string): TokenizeResult {
     const { bytes, errors } = tokenizeProgram(source);
     const image =
-      errors.length === 0 && bytes.length > 0
+      !hasFatalErrors(errors) && bytes.length > 0
         ? buildPFile(bytes)
         : new Uint8Array(0);
     return { programBytes: bytes, image, errors, byteSize: bytes.length };

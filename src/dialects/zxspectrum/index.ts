@@ -1,4 +1,4 @@
-import type { Dialect, TokenizeResult } from '../types';
+import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { spectrumCharset } from './charset';
 import { spectrumKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
@@ -30,7 +30,7 @@ export const zxspectrum: Dialect = {
   tokenize(source: string): TokenizeResult {
     const { bytes, errors } = tokenizeProgram(source);
     const image =
-      errors.length === 0 && bytes.length > 0
+      !hasFatalErrors(errors) && bytes.length > 0
         ? buildTap(bytes)
         : new Uint8Array(0);
     return { programBytes: bytes, image, errors, byteSize: bytes.length };

@@ -60,6 +60,26 @@ BASIC:
    `docs/reference/file-formats.md` § Cassette audio for the per-machine codecs and the
    shared `src/dialects/sinclairTape.ts` decoder.
 
+   **Charset/import feature-completeness.** New language layers should be
+   built _total_ from the start (the existing dialects are being retrofitted -
+   see `docs/contributing/charset-tokenizer-plan.md`):
+   - every machine byte 0x00–0xFF gets a text form `toMachine` maps back to
+     the same byte - glyph, named escape, or a dialect-styled raw escape
+     (Spectrum `{0xNN}`, C64 `{$xx}`) - never a lossy `?`/space fallback;
+   - `detokenize` interprets tokens/markers only _outside_ strings, REM and
+     DATA; inside them, bytes round-trip exactly;
+   - loss the importer can detect (unmappable bytes, truncation, trailing
+     machine code) is reported via the optional `detokenizeWithReport`, which
+     the import UI prefers over bare `detokenize`;
+   - heuristic statement lint that real hardware would store sets
+     `fatal: false` on its `TokenizeError`s, and the dialect's `tokenize`
+     gates its image on `hasFatalErrors(errors)` - not `errors.length` - so
+     imported-but-odd programs still run;
+   - `src/dialects/roundTrip.test.ts` must pass: every sample's image decodes
+     to text that re-tokenizes byte-exactly. Add foreign-image fixtures
+     (control codes, tokens-in-strings, top-bit bytes) with
+     `roundTripHarness.ts` as the importer learns to preserve or report them.
+
 2. **Register it** in `src/dialects/registry.ts`.
 3. **Drop the ROM** into `public/roms/` with an attribution note.
 4. **Add tests**: tokenizer round-trip, image-builder pointer consistency,

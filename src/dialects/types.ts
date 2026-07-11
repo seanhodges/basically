@@ -55,6 +55,38 @@ export interface TokenizeError {
    */
   endColumn?: number;
   message: string;
+  /**
+   * False for statement-shape / heuristic lint that the real machine would
+   * happily store, failing (if at all) only when the line executes: such
+   * errors keep their editor squiggle but must not stop `tokenize` from
+   * producing a runnable image. Absent or true for framing errors
+   * (unparseable line structure, unmappable characters) that genuinely
+   * prevent building one. See {@link hasFatalErrors}.
+   */
+  fatal?: boolean;
+}
+
+/**
+ * True when any error prevents building a runnable image. Dialects use this
+ * (rather than `errors.length`) to decide whether `tokenize` returns a real
+ * image, so heuristic lint ({@link TokenizeError.fatal} `false`) doesn't stop
+ * a hardware-runnable program - e.g. one just imported - from running.
+ */
+export function hasFatalErrors(errors: readonly TokenizeError[]): boolean {
+  return errors.some((e) => e.fatal !== false);
+}
+
+/** Result of {@link Dialect.detokenizeWithReport}. */
+export interface DetokenizeResult {
+  /** Editable program text, exactly as {@link Dialect.detokenize} returns. */
+  source: string;
+  /**
+   * Human-readable import-fidelity notes: anything in the byte image the text
+   * form cannot yet represent faithfully (unmappable bytes, truncated
+   * structure, trailing non-BASIC data, bad checksums…). Empty when the
+   * import is believed lossless.
+   */
+  warnings: string[];
 }
 
 export interface TokenizeResult {
@@ -328,6 +360,14 @@ export interface Dialect {
   completionSource: CompletionSource;
   tokenize(source: string, opts?: { programName?: string }): TokenizeResult;
   detokenize(image: Uint8Array): string;
+  /**
+   * Like {@link detokenize}, but also reports what the text form could not
+   * capture. The import paths prefer this when present and fall back to
+   * `detokenize` (assuming no warnings) when absent; a dialect grows it as its
+   * importer learns to detect loss (see
+   * `docs/contributing/charset-tokenizer-plan.md`).
+   */
+  detokenizeWithReport?(image: Uint8Array): DetokenizeResult;
   /** Tokenizer dry-run for editor linting. */
   lint(source: string): TokenizeError[];
   /**

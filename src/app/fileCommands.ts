@@ -10,6 +10,7 @@
 
 import { useIdeStore } from './store';
 import { openTextFile, saveTextFile } from '../storage/files';
+import { importProgram, importStatusMessage } from './importProgram';
 
 /**
  * True when it's safe to replace the current document - nothing unsaved, an
@@ -72,8 +73,9 @@ export async function openDroppedFile(file: File): Promise<void> {
       const bytes = new Uint8Array(await file.arrayBuffer());
       // Import loads real, not-yet-saved content: untitled but dirty, so the
       // discard guard fires before the next load (mirrors the Import dialog).
-      loadUnsavedDocument(dialect.detokenize(bytes), { dirty: true });
-      setStatusNotice(`Imported ${file.name}.`);
+      const { source, warnings } = importProgram(dialect, bytes);
+      loadUnsavedDocument(source, { dirty: true });
+      setStatusNotice(importStatusMessage(file.name, warnings));
     } else {
       setStatusNotice(`Can't open ${file.name} - unsupported file type.`);
     }

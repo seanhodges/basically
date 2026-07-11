@@ -1,4 +1,4 @@
-import type { Dialect, TokenizeResult } from '../types';
+import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { atomCharset } from './charset';
 import { atomKeywords } from './keywords';
 import { atomVariableErrors } from '../../editor/variableLint';
@@ -37,7 +37,10 @@ export const atom: Dialect = {
 
   tokenize(source: string): TokenizeResult {
     const { bytes, errors } = tokenizeProgram(source);
-    const image = errors.length === 0 ? bytes : new Uint8Array(0);
+    // Statement-shape lint is non-fatal (the ROM stores such lines verbatim
+    // and errors only at RUN), so it keeps its squiggle without emptying the
+    // runnable image; only framing errors do that.
+    const image = hasFatalErrors(errors) ? new Uint8Array(0) : bytes;
     return { programBytes: bytes, image, errors, byteSize: bytes.length };
   },
 

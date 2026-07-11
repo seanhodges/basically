@@ -1,4 +1,4 @@
-import type { Dialect, TokenizeResult } from '../types';
+import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { c64Charset } from './charset';
 import { c64Keywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
@@ -45,7 +45,7 @@ export const commodore64: Dialect = {
     // A non-empty image is the load address plus a program with at least one
     // line (more than the bare 0x0000 end link).
     const image =
-      errors.length === 0 && program.length > 2
+      !hasFatalErrors(errors) && program.length > 2
         ? Uint8Array.from([0x01, 0x08, ...program])
         : new Uint8Array(0);
     return { programBytes: program, image, errors, byteSize: program.length };
