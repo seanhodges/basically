@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
+import {
+  importFidelityWarnings,
+  importProgram,
+  importStatusMessage,
+} from '../app/importProgram';
 import { openBinaryFile } from '../storage/files';
 import {
   listAudioInputs,
@@ -17,6 +22,7 @@ export function ImportDialog() {
   const dialect = useIdeStore((s) => s.dialect);
   const dirty = useIdeStore((s) => s.dirty);
   const loadUnsavedDocument = useIdeStore((s) => s.loadUnsavedDocument);
+  const setStatusNotice = useIdeStore((s) => s.setStatusNotice);
 
   const [status, setStatus] = useState('');
   const [devices, setDevices] = useState<AudioInputDevice[]>([]);
@@ -60,7 +66,12 @@ export function ImportDialog() {
     // Import loads real, not-yet-saved content: untitled (only Open/Save name a
     // document) but dirty, so the discard guard fires before the next load.
     loadUnsavedDocument(source, { dirty: true });
-    setStatus(`Imported "${programName.trim() || 'PROGRAM'}".`);
+    // The dialog closes on success, so the result (and any fidelity warnings)
+    // goes to the status bar rather than the dialog's own status line.
+    const warnings = importFidelityWarnings(dialect, source);
+    setStatusNotice(
+      importStatusMessage(`"${programName.trim() || 'PROGRAM'}"`, warnings),
+    );
     close();
   };
 
@@ -69,9 +80,9 @@ export function ImportDialog() {
       if (!confirmDiscard()) return;
       const opened = await openBinaryFile(fmt.extension);
       if (!opened) return;
-      const text = dialect.detokenize(opened.bytes);
-      loadUnsavedDocument(text, { dirty: true });
-      setStatus(`Imported ${opened.name}.`);
+      const { source, warnings } = importProgram(dialect, opened.bytes);
+      loadUnsavedDocument(source, { dirty: true });
+      setStatusNotice(importStatusMessage(opened.name, warnings));
       close();
     });
 

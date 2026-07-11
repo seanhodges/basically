@@ -1,4 +1,4 @@
-import type { Dialect, TokenizeResult } from '../types';
+import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { bbcCharset } from './charset';
 import { bbcKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
@@ -44,7 +44,7 @@ export const bbcmicro: Dialect = {
     const { bytes, errors } = tokenizeProgram(source);
     // A non-empty image is the program plus its 0x0D 0xFF end marker.
     const image =
-      errors.length === 0 && bytes.length > 2 ? bytes : new Uint8Array(0);
+      !hasFatalErrors(errors) && bytes.length > 2 ? bytes : new Uint8Array(0);
     return { programBytes: bytes, image, errors, byteSize: bytes.length };
   },
 

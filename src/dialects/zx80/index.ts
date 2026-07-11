@@ -1,4 +1,9 @@
-import type { Dialect, TokenizeError, TokenizeResult } from '../types';
+import {
+  hasFatalErrors,
+  type Dialect,
+  type TokenizeError,
+  type TokenizeResult,
+} from '../types';
 import { zx80Charset } from './charset';
 import { zx80Keywords, zx80EditorKeywords } from './keywords';
 import { zx80VariableErrors } from '../../editor/variableLint';
@@ -30,7 +35,7 @@ export const zx80: Dialect = {
   tokenize(source: string): TokenizeResult {
     const { bytes, errors } = tokenizeProgram(source);
     const image =
-      errors.length === 0 && bytes.length > 0
+      !hasFatalErrors(errors) && bytes.length > 0
         ? buildOFile(bytes)
         : new Uint8Array(0);
     return { programBytes: bytes, image, errors, byteSize: bytes.length };

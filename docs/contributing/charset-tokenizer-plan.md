@@ -28,7 +28,7 @@
 
 | Stage | Title                                               | Status |
 | ----- | --------------------------------------------------- | ------ |
-| 1     | Import-fidelity contract + shared round-trip tests  | ⬜     |
+| 1     | Import-fidelity contract + shared round-trip tests  | ✅     |
 | 2     | Sinclair (ZX81/ZX80): total charset                 | ⬜     |
 | 3     | ZX81/ZX80: numeric payloads & tokenizer leniency    | ⬜     |
 | 4     | Spectrum 48/128: code-context bytes & containers    | ⬜     |
@@ -40,36 +40,45 @@
 
 ---
 
-## Stage 1 — Import-fidelity contract + shared round-trip tests ⬜
+## Stage 1 — Import-fidelity contract + shared round-trip tests ✅
 
 Cross-cutting infrastructure (audit findings C1, C3, C5). No per-dialect
 charset changes yet; this stage makes losses _visible_ and gives every later
 stage its acceptance test.
 
-- [ ] Extend the `Dialect` seam with an import report: either change
-      `detokenize` to return `{ source: string; warnings: string[] }` (update
-      all nine dialects + `ImportDialog.tsx` + `fileCommands.ts`), or add an
-      optional `detokenizeWithReport` alongside it. Warnings cover: bytes with
-      no faithful text form, structural truncation, trailing non-BASIC data,
-      foreign load addresses, checksum/parity failures.
-- [ ] Surface warnings in the Import dialog and drag-drop status notice
-      ("Imported with 12 unrepresentable bytes — see line 40") instead of the
-      unconditional success message (`ImportDialog.tsx:72`,
-      `fileCommands.ts:75`).
-- [ ] Split "editor lint" from "cannot build an image": only framing errors
-      (unparseable line structure, unmappable characters) may zero the image;
-      statement-shape heuristics stay as squiggles. Applies to
-      `atom/index.ts:40` and `commodore64/index.ts:47-50`; audit each other
-      dialect's `tokenize`/`lint` for the same conflation.
-- [ ] Add a shared **import-direction round-trip harness**
-      (`src/dialects/roundTripHarness.ts` + per-dialect `*.roundtrip.test.ts`):
-      given a dialect and a corpus of _foreign_ program images (byte values in
-      string context, REM context, code context; per-dialect fixtures added in
-      Stages 2–8), assert `tokenize(detokenize(image))` reproduces the image
-      byte-for-byte **or** the detokenize report carries a warning. This is
-      the acceptance gate every later stage extends.
-- [ ] Document the "definition of feature complete" (above) in
-      `docs/contributing/adding-a-dialect.md` so new dialects start total.
+- [x] Extend the `Dialect` seam with an import report: the optional
+      `detokenizeWithReport(image): { source, warnings }`
+      (`src/dialects/types.ts`), preferred by the import paths and falling
+      back to bare `detokenize`. Dialects grow it in Stages 2–8 as their
+      importers learn to detect loss (unmappable bytes, truncation, trailing
+      non-BASIC data, foreign load addresses, checksum failures).
+- [x] Surface warnings in the Import dialog and drag-drop status notice:
+      `src/app/importProgram.ts` is the shared import step (binary files,
+      drag-drop, cassette decode) — it merges the dialect's own report with a
+      dialect-agnostic check (empty output, or output that no longer
+      tokenizes, means the file held content the text form loses) and the
+      status line becomes "Imported x, but: …" instead of unconditional
+      success. Wired into `ImportDialog.tsx` and `fileCommands.ts`.
+- [x] Split "editor lint" from "cannot build an image":
+      `TokenizeError.fatal?: boolean` (absent/true = framing, blocks the
+      image; false = statement-shape heuristic, squiggle only) and
+      `hasFatalErrors()` in `types.ts`; every image-gating dialect now gates
+      on it instead of `errors.length`. The Atom's statement-shape lint
+      (`atom/tokenizer.ts` `flag()`) is marked non-fatal, so imported
+      `*CAT`/FP lines run again; audit of the other dialects found their
+      statement checks intertwined with token emission, so downgrades are
+      deferred to their own stages (C64 line-number rules → Stage 6).
+      `TransferDialog` still refuses to export with _any_ error — revisit
+      per-dialect. Tests: `atom/tokenizer.test.ts`.
+- [x] Shared **import-direction round-trip harness**:
+      `src/dialects/roundTripHarness.ts` (`importRoundTrip`,
+      `isAcceptableImport` — byte-exact or warned) plus the registry-driven
+      `src/dialects/roundTrip.test.ts` pinning every dialect's samples as a
+      byte-exact baseline (35 cases). Stages 2–8 add foreign-image fixtures
+      through the same helpers.
+- [x] "Definition of feature complete" documented in
+      `docs/contributing/adding-a-dialect.md` (charset/import
+      feature-completeness checklist for new dialects).
 
 **Depends on:** nothing.
 **Verify:** `npm run typecheck` + `npm test`; import a truncated file in the

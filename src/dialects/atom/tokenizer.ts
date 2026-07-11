@@ -52,6 +52,9 @@ function validateStatements(
       column: colOffset + at,
       endColumn: colOffset + end,
       message: `Statement must start with a command keyword or assignment (got '${got}')`,
+      // The body is stored verbatim regardless: the real ROM keeps such a line
+      // and errors only when it executes, so this lint must not block the image.
+      fatal: false,
     });
   };
 

@@ -1,4 +1,9 @@
-import type { Dialect, TokenizeError, TokenizeResult } from '../types';
+import {
+  hasFatalErrors,
+  type Dialect,
+  type TokenizeError,
+  type TokenizeResult,
+} from '../types';
 // The 128K / +2 / +3 shares the entire 48K Spectrum language and tape layer -
 // only memory paging, the dual ROM, the AY-3-8912 sound chip and the two extra
 // BASIC tokens (SPECTRUM, PLAY) differ. Identical pieces are re-exported from
@@ -46,7 +51,7 @@ export const zxspectrum128: Dialect = {
   tokenize(source: string): TokenizeResult {
     const { bytes, errors } = tokenizeProgram(source);
     const image =
-      errors.length === 0 && bytes.length > 0
+      !hasFatalErrors(errors) && bytes.length > 0
         ? buildTap(bytes)
         : new Uint8Array(0);
     return { programBytes: bytes, image, errors, byteSize: bytes.length };

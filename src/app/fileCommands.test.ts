@@ -88,6 +88,20 @@ describe('openDroppedFile', () => {
     expect(s.statusNotice).toBe('Imported demo.prg.');
   });
 
+  it('imports a lossy binary with a fidelity warning in the status notice', async () => {
+    // Line 65000 is storable in a .prg but beyond the tokenizer's range: the
+    // import loads, and the status notice says why it won't re-tokenize.
+    useIdeStore.setState({ dialect: commodore64 });
+    const lossyPrg = Uint8Array.from([
+      0x01, 0x08, 0x0b, 0x08, 0xe8, 0xfd, 0x41, 0x3d, 0x31, 0x00, 0x00, 0x00,
+    ]);
+    await dropFile('odd.prg', lossyPrg);
+    const s = useIdeStore.getState();
+    expect(s.source).toContain('65000');
+    expect(s.statusNotice).toMatch(/^Imported odd\.prg, but: /);
+    expect(s.statusNotice).toMatch(/cannot represent/);
+  });
+
   it('leaves the document untouched for an unsupported type', async () => {
     await dropFile('photo.png', 'not basic');
     const s = useIdeStore.getState();
