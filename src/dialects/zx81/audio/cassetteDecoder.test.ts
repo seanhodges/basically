@@ -135,6 +135,15 @@ describe('decodeCassette', () => {
     expect(Array.from(data)).toEqual(Array.from(image));
   });
 
+  it('decodes a program name longer than 10 characters', () => {
+    const image = sampleImage('10 PRINT "HI"\n');
+    // 12-char name: the old 10-byte cap read the terminator inside the name.
+    const samples = encodeCassette('LONGFILENAME', image, { sampleRate: RATE });
+    const { name, data } = decodeCassette(samples, RATE);
+    expect(name).toBe('LONGFILENAME');
+    expect(Array.from(data)).toEqual(Array.from(image));
+  });
+
   it('recovers the original source via parsePFile + detokenize', () => {
     const src = '10 LET A=5\n20 PRINT A\n30 GOTO 10\n';
     const image = sampleImage(src);

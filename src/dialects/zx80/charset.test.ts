@@ -39,4 +39,21 @@ describe('zx80 charset', () => {
     expect(code('%A')).toBe(0x26 | 0x80);
     expect(zx80Charset.glyph(0x26 | 0x80)).toBe('%A');
   });
+
+  it('is total: every byte 0x00-0xFF round-trips through a text form', () => {
+    for (let c = 0; c <= 0xff; c++) {
+      const text = zx80Charset.toUnicode([c]);
+      expect(
+        Array.from(zx80Charset.toMachine(text)),
+        `code 0x${c.toString(16)} -> ${JSON.stringify(text)}`,
+      ).toEqual([c]);
+    }
+  });
+
+  it('renders codes with no standard character as \\{NN} raw escapes', () => {
+    expect(zx80Charset.toUnicode([0x7f])).toBe('\\{7F}');
+    expect(zx80Charset.toUnicode([0xfe])).toBe('\\{FE}'); // REM token as data
+    expect(Array.from(zx80Charset.toMachine('\\{C4}'))).toEqual([0xc4]);
+    expect(Array.from(zx80Charset.toMachine('\n'))).toEqual([0x76]);
+  });
 });

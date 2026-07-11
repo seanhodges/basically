@@ -1,6 +1,6 @@
 import { CharsetError, type TokenizeError } from '../types';
 import { parseChar, NEWLINE, QUOTE, QUOTE_IMAGE } from './charset';
-import { keywordsByLength, statementKeywords } from './keywords';
+import { keywordsByLength, keywordByWord, statementKeywords } from './keywords';
 
 export interface TokenizedProgram {
   /** Tokenized program area (concatenated lines), as stored from 0x4028. */
@@ -125,6 +125,24 @@ function tokenizeBody(
       continue;
     }
 
+    // GO TO / GO SUB: the 4K ROM's keyword table lists the spaced spellings,
+    // which period listings use. Both collapse to the single GOTO/GOSUB token
+    // (the unspaced forms are handled by the keyword loop below).
+    if (!/[A-Z0-9$]/.test(prevSignificant)) {
+      const goMatch = /^GO (TO|SUB)/.exec(upper.slice(i));
+      if (goMatch) {
+        const after = upper[i + goMatch[0].length];
+        if (after === undefined || !IDENT_CHAR.test(after)) {
+          const word = goMatch[1] === 'TO' ? 'GOTO' : 'GOSUB';
+          if (!firstWordChecked) firstWordChecked = true;
+          out.push(keywordByWord.get(word)!.token);
+          i += goMatch[0].length;
+          prevSignificant = ' ';
+          continue;
+        }
+      }
+    }
+
     // Keywords and operators (longest match, word-boundary checked for the
     // alphabetic ones so the TO in ATOL or a variable named after a keyword
     // is not mis-tokenized).
@@ -178,12 +196,19 @@ function tokenizeBody(
     }
 
     // Numeric literal: a run of digits not glued onto an identifier. The ZX80
-    // stores these as their plain digit characters (no marker), but we validate
-    // the integer range here so out-of-range constants surface as an error.
+    // stores these as their plain digit characters (no marker) and re-parses
+    // them at run time, so an out-of-range constant is stored verbatim (it only
+    // overflows when the line runs) - warn, but keep the line buildable so such
+    // programs still import and export.
     if (/[0-9]/.test(ch) && !/[A-Z0-9$]/.test(prevSignificant)) {
       const numText = /^\d+/.exec(upper.slice(i))![0];
       if (parseInt(numText, 10) > 32767) {
-        return fail(`Number ${numText} out of range (ZX80 max 32767)`, i);
+        errors.push({
+          line: editorLine,
+          column: colOffset + i,
+          message: `Number ${numText} exceeds the ZX80 maximum 32767 (overflows at run time)`,
+          fatal: false,
+        });
       }
       for (const c of numText) out.push(parseChar(c, 0).code);
       i += numText.length;

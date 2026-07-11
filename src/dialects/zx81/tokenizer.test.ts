@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
+import { encodeZxFloat } from './zxfloat';
 
 const normalize = (s: string) =>
   s
@@ -82,6 +83,20 @@ describe('tokenizeProgram', () => {
   it('handles "" as the quote-image inside strings', () => {
     const { bytes } = tokenizeProgram('10 PRINT "A""B"\n');
     expect(Array.from(bytes)).toContain(0xc0);
+  });
+
+  it('honours a \\{=N} float override (printed digits differ from the value)', () => {
+    const { bytes, errors } = tokenizeProgram('10 GOTO 20\\{=9999}\n');
+    expect(errors).toEqual([]);
+    const arr = Array.from(bytes);
+    const marker = arr.indexOf(0x7e);
+    expect(marker).toBeGreaterThan(-1);
+    // The 5 float bytes after the marker encode 9999, not the printed 20.
+    const float = arr.slice(marker + 1, marker + 6);
+    const nine = Array.from(encodeZxFloat(9999));
+    expect(float).toEqual(nine);
+    // The printed digits "20" are still stored before the marker.
+    expect(arr.slice(marker - 2, marker)).toEqual([0x1e, 0x1c]);
   });
 
   it('rejects lines that do not start with a statement keyword', () => {

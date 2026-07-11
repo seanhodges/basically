@@ -67,10 +67,17 @@ export function detokenizeProgram(program: Uint8Array): string {
       if (kw) {
         if (kw.word === 'REM') {
           emit('REM', true);
-          // Rest of the line (up to the NEWLINE) is literal text.
+          // Rest of the line (up to the NEWLINE) is literal text, stored
+          // verbatim - every byte round-trips as its charset form and trailing
+          // spaces are significant. The ZX80 has no line-length field, so the
+          // body cannot contain 0x76 (it would end the line on real hardware).
           let end = p + 1;
           while (end < program.length && program[end] !== NEWLINE) end++;
-          const rest = zx80Charset.toUnicode(program.slice(p + 1, end));
+          // Trailing spaces would be eaten by the tokenizer's per-line trim, so
+          // emit them as \{00} escapes to keep the REM body byte-exact.
+          const rest = escapeTrailingSpaces(
+            zx80Charset.toUnicode(program.slice(p + 1, end)),
+          );
           if (rest !== '') text += ' ' + rest;
           p = end;
           continue;
@@ -93,4 +100,27 @@ export function detokenizeProgram(program: Uint8Array): string {
   }
 
   return lines.join('\n') + (lines.length ? '\n' : '');
+}
+
+/**
+ * Emit a trailing run of spaces (charset code 0x00) as \{00} escapes so it
+ * survives the tokenizer's per-line trim. Spaces elsewhere are left readable.
+ */
+function escapeTrailingSpaces(text: string): string {
+  return text.replace(/ +$/, (run) => '\\{00}'.repeat(run.length));
+}
+
+/**
+ * Structural problems in a tokenized ZX80 program area (the ZX80 has no
+ * line-length field, so the only detectable one is a final line with no
+ * NEWLINE terminator). Reported through the Stage 1 import-fidelity channel.
+ */
+export function structuralWarnings(program: Uint8Array): string[] {
+  if (program.length > 0 && program[program.length - 1] !== NEWLINE) {
+    return [
+      'The program area is truncated: the last line has no NEWLINE ' +
+        'terminator.',
+    ];
+  }
+  return [];
 }

@@ -29,8 +29,8 @@
 | Stage | Title                                               | Status |
 | ----- | --------------------------------------------------- | ------ |
 | 1     | Import-fidelity contract + shared round-trip tests  | ✅     |
-| 2     | Sinclair (ZX81/ZX80): total charset                 | ⬜     |
-| 3     | ZX81/ZX80: numeric payloads & tokenizer leniency    | ⬜     |
+| 2     | Sinclair (ZX81/ZX80): total charset                 | ✅     |
+| 3     | ZX81/ZX80: numeric payloads & tokenizer leniency    | ✅     |
 | 4     | Spectrum 48/128: code-context bytes & containers    | ⬜     |
 | 5     | BBC: context-aware import, escapes, Master BASIC IV | ⬜     |
 | 6     | C64: petcat interop, containers, readability        | ⬜     |
@@ -84,58 +84,66 @@ stage its acceptance test.
 **Verify:** `npm run typecheck` + `npm test`; import a truncated file in the
 app and see a warning notice.
 
-## Stage 2 — Sinclair (ZX81/ZX80): total charset ⬜
+## Stage 2 — Sinclair (ZX81/ZX80): total charset ✅
 
 Make the shared Sinclair charset total (audit ZX81/ZX80 findings F1–F3, F5,
 F10). Highest-impact fix in the repo: currently 128/256 byte values per
 machine collapse to `?`.
 
-- [ ] Add a raw-byte escape to `sinclairCharset.ts` (e.g. `\{C4}`,
-      zxtext2p-compatible where practical): `codeToText` emits it for every
-      code with no printable/keyword form (replace the `'?'` fallback at
-      `sinclairCharset.ts:117`); `parseChar` accepts it everywhere.
-- [ ] Detokenizers stop routing string/REM bytes through lossy paths: keyword
-      tokens inside strings become raw escapes (or keyword text where it
-      re-tokenizes identically); the ZX81 REM body becomes byte-exact — emit
-      `\{76}` for embedded NEWLINE instead of `'\n'`
-      (`zx81/detokenizer.ts:79`), stop stripping trailing REM spaces
-      (`zx81/detokenizer.ts:98`).
-- [ ] Fix raw-quote-in-string detokenization (0x0B ZX81 / 0x01 ZX80 → escape,
-      not `"""`), and accept `'\n'` in `toMachine` as the newline code for
-      API symmetry (`sinclairCharset.ts:96-100`).
-- [ ] Wire both dialects' unrepresentable-byte counts into the Stage 1 report.
-- [ ] Round-trip fixtures: a `.P` with a machine-code REM line, tokens inside
-      a string, and control bytes; the equivalent `.O`. All must round-trip
-      byte-exactly.
+- [x] Add a raw-byte escape to `sinclairCharset.ts` (`\{NN}`,
+      zxtext2p-style): `codeToText` emits it for every code with no
+      printable/keyword form (replaced the `'?'` fallback); `parseChar`
+      accepts `\{NN}` everywhere.
+- [x] Detokenizers stop routing string/REM bytes through lossy paths: keyword
+      tokens and control codes inside strings become raw escapes (via the now
+      total `toUnicode`); the ZX81/ZX80 REM body is byte-exact — embedded
+      NEWLINE emits `\{76}`, and trailing REM spaces emit `\{00}` so the
+      tokenizer's per-line trim can't eat them.
+- [x] Accept `'\n'` in `toMachine` as the newline code for API symmetry; the
+      newline (0x76) renders as `\{76}` inside a body (the app splits lines on
+      it). The quote-image stays the readable `""`; malformed unterminated
+      strings surface through the import report rather than emitting `"""`.
+- [x] Wire both dialects' non-standard-byte counts and structural (truncation)
+      problems into the Stage 1 report via `detokenizeWithReport`
+      (`sinclairImportReport.ts`, `detokenizer.ts` `structuralWarnings`).
+- [x] Round-trip fixtures: a `.P` with a machine-code REM line (embedded 0x76,
+      trailing spaces), tokens inside a string, control bytes and a fake-float
+      protection number; the equivalent `.O`. All round-trip byte-exactly
+      (`zx81/foreignRoundTrip.test.ts`, `zx80/foreignRoundTrip.test.ts`).
 
 **Depends on:** Stage 1 (report + harness).
-**Verify:** `npm test` (charset + detokenizer + new round-trip fixtures);
-import a real-world machine-code-REM `.P` and re-export it unchanged.
+**Verify:** `npm test` (charset totality + detokenizer + new round-trip
+fixtures).
 
-## Stage 3 — ZX81/ZX80: numeric payloads & tokenizer leniency ⬜
+## Stage 3 — ZX81/ZX80: numeric payloads & tokenizer leniency ✅
 
 The remaining Sinclair items (findings F4, F6, F8, F9, F11, F12).
 
-- [ ] Preserve the ZX81 `0x7E` float payload: on detokenize, compare the
+- [x] Preserve the ZX81 `0x7E` float payload: on detokenize, compare the
       stored 5-byte float against re-encoding the printed digits; when they
-      differ (or digits are absent) emit an override notation (e.g.
-      `20\{=9999}`) that the tokenizer honours. Validate `encodeZxFloat`
-      against ROM-produced bytes for a corpus of literals (`zxfloat.ts:31`).
-- [ ] Accept `GO TO` / `GO SUB` spellings in the ZX80 tokenizer after
-      confirming the 4K ROM keyword strings (`zx80/keywords.ts:116-121`).
-- [ ] ZX81 tape names: scan beyond 10 bytes for the bit-7 terminator on
-      decode (`zx81/audio/cassetteDecoder.ts:36`); relax `encodeName`'s
-      `[A-Z0-9 ]` filter to the full charset (`cassetteEncoder.ts:27-35`).
-- [ ] ZX80 integer literals > 32767: store digits as typed with a warning
-      instead of erroring (`zx80/tokenizer.ts:183-188`).
-- [ ] Decide + document: out-of-order pasted lines — sort (hardware
-      behaviour) or keep the error; verify the ZX80 quote-image (0x81)
-      convention against the ROM and document it either way
-      (`zx80/charset.ts:91-92`).
+      differ (or digits are absent) emit an override notation (`20\{=9999}`,
+      or `\{=$HHHHHHHHHH}` raw bytes for a non-canonical float) that the
+      tokenizer honours (`zxfloat.ts`, `detokenizer.ts`, `tokenizer.ts`).
+      `encodeZxFloat` is pinned against a corpus of ROM byte vectors
+      (`zxfloat.test.ts`).
+- [x] Accept `GO TO` / `GO SUB` spellings in the ZX80 tokenizer (the 4K ROM
+      keyword table lists the spaced forms); both collapse to the GOTO/GOSUB
+      token (`zx80/tokenizer.ts`).
+- [x] ZX81 tape names: scan the whole leading run for the bit-7 terminator on
+      decode (no 10-byte cap); `encodeName` accepts the full charset (skipping
+      only characters with no ZX81 form) (`cassetteDecoder.ts`,
+      `cassetteEncoder.ts`).
+- [x] ZX80 integer literals > 32767: stored as typed with a non-fatal warning
+      instead of erroring, so such programs stay buildable
+      (`zx80/tokenizer.ts`).
+- [x] Decide + document: out-of-order pasted lines keep the error (not
+      silently sorted — a paste mistake is more likely than intent to
+      reorder); the ZX80 quote-image (0x81) is documented as an app convention
+      unverified against the ROM (`zx80/charset.ts`, `zx81/tokenizer.ts`).
 
 **Depends on:** Stage 2.
 **Verify:** `npm test`; a protection-style `.P` (digits ≠ float) imports and
-re-exports byte-identically.
+re-exports byte-identically (`zx81/foreignRoundTrip.test.ts`).
 
 ## Stage 4 — Spectrum 48/128: code-context bytes & containers ⬜
 

@@ -61,10 +61,13 @@ describe('zx80 tokenizer', () => {
     expect(detokenizeProgram(bytes)).toBe(src);
   });
 
-  it('rejects numbers outside the integer range', () => {
-    const { errors } = tokenizeProgram('10 PRINT 40000');
+  it('warns (non-fatally) on numbers outside the integer range but keeps them', () => {
+    const { bytes, errors } = tokenizeProgram('10 PRINT 40000');
     expect(errors).toHaveLength(1);
-    expect(errors[0]!.message).toMatch(/out of range/);
+    expect(errors[0]!.message).toMatch(/exceeds the ZX80 maximum/);
+    expect(errors[0]!.fatal).toBe(false);
+    // The digits are still stored, so the line stays buildable and round-trips.
+    expect(detokenizeProgram(bytes)).toBe('10 PRINT 40000\n');
   });
 
   it('flags lines that are not strictly ascending', () => {
