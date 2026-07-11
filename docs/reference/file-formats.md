@@ -34,6 +34,25 @@ escapes defined in their `charset.ts`.
 
 `#` and other characters outside the ZX81 set are tokenizer errors.
 
+### ZX Spectrum escapes
+
+The Spectrum is mostly ASCII (plus `↑ £ ©` and the `▘▝▀…█` block graphics),
+but two escape forms cover the bytes with no unicode equivalent. They are
+recognised **inside string literals and REM bodies only**:
+
+| Source                 | Meaning                                                 |
+| ---------------------- | ------------------------------------------------------- |
+| `\a` … `\u`            | UDG characters (codes 0x90–0xA4, zmakebas convention)   |
+| `\\`                   | a literal backslash                                     |
+| `{INK n}` … `{OVER n}` | embedded control byte 0x10–0x15 + one operand byte      |
+| `{AT r,c}` / `{TAB n}` | embedded AT/TAB control (0x16/0x17) + two operand bytes |
+| `{0xNN}`               | any raw byte (used for otherwise unrepresentable bytes) |
+
+A `{...}` that doesn't match a directive is literal text (the Spectrum has
+real `{`/`}` characters). On `.TAP` import, control sequences inside strings
+and REMs become these escapes; control sequences _outside_ strings only
+colour the listing on real hardware and are dropped.
+
 ## Native binary formats
 
 | Dialect            | Export | Import | What it is                                  |

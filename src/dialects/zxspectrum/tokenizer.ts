@@ -1,5 +1,11 @@
 import { CharsetError, type KeywordInfo, type TokenizeError } from '../types';
-import { spectrumCharset, ENTER, NUMBER_MARKER, QUOTE } from './charset';
+import {
+  spectrumCharset,
+  parseChar,
+  ENTER,
+  NUMBER_MARKER,
+  QUOTE,
+} from './charset';
 import { spectrumKeywords, keywordAliases } from './keywords';
 import { encodeSpectrumNumber } from './numbers';
 
@@ -160,11 +166,36 @@ function tokenizeBody(
     }
   };
 
+  // Escape-aware emission for string literals: `\a`-`\u` UDGs and `{...}`
+  // control directives. Returns source chars consumed, or -1 on error.
+  const emitParsed = (at: number): number => {
+    try {
+      const { codes, length } = parseChar(body, at);
+      out.push(...codes);
+      return length;
+    } catch (e) {
+      if (e instanceof CharsetError) {
+        fail(e.message, e.index);
+        return -1;
+      }
+      throw e;
+    }
+  };
+
   while (i < body.length) {
     const ch = body[i]!;
 
     if (ch === ' ' || ch === '\t') {
       prevSignificant = ' ';
+      i++;
+      continue;
+    }
+
+    // A leading ':' is an empty statement (real tape programs contain them);
+    // the command-keyword check applies to the next word instead.
+    if (ch === ':' && !firstWordChecked) {
+      out.push(0x3a);
+      prevSignificant = ':';
       i++;
       continue;
     }
@@ -186,8 +217,9 @@ function tokenizeBody(
           closed = true;
           break;
         }
-        if (!emitChar(body[i]!, i)) return null;
-        i++;
+        const consumed = emitParsed(i);
+        if (consumed < 0) return null;
+        i += consumed;
       }
       if (!closed) return fail('Unterminated string', body.length - 1);
       prevSignificant = '"';
@@ -266,13 +298,13 @@ function tokenizeBody(
     i++;
   }
 
-  if (!firstWordChecked) {
+  if (!firstWordChecked && out.length > 0) {
     return fail('Line has a number but no statement', 0);
   }
   return out;
 }
 
-/** Emit the rest of the line verbatim (REM body). */
+/** Emit the rest of the line verbatim (REM body), honouring escapes. */
 function emitRest(
   out: number[],
   body: string,
@@ -283,15 +315,16 @@ function emitRest(
   if (body[j] === ' ') j++;
   while (j < body.length) {
     try {
-      out.push(...spectrumCharset.toMachine(body[j]!));
+      const { codes, length } = parseChar(body, j);
+      out.push(...codes);
+      j += length;
     } catch (e) {
       if (e instanceof CharsetError) {
-        fail(e.message, j);
+        fail(e.message, e.index);
         return false;
       }
       throw e;
     }
-    j++;
   }
   return true;
 }

@@ -18,6 +18,7 @@ THE DIALECT - RULES
 - Functions: RND, INT, ABS, SGN, SQR, SIN, COS, TAN, ASN, ACS, ATN, LN, EXP, PI, INKEY$, CODE, CHR$, STR$, VAL, VAL$, LEN, PEEK, IN, USR, POINT, SCREEN$, ATTR, BIN.
 - Keyboard input in games: INKEY$ (non-blocking), e.g. IF INKEY$="o" THEN LET x=x-1. INPUT halts the program.
 - Colour/printing commands: INK, PAPER, BORDER, BRIGHT, FLASH, INVERSE, OVER, AT, TAB. CLS clears the screen.
+- Inside string literals and REM bodies, UDG characters (CHR$ 144-164) are written as \\a-\\u escapes and embedded control codes as brace directives: {INK n}, {PAPER n}, {FLASH n}, {BRIGHT n}, {INVERSE n}, {OVER n}, {AT r,c}, {TAB n}; {0xNN} is a raw byte. A {...} that isn't a directive is literal text.
 - Graphics: PLOT x,y; DRAW dx,dy; CIRCLE x,y,r.
 
 128-SPECIFIC COMMANDS

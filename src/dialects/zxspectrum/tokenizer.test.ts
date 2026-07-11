@@ -58,6 +58,42 @@ describe('zxspectrum tokenizer', () => {
     expect(Array.from(round.bytes)).toEqual(Array.from(first.bytes));
   });
 
+  it('tokenizes UDG escapes and control directives inside strings', () => {
+    // 10 PRINT "{INK 2}\a" -> F5 22 10 02 90 22
+    expect(bytes('10 PRINT "{INK 2}\\a"\n').slice(4)).toEqual([
+      0xf5, 0x22, 0x10, 0x02, 0x90, 0x22, 0x0d,
+    ]);
+  });
+
+  it('tokenizes escapes in REM bodies', () => {
+    // 10 REM {AT 1,2}x -> EA 16 01 02 78
+    expect(bytes('10 REM {AT 1,2}x\n').slice(4)).toEqual([
+      0xea, 0x16, 0x01, 0x02, 0x78, 0x0d,
+    ]);
+  });
+
+  it('keeps non-directive braces literal in strings', () => {
+    expect(bytes('10 PRINT "{no match}"\n').slice(4)).toEqual([
+      0xf5,
+      0x22,
+      ...Array.from('{no match}', (c) => c.charCodeAt(0)),
+      0x22,
+      0x0d,
+    ]);
+  });
+
+  it('reports a charset error for unknown escapes in strings', () => {
+    const { errors } = tokenizeProgram('10 PRINT "\\z"\n');
+    expect(errors.length).toBe(1);
+    expect(errors[0]!.message).toContain('escape');
+  });
+
+  it('does not treat braces as directives outside strings', () => {
+    // `{` is a plain character; here it's just an invalid statement start.
+    const { errors } = tokenizeProgram('10 {INK 2} PRINT 1\n');
+    expect(errors.length).toBe(1);
+  });
+
   it('flags non-ascending and out-of-range line numbers', () => {
     expect(tokenizeProgram('20 PRINT 1\n10 PRINT 2\n').errors.length).toBe(1);
     expect(tokenizeProgram('99999 PRINT 1\n').errors.length).toBe(1);
