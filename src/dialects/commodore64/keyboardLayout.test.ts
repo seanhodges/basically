@@ -7,8 +7,8 @@ const functionKeys = layout.functionKeys ?? [];
 const allKeys = [...layout.rows.flat(), ...functionKeys];
 
 describe('commodore64 keyboard layout', () => {
-  it('widens the template to 13 keys for the C64 graphics-key column', () => {
-    expect(layout.gridColumns).toBe(52);
+  it('uses the standard 40-column template', () => {
+    expect(layout.gridColumns).toBe(40);
     expect(layout.rows).toHaveLength(5);
   });
 
@@ -19,8 +19,14 @@ describe('commodore64 keyboard layout', () => {
     });
   });
 
-  it('offers ABC and GRAPHICS modes, the latter with a shifted layer', () => {
-    expect(layout.editorModes?.map((m) => m.id)).toEqual(['abc', 'graphics']);
+  it('offers ABC, SYM and GRAPHICS modes, the last with a shifted layer', () => {
+    expect(layout.editorModes?.map((m) => m.id)).toEqual([
+      'abc',
+      'sym',
+      'graphics',
+    ]);
+    const sym = layout.editorModes?.find((m) => m.id === 'sym');
+    expect(sym?.layer).toBe('sym');
     const graphics = layout.editorModes?.find((m) => m.id === 'graphics');
     expect(graphics?.layer).toBe('gfxCommodore');
     expect(graphics?.shiftedLayer).toBe('gfxShift');
@@ -59,42 +65,42 @@ describe('commodore64 keyboard layout', () => {
     });
   });
 
-  it('adds the C64 graphics keys (+ - @ £ * ↑) with their block graphics', () => {
+  it('hosts the six graphics symbols (+ - £ @ * ↑) on the number row', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    for (const id of ['Plus', 'Minus', 'At', 'Pound', 'Asterisk', 'UpArrow']) {
-      expect(byId.has(id), id).toBe(true);
-    }
-    // Base layer types the symbol itself.
-    expect(resolveEditorAction(layout, byId.get('Plus')!, 'base')).toEqual({
+    // SYM mode types the symbol char (Num1-Num6 = + - £ @ * ↑).
+    expect(resolveEditorAction(layout, byId.get('Num1')!, 'sym')).toEqual({
       insert: '+',
     });
-    expect(resolveEditorAction(layout, byId.get('UpArrow')!, 'base')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('Num3')!, 'sym')).toEqual({
+      insert: '£',
+    });
+    expect(resolveEditorAction(layout, byId.get('Num6')!, 'sym')).toEqual({
       insert: '↑',
     });
     // GRAPHICS mode types the C= graphic; GRAPHICS ⇧ the SHIFT graphic.
     expect(
-      resolveEditorAction(layout, byId.get('Plus')!, 'gfxCommodore'),
+      resolveEditorAction(layout, byId.get('Num1')!, 'gfxCommodore'),
     ).toEqual({ insert: '▒' });
-    expect(resolveEditorAction(layout, byId.get('Plus')!, 'gfxShift')).toEqual({
+    expect(resolveEditorAction(layout, byId.get('Num1')!, 'gfxShift')).toEqual({
       insert: '┼',
     });
+    expect(resolveEditorAction(layout, byId.get('Num5')!, 'gfxShift')).toEqual({
+      insert: '─',
+    });
+    // ↑ has no C= graphic, only SHIFT π; C= falls back to the base digit.
+    expect(resolveEditorAction(layout, byId.get('Num6')!, 'gfxShift')).toEqual({
+      insert: 'π',
+    });
     expect(
-      resolveEditorAction(layout, byId.get('Asterisk')!, 'gfxShift'),
-    ).toEqual({ insert: '─' });
-    // ↑ has no C= graphic, only SHIFT π.
-    expect(
-      resolveEditorAction(layout, byId.get('UpArrow')!, 'gfxShift'),
-    ).toEqual({ insert: 'π' });
-    expect(
-      resolveEditorAction(layout, byId.get('UpArrow')!, 'gfxCommodore'),
-    ).toEqual({ insert: '↑' }); // falls back to base (no C= graphic)
+      resolveEditorAction(layout, byId.get('Num6')!, 'gfxCommodore'),
+    ).toEqual({ insert: '6' });
   });
 
-  it('emits the matching VIC-II matrix button for each graphics key', () => {
+  it('keeps the number keys emitting their own digit matrix token', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(byId.get('Plus')!.emits).toEqual(['Plus']);
-    expect(byId.get('Asterisk')!.emits).toEqual(['Asterisk']);
-    expect(byId.get('UpArrow')!.emits).toEqual(['UpArrow']);
+    // The SYM symbols are editor-only; the live matrix still sees the digit.
+    expect(byId.get('Num1')!.emits).toEqual(['Num1']);
+    expect(byId.get('Num6')!.emits).toEqual(['Num6']);
   });
 
   it('labels are index-aligned with the layers', () => {
