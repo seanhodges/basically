@@ -207,6 +207,9 @@ export function decodeSpan(
   if (b >= UDG_FIRST && b <= UDG_LAST) {
     return { text: '\\' + String.fromCharCode(97 + b - UDG_FIRST), length: 1 };
   }
+  // The blank graphic renders as a space but is a distinct byte; escape it so
+  // the decode is byte-exact (a plain space would re-tokenize as 0x20).
+  if (b === 0x80) return { text: rawByte(b), length: 1 };
   if (b === BACKSLASH) return { text: '\\\\', length: 1 };
   if (b === OPEN_BRACE) {
     // If the literal bytes ahead happen to read as a directive, escape this

@@ -54,6 +54,9 @@ export function detokenizeProgram(
     let text = `${lineNo} `;
     let pendingBoundary = false;
     let inString = false;
+    // In-string decode cap: the current segment's closing quote (or bodyEnd),
+    // so a control byte's operands can never swallow the string terminator.
+    let segEnd = bodyEnd;
 
     const emit = (s: string, wordlike: boolean) => {
       if (s === '') return;
@@ -70,7 +73,9 @@ export function detokenizeProgram(
     let i = p;
     while (i < end) {
       const b = program[i]!;
-      if (b === ENTER) break;
+      // ENTER ends the line — except inside a string, where an interior 0x0D
+      // is data (poked listings) and round-trips as {0x0D}.
+      if (b === ENTER && (!inString || i >= bodyEnd)) break;
 
       if (inString) {
         if (b === QUOTE) {
@@ -78,7 +83,7 @@ export function detokenizeProgram(
           inString = false;
           i++;
         } else {
-          const span = decodeSpan(program, i, bodyEnd);
+          const span = decodeSpan(program, i, segEnd);
           text += span.text;
           i += span.length;
         }
@@ -89,6 +94,13 @@ export function detokenizeProgram(
         emit('"', true);
         inString = true;
         i++;
+        segEnd = bodyEnd;
+        for (let j = i; j < bodyEnd; j++) {
+          if (program[j] === QUOTE) {
+            segEnd = j;
+            break;
+          }
+        }
         continue;
       }
       if (b === NUMBER_MARKER) {

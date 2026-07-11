@@ -78,6 +78,11 @@ describe('zxspectrum charset', () => {
     expect(spectrumCharset.toUnicode([0x08])).toBe('{0x08}');
   });
 
+  it('escapes the blank graphic 0x80 so it stays distinct from a space', () => {
+    expect(spectrumCharset.toUnicode([0x80])).toBe('{0x80}');
+    expect(Array.from(spectrumCharset.toMachine('{0x80}'))).toEqual([0x80]);
+  });
+
   it('treats non-directive braces as literal text', () => {
     expect(Array.from(spectrumCharset.toMachine('{hello}'))).toEqual([
       0x7b, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x7d,
@@ -102,7 +107,6 @@ describe('zxspectrum charset', () => {
     const codes: number[] = [];
     for (let c = 0; c <= 0xa4; c++) {
       if (c === 0x0d) continue; // ENTER renders as newline, not round-tripped
-      if (c === 0x80) continue; // blank graphic renders as a plain space
       codes.push(c);
     }
     const text = spectrumCharset.toUnicode(codes);

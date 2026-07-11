@@ -76,6 +76,46 @@ describe('zxspectrum detokenizer escapes', () => {
     expect(detokenizeProgram(prog)).toBe('10 PRINT "X{0x10}\n');
   });
 
+  it('never swallows the closing quote as a control operand', () => {
+    // "X<0x10>" — the quote terminates the string on real hardware, so the
+    // lone control byte is a raw escape and the quotes stay balanced.
+    const one = Uint8Array.from(line(10, [PRINT, Q, 0x58, 0x10, Q]));
+    expect(detokenizeProgram(one)).toBe('10 PRINT "X{0x10}"\n');
+    // Same for a two-operand control with only one operand before the quote.
+    const two = Uint8Array.from(line(10, [PRINT, Q, 0x16, 0x05, Q]));
+    expect(detokenizeProgram(two)).toBe('10 PRINT "{0x16}{0x05}"\n');
+    for (const prog of [one, two]) {
+      const round = tokenizeProgram(detokenizeProgram(prog));
+      expect(round.errors).toEqual([]);
+      expect(Array.from(round.bytes)).toEqual(Array.from(prog));
+    }
+  });
+
+  it('recomputes the quote cap across doubled quotes', () => {
+    // "<0x10>""<0x02>" — a doubled quote splits segments; the 0x02 in the
+    // second segment is plain data, and the leading control is still capped.
+    const prog = Uint8Array.from(line(10, [PRINT, Q, 0x10, Q, Q, 0x02, Q]));
+    expect(detokenizeProgram(prog)).toBe('10 PRINT "{0x10}""{0x02}"\n');
+    const round = tokenizeProgram(detokenizeProgram(prog));
+    expect(round.errors).toEqual([]);
+    expect(Array.from(round.bytes)).toEqual(Array.from(prog));
+  });
+
+  it('preserves an interior ENTER inside a string as {0x0D}', () => {
+    const prog = Uint8Array.from(line(10, [PRINT, Q, 0x41, 0x0d, 0x42, Q]));
+    expect(detokenizeProgram(prog)).toBe('10 PRINT "A{0x0D}B"\n');
+    const round = tokenizeProgram(detokenizeProgram(prog));
+    expect(round.errors).toEqual([]);
+    expect(Array.from(round.bytes)).toEqual(Array.from(prog));
+  });
+
+  it('keeps the blank graphic 0x80 byte-exact in strings', () => {
+    const prog = Uint8Array.from(line(10, [PRINT, Q, 0x80, 0x20, Q]));
+    expect(detokenizeProgram(prog)).toBe('10 PRINT "{0x80} "\n');
+    const round = tokenizeProgram(detokenizeProgram(prog));
+    expect(Array.from(round.bytes)).toEqual(Array.from(prog));
+  });
+
   it('round-trips escape-bearing bytes through tokenize(detokenize())', () => {
     const prog = Uint8Array.from([
       ...line(10, [PRINT, Q, 0x10, 0x02, 0x90, 0xa4, 0x16, 0x01, 0x02, Q]),
