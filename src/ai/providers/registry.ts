@@ -31,7 +31,7 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     id: 'gemini',
     label: 'Google (Gemini)',
-    defaultModel: 'gemini-2.5-pro',
+    defaultModel: 'gemini-3.1-pro-preview',
     apiKeyStorageKey: 'mbide.geminiApiKey',
     keyPlaceholder: 'AIza…',
     consoleUrl: 'https://aistudio.google.com/apikey',
