@@ -29,11 +29,15 @@ export function decodeCassette(
   return { name, data: split.data };
 }
 
-/** First byte with bit 7 set ends the name (name codes are all < 0x80 otherwise). */
+/**
+ * First byte with bit 7 set ends the name (name codes are all < 0x80
+ * otherwise). ZX81 names have no fixed length - the ROM terminates on the
+ * bit-7 marker - so scan the whole leading run rather than capping at 10.
+ */
 function splitName(
   bytes: Uint8Array,
 ): { nameCodes: Uint8Array; data: Uint8Array } | null {
-  const max = Math.min(bytes.length, 10);
+  const max = bytes.length;
   for (let i = 0; i < max; i++) {
     if (bytes[i]! & 0x80) {
       const nameCodes = bytes.slice(0, i + 1);

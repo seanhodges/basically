@@ -1,6 +1,7 @@
 import {
   hasFatalErrors,
   type Dialect,
+  type DetokenizeResult,
   type TokenizeError,
   type TokenizeResult,
 } from '../types';
@@ -8,7 +9,8 @@ import { zx80Charset } from './charset';
 import { zx80Keywords, zx80EditorKeywords } from './keywords';
 import { zx80VariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, structuralWarnings } from './detokenizer';
+import { rawEscapeWarning } from '../sinclairImportReport';
 import { buildOFile, parseOFile } from './ofile';
 import { decodeCassette } from './audio/cassetteDecoder';
 import { zx80LanguageSupport, zx80CompletionSource } from './language';
@@ -43,6 +45,15 @@ export const zx80: Dialect = {
 
   detokenize(image: Uint8Array): string {
     return detokenizeProgram(parseOFile(image).program);
+  },
+
+  detokenizeWithReport(image: Uint8Array): DetokenizeResult {
+    const program = parseOFile(image).program;
+    const source = detokenizeProgram(program);
+    return {
+      source,
+      warnings: [...structuralWarnings(program), ...rawEscapeWarning(source)],
+    };
   },
 
   lint(source: string): TokenizeError[] {

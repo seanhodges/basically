@@ -305,6 +305,10 @@ export const keywordByToken = new Map<number, KeywordInfo>(
   zx80Keywords.map((k) => [k.token, k]),
 );
 
+export const keywordByWord = new Map<string, KeywordInfo>(
+  zx80Keywords.map((k) => [k.word, k]),
+);
+
 /** Statement keywords that may legally start a ZX80 BASIC line. */
 export const statementKeywords = new Set(
   zx80Keywords.filter((k) => k.kind === 'command').map((k) => k.word),

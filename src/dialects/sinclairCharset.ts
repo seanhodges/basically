@@ -61,6 +61,10 @@ export function createSinclairCharset(
     if (!escapeForCode.has(code)) escapeForCode.set(code, '\\' + esc);
   }
 
+  /** Raw-byte escape for a code with no printable/graphic/keyword form. */
+  const rawEscape = (code: number): string =>
+    '\\{' + code.toString(16).toUpperCase().padStart(2, '0') + '}';
+
   /**
    * Parse one editor character (possibly an escape/% sequence) starting at
    * index i. Returns the machine code and the number of source chars consumed.
@@ -71,11 +75,30 @@ export function createSinclairCharset(
   ): { code: number; length: number } {
     const ch = text[i]!;
     if (ch === '\\') {
+      // Raw-byte escape \{NN}: any code 0x00-0xFF as two hex digits. This is
+      // what makes the charset total - every byte has a re-encodable form.
+      if (text[i + 1] === '{') {
+        const close = text.indexOf('}', i + 2);
+        const hex = close === -1 ? '' : text.slice(i + 2, close);
+        const value = /^[0-9A-Fa-f]{1,2}$/.test(hex) ? parseInt(hex, 16) : NaN;
+        if (Number.isNaN(value)) {
+          throw new CharsetError(
+            `Invalid raw-byte escape "\\{${hex}}" (expected \\{NN} hex)`,
+            i,
+          );
+        }
+        return { code: value, length: close - i + 1 };
+      }
       const esc = text.slice(i + 1, i + 3);
       if (esc.length === 2 && esc in escapes) {
         return { code: escapes[esc]!, length: 3 };
       }
       throw new CharsetError(`Unknown graphics escape "\\${esc}"`, i);
+    }
+    // A literal newline is the end-of-line code (symmetric with codeToText,
+    // which renders 0x76 as \{76} inside a body but the app splits lines on it).
+    if (ch === '\n') {
+      return { code: newline, length: 1 };
     }
     if (ch === '%') {
       const next = text[i + 1];
@@ -103,7 +126,6 @@ export function createSinclairCharset(
   }
 
   function codeToText(code: number): string {
-    if (code === newline) return '\n';
     const direct = codeToChar.get(code);
     if (direct !== undefined) return direct;
     const uni = graphicUnicode[code];
@@ -114,7 +136,9 @@ export function createSinclairCharset(
       const base = codeToChar.get(code & 0x7f);
       if (base !== undefined) return '%' + base;
     }
-    return '?';
+    // Every remaining code (controls, cursor codes, unused slots, keyword
+    // tokens seen as data, and the newline itself) round-trips as a raw escape.
+    return rawEscape(code);
   }
 
   const charset: CharsetMapping = {
