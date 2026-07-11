@@ -1,5 +1,9 @@
+import type { DetokenizeResult } from '../types';
 import { c64Charset } from './charset';
 import { c64WordByToken } from './keywords';
+
+/** Programs load at $0801 on the C64; a .prg's leading word is this address. */
+const LOAD_ADDRESS = 0x0801;
 
 /**
  * Convert a tokenized Commodore 64 program back into editable text. Accepts
@@ -9,7 +13,10 @@ import { c64WordByToken } from './keywords';
  * PETSCII charset. A space is inserted after each line number, matching LIST.
  *
  * Keyword expansion is suspended wherever the tokenizer stores bytes verbatim,
- * so that detokenize is the exact inverse of tokenize (byte-exact round-trip):
+ * so that detokenize round-trips to the same bytes for every construct a real
+ * BASIC program stores. (It is *not* a total inverse of LIST: the ROM's LIST
+ * decodes token bytes inside strings/REM/DATA too, which does not re-tokenize;
+ * we keep those verbatim instead so the import stays byte-exact.)
  *
  *  - **Inside quoted strings** — string literals store raw PETSCII, so a byte in
  *    the $80–$FF keyword range there is a graphics character (e.g. the C=/SHIFT
@@ -17,24 +24,90 @@ import { c64WordByToken } from './keywords';
  *    graphics byte such as $A6 would list as `SPC(` and $A3 as `TAB(`.
  *  - **After REM** (to end of line) and **inside DATA** (to an unquoted `:`) —
  *    the tokenizer copies these verbatim, so any high byte there is a literal
- *    character too. Expanding it to a keyword would not re-tokenize to the same
- *    byte, unlike the ROM's LIST which is itself not round-trippable here.
+ *    character too.
  *
  * Every non-keyword byte maps through {@link c64Charset} to a glyph or a
  * `{...}` escape, so nothing is lost to `?`.
  */
 export function detokenizeProgram(image: Uint8Array): string {
-  // Drop the load address if this looks like a .prg ($01 $08).
+  // Drop the load address if this looks like a .prg ($01 $08). Bare program
+  // bytes (e.g. from a cassette decode) are passed through unchanged.
+  const program =
+    image.length >= 2 && image[0] === 0x01 && image[1] === 0x08
+      ? image.subarray(2)
+      : image;
+  return decodeLinkedProgram(program).source;
+}
+
+/**
+ * Like {@link detokenizeProgram}, but for the binary-import paths: it assumes a
+ * 2-byte load address (the .prg contract) and reports what the text form cannot
+ * capture — a non-$0801 load address, machine code appended after the BASIC
+ * program, or a truncated image. See
+ * `docs/contributing/charset-tokenizer-plan.md` (Stage 6).
+ */
+export function detokenizeProgramWithReport(
+  image: Uint8Array,
+): DetokenizeResult {
+  const warnings: string[] = [];
   let program = image;
-  if (image.length >= 2 && image[0] === 0x01 && image[1] === 0x08) {
+  if (image.length >= 2) {
+    const loadAddr = image[0]! | (image[1]! << 8);
+    if (loadAddr !== LOAD_ADDRESS) {
+      warnings.push(
+        `Load address is $${hex4(loadAddr)}, not $0801 — this may be a ` +
+          `VIC-20/PET/C128 or machine-code file rather than a C64 BASIC program.`,
+      );
+    }
     program = image.subarray(2);
   }
 
+  const decoded = decodeLinkedProgram(program);
+  if (decoded.truncated) {
+    warnings.push(
+      'The program looks truncated — the data ends before the end-of-program marker.',
+    );
+  }
+  const trailing = program.length - decoded.end;
+  if (!decoded.truncated && trailing > 0) {
+    warnings.push(
+      `${trailing} byte${trailing === 1 ? '' : 's'} after the end-of-program ` +
+        `marker were not decoded (likely appended machine code); they are not ` +
+        `preserved on re-export.`,
+    );
+  }
+  return { source: decoded.source, warnings };
+}
+
+interface DecodeResult {
+  source: string;
+  /** Offset in `program` just past the 0x0000 end-of-program link. */
+  end: number;
+  /** True when the data ran out before an end-of-program marker was reached. */
+  truncated: boolean;
+}
+
+/** Decode a linked BASIC program (bytes from $0801, no load address). */
+function decodeLinkedProgram(program: Uint8Array): DecodeResult {
   const lines: string[] = [];
   let p = 0;
-  while (p + 4 <= program.length) {
+  let end = program.length;
+  let truncated = false;
+  let sawEnd = false;
+
+  while (p + 2 <= program.length) {
     const link = program[p]! | (program[p + 1]! << 8);
-    if (link === 0) break; // null link: end of program
+    if (link === 0) {
+      end = p + 2; // the null link is two bytes; anything past it is trailing
+      sawEnd = true;
+      break;
+    }
+    if (p + 4 > program.length) {
+      // A non-null link with no room for a line number + terminator: truncated.
+      truncated = true;
+      end = program.length;
+      break;
+    }
     const lineNo = program[p + 2]! | (program[p + 3]! << 8);
     let i = p + 4;
     let body = '';
@@ -67,8 +140,26 @@ export function detokenizeProgram(image: Uint8Array): string {
       i++;
     }
     lines.push(`${lineNo} ${body}`);
+    if (i >= program.length) {
+      // Ran off the end without the line's 0x00 terminator: image is truncated.
+      truncated = true;
+      end = program.length;
+      break;
+    }
     p = i + 1; // step past the line terminator
   }
 
-  return lines.join('\n') + (lines.length ? '\n' : '');
+  // Leftover bytes that are neither an end marker nor a decodable line mean the
+  // image stops short of its end marker.
+  if (!sawEnd && !truncated && p < program.length) truncated = true;
+
+  return {
+    source: lines.join('\n') + (lines.length ? '\n' : ''),
+    end,
+    truncated,
+  };
+}
+
+function hex4(n: number): string {
+  return (n & 0xffff).toString(16).padStart(4, '0');
 }

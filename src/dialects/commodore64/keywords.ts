@@ -122,11 +122,13 @@ export const c64Keywords: C64Keyword[] = TABLE.map(
 
 /**
  * Tokenizing-only synonyms. `?` enters as PRINT, exactly as the ROM cruncher
- * expands it; LIST always spells the full keyword, so it stays out of
- * {@link c64WordByToken}.
+ * expands it, and `^` is the ASCII stand-in for the `↑` power operator (the key
+ * that produces $AE); LIST always spells the canonical form (`PRINT`, `↑`), so
+ * both stay out of {@link c64WordByToken}.
  */
 const c64KeywordAliases: C64Keyword[] = [
   { word: '?', token: 0x99, kind: 'command', alias: true },
+  { word: '^', token: 0xae, kind: 'operator', alias: true },
 ];
 
 /**

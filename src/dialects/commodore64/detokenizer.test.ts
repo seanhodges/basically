@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
+import { commodore64 } from './index';
+import { importRoundTrip, isAcceptableImport } from '../roundTripHarness';
 
 /** Assemble a bare $0801 program image from raw line records for detokenizing. */
 function buildImage(
@@ -40,9 +42,9 @@ describe('Commodore 64 detokenizer', () => {
     expect(text).not.toContain('OR');
     expect(text).not.toContain('COS');
     expect(text).not.toContain('ASC');
-    // $A3/$B0/$BE render as their canonical glyphs; $C6 is a duplicate of the
-    // canonical '─' ($C0), so byte-exactness keeps it as a {$xx} escape.
-    expect(text).toBe('20 DATA"▔┌▘{$c6}"\n');
+    // $A3/$B0/$BE render as their canonical glyphs; $C6 is a ROM-distinct
+    // horizontal-eighth block with its own Symbols-for-Legacy-Computing glyph.
+    expect(text).toBe('20 DATA"▔┌▘🭹"\n');
   });
 
   it('round-trips block graphics held in DATA strings', () => {
@@ -81,6 +83,93 @@ describe('Commodore 64 detokenizer', () => {
     const data = buildImage([{ lineNo: 60, body: [0x83, 0xa6, 0x3a, 0x99] }]);
     // The unquoted ':' ends DATA, so the following $99 expands to PRINT again.
     expect(detokenizeProgram(data)).toBe('60 DATA▒:PRINT\n');
+  });
+});
+
+describe('Commodore 64 import report (detokenizeWithReport)', () => {
+  it('decodes a clean .prg with no warnings', () => {
+    const { program } = tokenizeProgram('10 PRINT "HI"\n');
+    const prg = Uint8Array.from([0x01, 0x08, ...program]);
+    const { source, warnings } = detokenizeProgramWithReport(prg);
+    expect(source).toBe('10 PRINT "HI"\n');
+    expect(warnings).toEqual([]);
+  });
+
+  it('warns about machine code appended after a hybrid SYS .prg', () => {
+    // The classic loader: a one-line BASIC stub that SYSes into machine code
+    // stored right after the program's end-of-program marker.
+    const { program } = tokenizeProgram('10 SYS 2064\n');
+    const ml = [0xa9, 0x00, 0x8d, 0x20, 0xd0, 0x60]; // LDA #0 STA $D020 RTS
+    const prg = Uint8Array.from([0x01, 0x08, ...program, ...ml]);
+
+    const { source, warnings } = detokenizeProgramWithReport(prg);
+    expect(source).toBe('10 SYS 2064\n');
+    expect(warnings.some((w) => /6 bytes.*machine code/i.test(w))).toBe(true);
+
+    // The BASIC portion still re-tokenizes byte-exactly (the ML is not part of
+    // the text, so the loss is reported rather than silent).
+    const { program: reprog, errors } = tokenizeProgram(source);
+    expect(errors).toEqual([]);
+    expect(Array.from(reprog)).toEqual(Array.from(program));
+  });
+
+  it('warns when the load address is not $0801', () => {
+    const { program } = tokenizeProgram('10 PRINT "HI"\n');
+    const prg = Uint8Array.from([0x01, 0x10, ...program]); // $1001 = VIC-20
+    const { warnings } = detokenizeProgramWithReport(prg);
+    expect(warnings.some((w) => /load address is \$1001/i.test(w))).toBe(true);
+  });
+
+  it('warns when the image is truncated mid-program', () => {
+    const { program } = tokenizeProgram('10 PRINT "A LONGISH LINE"\n');
+    // Drop the trailing null link and a few bytes of the last line.
+    const prg = Uint8Array.from([0x01, 0x08, ...program.slice(0, -6)]);
+    const { warnings } = detokenizeProgramWithReport(prg);
+    expect(warnings.some((w) => /truncated/i.test(w))).toBe(true);
+  });
+});
+
+describe('C64 foreign-image round-trip fixtures (Stage 6)', () => {
+  it('a petcat-style listing pasted as source tokenizes and re-lists', () => {
+    // Colour/cursor control codes written in petcat aliases, plus a graphics
+    // string — the kind of thing pasted from an archive listing.
+    const source = '10 PRINT "{wht}{clr}HI{down}"\n20 DATA "▌▄▔"\n';
+    const first = commodore64.tokenize(source);
+    expect(first.errors).toEqual([]);
+    expect(first.image.length).toBeGreaterThan(0);
+
+    // Re-listing canonicalises the aliases ({wht} -> {white}) but preserves the
+    // bytes, so a second tokenize is byte-exact.
+    const outcome = importRoundTrip(commodore64, first.image);
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.byteExact).toBe(true);
+    expect(outcome.source).toContain('{white}');
+  });
+
+  it('a hybrid SYS + machine-code .prg imports with a warning, BASIC exact', () => {
+    const { program } = tokenizeProgram('10 SYS 2064\n');
+    const ml = [0xa9, 0x00, 0x60];
+    const prg = Uint8Array.from([0x01, 0x08, ...program, ...ml]);
+
+    const outcome = importRoundTrip(commodore64, prg);
+    // Not byte-exact (the ML payload is dropped) but the loss is reported, so
+    // the Stage 1 acceptance rule holds.
+    expect(outcome.byteExact).toBe(false);
+    expect(outcome.warnings.length).toBeGreaterThan(0);
+    expect(isAcceptableImport(outcome)).toBe(true);
+  });
+
+  it('a shifted-bank text .prg round-trips its high-bank bytes exactly', () => {
+    // A string of shifted-bank codes ($C1–$DA) — how a lower/upper-case-mode
+    // program stores capitals. Most now carry a Legacy-Computing glyph; the few
+    // whose ROM bitmap genuinely duplicates a primary (e.g. $C3) survive as a
+    // {$xx} escape. Either way the bytes round-trip exactly with no errors.
+    const body = [0x99, 0x22, 0xc1, 0xc3, 0xc8, 0xd4, 0xda, 0x22];
+    const image = buildImage([{ lineNo: 10, body }]);
+    const outcome = importRoundTrip(commodore64, image);
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.byteExact).toBe(true);
+    expect(outcome.source).toContain('{$c3}'); // the genuine-duplicate capital
   });
 });
 
