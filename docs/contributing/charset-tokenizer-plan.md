@@ -235,10 +235,10 @@ the `.prg` path honest (findings 1–12 of the C64 audit).
       the lower/upper set); a charset-only change can't disambiguate. The glyph
       adoption above already removes most of the shifted-bank `{$xx}` soup.
 - [~] Tokenize-only keyword abbreviations (`pO`, `gO`, `nE`, …) alongside `?`;
-      accept `^` as a spelling of the `↑` power operator. `^` shipped
-      (`keywords.ts`). The full abbreviation table is **deferred** — it needs a
-      case-sensitive matcher and a fully ROM-verified table (a wrong entry would
-      silently mis-tokenize, the very failure this plan guards against).
+  accept `^` as a spelling of the `↑` power operator. `^` shipped
+  (`keywords.ts`). The full abbreviation table is **deferred** — it needs a
+  case-sensitive matcher and a fully ROM-verified table (a wrong entry would
+  silently mis-tokenize, the very failure this plan guards against).
 - [x] Downgrade out-of-range/non-ascending line numbers to warnings on import
       so such programs stay runnable (`tokenizer.ts`) — line numbers 64000–65535
       and non-ascending order are now `fatal: false`, and the statement-shape
