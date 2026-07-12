@@ -311,6 +311,12 @@ interface IdeState {
   reportRun(report: MachineReport): void;
   /** Open the AI panel (and, on mobile, switch to its tab). */
   showAiPanel(): void;
+  /**
+   * Reveal the emulator: close the AI panel on the split layout and switch to
+   * the preview tab on mobile. The mirror of {@link showAiPanel}, used when a
+   * run must surface the emulator regardless of the current layout.
+   */
+  showEmulator(): void;
   requestStop(): void;
   requestReset(): void;
   /** Toggle a breakpoint on a BASIC line number. */
@@ -760,6 +766,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   reportRun: (report) =>
     set((s) => ({ runReport: { seq: s.runRequest, report } })),
   showAiPanel: () => set({ aiPanelOpen: true, mobileTab: 'ai' }),
+  showEmulator: () => set({ aiPanelOpen: false, mobileTab: 'preview' }),
   requestStop: () => set((s) => ({ stopRequest: s.stopRequest + 1 })),
   requestReset: () => set((s) => ({ resetRequest: s.resetRequest + 1 })),
   toggleBreakpoint: (lineNo) =>

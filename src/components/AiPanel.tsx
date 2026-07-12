@@ -18,6 +18,7 @@ export function AiPanel() {
   const replaceDocument = useIdeStore((s) => s.replaceDocument);
   const requestAiRun = useIdeStore((s) => s.requestAiRun);
   const showAiPanel = useIdeStore((s) => s.showAiPanel);
+  const showEmulator = useIdeStore((s) => s.showEmulator);
   const openSettings = useIdeStore((s) => s.openSettings);
 
   // The conversation and the in-flight stream live in a module-level store, so
@@ -92,11 +93,18 @@ export function AiPanel() {
   };
 
   // "Replace + Run": apply, then either prompt to fix editor errors (the program
-  // can't run with them) or run with the AI runtime-error check armed.
+  // can't run with them) or reveal the emulator and run with the AI runtime-error
+  // check armed. showEmulator() is what actually swaps the AI view for the
+  // emulator - on the split layout it closes the AI panel (which otherwise hides
+  // the preview), and in the tabbed layout it switches to the preview tab (the
+  // run-request auto-switch only covers portrait, not the split/landscape cases).
   const applyReplaceAndRun = (code: string) => {
     const text = code.endsWith('\n') ? code : code + '\n';
     replaceDocument(text);
-    if (!checkEditorErrors(text)) requestAiRun();
+    if (!checkEditorErrors(text)) {
+      showEmulator();
+      requestAiRun();
+    }
   };
 
   // Accept a one-tap fix: send it to Claude, continuing the conversation.

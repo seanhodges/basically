@@ -504,8 +504,17 @@ export function Toolbar() {
               )}
               {mobileTab === 'preview' && (
                 <>
-                  {/* Play is promoted to the green rail button at the top; the
-                      overflow keeps only the debug/stop actions. */}
+                  {/* In landscape the primary Play action is the green rail
+                      button, so the overflow keeps only the debug/stop actions.
+                      In portrait there is no rail, so Play leads the menu. */}
+                  {!landscape && (
+                    <>
+                      <button className="run" onClick={playProgram}>
+                        ▶ Play
+                      </button>
+                      <div className={styles.menuSeparator} />
+                    </>
+                  )}
                   {dialect.debuggable && (
                     <>
                       <button

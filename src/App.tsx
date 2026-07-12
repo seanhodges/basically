@@ -18,6 +18,7 @@ import { StatusBar } from './components/StatusBar';
 import { getHasSeenWelcome, setHasLaunched } from './storage/settings';
 import {
   isMobileViewport,
+  isLandscapeMobileViewport,
   useMediaQuery,
   LANDSCAPE_MOBILE_QUERY,
 } from './app/useMediaQuery';
@@ -70,10 +71,13 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // On mobile, jump to the Preview tab whenever a run is requested
-  // (covers the toolbar Run button, the FAB, and Ctrl+Enter)
+  // On the tabbed layouts, jump to the Preview tab whenever a run is requested
+  // (covers the toolbar Run button, the FAB, and Ctrl+Enter). Both the portrait
+  // (max-width) and landscape (short-and-wide) phone layouts are tabbed, so a
+  // wide landscape phone - which isMobileViewport() misses - must switch too, or
+  // its round Play FAB runs the program on the hidden preview tab and looks dead.
   useEffect(() => {
-    if (runRequest > 0 && isMobileViewport()) {
+    if (runRequest > 0 && (isMobileViewport() || isLandscapeMobileViewport())) {
       useIdeStore.getState().setMobileTab('preview');
     }
   }, [runRequest]);
