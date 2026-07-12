@@ -89,19 +89,28 @@ jobs:
             const pr = prs.find((p) => p.merged_at) || prs[0];
 
             const commit = context.payload.head_commit || {};
-            let title, body, url;
+            let rawTitle, title, body, url;
             if (pr) {
+              rawTitle = pr.title;
               title = `Deployed: ${pr.title} (#${pr.number})`;
               body = pr.body || '_No description provided._';
               url = pr.html_url;
             } else {
               // Fallback: direct push to main with no associated PR
+              rawTitle = (commit.message || '').split('\n')[0];
               title = 'Deployed a change';
               body = commit.message || context.sha;
               url =
                 commit.url ||
                 `https://github.com/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}`;
             }
+
+            // Only announce conventional-commit feat/fix changes to Discord.
+            const shouldPublish = /^(feat|fix)(\(.+\))?!?:/i.test(
+              rawTitle.trim(),
+            );
+            core.setOutput('shouldPublish', shouldPublish);
+            if (!shouldPublish) return;
 
             body = body
               .split('\n')
@@ -122,6 +131,7 @@ jobs:
             );
 
       - name: Post to Discord #releases
+        if: steps.release.outputs.shouldPublish == 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: >
