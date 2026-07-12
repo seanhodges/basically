@@ -1,4 +1,5 @@
 import { atomChecksum } from './cassetteEncoder';
+import { ATOM_TEXT_START } from '../atm';
 
 /**
  * Acorn Atom cassette decoding - the inverse of {@link encodeAtomTape}.
@@ -124,6 +125,7 @@ function halfCycles(samples: Float32Array, sampleRate: number): boolean[] {
 function parseAtomFile(bytes: Uint8Array): DecodeCassetteResult | null {
   const blocks: { num: number; data: Uint8Array }[] = [];
   let name = '';
+  let load: number | undefined;
   let i = 0;
   while (i + SYNC_COUNT < bytes.length) {
     let sync = true;
@@ -142,14 +144,38 @@ function parseAtomFile(bytes: Uint8Array): DecodeCassetteResult | null {
       i++;
       continue;
     }
-    if (blk.num === 0) name = blk.name;
+    if (blk.num === 0) {
+      name = blk.name;
+      load = blk.load; // the first block carries the file's load address
+    }
     blocks.push({ num: blk.num, data: blk.data });
     i = blk.end;
     if (blk.isLast) break;
   }
   if (blocks.length === 0) return null;
 
+  // Reject a file that clearly is not a BASIC program (BASIC text loads at
+  // #2900) rather than pasting its bytes into the editor as garbage.
+  if (load !== undefined && load !== ATOM_TEXT_START) {
+    const hex = load.toString(16).toUpperCase().padStart(4, '0');
+    throw new Error(
+      `Atom cassette loads at #${hex}, not #2900 — this is a machine-code or ` +
+        `data file, not a BASIC program.`,
+    );
+  }
+
+  // Verify block-number continuity: the blocks must be 0,1,2,… with none
+  // missing or duplicated. Splicing past a gap would silently corrupt the image.
   blocks.sort((a, b) => a.num - b.num);
+  for (let b = 0; b < blocks.length; b++) {
+    if (blocks[b]!.num !== b) {
+      throw new Error(
+        `Atom cassette blocks are out of sequence (expected block ${b}, ` +
+          `got ${blocks[b]!.num}) — the recording is incomplete or damaged.`,
+      );
+    }
+  }
+
   const total = blocks.reduce((n, b) => n + b.data.length, 0);
   const data = new Uint8Array(total);
   let p = 0;
@@ -163,6 +189,8 @@ function parseAtomFile(bytes: Uint8Array): DecodeCassetteResult | null {
 interface ParsedBlock {
   name: string;
   num: number;
+  /** The block's load address (big-endian in the header). */
+  load: number;
   data: Uint8Array;
   isLast: boolean;
   /** Index just past this block's checksum. */
@@ -188,6 +216,7 @@ function parseBlock(bytes: Uint8Array, p: number): ParsedBlock | null {
   const num = (bytes[q + 1]! << 8) | bytes[q + 2]!;
   const hasData = (flag & 0x40) !== 0;
   const len = hasData ? bytes[q + 3]! + 1 : 0;
+  const load = (bytes[q + 6]! << 8) | bytes[q + 7]!; // exec at q+4..5, load at q+6..7
   const dataStart = q + 8;
   const checksumPos = dataStart + len;
   if (checksumPos >= bytes.length) return null;
@@ -198,6 +227,7 @@ function parseBlock(bytes: Uint8Array, p: number): ParsedBlock | null {
   return {
     name: String.fromCharCode(...nameBytes),
     num,
+    load,
     data: bytes.slice(dataStart, dataStart + len),
     isLast: (flag & 0x80) === 0,
     end: checksumPos + 1,

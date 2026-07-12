@@ -7,9 +7,11 @@ describe('trs80 charset', () => {
     expect(trs80Charset.toUnicode(trs80Charset.toMachine(text))).toBe(text);
   });
 
-  it('folds lower case onto the upper-case codes the Model I shows', () => {
+  it('preserves lower case as its own codes (Model III fidelity)', () => {
+    // The old build folded a–z onto A–Z; the total charset keeps every byte
+    // distinct so a Model III program round-trips its case.
     expect(Array.from(trs80Charset.toMachine('abc'))).toEqual([
-      0x41, 0x42, 0x43,
+      0x61, 0x62, 0x63,
     ]);
   });
 
@@ -32,5 +34,36 @@ describe('trs80 charset', () => {
 
   it('rejects characters with no TRS-80 equivalent', () => {
     expect(() => trs80Charset.toMachine('café')).toThrow();
+  });
+
+  it('is total: every byte 0x00–0xFF round-trips decode → parse', () => {
+    for (let b = 0; b <= 0xff; b++) {
+      const text = trs80Charset.toUnicode([b]);
+      const back = Array.from(trs80Charset.toMachine(text));
+      expect(
+        back,
+        `byte 0x${b.toString(16)} via ${JSON.stringify(text)}`,
+      ).toEqual([b]);
+    }
+  });
+
+  it('escapes control codes, blank-graphics and compression codes', () => {
+    expect(trs80Charset.toUnicode([0x00])).toBe('{0x00}');
+    expect(trs80Charset.toUnicode([0x0c])).toBe('{0x0C}');
+    expect(trs80Charset.toUnicode([0x7f])).toBe('{0x7F}');
+    expect(trs80Charset.toUnicode([0x80])).toBe('{0x80}'); // blank graphics
+    expect(trs80Charset.toUnicode([0xc0])).toBe('{0xC0}'); // compression code
+    expect(trs80Charset.toUnicode([0xff])).toBe('{0xFF}');
+  });
+
+  it('escapes a literal { only when the following bytes read as an escape', () => {
+    // A bare brace stays a brace; a brace that would start a valid escape is
+    // itself escaped so the text round-trips.
+    expect(trs80Charset.toUnicode([0x7b, 0x41, 0x7d])).toBe('{A}');
+    const collide = [0x7b, 0x30, 0x78, 0x30, 0x43, 0x7d]; // "{0x0C}" as bytes
+    expect(trs80Charset.toUnicode(collide)).toBe('{0x7B}0x0C}');
+    expect(
+      Array.from(trs80Charset.toMachine(trs80Charset.toUnicode(collide))),
+    ).toEqual(collide);
   });
 });

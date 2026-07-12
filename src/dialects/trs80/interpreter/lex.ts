@@ -1,4 +1,4 @@
-import { trs80Charset } from '../charset';
+import { codeToRuntimeChar } from '../charset';
 import { trs80WordByToken } from '../keywords';
 
 /**
@@ -43,7 +43,7 @@ export function lexBody(body: Uint8Array): Lexeme[] {
       i++;
       let s = '';
       while (i < body.length && body[i] !== QUOTE) {
-        s += trs80Charset.glyph(body[i]!);
+        s += codeToRuntimeChar(body[i]!);
         i++;
       }
       if (i < body.length) i++; // closing quote
@@ -75,8 +75,15 @@ export function lexBody(body: Uint8Array): Lexeme[] {
       if (e === 0x45 || e === 0x65 || e === 0x44 || e === 0x64) {
         let exp = 'E';
         i++;
-        if (body[i] === 0x2b || body[i] === 0x2d)
-          exp += String.fromCharCode(body[i++]!);
+        // The exponent sign was tokenized: `1E-5` stores the minus/plus as the
+        // 0xCD (+) / 0xCE (-) operator tokens, not ASCII '+'/'-'. Accept both.
+        if (body[i] === 0x2b || body[i] === 0xcd) {
+          exp += '+';
+          i++;
+        } else if (body[i] === 0x2d || body[i] === 0xce) {
+          exp += '-';
+          i++;
+        }
         while (i < body.length && isDigit(body[i]!))
           exp += String.fromCharCode(body[i++]!);
         if (exp.length > 1) num += exp;

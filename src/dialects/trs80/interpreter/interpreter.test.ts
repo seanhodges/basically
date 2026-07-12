@@ -151,3 +151,35 @@ describe('trs80 interpreter - data, arrays, graphics', () => {
     expect(firstText(run(src))).toBe('16');
   });
 });
+
+describe('trs80 interpreter - Stage 7 runtime fidelity', () => {
+  it('lexes a tokenized 1E-5 exponent (the sign is a minus token)', () => {
+    // The tokenizer stores the exponent sign as the 0xCE minus token, so the
+    // lexer must recognise it as part of the number, not a subtraction (which
+    // would evaluate `1E-5` as `1E` (=1) minus 5 = -4).
+    expect(firstText(run('10 PRINT 1E-5*100000\n'))).toBe('1');
+    expect(firstText(run('10 PRINT 2E+3\n'))).toBe('2000');
+  });
+
+  it('accepts ^ as the power operator (alias of ↑)', () => {
+    expect(firstText(run('10 PRINT 2^10\n'))).toBe('1024');
+  });
+
+  it('routes CHR$/ASC through codes, not glyphs, for every byte', () => {
+    // Control codes have no glyph, but ASC(CHR$(n)) must still recover n.
+    expect(firstText(run('10 PRINT ASC(CHR$(7))\n'))).toBe('7');
+    expect(firstText(run('10 PRINT ASC(CHR$(200))\n'))).toBe('200');
+    expect(firstText(run('10 PRINT ASC(CHR$(128))\n'))).toBe('128');
+  });
+
+  it('acts on a control code embedded in a printed string', () => {
+    // CHR$(28) homes the cursor: the "B" overwrites the "A" at the top-left.
+    const interp = run('10 PRINT "A";CHR$(28);"B"\n');
+    expect(interp.screen.video[0]).toBe('B'.charCodeAt(0));
+  });
+
+  it('prints a space-compression code as N spaces', () => {
+    // CHR$(0xC0 + 3) prints three spaces between the digits.
+    expect(row(run('10 PRINT "1";CHR$(195);"2"\n'), 0)).toBe('1   2');
+  });
+});

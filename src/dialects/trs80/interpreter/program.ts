@@ -15,7 +15,7 @@ export interface Program {
 
 /**
  * Parse a loadable program image - the linked-line layout {@link tokenizeProgram}
- * emits from 0x42E8 (`u16 link`, `u16 line number`, body, `0x00`, ending in a
+ * emits from 0x42E9 (`u16 link`, `u16 line number`, body, `0x00`, ending in a
  * `0x0000` link) - into executable lines. The absolute link pointers are not
  * needed at this level, so records are read sequentially up to the null link.
  */

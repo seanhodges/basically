@@ -1,6 +1,5 @@
 import { COLS, ROWS } from '../emulator/display';
-import { CharsetError } from '../../types';
-import { trs80Charset } from '../charset';
+import { runtimeCharToCode } from '../charset';
 
 const PRINT_ZONE = 16; // PRINT comma advances to the next 16-column zone
 
@@ -31,7 +30,57 @@ export class Screen {
     return this.col;
   }
 
+  /**
+   * Emit one TRS-80 code through the display driver: the control codes act on
+   * the cursor/screen (matching the ROM's video driver) rather than being
+   * stored, the 0xC0–0xFF space-compression codes print `code−0xC0` spaces, and
+   * everything else is written to video RAM at the cursor.
+   */
   private putCode(code: number): void {
+    const c = code & 0xff;
+    switch (c) {
+      case 0x08: // backspace and erase
+        this.backspace();
+        return;
+      case 0x0d: // carriage return / newline
+        this.newline();
+        return;
+      case 0x0e: // cursor on  - no visible cursor is modelled here
+      case 0x0f: // cursor off
+        return;
+      case 0x17: // switch to 32-character (double-width) mode - not modelled
+        return;
+      case 0x18: // backspace, no erase
+        if (this.col > 0) this.col--;
+        return;
+      case 0x1c: // home the cursor (top-left)
+        this.row = 0;
+        this.col = 0;
+        return;
+      case 0x1d: // move to the start of the current line
+        this.col = 0;
+        return;
+      case 0x1e: // erase to end of line
+        this.video.fill(
+          0x20,
+          this.row * COLS + this.col,
+          (this.row + 1) * COLS,
+        );
+        return;
+      case 0x1f: // erase to end of frame
+        this.video.fill(0x20, this.row * COLS + this.col);
+        return;
+    }
+    if (c >= 0xc0) {
+      // Space compression: print (c - 0xC0) spaces (0..63).
+      for (let n = c - 0xc0; n > 0; n--) this.storeCode(0x20);
+      return;
+    }
+    this.storeCode(c);
+  }
+
+  /** Write one code to video RAM at the cursor, wrapping at the right margin. */
+  private storeCode(code: number): void {
     if (this.col >= COLS) this.newline();
     this.video[this.row * COLS + this.col] = code & 0xff;
     this.col++;
@@ -42,16 +91,10 @@ export class Screen {
     for (let i = 0; i < codes.length; i++) this.putCode(codes[i]!);
   }
 
-  /** Print editor text, encoding each character (unmappable -> '?'). */
+  /** Print editor / string text, encoding each character (unmappable -> '?'). */
   printText(text: string): void {
     for (const ch of text) {
-      let code = 0x3f;
-      try {
-        code = trs80Charset.toMachine(ch)[0]!;
-      } catch (e) {
-        if (!(e instanceof CharsetError)) throw e;
-      }
-      this.putCode(code);
+      this.putCode(runtimeCharToCode(ch) ?? 0x3f);
     }
   }
 

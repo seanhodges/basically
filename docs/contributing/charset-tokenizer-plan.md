@@ -34,8 +34,8 @@
 | 4     | Spectrum 48/128: code-context bytes & containers    | ⬜     |
 | 5     | BBC: context-aware import, escapes, Master BASIC IV | ✅     |
 | 6     | C64: petcat interop, containers, readability        | 🔨     |
-| 7     | TRS-80: ROM-faithful forms, escapes, runtime        | ⬜     |
-| 8     | Atom: total charset, lint vs buildability, FP ROM   | ⬜     |
+| 7     | TRS-80: ROM-faithful forms, escapes, runtime        | ✅     |
+| 8     | Atom: total charset, lint vs buildability, FP ROM   | ✅     |
 | 9     | Docs, samples, AI profiles                          | ⬜     |
 
 ---
@@ -278,74 +278,92 @@ the `.prg` path honest (findings 1–12 of the C64 audit).
 **Remaining before ✅:** lower-case display bank and the keyword-abbreviation
 table (both noted above).
 
-## Stage 7 — TRS-80: ROM-faithful forms, escapes, runtime ⬜
+## Stage 7 — TRS-80: ROM-faithful forms, escapes, runtime ✅
 
 Fix the stored-form divergences first (they corrupt every real tape), then
 totalise the charset (findings F1–F14 of the TRS-80 audit).
 
-- [ ] `'` comments: emit `3A 93 FB` on tokenize; map 0xFB after REM back to
-      `'` (collapsing the `:REM` prefix) on detokenize
-      (`keywords.ts:177-186`, `detokenizer.ts:54-61`).
-- [ ] `ELSE`: emit the implicit `:` (`3A 95`) on tokenize; hide it on
-      detokenize to match LIST (`tokenizer.ts:160-171`).
-- [ ] Rebase `PROG_START` to 0x42E9 (`tokenizer.ts:18`, `casfile.ts`,
-      `emulator/trs80Machine.ts:139-144`, `aiProfile.ts:6`); add a test that
-      parses a real-base link chain and trims tape run-out noise.
-- [ ] Totalise the charset with an escape notation (`language.ts:23`
-      currently opts out): 0x00–0x1F controls, 0x80 blank-graphics, 0xC0–0xFF
-      compression codes, and preserved lower-case 0x60–0x7F. Model the
-      0xC0–0xFF range as space-compression (print semantics), not glyph
-      duplicates (`charset.ts:91`).
-- [ ] Alias `^` to the 0xD1 power token; keep `↑` in LIST/detokenize output
-      (`keywords.ts:106`); consider adding ↑ to the virtual keyboard.
-- [ ] Runtime fidelity: implement display-driver control codes in `Screen`
-      (13 newline, 8 backspace-erase, 23 double-width, 28–31 home/CR/clears,
-      14/15 cursor on/off), route `CHR$`/`ASC` through codes not glyphs
-      (`interpreter/builtins.ts:47-49`, `interpreter/screen.ts:45-56`); print
-      0xC0–0xFF as n spaces; fix the `1E-5` exponent-sign lexing
-      (`interpreter/lex.ts:74-83`).
-- [ ] Recognise Model III 1500-baud `.cas` framing (0x55 leader, 0x7F sync) in
-      `isCasImage`/`parseCasImage`, or fail with a message naming the format
-      (`casfile.ts:71-93`).
-- [ ] Round-trip fixtures: a genuine-form tape with `'` comments, `:ELSE`,
-      controls-in-strings and lower-case text.
+- [x] `'` comments: emit `3A 93 FB` on tokenize; map 0xFB after REM back to
+      `'` (collapsing the `:REM` prefix) on detokenize (`tokenizer.ts`
+      keyword-emit, `detokenizer.ts` `APOSTROPHE_TOKEN`). Round-tripped in
+      `foreignRoundTrip.test.ts`.
+- [x] `ELSE`: emit the implicit `:` (`3A 95`) on tokenize; hide it on
+      detokenize to match LIST (`tokenizer.ts`, `detokenizer.ts` `ELSE_TOKEN`).
+- [x] Rebase `PROG_START` to 0x42E9 (`tokenizer.ts:18` + cascaded through
+      `casfile.ts`, `emulator/trs80Machine.ts`, `aiProfile.ts`,
+      `interpreter/program.ts`); `casfile.test.ts` pins the real base and the
+      run-out-noise trim.
+- [x] Totalise the charset with a `{0xNN}` escape notation (`charset.ts`
+      rewritten with `parseChar`/`decodeSpan`): 0x00–0x1F/0x7F controls, the
+      blank-graphics byte 0x80 and the 0xC0–0xFF compression codes all escape;
+      lower-case 0x60–0x7F is preserved (folding removed). 0xC0–0xFF modelled
+      as space-compression in the runtime, not glyph duplicates.
+      `charset.test.ts` proves totality over all 256 bytes.
+- [x] Alias `^` to the 0xD1 power token (`keywords.ts` `TRS80_ALIASES`); `↑`
+      stays the LIST/detokenize spelling. (A dedicated ↑ virtual-keyboard key
+      was left out — the `^` alias already makes the operator typeable on any
+      keyboard.)
+- [x] Runtime fidelity: `Screen.putCode` acts on the display-driver control
+      codes (8 backspace, 13 newline, 14/15 cursor, 18 backspace-no-erase,
+      28 home, 29 CR-to-line-start, 30/31 clears; 23 double-width recognised
+      as a no-op mode) and prints 0xC0–0xFF as `code−0xC0` spaces; `CHR$`/`ASC`
+      route through codes via `codeToRuntimeChar`/`runtimeCharToCode` (a PUA
+      mapping so `ASC(CHR$(n)) === n`); the `1E-5` exponent-sign lexing accepts
+      the tokenized minus (`interpreter/lex.ts`). Covered in
+      `interpreter.test.ts`.
+- [x] Recognise Model III 1500-baud `.cas` framing (0x55 leader, 0x7F sync) via
+      `casFormat` and report it through the Stage 1 channel rather than
+      mis-decoding (`casfile.ts`, `detokenizer.ts` `detokenizeProgramWithReport`).
+- [x] Round-trip fixtures: a genuine-form program with `:REM'`, `:ELSE`,
+      controls/graphics/compression bytes in strings and lower-case text, bare
+      and Model I `.cas`-wrapped; truncation and Model III reports
+      (`foreignRoundTrip.test.ts`).
 
 **Depends on:** Stage 1.
 **Verify:** `npm test`; export `.cas` of a `'`/ELSE program is byte-identical
 to the documented real CSAVE form; the fixture tape imports/re-exports
 byte-exactly.
 
-## Stage 8 — Atom: total charset, lint vs buildability, FP ROM ⬜
+## Stage 8 — Atom: total charset, lint vs buildability, FP ROM ✅
 
-(Findings F1–F15 of the Atom audit.) Two items need primary-source
-verification before coding — marked ⚠.
+(Findings F1–F15 of the Atom audit.) Two items needed primary-source
+verification before coding — marked ⚠; the verified conclusions are noted
+inline.
 
-- [ ] Totalise the charset: `%c`-style inverse-video prefix for bit-7 bytes
-      (stop masking at `charset.ts:36`) and a raw escape for 0x00–0x1F / 0x7F
-      (stop emitting bare `?` at `charset.ts:38`); parse both in `toMachine`.
-- [ ] Apply the Stage 1 lint/buildability split: statement-shape findings
-      (`tokenizer.ts:104-133`) stop zeroing the image (`index.ts:40`).
-- [ ] ⚠ FP ROM coverage: verify the FP statement list (`FDIM`, `FIF`,
-      `FINPUT`, `FPRINT`, `FPUT`, `FGET`, `FUNTIL`, `%A`–`%Z` variables)
-      against _Atomic Theory and Practice_ / the FP ROM keyword table, then
-      accept `%` and F-statement heads in `validateStatements` and add the
-      missing keywords (`LEN` at minimum) to `keywords.ts`.
-- [ ] Accept `*` COS-command statement heads (`*CAT`, `*LOAD`, …).
-- [ ] Import hardening: `stripAtmHeader` checks load address (#2900) and
-      leading 0x0D, throwing a clear "not a BASIC program" error
-      (`atm.ts:60-69`); cassette decoder verifies block-number continuity and
-      surfaces the header load address (`cassetteDecoder.ts:150-159`,
-      `186-191`); truncated images warn via Stage 1.
-- [ ] Warn on export of lower-case keywords ("won't run on a real Atom") or
-      normalise keywords to upper case in the build path, keeping import
-      lenient (`charset.ts:9-11`).
-- [ ] Disambiguate digit-leading bodies on detokenize (insert a separating
-      space, `detokenizer.ts:26`).
-- [ ] ⚠ Doc/verification sweep: line-0 acceptance, ↑/← glyphs at 0x5E/0x5F,
-      `;` statement-separator docs (`keywords.ts:24-25`, `aiProfile.ts:11`).
-- [ ] Round-trip fixtures: an `.atm` with inverse-video strings, a `*CAT`
-      line and an FP statement; a machine-code `.atm` (must error, not import
-      empty).
+- [x] Totalise the charset (`charset.ts` rewritten with `parseChar`/
+      `decodeSpan`): a `{0xNN}` raw escape covers the control codes 0x00–0x1F /
+      0x7F **and** the top-bit inverse-video bytes 0x80–0xFF (bit-7 is no longer
+      masked), parsed and emitted both ways. **Deviation from the plan's `%c`
+      inverse prefix:** on the FP ROM `%A`–`%Z` name the floating-point
+      variables, so `%` must stay a literal character — inverse video therefore
+      uses `{0xNN}`, not a `%` prefix. `tokenizer.test.ts` proves totality.
+- [x] Apply the Stage 1 lint/buildability split: statement-shape lint is
+      already `fatal: false` (from Stage 1) and no longer zeroes the image;
+      re-confirmed for a misspelled keyword in `tokenizer.test.ts`.
+- [x] ⚠ FP ROM coverage: verified `%A`–`%Z` are the FP variables (hence the
+      charset keeps `%` literal, above). `validateStatements` now accepts `%`
+      statement heads and the F-statement forms; `FDIM`, `FIF`, `FINPUT`,
+      `FPRINT`, `FPUT`, `FGET`, `FUNTIL` and `LEN` added to `keywords.ts`.
+- [x] Accept `*` COS-command statement heads (`*CAT`, `*LOAD`, …) in
+      `validateStatements`.
+- [x] Import hardening: `stripAtmHeader` rejects a non-BASIC `.atm` (load
+      address ≠ #2900 or a payload not led by 0x0D) with a clear error
+      (`atm.ts`); the cassette decoder verifies block-number continuity and the
+      first block's load address (`audio/cassetteDecoder.ts`); truncated images
+      warn via `detokenizeProgramWithReport`.
+- [x] Warn (non-fatally) on export of a lower-case keyword ("won't run on a
+      real Atom"), keeping the bytes verbatim so imports stay lenient
+      (`tokenizer.ts` `warnLowerCase`).
+- [x] Disambiguate digit-leading bodies on detokenize by inserting a
+      separating space (`detokenizer.ts`).
+- [x] ⚠ Doc/verification sweep: line 0 is accepted (unchanged); ↑/← at
+      0x5E/0x5F round-trip as `^`/`_` (their display glyphs are an emulator
+      concern, not the source charset); the `;` statement-separator role is now
+      documented correctly in `aiProfile.ts`.
+- [x] Round-trip fixtures: a program with inverse-video bytes in a string, a
+      `*CAT` line and FP statements (bare and `.atm`-wrapped, byte-exact); a
+      machine-code `.atm` that is rejected, not imported empty; a truncation
+      report (`foreignRoundTrip.test.ts`).
 
 **Depends on:** Stage 1.
 **Verify:** `npm test`; a machine-code `.atm` import shows an error; an

@@ -172,7 +172,10 @@ export const trs80Keywords: Trs80Keyword[] = TABLE.map(
 
 /**
  * Tokenizing-only synonyms. `?` enters as PRINT and `'` as REM (it suspends
- * tokenizing to end of line, like REM); both decode back to the long form.
+ * tokenizing to end of line, like REM); `^` is the ASCII spelling of the `↑`
+ * power operator (the up-arrow key on a real TRS-80). All decode back to the
+ * long / canonical form. The tokenizer stores `'` as its genuine `:REM'`
+ * (3A 93 FB) form; the 0x93 token here is only its matcher's identity.
  */
 export const TRS80_ALIASES: Trs80Keyword[] = [
   { word: '?', token: 0xb2, kind: 'command', alias: true },
@@ -183,6 +186,7 @@ export const TRS80_ALIASES: Trs80Keyword[] = [
     alias: true,
     verbatimRest: 'line',
   },
+  { word: '^', token: 0xd1, kind: 'operator', alias: true },
 ];
 
 /**

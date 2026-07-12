@@ -1,5 +1,5 @@
 import { trs80Keywords } from '../keywords';
-import { trs80Charset } from '../charset';
+import { codeToRuntimeChar, runtimeCharToCode } from '../charset';
 import { BasicError } from './errors';
 import {
   asNum,
@@ -43,9 +43,9 @@ function one(args: BasicValue[]): number {
   return asNum(args[0]!);
 }
 
-/** A char code -> the editor string for it (ASCII or a graphics glyph). */
+/** A char code -> the interpreter string character for it (byte-preserving). */
 function chr(code: number): string {
-  return trs80Charset.glyph(((code % 256) + 256) % 256);
+  return codeToRuntimeChar(((code % 256) + 256) % 256);
 }
 
 export function evalFunction(
@@ -119,7 +119,10 @@ export function evalFunction(
     case 'ASC': {
       const s = asStr(args[0]!);
       if (s.length === 0) throw new BasicError('FC');
-      return trs80Charset.toMachine(s[0]!)[0]!;
+      const first = String.fromCodePoint(s.codePointAt(0)!);
+      const code = runtimeCharToCode(first);
+      if (code === undefined) throw new BasicError('FC');
+      return code;
     }
     case 'CHR$':
       return chr(one(args));

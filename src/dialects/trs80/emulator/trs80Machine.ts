@@ -15,7 +15,7 @@ const KEYBOARD_END = 0x3bff;
 
 /**
  * Level II BASIC pointer block in the 0x40xx communication region. TXTTAB points
- * at the start of the BASIC program (0x42E8); VARTAB/ARYTAB/STREND follow it and
+ * at the start of the BASIC program (0x42E9); VARTAB/ARYTAB/STREND follow it and
  * mark the end of the program / start of variables. After poking a program we
  * fix these so RUN, LIST and the variable allocator see the right boundaries.
  *
@@ -127,7 +127,7 @@ export class Trs80Machine implements MachineEmulator {
   }
 
   /**
-   * Boot, poke the tokenized program at TXTTAB (0x42E8), fix the program-end
+   * Boot, poke the tokenized program at TXTTAB (0x42E9), fix the program-end
    * pointers, then type RUN to start it - the authentic path a user would take.
    * `image` is the bare program bytes (the same {@link tokenizeProgram} output).
    */
