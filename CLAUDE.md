@@ -117,6 +117,12 @@ cassette audio), and `docs/reference/serial-protocol.md` (the WebSerial bridge).
   real ROM(s) under `public/roms/` (e.g. `zx81.rom`, `zxspectrum.rom`, `c64/…`).
 - **Formatting** — Prettier (single quotes, semicolons, 2-space, trailing
   commas). Run `npm run format` before committing.
+- **Docs** — everything under `docs/` publishes to the public VitePress site.
+  Pages in `docs/guide/` and `docs/reference/` are for end-users: don't reference
+  unpublished internal files there (source paths like `src/…`, `CLAUDE.md`, plan
+  files, `.claude/` skills) or internal API symbols — describe what the IDE does,
+  and cross-link other docs with relative links (`./page`). `docs/contributing/`
+  is the developer exception, where references to project files are fine.
 
 ## ZX81 BASIC gotchas
 

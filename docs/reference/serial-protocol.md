@@ -2,13 +2,13 @@
 
 The IDE can push a built program to real hardware over WebSerial via a
 microcontroller bridge (Arduino, Pi Pico, ESP32…). The bridge firmware is out
-of scope for this repo; this document specifies the wire protocol it must
+of scope for Basically; this document specifies the wire protocol it must
 implement, plus notes on delivering the program to each machine.
 
 The "Send via serial bridge" button is offered for **every** dialect, not just
 the ZX81. The payload is always the active dialect's native binary image - the
 exact bytes it exports as `.P` / `.O` / `.TAP` / `.bbc` / `.prg` / `.cas` /
-`.atm` (see `docs/reference/file-formats.md`). The protocol below is dialect-agnostic; the
+`.atm` (see [file formats](./file-formats)). The protocol below is dialect-agnostic; the
 magic and command name are historical (the ZX81 was the first machine
 supported). It's the bridge's job to know which machine is attached and how to
 turn that image into something the machine loads - § Delivering the image
@@ -42,9 +42,9 @@ sketches the options.
 | length | payload byte count                                             |
 
 Despite the name, a `LOAD_P` payload is **not** always a ZX81 `.P` - it is
-whatever native image the selected dialect builds (`dialect.tokenize().image`),
-so the bridge should determine the target machine out of band (a DIP switch,
-config, a separate handshake) rather than from the command byte.
+whatever native image the selected dialect builds, so the bridge should
+determine the target machine out of band (a DIP switch, config, a separate
+handshake) rather than from the command byte.
 
 The final block may be shorter than 256 bytes; its CRC32 still follows it.
 CRC32 is the standard reflected polynomial `0xEDB88320` (same as zlib).
@@ -70,7 +70,7 @@ families of design work across every dialect:
    tape / EAR input (through a voltage divider to a safe level), and the user
    types the machine's load command first. The per-machine tape encodings are
    the same ones the IDE's `.wav` export uses - fully specified in
-   `docs/reference/file-formats.md` § Cassette audio (pulse counts/lengths, framing,
+   [file formats](./file-formats#cassette-audio) § Cassette audio (pulse counts/lengths, framing,
    block layout, checksums) for the ZX81/ZX80, Spectrum (and 128), BBC, C64,
    TRS-80 and Atom. The native image the bridge receives is exactly the input
    those encoders take.
@@ -103,4 +103,4 @@ families of design work across every dialect:
 | Acorn Atom         | `.atm`         | `LOAD ""`                              |
 
 Each payload is exactly the file the IDE exports for that dialect (see
-`docs/reference/file-formats.md` § Native binary formats).
+[file formats](./file-formats#native-binary-formats) § Native binary formats).
