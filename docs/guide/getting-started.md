@@ -47,8 +47,10 @@ Basically can write BASIC for you with the Claude API:
 
 ## Save and load
 
-- **Save/load `.bas`** uses the File System Access API where available, with a
-  download fallback. Your work also autosaves to the browser's local storage.
+- **Save** writes a plain-text `.txt` file, and **Load** opens a `.txt` (or a
+  legacy `.bas`) back into the editor, using the File System Access API where
+  available with a download fallback. Your work also autosaves to the browser's
+  local storage.
 - You can **import** an existing machine image (for example a ZX81 `.P` file)
   back into editable source.
 

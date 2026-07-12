@@ -11,7 +11,11 @@ import { useIdeStore } from '../app/store';
 import { computeCompatibleDialects } from '../share/compatibility';
 import { createShare, ShareApiError } from '../share/shareClient';
 import { playerPathFor } from '../player/routes';
-import { getLastShare, setLastShare } from '../storage/settings';
+import {
+  getLastShare,
+  setLastShare,
+  UNTITLED_FILE_NAME,
+} from '../storage/settings';
 import dialog from './Dialog.module.css';
 import styles from './ShareLinkDialog.module.css';
 
@@ -114,7 +118,7 @@ export function ShareLinkDialog() {
         const { id } = await createShare({
           dialectId: dialect.id,
           compatibleDialects: compatible,
-          name: !fileName || fileName === 'untitled.bas' ? '' : fileName,
+          name: !fileName || fileName === UNTITLED_FILE_NAME ? '' : fileName,
           source,
         });
         if (cancelled) return;

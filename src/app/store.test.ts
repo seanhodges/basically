@@ -43,7 +43,7 @@ describe('initialDocument (boot document choice)', () => {
 
   it('greets the very first launch with the starter sample', () => {
     expect(initialDocument(null, false, STARTER)).toEqual({
-      fileName: 'untitled.bas',
+      fileName: 'untitled.txt',
       text: STARTER,
     });
   });
@@ -52,7 +52,7 @@ describe('initialDocument (boot document choice)', () => {
     // The regression: clearing your program empties autosave, so a later reload
     // must not push the starter sample back at you.
     expect(initialDocument(null, true, STARTER)).toEqual({
-      fileName: 'untitled.bas',
+      fileName: 'untitled.txt',
       text: '',
     });
   });
@@ -64,7 +64,7 @@ describe('setDialect', () => {
       dialect: zx81,
       pendingDialectId: null,
       source: '',
-      fileName: 'untitled.bas',
+      fileName: 'untitled.txt',
       dirty: false,
     });
   });
@@ -83,7 +83,7 @@ describe('setDialect', () => {
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('bbcmicro');
     expect(s.source).toBe(bbc.samples[0]!.text);
-    expect(s.fileName).toBe('untitled.bas');
+    expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(false);
     expect(s.pendingDialectId).toBeNull();
   });
@@ -103,14 +103,14 @@ describe('setDialect', () => {
   it('swaps a pristine non-starter sample for the same-named sample', () => {
     useIdeStore.setState({
       source: sample('zx81', 'breakout.bas').text,
-      fileName: 'untitled.bas',
+      fileName: 'untitled.txt',
     });
     useIdeStore.getState().setDialect('bbcmicro');
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('bbcmicro');
     expect(s.source).toBe(sample('bbcmicro', 'breakout.bas').text);
     // A swapped sample is not a saved file - fileName stays untitled.
-    expect(s.fileName).toBe('untitled.bas');
+    expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(false);
   });
 
@@ -130,7 +130,7 @@ describe('confirmDialectSwitch / cancelDialectSwitch', () => {
       dialect: zx81,
       pendingDialectId: 'bbcmicro',
       source: '10 REM mine',
-      fileName: 'untitled.bas',
+      fileName: 'untitled.txt',
       dirty: true,
     });
   });
@@ -140,7 +140,7 @@ describe('confirmDialectSwitch / cancelDialectSwitch', () => {
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('bbcmicro');
     expect(s.source).toBe('');
-    expect(s.fileName).toBe('untitled.bas');
+    expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(false);
     expect(s.pendingDialectId).toBeNull();
   });
@@ -184,7 +184,7 @@ describe('openSharedInIde', () => {
     expect(s.dialect.id).toBe('bbcmicro');
     expect(s.source).toBe('10 PRINT "SHARED"');
     // A shared program isn't a saved local file - fileName stays untitled.
-    expect(s.fileName).toBe('untitled.bas');
+    expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(false);
     expect(s.pendingDialectId).toBeNull();
     expect(s.breakpoints.size).toBe(0);
@@ -220,7 +220,7 @@ describe('loadUnsavedDocument', () => {
     useIdeStore.getState().loadUnsavedDocument(zx81.samples[0]!.text);
     const s = useIdeStore.getState();
     expect(s.source).toBe(zx81.samples[0]!.text);
-    expect(s.fileName).toBe('untitled.bas');
+    expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(false);
     expect(s.docOverride.seq).toBe(before.docOverride.seq + 1);
     expect(s.aiResetSeq).toBe(before.aiResetSeq + 1);
@@ -233,7 +233,7 @@ describe('loadUnsavedDocument', () => {
     useIdeStore.getState().loadUnsavedDocument('');
     const s = useIdeStore.getState();
     expect(s.source).toBe('');
-    expect(s.fileName).toBe('untitled.bas');
+    expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(false);
     expect(loadAutosave()).toBeNull();
   });
@@ -244,10 +244,10 @@ describe('loadUnsavedDocument', () => {
       .getState()
       .loadUnsavedDocument('10 REM imported', { dirty: true });
     const s = useIdeStore.getState();
-    expect(s.fileName).toBe('untitled.bas');
+    expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(true);
     expect(loadAutosave()).toEqual({
-      name: 'untitled.bas',
+      name: 'untitled.txt',
       text: '10 REM imported',
     });
   });
@@ -257,14 +257,14 @@ describe('setSource', () => {
   it('emptying an untitled draft clears dirty and keeps the (untitled) name', () => {
     useIdeStore.setState({
       dialect: zx81,
-      fileName: 'untitled.bas',
+      fileName: 'untitled.txt',
       source: '10 REM draft',
       dirty: true,
     });
     useIdeStore.getState().setSource('');
     const s = useIdeStore.getState();
     expect(s.dirty).toBe(false);
-    expect(s.fileName).toBe('untitled.bas');
+    expect(s.fileName).toBe('untitled.txt');
   });
 
   it('emptying a named file keeps its identity and stays dirty', () => {
@@ -283,7 +283,7 @@ describe('setSource', () => {
   it('a normal edit marks the document dirty', () => {
     useIdeStore.setState({
       dialect: zx81,
-      fileName: 'untitled.bas',
+      fileName: 'untitled.txt',
       source: '',
       dirty: false,
     });
@@ -296,7 +296,7 @@ describe('markSaved', () => {
   it('names the document and syncs autosave to the saved content', () => {
     useIdeStore.setState({
       dialect: zx81,
-      fileName: 'untitled.bas',
+      fileName: 'untitled.txt',
       source: '10 REM to-save',
       dirty: true,
     });
@@ -316,7 +316,7 @@ describe('persistAutosave', () => {
     seedRealAutosave('pristine-a');
     saveAutosave('stale.bas', '10 REM stale'); // external residue
     useIdeStore.setState({
-      fileName: 'untitled.bas',
+      fileName: 'untitled.txt',
       source: zx81.samples[0]!.text,
     });
     persistAutosave();

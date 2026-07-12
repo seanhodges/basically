@@ -59,6 +59,7 @@ import {
   setEmulatorAudio as persistEmulatorAudio,
   setEmulatorVolume as persistEmulatorVolume,
   setEmulatorMuted as persistEmulatorMuted,
+  UNTITLED_FILE_NAME,
 } from '../storage/settings';
 import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 
@@ -284,7 +285,7 @@ interface IdeState {
    * Unlike {@link playerBoot} this IS a real dialect switch - the user is
    * moving into the IDE, so persisting the choice is correct - but it bypasses
    * the confirmation dialog by design. The shared program isn't a saved local
-   * file, so it loads as `untitled.bas`; being real content, it is mirrored to
+   * file, so it loads as `untitled.txt`; being real content, it is mirrored to
    * autosave and survives a reload until replaced.
    */
   openSharedInIde(args: { dialectId: string; source: string }): void;
@@ -296,7 +297,7 @@ interface IdeState {
   replaceDocument(text: string, fileName?: string): void;
   /**
    * Replace the editor with a document that has no saved file yet - a loaded
-   * sample, a New program, or an import. Resets `fileName` to `untitled.bas`
+   * sample, a New program, or an import. Resets `fileName` to `untitled.txt`
    * (only Open/Save name a document) and empties autosave when the content is
    * pristine, so an unmodified sample isn't restored on reload. `opts.dirty`
    * flags genuinely-unsaved content (Import) so the discard guard fires.
@@ -514,7 +515,10 @@ export function initialDocument(
   starterText: string,
 ): { fileName: string; text: string } {
   if (saved) return { fileName: saved.name, text: saved.text };
-  return { fileName: 'untitled.bas', text: launchedBefore ? '' : starterText };
+  return {
+    fileName: UNTITLED_FILE_NAME,
+    text: launchedBefore ? '' : starterText,
+  };
 }
 
 const startupDialect = initialDialect();
@@ -614,7 +618,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       if (s.source.trim() === '') {
         return {
           ...applyDialectSwitch(s, next, next.samples[0]?.text ?? ''),
-          fileName: 'untitled.bas',
+          fileName: UNTITLED_FILE_NAME,
           dirty: false,
         };
       }
@@ -628,7 +632,7 @@ export const useIdeStore = create<IdeState>((set) => ({
           next.samples.find((x) => x.name === sampleName) ?? next.samples[0];
         return {
           ...applyDialectSwitch(s, next, sample?.text ?? ''),
-          fileName: 'untitled.bas',
+          fileName: UNTITLED_FILE_NAME,
           dirty: false,
         };
       }
@@ -671,7 +675,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       ...applyDialectSwitch(s, getDialect(dialectId), source),
       // A shared program isn't a saved local file - only Open/Save name a
       // document - so it stays untitled until the user saves it.
-      fileName: 'untitled.bas',
+      fileName: UNTITLED_FILE_NAME,
       dirty: false,
     }));
     // Real content: mirror it to autosave so it survives a reload.
@@ -684,7 +688,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       if (mode === 'new') {
         return {
           ...applyDialectSwitch(s, next, ''),
-          fileName: 'untitled.bas',
+          fileName: UNTITLED_FILE_NAME,
           dirty: false,
         };
       }
@@ -700,7 +704,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       // cleared by the next poll, since the content rule sees empty text). A
       // *named* file that's emptied keeps its name and stays dirty, so Ctrl+S
       // overwrites it rather than opening a Save As. Never rename here.
-      const emptyDraft = text.trim() === '' && s.fileName === 'untitled.bas';
+      const emptyDraft =
+        text.trim() === '' && s.fileName === UNTITLED_FILE_NAME;
       return { source: text, dirty: !emptyDraft };
     }),
   replaceDocument: (text, fileName) => {
@@ -728,7 +733,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
       // Sample/New/Import are not saved files - only Open/Save name a document.
-      fileName: 'untitled.bas',
+      fileName: UNTITLED_FILE_NAME,
       // A different program: clear the AI thread and old-program breakpoints.
       aiResetSeq: s.aiResetSeq + 1,
       breakpoints: new Set<number>(),

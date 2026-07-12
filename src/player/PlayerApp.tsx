@@ -209,7 +209,7 @@ export default function PlayerApp({
         store.playerBoot({
           dialectId,
           source: rec.source,
-          fileName: rec.name || 'shared.bas',
+          fileName: rec.name || 'shared.txt',
         });
         // Start from a clean slate for the two explicit-intent flags and let the
         // shared resolver derive what shows: with the player's surface fixed to

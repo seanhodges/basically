@@ -20,18 +20,18 @@ import {
  * cancel behaviour, 5.3) stays a manual check.
  */
 
-test('5.1 Save .bas downloads with the chosen name and clears the dirty marker', async ({
+test('5.1 Save downloads a .txt with the chosen name and clears the dirty marker', async ({
   page,
 }) => {
   await forceFallbackFilePickers(page);
   const dialogs = await openApp(page);
   await setEditorSource(page, '10 PRINT "SAVE ME"');
-  await expect(page.getByText(/untitled\.bas\s*•/)).toBeVisible(); // dirty
+  await expect(page.getByText(/untitled\.txt\s*•/)).toBeVisible(); // dirty
   const suggested = await saveAsBas(page, dialogs, 'myprog');
-  expect(suggested).toBe('myprog.bas');
+  expect(suggested).toBe('myprog.txt');
   // Saved: the new name shows and the dirty dot is gone.
-  await expect(page.getByText('myprog.bas')).toBeVisible();
-  await expect(page.getByText(/myprog\.bas\s*•/)).toBeHidden();
+  await expect(page.getByText('myprog.txt')).toBeVisible();
+  await expect(page.getByText(/myprog\.txt\s*•/)).toBeHidden();
 });
 
 test('5.1b File menu opens, stays open, and dismisses on outside click / Escape', async ({
@@ -55,11 +55,13 @@ test('5.1b File menu opens, stays open, and dismisses on outside click / Escape'
   await expect(page.getByRole('button', { name: /^New/ })).toBeHidden();
 });
 
-test('5.2 Open .bas loads content and filename', async ({ page }) => {
+test('5.2 Load opens a legacy .bas file (content and filename)', async ({
+  page,
+}) => {
   await forceFallbackFilePickers(page);
   await openApp(page);
   const chooser = page.waitForEvent('filechooser');
-  await fileMenu(page, /^Open \.bas/);
+  await fileMenu(page, /^Load/);
   await (
     await chooser
   ).setFiles({
@@ -103,5 +105,7 @@ test('5.4/5.5 native binary round trip: export .P, re-import it', async ({
   });
   await expect(page.locator(EDITOR)).toContainText('PRINT "ROUNDTRIP"');
   await expect(page.locator(EDITOR)).toContainText('20 GOTO 10');
-  await expect(page.getByText('roundtrip.bas')).toBeVisible();
+  // An import is not a saved file, so it comes back as an untitled document.
+  await expect(page.getByText('Imported roundtrip.p.')).toBeVisible();
+  await expect(page.getByText(/untitled\.txt\s*•/)).toBeVisible();
 });

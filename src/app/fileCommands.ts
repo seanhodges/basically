@@ -28,7 +28,7 @@ export function newDocument(): void {
   useIdeStore.getState().loadUnsavedDocument('');
 }
 
-/** Open a `.bas` from disk into the editor (guarded by {@link confirmDiscard}). */
+/** Open a `.txt`/`.bas` from disk into the editor (guarded by {@link confirmDiscard}). */
 export async function openDocument(): Promise<void> {
   if (!confirmDiscard()) return;
   const opened = await openTextFile();
@@ -49,7 +49,7 @@ function fileExtension(name: string): string {
 }
 
 /**
- * Open a file dropped onto the editor. A `.bas`/`.txt` file loads as a named
+ * Open a file dropped onto the editor. A `.txt`/`.bas` file loads as a named
  * document exactly like File → Open; a file whose extension matches one of the
  * current dialect's binary import formats (e.g. `.prg`, `.tap`) is detokenized
  * back into the editor exactly like Import. Both paths are guarded by
