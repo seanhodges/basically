@@ -10,6 +10,7 @@ import {
 import { extractCodeBlocks, mergeBasicLines } from '../ai/codeExtractor';
 import { getAiProvider, getProviderApiKey } from '../storage/settings';
 import { getProvider } from '../ai/providers/registry';
+import { GearsSpinner } from './GearsSpinner';
 import styles from './AiPanel.module.css';
 
 export function AiPanel() {
@@ -153,30 +154,48 @@ export function AiPanel() {
       parts.push(
         <div key={`c${bi}`} className={styles.aiCode}>
           <pre>{block.code}</pre>
-          <div className={styles.aiCodeActions}>
-            <button
-              onClick={() => applyReplace(block.code)}
-              title="Replace the whole program"
-            >
-              Replace program
-            </button>
-            <button
-              onClick={() => applyMerge(block.code)}
-              title="Merge by BASIC line number"
-            >
-              Merge lines
-            </button>
-            <button onClick={() => applyReplaceAndRun(block.code)}>
-              Replace + Run ▶
-            </button>
-          </div>
+          {/* Only offer the apply actions once the whole answer is in - while
+              streaming the code is partial, so applying it would use a
+              truncated program. */}
+          {!msg.streaming && (
+            <div className={styles.aiCodeActions}>
+              <button
+                onClick={() => applyReplace(block.code)}
+                title="Replace the whole program"
+              >
+                Replace program
+              </button>
+              <button
+                onClick={() => applyMerge(block.code)}
+                title="Merge by BASIC line number"
+              >
+                Merge lines
+              </button>
+              <button onClick={() => applyReplaceAndRun(block.code)}>
+                Replace + Run ▶
+              </button>
+            </div>
+          )}
         </div>,
       );
     });
     const tail = rest.trim();
     if (tail) parts.push(<p key="tail">{tail}</p>);
-    if (parts.length === 0 && msg.streaming)
-      parts.push(<p key="thinking">…</p>);
+    // While the answer is arriving, show a live busy indicator with a status
+    // hint (in place of the old static ellipsis, which read as "stuck").
+    if (msg.streaming) {
+      const status = msg.retrying
+        ? 'Reformatting response…'
+        : msg.content.trim() === ''
+          ? 'Thinking…'
+          : 'Writing code…';
+      parts.push(
+        <div key="status" className={styles.aiStatus}>
+          <GearsSpinner size={16} />
+          <span>{status}</span>
+        </div>,
+      );
+    }
     return (
       <div key={idx} className={`${styles.aiMsg} ${styles.aiAssistant}`}>
         {parts}

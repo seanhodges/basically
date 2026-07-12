@@ -13,6 +13,16 @@ export interface PendingFix {
 }
 
 /**
+ * Sent automatically as a follow-up turn when the assistant returns an empty
+ * reply, to nudge it into the required format. Dialect-agnostic on purpose: the
+ * per-dialect OUTPUT FORMAT rules live in the (cached) system prompt, so this
+ * only needs to remind the model to actually produce the fenced program.
+ */
+export const FORMAT_RETRY_MESSAGE =
+  'Your previous reply was empty. Please resend the complete program in a ' +
+  'single ```basic fenced code block, exactly as instructed.';
+
+/**
  * The system prompt stays byte-stable per dialect (good for prompt caching);
  * volatile context - current program, lint errors - rides in the user turn.
  */

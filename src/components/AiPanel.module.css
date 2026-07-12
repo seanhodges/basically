@@ -51,6 +51,15 @@
   margin: 4px 0;
 }
 
+.aiStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
 .aiCode {
   background: #11131a;
   border: 1px solid var(--border);
