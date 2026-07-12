@@ -17,6 +17,7 @@
  * the data block yields the program; whichever copy checks out wins.
  */
 import { checksum } from './cassetteEncoder';
+import { c64Charset } from '../charset';
 
 const NO_C64_SIGNAL = 'No cassette signal detected';
 const HEADER_SIZE = 192;
@@ -63,9 +64,9 @@ function readName(header: Uint8Array): string {
     FILENAME_OFFSET,
     FILENAME_OFFSET + FILENAME_LENGTH,
   );
-  return String.fromCharCode(...raw)
-    .replace(/\s+$/, '')
-    .trim();
+  // Route the raw PETSCII filename bytes through the charset so graphics and
+  // control codes survive as glyphs/escapes; trim the space padding at the end.
+  return c64Charset.toUnicode(raw).replace(/ +$/, '');
 }
 
 /**

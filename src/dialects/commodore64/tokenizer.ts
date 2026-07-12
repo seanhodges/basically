@@ -81,6 +81,10 @@ function tokenizeBody(
       column: bodyCol + at,
       endColumn: bodyCol + end,
       message: `Statement must start with a BASIC command or assignment (got '${got}')`,
+      // Heuristic only: the ROM stores these bytes and would ?SYNTAX ERROR at
+      // RUN, not at entry. Non-fatal so an imported program that trips the
+      // heuristic still builds a runnable, re-exportable image (Stage 1 split).
+      fatal: false,
     });
   };
 
@@ -209,19 +213,33 @@ export function tokenizeProgram(source: string): TokenizedProgram {
       continue;
     }
     const lineNo = parseInt(m[2]!, 10);
-    if (lineNo > MAX_LINE) {
+    if (lineNo > 0xffff) {
+      // A line number is a 16-bit field: anything past 65535 cannot be stored,
+      // so this stays fatal and the line is dropped from the image.
       errors.push({
         line: editorLine,
         column: m[1]!.length,
-        message: `Line number ${lineNo} out of range 0–${MAX_LINE}`,
+        message: `Line number ${lineNo} exceeds the 16-bit maximum (65535)`,
       });
       continue;
+    }
+    if (lineNo > MAX_LINE) {
+      // Commodore BASIC rejects entry above 63999, but a tokenized program on
+      // tape/disk can hold such a line and still LIST/RUN. Warn, but keep the
+      // line so an imported program stays runnable and re-exportable.
+      errors.push({
+        line: editorLine,
+        column: m[1]!.length,
+        message: `Line number ${lineNo} is above the ${MAX_LINE} Commodore BASIC accepts at entry`,
+        fatal: false,
+      });
     }
     if (lineNo <= prevLineNo) {
       errors.push({
         line: editorLine,
         column: m[1]!.length,
         message: `Line number ${lineNo} is not greater than the previous (${prevLineNo})`,
+        fatal: false,
       });
     }
     prevLineNo = lineNo;

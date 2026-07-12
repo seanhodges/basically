@@ -48,10 +48,12 @@ describe('checksum', () => {
 });
 
 describe('nameBytes', () => {
-  it('upper-cases, strips punctuation and pads to 16 spaces', () => {
+  it('upper-cases, keeps PETSCII punctuation and pads to 16 spaces', () => {
     const nb = nameBytes('Hi!');
     expect(nb).toHaveLength(16);
-    expect(String.fromCharCode(...nb)).toBe('HI              ');
+    // Letters fold to the default (upper-case) set; '!' is a real PETSCII
+    // filename character and is preserved rather than stripped.
+    expect(String.fromCharCode(...nb)).toBe('HI!             ');
   });
 
   it('falls back to PROGRAM for an empty name', () => {

@@ -33,7 +33,7 @@
 | 3     | ZX81/ZX80: numeric payloads & tokenizer leniency    | ✅     |
 | 4     | Spectrum 48/128: code-context bytes & containers    | ⬜     |
 | 5     | BBC: context-aware import, escapes, Master BASIC IV | ✅     |
-| 6     | C64: petcat interop, containers, readability        | ⬜     |
+| 6     | C64: petcat interop, containers, readability        | 🔨     |
 | 7     | TRS-80: ROM-faithful forms, escapes, runtime        | ⬜     |
 | 8     | Atom: total charset, lint vs buildability, FP ROM   | ⬜     |
 | 9     | Docs, samples, AI profiles                          | ⬜     |
@@ -221,45 +221,62 @@ Fix the context-blind detokenizer and give the BBC an escape notation
 **Verify:** `npm test` (including the existing jsbeeb-oracle corpus, which
 must stay byte-identical); import a teletext `.bbc` and re-export unchanged.
 
-## Stage 6 — C64: petcat interop, containers, readability ⬜
+## Stage 6 — C64: petcat interop, containers, readability 🔨
 
 The PETSCII table is already total and injective; make it interoperable and
 the `.prg` path honest (findings 1–12 of the C64 audit).
 
-- [ ] Accept petcat/VICE aliases on parse (`petscii.ts:98`): `{wht}` `{blk}`
+- [x] Accept petcat/VICE aliases on parse (`petscii.ts`): `{wht}` `{blk}`
       `{grn}` `{blu}` `{yel}` `{cyn}` `{pur}` `{lred}` `{orng}` `{brn}`
       `{gry1}`–`{gry3}` `{lgrn}` `{lblu}` `{rght}` `{rvof}` `{sret}`
       `{swlc}`/`{swuc}` `{f1}`–`{f8}` `{space}` `{shift-space}`,
-      `{CBM-x}`/`{SHIFT-x}`, and decimal `{nnn}`. Keep current canonical names
-      on decode (or switch decode to petcat names — decide once, document).
-- [ ] Name the function keys ($85–$8C → `{f1}`–`{f8}`) and $A0
+      `{CBM-x}`/`{SHIFT-x}`, and decimal `{nnn}`. Canonical names kept on
+      decode; the aliases are parse-only inputs (`PETCAT_ALIASES` +
+      graphics-derived `{CBM-x}`/`{SHIFT-x}` + decimal branch in `parseC64Char`).
+- [x] Name the function keys ($85–$8C → `{f1}`–`{f8}`) and $A0
       (`{shift-space}`).
-- [ ] `.prg` container: keep bytes after the null link and re-emit them on
-      export (or at minimum warn "N bytes of machine code dropped" via
-      Stage 1); strip any plausible 2-byte load address and warn when it isn't
-      $0801 (`detokenizer.ts:29-37`).
-- [ ] Adopt Unicode Symbols-for-Legacy-Computing glyphs for the ~18 collapsed
-      distinct codes in $A0–$DF, and fix the virtual GRAPHICS keys to insert
-      their true bytes (`graphics.ts:20-77`, sync test to assert code
-      fidelity).
+- [x] `.prg` container: `detokenizeWithReport` warns "N bytes … appended
+      machine code" for data after the null link, warns on a non-$0801 load
+      address, and warns on truncation (`detokenizer.ts`, wired in `index.ts`).
+      Re-emitting the ML payload on export is not feasible through the text
+      tokenizer, so the loss is reported (Stage 1 channel) rather than silent.
+- [x] Adopt Unicode Symbols-for-Legacy-Computing glyphs for the 12 genuinely
+      distinct (of 18 candidate) codes in $A0–$DF — verified against the real
+      character ROM bitmaps; the other 6 ($A0/$AA/$B4/$C3/$DD/$DE) are true
+      hardware duplicates and stay `{$xx}`. Virtual GRAPHICS keys now insert
+      their true byte for those 12 (`graphics.ts`, `petscii.ts`; code-fidelity
+      test added).
 - [ ] Lower-case bank: add a readable rendering for shifted-bank text (petcat
       convention or a display mode) so mixed-case imports aren't `{$xx}` soup;
       allow authoring lower-case PETSCII bytes (`petscii.ts:69-71`).
-- [ ] Tokenize-only keyword abbreviations (`pO`, `gO`, `nE`, …) alongside `?`;
-      accept `^` as a spelling of the `↑` power operator.
-- [ ] Downgrade out-of-range/non-ascending line numbers to warnings on import
-      so such programs stay runnable (`tokenizer.ts:212-226`,
-      `index.ts:47-50` — interacts with the Stage 1 lint/buildability split).
-- [ ] Route tape header filenames through the charset in both directions
-      (`audio/cassetteDecoder.ts:66`, `cassetteEncoder.ts:66-74`).
-- [ ] Correct the "exact inverse" claim in `detokenizer.ts:14` (document the
-      ROM-impossible statement-context exceptions).
-- [ ] Round-trip fixtures: a hybrid `10 SYS 2064` + ML `.prg`; a petcat
-      listing pasted as source; a shifted-bank text adventure `.prg`.
+      **Deferred** — needs a display-mode flag threaded through
+      detokenize/tokenize (the byte $41 is 'A' in the graphics set and 'a' in
+      the lower/upper set); a charset-only change can't disambiguate. The glyph
+      adoption above already removes most of the shifted-bank `{$xx}` soup.
+- [~] Tokenize-only keyword abbreviations (`pO`, `gO`, `nE`, …) alongside `?`;
+  accept `^` as a spelling of the `↑` power operator. `^` shipped
+  (`keywords.ts`). The full abbreviation table is **deferred** — it needs a
+  case-sensitive matcher and a fully ROM-verified table (a wrong entry would
+  silently mis-tokenize, the very failure this plan guards against).
+- [x] Downgrade out-of-range/non-ascending line numbers to warnings on import
+      so such programs stay runnable (`tokenizer.ts`) — line numbers 64000–65535
+      and non-ascending order are now `fatal: false`, and the statement-shape
+      heuristics are too (Stage 1 lint/buildability split); >65535 stays fatal.
+- [x] Route tape header filenames through the charset in both directions
+      (`audio/cassetteEncoder.ts` `nameBytes`, `audio/cassetteDecoder.ts`
+      `readName`).
+- [x] Correct the "exact inverse" claim in `detokenizer.ts` (documents that
+      LIST decodes tokens in string/REM/DATA context but we keep them verbatim).
+- [x] Round-trip fixtures: a hybrid `10 SYS 2064` + ML `.prg`; a petcat
+      listing pasted as source; a shifted-bank text `.prg`
+      (`detokenizer.test.ts`).
 
 **Depends on:** Stage 1.
 **Verify:** `npm test`; petcat-exported listing tokenizes cleanly; hybrid
 `.prg` import → export preserves the ML payload (or warns).
+
+**Remaining before ✅:** lower-case display bank and the keyword-abbreviation
+table (both noted above).
 
 ## Stage 7 — TRS-80: ROM-faithful forms, escapes, runtime ⬜
 
