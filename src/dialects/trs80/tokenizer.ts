@@ -100,14 +100,16 @@ function tokenizeBody(
   };
 
   // A statement opener the ROM would reject at RUN time with ?SN ERROR.
-  // Recorded as a lint error; tokenization continues unchanged so the byte
-  // stream stays ROM-identical for every input.
+  // Recorded as a non-fatal lint error (the ROM stores such lines verbatim and
+  // only errors at RUN); tokenization continues unchanged so the byte stream
+  // stays ROM-identical for every input and the image stays buildable.
   const flagStatement = (at: number, end: number, got: string): void => {
     errors.push({
       line: editorLine,
       column: bodyCol + at,
       endColumn: bodyCol + end,
       message: `Statement must start with a BASIC command or assignment (got '${got}')`,
+      fatal: false,
     });
   };
 
@@ -255,10 +257,13 @@ export function tokenizeProgram(source: string): TokenizedProgram {
       continue;
     }
     if (lineNo <= prevLineNo) {
+      // Non-fatal: the line is still stored, so the image stays complete and
+      // buildable (matching the C64's treatment of ordering lint).
       errors.push({
         line: editorLine,
         column: m[1]!.length,
         message: `Line number ${lineNo} is not greater than the previous (${prevLineNo})`,
+        fatal: false,
       });
     }
     prevLineNo = lineNo;

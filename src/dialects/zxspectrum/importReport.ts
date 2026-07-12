@@ -2,8 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * Shared import-fidelity note for the ZX Spectrum dialects (see
- * docs/contributing/charset-tokenizer-plan.md, Stage 4).
+ * Shared import-fidelity note for the ZX Spectrum dialects.
  *
  * The Spectrum charset is already total, but bytes with no ordinary character -
  * control codes, UDGs seen outside a string, or machine code stashed in a REM -

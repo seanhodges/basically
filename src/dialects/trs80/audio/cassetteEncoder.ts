@@ -16,6 +16,7 @@
  * bytes.
  */
 import { tokenizeProgram } from '../tokenizer';
+import { fatalErrors } from '../../types';
 import { buildCasImage } from '../casfile';
 
 export const CASSETTE_SAMPLE_RATE = 44100;
@@ -39,9 +40,10 @@ export function buildCassetteSamples(
   robust = false,
 ): Float32Array {
   const { program, errors } = tokenizeProgram(source);
-  if (errors.length > 0) {
+  const fatal = fatalErrors(errors);
+  if (fatal.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) - fix them before building`,
+      `Program has ${fatal.length} error(s) - fix them before building`,
     );
   }
   // A bare 0x0000 end link means the program is empty.

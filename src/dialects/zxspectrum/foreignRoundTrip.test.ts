@@ -8,7 +8,7 @@ import { importRoundTrip, firstDifference } from '../roundTripHarness';
 
 /**
  * Import-direction fixtures built from *foreign* byte patterns real Spectrum
- * tapes carry but the app never authors (Stage 4): control codes and UDGs
+ * tapes carry but the app never authors: control codes and UDGs
  * outside strings, machine code stashed in a REM, a "protection" constant whose
  * stored 5-byte form disagrees with its printed digits, a `0 REM` protection
  * line, a multi-file compilation `.TAP`, and a bad parity byte.

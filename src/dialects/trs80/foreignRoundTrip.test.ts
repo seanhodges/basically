@@ -10,7 +10,7 @@ import { importRoundTrip, firstDifference } from '../roundTripHarness';
  * CSAVE tape contains but the app's own authoring rarely produces byte-for-byte:
  * the `:REM'` (3A 93 FB) apostrophe-comment form, the `:ELSE` (3A 95) form,
  * control/graphics/compression bytes inside a string, and preserved lower-case
- * text. Each must round-trip byte-exactly (Stage 7).
+ * text. Each must round-trip byte-exactly.
  */
 
 /** Assemble the linked-line program layout (absolute links from 0x42E9). */
@@ -73,7 +73,7 @@ describe('trs80 foreign-image round-trip', () => {
     );
   });
 
-  it('reports a truncated image through the Stage 1 warning channel', () => {
+  it('reports a truncated image through the import-report warning channel', () => {
     const program = programArea([
       { no: 10, body: [0xb2, 0x22, 0x48, 0x49, 0x22] }, // 10 PRINT "HI"
     ]);

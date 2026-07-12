@@ -11,7 +11,7 @@ function encode(text: string): number[] {
   return parseChar(text, 0).codes;
 }
 
-describe('BBC charset totality (Stage 5)', () => {
+describe('BBC charset totality', () => {
   it('round-trips every byte 0x00-0xFF through decode -> parse', () => {
     for (let b = 0; b <= 0xff; b++) {
       const text = decodeByte(b);

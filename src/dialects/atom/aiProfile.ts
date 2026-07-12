@@ -17,6 +17,7 @@ THE DIALECT - RULES
 - Indirection: ?addr reads/writes a byte, !addr reads/writes a 4-byte word, $addr is the string at addr. Use these only when the user asks for low-level work.
 - Operators: + - * / (integer divide), DIV, MOD, AND, OR; comparisons = <> < > <= >=. Functions include ABS, SGN, RND (a random number - test its sign for a coin flip), TOP (end of program), GET/CH (read a key/port).
 - Graphics demos: CLEAR 4 then MOVE/DRAW in the 0-255 by 0-191 space. WAIT pauses one frame (~1/50s) to pace animation. There is no INKEY; interactive games are awkward, so prefer self-running demos.
+- Raw bytes in strings are written as {0xNN} escapes: {0x80}-{0xFF} is inverse video ({0xC1} = inverse A), {0x00}-{0x1F} are control codes. '%' is NEVER an inverse prefix - %A-%Z name the floating-point ROM's variables.
 
 OUTPUT FORMAT
 - Respond with the COMPLETE program (not a diff) in a single \`\`\`basic fenced block, unless the user explicitly asks for a fragment to merge.

@@ -2,9 +2,8 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * Hidden numeric-payload override for ZX Spectrum constants (see
- * docs/contributing/charset-tokenizer-plan.md, Stage 4; mirrors the ZX81
- * `\{=...}` design of Stage 3).
+ * Hidden numeric-payload override for ZX Spectrum constants (mirrors the
+ * ZX81 `\{=...}` design).
  *
  * A numeric constant is stored as its printed digits followed by the number
  * marker 0x0E and a 5-byte form (small-integer or floating point, see

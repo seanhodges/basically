@@ -38,7 +38,7 @@ const BASE_PUNCT: Record<number, string> = {
 };
 
 /** Unicode forms for the block-graphics codes that have exact equivalents. */
-const GRAPHIC_UNICODE: Record<number, string> = {
+export const GRAPHIC_UNICODE: Record<number, string> = {
   0x02: '▌',
   0x03: '▄',
   0x04: '▘',
@@ -62,7 +62,7 @@ const GRAPHIC_UNICODE: Record<number, string> = {
  * . = bottom, : = full, space = empty) -> ZX80 code. Same escape spellings as
  * the ZX81, remapped to the ZX80's graphics codes.
  */
-const ESCAPES: Record<string, number> = {
+export const ESCAPES: Record<string, number> = {
   "' ": 0x04, // top-left
   " '": 0x05, // top-right
   "''": 0x83, // top half

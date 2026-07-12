@@ -38,7 +38,7 @@ const BASE_PUNCT: Record<number, string> = {
 };
 
 /** Unicode forms for the block-graphics codes that have exact equivalents. */
-const GRAPHIC_UNICODE: Record<number, string> = {
+export const GRAPHIC_UNICODE: Record<number, string> = {
   0x01: '▘',
   0x02: '▝',
   0x03: '▀',
@@ -58,7 +58,7 @@ const GRAPHIC_UNICODE: Record<number, string> = {
 };
 
 /** Backslash escapes (two chars following the backslash) -> code. */
-const ESCAPES: Record<string, number> = {
+export const ESCAPES: Record<string, number> = {
   "' ": 0x01,
   " '": 0x02,
   "''": 0x03,

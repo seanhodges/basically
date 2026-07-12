@@ -161,7 +161,7 @@ export function detokenizeProgram(program: Uint8Array): string {
  * Structural problems in a tokenized ZX81 program area that the text form
  * cannot convey (truncation): a line whose length field runs past the end of
  * the program area, or a line missing its NEWLINE terminator. Reported through
- * the Stage 1 import-fidelity channel.
+ * the import-fidelity report channel.
  */
 export function structuralWarnings(program: Uint8Array): string[] {
   let p = 0;

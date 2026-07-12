@@ -76,6 +76,15 @@ export function hasFatalErrors(errors: readonly TokenizeError[]): boolean {
   return errors.some((e) => e.fatal !== false);
 }
 
+/**
+ * The errors that prevent building a runnable image (see
+ * {@link hasFatalErrors}). Export/build paths gate and count on these, so
+ * non-fatal statement-shape lint doesn't block hardware export either.
+ */
+export function fatalErrors(errors: readonly TokenizeError[]): TokenizeError[] {
+  return errors.filter((e) => e.fatal !== false);
+}
+
 /** Result of {@link Dialect.detokenizeWithReport}. */
 export interface DetokenizeResult {
   /** Editable program text, exactly as {@link Dialect.detokenize} returns. */
@@ -364,8 +373,7 @@ export interface Dialect {
    * Like {@link detokenize}, but also reports what the text form could not
    * capture. The import paths prefer this when present and fall back to
    * `detokenize` (assuming no warnings) when absent; a dialect grows it as its
-   * importer learns to detect loss (see
-   * `docs/contributing/charset-tokenizer-plan.md`).
+   * importer learns to detect loss.
    */
   detokenizeWithReport?(image: Uint8Array): DetokenizeResult;
   /** Tokenizer dry-run for editor linting. */

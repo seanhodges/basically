@@ -2,8 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * Shared import-fidelity notes for the Sinclair dialects (see
- * docs/contributing/charset-tokenizer-plan.md, Stage 2).
+ * Shared import-fidelity notes for the Sinclair dialects.
  *
  * The ZX80/ZX81 charset is now *total*: no byte is lost on import. But bytes
  * with no standard character - control codes, cursor codes, keyword tokens seen

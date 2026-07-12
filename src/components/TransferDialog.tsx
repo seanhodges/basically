@@ -8,6 +8,7 @@ import {
 import { samplesToWav } from '../transfer/wav';
 import { playSamples, type AudioPlayback } from '../transfer/audioPlayer';
 import { sendOverSerial, webSerialSupported } from '../transfer/webserial';
+import { fatalErrors } from '../dialects/types';
 import styles from './TransferDialog.module.css';
 import dialog from './Dialog.module.css';
 
@@ -74,10 +75,11 @@ export function TransferDialog() {
 
   const buildImage = (): Uint8Array => {
     const result = dialect.tokenize(source, { programName: baseName });
-    if (result.errors.length > 0) {
-      throw new Error(
-        `Program has ${result.errors.length} error(s) - fix them first`,
-      );
+    // Only fatal (framing) errors block export; statement-shape lint keeps its
+    // editor squiggle but the stored bytes are complete and ROM-faithful.
+    const fatal = fatalErrors(result.errors);
+    if (fatal.length > 0) {
+      throw new Error(`Program has ${fatal.length} error(s) - fix them first`);
     }
     if (result.image.length === 0) throw new Error('Program is empty');
     return result.image;

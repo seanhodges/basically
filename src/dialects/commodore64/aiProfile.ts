@@ -28,6 +28,7 @@ USEFUL POKES / CODES
 - POKE 53280,0 : POKE 53281,0 - black border and background.
 - PRINT CHR$(147) clears the screen; CHR$(5)=white, CHR$(28)=red, CHR$(30)=green, CHR$(31)=blue, CHR$(144)=black, CHR$(18)=reverse on, CHR$(146)=reverse off.
 - PRINT CHR$(19) homes the cursor; cursor-down is CHR$(17), cursor-right CHR$(29).
+- In this IDE the same control codes can be written INSIDE string literals as petcat-style escapes - PRINT "{clr}{white}HELLO {rvon}THERE" with {home}, {down}, {up}, {right}, {left}, {red}, {green}, {blue}, {yellow}, {cyan}, {purple}, {black} etc.; {$xx} is a raw hex byte. They import/export byte-exactly; prefer them over CHR$(…) chains inside strings (petcat aliases like {wht} and decimal {147} are also accepted on input).
 - Screen codes (for POKEing 1024+): space=32, A-Z = 1-26.
 
 PERFORMANCE TRICKS

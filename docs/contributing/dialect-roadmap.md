@@ -8,7 +8,14 @@ and the `adding-a-target-system` skill).
 
 This document tracks which machines we can realistically support, grouped by
 **which already-bundled emulator can drive them**. The bundled emulator cores
-are the limiting factor, so they define the tiers:
+are the limiting factor, so they define the tiers.
+
+The cross-cutting language-layer quality bar - total charsets with escape
+notations, context-aware import, loud container parsers - is baked into every
+shipped dialect (see the charset/import feature-completeness checklist in
+[adding a dialect](./adding-a-dialect.md)). Two C64 items remain deferred:
+the lower-case display bank and the tokenizer keyword-abbreviation table
+(`pO`, `gO`, …).
 
 | Core                              | CPU          | Licence          | Wrapper                                                                                             | Powers                                   |
 | --------------------------------- | ------------ | ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------- |

@@ -15,43 +15,26 @@ exactly one statement. Keywords are written as words (`PRINT`, `GOTO`,
 line-number range and statement rules are dialect-specific (see each dialect
 folder / `CLAUDE.md`).
 
-Each dialect maps its own character set, so the special-character conventions
-below are **ZX81-specific** (zxtext2p-compatible where practical); the Spectrum,
-BBC, C64, TRS-80 and Atom have their own block-graphics / PETSCII / teletext
-escapes defined in their `charset.ts`.
+## Escape notation
 
-| Source               | Meaning                                                          |
-| -------------------- | ---------------------------------------------------------------- | -------------------------------------------- |
-| `▘▝▀▖▌▞▛`            | quarter/half block graphics (codes 0x01–0x07)                    |
-| `█▟▙▄▜▐▚▗`           | inverse block graphics (0x80–0x87)                               |
-| `▒`                  | grey block (0x08)                                                |
-| `\!!` `\!'` `\!.`    | grey full / top / bottom (0x08–0x0A)                             |
-| `\|                  | ` `\|'` `\|.`                                                    | inverse grey full / top / bottom (0x88–0x8A) |
-| `\' ` `\ '` `\''` …  | quadrant escapes: left+right column, `'`=top `.`=bottom `:`=full |
-| `%A` … `%9`          | inverse video character                                          |
-| `""` inside a string | the quote-image character (0xC0)                                 |
-| `£`                  | pound sign (0x0C)                                                |
+Every dialect's charset is **total**: each byte 0x00–0xFF has a text form
+that tokenizes back to the same byte, so imported programs never lose data
+silently. Bytes with no printable glyph round-trip through dialect-styled
+escapes (Sinclair `\{NN}`, Spectrum/BBC/TRS-80/Atom `{0xNN}`, C64 `{$xx}`,
+plus named forms like `{INK 2}`, `{RED}` or `{clr}`), recognised in the
+literal contexts where raw bytes live in a real program. Characters outside a
+machine's set remain tokenizer errors.
 
-`#` and other characters outside the ZX81 set are tokenizer errors.
+Each dialect's full notation is a searchable table on its escape-codes
+reference page:
 
-### ZX Spectrum escapes
-
-The Spectrum is mostly ASCII (plus `↑ £ ©` and the `▘▝▀…█` block graphics),
-but two escape forms cover the bytes with no unicode equivalent. They are
-recognised **inside string literals and REM bodies only**:
-
-| Source                 | Meaning                                                 |
-| ---------------------- | ------------------------------------------------------- |
-| `\a` … `\u`            | UDG characters (codes 0x90–0xA4, zmakebas convention)   |
-| `\\`                   | a literal backslash                                     |
-| `{INK n}` … `{OVER n}` | embedded control byte 0x10–0x15 + one operand byte      |
-| `{AT r,c}` / `{TAB n}` | embedded AT/TAB control (0x16/0x17) + two operand bytes |
-| `{0xNN}`               | any raw byte (used for otherwise unrepresentable bytes) |
-
-A `{...}` that doesn't match a directive is literal text (the Spectrum has
-real `{`/`}` characters). On `.TAP` import, control sequences inside strings
-and REMs become these escapes; control sequences _outside_ strings only
-colour the listing on real hardware and are dropped.
+- [ZX81 escape codes](./zx81/escapes) (zxtext2p-compatible where practical)
+- [ZX80 escape codes](./zx80/escapes)
+- [ZX Spectrum escape codes](./zxspectrum/escapes) (48K & 128K)
+- [BBC escape codes](./bbc/escapes) (Micro & Master, teletext names)
+- [Commodore 64 escape codes](./commodore64/escapes) (petcat-interoperable)
+- [TRS-80 escape codes](./trs80/escapes)
+- [Acorn Atom escape codes](./atom/escapes)
 
 ## Native binary formats
 

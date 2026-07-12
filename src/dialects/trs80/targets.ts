@@ -1,4 +1,5 @@
 import type { BuildTarget } from '../types';
+import { fatalErrors } from '../types';
 import { tokenizeProgram } from './tokenizer';
 import { buildCasImage } from './casfile';
 import { samplesToWav } from '../../transfer/wav';
@@ -14,9 +15,10 @@ import {
  */
 export function buildCas(source: string, programName: string): Uint8Array {
   const { program, errors } = tokenizeProgram(source);
-  if (errors.length > 0) {
+  const fatal = fatalErrors(errors);
+  if (fatal.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) - fix them before building`,
+      `Program has ${fatal.length} error(s) - fix them before building`,
     );
   }
   if (program.length <= 2) throw new Error('Program is empty');

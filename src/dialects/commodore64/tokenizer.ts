@@ -83,7 +83,8 @@ function tokenizeBody(
       message: `Statement must start with a BASIC command or assignment (got '${got}')`,
       // Heuristic only: the ROM stores these bytes and would ?SYNTAX ERROR at
       // RUN, not at entry. Non-fatal so an imported program that trips the
-      // heuristic still builds a runnable, re-exportable image (Stage 1 split).
+      // heuristic still builds a runnable, re-exportable image
+      // (lint/buildability split).
       fatal: false,
     });
   };

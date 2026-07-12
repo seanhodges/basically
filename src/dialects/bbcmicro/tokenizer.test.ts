@@ -178,7 +178,7 @@ describe('BBC detokenizer is context-aware', () => {
   });
 });
 
-describe('BBC detokenize report (Stage 1 warning channel)', () => {
+describe('BBC detokenize report (import-fidelity warning channel)', () => {
   it('imports a well-formed program with no warnings', () => {
     const { bytes } = tokenizeProgram('10 PRINT "HI"\n20 END');
     expect(detokenizeWithReport(bytes).warnings).toEqual([]);
@@ -202,7 +202,7 @@ describe('BBC detokenize report (Stage 1 warning channel)', () => {
   });
 });
 
-describe('BBC import round-trip fixtures (Stage 5)', () => {
+describe('BBC import round-trip fixtures', () => {
   it('a MODE 7 teletext program with colour bytes and 0x8D in strings', () => {
     const source = [
       '10 MODE 7',
@@ -223,7 +223,7 @@ describe('BBC import round-trip fixtures (Stage 5)', () => {
     const { image } = bbcmicro.tokenize('10 PRINT "HELLO"\n20 GOTO 10\n');
     const truncated = image.slice(0, image.length - 2);
     const outcome = importRoundTrip(bbcmicro, truncated);
-    // The loss is reported, which satisfies the Stage 1 acceptance rule even
+    // The loss is reported, which satisfies the import acceptance rule even
     // though the bytes no longer round-trip exactly.
     expect(outcome.warnings.length).toBeGreaterThan(0);
     expect(isAcceptableImport(outcome)).toBe(true);

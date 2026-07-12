@@ -53,7 +53,7 @@ export function tokenizeProgram(source: string): TokenizedProgram {
       continue;
     }
     if (lineNo <= prevLineNo) {
-      // Decision (Stage 3): out-of-order lines are kept as an error, not
+      // Decision: out-of-order lines are kept as an error, not
       // silently sorted. Real hardware inserts each typed line in order, but a
       // pasted listing that is out of order is far more often a mistake than an
       // intent to reorder; sorting would hide it. Imports never hit this - the

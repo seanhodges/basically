@@ -31,8 +31,7 @@ export function detokenizeProgram(file: Uint8Array): string {
 /**
  * Like {@link detokenizeProgram}, but for the binary-import paths: it also
  * reports what the text form could not capture - a non-BASIC `.atm` (rejected
- * outright), or a truncated image with no `0D FF` end marker. See
- * `docs/contributing/charset-tokenizer-plan.md` (Stage 8).
+ * outright), or a truncated image with no `0D FF` end marker.
  */
 export function detokenizeProgramWithReport(
   file: Uint8Array,

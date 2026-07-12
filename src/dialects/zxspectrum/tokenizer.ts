@@ -258,7 +258,7 @@ function tokenizeBody(
   while (i < body.length) {
     const ch = body[i]!;
 
-    // Spaces policy (Stage 4): inter-token spacing is normalized, not stored.
+    // Spaces policy: inter-token spacing is normalized, not stored.
     // A real Spectrum keeps the exact spaces you type, but the detokenizer
     // re-inserts a canonical space wherever two tokens would otherwise glue
     // (e.g. GOTO + 10). Storing typed spaces too would double those on the next

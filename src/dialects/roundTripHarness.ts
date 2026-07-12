@@ -2,15 +2,14 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * Import-direction round-trip harness (see
- * docs/contributing/charset-tokenizer-plan.md, Stage 1).
+ * Import-direction round-trip harness.
  *
  * The acceptance rule for a binary program image fed to a dialect's importer:
  * `tokenize(detokenize(image))` reproduces the image **byte-for-byte with no
  * errors**, or the detokenize report carries a warning saying what was lost.
  * Anything else is silent corruption. `roundTrip.test.ts` applies the rule to
- * every registered dialect's samples; Stages 2-8 add per-dialect *foreign*
- * fixtures (control codes, tokens-in-strings, top-bit bytes) as each importer
+ * every registered dialect's samples; each dialect adds its own *foreign*
+ * fixtures (control codes, tokens-in-strings, top-bit bytes) as its importer
  * learns to preserve or report them.
  */
 
@@ -48,7 +47,7 @@ export function importRoundTrip(
 }
 
 /**
- * The Stage 1 acceptance rule: lossless, or the loss was reported. Foreign
+ * The import acceptance rule: lossless, or the loss was reported. Foreign
  * fixtures assert this; app-authored images must meet the stricter
  * `byteExact && errors.length === 0`.
  */

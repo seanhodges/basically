@@ -152,7 +152,7 @@ describe('trs80 interpreter - data, arrays, graphics', () => {
   });
 });
 
-describe('trs80 interpreter - Stage 7 runtime fidelity', () => {
+describe('trs80 interpreter - display-driver runtime fidelity', () => {
   it('lexes a tokenized 1E-5 exponent (the sign is a minus token)', () => {
     // The tokenizer stores the exponent sign as the 0xCE minus token, so the
     // lexer must recognise it as part of the number, not a subtraction (which
