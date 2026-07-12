@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { buildEditorFix, buildRunFix } from './promptBuilder';
+import {
+  buildEditorFix,
+  buildRunFix,
+  FORMAT_RETRY_MESSAGE,
+} from './promptBuilder';
 import type { MachineReport } from '../dialects/types';
+
+describe('FORMAT_RETRY_MESSAGE', () => {
+  it('asks for the program in a basic fenced block', () => {
+    expect(FORMAT_RETRY_MESSAGE).toContain('```basic');
+    expect(FORMAT_RETRY_MESSAGE.toLowerCase()).toContain('fenced');
+  });
+});
 
 describe('buildEditorFix', () => {
   it('summarises the errors and includes program + errors in the message', () => {

@@ -12,7 +12,11 @@ import {
   clearAiConversation,
 } from '../storage/settings';
 import { useIdeStore } from '../app/store';
-import { buildRunFix, type PendingFix } from './promptBuilder';
+import {
+  buildRunFix,
+  FORMAT_RETRY_MESSAGE,
+  type PendingFix,
+} from './promptBuilder';
 
 export type { PendingFix } from './promptBuilder';
 
@@ -22,6 +26,8 @@ export interface DisplayMessage extends ChatMessage {
   streaming?: boolean;
   /** True for a truncated answer restored after a reload (cannot resume). */
   incomplete?: boolean;
+  /** True while re-requesting after an empty reply (shows a distinct status). */
+  retrying?: boolean;
 }
 
 /** Everything `send` needs that depends on the active dialect/editor. */
@@ -96,7 +102,7 @@ export const useAiStore = create<AiState>((set, get) => ({
   }) => {
     const prior = get().messages;
     // History for the API: prior turns (role+content only) + the new request.
-    const history: ChatMessage[] = [
+    const baseHistory: ChatMessage[] = [
       ...prior.map(({ role, content }) => ({ role, content })),
       { role: 'user', content: userContent },
     ];
@@ -112,8 +118,12 @@ export const useAiStore = create<AiState>((set, get) => ({
       ],
     });
 
+    // Stream one attempt into the trailing placeholder, resolving to its final
+    // text. Reused verbatim for the empty-reply reformat retry below; the
+    // `myGen`/`gen` guards make late deltas/completions from a superseded stream
+    // no-ops just as before.
     let lastPersist = 0;
-    try {
+    const runAttempt = (history: ChatMessage[]): Promise<string> => {
       const handle = streamChat(
         providerId,
         { apiKey, model, maxTokens, system, messages: history },
@@ -133,8 +143,53 @@ export const useAiStore = create<AiState>((set, get) => ({
         },
       );
       activeHandle = handle;
-      const finalText = await handle.done;
+      return handle.done;
+    };
+
+    try {
+      let finalText = await runAttempt(baseHistory);
       if (gen !== myGen) return;
+
+      // An empty reply (e.g. the whole token budget went to adaptive thinking)
+      // renders as a blank bubble. Re-request once with a format nudge before
+      // giving up. Only a truly empty reply retries - legitimate prose answers
+      // are left alone.
+      if (finalText.trim() === '') {
+        set((s) => {
+          const copy = [...s.messages];
+          copy[copy.length - 1] = {
+            role: 'assistant',
+            content: '',
+            streaming: true,
+            retrying: true,
+          };
+          return { messages: copy };
+        });
+        const retryHistory: ChatMessage[] = [
+          ...baseHistory,
+          // Synthetic assistant turn keeps role alternation valid; '(no
+          // response)' avoids the API's empty-content rejection.
+          { role: 'assistant', content: '(no response)' },
+          { role: 'user', content: FORMAT_RETRY_MESSAGE },
+        ];
+        finalText = await runAttempt(retryHistory);
+        if (gen !== myGen) return;
+
+        if (finalText.trim() === '') {
+          // Twice empty: drop the placeholder and surface an error.
+          set((s) => ({
+            messages: s.messages.filter(
+              (m) => !(m.streaming && m.content === ''),
+            ),
+            busy: false,
+            error:
+              'The AI returned an empty response twice. Please try again or rephrase your request.',
+          }));
+          persist(get().messages);
+          return;
+        }
+      }
+
       set((s) => {
         const copy = [...s.messages];
         copy[copy.length - 1] = { role: 'assistant', content: finalText };

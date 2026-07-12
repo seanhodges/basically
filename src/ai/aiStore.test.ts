@@ -95,6 +95,62 @@ describe('aiStore', () => {
     ]);
   });
 
+  it('retries once with a format nudge when the first reply is empty', async () => {
+    const p = useAiStore.getState().send(params);
+    // First attempt resolves empty -> the store re-requests.
+    const first = h.current!;
+    first.resolve('');
+    await Promise.resolve(); // let send() react and start the retry
+    await Promise.resolve();
+
+    // A fresh streaming handle means the retry actually fired.
+    expect(h.current).not.toBe(first);
+    // The placeholder is marked as retrying while the reformat is in flight.
+    const streaming = useAiStore.getState().messages.at(-1)!;
+    expect(streaming.retrying).toBe(true);
+
+    h.current!.onText('10 PRINT');
+    h.current!.resolve('10 PRINT');
+    await p;
+
+    expect(useAiStore.getState().messages.map(plain)).toEqual([
+      { role: 'user', content: 'make breakout' },
+      { role: 'assistant', content: '10 PRINT' },
+    ]);
+    expect(useAiStore.getState().error).toBe('');
+    expect(useAiStore.getState().busy).toBe(false);
+  });
+
+  it('surfaces an error when both attempts return empty', async () => {
+    const p = useAiStore.getState().send(params);
+    h.current!.resolve('');
+    await Promise.resolve();
+    await Promise.resolve();
+    h.current!.resolve('   '); // whitespace-only is still "empty"
+    await p;
+
+    // No empty assistant bubble is left behind; only the user turn remains.
+    expect(useAiStore.getState().messages.map(plain)).toEqual([
+      { role: 'user', content: 'make breakout' },
+    ]);
+    expect(useAiStore.getState().error).toContain('empty response');
+    expect(useAiStore.getState().busy).toBe(false);
+  });
+
+  it('does not retry a non-empty reply', async () => {
+    const p = useAiStore.getState().send(params);
+    const first = h.current!;
+    first.resolve('10 PRINT');
+    await p;
+
+    // No second attempt was started.
+    expect(h.current).toBe(first);
+    expect(useAiStore.getState().messages.map(plain)).toEqual([
+      { role: 'user', content: 'make breakout' },
+      { role: 'assistant', content: '10 PRINT' },
+    ]);
+  });
+
   it('reset clears the thread and ignores a late completion', async () => {
     const p = useAiStore.getState().send(params);
     h.current!.onText('partial');
