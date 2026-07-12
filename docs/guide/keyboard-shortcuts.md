@@ -23,7 +23,7 @@ debugging, file operations, and toggling the panels.
 | Action          | Shortcut                                     |
 | --------------- | -------------------------------------------- |
 | New             | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd>   |
-| Load…           | <kbd>Mod</kbd>+<kbd>O</kbd>                  |
+| Open…           | <kbd>Mod</kbd>+<kbd>O</kbd>                  |
 | Save            | <kbd>Mod</kbd>+<kbd>S</kbd>                  |
 | Import…         | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>   |
 | Export…         | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>E</kbd>   |

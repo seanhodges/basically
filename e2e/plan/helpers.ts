@@ -163,7 +163,7 @@ export async function saveAsBas(
   return download.suggestedFilename();
 }
 
-/** Open a toolbar File-menu entry (Import…, Export…, Load…, …). */
+/** Open a toolbar File-menu entry (Import…, Export…, Open…, …). */
 export async function fileMenu(page: Page, entry: RegExp): Promise<void> {
   await page.getByRole('button', { name: 'File ▾' }).click();
   await page.getByRole('button', { name: entry }).click();

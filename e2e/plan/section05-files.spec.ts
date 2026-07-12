@@ -55,13 +55,13 @@ test('5.1b File menu opens, stays open, and dismisses on outside click / Escape'
   await expect(page.getByRole('button', { name: /^New/ })).toBeHidden();
 });
 
-test('5.2 Load opens a legacy .bas file (content and filename)', async ({
+test('5.2 Open loads a legacy .bas file (content and filename)', async ({
   page,
 }) => {
   await forceFallbackFilePickers(page);
   await openApp(page);
   const chooser = page.waitForEvent('filechooser');
-  await fileMenu(page, /^Load/);
+  await fileMenu(page, /^Open…/);
   await (
     await chooser
   ).setFiles({
