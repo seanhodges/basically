@@ -509,9 +509,7 @@ export function Toolbar() {
                       In portrait there is no rail, so Play leads the menu. */}
                   {!landscape && (
                     <>
-                      <button className="run" onClick={playProgram}>
-                        ▶ Play
-                      </button>
+                      <button onClick={playProgram}>▶ Play</button>
                       <div className={styles.menuSeparator} />
                     </>
                   )}
