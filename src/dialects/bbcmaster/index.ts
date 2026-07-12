@@ -41,7 +41,7 @@ export const bbcmaster: Dialect = {
   name: 'BBC Master',
   docsReference: 'bbc',
   programRamBytes: 30720,
-  fileExtensions: ['.bas'],
+  fileExtensions: ['.txt', '.bas'],
   keywords: bbcKeywords,
   charset: bbcCharset,
   languageSupport: bbcLanguageSupport,

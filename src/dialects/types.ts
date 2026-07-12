@@ -361,6 +361,11 @@ export interface SampleFile {
 export interface Dialect {
   id: string;
   name: string;
+  /**
+   * Editor-source extensions this dialect recognises. The first is the default
+   * for saving (`.txt`); the rest (e.g. legacy `.bas`) are also accepted on
+   * load.
+   */
   fileExtensions: string[];
   keywords: KeywordInfo[];
   charset: CharsetMapping;

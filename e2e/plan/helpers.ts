@@ -142,10 +142,10 @@ export function canvasPainted(page: Page): Promise<boolean> {
 }
 
 /**
- * Save the current document via File ▸ Save .bas using the fallback download
- * path (call {@link forceFallbackFilePickers} first). Answers the "Save as"
- * filename prompt with `name` and waits for the download + saved status.
- * Returns the download's suggested filename.
+ * Save the current document via File ▸ Save using the fallback download path
+ * (call {@link forceFallbackFilePickers} first). Answers the "Save as" filename
+ * prompt with `name` and waits for the download + saved status. Returns the
+ * download's suggested filename.
  */
 export async function saveAsBas(
   page: Page,
@@ -155,15 +155,15 @@ export async function saveAsBas(
   dialogs.promptText = name;
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'File ▾' }).click();
-  await page.getByRole('button', { name: /^Save \.bas/ }).click();
+  await page.getByRole('button', { name: /^Save\b/ }).click();
   const download = await downloadPromise;
   dialogs.promptText = undefined;
-  const full = name.includes('.') ? name : `${name}.bas`;
+  const full = name.includes('.') ? name : `${name}.txt`;
   await expect(page.getByText(full)).toBeVisible();
   return download.suggestedFilename();
 }
 
-/** Open a toolbar File-menu entry (Import…, Export…, Open .bas…, …). */
+/** Open a toolbar File-menu entry (Import…, Export…, Open…, …). */
 export async function fileMenu(page: Page, entry: RegExp): Promise<void> {
   await page.getByRole('button', { name: 'File ▾' }).click();
   await page.getByRole('button', { name: entry }).click();

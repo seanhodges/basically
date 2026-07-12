@@ -17,6 +17,14 @@ import type {
  */
 export type PersistedMessage = ChatMessage & { incomplete?: boolean };
 
+/**
+ * Name given to a document that hasn't been saved to disk yet. The `.txt`
+ * extension is what Save writes by default (browsers can flag `.bas` as a
+ * dangerous download); code checks against this constant to tell an untitled
+ * draft from a deliberately-named file.
+ */
+export const UNTITLED_FILE_NAME = 'untitled.txt';
+
 const KEYS = {
   // Per-provider API keys are owned by the provider registry
   // (`ProviderMeta.apiKeyStorageKey`), not listed here.
@@ -379,7 +387,7 @@ export function loadAutosave(): { name: string; text: string } | null {
   const text = localStorage.getItem(KEYS.autosaveDoc);
   if (text === null) return null;
   return {
-    name: localStorage.getItem(KEYS.autosaveName) ?? 'untitled.bas',
+    name: localStorage.getItem(KEYS.autosaveName) ?? UNTITLED_FILE_NAME,
     text,
   };
 }

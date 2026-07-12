@@ -149,10 +149,10 @@ available). The 🤖 rows drive the same pointer-event code path with a mouse;
 
 | #   | Auto               | Step                                                     | Expected                                                                                                                                                       |
 | --- | ------------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 5.1 | 🤖 partial (`s05`) | File ▸ Save (Ctrl+S) on a new document                   | Chromium: native save dialog with `.bas` enforced. Firefox/Safari: "Save as" name prompt, then download. Filename lands in the status bar; dirty marker clears |
-| 5.2 | 🤖 partial (`s05`) | File ▸ Open a `.bas` file                                | Loads into the editor; dialect syntax check runs                                                                                                               |
+| 5.1 | 🤖 partial (`s05`) | File ▸ Save (Ctrl+S) on a new document                   | Chromium: native save dialog with `.txt` enforced. Firefox/Safari: "Save as" name prompt, then download. Filename lands in the status bar; dirty marker clears |
+| 5.2 | 🤖 partial (`s05`) | File ▸ Open a `.txt` (or legacy `.bas`) file             | Loads into the editor; dialect syntax check runs                                                                                                               |
 | 5.3 | **🖐 MANUAL**      | Cancel each dialog (open and save)                       | No error, no state change — in every browser                                                                                                                   |
-| 5.4 | 🤖 `s05`           | Import ▸ binary image (`.P`/`.TAP`/`.prg`/… per dialect) | Detokenizes into the editor with a `.bas` name                                                                                                                 |
+| 5.4 | 🤖 `s05`           | Import ▸ binary image (`.P`/`.TAP`/`.prg`/… per dialect) | Detokenizes into the editor as an untitled document                                                                                                            |
 | 5.5 | 🤖 `s05`           | Export ▸ native binary download                          | File downloads with correct name/extension; re-importing round-trips                                                                                           |
 
 _5.1/5.2 automate the classic input/download fallback in every browser;
@@ -182,7 +182,7 @@ through Web Audio and the dialect decoder, and compare the program._
 
 | #   | Auto               | Step                                         | Expected                                                                                                                      |
 | --- | ------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 7.1 | 🤖 `s07`           | Export with unsaved changes                  | Dialog asks to save first                                                                                                     |
+| 7.1 | 🤖 `s07`           | Export an unsaved program                    | Export controls are available immediately (no save gate); the image/tape header defaults to `PROGRAM`                         |
 | 7.2 | 🤖 partial (`s07`) | "Play through speakers"                      | Cassette tone plays **in every browser, from the first click** (Safari: no hang on "Playing…"); duration shown; Stop halts it |
 | 7.3 | **🖐 MANUAL**      | Start playback while the emulator is running | Emulator stops first, then the tone plays (no mixed audio)                                                                    |
 | 7.4 | 🤖 partial (`s06`) | "Download .wav"                              | WAV downloads; plays in a media player at the right pitch/speed                                                               |

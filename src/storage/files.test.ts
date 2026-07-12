@@ -23,11 +23,13 @@ describe('binaryImportPickerOptions', () => {
 
 describe('programNameFromFileName', () => {
   it('strips the extension and uppercases', () => {
+    expect(programNameFromFileName('game.txt')).toBe('GAME');
+    // Legacy .bas files still load, so their names resolve the same way.
     expect(programNameFromFileName('game.bas')).toBe('GAME');
   });
 
   it('truncates to 10 characters', () => {
-    expect(programNameFromFileName('superlongname.bas')).toBe('SUPERLONGN');
+    expect(programNameFromFileName('superlongname.txt')).toBe('SUPERLONGN');
   });
 
   it('handles names without an extension', () => {
@@ -35,11 +37,11 @@ describe('programNameFromFileName', () => {
   });
 
   it('falls back to PROGRAM for an empty stem', () => {
-    expect(programNameFromFileName('.bas')).toBe('PROGRAM');
+    expect(programNameFromFileName('.txt')).toBe('PROGRAM');
     expect(programNameFromFileName('')).toBe('PROGRAM');
   });
 
   it('derives from the untitled default', () => {
-    expect(programNameFromFileName('untitled.bas')).toBe('UNTITLED');
+    expect(programNameFromFileName('untitled.txt')).toBe('UNTITLED');
   });
 });

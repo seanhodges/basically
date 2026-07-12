@@ -29,7 +29,7 @@ export const atom: Dialect = {
   id: 'atom',
   name: 'Acorn Atom',
   programRamBytes: 8192,
-  fileExtensions: ['.bas'],
+  fileExtensions: ['.txt', '.bas'],
   keywords: atomKeywords,
   charset: atomCharset,
   languageSupport: atomLanguageSupport,

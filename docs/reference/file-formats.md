@@ -1,19 +1,22 @@
 # File formats
 
-Every dialect reads and writes the same plain-text editor format (`.bas`) and,
+Every dialect reads and writes the same plain-text editor format (`.txt`) and,
 in addition, one **native binary** that real hardware and emulators load
 directly (`.P`, `.O`, `.TAP`, `.bbc`, `.prg`, `.cas`, `.atm`) plus a **cassette
 `.wav`**. The native binary doubles as the in-memory image the IDE's own
 emulator injects, and (for dialects that support importing) as an import format
 that round-trips back to editable source.
 
-## Editor source format (.bas)
+## Editor source format (.txt)
 
 Plain UTF-8 text, one BASIC line per text line: a line number followed by
 exactly one statement. Keywords are written as words (`PRINT`, `GOTO`,
 `INKEY$`, `**` for power). Lowercase input is folded to uppercase. The legal
 line-number range and statement rules are dialect-specific (see each dialect's
 language reference page).
+
+Save writes a `.txt` file by default; load accepts either `.txt` or a legacy
+`.bas` file, so programs saved by earlier versions still open unchanged.
 
 ## Escape notation
 

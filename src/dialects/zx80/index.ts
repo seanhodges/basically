@@ -28,7 +28,7 @@ export const zx80: Dialect = {
   id: 'zx80',
   name: 'ZX80',
   programRamBytes: 15360,
-  fileExtensions: ['.bas'],
+  fileExtensions: ['.txt', '.bas'],
   keywords: zx80Keywords,
   charset: zx80Charset,
   languageSupport: zx80LanguageSupport,

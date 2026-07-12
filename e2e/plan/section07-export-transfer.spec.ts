@@ -8,6 +8,16 @@ import {
   setEditorSource,
 } from './helpers';
 
+/** Open the export dialog on an unsaved program (no save gate to clear). */
+async function openExportOnUnsavedDoc(page: Page) {
+  await openApp(page);
+  await setEditorSource(page, '10 PRINT "EXPORT"\n20 GOTO 10');
+  await fileMenu(page, /^Export/);
+  await expect(
+    page.getByRole('heading', { name: 'Run on real hardware' }),
+  ).toBeVisible();
+}
+
 /**
  * Test plan §7 - Export / transfer to hardware.
  * (docs/contributing/cross-browser-test-plan.md)
@@ -18,7 +28,7 @@ import {
  * (enabled on Chromium/Edge, disabled+tooltip elsewhere) is automated.
  */
 
-/** Save a small program so the export dialog's save gate is already cleared. */
+/** Save a small program so the export dialog opens with a deliberate name. */
 async function openExportOnSavedDoc(page: Page) {
   await forceFallbackFilePickers(page);
   const dialogs = await openApp(page);
@@ -30,16 +40,20 @@ async function openExportOnSavedDoc(page: Page) {
   ).toBeVisible();
 }
 
-test('7.1 export gate: unsaved program must be saved first', async ({
+test('7.1 unsaved program exports immediately under the PROGRAM name', async ({
   page,
 }) => {
-  await openApp(page);
-  await setEditorSource(page, '10 PRINT "UNSAVED"');
-  await fileMenu(page, /^Export/);
-  await expect(page.getByText(/Save your program to a/)).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Save as .bas…' }),
-  ).toBeVisible();
+  await openExportOnUnsavedDoc(page);
+  // No save gate: the export controls are available straight away.
+  await expect(page.getByText(/Save your program to a/)).toBeHidden();
+  const serial = page.getByRole('button', { name: 'Send via serial bridge' });
+  await expect(serial).toBeVisible();
+  // With no saved filename, the exported image (and its tape header) default to
+  // PROGRAM - the .P downloads as program.p.
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export .P file' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('program.p');
 });
 
 test('7.2 cassette playback starts from the click and stops on demand', async ({

@@ -82,7 +82,7 @@ describe('openSharedFromUrl', () => {
     expect(s.dialect.id).toBe('bbcmicro');
     expect(s.source).toBe('10 PRINT "SHARED"');
     // A shared program isn't a saved local file - it opens untitled.
-    expect(s.fileName).toBe('untitled.bas');
+    expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(false);
     expect(s.statusNotice).toBeNull();
     expect(replaceStateMock).toHaveBeenCalledTimes(1);
@@ -115,6 +115,6 @@ describe('openSharedFromUrl', () => {
     );
     await openSharedFromUrl();
     // The share's name is not a saved local file, so it is not adopted.
-    expect(useIdeStore.getState().fileName).toBe('untitled.bas');
+    expect(useIdeStore.getState().fileName).toBe('untitled.txt');
   });
 });

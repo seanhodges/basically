@@ -330,7 +330,7 @@ machine-agnostic plumbing (WAV container, speaker/mic, serial framing).
 
 ```mermaid
 flowchart LR
-  editor["Editor source (.bas)"]
+  editor["Editor source (.txt)"]
 
   subgraph export ["Export - IDE → machine"]
     build["dialect.buildTargets[].build()"]
@@ -368,8 +368,9 @@ in `src/storage/settings.ts`:
 | Settings                   | On change (dialect, editor, emulator, keyboard, controller) |
 | AI provider + API keys     | On entry in the AI settings dialog; per-provider keys       |
 
-Saving and opening `.bas` files uses the File System Access API where
-available, with a download/upload fallback (`src/storage/files.ts`).
+Saving writes `.txt` (opening accepts `.txt` or a legacy `.bas`) using the File
+System Access API where available, with a download/upload fallback
+(`src/storage/files.ts`).
 
 ## Where to go next
 

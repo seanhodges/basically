@@ -51,7 +51,7 @@ beforeEach(() => {
   useIdeStore.setState({
     dialect: zx81,
     source: '10 REM OLD',
-    fileName: 'untitled.bas',
+    fileName: 'untitled.txt',
     dirty: false,
     statusNotice: null,
   });
@@ -83,7 +83,7 @@ describe('openDroppedFile', () => {
     await dropFile('demo.prg', prgBytes);
     const s = useIdeStore.getState();
     expect(s.source).toBe(PRG_SOURCE);
-    expect(s.fileName).toBe('untitled.bas'); // imports are never a named doc
+    expect(s.fileName).toBe('untitled.txt'); // imports are never a named doc
     expect(s.dirty).toBe(true); // unsaved content, guarded on the next load
     expect(s.statusNotice).toBe('Imported demo.prg.');
   });
