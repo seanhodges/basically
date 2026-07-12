@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-// The standalone player (docs/contributing/standalone-player.md):
-// a cut-down, fully responsive shell - emulator screen + virtual keyboard +
+// The standalone player: a cut-down, fully responsive shell - emulator screen + virtual keyboard +
 // virtual gamepad, no editor/docs/menus. It fetches the shared program behind
 // its /<verb>/<shareId> URL, boots the verb's machine via the store's
 // playerBoot action and auto-runs. Default export so main.tsx can React.lazy()

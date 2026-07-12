@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-// Client for the share API (docs/contributing/standalone-player.md; the wire
-// contract is owned by the basically-share-server repo).
+// Client for the share API (the wire contract is owned by the
+// basically-share-server repo).
 // The API lives on its own origin - GitHub Pages cannot proxy a same-origin
 // /api - so the base URL comes from VITE_SHARE_API_URL at build time. When it
 // is unset (no backend deployed), calls reject with kind 'unconfigured' so
