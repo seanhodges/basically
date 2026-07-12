@@ -56,16 +56,29 @@ export function buildAtm(image: Uint8Array, name: string): Uint8Array {
  * (header + data) or already a bare image. A bare image always begins with the
  * `0D` line marker; an `.atm` begins with its filename field, and its length
  * word matches the trailing data, which is how the two are told apart.
+ *
+ * Throws a clear "not a BASIC program" error for an `.atm` that is plainly not
+ * a BASIC text image - one whose load address isn't `#2900`, or whose payload
+ * doesn't begin with the `0D` line marker (a machine-code or data `.atm`) - so
+ * the import surfaces the problem instead of silently yielding an empty document.
  */
 export function stripAtmHeader(file: Uint8Array): Uint8Array {
   if (file.length >= 1 && file[0] === 0x0d) return file; // bare image
   if (file.length >= ATM_HEADER_SIZE) {
-    const len = file[20]! | (file[21]! << 8);
-    if (len === file.length - ATM_HEADER_SIZE) {
-      return file.subarray(ATM_HEADER_SIZE);
+    const load = file[16]! | (file[17]! << 8);
+    const data = file.subarray(ATM_HEADER_SIZE);
+    if (load !== ATOM_TEXT_START || data[0] !== 0x0d) {
+      const hex = load.toString(16).toUpperCase().padStart(4, '0');
+      throw new Error(
+        `Not an Atom BASIC program: the .atm loads at #${hex} (BASIC text ` +
+          `lives at #2900) — this looks like a machine-code or data file.`,
+      );
     }
+    return data;
   }
-  return file;
+  throw new Error(
+    'Not an Atom BASIC program: too short to be a #2900 image or .atm file.',
+  );
 }
 
 /** Read the program name from an `.atm` header (empty for a bare image). */

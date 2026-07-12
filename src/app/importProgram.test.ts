@@ -44,13 +44,14 @@ describe('importProgram', () => {
   });
 
   it('warns when a file decodes to no program lines at all', () => {
-    // Machine code, not a BASIC image: the Atom importer finds no 0x0D-led
-    // line records and yields empty text.
+    // Machine code, not a BASIC image: the Atom importer rejects it outright
+    // (too short to be a #2900 image or .atm) and yields empty text with a
+    // single, specific reason rather than a vague "no lines" fallback.
     const ml = Uint8Array.from([0xa9, 0x05, 0x8d, 0x00, 0x80, 0x60]);
     const { source, warnings } = importProgram(atom, ml);
     expect(source.trim()).toBe('');
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toMatch(/no program lines/);
+    expect(warnings[0]).toMatch(/BASIC program/i);
   });
 
   it('reports nothing for clean text and formats the status line', () => {

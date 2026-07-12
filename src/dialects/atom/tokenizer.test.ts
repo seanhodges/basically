@@ -152,10 +152,24 @@ describe('atom tokenizer statement validation', () => {
     expect(errors[0]!.fatal).not.toBe(false);
   });
 
+  it('accepts * COS commands and % FP-variable statement heads', () => {
+    const src = ['10 *CAT', '20 *LOAD"X"', '30 %A=1.5', '40 FPRINT %A'].join(
+      '\n',
+    );
+    expect(tokenizeProgram(src).errors).toEqual([]);
+  });
+
+  it('warns (non-fatally) on a lower-case keyword', () => {
+    const { errors } = tokenizeProgram('10 print "hi"\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toMatch(/lower-case keyword/i);
+  });
+
   it('still builds a runnable image when only statement lint fires', () => {
     // Dialect-level: hasFatalErrors gates the image, so a hardware-storable
-    // line (e.g. an imported `*CAT`) keeps its squiggle but stays runnable.
-    const { image, errors } = atom.tokenize('10 *CAT\n');
+    // line (e.g. a misspelled keyword) keeps its squiggle but stays runnable.
+    const { image, errors } = atom.tokenize('10 PRNT "HI"\n');
     expect(errors.length).toBeGreaterThan(0);
     expect(image.length).toBeGreaterThan(0);
   });
@@ -181,5 +195,29 @@ describe('atom charset', () => {
 
   it('throws CharsetError on an unrepresentable character', () => {
     expect(() => atomCharset.toMachine('A€B')).toThrowError(/Atom/);
+  });
+
+  it('is total: every byte 0x00–0xFF round-trips decode → parse', () => {
+    for (let b = 0; b <= 0xff; b++) {
+      const text = atomCharset.toUnicode([b]);
+      expect(
+        Array.from(atomCharset.toMachine(text)),
+        `byte 0x${b.toString(16)} via ${JSON.stringify(text)}`,
+      ).toEqual([b]);
+    }
+  });
+
+  it('escapes control codes and inverse-video (top-bit) bytes', () => {
+    expect(atomCharset.toUnicode([0x00])).toBe('{0x00}');
+    expect(atomCharset.toUnicode([0x0d])).toBe('{0x0D}');
+    expect(atomCharset.toUnicode([0x7f])).toBe('{0x7F}');
+    expect(atomCharset.toUnicode([0xc1])).toBe('{0xC1}'); // inverse 'A'
+    expect(atomCharset.toUnicode([0xff])).toBe('{0xFF}');
+  });
+
+  it('keeps % literal (it names an FP variable) and parses raw escapes', () => {
+    // %A must stay two literal bytes, not become an inverse-video byte.
+    expect(Array.from(atomCharset.toMachine('%A'))).toEqual([0x25, 0x41]);
+    expect(Array.from(atomCharset.toMachine('{0x0D}'))).toEqual([0x0d]);
   });
 });

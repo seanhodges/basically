@@ -41,11 +41,12 @@ describe('trs80 tokenizer', () => {
       .toEqual([0x89, 0x41]);
   });
 
-  it('expands the ? and ’ abbreviations to PRINT and REM', () => {
+  it('expands the ? and ’ abbreviations to PRINT and the :REM’ form', () => {
     const q = tokenizeProgram('10 ?"HI"\n').program;
     expect(q[4]).toBe(0xb2); // ? -> PRINT token
+    // ' stores as its genuine ROM form :REM' (3A 93 FB), which LIST shows as '.
     const apostrophe = tokenizeProgram("10 'NOTE\n").program;
-    expect(apostrophe[4]).toBe(0x93); // ' -> REM token
+    expect(Array.from(apostrophe.slice(4, 7))).toEqual([0x3a, 0x93, 0xfb]);
   });
 
   it('keeps REM and DATA text verbatim', () => {

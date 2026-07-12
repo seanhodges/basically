@@ -58,6 +58,18 @@ function validateStatements(
     });
   };
 
+  // A real Atom matches keywords byte-for-byte in upper case, so a lower-case
+  // keyword lists fine but fails at RUN. Non-fatal, and import stays lenient.
+  const warnLowerCase = (at: number, end: number, typed: string): void => {
+    errors.push({
+      line: editorLine,
+      column: colOffset + at,
+      endColumn: colOffset + end,
+      message: `Lower-case keyword '${typed}' won't run on a real Atom — use ${typed.toUpperCase()}`,
+      fatal: false,
+    });
+  };
+
   // Advance past the current statement: to just after the next ';' outside a
   // string, tracking assembler brackets on the way.
   const skipStatement = (): void => {
@@ -100,15 +112,26 @@ function validateStatements(
       i++;
       continue;
     }
-    if (c === '?' || c === '!' || c === '$' || c === '@') {
-      skipStatement(); // indirection / system-variable assignment target
+    if (
+      c === '?' ||
+      c === '!' ||
+      c === '$' ||
+      c === '@' ||
+      c === '%' || // floating-point ROM variable (%A–%Z) assignment target
+      c === '*' // COS / OS command (*CAT, *LOAD, *RUN, …)
+    ) {
+      skipStatement();
       continue;
     }
     const m = /^[A-Za-z]+/.exec(body.slice(i));
     if (m) {
       const word = m[0].toUpperCase();
       if (word.startsWith('REM')) return; // rest of the line is a comment
-      if (COMMAND_WORDS.some((k) => word.startsWith(k))) {
+      const cmd = COMMAND_WORDS.find((k) => word.startsWith(k));
+      if (cmd) {
+        const typed = m[0].slice(0, cmd.length);
+        if (typed !== typed.toUpperCase())
+          warnLowerCase(i, i + cmd.length, typed);
         skipStatement();
         continue;
       }
@@ -118,6 +141,8 @@ function validateStatements(
         body[i + m[0].length] === '.' &&
         COMMAND_WORDS.some((k) => k.length > word.length && k.startsWith(word))
       ) {
+        if (m[0] !== m[0].toUpperCase())
+          warnLowerCase(i, i + m[0].length, m[0]);
         skipStatement();
         continue;
       }

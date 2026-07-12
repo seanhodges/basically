@@ -49,11 +49,14 @@ export function importProgram(
   const base = dialect.detokenizeWithReport
     ? dialect.detokenizeWithReport(bytes)
     : { source: dialect.detokenize(bytes), warnings: [] };
+  // The generic empty-output check is redundant when the dialect's own report
+  // already explained why the import is empty (e.g. "not a BASIC program").
+  const alreadyExplained = base.warnings.length > 0 && !base.source.trim();
   return {
     source: base.source,
     warnings: [
       ...base.warnings,
-      ...importFidelityWarnings(dialect, base.source),
+      ...(alreadyExplained ? [] : importFidelityWarnings(dialect, base.source)),
     ],
   };
 }

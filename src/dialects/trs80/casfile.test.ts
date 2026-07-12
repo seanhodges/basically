@@ -8,7 +8,7 @@ import {
   BASIC_MARKER,
   SYNC_BYTE,
 } from './casfile';
-import { tokenizeProgram } from './tokenizer';
+import { tokenizeProgram, PROG_START } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 
 const SOURCE = '10 PRINT "HI"\n20 GOTO 10\n';
@@ -75,5 +75,19 @@ describe('trs80 cassette image', () => {
   it('programByteLength stops at the 0x0000 link', () => {
     const { program } = tokenizeProgram(SOURCE);
     expect(programByteLength(program)).toBe(program.length);
+  });
+
+  it('lays out link pointers on the real TXTTAB base 0x42E9', () => {
+    expect(PROG_START).toBe(0x42e9);
+    const { program } = tokenizeProgram(SOURCE);
+    // The first link is an absolute address = base + first record length.
+    const firstLink = program[0]! | (program[1]! << 8);
+    // 10 PRINT "HI": body = B2 20 22 48 49 22 (6) -> record 2+2+6+1 = 11.
+    expect(firstLink).toBe(PROG_START + 11);
+    // The chain walks on the real base and trims tape run-out noise past it.
+    const noisy = new Uint8Array(program.length + 6);
+    noisy.set(program);
+    noisy.fill(0xff, program.length);
+    expect(programByteLength(noisy)).toBe(program.length);
   });
 });

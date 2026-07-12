@@ -217,7 +217,61 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     doc: 'Halt with a STOP report.',
   },
 
+  // ---- Floating-point ROM statements ----
+  // The FP ROM adds F-prefixed statement forms that operate on the FP variables
+  // %A–%Z (see the FP notes in aiProfile). They are stored as text like every
+  // other Atom keyword; listed here so the statement-head check accepts them and
+  // the editor highlights them.
+  {
+    word: 'FPRINT',
+    kind: 'command',
+    signature: 'FPRINT expr',
+    doc: 'Print a floating-point value (FP ROM). Abbreviate FP.',
+  },
+  {
+    word: 'FINPUT',
+    kind: 'command',
+    signature: 'FINPUT %v',
+    doc: 'Read a floating-point value into an FP variable (FP ROM).',
+  },
+  {
+    word: 'FDIM',
+    kind: 'command',
+    signature: 'FDIM %a(n)',
+    doc: 'Declare a floating-point array (FP ROM).',
+  },
+  {
+    word: 'FIF',
+    kind: 'command',
+    signature: 'FIF expr THEN …',
+    doc: 'Conditional on a floating-point comparison (FP ROM).',
+  },
+  {
+    word: 'FUNTIL',
+    kind: 'command',
+    signature: 'FUNTIL expr',
+    doc: 'Close a DO loop on a floating-point condition (FP ROM).',
+  },
+  {
+    word: 'FPUT',
+    kind: 'command',
+    signature: 'FPUT handle,%v',
+    doc: 'Write a floating-point value to an open file (FP ROM).',
+  },
+  {
+    word: 'FGET',
+    kind: 'command',
+    signature: 'FGET handle,%v',
+    doc: 'Read a floating-point value from an open file (FP ROM).',
+  },
+
   // ---- Functions ----
+  {
+    word: 'LEN',
+    kind: 'function',
+    signature: 'LEN str',
+    doc: 'Length of a string at the given address.',
+  },
   {
     word: 'ABS',
     kind: 'function',

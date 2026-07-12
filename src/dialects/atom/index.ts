@@ -3,7 +3,7 @@ import { atomCharset } from './charset';
 import { atomKeywords } from './keywords';
 import { atomVariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { atomBuildTargets } from './targets';
 import {
   CASSETTE_SAMPLE_RATE,
@@ -46,6 +46,10 @@ export const atom: Dialect = {
 
   detokenize(image: Uint8Array): string {
     return detokenizeProgram(image);
+  },
+
+  detokenizeWithReport(image: Uint8Array) {
+    return detokenizeProgramWithReport(image);
   },
 
   lint(source: string) {

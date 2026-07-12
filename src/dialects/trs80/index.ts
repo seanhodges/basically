@@ -3,7 +3,7 @@ import { trs80Charset } from './charset';
 import { trs80Keywords } from './keywords';
 import { trs80VariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { trs80LanguageSupport, trs80CompletionSource } from './language';
 import { trs80AiProfile } from './aiProfile';
 import { trs80BuildTargets } from './targets';
@@ -45,6 +45,10 @@ export const trs80: Dialect = {
 
   detokenize(image: Uint8Array): string {
     return detokenizeProgram(image);
+  },
+
+  detokenizeWithReport(image: Uint8Array) {
+    return detokenizeProgramWithReport(image);
   },
 
   lint(source: string): TokenizeError[] {

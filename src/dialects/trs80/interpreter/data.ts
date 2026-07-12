@@ -1,4 +1,4 @@
-import { trs80Charset } from '../charset';
+import { codeToRuntimeChar } from '../charset';
 import type { BasicLine } from './program';
 
 const QUOTE = 0x22;
@@ -8,7 +8,7 @@ const DATA = 0x88;
 
 function decode(body: Uint8Array, from: number, to: number): string {
   let s = '';
-  for (let i = from; i < to; i++) s += trs80Charset.glyph(body[i]!);
+  for (let i = from; i < to; i++) s += codeToRuntimeChar(body[i]!);
   return s;
 }
 

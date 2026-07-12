@@ -1,21 +1,21 @@
 import { CharsetError, type TokenizeError } from '../types';
-import { trs80Charset } from './charset';
+import { trs80Charset, parseChar } from './charset';
 import { trs80KeywordsByLength, type Trs80Keyword } from './keywords';
 
 export interface TokenizedProgram {
   /**
-   * The tokenized program as it sits in memory from 0x42E8 (TXTTAB): for each
+   * The tokenized program as it sits in memory from 0x42E9 (TXTTAB): for each
    * line a 2-byte absolute link to the next line, the 2-byte little-endian line
    * number, the tokenized body and a 0x00 terminator, ending with a 0x0000 null
    * link. Mirrors the C64 layout (see commodore64/tokenizer.ts) but based at
-   * 0x42E8 with the Level II token table.
+   * 0x42E9 with the Level II token table.
    */
   program: Uint8Array;
   errors: TokenizeError[];
 }
 
-/** Level II BASIC programs load at 0x42E8; link pointers are absolute. */
-export const PROG_START = 0x42e8;
+/** Level II BASIC programs load at 0x42E9 (TXTTAB); link pointers are absolute. */
+export const PROG_START = 0x42e9;
 /** Highest line number Level II BASIC accepts. */
 const MAX_LINE = 65529;
 
@@ -78,6 +78,27 @@ function tokenizeBody(
     out.push(code);
   };
 
+  // Emit one literal unit - a character, a graphics glyph or a `{0xNN}` escape -
+  // inside a string / REM / DATA body. Returns the number of source code units
+  // consumed; on an unmappable character it records an error and advances one.
+  const emitLiteral = (at: number): number => {
+    try {
+      const { code, length } = parseChar(body, at);
+      out.push(code);
+      return length;
+    } catch (e) {
+      if (e instanceof CharsetError) {
+        errors.push({
+          line: editorLine,
+          column: bodyCol + at,
+          message: e.message,
+        });
+        return String.fromCodePoint(body.codePointAt(at)!).length;
+      }
+      throw e;
+    }
+  };
+
   // A statement opener the ROM would reject at RUN time with ?SN ERROR.
   // Recorded as a lint error; tokenization continues unchanged so the byte
   // stream stays ROM-identical for every input.
@@ -106,18 +127,17 @@ function tokenizeBody(
     const ch = String.fromCodePoint(body.codePointAt(pos)!);
 
     if (remRest) {
-      pushChar(ch, col);
-      pos += ch.length;
+      pos += emitLiteral(pos);
       continue;
     }
     if (inString) {
       if (ch === '"') {
         out.push(0x22);
         inString = false;
+        pos += ch.length;
       } else {
-        pushChar(ch, col);
+        pos += emitLiteral(pos);
       }
-      pos += ch.length;
       continue;
     }
     if (ch === '"') {
@@ -136,10 +156,10 @@ function tokenizeBody(
         dataMode = false;
         stmtStart = true;
         lineNoOk = false;
+        pos += ch.length;
       } else {
-        pushChar(ch, col);
+        pos += emitLiteral(pos);
       }
-      pos += ch.length;
       continue;
     }
 
@@ -162,7 +182,12 @@ function tokenizeBody(
       if (stmtStart && kw.kind !== 'command') {
         flagStatement(pos, pos + kw.word.length, kw.word);
       }
-      out.push(kw.token);
+      // Two keywords store an implicit leading ':' that LIST hides: `'` is
+      // `:REM'` (3A 93 FB) and ELSE is `:ELSE` (3A 95). Emitting the genuine
+      // ROM form keeps CSAVE/.cas exports byte-identical to real hardware.
+      if (kw.word === "'") out.push(0x3a, 0x93, 0xfb);
+      else if (kw.word === 'ELSE') out.push(0x3a, 0x95);
+      else out.push(kw.token);
       pos += kw.word.length;
       stmtStart = kw.word === 'THEN' || kw.word === 'ELSE';
       lineNoOk = stmtStart;
@@ -252,7 +277,7 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     });
   }
 
-  // Assemble the linked-line layout with absolute next-line pointers from 0x42E8.
+  // Assemble the linked-line layout with absolute next-line pointers from 0x42E9.
   const prog: number[] = [];
   let addr = PROG_START;
   for (const { lineNo, body } of records) {
