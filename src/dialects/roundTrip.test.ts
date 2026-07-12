@@ -5,8 +5,8 @@
  * Import-direction round-trip: for every registered dialect, every bundled
  * sample's binary image must decode to text that re-tokenizes to the exact
  * same bytes with no errors. This pins the app-authored baseline; per-dialect
- * foreign-image fixtures (real-hardware byte patterns) are added by Stages 2-8
- * of docs/contributing/charset-tokenizer-plan.md via the same harness.
+ * foreign-image fixtures (real-hardware byte patterns) live in each dialect's
+ * foreignRoundTrip tests, built on the same harness.
  */
 
 import { describe, expect, it } from 'vitest';

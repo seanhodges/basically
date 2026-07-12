@@ -373,8 +373,7 @@ export interface Dialect {
    * Like {@link detokenize}, but also reports what the text form could not
    * capture. The import paths prefer this when present and fall back to
    * `detokenize` (assuming no warnings) when absent; a dialect grows it as its
-   * importer learns to detect loss (see
-   * `docs/contributing/charset-tokenizer-plan.md`).
+   * importer learns to detect loss.
    */
   detokenizeWithReport?(image: Uint8Array): DetokenizeResult;
   /** Tokenizer dry-run for editor linting. */

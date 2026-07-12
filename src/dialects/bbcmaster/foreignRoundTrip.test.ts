@@ -7,10 +7,10 @@ import {
 } from '../roundTripHarness';
 
 /**
- * Import-direction fixtures for the Master's own BASIC IV code paths (Stage 9
- * rollup): EDIT (0xCE, absent from BASIC II) and the TIME$= statement form,
+ * Import-direction fixtures for the Master's own BASIC IV code paths:
+ * EDIT (0xCE, absent from BASIC II) and the TIME$= statement form,
  * alongside a teletext escape in a string. The shared BASIC II layer is
- * covered by the Stage 5 fixtures in ../bbcmicro/tokenizer.test.ts.
+ * covered by the fixtures in ../bbcmicro/tokenizer.test.ts.
  */
 
 describe('bbcmaster foreign-image round-trip (BASIC IV)', () => {

@@ -8,7 +8,7 @@ import { importRoundTrip, firstDifference } from '../roundTripHarness';
  * Import-direction fixtures built from *foreign* byte patterns a real Atom image
  * can hold but the app never authors from plain text: inverse-video (top-bit)
  * bytes inside a string, a `*CAT` COS command, and floating-point-ROM statements
- * (`%A=…`, `FPRINT`). Each must round-trip byte-exactly (Stage 8). A machine-code
+ * (`%A=…`, `FPRINT`). Each must round-trip byte-exactly. A machine-code
  * `.atm` must be rejected loudly, not imported as an empty document.
  */
 

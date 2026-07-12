@@ -61,8 +61,7 @@ BASIC:
    shared `src/dialects/sinclairTape.ts` decoder.
 
    **Charset/import feature-completeness.** New language layers should be
-   built _total_ from the start (the existing dialects are being retrofitted -
-   see `docs/contributing/charset-tokenizer-plan.md`):
+   built _total_ from the start, matching the bar every shipped dialect meets:
    - every machine byte 0x00–0xFF gets a text form `toMachine` maps back to
      the same byte - glyph, named escape, or a dialect-styled raw escape
      (Spectrum `{0xNN}`, C64 `{$xx}`) - never a lossy `?`/space fallback;

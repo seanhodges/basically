@@ -109,7 +109,7 @@ describe('trs80 tokenizer statement validation', () => {
     expect(result.image).toBe(result.programBytes);
   });
 
-  it('fatal framing errors empty the image (Stage 1 lint/buildability split)', () => {
+  it('fatal framing errors empty the image (lint/buildability split)', () => {
     const result = trs80.tokenize('PRINT "NO LINE NUMBER"\n');
     expect(result.errors.some((e) => e.fatal !== false)).toBe(true);
     expect(result.image.length).toBe(0);

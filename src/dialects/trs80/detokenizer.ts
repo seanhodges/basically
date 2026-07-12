@@ -42,8 +42,7 @@ export function detokenizeProgram(image: Uint8Array): string {
  * Like {@link detokenizeProgram}, but for the binary-import paths: it also
  * reports what the text form could not capture - a truncated image, trailing
  * bytes past the end-of-program marker (likely appended machine code), or a
- * Model III 1500-baud cassette this decoder does not read. See
- * `docs/contributing/charset-tokenizer-plan.md` (Stage 7).
+ * Model III 1500-baud cassette this decoder does not read.
  */
 export function detokenizeProgramWithReport(
   image: Uint8Array,

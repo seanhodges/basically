@@ -258,7 +258,7 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     }
     if (lineNo <= prevLineNo) {
       // Non-fatal: the line is still stored, so the image stays complete and
-      // buildable (matching the C64's Stage 6 treatment of ordering lint).
+      // buildable (matching the C64's treatment of ordering lint).
       errors.push({
         line: editorLine,
         column: m[1]!.length,

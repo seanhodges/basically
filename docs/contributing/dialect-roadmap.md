@@ -10,10 +10,12 @@ This document tracks which machines we can realistically support, grouped by
 **which already-bundled emulator can drive them**. The bundled emulator cores
 are the limiting factor, so they define the tiers.
 
-Cross-cutting language-layer quality (total charsets, escape notations,
-import fidelity, loud containers) is tracked separately in the
-[charset & tokenizer feature-completeness plan](./charset-tokenizer-plan.md)
-(all stages shipped except the two deferred C64 items noted there).
+The cross-cutting language-layer quality bar - total charsets with escape
+notations, context-aware import, loud container parsers - is baked into every
+shipped dialect (see the charset/import feature-completeness checklist in
+[adding a dialect](./adding-a-dialect.md)). Two C64 items remain deferred:
+the lower-case display bank and the tokenizer keyword-abbreviation table
+(`pO`, `gO`, …).
 
 | Core                              | CPU          | Licence          | Wrapper                                                                                             | Powers                                   |
 | --------------------------------- | ------------ | ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------- |

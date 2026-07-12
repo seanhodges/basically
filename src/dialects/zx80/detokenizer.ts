@@ -113,7 +113,7 @@ function escapeTrailingSpaces(text: string): string {
 /**
  * Structural problems in a tokenized ZX80 program area (the ZX80 has no
  * line-length field, so the only detectable one is a final line with no
- * NEWLINE terminator). Reported through the Stage 1 import-fidelity channel.
+ * NEWLINE terminator). Reported through the import-fidelity report channel.
  */
 export function structuralWarnings(program: Uint8Array): string[] {
   if (program.length > 0 && program[program.length - 1] !== NEWLINE) {

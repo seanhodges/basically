@@ -1,6 +1,6 @@
 // Escape-code table for the TRS-80 escapes page. Grounded in
 // src/dialects/trs80/charset.ts and the display-driver control codes the
-// interpreter honours (Stage 7); pinned against the implementation by
+// interpreter honours; pinned against the implementation by
 // escapes/escape-crosscheck.test.ts.
 import type { EscapeTableData } from '../types';
 import { range } from './util';

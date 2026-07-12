@@ -43,8 +43,7 @@ export function detokenizeProgram(image: Uint8Array): string {
  * Like {@link detokenizeProgram}, but for the binary-import paths: it assumes a
  * 2-byte load address (the .prg contract) and reports what the text form cannot
  * capture — a non-$0801 load address, machine code appended after the BASIC
- * program, or a truncated image. See
- * `docs/contributing/charset-tokenizer-plan.md` (Stage 6).
+ * program, or a truncated image.
  */
 export function detokenizeProgramWithReport(
   image: Uint8Array,

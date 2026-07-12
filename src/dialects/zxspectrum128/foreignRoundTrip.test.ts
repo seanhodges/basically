@@ -5,7 +5,7 @@ import { hasFatalErrors } from '../types';
 import { importRoundTrip, firstDifference } from '../roundTripHarness';
 
 /**
- * Import-direction fixtures for the 128K's own code paths (Stage 9 rollup):
+ * Import-direction fixtures for the 128K's own code paths:
  * the SPECTRUM (0xA3) and PLAY (0xA4) tokens the 48K table omits, both as
  * statements and as raw bytes inside a string - where they have no UDG and
  * must round-trip via `\t`/`\u` with the tokenizer's non-fatal warning.

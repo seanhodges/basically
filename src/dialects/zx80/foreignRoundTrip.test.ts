@@ -9,7 +9,7 @@ import { importRoundTrip, firstDifference } from '../roundTripHarness';
  * Import-direction fixtures from foreign ZX80 byte patterns: a machine-code REM
  * (with trailing spaces), and keyword tokens plus control codes inside a string
  * (the ZX80 has no line-length field, so a REM body cannot contain 0x76). Each
- * must round-trip byte-exactly (Stage 2).
+ * must round-trip byte-exactly.
  */
 
 const NEWLINE = 0x76;

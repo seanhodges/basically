@@ -129,7 +129,7 @@ describe('Commodore 64 import report (detokenizeWithReport)', () => {
   });
 });
 
-describe('C64 foreign-image round-trip fixtures (Stage 6)', () => {
+describe('C64 foreign-image round-trip fixtures', () => {
   it('a petcat-style listing pasted as source tokenizes and re-lists', () => {
     // Colour/cursor control codes written in petcat aliases, plus a graphics
     // string — the kind of thing pasted from an archive listing.
@@ -153,7 +153,7 @@ describe('C64 foreign-image round-trip fixtures (Stage 6)', () => {
 
     const outcome = importRoundTrip(commodore64, prg);
     // Not byte-exact (the ML payload is dropped) but the loss is reported, so
-    // the Stage 1 acceptance rule holds.
+    // the import acceptance rule holds.
     expect(outcome.byteExact).toBe(false);
     expect(outcome.warnings.length).toBeGreaterThan(0);
     expect(isAcceptableImport(outcome)).toBe(true);

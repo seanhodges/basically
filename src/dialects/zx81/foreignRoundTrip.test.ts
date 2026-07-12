@@ -9,7 +9,7 @@ import { importRoundTrip, firstDifference } from '../roundTripHarness';
  * contain but the app never authors: machine code stashed in a REM (with an
  * embedded 0x76 and trailing spaces), keyword tokens and control codes inside a
  * string, and a "protection" number whose stored float disagrees with its
- * printed digits. Each must round-trip byte-exactly (Stage 2/3).
+ * printed digits. Each must round-trip byte-exactly.
  */
 
 const NEWLINE = 0x76;

@@ -249,7 +249,7 @@ export function parseTap(image: Uint8Array): ParsedTap {
 }
 
 /**
- * {@link parseTap} plus Stage 1 import-fidelity warnings: a `.TAP` that is a
+ * {@link parseTap} plus import-fidelity warnings: a `.TAP` that is a
  * multi-file compilation (extra CODE/array/program files are skipped), whose
  * chosen blocks fail their parity checksum, that is truncated, or whose header
  * promises a longer program than the data block holds. The returned `parsed` is
