@@ -42,17 +42,24 @@ describe('zxspectrum detokenizer escapes', () => {
     expect(detokenizeProgram(prog)).toBe('24 LET C$="\\a"\n');
   });
 
-  it('drops control sequences outside strings, keeping the statement', () => {
-    // <PAPER 6><INK 0> PRINT "X"
+  it('preserves control sequences outside strings and round-trips them', () => {
+    // <PAPER 6><INK 0> PRINT "X" — the leading colour bytes are now kept.
     const prog = Uint8Array.from(
       line(10, [0x11, 0x06, 0x10, 0x00, PRINT, Q, 0x58, Q]),
     );
-    expect(detokenizeProgram(prog)).toBe('10 PRINT "X"\n');
+    expect(detokenizeProgram(prog)).toBe('10 {PAPER 6}{INK 0}PRINT "X"\n');
+    const round = tokenizeProgram(detokenizeProgram(prog));
+    expect(round.errors).toEqual([]);
+    expect(Array.from(round.bytes)).toEqual(Array.from(prog));
   });
 
-  it('drops other unrepresentable bytes outside strings', () => {
-    const prog = Uint8Array.from(line(10, [PRINT, 0x90, 0x31]));
-    expect(detokenizeProgram(prog)).toBe('10 PRINT 1\n');
+  it('preserves unrepresentable bytes outside strings as escapes', () => {
+    // A UDG byte outside a string now round-trips as a \a escape, not dropped.
+    const prog = Uint8Array.from(line(10, [PRINT, Q, Q, 0x90]));
+    expect(detokenizeProgram(prog)).toBe('10 PRINT ""\\a\n');
+    const round = tokenizeProgram(detokenizeProgram(prog));
+    expect(round.errors).toEqual([]);
+    expect(Array.from(round.bytes)).toEqual(Array.from(prog));
   });
 
   it('escapes an in-string number marker and its 5-byte form', () => {

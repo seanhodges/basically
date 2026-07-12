@@ -5,9 +5,11 @@ import {
   ENTER,
   NUMBER_MARKER,
   QUOTE,
+  UDG_LAST,
 } from './charset';
 import { spectrumKeywords, keywordAliases } from './keywords';
 import { encodeSpectrumNumber } from './numbers';
+import { parseFloatOverride } from './floatOverride';
 
 export interface TokenizedProgram {
   /** Tokenized program area (concatenated lines), as stored from PROG. */
@@ -61,11 +63,19 @@ function tablesFor(keywords: KeywordInfo[]): KeywordTables {
 export function tokenizeProgram(
   source: string,
   keywords: KeywordInfo[] = spectrumKeywords,
+  /**
+   * Highest UDG code the dialect exposes. The 48K runs `\a`-`\u` (0x90-0xA4);
+   * the 128K reuses 0xA3/0xA4 as the SPECTRUM/PLAY tokens, so it passes 0xA2 and
+   * `\t`/`\u` earn a non-fatal warning.
+   */
+  udgLast: number = UDG_LAST,
 ): TokenizedProgram {
   const tables = tablesFor(keywords);
   const out: number[] = [];
   const errors: TokenizeError[] = [];
-  let prevLineNo = 0;
+  // -1 rather than 0 so a leading line 0 (a `0 REM` protection line) is accepted
+  // as strictly ascending.
+  let prevLineNo = -1;
 
   const lines = source.split('\n');
   for (let li = 0; li < lines.length; li++) {
@@ -84,13 +94,25 @@ export function tokenizeProgram(
       continue;
     }
     const lineNo = parseInt(m[1]!, 10);
+    // >16383 cannot be a real Spectrum line: a framing error that blocks the
+    // image. Line 0 and 10000-16383 are outside the editor's normal 1-9999
+    // range but the ROM can hold them (a `0 REM` protection line, say), so keep
+    // them a non-fatal squiggle and still build - imports stay runnable.
+    if (lineNo > 16383) {
+      errors.push({
+        line: editorLine,
+        column: 0,
+        message: `Line number ${lineNo} out of range 0-16383`,
+      });
+      continue;
+    }
     if (lineNo < 1 || lineNo > 9999) {
       errors.push({
         line: editorLine,
         column: 0,
-        message: `Line number ${lineNo} out of range 1-9999`,
+        fatal: false,
+        message: `Line number ${lineNo} is outside the normal 1-9999 range`,
       });
-      continue;
     }
     if (lineNo <= prevLineNo) {
       errors.push({
@@ -102,7 +124,14 @@ export function tokenizeProgram(
     }
 
     const body = text.slice(m[0].length);
-    const tokens = tokenizeBody(body, editorLine, m[0].length, errors, tables);
+    const tokens = tokenizeBody(
+      body,
+      editorLine,
+      m[0].length,
+      errors,
+      tables,
+      udgLast,
+    );
     if (tokens === null) continue; // error already recorded
 
     prevLineNo = lineNo;
@@ -113,6 +142,28 @@ export function tokenizeProgram(
   }
 
   return { bytes: Uint8Array.from(out), errors };
+}
+
+/**
+ * A genuine `{...}` control directive or `\a`-`\u` UDG escape at index i, or
+ * null for a literal `{`/`\` character. Used in the expression path so embedded
+ * escapes emit their bytes while a literal brace still trips the statement
+ * checks. Never throws: `parseChar` returns a literal for a non-directive `{`,
+ * and only `\`+`[a-u]` (a real UDG) is forwarded to it.
+ */
+function escapeUnitAt(
+  body: string,
+  i: number,
+): { codes: number[]; length: number } | null {
+  const ch = body[i];
+  if (ch === '{') {
+    const parsed = parseChar(body, i);
+    return parsed.length > 1 ? parsed : null; // length 1 = a literal '{'
+  }
+  if (ch === '\\' && /[a-uA-U]/.test(body[i + 1] ?? '')) {
+    return parseChar(body, i);
+  }
+  return null;
 }
 
 /** Match a (possibly multi-word) keyword at position i; -1 on no match. */
@@ -140,6 +191,7 @@ function tokenizeBody(
   colOffset: number,
   errors: TokenizeError[],
   tables: KeywordTables,
+  udgLast: number,
 ): number[] | null {
   const { matchers, canonicalToken, statementKeywords } = tables;
   const out: number[] = [];
@@ -151,6 +203,26 @@ function tokenizeBody(
   const fail = (message: string, at: number): null => {
     errors.push({ line: editorLine, column: colOffset + at, message });
     return null;
+  };
+
+  // A `\t`/`\u` UDG escape on a dialect that reuses 0xA3/0xA4 as tokens (the
+  // 128K): keep the byte but flag it non-fatally, since there is no such UDG.
+  const warnRestrictedUdg = (at: number): void => {
+    if (udgLast >= UDG_LAST || body[at] !== '\\') return;
+    const next = body[at + 1];
+    if (!next || !/[a-uA-U]/.test(next)) return;
+    const code = 0x90 + (next.toLowerCase().charCodeAt(0) - 97);
+    if (code <= udgLast) return;
+    errors.push({
+      line: editorLine,
+      column: colOffset + at,
+      fatal: false,
+      message:
+        `\\${next} is not a UDG on the 128K (its UDGs are \\a-\\s); byte ` +
+        `0x${code.toString(16).toUpperCase()} is the ${
+          code === 0xa3 ? 'SPECTRUM' : 'PLAY'
+        } token`,
+    });
   };
 
   const emitChar = (ch: string, at: number): boolean => {
@@ -171,6 +243,7 @@ function tokenizeBody(
   const emitParsed = (at: number): number => {
     try {
       const { codes, length } = parseChar(body, at);
+      warnRestrictedUdg(at);
       out.push(...codes);
       return length;
     } catch (e) {
@@ -185,6 +258,14 @@ function tokenizeBody(
   while (i < body.length) {
     const ch = body[i]!;
 
+    // Spaces policy (Stage 4): inter-token spacing is normalized, not stored.
+    // A real Spectrum keeps the exact spaces you type, but the detokenizer
+    // re-inserts a canonical space wherever two tokens would otherwise glue
+    // (e.g. GOTO + 10). Storing typed spaces too would double those on the next
+    // detokenize→tokenize pass, and a boundary the detokenizer *must* separate
+    // has no stored space to reproduce - so the two directions can only stay
+    // byte-exact if both normalize. Byte-exactness of redundant/absent spaces is
+    // therefore out of scope; everything else round-trips exactly.
     if (ch === ' ' || ch === '\t') {
       prevSignificant = ' ';
       i++;
@@ -257,7 +338,7 @@ function tokenizeBody(
 
       if (kw.canonical === 'REM') {
         // Rest of the line is literal text.
-        if (!emitRest(out, body, i, fail)) return null;
+        if (!emitRest(out, body, i, fail, warnRestrictedUdg)) return null;
         i = body.length;
       } else if (kw.canonical === 'BIN') {
         i = emitBin(out, body, upper, i);
@@ -266,6 +347,30 @@ function tokenizeBody(
       break;
     }
     if (matched) continue;
+
+    // Embedded escapes outside strings, accepted so a detokenized listing with
+    // control/graphics bytes re-tokenizes byte-exactly: a `{=…}` numeric
+    // override (a bare marker whose digits were absent), a `{INK n}` / `{0xNN}`
+    // control directive, or a `\a`-`\u` UDG. None of these is the statement's
+    // leading keyword, so they run before the command-keyword guard; a literal
+    // `{`/`\` (not a directive/escape) falls through to it as before.
+    if (ch === '{') {
+      const override = parseFloatOverride(body, i);
+      if (override) {
+        out.push(NUMBER_MARKER, ...override.bytes);
+        i = override.end;
+        prevSignificant = '0';
+        continue;
+      }
+    }
+    const escape = escapeUnitAt(body, i);
+    if (escape) {
+      warnRestrictedUdg(i);
+      out.push(...escape.codes);
+      i += escape.length;
+      prevSignificant = ' ';
+      continue;
+    }
 
     if (!firstWordChecked) {
       return fail(
@@ -282,12 +387,22 @@ function tokenizeBody(
         const value = parseFloat(numText);
         for (const c of numText) out.push(c.charCodeAt(0));
         out.push(NUMBER_MARKER);
-        try {
-          out.push(...encodeSpectrumNumber(value));
-        } catch {
-          return fail(`Number out of range: ${numText}`, i);
+        const afterDigits = i + numText.length;
+        // An explicit `{=…}` override stores the ROM's authoritative form (it
+        // differs from the digits for protection tricks); otherwise encode the
+        // digits as the ROM would.
+        const override = parseFloatOverride(body, afterDigits);
+        if (override) {
+          out.push(...override.bytes);
+          i = override.end;
+        } else {
+          try {
+            out.push(...encodeSpectrumNumber(value));
+          } catch {
+            return fail(`Number out of range: ${numText}`, i);
+          }
+          i = afterDigits;
         }
-        i += numText.length;
         prevSignificant = '0';
         continue;
       }
@@ -310,12 +425,14 @@ function emitRest(
   body: string,
   start: number,
   fail: (m: string, at: number) => null,
+  warnRestrictedUdg: (at: number) => void,
 ): boolean {
   let j = start;
   if (body[j] === ' ') j++;
   while (j < body.length) {
     try {
       const { codes, length } = parseChar(body, j);
+      warnRestrictedUdg(j);
       out.push(...codes);
       j += length;
     } catch (e) {

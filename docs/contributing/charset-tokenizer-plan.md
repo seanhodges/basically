@@ -31,7 +31,7 @@
 | 1     | Import-fidelity contract + shared round-trip tests  | ✅     |
 | 2     | Sinclair (ZX81/ZX80): total charset                 | ✅     |
 | 3     | ZX81/ZX80: numeric payloads & tokenizer leniency    | ✅     |
-| 4     | Spectrum 48/128: code-context bytes & containers    | ⬜     |
+| 4     | Spectrum 48/128: code-context bytes & containers    | ✅     |
 | 5     | BBC: context-aware import, escapes, Master BASIC IV | ⬜     |
 | 6     | C64: petcat interop, containers, readability        | ⬜     |
 | 7     | TRS-80: ROM-faithful forms, escapes, runtime        | ⬜     |
@@ -145,37 +145,52 @@ The remaining Sinclair items (findings F4, F6, F8, F9, F11, F12).
 **Verify:** `npm test`; a protection-style `.P` (digits ≠ float) imports and
 re-exports byte-identically (`zx81/foreignRoundTrip.test.ts`).
 
-## Stage 4 — Spectrum 48/128: code-context bytes & containers ⬜
+## Stage 4 — Spectrum 48/128: code-context bytes & containers ✅
 
 The Spectrum charset is already total; close the code-context and container
 gaps (findings 1–8 of the Spectrum audit).
 
-- [ ] Preserve bytes outside strings/REM: detokenizer emits `{0xNN}` /
-      directives instead of dropping (`detokenizer.ts:110-115`, `139-143`);
-      tokenizer accepts `{...}` escapes outside string context too
-      (`tokenizer.ts:169-183`).
-- [ ] Preserve the hidden `0x0E` float: emit an override notation when the
-      5-byte form disagrees with the digits (mirror Stage 3's design), honour
-      it on tokenize (`detokenizer.ts:106-109`, `tokenizer.ts:284-288`).
-- [ ] Spaces policy: preserve 0x20 separators through tokenize
-      (hardware-faithful) — or explicitly document byte-exactness as
-      out-of-scope and have the round-trip harness normalise. Preference:
-      preserve.
-- [ ] Accept line 0 (and 0–16383) at tokenize time with a lint warning
-      instead of an error (`tokenizer.ts:87-102`), so `0 REM` protection
-      imports keep working.
-- [ ] Harden `parseTap` (`tapfile.ts:155-177`): pair headers with their
-      following data block, skip CODE/array files instead of throwing, verify
-      the parity byte in both `.TAP` import and the cassette decoder, report
-      failures through the Stage 1 warning channel.
-- [ ] 128K polish: restrict UDG escapes to `\a`–`\s` on the 128 dialect (warn
-      on `\t`/`\u`); expand 0xA3/0xA4 correctly per dialect; route header
-      names through the charset (`tapfile.ts:56-62`); fix the stale comment in
-      `zxspectrum128/index.ts:29-34`.
+- [x] Preserve bytes outside strings/REM: the detokenizer now routes every
+      non-keyword byte through `decodeSpan`, emitting `{0xNN}` / `{INK n}` /
+      `\a` escapes instead of dropping control codes and unrepresentable bytes
+      (`detokenizer.ts`). The tokenizer accepts those escapes in the expression
+      path too (`escapeUnitAt`, before the command-keyword guard), so a listing
+      with leading/embedded control or UDG bytes re-tokenizes byte-exactly.
+- [x] Preserve the hidden `0x0E` form: `floatOverride.ts` emits a `{=…}`
+      override (decimal, or `{=$HHHHHHHHHH}` raw) when the stored 5-byte form
+      disagrees with the printed digits (mirrors Stage 3); the tokenizer honours
+      it after the digits and as a bare marker. Pinned in
+      `foreignRoundTrip.test.ts`.
+- [x] Spaces policy: **documented normalisation** (the plan's sanctioned
+      alternative to preserving). The tokenizer keeps stripping inter-token
+      spaces because both directions must normalise to stay byte-exact — the
+      detokenizer _must_ insert a separating space at token boundaries that have
+      none stored (e.g. `GOTO10`), and storing typed spaces too would double the
+      redundant ones on the next pass. See the "Spaces policy" comment in
+      `tokenizer.ts`; byte-exactness of redundant/absent spaces is out of scope,
+      everything else round-trips exactly.
+- [x] Accept line 0 (and 0–16383) at tokenize time with a non-fatal lint
+      warning instead of an error (`tokenizer.ts`); only `>16383` stays fatal.
+      `prevLineNo` starts at -1 so a leading `0 REM` protection line is
+      ascending. Pinned in `foreignRoundTrip.test.ts`.
+- [x] Harden `parseTap` (`tapfile.ts`): `scanBlocks` verifies each block's
+      parity byte; `pairFiles` pairs headers with the following data block;
+      `parseTap` picks the first BASIC-program file (skipping CODE/array files
+      instead of throwing). `parseTapWithReport` reports skipped files, parity
+      failures and truncation through the Stage 1 warning channel; both dialects
+      grow `detokenizeWithReport`. Tape names route through the charset in the
+      cassette decoder too.
+- [x] 128K polish: UDGs stop at `\s` on the 128 dialect (0xA3/0xA4 are the
+      SPECTRUM/PLAY tokens) — `\t`/`\u` earn a non-fatal warning via the shared
+      tokenizer's `udgLast` parameter; 0xA3/0xA4 detokenize per dialect
+      (SPECTRUM/PLAY vs UDGs, tested); header names route through the charset
+      (`programName`/`headerName`); the stale "not yet registered" comment in
+      `zxspectrum128/index.ts` is corrected.
 
 **Depends on:** Stage 1.
 **Verify:** `npm test`; a multi-file compilation `.TAP` and a fake-constant
-protected `.TAP` both import with correct warnings and re-export faithfully.
+protected `.TAP` both import with correct warnings and re-export faithfully
+(`zxspectrum/foreignRoundTrip.test.ts`).
 
 ## Stage 5 — BBC: context-aware import, escapes, Master BASIC IV ⬜
 

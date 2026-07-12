@@ -13,6 +13,8 @@
  * payload the emulator injects through the ROM's tape-loading routine.
  */
 
+import { spectrumCharset } from './charset';
+
 export interface TapOptions {
   /** Program name (≤ 10 chars). Defaults to "program". */
   name?: string;
@@ -33,6 +35,14 @@ export interface ParsedTap {
 
 const VARS_END = 0x80;
 const PROGRAM_TYPE = 0x00;
+
+/** Header type-byte names, for skip/report messages. */
+const TYPE_NAMES: Record<number, string> = {
+  0: 'BASIC program',
+  1: 'number array',
+  2: 'character array',
+  3: 'CODE',
+};
 
 function blockWithParity(flag: number, payload: Uint8Array): Uint8Array {
   const block = new Uint8Array(payload.length + 2);
@@ -55,10 +65,16 @@ function withLengthPrefix(block: Uint8Array): Uint8Array {
 
 function programName(name: string): Uint8Array {
   const bytes = new Uint8Array(10).fill(0x20);
-  for (let i = 0; i < Math.min(name.length, 10); i++) {
-    bytes[i] = name.charCodeAt(i) & 0xff;
-  }
+  // Route the name through the charset so £/©/↑ and block graphics store their
+  // true Spectrum codes, not their Unicode code points.
+  const encoded = spectrumCharset.toMachine(name);
+  for (let i = 0; i < Math.min(encoded.length, 10); i++) bytes[i] = encoded[i]!;
   return bytes;
+}
+
+/** The 10-byte header name decoded back to editor text, trailing spaces trimmed. */
+export function headerName(nameBytes: ArrayLike<number>): string {
+  return spectrumCharset.toUnicode(nameBytes).replace(/\s+$/, '');
 }
 
 /** One tape block: its flag byte and the full block bytes (flag + payload + parity). */
@@ -138,40 +154,153 @@ export function tapFromPayloads(
 export function tapBlockScan(
   image: Uint8Array,
 ): { flag: number; payload: Uint8Array }[] {
-  const blocks: { flag: number; payload: Uint8Array }[] = [];
+  return scanBlocks(image).blocks.map((b) => ({
+    flag: b.flag,
+    payload: b.payload,
+  }));
+}
+
+/** One scanned block, keeping the parity result the raw tape carries. */
+interface ScannedBlock {
+  flag: number;
+  payload: Uint8Array;
+  /** True when the stored parity byte matches flag ^ payload. */
+  parityOk: boolean;
+}
+
+/**
+ * Walk a `.TAP` image block by block, verifying each block's parity byte
+ * (XOR of flag + payload). `truncated` is set when the framing runs off the
+ * end of the file (a length prefix that promises more bytes than remain, or
+ * trailing bytes too short to frame another block).
+ */
+function scanBlocks(image: Uint8Array): {
+  blocks: ScannedBlock[];
+  truncated: boolean;
+} {
+  const blocks: ScannedBlock[] = [];
   let p = 0;
+  let truncated = false;
   while (p + 2 <= image.length) {
     const len = image[p]! | (image[p + 1]! << 8);
     p += 2;
-    if (len < 2 || p + len > image.length) break;
+    if (len < 2 || p + len > image.length) {
+      truncated = true;
+      break;
+    }
     const flag = image[p]!;
     const payload = image.slice(p + 1, p + len - 1); // drop flag + parity
-    blocks.push({ flag, payload });
+    let parity = flag;
+    for (const b of payload) parity ^= b;
+    blocks.push({ flag, payload, parityOk: parity === image[p + len - 1]! });
     p += len;
   }
-  return blocks;
+  if (p < image.length) truncated = true; // trailing partial block
+  return { blocks, truncated };
 }
 
-export function parseTap(image: Uint8Array): ParsedTap {
-  const blocks = tapBlockScan(image);
+/** A header block paired with the data block that immediately follows it. */
+interface TapFile {
+  header: ScannedBlock;
+  data: ScannedBlock | null;
+}
 
-  const headerBlock = blocks.find(
-    (b) => b.flag === 0x00 && b.payload.length === 17,
-  );
-  const dataBlock = blocks.find((b) => b.flag === 0xff);
-  if (!headerBlock || !dataBlock) {
-    throw new Error('Not a valid .TAP program image');
+/** Pair each 17-byte header block with the data block that follows it. */
+function pairFiles(blocks: ScannedBlock[]): TapFile[] {
+  const files: TapFile[] = [];
+  for (let k = 0; k < blocks.length; k++) {
+    const h = blocks[k]!;
+    if (h.flag !== 0x00 || h.payload.length !== 17) continue;
+    const next = blocks[k + 1];
+    if (next && next.flag === 0xff) {
+      files.push({ header: h, data: next });
+      k++;
+    } else {
+      files.push({ header: h, data: null });
+    }
   }
-  const header = headerBlock.payload;
-  if (header[0] !== PROGRAM_TYPE) {
-    throw new Error('.TAP does not contain a BASIC program');
-  }
+  return files;
+}
+
+/** Assemble the {@link ParsedTap} for the BASIC-program file in a `.TAP`. */
+function parseProgramFile(file: TapFile): ParsedTap {
+  const header = file.header.payload;
+  const data = file.data!.payload;
   const progLen = header[15]! | (header[16]! << 8);
   const param1 = header[13]! | (header[14]! << 8);
   return {
     header,
-    data: dataBlock.payload,
-    program: dataBlock.payload.slice(0, progLen),
+    data,
+    program: data.slice(0, progLen),
     autoStart: param1 >= 0x8000 ? null : param1,
   };
+}
+
+/** The first BASIC-program file (header type 0x00 with a data block) in a `.TAP`. */
+function findProgramFile(files: TapFile[]): TapFile | undefined {
+  return files.find((f) => f.header.payload[0] === PROGRAM_TYPE && f.data);
+}
+
+export function parseTap(image: Uint8Array): ParsedTap {
+  const files = pairFiles(scanBlocks(image).blocks);
+  const program = findProgramFile(files);
+  if (!program) throw new Error('Not a valid .TAP program image');
+  return parseProgramFile(program);
+}
+
+/**
+ * {@link parseTap} plus Stage 1 import-fidelity warnings: a `.TAP` that is a
+ * multi-file compilation (extra CODE/array/program files are skipped), whose
+ * chosen blocks fail their parity checksum, that is truncated, or whose header
+ * promises a longer program than the data block holds. The returned `parsed` is
+ * the same BASIC-program file {@link parseTap} selects.
+ */
+export function parseTapWithReport(image: Uint8Array): {
+  parsed: ParsedTap;
+  warnings: string[];
+} {
+  const { blocks, truncated } = scanBlocks(image);
+  const files = pairFiles(blocks);
+  const program = findProgramFile(files);
+  if (!program) throw new Error('Not a valid .TAP program image');
+
+  const warnings: string[] = [];
+  if (!program.header.parityOk) {
+    warnings.push(
+      'The .TAP program header failed its checksum (parity byte); the ' +
+        'import may be corrupt.',
+    );
+  }
+  if (program.data && !program.data.parityOk) {
+    warnings.push(
+      'The .TAP program data block failed its checksum (parity byte); the ' +
+        'import may be corrupt.',
+    );
+  }
+
+  const others = files.filter((f) => f !== program);
+  if (others.length > 0) {
+    const kinds = others
+      .map((f) => TYPE_NAMES[f.header.payload[0]!] ?? 'unknown')
+      .join(', ');
+    const plural = others.length === 1 ? 'file' : 'files';
+    warnings.push(
+      `The .TAP holds ${others.length} other ${plural} (${kinds}); only the ` +
+        'first BASIC program was imported.',
+    );
+  }
+
+  const header = program.header.payload;
+  const progLen = header[15]! | (header[16]! << 8);
+  if (program.data && progLen > program.data.payload.length) {
+    warnings.push(
+      'The .TAP header claims a longer program than the data block holds; ' +
+        'the program area is truncated.',
+    );
+  }
+  if (truncated) {
+    warnings.push('The .TAP image is truncated: a block runs past the end.');
+  }
+
+  return { parsed: parseProgramFile(program), warnings };
 }

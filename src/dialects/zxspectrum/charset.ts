@@ -77,7 +77,8 @@ const BACKSLASH = 0x5c;
 const OPEN_BRACE = 0x7b;
 const CLOSE_BRACE = 0x7d;
 const UDG_FIRST = 0x90;
-const UDG_LAST = 0xa4;
+/** Last UDG code on the 48K (`\u`); the 128K reuses 0xA3/0xA4 as tokens. */
+export const UDG_LAST = 0xa4;
 
 /** Embedded attribute-control codes and how many operand bytes each carries. */
 export const CONTROL_CODES: Record<number, { name: string; operands: 1 | 2 }> =

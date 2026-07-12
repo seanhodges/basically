@@ -1,5 +1,5 @@
 import type { MachineFileStore } from '../../types';
-import { tapBlockScan, tapFromPayloads } from '../tapfile';
+import { headerName, tapBlockScan, tapFromPayloads } from '../tapfile';
 
 /** Tape header type byte: 0 program, 1 number array, 2 char array, 3 code. */
 const TYPE_PROGRAM = 0x00;
@@ -85,9 +85,13 @@ export class VfsTapeDeck {
       const header = this.pendingHeader;
       if (!header) return false; // headerless data (custom code): real tape
       this.pendingHeader = null;
-      this.files.save(headerName(header), tapFromPayloads(header, payload), {
-        kind: KIND_BY_TYPE[header[0]!] ?? 'data',
-      });
+      this.files.save(
+        headerName(header.slice(1, 11)),
+        tapFromPayloads(header, payload),
+        {
+          kind: KIND_BY_TYPE[header[0]!] ?? 'data',
+        },
+      );
       return true;
     }
     return false; // nonstandard flag byte: not ours to handle
@@ -116,14 +120,4 @@ export class VfsTapeDeck {
     if (block.flag === DATA_FLAG) this.servedSinceData = 0;
     return { kind: 'block', payload: block.payload };
   }
-}
-
-/** The 10-character tape name from a header payload, trailing spaces trimmed. */
-function headerName(header: Uint8Array): string {
-  let name = '';
-  for (let i = 1; i <= 10; i++) {
-    const c = header[i]!;
-    name += c >= 0x20 && c < 0x7f ? String.fromCharCode(c) : '?';
-  }
-  return name.replace(/ +$/, '');
 }

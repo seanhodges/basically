@@ -1,15 +1,40 @@
-import {
-  decodeSpan,
-  plainChar,
-  CONTROL_CODES,
-  ENTER,
-  NUMBER_MARKER,
-  QUOTE,
-} from './charset';
+import { decodeSpan, ENTER, NUMBER_MARKER, QUOTE } from './charset';
 import type { KeywordInfo } from '../types';
 import { spectrumKeywords } from './keywords';
+import { encodeSpectrumNumber } from './numbers';
+import { floatOverrideNotation } from './floatOverride';
 
 const WORDLIKE = /[A-Za-z0-9$↑£©▘▝▀▖▌▞▛▗▚▐▜▄▙▟█]/;
+
+/** Bytes that can form a printed numeric literal (digits, '.', 'E', '+', '-'). */
+const NUMBER_CHAR = new Set<number>([
+  ...Array.from({ length: 10 }, (_, d) => 0x30 + d), // 0-9
+  0x2e, // .
+  0x45, // E
+  0x2b, // +
+  0x2d, // -
+]);
+
+/**
+ * The printed number ending just before the NUMBER_MARKER: the maximal grammar
+ * match that is a suffix of the character codes preceding the marker (so the `5`
+ * in `A+5`, not `+5`). Empty when no digits precede the marker.
+ */
+function printedNumberBefore(program: Uint8Array, marker: number): string {
+  let s = marker;
+  while (s > 0 && NUMBER_CHAR.has(program[s - 1]!)) s--;
+  let chars = '';
+  for (let k = s; k < marker; k++) chars += String.fromCharCode(program[k]!);
+  const m = /(?:\d+(?:\.\d*)?|\.\d+)(?:E[+-]?\d+)?$/.exec(chars);
+  return m ? m[0] : '';
+}
+
+function bytesEqual(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
+  if (a.length < 5 || b.length < 5) return false;
+  for (let k = 0; k < 5; k++)
+    if ((a[k]! & 0xff) !== (b[k]! & 0xff)) return false;
+  return true;
+}
 
 const tokenMapCache = new WeakMap<KeywordInfo[], Map<number, KeywordInfo>>();
 
@@ -28,9 +53,11 @@ function tokenMapFor(keywords: KeywordInfo[]): Map<number, KeywordInfo> {
  * the inline 5-byte numeric forms are dropped, keeping the printed digits.
  * Inside strings and REM bodies, UDGs come out as `\a`-`\u` escapes and
  * embedded control sequences as `{INK n}`-style directives (see charset.ts),
- * so they tokenize back to the same bytes. Outside strings, control sequences
- * only colour the listing on a real Spectrum — they (and any other
- * unrepresentable byte there) are dropped.
+ * so they tokenize back to the same bytes. Outside strings the same escape
+ * notation is emitted for control sequences, UDGs and any other non-plain byte
+ * (the tokenizer now accepts `{...}` / `\x` escapes there too), so nothing is
+ * dropped. A numeric constant whose stored 5-byte form disagrees with its
+ * printed digits (a protection trick) gets a `{=…}` override so it round-trips.
  * The `keywords` table defaults to the 48K set; the 128K passes its extended
  * table so SPECTRUM/PLAY detokenize.
  */
@@ -104,14 +131,25 @@ export function detokenizeProgram(
         continue;
       }
       if (b === NUMBER_MARKER) {
-        i += 6; // marker + 5-byte form; the printable digits precede it
-        continue;
-      }
-      // Control sequences outside strings are listing decoration with no
-      // runtime effect — drop them, operands included.
-      const ctrl = CONTROL_CODES[b];
-      if (ctrl) {
-        i += 1 + ctrl.operands;
+        // marker + 5-byte form; the printable digits precede it. Usually the
+        // form is just the canonical encoding of those digits and can be
+        // dropped (the tokenizer re-derives it). When it differs (a protection
+        // trick, or absent digits) emit a `{=…}` override so it survives.
+        const stored = program.slice(i + 1, i + 6);
+        const printed = printedNumberBefore(program, i);
+        let canonical = false;
+        if (printed !== '') {
+          try {
+            canonical = bytesEqual(
+              encodeSpectrumNumber(parseFloat(printed)),
+              stored,
+            );
+          } catch {
+            canonical = false;
+          }
+        }
+        if (!canonical) text += floatOverrideNotation(stored);
+        i += 6;
         continue;
       }
       const kw = keywordByToken.get(b);
@@ -136,11 +174,13 @@ export function detokenizeProgram(
         i++;
         continue;
       }
-      const s = plainChar(b);
-      // Bytes with no plain character (UDGs, stray controls…) would need an
-      // escape, which the tokenizer only accepts inside strings/REM — drop.
-      if (s !== undefined) emit(s, WORDLIKE.test(s));
-      i++;
+      // Any other byte: decode to its editor form so nothing is dropped.
+      // decodeSpan yields `{0xNN}` / `{INK n}` / `\a` escapes for control and
+      // graphics bytes and a plain character otherwise; the tokenizer now
+      // accepts those escapes outside strings too, so they round-trip.
+      const span = decodeSpan(program, i, bodyEnd);
+      emit(span.text, WORDLIKE.test(span.text[0] ?? ''));
+      i += span.length;
     }
 
     lines.push(text.replace(/\s+$/, ''));

@@ -14,6 +14,8 @@
  * resampling and sample-rate mismatch. The reconstructed flag+payload+parity
  * blocks are wrapped back into a `.TAP` image and handed to {@link parseTap}.
  */
+import { headerName } from '../tapfile';
+
 const NO_SPECTRUM_SIGNAL = 'No cassette signal detected';
 
 const TSTATE_MICROS = 1e6 / 3_500_000;
@@ -44,11 +46,10 @@ export function decodeCassette(
   if (blocks.length === 0) throw new Error(NO_SPECTRUM_SIGNAL);
 
   // The header block is the 19-byte (flag + 17 + parity) block flagged 0x00;
-  // its payload bytes 1..10 carry the program name.
+  // its payload bytes 1..10 carry the program name. Route it through the charset
+  // so £/©/graphics in a tape name decode to their editor text.
   const header = blocks.find((b) => b.length === 19 && b[0] === 0x00);
-  const name = header
-    ? String.fromCharCode(...header.slice(2, 12)).replace(/\s+$/, '')
-    : '';
+  const name = header ? headerName(header.slice(2, 12)) : '';
 
   return { name, image: buildTapImage(blocks) };
 }

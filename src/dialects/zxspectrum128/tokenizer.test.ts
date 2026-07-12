@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { tokenizeProgram as tokenizeSpectrum } from '../zxspectrum/tokenizer';
+import { detokenizeProgram as detokenizeSpectrum } from '../zxspectrum/detokenizer';
 
 function bytes(src: string): number[] {
   const { bytes, errors } = tokenizeProgram(src);
@@ -24,6 +25,16 @@ describe('zxspectrum128 tokenizer', () => {
     expect(tokenizeSpectrum('10 SPECTRUM\n').errors.length).toBe(1);
   });
 
+  it('expands 0xA3/0xA4 per dialect: SPECTRUM/PLAY on 128, UDGs on 48K', () => {
+    // A line body of just the two 128-only token bytes.
+    const prog = Uint8Array.from([0x00, 0x0a, 0x03, 0x00, 0xa3, 0xa4, 0x0d]);
+    expect(detokenizeProgram(prog)).toBe('10 SPECTRUM PLAY\n');
+    // The same bytes are UDGs (\t, \u) to the 48K, which lacks these tokens.
+    const on48k = detokenizeSpectrum(prog);
+    expect(on48k).toContain('\\t');
+    expect(on48k).toContain('\\u');
+  });
+
   it('round-trips tokenize → detokenize for a 128 program', () => {
     const src =
       '10 REM 128 demo\n20 PLAY "cdefg"\n30 PRINT "back to 48"\n40 SPECTRUM\n';
@@ -41,6 +52,16 @@ describe('zxspectrum128 tokenizer', () => {
     expect(a.errors).toEqual([]);
     expect(b.errors).toEqual([]);
     expect(Array.from(a.bytes)).toEqual(Array.from(b.bytes));
+  });
+
+  it('warns non-fatally on \\t/\\u UDG escapes (0xA3/0xA4 are tokens here)', () => {
+    const { bytes, errors } = tokenizeProgram('10 PRINT "\\t"\n');
+    // The byte is still stored (0xA3), so the program keeps building...
+    expect(Array.from(bytes).slice(4)).toEqual([0xf5, 0x22, 0xa3, 0x22, 0x0d]);
+    // ...but a non-fatal warning flags that it is not a real UDG on the 128K.
+    expect(errors.length).toBe(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toMatch(/SPECTRUM/);
   });
 
   it('reports an error for a descending or out-of-range line number', () => {
