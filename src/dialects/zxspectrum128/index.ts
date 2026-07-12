@@ -1,9 +1,11 @@
 import {
   hasFatalErrors,
   type Dialect,
+  type DetokenizeResult,
   type TokenizeError,
   type TokenizeResult,
 } from '../types';
+import { rawEscapeWarning } from '../zxspectrum/importReport';
 // The 128K / +2 / +3 shares the entire 48K Spectrum language and tape layer -
 // only memory paging, the dual ROM, the AY-3-8912 sound chip and the two extra
 // BASIC tokens (SPECTRUM, PLAY) differ. Identical pieces are re-exported from
@@ -12,7 +14,7 @@ import {
 import { spectrum128Charset } from './charset';
 import { spectrum128Keywords } from './keywords';
 import { spectrumVariableErrors } from '../../editor/variableLint';
-import { buildTap, parseTap } from './tapfile';
+import { buildTap, parseTap, parseTapWithReport } from './tapfile';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { decodeCassette } from '../zxspectrum/audio/cassetteDecoder';
@@ -31,11 +33,11 @@ import { spectrum128KeyboardLayout } from './keyboardLayout';
 import { spectrum128Samples } from './samples';
 
 /**
- * ZX Spectrum 128K / +2 / +3 (128 BASIC) - assembled but **not yet registered**
- * in src/dialects/registry.ts. The tokenizer, emulator, samples and targets are
- * throwing stubs; each stage of docs/dialect-plans/zxspectrum128.md fills one
- * in. Registration is Stage 3, gated on the 32K 128K ROM under
- * public/roms/zxspectrum128.rom.
+ * ZX Spectrum 128K / +2 / +3 (128 BASIC), registered in src/dialects/registry.ts.
+ * It shares the 48K Spectrum language and tape layer, adding only the two extra
+ * tokens (SPECTRUM, PLAY), memory paging, the dual ROM and the AY-3-8912 sound
+ * chip. The 32K 128K ROM lives under public/roms/zxspectrum128.rom. See
+ * docs/dialect-plans/zxspectrum128.md.
  */
 export const zxspectrum128: Dialect = {
   id: 'zxspectrum128',
@@ -59,6 +61,12 @@ export const zxspectrum128: Dialect = {
 
   detokenize(image: Uint8Array): string {
     return detokenizeProgram(parseTap(image).program);
+  },
+
+  detokenizeWithReport(image: Uint8Array): DetokenizeResult {
+    const { parsed, warnings } = parseTapWithReport(image);
+    const source = detokenizeProgram(parsed.program);
+    return { source, warnings: [...warnings, ...rawEscapeWarning(source)] };
   },
 
   lint(source: string): TokenizeError[] {

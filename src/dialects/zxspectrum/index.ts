@@ -1,9 +1,15 @@
-import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
+import {
+  hasFatalErrors,
+  type Dialect,
+  type DetokenizeResult,
+  type TokenizeResult,
+} from '../types';
 import { spectrumCharset } from './charset';
 import { spectrumKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
-import { buildTap, parseTap } from './tapfile';
+import { buildTap, parseTap, parseTapWithReport } from './tapfile';
+import { rawEscapeWarning } from './importReport';
 import { decodeCassette } from './audio/cassetteDecoder';
 import { spectrumLanguageSupport, spectrumCompletionSource } from './language';
 import { spectrumVariableErrors } from '../../editor/variableLint';
@@ -38,6 +44,12 @@ export const zxspectrum: Dialect = {
 
   detokenize(image: Uint8Array): string {
     return detokenizeProgram(parseTap(image).program);
+  },
+
+  detokenizeWithReport(image: Uint8Array): DetokenizeResult {
+    const { parsed, warnings } = parseTapWithReport(image);
+    const source = detokenizeProgram(parsed.program);
+    return { source, warnings: [...warnings, ...rawEscapeWarning(source)] };
   },
 
   lint(source: string) {

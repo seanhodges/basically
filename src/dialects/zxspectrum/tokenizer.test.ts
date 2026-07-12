@@ -88,9 +88,18 @@ describe('zxspectrum tokenizer', () => {
     expect(errors[0]!.message).toContain('escape');
   });
 
-  it('does not treat braces as directives outside strings', () => {
-    // `{` is a plain character; here it's just an invalid statement start.
-    const { errors } = tokenizeProgram('10 {INK 2} PRINT 1\n');
+  it('accepts control directives and UDG escapes outside strings', () => {
+    // Embedded colour bytes tokenize outside strings now, so a detokenized
+    // listing with leading control codes re-tokenizes byte-exactly.
+    expect(bytes('10 {INK 2}PRINT "x"\n').slice(4)).toEqual([
+      0x10, 0x02, 0xf5, 0x22, 0x78, 0x22, 0x0d,
+    ]);
+  });
+
+  it('keeps a non-directive brace a literal outside strings', () => {
+    // `{` that is not a directive is still a plain character - an invalid
+    // statement start on its own.
+    const { errors } = tokenizeProgram('10 {no match} PRINT 1\n');
     expect(errors.length).toBe(1);
   });
 
