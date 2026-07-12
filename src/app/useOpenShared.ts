@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-// The player → IDE handover (docs/contributing/standalone-player.md): the player's
+// The player → IDE handover: the player's
 // "See the Code" button opens `/?open=<shareId>`, and this hook - mounted once
 // in App - re-fetches the share and loads it into the editor with the right
 // machine selected. Refetching (rather than a sessionStorage handoff) makes
