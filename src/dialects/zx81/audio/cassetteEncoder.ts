@@ -1,4 +1,4 @@
-import { zx81Charset } from '../charset';
+import { zx81Charset, parseChar } from '../charset';
 
 /**
  * ZX81 cassette encoding.
@@ -21,15 +21,28 @@ const PULSE_HALF_MICROS = 150;
 const PULSES_FOR_0 = 4;
 const PULSES_FOR_1 = 9;
 
-/** Encode a ZX81 program name into its tape representation. */
+/**
+ * Encode a ZX81 program name into its tape representation. The name may use the
+ * full ZX81 character set (punctuation, graphics), not just `[A-Z0-9 ]` -
+ * characters with no ZX81 form are skipped. Name bytes stay below 0x80 so the
+ * bit-7 end-of-name marker on the final byte remains unambiguous.
+ */
 export function encodeName(name: string): Uint8Array {
-  const cleaned = name.trim() === '' ? 'PROGRAM' : name.trim();
-  const codes = zx81Charset.toMachine(
-    cleaned
-      .toUpperCase()
-      .replace(/[^A-Z0-9 ]/g, '')
-      .slice(0, 10) || 'PROGRAM',
-  );
+  const cleaned = (name.trim() === '' ? 'PROGRAM' : name.trim()).toUpperCase();
+  const codes: number[] = [];
+  let i = 0;
+  while (i < cleaned.length && codes.length < 32) {
+    try {
+      const { code, length } = parseChar(cleaned, i);
+      if (code < 0x80) codes.push(code); // inverse-video bytes would break split
+      i += length;
+    } catch {
+      i += 1; // no ZX81 form for this character - drop it
+    }
+  }
+  if (codes.length === 0) {
+    for (const code of zx81Charset.toMachine('PROGRAM')) codes.push(code);
+  }
   const out = Uint8Array.from(codes);
   out[out.length - 1] = out[out.length - 1]! | 0x80; // end-of-name marker
   return out;

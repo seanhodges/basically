@@ -7,7 +7,7 @@ import {
   QUOTE_IMAGE,
 } from './charset';
 import { keywordsByLength, statementKeywords } from './keywords';
-import { encodeZxFloat } from './zxfloat';
+import { encodeZxFloat, parseFloatOverride } from './zxfloat';
 
 export interface TokenizedProgram {
   /** Tokenized program area (concatenated lines), as stored from 0x407D. */
@@ -53,6 +53,11 @@ export function tokenizeProgram(source: string): TokenizedProgram {
       continue;
     }
     if (lineNo <= prevLineNo) {
+      // Decision (Stage 3): out-of-order lines are kept as an error, not
+      // silently sorted. Real hardware inserts each typed line in order, but a
+      // pasted listing that is out of order is far more often a mistake than an
+      // intent to reorder; sorting would hide it. Imports never hit this - the
+      // detokenizer always emits ascending lines.
       errors.push({
         line: editorLine,
         column: 0,
@@ -190,6 +195,18 @@ function tokenizeBody(
       );
     }
 
+    // A `\{=...}` float override with no printed digits before it (rare - a
+    // stored marker whose digits were absent). The common digits+override case
+    // is handled by the numeric-literal path below.
+    if (ch === '\\' && body[i + 1] === '{' && body[i + 2] === '=') {
+      const override = parseFloatOverride(body, i);
+      if (!override) return fail('Invalid number override', i);
+      out.push(NUMBER_MARKER, ...override.bytes);
+      i = override.end;
+      prevSignificant = '0';
+      continue;
+    }
+
     // Numeric literal: digits not continuing an identifier get the inline
     // 0x7E + 5-byte float representation the ROM stores after parsing.
     if (/[0-9.]/.test(ch) && !/[A-Z0-9$]/.test(prevSignificant)) {
@@ -204,13 +221,22 @@ function tokenizeBody(
             return fail(`Bad numeric literal "${numText}"`, i);
           }
         }
-        out.push(NUMBER_MARKER);
-        try {
-          out.push(...encodeZxFloat(value));
-        } catch {
-          return fail(`Number out of range: ${numText}`, i);
-        }
         i += numText.length;
+        // An explicit `\{=...}` override stores the ROM's authoritative float
+        // (differs from the digits for protection tricks); otherwise encode the
+        // digits as the ROM would.
+        const override = parseFloatOverride(body, i);
+        if (override) {
+          out.push(NUMBER_MARKER, ...override.bytes);
+          i = override.end;
+        } else {
+          out.push(NUMBER_MARKER);
+          try {
+            out.push(...encodeZxFloat(value));
+          } catch {
+            return fail(`Number out of range: ${numText}`, i);
+          }
+        }
         prevSignificant = '0'; // a digit, but identifier check uses prev char only for glued digits
         continue;
       }

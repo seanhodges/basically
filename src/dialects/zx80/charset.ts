@@ -88,7 +88,15 @@ const ESCAPES: Record<string, number> = {
 
 export const NEWLINE = 0x76;
 export const QUOTE = 0x01;
-/** The ZX80 has no dedicated quote-image glyph; an embedded quote is inverse-video. */
+/**
+ * A quote inside a string, written `""` in source. The ZX80's 4K ROM has no
+ * dedicated quote-image code (unlike the ZX81's 0xC0), and its display font
+ * has no `"` glyph in the inverse range either. 0x81 (inverse of the 0x01
+ * quote code) is this app's chosen convention for representing an embedded
+ * quote and has NOT been confirmed against the real ROM's string handling;
+ * both the tokenizer (`"" -> 0x81`) and detokenizer (`0x81 -> ""` inside a
+ * string) agree, so it round-trips, but a ROM-faithful value may differ.
+ */
 export const QUOTE_IMAGE = 0x81;
 export const INVERSE = 0x80;
 

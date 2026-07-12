@@ -58,6 +58,49 @@ describe('BBC Master dialect', () => {
       expect(bbcmaster.lint(sample.text)).toEqual([]);
     }
   });
+
+  // BASIC IV keeps TIME$ as the TIME token (0x91) followed by a literal '$';
+  // there is no dedicated token. Pin the byte output so it can't silently
+  // regress into something the Master ROM wouldn't LIST back the same way.
+  it('emits TIME$ as the TIME token + "$" and LISTs it back', () => {
+    const { programBytes, image, errors } =
+      bbcmaster.tokenize('10 PRINT TIME$\n');
+    expect(errors).toEqual([]);
+    const body = Array.from(programBytes);
+    // …PRINT(0xF1) TIME(0x91) '$'(0x24)…
+    expect(body).toContain(0x91);
+    expect(body.indexOf(0x24)).toBe(body.indexOf(0x91) + 1);
+    expect(bbcmaster.detokenize(image)).toBe('10 PRINT TIME$\n');
+  });
+
+  it('accepts TIME$= assignment (statement form) as BASIC IV', () => {
+    const { image, errors } = bbcmaster.tokenize('10 TIME$="12:00:00"\n');
+    expect(errors).toEqual([]);
+    // TIME in statement position is 0xD1 (token + 0x40), then '$'.
+    expect(Array.from(image)).toContain(0xd1);
+    expect(bbcmaster.detokenize(image)).toBe('10 TIME$="12:00:00"\n');
+  });
+
+  it('tokenizes and detokenizes the BASIC IV EDIT keyword (0xCE)', () => {
+    const { programBytes, image, errors } = bbcmaster.tokenize('10 EDIT 20\n');
+    expect(errors).toEqual([]);
+    expect(Array.from(programBytes)).toContain(0xce);
+    expect(bbcmaster.detokenize(image)).toBe('10 EDIT 20\n');
+  });
+
+  it('accepts EXT#chan= as a statement (BASIC IV file-extent assignment)', () => {
+    expect(bbcmaster.lint('10 EXT#1=1024\n')).toEqual([]);
+  });
+});
+
+describe('BBC Micro (BASIC II) does not have the BASIC IV extras', () => {
+  it('does not tokenize EDIT as a keyword and lints EXT# as a statement', async () => {
+    const { bbcmicro } = await import('../bbcmicro/index');
+    // EDIT is an ordinary (unassigned) name in BASIC II, so it lints.
+    expect(bbcmicro.lint('10 EDIT 20\n').length).toBeGreaterThan(0);
+    expect(bbcmicro.tokenize('10 EDIT 20\n').programBytes).not.toContain(0xce);
+    expect(bbcmicro.lint('10 EXT#1=1024\n').length).toBeGreaterThan(0);
+  });
 });
 
 describe('BbcMachine on the Master model', () => {
