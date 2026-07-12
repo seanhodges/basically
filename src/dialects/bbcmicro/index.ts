@@ -34,7 +34,7 @@ export const bbcmicro: Dialect = {
   name: 'BBC Micro',
   docsReference: 'bbc',
   programRamBytes: 28672,
-  fileExtensions: ['.bas'],
+  fileExtensions: ['.txt', '.bas'],
   keywords: bbcKeywords,
   charset: bbcCharset,
   languageSupport: bbcLanguageSupport,

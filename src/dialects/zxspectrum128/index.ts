@@ -44,7 +44,7 @@ export const zxspectrum128: Dialect = {
   name: 'Spectrum 128K',
   docsReference: 'zxspectrum',
   programRamBytes: 41472,
-  fileExtensions: ['.bas'],
+  fileExtensions: ['.txt', '.bas'],
   keywords: spectrum128Keywords,
   charset: spectrum128Charset,
   languageSupport: spectrum128LanguageSupport,

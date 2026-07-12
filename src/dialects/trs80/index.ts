@@ -28,7 +28,7 @@ export const trs80: Dialect = {
   id: 'trs80',
   name: 'TRS-80',
   programRamBytes: 15572,
-  fileExtensions: ['.bas'],
+  fileExtensions: ['.txt', '.bas'],
   keywords: trs80Keywords,
   charset: trs80Charset,
   languageSupport: trs80LanguageSupport,

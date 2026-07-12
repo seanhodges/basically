@@ -27,7 +27,7 @@ export const zxspectrum: Dialect = {
   id: 'zxspectrum',
   name: 'Spectrum',
   programRamBytes: 41472,
-  fileExtensions: ['.bas'],
+  fileExtensions: ['.txt', '.bas'],
   keywords: spectrumKeywords,
   charset: spectrumCharset,
   languageSupport: spectrumLanguageSupport,
