@@ -2,7 +2,7 @@ import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { c64Charset } from './charset';
 import { c64Keywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { c64BuildTargets } from './targets';
 import { c64LanguageSupport, c64CompletionSource } from './language';
 import { c64VariableErrors } from '../../editor/variableLint';
@@ -53,6 +53,10 @@ export const commodore64: Dialect = {
 
   detokenize(image: Uint8Array): string {
     return detokenizeProgram(image);
+  },
+
+  detokenizeWithReport(image: Uint8Array) {
+    return detokenizeProgramWithReport(image);
   },
 
   lint(source: string) {

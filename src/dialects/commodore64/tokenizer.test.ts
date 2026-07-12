@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { hasFatalErrors } from '../types';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 
@@ -98,5 +99,45 @@ describe('C64 tokenizer statement validation', () => {
     expect(errors).toEqual([]);
     const body = Array.from(program.slice(4, -3));
     expect(body[0]).toBe(0x99); // PRINT token, not a literal '?'
+  });
+
+  it('accepts ^ as the ↑ power operator ($AE)', () => {
+    const { program, errors } = tokenizeProgram('10 A=2^3\n');
+    expect(errors).toEqual([]);
+    expect(Array.from(program)).toContain(0xae);
+    // ↑ and ^ tokenize identically; LIST spells the canonical ↑.
+    const caret = tokenizeProgram('10 A=2^3\n').program;
+    const arrow = tokenizeProgram('10 A=2↑3\n').program;
+    expect(Array.from(caret)).toEqual(Array.from(arrow));
+    expect(detokenizeProgram(caret)).toBe('10 A=2↑3\n');
+  });
+});
+
+describe('C64 tokenizer line-number leniency', () => {
+  it('warns but still builds a line number above 63999 (non-fatal)', () => {
+    const { errors } = tokenizeProgram('64000 PRINT 1\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(hasFatalErrors(errors)).toBe(false);
+  });
+
+  it('keeps a > 63999 line in the image so imports stay runnable', () => {
+    const { program } = tokenizeProgram('64000 PRINT\n');
+    // line number 64000 = $FA00, stored little-endian after the link.
+    expect(Array.from(program.slice(2, 4))).toEqual([0x00, 0xfa]);
+    expect(detokenizeProgram(program)).toBe('64000 PRINT\n');
+  });
+
+  it('still rejects a line number past the 16-bit maximum (fatal)', () => {
+    const { errors } = tokenizeProgram('70000 PRINT\n');
+    expect(errors).toHaveLength(1);
+    expect(hasFatalErrors(errors)).toBe(true);
+  });
+
+  it('makes non-ascending line numbers a non-fatal warning', () => {
+    const { errors } = tokenizeProgram('20 PRINT 1\n10 PRINT 2\n');
+    const order = errors.find((e) => /not greater/.test(e.message))!;
+    expect(order.fatal).toBe(false);
+    expect(hasFatalErrors(errors)).toBe(false);
   });
 });

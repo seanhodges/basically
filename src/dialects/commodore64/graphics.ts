@@ -19,10 +19,15 @@
  *
  * This table is the single source the virtual keyboard reads for its graphic
  * legends and inserts. The charset round-trip goes through `./petscii` (the
- * full 256-code table), which owns each glyph's canonical code; where a `char`
- * below sits on a font-duplicate `petscii` (e.g. the `-`/`£` C= checkerboards),
- * inserting the `char` tokenizes to that canonical twin, so the `petscii` field
- * here is documentation of the real key code, not the round-trip code.
+ * full 256-code table), which owns each glyph's canonical code. Most keys carry
+ * a glyph that tokenizes back to their true `petscii` byte; the exceptions are
+ * the few codes whose genuine character-ROM bitmap is identical to a lower
+ * primary (e.g. C= H $B4 and C= N $AA draw the same bars as $A5/$A7, SHIFT − $DD
+ * the same as $C2). For those the `char` tokenizes to the primary twin, so the
+ * `petscii` field is documentation of the real key code, not the round-trip
+ * code. (The half/eighth-block shades that only *looked* like duplicates in the
+ * viciious font now carry their true Symbols-for-Legacy-Computing glyph, so
+ * their keys insert the exact byte.)
  */
 
 export interface C64GraphicEntry {
@@ -37,15 +42,15 @@ const LETTERS: Array<[string, string, number, string, number]> = [
   ['A', '┌', 0xb0, '♠', 0xc1],
   ['B', '▚', 0xbf, '│', 0xc2],
   ['C', '▝', 0xbc, '─', 0xc3],
-  ['D', '▗', 0xac, '─', 0xc4],
-  ['E', '┴', 0xb1, '▔', 0xc5],
-  ['F', '▖', 0xbb, '─', 0xc6],
-  ['G', '▎', 0xa5, '│', 0xc7],
-  ['H', '▎', 0xb4, '│', 0xc8],
+  ['D', '▗', 0xac, '🭷', 0xc4],
+  ['E', '┴', 0xb1, '🭶', 0xc5],
+  ['F', '▖', 0xbb, '🭹', 0xc6],
+  ['G', '▎', 0xa5, '🭱', 0xc7],
+  ['H', '▎', 0xb4, '🭳', 0xc8],
   ['I', '▄', 0xa2, '╮', 0xc9],
   ['J', '▍', 0xb5, '╰', 0xca],
   ['K', '▌', 0xa1, '╯', 0xcb],
-  ['L', '▕', 0xb6, '⌞', 0xcc],
+  ['L', '🮈', 0xb6, '⌞', 0xcc],
   ['M', '▕', 0xa7, '╲', 0xcd],
   ['N', '▕', 0xaa, '╱', 0xce],
   ['O', '▃', 0xb9, '⌜', 0xcf],
@@ -53,12 +58,12 @@ const LETTERS: Array<[string, string, number, string, number]> = [
   ['Q', '├', 0xab, '●', 0xd1],
   ['R', '┬', 0xb2, '_', 0xd2],
   ['S', '┐', 0xae, '♥', 0xd3],
-  ['T', '▔', 0xa3, '▎', 0xd4],
-  ['U', '▔', 0xb8, '╭', 0xd5],
+  ['T', '▔', 0xa3, '🭰', 0xd4],
+  ['U', '🮃', 0xb8, '╭', 0xd5],
   ['V', '▘', 0xbe, '╳', 0xd6],
   ['W', '┤', 0xb3, '○', 0xd7],
   ['X', '┘', 0xbd, '♣', 0xd8],
-  ['Y', '▔', 0xb7, '▕', 0xd9],
+  ['Y', '🮂', 0xb7, '🭴', 0xd9],
   ['Z', '└', 0xad, '♦', 0xda],
 ];
 
@@ -69,9 +74,9 @@ const LETTERS: Array<[string, string, number, string, number]> = [
  */
 const SYMBOLS: Array<[string, string | null, number, string, number]> = [
   ['Plus', '▒', 0xa6, '┼', 0xdb],
-  ['Minus', '▒', 0xdc, '│', 0xdd],
+  ['Minus', '🮌', 0xdc, '│', 0xdd],
   ['At', '▁', 0xa4, '⌟', 0xba],
-  ['Pound', '▒', 0xa8, '◤', 0xa9],
+  ['Pound', '🮏', 0xa8, '◤', 0xa9],
   ['Asterisk', '◥', 0xdf, '─', 0xc0],
   ['UpArrow', null, 0xde, 'π', 0xff],
 ];

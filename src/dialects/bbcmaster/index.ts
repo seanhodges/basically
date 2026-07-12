@@ -6,9 +6,12 @@ import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 // (If this sibling-import coupling grows, factor the shared pieces into a
 // src/dialects/bbcShared/ module - see docs/dialect-roadmap.md.)
 import { bbcCharset } from '../bbcmicro/charset';
-import { bbcKeywords } from '../bbcmicro/keywords';
+import { bbcKeywords, BASIC_IV } from '../bbcmicro/keywords';
 import { tokenizeProgram } from '../bbcmicro/tokenizer';
-import { detokenizeProgram } from '../bbcmicro/detokenizer';
+import {
+  detokenizeProgram,
+  detokenizeWithReport,
+} from '../bbcmicro/detokenizer';
 import {
   bbcBuildTargets,
   buildCassetteSamples,
@@ -45,7 +48,7 @@ export const bbcmaster: Dialect = {
   completionSource: bbcCompletionSource,
 
   tokenize(source: string): TokenizeResult {
-    const { bytes, errors } = tokenizeProgram(source);
+    const { bytes, errors } = tokenizeProgram(source, BASIC_IV);
     // A non-empty image is the program plus its 0x0D 0xFF end marker.
     const image =
       !hasFatalErrors(errors) && bytes.length > 2 ? bytes : new Uint8Array(0);
@@ -53,11 +56,15 @@ export const bbcmaster: Dialect = {
   },
 
   detokenize(image: Uint8Array): string {
-    return detokenizeProgram(image);
+    return detokenizeProgram(image, BASIC_IV);
+  },
+
+  detokenizeWithReport(image: Uint8Array) {
+    return detokenizeWithReport(image, BASIC_IV);
   },
 
   lint(source: string) {
-    return tokenizeProgram(source).errors;
+    return tokenizeProgram(source, BASIC_IV).errors;
   },
 
   // Prefetched for cache warming; the jsbeeb adapter loads the full Master ROM
@@ -94,7 +101,7 @@ export const bbcmaster: Dialect = {
       'On the BBC Master type *TAPE then CHAIN "" and press RETURN before starting playback.',
     decodeSamples: (samples, sampleRate) => {
       const { name, data } = decodeCassette(samples, sampleRate);
-      return { programName: name, source: detokenizeProgram(data) };
+      return { programName: name, source: detokenizeProgram(data, BASIC_IV) };
     },
     saveInstructions:
       'On the BBC Master type *TAPE then SAVE "NAME" and press RETURN; the tape tone plays from the cassette port. Feed it into this device, then start listening.',

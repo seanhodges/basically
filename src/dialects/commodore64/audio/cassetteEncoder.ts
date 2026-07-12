@@ -22,6 +22,7 @@
  * LOAD, and the round-trip through {@link cassetteDecoder} reproduces it.
  */
 import { buildPrg } from '../targets';
+import { parseC64Char } from '../petscii';
 
 export const CASSETTE_SAMPLE_RATE = 44100;
 
@@ -63,15 +64,31 @@ export function checksum(data: Uint8Array): number {
   return acc & 0xff;
 }
 
-/** Filename bytes: upper-case A–Z/0–9, padded with spaces to 16 bytes. */
+/**
+ * Filename bytes for the tape header: the name routed through the PETSCII
+ * charset (so punctuation, `{...}` escapes and the £/↑/← glyphs a real C64
+ * filename can hold survive), truncated and space-padded to 16 bytes. An
+ * unmappable character is skipped; an empty result falls back to PROGRAM.
+ */
 export function nameBytes(name: string): Uint8Array {
-  const cleaned =
-    name
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '')
-      .slice(0, FILENAME_LENGTH) || 'PROGRAM';
+  const codes: number[] = [];
+  let i = 0;
+  while (i < name.length && codes.length < FILENAME_LENGTH) {
+    try {
+      const { code, length } = parseC64Char(name, i);
+      codes.push(code);
+      i += length;
+    } catch {
+      i++; // skip a character with no PETSCII equivalent
+    }
+  }
   const out = new Uint8Array(FILENAME_LENGTH).fill(FILENAME_PAD);
-  for (let i = 0; i < cleaned.length; i++) out[i] = cleaned.charCodeAt(i);
+  if (codes.length === 0) {
+    const fallback = 'PROGRAM';
+    for (let k = 0; k < fallback.length; k++) out[k] = fallback.charCodeAt(k);
+    return out;
+  }
+  for (let k = 0; k < codes.length; k++) out[k] = codes[k]!;
   return out;
 }
 

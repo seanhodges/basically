@@ -4,9 +4,12 @@ import path from 'node:path';
 import * as utils from 'jsbeeb/src/utils.js';
 import * as Tokeniser from 'jsbeeb/src/basic-tokenise.js';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, detokenizeWithReport } from './detokenizer';
 import { encodeLineNumber, decodeLineNumber } from './lineNumber';
 import { bbcSamples } from './samples';
+import { bbcmicro } from './index';
+import { BASIC_IV, bbcKeywordTable, keywordLetters } from './keywords';
+import { importRoundTrip, isAcceptableImport } from '../roundTripHarness';
 
 // The genuine BASIC ROM tokeniser, used as the reference oracle.
 let oracle: Tokeniser.Tokeniser;
@@ -53,7 +56,7 @@ const CORPUS: string[] = [
   '10 A%=5:B$="hi":C=3.14',
   '10 PRINTTIME:ELSEPRINT:GOTOX',
   '10 ON ERROR GOTO 100',
-  '1 PRINT 1\n2 PRINT 2\n65279 PRINT "last"',
+  '1 PRINT 1\n2 PRINT 2\n32767 PRINT "last"',
 ];
 
 describe('BBC tokenizer vs the genuine BASIC ROM', () => {
@@ -71,16 +74,42 @@ describe('BBC tokenizer vs the genuine BASIC ROM', () => {
     }
   }, 30000);
 
-  // Known limitation: the ROM expands dot-abbreviations (P. -> PRINT); the
-  // native tokenizer does not, treating "P" as a variable. The editor and
-  // detokenizer only ever emit full keywords, so this only affects hand-typed
-  // abbreviations.
-  it('does not expand dot-abbreviations (documented limitation)', () => {
-    const { bytes } = tokenizeProgram('10 P."hi"');
-    // 'P' '.' kept literally rather than the PRINT token 0xF1.
-    expect(Array.from(bytes)).not.toContain(0xf1);
-    expect(Array.from(bytes)).toContain('P'.charCodeAt(0));
+  it('expands dot-abbreviations exactly as the ROM does', () => {
+    // Spot-checks of the well-known ones, then an exhaustive sweep below.
+    for (const [src, token] of [
+      ['10 P."hi"', 0xf1], // PRINT
+      ['10 F.I=1TO9', 0xe3], // FOR
+      ['10 N.', 0xed], // NEXT
+      ['10 GOS.100', 0xe4], // GOSUB
+      ['10 V.7', 0xef], // VDU
+    ] as const) {
+      const { bytes, errors } = tokenizeProgram(src, BASIC_IV);
+      expect(errors, src).toEqual([]);
+      expect(Array.from(bytes), src).toContain(token);
+    }
   });
+
+  it('matches the ROM for every abbreviation of every keyword', () => {
+    const names = [
+      ...bbcKeywordTable.map((k) => keywordLetters(k.word)),
+      'EDIT', // BASIC IV
+    ];
+    // The emitted bytes must equal the ROM's in both statement and expression
+    // position (the latter exercises the pseudo-variables' function-form token,
+    // e.g. `TI.` -> 0x91 vs 0xD1). A statement-shape lint may fire (e.g. `A.` ->
+    // AND opening a statement) but never changes the bytes, so we compare bytes.
+    for (const name of names) {
+      for (let n = 1; n <= name.length; n++) {
+        const prefix = name.slice(0, n);
+        for (const src of [`10 ${prefix}.`, `10 A=${prefix}.`]) {
+          expect(
+            Array.from(tokenizeProgram(src, BASIC_IV).bytes),
+            `abbreviation ${src}`,
+          ).toEqual(romBytes(src));
+        }
+      }
+    }
+  }, 30000);
 
   it('tokenizes the bundled samples exactly as the ROM does', () => {
     for (const sample of bbcSamples) {
@@ -112,6 +141,95 @@ describe('BBC detokenizer', () => {
   });
 });
 
+describe('BBC detokenizer is context-aware', () => {
+  // A token-valued byte inside a string is teletext data, not a keyword: a
+  // MODE 7 colour byte 0x81 must not decode to the keyword text "DIV".
+  it('does not decode keyword tokens inside a string', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "{RED}HELLO"');
+    expect(Array.from(bytes)).toContain(0x81); // the raw teletext byte
+    const text = detokenizeProgram(bytes);
+    expect(text).toBe('10 PRINT "{RED}HELLO"\n');
+    expect(text).not.toContain('DIV');
+  });
+
+  // 0x8D collides with the line-number marker; inside a string it is the
+  // teletext double-height code, and must not swallow the next three bytes.
+  it('treats 0x8D inside a string as teletext data, not a line number', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "{DOUBLE HEIGHT}TITLE"');
+    expect(Array.from(bytes)).toContain(0x8d);
+    expect(detokenizeProgram(bytes)).toBe('10 PRINT "{DOUBLE HEIGHT}TITLE"\n');
+  });
+
+  it('keeps token bytes and colons literal inside REM and DATA', () => {
+    const rem = tokenizeProgram('10 REM {RED}see GOTO');
+    expect(detokenizeProgram(rem.bytes)).toBe('10 REM {RED}see GOTO\n');
+    const data = tokenizeProgram('10 DATA {0x0C},x:y');
+    expect(detokenizeProgram(data.bytes)).toBe('10 DATA {0x0C},x:y\n');
+  });
+
+  it('round-trips raw control-code and top-bit escapes in strings', () => {
+    const source = '10 PRINT "{0x0C}beep{0x07}{0xFF}"';
+    const { bytes, errors } = tokenizeProgram(source);
+    expect(errors).toEqual([]);
+    expect(Array.from(bytes)).toEqual(
+      Array.from(tokenizeProgram(detokenizeProgram(bytes)).bytes),
+    );
+    expect(detokenizeProgram(bytes)).toBe(source + '\n');
+  });
+});
+
+describe('BBC detokenize report (Stage 1 warning channel)', () => {
+  it('imports a well-formed program with no warnings', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "HI"\n20 END');
+    expect(detokenizeWithReport(bytes).warnings).toEqual([]);
+  });
+
+  it('warns when the end marker is missing (truncated file)', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n20 END');
+    // Drop the trailing 0x0D 0xFF end marker.
+    const truncated = bytes.slice(0, bytes.length - 2);
+    const report = detokenizeWithReport(truncated);
+    expect(report.warnings.length).toBeGreaterThan(0);
+    expect(report.warnings[0]).toMatch(/end marker|truncat/i);
+  });
+
+  it('warns when a line length byte runs past the end of the image', () => {
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO WORLD"\n');
+    const chopped = bytes.slice(0, 8); // header claims a longer line
+    const report = detokenizeWithReport(chopped);
+    expect(report.warnings.length).toBeGreaterThan(0);
+    expect(report.warnings[0]).toMatch(/truncat/i);
+  });
+});
+
+describe('BBC import round-trip fixtures (Stage 5)', () => {
+  it('a MODE 7 teletext program with colour bytes and 0x8D in strings', () => {
+    const source = [
+      '10 MODE 7',
+      '20 PRINT "{RED}RED {YELLOW}YELLOW"',
+      '30 PRINT "{DOUBLE HEIGHT}BIG"',
+      '40 PRINT "{GRAPHICS BLUE}{0xFF}{0xFF}"',
+    ].join('\n');
+    const { image, errors } = bbcmicro.tokenize(source);
+    expect(errors).toEqual([]);
+    const outcome = importRoundTrip(bbcmicro, image);
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.byteExact).toBe(true);
+    expect(isAcceptableImport(outcome)).toBe(true);
+    expect(outcome.source).toBe(source + '\n');
+  });
+
+  it('a truncated .bbc is reported, not silently shortened', () => {
+    const { image } = bbcmicro.tokenize('10 PRINT "HELLO"\n20 GOTO 10\n');
+    const truncated = image.slice(0, image.length - 2);
+    const outcome = importRoundTrip(bbcmicro, truncated);
+    // The loss is reported, which satisfies the Stage 1 acceptance rule even
+    // though the bytes no longer round-trip exactly.
+    expect(outcome.warnings.length).toBeGreaterThan(0);
+    expect(isAcceptableImport(outcome)).toBe(true);
+  });
+});
+
 describe('BBC line-number codec', () => {
   it('round-trips every line number', () => {
     for (const n of [0, 1, 10, 50, 100, 255, 256, 1000, 32767, 65279]) {
@@ -138,6 +256,22 @@ describe('BBC tokenizer linting', () => {
     const errors = tokenizeProgram('70000 PRINT 1\n').errors;
     expect(errors).toHaveLength(1);
     expect(errors[0]!.message).toMatch(/out of range/);
+  });
+
+  it('lints a line above the 32767 entry limit but still builds it', () => {
+    const { bytes, errors } = tokenizeProgram('40000 PRINT 1\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toMatch(/32767/);
+    // Non-fatal: the line is still stored (0x0D, line 40000 = 0x9C40, …).
+    expect(Array.from(bytes.slice(0, 3))).toEqual([0x0d, 0x9c, 0x40]);
+  });
+
+  it('lints a GOTO target above the entry limit (would wrap)', () => {
+    const { errors } = tokenizeProgram('10 GOTO 40000\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toMatch(/target/i);
   });
 
   it('reports charset errors with line and column', () => {
