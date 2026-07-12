@@ -442,10 +442,11 @@ export function Toolbar() {
             controllerEnabled={controllerEnabled}
             setKeyboardEnabled={setKeyboardEnabled}
             setControllerEnabled={setControllerEnabled}
-            // Phone-landscape preview is always the mobile emulator surface,
-            // where the flanking gamepad is the default overlay — so the toggle
-            // cycles off/auto ↔ keyboard only (matches gamepadToggleable).
-            gamepadInCycle={false}
+            // Phone-landscape preview is always the emulator surface, where the
+            // gamepad is a real toggle position — so the button runs the full
+            // 3-state cycle off → keyboard → gamepad → off (matches
+            // gamepadToggleable, which is true on any emulator surface).
+            gamepadInCycle={true}
             className={styles.kbToggle}
             activeClassName={styles.kbToggleActive}
           />

@@ -155,14 +155,24 @@ describe('resolveInputOverlays', () => {
   });
 
   describe('mobile portrait', () => {
-    it('defaults to the gamepad on the preview tab with nothing enabled (rule 4)', () => {
+    it('shows neither overlay on the preview tab with nothing enabled', () => {
+      // The gamepad is opt-in on every layout now, so an empty preview tab is a
+      // genuine "off" state (no rule-4 default).
       const r = resolveInputOverlays(portrait());
+      expect(r.controllerVisible).toBe(false);
+      expect(r.keyboardVisible).toBe(false);
+      expect(r.overlayUp).toBe(false);
+    });
+
+    it('shows the gamepad on the preview tab when its toggle is on', () => {
+      const r = resolveInputOverlays(portrait({ controllerEnabled: true }));
       expect(r.controllerVisible).toBe(true);
       expect(r.keyboardVisible).toBe(false);
+      // A docked (non-flanking) gamepad shrinks the screen.
       expect(r.overlayUp).toBe(true);
     });
 
-    it('auto-show beats the rule-4 gamepad default when a pane is focused', () => {
+    it('auto-shows the keyboard when a pane is focused', () => {
       const r = resolveInputOverlays(
         portrait({ keyboardAutoShow: true, paneFocused: true }),
       );
@@ -170,13 +180,13 @@ describe('resolveInputOverlays', () => {
       expect(r.controllerVisible).toBe(false);
     });
 
-    it('keeps the rule-4 gamepad default when no pane is focused', () => {
+    it('does not auto-show the keyboard when no pane is focused', () => {
       const r = resolveInputOverlays(portrait({ keyboardAutoShow: true }));
-      expect(r.controllerVisible).toBe(true);
+      expect(r.controllerVisible).toBe(false);
       expect(r.keyboardVisible).toBe(false);
     });
 
-    it('the gamepad toggle still wins over auto-show (rule 1)', () => {
+    it('the gamepad toggle wins over auto-show (rule 1)', () => {
       const r = resolveInputOverlays(
         portrait({
           controllerEnabled: true,
@@ -200,23 +210,28 @@ describe('resolveInputOverlays', () => {
       expect(r.keyboardVisible).toBe(false);
     });
 
-    it('drops the gamepad from the toggle cycle (mobile default overlay)', () => {
-      // Gamepad is the default here whether the toggle is on or off, so the
-      // toggle should skip it and cycle off/auto ↔ keyboard only.
-      expect(resolveInputOverlays(portrait()).gamepadToggleable).toBe(false);
+    it('makes the gamepad a toggle position on the preview tab (3-way)', () => {
+      expect(resolveInputOverlays(portrait()).gamepadToggleable).toBe(true);
     });
   });
 
   describe('phone landscape', () => {
-    it('flanks the gamepad by default on the preview tab', () => {
+    it('shows neither overlay by default on the preview tab', () => {
       const r = resolveInputOverlays(landscape());
+      expect(r.controllerVisible).toBe(false);
+      expect(r.keyboardVisible).toBe(false);
+      expect(r.overlayUp).toBe(false);
+    });
+
+    it('flanks the gamepad on the preview tab when its toggle is on', () => {
+      const r = resolveInputOverlays(landscape({ controllerEnabled: true }));
       expect(r.controllerVisible).toBe(true);
       expect(r.keyboardVisible).toBe(false);
       // The flanking gamepad doesn't dock, so it never shrinks the screen.
       expect(r.overlayUp).toBe(false);
     });
 
-    it('swaps the flanking gamepad for the keyboard when its toggle is on', () => {
+    it('shows the keyboard when its toggle is on', () => {
       const r = resolveInputOverlays(landscape({ keyboardEnabled: true }));
       expect(r.controllerVisible).toBe(false);
       expect(r.keyboardVisible).toBe(true);
@@ -232,11 +247,11 @@ describe('resolveInputOverlays', () => {
       expect(r.keyboardVisible).toBe(false);
     });
 
-    it('ignores auto-show on the emulator surface, keeping the flanking gamepad', () => {
+    it('suppresses auto-show on the emulator surface (would cover the flanking gamepad)', () => {
       const r = resolveInputOverlays(
         landscape({ keyboardAutoShow: true, paneFocused: true }),
       );
-      expect(r.controllerVisible).toBe(true);
+      expect(r.controllerVisible).toBe(false);
       expect(r.keyboardVisible).toBe(false);
     });
 
@@ -253,8 +268,8 @@ describe('resolveInputOverlays', () => {
       expect(r.overlayUp).toBe(true);
     });
 
-    it('never puts the gamepad in the toggle cycle (mobile layout)', () => {
-      expect(resolveInputOverlays(landscape()).gamepadToggleable).toBe(false);
+    it('makes the gamepad a toggle position on the preview tab, but not the editor tab', () => {
+      expect(resolveInputOverlays(landscape()).gamepadToggleable).toBe(true);
       expect(
         resolveInputOverlays(landscape({ mobileTab: 'editor' }))
           .gamepadToggleable,
