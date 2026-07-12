@@ -55,11 +55,9 @@ export interface InputOverlays {
   overlayUp: boolean;
   /**
    * The gamepad is a meaningful third position for the input-overlay toggle.
-   * It only is when the gamepad's visibility actually follows the toggle: on the
-   * emulator surface of a non-mobile layout. While editing (rule 3) the gamepad
-   * is never shown, and on mobile it's the default overlay (rule 4) whether the
-   * toggle is on or off — in both cases the toggle should skip gamepad and cycle
-   * only off/auto ↔ keyboard.
+   * It only is when the gamepad's visibility actually follows the toggle: the
+   * emulator surface, on every layout. While editing the gamepad is never shown,
+   * so there the toggle drops it and cycles only off/auto ↔ keyboard.
    */
   gamepadToggleable: boolean;
 }
@@ -75,12 +73,13 @@ export interface InputOverlays {
  *   1. gamepad toggle on            → gamepad (all layouts, highest priority)
  *   2. keyboard toggle on           → keyboard
  *   3. auto-show + editor/emulator focused → keyboard (except the phone-landscape
- *      emulator surface, where the flanking gamepad stays)
- *   4. mobile + emulator shown + no keyboard → gamepad (default)
- *   5. otherwise                    → neither
+ *      emulator surface, where an auto-shown keyboard would cover the flanking
+ *      gamepad, so it's suppressed)
+ *   4. otherwise                    → neither
  *
- * The gamepad is an emulator-surface overlay: while the editor is the active
- * surface it never shows (the keyboard routes to the editor instead). Auto-show
+ * The gamepad is an opt-in emulator-surface overlay: it shows only when its
+ * toggle is on and the emulator is the active surface (while the editor is
+ * active it never shows — the keyboard routes to the editor instead). Auto-show
  * is derived here rather than mutating `keyboardEnabled`, so the two enabled
  * flags mean only explicit user intent.
  */
@@ -100,22 +99,17 @@ export function resolveInputOverlays(input: InputOverlayInput): InputOverlays {
     ? mobileTab === 'preview'
     : !routeToEditor;
   const editorSurfaceActive = tabbed ? mobileTab === 'editor' : routeToEditor;
-  // A touch phone/tablet uses the single-pane tab layout; "mobile" here means any
-  // tab layout (portrait or phone landscape), which is where the gamepad is the
-  // default emulator overlay (rule 4).
-  const mobile = tabbed;
   // Auto-show pops the keyboard only while the editor or emulator actually holds
   // focus (tapping into a pane), not just because a pane is the default active
-  // surface. In phone landscape only the emulator surface suppresses auto-show
-  // (the flanking gamepad is the default there and an auto-shown keyboard would
-  // cover it); the editor tab has no gamepad, so auto-show still applies to it.
+  // surface. In phone landscape the emulator surface suppresses auto-show: the
+  // flanking gamepad lives there, so an auto-shown keyboard would cover it. The
+  // editor tab has no gamepad, so auto-show still applies to it.
   const autoKeyboard =
     keyboardAutoShow && paneFocused && !(landscape && emulatorSurfaceActive);
 
-  const controllerVisible =
-    emulatorSurfaceActive &&
-    (controllerEnabled || // rule 1
-      (mobile && !keyboardEnabled && !autoKeyboard)); // rule 4 default
+  // The gamepad is opt-in on every layout: shown only where its toggle is on and
+  // the emulator is the active surface (rule 1).
+  const controllerVisible = emulatorSurfaceActive && controllerEnabled;
 
   const keyboardVisible =
     !controllerVisible &&
@@ -128,9 +122,9 @@ export function resolveInputOverlays(input: InputOverlayInput): InputOverlays {
   const overlayUp = keyboardVisible || (controllerVisible && !landscape);
 
   // The gamepad earns its place in the toggle cycle only where its visibility
-  // tracks the toggle: the emulator surface of a non-mobile layout. On the
-  // editor surface it never shows; on mobile it's the default overlay anyway.
-  const gamepadToggleable = emulatorSurfaceActive && !mobile;
+  // tracks the toggle: the emulator surface, on every layout. On the editor
+  // surface it never shows, so there the toggle drops it.
+  const gamepadToggleable = emulatorSurfaceActive;
 
   return {
     emulatorSurfaceActive,

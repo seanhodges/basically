@@ -18,9 +18,8 @@ export interface InputOverlayToggleProps {
   /**
    * Whether the gamepad is a meaningful third position here. Defaults to true.
    * When false the control is a two-way toggle (off/auto ↔ keyboard) and never
-   * enables the gamepad — used where the gamepad is either never shown (editor
-   * surface) or always the default (mobile emulator). See `gamepadToggleable`
-   * in `useInputOverlays`.
+   * enables the gamepad — used where the gamepad is never shown (the editor
+   * surface). See `gamepadToggleable` in `useInputOverlays`.
    */
   gamepadInCycle?: boolean;
 }
@@ -30,9 +29,9 @@ export interface InputOverlayToggleProps {
  * phone-landscape rail, standalone player top bar). One button cycles
  * off → keyboard → gamepad, writing the two mutually-exclusive intent flags —
  * or, when `gamepadInCycle` is false, off/auto ↔ keyboard only (the gamepad is
- * either never shown or always the default there). What actually renders is
- * resolved centrally in `useInputOverlays`, so 'off' may still show the keyboard
- * (auto-show) or the gamepad (mobile default).
+ * never shown there, i.e. the editor surface). What actually renders is resolved
+ * centrally in `useInputOverlays`, so 'off' may still show the keyboard
+ * (auto-show).
  */
 export function InputOverlayToggle({
   keyboardEnabled,

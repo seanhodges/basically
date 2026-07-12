@@ -127,8 +127,8 @@ for (const vp of [
       // (2) Open the on-screen keyboard from the Run tab and check it is centred
       // in the workspace rather than stretched flush against the rail.
       await page.getByRole('tab', { name: 'Run' }).click();
-      // One click on the rail's input-overlay button (default: flanking gamepad)
-      // switches to the on-screen keyboard.
+      // One click on the rail's input-overlay button (default: off) advances the
+      // 3-state cycle to the on-screen keyboard.
       await page.getByTestId('input-overlay-toggle').click();
 
       const kb = page.locator('.virtual-keyboard.vk-landscape');
