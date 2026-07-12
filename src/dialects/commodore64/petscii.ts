@@ -88,7 +88,7 @@ for (let i = 0; i < 26; i++) {
  * round-trip stays stable — these are extra inputs, never outputs.
  */
 // prettier-ignore
-const PETCAT_ALIASES: Record<string, number> = {
+export const PETCAT_ALIASES: Record<string, number> = {
   wht: 0x05, blk: 0x90, grn: 0x1e, blu: 0x1f, yel: 0x9e, cyn: 0x9f,
   pur: 0x9c, lred: 0x96, orng: 0x81, brn: 0x95, gry1: 0x97, gry2: 0x98,
   gry3: 0x9b, lgrn: 0x99, lblu: 0x9a, rght: 0x1d, rvof: 0x92, sret: 0x8d,

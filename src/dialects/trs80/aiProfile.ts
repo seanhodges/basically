@@ -17,6 +17,7 @@ THE DIALECT - STRICT RULES
 - Keyboard input in games: INKEY$ (non-blocking, returns "" if no key is pressed). INPUT halts the program until the user types a line and presses ENTER.
 - RND(0) gives 0..<1; RND(n) for n>=1 gives an integer 1..n.
 - CLS clears the screen. There is no lower case - letters display upper-case.
+- Inside string literals, block graphics 0x81-0xBF are written as unicode sextant glyphs (🬀…█) and other raw bytes as {0xNN} escapes - e.g. {0x1C} home, {0x1E} clear-to-end-of-line, {0xC3} prints 3 spaces (space compression). They import/export byte-exactly; prefer CHR$(n) only when computing codes.
 
 GRAPHICS PATTERN
 - Plot with SET(x,y); animate by RESET-ing the old position before SET-ing the new one.

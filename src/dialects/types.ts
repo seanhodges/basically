@@ -76,6 +76,15 @@ export function hasFatalErrors(errors: readonly TokenizeError[]): boolean {
   return errors.some((e) => e.fatal !== false);
 }
 
+/**
+ * The errors that prevent building a runnable image (see
+ * {@link hasFatalErrors}). Export/build paths gate and count on these, so
+ * non-fatal statement-shape lint doesn't block hardware export either.
+ */
+export function fatalErrors(errors: readonly TokenizeError[]): TokenizeError[] {
+  return errors.filter((e) => e.fatal !== false);
+}
+
 /** Result of {@link Dialect.detokenizeWithReport}. */
 export interface DetokenizeResult {
   /** Editable program text, exactly as {@link Dialect.detokenize} returns. */

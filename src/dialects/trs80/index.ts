@@ -1,4 +1,5 @@
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
+import { hasFatalErrors } from '../types';
 import { trs80Charset } from './charset';
 import { trs80Keywords } from './keywords';
 import { trs80VariableErrors } from '../../editor/variableLint';
@@ -35,9 +36,10 @@ export const trs80: Dialect = {
 
   tokenize(source: string): TokenizeResult {
     const { program, errors } = tokenizeProgram(source);
+    const image = hasFatalErrors(errors) ? new Uint8Array(0) : program;
     return {
       programBytes: program,
-      image: program,
+      image,
       errors,
       byteSize: program.length,
     };

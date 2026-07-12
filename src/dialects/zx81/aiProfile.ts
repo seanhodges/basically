@@ -19,7 +19,7 @@ THE DIALECT - STRICT RULES
 - No DATA/READ/RESTORE, no DEF FN, no ON..GOTO, no multi-dimensional string ops beyond slicing s$(a TO b).
 - SCROLL must be called before printing when the screen is full, or the program stops with error 5.
 - PAUSE n waits n frames (50/s); follow with POKE 16437,255 to avoid a known display glitch on real hardware.
-- Useful character codes: 0=space, 128=inverse space (solid block). Graphics characters exist for half/quarter blocks; in this IDE's editor they can be written as unicode blocks (▘▝▀▖▌▞▛▒█ etc.) or escapes. Inverse letters are written %A %B etc.
+- Useful character codes: 0=space, 128=inverse space (solid block). Graphics characters exist for half/quarter blocks; in this IDE's editor they can be written as unicode blocks (▘▝▀▖▌▞▛▒█ etc.) or backslash escapes naming the left/right cell halves (\\' . = top-left, \\:: = full block, \\!! = grey, \\|| = inverse grey). Inverse video is %c (%A = inverse A, %* = inverse *). \\{NN} stores any raw byte as two hex digits (e.g. \\{76} = NEWLINE) - prefer the named forms when writing code.
 
 PERFORMANCE TRICKS
 - Minimize work inside the main loop; precompute strings.

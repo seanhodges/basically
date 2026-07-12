@@ -8,7 +8,12 @@ and the `adding-a-target-system` skill).
 
 This document tracks which machines we can realistically support, grouped by
 **which already-bundled emulator can drive them**. The bundled emulator cores
-are the limiting factor, so they define the tiers:
+are the limiting factor, so they define the tiers.
+
+Cross-cutting language-layer quality (total charsets, escape notations,
+import fidelity, loud containers) is tracked separately in the
+[charset & tokenizer feature-completeness plan](./charset-tokenizer-plan.md)
+(all stages shipped except the two deferred C64 items noted there).
 
 | Core                              | CPU          | Licence          | Wrapper                                                                                             | Powers                                   |
 | --------------------------------- | ------------ | ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------- |

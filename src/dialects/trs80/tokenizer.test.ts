@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { tokenizeProgram, PROG_START } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
+import { trs80 } from './index';
 
 describe('trs80 tokenizer', () => {
   it('produces the linked-line layout based at 0x42E8 for 10 PRINT "HI"', () => {
@@ -98,6 +99,20 @@ describe('trs80 tokenizer statement validation', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]!.line).toBe(1);
     expect(errors[0]!.message).toMatch(/must start with/i);
+  });
+
+  it('statement-shape and ordering lint are non-fatal; the image still builds', () => {
+    const result = trs80.tokenize('10 PRNT "HI"\n20 A=1\n15 B=2\n');
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors.every((e) => e.fatal === false)).toBe(true);
+    expect(result.image.length).toBeGreaterThan(0);
+    expect(result.image).toBe(result.programBytes);
+  });
+
+  it('fatal framing errors empty the image (Stage 1 lint/buildability split)', () => {
+    const result = trs80.tokenize('PRINT "NO LINE NUMBER"\n');
+    expect(result.errors.some((e) => e.fatal !== false)).toBe(true);
+    expect(result.image.length).toBe(0);
   });
 
   it('flags a bad statement after a colon', () => {

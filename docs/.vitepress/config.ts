@@ -79,13 +79,70 @@ export default withPwa(
             text: 'Language reference',
             items: [
               { text: 'Overview', link: '/reference/' },
-              { text: 'ZX81 BASIC', link: '/reference/zx81' },
-              { text: 'ZX80 integer BASIC', link: '/reference/zx80' },
-              { text: 'ZX Spectrum BASIC', link: '/reference/zxspectrum' },
-              { text: 'BBC BASIC', link: '/reference/bbc' },
-              { text: 'Commodore BASIC', link: '/reference/commodore64' },
-              { text: 'Acorn Atom BASIC', link: '/reference/atom' },
-              { text: 'TRS-80 Level II BASIC', link: '/reference/trs80' },
+              // Each dialect page nests its searchable escape-codes sub-page
+              // (the "embedded control codes & graphics" reference).
+              {
+                text: 'ZX81 BASIC',
+                link: '/reference/zx81',
+                collapsed: true,
+                items: [
+                  { text: 'Escape codes', link: '/reference/zx81/escapes' },
+                ],
+              },
+              {
+                text: 'ZX80 integer BASIC',
+                link: '/reference/zx80',
+                collapsed: true,
+                items: [
+                  { text: 'Escape codes', link: '/reference/zx80/escapes' },
+                ],
+              },
+              {
+                text: 'ZX Spectrum BASIC',
+                link: '/reference/zxspectrum',
+                collapsed: true,
+                items: [
+                  {
+                    text: 'Escape codes',
+                    link: '/reference/zxspectrum/escapes',
+                  },
+                ],
+              },
+              {
+                text: 'BBC BASIC',
+                link: '/reference/bbc',
+                collapsed: true,
+                items: [
+                  { text: 'Escape codes', link: '/reference/bbc/escapes' },
+                ],
+              },
+              {
+                text: 'Commodore BASIC',
+                link: '/reference/commodore64',
+                collapsed: true,
+                items: [
+                  {
+                    text: 'Escape codes',
+                    link: '/reference/commodore64/escapes',
+                  },
+                ],
+              },
+              {
+                text: 'Acorn Atom BASIC',
+                link: '/reference/atom',
+                collapsed: true,
+                items: [
+                  { text: 'Escape codes', link: '/reference/atom/escapes' },
+                ],
+              },
+              {
+                text: 'TRS-80 Level II BASIC',
+                link: '/reference/trs80',
+                collapsed: true,
+                items: [
+                  { text: 'Escape codes', link: '/reference/trs80/escapes' },
+                ],
+              },
             ],
           },
           {
@@ -184,13 +241,14 @@ export default withPwa(
           // site (including search) is available offline after first load.
           globPatterns: ['**/*.{js,css,html,json,png,jpg,svg,ico,woff2}'],
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-          // Strip the context-aware help's `?q=` keyword param (alongside the
-          // workbox defaults) before matching a request against the precache.
-          // Without this, a deep link like `reference/commodore64?q=poke` misses
-          // the precached `reference/commodore64.html`, so the SPA NavigationRoute
-          // falls back to the precached home `index.html` - rendering the home
-          // hero above the reference page until VitePress client-routes over it.
-          ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^q$/],
+          // Strip the context-aware help's `?q=` keyword param and the escape
+          // tables' `?cat=` category param (alongside the workbox defaults)
+          // before matching a request against the precache. Without this, a
+          // deep link like `reference/commodore64?q=poke` misses the precached
+          // `reference/commodore64.html`, so the SPA NavigationRoute falls
+          // back to the precached home `index.html` - rendering the home hero
+          // above the reference page until VitePress client-routes over it.
+          ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^q$/, /^cat$/],
         },
       },
     }),

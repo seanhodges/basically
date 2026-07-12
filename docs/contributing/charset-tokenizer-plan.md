@@ -36,7 +36,7 @@
 | 6     | C64: petcat interop, containers, readability        | 🔨     |
 | 7     | TRS-80: ROM-faithful forms, escapes, runtime        | ✅     |
 | 8     | Atom: total charset, lint vs buildability, FP ROM   | ✅     |
-| 9     | Docs, samples, AI profiles                          | ⬜     |
+| 9     | Docs, escape reference pages, AI profiles           | ✅     |
 
 ---
 
@@ -68,8 +68,11 @@ stage its acceptance test.
       `*CAT`/FP lines run again; audit of the other dialects found their
       statement checks intertwined with token emission, so downgrades are
       deferred to their own stages (C64 line-number rules → Stage 6).
-      `TransferDialog` still refuses to export with _any_ error — revisit
-      per-dialect. Tests: `atom/tokenizer.test.ts`.
+      ~~`TransferDialog` still refuses to export with _any_ error — revisit
+      per-dialect.~~ Resolved in Stage 9: every export/build gate
+      (`TransferDialog`, the dialects' `targets.ts`, the Atom/TRS-80 cassette
+      encoders) now counts only fatal errors (`fatalErrors` in `types.ts`).
+      Tests: `atom/tokenizer.test.ts`.
 - [x] Shared **import-direction round-trip harness**:
       `src/dialects/roundTripHarness.ts` (`importRoundTrip`,
       `isAcceptableImport` — byte-exact or warned) plus the registry-driven
@@ -384,26 +387,64 @@ inline.
 **Verify:** `npm test`; a machine-code `.atm` import shows an error; an
 inverse-video program round-trips byte-exactly.
 
-## Stage 9 — Docs, samples, AI profiles ⬜
+## Stage 9 — Docs, escape reference pages, AI profiles ✅
 
 Make the conventions discoverable and keep them honest (audit finding C6 and
-the per-dialect "escape design" items).
+the per-dialect "escape design" items), plus a rollup of consistency gaps the
+parallel Stages 2–8 left between dialects. Scope adjustments from the
+original plan: the escape tables became **searchable sub-pages** under each
+dialect reference page (rather than sections in `file-formats.md`), and the
+bundled-samples item was **dropped by decision** (samples stay as they are;
+the escape notation is continuously tested by the cross-check suite instead).
 
-- [ ] Rewrite the escape tables in `docs/reference/file-formats.md`: one
-      section per dialect documenting its full notation (currently only ZX81
-      and Spectrum are documented; the claim that "BBC, C64, TRS-80 and Atom
-      have their own … escapes defined in their charset.ts" becomes true only
-      after Stages 5–8).
-- [ ] Per-dialect reference pages (`docs/reference/*.md`) gain an "embedded
-      control codes & graphics" section with the escape syntax and examples.
-- [ ] AI profiles teach the escape syntax (e.g. C64 `{clr}`/`{down}` instead
-      of only `CHR$(147)`; Spectrum `{INK 2}`; BBC teletext escapes) so the
-      assistant produces idiomatic, importable code.
-- [ ] At least one bundled sample per dialect exercises its escapes (keeps
-      the notation continuously tested through `samples.test.ts`).
-- [ ] Cross-link this plan from `docs/reference/dialect-roadmap.md` and mark
-      shipped stages in the status table.
+- [x] Searchable per-dialect escape tables as reference sub-pages
+      (`docs/reference/<page>/escapes.md`, one per `docsReference` page —
+      shims share: 128K on the Spectrum page, Master on the BBC page). Same
+      dynamic-table treatment as the keyword `ReferenceTable`: an
+      `EscapeTable` Vue component (`docs/.vitepress/theme/`) with search +
+      per-dialect category chips, prefillable via `?q=` and `?cat=` query
+      params (the `cat` param joins `q` in the PWA's
+      `ignoreURLParametersMatching`). Data lives in
+      `docs/reference/data/escapes/*.ts` (literal-only, so the docs bundle
+      never pulls dialect code), seeded by `npm run gen:escapes`
+      (`scripts/gen-escape-scaffold.mts`) and hand-enriched.
+- [x] The tables are pinned to the implementations by
+      `docs/reference/data/escapes/escape-crosscheck.test.ts`: every row's
+      example (and alias) parses to its documented bytes through the real
+      charset, canonical rows decode back, and an 0x00–0xFF enumeration
+      proves **every** escape-needing byte is either documented by a row or
+      covered by the raw catch-all — a new named escape in a charset fails
+      the suite until its docs row exists. (Enabled by exporting the
+      previously private `PETCAT_ALIASES` and the Sinclair
+      `ESCAPES`/`GRAPHIC_UNICODE` tables.)
+- [x] `docs/reference/file-formats.md` escape sections replaced by a short
+      "Escape notation" section linking the seven sub-pages (the malformed
+      ZX81 table row went with them); `docs/reference/index.md` links each
+      page's escape table.
+- [x] AI profiles teach the escape syntax (C64 `{clr}`/`{down}`/petcat
+      aliases; BBC `{RED}`/`{DOUBLE HEIGHT}`; Sinclair graphics escapes and
+      `%c`; TRS-80 `{0xNN}` + sextant glyphs; Atom inverse-video `{0xNN}` and
+      the `%`-is-a-variable rule) so the assistant produces idiomatic,
+      importable code. The Spectrum profiles already did.
+- [x] Rollup from the parallel stages: the TRS-80 now gates its image on
+      `hasFatalErrors` like every other dialect (its statement-shape and
+      line-ordering lint became non-fatal, mirroring Atom/C64); every
+      export/build gate counts only fatal errors (`fatalErrors`, resolving
+      the Stage 1 TransferDialog caveat); and the re-use shims gained foreign
+      round-trip fixtures for their unique paths
+      (`zxspectrum128/foreignRoundTrip.test.ts` — SPECTRUM/PLAY tokens and
+      0xA3/0xA4-in-string; `bbcmaster/foreignRoundTrip.test.ts` — EDIT,
+      `TIME$=`).
+- [x] Considered and declined: routing the BBC/TRS-80/Atom tape-header
+      filenames through their charsets (their name fields are ASCII-limited
+      or single-character, so `charCodeAt` is already equivalent); a
+      dedicated TRS-80 ↑ key (the `^` alias covers it). The C64 lower-case
+      display bank and keyword-abbreviation table stay deferred under
+      Stage 6, and the C64 escapes page says so.
+- [x] Cross-link this plan from `docs/contributing/dialect-roadmap.md` and
+      mark shipped stages in the status table.
 
 **Depends on:** Stages 2–8 (document what shipped).
-**Verify:** `npm run docs:dev` renders; `npm test` samples suites pass;
-`npm run format:check`.
+**Verify:** `npm run docs:build` renders (check
+`/docs/reference/commodore64/escapes?q=clr&cat=colour` prefills); `npm test`
+(escape data + cross-check suites); `npm run format:check`.

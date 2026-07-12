@@ -25,6 +25,7 @@
 import { ATOM_TEXT_START } from '../atm';
 import { samplesToWav } from '../../../transfer/wav';
 import { tokenizeProgram } from '../tokenizer';
+import { fatalErrors } from '../../types';
 
 const BIT_MICROS = 1e6 / 300; // one start/data/stop bit at 300 baud
 const CYCLE_2400_MICROS = 1e6 / 2400;
@@ -189,9 +190,10 @@ export function encodeAtomTape(
  */
 export function buildAtomImage(source: string): Uint8Array {
   const { bytes, errors } = tokenizeProgram(source);
-  if (errors.length > 0) {
+  const fatal = fatalErrors(errors);
+  if (fatal.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) - fix them before building`,
+      `Program has ${fatal.length} error(s) - fix them before building`,
     );
   }
   // A bare end marker (0x0D 0xFF) means the program is empty.

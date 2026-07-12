@@ -1,4 +1,5 @@
 import type { BuildTarget } from '../types';
+import { fatalErrors } from '../types';
 import { tokenizeProgram } from './tokenizer';
 import { buildTap, tapBlocks } from './tapfile';
 import { encodeSpectrumTape } from './audio/cassetteEncoder';
@@ -8,9 +9,10 @@ export const CASSETTE_SAMPLE_RATE = 44100;
 
 function buildProgramBytes(source: string): Uint8Array {
   const { bytes, errors } = tokenizeProgram(source);
-  if (errors.length > 0) {
+  const fatal = fatalErrors(errors);
+  if (fatal.length > 0) {
     throw new Error(
-      `Program has ${errors.length} error(s) - fix them before building`,
+      `Program has ${fatal.length} error(s) - fix them before building`,
     );
   }
   if (bytes.length === 0) {
