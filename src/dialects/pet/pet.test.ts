@@ -101,7 +101,14 @@ describe('pet dialect', () => {
   });
 
   // ---- Stage 2 — emulator core ------------------------------------------
-  it.todo('boots the BASIC 4.0 ROMs to READY. and runs an injected program');
+  // Covered by src/emulator/pet/petMachine.test.ts (boots the BASIC 4.0 ROMs to
+  // READY. and runs an injected program) and the shared-chip unit tests under
+  // src/emulator/commodore/.
+  it('advertises the emulator surface (displaySize + createEmulator)', () => {
+    expect(pet.displaySize).toEqual({ width: 360, height: 250 });
+    expect(typeof pet.createEmulator).toBe('function');
+    expect(pet.romUrl).toMatch(/roms\/pet\/kernal/);
+  });
 
   // ---- Stage 3 — wire-up ------------------------------------------------
   it.todo('validates the keyboard layout and key matrix (physical+virtual)');

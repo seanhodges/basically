@@ -1,9 +1,9 @@
+import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import {
-  hasFatalErrors,
-  type Dialect,
-  type MachineEmulator,
-  type TokenizeResult,
-} from '../types';
+  PetMachine,
+  PET_DISPLAY_WIDTH,
+  PET_DISPLAY_HEIGHT,
+} from '../../emulator/pet/petMachine';
 import { petKeywords } from './keywords';
 import { petCharset } from './charset';
 import { tokenizeProgram } from './tokenizer';
@@ -64,11 +64,16 @@ export const pet: Dialect = {
     ];
   },
 
-  // TODO (pet Stage 2): romUrl + displaySize once the machine and its ROM set
-  // land under src/emulator/pet/ and public/roms/pet/.
+  // Prefetched by the app for cache warming; the PET adapter loads the full ROM
+  // set (BASIC 4.0 + editor + KERNAL + chargen) itself from public/roms/pet/.
+  romUrl: `${import.meta.env.BASE_URL}roms/pet/kernal-4.901465-22.bin`,
 
-  createEmulator(_opts): MachineEmulator {
-    throw new Error('pet: not implemented (Stage 2)');
+  displaySize: { width: PET_DISPLAY_WIDTH, height: PET_DISPLAY_HEIGHT },
+
+  // opts.rom/ramKb are ignored: the PET machine loads its own six ROM images and
+  // models a fixed 32 KB machine. opts.files is reserved for Stage 4 tape I/O.
+  createEmulator(opts) {
+    return new PetMachine({ files: opts.files });
   },
 
   keyboardLayout: petKeyboardLayout,
