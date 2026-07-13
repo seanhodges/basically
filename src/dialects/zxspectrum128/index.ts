@@ -41,7 +41,7 @@ import { spectrum128Samples } from './samples';
  */
 export const zxspectrum128: Dialect = {
   id: 'zxspectrum128',
-  name: 'Spectrum 128K',
+  name: 'Spectrum 128',
   docsReference: 'zxspectrum',
   programRamBytes: 41472,
   fileExtensions: ['.txt', '.bas'],

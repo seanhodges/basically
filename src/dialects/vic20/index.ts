@@ -32,7 +32,7 @@ import { c64VariableErrors } from '../../editor/variableLint';
  */
 export const vic20: Dialect = {
   id: 'vic20',
-  name: 'Commodore VIC-20',
+  name: 'VIC-20',
   // VIC-20 BASIC V2 is token-identical to the C64's, so the keyword reference
   // (what the docs button deep-links) is the same page - reuse it rather than
   // duplicate it, as bbcmaster reuses 'bbc' and zxspectrum128 reuses 'zxspectrum'.
