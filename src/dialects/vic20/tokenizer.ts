@@ -1,14 +1,22 @@
-import type { TokenizeError } from '../types';
+import {
+  tokenizeProgram as tokenizeCbm,
+  type CbmVariant,
+  type TokenizedProgram,
+} from '../commodore64/tokenizer';
+import { vic20KeywordsByLength } from './keywords';
 
 /**
- * TODO (vic20 Stage 1): a thin wrapper over the commodore64 tokenizer via the
- * CbmVariant seam (added by the PET plan's Stage 1 step 0) - VIC20_VARIANT =
- * { progStart: 0x1001, keywordsByLength: c64KeywordsByLength }.
- * See docs/contributing/dialect-plans/vic20.md.
+ * The VIC-20's Commodore-BASIC variant: programs load at $1001 (vs the C64's
+ * $0801) on the unexpanded machine and use the plain BASIC V2 keyword table,
+ * byte-identical to the C64's. RAM expansions relocate BASIC ($0401 with +3K,
+ * $1201 with +8K/+16K) and are out of scope for Stage 1.
  */
-export function tokenizeProgram(_source: string): {
-  program: Uint8Array;
-  errors: TokenizeError[];
-} {
-  throw new Error('vic20: not implemented (Stage 1)');
+export const VIC20_VARIANT: CbmVariant = {
+  progStart: 0x1001,
+  keywordsByLength: vic20KeywordsByLength,
+};
+
+/** Tokenize VIC-20 BASIC V2 source into the $1001 linked-line program image. */
+export function tokenizeProgram(source: string): TokenizedProgram {
+  return tokenizeCbm(source, VIC20_VARIANT);
 }

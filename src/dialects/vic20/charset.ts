@@ -1,17 +1,10 @@
-import type { CharsetMapping } from '../types';
-
 /**
- * TODO (vic20 Stage 1): re-export the C64 charset - PETSCII is identical on
- * the VIC-20. See docs/contributing/dialect-plans/vic20.md.
+ * Commodore VIC-20 PETSCII <-> editor text.
+ *
+ * PETSCII is shared across the Commodore 8-bit line, so the VIC-20's byte
+ * mapping is byte-identical to the C64's; the C64 charset is simply re-exported
+ * here as {@link vic20Charset}. The colour-control escapes the shared charset
+ * understands ({red}, {cyan}, {rvon}…) are all meaningful on the VIC-20's
+ * colour display, exactly as on the C64.
  */
-export const vic20Charset: CharsetMapping = {
-  toMachine(_text: string): Uint8Array {
-    throw new Error('vic20: not implemented (Stage 1)');
-  },
-  toUnicode(_codes: ArrayLike<number>): string {
-    throw new Error('vic20: not implemented (Stage 1)');
-  },
-  glyph(_code: number): string {
-    throw new Error('vic20: not implemented (Stage 1)');
-  },
-};
+export { c64Charset as vic20Charset } from '../commodore64/charset';
