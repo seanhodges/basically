@@ -73,7 +73,7 @@
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
-| 3     | Wire-up: keyboard + samples + register | ⬜     |
+| 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Polish / optional                      | ⬜     |
 
@@ -177,28 +177,32 @@ sanity check.
 > the keyboard layout, samples and `aiProfile` are still stubs, so the app does
 > not surface the VIC-20 yet even though the machine boots and runs.
 
-## Stage 3 — Wire-up: keyboard + samples + register ⬜
+## Stage 3 — Wire-up: keyboard + samples + register ✅
 
-- [ ] `keyboardLayout.ts` — start from `c64KeyboardLayout` (same key set;
-      C=/SHIFT graphics legends via the shared `graphics.ts` tables); retheme
-      as `vk-theme-vic20`; key tokens match `vic20Machine.setKey`
-- [ ] `samples/` + `samples.ts` — canonical `hello` / `circles` / `breakout` /
+- [x] `keyboardLayout.ts` — the VIC-20 key set / C=/SHIFT graphics / matrix
+      token vocabulary are the C64's, so this spreads `c64KeyboardLayout` and
+      only re-identifies (`id`/`name`) and re-themes it as `vk-theme-vic20`
+      (the same one-place sibling-import pattern as `keywords.ts`/`charset.ts`);
+      every emitted token resolves through `vic20TokenToPositions`
+- [x] `samples/` + `samples.ts` — canonical `hello` / `circles` / `breakout` /
       `maze` re-laid-out for **22 columns** (colour via screen/colour RAM at
       $1E00/$9600 and POKE 36879 for border/background; `hello` is the
-      starter)
-- [ ] finalize `aiProfile.ts` (22×23 display, screen RAM 7680 ($1E00), colour
+      starter). All four boot and paint on the real ROMs with no BASIC error
+- [x] finalize `aiProfile.ts` (22×23 display, screen RAM 7680 ($1E00), colour
       RAM 38400 ($9600), POKE 36879 for border/background, **3583 bytes
       free — warn the model to keep programs small**, no sprites, no SID; VIC-I
       sound registers 36874–36878 exist but audio is not played)
-- [ ] `index.ts` — assemble the full `Dialect` (`programRamBytes: 3583`,
+- [x] `index.ts` — assemble the full `Dialect` (`programRamBytes: 3583`,
       `displaySize`, `joystickModes: ['native']`, `romUrl` pointing at
       `roms/vic20/kernal.bin`)
-- [ ] **register in `src/dialects/registry.ts`**
-- [ ] update this plan + the roadmap row to ✅
-- [ ] optional `.virtual-keyboard.vk-theme-vic20` block in `src/styles.css`
-- [ ] tests: keyboard-layout validation, keyboard matrix (physical+virtual
-      union), samples tokenize cleanly (registration also enrols the dialect
-      in `src/dialects/roundTrip.test.ts`)
+- [x] **register in `src/dialects/registry.ts`**
+- [x] update this plan + the roadmap row to ✅
+- [x] `.vk-theme-vic20` block in `src/keyboard/VirtualKeyboard.css` (where the
+      sibling C64/PET themes live, not `src/styles.css`)
+- [x] tests: keyboard-layout validation, keyboard matrix (physical+virtual
+      union) in `keyboardLayout.test.ts`, samples tokenize cleanly within 3583
+      bytes (registration also enrols the dialect in
+      `src/dialects/roundTrip.test.ts`)
 
 **Depends on:** Stages 1–2.
 **Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke +

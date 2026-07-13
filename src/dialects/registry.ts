@@ -7,6 +7,7 @@ import { bbcmicro } from './bbcmicro';
 import { bbcmaster } from './bbcmaster';
 import { commodore64 } from './commodore64';
 import { pet } from './pet';
+import { vic20 } from './vic20';
 import { atom } from './atom';
 import { trs80 } from './trs80';
 
@@ -19,6 +20,7 @@ export const dialects: Dialect[] = [
   bbcmaster,
   commodore64,
   pet,
+  vic20,
   atom,
   trs80,
 ];

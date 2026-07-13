@@ -5,6 +5,7 @@ import { vic20Charset } from './charset';
 import { vic20Keywords, vic20WordByToken } from './keywords';
 import { buildPrg } from './targets';
 import { vic20 } from './index';
+import { getDialect } from '../registry';
 import { c64Keywords, c64WordByToken } from '../commodore64/keywords';
 import { tokenizeProgram as tokenizeC64 } from '../commodore64/tokenizer';
 
@@ -131,8 +132,35 @@ describe('vic20 dialect', () => {
   it.todo('boots BASIC + KERNAL to READY. and runs an injected program');
 
   // ---- Stage 3 - wire-up ------------------------------------------------
-  it.todo('validates the keyboard layout and key matrix (physical+virtual)');
-  it.todo('tokenizes every bundled sample cleanly within 3583 bytes');
+  // Full keyboard-layout + matrix (physical+virtual) coverage lives in
+  // keyboardLayout.test.ts; the surface wiring is asserted here.
+  it('registers a native joystick and a keyboard layout on the dialect', () => {
+    expect(vic20.joystickModes).toEqual(['native']);
+    expect(vic20.keyboardLayout?.id).toBe('vic20');
+    expect(vic20.keyboardLayout?.theme).toBe('vk-theme-vic20');
+  });
+
+  it('is registered in the shared dialect registry', () => {
+    expect(getDialect('vic20')).toBe(vic20);
+  });
+
+  it('tokenizes every bundled sample cleanly within 3583 bytes', () => {
+    expect(vic20.samples.map((s) => s.name)).toEqual([
+      'hello.bas',
+      'circles.bas',
+      'breakout.bas',
+      'maze.bas',
+    ]);
+    expect(vic20.samples[0]!.name).toBe('hello.bas');
+    for (const sample of vic20.samples) {
+      const { errors, image } = vic20.tokenize(sample.text);
+      expect(errors, `${sample.name}: ${JSON.stringify(errors)}`).toEqual([]);
+      expect(image.length, sample.name).toBeGreaterThan(0);
+      // The 2-byte load address rides on the front of the image; the program
+      // body must fit the unexpanded machine's 3583 free BASIC bytes.
+      expect(image.length - 2, sample.name).toBeLessThanOrEqual(3583);
+    }
+  });
 
   // ---- Stage 4 - transfer & tape I/O ------------------------------------
   it.todo('round-trips cassette encode -> decode at $1001');

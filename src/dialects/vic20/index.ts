@@ -29,6 +29,10 @@ import { c64VariableErrors } from '../../editor/variableLint';
 export const vic20: Dialect = {
   id: 'vic20',
   name: 'Commodore VIC-20',
+  // VIC-20 BASIC V2 is token-identical to the C64's, so the keyword reference
+  // (what the docs button deep-links) is the same page - reuse it rather than
+  // duplicate it, as bbcmaster reuses 'bbc' and zxspectrum128 reuses 'zxspectrum'.
+  docsReference: 'commodore64',
   // Unexpanded VIC-20: "3583 BYTES FREE".
   programRamBytes: 3583,
   fileExtensions: ['.txt', '.bas'],
@@ -72,6 +76,10 @@ export const vic20: Dialect = {
 
   displaySize: { width: VIC20_DISPLAY_WIDTH, height: VIC20_DISPLAY_HEIGHT },
 
+  // The unexpanded VIC-20 reads a single digital joystick (up/down/left/fire on
+  // VIA1 PA2–PA5, right on VIA2 PB7); the machine folds fire2 into fire1.
+  joystickModes: ['native'],
+
   // opts.rom/ramKb are ignored: the machine manages its own ROM set and the
   // fixed unexpanded 64K map.
   createEmulator(opts) {
@@ -84,8 +92,6 @@ export const vic20: Dialect = {
 
   buildTargets: vic20BuildTargets,
 
-  // TODO (vic20 Stage 3): joystickModes: ['native'] once the machine wires
-  // VIA1/VIA2 joystick lines.
   // TODO (vic20 Stage 4): binaryImports (.prg) + audio (cassette WAV at $1001).
 
   aiProfile: vic20AiProfile,
