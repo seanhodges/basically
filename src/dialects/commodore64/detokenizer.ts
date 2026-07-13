@@ -3,7 +3,35 @@ import { c64Charset } from './charset';
 import { c64WordByToken } from './keywords';
 
 /** Programs load at $0801 on the C64; a .prg's leading word is this address. */
-const LOAD_ADDRESS = 0x0801;
+const DEFAULT_LOAD_ADDRESS = 0x0801;
+
+/**
+ * A Commodore-BASIC machine variant for the LIST/import side. Sibling dialects
+ * (PET, VIC-20…) reuse the C64 detokenizer by supplying their own load address,
+ * keyword decode map and machine name for the warnings. Omitting it decodes for
+ * the C64.
+ */
+export interface CbmDetokenizeVariant {
+  /** The .prg leading load-address word, e.g. C64 $0801, PET $0401. */
+  loadAddress: number;
+  /** token byte -> canonical spelling for this machine's keyword set. */
+  wordByToken: Map<number, string>;
+  /**
+   * What a foreign-load-address image is likely to be, spliced into the
+   * "load address is not $…" warning (e.g. 'VIC-20/PET/C128 or machine-code').
+   */
+  machineHint: string;
+  /** This machine's own name for the warning tail (e.g. 'C64', 'PET'). */
+  machineName: string;
+}
+
+/** The implicit C64 variant used when no explicit one is passed. */
+const C64_VARIANT: CbmDetokenizeVariant = {
+  loadAddress: DEFAULT_LOAD_ADDRESS,
+  wordByToken: c64WordByToken,
+  machineHint: 'VIC-20/PET/C128 or machine-code',
+  machineName: 'C64',
+};
 
 /**
  * Convert a tokenized Commodore 64 program back into editable text. Accepts
@@ -29,14 +57,20 @@ const LOAD_ADDRESS = 0x0801;
  * Every non-keyword byte maps through {@link c64Charset} to a glyph or a
  * `{...}` escape, so nothing is lost to `?`.
  */
-export function detokenizeProgram(image: Uint8Array): string {
-  // Drop the load address if this looks like a .prg ($01 $08). Bare program
-  // bytes (e.g. from a cassette decode) are passed through unchanged.
+export function detokenizeProgram(
+  image: Uint8Array,
+  variant: CbmDetokenizeVariant = C64_VARIANT,
+): string {
+  // Drop the load address if this looks like a .prg (its little-endian load
+  // word, $01 $08 on the C64). Bare program bytes (e.g. from a cassette decode)
+  // are passed through unchanged.
+  const lo = variant.loadAddress & 0xff;
+  const hi = (variant.loadAddress >> 8) & 0xff;
   const program =
-    image.length >= 2 && image[0] === 0x01 && image[1] === 0x08
+    image.length >= 2 && image[0] === lo && image[1] === hi
       ? image.subarray(2)
       : image;
-  return decodeLinkedProgram(program).source;
+  return decodeLinkedProgram(program, variant.wordByToken).source;
 }
 
 /**
@@ -47,21 +81,23 @@ export function detokenizeProgram(image: Uint8Array): string {
  */
 export function detokenizeProgramWithReport(
   image: Uint8Array,
+  variant: CbmDetokenizeVariant = C64_VARIANT,
 ): DetokenizeResult {
   const warnings: string[] = [];
   let program = image;
   if (image.length >= 2) {
     const loadAddr = image[0]! | (image[1]! << 8);
-    if (loadAddr !== LOAD_ADDRESS) {
+    if (loadAddr !== variant.loadAddress) {
       warnings.push(
-        `Load address is $${hex4(loadAddr)}, not $0801 — this may be a ` +
-          `VIC-20/PET/C128 or machine-code file rather than a C64 BASIC program.`,
+        `Load address is $${hex4(loadAddr)}, not $${hex4(variant.loadAddress)} — ` +
+          `this may be a ${variant.machineHint} file rather than a ` +
+          `${variant.machineName} BASIC program.`,
       );
     }
     program = image.subarray(2);
   }
 
-  const decoded = decodeLinkedProgram(program);
+  const decoded = decodeLinkedProgram(program, variant.wordByToken);
   if (decoded.truncated) {
     warnings.push(
       'The program looks truncated — the data ends before the end-of-program marker.',
@@ -86,8 +122,11 @@ interface DecodeResult {
   truncated: boolean;
 }
 
-/** Decode a linked BASIC program (bytes from $0801, no load address). */
-function decodeLinkedProgram(program: Uint8Array): DecodeResult {
+/** Decode a linked BASIC program (bytes from the program base, no load address). */
+function decodeLinkedProgram(
+  program: Uint8Array,
+  wordByToken: Map<number, string>,
+): DecodeResult {
   const lines: string[] = [];
   let p = 0;
   let end = program.length;
@@ -128,8 +167,8 @@ function decodeLinkedProgram(program: Uint8Array): DecodeResult {
         } else {
           body += c64Charset.glyph(b);
         }
-      } else if (c64WordByToken.has(b)) {
-        body += c64WordByToken.get(b)!;
+      } else if (wordByToken.has(b)) {
+        body += wordByToken.get(b)!;
         if (b === 0x8f)
           remRest = true; // REM
         else if (b === 0x83) dataMode = true; // DATA

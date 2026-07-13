@@ -126,7 +126,7 @@ export const c64Keywords: C64Keyword[] = TABLE.map(
  * that produces $AE); LIST always spells the canonical form (`PRINT`, `↑`), so
  * both stay out of {@link c64WordByToken}.
  */
-const c64KeywordAliases: C64Keyword[] = [
+export const c64KeywordAliases: C64Keyword[] = [
   { word: '?', token: 0x99, kind: 'command', alias: true },
   { word: '^', token: 0xae, kind: 'operator', alias: true },
 ];

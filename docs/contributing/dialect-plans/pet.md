@@ -66,7 +66,7 @@
 
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
-| 1     | Language core                          | ⬜     |
+| 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ⬜     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
@@ -74,7 +74,7 @@
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no emulator, no registry change. PET BASIC 4.0
 is Commodore BASIC V2 (token-identical to the C64's $80–$CB table, π at $FF)
@@ -85,7 +85,7 @@ the base address differs ($0401 instead of $0801).
 depends on it).** Parameterize the commodore64 tokenizer/detokenizer without
 forking them, keeping every existing C64 call site and test byte-identical:
 
-- [ ] `src/dialects/commodore64/tokenizer.ts` — add
+- [x] `src/dialects/commodore64/tokenizer.ts` — add
       `export interface CbmVariant { progStart: number; keywordsByLength: C64Keyword[] }`
       and give `tokenizeProgram(source)` an optional `variant` parameter.
       Internally the module constant `PROG_START = 0x0801` becomes
@@ -93,37 +93,37 @@ forking them, keeping every existing C64 call site and test byte-identical:
       `matchKeyword` takes the keyword table as an argument instead of closing
       over `c64KeywordsByLength`. C64 call sites (`index.ts`, `targets.ts`)
       are untouched.
-- [ ] `src/dialects/commodore64/detokenizer.ts` — same optional variant on
+- [x] `src/dialects/commodore64/detokenizer.ts` — same optional variant on
       `detokenizeProgram` / `detokenizeProgramWithReport`: `loadAddress`
       (replaces the `LOAD_ADDRESS`/`$01 $08` sniff), `wordByToken`
       (replaces `c64WordByToken`), and a `machineHint` string used by the
       "load address is not $…" import warning. `decodeLinkedProgram` needs no
       change (it never dereferences the absolute link pointers).
-- [ ] `src/editor/constructs.ts` — add a `pet` entry to `constructsByDialect`
+- [x] `src/editor/constructs.ts` — add a `pet` entry to `constructsByDialect`
       (the C64 block templates are valid PET BASIC).
 
 **PET dialect files:**
 
-- [ ] `keywords.ts` — `petKeywords` = the imported C64 table plus the BASIC 4.0
+- [x] `keywords.ts` — `petKeywords` = the imported C64 table plus the BASIC 4.0
       disk keywords: CONCAT $CC, DOPEN $CD, DCLOSE $CE, RECORD $CF, HEADER $D0,
       COLLECT $D1, BACKUP $D2, COPY $D3, APPEND $D4, DSAVE $D5, DLOAD $D6,
       CATALOG $D7, RENAME $D8, SCRATCH $D9, DIRECTORY $DA — with signatures and
       docs; derive `petKeywordsByLength` and `petWordByToken` the same way
       `keywords.ts` does for the C64
-- [ ] `charset.ts` — re-export the C64 charset as `petCharset` (PETSCII
+- [x] `charset.ts` — re-export the C64 charset as `petCharset` (PETSCII
       originated on the PET; the byte mapping is identical — note in a doc
       comment that the colour-control escapes are meaningless-but-harmless
       bytes on a PET)
-- [ ] `language.ts` — `languageSupport()` + `completionSource` with the same
+- [x] `language.ts` — `languageSupport()` + `completionSource` with the same
       `BasicLanguageOptions` as the C64 (`suffixChars` etc.)
-- [ ] `tokenizer.ts` / `detokenizer.ts` — export
+- [x] `tokenizer.ts` / `detokenizer.ts` — export
       `PET_VARIANT: CbmVariant = { progStart: 0x0401, keywordsByLength: petKeywordsByLength }`
       and thin wrappers delegating to the commodore64 siblings
-- [ ] image builder (`targets.ts` `buildPrg`) — `[0x01, 0x04, ...program]`,
+- [x] image builder (`targets.ts` `buildPrg`) — `[0x01, 0x04, ...program]`,
       throwing on fatal errors (mirror `commodore64/targets.ts`)
-- [ ] `lint` wired through `tokenize` + `c64VariableErrors(source, petKeywords)`
+- [x] `lint` wired through `tokenize` + `c64VariableErrors(source, petKeywords)`
       (so DOPEN etc. aren't flagged as variables)
-- [ ] tests: BASIC 4.0 token bytes ($CC–$DA), tokenizer round-trip including
+- [x] tests: BASIC 4.0 token bytes ($CC–$DA), tokenizer round-trip including
       `DLOAD"X",D0`-style lines, link-pointer arithmetic from $0401, charset
       256-code round-trip, import warning for a $0801 (C64) file
 
