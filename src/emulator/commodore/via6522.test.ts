@@ -67,6 +67,29 @@ describe('Via6522', () => {
     expect(via.read(IFR) & IRQ_T2).toBe(0);
   });
 
+  it('exposes each port output register masked to its output pins', () => {
+    const via = new Via6522();
+    via.write(0x2, 0xff); // DDRB: all outputs (VIC-20 keyboard column drive)
+    via.write(0x0, 0x7f); // ORB
+    expect(via.portBOut()).toBe(0x7f);
+    via.write(0x3, 0x0f); // DDRA: low nibble outputs
+    via.write(0x1, 0xaa); // ORA
+    expect(via.portAOut()).toBe(0x0a); // only the output pins show through
+  });
+
+  it('sets the master IFR bit while any enabled flag is pending', () => {
+    const via = new Via6522();
+    via.write(IER, 0x80 | IRQ_T1);
+    via.write(T1CL, 0x01);
+    via.write(T1CH, 0x00); // load = 1, start
+    via.tick(); // 1 -> 0
+    via.tick(); // underflow, sets T1 flag
+    // Bit 7 (IRQ_ANY) is a read-only summary of enabled+pending flags.
+    expect(via.read(IFR) & 0x80).toBe(0x80);
+    via.write(IFR, IRQ_T1); // acknowledge
+    expect(via.read(IFR) & 0x80).toBe(0);
+  });
+
   it('gates the IRQ output through the enable register', () => {
     const via = new Via6522();
     via.write(T1LH, 0x00);
