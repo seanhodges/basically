@@ -1,90 +1,101 @@
 // Hand-written types for the vendored 6502 core (`cpu6502.js`).
-// Mirrors the precedent set by `../z80/z80core.d.ts`: the implementation ships
-// as plain JS (kept out of the strict typechecker) and this declaration file
-// describes its public API. See LICENSE-6502.md for attribution and the local
-// patches that this file reflects.
+// Mirrors the precedent set by `../z80/z80core.d.ts` and the C64's
+// `../c64/viciious/index.d.ts`: the implementation ships as a bundled ES module
+// (kept out of the strict typechecker — no `allowJs`) and this declaration file
+// describes only the surface consumers actually use. See LICENSE-6502.md for
+// attribution and the exact vendoring command.
+//
+// The core is 6502ts/6502.ts's cycle-exact `StateMachineCpu`: it advances one
+// clock cycle per `cycle()` call and passes Klaus Dormann's functional tests
+// (full legal NMOS opcode set incl. BRK, RTI, `JMP (indirect)` and decimal
+// mode). A frame-driven host budgets by clock cycles, not instructions.
 
-/** 6502 processor status flag bit masks. */
-export enum ProcessorStatus {
-  negative = 0b10000000,
-  overflow = 0b01000000,
-  const = 0b00100000,
-  brk = 0b00010000,
-  decimalMode = 0b00001000,
-  disableIrqb = 0b00000100,
-  zero = 0b00000010,
-  carry = 0b00000001,
+/** 6502 processor status flag bit masks (the packed status byte, `State.flags`). */
+export enum Flags {
+  c = 0x01, // carry
+  z = 0x02, // zero
+  i = 0x04, // interrupt disable
+  d = 0x08, // decimal mode
+  b = 0x10, // break
+  e = 0x20, // reserved (always set on the real chip)
+  v = 0x40, // overflow
+  n = 0x80, // sign / negative
 }
 
-/** State of the optional internal async clock (`startClock`/`pauseClock`). */
-export enum ClockMode {
-  paused = 0,
-  running = 1,
-  waitForInterrupt = 2,
-}
-
-/** First argument to {@link AccessMemoryFunc}: whether the bus is reading or writing. */
-export enum ReadWrite {
-  read = 0,
-  write = 1,
+/** Where the CPU is in its fetch/execute cycle. A full instruction boundary is `fetch`. */
+export enum ExecutionState {
+  boot = 0,
+  fetch = 1,
+  execute = 2,
 }
 
 /**
- * The single memory/IO bus delegate the core calls for every access. On a
- * `read` it must return the byte (0–255) at `address`; on a `write` it stores
- * `value`. Address decoding, memory mapping and memory-mapped IO all live in
- * this callback — the core itself has no opinion about the memory map.
+ * Live, mutable CPU register/state.
+ *
+ * NOTE the upstream naming quirk: `p` is the **program counter** and `flags` is
+ * the **status register** — the opposite of the classic 6502 convention where
+ * `P` is the status byte. Read `flags` (with {@link Flags}) for N/V/Z/C etc.
  */
-export type AccessMemoryFunc = (
-  readWrite: ReadWrite,
-  address: number,
-  value?: number,
-) => number | void;
-
-export interface Cpu6502Config {
-  accessMemory?: AccessMemoryFunc;
-  /** Log each executed instruction (async clock path only). */
-  logInstructions?: boolean;
-  /** Pause the async clock after this many instructions (async clock path only). */
-  maxInstructions?: number;
+export interface State {
+  a: number; // accumulator (8-bit)
+  x: number; // x index register (8-bit)
+  y: number; // y index register (8-bit)
+  s: number; // stack pointer (8-bit, implicit stack page 0x0100)
+  p: number; // program counter (16-bit)
+  flags: number; // packed status register (8-bit, see Flags)
+  irq: boolean; // IRQ line asserted
+  nmi: boolean; // NMI pending
 }
 
-export class CPU6502 {
-  constructor(config: Cpu6502Config);
+/**
+ * The single memory/IO bus the host supplies to the CPU. Address decoding,
+ * memory mapping and memory-mapped IO all live in this object — the core has no
+ * opinion about the memory map. `read`/`write` are the hot path; `peek`/`poke`
+ * are side-effect-free variants and `readWord` a little-endian 16-bit read
+ * (the host can derive all three from `read`/`write`).
+ */
+export interface BusInterface {
+  read(address: number): number;
+  write(address: number, value: number): void;
+  peek(address: number): number;
+  poke(address: number, value: number): void;
+  readWord(address: number): number;
+}
 
-  // --- registers / state (public fields on the core) ---
-  reg_a: number; // accumulator (8 bit)
-  reg_x: number; // x index register (8 bit)
-  reg_y: number; // y index register (8 bit)
-  programCounter: number; // (16 bit)
-  stackPointer: number; // (8 bit, implicit stack page 0x0100)
-  processorStatus: number; // (8 bit, see ProcessorStatus)
-  clockMode: ClockMode;
-  instructionsExecuted: number;
-  accessMemory: AccessMemoryFunc;
+/**
+ * Cycle-exact NMOS 6502. Construct it over a {@link BusInterface}, `reset()` it,
+ * then drive it one clock at a time with `cycle()`. The optional `rng` seeds the
+ * power-on register state; omit it (as this repo does) for deterministic zeros.
+ */
+export class StateMachineCpu {
+  constructor(bus: BusInterface, rng?: unknown);
 
-  /**
-   * Assert the reset line. micro-basic-ide patch: this only sets pending state
-   * (it no longer auto-runs the async clock). The reset vector at 0xFFFC is
-   * loaded on the next {@link step} (or once the async clock runs).
-   */
-  reset(): void;
+  /** Live register/state (see {@link State}). */
+  readonly state: State;
 
-  /**
-   * micro-basic-ide patch: execute exactly one instruction synchronously,
-   * servicing any pending interrupt first. This is how a frame-driven host
-   * (a machine's `runFrame`) advances the CPU. The core has no cycle counter,
-   * so callers budget by instruction count.
-   */
-  step(): void;
+  /** Current fetch/execute phase; `ExecutionState.fetch` marks an instruction boundary. */
+  executionState: ExecutionState;
 
-  /** Assert IRQ (BRK sets `setBrk`); serviced on the next {@link step}. */
-  triggerIRQB(setBrk: boolean): void;
-  /** Assert NMI; serviced on the next {@link step}. */
-  triggerNMIB(): void;
+  /** Advance the CPU by exactly one clock cycle. */
+  cycle(): this;
 
-  /** Start the optional internal async (setTimeout-driven) clock. */
-  startClock(): void;
-  /** Pause the internal async clock. */
-  pauseClock(): void;
+  /** Assert the reset line; the reset vector at 0xFFFC is loaded over the next several cycles. */
+  reset(): this;
+
+  /** Assert/deassert the (level-sensitive) IRQ line. Sampled at instruction boundaries. */
+  setInterrupt(irq: boolean): this;
+
+  /** Query whether the IRQ line is currently asserted. */
+  isInterrupt(): boolean;
+
+  /** Trigger a (edge-sensitive) NMI. */
+  nmi(): this;
+
+  /** Halt / resume the CPU (RDY line). */
+  halt(): this;
+  resume(): this;
+  isHalt(): boolean;
+
+  /** Address of the most recently fetched instruction. */
+  getLastInstructionPointer(): number;
 }

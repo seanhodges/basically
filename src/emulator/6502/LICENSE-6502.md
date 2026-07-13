@@ -1,69 +1,82 @@
 # Vendored 6502 core
 
-`cpu6502.js` is a vendored copy of
-[cpu-6502-emulator](https://github.com/jyelewis/cpu-6502-emulator) by Jye Lewis,
-released under the ISC license.
+`cpu6502.js` is a vendored copy of the cycle-exact 6502 CPU from
+[6502.ts](https://github.com/6502ts/6502.ts) by Christian Speckner and
+contributors, released under the MIT license.
 
 It is bundled (with esbuild, into a single ES module) from the project's
-TypeScript source — `index.ts`, `CPU6502.ts`, `cpuOperations.ts`, `types.ts`,
-`util.ts` — at upstream commit
-`e154a827e18e1f7d052fc42f98bd6dee762ab6d3`. `cpu6502.js` is generated build
-output and should not be hand-edited; the patches below were applied to the
-upstream source before bundling (and are marked in-source with the comment
-`micro-basic-ide patch`).
+TypeScript source at upstream commit
+`9c59f7d01e316a290480dd432a41cbab4e0238a9`. `cpu6502.js` is generated build
+output and should not be hand-edited — the upstream source is taken **unmodified**
+(no local patches).
 
-## Local modifications
+## What is bundled
 
-1. **Synchronous `step()`** — the upstream core only runs via an internal,
-   asynchronous `setTimeout`-driven clock (`executeNextInstruction`). A
-   frame-driven host (an emulated machine calling `runFrame`) needs to advance
-   the CPU one instruction at a time, synchronously, so a public `step()` was
-   added. It services any pending interrupt, then fetches and executes exactly
-   one instruction. The optional debug logging (`logInstructions` /
-   `logInternalState`) applies only to the async clock path and is omitted from
-   `step()`.
+The state-machine CPU (`src/machine/cpu/StateMachineCpu.ts`) and its dependency
+tree — `src/machine/cpu/{CpuInterface,Instruction,ops}.ts` and everything under
+`src/machine/cpu/statemachine/` (`Compiler`, `ResultImpl`,
+`StateMachineInterface`, `ops`, and the `addressing/`, `instruction/`, `vector/`
+subtrees), plus the type-only `src/machine/bus/BusInterface.ts`. The optional
+random-number generator (`src/tools/rng/`) is **not** used — the CPU constructor
+takes an optional `rng` which we omit, so power-on register state is a
+deterministic zero and no `seedrandom` dependency is pulled in.
 
-2. **Interrupt triggers assert the line only** — `reset()`, `triggerIRQB()` and
-   `triggerNMIB()` no longer call `ensureExecutingIfNotPaused()`, i.e. they no
-   longer auto-run the async clock. They now only set pending state, which is
-   the correct model (asserting an interrupt line should not itself execute
-   code) and is required for `step()`-driving: previously `reset()` ran
-   instructions immediately, and a `BRK` (which asserts IRQ) recursed back into
-   the clock. The host now drives execution explicitly via `step()`
-   (synchronous) or `startClock()` (async); the pending interrupt is serviced on
-   the next `step()`.
-
-3. **`BRK` (`0x00`) made browser-safe** — the upstream handler began with
-   node-only debug code (`console.log("BRK!")` followed by `process.exit(1)`),
-   which crashes in a browser and left the intended `triggerIRQB(true)`
-   unreachable. The debug lines were removed, restoring the intended behaviour.
-
-### Known limitation (not a patch)
-
-The core counts instructions, not clock cycles — there is no cycle counter. A
-host that needs cycle-approximate timing (e.g. a future Commodore 64 machine)
-must budget per frame by instruction count or add its own per-opcode accounting.
-
-## Original license (ISC)
-
-The upstream repository declares its license as `ISC` in `package.json`
-(`"author": "Jye Lewis <jye@jyelewis.com>"`); it does not ship a separate
-`LICENSE` file. The standard ISC license text is reproduced here:
+A tiny entry module re-exports the runtime surface, then esbuild bundles it:
 
 ```
-ISC License
+# in a clean checkout of 6502ts/6502.ts @ 9c59f7d
+# entry.ts:
+#   import StateMachineCpu from './src/machine/cpu/StateMachineCpu';
+#   export { StateMachineCpu };
+#   // Flags / ExecutionState are upstream `const enum`s (erased by the bundler),
+#   // so their numeric values are re-exported here as real runtime objects.
+#   export const Flags = { c: 0x01, z: 0x02, i: 0x04, d: 0x08, b: 0x10, e: 0x20, v: 0x40, n: 0x80 };
+#   export const ExecutionState = { boot: 0, fetch: 1, execute: 2 };
+npx esbuild entry.ts --bundle --format=esm --platform=browser \
+  --banner:js='<attribution header>' --outfile=cpu6502.js
+```
 
-Copyright (c) Jye Lewis
+The resulting module exports `StateMachineCpu`, `Flags`, and `ExecutionState`.
+See `cpu6502.d.ts` for the hand-written types describing this surface.
 
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
+## Why this core
 
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+The previous core ([cpu-6502-emulator](https://github.com/jyelewis/cpu-6502-emulator),
+ISC) was instruction-counted and missing legal opcodes (`RTI`, `JMP (indirect)`,
+`SEI`/`CLI`/`SED`/`CLV`, decimal mode). 6502.ts is cycle-exact and passes Klaus
+Dormann's [6502 functional tests](https://github.com/Klaus2m5/6502_65C02_functional_tests),
+implementing the full legal NMOS opcode set — a firmer foundation for the
+Commodore (PET, VIC-20) machines that will drive it.
+
+## API shape (upstream naming quirk)
+
+Drive the CPU one clock at a time via `cycle()`; `executionState === fetch`
+marks an instruction boundary. Registers live on `cpu.state`, where — note —
+`state.p` is the **program counter** and `state.flags` is the **status
+register** (the opposite of the classic `P`=status convention). IRQ is
+level-sensitive (`setInterrupt(true)`/`setInterrupt(false)`); NMI is edge
+(`nmi()`).
+
+## Original license (MIT)
+
+```
+Copyright (c) 2014 -- 2020 Christian Speckner and contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
