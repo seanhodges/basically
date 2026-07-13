@@ -30,7 +30,7 @@ import { c64VariableErrors } from '../../editor/variableLint';
  */
 export const pet: Dialect = {
   id: 'pet',
-  name: 'Commodore PET',
+  name: 'PET',
   // BASIC 4.0 "31743 BYTES FREE" on a 32KB machine.
   programRamBytes: 31743,
   fileExtensions: ['.txt', '.bas'],
