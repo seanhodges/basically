@@ -1,12 +1,20 @@
 // Vendored ESM 6502 core; typed by the sibling ../6502/cpu6502.d.ts.
 import { StateMachineCpu } from '../6502/cpu6502.js';
 import type {
+  DebugStepOptions,
+  DebugStepResult,
   JoystickMode,
   JoystickState,
   MachineEmulator,
   MachineFileStore,
+  MachineMemoryStats,
+  MachineReport,
+  MachineVariable,
 } from '../../dialects/types';
+import { readC64Variables } from '../c64/vars';
+import { readC64Report, type CbmScreenLayout } from '../c64/reports';
 import { Via6522 } from '../commodore/via6522';
+import { VicAudioRenderer, VIC_AUDIO_SAMPLE_RATE } from './vicAudio';
 import {
   KeyMatrix,
   screenCodesForText,
@@ -48,9 +56,42 @@ const BOOT_CYCLE_CAP = 4_000_000;
 const SCREEN_CELLS = 22 * 23;
 
 /** CBM BASIC zero-page pointers (identical to the C64 — the VIC-20 zero page is). */
+const TXTTAB = 0x2b; // start of program text
 const VARTAB = 0x2d; // start of variables
 const ARYTAB = 0x2f; // start of arrays
 const STREND = 0x31; // end of arrays (+1)
+const FRETOP = 0x33; // bottom of string heap
+const MEMSIZ = 0x37; // top of BASIC RAM
+
+/**
+ * CBM BASIC's "current line number" (`CURLIN`), a 16-bit LE cell updated as each
+ * program line starts — the same $39/$3A cell as the C64. In direct mode the
+ * high byte is `$FF`, so any value above the highest legal line number (63999)
+ * means no program line is executing.
+ */
+const CURLIN = 0x39;
+const MAX_BASIC_LINE = 63999;
+/**
+ * Cycles ticked between line checks in {@link Vic20Machine.debugStep}. Any BASIC
+ * line takes far more cycles than this to execute, so a transition is never
+ * stepped over; checking on this cadence rather than every cycle keeps the
+ * always-on debugger's per-frame overhead small.
+ */
+const DEBUG_SLICE_CYCLES = 8;
+
+/**
+ * Layouts for the `?…ERROR` report scan over the VIC-20's 22×23 screen matrix
+ * at $1E00. Most BASIC V2 error lines (`?UNDEF'D STATEMENT  ERROR IN 10` is 30
+ * characters) wrap onto a second physical row on the 22-column screen, and the
+ * shared scanner matches within one row — so besides the plain 22-column scan,
+ * two 44-column views (one per starting-row parity, exploiting the physically
+ * contiguous screen rows) catch a logical error line wrapped across two rows.
+ */
+const VIC20_REPORT_LAYOUTS: CbmScreenLayout[] = [
+  { screen: SCREEN_BASE, cols: 22, rows: 23 },
+  { screen: SCREEN_BASE, cols: 44, rows: 11 },
+  { screen: SCREEN_BASE + 22, cols: 44, rows: 11 },
+];
 
 /** Unexpanded VIC-20 programs load at $1001 (vs. the C64's $0801). */
 const PROG_START = 0x1001;
@@ -67,8 +108,12 @@ export class Vic20Machine implements MachineEmulator {
   readonly displayWidth = VIC20_DISPLAY_WIDTH;
   readonly displayHeight = VIC20_DISPLAY_HEIGHT;
 
+  /** Native rate of the host-side VIC-I sound synthesis (see {@link readAudio}). */
+  readonly audioSampleRate = VIC_AUDIO_SAMPLE_RATE;
+
   private readonly memory = new Vic20Memory();
   private readonly vic = new VicI();
+  private readonly vicAudio = new VicAudioRenderer();
   private cpu: StateMachineCpu | null = null;
 
   private readonly via1: Via6522;
@@ -205,6 +250,7 @@ export class Vic20Machine implements MachineEmulator {
     this.via1.reset();
     this.via2.reset();
     this.vic.reset();
+    this.vicAudio.reset();
     this.keys.clear();
     this.rebuildMatrix();
     this.memory.clearRam();
@@ -222,6 +268,58 @@ export class Vic20Machine implements MachineEmulator {
   runFrame(): void {
     if (!this.booted || this.injecting || this.disposed || !this.cpu) return;
     this.runCycles(Math.round(CYCLES_PER_FRAME * this.speed));
+  }
+
+  /**
+   * Mono audio synthesized over the last frame from the VIC-I's live sound
+   * registers (three square-wave voices + noise at the $900E master volume),
+   * at {@link audioSampleRate}. Reads registers through the side-effect-free
+   * {@link VicI.readRegister} mirror, so it is safe at any time; an idle chip
+   * produces the shared empty array.
+   */
+  readAudio(): Float32Array {
+    return this.vicAudio.render((reg) => this.vic.readRegister(reg));
+  }
+
+  /**
+   * The BASIC line currently being executed, read from CBM BASIC's CURLIN cell,
+   * or null when none is (at the READY prompt CURLIN holds the `$FFxx` direct-
+   * mode sentinel). CURLIN sits in always-RAM zero page, so the read is a plain
+   * side-effect-free array access.
+   */
+  currentLine(): number | null {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
+      return null;
+    }
+    const mem = this.memory.mem;
+    const line = mem[CURLIN]! | (mem[CURLIN + 1]! << 8);
+    return line <= MAX_BASIC_LINE ? line : null;
+  }
+
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
+      return { paused: false, line: null };
+    }
+    const budget = Math.round(CYCLES_PER_FRAME * this.speed);
+    // In run mode, ignore breakpoints until execution has left the line we
+    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
+    // the spot but still re-pauses when the loop comes back around.
+    let armed = opts.fromLine === null;
+    for (let i = 0; i < budget; i++) {
+      this.tick();
+      if (i % DEBUG_SLICE_CYCLES !== 0) continue;
+      const line = this.currentLine();
+      if (line === null) continue;
+      if (opts.mode === 'step') {
+        if (opts.fromLine === null || line !== opts.fromLine) {
+          return { paused: true, line };
+        }
+      } else {
+        if (!armed && line !== opts.fromLine) armed = true;
+        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
+      }
+    }
+    return { paused: false, line: this.currentLine() };
   }
 
   loadProgram(image: Uint8Array): void {
@@ -378,6 +476,65 @@ export class Vic20Machine implements MachineEmulator {
       ctx.font = '11px monospace';
       ctx.fillText(this.loadError, 6, this.displayHeight - 7);
     }
+  }
+
+  /**
+   * Snapshot the running program's BASIC variables out of RAM. The VIC-20's
+   * BASIC V2 zero page is the C64's (VARTAB $2D / ARYTAB $2F / STREND $31) and
+   * all variable storage sits in the plain-RAM program area, so the shared C64
+   * reader runs on its defaults over side-effect-free array reads. Returns
+   * nothing until the machine has booted.
+   */
+  readVariables(): MachineVariable[] {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) return [];
+    const mem = this.memory.mem;
+    const read = (a: number) => mem[a & 0xffff]!;
+    return readC64Variables({
+      read,
+      readWord: (a) => read(a) | (read(a + 1) << 8),
+    });
+  }
+
+  /**
+   * The shared CBM `?…ERROR` screen scan over the VIC-20's 22×23 matrix at
+   * $1E00 — only the screen layout differs from the C64. Scanned narrow first
+   * (clean single-row errors), then through the two wrapped 44-column views
+   * (see {@link VIC20_REPORT_LAYOUTS}).
+   */
+  readReport(): MachineReport | null {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
+      return null;
+    }
+    const mem = this.memory.mem;
+    const port = { read: (a: number) => mem[a & 0xffff]! };
+    for (const layout of VIC20_REPORT_LAYOUTS) {
+      const report = readC64Report(port, layout);
+      if (report) return report;
+    }
+    return null;
+  }
+
+  /**
+   * Actual RAM figures from CBM BASIC's own zero-page pointers: program +
+   * variables + arrays grow up from TXTTAB to STREND, the string heap grows
+   * down from MEMSIZ to FRETOP, and the gap between them is free — the classic
+   * `FRE(0)` figure before garbage collection. All pointers sit in always-RAM
+   * zero page, so reads are side-effect-free.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
+      return null;
+    }
+    const mem = this.memory.mem;
+    const readWord = (a: number) => mem[a]! | (mem[a + 1]! << 8);
+    const txttab = readWord(TXTTAB);
+    const strend = readWord(STREND);
+    const fretop = readWord(FRETOP);
+    const memsiz = readWord(MEMSIZ);
+    const used = strend - txttab + (memsiz - fretop);
+    const free = fretop - strend;
+    if (txttab === 0 || memsiz <= txttab || used < 0 || free < 0) return null;
+    return { used, free };
   }
 
   dispose(): void {

@@ -117,4 +117,120 @@ describe('PetMachine', () => {
     },
     BOOT_TIMEOUT_MS,
   );
+
+  // ---- Stage 5 — watcher / report / debugger / audio ----------------------
+
+  it(
+    'reads real, integer and string variables from a running program',
+    async () => {
+      const m = new PetMachine({ roms });
+      await m.whenReady();
+      m.loadProgram(image('10 A=5\n20 B%=7\n30 C$="HI"\n40 GOTO 40\n'));
+      await m.whenReady();
+      for (let i = 0; i < 100; i++) m.runFrame();
+      const vars = m.readVariables();
+      expect(vars).toContainEqual(
+        expect.objectContaining({ name: 'A', kind: 'number', value: '5' }),
+      );
+      expect(vars).toContainEqual(
+        expect.objectContaining({ name: 'B%', kind: 'number', value: '7' }),
+      );
+      expect(vars).toContainEqual(
+        expect.objectContaining({ name: 'C$', kind: 'string', value: '"HI"' }),
+      );
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'reports a runtime error (with its line) through readReport',
+    async () => {
+      const m = new PetMachine({ roms });
+      await m.whenReady();
+      // ?UNDEF'D STATEMENT  ERROR IN 10, straight back to READY.
+      m.loadProgram(image('10 GOTO 999\n'));
+      await m.whenReady();
+      for (let i = 0; i < 100; i++) m.runFrame();
+      const report = m.readReport();
+      expect(report).not.toBeNull();
+      expect(report!.isError).toBe(true);
+      expect(report!.message).toContain("UNDEF'D STATEMENT");
+      expect(report!.line).toBe(10);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'tracks the current BASIC line and pauses on step and breakpoints',
+    async () => {
+      const m = new PetMachine({ roms });
+      await m.whenReady();
+      // The 20/30 reads below are the empirical check that CURLIN is $36/$37
+      // on the real BASIC 4.0 ROMs (a wrong cell would not track the loop).
+      // Note the 4.0 ROM leaves CURLIN at $0000 from power-on rather than the
+      // C64's $FFxx direct-mode sentinel, so there is no null-at-READY check.
+      m.loadProgram(image('10 X=0\n20 X=X+1\n30 GOTO 20\n'));
+      await m.whenReady();
+      for (let i = 0; i < 50; i++) m.runFrame();
+      const line = m.currentLine();
+      expect([20, 30]).toContain(line);
+
+      // Step: pause as soon as execution reaches a different line.
+      const step = m.debugStep({
+        mode: 'step',
+        breakpoints: new Set<number>(),
+        fromLine: line,
+      });
+      expect(step.paused).toBe(true);
+      expect(step.line).not.toBe(line);
+      expect([20, 30]).toContain(step.line);
+
+      // Run: pause when the loop comes back around to a breakpointed line.
+      const breakpoints = new Set([20]);
+      let hit = m.debugStep({ mode: 'run', breakpoints, fromLine: step.line });
+      for (let i = 0; i < 20 && !hit.paused; i++) {
+        hit = m.debugStep({ mode: 'run', breakpoints, fromLine: step.line });
+      }
+      expect(hit.paused).toBe(true);
+      expect(hit.line).toBe(20);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'sounds the CB2 line from the POKE recipe and settles when disabled',
+    async () => {
+      const m = new PetMachine({ roms });
+      await m.whenReady();
+      expect(m.audioSampleRate).toBe(44100);
+      // The classic recipe: shift register free-running out ($0F pattern) at
+      // the T2 rate, held for a FOR/NEXT delay, then switched off again.
+      m.loadProgram(
+        image(
+          '10 POKE 59467,16\n' +
+            '20 POKE 59466,15\n' +
+            '30 POKE 59464,100\n' +
+            '40 FOR I=1 TO 200\n' +
+            '50 NEXT I\n' +
+            '60 POKE 59467,0\n' +
+            '70 GOTO 70\n',
+        ),
+      );
+      await m.whenReady();
+      let peak = 0;
+      for (let i = 0; i < 400; i++) {
+        m.runFrame();
+        for (const s of m.readAudio()) peak = Math.max(peak, Math.abs(s));
+      }
+      expect(peak).toBeGreaterThan(0.1);
+      // By now line 60 has run: the line is silent and frames are empty again.
+      m.runFrame();
+      expect(m.readAudio().length).toBe(0);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
 });

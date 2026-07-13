@@ -111,4 +111,163 @@ describe('Vic20Machine', () => {
     },
     BOOT_TIMEOUT_MS,
   );
+
+  it(
+    'reads real, integer and string variables from a running program',
+    async () => {
+      const m = new Vic20Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image('10 A=1.5\n20 B%=7\n30 C$="HI"\n40 GOTO 40\n'));
+      await m.whenReady();
+      for (let i = 0; i < 300; i++) m.runFrame();
+      const byName = new Map(m.readVariables().map((v) => [v.name, v]));
+      expect(byName.get('A')).toMatchObject({ kind: 'number', value: '1.5' });
+      expect(byName.get('B%')).toMatchObject({ kind: 'number', value: '7' });
+      expect(byName.get('C$')).toMatchObject({
+        kind: 'string',
+        value: '"HI"',
+      });
+      m.dispose();
+      expect(m.readVariables()).toEqual([]);
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'detects a runtime error wrapped across the 22-column screen',
+    async () => {
+      // GOTO a non-existent line raises ?UNDEF'D STATEMENT ERROR IN 10 — a
+      // 30-character line, so it spans two physical rows of the 22×23 matrix.
+      const m = new Vic20Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image('10 GOTO 999\n'));
+      await m.whenReady();
+      for (let i = 0; i < 300; i++) m.runFrame();
+      const report = m.readReport();
+      expect(report).not.toBeNull();
+      expect(report!.isError).toBe(true);
+      expect(report!.message).toContain('ERROR');
+      expect(report!.line).toBe(10);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'reports no error after a clean program',
+    async () => {
+      const m = new Vic20Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image('10 PRINT "HI"\n'));
+      await m.whenReady();
+      for (let i = 0; i < 300; i++) m.runFrame();
+      expect(m.readReport()).toBeNull();
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'reports actual RAM figures spanning the unexpanded 3583 bytes',
+    async () => {
+      const m = new Vic20Machine({ roms });
+      expect(m.readMemoryStats()).toBeNull(); // not booted yet
+      await m.whenReady();
+      for (let i = 0; i < 300; i++) m.runFrame();
+      const stats = m.readMemoryStats();
+      expect(stats).not.toBeNull();
+      // Total spans TXTTAB ($1001) to MEMSIZ ($1E00): the banner's 3583 bytes,
+      // almost all of them free at the READY prompt.
+      expect(stats!.used + stats!.free).toBe(3583);
+      expect(stats!.free).toBeGreaterThan(3500);
+      m.dispose();
+      expect(m.readMemoryStats()).toBeNull();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  describe('step-through debugging', () => {
+    // A tight loop whose executing line cycles 20 → 30 → 20, so a breakpoint on
+    // 20 trips almost as soon as the program is running.
+    const LOOP_SRC = '10 FOR I=1 TO 1000\n20 A=I\n30 NEXT I\n';
+
+    async function loadLoop(): Promise<Vic20Machine> {
+      const m = new Vic20Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image(LOOP_SRC));
+      await m.whenReady();
+      // Boot + auto-RUN, then run on until execution is inside the loop.
+      for (let i = 0; i < 400; i++) {
+        m.runFrame();
+        const line = m.currentLine();
+        if (line === 10 || line === 20 || line === 30) break;
+      }
+      return m;
+    }
+
+    /** Drive debugStep slices until one pauses, or give up. */
+    function runToPause(
+      m: Vic20Machine,
+      mode: 'run' | 'step',
+      breakpoints: Set<number>,
+      fromLine: number | null,
+    ) {
+      for (let i = 0; i < 5000; i++) {
+        const res = m.debugStep({ breakpoints, mode, fromLine });
+        if (res.paused) return res;
+      }
+      throw new Error('debugStep never paused');
+    }
+
+    it(
+      'reports a current line inside the running program',
+      async () => {
+        const m = await loadLoop();
+        const line = m.currentLine();
+        expect(line === 10 || line === 20 || line === 30).toBe(true);
+        m.dispose();
+      },
+      BOOT_TIMEOUT_MS,
+    );
+
+    it(
+      'pauses at a breakpointed line, then steps to the next',
+      async () => {
+        const m = await loadLoop();
+        const hit = runToPause(m, 'run', new Set([20]), null);
+        expect(hit).toEqual({ paused: true, line: 20 });
+        const stepped = runToPause(m, 'step', new Set(), 20);
+        expect(stepped.paused).toBe(true);
+        expect(stepped.line).toBe(30);
+        m.dispose();
+      },
+      BOOT_TIMEOUT_MS,
+    );
+  });
+
+  it(
+    'synthesizes VIC-I audio while a voice sounds, and settles silent again',
+    async () => {
+      const m = new Vic20Machine({ roms });
+      expect(m.audioSampleRate).toBe(44100);
+      await m.whenReady();
+      // Volume up, soprano voice on, then hold so the tone persists.
+      m.loadProgram(image('10 POKE 36878,15\n20 POKE 36876,200\n30 GOTO 30\n'));
+      await m.whenReady();
+      for (let i = 0; i < 300; i++) m.runFrame();
+      const out = m.readAudio();
+      expect(out.length).toBe(882); // one 44.1kHz frame at 50Hz
+      expect(Math.max(...out.map(Math.abs))).toBeGreaterThan(0.05);
+
+      // Turn the voice and volume back off; the stream drains to empty.
+      m.loadProgram(image('10 POKE 36878,0\n20 POKE 36876,0\n30 GOTO 30\n'));
+      await m.whenReady();
+      for (let i = 0; i < 300; i++) m.runFrame();
+      let silent = m.readAudio();
+      for (let f = 0; f < 6 && silent.length > 0; f++) silent = m.readAudio();
+      expect(silent.length).toBe(0);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
 });

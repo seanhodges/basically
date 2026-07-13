@@ -2,13 +2,20 @@
 import { StateMachineCpu } from '../6502/cpu6502.js';
 import type { BusInterface } from '../6502/cpu6502.js';
 import type {
+  DebugStepOptions,
+  DebugStepResult,
   MachineEmulator,
   MachineFileStore,
   MachineMemoryStats,
+  MachineReport,
+  MachineVariable,
 } from '../../dialects/types';
+import { readC64Variables, type CbmVarsLayout } from '../c64/vars';
+import { readC64Report, type CbmScreenLayout } from '../c64/reports';
 import { Pia6520 } from '../commodore/pia6520';
 import { Via6522 } from '../commodore/via6522';
 import { CharRenderer } from '../commodore/charRenderer';
+import { Cb2Audio, CB2_SAMPLE_RATE } from './cb2Audio';
 import {
   KeyMatrix,
   screenCodesForText,
@@ -28,7 +35,7 @@ import {
  * time over the {@link BusInterface} assembled here, and the peripheral chips
  * are the shared {@link Pia6520}/{@link Via6522} under `src/emulator/commodore/`.
  *
- * Memory map (see docs/contributing/dialect-plans/pet.md, Stage 2):
+ * Memory map:
  *   $0000–$7FFF  32 KB RAM
  *   $8000–$8FFF  1 KB screen RAM (screen codes), mirrored every $400
  *   $9000–$AFFF  expansion ROM sockets (open bus)
@@ -76,6 +83,35 @@ const ARYTAB = 0x2c; // start of arrays
 const STREND = 0x2e; // end of arrays (+1)
 const FRETOP = 0x30; // bottom of string heap
 const MEMSIZ = 0x34; // top of BASIC RAM
+/**
+ * BASIC 4.0's "current line number" (`CURLIN`), a 16-bit LE cell updated as
+ * each program line starts — two below the C64's $39 (see the loop test in
+ * petMachine.test.ts, which confirms it empirically on the real ROMs). While a
+ * typed direct-mode line executes the high byte is $FF, so any value above the
+ * highest legal line number (63999) means no program line is executing.
+ */
+const CURLIN = 0x36;
+const MAX_BASIC_LINE = 63999;
+/**
+ * Cycles ticked between line checks in {@link PetMachine.debugStep}. Any BASIC
+ * line takes far more cycles than this to execute, so a transition is never
+ * stepped over; checking on this cadence rather than every cycle keeps the
+ * always-on debugger's per-frame overhead small (mirrors the C64).
+ */
+const DEBUG_SLICE_CYCLES = 8;
+
+/** BASIC 4.0's variable-area pointers for the shared CBM variables reader. */
+const PET_VARS_LAYOUT: CbmVarsLayout = {
+  vartab: VARTAB,
+  arytab: ARYTAB,
+  strend: STREND,
+};
+/** 40×25 screen matrix at $8000 for the shared CBM error-report scan. */
+const PET_SCREEN_LAYOUT: CbmScreenLayout = {
+  screen: SCREEN_BASE,
+  cols: COLS,
+  rows: ROWS,
+};
 
 /** PET programs load at $0401 (vs. the C64's $0801). */
 const PROG_START = 0x0401;
@@ -102,6 +138,7 @@ export interface PetRoms {
 export class PetMachine implements MachineEmulator {
   readonly displayWidth = PET_DISPLAY_WIDTH;
   readonly displayHeight = PET_DISPLAY_HEIGHT;
+  readonly audioSampleRate = CB2_SAMPLE_RATE;
 
   /** 64 KB address space; ROM is baked in on bringup, RAM/screen writable. */
   private readonly mem = new Uint8Array(0x10000);
@@ -111,6 +148,7 @@ export class PetMachine implements MachineEmulator {
   private readonly pia1: Pia6520;
   private readonly pia2: Pia6520;
   private readonly via: Via6522;
+  private readonly cb2: Cb2Audio;
   private readonly keys: KeyMatrix;
   private readonly renderer = new CharRenderer({
     cols: COLS,
@@ -154,6 +192,7 @@ export class PetMachine implements MachineEmulator {
     this.via = new Via6522({
       portB: { read: () => this.viaPortB() },
     });
+    this.cb2 = new Cb2Audio(this.via);
 
     this.ready = (opts?.roms ? Promise.resolve(opts.roms) : fetchRoms())
       .then((roms) => {
@@ -299,6 +338,7 @@ export class PetMachine implements MachineEmulator {
     this.pia1.reset();
     this.pia2.reset();
     this.via.reset();
+    this.cb2.reset();
     this.keys.clear();
     this.rebuildMatrix();
     this.frameCycle = 0;
@@ -471,6 +511,88 @@ export class PetMachine implements MachineEmulator {
   }
 
   /**
+   * Mono audio synthesized over the last frame from the VIA's CB2 shift-
+   * register sound (the PET's only audio: POKE 59467,16 / 59466,15 / 59464,N),
+   * at {@link audioSampleRate}. Returns an empty array while the line is
+   * silent, so an idle machine produces nothing.
+   */
+  readAudio(): Float32Array {
+    return this.cb2.render();
+  }
+
+  /**
+   * The BASIC line currently being executed, read from BASIC 4.0's CURLIN
+   * cell, or null while a typed direct-mode line runs (the interpreter's
+   * `$FFxx` sentinel). Unlike the C64, the 4.0 ROM leaves CURLIN at `$0000`
+   * from power-on and keeps the last program line after a run ends, so a stale
+   * line can linger at READY — harmless for the debugger, which only compares
+   * line transitions. CURLIN sits in always-RAM zero page, so reads are
+   * side-effect-free.
+   */
+  currentLine(): number | null {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
+      return null;
+    }
+    const line = this.mem[CURLIN]! | (this.mem[CURLIN + 1]! << 8);
+    return line <= MAX_BASIC_LINE ? line : null;
+  }
+
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
+      return { paused: false, line: null };
+    }
+    const budget = Math.round(FRAME_CYCLES * this.speed);
+    // In run mode, ignore breakpoints until execution has left the line we
+    // resumed from, so Continue off a breakpointed line doesn't re-trigger on
+    // the spot but still re-pauses when the loop comes back around.
+    let armed = opts.fromLine === null;
+    for (let i = 0; i < budget; i++) {
+      this.tick();
+      if (i % DEBUG_SLICE_CYCLES !== 0) continue;
+      const line = this.currentLine();
+      if (line === null) continue;
+      if (opts.mode === 'step') {
+        if (opts.fromLine === null || line !== opts.fromLine) {
+          return { paused: true, line };
+        }
+      } else {
+        if (!armed && line !== opts.fromLine) armed = true;
+        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
+      }
+    }
+    return { paused: false, line: this.currentLine() };
+  }
+
+  /**
+   * Snapshot the running program's BASIC variables out of the PET's RAM via
+   * the shared CBM decoder, pointed at BASIC 4.0's zero-page layout. The whole
+   * variable area is plain RAM below the screen, so reads straight from the
+   * memory array are side-effect-free. Returns nothing until the machine has
+   * booted.
+   */
+  readVariables(): MachineVariable[] {
+    if (!this.booted || this.injecting || this.disposed) return [];
+    const read = (a: number) => this.mem[a & 0xffff]!;
+    return readC64Variables(
+      { read, readWord: (a) => read(a) | (read(a + 1) << 8) },
+      PET_VARS_LAYOUT,
+    );
+  }
+
+  /**
+   * Scan the 40×25 screen at $8000 for a `?…ERROR` line via the shared CBM
+   * report reader. Each run cold-boots the machine (see {@link loadProgram}),
+   * wiping the screen, so any such line belongs to the program just run.
+   */
+  readReport(): MachineReport | null {
+    if (!this.booted || this.injecting || this.disposed) return null;
+    return readC64Report(
+      { read: (a) => this.readMem(a & 0xffff) },
+      PET_SCREEN_LAYOUT,
+    );
+  }
+
+  /**
    * Actual RAM figures from BASIC 4.0's own zero-page pointers: program +
    * variables + arrays grow up from TXTTAB to STREND, the string heap grows down
    * from MEMSIZ to FRETOP, and the gap between them is free. All pointers sit in
@@ -493,6 +615,7 @@ export class PetMachine implements MachineEmulator {
     if (this.disposed) return;
     this.disposed = true;
     this.loadGeneration++;
+    this.cb2.reset();
     this.cpu = null;
     this.backCanvas = null;
     this.backImageData = null;
