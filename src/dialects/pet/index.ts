@@ -23,10 +23,9 @@ import { c64VariableErrors } from '../../editor/variableLint';
 /**
  * Commodore PET dialect.
  *
- * Staged plan: docs/contributing/dialect-plans/pet.md. In brief: PET BASIC 4.0
- * shares the C64 language layer via a CbmVariant seam ($0401 load address +
- * disk tokens $CC-$DA); the emulator is an in-tree 6502 bus (vendored
- * src/emulator/6502/ core) with shared Commodore chips under
+ * PET BASIC 4.0 shares the C64 language layer via a CbmVariant seam ($0401
+ * load address + disk tokens $CC-$DA); the emulator is an in-tree 6502 bus
+ * (vendored src/emulator/6502/ core) with shared Commodore chips under
  * src/emulator/commodore/ and the machine under src/emulator/pet/.
  */
 export const pet: Dialect = {

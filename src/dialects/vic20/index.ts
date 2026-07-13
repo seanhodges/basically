@@ -23,12 +23,12 @@ import { c64VariableErrors } from '../../editor/variableLint';
 /**
  * Commodore VIC-20 dialect, registered in src/dialects/registry.ts.
  *
- * Staged plan: docs/contributing/dialect-plans/vic20.md. In brief: BASIC V2 is
- * token-identical to the C64's, so the language layer is re-exported through a
- * CbmVariant seam with a $1001 (unexpanded) load address; the emulator is an
- * in-tree 6502 bus (vendored src/emulator/6502/ core) with a from-scratch
- * frame-approximate VIC-I renderer under src/emulator/vic20/, reusing the
- * shared Commodore chips under src/emulator/commodore/.
+ * BASIC V2 is token-identical to the C64's, so the language layer is
+ * re-exported through a CbmVariant seam with a $1001 (unexpanded) load
+ * address; the emulator is an in-tree 6502 bus (vendored src/emulator/6502/
+ * core) with a from-scratch frame-approximate VIC-I renderer under
+ * src/emulator/vic20/, reusing the shared Commodore chips under
+ * src/emulator/commodore/.
  */
 export const vic20: Dialect = {
   id: 'vic20',

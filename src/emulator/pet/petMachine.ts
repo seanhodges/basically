@@ -35,7 +35,7 @@ import {
  * time over the {@link BusInterface} assembled here, and the peripheral chips
  * are the shared {@link Pia6520}/{@link Via6522} under `src/emulator/commodore/`.
  *
- * Memory map (see docs/contributing/dialect-plans/pet.md, Stage 2):
+ * Memory map:
  *   $0000–$7FFF  32 KB RAM
  *   $8000–$8FFF  1 KB screen RAM (screen codes), mirrored every $400
  *   $9000–$AFFF  expansion ROM sockets (open bus)

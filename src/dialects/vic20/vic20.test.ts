@@ -10,8 +10,7 @@ import { c64Keywords, c64WordByToken } from '../commodore64/keywords';
 import { tokenizeProgram as tokenizeC64 } from '../commodore64/tokenizer';
 
 /**
- * Dialect-surface tests for the VIC-20, grouped by the stages of
- * docs/contributing/dialect-plans/vic20.md. The emulator itself is exercised
+ * Dialect-surface tests for the VIC-20. The emulator itself is exercised
  * against the real ROMs in src/emulator/vic20/vic20Machine.test.ts.
  *
  * VIC-20 BASIC V2 is token-identical to the C64's; the only machine difference
