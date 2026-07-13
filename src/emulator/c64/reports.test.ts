@@ -37,4 +37,24 @@ describe('readC64Report', () => {
   it('ignores a line that says ERROR but does not start with "?"', () => {
     expect(readC64Report(screenMem(['THE ERROR WAS MINE']))).toBeNull();
   });
+
+  it('scans a non-default screen layout (VIC-20: $1E00, 22×23)', () => {
+    const vic = { screen: 0x1e00, cols: 22, rows: 23 };
+    const ram = new Uint8Array(vic.cols * vic.rows).fill(32);
+    // "?SYNTAX  ERROR IN 20" wrapped into the 22-column matrix on row 2.
+    const text = '?SYNTAX  ERROR IN 20';
+    [...text].forEach((ch, c) => {
+      let code = 32;
+      if (ch >= 'A' && ch <= 'Z') code = ch.charCodeAt(0) - 64;
+      else if (ch.charCodeAt(0) >= 32 && ch.charCodeAt(0) <= 63)
+        code = ch.charCodeAt(0);
+      ram[2 * vic.cols + c] = code;
+    });
+    const mem = { read: (a: number) => ram[a - vic.screen] ?? 0 };
+    const r = readC64Report(mem, vic);
+    expect(r).not.toBeNull();
+    expect(r!.line).toBe(20);
+    // The default C64 layout must not see the VIC-20 screen.
+    expect(readC64Report(mem)).toBeNull();
+  });
 });

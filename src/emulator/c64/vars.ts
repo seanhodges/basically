@@ -26,12 +26,27 @@ export interface C64MemPort {
   readWord(addr: number): number;
 }
 
-/** Zero-page pointer to the start of scalar variables (LE word). */
-const VARTAB = 0x2d;
-/** Zero-page pointer to the start of array variables / end of scalars. */
-const ARYTAB = 0x2f;
-/** Zero-page pointer to the end of array variables. */
-const STREND = 0x31;
+/**
+ * Where a CBM BASIC keeps its variable-area zero-page pointers. Every member of
+ * the PET→VIC-20→C64 lineage stores the same three LE-word pointers with the
+ * same variable encodings behind them; only the zero-page addresses moved
+ * between BASIC 4.0 (PET) and BASIC V2 (VIC-20/C64). Defaults to the C64.
+ */
+export interface CbmVarsLayout {
+  /** Zero-page pointer to the start of scalar variables (LE word). */
+  vartab: number;
+  /** Zero-page pointer to the start of array variables / end of scalars. */
+  arytab: number;
+  /** Zero-page pointer to the end of array variables. */
+  strend: number;
+}
+
+/** BASIC V2 pointers, shared by the C64 and the VIC-20. */
+const C64_VARS_LAYOUT: CbmVarsLayout = {
+  vartab: 0x2d,
+  arytab: 0x2f,
+  strend: 0x31,
+};
 /** Guards against runaway parsing of a corrupt or unexpected variables area. */
 const MAX_VARS = 1000;
 /** Array elements shown inline before truncating with an ellipsis. */
@@ -112,11 +127,14 @@ function nameOf(b0: number, b1: number): string {
   return name;
 }
 
-export function readC64Variables(mem: C64MemPort): MachineVariable[] {
+export function readC64Variables(
+  mem: C64MemPort,
+  layout: CbmVarsLayout = C64_VARS_LAYOUT,
+): MachineVariable[] {
   const out: MachineVariable[] = [];
-  const varTab = mem.readWord(VARTAB);
-  const aryTab = mem.readWord(ARYTAB);
-  const strEnd = mem.readWord(STREND);
+  const varTab = mem.readWord(layout.vartab);
+  const aryTab = mem.readWord(layout.arytab);
+  const strEnd = mem.readWord(layout.strend);
 
   // Scalars: VARTAB .. ARYTAB, 7 bytes each.
   for (let p = varTab; p + 7 <= aryTab && out.length < MAX_VARS; p += 7) {

@@ -10,9 +10,24 @@ import type { MachineReport } from '../../dialects/types';
  * `ERROR`. Each run cold-boots the machine (see {@link C64Machine.loadProgram}),
  * wiping the screen first, so any such line belongs to the program just run.
  */
-const SCREEN = 0x0400;
-const COLS = 40;
-const ROWS = 25;
+/**
+ * Where and how big the machine's screen matrix is. The `?…ERROR` scan works
+ * unchanged on every CBM BASIC of the lineage; only the screen base and the
+ * visible matrix moved between the PET ($8000, 40×25), the VIC-20 ($1E00,
+ * 22×23) and the C64 ($0400, 40×25). Defaults to the C64.
+ */
+export interface CbmScreenLayout {
+  /** Base address of the screen-code matrix. */
+  screen: number;
+  cols: number;
+  rows: number;
+}
+
+const C64_SCREEN_LAYOUT: CbmScreenLayout = {
+  screen: 0x0400,
+  cols: 40,
+  rows: 25,
+};
 
 interface C64MemPort {
   read(addr: number): number;
@@ -43,11 +58,14 @@ function rowHasError(row: number[]): boolean {
   return false;
 }
 
-export function readC64Report(mem: C64MemPort): MachineReport | null {
-  for (let r = 0; r < ROWS; r++) {
-    const base = SCREEN + r * COLS;
+export function readC64Report(
+  mem: C64MemPort,
+  layout: CbmScreenLayout = C64_SCREEN_LAYOUT,
+): MachineReport | null {
+  for (let r = 0; r < layout.rows; r++) {
+    const base = layout.screen + r * layout.cols;
     const row: number[] = [];
-    for (let c = 0; c < COLS; c++) row.push(mem.read(base + c));
+    for (let c = 0; c < layout.cols; c++) row.push(mem.read(base + c));
     if ((row[0]! & 0x7f) !== 0x3f) continue; // line must start with "?"
     if (!rowHasError(row)) continue;
     const text = row.map(decode).join('').replace(/\s+$/, '').trim();
