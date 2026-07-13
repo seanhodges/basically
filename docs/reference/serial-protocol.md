@@ -72,8 +72,8 @@ families of design work across every dialect:
    the same ones the IDE's `.wav` export uses - fully specified in
    [file formats](./file-formats#cassette-audio) § Cassette audio (pulse counts/lengths, framing,
    block layout, checksums) for the ZX81/ZX80, Spectrum (and 128), BBC, C64,
-   TRS-80 and Atom. The native image the bridge receives is exactly the input
-   those encoders take.
+   VIC-20, PET, TRS-80 and Atom. The native image the bridge receives is exactly
+   the input those encoders take.
 
 2. **RAM injection (requires bus access).** Bridges with access to the
    machine's bus can DMA the image straight into memory and fix up the BASIC
@@ -87,6 +87,9 @@ families of design work across every dialect:
    - **BBC Micro / Master** - copy the tokenized image to PAGE and set TOP.
    - **Commodore 64** - copy past the 2-byte load address to $0801 and fix the
      BASIC link pointers / end-of-program (a `.prg`-style load).
+   - **Commodore VIC-20** - the same `.prg`-style load, but to $1001 on the
+     unexpanded machine (the load address in the image's first two bytes).
+   - **Commodore PET** - the same `.prg`-style load, but to $0401.
    - **TRS-80** - write the tokenized program to 0x42E8.
    - **Acorn Atom** - write the `#2900` image to memory at #2900.
 
@@ -99,6 +102,8 @@ families of design work across every dialect:
 | ZX Spectrum / 128  | `.TAP`         | `LOAD ""`                              |
 | BBC Micro / Master | `.bbc`         | `*TAPE` then `LOAD ""` (or `CHAIN ""`) |
 | Commodore 64       | `.prg`         | `LOAD` (datasette) then `RUN`          |
+| Commodore VIC-20   | `.prg`         | `LOAD` (datasette) then `RUN`          |
+| Commodore PET      | `.prg`         | `LOAD` (datasette) then `RUN`          |
 | TRS-80             | `.cas`         | `CLOAD`                                |
 | Acorn Atom         | `.atm`         | `LOAD ""`                              |
 

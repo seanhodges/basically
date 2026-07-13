@@ -48,6 +48,8 @@ reference page:
 | ZX Spectrum / 128  | `.TAP` | `.TAP` | header + data tape blocks                   |
 | BBC Micro / Master | `.bbc` | `.bbc` | tokenized program from PAGE                 |
 | Commodore 64       | `.prg` | `.prg` | load address + tokenized program from $0801 |
+| Commodore VIC-20   | `.prg` | `.prg` | load address + tokenized program from $1001 |
+| Commodore PET      | `.prg` | `.prg` | load address + tokenized program from $0401 |
 | TRS-80             | `.cas` | `.cas` | Model I CSAVE cassette block                |
 | Acorn Atom         | `.atm` | `.atm` | 22-byte header + `#2900` program image      |
 
@@ -109,13 +111,18 @@ then the tokenized body; the program ends with `0x0D 0xFF`. The output is
 byte-for-byte what the genuine ROM tokeniser produces (regression-tested). The
 BBC Master uses the same format.
 
-### Commodore 64 `.prg`
+### Commodore 64 / VIC-20 / PET `.prg`
 
 The 2-byte little-endian load address (`$01 $08` = $0801) followed by the
 tokenized program as it sits in memory from $0801: for each line a 2-byte link
 to the next line (an absolute address), the 2-byte line number, the tokenized
 body and a `0x00` terminator, ending with a `0x0000` null link. This is the same
 image the emulator injects and the import/export file.
+
+The VIC-20 and PET use the identical `.prg` format — the language is the same
+Commodore BASIC V2 (the PET adds the BASIC 4.0 disk tokens `$CC–$DA`) — and only
+the load address in the first two bytes differs: the unexpanded VIC-20 loads at
+$1001 (`$01 $10`), the PET at $0401 (`$01 $04`).
 
 ### TRS-80 `.cas`
 
@@ -183,7 +190,8 @@ Each machine uses its own tape encoding:
   data, and a data CRC-16. The last block sets bit 7 of the flag. The decoder
   classifies half-cycles relative to the carrier and uses both CRC-16s to find
   block boundaries and reject noise. The encoding is shared by both BBC dialects.
-- **Commodore 64** - the authentic KERNAL datasette format. Information is in the
+- **Commodore 64 / VIC-20 / PET** - the authentic KERNAL datasette format, shared
+  across the whole Commodore lineage. Information is in the
   _spacing_ between edges; three pulse lengths are used - short (S), medium (M),
   long (L), each one full square-wave cycle: bit `0` = S,M; bit `1` = M,S;
   new-data marker = L,M; end-of-data = L,S. A byte is a new-data marker then 8
@@ -192,7 +200,10 @@ Each machine uses its own tape encoding:
   block **twice** (first copy prefixed with the countdown $89..$81, second with
   $09..$01, each carrying an XOR checksum byte). A program is two blocks: a
   192-byte header (file type, start/end address, filename) and the tokenized
-  program bytes from $0801.
+  program bytes. The single shared encoder/decoder is parameterized by the
+  machine's load address ($0801 C64, $1001 VIC-20, $0401 PET) and the machine's
+  detokenizer (so the PET's BASIC 4.0 disk tokens list correctly on decode);
+  each of the three exports and imports through it.
 - **TRS-80** - the Model I 500-baud cassette scheme. Every bit cell opens with a
   _clock_ pulse; a `1` bit additionally fires a _data_ pulse at the middle of the
   cell, a `0` does not - so the spacing between pulses carries the data (a `1` is

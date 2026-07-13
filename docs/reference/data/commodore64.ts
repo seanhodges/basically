@@ -5,8 +5,8 @@
 import type { ReferenceTableData } from './types';
 
 export const commodore64Reference: ReferenceTableData = {
-  title: 'Commodore BASIC',
-  machines: ['Commodore 64'],
+  title: 'Commodore 64 & VIC-20 BASIC',
+  machines: ['Commodore 64', 'Commodore VIC-20'],
   entries: [
     {
       name: 'END',

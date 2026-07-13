@@ -117,7 +117,7 @@ export default withPwa(
                 ],
               },
               {
-                text: 'Commodore BASIC',
+                text: 'Commodore 64 & VIC-20 BASIC',
                 link: '/reference/commodore64',
                 collapsed: true,
                 items: [

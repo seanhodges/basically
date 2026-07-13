@@ -111,10 +111,12 @@ joystick input, and optional capabilities the app feature-detects per machine -
 `readAudio()`, `readVariables()`, `readReport()` (BASIC runtime errors), and
 `debugStep()` for the line-level debugger. Small self-contained machines live
 inside their dialect folder; large or vendored cores live under
-`src/emulator/` - the Z80 core shared by the Sinclair machines, a 6502 core,
-the jsbeeb wrapper for the BBC machines, and the viciious core for the C64.
-The vendored cores are third-party code and are not hand-edited (see
-[Don't touch](/contributing/contributing#don-t-touch)).
+`src/emulator/` - the Z80 core shared by the Sinclair machines, the jsbeeb
+wrapper for the BBC machines, the viciious core for the C64, and a standalone
+6502 core driving the in-tree VIC-20 and PET buses (their own memory maps, I/O
+and video, with the shared Commodore chip modules under
+`src/emulator/commodore/`). The vendored cores are third-party code and are not
+hand-edited (see [Don't touch](/contributing/contributing#don-t-touch)).
 
 ### Editor services (`src/editor/`)
 
@@ -178,7 +180,7 @@ flowchart TB
 
   subgraph machines ["Per-machine code"]
     folders["src/dialects/&lt;name&gt;/<br/>one folder per dialect"]
-    cores["Vendored cores - src/emulator/<br/>Z80 · 6502 · jsbeeb (BBC) · viciious (C64)"]
+    cores["Vendored cores - src/emulator/<br/>Z80 · jsbeeb (BBC) · viciious (C64) · 6502 (VIC-20 · PET)"]
   end
 
   roms[("public/roms/<br/>third-party ROMs")]
@@ -203,16 +205,16 @@ flowchart TB
 
 ### Third-party libraries
 
-| Library                                        | Role                                                                     |
-| ---------------------------------------------- | ------------------------------------------------------------------------ |
-| React 18 + Zustand 5                           | UI and state                                                             |
-| CodeMirror 6                                   | Editor: language, autocomplete, lint, search                             |
-| `@anthropic-ai/sdk`, `openai`, `@google/genai` | AI provider backends (lazy-loaded)                                       |
-| jsbeeb                                         | BBC Micro/Master core, wrapped by `src/emulator/bbc/`                    |
-| viciious, Z80 core, 6502 core                  | Vendored emulator cores under `src/emulator/` (see licences/attribution) |
-| Vite 6 + `vite-plugin-pwa`                     | Build, dev server, PWA/service worker                                    |
-| VitePress                                      | This documentation site                                                  |
-| Vitest 3 + Playwright                          | Unit and end-to-end/visual tests                                         |
+| Library                                           | Role                                                                     |
+| ------------------------------------------------- | ------------------------------------------------------------------------ |
+| React 18 + Zustand 5                              | UI and state                                                             |
+| CodeMirror 6                                      | Editor: language, autocomplete, lint, search                             |
+| `@anthropic-ai/sdk`, `openai`, `@google/genai`    | AI provider backends (lazy-loaded)                                       |
+| jsbeeb                                            | BBC Micro/Master core, wrapped by `src/emulator/bbc/`                    |
+| viciious (C64), Z80 core, 6502 core (VIC-20, PET) | Vendored emulator cores under `src/emulator/` (see licences/attribution) |
+| Vite 6 + `vite-plugin-pwa`                        | Build, dev server, PWA/service worker                                    |
+| VitePress                                         | This documentation site                                                  |
+| Vitest 3 + Playwright                             | Unit and end-to-end/visual tests                                         |
 
 ## Data flow
 

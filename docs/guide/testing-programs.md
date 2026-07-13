@@ -73,8 +73,8 @@ instead). Under **Settings ▸ Gamepad** you can choose the **layout** (4- or
 
 - **Native Interface** / **Kempston** drive the machine's real joystick hardware.
   This is available on the machines that have such hardware - the Commodore 64,
-  the BBC Micro and Master, and the ZX Spectrum family (which also supports
-  Kempston).
+  the VIC-20, the BBC Micro and Master, and the ZX Spectrum family (which also
+  supports Kempston).
 - **Key mapped** presses machine keys instead, so the controller works on any
   machine even without a joystick port. To change which keys a control presses,
   **long-press** a control while the program is stopped and pick a new key.

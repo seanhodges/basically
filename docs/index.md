@@ -47,7 +47,7 @@ features:
 microcomputers. You write in a modern editor with highlighting, code completion and
 inline error checking, and test your program in an emulator. When it works, you can ship it to real hardware using various methods.
 
-It ships support for many microcomputers already including: Sinclair ZX80, ZX81 and Spectrum, the BBC Micro and Master, Commodore 64, TRS-80, with more being added all the time.
+It ships support for many microcomputers already including: Sinclair ZX80, ZX81 and Spectrum, the BBC Micro and Master, the Commodore 64, VIC-20 and PET, the Acorn Atom and TRS-80, with more being added all the time.
 
 <div style="display: flex; gap: 16px; align-items: flex-start; justify-content: center; flex-wrap: wrap;">
   <img
