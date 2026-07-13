@@ -186,6 +186,66 @@ describe('Vic20Machine', () => {
     BOOT_TIMEOUT_MS,
   );
 
+  it(
+    'types characters through the key matrix into the running KERNAL',
+    async () => {
+      // A key press must reach the KERNAL as the *right* character: the on-screen
+      // keyboard and the controller both drive setKey, so a wrong matrix wiring
+      // (e.g. the C64's) would echo the wrong glyph or nothing at all. Type "HI"
+      // at the READY prompt and expect it to appear on screen. Neither letter is
+      // in the boot banner, so a match can only come from the key scan.
+      const m = new Vic20Machine({ roms });
+      await m.whenReady();
+      for (let i = 0; i < 300; i++) m.runFrame();
+      const type = (token: string) => {
+        m.setKey(token, true);
+        for (let i = 0; i < 12; i++) m.runFrame(); // hold across a jiffy scan
+        m.setKey(token, false);
+        for (let i = 0; i < 12; i++) m.runFrame(); // let the editor echo it
+      };
+      // The W/A/S/D movement keys the bundled games (and the controller
+      // bindings) rely on must each land as themselves.
+      for (const t of ['W', 'A', 'S', 'D', 'H', 'I']) type(t);
+      expect(contains(screen(m), screenCodes('WASDHI'))).toBe(true);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'plays the bundled maze sample: player starts on an open cell and moves',
+    async () => {
+      // Guards the whole input chain end to end through a real game: the maze
+      // reads W/A/S/D with GET and moves a player it POKEs at SC-relative (row 0)
+      // coordinates, so it only works if (a) the key matrix decodes those letters
+      // and (b) the printed maze lines up with row 0 (no stray newline after the
+      // clear-home). The player glyph is screen code 81, walls are 35.
+      const src = readFileSync(
+        join(__dirname, '../../dialects/vic20/samples/maze.bas'),
+        'utf8',
+      );
+      const m = new Vic20Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image(src));
+      await m.whenReady();
+      for (let i = 0; i < 200; i++) m.runFrame();
+      expect(m.readReport()).toBeNull(); // ran without a BASIC error
+      const at = (x: number, y: number) =>
+        m.peek(SCREEN_BASE + 22 * y + x) & 0x7f;
+      expect(at(1, 1)).toBe(81); // player drawn on the open start cell...
+      expect(at(0, 0)).toBe(35); // ...with the maze border aligned to row 0
+      // Press D; the corridor is open to the right, so the player advances there.
+      m.setKey('D', true);
+      for (let i = 0; i < 10; i++) m.runFrame();
+      m.setKey('D', false);
+      for (let i = 0; i < 40; i++) m.runFrame();
+      expect(at(2, 1)).toBe(81);
+      expect(at(1, 1)).toBe(32); // start cell vacated
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
   describe('step-through debugging', () => {
     // A tight loop whose executing line cycles 20 → 30 → 20, so a breakpoint on
     // 20 trips almost as soon as the program is running.
