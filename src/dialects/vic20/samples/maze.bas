@@ -1,0 +1,51 @@
+10 REM MAZE
+20 POKE 36879,8:PRINT CHR$(147)
+30 SC=7680:CO=30720
+40 DIM M$(14)
+50 FOR I=0 TO 14:READ M$(I):NEXT
+60 PRINT CHR$(30);
+70 FOR R=0 TO 14:PRINT M$(R):NEXT
+80 PRINT:PRINT CHR$(5);"W A S D-REACH E"
+90 X=1:Y=1
+100 GOSUB 300
+110 GOSUB 400
+120 NX=X:NY=Y
+130 IF LF THEN NX=X-1
+140 IF RT THEN NX=X+1
+150 IF UP THEN NY=Y-1
+160 IF DN THEN NY=Y+1
+170 IF NX=X AND NY=Y THEN 110
+180 IF NX<0 OR NX>20 OR NY<0 OR NY>14 THEN 110
+190 T=PEEK(SC+22*NY+NX)
+200 IF T=35 THEN 110
+210 POKE SC+22*Y+X,32
+220 X=NX:Y=NY
+230 GOSUB 300
+240 IF T=5 THEN 260
+250 GOTO 110
+260 PRINT CHR$(147);CHR$(30);"YOU ESCAPED!":END
+300 REM DRAW PLAYER
+310 POKE SC+22*Y+X,81:POKE SC+22*Y+X+CO,7:RETURN
+400 REM READ MOVE
+410 LF=0:RT=0:UP=0:DN=0
+420 GET K$
+430 IF K$="A" THEN LF=1
+440 IF K$="D" THEN RT=1
+450 IF K$="W" THEN UP=1
+460 IF K$="S" THEN DN=1
+470 RETURN
+500 DATA "#####################"
+510 DATA "#                   #"
+520 DATA "################### #"
+530 DATA "#                   #"
+540 DATA "# ###################"
+550 DATA "#                   #"
+560 DATA "################### #"
+570 DATA "#                   #"
+580 DATA "# ###################"
+590 DATA "#                   #"
+600 DATA "################### #"
+610 DATA "#                   #"
+620 DATA "# ###################"
+630 DATA "#                  E#"
+640 DATA "#####################"

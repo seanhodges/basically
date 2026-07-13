@@ -24,6 +24,8 @@ const MACHINES = [
   'BBC Master',
   'BBC Micro',
   'Commodore 64',
+  'Commodore PET',
+  'Commodore VIC-20',
   'Spectrum',
   'Spectrum 128K',
   'TRS-80',
