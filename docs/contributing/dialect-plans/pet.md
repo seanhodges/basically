@@ -72,7 +72,7 @@
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ✅     |
-| 4     | Transfer & tape I/O                    | ⬜     |
+| 4     | Transfer & tape I/O                    | ✅     |
 | 5     | Polish / optional                      | ⬜     |
 
 ---
@@ -226,18 +226,21 @@ used, matching the app's 50Hz `runFrame` cadence and the C64's PAL precedent.
 **Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke +
 `npm run e2e`.
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
-- [ ] `targets.ts` — finalize `BuildTarget[]`: `.prg` export + cassette `.wav`
-- [ ] `audio/cassette.ts` — `buildSamples` =
+- [x] `targets.ts` — finalize `BuildTarget[]`: `.prg` export + cassette `.wav`
+- [x] `audio/cassette.ts` — `buildSamples` =
       `buildHeaderBlock(name, 0x0401, end)` + the sibling `encodeC64Tape`
       (already parameterized); `decodeSamples` = sibling `decodeCassette` +
       the PET detokenizer; PET-appropriate `loadInstructions` /
-      `saveInstructions`. Confirm `decodeCassette` reports (not rejects) a
-      non-$0801 header start address
-- [ ] `binaryImports` — `.prg`, read back via `detokenizeWithReport` with the
-      PET variant's machine hint
-- [ ] tests: cassette encode→decode round-trip at $0401
+      `saveInstructions`. `decodeCassette` accepts any file-type $01 header
+      regardless of start address, so a $0401 PET header round-trips (it never
+      rejected on address)
+- [x] `binaryImports` — `.prg`, read back via `detokenizeWithReport` with the
+      PET variant's machine hint (already wired on the dialect from Stage 1)
+- [x] tests: cassette encode→decode round-trip at $0401
+      (`src/dialects/pet/audio/cassette.test.ts`), plus the dialect-surface
+      check in `pet.test.ts`
 
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.
