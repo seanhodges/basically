@@ -17,12 +17,12 @@ shipped dialect (see the charset/import feature-completeness checklist in
 the lower-case display bank and the tokenizer keyword-abbreviation table
 (`pO`, `gO`, …).
 
-| Core                              | CPU          | Licence          | Wrapper                                                                                             | Powers                                   |
-| --------------------------------- | ------------ | ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Z80.js (Molly Howell)             | Z80          | MIT              | `src/emulator/z80/` - vendored, 3 local patches (M1 hook, accessors, ESM export)                    | ZX81, ZX80, ZX Spectrum                  |
-| jsbeeb 1.13.1 (Matt Godbolt)      | 6502 / 65C12 | GPL-3.0-or-later | `src/emulator/bbc/bbcMachine.ts`                                                                    | BBC Micro Model B, BBC Master            |
-| viciious (Mike Dean / luxocrates) | 6510         | public domain    | `src/emulator/c64/c64Machine.ts`                                                                    | Commodore 64                             |
-| cpu-6502-emulator (Jye Lewis)     | 6502         | ISC              | `src/emulator/6502/` - vendored, 3 local patches (sync `step()`, interrupt model, browser-safe BRK) | bundled but not yet wired to any dialect |
+| Core                              | CPU          | Licence          | Wrapper                                                                                           | Powers                                   |
+| --------------------------------- | ------------ | ---------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Z80.js (Molly Howell)             | Z80          | MIT              | `src/emulator/z80/` - vendored, 3 local patches (M1 hook, accessors, ESM export)                  | ZX81, ZX80, ZX Spectrum                  |
+| jsbeeb 1.13.1 (Matt Godbolt)      | 6502 / 65C12 | GPL-3.0-or-later | `src/emulator/bbc/bbcMachine.ts`                                                                  | BBC Micro Model B, BBC Master            |
+| viciious (Mike Dean / luxocrates) | 6510         | public domain    | `src/emulator/c64/c64Machine.ts`                                                                  | Commodore 64                             |
+| 6502.ts (Christian Speckner)      | 6502         | MIT              | `src/emulator/6502/` - vendored, unmodified (cycle-exact `StateMachineCpu`, passes Klaus Dormann) | bundled but not yet wired to any dialect |
 
 **Status legend:** ✅ shipped · 🔨 in progress · ⬜ planned · ⛔ blocked / needs
 a new emulator core.
@@ -91,9 +91,9 @@ program name (raw dump only).
 
 Medium effort for machines very close to the C64; high effort for anything else,
 since viciious is C64-specific (VIC-II + SID + 2×CIA). The standalone
-`cpu-6502-emulator` core at `src/emulator/6502/` is available for non-C64 6502
-machines, but it is a bare CPU only (instruction count, not cycle-accurate
-T-states) - each new machine needs its own bus: memory map, I/O, video.
+`6502.ts` core at `src/emulator/6502/` is available for non-C64 6502 machines —
+a cycle-exact CPU (drive it one clock at a time via `cycle()`) — but it is a
+bare CPU only: each new machine needs its own bus: memory map, I/O, video.
 
 | Status | Machine              | CPU  | BASIC                     | Notes                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------ | -------------------- | ---- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

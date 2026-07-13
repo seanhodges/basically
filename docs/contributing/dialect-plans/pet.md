@@ -9,16 +9,19 @@
 
 - **id / name:** `pet` / `Commodore PET`
 - **CPU / bus pattern:** in-tree 6502 bus over the vendored
-  `src/emulator/6502/` core (cpu-6502-emulator, Jye Lewis, ISC — synchronous
-  `step()`, single `accessMemory(readWrite, address, value)` bus callback,
-  instruction-counted rather than cycle-accurate). The machine lives under
-  `src/emulator/pet/`, with reusable Commodore chips/helpers under
+  `src/emulator/6502/` core (6502ts/6502.ts, Christian Speckner et al., MIT —
+  cycle-exact `StateMachineCpu` driven one clock at a time via `cycle()`, a
+  `BusInterface` (`read`/`write`/`peek`/`poke`/`readWord`) memory bus, full
+  Klaus-Dormann opcode set incl. BRK, RTI, `JMP (indirect)` and decimal mode).
+  Registers live on `cpu.state` — note the upstream quirk that `state.p` is the
+  **program counter** and `state.flags` is the status register. The machine
+  lives under `src/emulator/pet/`, with reusable Commodore chips/helpers under
   `src/emulator/commodore/` (this plan creates them; the VIC-20 plan consumes
   them). Emulator-core evaluation notes: adapting viciious was rejected (its
   bus/video/CIA are C64-hardwired); Thomas Skibo's `pet2001` JS emulator
-  (BSD-2-Clause) is the documented **fallback core** if in-tree fidelity
-  disappoints — it is proven and cycle-driven but would add a second machine
-  pattern and a third distinct 6502 implementation to the repo.
+  (BSD-2-Clause) remains a documented **reference** if in-tree fidelity
+  disappoints, but the cycle-exact 6502.ts core removes the earlier concern
+  about instruction-counted timing.
 - **Machine model:** BASIC 4.0, 40-column graphics-keyboard PET (a 4032-style
   machine: discrete TTL video, no CRTC modelled, 32KB RAM). Business keyboard,
   80-column and CRTC machines (8032 …) are explicitly out of scope.
@@ -57,8 +60,8 @@
   Stage 4 ever needs more than the shared WAV codecs). Public domain means
   copying is license-clean; leave an "adapted from viciious" comment at the
   borrow site.
-- **License note:** nothing new — the 6502 core (ISC) is already vendored and
-  all new machine code is first-party.
+- **License note:** nothing new — the 6502 core (MIT, 6502ts/6502.ts) is already
+  vendored and all new machine code is first-party.
 
 ## Status legend
 
@@ -153,22 +156,23 @@ injection).
       behaviour for its jiffy clock)
 - [ ] `charRenderer.ts` — glyph blitter: screen-RAM matrix + character ROM →
       RGBA buffer with border (mono here; the VIC-20 layers colour on top)
-- [ ] machine-skeleton helpers (e.g. `machineHelpers.ts`): instruction-budget
-      frame driver over `CPU6502.step()`, boot-scan-for-`READY.` helper,
-      physical/virtual key-set union + matrix rebuild (pattern lifted from
+- [ ] machine-skeleton helpers (e.g. `machineHelpers.ts`): cycle-budget frame
+      driver over `cpu.cycle()`, boot-scan-for-`READY.` helper, physical/virtual
+      key-set union + matrix rebuild (pattern lifted from
       `src/emulator/c64/c64Machine.ts`)
 
 **PET machine — `src/emulator/pet/`:**
 
 - [ ] `petMachine.ts` — `PetMachine implements MachineEmulator` over
-      `new CPU6502({ accessMemory })`: memory map RAM $0000–$7FFF, screen RAM
-      $8000–$83FF (mirrored to $8FFF), I/O $E810–$E84F (PIA1 keyboard +
-      retrace IRQ; PIA2/VIA present with sane defaults — IEEE-488 not wired),
-      BASIC/edit/KERNAL ROMs $B000–$FFFF; `runFrame` = instruction budget
-      (~1MHz at an assumed average cycles-per-instruction, tuned in Verify);
-      `reset` / `setSpeed` / `dispose`
+      `new StateMachineCpu(bus)` (the machine supplies the `BusInterface`):
+      memory map RAM $0000–$7FFF, screen RAM $8000–$83FF (mirrored to $8FFF),
+      I/O $E810–$E84F (PIA1 keyboard + retrace IRQ; PIA2/VIA present with sane
+      defaults — IEEE-488 not wired), BASIC/edit/KERNAL ROMs $B000–$FFFF;
+      `runFrame` = cycle budget (~20,000 cycles/frame at 1MHz ÷ 50Hz — exact now
+      the core is cycle-accurate, no fudge factor); `reset` / `setSpeed` /
+      `dispose`
 - [ ] `loadProgram` — reset → run until screen RAM shows `READY.`
-      (instruction-capped) → poke image at $0401 → fix BASIC 4 zero-page
+      (cycle-capped) → poke image at $0401 → fix BASIC 4 zero-page
       pointers (TXTTAB $28, VARTAB $2A, ARYTAB $2C, STREND $2E) → inject
       `RUN\r` through the key matrix (ROM-revision independent)
 - [ ] `keyEvent` / `setKey` / `releaseAllKeys` over the PET **graphics
@@ -183,10 +187,11 @@ injection).
       `10 PRINT "HI"`, run frames, assert on screen RAM at $8000
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
-**Verify:** emulator boot test passes. Tune the frame instruction budget
-against a wall-clock `FOR I=1 TO 1000` timing check. Decide 50Hz vs 60Hz edit
-ROM here (the app drives `runFrame` at 50Hz; the 50Hz editor ROM matches the
-C64's PAL precedent).
+**Verify:** emulator boot test passes. The cycle-exact core makes the frame
+budget a direct clock ÷ 50Hz calculation (no wall-clock tuning); a
+`FOR I=1 TO 1000` timing check is still a useful end-to-end sanity check. Decide
+50Hz vs 60Hz edit ROM here (the app drives `runFrame` at 50Hz; the 50Hz editor
+ROM matches the C64's PAL precedent).
 
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 
@@ -242,7 +247,8 @@ C64's PAL precedent).
       The 5-byte MFLPT float decode is identical
 - [ ] wire `readVariables` / `readReport` / `readMemoryStats` /
       `currentLine` / `debugStep` into `petMachine.ts`; set
-      `debuggable: true` (trivial with a synchronous `step()` loop)
+      `debuggable: true` (step one instruction by cycling `cpu.cycle()` until
+      `executionState` returns to `fetch`)
 - [ ] optional CB2 piezo `readAudio` (square wave from the VIA shift
       register / CB2 line)
 - [ ] AI-profile accuracy pass

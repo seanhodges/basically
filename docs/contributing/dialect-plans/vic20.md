@@ -9,9 +9,12 @@
 
 - **id / name:** `vic20` / `Commodore VIC-20`
 - **CPU / bus pattern:** in-tree 6502 bus over the vendored
-  `src/emulator/6502/` core (cpu-6502-emulator, Jye Lewis, ISC — synchronous
-  `step()`, single `accessMemory` bus callback, instruction-counted rather
-  than cycle-accurate), reusing the shared Commodore chip/helper modules that
+  `src/emulator/6502/` core (6502ts/6502.ts, Christian Speckner et al., MIT —
+  cycle-exact `StateMachineCpu` driven one clock at a time via `cycle()`, a
+  `BusInterface` (`read`/`write`/`peek`/`poke`/`readWord`) memory bus, full
+  Klaus-Dormann opcode set incl. BRK, RTI, `JMP (indirect)` and decimal mode;
+  `state.p` is the program counter and `state.flags` the status register),
+  reusing the shared Commodore chip/helper modules that
   the **PET plan's Stage 2 creates** under `src/emulator/commodore/`
   (`via6522.ts`, `charRenderer.ts`, machine-skeleton helpers). The machine
   itself lives under `src/emulator/vic20/` with a from-scratch VIC-I renderer.
@@ -59,8 +62,8 @@
   reuses also comes from the viciious button names. Public domain means
   copying is license-clean; leave an "adapted from viciious" comment at the
   borrow site.
-- **License note:** nothing new — the 6502 core (ISC) is already vendored and
-  all new machine code is first-party.
+- **License note:** nothing new — the 6502 core (MIT, 6502ts/6502.ts) is already
+  vendored and all new machine code is first-party.
 
 ## Status legend
 
@@ -123,8 +126,10 @@ hardware overlaps the C64, reference/copy/adapt the vendored viciious code
 
 - [ ] `src/emulator/commodore/via6522.ts` — complete T1 free-run/one-shot and
       T2 behaviour, IFR/IER semantics and the IRQ line (the KERNAL's 60Hz
-      jiffy interrupt is VIA T1-driven via `cpu.triggerIRQB(false)`)
-- [ ] `src/emulator/vic20/memory.ts` — the bus behind `accessMemory`,
+      jiffy interrupt is VIA T1-driven: assert `cpu.setInterrupt(true)` while
+      the VIA IRQ flag is set and `cpu.setInterrupt(false)` once the handler
+      clears it — the line is level-sensitive)
+- [ ] `src/emulator/vic20/memory.ts` — the `BusInterface` the CPU reads/writes,
       unexpanded map: RAM $0000–$03FF + $1000–$1FFF (screen at $1E00),
       chargen ROM $8000–$8FFF, VIC-I registers $9000–$900F, VIA1 $9110–$911F,
       VIA2 $9120–$912F, 4-bit colour RAM $9400–$97FF (unexpanded screen pairs
@@ -137,17 +142,17 @@ hardware overlaps the C64, reference/copy/adapt the vendored viciious code
       glyphs + border into the RGBA buffer. Raster-split tricks are explicitly
       out of scope
 - [ ] `src/emulator/vic20/vic20Machine.ts` — a `Vic20Machine` class
-      implementing `MachineEmulator` over `new CPU6502({ accessMemory })`:
-      `runFrame` =
-      instruction budget (start at ~4 cycles/instruction average:
-      `INSTRUCTIONS_PER_FRAME ≈ 1_108_404 / 4 / 50 ≈ 5542`), charging the
-      budget into both VIA timers so the jiffy IRQ fires; keyboard matrix on
+      implementing `MachineEmulator` over `new StateMachineCpu(bus)` (the
+      machine supplies the `BusInterface`): `runFrame` = cycle budget
+      (`CYCLES_PER_FRAME = 1_108_404 / 50 ≈ 22_168` at the PAL 1.108MHz clock —
+      exact now the core is cycle-accurate), charging the same cycle count into
+      both VIA timers so the jiffy IRQ fires; keyboard matrix on
       VIA2 (PB columns out, PA rows in) reusing the C64 token vocabulary (the
       matrices are nearly identical, so `tokenToButtons` / `domCodeToTokens`
       port across); `setJoystick('native', …)` on VIA1 PA2–PA5 + VIA2 PB7
       (single fire line)
-- [ ] `loadProgram` — reset → step until screen RAM at $1E00 shows `READY.`
-      (instruction-capped) → poke image at $1001 → set VARTAB/ARYTAB/STREND
+- [ ] `loadProgram` — reset → run until screen RAM at $1E00 shows `READY.`
+      (cycle-capped) → poke image at $1001 → set VARTAB/ARYTAB/STREND
       ($2D/$2F/$31 — identical to the C64) → inject `RUN\r` via the keyboard
       buffer ($0277, count at NDX $C6 — same as the C64, safe because we own
       the bus)
@@ -161,9 +166,10 @@ hardware overlaps the C64, reference/copy/adapt the vendored viciious code
 
 **Depends on:** Stage 1 (charset, image builder) + the PET plan's Stage 2
 (shared `src/emulator/commodore/` modules).
-**Verify:** emulator boot test passes. Tune `INSTRUCTIONS_PER_FRAME` against a
-wall-clock `FOR I=1 TO 1000` timing check (instruction-counted timing makes
-`TI$`/delay loops up to ~15% off — documented, acceptable for a BASIC IDE).
+**Verify:** emulator boot test passes. The cycle-exact core makes
+`CYCLES_PER_FRAME` a direct clock ÷ 50Hz calculation, so `TI$`/delay loops keep
+accurate time; a `FOR I=1 TO 1000` timing check is still a useful end-to-end
+sanity check.
 
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 
@@ -213,8 +219,9 @@ wall-clock `FOR I=1 TO 1000` timing check (instruction-counted timing makes
       PET plan's Stage 5 — the VIC-20 zero page **is** the C64's (TXTTAB $2B,
       VARTAB $2D, FRETOP $33, MEMSIZ $37, CURLIN $39), so only the report
       scan's `screen: $1E00, 22×23` differs
-- [ ] `currentLine` / `debugStep` + `debuggable: true` (trivial with a
-      synchronous `step()` loop checking CURLIN)
+- [ ] `currentLine` / `debugStep` + `debuggable: true` (step one instruction by
+      cycling `cpu.cycle()` until `executionState` returns to `fetch`, checking
+      CURLIN)
 - [ ] optional `readAudio` — VIC-I voices $900A–$900D + volume ($900E low
       nibble) as host-side square-wave synthesis (the C64 `SidRenderer`
       pattern)
