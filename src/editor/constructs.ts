@@ -371,6 +371,8 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   bbcmicro: BBC,
   bbcmaster: BBC,
   commodore64: C64,
+  // PET BASIC 4.0 is Commodore BASIC V2 too; the C64 block templates all apply.
+  pet: C64,
   atom: ATOM,
   trs80: TRS80,
 };

@@ -1,13 +1,20 @@
-import type { TokenizeError } from '../types';
+import {
+  tokenizeProgram as tokenizeCbm,
+  type CbmVariant,
+  type TokenizedProgram,
+} from '../commodore64/tokenizer';
+import { petKeywordsByLength } from './keywords';
 
 /**
- * TODO (pet Stage 1): a thin wrapper over the commodore64 tokenizer via the
- * CbmVariant seam - PET_VARIANT = { progStart: 0x0401, keywordsByLength:
- * petKeywordsByLength }. See docs/contributing/dialect-plans/pet.md.
+ * The PET's Commodore-BASIC variant: programs load at $0401 (vs the C64's
+ * $0801) and use the BASIC 4.0 keyword table (C64 BASIC V2 + disk commands).
  */
-export function tokenizeProgram(_source: string): {
-  program: Uint8Array;
-  errors: TokenizeError[];
-} {
-  throw new Error('pet: not implemented (Stage 1)');
+export const PET_VARIANT: CbmVariant = {
+  progStart: 0x0401,
+  keywordsByLength: petKeywordsByLength,
+};
+
+/** Tokenize PET BASIC 4.0 source into the $0401 linked-line program image. */
+export function tokenizeProgram(source: string): TokenizedProgram {
+  return tokenizeCbm(source, PET_VARIANT);
 }

@@ -1,19 +1,11 @@
-import type { CharsetMapping } from '../types';
-
 /**
- * TODO (pet Stage 1): re-export the C64 charset - PETSCII originated on the
- * PET and the byte mapping is identical (the colour-control escapes are
- * meaningless-but-harmless bytes on a PET).
- * See docs/contributing/dialect-plans/pet.md.
+ * Commodore PET PETSCII <-> editor text.
+ *
+ * PETSCII originated on the PET, so the byte mapping is byte-identical to the
+ * C64's; the C64 charset is simply re-exported here as {@link petCharset}. The
+ * only conceptual difference is that the colour-control escapes the shared
+ * charset understands ({red}, {cyan}, {rvon}…) are meaningless-but-harmless
+ * bytes on a monochrome PET: a program may still store and round-trip them, they
+ * just have no visible effect on real PET hardware.
  */
-export const petCharset: CharsetMapping = {
-  toMachine(_text: string): Uint8Array {
-    throw new Error('pet: not implemented (Stage 1)');
-  },
-  toUnicode(_codes: ArrayLike<number>): string {
-    throw new Error('pet: not implemented (Stage 1)');
-  },
-  glyph(_code: number): string {
-    throw new Error('pet: not implemented (Stage 1)');
-  },
-};
+export { c64Charset as petCharset } from '../commodore64/charset';

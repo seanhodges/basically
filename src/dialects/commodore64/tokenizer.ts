@@ -4,23 +4,41 @@ import { c64KeywordsByLength, type C64Keyword } from './keywords';
 
 export interface TokenizedProgram {
   /**
-   * The tokenized program as it sits in memory from $0801: for each line a
-   * 2-byte link to the next line, the 2-byte line number, the tokenized body
-   * and a 0x00 terminator, ending with a 0x0000 null link. Prepend the 2-byte
-   * load address ($01 $08) to get a .prg image.
+   * The tokenized program as it sits in memory from the program base ($0801 on
+   * the C64): for each line a 2-byte link to the next line, the 2-byte line
+   * number, the tokenized body and a 0x00 terminator, ending with a 0x0000 null
+   * link. Prepend the 2-byte load address (little-endian, $01 $08 on the C64) to
+   * get a .prg image.
    */
   program: Uint8Array;
   errors: TokenizeError[];
 }
 
-/** Programs load at $0801 on the C64; link pointers are absolute addresses. */
-const PROG_START = 0x0801;
+/**
+ * A Commodore-BASIC machine variant. The C64 tokenizer is parameterized over
+ * this so sibling dialects (PET, VIC-20…) reuse it byte-for-byte, differing only
+ * in their program base address and keyword table. Omitting it tokenizes for the
+ * C64 (base $0801, the plain BASIC V2 keyword table).
+ */
+export interface CbmVariant {
+  /** Program base / link-pointer origin, e.g. C64 $0801, PET $0401. */
+  progStart: number;
+  /** Keyword table sorted longest-spelling first, for greedy matching. */
+  keywordsByLength: C64Keyword[];
+}
+
+/** Program base on the C64; other machines override it via {@link CbmVariant}. */
+const DEFAULT_PROG_START = 0x0801;
 /** Highest line number Commodore BASIC accepts. */
 const MAX_LINE = 63999;
 
 /** Longest keyword whose spelling matches the source at `pos`, or undefined. */
-function matchKeyword(source: string, pos: number): C64Keyword | undefined {
-  for (const kw of c64KeywordsByLength) {
+function matchKeyword(
+  source: string,
+  pos: number,
+  keywordsByLength: C64Keyword[],
+): C64Keyword | undefined {
+  for (const kw of keywordsByLength) {
     const slice = source.substr(pos, kw.word.length);
     // Letters fold to upper case so lower-case keywords tokenize too; the
     // special glyphs (↑, π) and operators are unaffected by toUpperCase.
@@ -42,6 +60,7 @@ function tokenizeBody(
   editorLine: number,
   bodyCol: number,
   errors: TokenizeError[],
+  keywordsByLength: C64Keyword[],
 ): number[] {
   const out: number[] = [];
   let pos = 0;
@@ -151,7 +170,7 @@ function tokenizeBody(
       continue;
     }
 
-    const kw = matchKeyword(body, pos);
+    const kw = matchKeyword(body, pos, keywordsByLength);
     if (kw) {
       if (stmtStart && kw.kind !== 'command') {
         flagStatement(pos, pos + kw.word.length, kw.word);
@@ -192,7 +211,12 @@ interface LineRecord {
   body: number[];
 }
 
-export function tokenizeProgram(source: string): TokenizedProgram {
+export function tokenizeProgram(
+  source: string,
+  variant?: CbmVariant,
+): TokenizedProgram {
+  const progStart = variant?.progStart ?? DEFAULT_PROG_START;
+  const keywordsByLength = variant?.keywordsByLength ?? c64KeywordsByLength;
   const errors: TokenizeError[] = [];
   const records: LineRecord[] = [];
   let prevLineNo = -1;
@@ -255,13 +279,13 @@ export function tokenizeProgram(source: string): TokenizedProgram {
 
     records.push({
       lineNo,
-      body: tokenizeBody(body, editorLine, bodyCol, errors),
+      body: tokenizeBody(body, editorLine, bodyCol, errors, keywordsByLength),
     });
   }
 
   // Assemble the linked-line layout with absolute next-line pointers.
   const prog: number[] = [];
-  let addr = PROG_START;
+  let addr = progStart;
   for (const { lineNo, body } of records) {
     const recLen = 2 + 2 + body.length + 1;
     const next = addr + recLen;
