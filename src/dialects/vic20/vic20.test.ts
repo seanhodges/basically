@@ -4,6 +4,12 @@ import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { vic20Charset } from './charset';
 import { vic20Keywords, vic20WordByToken } from './keywords';
 import { buildPrg } from './targets';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+  decodeCassette,
+} from './audio/cassette';
+import { buildHeaderBlock } from '../commodore64/audio/cassetteEncoder';
 import { vic20 } from './index';
 import { getDialect } from '../registry';
 import { c64Keywords, c64WordByToken } from '../commodore64/keywords';
@@ -163,5 +169,53 @@ describe('vic20 dialect', () => {
   });
 
   // ---- Stage 4 - transfer & tape I/O ------------------------------------
-  it.todo('round-trips cassette encode -> decode at $1001');
+
+  it('round-trips a program through cassette encode -> decode at $1001', () => {
+    const src = '10 PRINT "HELLO"\n20 GOTO 10\n';
+    const { program } = tokenizeProgram(src);
+    const samples = buildCassetteSamples(src, 'GREETING');
+    const { name, data } = decodeCassette(samples, CASSETTE_SAMPLE_RATE);
+    expect(name).toBe('GREETING');
+    // The decoded data is the bare program body (no load address); it matches
+    // the tokenized bytes and detokenizes back to the same source.
+    expect(Array.from(data)).toEqual(Array.from(program));
+    expect(detokenizeProgram(data)).toBe(src);
+  });
+
+  it('writes the $1001 (unexpanded VIC-20) load address into the tape header', () => {
+    // Encode a one-line program with no leader/marker so the header block is the
+    // very first thing on the tape, then decode it back with a header-aware read.
+    const src = '10 PRINT "HI"\n';
+    const { program } = tokenizeProgram(src);
+    const header = buildHeaderBlock('HI', 0x1001, 0x1001 + program.length);
+    expect(header[0]).toBe(0x01); // relocatable BASIC program
+    expect(header[1]).toBe(0x01); // start lo ($1001)
+    expect(header[2]).toBe(0x10); // start hi
+    expect(header[3]).toBe((0x1001 + program.length) & 0xff); // end lo
+    expect(header[4]).toBe(((0x1001 + program.length) >> 8) & 0xff); // end hi
+  });
+
+  it('exposes cassette audio and a .prg import through the dialect', () => {
+    expect(vic20.audio?.sampleRate).toBe(CASSETTE_SAMPLE_RATE);
+    expect(vic20.binaryImports).toEqual([
+      { extension: '.prg', label: 'Import .PRG…' },
+    ]);
+    // The dialect's decodeSamples returns the program name and editable source.
+    const src = '10 PRINT "TAPE"\n';
+    const samples = vic20.audio!.buildSamples(src, 'ROUNDTRIP', false);
+    const decoded = vic20.audio!.decodeSamples!(samples, CASSETTE_SAMPLE_RATE);
+    expect(decoded.programName).toBe('ROUNDTRIP');
+    expect(decoded.source).toBe(src);
+  });
+
+  it('lists .prg and cassette .wav build targets', () => {
+    expect(vic20.buildTargets.map((t) => t.id)).toEqual([
+      'vic20-prg',
+      'vic20-wav',
+    ]);
+    expect(vic20.buildTargets.map((t) => t.fileExtension)).toEqual([
+      'prg',
+      'wav',
+    ]);
+  });
 });

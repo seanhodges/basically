@@ -1,6 +1,8 @@
 import type { BuildTarget } from '../types';
 import { fatalErrors } from '../types';
 import { tokenizeProgram } from './tokenizer';
+import { samplesToWav } from '../../transfer/wav';
+import { CASSETTE_SAMPLE_RATE, buildCassetteSamples } from './audio/cassette';
 
 /**
  * Build the loadable .prg image: the 2-byte load address ($1001, the
@@ -8,8 +10,6 @@ import { tokenizeProgram } from './tokenizer';
  * image the emulator injects and the import/export file format — identical in
  * shape to the C64's, only the address differs.
  *
- * The cassette .wav target and the `BuildTarget[]` list land in Stage 4; for now
- * this exposes the image builder the tokenizer path and tests need.
  */
 export function buildPrg(source: string): Uint8Array {
   const { program, errors } = tokenizeProgram(source);
@@ -26,5 +26,28 @@ export function buildPrg(source: string): Uint8Array {
   return Uint8Array.from([0x01, 0x10, ...program]);
 }
 
-// TODO (vic20 Stage 4): .prg + cassette .wav build targets.
-export const vic20BuildTargets: BuildTarget[] = [];
+export const vic20BuildTargets: BuildTarget[] = [
+  {
+    id: 'vic20-prg',
+    label: 'Export .prg',
+    fileExtension: 'prg',
+    build: (source) =>
+      Promise.resolve(
+        new Blob([buildPrg(source) as BlobPart], {
+          type: 'application/octet-stream',
+        }),
+      ),
+  },
+  {
+    id: 'vic20-wav',
+    label: 'Export cassette .wav',
+    fileExtension: 'wav',
+    build: (source, { programName }) =>
+      Promise.resolve(
+        samplesToWav(
+          buildCassetteSamples(source, programName),
+          CASSETTE_SAMPLE_RATE,
+        ),
+      ),
+  },
+];

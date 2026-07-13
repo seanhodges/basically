@@ -74,7 +74,7 @@
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ✅     |
-| 4     | Transfer & tape I/O                    | ⬜     |
+| 4     | Transfer & tape I/O                    | ✅     |
 | 5     | Polish / optional                      | ⬜     |
 
 ---
@@ -208,16 +208,21 @@ sanity check.
 **Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke +
 `npm run e2e`.
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
-- [ ] `targets.ts` — finalize `BuildTarget[]`: `.prg` export + cassette `.wav`
-- [ ] `audio/cassette.ts` — `buildSamples` =
+- [x] `targets.ts` — finalize `BuildTarget[]`: `.prg` export + cassette `.wav`
+      (`vic20-prg` / `vic20-wav`, mirroring the C64's targets)
+- [x] `audio/cassette.ts` — `buildSamples` =
       `buildHeaderBlock(name, 0x1001, end)` + the sibling `encodeC64Tape`;
       `decodeSamples` = sibling `decodeCassette` + the VIC-20 detokenizer;
-      VIC-20 `loadInstructions` / `saveInstructions`
-- [ ] `binaryImports` — `.prg`, read back via `detokenizeWithReport` with a
-      VIC-20 machine hint naming the RAM-expansion load addresses
-- [ ] tests: cassette encode→decode round-trip at $1001
+      VIC-20 `loadInstructions` / `saveInstructions` (the datasette pulse
+      scheme is machine-agnostic, so the encoder/decoder are reused verbatim —
+      only the $1001 header load address differs)
+- [x] `binaryImports` — `.prg`, read back via `detokenizeWithReport` with the
+      VIC-20 machine hint naming the RAM-expansion load addresses (the hint
+      lives on the Stage 1 `detokenizer.ts` variant)
+- [x] tests: cassette encode→decode round-trip at $1001, tape header load
+      address, dialect audio/import/build-target wiring
 
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.

@@ -14,6 +14,11 @@ import { vic20KeyboardLayout } from './keyboardLayout';
 import { vic20Samples } from './samples';
 import { vic20AiProfile } from './aiProfile';
 import { c64VariableErrors } from '../../editor/variableLint';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+  decodeCassette,
+} from './audio/cassette';
 
 /**
  * Commodore VIC-20 dialect - scaffolding only, NOT registered in
@@ -92,7 +97,21 @@ export const vic20: Dialect = {
 
   buildTargets: vic20BuildTargets,
 
-  // TODO (vic20 Stage 4): binaryImports (.prg) + audio (cassette WAV at $1001).
+  binaryImports: [{ extension: '.prg', label: 'Import .PRG…' }],
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the VIC-20 type LOAD and press RETURN, then press PLAY on the datasette before starting playback. When it finds the program type RUN.',
+    decodeSamples: (samples, sampleRate) => {
+      const { name, data } = decodeCassette(samples, sampleRate);
+      return { programName: name, source: detokenizeProgram(data) };
+    },
+    saveInstructions:
+      'On the VIC-20 type SAVE "NAME" and press RETURN, then press RECORD and PLAY on the datasette; the tape tone plays from the cassette port. Feed it into this device, then start listening.',
+  },
 
   aiProfile: vic20AiProfile,
 };
