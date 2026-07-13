@@ -70,7 +70,7 @@
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
-| 2     | Emulator core                          | ⬜     |
+| 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Polish / optional                      | ⬜     |
@@ -134,7 +134,7 @@ forking them, keeping every existing C64 call site and test byte-identical:
 **Verify:** `npm test` + `npm run typecheck` — the commodore64 suite must pass
 unchanged.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅
 
 The PET is the simplest possible in-tree machine: no video chip (the screen is
 1KB of RAM at $8000 rendered through the character ROM), no colour, and I/O is
@@ -147,51 +147,53 @@ injection).
 
 **Shared modules — `src/emulator/commodore/`:**
 
-- [ ] `pia6520.ts` — reusable 6520 PIA: ports A/B with pluggable input
-      providers, control-register CA1/CB1 edge-detect + IRQ flags, IRQ line
-      callback (PET keyboard scan and the 50/60Hz retrace interrupt live here)
-- [ ] `via6522.ts` — reusable 6522 VIA: ports, T1/T2 timers, IFR/IER, IRQ
-      callback; shift register stubbed. A minimal-but-correct version is
-      enough for the PET (the VIC-20 plan's Stage 2 completes timer/IRQ
-      behaviour for its jiffy clock)
-- [ ] `charRenderer.ts` — glyph blitter: screen-RAM matrix + character ROM →
-      RGBA buffer with border (mono here; the VIC-20 layers colour on top)
-- [ ] machine-skeleton helpers (e.g. `machineHelpers.ts`): cycle-budget frame
-      driver over `cpu.cycle()`, boot-scan-for-`READY.` helper, physical/virtual
-      key-set union + matrix rebuild (pattern lifted from
-      `src/emulator/c64/c64Machine.ts`)
+- [x] `pia6520.ts` — reusable 6520 PIA: ports A/B with pluggable input
+      providers (`PiaPort`), control-register interrupt flags, per-side
+      `irqAsserted()` polled by the machine, `pulseCa1()`/`pulseCb1()` for the
+      retrace edge (PET keyboard scan + the 50/60Hz retrace interrupt use CB1)
+- [x] `via6522.ts` — reusable 6522 VIA: ports, T1/T2 timers, IFR/IER,
+      `irqAsserted()`, `ca2Out()` (charset select); shift register stubbed. A
+      minimal-but-correct version — the VIC-20 plan's Stage 2 completes the
+      timer/IRQ behaviour for its jiffy clock
+- [x] `charRenderer.ts` — glyph blitter: screen-RAM matrix + character ROM →
+      RGBA buffer with border (mono `render`; `renderColored` reserved for the
+      VIC-20's per-cell colour)
+- [x] machine-skeleton helpers (`machineHelpers.ts`): `KeyMatrix` (physical +
+      virtual key-set union → matrix rebuild) and the screen-scan / screen-code
+      helpers behind the boot-to-`READY.` wait. The cycle-budget frame driver
+      itself lives in `petMachine.ts` (it ticks the machine's own chips)
 
 **PET machine — `src/emulator/pet/`:**
 
-- [ ] `petMachine.ts` — `PetMachine implements MachineEmulator` over
+- [x] `petMachine.ts` — `PetMachine implements MachineEmulator` over
       `new StateMachineCpu(bus)` (the machine supplies the `BusInterface`):
       memory map RAM $0000–$7FFF, screen RAM $8000–$83FF (mirrored to $8FFF),
-      I/O $E810–$E84F (PIA1 keyboard + retrace IRQ; PIA2/VIA present with sane
-      defaults — IEEE-488 not wired), BASIC/edit/KERNAL ROMs $B000–$FFFF;
-      `runFrame` = cycle budget (~20,000 cycles/frame at 1MHz ÷ 50Hz — exact now
-      the core is cycle-accurate, no fudge factor); `reset` / `setSpeed` /
-      `dispose`
-- [ ] `loadProgram` — reset → run until screen RAM shows `READY.`
+      I/O $E810–$E84F (PIA1 keyboard + retrace IRQ on **CB1**; PIA2/VIA present
+      with idle-high defaults — IEEE-488 not wired), BASIC/edit/KERNAL ROMs
+      $B000–$FFFF; `runFrame` = 20,000 cycles/frame at 1MHz ÷ 50Hz (no fudge
+      factor); `reset` / `setSpeed` / `dispose`. The retrace is pulsed on PIA1
+      CB1 (the IRQ) and mirrored on VIA PB5 (the polled anti-snow signal)
+- [x] `loadProgram` — reset → run until screen RAM shows `READY.`
       (cycle-capped) → poke image at $0401 → fix BASIC 4 zero-page
       pointers (TXTTAB $28, VARTAB $2A, ARYTAB $2C, STREND $2E) → inject
       `RUN\r` through the key matrix (ROM-revision independent)
-- [ ] `keyEvent` / `setKey` / `releaseAllKeys` over the PET **graphics
-      keyboard** 10×8 matrix via PIA1
-- [ ] `renderTo` via `charRenderer.ts` (green-phosphor palette);
+- [x] `keyEvent` / `setKey` / `releaseAllKeys` over the PET **graphics
+      keyboard** 10×8 matrix via PIA1 (`src/emulator/pet/keyboard.ts`)
+- [x] `renderTo` via `charRenderer.ts` (green-phosphor palette);
       `PET_DISPLAY_WIDTH` / `PET_DISPLAY_HEIGHT` exported
-- [ ] ROMs into `public/roms/pet/` with an `ATTRIBUTION.md` section (Commodore
-      heading, same basis as the c64 entries)
-- [ ] `displaySize` on the dialect (not 256×192)
-- [ ] tests: `pia6520.test.ts`, `via6522.test.ts` (shared chips in isolation);
-      `petMachine.test.ts` — boot ROM to `READY.`, inject
-      `10 PRINT "HI"`, run frames, assert on screen RAM at $8000
+- [x] ROMs into `public/roms/pet/` (the standard VICE/MAME PET 4.0 images) with
+      an `ATTRIBUTION.md` section (Commodore heading, same basis as the c64
+      entries)
+- [x] `displaySize` on the dialect (360×250, not 256×192)
+- [x] tests: `pia6520.test.ts`, `via6522.test.ts` (shared chips in isolation);
+      `petMachine.test.ts` — boot ROM to `READY.`, assert the "31743 BYTES
+      FREE" banner, inject `POKE`/`PRINT "HI"` programs and assert on screen RAM
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
 **Verify:** emulator boot test passes. The cycle-exact core makes the frame
-budget a direct clock ÷ 50Hz calculation (no wall-clock tuning); a
-`FOR I=1 TO 1000` timing check is still a useful end-to-end sanity check. Decide
-50Hz vs 60Hz edit ROM here (the app drives `runFrame` at 50Hz; the 50Hz editor
-ROM matches the C64's PAL precedent).
+budget a direct clock ÷ 50Hz calculation (no wall-clock tuning). **50Hz vs 60Hz
+edit ROM:** the 50Hz/PAL 40-column editor ROM (`edit-4-40-n-50Hz.901498-01`) is
+used, matching the app's 50Hz `runFrame` cadence and the C64's PAL precedent.
 
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 
