@@ -8,6 +8,7 @@ const T1LL = 0x6;
 const T1LH = 0x7;
 const T2CL = 0x8;
 const T2CH = 0x9;
+const SR = 0xa;
 const ACR = 0xb;
 const IFR = 0xd;
 const IER = 0xe;
@@ -88,6 +89,31 @@ describe('Via6522', () => {
     expect(via.read(IFR) & 0x80).toBe(0x80);
     via.write(IFR, IRQ_T1); // acknowledge
     expect(via.read(IFR) & 0x80).toBe(0);
+  });
+
+  it('exposes the shift register and its free-run-out mode (CB2 sound)', () => {
+    const via = new Via6522();
+    // The PET sound recipe: POKE 59466,15 puts the $0F pattern in the SR.
+    via.write(SR, 0x0f);
+    expect(via.shiftRegister()).toBe(0x0f);
+    expect(via.read(SR)).toBe(0x0f);
+    // POKE 59467,16 selects ACR shift mode 100 (free-run out at T2 rate).
+    expect(via.shiftFreeRunningOut()).toBe(false);
+    via.write(ACR, 0x10);
+    expect(via.shiftFreeRunningOut()).toBe(true);
+    // Other shift modes (or T1 free-run alone) don't count.
+    via.write(ACR, 0x40 | 0x08);
+    expect(via.shiftFreeRunningOut()).toBe(false);
+  });
+
+  it('exposes the Timer 2 low-order latch (CB2 sound rate)', () => {
+    const via = new Via6522();
+    via.write(T2CL, 100); // POKE 59464,100 — latch only, counter untouched
+    expect(via.t2LowLatch()).toBe(100);
+    // Loading T2's high byte starts the counter but keeps the latch value.
+    via.write(T2CH, 0x02);
+    via.tick();
+    expect(via.t2LowLatch()).toBe(100);
   });
 
   it('gates the IRQ output through the enable register', () => {

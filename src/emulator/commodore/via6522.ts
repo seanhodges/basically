@@ -38,6 +38,9 @@ const IRQ_ANY = 0x80;
 
 /** ACR bit 6: Timer 1 free-run (continuous) mode when set, one-shot when clear. */
 const ACR_T1_FREERUN = 0x40;
+/** ACR bits 4..2: shift-register control; `100` = shift out free-running at T2 rate. */
+const ACR_SR_MASK = 0x1c;
+const ACR_SR_FREERUN_OUT = 0x10;
 
 export interface ViaPort {
   read(): number;
@@ -106,6 +109,32 @@ export class Via6522 {
    */
   ca2Out(): boolean {
     return (this.pcr & 0x0e) === 0x0e;
+  }
+
+  /**
+   * The shift-register contents — the 8-bit pattern cycling out on CB2 in
+   * free-run mode (the PET's `POKE 59466,15` sound pattern). Read-only debug/
+   * audio accessor; the emulated shift clocking itself is not modelled.
+   */
+  shiftRegister(): number {
+    return this.sr;
+  }
+
+  /**
+   * True when the ACR selects shift-register mode `100` — shift out
+   * free-running at the T2 rate, the mode the PET's CB2 sound uses
+   * (`POKE 59467,16`).
+   */
+  shiftFreeRunningOut(): boolean {
+    return (this.acr & ACR_SR_MASK) === ACR_SR_FREERUN_OUT;
+  }
+
+  /**
+   * Timer 2's low-order latch (`POKE 59464,N`). In free-run shift mode each
+   * bit lasts 2×(N+2) CPU cycles, so this sets the CB2 sound pitch.
+   */
+  t2LowLatch(): number {
+    return this.t2ll;
   }
 
   /** Advance both timers by one clock cycle, latching timer interrupts. */

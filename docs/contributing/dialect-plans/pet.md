@@ -73,7 +73,7 @@
 | 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ✅     |
-| 5     | Polish / optional                      | ⬜     |
+| 5     | Polish / optional                      | ✅     |
 
 ---
 
@@ -245,22 +245,28 @@ used, matching the app's 50Hz `runFrame` cadence and the C64's PAL precedent.
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.
 
-## Stage 5 — Polish / optional ⬜
+## Stage 5 — Polish / optional ✅
 
-- [ ] parameterize `src/emulator/c64/vars.ts` (`readC64Variables`) and
+- [x] parameterize `src/emulator/c64/vars.ts` (`readC64Variables`) and
       `reports.ts` (`readC64Report`) with a zero-page/screen layout options
       object defaulting to C64 values (the VIC-20 plan reuses this with the
       defaults); PET BASIC 4 layout: TXTTAB $28, VARTAB $2A, ARYTAB $2C,
       STREND $2E, FRETOP $30, MEMSIZ $34, CURLIN **$36**, screen $8000 40×25.
       The 5-byte MFLPT float decode is identical
-- [ ] wire `readVariables` / `readReport` / `readMemoryStats` /
+- [x] wire `readVariables` / `readReport` / `readMemoryStats` /
       `currentLine` / `debugStep` into `petMachine.ts`; set
-      `debuggable: true` (step one instruction by cycling `cpu.cycle()` until
-      `executionState` returns to `fetch`)
-- [ ] optional CB2 piezo `readAudio` (square wave from the VIA shift
-      register / CB2 line)
-- [ ] AI-profile accuracy pass
-- [ ] dialect quirks noted, not built: a BASIC 2.0 (`pet2001`-flavoured)
+      `debuggable: true`. CURLIN **$36/$37** confirmed empirically on the real
+      ROMs (loop tracking + erroring line); two 4.0 quirks handled at the
+      machine: power-on leaves CURLIN `$0000` (no `$FFxx` READY sentinel), and
+      errors print `ERROR IN  <n>` with LINPRT's leading space, which
+      `readReport` re-parses for the line number
+- [x] optional CB2 piezo `readAudio` (square wave from the VIA shift
+      register / CB2 line) — `src/emulator/pet/cb2Audio.ts` samples the VIA
+      shift-register pattern at the T2 free-run rate (bit = 2×(N+2) cycles, so
+      $0F sounds at 1MHz/(16×(N+2))), via minimal read-only `Via6522`
+      accessors (`shiftRegister` / `shiftFreeRunningOut` / `t2LowLatch`)
+- [x] AI-profile accuracy pass (CB2 sound recipe added; "no SID ≠ no sound")
+- [x] dialect quirks noted, not built: a BASIC 2.0 (`pet2001`-flavoured)
       variant is carried by the `CbmVariant` seam if ever wanted
 
 **Depends on:** Stage 3.

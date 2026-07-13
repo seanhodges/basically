@@ -69,7 +69,10 @@ export function readC64Report(
     if ((row[0]! & 0x7f) !== 0x3f) continue; // line must start with "?"
     if (!rowHasError(row)) continue;
     const text = row.map(decode).join('').replace(/\s+$/, '').trim();
-    const lineMatch = /\bIN (\d+)/.exec(text);
+    // \s+ not a single space: BASIC prints the line through LINPRT, which
+    // emits a leading space for positive numbers, and the PET's 4.0 ROM keeps
+    // it ("…ERROR IN  10") where the C64's V2 swallows it.
+    const lineMatch = /\bIN\s+(\d+)/.exec(text);
     return {
       isError: true,
       message: text,

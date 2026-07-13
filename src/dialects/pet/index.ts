@@ -21,8 +21,7 @@ import {
 import { c64VariableErrors } from '../../editor/variableLint';
 
 /**
- * Commodore PET dialect - scaffolding only, NOT registered in
- * src/dialects/registry.ts until Stage 3 of its plan.
+ * Commodore PET dialect.
  *
  * Staged plan: docs/contributing/dialect-plans/pet.md. In brief: PET BASIC 4.0
  * shares the C64 language layer via a CbmVariant seam ($0401 load address +
@@ -74,6 +73,8 @@ export const pet: Dialect = {
   romUrl: `${import.meta.env.BASE_URL}roms/pet/kernal-4.901465-22.bin`,
 
   displaySize: { width: PET_DISPLAY_WIDTH, height: PET_DISPLAY_HEIGHT },
+
+  debuggable: true,
 
   // opts.rom/ramKb are ignored: the PET machine loads its own six ROM images and
   // models a fixed 32 KB machine. opts.files is reserved for Stage 4 tape I/O.
