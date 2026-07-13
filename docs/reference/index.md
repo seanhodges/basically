@@ -18,5 +18,6 @@ its editor notation supports.
 - [ZX Spectrum BASIC (48K & 128K)](./zxspectrum) · [escape codes](./zxspectrum/escapes)
 - [BBC BASIC (Micro & Master)](./bbc) · [escape codes](./bbc/escapes)
 - [Commodore BASIC](./commodore64) · [escape codes](./commodore64/escapes)
+- [Commodore PET BASIC 4.0](./pet) · [escape codes](./commodore64/escapes)
 - [Acorn Atom BASIC](./atom) · [escape codes](./atom/escapes)
 - [TRS-80 Level II BASIC](./trs80) · [escape codes](./trs80/escapes)

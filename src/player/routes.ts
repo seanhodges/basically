@@ -23,6 +23,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'chain', dialectId: 'bbcmicro' }, // CHAIN "" - BBC BASIC load-and-run
   { verb: 'old', dialectId: 'bbcmaster' }, // OLD - BBC BASIC program recovery
   { verb: 'run', dialectId: 'commodore64' }, // RUN - after LOAD on the C64
+  { verb: 'dload', dialectId: 'pet' }, // DLOAD - PET BASIC 4.0 disk load command
   { verb: 'link', dialectId: 'atom' }, // LINK - Atom BASIC "execute machine code"
   { verb: 'cload', dialectId: 'trs80' }, // CLOAD - Level II BASIC tape load
 ];

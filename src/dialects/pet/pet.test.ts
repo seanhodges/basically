@@ -3,7 +3,13 @@ import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { petCharset } from './charset';
 import { petKeywords } from './keywords';
+import { petSamples } from './samples';
 import { pet } from './index';
+import { KeyMatrix } from '../../emulator/commodore/machineHelpers';
+import {
+  PET_KEY_MATRIX,
+  petTokenToPositions,
+} from '../../emulator/pet/keyboard';
 
 /**
  * Stage 1 (language core) tests for the PET dialect — see
@@ -111,8 +117,54 @@ describe('pet dialect', () => {
   });
 
   // ---- Stage 3 — wire-up ------------------------------------------------
-  it.todo('validates the keyboard layout and key matrix (physical+virtual)');
-  it.todo('tokenizes every bundled sample cleanly');
+  // The keyboard layout itself is validated in keyboardLayout.test.ts; here we
+  // confirm the machine's KeyMatrix unions physical + virtual presses using the
+  // PET graphics-keyboard tokens.
+  it('unions physical and virtual key presses in the matrix', () => {
+    const keys = new KeyMatrix(10, petTokenToPositions);
+    // 'A' is at [row 4, column 0]; 'RETURN' is at [6, 5].
+    keys.setPhysical('A', true);
+    keys.setVirtual('Return', true);
+    const matrix = keys.build();
+    const [ar, ac] = PET_KEY_MATRIX.A!;
+    const [rr, rc] = PET_KEY_MATRIX.Return!;
+    expect(matrix[ar]! & (1 << ac)).toBeTruthy();
+    expect(matrix[rr]! & (1 << rc)).toBeTruthy();
+    // Releasing the physical key leaves only the virtual one held.
+    keys.setPhysical('A', false);
+    const after = keys.build();
+    expect(after[ar]! & (1 << ac)).toBeFalsy();
+    expect(after[rr]! & (1 << rc)).toBeTruthy();
+  });
+
+  it('resolves cursor-left/up to Shift + right/down (two positions)', () => {
+    // The graphics keyboard has no dedicated cursor-left/up key.
+    expect(petTokenToPositions('CursorLeft')).toEqual([
+      PET_KEY_MATRIX.LeftShift,
+      PET_KEY_MATRIX.CursorRight,
+    ]);
+    expect(petTokenToPositions('CursorUp')).toEqual([
+      PET_KEY_MATRIX.LeftShift,
+      PET_KEY_MATRIX.CursorDown,
+    ]);
+  });
+
+  it('tokenizes every bundled sample cleanly', () => {
+    expect(petSamples.map((s) => s.name)).toEqual([
+      'hello.bas',
+      'circles.bas',
+      'breakout.bas',
+      'maze.bas',
+    ]);
+    for (const sample of petSamples) {
+      const { errors } = pet.tokenize(sample.text);
+      expect(errors, `${sample.name}: ${JSON.stringify(errors)}`).toEqual([]);
+      // Also lint-clean: no disk keyword or POKE target flagged as a variable.
+      expect(pet.lint(sample.text), sample.name).toEqual([]);
+    }
+    // hello.bas is the starter for a fresh document.
+    expect(pet.samples[0]!.name).toBe('hello.bas');
+  });
 
   // ---- Stage 4 — transfer & tape I/O ------------------------------------
   it.todo('round-trips cassette encode -> decode at $0401');
