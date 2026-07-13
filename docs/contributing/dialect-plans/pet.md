@@ -71,7 +71,7 @@
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
-| 3     | Wire-up: keyboard + samples + register | ⬜     |
+| 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Polish / optional                      | ⬜     |
 
@@ -195,27 +195,30 @@ budget a direct clock ÷ 50Hz calculation (no wall-clock tuning). **50Hz vs 60Hz
 edit ROM:** the 50Hz/PAL 40-column editor ROM (`edit-4-40-n-50Hz.901498-01`) is
 used, matching the app's 50Hz `runFrame` cadence and the C64's PAL precedent.
 
-## Stage 3 — Wire-up: keyboard + samples + register ⬜
+## Stage 3 — Wire-up: keyboard + samples + register ✅
 
-- [ ] `keyboardLayout.ts` — the PET graphics keyboard as `KeyboardLayout`
+- [x] `keyboardLayout.ts` — the PET graphics keyboard as `KeyboardLayout`
       data: letters with shifted-graphics legends (reuse the shared
       `graphics.ts` tables — the PET's shifted set is the C64's SHIFT set),
-      numeric-pad column, **no Commodore key**; key tokens match
-      `petMachine.setKey`
-- [ ] `samples/` + `samples.ts` — canonical `hello` / `circles` / `breakout` /
-      `maze` ported to monochrome 40×25 PET BASIC (circles degrades to PETSCII
-      character plotting via POKE 32768+…; `hello` is the starter)
-- [ ] finalize `aiProfile.ts` (BASIC 4.0, 40×25 mono, screen RAM 32768, no
+      numeric-pad digits, **no Commodore key**; key tokens match
+      `petMachine.setKey`. Two top-strip modes (ABC / GRAPHICS); SHIFT surfaces
+      the BASIC operators/punctuation as editor inserts, and the punctuation
+      keys use the PET's direct-key tokens (`,` `.` `/` `"`)
+- [x] `samples/` + `samples.ts` — canonical `hello` / `circles` / `breakout` /
+      `maze` ported to monochrome 40×25 PET BASIC (colour/SID/joystick removed,
+      screen RAM at 32768, GET for input; circles degrades to PETSCII character
+      plotting via POKE 32768+…; `hello` is the starter)
+- [x] finalize `aiProfile.ts` (BASIC 4.0, 40×25 mono, screen RAM 32768, no
       colour/SID/sprites, GET for game input, disk keywords tokenize but no
       disk is wired, maxTokens as c64)
-- [ ] `index.ts` — assemble the full `Dialect` (`programRamBytes: 31743`,
+- [x] `index.ts` — assemble the full `Dialect` (`programRamBytes: 31743`,
       `displaySize`, `romUrl` pointing at the KERNAL image, no
-      `joystickModes` — the PET has no joystick port)
-- [ ] **register in `src/dialects/registry.ts`**
-- [ ] update this plan + the roadmap row to ✅
-- [ ] optional `.virtual-keyboard.vk-theme-pet` block in `src/styles.css`
+      `joystickModes` — the PET has no joystick port) _(done at scaffold time)_
+- [x] **register in `src/dialects/registry.ts`**
+- [x] update this plan + the roadmap row to ✅
+- [x] optional `.vk-theme-pet` block in `src/keyboard/VirtualKeyboard.css`
       (green-phosphor theme)
-- [ ] tests: keyboard-layout validation, keyboard matrix (physical+virtual
+- [x] tests: keyboard-layout validation, keyboard matrix (physical+virtual
       union), samples tokenize cleanly (registration also enrols the dialect
       in `src/dialects/roundTrip.test.ts`)
 

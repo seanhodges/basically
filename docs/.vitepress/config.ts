@@ -128,6 +128,10 @@ export default withPwa(
                 ],
               },
               {
+                text: 'Commodore PET BASIC 4.0',
+                link: '/reference/pet',
+              },
+              {
                 text: 'Acorn Atom BASIC',
                 link: '/reference/atom',
                 collapsed: true,

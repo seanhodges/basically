@@ -1,18 +1,207 @@
-import type { KeyboardLayout } from '../../keyboard/layoutSchema';
+import type {
+  KeyDef,
+  KeyLabel,
+  KeyboardLayout,
+} from '../../keyboard/layoutSchema';
+import { bottomRow } from '../../keyboard/templateRows';
+import { C64_SHIFT_GRAPHICS } from '../commodore64/graphics';
 
 /**
- * TODO (pet Stage 3): the PET graphics keyboard as layout data - letters with
- * shifted-graphics legends (shared graphics.ts tables), numeric-pad column,
- * no Commodore key; key tokens must match petMachine.setKey.
- * See docs/contributing/dialect-plans/pet.md.
+ * The Commodore PET graphics keyboard on the standard virtual-keyboard template.
+ *
+ * The PET graphics keyboard has a single block-graphics set - the one printed on
+ * the *front* of every letter key and produced by holding SHIFT (there is no
+ * Commodore key, so unlike the C64 there is no second, C=, set). The plan
+ * therefore reuses the shared C64 SHIFT graphics (`../commodore64/graphics`,
+ * `C64_SHIFT_GRAPHICS`) as the PET's shifted set.
+ *
+ * Two top-strip modes:
+ *  - **ABC** - letters/digits; SHIFT surfaces the editor operators/punctuation
+ *    (`+ - * / = : ; @ £`, `! " # $ % & ' ( )`, `< > ?`) that a BASIC program
+ *    needs. As on the C64 layout these SHIFT legends are editor inserts: the
+ *    live matrix still sees SHIFT+key (which on the real machine draws the
+ *    block graphic), so they are typing conveniences, not hardware fidelity.
+ *  - **GRAPHICS** - the block graphics on the 26 letter keys, pinned by the
+ *    mode (`gfxShift`), so a graphic can be typed without holding SHIFT.
+ *
+ * Every key `emits` a PET matrix token (see `../../emulator/pet/keyboard.ts`);
+ * the punctuation keys use the PET's direct-key tokens (`,` `.` `/` `"`) rather
+ * than shifted digits, since the graphics keyboard has dedicated keys for them.
+ * RUN/STOP, the cursor keys and the numeric-pad duplicates are dropped from the
+ * on-screen keyboard; the ten digit keys stand in for the pad.
  */
+
+const shiftGfx = new Map(C64_SHIFT_GRAPHICS.map((g) => [g.key, g.char]));
+
+/** A block-graphic legend that inserts its own character, or null if none. */
+const gfxLabel = (char: string | undefined): KeyLabel | null =>
+  char === undefined ? null : { text: char, editor: { insert: char } };
+
+/**
+ * A key: base label, optional shifted label, and the letter's block graphic
+ * looked up by id. Label tuple order matches `layers` below:
+ * [base, shift, gfxShift].
+ */
+function key(
+  id: string,
+  emit: string,
+  base: string,
+  shift?: string,
+  spanX = 4,
+): KeyDef {
+  const labels: (KeyLabel | null)[] = [
+    { text: base },
+    shift ? { text: shift } : null,
+    gfxLabel(shiftGfx.get(id)),
+  ];
+  return { id, spanX, emits: [emit], labels };
+}
+
+const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
+
+/** A bottom-row / strip key with only a main label (no shift, no graphics). */
+const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [main, null, null];
+
+// Numeric row: the graphics keyboard's pad digits, with the PET's top-row
+// punctuation offered as SHIFT editor inserts (! " # $ % & ' ( )).
+const numberRow = [
+  key('Num1', 'Num1', '1', '!'),
+  key('Num2', 'Num2', '2', '"'),
+  key('Num3', 'Num3', '3', '#'),
+  key('Num4', 'Num4', '4', '$'),
+  key('Num5', 'Num5', '5', '%'),
+  key('Num6', 'Num6', '6', '&'),
+  key('Num7', 'Num7', '7', "'"),
+  key('Num8', 'Num8', '8', '('),
+  key('Num9', 'Num9', '9', ')'),
+  key('Num0', 'Num0', '0'),
+];
+
+const qwertyRow = [
+  letter('Q'),
+  letter('W'),
+  letter('E'),
+  letter('R'),
+  letter('T'),
+  letter('Y'),
+  letter('U'),
+  letter('I'),
+  letter('O'),
+  letter('P'),
+];
+
+// SHIFT legends on the home row expose the common operators as editor inserts.
+const homeRow = [
+  letter('A', '+'),
+  letter('S', '-'),
+  letter('D', '*'),
+  letter('F', '/'),
+  letter('G', '='),
+  letter('H', ':'),
+  letter('J', ';'),
+  letter('K', '@'),
+  letter('L', '£'),
+  {
+    id: 'Return',
+    spanX: 4,
+    emits: ['Return'],
+    labels: plainLabels({ text: '↵', editor: { action: 'newline' } }),
+  } satisfies KeyDef,
+];
+
+const zxcvRow = [
+  letter('Z'),
+  letter('X'),
+  letter('C'),
+  letter('V'),
+  letter('B'),
+  letter('N'),
+  letter('M'),
+  key('Comma', ',', ',', '<'),
+  key('Period', '.', '.', '>'),
+  key('Slash', '/', '/', '?'),
+];
+
+const shiftKey: KeyDef = {
+  id: 'LeftShift',
+  spanX: 6,
+  emits: ['LeftShift'],
+  modifier: 'shift',
+  style: 'shift',
+  labels: plainLabels({ text: '⇧' }),
+};
+
+const spaceKey = {
+  id: 'Space',
+  emits: ['Space'],
+  style: 'small-main',
+  labels: plainLabels({ text: '␣', editor: { insert: ' ' } }),
+} satisfies Omit<KeyDef, 'spanX'>;
+
+// The PET graphics keyboard has a dedicated " key (matrix token '"').
+const quoteKey: KeyDef = {
+  id: 'Quote',
+  spanX: 4,
+  emits: ['"'],
+  labels: plainLabels({ text: '"' }),
+};
+
+const backspaceKey: KeyDef = {
+  id: 'InstDel',
+  spanX: 4,
+  emits: ['InstDel'],
+  labels: plainLabels({ text: '⌫', editor: { action: 'backspace' } }),
+};
+
+const rows: KeyDef[][] = [
+  numberRow,
+  qwertyRow,
+  homeRow,
+  zxcvRow,
+  bottomRow([shiftKey], spaceKey, [quoteKey, backspaceKey]),
+];
+
 export const petKeyboardLayout: KeyboardLayout = {
   id: 'pet',
   name: 'Commodore PET',
   theme: 'vk-theme-pet',
   gridColumns: 40,
-  layers: [],
-  modifiers: [],
-  rows: [],
+  layers: [
+    {
+      id: 'base',
+      position: 'center',
+      activeWhen: [],
+      editorInsertStyle: 'char',
+    },
+    {
+      id: 'shift',
+      name: 'SHIFT',
+      position: 'tr',
+      activeWhen: ['shift'],
+      editorInsertStyle: 'char',
+    },
+    // The single graphics set, pinned by GRAPHICS mode (not a modifier), so it
+    // stays always-rendered (activeWhen []) and carries its own inserts.
+    { id: 'gfxShift', name: 'GRAPHICS', position: 'bl', activeWhen: [] },
+  ],
+  editorModes: [
+    { id: 'abc', name: 'ABC', layer: 'base' },
+    { id: 'graphics', name: 'GRAPHICS', layer: 'gfxShift' },
+  ],
+  modifiers: [
+    { id: 'shift', emits: ['LeftShift'], sticky: true, lockable: true },
+  ],
+  rows,
   glyphs: {},
+  // WASD movement + Space/Return fire (the convention the bundled PET games use).
+  controller: {
+    bindings: {
+      up: 'W',
+      down: 'S',
+      left: 'A',
+      right: 'D',
+      fire1: 'Space',
+      fire2: 'Return',
+    },
+  },
 };

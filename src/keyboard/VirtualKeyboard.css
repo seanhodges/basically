@@ -739,3 +739,29 @@
 .vk-theme-trs80 .vk-pos-tr.vk-active {
   color: #e8e8e8;
 }
+
+/* ---------------------------------------------------------------------------
+   Commodore PET keyboard theme: green-phosphor accents matching the monochrome
+   display. The SHIFT operators sit top-right and the block-graphics legend
+   bottom-left (the GRAPHICS mode), both in a dim phosphor green that brightens
+   when the layer is active. Activated by the layout's `theme: 'vk-theme-pet'`. */
+.vk-theme-pet:not(.vk-compact) .vk-pos-tr {
+  right: 4px;
+  top: 4px;
+  font-size: 9px;
+  color: #4f9a5a;
+}
+
+.vk-theme-pet:not(.vk-compact) .vk-pos-bl {
+  left: 4px;
+  right: auto;
+  bottom: 15px;
+  text-align: left;
+  font-size: 9px;
+  color: #4f9a5a;
+}
+
+.vk-theme-pet .vk-pos-tr.vk-active,
+.vk-theme-pet .vk-pos-bl.vk-active {
+  color: #8dff9a;
+}
