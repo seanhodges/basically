@@ -1,15 +1,26 @@
 import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
+import { buildBasicLanguage } from '../../editor/basicLanguage';
+import { buildCompletionSource } from '../../editor/completions';
+import { constructsByDialect } from '../../editor/constructs';
+import { vic20Keywords } from './keywords';
 
-/**
- * TODO (vic20 Stage 1): buildBasicLanguage over the (re-exported C64) keyword
- * table with the same BasicLanguageOptions as the C64.
- * See docs/contributing/dialect-plans/vic20.md.
- */
+export const vic20CompletionSource: CompletionSource = buildCompletionSource(
+  vic20Keywords,
+  constructsByDialect.vic20,
+  { crunched: true },
+);
+
 export function vic20LanguageSupport(): Extension {
-  throw new Error('vic20: not implemented (Stage 1)');
+  // VIC-20 BASIC V2 shares the C64's lexical rules: variable names are
+  // letters/digits ending optionally in '$' (string) or '%' (integer), only the
+  // first two characters are significant, there are no hex/binary literals or
+  // block-graphics escapes in source, and the ROM ignores spaces outside
+  // strings/REM ("code crunching") — so the editor splits glued keywords the
+  // same way.
+  return buildBasicLanguage(vic20Keywords, vic20CompletionSource, {
+    suffixChars: '$%',
+    graphicsEscapes: false,
+    crunched: true,
+  });
 }
-
-export const vic20CompletionSource: CompletionSource = () => {
-  throw new Error('vic20: not implemented (Stage 1)');
-};

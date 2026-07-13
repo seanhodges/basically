@@ -68,7 +68,7 @@
 
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
-| 1     | Language core                          | ⬜     |
+| 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ⬜     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
@@ -76,7 +76,7 @@
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no emulator, no registry change. VIC-20 BASIC
 V2 is token-identical to the C64's ($80–$CB, π at $FF) and uses the same
@@ -88,22 +88,22 @@ $0801.
 started first, do that step here instead — it is written as a self-contained
 step in `pet.md`.
 
-- [ ] `keywords.ts` — re-export `c64Keywords` / `c64KeywordsByLength` /
+- [x] `keywords.ts` — re-export `c64Keywords` / `c64KeywordsByLength` /
       `c64WordByToken` (one-line module keeping the sibling import in one
       place)
-- [ ] `charset.ts` — re-export the C64 charset as `vic20Charset` (PETSCII is
+- [x] `charset.ts` — re-export the C64 charset as `vic20Charset` (PETSCII is
       identical)
-- [ ] `language.ts` — `languageSupport()` + `completionSource`, same
+- [x] `language.ts` — `languageSupport()` + `completionSource`, same
       `BasicLanguageOptions` as the C64
-- [ ] `tokenizer.ts` / `detokenizer.ts` — export
+- [x] `tokenizer.ts` / `detokenizer.ts` — export
       `VIC20_VARIANT: CbmVariant = { progStart: 0x1001, keywordsByLength: c64KeywordsByLength }`
       and thin wrappers delegating to the commodore64 siblings
-- [ ] image builder (`targets.ts` `buildPrg`) — `[0x01, 0x10, ...program]`,
+- [x] image builder (`targets.ts` `buildPrg`) — `[0x01, 0x10, ...program]`,
       throwing on fatal errors
-- [ ] `lint` wired through `tokenize` + `c64VariableErrors`
-- [ ] `src/editor/constructs.ts` — add a `vic20` entry to
+- [x] `lint` wired through `tokenize` + `c64VariableErrors`
+- [x] `src/editor/constructs.ts` — add a `vic20` entry to
       `constructsByDialect`
-- [ ] tests: token identity with the C64 table, tokenizer round-trip,
+- [x] tests: token identity with the C64 table, tokenizer round-trip,
       link-pointer arithmetic from $1001, import warnings for $0801 (C64) and
       $1201 / $0401 (RAM-expansion) load addresses
 

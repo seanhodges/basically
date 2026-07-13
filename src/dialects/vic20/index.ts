@@ -1,11 +1,19 @@
-import type { Dialect, MachineEmulator, TokenizeResult } from '../types';
+import {
+  hasFatalErrors,
+  type Dialect,
+  type MachineEmulator,
+  type TokenizeResult,
+} from '../types';
 import { vic20Keywords } from './keywords';
 import { vic20Charset } from './charset';
+import { tokenizeProgram } from './tokenizer';
+import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { vic20LanguageSupport, vic20CompletionSource } from './language';
 import { vic20BuildTargets } from './targets';
 import { vic20KeyboardLayout } from './keyboardLayout';
 import { vic20Samples } from './samples';
 import { vic20AiProfile } from './aiProfile';
+import { c64VariableErrors } from '../../editor/variableLint';
 
 /**
  * Commodore VIC-20 dialect - scaffolding only, NOT registered in
@@ -29,16 +37,33 @@ export const vic20: Dialect = {
   languageSupport: vic20LanguageSupport,
   completionSource: vic20CompletionSource,
 
-  tokenize(_source: string): TokenizeResult {
-    throw new Error('vic20: not implemented (Stage 1)');
+  tokenize(source: string): TokenizeResult {
+    const { program, errors } = tokenizeProgram(source);
+    // A non-empty image is the load address plus a program with at least one
+    // line (more than the bare 0x0000 end link). Unexpanded VIC-20 programs
+    // load at $1001.
+    const image =
+      !hasFatalErrors(errors) && program.length > 2
+        ? Uint8Array.from([0x01, 0x10, ...program])
+        : new Uint8Array(0);
+    return { programBytes: program, image, errors, byteSize: program.length };
   },
 
-  detokenize(_image: Uint8Array): string {
-    throw new Error('vic20: not implemented (Stage 1)');
+  detokenize(image: Uint8Array): string {
+    return detokenizeProgram(image);
   },
 
-  lint(_source: string) {
-    throw new Error('vic20: not implemented (Stage 1)');
+  detokenizeWithReport(image: Uint8Array) {
+    return detokenizeProgramWithReport(image);
+  },
+
+  lint(source: string) {
+    // Reuse the C64 Microsoft-BASIC variable checks; the VIC-20 keyword table
+    // is the C64's, so no dialect-specific keyword set is needed here.
+    return [
+      ...tokenizeProgram(source).errors,
+      ...c64VariableErrors(source, vic20Keywords),
+    ];
   },
 
   // TODO (vic20 Stage 2): romUrl + displaySize once the machine and its ROM

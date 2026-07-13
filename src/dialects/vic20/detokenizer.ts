@@ -1,17 +1,33 @@
 import type { DetokenizeResult } from '../types';
+import {
+  detokenizeProgram as detokenizeCbm,
+  detokenizeProgramWithReport as detokenizeCbmWithReport,
+  type CbmDetokenizeVariant,
+} from '../commodore64/detokenizer';
+import { vic20WordByToken } from './keywords';
 
 /**
- * TODO (vic20 Stage 1): thin wrappers over the commodore64 detokenizer via
- * the CbmVariant seam ($1001 load address, c64WordByToken, a machine hint
- * naming the RAM-expansion load addresses $0401/+3K and $1201/+8K).
- * See docs/contributing/dialect-plans/vic20.md.
+ * The VIC-20's LIST/import variant: unexpanded .prg images load at $1001,
+ * tokens decode through the plain BASIC V2 table (byte-identical to the C64's),
+ * and a foreign load address is reported as most likely a C64 ($0801) or a
+ * RAM-expanded VIC-20 ($0401 with +3K, $1201 with +8K/+16K) image.
  */
-export function detokenizeProgram(_image: Uint8Array): string {
-  throw new Error('vic20: not implemented (Stage 1)');
+const VIC20_DETOKENIZE_VARIANT: CbmDetokenizeVariant = {
+  loadAddress: 0x1001,
+  wordByToken: vic20WordByToken,
+  machineHint:
+    'C64 ($0801), a RAM-expanded VIC-20 ($0401 with +3K, $1201 with +8K/+16K) or machine-code',
+  machineName: 'VIC-20',
+};
+
+/** Convert a tokenized VIC-20 BASIC V2 program (or .prg) back into editable text. */
+export function detokenizeProgram(image: Uint8Array): string {
+  return detokenizeCbm(image, VIC20_DETOKENIZE_VARIANT);
 }
 
+/** Like {@link detokenizeProgram} but with import-fidelity warnings (.prg path). */
 export function detokenizeProgramWithReport(
-  _image: Uint8Array,
+  image: Uint8Array,
 ): DetokenizeResult {
-  throw new Error('vic20: not implemented (Stage 1)');
+  return detokenizeCbmWithReport(image, VIC20_DETOKENIZE_VARIANT);
 }

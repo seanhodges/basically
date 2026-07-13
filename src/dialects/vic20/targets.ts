@@ -1,12 +1,30 @@
 import type { BuildTarget } from '../types';
+import { fatalErrors } from '../types';
+import { tokenizeProgram } from './tokenizer';
 
 /**
- * TODO (vic20 Stage 1): buildPrg emitting [0x01, 0x10, ...program] ($1001
- * load address, unexpanded machine); TODO (vic20 Stage 4): .prg + cassette
- * .wav build targets. See docs/contributing/dialect-plans/vic20.md.
+ * Build the loadable .prg image: the 2-byte load address ($1001, the
+ * unexpanded VIC-20 base) followed by the tokenized program. This is the same
+ * image the emulator injects and the import/export file format — identical in
+ * shape to the C64's, only the address differs.
+ *
+ * The cassette .wav target and the `BuildTarget[]` list land in Stage 4; for now
+ * this exposes the image builder the tokenizer path and tests need.
  */
-export function buildPrg(_source: string): Uint8Array {
-  throw new Error('vic20: not implemented (Stage 1)');
+export function buildPrg(source: string): Uint8Array {
+  const { program, errors } = tokenizeProgram(source);
+  const fatal = fatalErrors(errors);
+  if (fatal.length > 0) {
+    throw new Error(
+      `Program has ${fatal.length} error(s) - fix them before building`,
+    );
+  }
+  // A bare 0x0000 end link means the program is empty.
+  if (program.length <= 2) {
+    throw new Error('Program is empty');
+  }
+  return Uint8Array.from([0x01, 0x10, ...program]);
 }
 
+// TODO (vic20 Stage 4): .prg + cassette .wav build targets.
 export const vic20BuildTargets: BuildTarget[] = [];
