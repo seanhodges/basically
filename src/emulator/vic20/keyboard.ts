@@ -3,82 +3,91 @@ import type { MatrixPos } from '../commodore/machineHelpers';
 /**
  * The VIC-20 keyboard as an 8×8 matrix, driven on VIA #2: the CPU selects a
  * column by pulling a PORT B line low and reads the pressed rows back on PORT A
- * (both active-low). Each entry is `[column, row]` — the same `[col, row]`
- * convention and token vocabulary as the C64 adapter, which the Stage 2 plan
- * reuses verbatim because the two matrices are nearly identical. Stage 3 pairs
- * this with the on-screen `keyboardLayout` and adds matrix-coverage tests; the
- * Stage 2 boot path types `RUN` through the keyboard *buffer*, not the matrix,
- * so it does not depend on these positions.
+ * (both active-low). Each entry is `[column, row]` — column is the PB select
+ * line, row is the PA read line ({@link Vic20Machine.keyboardRows} scans it as
+ * `keyMatrix[column]` with a bit set per pressed row).
  *
- * Token names follow the viciious button vocabulary (letters verbatim, digits
- * `Num0`–`Num9`, `Return`/`Space`/…). Restore is omitted: like the C64 it is
- * wired to NMI, not the matrix.
+ * The token *vocabulary* matches the C64 adapter (letters verbatim, digits
+ * `Num0`–`Num9`, `Return`/`Space`/…) so the shared virtual-keyboard layout and
+ * controller bindings resolve on either machine — but the physical *wiring* does
+ * not: the VIC-20 and C64 have different keyboard matrices (roughly transposed),
+ * so the positions below are the VIC-20's own, taken from the VIC-20
+ * Programmer's Reference Guide, not the C64 table. Restore is omitted: like the
+ * C64 it is wired to NMI, not the matrix.
  */
 export const VIC20_KEY_MATRIX: Record<string, MatrixPos> = {
-  RunStop: [7, 7],
-  Q: [7, 6],
-  Commodore: [7, 5],
-  Space: [7, 4],
-  Num2: [7, 3],
-  Ctrl: [7, 2],
-  LeftArrow: [7, 1],
-  Num1: [7, 0],
-  Slash: [6, 7],
-  UpArrow: [6, 6],
-  Equal: [6, 5],
-  RightShift: [6, 4],
-  ClrHome: [6, 3],
-  Semicolon: [6, 2],
-  Asterisk: [6, 1],
-  Pound: [6, 0],
-  Comma: [5, 7],
-  At: [5, 6],
-  Colon: [5, 5],
-  Period: [5, 4],
-  Minus: [5, 3],
-  L: [5, 2],
-  P: [5, 1],
-  Plus: [5, 0],
-  N: [4, 7],
-  O: [4, 6],
-  K: [4, 5],
-  M: [4, 4],
-  Num0: [4, 3],
-  J: [4, 2],
-  I: [4, 1],
-  Num9: [4, 0],
-  V: [3, 7],
-  U: [3, 6],
-  H: [3, 5],
-  B: [3, 4],
-  Num8: [3, 3],
-  G: [3, 2],
-  Y: [3, 1],
-  Num7: [3, 0],
-  X: [2, 7],
-  T: [2, 6],
-  F: [2, 5],
-  C: [2, 4],
-  Num6: [2, 3],
-  D: [2, 2],
-  R: [2, 1],
-  Num5: [2, 0],
-  LeftShift: [1, 7],
-  E: [1, 6],
-  S: [1, 5],
-  Z: [1, 4],
-  Num4: [1, 3],
-  A: [1, 2],
+  // Column 0 (PB0)
+  Num1: [0, 0],
+  Num3: [0, 1],
+  Num5: [0, 2],
+  Num7: [0, 3],
+  Num9: [0, 4],
+  Plus: [0, 5],
+  Pound: [0, 6],
+  InstDel: [0, 7],
+  // Column 1 (PB1)
+  LeftArrow: [1, 0],
   W: [1, 1],
-  Num3: [1, 0],
-  CursorDown: [0, 7],
-  F5: [0, 6],
-  F3: [0, 5],
-  F1: [0, 4],
-  F7: [0, 3],
-  CursorRight: [0, 2],
-  Return: [0, 1],
-  InstDel: [0, 0],
+  R: [1, 2],
+  Y: [1, 3],
+  I: [1, 4],
+  P: [1, 5],
+  Asterisk: [1, 6],
+  Return: [1, 7],
+  // Column 2 (PB2)
+  Ctrl: [2, 0],
+  A: [2, 1],
+  D: [2, 2],
+  G: [2, 3],
+  J: [2, 4],
+  L: [2, 5],
+  Semicolon: [2, 6],
+  CursorRight: [2, 7],
+  // Column 3 (PB3)
+  RunStop: [3, 0],
+  LeftShift: [3, 1],
+  X: [3, 2],
+  V: [3, 3],
+  N: [3, 4],
+  Comma: [3, 5],
+  Slash: [3, 6],
+  CursorDown: [3, 7],
+  // Column 4 (PB4)
+  Space: [4, 0],
+  Z: [4, 1],
+  C: [4, 2],
+  B: [4, 3],
+  M: [4, 4],
+  Period: [4, 5],
+  RightShift: [4, 6],
+  F1: [4, 7],
+  // Column 5 (PB5)
+  Commodore: [5, 0],
+  S: [5, 1],
+  F: [5, 2],
+  H: [5, 3],
+  K: [5, 4],
+  Colon: [5, 5],
+  Equal: [5, 6],
+  F3: [5, 7],
+  // Column 6 (PB6)
+  Q: [6, 0],
+  E: [6, 1],
+  T: [6, 2],
+  U: [6, 3],
+  O: [6, 4],
+  At: [6, 5],
+  UpArrow: [6, 6],
+  F5: [6, 7],
+  // Column 7 (PB7)
+  Num2: [7, 0],
+  Num4: [7, 1],
+  Num6: [7, 2],
+  Num8: [7, 3],
+  Num0: [7, 4],
+  Minus: [7, 5],
+  ClrHome: [7, 6],
+  F7: [7, 7],
 };
 
 /**
