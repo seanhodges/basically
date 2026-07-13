@@ -42,6 +42,23 @@
   `src/emulator/commodore/` (from the PET plan); at Stage 5, the parameterized
   `src/emulator/c64/vars.ts` / `reports.ts` readers with their C64 defaults
   (the VIC-20 zero page is the C64's).
+- **Reuse (viciious):** the vendored viciious core
+  (`src/emulator/c64/viciious/`, public domain) was rejected only as the
+  _machine core/bus_ — its code can be freely **referenced, copied or adapted**
+  wherever C64 hardware overlaps with the VIC-20. Most useful here:
+  `target/vic.js` (the VIC-II renderer's register decode, screen/chargen base
+  derivation, matrix walk and border handling are the closest working model
+  for `vicI.ts` — the VIC-I is its simpler cousin) with `tools/palettes.js`
+  for palette shape; `target/cias.js` (the CIA 6526 is the later sibling of
+  the VIA 6522 — timer, interrupt-flag/mask and port-latch logic for
+  `src/emulator/commodore/via6522.ts`); `target/cpu.js` (a battle-tested 6502
+  to consult when debugging the in-tree bus); `tools/loadPrg.js` (the
+  PRG-injection / pointer-fixup sequence `loadProgram` mirrors); and
+  `target/tape.js` (datasette pulses, if Stage 4 ever needs more than the
+  shared WAV codecs). The C64 keyboard-matrix token vocabulary this plan
+  reuses also comes from the viciious button names. Public domain means
+  copying is license-clean; leave an "adapted from viciious" comment at the
+  borrow site.
 - **License note:** nothing new — the 6502 core (ISC) is already vendored and
   all new machine code is first-party.
 
@@ -98,7 +115,11 @@ unchanged.
 
 The genuinely new engineering: the first colour machine on the in-tree 6502
 core. Consumes `src/emulator/commodore/` from the PET plan's Stage 2 and
-completes `via6522.ts` where the PET only needed a minimal version.
+completes `via6522.ts` where the PET only needed a minimal version. Where the
+hardware overlaps the C64, reference/copy/adapt the vendored viciious code
+(see the Target summary's viciious bullet — in particular `target/vic.js` +
+`tools/palettes.js` as the working model for the VIC-I renderer, and
+`target/cias.js` for the VIA timer/IRQ logic).
 
 - [ ] `src/emulator/commodore/via6522.ts` — complete T1 free-run/one-shot and
       T2 behaviour, IFR/IER semantics and the IRQ line (the KERNAL's 60Hz

@@ -44,6 +44,19 @@
   `src/editor/variableLint.ts` (`c64VariableErrors` already takes the keyword
   table); at Stage 5, parameterized `src/emulator/c64/vars.ts` / `reports.ts`
   readers.
+- **Reuse (viciious):** the vendored viciious core
+  (`src/emulator/c64/viciious/`, public domain) was rejected only as the
+  _machine core/bus_ — its code can be freely **referenced, copied or adapted**
+  wherever C64 hardware overlaps with the PET. Most useful here:
+  `target/cias.js` (the CIA 6526 is the later sibling of the PIA 6520 /
+  VIA 6522 — its timer, interrupt-flag/mask and port-latch logic is a direct
+  structural reference for `src/emulator/commodore/pia6520.ts` / `via6522.ts`),
+  `target/cpu.js` (a battle-tested 6502 to consult when debugging the in-tree
+  bus), `tools/loadPrg.js` (the PRG-injection / pointer-fixup sequence
+  `loadProgram` mirrors) and `target/tape.js` (datasette pulse handling, if
+  Stage 4 ever needs more than the shared WAV codecs). Public domain means
+  copying is license-clean; leave an "adapted from viciious" comment at the
+  borrow site.
 - **License note:** nothing new — the 6502 core (ISC) is already vendored and
   all new machine code is first-party.
 
@@ -123,7 +136,11 @@ unchanged.
 The PET is the simplest possible in-tree machine: no video chip (the screen is
 1KB of RAM at $8000 rendered through the character ROM), no colour, and I/O is
 two PIAs and one VIA at $E810–$E84F. This stage also creates the shared
-`src/emulator/commodore/` modules the VIC-20 plan reuses.
+`src/emulator/commodore/` modules the VIC-20 plan reuses. Where the hardware
+overlaps the C64, reference/copy/adapt the vendored viciious code (see the
+Target summary's viciious bullet — `target/cias.js` for the PIA/VIA chip
+modules, `target/cpu.js` for 6502 behaviour, `tools/loadPrg.js` for program
+injection).
 
 **Shared modules — `src/emulator/commodore/`:**
 
