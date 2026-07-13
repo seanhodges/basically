@@ -129,8 +129,7 @@ often a sound chip) that must be emulated before BASIC output is visible.
 These popular machines can't reuse any bundled core or the effort is potentially high.
 
 | Status | Machine                                                | CPU   | Why blocked                                |
-| ------ | ------------------------------------------------------ | ----- | ------------------------------------------ | ------------------------------------------ |
-| ⛔     | Memotech MTX, Tatung Einstein, Sord M5, Camputers Lynx | Z80   | various                                    | Niche; each a bespoke video implementation |
+| ------ | ------------------------------------------------------ | ----- | ------------------------------------------ |
 | ⛔     | Dragon 32 / 64, Tandy CoCo                             | 6809  | No 6809 core bundled                       |
 | ⛔     | Commodore Amiga, Atari ST                              | 68000 | No 68000 core bundled                      |
 | ⬜     | Memotech MTX, Tatung Einstein, Sord M5, Camputers Lynx | Z80   | Niche; each a bespoke video implementation |
