@@ -219,8 +219,9 @@ sanity check.
       PET plan's Stage 5 — the VIC-20 zero page **is** the C64's (TXTTAB $2B,
       VARTAB $2D, FRETOP $33, MEMSIZ $37, CURLIN $39), so only the report
       scan's `screen: $1E00, 22×23` differs
-- [ ] `currentLine` / `debugStep` + `debuggable: true` (trivial with a
-      synchronous `step()` loop checking CURLIN)
+- [ ] `currentLine` / `debugStep` + `debuggable: true` (step one instruction by
+      cycling `cpu.cycle()` until `executionState` returns to `fetch`, checking
+      CURLIN)
 - [ ] optional `readAudio` — VIC-I voices $900A–$900D + volume ($900E low
       nibble) as host-side square-wave synthesis (the C64 `SidRenderer`
       pattern)

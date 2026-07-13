@@ -247,7 +247,8 @@ ROM matches the C64's PAL precedent).
       The 5-byte MFLPT float decode is identical
 - [ ] wire `readVariables` / `readReport` / `readMemoryStats` /
       `currentLine` / `debugStep` into `petMachine.ts`; set
-      `debuggable: true` (trivial with a synchronous `step()` loop)
+      `debuggable: true` (step one instruction by cycling `cpu.cycle()` until
+      `executionState` returns to `fetch`)
 - [ ] optional CB2 piezo `readAudio` (square wave from the VIA shift
       register / CB2 line)
 - [ ] AI-profile accuracy pass
