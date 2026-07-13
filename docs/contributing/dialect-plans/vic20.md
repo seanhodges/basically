@@ -72,7 +72,7 @@
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
-| 2     | Emulator core                          | ⬜     |
+| 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Polish / optional                      | ⬜     |
@@ -114,7 +114,7 @@ step in `pet.md`.
 **Verify:** `npm test` + `npm run typecheck` — the commodore64 suite must pass
 unchanged.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅
 
 The genuinely new engineering: the first colour machine on the in-tree 6502
 core. Consumes `src/emulator/commodore/` from the PET plan's Stage 2 and
@@ -124,45 +124,47 @@ hardware overlaps the C64, reference/copy/adapt the vendored viciious code
 `tools/palettes.js` as the working model for the VIC-I renderer, and
 `target/cias.js` for the VIA timer/IRQ logic).
 
-- [ ] `src/emulator/commodore/via6522.ts` — complete T1 free-run/one-shot and
-      T2 behaviour, IFR/IER semantics and the IRQ line (the KERNAL's 60Hz
-      jiffy interrupt is VIA T1-driven: assert `cpu.setInterrupt(true)` while
-      the VIA IRQ flag is set and `cpu.setInterrupt(false)` once the handler
-      clears it — the line is level-sensitive)
-- [ ] `src/emulator/vic20/memory.ts` — the `BusInterface` the CPU reads/writes,
+- [x] `src/emulator/commodore/via6522.ts` — the shared VIA already carried the
+      full T1 free-run/one-shot, T2 and IFR/IER logic (assert
+      `cpu.setInterrupt(via.irqAsserted())` each cycle for the level-sensitive
+      line); Stage 2 added `portAOut()` / `portBOut()` for the keyboard column
+      scan and extended `via6522.test.ts` to cover them and the master IFR bit
+- [x] `src/emulator/vic20/memory.ts` — the `BusInterface` the CPU reads/writes,
       unexpanded map: RAM $0000–$03FF + $1000–$1FFF (screen at $1E00),
       chargen ROM $8000–$8FFF, VIC-I registers $9000–$900F, VIA1 $9110–$911F,
       VIA2 $9120–$912F, 4-bit colour RAM $9400–$97FF (unexpanded screen pairs
       with $9600), BASIC ROM $C000–$DFFF, KERNAL $E000–$FFFF, open bus
-      elsewhere
-- [ ] `src/emulator/vic20/vicI.ts` — **frame-approximate** 6561 renderer over
-      the shared `charRenderer.ts`: once per frame read $9000–$900F (screen /
-      chargen bases from $9002/$9005, border + auxiliary + background colours
-      from $900E/$900F), walk the 22×23 matrix + colour nibbles, blit 8×8
-      glyphs + border into the RGBA buffer. Raster-split tricks are explicitly
-      out of scope
-- [ ] `src/emulator/vic20/vic20Machine.ts` — a `Vic20Machine` class
-      implementing `MachineEmulator` over `new StateMachineCpu(bus)` (the
-      machine supplies the `BusInterface`): `runFrame` = cycle budget
-      (`CYCLES_PER_FRAME = 1_108_404 / 50 ≈ 22_168` at the PAL 1.108MHz clock —
-      exact now the core is cycle-accurate), charging the same cycle count into
-      both VIA timers so the jiffy IRQ fires; keyboard matrix on
-      VIA2 (PB columns out, PA rows in) reusing the C64 token vocabulary (the
-      matrices are nearly identical, so `tokenToButtons` / `domCodeToTokens`
-      port across); `setJoystick('native', …)` on VIA1 PA2–PA5 + VIA2 PB7
-      (single fire line)
-- [ ] `loadProgram` — reset → run until screen RAM at $1E00 shows `READY.`
-      (cycle-capped) → poke image at $1001 → set VARTAB/ARYTAB/STREND
-      ($2D/$2F/$31 — identical to the C64) → inject `RUN\r` via the keyboard
-      buffer ($0277, count at NDX $C6 — same as the C64, safe because we own
-      the bus)
-- [ ] ROMs into `public/roms/vic20/` with an `ATTRIBUTION.md` section
-- [ ] `displaySize` on the dialect (not 256×192);
-      `VIC20_DISPLAY_WIDTH` / `VIC20_DISPLAY_HEIGHT` exported
-- [ ] tests: `via6522.test.ts` (timer/IFR semantics — extends the PET plan's
-      coverage), `vicI.test.ts` (glyph blit from a known matrix + colour RAM),
-      `vic20Machine.test.ts` — boot to `READY.`, inject `10 PRINT "HI"`, run
-      frames, assert on screen RAM at $1E00
+      elsewhere (holes read `$FF`, never the last write, so the KERNAL sizes
+      RAM to the unexpanded 3583-byte area)
+- [x] `src/emulator/vic20/vicI.ts` — **frame-approximate** 6561 renderer over
+      the shared `charRenderer.ts` (extended with a live background/border
+      override for POKE 36879): once per frame read $9000–$900F (screen /
+      chargen bases from $9002/$9005 via the A13-inverted VIC→CPU mapping,
+      colour pair tracking $9002 bit 7, border + background from $900F), walk
+      the 22×23 matrix + colour nibbles, blit 8×8 glyphs + border. Multicolour
+      and raster-split tricks are out of scope
+- [x] `src/emulator/vic20/vic20Machine.ts` — a `Vic20Machine` class
+      implementing `MachineEmulator` over `new StateMachineCpu(bus)`: `runFrame`
+      = cycle budget (`CYCLES_PER_FRAME = round(1_108_404 / 50) = 22_168` at the
+      PAL 1.108MHz clock), ticking both VIA timers each cycle so the VIA2 T1
+      jiffy IRQ fires; keyboard matrix on VIA2 (PB columns out, PA rows in) with
+      the C64 token vocabulary in `keyboard.ts`; `setJoystick('native', …)` on
+      VIA1 PA2–PA5 + VIA2 PB7 (single fire line)
+- [x] `loadProgram` — reset → run until screen RAM at $1E00 shows `READY.`
+      (cycle-capped) → poke image at $1001 (byte below TXTTAB cleared) → set
+      VARTAB/ARYTAB/STREND ($2D/$2F/$31 — identical to the C64) → drop `RUN\r`
+      (PETSCII) into the keyboard buffer ($0277, count at NDX $C6 — same as the
+      C64, safe because we own the bus)
+- [x] ROMs into `public/roms/vic20/` (`basic.bin` / `kernal.bin` /
+      `chargen.bin`, the standard 901486-01 / PAL 901486-07 / 901460-03 images)
+      with an `ATTRIBUTION.md` section
+- [x] `displaySize` on the dialect (232×248); `VIC20_DISPLAY_WIDTH` /
+      `VIC20_DISPLAY_HEIGHT` exported; `romUrl` + `createEmulator` wired
+- [x] tests: `via6522.test.ts` (port-output + master-IFR, extends the PET
+      plan's coverage), `vicI.test.ts` (glyph blit + live background from a
+      known matrix + colour RAM + base tracking), `vic20Machine.test.ts` — boot
+      to `READY.`, "3583 BYTES FREE", inject `10 PRINT "HI"` and a screen POKE,
+      run frames, assert on screen RAM at $1E00
 
 **Depends on:** Stage 1 (charset, image builder) + the PET plan's Stage 2
 (shared `src/emulator/commodore/` modules).
@@ -170,6 +172,10 @@ hardware overlaps the C64, reference/copy/adapt the vendored viciious code
 `CYCLES_PER_FRAME` a direct clock ÷ 50Hz calculation, so `TI$`/delay loops keep
 accurate time; a `FOR I=1 TO 1000` timing check is still a useful end-to-end
 sanity check.
+
+> **Note:** the dialect stays unregistered until Stage 3 — `joystickModes`,
+> the keyboard layout, samples and `aiProfile` are still stubs, so the app does
+> not surface the VIC-20 yet even though the machine boots and runs.
 
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 

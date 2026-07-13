@@ -88,3 +88,21 @@ solely for use with the bundled emulator.
 
 If you are the rights holder and want these files removed, please open an
 issue — the IDE also supports supplying your own ROM image at runtime.
+
+`vic20/basic.bin` (Commodore BASIC v2 at $C000, part 901486-01),
+`vic20/kernal.bin` (the PAL KERNAL at $E000, part 901486-07) and
+`vic20/chargen.bin` (the character generator at $8000, part 901460-03) are the
+three Commodore VIC-20 ROMs, the firmware originally copyright © 1981–1982
+Commodore Business Machines, with rights now held by Cloanto / C64 Forever.
+The filenames mirror the `c64/` naming.
+
+They are the standard VICE/MAME unexpanded PAL VIC-20 images, identified by
+their part numbers and CRC32s (`db4c43c1`, `4be07cb4`, `83e032a6`
+respectively). As with the C64, PET and Acorn ROMs above there is no formal
+blanket permission from the rights holder, but VIC-20 ROM images have been
+distributed with emulators (VICE, MAME, and others) for decades on a
+de-facto-tolerated basis. They are included here, unmodified, solely for use
+with the bundled emulator.
+
+If you are the rights holder and want these files removed, please open an
+issue — the IDE also supports supplying your own ROM image at runtime.

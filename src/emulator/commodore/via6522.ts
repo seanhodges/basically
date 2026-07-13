@@ -85,6 +85,20 @@ export class Via6522 {
   }
 
   /**
+   * The output register of port A masked to its output pins — the value the
+   * machine reads to learn what the CPU drove out (e.g. the VIC-20 keyboard
+   * column select). Mirrors {@link Pia6520.portAOut}.
+   */
+  portAOut(): number {
+    return this.ora & this.ddra;
+  }
+
+  /** The output register of port B masked to its output pins. */
+  portBOut(): number {
+    return this.orb & this.ddrb;
+  }
+
+  /**
    * The CA2 output level. The PCR's CA2 control is bits 3..1: `111` = manual
    * output high, `110` = manual output low (the other codes are handshake
    * modes). On the PET this line selects the character ROM half (POKE 59468,14 /

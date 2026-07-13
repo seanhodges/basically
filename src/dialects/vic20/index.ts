@@ -1,9 +1,9 @@
+import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import {
-  hasFatalErrors,
-  type Dialect,
-  type MachineEmulator,
-  type TokenizeResult,
-} from '../types';
+  Vic20Machine,
+  VIC20_DISPLAY_WIDTH,
+  VIC20_DISPLAY_HEIGHT,
+} from '../../emulator/vic20/vic20Machine';
 import { vic20Keywords } from './keywords';
 import { vic20Charset } from './charset';
 import { tokenizeProgram } from './tokenizer';
@@ -66,11 +66,16 @@ export const vic20: Dialect = {
     ];
   },
 
-  // TODO (vic20 Stage 2): romUrl + displaySize once the machine and its ROM
-  // set land under src/emulator/vic20/ and public/roms/vic20/.
+  // Prefetched by the app for cache warming; the VIC-20 machine loads the full
+  // ROM set (BASIC + KERNAL + CHARGEN) itself from public/roms/vic20/.
+  romUrl: `${import.meta.env.BASE_URL}roms/vic20/kernal.bin`,
 
-  createEmulator(_opts): MachineEmulator {
-    throw new Error('vic20: not implemented (Stage 2)');
+  displaySize: { width: VIC20_DISPLAY_WIDTH, height: VIC20_DISPLAY_HEIGHT },
+
+  // opts.rom/ramKb are ignored: the machine manages its own ROM set and the
+  // fixed unexpanded 64K map.
+  createEmulator(opts) {
+    return new Vic20Machine({ files: opts.files });
   },
 
   keyboardLayout: vic20KeyboardLayout,

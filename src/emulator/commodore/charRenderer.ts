@@ -66,21 +66,29 @@ export class CharRenderer {
 
   /**
    * Colour variant used by the VIC-20: `colorFor(cx + cy*cols)` supplies each
-   * cell's foreground colour; background stays uniform. Unused by the PET.
+   * cell's foreground colour; the background and border stay uniform but can be
+   * overridden per frame via `colors` (the VIC-20's screen/border colours live
+   * in a live register — POKE 36879 — so they change while the program runs).
+   * Unused by the PET.
    */
   renderColored(
     screenRam: Uint8Array,
     charRom: Uint8Array,
     colorFor: ColorFn,
     charBase = 0,
+    colors?: {
+      background: readonly [number, number, number];
+      border: readonly [number, number, number];
+    },
   ): void {
-    this.paintBorder();
+    const bg = colors?.background ?? this.cfg.background;
+    this.paintBorder(colors?.border ?? this.cfg.border ?? bg);
     const { cols, rows } = this.cfg;
     for (let cy = 0; cy < rows; cy++) {
       for (let cx = 0; cx < cols; cx++) {
         const cell = cy * cols + cx;
         const code = screenRam[cell] ?? 0;
-        this.drawGlyph(cx, cy, code, charRom, charBase, colorFor(cell));
+        this.drawGlyph(cx, cy, code, charRom, charBase, colorFor(cell), bg);
       }
     }
   }
@@ -92,11 +100,11 @@ export class CharRenderer {
     charRom: Uint8Array,
     charBase: number,
     fg: readonly [number, number, number],
+    bg: readonly [number, number, number] = this.cfg.background,
   ): void {
     const { glyphWidth, glyphHeight, borderX, borderY } = this.cfg;
     const reverse = (code & 0x80) !== 0;
     const glyphBase = charBase + (code & 0x7f) * glyphHeight;
-    const bg = this.cfg.background;
     const x0 = borderX + cx * glyphWidth;
     const y0 = borderY + cy * glyphHeight;
     for (let y = 0; y < glyphHeight; y++) {
@@ -114,8 +122,11 @@ export class CharRenderer {
     }
   }
 
-  private paintBorder(): void {
-    const [r, g, b] = this.cfg.border ?? this.cfg.background;
+  private paintBorder(
+    color: readonly [number, number, number] = this.cfg.border ??
+      this.cfg.background,
+  ): void {
+    const [r, g, b] = color;
     for (let i = 0; i < this.rgba.length; i += 4) {
       this.rgba[i] = r;
       this.rgba[i + 1] = g;
