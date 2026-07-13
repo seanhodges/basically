@@ -74,8 +74,8 @@
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ✅     |
-| 4     | Transfer & tape I/O                    | ⬜     |
-| 5     | Polish / optional                      | ⬜     |
+| 4     | Transfer & tape I/O                    | ✅     |
+| 5     | Polish / optional                      | ✅     |
 
 ---
 
@@ -190,8 +190,9 @@ sanity check.
       starter). All four boot and paint on the real ROMs with no BASIC error
 - [x] finalize `aiProfile.ts` (22×23 display, screen RAM 7680 ($1E00), colour
       RAM 38400 ($9600), POKE 36879 for border/background, **3583 bytes
-      free — warn the model to keep programs small**, no sprites, no SID; VIC-I
-      sound registers 36874–36878 exist but audio is not played)
+      free — warn the model to keep programs small**, no sprites, no SID; the
+      Stage 3 note that VIC-I audio is not played was superseded by Stage 5's
+      `readAudio` — the profile now teaches the 36874–36878 sound POKEs)
 - [x] `index.ts` — assemble the full `Dialect` (`programRamBytes: 3583`,
       `displaySize`, `joystickModes: ['native']`, `romUrl` pointing at
       `roms/vic20/kernal.bin`)
@@ -208,37 +209,43 @@ sanity check.
 **Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke +
 `npm run e2e`.
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
-- [ ] `targets.ts` — finalize `BuildTarget[]`: `.prg` export + cassette `.wav`
-- [ ] `audio/cassette.ts` — `buildSamples` =
+- [x] `targets.ts` — finalize `BuildTarget[]`: `.prg` export + cassette `.wav`
+- [x] `audio/cassette.ts` — `buildSamples` =
       `buildHeaderBlock(name, 0x1001, end)` + the sibling `encodeC64Tape`;
       `decodeSamples` = sibling `decodeCassette` + the VIC-20 detokenizer;
       VIC-20 `loadInstructions` / `saveInstructions`
-- [ ] `binaryImports` — `.prg`, read back via `detokenizeWithReport` with a
+- [x] `binaryImports` — `.prg`, read back via `detokenizeWithReport` with a
       VIC-20 machine hint naming the RAM-expansion load addresses
-- [ ] tests: cassette encode→decode round-trip at $1001
+- [x] tests: cassette encode→decode round-trip at $1001
+      (`src/dialects/vic20/audio/cassette.test.ts`), plus the dialect-surface
+      check in `vic20.test.ts`
 
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.
 
-## Stage 5 — Polish / optional ⬜
+## Stage 5 — Polish / optional ✅
 
-- [ ] wire `readVariables` / `readReport` / `readMemoryStats` using the
+- [x] wire `readVariables` / `readReport` / `readMemoryStats` using the
       parameterized `src/emulator/c64/vars.ts` / `reports.ts` readers from the
       PET plan's Stage 5 — the VIC-20 zero page **is** the C64's (TXTTAB $2B,
       VARTAB $2D, FRETOP $33, MEMSIZ $37, CURLIN $39), so only the report
-      scan's `screen: $1E00, 22×23` differs
-- [ ] `currentLine` / `debugStep` + `debuggable: true` (step one instruction by
-      cycling `cpu.cycle()` until `executionState` returns to `fetch`, checking
-      CURLIN)
-- [ ] optional `readAudio` — VIC-I voices $900A–$900D + volume ($900E low
-      nibble) as host-side square-wave synthesis (the C64 `SidRenderer`
-      pattern)
-- [ ] RAM expansion as a future option: `createEmulator`'s `ramKb` could map
-      to +3K/+8K configs, but BASIC start (and thus the tokenizer variant and
-      `programRamBytes`) moves with it — out of scope until requested
-- [ ] AI-profile accuracy pass
+      scan's `screen: $1E00, 22×23` differs (plus two 44-column views of the
+      contiguous rows, because most `?…ERROR IN nn` lines wrap the 22-column
+      screen)
+- [x] `currentLine` / `debugStep` + `debuggable: true` (CURLIN at $39, the
+      C64's `armed`-breakpoint / 8-cycle-slice logic over the machine's own
+      `tick()`)
+- [x] `readAudio` — VIC-I voices $900A–$900D + volume ($900E low nibble) as
+      host-side square-wave synthesis (the C64 `SidRenderer` pattern) in
+      `src/emulator/vic20/vicAudio.ts`; the Stage 3 profile note that audio is
+      not played is superseded — the IDE now plays VIC-I sound
+- [x] RAM expansion — documented as a future option, not built:
+      `createEmulator`'s `ramKb` could map to +3K/+8K configs, but BASIC start
+      (and thus the tokenizer variant and `programRamBytes`) moves with it —
+      out of scope until requested
+- [x] AI-profile accuracy pass
 
 **Depends on:** Stage 3 (+ the PET plan's Stage 5 reader parameterization).
 **Verify:** watcher shows live vars; targeted tests.

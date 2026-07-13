@@ -10,9 +10,9 @@ import { c64Keywords, c64WordByToken } from '../commodore64/keywords';
 import { tokenizeProgram as tokenizeC64 } from '../commodore64/tokenizer';
 
 /**
- * Stage 1 (language core) tests for the VIC-20 dialect - see
- * docs/contributing/dialect-plans/vic20.md. The emulator/keyboard/tape stages
- * keep their own `it.todo` placeholders below.
+ * Dialect-surface tests for the VIC-20, grouped by the stages of
+ * docs/contributing/dialect-plans/vic20.md. The emulator itself is exercised
+ * against the real ROMs in src/emulator/vic20/vic20Machine.test.ts.
  *
  * VIC-20 BASIC V2 is token-identical to the C64's; the only machine difference
  * is the $1001 program base (vs the C64's $0801) on the unexpanded machine.
@@ -129,7 +129,14 @@ describe('vic20 dialect', () => {
   });
 
   // ---- Stage 2 - emulator core ------------------------------------------
-  it.todo('boots BASIC + KERNAL to READY. and runs an injected program');
+  // Covered by src/emulator/vic20/vic20Machine.test.ts (boots the BASIC V2
+  // ROMs to READY. and runs an injected program) and the chip unit tests
+  // (vicI.test.ts, vicAudio.test.ts, src/emulator/commodore/).
+  it('advertises the emulator surface (displaySize + createEmulator)', () => {
+    expect(vic20.displaySize).toEqual({ width: 232, height: 248 });
+    expect(typeof vic20.createEmulator).toBe('function');
+    expect(vic20.romUrl).toMatch(/roms\/vic20\/kernal/);
+  });
 
   // ---- Stage 3 - wire-up ------------------------------------------------
   // Full keyboard-layout + matrix (physical+virtual) coverage lives in
@@ -163,5 +170,41 @@ describe('vic20 dialect', () => {
   });
 
   // ---- Stage 4 - transfer & tape I/O ------------------------------------
-  it.todo('round-trips cassette encode -> decode at $1001');
+  // The cassette codec itself is exercised in audio/cassette.test.ts; here we
+  // confirm the dialect surface is wired: .prg import + tape audio in/out.
+  it('exposes .prg import and cassette audio through the dialect', () => {
+    expect(vic20.binaryImports).toEqual([
+      { extension: '.prg', label: 'Import .PRG…' },
+    ]);
+    expect(vic20.buildTargets.map((t) => t.id)).toEqual([
+      'vic20-prg',
+      'vic20-wav',
+    ]);
+    expect(vic20.audio).toBeDefined();
+    expect(typeof vic20.audio!.buildSamples).toBe('function');
+    expect(typeof vic20.audio!.decodeSamples).toBe('function');
+
+    const src = '10 PRINT "HI"\n20 GOTO 10\n';
+    const samples = vic20.audio!.buildSamples(src, 'GAME', false);
+    const { programName, source } = vic20.audio!.decodeSamples!(
+      samples,
+      vic20.audio!.sampleRate,
+    );
+    expect(programName).toBe('GAME');
+    const norm = (s: string) =>
+      s
+        .split('\n')
+        .map((l) => l.trim().replace(/\s+/g, ' '))
+        .filter((l) => l !== '')
+        .join('\n');
+    expect(norm(source)).toBe(norm(src));
+  });
+
+  // ---- Stage 5 - polish -------------------------------------------------
+  // The watcher/debugger/audio wiring is exercised against the real ROMs in
+  // src/emulator/vic20/vic20Machine.test.ts; here we assert the dialect flag
+  // that surfaces the Debug toggle in the toolbar.
+  it('advertises the step-through debugger', () => {
+    expect(vic20.debuggable).toBe(true);
+  });
 });
