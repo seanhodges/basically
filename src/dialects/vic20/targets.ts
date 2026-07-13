@@ -9,7 +9,6 @@ import { CASSETTE_SAMPLE_RATE, buildCassetteSamples } from './audio/cassette';
  * unexpanded VIC-20 base) followed by the tokenized program. This is the same
  * image the emulator injects and the import/export file format — identical in
  * shape to the C64's, only the address differs.
- *
  */
 export function buildPrg(source: string): Uint8Array {
   const { program, errors } = tokenizeProgram(source);

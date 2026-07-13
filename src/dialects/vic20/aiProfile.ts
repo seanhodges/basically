@@ -7,7 +7,7 @@ THE MACHINE
 - Display: 22 columns x 23 rows of text, upper-case / graphics character set.
 - Screen RAM is at 7680 ($1E00); colour RAM at 38400 ($9600) - one nibble per cell, colours 0-7 (0=black,1=white,2=red,3=cyan,4=purple,5=green,6=blue,7=yellow).
 - The border AND background colour share one register: POKE 36879,V. V = 16*background + 8 + border (add the 8 to keep text non-reversed). POKE 36879,8 is a black screen; the power-on default is 27 (cyan border, white background).
-- NO sprites, NO SID. The VIC-I sound registers are 36874-36878 (three tone voices + noise, volume in the low nibble of 36878) but this IDE does not play emulator audio, so do not rely on sound.
+- NO sprites, NO SID. Sound is the VIC-I: three square-wave voices at 36874 (bass), 36875 (alto), 36876 (soprano) plus noise at 36877, and the IDE plays it. POKE a voice with 128+X (X = 0-126, higher = higher pitch) to sound it, 0 to silence it; set the volume FIRST with POKE 36878,V (V = 0-15, low nibble).
 
 THE DIALECT - STRICT RULES
 - Every line starts with a line number (0-63999), strictly ascending. Multiple statements per line are allowed, separated by ':'. There is NO ELSE.
@@ -17,7 +17,7 @@ THE DIALECT - STRICT RULES
 - Functions: ABS, ASC, ATN, CHR$, COS, EXP, FRE, INT, LEFT$, LEN, LOG, MID$, PEEK, RIGHT$, RND, SGN, SIN, SQR, STR$, TAN, VAL, and π.
 - Commands: PRINT, POKE, GET, INPUT, FOR/NEXT, IF/THEN, GOTO, GOSUB/RETURN, ON..GOTO, READ/DATA/RESTORE, DIM, DEF FN, SYS, WAIT.
 - Keyboard input in games: GET A$ (non-blocking, returns "" if no key). INPUT halts the program.
-- There are NO graphics or sound BASIC keywords - no PLOT, no CIRCLE. Draw with PRINT and PEEK/POKE to screen/colour RAM.
+- There are NO graphics or sound BASIC keywords - no PLOT, no CIRCLE, no SOUND. Draw with PRINT and PEEK/POKE to screen/colour RAM; make sound by POKEing the VIC registers (36874-36878).
 
 WATCH THE 22-COLUMN WIDTH
 - Text wraps at 22 columns; a line PRINTed with exactly 22 characters spills onto the next screen row. Keep titles and prompts short and centre them by hand.
@@ -25,6 +25,7 @@ WATCH THE 22-COLUMN WIDTH
 
 USEFUL POKES / CODES
 - POKE 36879,8 - black border and background.
+- POKE 36878,15:POKE 36876,220 - a high beep; POKE 36876,0 stops it. Silence every voice (and ideally the volume) when the sound is done.
 - PRINT CHR$(147) clears the screen; CHR$(5)=white, CHR$(28)=red, CHR$(30)=green, CHR$(31)=blue, CHR$(158)=yellow, CHR$(156)=purple, CHR$(159)=cyan, CHR$(144)=black, CHR$(18)=reverse on, CHR$(146)=reverse off.
 - PRINT CHR$(19) homes the cursor; cursor-down is CHR$(17), cursor-right CHR$(29).
 - In this IDE the same control codes can be written INSIDE string literals as petcat-style escapes - PRINT "{clr}{white}HELLO {rvon}THERE" with {home}, {down}, {up}, {right}, {left}, {red}, {green}, {blue}, {yellow}, {cyan}, {purple}, {black} etc.; {$xx} is a raw hex byte. They import/export byte-exactly; prefer them over CHR$(…) chains inside strings (petcat aliases like {wht} and decimal {147} are also accepted on input).

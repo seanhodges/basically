@@ -49,6 +49,29 @@ describe('readC64Variables', () => {
     expect(readC64Variables(mem)).toEqual([]);
   });
 
+  it('reads through a non-default zero-page layout (PET BASIC 4.0)', () => {
+    const { ram, mem } = makeRam();
+    const vartab = 0x0900;
+    // PET BASIC 4.0 keeps the same pointers at $2A/$2C/$2E instead of $2D/$2F/$31.
+    set(ram, 0x2a, ...word(vartab));
+    set(ram, 0x2c, ...word(vartab + 7));
+    set(ram, 0x2e, ...word(vartab + 7));
+    set(ram, vartab, 0x41, 0x00, ...REAL_5); // A = 5 (real)
+    const vars = readC64Variables(mem, {
+      vartab: 0x2a,
+      arytab: 0x2c,
+      strend: 0x2e,
+    });
+    expect(vars).toEqual([
+      {
+        name: 'A',
+        kind: 'number',
+        value: '5',
+        ref: { addr: vartab + 2, layout: 'real' },
+      },
+    ]);
+  });
+
   it('decodes scalars (real, integer, string) and a number array', () => {
     const { ram, mem } = makeRam();
     const vartab = 0x0900;

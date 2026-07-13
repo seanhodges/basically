@@ -13,23 +13,22 @@ import { vic20BuildTargets } from './targets';
 import { vic20KeyboardLayout } from './keyboardLayout';
 import { vic20Samples } from './samples';
 import { vic20AiProfile } from './aiProfile';
-import { c64VariableErrors } from '../../editor/variableLint';
 import {
   CASSETTE_SAMPLE_RATE,
   buildCassetteSamples,
-  decodeCassette,
+  decodeSamples,
 } from './audio/cassette';
+import { c64VariableErrors } from '../../editor/variableLint';
 
 /**
- * Commodore VIC-20 dialect - scaffolding only, NOT registered in
- * src/dialects/registry.ts until Stage 3 of its plan.
+ * Commodore VIC-20 dialect, registered in src/dialects/registry.ts.
  *
- * Staged plan: docs/contributing/dialect-plans/vic20.md. In brief: BASIC V2 is
- * token-identical to the C64's, so the language layer is re-exported through a
- * CbmVariant seam with a $1001 (unexpanded) load address; the emulator is an
- * in-tree 6502 bus (vendored src/emulator/6502/ core) with a from-scratch
- * frame-approximate VIC-I renderer under src/emulator/vic20/, reusing the
- * shared Commodore chips under src/emulator/commodore/.
+ * BASIC V2 is token-identical to the C64's, so the language layer is
+ * re-exported through a CbmVariant seam with a $1001 (unexpanded) load
+ * address; the emulator is an in-tree 6502 bus (vendored src/emulator/6502/
+ * core) with a from-scratch frame-approximate VIC-I renderer under
+ * src/emulator/vic20/, reusing the shared Commodore chips under
+ * src/emulator/commodore/.
  */
 export const vic20: Dialect = {
   id: 'vic20',
@@ -81,6 +80,8 @@ export const vic20: Dialect = {
 
   displaySize: { width: VIC20_DISPLAY_WIDTH, height: VIC20_DISPLAY_HEIGHT },
 
+  debuggable: true,
+
   // The unexpanded VIC-20 reads a single digital joystick (up/down/left/fire on
   // VIA1 PA2–PA5, right on VIA2 PB7); the machine folds fire2 into fire1.
   joystickModes: ['native'],
@@ -105,10 +106,7 @@ export const vic20: Dialect = {
       buildCassetteSamples(source, programName, robust),
     loadInstructions:
       'On the VIC-20 type LOAD and press RETURN, then press PLAY on the datasette before starting playback. When it finds the program type RUN.',
-    decodeSamples: (samples, sampleRate) => {
-      const { name, data } = decodeCassette(samples, sampleRate);
-      return { programName: name, source: detokenizeProgram(data) };
-    },
+    decodeSamples: (samples, sampleRate) => decodeSamples(samples, sampleRate),
     saveInstructions:
       'On the VIC-20 type SAVE "NAME" and press RETURN, then press RECORD and PLAY on the datasette; the tape tone plays from the cassette port. Feed it into this device, then start listening.',
   },

@@ -12,8 +12,7 @@ import {
 } from '../../emulator/pet/keyboard';
 
 /**
- * Stage 1 (language core) tests for the PET dialect — see
- * docs/contributing/dialect-plans/pet.md. The emulator/keyboard/tape stages
+ * Language-core tests for the PET dialect. The emulator/keyboard/tape layers
  * keep their own `it.todo` placeholders below.
  */
 describe('pet dialect', () => {
