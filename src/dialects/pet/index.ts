@@ -13,6 +13,11 @@ import { petBuildTargets } from './targets';
 import { petKeyboardLayout } from './keyboardLayout';
 import { petSamples } from './samples';
 import { petAiProfile } from './aiProfile';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+  decodeSamples,
+} from './audio/cassette';
 import { c64VariableErrors } from '../../editor/variableLint';
 
 /**
@@ -82,7 +87,18 @@ export const pet: Dialect = {
 
   buildTargets: petBuildTargets,
 
-  // TODO (pet Stage 4): binaryImports (.prg) + audio (cassette WAV at $0401).
+  binaryImports: [{ extension: '.prg', label: 'Import .PRG…' }],
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the PET type LOAD and press RETURN, then press PLAY on the datasette before starting playback. When it finds the program type RUN.',
+    decodeSamples: (samples, sampleRate) => decodeSamples(samples, sampleRate),
+    saveInstructions:
+      'On the PET type SAVE "NAME" and press RETURN, then press RECORD and PLAY on the datasette; the tape tone plays from the cassette port. Feed it into this device, then start listening.',
+  },
 
   aiProfile: petAiProfile,
 };

@@ -167,5 +167,30 @@ describe('pet dialect', () => {
   });
 
   // ---- Stage 4 — transfer & tape I/O ------------------------------------
-  it.todo('round-trips cassette encode -> decode at $0401');
+  // The cassette codec itself is exercised in audio/cassette.test.ts; here we
+  // confirm the dialect surface is wired: .prg import + tape audio in/out.
+  it('exposes .prg import and cassette audio through the dialect', () => {
+    expect(pet.binaryImports).toEqual([
+      { extension: '.prg', label: 'Import .PRG…' },
+    ]);
+    expect(pet.buildTargets.map((t) => t.id)).toEqual(['pet-prg', 'pet-wav']);
+    expect(pet.audio).toBeDefined();
+    expect(typeof pet.audio!.buildSamples).toBe('function');
+    expect(typeof pet.audio!.decodeSamples).toBe('function');
+
+    const src = '10 PRINT "HI"\n20 GOTO 10\n';
+    const samples = pet.audio!.buildSamples(src, 'GAME', false);
+    const { programName, source } = pet.audio!.decodeSamples!(
+      samples,
+      pet.audio!.sampleRate,
+    );
+    expect(programName).toBe('GAME');
+    const norm = (s: string) =>
+      s
+        .split('\n')
+        .map((l) => l.trim().replace(/\s+/g, ' '))
+        .filter((l) => l !== '')
+        .join('\n');
+    expect(norm(source)).toBe(norm(src));
+  });
 });
