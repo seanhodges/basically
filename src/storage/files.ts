@@ -61,7 +61,7 @@ export function binaryImportPickerOptions(accept: string): {
     types: [
       {
         description: `${ext.toUpperCase()} program image`,
-        accept: { 'application/octet-stream': [accept] },
+        accept: { '*/*': [accept] },
       },
     ],
   };
@@ -86,12 +86,11 @@ export async function openBinaryFile(
       throw e;
     }
   }
-  // Android Chrome / iOS Safari have no File System Access picker, so binary
-  // imports land on the <input> fallback. Those pickers grey out files whose
-  // extension can't be resolved to a MIME type, and the program-image
-  // extensions (.prg, .tap, .o, .cas, .atm, .bbc, .p) are unknown to mobile
-  // MIME tables. Don't restrict the fallback picker — the user chooses the
-  // file, and an extension-only `accept` makes the target unselectable.
+
+  // Don't assume the MIME type, different formats use unreliable MIME types
+  // (Spectrum .tap is often application/x-tap, ZX81 .p can be application/octet-stream,
+  // etc.) and the browser may not know the MIME type for a given extension. Just accept
+  // any file and let the import code validate it.
   return openViaInput('*/*', async (file) => ({
     name: file.name,
     bytes: new Uint8Array(await file.arrayBuffer()),

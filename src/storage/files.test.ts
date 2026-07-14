@@ -4,9 +4,7 @@ import { binaryImportPickerOptions, programNameFromFileName } from './files';
 describe('binaryImportPickerOptions', () => {
   it('filters the picker to the requested extension', () => {
     const options = binaryImportPickerOptions('.prg');
-    expect(options.types[0].accept['application/octet-stream']).toEqual([
-      '.prg',
-    ]);
+    expect(options.types[0].accept['*/*']).toEqual(['.prg']);
     expect(options.types[0].description).toContain('PRG');
   });
 
