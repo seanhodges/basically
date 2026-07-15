@@ -354,6 +354,59 @@ export interface SampleFile {
 }
 
 /**
+ * Semantic class of a {@link MemoryRegion}, driving its colour in the memory-map
+ * viewer. Kept coarse and machine-agnostic so every dialect maps its own layout
+ * onto the same small palette (ROM, screen bitmap, colour/attribute area,
+ * hardware buffers, system workspace, the user's BASIC program area, and RAM
+ * reserved above it).
+ */
+export type MemoryRegionKind =
+  | 'rom'
+  | 'screen'
+  | 'attributes'
+  | 'buffer'
+  | 'system'
+  | 'program'
+  | 'reserved';
+
+/**
+ * One contiguous span of the machine's address space, as shown in the memory-map
+ * viewer. Regions are the unit of highlighting: today a region lights up when the
+ * editor program POKEs a literal address into it; a future update can light the
+ * regions the running emulator is actively touching, using the same seam.
+ */
+export interface MemoryRegion {
+  /** Inclusive start address. */
+  start: number;
+  /** Inclusive end address. */
+  end: number;
+  /** Leaf label, e.g. "System variables". */
+  label: string;
+  /** Colour class for the band. */
+  kind: MemoryRegionKind;
+  /**
+   * Label of the coarser group this leaf collapses into when the map is zoomed
+   * out; contiguous leaves sharing a group render as one band labelled by the
+   * group. Omit for a leaf that stands alone at every zoom level.
+   */
+  group?: string;
+  /** One-line description shown when the region is selected. */
+  note?: string;
+}
+
+/**
+ * A machine's memory map for the viewer: the full address space split into
+ * contiguous, ascending {@link MemoryRegion}s that cover it end to end. Static
+ * per dialect for now; a dialect opts in by setting {@link Dialect.memoryMap}.
+ */
+export interface MemoryMap {
+  /** Size of the addressable space, e.g. 0x10000 for a 64K machine. */
+  addressSpace: number;
+  /** Contiguous leaf regions, ascending, covering `0 .. addressSpace - 1`. */
+  regions: MemoryRegion[];
+}
+
+/**
  * Everything the IDE needs to support one BASIC dialect / machine.
  * The app only ever talks to this interface; machine specifics stay inside
  * the dialect's own folder.
@@ -408,6 +461,12 @@ export interface Dialect {
    * real program's headroom varies with display mode and variable usage.
    */
   programRamBytes: number;
+  /**
+   * The machine's memory map for the memory-map viewer. Absent for dialects that
+   * don't describe one yet, in which case the app hides the viewer's entry point
+   * for that machine.
+   */
+  memoryMap?: MemoryMap;
   /**
    * True when this dialect's emulator implements the step-through debugger
    * (`currentLine`/`debugStep`). Drives whether the toolbar offers a Debug

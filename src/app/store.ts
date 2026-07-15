@@ -227,6 +227,8 @@ interface IdeState {
   settingsTab: SettingsTab;
   /** Program outline dialog (Edit ▸ Outline). */
   procedureListOpen: boolean;
+  /** Memory-map viewer dialog. */
+  memoryMapOpen: boolean;
   /** In-app documentation drawer (replaces opening /docs/ in a new tab). */
   docsDrawerOpen: boolean;
   /**
@@ -379,6 +381,7 @@ interface IdeState {
   /** Open the settings surface directly to a given tab. */
   openSettings(tab: SettingsTab): void;
   setProcedureListOpen(open: boolean): void;
+  setMemoryMapOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
   setStatusNotice(text: string | null): void;
   /** Open the docs drawer, optionally to a specific docs sub-path/topic. */
@@ -599,6 +602,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   settingsOpen: false,
   settingsTab: 'editor',
   procedureListOpen: false,
+  memoryMapOpen: false,
   welcomeOpen: false,
   statusNotice: null,
   docsDrawerOpen: false,
@@ -873,6 +877,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   setSettingsTab: (tab) => set({ settingsTab: tab }),
   openSettings: (tab) => set({ settingsOpen: true, settingsTab: tab }),
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
+  setMemoryMapOpen: (open) => set({ memoryMapOpen: open }),
   setWelcomeOpen: (open) => set({ welcomeOpen: open }),
   setStatusNotice: (text) => set({ statusNotice: text }),
   openDocs: (topic) => set({ docsDrawerOpen: true, docsTopic: topic ?? null }),

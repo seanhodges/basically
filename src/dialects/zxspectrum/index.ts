@@ -22,11 +22,13 @@ import {
 import { SpectrumMachine } from './emulator/spectrumMachine';
 import { spectrumKeyboardLayout } from './keyboardLayout';
 import { spectrumSamples } from './samples';
+import { spectrumMemoryMap } from './memoryMap';
 
 export const zxspectrum: Dialect = {
   id: 'zxspectrum',
   name: 'Spectrum',
   programRamBytes: 41472,
+  memoryMap: spectrumMemoryMap,
   fileExtensions: ['.txt', '.bas'],
   keywords: spectrumKeywords,
   charset: spectrumCharset,

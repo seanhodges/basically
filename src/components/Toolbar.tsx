@@ -30,6 +30,7 @@ import {
   SpeakerMutedIcon,
   DotsIcon,
   FloppyIcon,
+  MemoryIcon,
 } from './icons';
 import styles from './Toolbar.module.css';
 
@@ -54,6 +55,7 @@ export function Toolbar() {
   const openDocs = useIdeStore((s) => s.openDocs);
   const docsDrawerOpen = useIdeStore((s) => s.docsDrawerOpen);
   const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
+  const setMemoryMapOpen = useIdeStore((s) => s.setMemoryMapOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
   const mobileTab = useIdeStore((s) => s.mobileTab);
@@ -171,6 +173,7 @@ export function Toolbar() {
   const openShare = guard(() => setTransferOpen(true));
   const openShareLink = guard(() => setShareLinkOpen(true));
   const openVfsInspector = guard(() => setVfsInspectorOpen(true));
+  const openMemoryMap = guard(() => setMemoryMapOpen(true));
 
   // Shortcut hints for menu items and button tooltips, pulled from the central
   // binding table so they never drift from what the keyboard actually does.
@@ -408,6 +411,15 @@ export function Toolbar() {
             <SpeakerIcon />
           )}
         </button>
+        {dialect.memoryMap && (
+          <button
+            className="icon-btn"
+            onClick={openMemoryMap}
+            title="Memory map - the machine's memory layout and what your program POKEs"
+          >
+            <MemoryIcon />
+          </button>
+        )}
         <button
           className={`icon-btn ${aiPanelOpen ? 'active' : ''}`}
           onClick={toggleAiPanel}
@@ -539,6 +551,15 @@ export function Toolbar() {
                   <button onClick={openVfsInspector}>
                     Emulator files{hint('view.vfsInspector')}
                   </button>
+                </>
+              )}
+              {/* Memory map - the inline toolbar icon is an .icon-btn, which the
+                  mobile/landscape rules hide, so surface the action here instead.
+                  Gated on the dialect actually having a memory map. */}
+              {dialect.memoryMap && (
+                <>
+                  {contextTab && <div className={styles.menuSeparator} />}
+                  <button onClick={openMemoryMap}>Memory map…</button>
                 </>
               )}
               {/* Docs - surfaced here (as "Help") only when the bar is too
