@@ -60,6 +60,13 @@
   grid-row: 1;
 }
 
+/* While the emulator runs with the memory map open, the map moves into the
+   editor's left column so the live preview stays visible on the right. The
+   compound selector wins over .memoryHost's grid-column: 3. */
+.memoryHost.memoryLeft {
+  grid-column: 1;
+}
+
 /* Non-mobile equivalent of .tabHidden: hide the inactive pane in the shared
    right slot (overrides the panes' display:flex). */
 .slotHidden {

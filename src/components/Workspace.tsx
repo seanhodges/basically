@@ -119,13 +119,32 @@ export function Workspace() {
   const hidden = (tab: MobileTab) =>
     tabbed && mobileTab !== tab ? styles.tabHidden : '';
 
+  // While a program is actively running with the memory map open, move the map
+  // into the left column (replacing the editor) so the live emulator can stay
+  // visible on the right. Only on the split layout; only while 'running' — when
+  // stopped or paused on a breakpoint the editor returns to the left so the
+  // breakpoint line highlight is visible.
+  const memoryMapOnLeft =
+    !tabbed &&
+    memoryMapOpen &&
+    !!dialect.memoryMap &&
+    emulatorStatus === 'running';
+
   // On the split layout the preview, the AI panel and the memory map share the
   // right-hand column; exactly one shows at a time. The memory map wins when
-  // open, then the AI panel, else the preview. (On the tab layout the tab logic
-  // in `hidden()` governs instead, so this is a no-op.)
+  // open, then the AI panel, else the preview. When the map has moved to the
+  // left column (memoryMapOnLeft), it no longer occupies this slot, so the
+  // preview wins and the running emulator shows on the right. (On the tab layout
+  // the tab logic in `hidden()` governs instead, so this is a no-op.)
   const slotHidden = (view: 'preview' | 'ai' | 'memory') => {
     if (tabbed) return '';
-    const active = memoryMapOpen ? 'memory' : aiPanelOpen ? 'ai' : 'preview';
+    const active = memoryMapOnLeft
+      ? 'preview'
+      : memoryMapOpen
+        ? 'memory'
+        : aiPanelOpen
+          ? 'ai'
+          : 'preview';
     return view === active ? '' : styles.slotHidden;
   };
 
@@ -167,7 +186,11 @@ export function Workspace() {
     >
       {/* The mobile tab bar lives in the toolbar (merged into a single row);
           switching tabs swaps the panel shown below. */}
-      <div className={`${styles.editorPane} ${hidden('editor')}`}>
+      <div
+        className={`${styles.editorPane} ${hidden('editor')} ${
+          memoryMapOnLeft ? styles.slotHidden : ''
+        }`}
+      >
         {/* The FAB anchors to this box so the docked keyboard below never
             sits underneath it. */}
         <div className={styles.editorMain}>
@@ -216,7 +239,11 @@ export function Workspace() {
           workspace as a full pane. It's opened from a menu (no persistent tab),
           so it renders only while open. */}
       {memoryMapOpen && dialect.memoryMap && (
-        <div className={`${styles.memoryHost} ${slotHidden('memory')}`}>
+        <div
+          className={`${styles.memoryHost} ${
+            memoryMapOnLeft ? styles.memoryLeft : slotHidden('memory')
+          }`}
+        >
           <MemoryMapPanel getMachine={getMachineStable} />
         </div>
       )}
