@@ -257,7 +257,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
         <div className={styles.zoom}>
           <button
             className={styles.zoomBtn}
-            onClick={() => nudge(-0.5)}
+            onClick={() => nudge(-2)}
             disabled={zoom <= MIN_ZOOM}
             title="Zoom out"
             aria-label="Zoom out"
@@ -269,7 +269,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
             type="range"
             min={MIN_ZOOM}
             max={MAX_ZOOM}
-            step={0.25}
+            step={1}
             value={zoom}
             onChange={(e) => setZoom(clampZoom(Number(e.target.value)))}
             title="Zoom"
@@ -277,7 +277,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
           />
           <button
             className={styles.zoomBtn}
-            onClick={() => nudge(0.5)}
+            onClick={() => nudge(2)}
             disabled={zoom >= MAX_ZOOM}
             title="Zoom in"
             aria-label="Zoom in"
