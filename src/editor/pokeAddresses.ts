@@ -11,10 +11,27 @@
  * POKEs whose address is a variable or arithmetic expression (`POKE X,1`,
  * `POKE base+1,2`) by tracking simple `LET`/`FOR` assignments in a single pass
  * over the program in line-number order and evaluating the address expression
- * against them. This is best-effort static analysis: loops, `GOTO`, `INPUT`,
- * function calls (`PEEK`, `INT`, …) and hex literals can't be resolved, so those
- * POKEs are simply left out. A POKE inside a loop resolves to its first-iteration
- * address (the `FOR` start value).
+ * against them. A POKE inside a loop resolves to its first-iteration address
+ * (the `FOR` start value).
+ *
+ * Resolution is best-effort and comes in two flavours, flagged per site by
+ * {@link PokeSite.approximate}:
+ *
+ * - **Exact** - every term of the address was known (a literal or a variable we
+ *   tracked to a definite value).
+ * - **Approximate** - the address depends on something we can't statically pin
+ *   down (an unknown/dynamic variable, or a value that comes from another
+ *   operation such as `PEEK(...)` or an array element `H(C,Z)`). Rather than
+ *   dropping the POKE, those unknown terms are assumed to be `0`, which resolves
+ *   the *base* the expression is offset from. To keep that base meaningful, a
+ *   forward constant pre-pass seeds program-wide constants first (so a base like
+ *   `A=22526` defined in a `GO TO`-reached init block is known before the lines
+ *   that use it), and an approximate address that collapses to `0` is dropped
+ *   here; callers with a memory map drop approximate addresses that fall outside
+ *   RAM (out of range or in ROM) so only plausible bases are shown.
+ *
+ * Anything that can't be tokenized at all (comparisons, `^`, `&`, a comma inside
+ * the expression) is left out entirely.
  */
 import { parseLines } from './lineNumbering';
 import { scannable } from './programOutline';
@@ -27,6 +44,13 @@ export interface PokeSite {
   expr: string;
   /** True unless the address was written as a bare decimal literal. */
   computed: boolean;
+  /**
+   * True when the address is a best-effort *base*: some term of the expression
+   * couldn't be pinned down and was assumed `0` (see the module header). Such an
+   * address points at the region the POKE targets, not necessarily the exact
+   * byte. Exact resolutions are `false`.
+   */
+  approximate: boolean;
   /** The BASIC line number the POKE is on. */
   lineNo: number;
 }
@@ -114,27 +138,41 @@ const ASSIGN_RE = /^\s*(?:LET\s+)?([A-Za-z][A-Za-z0-9]*[$%]?)\s*=\s*(.*)$/i;
 // FOR VAR = <start> TO ... - the start value is what a POKE in the body first sees.
 const FOR_RE = /^\s*FOR\s+([A-Za-z][A-Za-z0-9]*[$%]?)\s*=\s*(.*?)\s+TO\b/i;
 
+/** A tracked variable value plus whether it was itself only approximated. */
+interface VarVal {
+  value: number;
+  approx: boolean;
+}
+
+/**
+ * The scannable (strings/REM blanked, UDG calls resolved) statements of a line,
+ * split on the real `:` separators. Shared by the constant pre-pass and the
+ * main walk so both see the same statement stream.
+ */
+function statementsOf(body: string, ctx: PokeContext): string[] {
+  const resolved =
+    ctx.udgBase !== undefined ? resolveUdgCalls(body, ctx.udgBase) : body;
+  return scannable(resolved).split(':');
+}
+
 /**
  * Every POKE the program makes with an address we can resolve, in source order.
  * Addresses are not range-checked here (this helper can't see the machine's
- * address space) - callers filter against it.
+ * address space) - callers filter against it. Approximate addresses that
+ * collapse to `0` (no meaningful base) are dropped.
  */
 export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
   const sites: PokeSite[] = [];
-  const vars = new Map<string, number>();
 
   // Program order, not physical order: the value tracker models execution.
   const lines = parseLines(source).sort((a, b) => a.lineNo - b.lineNo);
 
+  // Seed program-wide constants first, so a base defined below the lines that
+  // use it (e.g. an init block reached via `GO TO`) is already known.
+  const vars = seedConstants(lines, ctx);
+
   for (const line of lines) {
-    // Turn `USR "a"` UDG calls into their address up front (where the machine
-    // has UDGs) so everything downstream just sees a number.
-    const body =
-      ctx.udgBase !== undefined
-        ? resolveUdgCalls(line.body, ctx.udgBase)
-        : line.body;
-    // Strings/REM are already blanked, so `:` and `,` are real separators.
-    for (const stmt of scannable(body).split(':')) {
+    for (const stmt of statementsOf(line.body, ctx)) {
       const forMatch = FOR_RE.exec(stmt);
       if (forMatch) {
         assign(vars, forMatch[1]!, forMatch[2]!);
@@ -148,12 +186,18 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
         const expr = (comma === -1 ? rest : rest.slice(0, comma)).trim();
         const value = evalExpr(expr, vars);
         if (value !== undefined) {
-          sites.push({
-            address: Math.round(value),
-            expr,
-            computed: !LITERAL_RE.test(expr),
-            lineNo: line.lineNo,
-          });
+          const address = Math.round(value.value);
+          // An approximate address that lands on 0 has no meaningful base -
+          // every term of the expression was unknown - so drop it here.
+          if (!(value.approx && address === 0)) {
+            sites.push({
+              address,
+              expr,
+              computed: !LITERAL_RE.test(expr),
+              approximate: value.approx,
+              lineNo: line.lineNo,
+            });
+          }
         }
         continue;
       }
@@ -164,6 +208,63 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
   }
 
   return sites;
+}
+
+/**
+ * Variables the whole program assigns exactly once, to an expression that folds
+ * to a definite constant. These are safe to know everywhere (their value never
+ * varies), so seeding them up front lets a POKE resolve against a base defined
+ * later in the listing than the POKE itself - the common `GO TO <init>` idiom.
+ *
+ * Multiply-assigned or dynamic variables are deliberately excluded, so genuinely
+ * changing values stay unknown and fall to the approximate `0` assumption.
+ * Evaluated to a fixpoint so a constant defined from an earlier constant
+ * (`LET W=FL+1`) still resolves regardless of listing order.
+ */
+function seedConstants(
+  lines: { lineNo: number; body: string }[],
+  ctx: PokeContext,
+): Map<string, VarVal> {
+  // The single assignment expression per variable, or a "seen twice" marker.
+  const single = new Map<string, string>();
+  const multi = new Set<string>();
+  const note = (name: string, expr: string) => {
+    const key = name.toUpperCase();
+    if (multi.has(key)) return;
+    if (single.has(key)) {
+      single.delete(key);
+      multi.add(key);
+    } else single.set(key, expr);
+  };
+
+  for (const line of lines) {
+    for (const stmt of statementsOf(line.body, ctx)) {
+      const forMatch = FOR_RE.exec(stmt);
+      if (forMatch) {
+        note(forMatch[1]!, forMatch[2]!);
+        continue;
+      }
+      const assignMatch = ASSIGN_RE.exec(stmt);
+      if (assignMatch) note(assignMatch[1]!, assignMatch[2]!);
+    }
+  }
+
+  const seed = new Map<string, VarVal>();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [key, expr] of single) {
+      if (seed.has(key)) continue;
+      const value = evalExpr(expr, seed);
+      // Only exact folds qualify; an approximate result means it depends on
+      // something dynamic and must not be treated as a constant.
+      if (value !== undefined && !value.approx) {
+        seed.set(key, { value: value.value, approx: false });
+        changed = true;
+      }
+    }
+  }
+  return seed;
 }
 
 /**
@@ -179,7 +280,7 @@ export function pokeAddresses(source: string): number[] {
 }
 
 /** Record `name = <expr>`, or forget `name` when the value can't be resolved. */
-function assign(vars: Map<string, number>, name: string, expr: string): void {
+function assign(vars: Map<string, VarVal>, name: string, expr: string): void {
   const value = evalExpr(expr, vars);
   const key = name.toUpperCase();
   if (value === undefined) vars.delete(key);
@@ -188,10 +289,12 @@ function assign(vars: Map<string, number>, name: string, expr: string): void {
 
 // --- A tiny pure numeric expression evaluator ---------------------------------
 // Supports decimal literals, + - * /, unary +/-, parentheses and variable
-// lookups. Anything else (functions like PEEK(...), hex &FF, ^, AND/OR, an
-// unknown variable) makes the whole expression unresolvable. It returns
-// `undefined` on any failure rather than throwing, matching the tokenizer's
-// errors-not-throws style.
+// lookups. An unknown variable or a function/array call (`PEEK(...)`, `H(C,Z)`)
+// is assumed to be `0` and flags the result approximate, so the resolvable base
+// of the expression still comes through. Anything that can't be tokenized (hex
+// `&FF`, `^`, `AND`/`OR`, comparisons, a comma) makes the whole expression
+// unresolvable. It returns `undefined` on that failure rather than throwing,
+// matching the tokenizer's errors-not-throws style.
 
 type Token =
   | { kind: 'num'; value: number }
@@ -200,17 +303,22 @@ type Token =
   | { kind: '('; call: boolean }
   | { kind: ')' };
 
-/** Evaluate an address expression against known variables, or `undefined`. */
+/**
+ * Evaluate an address expression against known variables. Returns the resolved
+ * value together with whether any unknown term had to be assumed `0`
+ * (`approx`), or `undefined` when the expression can't be tokenized/parsed at
+ * all.
+ */
 export function evalExpr(
   expr: string,
-  vars: Map<string, number>,
-): number | undefined {
+  vars: Map<string, VarVal>,
+): VarVal | undefined {
   const tokens = tokenize(expr);
   if (!tokens) return undefined;
-  const parser = { tokens, pos: 0, vars };
+  const parser: Parser = { tokens, pos: 0, vars, approx: false };
   const value = parseAddition(parser);
   if (value === undefined || parser.pos !== tokens.length) return undefined;
-  return Number.isFinite(value) ? value : undefined;
+  return Number.isFinite(value) ? { value, approx: parser.approx } : undefined;
 }
 
 function tokenize(expr: string): Token[] | null {
@@ -262,7 +370,9 @@ function tokenize(expr: string): Token[] | null {
 interface Parser {
   tokens: Token[];
   pos: number;
-  vars: Map<string, number>;
+  vars: Map<string, VarVal>;
+  /** Set once any unknown term was assumed `0`, marking the value a base. */
+  approx: boolean;
 }
 
 function parseAddition(p: Parser): number | undefined {
@@ -312,11 +422,25 @@ function parseAtom(p: Parser): number | undefined {
     return t.value;
   }
   if (t.kind === 'id') {
-    // A function call (`id(`) is unresolvable.
     const next = p.tokens[p.pos + 1];
-    if (next && next.kind === '(' && next.call) return undefined;
+    // A function/array call (`id(`) - `PEEK(x)`, `H(C,Z)` - has a value we
+    // can't compute; assume 0 and mark the result approximate.
+    if (next && next.kind === '(' && next.call) {
+      p.pos++; // past the id, onto the '('
+      if (!skipParens(p)) return undefined; // unbalanced: give up
+      p.approx = true;
+      return 0;
+    }
     p.pos++;
-    return p.vars.get(t.name);
+    const v = p.vars.get(t.name);
+    // Unknown variable: assume 0, flag approximate. A known-but-approximate
+    // variable propagates its approximate-ness.
+    if (v === undefined) {
+      p.approx = true;
+      return 0;
+    }
+    if (v.approx) p.approx = true;
+    return v.value;
   }
   if (t.kind === '(' && !t.call) {
     p.pos++;
@@ -327,4 +451,26 @@ function parseAtom(p: Parser): number | undefined {
     return inner;
   }
   return undefined;
+}
+
+/**
+ * Consume a balanced parenthesised group starting at the current `(` token
+ * (call or not), advancing `pos` past the matching `)`. Returns false if the
+ * parens are unbalanced (the caller then bails).
+ */
+function skipParens(p: Parser): boolean {
+  let depth = 0;
+  while (p.pos < p.tokens.length) {
+    const t = p.tokens[p.pos]!;
+    if (t.kind === '(') depth++;
+    else if (t.kind === ')') {
+      depth--;
+      if (depth === 0) {
+        p.pos++;
+        return true;
+      }
+    }
+    p.pos++;
+  }
+  return false;
 }

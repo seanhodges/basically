@@ -42,6 +42,7 @@ describe('pokeSites', () => {
       address: 40000,
       expr: '40000',
       computed: false,
+      approximate: false,
       lineNo: 10,
     });
   });
@@ -49,14 +50,26 @@ describe('pokeSites', () => {
   it('resolves a variable assigned earlier', () => {
     const src = ['10 LET X=23296', '20 POKE X,1'].join('\n');
     expect(pokeSites(src)).toEqual([
-      { address: 23296, expr: 'X', computed: true, lineNo: 20 },
+      {
+        address: 23296,
+        expr: 'X',
+        computed: true,
+        approximate: false,
+        lineNo: 20,
+      },
     ]);
   });
 
   it('tracks assignments in line-number order, not physical order', () => {
     const src = ['20 POKE X,1', '10 LET X=16384'].join('\n');
     expect(pokeSites(src)).toEqual([
-      { address: 16384, expr: 'X', computed: true, lineNo: 20 },
+      {
+        address: 16384,
+        expr: 'X',
+        computed: true,
+        approximate: false,
+        lineNo: 20,
+      },
     ]);
   });
 
@@ -80,7 +93,13 @@ describe('pokeSites', () => {
   it('resolves a glued (crunched) POKE argument', () => {
     const src = ['10 LET A=16384', '20 POKEA,1'].join('\n');
     expect(pokeSites(src)).toEqual([
-      { address: 16384, expr: 'A', computed: true, lineNo: 20 },
+      {
+        address: 16384,
+        expr: 'A',
+        computed: true,
+        approximate: false,
+        lineNo: 20,
+      },
     ]);
   });
 
@@ -112,12 +131,89 @@ describe('pokeSites', () => {
   });
 });
 
+describe('pokeSites approximate resolution', () => {
+  it('seeds a single-valued constant defined below its use (GO TO idiom)', () => {
+    // The POKE at line 10 uses A, only defined later at line 90 (as after a
+    // `GO TO` to an init block). The constant pre-pass resolves it exactly.
+    const src = ['10 POKE A,1', '90 LET A=22528'].join('\n');
+    expect(pokeSites(src)).toEqual([
+      {
+        address: 22528,
+        expr: 'A',
+        computed: true,
+        approximate: false,
+        lineNo: 10,
+      },
+    ]);
+  });
+
+  it('does not seed a variable assigned more than once', () => {
+    // B is assigned twice, so it is not a constant and is not seeded. Used
+    // before either assignment (in line order) it is unknown -> 0 -> dropped,
+    // unlike the single-assignment constant seeded above.
+    const src = ['10 POKE B,1', '20 LET B=100', '30 LET B=200'].join('\n');
+    expect(pokeSites(src)).toEqual([]);
+  });
+
+  it('assumes 0 for an unknown term, giving an approximate base', () => {
+    const src = ['10 LET B=22528', '20 POKE B+H,1'].join('\n');
+    expect(pokeSites(src)).toEqual([
+      {
+        address: 22528,
+        expr: 'B+H',
+        computed: true,
+        approximate: true,
+        lineNo: 20,
+      },
+    ]);
+  });
+
+  it('assumes 0 for a PEEK/call but keeps a literal base', () => {
+    expect(pokeSites('10 POKE PEEK(0)+22528,1')).toEqual([
+      {
+        address: 22528,
+        expr: 'PEEK(0)+22528',
+        computed: true,
+        approximate: true,
+        lineNo: 10,
+      },
+    ]);
+  });
+
+  it('propagates an approximate base through a later assignment', () => {
+    // Mirrors the reported program: A is a seeded constant, B=A+C+C with C
+    // unknown, then a FOR whose start offsets B. The POKE lands an approximate
+    // base inside the Spectrum colour-attributes range (0x5800-0x5AFF).
+    const src = [
+      '20 LET B=A+C+C',
+      '21 FOR J=B+352-H TO B+384+H STEP 32',
+      '22 POKE J,E',
+      '99 LET A=22526',
+    ].join('\n');
+    const [site] = pokeSites(src);
+    expect(site!.approximate).toBe(true);
+    expect(site!.lineNo).toBe(22);
+    expect(site!.address).toBeGreaterThanOrEqual(0x5800);
+    expect(site!.address).toBeLessThanOrEqual(0x5aff);
+  });
+
+  it('drops an approximate address that collapses to 0', () => {
+    expect(pokeSites('10 POKE Q+R,1')).toEqual([]);
+  });
+});
+
 describe('pokeSites USR "letter" (user-defined graphics)', () => {
   const udgBase = 0xff58; // ZX Spectrum 48K default
 
   it('resolves POKE USR "a" to the UDG base when udgBase is given', () => {
     expect(pokeSites('10 POKE USR "a",255', { udgBase })).toEqual([
-      { address: 0xff58, expr: '65368', computed: false, lineNo: 10 },
+      {
+        address: 0xff58,
+        expr: '65368',
+        computed: false,
+        approximate: false,
+        lineNo: 10,
+      },
     ]);
   });
 

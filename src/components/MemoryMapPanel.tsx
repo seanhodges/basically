@@ -62,13 +62,30 @@ export function MemoryMapPanel() {
   const { inRange, outOfRange } = useMemo(() => {
     const seen = new Map<number, PokeSite>();
     if (map && hasPoke)
-      for (const s of pokeSites(source, { udgBase: map.udgBase }))
-        if (!seen.has(s.address)) seen.set(s.address, s);
+      for (const s of pokeSites(source, { udgBase: map.udgBase })) {
+        // Prefer an exact site over an approximate one at the same address.
+        const prev = seen.get(s.address);
+        if (!prev || (prev.approximate && !s.approximate))
+          seen.set(s.address, s);
+      }
     const within: PokeSite[] = [];
     const beyond: PokeSite[] = [];
     for (const s of seen.values()) {
-      if (map && s.address >= 0 && s.address < map.addressSpace) within.push(s);
-      else beyond.push(s);
+      const inSpace = !!map && s.address >= 0 && s.address < map.addressSpace;
+      if (s.approximate) {
+        // An approximate address is only a best-effort base, so show it only
+        // where it plausibly points at RAM: in range, non-zero, and not in a
+        // ROM region (a POKE there would be a no-op). Otherwise drop it
+        // silently - no out-of-range warning for a guessed base.
+        const kind = map?.regions.find(
+          (r) => s.address >= r.start && s.address <= r.end,
+        )?.kind;
+        if (inSpace && s.address !== 0 && kind !== 'rom') within.push(s);
+      } else if (inSpace) {
+        within.push(s);
+      } else {
+        beyond.push(s);
+      }
     }
     within.sort((a, b) => a.address - b.address);
     beyond.sort((a, b) => a.address - b.address);
@@ -282,12 +299,21 @@ export function MemoryMapPanel() {
                     return (
                       <span
                         key={s.address}
-                        className={styles.pokeMarker}
+                        className={`${styles.pokeMarker} ${
+                          s.approximate ? styles.pokeMarkerApprox : ''
+                        }`}
                         style={{ top: `${(y / px) * 100}%` }}
-                        title={s.computed ? `POKE ${s.expr}` : ''}
+                        title={
+                          s.approximate
+                            ? `POKE ${s.expr} — approximate (region estimate)`
+                            : s.computed
+                              ? `POKE ${s.expr}`
+                              : ''
+                        }
                       >
                         {showLabel && (
                           <span className={styles.pokeLabel}>
+                            {s.approximate ? '≈' : ''}
                             {fmt(s.address)}
                           </span>
                         )}
@@ -359,7 +385,7 @@ export function MemoryMapPanel() {
                       <ul className={styles.pokedList}>
                         {selectedSites.map((s) => (
                           <li key={s.address} className={styles.mono}>
-                            PEEK {s.address}
+                            {s.approximate ? '≈ ' : ''}PEEK {s.address}
                             {s.computed ? (
                               <span className={styles.pokedExpr}>
                                 {' '}
@@ -373,7 +399,9 @@ export function MemoryMapPanel() {
                       </ul>
                       <p className={styles.pokedCaveat}>
                         Computed addresses show the first value a loop or
-                        variable resolves to.
+                        variable resolves to. A “≈” marks an approximate base
+                        for POKEs whose address is worked out at runtime — the
+                        region is right, the exact byte may not be.
                       </p>
                     </div>
                   )}
