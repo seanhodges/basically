@@ -324,6 +324,15 @@ export function MemoryMapPanel() {
                     )
                     .map(({ s }) => {
                       const y = ((s.endAddress! - b.start) / span) * px;
+                      // Label the end address too, but only when it clears the
+                      // start line enough not to crowd its label. When the start
+                      // sits in another band the two are already far apart, so
+                      // always label.
+                      const startInBand =
+                        s.address >= b.start && s.address <= b.end;
+                      const yStart = ((s.address - b.start) / span) * px;
+                      const showLabel =
+                        !startInBand || Math.abs(y - yStart) >= LABEL_GAP_PX;
                       return (
                         <span
                           key={`e${s.address}`}
@@ -334,7 +343,14 @@ export function MemoryMapPanel() {
                           title={`POKE ${s.expr} — range end ${fmt(
                             s.endAddress!,
                           )}`}
-                        />
+                        >
+                          {showLabel && (
+                            <span className={styles.pokeLabel}>
+                              {s.approximate ? '≈' : ''}
+                              {fmt(s.endAddress!)}
+                            </span>
+                          )}
+                        </span>
                       );
                     })}
                   {detailed &&
