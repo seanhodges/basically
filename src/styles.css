@@ -12,7 +12,7 @@
 
   /* Memory-map region hues - one muted accent per MemoryRegionKind. The bands
      themselves are drawn by mixing these into the panel background so they read
-     as tinted surfaces rather than solid blocks (see MemoryMapDialog.module.css). */
+     as tinted surfaces rather than solid blocks (see MemoryMapPanel.module.css). */
   --mm-rom: #a986ff;
   --mm-screen: #4f8cff;
   --mm-attributes: #38c8c0;

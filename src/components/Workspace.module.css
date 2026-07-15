@@ -47,11 +47,12 @@
   grid-row: 1;
 }
 
-/* The preview and AI panel share the right-hand grid track: explicit placement
-   keeps the AI pane in the same cell as the preview instead of spilling into a
-   non-existent 4th column. (Ignored under the mobile flex layout below.) */
+/* The preview, AI panel and memory map share the right-hand grid track: explicit
+   placement keeps each pane in the same cell as the preview instead of spilling
+   into a non-existent 4th column. (Ignored under the mobile flex layout below.) */
 .monitorPane,
-.aiHost {
+.aiHost,
+.memoryHost {
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -190,6 +191,17 @@
   .workspace.mobile > .aiHost {
     flex: 1;
     min-height: 0;
+  }
+
+  /* The memory map has no tab, so on mobile it covers the whole workspace as a
+     full pane while open (rendered only then), matching how a tab pane fills the
+     single-pane layout. */
+  .workspace.mobile > .memoryHost {
+    position: absolute;
+    inset: 0;
+    /* Above the editor-tab run FAB (z-index 20) so it can't poke through. */
+    z-index: 21;
+    background: var(--bg-panel);
   }
 
   .tabHidden {

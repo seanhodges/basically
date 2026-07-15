@@ -1,20 +1,23 @@
+/* Docked panel that shares the right-hand column with the emulator preview and
+   the AI assistant (see Workspace). Mirrors AiPanel.module.css so the two read
+   as siblings: a flex column filling its host, with a titled header. */
 .panel {
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px;
-  width: min(760px, 94vw);
-  height: min(84vh, 780px);
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
-.header {
+/* Title bar, matching AiPanel's .aiHeader (title left, action right). */
+.panelHeader {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .controls {
@@ -23,6 +26,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 12px;
+  padding: 8px 12px;
 }
 
 /* Hex / Integer segmented toggle. */
@@ -66,7 +70,7 @@
 
 /* Prominent notice when a program POKEs an address outside the machine's RAM. */
 .warning {
-  margin: 10px 0 0;
+  margin: 8px 12px 0;
   padding: 8px 12px;
   font-size: 12.5px;
   line-height: 1.45;
@@ -78,7 +82,8 @@
 }
 
 .hint {
-  margin: 8px 0 12px;
+  margin: 6px 0 10px;
+  padding: 0 12px;
   font-size: 12px;
   color: var(--text-dim);
   line-height: 1.4;
@@ -89,9 +94,10 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  padding: 0 12px 12px;
 }
 
-/* The scrolling map column, now the full width of the body; the region detail
+/* The scrolling map column, the full width of the body; the region detail
    overlays it on demand (see .detailOverlay). `pan-y` keeps one-finger vertical
    scrolling while still delivering the multi-touch pointer events pinch needs. */
 .mapScroll {
@@ -197,7 +203,7 @@
 
 /* Address scale inside a region once it is drawn tall enough (see memoryScale).
    Faint dashed lines behind everything, with a small label in the current
-   notation. */
+   notation, anchored to the right so it clears the region label on the left. */
 .scaleTick {
   position: absolute;
   left: 0;
@@ -257,7 +263,7 @@
    permanent width beside it - so the map (and its controls) get the full panel. */
 .detailOverlay {
   position: absolute;
-  inset: 0;
+  inset: 0 12px 12px;
   z-index: 5;
   overflow-y: auto;
   padding: 14px 16px;
@@ -350,13 +356,13 @@
   line-height: 1.5;
 }
 
-/* Footer: the Show/Hide Details toggle sits bottom-left, Close bottom-right. */
+/* Footer: the Show/Hide Details toggle sits bottom-left. */
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  margin-top: 14px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
 }
 
 .detailsToggle {
