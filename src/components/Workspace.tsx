@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIdeStore, type MobileTab } from '../app/store';
 import {
   useMediaQuery,
@@ -88,6 +88,12 @@ export function Workspace() {
       getMachine: () => machineApiRef.current?.getMachine() ?? null,
       registerFrameHook: (cb) => machineApiRef.current?.registerFrameHook(cb),
     }),
+    [],
+  );
+  // A stable machine accessor for the memory-map activity overlay (mirrors the
+  // keyboard/controller targets; reads the latest handle EmulatorPane populates).
+  const getMachineStable = useCallback(
+    () => machineApiRef.current?.getMachine() ?? null,
     [],
   );
   // The controller only ever drives the machine; a stable handle like above.
@@ -211,7 +217,7 @@ export function Workspace() {
           so it renders only while open. */}
       {memoryMapOpen && dialect.memoryMap && (
         <div className={`${styles.memoryHost} ${slotHidden('memory')}`}>
-          <MemoryMapPanel />
+          <MemoryMapPanel getMachine={getMachineStable} />
         </div>
       )}
       {/* A single full-width keyboard overlay for every layout, routed to the

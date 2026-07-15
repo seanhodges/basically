@@ -125,9 +125,22 @@
 }
 
 .map {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+/* Live memory-activity overlay: a canvas spanning the whole band column, drawn
+   by the emulator's read/write activity. Sits behind the band content (which is
+   z-index:1) so region buttons stay clickable; ignores pointer events itself. */
+.activityCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .band {

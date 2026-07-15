@@ -320,6 +320,25 @@ export interface MachineEmulator {
    */
   readMemoryStats?(): MachineMemoryStats | null;
   /**
+   * Turn live memory-activity recording on or off. Off by default and cheap when
+   * off (a not-taken branch on the CPU's memory hot path). Only the memory-map
+   * overlay enables it, and only while the panel is on screen, so a machine
+   * never pays to record activity nothing is watching. Optional: a machine that
+   * can't tap its memory bus omits this (and {@link drainMemoryActivity}) and
+   * the overlay shows no live activity. Detected via
+   * `typeof machine.setMemoryActivityRecording === 'function'`.
+   */
+  setMemoryActivityRecording?(enabled: boolean): void;
+  /**
+   * Drain the CPU addresses touched since the previous drain as a FRESH,
+   * transferable `Uint8Array` of length `dialect.memoryMap.addressSpace` (index =
+   * address; nonzero = touched, bit0 = read, bit1 = write). Pass a
+   * previously-drained buffer back as `recycle` to reuse it as the next fill
+   * target and avoid a per-frame allocation (a ping-pong pool). Returns null when
+   * recording is off. Paired with {@link setMemoryActivityRecording}.
+   */
+  drainMemoryActivity?(recycle?: Uint8Array | null): Uint8Array | null;
+  /**
    * The BASIC line number about to be executed next, or null when none is
    * determinable (e.g. sitting at the ready/K cursor, mid-edit, or the program
    * has ended). Used by the debugger to label the paused line and detect line
