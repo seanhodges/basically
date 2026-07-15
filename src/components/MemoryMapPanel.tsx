@@ -251,6 +251,10 @@ export function MemoryMapPanel() {
         {inRange.length > 0
           ? ' Each line marks an address your program POKEs.'
           : ''}
+        {inRange.some((s) => s.endAddress !== undefined)
+          ? ' A shaded band shows the range a loop POKEs, from its start to its' +
+            ' end address.'
+          : ''}
       </p>
 
       <div className={styles.body}>
@@ -270,6 +274,17 @@ export function MemoryMapPanel() {
                 s,
                 y: ((s.address - b.start) / span) * px,
               }));
+              // Loop-range POKEs that overlap this band, by their full [lo, hi]
+              // span (not just the start marker) so a range spanning several
+              // bands shades each one it passes through.
+              const ranges = inRange
+                .filter((s) => s.endAddress !== undefined)
+                .map((s) => ({
+                  s,
+                  lo: Math.min(s.address, s.endAddress!),
+                  hi: Math.max(s.address, s.endAddress!),
+                }))
+                .filter((r) => r.hi >= b.start && r.lo <= b.end);
               let lastLabelY = -Infinity;
               const fraction = (span / totalBytes) * 100;
               return (
@@ -283,6 +298,45 @@ export function MemoryMapPanel() {
                   onClick={() => setSelectedKey(b.key)}
                   title={`${fmt(b.start)}–${fmt(b.end)} ${b.label}`}
                 >
+                  {ranges.map(({ s, lo, hi }) => {
+                    // Clamp the fill to this band; +1 on the far edge covers the
+                    // end byte's own row so the shading reaches the last address.
+                    const top = ((Math.max(lo, b.start) - b.start) / span) * px;
+                    const bottom =
+                      ((Math.min(hi, b.end) + 1 - b.start) / span) * px;
+                    return (
+                      <span
+                        key={`f${s.address}`}
+                        className={`${styles.pokeFill} ${
+                          s.approximate ? styles.pokeFillApprox : ''
+                        }`}
+                        style={{
+                          top: `${(top / px) * 100}%`,
+                          height: `${((bottom - top) / px) * 100}%`,
+                        }}
+                      />
+                    );
+                  })}
+                  {ranges
+                    .filter(
+                      (r) =>
+                        r.s.endAddress! >= b.start && r.s.endAddress! <= b.end,
+                    )
+                    .map(({ s }) => {
+                      const y = ((s.endAddress! - b.start) / span) * px;
+                      return (
+                        <span
+                          key={`e${s.address}`}
+                          className={`${styles.pokeMarker} ${
+                            s.approximate ? styles.pokeMarkerApprox : ''
+                          }`}
+                          style={{ top: `${(y / px) * 100}%` }}
+                          title={`POKE ${s.expr} — range end ${fmt(
+                            s.endAddress!,
+                          )}`}
+                        />
+                      );
+                    })}
                   {detailed &&
                     addressTicks(b.start, b.end, px).map((a) => (
                       <span

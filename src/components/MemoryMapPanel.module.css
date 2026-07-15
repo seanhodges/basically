@@ -210,6 +210,24 @@
   opacity: 0.7;
 }
 
+/* The span a loop POKE covers, shaded between its start and end lines in the
+   same warning hue, semi-transparent. Sits above the band tint and scale ticks
+   (z0) but below the marker lines (z2) and the band label (also z1, drawn later
+   in the DOM), so the lines and text stay legible on top. */
+.pokeFill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--warn) 25%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* An approximate range: fainter, so it reads as an estimated footprint. */
+.pokeFillApprox {
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+
 .pokeLabel {
   position: absolute;
   right: 3px;

@@ -51,6 +51,14 @@ export interface PokeSite {
    * byte. Exact resolutions are `false`.
    */
   approximate: boolean;
+  /**
+   * Resolved end address of the range this POKE spans, when its address varies
+   * with a `FOR` loop variable: the same expression re-evaluated with each loop
+   * variable at its `TO` (end) value instead of its start value. Absent when the
+   * POKE targets a single byte (no loop range, or the end can't be pinned down).
+   * May be *less* than {@link address} for a descending (`STEP -1`) loop.
+   */
+  endAddress?: number;
   /** The BASIC line number the POKE is on. */
   lineNo: number;
 }
@@ -135,13 +143,23 @@ const LITERAL_RE = /^\d+$/;
 // [LET] VAR = ... anchored at the statement start (so `IF X=5` is not an
 // assignment). The name keeps any `$`/`%` suffix so `A$` and `A` stay distinct.
 const ASSIGN_RE = /^\s*(?:LET\s+)?([A-Za-z][A-Za-z0-9]*[$%]?)\s*=\s*(.*)$/i;
-// FOR VAR = <start> TO ... - the start value is what a POKE in the body first sees.
-const FOR_RE = /^\s*FOR\s+([A-Za-z][A-Za-z0-9]*[$%]?)\s*=\s*(.*?)\s+TO\b/i;
+// FOR VAR = <start> TO <end> [STEP ...] - the start value is what a POKE in the
+// body first sees; the end value gives the range's far edge (see PokeSite.endAddress).
+const FOR_RE =
+  /^\s*FOR\s+([A-Za-z][A-Za-z0-9]*[$%]?)\s*=\s*(.*?)\s+TO\s+(.*?)(?:\s+STEP\s+.*)?$/i;
 
 /** A tracked variable value plus whether it was itself only approximated. */
 interface VarVal {
   value: number;
   approx: boolean;
+  /**
+   * The value this variable reaches at the end of its `FOR` loop (the `TO`
+   * value), when it is a loop counter. Set only by the FOR handler; a plain
+   * assignment leaves it unset, so reassigning a loop variable clears its range.
+   */
+  end?: number;
+  /** Whether {@link end} was itself only approximated (an unknown `TO` term). */
+  endApprox?: boolean;
 }
 
 /**
@@ -175,7 +193,7 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
     for (const stmt of statementsOf(line.body, ctx)) {
       const forMatch = FOR_RE.exec(stmt);
       if (forMatch) {
-        assign(vars, forMatch[1]!, forMatch[2]!);
+        assignFor(vars, forMatch[1]!, forMatch[2]!, forMatch[3]!);
         continue;
       }
 
@@ -196,6 +214,7 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
               computed: !LITERAL_RE.test(expr),
               approximate: value.approx,
               lineNo: line.lineNo,
+              ...rangeEnd(expr, vars, address, value.approx),
             });
           }
         }
@@ -287,6 +306,59 @@ function assign(vars: Map<string, VarVal>, name: string, expr: string): void {
   else vars.set(key, value);
 }
 
+/**
+ * Record a `FOR name = <start> TO <end>` loop: the counter takes its start value
+ * (what a POKE in the body first sees), and its {@link VarVal.end} carries the
+ * `TO` value so a POKE's range can be resolved. An unresolvable start forgets the
+ * variable; an unresolvable end just leaves the range unknown.
+ */
+function assignFor(
+  vars: Map<string, VarVal>,
+  name: string,
+  startExpr: string,
+  endExpr: string,
+): void {
+  const start = evalExpr(startExpr, vars);
+  const key = name.toUpperCase();
+  if (start === undefined) {
+    vars.delete(key);
+    return;
+  }
+  // Evaluate the TO value with useEnd, so `FOR J=... TO B+384` picks up any
+  // outer loop's end too - keeping nested ranges consistent.
+  const end = evalExpr(endExpr, vars, true);
+  vars.set(key, {
+    value: start.value,
+    approx: start.approx,
+    ...(end !== undefined ? { end: end.value, endApprox: end.approx } : {}),
+  });
+}
+
+/**
+ * The `{ endAddress }` to spread onto a {@link PokeSite}, or `{}` when the POKE
+ * targets a single byte. Re-evaluates the address expression with each loop
+ * counter at its `TO` value ({@link evalExpr}'s `useEnd`) and keeps the result
+ * only when it is a genuine, meaningful range:
+ * - the end resolves, and rounds to a different address than the start; and
+ * - it isn't an approximate base collapsing to 0 (no meaningful edge); and
+ * - it isn't approximate while the start is exact - the `FOR I=1 TO N` (unknown
+ *   `N` -> 0) case, which would otherwise draw a bogus descending band.
+ */
+function rangeEnd(
+  expr: string,
+  vars: Map<string, VarVal>,
+  address: number,
+  startApprox: boolean,
+): { endAddress?: number } {
+  const end = evalExpr(expr, vars, true);
+  if (end === undefined) return {};
+  const endAddress = Math.round(end.value);
+  if (endAddress === address) return {};
+  if (end.approx && endAddress === 0) return {};
+  if (end.approx && !startApprox) return {};
+  return { endAddress };
+}
+
 // --- A tiny pure numeric expression evaluator ---------------------------------
 // Supports decimal literals, + - * /, unary +/-, parentheses and variable
 // lookups. An unknown variable or a function/array call (`PEEK(...)`, `H(C,Z)`)
@@ -308,14 +380,19 @@ type Token =
  * value together with whether any unknown term had to be assumed `0`
  * (`approx`), or `undefined` when the expression can't be tokenized/parsed at
  * all.
+ *
+ * With `useEnd` set, a loop counter is read at its {@link VarVal.end} value (the
+ * `FOR ... TO` value) rather than its start value, so the same expression yields
+ * the range's far edge. Variables without an `end` are read normally.
  */
 export function evalExpr(
   expr: string,
   vars: Map<string, VarVal>,
+  useEnd = false,
 ): VarVal | undefined {
   const tokens = tokenize(expr);
   if (!tokens) return undefined;
-  const parser: Parser = { tokens, pos: 0, vars, approx: false };
+  const parser: Parser = { tokens, pos: 0, vars, approx: false, useEnd };
   const value = parseAddition(parser);
   if (value === undefined || parser.pos !== tokens.length) return undefined;
   return Number.isFinite(value) ? { value, approx: parser.approx } : undefined;
@@ -373,6 +450,8 @@ interface Parser {
   vars: Map<string, VarVal>;
   /** Set once any unknown term was assumed `0`, marking the value a base. */
   approx: boolean;
+  /** Read loop counters at their `FOR ... TO` value (see {@link evalExpr}). */
+  useEnd: boolean;
 }
 
 function parseAddition(p: Parser): number | undefined {
@@ -438,6 +517,11 @@ function parseAtom(p: Parser): number | undefined {
     if (v === undefined) {
       p.approx = true;
       return 0;
+    }
+    // When resolving a range's far edge, read a loop counter at its TO value.
+    if (p.useEnd && v.end !== undefined) {
+      if (v.endApprox) p.approx = true;
+      return v.end;
     }
     if (v.approx) p.approx = true;
     return v.value;
