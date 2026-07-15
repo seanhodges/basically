@@ -203,6 +203,13 @@
   z-index: 2;
 }
 
+/* An approximate base (address worked out at runtime): dashed and muted so it
+   reads as a region estimate rather than an exact byte. */
+.pokeMarkerApprox {
+  border-top-style: dashed;
+  opacity: 0.7;
+}
+
 .pokeLabel {
   position: absolute;
   right: 3px;
