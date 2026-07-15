@@ -132,15 +132,17 @@
 }
 
 /* Live memory-activity overlay: a canvas spanning the whole band column, drawn
-   by the emulator's read/write activity. Sits behind the band content (which is
-   z-index:1) so region buttons stay clickable; ignores pointer events itself. */
+   by the emulator's read/write activity. Sits in front of the band content (the
+   region tints/labels are z-index:1, POKE markers z-index:2) so the read/write
+   lines light up on top of the regions; `pointer-events: none` lets clicks fall
+   through to the region buttons underneath, so they stay clickable. */
 .activityCanvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 0;
+  z-index: 3;
 }
 
 .band {
