@@ -85,6 +85,62 @@ describe('pokeSites', () => {
     expect(pokeSites(src).map((s) => s.address)).toEqual([22528]);
   });
 
+  it('resolves a range end from the FOR TO value', () => {
+    const src = ['10 LET B=22528', '20 FOR I=0 TO 7', '30 POKE B+I,7'].join(
+      '\n',
+    );
+    const [site] = pokeSites(src);
+    expect(site!.address).toBe(22528);
+    expect(site!.endAddress).toBe(22535);
+  });
+
+  it('gives no range for a POKE whose address does not vary', () => {
+    const [site] = pokeSites('10 POKE 40000,1');
+    expect(site!.address).toBe(40000);
+    expect('endAddress' in site!).toBe(false);
+  });
+
+  it('gives no range when the FOR start and end resolve equal', () => {
+    const src = ['10 LET B=22528', '20 FOR I=0 TO 0', '30 POKE B+I,7'].join(
+      '\n',
+    );
+    const [site] = pokeSites(src);
+    expect(site!.address).toBe(22528);
+    expect(site!.endAddress).toBeUndefined();
+  });
+
+  it('gives no range when the FOR TO value is unknown', () => {
+    const src = ['10 LET B=22528', '20 FOR I=1 TO N', '30 POKE B+I,7'].join(
+      '\n',
+    );
+    const [site] = pokeSites(src);
+    expect(site!.address).toBe(22529);
+    expect(site!.endAddress).toBeUndefined();
+  });
+
+  it('resolves a descending range (STEP -1), end below start', () => {
+    const src = [
+      '10 LET B=22528',
+      '20 FOR I=7 TO 0 STEP -1',
+      '30 POKE B+I,7',
+    ].join('\n');
+    const [site] = pokeSites(src);
+    expect(site!.address).toBe(22535);
+    expect(site!.endAddress).toBe(22528);
+  });
+
+  it('clears the range when the loop variable is later reassigned', () => {
+    const src = [
+      '10 LET B=22528',
+      '20 FOR I=0 TO 7',
+      '30 LET I=3',
+      '40 POKE B+I,7',
+    ].join('\n');
+    const [site] = pokeSites(src);
+    expect(site!.address).toBe(22531);
+    expect(site!.endAddress).toBeUndefined();
+  });
+
   it('rounds a fractional computed address', () => {
     const src = ['10 A=100', '20 POKE A/3,1'].join('\n');
     expect(pokeSites(src).map((s) => s.address)).toEqual([33]);
@@ -195,6 +251,10 @@ describe('pokeSites approximate resolution', () => {
     expect(site!.lineNo).toBe(22);
     expect(site!.address).toBeGreaterThanOrEqual(0x5800);
     expect(site!.address).toBeLessThanOrEqual(0x5aff);
+    // The FOR ... TO ... STEP end resolves too (both start and end approximate),
+    // giving a range whose far edge sits above the start, still in-region.
+    expect(site!.endAddress).toBeGreaterThan(site!.address);
+    expect(site!.endAddress).toBeLessThanOrEqual(0x5aff);
   });
 
   it('drops an approximate address that collapses to 0', () => {
