@@ -111,3 +111,63 @@ describe('pokeSites', () => {
     expect(pokeSites('10 POKE PEEK(16384),0')).toEqual([]);
   });
 });
+
+describe('pokeSites USR "letter" (user-defined graphics)', () => {
+  const udgBase = 0xff58; // ZX Spectrum 48K default
+
+  it('resolves POKE USR "a" to the UDG base when udgBase is given', () => {
+    expect(pokeSites('10 POKE USR "a",255', { udgBase })).toEqual([
+      { address: 0xff58, expr: '65368', computed: false, lineNo: 10 },
+    ]);
+  });
+
+  it('steps 8 bytes per graphic letter', () => {
+    const src = ['10 POKE USR "a",1', '20 POKE USR "b",1', '30 POKE USR "c",1'];
+    expect(
+      pokeSites(src.join('\n'), { udgBase }).map((s) => s.address),
+    ).toEqual([0xff58, 0xff58 + 8, 0xff58 + 16]);
+  });
+
+  it('is case-insensitive and tolerates spacing and a glued USR"x"', () => {
+    const src = ['10 POKE USR"A",1', '20 POKE  USR  "a" ,1'];
+    expect(
+      pokeSites(src.join('\n'), { udgBase }).map((s) => s.address),
+    ).toEqual([0xff58, 0xff58]);
+  });
+
+  it('resolves USR "a" inside a larger address expression', () => {
+    expect(
+      pokeSites('10 POKE USR "a"+1,7', { udgBase }).map((s) => s.address),
+    ).toEqual([0xff58 + 1]);
+  });
+
+  it('resolves USR "a" assigned to a variable, then POKEd', () => {
+    const src = ['10 LET U=USR "c"', '20 POKE U,1'];
+    expect(
+      pokeSites(src.join('\n'), { udgBase }).map((s) => s.address),
+    ).toEqual([0xff58 + 16]);
+  });
+
+  it('leaves POKE USR "a" unresolved when the machine has no UDGs', () => {
+    expect(pokeSites('10 POKE USR "a",255')).toEqual([]);
+  });
+
+  it('does not resolve letters beyond the 21 UDGs (a-u)', () => {
+    expect(pokeSites('10 POKE USR "v",1', { udgBase })).toEqual([]);
+  });
+
+  it('leaves numeric USR unresolved (its return value is runtime BC)', () => {
+    expect(pokeSites('10 POKE USR 16384,1', { udgBase })).toEqual([]);
+  });
+
+  it('ignores USR "a" that only appears in a string or REM', () => {
+    const src = ['10 PRINT "POKE USR ~a~"', '20 REM POKE USR "a",1'];
+    // The tilde stand-ins avoid nested quotes; the point is no code POKE exists.
+    expect(pokeSites(src.join('\n'), { udgBase })).toEqual([]);
+  });
+
+  it('does not rewrite USR when it is the tail of a longer name', () => {
+    // AUSR is a variable, not a USR call; with AUSR unknown the POKE drops.
+    expect(pokeSites('10 POKE AUSR "a",1', { udgBase })).toEqual([]);
+  });
+});

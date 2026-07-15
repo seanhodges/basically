@@ -13,18 +13,15 @@
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
-}
-
-.title {
-  margin: 0;
-  font-size: 18px;
 }
 
 .controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 12px;
 }
 
@@ -88,16 +85,17 @@
 }
 
 .body {
+  position: relative;
   display: flex;
-  gap: 16px;
   flex: 1;
   min-height: 0;
 }
 
-/* The scrolling map column. `pan-y` keeps one-finger vertical scrolling while
-   still delivering the multi-touch pointer events the pinch handler needs. */
+/* The scrolling map column, now the full width of the body; the region detail
+   overlays it on demand (see .detailOverlay). `pan-y` keeps one-finger vertical
+   scrolling while still delivering the multi-touch pointer events pinch needs. */
 .mapScroll {
-  flex: 0 0 44%;
+  flex: 1 1 auto;
   overflow-y: auto;
   padding-right: 6px;
   touch-action: pan-y;
@@ -212,7 +210,7 @@
 
 .scaleLabel {
   position: absolute;
-  left: 3px;
+  right: 3px;
   top: 0;
   transform: translateY(-50%);
   font-family: 'Cascadia Code', 'Consolas', monospace;
@@ -254,13 +252,23 @@
   border-left-color: var(--mm-reserved);
 }
 
-/* ---- Detail panel ---- */
-.detail {
-  flex: 1;
-  min-width: 0;
+/* ---- Detail panel ----
+   Popped up in front of the map by the Show Details toggle, rather than taking
+   permanent width beside it - so the map (and its controls) get the full panel. */
+.detailOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
   overflow-y: auto;
-  border-left: 1px solid var(--border);
-  padding-left: 16px;
+  padding: 14px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 35%);
+}
+
+.detail {
+  min-width: 0;
 }
 
 .detailTitle {
@@ -342,20 +350,15 @@
   line-height: 1.5;
 }
 
-/* Stack the map above the detail panel on narrow screens. */
-@media (max-width: 620px) {
-  .body {
-    flex-direction: column;
-  }
+/* Footer: the Show/Hide Details toggle sits bottom-left, Close bottom-right. */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+}
 
-  .mapScroll {
-    flex: 1 1 auto;
-  }
-
-  .detail {
-    border-left: none;
-    border-top: 1px solid var(--border);
-    padding-left: 0;
-    padding-top: 12px;
-  }
+.detailsToggle {
+  margin-right: auto;
 }

@@ -45,6 +45,7 @@ export function MemoryMapDialog() {
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [notation, setNotation] = useState<Notation>('hex');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   const map = dialect.memoryMap;
   const hasPoke = dialect.keywords.some((k) => k.word === 'POKE');
@@ -59,7 +60,7 @@ export function MemoryMapDialog() {
   const { inRange, outOfRange } = useMemo(() => {
     const seen = new Map<number, PokeSite>();
     if (map && hasPoke)
-      for (const s of pokeSites(source))
+      for (const s of pokeSites(source, { udgBase: map.udgBase }))
         if (!seen.has(s.address)) seen.set(s.address, s);
     const within: PokeSite[] = [];
     const beyond: PokeSite[] = [];
@@ -135,9 +136,14 @@ export function MemoryMapDialog() {
 
   return (
     <div className={dialog.modalBackdrop} onClick={() => setOpen(false)}>
-      <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={styles.panel}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Memory map — ${dialect.name}`}
+      >
         <div className={styles.header}>
-          <h2 className={styles.title}>Memory map — {dialect.name}</h2>
           <div className={styles.controls}>
             <div
               className={styles.notation}
@@ -156,7 +162,7 @@ export function MemoryMapDialog() {
                 onClick={() => setNotation('dec')}
                 aria-pressed={notation === 'dec'}
               >
-                Integer
+                Int
               </button>
             </div>
             <div className={styles.zoom}>
@@ -275,87 +281,101 @@ export function MemoryMapDialog() {
                         </span>
                       )}
                     </span>
-                    <span className={styles.bandPct}>
-                      {fraction.toFixed(1)}%
-                    </span>
+                    {!detailed && (
+                      <span className={styles.bandPct}>
+                        {fraction.toFixed(1)}%
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div className={styles.detail}>
-            {selected ? (
-              <>
-                <h3 className={styles.detailTitle}>{selected.label}</h3>
-                <dl className={styles.detailGrid}>
-                  <dt>Range</dt>
-                  <dd className={styles.mono}>
-                    {fmt(selected.start)} – {fmt(selected.end)}
-                  </dd>
-                  <dt>Size</dt>
-                  <dd className={styles.mono}>
-                    {(selected.end - selected.start + 1).toLocaleString()} bytes
-                  </dd>
-                  <dt>Start</dt>
-                  <dd className={styles.mono}>PEEK {selected.start}</dd>
-                </dl>
-                {selected.leaves.length > 1 && (
-                  <ul className={styles.leafList}>
-                    {selected.leaves.map((r) => (
-                      <li key={r.start}>
-                        <span className={styles.mono}>{fmt(r.start)}</span>{' '}
-                        {r.label}
-                      </li>
-                    ))}
-                  </ul>
+          {showDetails && (
+            <div className={styles.detailOverlay}>
+              <div className={styles.detail}>
+                {selected ? (
+                  <>
+                    <h3 className={styles.detailTitle}>{selected.label}</h3>
+                    <dl className={styles.detailGrid}>
+                      <dt>Range</dt>
+                      <dd className={styles.mono}>
+                        {fmt(selected.start)} – {fmt(selected.end)}
+                      </dd>
+                      <dt>Size</dt>
+                      <dd className={styles.mono}>
+                        {(selected.end - selected.start + 1).toLocaleString()}{' '}
+                        bytes
+                      </dd>
+                      <dt>Start</dt>
+                      <dd className={styles.mono}>PEEK {selected.start}</dd>
+                    </dl>
+                    {selected.leaves.length > 1 && (
+                      <ul className={styles.leafList}>
+                        {selected.leaves.map((r) => (
+                          <li key={r.start}>
+                            <span className={styles.mono}>{fmt(r.start)}</span>{' '}
+                            {r.label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {selected.leaves.map(
+                      (r) =>
+                        r.note && (
+                          <p key={r.start} className={styles.note}>
+                            {selected.leaves.length > 1 ? `${r.label}: ` : ''}
+                            {r.note}
+                          </p>
+                        ),
+                    )}
+                    {selectedSites.length > 0 && (
+                      <div className={styles.pokedBox}>
+                        <h4 className={styles.pokedTitle}>
+                          Your program POKEs here — read it back with:
+                        </h4>
+                        <ul className={styles.pokedList}>
+                          {selectedSites.map((s) => (
+                            <li key={s.address} className={styles.mono}>
+                              PEEK {s.address}
+                              {s.computed ? (
+                                <span className={styles.pokedExpr}>
+                                  {' '}
+                                  · {s.expr}
+                                </span>
+                              ) : (
+                                ''
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className={styles.pokedCaveat}>
+                          Computed addresses show the first value a loop or
+                          variable resolves to.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className={styles.empty}>
+                    Select a region to see its start address and the value to
+                    use in a PEEK.
+                  </p>
                 )}
-                {selected.leaves.map(
-                  (r) =>
-                    r.note && (
-                      <p key={r.start} className={styles.note}>
-                        {selected.leaves.length > 1 ? `${r.label}: ` : ''}
-                        {r.note}
-                      </p>
-                    ),
-                )}
-                {selectedSites.length > 0 && (
-                  <div className={styles.pokedBox}>
-                    <h4 className={styles.pokedTitle}>
-                      Your program POKEs here — read it back with:
-                    </h4>
-                    <ul className={styles.pokedList}>
-                      {selectedSites.map((s) => (
-                        <li key={s.address} className={styles.mono}>
-                          PEEK {s.address}
-                          {s.computed ? (
-                            <span className={styles.pokedExpr}>
-                              {' '}
-                              · {s.expr}
-                            </span>
-                          ) : (
-                            ''
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className={styles.pokedCaveat}>
-                      Computed addresses show the first value a loop or variable
-                      resolves to.
-                    </p>
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className={styles.empty}>
-                Select a region to see its start address and the value to use in
-                a PEEK.
-              </p>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className={dialog.modalActions}>
+        <div className={styles.footer}>
+          <button
+            className={styles.detailsToggle}
+            onClick={() => setShowDetails((v) => !v)}
+            aria-pressed={showDetails}
+          >
+            {showDetails ? 'Hide Details' : 'Show Details'}
+          </button>
           <button onClick={() => setOpen(false)}>Close</button>
         </div>
       </div>

@@ -16,6 +16,9 @@ import type { MemoryMap } from '../types';
  */
 export const spectrumMemoryMap: MemoryMap = {
   addressSpace: 0x10000,
+  // UDGs default to 0xFF58 on a fresh 48K machine (just above RAMTOP), so
+  // `USR "a"` returns 0xFF58 and `POKE USR "a", n` targets that byte.
+  udgBase: 0xff58,
   regions: [
     {
       start: 0x0000,
