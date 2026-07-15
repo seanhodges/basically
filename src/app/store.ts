@@ -769,8 +769,12 @@ export const useIdeStore = create<IdeState>((set) => ({
     })),
   reportRun: (report) =>
     set((s) => ({ runReport: { seq: s.runRequest, report } })),
-  showAiPanel: () => set({ aiPanelOpen: true, mobileTab: 'ai' }),
-  showEmulator: () => set({ aiPanelOpen: false, mobileTab: 'preview' }),
+  // The AI panel, emulator and memory map share the right-hand slot, so showing
+  // one closes the memory map (it otherwise wins the slot and hides them).
+  showAiPanel: () =>
+    set({ aiPanelOpen: true, memoryMapOpen: false, mobileTab: 'ai' }),
+  showEmulator: () =>
+    set({ aiPanelOpen: false, memoryMapOpen: false, mobileTab: 'preview' }),
   requestStop: () => set((s) => ({ stopRequest: s.stopRequest + 1 })),
   requestReset: () => set((s) => ({ resetRequest: s.resetRequest + 1 })),
   toggleBreakpoint: (lineNo) =>
@@ -868,7 +872,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   setSplitRatio: (n) => set({ splitRatio: n }),
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
   setLiveMemory: (stats) => set({ liveMemory: stats }),
-  toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
+  toggleAiPanel: () =>
+    set((s) => ({ aiPanelOpen: !s.aiPanelOpen, memoryMapOpen: false })),
   setTransferOpen: (open) => set({ transferOpen: open }),
   setShareLinkOpen: (open) => set({ shareLinkOpen: open }),
   setVfsInspectorOpen: (open) => set({ vfsInspectorOpen: open }),
@@ -877,7 +882,15 @@ export const useIdeStore = create<IdeState>((set) => ({
   setSettingsTab: (tab) => set({ settingsTab: tab }),
   openSettings: (tab) => set({ settingsOpen: true, settingsTab: tab }),
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
-  setMemoryMapOpen: (open) => set({ memoryMapOpen: open }),
+  // Opening the memory map closes the AI panel: both share the right-hand slot,
+  // and the map takes priority, so leaving the AI flag set would make its toolbar
+  // toggle appear dead until the map is closed.
+  setMemoryMapOpen: (open) =>
+    set(
+      open
+        ? { memoryMapOpen: true, aiPanelOpen: false }
+        : { memoryMapOpen: false },
+    ),
   setWelcomeOpen: (open) => set({ welcomeOpen: open }),
   setStatusNotice: (text) => set({ statusNotice: text }),
   openDocs: (topic) => set({ docsDrawerOpen: true, docsTopic: topic ?? null }),

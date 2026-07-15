@@ -1,31 +1,49 @@
+/* Docked panel that shares the right-hand column with the emulator preview and
+   the AI assistant (see Workspace). Mirrors AiPanel.module.css so the two read
+   as siblings: a flex column filling its host, with a titled header. */
 .panel {
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px;
-  width: min(760px, 94vw);
-  height: min(84vh, 780px);
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
-.header {
+/* Title bar, matching AiPanel's .aiHeader (title left, action right). */
+.panelHeader {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-}
-
-.title {
-  margin: 0;
-  font-size: 18px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  padding: 8px 12px;
+}
+
+/* The Show/Hide Details toggle sits at the far left of the control row; the
+   auto margin pushes the notation + zoom groups to the right. On mobile it
+   collapses to an icon (see the media query below) so every control still fits. */
+.detailsToggle {
+  margin-right: auto;
+  gap: 5px;
+}
+
+.detailsIcon {
+  display: none;
+  align-items: center;
+}
+
+.detailsText {
+  display: inline;
 }
 
 /* Hex / Integer segmented toggle. */
@@ -69,7 +87,7 @@
 
 /* Prominent notice when a program POKEs an address outside the machine's RAM. */
 .warning {
-  margin: 10px 0 0;
+  margin: 8px 12px 0;
   padding: 8px 12px;
   font-size: 12.5px;
   line-height: 1.45;
@@ -81,23 +99,26 @@
 }
 
 .hint {
-  margin: 8px 0 12px;
+  margin: 6px 0 10px;
+  padding: 0 12px;
   font-size: 12px;
   color: var(--text-dim);
   line-height: 1.4;
 }
 
 .body {
+  position: relative;
   display: flex;
-  gap: 16px;
   flex: 1;
   min-height: 0;
+  padding: 0 12px 12px;
 }
 
-/* The scrolling map column. `pan-y` keeps one-finger vertical scrolling while
-   still delivering the multi-touch pointer events the pinch handler needs. */
+/* The scrolling map column, the full width of the body; the region detail
+   overlays it on demand (see .detailOverlay). `pan-y` keeps one-finger vertical
+   scrolling while still delivering the multi-touch pointer events pinch needs. */
 .mapScroll {
-  flex: 0 0 44%;
+  flex: 1 1 auto;
   overflow-y: auto;
   padding-right: 6px;
   touch-action: pan-y;
@@ -199,7 +220,7 @@
 
 /* Address scale inside a region once it is drawn tall enough (see memoryScale).
    Faint dashed lines behind everything, with a small label in the current
-   notation. */
+   notation, anchored to the right so it clears the region label on the left. */
 .scaleTick {
   position: absolute;
   left: 0;
@@ -212,7 +233,7 @@
 
 .scaleLabel {
   position: absolute;
-  left: 3px;
+  right: 3px;
   top: 0;
   transform: translateY(-50%);
   font-family: 'Cascadia Code', 'Consolas', monospace;
@@ -254,13 +275,23 @@
   border-left-color: var(--mm-reserved);
 }
 
-/* ---- Detail panel ---- */
-.detail {
-  flex: 1;
-  min-width: 0;
+/* ---- Detail panel ----
+   Popped up in front of the map by the Show Details toggle, rather than taking
+   permanent width beside it - so the map (and its controls) get the full panel. */
+.detailOverlay {
+  position: absolute;
+  inset: 0 12px 12px;
+  z-index: 5;
   overflow-y: auto;
-  border-left: 1px solid var(--border);
-  padding-left: 16px;
+  padding: 14px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 35%);
+}
+
+.detail {
+  min-width: 0;
 }
 
 .detailTitle {
@@ -342,20 +373,15 @@
   line-height: 1.5;
 }
 
-/* Stack the map above the detail panel on narrow screens. */
-@media (max-width: 620px) {
-  .body {
-    flex-direction: column;
+/* Mobile: the detail toggle becomes icon-only (show/hide eye) so the notation
+   and zoom controls keep enough room. Matches the app's mobile breakpoints. */
+@media (max-width: 768px),
+  (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .detailsIcon {
+    display: inline-flex;
   }
 
-  .mapScroll {
-    flex: 1 1 auto;
-  }
-
-  .detail {
-    border-left: none;
-    border-top: 1px solid var(--border);
-    padding-left: 0;
-    padding-top: 12px;
+  .detailsText {
+    display: none;
   }
 }

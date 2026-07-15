@@ -25,6 +25,7 @@ import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import { CodeMirrorHost } from './CodeMirrorHost';
 import { EmulatorPane, type MachineApi } from './EmulatorPane';
 import { AiPanel } from './AiPanel';
+import { MemoryMapPanel } from './MemoryMapPanel';
 import { SettingsForm } from './SettingsForm';
 import styles from './Workspace.module.css';
 
@@ -35,6 +36,7 @@ export function Workspace() {
   const docOverride = useIdeStore((s) => s.docOverride);
   const setSource = useIdeStore((s) => s.setSource);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
+  const memoryMapOpen = useIdeStore((s) => s.memoryMapOpen);
   const mobileTab = useIdeStore((s) => s.mobileTab);
   const splitRatio = useIdeStore((s) => s.splitRatio);
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
@@ -111,12 +113,13 @@ export function Workspace() {
   const hidden = (tab: MobileTab) =>
     tabbed && mobileTab !== tab ? styles.tabHidden : '';
 
-  // On the split layout the preview and the AI panel share the right-hand column;
-  // exactly one shows at a time and the AI panel wins when open. (On the tab
-  // layout the tab logic in `hidden()` governs instead, so this is a no-op.)
-  const slotHidden = (view: 'preview' | 'ai') => {
+  // On the split layout the preview, the AI panel and the memory map share the
+  // right-hand column; exactly one shows at a time. The memory map wins when
+  // open, then the AI panel, else the preview. (On the tab layout the tab logic
+  // in `hidden()` governs instead, so this is a no-op.)
+  const slotHidden = (view: 'preview' | 'ai' | 'memory') => {
     if (tabbed) return '';
-    const active = aiPanelOpen ? 'ai' : 'preview';
+    const active = memoryMapOpen ? 'memory' : aiPanelOpen ? 'ai' : 'preview';
     return view === active ? '' : styles.slotHidden;
   };
 
@@ -200,6 +203,15 @@ export function Workspace() {
       {(aiPanelOpen || tabbed) && (
         <div className={`${styles.aiHost} ${hidden('ai')} ${slotHidden('ai')}`}>
           <AiPanel />
+        </div>
+      )}
+      {/* The memory map shares the right-hand slot like the AI panel; on the split
+          layout it takes over the column, and on the tab layout it covers the
+          workspace as a full pane. It's opened from a menu (no persistent tab),
+          so it renders only while open. */}
+      {memoryMapOpen && dialect.memoryMap && (
+        <div className={`${styles.memoryHost} ${slotHidden('memory')}`}>
+          <MemoryMapPanel />
         </div>
       )}
       {/* A single full-width keyboard overlay for every layout, routed to the

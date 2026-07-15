@@ -404,6 +404,13 @@ export interface MemoryMap {
   addressSpace: number;
   /** Contiguous leaf regions, ascending, covering `0 .. addressSpace - 1`. */
   regions: MemoryRegion[];
+  /**
+   * Base address of the user-defined-graphics area, when the machine has one
+   * reachable via `USR "letter"` (e.g. the ZX Spectrum's default 0xFF58). Lets
+   * the POKE resolver turn `POKE USR "a", n` into a concrete address/marker.
+   * Omit for machines without UDGs.
+   */
+  udgBase?: number;
 }
 
 /**

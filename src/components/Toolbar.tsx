@@ -56,6 +56,7 @@ export function Toolbar() {
   const docsDrawerOpen = useIdeStore((s) => s.docsDrawerOpen);
   const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
   const setMemoryMapOpen = useIdeStore((s) => s.setMemoryMapOpen);
+  const memoryMapOpen = useIdeStore((s) => s.memoryMapOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
   const mobileTab = useIdeStore((s) => s.mobileTab);
@@ -174,6 +175,7 @@ export function Toolbar() {
   const openShareLink = guard(() => setShareLinkOpen(true));
   const openVfsInspector = guard(() => setVfsInspectorOpen(true));
   const openMemoryMap = guard(() => setMemoryMapOpen(true));
+  const toggleMemoryMap = guard(() => setMemoryMapOpen(!memoryMapOpen));
 
   // Shortcut hints for menu items and button tooltips, pulled from the central
   // binding table so they never drift from what the keyboard actually does.
@@ -413,8 +415,8 @@ export function Toolbar() {
         </button>
         {dialect.memoryMap && (
           <button
-            className="icon-btn"
-            onClick={openMemoryMap}
+            className={`icon-btn ${memoryMapOpen ? 'active' : ''}`}
+            onClick={toggleMemoryMap}
             title="Memory map - the machine's memory layout and what your program POKEs"
           >
             <MemoryIcon />

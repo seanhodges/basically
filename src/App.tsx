@@ -12,7 +12,6 @@ import { VfsInspectorDialog } from './components/VfsInspectorDialog';
 import { ImportDialog } from './components/ImportDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
-import { MemoryMapDialog } from './components/MemoryMapDialog';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { DocsDrawer } from './components/DocsDrawer';
 import { StatusBar } from './components/StatusBar';
@@ -97,7 +96,6 @@ export default function App() {
       <ImportDialog />
       <SwitchTargetDialog />
       <ProcedureListDialog />
-      <MemoryMapDialog />
       <WelcomeDialog />
       <DocsDrawer />
     </div>

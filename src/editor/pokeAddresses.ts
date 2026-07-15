@@ -31,6 +31,77 @@ export interface PokeSite {
   lineNo: number;
 }
 
+/** Machine-specific facts that unlock extra address resolution. */
+export interface PokeContext {
+  /**
+   * Base address of the machine's user-defined-graphics area, when it has one
+   * reachable via `USR "letter"`. With it set, `POKE USR "a", n` (and any
+   * expression containing `USR "a".."u"`) resolves to that graphic's address -
+   * each UDG is 8 bytes from this base, so `USR "a"` = `udgBase`,
+   * `USR "b"` = `udgBase + 8`, and so on. Omit for machines without UDGs; other
+   * `USR` forms (`USR <number>`, whose value is only known once the called code
+   * returns) stay unresolved regardless.
+   */
+  udgBase?: number;
+}
+
+/** Number of user-defined graphics reachable as `USR "a".."u"` (the 48K set). */
+const UDG_COUNT = 21;
+/** Bytes per user-defined graphic (an 8x8 bitmap). */
+const UDG_STRIDE = 8;
+// `USR "x"` used as an address: a UDG letter in double quotes, optionally glued
+// to USR the way crunched entry allows (`USR"a"`). Applied only in code context.
+const USR_UDG_RE = /^USR\s*"([A-Za-z])"/i;
+
+/**
+ * Rewrite `USR "a".."u"` calls to the decimal address of the graphic they
+ * return, so the ordinary numeric resolver can place the POKE marker. Only
+ * touches occurrences in real code - string literals and REM comments are
+ * copied through verbatim, mirroring {@link scannable}'s state machine - and
+ * only where a machine actually has UDGs (`udgBase` given). Other `USR` forms
+ * are left untouched, so their POKEs stay unresolved as before.
+ */
+function resolveUdgCalls(body: string, udgBase: number): string {
+  let out = '';
+  let i = 0;
+  let inString = false;
+  while (i < body.length) {
+    const ch = body[i]!;
+    if (inString) {
+      out += ch;
+      if (ch === '"') inString = false;
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      out += ch;
+      inString = true;
+      i++;
+      continue;
+    }
+    // REM at a statement boundary: the rest is a comment; copy it untouched.
+    if (/[Rr]/.test(ch) && /^rem\b/i.test(body.slice(i))) {
+      out += body.slice(i);
+      break;
+    }
+    // Only match USR at an identifier boundary, so a variable like `AUSR` or a
+    // longer word never has its tail rewritten.
+    const boundary = out === '' || !/[A-Za-z0-9$%]/.test(out[out.length - 1]!);
+    const m = boundary ? USR_UDG_RE.exec(body.slice(i)) : null;
+    if (m) {
+      const index = m[1]!.toUpperCase().charCodeAt(0) - 65; // 'A' -> 0
+      if (index >= 0 && index < UDG_COUNT) {
+        out += String(udgBase + index * UDG_STRIDE);
+        i += m[0].length;
+        continue;
+      }
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
 // POKE optionally glued to its argument the way single-keystroke / crunched
 // entry allows (`POKE16384`, `POKEA`); the leading \b still stops it matching
 // inside a longer word.
@@ -48,7 +119,7 @@ const FOR_RE = /^\s*FOR\s+([A-Za-z][A-Za-z0-9]*[$%]?)\s*=\s*(.*?)\s+TO\b/i;
  * Addresses are not range-checked here (this helper can't see the machine's
  * address space) - callers filter against it.
  */
-export function pokeSites(source: string): PokeSite[] {
+export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
   const sites: PokeSite[] = [];
   const vars = new Map<string, number>();
 
@@ -56,8 +127,14 @@ export function pokeSites(source: string): PokeSite[] {
   const lines = parseLines(source).sort((a, b) => a.lineNo - b.lineNo);
 
   for (const line of lines) {
+    // Turn `USR "a"` UDG calls into their address up front (where the machine
+    // has UDGs) so everything downstream just sees a number.
+    const body =
+      ctx.udgBase !== undefined
+        ? resolveUdgCalls(line.body, ctx.udgBase)
+        : line.body;
     // Strings/REM are already blanked, so `:` and `,` are real separators.
-    for (const stmt of scannable(line.body).split(':')) {
+    for (const stmt of scannable(body).split(':')) {
       const forMatch = FOR_RE.exec(stmt);
       if (forMatch) {
         assign(vars, forMatch[1]!, forMatch[2]!);
