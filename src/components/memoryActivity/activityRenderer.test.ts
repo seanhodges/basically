@@ -85,12 +85,28 @@ describe('ActivityRenderer', () => {
   it('draws a write hit as a coral line', () => {
     const s = stubCtx();
     const r = new ActivityRenderer(s.ctx, GEO, DIMS);
-    r.ingest(hits({ 0x8000: WRITE_BIT })); // 0x8000 -> row 50
+    // 0x4020's 10-address group sits squarely within row 25 (64K over 100px).
+    r.ingest(hits({ 0x4020: WRITE_BIT }));
     r.step();
 
     const coral = s.rects.filter((x) => x.fillStyle === WRITE_COLOR);
     expect(coral).toHaveLength(1);
-    expect(coral[0]!.y).toBe(50);
+    expect(coral[0]!.y).toBe(25);
+  });
+
+  it('lights the whole 10-address group as one thick line', () => {
+    // 100 addresses over 100px = 1px per address, so a 10-address group spans
+    // 10 rows: any hit inside it lights rows 0..9 as a solid block.
+    const geo = bandLayout([band(0, 99)], () => 100, 0);
+    const s = stubCtx();
+    const r = new ActivityRenderer(s.ctx, geo, DIMS);
+    r.ingest(hits({ 5: READ_BIT })); // address 5 -> group 0 (addresses 0-9)
+    r.step();
+
+    const teal = s.rects.filter((x) => x.fillStyle === READ_COLOR);
+    expect(teal.map((x) => x.y).sort((a, b) => a - b)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ]);
   });
 
   it('fades a line out over successive steps', () => {

@@ -9,6 +9,13 @@ export const WRITE_COLOR = '#F05D5E';
 /** Below this intensity a row is treated as dark and skipped. */
 const MIN_INTENSITY = 0.02;
 
+/**
+ * A hit lights the rows spanned by the whole group of addresses it falls in,
+ * not just its own row. Trades address precision for thicker, more legible
+ * lines that stay visible without zooming right in.
+ */
+const ADDRESSES_PER_LINE = 10;
+
 export interface RendererDims {
   /** CSS pixel width of the overlay. */
   width: number;
@@ -23,18 +30,23 @@ type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 /**
  * Turns per-frame memory-activity snapshots into fading teal (read) / coral
  * (write) lines on a canvas. Holds two per-device-pixel-row intensity arrays and
- * an address to row lookup, so `ingest` is one indexed store per touched address
- * and `step` touches only lit rows. Deliberately free of any DOM/worker
- * specifics: the same instance drives the worker's OffscreenCanvas and the
- * main-thread fallback.
+ * a group-to-row-span lookup, so `ingest` lights the rows of the touched
+ * address's group and `step` touches only lit rows. Deliberately free of any
+ * DOM/worker specifics: the same instance drives the worker's OffscreenCanvas
+ * and the main-thread fallback.
  */
 export class ActivityRenderer {
   private widthPx = 0;
   private heightPx = 0;
   private readInt = new Float32Array(0);
   private writeInt = new Float32Array(0);
-  /** address -> device-pixel row, or -1 when the address is off the map. */
-  private rowOf = new Int32Array(0);
+  /**
+   * For each group of `ADDRESSES_PER_LINE` addresses, the first and last
+   * device-pixel row it covers (inclusive), or -1 when no address in the group
+   * lands on the map. A hit lights every row in `[lo, hi]`.
+   */
+  private groupRowLo = new Int32Array(0);
+  private groupRowHi = new Int32Array(0);
 
   constructor(
     private readonly ctx: Ctx,
@@ -47,7 +59,7 @@ export class ActivityRenderer {
   }
 
   /**
-   * Rebuild the intensity arrays and address to row lookup for a new band
+   * Rebuild the intensity arrays and group-to-row-span lookup for a new band
    * layout / size / DPR. Lit rows reset (a one-frame blank on a decaying overlay
    * is imperceptible). Called on zoom, detail-level, resize and DPR changes.
    */
@@ -60,29 +72,38 @@ export class ActivityRenderer {
     const addressSpace = geometry.length
       ? geometry[geometry.length - 1]!.end + 1
       : 0;
-    this.rowOf = new Int32Array(addressSpace);
+    const groupCount = Math.ceil(addressSpace / ADDRESSES_PER_LINE);
+    this.groupRowLo = new Int32Array(groupCount).fill(-1);
+    this.groupRowHi = new Int32Array(groupCount).fill(-1);
     for (let addr = 0; addr < addressSpace; addr++) {
       const y = addrToY(geometry, addr);
-      const row =
-        y === null ? -1 : Math.min(this.heightPx - 1, (y * dims.dpr) | 0);
-      this.rowOf[addr] = row;
+      if (y === null) continue;
+      const row = Math.min(this.heightPx - 1, (y * dims.dpr) | 0);
+      const g = (addr / ADDRESSES_PER_LINE) | 0;
+      const lo = this.groupRowLo[g]!;
+      if (lo < 0 || row < lo) this.groupRowLo[g] = row;
+      if (row > this.groupRowHi[g]!) this.groupRowHi[g] = row;
     }
   }
 
   /**
    * Fold a drained activity snapshot into the intensity arrays: each touched
-   * address lights its mapped row to full intensity for its access kind.
+   * address lights the rows of its `ADDRESSES_PER_LINE`-address group to full
+   * intensity for its access kind.
    */
   ingest(hits: Uint8Array): void {
-    const rowOf = this.rowOf;
-    const n = Math.min(hits.length, rowOf.length);
+    const { groupRowLo, groupRowHi, readInt, writeInt } = this;
+    const n = hits.length;
     for (let addr = 0; addr < n; addr++) {
       const bits = hits[addr]!;
       if (bits === 0) continue;
-      const row = rowOf[addr]!;
-      if (row < 0) continue;
-      if (bits & READ_BIT) this.readInt[row] = 1;
-      if (bits & WRITE_BIT) this.writeInt[row] = 1;
+      const g = (addr / ADDRESSES_PER_LINE) | 0;
+      if (g >= groupRowLo.length) break;
+      const lo = groupRowLo[g]!;
+      if (lo < 0) continue;
+      const hi = groupRowHi[g]!;
+      if (bits & READ_BIT) for (let r = lo; r <= hi; r++) readInt[r] = 1;
+      if (bits & WRITE_BIT) for (let r = lo; r <= hi; r++) writeInt[r] = 1;
     }
   }
 
