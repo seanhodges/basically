@@ -1,0 +1,269 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  width: min(760px, 94vw);
+  height: min(84vh, 780px);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zoomBtn {
+  width: 28px;
+  padding: 3px 0;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.zoomSlider {
+  width: 120px;
+}
+
+.hint {
+  margin: 8px 0 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.body {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The scrolling map column. `pan-y` keeps one-finger vertical scrolling while
+   still delivering the multi-touch pointer events the pinch handler needs. */
+.mapScroll {
+  flex: 0 0 44%;
+  overflow-y: auto;
+  padding-right: 6px;
+  touch-action: pan-y;
+}
+
+.map {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.band {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 5px;
+  text-align: left;
+  color: var(--text);
+  overflow: hidden;
+  transition:
+    filter 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.band:hover:not(:disabled) {
+  filter: brightness(1.15);
+  border-color: var(--border);
+}
+
+.bandMain {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.bandLabel {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bandAddr {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.bandPct {
+  font-size: 10px;
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}
+
+.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Poked regions: a solid coloured left stripe plus the "POKE" badge. The
+   highlight is a per-band class so a future "active while running" view can
+   toggle the same visual on live regions. */
+.poked {
+  border-left-color: var(--warn);
+  border-left-width: 5px;
+}
+
+.badge {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #12141a;
+  background: var(--warn);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+/* ---- Per-kind band tints: the region hue mixed into the panel surface. ---- */
+.rom {
+  background: color-mix(in srgb, var(--mm-rom) 20%, var(--bg-panel));
+  border-left-color: var(--mm-rom);
+}
+.screen {
+  background: color-mix(in srgb, var(--mm-screen) 20%, var(--bg-panel));
+  border-left-color: var(--mm-screen);
+}
+.attributes {
+  background: color-mix(in srgb, var(--mm-attributes) 20%, var(--bg-panel));
+  border-left-color: var(--mm-attributes);
+}
+.buffer {
+  background: color-mix(in srgb, var(--mm-buffer) 20%, var(--bg-panel));
+  border-left-color: var(--mm-buffer);
+}
+.system {
+  background: color-mix(in srgb, var(--mm-system) 20%, var(--bg-panel));
+  border-left-color: var(--mm-system);
+}
+.program {
+  background: color-mix(in srgb, var(--mm-program) 20%, var(--bg-panel));
+  border-left-color: var(--mm-program);
+}
+.reserved {
+  background: color-mix(in srgb, var(--mm-reserved) 20%, var(--bg-panel));
+  border-left-color: var(--mm-reserved);
+}
+
+/* ---- Detail panel ---- */
+.detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  padding-left: 16px;
+}
+
+.detailTitle {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.detailGrid dt {
+  color: var(--text-dim);
+}
+
+.detailGrid dd {
+  margin: 0;
+}
+
+.mono {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+}
+
+.leafList {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.pokedBox {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warn) 8%, var(--bg-panel));
+}
+
+.pokedTitle {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pokedList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* Stack the map above the detail panel on narrow screens. */
+@media (max-width: 620px) {
+  .body {
+    flex-direction: column;
+  }
+
+  .mapScroll {
+    flex: 1 1 auto;
+  }
+
+  .detail {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+    padding-top: 12px;
+  }
+}

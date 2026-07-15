@@ -9,6 +9,18 @@
   --warn: #ffb04f;
   --error: #ff6464;
   --ok: #4fce6a;
+
+  /* Memory-map region hues - one muted accent per MemoryRegionKind. The bands
+     themselves are drawn by mixing these into the panel background so they read
+     as tinted surfaces rather than solid blocks (see MemoryMapDialog.module.css). */
+  --mm-rom: #a986ff;
+  --mm-screen: #4f8cff;
+  --mm-attributes: #38c8c0;
+  --mm-buffer: #e0c060;
+  --mm-system: #ff8a5c;
+  --mm-program: #4fce6a;
+  --mm-reserved: #ff6f7d;
+
   font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
