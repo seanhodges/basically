@@ -28,7 +28,7 @@ import styles from './MemoryMapPanel.module.css';
 
 /** Zoom multiplier bounds and the point at which detail (leaves + addresses) appears. */
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 6;
+const MAX_ZOOM = 24;
 const DETAIL_ZOOM = 1.75;
 /** Pixels-per-byte at zoom 1, and the smallest a band may shrink to. */
 const PX_PER_BYTE = 0.0055;
