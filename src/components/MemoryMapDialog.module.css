@@ -22,6 +22,34 @@
   font-size: 18px;
 }
 
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Hex / Integer segmented toggle. */
+.notation {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.notation button {
+  border: none;
+  border-radius: 0;
+  padding: 4px 9px;
+  font-size: 12px;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.notation button.notationOn {
+  background: var(--accent);
+  color: #fff;
+}
+
 .zoom {
   display: flex;
   align-items: center;
@@ -37,6 +65,19 @@
 
 .zoomSlider {
   width: 120px;
+}
+
+/* Prominent notice when a program POKEs an address outside the machine's RAM. */
+.warning {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--warn) 55%, var(--border));
+  border-left: 4px solid var(--warn);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warn) 12%, var(--bg-panel));
 }
 
 .hint {
@@ -93,6 +134,8 @@
 }
 
 .bandMain {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -114,6 +157,8 @@
 }
 
 .bandPct {
+  position: relative;
+  z-index: 1;
   font-size: 10px;
   color: var(--text-dim);
   flex: 0 0 auto;
@@ -124,23 +169,59 @@
   box-shadow: 0 0 0 1px var(--accent);
 }
 
-/* Poked regions: a solid coloured left stripe plus the "POKE" badge. The
-   highlight is a per-band class so a future "active while running" view can
-   toggle the same visual on live regions. */
-.poked {
-  border-left-color: var(--warn);
-  border-left-width: 5px;
+/* A POKE target: a warning-coloured line across the band at the byte's position,
+   with the address labelled at the right (in the current notation). Painted above
+   the band text; the label carries its own fill so it stays legible. */
+.pokeMarker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--warn);
+  pointer-events: none;
+  z-index: 2;
 }
 
-.badge {
-  flex: 0 0 auto;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+.pokeLabel {
+  position: absolute;
+  right: 3px;
+  top: 0;
+  transform: translateY(-50%);
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 10px;
+  line-height: 1;
   color: #12141a;
   background: var(--warn);
   border-radius: 3px;
-  padding: 1px 4px;
+  padding: 1px 3px;
+  white-space: nowrap;
+}
+
+/* Address scale inside a region once it is drawn tall enough (see memoryScale).
+   Faint dashed lines behind everything, with a small label in the current
+   notation. */
+.scaleTick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px dashed var(--border);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.scaleLabel {
+  position: absolute;
+  left: 3px;
+  top: 0;
+  transform: translateY(-50%);
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--bg-panel);
+  padding: 0 2px;
+  white-space: nowrap;
 }
 
 /* ---- Per-kind band tints: the region hue mixed into the panel surface. ---- */
@@ -241,6 +322,17 @@
   padding-left: 18px;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.pokedExpr {
+  color: var(--text-dim);
+}
+
+.pokedCaveat {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
 }
 
 .empty {

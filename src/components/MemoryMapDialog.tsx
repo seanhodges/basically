@@ -1,21 +1,23 @@
 import { useMemo, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
-import { pokeAddresses } from '../editor/pokeAddresses';
-import type { MemoryRegion } from '../dialects/types';
+import { pokeSites, type PokeSite } from '../editor/pokeAddresses';
 import { memoryBands, type Band } from './memoryBands';
+import { addressTicks } from './memoryScale';
 import dialog from './Dialog.module.css';
 import styles from './MemoryMapDialog.module.css';
 
 /**
  * View ▸ Memory map - a colour-coded picture of the target machine's address
  * space. It opens zoomed out (major region groups, labels only) and zooms
- * vertically to reveal sub-regions and addresses. Regions the current program
- * POKEs a literal address into are highlighted; selecting one shows the address
- * in the decimal form a matching PEEK would need.
+ * vertically to reveal sub-regions, an address scale, and the exact byte a
+ * program POKEs. Each POKE is drawn as a line at its address inside the region;
+ * addresses the program computes from variables/expressions are resolved too,
+ * and any that land outside the machine's memory are called out at the top.
  *
- * The map is drawn as data-driven DOM bands (one element per visible region) so
- * a future update can light up the regions a running emulator is touching using
- * the same per-region highlight hook, without changing how it is rendered.
+ * Addresses read out in hex or as plain integers via the header toggle. The map
+ * is drawn as data-driven DOM bands (one element per visible region) so a future
+ * update can light up the regions a running emulator is touching, without
+ * changing how it is rendered.
  */
 
 /** Zoom multiplier bounds and the point at which detail (leaves + addresses) appears. */
@@ -25,8 +27,13 @@ const DETAIL_ZOOM = 1.75;
 /** Pixels-per-byte at zoom 1, and the smallest a band may shrink to. */
 const PX_PER_BYTE = 0.0055;
 const MIN_BAND_PX = 26;
+/** Hide a POKE marker's address label if it would sit within this many pixels
+ * of the last shown one (small regions clamp to MIN_BAND_PX, so labels crowd). */
+const LABEL_GAP_PX = 12;
 
-const hex = (addr: number) =>
+type Notation = 'hex' | 'dec';
+
+const hexAddr = (addr: number) =>
   `&${addr.toString(16).toUpperCase().padStart(4, '0')}`;
 
 export function MemoryMapDialog() {
@@ -36,19 +43,37 @@ export function MemoryMapDialog() {
   const source = useIdeStore((s) => s.source);
 
   const [zoom, setZoom] = useState(MIN_ZOOM);
+  const [notation, setNotation] = useState<Notation>('hex');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const map = dialect.memoryMap;
   const hasPoke = dialect.keywords.some((k) => k.word === 'POKE');
 
-  // Literal addresses the current program POKEs, and the set of leaf regions any
-  // of them fall in (the highlight). Only computed for dialects that have POKE.
-  const poked = useMemo(
-    () => (map && hasPoke ? pokeAddresses(source) : []),
-    [map, hasPoke, source],
-  );
-  const pokedInRegion = (r: MemoryRegion) =>
-    poked.filter((a) => a >= r.start && a <= r.end);
+  /** Format an address in the currently-selected notation. */
+  const fmt = (addr: number) =>
+    notation === 'hex' ? hexAddr(addr) : `${addr}`;
+
+  // The POKEs the current program makes, de-duplicated by address and split into
+  // those that land in the machine's memory (drawn as markers) and those that
+  // resolve out of range (surfaced as a warning). Only for dialects with POKE.
+  const { inRange, outOfRange } = useMemo(() => {
+    const seen = new Map<number, PokeSite>();
+    if (map && hasPoke)
+      for (const s of pokeSites(source))
+        if (!seen.has(s.address)) seen.set(s.address, s);
+    const within: PokeSite[] = [];
+    const beyond: PokeSite[] = [];
+    for (const s of seen.values()) {
+      if (map && s.address >= 0 && s.address < map.addressSpace) within.push(s);
+      else beyond.push(s);
+    }
+    within.sort((a, b) => a.address - b.address);
+    beyond.sort((a, b) => a.address - b.address);
+    return { inRange: within, outOfRange: beyond };
+  }, [map, hasPoke, source]);
+
+  const sitesInRegion = (start: number, end: number) =>
+    inRange.filter((s) => s.address >= start && s.address <= end);
 
   const detailed = zoom >= DETAIL_ZOOM;
   const bands = useMemo(
@@ -104,8 +129,8 @@ export function MemoryMapDialog() {
     Math.max(MIN_BAND_PX, (b.end - b.start + 1) * PX_PER_BYTE * zoom);
 
   const selected = bands.find((b) => b.key === selectedKey) ?? null;
-  const selectedPoked = selected
-    ? selected.leaves.flatMap((r) => pokedInRegion(r)).sort((a, b) => a - b)
+  const selectedSites = selected
+    ? sitesInRegion(selected.start, selected.end)
     : [];
 
   return (
@@ -113,43 +138,74 @@ export function MemoryMapDialog() {
       <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h2 className={styles.title}>Memory map — {dialect.name}</h2>
-          <div className={styles.zoom}>
-            <button
-              className={styles.zoomBtn}
-              onClick={() => nudge(-0.5)}
-              disabled={zoom <= MIN_ZOOM}
-              title="Zoom out"
-              aria-label="Zoom out"
+          <div className={styles.controls}>
+            <div
+              className={styles.notation}
+              role="group"
+              aria-label="Address notation"
             >
-              −
-            </button>
-            <input
-              className={styles.zoomSlider}
-              type="range"
-              min={MIN_ZOOM}
-              max={MAX_ZOOM}
-              step={0.25}
-              value={zoom}
-              onChange={(e) => setZoom(clampZoom(Number(e.target.value)))}
-              title="Zoom"
-              aria-label="Zoom level"
-            />
-            <button
-              className={styles.zoomBtn}
-              onClick={() => nudge(0.5)}
-              disabled={zoom >= MAX_ZOOM}
-              title="Zoom in"
-              aria-label="Zoom in"
-            >
-              +
-            </button>
+              <button
+                className={notation === 'hex' ? styles.notationOn : ''}
+                onClick={() => setNotation('hex')}
+                aria-pressed={notation === 'hex'}
+              >
+                Hex
+              </button>
+              <button
+                className={notation === 'dec' ? styles.notationOn : ''}
+                onClick={() => setNotation('dec')}
+                aria-pressed={notation === 'dec'}
+              >
+                Integer
+              </button>
+            </div>
+            <div className={styles.zoom}>
+              <button
+                className={styles.zoomBtn}
+                onClick={() => nudge(-0.5)}
+                disabled={zoom <= MIN_ZOOM}
+                title="Zoom out"
+                aria-label="Zoom out"
+              >
+                −
+              </button>
+              <input
+                className={styles.zoomSlider}
+                type="range"
+                min={MIN_ZOOM}
+                max={MAX_ZOOM}
+                step={0.25}
+                value={zoom}
+                onChange={(e) => setZoom(clampZoom(Number(e.target.value)))}
+                title="Zoom"
+                aria-label="Zoom level"
+              />
+              <button
+                className={styles.zoomBtn}
+                onClick={() => nudge(0.5)}
+                disabled={zoom >= MAX_ZOOM}
+                title="Zoom in"
+                aria-label="Zoom in"
+              >
+                +
+              </button>
+            </div>
           </div>
         </div>
 
+        {outOfRange.length > 0 && (
+          <p className={styles.warning}>
+            {outOfRange.length === 1
+              ? `POKE ${outOfRange[0]!.expr} resolves to ${outOfRange[0]!.address}, which is outside this machine's ${totalBytes.toLocaleString()}-byte memory and isn't shown.`
+              : `Some POKE addresses in your program fall outside this machine's ${totalBytes.toLocaleString()}-byte memory and aren't shown.`}
+          </p>
+        )}
+
         <p className={styles.hint}>
-          Pinch, or Ctrl/⌘-scroll, to zoom in for sub-regions and addresses.
-          {poked.length > 0
-            ? ' Highlighted bands are POKEd by your program.'
+          Pinch, or Ctrl/⌘-scroll, to zoom in for sub-regions and an address
+          scale.
+          {inRange.length > 0
+            ? ' Each line marks an address your program POKEs.'
             : ''}
         </p>
 
@@ -164,30 +220,61 @@ export function MemoryMapDialog() {
           >
             <div className={styles.map}>
               {bands.map((b) => {
-                const isPoked =
-                  poked.length > 0 &&
-                  b.leaves.some((r) => pokedInRegion(r).length > 0);
-                const fraction = ((b.end - b.start + 1) / totalBytes) * 100;
+                const px = bandHeight(b);
+                const span = b.end - b.start + 1;
+                const markers = sitesInRegion(b.start, b.end).map((s) => ({
+                  s,
+                  y: ((s.address - b.start) / span) * px,
+                }));
+                let lastLabelY = -Infinity;
+                const fraction = (span / totalBytes) * 100;
                 return (
                   <button
                     key={b.key}
                     type="button"
                     className={`${styles.band} ${styles[b.kind]} ${
                       b.key === selectedKey ? styles.selected : ''
-                    } ${isPoked ? styles.poked : ''}`}
-                    style={{ height: `${bandHeight(b)}px` }}
+                    }`}
+                    style={{ height: `${px}px` }}
                     onClick={() => setSelectedKey(b.key)}
-                    title={`${hex(b.start)}–${hex(b.end)} ${b.label}`}
+                    title={`${fmt(b.start)}–${fmt(b.end)} ${b.label}`}
                   >
+                    {detailed &&
+                      addressTicks(b.start, b.end, px).map((a) => (
+                        <span
+                          key={`t${a}`}
+                          className={styles.scaleTick}
+                          style={{ top: `${((a - b.start) / span) * 100}%` }}
+                        >
+                          <span className={styles.scaleLabel}>{fmt(a)}</span>
+                        </span>
+                      ))}
+                    {markers.map(({ s, y }) => {
+                      const showLabel = y - lastLabelY >= LABEL_GAP_PX;
+                      if (showLabel) lastLabelY = y;
+                      return (
+                        <span
+                          key={s.address}
+                          className={styles.pokeMarker}
+                          style={{ top: `${(y / px) * 100}%` }}
+                          title={s.computed ? `POKE ${s.expr}` : ''}
+                        >
+                          {showLabel && (
+                            <span className={styles.pokeLabel}>
+                              {fmt(s.address)}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
                     <span className={styles.bandMain}>
                       <span className={styles.bandLabel}>{b.label}</span>
                       {detailed && (
                         <span className={styles.bandAddr}>
-                          {hex(b.start)} – {hex(b.end)}
+                          {fmt(b.start)} – {fmt(b.end)}
                         </span>
                       )}
                     </span>
-                    {isPoked && <span className={styles.badge}>POKE</span>}
                     <span className={styles.bandPct}>
                       {fraction.toFixed(1)}%
                     </span>
@@ -204,11 +291,7 @@ export function MemoryMapDialog() {
                 <dl className={styles.detailGrid}>
                   <dt>Range</dt>
                   <dd className={styles.mono}>
-                    {hex(selected.start)} – {hex(selected.end)}
-                  </dd>
-                  <dt>Decimal</dt>
-                  <dd className={styles.mono}>
-                    {selected.start} – {selected.end}
+                    {fmt(selected.start)} – {fmt(selected.end)}
                   </dd>
                   <dt>Size</dt>
                   <dd className={styles.mono}>
@@ -221,7 +304,7 @@ export function MemoryMapDialog() {
                   <ul className={styles.leafList}>
                     {selected.leaves.map((r) => (
                       <li key={r.start}>
-                        <span className={styles.mono}>{hex(r.start)}</span>{' '}
+                        <span className={styles.mono}>{fmt(r.start)}</span>{' '}
                         {r.label}
                       </li>
                     ))}
@@ -236,18 +319,30 @@ export function MemoryMapDialog() {
                       </p>
                     ),
                 )}
-                {selectedPoked.length > 0 && (
+                {selectedSites.length > 0 && (
                   <div className={styles.pokedBox}>
                     <h4 className={styles.pokedTitle}>
                       Your program POKEs here — read it back with:
                     </h4>
                     <ul className={styles.pokedList}>
-                      {selectedPoked.map((a) => (
-                        <li key={a} className={styles.mono}>
-                          PEEK {a}
+                      {selectedSites.map((s) => (
+                        <li key={s.address} className={styles.mono}>
+                          PEEK {s.address}
+                          {s.computed ? (
+                            <span className={styles.pokedExpr}>
+                              {' '}
+                              · {s.expr}
+                            </span>
+                          ) : (
+                            ''
+                          )}
                         </li>
                       ))}
                     </ul>
+                    <p className={styles.pokedCaveat}>
+                      Computed addresses show the first value a loop or variable
+                      resolves to.
+                    </p>
                   </div>
                 )}
               </>
