@@ -407,4 +407,46 @@ describe('SpectrumMachine', () => {
       expect(ioRead(m, 0x1f)).toBe(0);
     });
   });
+
+  describe('memory-activity recording', () => {
+    it('drains null until recording is enabled', () => {
+      const m = new SpectrumMachine({ rom });
+      expect(m.drainMemoryActivity()).toBeNull();
+      m.setMemoryActivityRecording(true);
+      const drained = m.drainMemoryActivity();
+      expect(drained).not.toBeNull();
+      expect(drained).toHaveLength(0x10000);
+    });
+
+    it('captures CPU accesses made while running a frame', () => {
+      const m = new SpectrumMachine({ rom });
+      m.setMemoryActivityRecording(true);
+      m.runFrame();
+      const drained = m.drainMemoryActivity()!;
+      // The ROM interrupt handler touches plenty of addresses each frame.
+      expect(drained.some((b) => b !== 0)).toBe(true);
+    });
+
+    it('recycles a passed-back buffer as the next fill target', () => {
+      const m = new SpectrumMachine({ rom });
+      m.setMemoryActivityRecording(true);
+      const first = m.drainMemoryActivity()!;
+      // Handing `first` back installs it (zeroed) as the live fill target.
+      m.drainMemoryActivity(first);
+      expect(m.mem.activity.hits).toBe(first); // reused, not reallocated
+    });
+
+    it('stops recording and clears hits when disabled', () => {
+      const m = new SpectrumMachine({ rom });
+      m.setMemoryActivityRecording(true);
+      m.runFrame();
+      m.setMemoryActivityRecording(false);
+      // Disabled: drain returns null and the buffer was cleared.
+      expect(m.drainMemoryActivity()).toBeNull();
+      expect(m.mem.activity.hits.every((b) => b === 0)).toBe(true);
+      // Running while disabled records nothing.
+      m.runFrame();
+      expect(m.mem.activity.hits.every((b) => b === 0)).toBe(true);
+    });
+  });
 });

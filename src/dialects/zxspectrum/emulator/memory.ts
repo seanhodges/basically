@@ -1,3 +1,9 @@
+import {
+  MemoryActivityBuffer,
+  READ_BIT,
+  WRITE_BIT,
+} from '../../../emulator/memoryActivityBuffer';
+
 /**
  * ZX Spectrum 48K memory map:
  *   0x0000-0x3FFF  16K ROM
@@ -10,6 +16,12 @@
 export class SpectrumMemory {
   readonly rom: Uint8Array;
   readonly ram = new Uint8Array(0xc000); // 48K, addressed from 0x4000
+  /**
+   * Live memory-activity recorder for the memory-map overlay. Disabled by
+   * default; the host arms it only while the map is on screen. When enabled,
+   * `read`/`write` stamp the touched address with a single indexed `|=`.
+   */
+  readonly activity = new MemoryActivityBuffer(0x10000);
 
   constructor(rom: Uint8Array) {
     if (rom.length !== 16384)
@@ -19,12 +31,14 @@ export class SpectrumMemory {
 
   read = (address: number): number => {
     const addr = address & 0xffff;
+    if (this.activity.enabled) this.activity.hits[addr] |= READ_BIT;
     if (addr < 0x4000) return this.rom[addr]!;
     return this.ram[addr - 0x4000]!;
   };
 
   write = (address: number, value: number): void => {
     const addr = address & 0xffff;
+    if (this.activity.enabled) this.activity.hits[addr] |= WRITE_BIT;
     if (addr < 0x4000) return; // ROM is read-only
     this.ram[addr - 0x4000] = value & 0xff;
   };

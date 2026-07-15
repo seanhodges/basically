@@ -1,8 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
+import type { MachineEmulator } from '../dialects/types';
 import { pokeSites, type PokeSite } from '../editor/pokeAddresses';
 import { memoryBands, type Band } from './memoryBands';
 import { addressTicks } from './memoryScale';
+import { bandLayout, layoutHeight } from './memoryActivity/bandLayout';
+import { useMemoryActivity } from './memoryActivity/useMemoryActivity';
 import { EyeIcon, EyeOffIcon } from './icons';
 import styles from './MemoryMapPanel.module.css';
 
@@ -30,6 +33,10 @@ const DETAIL_ZOOM = 1.75;
 /** Pixels-per-byte at zoom 1, and the smallest a band may shrink to. */
 const PX_PER_BYTE = 0.0055;
 const MIN_BAND_PX = 26;
+/** Gap between bands, in px. Mirrors the `gap` on `.map` in the CSS module so the
+ *  activity overlay's address→pixel mapping lines up with the rendered bands.
+ *  Keep this in sync if the CSS gap changes. */
+const GAP_PX = 3;
 /** Hide a POKE marker's address label if it would sit within this many pixels
  * of the last shown one (small regions clamp to MIN_BAND_PX, so labels crowd). */
 const LABEL_GAP_PX = 12;
@@ -39,7 +46,16 @@ type Notation = 'hex' | 'dec';
 const hexAddr = (addr: number) =>
   `&${addr.toString(16).toUpperCase().padStart(4, '0')}`;
 
-export function MemoryMapPanel() {
+/** Stable no-op machine accessor for when the panel is rendered without one. */
+const nullMachine = (): MachineEmulator | null => null;
+
+interface Props {
+  /** Accessor for the live emulator, used to record and drain memory activity.
+   *  Absent (or returning null) simply leaves the overlay dark. */
+  getMachine?: () => MachineEmulator | null;
+}
+
+export function MemoryMapPanel({ getMachine }: Props = {}) {
   const setOpen = useIdeStore((s) => s.setMemoryMapOpen);
   const dialect = useIdeStore((s) => s.dialect);
   const source = useIdeStore((s) => s.source);
@@ -141,12 +157,46 @@ export function MemoryMapPanel() {
     setZoom((z) => clampZoom(z - e.deltaY * 0.01));
   };
 
+  const bandHeight = (b: Band) =>
+    Math.max(MIN_BAND_PX, (b.end - b.start + 1) * PX_PER_BYTE * zoom);
+
+  // --- Live memory-activity overlay -------------------------------------
+  // A canvas layered over the band column, driven by the running emulator's
+  // read/write activity (teal = read, coral = write, fading over ~0.5s). The
+  // geometry mirrors the band layout so lines register with their addresses; the
+  // hook records only while this panel is mounted (i.e. the map is on screen).
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [mapWidth, setMapWidth] = useState(0);
+  useEffect(() => {
+    const el = mapRef.current;
+    if (!el) return;
+    const update = () => setMapWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const geometry = useMemo(
+    () => bandLayout(bands, bandHeight, GAP_PX),
+    // bandHeight is a pure function of zoom, captured fresh each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bands, zoom],
+  );
+  const dims = useMemo(
+    () => ({
+      width: mapWidth,
+      height: layoutHeight(geometry),
+      dpr: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+    }),
+    [mapWidth, geometry],
+  );
+  useMemoryActivity(getMachine ?? nullMachine, canvasRef, geometry, dims);
+
   if (!map) return null;
 
   const nudge = (delta: number) => setZoom((z) => clampZoom(z + delta));
   const totalBytes = map.addressSpace;
-  const bandHeight = (b: Band) =>
-    Math.max(MIN_BAND_PX, (b.end - b.start + 1) * PX_PER_BYTE * zoom);
 
   const selected = bands.find((b) => b.key === selectedKey) ?? null;
   const selectedSites = selected
@@ -266,7 +316,12 @@ export function MemoryMapPanel() {
           onPointerCancel={endPointer}
           onWheel={onWheel}
         >
-          <div className={styles.map}>
+          <div className={styles.map} ref={mapRef}>
+            <canvas
+              ref={canvasRef}
+              className={styles.activityCanvas}
+              aria-hidden="true"
+            />
             {bands.map((b) => {
               const px = bandHeight(b);
               const span = b.end - b.start + 1;
