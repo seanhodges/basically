@@ -25,8 +25,25 @@
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 8px 12px;
+}
+
+/* The Show/Hide Details toggle sits at the far left of the control row; the
+   auto margin pushes the notation + zoom groups to the right. On mobile it
+   collapses to an icon (see the media query below) so every control still fits. */
+.detailsToggle {
+  margin-right: auto;
+  gap: 5px;
+}
+
+.detailsIcon {
+  display: none;
+  align-items: center;
+}
+
+.detailsText {
+  display: inline;
 }
 
 /* Hex / Integer segmented toggle. */
@@ -356,15 +373,15 @@
   line-height: 1.5;
 }
 
-/* Footer: the Show/Hide Details toggle sits bottom-left. */
-.footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--border);
-}
+/* Mobile: the detail toggle becomes icon-only (show/hide eye) so the notation
+   and zoom controls keep enough room. Matches the app's mobile breakpoints. */
+@media (max-width: 768px),
+  (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .detailsIcon {
+    display: inline-flex;
+  }
 
-.detailsToggle {
-  margin-right: auto;
+  .detailsText {
+    display: none;
+  }
 }

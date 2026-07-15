@@ -3,6 +3,7 @@ import { useIdeStore } from '../app/store';
 import { pokeSites, type PokeSite } from '../editor/pokeAddresses';
 import { memoryBands, type Band } from './memoryBands';
 import { addressTicks } from './memoryScale';
+import { EyeIcon, EyeOffIcon } from './icons';
 import styles from './MemoryMapPanel.module.css';
 
 /**
@@ -150,6 +151,22 @@ export function MemoryMapPanel() {
       </div>
 
       <div className={styles.controls}>
+        <button
+          className={`icon-btn ${styles.detailsToggle} ${
+            showDetails ? 'active' : ''
+          }`}
+          onClick={() => setShowDetails((v) => !v)}
+          aria-pressed={showDetails}
+          title={showDetails ? 'Hide details' : 'Show details'}
+          aria-label={showDetails ? 'Hide details' : 'Show details'}
+        >
+          <span className={styles.detailsIcon} aria-hidden="true">
+            {showDetails ? <EyeOffIcon /> : <EyeIcon />}
+          </span>
+          <span className={styles.detailsText}>
+            {showDetails ? 'Hide Details' : 'Show Details'}
+          </span>
+        </button>
         <div
           className={styles.notation}
           role="group"
@@ -370,16 +387,6 @@ export function MemoryMapPanel() {
             </div>
           </div>
         )}
-      </div>
-
-      <div className={styles.footer}>
-        <button
-          className={styles.detailsToggle}
-          onClick={() => setShowDetails((v) => !v)}
-          aria-pressed={showDetails}
-        >
-          {showDetails ? 'Hide Details' : 'Show Details'}
-        </button>
       </div>
     </div>
   );

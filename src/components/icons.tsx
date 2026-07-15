@@ -111,6 +111,27 @@ export function MemoryIcon() {
   );
 }
 
+// Eye (show) / eye-with-slash (hide) for the memory-map detail toggle - the
+// compact icon form shown on mobile where the text label won't fit.
+export function EyeIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+export function EyeOffIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M10.6 6.1A9.6 9.6 0 0 1 12 6c6.5 0 10 6 10 6a13.4 13.4 0 0 1-2.2 2.7M6.6 6.6A13.3 13.3 0 0 0 2 12s3.5 6 10 6a9.5 9.5 0 0 0 3.6-.7" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="M3 3l18 18" />
+    </svg>
+  );
+}
+
 // Game controller for the input-overlay toggle. Shared so the IDE status bar,
 // the phone-landscape rail and the standalone player all show the same outline
 // icon (matching the keyboard glyph's line-art style).
