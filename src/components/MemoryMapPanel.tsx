@@ -4,7 +4,11 @@ import type { MachineEmulator } from '../dialects/types';
 import { pokeSites, type PokeSite } from '../editor/pokeAddresses';
 import { memoryBands, type Band } from './memoryBands';
 import { addressTicks } from './memoryScale';
-import { bandLayout, layoutHeight } from './memoryActivity/bandLayout';
+import {
+  backingDpr,
+  bandLayout,
+  layoutHeight,
+} from './memoryActivity/bandLayout';
 import { useMemoryActivity } from './memoryActivity/useMemoryActivity';
 import { EyeIcon, EyeOffIcon } from './icons';
 import styles from './MemoryMapPanel.module.css';
@@ -183,14 +187,15 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [bands, zoom],
   );
-  const dims = useMemo(
-    () => ({
-      width: mapWidth,
-      height: layoutHeight(geometry),
-      dpr: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
-    }),
-    [mapWidth, geometry],
-  );
+  const dims = useMemo(() => {
+    const width = mapWidth;
+    const height = layoutHeight(geometry);
+    const rawDpr =
+      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    // Cap the effective DPR so a tall zoomed-in column never blows past the
+    // browser's max canvas backing-store size, which would blank the overlay.
+    return { width, height, dpr: backingDpr(width, height, rawDpr) };
+  }, [mapWidth, geometry]);
   useMemoryActivity(getMachine ?? nullMachine, canvasRef, geometry, dims);
 
   if (!map) return null;

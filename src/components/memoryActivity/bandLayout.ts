@@ -42,6 +42,29 @@ export function layoutHeight(geometry: BandGeometry[]): number {
 }
 
 /**
+ * The largest canvas backing-store dimension we allow, in device pixels. Browsers
+ * cap a canvas's backing store (Chrome/Firefox refuse a side over ~16384px - the
+ * GPU texture limit - and render the whole canvas blank past it; Safari caps the
+ * total area). Zoomed right in, the memory-map column gets very tall, and at a
+ * high device-pixel-ratio `height * dpr` can cross that limit, blanking the whole
+ * activity overlay. We stay well under it so the overlay works at every zoom.
+ */
+export const MAX_BACKING_PX = 8192;
+
+/**
+ * The device-pixel-ratio to actually back the overlay canvas with: the real DPR,
+ * scaled down just enough that neither `width * dpr` nor `height * dpr` exceeds
+ * {@link MAX_BACKING_PX}. Both CSS dimensions are given so the taller one governs.
+ * The canvas is CSS-scaled to full size regardless, so a capped DPR only softens
+ * the lines slightly - far better than the canvas going blank when zoomed in.
+ */
+export function backingDpr(width: number, height: number, dpr: number): number {
+  const maxDim = Math.max(width, height);
+  if (maxDim <= 0) return dpr;
+  return Math.min(dpr, MAX_BACKING_PX / maxDim);
+}
+
+/**
  * The CSS-pixel y of an address within its band, or null when the address lies
  * in no band. `y = top + ((addr - start) / span) * height`, the exact formula
  * the panel uses for POKE markers, so overlay lines register with the bands.
