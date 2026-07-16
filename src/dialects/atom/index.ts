@@ -14,6 +14,7 @@ import { atomLanguageSupport, atomCompletionSource } from './language';
 import { atomAiProfile } from './aiProfile';
 import { atomKeyboardLayout } from './keyboardLayout';
 import { atomSamples } from './samples';
+import { atomMemoryMap } from './memoryMap';
 import { AtomMachine } from '../../emulator/atom/atomMachine';
 
 /**
@@ -64,6 +65,8 @@ export const atom: Dialect = {
   romUrl: `${import.meta.env.BASE_URL}roms/atom/Atom_Basic.rom`,
 
   // displaySize omitted: the Atom's 256x192 (CLEAR 4) matches the app default.
+
+  memoryMap: atomMemoryMap,
 
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   // opts.files is the VFS sink for Atom BASIC's FIN/FOUT/BGET/BPUT/SHUT.

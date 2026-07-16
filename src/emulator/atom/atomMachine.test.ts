@@ -4,6 +4,7 @@ import path from 'node:path';
 import { AtomMachine, configureNodeRomPath } from './atomMachine';
 import { tokenizeProgram } from '../../dialects/atom/tokenizer';
 import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
+import { WRITE_BIT } from '../memoryActivityBuffer';
 
 // Point jsbeeb's ROM loader at the real ROMs shipped in its npm package.
 beforeAll(() => {
@@ -81,6 +82,36 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
       screenText(machine).includes('HELLO ATOM'),
     );
     expect(ran).toBe(true);
+    machine.dispose();
+  }, 60000);
+
+  it('records live memory activity only while enabled', async () => {
+    const machine = new AtomMachine();
+    machine.loadProgram(tokenizeProgram('10 A=1\n20 GOTO 10\n').bytes);
+    // Wait until BASIC is up and the program is running.
+    await runUntil(machine, () => machine.readMemoryStats() !== null);
+    // Off by default: nothing to drain.
+    expect(machine.drainMemoryActivity()).toBeNull();
+
+    machine.setMemoryActivityRecording(true);
+    for (let i = 0; i < 3; i++) machine.runFrame();
+    const hits = machine.drainMemoryActivity();
+    expect(hits).not.toBeNull();
+    expect(hits!.length).toBe(0x10000);
+    // The Atom ROMs (kernel + FP + BASIC) live at 0xC000-0xFFFF and are executed
+    // constantly, so some address there must have been read while looping.
+    let romTouched = false;
+    for (let a = 0xc000; a < 0x10000; a++) if (hits![a]) romTouched = true;
+    expect(romTouched).toBe(true);
+    // Zero page is written as BASIC runs.
+    let zpWritten = false;
+    for (let a = 0; a < 0x100; a++)
+      if ((hits![a]! & WRITE_BIT) !== 0) zpWritten = true;
+    expect(zpWritten).toBe(true);
+
+    machine.setMemoryActivityRecording(false);
+    machine.runFrame();
+    expect(machine.drainMemoryActivity()).toBeNull();
     machine.dispose();
   }, 60000);
 

@@ -13,6 +13,7 @@ import { bbcLanguageSupport, bbcCompletionSource } from './language';
 import { bbcAiProfile } from './aiProfile';
 import { bbcKeyboardLayout } from './keyboardLayout';
 import { bbcSamples } from './samples';
+import { bbcMicroMemoryMap } from './memoryMap';
 import {
   BbcMachine,
   BBC_DISPLAY_WIDTH,
@@ -65,6 +66,8 @@ export const bbcmicro: Dialect = {
   romUrl: `${import.meta.env.BASE_URL}roms/BASIC.ROM`,
 
   displaySize: { width: BBC_DISPLAY_WIDTH, height: BBC_DISPLAY_HEIGHT },
+
+  memoryMap: bbcMicroMemoryMap,
 
   debuggable: true,
 
