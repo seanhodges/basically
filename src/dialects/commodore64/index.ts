@@ -1,6 +1,7 @@
 import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { c64Charset } from './charset';
 import { c64Keywords } from './keywords';
+import { c64MemoryMap } from './memoryMap';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { c64BuildTargets } from './targets';
@@ -34,6 +35,7 @@ export const commodore64: Dialect = {
   id: 'commodore64',
   name: 'C64',
   programRamBytes: 38911,
+  memoryMap: c64MemoryMap,
   fileExtensions: ['.txt', '.bas'],
   keywords: c64Keywords,
   charset: c64Charset,

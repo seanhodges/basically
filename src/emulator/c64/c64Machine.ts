@@ -12,6 +12,11 @@ import type {
 import { readC64Variables } from './vars';
 import { readC64Report } from './reports';
 import { remapRgb } from './palette';
+import {
+  MemoryActivityBuffer,
+  READ_BIT,
+  WRITE_BIT,
+} from '../memoryActivityBuffer';
 import { SidRenderer, SID_SAMPLE_RATE } from './sid';
 import { C64DiskDrive, type Bus, type TrapResult } from './diskDrive';
 import {
@@ -256,6 +261,22 @@ export class C64Machine implements MachineEmulator {
   private loadError = '';
   private speed = 1;
 
+  /**
+   * Live memory-activity recorder for the memory-map overlay. Off by default and
+   * cheap when off; the CPU-bus wrappers installed in {@link attachWires} stamp
+   * `hits` only while it is enabled.
+   */
+  private readonly memoryActivity = new MemoryActivityBuffer(0x10000);
+  /**
+   * The unwrapped `wires.cpuRead`, captured before the activity-recording
+   * wrappers are installed. Host-side introspection ({@link currentLine},
+   * {@link readVariables}, {@link readReport}, {@link readMemoryStats}) reads
+   * through this so the host's own polling never shows up as program activity in
+   * the overlay. Reads stay banking-aware; those helpers only touch always-RAM
+   * low addresses, so the behaviour is identical to the wrapped read.
+   */
+  private rawCpuRead: (addr: number) => number = () => 0;
+
   /** VFS-backed virtual disk (devices 8–11), or null when no store was wired. */
   private readonly drive: C64DiskDrive | null;
   /** Memory accessor handed to the drive's trap handlers; set at bringup. */
@@ -302,7 +323,7 @@ export class C64Machine implements MachineEmulator {
             joystick: this.attachJoystick,
           },
           target: {
-            wires: wires as never,
+            wires: this.attachWires as never,
             ram: ram as never,
             vic: vic as never,
             sid: sid as never,
@@ -335,6 +356,33 @@ export class C64Machine implements MachineEmulator {
   get machine(): C64 | null {
     return this.c64;
   }
+
+  /**
+   * Attach the vendored `wires` (the CPU bus / memory map), then wrap its
+   * `cpuRead`/`cpuWrite` so every CPU memory access can be recorded for the
+   * memory-activity overlay. This runs during bringup's `wires` step, before the
+   * CPU captures the bus functions into its own locals, so the CPU sees the
+   * wrappers. Recording is gated on {@link memoryActivity}.`enabled`, so when the
+   * overlay is closed this costs a single not-taken branch per access. The
+   * original (unwrapped) read is stashed in {@link rawCpuRead} for side-effect-
+   * free host introspection.
+   */
+  private attachWires = (c64: C64): void => {
+    (wires as (nascent: C64) => void)(c64);
+    const origRead = c64.wires.cpuRead;
+    const origWrite = c64.wires.cpuWrite;
+    this.rawCpuRead = origRead;
+    const activity = this.memoryActivity;
+    c64.wires.cpuRead = (addr: number): number => {
+      const value = origRead(addr);
+      if (activity.enabled) activity.hits[addr & 0xffff] |= READ_BIT;
+      return value;
+    };
+    c64.wires.cpuWrite = (addr: number, byte: number): void => {
+      if (activity.enabled) activity.hits[addr & 0xffff] |= WRITE_BIT;
+      origWrite(addr, byte);
+    };
+  };
 
   // --- host attach functions (in-memory, replacing viciious's DOM hosts) ---
 
@@ -455,7 +503,7 @@ export class C64Machine implements MachineEmulator {
     if (!this.booted || this.injecting || this.disposed || !this.c64) {
       return null;
     }
-    const read = (a: number) => this.c64!.wires.cpuRead(a);
+    const read = (a: number) => this.rawCpuRead(a);
     const line = read(CURLIN) | (read(CURLIN + 1) << 8);
     return line <= MAX_BASIC_LINE ? line : null;
   }
@@ -703,8 +751,9 @@ export class C64Machine implements MachineEmulator {
    */
   readVariables(): MachineVariable[] {
     if (!this.booted || this.injecting || this.disposed || !this.c64) return [];
-    const wires = this.c64.wires;
-    const read = (a: number) => wires.cpuRead(a & 0xffff);
+    // Read through the unwrapped bus so this host-side snapshot never registers
+    // as program activity in the memory-map overlay.
+    const read = (a: number) => this.rawCpuRead(a & 0xffff);
     return readC64Variables({
       read,
       readWord: (a) => read(a) | (read(a + 1) << 8),
@@ -715,8 +764,7 @@ export class C64Machine implements MachineEmulator {
     if (!this.booted || this.injecting || this.disposed || !this.c64) {
       return null;
     }
-    const wires = this.c64.wires;
-    return readC64Report({ read: (a) => wires.cpuRead(a & 0xffff) });
+    return readC64Report({ read: (a) => this.rawCpuRead(a & 0xffff) });
   }
 
   /**
@@ -730,9 +778,9 @@ export class C64Machine implements MachineEmulator {
     if (!this.booted || this.injecting || this.disposed || !this.c64) {
       return null;
     }
-    const wires = this.c64.wires;
+    const read = this.rawCpuRead;
     const readWord = (a: number) =>
-      wires.cpuRead(a & 0xffff) | (wires.cpuRead((a + 1) & 0xffff) << 8);
+      read(a & 0xffff) | (read((a + 1) & 0xffff) << 8);
     const txttab = readWord(TXTTAB);
     const strend = readWord(STREND);
     const fretop = readWord(FRETOP);
@@ -741,6 +789,18 @@ export class C64Machine implements MachineEmulator {
     const free = fretop - strend;
     if (txttab === 0 || memsiz <= txttab || used < 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setMemoryActivityRecording(enabled: boolean): void {
+    this.memoryActivity.enabled = enabled;
+    // Drop any hits accumulated in a previous session so a reopened overlay
+    // starts clean rather than flashing stale activity.
+    if (!enabled) this.memoryActivity.clear();
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    if (!this.memoryActivity.enabled) return null;
+    return this.memoryActivity.drain(recycle);
   }
 
   dispose(): void {
