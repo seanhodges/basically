@@ -69,7 +69,9 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
   const source = useIdeStore((s) => s.source);
 
   const [zoom, setZoom] = useState(MIN_ZOOM);
-  const [notation, setNotation] = useState<Notation>('hex');
+  const [notation, setNotation] = useState<Notation>(
+    dialect.addressNotation ?? 'hex',
+  );
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 

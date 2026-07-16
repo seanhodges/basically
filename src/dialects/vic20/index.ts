@@ -41,6 +41,9 @@ export const vic20: Dialect = {
   // Unexpanded VIC-20: "3583 BYTES FREE".
   programRamBytes: 3583,
   memoryMap: vic20MemoryMap,
+
+  // Commodore BASIC POKEs decimal addresses, so the map opens in Int.
+  addressNotation: 'dec',
   fileExtensions: ['.txt', '.bas'],
   keywords: vic20Keywords,
   charset: vic20Charset,

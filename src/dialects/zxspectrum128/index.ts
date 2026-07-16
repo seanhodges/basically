@@ -46,6 +46,9 @@ export const zxspectrum128: Dialect = {
   docsReference: 'zxspectrum',
   programRamBytes: 41472,
   memoryMap: spectrum128MemoryMap,
+
+  // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
+  addressNotation: 'dec',
   fileExtensions: ['.txt', '.bas'],
   keywords: spectrum128Keywords,
   charset: spectrum128Charset,
