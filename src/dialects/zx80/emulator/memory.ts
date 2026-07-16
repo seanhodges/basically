@@ -1,3 +1,9 @@
+import {
+  MemoryActivityBuffer,
+  READ_BIT,
+  WRITE_BIT,
+} from '../../../emulator/memoryActivityBuffer';
+
 /**
  * ZX80 memory map:
  *   0x0000-0x0FFF  4K ROM
@@ -10,6 +16,12 @@ export class Zx80Memory {
   readonly rom: Uint8Array;
   readonly ram: Uint8Array;
   private readonly ramMask: number;
+  /**
+   * Live memory-activity recorder for the memory-map overlay. Disabled by
+   * default; the host arms it only while the map is on screen. When enabled,
+   * `read`/`write` stamp the touched CPU address with a single indexed `|=`.
+   */
+  readonly activity = new MemoryActivityBuffer(0x10000);
 
   constructor(rom: Uint8Array, ramKb: 16 | 32 | 64) {
     if (rom.length !== 4096)
@@ -20,12 +32,15 @@ export class Zx80Memory {
   }
 
   read = (address: number): number => {
+    if (this.activity.enabled) this.activity.hits[address & 0xffff] |= READ_BIT;
     const addr = address & 0x7fff; // echo region mirrors the lower 32K
     if (addr < 0x4000) return this.rom[addr & 0x0fff]!;
     return this.ram[(addr - 0x4000) & this.ramMask]!;
   };
 
   write = (address: number, value: number): void => {
+    if (this.activity.enabled)
+      this.activity.hits[address & 0xffff] |= WRITE_BIT;
     const addr = address & 0x7fff;
     if (addr < 0x4000) return; // ROM
     this.ram[(addr - 0x4000) & this.ramMask] = value & 0xff;

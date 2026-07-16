@@ -18,6 +18,12 @@
  * and emulator/display.ts so those reuse unchanged. (+2A/+3 add port 0x1FFD and a
  * 4-ROM set - out of scope for this 32K-ROM build.)
  */
+import {
+  MemoryActivityBuffer,
+  READ_BIT,
+  WRITE_BIT,
+} from '../../../emulator/memoryActivityBuffer';
+
 const BANK_SIZE = 0x4000; // 16K
 const ROM_BYTES = 0x8000; // 32K - two 16K ROM banks
 /** Screen bitmap (0x1800) + attributes (0x300), measured from 0x4000. */
@@ -28,6 +34,14 @@ export class Spectrum128Memory {
   readonly rom: Uint8Array;
   /** Eight 16K RAM banks (0-7), each addressed from 0. */
   private readonly banks: Uint8Array[];
+  /**
+   * Live memory-activity recorder for the memory-map overlay. Disabled by
+   * default; the host arms it only while the map is on screen. When enabled,
+   * `read`/`write` stamp the touched CPU address with a single indexed `|=`.
+   * Indexed by the fixed CPU address, so the paged 0xC000 window records
+   * activity against the address the CPU sees, not the physical bank.
+   */
+  readonly activity = new MemoryActivityBuffer(0x10000);
 
   // Port 0x7FFD decoded state (power-on defaults: bank 0, screen 5, 128 ROM).
   private pagedBank = 0; // bits 0-2: bank mapped at 0xC000
@@ -46,6 +60,7 @@ export class Spectrum128Memory {
 
   read = (address: number): number => {
     const addr = address & 0xffff;
+    if (this.activity.enabled) this.activity.hits[addr] |= READ_BIT;
     if (addr < 0x4000) return this.rom[this.romBank * BANK_SIZE + addr]!;
     if (addr < 0x8000) return this.banks[5]![addr - 0x4000]!;
     if (addr < 0xc000) return this.banks[2]![addr - 0x8000]!;
@@ -54,6 +69,7 @@ export class Spectrum128Memory {
 
   write = (address: number, value: number): void => {
     const addr = address & 0xffff;
+    if (this.activity.enabled) this.activity.hits[addr] |= WRITE_BIT;
     const v = value & 0xff;
     if (addr < 0x4000) return; // ROM is read-only
     if (addr < 0x8000) {
