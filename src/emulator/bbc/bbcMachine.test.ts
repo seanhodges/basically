@@ -4,6 +4,7 @@ import path from 'node:path';
 import { BbcMachine, configureNodeRomPath } from './bbcMachine';
 import { tokenizeProgram } from '../../dialects/bbcmicro/tokenizer';
 import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
+import { WRITE_BIT } from '../memoryActivityBuffer';
 
 // Point jsbeeb's ROM loader at the real ROMs shipped in its npm package.
 beforeAll(() => {
@@ -78,6 +79,36 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     expect(stats!.free).toBeGreaterThan(0);
     // PAGE (&0E00) to HIMEM (&7C00 in mode 7) on a Model B.
     expect(stats!.used + stats!.free).toBeLessThanOrEqual(0x7c00 - 0x0e00);
+    machine.dispose();
+  }, 60000);
+
+  it('records live memory activity only while enabled', async () => {
+    const machine = new BbcMachine();
+    // Off by default: nothing to drain even after running.
+    machine.loadProgram(tokenizeProgram('10 A=1\n20 GOTO 10\n').bytes);
+    await runUntil(machine, () => machine.currentLine() !== null);
+    expect(machine.drainMemoryActivity()).toBeNull();
+
+    machine.setMemoryActivityRecording(true);
+    for (let i = 0; i < 3; i++) machine.runFrame();
+    const hits = machine.drainMemoryActivity();
+    expect(hits).not.toBeNull();
+    expect(hits!.length).toBe(0x10000);
+    // The BASIC ROM (sideways bank at 0x8000-0xBFFF) is executed constantly, so
+    // some address there must have been read while the program looped.
+    let romTouched = false;
+    for (let a = 0x8000; a < 0xc000; a++) if (hits![a]) romTouched = true;
+    expect(romTouched).toBe(true);
+    // The zero-page interpreter pointer is written as BASIC runs.
+    let zpWritten = false;
+    for (let a = 0; a < 0x100; a++)
+      if ((hits![a]! & WRITE_BIT) !== 0) zpWritten = true;
+    expect(zpWritten).toBe(true);
+
+    // Disabling stops recording and drops accumulated hits.
+    machine.setMemoryActivityRecording(false);
+    machine.runFrame();
+    expect(machine.drainMemoryActivity()).toBeNull();
     machine.dispose();
   }, 60000);
 

@@ -21,6 +21,7 @@ import { bbcLanguageSupport, bbcCompletionSource } from '../bbcmicro/language';
 import { decodeCassette } from '../bbcmicro/audio/cassetteDecoder';
 import { bbcKeyboardLayout } from '../bbcmicro/keyboardLayout';
 import { bbcSamples } from '../bbcmicro/samples';
+import { bbcMasterMemoryMap } from './memoryMap';
 import { bbcMasterAiProfile } from './aiProfile';
 import {
   BbcMachine,
@@ -72,6 +73,8 @@ export const bbcmaster: Dialect = {
   romUrl: `${import.meta.env.BASE_URL}roms/master/mos3.20`,
 
   displaySize: { width: BBC_DISPLAY_WIDTH, height: BBC_DISPLAY_HEIGHT },
+
+  memoryMap: bbcMasterMemoryMap,
 
   debuggable: true,
 

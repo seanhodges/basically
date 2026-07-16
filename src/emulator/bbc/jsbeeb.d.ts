@@ -147,6 +147,30 @@ declare module 'jsbeeb/src/fake6502.js' {
         remove(): void;
       };
     };
+    /**
+     * Fires on every memory read with the touched CPU address (plus the value
+     * read and the resolved bank offset, unused here). Like {@link
+     * debugInstruction}, a handler returning true halts the CPU; the
+     * memory-activity recorder returns nothing so reads run normally. Installing
+     * any read/write hook forces jsbeeb's slower instruction-by-instruction
+     * loop, so it is armed only while something is watching.
+     */
+    readonly debugRead: {
+      add(
+        handler: (
+          addr: number,
+          value: number,
+          offset: number,
+        ) => boolean | void,
+      ): { remove(): void };
+    };
+    /** Fires on every memory write with the touched CPU address and byte; same
+     *  halt/perf semantics as {@link debugRead}. */
+    readonly debugWrite: {
+      add(handler: (addr: number, value: number) => boolean | void): {
+        remove(): void;
+      };
+    };
   }
 
   export function fake6502(

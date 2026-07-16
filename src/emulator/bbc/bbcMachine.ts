@@ -22,6 +22,7 @@ import { BbcHostKeyboard, matrixForToken } from './keyboard';
 import { readBbcVariables } from './vars';
 import { readBbcReport, FAULT_PTR } from './reports';
 import { BbcDiskDrive, type Bus } from './diskDrive';
+import { JsbeebMemoryActivity } from '../jsbeebMemoryActivity';
 
 /** jsbeeb's Video ULA renders into a fixed 1024×625 RGBA framebuffer… */
 const FB_WIDTH = 1024;
@@ -187,6 +188,11 @@ export class BbcMachine implements MachineEmulator {
   private readonly drive: BbcDiskDrive | null;
   /** The debugInstruction hook registration, removed on dispose(). */
   private debugHook: { remove(): void } | null = null;
+  /**
+   * Live memory-activity recorder for the memory-map overlay, created lazily
+   * the first time the host arms recording (it taps jsbeeb's read/write hooks).
+   */
+  private memoryActivity: JsbeebMemoryActivity | null = null;
 
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
@@ -644,11 +650,30 @@ export class BbcMachine implements MachineEmulator {
     return { used, free };
   }
 
+  /**
+   * Arm/disarm live memory-activity recording for the memory-map overlay. Off by
+   * default; while on, jsbeeb runs its slower instruction-by-instruction loop
+   * (any read/write hook forces it), so the host only enables it while the panel
+   * is on screen. Recording via jsbeeb's `debugRead`/`debugWrite` hooks - see
+   * {@link JsbeebMemoryActivity}.
+   */
+  setMemoryActivityRecording(enabled: boolean): void {
+    if (!this.memoryActivity) {
+      this.memoryActivity = new JsbeebMemoryActivity(this.cpu);
+    }
+    this.memoryActivity.setRecording(enabled);
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    return this.memoryActivity?.drain(recycle) ?? null;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     this.loadGeneration++;
     this.drive?.closeAll(false);
+    this.memoryActivity?.dispose();
     this.debugHook?.remove();
     this.cpu.sysvia.clearKeys();
     // Drop the render scratch canvas. jsbeeb's CPU/video graph and the fixed
