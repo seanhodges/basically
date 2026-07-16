@@ -93,23 +93,26 @@ any entry to move the editor straight to that line - a quick way to navigate a
 longer program. The outline tool reads nearby REM statements to give more descriptive
 naming of functions and jump points.
 
-## Managing memory
+## Keeping an eye on memory as you write
 
-Retro machines have very little RAM, so it's worth keeping half an eye on memory
-as you write.
+Retro machines have very little RAM, and two of the IDE's tools help you stay
+within it without leaving the editor.
 
-The status bar shows how many bytes your tokenized program occupies against the
-target machine's available RAM. Keywords tokenize to single bytes; numeric
-literals carry an extra binary form. Keeping an eye on this matters on
-smaller machines in particular (the unexpanded ZX81 has just 1K!).
+The status bar tracks your **byte budget** live as you type: the size of your
+tokenized program against the target machine's available RAM. Keywords tokenize
+to single bytes and numeric literals carry an extra binary form, so the count
+reflects the real cost of each line you add - and it turns amber, then red, as
+you approach the limit. On the smallest machines (the unexpanded ZX81 has just
+1K!) that's worth watching as you go, so you catch a program outgrowing its RAM
+while you're writing rather than when you try to run it.
 
-If your program `POKE`s memory directly, the **memory map** (the memory-map icon
-in the toolbar) is a handy way to recall which addresses you're already using:
-each `POKE` is drawn as a marker at its address, so you can glance across as you
-write and see where your data and the machine's own regions sit before adding
-another. See **[Memory management](/reference/memory-management)** for the full
-picture, including the live RAM readout, activity monitoring, and the variable
-watcher.
+If your program `POKE`s memory directly, keep the **memory map** (the memory-map
+icon in the toolbar) open beside the editor as a live reference: every `POKE` in
+your source is drawn as a marker at its address, so you can see which addresses
+you've already used - and where the machine's own screen, system and program
+areas sit - before you write another. See **[Memory
+management](/reference/memory-management)** for the full picture, including the
+live RAM readout, activity monitoring, and the variable watcher.
 
 ## Special characters and tokens
 
