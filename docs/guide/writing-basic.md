@@ -93,12 +93,23 @@ any entry to move the editor straight to that line - a quick way to navigate a
 longer program. The outline tool reads nearby REM statements to give more descriptive
 naming of functions and jump points.
 
-## The byte budget
+## Managing memory
+
+Retro machines have very little RAM, so it's worth keeping half an eye on memory
+as you write.
 
 The status bar shows how many bytes your tokenized program occupies against the
 target machine's available RAM. Keywords tokenize to single bytes; numeric
 literals carry an extra binary form. Keeping an eye on this matters on
 smaller machines in particular (the unexpanded ZX81 has just 1K!).
+
+If your program `POKE`s memory directly, the **memory map** (the memory-map icon
+in the toolbar) is a handy way to recall which addresses you're already using:
+each `POKE` is drawn as a marker at its address, so you can glance across as you
+write and see where your data and the machine's own regions sit before adding
+another. See **[Memory management](/reference/memory-management)** for the full
+picture, including the live RAM readout, activity monitoring, and the variable
+watcher.
 
 ## Special characters and tokens
 

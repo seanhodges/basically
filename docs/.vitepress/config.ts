@@ -154,6 +154,10 @@ export default withPwa(
             items: [
               { text: 'File formats', link: '/reference/file-formats' },
               {
+                text: 'Memory management',
+                link: '/reference/memory-management',
+              },
+              {
                 text: 'Serial bridge protocol',
                 link: '/reference/serial-protocol',
               },
