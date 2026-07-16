@@ -6,6 +6,7 @@ import {
 } from '../../emulator/vic20/vic20Machine';
 import { vic20Keywords } from './keywords';
 import { vic20Charset } from './charset';
+import { vic20MemoryMap } from './memoryMap';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { vic20LanguageSupport, vic20CompletionSource } from './language';
@@ -39,6 +40,7 @@ export const vic20: Dialect = {
   docsReference: 'commodore64',
   // Unexpanded VIC-20: "3583 BYTES FREE".
   programRamBytes: 3583,
+  memoryMap: vic20MemoryMap,
   fileExtensions: ['.txt', '.bas'],
   keywords: vic20Keywords,
   charset: vic20Charset,

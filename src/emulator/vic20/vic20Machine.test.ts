@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Vic20Machine } from './vic20Machine';
 import type { Vic20Roms } from './memory';
+import { READ_BIT, WRITE_BIT } from '../memoryActivityBuffer';
 import { tokenizeProgram } from '../../dialects/vic20/tokenizer';
 
 const ROOT = join(__dirname, '../../../public/roms/vic20');
@@ -330,4 +331,45 @@ describe('Vic20Machine', () => {
     },
     BOOT_TIMEOUT_MS,
   );
+
+  describe('memory-activity recording', () => {
+    it(
+      'records CPU reads and writes, including the I/O region, while enabled',
+      async () => {
+        const m = new Vic20Machine({ roms });
+        // Off by default: nothing to drain until recording is armed.
+        expect(m.drainMemoryActivity()).toBeNull();
+        await m.whenReady();
+        m.setMemoryActivityRecording(true);
+        // POKE the VIC-I border/screen register ($900F = 36879), then loop so
+        // the write is made while we are sampling.
+        m.loadProgram(image('10 POKE 36879,8\n20 GOTO 20\n'));
+        await m.whenReady();
+        for (let i = 0; i < 300; i++) m.runFrame();
+        const hits = m.drainMemoryActivity();
+        expect(hits).not.toBeNull();
+        expect(hits!.length).toBe(0x10000);
+        // The POKE 36879 write landed in the VIC-I I/O region.
+        expect(hits![0x900f]! & WRITE_BIT).toBe(WRITE_BIT);
+        // The running interpreter reads memory constantly.
+        expect(hits!.some((b) => (b & READ_BIT) !== 0)).toBe(true);
+        m.dispose();
+      },
+      BOOT_TIMEOUT_MS,
+    );
+
+    it(
+      'stops recording and drains null once disabled',
+      async () => {
+        const m = new Vic20Machine({ roms });
+        await m.whenReady();
+        m.setMemoryActivityRecording(true);
+        for (let i = 0; i < 50; i++) m.runFrame();
+        m.setMemoryActivityRecording(false);
+        expect(m.drainMemoryActivity()).toBeNull();
+        m.dispose();
+      },
+      BOOT_TIMEOUT_MS,
+    );
+  });
 });

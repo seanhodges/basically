@@ -6,6 +6,7 @@ import {
 } from '../../emulator/pet/petMachine';
 import { petKeywords } from './keywords';
 import { petCharset } from './charset';
+import { petMemoryMap } from './memoryMap';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { petLanguageSupport, petCompletionSource } from './language';
@@ -33,6 +34,7 @@ export const pet: Dialect = {
   name: 'PET',
   // BASIC 4.0 "31743 BYTES FREE" on a 32KB machine.
   programRamBytes: 31743,
+  memoryMap: petMemoryMap,
   fileExtensions: ['.txt', '.bas'],
   keywords: petKeywords,
   charset: petCharset,
