@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { C64Machine, type C64Roms } from './c64Machine';
+import { READ_BIT, WRITE_BIT } from '../memoryActivityBuffer';
 import { commodore64 } from '../../dialects/commodore64';
 
 const ROOT = join(__dirname, '../../../public/roms/c64');
@@ -184,6 +185,50 @@ describe('C64Machine', () => {
     },
     BOOT_TIMEOUT_MS,
   );
+
+  describe('memory-activity recording', () => {
+    it(
+      'records CPU reads and writes, including the I/O region, while enabled',
+      async () => {
+        // A single POKE into VIC I/O ($D020, the border) - the accumulated hits
+        // buffer keeps that write until the drain, proving the wrapped bus
+        // captures I/O-region access, not just raw RAM.
+        const { image, errors } = commodore64.tokenize('10 POKE 53280,0\n');
+        expect(errors).toEqual([]);
+        const m = new C64Machine({ roms });
+        // Off by default: nothing to drain until recording is armed.
+        expect(m.drainMemoryActivity()).toBeNull();
+        await m.whenReady();
+        m.setMemoryActivityRecording(true);
+        m.loadProgram(image);
+        await new Promise((r) => setTimeout(r, 0));
+        for (let i = 0; i < 300; i++) m.runFrame();
+        const hits = m.drainMemoryActivity();
+        expect(hits).not.toBeNull();
+        expect(hits!.length).toBe(0x10000);
+        // The POKE 53280 write landed in the VIC I/O region.
+        expect(hits![0xd020] & WRITE_BIT).toBe(WRITE_BIT);
+        // The running interpreter reads memory constantly.
+        expect(hits!.some((b) => (b & READ_BIT) !== 0)).toBe(true);
+        m.dispose();
+      },
+      BOOT_TIMEOUT_MS,
+    );
+
+    it(
+      'drains nothing once recording is turned off',
+      async () => {
+        const m = new C64Machine({ roms });
+        await m.whenReady();
+        m.setMemoryActivityRecording(true);
+        for (let i = 0; i < 50; i++) m.runFrame();
+        m.setMemoryActivityRecording(false);
+        expect(m.drainMemoryActivity()).toBeNull();
+        m.dispose();
+      },
+      BOOT_TIMEOUT_MS,
+    );
+  });
 
   describe('native joystick (port 2 / $dc00)', () => {
     it(
