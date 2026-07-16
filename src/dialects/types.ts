@@ -521,6 +521,15 @@ export interface Dialect {
    */
   memoryMap?: MemoryMap;
   /**
+   * Initial address notation for the memory-map viewer's Int/Hex toggle, applied
+   * each time the panel opens. `'hex'` for machines that conventionally address
+   * memory in hex (BBC/Atom `?`/`!` indirection, e.g. `?&2000`); `'dec'` for
+   * machines whose PEEK/POKE addresses are conventionally decimal (Sinclair,
+   * Commodore). The user can still flip the toggle. Defaults to `'hex'` when
+   * absent.
+   */
+  addressNotation?: 'hex' | 'dec';
+  /**
    * How this dialect writes to memory, driving the memory-map viewer's write-site
    * markers. Absent for the common `POKE addr,val` machines - those are inferred
    * from the `POKE` keyword. Set it for dialects that write memory differently

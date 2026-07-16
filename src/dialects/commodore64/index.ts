@@ -36,6 +36,10 @@ export const commodore64: Dialect = {
   name: 'C64',
   programRamBytes: 38911,
   memoryMap: c64MemoryMap,
+
+  // Commodore BASIC POKEs decimal addresses (`POKE 53280,0`), so the map opens
+  // in Int.
+  addressNotation: 'dec',
   fileExtensions: ['.txt', '.bas'],
   keywords: c64Keywords,
   charset: c64Charset,

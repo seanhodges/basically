@@ -35,6 +35,9 @@ export const pet: Dialect = {
   // BASIC 4.0 "31743 BYTES FREE" on a 32KB machine.
   programRamBytes: 31743,
   memoryMap: petMemoryMap,
+
+  // Commodore BASIC POKEs decimal addresses, so the map opens in Int.
+  addressNotation: 'dec',
   fileExtensions: ['.txt', '.bas'],
   keywords: petKeywords,
   charset: petCharset,

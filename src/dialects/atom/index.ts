@@ -68,6 +68,9 @@ export const atom: Dialect = {
 
   memoryMap: atomMemoryMap,
 
+  // Atom BASIC addresses memory in hex (`?#DE`), so the map opens in Hex.
+  addressNotation: 'hex',
+
   // Atom BASIC has no POKE: memory writes use `?`/`!` indirection (`?#DE=0`),
   // with `#` hex addresses, and `;` separates statements.
   memoryWrites: { forms: ['indirection'], hexPrefix: '#', statementSep: ';' },
