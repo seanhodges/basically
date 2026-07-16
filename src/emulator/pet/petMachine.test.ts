@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PetMachine, type PetRoms } from './petMachine';
+import { READ_BIT, WRITE_BIT } from '../memoryActivityBuffer';
 import { tokenizeProgram } from '../../dialects/pet/tokenizer';
 
 const ROOT = join(__dirname, '../../../public/roms/pet');
@@ -233,4 +234,45 @@ describe('PetMachine', () => {
     },
     BOOT_TIMEOUT_MS,
   );
+
+  describe('memory-activity recording', () => {
+    it(
+      'records CPU reads and writes, including the screen region, while enabled',
+      async () => {
+        const m = new PetMachine({ roms });
+        // Off by default: nothing to drain until recording is armed.
+        expect(m.drainMemoryActivity()).toBeNull();
+        await m.whenReady();
+        m.setMemoryActivityRecording(true);
+        // POKE the top-left screen cell ($8000 = 32768), then loop so the write
+        // is made while we are sampling.
+        m.loadProgram(image('10 POKE 32768,1\n20 GOTO 20\n'));
+        await m.whenReady();
+        for (let i = 0; i < 200; i++) m.runFrame();
+        const hits = m.drainMemoryActivity();
+        expect(hits).not.toBeNull();
+        expect(hits!.length).toBe(0x10000);
+        // The POKE 32768 write landed in the screen RAM region.
+        expect(hits![0x8000]! & WRITE_BIT).toBe(WRITE_BIT);
+        // The running interpreter reads memory constantly.
+        expect(hits!.some((b) => (b & READ_BIT) !== 0)).toBe(true);
+        m.dispose();
+      },
+      BOOT_TIMEOUT_MS,
+    );
+
+    it(
+      'stops recording and drains null once disabled',
+      async () => {
+        const m = new PetMachine({ roms });
+        await m.whenReady();
+        m.setMemoryActivityRecording(true);
+        for (let i = 0; i < 50; i++) m.runFrame();
+        m.setMemoryActivityRecording(false);
+        expect(m.drainMemoryActivity()).toBeNull();
+        m.dispose();
+      },
+      BOOT_TIMEOUT_MS,
+    );
+  });
 });

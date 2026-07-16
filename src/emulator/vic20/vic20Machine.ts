@@ -20,6 +20,11 @@ import {
   screenCodesForText,
   screenContains,
 } from '../commodore/machineHelpers';
+import {
+  MemoryActivityBuffer,
+  READ_BIT,
+  WRITE_BIT,
+} from '../memoryActivityBuffer';
 import { Vic20Memory, type Vic20Roms, SCREEN_BASE } from './memory';
 import { VicI, VIC20_DISPLAY_WIDTH, VIC20_DISPLAY_HEIGHT } from './vicI';
 import { vic20DomCodeToTokens, vic20TokenToPositions } from './keyboard';
@@ -112,6 +117,13 @@ export class Vic20Machine implements MachineEmulator {
   readonly audioSampleRate = VIC_AUDIO_SAMPLE_RATE;
 
   private readonly memory = new Vic20Memory();
+  /**
+   * Per-address "touched since last drain" set for the live memory-activity
+   * overlay, stamped in {@link Vic20Machine.busInterface} on every CPU bus
+   * access while {@link MemoryActivityBuffer.enabled}. Off by default, so a
+   * closed overlay costs a single not-taken branch per access.
+   */
+  private readonly memoryActivity = new MemoryActivityBuffer(0x10000);
   private readonly vic = new VicI();
   private readonly vicAudio = new VicAudioRenderer();
   private cpu: StateMachineCpu | null = null;
@@ -180,8 +192,18 @@ export class Vic20Machine implements MachineEmulator {
 
   // --- bus -------------------------------------------------------------------
 
+  /**
+   * The CPU's bus, wrapped so every read/write can be recorded for the
+   * memory-activity overlay. {@link Vic20Memory.makeBus} stays a pure address
+   * decoder; recording is layered on here (mirroring how the C64 wraps the bus
+   * its core captures) and gated on {@link memoryActivity}.`enabled`, so a
+   * closed overlay costs one not-taken branch per access. The side-effect-free
+   * `peek`/`poke`/`readWord` helpers are left unwrapped: host introspection
+   * (`readMemoryStats`, `readVariables`, …) reads the raw RAM array directly and
+   * so never pollutes the overlay.
+   */
   private busInterface() {
-    return this.memory.makeBus({
+    const bus = this.memory.makeBus({
       readVic: (reg) => this.vic.readRegister(reg),
       writeVic: (reg, v) => this.vic.writeRegister(reg, v),
       readVia1: (reg) => this.via1.read(reg),
@@ -189,6 +211,19 @@ export class Vic20Machine implements MachineEmulator {
       readVia2: (reg) => this.via2.read(reg),
       writeVia2: (reg, v) => this.via2.write(reg, v),
     });
+    const activity = this.memoryActivity;
+    const rawRead = bus.read;
+    const rawWrite = bus.write;
+    bus.read = (addr: number): number => {
+      const value = rawRead(addr);
+      if (activity.enabled) activity.hits[addr & 0xffff] |= READ_BIT;
+      return value;
+    };
+    bus.write = (addr: number, value: number): void => {
+      if (activity.enabled) activity.hits[addr & 0xffff] |= WRITE_BIT;
+      rawWrite(addr, value);
+    };
+    return bus;
   }
 
   // --- keyboard / joystick ---------------------------------------------------
@@ -535,6 +570,18 @@ export class Vic20Machine implements MachineEmulator {
     const free = fretop - strend;
     if (txttab === 0 || memsiz <= txttab || used < 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setMemoryActivityRecording(enabled: boolean): void {
+    this.memoryActivity.enabled = enabled;
+    // Drop any hits accumulated in a previous session so a reopened overlay
+    // starts clean rather than flashing stale activity.
+    if (!enabled) this.memoryActivity.clear();
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    if (!this.memoryActivity.enabled) return null;
+    return this.memoryActivity.drain(recycle);
   }
 
   dispose(): void {

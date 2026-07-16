@@ -12,6 +12,11 @@ import type {
 } from '../../dialects/types';
 import { readC64Variables, type CbmVarsLayout } from '../c64/vars';
 import { readC64Report, type CbmScreenLayout } from '../c64/reports';
+import {
+  MemoryActivityBuffer,
+  READ_BIT,
+  WRITE_BIT,
+} from '../memoryActivityBuffer';
 import { Pia6520 } from '../commodore/pia6520';
 import { Via6522 } from '../commodore/via6522';
 import { CharRenderer } from '../commodore/charRenderer';
@@ -144,6 +149,14 @@ export class PetMachine implements MachineEmulator {
   private readonly mem = new Uint8Array(0x10000);
   private character = new Uint8Array(2048);
 
+  /**
+   * Per-address "touched since last drain" set for the live memory-activity
+   * overlay, stamped in {@link PetMachine.busInterface} on every CPU bus access
+   * while {@link MemoryActivityBuffer.enabled}. Off by default, so a closed
+   * overlay costs a single not-taken branch per access.
+   */
+  private readonly memoryActivity = new MemoryActivityBuffer(0x10000);
+
   private cpu: StateMachineCpu | null = null;
   private readonly pia1: Pia6520;
   private readonly pia2: Pia6520;
@@ -247,14 +260,23 @@ export class PetMachine implements MachineEmulator {
   }
 
   private busInterface(): BusInterface {
+    // Stamp the memory-activity buffer on every CPU access when the overlay
+    // arms it (a single not-taken branch otherwise). The side-effect-free
+    // peek/poke/readWord helpers below stay unstamped: host introspection
+    // (readMemoryStats, readVariables, …) reads the raw `mem` array directly and
+    // so never pollutes the overlay.
+    const activity = this.memoryActivity;
     const read = (addr: number): number => {
       const a = addr & 0xffff;
-      if (a >= 0xe800 && a <= 0xe8ff) return this.readIo(a);
-      return this.readMem(a);
+      const value =
+        a >= 0xe800 && a <= 0xe8ff ? this.readIo(a) : this.readMem(a);
+      if (activity.enabled) activity.hits[a] |= READ_BIT;
+      return value;
     };
     const write = (addr: number, value: number): void => {
       const a = addr & 0xffff;
       const v = value & 0xff;
+      if (activity.enabled) activity.hits[a] |= WRITE_BIT;
       if (a < SCREEN_BASE) {
         this.mem[a] = v; // RAM $0000–$7FFF
       } else if (a <= 0x8fff) {
@@ -609,6 +631,18 @@ export class PetMachine implements MachineEmulator {
     const free = fretop - strend;
     if (txttab === 0 || memsiz <= txttab || used < 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setMemoryActivityRecording(enabled: boolean): void {
+    this.memoryActivity.enabled = enabled;
+    // Drop any hits accumulated in a previous session so a reopened overlay
+    // starts clean rather than flashing stale activity.
+    if (!enabled) this.memoryActivity.clear();
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    if (!this.memoryActivity.enabled) return null;
+    return this.memoryActivity.drain(recycle);
   }
 
   dispose(): void {
