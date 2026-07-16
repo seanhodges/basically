@@ -555,6 +555,18 @@ export class Spectrum128Machine implements MachineEmulator {
     return { used, free };
   }
 
+  setMemoryActivityRecording(enabled: boolean): void {
+    this.memory.activity.enabled = enabled;
+    // Drop any hits accumulated in a previous session so a reopened overlay
+    // starts clean rather than flashing stale activity.
+    if (!enabled) this.memory.activity.clear();
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    if (!this.memory.activity.enabled) return null;
+    return this.memory.activity.drain(recycle);
+  }
+
   get borderColor(): number {
     return this.border;
   }

@@ -31,6 +31,7 @@ import {
 import { Spectrum128Machine } from './emulator/spectrum128Machine';
 import { spectrum128KeyboardLayout } from './keyboardLayout';
 import { spectrum128Samples } from './samples';
+import { spectrum128MemoryMap } from './memoryMap';
 
 /**
  * ZX Spectrum 128K / +2 / +3 (128 BASIC), registered in src/dialects/registry.ts.
@@ -44,6 +45,7 @@ export const zxspectrum128: Dialect = {
   name: 'Spectrum 128',
   docsReference: 'zxspectrum',
   programRamBytes: 41472,
+  memoryMap: spectrum128MemoryMap,
   fileExtensions: ['.txt', '.bas'],
   keywords: spectrum128Keywords,
   charset: spectrum128Charset,
