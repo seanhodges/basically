@@ -433,6 +433,33 @@ export interface MemoryMap {
 }
 
 /**
+ * How a dialect's BASIC writes to a memory address, so the memory-map viewer's
+ * write-site markers know what to scan for. Most dialects use `POKE addr,val` -
+ * left implicit and inferred from the `POKE` keyword when {@link Dialect.memoryWrites}
+ * is absent - so this is only spelled out for machines that differ (BBC/Atom use
+ * `?`/`!` indirection and have no `POKE`).
+ */
+export interface MemoryWriteSyntax {
+  /**
+   * The statement forms that write memory:
+   * - `'poke'` - `POKE addr,val` (address is the text up to the first comma).
+   * - `'indirection'` - a statement opening with `?` (byte) or `!` (word), as
+   *   `?addr = val` / `!addr = val` (address is the text up to the `=`).
+   */
+  forms: ('poke' | 'indirection')[];
+  /**
+   * Hex-literal prefix used in address expressions - BBC `'&'` (`?&2000=5`),
+   * Atom `'#'` (`?#DE=0`). Omit for dialects whose addresses are always decimal.
+   */
+  hexPrefix?: string;
+  /**
+   * Statement separator, when it isn't the usual `':'`. The Atom uses `';'`, so
+   * `?#80=1;?#81=2` is two writes. Omit to split on `':'`.
+   */
+  statementSep?: string;
+}
+
+/**
  * Everything the IDE needs to support one BASIC dialect / machine.
  * The app only ever talks to this interface; machine specifics stay inside
  * the dialect's own folder.
@@ -493,6 +520,13 @@ export interface Dialect {
    * for that machine.
    */
   memoryMap?: MemoryMap;
+  /**
+   * How this dialect writes to memory, driving the memory-map viewer's write-site
+   * markers. Absent for the common `POKE addr,val` machines - those are inferred
+   * from the `POKE` keyword. Set it for dialects that write memory differently
+   * (BBC/Atom use `?`/`!` indirection and have no `POKE`).
+   */
+  memoryWrites?: MemoryWriteSyntax;
   /**
    * True when this dialect's emulator implements the step-through debugger
    * (`currentLine`/`debugStep`). Drives whether the toolbar offers a Debug

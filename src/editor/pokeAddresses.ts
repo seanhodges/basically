@@ -1,11 +1,21 @@
 /**
- * Extracts the memory addresses a BASIC program POKEs into, for the memory-map
+ * Extracts the memory addresses a BASIC program writes into, for the memory-map
  * viewer's per-address markers and region highlight.
  *
  * A pure, dialect-agnostic editor helper in the mould of {@link ./programOutline}:
  * it walks the source line by line, blanks string literals and REM comments with
  * {@link scannable} (so `PRINT "POKE 5"` / `REM POKE 5` never match), and reads
- * the address argument after each POKE.
+ * the address argument of each memory write. Two write forms are understood, per
+ * the dialect passed in {@link PokeContext.writes}:
+ *
+ * - **`poke`** (the default) - `POKE addr,val`; the address is the text up to the
+ *   first comma. Used by the ZX, Commodore and TRS-80 dialects.
+ * - **`indirection`** - a statement opening with `?` (byte) or `!` (word), as
+ *   `?addr = val` / `!addr = val`; the address is the text up to the `=`. Used by
+ *   the BBC and Atom dialects, which have no `POKE`. Only a *statement-leading*
+ *   `?`/`!` is a write - a read such as `C=?addr` or `IF ?addr=5 THEN...` opens
+ *   with a letter/keyword and is ignored. The dyadic `base?off=` / `base!off=`
+ *   forms (which open with a variable) are not detected.
  *
  * Beyond bare literals ({@link pokeAddresses}), {@link pokeSites} also resolves
  * POKEs whose address is a variable or arithmetic expression (`POKE X,1`,
@@ -75,6 +85,23 @@ export interface PokeContext {
    * returns) stay unresolved regardless.
    */
   udgBase?: number;
+  /**
+   * Which memory-write statement forms this dialect uses (see the module header).
+   * Defaults to `['poke']` when omitted.
+   */
+  writes?: ('poke' | 'indirection')[];
+  /**
+   * Hex-literal prefix in address expressions - BBC `'&'`, Atom `'#'`. When set,
+   * `&FFFF` / `#DE` in the scanned code resolve as hex; omit for decimal-only
+   * dialects. (A prefixed literal is rewritten to decimal before evaluation, so
+   * such an address reports `computed: false` and its tooltip shows the decimal.)
+   */
+  hexPrefix?: string;
+  /**
+   * Statement separator, when it isn't `':'`. The Atom uses `';'`. Omit to split
+   * statements on `':'`.
+   */
+  statementSep?: string;
 }
 
 /** Number of user-defined graphics reachable as `USR "a".."u"` (the 48K set). */
@@ -134,10 +161,33 @@ function resolveUdgCalls(body: string, udgBase: number): string {
   return out;
 }
 
+/**
+ * Rewrite `<prefix>HHHH` hex literals to their decimal value so the decimal-only
+ * {@link evalExpr} can resolve BBC (`&2000`) and Atom (`#DE`) addresses without
+ * teaching the expression tokenizer each machine's hex syntax. Applied to the
+ * already string/REM-blanked statement text, where `&`/`#` are exclusively hex
+ * prefixes on the dialects that set one. The rewrite makes an otherwise-literal
+ * address report `computed: false` (its text is no longer a bare decimal) - an
+ * accepted cosmetic trade for keeping the evaluator unchanged.
+ */
+function resolveHexLiterals(text: string, prefix: string): string {
+  const re = new RegExp(
+    `${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[0-9A-Fa-f]+`,
+    'g',
+  );
+  return text.replace(re, (m) => String(parseInt(m.slice(prefix.length), 16)));
+}
+
 // POKE optionally glued to its argument the way single-keystroke / crunched
 // entry allows (`POKE16384`, `POKEA`); the leading \b still stops it matching
 // inside a longer word.
 const POKE_RE = /\bPOKE\s*/i;
+// A statement-leading `?`/`!` indirection write (BBC/Atom): the sigil, then the
+// address expression, then `=`. Requiring the `=` keeps a bare read (`?A`, or a
+// `?`/`!` that isn't an assignment target) from matching. Anchored at the
+// statement start, so a read like `C=?A` or `IF ?A=5` - which opens with a
+// letter/keyword - is never treated as a write. Group 2 is the address text.
+const INDIRECTION_RE = /^\s*([?!])\s*(.*?)=/;
 // A bare decimal integer - the only form counted as a non-computed literal.
 const LITERAL_RE = /^\d+$/;
 // [LET] VAR = ... anchored at the statement start (so `IF X=5` is not an
@@ -163,14 +213,19 @@ interface VarVal {
 }
 
 /**
- * The scannable (strings/REM blanked, UDG calls resolved) statements of a line,
- * split on the real `:` separators. Shared by the constant pre-pass and the
- * main walk so both see the same statement stream.
+ * The scannable (strings/REM blanked, UDG and hex literals resolved) statements
+ * of a line, split on the dialect's statement separator. Shared by the constant
+ * pre-pass and the main walk so both see the same statement stream.
  */
 function statementsOf(body: string, ctx: PokeContext): string[] {
-  const resolved =
+  const udgResolved =
     ctx.udgBase !== undefined ? resolveUdgCalls(body, ctx.udgBase) : body;
-  return scannable(resolved).split(':');
+  const blanked = scannable(udgResolved);
+  const hexResolved =
+    ctx.hexPrefix !== undefined
+      ? resolveHexLiterals(blanked, ctx.hexPrefix)
+      : blanked;
+  return hexResolved.split(ctx.statementSep ?? ':');
 }
 
 /**
@@ -181,6 +236,7 @@ function statementsOf(body: string, ctx: PokeContext): string[] {
  */
 export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
   const sites: PokeSite[] = [];
+  const writes = ctx.writes ?? ['poke'];
 
   // Program order, not physical order: the value tracker models execution.
   const lines = parseLines(source).sort((a, b) => a.lineNo - b.lineNo);
@@ -188,6 +244,31 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
   // Seed program-wide constants first, so a base defined below the lines that
   // use it (e.g. an init block reached via `GO TO`) is already known.
   const vars = seedConstants(lines, ctx);
+
+  // Resolve one write's address expression to a site, or `null` when it can't be
+  // pinned down (unresolvable, or an approximate base collapsing to 0). `label`
+  // is the text kept for the tooltip - the bare expression for POKE, the sigil +
+  // expression for indirection. Shared by both write forms.
+  const siteFor = (
+    expr: string,
+    label: string,
+    lineNo: number,
+  ): PokeSite | null => {
+    const value = evalExpr(expr, vars);
+    if (value === undefined) return null;
+    const address = Math.round(value.value);
+    // An approximate address that lands on 0 has no meaningful base - every term
+    // of the expression was unknown - so drop it here.
+    if (value.approx && address === 0) return null;
+    return {
+      address,
+      expr: label,
+      computed: !LITERAL_RE.test(expr),
+      approximate: value.approx,
+      lineNo,
+      ...rangeEnd(expr, vars, address, value.approx),
+    };
+  };
 
   for (const line of lines) {
     for (const stmt of statementsOf(line.body, ctx)) {
@@ -197,27 +278,25 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
         continue;
       }
 
-      const pokeMatch = POKE_RE.exec(stmt);
+      const pokeMatch = writes.includes('poke') ? POKE_RE.exec(stmt) : null;
       if (pokeMatch) {
         const rest = stmt.slice(pokeMatch.index + pokeMatch[0].length);
         const comma = rest.indexOf(',');
         const expr = (comma === -1 ? rest : rest.slice(0, comma)).trim();
-        const value = evalExpr(expr, vars);
-        if (value !== undefined) {
-          const address = Math.round(value.value);
-          // An approximate address that lands on 0 has no meaningful base -
-          // every term of the expression was unknown - so drop it here.
-          if (!(value.approx && address === 0)) {
-            sites.push({
-              address,
-              expr,
-              computed: !LITERAL_RE.test(expr),
-              approximate: value.approx,
-              lineNo: line.lineNo,
-              ...rangeEnd(expr, vars, address, value.approx),
-            });
-          }
-        }
+        const site = siteFor(expr, expr, line.lineNo);
+        if (site) sites.push(site);
+        continue;
+      }
+
+      const indMatch = writes.includes('indirection')
+        ? INDIRECTION_RE.exec(stmt)
+        : null;
+      if (indMatch) {
+        const expr = indMatch[2]!.trim();
+        // Tooltip keeps the sigil so a marker reads `?&2000` / `!DE`, not a bare
+        // address. Word (`!`) writes mark only their low byte.
+        const site = siteFor(expr, `${indMatch[1]}${expr}`, line.lineNo);
+        if (site) sites.push(site);
         continue;
       }
 

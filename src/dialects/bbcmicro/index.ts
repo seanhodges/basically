@@ -69,6 +69,10 @@ export const bbcmicro: Dialect = {
 
   memoryMap: bbcMicroMemoryMap,
 
+  // BBC BASIC has no POKE: memory writes use `?`/`!` indirection (`?&2000=5`),
+  // with `&` hex addresses.
+  memoryWrites: { forms: ['indirection'], hexPrefix: '&' },
+
   debuggable: true,
 
   joystickModes: ['native'],
