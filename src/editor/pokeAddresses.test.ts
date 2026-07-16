@@ -327,3 +327,84 @@ describe('pokeSites USR "letter" (user-defined graphics)', () => {
     expect(pokeSites('10 POKE AUSR "a",1', { udgBase })).toEqual([]);
   });
 });
+
+describe('pokeSites — indirection dialects (BBC/Atom ?/! writes)', () => {
+  // BBC BASIC: `?`/`!` indirection, `&` hex, `:` statement separator.
+  const bbc = { writes: ['indirection'] as const, hexPrefix: '&' };
+  // Atom: `?`/`!` indirection, `#` hex, `;` statement separator.
+  const atom = {
+    writes: ['indirection'] as const,
+    hexPrefix: '#',
+    statementSep: ';',
+  };
+
+  it('resolves a byte-indirection write with a hex address (BBC)', () => {
+    const [site] = pokeSites('10 ?&2000=5', bbc);
+    expect(site).toMatchObject({
+      address: 0x2000,
+      expr: '?8192',
+      approximate: false,
+      lineNo: 10,
+    });
+  });
+
+  it('resolves a word-indirection write, marking its low byte (BBC)', () => {
+    const [site] = pokeSites('10 !&70=1', bbc);
+    expect(site!.address).toBe(0x70);
+    expect(site!.expr).toBe('!112');
+  });
+
+  it('resolves a hex-indirection write on the Atom (# prefix)', () => {
+    expect(pokeSites('10 ?#DE=0', atom).map((s) => s.address)).toEqual([0xde]);
+  });
+
+  it('treats indirection only at a statement start, not as a read', () => {
+    // A read into a variable, and a read inside a condition: neither writes.
+    expect(pokeSites('10 C=?&2000', bbc)).toEqual([]);
+    expect(pokeSites('10 IF ?&2000=5 THEN PRINT 1', bbc)).toEqual([]);
+    expect(pokeSites('10 A=!&70', bbc)).toEqual([]);
+  });
+
+  it('splits an Atom line on ";" so every write is found', () => {
+    expect(pokeSites('10 ?#80=1;?#81=2', atom).map((s) => s.address)).toEqual([
+      0x80, 0x81,
+    ]);
+  });
+
+  it('resolves a computed indirection address against a tracked base', () => {
+    const src = ['10 base=&2000', '20 ?(base+1)=5'].join('\n');
+    const [site] = pokeSites(src, bbc);
+    expect(site).toMatchObject({
+      address: 0x2001,
+      expr: '?(base+1)',
+      computed: true,
+      approximate: false,
+      lineNo: 20,
+    });
+  });
+
+  it('resolves a FOR-loop indirection range (start and end address)', () => {
+    const src = ['10 FOR I=0 TO 7:?(&2000+I)=0'].join('\n');
+    const [site] = pokeSites(src, bbc);
+    expect(site!.address).toBe(0x2000);
+    expect(site!.endAddress).toBe(0x2007);
+  });
+
+  it('does not scan indirection for a POKE dialect (default writes)', () => {
+    // With the default `['poke']`, a `?`/`!` statement is not a write.
+    expect(pokeSites('10 ?&2000=5')).toEqual([]);
+  });
+});
+
+describe('pokeSites — Commodore POKE (decimal addresses)', () => {
+  it('resolves a decimal POKE the same as any POKE dialect', () => {
+    const [site] = pokeSites('10 POKE 53280,0');
+    expect(site).toMatchObject({
+      address: 53280,
+      expr: '53280',
+      computed: false,
+      approximate: false,
+      lineNo: 10,
+    });
+  });
+});

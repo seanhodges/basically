@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import type { MachineEmulator } from '../dialects/types';
-import { pokeSites, type PokeSite } from '../editor/pokeAddresses';
+import {
+  pokeSites,
+  type PokeContext,
+  type PokeSite,
+} from '../editor/pokeAddresses';
 import { memoryBands, type Band } from './memoryBands';
 import { addressTicks } from './memoryScale';
 import {
@@ -70,19 +74,43 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
   const [showDetails, setShowDetails] = useState(false);
 
   const map = dialect.memoryMap;
-  const hasPoke = dialect.keywords.some((k) => k.word === 'POKE');
+
+  // How this dialect writes memory, for the write-site markers: an explicit
+  // descriptor when the dialect provides one (BBC/Atom `?`/`!` indirection),
+  // else the implied `POKE` form when it has a POKE keyword, else none (the
+  // machine has a map but we don't know how to read its writes, so no markers).
+  const writeCtx = useMemo<PokeContext | null>(() => {
+    if (!map) return null;
+    const mw = dialect.memoryWrites;
+    if (mw)
+      return {
+        udgBase: map.udgBase,
+        writes: mw.forms,
+        hexPrefix: mw.hexPrefix,
+        statementSep: mw.statementSep,
+      };
+    if (dialect.keywords.some((k) => k.word === 'POKE'))
+      return { udgBase: map.udgBase, writes: ['poke'] };
+    return null;
+  }, [map, dialect]);
+  const byIndirection = !!writeCtx?.writes?.includes('indirection');
 
   /** Format an address in the currently-selected notation. */
   const fmt = (addr: number) =>
     notation === 'hex' ? hexAddr(addr) : `${addr}`;
 
-  // The POKEs the current program makes, de-duplicated by address and split into
-  // those that land in the machine's memory (drawn as markers) and those that
-  // resolve out of range (surfaced as a warning). Only for dialects with POKE.
+  /** How the marker describes a write, for tooltips: `POKE 22528` or `?&2000`. */
+  const writeDesc = (s: PokeSite) =>
+    byIndirection ? s.expr : `POKE ${s.expr}`;
+
+  // The memory writes the current program makes, de-duplicated by address and
+  // split into those that land in the machine's memory (drawn as markers) and
+  // those that resolve out of range (surfaced as a warning). Only for dialects
+  // whose write syntax we recognise.
   const { inRange, outOfRange } = useMemo(() => {
     const seen = new Map<number, PokeSite>();
-    if (map && hasPoke)
-      for (const s of pokeSites(source, { udgBase: map.udgBase })) {
+    if (map && writeCtx)
+      for (const s of pokeSites(source, writeCtx)) {
         // Prefer an exact site over an approximate one at the same address.
         const prev = seen.get(s.address);
         if (!prev || (prev.approximate && !s.approximate))
@@ -95,7 +123,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
       if (s.approximate) {
         // An approximate address is only a best-effort base, so show it only
         // where it plausibly points at RAM: in range, non-zero, and not in a
-        // ROM region (a POKE there would be a no-op). Otherwise drop it
+        // ROM region (a write there would be a no-op). Otherwise drop it
         // silently - no out-of-range warning for a guessed base.
         const kind = map?.regions.find(
           (r) => s.address >= r.start && s.address <= r.end,
@@ -110,7 +138,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
     within.sort((a, b) => a.address - b.address);
     beyond.sort((a, b) => a.address - b.address);
     return { inRange: within, outOfRange: beyond };
-  }, [map, hasPoke, source]);
+  }, [map, writeCtx, source]);
 
   const sitesInRegion = (start: number, end: number) =>
     inRange.filter((s) => s.address >= start && s.address <= end);
@@ -295,8 +323,8 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
       {outOfRange.length > 0 && (
         <p className={styles.warning}>
           {outOfRange.length === 1
-            ? `POKE ${outOfRange[0]!.expr} resolves to ${outOfRange[0]!.address}, which is outside this machine's ${totalBytes.toLocaleString()}-byte memory and isn't shown.`
-            : `Some POKE addresses in your program fall outside this machine's ${totalBytes.toLocaleString()}-byte memory and aren't shown.`}
+            ? `${writeDesc(outOfRange[0]!)} resolves to ${outOfRange[0]!.address}, which is outside this machine's ${totalBytes.toLocaleString()}-byte memory and isn't shown.`
+            : `Some addresses your program writes to fall outside this machine's ${totalBytes.toLocaleString()}-byte memory and aren't shown.`}
         </p>
       )}
 
@@ -304,11 +332,11 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
         Pinch, or Ctrl/⌘-scroll, to zoom in for sub-regions and an address
         scale.
         {inRange.length > 0
-          ? ' Each line marks an address your program POKEs.'
+          ? ' Each line marks an address your program writes to.'
           : ''}
         {inRange.some((s) => s.endAddress !== undefined)
-          ? ' A shaded band shows the range a loop POKEs, from its start to its' +
-            ' end address.'
+          ? ' A shaded band shows the range a loop writes to, from its start to' +
+            ' its end address.'
           : ''}
       </p>
 
@@ -400,7 +428,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                             s.approximate ? styles.pokeMarkerApprox : ''
                           }`}
                           style={{ top: `${(y / px) * 100}%` }}
-                          title={`POKE ${s.expr} — range end ${fmt(
+                          title={`${writeDesc(s)} — range end ${fmt(
                             s.endAddress!,
                           )}`}
                         >
@@ -435,9 +463,9 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                         style={{ top: `${(y / px) * 100}%` }}
                         title={
                           s.approximate
-                            ? `POKE ${s.expr} — approximate (region estimate)`
+                            ? `${writeDesc(s)} — approximate (region estimate)`
                             : s.computed
-                              ? `POKE ${s.expr}`
+                              ? writeDesc(s)
                               : ''
                         }
                       >
@@ -510,12 +538,15 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                   {selectedSites.length > 0 && (
                     <div className={styles.pokedBox}>
                       <h4 className={styles.pokedTitle}>
-                        Your program POKEs here — read it back with:
+                        Your program writes here — read it back with:
                       </h4>
                       <ul className={styles.pokedList}>
                         {selectedSites.map((s) => (
                           <li key={s.address} className={styles.mono}>
-                            {s.approximate ? '≈ ' : ''}PEEK {s.address}
+                            {s.approximate ? '≈ ' : ''}
+                            {byIndirection
+                              ? `?${s.address}`
+                              : `PEEK ${s.address}`}
                             {s.computed ? (
                               <span className={styles.pokedExpr}>
                                 {' '}
@@ -530,7 +561,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                       <p className={styles.pokedCaveat}>
                         Computed addresses show the first value a loop or
                         variable resolves to. A “≈” marks an approximate base
-                        for POKEs whose address is worked out at runtime — the
+                        for writes whose address is worked out at runtime — the
                         region is right, the exact byte may not be.
                       </p>
                     </div>
