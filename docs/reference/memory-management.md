@@ -49,6 +49,8 @@ any **reserved** RAM above it. Every region is a distinct colour so you can see
 at a glance how the address space is carved up and how much of it your program
 has to share.
 
+![The Commodore 64 memory map zoomed out: major region groups - system area, screen memory, BASIC program, ROM and I/O - each shown with the percentage of memory it takes](/memory-map-overview.png)
+
 The map opens zoomed out, showing just the major groups with the percentage of
 memory each takes. Zoom in to reveal the sub-regions inside a group, an address
 scale down the side, and the exact addresses your program touches. Zoom with:
@@ -56,6 +58,8 @@ scale down the side, and the exact addresses your program touches. Zoom with:
 - a **pinch** gesture on a touch screen,
 - **Ctrl/⌘ + scroll** with a mouse or trackpad, or
 - the **zoom slider** and **+ / −** buttons in the panel's controls.
+
+![The same C64 map zoomed in: the system group has opened into its sub-regions - zero page, the processor stack and the workspace - with an address scale running down the right-hand side](/memory-map-zoomed.png)
 
 Addresses read out in either **hex** (`&4000`) or plain **integers** (`16384`) -
 switch with the **Hex / Int** toggle. Each machine opens in whichever notation
@@ -92,6 +96,8 @@ With **Show Details** on, selecting a region also lists the writes that land in
 it together with the `PEEK` you'd use to read each one back - a quick way to
 check a value your program stored.
 
+![The memory map's detail panel for the C64 screen-memory region: its address range, size, the PEEK for its first byte, an explanatory note, and the list of addresses the program writes there](/memory-map-details.png)
+
 The BBC and Atom have no `POKE`; they write memory with `?` (byte) and `!`
 (word) indirection, as `?&2000 = 255`. The map understands those forms and marks
 them the same way.
@@ -104,6 +110,8 @@ the CPU is actually touching, frame by frame. Reads glow **teal** and writes glo
 what the program is doing to memory - the screen region flickering as it's drawn,
 the stack working near the top of RAM, a stray write landing somewhere it
 shouldn't.
+
+![The memory map docked to the left of the running C64 emulator: bands across ROM and the workspace glow teal for reads while the screen and I/O regions glow coral for writes, as the program fills the screen on the right](/memory-map-activity.png)
 
 Activity is only recorded while the map is on screen, so it costs nothing when
 the panel is closed. Pair it with the POKE markers to confirm that a write you

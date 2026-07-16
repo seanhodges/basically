@@ -340,6 +340,223 @@ test('annotated editor features - desktop', async ({ page }) => {
   await page.screenshot({ path: `${OUT}/editor-features.png` });
 });
 
+// ---------------------------------------------------------------------------
+// Writing-BASIC guide + Memory-management reference figures.
+//
+// These illustrate individual editor/memory features rather than the landing
+// hero, so they each drive the IDE into one focused state and crop to the
+// element that matters (the completion popup, the outline dialog, the status
+// bar, the memory map). Grep them on their own with:
+//
+//   npm run e2e:docs-screenshots -- -g "writing-basic"
+// ---------------------------------------------------------------------------
+
+/** Replace the whole document with `source` in one insert (CodeMirror's auto
+ *  line-numbering only fires on real Enter keys, so a pasted block lands
+ *  verbatim). */
+async function setEditorSource(page: Page, source: string) {
+  const content = page.locator('.cm-content');
+  await content.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.insertText(source);
+  // Let the tokenizer/byte-counter debounce settle.
+  await page.waitForTimeout(450);
+}
+
+/** Open the memory map from the toolbar and wait for its panel. */
+async function openMemoryMap(page: Page) {
+  await page.locator('button[title^="Memory map"]').click();
+  await page.locator('[class*="memoryHost"]').waitFor({ state: 'visible' });
+}
+
+/** Click the map's "Zoom in" (+) button `times` times (each nudges +2). */
+async function zoomIn(page: Page, times: number) {
+  const btn = page.getByRole('button', { name: 'Zoom in' });
+  for (let i = 0; i < times; i += 1) await btn.click();
+}
+
+// A C64 program that writes to a spread of regions - the VIC-II border and
+// background registers, the SID volume, then a loop filling screen RAM and its
+// matching colour RAM. The literals become point markers; the two loops become
+// shaded range bands; and the endless GOTO keeps the machine 'running' so the
+// live read/write overlay has something to show.
+const C64_POKES = [
+  '10 POKE 53280,0',
+  '20 POKE 53281,6',
+  '30 POKE 54296,15',
+  '40 FOR I=1024 TO 2023',
+  '50 POKE I,81',
+  '60 POKE I+54272,1',
+  '70 NEXT I',
+  '80 GOTO 40',
+].join('\n');
+
+test('writing-basic: code completion popup', async ({ page }) => {
+  await open(page);
+  await loadSample(page, 'Maze');
+  await hideKeyboard(page);
+  // Open the completion popup on a fresh line: a single-letter prefix lists a
+  // full set of keyword matches with the best one highlighted at the top.
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('P', { delay: 80 });
+  await page.locator('.cm-tooltip-autocomplete').waitFor({ state: 'visible' });
+  await page.waitForTimeout(150);
+  // Crop to the editor column so the popup sits over real code, not the whole
+  // window of chrome.
+  await page
+    .locator('[class*="editorPane"]')
+    .first()
+    .screenshot({ path: `${OUT}/completion-example.png` });
+});
+
+test('writing-basic: program outline', async ({ page }) => {
+  await open(page);
+  await useDialect(page, 'BBC Micro');
+  // A small BBC program exercising every jump type the outline groups:
+  // named PROC/FN definitions, a GOSUB subroutine, and GOTO targets - each with
+  // a nearby REM the outline reads for a descriptive title.
+  await setEditorSource(
+    page,
+    [
+      '10 REM ** STAR RAIDER **',
+      '20 PROCsetup',
+      '30 PROCtitle',
+      '40 REM --- main game loop ---',
+      '50 GOSUB 500',
+      '60 IF fuel>0 THEN GOTO 40',
+      '70 GOTO 900',
+      '100 DEF PROCsetup',
+      '110 REM initialise ship, score and fuel',
+      '120 ship=100:score=0:fuel=50',
+      '130 ENDPROC',
+      '200 DEF PROCtitle',
+      '210 REM draw the title screen',
+      '220 PRINT TAB(10,5)"STAR RAIDER"',
+      '230 ENDPROC',
+      '300 DEF FNdist(x,y)',
+      '310 REM distance from the origin',
+      '320 =SQR(x*x+y*y)',
+      '500 REM ** update one frame **',
+      '510 fuel=fuel-1',
+      '520 PROCship',
+      '530 RETURN',
+      '600 DEF PROCship',
+      '610 REM redraw the player ship',
+      '620 PRINT TAB(ship,20)"<A>"',
+      '630 ENDPROC',
+      '900 REM ** game over screen **',
+      '910 PRINT "GAME OVER"',
+      '920 END',
+    ].join('\n'),
+  );
+  await page.getByRole('button', { name: 'Edit ▾' }).click();
+  await page.getByRole('button', { name: 'Outline' }).click();
+  const dialog = page.getByRole('heading', { name: 'Program outline' });
+  await dialog.waitFor({ state: 'visible' });
+  await page.waitForTimeout(150);
+  // Crop to the dialog itself (the modal box is the backdrop's only child).
+  await page
+    .locator('[class*="modalBackdrop"] > div')
+    .first()
+    .screenshot({ path: `${OUT}/program-outline.png` });
+});
+
+test('writing-basic: byte budget in the status bar', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 700 });
+  await open(page);
+  await useDialect(page, 'ZX81');
+  // Grow a filler program until the byte budget crosses into the amber warning
+  // band (>=80%), so the shot shows the colour-change the guide describes -
+  // without tipping past the 95% red threshold.
+  const mk = (count: number) =>
+    Array.from(
+      { length: count },
+      (_, i) => `${(i + 1) * 10} REM SECTION ${i} DRAW MAZE WALLS AND SCORE`,
+    ).join('\n');
+  let count = 200;
+  for (let tries = 0; tries < 6; tries += 1) {
+    await setEditorSource(page, mk(count));
+    const text = await page.locator('[class*="statusBar"]').first().innerText();
+    const m = /(\d+)% of \d+K budget/.exec(text);
+    const pct = m ? parseInt(m[1]!, 10) : 0;
+    if (pct >= 80 && pct < 95) break;
+    count = pct < 80 ? Math.ceil(count * 1.35) : Math.floor(count * 0.85);
+  }
+  await page.locator('.cm-content').click();
+  await page.waitForTimeout(300);
+  await page
+    .locator('[class*="statusBar"]')
+    .first()
+    .screenshot({ path: `${OUT}/byte-budget.png` });
+});
+
+test('writing-basic: memory map overview (zoomed out)', async ({ page }) => {
+  await open(page);
+  await useDialect(page, 'C64');
+  await setEditorSource(page, C64_POKES);
+  await openMemoryMap(page);
+  // Opens at minimum zoom: the major region groups each with their share of
+  // memory, and every POKE the program makes drawn as a marker in its region
+  // (the guide's "example poke locations/regions" figure too).
+  await page.locator('[class*="pokeMarker"]').first().waitFor();
+  await page.waitForTimeout(200);
+  await page
+    .locator('[class*="memoryHost"]')
+    .screenshot({ path: `${OUT}/memory-map-overview.png` });
+});
+
+test('writing-basic: memory map zoomed in', async ({ page }) => {
+  await open(page);
+  await useDialect(page, 'C64');
+  await setEditorSource(page, C64_POKES);
+  await openMemoryMap(page);
+  // Zoom well in to reveal the sub-regions, the address scale down the side, and
+  // the exact addresses the program writes.
+  await zoomIn(page, 6);
+  await page.waitForTimeout(200);
+  await page
+    .locator('[class*="memoryHost"]')
+    .screenshot({ path: `${OUT}/memory-map-zoomed.png` });
+});
+
+test('writing-basic: memory map region details', async ({ page }) => {
+  await open(page);
+  await useDialect(page, 'C64');
+  await setEditorSource(page, C64_POKES);
+  await openMemoryMap(page);
+  await zoomIn(page, 4);
+  // Select a region that the program writes into, then reveal the detail panel:
+  // its range, size, the PEEK for its first byte, and the writes that land in it.
+  await page.locator('[title*="Screen memory"]').first().click();
+  await page.locator('button[aria-label="Show details"]').click();
+  await page.waitForTimeout(200);
+  await page
+    .locator('[class*="memoryHost"]')
+    .screenshot({ path: `${OUT}/memory-map-details.png` });
+});
+
+test('writing-basic: memory map live activity beside the emulator', async ({
+  page,
+}) => {
+  await open(page);
+  await useDialect(page, 'C64');
+  await setEditorSource(page, C64_POKES);
+  await openMemoryMap(page);
+  // Run it: the map jumps to the left column, the live emulator appears on the
+  // right, and the map lights up the addresses the CPU touches (teal reads,
+  // coral writes).
+  await page.getByRole('button', { name: 'Play' }).click();
+  await page
+    .locator('[class*="memoryLeft"]')
+    .waitFor({ state: 'visible', timeout: 30_000 });
+  await hideKeyboard(page);
+  // Let a few frames of read/write activity accumulate on the overlay.
+  await page.waitForTimeout(3000);
+  await page.screenshot({ path: `${OUT}/memory-map-activity.png` });
+});
+
 test('annotated editor features - mobile', async ({ page }) => {
   // Load the sample at desktop size (the File menu's text label collapses to an
   // icon on mobile), then resize into the tabbed layout and open the editor tab.

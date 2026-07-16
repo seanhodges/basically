@@ -49,9 +49,17 @@ menu**, and the same code completion popup appears as you type.
 ### Code completion
 
 As you start typing a keyword, a suggestions popup opens automatically, with the
-best match highlighted at the top.
+best match highlighted at the top. Press **Enter** to accept the highlighted
+suggestion.
 
-Press **Enter** to accept the highlighted suggestion.
+![The code completion popup open over the editor, listing keyword matches for the typed prefix with the best match highlighted at the top](/completion-example.png)
+
+With **Full code completion (expand keywords to blocks)** switched on, structural
+keywords expand to a whole skeleton rather than a bare word. Accepting `FOR`
+drops in a complete counting loop, `IF` an `IF … THEN` line, etc. The cursor
+lands on the first thing you need to fill in (the loop variable, the condition…);
+press **Enter** / **Shift+Enter** to jump forward and back through the remaining
+fields. Turn it off to get plain keyword completion only (no block expansion).
 
 ### Dot abbreviation
 
@@ -59,17 +67,6 @@ While the popup is open you can also accept the top suggestion by typing a
 **`.`** (period) - a shortcut inspired by the BBC Micro's keyword abbreviations.
 The dot is the trigger and is not inserted, so typing `PR.` completes to
 `PRINT`, and `P.` completes to whatever `P…` currently tops the list.
-
-### Snippet (block) completion
-
-With **Full code completion (expand keywords to blocks)** switched on, structural
-keywords expand to a whole skeleton rather than a bare word. Accepting `FOR`
-drops in a complete counting loop, `IF` an `IF … THEN` line, etc. The cursor
-lands on the first thing you need to fill in (the loop variable, the condition…);
-press **Enter** / **Shift+Enter** to jump forward and back through the remaining
-fields.
-
-Turn it off to get plain keyword completion only (no block expansion).
 
 ### Automatic line numbering
 
@@ -93,6 +90,12 @@ any entry to move the editor straight to that line - a quick way to navigate a
 longer program. The outline tool reads nearby REM statements to give more descriptive
 naming of functions and jump points.
 
+![The Program outline dialog for a BBC Micro program, grouping the entries into Procedures, Functions, Subroutines and GOTOs, each labelled from a nearby REM](/program-outline.png)
+
+The sections that appear depend on the dialect: a machine with `PROC`/`FN`
+definitions lists **Procedures** and **Functions**, and every dialect groups the
+lines its `GOSUB`s and `GOTO`s jump to under **Subroutines** and **GOTOs**.
+
 ## Keeping an eye on memory as you write
 
 Retro machines have very little RAM, and two of the IDE's tools help you stay
@@ -106,13 +109,18 @@ you approach the limit. On the smallest machines (the unexpanded ZX81 has just
 1K!) that's worth watching as you go, so you catch a program outgrowing its RAM
 while you're writing rather than when you try to run it.
 
+![The status bar showing the byte-budget readout - a program size, and the percentage of the machine's RAM budget it uses - turned amber as it nears the limit](/byte-budget.png)
+
 If your program `POKE`s memory directly, keep the **memory map** (the memory-map
 icon in the toolbar) open beside the editor as a live reference: every `POKE` in
 your source is drawn as a marker at its address, so you can see which addresses
 you've already used - and where the machine's own screen, system and program
-areas sit - before you write another. See **[Memory
-management](/reference/memory-management)** for the full picture, including the
-live RAM readout, activity monitoring, and the variable watcher.
+areas sit - before you write another.
+
+![The memory map for the Commodore 64 showing its regions - screen memory, BASIC program, ROM and the I/O area - each labelled with its share of memory, with markers on the addresses the program POKEs](/memory-map-overview.png)
+
+See **[Memory management](/reference/memory-management)** for the full picture,
+including the live RAM readout, activity monitoring, and the variable watcher.
 
 ## Special characters and tokens
 
