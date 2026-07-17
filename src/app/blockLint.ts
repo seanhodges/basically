@@ -12,10 +12,7 @@ import type {
   MemoryBlocksSupport,
   MemoryRange,
 } from '../dialects/types';
-import {
-  findDuplicateBlockName,
-  isValidBlockName,
-} from '../storage/projectFile';
+import { isValidBlockName } from '../storage/projectFile';
 
 /** Category of problem a {@link BlockIssue} reports, for UI icon/copy choice. */
 export type BlockIssueKind =
@@ -81,6 +78,25 @@ function isWithinAnyRange(
 }
 
 /**
+ * Names that occur more than once in `blocks`, so every offending block can
+ * be flagged - unlike {@link findDuplicateBlockName} (`src/storage/projectFile.ts`),
+ * which is a fail-fast helper built for `parseProject`'s "throw on the first
+ * duplicate" path and only ever reports one name. A document with `A, A, B, B`
+ * has two duplicate groups; this finds both.
+ */
+function duplicatedNames(blocks: readonly MemoryBlock[]): Set<string> {
+  const counts = new Map<string, number>();
+  for (const block of blocks) {
+    counts.set(block.name, (counts.get(block.name) ?? 0) + 1);
+  }
+  const duplicates = new Set<string>();
+  for (const [name, count] of counts) {
+    if (count > 1) duplicates.add(name);
+  }
+  return duplicates;
+}
+
+/**
  * Lint `blocks` against a dialect's {@link MemoryBlocksSupport}. Returns every
  * issue found (never throws) - errors block the Run path; warnings don't.
  *
@@ -95,7 +111,7 @@ export function lintBlocks(
   programByteSize: number,
 ): BlockIssue[] {
   const issues: BlockIssue[] = [];
-  const duplicateName = findDuplicateBlockName(blocks);
+  const duplicates = duplicatedNames(blocks);
   const program = support.programArea(programByteSize);
 
   for (const block of blocks) {
@@ -109,7 +125,7 @@ export function lintBlocks(
       });
     }
 
-    if (duplicateName !== null && block.name === duplicateName) {
+    if (duplicates.has(block.name)) {
       issues.push({
         blockId: block.id,
         blockName: block.name,

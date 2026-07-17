@@ -224,6 +224,27 @@ describe('lintBlocks', () => {
       ).toBe(true);
     });
 
+    it('flags every block in every duplicate-name group, not just the first', () => {
+      // Two separate duplicate groups: A/A and B/B. A fail-fast "first
+      // duplicate only" check would report just the A pair and silently miss
+      // B/B entirely.
+      const a1 = block({ id: 'a1', name: 'A', address: 0x2000 });
+      const a2 = block({ id: 'a2', name: 'A', address: 0x2010 });
+      const b1 = block({ id: 'b1', name: 'B', address: 0x2020 });
+      const b2 = block({ id: 'b2', name: 'B', address: 0x2030 });
+      const issues = lintBlocks([a1, a2, b1, b2], SUPPORT, 0);
+      for (const id of ['a1', 'a2', 'b1', 'b2']) {
+        expect(
+          issues.some(
+            (i) =>
+              i.blockId === id &&
+              i.kind === 'duplicate-name' &&
+              i.severity === 'error',
+          ),
+        ).toBe(true);
+      }
+    });
+
     it('errors on an invalid block name', () => {
       const b = block({ name: '1BAD' });
       const issues = lintBlocks([b], SUPPORT, 0);
