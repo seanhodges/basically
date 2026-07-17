@@ -57,7 +57,9 @@ describe('resolveInputOverlays', () => {
       );
       expect(r.controllerVisible).toBe(true);
       expect(r.keyboardVisible).toBe(false);
-      expect(r.overlayUp).toBe(true);
+      // The gamepad is a floating, click-through overlay, so it never shrinks
+      // the screen - even on the docked (non-phone-landscape) layouts.
+      expect(r.overlayUp).toBe(false);
     });
 
     it('brings the keyboard back when the gamepad is disabled while the keyboard stays enabled', () => {
@@ -168,8 +170,8 @@ describe('resolveInputOverlays', () => {
       const r = resolveInputOverlays(portrait({ controllerEnabled: true }));
       expect(r.controllerVisible).toBe(true);
       expect(r.keyboardVisible).toBe(false);
-      // A docked (non-flanking) gamepad shrinks the screen.
-      expect(r.overlayUp).toBe(true);
+      // The gamepad floats over the screen and never shrinks it, on any layout.
+      expect(r.overlayUp).toBe(false);
     });
 
     it('auto-shows the keyboard when a pane is focused', () => {

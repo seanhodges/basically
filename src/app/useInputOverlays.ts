@@ -51,7 +51,9 @@ export interface InputOverlays {
   controllerVisible: boolean;
   /** The on-screen keyboard overlay should render. */
   keyboardVisible: boolean;
-  /** The bottom band is occupied, so the emulator screen shrinks to make room. */
+  /** The opaque, docked keyboard occupies the bottom band, so the emulator
+      screen shrinks to make room. The gamepad is a transparent, click-through
+      floating overlay, so it never sets this - it never shrinks the screen. */
   overlayUp: boolean;
   /**
    * The gamepad is a meaningful third position for the input-overlay toggle.
@@ -116,10 +118,11 @@ export function resolveInputOverlays(input: InputOverlayInput): InputOverlays {
     (keyboardEnabled || autoKeyboard) && // rules 2 & 3
     (emulatorSurfaceActive || editorSurfaceActive); // never on AI/Settings tabs
 
-  // The bottom band is occupied by a *docked* overlay. The flanking phone-
-  // landscape gamepad doesn't dock (it flanks the screen), so it doesn't shrink
-  // the screen height there.
-  const overlayUp = keyboardVisible || (controllerVisible && !landscape);
+  // Only the opaque, docked keyboard occupies the bottom band and shrinks the
+  // screen. The gamepad is always a transparent, click-through floating overlay
+  // (see .workspaceGcOverlay / .gcOverlay), so it never docks and never shrinks
+  // the screen - on any layout, orientation, or shell.
+  const overlayUp = keyboardVisible;
 
   // The gamepad earns its place in the toggle cycle only where its visibility
   // tracks the toggle: the emulator surface, on every layout. On the editor
