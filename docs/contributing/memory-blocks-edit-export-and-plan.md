@@ -67,7 +67,7 @@ hardware.
 | Stage | Title                                                | Status |
 | ----- | ---------------------------------------------------- | ------ |
 | 1     | Editor tabs & read-only hex viewer                   | ⬜     |
-| 2     | Editable hex editor + raw `.bin` per-block load/save  | ⬜     |
+| 2     | Editable hex editor + raw `.bin` per-block load/save | ⬜     |
 | 3     | Spectrum `.TAP` export of CODE blocks                | ⬜     |
 | 4     | Assembly view (read-only) + Z80 disassembler         | ⬜     |
 | 5     | BASIC integration: `@name` refs, completions, lint   | ⬜     |

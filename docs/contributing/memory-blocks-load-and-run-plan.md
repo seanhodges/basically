@@ -65,15 +65,15 @@ out on export, is the companion plan's job.
 
 ✅ shipped · 🔨 in progress · ⬜ planned · ⛔ blocked
 
-| Stage | Title                                             | Status |
-| ----- | ------------------------------------------------- | ------ |
-| 1     | Data model & persistence                          | ⬜     |
-| 2     | Dialect metadata & block lint                     | ⬜     |
-| 3     | Emulator loading (Spectrum)                       | ⬜     |
-| 4     | Spectrum `.TAP` import of CODE blocks             | ⬜     |
-| 5     | Rollout: loading, injection & import              | ⬜     |
-| 6     | Share links & player                              | ⬜     |
-| 7     | Docs                                              | ⬜     |
+| Stage | Title                                 | Status |
+| ----- | ------------------------------------- | ------ |
+| 1     | Data model & persistence              | ⬜     |
+| 2     | Dialect metadata & block lint         | ⬜     |
+| 3     | Emulator loading (Spectrum)           | ⬜     |
+| 4     | Spectrum `.TAP` import of CODE blocks | ⬜     |
+| 5     | Rollout: loading, injection & import  | ⬜     |
+| 6     | Share links & player                  | ⬜     |
+| 7     | Docs                                  | ⬜     |
 
 ---
 
