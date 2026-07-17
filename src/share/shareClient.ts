@@ -9,6 +9,8 @@
 // callers can degrade gracefully instead of firing doomed requests.
 
 import { SHARE_ID_RE } from '../player/routes';
+import type { MemoryBlock } from '../dialects/types';
+import { parseBlocks, type SerializedBlock } from '../storage/projectFile';
 
 export interface SharedProgram {
   id: string;
@@ -17,6 +19,13 @@ export interface SharedProgram {
   name: string;
   source: string;
   createdAt: string;
+  /**
+   * Memory blocks (machine code / data at fixed addresses) that ship with the
+   * program, decoded from the wire's base64 form back into runtime
+   * {@link MemoryBlock}s - contract v2. Absent for a pure-BASIC share (the
+   * common case) and for v1 payloads that predate blocks.
+   */
+  blocks?: MemoryBlock[];
 }
 
 export interface CreateShareRequest {
@@ -24,6 +33,12 @@ export interface CreateShareRequest {
   compatibleDialects: string[];
   name: string;
   source: string;
+  /**
+   * Serialized memory blocks to attach (contract v2) - the same wire codec the
+   * `.bproj` bundle uses ({@link serializeBlocks}). Omit for a pure-BASIC
+   * share; a v1-only server simply ignores the extra field.
+   */
+  blocks?: SerializedBlock[];
 }
 
 export type ShareErrorKind =
@@ -86,7 +101,9 @@ export async function fetchSharedProgram(id: string): Promise<SharedProgram> {
   if (!res.ok) {
     throw new ShareApiError('server', `Share API error ${res.status}`);
   }
-  const body = (await res.json()) as Partial<SharedProgram>;
+  const body = (await res.json()) as Partial<SharedProgram> & {
+    blocks?: unknown;
+  };
   if (
     typeof body.id !== 'string' ||
     typeof body.dialectId !== 'string' ||
@@ -94,6 +111,20 @@ export async function fetchSharedProgram(id: string): Promise<SharedProgram> {
     !Array.isArray(body.compatibleDialects)
   ) {
     throw new ShareApiError('server', 'Malformed share API response');
+  }
+  // Blocks are optional (v1 payloads have none). When present they must be a
+  // well-formed, uniquely-named set - parseBlocks throws otherwise, which we
+  // surface as a server error rather than booting a half-decoded document.
+  let blocks: MemoryBlock[] | undefined;
+  if (body.blocks !== undefined) {
+    if (!Array.isArray(body.blocks)) {
+      throw new ShareApiError('server', 'Malformed share API response');
+    }
+    try {
+      blocks = parseBlocks(body.blocks);
+    } catch {
+      throw new ShareApiError('server', 'Malformed share block data');
+    }
   }
   return {
     id: body.id,
@@ -104,6 +135,7 @@ export async function fetchSharedProgram(id: string): Promise<SharedProgram> {
     name: typeof body.name === 'string' ? body.name : '',
     source: body.source,
     createdAt: typeof body.createdAt === 'string' ? body.createdAt : '',
+    ...(blocks ? { blocks } : {}),
   };
 }
 
@@ -116,10 +148,21 @@ export async function createShare(
       `Program name exceeds ${NAME_LIMIT_CHARS} characters`,
     );
   }
-  if (new TextEncoder().encode(req.source).length > SOURCE_LIMIT_BYTES) {
+  // The 64 KiB budget now covers the serialized memory blocks too - base64
+  // block bytes are bulky, so a program that fits alone can still bust the
+  // limit once its blocks are attached. Message names the blocks only when
+  // there are any, so a pure-BASIC overflow reads as before.
+  const sourceBytes = new TextEncoder().encode(req.source).length;
+  const hasBlocks = req.blocks !== undefined && req.blocks.length > 0;
+  const blocksBytes = hasBlocks
+    ? new TextEncoder().encode(JSON.stringify(req.blocks)).length
+    : 0;
+  if (sourceBytes + blocksBytes > SOURCE_LIMIT_BYTES) {
     throw new ShareApiError(
       'too-large',
-      `Program exceeds ${SOURCE_LIMIT_BYTES / 1024} KiB`,
+      hasBlocks
+        ? `Program plus its memory blocks exceed ${SOURCE_LIMIT_BYTES / 1024} KiB`
+        : `Program exceeds ${SOURCE_LIMIT_BYTES / 1024} KiB`,
     );
   }
   const res = await request(`${apiBase()}/share`, {

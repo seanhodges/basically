@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { computeCompatibleDialects } from '../share/compatibility';
 import { createShare, ShareApiError } from '../share/shareClient';
+import { serializeBlocks } from '../storage/projectFile';
 import { playerPathFor } from '../player/routes';
 import {
   getLastShare,
@@ -85,10 +86,19 @@ export function ShareLinkDialog() {
     setCopied(false);
     setError(null);
     setResult(null);
-    const { dialect, source, fileName } = useIdeStore.getState();
+    const { dialect, source, fileName, blocks } = useIdeStore.getState();
 
+    // The dedupe cache keys on (source, dialect) only, so it can't tell two
+    // documents apart by their blocks. Reuse it only for a block-free
+    // document; a document with blocks always re-mints, so its link can never
+    // be a stale, blockless one.
     const cached = getLastShare();
-    if (cached && cached.source === source && cached.dialectId === dialect.id) {
+    if (
+      blocks.length === 0 &&
+      cached &&
+      cached.source === source &&
+      cached.dialectId === dialect.id
+    ) {
       setResult({ url: cached.url });
       setPhase('done');
       return;
@@ -114,18 +124,23 @@ export function ShareLinkDialog() {
     let cancelled = false;
     (async () => {
       try {
-        const compatible = computeCompatibleDialects(source);
+        const compatible = computeCompatibleDialects(source, blocks);
         const { id } = await createShare({
           dialectId: dialect.id,
           compatibleDialects: compatible,
           name: !fileName || fileName === UNTITLED_FILE_NAME ? '' : fileName,
           source,
+          ...(blocks.length > 0 ? { blocks: serializeBlocks(blocks) } : {}),
         });
         if (cancelled) return;
         const url = location.origin + playerPathFor(dialect.id, id);
         setResult({ url });
         setPhase('done');
-        setLastShare({ source, dialectId: dialect.id, url });
+        // Only cache a block-free share: the cache can't represent blocks, and
+        // reusing it for a later same-source document would drop them.
+        if (blocks.length === 0) {
+          setLastShare({ source, dialectId: dialect.id, url });
+        }
       } catch (e) {
         if (cancelled) return;
         setError(describeCreateError(e));

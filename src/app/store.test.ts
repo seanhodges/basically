@@ -23,7 +23,7 @@ beforeAll(() => {
 const { useIdeStore, persistAutosave, initialDocument } =
   await import('./store');
 const { getDialect } = await import('../dialects/registry');
-const { getDialectId, loadAutosave, saveAutosave } =
+const { getDialectId, setDialectId, loadAutosave, saveAutosave } =
   await import('../storage/settings');
 
 const zx81 = getDialect('zx81');
@@ -243,6 +243,59 @@ describe('openSharedInIde', () => {
       source: '10 PRINT "SHARED"',
     });
     expect(getDialectId()).toBe('bbcmicro');
+  });
+
+  it('installs shared memory blocks alongside the source', () => {
+    useIdeStore.getState().openSharedInIde({
+      dialectId: 'bbcmicro',
+      source: '10 PRINT "SHARED"',
+      blocks: [BLOCK_A],
+    });
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
+  });
+
+  it('clears blocks for a share that carries none', () => {
+    useIdeStore.setState({ blocks: [BLOCK_A] });
+    useIdeStore.getState().openSharedInIde({
+      dialectId: 'bbcmicro',
+      source: '10 PRINT "SHARED"',
+    });
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+});
+
+describe('playerBoot', () => {
+  it('installs the shared program and its blocks', () => {
+    useIdeStore.getState().playerBoot({
+      dialectId: 'bbcmicro',
+      source: '10 PRINT "PLAY"',
+      fileName: 'shared.txt',
+      blocks: [BLOCK_A],
+    });
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.source).toBe('10 PRINT "PLAY"');
+    expect(s.blocks).toEqual([BLOCK_A]);
+  });
+
+  it('starts a block-free share with no blocks', () => {
+    useIdeStore.setState({ blocks: [BLOCK_A] });
+    useIdeStore.getState().playerBoot({
+      dialectId: 'zx81',
+      source: '10 PRINT "PLAY"',
+      fileName: 'shared.txt',
+    });
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('does not persist the dialect (the player must not rewire the IDE)', () => {
+    setDialectId('zx81');
+    useIdeStore.getState().playerBoot({
+      dialectId: 'bbcmicro',
+      source: '10 PRINT "PLAY"',
+      fileName: 'shared.txt',
+    });
+    expect(getDialectId()).toBe('zx81');
   });
 });
 

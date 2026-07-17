@@ -1,6 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { computeCompatibleDialects } from './compatibility';
 import { dialects } from '../dialects/registry';
+import type { Dialect, MemoryBlock } from '../dialects/types';
+
+/** A block, for exercising the block-aware compatibility gate. */
+const aBlock: MemoryBlock = {
+  id: 'b1',
+  name: 'code',
+  address: 0x8000,
+  bytes: new Uint8Array([0]),
+  kind: 'code',
+};
+
+/**
+ * Two stub dialects that both tokenize cleanly - one declaring
+ * `memoryBlocks`, one not - so the block gate can be tested in isolation from
+ * the real registry (where every dialect happens to support blocks).
+ */
+const stubDialects = [
+  { id: 'withblocks', tokenize: () => ({ errors: [] }), memoryBlocks: {} },
+  { id: 'noblocks', tokenize: () => ({ errors: [] }), memoryBlocks: undefined },
+] as unknown as Dialect[];
 
 describe('computeCompatibleDialects', () => {
   it('returns every machine for a lowest-common-denominator program', () => {
@@ -26,5 +46,17 @@ describe('computeCompatibleDialects', () => {
     const ids = computeCompatibleDialects('10 total = 42\n20 PRINT total');
     expect(ids).toContain('bbcmicro');
     expect(ids).not.toContain('zx81');
+  });
+
+  it('ignores the block gate when the document has no blocks', () => {
+    expect(
+      computeCompatibleDialects('10 PRINT "HI"', [], stubDialects),
+    ).toEqual(['withblocks', 'noblocks']);
+  });
+
+  it('requires memoryBlocks support once the document has blocks', () => {
+    expect(
+      computeCompatibleDialects('10 PRINT "HI"', [aBlock], stubDialects),
+    ).toEqual(['withblocks']);
   });
 });

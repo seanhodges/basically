@@ -305,6 +305,13 @@ interface IdeState {
     dialectId: string;
     source: string;
     fileName: string;
+    /**
+     * Memory blocks the shared program carries (contract v2), installed
+     * atomically with `source` so the player's run writes them into RAM.
+     * Already validated/unique at the share seam (`fetchSharedProgram` →
+     * `parseBlocks`), so installed as-is; omitted for a pure-BASIC share.
+     */
+    blocks?: readonly MemoryBlock[];
   }): void;
   /**
    * Open a shared program in the IDE (the player's "See the Code" handover).
@@ -314,7 +321,11 @@ interface IdeState {
    * file, so it loads as `untitled.txt`; being real content, it is mirrored to
    * autosave and survives a reload until replaced.
    */
-  openSharedInIde(args: { dialectId: string; source: string }): void;
+  openSharedInIde(args: {
+    dialectId: string;
+    source: string;
+    blocks?: readonly MemoryBlock[];
+  }): void;
   /** Resolve a pending target switch: start fresh or keep the current code. */
   confirmDialectSwitch(mode: 'new' | 'keep'): void;
   /** Dismiss a pending target switch, leaving the current machine in place. */
@@ -781,7 +792,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     // so it isn't restored on reload.
     persistAutosave();
   },
-  playerBoot: ({ dialectId, source, fileName }) =>
+  playerBoot: ({ dialectId, source, fileName, blocks }) =>
     set((s) => {
       const next = getDialect(dialectId);
       // Not applyDialectSwitch: that persists the dialect choice and flips
@@ -808,7 +819,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         mobileTab: 'preview' as MobileTab,
       };
     }),
-  openSharedInIde: ({ dialectId, source }) => {
+  openSharedInIde: ({ dialectId, source, blocks }) => {
     set((s) => ({
       // applyDialectSwitch so teardown / AI-reset / breakpoint semantics (and
       // persisting the dialect) match a real target switch.
@@ -817,6 +828,10 @@ export const useIdeStore = create<IdeState>((set) => ({
       // document - so it stays untitled until the user saves it.
       fileName: UNTITLED_FILE_NAME,
       dirty: false,
+      // Install the shared program's blocks (applyDialectSwitch cleared them):
+      // the new dialect is the one they were authored for, and they arrive
+      // pre-validated from the share seam. A pure-BASIC share carries none.
+      blocks: blocks ?? [],
     }));
     // Real content: mirror it to autosave so it survives a reload.
     persistAutosave();

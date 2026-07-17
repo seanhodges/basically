@@ -38,6 +38,36 @@ test('boots a shared program, auto-runs and paints the screen', async ({
   await expect.poll(() => canvasPainted(page), { timeout: 30_000 }).toBe(true);
 });
 
+test('boots a shared program that carries a memory block', async ({ page }) => {
+  test.setTimeout(120_000);
+  // A ZX81 record with a v2 blocks payload: the block is decoded by
+  // fetchSharedProgram, installed by playerBoot, and written into RAM on the
+  // auto-run. The program itself just paints and holds, so this asserts the
+  // block payload flows end-to-end without breaking the boot/run.
+  await page.route(
+    SHARE_GLOB,
+    shareGet({
+      body: zx81Record({
+        blocks: [
+          {
+            id: 'b1',
+            name: 'code',
+            address: 28672, // 0x7000, inside the ZX81 valid block range
+            bytes: 'AQID', // base64 for [1, 2, 3]
+            kind: 'code',
+          },
+        ],
+      }),
+    }),
+  );
+  await page.goto(`/load/${SHARE_ID}`);
+
+  await expect(page.getByRole('button', { name: '▶ Play' })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect.poll(() => canvasPainted(page), { timeout: 30_000 }).toBe(true);
+});
+
 test('the Play button restarts the running program', async ({ page }) => {
   test.setTimeout(120_000);
   await page.route(SHARE_GLOB, shareGet({ body: zx81Record() }));

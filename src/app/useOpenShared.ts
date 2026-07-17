@@ -53,6 +53,7 @@ export async function openSharedFromUrl(): Promise<boolean> {
     useIdeStore.getState().openSharedInIde({
       dialectId: rec.dialectId,
       source: rec.source,
+      blocks: rec.blocks,
     });
     const url = new URL(location.href);
     url.searchParams.delete('open');
