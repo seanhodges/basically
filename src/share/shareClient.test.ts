@@ -92,6 +92,41 @@ describe('fetchSharedProgram', () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { id: 'abc234' }));
     await expectKind(fetchSharedProgram('abc234'), 'server');
   });
+
+  it('decodes attached memory blocks (base64 -> bytes)', async () => {
+    // "AQID" is base64 for [1, 2, 3].
+    const withBlocks = {
+      ...record,
+      blocks: [
+        {
+          id: 'b1',
+          name: 'code',
+          address: 0x8000,
+          bytes: 'AQID',
+          kind: 'code',
+        },
+      ],
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, withBlocks));
+    const got = await fetchSharedProgram('abc234');
+    expect(got.blocks).toEqual([
+      {
+        id: 'b1',
+        name: 'code',
+        address: 0x8000,
+        bytes: new Uint8Array([1, 2, 3]),
+        kind: 'code',
+      },
+    ]);
+  });
+
+  it('rejects malformed block data as a server error', async () => {
+    // A block missing its required "name" fails parseBlocks.
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { ...record, blocks: [{ id: 'b1' }] }),
+    );
+    await expectKind(fetchSharedProgram('abc234'), 'server');
+  });
 });
 
 describe('createShare', () => {
@@ -109,6 +144,33 @@ describe('createShare', () => {
     expect(url).toBe('https://api.example.test/share');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual(req);
+  });
+
+  it('posts attached memory blocks in the request body', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, { id: 'xyz789' }));
+    const blocks = [
+      { id: 'b1', name: 'code', address: 0x8000, bytes: 'AQID', kind: 'code' },
+    ];
+    await createShare({ ...req, blocks });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).blocks).toEqual(blocks);
+  });
+
+  it('counts block bytes against the size limit', async () => {
+    // A small source but a block whose serialized form busts the 64 KiB budget.
+    const big = {
+      ...req,
+      blocks: [
+        {
+          id: 'b1',
+          name: 'code',
+          address: 0x8000,
+          bytes: 'A'.repeat(SOURCE_LIMIT_BYTES + 1),
+          kind: 'code' as const,
+        },
+      ],
+    };
+    await expectKind(createShare(big), 'too-large');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rejects an oversized source without a network call', async () => {

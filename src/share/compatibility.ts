@@ -7,11 +7,25 @@
 // on hardware it lacks - but cheap, client-side, and always includes the
 // authoring dialect for a program that lints clean there.
 
+import type { Dialect, MemoryBlock } from '../dialects/types';
 import { dialects } from '../dialects/registry';
 
-/** Registry-ordered dialect ids on which `source` tokenizes without errors. */
-export function computeCompatibleDialects(source: string): string[] {
-  return dialects
+/**
+ * Registry-ordered dialect ids on which `source` tokenizes without errors.
+ * When `blocks` is non-empty the target must additionally declare
+ * {@link Dialect.memoryBlocks} - a machine with no block support can't receive
+ * a document's memory blocks, so it's dropped from the compatible set even if
+ * the BASIC tokenizes cleanly. `candidates` defaults to the whole registry and
+ * is injectable for tests.
+ */
+export function computeCompatibleDialects(
+  source: string,
+  blocks: readonly MemoryBlock[] = [],
+  candidates: readonly Dialect[] = dialects,
+): string[] {
+  const requireBlocks = blocks.length > 0;
+  return candidates
     .filter((d) => d.tokenize(source).errors.length === 0)
+    .filter((d) => !requireBlocks || d.memoryBlocks !== undefined)
     .map((d) => d.id);
 }

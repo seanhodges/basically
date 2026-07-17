@@ -30,6 +30,18 @@ export interface StubRecord {
   name: string;
   source: string;
   createdAt: string;
+  /**
+   * Optional memory blocks (contract v2), in their base64 wire shape - the
+   * server sends these and `fetchSharedProgram` decodes them. Present only in
+   * the block-bearing player case; a pure-BASIC record omits it.
+   */
+  blocks?: Array<{
+    id: string;
+    name: string;
+    address: number;
+    bytes: string;
+    kind: 'code' | 'data';
+  }>;
 }
 
 /**
