@@ -206,6 +206,30 @@ describe('SpectrumMachine', () => {
     expect(total).toBe(0);
   });
 
+  describe('auto-start line', () => {
+    const SRC = '10 PRINT "AAA"\n20 PRINT "BBB"\n30 PRINT "CCC"\n';
+
+    it('runs from the .TAP auto-start line, not the first line', () => {
+      const machine = new SpectrumMachine({ rom });
+      const { bytes, errors } = tokenizeProgram(SRC);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildTap(bytes), { autoStart: 30 });
+      for (let i = 0; i < 50; i++) machine.runFrame();
+      // RUN 30 clears variables and starts at line 30, so only "CCC" prints -
+      // lines 10 and 20 never ran.
+      expect(readScreen(machine, 0, 0, 3)).toBe('CCC');
+    });
+
+    it('runs from the first line when no auto-start is given', () => {
+      const machine = new SpectrumMachine({ rom });
+      const { bytes, errors } = tokenizeProgram(SRC);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildTap(bytes));
+      for (let i = 0; i < 50; i++) machine.runFrame();
+      expect(readScreen(machine, 0, 0, 3)).toBe('AAA');
+    });
+  });
+
   describe('step-through debugging', () => {
     const LOOP_SRC = '10 FOR i=1 TO 1000\n20 LET a=i\n30 NEXT i\n';
 
@@ -537,6 +561,42 @@ describe('SpectrumMachine', () => {
       machine.loadProgram(buildTap(bytes));
       for (let i = 0; i < 50; i++) machine.runFrame();
       expect(readScreen(machine, 0, 0, 5)).toBe('HELLO');
+    });
+
+    it("serves an imported CODE block to the program's own LOAD … CODE", () => {
+      // A tape front-end that LOADs its own code (like the Sinclair Test
+      // Program): the imported block must be on the VFS tape, not only injected.
+      const files = new Map<string, { data: Uint8Array; kind?: string }>();
+      const store = {
+        save: (name: string, data: Uint8Array, meta?: { kind?: string }) =>
+          void files.set(name, { data: data.slice(), kind: meta?.kind }),
+        load: (name: string) => files.get(name)?.data.slice() ?? null,
+        list: () =>
+          [...files.entries()].map(([name, f]) => ({
+            name,
+            size: f.data.length,
+            updatedAt: 1,
+            kind: f.kind,
+          })),
+        delete: (name: string) => files.delete(name),
+      };
+      const machine = new SpectrumMachine({ rom, files: store });
+      const b = block({
+        name: 'z',
+        address: 50000,
+        bytes: new Uint8Array([123]),
+      });
+      // The program loads "z" to 51000 - a different address than the block's
+      // own 50000 - so a hit at 51000 proves the bytes came off the tape deck,
+      // not the direct pre-injection (which only touched 50000).
+      const { bytes, errors } = tokenizeProgram(
+        '10 LOAD "z"CODE 51000\n20 STOP\n',
+      );
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildTap(bytes), { blocks: [b] });
+      for (let i = 0; i < 150; i++) machine.runFrame();
+      expect(machine.mem.read(51000)).toBe(123);
+      expect(machine.readReport().isError).toBe(false);
     });
   });
 });

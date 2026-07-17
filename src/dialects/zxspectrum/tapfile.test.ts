@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildTap,
+  codeTap,
   parseTap,
   parseTapAllFiles,
   tapFromPayloads,
@@ -92,6 +93,20 @@ describe('parseTapAllFiles', () => {
     expect(Array.from(parsed.program)).toEqual(Array.from(program));
     expect(code).toEqual([]);
     expect(warnings).toEqual([]);
+  });
+
+  it('reads back a codeTap() as a CODE file (name, address, bytes)', () => {
+    // codeTap builds the CODE .TAP the tape deck serves for an imported block;
+    // it must round-trip through the same parser that reads real dumps.
+    const image = new Uint8Array([
+      ...buildTap(program),
+      ...codeTap('o', 27392, Uint8Array.from([0xc9, 0x00, 0x01])),
+    ]);
+    const { code } = parseTapAllFiles(image);
+    expect(code).toHaveLength(1);
+    expect(code[0]!.name).toBe('o');
+    expect(code[0]!.address).toBe(27392);
+    expect(Array.from(code[0]!.bytes)).toEqual([0xc9, 0x00, 0x01]);
   });
 
   it('collects a CODE file with its load address (param1) and bytes', () => {

@@ -33,6 +33,20 @@ describe('serializeProject / parseProject round-trip', () => {
     expect(parsed.dialect).toBe('zx81');
     expect(parsed.source).toBe('10 PRINT "HI"\n');
     expect(parsed.blocks).toEqual([]);
+    expect(parsed.autoStart).toBeNull();
+  });
+
+  it('round-trips an auto-start line, and defaults to null when absent', () => {
+    const withLine = parseProject(
+      serializeProject('zxspectrum', '10 PRINT "HI"', [], 40),
+    );
+    expect(withLine.autoStart).toBe(40);
+    // Older files (and load-only imports) carry no autoStart key.
+    const without = parseProject(serializeProject('zxspectrum', '10 X', []));
+    expect(without.autoStart).toBeNull();
+    expect(serializeProject('zxspectrum', '10 X', [])).not.toContain(
+      'autoStart',
+    );
   });
 
   it('round-trips blocks, including bytes and the optional comment', () => {

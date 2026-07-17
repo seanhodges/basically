@@ -67,6 +67,14 @@ export interface ProjectFileV1 {
   dialect: string;
   source: string;
   blocks: SerializedBlock[];
+  /**
+   * The program's auto-start line (a Spectrum `.TAP` header's auto-run line),
+   * when the document was imported from an image carrying one. Optional and
+   * additive - older `.bproj` files without it load as "no auto-start" - so no
+   * version bump is needed. The run path starts from this line rather than the
+   * first line (see {@link ParsedProject.autoStart}).
+   */
+  autoStart?: number | null;
 }
 
 function serializeBlock(block: MemoryBlock): SerializedBlock {
@@ -160,6 +168,7 @@ export function serializeProject(
   dialectId: string,
   source: string,
   blocks: readonly MemoryBlock[],
+  autoStart: number | null = null,
 ): string {
   const file: ProjectFileV1 = {
     format: 'basically-project',
@@ -167,6 +176,7 @@ export function serializeProject(
     dialect: dialectId,
     source,
     blocks: serializeBlocks(blocks),
+    ...(autoStart !== null ? { autoStart } : {}),
   };
   return JSON.stringify(file, null, 2);
 }
@@ -175,6 +185,8 @@ export interface ParsedProject {
   dialect: string;
   source: string;
   blocks: MemoryBlock[];
+  /** The saved auto-start line, or `null` when the file carried none. */
+  autoStart: number | null;
 }
 
 /**
@@ -212,10 +224,15 @@ export function parseProject(text: string): ParsedProject {
   if (!Array.isArray(obj.blocks)) {
     throw new Error('Project file has malformed "blocks".');
   }
+  const autoStart =
+    typeof obj.autoStart === 'number' && Number.isInteger(obj.autoStart)
+      ? obj.autoStart
+      : null;
   return {
     dialect: obj.dialect,
     source: obj.source,
     blocks: parseBlocks(obj.blocks),
+    autoStart,
   };
 }
 

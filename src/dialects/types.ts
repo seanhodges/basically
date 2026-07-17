@@ -106,6 +106,14 @@ export interface DetokenizeResult {
    * result.
    */
   blocks?: MemoryBlock[];
+  /**
+   * The program's auto-start line, recovered from the image (a Spectrum `.TAP`
+   * header's auto-run line). Present when the image says "run from line N on
+   * load"; absent (or `null`) means "no auto-start, run from the first line".
+   * Some programs - Interface 1 loaders, tape front-ends - only behave
+   * correctly entered at their auto-start line, so the run path honors it.
+   */
+  autoStart?: number | null;
 }
 
 export interface TokenizeResult {
@@ -267,10 +275,14 @@ export interface MachineEmulator {
    * BASIC program) - see {@link MemoryBlock}. Optional and machine-specific:
    * a machine that doesn't support blocks (or a dialect without
    * {@link Dialect.memoryBlocks}) simply ignores it.
+   *
+   * `opts.autoStart`, when a line number, starts the run from that line rather
+   * than the first line (see {@link DetokenizeResult.autoStart}); machines that
+   * don't model it ignore it.
    */
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
+    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
   ): void;
   /** Advance emulation by one display frame (50Hz) worth of CPU time. */
   runFrame(): void;

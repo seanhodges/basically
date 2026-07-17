@@ -54,6 +54,7 @@ describe('autosave persistence', () => {
       name: 'game.bas',
       text: '10 PRINT "HI"',
       blocks: [],
+      autoStart: null,
     });
   });
 
@@ -84,6 +85,7 @@ describe('autosave persistence', () => {
       name: 'mine.bas',
       text: '10 REM MINE',
       blocks: [],
+      autoStart: null,
     });
   });
 
@@ -94,6 +96,7 @@ describe('autosave persistence', () => {
       name: 'backup.bas',
       text: '10 REM BACKUP',
       blocks: [],
+      autoStart: null,
     });
     // Adopted: the tab's identity is pinned even if the backup changes later.
     expect(sessionStorage.getItem('mbide.autosave.doc')).toBe('10 REM BACKUP');
@@ -129,6 +132,7 @@ describe('autosave block persistence', () => {
       name: 'game.bas',
       text: '10 PRINT "HI"',
       blocks: [BLOCK],
+      autoStart: null,
     });
   });
 
@@ -170,6 +174,7 @@ describe('autosave block persistence', () => {
       name: 'game.bas',
       text: '10 PRINT "HI"',
       blocks: [],
+      autoStart: null,
     });
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MachineFileEntry, MachineFileStore } from '../../types';
-import { tapBlockScan } from '../tapfile';
+import { codeTap, tapBlockScan } from '../tapfile';
 import { VfsTapeDeck } from './tapeDeck';
 
 /** Map-backed MachineFileStore for tests. */
@@ -85,6 +85,21 @@ describe('VfsTapeDeck.recordBlock', () => {
     deck.rewind(); // e.g. BREAK between the two blocks, then a new run
     expect(deck.recordBlock(0xff, new Uint8Array(1))).toBe(false);
     expect(files.names()).toEqual([]);
+  });
+});
+
+describe('VfsTapeDeck.addFile', () => {
+  it('places a ready-made CODE .TAP on the tape and serves it via nextBlock', () => {
+    const files = fakeStore();
+    const deck = new VfsTapeDeck(files);
+    deck.addFile('z', codeTap('z', 50000, new Uint8Array([9, 9])), 'code');
+    expect(deck.hasFiles()).toBe(true);
+    expect(files.names()).toEqual(['z']);
+    expect(files.list()[0]!.kind).toBe('code');
+    const h = deck.nextBlock(0x00); // header block served
+    expect(h.kind).toBe('block');
+    expect((h as { payload: Uint8Array }).payload[0]).toBe(3); // CODE type
+    expect(deck.nextBlock(0xff)).toMatchObject({ kind: 'block' }); // data served
   });
 });
 
