@@ -40,6 +40,8 @@ export const commodore64: Dialect = {
   // Commodore BASIC POKEs decimal addresses (`POKE 53280,0`), so the map opens
   // in Int.
   addressNotation: 'dec',
+  // POKE writes, plus `LOAD "",dev,1` absolute machine-code loads for the map.
+  memoryWrites: { forms: ['poke', 'load-device'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: c64Keywords,
   charset: c64Charset,

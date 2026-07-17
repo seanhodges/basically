@@ -17,6 +17,32 @@
  *   with a letter/keyword and is ignored. The dyadic `base?off=` / `base!off=`
  *   forms (which open with a variable) are not detected.
  *
+ * Three further forms record where a program *loads binary code* rather than
+ * writes a byte; sites they produce carry `role: 'load'` so the viewer can mark
+ * them distinctly (in blue). All live behind {@link PokeContext.writes} like the
+ * writes above:
+ *
+ * - **`load-code`** - the Sinclair `LOAD "" CODE [addr]` form. With an explicit
+ *   address (`LOAD "" CODE 32768`, optionally `,length`) it resolves exactly to
+ *   that address. With no address (`LOAD "" CODE`) the code loads to the address
+ *   baked into the tape header - unknowable statically - so it resolves to an
+ *   approximate base at {@link PokeContext.loadBase} (the machine's free-RAM
+ *   start), flagged approximate.
+ * - **`load-device`** - the Commodore `LOAD "name",device,secondary` form. A
+ *   non-zero secondary address (`LOAD "",8,1`) is an absolute machine-code load to
+ *   the file's own address; with no target in the statement it resolves to the
+ *   approximate {@link PokeContext.loadBase}. A zero/absent secondary is an
+ *   ordinary relocated BASIC load and is ignored.
+ * - **`star-load`** - the Acorn `*LOAD "file" addr` filing-system (star) command
+ *   (BBC/Atom). `*LOAD` with an explicit address resolves exactly - but note star
+ *   numbers are *hex by default with no `&`/`#` prefix* (`*LOAD "S" 3000` means
+ *   `&3000`), so the address is parsed as hex directly. A bare `*LOAD "file"` or a
+ *   `*RUN "file"` (address in the file header) resolves to the approximate
+ *   {@link PokeContext.loadBase}. Star commands are whole-statement literal text
+ *   (filename possibly unquoted, no BASIC expressions), so they are scanned from
+ *   the raw line, anchored at a statement start, rather than through the blanked
+ *   statement / expression machinery.
+ *
  * Beyond bare literals ({@link pokeAddresses}), {@link pokeSites} also resolves
  * POKEs whose address is a variable or arithmetic expression (`POKE X,1`,
  * `POKE base+1,2`) by tracking simple `LET`/`FOR` assignments in a single pass
@@ -69,6 +95,14 @@ export interface PokeSite {
    * May be *less* than {@link address} for a descending (`STEP -1`) loop.
    */
   endAddress?: number;
+  /**
+   * Present (as `'load'`) only on code-load sites - the Sinclair `LOAD "" CODE`
+   * and Commodore `LOAD "",dev,sec` forms - so the viewer can mark where a
+   * program loads binary code distinctly from where it writes bytes. Absent on
+   * ordinary memory writes (POKE / indirection), which the viewer treats as
+   * `'write'`.
+   */
+  role?: 'load';
   /** The BASIC line number the POKE is on. */
   lineNo: number;
 }
@@ -86,10 +120,27 @@ export interface PokeContext {
    */
   udgBase?: number;
   /**
-   * Which memory-write statement forms this dialect uses (see the module header).
-   * Defaults to `['poke']` when omitted.
+   * Which address-bearing statement forms this dialect uses (see the module
+   * header): the memory-write forms `'poke'` / `'indirection'` and the code-load
+   * forms `'load-code'` / `'load-device'` / `'star-load'`. Defaults to `['poke']`
+   * when omitted.
    */
-  writes?: ('poke' | 'indirection')[];
+  writes?: (
+    | 'poke'
+    | 'indirection'
+    | 'load-code'
+    | 'load-device'
+    | 'star-load'
+  )[];
+  /**
+   * Approximate base address for a code load whose target isn't given in the
+   * statement (a bare Sinclair `LOAD "" CODE`, or a Commodore `LOAD "",8,1`
+   * whose address lives in the file). Such a load resolves here, flagged
+   * approximate. Typically the machine's free-RAM / program-area start. Omit for
+   * dialects without a code-load form; when omitted, an address-less load
+   * produces no site.
+   */
+  loadBase?: number;
   /**
    * Hex-literal prefix in address expressions - BBC `'&'`, Atom `'#'`. When set,
    * `&FFFF` / `#DE` in the scanned code resolve as hex; omit for decimal-only
@@ -188,6 +239,31 @@ const POKE_RE = /\bPOKE\s*/i;
 // statement start, so a read like `C=?A` or `IF ?A=5` - which opens with a
 // letter/keyword - is never treated as a write. Group 2 is the address text.
 const INDIRECTION_RE = /^\s*([?!])\s*(.*?)=/;
+// A Sinclair binary-code load: `LOAD "" CODE [addr[,len]]`. The quoted name is
+// blanked to spaces by `scannable`, so between LOAD and CODE only whitespace (or
+// a leftover expression) remains; group 1 is everything after CODE, from which
+// the address is taken up to the optional `,length`. An empty group 1 is a bare
+// `LOAD ""CODE` (no address). SAVE ... CODE reads memory, not writes, so the
+// leading LOAD keeps this to loads.
+const LOAD_CODE_RE = /\bLOAD\b.*?\bCODE\b\s*([^,]*)/i;
+// A Commodore device load: `LOAD "name",device,secondary`. `scannable` blanks
+// the name but keeps the commas, so this keys off the two commas; group 1 is the
+// secondary address. A non-zero secondary (`LOAD "",8,1`) is an absolute
+// machine-code load; a missing (one comma) or zero secondary is a relocated
+// BASIC load and won't be treated as a code load.
+const LOAD_DEVICE_RE = /\bLOAD\b[^,]*,[^,]*,\s*([^,:]+)/i;
+// An Acorn `*LOAD "file" addr` star command with an explicit hex load address.
+// Matched on the raw line (not the blanked statement): a statement-leading `*`
+// (line start or after `:`), then `LOAD`, a filename token (quoted or a bare
+// word), then the hex load address (group 1). Requiring the filename token
+// before the number stops a hex-looking filename being read as the address. Star
+// numbers are hex-by-default, so group 1 is parsed with `parseInt(_, 16)`.
+const STAR_LOAD_RE =
+  /(?:^|:)\s*\*\s*LOAD\b\s+(?:"[^"]*"|\S+)\s+([0-9A-Fa-f]+)/i;
+// A star load/run whose target isn't in the statement: a bare `*LOAD "file"` or
+// `*RUN "file"` (address comes from the file header). Matched only when
+// STAR_LOAD_RE didn't; resolves to the approximate base.
+const STAR_LOAD_BARE_RE = /(?:^|:)\s*\*\s*(?:LOAD|RUN)\b/i;
 // A bare decimal integer - the only form counted as a non-computed literal.
 const LITERAL_RE = /^\d+$/;
 // [LET] VAR = ... anchored at the statement start (so `IF X=5` is not an
@@ -253,6 +329,7 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
     expr: string,
     label: string,
     lineNo: number,
+    role?: 'load',
   ): PokeSite | null => {
     const value = evalExpr(expr, vars);
     if (value === undefined) return null;
@@ -266,11 +343,57 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
       computed: !LITERAL_RE.test(expr),
       approximate: value.approx,
       lineNo,
+      ...(role ? { role } : {}),
       ...rangeEnd(expr, vars, address, value.approx),
     };
   };
 
+  // A code load whose target isn't in the statement resolves to the machine's
+  // approximate free-RAM base (`loadBase`), flagged approximate. Skipped when no
+  // base is known or it would collapse to 0 (no meaningful base).
+  const approxLoadSite = (label: string, lineNo: number): PokeSite | null => {
+    if (!ctx.loadBase) return null;
+    return {
+      address: ctx.loadBase,
+      expr: label,
+      computed: true,
+      approximate: true,
+      role: 'load',
+      lineNo,
+    };
+  };
+
+  // An Acorn `*LOAD`/`*RUN` star command on the raw line body: an explicit hex
+  // load address resolves exactly (star numbers are hex-by-default), else the
+  // file-header address falls back to the approximate base. Scanned from the raw
+  // line - star commands are whole-statement literal text - so `null` when the
+  // line has no statement-leading star load at all.
+  const starLoadSite = (body: string, lineNo: number): PokeSite | null => {
+    const m = STAR_LOAD_RE.exec(body);
+    if (m) {
+      const address = parseInt(m[1]!, 16);
+      return {
+        address,
+        expr: `*LOAD &${address.toString(16).toUpperCase()}`,
+        computed: false,
+        approximate: false,
+        role: 'load',
+        lineNo,
+      };
+    }
+    if (STAR_LOAD_BARE_RE.test(body)) return approxLoadSite('*LOAD', lineNo);
+    return null;
+  };
+
   for (const line of lines) {
+    // Star commands are raw, whole-line literal text (hex-default addresses,
+    // possibly-unquoted filename), so they are scanned off the raw body once per
+    // line rather than through the blanked statement stream below.
+    if (writes.includes('star-load')) {
+      const star = starLoadSite(line.body, line.lineNo);
+      if (star) sites.push(star);
+    }
+
     for (const stmt of statementsOf(line.body, ctx)) {
       const forMatch = FOR_RE.exec(stmt);
       if (forMatch) {
@@ -297,6 +420,34 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
         // address. Word (`!`) writes mark only their low byte.
         const site = siteFor(expr, `${indMatch[1]}${expr}`, line.lineNo);
         if (site) sites.push(site);
+        continue;
+      }
+
+      const loadCodeMatch = writes.includes('load-code')
+        ? LOAD_CODE_RE.exec(stmt)
+        : null;
+      if (loadCodeMatch) {
+        const expr = loadCodeMatch[1]!.trim();
+        // With an address, resolve it exactly; a bare `LOAD ""CODE` falls back to
+        // the approximate free-RAM base. Tooltip reads `LOAD CODE <addr>`.
+        const site = expr
+          ? siteFor(expr, `LOAD CODE ${expr}`, line.lineNo, 'load')
+          : approxLoadSite('LOAD CODE', line.lineNo);
+        if (site) sites.push(site);
+        continue;
+      }
+
+      const loadDeviceMatch = writes.includes('load-device')
+        ? LOAD_DEVICE_RE.exec(stmt)
+        : null;
+      if (loadDeviceMatch) {
+        // Only a non-zero secondary address is an absolute machine-code load; its
+        // target lives in the file, so it resolves to the approximate base.
+        const secondary = evalExpr(loadDeviceMatch[1]!.trim(), vars);
+        if (secondary !== undefined && Math.round(secondary.value) !== 0) {
+          const site = approxLoadSite('LOAD (binary)', line.lineNo);
+          if (site) sites.push(site);
+        }
         continue;
       }
 

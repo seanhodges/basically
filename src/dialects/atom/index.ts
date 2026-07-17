@@ -73,7 +73,11 @@ export const atom: Dialect = {
 
   // Atom BASIC has no POKE: memory writes use `?`/`!` indirection (`?#DE=0`),
   // with `#` hex addresses, and `;` separates statements.
-  memoryWrites: { forms: ['indirection'], hexPrefix: '#', statementSep: ';' },
+  memoryWrites: {
+    forms: ['indirection', 'star-load'],
+    hexPrefix: '#',
+    statementSep: ';',
+  },
 
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   // opts.files is the VFS sink for Atom BASIC's FIN/FOUT/BGET/BPUT/SHUT.

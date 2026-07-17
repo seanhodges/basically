@@ -38,6 +38,8 @@ export const pet: Dialect = {
 
   // Commodore BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
+  // POKE writes, plus `LOAD "",dev,1` absolute machine-code loads for the map.
+  memoryWrites: { forms: ['poke', 'load-device'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: petKeywords,
   charset: petCharset,

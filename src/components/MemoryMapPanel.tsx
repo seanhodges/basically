@@ -23,10 +23,12 @@ import styles from './MemoryMapPanel.module.css';
  * the AI assistant (and takes over that slot when open), rather than floating as
  * a modal. It opens zoomed out (major region groups, labels only) and zooms
  * vertically to reveal sub-regions, an address scale, and the exact byte a
- * program POKEs. Each POKE is drawn as a line at its address inside the region;
- * addresses the program computes from variables/expressions are resolved too
- * (including `USR "a"` UDG calls), and any that land outside the machine's
- * memory are called out at the top.
+ * program POKEs. Each POKE is drawn as an amber line at its address inside the
+ * region; addresses the program computes from variables/expressions are resolved
+ * too (including `USR "a"` UDG calls), and any that land outside the machine's
+ * memory are called out at the top. Where a program loads binary code
+ * (`LOAD "" CODE` / `LOAD "",dev,1`) the address is drawn the same way but in
+ * blue - exact when the statement gives one, otherwise an approximate base.
  *
  * Addresses read out in hex or as plain integers via the notation toggle. The
  * map is drawn as data-driven DOM bands (one element per visible region) so a
@@ -83,6 +85,12 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
   // machine has a map but we don't know how to read its writes, so no markers).
   const writeCtx = useMemo<PokeContext | null>(() => {
     if (!map) return null;
+    // Approximate base for a code load with no target in the statement: the
+    // machine's free-RAM / program area start (falling back to the first RAM
+    // region above ROM).
+    const loadBase =
+      map.regions.find((r) => r.kind === 'program')?.start ??
+      map.regions.find((r) => r.kind !== 'rom')?.start;
     const mw = dialect.memoryWrites;
     if (mw)
       return {
@@ -90,6 +98,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
         writes: mw.forms,
         hexPrefix: mw.hexPrefix,
         statementSep: mw.statementSep,
+        loadBase,
       };
     if (dialect.keywords.some((k) => k.word === 'POKE'))
       return { udgBase: map.udgBase, writes: ['poke'] };
@@ -101,22 +110,50 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
   const fmt = (addr: number) =>
     notation === 'hex' ? hexAddr(addr) : `${addr}`;
 
-  /** How the marker describes a write, for tooltips: `POKE 22528` or `?&2000`. */
+  /**
+   * How the marker describes a site, for tooltips: a code load carries its own
+   * `LOAD …` label (`s.expr`); a write reads `POKE 22528` or, for indirection,
+   * the sigil form `?&2000`.
+   */
   const writeDesc = (s: PokeSite) =>
-    byIndirection ? s.expr : `POKE ${s.expr}`;
+    s.role === 'load' ? s.expr : byIndirection ? s.expr : `POKE ${s.expr}`;
+
+  /** The marker/fill/label CSS classes for a site: blue for a code load
+   *  (`role: 'load'`), amber for an ordinary write. */
+  const markerCls = (s: PokeSite) =>
+    s.role === 'load'
+      ? {
+          marker: styles.loadMarker,
+          markerApprox: styles.loadMarkerApprox,
+          fill: styles.loadFill,
+          fillApprox: styles.loadFillApprox,
+          label: styles.loadLabel,
+        }
+      : {
+          marker: styles.pokeMarker,
+          markerApprox: styles.pokeMarkerApprox,
+          fill: styles.pokeFill,
+          fillApprox: styles.pokeFillApprox,
+          label: styles.pokeLabel,
+        };
+  /** A DOM key unique across roles, so a write and a load at one address don't
+   *  collide. */
+  const siteKey = (s: PokeSite) => `${s.role ?? 'w'}${s.address}`;
 
   // The memory writes the current program makes, de-duplicated by address and
   // split into those that land in the machine's memory (drawn as markers) and
   // those that resolve out of range (surfaced as a warning). Only for dialects
   // whose write syntax we recognise.
   const { inRange, outOfRange } = useMemo(() => {
-    const seen = new Map<number, PokeSite>();
+    // Keyed by role + address so a write and a code load at the same byte both
+    // show (they render as separate amber/blue markers).
+    const seen = new Map<string, PokeSite>();
     if (map && writeCtx)
       for (const s of pokeSites(source, writeCtx)) {
         // Prefer an exact site over an approximate one at the same address.
-        const prev = seen.get(s.address);
-        if (!prev || (prev.approximate && !s.approximate))
-          seen.set(s.address, s);
+        const key = `${s.role ?? 'write'}:${s.address}`;
+        const prev = seen.get(key);
+        if (!prev || (prev.approximate && !s.approximate)) seen.set(key, s);
       }
     const within: PokeSite[] = [];
     const beyond: PokeSite[] = [];
@@ -237,6 +274,10 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
   const selectedSites = selected
     ? sitesInRegion(selected.start, selected.end)
     : [];
+  // Loads aren't PEEK-back targets like writes, so the detail panel lists them
+  // separately.
+  const selectedWrites = selectedSites.filter((s) => s.role !== 'load');
+  const selectedLoads = selectedSites.filter((s) => s.role === 'load');
 
   return (
     <div className={styles.panel}>
@@ -333,8 +374,11 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
       <p className={styles.hint}>
         Pinch, or Ctrl/⌘-scroll, to zoom in for sub-regions and an address
         scale.
-        {inRange.length > 0
-          ? ' Each line marks an address your program writes to.'
+        {inRange.some((s) => s.role !== 'load')
+          ? ' Each amber line marks an address your program writes to.'
+          : ''}
+        {inRange.some((s) => s.role === 'load')
+          ? ' A blue line marks where your program loads binary code.'
           : ''}
         {inRange.some((s) => s.endAddress !== undefined)
           ? ' A shaded band shows the range a loop writes to, from its start to' +
@@ -394,11 +438,12 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                     const top = ((Math.max(lo, b.start) - b.start) / span) * px;
                     const bottom =
                       ((Math.min(hi, b.end) + 1 - b.start) / span) * px;
+                    const cls = markerCls(s);
                     return (
                       <span
-                        key={`f${s.address}`}
-                        className={`${styles.pokeFill} ${
-                          s.approximate ? styles.pokeFillApprox : ''
+                        key={`f${siteKey(s)}`}
+                        className={`${cls.fill} ${
+                          s.approximate ? cls.fillApprox : ''
                         }`}
                         style={{
                           top: `${(top / px) * 100}%`,
@@ -423,11 +468,12 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                       const yStart = ((s.address - b.start) / span) * px;
                       const showLabel =
                         !startInBand || Math.abs(y - yStart) >= LABEL_GAP_PX;
+                      const cls = markerCls(s);
                       return (
                         <span
-                          key={`e${s.address}`}
-                          className={`${styles.pokeMarker} ${
-                            s.approximate ? styles.pokeMarkerApprox : ''
+                          key={`e${siteKey(s)}`}
+                          className={`${cls.marker} ${
+                            s.approximate ? cls.markerApprox : ''
                           }`}
                           style={{ top: `${(y / px) * 100}%` }}
                           title={`${writeDesc(s)} — range end ${fmt(
@@ -435,7 +481,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                           )}`}
                         >
                           {showLabel && (
-                            <span className={styles.pokeLabel}>
+                            <span className={cls.label}>
                               {s.approximate ? '≈' : ''}
                               {fmt(s.endAddress!)}
                             </span>
@@ -456,11 +502,12 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                   {markers.map(({ s, y }) => {
                     const showLabel = y - lastLabelY >= LABEL_GAP_PX;
                     if (showLabel) lastLabelY = y;
+                    const cls = markerCls(s);
                     return (
                       <span
-                        key={s.address}
-                        className={`${styles.pokeMarker} ${
-                          s.approximate ? styles.pokeMarkerApprox : ''
+                        key={siteKey(s)}
+                        className={`${cls.marker} ${
+                          s.approximate ? cls.markerApprox : ''
                         }`}
                         style={{ top: `${(y / px) * 100}%` }}
                         title={
@@ -472,7 +519,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                         }
                       >
                         {showLabel && (
-                          <span className={styles.pokeLabel}>
+                          <span className={cls.label}>
                             {s.approximate ? '≈' : ''}
                             {fmt(s.address)}
                           </span>
@@ -537,13 +584,13 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                         </p>
                       ),
                   )}
-                  {selectedSites.length > 0 && (
+                  {selectedWrites.length > 0 && (
                     <div className={styles.pokedBox}>
                       <h4 className={styles.pokedTitle}>
                         Your program writes here — read it back with:
                       </h4>
                       <ul className={styles.pokedList}>
-                        {selectedSites.map((s) => (
+                        {selectedWrites.map((s) => (
                           <li key={s.address} className={styles.mono}>
                             {s.approximate ? '≈ ' : ''}
                             {byIndirection
@@ -565,6 +612,30 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                         variable resolves to. A “≈” marks an approximate base
                         for writes whose address is worked out at runtime — the
                         region is right, the exact byte may not be.
+                      </p>
+                    </div>
+                  )}
+                  {selectedLoads.length > 0 && (
+                    <div className={styles.pokedBox}>
+                      <h4 className={styles.pokedTitle}>
+                        Your program loads binary code here:
+                      </h4>
+                      <ul className={styles.pokedList}>
+                        {selectedLoads.map((s) => (
+                          <li key={s.address} className={styles.mono}>
+                            {s.approximate ? '≈ ' : ''}
+                            {fmt(s.address)}
+                            <span className={styles.pokedExpr}>
+                              {' '}
+                              · {s.expr}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className={styles.pokedCaveat}>
+                        A “≈” marks a load whose target isn’t given in the
+                        statement (it comes from the file) — the address shown
+                        is an approximate base.
                       </p>
                     </div>
                   )}
