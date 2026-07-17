@@ -16,6 +16,7 @@ import {
   toProjectFileName,
 } from '../storage/files';
 import { importProgram, importStatusMessage } from './importProgram';
+import { parseSidecarFileName, sidecarBlock } from './sidecarBlock';
 import {
   serializeProject,
   parseProject,
@@ -119,11 +120,15 @@ function dialectMismatchNotice(
  * and memory blocks atomically, like File → Open; a plain `.txt`/`.bas` file
  * loads as a named document the same way; a file whose extension matches one
  * of the current dialect's binary import formats (e.g. `.prg`, `.tap`) is
- * detokenized back into the editor exactly like Import. All paths are guarded
- * by {@link confirmDiscard}, so the user is warned before losing unsaved
- * changes. Unsupported types and read/detokenize/parse failures surface a
- * status-bar notice, as does a `.bproj` saved under a different dialect (see
- * {@link dialectMismatchNotice}) - a warning only, the document still loads.
+ * detokenized back into the editor exactly like Import. A sidecar
+ * `<name>-<addr>.bin` on a block-capable dialect is added as a memory block to
+ * the current document (see {@link parseSidecarFileName}) rather than replacing
+ * it. All document-replacing paths are guarded by {@link confirmDiscard}, so the
+ * user is warned before losing unsaved changes (adding a block isn't
+ * destructive, so it isn't). Unsupported types and read/detokenize/parse
+ * failures surface a status-bar notice, as does a `.bproj` saved under a
+ * different dialect (see {@link dialectMismatchNotice}) - a warning only, the
+ * document still loads.
  */
 export async function openDroppedFile(file: File): Promise<void> {
   const store = useIdeStore.getState();
@@ -134,7 +139,28 @@ export async function openDroppedFile(file: File): Promise<void> {
     (f) => f.extension.toLowerCase() === ext,
   );
   try {
-    if (ext === '.bproj') {
+    if (ext === '.bin' && dialect.memoryBlocks) {
+      // A sidecar `<name>-<addr>.bin` adds a memory block to the current
+      // document (it augments, not replaces - so no discard guard), the way a
+      // machine whose program format can't carry fixed-address code/data
+      // brings a block in. Only on block-capable dialects.
+      const parsed = parseSidecarFileName(file.name);
+      if (!parsed) {
+        setStatusNotice(
+          `Can't import ${file.name} - a memory-block file must be named ` +
+            'like "code-0x8000.bin" (name, then its load address).',
+        );
+        return;
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const { blocks, upsertBlock } = useIdeStore.getState();
+      const block = sidecarBlock(parsed, bytes, blocks);
+      upsertBlock(block);
+      setStatusNotice(
+        `Imported ${file.name} as memory block "${block.name}" at ` +
+          `0x${block.address.toString(16).toUpperCase()}.`,
+      );
+    } else if (ext === '.bproj') {
       if (!confirmDiscard()) return;
       const parsed = parseProject(await file.text());
       replaceDocument(parsed.source, file.name, {

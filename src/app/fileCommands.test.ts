@@ -60,6 +60,7 @@ beforeEach(() => {
     fileName: 'untitled.txt',
     dirty: false,
     statusNotice: null,
+    blocks: [],
   });
   stubWindow(() => true);
 });
@@ -211,5 +212,33 @@ describe('openDroppedFile', () => {
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 PRINT "PROJ"');
     expect(s.statusNotice).toBeNull();
+  });
+
+  it('adds a sidecar .bin as a memory block, augmenting the document', async () => {
+    // zx81 (the active dialect) supports memory blocks, so a <name>-<addr>.bin
+    // is added rather than opened as a program.
+    await dropFile('sprite-0x7000.bin', Uint8Array.from([1, 2, 3]));
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 REM OLD'); // augments, doesn't replace
+    expect(s.blocks).toEqual([
+      {
+        id: 'sidecar-sprite',
+        name: 'sprite',
+        address: 0x7000,
+        bytes: Uint8Array.from([1, 2, 3]),
+        kind: 'code',
+      },
+    ]);
+    expect(s.dirty).toBe(true); // adding a block dirties the document
+    expect(s.statusNotice).toBe(
+      'Imported sprite-0x7000.bin as memory block "sprite" at 0x7000.',
+    );
+  });
+
+  it('rejects a .bin whose name has no load address', async () => {
+    await dropFile('program.bin', Uint8Array.from([1]));
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([]);
+    expect(s.statusNotice).toMatch(/must be named like/);
   });
 });
