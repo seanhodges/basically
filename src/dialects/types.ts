@@ -96,6 +96,16 @@ export interface DetokenizeResult {
    * import is believed lossless.
    */
   warnings: string[];
+  /**
+   * Memory blocks (machine code / data at fixed addresses) recovered
+   * alongside the program text - e.g. CODE files in a Spectrum `.TAP`.
+   * Absent, or omitted, when the dialect's importer finds none; the caller
+   * (`src/app/importProgram.ts`) installs them alongside `source` via
+   * `loadUnsavedDocument`'s `blocks` option. Names are already sanitized to
+   * satisfy {@link MemoryBlock.name}'s pattern and are unique within this
+   * result.
+   */
+  blocks?: MemoryBlock[];
 }
 
 export interface TokenizeResult {
@@ -250,8 +260,18 @@ export interface MachineMemoryStats {
 
 export interface MachineEmulator {
   reset(): void;
-  /** Inject a built image (post-boot) and arrange for it to run. */
-  loadProgram(image: Uint8Array): void;
+  /**
+   * Inject a built image (post-boot) and arrange for it to run.
+   * `opts.blocks`, when given, are written directly into RAM before the
+   * program starts (machine code / data at fixed addresses alongside the
+   * BASIC program) - see {@link MemoryBlock}. Optional and machine-specific:
+   * a machine that doesn't support blocks (or a dialect without
+   * {@link Dialect.memoryBlocks}) simply ignores it.
+   */
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void;
   /** Advance emulation by one display frame (50Hz) worth of CPU time. */
   runFrame(): void;
   renderTo(ctx: CanvasRenderingContext2D): void;
@@ -360,6 +380,72 @@ export interface MachineEmulator {
 export interface AiProfile {
   systemPrompt: string;
   maxTokens: number;
+}
+
+/**
+ * A named span of raw machine bytes attached to a document, alongside its
+ * BASIC source - e.g. a hand-assembled routine or a data table destined for a
+ * fixed address. Purely a document-model concern here: nothing in the UI
+ * surfaces blocks yet, and dialect-specific validity (does `address` make
+ * sense on this machine, does `bytes` overlap the program area) is a later
+ * concern layered on top of this shape.
+ */
+export interface MemoryBlock {
+  /** Stable UI id, not semantic (e.g. not derived from `name` or `address`). */
+  id: string;
+  /** Unique per document. Matches /^[A-Za-z][A-Za-z0-9_]*$/. */
+  name: string;
+  address: number;
+  bytes: Uint8Array;
+  kind: 'code' | 'data';
+  comment?: string;
+}
+
+/**
+ * An inclusive address range: `start` and `end` are both addresses that
+ * belong to the range (so `end` is the last valid byte, not one past it) -
+ * the same convention {@link MemoryRegion} uses, and the one the memory-blocks
+ * plan's own notation writes in (e.g. "display 0x4000-0x5AFF", where 0x5AFF
+ * is the last display byte). `end >= start`; a one-byte range has
+ * `end === start`. A {@link MemoryBlock} occupies the inclusive range
+ * `[address, address + bytes.length - 1]` - except when `bytes.length === 0`,
+ * which occupies no bytes at all (see {@link lintBlocks} in `src/app/blockLint.ts`).
+ */
+export interface MemoryRange {
+  /** Inclusive start address. */
+  start: number;
+  /** Inclusive end address. */
+  end: number;
+}
+
+/**
+ * Where a dialect's {@link MemoryBlock}s may legally live - metadata only;
+ * nothing renders it yet. Optional on {@link Dialect}: dialects that omit it
+ * get no block-aware UI and no Run-path collision gate, so pure-BASIC
+ * documents and dialects without a block editor are completely unaffected.
+ * `src/app/blockLint.ts`'s `lintBlocks` is the consumer.
+ */
+export interface MemoryBlocksSupport {
+  /** CPU whose address space and instruction set the blocks target. */
+  cpu: 'z80' | '6502';
+  /** Ranges a block may occupy; a block outside all of these is an error. */
+  validRanges: readonly MemoryRange[];
+  /**
+   * Ranges a block may overlap without being rejected, but that the linter
+   * flags as a warning - live machine state (screen, system variables…) a
+   * block at that address will clobber once the machine is running.
+   */
+  reservedRanges: readonly MemoryRange[];
+  /**
+   * The range the tokenized BASIC program (plus whatever headroom its
+   * variables/workspace need) will occupy once built to `programByteSize`
+   * bytes, for the linter's block/program collision check. Dialect-specific:
+   * knows where the program area starts and how much slack beyond the raw
+   * program bytes to reserve.
+   */
+  programArea(programByteSize: number): MemoryRange;
+  /** Suggested address to pre-fill when the user creates a new block. */
+  defaultAddress: number;
 }
 
 /** A bundled example program for a dialect. */
@@ -549,6 +635,13 @@ export interface Dialect {
    * case list every form the dialect uses (e.g. `['poke', 'load-code']`).
    */
   memoryWrites?: MemoryWriteSyntax;
+  /**
+   * Where this dialect's {@link MemoryBlock}s may legally live, and the figures
+   * `src/app/blockLint.ts`'s `lintBlocks` needs to gate the Run path on them.
+   * Absent for dialects without a block editor - the capability is metadata
+   * only, so leaving it off costs nothing beyond skipping block-aware UI.
+   */
+  memoryBlocks?: MemoryBlocksSupport;
   /**
    * True when this dialect's emulator implements the step-through debugger
    * (`currentLine`/`debugStep`). Drives whether the toolbar offers a Debug

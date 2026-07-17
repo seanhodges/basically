@@ -248,6 +248,141 @@ export function parseTap(image: Uint8Array): ParsedTap {
   return parseProgramFile(program);
 }
 
+const CODE_TYPE = 3;
+
+/**
+ * A tokenized program area's length (bytes) below which a first-of-several
+ * program file is treated as a "loader" rather than the payload the user
+ * wants imported - see {@link parseTapAllFiles}. Chosen generously above a
+ * typical one- or two-line `LOAD "" CODE: RANDOMIZE USR n` loader (a few
+ * dozen bytes tokenized) and well below any program with real content.
+ */
+const LOADER_MAX_PROGRAM_BYTES = 60;
+
+/** One CODE file (header type 3) recovered from a `.TAP` by {@link parseTapAllFiles}. */
+export interface CodeFile {
+  /** Load address (header param1, bytes 13-14). */
+  address: number;
+  /** Raw code bytes, sliced to the header's declared length (bytes 11-12). */
+  bytes: Uint8Array;
+  /** Decoded 10-char header name, trailing spaces trimmed. */
+  name: string;
+}
+
+function headerDeclaredLength(header: Uint8Array): number {
+  return header[11]! | (header[12]! << 8);
+}
+
+function codeFileFromTapFile(file: TapFile): CodeFile {
+  const header = file.header.payload;
+  const length = headerDeclaredLength(header);
+  return {
+    address: header[13]! | (header[14]! << 8),
+    bytes: file.data!.payload.slice(0, length),
+    name: headerName(header.slice(1, 11)),
+  };
+}
+
+/**
+ * {@link parseTap} plus every CODE file (header type 3, paired with its data
+ * block) the `.TAP` carries, and the same import-fidelity warnings
+ * {@link parseTapWithReport} produces - except CODE files are no longer
+ * "other files": they come back as {@link CodeFile}s instead of being
+ * skipped. Arrays and headerless/unpaired blocks are still skipped, with a
+ * warning.
+ *
+ * A `.TAP` that holds more than one BASIC-program file is a common
+ * real-hardware layout for a tiny loader (`LOAD "" CODE: RANDOMIZE USR n`)
+ * chaining into the real program: when the first program file's tokenized
+ * body is short (see {@link LOADER_MAX_PROGRAM_BYTES}) and another program
+ * file follows it, the loader is skipped (with a warning) and the next
+ * program file is imported as `program` instead. Any BASIC program file
+ * beyond that - a third, fourth, etc. - is reported as an "other file" like
+ * any other skipped file.
+ */
+export function parseTapAllFiles(image: Uint8Array): {
+  program: ParsedTap;
+  code: CodeFile[];
+  warnings: string[];
+} {
+  const { blocks, truncated } = scanBlocks(image);
+  const files = pairFiles(blocks);
+  const programFiles = files.filter(
+    (f) => f.header.payload[0] === PROGRAM_TYPE && f.data,
+  );
+  if (programFiles.length === 0)
+    throw new Error('Not a valid .TAP program image');
+
+  const warnings: string[] = [];
+  let chosen = programFiles[0]!;
+  let skippedLoader: TapFile | null = null;
+  if (programFiles.length > 1) {
+    const header = chosen.header.payload;
+    const progLen = header[15]! | (header[16]! << 8);
+    if (progLen <= LOADER_MAX_PROGRAM_BYTES) {
+      skippedLoader = chosen;
+      chosen = programFiles[1]!;
+    }
+  }
+
+  if (!chosen.header.parityOk) {
+    warnings.push(
+      'The .TAP program header failed its checksum (parity byte); the ' +
+        'import may be corrupt.',
+    );
+  }
+  if (chosen.data && !chosen.data.parityOk) {
+    warnings.push(
+      'The .TAP program data block failed its checksum (parity byte); the ' +
+        'import may be corrupt.',
+    );
+  }
+
+  if (skippedLoader) {
+    const loaderName = headerName(skippedLoader.header.payload.slice(1, 11));
+    warnings.push(
+      `The .TAP begins with a short loader program${loaderName ? ` ("${loaderName}")` : ''}; ` +
+        'it was skipped and the following BASIC program was imported instead.',
+    );
+  }
+
+  const code: CodeFile[] = [];
+  const others: TapFile[] = [];
+  for (const f of files) {
+    if (f === chosen || f === skippedLoader) continue;
+    if (f.header.payload[0] === CODE_TYPE && f.data) {
+      code.push(codeFileFromTapFile(f));
+    } else {
+      others.push(f);
+    }
+  }
+
+  if (others.length > 0) {
+    const kinds = others
+      .map((f) => TYPE_NAMES[f.header.payload[0]!] ?? 'unknown')
+      .join(', ');
+    const plural = others.length === 1 ? 'file' : 'files';
+    warnings.push(
+      `The .TAP holds ${others.length} other ${plural} (${kinds}); only the ` +
+        'BASIC program and CODE files were imported.',
+    );
+  }
+
+  const header = chosen.header.payload;
+  const progLen = header[15]! | (header[16]! << 8);
+  if (chosen.data && progLen > chosen.data.payload.length) {
+    warnings.push(
+      'The .TAP header claims a longer program than the data block holds; ' +
+        'the program area is truncated.',
+    );
+  }
+  if (truncated) {
+    warnings.push('The .TAP image is truncated: a block runs past the end.');
+  }
+
+  return { program: parseProgramFile(chosen), code, warnings };
+}
+
 /**
  * {@link parseTap} plus import-fidelity warnings: a `.TAP` that is a
  * multi-file compilation (extra CODE/array/program files are skipped), whose

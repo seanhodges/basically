@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { MemoryBlock } from '../dialects/types';
 
 // The store persists the chosen dialect and autosave (per-tab sessionStorage
 // plus a localStorage backup) on every real switch. The test environment is
@@ -31,18 +32,52 @@ const bbc = getDialect('bbcmicro');
 const sample = (id: string, name: string) =>
   getDialect(id).samples.find((s) => s.name === name)!;
 
+const BLOCK_A: MemoryBlock = {
+  id: 'blk-a',
+  name: 'SPRITES',
+  address: 0x8000,
+  bytes: Uint8Array.from([1, 2, 3]),
+  kind: 'data',
+};
+
+const BLOCK_B: MemoryBlock = {
+  id: 'blk-b',
+  name: 'ROUTINE',
+  address: 0x9000,
+  bytes: Uint8Array.from([0xc9]),
+  kind: 'code',
+};
+
 describe('initialDocument (boot document choice)', () => {
   const STARTER = '10 REM STARTER';
 
   it('restores autosave when present, regardless of launch history', () => {
-    const saved = { name: 'mygame.bas', text: '10 REM SAVED' };
+    const saved = { name: 'mygame.bas', text: '10 REM SAVED', blocks: [] };
     expect(initialDocument(saved, false, STARTER)).toEqual({
       fileName: 'mygame.bas',
       text: '10 REM SAVED',
+      blocks: [],
     });
     expect(initialDocument(saved, true, STARTER)).toEqual({
       fileName: 'mygame.bas',
       text: '10 REM SAVED',
+      blocks: [],
+    });
+  });
+
+  it('restores autosaved blocks alongside the document', () => {
+    const block = {
+      id: 'blk-1',
+      name: 'DATA1',
+      address: 0x8000,
+      bytes: Uint8Array.from([1, 2, 3]),
+      kind: 'data' as const,
+    };
+    const saved = { name: 'mygame.bas', text: '10 REM SAVED', blocks: [block] };
+    expect(initialDocument(saved, false, STARTER)).toEqual({
+      fileName: 'mygame.bas',
+      text: '10 REM SAVED',
+      blocks: [block],
     });
   });
 
@@ -50,6 +85,7 @@ describe('initialDocument (boot document choice)', () => {
     expect(initialDocument(null, false, STARTER)).toEqual({
       fileName: 'untitled.txt',
       text: STARTER,
+      blocks: [],
     });
   });
 
@@ -59,6 +95,7 @@ describe('initialDocument (boot document choice)', () => {
     expect(initialDocument(null, true, STARTER)).toEqual({
       fileName: 'untitled.txt',
       text: '',
+      blocks: [],
     });
   });
 });
@@ -254,6 +291,7 @@ describe('loadUnsavedDocument', () => {
     expect(loadAutosave()).toEqual({
       name: 'untitled.txt',
       text: '10 REM imported',
+      blocks: [],
     });
   });
 });
@@ -312,6 +350,7 @@ describe('markSaved', () => {
     expect(loadAutosave()).toEqual({
       name: 'game.bas',
       text: '10 REM to-save',
+      blocks: [],
     });
   });
 });
@@ -343,7 +382,11 @@ describe('persistAutosave', () => {
       source: '10 REM real-doc',
     });
     persistAutosave();
-    expect(loadAutosave()).toEqual({ name: 'w.bas', text: '10 REM real-doc' });
+    expect(loadAutosave()).toEqual({
+      name: 'w.bas',
+      text: '10 REM real-doc',
+      blocks: [],
+    });
   });
 
   it('skips the write when the document is unchanged (in-memory gate)', () => {
@@ -361,5 +404,153 @@ describe('persistAutosave', () => {
     localStorage.removeItem('mbide.autosave.name');
     persistAutosave();
     expect(loadAutosave()).toBeNull();
+  });
+
+  it('autosaves a block-only edit even when the source is unchanged', () => {
+    useIdeStore.setState({
+      dialect: zx81,
+      fileName: 'w.bas',
+      source: '10 REM blocks-only',
+      blocks: [],
+    });
+    persistAutosave();
+    expect(loadAutosave()?.blocks).toEqual([]);
+
+    useIdeStore.getState().setBlocks([BLOCK_A]);
+    persistAutosave();
+    expect(loadAutosave()?.blocks).toEqual([BLOCK_A]);
+  });
+});
+
+describe('memory block actions', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: zx81,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [],
+    });
+  });
+
+  it('setBlocks replaces all blocks and sets dirty', () => {
+    useIdeStore.getState().setBlocks([BLOCK_A, BLOCK_B]);
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([BLOCK_A, BLOCK_B]);
+    expect(s.dirty).toBe(true);
+  });
+
+  it('upsertBlock inserts a new block by id and sets dirty', () => {
+    useIdeStore.getState().upsertBlock(BLOCK_A);
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([BLOCK_A]);
+    expect(s.dirty).toBe(true);
+  });
+
+  it('upsertBlock updates an existing block in place by id', () => {
+    useIdeStore.setState({ blocks: [BLOCK_A, BLOCK_B], dirty: false });
+    const updated: MemoryBlock = { ...BLOCK_A, address: 0x8100 };
+    useIdeStore.getState().upsertBlock(updated);
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([updated, BLOCK_B]);
+    expect(s.blocks).toHaveLength(2);
+    expect(s.dirty).toBe(true);
+  });
+
+  it('removeBlock deletes a block by id and sets dirty', () => {
+    useIdeStore.setState({ blocks: [BLOCK_A, BLOCK_B], dirty: false });
+    useIdeStore.getState().removeBlock('blk-a');
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([BLOCK_B]);
+    expect(s.dirty).toBe(true);
+  });
+
+  it('removeBlock is a no-op for an unknown id', () => {
+    useIdeStore.setState({ blocks: [BLOCK_A], dirty: false });
+    useIdeStore.getState().removeBlock('does-not-exist');
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
+  });
+
+  it('setBlocks throws and leaves state untouched for an invalid name', () => {
+    const invalid: MemoryBlock = { ...BLOCK_A, name: '1foo' };
+    expect(() => useIdeStore.getState().setBlocks([invalid])).toThrow();
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([]); // unchanged - the throw happened before commit
+    expect(s.dirty).toBe(false);
+  });
+
+  it('setBlocks throws for two blocks sharing a name', () => {
+    const dupe: MemoryBlock = { ...BLOCK_B, name: BLOCK_A.name };
+    expect(() => useIdeStore.getState().setBlocks([BLOCK_A, dupe])).toThrow();
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('upsertBlock throws and leaves state untouched for an invalid name', () => {
+    const invalid: MemoryBlock = { ...BLOCK_A, name: 'has spaces' };
+    expect(() => useIdeStore.getState().upsertBlock(invalid)).toThrow();
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('upsertBlock throws when the new block collides with an existing name', () => {
+    useIdeStore.setState({ blocks: [BLOCK_A], dirty: false });
+    const collidingId: MemoryBlock = { ...BLOCK_B, name: BLOCK_A.name };
+    expect(() => useIdeStore.getState().upsertBlock(collidingId)).toThrow();
+    // Unchanged: still just the original block.
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
+  });
+});
+
+describe('memory blocks reset on document identity changes', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: zx81,
+      pendingDialectId: null,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [BLOCK_A],
+    });
+  });
+
+  it('New (loadUnsavedDocument with no opts) clears blocks', () => {
+    useIdeStore.getState().loadUnsavedDocument('');
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('loadUnsavedDocument installs opts.blocks atomically with the text', () => {
+    useIdeStore.getState().loadUnsavedDocument('10 REM imported', {
+      dirty: true,
+      blocks: [BLOCK_B],
+    });
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_B]);
+  });
+
+  it('a named Open (replaceDocument with fileName) clears blocks by default', () => {
+    useIdeStore.getState().replaceDocument('10 REM new', 'other.bas');
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('opening a .bproj installs opts.blocks atomically via replaceDocument', () => {
+    useIdeStore
+      .getState()
+      .replaceDocument('10 REM new', 'project.bproj', { blocks: [BLOCK_B] });
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_B]);
+  });
+
+  it('an in-place replaceDocument (no fileName, AI apply) leaves blocks untouched', () => {
+    useIdeStore.getState().replaceDocument('10 REM ai edit');
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
+  });
+
+  it('a dialect switch clears blocks', () => {
+    useIdeStore.setState({ source: '' }); // empty editor: switches immediately
+    useIdeStore.getState().setDialect('bbcmicro');
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('confirmDialectSwitch clears blocks on both "new" and "keep"', () => {
+    useIdeStore.setState({ pendingDialectId: 'bbcmicro' });
+    useIdeStore.getState().confirmDialectSwitch('keep');
+    expect(useIdeStore.getState().blocks).toEqual([]);
   });
 });

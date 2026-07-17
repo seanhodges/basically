@@ -8,9 +8,11 @@ import {
   importStatusMessage,
 } from './importProgram';
 import { getDialect } from '../dialects/registry';
+import { buildTap, tapFromPayloads } from '../dialects/zxspectrum/tapfile';
 
 const commodore64 = getDialect('commodore64');
 const atom = getDialect('atom');
+const zxspectrum = getDialect('zxspectrum');
 
 describe('importProgram', () => {
   it('returns the detokenized source with no warnings for a clean image', () => {
@@ -52,6 +54,30 @@ describe('importProgram', () => {
     expect(source.trim()).toBe('');
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatch(/BASIC program/i);
+  });
+
+  it('plumbs a .TAP CODE file through as a memory block', () => {
+    const program = zxspectrum.tokenize('10 PRINT "HI"\n').programBytes;
+    const header = new Uint8Array(17);
+    header[0] = 0x03; // CODE
+    header[11] = 0x02; // declared length
+    header[13] = 0x00; // load address 0x8000 low
+    header[14] = 0x80; // load address 0x8000 high
+    const image = new Uint8Array([
+      ...buildTap(program),
+      ...tapFromPayloads(header, Uint8Array.from([0xc9, 0x00])),
+    ]);
+
+    const { blocks } = importProgram(zxspectrum, image);
+    expect(blocks).toHaveLength(1);
+    expect(blocks![0]!.address).toBe(0x8000);
+    expect(Array.from(blocks![0]!.bytes)).toEqual([0xc9, 0x00]);
+  });
+
+  it('omits blocks entirely for a dialect/image with none', () => {
+    const image = commodore64.tokenize('10 PRINT "HI"\n').image;
+    const { blocks } = importProgram(commodore64, image);
+    expect(blocks).toBeUndefined();
   });
 
   it('reports nothing for clean text and formats the status line', () => {

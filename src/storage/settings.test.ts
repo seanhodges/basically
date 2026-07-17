@@ -18,6 +18,7 @@ import {
   setHasLaunched,
   type PersistedMessage,
 } from './settings';
+import type { MemoryBlock } from '../dialects/types';
 
 const KEY = 'mbide.autosave.ai';
 
@@ -49,7 +50,11 @@ describe('autosave persistence', () => {
 
   it('round-trips a document', () => {
     saveAutosave('game.bas', '10 PRINT "HI"');
-    expect(loadAutosave()).toEqual({ name: 'game.bas', text: '10 PRINT "HI"' });
+    expect(loadAutosave()).toEqual({
+      name: 'game.bas',
+      text: '10 PRINT "HI"',
+      blocks: [],
+    });
   });
 
   it('returns null when nothing is stored', () => {
@@ -75,7 +80,11 @@ describe('autosave persistence', () => {
     sessionStorage.setItem('mbide.autosave.name', 'mine.bas');
     localStorage.setItem('mbide.autosave.doc', '10 REM OTHER TAB');
     localStorage.setItem('mbide.autosave.name', 'other.bas');
-    expect(loadAutosave()).toEqual({ name: 'mine.bas', text: '10 REM MINE' });
+    expect(loadAutosave()).toEqual({
+      name: 'mine.bas',
+      text: '10 REM MINE',
+      blocks: [],
+    });
   });
 
   it('falls back to the localStorage backup and adopts it into the session', () => {
@@ -84,6 +93,7 @@ describe('autosave persistence', () => {
     expect(loadAutosave()).toEqual({
       name: 'backup.bas',
       text: '10 REM BACKUP',
+      blocks: [],
     });
     // Adopted: the tab's identity is pinned even if the backup changes later.
     expect(sessionStorage.getItem('mbide.autosave.doc')).toBe('10 REM BACKUP');
@@ -96,6 +106,89 @@ describe('autosave persistence', () => {
     expect(sessionStorage.getItem('mbide.autosave.doc')).toBeNull();
     expect(localStorage.getItem('mbide.autosave.doc')).toBeNull();
     expect(localStorage.getItem('mbide.autosave.name')).toBeNull();
+  });
+});
+
+describe('autosave block persistence', () => {
+  beforeEach(() => {
+    installStorages();
+  });
+
+  const BLOCK: MemoryBlock = {
+    id: 'blk-1',
+    name: 'SPRITES',
+    address: 0x8000,
+    bytes: Uint8Array.from([1, 2, 3, 255, 0]),
+    kind: 'data',
+    comment: 'Player sprites',
+  };
+
+  it('round-trips blocks alongside the document', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [BLOCK]);
+    expect(loadAutosave()).toEqual({
+      name: 'game.bas',
+      text: '10 PRINT "HI"',
+      blocks: [BLOCK],
+    });
+  });
+
+  it('defaults to no blocks when the third argument is omitted', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    expect(loadAutosave()?.blocks).toEqual([]);
+  });
+
+  it('writes blocks through to both storages as base64 JSON', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [BLOCK]);
+    const raw = sessionStorage.getItem('mbide.autosave.blocks');
+    expect(raw).not.toBeNull();
+    expect(raw).toBe(localStorage.getItem('mbide.autosave.blocks'));
+    const parsed = JSON.parse(raw!);
+    expect(parsed[0].bytes).not.toEqual([1, 2, 3, 255, 0]); // base64 string, not raw array
+    expect(typeof parsed[0].bytes).toBe('string');
+  });
+
+  it('removes the blocks key when saving an empty block list', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [BLOCK]);
+    saveAutosave('game.bas', '10 PRINT "HI"', []);
+    expect(sessionStorage.getItem('mbide.autosave.blocks')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.blocks')).toBeNull();
+    expect(loadAutosave()?.blocks).toEqual([]);
+  });
+
+  it('clearAutosave clears the blocks key too', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [BLOCK]);
+    clearAutosave();
+    expect(sessionStorage.getItem('mbide.autosave.blocks')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.blocks')).toBeNull();
+  });
+
+  it('defensively parses corrupt block JSON as no blocks, without losing the document', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [BLOCK]);
+    sessionStorage.setItem('mbide.autosave.blocks', '{not json');
+    localStorage.setItem('mbide.autosave.blocks', '{not json');
+    expect(loadAutosave()).toEqual({
+      name: 'game.bas',
+      text: '10 PRINT "HI"',
+      blocks: [],
+    });
+  });
+
+  it('defensively parses a non-array blocks value as no blocks', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [BLOCK]);
+    sessionStorage.setItem(
+      'mbide.autosave.blocks',
+      JSON.stringify({ oops: true }),
+    );
+    expect(loadAutosave()?.blocks).toEqual([]);
+  });
+
+  it('defensively parses a structurally invalid block entry as no blocks', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [BLOCK]);
+    sessionStorage.setItem(
+      'mbide.autosave.blocks',
+      JSON.stringify([{ id: 'x', name: 'B' }]), // missing address/bytes/kind
+    );
+    expect(loadAutosave()?.blocks).toEqual([]);
   });
 });
 

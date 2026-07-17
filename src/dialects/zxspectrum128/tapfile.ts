@@ -4,5 +4,7 @@ export {
   buildTap,
   parseTap,
   parseTapWithReport,
+  parseTapAllFiles,
   tapBlocks,
 } from '../zxspectrum/tapfile';
+export type { CodeFile } from '../zxspectrum/tapfile';

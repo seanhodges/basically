@@ -4,7 +4,13 @@ import type {
   Dialect,
   MachineMemoryStats,
   MachineReport,
+  MemoryBlock,
 } from '../dialects/types';
+import {
+  serializeBlocks,
+  isValidBlockName,
+  findDuplicateBlockName,
+} from '../storage/projectFile';
 import type { ControllerRole } from '../keyboard/layoutSchema';
 import {
   type ControllerOverrides,
@@ -90,6 +96,15 @@ interface IdeState {
   fileName: string;
   /** Mirror of the editor document (editor itself is the source of truth). */
   source: string;
+  /**
+   * Memory blocks attached to the current document (raw bytes at a fixed
+   * address, alongside the BASIC source). Invisible in the UI for now - this
+   * is pure document-model state that survives autosave and Save/Open
+   * (as a `.bproj` bundle) like `source` does. Reset whenever a different
+   * program becomes active (New/Open/Sample/Import/dialect switch/player
+   * boot), same as breakpoints.
+   */
+  blocks: readonly MemoryBlock[];
   /** Bump seq to push text INTO the editor (file load, AI apply). */
   docOverride: { text: string; seq: number };
   /**
@@ -296,16 +311,50 @@ interface IdeState {
   /** Dismiss a pending target switch, leaving the current machine in place. */
   cancelDialectSwitch(): void;
   setSource(text: string): void;
-  replaceDocument(text: string, fileName?: string): void;
+  /**
+   * `opts.blocks`, when given, replaces `blocks` atomically with the new
+   * source (Open of a `.bproj`); otherwise `blocks` resets to `[]` when this
+   * is a named load (a genuinely different program) and is left untouched for
+   * an in-place apply (AI Replace/Merge, `fileName` omitted).
+   *
+   * `opts.blocks` MUST already be valid and unique (see `assertValidBlocks`) -
+   * unlike `setBlocks`/`upsertBlock`, this action installs them as-is without
+   * re-validating. Sound today because every caller pre-validates (`.bproj`
+   * Open goes through `parseProject`/`parseBlocks`, which throws on invalid or
+   * duplicate names); any future load path must do the same.
+   */
+  replaceDocument(
+    text: string,
+    fileName?: string,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void;
   /**
    * Replace the editor with a document that has no saved file yet - a loaded
    * sample, a New program, or an import. Resets `fileName` to `untitled.txt`
    * (only Open/Save name a document) and empties autosave when the content is
    * pristine, so an unmodified sample isn't restored on reload. `opts.dirty`
    * flags genuinely-unsaved content (Import) so the discard guard fires.
+   * `opts.blocks` installs memory blocks atomically with `text` (a `.bproj`
+   * import); always resets to `[]` when omitted, since this is always a
+   * different program.
+   *
+   * `opts.blocks` MUST already be valid and unique (see `assertValidBlocks`) -
+   * unlike `setBlocks`/`upsertBlock`, this action installs them as-is without
+   * re-validating. Sound today because the only caller (import) runs its
+   * blocks through the Stage-4 sanitizer, which guarantees valid unique names;
+   * any future load path must pre-validate the same way.
    */
-  loadUnsavedDocument(text: string, opts?: { dirty?: boolean }): void;
+  loadUnsavedDocument(
+    text: string,
+    opts?: { dirty?: boolean; blocks?: readonly MemoryBlock[] },
+  ): void;
   markSaved(fileName: string): void;
+  /** Replace every memory block on the current document (sets `dirty`). */
+  setBlocks(blocks: readonly MemoryBlock[]): void;
+  /** Insert, or update by `id`, one memory block (sets `dirty`). */
+  upsertBlock(block: MemoryBlock): void;
+  /** Remove one memory block by `id` (sets `dirty`). */
+  removeBlock(id: string): void;
   requestRun(): void;
   /** Like {@link requestRun}, but flags the run for the AI runtime-error check. */
   requestAiRun(): void;
@@ -452,31 +501,63 @@ function matchingSampleName(dialect: Dialect, source: string): string | null {
 }
 
 /**
+ * Enforce the per-document {@link MemoryBlock} invariants (see the type's doc
+ * comment) on a full block set: every `name` must match the required
+ * pattern, and no two blocks may share one. Throws a descriptive `Error`
+ * otherwise. Called from `setBlocks`/`upsertBlock` - the only paths that can
+ * introduce a block today (there is no block editor yet; this is exercised
+ * from the dev console per the plan) - so a mistake is caught immediately at
+ * the point of entry, rather than silently persisting and then being dropped
+ * wholesale by autosave's defensive parse on the next reload.
+ */
+function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
+  for (const b of blocks) {
+    if (!isValidBlockName(b.name)) {
+      throw new Error(
+        `Invalid memory block name "${b.name}": names must start with a ` +
+          'letter and contain only letters, digits, or underscores.',
+      );
+    }
+  }
+  const dup = findDuplicateBlockName(blocks);
+  if (dup !== null) {
+    throw new Error(
+      `Duplicate memory block name "${dup}": names must be unique per document.`,
+    );
+  }
+}
+
+/**
  * Signature of the document currently mirrored to autosave. Lets
  * {@link persistAutosave} skip the localStorage write when nothing changed, so
  * the 2s poll does no I/O while the user is idle. Seeded from the boot document
  * so the first tick doesn't re-write unchanged content.
  */
 let lastAutosaveSig: string | null = autosaved
-  ? `${autosaved.name} ${autosaved.text}`
+  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))}`
   : '';
 
 /**
  * Mirror the current document to autosave, or empty it. Autosave holds only
- * *real* work: an empty editor or a pristine (unmodified) sample - including the
- * starter, which is `samples[0]` - is cleared so it isn't restored on reload;
- * anything else is saved under its `fileName`. Content-derived, not gated on
- * `dirty`, so Open/Import/Save all persist without special-casing.
+ * *real* work: an empty editor with no blocks, or a pristine (unmodified)
+ * sample with no blocks - including the starter, which is `samples[0]` - is
+ * cleared so it isn't restored on reload; anything else is saved under its
+ * `fileName`. Content-derived, not gated on `dirty`, so Open/Import/Save all
+ * persist without special-casing. The signature includes a blocks digest, so
+ * a block edit alone (no source change) still autosaves.
  */
 export function persistAutosave(): void {
-  const { fileName, source, dialect } = useIdeStore.getState();
+  const { fileName, source, dialect, blocks } = useIdeStore.getState();
   const pristine =
-    source.trim() === '' || matchingSampleName(dialect, source) !== null;
-  const sig = pristine ? '' : `${fileName}\u0000${source}`;
+    blocks.length === 0 &&
+    (source.trim() === '' || matchingSampleName(dialect, source) !== null);
+  const sig = pristine
+    ? ''
+    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))}`;
   if (sig === lastAutosaveSig) return;
   lastAutosaveSig = sig;
   if (pristine) clearAutosave();
-  else saveAutosave(fileName, source);
+  else saveAutosave(fileName, source, blocks);
 }
 
 /**
@@ -510,6 +591,10 @@ function applyDialectSwitch(
     // start the new target with a clean slate and no paused line.
     breakpoints: new Set<number>(),
     debugLine: null,
+    // Memory blocks belong to the old machine's address space; a dialect
+    // switch always starts with none (Stage 1: blocks aren't re-targeted
+    // across machines yet).
+    blocks: [],
     // On mobile, surface the change in the editor the user is now editing.
     ...(isMobileViewport() ? { mobileTab: 'editor' as MobileTab } : {}),
   };
@@ -524,14 +609,17 @@ function applyDialectSwitch(
  * Exported for unit testing; the store computes its startup document from it.
  */
 export function initialDocument(
-  saved: { name: string; text: string } | null,
+  saved: { name: string; text: string; blocks: MemoryBlock[] } | null,
   launchedBefore: boolean,
   starterText: string,
-): { fileName: string; text: string } {
-  if (saved) return { fileName: saved.name, text: saved.text };
+): { fileName: string; text: string; blocks: MemoryBlock[] } {
+  if (saved) {
+    return { fileName: saved.name, text: saved.text, blocks: saved.blocks };
+  }
   return {
     fileName: UNTITLED_FILE_NAME,
     text: launchedBefore ? '' : starterText,
+    blocks: [],
   };
 }
 
@@ -550,6 +638,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   pendingDialectId: null,
   fileName: startupDoc.fileName,
   source: startupText,
+  blocks: startupDoc.blocks,
   docOverride: { text: startupText, seq: 0 },
   aiResetSeq: 0,
   dirty: false,
@@ -675,6 +764,9 @@ export const useIdeStore = create<IdeState>((set) => ({
         dirty: false,
         emulatorStatus: 'stopped',
         liveMemory: null,
+        // A booted player program is not yet dialect-aware of blocks; start
+        // clean, same as a real dialect switch.
+        blocks: [],
         // Line numbers belong to whatever autosave seeded the store with.
         breakpoints: new Set<number>(),
         debugLine: null,
@@ -723,16 +815,21 @@ export const useIdeStore = create<IdeState>((set) => ({
         text.trim() === '' && s.fileName === UNTITLED_FILE_NAME;
       return { source: text, dirty: !emptyDraft };
     }),
-  replaceDocument: (text, fileName) => {
+  replaceDocument: (text, fileName, opts) => {
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
       ...(fileName !== undefined ? { fileName } : {}),
       // A named load (Open) is a different program - clear the AI thread and any
-      // breakpoints (their line numbers belong to the old program). An in-place
-      // apply (AI Replace/Merge) passes no name and keeps both.
+      // breakpoints (their line numbers belong to the old program), and either
+      // install the incoming blocks (a .bproj) or clear them. An in-place apply
+      // (AI Replace/Merge) passes no name and keeps all three untouched.
       ...(fileName !== undefined
-        ? { aiResetSeq: s.aiResetSeq + 1, breakpoints: new Set<number>() }
+        ? {
+            aiResetSeq: s.aiResetSeq + 1,
+            breakpoints: new Set<number>(),
+            blocks: opts?.blocks ?? [],
+          }
         : {}),
       dirty: fileName === undefined,
       // On mobile, loading new content stops any running program and brings the
@@ -753,6 +850,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       aiResetSeq: s.aiResetSeq + 1,
       breakpoints: new Set<number>(),
       dirty: opts?.dirty ?? false,
+      // Always a different program, so blocks reset unless the caller installs
+      // its own (a .bproj-shaped import).
+      blocks: opts?.blocks ?? [],
       ...(isMobileViewport()
         ? { stopRequest: s.stopRequest + 1, mobileTab: 'editor' as MobileTab }
         : {}),
@@ -766,6 +866,30 @@ export const useIdeStore = create<IdeState>((set) => ({
     // Sync autosave to the just-saved document (fileName + source now match disk).
     persistAutosave();
   },
+  // Block edits are in-place changes to the current document, like setSource -
+  // they don't call persistAutosave directly; the 2s poll (App.tsx) picks them
+  // up via the blocks digest in persistAutosave's signature. Both mutating
+  // actions validate the resulting block set (see assertValidBlocks) and
+  // throw rather than installing an invalid one.
+  setBlocks: (blocks) => {
+    assertValidBlocks(blocks);
+    set({ blocks, dirty: true });
+  },
+  upsertBlock: (block) =>
+    set((s) => {
+      const idx = s.blocks.findIndex((b) => b.id === block.id);
+      const blocks =
+        idx >= 0
+          ? s.blocks.map((b, i) => (i === idx ? block : b))
+          : [...s.blocks, block];
+      assertValidBlocks(blocks);
+      return { blocks, dirty: true };
+    }),
+  removeBlock: (id) =>
+    set((s) => ({
+      blocks: s.blocks.filter((b) => b.id !== id),
+      dirty: true,
+    })),
   requestRun: () => set((s) => ({ runRequest: s.runRequest + 1 })),
   requestAiRun: () =>
     set((s) => ({

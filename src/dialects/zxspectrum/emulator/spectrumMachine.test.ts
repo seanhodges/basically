@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { SpectrumMachine } from './spectrumMachine';
 import { tokenizeProgram } from '../tokenizer';
 import { buildTap } from '../tapfile';
+import { RAMTOP } from '../sysvars';
+import type { MemoryBlock } from '../../types';
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../../public/roms/zxspectrum.rom')),
@@ -447,6 +449,94 @@ describe('SpectrumMachine', () => {
       // Running while disabled records nothing.
       m.runFrame();
       expect(m.mem.activity.hits.every((b) => b === 0)).toBe(true);
+    });
+  });
+
+  // Stage 3 of the memory-blocks plan: loadProgram's `opts.blocks` writes raw
+  // bytes directly into RAM before RUN, and protects blocks below RAMTOP with
+  // a CLEAR so the BASIC stack can't grow down over them.
+  describe('memory blocks', () => {
+    function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
+      return {
+        id: 'b1',
+        name: 'Code',
+        address: 0x8000,
+        bytes: new Uint8Array([0x3e, 0x02, 0xd3, 0xfe, 0xc9]),
+        kind: 'code',
+        ...overrides,
+      };
+    }
+
+    /** RAMTOP as the ROM itself sets it at boot, read from its own sysvar. */
+    function bootDefaultRamtop(): number {
+      const machine = new SpectrumMachine({ rom });
+      machine.reset();
+      machine.bootToReady();
+      return machine.mem.readWord(RAMTOP);
+    }
+
+    it('writes a block into memory before the program runs', () => {
+      const machine = new SpectrumMachine({ rom });
+      const { bytes, errors } = tokenizeProgram('10 PAUSE 0\n');
+      expect(errors).toEqual([]);
+      const b = block();
+      machine.loadProgram(buildTap(bytes), { blocks: [b] });
+      const readBack = Array.from(b.bytes, (_, i) =>
+        machine.mem.read(b.address + i),
+      );
+      expect(readBack).toEqual(Array.from(b.bytes));
+    });
+
+    it('reflects an injected block through PEEK', () => {
+      const machine = new SpectrumMachine({ rom });
+      const { bytes, errors } = tokenizeProgram('10 PRINT PEEK 32768\n');
+      expect(errors).toEqual([]);
+      const b = block({ bytes: new Uint8Array([123]) });
+      machine.loadProgram(buildTap(bytes), { blocks: [b] });
+      for (let i = 0; i < 50; i++) machine.runFrame();
+      expect(readScreen(machine, 0, 0, 3)).toBe('123');
+    });
+
+    it('keeps a block below RAMTOP intact after a program that grows the machine stack', () => {
+      const ramtop = bootDefaultRamtop();
+      // Comfortably below the default RAMTOP, so without protection the
+      // downward-growing FOR-NEXT/GO SUB stack (which starts near RAMTOP)
+      // would run straight into it.
+      const blockAddr = ramtop - 60;
+      const payload = new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd, 0xee]);
+      const machine = new SpectrumMachine({ rom });
+      // Six nested FOR loops: each active loop holds an ~18-byte control
+      // record on that same stack, so this pushes the stack well past a
+      // 60-byte gap while the innermost statement executes.
+      const src =
+        '10 FOR a=1 TO 2\n20 FOR b=1 TO 2\n30 FOR c=1 TO 2\n40 FOR d=1 TO 2\n' +
+        '50 FOR e=1 TO 2\n60 FOR f=1 TO 2\n70 LET x=a+b+c+d+e+f\n80 NEXT f\n' +
+        '90 NEXT e\n100 NEXT d\n110 NEXT c\n120 NEXT b\n130 NEXT a\n140 PRINT "DONE"\n';
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      const b: MemoryBlock = {
+        id: 'b1',
+        name: 'Data',
+        address: blockAddr,
+        bytes: payload,
+        kind: 'data',
+      };
+      machine.loadProgram(buildTap(bytes), { blocks: [b] });
+      for (let i = 0; i < 100; i++) machine.runFrame();
+      expect(readScreen(machine, 0, 0, 4)).toBe('DONE');
+      const readBack = Array.from(payload, (_, i) =>
+        machine.mem.read(blockAddr + i),
+      );
+      expect(readBack).toEqual(Array.from(payload));
+    });
+
+    it('leaves memory untouched when no blocks are given', () => {
+      const machine = new SpectrumMachine({ rom });
+      const { bytes, errors } = tokenizeProgram('10 PRINT "HELLO"\n');
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildTap(bytes));
+      for (let i = 0; i < 50; i++) machine.runFrame();
+      expect(readScreen(machine, 0, 0, 5)).toBe('HELLO');
     });
   });
 });

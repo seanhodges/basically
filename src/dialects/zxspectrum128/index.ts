@@ -6,6 +6,7 @@ import {
   type TokenizeResult,
 } from '../types';
 import { rawEscapeWarning } from '../zxspectrum/importReport';
+import { codeFilesToBlocks } from '../zxspectrum/importBlocks';
 // The 128K / +2 / +3 shares the entire 48K Spectrum language and tape layer -
 // only memory paging, the dual ROM, the AY-3-8912 sound chip and the two extra
 // BASIC tokens (SPECTRUM, PLAY) differ. Identical pieces are re-exported from
@@ -14,7 +15,7 @@ import { rawEscapeWarning } from '../zxspectrum/importReport';
 import { spectrum128Charset } from './charset';
 import { spectrum128Keywords } from './keywords';
 import { spectrumVariableErrors } from '../../editor/variableLint';
-import { buildTap, parseTap, parseTapWithReport } from './tapfile';
+import { buildTap, parseTap, parseTapAllFiles } from './tapfile';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { decodeCassette } from '../zxspectrum/audio/cassetteDecoder';
@@ -32,6 +33,11 @@ import { Spectrum128Machine } from './emulator/spectrum128Machine';
 import { spectrum128KeyboardLayout } from './keyboardLayout';
 import { spectrum128Samples } from './samples';
 import { spectrum128MemoryMap } from './memoryMap';
+// The block linter's figures (valid RAM, reserved screen/sysvars, program
+// area) are shared as-is with the 48K dialect: the 128K's low 0x4000-0x5CCB
+// window mirrors the 48K layout exactly (see ./memoryMap.ts), and the default
+// block address 0x8000 falls in RAM bank 2, present on both machines.
+import { spectrumMemoryBlocks } from '../zxspectrum/memoryBlocks';
 
 /**
  * ZX Spectrum 128K / +2 / +3 (128 BASIC), registered in src/dialects/registry.ts.
@@ -46,6 +52,7 @@ export const zxspectrum128: Dialect = {
   docsReference: 'zxspectrum',
   programRamBytes: 41472,
   memoryMap: spectrum128MemoryMap,
+  memoryBlocks: spectrumMemoryBlocks,
 
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
@@ -71,9 +78,14 @@ export const zxspectrum128: Dialect = {
   },
 
   detokenizeWithReport(image: Uint8Array): DetokenizeResult {
-    const { parsed, warnings } = parseTapWithReport(image);
-    const source = detokenizeProgram(parsed.program);
-    return { source, warnings: [...warnings, ...rawEscapeWarning(source)] };
+    const { program, code, warnings } = parseTapAllFiles(image);
+    const source = detokenizeProgram(program.program);
+    const blocks = codeFilesToBlocks(code);
+    return {
+      source,
+      warnings: [...warnings, ...rawEscapeWarning(source)],
+      ...(blocks.length > 0 ? { blocks } : {}),
+    };
   },
 
   lint(source: string): TokenizeError[] {

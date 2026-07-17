@@ -122,6 +122,51 @@ describe('zxspectrum foreign-image round-trip', () => {
     expect(Array.from(reprog)).toEqual(Array.from(program));
   });
 
+  it('detokenizeWithReport turns CODE files into blocks with valid, unique names', () => {
+    const program = programArea([
+      { no: 10, body: [PRINT, Q, 0x48, 0x49, Q] }, // 10 PRINT "HI"
+    ]);
+
+    // Two CODE files: one with a header name that isn't a valid block name
+    // (a leading digit) and one that's blank - both must come back sanitized
+    // and unique (see src/dialects/zxspectrum/importBlocks.ts).
+    function codeHeaderBytes(name: string, address: number, length: number) {
+      const h = new Uint8Array(17);
+      h[0] = 0x03; // CODE
+      h.set(Uint8Array.from(name.split('').map((c) => c.charCodeAt(0))), 1);
+      h[11] = length & 0xff;
+      h[12] = (length >> 8) & 0xff;
+      h[13] = address & 0xff;
+      h[14] = (address >> 8) & 0xff;
+      return h;
+    }
+    const firstData = Uint8Array.from([0x21, 0x00, 0x40, 0xc9]);
+    const secondData = Uint8Array.from([0xaf, 0xc9]);
+    const multiFile = new Uint8Array([
+      ...buildTap(program),
+      ...tapFromPayloads(codeHeaderBytes('2048', 0x8000, 4), firstData),
+      ...tapFromPayloads(codeHeaderBytes('', 0x9000, 2), secondData),
+    ]);
+
+    const { source, warnings, blocks } =
+      zxspectrum.detokenizeWithReport!(multiFile);
+    expect(source).toContain('PRINT');
+    expect(blocks).toHaveLength(2);
+    expect(blocks![0]!.address).toBe(0x8000);
+    expect(Array.from(blocks![0]!.bytes)).toEqual([0x21, 0x00, 0x40, 0xc9]);
+    expect(blocks![1]!.address).toBe(0x9000);
+    expect(Array.from(blocks![1]!.bytes)).toEqual([0xaf, 0xc9]);
+    for (const b of blocks!) {
+      expect(b.name).toMatch(/^[A-Za-z][A-Za-z0-9_]*$/);
+      expect(b.kind).toBe('code');
+    }
+    // Names must be unique - a "2048" and a blank header name sanitize to
+    // different fallbacks, but the check matters whenever two CODE files
+    // collide (see importBlocks.test.ts for the dedup case directly).
+    expect(blocks![0]!.name).not.toBe(blocks![1]!.name);
+    expect(warnings).toEqual([]); // no arrays/other files, no raw escapes
+  });
+
   it('reports a bad parity byte', () => {
     const image = buildTap(
       programArea([

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { binaryImportPickerOptions, programNameFromFileName } from './files';
+import {
+  binaryImportPickerOptions,
+  programNameFromFileName,
+  toProjectFileName,
+} from './files';
 
 describe('binaryImportPickerOptions', () => {
   it('filters the picker to the requested extension', () => {
@@ -41,5 +45,23 @@ describe('programNameFromFileName', () => {
 
   it('derives from the untitled default', () => {
     expect(programNameFromFileName('untitled.txt')).toBe('UNTITLED');
+  });
+});
+
+describe('toProjectFileName', () => {
+  it('swaps a .txt extension for .bproj', () => {
+    expect(toProjectFileName('untitled.txt')).toBe('untitled.bproj');
+  });
+
+  it('swaps a .bas extension for .bproj', () => {
+    expect(toProjectFileName('game.bas')).toBe('game.bproj');
+  });
+
+  it('appends .bproj when there is no extension', () => {
+    expect(toProjectFileName('game')).toBe('game.bproj');
+  });
+
+  it('is a no-op when already a .bproj', () => {
+    expect(toProjectFileName('game.bproj')).toBe('game.bproj');
   });
 });

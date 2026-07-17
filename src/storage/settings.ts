@@ -9,6 +9,8 @@ import type {
   ControllerOverrides,
   GamepadMode,
 } from '../keyboard/controllerConfig';
+import type { MemoryBlock } from '../dialects/types';
+import { serializeBlocks, parseBlocks } from './projectFile';
 
 /**
  * A conversation message as persisted. `incomplete` marks an assistant answer
@@ -31,6 +33,7 @@ const KEYS = {
   aiProvider: 'mbide.aiProvider',
   autosaveDoc: 'mbide.autosave.doc',
   autosaveName: 'mbide.autosave.name',
+  autosaveBlocks: 'mbide.autosave.blocks',
   aiConversation: 'mbide.autosave.ai',
   dialectId: 'mbide.dialectId',
   autoLineNumbering: 'mbide.autoLineNumbering',
@@ -429,21 +432,54 @@ export function setEmulatorSpeed(n: number): void {
   localStorage.setItem(KEYS.emulatorSpeed, String(n));
 }
 
-export function loadAutosave(): { name: string; text: string } | null {
+/**
+ * The autosaved memory blocks, or `[]` when none are stored or the stored
+ * value is corrupt/unparseable (defensive: a broken autosave entry must not
+ * crash boot, it just loses its blocks).
+ */
+function loadAutosaveBlocks(): MemoryBlock[] {
+  const raw = readSessionFirst(KEYS.autosaveBlocks);
+  if (raw === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parseBlocks(parsed) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function loadAutosave(): {
+  name: string;
+  text: string;
+  blocks: MemoryBlock[];
+} | null {
   // Reading the doc first adopts the pair's storage into the session slot, so
-  // the name read that follows resolves from the same storage.
+  // the name/blocks reads that follow resolve from the same storage.
   const text = readSessionFirst(KEYS.autosaveDoc);
   if (text === null) return null;
   return {
     name: readSessionFirst(KEYS.autosaveName) ?? UNTITLED_FILE_NAME,
     text,
+    blocks: loadAutosaveBlocks(),
   };
 }
 
-export function saveAutosave(name: string, text: string): void {
+export function saveAutosave(
+  name: string,
+  text: string,
+  blocks: readonly MemoryBlock[] = [],
+): void {
   try {
     writeThrough(KEYS.autosaveDoc, text);
     writeThrough(KEYS.autosaveName, name);
+    if (blocks.length === 0) {
+      removeBoth(KEYS.autosaveBlocks);
+    } else {
+      writeThrough(
+        KEYS.autosaveBlocks,
+        JSON.stringify(serializeBlocks(blocks)),
+      );
+    }
   } catch {
     // quota exceeded - autosave is best-effort
   }
@@ -457,11 +493,12 @@ export function saveAutosave(name: string, text: string): void {
  * localStorage backup: clearing work is a deliberate return to pristine and
  * must survive a browser restart. The backup is last-writer-wins; another live
  * tab's session slot is unaffected (though it won't re-mirror until its
- * content next changes).
+ * content next changes). Also clears any autosaved memory blocks.
  */
 export function clearAutosave(): void {
   removeBoth(KEYS.autosaveDoc);
   removeBoth(KEYS.autosaveName);
+  removeBoth(KEYS.autosaveBlocks);
 }
 
 /**
