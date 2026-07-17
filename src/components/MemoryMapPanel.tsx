@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import type { MachineEmulator } from '../dialects/types';
 import {
@@ -191,8 +191,41 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
   // --- Pinch / wheel zoom ------------------------------------------------
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  // The scrolling column, plus the content fraction (0–1) that sat at the
+  // viewport's vertical centre when the pending zoom change began — restored
+  // after the bands re-layout so zoom keeps the middle fixed, not the top.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const zoomAnchor = useRef<number | null>(null);
 
   const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+
+  /** Remember what's centred now, so the next zoom-driven layout can re-centre
+   *  it. Skipped when the map fits without scrolling (nothing to anchor). */
+  const captureZoomAnchor = () => {
+    const el = scrollRef.current;
+    if (!el || el.scrollHeight <= el.clientHeight) {
+      zoomAnchor.current = null;
+      return;
+    }
+    zoomAnchor.current = (el.scrollTop + el.clientHeight / 2) / el.scrollHeight;
+  };
+
+  /** Capture the current centre, then apply a zoom change (number or updater);
+   *  a `useLayoutEffect` keyed on `zoom` restores the centre after re-layout. */
+  const changeZoom = (next: number | ((z: number) => number)) => {
+    captureZoomAnchor();
+    setZoom((z) => clampZoom(typeof next === 'function' ? next(z) : next));
+  };
+
+  // After the bands re-render at the new zoom (so scrollHeight is current) but
+  // before paint, scroll so the captured fraction is centred again.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const anchor = zoomAnchor.current;
+    if (!el || anchor == null) return;
+    el.scrollTop = anchor * el.scrollHeight - el.clientHeight / 2;
+    zoomAnchor.current = null;
+  }, [zoom]);
 
   const pointerDist = () => {
     const pts = [...pointers.current.values()];
@@ -212,7 +245,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
     if (pointers.current.size === 2 && pinch.current) {
       const dist = pointerDist();
       if (pinch.current.dist > 0) {
-        setZoom(clampZoom((pinch.current.zoom * dist) / pinch.current.dist));
+        changeZoom((pinch.current.zoom * dist) / pinch.current.dist);
       }
     }
   };
@@ -225,7 +258,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
     // wheel is left alone so the map scrolls normally.
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    setZoom((z) => clampZoom(z - e.deltaY * 0.01));
+    changeZoom((z) => z - e.deltaY * 0.01);
   };
 
   const bandHeight = (b: Band) =>
@@ -267,7 +300,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
 
   if (!map) return null;
 
-  const nudge = (delta: number) => setZoom((z) => clampZoom(z + delta));
+  const nudge = (delta: number) => changeZoom((z) => z + delta);
   const totalBytes = map.addressSpace;
 
   const selected = bands.find((b) => b.key === selectedKey) ?? null;
@@ -347,7 +380,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
             max={MAX_ZOOM}
             step={1}
             value={zoom}
-            onChange={(e) => setZoom(clampZoom(Number(e.target.value)))}
+            onChange={(e) => changeZoom(Number(e.target.value))}
             title="Zoom"
             aria-label="Zoom level"
           />
@@ -389,6 +422,7 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
       <div className={styles.body}>
         <div
           className={styles.mapScroll}
+          ref={scrollRef}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={endPointer}
