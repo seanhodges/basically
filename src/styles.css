@@ -20,6 +20,9 @@
   --mm-system: #ff8a5c;
   --mm-program: #4fce6a;
   --mm-reserved: #ff6f7d;
+  /* Where a program loads binary code (LOAD "" CODE / LOAD "",dev,1): blue
+     markers, distinct from the amber POKE write markers (--warn). */
+  --mm-load: #4f8cff;
 
   font-family: 'Segoe UI', system-ui, sans-serif;
 }

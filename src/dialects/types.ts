@@ -433,20 +433,27 @@ export interface MemoryMap {
 }
 
 /**
- * How a dialect's BASIC writes to a memory address, so the memory-map viewer's
- * write-site markers know what to scan for. Most dialects use `POKE addr,val` -
- * left implicit and inferred from the `POKE` keyword when {@link Dialect.memoryWrites}
- * is absent - so this is only spelled out for machines that differ (BBC/Atom use
- * `?`/`!` indirection and have no `POKE`).
+ * How a dialect's BASIC addresses memory, so the memory-map viewer's markers know
+ * what to scan for. Most dialects use `POKE addr,val` - left implicit and inferred
+ * from the `POKE` keyword when {@link Dialect.memoryWrites} is absent - so this is
+ * only spelled out for machines that differ (BBC/Atom use `?`/`!` indirection and
+ * have no `POKE`), or that also load binary code to an address (Sinclair
+ * `LOAD "" CODE`, Commodore `LOAD "",dev,sec`).
  */
 export interface MemoryWriteSyntax {
   /**
-   * The statement forms that write memory:
+   * The statement forms that address memory. The write forms:
    * - `'poke'` - `POKE addr,val` (address is the text up to the first comma).
    * - `'indirection'` - a statement opening with `?` (byte) or `!` (word), as
    *   `?addr = val` / `!addr = val` (address is the text up to the `=`).
+   *
+   * The code-load forms, whose markers the viewer shows distinctly (in blue):
+   * - `'load-code'` - the Sinclair `LOAD "" CODE [addr]` form (exact address when
+   *   given, else an approximate free-RAM base).
+   * - `'load-device'` - the Commodore `LOAD "name",device,secondary` form; a
+   *   non-zero secondary is an absolute machine-code load (approximate base).
    */
-  forms: ('poke' | 'indirection')[];
+  forms: ('poke' | 'indirection' | 'load-code' | 'load-device')[];
   /**
    * Hex-literal prefix used in address expressions - BBC `'&'` (`?&2000=5`),
    * Atom `'#'` (`?#DE=0`). Omit for dialects whose addresses are always decimal.
@@ -530,10 +537,12 @@ export interface Dialect {
    */
   addressNotation?: 'hex' | 'dec';
   /**
-   * How this dialect writes to memory, driving the memory-map viewer's write-site
-   * markers. Absent for the common `POKE addr,val` machines - those are inferred
-   * from the `POKE` keyword. Set it for dialects that write memory differently
-   * (BBC/Atom use `?`/`!` indirection and have no `POKE`).
+   * How this dialect addresses memory, driving the memory-map viewer's markers.
+   * Absent for the common `POKE addr,val` machines - those are inferred from the
+   * `POKE` keyword. Set it for dialects that write memory differently (BBC/Atom
+   * use `?`/`!` indirection and have no `POKE`), or that also load binary code to
+   * an address (Sinclair `LOAD "" CODE`, Commodore `LOAD "",dev,sec`), in which
+   * case list every form the dialect uses (e.g. `['poke', 'load-code']`).
    */
   memoryWrites?: MemoryWriteSyntax;
   /**
