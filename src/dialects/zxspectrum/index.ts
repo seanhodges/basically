@@ -23,12 +23,14 @@ import { SpectrumMachine } from './emulator/spectrumMachine';
 import { spectrumKeyboardLayout } from './keyboardLayout';
 import { spectrumSamples } from './samples';
 import { spectrumMemoryMap } from './memoryMap';
+import { spectrumMemoryBlocks } from './memoryBlocks';
 
 export const zxspectrum: Dialect = {
   id: 'zxspectrum',
   name: 'Spectrum',
   programRamBytes: 41472,
   memoryMap: spectrumMemoryMap,
+  memoryBlocks: spectrumMemoryBlocks,
 
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
