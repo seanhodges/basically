@@ -96,6 +96,16 @@ export interface DetokenizeResult {
    * import is believed lossless.
    */
   warnings: string[];
+  /**
+   * Memory blocks (machine code / data at fixed addresses) recovered
+   * alongside the program text - e.g. CODE files in a Spectrum `.TAP`.
+   * Absent, or omitted, when the dialect's importer finds none; the caller
+   * (`src/app/importProgram.ts`) installs them alongside `source` via
+   * `loadUnsavedDocument`'s `blocks` option. Names are already sanitized to
+   * satisfy {@link MemoryBlock.name}'s pattern and are unique within this
+   * result.
+   */
+  blocks?: MemoryBlock[];
 }
 
 export interface TokenizeResult {

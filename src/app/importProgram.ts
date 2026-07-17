@@ -11,12 +11,19 @@
  * shown an unconditional "Imported." success.
  */
 
-import type { Dialect } from '../dialects/types';
+import type { Dialect, MemoryBlock } from '../dialects/types';
 
 export interface ImportedProgram {
   source: string;
   /** Human-readable fidelity warnings; empty for a clean import. */
   warnings: string[];
+  /**
+   * Memory blocks the dialect's importer recovered alongside `source` (e.g.
+   * CODE files in a Spectrum `.TAP`), when it supports {@link
+   * Dialect.detokenizeWithReport}'s optional `blocks`. Absent when the
+   * dialect found none, or reports none.
+   */
+  blocks?: MemoryBlock[];
 }
 
 /**
@@ -58,6 +65,7 @@ export function importProgram(
       ...base.warnings,
       ...(alreadyExplained ? [] : importFidelityWarnings(dialect, base.source)),
     ],
+    ...(base.blocks ? { blocks: base.blocks } : {}),
   };
 }
 

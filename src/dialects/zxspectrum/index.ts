@@ -8,8 +8,9 @@ import { spectrumCharset } from './charset';
 import { spectrumKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
-import { buildTap, parseTap, parseTapWithReport } from './tapfile';
+import { buildTap, parseTap, parseTapAllFiles } from './tapfile';
 import { rawEscapeWarning } from './importReport';
+import { codeFilesToBlocks } from './importBlocks';
 import { decodeCassette } from './audio/cassetteDecoder';
 import { spectrumLanguageSupport, spectrumCompletionSource } from './language';
 import { spectrumVariableErrors } from '../../editor/variableLint';
@@ -56,9 +57,14 @@ export const zxspectrum: Dialect = {
   },
 
   detokenizeWithReport(image: Uint8Array): DetokenizeResult {
-    const { parsed, warnings } = parseTapWithReport(image);
-    const source = detokenizeProgram(parsed.program);
-    return { source, warnings: [...warnings, ...rawEscapeWarning(source)] };
+    const { program, code, warnings } = parseTapAllFiles(image);
+    const source = detokenizeProgram(program.program);
+    const blocks = codeFilesToBlocks(code);
+    return {
+      source,
+      warnings: [...warnings, ...rawEscapeWarning(source)],
+      ...(blocks.length > 0 ? { blocks } : {}),
+    };
   },
 
   lint(source: string) {

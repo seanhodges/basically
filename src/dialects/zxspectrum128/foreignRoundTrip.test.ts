@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { zxspectrum128 } from './index';
 import { buildTap } from './tapfile';
+import { tapFromPayloads } from '../zxspectrum/tapfile';
 import { hasFatalErrors } from '../types';
 import { importRoundTrip, firstDifference } from '../roundTripHarness';
 
@@ -68,5 +69,32 @@ describe('zxspectrum128 foreign-image round-trip', () => {
       outcome.byteExact,
       `drift (${firstDifference(image, outcome.reImage)}):\n${outcome.source}`,
     ).toBe(true);
+  });
+
+  it('detokenizeWithReport surfaces a CODE file as a memory block (shared tape layer)', () => {
+    const image = buildTap(
+      programArea([{ no: 10, body: [PRINT, Q, 0x48, 0x49, Q] }]),
+    );
+    const header = new Uint8Array(17);
+    header[0] = 0x03; // CODE
+    header.set(
+      Uint8Array.from('code'.split('').map((c) => c.charCodeAt(0))),
+      1,
+    );
+    header[11] = 0x02; // declared length
+    header[13] = 0x00; // load address 0x8000 low
+    header[14] = 0x80; // load address 0x8000 high
+    const data = Uint8Array.from([0xc9, 0x00]);
+    const multiFile = new Uint8Array([
+      ...image,
+      ...tapFromPayloads(header, data),
+    ]);
+
+    const { blocks } = zxspectrum128.detokenizeWithReport!(multiFile);
+    expect(blocks).toHaveLength(1);
+    expect(blocks![0]!.address).toBe(0x8000);
+    expect(Array.from(blocks![0]!.bytes)).toEqual([0xc9, 0x00]);
+    expect(blocks![0]!.kind).toBe('code');
+    expect(blocks![0]!.name).toMatch(/^[A-Za-z][A-Za-z0-9_]*$/);
   });
 });
