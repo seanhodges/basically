@@ -47,6 +47,9 @@
   font-size: clamp(15px, 5vmin, 24px);
   -webkit-user-select: none; /* Safari only honours the prefixed form */
   user-select: none;
+  /* Stop iOS Safari's long-press callout so a held direction isn't broken. */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .gc-arm-up {
@@ -119,6 +122,9 @@
   touch-action: none;
   -webkit-user-select: none; /* Safari only honours the prefixed form */
   user-select: none;
+  /* Stop iOS Safari's long-press callout so a held fire button isn't broken. */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .gc-fire {

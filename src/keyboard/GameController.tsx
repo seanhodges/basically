@@ -342,6 +342,10 @@ export function GameController({
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}
       onPointerCancel={endPointer}
+      // A held button registers as a long-press on touch browsers (Chrome
+      // mobile), which fire a contextmenu that steals the pointer and aborts
+      // the hold. Suppress it so a direction or fire can be held uninterrupted.
+      onContextMenu={(e) => e.preventDefault()}
     >
       <div className="gc-dpad" data-dpad ref={dpadRef}>
         {arm('up')}
