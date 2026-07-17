@@ -3,18 +3,23 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 // before the localStorage stub below runs.
 import type { HistoryLike } from './historyNav';
 
-// The store persists settings to localStorage; the test env is `node`, so stub
-// it before importing the store (mirrors store.test.ts).
+// The store persists settings to localStorage and per-tab state to
+// sessionStorage; the test env is `node`, so stub both before importing the
+// store (mirrors store.test.ts).
 beforeAll(() => {
-  const mem = new Map<string, string>();
-  (globalThis as { localStorage?: Storage }).localStorage = {
-    getItem: (k: string) => mem.get(k) ?? null,
-    setItem: (k: string, v: string) => void mem.set(k, v),
-    removeItem: (k: string) => void mem.delete(k),
-    clear: () => mem.clear(),
-    key: () => null,
-    length: 0,
-  } as Storage;
+  const stub = () => {
+    const mem = new Map<string, string>();
+    return {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+      removeItem: (k: string) => void mem.delete(k),
+      clear: () => mem.clear(),
+      key: () => null,
+      length: 0,
+    } as Storage;
+  };
+  (globalThis as { localStorage?: Storage }).localStorage = stub();
+  (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
 });
 
 const { useIdeStore } = await import('./store');

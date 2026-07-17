@@ -10,6 +10,8 @@ import {
   setAiProvider,
   getProviderApiKey,
   setProviderApiKey,
+  getDialectId,
+  setDialectId,
   getLastShare,
   setLastShare,
   getHasLaunched,
@@ -19,10 +21,10 @@ import {
 
 const KEY = 'mbide.autosave.ai';
 
-/** Minimal in-memory localStorage for the node test environment. */
-function installLocalStorage() {
+/** Minimal in-memory Storage for the node test environment. */
+function memoryStorage(): Storage {
   const store = new Map<string, string>();
-  globalThis.localStorage = {
+  return {
     getItem: (k: string) => store.get(k) ?? null,
     setItem: (k: string, v: string) => void store.set(k, String(v)),
     removeItem: (k: string) => void store.delete(k),
@@ -34,9 +36,15 @@ function installLocalStorage() {
   } as Storage;
 }
 
+/** Install independent localStorage + sessionStorage stand-ins. */
+function installStorages() {
+  globalThis.localStorage = memoryStorage();
+  globalThis.sessionStorage = memoryStorage();
+}
+
 describe('autosave persistence', () => {
   beforeEach(() => {
-    installLocalStorage();
+    installStorages();
   });
 
   it('round-trips a document', () => {
@@ -53,11 +61,76 @@ describe('autosave persistence', () => {
     clearAutosave();
     expect(loadAutosave()).toBeNull();
   });
+
+  it('writes through to both storages (session authoritative, local backup)', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    expect(sessionStorage.getItem('mbide.autosave.doc')).toBe('10 PRINT "HI"');
+    expect(sessionStorage.getItem('mbide.autosave.name')).toBe('game.bas');
+    expect(localStorage.getItem('mbide.autosave.doc')).toBe('10 PRINT "HI"');
+    expect(localStorage.getItem('mbide.autosave.name')).toBe('game.bas');
+  });
+
+  it("prefers this tab's session slot over the shared backup", () => {
+    sessionStorage.setItem('mbide.autosave.doc', '10 REM MINE');
+    sessionStorage.setItem('mbide.autosave.name', 'mine.bas');
+    localStorage.setItem('mbide.autosave.doc', '10 REM OTHER TAB');
+    localStorage.setItem('mbide.autosave.name', 'other.bas');
+    expect(loadAutosave()).toEqual({ name: 'mine.bas', text: '10 REM MINE' });
+  });
+
+  it('falls back to the localStorage backup and adopts it into the session', () => {
+    localStorage.setItem('mbide.autosave.doc', '10 REM BACKUP');
+    localStorage.setItem('mbide.autosave.name', 'backup.bas');
+    expect(loadAutosave()).toEqual({
+      name: 'backup.bas',
+      text: '10 REM BACKUP',
+    });
+    // Adopted: the tab's identity is pinned even if the backup changes later.
+    expect(sessionStorage.getItem('mbide.autosave.doc')).toBe('10 REM BACKUP');
+    expect(sessionStorage.getItem('mbide.autosave.name')).toBe('backup.bas');
+  });
+
+  it('clearAutosave empties both storages', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    clearAutosave();
+    expect(sessionStorage.getItem('mbide.autosave.doc')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.doc')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.name')).toBeNull();
+  });
+});
+
+describe('dialect id persistence', () => {
+  beforeEach(() => {
+    installStorages();
+  });
+
+  it('returns null when never chosen', () => {
+    expect(getDialectId()).toBeNull();
+  });
+
+  it('writes through to both storages', () => {
+    setDialectId('bbc');
+    expect(sessionStorage.getItem('mbide.dialectId')).toBe('bbc');
+    expect(localStorage.getItem('mbide.dialectId')).toBe('bbc');
+    expect(getDialectId()).toBe('bbc');
+  });
+
+  it("prefers this tab's machine over another tab's later choice", () => {
+    sessionStorage.setItem('mbide.dialectId', 'zx81');
+    localStorage.setItem('mbide.dialectId', 'c64');
+    expect(getDialectId()).toBe('zx81');
+  });
+
+  it('seeds a new tab from the last used machine and adopts it', () => {
+    localStorage.setItem('mbide.dialectId', 'c64');
+    expect(getDialectId()).toBe('c64');
+    expect(sessionStorage.getItem('mbide.dialectId')).toBe('c64');
+  });
 });
 
 describe('AI conversation persistence', () => {
   beforeEach(() => {
-    installLocalStorage();
+    installStorages();
   });
 
   it('round-trips messages', () => {
@@ -82,33 +155,67 @@ describe('AI conversation persistence', () => {
     expect(loadAiConversation()).toEqual([]);
   });
 
-  it('removes the key when saving an empty array', () => {
+  it('removes the key from both storages when saving an empty array', () => {
     saveAiConversation([{ role: 'user', content: 'x' }]);
     saveAiConversation([]);
+    expect(sessionStorage.getItem(KEY)).toBeNull();
     expect(localStorage.getItem(KEY)).toBeNull();
     expect(loadAiConversation()).toEqual([]);
   });
 
-  it('clearAiConversation removes the stored thread', () => {
+  it('clearAiConversation removes the stored thread from both storages', () => {
     saveAiConversation([{ role: 'user', content: 'x' }]);
     clearAiConversation();
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+    expect(localStorage.getItem(KEY)).toBeNull();
     expect(loadAiConversation()).toEqual([]);
   });
 
+  it('writes through to both storages', () => {
+    saveAiConversation([{ role: 'user', content: 'x' }]);
+    expect(sessionStorage.getItem(KEY)).not.toBeNull();
+    expect(localStorage.getItem(KEY)).toBe(sessionStorage.getItem(KEY));
+  });
+
+  it("prefers this tab's thread over the shared backup", () => {
+    saveAiConversation([{ role: 'user', content: 'mine' }]);
+    localStorage.setItem(
+      KEY,
+      JSON.stringify([{ role: 'user', content: 'other tab' }]),
+    );
+    expect(loadAiConversation()).toEqual([{ role: 'user', content: 'mine' }]);
+  });
+
+  it('seeds a new tab from the backup thread', () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify([{ role: 'user', content: 'restored' }]),
+    );
+    expect(loadAiConversation()).toEqual([
+      { role: 'user', content: 'restored' },
+    ]);
+    expect(sessionStorage.getItem(KEY)).not.toBeNull();
+  });
+
   it('returns [] for corrupt JSON', () => {
+    sessionStorage.setItem(KEY, '{not json');
+    expect(loadAiConversation()).toEqual([]);
+  });
+
+  it('returns [] for corrupt JSON in the backup', () => {
     localStorage.setItem(KEY, '{not json');
     expect(loadAiConversation()).toEqual([]);
   });
 
   it('returns [] for non-array JSON', () => {
-    localStorage.setItem(KEY, '{"role":"user"}');
+    sessionStorage.setItem(KEY, '{"role":"user"}');
     expect(loadAiConversation()).toEqual([]);
   });
 });
 
 describe('AI provider settings', () => {
   beforeEach(() => {
-    installLocalStorage();
+    installStorages();
   });
 
   it('defaults to anthropic and round-trips the selected provider', () => {
@@ -148,7 +255,7 @@ describe('AI provider settings', () => {
 
 describe('has-launched flag', () => {
   beforeEach(() => {
-    installLocalStorage();
+    installStorages();
   });
 
   it('defaults to false on a fresh browser', () => {
@@ -165,7 +272,7 @@ describe('has-launched flag', () => {
 
 describe('last share link persistence', () => {
   beforeEach(() => {
-    installLocalStorage();
+    installStorages();
   });
 
   it('returns null when nothing is stored', () => {
@@ -195,13 +302,26 @@ describe('last share link persistence', () => {
     });
   });
 
+  it('is per-tab: never writes or reads the shared localStorage', () => {
+    setLastShare({ source: 'a', dialectId: 'zx81', url: 'https://x/1' });
+    expect(localStorage.getItem('mbide.lastShare')).toBeNull();
+
+    sessionStorage.removeItem('mbide.lastShare');
+    // A localStorage-only entry (another tab / an older version) is ignored.
+    localStorage.setItem(
+      'mbide.lastShare',
+      JSON.stringify({ source: 'a', dialectId: 'zx81', url: 'https://x/1' }),
+    );
+    expect(getLastShare()).toBeNull();
+  });
+
   it('returns null for corrupt JSON', () => {
-    localStorage.setItem('mbide.lastShare', '{not json');
+    sessionStorage.setItem('mbide.lastShare', '{not json');
     expect(getLastShare()).toBeNull();
   });
 
   it('returns null for malformed entries', () => {
-    localStorage.setItem('mbide.lastShare', JSON.stringify({ source: 'a' }));
+    sessionStorage.setItem('mbide.lastShare', JSON.stringify({ source: 'a' }));
     expect(getLastShare()).toBeNull();
   });
 });
