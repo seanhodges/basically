@@ -470,6 +470,34 @@ describe('memory block actions', () => {
     useIdeStore.getState().removeBlock('does-not-exist');
     expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
   });
+
+  it('setBlocks throws and leaves state untouched for an invalid name', () => {
+    const invalid: MemoryBlock = { ...BLOCK_A, name: '1foo' };
+    expect(() => useIdeStore.getState().setBlocks([invalid])).toThrow();
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([]); // unchanged - the throw happened before commit
+    expect(s.dirty).toBe(false);
+  });
+
+  it('setBlocks throws for two blocks sharing a name', () => {
+    const dupe: MemoryBlock = { ...BLOCK_B, name: BLOCK_A.name };
+    expect(() => useIdeStore.getState().setBlocks([BLOCK_A, dupe])).toThrow();
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('upsertBlock throws and leaves state untouched for an invalid name', () => {
+    const invalid: MemoryBlock = { ...BLOCK_A, name: 'has spaces' };
+    expect(() => useIdeStore.getState().upsertBlock(invalid)).toThrow();
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('upsertBlock throws when the new block collides with an existing name', () => {
+    useIdeStore.setState({ blocks: [BLOCK_A], dirty: false });
+    const collidingId: MemoryBlock = { ...BLOCK_B, name: BLOCK_A.name };
+    expect(() => useIdeStore.getState().upsertBlock(collidingId)).toThrow();
+    // Unchanged: still just the original block.
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_A]);
+  });
 });
 
 describe('memory blocks reset on document identity changes', () => {

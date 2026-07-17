@@ -4,6 +4,8 @@ import {
   parseProject,
   isProjectFile,
   serializeBlocks,
+  isValidBlockName,
+  findDuplicateBlockName,
 } from './projectFile';
 import type { MemoryBlock } from '../dialects/types';
 
@@ -184,6 +186,67 @@ describe('parseProject error handling', () => {
     });
     expect(() => parseProject(text)).toThrow();
   });
+
+  const blockNamed = (name: string) => ({
+    id: 'x',
+    name,
+    address: 0,
+    bytes: 'AAA=',
+    kind: 'data' as const,
+  });
+
+  const projectWithBlocks = (blocks: unknown[]) =>
+    JSON.stringify({
+      format: 'basically-project',
+      version: 1,
+      dialect: 'zx81',
+      source: '',
+      blocks,
+    });
+
+  it('throws when a block name starts with a digit', () => {
+    expect(() =>
+      parseProject(projectWithBlocks([blockNamed('1foo')])),
+    ).toThrow();
+  });
+
+  it('throws when a block name contains a space', () => {
+    expect(() =>
+      parseProject(projectWithBlocks([blockNamed('has spaces')])),
+    ).toThrow();
+  });
+
+  it('throws when a block name is empty', () => {
+    expect(() => parseProject(projectWithBlocks([blockNamed('')]))).toThrow();
+  });
+
+  it('throws when a block name contains punctuation', () => {
+    expect(() =>
+      parseProject(projectWithBlocks([blockNamed('foo-bar')])),
+    ).toThrow();
+  });
+
+  it('accepts a name with letters, digits, and underscores', () => {
+    expect(() =>
+      parseProject(projectWithBlocks([blockNamed('Foo_Bar2')])),
+    ).not.toThrow();
+  });
+
+  it('throws when two blocks share a name', () => {
+    const text = projectWithBlocks([
+      { ...blockNamed('SAME'), id: 'a' },
+      { ...blockNamed('SAME'), id: 'b' },
+    ]);
+    expect(() => parseProject(text)).toThrow(/more than one/i);
+  });
+
+  it('allows two blocks with distinct names', () => {
+    const text = projectWithBlocks([
+      { ...blockNamed('FIRST'), id: 'a' },
+      { ...blockNamed('SECOND'), id: 'b' },
+    ]);
+    expect(() => parseProject(text)).not.toThrow();
+  });
 });
 
 describe('isProjectFile', () => {
@@ -214,5 +277,55 @@ describe('serializeBlocks', () => {
     const [wire] = serializeBlocks([BLOCK_A]);
     expect(typeof wire!.bytes).toBe('string');
     expect(wire!.id).toBe('blk-1');
+  });
+});
+
+describe('isValidBlockName', () => {
+  it('accepts a single letter', () => {
+    expect(isValidBlockName('A')).toBe(true);
+  });
+
+  it('accepts letters, digits, and underscores after the first letter', () => {
+    expect(isValidBlockName('Sprite_Table2')).toBe(true);
+  });
+
+  it('rejects a name starting with a digit', () => {
+    expect(isValidBlockName('1foo')).toBe(false);
+  });
+
+  it('rejects a name starting with an underscore', () => {
+    expect(isValidBlockName('_foo')).toBe(false);
+  });
+
+  it('rejects spaces', () => {
+    expect(isValidBlockName('has spaces')).toBe(false);
+  });
+
+  it('rejects punctuation', () => {
+    expect(isValidBlockName('foo-bar')).toBe(false);
+    expect(isValidBlockName('foo.bar')).toBe(false);
+    expect(isValidBlockName('foo$')).toBe(false);
+  });
+
+  it('rejects an empty string', () => {
+    expect(isValidBlockName('')).toBe(false);
+  });
+});
+
+describe('findDuplicateBlockName', () => {
+  it('returns null when all names are unique', () => {
+    expect(
+      findDuplicateBlockName([{ name: 'A' }, { name: 'B' }, { name: 'C' }]),
+    ).toBeNull();
+  });
+
+  it('returns null for an empty list', () => {
+    expect(findDuplicateBlockName([])).toBeNull();
+  });
+
+  it('returns the repeated name when two entries share one', () => {
+    expect(
+      findDuplicateBlockName([{ name: 'A' }, { name: 'B' }, { name: 'A' }]),
+    ).toBe('A');
   });
 });

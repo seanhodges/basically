@@ -13,6 +13,33 @@
 import type { MemoryBlock } from '../dialects/types';
 import { bytesToBase64, base64ToBytes } from './vfs/base64';
 
+/**
+ * The only valid shape for {@link MemoryBlock.name}: starts with a letter,
+ * then any number of letters, digits, or underscores. Matches the pattern
+ * documented on the type itself.
+ */
+const BLOCK_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+/** Whether `name` is a valid {@link MemoryBlock.name} (see {@link BLOCK_NAME_PATTERN}). */
+export function isValidBlockName(name: string): boolean {
+  return BLOCK_NAME_PATTERN.test(name);
+}
+
+/**
+ * The first block name that appears more than once in `blocks`, or `null`
+ * when every name is unique - names must be unique per document.
+ */
+export function findDuplicateBlockName(
+  blocks: readonly { name: string }[],
+): string | null {
+  const seen = new Set<string>();
+  for (const b of blocks) {
+    if (seen.has(b.name)) return b.name;
+    seen.add(b.name);
+  }
+  return null;
+}
+
 /** One {@link MemoryBlock}, wire-encoded for JSON (bytes as base64). */
 export interface SerializedBlock {
   id: string;
@@ -78,6 +105,12 @@ function parseBlock(raw: unknown, index: number): MemoryBlock {
   if (typeof b.name !== 'string') {
     throw new Error(`Project file block ${index} is missing a "name".`);
   }
+  if (!isValidBlockName(b.name)) {
+    throw new Error(
+      `Project file block ${index} has an invalid "name" ("${b.name}"): ` +
+        'names must start with a letter and contain only letters, digits, or underscores.',
+    );
+  }
   if (typeof b.address !== 'number' || !Number.isFinite(b.address)) {
     throw new Error(`Project file block ${index} has an invalid "address".`);
   }
@@ -106,11 +139,20 @@ function parseBlock(raw: unknown, index: number): MemoryBlock {
 /**
  * Decode wire-shape blocks (a parsed {@link ProjectFileV1}'s `blocks`, or
  * autosave's stored array) back into {@link MemoryBlock}s. Throws on the
- * first structurally invalid entry - callers that want a defensive,
- * never-throws load (autosave) catch around this themselves.
+ * first structurally invalid entry, an invalid `name`, or a `name` shared by
+ * more than one block (names must be unique per document) - callers that
+ * want a defensive, never-throws load (autosave) catch around this
+ * themselves.
  */
 export function parseBlocks(raw: unknown[]): MemoryBlock[] {
-  return raw.map((b, i) => parseBlock(b, i));
+  const blocks = raw.map((b, i) => parseBlock(b, i));
+  const dup = findDuplicateBlockName(blocks);
+  if (dup !== null) {
+    throw new Error(
+      `Project file has more than one memory block named "${dup}".`,
+    );
+  }
+  return blocks;
 }
 
 /** Build the `.bproj` JSON text for a document. */

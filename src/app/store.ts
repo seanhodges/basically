@@ -6,7 +6,11 @@ import type {
   MachineReport,
   MemoryBlock,
 } from '../dialects/types';
-import { serializeBlocks } from '../storage/projectFile';
+import {
+  serializeBlocks,
+  isValidBlockName,
+  findDuplicateBlockName,
+} from '../storage/projectFile';
 import type { ControllerRole } from '../keyboard/layoutSchema';
 import {
   type ControllerOverrides,
@@ -485,6 +489,33 @@ function matchingSampleName(dialect: Dialect, source: string): string | null {
 }
 
 /**
+ * Enforce the per-document {@link MemoryBlock} invariants (see the type's doc
+ * comment) on a full block set: every `name` must match the required
+ * pattern, and no two blocks may share one. Throws a descriptive `Error`
+ * otherwise. Called from `setBlocks`/`upsertBlock` - the only paths that can
+ * introduce a block today (there is no block editor yet; this is exercised
+ * from the dev console per the plan) - so a mistake is caught immediately at
+ * the point of entry, rather than silently persisting and then being dropped
+ * wholesale by autosave's defensive parse on the next reload.
+ */
+function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
+  for (const b of blocks) {
+    if (!isValidBlockName(b.name)) {
+      throw new Error(
+        `Invalid memory block name "${b.name}": names must start with a ` +
+          'letter and contain only letters, digits, or underscores.',
+      );
+    }
+  }
+  const dup = findDuplicateBlockName(blocks);
+  if (dup !== null) {
+    throw new Error(
+      `Duplicate memory block name "${dup}": names must be unique per document.`,
+    );
+  }
+}
+
+/**
  * Signature of the document currently mirrored to autosave. Lets
  * {@link persistAutosave} skip the localStorage write when nothing changed, so
  * the 2s poll does no I/O while the user is idle. Seeded from the boot document
@@ -825,8 +856,13 @@ export const useIdeStore = create<IdeState>((set) => ({
   },
   // Block edits are in-place changes to the current document, like setSource -
   // they don't call persistAutosave directly; the 2s poll (App.tsx) picks them
-  // up via the blocks digest in persistAutosave's signature.
-  setBlocks: (blocks) => set({ blocks, dirty: true }),
+  // up via the blocks digest in persistAutosave's signature. Both mutating
+  // actions validate the resulting block set (see assertValidBlocks) and
+  // throw rather than installing an invalid one.
+  setBlocks: (blocks) => {
+    assertValidBlocks(blocks);
+    set({ blocks, dirty: true });
+  },
   upsertBlock: (block) =>
     set((s) => {
       const idx = s.blocks.findIndex((b) => b.id === block.id);
@@ -834,6 +870,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         idx >= 0
           ? s.blocks.map((b, i) => (i === idx ? block : b))
           : [...s.blocks, block];
+      assertValidBlocks(blocks);
       return { blocks, dirty: true };
     }),
   removeBlock: (id) =>
