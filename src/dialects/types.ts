@@ -452,8 +452,12 @@ export interface MemoryWriteSyntax {
    *   given, else an approximate free-RAM base).
    * - `'load-device'` - the Commodore `LOAD "name",device,secondary` form; a
    *   non-zero secondary is an absolute machine-code load (approximate base).
+   * - `'star-load'` - the Acorn `*LOAD "file" addr` filing-system (star) command
+   *   (BBC/Atom). Exact when an explicit address is given (parsed as hex, since
+   *   star numbers are hex-by-default), else an approximate free-RAM base for a
+   *   bare `*LOAD`/`*RUN` whose address is in the file.
    */
-  forms: ('poke' | 'indirection' | 'load-code' | 'load-device')[];
+  forms: ('poke' | 'indirection' | 'load-code' | 'load-device' | 'star-load')[];
   /**
    * Hex-literal prefix used in address expressions - BBC `'&'` (`?&2000=5`),
    * Atom `'#'` (`?#DE=0`). Omit for dialects whose addresses are always decimal.

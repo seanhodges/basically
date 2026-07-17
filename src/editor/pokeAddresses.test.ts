@@ -514,3 +514,95 @@ describe('pokeSites — Commodore LOAD "",dev,sec binary loads', () => {
     expect(sites.every((s) => s.address === 0x0801)).toBe(true);
   });
 });
+
+describe('pokeSites — Acorn *LOAD star-command binary loads', () => {
+  // BBC: ?/! indirection plus star loads, `&` hex, free-RAM base at &1900.
+  const bbc = {
+    writes: ['indirection', 'star-load'] as const,
+    hexPrefix: '&',
+    loadBase: 0x1900,
+  };
+  // Atom: `#` hex, `;` statement separator, free-RAM base at &2900.
+  const atom = {
+    writes: ['indirection', 'star-load'] as const,
+    hexPrefix: '#',
+    statementSep: ';',
+    loadBase: 0x2900,
+  };
+
+  it('resolves an explicit *LOAD address as hex (not decimal)', () => {
+    const [site] = pokeSites('10 *LOAD "SCREEN" 3000', bbc);
+    expect(site).toEqual({
+      address: 0x3000,
+      expr: '*LOAD &3000',
+      computed: false,
+      approximate: false,
+      role: 'load',
+      lineNo: 10,
+    });
+  });
+
+  it('handles an unquoted filename', () => {
+    const [site] = pokeSites('10 *LOAD SCREEN 3000', bbc);
+    expect(site!.address).toBe(0x3000);
+    expect(site!.role).toBe('load');
+  });
+
+  it('takes the load address, ignoring a trailing exec address', () => {
+    expect(
+      pokeSites('10 *LOAD "F" 3000 +8023', bbc).map((s) => s.address),
+    ).toEqual([0x3000]);
+  });
+
+  it('resolves a bare *LOAD "file" to the approximate base', () => {
+    const [site] = pokeSites('10 *LOAD "GAME"', bbc);
+    expect(site).toEqual({
+      address: 0x1900,
+      expr: '*LOAD',
+      computed: true,
+      approximate: true,
+      role: 'load',
+      lineNo: 10,
+    });
+  });
+
+  it('resolves *RUN "file" to the approximate base', () => {
+    expect(pokeSites('10 *RUN "GAME"', bbc).map((s) => s.address)).toEqual([
+      0x1900,
+    ]);
+  });
+
+  it('resolves a *LOAD after another statement on the line', () => {
+    expect(
+      pokeSites('10 CLS:*LOAD "F" 2000', bbc).map((s) => s.address),
+    ).toEqual([0x2000]);
+  });
+
+  it('ignores *LOAD inside a string or REM', () => {
+    const src = ['10 PRINT "*LOAD X 3000"', '20 REM *LOAD 3000'].join('\n');
+    expect(pokeSites(src, bbc)).toEqual([]);
+  });
+
+  it('does not treat multiplication as a star command', () => {
+    // `*` mid-statement (B*LOAD) is not statement-leading, so no star load.
+    expect(pokeSites('10 A=B*LOAD 3000', bbc)).toEqual([]);
+  });
+
+  it('does not scan star loads for a plain indirection dialect', () => {
+    expect(pokeSites('10 *LOAD "F" 3000', { writes: ['indirection'] })).toEqual(
+      [],
+    );
+  });
+
+  it('produces no bare *LOAD site when no loadBase is known', () => {
+    expect(
+      pokeSites('10 *LOAD "F"', { writes: ['indirection', 'star-load'] }),
+    ).toEqual([]);
+  });
+
+  it('resolves an Atom *LOAD address as hex', () => {
+    expect(pokeSites('10 *LOAD "F" 2900', atom).map((s) => s.address)).toEqual([
+      0x2900,
+    ]);
+  });
+});
