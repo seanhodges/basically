@@ -17,6 +17,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
+  MemoryBlock,
 } from '../../dialects/types';
 import { BbcHostKeyboard, matrixForToken } from './keyboard';
 import { readBbcVariables } from './vars';
@@ -453,11 +454,21 @@ export class BbcMachine implements MachineEmulator {
    * in-memory layout, terminated by 0x0D 0xFF). ROM loading is async, so the
    * work is queued; frames render the machine booting in the meantime and the
    * program starts as soon as the pipeline lands it.
+   *
+   * `opts.blocks`, when given, are raw machine-code / data spans written
+   * directly into RAM at their fixed addresses (see {@link MemoryBlock}) after
+   * the BASIC program has loaded and before RUN starts it - mirroring a real
+   * loader poking code in once the tape has finished.
    */
-  loadProgram(image: Uint8Array): void {
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
     this.lineCache = null;
+    // Captured before the async IIFE runs, since `opts` is only live now.
+    const blocks = opts?.blocks;
     void (async () => {
       try {
         await this.ready;
@@ -484,6 +495,19 @@ export class BbcMachine implements MachineEmulator {
           // THIS run hit a BASIC error (see readReport / reports.ts).
           this.cpu.writemem(FAULT_PTR, 0);
           this.cpu.writemem(FAULT_PTR + 1, 0);
+          // Memory blocks (machine code / data at a fixed address, alongside
+          // the BASIC program - see MemoryBlock) go straight into RAM now,
+          // after the program itself has loaded and before RUN starts it.
+          if (blocks) {
+            for (const block of blocks) {
+              for (let i = 0; i < block.bytes.length; i++) {
+                this.cpu.writemem(
+                  (block.address + i) & 0xffff,
+                  block.bytes[i]!,
+                );
+              }
+            }
+          }
           this.typeViaMatrix('RUN\r');
           // Drop any samples synthesized while booting/typing so the first
           // readAudio() doesn't replay a boot-time burst.

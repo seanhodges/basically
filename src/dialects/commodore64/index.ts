@@ -2,6 +2,7 @@ import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { c64Charset } from './charset';
 import { c64Keywords } from './keywords';
 import { c64MemoryMap } from './memoryMap';
+import { c64MemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { c64BuildTargets } from './targets';
@@ -36,6 +37,7 @@ export const commodore64: Dialect = {
   name: 'C64',
   programRamBytes: 38911,
   memoryMap: c64MemoryMap,
+  memoryBlocks: c64MemoryBlocks,
 
   // Commodore BASIC POKEs decimal addresses (`POKE 53280,0`), so the map opens
   // in Int.

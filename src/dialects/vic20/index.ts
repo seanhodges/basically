@@ -7,6 +7,7 @@ import {
 import { vic20Keywords } from './keywords';
 import { vic20Charset } from './charset';
 import { vic20MemoryMap } from './memoryMap';
+import { vic20MemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { vic20LanguageSupport, vic20CompletionSource } from './language';
@@ -41,6 +42,7 @@ export const vic20: Dialect = {
   // Unexpanded VIC-20: "3583 BYTES FREE".
   programRamBytes: 3583,
   memoryMap: vic20MemoryMap,
+  memoryBlocks: vic20MemoryBlocks,
 
   // Commodore BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',

@@ -1,6 +1,6 @@
 import type { DetokenizeResult } from '../types';
 import { atomCharset } from './charset';
-import { stripAtmHeader } from './atm';
+import { ATM_HEADER_SIZE, parseAtm, stripAtmHeader } from './atm';
 
 const LINE_MARK = 0x0d;
 const END_HI = 0xff;
@@ -30,8 +30,15 @@ export function detokenizeProgram(file: Uint8Array): string {
 
 /**
  * Like {@link detokenizeProgram}, but for the binary-import paths: it also
- * reports what the text form could not capture - a non-BASIC `.atm` (rejected
- * outright), or a truncated image with no `0D FF` end marker.
+ * reports what the text form could not capture, and recovers a non-BASIC `.atm`
+ * as a memory block.
+ *
+ * A `.atm` that loads somewhere other than `#2900` is a machine-code or data
+ * file, not BASIC text: rather than surface an empty document, its payload is
+ * imported as a single {@link import('../types').MemoryBlock} at its load
+ * address (empty `source`, a note explaining why). A real `#2900` BASIC program
+ * decodes to text exactly as before, with no blocks; a truncated image (no
+ * `0D FF` end marker) still warns.
  */
 export function detokenizeProgramWithReport(
   file: Uint8Array,
@@ -40,6 +47,30 @@ export function detokenizeProgramWithReport(
   try {
     image = stripAtmHeader(file);
   } catch (e) {
+    // stripAtmHeader rejects both a non-#2900 .atm (a machine-code/data file)
+    // and a file too short to be either. When it's a parseable .atm, import
+    // its payload as a memory block; otherwise pass the framing error through.
+    if (isAtmFile(file)) {
+      const { load, data } = parseAtm(file);
+      const hex = load.toString(16).toUpperCase().padStart(4, '0');
+      return {
+        source: '',
+        warnings: [
+          `This .atm loads at #${hex}, not #2900 where Atom BASIC text lives — ` +
+            `it is a machine-code or data file, imported as a memory block ` +
+            `rather than editable BASIC.`,
+        ],
+        blocks: [
+          {
+            id: 'imported-code-1',
+            name: 'code1',
+            address: load,
+            bytes: data.slice(),
+            kind: 'code',
+          },
+        ],
+      };
+    }
     return { source: '', warnings: [(e as Error).message] };
   }
   const { source, truncated } = decodeImage(image);
@@ -50,6 +81,15 @@ export function detokenizeProgramWithReport(
     );
   }
   return { source, warnings };
+}
+
+/**
+ * Whether `file` carries an `.atm` header (as opposed to a bare `#2900` image,
+ * which begins with the `0D` line marker, or a file too short to hold a
+ * header). Guards {@link parseAtm}, which assumes a well-formed header.
+ */
+function isAtmFile(file: Uint8Array): boolean {
+  return file.length >= ATM_HEADER_SIZE && file[0] !== LINE_MARK;
 }
 
 interface DecodeResult {

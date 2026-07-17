@@ -14,6 +14,7 @@ import { bbcAiProfile } from './aiProfile';
 import { bbcKeyboardLayout } from './keyboardLayout';
 import { bbcSamples } from './samples';
 import { bbcMicroMemoryMap } from './memoryMap';
+import { bbcMicroMemoryBlocks } from './memoryBlocks';
 import {
   BbcMachine,
   BBC_DISPLAY_WIDTH,
@@ -68,6 +69,7 @@ export const bbcmicro: Dialect = {
   displaySize: { width: BBC_DISPLAY_WIDTH, height: BBC_DISPLAY_HEIGHT },
 
   memoryMap: bbcMicroMemoryMap,
+  memoryBlocks: bbcMicroMemoryBlocks,
 
   // BBC BASIC addresses memory in hex (`?&2000`), so the map opens in Hex.
   addressNotation: 'hex',

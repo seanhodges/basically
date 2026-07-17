@@ -1,9 +1,10 @@
-import type { DetokenizeResult } from '../types';
+import type { DetokenizeResult, MemoryBlock } from '../types';
 import { decodeSpan } from './charset';
 import { trs80WordByToken } from './keywords';
 import {
   isCasImage,
   parseCasImage,
+  parseSystemCas,
   casFormat,
   MODEL_III_MESSAGE,
 } from './casfile';
@@ -49,8 +50,29 @@ export function detokenizeProgramWithReport(
 ): DetokenizeResult {
   const warnings: string[] = [];
 
-  if (casFormat(image) === 'model3') {
+  const format = casFormat(image);
+
+  if (format === 'model3') {
     return { source: '', warnings: [MODEL_III_MESSAGE] };
+  }
+
+  // A SYSTEM (machine-language) tape has no BASIC text at all: it imports as one
+  // memory block per data record, so the code lands back at its load address on
+  // Run. Bad-checksum records are still kept, with a warning (see parseSystemCas).
+  if (format === 'system') {
+    const { blocks } = parseSystemCas(image, warnings);
+    const memoryBlocks: MemoryBlock[] = blocks.map((b, i) => ({
+      id: `imported-code-${i + 1}`,
+      name: `code${i + 1}`,
+      address: b.address,
+      bytes: b.bytes,
+      kind: 'code' as const,
+    }));
+    return {
+      source: '',
+      warnings,
+      ...(memoryBlocks.length > 0 ? { blocks: memoryBlocks } : {}),
+    };
   }
 
   let program = image;

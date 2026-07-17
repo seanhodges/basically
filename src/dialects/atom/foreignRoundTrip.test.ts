@@ -9,7 +9,8 @@ import { importRoundTrip, firstDifference } from '../roundTripHarness';
  * can hold but the app never authors from plain text: inverse-video (top-bit)
  * bytes inside a string, a `*CAT` COS command, and floating-point-ROM statements
  * (`%A=…`, `FPRINT`). Each must round-trip byte-exactly. A machine-code
- * `.atm` must be rejected loudly, not imported as an empty document.
+ * `.atm` (one that loads outside #2900) is imported as a memory block, not
+ * silently dropped as an empty document.
  */
 
 const LINE_MARK = 0x0d;
@@ -49,16 +50,26 @@ describe('atom foreign-image round-trip', () => {
     expect(detokenizeProgramWithReport(atm).source).toBe(outcome.source);
   });
 
-  it('rejects a machine-code .atm instead of importing an empty document', () => {
-    // A valid BASIC .atm but for the load address: BASIC text loads at #2900.
+  it('imports a machine-code .atm as a memory block, not an empty document', () => {
+    // A valid .atm but for the load address: BASIC text loads at #2900, so a
+    // payload elsewhere is machine code/data - recovered as a block.
     const payload = Uint8Array.of(0xa9, 0x00, 0x60); // LDA #0 / RTS
     const atm = buildAtm(payload, 'CODE');
     atm[16] = 0x00; // load = #2A00, not #2900
     atm[17] = 0x2a;
 
-    const { source, warnings } = detokenizeProgramWithReport(atm);
+    const { source, warnings, blocks } = detokenizeProgramWithReport(atm);
     expect(source).toBe('');
-    expect(warnings.some((w) => /BASIC program/i.test(w))).toBe(true);
+    expect(warnings.some((w) => /machine-code or data/i.test(w))).toBe(true);
+    expect(blocks).toEqual([
+      {
+        id: 'imported-code-1',
+        name: 'code1',
+        address: 0x2a00,
+        bytes: payload,
+        kind: 'code',
+      },
+    ]);
   });
 
   it('warns on a truncated image with no 0D FF marker', () => {

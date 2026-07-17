@@ -129,6 +129,75 @@ describe('Commodore 64 import report (detokenizeWithReport)', () => {
   });
 });
 
+describe('C64 import blocks (detokenizeWithReport)', () => {
+  it('returns a pure code block when the load address is not $0801', () => {
+    // A .prg saved to an absolute address, e.g. $C000: not BASIC at all, so the
+    // whole payload comes back as one code block and the source stays empty.
+    const ml = [0xa9, 0x02, 0x8d, 0x20, 0xd0, 0x60]; // LDA #2 STA $D020 RTS
+    const prg = Uint8Array.from([0x00, 0xc0, ...ml]); // load address $C000
+    const { source, warnings, blocks } = detokenizeProgramWithReport(prg);
+    expect(source).toBe('');
+    expect(warnings.some((w) => /load address is \$c000/i.test(w))).toBe(true);
+    expect(blocks).toEqual([
+      {
+        id: 'imported-code-1',
+        name: 'code1',
+        address: 0xc000,
+        bytes: Uint8Array.from(ml),
+        kind: 'code',
+      },
+    ]);
+  });
+
+  it('captures trailing machine code after a $0801 program as a block', () => {
+    const { program } = tokenizeProgram('10 SYS 2064\n');
+    const ml = [0xa9, 0x00, 0x8d, 0x20, 0xd0, 0x60]; // LDA #0 STA $D020 RTS
+    const prg = Uint8Array.from([0x01, 0x08, ...program, ...ml]);
+
+    const { source, warnings, blocks } = detokenizeProgramWithReport(prg);
+    expect(source).toBe('10 SYS 2064\n');
+    expect(warnings.some((w) => /6 bytes.*machine code/i.test(w))).toBe(true);
+    expect(blocks).toHaveLength(1);
+    const block = blocks![0]!;
+    expect(block.name).toBe('code1');
+    expect(block.kind).toBe('code');
+    // The BASIC program occupies program.length bytes from $0801, so the
+    // appended ML starts right after it.
+    expect(block.address).toBe(0x0801 + program.length);
+    expect(Array.from(block.bytes)).toEqual(ml);
+  });
+
+  it('omits blocks for a clean $0801 program with no trailing bytes', () => {
+    const { program } = tokenizeProgram('10 PRINT "HI"\n');
+    const prg = Uint8Array.from([0x01, 0x08, ...program]);
+    const result = detokenizeProgramWithReport(prg);
+    expect(result.blocks).toBeUndefined();
+  });
+
+  it('returns a PET-address block via the PET variant', () => {
+    // A $0801 image handed to the PET decoder ($0401 base) is a foreign load
+    // address, so it comes back as a code block at $0801, no source.
+    const petVariant = {
+      loadAddress: 0x0401,
+      wordByToken: new Map<number, string>(),
+      machineHint: 'C64/VIC-20 or machine-code',
+      machineName: 'PET',
+    };
+    const prg = Uint8Array.from([0x01, 0x08, 0xaa, 0xbb]);
+    const { source, blocks } = detokenizeProgramWithReport(prg, petVariant);
+    expect(source).toBe('');
+    expect(blocks).toEqual([
+      {
+        id: 'imported-code-1',
+        name: 'code1',
+        address: 0x0801,
+        bytes: Uint8Array.from([0xaa, 0xbb]),
+        kind: 'code',
+      },
+    ]);
+  });
+});
+
 describe('C64 foreign-image round-trip fixtures', () => {
   it('a petcat-style listing pasted as source tokenizes and re-lists', () => {
     // Colour/cursor control codes written in petcat aliases, plus a graphics

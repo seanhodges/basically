@@ -22,6 +22,7 @@ import { decodeCassette } from '../bbcmicro/audio/cassetteDecoder';
 import { bbcKeyboardLayout } from '../bbcmicro/keyboardLayout';
 import { bbcSamples } from '../bbcmicro/samples';
 import { bbcMasterMemoryMap } from './memoryMap';
+import { bbcMasterMemoryBlocks } from './memoryBlocks';
 import { bbcMasterAiProfile } from './aiProfile';
 import {
   BbcMachine,
@@ -75,6 +76,7 @@ export const bbcmaster: Dialect = {
   displaySize: { width: BBC_DISPLAY_WIDTH, height: BBC_DISPLAY_HEIGHT },
 
   memoryMap: bbcMasterMemoryMap,
+  memoryBlocks: bbcMasterMemoryBlocks,
 
   // BBC BASIC addresses memory in hex (`?&2000`), so the map opens in Hex.
   addressNotation: 'hex',

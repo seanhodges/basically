@@ -9,6 +9,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
+  MemoryBlock,
 } from '../../dialects/types';
 import { readC64Variables, type CbmVarsLayout } from '../c64/vars';
 import { readC64Report, type CbmScreenLayout } from '../c64/reports';
@@ -382,9 +383,16 @@ export class PetMachine implements MachineEmulator {
     this.runCycles(Math.round(FRAME_CYCLES * this.speed));
   }
 
-  loadProgram(image: Uint8Array): void {
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
+    // Capture the blocks now: the injection runs inside the async IIFE below,
+    // which executes later (once the machine is ready), by which time `opts`
+    // is out of scope.
+    const blocks = opts?.blocks;
     void (async () => {
       try {
         await this.ready;
@@ -398,6 +406,17 @@ export class PetMachine implements MachineEmulator {
             throw new Error('PET did not boot to BASIC');
           }
           this.injectProgram(image);
+          // Memory blocks (machine code / data at fixed addresses, alongside the
+          // BASIC program - see MemoryBlock) go straight into RAM now, after the
+          // program has loaded and before RUN starts it, using the same raw-array
+          // write injectProgram uses.
+          if (blocks) {
+            for (const block of blocks) {
+              for (let i = 0; i < block.bytes.length; i++) {
+                this.mem[(block.address + i) & 0xffff] = block.bytes[i]! & 0xff;
+              }
+            }
+          }
           this.typeViaMatrix('RUN\r');
         } finally {
           this.injecting = false;

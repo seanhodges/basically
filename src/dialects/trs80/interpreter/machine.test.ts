@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { MemoryBlock } from '../../types';
 import { tokenizeProgram } from '../tokenizer';
 import { COLS } from '../emulator/display';
 import { trs80Samples } from '../samples';
@@ -103,6 +104,48 @@ describe('Trs80InterpreterMachine', () => {
       from = r.line;
     }
     expect(visited).toEqual([10, 20, 30]);
+  });
+
+  describe('memory blocks', () => {
+    function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
+      return {
+        id: 'b1',
+        name: 'code1',
+        address: 0x7000,
+        bytes: new Uint8Array([123]),
+        kind: 'code',
+        ...overrides,
+      };
+    }
+
+    it('injects block bytes into memory after the reset-and-zero load', () => {
+      const m = new Trs80InterpreterMachine();
+      const { program, errors } = tokenizeProgram('10 END\n');
+      expect(errors).toEqual([]);
+      m.loadProgram(program, { blocks: [block()] });
+      // load() -> reset() zeroes memory, so a read-back proves the block was
+      // written afterwards rather than being clobbered by the reset.
+      expect(m.interpreter.peek(0x7000)).toBe(123);
+      m.dispose();
+    });
+
+    it('reflects an injected block through PEEK', () => {
+      const m = new Trs80InterpreterMachine();
+      const { program, errors } = tokenizeProgram('10 PRINT PEEK(28672)\n');
+      expect(errors).toEqual([]);
+      m.loadProgram(program, { blocks: [block()] });
+      for (let i = 0; i < 5; i++) m.runFrame();
+      expect(screenRow(m, 0)).toContain('123');
+      m.dispose();
+    });
+
+    it('is a no-op when no blocks are supplied', () => {
+      const m = new Trs80InterpreterMachine();
+      const { program } = tokenizeProgram('10 END\n');
+      m.loadProgram(program);
+      expect(m.interpreter.peek(0x7000)).toBe(0);
+      m.dispose();
+    });
   });
 
   it('reports scalar variables for the watcher', () => {

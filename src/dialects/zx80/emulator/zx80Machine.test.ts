@@ -9,6 +9,7 @@ import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { NEWLINE } from '../charset';
 import { tokenizeProgram } from '../tokenizer';
 import { buildOFile } from '../ofile';
+import type { MemoryBlock } from '../../types';
 
 /** Read the whole display file back as a flat array of character codes. */
 function displayBytes(machine: Zx80Machine): number[] {
@@ -219,6 +220,55 @@ describe('Zx80Machine', () => {
     expect(rowHasInk(pixels, 0)).toBe(true); // 'H'
     expect(rowHasInk(pixels, 1)).toBe(true); // 'E'
     expect(rowHasInk(pixels, 2)).toBe(false); // garbage past DF_END: blank
+  });
+
+  describe('memory blocks', () => {
+    function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
+      return {
+        id: 'b1',
+        name: 'Data',
+        address: 0x7000, // the dialect's default block address
+        bytes: new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd, 0xee]),
+        kind: 'data',
+        ...overrides,
+      };
+    }
+
+    it('writes a block into RAM after loading a program', () => {
+      const { bytes, errors } = tokenizeProgram('10 PRINT 6+7');
+      expect(errors).toEqual([]);
+      const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+      const b = block();
+      machine.loadProgram(buildOFile(bytes), { blocks: [b] });
+      const readBack = Array.from(b.bytes, (_, i) =>
+        machine.mem.read(b.address + i),
+      );
+      expect(readBack).toEqual(Array.from(b.bytes));
+      machine.dispose();
+    });
+
+    it('leaves memory untouched when no blocks are given', () => {
+      const { bytes } = tokenizeProgram('10 PRINT 6+7');
+      const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+      machine.loadProgram(buildOFile(bytes));
+      // 0x7000 is above the used program/display area of this tiny program,
+      // so it should still be the zeroed RAM the reset left behind.
+      expect(machine.mem.read(0x7000)).toBe(0);
+      machine.dispose();
+    });
+
+    it('reflects an injected block through PEEK', () => {
+      // PEEK is a ZX80 "integral function" typed letter by letter (like ABS);
+      // 28672 == 0x7000, so this prints the injected byte.
+      const { bytes, errors } = tokenizeProgram('10 PRINT PEEK(28672)');
+      expect(errors).toEqual([]);
+      const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+      const b = block({ bytes: new Uint8Array([42]) });
+      machine.loadProgram(buildOFile(bytes), { blocks: [b] });
+      for (let i = 0; i < 40; i++) machine.runFrame();
+      expect(firstTextRow(machine)).toBe('42');
+      machine.dispose();
+    });
   });
 
   describe('step-through debugging', () => {

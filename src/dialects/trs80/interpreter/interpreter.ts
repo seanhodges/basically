@@ -774,6 +774,16 @@ export class Interpreter implements Ctx {
     else this.mem[a] = v;
   }
 
+  /**
+   * Write one byte into the emulated address space, routing 0x3C00-0x3FFF to
+   * video RAM and everything else to main memory - exactly what the BASIC
+   * {@link poke} does, but public so a host machine can inject {@link
+   * MemoryBlock} bytes after {@link load} has reset (and zeroed) memory.
+   */
+  writeMemory(addr: number, value: number): void {
+    this.poke(addr, value);
+  }
+
   // --- Ctx (used by the evaluator and builtins) --------------------------
 
   getVar(name: string): BasicValue {
