@@ -75,6 +75,30 @@ describe('zxspectrum foreign-image round-trip', () => {
     expect(warnings.join(' ')).toMatch(/\{0xNN\} escapes/);
   });
 
+  it('accepts a lone leading control-code line and re-exports it byte-exactly', () => {
+    // A whole line that is just an embedded control byte with no statement
+    // keyword - `9007 {BRIGHT 0}` in Quicksilva's "Mined Out" is the real case
+    // (raw body 0x13 0x00). The importer must not treat it as a fatal "no
+    // statement" error, or the program never builds and never runs.
+    const image = buildTap(
+      programArea([
+        { no: 10, body: [PRINT, Q, 0x48, 0x49, Q] }, // 10 PRINT "HI"
+        { no: 9007, body: [0x13, 0x00] }, // BRIGHT control byte + parameter
+        {
+          no: 9008,
+          body: [PRINT, 0x31, NUMBER_MARKER, ...encodeSpectrumNumber(1)],
+        },
+      ]),
+    );
+    const outcome = importRoundTrip(zxspectrum, image);
+    expect(outcome.errors).toEqual([]);
+    expect(hasFatalErrors(outcome.errors)).toBe(false);
+    expect(
+      outcome.byteExact,
+      `drift (${firstDifference(image, outcome.reImage)}):\n${outcome.source}`,
+    ).toBe(true);
+  });
+
   it('accepts a 0 REM protection line and re-exports it byte-exactly', () => {
     const image = buildTap(
       programArea([

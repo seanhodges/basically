@@ -96,6 +96,29 @@ describe('zxspectrum tokenizer', () => {
     ]);
   });
 
+  it('accepts a lone leading control code as a valid, non-fatal line', () => {
+    // Real tapes save lines that are just an embedded control byte with no
+    // statement keyword (e.g. `9007 {BRIGHT 0}` in Quicksilva's "Mined Out").
+    // The detokenizer reproduces them, so re-tokenizing must not fail: the
+    // line is valid and round-trips byte-exactly to its 0x13 0x00 body.
+    expect(bytes('9007 {BRIGHT 0}\n')).toEqual([
+      0x23, 0x2f, 0x03, 0x00, 0x13, 0x00, 0x0d,
+    ]);
+    // A colon-separated pair of control codes is equally fine.
+    expect(tokenizeProgram('10 {INK 2}:{PAPER 6}\n').errors).toEqual([]);
+    // The lint path (same tokenizer) must agree - no error surfaced.
+    expect(tokenizeProgram('9007 {BRIGHT 0}\n').errors).toEqual([]);
+  });
+
+  it('still rejects a leading string or bare number with no statement', () => {
+    // Only control-code / graphics escapes are the lone-content exception; a
+    // string or numeric literal with no statement keyword stays "nonsense".
+    expect(tokenizeProgram('10 "hi"\n').errors).toHaveLength(1);
+    expect(tokenizeProgram('10 {=5}\n').errors).toHaveLength(1);
+    // A control code followed by real content that isn't a keyword still fails.
+    expect(tokenizeProgram('10 {INK 2}"hi"\n').errors).toHaveLength(1);
+  });
+
   it('keeps a non-directive brace a literal outside strings', () => {
     // `{` that is not a directive is still a plain character - an invalid
     // statement start on its own.
