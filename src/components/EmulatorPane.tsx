@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { useIdeStore } from '../app/store';
 import { countProgramErrors } from '../app/useProgramStats';
+import { lintBlocks } from '../app/blockLint';
 import {
   HAS_TOUCH,
   isMobileViewport,
@@ -98,6 +99,7 @@ function fetchRom(url: string): Promise<Uint8Array> {
 export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const dialect = useIdeStore((s) => s.dialect);
   const source = useIdeStore((s) => s.source);
+  const blocks = useIdeStore((s) => s.blocks);
   const runRequest = useIdeStore((s) => s.runRequest);
   const stopRequest = useIdeStore((s) => s.stopRequest);
   const resetRequest = useIdeStore((s) => s.resetRequest);
@@ -345,6 +347,26 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           setError('Program is empty');
           return;
         }
+        // Memory blocks: gate the run exactly like the lint check above, but
+        // only for dialects that describe a memory-block layout and only when
+        // the document actually has blocks (most documents never touch this).
+        // programByteSize is the raw tokenized program's byte count
+        // (byteSize), not the built image's length - `programArea` measures
+        // slack past the program bytes themselves, and `image` can carry
+        // extra framing (e.g. the Spectrum's TAP header) that isn't part of
+        // the program area at all.
+        if (dialect.memoryBlocks && blocks.length > 0) {
+          const issues = lintBlocks(
+            blocks,
+            dialect.memoryBlocks,
+            result.byteSize,
+          );
+          const blocking = issues.find((i) => i.severity === 'error');
+          if (blocking) {
+            setError(`Block "${blocking.blockName}": ${blocking.message}`);
+            return;
+          }
+        }
         setLoading(true);
         const machine = await ensureMachine();
         if (cancelled) return;
@@ -356,7 +378,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // A start empties the virtual filesystem; only files the new run
         // saves are visible to it (a pause mid-run does NOT clear).
         emulatorVfs.clear(dialect.id);
-        machine.loadProgram(result.image);
+        machine.loadProgram(
+          result.image,
+          blocks.length > 0 ? { blocks } : undefined,
+        );
         machine.setSpeed(speed);
         firstFrameRef.current = true; // the next rendered frame hides the overlay
         // Only watch for a runtime error when this run came from "Replace + Run"

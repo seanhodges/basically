@@ -10,6 +10,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
+  MemoryBlock,
 } from '../../types';
 import { VfsTapeDeck } from './tapeDeck';
 import { SpectrumMemory } from './memory';
@@ -21,6 +22,7 @@ import { Beeper, BEEPER_SAMPLE_RATE } from './beeper';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, parseTap } from '../tapfile';
 import { PPC, PROG, STKEND, RAMTOP } from '../sysvars';
+import { injectBlocks, minBlockAddress } from './blockInject';
 
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
@@ -357,7 +359,10 @@ export class SpectrumMachine implements MachineEmulator {
     for (let i = 0; i < 4; i++) this.runFrame();
   }
 
-  loadProgram(image: Uint8Array): void {
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void {
     this.reset(); // also rewinds the VFS tape deck
     this.bootToReady();
     // Inject without an auto-start line, then drive RUN: the LOAD-with-LINE
@@ -376,6 +381,42 @@ export class SpectrumMachine implements MachineEmulator {
       this.pending = null;
       throw new Error('ZX Spectrum ROM never reached the LOAD trap');
     }
+    // Memory blocks (machine code / data at a fixed address, alongside the
+    // BASIC program - see MemoryBlock) are written directly into RAM now,
+    // after the BASIC program itself has loaded and before RUN starts it -
+    // mirroring how a real loader pokes code in once the tape has finished.
+    //
+    // A block below the ROM's default RAMTOP sits inside the RAM that
+    // GO SUB/FOR-NEXT loop control records use: that stack grows DOWN from
+    // just below RAMTOP as the program nests calls/loops, so it can grow
+    // straight over the block. A real loader protects against this with
+    // CLEAR <addr>, which lowers RAMTOP to addr and re-bases the machine
+    // stack below it, leaving everything from addr+1 upward outside BASIC's
+    // reach.
+    //
+    // Order matters, and was the opposite of the first guess - verified
+    // empirically (see spectrumMachine.test.ts "keeps a block below RAMTOP
+    // intact…"): CLEAR must run *before* the block bytes are written, not
+    // after. Typing the CLEAR command's own keystrokes still runs several
+    // frames of ordinary keyboard-scan/interrupt processing on the CURRENT
+    // (old, higher) RAMTOP-based machine stack, before the statement is even
+    // submitted - writing the block first and protecting it with CLEAR
+    // afterward left a window where that in-flight keystroke processing
+    // could still clobber a block sitting close to the old RAMTOP. Issuing
+    // CLEAR first re-bases RAMTOP and the machine stack immediately, so by
+    // the time the block bytes are written, nothing subsequent (RUN's own
+    // implicit variable/stack reset included - see the comment above -
+    // preserves whatever RAMTOP CLEAR just set) ever touches memory above
+    // the new RAMTOP again.
+    const blocks = opts?.blocks;
+    if (blocks && blocks.length > 0) {
+      const minBlockAddr = minBlockAddress(blocks);
+      if (minBlockAddr !== null) {
+        const defaultRamtop = this.memory.readWord(RAMTOP);
+        if (minBlockAddr <= defaultRamtop) this.typeClear(minBlockAddr - 1);
+      }
+      injectBlocks(this.memory, blocks);
+    }
     // Start the program with a proper RUN (R is the RUN keyword in K mode).
     // The ENTER that submits RUN is released quickly so it is no longer held
     // when the program's first statement runs - otherwise an opening INKEY$
@@ -383,6 +424,18 @@ export class SpectrumMachine implements MachineEmulator {
     this.tapKeys(['KeyR']);
     this.tapKeys(['Enter'], 2);
     for (let i = 0; i < 12; i++) this.runFrame();
+  }
+
+  /**
+   * Type `CLEAR <addr>` and submit it - X is the CLEAR keyword in K-cursor
+   * mode (see keyboardLayout.ts), addr's digits are literal (the cursor
+   * switches to L mode once a keyword expecting an argument is entered), and
+   * ENTER submits the statement as an immediate command.
+   */
+  private typeClear(addr: number): void {
+    this.tapKeys(['KeyX']);
+    for (const digit of String(addr)) this.tapKeys([`Digit${digit}`]);
+    this.tapKeys(['Enter']);
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {

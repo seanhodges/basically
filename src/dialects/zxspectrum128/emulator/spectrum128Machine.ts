@@ -10,6 +10,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
+  MemoryBlock,
 } from '../../types';
 import { VfsTapeDeck } from '../../zxspectrum/emulator/tapeDeck';
 import {
@@ -25,6 +26,10 @@ import { Beeper, BEEPER_SAMPLE_RATE } from '../../zxspectrum/emulator/beeper';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { buildTap, parseTap } from '../tapfile';
 import { PPC, PROG, STKEND, RAMTOP } from '../../zxspectrum/sysvars';
+import {
+  injectBlocks,
+  minBlockAddress,
+} from '../../zxspectrum/emulator/blockInject';
 
 const TSTATES_PER_FRAME = 70908; // 3.5469MHz / ~50.02Hz (128K ULA frame)
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
@@ -464,7 +469,10 @@ export class Spectrum128Machine implements MachineEmulator {
   /** Idle gap (frames) between keystrokes typed into a redrawn 128 listing. */
   private static readonly EDITOR_KEY_GAP = 48;
 
-  loadProgram(image: Uint8Array): void {
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void {
     this.reset();
     this.bootToScreen();
     // Select 128 BASIC, which unlocks the full RAM, PLAY and long programs.
@@ -490,16 +498,54 @@ export class Spectrum128Machine implements MachineEmulator {
       throw new Error('ZX Spectrum 128K ROM never reached the LOAD trap');
     }
     // The load leaves a "0 OK" report; ENTER dismisses it and lists the loaded
-    // program. Then type RUN as a direct command (slow gap - see typeLetters)
-    // and ENTER. The submitting ENTER is released quickly so it is not still
-    // held when the program's first statement runs (an opening INKEY$ would
-    // otherwise read ENTER instead of "").
+    // program.
     for (let i = 0; i < 30; i++) this.runFrame();
     this.tapKeys(['Enter']);
     for (let i = 0; i < 20; i++) this.runFrame();
+    // Memory blocks: see the 48K machine's loadProgram for the full reasoning
+    // (RAMTOP/CLEAR/GO SUB-stack hazard and why the order below is the one
+    // that's actually safe, verified empirically against spectrumMachine's
+    // tests). The short version: CLEAR must run *before* the block bytes are
+    // written, not after - typing CLEAR's own keystrokes still runs ordinary
+    // keyboard-scan/interrupt processing on the machine stack based on the
+    // OLD (higher) RAMTOP, so a block written first can still be clobbered
+    // while CLEAR is merely being typed. Issuing CLEAR first re-bases RAMTOP
+    // and the stack immediately, so writing the bytes afterward is safe.
+    const blocks = opts?.blocks;
+    if (blocks && blocks.length > 0) {
+      const minBlockAddr = minBlockAddress(blocks);
+      if (minBlockAddr !== null) {
+        const defaultRamtop = this.memory.readWord(RAMTOP);
+        if (minBlockAddr <= defaultRamtop) {
+          this.typeClear(minBlockAddr - 1);
+          // CLEAR's "0 OK" re-lists the program, same as LOAD's did above; let
+          // that redraw settle before typing RUN next, or its leading key(s)
+          // get dropped mid-redraw (see typeLetters).
+          for (let i = 0; i < 30; i++) this.runFrame();
+        }
+      }
+      injectBlocks(this.memory, blocks);
+    }
+    // Type RUN as a direct command (slow gap - see typeLetters) and ENTER.
+    // The submitting ENTER is released quickly so it is not still held when
+    // the program's first statement runs (an opening INKEY$ would otherwise
+    // read ENTER instead of "").
     this.typeLetters('RUN', Spectrum128Machine.EDITOR_KEY_GAP);
     this.tapKeys(['Enter'], 2);
     for (let i = 0; i < 12; i++) this.runFrame();
+  }
+
+  /**
+   * Type `CLEAR <addr>` as a direct command and submit it. 128 BASIC has no
+   * single-key keyword entry (see {@link typeLetters}), so CLEAR is spelled
+   * out in full; the address digits are literal, and ENTER submits.
+   */
+  private typeClear(addr: number): void {
+    this.typeLetters('CLEAR', Spectrum128Machine.EDITOR_KEY_GAP);
+    for (const digit of String(addr)) {
+      this.tapKeys([`Digit${digit}`], 4, Spectrum128Machine.EDITOR_KEY_GAP);
+    }
+    this.tapKeys(['Enter'], 2);
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {

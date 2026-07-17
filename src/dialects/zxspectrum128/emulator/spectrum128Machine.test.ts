@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { Spectrum128Machine } from './spectrum128Machine';
 import { tokenizeProgram } from '../tokenizer';
 import { buildTap } from '../tapfile';
+import { RAMTOP } from '../../zxspectrum/sysvars';
+import type { MemoryBlock } from '../../types';
 
 const ROM_PATH = join(__dirname, '../../../../public/roms/zxspectrum128.rom');
 const hasRom = existsSync(ROM_PATH);
@@ -316,5 +318,86 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
       }
     }
     expect(hit).toEqual({ paused: true, line: 20 });
+  });
+
+  // Stage 3 of the memory-blocks plan, verified on the 128 ROM/editor too
+  // (the plan's manual smoke explicitly calls this out): loadProgram's
+  // `opts.blocks` writes raw bytes directly into RAM before RUN, protecting
+  // blocks below RAMTOP with a CLEAR typed out as a direct command.
+  describe('memory blocks', () => {
+    function bootDefaultRamtop(): number {
+      const machine = new Spectrum128Machine({ rom });
+      const { bytes, errors } = tokenizeProgram('10 PRINT "HI"\n');
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildTap(bytes));
+      return machine.mem.readWord(RAMTOP);
+    }
+
+    it('writes a block into memory before the program runs', () => {
+      const machine = new Spectrum128Machine({ rom });
+      const { bytes, errors } = tokenizeProgram('10 PAUSE 0\n');
+      expect(errors).toEqual([]);
+      const block: MemoryBlock = {
+        id: 'b1',
+        name: 'Code',
+        address: 0x8000,
+        bytes: new Uint8Array([0x3e, 0x02, 0xd3, 0xfe, 0xc9]),
+        kind: 'code',
+      };
+      machine.loadProgram(buildTap(bytes), { blocks: [block] });
+      const readBack = Array.from(block.bytes, (_, i) =>
+        machine.mem.read(block.address + i),
+      );
+      expect(readBack).toEqual(Array.from(block.bytes));
+    });
+
+    it('reflects an injected block through PEEK', () => {
+      const machine = new Spectrum128Machine({ rom });
+      const { bytes, errors } = tokenizeProgram('10 PRINT PEEK 32768\n');
+      expect(errors).toEqual([]);
+      const block: MemoryBlock = {
+        id: 'b1',
+        name: 'Code',
+        address: 0x8000,
+        bytes: new Uint8Array([123]),
+        kind: 'data',
+      };
+      machine.loadProgram(buildTap(bytes), { blocks: [block] });
+      for (let i = 0; i < 60; i++) machine.runFrame();
+      const rows = Array.from({ length: 6 }, (_, r) =>
+        readScreen(SIGNATURES, machine, r, 0, 32),
+      );
+      expect(rows).toContainEqual(expect.stringContaining('123'));
+    });
+
+    it('keeps a block below RAMTOP intact after a program that grows the machine stack', () => {
+      const ramtop = bootDefaultRamtop();
+      const blockAddr = ramtop - 60;
+      const payload = new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd, 0xee]);
+      const machine = new Spectrum128Machine({ rom });
+      const src =
+        '10 FOR a=1 TO 2\n20 FOR b=1 TO 2\n30 FOR c=1 TO 2\n40 FOR d=1 TO 2\n' +
+        '50 FOR e=1 TO 2\n60 FOR f=1 TO 2\n70 LET x=a+b+c+d+e+f\n80 NEXT f\n' +
+        '90 NEXT e\n100 NEXT d\n110 NEXT c\n120 NEXT b\n130 NEXT a\n140 PRINT "DONE"\n';
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      const block: MemoryBlock = {
+        id: 'b1',
+        name: 'Data',
+        address: blockAddr,
+        bytes: payload,
+        kind: 'data',
+      };
+      machine.loadProgram(buildTap(bytes), { blocks: [block] });
+      for (let i = 0; i < 150; i++) machine.runFrame();
+      const rows = Array.from({ length: 6 }, (_, r) =>
+        readScreen(SIGNATURES, machine, r, 0, 32),
+      );
+      expect(rows).toContainEqual(expect.stringContaining('DONE'));
+      const readBack = Array.from(payload, (_, i) =>
+        machine.mem.read(blockAddr + i),
+      );
+      expect(readBack).toEqual(Array.from(payload));
+    });
   });
 });

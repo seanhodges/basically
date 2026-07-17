@@ -250,8 +250,18 @@ export interface MachineMemoryStats {
 
 export interface MachineEmulator {
   reset(): void;
-  /** Inject a built image (post-boot) and arrange for it to run. */
-  loadProgram(image: Uint8Array): void;
+  /**
+   * Inject a built image (post-boot) and arrange for it to run.
+   * `opts.blocks`, when given, are written directly into RAM before the
+   * program starts (machine code / data at fixed addresses alongside the
+   * BASIC program) - see {@link MemoryBlock}. Optional and machine-specific:
+   * a machine that doesn't support blocks (or a dialect without
+   * {@link Dialect.memoryBlocks}) simply ignores it.
+   */
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void;
   /** Advance emulation by one display frame (50Hz) worth of CPU time. */
   runFrame(): void;
   renderTo(ctx: CanvasRenderingContext2D): void;
