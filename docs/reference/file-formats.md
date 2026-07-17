@@ -18,6 +18,19 @@ language reference page).
 Save writes a `.txt` file by default; load accepts either `.txt` or a legacy
 `.bas` file, so programs saved by earlier versions still open unchanged.
 
+## Project bundle (.bproj)
+
+Most documents are pure BASIC and save as `.txt`. A document that also carries
+**memory blocks** — fixed-address machine code or data that loads alongside the
+program (see [Machine code & data blocks](#machine-code-data-blocks)) — saves
+instead as a `.bproj` bundle: one human-readable JSON file pairing the BASIC
+source with its blocks. Each block records its name, load address, kind (code
+or data) and raw bytes (base64-encoded), and the file notes the machine it was
+authored for. Open loads the source and blocks together, warning if the active
+machine differs; it accepts `.bproj` alongside `.txt`/`.bas`, and also
+recognises a project-shaped `.txt`. A document with no blocks never becomes a
+`.bproj` — the plain-text format is unchanged.
+
 ## Escape notation
 
 Every dialect's charset is **total**: each byte 0x00–0xFF has a text form
@@ -150,6 +163,45 @@ For a BASIC program the data is exactly the `#2900` program image the tokenizer
 produces (line records ending in `0D FF`), with `load = exec = #2900`. Import
 accepts either an `.atm` or a bare image (a bare image always begins with the
 `0D` line marker).
+
+## Machine code & data blocks
+
+Some programs load machine code or data at a fixed address alongside the BASIC
+program. The IDE keeps these as named **memory blocks**; on Run they are written
+straight into RAM before the program starts, and they travel with the document
+through the [project bundle](#project-bundle-bproj) and through
+[share links](../guide/publishing). Several native formats carry blocks on
+**import**:
+
+- **ZX Spectrum `.TAP`** — a tape holding CODE files (each with a load address)
+  imports every CODE file as a block. A tiny `LOAD "" CODE … : RANDOMIZE USR n`
+  loader chaining into a longer program is recognised: the loader is skipped
+  (with a note) and the real program imported.
+- **Commodore `.prg`** — a `.prg` whose load address is not the BASIC start
+  ($0801 C64, $1001 VIC-20, $0401 PET) imports as a single block at that address;
+  a normal program with extra bytes past the end of the tokenized program
+  imports the program plus those trailing bytes as a block.
+- **Acorn Atom `.atm`** — an `.atm` that loads somewhere other than `#2900`
+  (where BASIC text lives) is a machine-code or data file, so its payload imports
+  as a block at its load address.
+- **TRS-80 SYSTEM `.cas`** — a machine-language SYSTEM cassette imports each of
+  its address records as a block.
+
+When you Run, the IDE checks each block against the machine's memory: a block
+that would overlap the BASIC program is refused (Run reports which block), and a
+block over live hardware such as the screen is allowed but flagged.
+
+### Sidecar block files (.bin)
+
+The ZX81/ZX80 `.P`/`.O` and BBC `.bbc` formats carry only the BASIC program, so
+a block for those machines arrives as a **sidecar file**: drag a
+`<name>-<addr>.bin` onto the editor and its bytes are added to the current
+document as a block at the address in its file name. The address is hex
+(`sprite-0x8000.bin`, also `$` or `&`) or plain decimal (`sprite-32768.bin`),
+and the name part becomes the block name. Unlike importing a program file, a
+sidecar augments the open document rather than replacing it; it works on any
+machine that supports memory blocks. Blocks also travel with a document through
+a project bundle or a share link.
 
 ## Cassette audio
 

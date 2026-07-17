@@ -68,6 +68,10 @@ export default withPwa(
               { text: 'Writing BASIC', link: '/guide/writing-basic' },
               { text: 'Testing your code', link: '/guide/testing-programs' },
               { text: 'Running on real hardware', link: '/guide/hardware' },
+              {
+                text: 'Machine code & data blocks',
+                link: '/guide/machine-code',
+              },
               { text: 'Publish to Web', link: '/guide/publishing' },
               {
                 text: 'Keyboard shortcuts (desktop)',
