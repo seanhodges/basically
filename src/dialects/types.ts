@@ -362,6 +362,25 @@ export interface AiProfile {
   maxTokens: number;
 }
 
+/**
+ * A named span of raw machine bytes attached to a document, alongside its
+ * BASIC source - e.g. a hand-assembled routine or a data table destined for a
+ * fixed address. Purely a document-model concern here: nothing in the UI
+ * surfaces blocks yet, and dialect-specific validity (does `address` make
+ * sense on this machine, does `bytes` overlap the program area) is a later
+ * concern layered on top of this shape.
+ */
+export interface MemoryBlock {
+  /** Stable UI id, not semantic (e.g. not derived from `name` or `address`). */
+  id: string;
+  /** Unique per document. Matches /^[A-Za-z][A-Za-z0-9_]*$/. */
+  name: string;
+  address: number;
+  bytes: Uint8Array;
+  kind: 'code' | 'data';
+  comment?: string;
+}
+
 /** A bundled example program for a dialect. */
 export interface SampleFile {
   /** Suggested file name, e.g. "hello.bas". */

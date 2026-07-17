@@ -17,7 +17,7 @@ interface FilePickerWindow extends Window {
 const w = (typeof window !== 'undefined' ? window : {}) as FilePickerWindow;
 
 export async function openTextFile(
-  accept = '.txt,.bas',
+  accept = '.txt,.bas,.bproj',
 ): Promise<OpenedFile | null> {
   if (w.showOpenFilePicker) {
     try {
@@ -25,7 +25,12 @@ export async function openTextFile(
         types: [
           {
             description: 'BASIC source',
-            accept: { 'text/plain': ['.txt', '.bas'] },
+            accept: {
+              'text/plain': ['.txt', '.bas'],
+              // A .bproj is a project bundle (source + memory blocks); Open
+              // sniffs/parses it separately once read (see fileCommands.ts).
+              'application/json': ['.bproj'],
+            },
           },
         ],
       });
@@ -161,6 +166,63 @@ export async function saveTextFile(
   const finalName =
     trimmed === '' ? name : trimmed.includes('.') ? trimmed : `${trimmed}.txt`;
   downloadBlob(new Blob([text], { type: 'text/plain' }), finalName);
+  return finalName;
+}
+
+/**
+ * Swap a filename's extension for `.bproj` - the suggested name when Save
+ * switches to the project-bundle format because the document now carries
+ * memory blocks (see `src/app/fileCommands.ts`'s `saveDocument`).
+ */
+export function toProjectFileName(name: string): string {
+  const dot = name.lastIndexOf('.');
+  const stem = dot < 0 ? name : name.slice(0, dot);
+  return `${stem}.bproj`;
+}
+
+/**
+ * Save a `.bproj` project bundle (JSON text). Mirrors {@link saveTextFile}'s
+ * two paths (native save picker vs. download fallback) but with the project
+ * bundle's own type filter and MIME.
+ */
+export async function saveProjectFile(
+  name: string,
+  json: string,
+): Promise<string | null> {
+  if (w.showSaveFilePicker) {
+    try {
+      const handle = await w.showSaveFilePicker({
+        suggestedName: name,
+        excludeAcceptAllOption: true,
+        types: [
+          {
+            description: 'Basically project',
+            accept: { 'application/json': ['.bproj'] },
+          },
+        ],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      return handle.name;
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return null;
+      throw e;
+    }
+  }
+  const chosen =
+    typeof window !== 'undefined' && typeof window.prompt === 'function'
+      ? window.prompt('Save as', name)
+      : name;
+  if (chosen === null) return null; // cancelled
+  const trimmed = chosen.trim();
+  const finalName =
+    trimmed === ''
+      ? name
+      : trimmed.includes('.')
+        ? trimmed
+        : `${trimmed}.bproj`;
+  downloadBlob(new Blob([json], { type: 'application/json' }), finalName);
   return finalName;
 }
 
