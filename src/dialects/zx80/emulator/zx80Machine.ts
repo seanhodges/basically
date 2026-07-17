@@ -5,6 +5,7 @@ import type {
   DebugStepResult,
   MachineEmulator,
   MachineMemoryStats,
+  MemoryBlock,
 } from '../../types';
 import { Zx80Memory } from './memory';
 import { Zx81Keyboard } from '../../zx81/emulator/keyboard';
@@ -189,7 +190,10 @@ export class Zx80Machine implements MachineEmulator {
     for (let i = 0; i < 8; i++) this.runFrame();
   }
 
-  loadProgram(image: Uint8Array): void {
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void {
     this.reset();
     this.bootToReady();
     // Queue the image, then type LOAD + NEW LINE. When the ROM reaches its
@@ -203,10 +207,29 @@ export class Zx80Machine implements MachineEmulator {
       this.pendingImage = null;
       throw new Error('ZX80 ROM never reached the LOAD trap');
     }
+    // Memory blocks (fixed-address machine code / data) can't ride in the .O
+    // image - it only spans SYSVARS up to the display file - so write them
+    // straight into RAM now that the program has loaded, before RUN starts it,
+    // so the bytes are in place before the program can PEEK/CALL them.
+    this.injectBlocks(opts?.blocks);
     // The ZX80 (unlike the ZX81) does not auto-run a freshly loaded program,
     // so type RUN + NEW LINE to start it - the same thing a user would do.
     this.tapKeys(['KeyR']); // RUN
     this.tapKeys(['Enter']);
+  }
+
+  /**
+   * Write each {@link MemoryBlock}'s bytes directly into RAM - the same
+   * direct-write pattern the flash-load trap uses. No-op when `blocks` is
+   * empty or undefined.
+   */
+  private injectBlocks(blocks?: readonly MemoryBlock[]): void {
+    if (!blocks) return;
+    for (const block of blocks) {
+      for (let i = 0; i < block.bytes.length; i++) {
+        this.memory.write((block.address + i) & 0xffff, block.bytes[i]!);
+      }
+    }
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {

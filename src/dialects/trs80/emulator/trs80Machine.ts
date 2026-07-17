@@ -1,6 +1,6 @@
 import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core } from '../../../emulator/z80/z80core.js';
-import type { MachineEmulator } from '../../types';
+import type { MachineEmulator, MemoryBlock } from '../../types';
 import { Trs80Memory } from './memory';
 import { Trs80Keyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT, COLS } from './display';
@@ -131,7 +131,10 @@ export class Trs80Machine implements MachineEmulator {
    * pointers, then type RUN to start it - the authentic path a user would take.
    * `image` is the bare program bytes (the same {@link tokenizeProgram} output).
    */
-  loadProgram(image: Uint8Array): void {
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void {
     this.reset();
     this.bootToReady();
 
@@ -145,6 +148,19 @@ export class Trs80Machine implements MachineEmulator {
     this.memory.writeWord(PTR_VARTAB, end);
     this.memory.writeWord(PTR_ARYTAB, end);
     this.memory.writeWord(PTR_STREND, end);
+
+    // Memory blocks (machine code / data at a fixed address, alongside the
+    // BASIC program - see MemoryBlock) are written straight into RAM now, after
+    // the program and its pointers are in place and before RUN starts it -
+    // mirroring how a real loader pokes code in once the tape has finished.
+    const blocks = opts?.blocks;
+    if (blocks && blocks.length > 0) {
+      for (const block of blocks) {
+        for (let i = 0; i < block.bytes.length; i++) {
+          this.memory.write((block.address + i) & 0xffff, block.bytes[i]!);
+        }
+      }
+    }
 
     this.keyboard.releaseAll();
     for (const c of ['KeyR', 'KeyU', 'KeyN']) this.tapKeys([c]);

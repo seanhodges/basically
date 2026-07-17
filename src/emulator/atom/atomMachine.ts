@@ -7,6 +7,7 @@ import type {
   MachineEmulator,
   MachineFileStore,
   MachineMemoryStats,
+  MemoryBlock,
 } from '../../dialects/types';
 import {
   AtomHostKeyboard,
@@ -421,10 +422,21 @@ export class AtomMachine implements MachineEmulator {
    * Inject an Atom BASIC program image (line records from `#2900`). ROM loading
    * is async, so the work is queued; frames render the machine booting in the
    * meantime and the program starts as soon as the pipeline lands it.
+   *
+   * `opts.blocks`, when given, are raw machine code / data written straight
+   * into RAM at their fixed addresses after the BASIC program has landed and
+   * before RUN starts it - mirroring a loader poking code in once the tape has
+   * finished. Empty or absent: a plain BASIC load, unchanged.
    */
-  loadProgram(image: Uint8Array): void {
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
+    // Captured before the async IIFE so a later loadProgram() (which bumps the
+    // generation) can't swap the blocks out from under an in-flight injection.
+    const blocks = opts?.blocks;
     void (async () => {
       try {
         await this.ready;
@@ -446,6 +458,20 @@ export class AtomMachine implements MachineEmulator {
           const end = TEXT_START + image.length;
           this.cpu.writemem(TOP_OF_TEXT, end & 0xff);
           this.cpu.writemem(TOP_OF_TEXT + 1, (end >>> 8) & 0xff);
+          // Memory blocks (machine code / data at fixed addresses alongside
+          // the BASIC program - see MemoryBlock) go in now, after the program
+          // image and its top-of-text fix-up and before RUN starts. No-op when
+          // none were supplied.
+          if (blocks) {
+            for (const block of blocks) {
+              for (let i = 0; i < block.bytes.length; i++) {
+                this.cpu.writemem(
+                  (block.address + i) & 0xffff,
+                  block.bytes[i]!,
+                );
+              }
+            }
+          }
           this.typeViaMatrix('RUN\r');
           // Drop samples synthesized while booting/typing so the first
           // readAudio() doesn't replay a boot-time burst.

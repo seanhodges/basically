@@ -10,6 +10,7 @@ import { trs80AiProfile } from './aiProfile';
 import { trs80BuildTargets } from './targets';
 import { Trs80InterpreterMachine } from './interpreter/machine';
 import { trs80KeyboardLayout } from './keyboardLayout';
+import { trs80MemoryBlocks } from './memoryBlocks';
 import { trs80Samples } from './samples';
 import {
   CASSETTE_SAMPLE_RATE,
@@ -28,6 +29,7 @@ export const trs80: Dialect = {
   id: 'trs80',
   name: 'TRS-80',
   programRamBytes: 15572,
+  memoryBlocks: trs80MemoryBlocks,
   fileExtensions: ['.txt', '.bas'],
   keywords: trs80Keywords,
   charset: trs80Charset,

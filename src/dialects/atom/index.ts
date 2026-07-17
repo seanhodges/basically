@@ -15,6 +15,7 @@ import { atomAiProfile } from './aiProfile';
 import { atomKeyboardLayout } from './keyboardLayout';
 import { atomSamples } from './samples';
 import { atomMemoryMap } from './memoryMap';
+import { atomMemoryBlocks } from './memoryBlocks';
 import { AtomMachine } from '../../emulator/atom/atomMachine';
 
 /**
@@ -67,6 +68,8 @@ export const atom: Dialect = {
   // displaySize omitted: the Atom's 256x192 (CLEAR 4) matches the app default.
 
   memoryMap: atomMemoryMap,
+
+  memoryBlocks: atomMemoryBlocks,
 
   // Atom BASIC addresses memory in hex (`?#DE`), so the map opens in Hex.
   addressNotation: 'hex',

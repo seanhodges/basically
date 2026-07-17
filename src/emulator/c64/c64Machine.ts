@@ -8,6 +8,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
+  MemoryBlock,
 } from '../../dialects/types';
 import { readC64Variables } from './vars';
 import { readC64Report } from './reports';
@@ -534,9 +535,16 @@ export class C64Machine implements MachineEmulator {
     return { paused: false, line: this.currentLine() };
   }
 
-  loadProgram(image: Uint8Array): void {
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
+    // Capture the blocks now: the injection runs inside the async IIFE below,
+    // which executes later (after the machine is ready), by which time `opts`
+    // is long out of scope.
+    const blocks = opts?.blocks;
     void (async () => {
       try {
         await this.ready;
@@ -555,6 +563,11 @@ export class C64Machine implements MachineEmulator {
             throw new Error('C64 did not boot to BASIC');
           }
           loadPrg(c64, image);
+          // Memory blocks (machine code / data at fixed addresses, alongside the
+          // BASIC program - see MemoryBlock) are written directly into RAM now,
+          // after the BASIC program has loaded and before RUN starts it, so a
+          // SYS/POKE in the program can reach them immediately.
+          if (blocks && blocks.length > 0) this.injectBlocks(c64, blocks);
           c64.runloop.type('RUN\r');
         } finally {
           this.injecting = false;
@@ -566,6 +579,31 @@ export class C64Machine implements MachineEmulator {
         }
       }
     })();
+  }
+
+  /**
+   * Write each {@link MemoryBlock}'s bytes directly into RAM through the CPU
+   * bus. The write is bracketed with the same all-RAM banking `loadPrg`
+   * (viciious/tools/loadPrg.js) uses: the $00/$01 CPU port is saved, set to
+   * page every ROM/IO bank out so the bytes always land on RAM (even under
+   * $A000-$BFFF/$D000-$DFFF/$E000-$FFFF), then restored - so the machine's
+   * memory map is exactly as it was afterward.
+   */
+  private injectBlocks(c64: C64, blocks: readonly MemoryBlock[]): void {
+    const { cpuRead, cpuWrite } = c64.wires;
+    // Record the current memory-map configuration, then page in all-RAM.
+    const dir = cpuRead(0);
+    const port = cpuRead(1);
+    cpuWrite(0, 0b111);
+    cpuWrite(1, 0);
+    for (const block of blocks) {
+      for (let i = 0; i < block.bytes.length; i++) {
+        cpuWrite((block.address + i) & 0xffff, block.bytes[i]!);
+      }
+    }
+    // Restore the CPU port, returning the memory mapping to what it was.
+    cpuWrite(0, dir);
+    cpuWrite(1, port);
   }
 
   /**

@@ -1,4 +1,4 @@
-import type { DetokenizeResult } from '../types';
+import type { DetokenizeResult, MemoryBlock } from '../types';
 import { c64Charset } from './charset';
 import { c64WordByToken } from './keywords';
 
@@ -84,7 +84,12 @@ export function detokenizeProgramWithReport(
   variant: CbmDetokenizeVariant = C64_VARIANT,
 ): DetokenizeResult {
   const warnings: string[] = [];
-  let program = image;
+
+  // A load address that isn't this machine's BASIC start means the file isn't a
+  // BASIC program here at all - it's raw code/data destined for that address (a
+  // .prg saved from an absolute-mode SAVE, or another machine's program). There
+  // is no BASIC to decode, so keep the source empty and hand the whole payload
+  // back as a single code block at its own load address.
   if (image.length >= 2) {
     const loadAddr = image[0]! | (image[1]! << 8);
     if (loadAddr !== variant.loadAddress) {
@@ -93,9 +98,23 @@ export function detokenizeProgramWithReport(
           `this may be a ${variant.machineHint} file rather than a ` +
           `${variant.machineName} BASIC program.`,
       );
+      return {
+        source: '',
+        warnings,
+        blocks: [
+          {
+            id: 'imported-code-1',
+            name: 'code1',
+            address: loadAddr,
+            bytes: Uint8Array.from(image.subarray(2)),
+            kind: 'code',
+          },
+        ],
+      };
     }
-    program = image.subarray(2);
   }
+
+  const program = image.length >= 2 ? image.subarray(2) : image;
 
   const decoded = decodeLinkedProgram(program, variant.wordByToken);
   if (decoded.truncated) {
@@ -103,6 +122,7 @@ export function detokenizeProgramWithReport(
       'The program looks truncated — the data ends before the end-of-program marker.',
     );
   }
+  const blocks: MemoryBlock[] = [];
   const trailing = program.length - decoded.end;
   if (!decoded.truncated && trailing > 0) {
     warnings.push(
@@ -110,8 +130,22 @@ export function detokenizeProgramWithReport(
         `marker were not decoded (likely appended machine code); they are not ` +
         `preserved on re-export.`,
     );
+    // Preserve the appended machine code as a block at the address it followed
+    // the BASIC program in memory: program bytes start at the load address, so
+    // the trailing bytes at offset `end` live at loadAddress + end.
+    blocks.push({
+      id: 'imported-code-1',
+      name: 'code1',
+      address: variant.loadAddress + decoded.end,
+      bytes: Uint8Array.from(program.subarray(decoded.end)),
+      kind: 'code',
+    });
   }
-  return { source: decoded.source, warnings };
+  return {
+    source: decoded.source,
+    warnings,
+    ...(blocks.length > 0 ? { blocks } : {}),
+  };
 }
 
 interface DecodeResult {

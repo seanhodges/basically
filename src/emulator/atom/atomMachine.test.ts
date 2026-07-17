@@ -3,7 +3,11 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { AtomMachine, configureNodeRomPath } from './atomMachine';
 import { tokenizeProgram } from '../../dialects/atom/tokenizer';
-import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
+import type {
+  MachineFileEntry,
+  MachineFileStore,
+  MemoryBlock,
+} from '../../dialects/types';
 import { WRITE_BIT } from '../memoryActivityBuffer';
 
 // Point jsbeeb's ROM loader at the real ROMs shipped in its npm package.
@@ -191,6 +195,38 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     // …and the top-of-text pointer at #0D/#0E points just past it.
     const top = cpu.readmem(0x0d) | (cpu.readmem(0x0e) << 8);
     expect(top).toBe(0x2900 + bytes.length);
+    machine.dispose();
+  }, 60000);
+
+  it('writes a memory block into RAM before running the program', async () => {
+    const machine = new AtomMachine();
+    const { bytes } = tokenizeProgram('10 PRINT "HI"\n');
+    const block: MemoryBlock = {
+      id: 'b1',
+      name: 'code1',
+      address: 0x5000,
+      bytes: new Uint8Array([0x12, 0x34, 0x56, 0x78, 0x9a]),
+      kind: 'code',
+    };
+    machine.loadProgram(bytes, { blocks: [block] });
+    // Wait until the program has been injected and run (proof the injection,
+    // block writes included, has completed).
+    await runUntil(machine, () => screenText(machine).includes('HI'));
+    const cpu = machine.processor;
+    for (let i = 0; i < block.bytes.length; i++) {
+      expect(cpu.readmem(block.address + i)).toBe(block.bytes[i]);
+    }
+    machine.dispose();
+  }, 60000);
+
+  it('loads a plain program unchanged when no blocks are supplied', async () => {
+    const machine = new AtomMachine();
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO ATOM"\n20 END\n');
+    machine.loadProgram(bytes, {});
+    const ran = await runUntil(machine, () =>
+      screenText(machine).includes('HELLO ATOM'),
+    );
+    expect(ran).toBe(true);
     machine.dispose();
   }, 60000);
 

@@ -24,12 +24,14 @@ import { Zx80Machine } from './emulator/zx80Machine';
 import { zx80KeyboardLayout } from './keyboardLayout';
 import { zx80Samples } from './samples';
 import { zx80MemoryMap } from './memoryMap';
+import { zx80MemoryBlocks } from './memoryBlocks';
 
 export const zx80: Dialect = {
   id: 'zx80',
   name: 'ZX80',
   programRamBytes: 15360,
   memoryMap: zx80MemoryMap,
+  memoryBlocks: zx80MemoryBlocks,
 
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',

@@ -7,6 +7,7 @@ import {
 import { petKeywords } from './keywords';
 import { petCharset } from './charset';
 import { petMemoryMap } from './memoryMap';
+import { petMemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { petLanguageSupport, petCompletionSource } from './language';
@@ -35,6 +36,7 @@ export const pet: Dialect = {
   // BASIC 4.0 "31743 BYTES FREE" on a 32KB machine.
   programRamBytes: 31743,
   memoryMap: petMemoryMap,
+  memoryBlocks: petMemoryBlocks,
 
   // Commodore BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',

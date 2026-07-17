@@ -10,6 +10,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
+  MemoryBlock,
 } from '../../dialects/types';
 import { readC64Variables } from '../c64/vars';
 import { readC64Report, type CbmScreenLayout } from '../c64/reports';
@@ -357,9 +358,16 @@ export class Vic20Machine implements MachineEmulator {
     return { paused: false, line: this.currentLine() };
   }
 
-  loadProgram(image: Uint8Array): void {
+  loadProgram(
+    image: Uint8Array,
+    opts?: { blocks?: readonly MemoryBlock[] },
+  ): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
+    // Capture the blocks now: the injection runs inside the async IIFE below,
+    // which executes later (once the machine is ready), by which time `opts`
+    // is out of scope.
+    const blocks = opts?.blocks;
     void (async () => {
       try {
         await this.ready;
@@ -373,6 +381,18 @@ export class Vic20Machine implements MachineEmulator {
             throw new Error('VIC-20 did not boot to BASIC');
           }
           this.injectProgram(image);
+          // Memory blocks (machine code / data at fixed addresses, alongside the
+          // BASIC program - see MemoryBlock) go straight into RAM now, after the
+          // program has loaded and before RUN starts it, using the same raw-array
+          // write injectProgram uses.
+          if (blocks) {
+            const mem = this.memory.mem;
+            for (const block of blocks) {
+              for (let i = 0; i < block.bytes.length; i++) {
+                mem[(block.address + i) & 0xffff] = block.bytes[i]! & 0xff;
+              }
+            }
+          }
           this.queueRun();
         } finally {
           this.injecting = false;

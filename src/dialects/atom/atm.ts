@@ -81,6 +81,31 @@ export function stripAtmHeader(file: Uint8Array): Uint8Array {
   );
 }
 
+/**
+ * Read the header fields and payload of an `.atm` file, making no judgement
+ * about its load address. Unlike {@link stripAtmHeader} - the BASIC-only fast
+ * path that rejects anything that isn't a `#2900` text image - this is how the
+ * importer recovers a machine-code or data `.atm` (one that loads somewhere
+ * other than `#2900`) as a memory block. `data` is the payload up to the
+ * header's declared length, clamped to the bytes actually present.
+ *
+ * The caller must have already established `file` is an `.atm` and not a bare
+ * `#2900` image (`file.length >= ATM_HEADER_SIZE` and `file[0] !== 0x0d`); see
+ * {@link import('./detokenizer').detokenizeProgramWithReport}.
+ */
+export function parseAtm(file: Uint8Array): {
+  name: string;
+  load: number;
+  exec: number;
+  data: Uint8Array;
+} {
+  const load = file[16]! | (file[17]! << 8);
+  const exec = file[18]! | (file[19]! << 8);
+  const length = file[20]! | (file[21]! << 8);
+  const data = file.subarray(ATM_HEADER_SIZE, ATM_HEADER_SIZE + length);
+  return { name: atmName(file), load, exec, data };
+}
+
 /** Read the program name from an `.atm` header (empty for a bare image). */
 export function atmName(file: Uint8Array): string {
   if (file.length < ATM_HEADER_SIZE || file[0] === 0x0d) return '';
