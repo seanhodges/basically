@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MemoryBlock, MemoryBlocksSupport } from '../dialects/types';
 import { lintBlocks } from './blockLint';
+import { spectrumMemoryBlocks } from '../dialects/zxspectrum/memoryBlocks';
 
 /**
  * A small, easy-to-reason-about support fixture rather than the real Spectrum
@@ -281,5 +282,44 @@ describe('lintBlocks', () => {
     const b = block({ name: '0bad', address: 0x0000 });
     const issues = lintBlocks([b], SUPPORT, 0);
     expect(issues.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // Everything above uses SUPPORT, a fixture chosen for easy boundary math.
+  // This wires the *real* dialect figures (`spectrumMemoryBlocks`) through the
+  // linter, so the two agree on an actual machine's memory map, not just a
+  // stand-in.
+  describe('real ZX Spectrum figures (spectrumMemoryBlocks)', () => {
+    it('reports no error issues for a valid code block at the suggested default address', () => {
+      const b: MemoryBlock = {
+        id: 'blk-1',
+        name: 'Code',
+        address: spectrumMemoryBlocks.defaultAddress,
+        bytes: Uint8Array.from([0x3e, 0x02, 0xd3, 0xfe, 0xc9]),
+        kind: 'code',
+      };
+      const issues = lintBlocks([b], spectrumMemoryBlocks, 100);
+      expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
+    });
+
+    it('warns (not errors) on a block overlapping the reserved display area at 0x4000', () => {
+      const b: MemoryBlock = {
+        id: 'blk-2',
+        name: 'Screen',
+        address: 0x4000,
+        bytes: Uint8Array.from([1, 2, 3]),
+        kind: 'data',
+      };
+      const issues = lintBlocks([b], spectrumMemoryBlocks, 100);
+      expect(issues).toContainEqual(
+        expect.objectContaining({
+          blockId: b.id,
+          kind: 'reserved-overlap',
+          severity: 'warning',
+        }),
+      );
+      expect(
+        issues.some((i) => i.blockId === b.id && i.severity === 'error'),
+      ).toBe(false);
+    });
   });
 });

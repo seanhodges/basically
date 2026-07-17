@@ -316,6 +316,12 @@ interface IdeState {
    * source (Open of a `.bproj`); otherwise `blocks` resets to `[]` when this
    * is a named load (a genuinely different program) and is left untouched for
    * an in-place apply (AI Replace/Merge, `fileName` omitted).
+   *
+   * `opts.blocks` MUST already be valid and unique (see `assertValidBlocks`) -
+   * unlike `setBlocks`/`upsertBlock`, this action installs them as-is without
+   * re-validating. Sound today because every caller pre-validates (`.bproj`
+   * Open goes through `parseProject`/`parseBlocks`, which throws on invalid or
+   * duplicate names); any future load path must do the same.
    */
   replaceDocument(
     text: string,
@@ -331,6 +337,12 @@ interface IdeState {
    * `opts.blocks` installs memory blocks atomically with `text` (a `.bproj`
    * import); always resets to `[]` when omitted, since this is always a
    * different program.
+   *
+   * `opts.blocks` MUST already be valid and unique (see `assertValidBlocks`) -
+   * unlike `setBlocks`/`upsertBlock`, this action installs them as-is without
+   * re-validating. Sound today because the only caller (import) runs its
+   * blocks through the Stage-4 sanitizer, which guarantees valid unique names;
+   * any future load path must pre-validate the same way.
    */
   loadUnsavedDocument(
     text: string,

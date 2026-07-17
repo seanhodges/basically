@@ -399,5 +399,14 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
       );
       expect(readBack).toEqual(Array.from(payload));
     });
+
+    it('leaves memory untouched when no blocks are given', () => {
+      const machine = new Spectrum128Machine({ rom });
+      const { bytes, errors } = tokenizeProgram('10 PRINT "HELLO"\n');
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildTap(bytes));
+      for (let i = 0; i < 50; i++) machine.runFrame();
+      expect(readScreen(SIGNATURES, machine, 0, 0, 5)).toBe('HELLO');
+    });
   });
 });

@@ -43,18 +43,23 @@ export function newDocument(): void {
  * {@link confirmDiscard}). A `.bproj` - or a `.txt` that sniffs as one, see
  * {@link isProjectFile} - is parsed as a project bundle and installs its
  * source and memory blocks atomically; anything else loads as plain source
- * with no blocks, exactly as before.
+ * with no blocks, exactly as before. If the project was saved under a
+ * different dialect than the one currently active, the document still loads
+ * but a status notice warns that its memory blocks may not work (see
+ * {@link dialectMismatchNotice}) - no auto-switch.
  */
 export async function openDocument(): Promise<void> {
   if (!confirmDiscard()) return;
   const opened = await openTextFile();
   if (!opened) return;
-  const { replaceDocument, setStatusNotice } = useIdeStore.getState();
+  const { dialect, replaceDocument, setStatusNotice } = useIdeStore.getState();
   const ext = fileExtension(opened.name);
   if (ext === '.bproj' || (ext === '.txt' && isProjectFile(opened.text))) {
     try {
       const parsed = parseProject(opened.text);
       replaceDocument(parsed.source, opened.name, { blocks: parsed.blocks });
+      const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
+      if (mismatch) setStatusNotice(mismatch);
     } catch (e) {
       setStatusNotice(
         e instanceof Error ? e.message : `Could not open ${opened.name}.`,
@@ -91,6 +96,21 @@ function fileExtension(name: string): string {
 }
 
 /**
+ * Status notice for a `.bproj` whose saved `dialect` differs from the
+ * currently-active one, or `null` when they match. A warning only - Open
+ * still installs the source/blocks as parsed (see the doc comments above);
+ * auto-switching dialects is out of scope here and belongs to a later
+ * share/compatibility stage.
+ */
+function dialectMismatchNotice(
+  parsedDialect: string,
+  activeDialectId: string,
+): string | null {
+  if (parsedDialect === activeDialectId) return null;
+  return `This project was saved for "${parsedDialect}" but the active dialect is "${activeDialectId}"; its memory blocks may not work here.`;
+}
+
+/**
  * Open a file dropped onto the editor. A `.bproj` project bundle - or a
  * `.txt` that sniffs as one, see {@link isProjectFile} - installs its source
  * and memory blocks atomically, like File → Open; a plain `.txt`/`.bas` file
@@ -99,7 +119,8 @@ function fileExtension(name: string): string {
  * detokenized back into the editor exactly like Import. All paths are guarded
  * by {@link confirmDiscard}, so the user is warned before losing unsaved
  * changes. Unsupported types and read/detokenize/parse failures surface a
- * status-bar notice.
+ * status-bar notice, as does a `.bproj` saved under a different dialect (see
+ * {@link dialectMismatchNotice}) - a warning only, the document still loads.
  */
 export async function openDroppedFile(file: File): Promise<void> {
   const store = useIdeStore.getState();
@@ -114,12 +135,16 @@ export async function openDroppedFile(file: File): Promise<void> {
       if (!confirmDiscard()) return;
       const parsed = parseProject(await file.text());
       replaceDocument(parsed.source, file.name, { blocks: parsed.blocks });
+      const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
+      if (mismatch) setStatusNotice(mismatch);
     } else if (ext === '.bas' || ext === '.txt') {
       const text = await file.text();
       if (ext === '.txt' && isProjectFile(text)) {
         if (!confirmDiscard()) return;
         const parsed = parseProject(text);
         replaceDocument(parsed.source, file.name, { blocks: parsed.blocks });
+        const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
+        if (mismatch) setStatusNotice(mismatch);
       } else {
         if (!confirmDiscard()) return;
         replaceDocument(text, file.name);

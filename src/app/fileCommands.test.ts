@@ -190,4 +190,26 @@ describe('openDroppedFile', () => {
     await dropFile('game.bproj', json);
     expect(useIdeStore.getState().source).toBe('10 REM OLD'); // unchanged
   });
+
+  it('warns when a .bproj was saved for a different dialect than the active one', async () => {
+    // The active dialect (set in beforeEach) is zx81; this project was saved
+    // under commodore64.
+    const json = serializeProject('commodore64', '10 PRINT "PROJ"', [BLOCK]);
+    await dropFile('game.bproj', json);
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 PRINT "PROJ"'); // still loads - a warning only
+    expect(s.blocks).toEqual([BLOCK]);
+    expect(s.statusNotice).toBe(
+      'This project was saved for "commodore64" but the active dialect is ' +
+        '"zx81"; its memory blocks may not work here.',
+    );
+  });
+
+  it('does not warn when a .bproj matches the active dialect', async () => {
+    const json = serializeProject('zx81', '10 PRINT "PROJ"', [BLOCK]);
+    await dropFile('game.bproj', json);
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 PRINT "PROJ"');
+    expect(s.statusNotice).toBeNull();
+  });
 });
