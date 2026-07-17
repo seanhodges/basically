@@ -24,7 +24,7 @@ import { readSpectrumReport } from '../../zxspectrum/reports';
 import { SpectrumKeyboard } from './keyboard';
 import { Beeper, BEEPER_SAMPLE_RATE } from '../../zxspectrum/emulator/beeper';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
-import { buildTap, parseTap } from '../tapfile';
+import { buildTap, codeTap, parseTap } from '../tapfile';
 import { PPC, PROG, STKEND, RAMTOP } from '../../zxspectrum/sysvars';
 import {
   injectBlocks,
@@ -471,7 +471,7 @@ export class Spectrum128Machine implements MachineEmulator {
 
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
+    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
   ): void {
     this.reset();
     this.bootToScreen();
@@ -525,12 +525,32 @@ export class Spectrum128Machine implements MachineEmulator {
         }
       }
       injectBlocks(this.memory, blocks);
+      // Also place each block on the VFS tape as a CODE file so the program's
+      // own `LOAD "name" CODE` finds it (see the 48K machine's loadProgram).
+      if (this.deck) {
+        for (const block of blocks) {
+          this.deck.addFile(
+            block.name,
+            codeTap(block.name, block.address, block.bytes),
+            'code',
+          );
+        }
+      }
     }
-    // Type RUN as a direct command (slow gap - see typeLetters) and ENTER.
+    // Type RUN as a direct command (slow gap - see typeLetters) and ENTER. A
+    // `RUN <line>` starts from the .TAP's auto-start line rather than the first
+    // line (see the 48K machine's loadProgram); RUN - unlike the ROM's
+    // LOAD-with-LINE auto-run - performs the CLEAR that fixes the pointers.
     // The submitting ENTER is released quickly so it is not still held when
     // the program's first statement runs (an opening INKEY$ would otherwise
     // read ENTER instead of "").
     this.typeLetters('RUN', Spectrum128Machine.EDITOR_KEY_GAP);
+    const autoStart = opts?.autoStart;
+    if (typeof autoStart === 'number') {
+      for (const digit of String(autoStart)) {
+        this.tapKeys([`Digit${digit}`], 4, Spectrum128Machine.EDITOR_KEY_GAP);
+      }
+    }
     this.tapKeys(['Enter'], 2);
     for (let i = 0; i < 12; i++) this.runFrame();
   }

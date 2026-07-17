@@ -20,7 +20,7 @@ import { SpectrumKeyboard } from './keyboard';
 import { applySinclairJoystick, kempstonByte } from './joystick';
 import { Beeper, BEEPER_SAMPLE_RATE } from './beeper';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
-import { buildTap, parseTap } from '../tapfile';
+import { buildTap, codeTap, parseTap } from '../tapfile';
 import { PPC, PROG, STKEND, RAMTOP } from '../sysvars';
 import { injectBlocks, minBlockAddress } from './blockInject';
 
@@ -361,7 +361,7 @@ export class SpectrumMachine implements MachineEmulator {
 
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
+    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
   ): void {
     this.reset(); // also rewinds the VFS tape deck
     this.bootToReady();
@@ -416,12 +416,35 @@ export class SpectrumMachine implements MachineEmulator {
         if (minBlockAddr <= defaultRamtop) this.typeClear(minBlockAddr - 1);
       }
       injectBlocks(this.memory, blocks);
+      // Also place each block on the VFS tape as a CODE file, so the program's
+      // own `LOAD "name" CODE` (common in tape front-ends) finds it - the ROM
+      // matches the header name/type itself. The block name doubles as the tape
+      // name; a name rewritten by import sanitization won't match a LOAD by its
+      // original name, but the common case (already an identifier) does.
+      if (this.deck) {
+        for (const block of blocks) {
+          this.deck.addFile(
+            block.name,
+            codeTap(block.name, block.address, block.bytes),
+            'code',
+          );
+        }
+      }
     }
-    // Start the program with a proper RUN (R is the RUN keyword in K mode).
+    // Start the program with a proper RUN (R is the RUN keyword in K mode). A
+    // `RUN <line>` starts from the .TAP's auto-start line (Interface 1 loaders
+    // and tape front-ends are only correct entered there, not at line 1);
+    // `RUN` alone runs from the first line. Either way RUN - unlike the ROM's
+    // LOAD-with-LINE auto-run, which GO TOs - performs the CLEAR that sets up
+    // the variable/stack pointers (see the note at the top of loadProgram).
     // The ENTER that submits RUN is released quickly so it is no longer held
     // when the program's first statement runs - otherwise an opening INKEY$
     // would read the ENTER key instead of "".
     this.tapKeys(['KeyR']);
+    const autoStart = opts?.autoStart;
+    if (typeof autoStart === 'number') {
+      for (const digit of String(autoStart)) this.tapKeys([`Digit${digit}`]);
+    }
     this.tapKeys(['Enter'], 2);
     for (let i = 0; i < 12; i++) this.runFrame();
   }

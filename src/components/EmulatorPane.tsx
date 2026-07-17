@@ -100,6 +100,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const dialect = useIdeStore((s) => s.dialect);
   const source = useIdeStore((s) => s.source);
   const blocks = useIdeStore((s) => s.blocks);
+  const autoStart = useIdeStore((s) => s.autoStart);
   const runRequest = useIdeStore((s) => s.runRequest);
   const stopRequest = useIdeStore((s) => s.stopRequest);
   const resetRequest = useIdeStore((s) => s.resetRequest);
@@ -378,9 +379,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // A start empties the virtual filesystem; only files the new run
         // saves are visible to it (a pause mid-run does NOT clear).
         emulatorVfs.clear(dialect.id);
+        const loadOpts = {
+          ...(blocks.length > 0 ? { blocks } : {}),
+          ...(autoStart !== null ? { autoStart } : {}),
+        };
         machine.loadProgram(
           result.image,
-          blocks.length > 0 ? { blocks } : undefined,
+          Object.keys(loadOpts).length > 0 ? loadOpts : undefined,
         );
         machine.setSpeed(speed);
         firstFrameRef.current = true; // the next rendered frame hides the overlay

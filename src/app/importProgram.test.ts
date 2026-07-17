@@ -80,6 +80,30 @@ describe('importProgram', () => {
     expect(blocks).toBeUndefined();
   });
 
+  it("carries a .TAP header's auto-start line through as autoStart", () => {
+    const program = zxspectrum.tokenize(
+      '10 PRINT "HI"\n20 GO TO 10\n',
+    ).programBytes;
+    // buildTap defaults the auto-start line to the first line (10).
+    const { autoStart } = importProgram(zxspectrum, buildTap(program));
+    expect(autoStart).toBe(10);
+  });
+
+  it('omits autoStart for a load-only .TAP (no auto-run line)', () => {
+    const program = zxspectrum.tokenize('10 PRINT "HI"\n').programBytes;
+    const { autoStart } = importProgram(
+      zxspectrum,
+      buildTap(program, { autoStart: null }),
+    );
+    expect(autoStart).toBeUndefined();
+  });
+
+  it('omits autoStart for a dialect that reports none', () => {
+    const image = commodore64.tokenize('10 PRINT "HI"\n').image;
+    const { autoStart } = importProgram(commodore64, image);
+    expect(autoStart).toBeUndefined();
+  });
+
   it('reports nothing for clean text and formats the status line', () => {
     expect(importFidelityWarnings(commodore64, '10 PRINT "OK"\n')).toEqual([]);
     expect(importStatusMessage('demo.prg', [])).toBe('Imported demo.prg.');

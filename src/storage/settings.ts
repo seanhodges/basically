@@ -34,6 +34,7 @@ const KEYS = {
   autosaveDoc: 'mbide.autosave.doc',
   autosaveName: 'mbide.autosave.name',
   autosaveBlocks: 'mbide.autosave.blocks',
+  autosaveAutoStart: 'mbide.autosave.autostart',
   aiConversation: 'mbide.autosave.ai',
   dialectId: 'mbide.dialectId',
   autoLineNumbering: 'mbide.autoLineNumbering',
@@ -448,10 +449,22 @@ function loadAutosaveBlocks(): MemoryBlock[] {
   }
 }
 
+/**
+ * The autosaved auto-start line, or `null` when none is stored or the stored
+ * value is not a finite integer (defensive, like {@link loadAutosaveBlocks}).
+ */
+function loadAutosaveAutoStart(): number | null {
+  const raw = readSessionFirst(KEYS.autosaveAutoStart);
+  if (raw === null) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) ? n : null;
+}
+
 export function loadAutosave(): {
   name: string;
   text: string;
   blocks: MemoryBlock[];
+  autoStart: number | null;
 } | null {
   // Reading the doc first adopts the pair's storage into the session slot, so
   // the name/blocks reads that follow resolve from the same storage.
@@ -461,6 +474,7 @@ export function loadAutosave(): {
     name: readSessionFirst(KEYS.autosaveName) ?? UNTITLED_FILE_NAME,
     text,
     blocks: loadAutosaveBlocks(),
+    autoStart: loadAutosaveAutoStart(),
   };
 }
 
@@ -468,6 +482,7 @@ export function saveAutosave(
   name: string,
   text: string,
   blocks: readonly MemoryBlock[] = [],
+  autoStart: number | null = null,
 ): void {
   try {
     writeThrough(KEYS.autosaveDoc, text);
@@ -479,6 +494,11 @@ export function saveAutosave(
         KEYS.autosaveBlocks,
         JSON.stringify(serializeBlocks(blocks)),
       );
+    }
+    if (autoStart === null) {
+      removeBoth(KEYS.autosaveAutoStart);
+    } else {
+      writeThrough(KEYS.autosaveAutoStart, String(autoStart));
     }
   } catch {
     // quota exceeded - autosave is best-effort
@@ -499,6 +519,7 @@ export function clearAutosave(): void {
   removeBoth(KEYS.autosaveDoc);
   removeBoth(KEYS.autosaveName);
   removeBoth(KEYS.autosaveBlocks);
+  removeBoth(KEYS.autosaveAutoStart);
 }
 
 /**

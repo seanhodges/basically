@@ -148,6 +148,18 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     expect(readScreen(SIGNATURES, machine, 0, 0, 5)).toBe('HELLO');
   });
 
+  it('runs from the .TAP auto-start line, not the first line', () => {
+    const machine = new Spectrum128Machine({ rom });
+    const { bytes, errors } = tokenizeProgram(
+      '10 PRINT "AAA"\n20 PRINT "BBB"\n30 PRINT "CCC"\n',
+    );
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildTap(bytes), { autoStart: 30 });
+    for (let i = 0; i < 50; i++) machine.runFrame();
+    // RUN 30 starts at line 30, so only "CCC" prints (lines 10/20 skipped).
+    expect(readScreen(SIGNATURES, machine, 0, 0, 3)).toBe('CCC');
+  });
+
   it('round-trips a data SAVE/LOAD through the virtual filesystem', () => {
     const files = new Map<string, { data: Uint8Array; kind?: string }>();
     const store = {

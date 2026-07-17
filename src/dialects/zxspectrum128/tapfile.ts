@@ -2,6 +2,7 @@
 // the image builder/parser is reused verbatim. See docs/dialect-plans/zxspectrum128.md.
 export {
   buildTap,
+  codeTap,
   parseTap,
   parseTapWithReport,
   parseTapAllFiles,
