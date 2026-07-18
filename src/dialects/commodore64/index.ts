@@ -4,7 +4,12 @@ import { c64Keywords } from './keywords';
 import { c64MemoryMap } from './memoryMap';
 import { c64MemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
+import {
+  detokenizeProgram,
+  detokenizeProgramWithReport,
+  detokenizeT64WithReport,
+} from './detokenizer';
+import { isT64 } from './t64';
 import { c64BuildTargets } from './targets';
 import { c64LanguageSupport, c64CompletionSource } from './language';
 import { c64VariableErrors } from '../../editor/variableLint';
@@ -66,6 +71,7 @@ export const commodore64: Dialect = {
   },
 
   detokenizeWithReport(image: Uint8Array) {
+    if (isT64(image)) return detokenizeT64WithReport(image);
     return detokenizeProgramWithReport(image);
   },
 
@@ -99,7 +105,10 @@ export const commodore64: Dialect = {
 
   buildTargets: c64BuildTargets,
 
-  binaryImports: [{ extension: '.prg', label: 'Import .PRG…' }],
+  binaryImports: [
+    { extension: '.prg', label: 'Import .PRG…' },
+    { extension: '.t64', label: 'Import .T64…' },
+  ],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,

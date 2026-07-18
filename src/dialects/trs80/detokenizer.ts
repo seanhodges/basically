@@ -1,12 +1,16 @@
-import type { DetokenizeResult, MemoryBlock } from '../types';
+import type { DetokenizeResult, MemoryBlock, TapeFile } from '../types';
 import { decodeSpan } from './charset';
 import { trs80WordByToken } from './keywords';
+import { codeFilesToBlocks, type ImportedCodeFile } from '../importBlocks';
+import { PROG_START } from './tokenizer';
 import {
   isCasImage,
   parseCasImage,
-  parseSystemCas,
+  parseCasAllFiles,
   casFormat,
   MODEL_III_MESSAGE,
+  type CasBasicFile,
+  type CasSystemFile,
 } from './casfile';
 
 const QUOTE = 0x22;
@@ -39,11 +43,27 @@ export function detokenizeProgram(image: Uint8Array): string {
   return decodeLinkedProgram(program).source;
 }
 
+/** Format a byte address as `0xNNNN` for warning messages. */
+function hex(n: number): string {
+  return `0x${n.toString(16).toUpperCase().padStart(4, '0')}`;
+}
+
 /**
  * Like {@link detokenizeProgram}, but for the binary-import paths: it also
- * reports what the text form could not capture - a truncated image, trailing
- * bytes past the end-of-program marker (likely appended machine code), or a
- * Model III 1500-baud cassette this decoder does not read.
+ * reports what the text form could not capture - a truncated image, a Model
+ * III 1500-baud cassette this decoder does not read - and recovers everything
+ * a multi-file tape carries beyond the one program opened for editing,
+ * mirroring the Spectrum's multi-part `.TAP` import:
+ *
+ * - The largest BASIC program on the tape (tape order breaking ties) becomes
+ *   the editable source; other BASIC programs are preserved verbatim as
+ *   {@link TapeFile}s on the document.
+ * - SYSTEM (machine-language) files import as one memory block per data
+ *   record, entry address kept on the record that contains it, so the code
+ *   lands back at its load address on Run. Bad-checksum records are still
+ *   kept, with a warning (see parseSystemCas).
+ * - Machine code trailing the chosen program on the tape - bytes CLOAD would
+ *   have deposited right after it - is preserved as a memory block too.
  */
 export function detokenizeProgramWithReport(
   image: Uint8Array,
@@ -56,46 +76,138 @@ export function detokenizeProgramWithReport(
     return { source: '', warnings: [MODEL_III_MESSAGE] };
   }
 
-  // A SYSTEM (machine-language) tape has no BASIC text at all: it imports as one
-  // memory block per data record, so the code lands back at its load address on
-  // Run. Bad-checksum records are still kept, with a warning (see parseSystemCas).
-  if (format === 'system') {
-    const { blocks } = parseSystemCas(image, warnings);
-    const memoryBlocks: MemoryBlock[] = blocks.map((b, i) => ({
-      id: `imported-code-${i + 1}`,
-      name: `code${i + 1}`,
-      address: b.address,
-      bytes: b.bytes,
-      kind: 'code' as const,
-    }));
-    return {
-      source: '',
-      warnings,
-      ...(memoryBlocks.length > 0 ? { blocks: memoryBlocks } : {}),
-    };
+  if (format === 'model1' || format === 'system') {
+    return detokenizeCassette(image, warnings);
   }
 
-  let program = image;
-  if (isCasImage(image)) {
-    const parsed = parseCasImage(image);
-    program = parsed.program;
-  }
-
-  const decoded = decodeLinkedProgram(program);
+  // A bare program image (no cassette framing).
+  const decoded = decodeLinkedProgram(image);
   if (decoded.truncated) {
     warnings.push(
       'The program looks truncated — the data ends before the end-of-program marker.',
     );
   }
-  const trailing = program.length - decoded.end;
+  const trailing = image.length - decoded.end;
+  let blocks: MemoryBlock[] | undefined;
   if (!decoded.truncated && trailing > 0) {
+    const address = PROG_START + decoded.end;
+    blocks = codeFilesToBlocks([
+      { name: '', address, bytes: image.slice(decoded.end) },
+    ]);
     warnings.push(
       `${trailing} byte${trailing === 1 ? '' : 's'} after the end-of-program ` +
-        `marker were not decoded (likely appended machine code); they are not ` +
-        `preserved on re-export.`,
+        `marker (likely appended machine code) were preserved as a memory ` +
+        `block at ${hex(address)}.`,
     );
   }
-  return { source: decoded.source, warnings };
+  return {
+    source: decoded.source,
+    warnings,
+    ...(blocks ? { blocks } : {}),
+  };
+}
+
+/** The multi-file cassette import path of {@link detokenizeProgramWithReport}. */
+function detokenizeCassette(
+  image: Uint8Array,
+  warnings: string[],
+): DetokenizeResult {
+  const scanned = parseCasAllFiles(image);
+  warnings.push(...scanned.warnings);
+  const basics = scanned.files.filter(
+    (f): f is CasBasicFile => f.kind === 'basic',
+  );
+  const systems = scanned.files.filter(
+    (f): f is CasSystemFile => f.kind === 'system',
+  );
+
+  // The largest program is the one worth editing: a multi-part tape's first
+  // program is typically a small loader, and the game follows it.
+  let chosen: CasBasicFile | null = null;
+  for (const b of basics) {
+    if (chosen === null || b.program.length > chosen.program.length) chosen = b;
+  }
+
+  const codeFiles: ImportedCodeFile[] = [];
+  for (const s of systems) {
+    // The entry address rides on the record whose span contains it (falling
+    // back to the file's first record), so it survives block-level edits.
+    const containing = s.records.findIndex(
+      (r) => s.entry >= r.address && s.entry < r.address + r.bytes.length,
+    );
+    const entryIndex = containing !== -1 ? containing : 0;
+    s.records.forEach((r, i) => {
+      codeFiles.push({
+        name: s.name,
+        address: r.address,
+        bytes: r.bytes,
+        ...(s.entry !== 0 && i === entryIndex ? { entry: s.entry } : {}),
+      });
+    });
+  }
+  if (chosen !== null && chosen.trailing.length > 0) {
+    const address = PROG_START + chosen.program.length;
+    codeFiles.push({
+      name: '',
+      address,
+      bytes: chosen.trailing.slice(),
+    });
+    warnings.push(
+      `${chosen.trailing.length} byte${chosen.trailing.length === 1 ? '' : 's'} ` +
+        `of machine code follow the program on the tape; preserved as a ` +
+        `memory block at ${hex(address)}.`,
+    );
+  }
+  const blocks = codeFilesToBlocks(codeFiles);
+
+  const tapeFiles: TapeFile[] = basics
+    .filter((b) => b !== chosen)
+    .map((b) => ({
+      name: b.name === '' ? 'PROGRAM' : b.name,
+      kind: 'program',
+      tap: b.raw,
+    }));
+
+  if (scanned.files.length > 1 && chosen !== null) {
+    const parts: string[] = [];
+    if (tapeFiles.length > 0) {
+      parts.push(
+        `${tapeFiles.length} other BASIC program${tapeFiles.length === 1 ? '' : 's'} ` +
+          'preserved with the document (the TRS-80 emulator has no cassette ' +
+          'deck yet, so the running program cannot CLOAD them)',
+      );
+    }
+    if (systems.length > 0) {
+      parts.push(
+        `${systems.length} SYSTEM (machine-code) file${systems.length === 1 ? '' : 's'} ` +
+          'imported as memory blocks',
+      );
+    }
+    warnings.push(
+      `Multi-part tape: opened "${chosen.name === '' ? '?' : chosen.name}" ` +
+        `(${chosen.program.length} bytes), the largest BASIC program` +
+        (parts.length > 0 ? `; ${parts.join('; ')}` : '') +
+        '.',
+    );
+  }
+
+  let source = '';
+  if (chosen !== null) {
+    const decoded = decodeLinkedProgram(chosen.program);
+    if (decoded.truncated) {
+      warnings.push(
+        'The program looks truncated — the data ends before the end-of-program marker.',
+      );
+    }
+    source = decoded.source;
+  }
+
+  return {
+    source,
+    warnings,
+    ...(blocks.length > 0 ? { blocks } : {}),
+    ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
+  };
 }
 
 interface DecodeResult {

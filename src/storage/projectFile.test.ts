@@ -117,6 +117,19 @@ describe('serializeProject / parseProject round-trip', () => {
     const wireBlock = (parsed as { blocks: { comment?: string }[] }).blocks[0]!;
     expect('comment' in wireBlock).toBe(false);
   });
+
+  it('round-trips the optional entry address and omits it when absent', () => {
+    const withEntry: MemoryBlock = { ...BLOCK_B, entry: 0x9010 };
+    const text = serializeProject('atom', '', [withEntry]);
+    const parsed = parseProject(text);
+    expect(parsed.blocks[0]!.entry).toBe(0x9010);
+
+    const without = serializeProject('atom', '', [BLOCK_B]);
+    const wire: unknown = JSON.parse(without);
+    const wireBlock = (wire as { blocks: { entry?: number }[] }).blocks[0]!;
+    expect('entry' in wireBlock).toBe(false);
+    expect('entry' in parseProject(without).blocks[0]!).toBe(false);
+  });
 });
 
 describe('parseProject error handling', () => {

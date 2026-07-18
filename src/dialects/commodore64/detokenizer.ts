@@ -1,6 +1,8 @@
-import type { DetokenizeResult, MemoryBlock } from '../types';
+import type { DetokenizeResult, MemoryBlock, TapeFile } from '../types';
 import { c64Charset } from './charset';
 import { c64WordByToken } from './keywords';
+import { codeFilesToBlocks, type ImportedCodeFile } from '../importBlocks';
+import { parseT64, type T64Entry } from './t64';
 
 /** Programs load at $0801 on the C64; a .prg's leading word is this address. */
 const DEFAULT_LOAD_ADDRESS = 0x0801;
@@ -145,6 +147,102 @@ export function detokenizeProgramWithReport(
     source: decoded.source,
     warnings,
     ...(blocks.length > 0 ? { blocks } : {}),
+  };
+}
+
+/**
+ * Import a `.t64` tape-image container (see {@link parseT64}), applying the
+ * multi-part conventions the Spectrum `.TAP` import established: the largest
+ * BASIC entry (directory order breaking ties) becomes the editable source,
+ * other BASIC entries are preserved as {@link TapeFile}s on the document
+ * (ready `.prg` payloads - the C64 emulator has no tape deck, so they are
+ * kept rather than servable), and entries loading anywhere else import as
+ * memory blocks at their own load address.
+ */
+export function detokenizeT64WithReport(
+  image: Uint8Array,
+  variant: CbmDetokenizeVariant = C64_VARIANT,
+): DetokenizeResult {
+  const parsed = parseT64(image);
+  const warnings = [...parsed.warnings];
+  const basics = parsed.entries.filter((e) => e.start === variant.loadAddress);
+  const others = parsed.entries.filter((e) => e.start !== variant.loadAddress);
+
+  let chosen: T64Entry | null = null;
+  for (const b of basics) {
+    if (chosen === null || b.bytes.length > chosen.bytes.length) chosen = b;
+  }
+
+  const codeFiles: ImportedCodeFile[] = others.map((e) => ({
+    name: e.name,
+    address: e.start,
+    bytes: e.bytes,
+  }));
+
+  let source = '';
+  if (chosen !== null) {
+    const prg = Uint8Array.from([
+      variant.loadAddress & 0xff,
+      (variant.loadAddress >> 8) & 0xff,
+      ...chosen.bytes,
+    ]);
+    const decoded = detokenizeProgramWithReport(prg, variant);
+    source = decoded.source;
+    warnings.push(...decoded.warnings);
+    // Fold any trailing-code block the chosen program produced into the one
+    // shared pool, so block ids and names stay unique across the import.
+    for (const b of decoded.blocks ?? []) {
+      codeFiles.push({ name: '', address: b.address, bytes: b.bytes });
+    }
+  }
+  const blocks = codeFilesToBlocks(codeFiles);
+
+  const tapeFiles: TapeFile[] = basics
+    .filter((b) => b !== chosen)
+    .map((b) => ({
+      name: b.name === '' ? 'PROGRAM' : b.name,
+      kind: 'program',
+      tap: Uint8Array.from([
+        variant.loadAddress & 0xff,
+        (variant.loadAddress >> 8) & 0xff,
+        ...b.bytes,
+      ]),
+    }));
+
+  if (parsed.entries.length > 1 && chosen !== null) {
+    const parts: string[] = [];
+    if (tapeFiles.length > 0) {
+      parts.push(
+        `${tapeFiles.length} other BASIC program${tapeFiles.length === 1 ? '' : 's'} ` +
+          `preserved with the document (the ${variant.machineName} emulator ` +
+          'has no tape deck, so the running program cannot LOAD them)',
+      );
+    }
+    if (others.length > 0) {
+      parts.push(
+        `${others.length} machine-code/data entr${others.length === 1 ? 'y' : 'ies'} ` +
+          'imported as memory blocks',
+      );
+    }
+    warnings.push(
+      `Multi-part tape image: opened "${chosen.name === '' ? '?' : chosen.name}" ` +
+        `(${chosen.bytes.length} bytes), the largest BASIC program` +
+        (parts.length > 0 ? `; ${parts.join('; ')}` : '') +
+        '.',
+    );
+  } else if (chosen === null && parsed.entries.length > 0) {
+    warnings.push(
+      `The .t64 holds no ${variant.machineName} BASIC program (nothing loads ` +
+        `at $${hex4(variant.loadAddress)}); its entries were imported as ` +
+        'memory blocks.',
+    );
+  }
+
+  return {
+    source,
+    warnings,
+    ...(blocks.length > 0 ? { blocks } : {}),
+    ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
   };
 }
 

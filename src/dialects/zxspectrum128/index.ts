@@ -6,7 +6,7 @@ import {
   type TokenizeResult,
 } from '../types';
 import { rawEscapeWarning } from '../zxspectrum/importReport';
-import { codeFilesToBlocks } from '../zxspectrum/importBlocks';
+import { codeFilesToBlocks } from '../importBlocks';
 // The 128K / +2 / +3 shares the entire 48K Spectrum language and tape layer -
 // only memory paging, the dual ROM, the AY-3-8912 sound chip and the two extra
 // BASIC tokens (SPECTRUM, PLAY) differ. Identical pieces are re-exported from

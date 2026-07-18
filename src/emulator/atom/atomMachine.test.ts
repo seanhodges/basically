@@ -219,6 +219,31 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     machine.dispose();
   }, 60000);
 
+  it('starts an entry-carrying block with LINK when there is no BASIC program', async () => {
+    const machine = new AtomMachine();
+    // 6502 at #5000: write VDG codes for "OK" into screen RAM, then RTS back
+    // to BASIC. 'O' = 0x0F, 'K' = 0x0B (ASCII minus 0x40 in the low range).
+    const block: MemoryBlock = {
+      id: 'b1',
+      name: 'boot',
+      address: 0x5000,
+      bytes: new Uint8Array([
+        0xa9, 0x0f, 0x8d, 0x00, 0x81, 0xa9, 0x0b, 0x8d, 0x01, 0x81, 0x60,
+      ]),
+      kind: 'code',
+      entry: 0x5000,
+    };
+    // An empty source tokenizes to just the 0D FF end marker - the
+    // machine-code-.atm import shape (empty source + one entry block).
+    const { bytes } = tokenizeProgram('');
+    machine.loadProgram(bytes, { blocks: [block] });
+    const ran = await runUntil(machine, () =>
+      screenText(machine).includes('OK'),
+    );
+    expect(ran).toBe(true);
+    machine.dispose();
+  }, 60000);
+
   it('loads a plain program unchanged when no blocks are supplied', async () => {
     const machine = new AtomMachine();
     const { bytes } = tokenizeProgram('10 PRINT "HELLO ATOM"\n20 END\n');

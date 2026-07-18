@@ -22,14 +22,16 @@ Save writes a `.txt` file by default; load accepts either `.txt` or a legacy
 
 Most documents are pure BASIC and save as `.txt`. A document that also carries
 **memory blocks** — fixed-address machine code or data that loads alongside the
-program (see [Machine code & data blocks](#machine-code-data-blocks)) — saves
+program (see [Machine code & data blocks](#machine-code-data-blocks)) — or
+extra tape files preserved off a multi-part import saves
 instead as a `.bproj` bundle: one human-readable JSON file pairing the BASIC
-source with its blocks. Each block records its name, load address, kind (code
-or data) and raw bytes (base64-encoded), and the file notes the machine it was
-authored for. Open loads the source and blocks together, warning if the active
+source with its blocks and preserved files. Each block records its name, load
+address, kind (code or data), raw bytes (base64-encoded) and, when the import
+recovered one, its entry address; the file notes the machine it was
+authored for. Open loads everything together, warning if the active
 machine differs; it accepts `.bproj` alongside `.txt`/`.bas`, and also
-recognises a project-shaped `.txt`. A document with no blocks never becomes a
-`.bproj` — the plain-text format is unchanged.
+recognises a project-shaped `.txt`. A document with no blocks or preserved
+files never becomes a `.bproj` — the plain-text format is unchanged.
 
 ## Escape notation
 
@@ -54,17 +56,17 @@ reference page:
 
 ## Native binary formats
 
-| Dialect            | Export | Import | What it is                                  |
-| ------------------ | ------ | ------ | ------------------------------------------- |
-| ZX81               | `.P`   | `.P`   | RAM dump 0x4009 → E_LINE-1                  |
-| ZX80               | `.O`   | `.O`   | RAM dump 0x4000 → E_LINE-1                  |
-| ZX Spectrum / 128  | `.TAP` | `.TAP` | header + data tape blocks                   |
-| BBC Micro / Master | `.bbc` | `.bbc` | tokenized program from PAGE                 |
-| Commodore 64       | `.prg` | `.prg` | load address + tokenized program from $0801 |
-| Commodore VIC-20   | `.prg` | `.prg` | load address + tokenized program from $1001 |
-| Commodore PET      | `.prg` | `.prg` | load address + tokenized program from $0401 |
-| TRS-80             | `.cas` | `.cas` | Model I CSAVE cassette block                |
-| Acorn Atom         | `.atm` | `.atm` | 22-byte header + `#2900` program image      |
+| Dialect            | Export | Import         | What it is                                  |
+| ------------------ | ------ | -------------- | ------------------------------------------- |
+| ZX81               | `.P`   | `.P`           | RAM dump 0x4009 → E_LINE-1                  |
+| ZX80               | `.O`   | `.O`           | RAM dump 0x4000 → E_LINE-1                  |
+| ZX Spectrum / 128  | `.TAP` | `.TAP`         | header + data tape blocks                   |
+| BBC Micro / Master | `.bbc` | `.bbc`         | tokenized program from PAGE                 |
+| Commodore 64       | `.prg` | `.prg`, `.t64` | load address + tokenized program from $0801 |
+| Commodore VIC-20   | `.prg` | `.prg`         | load address + tokenized program from $1001 |
+| Commodore PET      | `.prg` | `.prg`         | load address + tokenized program from $0401 |
+| TRS-80             | `.cas` | `.cas`         | Model I CSAVE cassette block                |
+| Acorn Atom         | `.atm` | `.atm`         | 22-byte header + `#2900` program image      |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -87,6 +89,12 @@ The IDE sets `NXTLIN` to the first program line so loaded programs auto-run,
 and `CDFLAG` bit 6 for SLOW mode. Exported `.P`
 files are built load-only (NXTLIN left at the display file) so they don't
 silently auto-run on real hardware - the user types `RUN`.
+
+Import reads `NXTLIN` back: a `.P` saved from inside a running program (the
+SAVE-inside-the-program trick) records the line execution resumes from, and
+Run starts from that line rather than the first. Only the program text
+survives import, so if such a `.P` was saved with live variables the import
+notes that the resumed start runs with fresh state.
 
 **Tokenized program area** (ZX81): per line `u16 BE line number`, `u16 LE length`
 (body + terminator), tokenized body, `0x76` (NEWLINE). Numeric literals appear
@@ -137,6 +145,22 @@ Commodore BASIC V2 (the PET adds the BASIC 4.0 disk tokens `$CC–$DA`) — and 
 the load address in the first two bytes differs: the unexpanded VIC-20 loads at
 $1001 (`$01 $10`), the PET at $0401 (`$01 $04`).
 
+### Commodore 64 `.t64`
+
+The C64 also **imports** `.t64` tape images — the multi-file directory
+container most Commodore tape archives use (not to be confused with raw
+`.tap` pulse recordings, which are recognised and refused with a clear
+message). A `.t64` is a 64-byte header, a directory of 32-byte entries (each
+with a start/end address, a data offset and a filename) and the file
+payloads. The importer is lenient with the format's well-known defects: a
+zero used-entries count and the broken end-address field some conversion
+tools wrote are both worked around, with a note.
+
+A multi-file image imports the way a multi-part Spectrum `.TAP` does: the
+largest BASIC entry opens for editing, other BASIC entries are preserved with
+the document, and entries loading anywhere other than $0801 import as
+[memory blocks](#machine-code-data-blocks) at their own load address.
+
 ### TRS-80 `.cas`
 
 The Model I Level II BASIC cassette (CSAVE) block at the byte level: a leader of
@@ -145,6 +169,18 @@ The Model I Level II BASIC cassette (CSAVE) block at the byte level: a leader of
 program exactly as it sits from 0x42E8 (which already ends with its own `0x0000`
 link, doubling as the end marker). The `.cas` is both the export file and what an
 emulator's virtual cassette deck reads back.
+
+A real tape often concatenates **several** files — a small BASIC loader
+followed by the actual game is the classic layout — and import scans them
+all: the largest BASIC program opens for editing, other BASIC programs are
+preserved with the document, machine code trailing a program on the tape is
+kept as a [memory block](#machine-code-data-blocks) at the address CLOAD
+would have deposited it, and SYSTEM files import as blocks (below). A
+machine-language **SYSTEM** tape uses the same leader and sync followed by a
+`0x55` header, a six-character name, then address records (`0x3C` marker,
+length, load address, data, checksum) terminated by a `0x78` entry-point
+record; each record imports as a block and the entry address is kept with the
+block that contains it.
 
 ### Acorn Atom `.atm`
 
@@ -162,7 +198,10 @@ The de-facto interchange format used by Atom emulators (Atomulator, AtoMMC): a
 For a BASIC program the data is exactly the `#2900` program image the tokenizer
 produces (line records ending in `0D FF`), with `load = exec = #2900`. Import
 accepts either an `.atm` or a bare image (a bare image always begins with the
-`0D` line marker).
+`0D` line marker). An `.atm` that loads anywhere other than `#2900` is a
+machine-code or data file: it imports as a [memory
+block](#machine-code-data-blocks), its exec address is kept with the block,
+and Run starts it there with `LINK` — the way `*RUN` would on real hardware.
 
 ## Machine code & data blocks
 
@@ -177,15 +216,23 @@ through the [project bundle](#project-bundle-bproj) and through
   imports every CODE file as a block. A tiny `LOAD "" CODE … : RANDOMIZE USR n`
   loader chaining into a longer program is recognised: the loader is skipped
   (with a note) and the real program imported.
-- **Commodore `.prg`** — a `.prg` whose load address is not the BASIC start
-  ($0801 C64, $1001 VIC-20, $0401 PET) imports as a single block at that address;
-  a normal program with extra bytes past the end of the tokenized program
-  imports the program plus those trailing bytes as a block.
+- **Commodore `.prg` / `.t64`** — a `.prg` whose load address is not the BASIC
+  start ($0801 C64, $1001 VIC-20, $0401 PET) imports as a single block at that
+  address; a normal program with extra bytes past the end of the tokenized
+  program imports the program plus those trailing bytes as a block. A `.t64`
+  tape image (C64) imports every non-BASIC entry as a block.
 - **Acorn Atom `.atm`** — an `.atm` that loads somewhere other than `#2900`
   (where BASIC text lives) is a machine-code or data file, so its payload imports
-  as a block at its load address.
-- **TRS-80 SYSTEM `.cas`** — a machine-language SYSTEM cassette imports each of
-  its address records as a block.
+  as a block at its load address, remembering the header's exec address.
+- **TRS-80 `.cas`** — a machine-language SYSTEM cassette imports each of its
+  address records as a block (the entry-point address stays with the block
+  that contains it), and machine code trailing a BASIC program on the tape
+  imports as a block at the address it followed the program.
+
+A block can carry an **entry address** recovered with it (an Atom `.atm`'s
+exec address, a TRS-80 SYSTEM tape's entry record). When a document holds no
+BASIC program at all, a machine that can start machine code runs the block
+from its entry address instead — the Atom starts it with `LINK`.
 
 When you Run, the IDE checks each block against the machine's memory: a block
 that would overlap the BASIC program is refused (Run reports which block), and a

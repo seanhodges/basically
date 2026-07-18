@@ -13,6 +13,15 @@ export interface ParsedPFile {
   dFile: number;
   vars: number;
   eLine: number;
+  /**
+   * The line the saved NXTLIN says execution continues from, when the image
+   * auto-runs from a specific line - the ZX81's SAVE-inside-the-program trick
+   * stores the whole machine state, so LOAD resumes at the line after the
+   * SAVE. `null` when the image doesn't auto-run (NXTLIN points at the
+   * display file) or auto-runs from the first line (NXTLIN at the program
+   * base - the default the run path already provides).
+   */
+  autoStart: number | null;
 }
 
 const DISPLAY_FILE_COLLAPSED = 25; // leading NEWLINE + 24 empty rows
@@ -111,6 +120,14 @@ export function parsePFile(image: Uint8Array): ParsedPFile {
   ) {
     throw new Error('Not a valid .P file: inconsistent system variables');
   }
+  const nxtlin = word(sv.NXTLIN);
+  let autoStart: number | null = null;
+  if (nxtlin > sv.PROGRAM_BASE && nxtlin < dFile - 1) {
+    const line =
+      (image[nxtlin - sv.SYSVARS_BASE]! << 8) |
+      image[nxtlin - sv.SYSVARS_BASE + 1]!;
+    if (line >= 1 && line <= 9999) autoStart = line;
+  }
   return {
     program: image.slice(
       sv.PROGRAM_BASE - sv.SYSVARS_BASE,
@@ -119,5 +136,34 @@ export function parsePFile(image: Uint8Array): ParsedPFile {
     dFile,
     vars,
     eLine,
+    autoStart,
   };
+}
+
+/**
+ * Return a copy of `image` whose NXTLIN points at the first program line
+ * numbered `>= line` (GOTO semantics, so an edited program that lost the
+ * exact line still starts at the right place). Returns `image` unchanged
+ * when no such line exists - the ROM then falls through to the editor,
+ * matching a plain non-auto-running load.
+ */
+export function withAutoStart(image: Uint8Array, line: number): Uint8Array {
+  const word = (addr: number) =>
+    image[addr - sv.SYSVARS_BASE]! | (image[addr - sv.SYSVARS_BASE + 1]! << 8);
+  const dFile = word(sv.D_FILE);
+  let addr = sv.PROGRAM_BASE;
+  while (addr + 4 <= dFile) {
+    const off = addr - sv.SYSVARS_BASE;
+    const lineNo = (image[off]! << 8) | image[off + 1]!;
+    if (lineNo >= line) {
+      const patched = image.slice();
+      const nxtlinOff = sv.NXTLIN - sv.SYSVARS_BASE;
+      patched[nxtlinOff] = addr & 0xff;
+      patched[nxtlinOff + 1] = (addr >> 8) & 0xff;
+      return patched;
+    }
+    const length = image[off + 2]! | (image[off + 3]! << 8);
+    addr += 4 + length;
+  }
+  return image;
 }

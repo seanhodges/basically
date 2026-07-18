@@ -64,10 +64,12 @@ describe('atom foreign-image round-trip', () => {
     expect(blocks).toEqual([
       {
         id: 'imported-code-1',
-        name: 'code1',
+        name: 'CODE',
         address: 0x2a00,
         bytes: payload,
         kind: 'code',
+        // buildAtm writes exec = #2900; the importer keeps it as the entry.
+        entry: 0x2900,
       },
     ]);
   });

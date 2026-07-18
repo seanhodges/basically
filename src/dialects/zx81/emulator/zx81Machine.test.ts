@@ -51,6 +51,18 @@ describe('Zx81Machine', () => {
     expect(displayContains(machine, [0x2d, 0x2a, 0x31, 0x31, 0x34])).toBe(true);
   });
 
+  it('starts from the auto-start line, skipping earlier lines', () => {
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    const src = '10 PRINT "AA"\n20 PRINT "BB"\n30 STOP\n';
+    const { bytes, errors } = tokenizeProgram(src);
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildPFile(bytes), { autoStart: 20 });
+    for (let i = 0; i < 200; i++) machine.runFrame();
+    // "BB" printed, "AA" skipped (A = 0x26, B = 0x27 in ZX81 codes).
+    expect(displayContains(machine, [0x27, 0x27])).toBe(true);
+    expect(displayContains(machine, [0x26, 0x26])).toBe(false);
+  });
+
   it('runs a FOR loop producing multiple lines', () => {
     const machine = new Zx81Machine({ rom, ramKb: 16 });
     const src = '10 FOR I=1 TO 3\n20 PRINT "ROW";I\n30 NEXT I\n';

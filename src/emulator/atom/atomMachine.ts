@@ -78,6 +78,20 @@ const TEXT_START = 0x2900;
 const TOP_OF_TEXT = 0x0d;
 
 /**
+ * A one-line BASIC program image `10 LINK <entry>` (line record + `0D FF` end
+ * marker). Atom BASIC stores line bodies as verbatim ASCII, so the stub needs
+ * no tokenizer; it exists to start an imported machine-code block via the
+ * normal RUN path (see {@link AtomMachine.loadProgram}).
+ */
+function linkStub(entry: number): Uint8Array {
+  const body = `LINK ${entry}`;
+  const out = [0x0d, 0x00, 0x0a]; // 0D, line 10 big-endian
+  for (let i = 0; i < body.length; i++) out.push(body.charCodeAt(i));
+  out.push(0x0d, 0xff);
+  return Uint8Array.from(out);
+}
+
+/**
  * Atom filing-system RAM indirection vectors, in page 2. Every filing OS call
  * is dispatched through one of these — both the documented `#FFxx` entry points
  * (`OSFIND #FFCE` = `JMP (FNDVEC)`, etc.) and Atom BASIC's own faster
@@ -426,7 +440,9 @@ export class AtomMachine implements MachineEmulator {
    * `opts.blocks`, when given, are raw machine code / data written straight
    * into RAM at their fixed addresses after the BASIC program has landed and
    * before RUN starts it - mirroring a loader poking code in once the tape has
-   * finished. Empty or absent: a plain BASIC load, unchanged.
+   * finished. Empty or absent: a plain BASIC load, unchanged. When there is no
+   * BASIC program at all and a block carries an entry address (a machine-code
+   * `.atm`'s exec address), the code is started with LINK instead of RUN.
    */
   loadProgram(
     image: Uint8Array,
@@ -437,6 +453,16 @@ export class AtomMachine implements MachineEmulator {
     // Captured before the async IIFE so a later loadProgram() (which bumps the
     // generation) can't swap the blocks out from under an in-flight injection.
     const blocks = opts?.blocks;
+    // With no BASIC program to RUN (an empty image is just the 0D FF end
+    // marker), start an imported machine-code block at its entry address:
+    // synthesize a one-line LINK stub - Atom BASIC stores line bodies as
+    // verbatim ASCII, and driving the normal RUN path is more reliable than
+    // typing the address digit-by-digit on the emulated key matrix. First
+    // block with an entry wins; a .atm import produces exactly one.
+    if (image.length <= 2) {
+      const entry = blocks?.find((b) => b.entry !== undefined)?.entry;
+      if (entry !== undefined) image = linkStub(entry);
+    }
     void (async () => {
       try {
         await this.ready;
