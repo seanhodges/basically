@@ -807,9 +807,9 @@ export const useIdeStore = create<IdeState>((set) => ({
         dirty: false,
         emulatorStatus: 'stopped',
         liveMemory: null,
-        // A booted player program is not yet dialect-aware of blocks; start
-        // clean, same as a real dialect switch.
-        blocks: [],
+        // Install the shared program's memory blocks so the player's run writes
+        // them into RAM; a pure-BASIC share carries none and starts clean.
+        blocks: blocks ?? [],
         autoStart: null,
         // Line numbers belong to whatever autosave seeded the store with.
         breakpoints: new Set<number>(),
