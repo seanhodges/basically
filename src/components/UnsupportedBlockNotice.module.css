@@ -1,0 +1,30 @@
+.notice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 24px;
+  text-align: center;
+  color: var(--text);
+  background: var(--bg-panel);
+}
+
+.headline {
+  margin: 0;
+  font-size: 15px;
+}
+
+.detail {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.comment {
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  opacity: 0.6;
+}

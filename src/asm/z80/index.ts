@@ -15,4 +15,5 @@ export const z80Engine: AsmEngine = {
   disassemble: (bytes, origin) => disassembleWith(z80Table, bytes, origin),
   assemble: (source, origin) => assembleWith(z80Table, source, origin),
   mnemonics: new Set([...z80Table.mnemonics, ...DIRECTIVES]),
+  registers: z80Table.reserved,
 };

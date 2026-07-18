@@ -1,0 +1,55 @@
+/* The editor pane's tab strip (BASIC + one tab per memory block). Follows the
+   MobileTabBar look - underline marks the active tab - but is always visible
+   (when blocks exist) rather than media-gated, and scrolls horizontally when a
+   document carries many blocks. */
+.tabBar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  flex: 0 0 auto;
+  overflow-x: auto;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 4px;
+}
+
+.tabBar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tabBar button:global(.active) {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.kindGlyph {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+/* Block names come from tape headers and can be long - keep tabs usable. */
+.tabName {
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.errorDot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  /* The lint marker red (see CodeMirrorHost's cm-lint-marker-error). */
+  background: #f43;
+}

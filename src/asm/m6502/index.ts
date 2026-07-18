@@ -15,4 +15,5 @@ export const m6502Engine: AsmEngine = {
   disassemble: (bytes, origin) => disassembleWith(m6502Table, bytes, origin),
   assemble: (source, origin) => assembleWith(m6502Table, source, origin),
   mnemonics: new Set([...m6502Table.mnemonics, ...DIRECTIVES]),
+  registers: m6502Table.reserved,
 };

@@ -48,4 +48,6 @@ export interface AsmEngine {
   assemble(source: string, origin: number): AssembleResult;
   /** Uppercase mnemonics + directives, for the syntax highlighter. */
   mnemonics: ReadonlySet<string>;
+  /** Uppercase register/condition names, for the syntax highlighter. */
+  registers: ReadonlySet<string>;
 }
