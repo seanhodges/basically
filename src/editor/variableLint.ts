@@ -31,6 +31,7 @@
  * enforced ROM-accurately inside its tokenizer.
  */
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
+import { isBinaryDirective } from '../dialects/binaryDirective';
 import {
   buildIdentifierRegexes,
   type BasicLanguageOptions,
@@ -86,6 +87,7 @@ function eachOccurrence(
   visit: (occ: Occurrence) => void,
 ): void {
   source.split('\n').forEach((raw, row) => {
+    if (isBinaryDirective(raw)) return; // opaque #BIN payload, not code
     const m = /^\s*\d+\s?/.exec(raw);
     const prefixLen = m ? m[0].length : 0;
     const code = scannable(raw.slice(prefixLen));

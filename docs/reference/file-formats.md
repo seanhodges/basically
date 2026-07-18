@@ -101,6 +101,18 @@ notes that the resumed start runs with fresh state.
 as their printable characters followed by `0x7E` and the 5-byte ZX81 float
 (exponent+0x80, then a 4-byte mantissa whose top bit is replaced by the sign).
 
+**Hidden machine-code lines.** Many real `.P` files stash Z80 machine code in
+the leading BASIC lines (the code-in-REM trick): a line numbered 0, duplicated
+line numbers, or REM bodies containing arbitrary bytes - including embedded
+`0x76` - that no BASIC listing can show. Import captures each such line as a
+one-line `#BIN <base64>` directive whose payload is the verbatim line record;
+the editor shows it as a collapsed "binary line" chip rather than invalid
+code. Large well-formed REM lines that are mostly non-printable bytes are
+captured the same way instead of appearing as walls of `\{NN}` escapes. On
+run and on every export the payload is spliced back at exactly its position
+in the program area, so the whole program round-trips byte-for-byte. Delete
+the chip's line to drop the code; the payload itself is not editable.
+
 ### ZX80 `.O`
 
 A straight RAM dump from 0x4000 (the start of the 40-byte system-variable block)

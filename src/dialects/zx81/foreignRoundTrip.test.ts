@@ -47,6 +47,9 @@ describe('zx81 foreign-image round-trip', () => {
       outcome.byteExact,
       `drift (${firstDifference(image, outcome.reImage)}):\n${outcome.source}`,
     ).toBe(true);
+    // The embedded 0x76 makes the REM line unrepresentable as text, so it is
+    // captured as an opaque #BIN directive rather than a wall of escapes.
+    expect(outcome.source).toContain('#BIN ');
   });
 
   it('surfaces the fake float and the machine code in the import report', () => {

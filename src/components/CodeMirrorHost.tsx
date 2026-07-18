@@ -60,6 +60,7 @@ import type { Dialect } from '../dialects/types';
 import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { dialectLinter } from '../editor/lintIntegration';
 import { basicHighlightStyle } from '../editor/basicLanguage';
+import { binaryLineExtension } from '../editor/binaryLineWidget';
 import { numberingConfig, fullCompletion } from '../editor/completions';
 import { crunchMatcher } from '../editor/crunch';
 import { useIdeStore } from '../app/store';
@@ -697,6 +698,10 @@ export function CodeMirrorHost({
         syntaxHighlighting(basicHighlightStyle),
         dialect.languageSupport(),
         dialectLinter(dialect),
+        // Collapse opaque #BIN machine-code lines into chips, but only for
+        // dialects whose tokenizer accepts them - elsewhere the raw text must
+        // stay visible so its tokenizer error is.
+        ...(dialect.supportsBinaryLines ? [binaryLineExtension()] : []),
         keymap.of([
           ...defaultKeymap,
           ...historyKeymap,

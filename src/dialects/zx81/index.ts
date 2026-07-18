@@ -8,7 +8,11 @@ import {
 import { zx81Charset } from './charset';
 import { zx81Keywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram, structuralWarnings } from './detokenizer';
+import {
+  detokenizeProgram,
+  detokenizeProgramWithInfo,
+  structuralWarnings,
+} from './detokenizer';
 import { rawEscapeWarning } from '../sinclairImportReport';
 import { buildPFile, parsePFile } from './pfile';
 import { decodeCassette } from './audio/cassetteDecoder';
@@ -56,11 +60,19 @@ export const zx81: Dialect = {
 
   detokenizeWithReport(image: Uint8Array): DetokenizeResult {
     const { program, vars, eLine, autoStart } = parsePFile(image);
-    const source = detokenizeProgram(program);
+    const { source, binaryLines } = detokenizeProgramWithInfo(program);
     const warnings = [
       ...structuralWarnings(program),
       ...rawEscapeWarning(source),
     ];
+    if (binaryLines > 0) {
+      const lines = binaryLines === 1 ? 'line' : 'lines';
+      warnings.push(
+        `${binaryLines} machine-code ${lines} (the hidden-code-in-REM trick) ` +
+          'imported as opaque #BIN blocks; they run and export byte-exactly ' +
+          'but are not editable as BASIC text.',
+      );
+    }
     // A .P saved mid-program (the SAVE-inside-the-program trick) carries the
     // program's variables too; only the program text survives import, so a
     // resumed auto-start may find its state gone.
@@ -100,6 +112,8 @@ export const zx81: Dialect = {
   buildTargets: zx81BuildTargets,
 
   binaryImports: [{ extension: '.p', label: 'Import .P…' }],
+
+  supportsBinaryLines: true,
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,
