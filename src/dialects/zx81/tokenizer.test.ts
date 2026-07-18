@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { encodeZxFloat } from './zxfloat';
+import { formatBinaryDirective } from '../binaryDirective';
 
 const normalize = (s: string) =>
   s
@@ -141,5 +142,85 @@ describe('tokenizeProgram', () => {
     const { bytes, errors } = tokenizeProgram(src);
     expect(errors).toEqual([]);
     expect(normalize(detokenizeProgram(bytes))).toBe(normalize(src));
+  });
+});
+
+describe('tokenizeProgram #BIN directives', () => {
+  /** Raw record: lineNo BE, len LE (body+1), body, 0x76. */
+  const record = (lineNo: number, body: number[]): Uint8Array =>
+    Uint8Array.from([
+      (lineNo >> 8) & 0xff,
+      lineNo & 0xff,
+      (body.length + 1) & 0xff,
+      ((body.length + 1) >> 8) & 0xff,
+      ...body,
+      0x76,
+    ]);
+
+  it('splices the record bytes verbatim', () => {
+    const rec = record(0, [0xea, 0x76, 0x00, 0xff]); // embedded NEWLINE in body
+    const { bytes, errors } = tokenizeProgram(
+      `${formatBinaryDirective(rec)}\n10 CLS\n`,
+    );
+    expect(errors).toEqual([]);
+    const clsLine = tokenizeProgram('10 CLS\n').bytes;
+    expect(Array.from(bytes)).toEqual([
+      ...Array.from(rec),
+      ...Array.from(clsLine),
+    ]);
+  });
+
+  it('allows line 0 and duplicate binary line numbers', () => {
+    const src = [
+      formatBinaryDirective(record(0, [0xea, 0x01])),
+      formatBinaryDirective(record(1, [0xea, 0x02])),
+      formatBinaryDirective(record(1, [0xea, 0x03])),
+      '2 CLS',
+    ].join('\n');
+    const { errors } = tokenizeProgram(src);
+    expect(errors).toEqual([]);
+  });
+
+  it('still rejects a text line at or below a binary line number', () => {
+    const src = [formatBinaryDirective(record(5, [0xea])), '5 CLS'].join('\n');
+    const { errors } = tokenizeProgram(src);
+    expect(errors.length).toBe(1);
+    expect(errors[0]!.message).toMatch(/not greater than previous line 5/);
+  });
+
+  it('rejects malformed payloads with the directive line number', () => {
+    const { errors } = tokenizeProgram('10 CLS\n#BIN not-base64!\n');
+    expect(errors.length).toBe(1);
+    expect(errors[0]!.line).toBe(2);
+    expect(errors[0]!.message).toMatch(/Invalid base64/);
+  });
+
+  it('rejects records that are too short', () => {
+    const { errors } = tokenizeProgram('#BIN AAAA\n'); // 3 bytes
+    expect(errors.length).toBe(1);
+    expect(errors[0]!.message).toMatch(/too short/);
+  });
+
+  it('rejects records whose length field disagrees with the payload', () => {
+    const rec = record(1, [0xea, 0x00]);
+    rec[2] = 9; // lie about the length
+    const { errors } = tokenizeProgram(formatBinaryDirective(rec));
+    expect(errors.length).toBe(1);
+    expect(errors[0]!.message).toMatch(/length field \(9\)/);
+  });
+
+  it('accepts a record whose final byte is not a NEWLINE terminator', () => {
+    // Damaged files can corrupt the trailing 0x76; the record still splices.
+    const rec = Uint8Array.from([0x00, 0x01, 0x02, 0x00, 0xea, 0x00]);
+    const { bytes, errors } = tokenizeProgram(formatBinaryDirective(rec));
+    expect(errors).toEqual([]);
+    expect(Array.from(bytes)).toEqual(Array.from(rec));
+  });
+
+  it('tokenizes a directive-only program', () => {
+    const rec = record(0, [0xea, 0xaf, 0xc9]);
+    const { bytes, errors } = tokenizeProgram(formatBinaryDirective(rec));
+    expect(errors).toEqual([]);
+    expect(bytes.length).toBe(rec.length);
   });
 });

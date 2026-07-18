@@ -751,6 +751,13 @@ export interface Dialect {
    * the dialect has no binary form.
    */
   binaryImports?: { extension: string; label: string }[];
+  /**
+   * True when this dialect's tokenizer understands `#BIN <base64>` directive
+   * lines (verbatim program-area line records - the hidden-machine-code-in-REM
+   * trick). Gates the editor's collapsed binary-line chips; without it a chip
+   * would hide a line the tokenizer rejects.
+   */
+  supportsBinaryLines?: boolean;
   /** Cassette-audio support, when the machine loads from / saves to tape. */
   audio?: {
     sampleRate: number;

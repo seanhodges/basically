@@ -1,4 +1,5 @@
 import { CharsetError, type TokenizeError } from '../types';
+import { parseBinaryDirective } from '../binaryDirective';
 import {
   parseChar,
   NEWLINE,
@@ -33,6 +34,50 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     const text = raw.trim();
     if (text === '') continue;
     const editorLine = li + 1;
+
+    const directive = parseBinaryDirective(text);
+    if (directive) {
+      if ('error' in directive) {
+        errors.push({
+          line: editorLine,
+          column: directive.column,
+          message: directive.error,
+        });
+        continue;
+      }
+      const rec = directive.record;
+      // A raw program-area line record: lineNo BE, len LE, body, terminator.
+      // The len field must describe the payload (the detokenizer slices by it,
+      // so imported records always satisfy this; a mismatch means a hand-edited
+      // or corrupt payload). The terminator byte is deliberately not checked -
+      // terminator-less records from damaged files must still round-trip.
+      if (rec.length < 4) {
+        errors.push({
+          line: editorLine,
+          column: 0,
+          message:
+            '#BIN record too short (needs line number and length fields)',
+        });
+        continue;
+      }
+      const recLen = rec[2]! | (rec[3]! << 8);
+      if (recLen !== rec.length - 4) {
+        errors.push({
+          line: editorLine,
+          column: 0,
+          message:
+            `#BIN record length field (${recLen}) does not match ` +
+            `payload size (${rec.length - 4})`,
+        });
+        continue;
+      }
+      out.push(...rec);
+      // Binary lines are exempt from the 1-9999/ascending checks (real files
+      // use line 0 and duplicates), but later text lines must still climb
+      // above them - the ROM's line lookup assumes ascending order.
+      prevLineNo = Math.max(prevLineNo, (rec[0]! << 8) | rec[1]!);
+      continue;
+    }
 
     const m = /^(\d+)\s?/.exec(text);
     if (!m) {

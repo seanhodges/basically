@@ -13,6 +13,9 @@ import {
   planConstructNumbering,
   MAX_LINE_NO,
 } from './lineNumbering';
+import { bytesToBase64 } from '../storage/vfs/base64';
+
+const b64 = (bytes: number[]) => bytesToBase64(Uint8Array.from(bytes));
 
 describe('parseLines', () => {
   it('parses numbered lines and skips blanks and unnumbered lines', () => {
@@ -381,5 +384,60 @@ describe('planConstructNumbering', () => {
   it('returns an empty plan when no continuation lines are needed', () => {
     const plan = planConstructNumbering(['10 IF'], 0, 10, 0)!;
     expect(plan.continuationNos).toEqual([]);
+  });
+});
+
+describe('#BIN directive lines', () => {
+  // Records: lineNo BE, len LE, body, 0x76 - base64-encoded.
+  // bin0: line 0; bin1a/bin1b: two distinct line-1 records.
+  const bin0 = `#BIN ${b64([0x00, 0x00, 0x03, 0x00, 0xea, 0xcd, 0x76])}`;
+  const bin1a = `#BIN ${b64([0x00, 0x01, 0x03, 0x00, 0xea, 0xaf, 0x76])}`;
+  const bin1b = `#BIN ${b64([0x00, 0x01, 0x03, 0x00, 0xea, 0xc9, 0x76])}`;
+
+  it('renumberProgram keeps directives in place, unrenumbered', () => {
+    const src = [bin0, bin1a, bin1b, '2 CLS', '3 GOTO 2'].join('\n');
+    expect(renumberProgram(src, 10, 10)).toBe(
+      [bin0, bin1a, bin1b, '10 CLS', '20 GOTO 10'].join('\n'),
+    );
+  });
+
+  it('rewriteReferences never touches a payload', () => {
+    // This payload's base64 happens to contain "RUN" + digits patterns; the
+    // simplest guarantee is that the whole line survives any remap verbatim.
+    const line = `#BIN RUN9GoTo10AA==`;
+    expect(
+      rewriteReferences(
+        line,
+        new Map([
+          [9, 99],
+          [10, 100],
+        ]),
+      ),
+    ).toBe(line);
+  });
+
+  it('renumberLine preserves directives, ordered by embedded number', () => {
+    const src = [bin1a, '2 CLS', '3 STOP'].join('\n');
+    expect(renumberLine(src, 3, 9000)).toBe(
+      [bin1a, '2 CLS', '9000 STOP'].join('\n'),
+    );
+  });
+
+  it('a directive sorts ahead of an equal-numbered text line', () => {
+    // Text line 1 alongside a binary line 1: directive first, like the file.
+    const src = [bin1a, '1 CLS', '2 STOP'].join('\n');
+    expect(renumberLine(src, 2, 3)).toBe([bin1a, '1 CLS', '3 STOP'].join('\n'));
+  });
+
+  it('numberLineInPlace refuses to number a directive', () => {
+    expect(numberLineInPlace([bin0], 0, 10)).toBeNull();
+  });
+
+  it('insertNumberedLineBelow falls back to a plain newline on a directive', () => {
+    expect(insertNumberedLineBelow([bin0, '10 CLS'], 0, 10)).toBeNull();
+  });
+
+  it('planConstructNumbering refuses a directive line', () => {
+    expect(planConstructNumbering([bin0, '10 FOR'], 0, 10, 2)).toBeNull();
   });
 });

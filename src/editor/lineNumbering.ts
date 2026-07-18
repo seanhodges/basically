@@ -8,6 +8,12 @@
  * on strings/numbers so the editor and the tests can share them.
  */
 
+import {
+  binaryRecordInfo,
+  isBinaryDirective,
+  parseBinaryDirective,
+} from '../dialects/binaryDirective';
+
 export interface BasicLine {
   /** Parsed line number, 1..9999. */
   lineNo: number;
@@ -175,6 +181,8 @@ export function planConstructNumbering(
 ): ConstructNumbering | null {
   if (extra <= 0)
     return { currentLineNo: null, continuationNos: [], cascade: new Map() };
+  // Never bootstrap a line number onto an opaque #BIN directive.
+  if (isBinaryDirective(physical[idx]!)) return null;
 
   const { prev, next: nextNo } = neighbours(physical, idx);
 
@@ -227,6 +235,9 @@ function rewriteLineReferences(
   line: string,
   remap: Map<number, number>,
 ): string {
+  // A #BIN payload is opaque bytes; base64 can spell `RUN12`/`GoTo9`, which
+  // must never be rewritten.
+  if (isBinaryDirective(line)) return line;
   const refRe = new RegExp(`(${REF_KEYWORDS.join('|')})(\\s*)(\\d+)`, 'gi');
   // Continuation for comma-separated line lists: matches ",<n>" incl. surrounding
   // whitespace; group 1 is the separator up to the digits, group 2 the number.
@@ -296,7 +307,7 @@ export function applyRenumberMap(
     const moved = map.get(l.lineNo);
     return { ...l, lineNo: moved ?? l.lineNo };
   });
-  return joinLines(lines);
+  return joinLines(lines, directiveEntries(referenced));
 }
 
 /**
@@ -317,7 +328,7 @@ export function renumberLine(
   const renumbered = parseLines(referenced).map((l) =>
     l.lineNo === oldNo ? { ...l, lineNo: newNo } : l,
   );
-  return joinLines(renumbered);
+  return joinLines(renumbered, directiveEntries(referenced));
 }
 
 /**
@@ -334,44 +345,89 @@ export function renumberProgram(
   start: number,
   increment: number,
 ): string | null {
-  const physical = source.split('\n');
-  const targets: number[] = [];
-  physical.forEach((raw, i) => {
-    if (raw.trim() !== '') targets.push(i);
-  });
-  if (targets.length === 0) return source;
-  const highest = start + (targets.length - 1) * increment;
+  const rows = source
+    .split('\n')
+    .map((raw) => raw.trim())
+    .filter((row) => row !== '');
+  if (rows.length === 0) return source;
+
+  // #BIN directives keep their place and their embedded number verbatim -
+  // renumbering must never touch an opaque payload.
+  const renumberable = rows.filter((row) => !isBinaryDirective(row));
+  if (renumberable.length === 0) return rows.join('\n');
+  const highest = start + (renumberable.length - 1) * increment;
   if (highest > MAX_LINE_NO) return null;
 
   // Map each already-numbered line to its new number so references remap too.
   // Unnumbered lines have no old number to reference, so they need no entry.
   const remap = new Map<number, number>();
-  targets.forEach((idx, k) => {
-    const oldNo = lineNumberOf(physical[idx]!);
-    if (oldNo !== null) remap.set(oldNo, start + k * increment);
+  let n = 0;
+  rows.forEach((row) => {
+    if (isBinaryDirective(row)) return;
+    const oldNo = lineNumberOf(row);
+    if (oldNo !== null) remap.set(oldNo, start + n * increment);
+    n++;
   });
 
-  return targets
-    .map((idx, k) => {
-      const newNo = start + k * increment;
-      const refd = rewriteReferences(physical[idx]!.trim(), remap);
+  let k = 0;
+  return rows
+    .map((row) => {
+      if (isBinaryDirective(row)) return row;
+      const newNo = start + k++ * increment;
+      const refd = rewriteReferences(row, remap);
       // Strip the old leading number when present; unnumbered lines keep their
       // full text (they can't start with a digit, or they'd have been numbered).
       const body =
-        lineNumberOf(physical[idx]!) === null
-          ? refd
-          : refd.replace(/^\d+\s?/, '');
+        lineNumberOf(row) === null ? refd : refd.replace(/^\d+\s?/, '');
       return body === '' ? `${newNo}` : `${newNo} ${body}`;
     })
     .join('\n');
 }
 
-/** Re-emit parsed lines as "<lineNo> <body>", sorted ascending by number. */
-function joinLines(lines: BasicLine[]): string {
-  const sorted = [...lines].sort((a, b) => a.lineNo - b.lineNo);
-  return sorted
-    .map((l) => (l.body === '' ? `${l.lineNo}` : `${l.lineNo} ${l.body}`))
-    .join('\n');
+/** A `#BIN` directive line with its embedded record line number as sort key. */
+interface DirectiveEntry {
+  lineNo: number;
+  raw: string;
+}
+
+/**
+ * Collect the `#BIN` directive lines of a source, in order, keyed by their
+ * embedded record line number (0 for a malformed payload). `parseLines` skips
+ * them (no leading digit), so re-emitting flows must carry them separately.
+ */
+function directiveEntries(source: string): DirectiveEntry[] {
+  const out: DirectiveEntry[] = [];
+  for (const rawLine of source.split('\n')) {
+    const line = rawLine.trim();
+    if (line === '' || !isBinaryDirective(line)) continue;
+    const parsed = parseBinaryDirective(line);
+    const lineNo =
+      parsed && 'record' in parsed ? binaryRecordInfo(parsed.record).lineNo : 0;
+    out.push({ lineNo, raw: line });
+  }
+  return out;
+}
+
+/**
+ * Re-emit parsed lines as "<lineNo> <body>", sorted ascending by number,
+ * merging any `#BIN` directives back in by their embedded line number - a
+ * directive sorts before an equal-numbered text line, and duplicates keep
+ * their original relative order (real files repeat binary line numbers).
+ */
+function joinLines(
+  lines: BasicLine[],
+  directives: DirectiveEntry[] = [],
+): string {
+  const entries = [
+    ...directives.map((d) => ({ no: d.lineNo, pri: 0, text: d.raw })),
+    ...lines.map((l) => ({
+      no: l.lineNo,
+      pri: 1,
+      text: l.body === '' ? `${l.lineNo}` : `${l.lineNo} ${l.body}`,
+    })),
+  ];
+  entries.sort((a, b) => a.no - b.no || a.pri - b.pri);
+  return entries.map((e) => e.text).join('\n');
 }
 
 /** Leading line number of a physical line, or null if it has none. */
@@ -440,7 +496,7 @@ export function numberLineInPlace(
 ): { lines: string[]; lineNo: number } | null {
   let lines = [...physical];
   const cur = lines[idx]!.trim();
-  if (cur === '') return null;
+  if (cur === '' || isBinaryDirective(cur)) return null;
 
   const existing = lineNumberOf(lines[idx]!);
   if (existing !== null) return { lines, lineNo: existing };

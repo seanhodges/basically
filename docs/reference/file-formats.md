@@ -101,6 +101,18 @@ notes that the resumed start runs with fresh state.
 as their printable characters followed by `0x7E` and the 5-byte ZX81 float
 (exponent+0x80, then a 4-byte mantissa whose top bit is replaced by the sign).
 
+**Hidden machine-code lines.** Many real `.P` files stash Z80 machine code in
+the leading BASIC lines (the code-in-REM trick): a line numbered 0, duplicated
+line numbers, or REM bodies containing arbitrary bytes - including embedded
+`0x76` - that no BASIC listing can show. Import captures each such line as a
+one-line `#BIN <base64>` directive whose payload is the verbatim line record;
+the editor shows it as a collapsed "binary line" chip rather than invalid
+code. Large well-formed REM lines that are mostly non-printable bytes are
+captured the same way instead of appearing as walls of `\{NN}` escapes. On
+run and on every export the payload is spliced back at exactly its position
+in the program area, so the whole program round-trips byte-for-byte. Delete
+the chip's line to drop the code; the payload itself is not editable.
+
 ### ZX80 `.O`
 
 A straight RAM dump from 0x4000 (the start of the 40-byte system-variable block)
@@ -110,6 +122,12 @@ marker`. The edit line and display file are not part of the image; the ROM
 rebuilds them on load. The system-variable values were captured from the real
 ROM on an empty machine and have their pointers recomputed for the program
 length. ZX80 has no named files.
+
+Hidden machine-code lines (line number 0, duplicate numbers, large
+non-printable REM bodies) import as `#BIN <base64>` directives exactly as for
+the ZX81 `.P` format above; the only difference is the record shape - ZX80
+records are `u16 BE line number + body + 0x76` with no length field, so a
+body can never embed a stray `0x76`.
 
 ### ZX Spectrum / Spectrum 128 `.TAP`
 

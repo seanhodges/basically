@@ -33,7 +33,11 @@ hardware.
   stage of this same plan.
 - **BASIC referencing: both** plain addresses with autocomplete and symbolic
   `@name` refs substituted in an app-level pre-pass (IDE-side syntax;
-  detokenize/import emits plain numbers).
+  detokenize/import emits plain numbers). Distinct from the shipped
+  `#BIN <base64>` directive (`src/dialects/binaryDirective.ts`), which is
+  position-relative - a verbatim program-area line record spliced where the
+  line sits - not a fixed-address block; the two syntaxes are intentionally
+  disjoint.
 - **Tabs, not dialogs:** the hex editor and assembly view are fully responsive
   tabs in the editor area — the first real editor-pane tab system (today there
   is exactly one `CodeMirrorHost` and only the mobile pane switcher).

@@ -77,6 +77,7 @@ export const basicHighlightStyle = HighlightStyle.define([
   { tag: tags.string, color: '#000000' }, // string literals (black)
   { tag: tags.number, color: '#000000' }, // numeric literals (black)
   { tag: tags.atom, color: '#000000' }, // graphics glyphs (black)
+  { tag: tags.meta, color: '#888888' }, // #BIN directives (grey)
 ]);
 
 /**
@@ -114,6 +115,11 @@ export function buildBasicLanguage(
     token(stream, state) {
       if (stream.sol()) {
         state.afterRem = false;
+        // #BIN directives carry an opaque binary payload, not code.
+        if (stream.match(/^\s*#bin(?![^\s])/i)) {
+          stream.skipToEnd();
+          return 'meta';
+        }
         if (stream.match(/^\s*\d+/)) return 'labelName';
       }
       if (state.afterRem) {
