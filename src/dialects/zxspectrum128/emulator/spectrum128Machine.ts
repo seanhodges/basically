@@ -11,6 +11,7 @@ import type {
   MachineReport,
   MachineVariable,
   MemoryBlock,
+  TapeFile,
 } from '../../types';
 import { VfsTapeDeck } from '../../zxspectrum/emulator/tapeDeck';
 import {
@@ -471,7 +472,11 @@ export class Spectrum128Machine implements MachineEmulator {
 
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
+    opts?: {
+      blocks?: readonly MemoryBlock[];
+      autoStart?: number | null;
+      tapeFiles?: readonly TapeFile[];
+    },
   ): void {
     this.reset();
     this.bootToScreen();
@@ -536,6 +541,17 @@ export class Spectrum128Machine implements MachineEmulator {
           );
         }
       }
+    }
+    // Mount any preserved tape files (loader, secondary programs, data arrays
+    // off a multi-part .TAP - see the 48K machine's loadProgram) on the deck so
+    // the program's own LOAD ""/LOAD "name" requests are served as off original
+    // hardware. The ROM matches name/type against each file's own .TAP header;
+    // the VFS key only needs to be unique per file.
+    const tapeFiles = opts?.tapeFiles;
+    if (this.deck && tapeFiles && tapeFiles.length > 0) {
+      tapeFiles.forEach((f, i) =>
+        this.deck!.addFile(`imported-tape-${i + 1}`, f.tap, f.kind),
+      );
     }
     // Type RUN as a direct command (slow gap - see typeLetters) and ENTER. A
     // `RUN <line>` starts from the .TAP's auto-start line rather than the first

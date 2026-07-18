@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getDialect, dialects } from '../dialects/registry';
 import type {
+  TapeFile,
   Dialect,
   MachineMemoryStats,
   MachineReport,
@@ -105,6 +106,16 @@ interface IdeState {
    * boot), same as breakpoints.
    */
   blocks: readonly MemoryBlock[];
+  /**
+   * Extra tape files preserved off a multi-part import (see {@link TapeFile}),
+   * beyond the one program in `source` and the CODE blocks in `blocks`. The run
+   * path (`EmulatorPane`) mounts them on the emulator's virtual tape so the
+   * program's own `LOAD ""` / `LOAD "name"` requests resolve. Reset whenever a
+   * different program becomes active, like `blocks`. Transient document state:
+   * unlike `blocks`, it is not yet persisted to autosave or a `.bproj` bundle,
+   * so it survives only within the session it was imported in.
+   */
+  tapeFiles: readonly TapeFile[];
   /**
    * The imported program's auto-start line (a Spectrum `.TAP` header's auto-run
    * line), or `null` when there is none. Document-model state like `blocks`:
@@ -346,7 +357,11 @@ interface IdeState {
   replaceDocument(
     text: string,
     fileName?: string,
-    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
+    opts?: {
+      blocks?: readonly MemoryBlock[];
+      autoStart?: number | null;
+      tapeFiles?: readonly TapeFile[];
+    },
   ): void;
   /**
    * Replace the editor with a document that has no saved file yet - a loaded
@@ -370,6 +385,7 @@ interface IdeState {
       dirty?: boolean;
       blocks?: readonly MemoryBlock[];
       autoStart?: number | null;
+      tapeFiles?: readonly TapeFile[];
     },
   ): void;
   markSaved(fileName: string): void;
@@ -620,6 +636,7 @@ function applyDialectSwitch(
     // switch always starts with none (Stage 1: blocks aren't re-targeted
     // across machines yet).
     blocks: [],
+    tapeFiles: [],
     autoStart: null,
     // On mobile, surface the change in the editor the user is now editing.
     ...(isMobileViewport() ? { mobileTab: 'editor' as MobileTab } : {}),
@@ -681,6 +698,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   fileName: startupDoc.fileName,
   source: startupText,
   blocks: startupDoc.blocks,
+  tapeFiles: [],
   autoStart: startupDoc.autoStart,
   docOverride: { text: startupText, seq: 0 },
   aiResetSeq: 0,
@@ -877,6 +895,7 @@ export const useIdeStore = create<IdeState>((set) => ({
             aiResetSeq: s.aiResetSeq + 1,
             breakpoints: new Set<number>(),
             blocks: opts?.blocks ?? [],
+            tapeFiles: opts?.tapeFiles ?? [],
             autoStart: opts?.autoStart ?? null,
           }
         : {}),
@@ -902,6 +921,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // Always a different program, so blocks reset unless the caller installs
       // its own (a .bproj-shaped import).
       blocks: opts?.blocks ?? [],
+      tapeFiles: opts?.tapeFiles ?? [],
       autoStart: opts?.autoStart ?? null,
       ...(isMobileViewport()
         ? { stopRequest: s.stopRequest + 1, mobileTab: 'editor' as MobileTab }

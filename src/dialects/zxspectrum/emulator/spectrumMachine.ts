@@ -11,6 +11,7 @@ import type {
   MachineReport,
   MachineVariable,
   MemoryBlock,
+  TapeFile,
 } from '../../types';
 import { VfsTapeDeck } from './tapeDeck';
 import { SpectrumMemory } from './memory';
@@ -361,7 +362,11 @@ export class SpectrumMachine implements MachineEmulator {
 
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
+    opts?: {
+      blocks?: readonly MemoryBlock[];
+      autoStart?: number | null;
+      tapeFiles?: readonly TapeFile[];
+    },
   ): void {
     this.reset(); // also rewinds the VFS tape deck
     this.bootToReady();
@@ -430,6 +435,18 @@ export class SpectrumMachine implements MachineEmulator {
           );
         }
       }
+    }
+    // Mount any preserved tape files (the loader, secondary programs, data
+    // arrays off a multi-part .TAP - see TapeFile) on the deck too, so the
+    // program's own LOAD ""/LOAD "name" requests are served as they would be
+    // off the original multi-part tape. Each file's own header (name/type)
+    // lives inside its .TAP payload, which the ROM matches against; the VFS
+    // key only needs to be unique per file.
+    const tapeFiles = opts?.tapeFiles;
+    if (this.deck && tapeFiles && tapeFiles.length > 0) {
+      tapeFiles.forEach((f, i) =>
+        this.deck!.addFile(`imported-tape-${i + 1}`, f.tap, f.kind),
+      );
     }
     // Start the program with a proper RUN (R is the RUN keyword in K mode). A
     // `RUN <line>` starts from the .TAP's auto-start line (Interface 1 loaders

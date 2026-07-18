@@ -13,6 +13,7 @@
  * payload the emulator injects through the ROM's tape-loading routine.
  */
 
+import type { TapeFile } from '../types';
 import { spectrumCharset } from './charset';
 
 export interface TapOptions {
@@ -279,14 +280,31 @@ export function parseTap(image: Uint8Array): ParsedTap {
 
 const CODE_TYPE = 3;
 
+/** Deck kind label for a preserved (non-CODE) tape file, keyed by header type. */
+const TAPE_KIND_BY_TYPE: Record<number, string> = {
+  0: 'program',
+  1: 'data-num',
+  2: 'data-str',
+};
+
+/** Declared program length (header bytes 15-16) - the tokenized program size. */
+function programLength(header: Uint8Array): number {
+  return header[15]! | (header[16]! << 8);
+}
+
 /**
- * A tokenized program area's length (bytes) below which a first-of-several
- * program file is treated as a "loader" rather than the payload the user
- * wants imported - see {@link parseTapAllFiles}. Chosen generously above a
- * typical one- or two-line `LOAD "" CODE: RANDOMIZE USR n` loader (a few
- * dozen bytes tokenized) and well below any program with real content.
+ * Preserve a non-chosen tape file as a ready two-block `.TAP` payload (its
+ * original header + data), so the emulator's tape deck can serve it verbatim -
+ * the ROM matches name/type against the header we keep here.
  */
-const LOADER_MAX_PROGRAM_BYTES = 60;
+function tapeFileFromTapFile(file: TapFile): TapeFile {
+  const header = file.header.payload;
+  return {
+    name: headerName(header.slice(1, 11)),
+    kind: TAPE_KIND_BY_TYPE[header[0]!] ?? 'data',
+    tap: tapFromPayloads(header, file.data!.payload),
+  };
+}
 
 /** One CODE file (header type 3) recovered from a `.TAP` by {@link parseTapAllFiles}. */
 export interface CodeFile {
@@ -313,25 +331,25 @@ function codeFileFromTapFile(file: TapFile): CodeFile {
 }
 
 /**
- * {@link parseTap} plus every CODE file (header type 3, paired with its data
- * block) the `.TAP` carries, and the same import-fidelity warnings
- * {@link parseTapWithReport} produces - except CODE files are no longer
- * "other files": they come back as {@link CodeFile}s instead of being
- * skipped. Arrays and headerless/unpaired blocks are still skipped, with a
- * warning.
+ * {@link parseTap} but for a whole multi-part tape: choose the substantive
+ * BASIC program to edit, recover every CODE file (header type 3) as a
+ * {@link CodeFile}, and preserve every other file - the loader, secondary
+ * programs, and data arrays - as {@link TapeFile}s the emulator can mount on
+ * its virtual tape. Nothing paired is discarded any more; only headerless or
+ * dataless blocks are skipped (with a warning).
  *
- * A `.TAP` that holds more than one BASIC-program file is a common
- * real-hardware layout for a tiny loader (`LOAD "" CODE: RANDOMIZE USR n`)
- * chaining into the real program: when the first program file's tokenized
- * body is short (see {@link LOADER_MAX_PROGRAM_BYTES}) and another program
- * file follows it, the loader is skipped (with a warning) and the next
- * program file is imported as `program` instead. Any BASIC program file
- * beyond that - a third, fourth, etc. - is reported as an "other file" like
- * any other skipped file.
+ * A `.TAP` that holds more than one BASIC program is the common real-hardware
+ * layout for a tiny loader chaining into the game (`LOAD "" CODE: RANDOMIZE
+ * USR n`, or `LOAD ""` into the next program). The **largest** program is the
+ * game, so it is chosen for editing (ties keep tape order); a "first program"
+ * rule would open the loader instead. The loader and any other programs come
+ * back in `tapeFiles`, in tape order, so running the chosen program still
+ * finds them via its own `LOAD` statements.
  */
 export function parseTapAllFiles(image: Uint8Array): {
   program: ParsedTap;
   code: CodeFile[];
+  tapeFiles: TapeFile[];
   warnings: string[];
 } {
   const { blocks, truncated } = scanBlocks(image);
@@ -343,14 +361,14 @@ export function parseTapAllFiles(image: Uint8Array): {
     throw new Error('Not a valid .TAP program image');
 
   const warnings: string[] = [];
+  // The largest program is the game; a leading loader is a fraction of its
+  // size. First occurrence wins a tie, so tape order breaks it deterministically.
   let chosen = programFiles[0]!;
-  let skippedLoader: TapFile | null = null;
-  if (programFiles.length > 1) {
-    const header = chosen.header.payload;
-    const progLen = header[15]! | (header[16]! << 8);
-    if (progLen <= LOADER_MAX_PROGRAM_BYTES) {
-      skippedLoader = chosen;
-      chosen = programFiles[1]!;
+  for (const f of programFiles) {
+    if (
+      programLength(f.header.payload) > programLength(chosen.header.payload)
+    ) {
+      chosen = f;
     }
   }
 
@@ -367,39 +385,53 @@ export function parseTapAllFiles(image: Uint8Array): {
     );
   }
 
-  if (skippedLoader) {
-    const loaderName = headerName(skippedLoader.header.payload.slice(1, 11));
-    warnings.push(
-      `The .TAP begins with a short loader program${loaderName ? ` ("${loaderName}")` : ''}; ` +
-        'it was skipped and the following BASIC program was imported instead.',
-    );
-  }
-
+  // Split the remaining files: CODE goes to `code` (RAM injection + the
+  // memory-block UI), everything else paired (other programs, arrays) is
+  // preserved on the virtual tape; headerless/dataless blocks can't be served.
   const code: CodeFile[] = [];
-  const others: TapFile[] = [];
+  const tapeFiles: TapeFile[] = [];
+  let skipped = 0;
   for (const f of files) {
-    if (f === chosen || f === skippedLoader) continue;
+    if (f === chosen) continue;
     if (f.header.payload[0] === CODE_TYPE && f.data) {
       code.push(codeFileFromTapFile(f));
+    } else if (f.data) {
+      tapeFiles.push(tapeFileFromTapFile(f));
     } else {
-      others.push(f);
+      skipped++;
     }
   }
 
-  if (others.length > 0) {
-    const kinds = others
-      .map((f) => TYPE_NAMES[f.header.payload[0]!] ?? 'unknown')
-      .join(', ');
-    const plural = others.length === 1 ? 'file' : 'files';
+  if (tapeFiles.length > 0) {
+    const chosenName = headerName(chosen.header.payload.slice(1, 11));
+    const otherPrograms = programFiles.length - 1;
+    const arrays = tapeFiles.length - otherPrograms;
+    const parts: string[] = [];
+    if (otherPrograms > 0)
+      parts.push(
+        `${otherPrograms} other program${otherPrograms > 1 ? 's' : ''}`,
+      );
+    if (arrays > 0) parts.push(`${arrays} data file${arrays > 1 ? 's' : ''}`);
+    if (code.length > 0)
+      parts.push(`${code.length} code block${code.length > 1 ? 's' : ''}`);
     warnings.push(
-      `The .TAP holds ${others.length} other ${plural} (${kinds}); only the ` +
-        'BASIC program and CODE files were imported.',
+      `This .TAP is a multi-part tape; ${chosenName ? `"${chosenName}"` : 'the largest program'} ` +
+        `was opened for editing and the rest (${parts.join(', ')}) was preserved ` +
+        'on the virtual tape so it loads as on original hardware.',
     );
   }
 
-  const header = chosen.header.payload;
-  const progLen = header[15]! | (header[16]! << 8);
-  if (chosen.data && progLen > chosen.data.payload.length) {
+  if (skipped > 0) {
+    const plural = skipped === 1 ? 'block' : 'blocks';
+    warnings.push(
+      `The .TAP has ${skipped} header ${plural} with no data; ${skipped === 1 ? 'it was' : 'they were'} skipped.`,
+    );
+  }
+
+  if (
+    chosen.data &&
+    programLength(chosen.header.payload) > chosen.data.payload.length
+  ) {
     warnings.push(
       'The .TAP header claims a longer program than the data block holds; ' +
         'the program area is truncated.',
@@ -409,7 +441,7 @@ export function parseTapAllFiles(image: Uint8Array): {
     warnings.push('The .TAP image is truncated: a block runs past the end.');
   }
 
-  return { program: parseProgramFile(chosen), code, warnings };
+  return { program: parseProgramFile(chosen), code, tapeFiles, warnings };
 }
 
 /**

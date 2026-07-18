@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SpectrumMachine } from './spectrumMachine';
 import { tokenizeProgram } from '../tokenizer';
-import { buildTap } from '../tapfile';
+import { buildTap, codeTap } from '../tapfile';
 import { RAMTOP } from '../sysvars';
 import type { MemoryBlock } from '../../types';
 
@@ -373,6 +373,30 @@ describe('SpectrumMachine', () => {
       const report = m2.readReport();
       expect(report.isError).toBe(true);
       expect(report.code).toBe('R');
+    });
+
+    it('mounts a preserved tape file so the running program can LOAD it', () => {
+      // A multi-part .TAP import preserves the loader/extra files as tapeFiles;
+      // loadProgram mounts them on the deck so the edited program's own
+      // LOAD "name" CODE finds them, as off the original tape.
+      const { store } = fakeStore();
+      const machine = new SpectrumMachine({ rom, files: store });
+      const { bytes } = tokenizeProgram(
+        '10 LOAD "X" CODE\n20 PRINT "P=";PEEK 30000\n',
+      );
+      machine.loadProgram(buildTap(bytes), {
+        tapeFiles: [
+          {
+            name: 'X',
+            kind: 'code',
+            tap: codeTap('X', 30000, Uint8Array.from([99])),
+          },
+        ],
+      });
+      for (let i = 0; i < 150; i++) machine.runFrame();
+      expect(screenRows(machine)).toContainEqual(
+        expect.stringContaining('P=99'),
+      );
     });
 
     it('keeps LOAD hanging (BREAK-able) while the store is empty', () => {

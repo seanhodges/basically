@@ -37,7 +37,7 @@ function codeFile(name: string, address: number, bytes: number[]): Uint8Array {
   return tapFromPayloads(codeHeader(name, address, data.length), data);
 }
 
-/** A number-array header (type 1): a file kind parseTapAllFiles still skips. */
+/** A number-array header (type 1): preserved as a tape file, not a CODE block. */
 function arrayFile(name: string, bytes: number[]): Uint8Array {
   const data = Uint8Array.from(bytes);
   const h = new Uint8Array(17);
@@ -148,34 +148,62 @@ describe('parseTapAllFiles', () => {
     expect(code.map((c) => c.address)).toEqual([0x8000, 0x9000]);
   });
 
-  it('still skips arrays and other files, with a warning', () => {
+  it('preserves an array as a tape file instead of dropping it', () => {
     const image = new Uint8Array([
       ...buildTap(program),
       ...arrayFile('nums', [1, 2, 3, 4]),
     ]);
-    const { code, warnings } = parseTapAllFiles(image);
+    const { code, tapeFiles, warnings } = parseTapAllFiles(image);
     expect(code).toEqual([]);
-    expect(warnings.join(' ')).toMatch(/other file/);
-    expect(warnings.join(' ')).toMatch(/number array/);
+    expect(tapeFiles).toHaveLength(1);
+    expect(tapeFiles[0]!.name).toBe('nums');
+    expect(tapeFiles[0]!.kind).toBe('data-num');
+    expect(warnings.join(' ')).toMatch(/multi-part tape/);
   });
 
-  it('imports the payload program and warns when a short loader precedes it', () => {
+  it('opens the largest program and preserves a smaller loader as a tape file', () => {
     const loader = tokenizeProgram('1 LOAD ""CODE\n').bytes;
-    const payload = tokenizeProgram('10 PRINT "PAYLOAD"\n20 GO TO 10\n').bytes;
-    const image = new Uint8Array([...buildTap(loader), ...buildTap(payload)]);
-    const { program: parsed, warnings } = parseTapAllFiles(image);
-    expect(Array.from(parsed.program)).toEqual(Array.from(payload));
-    expect(warnings.join(' ')).toMatch(/loader/);
+    const game = tokenizeProgram(
+      '10 PRINT "THE ACTUAL GAME WITH LOTS MORE TEXT"\n20 GO TO 10\n',
+    ).bytes;
+    // Loader first on the tape, as on real hardware - selection is by size, not
+    // tape order, so the game (larger) must still be the one opened.
+    const image = new Uint8Array([...buildTap(loader), ...buildTap(game)]);
+    const { program: parsed, tapeFiles, warnings } = parseTapAllFiles(image);
+    expect(Array.from(parsed.program)).toEqual(Array.from(game));
+    expect(tapeFiles).toHaveLength(1);
+    expect(tapeFiles[0]!.kind).toBe('program');
+    // The preserved loader round-trips as a real program .TAP.
+    expect(Array.from(parseTap(tapeFiles[0]!.tap).program)).toEqual(
+      Array.from(loader),
+    );
+    expect(warnings.join(' ')).toMatch(/multi-part tape/);
   });
 
-  it('picks the first program file when it is not loader-shaped', () => {
-    const first = tokenizeProgram(
-      '10 PRINT "FIRST"\n20 PRINT "AND A BIT MORE TEXT TO PAD LENGTH OUT"\n30 GO TO 10\n',
+  it('leaves tapeFiles empty for a single-program tape', () => {
+    const { tapeFiles, warnings } = parseTapAllFiles(buildTap(program));
+    expect(tapeFiles).toEqual([]);
+    expect(warnings).toEqual([]);
+  });
+
+  it('handles the multi-part layout of a real game tape (loader, screen, game, UDG)', () => {
+    // Mirrors LOSAGAN.TAP: a tiny loader, a SCREEN$ CODE block, the big game
+    // program, and a UDG CODE block. The game is opened; the loader is
+    // preserved on tape; both CODE blocks come back as code files.
+    const loader = tokenizeProgram('10 LOAD ""SCREEN$\n20 LOAD ""\n').bytes;
+    const game = tokenizeProgram(
+      '10 PRINT "SAGAN"\n20 PRINT "A LONG MAIN GAME PROGRAM BODY HERE"\n30 GO TO 10\n',
     ).bytes;
-    const second = tokenizeProgram('10 PRINT "SECOND"\n').bytes;
-    const image = new Uint8Array([...buildTap(first), ...buildTap(second)]);
-    const { program: parsed, warnings } = parseTapAllFiles(image);
-    expect(Array.from(parsed.program)).toEqual(Array.from(first));
-    expect(warnings.join(' ')).toMatch(/other/);
+    const image = new Uint8Array([
+      ...buildTap(loader, { name: 'LOADER' }),
+      ...codeFile('LDS', 16384, [0, 1, 2, 3]),
+      ...buildTap(game, { name: 'LS' }),
+      ...codeFile('UDG', 65368, [4, 5, 6]),
+    ]);
+    const { program: parsed, code, tapeFiles } = parseTapAllFiles(image);
+    expect(Array.from(parsed.program)).toEqual(Array.from(game));
+    expect(code.map((c) => c.name)).toEqual(['LDS', 'UDG']);
+    expect(tapeFiles.map((t) => t.name)).toEqual(['LOADER']);
+    expect(tapeFiles[0]!.kind).toBe('program');
   });
 });

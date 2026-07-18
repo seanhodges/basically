@@ -189,11 +189,16 @@ export async function openDroppedFile(file: File): Promise<void> {
       const bytes = new Uint8Array(await file.arrayBuffer());
       // Import loads real, not-yet-saved content: untitled but dirty, so the
       // discard guard fires before the next load (mirrors the Import dialog).
-      const { source, warnings, blocks, autoStart } = importProgram(
+      const { source, warnings, blocks, tapeFiles, autoStart } = importProgram(
         dialect,
         bytes,
       );
-      loadUnsavedDocument(source, { dirty: true, blocks, autoStart });
+      loadUnsavedDocument(source, {
+        dirty: true,
+        blocks,
+        tapeFiles,
+        autoStart,
+      });
       setStatusNotice(importStatusMessage(file.name, warnings));
     } else {
       setStatusNotice(`Can't open ${file.name} - unsupported file type.`);
