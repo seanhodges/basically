@@ -146,6 +146,22 @@ describe('Zx81Machine', () => {
     expect(machine.readReport().isError).toBe(false);
   });
 
+  it('continues past a SAVE statement instead of spinning in the tape loop', () => {
+    // Self-saving loaders (common in ZX81 games) run SAVE before starting.
+    // With no cassette output wired up, the ROM's tape-output loop would spin
+    // forever; the SAVE trap skips it so the next line still runs. A=0x26,
+    // B=0x27 in ZX81 codes.
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    const src = '10 PRINT "AA"\n20 SAVE "X"\n30 PRINT "BB"\n';
+    const { bytes, errors } = tokenizeProgram(src);
+    expect(errors).toEqual([]);
+    machine.loadProgram(buildPFile(bytes));
+    for (let i = 0; i < 200; i++) machine.runFrame();
+    // Line 30 ran (BB) and no runtime error was raised.
+    expect(displayContains(machine, [0x27, 0x27])).toBe(true);
+    expect(machine.readReport().isError).toBe(false);
+  });
+
   it('takes more frames to finish the same program at a slower speed', () => {
     // ZX81 letter codes run A=0x26 .. Z=0x3F.
     const letter = (ch: string) => 0x26 + (ch.charCodeAt(0) - 65);

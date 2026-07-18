@@ -22,6 +22,8 @@ import {
   STKEND,
   ROM_LOAD_TRAP,
   ROM_POST_LOAD,
+  ROM_SAVE_TRAP,
+  ROM_SAVE_RESUME,
 } from '../sysvars';
 import { NEWLINE } from '../charset';
 import { withAutoStart } from '../pfile';
@@ -136,6 +138,16 @@ export class Zx81Machine implements MachineEmulator {
       this.pendingBlocks = null;
       this.keyboard.releaseAll();
       this.cpu.setPC(ROM_POST_LOAD);
+    }
+    // Flash-save trap: the emulator has no cassette output, so a program's
+    // SAVE would otherwise spin forever in the ROM's tape-output loop. Skip
+    // straight to the routine's own completion point - the SLOW/FAST tail
+    // that a finished SAVE falls into - so SAVE returns to the interpreter
+    // and the next statement runs, exactly as it would on real hardware once
+    // the (ignored) tape tone finished. At the entry the interpreter's return
+    // address is already on top of the stack, so the tail's RET lands there.
+    if (this.cpu.getPC() === ROM_SAVE_TRAP) {
+      this.cpu.setPC(ROM_SAVE_RESUME);
     }
     let t: number;
     if (this.cpu.isHalted()) {

@@ -64,3 +64,17 @@ export const MEMBOT = 0x405d;
 /** ROM entry points used by the emulator's flash loader. */
 export const ROM_LOAD_TRAP = 0x0347; // inside the LOAD routine
 export const ROM_POST_LOAD = 0x0207; // continue here after injecting a .P
+
+/**
+ * The ROM's SAVE routine entry (leader-tone setup). The emulator has no
+ * cassette output, so a program that runs SAVE is bounced from here to
+ * {@link ROM_SAVE_RESUME} instead of spinning in the tape-output loop.
+ */
+export const ROM_SAVE_TRAP = 0x02f6;
+/**
+ * Where a completed SAVE resumes: the SLOW/FAST tail the ROM falls into once
+ * every byte is written, which then RETs to the BASIC interpreter. It is the
+ * same routine {@link ROM_POST_LOAD} names; the constant is separate so the
+ * SAVE trap reads for what it does.
+ */
+export const ROM_SAVE_RESUME = 0x0207;
