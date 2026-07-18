@@ -312,9 +312,9 @@ describe('detokenizeProgramWithReport on multi-file tapes', () => {
     expect(report.source).toBe(GAME_SOURCE);
     expect(report.blocks).toHaveLength(1);
     expect(report.blocks![0]!.address).toBe(PROG_START + program.length);
-    expect(report.warnings.some((w) => /preserved as a memory block/.test(w))).toBe(
-      true,
-    );
+    expect(
+      report.warnings.some((w) => /preserved as a memory block/.test(w)),
+    ).toBe(true);
   });
 
   it('still imports a single-file tape with no multi-part warnings', () => {

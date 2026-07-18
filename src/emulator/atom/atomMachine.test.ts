@@ -237,7 +237,9 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     // machine-code-.atm import shape (empty source + one entry block).
     const { bytes } = tokenizeProgram('');
     machine.loadProgram(bytes, { blocks: [block] });
-    const ran = await runUntil(machine, () => screenText(machine).includes('OK'));
+    const ran = await runUntil(machine, () =>
+      screenText(machine).includes('OK'),
+    );
     expect(ran).toBe(true);
     machine.dispose();
   }, 60000);

@@ -17,7 +17,10 @@ interface FileSpec {
 }
 
 /** Hand-build a `.t64` container around `files`, data packed back-to-back. */
-function buildT64(files: FileSpec[], signature = 'C64S tape image file'): Uint8Array {
+function buildT64(
+  files: FileSpec[],
+  signature = 'C64S tape image file',
+): Uint8Array {
   const headerAndDir = 64 + files.length * 32;
   const total = headerAndDir + files.reduce((n, f) => n + f.bytes.length, 0);
   const out = new Uint8Array(total);
@@ -57,9 +60,7 @@ describe('isT64 / parseT64', () => {
       { name: 'GAME', start: 0x0801, bytes: programBytes(GAME_SOURCE) },
     ]);
     expect(isT64(t64)).toBe(true);
-    expect(
-      isT64(buildT64([], 'C64 tape image file')),
-    ).toBe(true);
+    expect(isT64(buildT64([], 'C64 tape image file'))).toBe(true);
     expect(isT64(buildT64([], 'C64-TAPE-RAW'))).toBe(false);
     expect(() => parseT64(buildT64([], 'C64-TAPE-RAW'))).toThrow(/raw .tap/i);
     expect(isT64(new Uint8Array(10))).toBe(false);

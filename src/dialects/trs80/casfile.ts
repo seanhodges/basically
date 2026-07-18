@@ -352,8 +352,7 @@ export function parseCasAllFiles(image: Uint8Array): {
       while (rest[i] === 0x00) i++;
       const nameCode = rest[i + 1 + BASIC_MARKER_COUNT]!;
       const progStart = i + 1 + BASIC_MARKER_COUNT + 1;
-      const afterProg =
-        progStart + programByteLength(rest.subarray(progStart));
+      const afterProg = progStart + programByteLength(rest.subarray(progStart));
       const boundary = nextLeaderBoundary(rest, afterProg);
       const fileEnd = boundary === -1 ? rest.length : boundary;
       // Padding zeros between the last nonzero byte and the boundary belong

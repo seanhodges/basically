@@ -57,7 +57,10 @@ export const zx81: Dialect = {
   detokenizeWithReport(image: Uint8Array): DetokenizeResult {
     const { program, vars, eLine, autoStart } = parsePFile(image);
     const source = detokenizeProgram(program);
-    const warnings = [...structuralWarnings(program), ...rawEscapeWarning(source)];
+    const warnings = [
+      ...structuralWarnings(program),
+      ...rawEscapeWarning(source),
+    ];
     // A .P saved mid-program (the SAVE-inside-the-program trick) carries the
     // program's variables too; only the program text survives import, so a
     // resumed auto-start may find its state gone.
