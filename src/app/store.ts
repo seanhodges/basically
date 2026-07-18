@@ -9,6 +9,7 @@ import type {
 } from '../dialects/types';
 import {
   serializeBlocks,
+  serializeTapeFiles,
   isValidBlockName,
   findDuplicateBlockName,
 } from '../storage/projectFile';
@@ -110,10 +111,9 @@ interface IdeState {
    * Extra tape files preserved off a multi-part import (see {@link TapeFile}),
    * beyond the one program in `source` and the CODE blocks in `blocks`. The run
    * path (`EmulatorPane`) mounts them on the emulator's virtual tape so the
-   * program's own `LOAD ""` / `LOAD "name"` requests resolve. Reset whenever a
-   * different program becomes active, like `blocks`. Transient document state:
-   * unlike `blocks`, it is not yet persisted to autosave or a `.bproj` bundle,
-   * so it survives only within the session it was imported in.
+   * program's own `LOAD ""` / `LOAD "name"` requests resolve. Document-model
+   * state like `blocks`: it survives autosave and Save/Open (as a `.bproj`
+   * bundle), and is reset whenever a different program becomes active.
    */
   tapeFiles: readonly TapeFile[];
   /**
@@ -574,7 +574,7 @@ function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
  * so the first tick doesn't re-write unchanged content.
  */
 let lastAutosaveSig: string | null = autosaved
-  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))}\u0000${autosaved.autoStart ?? ''}`
+  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))}`
   : '';
 
 /**
@@ -587,18 +587,19 @@ let lastAutosaveSig: string | null = autosaved
  * a block edit alone (no source change) still autosaves.
  */
 export function persistAutosave(): void {
-  const { fileName, source, dialect, blocks, autoStart } =
+  const { fileName, source, dialect, blocks, autoStart, tapeFiles } =
     useIdeStore.getState();
   const pristine =
     blocks.length === 0 &&
+    tapeFiles.length === 0 &&
     (source.trim() === '' || matchingSampleName(dialect, source) !== null);
   const sig = pristine
     ? ''
-    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))}\u0000${autoStart ?? ''}`;
+    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))}\u0000${autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(tapeFiles))}`;
   if (sig === lastAutosaveSig) return;
   lastAutosaveSig = sig;
   if (pristine) clearAutosave();
-  else saveAutosave(fileName, source, blocks, autoStart);
+  else saveAutosave(fileName, source, blocks, autoStart, tapeFiles);
 }
 
 /**
@@ -657,6 +658,7 @@ export function initialDocument(
     text: string;
     blocks: MemoryBlock[];
     autoStart?: number | null;
+    tapeFiles?: TapeFile[];
   } | null,
   launchedBefore: boolean,
   starterText: string,
@@ -665,6 +667,7 @@ export function initialDocument(
   text: string;
   blocks: MemoryBlock[];
   autoStart: number | null;
+  tapeFiles: TapeFile[];
 } {
   if (saved) {
     return {
@@ -672,6 +675,7 @@ export function initialDocument(
       text: saved.text,
       blocks: saved.blocks,
       autoStart: saved.autoStart ?? null,
+      tapeFiles: saved.tapeFiles ?? [],
     };
   }
   return {
@@ -679,6 +683,7 @@ export function initialDocument(
     text: launchedBefore ? '' : starterText,
     blocks: [],
     autoStart: null,
+    tapeFiles: [],
   };
 }
 
@@ -698,7 +703,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   fileName: startupDoc.fileName,
   source: startupText,
   blocks: startupDoc.blocks,
-  tapeFiles: [],
+  tapeFiles: startupDoc.tapeFiles,
   autoStart: startupDoc.autoStart,
   docOverride: { text: startupText, seq: 0 },
   aiResetSeq: 0,
@@ -828,6 +833,8 @@ export const useIdeStore = create<IdeState>((set) => ({
         // Install the shared program's memory blocks so the player's run writes
         // them into RAM; a pure-BASIC share carries none and starts clean.
         blocks: blocks ?? [],
+        // A shared program is a single BASIC program with no preserved tape.
+        tapeFiles: [],
         autoStart: null,
         // Line numbers belong to whatever autosave seeded the store with.
         breakpoints: new Set<number>(),

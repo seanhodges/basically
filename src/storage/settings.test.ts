@@ -18,7 +18,7 @@ import {
   setHasLaunched,
   type PersistedMessage,
 } from './settings';
-import type { MemoryBlock } from '../dialects/types';
+import type { MemoryBlock, TapeFile } from '../dialects/types';
 
 const KEY = 'mbide.autosave.ai';
 
@@ -55,6 +55,7 @@ describe('autosave persistence', () => {
       text: '10 PRINT "HI"',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 
@@ -86,6 +87,7 @@ describe('autosave persistence', () => {
       text: '10 REM MINE',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 
@@ -97,6 +99,7 @@ describe('autosave persistence', () => {
       text: '10 REM BACKUP',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
     // Adopted: the tab's identity is pinned even if the backup changes later.
     expect(sessionStorage.getItem('mbide.autosave.doc')).toBe('10 REM BACKUP');
@@ -133,6 +136,7 @@ describe('autosave block persistence', () => {
       text: '10 PRINT "HI"',
       blocks: [BLOCK],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 
@@ -175,6 +179,7 @@ describe('autosave block persistence', () => {
       text: '10 PRINT "HI"',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 
@@ -194,6 +199,71 @@ describe('autosave block persistence', () => {
       JSON.stringify([{ id: 'x', name: 'B' }]), // missing address/bytes/kind
     );
     expect(loadAutosave()?.blocks).toEqual([]);
+  });
+});
+
+describe('autosave tape-file persistence', () => {
+  beforeEach(() => {
+    installStorages();
+  });
+
+  const TAPE: TapeFile = {
+    name: 'LOADER',
+    kind: 'program',
+    tap: Uint8Array.from([1, 2, 3, 255, 0]),
+  };
+
+  it('round-trips tape files alongside the document', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [], null, [TAPE]);
+    expect(loadAutosave()).toEqual({
+      name: 'game.bas',
+      text: '10 PRINT "HI"',
+      blocks: [],
+      autoStart: null,
+      tapeFiles: [TAPE],
+    });
+  });
+
+  it('defaults to no tape files when the fifth argument is omitted', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    expect(loadAutosave()?.tapeFiles).toEqual([]);
+  });
+
+  it('writes tape files through as base64 JSON', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [], null, [TAPE]);
+    const raw = sessionStorage.getItem('mbide.autosave.tapefiles');
+    expect(raw).not.toBeNull();
+    expect(raw).toBe(localStorage.getItem('mbide.autosave.tapefiles'));
+    const parsed = JSON.parse(raw!);
+    expect(typeof parsed[0].tap).toBe('string'); // base64, not raw array
+  });
+
+  it('removes the tape-files key when saving an empty list', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [], null, [TAPE]);
+    saveAutosave('game.bas', '10 PRINT "HI"', [], null, []);
+    expect(sessionStorage.getItem('mbide.autosave.tapefiles')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.tapefiles')).toBeNull();
+    expect(loadAutosave()?.tapeFiles).toEqual([]);
+  });
+
+  it('clearAutosave clears the tape-files key too', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [], null, [TAPE]);
+    clearAutosave();
+    expect(sessionStorage.getItem('mbide.autosave.tapefiles')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.tapefiles')).toBeNull();
+  });
+
+  it('defensively parses corrupt tape-file JSON as none, without losing the document', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"', [], null, [TAPE]);
+    sessionStorage.setItem('mbide.autosave.tapefiles', '{not json');
+    localStorage.setItem('mbide.autosave.tapefiles', '{not json');
+    expect(loadAutosave()).toEqual({
+      name: 'game.bas',
+      text: '10 PRINT "HI"',
+      blocks: [],
+      autoStart: null,
+      tapeFiles: [],
+    });
   });
 });
 

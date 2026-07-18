@@ -58,12 +58,14 @@ describe('initialDocument (boot document choice)', () => {
       text: '10 REM SAVED',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
     expect(initialDocument(saved, true, STARTER)).toEqual({
       fileName: 'mygame.bas',
       text: '10 REM SAVED',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 
@@ -81,6 +83,7 @@ describe('initialDocument (boot document choice)', () => {
       text: '10 REM SAVED',
       blocks: [block],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 
@@ -90,6 +93,7 @@ describe('initialDocument (boot document choice)', () => {
       text: STARTER,
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 
@@ -101,6 +105,7 @@ describe('initialDocument (boot document choice)', () => {
       text: '',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 });
@@ -351,6 +356,7 @@ describe('loadUnsavedDocument', () => {
       text: '10 REM imported',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 });
@@ -411,6 +417,7 @@ describe('markSaved', () => {
       text: '10 REM to-save',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 });
@@ -447,6 +454,7 @@ describe('persistAutosave', () => {
       text: '10 REM real-doc',
       blocks: [],
       autoStart: null,
+      tapeFiles: [],
     });
   });
 

@@ -7,7 +7,7 @@ import {
   isValidBlockName,
   findDuplicateBlockName,
 } from './projectFile';
-import type { MemoryBlock } from '../dialects/types';
+import type { MemoryBlock, TapeFile } from '../dialects/types';
 
 const BLOCK_A: MemoryBlock = {
   id: 'blk-1',
@@ -46,6 +46,35 @@ describe('serializeProject / parseProject round-trip', () => {
     expect(without.autoStart).toBeNull();
     expect(serializeProject('zxspectrum', '10 X', [])).not.toContain(
       'autoStart',
+    );
+  });
+
+  it('round-trips tape files, and defaults to [] when absent', () => {
+    const tapeFiles: TapeFile[] = [
+      {
+        name: 'LOADER',
+        kind: 'program',
+        tap: Uint8Array.from([1, 2, 0, 255, 128]),
+      },
+      { name: 'NUMS', kind: 'data-num', tap: Uint8Array.from([0, 255]) },
+    ];
+    const text = serializeProject(
+      'zxspectrum',
+      '10 PRINT "HI"',
+      [],
+      null,
+      tapeFiles,
+    );
+    const parsed = parseProject(text);
+    expect(parsed.tapeFiles).toHaveLength(2);
+    expect(parsed.tapeFiles[0]).toEqual(tapeFiles[0]);
+    expect(Array.from(parsed.tapeFiles[0]!.tap)).toEqual([1, 2, 0, 255, 128]);
+    expect(parsed.tapeFiles[1]!.kind).toBe('data-num');
+    // Older files (and single-program imports) carry no tapeFiles key.
+    const without = parseProject(serializeProject('zxspectrum', '10 X', []));
+    expect(without.tapeFiles).toEqual([]);
+    expect(serializeProject('zxspectrum', '10 X', [])).not.toContain(
+      'tapeFiles',
     );
   });
 
@@ -133,6 +162,30 @@ describe('parseProject error handling', () => {
       version: 1,
       source: '',
       blocks: [],
+    });
+    expect(() => parseProject(text)).toThrow();
+  });
+
+  it('throws when tapeFiles is present but not an array', () => {
+    const text = JSON.stringify({
+      format: 'basically-project',
+      version: 1,
+      dialect: 'zxspectrum',
+      source: '10 X',
+      blocks: [],
+      tapeFiles: 'nope',
+    });
+    expect(() => parseProject(text)).toThrow(/tapeFiles/);
+  });
+
+  it('throws when a tape file has malformed "tap" bytes', () => {
+    const text = JSON.stringify({
+      format: 'basically-project',
+      version: 1,
+      dialect: 'zxspectrum',
+      source: '10 X',
+      blocks: [],
+      tapeFiles: [{ name: 'L', kind: 'program', tap: '!!!not base64!!!' }],
     });
     expect(() => parseProject(text)).toThrow();
   });

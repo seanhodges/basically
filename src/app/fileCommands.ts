@@ -61,6 +61,7 @@ export async function openDocument(): Promise<void> {
       replaceDocument(parsed.source, opened.name, {
         blocks: parsed.blocks,
         autoStart: parsed.autoStart,
+        tapeFiles: parsed.tapeFiles,
       });
       const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
       if (mismatch) setStatusNotice(mismatch);
@@ -76,15 +77,21 @@ export async function openDocument(): Promise<void> {
 
 /**
  * Save the current program to disk and mark it saved. Plain `.txt`/`.bas`
- * stays the format for a pure-BASIC document; once it carries memory blocks,
- * Save switches to the `.bproj` project bundle instead (see
- * `src/storage/projectFile.ts`), so the blocks survive the round trip.
+ * stays the format for a pure-BASIC document; once it carries memory blocks or
+ * preserved tape files, Save switches to the `.bproj` project bundle instead
+ * (see `src/storage/projectFile.ts`), so they survive the round trip.
  */
 export async function saveDocument(): Promise<void> {
-  const { fileName, source, blocks, autoStart, dialect, markSaved } =
+  const { fileName, source, blocks, autoStart, tapeFiles, dialect, markSaved } =
     useIdeStore.getState();
-  if (blocks.length > 0) {
-    const json = serializeProject(dialect.id, source, blocks, autoStart);
+  if (blocks.length > 0 || tapeFiles.length > 0) {
+    const json = serializeProject(
+      dialect.id,
+      source,
+      blocks,
+      autoStart,
+      tapeFiles,
+    );
     const saved = await saveProjectFile(toProjectFileName(fileName), json);
     if (saved !== null) markSaved(saved);
     return;
@@ -166,6 +173,7 @@ export async function openDroppedFile(file: File): Promise<void> {
       replaceDocument(parsed.source, file.name, {
         blocks: parsed.blocks,
         autoStart: parsed.autoStart,
+        tapeFiles: parsed.tapeFiles,
       });
       const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
       if (mismatch) setStatusNotice(mismatch);
