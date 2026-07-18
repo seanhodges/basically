@@ -58,11 +58,11 @@ export interface SerializedBlock {
    */
   entry?: number;
   /**
-   * Assembler source that produced `bytes`, when the block was built from
-   * assembly rather than imported/POKEd bytes. An additive field owned by the
-   * edit-export plan's assembler - this file round-trips it as an unknown
-   * property (nothing here reads or writes it) so adding it needed no version
-   * bump; {@link MemoryBlock} itself does not carry it.
+   * The assembly source last edited for this code block (see
+   * {@link MemoryBlock.asmSource} - `bytes` remain the source of truth).
+   * Optional and additive like `entry`, so no version bump: the field was
+   * reserved here before the assembler existed, and older `.bproj` files
+   * without it simply load with a fresh disassembly.
    */
   asmSource?: string;
 }
@@ -110,6 +110,7 @@ function serializeBlock(block: MemoryBlock): SerializedBlock {
     kind: block.kind,
     ...(block.comment !== undefined ? { comment: block.comment } : {}),
     ...(block.entry !== undefined ? { entry: block.entry } : {}),
+    ...(block.asmSource !== undefined ? { asmSource: block.asmSource } : {}),
   };
 }
 
@@ -169,6 +170,7 @@ function parseBlock(raw: unknown, index: number): MemoryBlock {
     ...(typeof b.entry === 'number' && Number.isInteger(b.entry)
       ? { entry: b.entry }
       : {}),
+    ...(typeof b.asmSource === 'string' ? { asmSource: b.asmSource } : {}),
   };
 }
 

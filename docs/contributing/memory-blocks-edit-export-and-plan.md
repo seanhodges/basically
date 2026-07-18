@@ -26,11 +26,40 @@ plan lets a user **create** a block, **edit** its bytes (and later its assembly)
 reference it from BASIC by name, and **export** it so it round-trips onto real
 hardware.
 
+## Shipped update (July 2026): per-block assembly editing
+
+The assembly half of this plan (Stages 4 + 7, plus the tab system from
+Stage 1) shipped together as one feature, with three decisions superseding
+the notes below:
+
+- **Tab-per-block, not fixed tabs.** The editor pane shows a tab strip only
+  when the document has blocks: BASIC plus one tab per block
+  (`src/components/EditorTabBar.tsx`). A `code` block opens the assembly
+  editor (`src/components/AsmEditor.tsx`); a `data` block shows a
+  not-yet-supported placeholder until the hex editor exists. The strip
+  scrolls horizontally on narrow screens. Stage 1's block-selector design
+  note no longer applies; its hex viewer/editor and block-management UI
+  remain to be built (inside the block's tab rather than a "Memory" tab).
+- **First-party engines, no vendoring.** `src/asm/` holds a table-driven
+  assembler/disassembler pair per CPU (Z80 + 6502) where one instruction
+  table drives both directions, so `assemble(disassemble(bytes))` is
+  byte-identical by construction - pinned by exhaustive per-form round-trip
+  sweeps. The Stage 4/7 library surveys (z80-disasm, asm80) are superseded;
+  the vendored viciious/jsbeeb 6502 disassemblers stay untouched and unused.
+- **Auto-assemble, not read-only-then-explicit.** The Asm tab is editable
+  from day one: edits re-assemble on a debounce; clean assembly replaces the
+  block's bytes via `upsertBlock`, errors show as inline diagnostics (and an
+  error dot on the tab) leaving bytes untouched. `MemoryBlock.asmSource`
+  persists the text through autosave/`.bproj` (the reserved wire field);
+  bytes remain the source of truth.
+
 ## Design decisions (fixed)
 
 - **Editing model:** the hex/ascii editor is the write path first; the assembly
   tab starts as read-only disassembly; a full edit-assemble assembler is a later
-  stage of this same plan.
+  stage of this same plan. _(Superseded - see the shipped update above: the
+  assembly editor shipped first and is editable; the hex editor is still to
+  come.)_
 - **BASIC referencing: both** plain addresses with autocomplete and symbolic
   `@name` refs substituted in an app-level pre-pass (IDE-side syntax;
   detokenize/import emits plain numbers). Distinct from the shipped
@@ -56,10 +85,11 @@ hardware.
 - **UI:** store uses a counter/seq command-bus; hex prior art in
   `src/storage/vfs/hexdump.ts` + `VfsInspectorDialog`; `charset.glyph(code)`
   gives per-byte glyphs (charsets are total over 0x00–0xFF).
-- **CPU tooling in-tree:** two vendored 6502 disassemblers exist (viciious
-  `tools/disasm.js`, public domain, unused; jsbeeb `Disassemble6502`). No Z80
-  disassembler or any assembler exists in-tree; see the library survey under
-  Stages 4 and 7. Vendored cores are "don't touch"; wrap in adapters only.
+- **CPU tooling in-tree:** `src/asm/` provides first-party Z80 and 6502
+  assembler/disassembler engines (`asmEngineFor(cpu)` in `src/asm/registry.ts`),
+  keyed by `dialect.memoryBlocks.cpu`. The two vendored 6502 disassemblers
+  (viciious `tools/disasm.js`, jsbeeb `Disassemble6502`) remain untouched and
+  unused. Vendored cores are "don't touch"; wrap in adapters only.
 - **Tests convention:** colocated `*.test.ts`; `roundTripHarness.ts` /
   `roundTrip.test.ts` / per-dialect `foreignRoundTrip.test.ts`. Gate:
   `npm run typecheck && npm test && npm run lint && npm run format:check`.
@@ -68,16 +98,16 @@ hardware.
 
 ✅ shipped · 🔨 in progress · ⬜ planned · ⛔ blocked
 
-| Stage | Title                                                | Status |
-| ----- | ---------------------------------------------------- | ------ |
-| 1     | Editor tabs & read-only hex viewer                   | ⬜     |
-| 2     | Editable hex editor + raw `.bin` per-block load/save | ⬜     |
-| 3     | Spectrum `.TAP` export of CODE blocks                | ⬜     |
-| 4     | Assembly view (read-only) + Z80 disassembler         | ⬜     |
-| 5     | BASIC integration: `@name` refs, completions, lint   | ⬜     |
-| 6     | Rollout: editor, export & disassembly                | ⬜     |
-| 7     | Assembler (Z80 first, then 6502)                     | ⬜     |
-| 8     | Docs                                                 | ⬜     |
+| Stage | Title                                                | Status                                       |
+| ----- | ---------------------------------------------------- | -------------------------------------------- |
+| 1     | Editor tabs & read-only hex viewer                   | 🔨 (tabs shipped as tab-per-block; hex TODO) |
+| 2     | Editable hex editor + raw `.bin` per-block load/save | ⬜                                           |
+| 3     | Spectrum `.TAP` export of CODE blocks                | ⬜                                           |
+| 4     | Assembly view (read-only) + Z80 disassembler         | ✅ (shipped editable, both CPUs)             |
+| 5     | BASIC integration: `@name` refs, completions, lint   | ⬜                                           |
+| 6     | Rollout: editor, export & disassembly                | 🔨 (disassembly/asm all dialects; export ⬜) |
+| 7     | Assembler (Z80 first, then 6502)                     | ✅ (both CPUs, auto-assemble)                |
+| 8     | Docs                                                 | ⬜                                           |
 
 ---
 
@@ -181,7 +211,15 @@ plan's Stage 4 for the round-trip test.
 (e.g. Fuse) — auto-loader runs, border flips; re-import and drag-drop restore
 source + block.
 
-## Stage 4 — Assembly view (read-only) + Z80 disassembler ⬜
+## Stage 4 — Assembly view (read-only) + Z80 disassembler ✅
+
+> **Shipped** (with Stage 7, see the update at the top): `src/asm/` holds the
+> per-CPU engines behind `AsmEngine` (`disassemble`/`assemble`), registered in
+> `src/asm/registry.ts` for both `'z80'` and `'6502'` - so the 6502 wiring
+> originally deferred to Stage 6 shipped too. The view is the _editable_
+> per-block Asm editor rather than a read-only listing. The gotcha list below
+> is covered by golden tests in `src/asm/z80/z80.test.ts`. Original plan
+> follows for reference.
 
 An "Asm" tab showing disassembly of the active `kind: 'code'` block, behind a
 per-CPU `Disassembler` interface in a new `src/asm/` module.
@@ -295,7 +333,20 @@ plan's rollout.
 **Verify:** per dialect — export format round-trip, disassembler goldens where
 applicable, one manual export-and-reload recipe each.
 
-## Stage 7 — Assembler (Z80 first, then 6502) ⬜
+## Stage 7 — Assembler (Z80 first, then 6502) ✅
+
+> **Shipped** (with Stage 4): first-party two-pass assembler in
+> `src/asm/assemble.ts` driven by the same instruction tables as the
+> disassembler (no vendored asm80 - the survey below is superseded). Labels,
+> `+`/`-` expressions, `ORG` (must equal the block address), `DB`/`DW`/`DS`;
+> errors are `TokenizeError`-shaped and render as inline diagnostics.
+> `MemoryBlock.asmSource` persists through `.bproj`/autosave; bytes stay the
+> source of truth. Edits auto-assemble on a debounce instead of the explicit
+> "assemble to apply" gesture (so the stale-asm workflow below is moot until
+> hex editing exists). The `assemble(disassemble(bytes))` round-trip is pinned
+> byte-identical by exhaustive sweeps in `src/asm/*/roundtrip.test.ts`.
+> Syntax highlighting is a small StreamLanguage in `src/asm/language.ts`.
+> Original plan follows for reference.
 
 The Asm tab becomes an editor: edit assembly → assemble → block bytes, with
 inline errors like the BASIC linter.
@@ -360,9 +411,10 @@ border; hex-editing it afterwards flags the asm as stale.
 - **Spectrum auto-loader correctness** — the generated loader BASIC must `CLEAR`
   below the lowest block and load CODE files in the right order; verify against
   a real emulator, not just re-import.
-- **Assembler/disassembler syntax drift** — the round-trip test pins the
-  assembler to what the disassembler emits; widen it as the instruction set
-  grows (Stage 7).
+- **Assembler/disassembler syntax drift** — pinned: one shared instruction
+  table per CPU drives both directions, and the exhaustive per-form
+  round-trip sweeps (`src/asm/*/roundtrip.test.ts`) assert
+  `assemble(disassemble(bytes))` byte-identity, DB fallbacks included.
 - **Licensing** is clean: the app is GPL-3.0-or-later; `z80-disasm` and `asm80`
   are MIT; jsbeeb (GPL) is importable; the viciious disassembler is public
   domain.

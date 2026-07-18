@@ -22,11 +22,15 @@ import {
   type ControllerMachineTarget,
 } from '../keyboard/GameController';
 import { effectiveGamepadMode } from '../keyboard/controllerConfig';
+import { asmEngineFor } from '../asm/registry';
+import { AsmEditor } from './AsmEditor';
 import { CodeMirrorHost } from './CodeMirrorHost';
+import { EditorTabBar } from './EditorTabBar';
 import { EmulatorPane, type MachineApi } from './EmulatorPane';
 import { AiPanel } from './AiPanel';
 import { MemoryMapPanel } from './MemoryMapPanel';
 import { SettingsForm } from './SettingsForm';
+import { UnsupportedBlockNotice } from './UnsupportedBlockNotice';
 import styles from './Workspace.module.css';
 
 const DIVIDER_WIDTH = 6;
@@ -41,6 +45,8 @@ export function Workspace() {
   const splitRatio = useIdeStore((s) => s.splitRatio);
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
   const requestRun = useIdeStore((s) => s.requestRun);
+  const blocks = useIdeStore((s) => s.blocks);
+  const activeBlockId = useIdeStore((s) => s.activeBlockId);
 
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
@@ -119,6 +125,18 @@ export function Workspace() {
   const hidden = (tab: MobileTab) =>
     tabbed && mobileTab !== tab ? styles.tabHidden : '';
 
+  // The block tab open in the editor pane; a stale/unknown id (defensive -
+  // the store fixes ids up on every block mutation) falls back to BASIC. The
+  // assembly editor needs the dialect to declare a CPU with an engine; a code
+  // block without one gets the same placeholder as a data block.
+  const activeBlock = blocks.find((b) => b.id === activeBlockId) ?? null;
+  const asmEngine =
+    activeBlock !== null &&
+    activeBlock.kind === 'code' &&
+    dialect.memoryBlocks !== undefined
+      ? asmEngineFor(dialect.memoryBlocks.cpu)
+      : null;
+
   // While a program is actively running with the memory map open, move the map
   // into the left column (replacing the editor) so the live emulator can stay
   // visible on the right. Only on the split layout; only while 'running' — when
@@ -191,15 +209,35 @@ export function Workspace() {
           memoryMapOnLeft ? styles.slotHidden : ''
         }`}
       >
+        <EditorTabBar />
         {/* The FAB anchors to this box so the docked keyboard below never
             sits underneath it. */}
         <div className={styles.editorMain}>
-          <CodeMirrorHost
-            dialect={dialect}
-            override={docOverride}
-            onChange={setSource}
-            inputRef={editorInputRef}
-          />
+          {/* The BASIC editor stays mounted while a block tab is open -
+              hiding (not unmounting) preserves the EditorView, its undo
+              history and the docOverride seq channel. */}
+          <div
+            className={`${styles.basicEditorHost} ${
+              activeBlock !== null ? styles.slotHidden : ''
+            }`}
+          >
+            <CodeMirrorHost
+              dialect={dialect}
+              override={docOverride}
+              onChange={setSource}
+              inputRef={editorInputRef}
+            />
+          </div>
+          {activeBlock !== null &&
+            (asmEngine !== null ? (
+              <AsmEditor
+                key={activeBlock.id}
+                block={activeBlock}
+                engine={asmEngine}
+              />
+            ) : (
+              <UnsupportedBlockNotice block={activeBlock} />
+            ))}
           {tabbed && mobileTab === 'editor' && (
             <button
               className={styles.fabRun}

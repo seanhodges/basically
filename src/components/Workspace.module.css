@@ -81,6 +81,15 @@
   display: flex;
 }
 
+/* Wrapper that keeps the BASIC CodeMirrorHost mounted (hidden via .slotHidden)
+   while a block tab shows its own editor in the same slot. */
+.basicEditorHost {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
 /* ---------- Virtual keyboard overlay ---------- */
 /* The single keyboard for every layout: full-width, pinned to the bottom 46%
    of the workspace, with responsive side padding so keys aren't stretched on

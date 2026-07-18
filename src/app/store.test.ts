@@ -623,3 +623,88 @@ describe('memory blocks reset on document identity changes', () => {
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
 });
+
+describe('active block tab state', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: zx81,
+      pendingDialectId: null,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [BLOCK_A, BLOCK_B],
+      activeBlockId: BLOCK_B.id,
+      asmErrorBlocks: new Set([BLOCK_B.id]),
+    });
+  });
+
+  it('setActiveBlock switches tabs, and null returns to BASIC', () => {
+    useIdeStore.getState().setActiveBlock(BLOCK_A.id);
+    expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_A.id);
+    useIdeStore.getState().setActiveBlock(null);
+    expect(useIdeStore.getState().activeBlockId).toBeNull();
+  });
+
+  it('setBlockAsmError adds and clears the error flag', () => {
+    useIdeStore.getState().setBlockAsmError(BLOCK_A.id, true);
+    expect(useIdeStore.getState().asmErrorBlocks.has(BLOCK_A.id)).toBe(true);
+    useIdeStore.getState().setBlockAsmError(BLOCK_A.id, false);
+    expect(useIdeStore.getState().asmErrorBlocks.has(BLOCK_A.id)).toBe(false);
+  });
+
+  it('removeBlock of the active block falls back to the BASIC tab', () => {
+    useIdeStore.getState().removeBlock(BLOCK_B.id);
+    const s = useIdeStore.getState();
+    expect(s.activeBlockId).toBeNull();
+    expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(false);
+  });
+
+  it('removeBlock of another block keeps the active tab', () => {
+    useIdeStore.getState().removeBlock(BLOCK_A.id);
+    expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_B.id);
+  });
+
+  it('setBlocks keeps the active tab when the block survives', () => {
+    useIdeStore.getState().setBlocks([BLOCK_B]);
+    const s = useIdeStore.getState();
+    expect(s.activeBlockId).toBe(BLOCK_B.id);
+    expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(true);
+  });
+
+  it('setBlocks falls back to BASIC when the active block disappears', () => {
+    useIdeStore.getState().setBlocks([BLOCK_A]);
+    const s = useIdeStore.getState();
+    expect(s.activeBlockId).toBeNull();
+    expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(false);
+  });
+
+  it('document identity changes reset the tab to BASIC', () => {
+    useIdeStore.getState().loadUnsavedDocument('10 REM other');
+    let s = useIdeStore.getState();
+    expect(s.activeBlockId).toBeNull();
+    expect(s.asmErrorBlocks.size).toBe(0);
+
+    useIdeStore.setState({
+      blocks: [BLOCK_A],
+      activeBlockId: BLOCK_A.id,
+      asmErrorBlocks: new Set([BLOCK_A.id]),
+    });
+    useIdeStore.getState().replaceDocument('10 REM new', 'other.bas');
+    s = useIdeStore.getState();
+    expect(s.activeBlockId).toBeNull();
+    expect(s.asmErrorBlocks.size).toBe(0);
+
+    useIdeStore.setState({
+      source: '',
+      blocks: [BLOCK_A],
+      activeBlockId: BLOCK_A.id,
+    });
+    useIdeStore.getState().setDialect('bbcmicro');
+    expect(useIdeStore.getState().activeBlockId).toBeNull();
+  });
+
+  it('an in-place replaceDocument (AI apply) keeps the active tab', () => {
+    useIdeStore.getState().replaceDocument('10 REM ai edit');
+    expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_B.id);
+  });
+});

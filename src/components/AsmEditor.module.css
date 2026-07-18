@@ -1,0 +1,37 @@
+.asmEditor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.statusStrip {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.85;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.comment {
+  font-style: italic;
+}
+
+/* Same paper background as the BASIC editor (CodeMirrorHost.module.css). */
+.editorHost {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #fdfdf8;
+}
+
+.editorHost :global(.cm-editor) {
+  height: 100%;
+}

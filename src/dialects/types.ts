@@ -462,6 +462,13 @@ export interface MemoryBlock {
    * without such a path ignore it, like any other option they don't model.
    */
   entry?: number;
+  /**
+   * The assembly source last edited for this code block in the block editor.
+   * `bytes` remain the source of truth for run and export; this preserves
+   * the user's text - comments, labels, even edits that don't currently
+   * assemble - across tab switches, autosave and `.bproj` round-trips.
+   */
+  asmSource?: string;
 }
 
 /**
