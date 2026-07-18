@@ -1,5 +1,6 @@
 import type { DetokenizeResult } from '../types';
 import { atomCharset } from './charset';
+import { codeFilesToBlocks } from '../importBlocks';
 import { ATM_HEADER_SIZE, parseAtm, stripAtmHeader } from './atm';
 
 const LINE_MARK = 0x0d;
@@ -51,24 +52,24 @@ export function detokenizeProgramWithReport(
     // and a file too short to be either. When it's a parseable .atm, import
     // its payload as a memory block; otherwise pass the framing error through.
     if (isAtmFile(file)) {
-      const { load, data } = parseAtm(file);
-      const hex = load.toString(16).toUpperCase().padStart(4, '0');
+      const { name, load, exec, data } = parseAtm(file);
+      const hex = (v: number) => v.toString(16).toUpperCase().padStart(4, '0');
+      // The header's exec address is where *RUN would start the code; keep it
+      // on the block so the run path can LINK to it. 0 means "none recorded".
+      const entry = exec !== 0 ? exec : undefined;
       return {
         source: '',
         warnings: [
-          `This .atm loads at #${hex}, not #2900 where Atom BASIC text lives — ` +
+          `This .atm loads at #${hex(load)}, not #2900 where Atom BASIC text lives — ` +
             `it is a machine-code or data file, imported as a memory block ` +
-            `rather than editable BASIC.`,
+            `rather than editable BASIC.` +
+            (entry !== undefined
+              ? ` Run will start it at its exec address #${hex(entry)} with LINK.`
+              : ''),
         ],
-        blocks: [
-          {
-            id: 'imported-code-1',
-            name: 'code1',
-            address: load,
-            bytes: data.slice(),
-            kind: 'code',
-          },
-        ],
+        blocks: codeFilesToBlocks([
+          { name, address: load, bytes: data.slice(), entry },
+        ]),
       };
     }
     return { source: '', warnings: [(e as Error).message] };
