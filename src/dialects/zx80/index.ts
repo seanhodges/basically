@@ -9,7 +9,11 @@ import { zx80Charset } from './charset';
 import { zx80Keywords, zx80EditorKeywords } from './keywords';
 import { zx80VariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram, structuralWarnings } from './detokenizer';
+import {
+  detokenizeProgram,
+  detokenizeProgramWithInfo,
+  structuralWarnings,
+} from './detokenizer';
 import { rawEscapeWarning } from '../sinclairImportReport';
 import { buildOFile, parseOFile } from './ofile';
 import { decodeCassette } from './audio/cassetteDecoder';
@@ -56,11 +60,20 @@ export const zx80: Dialect = {
 
   detokenizeWithReport(image: Uint8Array): DetokenizeResult {
     const program = parseOFile(image).program;
-    const source = detokenizeProgram(program);
-    return {
-      source,
-      warnings: [...structuralWarnings(program), ...rawEscapeWarning(source)],
-    };
+    const { source, binaryLines } = detokenizeProgramWithInfo(program);
+    const warnings = [
+      ...structuralWarnings(program),
+      ...rawEscapeWarning(source),
+    ];
+    if (binaryLines > 0) {
+      const lines = binaryLines === 1 ? 'line' : 'lines';
+      warnings.push(
+        `${binaryLines} machine-code ${lines} (the hidden-code-in-REM trick) ` +
+          'imported as opaque #BIN blocks; they run and export byte-exactly ' +
+          'but are not editable as BASIC text.',
+      );
+    }
+    return { source, warnings };
   },
 
   lint(source: string): TokenizeError[] {
@@ -85,6 +98,8 @@ export const zx80: Dialect = {
   buildTargets: zx80BuildTargets,
 
   binaryImports: [{ extension: '.o', label: 'Import .O…' }],
+
+  supportsBinaryLines: true,
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,

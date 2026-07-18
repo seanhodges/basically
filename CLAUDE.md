@@ -137,10 +137,11 @@ have their own syntax rules in their dialect folders.
 - Display has two modes: **FAST** (CPU full speed, screen blanked) and **SLOW**
   (continuous display, ~1/4 speed).
 - `#BIN <base64>` source lines are opaque program-area line records (the
-  hidden-machine-code-in-REM trick from imported `.P` files: line 0, duplicate
-  numbers, embedded 0x76). The tokenizer splices them verbatim; the editor
-  collapses them to chips; renumber/AI-merge must preserve them untouched
-  (see `src/dialects/binaryDirective.ts`).
+  hidden-machine-code-in-REM trick from imported `.P`/`.O` files: line 0,
+  duplicate numbers, embedded 0x76). The tokenizer splices them verbatim; the
+  editor collapses them to chips; renumber/AI-merge must preserve them
+  untouched (see `src/dialects/binaryDirective.ts`). ZX80 records have no
+  length field (`lineNo BE + body + 0x76`).
 
 ## Don't touch
 

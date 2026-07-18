@@ -123,6 +123,12 @@ rebuilds them on load. The system-variable values were captured from the real
 ROM on an empty machine and have their pointers recomputed for the program
 length. ZX80 has no named files.
 
+Hidden machine-code lines (line number 0, duplicate numbers, large
+non-printable REM bodies) import as `#BIN <base64>` directives exactly as for
+the ZX81 `.P` format above; the only difference is the record shape - ZX80
+records are `u16 BE line number + body + 0x76` with no length field, so a
+body can never embed a stray `0x76`.
+
 ### ZX Spectrum / Spectrum 128 `.TAP`
 
 A `.TAP` is a sequence of blocks, each `u16 LE length` then `length` bytes: a
