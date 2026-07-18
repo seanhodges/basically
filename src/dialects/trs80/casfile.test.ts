@@ -5,11 +5,14 @@ import {
   casNameByte,
   isCasImage,
   isSystemCas,
+  parseCasAllFiles,
   parseCasImage,
   parseSystemCas,
   programByteLength,
   BASIC_MARKER,
   SYNC_BYTE,
+  type CasBasicFile,
+  type CasSystemFile,
 } from './casfile';
 import { tokenizeProgram, PROG_START } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
@@ -138,9 +141,10 @@ describe('trs80 cassette image', () => {
     expect(report.blocks).toHaveLength(1);
     expect(report.blocks![0]).toMatchObject({
       id: 'imported-code-1',
-      name: 'code1',
+      name: 'MYCODE',
       address: 0x7000,
       kind: 'code',
+      entry: 0x7000,
     });
     expect(Array.from(report.blocks![0]!.bytes)).toEqual([0xc9]);
   });
@@ -148,6 +152,18 @@ describe('trs80 cassette image', () => {
   it('programByteLength stops at the 0x0000 link', () => {
     const { program } = tokenizeProgram(SOURCE);
     expect(programByteLength(program)).toBe(program.length);
+  });
+
+  it('parseSystemCas reports where it stopped and clean termination', () => {
+    const cas = buildSystemCas('MYCODE', 0x7000, [1, 2, 3], 0x7003);
+    const parsed = parseSystemCas(cas);
+    expect(parsed.terminated).toBe(true);
+    expect(parsed.end).toBe(cas.length);
+
+    // Chop the entry record off: not terminated.
+    const cut = parseSystemCas(cas.subarray(0, cas.length - 3));
+    expect(cut.terminated).toBe(false);
+    expect(cut.blocks).toHaveLength(1);
   });
 
   it('lays out link pointers on the real TXTTAB base 0x42E9', () => {
@@ -162,5 +178,152 @@ describe('trs80 cassette image', () => {
     noisy.set(program);
     noisy.fill(0xff, program.length);
     expect(programByteLength(noisy)).toBe(program.length);
+  });
+});
+
+/** Concatenate byte arrays into one tape image. */
+function tape(...parts: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
+}
+
+const LOADER_SOURCE = '10 PRINT "LOADING"\n';
+const GAME_SOURCE = '10 CLS\n20 PRINT "THE ACTUAL GAME"\n30 GOTO 20\n';
+
+describe('parseCasAllFiles', () => {
+  it('finds every file on a loader-then-game tape', () => {
+    const loader = buildCasImage(tokenizeProgram(LOADER_SOURCE).program, 'L');
+    const game = buildCasImage(tokenizeProgram(GAME_SOURCE).program, 'G', 32);
+    const { files, warnings } = parseCasAllFiles(tape(loader, game));
+    expect(warnings).toEqual([]);
+    expect(files).toHaveLength(2);
+    expect(files.map((f) => f.kind)).toEqual(['basic', 'basic']);
+    expect((files[0] as CasBasicFile).name).toBe('L');
+    expect((files[1] as CasBasicFile).name).toBe('G');
+    expect(Array.from((files[1] as CasBasicFile).program)).toEqual(
+      Array.from(tokenizeProgram(GAME_SOURCE).program),
+    );
+  });
+
+  it('finds a SYSTEM file after a BASIC loader', () => {
+    const loader = buildCasImage(tokenizeProgram(LOADER_SOURCE).program, 'L');
+    const sys = buildSystemCas('GAME', 0x7000, [0xc9, 0x00], 0x7000);
+    // buildSystemCas writes only a 4-byte leader; pad to a real one so the
+    // scanner's next-file boundary (>= 16 zeros + sync) can see it.
+    const { files } = parseCasAllFiles(tape(loader, new Uint8Array(32), sys));
+    expect(files.map((f) => f.kind)).toEqual(['basic', 'system']);
+    const system = files[1] as CasSystemFile;
+    expect(system.name).toBe('GAME');
+    expect(system.entry).toBe(0x7000);
+    expect(system.terminated).toBe(true);
+    expect(system.records).toHaveLength(1);
+  });
+
+  it('keeps machine code trailing a program with that file', () => {
+    const program = tokenizeProgram(LOADER_SOURCE).program;
+    const trailing = Uint8Array.of(0xc3, 0x00, 0x70, 0x00, 0xa5, 0xc9);
+    const next = buildCasImage(tokenizeProgram(GAME_SOURCE).program, 'G', 32);
+    // The trailing code contains a zero and a literal 0xA5, but not a >=16
+    // zero run, so the boundary heuristic must not split the file there.
+    const { files } = parseCasAllFiles(
+      tape(buildCasImage(program, 'L'), trailing, next),
+    );
+    expect(files).toHaveLength(2);
+    const first = files[0] as CasBasicFile;
+    expect(Array.from(first.trailing)).toEqual(Array.from(trailing));
+    // raw preserves the whole file verbatim, trailing included.
+    expect(first.raw.length).toBeGreaterThan(program.length + trailing.length);
+  });
+
+  it('warns about and skips unrecognized data after the last file', () => {
+    const cas = buildCasImage(tokenizeProgram(LOADER_SOURCE).program, 'L');
+    // Junk after the file that is neither a leader+sync nor pure padding.
+    // (A gap under MIN_NEXT_LEADER zeros stays with the file as "trailing",
+    // so put the junk behind a valid boundary-sized gap plus a bad sync.)
+    const junk = Uint8Array.of(0x01, 0x02, 0x03);
+    const { files, warnings } = parseCasAllFiles(
+      tape(cas, new Uint8Array(32), Uint8Array.of(SYNC_BYTE, 0x99), junk),
+    );
+    expect(files).toHaveLength(1);
+    expect(warnings.some((w) => /unrecognized/i.test(w))).toBe(true);
+  });
+
+  it('treats pure zero padding after the last file as a clean end', () => {
+    const cas = buildCasImage(tokenizeProgram(LOADER_SOURCE).program, 'L');
+    const { files, warnings } = parseCasAllFiles(tape(cas, new Uint8Array(64)));
+    expect(files).toHaveLength(1);
+    expect((files[0] as CasBasicFile).trailing.length).toBe(0);
+    expect(warnings).toEqual([]);
+  });
+});
+
+describe('detokenizeProgramWithReport on multi-file tapes', () => {
+  it('opens the largest program and preserves the loader as a tape file', () => {
+    const loader = buildCasImage(tokenizeProgram(LOADER_SOURCE).program, 'L');
+    const game = buildCasImage(tokenizeProgram(GAME_SOURCE).program, 'G', 32);
+    const report = detokenizeProgramWithReport(tape(loader, game));
+    expect(report.source).toBe(GAME_SOURCE);
+    expect(report.tapeFiles).toHaveLength(1);
+    expect(report.tapeFiles![0]!.name).toBe('L');
+    expect(report.tapeFiles![0]!.kind).toBe('program');
+    // The preserved payload is the verbatim loader file.
+    expect(Array.from(report.tapeFiles![0]!.tap)).toEqual(Array.from(loader));
+    expect(report.warnings.some((w) => /Multi-part tape/.test(w))).toBe(true);
+  });
+
+  it('imports SYSTEM records alongside the BASIC program, entry kept', () => {
+    const basic = buildCasImage(tokenizeProgram(GAME_SOURCE).program, 'G');
+    const sys = buildSystemCas('ENGINE', 0x8000, [0x3e, 0x01, 0xc9], 0x8001);
+    const report = detokenizeProgramWithReport(
+      tape(basic, new Uint8Array(32), sys),
+    );
+    expect(report.source).toBe(GAME_SOURCE);
+    expect(report.blocks).toHaveLength(1);
+    expect(report.blocks![0]).toMatchObject({
+      name: 'ENGINE',
+      address: 0x8000,
+      entry: 0x8001,
+    });
+    expect(report.tapeFiles).toBeUndefined();
+  });
+
+  it('preserves machine code trailing the chosen program as a block', () => {
+    const program = tokenizeProgram(GAME_SOURCE).program;
+    const trailing = Uint8Array.of(0x3e, 0x2a, 0xc9);
+    const report = detokenizeProgramWithReport(
+      tape(buildCasImage(program, 'G'), trailing),
+    );
+    expect(report.source).toBe(GAME_SOURCE);
+    expect(report.blocks).toHaveLength(1);
+    expect(report.blocks![0]!.address).toBe(PROG_START + program.length);
+    expect(Array.from(report.blocks![0]!.bytes)).toEqual(Array.from(trailing));
+    expect(report.warnings.some((w) => /memory block/.test(w))).toBe(true);
+  });
+
+  it('preserves a bare image’s trailing bytes as a block too', () => {
+    const { program } = tokenizeProgram(GAME_SOURCE);
+    const trailing = Uint8Array.of(0x3e, 0x2a, 0xc9);
+    const report = detokenizeProgramWithReport(tape(program, trailing));
+    expect(report.source).toBe(GAME_SOURCE);
+    expect(report.blocks).toHaveLength(1);
+    expect(report.blocks![0]!.address).toBe(PROG_START + program.length);
+    expect(report.warnings.some((w) => /preserved as a memory block/.test(w))).toBe(
+      true,
+    );
+  });
+
+  it('still imports a single-file tape with no multi-part warnings', () => {
+    const report = detokenizeProgramWithReport(
+      buildCasImage(tokenizeProgram(GAME_SOURCE).program, 'G'),
+    );
+    expect(report.source).toBe(GAME_SOURCE);
+    expect(report.warnings).toEqual([]);
+    expect(report.blocks).toBeUndefined();
+    expect(report.tapeFiles).toBeUndefined();
   });
 });

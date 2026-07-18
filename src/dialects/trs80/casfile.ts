@@ -107,6 +107,10 @@ export function parseSystemCas(
   name: string;
   blocks: { address: number; bytes: Uint8Array }[];
   entry: number;
+  /** Offset just past the last byte this parse consumed. */
+  end: number;
+  /** True when the 0x78 entry-point record cleanly terminated the tape. */
+  terminated: boolean;
 } {
   let i = 0;
   while (i < image.length && image[i] === 0x00) i++;
@@ -129,15 +133,25 @@ export function parseSystemCas(
   const blocks: { address: number; bytes: Uint8Array }[] = [];
   let entry = 0;
   let blockNo = 0;
+  let terminated = false;
 
   while (i < image.length) {
     const marker = image[i++]!;
     if (marker === SYSTEM_ENTRY_MARKER) {
       // Entry-point record: two-byte little-endian entry address ends the tape.
-      if (i + 1 < image.length) entry = image[i]! | (image[i + 1]! << 8);
+      if (i + 1 < image.length) {
+        entry = image[i]! | (image[i + 1]! << 8);
+        i += 2;
+        terminated = true;
+      } else {
+        i = image.length;
+      }
       break;
     }
-    if (marker !== SYSTEM_DATA_MARKER) break; // unknown record: stop cleanly
+    if (marker !== SYSTEM_DATA_MARKER) {
+      i--; // unknown record: stop cleanly, leaving the byte unconsumed
+      break;
+    }
 
     blockNo++;
     if (i >= image.length) break;
@@ -163,7 +177,7 @@ export function parseSystemCas(
     blocks.push({ address, bytes });
   }
 
-  return { name, blocks, entry };
+  return { name, blocks, entry, end: i, terminated };
 }
 
 /** Single-character cassette name: first A–Z/0–9 of the title, default 'A'. */
@@ -247,4 +261,156 @@ export function parseCasImage(image: Uint8Array): {
   const rest = image.subarray(i);
   const program = rest.subarray(0, programByteLength(rest));
   return { programName, program };
+}
+
+/**
+ * Minimum run of 0x00 leader bytes that marks the start of a following file
+ * when scanning a multi-file tape. Real CSAVE/SYSTEM leaders are 256 bytes,
+ * so 16 is conservative; the one pathological case - trailing machine code
+ * that itself contains 16+ zeros followed by a literal 0xA5 - would be split
+ * a file early.
+ */
+const MIN_NEXT_LEADER = 16;
+
+/**
+ * Offset of the first 0x00 of a `>= MIN_NEXT_LEADER` zero-run followed by the
+ * 0xA5 sync byte at or after `from` - i.e. where the next file on the tape
+ * starts - or -1 when no such boundary exists.
+ */
+function nextLeaderBoundary(image: Uint8Array, from: number): number {
+  let zeroStart = -1;
+  let zeros = 0;
+  for (let i = from; i < image.length; i++) {
+    if (image[i] === 0x00) {
+      if (zeros === 0) zeroStart = i;
+      zeros++;
+    } else if (image[i] === SYNC_BYTE && zeros >= MIN_NEXT_LEADER) {
+      return zeroStart;
+    } else {
+      zeros = 0;
+    }
+  }
+  return -1;
+}
+
+/** One BASIC (CSAVE) file found on a multi-file tape. */
+export interface CasBasicFile {
+  kind: 'basic';
+  /** One-character cassette filename ('' when blank/unprintable). */
+  name: string;
+  /** Tokenized program bytes, including the terminating 0x0000 link. */
+  program: Uint8Array;
+  /**
+   * Verbatim image slice for this whole file - leader, sync, marker, filename,
+   * program and any trailing machine code - so the file can be preserved
+   * byte-for-byte.
+   */
+  raw: Uint8Array;
+  /**
+   * Nonzero bytes between the program's end link and the next file's leader
+   * (or the tape's end, padding zeros trimmed): machine code CLOAD would have
+   * deposited directly after the program.
+   */
+  trailing: Uint8Array;
+}
+
+/** One SYSTEM (machine-language) file found on a multi-file tape. */
+export interface CasSystemFile {
+  kind: 'system';
+  name: string;
+  records: { address: number; bytes: Uint8Array }[];
+  /** Entry address from the 0x78 record; 0 when none was read. */
+  entry: number;
+  /** True when the 0x78 entry-point record cleanly terminated the file. */
+  terminated: boolean;
+}
+
+export type CasTapeFile = CasBasicFile | CasSystemFile;
+
+/**
+ * Scan a Model I `.cas` image for every file it holds. A real tape routinely
+ * concatenates several CSAVE/SYSTEM files (a BASIC loader followed by the
+ * machine-code game is the classic layout); reading only the first file loses
+ * the rest, exactly the multi-part problem the Spectrum's `.TAP` import
+ * solves with parseTapAllFiles. Lenient like the single-file parsers: it
+ * stops cleanly at anything it cannot classify, warning rather than throwing.
+ */
+export function parseCasAllFiles(image: Uint8Array): {
+  files: CasTapeFile[];
+  warnings: string[];
+} {
+  const files: CasTapeFile[] = [];
+  const warnings: string[] = [];
+  let cursor = 0;
+
+  while (cursor < image.length) {
+    const rest = image.subarray(cursor);
+    const format = casFormat(rest);
+
+    if (format === 'model1') {
+      let i = 0;
+      while (rest[i] === 0x00) i++;
+      const nameCode = rest[i + 1 + BASIC_MARKER_COUNT]!;
+      const progStart = i + 1 + BASIC_MARKER_COUNT + 1;
+      const afterProg =
+        progStart + programByteLength(rest.subarray(progStart));
+      const boundary = nextLeaderBoundary(rest, afterProg);
+      const fileEnd = boundary === -1 ? rest.length : boundary;
+      // Padding zeros between the last nonzero byte and the boundary belong
+      // to no one; anything nonzero is trailing machine code kept with the file.
+      let tEnd = fileEnd;
+      while (tEnd > afterProg && rest[tEnd - 1] === 0x00) tEnd--;
+      files.push({
+        kind: 'basic',
+        name: String.fromCharCode(nameCode).trim(),
+        program: rest.slice(progStart, afterProg),
+        raw: rest.slice(0, tEnd),
+        trailing: rest.slice(afterProg, tEnd),
+      });
+      cursor += fileEnd;
+    } else if (format === 'system') {
+      const parsed = parseSystemCas(rest, warnings);
+      files.push({
+        kind: 'system',
+        name: parsed.name,
+        records: parsed.blocks,
+        entry: parsed.entry,
+        terminated: parsed.terminated,
+      });
+      if (!parsed.terminated) {
+        // Without the 0x78 entry record there is no trustworthy end offset;
+        // stop rather than misread what follows.
+        if (parsed.end < rest.length) {
+          warnings.push(
+            'The SYSTEM file ended without its entry-point record; ' +
+              'anything after it on the tape was ignored.',
+          );
+        }
+        break;
+      }
+      cursor += parsed.end;
+    } else if (format === 'model3') {
+      warnings.push(
+        files.length === 0
+          ? MODEL_III_MESSAGE
+          : 'A Model III 1500-baud section follows on the tape; it cannot ' +
+              'be decoded yet and was ignored.',
+      );
+      break;
+    } else {
+      // Only padding zeros left is a clean end; anything else is unrecognized.
+      let z = 0;
+      while (z < rest.length && rest[z] === 0x00) z++;
+      if (z < rest.length) {
+        const n = rest.length - z;
+        warnings.push(
+          `${n} unrecognized byte${n === 1 ? '' : 's'} after the last file ` +
+            'on the tape were ignored.',
+        );
+      }
+      break;
+    }
+  }
+
+  return { files, warnings };
 }
