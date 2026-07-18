@@ -199,6 +199,14 @@ function tokenizeBody(
   let i = 0;
   let firstWordChecked = false;
   let prevSignificant = '';
+  // Track what a line emits before any statement keyword, for the trailing
+  // "no statement keyword" check. A line whose only content is leading
+  // control-code / graphics escapes (a bare `{BRIGHT 0}`, as real tapes save
+  // and the detokenizer reproduces) is a valid, non-fatal line that just
+  // carries embedded bytes; a leading string or bare numeric literal with no
+  // statement keyword is still "nonsense in BASIC".
+  let leadingControlEscape = false;
+  let leadingOtherContent = false;
 
   const fail = (message: string, at: number): null => {
     errors.push({ line: editorLine, column: colOffset + at, message });
@@ -283,6 +291,7 @@ function tokenizeBody(
 
     // Strings: "" inside a string stores a doubled quote.
     if (ch === '"') {
+      if (!firstWordChecked) leadingOtherContent = true;
       out.push(QUOTE);
       i++;
       let closed = false;
@@ -357,6 +366,7 @@ function tokenizeBody(
     if (ch === '{') {
       const override = parseFloatOverride(body, i);
       if (override) {
+        if (!firstWordChecked) leadingOtherContent = true;
         out.push(NUMBER_MARKER, ...override.bytes);
         i = override.end;
         prevSignificant = '0';
@@ -365,6 +375,7 @@ function tokenizeBody(
     }
     const escape = escapeUnitAt(body, i);
     if (escape) {
+      if (!firstWordChecked) leadingControlEscape = true;
       warnRestrictedUdg(i);
       out.push(...escape.codes);
       i += escape.length;
@@ -414,6 +425,12 @@ function tokenizeBody(
   }
 
   if (!firstWordChecked && out.length > 0) {
+    // A line whose only content is leading control-code / graphics escapes
+    // (`{BRIGHT 0}` and friends) is valid and non-fatal: real tapes save such
+    // lines and the detokenizer round-trips them, so accept the emitted bytes.
+    // A leading string or bare numeric literal with no statement keyword is
+    // still nonsense.
+    if (leadingControlEscape && !leadingOtherContent) return out;
     return fail('Line has a number but no statement', 0);
   }
   return out;

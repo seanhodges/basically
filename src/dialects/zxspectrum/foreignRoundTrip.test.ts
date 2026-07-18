@@ -17,6 +17,9 @@ import { importRoundTrip, firstDifference } from '../roundTripHarness';
 const PRINT = 0xf5;
 const REM = 0xea;
 const GOTO = 0xec;
+const LET = 0xf1;
+const IF = 0xfa;
+const THEN = 0xcb;
 const Q = 0x22;
 const NUMBER_MARKER = 0x0e;
 const ENTER = 0x0d;
@@ -73,6 +76,109 @@ describe('zxspectrum foreign-image round-trip', () => {
     expect(source).toContain('{0x00}');
     // A raw escape was needed, so the fidelity note fires.
     expect(warnings.join(' ')).toMatch(/\{0xNN\} escapes/);
+  });
+
+  it('preserves a constant whose digits are split from its marker by colour codes', () => {
+    // Quicksilva's "Mined Out" pokes colour-control bytes between a numeric
+    // constant's printed digits and its 0x0E marker: `LET HSC=250` is stored
+    // as the digits `250`, then {PAPER 7}{INK 7}, then the marker + value. At
+    // run time the ROM's number scanner skips the filler to reach the marker,
+    // so it works on hardware. A naive detokenize emits the bare `250`, which
+    // re-tokenizes into its *own* marker - the line becomes `250 <form>
+    // {colour} <form>` and the Spectrum reports "C nonsense in BASIC" on the
+    // stray colour code after a complete number. The split digits must come
+    // back escaped so only the separated marker carries the value.
+    const image = buildTap(
+      programArea([
+        {
+          no: 2,
+          body: [
+            LET,
+            0x61,
+            0x3d, // LET a=
+            0x32,
+            0x35,
+            0x30, // printed digits "250"
+            0x11,
+            0x07,
+            0x10,
+            0x07, // {PAPER 7}{INK 7} filler
+            NUMBER_MARKER,
+            ...encodeSpectrumNumber(250),
+          ],
+        },
+      ]),
+    );
+    const outcome = importRoundTrip(zxspectrum, image);
+    expect(hasFatalErrors(outcome.errors)).toBe(false);
+    // The split digits survive as raw escapes, not a second number.
+    expect(outcome.source).toContain('{0x32}{0x35}{0x30}');
+    expect(
+      outcome.byteExact,
+      `drift (${firstDifference(image, outcome.reImage)}):\n${outcome.source}`,
+    ).toBe(true);
+  });
+
+  it('separates a {=…} override from a following keyword', () => {
+    // A "protection" constant whose stored 5-byte form disagrees with its
+    // printed digits detokenizes as `20{=9999}`. When a keyword follows with no
+    // gap (`20{=9999}THEN`, as "Mined Out" has for `IF RND>.8 THEN`), the
+    // override ends in `}` so the trailing-digit spacing never fires; the
+    // tokenizer then reads the override's value as the previous token and
+    // demotes the keyword to plain text (which cascades into the next operand).
+    // The override must leave a word boundary, exactly as a bare digit does.
+    const image = buildTap(
+      programArea([
+        {
+          no: 10,
+          body: [
+            IF,
+            0x61,
+            0x3e, // IF a>
+            0x32,
+            0x30,
+            NUMBER_MARKER,
+            ...encodeSpectrumNumber(9999), // shows "20", runs as 9999
+            THEN,
+            GOTO,
+            0x32,
+            NUMBER_MARKER,
+            ...encodeSpectrumNumber(2), // GO TO 2
+          ],
+        },
+      ]),
+    );
+    const outcome = importRoundTrip(zxspectrum, image);
+    expect(hasFatalErrors(outcome.errors)).toBe(false);
+    expect(outcome.source).toContain('{=9999}');
+    expect(
+      outcome.byteExact,
+      `drift (${firstDifference(image, outcome.reImage)}):\n${outcome.source}`,
+    ).toBe(true);
+  });
+
+  it('accepts a lone leading control-code line and re-exports it byte-exactly', () => {
+    // A whole line that is just an embedded control byte with no statement
+    // keyword - `9007 {BRIGHT 0}` in Quicksilva's "Mined Out" is the real case
+    // (raw body 0x13 0x00). The importer must not treat it as a fatal "no
+    // statement" error, or the program never builds and never runs.
+    const image = buildTap(
+      programArea([
+        { no: 10, body: [PRINT, Q, 0x48, 0x49, Q] }, // 10 PRINT "HI"
+        { no: 9007, body: [0x13, 0x00] }, // BRIGHT control byte + parameter
+        {
+          no: 9008,
+          body: [PRINT, 0x31, NUMBER_MARKER, ...encodeSpectrumNumber(1)],
+        },
+      ]),
+    );
+    const outcome = importRoundTrip(zxspectrum, image);
+    expect(outcome.errors).toEqual([]);
+    expect(hasFatalErrors(outcome.errors)).toBe(false);
+    expect(
+      outcome.byteExact,
+      `drift (${firstDifference(image, outcome.reImage)}):\n${outcome.source}`,
+    ).toBe(true);
   });
 
   it('accepts a 0 REM protection line and re-exports it byte-exactly', () => {

@@ -105,6 +105,15 @@ interface IdeState {
    * boot), same as breakpoints.
    */
   blocks: readonly MemoryBlock[];
+  /**
+   * The imported program's auto-start line (a Spectrum `.TAP` header's auto-run
+   * line), or `null` when there is none. Document-model state like `blocks`:
+   * the run path (`EmulatorPane`) passes it to `loadProgram` so the emulator
+   * starts from that line rather than line 1, and it is reset whenever a
+   * different program becomes active. `null` for every dialect that doesn't
+   * report one.
+   */
+  autoStart: number | null;
   /** Bump seq to push text INTO the editor (file load, AI apply). */
   docOverride: { text: string; seq: number };
   /**
@@ -337,7 +346,7 @@ interface IdeState {
   replaceDocument(
     text: string,
     fileName?: string,
-    opts?: { blocks?: readonly MemoryBlock[] },
+    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
   ): void;
   /**
    * Replace the editor with a document that has no saved file yet - a loaded
@@ -357,7 +366,11 @@ interface IdeState {
    */
   loadUnsavedDocument(
     text: string,
-    opts?: { dirty?: boolean; blocks?: readonly MemoryBlock[] },
+    opts?: {
+      dirty?: boolean;
+      blocks?: readonly MemoryBlock[];
+      autoStart?: number | null;
+    },
   ): void;
   markSaved(fileName: string): void;
   /** Replace every memory block on the current document (sets `dirty`). */
@@ -545,7 +558,7 @@ function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
  * so the first tick doesn't re-write unchanged content.
  */
 let lastAutosaveSig: string | null = autosaved
-  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))}`
+  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))}\u0000${autosaved.autoStart ?? ''}`
   : '';
 
 /**
@@ -558,17 +571,18 @@ let lastAutosaveSig: string | null = autosaved
  * a block edit alone (no source change) still autosaves.
  */
 export function persistAutosave(): void {
-  const { fileName, source, dialect, blocks } = useIdeStore.getState();
+  const { fileName, source, dialect, blocks, autoStart } =
+    useIdeStore.getState();
   const pristine =
     blocks.length === 0 &&
     (source.trim() === '' || matchingSampleName(dialect, source) !== null);
   const sig = pristine
     ? ''
-    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))}`;
+    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))}\u0000${autoStart ?? ''}`;
   if (sig === lastAutosaveSig) return;
   lastAutosaveSig = sig;
   if (pristine) clearAutosave();
-  else saveAutosave(fileName, source, blocks);
+  else saveAutosave(fileName, source, blocks, autoStart);
 }
 
 /**
@@ -606,6 +620,7 @@ function applyDialectSwitch(
     // switch always starts with none (Stage 1: blocks aren't re-targeted
     // across machines yet).
     blocks: [],
+    autoStart: null,
     // On mobile, surface the change in the editor the user is now editing.
     ...(isMobileViewport() ? { mobileTab: 'editor' as MobileTab } : {}),
   };
@@ -620,17 +635,33 @@ function applyDialectSwitch(
  * Exported for unit testing; the store computes its startup document from it.
  */
 export function initialDocument(
-  saved: { name: string; text: string; blocks: MemoryBlock[] } | null,
+  saved: {
+    name: string;
+    text: string;
+    blocks: MemoryBlock[];
+    autoStart?: number | null;
+  } | null,
   launchedBefore: boolean,
   starterText: string,
-): { fileName: string; text: string; blocks: MemoryBlock[] } {
+): {
+  fileName: string;
+  text: string;
+  blocks: MemoryBlock[];
+  autoStart: number | null;
+} {
   if (saved) {
-    return { fileName: saved.name, text: saved.text, blocks: saved.blocks };
+    return {
+      fileName: saved.name,
+      text: saved.text,
+      blocks: saved.blocks,
+      autoStart: saved.autoStart ?? null,
+    };
   }
   return {
     fileName: UNTITLED_FILE_NAME,
     text: launchedBefore ? '' : starterText,
     blocks: [],
+    autoStart: null,
   };
 }
 
@@ -650,6 +681,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   fileName: startupDoc.fileName,
   source: startupText,
   blocks: startupDoc.blocks,
+  autoStart: startupDoc.autoStart,
   docOverride: { text: startupText, seq: 0 },
   aiResetSeq: 0,
   dirty: false,
@@ -778,6 +810,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         // Install the shared program's memory blocks so the player's run writes
         // them into RAM; a pure-BASIC share carries none and starts clean.
         blocks: blocks ?? [],
+        autoStart: null,
         // Line numbers belong to whatever autosave seeded the store with.
         breakpoints: new Set<number>(),
         debugLine: null,
@@ -844,6 +877,7 @@ export const useIdeStore = create<IdeState>((set) => ({
             aiResetSeq: s.aiResetSeq + 1,
             breakpoints: new Set<number>(),
             blocks: opts?.blocks ?? [],
+            autoStart: opts?.autoStart ?? null,
           }
         : {}),
       dirty: fileName === undefined,
@@ -868,6 +902,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // Always a different program, so blocks reset unless the caller installs
       // its own (a .bproj-shaped import).
       blocks: opts?.blocks ?? [],
+      autoStart: opts?.autoStart ?? null,
       ...(isMobileViewport()
         ? { stopRequest: s.stopRequest + 1, mobileTab: 'editor' as MobileTab }
         : {}),

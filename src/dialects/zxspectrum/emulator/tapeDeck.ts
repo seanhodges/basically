@@ -53,6 +53,16 @@ export class VfsTapeDeck {
     return this.files.list().length > 0;
   }
 
+  /**
+   * Place a ready-made two-block `.TAP` file on the tape, so the program's own
+   * `LOAD "name" …` finds it (e.g. imported CODE blocks - see
+   * `spectrumMachine.loadProgram`). The bytes are stored under `name` exactly
+   * like a program-driven save, and served by {@link nextBlock}.
+   */
+  addFile(name: string, tap: Uint8Array, kind?: string): void {
+    this.files.save(name, tap, kind !== undefined ? { kind } : undefined);
+  }
+
   /** Forget half-captured saves and rewind the tape (reset / new program). */
   rewind(): void {
     this.pendingHeader = null;

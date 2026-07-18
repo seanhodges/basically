@@ -85,6 +85,7 @@ export const zxspectrum128: Dialect = {
       source,
       warnings: [...warnings, ...rawEscapeWarning(source)],
       ...(blocks.length > 0 ? { blocks } : {}),
+      ...(program.autoStart !== null ? { autoStart: program.autoStart } : {}),
     };
   },
 

@@ -6,6 +6,9 @@ import { floatOverrideNotation } from './floatOverride';
 
 const WORDLIKE = /[A-Za-z0-9$↑£©▘▝▀▖▌▞▛▗▚▐▜▄▙▟█]/;
 
+/** Identifier char, matching the tokenizer's number-start test. */
+const IDENT = /[A-Za-z0-9$]/;
+
 /** Bytes that can form a printed numeric literal (digits, '.', 'E', '+', '-'). */
 const NUMBER_CHAR = new Set<number>([
   ...Array.from({ length: 10 }, (_, d) => 0x30 + d), // 0-9
@@ -81,6 +84,12 @@ export function detokenizeProgram(
     let text = `${lineNo} `;
     let pendingBoundary = false;
     let inString = false;
+    // Mirrors the tokenizer's `prevSignificant`: the previous significant char
+    // the *re-tokenized* source would carry (a space after a keyword or an
+    // escape, the char itself after a plain byte, '0' after a number). Only
+    // used to tell an identifier-continuation digit (`A1`) from a number-start
+    // digit, which decides whether a loose display-digit run needs escaping.
+    let prevSig = ' ';
     // In-string decode cap: the current segment's closing quote (or bodyEnd),
     // so a control byte's operands can never swallow the string terminator.
     let segEnd = bodyEnd;
@@ -108,6 +117,7 @@ export function detokenizeProgram(
         if (b === QUOTE) {
           text += '"';
           inString = false;
+          prevSig = '"';
           i++;
         } else {
           const span = decodeSpan(program, i, segEnd);
@@ -148,9 +158,54 @@ export function detokenizeProgram(
             canonical = false;
           }
         }
-        if (!canonical) text += floatOverrideNotation(stored);
+        if (!canonical) {
+          text += floatOverrideNotation(stored);
+          // A `{=…}` override ends in `}`, not a digit, so emit()'s trailing-
+          // wordlike check won't separate a following keyword (`{=0.8}THEN`);
+          // the tokenizer would then read prevSignificant as the override's
+          // '0' and reject the keyword, emitting it as text. Flag a boundary so
+          // a following word-like token gets its space, as a bare digit would.
+          pendingBoundary = true;
+        }
+        prevSig = '0';
         i += 6;
         continue;
+      }
+      // Loose display digits: a numeric run at a number-start position that is
+      // NOT immediately followed by the 0x0E marker. Real tapes poke filler
+      // (trailing spaces, embedded colour-control codes) between a constant's
+      // printed digits and its number marker - Quicksilva's "Mined Out" does
+      // this to colour the listing. At run time the ROM's number scanner skips
+      // the filler to reach the marker, so it works on hardware; but emitting
+      // the digits plainly would let the tokenizer grow a *second*, adjacent
+      // marker of its own, so the re-tokenized line reads `250 <form> {colour}
+      // <form>` and the ROM trips "C nonsense in BASIC" on the stray marker.
+      // Escape each digit byte to raw {0xNN}: the digits still LIST as before
+      // and the real value round-trips through the separated marker's {=…}
+      // override.
+      if (((b >= 0x30 && b <= 0x39) || b === 0x2e) && !IDENT.test(prevSig)) {
+        let ahead = '';
+        for (let j = i; j < bodyEnd; j++) {
+          const c = program[j]!;
+          const isNumChar =
+            (c >= 0x30 && c <= 0x39) ||
+            c === 0x2e ||
+            c === 0x45 ||
+            c === 0x65 ||
+            c === 0x2b ||
+            c === 0x2d;
+          if (!isNumChar) break;
+          ahead += String.fromCharCode(c).toUpperCase();
+        }
+        const m = /^(\d+(\.\d*)?|\.\d+)(E[+-]?\d+)?/.exec(ahead);
+        if (m && m[0] !== '.' && program[i + m[0].length] !== NUMBER_MARKER) {
+          for (let k = i; k < i + m[0].length; k++)
+            text += `{0x${program[k]!.toString(16).padStart(2, '0').toUpperCase()}}`;
+          i += m[0].length;
+          pendingBoundary = false;
+          prevSig = ' ';
+          continue;
+        }
       }
       const kw = keywordByToken.get(b);
       if (kw) {
@@ -171,6 +226,7 @@ export function detokenizeProgram(
         if (/[A-Za-z#]/.test(kw.word[kw.word.length - 1]!)) {
           pendingBoundary = true;
         }
+        prevSig = ' ';
         i++;
         continue;
       }
@@ -180,6 +236,9 @@ export function detokenizeProgram(
       // accepts those escapes outside strings too, so they round-trip.
       const span = decodeSpan(program, i, bodyEnd);
       emit(span.text, WORDLIKE.test(span.text[0] ?? ''));
+      // A single plain char re-tokenizes as itself; a multi-char escape
+      // (`{INK 7}`, `\a`, `{0xNN}`) leaves the tokenizer at a space boundary.
+      prevSig = span.text.length === 1 ? span.text : ' ';
       i += span.length;
     }
 

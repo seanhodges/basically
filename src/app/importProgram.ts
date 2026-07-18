@@ -11,7 +11,7 @@
  * shown an unconditional "Imported." success.
  */
 
-import type { Dialect, MemoryBlock } from '../dialects/types';
+import type { Dialect, DetokenizeResult, MemoryBlock } from '../dialects/types';
 
 export interface ImportedProgram {
   source: string;
@@ -24,6 +24,13 @@ export interface ImportedProgram {
    * dialect found none, or reports none.
    */
   blocks?: MemoryBlock[];
+  /**
+   * The program's auto-start line, recovered from the image (a Spectrum `.TAP`
+   * header's auto-run line), when the dialect reports one via
+   * {@link Dialect.detokenizeWithReport}'s optional `autoStart`. Absent when
+   * there is none; the run path then starts from the first line.
+   */
+  autoStart?: number | null;
 }
 
 /**
@@ -53,7 +60,7 @@ export function importProgram(
   dialect: Dialect,
   bytes: Uint8Array,
 ): ImportedProgram {
-  const base = dialect.detokenizeWithReport
+  const base: DetokenizeResult = dialect.detokenizeWithReport
     ? dialect.detokenizeWithReport(bytes)
     : { source: dialect.detokenize(bytes), warnings: [] };
   // The generic empty-output check is redundant when the dialect's own report
@@ -66,6 +73,7 @@ export function importProgram(
       ...(alreadyExplained ? [] : importFidelityWarnings(dialect, base.source)),
     ],
     ...(base.blocks ? { blocks: base.blocks } : {}),
+    ...(base.autoStart != null ? { autoStart: base.autoStart } : {}),
   };
 }
 

@@ -80,8 +80,11 @@ export function ImportDialog() {
       if (!confirmDiscard()) return;
       const opened = await openBinaryFile(fmt.extension);
       if (!opened) return;
-      const { source, warnings, blocks } = importProgram(dialect, opened.bytes);
-      loadUnsavedDocument(source, { dirty: true, blocks });
+      const { source, warnings, blocks, autoStart } = importProgram(
+        dialect,
+        opened.bytes,
+      );
+      loadUnsavedDocument(source, { dirty: true, blocks, autoStart });
       setStatusNotice(importStatusMessage(opened.name, warnings));
       close();
     });

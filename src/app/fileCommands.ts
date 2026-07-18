@@ -58,7 +58,10 @@ export async function openDocument(): Promise<void> {
   if (ext === '.bproj' || (ext === '.txt' && isProjectFile(opened.text))) {
     try {
       const parsed = parseProject(opened.text);
-      replaceDocument(parsed.source, opened.name, { blocks: parsed.blocks });
+      replaceDocument(parsed.source, opened.name, {
+        blocks: parsed.blocks,
+        autoStart: parsed.autoStart,
+      });
       const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
       if (mismatch) setStatusNotice(mismatch);
     } catch (e) {
@@ -78,10 +81,10 @@ export async function openDocument(): Promise<void> {
  * `src/storage/projectFile.ts`), so the blocks survive the round trip.
  */
 export async function saveDocument(): Promise<void> {
-  const { fileName, source, blocks, dialect, markSaved } =
+  const { fileName, source, blocks, autoStart, dialect, markSaved } =
     useIdeStore.getState();
   if (blocks.length > 0) {
-    const json = serializeProject(dialect.id, source, blocks);
+    const json = serializeProject(dialect.id, source, blocks, autoStart);
     const saved = await saveProjectFile(toProjectFileName(fileName), json);
     if (saved !== null) markSaved(saved);
     return;
@@ -160,7 +163,10 @@ export async function openDroppedFile(file: File): Promise<void> {
     } else if (ext === '.bproj') {
       if (!confirmDiscard()) return;
       const parsed = parseProject(await file.text());
-      replaceDocument(parsed.source, file.name, { blocks: parsed.blocks });
+      replaceDocument(parsed.source, file.name, {
+        blocks: parsed.blocks,
+        autoStart: parsed.autoStart,
+      });
       const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
       if (mismatch) setStatusNotice(mismatch);
     } else if (ext === '.bas' || ext === '.txt') {
@@ -168,7 +174,10 @@ export async function openDroppedFile(file: File): Promise<void> {
       if (ext === '.txt' && isProjectFile(text)) {
         if (!confirmDiscard()) return;
         const parsed = parseProject(text);
-        replaceDocument(parsed.source, file.name, { blocks: parsed.blocks });
+        replaceDocument(parsed.source, file.name, {
+          blocks: parsed.blocks,
+          autoStart: parsed.autoStart,
+        });
         const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
         if (mismatch) setStatusNotice(mismatch);
       } else {
@@ -180,8 +189,11 @@ export async function openDroppedFile(file: File): Promise<void> {
       const bytes = new Uint8Array(await file.arrayBuffer());
       // Import loads real, not-yet-saved content: untitled but dirty, so the
       // discard guard fires before the next load (mirrors the Import dialog).
-      const { source, warnings, blocks } = importProgram(dialect, bytes);
-      loadUnsavedDocument(source, { dirty: true, blocks });
+      const { source, warnings, blocks, autoStart } = importProgram(
+        dialect,
+        bytes,
+      );
+      loadUnsavedDocument(source, { dirty: true, blocks, autoStart });
       setStatusNotice(importStatusMessage(file.name, warnings));
     } else {
       setStatusNotice(`Can't open ${file.name} - unsupported file type.`);

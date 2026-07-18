@@ -133,6 +133,35 @@ export function buildTap(
   return out;
 }
 
+const CODE_HEADER_TYPE = 0x03;
+/** Header param2 for a CODE block: unused by LOAD, conventionally 0x8000. */
+const CODE_UNUSED_PARAM = 0x8000;
+
+/**
+ * A two-block CODE `.TAP` (header type 3) for `bytes` loading at `address`,
+ * named `name`. Used to serve an imported CODE file back to the program's own
+ * `LOAD "name" CODE` through the {@link tapfile}/tape-deck layer: the ROM does
+ * its own name/type matching against the header we build here. Mirrors
+ * {@link buildTap}'s header layout, but for CODE - param1 (bytes 13-14) is the
+ * load address, not an auto-run line.
+ */
+export function codeTap(
+  name: string,
+  address: number,
+  bytes: Uint8Array,
+): Uint8Array {
+  const header = new Uint8Array(17);
+  header[0] = CODE_HEADER_TYPE;
+  header.set(programName(name), 1);
+  header[11] = bytes.length & 0xff;
+  header[12] = (bytes.length >> 8) & 0xff;
+  header[13] = address & 0xff;
+  header[14] = (address >> 8) & 0xff;
+  header[15] = CODE_UNUSED_PARAM & 0xff;
+  header[16] = (CODE_UNUSED_PARAM >> 8) & 0xff;
+  return tapFromPayloads(header, bytes);
+}
+
 /**
  * A two-block `.TAP` from raw header and data payloads (as captured off a
  * program's own SAVE, where the payloads can describe CODE or arrays, not
