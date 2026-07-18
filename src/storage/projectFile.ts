@@ -52,6 +52,12 @@ export interface SerializedBlock {
   kind: 'code' | 'data';
   comment?: string;
   /**
+   * Execution entry address recovered with an imported code payload (see
+   * {@link MemoryBlock.entry}). Optional and additive like `comment` - older
+   * `.bproj` files without it load with no entry - so no version bump.
+   */
+  entry?: number;
+  /**
    * Assembler source that produced `bytes`, when the block was built from
    * assembly rather than imported/POKEd bytes. An additive field owned by the
    * edit-export plan's assembler - this file round-trips it as an unknown
@@ -103,6 +109,7 @@ function serializeBlock(block: MemoryBlock): SerializedBlock {
     bytes: bytesToBase64(block.bytes),
     kind: block.kind,
     ...(block.comment !== undefined ? { comment: block.comment } : {}),
+    ...(block.entry !== undefined ? { entry: block.entry } : {}),
   };
 }
 
@@ -159,6 +166,9 @@ function parseBlock(raw: unknown, index: number): MemoryBlock {
     bytes,
     kind: b.kind,
     ...(typeof b.comment === 'string' ? { comment: b.comment } : {}),
+    ...(typeof b.entry === 'number' && Number.isInteger(b.entry)
+      ? { entry: b.entry }
+      : {}),
   };
 }
 

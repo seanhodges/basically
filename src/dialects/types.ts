@@ -86,20 +86,27 @@ export function fatalErrors(errors: readonly TokenizeError[]): TokenizeError[] {
 }
 
 /**
- * One extra file preserved off a multi-part tape (a ZX Spectrum `.TAP` that
- * holds a loader plus the game, secondary programs, or data arrays alongside
- * the one program opened for editing). Carried on the document and mounted on
- * the emulator's virtual tape at run time, so the running program's own
- * `LOAD ""` / `LOAD "name"` requests are served as they would be off original
- * hardware. CODE files are NOT represented here - they come back as
+ * One extra file preserved off a multi-part tape (a ZX Spectrum `.TAP` or a
+ * TRS-80 `.cas` that holds a loader plus the game, secondary programs, or data
+ * arrays alongside the one program opened for editing). Carried on the
+ * document; where the emulator has a virtual tape deck (the Spectrums), the
+ * run path mounts these so the running program's own `LOAD ""` /
+ * `LOAD "name"` requests are served as they would be off original hardware.
+ * Machines without a deck still preserve them with the document so nothing is
+ * silently discarded. CODE files are NOT represented here - they come back as
  * {@link MemoryBlock}s instead (RAM injection plus the memory-block UI).
  */
 export interface TapeFile {
-  /** Original 10-char tape header name, trailing spaces trimmed (for display). */
+  /** Original tape header name, trailing spaces trimmed (for display). */
   name: string;
-  /** Deck kind label from the header type: 'program' | 'data-num' | 'data-str'. */
+  /** Deck kind label from the header type, e.g. 'program' | 'data-num' | 'data-str'. */
   kind: string;
-  /** A ready two-block `.TAP` payload (original header + data) to serve to the deck. */
+  /**
+   * A ready-to-serve payload in the originating dialect's native tape format
+   * (for the Spectrums, a two-block `.TAP`: original header + data; for the
+   * TRS-80, a verbatim `.cas` file slice). The field name stays `tap` for
+   * wire compatibility with existing `.bproj` files and autosaves.
+   */
   tap: Uint8Array;
 }
 
@@ -447,6 +454,14 @@ export interface MemoryBlock {
   bytes: Uint8Array;
   kind: 'code' | 'data';
   comment?: string;
+  /**
+   * Execution entry address recovered alongside an imported code payload (an
+   * Acorn Atom `.atm` header's exec address, a TRS-80 SYSTEM tape's entry
+   * record). A machine that can start machine code jumps to it - e.g. via a
+   * typed `LINK` - when the document has no BASIC program to RUN; machines
+   * without such a path ignore it, like any other option they don't model.
+   */
+  entry?: number;
 }
 
 /**

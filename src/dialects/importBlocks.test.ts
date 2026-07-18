@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { codeFilesToBlocks, sanitizeBlockName } from './importBlocks';
-import { isValidBlockName } from '../../storage/projectFile';
-import type { CodeFile } from './tapfile';
+import { isValidBlockName } from '../storage/projectFile';
+import type { ImportedCodeFile } from './importBlocks';
 
 describe('sanitizeBlockName', () => {
   it('passes through an already-valid name unchanged', () => {
@@ -35,9 +35,18 @@ describe('sanitizeBlockName', () => {
 });
 
 describe('codeFilesToBlocks', () => {
-  function codeFile(name: string, address = 0x8000): CodeFile {
+  function codeFile(name: string, address = 0x8000): ImportedCodeFile {
     return { name, address, bytes: Uint8Array.from([0xc9]) };
   }
+
+  it('threads an entry address through to the block', () => {
+    const blocks = codeFilesToBlocks([
+      { ...codeFile('boot'), entry: 0x8210 },
+      codeFile('plain'),
+    ]);
+    expect(blocks[0]!.entry).toBe(0x8210);
+    expect('entry' in blocks[1]!).toBe(false);
+  });
 
   it('builds a MemoryBlock per CodeFile with kind "code"', () => {
     const blocks = codeFilesToBlocks([codeFile('screen$', 0x8000)]);

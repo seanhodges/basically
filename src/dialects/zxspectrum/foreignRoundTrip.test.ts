@@ -235,7 +235,7 @@ describe('zxspectrum foreign-image round-trip', () => {
 
     // Two CODE files: one with a header name that isn't a valid block name
     // (a leading digit) and one that's blank - both must come back sanitized
-    // and unique (see src/dialects/zxspectrum/importBlocks.ts).
+    // and unique (see src/dialects/importBlocks.ts).
     function codeHeaderBytes(name: string, address: number, length: number) {
       const h = new Uint8Array(17);
       h[0] = 0x03; // CODE

@@ -10,7 +10,7 @@ import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { buildTap, parseTap, parseTapAllFiles } from './tapfile';
 import { rawEscapeWarning } from './importReport';
-import { codeFilesToBlocks } from './importBlocks';
+import { codeFilesToBlocks } from '../importBlocks';
 import { decodeCassette } from './audio/cassetteDecoder';
 import { spectrumLanguageSupport, spectrumCompletionSource } from './language';
 import { spectrumVariableErrors } from '../../editor/variableLint';

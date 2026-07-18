@@ -2,23 +2,35 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * Turn a `.TAP`'s {@link CodeFile}s into {@link MemoryBlock}s for import.
- * Shared by `zxspectrum/index.ts` and `zxspectrum128/index.ts` (both dialects'
- * `detokenizeWithReport` funnel their CODE files through here), since the two
- * dialects share the same `.TAP` layer and the conversion has nothing
- * dialect-specific in it.
+ * Turn code files recovered from a native binary import into
+ * {@link MemoryBlock}s. Shared across dialects (Spectrum `.TAP` CODE files,
+ * TRS-80 SYSTEM `.cas` records, Commodore `.t64` entries…) - the conversion
+ * has nothing dialect-specific in it.
  *
- * The one thing this module exists to get right: a `.TAP` header name is up
- * to 10 characters of arbitrary ZX Spectrum text - routinely blank, digit-led,
- * containing spaces, or punctuation - but {@link MemoryBlock.name} must match
+ * The one thing this module exists to get right: a native tape/disc header
+ * name is arbitrary machine text - routinely blank, digit-led, containing
+ * spaces, or punctuation - but {@link MemoryBlock.name} must match
  * `/^[A-Za-z][A-Za-z0-9_]*$/` and be unique per document (see
  * `src/storage/projectFile.ts`'s `isValidBlockName`/`findDuplicateBlockName`,
  * which Stage 2's Run-path lint gate enforces). Passing a raw header name
  * through would silently produce a block the user can never Run.
  */
 
-import type { MemoryBlock } from '../types';
-import type { CodeFile } from './tapfile';
+import type { MemoryBlock } from './types';
+
+/**
+ * A code payload recovered from an imported binary, in the minimal structural
+ * shape every dialect's parser can produce: the Spectrum's `CodeFile` matches
+ * it as-is; other dialects add `entry` when their format carries an execution
+ * entry address alongside the payload.
+ */
+export interface ImportedCodeFile {
+  name: string;
+  address: number;
+  bytes: Uint8Array;
+  /** Execution entry address, when the format records one (see {@link MemoryBlock.entry}). */
+  entry?: number;
+}
 
 const INVALID_NAME_CHARS = /[^A-Za-z0-9_]/g;
 
@@ -59,15 +71,15 @@ function sanitizeBlockNames(rawNames: readonly string[]): string[] {
 }
 
 /**
- * Convert imported CODE files into {@link MemoryBlock}s: `address`/`bytes`
- * carry straight over, `kind` is always `'code'`, `name` is sanitized and
- * de-duplicated (see {@link sanitizeBlockName}), and `id` is a deterministic
- * `imported-code-<n>` (1-based tape order) rather than a random UUID, so
- * re-importing the same `.TAP` - and tests asserting on ids - get the same
- * result every time.
+ * Convert imported code files into {@link MemoryBlock}s: `address`/`bytes`
+ * (and `entry`, when present) carry straight over, `kind` is always
+ * `'code'`, `name` is sanitized and de-duplicated (see
+ * {@link sanitizeBlockName}), and `id` is a deterministic `imported-code-<n>`
+ * (1-based tape order) rather than a random UUID, so re-importing the same
+ * image - and tests asserting on ids - get the same result every time.
  */
 export function codeFilesToBlocks(
-  codeFiles: readonly CodeFile[],
+  codeFiles: readonly ImportedCodeFile[],
 ): MemoryBlock[] {
   const names = sanitizeBlockNames(codeFiles.map((c) => c.name));
   return codeFiles.map((c, i) => ({
@@ -76,5 +88,6 @@ export function codeFilesToBlocks(
     address: c.address,
     bytes: c.bytes,
     kind: 'code' as const,
+    ...(c.entry !== undefined ? { entry: c.entry } : {}),
   }));
 }
