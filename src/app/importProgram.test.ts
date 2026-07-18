@@ -98,6 +98,30 @@ describe('importProgram', () => {
     expect(autoStart).toBeUndefined();
   });
 
+  it("carries a .P file's saved NXTLIN line through as autoStart", () => {
+    const zx81 = getDialect('zx81');
+    const image = zx81.tokenize('10 PRINT "A"\n20 PRINT "B"\n').image;
+    // Point NXTLIN at line 20's record (program base + line 10's record).
+    const SYSVARS_BASE = 0x4009;
+    const PROGRAM_BASE = 0x407d;
+    const NXTLIN = 0x4029;
+    const line10Len =
+      image[PROGRAM_BASE - SYSVARS_BASE + 2]! |
+      (image[PROGRAM_BASE - SYSVARS_BASE + 3]! << 8);
+    const line20 = PROGRAM_BASE + 4 + line10Len;
+    image[NXTLIN - SYSVARS_BASE] = line20 & 0xff;
+    image[NXTLIN - SYSVARS_BASE + 1] = (line20 >> 8) & 0xff;
+    const { autoStart } = importProgram(zx81, image);
+    expect(autoStart).toBe(20);
+  });
+
+  it('omits autoStart for a default first-line-autorun .P', () => {
+    const zx81 = getDialect('zx81');
+    const image = zx81.tokenize('10 PRINT "A"\n').image;
+    const { autoStart } = importProgram(zx81, image);
+    expect(autoStart).toBeUndefined();
+  });
+
   it('omits autoStart for a dialect that reports none', () => {
     const image = commodore64.tokenize('10 PRINT "HI"\n').image;
     const { autoStart } = importProgram(commodore64, image);

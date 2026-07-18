@@ -24,6 +24,7 @@ import {
   ROM_POST_LOAD,
 } from '../sysvars';
 import { NEWLINE } from '../charset';
+import { withAutoStart } from '../pfile';
 
 const TSTATES_PER_FRAME = 65000; // 3.25MHz / 50Hz
 const TSTATES_PER_NMI = 208; // one TV scanline
@@ -235,10 +236,16 @@ export class Zx81Machine implements MachineEmulator {
 
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
+    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
   ): void {
     this.reset();
     this.bootToBasic();
+    // An imported .P's auto-start line: re-point the rebuilt image's NXTLIN
+    // at that line so the ROM's NXTLIN auto-run resumes there, exactly as the
+    // original save did.
+    if (opts?.autoStart != null) {
+      image = withAutoStart(image, opts.autoStart);
+    }
     // Queue the image, then type LOAD "" on the emulated keyboard. When the
     // ROM reaches its tape-read loop the trap in runFrame() injects the
     // image - the authentic load path, so the program starts exactly as it
