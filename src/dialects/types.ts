@@ -85,6 +85,24 @@ export function fatalErrors(errors: readonly TokenizeError[]): TokenizeError[] {
   return errors.filter((e) => e.fatal !== false);
 }
 
+/**
+ * One extra file preserved off a multi-part tape (a ZX Spectrum `.TAP` that
+ * holds a loader plus the game, secondary programs, or data arrays alongside
+ * the one program opened for editing). Carried on the document and mounted on
+ * the emulator's virtual tape at run time, so the running program's own
+ * `LOAD ""` / `LOAD "name"` requests are served as they would be off original
+ * hardware. CODE files are NOT represented here - they come back as
+ * {@link MemoryBlock}s instead (RAM injection plus the memory-block UI).
+ */
+export interface TapeFile {
+  /** Original 10-char tape header name, trailing spaces trimmed (for display). */
+  name: string;
+  /** Deck kind label from the header type: 'program' | 'data-num' | 'data-str'. */
+  kind: string;
+  /** A ready two-block `.TAP` payload (original header + data) to serve to the deck. */
+  tap: Uint8Array;
+}
+
 /** Result of {@link Dialect.detokenizeWithReport}. */
 export interface DetokenizeResult {
   /** Editable program text, exactly as {@link Dialect.detokenize} returns. */
@@ -106,6 +124,14 @@ export interface DetokenizeResult {
    * result.
    */
   blocks?: MemoryBlock[];
+  /**
+   * Extra tape files preserved off a multi-part image (see {@link TapeFile}),
+   * beyond the one program in `source` and the CODE files in `blocks`. The
+   * caller installs them on the document and the run path mounts them on the
+   * emulator's virtual tape so multi-part `LOAD` chains resolve. Absent, or
+   * omitted, when the importer finds none.
+   */
+  tapeFiles?: TapeFile[];
   /**
    * The program's auto-start line, recovered from the image (a Spectrum `.TAP`
    * header's auto-run line). Present when the image says "run from line N on
@@ -282,7 +308,17 @@ export interface MachineEmulator {
    */
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
+    opts?: {
+      blocks?: readonly MemoryBlock[];
+      autoStart?: number | null;
+      /**
+       * Extra tape files preserved off a multi-part image (see
+       * {@link TapeFile}), mounted on the machine's virtual tape before the
+       * program runs so its own `LOAD ""` / `LOAD "name"` requests are served.
+       * Machines without a tape deck ignore it.
+       */
+      tapeFiles?: readonly TapeFile[];
+    },
   ): void;
   /** Advance emulation by one display frame (50Hz) worth of CPU time. */
   runFrame(): void;

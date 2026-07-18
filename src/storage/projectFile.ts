@@ -1,16 +1,18 @@
 /**
  * The on-disk project bundle format (`.bproj`): a JSON document pairing a
- * document's BASIC source with its {@link MemoryBlock}s, so both survive
- * Save/Open as a single human-readable, diffable file - no zip dependency.
- * Plain `.txt`/`.bas` remains the format for pure-BASIC documents with no
- * blocks; see `src/app/fileCommands.ts` for that format decision.
+ * document's BASIC source with its {@link MemoryBlock}s and any
+ * {@link TapeFile}s preserved off a multi-part import, so all survive Save/Open
+ * as a single human-readable, diffable file - no zip dependency. Plain
+ * `.txt`/`.bas` remains the format for a pure-BASIC document with neither; see
+ * `src/app/fileCommands.ts` for that format decision.
  *
- * Autosave (`src/storage/settings.ts`) persists blocks too, and reuses this
- * file's per-block wire codec ({@link serializeBlocks} / {@link parseBlocks})
- * so both paths agree on the same shape.
+ * Autosave (`src/storage/settings.ts`) persists blocks and tape files too, and
+ * reuses this file's wire codecs ({@link serializeBlocks} / {@link parseBlocks}
+ * and {@link serializeTapeFiles} / {@link parseTapeFiles}) so both paths agree
+ * on the same shape.
  */
 
-import type { MemoryBlock } from '../dialects/types';
+import type { MemoryBlock, TapeFile } from '../dialects/types';
 import { bytesToBase64, base64ToBytes } from './vfs/base64';
 
 /**
@@ -59,6 +61,14 @@ export interface SerializedBlock {
   asmSource?: string;
 }
 
+/** One {@link TapeFile}, wire-encoded for JSON (bytes as base64). */
+export interface SerializedTapeFile {
+  name: string;
+  kind: string;
+  /** Base64-encoded {@link TapeFile.tap} (a ready two-block `.TAP` payload). */
+  tap: string;
+}
+
 /** The `.bproj` document shape, version 1. */
 export interface ProjectFileV1 {
   format: 'basically-project';
@@ -75,6 +85,14 @@ export interface ProjectFileV1 {
    * first line (see {@link ParsedProject.autoStart}).
    */
   autoStart?: number | null;
+  /**
+   * Extra tape files preserved off a multi-part import (see {@link TapeFile}),
+   * beyond the one program in `source` and the CODE files in `blocks`. Optional
+   * and additive like `autoStart` - older `.bproj` files without it load as
+   * "no preserved tape" - so no version bump is needed. Mounted on the
+   * emulator's virtual tape at run time (see {@link ParsedProject.tapeFiles}).
+   */
+  tapeFiles?: SerializedTapeFile[];
 }
 
 function serializeBlock(block: MemoryBlock): SerializedBlock {
@@ -163,12 +181,66 @@ export function parseBlocks(raw: unknown[]): MemoryBlock[] {
   return blocks;
 }
 
+/**
+ * {@link TapeFile}s in their wire shape (bytes as base64). Shared by
+ * {@link serializeProject} and autosave's tape-file persistence.
+ */
+export function serializeTapeFiles(
+  tapeFiles: readonly TapeFile[],
+): SerializedTapeFile[] {
+  return tapeFiles.map((t) => ({
+    name: t.name,
+    kind: t.kind,
+    tap: bytesToBase64(t.tap),
+  }));
+}
+
+/**
+ * Decode one wire-shape tape file back into a {@link TapeFile}. Throws `Error`
+ * on any structural problem, naming the offending entry by index. Unlike a
+ * {@link MemoryBlock}, a tape file's `name` is a free-form tape label (not an
+ * identifier), so only presence/type is checked.
+ */
+function parseTapeFile(raw: unknown, index: number): TapeFile {
+  if (raw === null || typeof raw !== 'object') {
+    throw new Error(`Project file tape file ${index} is not an object.`);
+  }
+  const t = raw as Record<string, unknown>;
+  if (typeof t.name !== 'string') {
+    throw new Error(`Project file tape file ${index} is missing a "name".`);
+  }
+  if (typeof t.kind !== 'string') {
+    throw new Error(`Project file tape file ${index} is missing a "kind".`);
+  }
+  if (typeof t.tap !== 'string') {
+    throw new Error(`Project file tape file ${index} is missing "tap".`);
+  }
+  let tap: Uint8Array;
+  try {
+    tap = base64ToBytes(t.tap);
+  } catch {
+    throw new Error(`Project file tape file ${index} has malformed "tap".`);
+  }
+  return { name: t.name, kind: t.kind, tap };
+}
+
+/**
+ * Decode wire-shape tape files (a parsed {@link ProjectFileV1}'s `tapeFiles`,
+ * or autosave's stored array) back into {@link TapeFile}s. Throws on the first
+ * structurally invalid entry - callers that want a defensive, never-throws
+ * load (autosave) catch around this themselves.
+ */
+export function parseTapeFiles(raw: unknown[]): TapeFile[] {
+  return raw.map((t, i) => parseTapeFile(t, i));
+}
+
 /** Build the `.bproj` JSON text for a document. */
 export function serializeProject(
   dialectId: string,
   source: string,
   blocks: readonly MemoryBlock[],
   autoStart: number | null = null,
+  tapeFiles: readonly TapeFile[] = [],
 ): string {
   const file: ProjectFileV1 = {
     format: 'basically-project',
@@ -177,6 +249,9 @@ export function serializeProject(
     source,
     blocks: serializeBlocks(blocks),
     ...(autoStart !== null ? { autoStart } : {}),
+    ...(tapeFiles.length > 0
+      ? { tapeFiles: serializeTapeFiles(tapeFiles) }
+      : {}),
   };
   return JSON.stringify(file, null, 2);
 }
@@ -187,6 +262,8 @@ export interface ParsedProject {
   blocks: MemoryBlock[];
   /** The saved auto-start line, or `null` when the file carried none. */
   autoStart: number | null;
+  /** Preserved tape files (see {@link TapeFile}), or `[]` when the file had none. */
+  tapeFiles: TapeFile[];
 }
 
 /**
@@ -228,11 +305,19 @@ export function parseProject(text: string): ParsedProject {
     typeof obj.autoStart === 'number' && Number.isInteger(obj.autoStart)
       ? obj.autoStart
       : null;
+  let tapeFiles: TapeFile[] = [];
+  if (obj.tapeFiles !== undefined) {
+    if (!Array.isArray(obj.tapeFiles)) {
+      throw new Error('Project file has malformed "tapeFiles".');
+    }
+    tapeFiles = parseTapeFiles(obj.tapeFiles);
+  }
   return {
     dialect: obj.dialect,
     source: obj.source,
     blocks: parseBlocks(obj.blocks),
     autoStart,
+    tapeFiles,
   };
 }
 

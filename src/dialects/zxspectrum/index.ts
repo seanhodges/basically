@@ -57,13 +57,14 @@ export const zxspectrum: Dialect = {
   },
 
   detokenizeWithReport(image: Uint8Array): DetokenizeResult {
-    const { program, code, warnings } = parseTapAllFiles(image);
+    const { program, code, tapeFiles, warnings } = parseTapAllFiles(image);
     const source = detokenizeProgram(program.program);
     const blocks = codeFilesToBlocks(code);
     return {
       source,
       warnings: [...warnings, ...rawEscapeWarning(source)],
       ...(blocks.length > 0 ? { blocks } : {}),
+      ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
       ...(program.autoStart !== null ? { autoStart: program.autoStart } : {}),
     };
   },

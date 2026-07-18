@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getDialect, dialects } from '../dialects/registry';
 import type {
+  TapeFile,
   Dialect,
   MachineMemoryStats,
   MachineReport,
@@ -8,6 +9,7 @@ import type {
 } from '../dialects/types';
 import {
   serializeBlocks,
+  serializeTapeFiles,
   isValidBlockName,
   findDuplicateBlockName,
 } from '../storage/projectFile';
@@ -105,6 +107,15 @@ interface IdeState {
    * boot), same as breakpoints.
    */
   blocks: readonly MemoryBlock[];
+  /**
+   * Extra tape files preserved off a multi-part import (see {@link TapeFile}),
+   * beyond the one program in `source` and the CODE blocks in `blocks`. The run
+   * path (`EmulatorPane`) mounts them on the emulator's virtual tape so the
+   * program's own `LOAD ""` / `LOAD "name"` requests resolve. Document-model
+   * state like `blocks`: it survives autosave and Save/Open (as a `.bproj`
+   * bundle), and is reset whenever a different program becomes active.
+   */
+  tapeFiles: readonly TapeFile[];
   /**
    * The imported program's auto-start line (a Spectrum `.TAP` header's auto-run
    * line), or `null` when there is none. Document-model state like `blocks`:
@@ -346,7 +357,11 @@ interface IdeState {
   replaceDocument(
     text: string,
     fileName?: string,
-    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
+    opts?: {
+      blocks?: readonly MemoryBlock[];
+      autoStart?: number | null;
+      tapeFiles?: readonly TapeFile[];
+    },
   ): void;
   /**
    * Replace the editor with a document that has no saved file yet - a loaded
@@ -370,6 +385,7 @@ interface IdeState {
       dirty?: boolean;
       blocks?: readonly MemoryBlock[];
       autoStart?: number | null;
+      tapeFiles?: readonly TapeFile[];
     },
   ): void;
   markSaved(fileName: string): void;
@@ -558,7 +574,7 @@ function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
  * so the first tick doesn't re-write unchanged content.
  */
 let lastAutosaveSig: string | null = autosaved
-  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))}\u0000${autosaved.autoStart ?? ''}`
+  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))}`
   : '';
 
 /**
@@ -571,18 +587,19 @@ let lastAutosaveSig: string | null = autosaved
  * a block edit alone (no source change) still autosaves.
  */
 export function persistAutosave(): void {
-  const { fileName, source, dialect, blocks, autoStart } =
+  const { fileName, source, dialect, blocks, autoStart, tapeFiles } =
     useIdeStore.getState();
   const pristine =
     blocks.length === 0 &&
+    tapeFiles.length === 0 &&
     (source.trim() === '' || matchingSampleName(dialect, source) !== null);
   const sig = pristine
     ? ''
-    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))}\u0000${autoStart ?? ''}`;
+    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))}\u0000${autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(tapeFiles))}`;
   if (sig === lastAutosaveSig) return;
   lastAutosaveSig = sig;
   if (pristine) clearAutosave();
-  else saveAutosave(fileName, source, blocks, autoStart);
+  else saveAutosave(fileName, source, blocks, autoStart, tapeFiles);
 }
 
 /**
@@ -620,6 +637,7 @@ function applyDialectSwitch(
     // switch always starts with none (Stage 1: blocks aren't re-targeted
     // across machines yet).
     blocks: [],
+    tapeFiles: [],
     autoStart: null,
     // On mobile, surface the change in the editor the user is now editing.
     ...(isMobileViewport() ? { mobileTab: 'editor' as MobileTab } : {}),
@@ -640,6 +658,7 @@ export function initialDocument(
     text: string;
     blocks: MemoryBlock[];
     autoStart?: number | null;
+    tapeFiles?: TapeFile[];
   } | null,
   launchedBefore: boolean,
   starterText: string,
@@ -648,6 +667,7 @@ export function initialDocument(
   text: string;
   blocks: MemoryBlock[];
   autoStart: number | null;
+  tapeFiles: TapeFile[];
 } {
   if (saved) {
     return {
@@ -655,6 +675,7 @@ export function initialDocument(
       text: saved.text,
       blocks: saved.blocks,
       autoStart: saved.autoStart ?? null,
+      tapeFiles: saved.tapeFiles ?? [],
     };
   }
   return {
@@ -662,6 +683,7 @@ export function initialDocument(
     text: launchedBefore ? '' : starterText,
     blocks: [],
     autoStart: null,
+    tapeFiles: [],
   };
 }
 
@@ -681,6 +703,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   fileName: startupDoc.fileName,
   source: startupText,
   blocks: startupDoc.blocks,
+  tapeFiles: startupDoc.tapeFiles,
   autoStart: startupDoc.autoStart,
   docOverride: { text: startupText, seq: 0 },
   aiResetSeq: 0,
@@ -810,6 +833,8 @@ export const useIdeStore = create<IdeState>((set) => ({
         // Install the shared program's memory blocks so the player's run writes
         // them into RAM; a pure-BASIC share carries none and starts clean.
         blocks: blocks ?? [],
+        // A shared program is a single BASIC program with no preserved tape.
+        tapeFiles: [],
         autoStart: null,
         // Line numbers belong to whatever autosave seeded the store with.
         breakpoints: new Set<number>(),
@@ -877,6 +902,7 @@ export const useIdeStore = create<IdeState>((set) => ({
             aiResetSeq: s.aiResetSeq + 1,
             breakpoints: new Set<number>(),
             blocks: opts?.blocks ?? [],
+            tapeFiles: opts?.tapeFiles ?? [],
             autoStart: opts?.autoStart ?? null,
           }
         : {}),
@@ -902,6 +928,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // Always a different program, so blocks reset unless the caller installs
       // its own (a .bproj-shaped import).
       blocks: opts?.blocks ?? [],
+      tapeFiles: opts?.tapeFiles ?? [],
       autoStart: opts?.autoStart ?? null,
       ...(isMobileViewport()
         ? { stopRequest: s.stopRequest + 1, mobileTab: 'editor' as MobileTab }

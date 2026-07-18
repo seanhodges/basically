@@ -11,7 +11,12 @@
  * shown an unconditional "Imported." success.
  */
 
-import type { Dialect, DetokenizeResult, MemoryBlock } from '../dialects/types';
+import type {
+  Dialect,
+  DetokenizeResult,
+  MemoryBlock,
+  TapeFile,
+} from '../dialects/types';
 
 export interface ImportedProgram {
   source: string;
@@ -24,6 +29,13 @@ export interface ImportedProgram {
    * dialect found none, or reports none.
    */
   blocks?: MemoryBlock[];
+  /**
+   * Extra tape files the dialect's importer preserved off a multi-part image
+   * (see {@link TapeFile}), when it supports {@link
+   * Dialect.detokenizeWithReport}'s optional `tapeFiles`. Absent when the
+   * dialect found none.
+   */
+  tapeFiles?: TapeFile[];
   /**
    * The program's auto-start line, recovered from the image (a Spectrum `.TAP`
    * header's auto-run line), when the dialect reports one via
@@ -73,6 +85,9 @@ export function importProgram(
       ...(alreadyExplained ? [] : importFidelityWarnings(dialect, base.source)),
     ],
     ...(base.blocks ? { blocks: base.blocks } : {}),
+    ...(base.tapeFiles && base.tapeFiles.length > 0
+      ? { tapeFiles: base.tapeFiles }
+      : {}),
     ...(base.autoStart != null ? { autoStart: base.autoStart } : {}),
   };
 }

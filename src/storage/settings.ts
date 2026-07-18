@@ -9,8 +9,13 @@ import type {
   ControllerOverrides,
   GamepadMode,
 } from '../keyboard/controllerConfig';
-import type { MemoryBlock } from '../dialects/types';
-import { serializeBlocks, parseBlocks } from './projectFile';
+import type { MemoryBlock, TapeFile } from '../dialects/types';
+import {
+  serializeBlocks,
+  parseBlocks,
+  serializeTapeFiles,
+  parseTapeFiles,
+} from './projectFile';
 
 /**
  * A conversation message as persisted. `incomplete` marks an assistant answer
@@ -35,6 +40,7 @@ const KEYS = {
   autosaveName: 'mbide.autosave.name',
   autosaveBlocks: 'mbide.autosave.blocks',
   autosaveAutoStart: 'mbide.autosave.autostart',
+  autosaveTapeFiles: 'mbide.autosave.tapefiles',
   aiConversation: 'mbide.autosave.ai',
   dialectId: 'mbide.dialectId',
   autoLineNumbering: 'mbide.autoLineNumbering',
@@ -460,11 +466,28 @@ function loadAutosaveAutoStart(): number | null {
   return Number.isInteger(n) ? n : null;
 }
 
+/**
+ * The autosaved preserved tape files, or `[]` when none are stored or the
+ * stored value is corrupt/unparseable (defensive, like
+ * {@link loadAutosaveBlocks}).
+ */
+function loadAutosaveTapeFiles(): TapeFile[] {
+  const raw = readSessionFirst(KEYS.autosaveTapeFiles);
+  if (raw === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parseTapeFiles(parsed) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function loadAutosave(): {
   name: string;
   text: string;
   blocks: MemoryBlock[];
   autoStart: number | null;
+  tapeFiles: TapeFile[];
 } | null {
   // Reading the doc first adopts the pair's storage into the session slot, so
   // the name/blocks reads that follow resolve from the same storage.
@@ -475,6 +498,7 @@ export function loadAutosave(): {
     text,
     blocks: loadAutosaveBlocks(),
     autoStart: loadAutosaveAutoStart(),
+    tapeFiles: loadAutosaveTapeFiles(),
   };
 }
 
@@ -483,6 +507,7 @@ export function saveAutosave(
   text: string,
   blocks: readonly MemoryBlock[] = [],
   autoStart: number | null = null,
+  tapeFiles: readonly TapeFile[] = [],
 ): void {
   try {
     writeThrough(KEYS.autosaveDoc, text);
@@ -500,6 +525,14 @@ export function saveAutosave(
     } else {
       writeThrough(KEYS.autosaveAutoStart, String(autoStart));
     }
+    if (tapeFiles.length === 0) {
+      removeBoth(KEYS.autosaveTapeFiles);
+    } else {
+      writeThrough(
+        KEYS.autosaveTapeFiles,
+        JSON.stringify(serializeTapeFiles(tapeFiles)),
+      );
+    }
   } catch {
     // quota exceeded - autosave is best-effort
   }
@@ -513,13 +546,15 @@ export function saveAutosave(
  * localStorage backup: clearing work is a deliberate return to pristine and
  * must survive a browser restart. The backup is last-writer-wins; another live
  * tab's session slot is unaffected (though it won't re-mirror until its
- * content next changes). Also clears any autosaved memory blocks.
+ * content next changes). Also clears any autosaved memory blocks and preserved
+ * tape files.
  */
 export function clearAutosave(): void {
   removeBoth(KEYS.autosaveDoc);
   removeBoth(KEYS.autosaveName);
   removeBoth(KEYS.autosaveBlocks);
   removeBoth(KEYS.autosaveAutoStart);
+  removeBoth(KEYS.autosaveTapeFiles);
 }
 
 /**

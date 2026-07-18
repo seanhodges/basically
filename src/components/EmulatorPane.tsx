@@ -100,6 +100,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const dialect = useIdeStore((s) => s.dialect);
   const source = useIdeStore((s) => s.source);
   const blocks = useIdeStore((s) => s.blocks);
+  const tapeFiles = useIdeStore((s) => s.tapeFiles);
   const autoStart = useIdeStore((s) => s.autoStart);
   const runRequest = useIdeStore((s) => s.runRequest);
   const stopRequest = useIdeStore((s) => s.stopRequest);
@@ -381,6 +382,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         emulatorVfs.clear(dialect.id);
         const loadOpts = {
           ...(blocks.length > 0 ? { blocks } : {}),
+          ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
           ...(autoStart !== null ? { autoStart } : {}),
         };
         machine.loadProgram(
