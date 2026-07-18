@@ -130,6 +130,28 @@ describe('serializeProject / parseProject round-trip', () => {
     expect('entry' in wireBlock).toBe(false);
     expect('entry' in parseProject(without).blocks[0]!).toBe(false);
   });
+
+  it('round-trips the optional asmSource and omits it when absent', () => {
+    const source = 'start:\n  LD HL,$8000 ; comment survives verbatim\n  RET';
+    const withAsm: MemoryBlock = { ...BLOCK_B, asmSource: source };
+    const parsed = parseProject(serializeProject('zx81', '', [withAsm]));
+    expect(parsed.blocks[0]!.asmSource).toBe(source);
+
+    const without = serializeProject('zx81', '', [BLOCK_B]);
+    const wire: unknown = JSON.parse(without);
+    const wireBlock = (wire as { blocks: { asmSource?: string }[] }).blocks[0]!;
+    expect('asmSource' in wireBlock).toBe(false);
+    expect('asmSource' in parseProject(without).blocks[0]!).toBe(false);
+
+    // A non-string asmSource (hand-edited file) is dropped, not fatal.
+    const mangled = JSON.parse(serializeProject('zx81', '', [withAsm])) as {
+      blocks: { asmSource?: unknown }[];
+    };
+    mangled.blocks[0]!.asmSource = 42;
+    expect(
+      'asmSource' in parseProject(JSON.stringify(mangled)).blocks[0]!,
+    ).toBe(false);
+  });
 });
 
 describe('parseProject error handling', () => {

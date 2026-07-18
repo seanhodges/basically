@@ -108,6 +108,19 @@ interface IdeState {
    */
   blocks: readonly MemoryBlock[];
   /**
+   * The block whose tab is active in the editor pane, or `null` for the
+   * BASIC source tab. Reset to `null` whenever a different program becomes
+   * active (same rule as `blocks`), and fixed up by `setBlocks`/`removeBlock`
+   * when the active block disappears.
+   */
+  activeBlockId: string | null;
+  /**
+   * Ids of code blocks whose assembly source currently fails to assemble -
+   * transient UI state driving the error dot on the block's tab. Reset with
+   * `blocks`; never persisted.
+   */
+  asmErrorBlocks: ReadonlySet<string>;
+  /**
    * Extra tape files preserved off a multi-part import (see {@link TapeFile}),
    * beyond the one program in `source` and the CODE blocks in `blocks`. The run
    * path (`EmulatorPane`) mounts them on the emulator's virtual tape so the
@@ -395,6 +408,10 @@ interface IdeState {
   upsertBlock(block: MemoryBlock): void;
   /** Remove one memory block by `id` (sets `dirty`). */
   removeBlock(id: string): void;
+  /** Switch the editor pane to a block's tab (`null` = the BASIC tab). */
+  setActiveBlock(id: string | null): void;
+  /** Flag or clear a block's does-not-assemble state (tab error dot). */
+  setBlockAsmError(id: string, hasError: boolean): void;
   requestRun(): void;
   /** Like {@link requestRun}, but flags the run for the AI runtime-error check. */
   requestAiRun(): void;
@@ -637,6 +654,8 @@ function applyDialectSwitch(
     // switch always starts with none (Stage 1: blocks aren't re-targeted
     // across machines yet).
     blocks: [],
+    activeBlockId: null,
+    asmErrorBlocks: new Set<string>(),
     tapeFiles: [],
     autoStart: null,
     // On mobile, surface the change in the editor the user is now editing.
@@ -703,6 +722,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   fileName: startupDoc.fileName,
   source: startupText,
   blocks: startupDoc.blocks,
+  activeBlockId: null,
+  asmErrorBlocks: new Set<string>(),
   tapeFiles: startupDoc.tapeFiles,
   autoStart: startupDoc.autoStart,
   docOverride: { text: startupText, seq: 0 },
@@ -833,6 +854,8 @@ export const useIdeStore = create<IdeState>((set) => ({
         // Install the shared program's memory blocks so the player's run writes
         // them into RAM; a pure-BASIC share carries none and starts clean.
         blocks: blocks ?? [],
+        activeBlockId: null,
+        asmErrorBlocks: new Set<string>(),
         // A shared program is a single BASIC program with no preserved tape.
         tapeFiles: [],
         autoStart: null,
@@ -902,6 +925,8 @@ export const useIdeStore = create<IdeState>((set) => ({
             aiResetSeq: s.aiResetSeq + 1,
             breakpoints: new Set<number>(),
             blocks: opts?.blocks ?? [],
+            activeBlockId: null,
+            asmErrorBlocks: new Set<string>(),
             tapeFiles: opts?.tapeFiles ?? [],
             autoStart: opts?.autoStart ?? null,
           }
@@ -928,6 +953,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       // Always a different program, so blocks reset unless the caller installs
       // its own (a .bproj-shaped import).
       blocks: opts?.blocks ?? [],
+      activeBlockId: null,
+      asmErrorBlocks: new Set<string>(),
       tapeFiles: opts?.tapeFiles ?? [],
       autoStart: opts?.autoStart ?? null,
       ...(isMobileViewport()
@@ -950,7 +977,20 @@ export const useIdeStore = create<IdeState>((set) => ({
   // throw rather than installing an invalid one.
   setBlocks: (blocks) => {
     assertValidBlocks(blocks);
-    set({ blocks, dirty: true });
+    set((s) => {
+      const ids = new Set(blocks.map((b) => b.id));
+      return {
+        blocks,
+        dirty: true,
+        // The active tab and error dots follow the surviving blocks.
+        ...(s.activeBlockId !== null && !ids.has(s.activeBlockId)
+          ? { activeBlockId: null }
+          : {}),
+        asmErrorBlocks: new Set(
+          [...s.asmErrorBlocks].filter((id) => ids.has(id)),
+        ),
+      };
+    });
   },
   upsertBlock: (block) =>
     set((s) => {
@@ -966,7 +1006,24 @@ export const useIdeStore = create<IdeState>((set) => ({
     set((s) => ({
       blocks: s.blocks.filter((b) => b.id !== id),
       dirty: true,
+      ...(s.activeBlockId === id ? { activeBlockId: null } : {}),
+      ...(s.asmErrorBlocks.has(id)
+        ? {
+            asmErrorBlocks: new Set(
+              [...s.asmErrorBlocks].filter((e) => e !== id),
+            ),
+          }
+        : {}),
     })),
+  setActiveBlock: (id) => set({ activeBlockId: id }),
+  setBlockAsmError: (id, hasError) =>
+    set((s) => {
+      if (s.asmErrorBlocks.has(id) === hasError) return {};
+      const next = new Set(s.asmErrorBlocks);
+      if (hasError) next.add(id);
+      else next.delete(id);
+      return { asmErrorBlocks: next };
+    }),
   requestRun: () => set((s) => ({ runRequest: s.runRequest + 1 })),
   requestAiRun: () =>
     set((s) => ({
