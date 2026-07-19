@@ -8,7 +8,7 @@ import { spectrumCharset } from './charset';
 import { spectrumKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
-import { buildTap, parseTap, parseTapAllFiles } from './tapfile';
+import { buildTap, headerName, parseTap, parseTapAllFiles } from './tapfile';
 import { rawEscapeWarning } from './importReport';
 import { codeFilesToBlocks } from '../importBlocks';
 import { decodeCassette } from './audio/cassetteDecoder';
@@ -107,10 +107,23 @@ export const zxspectrum: Dialect = {
     loadInstructions:
       'On the Spectrum type LOAD "" - press J for LOAD, then symbol-shift-P twice for the quotes - and press ENTER before starting playback.',
     decodeSamples: (samples, sampleRate) => {
+      // decodeCassette reframes every recovered block into a full multi-file
+      // `.TAP` image, so a tape carrying CODE blocks (and an auto-loader ahead
+      // of the program) round-trips through the same importer the `.TAP` file
+      // button uses - recovering the blocks, preserved tape files and auto-start
+      // line, not just the program.
       const { name, image } = decodeCassette(samples, sampleRate);
+      const { program, code, tapeFiles, warnings } = parseTapAllFiles(image);
+      const source = detokenizeProgram(program.program);
+      const blocks = codeFilesToBlocks(code);
+      const programName = headerName(program.header.subarray(1, 11)) || name;
       return {
-        programName: name,
-        source: detokenizeProgram(parseTap(image).program),
+        programName,
+        source,
+        warnings: [...warnings, ...rawEscapeWarning(source)],
+        ...(blocks.length > 0 ? { blocks } : {}),
+        ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
+        ...(program.autoStart !== null ? { autoStart: program.autoStart } : {}),
       };
     },
     saveInstructions:

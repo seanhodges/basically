@@ -22,6 +22,7 @@ import { c64Charset } from '../charset';
 const NO_C64_SIGNAL = 'No cassette signal detected';
 const HEADER_SIZE = 192;
 const FILE_TYPE_RELOCATABLE = 0x01;
+const FILE_TYPE_NON_RELOCATABLE = 0x03;
 const FILENAME_OFFSET = 5;
 const FILENAME_LENGTH = 16;
 const COUNTDOWN_FIRST = [0x89, 0x88, 0x87, 0x86, 0x85, 0x84, 0x83, 0x82, 0x81];
@@ -34,14 +35,37 @@ export interface DecodeCassetteResult {
   data: Uint8Array;
 }
 
+/**
+ * One file recovered from a (possibly multi-file) tape: its header metadata
+ * paired with the data block that followed it. `fileType` is $01 for a program
+ * relocated to $0801 or $03 for an absolute file loaded at `start`.
+ */
+export interface DecodedTapeFile {
+  name: string;
+  fileType: number;
+  /** Load address from the header (BASIC programs load at $0801). */
+  start: number;
+  /** End address from the header. */
+  end: number;
+  /** The data block bytes. */
+  data: Uint8Array;
+}
+
 type PulseKind = 'S' | 'M' | 'L';
+
+/** Recover the checksum-validated block bodies from the waveform. */
+function recoverSegments(
+  samples: Float32Array,
+  sampleRate: number,
+): Uint8Array[] {
+  return readSegments(classifyPulses(pulseLengths(samples, sampleRate)));
+}
 
 export function decodeCassette(
   samples: Float32Array,
   sampleRate: number,
 ): DecodeCassetteResult {
-  const pulses = classifyPulses(pulseLengths(samples, sampleRate));
-  const segments = readSegments(pulses);
+  const segments = recoverSegments(samples, sampleRate);
 
   let name: string | null = null;
   let data: Uint8Array | null = null;
@@ -57,6 +81,61 @@ export function decodeCassette(
 
   if (data === null) throw new Error(NO_C64_SIGNAL);
   return { name: name ?? '', data };
+}
+
+/**
+ * Decode every file on the tape, in tape order. The KERNAL writes each block
+ * twice, so adjacent identical bodies (the two copies of one block) are
+ * collapsed, and each 192-byte header block is paired with the data block that
+ * follows it. A single-program tape yields one file; a tape exported with
+ * memory blocks (and optionally an auto-loader) yields several - the inverse of
+ * {@link buildCassetteSamples}'s multi-file layout.
+ */
+export function decodeCassetteFiles(
+  samples: Float32Array,
+  sampleRate: number,
+): DecodedTapeFile[] {
+  const segments = dedupeAdjacent(recoverSegments(samples, sampleRate));
+
+  const files: DecodedTapeFile[] = [];
+  let header: Uint8Array | null = null;
+  for (const body of segments) {
+    const isHeader =
+      body.length === HEADER_SIZE &&
+      (body[0] === FILE_TYPE_RELOCATABLE ||
+        body[0] === FILE_TYPE_NON_RELOCATABLE);
+    if (isHeader) {
+      header = body;
+    } else if (header) {
+      files.push({
+        name: readName(header),
+        fileType: header[0]!,
+        start: header[1]! | (header[2]! << 8),
+        end: header[3]! | (header[4]! << 8),
+        data: body,
+      });
+      header = null;
+    }
+  }
+  return files;
+}
+
+/** Drop each body that is byte-identical to the one before it (the KERNAL's
+ * second copy of the same block). */
+function dedupeAdjacent(bodies: Uint8Array[]): Uint8Array[] {
+  const out: Uint8Array[] = [];
+  for (const body of bodies) {
+    const prev = out[out.length - 1];
+    if (prev && bytesEqual(prev, body)) continue;
+    out.push(body);
+  }
+  return out;
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 function readName(header: Uint8Array): string {

@@ -5,6 +5,7 @@ import {
   importProgram,
   importStatusMessage,
 } from '../app/importProgram';
+import type { MemoryBlock, TapeFile } from '../dialects/types';
 import { openBinaryFile } from '../storage/files';
 import {
   listAudioInputs,
@@ -61,14 +62,38 @@ export function ImportDialog() {
     setOpen(false);
   };
 
-  const loadProgram = (programName: string, source: string) => {
+  const loadProgram = (
+    programName: string,
+    source: string,
+    extras: {
+      blocks?: readonly MemoryBlock[];
+      tapeFiles?: readonly TapeFile[];
+      autoStart?: number | null;
+      warnings?: string[];
+    } = {},
+  ) => {
     if (!confirmDiscard()) return;
     // Import loads real, not-yet-saved content: untitled (only Open/Save name a
     // document) but dirty, so the discard guard fires before the next load.
-    loadUnsavedDocument(source, { dirty: true });
+    // Memory blocks, preserved tape files and the auto-start line recovered off
+    // a multi-file tape are installed alongside the source, exactly as the
+    // binary-file import path does.
+    loadUnsavedDocument(source, {
+      dirty: true,
+      blocks: extras.blocks,
+      tapeFiles: extras.tapeFiles,
+      autoStart: extras.autoStart,
+    });
     // The dialog closes on success, so the result (and any fidelity warnings)
-    // goes to the status bar rather than the dialog's own status line.
-    const warnings = importFidelityWarnings(dialect, source);
+    // goes to the status bar rather than the dialog's own status line. Combine
+    // the decoder's own notes with the generic tokenize-back check, skipping the
+    // latter when the decoder already explained an empty import.
+    const decodeWarnings = extras.warnings ?? [];
+    const alreadyExplained = decodeWarnings.length > 0 && !source.trim();
+    const warnings = [
+      ...decodeWarnings,
+      ...(alreadyExplained ? [] : importFidelityWarnings(dialect, source)),
+    ];
     setStatusNotice(
       importStatusMessage(`"${programName.trim() || 'PROGRAM'}"`, warnings),
     );
@@ -95,8 +120,14 @@ export function ImportDialog() {
     });
 
   const decode = (samples: Float32Array, sampleRate: number) => {
-    const { programName, source } = audio!.decodeSamples!(samples, sampleRate);
-    loadProgram(programName, source);
+    const { programName, source, blocks, tapeFiles, autoStart, warnings } =
+      audio!.decodeSamples!(samples, sampleRate);
+    loadProgram(programName, source, {
+      blocks,
+      tapeFiles,
+      autoStart,
+      warnings,
+    });
   };
 
   const listen = guard(async () => {
