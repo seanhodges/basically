@@ -123,10 +123,22 @@ export const zxspectrum128: Dialect = {
     loadInstructions:
       'On the 128K, choose "128 BASIC" (or "Tape Loader") from the menu, then type LOAD "" and press ENTER before starting playback.',
     decodeSamples: (samples, sampleRate) => {
+      // decodeCassette reframes every recovered block into a full multi-file
+      // `.TAP`, so route it through the same importer the `.TAP` file button
+      // uses - a recorded multi-file tape (CODE blocks, extra programs) comes
+      // back with its blocks, preserved tape files and auto-start line, matching
+      // this dialect's own `detokenizeWithReport`.
       const { name, image } = decodeCassette(samples, sampleRate);
+      const { program, code, tapeFiles, warnings } = parseTapAllFiles(image);
+      const source = detokenizeProgram(program.program);
+      const blocks = codeFilesToBlocks(code);
       return {
         programName: name,
-        source: detokenizeProgram(parseTap(image).program),
+        source,
+        warnings: [...warnings, ...rawEscapeWarning(source)],
+        ...(blocks.length > 0 ? { blocks } : {}),
+        ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
+        ...(program.autoStart !== null ? { autoStart: program.autoStart } : {}),
       };
     },
     saveInstructions:
