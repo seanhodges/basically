@@ -708,3 +708,111 @@ describe('active block tab state', () => {
     expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_B.id);
   });
 });
+
+describe('addBlock', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: zx81,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [],
+      activeBlockId: null,
+    });
+  });
+
+  it('creates block1 at the dialect default address and activates its tab', () => {
+    useIdeStore.getState().addBlock();
+    const s = useIdeStore.getState();
+    expect(s.blocks).toHaveLength(1);
+    const block = s.blocks[0]!;
+    expect(block.name).toBe('block1');
+    expect(block.id).toBe('block-block1');
+    expect(block.address).toBe(0x7000); // zx81 defaultAddress
+    expect(block.kind).toBe('code');
+    // The z80 stub is a lone RET, assembled so bytes match asmSource.
+    expect(Array.from(block.bytes)).toEqual([0xc9]);
+    expect(block.asmSource).toContain('RET');
+    expect(s.activeBlockId).toBe(block.id);
+    expect(s.dirty).toBe(true);
+  });
+
+  it('picks the first free blockN name', () => {
+    useIdeStore.getState().addBlock();
+    useIdeStore.getState().addBlock();
+    expect(useIdeStore.getState().blocks.map((b) => b.name)).toEqual([
+      'block1',
+      'block2',
+    ]);
+    // Freeing block1 makes its name the next pick again.
+    useIdeStore.getState().removeBlock('block-block1');
+    useIdeStore.getState().addBlock();
+    expect(useIdeStore.getState().blocks.map((b) => b.name)).toEqual([
+      'block2',
+      'block1',
+    ]);
+  });
+
+  it('seeds RTS on a 6502 dialect', () => {
+    useIdeStore.setState({ dialect: bbc });
+    useIdeStore.getState().addBlock();
+    const block = useIdeStore.getState().blocks[0]!;
+    expect(block.address).toBe(0x2e00); // bbcmicro defaultAddress
+    expect(Array.from(block.bytes)).toEqual([0x60]);
+    expect(block.asmSource).toContain('RTS');
+  });
+});
+
+describe('block delete confirmation flow', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: zx81,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [BLOCK_A, BLOCK_B],
+      activeBlockId: BLOCK_B.id,
+      asmErrorBlocks: new Set([BLOCK_B.id]),
+      pendingDeleteBlockId: null,
+    });
+  });
+
+  it('requestRemoveBlock marks the block pending; unknown ids are ignored', () => {
+    useIdeStore.getState().requestRemoveBlock('nope');
+    expect(useIdeStore.getState().pendingDeleteBlockId).toBeNull();
+    useIdeStore.getState().requestRemoveBlock(BLOCK_A.id);
+    expect(useIdeStore.getState().pendingDeleteBlockId).toBe(BLOCK_A.id);
+  });
+
+  it('confirmRemoveBlock removes the pending block like removeBlock', () => {
+    useIdeStore.getState().requestRemoveBlock(BLOCK_B.id);
+    useIdeStore.getState().confirmRemoveBlock();
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([BLOCK_A]);
+    expect(s.pendingDeleteBlockId).toBeNull();
+    // Same fixups as removeBlock: active tab back to BASIC, error dot pruned.
+    expect(s.activeBlockId).toBeNull();
+    expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(false);
+    expect(s.dirty).toBe(true);
+  });
+
+  it('confirmRemoveBlock without a pending deletion is a no-op', () => {
+    useIdeStore.getState().confirmRemoveBlock();
+    expect(useIdeStore.getState().blocks).toEqual([BLOCK_A, BLOCK_B]);
+  });
+
+  it('cancelRemoveBlock keeps the block and clears the pending id', () => {
+    useIdeStore.getState().requestRemoveBlock(BLOCK_A.id);
+    useIdeStore.getState().cancelRemoveBlock();
+    const s = useIdeStore.getState();
+    expect(s.blocks).toEqual([BLOCK_A, BLOCK_B]);
+    expect(s.pendingDeleteBlockId).toBeNull();
+    expect(s.dirty).toBe(false);
+  });
+
+  it('document identity changes clear a pending deletion', () => {
+    useIdeStore.getState().requestRemoveBlock(BLOCK_A.id);
+    useIdeStore.getState().loadUnsavedDocument('10 REM other');
+    expect(useIdeStore.getState().pendingDeleteBlockId).toBeNull();
+  });
+});

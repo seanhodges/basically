@@ -64,22 +64,28 @@ export const spectrum128BuildTargets: BuildTarget[] = [
     label: 'Export .TAP file',
     fileExtension: 'tap',
     build: (source, { programName }) =>
-      Promise.resolve(
-        new Blob([buildTapImage(source, programName) as BlobPart], {
-          type: 'application/octet-stream',
-        }),
-      ),
+      Promise.resolve([
+        {
+          fileName: `${programName.toLowerCase()}.tap`,
+          blob: new Blob([buildTapImage(source, programName) as BlobPart], {
+            type: 'application/octet-stream',
+          }),
+        },
+      ]),
   },
   {
     id: 'wav',
     label: 'Export cassette .wav',
     fileExtension: 'wav',
     build: (source, { programName }) =>
-      Promise.resolve(
-        samplesToWav(
-          buildCassetteSamples(source, programName),
-          CASSETTE_SAMPLE_RATE,
-        ),
-      ),
+      Promise.resolve([
+        {
+          fileName: `${programName.toLowerCase()}.wav`,
+          blob: samplesToWav(
+            buildCassetteSamples(source, programName),
+            CASSETTE_SAMPLE_RATE,
+          ),
+        },
+      ]),
   },
 ];

@@ -7,7 +7,9 @@ import {
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
 import { dialects } from '../dialects/registry';
+import type { SampleFile } from '../dialects/types';
 import { referenceTopic } from '../app/docsTopic';
+import { materializeSampleBlocks } from '../app/sampleBlocks';
 import {
   confirmDiscard,
   newDocument,
@@ -162,12 +164,16 @@ export function Toolbar() {
   const openFile = guard(openDocument);
   const saveFile = guard(saveDocument);
 
-  const loadSample = (text: string) =>
+  const loadSample = (sample: SampleFile) =>
     guard(() => {
       if (!confirmDiscard()) return;
       // A sample isn't a saved file - it loads untitled and, being pristine,
-      // is not preserved across a reload until the user edits it.
-      loadUnsavedDocument(text);
+      // is not preserved across a reload until the user edits it. (A sample
+      // that bundles memory blocks is autosaved anyway - the pristine rule
+      // requires zero blocks - which is benign.)
+      loadUnsavedDocument(sample.text, {
+        blocks: materializeSampleBlocks(dialect, sample),
+      });
     })();
 
   const openImport = guard(() => setImportOpen(true));
@@ -256,7 +262,7 @@ export function Toolbar() {
               <div className={styles.menuSeparator} />
               <div className={styles.menuLabel}>Samples</div>
               {dialect.samples.map((s) => (
-                <button key={s.name} onClick={() => loadSample(s.text)}>
+                <button key={s.name} onClick={() => loadSample(s)}>
                   {s.title}
                 </button>
               ))}

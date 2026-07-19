@@ -96,8 +96,14 @@ export const zxspectrum: Dialect = {
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,
-    buildSamples: (source, programName, robust) =>
-      buildCassetteSamples(source, programName, robust),
+    buildSamples: (source, programName, robust, opts) =>
+      buildCassetteSamples(
+        source,
+        programName,
+        robust,
+        opts?.blocks,
+        opts?.loader,
+      ),
     loadInstructions:
       'On the Spectrum type LOAD "" - press J for LOAD, then symbol-shift-P twice for the quotes - and press ENTER before starting playback.',
     decodeSamples: (samples, sampleRate) => {

@@ -39,14 +39,21 @@ export function TransferDialog() {
   const source = useIdeStore((s) => s.source);
   const fileName = useIdeStore((s) => s.fileName);
   const dialect = useIdeStore((s) => s.dialect);
+  const blocks = useIdeStore((s) => s.blocks);
   const requestStop = useIdeStore((s) => s.requestStop);
 
   const [robust, setRobust] = useState(false);
+  const [loader, setLoader] = useState(true);
   const [status, setStatus] = useState('');
   const [playing, setPlaying] = useState(false);
   const playbackRef = useRef<AudioPlayback | null>(null);
 
   if (!open) return null;
+
+  // Whether any file target embeds the document's memory blocks; drives the
+  // auto-loader checkbox vs the blocks-are-dropped notice below.
+  const blocksSupported = dialect.buildTargets.some((t) => t.supportsBlocks);
+  const hasBlocks = blocks.length > 0;
 
   const guard = (fn: () => void | Promise<void>) => () => {
     setStatus('');
@@ -79,12 +86,17 @@ export function TransferDialog() {
     guard(async () => {
       const target = dialect.buildTargets.find((t) => t.id === targetId);
       if (!target) throw new Error(`No ${targetId} target for ${dialect.name}`);
-      const blob = await target.build(source, { programName: baseName });
-      downloadBlob(
-        blob,
-        `${baseName.toLowerCase()}.${target.fileExtension ?? 'bin'}`,
+      const files = await target.build(source, {
+        programName: baseName,
+        blocks,
+        loader,
+      });
+      for (const file of files) downloadBlob(file.blob, file.fileName);
+      setStatus(
+        files.length === 1
+          ? `${target.label} done.`
+          : `${target.label} done (${files.length} files).`,
       );
-      setStatus(`${target.label} done.`);
     });
 
   const playAudio = guard(async () => {
@@ -100,7 +112,10 @@ export function TransferDialog() {
       requestStop();
       await waitForEmulatorStopped();
     }
-    const samples = audio.buildSamples(source, baseName, robust);
+    const samples = audio.buildSamples(source, baseName, robust, {
+      blocks,
+      loader,
+    });
     const playback = playSamples(samples, audio.sampleRate);
     playbackRef.current = playback;
     setPlaying(true);
@@ -116,7 +131,10 @@ export function TransferDialog() {
     const audio = dialect.audio;
     if (!audio)
       throw new Error(`${dialect.name} has no cassette audio support`);
-    const samples = audio.buildSamples(source, baseName, robust);
+    const samples = audio.buildSamples(source, baseName, robust, {
+      blocks,
+      loader,
+    });
     downloadBlob(
       samplesToWav(samples, audio.sampleRate),
       `${baseName.toLowerCase()}.wav`,
@@ -142,6 +160,35 @@ export function TransferDialog() {
     <div className={dialog.modalBackdrop} onClick={() => setOpen(false)}>
       <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
         <h2>Run on real hardware</h2>
+
+        {hasBlocks && (
+          <div className={styles.transferGroup}>
+            <h3>Memory blocks</h3>
+            {blocksSupported ? (
+              <>
+                <p>
+                  The document&apos;s {blocks.length} memory{' '}
+                  {blocks.length === 1 ? 'block is' : 'blocks are'} included in
+                  the exported tape (the serial bridge sends the BASIC program
+                  only).
+                </p>
+                <label className={dialog.inline}>
+                  <input
+                    type="checkbox"
+                    checked={loader}
+                    onChange={(e) => setLoader(e.target.checked)}
+                  />
+                  Add an auto-loader (loads every block, then runs the program)
+                </label>
+              </>
+            ) : (
+              <p>
+                This machine&apos;s export formats don&apos;t carry memory
+                blocks yet - exports include the BASIC program only.
+              </p>
+            )}
+          </div>
+        )}
 
         {dialect.audio && (
           <div className={styles.transferGroup}>

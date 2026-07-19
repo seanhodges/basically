@@ -1,7 +1,7 @@
-/* The editor pane's tab strip (BASIC + one tab per memory block). Follows the
-   MobileTabBar look - underline marks the active tab - but is always visible
-   (when blocks exist) rather than media-gated, and scrolls horizontally when a
-   document carries many blocks. */
+/* The editor pane's tab strip (BASIC + one tab per memory block + the new-
+   block plus button). Follows the MobileTabBar look - underline marks the
+   active tab - but is always visible rather than media-gated, and scrolls
+   horizontally when a document carries many blocks. */
 .tabBar {
   display: flex;
   align-items: stretch;
@@ -52,4 +52,19 @@
   border-radius: 50%;
   /* The lint marker red (see CodeMirrorHost's cm-lint-marker-error). */
   background: #f43;
+}
+
+/* The new-block button: same strip metrics as the tabs (so touch targets stay
+   >=32px tall) but visually a quiet action, not a tab. */
+.addTab {
+  justify-content: center;
+  min-width: 32px;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.addTab:hover {
+  opacity: 1;
+  color: var(--accent);
 }

@@ -31,22 +31,28 @@ export const trs80BuildTargets: BuildTarget[] = [
     label: 'Export .cas',
     fileExtension: 'cas',
     build: (source, { programName }) =>
-      Promise.resolve(
-        new Blob([buildCas(source, programName) as BlobPart], {
-          type: 'application/octet-stream',
-        }),
-      ),
+      Promise.resolve([
+        {
+          fileName: `${programName.toLowerCase()}.cas`,
+          blob: new Blob([buildCas(source, programName) as BlobPart], {
+            type: 'application/octet-stream',
+          }),
+        },
+      ]),
   },
   {
     id: 'trs80-wav',
     label: 'Export cassette .wav',
     fileExtension: 'wav',
     build: (source, { programName }) =>
-      Promise.resolve(
-        samplesToWav(
-          buildCassetteSamples(source, programName),
-          CASSETTE_SAMPLE_RATE,
-        ),
-      ),
+      Promise.resolve([
+        {
+          fileName: `${programName.toLowerCase()}.wav`,
+          blob: samplesToWav(
+            buildCassetteSamples(source, programName),
+            CASSETTE_SAMPLE_RATE,
+          ),
+        },
+      ]),
   },
 ];

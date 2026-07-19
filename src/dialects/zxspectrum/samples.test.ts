@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { spectrumSamples } from './samples';
+import { KALEIDO_BLOCK, spectrumSamples } from './samples';
+import { spectrumMemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
 import { buildTap } from './tapfile';
 import { SpectrumMachine } from './emulator/spectrumMachine';
+import { asmEngineFor } from '../../asm/registry';
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../public/roms/zxspectrum.rom')),
@@ -15,6 +17,80 @@ describe('zxspectrum sample programs', () => {
     for (const sample of spectrumSamples) {
       const { errors } = tokenizeProgram(sample.text);
       expect(errors, `${sample.name}: ${JSON.stringify(errors)}`).toEqual([]);
+    }
+  });
+
+  it('the kaleidoscope block assembles clean inside its valid range', () => {
+    const engine = asmEngineFor(spectrumMemoryBlocks.cpu)!;
+    const result = engine.assemble(
+      KALEIDO_BLOCK.asmSource,
+      KALEIDO_BLOCK.address,
+    );
+    expect(result.ok, result.ok ? '' : JSON.stringify(result.errors)).toBe(
+      true,
+    );
+    if (!result.ok) return;
+    expect(result.bytes.length).toBeGreaterThan(0);
+    const end = KALEIDO_BLOCK.address + result.bytes.length - 1;
+    const inRange = spectrumMemoryBlocks.validRanges.some(
+      (r) => KALEIDO_BLOCK.address >= r.start && end <= r.end,
+    );
+    expect(inRange).toBe(true);
+    // The BASIC program POKEs 32768-32770 and calls USR 32771: pin the entry
+    // so an asm edit that moves it breaks loudly here, not silently at run.
+    expect(KALEIDO_BLOCK.entry).toBe(KALEIDO_BLOCK.address + 3);
+  });
+
+  it('the kaleidoscope routine fills the attributes with a 4-way mirrored pattern', () => {
+    // The sample's own BASIC INPUTs the parameters; drive the same routine
+    // with POKEd values instead so the test needs no keyboard scripting.
+    // PAUSE 0 keeps the program alive so the ROM's end-of-run report doesn't
+    // print into the lower screen and wipe the bottom attribute rows.
+    const driver = [
+      '10 POKE 32768,3: POKE 32769,5: POKE 32770,2',
+      '20 RANDOMIZE USR 32771',
+      '30 PAUSE 0',
+    ].join('\n');
+    const { bytes, errors } = tokenizeProgram(driver);
+    expect(errors).toEqual([]);
+    const engine = asmEngineFor(spectrumMemoryBlocks.cpu)!;
+    const assembled = engine.assemble(
+      KALEIDO_BLOCK.asmSource,
+      KALEIDO_BLOCK.address,
+    );
+    expect(assembled.ok).toBe(true);
+    if (!assembled.ok) return;
+
+    const machine = new SpectrumMachine({ rom });
+    machine.loadProgram(buildTap(bytes), {
+      blocks: [
+        {
+          id: 'sample-kaleido',
+          name: KALEIDO_BLOCK.name,
+          address: KALEIDO_BLOCK.address,
+          bytes: assembled.bytes,
+          kind: 'code',
+        },
+      ],
+    });
+    for (let i = 0; i < 120; i++) machine.runFrame();
+
+    // The block's bytes landed at its address...
+    expect(machine.mem.read(0x8003)).toBe(assembled.bytes[3]);
+    // ...and the attribute file holds a drawn pattern, not a plain CLS.
+    const attrs = new Uint8Array(0x300);
+    for (let a = 0; a < 0x300; a++) attrs[a] = machine.mem.read(0x5800 + a);
+    const distinct = new Set(attrs).size;
+    expect(distinct).toBeGreaterThan(4);
+
+    // ...and holds the routine's 4-way mirror symmetry on every cell.
+    for (let y = 0; y < 12; y++) {
+      for (let x = 0; x < 16; x++) {
+        const v = attrs[y * 32 + x]!;
+        expect(attrs[y * 32 + (31 - x)]).toBe(v);
+        expect(attrs[(23 - y) * 32 + x]).toBe(v);
+        expect(attrs[(23 - y) * 32 + (31 - x)]).toBe(v);
+      }
     }
   });
 

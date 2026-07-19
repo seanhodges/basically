@@ -65,7 +65,7 @@ test('desktop: Back closes the on-screen keyboard', async ({ page }) => {
 test('mobile: Back returns from a deep tab to the editor', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await open(page);
-  await expect(page.getByRole('tablist')).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
 
   await page.getByRole('tab', { name: 'AI' }).click();
   await expect(page.getByRole('tab', { name: 'AI' })).toHaveAttribute(
@@ -102,7 +102,7 @@ test('Back surfaces survive an orientation flip', async ({ page }) => {
 
   // ...flip to a mobile portrait viewport (crosses the 768px breakpoint)...
   await page.setViewportSize({ width: 390, height: 800 });
-  await expect(page.getByRole('tablist')).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
 
   // ...and Back still closes it.
   await page.goBack();

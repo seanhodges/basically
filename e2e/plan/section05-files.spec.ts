@@ -44,15 +44,19 @@ test('5.1b File menu opens, stays open, and dismisses on outside click / Escape'
   await page.getByRole('button', { name: 'File ▾' }).click();
   await expectMenuStaysOpen(page, /^New/);
 
-  // Dismisses on a click outside the menu.
+  // Dismisses on a click outside the menu. (Scope to the dropdown panel: the
+  // editor tab strip's "New block" button also matches /^New/.)
+  const menuNew = page
+    .locator('[class*="menuItems"]')
+    .getByRole('button', { name: /^New/ });
   await page.locator(EDITOR).click();
-  await expect(page.getByRole('button', { name: /^New/ })).toBeHidden();
+  await expect(menuNew).toBeHidden();
 
   // Dismisses on Escape.
   await page.getByRole('button', { name: 'File ▾' }).click();
-  await expect(page.getByRole('button', { name: /^New/ })).toBeVisible();
+  await expect(menuNew).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: /^New/ })).toBeHidden();
+  await expect(menuNew).toBeHidden();
 });
 
 test('5.2 Open loads a legacy .bas file (content and filename)', async ({

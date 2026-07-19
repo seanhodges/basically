@@ -185,7 +185,10 @@ export async function expectMenuStaysOpen(
   page: Page,
   item: RegExp,
 ): Promise<void> {
-  await expect(page.getByRole('button', { name: item })).toBeVisible();
+  // Scope to the open dropdown panel - loose names like /^New/ also match
+  // buttons elsewhere in the app (the tab strip's "New block").
+  const panel = page.locator('[class*="menuItems"]');
+  await expect(panel.getByRole('button', { name: item })).toBeVisible();
   await page.mouse.move(0, 0);
-  await expect(page.getByRole('button', { name: item })).toBeVisible();
+  await expect(panel.getByRole('button', { name: item })).toBeVisible();
 }

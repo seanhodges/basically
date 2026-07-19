@@ -4,15 +4,17 @@ import { test, expect, type Page } from './fixtures';
  * The per-block assembly editor:
  *
  *  1. A document with memory blocks shows a tab strip (BASIC + one tab per
- *     block); one without blocks shows no strip at all.
+ *     block); one without blocks still shows the strip (BASIC + the
+ *     new-block button; see block-tabs.spec.ts for create/delete).
  *  2. A `kind: 'code'` block tab opens an editable disassembly; edits
  *     re-assemble on a debounce and replace the block's bytes (visible in
  *     autosave), and the text survives tab switches and reloads.
  *  3. A syntax error shows an error dot on the tab and leaves bytes alone.
  *  4. A `kind: 'data'` block shows the not-yet-supported placeholder.
  *
- * There is no block-creation UI yet, so specs seed blocks through autosave
- * (the same wire shape `.bproj` uses), which the app restores on boot.
+ * Specs seed blocks through autosave (the same wire shape `.bproj` uses),
+ * which the app restores on boot - faster and more precise than clicking
+ * through the creation UI.
  */
 
 /** 3E 02 D3 FE C9 = LD A,$02 / OUT ($FE),A / RET, base64-encoded. */
@@ -74,9 +76,15 @@ async function autosavedBlocks(
 const asmContent = (page: Page) =>
   page.locator('.cm-editor').last().locator('.cm-content');
 
-test('a blockless document shows no tab strip', async ({ page }) => {
+test('a blockless document still shows the strip: BASIC plus the new-block button', async ({
+  page,
+}) => {
   await seedProject(page, null);
-  await expect(page.getByRole('tablist')).toHaveCount(0);
+  const tablist = page.getByRole('tablist', { name: 'Editor content' });
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC']);
+  await expect(
+    tablist.getByRole('button', { name: 'New block' }),
+  ).toBeVisible();
 });
 
 test('block tabs appear; the code block opens an editable disassembly', async ({

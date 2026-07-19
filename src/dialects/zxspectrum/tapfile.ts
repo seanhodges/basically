@@ -121,17 +121,28 @@ export function tapBlocks(
   ];
 }
 
+/**
+ * Frame a sequence of tape blocks as a `.TAP` image: each block's raw bytes
+ * (flag + payload + parity) behind its `u16 LE length` prefix, in order. The
+ * inverse of {@link tapBlockScan}; a multi-file tape is just a longer block
+ * list.
+ */
+export function tapImageFromBlocks(blocks: readonly TapBlock[]): Uint8Array {
+  const framed = blocks.map((b) => withLengthPrefix(b.bytes));
+  const out = new Uint8Array(framed.reduce((n, b) => n + b.length, 0));
+  let p = 0;
+  for (const b of framed) {
+    out.set(b, p);
+    p += b.length;
+  }
+  return out;
+}
+
 export function buildTap(
   programBytes: Uint8Array,
   opts: TapOptions = {},
 ): Uint8Array {
-  const [header, data] = tapBlocks(programBytes, opts);
-  const headerBlock = withLengthPrefix(header.bytes);
-  const dataBlock = withLengthPrefix(data.bytes);
-  const out = new Uint8Array(headerBlock.length + dataBlock.length);
-  out.set(headerBlock, 0);
-  out.set(dataBlock, headerBlock.length);
-  return out;
+  return tapImageFromBlocks(tapBlocks(programBytes, opts));
 }
 
 const CODE_HEADER_TYPE = 0x03;
@@ -139,18 +150,18 @@ const CODE_HEADER_TYPE = 0x03;
 const CODE_UNUSED_PARAM = 0x8000;
 
 /**
- * A two-block CODE `.TAP` (header type 3) for `bytes` loading at `address`,
- * named `name`. Used to serve an imported CODE file back to the program's own
- * `LOAD "name" CODE` through the {@link tapfile}/tape-deck layer: the ROM does
- * its own name/type matching against the header we build here. Mirrors
- * {@link buildTap}'s header layout, but for CODE - param1 (bytes 13-14) is the
- * load address, not an auto-run line.
+ * The two tape blocks (header then data) for a CODE file (header type 3):
+ * `bytes` loading at `address`, named `name`. Mirrors {@link tapBlocks}'
+ * layout, but for CODE - param1 (bytes 13-14) is the load address, not an
+ * auto-run line. Shared by {@link codeTap} and the block-aware export
+ * (`targets.ts`), which composes multi-file tapes and cassette audio from
+ * block pairs.
  */
-export function codeTap(
+export function codeTapBlocks(
   name: string,
   address: number,
   bytes: Uint8Array,
-): Uint8Array {
+): [TapBlock, TapBlock] {
   const header = new Uint8Array(17);
   header[0] = CODE_HEADER_TYPE;
   header.set(programName(name), 1);
@@ -160,7 +171,24 @@ export function codeTap(
   header[14] = (address >> 8) & 0xff;
   header[15] = CODE_UNUSED_PARAM & 0xff;
   header[16] = (CODE_UNUSED_PARAM >> 8) & 0xff;
-  return tapFromPayloads(header, bytes);
+  return [
+    { flag: 0x00, bytes: blockWithParity(0x00, header) },
+    { flag: 0xff, bytes: blockWithParity(0xff, bytes) },
+  ];
+}
+
+/**
+ * A two-block CODE `.TAP` (see {@link codeTapBlocks}). Used to serve an
+ * imported CODE file back to the program's own `LOAD "name" CODE` through
+ * the {@link tapfile}/tape-deck layer: the ROM does its own name/type
+ * matching against the header we build here.
+ */
+export function codeTap(
+  name: string,
+  address: number,
+  bytes: Uint8Array,
+): Uint8Array {
+  return tapImageFromBlocks(codeTapBlocks(name, address, bytes));
 }
 
 /**

@@ -90,6 +90,11 @@
   /* Wide enough to keep the longest single-line items (e.g. "Renumber line" /
      "Renumber file" plus their shortcut hints) on one row. */
   min-width: 200px;
+  /* A long menu (the File menu's Samples section keeps growing) must scroll
+     rather than run off a short phone-landscape viewport. */
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: 6px;

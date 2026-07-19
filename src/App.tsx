@@ -11,6 +11,7 @@ import { ShareLinkDialog } from './components/ShareLinkDialog';
 import { VfsInspectorDialog } from './components/VfsInspectorDialog';
 import { ImportDialog } from './components/ImportDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
+import { DeleteBlockDialog } from './components/DeleteBlockDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { DocsDrawer } from './components/DocsDrawer';
@@ -95,6 +96,7 @@ export default function App() {
       <VfsInspectorDialog />
       <ImportDialog />
       <SwitchTargetDialog />
+      <DeleteBlockDialog />
       <ProcedureListDialog />
       <WelcomeDialog />
       <DocsDrawer />

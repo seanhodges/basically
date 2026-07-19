@@ -47,23 +47,29 @@ export const zx81BuildTargets: BuildTarget[] = [
     id: 'p-file',
     label: 'Export .P file',
     fileExtension: 'p',
-    build: (source) =>
-      Promise.resolve(
-        new Blob([buildImageOrThrow(source) as BlobPart], {
-          type: 'application/octet-stream',
-        }),
-      ),
+    build: (source, { programName }) =>
+      Promise.resolve([
+        {
+          fileName: `${programName.toLowerCase()}.p`,
+          blob: new Blob([buildImageOrThrow(source) as BlobPart], {
+            type: 'application/octet-stream',
+          }),
+        },
+      ]),
   },
   {
     id: 'wav',
     label: 'Export cassette .wav',
     fileExtension: 'wav',
     build: (source, { programName }) =>
-      Promise.resolve(
-        samplesToWav(
-          buildCassetteSamples(source, programName),
-          CASSETTE_SAMPLE_RATE,
-        ),
-      ),
+      Promise.resolve([
+        {
+          fileName: `${programName.toLowerCase()}.wav`,
+          blob: samplesToWav(
+            buildCassetteSamples(source, programName),
+            CASSETTE_SAMPLE_RATE,
+          ),
+        },
+      ]),
   },
 ];

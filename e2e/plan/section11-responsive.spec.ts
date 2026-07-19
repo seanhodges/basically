@@ -39,7 +39,9 @@ test('11.2 narrow viewport switches to the tabbed mobile layout', async ({
 }) => {
   await page.setViewportSize({ width: 700, height: 1000 });
   await openApp(page);
-  await expect(page.getByRole('tablist')).toBeVisible();
+  // Name the pane switcher: the editor's own content tab strip is a second,
+  // always-present tablist.
+  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
   // Tabs actually switch panes.
   await page.getByRole('tab', { name: 'Run' }).click();
   await expect(page.locator('canvas').first()).toBeVisible();
@@ -50,9 +52,9 @@ test('11.2 narrow viewport switches to the tabbed mobile layout', async ({
 test('11.2 widening back restores the split layout', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 1000 });
   await openApp(page);
-  await expect(page.getByRole('tablist')).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 800 });
-  await expect(page.getByRole('tablist')).toBeHidden();
+  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeHidden();
   await expect(page.locator(EDITOR)).toBeVisible();
   await expect(page.locator('canvas').first()).toBeVisible();
 });

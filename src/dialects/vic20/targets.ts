@@ -30,23 +30,29 @@ export const vic20BuildTargets: BuildTarget[] = [
     id: 'vic20-prg',
     label: 'Export .prg',
     fileExtension: 'prg',
-    build: (source) =>
-      Promise.resolve(
-        new Blob([buildPrg(source) as BlobPart], {
-          type: 'application/octet-stream',
-        }),
-      ),
+    build: (source, { programName }) =>
+      Promise.resolve([
+        {
+          fileName: `${programName.toLowerCase()}.prg`,
+          blob: new Blob([buildPrg(source) as BlobPart], {
+            type: 'application/octet-stream',
+          }),
+        },
+      ]),
   },
   {
     id: 'vic20-wav',
     label: 'Export cassette .wav',
     fileExtension: 'wav',
     build: (source, { programName }) =>
-      Promise.resolve(
-        samplesToWav(
-          buildCassetteSamples(source, programName),
-          CASSETTE_SAMPLE_RATE,
-        ),
-      ),
+      Promise.resolve([
+        {
+          fileName: `${programName.toLowerCase()}.wav`,
+          blob: samplesToWav(
+            buildCassetteSamples(source, programName),
+            CASSETTE_SAMPLE_RATE,
+          ),
+        },
+      ]),
   },
 ];
