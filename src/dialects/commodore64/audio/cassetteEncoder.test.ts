@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildCassetteSamples,
   buildHeaderBlock,
   checksum,
   encodeC64Tape,
@@ -8,6 +9,9 @@ import {
   PULSE_MEDIUM_MICROS,
   PULSE_LONG_MICROS,
 } from './cassetteEncoder';
+import { decodeCassette } from './cassetteDecoder';
+import { detokenizeProgram } from '../detokenizer';
+import type { MemoryBlock } from '../../types';
 
 const SAMPLE_RATE = 44100;
 
@@ -156,5 +160,29 @@ describe('encodeC64Tape', () => {
       leaderPulses: 2400,
     });
     expect(robust.length).toBeGreaterThan(normal.length);
+  });
+});
+
+describe('buildCassetteSamples with memory blocks', () => {
+  const source = '10 PRINT "HELLO"\n';
+  const block: MemoryBlock = {
+    id: 'b1',
+    name: 'SPRITES',
+    address: 0xc000,
+    bytes: Uint8Array.of(0xa9, 0x00, 0x8d, 0x20, 0xd0, 0x60),
+    kind: 'code',
+  };
+
+  it('encodes extra tape files, lengthening the recording', () => {
+    const plain = buildCassetteSamples(source, 'HELLO');
+    const withBlock = buildCassetteSamples(source, 'HELLO', false, [block]);
+    expect(withBlock.length).toBeGreaterThan(plain.length);
+  });
+
+  it('leads with the main program so it still decodes', () => {
+    const samples = buildCassetteSamples(source, 'HELLO', false, [block]);
+    const { name, data } = decodeCassette(samples, SAMPLE_RATE);
+    expect(name).toBe('HELLO');
+    expect(detokenizeProgram(data)).toBe(source);
   });
 });

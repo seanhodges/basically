@@ -3,6 +3,7 @@ import { test, expect, type Page } from '../fixtures';
 import {
   fileMenu,
   forceFallbackFilePickers,
+  installDialogHandler,
   openApp,
   saveAsBas,
   setEditorSource,
@@ -96,6 +97,52 @@ test('7.5/7.6 serial bridge button gates on WebSerial support', async ({
       'WebSerial needs Chrome or Edge',
     );
   }
+});
+
+/** Boot straight into the C64 with a program, dodging the machine-switch gate. */
+async function openC64WithBlock(page: Page) {
+  installDialogHandler(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('mbide.dialectId', 'commodore64');
+    localStorage.setItem('mbide.autosave.doc', '10 PRINT "HELLO"\n20 GOTO 10');
+    localStorage.setItem('mbide.autosave.name', 'game.bas');
+  });
+  await page.goto('/');
+  await expect(page.locator('.cm-content').first()).toBeVisible();
+  // Add a memory block so the document holds something the .prg can't carry.
+  const tablist = page.getByRole('tablist', { name: 'Editor content' });
+  await tablist.getByRole('button', { name: 'New block' }).click();
+  await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
+}
+
+test('7.8 C64 .d64 export carries blocks; .prg warns before dropping them', async ({
+  page,
+}) => {
+  await openC64WithBlock(page);
+  await fileMenu(page, /^Export/);
+  await expect(
+    page.getByRole('heading', { name: 'Run on real hardware' }),
+  ).toBeVisible();
+
+  // The block-aware .d64 export is offered and downloads a single container.
+  const d64Download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export .d64' }).click();
+  expect((await d64Download).suggestedFilename()).toMatch(/\.d64$/);
+
+  // The .prg can't carry the block: it warns and waits for confirmation
+  // instead of downloading straight away.
+  await page.getByRole('button', { name: 'Export .prg' }).click();
+  await expect(page.getByText(/won.t be included/)).toBeVisible();
+
+  // Cancel keeps the document and dismisses the warning - no download.
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByText(/won.t be included/)).toBeHidden();
+
+  // Export anyway proceeds with the BASIC-only .prg.
+  await page.getByRole('button', { name: 'Export .prg' }).click();
+  const prgDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export anyway' }).click();
+  expect((await prgDownload).suggestedFilename()).toMatch(/\.prg$/);
 });
 
 test('7.7 robust mode produces a longer cassette recording', async ({

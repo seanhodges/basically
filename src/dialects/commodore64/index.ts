@@ -7,9 +7,9 @@ import { tokenizeProgram } from './tokenizer';
 import {
   detokenizeProgram,
   detokenizeProgramWithReport,
-  detokenizeT64WithReport,
+  detokenizeD64WithReport,
 } from './detokenizer';
-import { isT64 } from './t64';
+import { isD64 } from './d64';
 import { c64BuildTargets } from './targets';
 import { c64LanguageSupport, c64CompletionSource } from './language';
 import { c64VariableErrors } from '../../editor/variableLint';
@@ -71,7 +71,7 @@ export const commodore64: Dialect = {
   },
 
   detokenizeWithReport(image: Uint8Array) {
-    if (isT64(image)) return detokenizeT64WithReport(image);
+    if (isD64(image)) return detokenizeD64WithReport(image);
     return detokenizeProgramWithReport(image);
   },
 
@@ -107,13 +107,19 @@ export const commodore64: Dialect = {
 
   binaryImports: [
     { extension: '.prg', label: 'Import .PRG…' },
-    { extension: '.t64', label: 'Import .T64…' },
+    { extension: '.d64', label: 'Import .D64…' },
   ],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,
-    buildSamples: (source, programName, robust) =>
-      buildCassetteSamples(source, programName, robust),
+    buildSamples: (source, programName, robust, opts) =>
+      buildCassetteSamples(
+        source,
+        programName,
+        robust,
+        opts?.blocks,
+        opts?.loader,
+      ),
     loadInstructions:
       'On the C64 type LOAD and press RETURN, then press PLAY on the datasette before starting playback. When it finds the program type RUN.',
     decodeSamples: (samples, sampleRate) => {

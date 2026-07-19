@@ -46,6 +46,7 @@ export function TransferDialog() {
   const [loader, setLoader] = useState(true);
   const [status, setStatus] = useState('');
   const [playing, setPlaying] = useState(false);
+  const [pendingTargetId, setPendingTargetId] = useState<string | null>(null);
   const playbackRef = useRef<AudioPlayback | null>(null);
 
   if (!open) return null;
@@ -98,6 +99,23 @@ export function TransferDialog() {
           : `${target.label} done (${files.length} files).`,
       );
     });
+
+  // A file target that can't carry the document's memory blocks would silently
+  // export the BASIC program only, so confirm before dropping them. Block-aware
+  // targets (and documents with no blocks) export straight away.
+  const chooseFileTarget = (targetId: string) => () => {
+    const target = dialect.buildTargets.find((t) => t.id === targetId);
+    if (target && !target.supportsBlocks && hasBlocks) {
+      setStatus('');
+      setPendingTargetId(targetId);
+      return;
+    }
+    runFileTarget(targetId)();
+  };
+
+  const pendingTarget = pendingTargetId
+    ? dialect.buildTargets.find((t) => t.id === pendingTargetId)
+    : null;
 
   const playAudio = guard(async () => {
     const audio = dialect.audio;
@@ -224,7 +242,7 @@ export function TransferDialog() {
               // wav is offered through the cassette section above
               .filter((t) => !(dialect.audio && t.fileExtension === 'wav'))
               .map((t) => (
-                <button key={t.id} onClick={runFileTarget(t.id)}>
+                <button key={t.id} onClick={chooseFileTarget(t.id)}>
                   {t.label}
                 </button>
               ))}
@@ -241,6 +259,29 @@ export function TransferDialog() {
             </button>
           </div>
         </div>
+
+        {pendingTarget && (
+          <div className={styles.transferGroup}>
+            <p className={dialog.modalWarning}>
+              {pendingTarget.label} exports the BASIC program only — the
+              document&apos;s {blocks.length} memory{' '}
+              {blocks.length === 1 ? 'block' : 'blocks'} won&apos;t be included.
+              Export anyway?
+            </p>
+            <div className={`${dialog.modalActions} ${dialog.left}`}>
+              <button
+                onClick={() => {
+                  const id = pendingTarget.id;
+                  setPendingTargetId(null);
+                  runFileTarget(id)();
+                }}
+              >
+                Export anyway
+              </button>
+              <button onClick={() => setPendingTargetId(null)}>Cancel</button>
+            </div>
+          </div>
+        )}
 
         {status && <p className={styles.transferStatus}>{status}</p>}
         <div className={dialog.modalActions}>

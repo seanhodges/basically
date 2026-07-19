@@ -21,7 +21,9 @@
  * what a real C64 (or an emulator's datasette fed this as audio) reads with
  * LOAD, and the round-trip through {@link cassetteDecoder} reproduces it.
  */
+import type { MemoryBlock } from '../../types';
 import { buildPrg } from '../targets';
+import { loaderProgramBytes } from '../loader';
 import { parseC64Char } from '../petscii';
 
 export const CASSETTE_SAMPLE_RATE = 44100;
@@ -37,6 +39,7 @@ export const PULSE_LONG_MICROS = 680;
 // Block-header layout.
 const HEADER_SIZE = 192;
 const FILE_TYPE_RELOCATABLE = 0x01; // BASIC program, relocated to $0801 on load
+const FILE_TYPE_NON_RELOCATABLE = 0x03; // absolute load at the header's address
 const LOAD_ADDRESS = 0x0801;
 const FILENAME_OFFSET = 5;
 const FILENAME_LENGTH = 16;
@@ -92,14 +95,19 @@ export function nameBytes(name: string): Uint8Array {
   return out;
 }
 
-/** Build the 192-byte header block body (without countdown or checksum). */
+/**
+ * Build the 192-byte header block body (without countdown or checksum).
+ * `fileType` is $01 for a BASIC program (relocated to $0801 on load) or $03 for
+ * an absolute code file loaded at the header's own address.
+ */
 export function buildHeaderBlock(
   name: string,
   startAddr: number,
   endAddr: number,
+  fileType: number = FILE_TYPE_RELOCATABLE,
 ): Uint8Array {
   const header = new Uint8Array(HEADER_SIZE).fill(FILENAME_PAD);
-  header[0] = FILE_TYPE_RELOCATABLE;
+  header[0] = fileType;
   header[1] = startAddr & 0xff;
   header[2] = (startAddr >> 8) & 0xff;
   header[3] = endAddr & 0xff;
@@ -108,32 +116,98 @@ export function buildHeaderBlock(
   return header;
 }
 
-/** Encode source to cassette samples (the dialect's `buildSamples`). */
+/** One tape file: its 192-byte header block and its data block. */
+interface TapeFileBlocks {
+  header: Uint8Array;
+  data: Uint8Array;
+}
+
+/**
+ * Encode a document to cassette samples (the dialect's `buildSamples`). The
+ * program is one tape file (header $01 at $0801 + data); with memory blocks each
+ * becomes a further file (header $03 at its address + data), and with `loader`
+ * on a generated auto-run loader program leads the tape - the same ordered
+ * layout {@link exportD64Entries} writes to the `.d64` disk. Without blocks it
+ * is the classic single program, so the leading file still decodes as before.
+ */
 export function buildCassetteSamples(
   source: string,
   programName: string,
   robust = false,
+  blocks: readonly MemoryBlock[] = [],
+  loader = false,
 ): Float32Array {
   const program = buildPrg(source).subarray(2); // drop the $0801 load address
-  const header = buildHeaderBlock(
-    programName,
-    LOAD_ADDRESS,
-    LOAD_ADDRESS + program.length,
+  const programFile: TapeFileBlocks = {
+    header: buildHeaderBlock(
+      programName,
+      LOAD_ADDRESS,
+      LOAD_ADDRESS + program.length,
+    ),
+    data: program,
+  };
+
+  const files: TapeFileBlocks[] = [];
+  if (blocks.length === 0) {
+    files.push(programFile);
+  } else {
+    const sorted = [...blocks].sort((a, b) => a.address - b.address);
+    const codeFile = (b: MemoryBlock): TapeFileBlocks => ({
+      header: buildHeaderBlock(
+        b.name,
+        b.address,
+        b.address + b.bytes.length,
+        FILE_TYPE_NON_RELOCATABLE,
+      ),
+      data: b.bytes,
+    });
+    if (loader) {
+      const loaderBytes = loaderProgramBytes(programName, sorted);
+      files.push({
+        header: buildHeaderBlock(
+          `${programName}.L`,
+          LOAD_ADDRESS,
+          LOAD_ADDRESS + loaderBytes.length,
+        ),
+        data: loaderBytes,
+      });
+      for (const b of sorted) files.push(codeFile(b));
+      files.push(programFile);
+    } else {
+      files.push(programFile);
+      for (const b of sorted) files.push(codeFile(b));
+    }
+  }
+
+  return encodeC64Bodies(
+    files.flatMap((f) => [f.header, f.data]),
+    { sampleRate: CASSETTE_SAMPLE_RATE, leaderPulses: robust ? 2400 : 1200 },
   );
-  return encodeC64Tape(header, program, {
-    sampleRate: CASSETTE_SAMPLE_RATE,
-    leaderPulses: robust ? 2400 : 1200,
-  });
 }
 
 /**
  * Encode a header block and a data block to a square-wave Float32Array. Both
  * blocks are written twice (with countdown + checksum) exactly as the KERNAL
- * SAVE routine lays them out.
+ * SAVE routine lays them out. A convenience wrapper over {@link encodeC64Bodies}
+ * for the common single-file (header + program) case.
  */
 export function encodeC64Tape(
   header: Uint8Array,
   program: Uint8Array,
+  opts: C64TapeOptions = {},
+): Float32Array {
+  return encodeC64Bodies([header, program], opts);
+}
+
+/**
+ * Encode an ordered list of block bodies to a square-wave Float32Array. Each
+ * body is a KERNAL tape block (a 192-byte header or a data block) and is written
+ * twice - with the $89..$81 / $09..$01 countdown prefix and an XOR checksum -
+ * exactly as the SAVE routine lays them out. A multi-file tape is just a longer
+ * body list: `[header1, data1, header2, data2, …]`.
+ */
+export function encodeC64Bodies(
+  bodies: readonly Uint8Array[],
   opts: C64TapeOptions = {},
 ): Float32Array {
   const sampleRate = opts.sampleRate ?? 44100;
@@ -181,8 +255,7 @@ export function encodeC64Tape(
     copy(COUNTDOWN_SECOND);
   };
 
-  pushBlock(header);
-  pushBlock(program);
+  for (const body of bodies) pushBlock(body);
   pushPilot(trailerPulses);
 
   // Render the pulses to a square wave. Time is accumulated in exact micros and
