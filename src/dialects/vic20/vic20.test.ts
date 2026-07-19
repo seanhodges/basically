@@ -171,12 +171,14 @@ describe('vic20 dialect', () => {
   // ---- Stage 4 - transfer & tape I/O ------------------------------------
   // The cassette codec itself is exercised in audio/cassette.test.ts; here we
   // confirm the dialect surface is wired: .prg import + tape audio in/out.
-  it('exposes .prg import and cassette audio through the dialect', () => {
+  it('exposes .prg/.d64 import and cassette audio through the dialect', () => {
     expect(vic20.binaryImports).toEqual([
       { extension: '.prg', label: 'Import .PRG…' },
+      { extension: '.d64', label: 'Import .D64…' },
     ]);
     expect(vic20.buildTargets.map((t) => t.id)).toEqual([
       'vic20-prg',
+      'vic20-d64',
       'vic20-wav',
     ]);
     expect(vic20.audio).toBeDefined();

@@ -9,7 +9,12 @@ import { petCharset } from './charset';
 import { petMemoryMap } from './memoryMap';
 import { petMemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
+import {
+  detokenizeProgram,
+  detokenizeProgramWithReport,
+  detokenizeD64WithReport,
+} from './detokenizer';
+import { isD64 } from '../commodore64/d64';
 import { petLanguageSupport, petCompletionSource } from './language';
 import { petBuildTargets } from './targets';
 import { petKeyboardLayout } from './keyboardLayout';
@@ -64,6 +69,7 @@ export const pet: Dialect = {
   },
 
   detokenizeWithReport(image: Uint8Array) {
+    if (isD64(image)) return detokenizeD64WithReport(image);
     return detokenizeProgramWithReport(image);
   },
 
@@ -96,12 +102,21 @@ export const pet: Dialect = {
 
   buildTargets: petBuildTargets,
 
-  binaryImports: [{ extension: '.prg', label: 'Import .PRG…' }],
+  binaryImports: [
+    { extension: '.prg', label: 'Import .PRG…' },
+    { extension: '.d64', label: 'Import .D64…' },
+  ],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,
-    buildSamples: (source, programName, robust) =>
-      buildCassetteSamples(source, programName, robust),
+    buildSamples: (source, programName, robust, opts) =>
+      buildCassetteSamples(
+        source,
+        programName,
+        robust,
+        opts?.blocks,
+        opts?.loader,
+      ),
     loadInstructions:
       'On the PET type LOAD and press RETURN, then press PLAY on the datasette before starting playback. When it finds the program type RUN.',
     decodeSamples: (samples, sampleRate) => decodeSamples(samples, sampleRate),

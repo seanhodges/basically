@@ -123,26 +123,37 @@ interface TapeFileBlocks {
 }
 
 /**
- * Encode a document to cassette samples (the dialect's `buildSamples`). The
- * program is one tape file (header $01 at $0801 + data); with memory blocks each
- * becomes a further file (header $03 at its address + data), and with `loader`
- * on a generated auto-run loader program leads the tape - the same ordered
- * layout {@link exportD64Entries} writes to the `.d64` disk. Without blocks it
- * is the classic single program, so the leading file still decodes as before.
+ * Assemble the ordered KERNAL tape-block bodies for a whole Commodore document:
+ * the main BASIC program (header $01 at `loadAddress` + data), then each memory
+ * block as an absolute code file (header $03 at its address + data), with an
+ * optional generated auto-run loader (header $01 at `loadAddress` + its bytes)
+ * leading the tape. The result is the flat `[header, data, header, data, …]`
+ * body list {@link encodeC64Bodies} renders - the same ordered layout
+ * {@link exportD64Entries} writes to the `.d64` disk. Without blocks it is the
+ * classic single program, so the leading file still decodes as before.
+ *
+ * Address-parameterized so the PET ($0401) and VIC-20 ($1001) siblings share
+ * this one source of truth: they pass their own load address, `program` bytes
+ * (from their `buildPrg`) and, when a loader is wanted, their own tokenized
+ * `loaderBytes` (from their dialect's loader). Passing `loaderBytes` null (or
+ * omitting it) puts the code files after the program with no loader.
  */
-export function buildCassetteSamples(
-  source: string,
-  programName: string,
-  robust = false,
-  blocks: readonly MemoryBlock[] = [],
-  loader = false,
-): Float32Array {
-  const program = buildPrg(source).subarray(2); // drop the $0801 load address
+export function buildCbmTapeBodies(opts: {
+  program: Uint8Array;
+  programName: string;
+  loadAddress: number;
+  blocks?: readonly MemoryBlock[];
+  loaderBytes?: Uint8Array | null;
+}): Uint8Array[] {
+  const { program, programName, loadAddress } = opts;
+  const blocks = opts.blocks ?? [];
+  const loaderBytes = opts.loaderBytes ?? null;
+
   const programFile: TapeFileBlocks = {
     header: buildHeaderBlock(
       programName,
-      LOAD_ADDRESS,
-      LOAD_ADDRESS + program.length,
+      loadAddress,
+      loadAddress + program.length,
     ),
     data: program,
   };
@@ -161,13 +172,12 @@ export function buildCassetteSamples(
       ),
       data: b.bytes,
     });
-    if (loader) {
-      const loaderBytes = loaderProgramBytes(programName, sorted);
+    if (loaderBytes) {
       files.push({
         header: buildHeaderBlock(
           `${programName}.L`,
-          LOAD_ADDRESS,
-          LOAD_ADDRESS + loaderBytes.length,
+          loadAddress,
+          loadAddress + loaderBytes.length,
         ),
         data: loaderBytes,
       });
@@ -179,10 +189,41 @@ export function buildCassetteSamples(
     }
   }
 
-  return encodeC64Bodies(
-    files.flatMap((f) => [f.header, f.data]),
-    { sampleRate: CASSETTE_SAMPLE_RATE, leaderPulses: robust ? 2400 : 1200 },
-  );
+  return files.flatMap((f) => [f.header, f.data]);
+}
+
+/**
+ * Encode a document to cassette samples (the dialect's `buildSamples`). The
+ * program is one tape file (header $01 at $0801 + data); with memory blocks each
+ * becomes a further file (header $03 at its address + data), and with `loader`
+ * on a generated auto-run loader program leads the tape - the same ordered
+ * layout {@link exportD64Entries} writes to the `.d64` disk. Without blocks it
+ * is the classic single program, so the leading file still decodes as before.
+ */
+export function buildCassetteSamples(
+  source: string,
+  programName: string,
+  robust = false,
+  blocks: readonly MemoryBlock[] = [],
+  loader = false,
+): Float32Array {
+  const program = buildPrg(source).subarray(2); // drop the $0801 load address
+  const sorted = [...blocks].sort((a, b) => a.address - b.address);
+  const bodies = buildCbmTapeBodies({
+    program,
+    programName,
+    loadAddress: LOAD_ADDRESS,
+    blocks,
+    loaderBytes:
+      loader && blocks.length > 0
+        ? loaderProgramBytes(programName, sorted)
+        : null,
+  });
+
+  return encodeC64Bodies(bodies, {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    leaderPulses: robust ? 2400 : 1200,
+  });
 }
 
 /**
