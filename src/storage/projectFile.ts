@@ -99,6 +99,13 @@ export interface ProjectFileV1 {
    * emulator's virtual tape at run time (see {@link ParsedProject.tapeFiles}).
    */
   tapeFiles?: SerializedTapeFile[];
+  /**
+   * Per-ordinal overrides for a document's derived listing blocks (ZX80/ZX81):
+   * the name / code-vs-data kind / comment a `#BIN` record can't carry. Optional
+   * and additive - older files without it load with the derived defaults - so no
+   * version bump. The blocks themselves re-derive from `source`.
+   */
+  listingBlockMeta?: SerializedListingBlockMeta;
 }
 
 function serializeBlock(block: MemoryBlock): SerializedBlock {
@@ -194,6 +201,47 @@ export function parseBlocks(raw: unknown[]): MemoryBlock[] {
 }
 
 /**
+ * Per-ordinal overrides (name / code-vs-data kind / comment) for a document's
+ * derived listing blocks (ZX80/ZX81), keyed by the block's ordinal as a string.
+ * A `#BIN` record carries none of these, so they ride in the project metadata.
+ */
+export type SerializedListingBlockMeta = Record<
+  string,
+  { name?: string; kind?: 'code' | 'data'; comment?: string }
+>;
+
+/**
+ * Validate an untrusted listing-block-metadata map (from a `.bproj` or
+ * autosave) into a clean ordinal-keyed record. Defensive like
+ * {@link parseBlocks}'s callers expect: unknown/invalid entries are dropped
+ * rather than throwing, since the blocks themselves always re-derive from
+ * `source`.
+ */
+export function parseListingBlockMeta(
+  raw: unknown,
+): Record<number, { name?: string; kind?: 'code' | 'data'; comment?: string }> {
+  const out: Record<
+    number,
+    { name?: string; kind?: 'code' | 'data'; comment?: string }
+  > = {};
+  if (raw === null || typeof raw !== 'object') return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const ordinal = Number(k);
+    if (!Number.isInteger(ordinal) || ordinal < 0) continue;
+    if (v === null || typeof v !== 'object') continue;
+    const m = v as Record<string, unknown>;
+    const meta: { name?: string; kind?: 'code' | 'data'; comment?: string } =
+      {};
+    if (typeof m.name === 'string' && isValidBlockName(m.name))
+      meta.name = m.name;
+    if (m.kind === 'code' || m.kind === 'data') meta.kind = m.kind;
+    if (typeof m.comment === 'string') meta.comment = m.comment;
+    if (Object.keys(meta).length > 0) out[ordinal] = meta;
+  }
+  return out;
+}
+
+/**
  * {@link TapeFile}s in their wire shape (bytes as base64). Shared by
  * {@link serializeProject} and autosave's tape-file persistence.
  */
@@ -253,6 +301,7 @@ export function serializeProject(
   blocks: readonly MemoryBlock[],
   autoStart: number | null = null,
   tapeFiles: readonly TapeFile[] = [],
+  listingBlockMeta: SerializedListingBlockMeta = {},
 ): string {
   const file: ProjectFileV1 = {
     format: 'basically-project',
@@ -264,6 +313,7 @@ export function serializeProject(
     ...(tapeFiles.length > 0
       ? { tapeFiles: serializeTapeFiles(tapeFiles) }
       : {}),
+    ...(Object.keys(listingBlockMeta).length > 0 ? { listingBlockMeta } : {}),
   };
   return JSON.stringify(file, null, 2);
 }
@@ -276,6 +326,11 @@ export interface ParsedProject {
   autoStart: number | null;
   /** Preserved tape files (see {@link TapeFile}), or `[]` when the file had none. */
   tapeFiles: TapeFile[];
+  /** Listing-block overrides, or `{}` when the file carried none. */
+  listingBlockMeta: Record<
+    number,
+    { name?: string; kind?: 'code' | 'data'; comment?: string }
+  >;
 }
 
 /**
@@ -330,6 +385,7 @@ export function parseProject(text: string): ParsedProject {
     blocks: parseBlocks(obj.blocks),
     autoStart,
     tapeFiles,
+    listingBlockMeta: parseListingBlockMeta(obj.listingBlockMeta),
   };
 }
 

@@ -4,8 +4,13 @@
 import { describe, expect, it } from 'vitest';
 import { zx81 } from './index';
 import { buildPFile, withAutoStart } from './pfile';
+import { buildPImage } from './targets';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgramWithInfo, structuralWarnings } from './detokenizer';
+import { formatBinaryDirective } from '../binaryDirective';
+import { buildRemRecord } from '../../app/listingBlockEdit';
+import { deriveListingBlocks } from '../../app/listingBlocks';
+import { zx81ListingLayout } from './listingLayout';
 import {
   importRoundTrip,
   isAcceptableImport,
@@ -141,6 +146,31 @@ describe('zx81 hidden binary lines', () => {
     const { source, binaryLines } = detokenizeProgramWithInfo(program);
     expect(binaryLines).toBe(0);
     expect(source).toBe('10 REM\n20 REM HI\n');
+  });
+
+  describe('listing blocks round-trip through a monolithic .P', () => {
+    it('a REM code block survives export → import → re-derive byte-exactly', () => {
+      // Author a program with a hidden-code REM block, export the standard .P,
+      // re-import it, and confirm the derived block's bytes/address are intact -
+      // the whole point of storing blocks inside the listing.
+      const code = new Uint8Array([0x3e, 0x2a, 0xc9, 0x76, 0x18, 0xfe]);
+      const rem = formatBinaryDirective(
+        buildRemRecord(1, code, zx81ListingLayout),
+      );
+      const source = `${rem}\n10 REM start\n20 RAND USR 16514\n`;
+
+      const before = deriveListingBlocks(source, zx81ListingLayout);
+      expect(before).toHaveLength(1);
+      expect(before[0]!.address).toBe(0x4082);
+      expect(Array.from(before[0]!.bytes)).toEqual(Array.from(code));
+
+      const image = buildPImage(source);
+      const { source: reimported } = zx81.detokenizeWithReport!(image);
+      const after = deriveListingBlocks(reimported, zx81ListingLayout);
+      expect(after).toHaveLength(1);
+      expect(after[0]!.address).toBe(0x4082);
+      expect(Array.from(after[0]!.bytes)).toEqual(Array.from(code));
+    });
   });
 
   describe('heuristic policy for well-formed machine-code REMs', () => {

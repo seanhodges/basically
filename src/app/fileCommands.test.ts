@@ -34,6 +34,9 @@ const { serializeProject } = await import('../storage/projectFile');
 
 const zx81 = getDialect('zx81');
 const commodore64 = getDialect('commodore64');
+// BBC keeps the fixed-address sidecar model (its .bbc program format can't carry
+// blocks); ZX80/ZX81 no longer do - their blocks live in the listing.
+const bbc = getDialect('bbcmicro');
 
 // A .prg image round-trips through the C64 dialect, so we can build a real one.
 const PRG_SOURCE = '10 PRINT "HI"\n';
@@ -215,30 +218,43 @@ describe('openDroppedFile', () => {
   });
 
   it('adds a sidecar .bin as a memory block, augmenting the document', async () => {
-    // zx81 (the active dialect) supports memory blocks, so a <name>-<addr>.bin
-    // is added rather than opened as a program.
-    await dropFile('sprite-0x7000.bin', Uint8Array.from([1, 2, 3]));
+    // BBC keeps the fixed-address sidecar model, so a <name>-<addr>.bin is added
+    // rather than opened as a program.
+    useIdeStore.setState({ dialect: bbc, source: '10 REM OLD' });
+    await dropFile('sprite-0x3000.bin', Uint8Array.from([1, 2, 3]));
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 REM OLD'); // augments, doesn't replace
     expect(s.blocks).toEqual([
       {
         id: 'sidecar-sprite',
         name: 'sprite',
-        address: 0x7000,
+        address: 0x3000,
         bytes: Uint8Array.from([1, 2, 3]),
         kind: 'code',
       },
     ]);
     expect(s.dirty).toBe(true); // adding a block dirties the document
     expect(s.statusNotice).toBe(
-      'Imported sprite-0x7000.bin as memory block "sprite" at 0x7000.',
+      'Imported sprite-0x3000.bin as memory block "sprite" at 0x3000.',
     );
   });
 
   it('rejects a .bin whose name has no load address', async () => {
+    useIdeStore.setState({ dialect: bbc });
     await dropFile('program.bin', Uint8Array.from([1]));
     const s = useIdeStore.getState();
     expect(s.blocks).toEqual([]);
     expect(s.statusNotice).toMatch(/must be named like/);
+  });
+
+  it('directs a .bin drop on a listing dialect to the REM-block route', async () => {
+    // ZX81's blocks live in the listing, not at a fixed address, so a sidecar
+    // .bin has nowhere to go - the user gets pointed at the block tabs / .P.
+    useIdeStore.setState({ dialect: zx81, source: '10 REM OLD', blocks: [] });
+    await dropFile('sprite-0x7000.bin', Uint8Array.from([1, 2, 3]));
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 REM OLD');
+    expect(s.blocks).toEqual([]);
+    expect(s.statusNotice).toMatch(/REM blocks/);
   });
 });

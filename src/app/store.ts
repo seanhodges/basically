@@ -5,6 +5,7 @@ import { getDialect, dialects } from '../dialects/registry';
 import type {
   TapeFile,
   Dialect,
+  ListingLayout,
   MachineMemoryStats,
   MachineReport,
   MemoryBlock,
@@ -15,6 +16,16 @@ import {
   isValidBlockName,
   findDuplicateBlockName,
 } from '../storage/projectFile';
+import {
+  deriveListingBlocks,
+  applyListingMeta,
+  type ListingBlockMeta,
+} from './listingBlocks';
+import {
+  insertListingBlock,
+  writeBackListingBlock,
+  removeListingBlock,
+} from './listingBlockEdit';
 import type { ControllerRole } from '../keyboard/layoutSchema';
 import {
   type ControllerOverrides,
@@ -109,6 +120,16 @@ interface IdeState {
    * boot), same as breakpoints.
    */
   blocks: readonly MemoryBlock[];
+  /**
+   * User-assigned overrides (name / code-vs-data kind / comment) for the
+   * derived listing blocks of an `inListing` dialect (ZX80/ZX81), keyed by
+   * ordinal - the block's index among the `#BIN` lines in document order. The
+   * blocks themselves are re-derived from `source` (see `selectBlocks`); this
+   * carries only what the `#BIN` record can't. Empty and unused for
+   * fixed-address dialects. Document-model state: reset when a different program
+   * becomes active, and persisted alongside `source`.
+   */
+  listingBlockMeta: Readonly<Record<number, ListingBlockMeta>>;
   /**
    * The block whose tab is active in the editor pane, or `null` for the
    * BASIC source tab. Reset to `null` whenever a different program becomes
@@ -387,6 +408,7 @@ interface IdeState {
     fileName?: string,
     opts?: {
       blocks?: readonly MemoryBlock[];
+      listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
     },
@@ -412,6 +434,7 @@ interface IdeState {
     opts?: {
       dirty?: boolean;
       blocks?: readonly MemoryBlock[];
+      listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
     },
@@ -423,6 +446,19 @@ interface IdeState {
   upsertBlock(block: MemoryBlock): void;
   /** Remove one memory block by `id` (sets `dirty`). */
   removeBlock(id: string): void;
+  /**
+   * Commit new bytes for a listing-backed block (an `inListing` dialect): rewrite
+   * its `#BIN` REM line in `source` and push it into the editor, so the bytes
+   * ride in the monolithic `.P`/`.O` image. `id` is `listing-<ordinal>`. No-op
+   * for fixed-address dialects (they use `upsertBlock`).
+   */
+  commitListingBlockBytes(id: string, bytes: Uint8Array): void;
+  /**
+   * Merge a metadata override (name / code-vs-data kind / comment) for the
+   * `ordinal`-th listing block into `listingBlockMeta` (sets `dirty`). Fields
+   * set to `undefined` are removed. No-op for fixed-address dialects.
+   */
+  setListingBlockMeta(ordinal: number, patch: ListingBlockMeta): void;
   /** Switch the editor pane to a block's tab (`null` = the BASIC tab). */
   setActiveBlock(id: string | null): void;
   /** Flag or clear a block's does-not-assemble state (tab error dot). */
@@ -640,13 +676,52 @@ function withBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
 }
 
 /**
+ * The state delta that removes one listing-backed block (an `inListing`
+ * dialect): drop its `#BIN` line from `source`, shift the ordinal-keyed
+ * `listingBlockMeta` and the active tab down past the gap. A no-op when the id
+ * isn't a listing ordinal or the line can't be found.
+ */
+function withListingBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
+  const ordinal = listingOrdinal(id);
+  if (ordinal === null) return {};
+  const source = removeListingBlock(s.source, ordinal);
+  if (source === s.source) return {};
+  const meta: Record<number, ListingBlockMeta> = {};
+  for (const [k, v] of Object.entries(s.listingBlockMeta)) {
+    const key = Number(k);
+    if (key === ordinal) continue;
+    meta[key > ordinal ? key - 1 : key] = v;
+  }
+  let activeBlockId = s.activeBlockId;
+  const activeOrd = activeBlockId ? listingOrdinal(activeBlockId) : null;
+  if (activeOrd !== null) {
+    if (activeOrd === ordinal) activeBlockId = null;
+    else if (activeOrd > ordinal) activeBlockId = `listing-${activeOrd - 1}`;
+  }
+  return {
+    source,
+    docOverride: { text: source, seq: s.docOverride.seq + 1 },
+    listingBlockMeta: meta,
+    activeBlockId,
+    dirty: true,
+    ...(s.asmErrorBlocks.has(id)
+      ? {
+          asmErrorBlocks: new Set(
+            [...s.asmErrorBlocks].filter((e) => e !== id),
+          ),
+        }
+      : {}),
+  };
+}
+
+/**
  * Signature of the document currently mirrored to autosave. Lets
  * {@link persistAutosave} skip the localStorage write when nothing changed, so
  * the 2s poll does no I/O while the user is idle. Seeded from the boot document
  * so the first tick doesn't re-write unchanged content.
  */
 let lastAutosaveSig: string | null = autosaved
-  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))}`
+  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))} ${JSON.stringify(autosaved.listingBlockMeta)}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))}`
   : '';
 
 /**
@@ -659,19 +734,35 @@ let lastAutosaveSig: string | null = autosaved
  * a block edit alone (no source change) still autosaves.
  */
 export function persistAutosave(): void {
-  const { fileName, source, dialect, blocks, autoStart, tapeFiles } =
-    useIdeStore.getState();
+  const {
+    fileName,
+    source,
+    dialect,
+    blocks,
+    listingBlockMeta,
+    autoStart,
+    tapeFiles,
+  } = useIdeStore.getState();
   const pristine =
     blocks.length === 0 &&
+    Object.keys(listingBlockMeta).length === 0 &&
     tapeFiles.length === 0 &&
     (source.trim() === '' || matchingSampleName(dialect, source) !== null);
   const sig = pristine
     ? ''
-    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))}\u0000${autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(tapeFiles))}`;
+    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))} ${JSON.stringify(listingBlockMeta)}\u0000${autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(tapeFiles))}`;
   if (sig === lastAutosaveSig) return;
   lastAutosaveSig = sig;
   if (pristine) clearAutosave();
-  else saveAutosave(fileName, source, blocks, autoStart, tapeFiles);
+  else
+    saveAutosave(
+      fileName,
+      source,
+      blocks,
+      listingBlockMeta,
+      autoStart,
+      tapeFiles,
+    );
 }
 
 /**
@@ -709,6 +800,7 @@ function applyDialectSwitch(
     // switch always starts with none (Stage 1: blocks aren't re-targeted
     // across machines yet).
     blocks: [],
+    listingBlockMeta: {},
     activeBlockId: null,
     asmErrorBlocks: new Set<string>(),
     pendingDeleteBlockId: null,
@@ -733,6 +825,7 @@ export function initialDocument(
     name: string;
     text: string;
     blocks: MemoryBlock[];
+    listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
     autoStart?: number | null;
     tapeFiles?: TapeFile[];
   } | null,
@@ -742,6 +835,7 @@ export function initialDocument(
   fileName: string;
   text: string;
   blocks: MemoryBlock[];
+  listingBlockMeta: Readonly<Record<number, ListingBlockMeta>>;
   autoStart: number | null;
   tapeFiles: TapeFile[];
 } {
@@ -750,6 +844,7 @@ export function initialDocument(
       fileName: saved.name,
       text: saved.text,
       blocks: saved.blocks,
+      listingBlockMeta: saved.listingBlockMeta ?? {},
       autoStart: saved.autoStart ?? null,
       tapeFiles: saved.tapeFiles ?? [],
     };
@@ -758,6 +853,7 @@ export function initialDocument(
     fileName: UNTITLED_FILE_NAME,
     text: launchedBefore ? '' : starterText,
     blocks: [],
+    listingBlockMeta: {},
     autoStart: null,
     tapeFiles: [],
   };
@@ -773,12 +869,29 @@ const startupDoc = initialDocument(
 );
 const startupText = startupDoc.text;
 
+/**
+ * The listing-record layout when this dialect keeps its blocks inside the BASIC
+ * listing as `#BIN` records (ZX80/ZX81), else `null`. The gate the block
+ * mutation actions and `selectBlocks` branch on.
+ */
+function listingLayoutOf(dialect: Dialect): ListingLayout | null {
+  const support = dialect.memoryBlocks;
+  return support?.inListing && support.listing ? support.listing : null;
+}
+
+/** The ordinal encoded in a `listing-<n>` block id, or `null`. */
+function listingOrdinal(id: string): number | null {
+  const m = /^listing-(\d+)$/.exec(id);
+  return m ? parseInt(m[1]!, 10) : null;
+}
+
 export const useIdeStore = create<IdeState>((set) => ({
   dialect: startupDialect,
   pendingDialectId: null,
   fileName: startupDoc.fileName,
   source: startupText,
   blocks: startupDoc.blocks,
+  listingBlockMeta: startupDoc.listingBlockMeta ?? {},
   activeBlockId: null,
   asmErrorBlocks: new Set<string>(),
   pendingDeleteBlockId: null,
@@ -913,6 +1026,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         // Install the shared program's memory blocks so the player's run writes
         // them into RAM; a pure-BASIC share carries none and starts clean.
         blocks: blocks ?? [],
+        listingBlockMeta: {},
         activeBlockId: null,
         asmErrorBlocks: new Set<string>(),
         pendingDeleteBlockId: null,
@@ -986,6 +1100,7 @@ export const useIdeStore = create<IdeState>((set) => ({
             aiResetSeq: s.aiResetSeq + 1,
             breakpoints: new Set<number>(),
             blocks: opts?.blocks ?? [],
+            listingBlockMeta: opts?.listingBlockMeta ?? {},
             activeBlockId: null,
             asmErrorBlocks: new Set<string>(),
             pendingDeleteBlockId: null,
@@ -1016,6 +1131,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // Always a different program, so blocks reset unless the caller installs
       // its own (a .bproj-shaped import).
       blocks: opts?.blocks ?? [],
+      listingBlockMeta: opts?.listingBlockMeta ?? {},
       activeBlockId: null,
       asmErrorBlocks: new Set<string>(),
       pendingDeleteBlockId: null,
@@ -1067,12 +1183,62 @@ export const useIdeStore = create<IdeState>((set) => ({
       assertValidBlocks(blocks);
       return { blocks, dirty: true };
     }),
-  removeBlock: (id) => set((s) => withBlockRemoved(s, id)),
+  removeBlock: (id) =>
+    set((s) =>
+      listingLayoutOf(s.dialect)
+        ? withListingBlockRemoved(s, id)
+        : withBlockRemoved(s, id),
+    ),
+  commitListingBlockBytes: (id, bytes) =>
+    set((s) => {
+      const layout = listingLayoutOf(s.dialect);
+      const ordinal = listingOrdinal(id);
+      if (!layout || ordinal === null) return {};
+      let source: string;
+      try {
+        source = writeBackListingBlock(s.source, ordinal, bytes, layout);
+      } catch (err) {
+        // e.g. ZX80 code holding the 0x76 terminator can't live in a REM line.
+        return { statusNotice: (err as Error).message };
+      }
+      if (source === s.source) return {};
+      return {
+        source,
+        docOverride: { text: source, seq: s.docOverride.seq + 1 },
+        dirty: true,
+      };
+    }),
+  setListingBlockMeta: (ordinal, patch) =>
+    set((s) => {
+      const current = s.listingBlockMeta[ordinal] ?? {};
+      const merged: ListingBlockMeta = { ...current, ...patch };
+      // Drop keys explicitly cleared to undefined so the map stays minimal.
+      for (const k of Object.keys(merged) as (keyof ListingBlockMeta)[]) {
+        if (merged[k] === undefined) delete merged[k];
+      }
+      const next: Record<number, ListingBlockMeta> = { ...s.listingBlockMeta };
+      if (Object.keys(merged).length === 0) delete next[ordinal];
+      else next[ordinal] = merged;
+      return { listingBlockMeta: next, dirty: true };
+    }),
   setActiveBlock: (id) => set({ activeBlockId: id }),
   addBlock: () =>
     set((s) => {
       const support = s.dialect.memoryBlocks;
       if (!support) return {};
+      // Listing-backed dialects (ZX80/ZX81): a new block is a `#BIN` REM record
+      // appended to the program, not a fixed-address block. It rides in the
+      // monolithic image; its address is derived from where the line sits.
+      const layout = listingLayoutOf(s.dialect);
+      if (layout) {
+        const { source, ordinal } = insertListingBlock(s.source, layout);
+        return {
+          source,
+          docOverride: { text: source, seq: s.docOverride.seq + 1 },
+          activeBlockId: `listing-${ordinal}`,
+          dirty: true,
+        };
+      }
       const taken = new Set(s.blocks.map((b) => b.name));
       let n = 1;
       while (taken.has(`block${n}`)) n++;
@@ -1101,14 +1267,18 @@ export const useIdeStore = create<IdeState>((set) => ({
     }),
   requestRemoveBlock: (id) =>
     set((s) =>
-      s.blocks.some((b) => b.id === id) ? { pendingDeleteBlockId: id } : {},
+      selectBlocks(s).some((b) => b.id === id)
+        ? { pendingDeleteBlockId: id }
+        : {},
     ),
   confirmRemoveBlock: () =>
     set((s) =>
       s.pendingDeleteBlockId === null
         ? {}
         : {
-            ...withBlockRemoved(s, s.pendingDeleteBlockId),
+            ...(listingLayoutOf(s.dialect)
+              ? withListingBlockRemoved(s, s.pendingDeleteBlockId)
+              : withBlockRemoved(s, s.pendingDeleteBlockId)),
             pendingDeleteBlockId: null,
             blockSettingsId: null,
           },
@@ -1116,7 +1286,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   cancelRemoveBlock: () => set({ pendingDeleteBlockId: null }),
   openBlockSettings: (id) =>
     set((s) =>
-      s.blocks.some((b) => b.id === id) ? { blockSettingsId: id } : {},
+      selectBlocks(s).some((b) => b.id === id) ? { blockSettingsId: id } : {},
     ),
   closeBlockSettings: () => set({ blockSettingsId: null }),
   setBlockAsmError: (id, hasError) =>
@@ -1282,3 +1452,32 @@ export const useIdeStore = create<IdeState>((set) => ({
   requestEditorCommand: (name) =>
     set((s) => ({ editorCommand: { name, seq: s.editorCommand.seq + 1 } })),
 }));
+
+/**
+ * The document's memory blocks as the UI sees them. For an `inListing` dialect
+ * (ZX80/ZX81) the blocks are a derived view over the `#BIN` records in `source`
+ * (with `listingBlockMeta` overrides applied); for every other dialect they are
+ * the stored `state.blocks`. Memoized on `(dialect, source, meta)` so the
+ * derived array keeps a stable identity while those are unchanged - load-bearing
+ * for `AsmEditor`'s `key={block.id}`, which must not remount on every render.
+ */
+let blocksCache: {
+  key: string;
+  blocks: readonly MemoryBlock[];
+} | null = null;
+
+export function selectBlocks(s: IdeState): readonly MemoryBlock[] {
+  const layout = listingLayoutOf(s.dialect);
+  if (!layout) return s.blocks;
+  const key = `${s.dialect.id} ${s.source} ${JSON.stringify(s.listingBlockMeta)}`;
+  if (blocksCache && blocksCache.key === key) return blocksCache.blocks;
+  const blocks = deriveListingBlocks(s.source, layout).map((b, i) =>
+    applyListingMeta(b, s.listingBlockMeta[i]),
+  );
+  blocksCache = { key, blocks };
+  return blocks;
+}
+
+/** Subscribe to the document's blocks (derived for `inListing` dialects). */
+export const useBlocks = (): readonly MemoryBlock[] =>
+  useIdeStore(selectBlocks);

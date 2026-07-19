@@ -546,6 +546,46 @@ export interface MemoryBlocksSupport {
   programArea(programByteSize: number): MemoryRange;
   /** Suggested address to pre-fill when the user creates a new block. */
   defaultAddress: number;
+  /**
+   * When set, this dialect's blocks are not fixed-address RAM injections but a
+   * view over the `#BIN` REM records embedded in the BASIC program itself (the
+   * ZX80/ZX81 hidden-machine-code-in-REM convention). Such blocks derive their
+   * address from where their record sits in the program, ride inside the
+   * standard monolithic `.P`/`.O` image (no sidecar, no RAM injection), and are
+   * edited by regenerating their `#BIN` source line. `validRanges`,
+   * `reservedRanges`, `programArea` and `defaultAddress` are inert for these
+   * dialects. See {@link ListingLayout} and `src/app/listingBlocks.ts`.
+   */
+  inListing?: true;
+  /**
+   * The program-area line-record layout used to project `#BIN` records to
+   * blocks and regenerate them. Required when {@link inListing} is set.
+   */
+  listing?: ListingLayout;
+}
+
+/**
+ * The program-area line-record layout for a dialect whose {@link MemoryBlock}s
+ * live inside the BASIC listing as `#BIN` REM records (see
+ * {@link MemoryBlocksSupport.inListing}). A record is
+ * `[u16 BE lineNo][u16 LE len?][body…][terminator]`, where the body starts with
+ * {@link remToken}; the code payload is the body after that token and before the
+ * terminator. Reused by `src/app/listingBlocks.ts` (projection) and
+ * `src/app/listingBlockEdit.ts` (write-back), kept dialect-agnostic.
+ */
+export interface ListingLayout {
+  /** First byte address of the BASIC program area (PROGRAM_BASE). */
+  base: number;
+  /** Bytes before the record body: ZX81 = 4 (lineNo + len), ZX80 = 2 (lineNo). */
+  headerLen: number;
+  /** ZX81 records carry a u16 LE length field after the line number; ZX80 don't. */
+  hasLengthField: boolean;
+  /** The REM keyword token that begins a hidden-code line's body. */
+  remToken: number;
+  /** The line-record terminator byte (NEWLINE). */
+  terminator: number;
+  /** The dialect's own tokenizer, bound so the pure helpers stay agnostic. */
+  tokenize(source: string): { bytes: Uint8Array; errors: TokenizeError[] };
 }
 
 /**

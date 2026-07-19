@@ -7,7 +7,6 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineVariable,
-  MemoryBlock,
 } from '../../types';
 import { Zx81Memory } from './memory';
 import { readZx81Variables } from '../vars';
@@ -61,12 +60,6 @@ export class Zx81Machine implements MachineEmulator {
   private disposed = false;
   /** .P image waiting to be injected when the ROM reaches its LOAD loop. */
   private pendingImage: Uint8Array | null = null;
-  /**
-   * Memory blocks to write straight into RAM at the same moment the .P image
-   * lands (in the LOAD trap), so they precede the ZX81's NXTLIN auto-run - see
-   * {@link loadProgram}.
-   */
-  private pendingBlocks: readonly MemoryBlock[] | null = null;
 
   constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
     this.memory = new Zx81Memory(opts.rom, opts.ramKb);
@@ -129,13 +122,6 @@ export class Zx81Machine implements MachineEmulator {
       for (let i = 0; i < image.length; i++) {
         this.memory.write(SYSVARS_BASE + i, image[i]!);
       }
-      // Write any memory blocks here, right after the .P image and before we
-      // hand control back at ROM_POST_LOAD: the ZX81 auto-runs via NXTLIN the
-      // instant we resume, and the whole (short) program can run to completion
-      // within this very frame - so injecting after loadProgram's wait loop
-      // would land the bytes too late for the program's first PEEK/USR.
-      this.injectBlocks(this.pendingBlocks);
-      this.pendingBlocks = null;
       this.keyboard.releaseAll();
       this.cpu.setPC(ROM_POST_LOAD);
     }
@@ -246,10 +232,7 @@ export class Zx81Machine implements MachineEmulator {
     for (let i = 0; i < 5; i++) this.runFrame();
   }
 
-  loadProgram(
-    image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[]; autoStart?: number | null },
-  ): void {
+  loadProgram(image: Uint8Array, opts?: { autoStart?: number | null }): void {
     this.reset();
     this.bootToBasic();
     // An imported .P's auto-start line: re-point the rebuilt image's NXTLIN
@@ -261,13 +244,10 @@ export class Zx81Machine implements MachineEmulator {
     // Queue the image, then type LOAD "" on the emulated keyboard. When the
     // ROM reaches its tape-read loop the trap in runFrame() injects the
     // image - the authentic load path, so the program starts exactly as it
-    // would from cassette (auto-running if NXTLIN points at line 1).
-    // Memory blocks (fixed-address machine code / data) can't ride in the .P
-    // image - it only spans SYSVARS up to E_LINE - so they are queued alongside
-    // it and written into RAM by the LOAD trap, the instant the image lands and
-    // before the ZX81's NXTLIN auto-run begins (see stepInstruction).
+    // would from cassette (auto-running if NXTLIN points at line 1). Machine
+    // code and data ride inside this image as hidden `#BIN` REM records (see
+    // `src/app/listingBlocks.ts`), so there is nothing to inject separately.
     this.pendingImage = image;
-    this.pendingBlocks = opts?.blocks ?? null;
     this.tapKeys(['KeyJ']); // LOAD (keyword mode)
     this.tapKeys(['Shift', 'KeyP']); // "
     this.tapKeys(['Shift', 'KeyP']); // "
@@ -275,22 +255,7 @@ export class Zx81Machine implements MachineEmulator {
     for (let i = 0; i < 100 && this.pendingImage; i++) this.runFrame();
     if (this.pendingImage) {
       this.pendingImage = null;
-      this.pendingBlocks = null;
       throw new Error('ZX81 ROM never reached the LOAD trap');
-    }
-  }
-
-  /**
-   * Write each {@link MemoryBlock}'s bytes directly into RAM - the same
-   * direct-write pattern the flash-load trap uses. No-op when `blocks` is
-   * empty or undefined.
-   */
-  private injectBlocks(blocks?: readonly MemoryBlock[] | null): void {
-    if (!blocks) return;
-    for (const block of blocks) {
-      for (let i = 0; i < block.bytes.length; i++) {
-        this.memory.write((block.address + i) & 0xffff, block.bytes[i]!);
-      }
     }
   }
 
@@ -367,6 +332,5 @@ export class Zx81Machine implements MachineEmulator {
     // rather than waiting on GC of the whole machine.
     this.imageData = null;
     this.pendingImage = null;
-    this.pendingBlocks = null;
   }
 }

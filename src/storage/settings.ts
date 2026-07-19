@@ -13,9 +13,16 @@ import type { MemoryBlock, TapeFile } from '../dialects/types';
 import {
   serializeBlocks,
   parseBlocks,
+  parseListingBlockMeta,
   serializeTapeFiles,
   parseTapeFiles,
 } from './projectFile';
+
+/** Ordinal-keyed listing-block overrides (see `parseListingBlockMeta`). */
+type ListingBlockMetaMap = Record<
+  number,
+  { name?: string; kind?: 'code' | 'data'; comment?: string }
+>;
 
 /**
  * A conversation message as persisted. `incomplete` marks an assistant answer
@@ -39,6 +46,7 @@ const KEYS = {
   autosaveDoc: 'mbide.autosave.doc',
   autosaveName: 'mbide.autosave.name',
   autosaveBlocks: 'mbide.autosave.blocks',
+  autosaveListingMeta: 'mbide.autosave.listingmeta',
   autosaveAutoStart: 'mbide.autosave.autostart',
   autosaveTapeFiles: 'mbide.autosave.tapefiles',
   aiConversation: 'mbide.autosave.ai',
@@ -456,6 +464,21 @@ function loadAutosaveBlocks(): MemoryBlock[] {
 }
 
 /**
+ * The autosaved listing-block metadata, or `{}` when none is stored or the
+ * stored value is corrupt/unparseable (defensive, like
+ * {@link loadAutosaveBlocks}).
+ */
+function loadAutosaveListingMeta(): ListingBlockMetaMap {
+  const raw = readSessionFirst(KEYS.autosaveListingMeta);
+  if (raw === null) return {};
+  try {
+    return parseListingBlockMeta(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+}
+
+/**
  * The autosaved auto-start line, or `null` when none is stored or the stored
  * value is not a finite integer (defensive, like {@link loadAutosaveBlocks}).
  */
@@ -486,6 +509,7 @@ export function loadAutosave(): {
   name: string;
   text: string;
   blocks: MemoryBlock[];
+  listingBlockMeta: ListingBlockMetaMap;
   autoStart: number | null;
   tapeFiles: TapeFile[];
 } | null {
@@ -497,6 +521,7 @@ export function loadAutosave(): {
     name: readSessionFirst(KEYS.autosaveName) ?? UNTITLED_FILE_NAME,
     text,
     blocks: loadAutosaveBlocks(),
+    listingBlockMeta: loadAutosaveListingMeta(),
     autoStart: loadAutosaveAutoStart(),
     tapeFiles: loadAutosaveTapeFiles(),
   };
@@ -506,6 +531,7 @@ export function saveAutosave(
   name: string,
   text: string,
   blocks: readonly MemoryBlock[] = [],
+  listingBlockMeta: ListingBlockMetaMap = {},
   autoStart: number | null = null,
   tapeFiles: readonly TapeFile[] = [],
 ): void {
@@ -519,6 +545,11 @@ export function saveAutosave(
         KEYS.autosaveBlocks,
         JSON.stringify(serializeBlocks(blocks)),
       );
+    }
+    if (Object.keys(listingBlockMeta).length === 0) {
+      removeBoth(KEYS.autosaveListingMeta);
+    } else {
+      writeThrough(KEYS.autosaveListingMeta, JSON.stringify(listingBlockMeta));
     }
     if (autoStart === null) {
       removeBoth(KEYS.autosaveAutoStart);
@@ -553,6 +584,7 @@ export function clearAutosave(): void {
   removeBoth(KEYS.autosaveDoc);
   removeBoth(KEYS.autosaveName);
   removeBoth(KEYS.autosaveBlocks);
+  removeBoth(KEYS.autosaveListingMeta);
   removeBoth(KEYS.autosaveAutoStart);
   removeBoth(KEYS.autosaveTapeFiles);
 }
