@@ -246,6 +246,106 @@ export function detokenizeD64WithReport(
   };
 }
 
+/** One file recovered from a multi-file tape, for {@link detokenizeCbmTapeWithReport}. */
+export interface CbmTapeFile {
+  name: string;
+  /** Load address from the tape header (BASIC programs load at `loadAddress`). */
+  start: number;
+  /** The file's data bytes (no leading load-address word). */
+  bytes: Uint8Array;
+}
+
+/**
+ * Assemble the files recovered from a decoded cassette into an import result,
+ * applying the same multi-part convention as {@link detokenizeD64WithReport}:
+ * the largest BASIC program (load `variant.loadAddress`) becomes the editable
+ * source, other BASIC programs (e.g. a generated auto-loader) are preserved as
+ * {@link TapeFile}s, and files loading anywhere else import as memory blocks at
+ * their own address. This is what makes a program exported to tape *with* memory
+ * blocks round-trip through cassette audio intact. `programName` is the chosen
+ * program's tape name, for the import status message.
+ */
+export function detokenizeCbmTapeWithReport(
+  files: readonly CbmTapeFile[],
+  variant: CbmDetokenizeVariant = C64_VARIANT,
+): DetokenizeResult & { programName: string } {
+  const warnings: string[] = [];
+  const basics = files.filter((f) => f.start === variant.loadAddress);
+  const others = files.filter((f) => f.start !== variant.loadAddress);
+
+  let chosen: CbmTapeFile | null = null;
+  for (const b of basics) {
+    if (chosen === null || b.bytes.length > chosen.bytes.length) chosen = b;
+  }
+
+  const codeFiles: ImportedCodeFile[] = others.map((e) => ({
+    name: e.name,
+    address: e.start,
+    bytes: e.bytes,
+  }));
+
+  let source = '';
+  if (chosen !== null) {
+    const prg = Uint8Array.from([
+      variant.loadAddress & 0xff,
+      (variant.loadAddress >> 8) & 0xff,
+      ...chosen.bytes,
+    ]);
+    const decoded = detokenizeProgramWithReport(prg, variant);
+    source = decoded.source;
+    warnings.push(...decoded.warnings);
+    // Fold any trailing-code block the chosen program produced into the one
+    // shared pool, so block ids and names stay unique across the import.
+    for (const b of decoded.blocks ?? []) {
+      codeFiles.push({ name: '', address: b.address, bytes: b.bytes });
+    }
+  }
+  const blocks = codeFilesToBlocks(codeFiles);
+
+  const tapeFiles: TapeFile[] = basics
+    .filter((b) => b !== chosen)
+    .map((b) => ({
+      name: b.name === '' ? 'PROGRAM' : b.name,
+      kind: 'program',
+      tap: Uint8Array.from([
+        variant.loadAddress & 0xff,
+        (variant.loadAddress >> 8) & 0xff,
+        ...b.bytes,
+      ]),
+    }));
+
+  if (files.length > 1 && chosen !== null) {
+    const parts: string[] = [];
+    if (tapeFiles.length > 0) {
+      parts.push(
+        `${tapeFiles.length} other BASIC program${tapeFiles.length === 1 ? '' : 's'} ` +
+          `preserved with the document (the ${variant.machineName} emulator ` +
+          'mounts no datasette, so the running program cannot LOAD them)',
+      );
+    }
+    if (others.length > 0) {
+      parts.push(
+        `${others.length} machine-code/data file${others.length === 1 ? '' : 's'} ` +
+          'imported as memory blocks',
+      );
+    }
+    warnings.push(
+      `Multi-file tape: opened "${chosen.name === '' ? '?' : chosen.name}" ` +
+        `(${chosen.bytes.length} bytes), the largest BASIC program` +
+        (parts.length > 0 ? `; ${parts.join('; ')}` : '') +
+        '.',
+    );
+  }
+
+  return {
+    programName: chosen ? chosen.name : '',
+    source,
+    warnings,
+    ...(blocks.length > 0 ? { blocks } : {}),
+    ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
+  };
+}
+
 interface DecodeResult {
   source: string;
   /** Offset in `program` just past the 0x0000 end-of-program link. */

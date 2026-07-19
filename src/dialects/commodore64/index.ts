@@ -8,6 +8,7 @@ import {
   detokenizeProgram,
   detokenizeProgramWithReport,
   detokenizeD64WithReport,
+  detokenizeCbmTapeWithReport,
 } from './detokenizer';
 import { isD64 } from './d64';
 import { c64BuildTargets } from './targets';
@@ -20,7 +21,7 @@ import {
   CASSETTE_SAMPLE_RATE,
   buildCassetteSamples,
 } from './audio/cassetteEncoder';
-import { decodeCassette } from './audio/cassetteDecoder';
+import { decodeCassette, decodeCassetteFiles } from './audio/cassetteDecoder';
 import {
   C64Machine,
   C64_DISPLAY_WIDTH,
@@ -123,6 +124,17 @@ export const commodore64: Dialect = {
     loadInstructions:
       'On the C64 type LOAD and press RETURN, then press PLAY on the datasette before starting playback. When it finds the program type RUN.',
     decodeSamples: (samples, sampleRate) => {
+      // A multi-file tape (program + CODE blocks, optionally behind an
+      // auto-loader) is reassembled with the same convention the .d64 import
+      // uses, so the memory blocks come back. A plain single-program tape falls
+      // through to the lenient single-file decode, which still recovers a
+      // program from a partial recording that lost its header.
+      const files = decodeCassetteFiles(samples, sampleRate);
+      if (files.length > 1) {
+        return detokenizeCbmTapeWithReport(
+          files.map((f) => ({ name: f.name, start: f.start, bytes: f.data })),
+        );
+      }
       const { name, data } = decodeCassette(samples, sampleRate);
       return { programName: name, source: detokenizeProgram(data) };
     },

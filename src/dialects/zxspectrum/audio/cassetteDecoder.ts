@@ -157,7 +157,12 @@ function readBlocks(pulses: number[], pilot: number): Uint8Array[] {
     i += 2; // sync pair (667 T, 735 T)
 
     const bits: number[] = [];
-    while (i + 1 < pulses.length && pulses[i]! < pilot * 0.85) {
+    // Each data bit is two equal pulses, but the recording's very last pulse has
+    // no closing edge (it fades straight into the trailing silence), so the last
+    // bit of the last block arrives as a single measured pulse. Gate on `i` (not
+    // `i + 1`) so that final bit is still read - its one present pulse carries
+    // the right duration - instead of dropping the block's last byte.
+    while (i < pulses.length && pulses[i]! < pilot * 0.85) {
       bits.push(pulses[i]! > pilot * 0.59 ? 1 : 0); // 855 T → 0, 1710 T → 1
       i += 2; // two equal pulses per data bit
     }

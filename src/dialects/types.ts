@@ -676,6 +676,32 @@ export interface MemoryWriteSyntax {
 }
 
 /**
+ * Result of {@link Dialect.audio.decodeSamples} - a recorded cassette decoded
+ * back into an editable document. The mandatory `programName`/`source` are the
+ * main program; the optional fields mirror {@link DetokenizeResult} so a
+ * multi-file tape (a program plus CODE blocks, or an auto-loader ahead of both)
+ * round-trips through audio with the same fidelity as the equivalent binary
+ * import - the block-aware dialects (ZX Spectrum, C64) populate them, and the
+ * Import dialog installs them on the document just as it does for a `.TAP` or
+ * `.d64`. A dialect whose tape carries only the program returns the two
+ * mandatory fields and nothing else, exactly as before.
+ */
+export interface AudioDecodeResult {
+  /** Program name recovered from the tape header (empty when it has none). */
+  programName: string;
+  /** Editable program text, as {@link Dialect.detokenize} returns. */
+  source: string;
+  /** Import-fidelity notes (see {@link DetokenizeResult.warnings}). */
+  warnings?: string[];
+  /** Memory blocks recovered from CODE files on a multi-file tape. */
+  blocks?: MemoryBlock[];
+  /** Extra tape files preserved off a multi-part tape (see {@link TapeFile}). */
+  tapeFiles?: TapeFile[];
+  /** Auto-start line recovered from the tape header, when present. */
+  autoStart?: number | null;
+}
+
+/**
  * Everything the IDE needs to support one BASIC dialect / machine.
  * The app only ever talks to this interface; machine specifics stay inside
  * the dialect's own folder.
@@ -835,11 +861,14 @@ export interface Dialect {
      * Decode recorded cassette samples back into an editable program (the
      * inverse of {@link buildSamples}). Throws when no valid signal is found.
      * Optional: a dialect can export tape audio without supporting import yet.
+     * A block-aware dialect recovers the CODE blocks (and any extra tape files)
+     * off a multi-file tape via {@link AudioDecodeResult}'s optional fields, so
+     * a program exported with memory blocks round-trips through audio intact.
      */
     decodeSamples?(
       samples: Float32Array,
       sampleRate: number,
-    ): { programName: string; source: string };
+    ): AudioDecodeResult;
     /** Saving instructions shown to the user, e.g. how to type SAVE "". */
     saveInstructions?: string;
   };
