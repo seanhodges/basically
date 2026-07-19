@@ -4,7 +4,7 @@
 /**
  * Turn code files recovered from a native binary import into
  * {@link MemoryBlock}s. Shared across dialects (Spectrum `.TAP` CODE files,
- * TRS-80 SYSTEM `.cas` records, Commodore `.t64` entries…) - the conversion
+ * TRS-80 SYSTEM `.cas` records, Commodore `.d64` entries…) - the conversion
  * has nothing dialect-specific in it.
  *
  * The one thing this module exists to get right: a native tape/disc header

@@ -127,7 +127,7 @@ interface TapeFileBlocks {
  * program is one tape file (header $01 at $0801 + data); with memory blocks each
  * becomes a further file (header $03 at its address + data), and with `loader`
  * on a generated auto-run loader program leads the tape - the same ordered
- * layout {@link exportT64Entries} writes to the `.t64` file. Without blocks it
+ * layout {@link exportD64Entries} writes to the `.d64` disk. Without blocks it
  * is the classic single program, so the leading file still decodes as before.
  */
 export function buildCassetteSamples(

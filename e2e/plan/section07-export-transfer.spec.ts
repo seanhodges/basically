@@ -115,7 +115,7 @@ async function openC64WithBlock(page: Page) {
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
 }
 
-test('7.8 C64 .t64 export carries blocks; .prg warns before dropping them', async ({
+test('7.8 C64 .d64 export carries blocks; .prg warns before dropping them', async ({
   page,
 }) => {
   await openC64WithBlock(page);
@@ -124,10 +124,10 @@ test('7.8 C64 .t64 export carries blocks; .prg warns before dropping them', asyn
     page.getByRole('heading', { name: 'Run on real hardware' }),
   ).toBeVisible();
 
-  // The block-aware .t64 export is offered and downloads a single container.
-  const t64Download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export .t64' }).click();
-  expect((await t64Download).suggestedFilename()).toMatch(/\.t64$/);
+  // The block-aware .d64 export is offered and downloads a single container.
+  const d64Download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export .d64' }).click();
+  expect((await d64Download).suggestedFilename()).toMatch(/\.d64$/);
 
   // The .prg can't carry the block: it warns and waits for confirmation
   // instead of downloading straight away.

@@ -78,7 +78,7 @@ describe('zxspectrum kaleidoscope .TAP export round trip', () => {
   });
 });
 
-describe('commodore64 .t64 export round trip', () => {
+describe('commodore64 .d64 export round trip', () => {
   const dialect = getDialect('commodore64');
   // The C64 ships no sample bundling blocks, so build one inline: a short
   // routine at $C000 (the default block address), well clear of the program.
@@ -98,7 +98,7 @@ describe('commodore64 .t64 export round trip', () => {
       'game',
       [block],
       {
-        targetId: 'c64-t64',
+        targetId: 'c64-d64',
         loader: false,
       },
     );
@@ -121,7 +121,7 @@ describe('commodore64 .t64 export round trip', () => {
       'game',
       [block],
       {
-        targetId: 'c64-t64',
+        targetId: 'c64-d64',
         loader: true,
       },
     );

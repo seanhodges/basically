@@ -2,7 +2,7 @@ import type { DetokenizeResult, MemoryBlock, TapeFile } from '../types';
 import { c64Charset } from './charset';
 import { c64WordByToken } from './keywords';
 import { codeFilesToBlocks, type ImportedCodeFile } from '../importBlocks';
-import { parseT64, type T64Entry } from './t64';
+import { parseD64, type D64Entry } from './d64';
 
 /** Programs load at $0801 on the C64; a .prg's leading word is this address. */
 const DEFAULT_LOAD_ADDRESS = 0x0801;
@@ -151,24 +151,24 @@ export function detokenizeProgramWithReport(
 }
 
 /**
- * Import a `.t64` tape-image container (see {@link parseT64}), applying the
+ * Import a `.d64` disk-image container (see {@link parseD64}), applying the
  * multi-part conventions the Spectrum `.TAP` import established: the largest
  * BASIC entry (directory order breaking ties) becomes the editable source,
  * other BASIC entries are preserved as {@link TapeFile}s on the document
- * (ready `.prg` payloads - the C64 emulator has no tape deck, so they are
- * kept rather than servable), and entries loading anywhere else import as
- * memory blocks at their own load address.
+ * (ready `.prg` payloads - the C64 emulator mounts no drive, so they are kept
+ * rather than servable), and entries loading anywhere else import as memory
+ * blocks at their own load address.
  */
-export function detokenizeT64WithReport(
+export function detokenizeD64WithReport(
   image: Uint8Array,
   variant: CbmDetokenizeVariant = C64_VARIANT,
 ): DetokenizeResult {
-  const parsed = parseT64(image);
+  const parsed = parseD64(image);
   const warnings = [...parsed.warnings];
   const basics = parsed.entries.filter((e) => e.start === variant.loadAddress);
   const others = parsed.entries.filter((e) => e.start !== variant.loadAddress);
 
-  let chosen: T64Entry | null = null;
+  let chosen: D64Entry | null = null;
   for (const b of basics) {
     if (chosen === null || b.bytes.length > chosen.bytes.length) chosen = b;
   }
@@ -215,7 +215,7 @@ export function detokenizeT64WithReport(
       parts.push(
         `${tapeFiles.length} other BASIC program${tapeFiles.length === 1 ? '' : 's'} ` +
           `preserved with the document (the ${variant.machineName} emulator ` +
-          'has no tape deck, so the running program cannot LOAD them)',
+          'mounts no drive, so the running program cannot LOAD them)',
       );
     }
     if (others.length > 0) {
@@ -225,14 +225,14 @@ export function detokenizeT64WithReport(
       );
     }
     warnings.push(
-      `Multi-part tape image: opened "${chosen.name === '' ? '?' : chosen.name}" ` +
+      `Multi-file disk image: opened "${chosen.name === '' ? '?' : chosen.name}" ` +
         `(${chosen.bytes.length} bytes), the largest BASIC program` +
         (parts.length > 0 ? `; ${parts.join('; ')}` : '') +
         '.',
     );
   } else if (chosen === null && parsed.entries.length > 0) {
     warnings.push(
-      `The .t64 holds no ${variant.machineName} BASIC program (nothing loads ` +
+      `The .d64 holds no ${variant.machineName} BASIC program (nothing loads ` +
         `at $${hex4(variant.loadAddress)}); its entries were imported as ` +
         'memory blocks.',
     );

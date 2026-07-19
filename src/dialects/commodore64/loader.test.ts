@@ -26,6 +26,11 @@ describe('loaderSource', () => {
   it('with no blocks is just the final LOAD of the main program', () => {
     expect(loaderSource('game', [])).toBe('10 LOAD"GAME",1\n');
   });
+
+  it('targets disk device 8 for the .d64 export', () => {
+    const src = loaderSource('game', [block('sprites', 0xc000)], 8);
+    expect(src).toBe('10 IF A=0 THEN A=1:LOAD"SPRITES",8,1\n20 LOAD"GAME",8\n');
+  });
 });
 
 describe('loaderProgramBytes', () => {
