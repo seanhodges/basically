@@ -8,10 +8,32 @@ data). When you Run, the blocks are written straight into the machine's memory
 before the program starts, so a `RANDOMIZE USR`, `SYS`, `CALL` or `PEEK` finds
 them exactly where it expects.
 
-This page covers **bringing in, running, and sharing** a program that already
-includes machine code. Every machine that can run BASIC here can also hold
+This page covers **creating, bringing in, running, exporting and sharing** a
+program with machine code. Every machine that can run BASIC here can also hold
 blocks; where they can live differs per machine — see each machine's language
 reference page for its address ranges.
+
+## Creating and deleting blocks
+
+The tab strip above the editor always shows your **BASIC** program plus one tab
+per block. Press the **+** button after the last tab to create a new
+machine-code block: it appears at the machine's suggested address with a
+one-instruction return stub, its tab opens the assembly editor, and everything
+you type re-assembles as you go. Try it with the **Kaleidoscope** sample
+(File ▸ Samples on the ZX Spectrum), which pairs a BASIC front-end asking for a
+few numbers with an assembly routine that paints the whole screen.
+
+**Right-click** a block's tab (or **long-press** it on a touch screen) for
+its menu:
+
+- **Settings** opens the block's details — rename it, move it to another
+  address, switch it between code and data, and set an optional entry address
+  or comment. Moving a block that has assembly source re-assembles the
+  routine at its new address, so absolute label references keep working.
+- **Delete** removes the block (after a confirmation) — its bytes and
+  assembly source leave the document.
+
+The BASIC tab is the program itself — it has no menu and can't be deleted.
 
 ## Bringing in machine code
 
@@ -60,6 +82,21 @@ Then Basically checks the blocks against the machine's memory and:
 If the program calls its machine code (say `10 RANDOMIZE USR 32768` on the
 Spectrum, or `10 SYS 49152` on the C64), you'll see the effect immediately — a
 routine that changes the border colour flips it the moment the line runs.
+
+## Exporting it
+
+On the **ZX Spectrum**, "Run on real hardware" exports the whole program:
+the `.TAP` file (and the cassette audio) becomes a multi-file tape holding
+your BASIC program plus one CODE file per block, so importing it back — here
+or in any Spectrum emulator — restores everything. Leave **auto-loader**
+ticked and the tape leads with a tiny generated loader that CLEARs memory,
+loads every block, and runs your program, so on a real Spectrum a single
+`LOAD ""` does it all; untick it if your program does its own loading, and
+the tape carries the load-only program first with the CODE files after it.
+
+Other machines export the BASIC program only for now — the Transfer dialog
+says so whenever your document has blocks — and the serial bridge always
+sends just the BASIC program.
 
 ## Sharing it
 

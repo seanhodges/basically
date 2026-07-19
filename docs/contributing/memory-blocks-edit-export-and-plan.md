@@ -26,6 +26,37 @@ plan lets a user **create** a block, **edit** its bytes (and later its assembly)
 reference it from BASIC by name, and **export** it so it round-trips onto real
 hardware.
 
+## Shipped update (July 2026): block create/delete + Spectrum block export
+
+A second slice shipped after the assembly editor:
+
+- **Block create/delete/metadata in the tab strip** (Stage 1's remaining UI,
+  minus the hex editor): the strip is now always visible for a
+  `memoryBlocks`-capable dialect (BASIC tab + per-block tabs + a "+" button).
+  "+" instantly creates a `code` block (`block<n>`, the dialect's
+  `defaultAddress`, a one-instruction return stub assembled via
+  `asmEngineFor`) and opens its tab. Right-click or long-press a block tab
+  opens a context menu: **Settings** edits the block's metadata
+  (`BlockSettingsDialog` + the pure `src/app/blockEdit.ts` model - name,
+  address, kind, entry, comment; moving a block with `asmSource` rewrites its
+  `ORG` and re-assembles at the new address so absolute label refs follow),
+  and **Delete** confirms then removes it (`DeleteBlockDialog`, store-driven
+  like the dialect-switch confirm). The BASIC tab has no context menu.
+- **Export carries blocks — API-wide, Spectrum-first (Stage 3 ✅).**
+  `BuildTarget.build` now returns `Promise<ExportFile[]>` and receives
+  `{ programName, blocks?, loader? }`; `audio.buildSamples` mirrors it. The
+  48K Spectrum's `.TAP`/`.wav` embed blocks as CODE files with the optional
+  generated auto-loader exactly as Stage 3 specifies, and
+  `blockExportRoundTrip.test.ts` + `exportRoundTripHarness.ts` pin the
+  export→import round trip (source byte-exact, blocks intact). Other
+  dialects' targets still export BASIC only (Stage 6's export column remains
+  open) and the Transfer dialog says so when a document has blocks.
+- **Samples can bundle blocks**: `SampleFile.blocks` ships assembly source
+  (`SampleBlockDef`), assembled on load by `materializeSampleBlocks`; the
+  Spectrum's "Kaleidoscope (machine code)" sample (BASIC INPUTs → POKEd
+  params → `RANDOMIZE USR`) demonstrates the whole flow and its emulator
+  test pins that the routine draws a 4-way mirrored pattern.
+
 ## Shipped update (July 2026): per-block assembly editing
 
 The assembly half of this plan (Stages 4 + 7, plus the tab system from
@@ -98,16 +129,16 @@ the notes below:
 
 ✅ shipped · 🔨 in progress · ⬜ planned · ⛔ blocked
 
-| Stage | Title                                                | Status                                       |
-| ----- | ---------------------------------------------------- | -------------------------------------------- |
-| 1     | Editor tabs & read-only hex viewer                   | 🔨 (tabs shipped as tab-per-block; hex TODO) |
-| 2     | Editable hex editor + raw `.bin` per-block load/save | ⬜                                           |
-| 3     | Spectrum `.TAP` export of CODE blocks                | ⬜                                           |
-| 4     | Assembly view (read-only) + Z80 disassembler         | ✅ (shipped editable, both CPUs)             |
-| 5     | BASIC integration: `@name` refs, completions, lint   | ⬜                                           |
-| 6     | Rollout: editor, export & disassembly                | 🔨 (disassembly/asm all dialects; export ⬜) |
-| 7     | Assembler (Z80 first, then 6502)                     | ✅ (both CPUs, auto-assemble)                |
-| 8     | Docs                                                 | ⬜                                           |
+| Stage | Title                                                | Status                                                       |
+| ----- | ---------------------------------------------------- | ------------------------------------------------------------ |
+| 1     | Editor tabs & read-only hex viewer                   | 🔨 (tabs + create/delete shipped; hex TODO)                  |
+| 2     | Editable hex editor + raw `.bin` per-block load/save | ⬜                                                           |
+| 3     | Spectrum `.TAP` export of CODE blocks                | ✅ (multi-file TAP + auto-loader, wav included)              |
+| 4     | Assembly view (read-only) + Z80 disassembler         | ✅ (shipped editable, both CPUs)                             |
+| 5     | BASIC integration: `@name` refs, completions, lint   | ⬜                                                           |
+| 6     | Rollout: editor, export & disassembly                | 🔨 (disassembly/asm all dialects; export ⬜ except Spectrum) |
+| 7     | Assembler (Z80 first, then 6502)                     | ✅ (both CPUs, auto-assemble)                                |
+| 8     | Docs                                                 | 🔨 (blocks guide + file-formats cover create/delete/export)  |
 
 ---
 
@@ -178,7 +209,13 @@ stable and matches classic hex editors; resize is the explicit size gesture.
 **Depends on:** Stage 1.
 **Verify:** full gate + e2e; tap targets ≥ 32 px on touch.
 
-## Stage 3 — Spectrum `.TAP` export of CODE blocks ⬜
+## Stage 3 — Spectrum `.TAP` export of CODE blocks ✅
+
+> **Shipped** (see the block create/delete + Spectrum block export update at
+> the top). One deviation from the notes below: `BuildTarget.build` returns
+> `Promise<ExportFile[]>` (multi-file-capable) rather than adding `blocks?`
+> to a single-Blob signature, and the loader checkbox is the Transfer
+> dialog's "Memory blocks" section. Original plan follows for reference.
 
 Export produces a multi-file `.TAP` loadable on real hardware; WAV export
 carries the same blocks. The counterpart import that turns CODE files back into

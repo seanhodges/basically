@@ -141,6 +141,18 @@ only"; the IDE exports with auto-run disabled and drives `RUN` itself. The
 Spectrum 128's `.TAP` is byte-for-byte identical to the 48K's - only the
 tokenizer differs (so `PLAY`/`SPECTRUM` keywords export correctly).
 
+A 48K Spectrum document with [memory blocks](#machine-code-data-blocks)
+exports as a **multi-file tape**: each block becomes a CODE file (header type
+3, param1 = load address), in address order. With the Transfer dialog's
+**auto-loader** on (the default when blocks exist), the tape leads with a
+generated auto-running loader (`CLEAR` below the lowest block, one
+`LOAD "" CODE` per block, then `LOAD ""`) and the main program sits last,
+auto-starting - so `LOAD ""` on real hardware runs the complete program. With
+it off, the load-only main program comes first and the CODE files follow.
+Either layout re-imports here with the program and every block intact; the
+cassette `.wav` export carries the same tape. (Other machines' exports carry
+the BASIC program only for now.)
+
 ### BBC Micro / Master `.bbc`
 
 The exact byte layout BBC BASIC keeps from PAGE and that SAVE writes to disc, so
@@ -227,8 +239,9 @@ Some programs load machine code or data at a fixed address alongside the BASIC
 program. The IDE keeps these as named **memory blocks**; on Run they are written
 straight into RAM before the program starts, and they travel with the document
 through the [project bundle](#project-bundle-bproj) and through
-[share links](../guide/publishing). Several native formats carry blocks on
-**import**:
+[share links](../guide/publishing). The ZX Spectrum `.TAP` carries blocks in
+**both directions** (see [its section](#zx-spectrum-spectrum-128-tap) for the
+export layout); several native formats carry blocks on **import**:
 
 - **ZX Spectrum `.TAP`** — a tape holding CODE files (each with a load address)
   imports every CODE file as a block. A tiny `LOAD "" CODE … : RANDOMIZE USR n`

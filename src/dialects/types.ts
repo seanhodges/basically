@@ -159,12 +159,42 @@ export interface TokenizeResult {
   byteSize: number;
 }
 
+/** One file produced by a {@link BuildTarget} export. */
+export interface ExportFile {
+  /** Suggested download name, e.g. "program.tap". */
+  fileName: string;
+  blob: Blob;
+}
+
 export interface BuildTarget {
   id: string;
   label: string;
   /** Extension without dot, e.g. "p" or "wav". Absent for non-file targets. */
   fileExtension?: string;
-  build(source: string, opts: { programName: string }): Promise<Blob>;
+  /**
+   * True when this target embeds `opts.blocks` in its container (and honors
+   * `opts.loader`). Targets without it silently export the BASIC program
+   * only; the Transfer dialog tells the user when blocks would be dropped.
+   */
+  supportsBlocks?: true;
+  /**
+   * Build the export artifact(s). Most targets return exactly one file; a
+   * block-aware target may split across several when its format has no
+   * multi-program container.
+   *
+   * `opts.blocks` is the document's memory blocks (ignored by targets
+   * without {@link supportsBlocks}); `opts.loader` asks a block-aware target
+   * to prepend an auto-loader program so the export runs by itself on real
+   * hardware.
+   */
+  build(
+    source: string,
+    opts: {
+      programName: string;
+      blocks?: readonly MemoryBlock[];
+      loader?: boolean;
+    },
+  ): Promise<ExportFile[]>;
 }
 
 /**
@@ -518,6 +548,23 @@ export interface MemoryBlocksSupport {
   defaultAddress: number;
 }
 
+/**
+ * A memory block bundled with a {@link SampleFile}, kept as readable assembly
+ * source in the repo and assembled by the dialect's CPU engine when the
+ * sample loads (see `src/app/sampleBlocks.ts`) - no binary fixtures.
+ */
+export interface SampleBlockDef {
+  /** Block name; must satisfy {@link MemoryBlock.name}'s pattern. */
+  name: string;
+  /** Load address; must equal the source's `ORG`. */
+  address: number;
+  kind: 'code' | 'data';
+  /** Assembly source for the dialect's `memoryBlocks.cpu`. */
+  asmSource: string;
+  /** Execution entry address (see {@link MemoryBlock.entry}). */
+  entry?: number;
+}
+
 /** A bundled example program for a dialect. */
 export interface SampleFile {
   /** Suggested file name, e.g. "hello.bas". */
@@ -526,6 +573,8 @@ export interface SampleFile {
   title: string;
   /** Program source. */
   text: string;
+  /** Memory blocks that ship with the sample (assembled on load). */
+  blocks?: readonly SampleBlockDef[];
 }
 
 /**
@@ -768,11 +817,17 @@ export interface Dialect {
   /** Cassette-audio support, when the machine loads from / saves to tape. */
   audio?: {
     sampleRate: number;
-    /** Throws when the source has tokenizer errors. */
+    /**
+     * Throws when the source has tokenizer errors. `opts.blocks`/`opts.loader`
+     * mirror {@link BuildTarget.build}: a dialect whose tape format carries
+     * memory blocks encodes them (behind an auto-loader when asked); others
+     * ignore the extra options.
+     */
     buildSamples(
       source: string,
       programName: string,
       robust: boolean,
+      opts?: { blocks?: readonly MemoryBlock[]; loader?: boolean },
     ): Float32Array;
     /** Loading instructions shown to the user, e.g. how to type LOAD "". */
     loadInstructions: string;

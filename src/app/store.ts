@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { asmEngineFor } from '../asm/registry';
+import { formatWord } from '../asm/format';
 import { getDialect, dialects } from '../dialects/registry';
 import type {
   TapeFile,
@@ -120,6 +122,19 @@ interface IdeState {
    * `blocks`; never persisted.
    */
   asmErrorBlocks: ReadonlySet<string>;
+  /**
+   * Id of a block the user asked to delete (via the tab context menu) that
+   * awaits confirmation. Drives the DeleteBlockDialog; null when no deletion
+   * is pending. Reset whenever a different program becomes active (same rule
+   * as `activeBlockId`).
+   */
+  pendingDeleteBlockId: string | null;
+  /**
+   * Id of the block whose metadata is open in the BlockSettingsDialog (via
+   * the tab context menu's "Settings"), or null. Same reset rule as
+   * `pendingDeleteBlockId`.
+   */
+  blockSettingsId: string | null;
   /**
    * Extra tape files preserved off a multi-part import (see {@link TapeFile}),
    * beyond the one program in `source` and the CODE blocks in `blocks`. The run
@@ -412,6 +427,26 @@ interface IdeState {
   setActiveBlock(id: string | null): void;
   /** Flag or clear a block's does-not-assemble state (tab error dot). */
   setBlockAsmError(id: string, hasError: boolean): void;
+  /**
+   * Create a machine-code block with defaults - first free `block<n>` name,
+   * the dialect's suggested address, a one-instruction return stub as both
+   * `asmSource` and assembled `bytes` - and switch to its tab (sets `dirty`).
+   * No-op when the dialect declares no `memoryBlocks` capability.
+   */
+  addBlock(): void;
+  /**
+   * Ask to delete a block (opens the DeleteBlockDialog). Unknown ids are
+   * ignored, so the BASIC tab - which has no block id - can never be deleted.
+   */
+  requestRemoveBlock(id: string): void;
+  /** Confirm the pending deletion - removes the block like `removeBlock`. */
+  confirmRemoveBlock(): void;
+  /** Dismiss the pending deletion, keeping the block. */
+  cancelRemoveBlock(): void;
+  /** Open the block-metadata dialog for a block; unknown ids are ignored. */
+  openBlockSettings(id: string): void;
+  /** Close the block-metadata dialog. */
+  closeBlockSettings(): void;
   requestRun(): void;
   /** Like {@link requestRun}, but flags the run for the AI runtime-error check. */
   requestAiRun(): void;
@@ -585,6 +620,26 @@ function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
 }
 
 /**
+ * The state delta that removes one block: the shared body of `removeBlock`
+ * and `confirmRemoveBlock`. The active tab falls back to BASIC when the
+ * removed block was showing, and its error dot is pruned.
+ */
+function withBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
+  return {
+    blocks: s.blocks.filter((b) => b.id !== id),
+    dirty: true,
+    ...(s.activeBlockId === id ? { activeBlockId: null } : {}),
+    ...(s.asmErrorBlocks.has(id)
+      ? {
+          asmErrorBlocks: new Set(
+            [...s.asmErrorBlocks].filter((e) => e !== id),
+          ),
+        }
+      : {}),
+  };
+}
+
+/**
  * Signature of the document currently mirrored to autosave. Lets
  * {@link persistAutosave} skip the localStorage write when nothing changed, so
  * the 2s poll does no I/O while the user is idle. Seeded from the boot document
@@ -656,6 +711,8 @@ function applyDialectSwitch(
     blocks: [],
     activeBlockId: null,
     asmErrorBlocks: new Set<string>(),
+    pendingDeleteBlockId: null,
+    blockSettingsId: null,
     tapeFiles: [],
     autoStart: null,
     // On mobile, surface the change in the editor the user is now editing.
@@ -724,6 +781,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   blocks: startupDoc.blocks,
   activeBlockId: null,
   asmErrorBlocks: new Set<string>(),
+  pendingDeleteBlockId: null,
+  blockSettingsId: null,
   tapeFiles: startupDoc.tapeFiles,
   autoStart: startupDoc.autoStart,
   docOverride: { text: startupText, seq: 0 },
@@ -856,6 +915,8 @@ export const useIdeStore = create<IdeState>((set) => ({
         blocks: blocks ?? [],
         activeBlockId: null,
         asmErrorBlocks: new Set<string>(),
+        pendingDeleteBlockId: null,
+        blockSettingsId: null,
         // A shared program is a single BASIC program with no preserved tape.
         tapeFiles: [],
         autoStart: null,
@@ -927,6 +988,8 @@ export const useIdeStore = create<IdeState>((set) => ({
             blocks: opts?.blocks ?? [],
             activeBlockId: null,
             asmErrorBlocks: new Set<string>(),
+            pendingDeleteBlockId: null,
+            blockSettingsId: null,
             tapeFiles: opts?.tapeFiles ?? [],
             autoStart: opts?.autoStart ?? null,
           }
@@ -955,6 +1018,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       blocks: opts?.blocks ?? [],
       activeBlockId: null,
       asmErrorBlocks: new Set<string>(),
+      pendingDeleteBlockId: null,
+      blockSettingsId: null,
       tapeFiles: opts?.tapeFiles ?? [],
       autoStart: opts?.autoStart ?? null,
       ...(isMobileViewport()
@@ -1002,20 +1067,58 @@ export const useIdeStore = create<IdeState>((set) => ({
       assertValidBlocks(blocks);
       return { blocks, dirty: true };
     }),
-  removeBlock: (id) =>
-    set((s) => ({
-      blocks: s.blocks.filter((b) => b.id !== id),
-      dirty: true,
-      ...(s.activeBlockId === id ? { activeBlockId: null } : {}),
-      ...(s.asmErrorBlocks.has(id)
-        ? {
-            asmErrorBlocks: new Set(
-              [...s.asmErrorBlocks].filter((e) => e !== id),
-            ),
-          }
-        : {}),
-    })),
+  removeBlock: (id) => set((s) => withBlockRemoved(s, id)),
   setActiveBlock: (id) => set({ activeBlockId: id }),
+  addBlock: () =>
+    set((s) => {
+      const support = s.dialect.memoryBlocks;
+      if (!support) return {};
+      const taken = new Set(s.blocks.map((b) => b.name));
+      let n = 1;
+      while (taken.has(`block${n}`)) n++;
+      const name = `block${n}`;
+      const address = support.defaultAddress;
+      const ret = support.cpu === 'z80' ? 'RET' : 'RTS';
+      const asmSource = `; ${name} - machine code at ${formatWord(address)}\n${ret}\n`;
+      // Assemble the stub so bytes and asmSource start in sync; both engines
+      // exist for every MemoryBlocksSupport.cpu, so the fallback byte (the
+      // CPU's return opcode) is defensive only.
+      const assembled = asmEngineFor(support.cpu)?.assemble(asmSource, address);
+      const bytes = assembled?.ok
+        ? assembled.bytes
+        : new Uint8Array([support.cpu === 'z80' ? 0xc9 : 0x60]);
+      const block: MemoryBlock = {
+        id: `block-${name}`,
+        name,
+        address,
+        bytes,
+        kind: 'code',
+        asmSource,
+      };
+      const blocks = [...s.blocks, block];
+      assertValidBlocks(blocks);
+      return { blocks, activeBlockId: block.id, dirty: true };
+    }),
+  requestRemoveBlock: (id) =>
+    set((s) =>
+      s.blocks.some((b) => b.id === id) ? { pendingDeleteBlockId: id } : {},
+    ),
+  confirmRemoveBlock: () =>
+    set((s) =>
+      s.pendingDeleteBlockId === null
+        ? {}
+        : {
+            ...withBlockRemoved(s, s.pendingDeleteBlockId),
+            pendingDeleteBlockId: null,
+            blockSettingsId: null,
+          },
+    ),
+  cancelRemoveBlock: () => set({ pendingDeleteBlockId: null }),
+  openBlockSettings: (id) =>
+    set((s) =>
+      s.blocks.some((b) => b.id === id) ? { blockSettingsId: id } : {},
+    ),
+  closeBlockSettings: () => set({ blockSettingsId: null }),
   setBlockAsmError: (id, hasError) =>
     set((s) => {
       if (s.asmErrorBlocks.has(id) === hasError) return {};

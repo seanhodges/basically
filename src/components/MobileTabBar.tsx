@@ -14,7 +14,7 @@ export function MobileTabBar() {
   const setMobileTab = useIdeStore((s) => s.setMobileTab);
 
   return (
-    <div className={styles.tabBar} role="tablist">
+    <div className={styles.tabBar} role="tablist" aria-label="App panes">
       {TABS.map(({ id, label, Icon }) => (
         <button
           key={id}
