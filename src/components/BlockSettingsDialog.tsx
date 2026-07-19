@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { useEffect, useState } from 'react';
-import { useIdeStore } from '../app/store';
+import { useIdeStore, useBlocks } from '../app/store';
 import {
   applyBlockSettings,
   draftFromBlock,
@@ -13,6 +13,12 @@ import {
 import { asmEngineFor } from '../asm/registry';
 import dialog from './Dialog.module.css';
 
+/** The ordinal in a `listing-<n>` block id, or `null`. */
+function listingOrdinal(id: string): number | null {
+  const m = /^listing-(\d+)$/.exec(id);
+  return m ? parseInt(m[1]!, 10) : null;
+}
+
 /**
  * View and edit a memory block's metadata (name, address, kind, entry,
  * comment), opened from the tab context menu's "Settings". Driven by
@@ -20,15 +26,23 @@ import dialog from './Dialog.module.css';
  * and writes the block back through `upsertBlock` - moving a block with
  * assembly source re-assembles it at the new address so absolute label
  * references follow the move.
+ *
+ * Listing-backed blocks (ZX80/ZX81) differ: their address is fixed by where the
+ * `#BIN` line sits (read-only) and they carry no entry point, so only the name,
+ * code-vs-data kind and comment are editable - saved to the document's
+ * `listingBlockMeta` rather than to a block.
  */
 export function BlockSettingsDialog() {
   const blockSettingsId = useIdeStore((s) => s.blockSettingsId);
-  const blocks = useIdeStore((s) => s.blocks);
+  const blocks = useBlocks();
   const dialect = useIdeStore((s) => s.dialect);
   const upsertBlock = useIdeStore((s) => s.upsertBlock);
+  const setListingBlockMeta = useIdeStore((s) => s.setListingBlockMeta);
   const closeBlockSettings = useIdeStore((s) => s.closeBlockSettings);
 
   const block = blocks.find((b) => b.id === blockSettingsId);
+  const ordinal = block ? listingOrdinal(block.id) : null;
+  const inListing = !!dialect.memoryBlocks?.inListing && ordinal !== null;
 
   const [draft, setDraft] = useState<BlockSettingsDraft | null>(null);
   const [errors, setErrors] = useState<BlockSettingsErrors>({});
@@ -47,8 +61,26 @@ export function BlockSettingsDialog() {
 
   const save = () => {
     const found = validateBlockSettings(draft, block.id, blocks);
+    // Address/entry aren't editable for listing blocks, so ignore those errors.
+    if (inListing) {
+      delete found.address;
+      delete found.entry;
+    }
     setErrors(found);
     if (Object.keys(found).length > 0) return;
+    if (inListing && ordinal !== null) {
+      // Only store what differs from the derived defaults, keeping the metadata
+      // map minimal (and avoiding a needless .bproj on a no-op edit).
+      const name = draft.name.trim();
+      const comment = draft.comment.trim();
+      setListingBlockMeta(ordinal, {
+        name: name && name !== `bin${ordinal + 1}` ? name : undefined,
+        kind: draft.kind !== 'code' ? draft.kind : undefined,
+        comment: comment !== '' ? comment : undefined,
+      });
+      closeBlockSettings();
+      return;
+    }
     const engine = dialect.memoryBlocks
       ? asmEngineFor(dialect.memoryBlocks.cpu)
       : null;
@@ -80,9 +112,17 @@ export function BlockSettingsDialog() {
           <input
             value={draft.address}
             onChange={(e) => field({ address: e.target.value })}
+            readOnly={inListing}
+            disabled={inListing}
           />
-          {errors.address && (
-            <span className={dialog.modalWarning}>{errors.address}</span>
+          {inListing ? (
+            <span className={dialog.modalNote}>
+              Set by where the REM line sits in the listing.
+            </span>
+          ) : (
+            errors.address && (
+              <span className={dialog.modalWarning}>{errors.address}</span>
+            )
           )}
         </label>
         <label>
@@ -95,17 +135,19 @@ export function BlockSettingsDialog() {
             <option value="data">Data</option>
           </select>
         </label>
-        <label>
-          Entry address (optional)
-          <input
-            value={draft.entry}
-            onChange={(e) => field({ entry: e.target.value })}
-            placeholder="blank = none"
-          />
-          {errors.entry && (
-            <span className={dialog.modalWarning}>{errors.entry}</span>
-          )}
-        </label>
+        {!inListing && (
+          <label>
+            Entry address (optional)
+            <input
+              value={draft.entry}
+              onChange={(e) => field({ entry: e.target.value })}
+              placeholder="blank = none"
+            />
+            {errors.entry && (
+              <span className={dialog.modalWarning}>{errors.entry}</span>
+            )}
+          </label>
+        )}
         <label>
           Comment (optional)
           <input

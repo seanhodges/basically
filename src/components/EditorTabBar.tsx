@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { useState } from 'react';
-import { useIdeStore } from '../app/store';
+import { useIdeStore, useBlocks } from '../app/store';
 import { useDismiss } from '../app/useDismiss';
 import { useLongPress } from './useLongPress';
 import styles from './EditorTabBar.module.css';
@@ -32,7 +32,7 @@ const MENU_WIDTH_PX = 160;
  */
 export function EditorTabBar() {
   const dialect = useIdeStore((s) => s.dialect);
-  const blocks = useIdeStore((s) => s.blocks);
+  const blocks = useBlocks();
   const activeBlockId = useIdeStore((s) => s.activeBlockId);
   const setActiveBlock = useIdeStore((s) => s.setActiveBlock);
   const addBlock = useIdeStore((s) => s.addBlock);

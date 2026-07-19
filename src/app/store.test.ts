@@ -28,6 +28,9 @@ const { getDialectId, setDialectId, loadAutosave, saveAutosave } =
 
 const zx81 = getDialect('zx81');
 const bbc = getDialect('bbcmicro');
+// A fixed-address (non-`inListing`) z80 dialect for exercising the generic
+// block actions - ZX81's blocks are now a derived view over its `#BIN` lines.
+const spectrum = getDialect('zxspectrum');
 
 const sample = (id: string, name: string) =>
   getDialect(id).samples.find((s) => s.name === name)!;
@@ -57,6 +60,7 @@ describe('initialDocument (boot document choice)', () => {
       fileName: 'mygame.bas',
       text: '10 REM SAVED',
       blocks: [],
+      listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
     });
@@ -64,6 +68,7 @@ describe('initialDocument (boot document choice)', () => {
       fileName: 'mygame.bas',
       text: '10 REM SAVED',
       blocks: [],
+      listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
     });
@@ -82,6 +87,7 @@ describe('initialDocument (boot document choice)', () => {
       fileName: 'mygame.bas',
       text: '10 REM SAVED',
       blocks: [block],
+      listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
     });
@@ -92,6 +98,7 @@ describe('initialDocument (boot document choice)', () => {
       fileName: 'untitled.txt',
       text: STARTER,
       blocks: [],
+      listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
     });
@@ -104,6 +111,7 @@ describe('initialDocument (boot document choice)', () => {
       fileName: 'untitled.txt',
       text: '',
       blocks: [],
+      listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
     });
@@ -355,6 +363,7 @@ describe('loadUnsavedDocument', () => {
       name: 'untitled.txt',
       text: '10 REM imported',
       blocks: [],
+      listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
     });
@@ -416,6 +425,7 @@ describe('markSaved', () => {
       name: 'game.bas',
       text: '10 REM to-save',
       blocks: [],
+      listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
     });
@@ -453,6 +463,7 @@ describe('persistAutosave', () => {
       name: 'w.bas',
       text: '10 REM real-doc',
       blocks: [],
+      listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
     });
@@ -494,7 +505,7 @@ describe('persistAutosave', () => {
 describe('memory block actions', () => {
   beforeEach(() => {
     useIdeStore.setState({
-      dialect: zx81,
+      dialect: spectrum,
       source: '10 REM prog',
       fileName: 'game.bas',
       dirty: false,
@@ -572,7 +583,7 @@ describe('memory block actions', () => {
 describe('memory blocks reset on document identity changes', () => {
   beforeEach(() => {
     useIdeStore.setState({
-      dialect: zx81,
+      dialect: spectrum,
       pendingDialectId: null,
       source: '10 REM prog',
       fileName: 'game.bas',
@@ -627,7 +638,7 @@ describe('memory blocks reset on document identity changes', () => {
 describe('active block tab state', () => {
   beforeEach(() => {
     useIdeStore.setState({
-      dialect: zx81,
+      dialect: spectrum,
       pendingDialectId: null,
       source: '10 REM prog',
       fileName: 'game.bas',
@@ -712,7 +723,7 @@ describe('active block tab state', () => {
 describe('addBlock', () => {
   beforeEach(() => {
     useIdeStore.setState({
-      dialect: zx81,
+      dialect: spectrum,
       source: '10 REM prog',
       fileName: 'game.bas',
       dirty: false,
@@ -728,7 +739,7 @@ describe('addBlock', () => {
     const block = s.blocks[0]!;
     expect(block.name).toBe('block1');
     expect(block.id).toBe('block-block1');
-    expect(block.address).toBe(0x7000); // zx81 defaultAddress
+    expect(block.address).toBe(0x8000); // zxspectrum defaultAddress
     expect(block.kind).toBe('code');
     // The z80 stub is a lone RET, assembled so bytes match asmSource.
     expect(Array.from(block.bytes)).toEqual([0xc9]);
@@ -763,10 +774,69 @@ describe('addBlock', () => {
   });
 });
 
-describe('block delete confirmation flow', () => {
+describe('listing-backed blocks (ZX81/ZX80)', () => {
   beforeEach(() => {
     useIdeStore.setState({
       dialect: zx81,
+      source: '10 PRINT "HI"\n',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [],
+      listingBlockMeta: {},
+      activeBlockId: null,
+    });
+  });
+
+  it('addBlock appends a #BIN REM line and activates its derived tab', () => {
+    useIdeStore.getState().addBlock();
+    const s = useIdeStore.getState();
+    // The store's own `blocks` array stays empty - the block lives in `source`.
+    expect(s.blocks).toEqual([]);
+    expect(s.source).toContain('#BIN ');
+    expect(s.activeBlockId).toBe('listing-0');
+    expect(s.dirty).toBe(true);
+    // The BASIC program still tokenizes, so the block rides in the .P image.
+    expect(zx81.tokenize(s.source).errors).toEqual([]);
+  });
+
+  it("commitListingBlockBytes rewrites the block's #BIN line", () => {
+    useIdeStore.getState().addBlock();
+    const before = useIdeStore.getState().source;
+    useIdeStore
+      .getState()
+      .commitListingBlockBytes(
+        'listing-0',
+        Uint8Array.from([0xcd, 0x21, 0xc9]),
+      );
+    const after = useIdeStore.getState().source;
+    expect(after).not.toBe(before);
+    expect(zx81.tokenize(after).errors).toEqual([]);
+  });
+
+  it('removeBlock drops the #BIN line and resets the active tab', () => {
+    useIdeStore.getState().addBlock();
+    expect(useIdeStore.getState().source).toContain('#BIN ');
+    useIdeStore.getState().removeBlock('listing-0');
+    const s = useIdeStore.getState();
+    expect(s.source).not.toContain('#BIN ');
+    expect(s.activeBlockId).toBeNull();
+  });
+
+  it('setListingBlockMeta records overrides and prunes defaults', () => {
+    useIdeStore.getState().setListingBlockMeta(0, { kind: 'data' });
+    expect(useIdeStore.getState().listingBlockMeta[0]).toEqual({
+      kind: 'data',
+    });
+    // Clearing back to the default kind removes the ordinal from the map.
+    useIdeStore.getState().setListingBlockMeta(0, { kind: undefined });
+    expect(useIdeStore.getState().listingBlockMeta[0]).toBeUndefined();
+  });
+});
+
+describe('block delete confirmation flow', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
       source: '10 REM prog',
       fileName: 'game.bas',
       dirty: false,
@@ -820,7 +890,7 @@ describe('block delete confirmation flow', () => {
 describe('block settings dialog state', () => {
   beforeEach(() => {
     useIdeStore.setState({
-      dialect: zx81,
+      dialect: spectrum,
       source: '10 REM prog',
       fileName: 'game.bas',
       dirty: false,

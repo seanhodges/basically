@@ -5,7 +5,9 @@ import { Zx81Machine } from './zx81Machine';
 import { tokenizeProgram } from '../tokenizer';
 import { buildPFile } from '../pfile';
 import { D_FILE } from '../sysvars';
-import type { MemoryBlock } from '../../types';
+import { formatBinaryDirective } from '../../binaryDirective';
+import { buildRemRecord } from '../../../app/listingBlockEdit';
+import { zx81ListingLayout } from '../listingLayout';
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../../public/roms/zx81.rom')),
@@ -265,48 +267,34 @@ describe('Zx81Machine', () => {
     });
   });
 
-  describe('memory blocks', () => {
-    function block(overrides: Partial<MemoryBlock> = {}): MemoryBlock {
-      return {
-        id: 'b1',
-        name: 'Data',
-        address: 0x7000, // the dialect's default block address
-        bytes: new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd, 0xee]),
-        kind: 'data',
-        ...overrides,
-      };
-    }
-
-    it('writes a block into RAM after loading a program', () => {
+  describe('machine code in REM lines (monolithic .P image)', () => {
+    it('carries #BIN REM code into RAM through the image, with no injection', () => {
+      // A line-1 REM holding machine code: its body lands at the classic 16514
+      // (0x4082) because it rides inside the .P image, not via RAM injection.
       const machine = new Zx81Machine({ rom, ramKb: 16 });
-      const { bytes, errors } = tokenizeProgram('10 PRINT "HI"\n');
-      expect(errors).toEqual([]);
-      const b = block();
-      machine.loadProgram(buildPFile(bytes), { blocks: [b] });
-      const readBack = Array.from(b.bytes, (_, i) =>
-        machine.mem.read(b.address + i),
+      const code = new Uint8Array([0x3e, 0x2a, 0xc9]); // LD A,42 : RET
+      const rem = formatBinaryDirective(
+        buildRemRecord(1, code, zx81ListingLayout),
       );
-      expect(readBack).toEqual(Array.from(b.bytes));
-    });
-
-    it('leaves memory untouched when no blocks are given', () => {
-      const machine = new Zx81Machine({ rom, ramKb: 16 });
-      const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n');
-      machine.loadProgram(buildPFile(bytes));
-      // 0x7000 is above the used program/display area of this tiny program,
-      // so it should still be the zeroed RAM the reset left behind.
-      expect(machine.mem.read(0x7000)).toBe(0);
-    });
-
-    it('reflects an injected block through PEEK', () => {
-      // Blocks are written by the LOAD trap, right before the ZX81's NXTLIN
-      // auto-run resumes, so the program's own PEEK sees them even though the
-      // whole one-line program runs within the load frame. 28672 == 0x7000.
-      const machine = new Zx81Machine({ rom, ramKb: 16 });
-      const { bytes, errors } = tokenizeProgram('10 PRINT PEEK 28672\n');
+      const { bytes, errors } = tokenizeProgram(`${rem}\n10 PRINT "HI"\n`);
       expect(errors).toEqual([]);
-      const b = block({ bytes: new Uint8Array([42]) });
-      machine.loadProgram(buildPFile(bytes), { blocks: [b] });
+      machine.loadProgram(buildPFile(bytes));
+      const readBack = Array.from(code, (_, i) => machine.mem.read(0x4082 + i));
+      expect(readBack).toEqual(Array.from(code));
+    });
+
+    it('reflects REM-embedded data through PEEK at its listing address', () => {
+      // 16514 == 0x4082, the code body of a line-1 REM. The program PEEKs the
+      // first byte the REM carries - proof the data is live from the image.
+      const machine = new Zx81Machine({ rom, ramKb: 16 });
+      const rem = formatBinaryDirective(
+        buildRemRecord(1, new Uint8Array([42]), zx81ListingLayout),
+      );
+      const { bytes, errors } = tokenizeProgram(
+        `${rem}\n10 PRINT PEEK 16514\n`,
+      );
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildPFile(bytes));
       for (let i = 0; i < 200; i++) machine.runFrame();
       // "42" in ZX81 display codes: '4' = 0x20, '2' = 0x1E.
       expect(displayContains(machine, [0x20, 0x1e])).toBe(true);

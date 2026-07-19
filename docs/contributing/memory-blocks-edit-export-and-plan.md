@@ -353,13 +353,20 @@ metadata, injection, and import halves land in the load & run plan's rollout.
       files + `*RUN` guidance. Docs note that BBC BASIC's genuine inline `[ ]`
       assembler already works in the emulator — blocks complement it for
       pre-built binaries. Keywords: `CALL` / `USR`.
-- [ ] **ZX81/ZX80** — the standard `.P`/`.O` snapshot **cannot carry
-      above-RAMTOP data** (it spans `0x4009` → E_LINE only). Export blocks as
-      sidecar `name-<addr>.bin` files with a Transfer-dialog notice; no
-      nonstandard `.P` variant (compatibility with real tooling wins). The
-      classic REM-line convention (code inside line 1 at 16514) needs no block
-      and stays the documented fully-portable route — add a guide recipe.
-      Disassembler: the Z80 one from Stage 4. Keywords: `USR`.
+- [x] **ZX81/ZX80 — shipped as listing-backed blocks (Jan 2026), superseding the
+      sidecar-export idea below.** The standard `.P`/`.O` snapshot can't carry
+      above-RAMTOP data, and a sidecar `.bin` would break the single-file
+      convention real emulators and hardware expect — so these dialects drop the
+      fixed-address block model entirely (no RAM injection, no sidecar `.bin`
+      drop). Instead a block **is** a hidden-machine-code `#BIN` REM record inside
+      the BASIC listing (`src/dialects/binaryDirective.ts`): it rides in the
+      monolithic `.P`/`.O` image for free, imports and exports with no new format,
+      and is edited by regenerating its source line. `MemoryBlocksSupport.inListing` + `ListingLayout` gate it; the projection/write-back live in
+      `src/app/listingBlocks.ts` and `src/app/listingBlockEdit.ts`; blocks become a
+      derived view via `selectBlocks`/`useBlocks`. A block's address is derived
+      from where its REM sits (a line-1 REM = 16514 on the ZX81), so it is
+      read-only; code/data kind and name ride in `listingBlockMeta`
+      (`.bproj`/autosave). Disassembler: the Z80 one from Stage 4. Keywords: `USR`.
 - [ ] **Atom** — export one `.atm` per block with real load/exec addresses.
       Keywords: `CALL` / `USR`.
 - [ ] **TRS-80** — export blocks as SYSTEM-format `.cas` (name/address records);

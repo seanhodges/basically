@@ -60,6 +60,7 @@ export async function openDocument(): Promise<void> {
       const parsed = parseProject(opened.text);
       replaceDocument(parsed.source, opened.name, {
         blocks: parsed.blocks,
+        listingBlockMeta: parsed.listingBlockMeta,
         autoStart: parsed.autoStart,
         tapeFiles: parsed.tapeFiles,
       });
@@ -82,15 +83,28 @@ export async function openDocument(): Promise<void> {
  * (see `src/storage/projectFile.ts`), so they survive the round trip.
  */
 export async function saveDocument(): Promise<void> {
-  const { fileName, source, blocks, autoStart, tapeFiles, dialect, markSaved } =
-    useIdeStore.getState();
-  if (blocks.length > 0 || tapeFiles.length > 0) {
+  const {
+    fileName,
+    source,
+    blocks,
+    listingBlockMeta,
+    autoStart,
+    tapeFiles,
+    dialect,
+    markSaved,
+  } = useIdeStore.getState();
+  // A pure-BASIC document (including a listing-backed one with no metadata
+  // overrides - its #BIN blocks live in `source`) saves as portable text; blocks,
+  // preserved tape, or listing-block overrides switch Save to the .bproj bundle.
+  const hasListingMeta = Object.keys(listingBlockMeta).length > 0;
+  if (blocks.length > 0 || tapeFiles.length > 0 || hasListingMeta) {
     const json = serializeProject(
       dialect.id,
       source,
       blocks,
       autoStart,
       tapeFiles,
+      listingBlockMeta,
     );
     const saved = await saveProjectFile(toProjectFileName(fileName), json);
     if (saved !== null) markSaved(saved);
@@ -146,7 +160,17 @@ export async function openDroppedFile(file: File): Promise<void> {
     (f) => f.extension.toLowerCase() === ext,
   );
   try {
-    if (ext === '.bin' && dialect.memoryBlocks) {
+    if (ext === '.bin' && dialect.memoryBlocks?.inListing) {
+      // Listing-backed dialects (ZX80/ZX81) have no fixed-address sidecar blocks:
+      // machine code lives inside the program as `#BIN` REM records, carried by
+      // the monolithic .P/.O image. Point the user at that route.
+      setStatusNotice(
+        `This machine stores machine code inside the BASIC program (in REM ` +
+          `blocks that ride in the .P/.O file), so a fixed-address .bin sidecar ` +
+          `can't be imported. Add a code block from the editor's block tabs, or ` +
+          `import a .P/.O that already contains one.`,
+      );
+    } else if (ext === '.bin' && dialect.memoryBlocks) {
       // A sidecar `<name>-<addr>.bin` adds a memory block to the current
       // document (it augments, not replaces - so no discard guard), the way a
       // machine whose program format can't carry fixed-address code/data
@@ -172,6 +196,7 @@ export async function openDroppedFile(file: File): Promise<void> {
       const parsed = parseProject(await file.text());
       replaceDocument(parsed.source, file.name, {
         blocks: parsed.blocks,
+        listingBlockMeta: parsed.listingBlockMeta,
         autoStart: parsed.autoStart,
         tapeFiles: parsed.tapeFiles,
       });
@@ -184,6 +209,7 @@ export async function openDroppedFile(file: File): Promise<void> {
         const parsed = parseProject(text);
         replaceDocument(parsed.source, file.name, {
           blocks: parsed.blocks,
+          listingBlockMeta: parsed.listingBlockMeta,
           autoStart: parsed.autoStart,
         });
         const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);

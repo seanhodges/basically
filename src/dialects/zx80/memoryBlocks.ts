@@ -1,4 +1,5 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { zx80ListingLayout } from './listingLayout';
 
 /**
  * ZX80 {@link MemoryBlocksSupport} figures for the memory-block linter
@@ -57,4 +58,9 @@ export const zx80MemoryBlocks: MemoryBlocksSupport = {
   reservedRanges: RESERVED_RANGES,
   programArea,
   defaultAddress: 0x7000,
+  // ZX80 blocks are hidden-machine-code REM records inside the BASIC listing,
+  // carried in the monolithic .O image - not fixed-address RAM injections. The
+  // fixed-address figures above are inert; kept only so the type stays total.
+  inListing: true,
+  listing: zx80ListingLayout,
 };

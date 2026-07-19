@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useIdeStore, type MobileTab } from '../app/store';
+import { useIdeStore, useBlocks, type MobileTab } from '../app/store';
 import {
   useMediaQuery,
   MOBILE_QUERY,
@@ -45,7 +45,7 @@ export function Workspace() {
   const splitRatio = useIdeStore((s) => s.splitRatio);
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
   const requestRun = useIdeStore((s) => s.requestRun);
-  const blocks = useIdeStore((s) => s.blocks);
+  const blocks = useBlocks();
   const activeBlockId = useIdeStore((s) => s.activeBlockId);
 
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);

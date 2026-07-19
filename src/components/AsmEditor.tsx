@@ -104,11 +104,20 @@ export function AsmEditor({
       const current = blockRef.current;
       const result = engine.assemble(text, current.address);
       const store = useIdeStore.getState();
+      // Listing-backed blocks (ZX80/ZX81) hold their bytes inside the BASIC
+      // `#BIN` line, not in `blocks`, so a clean assembly rewrites that source
+      // line rather than upserting a block; there is no per-block `asmSource`
+      // slot in source, so the editor text is the working copy for the session.
+      const inListing = !!store.dialect.memoryBlocks?.inListing;
       if (result.ok) {
         view.dispatch(setDiagnostics(view.state, []));
         const changed = !bytesEqual(result.bytes, current.bytes);
-        if (changed) lastWrittenBytes.current = result.bytes;
-        if (changed || current.asmSource !== text) {
+        if (changed) {
+          lastWrittenBytes.current = result.bytes;
+          if (inListing)
+            store.commitListingBlockBytes(current.id, result.bytes);
+        }
+        if (!inListing && (changed || current.asmSource !== text)) {
           store.upsertBlock({
             ...current,
             bytes: changed ? result.bytes : current.bytes,
@@ -120,7 +129,7 @@ export function AsmEditor({
         view.dispatch(
           setDiagnostics(view.state, toDiagnostics(view.state, result.errors)),
         );
-        if (current.asmSource !== text) {
+        if (!inListing && current.asmSource !== text) {
           store.upsertBlock({ ...current, asmSource: text });
         }
         store.setBlockAsmError(current.id, true);
@@ -205,7 +214,17 @@ export function AsmEditor({
   useEffect(() => {
     if (prevBytes.current === block.bytes) return;
     prevBytes.current = block.bytes;
-    if (lastWrittenBytes.current === block.bytes) return;
+    // Our own commit echoing back. Fixed-address blocks store the exact array we
+    // wrote (identity match); listing-backed blocks re-derive a fresh array from
+    // source, so compare by value too - otherwise every keystroke's write-back
+    // would reseed the editor from a disassembly and wipe the user's text.
+    if (
+      lastWrittenBytes.current !== null &&
+      (lastWrittenBytes.current === block.bytes ||
+        bytesEqual(lastWrittenBytes.current, block.bytes))
+    ) {
+      return;
+    }
     const view = viewRef.current;
     if (!view) return;
     if (debounceRef.current !== null) {
