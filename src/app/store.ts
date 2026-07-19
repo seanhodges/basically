@@ -123,12 +123,18 @@ interface IdeState {
    */
   asmErrorBlocks: ReadonlySet<string>;
   /**
-   * Id of a block the user asked to delete (right-click / long-press on its
-   * tab) that awaits confirmation. Drives the DeleteBlockDialog; null when no
-   * deletion is pending. Reset whenever a different program becomes active
-   * (same rule as `activeBlockId`).
+   * Id of a block the user asked to delete (via the tab context menu) that
+   * awaits confirmation. Drives the DeleteBlockDialog; null when no deletion
+   * is pending. Reset whenever a different program becomes active (same rule
+   * as `activeBlockId`).
    */
   pendingDeleteBlockId: string | null;
+  /**
+   * Id of the block whose metadata is open in the BlockSettingsDialog (via
+   * the tab context menu's "Settings"), or null. Same reset rule as
+   * `pendingDeleteBlockId`.
+   */
+  blockSettingsId: string | null;
   /**
    * Extra tape files preserved off a multi-part import (see {@link TapeFile}),
    * beyond the one program in `source` and the CODE blocks in `blocks`. The run
@@ -437,6 +443,10 @@ interface IdeState {
   confirmRemoveBlock(): void;
   /** Dismiss the pending deletion, keeping the block. */
   cancelRemoveBlock(): void;
+  /** Open the block-metadata dialog for a block; unknown ids are ignored. */
+  openBlockSettings(id: string): void;
+  /** Close the block-metadata dialog. */
+  closeBlockSettings(): void;
   requestRun(): void;
   /** Like {@link requestRun}, but flags the run for the AI runtime-error check. */
   requestAiRun(): void;
@@ -702,6 +712,7 @@ function applyDialectSwitch(
     activeBlockId: null,
     asmErrorBlocks: new Set<string>(),
     pendingDeleteBlockId: null,
+    blockSettingsId: null,
     tapeFiles: [],
     autoStart: null,
     // On mobile, surface the change in the editor the user is now editing.
@@ -771,6 +782,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   activeBlockId: null,
   asmErrorBlocks: new Set<string>(),
   pendingDeleteBlockId: null,
+  blockSettingsId: null,
   tapeFiles: startupDoc.tapeFiles,
   autoStart: startupDoc.autoStart,
   docOverride: { text: startupText, seq: 0 },
@@ -904,6 +916,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         activeBlockId: null,
         asmErrorBlocks: new Set<string>(),
         pendingDeleteBlockId: null,
+        blockSettingsId: null,
         // A shared program is a single BASIC program with no preserved tape.
         tapeFiles: [],
         autoStart: null,
@@ -976,6 +989,7 @@ export const useIdeStore = create<IdeState>((set) => ({
             activeBlockId: null,
             asmErrorBlocks: new Set<string>(),
             pendingDeleteBlockId: null,
+            blockSettingsId: null,
             tapeFiles: opts?.tapeFiles ?? [],
             autoStart: opts?.autoStart ?? null,
           }
@@ -1005,6 +1019,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       activeBlockId: null,
       asmErrorBlocks: new Set<string>(),
       pendingDeleteBlockId: null,
+      blockSettingsId: null,
       tapeFiles: opts?.tapeFiles ?? [],
       autoStart: opts?.autoStart ?? null,
       ...(isMobileViewport()
@@ -1095,9 +1110,15 @@ export const useIdeStore = create<IdeState>((set) => ({
         : {
             ...withBlockRemoved(s, s.pendingDeleteBlockId),
             pendingDeleteBlockId: null,
+            blockSettingsId: null,
           },
     ),
   cancelRemoveBlock: () => set({ pendingDeleteBlockId: null }),
+  openBlockSettings: (id) =>
+    set((s) =>
+      s.blocks.some((b) => b.id === id) ? { blockSettingsId: id } : {},
+    ),
+  closeBlockSettings: () => set({ blockSettingsId: null }),
   setBlockAsmError: (id, hasError) =>
     set((s) => {
       if (s.asmErrorBlocks.has(id) === hasError) return {};

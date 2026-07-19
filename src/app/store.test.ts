@@ -816,3 +816,35 @@ describe('block delete confirmation flow', () => {
     expect(useIdeStore.getState().pendingDeleteBlockId).toBeNull();
   });
 });
+
+describe('block settings dialog state', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: zx81,
+      source: '10 REM prog',
+      fileName: 'game.bas',
+      dirty: false,
+      blocks: [BLOCK_A],
+      blockSettingsId: null,
+    });
+  });
+
+  it('openBlockSettings marks the block; unknown ids are ignored', () => {
+    useIdeStore.getState().openBlockSettings('nope');
+    expect(useIdeStore.getState().blockSettingsId).toBeNull();
+    useIdeStore.getState().openBlockSettings(BLOCK_A.id);
+    expect(useIdeStore.getState().blockSettingsId).toBe(BLOCK_A.id);
+  });
+
+  it('closeBlockSettings clears it', () => {
+    useIdeStore.getState().openBlockSettings(BLOCK_A.id);
+    useIdeStore.getState().closeBlockSettings();
+    expect(useIdeStore.getState().blockSettingsId).toBeNull();
+  });
+
+  it('document identity changes close the dialog', () => {
+    useIdeStore.getState().openBlockSettings(BLOCK_A.id);
+    useIdeStore.getState().loadUnsavedDocument('10 REM other');
+    expect(useIdeStore.getState().blockSettingsId).toBeNull();
+  });
+});

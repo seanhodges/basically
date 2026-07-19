@@ -12,14 +12,14 @@ describe('createLongPressTracker', () => {
     vi.useRealTimers();
   });
 
-  it('fires the callback after the press interval elapses', () => {
-    const fired: string[] = [];
-    const t = createLongPressTracker<string>((p) => fired.push(p));
-    t.down(1, 10, 10, 'blk');
+  it('fires the callback with the press position after the interval', () => {
+    const fired: [string, { x: number; y: number }][] = [];
+    const t = createLongPressTracker<string>((p, pos) => fired.push([p, pos]));
+    t.down(1, 10, 20, 'blk');
     vi.advanceTimersByTime(499);
     expect(fired).toEqual([]);
     vi.advanceTimersByTime(1);
-    expect(fired).toEqual(['blk']);
+    expect(fired).toEqual([['blk', { x: 10, y: 20 }]]);
   });
 
   it('does not fire when the pointer lifts early', () => {

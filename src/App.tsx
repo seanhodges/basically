@@ -12,6 +12,7 @@ import { VfsInspectorDialog } from './components/VfsInspectorDialog';
 import { ImportDialog } from './components/ImportDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { DeleteBlockDialog } from './components/DeleteBlockDialog';
+import { BlockSettingsDialog } from './components/BlockSettingsDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { DocsDrawer } from './components/DocsDrawer';
@@ -97,6 +98,7 @@ export default function App() {
       <ImportDialog />
       <SwitchTargetDialog />
       <DeleteBlockDialog />
+      <BlockSettingsDialog />
       <ProcedureListDialog />
       <WelcomeDialog />
       <DocsDrawer />

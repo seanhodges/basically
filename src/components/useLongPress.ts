@@ -32,8 +32,9 @@ export interface LongPressTracker<T> {
   consumeFired(): boolean;
 }
 
+/** The callback receives the press-down viewport position (menu anchor). */
 export function createLongPressTracker<T>(
-  onLongPress: (payload: T) => void,
+  onLongPress: (payload: T, pos: { x: number; y: number }) => void,
 ): LongPressTracker<T> {
   let armed: {
     pointerId: number;
@@ -61,7 +62,7 @@ export function createLongPressTracker<T>(
         timer: setTimeout(() => {
           armed = null;
           fired = true;
-          onLongPress(payload);
+          onLongPress(payload, { x, y });
         }, LONG_PRESS_MS),
       };
     },
@@ -87,11 +88,16 @@ export function createLongPressTracker<T>(
  * `consumeFired()` in the element's onClick suppresses the click that
  * follows a fired long-press.
  */
-export function useLongPress<T>(onLongPress: (payload: T) => void) {
+export function useLongPress<T>(
+  onLongPress: (payload: T, pos: { x: number; y: number }) => void,
+) {
   const callbackRef = useRef(onLongPress);
   callbackRef.current = onLongPress;
   const tracker = useMemo(
-    () => createLongPressTracker<T>((payload) => callbackRef.current(payload)),
+    () =>
+      createLongPressTracker<T>((payload, pos) =>
+        callbackRef.current(payload, pos),
+      ),
     [],
   );
   const bind = (payload: T) => ({

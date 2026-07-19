@@ -30,13 +30,18 @@ hardware.
 
 A second slice shipped after the assembly editor:
 
-- **Block create/delete in the tab strip** (Stage 1's remaining UI, minus the
-  hex editor): the strip is now always visible for a `memoryBlocks`-capable
-  dialect (BASIC tab + per-block tabs + a "+" button). "+" instantly creates a
-  `code` block (`block<n>`, the dialect's `defaultAddress`, a one-instruction
-  return stub assembled via `asmEngineFor`) and opens its tab; right-click or
-  long-press a block tab asks to delete it (`DeleteBlockDialog`, store-driven
-  like the dialect-switch confirm). The BASIC tab has no delete gesture.
+- **Block create/delete/metadata in the tab strip** (Stage 1's remaining UI,
+  minus the hex editor): the strip is now always visible for a
+  `memoryBlocks`-capable dialect (BASIC tab + per-block tabs + a "+" button).
+  "+" instantly creates a `code` block (`block<n>`, the dialect's
+  `defaultAddress`, a one-instruction return stub assembled via
+  `asmEngineFor`) and opens its tab. Right-click or long-press a block tab
+  opens a context menu: **Settings** edits the block's metadata
+  (`BlockSettingsDialog` + the pure `src/app/blockEdit.ts` model - name,
+  address, kind, entry, comment; moving a block with `asmSource` rewrites its
+  `ORG` and re-assembles at the new address so absolute label refs follow),
+  and **Delete** confirms then removes it (`DeleteBlockDialog`, store-driven
+  like the dialect-switch confirm). The BASIC tab has no context menu.
 - **Export carries blocks — API-wide, Spectrum-first (Stage 3 ✅).**
   `BuildTarget.build` now returns `Promise<ExportFile[]>` and receives
   `{ programName, blocks?, loader? }`; `audio.buildSamples` mirrors it. The

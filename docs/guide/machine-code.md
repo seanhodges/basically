@@ -23,9 +23,17 @@ you type re-assembles as you go. Try it with the **Kaleidoscope** sample
 (File ▸ Samples on the ZX Spectrum), which pairs a BASIC front-end asking for a
 few numbers with an assembly routine that paints the whole screen.
 
-To delete a block, **right-click** its tab (or **long-press** it on a touch
-screen) and confirm. Deleting removes the block's bytes and assembly source
-from the document. The BASIC tab is the program itself — it can't be deleted.
+**Right-click** a block's tab (or **long-press** it on a touch screen) for
+its menu:
+
+- **Settings** opens the block's details — rename it, move it to another
+  address, switch it between code and data, and set an optional entry address
+  or comment. Moving a block that has assembly source re-assembles the
+  routine at its new address, so absolute label references keep working.
+- **Delete** removes the block (after a confirmation) — its bytes and
+  assembly source leave the document.
+
+The BASIC tab is the program itself — it has no menu and can't be deleted.
 
 ## Bringing in machine code
 
