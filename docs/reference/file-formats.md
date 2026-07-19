@@ -63,8 +63,8 @@ reference page:
 | ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                   |
 | BBC Micro / Master | `.bbc`         | `.bbc`         | tokenized program from PAGE                 |
 | Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801 |
-| Commodore VIC-20   | `.prg`         | `.prg`         | load address + tokenized program from $1001 |
-| Commodore PET      | `.prg`         | `.prg`         | load address + tokenized program from $0401 |
+| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001 |
+| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401 |
 | TRS-80             | `.cas`         | `.cas`         | Model I CSAVE cassette block                |
 | Acorn Atom         | `.atm`         | `.atm`         | 22-byte header + `#2900` program image      |
 
@@ -175,33 +175,36 @@ Commodore BASIC V2 (the PET adds the BASIC 4.0 disk tokens `$CC–$DA`) — and 
 the load address in the first two bytes differs: the unexpanded VIC-20 loads at
 $1001 (`$01 $10`), the PET at $0401 (`$01 $04`).
 
-### Commodore 64 `.d64`
+### Commodore 64 / VIC-20 / PET `.d64`
 
-The C64 **imports and exports** `.d64` disk images — a byte-exact image of a
-1541 5.25" floppy, the multi-file container most Commodore disk archives use
-(not to be confused with raw `.tap` pulse recordings, which are recognised and
-refused with a clear message). A `.d64` mirrors the real disk geometry: 35
-tracks of 256-byte sectors (21 on the outer tracks down to 17 on the inner
-ones, 683 sectors = 174848 bytes), with the block-availability map and the
-directory on track 18 and each file stored as a chain of sectors linked by
+The C64, VIC-20 and PET all **import and export** `.d64` disk images — a
+byte-exact image of a 1541 5.25" floppy, the multi-file container most Commodore
+disk archives use (not to be confused with raw `.tap` pulse recordings, which
+are recognised and refused with a clear message). A `.d64` mirrors the real disk
+geometry: 35 tracks of 256-byte sectors (21 on the outer tracks down to 17 on
+the inner ones, 683 sectors = 174848 bytes), with the block-availability map and
+the directory on track 18 and each file stored as a chain of sectors linked by
 their first two bytes. A PRG file's data begins with its 2-byte load address.
+The disk format is identical across the three machines; only the BASIC program's
+load address differs ($0801 C64, $1001 unexpanded VIC-20, $0401 PET).
 
 A multi-file image imports the way a multi-part Spectrum `.TAP` does: the
 largest BASIC program opens for editing, other BASIC programs are preserved
-with the document, and files loading anywhere other than $0801 import as
-[memory blocks](#machine-code-data-blocks) at their own load address.
+with the document, and files loading anywhere other than the machine's BASIC
+start import as [memory blocks](#machine-code-data-blocks) at their own load
+address.
 
-A C64 document with [memory blocks](#machine-code-data-blocks) **exports** as a
+A document with [memory blocks](#machine-code-data-blocks) **exports** as a
 `.d64` too, the same way — the direct counterpart to the Spectrum `.TAP`
-export: the BASIC program is written as the $0801 file and each memory block
-becomes a further file at its own load address. With the Transfer dialog's
-**auto-loader** on, a generated auto-running loader program leads the disk (it
-`LOAD`s each block from device 8, then chains into the main program), and the
-main program — being the largest $0801 file — is still what re-import opens for
-editing while the loader rides along as a preserved file. The exported image
-re-imports here with the program and every block intact, and the cassette
-`.wav` export carries the same files as a multi-file tape (the `.prg` export
-still holds the BASIC program alone).
+export: the BASIC program is written as the machine's BASIC-start file and each
+memory block becomes a further file at its own load address. With the Transfer
+dialog's **auto-loader** on, a generated auto-running loader program leads the
+disk (it `LOAD`s each block from device 8, then chains into the main program),
+and the main program — being the largest BASIC-start file — is still what
+re-import opens for editing while the loader rides along as a preserved file.
+The exported image re-imports here with the program and every block intact, and
+the cassette `.wav` export carries the same files as a multi-file tape (the
+`.prg` export still holds the BASIC program alone).
 
 ### TRS-80 `.cas`
 
@@ -251,10 +254,11 @@ Some programs load machine code or data at a fixed address alongside the BASIC
 program. The IDE keeps these as named **memory blocks**; on Run they are written
 straight into RAM before the program starts, and they travel with the document
 through the [project bundle](#project-bundle-bproj) and through
-[share links](../guide/publishing). The ZX Spectrum `.TAP` and the Commodore 64
+[share links](../guide/publishing). The ZX Spectrum `.TAP` and the Commodore
 `.d64` carry blocks in **both directions** (see their sections —
-[`.TAP`](#zx-spectrum-spectrum-128-tap), [`.d64`](#commodore-64-d64) — for the
-export layouts); several native formats carry blocks on **import** only:
+[`.TAP`](#zx-spectrum-spectrum-128-tap),
+[`.d64`](#commodore-64-vic-20-pet-d64) — for the export layouts); several native
+formats carry blocks on **import** only:
 
 - **ZX Spectrum `.TAP`** — a tape holding CODE files (each with a load address)
   imports every CODE file as a block. A tiny `LOAD "" CODE … : RANDOMIZE USR n`
@@ -264,7 +268,7 @@ export layouts); several native formats carry blocks on **import** only:
   start ($0801 C64, $1001 VIC-20, $0401 PET) imports as a single block at that
   address; a normal program with extra bytes past the end of the tokenized
   program imports the program plus those trailing bytes as a block. A `.d64`
-  disk image (C64) imports every non-BASIC file as a block.
+  disk image (C64, VIC-20 or PET) imports every non-BASIC file as a block.
 - **Acorn Atom `.atm`** — an `.atm` that loads somewhere other than `#2900`
   (where BASIC text lives) is a machine-code or data file, so its payload imports
   as a block at its load address, remembering the header's exec address.
@@ -346,7 +350,11 @@ Each machine uses its own tape encoding:
   program bytes. The single shared encoder/decoder is parameterized by the
   machine's load address ($0801 C64, $1001 VIC-20, $0401 PET) and the machine's
   detokenizer (so the PET's BASIC 4.0 disk tokens list correctly on decode);
-  each of the three exports and imports through it.
+  each of the three exports and imports through it. A document with
+  [memory blocks](#machine-code-data-blocks) exports as a **multi-file tape** —
+  the program followed by one file per block, optionally behind a generated
+  auto-loader — and re-imports with the blocks recovered, exactly as the `.d64`
+  does; all three machines share this too.
 - **TRS-80** - the Model I 500-baud cassette scheme. Every bit cell opens with a
   _clock_ pulse; a `1` bit additionally fires a _data_ pulse at the middle of the
   cell, a `0` does not - so the spacing between pulses carries the data (a `1` is

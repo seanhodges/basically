@@ -168,11 +168,16 @@ describe('pet dialect', () => {
   // ---- Stage 4 — transfer & tape I/O ------------------------------------
   // The cassette codec itself is exercised in audio/cassette.test.ts; here we
   // confirm the dialect surface is wired: .prg import + tape audio in/out.
-  it('exposes .prg import and cassette audio through the dialect', () => {
+  it('exposes .prg/.d64 import and cassette audio through the dialect', () => {
     expect(pet.binaryImports).toEqual([
       { extension: '.prg', label: 'Import .PRG…' },
+      { extension: '.d64', label: 'Import .D64…' },
     ]);
-    expect(pet.buildTargets.map((t) => t.id)).toEqual(['pet-prg', 'pet-wav']);
+    expect(pet.buildTargets.map((t) => t.id)).toEqual([
+      'pet-prg',
+      'pet-d64',
+      'pet-wav',
+    ]);
     expect(pet.audio).toBeDefined();
     expect(typeof pet.audio!.buildSamples).toBe('function');
     expect(typeof pet.audio!.decodeSamples).toBe('function');

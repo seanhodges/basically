@@ -8,34 +8,58 @@
  * supplies the unexpanded VIC-20's $1001 load address and routes the decoded
  * bytes through the VIC-20 detokenizer (so a foreign load address is reported
  * with the VIC-20's RAM-expansion machine hint).
+ *
+ * A document with memory blocks exports as a multi-file tape the same way the
+ * C64 does (header $01 program + a header $03 code file per block, optionally
+ * behind an auto-loader), and the import side recovers them - the block-aware
+ * body layout and the multi-part decode convention are both shared.
  */
+import type { AudioDecodeResult, MemoryBlock } from '../../types';
 import { buildPrg } from '../targets';
-import { detokenizeProgram } from '../detokenizer';
+import { detokenizeProgram, detokenizeCbmTapeWithReport } from '../detokenizer';
+import { loaderProgramBytes } from '../loader';
 import {
   CASSETTE_SAMPLE_RATE,
-  buildHeaderBlock,
-  encodeC64Tape,
+  buildCbmTapeBodies,
+  encodeC64Bodies,
 } from '../../commodore64/audio/cassetteEncoder';
-import { decodeCassette } from '../../commodore64/audio/cassetteDecoder';
+import {
+  decodeCassette,
+  decodeCassetteFiles,
+} from '../../commodore64/audio/cassetteDecoder';
 
 export { CASSETTE_SAMPLE_RATE };
 
 /** The unexpanded VIC-20 base — programs load at $1001 (vs the C64's $0801). */
 const VIC20_LOAD_ADDRESS = 0x1001;
 
-/** Encode VIC-20 source to cassette samples (the dialect's `buildSamples`). */
+/**
+ * Encode VIC-20 source to cassette samples (the dialect's `buildSamples`).
+ * Without memory blocks it is the classic single program; with blocks each
+ * becomes a further tape file, and with `loader` on a generated auto-run loader
+ * leads the tape - the same ordered layout {@link exportD64Entries} writes to
+ * disk.
+ */
 export function buildCassetteSamples(
   source: string,
   programName: string,
   robust = false,
+  blocks: readonly MemoryBlock[] = [],
+  loader = false,
 ): Float32Array {
   const program = buildPrg(source).subarray(2); // drop the $1001 load address
-  const header = buildHeaderBlock(
+  const sorted = [...blocks].sort((a, b) => a.address - b.address);
+  const bodies = buildCbmTapeBodies({
+    program,
     programName,
-    VIC20_LOAD_ADDRESS,
-    VIC20_LOAD_ADDRESS + program.length,
-  );
-  return encodeC64Tape(header, program, {
+    loadAddress: VIC20_LOAD_ADDRESS,
+    blocks,
+    loaderBytes:
+      loader && blocks.length > 0
+        ? loaderProgramBytes(programName, sorted)
+        : null,
+  });
+  return encodeC64Bodies(bodies, {
     sampleRate: CASSETTE_SAMPLE_RATE,
     leaderPulses: robust ? 2400 : 1200,
   });
@@ -43,15 +67,22 @@ export function buildCassetteSamples(
 
 /**
  * Decode recorded cassette samples back into an editable VIC-20 program (the
- * inverse of {@link buildCassetteSamples}). The decoder accepts any file-type
- * $01 header regardless of its start address, so a $1001 VIC-20 header
- * round-trips; the recovered program bytes are detokenized through the BASIC V2
- * table.
+ * inverse of {@link buildCassetteSamples}). A multi-file tape (program + CODE
+ * blocks, optionally behind an auto-loader) is reassembled with the same
+ * convention the `.d64` import uses, so the memory blocks come back; a plain
+ * single-program tape falls through to the lenient single-file decode. The
+ * recovered program bytes are detokenized through the BASIC V2 table.
  */
 export function decodeSamples(
   samples: Float32Array,
   sampleRate: number,
-): { programName: string; source: string } {
+): AudioDecodeResult {
+  const files = decodeCassetteFiles(samples, sampleRate);
+  if (files.length > 1) {
+    return detokenizeCbmTapeWithReport(
+      files.map((f) => ({ name: f.name, start: f.start, bytes: f.data })),
+    );
+  }
   const { name, data } = decodeCassette(samples, sampleRate);
   return { programName: name, source: detokenizeProgram(data) };
 }

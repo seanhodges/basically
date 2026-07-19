@@ -139,3 +139,132 @@ describe('commodore64 .d64 export round trip', () => {
     expect(outcome.warnings.length).toBeGreaterThan(0);
   });
 });
+
+describe('pet .d64 export round trip', () => {
+  const dialect = getDialect('pet');
+  // A short routine high in the PET's 32K RAM ($7000, the default block address),
+  // well clear of the program area at $0401. The program is comfortably larger
+  // than the generated auto-loader so the "largest BASIC program" rule opens it.
+  const source =
+    '10 PRINT "THE ACTUAL GAME, NOT THE LOADER"\n' +
+    '20 FOR I=1 TO 100\n' +
+    '30 PRINT "COUNTING ";I\n' +
+    '40 NEXT I\n' +
+    '50 GOTO 20\n';
+  const block: MemoryBlock = {
+    id: 'sprite-1',
+    name: 'sprites',
+    address: 0x7000,
+    bytes: Uint8Array.of(0xa9, 0x00, 0x8d, 0x20, 0xd0, 0x60),
+    kind: 'code',
+  };
+
+  it('loader-off export preserves the entire program', async () => {
+    const outcome = await exportImportRoundTrip(
+      dialect,
+      source,
+      'game',
+      [block],
+      {
+        targetId: 'pet-d64',
+        loader: false,
+      },
+    );
+
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.programByteExact).toBe(true);
+    expect(outcome.blocks).toHaveLength(1);
+    expect(outcome.blocks[0]!.address).toBe(0x7000);
+    expect(Array.from(outcome.blocks[0]!.bytes)).toEqual(
+      Array.from(block.bytes),
+    );
+    expect(outcome.tapeFiles).toEqual([]);
+  });
+
+  it('loader-on export re-imports with the loader preserved', async () => {
+    const outcome = await exportImportRoundTrip(
+      dialect,
+      source,
+      'game',
+      [block],
+      {
+        targetId: 'pet-d64',
+        loader: true,
+      },
+    );
+
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.programByteExact).toBe(true);
+    expect(outcome.blocks).toHaveLength(1);
+    expect(Array.from(outcome.blocks[0]!.bytes)).toEqual(
+      Array.from(block.bytes),
+    );
+    expect(outcome.tapeFiles).toHaveLength(1);
+    expect(outcome.warnings.length).toBeGreaterThan(0);
+  });
+});
+
+describe('vic20 .d64 export round trip', () => {
+  const dialect = getDialect('vic20');
+  // A short routine near the top of the unexpanded VIC-20's user RAM ($1C00, the
+  // default block address, below the $1E00 screen), clear of the program at $1001.
+  // The program is comfortably larger than the generated auto-loader so the
+  // "largest BASIC program" rule opens it.
+  const source =
+    '10 PRINT "THE ACTUAL GAME, NOT THE LOADER"\n' +
+    '20 FOR I=1 TO 100\n' +
+    '30 PRINT "COUNTING ";I\n' +
+    '40 NEXT I\n' +
+    '50 GOTO 20\n';
+  const block: MemoryBlock = {
+    id: 'sprite-1',
+    name: 'sprites',
+    address: 0x1c00,
+    bytes: Uint8Array.of(0xa9, 0x00, 0x8d, 0x20, 0xd0, 0x60),
+    kind: 'code',
+  };
+
+  it('loader-off export preserves the entire program', async () => {
+    const outcome = await exportImportRoundTrip(
+      dialect,
+      source,
+      'game',
+      [block],
+      {
+        targetId: 'vic20-d64',
+        loader: false,
+      },
+    );
+
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.programByteExact).toBe(true);
+    expect(outcome.blocks).toHaveLength(1);
+    expect(outcome.blocks[0]!.address).toBe(0x1c00);
+    expect(Array.from(outcome.blocks[0]!.bytes)).toEqual(
+      Array.from(block.bytes),
+    );
+    expect(outcome.tapeFiles).toEqual([]);
+  });
+
+  it('loader-on export re-imports with the loader preserved', async () => {
+    const outcome = await exportImportRoundTrip(
+      dialect,
+      source,
+      'game',
+      [block],
+      {
+        targetId: 'vic20-d64',
+        loader: true,
+      },
+    );
+
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.programByteExact).toBe(true);
+    expect(outcome.blocks).toHaveLength(1);
+    expect(Array.from(outcome.blocks[0]!.bytes)).toEqual(
+      Array.from(block.bytes),
+    );
+    expect(outcome.tapeFiles).toHaveLength(1);
+    expect(outcome.warnings.length).toBeGreaterThan(0);
+  });
+});
