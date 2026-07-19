@@ -56,17 +56,17 @@ reference page:
 
 ## Native binary formats
 
-| Dialect            | Export | Import         | What it is                                  |
-| ------------------ | ------ | -------------- | ------------------------------------------- |
-| ZX81               | `.P`   | `.P`           | RAM dump 0x4009 → E_LINE-1                  |
-| ZX80               | `.O`   | `.O`           | RAM dump 0x4000 → E_LINE-1                  |
-| ZX Spectrum / 128  | `.TAP` | `.TAP`         | header + data tape blocks                   |
-| BBC Micro / Master | `.bbc` | `.bbc`         | tokenized program from PAGE                 |
-| Commodore 64       | `.prg` | `.prg`, `.t64` | load address + tokenized program from $0801 |
-| Commodore VIC-20   | `.prg` | `.prg`         | load address + tokenized program from $1001 |
-| Commodore PET      | `.prg` | `.prg`         | load address + tokenized program from $0401 |
-| TRS-80             | `.cas` | `.cas`         | Model I CSAVE cassette block                |
-| Acorn Atom         | `.atm` | `.atm`         | 22-byte header + `#2900` program image      |
+| Dialect            | Export         | Import         | What it is                                  |
+| ------------------ | -------------- | -------------- | ------------------------------------------- |
+| ZX81               | `.P`           | `.P`           | RAM dump 0x4009 → E_LINE-1                  |
+| ZX80               | `.O`           | `.O`           | RAM dump 0x4000 → E_LINE-1                  |
+| ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                   |
+| BBC Micro / Master | `.bbc`         | `.bbc`         | tokenized program from PAGE                 |
+| Commodore 64       | `.prg`, `.t64` | `.prg`, `.t64` | load address + tokenized program from $0801 |
+| Commodore VIC-20   | `.prg`         | `.prg`         | load address + tokenized program from $1001 |
+| Commodore PET      | `.prg`         | `.prg`         | load address + tokenized program from $0401 |
+| TRS-80             | `.cas`         | `.cas`         | Model I CSAVE cassette block                |
+| Acorn Atom         | `.atm`         | `.atm`         | 22-byte header + `#2900` program image      |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -177,7 +177,7 @@ $1001 (`$01 $10`), the PET at $0401 (`$01 $04`).
 
 ### Commodore 64 `.t64`
 
-The C64 also **imports** `.t64` tape images — the multi-file directory
+The C64 **imports and exports** `.t64` tape images — the multi-file directory
 container most Commodore tape archives use (not to be confused with raw
 `.tap` pulse recordings, which are recognised and refused with a clear
 message). A `.t64` is a 64-byte header, a directory of 32-byte entries (each
@@ -190,6 +190,18 @@ A multi-file image imports the way a multi-part Spectrum `.TAP` does: the
 largest BASIC entry opens for editing, other BASIC entries are preserved with
 the document, and entries loading anywhere other than $0801 import as
 [memory blocks](#machine-code-data-blocks) at their own load address.
+
+A C64 document with [memory blocks](#machine-code-data-blocks) **exports** as a
+`.t64` too, the same way — the direct counterpart to the Spectrum `.TAP`
+export: the BASIC program is written as the $0801 entry and each memory block
+becomes a directory entry at its own load address. With the Transfer dialog's
+**auto-loader** on, a generated auto-running loader program leads the image
+(it loads each block from tape, then chains into the main program), and the
+main program — being the largest $0801 entry — is still what re-import opens
+for editing while the loader rides along as a preserved file. The exported
+image re-imports here with the program and every block intact, and the
+cassette `.wav` export carries the same multi-file tape (the `.prg` export
+still holds the BASIC program alone).
 
 ### TRS-80 `.cas`
 
@@ -239,9 +251,10 @@ Some programs load machine code or data at a fixed address alongside the BASIC
 program. The IDE keeps these as named **memory blocks**; on Run they are written
 straight into RAM before the program starts, and they travel with the document
 through the [project bundle](#project-bundle-bproj) and through
-[share links](../guide/publishing). The ZX Spectrum `.TAP` carries blocks in
-**both directions** (see [its section](#zx-spectrum-spectrum-128-tap) for the
-export layout); several native formats carry blocks on **import**:
+[share links](../guide/publishing). The ZX Spectrum `.TAP` and the Commodore 64
+`.t64` carry blocks in **both directions** (see their sections —
+[`.TAP`](#zx-spectrum-spectrum-128-tap), [`.t64`](#commodore-64-t64) — for the
+export layouts); several native formats carry blocks on **import** only:
 
 - **ZX Spectrum `.TAP`** — a tape holding CODE files (each with a load address)
   imports every CODE file as a block. A tiny `LOAD "" CODE … : RANDOMIZE USR n`

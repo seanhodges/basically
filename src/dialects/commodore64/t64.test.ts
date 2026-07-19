@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isT64, parseT64 } from './t64';
+import { isT64, parseT64, buildT64 } from './t64';
 import { detokenizeT64WithReport } from './detokenizer';
+import { exportT64Entries } from './targets';
 import { tokenizeProgram } from './tokenizer';
+import type { MemoryBlock } from '../types';
 
 const LOADER_SOURCE = '10 PRINT "LOADING"\n';
 const GAME_SOURCE = '10 POKE 53280,0\n20 PRINT "THE ACTUAL GAME"\n30 GOTO 20\n';
@@ -159,5 +161,62 @@ describe('detokenizeT64WithReport', () => {
     expect(report.warnings).toEqual([]);
     expect(report.blocks).toBeUndefined();
     expect(report.tapeFiles).toBeUndefined();
+  });
+});
+
+describe('buildT64 export', () => {
+  const block: MemoryBlock = {
+    id: 'b1',
+    name: 'SPRITES',
+    address: 0xc000,
+    bytes: Uint8Array.of(0xa9, 0x00, 0x8d, 0x20, 0xd0, 0x60),
+    kind: 'code',
+  };
+
+  it('writes a header + directory that parseT64 reads back', () => {
+    const game = programBytes(GAME_SOURCE);
+    const image = buildT64([
+      { name: 'GAME', start: 0x0801, bytes: game },
+      { name: 'SPRITES', start: 0xc000, bytes: block.bytes },
+    ]);
+    expect(isT64(image)).toBe(true);
+    const { entries, warnings } = parseT64(image);
+    expect(warnings).toEqual([]);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ name: 'GAME', start: 0x0801 });
+    expect(Array.from(entries[0]!.bytes)).toEqual(Array.from(game));
+    expect(entries[1]).toMatchObject({ name: 'SPRITES', start: 0xc000 });
+    expect(Array.from(entries[1]!.bytes)).toEqual(Array.from(block.bytes));
+  });
+
+  it('round-trips a program + block through detokenizeT64WithReport', () => {
+    const image = buildT64(exportT64Entries(GAME_SOURCE, 'GAME', [block]));
+    const report = detokenizeT64WithReport(image);
+    expect(report.source).toBe(GAME_SOURCE);
+    expect(report.blocks).toHaveLength(1);
+    expect(report.blocks![0]).toMatchObject({
+      address: 0xc000,
+      kind: 'code',
+    });
+    expect(Array.from(report.blocks![0]!.bytes)).toEqual(
+      Array.from(block.bytes),
+    );
+    // No auto-loader requested: no extra BASIC files ride along.
+    expect(report.tapeFiles ?? []).toEqual([]);
+  });
+
+  it('with a loader, keeps the main program and preserves the loader', () => {
+    const image = buildT64(
+      exportT64Entries(GAME_SOURCE, 'GAME', [block], true),
+    );
+    const report = detokenizeT64WithReport(image);
+    // The larger main program is chosen for editing; the block still survives.
+    expect(report.source).toBe(GAME_SOURCE);
+    expect(report.blocks).toHaveLength(1);
+    expect(Array.from(report.blocks![0]!.bytes)).toEqual(
+      Array.from(block.bytes),
+    );
+    // The generated loader is preserved as a tape file, not silently dropped.
+    expect(report.tapeFiles).toHaveLength(1);
   });
 });

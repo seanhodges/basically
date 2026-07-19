@@ -4,7 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import type { MemoryBlock } from '../types';
 import { loaderSource, loaderTapBlocks } from './loader';
-import { exportTapBlockList, buildTapImage } from './targets';
+import {
+  exportTapBlockList,
+  buildTapImage,
+  buildCassetteSamples,
+} from './targets';
 import { headerName, parseTapAllFiles, tapBlockScan } from './tapfile';
 
 const block = (
@@ -94,5 +98,17 @@ describe('exportTapBlockList', () => {
     expect(code.map((c) => c.address)).toEqual([0x8000, 0x9000]);
     expect(Array.from(code[0]!.bytes)).toEqual(Array.from(ENGINE.bytes));
     expect(tapeFiles).toHaveLength(1); // the loader
+  });
+
+  it('cassette audio carries the blocks (a longer waveform than without)', () => {
+    const plain = buildCassetteSamples(source, 'prog');
+    const withBlocks = buildCassetteSamples(
+      source,
+      'prog',
+      false,
+      [ENGINE, SPRITES],
+      false,
+    );
+    expect(withBlocks.length).toBeGreaterThan(plain.length);
   });
 });

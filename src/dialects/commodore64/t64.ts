@@ -22,6 +22,8 @@
  * ```
  */
 
+import { parseC64Char } from './petscii';
+
 /** One usable file recovered from a `.t64` directory. */
 export interface T64Entry {
   /** Directory filename, trimmed, PETSCII folded to ASCII. */
@@ -32,9 +34,25 @@ export interface T64Entry {
   bytes: Uint8Array;
 }
 
+/** One file to write into a `.t64` directory (see {@link buildT64}). */
+export interface T64ExportEntry {
+  /** Directory filename; PETSCII-encoded and space-padded to 16 bytes. */
+  name: string;
+  /** Load (start) address stored in the entry, e.g. $0801 for a BASIC program. */
+  start: number;
+  /** Payload bytes, without the .prg load-address word (the entry carries it). */
+  bytes: Uint8Array;
+}
+
 const HEADER_SIZE = 64;
 const ENTRY_SIZE = 32;
 const RAW_TAP_SIGNATURE = 'C64-TAPE-RAW';
+/** The signature this exporter writes; recognised by {@link isT64}. */
+const EXPORT_SIGNATURE = 'C64S tape image file';
+/** Directory-entry container-name field (bytes 40..63) length. */
+const CONTAINER_NAME_LENGTH = 24;
+/** Directory-entry filename field (bytes 16..31) length. */
+const FILENAME_LENGTH = 16;
 
 /** Signature bytes 0..31 as trimmed ASCII (NULs and padding dropped). */
 function signatureOf(image: Uint8Array): string {
@@ -158,4 +176,74 @@ export function parseT64(image: Uint8Array): {
     warnings.push('The .t64 directory holds no usable files.');
   }
   return { entries, warnings };
+}
+
+/**
+ * PETSCII-encode `name` into a fixed-width, space-padded field (the directory's
+ * filename and container-name fields hold PETSCII, space-padded). Characters
+ * with no PETSCII equivalent are skipped; the result is truncated to `length`.
+ */
+function petsciiField(name: string, length: number): Uint8Array {
+  const out = new Uint8Array(length).fill(0x20); // space padding
+  let i = 0;
+  let out_i = 0;
+  while (i < name.length && out_i < length) {
+    try {
+      const { code, length: consumed } = parseC64Char(name, i);
+      out[out_i++] = code;
+      i += consumed;
+    } catch {
+      i++; // skip a character with no PETSCII equivalent
+    }
+  }
+  return out;
+}
+
+/**
+ * Build a `.t64` container around `entries` (the inverse of {@link parseT64}).
+ * Writes the 64-byte header (signature, version, entry counts, container name),
+ * one 32-byte directory entry per file (type 1 / PRG, start + exclusive-end
+ * address, absolute data offset, PETSCII filename) and the payloads packed
+ * back-to-back after the directory. Round-trips through `parseT64` /
+ * `detokenizeT64WithReport`.
+ */
+export function buildT64(
+  entries: readonly T64ExportEntry[],
+  containerName = 'BASICALLY',
+): Uint8Array {
+  const dirBytes = entries.length * ENTRY_SIZE;
+  const dataBytes = entries.reduce((n, e) => n + e.bytes.length, 0);
+  const out = new Uint8Array(HEADER_SIZE + dirBytes + dataBytes);
+  const u16 = (at: number, v: number) => {
+    out[at] = v & 0xff;
+    out[at + 1] = (v >> 8) & 0xff;
+  };
+
+  // Header: signature (ASCII, NUL-padded), version, max/used entry counts, name.
+  for (let i = 0; i < EXPORT_SIGNATURE.length; i++) {
+    out[i] = EXPORT_SIGNATURE.charCodeAt(i);
+  }
+  u16(32, 0x0100); // version
+  u16(34, entries.length); // maximum directory entries
+  u16(36, entries.length); // used directory entries
+  out.set(petsciiField(containerName, CONTAINER_NAME_LENGTH), 40);
+
+  // Directory entries, then payloads packed after the whole directory.
+  let offset = HEADER_SIZE + dirBytes;
+  entries.forEach((e, i) => {
+    const at = HEADER_SIZE + i * ENTRY_SIZE;
+    out[at] = 0x01; // entry type: normal tape file
+    out[at + 1] = 0x82; // C64 file type: PRG
+    u16(at + 2, e.start); // load (start) address
+    u16(at + 4, e.start + e.bytes.length); // end address (exclusive)
+    // Absolute offset of the payload in the container (LE u32).
+    out[at + 8] = offset & 0xff;
+    out[at + 9] = (offset >> 8) & 0xff;
+    out[at + 10] = (offset >> 16) & 0xff;
+    out[at + 11] = (offset >> 24) & 0xff;
+    out.set(petsciiField(e.name, FILENAME_LENGTH), at + 16);
+    out.set(e.bytes, offset);
+    offset += e.bytes.length;
+  });
+  return out;
 }

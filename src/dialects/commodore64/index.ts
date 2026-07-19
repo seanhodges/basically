@@ -112,8 +112,14 @@ export const commodore64: Dialect = {
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,
-    buildSamples: (source, programName, robust) =>
-      buildCassetteSamples(source, programName, robust),
+    buildSamples: (source, programName, robust, opts) =>
+      buildCassetteSamples(
+        source,
+        programName,
+        robust,
+        opts?.blocks,
+        opts?.loader,
+      ),
     loadInstructions:
       'On the C64 type LOAD and press RETURN, then press PLAY on the datasette before starting playback. When it finds the program type RUN.',
     decodeSamples: (samples, sampleRate) => {
