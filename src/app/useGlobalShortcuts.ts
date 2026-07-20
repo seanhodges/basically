@@ -21,7 +21,7 @@ import { useEffect } from 'react';
 import { useIdeStore } from './store';
 import { SHORTCUTS, matchesShortcut, type ShortcutId } from './shortcuts';
 import { newDocument, openDocument, saveDocument } from './fileCommands';
-import { referenceTopic } from './docsTopic';
+import { referenceTopicFor } from './docsTopic';
 
 /** Surface a rejected file command without crashing the listener. */
 function report(p: Promise<void>): void {
@@ -95,7 +95,7 @@ function dispatch(id: ShortcutId): boolean {
       if (s.docsDrawerOpen) {
         s.closeDocs();
       } else {
-        const topic = referenceTopic(s.dialect, s.editorSelection);
+        const topic = referenceTopicFor(s);
         s.openDocs(topic ?? undefined);
       }
       return true;

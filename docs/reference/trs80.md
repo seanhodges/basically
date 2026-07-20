@@ -27,3 +27,5 @@ of its address records in as a block. An ordinary BASIC `.cas` is unaffected.
 On Run the IDE refuses to start if a block would overlap the BASIC program. See
 the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.
+Every mnemonic, directive and operand form the assembly editor accepts is in the
+[Z80 assembly reference](./z80-assembly).

@@ -41,3 +41,5 @@ allows) a block over the screen.
 
 See the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.
+Every mnemonic, directive and operand form the assembly editor accepts is in the
+[6502 assembly reference](./6502-assembly).

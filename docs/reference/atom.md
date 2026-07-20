@@ -42,3 +42,5 @@ payload comes in as a block at its load address.
 On Run the IDE refuses to start if a block would overlap the BASIC program. See
 the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.
+Every mnemonic, directive and operand form the assembly editor accepts is in the
+[6502 assembly reference](./6502-assembly).

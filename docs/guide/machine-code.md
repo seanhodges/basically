@@ -23,6 +23,11 @@ you type re-assembles as you go. Try it with the **Kaleidoscope** sample
 (File ▸ Samples on the ZX Spectrum), which pairs a BASIC front-end asking for a
 few numbers with an assembly routine that paints the whole screen.
 
+The assembly editor uses the same instruction set for every machine on a given
+CPU. For the full list of mnemonics, directives and operand syntax it accepts,
+see the [Z80 assembly](../reference/z80-assembly) and
+[6502 assembly](../reference/6502-assembly) references.
+
 **Right-click** a block's tab (or **long-press** it on a touch screen) for
 its menu:
 

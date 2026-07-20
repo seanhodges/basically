@@ -21,3 +21,13 @@ its editor notation supports.
 - [Commodore PET BASIC 4.0](./pet) · [escape codes](./commodore64/escapes)
 - [Acorn Atom BASIC](./atom) · [escape codes](./atom/escapes)
 - [TRS-80 Level II BASIC](./trs80) · [escape codes](./trs80/escapes)
+
+## Assembly language
+
+Machine-code blocks are written in assembly, using the same searchable-table
+treatment for every instruction and directive the built-in assembler
+understands. The instruction set is per-CPU, not per-machine, so there is one
+reference for each processor — cross-linked from every dialect that uses it:
+
+- [Z80 assembly](./z80-assembly) — ZX81, ZX80, ZX Spectrum, TRS-80
+- [6502 assembly](./6502-assembly) — Commodore 64/VIC-20/PET, BBC Micro/Master, Acorn Atom

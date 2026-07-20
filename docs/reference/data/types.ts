@@ -1,8 +1,16 @@
 /** One row of a dialect reference table. */
 export interface ReferenceEntry {
-  /** Command/function/operator spelling as written, e.g. "INPUT", "MID$", "<>". */
+  /**
+   * Spelling as written, e.g. "INPUT", "MID$", "<>" for BASIC or "LD", "LDA",
+   * "ORG" for assembly.
+   */
   name: string;
-  kind: 'command' | 'function' | 'operator';
+  /**
+   * `command`/`function`/`operator` for BASIC dialects; `instruction`
+   * (mnemonic) and `directive` (assembler pseudo-op like ORG/DB) for the
+   * per-CPU assembly references.
+   */
+  kind: 'command' | 'function' | 'operator' | 'instruction' | 'directive';
   /** Usage example with typed arguments, e.g. "INPUT [<string>;] <var>". */
   syntax: string;
   /** Brief description, including notable behaviours where relevant. */

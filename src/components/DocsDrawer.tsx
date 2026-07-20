@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
-import { referenceTopic } from '../app/docsTopic';
+import { referenceTopicFor } from '../app/docsTopic';
 import { GearsSpinner } from './GearsSpinner';
 import styles from './DocsDrawer.module.css';
 
@@ -97,8 +97,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   // dialect's reference page anchored to the selected keyword, if any. Read the
   // selection imperatively so this component doesn't re-render as the cursor moves.
   const openContextual = () => {
-    const state = useIdeStore.getState();
-    const topic = referenceTopic(state.dialect, state.editorSelection);
+    const topic = referenceTopicFor(useIdeStore.getState());
     openDocs(topic ?? undefined);
   };
 

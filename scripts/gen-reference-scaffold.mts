@@ -19,9 +19,45 @@ import { bbcKeywords } from '../src/dialects/bbcmicro/keywords';
 import { c64Keywords } from '../src/dialects/commodore64/keywords';
 import { atomKeywords } from '../src/dialects/atom/keywords';
 import { trs80Keywords } from '../src/dialects/trs80/keywords';
+import { z80Engine } from '../src/asm/z80';
+import { m6502Engine } from '../src/asm/m6502';
+import type { AsmEngine } from '../src/asm/types';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = resolve(here, '../docs/reference/data');
+
+/** The assembler directives both engines add on top of the CPU mnemonics. */
+const ASM_DIRECTIVES = ['ORG', 'DB', 'DW', 'DS'];
+
+/**
+ * Seed asm reference rows straight from an engine's own instruction set:
+ * one `instruction` row per mnemonic (minus the shared directives) plus a
+ * `directive` row per directive. Descriptions are left blank for the
+ * hand-enrichment pass, exactly like the BASIC scaffolds.
+ */
+function asmEntries(engine: AsmEngine): ReferenceEntry[] {
+  const instructions = [...engine.mnemonics]
+    .filter((m) => !ASM_DIRECTIVES.includes(m))
+    .sort();
+  return [
+    ...instructions.map(
+      (name): ReferenceEntry => ({
+        name,
+        kind: 'instruction',
+        syntax: name,
+        description: '',
+      }),
+    ),
+    ...ASM_DIRECTIVES.map(
+      (name): ReferenceEntry => ({
+        name,
+        kind: 'directive',
+        syntax: name,
+        description: '',
+      }),
+    ),
+  ];
+}
 
 /** Copy a keyword into a draft row; the enrichment passes rewrite syntax/description. */
 function toEntry(k: KeywordInfo, tag?: string): ReferenceEntry {
@@ -106,6 +142,36 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
       title: 'TRS-80 Level II BASIC',
       machines: ['TRS-80 Model I (Level II BASIC)'],
       entries: dedupe(trs80Keywords.map((k) => toEntry(k))),
+    },
+  },
+  {
+    id: 'z80-assembly',
+    varName: 'z80AssemblyReference',
+    data: {
+      title: 'Z80 assembly',
+      machines: [
+        'Sinclair ZX81',
+        'Sinclair ZX80',
+        'Sinclair ZX Spectrum (48K & 128K)',
+        'TRS-80 Model I',
+      ],
+      entries: asmEntries(z80Engine),
+    },
+  },
+  {
+    id: 'm6502-assembly',
+    varName: 'm6502AssemblyReference',
+    data: {
+      title: '6502 assembly',
+      machines: [
+        'Commodore 64',
+        'Commodore VIC-20',
+        'Commodore PET',
+        'BBC Micro',
+        'BBC Master',
+        'Acorn Atom',
+      ],
+      entries: asmEntries(m6502Engine),
     },
   },
 ];

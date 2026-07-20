@@ -49,3 +49,5 @@ For a worked example on the C64, poke `A9 02 8D 20 D0 60` (`LDA #2 : STA $D020 :
 RTS`) at 49152 and add `10 SYS 49152`: running it turns the border red. See the
 [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.
+Every mnemonic, directive and operand form the assembly editor accepts is in the
+[6502 assembly reference](./6502-assembly).

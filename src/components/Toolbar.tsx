@@ -8,7 +8,7 @@ import {
 } from '../app/useMediaQuery';
 import { dialects } from '../dialects/registry';
 import type { SampleFile } from '../dialects/types';
-import { referenceTopic } from '../app/docsTopic';
+import { referenceTopicFor } from '../app/docsTopic';
 import { materializeSampleBlocks } from '../app/sampleBlocks';
 import {
   confirmDiscard,
@@ -208,10 +208,7 @@ export function Toolbar() {
   // dialect's reference page; otherwise open the docs home. Read the selection
   // imperatively so the toolbar doesn't re-render as the cursor moves.
   const openDocumentation = () => {
-    const topic = referenceTopic(
-      dialect,
-      useIdeStore.getState().editorSelection,
-    );
+    const topic = referenceTopicFor(useIdeStore.getState());
     openDocs(topic ?? undefined);
   };
 
