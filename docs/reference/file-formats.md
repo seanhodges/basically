@@ -1,19 +1,20 @@
 # File formats
 
-Every dialect reads and writes the same plain-text editor format (`.txt`) and,
-in addition, one **native binary** that real hardware and emulators load
-directly (`.P`, `.O`, `.TAP`, `.bbc`, `.ssd`, `.prg`, `.d64`, `.cas`, `.atm`,
-`.dsk`) plus a **cassette `.wav`**. Several machines also read and write a
-block-carrying **disc image** (`.ssd`, `.d64`, `.dsk`) that holds the BASIC
-program together with its machine-code and data blocks. The native binary
-doubles as the in-memory image the IDE's own
-emulator injects, and (for dialects that support importing) as an import format
-that round-trips back to editable source.
+Every dialect works with the same small set of file kinds, even though the
+underlying bytes are completely different from machine to machine: a
+plain-text editor format, a **native binary** that real hardware and
+emulators load directly, and a **cassette audio** recording. Several machines
+also read and write a block-carrying **disc image**. The native binary
+doubles as the in-memory image the IDE's own emulator injects, and (for
+dialects that support importing) as an import format that round-trips back to
+editable source. The exact extensions for each machine are listed in the
+[native binary formats](#native-binary-formats) table below.
 
-This page is the cross-machine overview: the shared editor, project-bundle,
-escape and machine-code concepts, plus an index of the **per-machine format
-pages** where each machine's native binary(s), disc image and cassette encoding
-are described in full.
+This page is the cross-machine overview: the shared editor and project-bundle
+formats, the escape-notation and machine-code-block concepts that apply across
+dialects, and an index of the **per-machine format pages** where each
+machine's native binary(s), disc image and cassette encoding are documented in
+full.
 
 ## Editor source format (.txt)
 
