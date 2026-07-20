@@ -69,7 +69,7 @@ export default withPwa(
               { text: 'Testing your code', link: '/guide/testing-programs' },
               { text: 'Running on real hardware', link: '/guide/hardware' },
               {
-                text: 'Machine code & data blocks',
+                text: 'Programming the Z80/6502',
                 link: '/guide/machine-code',
               },
               { text: 'Publish to Web', link: '/guide/publishing' },

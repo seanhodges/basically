@@ -150,8 +150,8 @@ generated auto-running loader (`CLEAR` below the lowest block, one
 auto-starting - so `LOAD ""` on real hardware runs the complete program. With
 it off, the load-only main program comes first and the CODE files follow.
 Either layout re-imports here with the program and every block intact; the
-cassette `.wav` export carries the same tape. (Other machines' exports carry
-the BASIC program only for now.)
+cassette `.wav` export carries the same tape. Other machines that carry blocks
+do so through their own containers — the Commodore `.d64` and BBC `.ssd` below.
 
 ### BBC Micro / Master `.bbc`
 
