@@ -135,4 +135,59 @@ describe('zx80 hidden binary lines', () => {
       expect(detokenizeProgramWithInfo(small).binaryLines).toBe(0);
     });
   });
+
+  describe('a REM called via USR is captured whatever its bytes look like', () => {
+    // "USR" has no ZX80 token: it is the letters U, S, R, then '(' digits ')'.
+    const PRINT = 0xf4;
+    const OPEN = 0xda;
+    const CLOSE = 0xd9;
+    const USR = [0x3a, 0x38, 0x37]; // U, S, R
+    const digits = (n: number) =>
+      String(n)
+        .split('')
+        .map((d) => 0x1c + Number(d));
+    // A line-1 REM's code starts at PROGRAM_BASE 0x4028 + 3 = 0x402B = 16427.
+    const usrCall = (addr: number) =>
+      record(2, [PRINT, ...USR, OPEN, ...digits(addr), CLOSE]);
+
+    it('captures a small, mostly-printable code REM (the export→import case)', () => {
+      // "HELLO" plus a few opcodes: small and mostly text, so both heuristic
+      // gates miss it - only the USR(16427) reference reveals it as code.
+      const helloWorld = [0x2d, 0x2a, 0x31, 0x31, 0x34, 0xcd, 0xc9, 0x2f];
+      const program = Uint8Array.from([
+        ...record(1, [REM, ...helloWorld]),
+        ...usrCall(0x402b),
+      ]);
+
+      // Without the USR reference the same REM stays text (nothing calls it).
+      const orphan = Uint8Array.from(record(1, [REM, ...helloWorld]));
+      expect(detokenizeProgramWithInfo(orphan).binaryLines).toBe(0);
+
+      const { source, binaryLines } = detokenizeProgramWithInfo(program);
+      expect(binaryLines).toBe(1);
+      expect(source).toContain('#BIN ');
+      const { bytes, errors } = tokenizeProgram(source);
+      expect(errors).toEqual([]);
+      expect(Array.from(bytes)).toEqual(Array.from(program));
+    });
+
+    it('leaves a readable line-1 REM as text when no USR points at it', () => {
+      const program = Uint8Array.from([
+        ...record(1, [REM, 0x2d, 0x2a, 0x31, 0x31, 0x34]), // 1 REM HELLO
+        ...usrCall(0x8000), // USR of some other address
+      ]);
+      expect(detokenizeProgramWithInfo(program).binaryLines).toBe(0);
+    });
+
+    it('ignores a quoted "USR(16427)" inside a string literal', () => {
+      // A PRINT of the literal text must not be mistaken for a real call.
+      const QUOTE = 0x01;
+      const strChars = [...USR, 0x10, ...digits(16427), 0x11]; // USR(16427)
+      const program = Uint8Array.from([
+        ...record(1, [REM, 0x2d, 0x2a, 0x31, 0x31, 0x34]), // 1 REM HELLO
+        ...record(2, [PRINT, QUOTE, ...strChars, QUOTE]),
+      ]);
+      expect(detokenizeProgramWithInfo(program).binaryLines).toBe(0);
+    });
+  });
 });
