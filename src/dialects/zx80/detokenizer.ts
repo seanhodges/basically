@@ -1,8 +1,24 @@
 import { zx80Charset, NEWLINE, QUOTE, QUOTE_IMAGE } from './charset';
 import { keywordByToken } from './keywords';
 import { formatBinaryDirective } from '../binaryDirective';
+import { PROGRAM_BASE } from './sysvars';
 
 const WORDLIKE = /[A-Z0-9$"%▘▝▀▖▌▞▛▒█▟▙▄▜▐▚▗\\]/;
+
+const REM_TOKEN = 0xfe;
+const OPEN_PAREN_TOKEN = 0xda;
+const SPACE = 0x00;
+/**
+ * "USR" typed as its three letters: on the ZX80 the integral functions have no
+ * one-byte token, so `USR(addr)` is stored as the characters U, S, R followed
+ * by the `(` token, digit characters, and `)`.
+ */
+const USR_CHARS = zx80Charset.toMachine('USR');
+
+/** Whether a byte is a decimal digit character (charset codes 0x1c-0x25). */
+function isDigitCode(b: number): boolean {
+  return b >= 0x1c && b <= 0x25;
+}
 
 /**
  * When to capture a program line as an opaque `#BIN` directive instead of
@@ -24,6 +40,62 @@ function isRawEscapeByte(b: number): boolean {
 }
 
 /**
+ * Addresses used as a `USR(<n>)` operand in the program's ordinary BASIC lines.
+ * A REM whose machine-code entry address (the byte just after its REM token) is
+ * one of these is being *called* as code, so it should round-trip as a `#BIN`
+ * block even when its bytes happen to read as text - e.g. a routine that embeds
+ * a printable message, which the size/non-printable-ratio heuristic misses.
+ *
+ * REM bodies and string literals are skipped so code bytes or a quoted "USR"
+ * can't masquerade as a call. The ZX80 is integer-only, so the address is read
+ * straight from the operand's decimal digit characters (no inline float).
+ */
+function collectUsrTargets(program: Uint8Array): Set<number> {
+  const targets = new Set<number>();
+  let p = 0;
+  while (p + 2 <= program.length) {
+    let recordEnd = p + 2;
+    while (recordEnd < program.length && program[recordEnd] !== NEWLINE) {
+      recordEnd++;
+    }
+    if (program[p + 2] !== REM_TOKEN) {
+      let inString = false;
+      for (let i = p + 2; i < recordEnd; i++) {
+        if (program[i] === QUOTE) {
+          inString = !inString;
+          continue;
+        }
+        if (inString) continue;
+        if (
+          program[i] === USR_CHARS[0] &&
+          program[i + 1] === USR_CHARS[1] &&
+          program[i + 2] === USR_CHARS[2]
+        ) {
+          // Skip the '(' token and any spaces, then read the decimal operand.
+          let j = i + 3;
+          while (
+            j < recordEnd &&
+            (program[j] === SPACE || program[j] === OPEN_PAREN_TOKEN)
+          ) {
+            j++;
+          }
+          let value = 0;
+          let digits = 0;
+          while (j < recordEnd && isDigitCode(program[j]!)) {
+            value = value * 10 + (program[j]! - 0x1c);
+            j++;
+            digits++;
+          }
+          if (digits > 0) targets.add(value & 0xffff);
+        }
+      }
+    }
+    p = recordEnd < program.length ? recordEnd + 1 : recordEnd;
+  }
+  return targets;
+}
+
+/**
  * Whether the record spanning `[start, end)` (line number at `start`, body
  * after it, terminator at `end - 1` unless `terminated` is false) must - or,
  * heuristically, should - be captured as a `#BIN` directive. Uses the same
@@ -37,6 +109,7 @@ function shouldCaptureBinary(
   terminated: boolean,
   maxLineNo: number,
   policy: BinaryLinePolicy,
+  usrTargets: Set<number>,
 ): boolean {
   const lineNo = (program[start]! << 8) | program[start + 1]!;
   if (lineNo < 1 || lineNo > 9999) return true;
@@ -46,6 +119,11 @@ function shouldCaptureBinary(
     policy === 'heuristic' &&
     keywordByToken.get(program[start + 2]!)?.word === 'REM'
   ) {
+    // A REM whose entry address is called via USR is machine code, even when
+    // its bytes read as text - capture it so its block chip round-trips. The
+    // code starts one byte past the REM token at start + 2.
+    if (usrTargets.has((PROGRAM_BASE + start + 3) & 0xffff)) return true;
+
     const contentStart = start + 3;
     const contentEnd = end - 1; // exclude the terminator
     const contentLen = contentEnd - contentStart;
@@ -78,6 +156,8 @@ export function detokenizeProgramWithInfo(
   let maxLineNo = 0;
   let p = 0;
 
+  const usrTargets = collectUsrTargets(program);
+
   while (p + 2 <= program.length) {
     const lineNo = (program[p]! << 8) | program[p + 1]!;
 
@@ -91,7 +171,15 @@ export function detokenizeProgramWithInfo(
     if (terminated) recordEnd++;
 
     if (
-      shouldCaptureBinary(program, p, recordEnd, terminated, maxLineNo, policy)
+      shouldCaptureBinary(
+        program,
+        p,
+        recordEnd,
+        terminated,
+        maxLineNo,
+        policy,
+        usrTargets,
+      )
     ) {
       lines.push(formatBinaryDirective(program.slice(p, recordEnd)));
       binaryLines++;

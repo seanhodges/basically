@@ -38,9 +38,9 @@ function isRawEscapeByte(b: number): boolean {
  * block even when its bytes happen to read as text - e.g. a routine that embeds
  * a printable message, which the size/non-printable-ratio heuristic misses.
  *
- * Only real BASIC lines are scanned (REM bodies are skipped) so raw code bytes
- * can't masquerade as a USR call; the operand's authoritative value is its
- * stored 5-byte float, not the printed digits.
+ * REM bodies and string literals are skipped so code bytes or a quoted USR
+ * can't masquerade as a call; the operand's authoritative value is its stored
+ * 5-byte float, not the printed digits.
  */
 function collectUsrTargets(program: Uint8Array): Set<number> {
   const targets = new Set<number>();
@@ -50,8 +50,13 @@ function collectUsrTargets(program: Uint8Array): Set<number> {
     const bodyStart = p + 4;
     const end = Math.min(bodyStart + len, program.length);
     if (program[bodyStart] !== REM_TOKEN) {
+      let inString = false;
       for (let i = bodyStart; i < end; i++) {
-        if (program[i] !== USR_TOKEN) continue;
+        if (program[i] === QUOTE) {
+          inString = !inString;
+          continue;
+        }
+        if (inString || program[i] !== USR_TOKEN) continue;
         // Skip the literal's printed digits (and any spaces) to its marker,
         // then read the 5-byte float the ROM actually calls.
         let j = i + 1;
