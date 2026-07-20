@@ -206,4 +206,54 @@ describe('zx81 hidden binary lines', () => {
       expect(detokenizeProgramWithInfo(small).binaryLines).toBe(0);
     });
   });
+
+  describe('a REM called via USR is captured whatever its bytes look like', () => {
+    // 2 RAND USR 16514 - the tokenized form: RAND, USR, printed "16514",
+    // NUMBER_MARKER, then the 5-byte float the ROM actually calls.
+    const RAND = 0xf9;
+    const USR = 0xd4;
+    const NUMBER_MARKER = 0x7e;
+    const DIGITS_16514 = [0x1d, 0x22, 0x21, 0x1d, 0x20]; // "16514"
+    const FLOAT_16514 = [0x8f, 0x01, 0x04, 0x00, 0x00];
+    const usrLine = (addr: number[]) =>
+      record(2, [RAND, USR, ...DIGITS_16514, NUMBER_MARKER, ...addr]);
+
+    it('captures a small, mostly-printable code REM (the export→import case)', () => {
+      // A line-1 REM (entry address 16514) that reads mostly as text - the
+      // heuristic's size and non-printable-ratio gates both miss it.
+      const helloWorld = [
+        0x21, 0x8d, 0x40, 0x7e, 0xfe, 0xff, 0xc8, 0xd7, 0x23, 0x18, 0xf8, 0x2d,
+        0x2a, 0x31, 0x31, 0x34, 0x1a, 0x00, 0x3c, 0x34, 0x37, 0x31, 0x29, 0x1b,
+        0xff,
+      ];
+      const program = Uint8Array.from([
+        ...record(1, [REM, ...helloWorld]),
+        ...usrLine(FLOAT_16514),
+      ]);
+
+      // Without the USR reference the same REM stays text (nothing calls it).
+      const orphan = Uint8Array.from([...record(1, [REM, ...helloWorld])]);
+      expect(detokenizeProgramWithInfo(orphan).binaryLines).toBe(0);
+
+      const { source, binaryLines } = detokenizeProgramWithInfo(program);
+      expect(binaryLines).toBe(1);
+      expect(source).toContain('#BIN ');
+      const { bytes, errors } = tokenizeProgram(source);
+      expect(errors).toEqual([]);
+      expect(Array.from(bytes)).toEqual(Array.from(program));
+
+      // The block chip re-derives at the classic line-1 address.
+      const blocks = deriveListingBlocks(source, zx81ListingLayout);
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]!.address).toBe(0x4082);
+    });
+
+    it('leaves a readable line-1 REM as text when no USR points at it', () => {
+      const program = Uint8Array.from([
+        ...record(1, [REM, 0x2d, 0x2a, 0x31, 0x31, 0x34]), // 1 REM HELLO
+        ...usrLine([0x84, 0x00, 0x00, 0x00, 0x00]), // USR of some other address
+      ]);
+      expect(detokenizeProgramWithInfo(program).binaryLines).toBe(0);
+    });
+  });
 });

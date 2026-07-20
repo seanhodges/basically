@@ -6,8 +6,9 @@ import {
   QUOTE_IMAGE,
 } from './charset';
 import { keywordByToken } from './keywords';
-import { encodeZxFloat, floatOverrideNotation } from './zxfloat';
+import { encodeZxFloat, decodeZxFloat, floatOverrideNotation } from './zxfloat';
 import { formatBinaryDirective } from '../binaryDirective';
+import { PROGRAM_BASE } from './sysvars';
 
 /**
  * When to capture a program line as an opaque `#BIN` directive instead of
@@ -22,9 +23,52 @@ export type BinaryLinePolicy = 'strict' | 'heuristic';
 const HEURISTIC_MIN_REM_CONTENT = 64;
 const HEURISTIC_RAW_ESCAPE_RATIO = 0.5;
 
+const REM_TOKEN = 0xea;
+const USR_TOKEN = 0xd4;
+
 /** Whether a byte has no printable form and would render as a `\{NN}` escape. */
 function isRawEscapeByte(b: number): boolean {
   return zx81Charset.toUnicode([b]).startsWith('\\{');
+}
+
+/**
+ * Addresses used as a `USR <n>` operand in the program's ordinary BASIC lines.
+ * A REM whose machine-code entry address (the byte just after its REM token) is
+ * one of these is being *called* as code, so it should round-trip as a `#BIN`
+ * block even when its bytes happen to read as text - e.g. a routine that embeds
+ * a printable message, which the size/non-printable-ratio heuristic misses.
+ *
+ * Only real BASIC lines are scanned (REM bodies are skipped) so raw code bytes
+ * can't masquerade as a USR call; the operand's authoritative value is its
+ * stored 5-byte float, not the printed digits.
+ */
+function collectUsrTargets(program: Uint8Array): Set<number> {
+  const targets = new Set<number>();
+  let p = 0;
+  while (p + 4 <= program.length) {
+    const len = program[p + 2]! | (program[p + 3]! << 8);
+    const bodyStart = p + 4;
+    const end = Math.min(bodyStart + len, program.length);
+    if (program[bodyStart] !== REM_TOKEN) {
+      for (let i = bodyStart; i < end; i++) {
+        if (program[i] !== USR_TOKEN) continue;
+        // Skip the literal's printed digits (and any spaces) to its marker,
+        // then read the 5-byte float the ROM actually calls.
+        let j = i + 1;
+        while (
+          j < end &&
+          (program[j] === 0x00 || NUMBER_CHAR.has(program[j]!))
+        ) {
+          j++;
+        }
+        if (program[j] === NUMBER_MARKER && j + 5 < end) {
+          targets.add(Math.round(decodeZxFloat(program, j + 1)) & 0xffff);
+        }
+      }
+    }
+    p = bodyStart + len;
+  }
+  return targets;
 }
 
 /**
@@ -40,6 +84,7 @@ function shouldCaptureBinary(
   bodyStart: number,
   maxLineNo: number,
   policy: BinaryLinePolicy,
+  usrTargets: Set<number>,
 ): boolean {
   const recordEnd = bodyStart + len;
   if (lineNo < 1 || lineNo > 9999) return true;
@@ -52,6 +97,10 @@ function shouldCaptureBinary(
     policy === 'heuristic' &&
     keywordByToken.get(program[bodyStart]!)?.word === 'REM'
   ) {
+    // A REM whose entry address is called via USR is machine code, even when
+    // its bytes read as text - capture it so its block chip round-trips.
+    if (usrTargets.has((PROGRAM_BASE + bodyStart + 1) & 0xffff)) return true;
+
     const contentStart = bodyStart + 1;
     const contentLen = recordEnd - 1 - contentStart;
     if (contentLen >= HEURISTIC_MIN_REM_CONTENT) {
@@ -113,6 +162,8 @@ export function detokenizeProgramWithInfo(
   let maxLineNo = 0;
   let p = 0;
 
+  const usrTargets = collectUsrTargets(program);
+
   while (p + 4 <= program.length) {
     const lineNo = (program[p]! << 8) | program[p + 1]!;
     const len = program[p + 2]! | (program[p + 3]! << 8);
@@ -121,7 +172,15 @@ export function detokenizeProgramWithInfo(
     // splice back cleanly, so it stays text and structuralWarnings reports it.
     if (
       p + 4 + len <= program.length &&
-      shouldCaptureBinary(program, lineNo, len, p + 4, maxLineNo, policy)
+      shouldCaptureBinary(
+        program,
+        lineNo,
+        len,
+        p + 4,
+        maxLineNo,
+        policy,
+        usrTargets,
+      )
     ) {
       lines.push(formatBinaryDirective(program.slice(p, p + 4 + len)));
       binaryLines++;
