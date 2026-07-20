@@ -42,4 +42,5 @@ For a worked example, poke the five bytes `3E 02 D3 FE C9` (`LD A,2 : OUT
 (0xFE),A : RET`) at 32768 and add `10 RANDOMIZE USR 32768`: running it turns the
 border red. See the [machine code guide](../guide/machine-code) for the full
 how-to and [Machine code & data blocks](./file-formats#machine-code-data-blocks)
-for the cross-dialect overview.
+for the cross-dialect overview. Every mnemonic, directive and operand form the
+assembly editor accepts is in the [Z80 assembly reference](./z80-assembly).

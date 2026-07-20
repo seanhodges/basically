@@ -69,7 +69,7 @@ export default withPwa(
               { text: 'Testing your code', link: '/guide/testing-programs' },
               { text: 'Running on real hardware', link: '/guide/hardware' },
               {
-                text: 'Machine code & data blocks',
+                text: 'Programming the Z80/6502',
                 link: '/guide/machine-code',
               },
               { text: 'Publish to Web', link: '/guide/publishing' },
@@ -164,6 +164,15 @@ export default withPwa(
                   { text: 'File formats', link: '/reference/trs80/formats' },
                 ],
               },
+            ],
+          },
+          {
+            // The assembler is per-CPU, not per-dialect, so machine-code blocks
+            // share one instruction reference per processor.
+            text: 'Assembly reference',
+            items: [
+              { text: 'Z80 assembly', link: '/reference/z80-assembly' },
+              { text: '6502 assembly', link: '/reference/6502-assembly' },
             ],
           },
           {

@@ -176,6 +176,17 @@ export function AsmEditor({
         syntaxHighlighting(basicHighlightStyle),
         asmLanguage(engine),
         EditorView.updateListener.of((update) => {
+          // Mirror the selection into the store so F1 / the Docs button can
+          // open this CPU's assembly reference seeded to the selected mnemonic
+          // (see referenceTopicFor). Matches CodeMirrorHost's BASIC editor.
+          if (update.selectionSet || update.docChanged) {
+            const sel = update.state.selection.main;
+            useIdeStore
+              .getState()
+              .setEditorSelection(
+                sel.empty ? '' : update.state.sliceDoc(sel.from, sel.to),
+              );
+          }
           if (!update.docChanged || reseeding.current) return;
           if (debounceRef.current !== null) {
             window.clearTimeout(debounceRef.current);

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useIdeStore } from '../app/store';
+import { selectBlocks, useIdeStore } from '../app/store';
 import { downloadBlob, programNameFromFileName } from '../storage/files';
 import { UNTITLED_FILE_NAME } from '../storage/settings';
 import { samplesToWav } from '../transfer/wav';
@@ -40,6 +40,10 @@ export function TransferDialog() {
   const fileName = useIdeStore((s) => s.fileName);
   const dialect = useIdeStore((s) => s.dialect);
   const blocks = useIdeStore((s) => s.blocks);
+  // Blocks as the user sees them: for an in-listing dialect (ZX81/ZX80) these
+  // are derived from the `#BIN` records in the program, whereas `blocks` (the
+  // fixed-address store field) is empty for them.
+  const documentBlocks = useIdeStore(selectBlocks);
   const requestStop = useIdeStore((s) => s.requestStop);
 
   const [robust, setRobust] = useState(false);
@@ -51,10 +55,18 @@ export function TransferDialog() {
 
   if (!open) return null;
 
-  // Whether any file target embeds the document's memory blocks; drives the
-  // auto-loader checkbox vs the blocks-are-dropped notice below.
+  // In-listing dialects (ZX81/ZX80) keep machine code inside the BASIC program
+  // itself, so it always exports with the program - no target flag or loader.
+  const inListing = !!dialect.memoryBlocks?.inListing;
+  // Whether any file target embeds the document's fixed-address memory blocks;
+  // drives the auto-loader checkbox vs the blocks-are-dropped notice below.
   const blocksSupported = dialect.buildTargets.some((t) => t.supportsBlocks);
-  const hasBlocks = blocks.length > 0;
+  // Fixed-address blocks an export could silently drop (empty for in-listing
+  // dialects, whose code travels inside the program image instead).
+  const hasFixedBlocks = blocks.length > 0;
+  // Blocks to describe in the notice - derived from the listing when in-listing.
+  const displayBlocks = inListing ? documentBlocks : blocks;
+  const hasBlocks = displayBlocks.length > 0;
 
   const guard = (fn: () => void | Promise<void>) => () => {
     setStatus('');
@@ -105,7 +117,7 @@ export function TransferDialog() {
   // targets (and documents with no blocks) export straight away.
   const chooseFileTarget = (targetId: string) => () => {
     const target = dialect.buildTargets.find((t) => t.id === targetId);
-    if (target && !target.supportsBlocks && hasBlocks) {
+    if (target && !target.supportsBlocks && hasFixedBlocks) {
       setStatus('');
       setPendingTargetId(targetId);
       return;
@@ -182,13 +194,21 @@ export function TransferDialog() {
         {hasBlocks && (
           <div className={styles.transferGroup}>
             <h3>Memory blocks</h3>
-            {blocksSupported ? (
+            {inListing ? (
+              <p>
+                The document&apos;s {displayBlocks.length} memory{' '}
+                {displayBlocks.length === 1 ? 'block is' : 'blocks are'} stored
+                inside the program itself, so every export — and the serial
+                bridge — carries {displayBlocks.length === 1 ? 'it' : 'them'}{' '}
+                automatically.
+              </p>
+            ) : blocksSupported ? (
               <>
                 <p>
-                  The document&apos;s {blocks.length} memory{' '}
-                  {blocks.length === 1 ? 'block is' : 'blocks are'} included in
-                  the exported tape (the serial bridge sends the BASIC program
-                  only).
+                  The document&apos;s {displayBlocks.length} memory{' '}
+                  {displayBlocks.length === 1 ? 'block is' : 'blocks are'}{' '}
+                  included in the export (the serial bridge sends the BASIC
+                  program only).
                 </p>
                 <label className={dialog.inline}>
                   <input
