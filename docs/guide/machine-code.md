@@ -50,18 +50,22 @@ into blocks automatically:
 - An **Acorn Atom `.atm`** that loads outside the BASIC text area is treated as a
   machine-code or data file and imported as a block.
 - A **TRS-80 SYSTEM `.cas`** imports each of its records as a block.
+- A **disc image** — the BBC `.ssd`, the Commodore `.d64`, or the Acorn Atom and
+  TRS-80 `.dsk` — brings the BASIC program back together with every block it
+  holds, and is also what you **export** to carry them out again.
 
 Import a file from **File ▸ Import**, or just drag it onto the editor. The status
 bar tells you what came in, including any notes about parts of the file that were
 skipped. The [file formats reference](../reference/file-formats#machine-code-data-blocks)
 lists exactly which formats carry blocks.
 
-Some machines — the ZX81, ZX80 and BBC — save only their BASIC program to a
-file, with no room for a block. For those, drag a **sidecar file** named
-`<name>-<addr>.bin` (for example `sprite-0x8000.bin`) onto the editor: its bytes
-are added to the current program as a block at the address in its name. This
-works on any block-capable machine and adds to your document rather than
-replacing it.
+A machine's plain program file (the ZX81 `.P`, the BBC `.bbc`, the Atom `.atm`,
+the TRS-80 `.cas`) holds only the BASIC listing. To carry blocks out and back,
+export the machine's **disc image** instead — the BBC `.ssd`, the Commodore
+`.d64`, or the Atom and TRS-80 `.dsk` — which bundles the program with every
+block in one file. Exporting to a program-only format instead warns you first
+that the blocks would be left behind. The ZX81 and ZX80 are the exception: they
+keep machine code inside the listing itself as `#BIN` REM records.
 
 A program that carries blocks is saved as a **project bundle** (`.bproj`) — a
 single readable file holding your BASIC source and its blocks together — so

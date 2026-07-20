@@ -551,8 +551,8 @@ export interface MemoryBlocksSupport {
    * view over the `#BIN` REM records embedded in the BASIC program itself (the
    * ZX80/ZX81 hidden-machine-code-in-REM convention). Such blocks derive their
    * address from where their record sits in the program, ride inside the
-   * standard monolithic `.P`/`.O` image (no sidecar, no RAM injection), and are
-   * edited by regenerating their `#BIN` source line. `validRanges`,
+   * standard monolithic `.P`/`.O` image (not as a fixed-address RAM injection),
+   * and are edited by regenerating their `#BIN` source line. `validRanges`,
    * `reservedRanges`, `programArea` and `defaultAddress` are inert for these
    * dialects. See {@link ListingLayout} and `src/app/listingBlocks.ts`.
    */

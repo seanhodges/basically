@@ -2,8 +2,11 @@
 
 Every dialect reads and writes the same plain-text editor format (`.txt`) and,
 in addition, one **native binary** that real hardware and emulators load
-directly (`.P`, `.O`, `.TAP`, `.bbc`, `.prg`, `.d64`, `.cas`, `.atm`) plus a
-**cassette `.wav`**. The native binary doubles as the in-memory image the IDE's own
+directly (`.P`, `.O`, `.TAP`, `.bbc`, `.ssd`, `.prg`, `.d64`, `.cas`, `.atm`,
+`.dsk`) plus a **cassette `.wav`**. Several machines also read and write a
+block-carrying **disc image** (`.ssd`, `.d64`, `.dsk`) that holds the BASIC
+program together with its machine-code and data blocks. The native binary
+doubles as the in-memory image the IDE's own
 emulator injects, and (for dialects that support importing) as an import format
 that round-trips back to editable source.
 
@@ -65,8 +68,8 @@ reference page:
 | Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801                    |
 | Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001                    |
 | Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401                    |
-| TRS-80             | `.cas`         | `.cas`         | Model I CSAVE cassette block                                   |
-| Acorn Atom         | `.atm`         | `.atm`         | 22-byte header + `#2900` program image                         |
+| TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks |
+| Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks   |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -253,6 +256,20 @@ length, load address, data, checksum) terminated by a `0x78` entry-point
 record; each record imports as a block and the entry address is kept with the
 block that contains it.
 
+### TRS-80 `.dsk`
+
+The `.cas` cassette carries the BASIC program only, so a document with
+[memory blocks](#machine-code-data-blocks) exports instead as a **`.dsk`
+disk image** that carries the program _and_ its blocks in one file. The `.dsk`
+is a **JV1** disc — the simplest, most widely-read TRS-80 disk format: a flat
+run of 256-byte sectors (Model I single density, 35 tracks × 10 sectors) with a
+**TRSDOS**-style directory on track 17. The BASIC program is stored as a
+`NAME/BAS` file and each memory block as a `NAME/CMD` load module that records
+the block's load and entry addresses. Import opens the largest BASIC program for
+editing, preserves any other BASIC programs with the document, and brings each
+`/CMD` file back as a block at its load address. Exporting to `.cas` (or cassette
+`.wav`) instead warns first that the blocks would be dropped.
+
 ### Acorn Atom `.atm`
 
 The de-facto interchange format used by Atom emulators (Atomulator, AtoMMC): a
@@ -274,17 +291,34 @@ machine-code or data file: it imports as a [memory
 block](#machine-code-data-blocks), its exec address is kept with the block,
 and Run starts it there with `LINK` — the way `*RUN` would on real hardware.
 
+### Acorn Atom `.dsk`
+
+The `.atm` carries a single file, so a document with
+[memory blocks](#machine-code-data-blocks) exports instead as a **`.dsk` disk
+image** that carries the BASIC program _and_ its blocks together. The `.dsk` is
+an Acorn DFS-family single-sided disc: a two-sector catalogue lists each file
+with its own **load** and **exec** address, exactly what tells a `#2900` BASIC
+program apart from machine code at some other address. The program is written
+with `load = exec = #2900` and each block at its own address (its exec kept as
+the block's entry). Import opens the largest `#2900` program for editing,
+preserves any other BASIC programs with the document, and brings the remaining
+files back as blocks. Exporting to `.atm` (or cassette `.wav`) instead warns
+first that the blocks would be dropped.
+
 ## Machine code & data blocks
 
 Some programs load machine code or data at a fixed address alongside the BASIC
 program. The IDE keeps these as named **memory blocks**; on Run they are written
 straight into RAM before the program starts, and they travel with the document
 through the [project bundle](#project-bundle-bproj) and through
-[share links](../guide/publishing). The ZX Spectrum `.TAP`, the Commodore `.d64`
-and the BBC `.ssd` carry blocks in **both directions** (see their sections —
+[share links](../guide/publishing). The ZX Spectrum `.TAP`, the Commodore `.d64`,
+the BBC `.ssd`, and the Atom and TRS-80 `.dsk` disc images carry blocks in
+**both directions** (see their sections —
 [`.TAP`](#zx-spectrum-spectrum-128-tap),
 [`.d64`](#commodore-64-vic-20-pet-d64),
-[`.ssd`](#bbc-micro-master-ssd) — for the export layouts); several native
+[`.ssd`](#bbc-micro-master-ssd),
+[Atom `.dsk`](#acorn-atom-dsk),
+[TRS-80 `.dsk`](#trs-80-dsk) — for the export layouts); several native
 formats carry blocks on **import** only:
 
 - **ZX Spectrum `.TAP`** — a tape holding CODE files (each with a load address)
@@ -317,23 +351,12 @@ When you Run, the IDE checks each block against the machine's memory: a block
 that would overlap the BASIC program is refused (Run reports which block), and a
 block over live hardware such as the screen is allowed but flagged.
 
-### Sidecar block files (.bin)
-
-The Acorn Atom and TRS-80 have memory blocks but no native container to carry
-them, so a block for those machines arrives as a **sidecar file**: drag a
-`<name>-<addr>.bin` onto the editor and its bytes are added to the current
-document as a block at the address in its file name. The address is hex
-(`sprite-0x8000.bin`, also `$` or `&`) or plain decimal (`sprite-32768.bin`),
-and the name part becomes the block name. Unlike importing a program file, a
-sidecar augments the open document rather than replacing it. Blocks also travel
-with a document through a project bundle or a share link.
-
-Machines with a block-carrying container import blocks from it instead — the BBC
-from a [`.ssd`](#bbc-micro-master-ssd) disc (or embed code as inline assembly in
-the `.bbc`), the Commodore from a [`.d64`](#commodore-64-vic-20-pet-d64), the ZX
-Spectrum from a [`.TAP`](#zx-spectrum-spectrum-128-tap) — so dropping a `.bin`
-on those machines points you at the container rather than adding a sidecar. The
-ZX81/ZX80 keep their machine code inside the listing as `#BIN` REM records.
+Every block-capable machine carries its blocks inside a container in **both
+directions**: the BBC in a [`.ssd`](#bbc-micro-master-ssd) disc (or as inline
+assembly in the `.bbc`), the Commodore in a [`.d64`](#commodore-64-vic-20-pet-d64),
+the ZX Spectrum in a [`.TAP`](#zx-spectrum-spectrum-128-tap), and the Acorn Atom
+and TRS-80 in a [`.dsk`](#acorn-atom-dsk) disc image. The ZX81/ZX80 keep their
+machine code inside the listing as `#BIN` REM records.
 
 ## Cassette audio
 

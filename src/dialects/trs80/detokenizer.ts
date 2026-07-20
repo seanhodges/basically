@@ -8,10 +8,20 @@ import {
   parseCasImage,
   parseCasAllFiles,
   casFormat,
+  buildCasImage,
   MODEL_III_MESSAGE,
   type CasBasicFile,
   type CasSystemFile,
 } from './casfile';
+import {
+  isJv1Disk,
+  parseTrsDisk,
+  parseCmdModule,
+  type Trs80DiskEntry,
+} from './trs80Disk';
+
+/** Disk-BASIC token marker that prefixes a tokenized `/BAS` program file. */
+const DISK_BASIC_MARKER = 0xff;
 
 const QUOTE = 0x22;
 const REM_TOKEN = 0x93;
@@ -37,6 +47,7 @@ const STMT_SEP = 0x3a; // ':'
  * hides its implicit colon.
  */
 export function detokenizeProgram(image: Uint8Array): string {
+  if (isJv1Disk(image)) return detokenizeTrs80DiskWithReport(image).source;
   // Accept a raw `.cas` cassette image as well as the bare program: strip the
   // leader/sync/marker/filename wrapper so the Import dialog can read `.cas`.
   const program = isCasImage(image) ? parseCasImage(image).program : image;
@@ -69,6 +80,8 @@ export function detokenizeProgramWithReport(
   image: Uint8Array,
 ): DetokenizeResult {
   const warnings: string[] = [];
+
+  if (isJv1Disk(image)) return detokenizeTrs80DiskWithReport(image);
 
   const format = casFormat(image);
 
@@ -201,6 +214,104 @@ function detokenizeCassette(
     }
     source = decoded.source;
   }
+
+  return {
+    source,
+    warnings,
+    ...(blocks.length > 0 ? { blocks } : {}),
+    ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
+  };
+}
+
+/** The program payload of a `/BAS` entry, less its leading `0xFF` marker. */
+function basicProgram(entry: Trs80DiskEntry): Uint8Array {
+  return entry.bytes[0] === DISK_BASIC_MARKER
+    ? entry.bytes.slice(1)
+    : entry.bytes;
+}
+
+/** Whether a `.dsk` entry is a BASIC program (a `/BAS` or `0xFF`-marked file). */
+function isBasicEntry(entry: Trs80DiskEntry): boolean {
+  return entry.ext === 'BAS' || entry.bytes[0] === DISK_BASIC_MARKER;
+}
+
+/**
+ * Import a TRS-80 `.dsk` disc image (see {@link import('./trs80Disk')}). The
+ * disc holds the BASIC program (a `/BAS` file) plus each memory block (a `/CMD`
+ * load module). The largest BASIC program (directory order breaking ties) is
+ * opened for editing; any other BASIC files are preserved as tape files (the
+ * interpreter mounts no drive), and each `/CMD` module imports as a memory block
+ * at its load address with its entry kept - so a whole document round-trips
+ * through the disc intact.
+ */
+export function detokenizeTrs80DiskWithReport(
+  image: Uint8Array,
+): DetokenizeResult {
+  const { entries, warnings } = parseTrsDisk(image);
+  const basics = entries.filter(isBasicEntry);
+  const others = entries.filter((e) => !isBasicEntry(e));
+
+  let chosen: Trs80DiskEntry | null = null;
+  let chosenProgram: Uint8Array = new Uint8Array(0);
+  for (const b of basics) {
+    const prog = basicProgram(b);
+    if (chosen === null || prog.length > chosenProgram.length) {
+      chosen = b;
+      chosenProgram = prog;
+    }
+  }
+
+  const codeFiles: ImportedCodeFile[] = [];
+  for (const o of others) {
+    const mod = parseCmdModule(o.bytes);
+    if (!mod) continue;
+    codeFiles.push({
+      name: o.name,
+      address: mod.address,
+      bytes: mod.bytes,
+      ...(mod.entry !== mod.address ? { entry: mod.entry } : {}),
+    });
+  }
+  const blocks = codeFilesToBlocks(codeFiles);
+
+  const tapeFiles: TapeFile[] = basics
+    .filter((b) => b !== chosen)
+    .map((b) => ({
+      name: b.name === '' ? 'PROGRAM' : b.name,
+      kind: 'program',
+      tap: buildCasImage(basicProgram(b), b.name || 'A'),
+    }));
+
+  if (entries.length > 1 && chosen !== null) {
+    const parts: string[] = [];
+    if (tapeFiles.length > 0) {
+      parts.push(
+        `${tapeFiles.length} other BASIC program${tapeFiles.length === 1 ? '' : 's'} ` +
+          'preserved with the document (the TRS-80 emulator mounts no drive, so ' +
+          'the running program cannot load them)',
+      );
+    }
+    if (others.length > 0) {
+      parts.push(
+        `${others.length} machine-code file${others.length === 1 ? '' : 's'} ` +
+          'imported as memory blocks',
+      );
+    }
+    warnings.push(
+      `Multi-file disk image: opened "${chosen.name === '' ? '?' : chosen.name}" ` +
+        `(${chosenProgram.length} bytes), the largest BASIC program` +
+        (parts.length > 0 ? `; ${parts.join('; ')}` : '') +
+        '.',
+    );
+  } else if (chosen === null && entries.length > 0) {
+    warnings.push(
+      'The .dsk holds no BASIC program (no /BAS file); its files were imported ' +
+        'as memory blocks.',
+    );
+  }
+
+  const source =
+    chosen !== null ? decodeLinkedProgram(chosenProgram).source : '';
 
   return {
     source,

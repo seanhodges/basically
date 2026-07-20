@@ -78,6 +78,78 @@ describe('zxspectrum kaleidoscope .TAP export round trip', () => {
   });
 });
 
+describe('atom .dsk export round trip', () => {
+  const dialect = getDialect('atom');
+  // A short routine at #5000 (the Atom's default block address), well clear of
+  // the BASIC program area at #2900.
+  const source = '10 PRINT "THE ACTUAL GAME"\n20 GOTO 10\n';
+  const block: MemoryBlock = {
+    id: 'sprite-1',
+    name: 'sprites',
+    address: 0x5000,
+    bytes: Uint8Array.of(0xa9, 0x00, 0x60),
+    kind: 'code',
+  };
+
+  it('preserves the entire program (BASIC + block)', async () => {
+    const outcome = await exportImportRoundTrip(
+      dialect,
+      source,
+      'game',
+      [block],
+      { targetId: 'atom-dsk', loader: false },
+    );
+
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.programByteExact).toBe(true);
+    expect(outcome.blocks).toHaveLength(1);
+    expect(outcome.blocks[0]!.address).toBe(0x5000);
+    expect(Array.from(outcome.blocks[0]!.bytes)).toEqual(
+      Array.from(block.bytes),
+    );
+    expect(outcome.tapeFiles).toEqual([]);
+  });
+});
+
+describe('trs80 .dsk export round trip', () => {
+  const dialect = getDialect('trs80');
+  // A short routine at 0x7000 (the TRS-80's default block address), well clear
+  // of the BASIC program area at 0x42E9. The program is comfortably larger than
+  // anything else so the "largest BASIC program" rule opens it.
+  const source =
+    '10 PRINT "THE ACTUAL GAME, NOT A LOADER"\n' +
+    '20 FOR I=1 TO 100\n' +
+    '30 PRINT "COUNTING ";I\n' +
+    '40 NEXT I\n' +
+    '50 GOTO 20\n';
+  const block: MemoryBlock = {
+    id: 'sprite-1',
+    name: 'sprites',
+    address: 0x7000,
+    bytes: Uint8Array.of(0x21, 0x00, 0x3c, 0x36, 0xff, 0xc9),
+    kind: 'code',
+  };
+
+  it('preserves the entire program (BASIC + block)', async () => {
+    const outcome = await exportImportRoundTrip(
+      dialect,
+      source,
+      'game',
+      [block],
+      { targetId: 'trs80-dsk', loader: false },
+    );
+
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.programByteExact).toBe(true);
+    expect(outcome.blocks).toHaveLength(1);
+    expect(outcome.blocks[0]!.address).toBe(0x7000);
+    expect(Array.from(outcome.blocks[0]!.bytes)).toEqual(
+      Array.from(block.bytes),
+    );
+    expect(outcome.tapeFiles).toEqual([]);
+  });
+});
+
 describe('commodore64 .d64 export round trip', () => {
   const dialect = getDialect('commodore64');
   // The C64 ships no sample bundling blocks, so build one inline: a short

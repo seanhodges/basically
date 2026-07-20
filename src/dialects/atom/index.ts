@@ -92,7 +92,10 @@ export const atom: Dialect = {
   samples: atomSamples,
   buildTargets: atomBuildTargets,
 
-  binaryImports: [{ extension: '.atm', label: 'Import .ATM…' }],
+  binaryImports: [
+    { extension: '.atm', label: 'Import .ATM…' },
+    { extension: '.dsk', label: 'Import .DSK disk…' },
+  ],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,
