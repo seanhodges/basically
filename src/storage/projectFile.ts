@@ -207,7 +207,12 @@ export function parseBlocks(raw: unknown[]): MemoryBlock[] {
  */
 export type SerializedListingBlockMeta = Record<
   string,
-  { name?: string; kind?: 'code' | 'data'; comment?: string }
+  {
+    name?: string;
+    kind?: 'code' | 'data';
+    comment?: string;
+    asmSource?: string;
+  }
 >;
 
 /**
@@ -217,12 +222,23 @@ export type SerializedListingBlockMeta = Record<
  * rather than throwing, since the blocks themselves always re-derive from
  * `source`.
  */
-export function parseListingBlockMeta(
-  raw: unknown,
-): Record<number, { name?: string; kind?: 'code' | 'data'; comment?: string }> {
+export function parseListingBlockMeta(raw: unknown): Record<
+  number,
+  {
+    name?: string;
+    kind?: 'code' | 'data';
+    comment?: string;
+    asmSource?: string;
+  }
+> {
   const out: Record<
     number,
-    { name?: string; kind?: 'code' | 'data'; comment?: string }
+    {
+      name?: string;
+      kind?: 'code' | 'data';
+      comment?: string;
+      asmSource?: string;
+    }
   > = {};
   if (raw === null || typeof raw !== 'object') return out;
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
@@ -230,12 +246,17 @@ export function parseListingBlockMeta(
     if (!Number.isInteger(ordinal) || ordinal < 0) continue;
     if (v === null || typeof v !== 'object') continue;
     const m = v as Record<string, unknown>;
-    const meta: { name?: string; kind?: 'code' | 'data'; comment?: string } =
-      {};
+    const meta: {
+      name?: string;
+      kind?: 'code' | 'data';
+      comment?: string;
+      asmSource?: string;
+    } = {};
     if (typeof m.name === 'string' && isValidBlockName(m.name))
       meta.name = m.name;
     if (m.kind === 'code' || m.kind === 'data') meta.kind = m.kind;
     if (typeof m.comment === 'string') meta.comment = m.comment;
+    if (typeof m.asmSource === 'string') meta.asmSource = m.asmSource;
     if (Object.keys(meta).length > 0) out[ordinal] = meta;
   }
   return out;
@@ -329,7 +350,12 @@ export interface ParsedProject {
   /** Listing-block overrides, or `{}` when the file carried none. */
   listingBlockMeta: Record<
     number,
-    { name?: string; kind?: 'code' | 'data'; comment?: string }
+    {
+      name?: string;
+      kind?: 'code' | 'data';
+      comment?: string;
+      asmSource?: string;
+    }
   >;
 }
 

@@ -29,6 +29,15 @@ export interface ListingBlockMeta {
   name?: string;
   kind?: 'code' | 'data';
   comment?: string;
+  /**
+   * The block editor's last-assembled source. A `#BIN` record holds only raw
+   * bytes, so re-disassembling them can't tell code from a `DB` data section (a
+   * data byte like 0x21 decodes back as `LD HL,...`). Persisting the text lets
+   * a reload restore it verbatim - data sections, labels and comments included.
+   * Honored only when it still assembles to the block's bytes (see the store's
+   * `overlayListingAsmSource`), so the bytes stay the source of truth.
+   */
+  asmSource?: string;
 }
 
 /** Overlay a user override onto a derived block (absent fields keep defaults). */

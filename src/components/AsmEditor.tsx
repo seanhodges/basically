@@ -112,17 +112,22 @@ export function AsmEditor({
       if (result.ok) {
         view.dispatch(setDiagnostics(view.state, []));
         const changed = !bytesEqual(result.bytes, current.bytes);
-        if (changed) {
+        if (inListing) {
+          // Rewrite the `#BIN` bytes and stash the source text (DB data,
+          // labels, comments) so a reload restores it instead of
+          // re-disassembling. Mark our own write so the reseed effect below
+          // doesn't clobber the editor when the derived block echoes back.
           lastWrittenBytes.current = result.bytes;
-          if (inListing)
-            store.commitListingBlockBytes(current.id, result.bytes);
-        }
-        if (!inListing && (changed || current.asmSource !== text)) {
-          store.upsertBlock({
-            ...current,
-            bytes: changed ? result.bytes : current.bytes,
-            asmSource: text,
-          });
+          store.commitListingBlockBytes(current.id, result.bytes, text);
+        } else {
+          if (changed) lastWrittenBytes.current = result.bytes;
+          if (changed || current.asmSource !== text) {
+            store.upsertBlock({
+              ...current,
+              bytes: changed ? result.bytes : current.bytes,
+              asmSource: text,
+            });
+          }
         }
         store.setBlockAsmError(current.id, false);
       } else {
@@ -231,10 +236,15 @@ export function AsmEditor({
       window.clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    const text = engine
-      .disassemble(block.bytes, block.address)
-      .map((l) => l.text)
-      .join('\n');
+    // Prefer the block's saved assembly source (kept in sync with its bytes)
+    // so a data section survives; only fall back to disassembly when there is
+    // none - matching the mount-time seeding above.
+    const text =
+      block.asmSource ??
+      engine
+        .disassemble(block.bytes, block.address)
+        .map((l) => l.text)
+        .join('\n');
     reseeding.current = true;
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: text },
