@@ -32,7 +32,7 @@ In graphics modes the screen fills **0x3000–0x7FFF** (only 0x7C00 and up in MO
 may be overwritten the moment the program selects a graphics mode.
 
 The `.bbc` file holds only the BASIC program, so blocks travel inside the
-[`.ssd`](./file-formats#bbc-micro-master-ssd) disc image instead: export a
+[`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc image instead: export a
 `.ssd` to carry the program together with each block (at its own load/exec
 address), and importing one brings them all back. Blocks also travel with a BBC
 document through the [project bundle](./file-formats#project-bundle-bproj) or a
