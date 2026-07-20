@@ -102,6 +102,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const blocks = useIdeStore((s) => s.blocks);
   const tapeFiles = useIdeStore((s) => s.tapeFiles);
   const autoStart = useIdeStore((s) => s.autoStart);
+  const bootDisc = useIdeStore((s) => s.bootDisc);
   const runRequest = useIdeStore((s) => s.runRequest);
   const stopRequest = useIdeStore((s) => s.stopRequest);
   const resetRequest = useIdeStore((s) => s.resetRequest);
@@ -331,42 +332,50 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     (async () => {
       setError('');
       try {
-        // Gate on the full editor lint set (not just tokenizer errors), so
-        // Play refuses exactly the errors the editor underlines - unless the
-        // user has turned the lint gate off in Settings > Emulator, in which
-        // case only tokenizer errors block the run.
-        const errorCount = countProgramErrors(
-          dialect,
-          source,
-          useIdeStore.getState().runGateLint,
-        );
-        if (errorCount > 0) {
-          setError(`Fix ${errorCount} error(s) before running`);
-          return;
-        }
-        const result = dialect.tokenize(source);
-        if (result.image.length === 0) {
-          setError('Program is empty');
-          return;
-        }
-        // Memory blocks: gate the run exactly like the lint check above, but
-        // only for dialects that describe a memory-block layout and only when
-        // the document actually has blocks (most documents never touch this).
-        // programByteSize is the raw tokenized program's byte count
-        // (byteSize), not the built image's length - `programArea` measures
-        // slack past the program bytes themselves, and `image` can carry
-        // extra framing (e.g. the Spectrum's TAP header) that isn't part of
-        // the program area at all.
-        if (dialect.memoryBlocks && blocks.length > 0) {
-          const issues = lintBlocks(
-            blocks,
-            dialect.memoryBlocks,
-            result.byteSize,
+        // A preserved boot-disc document (a multi-file `.ssd` the memory-block
+        // model can't represent) runs its verbatim image, not `source`: the
+        // machine mounts-and-boots it so the disc's own loader runs. Skip every
+        // source/blocks gate below - `source` is only the recovered listing.
+        let image: Uint8Array = new Uint8Array(0);
+        if (!bootDisc) {
+          // Gate on the full editor lint set (not just tokenizer errors), so
+          // Play refuses exactly the errors the editor underlines - unless the
+          // user has turned the lint gate off in Settings > Emulator, in which
+          // case only tokenizer errors block the run.
+          const errorCount = countProgramErrors(
+            dialect,
+            source,
+            useIdeStore.getState().runGateLint,
           );
-          const blocking = issues.find((i) => i.severity === 'error');
-          if (blocking) {
-            setError(`Block "${blocking.blockName}": ${blocking.message}`);
+          if (errorCount > 0) {
+            setError(`Fix ${errorCount} error(s) before running`);
             return;
+          }
+          const result = dialect.tokenize(source);
+          if (result.image.length === 0) {
+            setError('Program is empty');
+            return;
+          }
+          image = result.image;
+          // Memory blocks: gate the run exactly like the lint check above, but
+          // only for dialects that describe a memory-block layout and only when
+          // the document actually has blocks (most documents never touch this).
+          // programByteSize is the raw tokenized program's byte count
+          // (byteSize), not the built image's length - `programArea` measures
+          // slack past the program bytes themselves, and `image` can carry
+          // extra framing (e.g. the Spectrum's TAP header) that isn't part of
+          // the program area at all.
+          if (dialect.memoryBlocks && blocks.length > 0) {
+            const issues = lintBlocks(
+              blocks,
+              dialect.memoryBlocks,
+              result.byteSize,
+            );
+            const blocking = issues.find((i) => i.severity === 'error');
+            if (blocking) {
+              setError(`Block "${blocking.blockName}": ${blocking.message}`);
+              return;
+            }
           }
         }
         setLoading(true);
@@ -380,13 +389,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // A start empties the virtual filesystem; only files the new run
         // saves are visible to it (a pause mid-run does NOT clear).
         emulatorVfs.clear(dialect.id);
-        const loadOpts = {
-          ...(blocks.length > 0 ? { blocks } : {}),
-          ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
-          ...(autoStart !== null ? { autoStart } : {}),
-        };
+        // A boot disc supersedes blocks/tape/auto-start: it is booted verbatim.
+        const loadOpts = bootDisc
+          ? { bootDisc }
+          : {
+              ...(blocks.length > 0 ? { blocks } : {}),
+              ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
+              ...(autoStart !== null ? { autoStart } : {}),
+            };
         machine.loadProgram(
-          result.image,
+          image,
           Object.keys(loadOpts).length > 0 ? loadOpts : undefined,
         );
         machine.setSpeed(speed);

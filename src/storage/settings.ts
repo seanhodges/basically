@@ -17,6 +17,7 @@ import {
   serializeTapeFiles,
   parseTapeFiles,
 } from './projectFile';
+import { bytesToBase64, base64ToBytes } from './vfs/base64';
 
 /** Ordinal-keyed listing-block overrides (see `parseListingBlockMeta`). */
 type ListingBlockMetaMap = Record<
@@ -54,6 +55,7 @@ const KEYS = {
   autosaveListingMeta: 'mbide.autosave.listingmeta',
   autosaveAutoStart: 'mbide.autosave.autostart',
   autosaveTapeFiles: 'mbide.autosave.tapefiles',
+  autosaveBootDisc: 'mbide.autosave.bootdisc',
   aiConversation: 'mbide.autosave.ai',
   dialectId: 'mbide.dialectId',
   autoLineNumbering: 'mbide.autoLineNumbering',
@@ -510,6 +512,21 @@ function loadAutosaveTapeFiles(): TapeFile[] {
   }
 }
 
+/**
+ * The autosaved verbatim boot-disc image, or `null` when none is stored or the
+ * stored base64 is corrupt/unparseable (defensive, like
+ * {@link loadAutosaveBlocks}).
+ */
+function loadAutosaveBootDisc(): Uint8Array | null {
+  const raw = readSessionFirst(KEYS.autosaveBootDisc);
+  if (raw === null) return null;
+  try {
+    return base64ToBytes(raw);
+  } catch {
+    return null;
+  }
+}
+
 export function loadAutosave(): {
   name: string;
   text: string;
@@ -517,6 +534,7 @@ export function loadAutosave(): {
   listingBlockMeta: ListingBlockMetaMap;
   autoStart: number | null;
   tapeFiles: TapeFile[];
+  bootDisc: Uint8Array | null;
 } | null {
   // Reading the doc first adopts the pair's storage into the session slot, so
   // the name/blocks reads that follow resolve from the same storage.
@@ -529,6 +547,7 @@ export function loadAutosave(): {
     listingBlockMeta: loadAutosaveListingMeta(),
     autoStart: loadAutosaveAutoStart(),
     tapeFiles: loadAutosaveTapeFiles(),
+    bootDisc: loadAutosaveBootDisc(),
   };
 }
 
@@ -539,6 +558,7 @@ export function saveAutosave(
   listingBlockMeta: ListingBlockMetaMap = {},
   autoStart: number | null = null,
   tapeFiles: readonly TapeFile[] = [],
+  bootDisc: Uint8Array | null = null,
 ): void {
   try {
     writeThrough(KEYS.autosaveDoc, text);
@@ -569,6 +589,11 @@ export function saveAutosave(
         JSON.stringify(serializeTapeFiles(tapeFiles)),
       );
     }
+    if (!bootDisc || bootDisc.length === 0) {
+      removeBoth(KEYS.autosaveBootDisc);
+    } else {
+      writeThrough(KEYS.autosaveBootDisc, bytesToBase64(bootDisc));
+    }
   } catch {
     // quota exceeded - autosave is best-effort
   }
@@ -592,6 +617,7 @@ export function clearAutosave(): void {
   removeBoth(KEYS.autosaveListingMeta);
   removeBoth(KEYS.autosaveAutoStart);
   removeBoth(KEYS.autosaveTapeFiles);
+  removeBoth(KEYS.autosaveBootDisc);
 }
 
 /**

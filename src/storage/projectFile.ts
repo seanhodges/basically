@@ -106,6 +106,14 @@ export interface ProjectFileV1 {
    * version bump. The blocks themselves re-derive from `source`.
    */
   listingBlockMeta?: SerializedListingBlockMeta;
+  /**
+   * A verbatim disc image (base64) the document boots instead of running its
+   * tokenized `source` - a multi-file BBC `.ssd` the memory-block model can't
+   * represent (see the document field of the same name). Optional and additive
+   * like the fields above - older files without it load as a plain program - so
+   * no version bump.
+   */
+  bootDisc?: string;
 }
 
 function serializeBlock(block: MemoryBlock): SerializedBlock {
@@ -323,6 +331,7 @@ export function serializeProject(
   autoStart: number | null = null,
   tapeFiles: readonly TapeFile[] = [],
   listingBlockMeta: SerializedListingBlockMeta = {},
+  bootDisc: Uint8Array | null = null,
 ): string {
   const file: ProjectFileV1 = {
     format: 'basically-project',
@@ -335,6 +344,9 @@ export function serializeProject(
       ? { tapeFiles: serializeTapeFiles(tapeFiles) }
       : {}),
     ...(Object.keys(listingBlockMeta).length > 0 ? { listingBlockMeta } : {}),
+    ...(bootDisc && bootDisc.length > 0
+      ? { bootDisc: bytesToBase64(bootDisc) }
+      : {}),
   };
   return JSON.stringify(file, null, 2);
 }
@@ -357,6 +369,8 @@ export interface ParsedProject {
       asmSource?: string;
     }
   >;
+  /** A verbatim disc image to boot, or `null` when the file carried none. */
+  bootDisc: Uint8Array | null;
 }
 
 /**
@@ -405,6 +419,17 @@ export function parseProject(text: string): ParsedProject {
     }
     tapeFiles = parseTapeFiles(obj.tapeFiles);
   }
+  let bootDisc: Uint8Array | null = null;
+  if (obj.bootDisc !== undefined) {
+    if (typeof obj.bootDisc !== 'string') {
+      throw new Error('Project file has malformed "bootDisc".');
+    }
+    try {
+      bootDisc = base64ToBytes(obj.bootDisc);
+    } catch {
+      throw new Error('Project file has malformed "bootDisc".');
+    }
+  }
   return {
     dialect: obj.dialect,
     source: obj.source,
@@ -412,6 +437,7 @@ export function parseProject(text: string): ParsedProject {
     autoStart,
     tapeFiles,
     listingBlockMeta: parseListingBlockMeta(obj.listingBlockMeta),
+    bootDisc,
   };
 }
 

@@ -51,6 +51,16 @@ mounts the same `.ssd` and boots it, so the emulator distinguishes BASIC from
 machine code exactly as MOS does. A pure-BASIC document keeps exporting the plain
 `.bbc`.
 
+Many real game discs, though, load files at addresses the block model can't
+hold — below PAGE, overlapping each other, or overlapping the program area,
+because the disc's own loader stages them in at different times rather than
+keeping them all resident. Importing such a disc keeps the **whole image** and
+boots it verbatim (exactly as SHIFT+BREAK does on real hardware) so its loader
+runs and every file lands at its true address; the recovered loader listing is
+shown in the editor for reference. Editing that listing (or adding a block)
+turns the document back into a normal, editable program that runs through the
+tokenizer.
+
 ## Cassette audio
 
 The BBC exposes a `.wav` export (and "play through speakers") **and** a
