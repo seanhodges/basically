@@ -56,9 +56,10 @@ BASIC:
    it on: `binaryImports` lists the file formats `detokenize()` can read back
    (e.g. `.P` / `.O` / `.TAP` / `.bbc`), and `audio.decodeSamples` recovers a
    program from recorded cassette audio (the inverse of `audio.buildSamples`).
-   Both are optional: a dialect can ship export before import. See
-   `docs/reference/file-formats.md` § Cassette audio for the per-machine codecs and the
-   shared `src/dialects/sinclairTape.ts` decoder.
+   Both are optional: a dialect can ship export before import. See the
+   `docs/reference/file-formats.md` overview and each machine's format page
+   (`docs/reference/<dialect>/formats.md` § Cassette audio) for the per-machine
+   codecs, plus the shared `src/dialects/sinclairTape.ts` decoder.
 
    **Charset/import feature-completeness.** New language layers should be
    built _total_ from the start, matching the bar every shipped dialect meets:
