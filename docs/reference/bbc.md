@@ -31,13 +31,13 @@ In graphics modes the screen fills **0x3000–0x7FFF** (only 0x7C00 and up in MO
 7), so that whole band is reserved with a warning: a block there is allowed but
 may be overwritten the moment the program selects a graphics mode.
 
-The `.bbc` file holds only the BASIC program, so a block is imported from a
-**sidecar file** instead: drag a `<name>-<addr>.bin` (for example
-`code-0x2E00.bin`) onto the editor to add its bytes as a block at the address in
-its name. Blocks also travel with a BBC document through the
-[project bundle](./file-formats#project-bundle-bproj) or a share link. On Run the
-IDE refuses to start if a block would overlap the BASIC program, and warns (but
-allows) a block over the screen.
+The `.bbc` file holds only the BASIC program, so blocks travel inside the
+[`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc image instead: export a
+`.ssd` to carry the program together with each block (at its own load/exec
+address), and importing one brings them all back. Blocks also travel with a BBC
+document through the [project bundle](./file-formats#project-bundle-bproj) or a
+share link. On Run the IDE refuses to start if a block would overlap the BASIC
+program, and warns (but allows) a block over the screen.
 
 See the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.

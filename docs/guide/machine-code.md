@@ -47,14 +47,16 @@ editing — the saved program keeps the bytes.
 You don't have to type everything. Import a real program file — **File ▸
 Import**, or drag it onto the editor — and any machine code it carries is turned
 into blocks automatically. The status bar reports what came in, including
-anything it had to skip. Which formats carry code, and how, is listed in the
-[File formats reference](../reference/file-formats#machine-code-data-blocks).
+anything it had to skip.
 
-For a machine whose files hold BASIC only (the **Acorn Atom** and **TRS-80**),
-you can add a routine from a raw binary: drag a **sidecar file** named
-`<name>-<addr>.bin` (for example `sprite-0x8000.bin`) onto the editor and its
-bytes become a block at the address in its name, added to your current program
-rather than replacing it.
+A machine's plain program file (the ZX81 `.P`, the BBC `.bbc`, the Atom `.atm`,
+the TRS-80 `.cas`) holds only the BASIC listing. To bring machine code in — or
+carry it back out — use the machine's **disc image** instead, which bundles the
+program with every block in one file: the BBC `.ssd`, the Commodore `.d64`, or
+the Atom and TRS-80 `.dsk`. The ZX81 and ZX80 are the exception — their blocks
+live inside the listing itself, so they always travel with the program. For
+exactly which formats carry code, and how, see each machine's
+[file formats](../reference/file-formats#machine-code-data-blocks) reference.
 
 ## Running it
 

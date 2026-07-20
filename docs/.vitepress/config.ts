@@ -91,6 +91,7 @@ export default withPwa(
                 collapsed: true,
                 items: [
                   { text: 'Escape codes', link: '/reference/zx81/escapes' },
+                  { text: 'File formats', link: '/reference/zx81/formats' },
                 ],
               },
               {
@@ -99,6 +100,7 @@ export default withPwa(
                 collapsed: true,
                 items: [
                   { text: 'Escape codes', link: '/reference/zx80/escapes' },
+                  { text: 'File formats', link: '/reference/zx80/formats' },
                 ],
               },
               {
@@ -110,6 +112,10 @@ export default withPwa(
                     text: 'Escape codes',
                     link: '/reference/zxspectrum/escapes',
                   },
+                  {
+                    text: 'File formats',
+                    link: '/reference/zxspectrum/formats',
+                  },
                 ],
               },
               {
@@ -118,6 +124,7 @@ export default withPwa(
                 collapsed: true,
                 items: [
                   { text: 'Escape codes', link: '/reference/bbc/escapes' },
+                  { text: 'File formats', link: '/reference/bbc/formats' },
                 ],
               },
               {
@@ -128,6 +135,10 @@ export default withPwa(
                   {
                     text: 'Escape codes',
                     link: '/reference/commodore64/escapes',
+                  },
+                  {
+                    text: 'File formats',
+                    link: '/reference/commodore64/formats',
                   },
                 ],
               },
@@ -141,6 +152,7 @@ export default withPwa(
                 collapsed: true,
                 items: [
                   { text: 'Escape codes', link: '/reference/atom/escapes' },
+                  { text: 'File formats', link: '/reference/atom/formats' },
                 ],
               },
               {
@@ -149,6 +161,7 @@ export default withPwa(
                 collapsed: true,
                 items: [
                   { text: 'Escape codes', link: '/reference/trs80/escapes' },
+                  { text: 'File formats', link: '/reference/trs80/formats' },
                 ],
               },
             ],
