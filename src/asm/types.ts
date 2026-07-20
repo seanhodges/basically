@@ -42,6 +42,16 @@ export interface AsmEngine {
   /** Decode `bytes` as if loaded at `origin`. Total: every byte lands on a line. */
   disassemble(bytes: Uint8Array, origin: number): DisassembledLine[];
   /**
+   * Recursive-descent variant: follow control flow from `origin` (the block's
+   * entry) and emit only the bytes execution can reach as instructions;
+   * everything else - an appended data section, a table jumped over - comes
+   * back as `DB` instead of being mis-decoded as code. Like {@link disassemble}
+   * it tiles every byte, so re-assembly is byte-identical. Approximate:
+   * indirect jumps and data that is jumped into can't be followed, so it
+   * degrades to `DB` rather than guessing.
+   */
+  disassembleReachable(bytes: Uint8Array, origin: number): DisassembledLine[];
+  /**
    * Assemble `source` at `origin` (the block's address; an explicit `ORG`
    * in the source must agree with it). Collects all errors, never throws.
    */

@@ -160,7 +160,7 @@ export function AsmEditor({
     const initial =
       blockRef.current.asmSource ??
       engine
-        .disassemble(blockRef.current.bytes, blockRef.current.address)
+        .disassembleReachable(blockRef.current.bytes, blockRef.current.address)
         .map((l) => l.text)
         .join('\n');
 
@@ -242,7 +242,7 @@ export function AsmEditor({
     const text =
       block.asmSource ??
       engine
-        .disassemble(block.bytes, block.address)
+        .disassembleReachable(block.bytes, block.address)
         .map((l) => l.text)
         .join('\n');
     reseeding.current = true;
