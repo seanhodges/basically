@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { asmEngineFor } from '../asm/registry';
+import type { AsmEngine } from '../asm/types';
 import { formatWord } from '../asm/format';
 import { getDialect, dialects } from '../dialects/registry';
 import type {
@@ -449,10 +450,18 @@ interface IdeState {
   /**
    * Commit new bytes for a listing-backed block (an `inListing` dialect): rewrite
    * its `#BIN` REM line in `source` and push it into the editor, so the bytes
-   * ride in the monolithic `.P`/`.O` image. `id` is `listing-<ordinal>`. No-op
-   * for fixed-address dialects (they use `upsertBlock`).
+   * ride in the monolithic `.P`/`.O` image. `id` is `listing-<ordinal>`. When
+   * `asmSource` is given it is stored under `listingBlockMeta[ordinal]` so the
+   * editor's text (DB data, labels, comments) survives a reload instead of
+   * being re-disassembled - honored only when it still assembles to `bytes`
+   * (see `overlayListingAsmSource`). No-op for fixed-address dialects (they use
+   * `upsertBlock`).
    */
-  commitListingBlockBytes(id: string, bytes: Uint8Array): void;
+  commitListingBlockBytes(
+    id: string,
+    bytes: Uint8Array,
+    asmSource?: string,
+  ): void;
   /**
    * Merge a metadata override (name / code-vs-data kind / comment) for the
    * `ordinal`-th listing block into `listingBlockMeta` (sets `dirty`). Fields
@@ -1189,7 +1198,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         ? withListingBlockRemoved(s, id)
         : withBlockRemoved(s, id),
     ),
-  commitListingBlockBytes: (id, bytes) =>
+  commitListingBlockBytes: (id, bytes, asmSource) =>
     set((s) => {
       const layout = listingLayoutOf(s.dialect);
       const ordinal = listingOrdinal(id);
@@ -1201,12 +1210,23 @@ export const useIdeStore = create<IdeState>((set) => ({
         // e.g. ZX80 code holding the 0x76 terminator can't live in a REM line.
         return { statusNotice: (err as Error).message };
       }
-      if (source === s.source) return {};
-      return {
-        source,
-        docOverride: { text: source, seq: s.docOverride.seq + 1 },
-        dirty: true,
-      };
+      const sourceChanged = source !== s.source;
+      const prevMeta = s.listingBlockMeta[ordinal] ?? {};
+      const metaChanged =
+        asmSource !== undefined && prevMeta.asmSource !== asmSource;
+      if (!sourceChanged && !metaChanged) return {};
+      const patch: Partial<IdeState> = { dirty: true };
+      if (sourceChanged) {
+        patch.source = source;
+        patch.docOverride = { text: source, seq: s.docOverride.seq + 1 };
+      }
+      if (metaChanged) {
+        patch.listingBlockMeta = {
+          ...s.listingBlockMeta,
+          [ordinal]: { ...prevMeta, asmSource },
+        };
+      }
+      return patch;
     }),
   setListingBlockMeta: (ordinal, patch) =>
     set((s) => {
@@ -1466,14 +1486,49 @@ let blocksCache: {
   blocks: readonly MemoryBlock[];
 } | null = null;
 
+function blockBytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/**
+ * Attach a listing block's saved assembly source - but only when it still
+ * assembles to the block's current bytes at its address. The `#BIN` bytes are
+ * the source of truth (they ride in the `.P`/`.O` image); the saved source is
+ * a fidelity hint that lets the block editor show the user's `DB` data
+ * sections, labels and comments verbatim instead of a lossy re-disassembly (a
+ * data byte like 0x21 would otherwise decode as `LD HL,...`). If the source has
+ * drifted from the bytes - a moved or renumbered `#BIN` line, an ordinal shifted
+ * by an inserted block - it is dropped and the editor falls back to disassembly.
+ */
+function overlayListingAsmSource(
+  block: MemoryBlock,
+  asmSource: string | undefined,
+  engine: AsmEngine | null,
+): MemoryBlock {
+  if (asmSource === undefined || !engine) return block;
+  const result = engine.assemble(asmSource, block.address);
+  if (!result.ok || !blockBytesEqual(result.bytes, block.bytes)) return block;
+  return { ...block, asmSource };
+}
+
 export function selectBlocks(s: IdeState): readonly MemoryBlock[] {
   const layout = listingLayoutOf(s.dialect);
   if (!layout) return s.blocks;
   const key = `${s.dialect.id} ${s.source} ${JSON.stringify(s.listingBlockMeta)}`;
   if (blocksCache && blocksCache.key === key) return blocksCache.blocks;
-  const blocks = deriveListingBlocks(s.source, layout).map((b, i) =>
-    applyListingMeta(b, s.listingBlockMeta[i]),
-  );
+  const engine = s.dialect.memoryBlocks
+    ? asmEngineFor(s.dialect.memoryBlocks.cpu)
+    : null;
+  const blocks = deriveListingBlocks(s.source, layout).map((b, i) => {
+    const meta = s.listingBlockMeta[i];
+    return overlayListingAsmSource(
+      applyListingMeta(b, meta),
+      meta?.asmSource,
+      engine,
+    );
+  });
   blocksCache = { key, blocks };
   return blocks;
 }

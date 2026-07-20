@@ -20,9 +20,10 @@ beforeAll(() => {
   (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
 });
 
-const { useIdeStore, persistAutosave, initialDocument } =
+const { useIdeStore, persistAutosave, initialDocument, selectBlocks } =
   await import('./store');
 const { getDialect } = await import('../dialects/registry');
+const { asmEngineFor } = await import('../asm/registry');
 const { getDialectId, setDialectId, loadAutosave, saveAutosave } =
   await import('../storage/settings');
 
@@ -830,6 +831,90 @@ describe('listing-backed blocks (ZX81/ZX80)', () => {
     // Clearing back to the default kind removes the ordinal from the map.
     useIdeStore.getState().setListingBlockMeta(0, { kind: undefined });
     expect(useIdeStore.getState().listingBlockMeta[0]).toBeUndefined();
+  });
+
+  // A routine that ends in a byte-sequence data section: several DB bytes whose
+  // values happen to be valid opcodes (0x21 = `LD HL`, ...), so a plain
+  // re-disassembly of the stored bytes decodes them back as instructions.
+  const DB_ASM = [
+    'LD HL,$408D',
+    'LD A,(HL)',
+    'CP $FF',
+    'RET Z',
+    'RST $10',
+    'INC HL',
+    'JR $4085',
+    'DB $21',
+    'DB $1E',
+    'DB $25',
+    'DB $FF',
+  ].join('\n');
+
+  it('preserves a DB data section across the #BIN round-trip', () => {
+    useIdeStore.getState().addBlock();
+    const engine = asmEngineFor('z80')!;
+    const address = selectBlocks(useIdeStore.getState())[0]!.address;
+    const assembled = engine.assemble(DB_ASM, address);
+    expect(assembled.ok).toBe(true);
+    if (!assembled.ok) return;
+
+    // The block editor's clean-assembly path: commit the bytes and the text.
+    useIdeStore
+      .getState()
+      .commitListingBlockBytes('listing-0', assembled.bytes, DB_ASM);
+
+    // The #BIN bytes are re-derived from source, and a bare disassembly of them
+    // mangles the data section (0x21 -> `LD HL,...`) - the reported bug.
+    const block = selectBlocks(useIdeStore.getState())[0]!;
+    const bareDisasm = engine
+      .disassemble(block.bytes, block.address)
+      .map((l) => l.text)
+      .join('\n');
+    expect(bareDisasm).not.toContain('DB $21');
+    expect(bareDisasm).toContain('LD HL,$251E');
+
+    // The saved source is overlaid instead, so the editor reseeds it verbatim.
+    expect(block.asmSource).toBe(DB_ASM);
+  });
+
+  it('survives an autosave reload, still overlaying the source', () => {
+    useIdeStore.getState().addBlock();
+    const engine = asmEngineFor('z80')!;
+    const address = selectBlocks(useIdeStore.getState())[0]!.address;
+    const assembled = engine.assemble(DB_ASM, address);
+    if (!assembled.ok) throw new Error('fixture failed to assemble');
+    useIdeStore
+      .getState()
+      .commitListingBlockBytes('listing-0', assembled.bytes, DB_ASM);
+
+    // Mirror to autosave, then reload as a fresh document (bytes come only from
+    // the #BIN line; the source rides in listingBlockMeta).
+    persistAutosave();
+    const restored = loadAutosave()!;
+    expect(restored.listingBlockMeta[0]?.asmSource).toBe(DB_ASM);
+    useIdeStore.setState({
+      source: restored.text,
+      listingBlockMeta: restored.listingBlockMeta,
+    });
+    expect(selectBlocks(useIdeStore.getState())[0]!.asmSource).toBe(DB_ASM);
+  });
+
+  it('drops a saved source that no longer assembles to the block bytes', () => {
+    useIdeStore.getState().addBlock();
+    const engine = asmEngineFor('z80')!;
+    const address = selectBlocks(useIdeStore.getState())[0]!.address;
+    const assembled = engine.assemble(DB_ASM, address);
+    if (!assembled.ok) throw new Error('fixture failed to assemble');
+    useIdeStore
+      .getState()
+      .commitListingBlockBytes('listing-0', assembled.bytes, DB_ASM);
+
+    // Simulate drift: the block's bytes change (a different routine) while the
+    // stale source lingers in the meta. The mismatched source must be ignored.
+    useIdeStore
+      .getState()
+      .commitListingBlockBytes('listing-0', Uint8Array.from([0xc9]));
+    expect(selectBlocks(useIdeStore.getState())[0]!.asmSource).toBeUndefined();
   });
 });
 

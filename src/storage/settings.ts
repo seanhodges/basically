@@ -21,7 +21,12 @@ import {
 /** Ordinal-keyed listing-block overrides (see `parseListingBlockMeta`). */
 type ListingBlockMetaMap = Record<
   number,
-  { name?: string; kind?: 'code' | 'data'; comment?: string }
+  {
+    name?: string;
+    kind?: 'code' | 'data';
+    comment?: string;
+    asmSource?: string;
+  }
 >;
 
 /**
