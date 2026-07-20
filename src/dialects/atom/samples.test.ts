@@ -4,6 +4,7 @@ import path from 'node:path';
 import { atomSamples } from './samples';
 import { atom } from './index';
 import { tokenizeProgram } from './tokenizer';
+import { materializeSampleBlocks } from '../../app/sampleBlocks';
 import {
   AtomMachine,
   configureNodeRomPath,
@@ -63,14 +64,45 @@ describe('atom sample programs', () => {
     }
   });
 
-  it('ships circles, maze and files with hello first (no breakout, like the ZX80)', () => {
+  it('ships circles, maze, files and Kaleidoscope with hello first (no breakout, like the ZX80)', () => {
     expect(atomSamples.map((s) => s.name)).toEqual([
       'hello.bas',
       'circles.bas',
       'maze.bas',
       'files.bas',
+      'kaleido.bas',
     ]);
   });
+
+  it('runs the Kaleidoscope machine code and mirrors the screen four ways', async () => {
+    const kaleido = atomSamples.find((s) => s.name === 'kaleido.bas')!;
+    const blocks = materializeSampleBlocks(atom, kaleido);
+    expect(blocks[0]!.address).toBe(0x5000);
+    expect(blocks[0]!.entry).toBe(0x5003);
+    // Drive the routine directly (poke params + LINK) so the test needs no
+    // keyboard scripting for the sample's own INPUT prompts. The GOTO self-loop
+    // keeps BASIC busy so the prompt never scrolls over the drawn screen.
+    const { bytes } = tokenizeProgram(
+      '10 ?#5000=3\n20 ?#5001=5\n30 ?#5002=2\n40 LINK #5003\n50 GOTO 50\n',
+    );
+    const machine = new AtomMachine();
+    machine.loadProgram(bytes, { blocks });
+    await runFrames(machine, 400);
+
+    const cell = (a: number) => machine.processor.readmem(0x8000 + a) & 0xff;
+    const distinct = new Set(Array.from({ length: 32 * 16 }, (_, a) => cell(a)))
+      .size;
+    expect(distinct).toBeGreaterThan(4);
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 16; x++) {
+        const v = cell(y * 32 + x);
+        expect(cell(y * 32 + (31 - x))).toBe(v);
+        expect(cell((15 - y) * 32 + x)).toBe(v);
+        expect(cell((15 - y) * 32 + (31 - x))).toBe(v);
+      }
+    }
+    machine.dispose();
+  }, 60000);
 
   it('hello is the starter offered for a fresh document', () => {
     expect(atom.samples[0]!.name).toBe('hello.bas');

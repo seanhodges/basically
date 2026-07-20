@@ -14,13 +14,21 @@ describe('zxspectrum128 sample programs', () => {
     }
   });
 
-  it('ships the canonical four with hello.bas as the starter', () => {
+  it('ships the canonical four plus Kaleidoscope, with hello.bas as the starter', () => {
     expect(spectrum128Samples.map((s) => s.name)).toEqual([
       'hello.bas',
       'circles.bas',
       'breakout.bas',
       'maze.bas',
+      'kaleido.bas',
     ]);
+  });
+
+  it('reuses the 48K Kaleidoscope machine-code block, titled "Kaleidoscope"', () => {
+    const kaleido = spectrum128Samples.find((s) => s.name === 'kaleido.bas')!;
+    expect(kaleido.title).toBe('Kaleidoscope');
+    expect(kaleido.blocks?.[0]?.address).toBe(0x8000);
+    expect(kaleido.blocks?.[0]?.entry).toBe(0x8003);
   });
 });
 

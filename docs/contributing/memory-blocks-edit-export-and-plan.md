@@ -53,9 +53,13 @@ A second slice shipped after the assembly editor:
   open) and the Transfer dialog says so when a document has blocks.
 - **Samples can bundle blocks**: `SampleFile.blocks` ships assembly source
   (`SampleBlockDef`), assembled on load by `materializeSampleBlocks`; the
-  Spectrum's "Kaleidoscope (machine code)" sample (BASIC INPUTs → POKEd
-  params → `RANDOMIZE USR`) demonstrates the whole flow and its emulator
-  test pins that the routine draws a 4-way mirrored pattern.
+  Spectrum's "Kaleidoscope" sample (BASIC INPUTs → POKEd params →
+  `RANDOMIZE USR`) demonstrates the whole flow and its emulator test pins
+  that the routine draws a 4-way mirrored pattern. Every dialect now ships a
+  "Kaleidoscope": the 6502 machines (C64, PET, VIC-20, Atom, BBC) and the
+  Spectrum family use fixed-address blocks, while the ZX81/ZX80 carry the
+  routine as a hidden `#BIN` machine-code REM (TRS-80's ROM-free interpreter
+  runs no machine code, so it has none).
 
 ## Shipped update (July 2026): per-block assembly editing
 

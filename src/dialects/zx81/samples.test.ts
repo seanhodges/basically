@@ -53,4 +53,48 @@ describe('sample programs', () => {
     }
     expect(wallChars).toBeGreaterThan(40);
   });
+
+  it('kaleidoscope draws a 4-way mirrored display', () => {
+    // The sample INPUTs its parameters; drive the same embedded routine with a
+    // POKE + RAND USR program instead so the test needs no keyboard scripting.
+    // The #BIN line (line 1) carrying the machine code is shared verbatim.
+    const kaleido = zx81Samples.find((s) => s.name === 'kaleido.bas')!;
+    const binLine = kaleido.text.split('\n')[0]!;
+    expect(binLine.startsWith('#BIN ')).toBe(true);
+    const driver = [
+      binLine,
+      '10 CLS',
+      '20 POKE 16514,3',
+      '30 POKE 16515,5',
+      '40 POKE 16516,2',
+      '50 RAND USR 16517',
+      '60 PAUSE 32767',
+      '',
+    ].join('\n');
+    const { bytes, errors } = tokenizeProgram(driver);
+    expect(errors).toEqual([]);
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    machine.loadProgram(buildPFile(bytes));
+    for (let i = 0; i < 200; i++) machine.runFrame();
+
+    // The display file is 24 rows of 32 chars, each ending in a 0x76 NEWLINE,
+    // after a leading NEWLINE at dfile. cell(x,y) sits at dfile+1 + y*33 + x.
+    const dfile = machine.mem.readWord(0x400c);
+    const cell = (x: number, y: number) =>
+      machine.mem.read(dfile + 1 + y * 33 + x);
+    const distinct = new Set<number>();
+    for (let y = 0; y < 24; y++)
+      for (let x = 0; x < 32; x++) distinct.add(cell(x, y));
+    expect(distinct.size).toBeGreaterThan(4);
+
+    // 4-way mirror symmetry across the 32x24 display.
+    for (let y = 0; y < 12; y++) {
+      for (let x = 0; x < 16; x++) {
+        const v = cell(x, y);
+        expect(cell(31 - x, y)).toBe(v);
+        expect(cell(x, 23 - y)).toBe(v);
+        expect(cell(31 - x, 23 - y)).toBe(v);
+      }
+    }
+  });
 });
