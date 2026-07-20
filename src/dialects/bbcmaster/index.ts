@@ -11,7 +11,9 @@ import { tokenizeProgram } from '../bbcmicro/tokenizer';
 import {
   detokenizeProgram,
   detokenizeWithReport,
+  detokenizeBbcDiscWithReport,
 } from '../bbcmicro/detokenizer';
+import { isBbcDisc } from '../../emulator/bbc/bbcDisc';
 import {
   bbcBuildTargets,
   buildCassetteSamples,
@@ -62,6 +64,7 @@ export const bbcmaster: Dialect = {
   },
 
   detokenizeWithReport(image: Uint8Array) {
+    if (isBbcDisc(image)) return detokenizeBbcDiscWithReport(image, BASIC_IV);
     return detokenizeWithReport(image, BASIC_IV);
   },
 
@@ -103,7 +106,10 @@ export const bbcmaster: Dialect = {
 
   buildTargets: bbcBuildTargets,
 
-  binaryImports: [{ extension: '.bbc', label: 'Import .BBC…' }],
+  binaryImports: [
+    { extension: '.bbc', label: 'Import .BBC…' },
+    { extension: '.ssd', label: 'Import .SSD…' },
+  ],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,

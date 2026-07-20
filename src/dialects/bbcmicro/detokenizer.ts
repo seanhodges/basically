@@ -1,7 +1,11 @@
 import { decodeSpan, plainChar } from './charset';
 import { BASIC_II, type BbcVariant } from './keywords';
 import { LINE_NUMBER_TOKEN, decodeLineNumber } from './lineNumber';
-import type { DetokenizeResult } from '../types';
+import type { DetokenizeResult, MemoryBlock } from '../types';
+import { readBbcDisc } from '../../emulator/bbc/bbcDisc';
+
+/** BASIC program area start on a DFS-equipped machine (PAGE = &1900). */
+const PAGE = 0x1900;
 
 /** Tokens whose remaining line is stored verbatim (no further tokenizing). */
 const REM_TOKEN = 0xf4;
@@ -75,6 +79,85 @@ export function detokenizeWithReport(
   }
 
   return { source: lines.join('\n') + (lines.length ? '\n' : ''), warnings };
+}
+
+/** Sanitize a DFS filename into a valid {@link MemoryBlock.name}, uniquely. */
+function blockName(raw: string, taken: Set<string>): string {
+  let cleaned = raw.replace(/[^A-Za-z0-9_]/g, '_');
+  if (!/^[A-Za-z]/.test(cleaned)) cleaned = `b_${cleaned}`;
+  if (cleaned === 'b_') cleaned = 'block';
+  let name = cleaned;
+  for (let n = 2; taken.has(name); n++) name = `${cleaned}_${n}`;
+  taken.add(name);
+  return name;
+}
+
+/** Whether a file's bytes look like a tokenized BBC BASIC program. */
+function looksLikeBasic(bytes: Uint8Array): boolean {
+  return (
+    bytes.length >= 2 && bytes[0] === 0x0d && bytes[bytes.length - 1] === 0xff
+  );
+}
+
+/**
+ * Import a DFS `.ssd` disc image: recover the BASIC program (the file at PAGE,
+ * or the largest tokenized-BASIC-shaped file) as editable text, and every other
+ * file - except the generated `!BOOT` - as a fixed-address {@link MemoryBlock}
+ * at its catalogue load address (its exec address kept as the block's entry when
+ * it differs, marking machine code). The inverse of `buildBbcDiscImage`.
+ */
+export function detokenizeBbcDiscWithReport(
+  image: Uint8Array,
+  variant: BbcVariant = BASIC_II,
+): DetokenizeResult {
+  const { files } = readBbcDisc(image);
+  const usable = files.filter((f) => f.name.toUpperCase() !== '!BOOT');
+
+  // The BASIC program: prefer a file loading at PAGE, else the largest file
+  // shaped like tokenized BASIC. Largest wins when several qualify.
+  const bySizeDesc = [...usable].sort(
+    (a, b) => b.bytes.length - a.bytes.length,
+  );
+  const basic =
+    bySizeDesc.find((f) => f.load === PAGE && looksLikeBasic(f.bytes)) ??
+    bySizeDesc.find((f) => f.load === PAGE) ??
+    bySizeDesc.find((f) => looksLikeBasic(f.bytes)) ??
+    null;
+
+  const warnings: string[] = [];
+  let source = '';
+  if (basic) {
+    const report = detokenizeWithReport(basic.bytes, variant);
+    source = report.source;
+    warnings.push(...report.warnings);
+  } else {
+    warnings.push(
+      'The disc holds no BASIC program; its files were imported as memory blocks.',
+    );
+  }
+
+  const taken = new Set<string>();
+  const blocks: MemoryBlock[] = [];
+  usable.forEach((file, i) => {
+    if (file === basic) return;
+    const entry = file.exec !== file.load ? file.exec : undefined;
+    blocks.push({
+      id: `ssd-${i}`,
+      name: blockName(file.name, taken),
+      address: file.load & 0xffff,
+      bytes: file.bytes,
+      kind: 'code',
+      ...(entry !== undefined ? { entry: entry & 0xffff } : {}),
+    });
+  });
+
+  if (blocks.length > 0) {
+    warnings.push(
+      `Recovered ${blocks.length} memory ${blocks.length === 1 ? 'block' : 'blocks'} from the disc.`,
+    );
+  }
+
+  return { source, warnings, ...(blocks.length ? { blocks } : {}) };
 }
 
 /** Text-only detokenize (the {@link Dialect.detokenize} contract). */

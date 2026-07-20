@@ -19,10 +19,12 @@ import type {
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
+import { discFor } from 'jsbeeb/src/fdc.js';
 import { BbcHostKeyboard, matrixForToken } from './keyboard';
 import { readBbcVariables } from './vars';
 import { readBbcReport, FAULT_PTR } from './reports';
 import { BbcDiskDrive, type Bus } from './diskDrive';
+import { buildBbcDisc, composeDiscFiles } from './bbcDisc';
 import { JsbeebMemoryActivity } from '../jsbeebMemoryActivity';
 
 /** jsbeeb's Video ULA renders into a fixed 1024×625 RGBA framebuffer… */
@@ -50,6 +52,19 @@ const BOOT_CYCLES_MASTER = 1_750_000;
 // ~32cs auto-repeat delay, so each key registers exactly once on both models.
 const KEY_DOWN_CYCLES = 80_000;
 const KEY_UP_CYCLES = 40_000;
+
+/**
+ * Disc filename for the auto-built `.ssd` in the mount-and-boot Run path. The
+ * value is internal - it only has to match the boot commands, which
+ * {@link composeDiscFiles} generates against the same names.
+ */
+const DISC_PROGRAM_NAME = 'PROG';
+/**
+ * Extra CPU budget after the boot commands are typed, so a `*LOAD`/`CHAIN`
+ * sequence read off the mounted disc has time to complete during injection
+ * before the frame loop takes over. ~0.75s at 2 MHz.
+ */
+const DISC_SETTLE_CYCLES = 1_500_000;
 
 // Step-through debugger constants (see currentLine / debugStep).
 //
@@ -119,6 +134,24 @@ if (typeof window !== 'undefined') {
 /** Point jsbeeb's ROM loader at its package root when running under node. */
 export function configureNodeRomPath(jsbeebRoot: string): void {
   utils.setNodeBasePath(jsbeebRoot);
+}
+
+/**
+ * The key token (and whether SHIFT is held) that types `ch` on the BBC, for the
+ * small character set the Run path drives through the matrix (see
+ * {@link BbcMachine.typeText}). Returns null for anything outside that set.
+ */
+function tokenForChar(ch: string): { token: string; shift: boolean } | null {
+  if (ch === '\r') return { token: 'Enter', shift: false };
+  if (ch === ' ') return { token: 'Space', shift: false };
+  if (ch === '.') return { token: 'Period', shift: false };
+  if (ch === '*') return { token: 'Colon', shift: true }; // SHIFT+':'
+  if (ch === '"') return { token: 'Digit2', shift: true }; // SHIFT+'2'
+  if (ch >= 'A' && ch <= 'Z') return { token: `Key${ch}`, shift: false };
+  if (ch >= 'a' && ch <= 'z')
+    return { token: `Key${ch.toUpperCase()}`, shift: false };
+  if (ch >= '0' && ch <= '9') return { token: `Digit${ch}`, shift: false };
+  return null;
 }
 
 /** ADC midpoint — a centred (idle) analogue axis. */
@@ -455,10 +488,14 @@ export class BbcMachine implements MachineEmulator {
    * work is queued; frames render the machine booting in the meantime and the
    * program starts as soon as the pipeline lands it.
    *
-   * `opts.blocks`, when given, are raw machine-code / data spans written
-   * directly into RAM at their fixed addresses (see {@link MemoryBlock}) after
-   * the BASIC program has loaded and before RUN starts it - mirroring a real
-   * loader poking code in once the tape has finished.
+   * `opts.blocks`, when given, are the document's fixed-address memory blocks.
+   * With **no** blocks the fast path runs unchanged: poke the BASIC image at
+   * PAGE, fix up TOP/VARTOP, then type RUN. With blocks, the program can no
+   * longer be a bare PAGE poke - it and each block need distinct load/exec
+   * attributes so MOS tells BASIC from machine code - so the run switches to
+   * **mount and boot**: build the same DFS `.ssd` the export writes, mount it in
+   * the FDC, and let the real MOS `*LOAD` each block and `CHAIN`/`*RUN` the
+   * program (see {@link bootFromDisc}).
    */
   loadProgram(
     image: Uint8Array,
@@ -469,6 +506,7 @@ export class BbcMachine implements MachineEmulator {
     this.lineCache = null;
     // Captured before the async IIFE runs, since `opts` is only live now.
     const blocks = opts?.blocks;
+    const useDisc = !!blocks && blocks.length > 0;
     void (async () => {
       try {
         await this.ready;
@@ -482,33 +520,25 @@ export class BbcMachine implements MachineEmulator {
           this.runCycles(this.bootCycles);
           const page = this.cpu.readmem(0x18) << 8;
           if (page === 0) throw new Error('BBC OS did not boot to BASIC');
-          for (let i = 0; i < image.length; i++) {
-            this.cpu.writemem(page + i, image[i]!);
-          }
-          // TOP and VARTOP point past the program so BASIC accepts it.
-          const end = page + image.length;
-          this.cpu.writemem(0x02, end & 0xff);
-          this.cpu.writemem(0x03, (end >>> 8) & 0xff);
-          this.cpu.writemem(0x12, end & 0xff);
-          this.cpu.writemem(0x13, (end >>> 8) & 0xff);
-          // Clear the MOS fault pointer so a non-zero value afterwards means
-          // THIS run hit a BASIC error (see readReport / reports.ts).
-          this.cpu.writemem(FAULT_PTR, 0);
-          this.cpu.writemem(FAULT_PTR + 1, 0);
-          // Memory blocks (machine code / data at a fixed address, alongside
-          // the BASIC program - see MemoryBlock) go straight into RAM now,
-          // after the program itself has loaded and before RUN starts it.
-          if (blocks) {
-            for (const block of blocks) {
-              for (let i = 0; i < block.bytes.length; i++) {
-                this.cpu.writemem(
-                  (block.address + i) & 0xffff,
-                  block.bytes[i]!,
-                );
-              }
+
+          if (useDisc) {
+            this.bootFromDisc(image, blocks);
+          } else {
+            for (let i = 0; i < image.length; i++) {
+              this.cpu.writemem(page + i, image[i]!);
             }
+            // TOP and VARTOP point past the program so BASIC accepts it.
+            const end = page + image.length;
+            this.cpu.writemem(0x02, end & 0xff);
+            this.cpu.writemem(0x03, (end >>> 8) & 0xff);
+            this.cpu.writemem(0x12, end & 0xff);
+            this.cpu.writemem(0x13, (end >>> 8) & 0xff);
+            // Clear the MOS fault pointer so a non-zero value afterwards means
+            // THIS run hit a BASIC error (see readReport / reports.ts).
+            this.cpu.writemem(FAULT_PTR, 0);
+            this.cpu.writemem(FAULT_PTR + 1, 0);
+            this.typeText('RUN\r');
           }
-          this.typeViaMatrix('RUN\r');
           // Drop any samples synthesized while booting/typing so the first
           // readAudio() doesn't replay a boot-time burst.
           this.soundChip.catchUp();
@@ -526,18 +556,63 @@ export class BbcMachine implements MachineEmulator {
   }
 
   /**
+   * Mount-and-boot Run for a document that carries memory blocks. Builds the
+   * DFS `.ssd` (BASIC program + one file per block, each with its own load/exec
+   * attributes), mounts it in drive 0, selects DFS, then types the same boot
+   * commands the disc's `!BOOT` holds - `*LOAD` every block at its address and
+   * `CHAIN` the program (or `*RUN` the entry block when there is no BASIC). The
+   * commands go through OSFILE, which is not trapped by the VFS drive, so real
+   * MOS reads them straight off the mounted disc regardless of whether the IDE's
+   * virtual filesystem is wired.
+   */
+  private bootFromDisc(
+    image: Uint8Array,
+    blocks: readonly MemoryBlock[],
+  ): void {
+    const { files, bootOption, bootCommands } = composeDiscFiles(
+      image,
+      blocks,
+      DISC_PROGRAM_NAME,
+      true,
+    );
+    const ssd = buildBbcDisc(files, {
+      title: DISC_PROGRAM_NAME,
+      bootOption,
+    });
+    this.cpu.fdc.loadDisc(0, discFor(this.cpu.fdc, 'auto.ssd', ssd));
+    // Clear the MOS fault pointer so a non-zero value afterwards means THIS run
+    // hit a BASIC error (see readReport / reports.ts), as the poke path does.
+    this.cpu.writemem(FAULT_PTR, 0);
+    this.cpu.writemem(FAULT_PTR + 1, 0);
+    // Select DFS (a plain boot may leave the tape filing system current), then
+    // drive the boot sequence from the keyboard buffer.
+    this.typeText('*DISC\r');
+    for (const command of bootCommands) this.typeText(`${command}\r`);
+    // Give the *LOAD/CHAIN sequence read off the disc time to complete before
+    // the frame loop resumes.
+    this.runCycles(DISC_SETTLE_CYCLES);
+  }
+
+  /**
    * Type a short command by driving the key matrix, pressing and releasing one
    * key at a time with the CPU running in between so the OS keyboard scan picks
-   * each up. Used to auto-RUN a freshly loaded program; '\r' is Enter.
+   * each up. Handles the characters the Run path needs: upper-case letters and
+   * digits (CAPS LOCK is on at boot, so they are unshifted), space, `.`, and the
+   * two shifted symbols `*` (`SHIFT`+`:`) and `"` (`SHIFT`+`2`) used by the disc
+   * boot commands. `'\r'` is Enter. Unmappable characters are skipped.
    */
-  private typeViaMatrix(text: string): void {
+  private typeText(text: string): void {
+    const shiftPos = matrixForToken('Shift');
     for (const ch of text) {
-      const token = ch === '\r' ? 'Enter' : `Key${ch.toUpperCase()}`;
-      const pos = matrixForToken(token);
+      const info = tokenForChar(ch);
+      if (!info) continue;
+      const pos = matrixForToken(info.token);
       if (!pos) continue;
+      if (info.shift && shiftPos) this.cpu.sysvia.keyDownRaw(shiftPos);
       this.cpu.sysvia.keyDownRaw(pos);
       this.runCycles(KEY_DOWN_CYCLES);
       this.cpu.sysvia.keyUpRaw(pos);
+      if (info.shift && shiftPos) this.cpu.sysvia.keyUpRaw(shiftPos);
       this.runCycles(KEY_UP_CYCLES);
     }
   }

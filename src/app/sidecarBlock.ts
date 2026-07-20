@@ -4,10 +4,13 @@
 /**
  * Sidecar block files: a `<name>-<addr>.bin` file whose raw bytes are a memory
  * block and whose load address is encoded in the file name. This is how a
- * machine whose native program format can't carry fixed-address code/data - the
- * ZX81/ZX80 `.P`/`.O` snapshot (which spans only the used BASIC RAM) and the
- * BBC `.bbc` (BASIC program only) - still imports a block: the address the
- * bytes alone don't describe rides in the file name instead.
+ * machine that has memory blocks but no native container to carry them - the
+ * Acorn Atom and TRS-80, whose program formats hold the BASIC program only -
+ * still imports a block: the address the bytes alone don't describe rides in
+ * the file name instead. Machines with a block-carrying container (the BBC
+ * `.ssd`, Commodore `.d64`, Spectrum `.TAP`) import blocks from it instead, and
+ * `openDroppedFile` redirects a `.bin` drop there; the ZX81/ZX80 keep their
+ * machine code inside the listing as `#BIN` REM records.
  *
  * The convention: the name portion becomes the block name (sanitized to the
  * required pattern), and the address is `0x8000`/`$8000`/`&8000` (hex) or a

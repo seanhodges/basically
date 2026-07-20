@@ -56,17 +56,17 @@ reference page:
 
 ## Native binary formats
 
-| Dialect            | Export         | Import         | What it is                                  |
-| ------------------ | -------------- | -------------- | ------------------------------------------- |
-| ZX81               | `.P`           | `.P`           | RAM dump 0x4009 → E_LINE-1                  |
-| ZX80               | `.O`           | `.O`           | RAM dump 0x4000 → E_LINE-1                  |
-| ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                   |
-| BBC Micro / Master | `.bbc`         | `.bbc`         | tokenized program from PAGE                 |
-| Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801 |
-| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001 |
-| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401 |
-| TRS-80             | `.cas`         | `.cas`         | Model I CSAVE cassette block                |
-| Acorn Atom         | `.atm`         | `.atm`         | 22-byte header + `#2900` program image      |
+| Dialect            | Export         | Import         | What it is                                                     |
+| ------------------ | -------------- | -------------- | -------------------------------------------------------------- |
+| ZX81               | `.P`           | `.P`           | RAM dump 0x4009 → E_LINE-1                                     |
+| ZX80               | `.O`           | `.O`           | RAM dump 0x4000 → E_LINE-1                                     |
+| ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                                      |
+| BBC Micro / Master | `.bbc`, `.ssd` | `.bbc`, `.ssd` | tokenized program from PAGE; `.ssd` disc adds code/data blocks |
+| Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801                    |
+| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001                    |
+| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401                    |
+| TRS-80             | `.cas`         | `.cas`         | Model I CSAVE cassette block                                   |
+| Acorn Atom         | `.atm`         | `.atm`         | 22-byte header + `#2900` program image                         |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -162,6 +162,32 @@ then the tokenized body; the program ends with `0x0D 0xFF`. The output is
 byte-for-byte what the genuine ROM tokeniser produces (regression-tested). The
 BBC Master uses the same format.
 
+Machine code can ride inside the `.bbc` itself as **inline assembly** — a
+`[ … ]` assembler block in the BASIC listing (`DIM` a buffer, `[OPT…]` assemble
+into it at run time). That is ordinary BASIC source, so it tokenizes to the same
+ROM bytes and round-trips through the `.bbc` with no separate file. Machine code
+that lives at its own fixed address instead — a separate code/data block — is
+carried by the `.ssd` disc below.
+
+### BBC Micro / Master `.ssd`
+
+An Acorn DFS single-sided disc image (80 tracks × 10 × 256 = 200K), the standard
+BBC multi-file container. Unlike the headerless `.bbc`, a `.ssd` holds several
+files, each with its own **load and exec address** in the two-sector catalogue —
+the attributes MOS uses to tell a BASIC program (`CHAIN`, load = exec = PAGE)
+from machine code (`*RUN`, load/exec = the code's address). A document that has
+[memory blocks](#machine-code-data-blocks) exports as a `.ssd`: the BASIC program
+is the file at PAGE and each block is a further file at its own load address (its
+exec address remembered for machine code). With the Transfer dialog's
+**auto-loader** on (the default when blocks exist), a generated `!BOOT`
+(`*OPT 4,3`) leads the disc — it `*LOAD`s each block and `CHAIN`s the program (or
+`*RUN`s the code when there is no BASIC) — so the disc runs by itself on real
+hardware (SHIFT+BREAK). Import re-opens the BASIC program for editing and brings
+every other file back as a block. Running a document with blocks in this IDE
+mounts the same `.ssd` and boots it, so the emulator distinguishes BASIC from
+machine code exactly as MOS does. A pure-BASIC document keeps exporting the plain
+`.bbc`.
+
 ### Commodore 64 / VIC-20 / PET `.prg`
 
 The 2-byte little-endian load address (`$01 $08` = $0801) followed by the
@@ -254,10 +280,11 @@ Some programs load machine code or data at a fixed address alongside the BASIC
 program. The IDE keeps these as named **memory blocks**; on Run they are written
 straight into RAM before the program starts, and they travel with the document
 through the [project bundle](#project-bundle-bproj) and through
-[share links](../guide/publishing). The ZX Spectrum `.TAP` and the Commodore
-`.d64` carry blocks in **both directions** (see their sections —
+[share links](../guide/publishing). The ZX Spectrum `.TAP`, the Commodore `.d64`
+and the BBC `.ssd` carry blocks in **both directions** (see their sections —
 [`.TAP`](#zx-spectrum-spectrum-128-tap),
-[`.d64`](#commodore-64-vic-20-pet-d64) — for the export layouts); several native
+[`.d64`](#commodore-64-vic-20-pet-d64),
+[`.ssd`](#bbc-micro-master-ssd) — for the export layouts); several native
 formats carry blocks on **import** only:
 
 - **ZX Spectrum `.TAP`** — a tape holding CODE files (each with a load address)
@@ -269,6 +296,10 @@ formats carry blocks on **import** only:
   address; a normal program with extra bytes past the end of the tokenized
   program imports the program plus those trailing bytes as a block. A `.d64`
   disk image (C64, VIC-20 or PET) imports every non-BASIC file as a block.
+- **BBC `.ssd`** — a DFS disc image imports the BASIC program (the file at PAGE)
+  for editing and every other file as a block at its own load address, keeping
+  its exec address for machine code (the generated `!BOOT` is skipped). See
+  [`.ssd`](#bbc-micro-master-ssd) for the matching export layout.
 - **Acorn Atom `.atm`** — an `.atm` that loads somewhere other than `#2900`
   (where BASIC text lives) is a machine-code or data file, so its payload imports
   as a block at its load address, remembering the header's exec address.
@@ -288,15 +319,21 @@ block over live hardware such as the screen is allowed but flagged.
 
 ### Sidecar block files (.bin)
 
-The ZX81/ZX80 `.P`/`.O` and BBC `.bbc` formats carry only the BASIC program, so
-a block for those machines arrives as a **sidecar file**: drag a
+The Acorn Atom and TRS-80 have memory blocks but no native container to carry
+them, so a block for those machines arrives as a **sidecar file**: drag a
 `<name>-<addr>.bin` onto the editor and its bytes are added to the current
 document as a block at the address in its file name. The address is hex
 (`sprite-0x8000.bin`, also `$` or `&`) or plain decimal (`sprite-32768.bin`),
 and the name part becomes the block name. Unlike importing a program file, a
-sidecar augments the open document rather than replacing it; it works on any
-machine that supports memory blocks. Blocks also travel with a document through
-a project bundle or a share link.
+sidecar augments the open document rather than replacing it. Blocks also travel
+with a document through a project bundle or a share link.
+
+Machines with a block-carrying container import blocks from it instead — the BBC
+from a [`.ssd`](#bbc-micro-master-ssd) disc (or embed code as inline assembly in
+the `.bbc`), the Commodore from a [`.d64`](#commodore-64-vic-20-pet-d64), the ZX
+Spectrum from a [`.TAP`](#zx-spectrum-spectrum-128-tap) — so dropping a `.bin`
+on those machines points you at the container rather than adding a sidecar. The
+ZX81/ZX80 keep their machine code inside the listing as `#BIN` REM records.
 
 ## Cassette audio
 
