@@ -2,7 +2,12 @@ import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { bbcCharset } from './charset';
 import { bbcKeywords } from './keywords';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram, detokenizeWithReport } from './detokenizer';
+import {
+  detokenizeProgram,
+  detokenizeWithReport,
+  detokenizeBbcDiscWithReport,
+} from './detokenizer';
+import { isBbcDisc } from '../../emulator/bbc/bbcDisc';
 import {
   bbcBuildTargets,
   buildCassetteSamples,
@@ -55,6 +60,7 @@ export const bbcmicro: Dialect = {
   },
 
   detokenizeWithReport(image: Uint8Array) {
+    if (isBbcDisc(image)) return detokenizeBbcDiscWithReport(image);
     return detokenizeWithReport(image);
   },
 
@@ -96,7 +102,10 @@ export const bbcmicro: Dialect = {
 
   buildTargets: bbcBuildTargets,
 
-  binaryImports: [{ extension: '.bbc', label: 'Import .BBC…' }],
+  binaryImports: [
+    { extension: '.bbc', label: 'Import .BBC…' },
+    { extension: '.ssd', label: 'Import .SSD…' },
+  ],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,

@@ -34,8 +34,10 @@ const { serializeProject } = await import('../storage/projectFile');
 
 const zx81 = getDialect('zx81');
 const commodore64 = getDialect('commodore64');
-// BBC keeps the fixed-address sidecar model (its .bbc program format can't carry
-// blocks); ZX80/ZX81 no longer do - their blocks live in the listing.
+// The Atom keeps the fixed-address sidecar model: it has memory blocks but no
+// native block-carrying container to import them from. BBC no longer does - its
+// blocks travel inside the `.ssd` disc image (a `supportsBlocks` target).
+const atom = getDialect('atom');
 const bbc = getDialect('bbcmicro');
 
 // A .prg image round-trips through the C64 dialect, so we can build a real one.
@@ -218,9 +220,9 @@ describe('openDroppedFile', () => {
   });
 
   it('adds a sidecar .bin as a memory block, augmenting the document', async () => {
-    // BBC keeps the fixed-address sidecar model, so a <name>-<addr>.bin is added
-    // rather than opened as a program.
-    useIdeStore.setState({ dialect: bbc, source: '10 REM OLD' });
+    // The Atom keeps the fixed-address sidecar model, so a <name>-<addr>.bin is
+    // added rather than opened as a program.
+    useIdeStore.setState({ dialect: atom, source: '10 REM OLD' });
     await dropFile('sprite-0x3000.bin', Uint8Array.from([1, 2, 3]));
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 REM OLD'); // augments, doesn't replace
@@ -240,11 +242,23 @@ describe('openDroppedFile', () => {
   });
 
   it('rejects a .bin whose name has no load address', async () => {
-    useIdeStore.setState({ dialect: bbc });
+    useIdeStore.setState({ dialect: atom });
     await dropFile('program.bin', Uint8Array.from([1]));
     const s = useIdeStore.getState();
     expect(s.blocks).toEqual([]);
     expect(s.statusNotice).toMatch(/must be named like/);
+  });
+
+  it('directs a .bin drop on a container dialect (BBC) to its .ssd import', async () => {
+    // BBC's blocks travel inside the `.ssd` disc image, so a fixed-address .bin
+    // sidecar isn't imported - the user is pointed at the container instead.
+    useIdeStore.setState({ dialect: bbc, source: '10 REM OLD', blocks: [] });
+    await dropFile('sprite-0x3000.bin', Uint8Array.from([1, 2, 3]));
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 REM OLD');
+    expect(s.blocks).toEqual([]);
+    expect(s.statusNotice).toContain('.ssd');
+    expect(s.statusNotice).toMatch(/sidecars aren't used here/);
   });
 
   it('directs a .bin drop on a listing dialect to the REM-block route', async () => {

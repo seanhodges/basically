@@ -3,7 +3,11 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { BbcMachine, configureNodeRomPath } from './bbcMachine';
 import { tokenizeProgram } from '../../dialects/bbcmicro/tokenizer';
-import type { MachineFileEntry, MachineFileStore } from '../../dialects/types';
+import type {
+  MachineFileEntry,
+  MachineFileStore,
+  MemoryBlock,
+} from '../../dialects/types';
 import { WRITE_BIT } from '../memoryActivityBuffer';
 
 // Point jsbeeb's ROM loader at the real ROMs shipped in its npm package.
@@ -240,6 +244,54 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     expect(machine.readReport()).toBeNull();
     machine.dispose();
   }, 60000);
+
+  describe('memory blocks (mount and boot)', () => {
+    it('loads a block from the disc and CHAINs the BASIC program', async () => {
+      const machine = new BbcMachine();
+      const { bytes } = tokenizeProgram('10 PRINT ?&2E00\n20 END\n');
+      const block: MemoryBlock = {
+        id: 'b1',
+        name: 'DATA',
+        address: 0x2e00,
+        bytes: Uint8Array.from([0x42, 0x99]),
+        kind: 'data',
+      };
+      machine.loadProgram(bytes, { blocks: [block] });
+      // MOS *LOADs the block at &2E00, then CHAIN runs the program, which
+      // prints the byte there (0x42 = 66).
+      const ran = await runUntil(
+        machine,
+        () => screenText(machine).includes('66'),
+        1500,
+      );
+      expect(ran).toBe(true);
+      expect(machine.processor.readmem(0x2e00)).toBe(0x42);
+      expect(machine.processor.readmem(0x2e01)).toBe(0x99);
+      machine.dispose();
+    }, 60000);
+
+    it('*RUNs a machine-code-only document at its entry address', async () => {
+      const machine = new BbcMachine();
+      // LDA #&42 : STA &2100 : RTS - a routine that leaves a marker in RAM.
+      const code: MemoryBlock = {
+        id: 'c1',
+        name: 'CODE',
+        address: 0x2000,
+        entry: 0x2000,
+        bytes: Uint8Array.from([0xa9, 0x42, 0x8d, 0x00, 0x21, 0x60]),
+        kind: 'code',
+      };
+      // No BASIC program: the dialect's tokenize returns an empty image.
+      machine.loadProgram(new Uint8Array(0), { blocks: [code] });
+      const ran = await runUntil(
+        machine,
+        () => machine.processor.readmem(0x2100) === 0x42,
+        1500,
+      );
+      expect(ran).toBe(true);
+      machine.dispose();
+    }, 60000);
+  });
 
   it('reports 896×600 as its visible display size', () => {
     const machine = new BbcMachine();

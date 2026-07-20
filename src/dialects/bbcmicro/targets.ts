@@ -3,6 +3,7 @@ import { fatalErrors } from '../types';
 import { tokenizeProgram } from './tokenizer';
 import { encodeBbcTape } from './audio/cassetteEncoder';
 import { samplesToWav } from '../../transfer/wav';
+import { buildBbcDiscImage } from './disc';
 
 export const CASSETTE_SAMPLE_RATE = 44100;
 
@@ -51,6 +52,31 @@ export const bbcBuildTargets: BuildTarget[] = [
           blob: new Blob([buildBbcImage(source) as BlobPart], {
             type: 'application/octet-stream',
           }),
+        },
+      ]),
+  },
+  {
+    id: 'bbc-ssd',
+    label: 'Export .ssd disc',
+    fileExtension: 'ssd',
+    // A DFS disc image carries the BASIC program plus each memory block as its
+    // own file, with load/exec attributes MOS uses to CHAIN BASIC vs *RUN code.
+    supportsBlocks: true,
+    build: (source, { programName, blocks, loader }) =>
+      Promise.resolve([
+        {
+          fileName: `${programName.toLowerCase()}.ssd`,
+          blob: new Blob(
+            [
+              buildBbcDiscImage(
+                source,
+                programName,
+                blocks,
+                loader,
+              ) as BlobPart,
+            ],
+            { type: 'application/octet-stream' },
+          ),
         },
       ]),
   },

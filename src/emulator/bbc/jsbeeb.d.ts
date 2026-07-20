@@ -68,11 +68,32 @@ declare module 'jsbeeb/src/soundchip.js' {
   }
 }
 
+declare module 'jsbeeb/src/fdc.js' {
+  /** An opaque loaded disc image (see {@link discFor} / {@link Fdc.loadDisc}). */
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  export interface Disc {}
+  /** The floppy-disc controller: mount a disc image into one of its drives. */
+  export interface Fdc {
+    loadDisc(drive: number, disc: Disc): void;
+  }
+  /**
+   * Build a {@link Disc} from raw image bytes, picking the format by file
+   * extension (e.g. '.ssd'); the result is handed to {@link Fdc.loadDisc}.
+   */
+  export function discFor(
+    fdc: Fdc,
+    name: string,
+    data: Uint8Array | string,
+    onChange?: (data: Uint8Array) => void,
+  ): Disc;
+}
+
 declare module 'jsbeeb/src/fake6502.js' {
   import type { Model } from 'jsbeeb/src/models.js';
   import type { Video } from 'jsbeeb/src/video.js';
   import type { FakeSoundChip, SoundChip } from 'jsbeeb/src/soundchip.js';
   import type { AtomPPIA } from 'jsbeeb/src/ppia.js';
+  import type { Fdc } from 'jsbeeb/src/fdc.js';
 
   export interface SysVia {
     keyDown(jsKeyCode: number, shiftDown: boolean): void;
@@ -122,6 +143,8 @@ declare module 'jsbeeb/src/fake6502.js' {
     readonly sysvia: SysVia;
     /** The µPD7002 ADC, source of analogue joystick input (absent on the Atom). */
     readonly adconverter: Adc;
+    /** The floppy-disc controller (present on the disc-equipped BBC models). */
+    readonly fdc: Fdc;
     /** The 8255 PPIA keyboard/tape interface — present only on the Atom CPU. */
     readonly atomppia?: AtomPPIA;
     // --- registers/hooks used by the VFS filing-system trap (see diskDrive.ts) ---

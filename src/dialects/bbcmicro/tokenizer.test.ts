@@ -141,6 +141,35 @@ describe('BBC detokenizer', () => {
   });
 });
 
+// A BBC program can embed machine code as inline assembly ([ ... ]) held right
+// in the listing - the in-.bbc alternative to a fixed-address memory block. It
+// must tokenize to the genuine ROM bytes and round-trip back to source, so the
+// `.bbc` carries the assembly losslessly.
+describe('BBC inline assembler in the listing', () => {
+  const ASM_PROGRAM = [
+    '10 DIM C% 32',
+    '20 P%=C%',
+    '30 [OPT 2',
+    '40 LDA #&41',
+    '50 AND #&0F',
+    '60 JSR &FFEE',
+    '70 RTS',
+    '80 ]',
+    '90 CALL C%',
+  ].join('\n');
+
+  it('tokenizes byte-identically to the genuine ROM', () => {
+    const { bytes, errors } = tokenizeProgram(ASM_PROGRAM);
+    expect(errors, JSON.stringify(errors)).toEqual([]);
+    expect(Array.from(bytes)).toEqual(romBytes(ASM_PROGRAM));
+  });
+
+  it('round-trips an inline-assembler program through the .bbc image', () => {
+    const { bytes } = tokenizeProgram(ASM_PROGRAM);
+    expect(detokenizeProgram(bytes)).toBe(ASM_PROGRAM + '\n');
+  });
+});
+
 describe('BBC detokenizer is context-aware', () => {
   // A token-valued byte inside a string is teletext data, not a keyword: a
   // MODE 7 colour byte 0x81 must not decode to the keyword text "DIV".
