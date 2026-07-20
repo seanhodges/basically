@@ -85,7 +85,10 @@ export const trs80: Dialect = {
 
   buildTargets: trs80BuildTargets,
 
-  binaryImports: [{ extension: '.cas', label: 'Import .CAS…' }],
+  binaryImports: [
+    { extension: '.cas', label: 'Import .CAS…' },
+    { extension: '.dsk', label: 'Import .DSK disk…' },
+  ],
 
   audio: {
     sampleRate: CASSETTE_SAMPLE_RATE,

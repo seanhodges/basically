@@ -1,7 +1,14 @@
-import type { DetokenizeResult } from '../types';
+import type { DetokenizeResult, TapeFile } from '../types';
 import { atomCharset } from './charset';
-import { codeFilesToBlocks } from '../importBlocks';
-import { ATM_HEADER_SIZE, parseAtm, stripAtmHeader } from './atm';
+import { codeFilesToBlocks, type ImportedCodeFile } from '../importBlocks';
+import {
+  ATM_HEADER_SIZE,
+  ATOM_TEXT_START,
+  buildAtm,
+  parseAtm,
+  stripAtmHeader,
+} from './atm';
+import { isAtomDsk, parseAtomDsk, type AtomDskEntry } from './atomDsk';
 
 const LINE_MARK = 0x0d;
 const END_HI = 0xff;
@@ -20,6 +27,7 @@ const END_HI = 0xff;
  * decodes to empty text here; {@link detokenizeProgramWithReport} explains why.
  */
 export function detokenizeProgram(file: Uint8Array): string {
+  if (isAtomDsk(file)) return detokenizeAtomDskWithReport(file).source;
   let image: Uint8Array;
   try {
     image = stripAtmHeader(file);
@@ -44,6 +52,7 @@ export function detokenizeProgram(file: Uint8Array): string {
 export function detokenizeProgramWithReport(
   file: Uint8Array,
 ): DetokenizeResult {
+  if (isAtomDsk(file)) return detokenizeAtomDskWithReport(file);
   let image: Uint8Array;
   try {
     image = stripAtmHeader(file);
@@ -82,6 +91,82 @@ export function detokenizeProgramWithReport(
     );
   }
   return { source, warnings };
+}
+
+/**
+ * Import an Atom `.dsk` disc image (see {@link import('./atomDsk')}). The disc
+ * holds the BASIC program plus each memory block as its own catalogue file, with
+ * a per-file load address: a file loading at `#2900` is BASIC text, anything
+ * else is a machine-code/data block at its load address (its exec address kept
+ * as the block's entry). The largest `#2900` file (catalogue order breaking
+ * ties) is opened for editing; any other BASIC files are preserved as tape files
+ * (the Atom emulator mounts no drive), and non-`#2900` files import as memory
+ * blocks - so a whole document round-trips through the disc intact.
+ */
+export function detokenizeAtomDskWithReport(
+  file: Uint8Array,
+): DetokenizeResult {
+  const { entries, warnings } = parseAtomDsk(file);
+  const basics = entries.filter((e) => e.load === ATOM_TEXT_START);
+  const others = entries.filter((e) => e.load !== ATOM_TEXT_START);
+
+  let chosen: AtomDskEntry | null = null;
+  for (const b of basics) {
+    if (chosen === null || b.bytes.length > chosen.bytes.length) chosen = b;
+  }
+
+  const codeFiles: ImportedCodeFile[] = others.map((e) => ({
+    name: e.name,
+    address: e.load,
+    bytes: e.bytes,
+    ...(e.exec !== e.load ? { entry: e.exec } : {}),
+  }));
+  const blocks = codeFilesToBlocks(codeFiles);
+
+  const source = chosen !== null ? decodeImage(chosen.bytes).source : '';
+
+  const tapeFiles: TapeFile[] = basics
+    .filter((b) => b !== chosen)
+    .map((b) => ({
+      name: b.name === '' ? 'PROGRAM' : b.name,
+      kind: 'program',
+      tap: buildAtm(b.bytes, b.name || 'PROGRAM'),
+    }));
+
+  if (entries.length > 1 && chosen !== null) {
+    const parts: string[] = [];
+    if (tapeFiles.length > 0) {
+      parts.push(
+        `${tapeFiles.length} other BASIC program${tapeFiles.length === 1 ? '' : 's'} ` +
+          'preserved with the document (the Atom emulator mounts no drive, so ' +
+          'the running program cannot load them)',
+      );
+    }
+    if (others.length > 0) {
+      parts.push(
+        `${others.length} machine-code/data entr${others.length === 1 ? 'y' : 'ies'} ` +
+          'imported as memory blocks',
+      );
+    }
+    warnings.push(
+      `Multi-file disk image: opened "${chosen.name === '' ? '?' : chosen.name}" ` +
+        `(${chosen.bytes.length} bytes), the largest BASIC program` +
+        (parts.length > 0 ? `; ${parts.join('; ')}` : '') +
+        '.',
+    );
+  } else if (chosen === null && entries.length > 0) {
+    warnings.push(
+      'The .dsk holds no Atom BASIC program (nothing loads at #2900); its ' +
+        'entries were imported as memory blocks.',
+    );
+  }
+
+  return {
+    source,
+    warnings,
+    ...(blocks.length > 0 ? { blocks } : {}),
+    ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
+  };
 }
 
 /**

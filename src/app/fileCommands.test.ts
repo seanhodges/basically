@@ -34,11 +34,9 @@ const { serializeProject } = await import('../storage/projectFile');
 
 const zx81 = getDialect('zx81');
 const commodore64 = getDialect('commodore64');
-// The Atom keeps the fixed-address sidecar model: it has memory blocks but no
-// native block-carrying container to import them from. BBC no longer does - its
-// blocks travel inside the `.ssd` disc image (a `supportsBlocks` target).
+// The Atom carries its memory blocks inside the `.dsk` disc image (a
+// `supportsBlocks` target), the way the BBC uses `.ssd` and the Commodore `.d64`.
 const atom = getDialect('atom');
-const bbc = getDialect('bbcmicro');
 
 // A .prg image round-trips through the C64 dialect, so we can build a real one.
 const PRG_SOURCE = '10 PRINT "HI"\n';
@@ -219,56 +217,41 @@ describe('openDroppedFile', () => {
     expect(s.statusNotice).toBeNull();
   });
 
-  it('adds a sidecar .bin as a memory block, augmenting the document', async () => {
-    // The Atom keeps the fixed-address sidecar model, so a <name>-<addr>.bin is
-    // added rather than opened as a program.
-    useIdeStore.setState({ dialect: atom, source: '10 REM OLD' });
+  it('reports an unsupported type for a dropped .bin (sidecar removed)', async () => {
+    // With the sidecar `.bin` convention gone, a bare `.bin` has no meaning -
+    // memory blocks now travel inside each machine's disc/tape container.
+    useIdeStore.setState({ dialect: atom, source: '10 REM OLD', blocks: [] });
     await dropFile('sprite-0x3000.bin', Uint8Array.from([1, 2, 3]));
     const s = useIdeStore.getState();
-    expect(s.source).toBe('10 REM OLD'); // augments, doesn't replace
-    expect(s.blocks).toEqual([
-      {
-        id: 'sidecar-sprite',
-        name: 'sprite',
-        address: 0x3000,
-        bytes: Uint8Array.from([1, 2, 3]),
-        kind: 'code',
-      },
-    ]);
-    expect(s.dirty).toBe(true); // adding a block dirties the document
-    expect(s.statusNotice).toBe(
-      'Imported sprite-0x3000.bin as memory block "sprite" at 0x3000.',
-    );
+    expect(s.source).toBe('10 REM OLD'); // untouched
+    expect(s.blocks).toEqual([]);
+    expect(s.statusNotice).toMatch(/unsupported file type/);
   });
 
-  it('rejects a .bin whose name has no load address', async () => {
-    useIdeStore.setState({ dialect: atom });
-    await dropFile('program.bin', Uint8Array.from([1]));
-    const s = useIdeStore.getState();
-    expect(s.blocks).toEqual([]);
-    expect(s.statusNotice).toMatch(/must be named like/);
-  });
+  it('imports a dropped .dsk disk with its program and memory blocks', async () => {
+    // The Atom's block-carrying container: a `.dsk` brings the BASIC program
+    // back into the editor along with its fixed-address block, like Import.
+    const block = {
+      id: 'sprite-1',
+      name: 'sprites',
+      address: 0x5000,
+      bytes: Uint8Array.of(0xa9, 0x00, 0x60),
+      kind: 'code' as const,
+    };
+    const target = atom.buildTargets.find((t) => t.id === 'atom-dsk')!;
+    const [file] = await target.build('10 PRINT "GAME"\n', {
+      programName: 'GAME',
+      blocks: [block],
+      loader: false,
+    });
+    const dsk = new Uint8Array(await file!.blob.arrayBuffer());
 
-  it('directs a .bin drop on a container dialect (BBC) to its .ssd import', async () => {
-    // BBC's blocks travel inside the `.ssd` disc image, so a fixed-address .bin
-    // sidecar isn't imported - the user is pointed at the container instead.
-    useIdeStore.setState({ dialect: bbc, source: '10 REM OLD', blocks: [] });
-    await dropFile('sprite-0x3000.bin', Uint8Array.from([1, 2, 3]));
+    useIdeStore.setState({ dialect: atom, source: '10 REM OLD', blocks: [] });
+    await dropFile('game.dsk', dsk);
     const s = useIdeStore.getState();
-    expect(s.source).toBe('10 REM OLD');
-    expect(s.blocks).toEqual([]);
-    expect(s.statusNotice).toContain('.ssd');
-    expect(s.statusNotice).toMatch(/sidecars aren't used here/);
-  });
-
-  it('directs a .bin drop on a listing dialect to the REM-block route', async () => {
-    // ZX81's blocks live in the listing, not at a fixed address, so a sidecar
-    // .bin has nowhere to go - the user gets pointed at the block tabs / .P.
-    useIdeStore.setState({ dialect: zx81, source: '10 REM OLD', blocks: [] });
-    await dropFile('sprite-0x7000.bin', Uint8Array.from([1, 2, 3]));
-    const s = useIdeStore.getState();
-    expect(s.source).toBe('10 REM OLD');
-    expect(s.blocks).toEqual([]);
-    expect(s.statusNotice).toMatch(/REM blocks/);
+    expect(s.source).toContain('PRINT "GAME"');
+    expect(s.blocks).toHaveLength(1);
+    expect(s.blocks[0]!.address).toBe(0x5000);
+    expect(Array.from(s.blocks[0]!.bytes)).toEqual([0xa9, 0x00, 0x60]);
   });
 });

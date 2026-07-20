@@ -102,9 +102,9 @@ the notes below:
   tabs in the editor area — the first real editor-pane tab system (today there
   is exactly one `CodeMirrorHost` and only the mobile pane switcher).
 - **Export uses the authentic multi-block format** (Spectrum multi-file `.TAP`
-  with an optional auto-loader, per-block `.prg`/`.atm`/`.cas`, sidecar `.bin`)
-  so exports load on real hardware — the counterpart to the load & run plan's
-  direct-write emulator injection.
+  with an optional auto-loader, the BBC `.ssd` / Commodore `.d64` / Atom &
+  TRS-80 `.dsk` disc images) so exports load on real hardware — the counterpart
+  to the load & run plan's direct-write emulator injection.
 
 ## Key facts the plan builds on
 
@@ -353,12 +353,11 @@ metadata, injection, and import halves land in the load & run plan's rollout.
       files + `*RUN` guidance. Docs note that BBC BASIC's genuine inline `[ ]`
       assembler already works in the emulator — blocks complement it for
       pre-built binaries. Keywords: `CALL` / `USR`.
-- [x] **ZX81/ZX80 — shipped as listing-backed blocks (Jan 2026), superseding the
-      sidecar-export idea below.** The standard `.P`/`.O` snapshot can't carry
-      above-RAMTOP data, and a sidecar `.bin` would break the single-file
-      convention real emulators and hardware expect — so these dialects drop the
-      fixed-address block model entirely (no RAM injection, no sidecar `.bin`
-      drop). Instead a block **is** a hidden-machine-code `#BIN` REM record inside
+- [x] **ZX81/ZX80 — shipped as listing-backed blocks (Jan 2026).** The standard
+      `.P`/`.O` snapshot can't carry above-RAMTOP data, and a separate block file
+      would break the single-file convention real emulators and hardware expect —
+      so these dialects drop the fixed-address block model entirely (no RAM
+      injection). Instead a block **is** a hidden-machine-code `#BIN` REM record inside
       the BASIC listing (`src/dialects/binaryDirective.ts`): it rides in the
       monolithic `.P`/`.O` image for free, imports and exports with no new format,
       and is edited by regenerating its source line. `MemoryBlocksSupport.inListing` + `ListingLayout` gate it; the projection/write-back live in
@@ -432,7 +431,8 @@ border; hex-editing it afterwards flags the asm as stale.
 ## Stage 8 — Docs ⬜
 
 - [ ] `docs/reference/file-formats.md` — the export side: multi-file `.TAP`,
-      per-block `.prg`/`.atm`/`.cas`, the ZX81 sidecar caveat.
+      the BBC `.ssd` / Commodore `.d64` / Atom & TRS-80 `.dsk` disc images, the
+      ZX81 `#BIN` listing-block caveat.
 - [ ] Per-dialect reference pages — a "Machine code & data blocks" section as
       each dialect's authoring sub-stage lands (auto-loader, export formats,
       USR/SYS/CALL keyword).
