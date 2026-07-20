@@ -164,13 +164,8 @@ export default withPwa(
                   { text: 'File formats', link: '/reference/trs80/formats' },
                 ],
               },
-            ],
-          },
-          {
-            // The assembler is per-CPU, not per-dialect, so machine-code blocks
-            // share one instruction reference per processor.
-            text: 'Assembly reference',
-            items: [
+              // The assembler is per-CPU, not per-dialect, so machine-code
+              // blocks share one instruction reference per processor.
               { text: 'Z80 assembly', link: '/reference/z80-assembly' },
               { text: '6502 assembly', link: '/reference/6502-assembly' },
             ],
