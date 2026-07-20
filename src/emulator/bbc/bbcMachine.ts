@@ -499,20 +499,30 @@ export class BbcMachine implements MachineEmulator {
    */
   loadProgram(
     image: Uint8Array,
-    opts?: { blocks?: readonly MemoryBlock[] },
+    opts?: { blocks?: readonly MemoryBlock[]; bootDisc?: Uint8Array },
   ): void {
     const generation = ++this.loadGeneration;
     this.loadError = '';
     this.lineCache = null;
     // Captured before the async IIFE runs, since `opts` is only live now.
     const blocks = opts?.blocks;
-    const useDisc = !!blocks && blocks.length > 0;
+    const bootDisc = opts?.bootDisc;
+    const useDisc = !bootDisc && !!blocks && blocks.length > 0;
     void (async () => {
       try {
         await this.ready;
         if (generation !== this.loadGeneration || this.disposed) return;
         this.injecting = true;
         try {
+          // A preserved disc image is booted verbatim (SHIFT+BREAK), so the
+          // disc's own loader runs and MOS/DFS reads every file at its true
+          // address - the only faithful path for a multi-file game disc.
+          if (bootDisc) {
+            this.bootPreservedDisc(bootDisc);
+            this.soundChip.catchUp();
+            this.clearAudio();
+            return;
+          }
           this.cpu.sysvia.clearKeys();
           this.cpu.reset(true);
           // Start each run with no carried-over channels from a previous run.
@@ -565,6 +575,38 @@ export class BbcMachine implements MachineEmulator {
    * MOS reads them straight off the mounted disc regardless of whether the IDE's
    * virtual filesystem is wired.
    */
+  /**
+   * Mount `disc` verbatim and boot it exactly as SHIFT+BREAK does on real
+   * hardware: hold SHIFT across a reset with the disc in drive 0, so MOS reads
+   * the disc's `*OPT 4` boot option and `*EXEC`s its `!BOOT` (or `*RUN`s the
+   * boot file). The disc's own loader then loads every file at its true address
+   * off the mounted image - files below PAGE, overlapping each other, or
+   * overlapping the program area all land correctly, which the decompose-into-
+   * blocks path (see {@link bootFromDisc}) can't reproduce. SHIFT is released
+   * after the boot window (MOS latches the auto-boot decision within the first
+   * few thousand cycles of reset) so the loader's own key input isn't blocked.
+   */
+  private bootPreservedDisc(disc: Uint8Array): void {
+    this.cpu.sysvia.clearKeys();
+    this.cpu.fdc.loadDisc(0, discFor(this.cpu.fdc, 'boot.ssd', disc));
+    // Start each run with no carried-over channels from a previous run.
+    this.drive?.closeAll(false);
+    const shiftPos = matrixForToken('Shift');
+    if (shiftPos) this.cpu.sysvia.keyDownRaw(shiftPos);
+    this.cpu.reset(true);
+    this.runCycles(this.bootCycles);
+    if (shiftPos) this.cpu.sysvia.keyUpRaw(shiftPos);
+    // Clear the MOS fault pointer once MOS has booted (a hard reset above would
+    // wipe an earlier write) so a non-zero value afterwards means THIS run hit
+    // an error (see readReport / reports.ts), as the other paths do.
+    this.cpu.writemem(FAULT_PTR, 0);
+    this.cpu.writemem(FAULT_PTR + 1, 0);
+    // Let the disc's !BOOT and its chained loader get going before the frame
+    // loop takes over, so the first painted frame shows the loader, not a
+    // blank MODE 7 screen.
+    this.runCycles(DISC_SETTLE_CYCLES);
+  }
+
   private bootFromDisc(
     image: Uint8Array,
     blocks: readonly MemoryBlock[],

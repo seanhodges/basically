@@ -64,6 +64,7 @@ describe('initialDocument (boot document choice)', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
     expect(initialDocument(saved, true, STARTER)).toEqual({
       fileName: 'mygame.bas',
@@ -72,6 +73,7 @@ describe('initialDocument (boot document choice)', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 
@@ -91,6 +93,7 @@ describe('initialDocument (boot document choice)', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 
@@ -102,6 +105,7 @@ describe('initialDocument (boot document choice)', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 
@@ -115,6 +119,7 @@ describe('initialDocument (boot document choice)', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 });
@@ -367,6 +372,7 @@ describe('loadUnsavedDocument', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 });
@@ -429,6 +435,7 @@ describe('markSaved', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 });
@@ -467,7 +474,51 @@ describe('persistAutosave', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
+  });
+
+  it('mirrors a preserved boot-disc document and restores it', () => {
+    const disc = Uint8Array.from({ length: 24 }, (_, i) => (i * 5) & 0xff);
+    useIdeStore.getState().loadUnsavedDocument('10 REM loader', {
+      dirty: true,
+      bootDisc: disc,
+    });
+    expect(useIdeStore.getState().bootDisc).not.toBeNull();
+    persistAutosave();
+    const loaded = loadAutosave();
+    expect(loaded?.bootDisc).not.toBeNull();
+    expect(Array.from(loaded!.bootDisc!)).toEqual(Array.from(disc));
+  });
+});
+
+describe('bootDisc drop-on-edit', () => {
+  beforeEach(() => {
+    const disc = Uint8Array.from({ length: 16 }, (_, i) => i);
+    useIdeStore.setState({ dialect: bbc });
+    useIdeStore.getState().loadUnsavedDocument('10 REM loader', {
+      dirty: true,
+      bootDisc: disc,
+    });
+  });
+
+  it('drops the preserved disc on a genuine source edit', () => {
+    expect(useIdeStore.getState().bootDisc).not.toBeNull();
+    useIdeStore.getState().setSource('10 REM edited');
+    expect(useIdeStore.getState().bootDisc).toBeNull();
+  });
+
+  it('keeps the disc when setSource echoes the same text (a load)', () => {
+    // The editor mirrors an unchanged doc back through setSource on load; that
+    // must not be mistaken for an edit.
+    useIdeStore.getState().setSource('10 REM loader');
+    expect(useIdeStore.getState().bootDisc).not.toBeNull();
+  });
+
+  it('drops the preserved disc when a block is authored', () => {
+    expect(useIdeStore.getState().bootDisc).not.toBeNull();
+    useIdeStore.getState().addBlock();
+    expect(useIdeStore.getState().bootDisc).toBeNull();
   });
 
   it('skips the write when the document is unchanged (in-memory gate)', () => {

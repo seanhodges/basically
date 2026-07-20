@@ -62,6 +62,7 @@ export async function openDocument(): Promise<void> {
         listingBlockMeta: parsed.listingBlockMeta,
         autoStart: parsed.autoStart,
         tapeFiles: parsed.tapeFiles,
+        bootDisc: parsed.bootDisc,
       });
       const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
       if (mismatch) setStatusNotice(mismatch);
@@ -89,14 +90,21 @@ export async function saveDocument(): Promise<void> {
     listingBlockMeta,
     autoStart,
     tapeFiles,
+    bootDisc,
     dialect,
     markSaved,
   } = useIdeStore.getState();
   // A pure-BASIC document (including a listing-backed one with no metadata
   // overrides - its #BIN blocks live in `source`) saves as portable text; blocks,
-  // preserved tape, or listing-block overrides switch Save to the .bproj bundle.
+  // preserved tape, a boot-disc image, or listing-block overrides switch Save to
+  // the .bproj bundle.
   const hasListingMeta = Object.keys(listingBlockMeta).length > 0;
-  if (blocks.length > 0 || tapeFiles.length > 0 || hasListingMeta) {
+  if (
+    blocks.length > 0 ||
+    tapeFiles.length > 0 ||
+    hasListingMeta ||
+    bootDisc !== null
+  ) {
     const json = serializeProject(
       dialect.id,
       source,
@@ -104,6 +112,7 @@ export async function saveDocument(): Promise<void> {
       autoStart,
       tapeFiles,
       listingBlockMeta,
+      bootDisc,
     );
     const saved = await saveProjectFile(toProjectFileName(fileName), json);
     if (saved !== null) markSaved(saved);
@@ -167,6 +176,7 @@ export async function openDroppedFile(file: File): Promise<void> {
         listingBlockMeta: parsed.listingBlockMeta,
         autoStart: parsed.autoStart,
         tapeFiles: parsed.tapeFiles,
+        bootDisc: parsed.bootDisc,
       });
       const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
       if (mismatch) setStatusNotice(mismatch);
@@ -179,6 +189,8 @@ export async function openDroppedFile(file: File): Promise<void> {
           blocks: parsed.blocks,
           listingBlockMeta: parsed.listingBlockMeta,
           autoStart: parsed.autoStart,
+          tapeFiles: parsed.tapeFiles,
+          bootDisc: parsed.bootDisc,
         });
         const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
         if (mismatch) setStatusNotice(mismatch);
@@ -191,15 +203,14 @@ export async function openDroppedFile(file: File): Promise<void> {
       const bytes = new Uint8Array(await file.arrayBuffer());
       // Import loads real, not-yet-saved content: untitled but dirty, so the
       // discard guard fires before the next load (mirrors the Import dialog).
-      const { source, warnings, blocks, tapeFiles, autoStart } = importProgram(
-        dialect,
-        bytes,
-      );
+      const { source, warnings, blocks, tapeFiles, autoStart, bootDisc } =
+        importProgram(dialect, bytes);
       loadUnsavedDocument(source, {
         dirty: true,
         blocks,
         tapeFiles,
         autoStart,
+        bootDisc,
       });
       setStatusNotice(importStatusMessage(file.name, warnings));
     } else {

@@ -78,6 +78,26 @@ describe('serializeProject / parseProject round-trip', () => {
     );
   });
 
+  it('round-trips a verbatim boot-disc image', () => {
+    const disc = Uint8Array.from({ length: 40 }, (_, i) => (i * 7) & 0xff);
+    const text = serializeProject(
+      'bbcmicro',
+      '10 REM loader',
+      [],
+      null,
+      [],
+      {},
+      disc,
+    );
+    const parsed = parseProject(text);
+    expect(parsed.bootDisc).not.toBeNull();
+    expect(Array.from(parsed.bootDisc!)).toEqual(Array.from(disc));
+    // A document with no boot disc carries no key and parses back to null.
+    const without = parseProject(serializeProject('bbcmicro', '10 X', []));
+    expect(without.bootDisc).toBeNull();
+    expect(serializeProject('bbcmicro', '10 X', [])).not.toContain('bootDisc');
+  });
+
   it('round-trips blocks, including bytes and the optional comment', () => {
     const text = serializeProject('zxspectrum', '10 PRINT "HI"', [
       BLOCK_A,

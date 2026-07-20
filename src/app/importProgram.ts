@@ -43,6 +43,13 @@ export interface ImportedProgram {
    * there is none; the run path then starts from the first line.
    */
   autoStart?: number | null;
+  /**
+   * A verbatim disc image to mount-and-boot instead of running `source`, when
+   * the dialect's importer preserved one (see {@link
+   * DetokenizeResult.bootDisc}) - a multi-file BBC `.ssd` the memory-block model
+   * can't represent. Absent for the common decompose-cleanly case.
+   */
+  bootDisc?: Uint8Array;
 }
 
 /**
@@ -89,6 +96,7 @@ export function importProgram(
       ? { tapeFiles: base.tapeFiles }
       : {}),
     ...(base.autoStart != null ? { autoStart: base.autoStart } : {}),
+    ...(base.bootDisc ? { bootDisc: base.bootDisc } : {}),
   };
 }
 

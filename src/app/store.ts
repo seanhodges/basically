@@ -175,6 +175,19 @@ interface IdeState {
    * report one.
    */
   autoStart: number | null;
+  /**
+   * A verbatim disc image the document boots instead of running its tokenized
+   * `source` - a multi-file BBC `.ssd` the memory-block model can't represent,
+   * whose own loader must run (see {@link DetokenizeResult.bootDisc}). When set,
+   * the run path (`EmulatorPane`) mounts-and-boots it and ignores `blocks`;
+   * `source` still holds the recovered loader listing, shown for context.
+   * Document-model state like `blocks`: it survives autosave and Save/Open (as a
+   * `.bproj` bundle), is reset whenever a different program becomes active, and
+   * is cleared the moment the user edits `source` (their edits then drive the
+   * normal tokenize-and-run path). `null` for the common decompose-cleanly case
+   * and every non-disc document.
+   */
+  bootDisc: Uint8Array | null;
   /** Bump seq to push text INTO the editor (file load, AI apply). */
   docOverride: { text: string; seq: number };
   /**
@@ -412,6 +425,7 @@ interface IdeState {
       listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
+      bootDisc?: Uint8Array | null;
     },
   ): void;
   /**
@@ -438,6 +452,7 @@ interface IdeState {
       listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
       autoStart?: number | null;
       tapeFiles?: readonly TapeFile[];
+      bootDisc?: Uint8Array | null;
     },
   ): void;
   markSaved(fileName: string): void;
@@ -730,7 +745,7 @@ function withListingBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
  * so the first tick doesn't re-write unchanged content.
  */
 let lastAutosaveSig: string | null = autosaved
-  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))} ${JSON.stringify(autosaved.listingBlockMeta)}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))}`
+  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))} ${JSON.stringify(autosaved.listingBlockMeta)}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))} ${autosaved.bootDisc?.length ?? ''}`
   : '';
 
 /**
@@ -751,15 +766,17 @@ export function persistAutosave(): void {
     listingBlockMeta,
     autoStart,
     tapeFiles,
+    bootDisc,
   } = useIdeStore.getState();
   const pristine =
     blocks.length === 0 &&
     Object.keys(listingBlockMeta).length === 0 &&
     tapeFiles.length === 0 &&
+    bootDisc === null &&
     (source.trim() === '' || matchingSampleName(dialect, source) !== null);
   const sig = pristine
     ? ''
-    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))} ${JSON.stringify(listingBlockMeta)}\u0000${autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(tapeFiles))}`;
+    : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))} ${JSON.stringify(listingBlockMeta)}\u0000${autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(tapeFiles))} ${bootDisc?.length ?? ''}`;
   if (sig === lastAutosaveSig) return;
   lastAutosaveSig = sig;
   if (pristine) clearAutosave();
@@ -771,6 +788,7 @@ export function persistAutosave(): void {
       listingBlockMeta,
       autoStart,
       tapeFiles,
+      bootDisc,
     );
 }
 
@@ -816,6 +834,7 @@ function applyDialectSwitch(
     blockSettingsId: null,
     tapeFiles: [],
     autoStart: null,
+    bootDisc: null,
     // On mobile, surface the change in the editor the user is now editing.
     ...(isMobileViewport() ? { mobileTab: 'editor' as MobileTab } : {}),
   };
@@ -837,6 +856,7 @@ export function initialDocument(
     listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
     autoStart?: number | null;
     tapeFiles?: TapeFile[];
+    bootDisc?: Uint8Array | null;
   } | null,
   launchedBefore: boolean,
   starterText: string,
@@ -847,6 +867,7 @@ export function initialDocument(
   listingBlockMeta: Readonly<Record<number, ListingBlockMeta>>;
   autoStart: number | null;
   tapeFiles: TapeFile[];
+  bootDisc: Uint8Array | null;
 } {
   if (saved) {
     return {
@@ -856,6 +877,7 @@ export function initialDocument(
       listingBlockMeta: saved.listingBlockMeta ?? {},
       autoStart: saved.autoStart ?? null,
       tapeFiles: saved.tapeFiles ?? [],
+      bootDisc: saved.bootDisc ?? null,
     };
   }
   return {
@@ -865,6 +887,7 @@ export function initialDocument(
     listingBlockMeta: {},
     autoStart: null,
     tapeFiles: [],
+    bootDisc: null,
   };
 }
 
@@ -906,6 +929,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   pendingDeleteBlockId: null,
   blockSettingsId: null,
   tapeFiles: startupDoc.tapeFiles,
+  bootDisc: startupDoc.bootDisc,
   autoStart: startupDoc.autoStart,
   docOverride: { text: startupText, seq: 0 },
   aiResetSeq: 0,
@@ -1043,6 +1067,8 @@ export const useIdeStore = create<IdeState>((set) => ({
         // A shared program is a single BASIC program with no preserved tape.
         tapeFiles: [],
         autoStart: null,
+        // A share carries a program, never a verbatim boot disc.
+        bootDisc: null,
         // Line numbers belong to whatever autosave seeded the store with.
         breakpoints: new Set<number>(),
         debugLine: null,
@@ -1093,7 +1119,17 @@ export const useIdeStore = create<IdeState>((set) => ({
       // overwrites it rather than opening a Save As. Never rename here.
       const emptyDraft =
         text.trim() === '' && s.fileName === UNTITLED_FILE_NAME;
-      return { source: text, dirty: !emptyDraft };
+      // A preserved boot-disc document runs its verbatim image, not `source`.
+      // The first genuine edit (text actually changes; loads echo the same text
+      // and are guarded out in CodeMirrorHost) drops it, so the user's edits
+      // drive the normal tokenize-and-run path from then on. `bytesToBase64` in
+      // autosave picks up the null via the next poll.
+      const clearDisc = s.bootDisc !== null && text !== s.source;
+      return {
+        source: text,
+        dirty: !emptyDraft,
+        ...(clearDisc ? { bootDisc: null } : {}),
+      };
     }),
   replaceDocument: (text, fileName, opts) => {
     set((s) => ({
@@ -1116,6 +1152,7 @@ export const useIdeStore = create<IdeState>((set) => ({
             blockSettingsId: null,
             tapeFiles: opts?.tapeFiles ?? [],
             autoStart: opts?.autoStart ?? null,
+            bootDisc: opts?.bootDisc ?? null,
           }
         : {}),
       dirty: fileName === undefined,
@@ -1147,6 +1184,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       blockSettingsId: null,
       tapeFiles: opts?.tapeFiles ?? [],
       autoStart: opts?.autoStart ?? null,
+      bootDisc: opts?.bootDisc ?? null,
       ...(isMobileViewport()
         ? { stopRequest: s.stopRequest + 1, mobileTab: 'editor' as MobileTab }
         : {}),
@@ -1283,7 +1321,14 @@ export const useIdeStore = create<IdeState>((set) => ({
       };
       const blocks = [...s.blocks, block];
       assertValidBlocks(blocks);
-      return { blocks, activeBlockId: block.id, dirty: true };
+      // Authoring a block turns a preserved boot-disc document into an
+      // editable one, so drop the verbatim image (as a source edit does).
+      return {
+        blocks,
+        activeBlockId: block.id,
+        dirty: true,
+        ...(s.bootDisc !== null ? { bootDisc: null } : {}),
+      };
     }),
   requestRemoveBlock: (id) =>
     set((s) =>

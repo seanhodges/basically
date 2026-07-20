@@ -57,6 +57,7 @@ describe('autosave persistence', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 
@@ -90,6 +91,7 @@ describe('autosave persistence', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 
@@ -103,6 +105,7 @@ describe('autosave persistence', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
     // Adopted: the tab's identity is pinned even if the backup changes later.
     expect(sessionStorage.getItem('mbide.autosave.doc')).toBe('10 REM BACKUP');
@@ -141,6 +144,7 @@ describe('autosave block persistence', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 
@@ -185,6 +189,7 @@ describe('autosave block persistence', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
   });
 
@@ -227,6 +232,7 @@ describe('autosave tape-file persistence', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [TAPE],
+      bootDisc: null,
     });
   });
 
@@ -270,7 +276,59 @@ describe('autosave tape-file persistence', () => {
       listingBlockMeta: {},
       autoStart: null,
       tapeFiles: [],
+      bootDisc: null,
     });
+  });
+});
+
+describe('autosave boot-disc persistence', () => {
+  beforeEach(() => {
+    installStorages();
+  });
+
+  const DISC = Uint8Array.from({ length: 32 }, (_, i) => (i * 3) & 0xff);
+
+  it('round-trips a boot-disc image alongside the document', () => {
+    saveAutosave('game.bas', '10 REM loader', [], {}, null, [], DISC);
+    const loaded = loadAutosave();
+    expect(loaded?.bootDisc).not.toBeNull();
+    expect(Array.from(loaded!.bootDisc!)).toEqual(Array.from(DISC));
+  });
+
+  it('defaults to no boot disc when the seventh argument is omitted', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    expect(loadAutosave()?.bootDisc).toBeNull();
+  });
+
+  it('writes the boot disc through as base64', () => {
+    saveAutosave('game.bas', '10 REM loader', [], {}, null, [], DISC);
+    const raw = sessionStorage.getItem('mbide.autosave.bootdisc');
+    expect(raw).not.toBeNull();
+    expect(raw).toBe(localStorage.getItem('mbide.autosave.bootdisc'));
+    expect(raw).not.toContain(','); // base64, not a raw array
+  });
+
+  it('removes the boot-disc key when saving without one', () => {
+    saveAutosave('game.bas', '10 REM loader', [], {}, null, [], DISC);
+    saveAutosave('game.bas', '10 REM loader', [], {}, null, [], null);
+    expect(sessionStorage.getItem('mbide.autosave.bootdisc')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.bootdisc')).toBeNull();
+    expect(loadAutosave()?.bootDisc).toBeNull();
+  });
+
+  it('clearAutosave clears the boot-disc key too', () => {
+    saveAutosave('game.bas', '10 REM loader', [], {}, null, [], DISC);
+    clearAutosave();
+    expect(sessionStorage.getItem('mbide.autosave.bootdisc')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.bootdisc')).toBeNull();
+  });
+
+  it('defensively parses a corrupt boot-disc value as none', () => {
+    saveAutosave('game.bas', '10 REM loader', [], {}, null, [], DISC);
+    sessionStorage.setItem('mbide.autosave.bootdisc', '!!! not base64 !!!');
+    localStorage.setItem('mbide.autosave.bootdisc', '!!! not base64 !!!');
+    expect(loadAutosave()?.bootDisc).toBeNull();
+    expect(loadAutosave()?.text).toBe('10 REM loader');
   });
 });
 

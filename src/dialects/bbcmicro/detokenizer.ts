@@ -99,6 +99,50 @@ function looksLikeBasic(bytes: Uint8Array): boolean {
   );
 }
 
+/** Top of user RAM below the paged-ROM slot; a block above it can't be RAM. */
+const RAM_TOP = 0x7fff;
+/**
+ * Headroom past the raw program bytes for BASIC's variables/workspace, matching
+ * the memory-block linter's {@link bbcMicroMemoryBlocks} slack so the
+ * representability test here agrees with the Run-path gate.
+ */
+const PROGRAM_AREA_SLACK = 512;
+
+/** The inclusive `[address, address + length - 1]` a recovered file occupies. */
+interface Span {
+  start: number;
+  end: number;
+}
+
+/**
+ * Whether the recovered `blocks` can live side by side as fixed-address RAM
+ * injections alongside a BASIC program of `basicLen` bytes - i.e. whether the
+ * disc decomposes cleanly into the memory-block model. A block that loads below
+ * PAGE, above RAM, overlaps the program area, or overlaps another block can't:
+ * on the real disc such files are loaded at different times by the disc's own
+ * loader, not all resident at once. When any block fails, the disc must instead
+ * be booted verbatim (see {@link detokenizeBbcDiscWithReport}'s `bootDisc`).
+ * Mirrors the error conditions in `src/app/blockLint.ts` (reserved-range
+ * overlap is only a warning there, so a screen-RAM block still counts as
+ * representable).
+ */
+function blocksAreRepresentable(
+  spans: readonly Span[],
+  basicLen: number,
+): boolean {
+  const programEnd = PAGE + basicLen + PROGRAM_AREA_SLACK - 1;
+  for (let i = 0; i < spans.length; i++) {
+    const s = spans[i]!;
+    if (s.start < PAGE || s.end > RAM_TOP) return false;
+    if (s.start <= programEnd && PAGE <= s.end) return false; // program overlap
+    for (let j = i + 1; j < spans.length; j++) {
+      const t = spans[j]!;
+      if (s.start <= t.end && t.start <= s.end) return false; // block overlap
+    }
+  }
+  return true;
+}
+
 /**
  * Import a DFS `.ssd` disc image: recover the BASIC program (the file at PAGE,
  * or the largest tokenized-BASIC-shaped file) as editable text, and every other
@@ -150,6 +194,25 @@ export function detokenizeBbcDiscWithReport(
       ...(entry !== undefined ? { entry: entry & 0xffff } : {}),
     });
   });
+
+  // A disc whose files can't coexist as fixed-address blocks (they load below
+  // PAGE, overlap each other, or overlap the program area - a real game disc
+  // whose own loader stages them in at different times) can't be run through
+  // the decompose-and-reinject path. Preserve it and boot it verbatim instead:
+  // MOS/DFS then loads every file at its true address, exactly as on hardware.
+  const spans: Span[] = blocks.map((b) => ({
+    start: b.address,
+    end: b.address + b.bytes.length - 1,
+  }));
+  const basicLen = basic ? basic.bytes.length : 0;
+  if (blocks.length > 0 && !blocksAreRepresentable(spans, basicLen)) {
+    warnings.push(
+      "The disc's files load at addresses the editor's memory blocks can't " +
+        'represent, so it will be booted as a disc image (its own loader runs); ' +
+        'the recovered listing is shown for reference.',
+    );
+    return { source, warnings, bootDisc: image };
+  }
 
   if (blocks.length > 0) {
     warnings.push(

@@ -147,6 +147,19 @@ export interface DetokenizeResult {
    * correctly entered at their auto-start line, so the run path honors it.
    */
   autoStart?: number | null;
+  /**
+   * The verbatim disc image the document should mount-and-boot instead of
+   * running its tokenized `source`, for a multi-file container the memory-block
+   * model can't represent faithfully - a real BBC game `.ssd` whose files load
+   * below PAGE, overlap each other, or overlap the program area (loaded at
+   * different times by the disc's own loader). When present the run path
+   * ignores `blocks` and boots this image exactly as SHIFT+BREAK would on real
+   * hardware, letting MOS/DFS load the files at their true addresses; `source`
+   * is still the recovered loader program, shown for context. Absent for a disc
+   * that decomposes cleanly into `source` + `blocks` (the common case) and for
+   * every non-disc import.
+   */
+  bootDisc?: Uint8Array;
 }
 
 export interface TokenizeResult {
@@ -355,6 +368,15 @@ export interface MachineEmulator {
        * Machines without a tape deck ignore it.
        */
       tapeFiles?: readonly TapeFile[];
+      /**
+       * A verbatim disc image (see {@link DetokenizeResult.bootDisc}) to
+       * mount-and-boot instead of injecting `image`/`blocks`: the machine mounts
+       * it in its drive and boots it exactly as SHIFT+BREAK would on real
+       * hardware, so the disc's own loader runs and MOS/DFS loads every file at
+       * its true address. Takes precedence over `blocks` when both are given.
+       * Machines without a disc drive ignore it.
+       */
+      bootDisc?: Uint8Array;
     },
   ): void;
   /** Advance emulation by one display frame (50Hz) worth of CPU time. */
