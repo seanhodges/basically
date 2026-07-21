@@ -154,6 +154,7 @@ describe('pet dialect', () => {
       'circles.bas',
       'breakout.bas',
       'maze.bas',
+      'kaleido.bas',
     ]);
     for (const sample of petSamples) {
       const { errors } = pet.tokenize(sample.text);

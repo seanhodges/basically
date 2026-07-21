@@ -114,3 +114,65 @@ describe('zx80 maze in the emulator', () => {
     machine.dispose();
   }, 60000);
 });
+
+describe('zx80 kaleidoscope', () => {
+  const ROM2 = new Uint8Array(
+    readFileSync(path.resolve(__dirname, '../../../public/roms/zx80.rom')),
+  );
+
+  it('builds a full 24x32 display with 4-way mirror symmetry', () => {
+    // The sample INPUTs its parameters; drive the same embedded routine with a
+    // POKE + USR program instead so the test needs no keyboard scripting. The
+    // #BIN line (line 1) carrying the machine code is shared verbatim.
+    const kaleido = zx80Samples.find((s) => s.name === 'kaleido.bas')!;
+    const binLine = kaleido.text.split('\n')[0]!;
+    expect(binLine.startsWith('#BIN ')).toBe(true);
+    const driver = [
+      binLine,
+      '10 POKE 16427,3',
+      '20 POKE 16428,5',
+      '30 POKE 16429,2',
+      '40 LET X=USR(16430)',
+      '50 GOTO 50',
+      '',
+    ].join('\n');
+    const { bytes, errors } = tokenizeProgram(driver);
+    expect(errors).toEqual([]);
+    const machine = new Zx80Machine({ rom: ROM2, ramKb: 16 });
+    machine.loadProgram(buildOFile(bytes));
+    for (let i = 0; i < 150; i++) machine.runFrame();
+
+    // Walk the display file into 0x76-terminated rows.
+    const dFile = machine.mem.readWord(D_FILE);
+    const dfEnd = machine.mem.readWord(DF_END);
+    const rows: number[][] = [];
+    let a = dFile;
+    while (a < dfEnd) {
+      const row: number[] = [];
+      while (a < dfEnd && machine.mem.read(a) !== 0x76) {
+        row.push(machine.mem.read(a));
+        a++;
+      }
+      a++;
+      rows.push(row);
+    }
+    // The routine builds 24 full rows of 32 block graphics.
+    expect(rows.length).toBe(24);
+    for (const row of rows) expect(row.length).toBe(32);
+
+    // Enough variety to be a pattern, not a flat fill.
+    const distinct = new Set(rows.flat());
+    expect(distinct.size).toBeGreaterThan(4);
+
+    // 4-way mirror: each row is a left/right palindrome, and the rows mirror
+    // top/bottom.
+    for (let y = 0; y < 24; y++) {
+      for (let x = 0; x < 16; x++) {
+        const v = rows[y]![x]!;
+        expect(rows[y]![31 - x]).toBe(v);
+        expect(rows[23 - y]![x]).toBe(v);
+      }
+    }
+    machine.dispose();
+  });
+});

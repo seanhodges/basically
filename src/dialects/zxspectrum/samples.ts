@@ -23,7 +23,7 @@ export const spectrumSamples: SampleFile[] = [
   { name: 'maze.bas', title: 'Maze', text: maze },
   {
     name: 'kaleido.bas',
-    title: 'Kaleidoscope (machine code)',
+    title: 'Kaleidoscope',
     text: kaleido,
     blocks: [KALEIDO_BLOCK],
   },

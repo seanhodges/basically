@@ -3,6 +3,17 @@ import hello from './samples/hello.bas?raw';
 import circles from './samples/circles.bas?raw';
 import breakout from './samples/breakout.bas?raw';
 import maze from './samples/maze.bas?raw';
+import kaleido from './samples/kaleido.bas?raw';
+import kaleidoAsm from './samples/kaleido.asm?raw';
+
+/** The kaleidoscope routine's block layout (see samples/kaleido.asm). */
+export const VIC20_KALEIDO_BLOCK = {
+  name: 'kaleido',
+  address: 0x1c00,
+  kind: 'code',
+  asmSource: kaleidoAsm,
+  entry: 0x1c03,
+} as const;
 
 /**
  * Commodore VIC-20 example programs, re-laid-out for the unexpanded machine's
@@ -16,4 +27,10 @@ export const vic20Samples: SampleFile[] = [
   { name: 'circles.bas', title: 'Circles', text: circles },
   { name: 'breakout.bas', title: 'Breakout', text: breakout },
   { name: 'maze.bas', title: 'Maze', text: maze },
+  {
+    name: 'kaleido.bas',
+    title: 'Kaleidoscope',
+    text: kaleido,
+    blocks: [VIC20_KALEIDO_BLOCK],
+  },
 ];

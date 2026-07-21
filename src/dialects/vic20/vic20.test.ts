@@ -156,6 +156,7 @@ describe('vic20 dialect', () => {
       'circles.bas',
       'breakout.bas',
       'maze.bas',
+      'kaleido.bas',
     ]);
     expect(vic20.samples[0]!.name).toBe('hello.bas');
     for (const sample of vic20.samples) {

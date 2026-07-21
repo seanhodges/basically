@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { bbcmaster } from './index';
 import { getDialect } from '../registry';
+import { materializeSampleBlocks } from '../../app/sampleBlocks';
 import {
   BbcMachine,
   configureNodeRomPath,
@@ -57,6 +58,15 @@ describe('BBC Master dialect', () => {
     for (const sample of bbcmaster.samples) {
       expect(bbcmaster.lint(sample.text)).toEqual([]);
     }
+  });
+
+  it("shares the BBC Micro's Kaleidoscope, block assembling for the Master", () => {
+    const kaleido = bbcmaster.samples.find((s) => s.name === 'kaleido.bas')!;
+    expect(kaleido.title).toBe('Kaleidoscope');
+    const [block] = materializeSampleBlocks(bbcmaster, kaleido);
+    expect(block!.address).toBe(0x2e00);
+    expect(block!.entry).toBe(0x2e03);
+    expect(block!.bytes.length).toBeGreaterThan(0);
   });
 
   // BASIC IV keeps TIME$ as the TIME token (0x91) followed by a literal '$';

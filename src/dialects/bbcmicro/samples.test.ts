@@ -4,6 +4,7 @@ import path from 'node:path';
 import { bbcSamples } from './samples';
 import { bbcmicro } from './index';
 import { tokenizeProgram } from './tokenizer';
+import { materializeSampleBlocks } from '../../app/sampleBlocks';
 import {
   BbcMachine,
   configureNodeRomPath,
@@ -67,18 +68,68 @@ describe('bbcmicro sample programs', () => {
     }
   });
 
-  it('matches the canonical sample set shared with the other dialects', () => {
+  it('matches the canonical sample set plus Kaleidoscope', () => {
     expect(bbcSamples.map((s) => s.name)).toEqual([
       'hello.bas',
       'circles.bas',
       'breakout.bas',
       'maze.bas',
+      'kaleido.bas',
     ]);
   });
 
   it('hello is the starter offered for a fresh document', () => {
     expect(bbcmicro.samples[0]!.name).toBe('hello.bas');
   });
+
+  it('runs the Kaleidoscope machine code and mirrors the MODE 7 screen', async () => {
+    const kaleido = bbcSamples.find((s) => s.name === 'kaleido.bas')!;
+    const blocks = materializeSampleBlocks(bbcmicro, kaleido);
+    expect(blocks[0]!.address).toBe(0x2e00);
+    expect(blocks[0]!.entry).toBe(0x2e03);
+    // Drive the routine directly (POKE + MODE 7 + CALL); the GOTO self-loop
+    // keeps BASIC busy so its prompt never scrolls the drawn screen.
+    const { bytes } = tokenizeProgram(
+      '10 ?&2E00=3\n20 ?&2E01=5\n30 ?&2E02=2\n40 MODE 7\n50 CALL &2E03\n60 GOTO 60\n',
+    );
+    const machine = new BbcMachine();
+    machine.loadProgram(bytes, { blocks });
+    const cell = (col: number, r: number) =>
+      machine.processor.readmem(0x7c00 + r * 40 + col);
+    // A block-carrying document boots from a mounted DFS disc: the MOS *LOADs
+    // the routine and CHAINs the program over many frames, so wait (yielding to
+    // the async disc work) until the last mosaic cell has been painted - by
+    // then CALL has run to completion and every cell is settled.
+    const painted = await runUntil(
+      machine,
+      () => {
+        const v = cell(39, 24);
+        return v >= 0x20 && v <= 0x3f;
+      },
+      4000,
+    );
+    expect(painted).toBe(true);
+
+    // Columns 1..39 hold sixel block graphics ($20..$3F); column 0 is the
+    // per-row colour control code.
+    const distinct = new Set<number>();
+    for (let r = 0; r < 25; r++)
+      for (let col = 1; col < 40; col++) distinct.add(cell(col, r));
+    expect(distinct.size).toBeGreaterThan(4);
+
+    // The mosaic mirrors left/right (col <-> 40-col) and top/bottom
+    // (r <-> 24-r); the colour column mirrors top/bottom.
+    for (let r = 0; r < 13; r++) {
+      expect(cell(0, 24 - r)).toBe(cell(0, r));
+      for (let col = 1; col < 20; col++) {
+        const v = cell(col, r);
+        expect(cell(40 - col, r)).toBe(v);
+        expect(cell(col, 24 - r)).toBe(v);
+        expect(cell(40 - col, 24 - r)).toBe(v);
+      }
+    }
+    machine.dispose();
+  }, 60000);
 
   it('breakout destroys blocks when the ball reaches them', async () => {
     const breakout = bbcSamples.find((s) => s.name === 'breakout.bas')!;
