@@ -33,6 +33,7 @@ import {
   type GamepadMode,
 } from '../keyboard/controllerConfig';
 import { materializeSampleBlocks } from './sampleBlocks';
+import { computeCompatibleDialects } from '../share/compatibility';
 import {
   loadAutosave,
   saveAutosave,
@@ -1044,8 +1045,21 @@ export const useIdeStore = create<IdeState>((set) => ({
         };
       }
 
-      // The user's own code: defer to the confirmation dialog. Don't switch or
-      // persist the choice yet.
+      // A highly compatible target - one whose tokenizer accepts the code with
+      // zero errors, the same bar the share/player boundary uses - runs the
+      // program as-is, so switch straight to it and keep the code without the
+      // "may not run" prompt. Restricted to block-free documents: memory blocks
+      // are dropped on any switch (Stage 1), a loss the user should still
+      // confirm.
+      if (
+        s.blocks.length === 0 &&
+        computeCompatibleDialects(s.source, [], [next]).length > 0
+      ) {
+        return applyDialectSwitch(s, next, s.source);
+      }
+
+      // The user's own code that the target may not run: defer to the
+      // confirmation dialog. Don't switch or persist the choice yet.
       return { pendingDialectId: id };
     });
     // A pristine/empty switch loaded the new starter (a sample) - empty autosave

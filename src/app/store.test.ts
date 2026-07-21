@@ -131,6 +131,7 @@ describe('setDialect', () => {
       dialect: zx81,
       pendingDialectId: null,
       source: '',
+      blocks: [],
       fileName: 'untitled.txt',
       dirty: false,
     });
@@ -201,12 +202,44 @@ describe('setDialect', () => {
     expect(s.blocks).toEqual(expected);
   });
 
-  it('defers to the dialog when the editor holds user code', () => {
-    useIdeStore.setState({ source: '10 REM mine', dirty: true });
+  it('defers to the dialog when the target may not run the user code', () => {
+    // Lowercase multi-letter variables tokenize on the BBC but the ZX81
+    // tokenizer rejects them (see compatibility.test.ts), so the switch is
+    // genuinely incompatible and must still prompt.
+    useIdeStore.setState({
+      dialect: bbc,
+      source: '10 total = 42\n20 PRINT total',
+      dirty: true,
+    });
+    useIdeStore.getState().setDialect('zx81');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro'); // unchanged
+    expect(s.source).toBe('10 total = 42\n20 PRINT total');
+    expect(s.pendingDialectId).toBe('zx81');
+  });
+
+  it('switches silently when the code is compatible with the target', () => {
+    // Lowest-common-denominator BASIC tokenizes cleanly everywhere, so a
+    // compatible switch keeps the code with no "may not run" prompt.
+    useIdeStore.setState({ source: '10 PRINT "HI"\n20 GOTO 10', dirty: true });
+    useIdeStore.getState().setDialect('bbcmicro');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.source).toBe('10 PRINT "HI"\n20 GOTO 10');
+    expect(s.pendingDialectId).toBeNull();
+  });
+
+  it('still prompts for a block-bearing document even when compatible', () => {
+    // Memory blocks are dropped on any switch (Stage 1), so a document that
+    // carries one keeps the confirmation prompt regardless of compatibility.
+    useIdeStore.setState({
+      source: '10 PRINT "HI"\n20 GOTO 10',
+      blocks: [BLOCK_A],
+      dirty: true,
+    });
     useIdeStore.getState().setDialect('bbcmicro');
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('zx81'); // unchanged
-    expect(s.source).toBe('10 REM mine');
     expect(s.pendingDialectId).toBe('bbcmicro');
   });
 });
