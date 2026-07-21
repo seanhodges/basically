@@ -402,6 +402,29 @@ interface IdeState {
     source: string;
     blocks?: readonly MemoryBlock[];
   }): void;
+  /**
+   * Open a saved `.bproj` project bundle. Unlike {@link replaceDocument} (which
+   * never touches the dialect), this switches the active machine to the
+   * project's own `dialectId` so the document loads under the target it was
+   * saved for, then installs its source and memory blocks atomically. A real
+   * dialect switch (persists the choice, tears down the old machine) but,
+   * like {@link openSharedInIde}, it bypasses the confirmation dialog: the
+   * project names its own machine, so there's nothing for the user to resolve.
+   *
+   * `dialectId` MUST be a registered dialect (callers resolve it via
+   * {@link findDialect} and handle an unknown id themselves). `blocks` MUST
+   * already be valid and unique - the `.bproj` parser guarantees this.
+   */
+  openProject(args: {
+    dialectId: string;
+    source: string;
+    fileName: string;
+    blocks?: readonly MemoryBlock[];
+    listingBlockMeta?: Readonly<Record<number, ListingBlockMeta>>;
+    autoStart?: number | null;
+    tapeFiles?: readonly TapeFile[];
+    bootDisc?: Uint8Array | null;
+  }): void;
   /** Resolve a pending target switch: start fresh or keep the current code. */
   confirmDialectSwitch(mode: 'new' | 'keep'): void;
   /** Dismiss a pending target switch, leaving the current machine in place. */
@@ -1117,6 +1140,36 @@ export const useIdeStore = create<IdeState>((set) => ({
       blocks: blocks ?? [],
     }));
     // Real content: mirror it to autosave so it survives a reload.
+    persistAutosave();
+  },
+  openProject: ({
+    dialectId,
+    source,
+    fileName,
+    blocks,
+    listingBlockMeta,
+    autoStart,
+    tapeFiles,
+    bootDisc,
+  }) => {
+    set((s) => ({
+      // applyDialectSwitch so teardown / AI-reset / breakpoint semantics (and
+      // persisting the dialect) match a real target switch onto the project's
+      // own machine - even when the id matches the active dialect, it's a
+      // clean-slate load of a different program.
+      ...applyDialectSwitch(s, getDialect(dialectId), source),
+      // A `.bproj` is a saved file (Open), so it keeps its name and loads clean.
+      fileName,
+      dirty: false,
+      // Install the project's own pieces (applyDialectSwitch cleared them):
+      // the switched-to dialect is exactly the one they were authored for.
+      blocks: blocks ?? [],
+      listingBlockMeta: listingBlockMeta ?? {},
+      autoStart: autoStart ?? null,
+      tapeFiles: tapeFiles ?? [],
+      bootDisc: bootDisc ?? null,
+    }));
+    // A saved file is real content: mirror it to autosave so it survives reload.
     persistAutosave();
   },
   confirmDialectSwitch: (mode) => {

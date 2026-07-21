@@ -337,6 +337,75 @@ describe('openSharedInIde', () => {
   });
 });
 
+describe('openProject', () => {
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: zx81,
+      pendingDialectId: null,
+      source: '10 REM AUTOSAVED',
+      fileName: 'mine.bas',
+      dirty: true,
+      breakpoints: new Set([10]),
+      blocks: [BLOCK_B],
+    });
+  });
+
+  it('switches to the project’s dialect and installs it as a named, clean doc', () => {
+    useIdeStore.getState().openProject({
+      dialectId: 'bbcmicro',
+      source: '10 PRINT "PROJ"',
+      fileName: 'game.bproj',
+      blocks: [BLOCK_A],
+    });
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('bbcmicro');
+    expect(s.source).toBe('10 PRINT "PROJ"');
+    // A `.bproj` is a saved file - it keeps its name and loads clean.
+    expect(s.fileName).toBe('game.bproj');
+    expect(s.dirty).toBe(false);
+    expect(s.pendingDialectId).toBeNull();
+    // Breakpoints belong to the replaced program - cleared on the switch.
+    expect(s.breakpoints.size).toBe(0);
+    // The project's own blocks replace whatever was loaded before.
+    expect(s.blocks).toEqual([BLOCK_A]);
+  });
+
+  it('persists the switched-to dialect like a real switch', () => {
+    setDialectId('zx81');
+    useIdeStore.getState().openProject({
+      dialectId: 'bbcmicro',
+      source: '10 PRINT "PROJ"',
+      fileName: 'game.bproj',
+    });
+    expect(getDialectId()).toBe('bbcmicro');
+  });
+
+  it('clears blocks for a project that carries none', () => {
+    useIdeStore.getState().openProject({
+      dialectId: 'bbcmicro',
+      source: '10 PRINT "PROJ"',
+      fileName: 'game.bproj',
+    });
+    expect(useIdeStore.getState().blocks).toEqual([]);
+  });
+
+  it('opens a same-dialect project as a clean-slate load', () => {
+    // Same machine id, but still a different program: name/clean/blocks all reset.
+    useIdeStore.getState().openProject({
+      dialectId: 'zx81',
+      source: '10 PRINT "SAME"',
+      fileName: 'same.bproj',
+      blocks: [BLOCK_A],
+    });
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81');
+    expect(s.source).toBe('10 PRINT "SAME"');
+    expect(s.fileName).toBe('same.bproj');
+    expect(s.dirty).toBe(false);
+    expect(s.blocks).toEqual([BLOCK_A]);
+  });
+});
+
 describe('playerBoot', () => {
   it('installs the shared program and its blocks', () => {
     useIdeStore.getState().playerBoot({

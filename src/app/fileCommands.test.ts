@@ -194,24 +194,37 @@ describe('openDroppedFile', () => {
     expect(useIdeStore.getState().source).toBe('10 REM OLD'); // unchanged
   });
 
-  it('warns when a .bproj was saved for a different dialect than the active one', async () => {
+  it('switches to the .bproj’s saved dialect when it differs from the active one', async () => {
     // The active dialect (set in beforeEach) is zx81; this project was saved
-    // under commodore64.
+    // under commodore64, so opening it should switch the active machine.
     await dropFile('game.bproj', projectZip('commodore64', '10 PRINT "PROJ"'));
     const s = useIdeStore.getState();
-    expect(s.source).toBe('10 PRINT "PROJ"'); // still loads - a warning only
+    expect(s.dialect.id).toBe('commodore64'); // switched to the saved machine
+    expect(s.source).toBe('10 PRINT "PROJ"');
     expect(s.blocks).toEqual([OPENED_BLOCK]);
-    expect(s.statusNotice).toBe(
-      'This project was saved for "commodore64" but the active dialect is ' +
-        '"zx81"; its memory blocks may not work here.',
-    );
+    expect(s.statusNotice).toBe('Switched to C64 to match this project.');
   });
 
-  it('does not warn when a .bproj matches the active dialect', async () => {
+  it('does not switch or notify when a .bproj matches the active dialect', async () => {
     await dropFile('game.bproj', projectZip('zx81', '10 PRINT "PROJ"'));
     const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81');
     expect(s.source).toBe('10 PRINT "PROJ"');
     expect(s.statusNotice).toBeNull();
+  });
+
+  it('warns and loads under the active dialect when a .bproj names an unknown dialect', async () => {
+    // A project saved under a dialect this build doesn't ship: the source still
+    // loads (under the active zx81), but a notice warns its blocks may not work.
+    await dropFile('game.bproj', projectZip('atari-xl', '10 PRINT "PROJ"'));
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81'); // no switch - the machine isn't available
+    expect(s.source).toBe('10 PRINT "PROJ"');
+    expect(s.blocks).toEqual([OPENED_BLOCK]);
+    expect(s.statusNotice).toBe(
+      'This project was saved for "atari-xl", which isn\'t available; ' +
+        'loaded under "zx81" instead - its memory blocks may not work here.',
+    );
   });
 
   it('reports an unsupported type for a dropped .bin (sidecar removed)', async () => {

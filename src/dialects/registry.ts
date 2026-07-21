@@ -30,3 +30,12 @@ export function getDialect(id: string): Dialect {
   if (!d) throw new Error(`Unknown dialect: ${id}`);
   return d;
 }
+
+/**
+ * Look up a dialect by id, returning `undefined` rather than throwing when it
+ * isn't registered. For callers that must handle an unknown id gracefully -
+ * e.g. opening a project saved under a dialect this build doesn't ship.
+ */
+export function findDialect(id: string): Dialect | undefined {
+  return dialects.find((d) => d.id === id);
+}

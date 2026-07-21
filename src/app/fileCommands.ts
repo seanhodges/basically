@@ -15,7 +15,12 @@ import {
   toProjectFileName,
 } from '../storage/files';
 import { importProgram, importStatusMessage } from './importProgram';
-import { serializeProjectZip, parseProjectZip } from '../storage/projectFile';
+import {
+  serializeProjectZip,
+  parseProjectZip,
+  type ParsedProject,
+} from '../storage/projectFile';
+import { findDialect } from '../dialects/registry';
 
 const textDecoder = new TextDecoder();
 
@@ -38,30 +43,19 @@ export function newDocument(): void {
 /**
  * Open a project or source file from disk into the editor (guarded by
  * {@link confirmDiscard}). A `.bproj` is unzipped and parsed as a project
- * bundle, installing its source and memory blocks atomically; a plain
+ * bundle, installing its source and memory blocks atomically and switching to
+ * the dialect it was saved under (see {@link installParsedProject}); a plain
  * `.bas`/`.txt` (or any other extension) loads as plain source with no blocks.
- * If the project was saved under a different dialect than the one currently
- * active, the document still loads but a status notice warns that its memory
- * blocks may not work (see {@link dialectMismatchNotice}) - no auto-switch.
  */
 export async function openDocument(): Promise<void> {
   if (!confirmDiscard()) return;
   const opened = await openDocumentFile();
   if (!opened) return;
-  const { dialect, replaceDocument, setStatusNotice } = useIdeStore.getState();
+  const { replaceDocument, setStatusNotice } = useIdeStore.getState();
   const ext = fileExtension(opened.name);
   if (ext === '.bproj') {
     try {
-      const parsed = parseProjectZip(opened.bytes);
-      replaceDocument(parsed.source, opened.name, {
-        blocks: parsed.blocks,
-        listingBlockMeta: parsed.listingBlockMeta,
-        autoStart: parsed.autoStart,
-        tapeFiles: parsed.tapeFiles,
-        bootDisc: parsed.bootDisc,
-      });
-      const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
-      if (mismatch) setStatusNotice(mismatch);
+      installParsedProject(parseProjectZip(opened.bytes), opened.name);
     } catch (e) {
       setStatusNotice(
         e instanceof Error ? e.message : `Could not open ${opened.name}.`,
@@ -70,6 +64,46 @@ export async function openDocument(): Promise<void> {
     return;
   }
   replaceDocument(textDecoder.decode(opened.bytes), opened.name);
+}
+
+/**
+ * Install a parsed `.bproj` into the store, switching to the dialect it was
+ * saved under so the document loads on the machine it was authored for (its
+ * memory blocks are addressed for that machine). When the saved dialect is one
+ * this build doesn't ship, the document still loads - under the currently-active
+ * dialect - but a status notice warns its blocks may not work. Shared by
+ * File → Open and the drag-and-drop path.
+ */
+function installParsedProject(parsed: ParsedProject, fileName: string): void {
+  const { dialect, openProject, replaceDocument, setStatusNotice } =
+    useIdeStore.getState();
+  const target = findDialect(parsed.dialect);
+  if (!target) {
+    // Unknown machine: load the parts under the active dialect and warn.
+    replaceDocument(parsed.source, fileName, {
+      blocks: parsed.blocks,
+      listingBlockMeta: parsed.listingBlockMeta,
+      autoStart: parsed.autoStart,
+      tapeFiles: parsed.tapeFiles,
+      bootDisc: parsed.bootDisc,
+    });
+    setStatusNotice(unknownDialectNotice(parsed.dialect, dialect.id));
+    return;
+  }
+  const switched = target.id !== dialect.id;
+  openProject({
+    dialectId: target.id,
+    source: parsed.source,
+    fileName,
+    blocks: parsed.blocks,
+    listingBlockMeta: parsed.listingBlockMeta,
+    autoStart: parsed.autoStart,
+    tapeFiles: parsed.tapeFiles,
+    bootDisc: parsed.bootDisc,
+  });
+  if (switched) {
+    setStatusNotice(`Switched to ${target.name} to match this project.`);
+  }
 }
 
 /**
@@ -111,18 +145,16 @@ function fileExtension(name: string): string {
 }
 
 /**
- * Status notice for a `.bproj` whose saved `dialect` differs from the
- * currently-active one, or `null` when they match. A warning only - Open
- * still installs the source/blocks as parsed (see the doc comments above);
- * auto-switching dialects is out of scope here and belongs to a later
- * share/compatibility stage.
+ * Status notice for a `.bproj` saved under a dialect this build doesn't ship:
+ * the document loads under `activeDialectId` instead, and its memory blocks
+ * (addressed for the missing machine) may not work. A warning only - the source
+ * still loads.
  */
-function dialectMismatchNotice(
+function unknownDialectNotice(
   parsedDialect: string,
   activeDialectId: string,
-): string | null {
-  if (parsedDialect === activeDialectId) return null;
-  return `This project was saved for "${parsedDialect}" but the active dialect is "${activeDialectId}"; its memory blocks may not work here.`;
+): string {
+  return `This project was saved for "${parsedDialect}", which isn't available; loaded under "${activeDialectId}" instead - its memory blocks may not work here.`;
 }
 
 /**
@@ -136,8 +168,8 @@ function dialectMismatchNotice(
  * paths are guarded by {@link confirmDiscard}, so the user is warned before
  * losing unsaved changes (adding a block isn't destructive, so it isn't).
  * Unsupported types and read/detokenize/parse failures surface a status-bar
- * notice, as does a `.bproj` saved under a different dialect (see
- * {@link dialectMismatchNotice}) - a warning only, the document still loads.
+ * notice. A `.bproj` switches to the dialect it was saved under (see
+ * {@link installParsedProject}).
  */
 export async function openDroppedFile(file: File): Promise<void> {
   const store = useIdeStore.getState();
@@ -151,15 +183,7 @@ export async function openDroppedFile(file: File): Promise<void> {
     if (ext === '.bproj') {
       if (!confirmDiscard()) return;
       const parsed = parseProjectZip(new Uint8Array(await file.arrayBuffer()));
-      replaceDocument(parsed.source, file.name, {
-        blocks: parsed.blocks,
-        listingBlockMeta: parsed.listingBlockMeta,
-        autoStart: parsed.autoStart,
-        tapeFiles: parsed.tapeFiles,
-        bootDisc: parsed.bootDisc,
-      });
-      const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
-      if (mismatch) setStatusNotice(mismatch);
+      installParsedProject(parsed, file.name);
     } else if (ext === '.bas' || ext === '.txt') {
       if (!confirmDiscard()) return;
       replaceDocument(await file.text(), file.name);
