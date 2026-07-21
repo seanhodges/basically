@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import type {
   ReferenceEntry,
   ReferenceTableData,
 } from '../../../reference/data/types';
 import {
   filterEntries,
+  findEntryByName,
   sortEntries,
   type KindFilter,
   type SortKey,
@@ -15,13 +16,59 @@ const props = defineProps<{ data: ReferenceTableData }>();
 
 const query = ref('');
 const kind = ref<KindFilter>('all');
+// The keyword pinned by a `?name=` deep link (exact match), highlighted and
+// scrolled to on load. Also set when a row's own link is copied, so the click
+// confirms which row it captured.
+const highlighted = ref<string | null>(null);
+// The keyword whose link was just copied, for the transient "copied" tick.
+const copied = ref<string | null>(null);
+let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
-// Seed the search from a `?q=` query param so the in-app docs drawer can deep
-// link to a keyword (context-aware help). Client-only, so SSG stays safe.
+// Seed from query params so the in-app docs drawer and shared links can deep
+// link into the table: `?q=` seeds the search box (substring, context-aware
+// help), `?name=` pins one exact keyword row. Client-only, so SSG stays safe.
 onMounted(() => {
-  const q = new URLSearchParams(window.location.search).get('q');
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get('q');
   if (q) query.value = q;
+  const name = params.get('name');
+  if (name) {
+    const match = findEntryByName(props.data.entries, name);
+    if (match) {
+      highlighted.value = match.name;
+      // Wait for the rows to render before scrolling to the pinned one.
+      nextTick(() => scrollToRow(match.name));
+    }
+  }
 });
+
+onBeforeUnmount(() => clearTimeout(copiedTimer));
+
+function scrollToRow(name: string) {
+  const row = document.querySelector<HTMLElement>(
+    `[data-ref-name="${CSS.escape(name)}"]`,
+  );
+  row?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+/** Copy a `?name=` deep link to this keyword, and pin it so the click confirms. */
+async function copyLink(name: string) {
+  const { origin, pathname } = window.location;
+  const url = `${origin}${pathname}?name=${encodeURIComponent(name)}`;
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    // Clipboard blocked (insecure context or denied permission); the address
+    // bar still reflects the link below so it can be copied by hand.
+  }
+  highlighted.value = name;
+  history.replaceState(history.state, '', url);
+  copied.value = name;
+  clearTimeout(copiedTimer);
+  copiedTimer = setTimeout(() => {
+    if (copied.value === name) copied.value = null;
+  }, 1500);
+}
 const sortKey = ref<SortKey>('name');
 const sortDir = ref<'asc' | 'desc'>('asc');
 
@@ -178,7 +225,12 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="e in visible" :key="e.name">
+        <tr
+          v-for="e in visible"
+          :key="e.name"
+          :data-ref-name="e.name"
+          :class="{ 'reftable-row-active': e.name === highlighted }"
+        >
           <td class="reftable-name">
             <span
               class="reftable-icon-box"
@@ -202,6 +254,56 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
             </span>
             <code>{{ e.name }}</code>
             <span v-if="e.tag" class="reftable-tag">{{ e.tag }}</span>
+            <button
+              type="button"
+              class="reftable-link"
+              :class="{ copied: copied === e.name }"
+              :title="
+                copied === e.name ? 'Link copied' : `Copy link to ${e.name}`
+              "
+              :aria-label="
+                copied === e.name
+                  ? `Link to ${e.name} copied`
+                  : `Copy deep link to ${e.name}`
+              "
+              @click="copyLink(e.name)"
+            >
+              <svg
+                v-if="copied === e.name"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                role="img"
+                aria-hidden="true"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <svg
+                v-else
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                role="img"
+                aria-hidden="true"
+              >
+                <path
+                  d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                />
+                <path
+                  d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                />
+              </svg>
+            </button>
           </td>
           <td class="reftable-detail">
             <code class="reftable-syntax">{{ e.syntax }}</code>
@@ -286,6 +388,35 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
 .reftable-name code,
 .reftable-syntax {
   white-space: nowrap;
+}
+.reftable-row-active > td {
+  background: var(--vp-c-brand-soft);
+}
+.reftable-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35rem;
+  padding: 0.1rem;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--vp-c-text-3, var(--vp-c-text-2));
+  line-height: 0;
+  cursor: pointer;
+  opacity: 0.55;
+  vertical-align: -0.28em;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+}
+.reftable-link:hover,
+.reftable-link:focus-visible {
+  opacity: 1;
+  color: var(--vp-c-brand-1);
+}
+.reftable-link.copied {
+  opacity: 1;
+  color: var(--vp-c-green-1);
 }
 .reftable-icon-box {
   display: inline-flex;

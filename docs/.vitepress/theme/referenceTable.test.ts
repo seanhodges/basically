@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ReferenceEntry } from '../../reference/data/types';
-import { filterEntries, sortEntries } from './referenceTable';
+import { filterEntries, findEntryByName, sortEntries } from './referenceTable';
 
 const ENTRIES: ReferenceEntry[] = [
   {
@@ -61,6 +61,24 @@ describe('filterEntries', () => {
       'PRINT',
       'INPUT',
     ]);
+  });
+});
+
+describe('findEntryByName', () => {
+  it('matches an exact name case-insensitively, ignoring surrounding space', () => {
+    expect(findEntryByName(ENTRIES, 'print')?.name).toBe('PRINT');
+    expect(findEntryByName(ENTRIES, '  RND  ')?.name).toBe('RND');
+  });
+
+  it('does not match on a substring - deep links pin one exact row', () => {
+    expect(findEntryByName(ENTRIES, 'in')).toBeUndefined();
+    expect(findEntryByName(ENTRIES, 'PRIN')).toBeUndefined();
+  });
+
+  it('returns undefined for a blank or unknown name', () => {
+    expect(findEntryByName(ENTRIES, '')).toBeUndefined();
+    expect(findEntryByName(ENTRIES, '   ')).toBeUndefined();
+    expect(findEntryByName(ENTRIES, 'GOSUB')).toBeUndefined();
   });
 });
 

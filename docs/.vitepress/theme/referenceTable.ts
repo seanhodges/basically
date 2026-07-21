@@ -18,6 +18,20 @@ export function filterEntries(
   });
 }
 
+/**
+ * Resolve the row a `?name=` deep link targets: an exact, case-insensitive
+ * match on the keyword name (trimmed). Returns `undefined` when the name is
+ * blank or no row matches, so the caller can leave the page unhighlighted.
+ */
+export function findEntryByName(
+  entries: ReferenceEntry[],
+  name: string,
+): ReferenceEntry | undefined {
+  const n = name.trim().toLowerCase();
+  if (!n) return undefined;
+  return entries.find((e) => e.name.toLowerCase() === n);
+}
+
 /** Stable sort by the chosen key; ties (and the `kind` key) fall back to name. Never mutates `entries`. */
 export function sortEntries(
   entries: ReferenceEntry[],
