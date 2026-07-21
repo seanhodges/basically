@@ -86,10 +86,11 @@ Transfer dialog says so and asks before exporting the BASIC program on its own.
 For exactly what each machine's tape, disc and file formats carry, see the
 [File formats reference](../reference/file-formats#machine-code-data-blocks).
 
-A program that carries blocks is saved (and autosaved) as a **project bundle**
-(`.bproj`) — a single readable file holding your BASIC source and its blocks
-together — so Open and reload keep the whole thing intact. Plain BASIC programs
-still save as ordinary `.txt`.
+**Save project** writes your document as a **project bundle** (`.bproj`) — a zip
+holding your BASIC source, each block's bytes and assembly, and a small metadata
+file together — so **Open project** and reload keep the whole thing intact. To
+download just the BASIC listing as a `.bas`, right-click the **BASIC** editor tab
+and choose **Download .bas** (each block tab offers its own `.asm`/`.bin`).
 
 ## Sharing it
 

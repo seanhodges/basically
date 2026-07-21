@@ -1,13 +1,15 @@
 import { describe, it, expect } from 'vitest';
+import { zipSync, unzipSync } from 'fflate';
 import {
-  serializeProject,
-  parseProject,
-  isProjectFile,
+  serializeProjectZip,
+  parseProjectZip,
   serializeBlocks,
   isValidBlockName,
   findDuplicateBlockName,
 } from './projectFile';
 import type { MemoryBlock, TapeFile } from '../dialects/types';
+
+const enc = new TextEncoder();
 
 const BLOCK_A: MemoryBlock = {
   id: 'blk-1',
@@ -26,27 +28,66 @@ const BLOCK_B: MemoryBlock = {
   kind: 'code',
 };
 
-describe('serializeProject / parseProject round-trip', () => {
+// Open synthesises a block id from the (unique) name, so a parsed block's id
+// differs from the input's - see `parseProjectZip`.
+const opened = (b: MemoryBlock): MemoryBlock => ({
+  ...b,
+  id: `block-${b.name}`,
+});
+
+/** Read the entry paths in a serialized project zip. */
+const entryNames = (zip: Uint8Array): string[] =>
+  Object.keys(unzipSync(zip)).sort();
+
+/** Build a raw zip from a path -> text map (for crafting invalid archives). */
+const rawZip = (files: Record<string, string>): Uint8Array => {
+  const map: Record<string, Uint8Array> = {};
+  for (const [k, v] of Object.entries(files)) map[k] = enc.encode(v);
+  return zipSync(map);
+};
+
+describe('serializeProjectZip / parseProjectZip round-trip', () => {
   it('round-trips source with no blocks', () => {
-    const text = serializeProject('zx81', '10 PRINT "HI"\n', []);
-    const parsed = parseProject(text);
+    const parsed = parseProjectZip(
+      serializeProjectZip('zx81', '10 PRINT "HI"\n', []),
+    );
     expect(parsed.dialect).toBe('zx81');
     expect(parsed.source).toBe('10 PRINT "HI"\n');
     expect(parsed.blocks).toEqual([]);
     expect(parsed.autoStart).toBeNull();
   });
 
+  it('lays the parts out as first-class zip entries', () => {
+    const zip = serializeProjectZip('zx81', '10 PRINT', [BLOCK_A, BLOCK_B]);
+    expect(entryNames(zip)).toEqual([
+      // BLOCK_B is a code block with a stub asmSource? No - it has none here,
+      // so only its .bin appears; BLOCK_A is data (.bin only).
+      'blocks/ROUTINE.bin',
+      'blocks/SPRITES.bin',
+      'program.bas',
+      'project.json',
+    ]);
+  });
+
+  it('writes a code block asmSource as its own .asm entry', () => {
+    const withAsm: MemoryBlock = { ...BLOCK_B, asmSource: 'start:\n  RET\n' };
+    const zip = serializeProjectZip('zx81', '', [withAsm]);
+    expect(entryNames(zip)).toContain('blocks/ROUTINE.asm');
+    const files = unzipSync(zip);
+    expect(new TextDecoder().decode(files['blocks/ROUTINE.asm'])).toBe(
+      'start:\n  RET\n',
+    );
+  });
+
   it('round-trips an auto-start line, and defaults to null when absent', () => {
-    const withLine = parseProject(
-      serializeProject('zxspectrum', '10 PRINT "HI"', [], 40),
+    const withLine = parseProjectZip(
+      serializeProjectZip('zxspectrum', '10 PRINT "HI"', [], 40),
     );
     expect(withLine.autoStart).toBe(40);
-    // Older files (and load-only imports) carry no autoStart key.
-    const without = parseProject(serializeProject('zxspectrum', '10 X', []));
-    expect(without.autoStart).toBeNull();
-    expect(serializeProject('zxspectrum', '10 X', [])).not.toContain(
-      'autoStart',
+    const without = parseProjectZip(
+      serializeProjectZip('zxspectrum', '10 X', []),
     );
+    expect(without.autoStart).toBeNull();
   });
 
   it('round-trips tape files, and defaults to [] when absent', () => {
@@ -58,56 +99,52 @@ describe('serializeProject / parseProject round-trip', () => {
       },
       { name: 'NUMS', kind: 'data-num', tap: Uint8Array.from([0, 255]) },
     ];
-    const text = serializeProject(
-      'zxspectrum',
-      '10 PRINT "HI"',
-      [],
-      null,
-      tapeFiles,
+    const parsed = parseProjectZip(
+      serializeProjectZip('zxspectrum', '10 PRINT "HI"', [], null, tapeFiles),
     );
-    const parsed = parseProject(text);
     expect(parsed.tapeFiles).toHaveLength(2);
     expect(parsed.tapeFiles[0]).toEqual(tapeFiles[0]);
     expect(Array.from(parsed.tapeFiles[0]!.tap)).toEqual([1, 2, 0, 255, 128]);
     expect(parsed.tapeFiles[1]!.kind).toBe('data-num');
-    // Older files (and single-program imports) carry no tapeFiles key.
-    const without = parseProject(serializeProject('zxspectrum', '10 X', []));
-    expect(without.tapeFiles).toEqual([]);
-    expect(serializeProject('zxspectrum', '10 X', [])).not.toContain(
-      'tapeFiles',
+    const without = parseProjectZip(
+      serializeProjectZip('zxspectrum', '10 X', []),
     );
+    expect(without.tapeFiles).toEqual([]);
   });
 
   it('round-trips a verbatim boot-disc image', () => {
     const disc = Uint8Array.from({ length: 40 }, (_, i) => (i * 7) & 0xff);
-    const text = serializeProject(
-      'bbcmicro',
-      '10 REM loader',
-      [],
-      null,
-      [],
-      {},
-      disc,
+    const parsed = parseProjectZip(
+      serializeProjectZip('bbcmicro', '10 REM loader', [], null, [], {}, disc),
     );
-    const parsed = parseProject(text);
     expect(parsed.bootDisc).not.toBeNull();
     expect(Array.from(parsed.bootDisc!)).toEqual(Array.from(disc));
-    // A document with no boot disc carries no key and parses back to null.
-    const without = parseProject(serializeProject('bbcmicro', '10 X', []));
+    const without = parseProjectZip(
+      serializeProjectZip('bbcmicro', '10 X', []),
+    );
     expect(without.bootDisc).toBeNull();
-    expect(serializeProject('bbcmicro', '10 X', [])).not.toContain('bootDisc');
+  });
+
+  it('round-trips per-ordinal listing block metadata', () => {
+    const meta = { 0: { name: 'LOADER', comment: 'hi', asmSource: 'RET' } };
+    const parsed = parseProjectZip(
+      serializeProjectZip('zx81', '10 REM', [], null, [], meta),
+    );
+    expect(parsed.listingBlockMeta[0]).toEqual({
+      name: 'LOADER',
+      comment: 'hi',
+      asmSource: 'RET',
+    });
   });
 
   it('round-trips blocks, including bytes and the optional comment', () => {
-    const text = serializeProject('zxspectrum', '10 PRINT "HI"', [
-      BLOCK_A,
-      BLOCK_B,
-    ]);
-    const parsed = parseProject(text);
+    const parsed = parseProjectZip(
+      serializeProjectZip('zxspectrum', '10 PRINT "HI"', [BLOCK_A, BLOCK_B]),
+    );
     expect(parsed.dialect).toBe('zxspectrum');
     expect(parsed.blocks).toHaveLength(2);
-    expect(parsed.blocks[0]).toEqual(BLOCK_A);
-    expect(parsed.blocks[1]).toEqual(BLOCK_B);
+    expect(parsed.blocks[0]).toEqual(opened(BLOCK_A));
+    expect(parsed.blocks[1]).toEqual(opened(BLOCK_B));
   });
 
   it('preserves byte values exactly, including 0x00 and 0xff', () => {
@@ -118,284 +155,142 @@ describe('serializeProject / parseProject round-trip', () => {
       bytes: Uint8Array.from([0, 255, 128, 1]),
       kind: 'data',
     };
-    const text = serializeProject('zx81', '', [block]);
-    const parsed = parseProject(text);
+    const parsed = parseProjectZip(serializeProjectZip('zx81', '', [block]));
     expect(Array.from(parsed.blocks[0]!.bytes)).toEqual([0, 255, 128, 1]);
-  });
-
-  it('produces human-readable, diffable JSON', () => {
-    const text = serializeProject('zx81', '10 PRINT', []);
-    expect(text).toContain('"format": "basically-project"');
-    expect(text).toContain('"version": 1');
-    // Pretty-printed, not minified.
-    expect(text).toContain('\n');
-  });
-
-  it('omits the comment field on the wire when absent', () => {
-    const text = serializeProject('zx81', '', [BLOCK_B]);
-    const parsed: unknown = JSON.parse(text);
-    const wireBlock = (parsed as { blocks: { comment?: string }[] }).blocks[0]!;
-    expect('comment' in wireBlock).toBe(false);
   });
 
   it('round-trips the optional entry address and omits it when absent', () => {
     const withEntry: MemoryBlock = { ...BLOCK_B, entry: 0x9010 };
-    const text = serializeProject('atom', '', [withEntry]);
-    const parsed = parseProject(text);
+    const parsed = parseProjectZip(
+      serializeProjectZip('atom', '', [withEntry]),
+    );
     expect(parsed.blocks[0]!.entry).toBe(0x9010);
-
-    const without = serializeProject('atom', '', [BLOCK_B]);
-    const wire: unknown = JSON.parse(without);
-    const wireBlock = (wire as { blocks: { entry?: number }[] }).blocks[0]!;
-    expect('entry' in wireBlock).toBe(false);
-    expect('entry' in parseProject(without).blocks[0]!).toBe(false);
+    const without = parseProjectZip(serializeProjectZip('atom', '', [BLOCK_B]));
+    expect('entry' in without.blocks[0]!).toBe(false);
   });
 
   it('round-trips the optional asmSource and omits it when absent', () => {
     const source = 'start:\n  LD HL,$8000 ; comment survives verbatim\n  RET';
     const withAsm: MemoryBlock = { ...BLOCK_B, asmSource: source };
-    const parsed = parseProject(serializeProject('zx81', '', [withAsm]));
+    const parsed = parseProjectZip(serializeProjectZip('zx81', '', [withAsm]));
     expect(parsed.blocks[0]!.asmSource).toBe(source);
-
-    const without = serializeProject('zx81', '', [BLOCK_B]);
-    const wire: unknown = JSON.parse(without);
-    const wireBlock = (wire as { blocks: { asmSource?: string }[] }).blocks[0]!;
-    expect('asmSource' in wireBlock).toBe(false);
-    expect('asmSource' in parseProject(without).blocks[0]!).toBe(false);
-
-    // A non-string asmSource (hand-edited file) is dropped, not fatal.
-    const mangled = JSON.parse(serializeProject('zx81', '', [withAsm])) as {
-      blocks: { asmSource?: unknown }[];
-    };
-    mangled.blocks[0]!.asmSource = 42;
-    expect(
-      'asmSource' in parseProject(JSON.stringify(mangled)).blocks[0]!,
-    ).toBe(false);
+    const without = parseProjectZip(serializeProjectZip('zx81', '', [BLOCK_B]));
+    expect('asmSource' in without.blocks[0]!).toBe(false);
   });
 });
 
-describe('parseProject error handling', () => {
-  it('throws on malformed JSON', () => {
-    expect(() => parseProject('{not json')).toThrow();
+describe('parseProjectZip error handling', () => {
+  const validMeta = {
+    format: 'basically-project',
+    version: 2,
+    dialect: 'zx81',
+    source: 'program.bas',
+    blocks: [],
+  };
+  const zipWithMeta = (meta: unknown, extra: Record<string, string> = {}) =>
+    rawZip({
+      'program.bas': '10 PRINT',
+      'project.json': JSON.stringify(meta),
+      ...extra,
+    });
+
+  it('throws when the bytes are not a zip', () => {
+    expect(() => parseProjectZip(enc.encode('not a zip'))).toThrow(
+      /could not read the archive/i,
+    );
   });
 
-  it('throws when format is missing', () => {
-    const text = JSON.stringify({
-      version: 1,
-      dialect: 'zx81',
-      source: '',
-      blocks: [],
-    });
-    expect(() => parseProject(text)).toThrow();
+  it('throws when project.json is missing', () => {
+    expect(() => parseProjectZip(rawZip({ 'program.bas': '10 X' }))).toThrow(
+      /project\.json/,
+    );
+  });
+
+  it('throws when project.json is malformed', () => {
+    expect(() =>
+      parseProjectZip(rawZip({ 'project.json': '{not json' })),
+    ).toThrow();
   });
 
   it('throws when format is wrong', () => {
-    const text = JSON.stringify({
-      format: 'something-else',
-      version: 1,
-      dialect: 'zx81',
-      source: '',
-      blocks: [],
-    });
-    expect(() => parseProject(text)).toThrow();
+    expect(() =>
+      parseProjectZip(zipWithMeta({ ...validMeta, format: 'other' })),
+    ).toThrow();
   });
 
   it('throws on an unsupported version', () => {
-    const text = JSON.stringify({
-      format: 'basically-project',
-      version: 2,
-      dialect: 'zx81',
-      source: '',
-      blocks: [],
-    });
-    expect(() => parseProject(text)).toThrow();
+    expect(() =>
+      parseProjectZip(zipWithMeta({ ...validMeta, version: 1 })),
+    ).toThrow(/version/i);
   });
 
   it('throws when dialect is missing', () => {
-    const text = JSON.stringify({
-      format: 'basically-project',
-      version: 1,
-      source: '',
-      blocks: [],
-    });
-    expect(() => parseProject(text)).toThrow();
+    const { dialect: _drop, ...noDialect } = validMeta;
+    void _drop;
+    expect(() => parseProjectZip(zipWithMeta(noDialect))).toThrow();
   });
 
-  it('throws when tapeFiles is present but not an array', () => {
-    const text = JSON.stringify({
-      format: 'basically-project',
-      version: 1,
-      dialect: 'zxspectrum',
-      source: '10 X',
-      blocks: [],
-      tapeFiles: 'nope',
-    });
-    expect(() => parseProject(text)).toThrow(/tapeFiles/);
-  });
-
-  it('throws when a tape file has malformed "tap" bytes', () => {
-    const text = JSON.stringify({
-      format: 'basically-project',
-      version: 1,
-      dialect: 'zxspectrum',
-      source: '10 X',
-      blocks: [],
-      tapeFiles: [{ name: 'L', kind: 'program', tap: '!!!not base64!!!' }],
-    });
-    expect(() => parseProject(text)).toThrow();
-  });
-
-  it('throws when source is missing', () => {
-    const text = JSON.stringify({
-      format: 'basically-project',
-      version: 1,
-      dialect: 'zx81',
-      blocks: [],
-    });
-    expect(() => parseProject(text)).toThrow();
+  it('throws when the source entry is missing from the archive', () => {
+    // Metadata names program.bas but the entry is absent.
+    const zip = rawZip({ 'project.json': JSON.stringify(validMeta) });
+    expect(() => parseProjectZip(zip)).toThrow(/source entry/);
   });
 
   it('throws when blocks is not an array', () => {
-    const text = JSON.stringify({
-      format: 'basically-project',
-      version: 1,
-      dialect: 'zx81',
-      source: '',
-      blocks: 'nope',
-    });
-    expect(() => parseProject(text)).toThrow();
+    expect(() =>
+      parseProjectZip(zipWithMeta({ ...validMeta, blocks: 'nope' })),
+    ).toThrow();
   });
 
-  it('throws when a block is missing a required field', () => {
-    const text = JSON.stringify({
-      format: 'basically-project',
-      version: 1,
-      dialect: 'zx81',
-      source: '',
-      blocks: [{ id: 'x', name: 'B', kind: 'data', bytes: 'AAA=' }], // no address
-    });
-    expect(() => parseProject(text)).toThrow();
+  it("throws when a block's referenced .bin entry is missing", () => {
+    const meta = {
+      ...validMeta,
+      blocks: [{ name: 'B', address: 0, kind: 'data', bin: 'blocks/B.bin' }],
+    };
+    // No blocks/B.bin entry in the archive.
+    expect(() => parseProjectZip(zipWithMeta(meta))).toThrow(/missing entry/);
   });
 
   it('throws when a block has an invalid kind', () => {
-    const text = JSON.stringify({
-      format: 'basically-project',
-      version: 1,
-      dialect: 'zx81',
-      source: '',
+    const meta = {
+      ...validMeta,
       blocks: [
-        { id: 'x', name: 'B', address: 0, bytes: 'AAA=', kind: 'nonsense' },
+        { name: 'B', address: 0, kind: 'nonsense', bin: 'blocks/B.bin' },
       ],
-    });
-    expect(() => parseProject(text)).toThrow();
+    };
+    expect(() =>
+      parseProjectZip(zipWithMeta(meta, { 'blocks/B.bin': 'x' })),
+    ).toThrow();
   });
 
-  it('throws when a block has malformed base64 bytes', () => {
-    const text = JSON.stringify({
-      format: 'basically-project',
-      version: 1,
-      dialect: 'zx81',
-      source: '',
+  it('throws when a block name is invalid', () => {
+    const meta = {
+      ...validMeta,
       blocks: [
-        {
-          id: 'x',
-          name: 'B',
-          address: 0,
-          bytes: '!!!not base64!!!',
-          kind: 'data',
-        },
+        { name: '1foo', address: 0, kind: 'data', bin: 'blocks/1foo.bin' },
       ],
-    });
-    expect(() => parseProject(text)).toThrow();
-  });
-
-  const blockNamed = (name: string) => ({
-    id: 'x',
-    name,
-    address: 0,
-    bytes: 'AAA=',
-    kind: 'data' as const,
-  });
-
-  const projectWithBlocks = (blocks: unknown[]) =>
-    JSON.stringify({
-      format: 'basically-project',
-      version: 1,
-      dialect: 'zx81',
-      source: '',
-      blocks,
-    });
-
-  it('throws when a block name starts with a digit', () => {
+    };
     expect(() =>
-      parseProject(projectWithBlocks([blockNamed('1foo')])),
+      parseProjectZip(zipWithMeta(meta, { 'blocks/1foo.bin': 'x' })),
     ).toThrow();
-  });
-
-  it('throws when a block name contains a space', () => {
-    expect(() =>
-      parseProject(projectWithBlocks([blockNamed('has spaces')])),
-    ).toThrow();
-  });
-
-  it('throws when a block name is empty', () => {
-    expect(() => parseProject(projectWithBlocks([blockNamed('')]))).toThrow();
-  });
-
-  it('throws when a block name contains punctuation', () => {
-    expect(() =>
-      parseProject(projectWithBlocks([blockNamed('foo-bar')])),
-    ).toThrow();
-  });
-
-  it('accepts a name with letters, digits, and underscores', () => {
-    expect(() =>
-      parseProject(projectWithBlocks([blockNamed('Foo_Bar2')])),
-    ).not.toThrow();
   });
 
   it('throws when two blocks share a name', () => {
-    const text = projectWithBlocks([
-      { ...blockNamed('SAME'), id: 'a' },
-      { ...blockNamed('SAME'), id: 'b' },
-    ]);
-    expect(() => parseProject(text)).toThrow(/more than one/i);
-  });
-
-  it('allows two blocks with distinct names', () => {
-    const text = projectWithBlocks([
-      { ...blockNamed('FIRST'), id: 'a' },
-      { ...blockNamed('SECOND'), id: 'b' },
-    ]);
-    expect(() => parseProject(text)).not.toThrow();
-  });
-});
-
-describe('isProjectFile', () => {
-  it('is true for a serialized project', () => {
-    const text = serializeProject('zx81', '10 PRINT', []);
-    expect(isProjectFile(text)).toBe(true);
-  });
-
-  it('is false for plain BASIC source', () => {
-    expect(isProjectFile('10 PRINT "HI"\n20 GOTO 10')).toBe(false);
-  });
-
-  it('is false for unrelated JSON', () => {
-    expect(isProjectFile(JSON.stringify({ hello: 'world' }))).toBe(false);
-  });
-
-  it('is false for malformed JSON', () => {
-    expect(isProjectFile('{not json')).toBe(false);
-  });
-
-  it('is false for empty text', () => {
-    expect(isProjectFile('')).toBe(false);
+    const meta = {
+      ...validMeta,
+      blocks: [
+        { name: 'SAME', address: 0, kind: 'data', bin: 'blocks/SAME.bin' },
+        { name: 'SAME', address: 1, kind: 'data', bin: 'blocks/SAME.bin' },
+      ],
+    };
+    expect(() =>
+      parseProjectZip(zipWithMeta(meta, { 'blocks/SAME.bin': 'x' })),
+    ).toThrow(/more than one/i);
   });
 });
 
 describe('serializeBlocks', () => {
-  it('base64-encodes bytes for the wire', () => {
+  it('base64-encodes bytes for the wire (autosave codec)', () => {
     const [wire] = serializeBlocks([BLOCK_A]);
     expect(typeof wire!.bytes).toBe('string');
     expect(wire!.id).toBe('blk-1');

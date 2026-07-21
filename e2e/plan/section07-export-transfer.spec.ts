@@ -5,7 +5,7 @@ import {
   forceFallbackFilePickers,
   installDialogHandler,
   openApp,
-  saveAsBas,
+  saveAsProject,
   setEditorSource,
 } from './helpers';
 
@@ -34,7 +34,7 @@ async function openExportOnSavedDoc(page: Page) {
   await forceFallbackFilePickers(page);
   const dialogs = await openApp(page);
   await setEditorSource(page, '10 PRINT "EXPORT"\n20 GOTO 10');
-  await saveAsBas(page, dialogs, 'export');
+  await saveAsProject(page, dialogs, 'export');
   await fileMenu(page, /^Export/);
   await expect(
     page.getByRole('heading', { name: 'Run on real hardware' }),

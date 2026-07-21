@@ -22,9 +22,9 @@ debugging, file operations, and toggling the panels.
 
 | Action          | Shortcut                                     |
 | --------------- | -------------------------------------------- |
-| New             | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd>   |
-| Open…           | <kbd>Mod</kbd>+<kbd>O</kbd>                  |
-| Save            | <kbd>Mod</kbd>+<kbd>S</kbd>                  |
+| New project     | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd>   |
+| Open project…   | <kbd>Mod</kbd>+<kbd>O</kbd>                  |
+| Save project    | <kbd>Mod</kbd>+<kbd>S</kbd>                  |
 | Import…         | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>   |
 | Export…         | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>E</kbd>   |
 | Publish to Web… | <kbd>Mod</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> |

@@ -1,10 +1,22 @@
 /**
- * The on-disk project bundle format (`.bproj`): a JSON document pairing a
- * document's BASIC source with its {@link MemoryBlock}s and any
- * {@link TapeFile}s preserved off a multi-part import, so all survive Save/Open
- * as a single human-readable, diffable file - no zip dependency. Plain
- * `.txt`/`.bas` remains the format for a pure-BASIC document with neither; see
- * `src/app/fileCommands.ts` for that format decision.
+ * The on-disk project bundle format (`.bproj`): a **zip** archive that holds a
+ * document's pieces as first-class files -
+ *
+ * ```
+ * program.bas            the BASIC source (text)
+ * blocks/<name>.bin      each {@link MemoryBlock}'s raw bytes
+ * blocks/<name>.asm      each code block's assembly source (when it has one)
+ * project.json           the metadata file (see {@link ProjectMetaV2})
+ * ```
+ *
+ * so the parts unzip into files you can open directly (see
+ * {@link serializeProjectZip} / {@link parseProjectZip}). `project.json` is
+ * metadata only: it names the entries above and carries the fields that have no
+ * natural standalone file - the dialect id, auto-start line, listing-block
+ * overrides, and the rarer multi-part-import payloads ({@link TapeFile}s and a
+ * verbatim boot disc), which stay base64-encoded inside it. Every document now
+ * saves as this bundle; a plain `.bas` for a single tab is a per-tab download
+ * (see `src/components/EditorTabBar.tsx`), no longer a Save format.
  *
  * Autosave (`src/storage/settings.ts`) persists blocks and tape files too, and
  * reuses this file's wire codecs ({@link serializeBlocks} / {@link parseBlocks}
@@ -12,8 +24,21 @@
  * on the same shape.
  */
 
+import { zipSync, unzipSync } from 'fflate';
 import type { MemoryBlock, TapeFile } from '../dialects/types';
 import { bytesToBase64, base64ToBytes } from './vfs/base64';
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+/** Zip entry path of the BASIC source. */
+const SOURCE_PATH = 'program.bas';
+/** Zip entry path of the metadata file. */
+const META_PATH = 'project.json';
+/** Zip entry path of a block's raw bytes (block names are filesystem-safe). */
+const blockBinPath = (name: string): string => `blocks/${name}.bin`;
+/** Zip entry path of a code block's assembly source. */
+const blockAsmPath = (name: string): string => `blocks/${name}.asm`;
 
 /**
  * The only valid shape for {@link MemoryBlock.name}: starts with a letter,
@@ -75,43 +100,69 @@ export interface SerializedTapeFile {
   tap: string;
 }
 
-/** The `.bproj` document shape, version 1. */
-export interface ProjectFileV1 {
+/**
+ * One {@link MemoryBlock}'s metadata in {@link ProjectMetaV2}. The bytes and
+ * assembly source live as their own zip entries ({@link bin} / {@link asm}),
+ * not inline - so this carries only the fields that describe them.
+ */
+export interface SerializedBlockMeta {
+  name: string;
+  address: number;
+  kind: 'code' | 'data';
+  comment?: string;
+  /** Execution entry address (see {@link MemoryBlock.entry}). Additive. */
+  entry?: number;
+  /** Zip entry path of this block's raw bytes (see {@link blockBinPath}). */
+  bin: string;
+  /**
+   * Zip entry path of this block's assembly source (see {@link blockAsmPath}),
+   * present only when the block carries one. `bin` remains the source of truth.
+   */
+  asm?: string;
+}
+
+/**
+ * The `project.json` metadata shape, version 2 - the manifest for the `.bproj`
+ * zip. Names the source and per-block entries and carries the fields with no
+ * natural standalone file. Bumped from the version-1 monolithic-JSON format,
+ * which is no longer read.
+ */
+export interface ProjectMetaV2 {
   format: 'basically-project';
-  version: 1;
+  version: 2;
   /** Id of the dialect the document (and its blocks) were saved under. */
   dialect: string;
+  /** Zip entry path of the BASIC source (see {@link SOURCE_PATH}). */
   source: string;
-  blocks: SerializedBlock[];
+  blocks: SerializedBlockMeta[];
   /**
    * The program's auto-start line (a Spectrum `.TAP` header's auto-run line),
    * when the document was imported from an image carrying one. Optional and
-   * additive - older `.bproj` files without it load as "no auto-start" - so no
-   * version bump is needed. The run path starts from this line rather than the
-   * first line (see {@link ParsedProject.autoStart}).
+   * additive - files without it load as "no auto-start". The run path starts
+   * from this line rather than the first line (see
+   * {@link ParsedProject.autoStart}).
    */
   autoStart?: number | null;
   /**
    * Extra tape files preserved off a multi-part import (see {@link TapeFile}),
-   * beyond the one program in `source` and the CODE files in `blocks`. Optional
-   * and additive like `autoStart` - older `.bproj` files without it load as
-   * "no preserved tape" - so no version bump is needed. Mounted on the
+   * beyond the one program in `source` and the CODE files in `blocks`. Kept
+   * base64-encoded here (rare, no natural standalone file). Optional and
+   * additive - files without it load as "no preserved tape". Mounted on the
    * emulator's virtual tape at run time (see {@link ParsedProject.tapeFiles}).
    */
   tapeFiles?: SerializedTapeFile[];
   /**
    * Per-ordinal overrides for a document's derived listing blocks (ZX80/ZX81):
    * the name / code-vs-data kind / comment a `#BIN` record can't carry. Optional
-   * and additive - older files without it load with the derived defaults - so no
-   * version bump. The blocks themselves re-derive from `source`.
+   * and additive - files without it load with the derived defaults. The blocks
+   * themselves re-derive from `source`.
    */
   listingBlockMeta?: SerializedListingBlockMeta;
   /**
    * A verbatim disc image (base64) the document boots instead of running its
    * tokenized `source` - a multi-file BBC `.ssd` the memory-block model can't
-   * represent (see the document field of the same name). Optional and additive
-   * like the fields above - older files without it load as a plain program - so
-   * no version bump.
+   * represent (see the document field of the same name). Kept base64-encoded
+   * here. Optional and additive - files without it load as a plain program.
    */
   bootDisc?: string;
 }
@@ -131,7 +182,8 @@ function serializeBlock(block: MemoryBlock): SerializedBlock {
 
 /**
  * {@link MemoryBlock}s in their wire shape (bytes as base64). Shared by
- * {@link serializeProject} and autosave's block persistence.
+ * autosave's block persistence (the `.bproj` bundle stores block bytes as
+ * their own zip entries instead - see {@link serializeProjectZip}).
  */
 export function serializeBlocks(
   blocks: readonly MemoryBlock[],
@@ -190,8 +242,8 @@ function parseBlock(raw: unknown, index: number): MemoryBlock {
 }
 
 /**
- * Decode wire-shape blocks (a parsed {@link ProjectFileV1}'s `blocks`, or
- * autosave's stored array) back into {@link MemoryBlock}s. Throws on the
+ * Decode wire-shape blocks (autosave's stored array) back into
+ * {@link MemoryBlock}s. Throws on the
  * first structurally invalid entry, an invalid `name`, or a `name` shared by
  * more than one block (names must be unique per document) - callers that
  * want a defensive, never-throws load (autosave) catch around this
@@ -272,7 +324,7 @@ export function parseListingBlockMeta(raw: unknown): Record<
 
 /**
  * {@link TapeFile}s in their wire shape (bytes as base64). Shared by
- * {@link serializeProject} and autosave's tape-file persistence.
+ * {@link serializeProjectZip} and autosave's tape-file persistence.
  */
 export function serializeTapeFiles(
   tapeFiles: readonly TapeFile[],
@@ -314,7 +366,7 @@ function parseTapeFile(raw: unknown, index: number): TapeFile {
 }
 
 /**
- * Decode wire-shape tape files (a parsed {@link ProjectFileV1}'s `tapeFiles`,
+ * Decode wire-shape tape files (a parsed {@link ProjectMetaV2}'s `tapeFiles`,
  * or autosave's stored array) back into {@link TapeFile}s. Throws on the first
  * structurally invalid entry - callers that want a defensive, never-throws
  * load (autosave) catch around this themselves.
@@ -323,8 +375,12 @@ export function parseTapeFiles(raw: unknown[]): TapeFile[] {
   return raw.map((t, i) => parseTapeFile(t, i));
 }
 
-/** Build the `.bproj` JSON text for a document. */
-export function serializeProject(
+/**
+ * Build the `.bproj` zip bundle for a document (see this module's header for
+ * the layout). The BASIC source and each block's bytes/asm become their own
+ * entries; everything else rides in the `project.json` metadata.
+ */
+export function serializeProjectZip(
   dialectId: string,
   source: string,
   blocks: readonly MemoryBlock[],
@@ -332,13 +388,32 @@ export function serializeProject(
   tapeFiles: readonly TapeFile[] = [],
   listingBlockMeta: SerializedListingBlockMeta = {},
   bootDisc: Uint8Array | null = null,
-): string {
-  const file: ProjectFileV1 = {
+): Uint8Array {
+  const files: Record<string, Uint8Array> = {
+    [SOURCE_PATH]: textEncoder.encode(source),
+  };
+  const blockMeta: SerializedBlockMeta[] = blocks.map((b) => {
+    files[blockBinPath(b.name)] = b.bytes;
+    const meta: SerializedBlockMeta = {
+      name: b.name,
+      address: b.address,
+      kind: b.kind,
+      bin: blockBinPath(b.name),
+      ...(b.comment !== undefined ? { comment: b.comment } : {}),
+      ...(b.entry !== undefined ? { entry: b.entry } : {}),
+    };
+    if (b.asmSource !== undefined) {
+      files[blockAsmPath(b.name)] = textEncoder.encode(b.asmSource);
+      meta.asm = blockAsmPath(b.name);
+    }
+    return meta;
+  });
+  const meta: ProjectMetaV2 = {
     format: 'basically-project',
-    version: 1,
+    version: 2,
     dialect: dialectId,
-    source,
-    blocks: serializeBlocks(blocks),
+    source: SOURCE_PATH,
+    blocks: blockMeta,
     ...(autoStart !== null ? { autoStart } : {}),
     ...(tapeFiles.length > 0
       ? { tapeFiles: serializeTapeFiles(tapeFiles) }
@@ -348,7 +423,91 @@ export function serializeProject(
       ? { bootDisc: bytesToBase64(bootDisc) }
       : {}),
   };
-  return JSON.stringify(file, null, 2);
+  files[META_PATH] = textEncoder.encode(JSON.stringify(meta, null, 2));
+  return zipSync(files);
+}
+
+/**
+ * Decode one block's {@link SerializedBlockMeta} plus its `.bin`/`.asm` zip
+ * entries back into a {@link MemoryBlock}. Throws `Error` on any structural
+ * problem or a missing referenced entry, naming the offending block by index.
+ * The `id` is synthesised to match the store's own scheme (`block-<name>`);
+ * names are unique per document, so ids are too.
+ */
+function parseBlockMeta(
+  raw: unknown,
+  index: number,
+  files: Record<string, Uint8Array>,
+): MemoryBlock {
+  if (raw === null || typeof raw !== 'object') {
+    throw new Error(`Project file block ${index} is not an object.`);
+  }
+  const b = raw as Record<string, unknown>;
+  if (typeof b.name !== 'string') {
+    throw new Error(`Project file block ${index} is missing a "name".`);
+  }
+  if (!isValidBlockName(b.name)) {
+    throw new Error(
+      `Project file block ${index} has an invalid "name" ("${b.name}"): ` +
+        'names must start with a letter and contain only letters, digits, or underscores.',
+    );
+  }
+  if (typeof b.address !== 'number' || !Number.isFinite(b.address)) {
+    throw new Error(`Project file block ${index} has an invalid "address".`);
+  }
+  if (b.kind !== 'code' && b.kind !== 'data') {
+    throw new Error(`Project file block ${index} has an invalid "kind".`);
+  }
+  if (typeof b.bin !== 'string') {
+    throw new Error(`Project file block ${index} is missing "bin".`);
+  }
+  const bytes = files[b.bin];
+  if (!bytes) {
+    throw new Error(
+      `Project file block ${index} references a missing entry "${b.bin}".`,
+    );
+  }
+  let asmSource: string | undefined;
+  if (typeof b.asm === 'string') {
+    const asmBytes = files[b.asm];
+    if (!asmBytes) {
+      throw new Error(
+        `Project file block ${index} references a missing entry "${b.asm}".`,
+      );
+    }
+    asmSource = textDecoder.decode(asmBytes);
+  }
+  return {
+    id: `block-${b.name}`,
+    name: b.name,
+    address: b.address,
+    bytes,
+    kind: b.kind,
+    ...(typeof b.comment === 'string' ? { comment: b.comment } : {}),
+    ...(typeof b.entry === 'number' && Number.isInteger(b.entry)
+      ? { entry: b.entry }
+      : {}),
+    ...(asmSource !== undefined ? { asmSource } : {}),
+  };
+}
+
+/**
+ * Decode a metadata `blocks` array plus the zip's entries back into
+ * {@link MemoryBlock}s. Throws on the first invalid entry or a name shared by
+ * more than one block (names must be unique per document).
+ */
+function parseBlockMetas(
+  raw: unknown[],
+  files: Record<string, Uint8Array>,
+): MemoryBlock[] {
+  const blocks = raw.map((b, i) => parseBlockMeta(b, i, files));
+  const dup = findDuplicateBlockName(blocks);
+  if (dup !== null) {
+    throw new Error(
+      `Project file has more than one memory block named "${dup}".`,
+    );
+  }
+  return blocks;
 }
 
 export interface ParsedProject {
@@ -374,18 +533,30 @@ export interface ParsedProject {
 }
 
 /**
- * Parse `.bproj` JSON text. Throws `Error` with a human-readable message on
- * malformed JSON, a missing/wrong `format`, an unsupported `version`, or any
- * structurally invalid field - matching this codebase's other import-style
- * parsers (e.g. the `.tap`/`.p` readers), which throw rather than collecting
- * errors, since a corrupt project file can't be partially loaded.
+ * Parse a `.bproj` zip bundle (see {@link serializeProjectZip}). Throws `Error`
+ * with a human-readable message on an unreadable archive, a missing/malformed
+ * `project.json`, a wrong `format`, an unsupported `version`, a missing
+ * referenced entry, or any structurally invalid field - matching this
+ * codebase's other import-style parsers (e.g. the `.tap`/`.p` readers), which
+ * throw rather than collecting errors, since a corrupt project file can't be
+ * partially loaded.
  */
-export function parseProject(text: string): ParsedProject {
+export function parseProjectZip(bytes: Uint8Array): ParsedProject {
+  let files: Record<string, Uint8Array>;
+  try {
+    files = unzipSync(bytes);
+  } catch {
+    throw new Error('Not a valid project file: could not read the archive.');
+  }
+  const metaBytes = files[META_PATH];
+  if (!metaBytes) {
+    throw new Error(`Not a Basically project file: missing ${META_PATH}.`);
+  }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(textDecoder.decode(metaBytes));
   } catch {
-    throw new Error('Not a valid project file: malformed JSON.');
+    throw new Error(`Not a valid project file: malformed ${META_PATH}.`);
   }
   if (parsed === null || typeof parsed !== 'object') {
     throw new Error('Not a valid project file.');
@@ -394,7 +565,7 @@ export function parseProject(text: string): ParsedProject {
   if (obj.format !== 'basically-project') {
     throw new Error('Not a Basically project file.');
   }
-  if (obj.version !== 1) {
+  if (obj.version !== 2) {
     throw new Error(
       `Unsupported project file version: ${String(obj.version)}.`,
     );
@@ -405,6 +576,13 @@ export function parseProject(text: string): ParsedProject {
   if (typeof obj.source !== 'string') {
     throw new Error('Project file is missing its "source".');
   }
+  const sourceBytes = files[obj.source];
+  if (!sourceBytes) {
+    throw new Error(
+      `Project file is missing its source entry "${obj.source}".`,
+    );
+  }
+  const source = textDecoder.decode(sourceBytes);
   if (!Array.isArray(obj.blocks)) {
     throw new Error('Project file has malformed "blocks".');
   }
@@ -432,34 +610,11 @@ export function parseProject(text: string): ParsedProject {
   }
   return {
     dialect: obj.dialect,
-    source: obj.source,
-    blocks: parseBlocks(obj.blocks),
+    source,
+    blocks: parseBlockMetas(obj.blocks, files),
     autoStart,
     tapeFiles,
     listingBlockMeta: parseListingBlockMeta(obj.listingBlockMeta),
     bootDisc,
   };
-}
-
-/**
- * Cheap sniff for whether `text` looks like a `.bproj` bundle - used to route
- * a dropped/opened `.txt` (project-shaped text is accepted there too,
- * alongside the `.bproj` extension) to {@link parseProject} instead of
- * loading it as plain source. Checks only the `format` tag, not the full
- * shape - {@link parseProject} still throws a clear error for anything that
- * sniffs positive but doesn't actually parse.
- */
-export function isProjectFile(text: string): boolean {
-  const trimmed = text.trimStart();
-  if (!trimmed.startsWith('{')) return false;
-  try {
-    const parsed: unknown = JSON.parse(trimmed);
-    return (
-      !!parsed &&
-      typeof parsed === 'object' &&
-      (parsed as Record<string, unknown>).format === 'basically-project'
-    );
-  } catch {
-    return false;
-  }
 }

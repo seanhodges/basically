@@ -10,17 +10,14 @@
 
 import { useIdeStore } from './store';
 import {
-  openTextFile,
-  saveTextFile,
-  saveProjectFile,
+  openDocumentFile,
+  saveProjectZip,
   toProjectFileName,
 } from '../storage/files';
 import { importProgram, importStatusMessage } from './importProgram';
-import {
-  serializeProject,
-  parseProject,
-  isProjectFile,
-} from '../storage/projectFile';
+import { serializeProjectZip, parseProjectZip } from '../storage/projectFile';
+
+const textDecoder = new TextDecoder();
 
 /**
  * True when it's safe to replace the current document - nothing unsaved, an
@@ -39,24 +36,23 @@ export function newDocument(): void {
 }
 
 /**
- * Open a `.txt`/`.bas`/`.bproj` from disk into the editor (guarded by
- * {@link confirmDiscard}). A `.bproj` - or a `.txt` that sniffs as one, see
- * {@link isProjectFile} - is parsed as a project bundle and installs its
- * source and memory blocks atomically; anything else loads as plain source
- * with no blocks, exactly as before. If the project was saved under a
- * different dialect than the one currently active, the document still loads
- * but a status notice warns that its memory blocks may not work (see
- * {@link dialectMismatchNotice}) - no auto-switch.
+ * Open a project or source file from disk into the editor (guarded by
+ * {@link confirmDiscard}). A `.bproj` is unzipped and parsed as a project
+ * bundle, installing its source and memory blocks atomically; a plain
+ * `.bas`/`.txt` (or any other extension) loads as plain source with no blocks.
+ * If the project was saved under a different dialect than the one currently
+ * active, the document still loads but a status notice warns that its memory
+ * blocks may not work (see {@link dialectMismatchNotice}) - no auto-switch.
  */
 export async function openDocument(): Promise<void> {
   if (!confirmDiscard()) return;
-  const opened = await openTextFile();
+  const opened = await openDocumentFile();
   if (!opened) return;
   const { dialect, replaceDocument, setStatusNotice } = useIdeStore.getState();
   const ext = fileExtension(opened.name);
-  if (ext === '.bproj' || (ext === '.txt' && isProjectFile(opened.text))) {
+  if (ext === '.bproj') {
     try {
-      const parsed = parseProject(opened.text);
+      const parsed = parseProjectZip(opened.bytes);
       replaceDocument(parsed.source, opened.name, {
         blocks: parsed.blocks,
         listingBlockMeta: parsed.listingBlockMeta,
@@ -73,14 +69,15 @@ export async function openDocument(): Promise<void> {
     }
     return;
   }
-  replaceDocument(opened.text, opened.name);
+  replaceDocument(textDecoder.decode(opened.bytes), opened.name);
 }
 
 /**
- * Save the current program to disk and mark it saved. Plain `.txt`/`.bas`
- * stays the format for a pure-BASIC document; once it carries memory blocks or
- * preserved tape files, Save switches to the `.bproj` project bundle instead
- * (see `src/storage/projectFile.ts`), so they survive the round trip.
+ * Save the current document to disk as a `.bproj` project bundle (a zip of the
+ * BASIC source plus any memory blocks and metadata; see
+ * `src/storage/projectFile.ts`) and mark it saved. Every document saves as this
+ * bundle now - a single-file `.bas` is a per-tab download instead (see
+ * `src/components/EditorTabBar.tsx`).
  */
 export async function saveDocument(): Promise<void> {
   const {
@@ -94,31 +91,16 @@ export async function saveDocument(): Promise<void> {
     dialect,
     markSaved,
   } = useIdeStore.getState();
-  // A pure-BASIC document (including a listing-backed one with no metadata
-  // overrides - its #BIN blocks live in `source`) saves as portable text; blocks,
-  // preserved tape, a boot-disc image, or listing-block overrides switch Save to
-  // the .bproj bundle.
-  const hasListingMeta = Object.keys(listingBlockMeta).length > 0;
-  if (
-    blocks.length > 0 ||
-    tapeFiles.length > 0 ||
-    hasListingMeta ||
-    bootDisc !== null
-  ) {
-    const json = serializeProject(
-      dialect.id,
-      source,
-      blocks,
-      autoStart,
-      tapeFiles,
-      listingBlockMeta,
-      bootDisc,
-    );
-    const saved = await saveProjectFile(toProjectFileName(fileName), json);
-    if (saved !== null) markSaved(saved);
-    return;
-  }
-  const saved = await saveTextFile(fileName, source);
+  const zip = serializeProjectZip(
+    dialect.id,
+    source,
+    blocks,
+    autoStart,
+    tapeFiles,
+    listingBlockMeta,
+    bootDisc,
+  );
+  const saved = await saveProjectZip(toProjectFileName(fileName), zip);
   if (saved !== null) markSaved(saved);
 }
 
@@ -144,20 +126,18 @@ function dialectMismatchNotice(
 }
 
 /**
- * Open a file dropped onto the editor. A `.bproj` project bundle - or a
- * `.txt` that sniffs as one, see {@link isProjectFile} - installs its source
- * and memory blocks atomically, like File → Open; a plain `.txt`/`.bas` file
- * loads as a named document the same way; a file whose extension matches one
- * of the current dialect's binary import formats (e.g. `.prg`, `.tap`) is
- * detokenized back into the editor exactly like Import - including the
- * block-carrying disc/tape containers (`.ssd`, `.d64`, `.TAP`, `.dsk`), which
- * bring the program back with its memory blocks. All document-replacing paths
- * are guarded by {@link confirmDiscard}, so the
- * user is warned before losing unsaved changes (adding a block isn't
- * destructive, so it isn't). Unsupported types and read/detokenize/parse
- * failures surface a status-bar notice, as does a `.bproj` saved under a
- * different dialect (see {@link dialectMismatchNotice}) - a warning only, the
- * document still loads.
+ * Open a file dropped onto the editor. A `.bproj` project bundle is unzipped
+ * and installs its source and memory blocks atomically, like File → Open; a
+ * plain `.txt`/`.bas` file loads as a named document; a file whose extension
+ * matches one of the current dialect's binary import formats (e.g. `.prg`,
+ * `.tap`) is detokenized back into the editor exactly like Import - including
+ * the block-carrying disc/tape containers (`.ssd`, `.d64`, `.TAP`, `.dsk`),
+ * which bring the program back with its memory blocks. All document-replacing
+ * paths are guarded by {@link confirmDiscard}, so the user is warned before
+ * losing unsaved changes (adding a block isn't destructive, so it isn't).
+ * Unsupported types and read/detokenize/parse failures surface a status-bar
+ * notice, as does a `.bproj` saved under a different dialect (see
+ * {@link dialectMismatchNotice}) - a warning only, the document still loads.
  */
 export async function openDroppedFile(file: File): Promise<void> {
   const store = useIdeStore.getState();
@@ -170,7 +150,7 @@ export async function openDroppedFile(file: File): Promise<void> {
   try {
     if (ext === '.bproj') {
       if (!confirmDiscard()) return;
-      const parsed = parseProject(await file.text());
+      const parsed = parseProjectZip(new Uint8Array(await file.arrayBuffer()));
       replaceDocument(parsed.source, file.name, {
         blocks: parsed.blocks,
         listingBlockMeta: parsed.listingBlockMeta,
@@ -181,23 +161,8 @@ export async function openDroppedFile(file: File): Promise<void> {
       const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
       if (mismatch) setStatusNotice(mismatch);
     } else if (ext === '.bas' || ext === '.txt') {
-      const text = await file.text();
-      if (ext === '.txt' && isProjectFile(text)) {
-        if (!confirmDiscard()) return;
-        const parsed = parseProject(text);
-        replaceDocument(parsed.source, file.name, {
-          blocks: parsed.blocks,
-          listingBlockMeta: parsed.listingBlockMeta,
-          autoStart: parsed.autoStart,
-          tapeFiles: parsed.tapeFiles,
-          bootDisc: parsed.bootDisc,
-        });
-        const mismatch = dialectMismatchNotice(parsed.dialect, dialect.id);
-        if (mismatch) setStatusNotice(mismatch);
-      } else {
-        if (!confirmDiscard()) return;
-        replaceDocument(text, file.name);
-      }
+      if (!confirmDiscard()) return;
+      replaceDocument(await file.text(), file.name);
     } else if (binaryFmt) {
       if (!confirmDiscard()) return;
       const bytes = new Uint8Array(await file.arrayBuffer());

@@ -1,13 +1,8 @@
 /**
- * Open/save editor source (.txt, also .bas) and binary files using the File
- * System Access API when available, falling back to <input type=file> /
- * <a download>.
+ * Open/save editor documents - the `.bproj` project bundle (a zip) and plain
+ * `.bas`/`.txt` source - and binary import files, using the File System Access
+ * API when available and falling back to <input type=file> / <a download>.
  */
-
-export interface OpenedFile {
-  name: string;
-  text: string;
-}
 
 interface FilePickerWindow extends Window {
   showOpenFilePicker?(options?: unknown): Promise<FileSystemFileHandle[]>;
@@ -16,35 +11,44 @@ interface FilePickerWindow extends Window {
 
 const w = (typeof window !== 'undefined' ? window : {}) as FilePickerWindow;
 
-export async function openTextFile(
-  accept = '.txt,.bas,.bproj',
-): Promise<OpenedFile | null> {
+/**
+ * Open a document from disk as raw bytes: a `.bproj` project bundle (a binary
+ * zip) or plain `.bas`/`.txt` source. The caller decides how to decode by
+ * extension (see `src/app/fileCommands.ts`) - a `.bproj` is unzipped, source
+ * files are UTF-8 decoded - so this always returns bytes rather than text.
+ */
+export async function openDocumentFile(): Promise<{
+  name: string;
+  bytes: Uint8Array;
+} | null> {
   if (w.showOpenFilePicker) {
     try {
       const [handle] = await w.showOpenFilePicker({
         types: [
           {
+            description: 'Basically project',
+            accept: { 'application/zip': ['.bproj'] },
+          },
+          {
             description: 'BASIC source',
-            accept: {
-              'text/plain': ['.txt', '.bas'],
-              // A .bproj is a project bundle (source + memory blocks); Open
-              // sniffs/parses it separately once read (see fileCommands.ts).
-              'application/json': ['.bproj'],
-            },
+            accept: { 'text/plain': ['.txt', '.bas'] },
           },
         ],
       });
       if (!handle) return null;
       const file = await handle.getFile();
-      return { name: file.name, text: await file.text() };
+      return {
+        name: file.name,
+        bytes: new Uint8Array(await file.arrayBuffer()),
+      };
     } catch (e) {
       if ((e as Error).name === 'AbortError') return null;
       throw e;
     }
   }
-  return openViaInput(accept, async (file) => ({
+  return openViaInput('.bproj,.bas,.txt', async (file) => ({
     name: file.name,
-    text: await file.text(),
+    bytes: new Uint8Array(await file.arrayBuffer()),
   }));
 }
 
@@ -129,66 +133,38 @@ function openViaInput<T>(
   });
 }
 
-export async function saveTextFile(
-  name: string,
-  text: string,
-): Promise<string | null> {
-  if (w.showSaveFilePicker) {
-    try {
-      const handle = await w.showSaveFilePicker({
-        suggestedName: name,
-        // Drop the "All Files" option so the picker commits to the .txt type
-        // rather than offering an unfiltered save.
-        excludeAcceptAllOption: true,
-        types: [
-          { description: 'BASIC source', accept: { 'text/plain': ['.txt'] } },
-        ],
-      });
-      const writable = await handle.createWritable();
-      await writable.write(text);
-      await writable.close();
-      return handle.name;
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') return null;
-      throw e;
-    }
-  }
-  // Download fallback (Firefox/Safari - no save picker): the browser can't
-  // report the chosen filename back, but the app must know it (tape headers,
-  // the export dialog's save gate keys off `untitled.bas`). Mirror the
-  // Chromium picker by asking each save; Enter keeps the suggested name.
-  const chosen =
-    typeof window !== 'undefined' && typeof window.prompt === 'function'
-      ? window.prompt('Save as', name)
-      : name;
-  if (chosen === null) return null; // cancelled
-  const trimmed = chosen.trim();
-  const finalName =
-    trimmed === '' ? name : trimmed.includes('.') ? trimmed : `${trimmed}.txt`;
-  downloadBlob(new Blob([text], { type: 'text/plain' }), finalName);
-  return finalName;
+/**
+ * Swap a filename's extension for `ext` (which includes the leading dot),
+ * e.g. `withExtension('untitled.txt', '.bas')` -> `'untitled.bas'`. Used to
+ * derive a document's project name and its per-tab download names (the BASIC
+ * tab's `.bas`; see `src/components/EditorTabBar.tsx`).
+ */
+export function withExtension(name: string, ext: string): string {
+  const dot = name.lastIndexOf('.');
+  const stem = dot < 0 ? name : name.slice(0, dot);
+  return `${stem}${ext}`;
 }
 
 /**
  * Swap a filename's extension for `.bproj` - the suggested name when Save
- * switches to the project-bundle format because the document now carries
- * memory blocks (see `src/app/fileCommands.ts`'s `saveDocument`).
+ * writes the project bundle (see `src/app/fileCommands.ts`'s `saveDocument`).
  */
 export function toProjectFileName(name: string): string {
-  const dot = name.lastIndexOf('.');
-  const stem = dot < 0 ? name : name.slice(0, dot);
-  return `${stem}.bproj`;
+  return withExtension(name, '.bproj');
 }
 
 /**
- * Save a `.bproj` project bundle (JSON text). Mirrors {@link saveTextFile}'s
- * two paths (native save picker vs. download fallback) but with the project
- * bundle's own type filter and MIME.
+ * Save a `.bproj` project bundle (a binary zip; see
+ * `src/storage/projectFile.ts`). Two paths - the native save picker, or a
+ * download fallback (Firefox/Safari) that asks for the name via `prompt` since
+ * the browser can't report the chosen filename back - both with the bundle's
+ * own `.bproj`/zip type filter.
  */
-export async function saveProjectFile(
+export async function saveProjectZip(
   name: string,
-  json: string,
+  bytes: Uint8Array,
 ): Promise<string | null> {
+  const blob = new Blob([bytes as BlobPart], { type: 'application/zip' });
   if (w.showSaveFilePicker) {
     try {
       const handle = await w.showSaveFilePicker({
@@ -197,12 +173,12 @@ export async function saveProjectFile(
         types: [
           {
             description: 'Basically project',
-            accept: { 'application/json': ['.bproj'] },
+            accept: { 'application/zip': ['.bproj'] },
           },
         ],
       });
       const writable = await handle.createWritable();
-      await writable.write(json);
+      await writable.write(blob);
       await writable.close();
       return handle.name;
     } catch (e) {
@@ -222,7 +198,7 @@ export async function saveProjectFile(
       : trimmed.includes('.')
         ? trimmed
         : `${trimmed}.bproj`;
-  downloadBlob(new Blob([json], { type: 'application/json' }), finalName);
+  downloadBlob(blob, finalName);
   return finalName;
 }
 
