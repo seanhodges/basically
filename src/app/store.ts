@@ -32,6 +32,7 @@ import {
   type ControllerOverrides,
   type GamepadMode,
 } from '../keyboard/controllerConfig';
+import { materializeSampleBlocks } from './sampleBlocks';
 import {
   loadAutosave,
   saveAutosave,
@@ -1010,10 +1011,14 @@ export const useIdeStore = create<IdeState>((set) => ({
       if (id === s.dialect.id) return {};
       const next = getDialect(id);
 
-      // Empty editor: switch and load the new machine's starter.
+      // Empty editor: switch and load the new machine's starter, including any
+      // memory blocks it bundles (applyDialectSwitch clears blocks, so install
+      // the starter's alongside its text - mirrors the Samples-menu load).
       if (s.source.trim() === '') {
+        const starter = next.samples[0];
         return {
-          ...applyDialectSwitch(s, next, next.samples[0]?.text ?? ''),
+          ...applyDialectSwitch(s, next, starter?.text ?? ''),
+          blocks: starter ? materializeSampleBlocks(next, starter) : [],
           fileName: UNTITLED_FILE_NAME,
           dirty: false,
         };
@@ -1028,6 +1033,12 @@ export const useIdeStore = create<IdeState>((set) => ({
           next.samples.find((x) => x.name === sampleName) ?? next.samples[0];
         return {
           ...applyDialectSwitch(s, next, sample?.text ?? ''),
+          // Reinstall the matched sample's bundled blocks (applyDialectSwitch
+          // cleared them). Without this, switching onto a sample that carries a
+          // machine-code block - e.g. Kaleidoscope on a fixed-address dialect -
+          // drops the binary. A no-op for samples without blocks (listing
+          // dialects carry theirs inside the swapped `#BIN` source text).
+          blocks: sample ? materializeSampleBlocks(next, sample) : [],
           fileName: UNTITLED_FILE_NAME,
           dirty: false,
         };

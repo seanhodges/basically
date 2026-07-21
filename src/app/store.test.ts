@@ -24,6 +24,7 @@ const { useIdeStore, persistAutosave, initialDocument, selectBlocks } =
   await import('./store');
 const { getDialect } = await import('../dialects/registry');
 const { asmEngineFor } = await import('../asm/registry');
+const { materializeSampleBlocks } = await import('./sampleBlocks');
 const { getDialectId, setDialectId, loadAutosave, saveAutosave } =
   await import('../storage/settings');
 
@@ -178,6 +179,26 @@ describe('setDialect', () => {
     // A swapped sample is not a saved file - fileName stays untitled.
     expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(false);
+  });
+
+  it("reinstalls the swapped sample's bundled binary blocks", () => {
+    // Kaleidoscope ships a machine-code block on fixed-address dialects; the
+    // switch must materialize the target's block, not drop it to [].
+    useIdeStore.setState({
+      dialect: getDialect('commodore64'),
+      source: sample('commodore64', 'kaleido.bas').text,
+      fileName: 'untitled.txt',
+    });
+    useIdeStore.getState().setDialect('vic20');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('vic20');
+    expect(s.source).toBe(sample('vic20', 'kaleido.bas').text);
+    const expected = materializeSampleBlocks(
+      getDialect('vic20'),
+      sample('vic20', 'kaleido.bas'),
+    );
+    expect(expected.length).toBeGreaterThan(0);
+    expect(s.blocks).toEqual(expected);
   });
 
   it('defers to the dialog when the editor holds user code', () => {
