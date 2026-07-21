@@ -2,12 +2,18 @@
 ; four-way mirrored mosaic. BASIC selects MODE 7, POKEs the three parameters,
 ; then calls the entry with CALL &2E03.
 ;
-; Teletext carries colour with an inline control code, so column 0 of each row
-; holds a "graphics colour" code ($91..$97) and columns 1..39 hold sixel block
-; graphics ($20..$3F) drawn in that colour. Both the row colour and each block
-; are mixed from FOLDED coordinates - fr = min(row,24-row), fc = min(col,40-col)
-; - so the picture is symmetric top/bottom and left/right by construction. Each
-; pass nudges SEED, so PASSES > 1 layers the pattern.
+; Teletext carries colour with an inline control code, so a single code per row
+; would tint the whole row and the picture would be nothing but horizontal
+; colour bands. Instead each row is split into five colour segments: a "graphics
+; colour" code ($91..$97) is written at columns 0, 8, 16, 24 and 32, and the
+; cells between hold sixel block graphics ($20..$3F). BOTH the segment colour and
+; each block are mixed from FOLDED coordinates - fr = min(row,24-row), fc =
+; min(col,40-col) for the block, and fs (the folded segment) for the colour - so
+; the block mosaic is symmetric top/bottom and left/right by construction and the
+; colour now varies across the row as well as down it. The colour codes sit at
+; mirror-image columns (8<->32, 16<->24), so fs = min(seg,5-seg) makes those code
+; cells carry equal colours; teletext's "set-after" rule then tints each segment
+; to the right of its code. Each pass nudges SEED, so PASSES > 1 layers.
         ORG $2E00
 seed:   DB 0            ; ?&2E00 - mix base
 step:   DB 0            ; ?&2E01 - mix twist
@@ -32,9 +38,22 @@ rowloop: LDA #24        ; fr = min(row, 24-row)
         LDA row
 frok:   STA frv
         LDX #0          ; X = column, 0..39
-cell:   CPX #0          ; column 0 carries the row's graphics-colour control code
+cell:   TXA             ; a graphics-colour code every 8 columns (0,8,16,24,32)
+        AND #7
         BNE mosaic
-        LDA frv         ; colour = ((fr + SEED) AND 7), 0 mapped to 7 (white)
+        TXA             ; seg = col / 8  (0..4)
+        LSR A
+        LSR A
+        LSR A
+        STA segv
+        LDA #5          ; fs = min(seg, 5-seg): segs 0..4 fold to 0,1,2,2,1 so
+        SEC             ; the colour-code cells mirror (col 8<->32, 16<->24)
+        SBC segv
+        CMP segv
+        BCC fsok
+        LDA segv
+fsok:   CLC             ; colour = ((fs + fr + SEED) AND 7), 0 mapped to 7 (white)
+        ADC frv
         CLC
         ADC seed
         AND #7
@@ -89,3 +108,4 @@ frv:    DB 0
 fcv:    DB 0
 ctmp:   DB 0
 row:    DB 0
+segv:   DB 0

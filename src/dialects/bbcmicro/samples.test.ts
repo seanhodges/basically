@@ -110,15 +110,16 @@ describe('bbcmicro sample programs', () => {
     );
     expect(painted).toBe(true);
 
-    // Columns 1..39 hold sixel block graphics ($20..$3F); column 0 is the
-    // per-row colour control code.
+    // Most cells hold sixel block graphics ($20..$3F); columns 0, 8, 16, 24 and
+    // 32 carry the segments' graphics-colour control codes ($91..$97).
     const distinct = new Set<number>();
     for (let r = 0; r < 25; r++)
       for (let col = 1; col < 40; col++) distinct.add(cell(col, r));
     expect(distinct.size).toBeGreaterThan(4);
 
-    // The mosaic mirrors left/right (col <-> 40-col) and top/bottom
-    // (r <-> 24-r); the colour column mirrors top/bottom.
+    // The screen mirrors left/right (col <-> 40-col) and top/bottom (r <-> 24-r):
+    // the block mosaic by its folded coords, the colour codes because they sit at
+    // mirror-image columns carrying folded-segment colours.
     for (let r = 0; r < 13; r++) {
       expect(cell(0, 24 - r)).toBe(cell(0, r));
       for (let col = 1; col < 20; col++) {
