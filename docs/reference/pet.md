@@ -25,7 +25,7 @@ may sit from **0x0400 to 0x7FFF** (BASIC text itself starts at $0401); new block
 default to **0x7000**, high in RAM clear of a typical program.
 
 Blocks travel with the document through the
-[project bundle](./file-formats#project-bundle-bproj) and through share links.
+[project bundle](./file-formats#project-bundle-zip) and through share links.
 They can also arrive on **import**, using the same `.prg` rule as the
 [C64 and VIC-20](./commodore64#machine-code-data-blocks): a `.prg` whose load
 address isn't the BASIC start ($0401) comes in as a block at that address, and a

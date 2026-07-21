@@ -85,7 +85,7 @@ the notes below:
   from day one: edits re-assemble on a debounce; clean assembly replaces the
   block's bytes via `upsertBlock`, errors show as inline diagnostics (and an
   error dot on the tab) leaving bytes untouched. `MemoryBlock.asmSource`
-  persists the text through autosave/`.bproj` (the reserved wire field);
+  persists the text through autosave/project-zip (the reserved wire field);
   bytes remain the source of truth.
 
 ## Design decisions (fixed)
@@ -369,7 +369,7 @@ metadata, injection, and import halves land in the load & run plan's rollout.
       derived view via `selectBlocks`/`useBlocks`. A block's address is derived
       from where its REM sits (a line-1 REM = 16514 on the ZX81), so it is
       read-only; code/data kind and name ride in `listingBlockMeta`
-      (`.bproj`/autosave). Disassembler: the Z80 one from Stage 4. Keywords: `USR`.
+      (project-zip/autosave). Disassembler: the Z80 one from Stage 4. Keywords: `USR`.
 - [ ] **Atom** — export one `.atm` per block with real load/exec addresses.
       Keywords: `CALL` / `USR`.
 - [ ] **TRS-80** — export blocks as SYSTEM-format `.cas` (name/address records);
@@ -387,7 +387,7 @@ applicable, one manual export-and-reload recipe each.
 > disassembler (no vendored asm80 - the survey below is superseded). Labels,
 > `+`/`-` expressions, `ORG` (must equal the block address), `DB`/`DW`/`DS`;
 > errors are `TokenizeError`-shaped and render as inline diagnostics.
-> `MemoryBlock.asmSource` persists through `.bproj`/autosave; bytes stay the
+> `MemoryBlock.asmSource` persists through the project zip/autosave; bytes stay the
 > source of truth. Edits auto-assemble on a debounce instead of the explicit
 > "assemble to apply" gesture (so the stale-asm workflow below is moot until
 > hex editing exists). The `assemble(disassemble(bytes))` round-trip is pinned
@@ -413,7 +413,7 @@ inline errors like the BASIC linter.
 - [ ] New `src/asm/<cpu>/assemble.ts` wrappers + `src/asm/z80/language.ts` — a
       small StreamLanguage for highlighting (pattern:
       `src/editor/basicLanguage.ts`, but standalone).
-- [ ] `MemoryBlock.asmSource?: string` — persisted in `.bproj` v1 and autosave
+- [ ] `MemoryBlock.asmSource?: string` — persisted in the project zip and autosave
       (optional field, no version bump — the load & run plan's `projectFile.ts`
       reserves room for it). **Bytes remain the source of truth** for
       run/export; the Asm editor shows "modified — assemble to apply";

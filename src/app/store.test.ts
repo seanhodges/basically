@@ -354,14 +354,14 @@ describe('openProject', () => {
     useIdeStore.getState().openProject({
       dialectId: 'bbcmicro',
       source: '10 PRINT "PROJ"',
-      fileName: 'game.bproj',
+      fileName: 'game.zip',
       blocks: [BLOCK_A],
     });
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('bbcmicro');
     expect(s.source).toBe('10 PRINT "PROJ"');
-    // A `.bproj` is a saved file - it keeps its name and loads clean.
-    expect(s.fileName).toBe('game.bproj');
+    // A project bundle is a saved file - it keeps its name and loads clean.
+    expect(s.fileName).toBe('game.zip');
     expect(s.dirty).toBe(false);
     expect(s.pendingDialectId).toBeNull();
     // Breakpoints belong to the replaced program - cleared on the switch.
@@ -375,7 +375,7 @@ describe('openProject', () => {
     useIdeStore.getState().openProject({
       dialectId: 'bbcmicro',
       source: '10 PRINT "PROJ"',
-      fileName: 'game.bproj',
+      fileName: 'game.zip',
     });
     expect(getDialectId()).toBe('bbcmicro');
   });
@@ -384,7 +384,7 @@ describe('openProject', () => {
     useIdeStore.getState().openProject({
       dialectId: 'bbcmicro',
       source: '10 PRINT "PROJ"',
-      fileName: 'game.bproj',
+      fileName: 'game.zip',
     });
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
@@ -394,13 +394,13 @@ describe('openProject', () => {
     useIdeStore.getState().openProject({
       dialectId: 'zx81',
       source: '10 PRINT "SAME"',
-      fileName: 'same.bproj',
+      fileName: 'same.zip',
       blocks: [BLOCK_A],
     });
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('zx81');
     expect(s.source).toBe('10 PRINT "SAME"');
-    expect(s.fileName).toBe('same.bproj');
+    expect(s.fileName).toBe('same.zip');
     expect(s.dirty).toBe(false);
     expect(s.blocks).toEqual([BLOCK_A]);
   });
@@ -785,10 +785,10 @@ describe('memory blocks reset on document identity changes', () => {
     expect(useIdeStore.getState().blocks).toEqual([]);
   });
 
-  it('opening a .bproj installs opts.blocks atomically via replaceDocument', () => {
+  it('opening a project bundle installs opts.blocks atomically via replaceDocument', () => {
     useIdeStore
       .getState()
-      .replaceDocument('10 REM new', 'project.bproj', { blocks: [BLOCK_B] });
+      .replaceDocument('10 REM new', 'project.zip', { blocks: [BLOCK_B] });
     expect(useIdeStore.getState().blocks).toEqual([BLOCK_B]);
   });
 

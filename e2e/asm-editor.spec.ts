@@ -12,8 +12,8 @@ import { test, expect, type Page } from './fixtures';
  *  3. A syntax error shows an error dot on the tab and leaves bytes alone.
  *  4. A `kind: 'data'` block shows the not-yet-supported placeholder.
  *
- * Specs seed blocks through autosave (the same wire shape `.bproj` uses),
- * which the app restores on boot - faster and more precise than clicking
+ * Specs seed blocks through autosave (the same wire shape the project zip
+ * uses), which the app restores on boot - faster and more precise than clicking
  * through the creation UI.
  */
 
@@ -45,7 +45,7 @@ async function seedProject(page: Page, blocks: string | null = BLOCKS) {
     ({ blocks }) => {
       localStorage.setItem('mbide.dialectId', 'zxspectrum');
       localStorage.setItem('mbide.autosave.doc', '10 PRINT "HI"');
-      localStorage.setItem('mbide.autosave.name', 'blocks.bproj');
+      localStorage.setItem('mbide.autosave.name', 'blocks.zip');
       if (blocks !== null) {
         localStorage.setItem('mbide.autosave.blocks', blocks);
       }

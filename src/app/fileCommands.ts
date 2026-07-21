@@ -13,6 +13,7 @@ import {
   openDocumentFile,
   saveProjectZip,
   toProjectFileName,
+  PROJECT_EXTENSIONS,
 } from '../storage/files';
 import { importProgram, importStatusMessage } from './importProgram';
 import {
@@ -42,10 +43,11 @@ export function newDocument(): void {
 
 /**
  * Open a project or source file from disk into the editor (guarded by
- * {@link confirmDiscard}). A `.bproj` is unzipped and parsed as a project
- * bundle, installing its source and memory blocks atomically and switching to
- * the dialect it was saved under (see {@link installParsedProject}); a plain
- * `.bas`/`.txt` (or any other extension) loads as plain source with no blocks.
+ * {@link confirmDiscard}). A project bundle (a `.zip`, or a legacy `.bproj`) is
+ * unzipped and parsed, installing its source and memory blocks atomically and
+ * switching to the dialect it was saved under (see {@link installParsedProject});
+ * a plain `.bas`/`.txt` (or any other extension) loads as plain source with no
+ * blocks.
  */
 export async function openDocument(): Promise<void> {
   if (!confirmDiscard()) return;
@@ -53,7 +55,7 @@ export async function openDocument(): Promise<void> {
   if (!opened) return;
   const { replaceDocument, setStatusNotice } = useIdeStore.getState();
   const ext = fileExtension(opened.name);
-  if (ext === '.bproj') {
+  if (isProjectExtension(ext)) {
     try {
       installParsedProject(parseProjectZip(opened.bytes), opened.name);
     } catch (e) {
@@ -67,8 +69,8 @@ export async function openDocument(): Promise<void> {
 }
 
 /**
- * Install a parsed `.bproj` into the store, switching to the dialect it was
- * saved under so the document loads on the machine it was authored for (its
+ * Install a parsed project bundle into the store, switching to the dialect it
+ * was saved under so the document loads on the machine it was authored for (its
  * memory blocks are addressed for that machine). When the saved dialect is one
  * this build doesn't ship, the document still loads - under the currently-active
  * dialect - but a status notice warns its blocks may not work. Shared by
@@ -107,7 +109,7 @@ function installParsedProject(parsed: ParsedProject, fileName: string): void {
 }
 
 /**
- * Save the current document to disk as a `.bproj` project bundle (a zip of the
+ * Save the current document to disk as a `.zip` project bundle (a zip of the
  * BASIC source plus any memory blocks and metadata; see
  * `src/storage/projectFile.ts`) and mark it saved. Every document saves as this
  * bundle now - a single-file `.bas` is a per-tab download instead (see
@@ -144,8 +146,13 @@ function fileExtension(name: string): string {
   return dot < 0 ? '' : name.slice(dot).toLowerCase();
 }
 
+/** Whether `ext` (a lower-cased '.foo') names a Basically project bundle. */
+function isProjectExtension(ext: string): boolean {
+  return (PROJECT_EXTENSIONS as readonly string[]).includes(ext);
+}
+
 /**
- * Status notice for a `.bproj` saved under a dialect this build doesn't ship:
+ * Status notice for a project saved under a dialect this build doesn't ship:
  * the document loads under `activeDialectId` instead, and its memory blocks
  * (addressed for the missing machine) may not work. A warning only - the source
  * still loads.
@@ -158,18 +165,18 @@ function unknownDialectNotice(
 }
 
 /**
- * Open a file dropped onto the editor. A `.bproj` project bundle is unzipped
- * and installs its source and memory blocks atomically, like File → Open; a
- * plain `.txt`/`.bas` file loads as a named document; a file whose extension
- * matches one of the current dialect's binary import formats (e.g. `.prg`,
- * `.tap`) is detokenized back into the editor exactly like Import - including
- * the block-carrying disc/tape containers (`.ssd`, `.d64`, `.TAP`, `.dsk`),
- * which bring the program back with its memory blocks. All document-replacing
- * paths are guarded by {@link confirmDiscard}, so the user is warned before
- * losing unsaved changes (adding a block isn't destructive, so it isn't).
- * Unsupported types and read/detokenize/parse failures surface a status-bar
- * notice. A `.bproj` switches to the dialect it was saved under (see
- * {@link installParsedProject}).
+ * Open a file dropped onto the editor. A project bundle (a `.zip`, or a legacy
+ * `.bproj`) is unzipped and installs its source and memory blocks atomically,
+ * like File → Open; a plain `.txt`/`.bas` file loads as a named document; a file
+ * whose extension matches one of the current dialect's binary import formats
+ * (e.g. `.prg`, `.tap`) is detokenized back into the editor exactly like Import
+ * - including the block-carrying disc/tape containers (`.ssd`, `.d64`, `.TAP`,
+ * `.dsk`), which bring the program back with its memory blocks. All
+ * document-replacing paths are guarded by {@link confirmDiscard}, so the user is
+ * warned before losing unsaved changes (adding a block isn't destructive, so it
+ * isn't). Unsupported types and read/detokenize/parse failures surface a
+ * status-bar notice. A project bundle switches to the dialect it was saved under
+ * (see {@link installParsedProject}).
  */
 export async function openDroppedFile(file: File): Promise<void> {
   const store = useIdeStore.getState();
@@ -180,7 +187,7 @@ export async function openDroppedFile(file: File): Promise<void> {
     (f) => f.extension.toLowerCase() === ext,
   );
   try {
-    if (ext === '.bproj') {
+    if (isProjectExtension(ext)) {
       if (!confirmDiscard()) return;
       const parsed = parseProjectZip(new Uint8Array(await file.arrayBuffer()));
       installParsedProject(parsed, file.name);

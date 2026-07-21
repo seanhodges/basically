@@ -118,7 +118,7 @@ interface IdeState {
    * Memory blocks attached to the current document (raw bytes at a fixed
    * address, alongside the BASIC source). Invisible in the UI for now - this
    * is pure document-model state that survives autosave and Save/Open
-   * (as a `.bproj` bundle) like `source` does. Reset whenever a different
+   * (as a `.zip` bundle) like `source` does. Reset whenever a different
    * program becomes active (New/Open/Sample/Import/dialect switch/player
    * boot), same as breakpoints.
    */
@@ -164,7 +164,7 @@ interface IdeState {
    * beyond the one program in `source` and the CODE blocks in `blocks`. The run
    * path (`EmulatorPane`) mounts them on the emulator's virtual tape so the
    * program's own `LOAD ""` / `LOAD "name"` requests resolve. Document-model
-   * state like `blocks`: it survives autosave and Save/Open (as a `.bproj`
+   * state like `blocks`: it survives autosave and Save/Open (as a `.zip`
    * bundle), and is reset whenever a different program becomes active.
    */
   tapeFiles: readonly TapeFile[];
@@ -184,7 +184,7 @@ interface IdeState {
    * the run path (`EmulatorPane`) mounts-and-boots it and ignores `blocks`;
    * `source` still holds the recovered loader listing, shown for context.
    * Document-model state like `blocks`: it survives autosave and Save/Open (as a
-   * `.bproj` bundle), is reset whenever a different program becomes active, and
+   * `.zip` bundle), is reset whenever a different program becomes active, and
    * is cleared the moment the user edits `source` (their edits then drive the
    * normal tokenize-and-run path). `null` for the common decompose-cleanly case
    * and every non-disc document.
@@ -403,7 +403,7 @@ interface IdeState {
     blocks?: readonly MemoryBlock[];
   }): void;
   /**
-   * Open a saved `.bproj` project bundle. Unlike {@link replaceDocument} (which
+   * Open a saved `.zip` project bundle. Unlike {@link replaceDocument} (which
    * never touches the dialect), this switches the active machine to the
    * project's own `dialectId` so the document loads under the target it was
    * saved for, then installs its source and memory blocks atomically. A real
@@ -413,7 +413,7 @@ interface IdeState {
    *
    * `dialectId` MUST be a registered dialect (callers resolve it via
    * {@link findDialect} and handle an unknown id themselves). `blocks` MUST
-   * already be valid and unique - the `.bproj` parser guarantees this.
+   * already be valid and unique - the `.zip` parser guarantees this.
    */
   openProject(args: {
     dialectId: string;
@@ -432,13 +432,13 @@ interface IdeState {
   setSource(text: string): void;
   /**
    * `opts.blocks`, when given, replaces `blocks` atomically with the new
-   * source (Open of a `.bproj`); otherwise `blocks` resets to `[]` when this
+   * source (Open of a `.zip`); otherwise `blocks` resets to `[]` when this
    * is a named load (a genuinely different program) and is left untouched for
    * an in-place apply (AI Replace/Merge, `fileName` omitted).
    *
    * `opts.blocks` MUST already be valid and unique (see `assertValidBlocks`) -
    * unlike `setBlocks`/`upsertBlock`, this action installs them as-is without
-   * re-validating. Sound today because every caller pre-validates (`.bproj`
+   * re-validating. Sound today because every caller pre-validates (`.zip`
    * Open goes through `parseProject`/`parseBlocks`, which throws on invalid or
    * duplicate names); any future load path must do the same.
    */
@@ -459,7 +459,7 @@ interface IdeState {
    * (only Open/Save name a document) and empties autosave when the content is
    * pristine, so an unmodified sample isn't restored on reload. `opts.dirty`
    * flags genuinely-unsaved content (Import) so the discard guard fires.
-   * `opts.blocks` installs memory blocks atomically with `text` (a `.bproj`
+   * `opts.blocks` installs memory blocks atomically with `text` (a `.zip`
    * import); always resets to `[]` when omitted, since this is always a
    * different program.
    *
@@ -1158,7 +1158,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // own machine - even when the id matches the active dialect, it's a
       // clean-slate load of a different program.
       ...applyDialectSwitch(s, getDialect(dialectId), source),
-      // A `.bproj` is a saved file (Open), so it keeps its name and loads clean.
+      // A `.zip` is a saved file (Open), so it keeps its name and loads clean.
       fileName,
       dirty: false,
       // Install the project's own pieces (applyDialectSwitch cleared them):
@@ -1216,7 +1216,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       ...(fileName !== undefined ? { fileName } : {}),
       // A named load (Open) is a different program - clear the AI thread and any
       // breakpoints (their line numbers belong to the old program), and either
-      // install the incoming blocks (a .bproj) or clear them. An in-place apply
+      // install the incoming blocks (a project bundle) or clear them. An in-place apply
       // (AI Replace/Merge) passes no name and keeps all three untouched.
       ...(fileName !== undefined
         ? {
@@ -1253,7 +1253,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       breakpoints: new Set<number>(),
       dirty: opts?.dirty ?? false,
       // Always a different program, so blocks reset unless the caller installs
-      // its own (a .bproj-shaped import).
+      // its own (a project-bundle-shaped import).
       blocks: opts?.blocks ?? [],
       listingBlockMeta: opts?.listingBlockMeta ?? {},
       activeBlockId: null,

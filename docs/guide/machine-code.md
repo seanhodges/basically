@@ -86,7 +86,7 @@ Transfer dialog says so and asks before exporting the BASIC program on its own.
 For exactly what each machine's tape, disc and file formats carry, see the
 [File formats reference](../reference/file-formats#machine-code-data-blocks).
 
-**Save project** writes your document as a **project bundle** (`.bproj`) — a zip
+**Save project** writes your document as a **project bundle** (`.zip`) — a zip
 holding your BASIC source, each block's bytes and assembly, and a small metadata
 file together — so **Open project** and reload keep the whole thing intact. To
 download just the BASIC listing as a `.bas`, right-click the **BASIC** editor tab

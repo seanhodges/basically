@@ -49,19 +49,19 @@ describe('programNameFromFileName', () => {
 });
 
 describe('toProjectFileName', () => {
-  it('swaps a .txt extension for .bproj', () => {
-    expect(toProjectFileName('untitled.txt')).toBe('untitled.bproj');
+  it('swaps a .txt extension for .zip', () => {
+    expect(toProjectFileName('untitled.txt')).toBe('untitled.zip');
   });
 
-  it('swaps a .bas extension for .bproj', () => {
-    expect(toProjectFileName('game.bas')).toBe('game.bproj');
+  it('swaps a .bas extension for .zip', () => {
+    expect(toProjectFileName('game.bas')).toBe('game.zip');
   });
 
-  it('appends .bproj when there is no extension', () => {
-    expect(toProjectFileName('game')).toBe('game.bproj');
+  it('appends .zip when there is no extension', () => {
+    expect(toProjectFileName('game')).toBe('game.zip');
   });
 
-  it('is a no-op when already a .bproj', () => {
-    expect(toProjectFileName('game.bproj')).toBe('game.bproj');
+  it('is a no-op when already a .zip', () => {
+    expect(toProjectFileName('game.zip')).toBe('game.zip');
   });
 });

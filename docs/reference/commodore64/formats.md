@@ -13,7 +13,7 @@ three machines also export and import a cassette **`.wav`** (see [Cassette
 audio](#cassette-audio) below). Only the load address in the first two bytes
 differs between them: `$0801` C64, `$1001` unexpanded VIC-20, `$0401` PET.
 
-For the shared editor `.txt`, `.bproj` project bundle, escape notation and the
+For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
 overview](../file-formats). See also the [Commodore 64 & VIC-20 BASIC
 reference](../commodore64), the [Commodore PET BASIC 4.0 reference](../pet), and

@@ -1,5 +1,5 @@
 /**
- * Open/save editor documents - the `.bproj` project bundle (a zip) and plain
+ * Open/save editor documents - the project bundle (a `.zip`) and plain
  * `.bas`/`.txt` source - and binary import files, using the File System Access
  * API when available and falling back to <input type=file> / <a download>.
  */
@@ -12,10 +12,17 @@ interface FilePickerWindow extends Window {
 const w = (typeof window !== 'undefined' ? window : {}) as FilePickerWindow;
 
 /**
- * Open a document from disk as raw bytes: a `.bproj` project bundle (a binary
- * zip) or plain `.bas`/`.txt` source. The caller decides how to decode by
- * extension (see `src/app/fileCommands.ts`) - a `.bproj` is unzipped, source
- * files are UTF-8 decoded - so this always returns bytes rather than text.
+ * File extensions recognised as a Basically project bundle on open. `.zip` is
+ * the current save extension; `.bproj` is still accepted so bundles saved
+ * before the rename keep opening.
+ */
+export const PROJECT_EXTENSIONS = ['.zip', '.bproj'] as const;
+
+/**
+ * Open a document from disk as raw bytes: a project bundle (a binary `.zip`) or
+ * plain `.bas`/`.txt` source. The caller decides how to decode by extension
+ * (see `src/app/fileCommands.ts`) - a project zip is unzipped, source files are
+ * UTF-8 decoded - so this always returns bytes rather than text.
  */
 export async function openDocumentFile(): Promise<{
   name: string;
@@ -27,7 +34,7 @@ export async function openDocumentFile(): Promise<{
         types: [
           {
             description: 'Basically project',
-            accept: { 'application/zip': ['.bproj'] },
+            accept: { 'application/zip': [...PROJECT_EXTENSIONS] },
           },
           {
             description: 'BASIC source',
@@ -46,10 +53,13 @@ export async function openDocumentFile(): Promise<{
       throw e;
     }
   }
-  return openViaInput('.bproj,.bas,.txt', async (file) => ({
-    name: file.name,
-    bytes: new Uint8Array(await file.arrayBuffer()),
-  }));
+  return openViaInput(
+    `${PROJECT_EXTENSIONS.join(',')},.bas,.txt`,
+    async (file) => ({
+      name: file.name,
+      bytes: new Uint8Array(await file.arrayBuffer()),
+    }),
+  );
 }
 
 /**
@@ -146,19 +156,19 @@ export function withExtension(name: string, ext: string): string {
 }
 
 /**
- * Swap a filename's extension for `.bproj` - the suggested name when Save
- * writes the project bundle (see `src/app/fileCommands.ts`'s `saveDocument`).
+ * Swap a filename's extension for `.zip` - the suggested name when Save writes
+ * the project bundle (see `src/app/fileCommands.ts`'s `saveDocument`).
  */
 export function toProjectFileName(name: string): string {
-  return withExtension(name, '.bproj');
+  return withExtension(name, '.zip');
 }
 
 /**
- * Save a `.bproj` project bundle (a binary zip; see
+ * Save a project bundle as a `.zip` (a binary zip; see
  * `src/storage/projectFile.ts`). Two paths - the native save picker, or a
  * download fallback (Firefox/Safari) that asks for the name via `prompt` since
  * the browser can't report the chosen filename back - both with the bundle's
- * own `.bproj`/zip type filter.
+ * own `.zip` type filter.
  */
 export async function saveProjectZip(
   name: string,
@@ -173,7 +183,7 @@ export async function saveProjectZip(
         types: [
           {
             description: 'Basically project',
-            accept: { 'application/zip': ['.bproj'] },
+            accept: { 'application/zip': ['.zip'] },
           },
         ],
       });
@@ -193,11 +203,7 @@ export async function saveProjectZip(
   if (chosen === null) return null; // cancelled
   const trimmed = chosen.trim();
   const finalName =
-    trimmed === ''
-      ? name
-      : trimmed.includes('.')
-        ? trimmed
-        : `${trimmed}.bproj`;
+    trimmed === '' ? name : trimmed.includes('.') ? trimmed : `${trimmed}.zip`;
   downloadBlob(blob, finalName);
   return finalName;
 }

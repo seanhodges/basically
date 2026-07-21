@@ -34,7 +34,7 @@ user RAM below the screen, from **0x2900 to 0x7FFF** (the MC6847 display sits
 above it at #8000); new blocks default to **0x5000**, above a typical program.
 
 Blocks travel with the document through the
-[project bundle](./file-formats#project-bundle-bproj) and through share links,
+[project bundle](./file-formats#project-bundle-zip) and through share links,
 and can arrive on **import**: an `.atm` that loads somewhere other than `#2900`
 (where BASIC text lives) is treated as a machine-code or data file, so its
 payload comes in as a block at its load address.

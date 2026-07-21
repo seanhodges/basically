@@ -35,7 +35,7 @@ export interface CreateShareRequest {
   source: string;
   /**
    * Serialized memory blocks to attach (contract v2) - the same wire codec the
-   * `.bproj` bundle uses ({@link serializeBlocks}). Omit for a pure-BASIC
+   * `.zip` bundle uses ({@link serializeBlocks}). Omit for a pure-BASIC
    * share; a v1-only server simply ignores the extra field.
    */
   blocks?: SerializedBlock[];
