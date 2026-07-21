@@ -70,7 +70,7 @@ export function BlockSettingsDialog() {
     if (Object.keys(found).length > 0) return;
     if (inListing && ordinal !== null) {
       // Only store what differs from the derived defaults, keeping the metadata
-      // map minimal (and avoiding a needless .bproj on a no-op edit).
+      // map minimal (and avoiding a needless project save on a no-op edit).
       const name = draft.name.trim();
       const comment = draft.comment.trim();
       setListingBlockMeta(ordinal, {

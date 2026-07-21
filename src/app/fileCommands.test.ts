@@ -156,19 +156,29 @@ describe('openDroppedFile', () => {
   // the input BLOCK's - see `parseProjectZip`.
   const OPENED_BLOCK = { ...BLOCK, id: 'block-SPRITES' };
 
-  // A `.bproj` is now a binary zip; build a real one and drop its bytes.
+  // A project bundle is a binary zip; build a real one and drop its bytes.
   const projectZip = (dialectId: string, source: string) =>
     // A fresh view guarantees an ArrayBuffer (not SharedArrayBuffer) backing,
     // which the File/Blob constructor's BlobPart type requires.
     new Uint8Array(serializeProjectZip(dialectId, source, [BLOCK]));
 
-  it('opens a .bproj as a named document and installs its blocks atomically', async () => {
+  it('opens a .zip project as a named document and installs its blocks atomically', async () => {
+    await dropFile('game.zip', projectZip('zx81', '10 PRINT "PROJ"'));
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 PRINT "PROJ"');
+    expect(s.fileName).toBe('game.zip');
+    expect(s.blocks).toEqual([OPENED_BLOCK]);
+    expect(s.dirty).toBe(false); // a named Open is clean
+  });
+
+  it('still opens a legacy .bproj project bundle', async () => {
+    // Bundles saved before the rename to `.zip` keep opening unzipped, not
+    // decoded as text (which would show the raw "PK…" zip header).
     await dropFile('game.bproj', projectZip('zx81', '10 PRINT "PROJ"'));
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 PRINT "PROJ"');
     expect(s.fileName).toBe('game.bproj');
     expect(s.blocks).toEqual([OPENED_BLOCK]);
-    expect(s.dirty).toBe(false); // a named Open is clean
   });
 
   it('loads a .txt as plain source (project sniffing is gone)', async () => {
@@ -180,38 +190,51 @@ describe('openDroppedFile', () => {
     expect(s.blocks).toEqual([]);
   });
 
-  it('surfaces a status notice for a malformed .bproj without touching the document', async () => {
-    await dropFile('broken.bproj', 'not a zip at all');
+  it('surfaces a status notice for a malformed .zip without touching the document', async () => {
+    await dropFile('broken.zip', 'not a zip at all');
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 REM OLD');
     expect(s.statusNotice).toMatch(/could not read the archive/i);
   });
 
-  it('warns before discarding unsaved changes for a .bproj drop', async () => {
+  it('warns before discarding unsaved changes for a .zip project drop', async () => {
     useIdeStore.setState({ dirty: true });
     stubWindow(() => false);
-    await dropFile('game.bproj', projectZip('zx81', '10 PRINT "PROJ"'));
+    await dropFile('game.zip', projectZip('zx81', '10 PRINT "PROJ"'));
     expect(useIdeStore.getState().source).toBe('10 REM OLD'); // unchanged
   });
 
-  it('warns when a .bproj was saved for a different dialect than the active one', async () => {
+  it('switches to the project’s saved dialect when it differs from the active one', async () => {
     // The active dialect (set in beforeEach) is zx81; this project was saved
-    // under commodore64.
-    await dropFile('game.bproj', projectZip('commodore64', '10 PRINT "PROJ"'));
+    // under commodore64, so opening it should switch the active machine.
+    await dropFile('game.zip', projectZip('commodore64', '10 PRINT "PROJ"'));
     const s = useIdeStore.getState();
-    expect(s.source).toBe('10 PRINT "PROJ"'); // still loads - a warning only
+    expect(s.dialect.id).toBe('commodore64'); // switched to the saved machine
+    expect(s.source).toBe('10 PRINT "PROJ"');
     expect(s.blocks).toEqual([OPENED_BLOCK]);
-    expect(s.statusNotice).toBe(
-      'This project was saved for "commodore64" but the active dialect is ' +
-        '"zx81"; its memory blocks may not work here.',
-    );
+    expect(s.statusNotice).toBe('Switched to C64 to match this project.');
   });
 
-  it('does not warn when a .bproj matches the active dialect', async () => {
-    await dropFile('game.bproj', projectZip('zx81', '10 PRINT "PROJ"'));
+  it('does not switch or notify when a project matches the active dialect', async () => {
+    await dropFile('game.zip', projectZip('zx81', '10 PRINT "PROJ"'));
     const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81');
     expect(s.source).toBe('10 PRINT "PROJ"');
     expect(s.statusNotice).toBeNull();
+  });
+
+  it('warns and loads under the active dialect when a project names an unknown dialect', async () => {
+    // A project saved under a dialect this build doesn't ship: the source still
+    // loads (under the active zx81), but a notice warns its blocks may not work.
+    await dropFile('game.zip', projectZip('atari-xl', '10 PRINT "PROJ"'));
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx81'); // no switch - the machine isn't available
+    expect(s.source).toBe('10 PRINT "PROJ"');
+    expect(s.blocks).toEqual([OPENED_BLOCK]);
+    expect(s.statusNotice).toBe(
+      'This project was saved for "atari-xl", which isn\'t available; ' +
+        'loaded under "zx81" instead - its memory blocks may not work here.',
+    );
   });
 
   it('reports an unsupported type for a dropped .bin (sidecar removed)', async () => {

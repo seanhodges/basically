@@ -11,7 +11,7 @@ export files and import formats that round-trip back to editable source, and the
 **both directions**. The machine also exports and imports a cassette **`.wav`**
 (see [Cassette audio](#cassette-audio) below).
 
-For the shared editor `.txt`, `.bproj` project bundle, escape notation and the
+For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
 overview](../file-formats). See also the [BBC BASIC reference](../bbc) and its
 [escape codes](./escapes).

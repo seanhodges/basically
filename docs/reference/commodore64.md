@@ -37,7 +37,7 @@ block may live depends on the machine:
   is the bare 5K machine's.
 
 Blocks travel with the document through the
-[project bundle](./file-formats#project-bundle-bproj) and through share links,
+[project bundle](./file-formats#project-bundle-zip) and through share links,
 and can arrive on **import**: a `.prg` whose load address isn't the BASIC start
 comes in as a single block at that address, and a normal `.prg` with extra bytes
 past the end of the tokenized program brings those trailing bytes in as a block.

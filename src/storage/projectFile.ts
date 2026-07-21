@@ -1,5 +1,5 @@
 /**
- * The on-disk project bundle format (`.bproj`): a **zip** archive that holds a
+ * The on-disk project bundle format (a `.zip`): a **zip** archive that holds a
  * document's pieces as first-class files -
  *
  * ```
@@ -79,14 +79,14 @@ export interface SerializedBlock {
   /**
    * Execution entry address recovered with an imported code payload (see
    * {@link MemoryBlock.entry}). Optional and additive like `comment` - older
-   * `.bproj` files without it load with no entry - so no version bump.
+   * project files without it load with no entry - so no version bump.
    */
   entry?: number;
   /**
    * The assembly source last edited for this code block (see
    * {@link MemoryBlock.asmSource} - `bytes` remain the source of truth).
    * Optional and additive like `entry`, so no version bump: the field was
-   * reserved here before the assembler existed, and older `.bproj` files
+   * reserved here before the assembler existed, and older project files
    * without it simply load with a fresh disassembly.
    */
   asmSource?: string;
@@ -122,7 +122,7 @@ export interface SerializedBlockMeta {
 }
 
 /**
- * The `project.json` metadata shape, version 2 - the manifest for the `.bproj`
+ * The `project.json` metadata shape, version 2 - the manifest for the project
  * zip. Names the source and per-block entries and carries the fields with no
  * natural standalone file. Bumped from the version-1 monolithic-JSON format,
  * which is no longer read.
@@ -182,7 +182,7 @@ function serializeBlock(block: MemoryBlock): SerializedBlock {
 
 /**
  * {@link MemoryBlock}s in their wire shape (bytes as base64). Shared by
- * autosave's block persistence (the `.bproj` bundle stores block bytes as
+ * autosave's block persistence (the project zip bundle stores block bytes as
  * their own zip entries instead - see {@link serializeProjectZip}).
  */
 export function serializeBlocks(
@@ -276,7 +276,7 @@ export type SerializedListingBlockMeta = Record<
 >;
 
 /**
- * Validate an untrusted listing-block-metadata map (from a `.bproj` or
+ * Validate an untrusted listing-block-metadata map (from a project zip or
  * autosave) into a clean ordinal-keyed record. Defensive like
  * {@link parseBlocks}'s callers expect: unknown/invalid entries are dropped
  * rather than throwing, since the blocks themselves always re-derive from
@@ -376,7 +376,7 @@ export function parseTapeFiles(raw: unknown[]): TapeFile[] {
 }
 
 /**
- * Build the `.bproj` zip bundle for a document (see this module's header for
+ * Build the project zip bundle for a document (see this module's header for
  * the layout). The BASIC source and each block's bytes/asm become their own
  * entries; everything else rides in the `project.json` metadata.
  */
@@ -533,7 +533,7 @@ export interface ParsedProject {
 }
 
 /**
- * Parse a `.bproj` zip bundle (see {@link serializeProjectZip}). Throws `Error`
+ * Parse a project zip bundle (see {@link serializeProjectZip}). Throws `Error`
  * with a human-readable message on an unreadable archive, a missing/malformed
  * `project.json`, a wrong `format`, an unsupported `version`, a missing
  * referenced entry, or any structurally invalid field - matching this

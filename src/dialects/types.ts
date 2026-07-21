@@ -105,7 +105,7 @@ export interface TapeFile {
    * A ready-to-serve payload in the originating dialect's native tape format
    * (for the Spectrums, a two-block `.TAP`: original header + data; for the
    * TRS-80, a verbatim `.cas` file slice). The field name stays `tap` for
-   * wire compatibility with existing `.bproj` files and autosaves.
+   * wire compatibility with existing `.zip` files and autosaves.
    */
   tap: Uint8Array;
 }
@@ -518,7 +518,7 @@ export interface MemoryBlock {
    * The assembly source last edited for this code block in the block editor.
    * `bytes` remain the source of truth for run and export; this preserves
    * the user's text - comments, labels, even edits that don't currently
-   * assemble - across tab switches, autosave and `.bproj` round-trips.
+   * assemble - across tab switches, autosave and `.zip` round-trips.
    */
   asmSource?: string;
 }

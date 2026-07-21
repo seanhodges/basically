@@ -31,7 +31,7 @@ up over your code — poke a routine at 32768 and the IDE issues `CLEAR 32767`
 first.
 
 Blocks travel with the document through the
-[project bundle](./file-formats#project-bundle-bproj) and through share links.
+[project bundle](./file-formats#project-bundle-zip) and through share links.
 They can also arrive on **import**: a `.TAP` containing CODE files brings each
 CODE file in as a block. A tape that uses a tiny loader to chain into a larger
 program is recognised — the loader is skipped (with a note) and the real program

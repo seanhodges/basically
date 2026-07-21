@@ -20,7 +20,7 @@ TRS-80 a block may sit from **0x4000 to 0x7FFF**; new blocks default to
 **0x7000**, high in RAM clear of a typical program.
 
 Blocks travel with the document through the
-[project bundle](./file-formats#project-bundle-bproj) and through share links,
+[project bundle](./file-formats#project-bundle-zip) and through share links,
 and can arrive on **import**: a machine-language SYSTEM-format `.cas` brings each
 of its address records in as a block. An ordinary BASIC `.cas` is unaffected.
 

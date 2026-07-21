@@ -31,9 +31,9 @@ data block tab offers the same for its own `.asm` (assembly source) and `.bin`
 editor as source, so listings — including those saved by earlier versions —
 still open unchanged.
 
-## Project bundle (.bproj)
+## Project bundle (.zip)
 
-**Save project** writes the whole document as a `.bproj` bundle — a zip archive
+**Save project** writes the whole document as a `.zip` bundle — a zip archive
 that holds each part as its own file:
 
 - `program.bas` — the BASIC source
@@ -44,13 +44,17 @@ that holds each part as its own file:
   (code or data), any auto-start line, and any tape files preserved off a
   multi-part import
 
+Because it's an ordinary zip, you can rename it, inspect it, or unzip it with
+any archive tool to get at the parts directly.
+
 Saving as a project means **memory blocks** — fixed-address machine code or data
 that loads alongside the program (see
 [Machine code & data blocks](#machine-code-data-blocks)) — and those preserved
 tape files always travel with your program. **Open project** loads everything
-back together, warning if the active machine differs, and also accepts a plain
-`.bas`/`.txt` as source. To get just the BASIC listing on its own, use the
-editor tab's download action described above.
+back together, switching the active machine to the one the project was saved
+for, and also accepts a plain `.bas`/`.txt` as source. Project bundles saved by
+earlier versions with the `.bproj` extension still open. To get just the BASIC
+listing on its own, use the editor tab's download action described above.
 
 ## Escape notation
 
@@ -108,7 +112,7 @@ full on its own page:
 Some programs load machine code or data at a fixed address alongside the BASIC
 program. The IDE keeps these as named **memory blocks**; on Run they are written
 straight into RAM before the program starts, and they travel with the document
-through the [project bundle](#project-bundle-bproj) and through
+through the [project bundle](#project-bundle-zip) and through
 [share links](../guide/publishing). The ZX Spectrum `.TAP`, the Commodore `.d64`,
 the BBC `.ssd`, and the Atom and TRS-80 `.dsk` disc images carry blocks in
 **both directions** (see each machine's page —

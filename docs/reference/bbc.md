@@ -35,7 +35,7 @@ The `.bbc` file holds only the BASIC program, so blocks travel inside the
 [`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc image instead: export a
 `.ssd` to carry the program together with each block (at its own load/exec
 address), and importing one brings them all back. Blocks also travel with a BBC
-document through the [project bundle](./file-formats#project-bundle-bproj) or a
+document through the [project bundle](./file-formats#project-bundle-zip) or a
 share link. On Run the IDE refuses to start if a block would overlap the BASIC
 program, and warns (but allows) a block over the screen.
 

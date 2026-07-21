@@ -144,7 +144,7 @@ export function canvasPainted(page: Page): Promise<boolean> {
 /**
  * Save the current document via File ▸ Save project using the fallback download
  * path (call {@link forceFallbackFilePickers} first). Every document now saves
- * as a `.bproj` project bundle. Answers the "Save as" filename prompt with
+ * as a `.zip` project bundle. Answers the "Save as" filename prompt with
  * `name` and waits for the download + saved status. Returns the download's
  * suggested filename.
  */
@@ -159,7 +159,7 @@ export async function saveAsProject(
   await page.getByRole('button', { name: /^Save project\b/ }).click();
   const download = await downloadPromise;
   dialogs.promptText = undefined;
-  const full = name.includes('.') ? name : `${name}.bproj`;
+  const full = name.includes('.') ? name : `${name}.zip`;
   await expect(page.getByText(full)).toBeVisible();
   return download.suggestedFilename();
 }

@@ -20,7 +20,7 @@ import {
  * cancel behaviour, 5.3) stays a manual check.
  */
 
-test('5.1 Save project downloads a .bproj with the chosen name and clears the dirty marker', async ({
+test('5.1 Save project downloads a .zip with the chosen name and clears the dirty marker', async ({
   page,
 }) => {
   await forceFallbackFilePickers(page);
@@ -28,10 +28,10 @@ test('5.1 Save project downloads a .bproj with the chosen name and clears the di
   await setEditorSource(page, '10 PRINT "SAVE ME"');
   await expect(page.getByText(/untitled\.txt\s*•/)).toBeVisible(); // dirty
   const suggested = await saveAsProject(page, dialogs, 'myprog');
-  expect(suggested).toBe('myprog.bproj');
+  expect(suggested).toBe('myprog.zip');
   // Saved: the new name shows and the dirty dot is gone.
-  await expect(page.getByText('myprog.bproj')).toBeVisible();
-  await expect(page.getByText(/myprog\.bproj\s*•/)).toBeHidden();
+  await expect(page.getByText('myprog.zip')).toBeVisible();
+  await expect(page.getByText(/myprog\.zip\s*•/)).toBeHidden();
 });
 
 test('5.1b File menu opens, stays open, and dismisses on outside click / Escape', async ({
