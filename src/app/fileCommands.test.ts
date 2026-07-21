@@ -30,7 +30,7 @@ beforeAll(() => {
 const { useIdeStore } = await import('./store');
 const { openDroppedFile } = await import('./fileCommands');
 const { getDialect } = await import('../dialects/registry');
-const { serializeProject } = await import('../storage/projectFile');
+const { serializeProjectZip } = await import('../storage/projectFile');
 
 const zx81 = getDialect('zx81');
 const commodore64 = getDialect('commodore64');
@@ -152,57 +152,55 @@ describe('openDroppedFile', () => {
     bytes: Uint8Array.from([1, 2, 3]),
     kind: 'data' as const,
   };
+  // Open synthesises a block id from the (unique) name, so the id differs from
+  // the input BLOCK's - see `parseProjectZip`.
+  const OPENED_BLOCK = { ...BLOCK, id: 'block-SPRITES' };
+
+  // A `.bproj` is now a binary zip; build a real one and drop its bytes.
+  const projectZip = (dialectId: string, source: string) =>
+    // A fresh view guarantees an ArrayBuffer (not SharedArrayBuffer) backing,
+    // which the File/Blob constructor's BlobPart type requires.
+    new Uint8Array(serializeProjectZip(dialectId, source, [BLOCK]));
 
   it('opens a .bproj as a named document and installs its blocks atomically', async () => {
-    const json = serializeProject('zx81', '10 PRINT "PROJ"', [BLOCK]);
-    await dropFile('game.bproj', json);
+    await dropFile('game.bproj', projectZip('zx81', '10 PRINT "PROJ"'));
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 PRINT "PROJ"');
     expect(s.fileName).toBe('game.bproj');
-    expect(s.blocks).toEqual([BLOCK]);
+    expect(s.blocks).toEqual([OPENED_BLOCK]);
     expect(s.dirty).toBe(false); // a named Open is clean
   });
 
-  it('sniffs a project-shaped .txt and installs blocks the same way', async () => {
-    const json = serializeProject('zx81', '10 PRINT "PROJ"', [BLOCK]);
-    await dropFile('game.txt', json);
+  it('loads a .txt as plain source (project sniffing is gone)', async () => {
+    // With the JSON project format retired, a `.txt`/`.bas` is always plain
+    // source - never re-interpreted as a project bundle.
+    await dropFile('notes.txt', '10 PRINT "PLAIN"');
     const s = useIdeStore.getState();
-    expect(s.source).toBe('10 PRINT "PROJ"');
-    expect(s.blocks).toEqual([BLOCK]);
-  });
-
-  it('does not sniff a project-shaped .bas (only .txt is sniffed)', async () => {
-    const json = serializeProject('zx81', '10 PRINT "PROJ"', [BLOCK]);
-    await dropFile('game.bas', json);
-    const s = useIdeStore.getState();
-    // Loaded as plain text, not parsed as a project.
-    expect(s.source).toBe(json);
+    expect(s.source).toBe('10 PRINT "PLAIN"');
     expect(s.blocks).toEqual([]);
   });
 
   it('surfaces a status notice for a malformed .bproj without touching the document', async () => {
-    await dropFile('broken.bproj', '{not json');
+    await dropFile('broken.bproj', 'not a zip at all');
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 REM OLD');
-    expect(s.statusNotice).toMatch(/malformed JSON/);
+    expect(s.statusNotice).toMatch(/could not read the archive/i);
   });
 
   it('warns before discarding unsaved changes for a .bproj drop', async () => {
     useIdeStore.setState({ dirty: true });
     stubWindow(() => false);
-    const json = serializeProject('zx81', '10 PRINT "PROJ"', [BLOCK]);
-    await dropFile('game.bproj', json);
+    await dropFile('game.bproj', projectZip('zx81', '10 PRINT "PROJ"'));
     expect(useIdeStore.getState().source).toBe('10 REM OLD'); // unchanged
   });
 
   it('warns when a .bproj was saved for a different dialect than the active one', async () => {
     // The active dialect (set in beforeEach) is zx81; this project was saved
     // under commodore64.
-    const json = serializeProject('commodore64', '10 PRINT "PROJ"', [BLOCK]);
-    await dropFile('game.bproj', json);
+    await dropFile('game.bproj', projectZip('commodore64', '10 PRINT "PROJ"'));
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 PRINT "PROJ"'); // still loads - a warning only
-    expect(s.blocks).toEqual([BLOCK]);
+    expect(s.blocks).toEqual([OPENED_BLOCK]);
     expect(s.statusNotice).toBe(
       'This project was saved for "commodore64" but the active dialect is ' +
         '"zx81"; its memory blocks may not work here.',
@@ -210,8 +208,7 @@ describe('openDroppedFile', () => {
   });
 
   it('does not warn when a .bproj matches the active dialect', async () => {
-    const json = serializeProject('zx81', '10 PRINT "PROJ"', [BLOCK]);
-    await dropFile('game.bproj', json);
+    await dropFile('game.bproj', projectZip('zx81', '10 PRINT "PROJ"'));
     const s = useIdeStore.getState();
     expect(s.source).toBe('10 PRINT "PROJ"');
     expect(s.statusNotice).toBeNull();

@@ -142,12 +142,13 @@ export function canvasPainted(page: Page): Promise<boolean> {
 }
 
 /**
- * Save the current document via File ▸ Save using the fallback download path
- * (call {@link forceFallbackFilePickers} first). Answers the "Save as" filename
- * prompt with `name` and waits for the download + saved status. Returns the
- * download's suggested filename.
+ * Save the current document via File ▸ Save project using the fallback download
+ * path (call {@link forceFallbackFilePickers} first). Every document now saves
+ * as a `.bproj` project bundle. Answers the "Save as" filename prompt with
+ * `name` and waits for the download + saved status. Returns the download's
+ * suggested filename.
  */
-export async function saveAsBas(
+export async function saveAsProject(
   page: Page,
   dialogs: DialogControl,
   name: string,
@@ -155,10 +156,10 @@ export async function saveAsBas(
   dialogs.promptText = name;
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'File ▾' }).click();
-  await page.getByRole('button', { name: /^Save\b/ }).click();
+  await page.getByRole('button', { name: /^Save project\b/ }).click();
   const download = await downloadPromise;
   dialogs.promptText = undefined;
-  const full = name.includes('.') ? name : `${name}.txt`;
+  const full = name.includes('.') ? name : `${name}.bproj`;
   await expect(page.getByText(full)).toBeVisible();
   return download.suggestedFilename();
 }

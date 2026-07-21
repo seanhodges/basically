@@ -83,19 +83,19 @@ export const SHORTCUTS: readonly Shortcut[] = [
   // File
   {
     id: 'file.new',
-    label: 'New',
+    label: 'New project',
     category: 'File',
     keys: [c('KeyN', { mod: true, alt: true })],
   },
   {
     id: 'file.open',
-    label: 'Open',
+    label: 'Open project',
     category: 'File',
     keys: [c('KeyO', { mod: true })],
   },
   {
     id: 'file.save',
-    label: 'Save',
+    label: 'Save project',
     category: 'File',
     keys: [c('KeyS', { mod: true })],
   },

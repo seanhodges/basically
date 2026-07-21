@@ -80,8 +80,9 @@ function isWithinAnyRange(
 /**
  * Names that occur more than once in `blocks`, so every offending block can
  * be flagged - unlike {@link findDuplicateBlockName} (`src/storage/projectFile.ts`),
- * which is a fail-fast helper built for `parseProject`'s "throw on the first
- * duplicate" path and only ever reports one name. A document with `A, A, B, B`
+ * which is a fail-fast helper built for the project parser's "throw on the
+ * first duplicate" path and only ever reports one name. A document with
+ * `A, A, B, B`
  * has two duplicate groups; this finds both.
  */
 function duplicatedNames(blocks: readonly MemoryBlock[]): Set<string> {

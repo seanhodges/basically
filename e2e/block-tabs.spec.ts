@@ -6,13 +6,15 @@ import { test, expect, type Page } from './fixtures';
  *  1. The plus button creates a code block with defaults (`block1`,
  *     `block2`…), activates its tab, and opens the assembly editor on the
  *     one-instruction return stub.
- *  2. Right-clicking a block tab opens a context menu with "Settings…" and
- *     "Delete…"; Escape (or an outside click) dismisses it.
+ *  2. Right-clicking a code block tab opens a context menu with "Download
+ *     .asm", "Download .bin", "Settings…" and "Delete…"; Escape (or an outside
+ *     click) dismisses it.
  *  3. Settings opens the block-metadata dialog: renaming and moving the
  *     block updates its tab and its origin.
  *  4. Delete asks for confirmation; Delete removes the block (and its tab),
  *     Cancel keeps it.
- *  5. The BASIC tab has no context menu - the main program can't be deleted.
+ *  5. The BASIC tab's context menu offers "Download .bas" (the main program
+ *     can't be deleted, so it has no Delete).
  *
  * (Long-press shares the right-click path via the same open-menu callback and
  * is covered by the useLongPress unit tests.)
@@ -31,8 +33,7 @@ async function openSpectrum(page: Page) {
 const asmContent = (page: Page) =>
   page.locator('.cm-editor').last().locator('.cm-content');
 
-const tabMenu = (page: Page) =>
-  page.getByRole('menu', { name: 'Block actions' });
+const tabMenu = (page: Page) => page.getByRole('menu', { name: 'Tab actions' });
 
 test('the plus button creates blocks with sequential default names', async ({
   page,
@@ -69,7 +70,11 @@ test('right-click opens the context menu; Escape dismisses it', async ({
 
   await page.getByRole('tab', { name: 'block1' }).click({ button: 'right' });
   await expect(tabMenu(page)).toBeVisible();
+  // A code block downloads either its assembly or its bytes, plus Settings /
+  // Delete.
   await expect(tabMenu(page).getByRole('menuitem')).toHaveText([
+    'Download .asm',
+    'Download .bin',
     'Settings…',
     'Delete…',
   ]);
@@ -135,8 +140,19 @@ test('Delete asks to confirm; Delete removes the block, Cancel keeps it', async 
   );
 });
 
-test('the BASIC tab has no context menu', async ({ page }) => {
+test('the BASIC tab context menu downloads the .bas listing', async ({
+  page,
+}) => {
   await openSpectrum(page);
   await page.getByRole('tab', { name: 'BASIC' }).click({ button: 'right' });
-  await expect(tabMenu(page)).toHaveCount(0);
+  // Only a download - the main program can't be deleted.
+  await expect(tabMenu(page).getByRole('menuitem')).toHaveText([
+    'Download .bas',
+  ]);
+
+  const downloadPromise = page.waitForEvent('download');
+  await tabMenu(page).getByRole('menuitem', { name: 'Download .bas' }).click();
+  const download = await downloadPromise;
+  // Named after the document (blocks.bas -> blocks.bas), .bas extension.
+  expect(download.suggestedFilename()).toBe('blocks.bas');
 });

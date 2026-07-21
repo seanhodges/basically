@@ -16,7 +16,7 @@ dialects, and an index of the **per-machine format pages** where each
 machine's native binary(s), disc image and cassette encoding are documented in
 full.
 
-## Editor source format (.txt)
+## Editor source format (.bas)
 
 Plain UTF-8 text, one BASIC line per text line: a line number followed by
 exactly one statement. Keywords are written as words (`PRINT`, `GOTO`,
@@ -24,23 +24,33 @@ exactly one statement. Keywords are written as words (`PRINT`, `GOTO`,
 line-number range and statement rules are dialect-specific (see each dialect's
 language reference page).
 
-Save writes a `.txt` file by default; load accepts either `.txt` or a legacy
-`.bas` file, so programs saved by earlier versions still open unchanged.
+To download the BASIC listing on its own, right-click (or long-press) the
+**BASIC** tab above the editor and choose **Download .bas**. A machine-code or
+data block tab offers the same for its own `.asm` (assembly source) and `.bin`
+(raw bytes) files. Loading a plain `.bas` or `.txt` opens it straight into the
+editor as source, so listings — including those saved by earlier versions —
+still open unchanged.
 
 ## Project bundle (.bproj)
 
-Most documents are pure BASIC and save as `.txt`. A document that also carries
-**memory blocks** — fixed-address machine code or data that loads alongside the
-program (see [Machine code & data blocks](#machine-code-data-blocks)) — or
-extra tape files preserved off a multi-part import saves
-instead as a `.bproj` bundle: one human-readable JSON file pairing the BASIC
-source with its blocks and preserved files. Each block records its name, load
-address, kind (code or data), raw bytes (base64-encoded) and, when the import
-recovered one, its entry address; the file notes the machine it was
-authored for. Open loads everything together, warning if the active
-machine differs; it accepts `.bproj` alongside `.txt`/`.bas`, and also
-recognises a project-shaped `.txt`. A document with no blocks or preserved
-files never becomes a `.bproj` — the plain-text format is unchanged.
+**Save project** writes the whole document as a `.bproj` bundle — a zip archive
+that holds each part as its own file:
+
+- `program.bas` — the BASIC source
+- `blocks/<name>.bin` — each memory block's raw bytes
+- `blocks/<name>.asm` — a machine-code block's assembly source
+- `project.json` — a small metadata file naming the parts above and recording
+  the machine the project was authored for, each block's load address and kind
+  (code or data), any auto-start line, and any tape files preserved off a
+  multi-part import
+
+Saving as a project means **memory blocks** — fixed-address machine code or data
+that loads alongside the program (see
+[Machine code & data blocks](#machine-code-data-blocks)) — and those preserved
+tape files always travel with your program. **Open project** loads everything
+back together, warning if the active machine differs, and also accepts a plain
+`.bas`/`.txt` as source. To get just the BASIC listing on its own, use the
+editor tab's download action described above.
 
 ## Escape notation
 

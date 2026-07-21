@@ -5,7 +5,7 @@ import {
   fileMenu,
   forceFallbackFilePickers,
   openApp,
-  saveAsBas,
+  saveAsProject,
   setEditorSource,
 } from './helpers';
 
@@ -33,7 +33,7 @@ test('6.5 wav round trip: export cassette .wav, import and decode it', async ({
     'Web Audio unavailable in this WebKit build',
   );
   await setEditorSource(page, '10 PRINT "TAPE LOOP"\n20 GOTO 10');
-  await saveAsBas(page, dialogs, 'tapeloop');
+  await saveAsProject(page, dialogs, 'tapeloop');
 
   // Export the cassette audio.
   await fileMenu(page, /^Export/);

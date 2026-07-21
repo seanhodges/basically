@@ -47,10 +47,13 @@ Basically can write BASIC for you with the Claude API:
 
 ## Save and load
 
-- **Save** writes a plain-text `.txt` file, and **Open** loads a `.txt` (or a
-  legacy `.bas`) back into the editor, using the File System Access API where
-  available with a download fallback. Your work also autosaves to the browser's
-  local storage.
+- **Save project** writes your whole document as a `.bproj` bundle (a zip of
+  your BASIC source plus any machine-code/data blocks and a metadata file), and
+  **Open project** loads one back — or opens a plain `.bas`/`.txt` as source —
+  using the File System Access API where available with a download fallback.
+  Your work also autosaves to the browser's local storage.
+- To download just the BASIC listing as a `.bas`, right-click the **BASIC**
+  editor tab and choose **Download .bas**.
 - You can **import** an existing machine image (for example a ZX81 `.P` file)
   back into editable source.
 

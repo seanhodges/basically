@@ -6,7 +6,7 @@ import {
   fileMenu,
   forceFallbackFilePickers,
   openApp,
-  saveAsBas,
+  saveAsProject,
   setEditorSource,
 } from './helpers';
 
@@ -20,18 +20,18 @@ import {
  * cancel behaviour, 5.3) stays a manual check.
  */
 
-test('5.1 Save downloads a .txt with the chosen name and clears the dirty marker', async ({
+test('5.1 Save project downloads a .bproj with the chosen name and clears the dirty marker', async ({
   page,
 }) => {
   await forceFallbackFilePickers(page);
   const dialogs = await openApp(page);
   await setEditorSource(page, '10 PRINT "SAVE ME"');
   await expect(page.getByText(/untitled\.txt\s*•/)).toBeVisible(); // dirty
-  const suggested = await saveAsBas(page, dialogs, 'myprog');
-  expect(suggested).toBe('myprog.txt');
+  const suggested = await saveAsProject(page, dialogs, 'myprog');
+  expect(suggested).toBe('myprog.bproj');
   // Saved: the new name shows and the dirty dot is gone.
-  await expect(page.getByText('myprog.txt')).toBeVisible();
-  await expect(page.getByText(/myprog\.txt\s*•/)).toBeHidden();
+  await expect(page.getByText('myprog.bproj')).toBeVisible();
+  await expect(page.getByText(/myprog\.bproj\s*•/)).toBeHidden();
 });
 
 test('5.1b File menu opens, stays open, and dismisses on outside click / Escape', async ({
@@ -65,7 +65,7 @@ test('5.2 Open loads a legacy .bas file (content and filename)', async ({
   await forceFallbackFilePickers(page);
   await openApp(page);
   const chooser = page.waitForEvent('filechooser');
-  await fileMenu(page, /^Open…/);
+  await fileMenu(page, /^Open project/);
   await (
     await chooser
   ).setFiles({
@@ -83,7 +83,7 @@ test('5.4/5.5 native binary round trip: export .P, re-import it', async ({
   await forceFallbackFilePickers(page);
   const dialogs = await openApp(page);
   await setEditorSource(page, '10 PRINT "ROUNDTRIP"\n20 GOTO 10');
-  await saveAsBas(page, dialogs, 'roundtrip');
+  await saveAsProject(page, dialogs, 'roundtrip');
 
   // Export the ZX81 .P image.
   await fileMenu(page, /^Export/);

@@ -232,9 +232,13 @@ export function Toolbar() {
           </button>
           {fileMenuOpen && (
             <div className={styles.menuItems}>
-              <button onClick={newFile}>New{hint('file.new')}</button>
-              <button onClick={openFile}>Open…{hint('file.open')}</button>
-              <button onClick={saveFile}>Save{hint('file.save')}</button>
+              <button onClick={newFile}>New project{hint('file.new')}</button>
+              <button onClick={openFile}>
+                Open project…{hint('file.open')}
+              </button>
+              <button onClick={saveFile}>
+                Save project{hint('file.save')}
+              </button>
               <button onClick={openImport}>Import…{hint('file.import')}</button>
               <button onClick={openShare}>Export…{hint('file.export')}</button>
               <button
