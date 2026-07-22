@@ -116,11 +116,12 @@ against upstream if emulation accuracy issues arise.
 High effort: the CPU is free but each machine has a bespoke video chip (and
 often a sound chip) that must be emulated before BASIC output is visible.
 
-| Status | Machine                | CPU | BASIC            | Key challenge                                                       |
-| ------ | ---------------------- | --- | ---------------- | ------------------------------------------------------------------- |
-| ⬜     | Amstrad CPC 464 / 6128 | Z80 | Locomotive BASIC | Gate Array + CRTC video, AY-3-8912 sound                            |
-| ⬜     | MSX / MSX2             | Z80 | MSX BASIC        | TMS9918 VDP + AY sound - most reusable, covers the whole MSX family |
-| ⬜     | Enterprise 64 / 128    | Z80 | IS-BASIC         | Nick + Dave custom chips                                            |
+| Status | Machine             | CPU | BASIC                | Key challenge                                                                                                                                                              |
+| ------ | ------------------- | --- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⬜     | Amstrad CPC 464     | Z80 | Locomotive BASIC 1.0 | Gate Array + CRTC video, AY-3-8912 sound. Planned + scaffolded: [dialect-plans/cpc464.md](./dialect-plans/cpc464.md)                                                       |
+| ⬜     | Amstrad CPC 6128    | Z80 | Locomotive BASIC 1.1 | Delegation sibling of the CPC 464 (shared language layer, machine and docs) adding 128K bank switching + BASIC 1.1: [dialect-plans/cpc6128.md](./dialect-plans/cpc6128.md) |
+| ⬜     | MSX / MSX2          | Z80 | MSX BASIC            | TMS9918 VDP + AY sound - most reusable, covers the whole MSX family                                                                                                        |
+| ⬜     | Enterprise 64 / 128 | Z80 | IS-BASIC             | Nick + Dave custom chips                                                                                                                                                   |
 
 ---
 
