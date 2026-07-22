@@ -98,7 +98,7 @@ register it in `src/dialects/registry.ts`. A small self-contained machine can
 live in that folder (mirror `zx81/`); when you wrap a large external core, put
 the machine under `src/emulator/` instead (see `bbc/` and `c64/`). Either way the
 app only ever talks to the `Dialect` seam. Full step-by-step guide:
-**`docs/contributing/adding-a-dialect.md`**; see also `docs/reference/dialect-roadmap.md`,
+**`docs/contributing/adding-a-dialect.md`**; see also `docs/contributing/dialect-roadmap.md`,
 `docs/reference/file-formats.md` (`.bas` / `.P` / `.O` / `.TAP` / `.BBC` / `.prg` /
 cassette audio), and `docs/reference/serial-protocol.md` (the WebSerial bridge).
 

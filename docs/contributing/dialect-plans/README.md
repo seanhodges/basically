@@ -14,7 +14,7 @@ dialect complete.
   until each stage fills them in. The dialect is not registered in
   `src/dialects/registry.ts` until its wire-up stage.
 
-See `docs/reference/dialect-roadmap.md` for the higher-level tiered roadmap (which machines
+See `docs/contributing/dialect-roadmap.md` for the higher-level tiered roadmap (which machines
 to add and why), and `docs/contributing/adding-a-dialect.md` (dialect folder +
 virtual keyboard) / `docs/reference/file-formats.md` /
 `docs/reference/serial-protocol.md` for the per-component reference detail each stage draws
