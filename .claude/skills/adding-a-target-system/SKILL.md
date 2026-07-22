@@ -14,10 +14,12 @@ description: >-
 
 A **target system** is one microcomputer's worth of support: a BASIC **dialect**
 (tokenizer, charset, keywords), an **emulator** (CPU bus + display + I/O), a
-**virtual keyboard**, transfer/tape I/O, an AI profile and samples. That is ~20
-files, and the feature baseline keeps rising — so new dialects routinely ship
-half-finished (e.g. `src/dialects/bbcmaster/` has only `aiProfile.ts` +
-`index.ts`, while `zx81`/`zxspectrum`/`commodore64` are complete).
+**virtual keyboard**, transfer/tape I/O, a memory map + memory blocks, an AI
+profile, samples and reference docs. That is 30–40 files once tests are counted,
+and the feature baseline keeps rising — a plan built from a stale checklist
+ships a dialect that is half-finished by today's standards. Derive the baseline
+from `src/dialects/registry.ts` and the mature folders at audit time; treat the
+examples in this file as illustrations, not the source of truth.
 
 **This skill does not write the implementation.** It produces a staged plan and
 the initial scaffolding, then stops. Run it to get:
@@ -35,31 +37,52 @@ the initial scaffolding, then stops. Run it to get:
 ## The one mental model
 
 The app **only** talks to the `Dialect` and `MachineEmulator` interfaces in
-`src/dialects/types.ts`. Everything machine-specific lives in a single folder,
-`src/dialects/<name>/`. The seam means a complete dialect is exactly "every
-member of those interfaces implemented, plus the optional ones the mature
-dialects all carry". Nothing outside the dialect folder should change except
-`src/dialects/registry.ts` (a later stage), a ROM asset, and an optional CSS
-theme block.
+`src/dialects/types.ts`. Everything machine-specific lives in
+`src/dialects/<name>/` — plus, when wrapping a large core, a machine adapter
+folder under `src/emulator/<machine>/`. The seam means a complete dialect is
+exactly "every member of those interfaces implemented, plus the optional ones
+the mature dialects all carry". The runtime layers (store, components, share
+compatibility, storage, keyboard engine) are registry/interface-driven and never
+change — but a handful of small per-dialect tables outside the folder **must**
+be edited; they are enumerated in the audit section below. A change anywhere
+else means the seam is being bypassed.
 
 ## Phase 1 — Audit the existing dialects
 
 Read the _complete_ reference dialects rather than trusting a fixed list, so the
 plan reflects the current baseline. Read:
 
-- `src/dialects/types.ts` — the `Dialect` / `MachineEmulator` contract. Note both
-  the **required** members and the optional ones the mature dialects ship:
-  `displaySize`, `binaryImports`, `audio` (incl. `audio.decodeSamples`,
-  `saveInstructions`), and `MachineEmulator.readVariables`.
+- `src/dialects/types.ts` — the `Dialect` / `MachineEmulator` contract. Read the
+  interfaces themselves and list every member — don't work from a remembered
+  subset. Beyond the required members (which include `programRamBytes`), the
+  mature dialects ship most of the optional ones: `memoryMap` + `memoryBlocks`
+  (every complete dialect has both), `displaySize`, `binaryImports`,
+  `supportsBinaryLines`, `audio` (incl. `decodeSamples`, `saveInstructions`),
+  `detokenizeWithReport`, `docsReference`, `memoryWrites` / `addressNotation`,
+  `joystickModes`, `debuggable`; and on `MachineEmulator`: `readVariables`,
+  `readReport`, `readMemoryStats`, `readAudio` / `audioSampleRate` (emulator
+  sound), the memory-activity hooks, and the debugger hooks (`currentLine` /
+  `debugStep`). `romUrl` is optional — an interpreter dialect ships no ROM.
 - `src/dialects/zx81/` — reference for the **in-tree bus over the vendored Z80
   core** pattern: `emulator/` (`zx81Machine.ts`, `memory.ts`, `display.ts`,
   `keyboard.ts`), `pfile.ts` (image builder), `sysvars.ts`, `vars.ts`
-  (`readVariables`), `audio/` (cassette codecs), plus the language files.
+  (`readVariables`), `reports.ts`, `memoryMap.ts`, `memoryBlocks.ts`,
+  `listingLayout.ts`, `audio/` (cassette codecs), plus the language files.
 - `src/dialects/commodore64/` and `src/dialects/bbcmicro/` — reference for the
   **adapter over a third-party emulator** pattern (6502 via viciious / jsbeeb in
-  `src/emulator/<machine>/`), their `targets.ts`, `audio/`, `keyboardLayout.ts`,
-  and the native-tokenizer-over-wrapped-ROM approach.
-- `src/dialects/registry.ts` — how a dialect is registered (a later stage).
+  `src/emulator/<machine>/`, which is also where their machine-side `vars.ts` /
+  `reports.ts` live), their `targets.ts`, `audio/`, `keyboardLayout.ts`, and the
+  native-tokenizer-over-wrapped-ROM approach.
+- `src/dialects/bbcmaster/` and `src/dialects/zxspectrum128/` — reference for
+  the **delegation** pattern: a sibling machine imports most language files,
+  samples and keyboard from its base dialect and owns only `memoryMap.ts`,
+  `memoryBlocks.ts`, `aiProfile.ts`, its metadata, and (when needed) an emulator
+  variant. By far the cheapest plan shape — always check for a shipped sibling
+  first.
+- `src/dialects/trs80/` — reference for the **in-tree interpreter** pattern: a
+  full BASIC interpreter under `trs80/interpreter/`, no ROM, no CPU core.
+- `src/dialects/registry.ts` — how a dialect is registered (a later stage), and
+  the authoritative list of what ships today.
 
 Know these dialect-aware seams _outside_ the folder so the plan reuses them and
 does **not** edit them:
@@ -73,51 +96,76 @@ does **not** edit them:
 | `src/keyboard/sinclairGlyphs.ts`                                        | shared block-graphic glyphs                                                                        |
 | `src/keyboard/{VirtualKeyboard,inputEngine}.tsx/.ts`                    | data-driven keyboard (no changes needed)                                                           |
 | `src/dialects/sinclairTape.ts`, `sinclairCharset.ts`, `sinclairVars.ts` | shared Sinclair codecs                                                                             |
+| `src/dialects/{sinclairReports,sinclairImportReport,importBlocks}.ts`   | shared report decoding / import-to-blocks helpers                                                  |
 | `src/transfer/{wav,audioRecorder}.ts`                                   | WAV encode / mic record                                                                            |
-| `src/emulator/z80/`                                                     | vendored Z80 core — **use, never edit**                                                            |
+| `src/emulator/z80/`, `src/emulator/6502/`                               | vendored CPU cores — **use, never edit**                                                           |
+| `src/emulator/commodore/`                                               | shared Commodore chip helpers (VIA/PIA, char renderer)                                             |
+
+And know the small per-dialect tables **outside** the folder that a new dialect
+**must** edit — the plan's stages have to include them:
+
+| File                                                                                                                                     | Required edit                                                                                                                                                                                                        | Stage                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `src/dialects/registry.ts`                                                                                                               | import + `dialects` array entry (array order = UI menu order)                                                                                                                                                        | wire-up                               |
+| `src/player/routes.ts`                                                                                                                   | a `SHARE_VERBS` entry — the verb must be a real keyword of this machine's BASIC, unique in the table. `routes.test.ts` asserts a strict **bijection** with the registry: registering without a verb fails `npm test` | wire-up (same change as registration) |
+| `src/editor/constructs.ts`                                                                                                               | `constructsByDialect.<id>` template list (siblings may reuse another id's array); the dialect's `language.ts` reads it for block autocomplete                                                                        | language core                         |
+| `src/editor/variableLint.ts`                                                                                                             | thin `<id>VariableErrors` wrapper over `singleLetterVariableErrors` or the Microsoft-family helper                                                                                                                   | language core                         |
+| `src/keyboard/VirtualKeyboard.css`                                                                                                       | optional `vk-theme-<id>` block (**not** `src/styles.css`, which has no per-dialect content)                                                                                                                          | wire-up / polish                      |
+| `public/roms/…` + `public/roms/ATTRIBUTION.md`                                                                                           | ROM asset **and** its attribution block (skip for interpreter dialects)                                                                                                                                              | emulator core                         |
+| `docs/reference/<id>.md`, `docs/reference/<id>/{escapes,formats}.md`, `docs/reference/data/<id>.ts`, `docs/.vitepress/config.ts` sidebar | per-dialect reference docs — scaffold with `npm run gen:reference` / `npm run gen:escapes`                                                                                                                           | docs                                  |
+| `docs/contributing/dialect-roadmap.md`                                                                                                   | status row + cross-link to the plan                                                                                                                                                                                  | when planning                         |
 
 From the audit, produce a **capability checklist** = the union of what the
 complete dialects ship. Then classify the target:
 
-- **CPU / bus pattern** — in-tree Z80 bus, or adapter over a third-party package
-  (check the package **license** first; jsbeeb's GPL-3.0 is why this repo is GPL).
+- **CPU / bus pattern** — one of four: in-tree bus over a vendored core
+  (Z80/6502), adapter over a third-party package (check the package **license**
+  first — jsbeeb's GPL-3.0 is why this repo is GPL — and note whether a new npm
+  dependency is needed), **delegation over a shipped sibling dialect**, or an
+  in-tree interpreter (no ROM, no core).
 - **Display size** — set `displaySize` if not the classic 256×192.
 - **Tape / image format** — `.p`/`.tap`/`.prg`/`.bbc` equivalent, tape scheme.
-- **Existing state** — if `src/dialects/<id>/` already partly exists (like
-  `bbcmaster`), diff what's present against the checklist and plan **only the
-  gaps**.
+- **Existing state** — if `src/dialects/<id>/` already partly exists, diff
+  what's present against the checklist and plan **only the gaps**. Check the
+  registry too — a thin folder may already be feature complete via delegation.
 
 ## Phase 2 — Write the staged plan
 
 Copy the bundled `plan-template.md` into `docs/contributing/dialect-plans/<id>.md` and fill it
 in. Keep the template's status legend (✅ shipped / 🔨 in progress / ⬜ planned
-/ ⛔ blocked, matching `docs/reference/dialect-roadmap.md`) and its per-stage structure:
+/ ⛔ blocked, matching `docs/contributing/dialect-roadmap.md`) and its per-stage structure:
 checklist, files created/filled, dependencies, and a verify line. Add a
-cross-link to the new plan from `docs/reference/dialect-roadmap.md`.
+cross-link to the new plan from `docs/contributing/dialect-roadmap.md`.
 
 Group work by dependency into medium, single-session stages. Default breakdown
-(adapt to the audited gaps — drop any stage already satisfied):
+(adapt to the audited gaps — drop any stage already satisfied; for a
+**delegation** target, collapse stages 1/3/4 into "import from the base dialect,
+own the memory map/blocks, AI profile, metadata and emulator variant"):
 
-| Stage                                          | Scope                                                                                                                                                                                                                                                                         | Depends on                                       | Verify                                                                                   |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| **1 — Language core**                          | `keywords.ts`, `charset.ts`, `language.ts`, `tokenizer.ts` / `detokenizer.ts`, `lint`, the image builder (`pfile.ts`/`tapfile.ts`/`.prg` equivalent) + colocated tests. No registry change.                                                                                   | types contract                                   | `npm test` (tokenizer round-trip, charset, image-builder pointers) + `npm run typecheck` |
-| **2 — Emulator core**                          | `emulator/` (machine + memory + display + keyboard matrix) implementing `MachineEmulator`, **or** the adapter folder under `src/emulator/<machine>/` when wrapping a package; ROM into `public/roms/<id>.rom` with attribution.                                               | charset (display), image builder (`loadProgram`) | emulator boot test: boot ROM, inject a program, assert on display memory                 |
-| **3 — Wire-up: keyboard + samples + register** | `keyboardLayout.ts` (tokens match emulator `setKey`), `samples.ts` + `samples/*.bas` (canonical `hello`/`circles`/`breakout`/`maze`, degrade gracefully), finalize `aiProfile.ts`, **register in `registry.ts`**, optional `src/styles.css` theme. Now selectable + runnable. | stages 1–2                                       | typecheck + tests + `npm run dev` smoke + `npm run e2e`                                  |
-| **4 — Transfer & tape I/O**                    | `targets.ts` build targets, `audio` (`buildSamples` + `decodeSamples`, load/save instructions), `binaryImports`.                                                                                                                                                              | tokenizer/detokenizer, image builder             | audio round-trip test + import/export in the app                                         |
-| **5 — Polish / optional**                      | `readVariables` + variable watcher, richer build targets, dot-abbreviation/quirks, AI-profile accuracy pass, keyboard theming / function-key strip.                                                                                                                           | stage 3                                          | watcher shows vars; targeted tests                                                       |
+| Stage                                          | Scope                                                                                                                                                                                                                                                                                                                                                                                          | Depends on                                       | Verify                                                                                   |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| **1 — Language core**                          | `keywords.ts`, `charset.ts`, `language.ts`, `tokenizer.ts` / `detokenizer.ts`, `lint` (+ `constructsByDialect.<id>` in `src/editor/constructs.ts`, `<id>VariableErrors` wrapper in `src/editor/variableLint.ts`), the image builder (`pfile.ts`/`tapfile.ts`/`.prg` equivalent) + colocated tests. No registry change.                                                                         | types contract                                   | `npm test` (tokenizer round-trip, charset, image-builder pointers) + `npm run typecheck` |
+| **2 — Emulator core**                          | `emulator/` (machine + memory + display + keyboard matrix) implementing `MachineEmulator`, **or** the adapter folder under `src/emulator/<machine>/` when wrapping a package (note any new npm dep + license); ROM into `public/roms/` **plus an `ATTRIBUTION.md` block** — no ROM at all for interpreter dialects.                                                                            | charset (display), image builder (`loadProgram`) | emulator boot test: boot ROM, inject a program, assert on display memory                 |
+| **3 — Wire-up: keyboard + samples + register** | `keyboardLayout.ts` (tokens match emulator `setKey`), `samples.ts` + `samples/*.bas` (canonical set from the audit, degrade gracefully), finalize `aiProfile.ts`, **register in `registry.ts` and add the `SHARE_VERBS` verb in `src/player/routes.ts` in the same change** (bijection test), optional `vk-theme-<id>` block in `src/keyboard/VirtualKeyboard.css`. Now selectable + runnable. | stages 1–2                                       | typecheck + tests + `npm run dev` smoke + `npm run e2e`                                  |
+| **4 — Transfer & tape I/O**                    | `targets.ts` build targets, `audio` (`buildSamples` + `decodeSamples`, load/save instructions), `binaryImports`.                                                                                                                                                                                                                                                                               | tokenizer/detokenizer, image builder             | audio round-trip test + import/export in the app                                         |
+| **5 — Memory map & runtime introspection**     | `memoryMap.ts`, `memoryBlocks.ts` (+ machine-side block load/inject support in `loadProgram`), `sysvars.ts`/`vars.ts`/`reports.ts` → `readVariables`/`readReport`, `readMemoryStats` + memory-activity hooks.                                                                                                                                                                                  | stages 2–3                                       | memory-map + blocks tests; watcher shows live vars                                       |
+| **6 — Docs & polish**                          | reference docs (`npm run gen:reference` / `npm run gen:escapes`, `docs/reference/<id>.md` + sub-pages, `docs/.vitepress/config.ts` sidebar), roadmap status row, joystick, debugger hooks, emulator sound (`readAudio`), dot-abbreviation/quirks, AI-profile accuracy pass, keyboard theming / function-key strip.                                                                             | stage 3                                          | docs dev build renders; targeted tests                                                   |
 
 ### Canonical samples (Stage 3)
 
-Every dialect ships the same four programs, **in this order**, ported to the
+Every dialect ships the same sample set, **in the same order**, ported to the
 machine's own BASIC (match the _behaviour_, not bytes; degrade gracefully rather
 than dropping). The first (`hello`) is the starter shown for a fresh document.
+**Derive the authoritative set from the shipped dialects' `samples.ts` at audit
+time** — the set grows (this table is a snapshot, last known to be):
 
-| `name`         | `title`       | What it does                                                           |
-| -------------- | ------------- | ---------------------------------------------------------------------- |
-| `hello.bas`    | `Hello world` | Prints a greeting; show off text colour / display.                     |
-| `circles.bas`  | `Circles`     | Concentric circles, showcasing colour graphics.                        |
-| `breakout.bas` | `Breakout`    | Paddle bounces a ball off a wall of blocks; score; lose when it drops. |
-| `maze.bas`     | `Maze`        | Fixed wall map; move a marker with cursor keys to the exit.            |
+| `name`         | `title`        | What it does                                                                                                     |
+| -------------- | -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `hello.bas`    | `Hello world`  | Prints a greeting; show off text colour / display.                                                               |
+| `circles.bas`  | `Circles`      | Concentric circles, showcasing colour graphics.                                                                  |
+| `breakout.bas` | `Breakout`     | Paddle bounces a ball off a wall of blocks; score; lose when it drops.                                           |
+| `maze.bas`     | `Maze`         | Fixed wall map; move a marker with cursor keys to the exit.                                                      |
+| `kaleido.bas`  | `Kaleidoscope` | Mirrored plotting; carries a machine-code routine as memory blocks / a `#BIN` REM where the machine supports it. |
 
 Only exclude a sample when it genuinely cannot be ported (e.g. the ZX80 drops
 `breakout`); keep the rest in the same relative order. Compare `zx81/`,
@@ -141,10 +189,11 @@ type-valid throwing stub per planned component, colocated test stubs, and a
 - **Do not fabricate a ROM.** Note the required `public/roms/<id>.rom` and its
   license/attribution in the plan's target summary instead.
 
-After scaffolding, confirm `npm run typecheck` and `npm test` still pass and that
-`git status` shows changes confined to `src/dialects/<id>/`,
-`docs/contributing/dialect-plans/<id>.md`, and the roadmap cross-link — `registry.ts`
-untouched.
+After scaffolding, confirm `npm run typecheck`, `npm test`, `npm run lint` and
+`npm run format:check` still pass and that `git status` shows changes confined
+to `src/dialects/<id>/`, `docs/contributing/dialect-plans/<id>.md`, and the
+cross-link in `docs/contributing/dialect-roadmap.md` — `registry.ts` and
+`src/player/routes.ts` untouched (those change together in the wire-up stage).
 
 ## Phase 4 — Stop
 
@@ -170,11 +219,12 @@ the stages on demand. Do not start implementing.
 | `src/dialects/types.ts`                                                                                                         | Every interface a complete dialect implements |
 | `src/dialects/zx81/index.ts`                                                                                                    | How a `Dialect` is assembled (in-tree Z80)    |
 | `src/dialects/commodore64/index.ts`                                                                                             | A `Dialect` over a wrapped 6502 emulator      |
-| `src/dialects/bbcmaster/`                                                                                                       | A half-built dialect — the gap-audit case     |
+| `src/dialects/bbcmaster/`                                                                                                       | Delegation over a sibling (imports bbcmicro)  |
+| `src/player/routes.ts`                                                                                                          | `SHARE_VERBS` — bijection with the registry   |
 | `src/dialects/registry.ts`                                                                                                      | Where registration happens (Stage 3)          |
 | `src/dialects/zx81/emulator/`                                                                                                   | `MachineEmulator` over the shared Z80 core    |
 | `src/keyboard/layoutSchema.ts`                                                                                                  | All keyboard-layout types                     |
-| `docs/reference/dialect-roadmap.md`                                                                                             | Tiered roadmap + status legend to cross-link  |
+| `docs/contributing/dialect-roadmap.md`                                                                                          | Tiered roadmap + status legend to cross-link  |
 | `docs/contributing/adding-a-dialect.md` (dialect folder + virtual keyboard), `docs/reference/{file-formats,serial-protocol}.md` | Per-component reference detail for the stages |
 
 ## Guardrails
@@ -182,6 +232,10 @@ the stages on demand. Do not start implementing.
 - **Plan & scaffold only — never implement a stage or register the dialect.**
 - **Don't touch** `src/emulator/z80/` (vendored Z80 core) or third-party ROMs
   under `public/roms/` — fix bus bugs in your dialect's emulator, not the core.
-- Nothing outside `src/dialects/<id>/` changes except (later) the registry, the
-  ROM asset, and an optional `src/styles.css` theme block. A wider change means
-  the seam is being bypassed.
+- Outside `src/dialects/<id>/`, only the enumerated per-dialect tables change:
+  (later) the registry + `SHARE_VERBS`, `constructsByDialect`, the
+  `variableLint` wrapper, an optional `vk-theme-<id>` block in
+  `src/keyboard/VirtualKeyboard.css`, the ROM + `ATTRIBUTION.md`, the docs
+  pages/sidebar/roadmap — plus, for wrapped cores, a new
+  `src/emulator/<machine>/` adapter folder. Anything else means the seam is
+  being bypassed.

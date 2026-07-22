@@ -80,15 +80,24 @@ BASIC:
      (control codes, tokens-in-strings, top-bit bytes) with
      `roundTripHarness.ts` as the importer learns to preserve or report them.
 
-2. **Register it** in `src/dialects/registry.ts`.
-3. **Drop the ROM** into `public/roms/` with an attribution note.
+2. **Register it** in `src/dialects/registry.ts`, and in the same change add a
+   share verb for it to `SHARE_VERBS` in `src/player/routes.ts` — a real
+   keyword of the machine's own BASIC, unique in the table. A test asserts the
+   verb table stays in bijection with the registry, so registering without a
+   verb fails `npm test`.
+3. **Drop the ROM** into `public/roms/` with an attribution block in
+   `public/roms/ATTRIBUTION.md`.
 4. **Add tests**: tokenizer round-trip, image-builder pointer consistency,
    and a machine boot test like `zx81Machine.test.ts` (boot the ROM, inject a
    program, assert on display memory).
 
-Nothing outside the dialect folder should need to change: the editor, lint,
-status bar, AI panel, transfer dialog and emulator pane all operate on the
-interface. Dialects whose display is not the classic 256×192 set
+The app's runtime layers need no changes: the editor, status bar, AI panel,
+transfer dialog and emulator pane all operate on the interface. The remaining
+per-dialect touch points are small tables: `constructsByDialect` in
+`src/editor/constructs.ts` (block autocomplete templates, read by your
+`language.ts`), a lint wrapper in `src/editor/variableLint.ts`, and an
+optional `vk-theme-<id>` block in `src/keyboard/VirtualKeyboard.css`.
+Dialects whose display is not the classic 256×192 set
 `displaySize` on the `Dialect` object; the emulator pane sizes its canvas
 from it.
 

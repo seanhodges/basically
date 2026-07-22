@@ -2,7 +2,9 @@
   Plan template for `adding-a-target-system`.
   Copy to docs/contributing/dialect-plans/<id>.md and fill in. Replace <…> placeholders,
   delete stages the audit shows are already satisfied, and tick the checklist
-  as each stage lands. Add a cross-link to this file from docs/reference/dialect-roadmap.md.
+  as each stage lands. Add a cross-link to this file from docs/contributing/dialect-roadmap.md.
+  For a delegation target (sibling of a shipped machine), collapse stages 1/3/4
+  into "import from the base dialect" and keep only the owned pieces.
 -->
 
 # <Machine name> dialect — implementation plan
@@ -15,14 +17,19 @@
 ## Target summary
 
 - **id / name:** `<id>` / `<Machine name>`
-- **CPU / bus pattern:** <in-tree Z80 bus | adapter over `<package>` (6502/…)>
+- **CPU / bus pattern:** <in-tree bus over vendored Z80/6502 | adapter over
+  `<package>` | delegation over `<base dialect>` | in-tree interpreter>
 - **Display size:** <256×192 default | `{ width, height }`>
 - **Image / tape format:** <`.p` | `.tap` | `.prg` | `.bbc` …>
 - **ROM:** `public/roms/<id>.rom` — <source, license, attribution> _(do not
-  commit a fabricated ROM)_
+  commit a fabricated ROM; interpreter dialects need none)_
+- **Share verb:** `<verb>` — a real keyword of this machine's BASIC, unique in
+  `src/player/routes.ts` `SHARE_VERBS` (bijection with the registry is
+  test-enforced)
 - **Reuse:** <e.g. `sinclairTape.ts`, `sinclairCharset.ts`, `templateRows.ts`,
-  `src/emulator/z80/`>
-- **License note:** <e.g. wrapping a GPL package — confirm before depending>
+  `src/emulator/z80/`, `src/emulator/commodore/`>
+- **License note:** <e.g. wrapping a GPL package / new npm dependency — confirm
+  before depending>
 
 ## Status legend
 
@@ -34,7 +41,8 @@
 | 2     | Emulator core                          | ⬜     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
-| 5     | Polish / optional                      | ⬜     |
+| 5     | Memory map & runtime introspection     | ⬜     |
+| 6     | Docs & polish                          | ⬜     |
 
 ---
 
@@ -46,6 +54,10 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 - [ ] `charset.ts` — `CharsetMapping` (`toMachine`/`toUnicode`/`glyph`)
 - [ ] `language.ts` — `languageSupport()` + `completionSource` (set
       `BasicLanguageOptions` for quirks: `hexPrefix`/`binaryPrefix`/`suffixChars`/…)
+- [ ] `constructsByDialect.<id>` entry in `src/editor/constructs.ts` (siblings
+      may reuse another id's array) — `language.ts` reads it for block autocomplete
+- [ ] `<id>VariableErrors` wrapper in `src/editor/variableLint.ts` (over
+      `singleLetterVariableErrors` or the Microsoft-family helper)
 - [ ] `tokenizer.ts` / `detokenizer.ts` — collect `TokenizeError[]`, don't throw
 - [ ] image builder (`<pfile/tapfile/…>.ts`) — tokenized bytes → loadable image + parse back
 - [ ] `lint` wired through `tokenize`
@@ -58,9 +70,11 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 
 - [ ] `emulator/<machine>.ts` (+ `memory.ts`, `display.ts`, `keyboard.ts`)
       implementing `MachineEmulator` — **or** adapter under `src/emulator/<machine>/`
+      (note any new npm dependency + its license), **or** in-tree interpreter
 - [ ] `reset` / `loadProgram` / `runFrame` / `renderTo` / `keyEvent` / `setKey` /
       `releaseAllKeys` / `setSpeed` / `dispose` + `displayWidth`/`displayHeight`
-- [ ] ROM into `public/roms/<id>.rom` with attribution
+- [ ] ROM into `public/roms/<id>.rom` **+ attribution block in
+      `public/roms/ATTRIBUTION.md`** (skip both for interpreter dialects)
 - [ ] `displaySize` on the dialect if not 256×192
 - [ ] test: boot ROM, inject a program, assert on display memory
 
@@ -70,12 +84,16 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 
 - [ ] `keyboardLayout.ts` — `KeyboardLayout` data; key tokens match emulator `setKey`
-- [ ] `samples/` + `samples.ts` — canonical `hello`/`circles`/`breakout`/`maze`
-      ported to this BASIC (degrade gracefully; `hello` is the starter)
-- [ ] finalize `aiProfile.ts` (model, system prompt teaching the dialect, maxTokens)
+- [ ] `samples/` + `samples.ts` — the canonical set from the audit (currently
+      `hello`/`circles`/`breakout`/`maze`/`kaleido`) ported to this BASIC
+      (degrade gracefully; `hello` is the starter)
+- [ ] finalize `aiProfile.ts` (system prompt teaching the dialect, maxTokens)
 - [ ] `index.ts` — assemble the full `Dialect`
-- [ ] **register in `src/dialects/registry.ts`**
-- [ ] optional `.virtual-keyboard.vk-theme-<id>` block in `src/styles.css`
+- [ ] **register in `src/dialects/registry.ts` and add the `<verb>` entry to
+      `SHARE_VERBS` in `src/player/routes.ts` in the same change** —
+      `routes.test.ts` enforces a strict bijection with the registry
+- [ ] optional `.virtual-keyboard.vk-theme-<id>` block in
+      `src/keyboard/VirtualKeyboard.css`
 - [ ] tests: keyboard-layout validation, keyboard matrix (physical+virtual union),
       samples tokenize cleanly
 
@@ -93,13 +111,34 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.
 
-## Stage 5 — Polish / optional ⬜
+## Stage 5 — Memory map & runtime introspection ⬜
 
-- [ ] `readVariables()` on the emulator + variable watcher support
-- [ ] richer build targets (disc/UEF/etc.)
-- [ ] dialect quirks (e.g. dot-abbreviation expansion)
-- [ ] AI-profile accuracy pass
-- [ ] keyboard theming / function-key strip
+- [ ] `memoryMap.ts` — `MemoryMap` regions (+ `memoryWrites`/`addressNotation`
+      if not the defaults)
+- [ ] `memoryBlocks.ts` — `MemoryBlocksSupport` (+ machine-side block
+      load/inject support in `loadProgram`; `listingLayout.ts` if blocks live
+      in the listing)
+- [ ] `sysvars.ts` / `vars.ts` / `reports.ts` (dialect- or machine-side) →
+      `readVariables()` / `readReport()` on the emulator
+- [ ] `readMemoryStats()` + memory-activity hooks for the memory-map overlay
+- [ ] tests: memory-map layout, block round-trip
+
+**Depends on:** Stages 2–3.
+**Verify:** memory-map + blocks tests; variable watcher shows live vars.
+
+## Stage 6 — Docs & polish ⬜
+
+- [ ] reference docs: `npm run gen:reference` / `npm run gen:escapes` scaffolds,
+      then `docs/reference/<id>.md` + `<id>/{escapes,formats}.md`, data in
+      `docs/reference/data/<id>.ts`, sidebar entry in `docs/.vitepress/config.ts`
+- [ ] roadmap status row in `docs/contributing/dialect-roadmap.md`
+- [ ] `joystickModes` + `setJoystick` where the machine had joysticks
+- [ ] debugger hooks (`debuggable`, `currentLine`, `debugStep`)
+- [ ] emulator sound (`readAudio` / `audioSampleRate`)
+- [ ] richer build targets (disc/UEF/etc.), dialect quirks (e.g.
+      dot-abbreviation expansion)
+- [ ] AI-profile accuracy pass, keyboard theming / function-key strip
 
 **Depends on:** Stage 3.
-**Verify:** watcher shows live vars; targeted tests.
+**Verify:** `npm run docs:dev` renders the new pages; targeted tests; full
+`npm run lint` + `npm run format:check` before finishing.
