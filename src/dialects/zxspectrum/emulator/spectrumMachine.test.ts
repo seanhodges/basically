@@ -67,6 +67,37 @@ describe('SpectrumMachine', () => {
     expect(readScreen(machine, 0, 0, 5)).toBe('HELLO');
   });
 
+  it('renders mid-frame attribute changes per scanline (multicolour / rainbow)', () => {
+    // A machine-code loop that hammers the top-left attribute cell (0x5800)
+    // with an ever-changing value while the frame is drawn. With scanline-
+    // accurate rendering the eight pixel rows of that one character cell sample
+    // different attribute values, so they show more than one colour - the
+    // effect a whole-frame snapshot (single colour per cell) cannot reproduce.
+    const machine = new SpectrumMachine({ rom });
+    const { bytes, errors } = tokenizeProgram('10 RANDOMIZE USR 32768\n');
+    expect(errors).toEqual([]);
+    const raster: MemoryBlock = {
+      id: 'raster',
+      name: 'Raster',
+      address: 0x8000,
+      // LD HL,0x5800 / LD A,0 / (loop) LD (HL),A / INC A / JR loop
+      bytes: new Uint8Array([
+        0x21, 0x00, 0x58, 0x3e, 0x00, 0x77, 0x3c, 0x18, 0xfc,
+      ]),
+      kind: 'code',
+    };
+    machine.loadProgram(buildTap(bytes), { blocks: [raster] });
+    for (let i = 0; i < 5; i++) machine.runFrame();
+
+    const frame = machine.frame;
+    const colours = new Set<string>();
+    for (let y = 0; y < 8; y++) {
+      const p = (y * 256 + 0) * 4;
+      colours.add(`${frame[p]},${frame[p + 1]},${frame[p + 2]}`);
+    }
+    expect(colours.size).toBeGreaterThan(1);
+  });
+
   it('reports plausible actual RAM figures while a program runs', () => {
     const machine = new SpectrumMachine({ rom });
     const { bytes, errors } = tokenizeProgram(
