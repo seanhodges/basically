@@ -137,6 +137,16 @@ const FN_DETAIL: Record<string, string> = {
   TL$: 'string without its first character',
   SCREEN$: 'character at a screen cell',
   ATTR: 'attributes of a screen cell',
+  SPACE$: 'a run of spaces',
+  ROUND: 'round to a number of decimals',
+  MAX: 'largest of its arguments',
+  MIN: 'smallest of its arguments',
+  HEX$: 'number as a hex string',
+  BIN$: 'number as a binary string',
+  LOWER$: 'lower-case copy of a string',
+  UPPER$: 'upper-case copy of a string',
+  JOY: 'read a joystick',
+  TEST: 'ink at a graphics point',
 };
 
 /**
@@ -362,6 +372,69 @@ const TRS80: ConstructTemplate[] = [
   ]),
 ];
 
+/** Locomotive BASIC has real ELSE, WHILE…WEND loops and MERGE/CHAIN. */
+const CPC: ConstructTemplate[] = [
+  ifThen(),
+  {
+    label: 'IFELSE',
+    lines: ['IF ${1:condition} THEN ${2} ELSE ${0}'],
+    detail: 'IF … THEN … ELSE',
+  },
+  forNext(),
+  {
+    label: 'WHILE',
+    lines: ['WHILE ${1:condition}', '${0}', 'WEND'],
+    detail: 'WHILE … WEND loop',
+  },
+  gosub('GOSUB'),
+  {
+    label: 'AFTER',
+    lines: ['AFTER ${1:delay} GOSUB ${0:line}'],
+    detail: 'timed subroutine call',
+  },
+  {
+    label: 'EVERY',
+    lines: ['EVERY ${1:period} GOSUB ${0:line}'],
+    detail: 'repeating subroutine call',
+  },
+  {
+    label: 'DEFFN',
+    lines: ['DEF FN${1:name}(${2:x})=${0}'],
+    detail: 'define a function',
+  },
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('LOAD', 'load "filename"'),
+  stringCmd('SAVE', 'save "filename"'),
+  stringCmd('CHAIN', 'load and run "filename"'),
+  stringCmd('MERGE', 'merge "filename"'),
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['BIN$', 'n'],
+    ['CHR$', 'n'],
+    ['HEX$', 'n'],
+    ['INSTR', 'ss'],
+    ['INT', 'n'],
+    ['JOY', 'n'],
+    ['LEFT$', 'sn'],
+    ['LEN', 's'],
+    ['LOWER$', 's'],
+    ['MAX', 'nn'],
+    ['MID$', 'sn'],
+    ['MIN', 'nn'],
+    ['PEEK', 'n'],
+    ['RIGHT$', 'sn'],
+    ['ROUND', 'n'],
+    ['SGN', 'n'],
+    ['SPACE$', 'n'],
+    ['STR$', 'n'],
+    ['STRING$', 'ns'],
+    ['TEST', 'nn'],
+    ['UPPER$', 's'],
+    ['VAL', 's'],
+  ]),
+];
+
 /** Construct templates per dialect id (see {@link Dialect.id}). */
 export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   zx81: ZX81,
@@ -377,6 +450,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   vic20: C64,
   atom: ATOM,
   trs80: TRS80,
+  cpc464: CPC,
 };
 
 /**
