@@ -141,4 +141,31 @@ describe('zxspectrum detokenizer escapes', () => {
     const round = tokenizeProgram(detokenizeProgram(first.bytes));
     expect(Array.from(round.bytes)).toEqual(Array.from(first.bytes));
   });
+
+  it('drops the hidden DEF FN reservation slot from the listing', () => {
+    // 1 DEF FN a(i) <slot> ) = i — the all-zero slot is the ROM's reservation,
+    // which the tokenizer re-derives, so it must not surface as a {=0} splodge.
+    const prog = Uint8Array.from(
+      line(1, [0xce, 0x61, 0x28, 0x69, 0x0e, 0, 0, 0, 0, 0, 0x29, 0x3d, 0x69]),
+    );
+    expect(detokenizeProgram(prog)).toBe('1 DEF FN a(i)=i\n');
+    const round = tokenizeProgram(detokenizeProgram(prog));
+    expect(round.errors).toEqual([]);
+    expect(Array.from(round.bytes)).toEqual(Array.from(prog));
+  });
+
+  it('keeps a non-zero DEF FN reservation as a {=…} override', () => {
+    // A DEF FN line saved after an FN call ran holds a live value in the slot;
+    // that must round-trip, so it stays as an override rather than being lost.
+    const prog = Uint8Array.from(
+      line(
+        1,
+        [0xce, 0x61, 0x28, 0x69, 0x0e, 0, 0, 0x2a, 0, 0, 0x29, 0x3d, 0x69],
+      ),
+    );
+    expect(detokenizeProgram(prog)).toBe('1 DEF FN a(i{=42})=i\n');
+    const round = tokenizeProgram(detokenizeProgram(prog));
+    expect(round.errors).toEqual([]);
+    expect(Array.from(round.bytes)).toEqual(Array.from(prog));
+  });
 });

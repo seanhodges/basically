@@ -84,6 +84,13 @@ export function detokenizeProgram(
     let text = `${lineNo} `;
     let pendingBoundary = false;
     let inString = false;
+    // DEF FN parameter reservation tracking (mirrors the tokenizer): the hidden
+    // 0x0E + five zero bytes the ROM reserves after each parameter is dropped
+    // from the listing - the tokenizer re-derives it - so DEF FN reads cleanly.
+    // `awaitingDefFnParen` spans the DEF FN token to its `(`, `inDefFnParams`
+    // spans the `(` to its `)`.
+    let awaitingDefFnParen = false;
+    let inDefFnParams = false;
     // Mirrors the tokenizer's `prevSignificant`: the previous significant char
     // the *re-tokenized* source would carry (a space after a keyword or an
     // escape, the char itself after a plain byte, '0' after a number). Only
@@ -146,6 +153,15 @@ export function detokenizeProgram(
         // dropped (the tokenizer re-derives it). When it differs (a protection
         // trick, or absent digits) emit a `{=…}` override so it survives.
         const stored = program.slice(i + 1, i + 6);
+        // A DEF FN parameter's hidden reservation slot: an all-zero form the
+        // tokenizer re-inserts automatically, so drop it entirely (no `{=0}`
+        // splodge). A non-zero form (a DEF FN line saved after an FN call ran)
+        // falls through to the `{=…}` override path so its value round-trips.
+        if (inDefFnParams && stored.every((byte) => byte === 0)) {
+          prevSig = ' ';
+          i += 6;
+          continue;
+        }
         const printed = printedNumberBefore(program, i);
         let canonical = false;
         if (printed !== '') {
@@ -226,9 +242,20 @@ export function detokenizeProgram(
         if (/[A-Za-z#]/.test(kw.word[kw.word.length - 1]!)) {
           pendingBoundary = true;
         }
+        if (kw.word === 'DEF FN') awaitingDefFnParen = true;
         prevSig = ' ';
         i++;
         continue;
+      }
+      // Track the DEF FN parameter parentheses so the hidden reservation slots
+      // inside them get suppressed. `(`/`)` inside a string are handled by the
+      // inString branch above and never reach here, so an expression's own
+      // parens after `)` can't re-arm this.
+      if (b === 0x28 && awaitingDefFnParen) {
+        awaitingDefFnParen = false;
+        inDefFnParams = true;
+      } else if (b === 0x29 && inDefFnParams) {
+        inDefFnParams = false;
       }
       // Any other byte: decode to its editor form so nothing is dropped.
       // decodeSpan yields `{0xNN}` / `{INK n}` / `\a` escapes for control and

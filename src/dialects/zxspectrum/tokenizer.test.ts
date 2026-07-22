@@ -130,4 +130,60 @@ describe('zxspectrum tokenizer', () => {
     expect(tokenizeProgram('20 PRINT 1\n10 PRINT 2\n').errors.length).toBe(1);
     expect(tokenizeProgram('99999 PRINT 1\n').errors.length).toBe(1);
   });
+
+  describe('DEF FN parameter reservation', () => {
+    // The ROM reserves a hidden 0x0E + five zero bytes after each DEF FN
+    // parameter so a later FN call has somewhere to store the argument; without
+    // it the program trips a "Q Parameter error". The tokenizer inserts it.
+    it('reserves the hidden slot after a single parameter', () => {
+      // CE 61('a') 28('(') 69('i') 0E 00*5 29(')') 3D('=') 69('i') 0D
+      expect(bytes('1 DEF FN a(i)=i\n').slice(4)).toEqual([
+        0xce, 0x61, 0x28, 0x69, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x29, 0x3d,
+        0x69, 0x0d,
+      ]);
+    });
+
+    it('reserves a slot after each of several parameters', () => {
+      // CE s ( x <slot> , y <slot> ) = x + y
+      expect(bytes('1 DEF FN s(x,y)=x+y\n').slice(4)).toEqual([
+        0xce, 0x73, 0x28, 0x78, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x79,
+        0x0e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x29, 0x3d, 0x78, 0x2b, 0x79, 0x0d,
+      ]);
+    });
+
+    it('reserves no slot for an empty parameter list', () => {
+      // CE r ( ) = RND — no 0x0E anywhere.
+      const b = bytes('1 DEF FN r()=RND\n');
+      expect(b).not.toContain(0x0e);
+    });
+
+    it('reserves a slot after a string parameter (name and its $)', () => {
+      // CE a $ ( x $ <slot> ) = x $ — exactly one marker, right after `x$`.
+      const b = bytes('1 DEF FN a$(x$)=x$\n').slice(4);
+      expect(b).toEqual([
+        0xce, 0x61, 0x24, 0x28, 0x78, 0x24, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x29, 0x3d, 0x78, 0x24, 0x0d,
+      ]);
+      expect(b.filter((x) => x === 0x0e)).toHaveLength(1);
+    });
+
+    it('treats the manual {=0} hack as identical to the plain form', () => {
+      // The old workaround still works and produces byte-identical output (no
+      // double slot), so existing programs/imports keep round-tripping.
+      expect(bytes('1 DEF FN a(i{=0})=i\n')).toEqual(
+        bytes('1 DEF FN a(i)=i\n'),
+      );
+    });
+
+    it('round-trips through the detokenizer without a {=0} splodge', () => {
+      const src = '1 DEF FN a(i)=i\n2 DEF FN s(x,y)=x+y\n3 PRINT FN a(42)\n';
+      const first = tokenizeProgram(src);
+      expect(first.errors).toEqual([]);
+      const listing = detokenizeProgram(first.bytes);
+      expect(listing).not.toContain('{=');
+      const round = tokenizeProgram(listing);
+      expect(round.errors).toEqual([]);
+      expect(Array.from(round.bytes)).toEqual(Array.from(first.bytes));
+    });
+  });
 });

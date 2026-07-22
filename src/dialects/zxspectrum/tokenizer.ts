@@ -207,6 +207,16 @@ function tokenizeBody(
   // statement keyword is still "nonsense in BASIC".
   let leadingControlEscape = false;
   let leadingOtherContent = false;
+  // DEF FN parameter reservation. On real hardware the ROM's DEF FN command
+  // reserves a hidden 6-byte slot - the number marker 0x0E plus five zero bytes
+  // - after each parameter, so a later FN call has somewhere to store the
+  // argument value (missing slots trip a "Q Parameter error"). We insert them
+  // transparently: `awaitingDefFnParen` spans the DEF FN token to its `(`,
+  // `inDefFnParams` spans the `(` to its `)`, and `paramPending` marks that a
+  // parameter name has been emitted and still needs its slot.
+  let awaitingDefFnParen = false;
+  let inDefFnParams = false;
+  let paramPending = false;
 
   const fail = (message: string, at: number): null => {
     errors.push({ line: editorLine, column: colOffset + at, message });
@@ -352,10 +362,36 @@ function tokenizeBody(
       } else if (kw.canonical === 'BIN') {
         i = emitBin(out, body, upper, i);
         prevSignificant = '0';
+      } else if (kw.canonical === 'DEF FN') {
+        awaitingDefFnParen = true;
       }
       break;
     }
     if (matched) continue;
+
+    // DEF FN parameter list: reserve the ROM's hidden 6-byte value slot after
+    // each parameter (see the flags above). The opening `(` starts the list;
+    // each `,` or the closing `)` flushes the pending parameter's slot first.
+    if (awaitingDefFnParen && ch === '(') {
+      out.push(0x28);
+      awaitingDefFnParen = false;
+      inDefFnParams = true;
+      paramPending = false;
+      prevSignificant = '(';
+      i++;
+      continue;
+    }
+    if (inDefFnParams && (ch === ',' || ch === ')')) {
+      if (paramPending) {
+        out.push(NUMBER_MARKER, 0, 0, 0, 0, 0);
+        paramPending = false;
+      }
+      out.push(ch.charCodeAt(0));
+      if (ch === ')') inDefFnParams = false;
+      prevSignificant = ch;
+      i++;
+      continue;
+    }
 
     // Embedded escapes outside strings, accepted so a detokenized listing with
     // control/graphics bytes re-tokenizes byte-exactly: a `{=…}` numeric
@@ -370,6 +406,11 @@ function tokenizeBody(
         out.push(NUMBER_MARKER, ...override.bytes);
         i = override.end;
         prevSignificant = '0';
+        // A `{=…}` override inside a DEF FN parameter list *is* that
+        // parameter's reserved slot, so don't also auto-insert one. Keeps the
+        // manual `DEF FN a(i{=0})` hack byte-identical and preserves a non-zero
+        // reserved value imported from a real tape.
+        if (inDefFnParams) paramPending = false;
         continue;
       }
     }
@@ -420,6 +461,9 @@ function tokenizeBody(
     }
 
     if (!emitChar(body[i]!, i)) return null;
+    // A parameter name char (a letter or `$`) inside a DEF FN list: mark that a
+    // reserved slot is now owed, to be flushed at the next `,` or `)`.
+    if (inDefFnParams && IDENT.test(body[i]!)) paramPending = true;
     prevSignificant = body[i]!;
     i++;
   }
