@@ -24,7 +24,12 @@ import { readSpectrumVariables } from '../../zxspectrum/vars';
 import { readSpectrumReport } from '../../zxspectrum/reports';
 import { SpectrumKeyboard } from './keyboard';
 import { Beeper, BEEPER_SAMPLE_RATE } from '../../zxspectrum/emulator/beeper';
-import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
+import {
+  renderScanline,
+  renderDisplay,
+  DISPLAY_WIDTH,
+  DISPLAY_HEIGHT,
+} from './display';
 import { buildTap, codeTap, parseTap } from '../tapfile';
 import { PPC, PROG, STKEND, RAMTOP } from '../../zxspectrum/sysvars';
 import {
@@ -33,6 +38,12 @@ import {
 } from '../../zxspectrum/emulator/blockInject';
 
 const TSTATES_PER_FRAME = 70908; // 3.5469MHz / ~50.02Hz (128K ULA frame)
+const TSTATES_PER_LINE = 228; // one 128K raster line (311 lines x 228 = 70908)
+// T-states from the frame interrupt to the ULA fetching the first display line.
+// Display line `sy` (0..191) is fetched at DISPLAY_START_T + sy * TSTATES_PER_LINE;
+// sampling the screen then renders mid-frame attribute rewrites (the multicolour
+// / "rainbow" effect) at per-scanline resolution.
+const DISPLAY_START_T = 14361;
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 400; // the 128 menu takes longer than the 48K prompt
 const LD_BYTES = 0x0556; // 48 BASIC ROM tape-loader entry; trapped for flash loading
@@ -90,6 +101,13 @@ export class Spectrum128Machine implements MachineEmulator {
   private speed = 1;
   private frameCount = 0;
   private imageData: ImageData | null = null;
+  /**
+   * Display framebuffer, filled scanline-by-scanline during runFrame and blitted
+   * by renderTo. Persistent so rendering is decoupled from the host's rAF call.
+   */
+  private readonly frameBuffer = new Uint8ClampedArray(
+    DISPLAY_WIDTH * DISPLAY_HEIGHT * 4,
+  );
   private disposed = false;
   /** Header + data blocks waiting to be injected at the next LOAD. */
   private pending: { header: Uint8Array; data: Uint8Array } | null = null;
@@ -174,11 +192,31 @@ export class Spectrum128Machine implements MachineEmulator {
     let cycles = 0;
     if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
 
+    // Render whichever bank (5 or 7) the ULA is displaying (0x7FFD bit 3).
+    const reader = { read: this.memory.readScreen };
+    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
+    let nextLine = 0;
     while (cycles < budget) {
       this.frameCycle = cycles; // timestamp any beeper write in this instruction
       const { t, halted } = this.stepInstruction();
       if (halted) break; // idle until the next frame's interrupt
       cycles += t;
+      // Draw every display line whose ULA fetch time we've now reached, so a
+      // mid-frame attribute write lands on the correct scanline (sampled at most
+      // one instruction, <=~23 T << 228 T/line, after its exact fetch point).
+      while (
+        nextLine < DISPLAY_HEIGHT &&
+        cycles >= DISPLAY_START_T + nextLine * TSTATES_PER_LINE
+      ) {
+        renderScanline(reader, this.frameBuffer, nextLine, flashPhase);
+        nextLine++;
+      }
+    }
+    // HALT before the frame ended, or a slow-mo budget shorter than one frame:
+    // fill any lines we never reached from the final memory contents.
+    while (nextLine < DISPLAY_HEIGHT) {
+      renderScanline(reader, this.frameBuffer, nextLine, flashPhase);
+      nextLine++;
     }
     this.frameCount++;
   }
@@ -208,6 +246,20 @@ export class Spectrum128Machine implements MachineEmulator {
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
+  /**
+   * Fill the framebuffer from the current memory contents in one pass. Used by
+   * debugStep, where the frame is paused mid-way and scanline timing is moot -
+   * the visible screen is just a snapshot of wherever execution stopped.
+   */
+  private renderWholeFrame(): void {
+    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
+    renderDisplay(
+      { read: this.memory.readScreen },
+      this.frameBuffer,
+      flashPhase,
+    );
+  }
+
   debugStep(opts: DebugStepOptions): DebugStepResult {
     const budget = TSTATES_PER_FRAME * this.speed;
     let cycles = 0;
@@ -227,17 +279,20 @@ export class Spectrum128Machine implements MachineEmulator {
       if (opts.mode === 'step') {
         if (opts.fromLine === null || line !== opts.fromLine) {
           this.frameCount++;
+          this.renderWholeFrame();
           return { paused: true, line };
         }
       } else {
         if (!armed && line !== opts.fromLine) armed = true;
         if (armed && opts.breakpoints.has(line)) {
           this.frameCount++;
+          this.renderWholeFrame();
           return { paused: true, line };
         }
       }
     }
     this.frameCount++;
+    this.renderWholeFrame();
     return { paused: false, line: this.currentLine() };
   }
 
@@ -588,13 +643,8 @@ export class Spectrum128Machine implements MachineEmulator {
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
-    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
-    // Render whichever bank (5 or 7) the ULA is displaying (0x7FFD bit 3).
-    renderDisplay(
-      { read: this.memory.readScreen },
-      this.imageData.data,
-      flashPhase,
-    );
+    // The framebuffer was drawn during runFrame/debugStep; just present it.
+    this.imageData.data.set(this.frameBuffer);
     ctx.putImageData(this.imageData, 0, 0);
   }
 
@@ -610,6 +660,11 @@ export class Spectrum128Machine implements MachineEmulator {
   /** Direct access for tests and debugging. */
   get mem(): Spectrum128Memory {
     return this.memory;
+  }
+
+  /** The last frame's rendered RGBA pixels (256x192). For tests and debugging. */
+  get frame(): Uint8ClampedArray {
+    return this.frameBuffer;
   }
 
   readVariables(): MachineVariable[] {

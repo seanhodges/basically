@@ -37,8 +37,53 @@ function bitmapAddr(y: number, xb: number): number {
 }
 
 /**
- * Render the Spectrum screen into an RGBA buffer (256x192). `flashPhase`
+ * Render one display pixel row (`y` = 0..191) into an RGBA framebuffer,
+ * reading the bitmap and attribute bytes as they stand *now*. Rendering the
+ * screen a scanline at a time - as the ULA fetches it - is what lets a program
+ * that rewrites attribute RAM mid-frame (the multicolour / "rainbow" technique)
+ * show a different colour on each scanline of a character row, instead of the
+ * single per-cell colour a whole-frame snapshot would freeze. `flashPhase`
  * toggles every ~16 frames; when set, FLASH cells swap ink and paper.
+ */
+export function renderScanline(
+  memory: DisplayMemory,
+  pixels: Uint8ClampedArray,
+  y: number,
+  flashPhase: boolean,
+): void {
+  const attrRow = ATTR_BASE + (y >> 3) * 32;
+  for (let xb = 0; xb < 32; xb++) {
+    const bits = memory.read(bitmapAddr(y, xb));
+    const attr = memory.read(attrRow + xb);
+    const bright = (attr >> 6) & 1;
+    let ink = attr & 0x07;
+    let paper = (attr >> 3) & 0x07;
+    if (flashPhase && attr & 0x80) {
+      const t = ink;
+      ink = paper;
+      paper = t;
+    }
+    const inkRGB = PALETTE[bright]![ink]!;
+    const paperRGB = PALETTE[bright]![paper]!;
+
+    let p = (y * DISPLAY_WIDTH + xb * 8) * 4;
+    for (let bit = 0; bit < 8; bit++) {
+      const on = (bits & (0x80 >> bit)) !== 0;
+      const rgb = on ? inkRGB : paperRGB;
+      pixels[p] = rgb[0];
+      pixels[p + 1] = rgb[1];
+      pixels[p + 2] = rgb[2];
+      pixels[p + 3] = 0xff;
+      p += 4;
+    }
+  }
+}
+
+/**
+ * Render the whole Spectrum screen into an RGBA buffer (256x192) from the
+ * current memory contents - a per-frame snapshot. Equivalent to calling
+ * {@link renderScanline} for every row; used where a single end-of-frame image
+ * is enough (debug pause). `flashPhase` behaves as in {@link renderScanline}.
  */
 export function renderDisplay(
   memory: DisplayMemory,
@@ -46,32 +91,6 @@ export function renderDisplay(
   flashPhase: boolean,
 ): void {
   for (let y = 0; y < DISPLAY_HEIGHT; y++) {
-    const charRow = y >> 3;
-    const attrRow = ATTR_BASE + charRow * 32;
-    for (let xb = 0; xb < 32; xb++) {
-      const bits = memory.read(bitmapAddr(y, xb));
-      const attr = memory.read(attrRow + xb);
-      const bright = (attr >> 6) & 1;
-      let ink = attr & 0x07;
-      let paper = (attr >> 3) & 0x07;
-      if (flashPhase && attr & 0x80) {
-        const t = ink;
-        ink = paper;
-        paper = t;
-      }
-      const inkRGB = PALETTE[bright]![ink]!;
-      const paperRGB = PALETTE[bright]![paper]!;
-
-      let p = (y * DISPLAY_WIDTH + xb * 8) * 4;
-      for (let bit = 0; bit < 8; bit++) {
-        const on = (bits & (0x80 >> bit)) !== 0;
-        const rgb = on ? inkRGB : paperRGB;
-        pixels[p] = rgb[0];
-        pixels[p + 1] = rgb[1];
-        pixels[p + 2] = rgb[2];
-        pixels[p + 3] = 0xff;
-        p += 4;
-      }
-    }
+    renderScanline(memory, pixels, y, flashPhase);
   }
 }

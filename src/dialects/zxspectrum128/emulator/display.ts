@@ -4,6 +4,7 @@
 // bit 3 of port 0x7FFD; Stage 2 of docs/dialect-plans/zxspectrum128.md points
 // renderDisplay at whichever screen bank is currently displayed.
 export {
+  renderScanline,
   renderDisplay,
   DISPLAY_WIDTH,
   DISPLAY_HEIGHT,

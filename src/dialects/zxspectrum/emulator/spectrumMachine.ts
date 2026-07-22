@@ -20,12 +20,23 @@ import { readSpectrumReport } from '../reports';
 import { SpectrumKeyboard } from './keyboard';
 import { applySinclairJoystick, kempstonByte } from './joystick';
 import { Beeper, BEEPER_SAMPLE_RATE } from './beeper';
-import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
+import {
+  renderScanline,
+  renderDisplay,
+  DISPLAY_WIDTH,
+  DISPLAY_HEIGHT,
+} from './display';
 import { buildTap, codeTap, parseTap } from '../tapfile';
 import { PPC, PROG, STKEND, RAMTOP } from '../sysvars';
 import { injectBlocks, minBlockAddress } from './blockInject';
 
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
+const TSTATES_PER_LINE = 224; // one 48K raster line (312 lines x 224 = 69888)
+// T-states from the frame interrupt to the ULA fetching the first display line.
+// Display line `sy` (0..191) is fetched at DISPLAY_START_T + sy * TSTATES_PER_LINE;
+// sampling the screen then is what makes mid-frame attribute rewrites (the
+// multicolour / "rainbow" effect) render at per-scanline resolution.
+const DISPLAY_START_T = 14336;
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 200;
 const LD_BYTES = 0x0556; // ROM tape-loader entry; trapped for flash loading
@@ -44,8 +55,13 @@ const REPORT_R = 0x0806; // ROM "R Tape loading error" report (RST 8, code 0x1A)
  *    behaves exactly as a cassette load (auto-running when the .TAP header
  *    carries an auto-start line).
  *
- * The display is rendered as a per-frame snapshot of screen + attribute memory
- * (see display.ts) - faithful for BASIC programs without cycle-exact video.
+ * The display is generated a scanline at a time as the frame runs (see runFrame
+ * and display.ts): each display line is drawn when the CPU cycle counter reaches
+ * the T-state the ULA would fetch it, so a program that rewrites screen or
+ * attribute memory mid-frame - the multicolour / "rainbow" raster technique -
+ * shows a different colour on each scanline rather than one frozen per-cell
+ * colour. Contended-memory timing is still not modelled (it does not affect the
+ * visible result here).
  */
 export class SpectrumMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
@@ -66,6 +82,13 @@ export class SpectrumMachine implements MachineEmulator {
   private speed = 1;
   private frameCount = 0;
   private imageData: ImageData | null = null;
+  /**
+   * Display framebuffer, filled scanline-by-scanline during runFrame and blitted
+   * by renderTo. Persistent so rendering is decoupled from the host's rAF call.
+   */
+  private readonly frameBuffer = new Uint8ClampedArray(
+    DISPLAY_WIDTH * DISPLAY_HEIGHT * 4,
+  );
   private disposed = false;
   /** Header + data blocks waiting to be injected at the next LOAD. */
   private pending: { header: Uint8Array; data: Uint8Array } | null = null;
@@ -166,11 +189,30 @@ export class SpectrumMachine implements MachineEmulator {
     // One maskable interrupt per frame (IM1) when interrupts are enabled.
     if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
 
+    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
+    let nextLine = 0;
     while (cycles < budget) {
       this.frameCycle = cycles; // timestamp any beeper write in this instruction
       const { t, halted } = this.stepInstruction();
       if (halted) break; // idle until the next frame's interrupt
       cycles += t;
+      // Draw every display line whose ULA fetch time we've now reached. The
+      // line is sampled at most one instruction (<=~23 T << 224 T/line) after
+      // its exact fetch point, so mid-frame attribute writes land on the right
+      // scanline.
+      while (
+        nextLine < DISPLAY_HEIGHT &&
+        cycles >= DISPLAY_START_T + nextLine * TSTATES_PER_LINE
+      ) {
+        renderScanline(this.memory, this.frameBuffer, nextLine, flashPhase);
+        nextLine++;
+      }
+    }
+    // HALT before the frame ended, or a slow-mo budget shorter than one frame:
+    // fill any lines we never reached from the final memory contents.
+    while (nextLine < DISPLAY_HEIGHT) {
+      renderScanline(this.memory, this.frameBuffer, nextLine, flashPhase);
+      nextLine++;
     }
     this.frameCount++;
   }
@@ -178,6 +220,16 @@ export class SpectrumMachine implements MachineEmulator {
   /** Mono beeper samples synthesized over the last frame (drains; see beeper.ts). */
   readAudio(): Float32Array {
     return this.beeper.render(TSTATES_PER_FRAME);
+  }
+
+  /**
+   * Fill the framebuffer from the current memory contents in one pass. Used by
+   * debugStep, where the frame is paused mid-way and scanline timing is moot -
+   * the visible screen is just a snapshot of wherever execution stopped.
+   */
+  private renderWholeFrame(): void {
+    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
+    renderDisplay(this.memory, this.frameBuffer, flashPhase);
   }
 
   /**
@@ -209,17 +261,20 @@ export class SpectrumMachine implements MachineEmulator {
       if (opts.mode === 'step') {
         if (opts.fromLine === null || line !== opts.fromLine) {
           this.frameCount++;
+          this.renderWholeFrame();
           return { paused: true, line };
         }
       } else {
         if (!armed && line !== opts.fromLine) armed = true;
         if (armed && opts.breakpoints.has(line)) {
           this.frameCount++;
+          this.renderWholeFrame();
           return { paused: true, line };
         }
       }
     }
     this.frameCount++;
+    this.renderWholeFrame();
     return { paused: false, line: this.currentLine() };
   }
 
@@ -482,8 +537,8 @@ export class SpectrumMachine implements MachineEmulator {
     if (!this.imageData) {
       this.imageData = ctx.createImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
-    const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
-    renderDisplay(this.memory, this.imageData.data, flashPhase);
+    // The framebuffer was drawn during runFrame/debugStep; just present it.
+    this.imageData.data.set(this.frameBuffer);
     ctx.putImageData(this.imageData, 0, 0);
   }
 
@@ -499,6 +554,11 @@ export class SpectrumMachine implements MachineEmulator {
   /** Direct access for tests and debugging. */
   get mem(): SpectrumMemory {
     return this.memory;
+  }
+
+  /** The last frame's rendered RGBA pixels (256x192). For tests and debugging. */
+  get frame(): Uint8ClampedArray {
+    return this.frameBuffer;
   }
 
   readVariables(): MachineVariable[] {
