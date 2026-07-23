@@ -293,7 +293,9 @@ function tokenizeBody(
 
   /** Encode an integer constant in its smallest form. */
   const emitInt = (value: number): void => {
-    if (value <= 10) {
+    if (value <= 9) {
+      // The single-byte integer tokens &0E-&17 cover 0-9 only; 10 needs the
+      // 8-bit form (&18 is not a numeric constant, so the ROM would reject it).
       out.push(SMALL_INT_BASE + value);
     } else if (value <= 0xff) {
       out.push(BYTE_INT, value);
