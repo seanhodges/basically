@@ -83,6 +83,30 @@ test('the Play button restarts the running program', async ({ page }) => {
   await expect.poll(() => canvasPainted(page), { timeout: 30_000 }).toBe(true);
 });
 
+test('the export button opens the hardware-export dialog', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.route(SHARE_GLOB, shareGet({ body: zx81Record() }));
+  await page.goto(`/load/${SHARE_ID}`);
+
+  await expect(page.getByRole('button', { name: '▶ Play' })).toBeVisible({
+    timeout: 30_000,
+  });
+
+  // The floppy-disk button next to Play opens the same TransferDialog the IDE
+  // uses, offering the active dialect's file/cassette/serial exports.
+  await page.getByRole('button', { name: 'Export to real hardware' }).click();
+  const dialog = page.getByRole('heading', { name: 'Run on real hardware' });
+  await expect(dialog).toBeVisible();
+  // ZX81 has cassette audio, so the tape controls are offered.
+  await expect(
+    page.getByRole('button', { name: '▶ Play through speakers' }),
+  ).toBeVisible();
+
+  // Closing dismisses it.
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
 test('shows an error notice when the share is not found', async ({ page }) => {
   await page.route(
     SHARE_GLOB,
