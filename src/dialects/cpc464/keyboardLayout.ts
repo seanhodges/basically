@@ -16,7 +16,7 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
  *
  * Key tokens are exactly the matrix tokens the emulator's `setKey` decodes
  * (`src/emulator/cpc/keyboard.ts` — single letters `A`-`Z`, `Digit0`-`Digit9`,
- * `Return`, `Del`, `Shift`, `Copy`, `CursorUp`…, `F0`-`F9`), so the virtual
+ * `Return`, `Del`, `Shift`, `CursorUp`…, `F0`-`F9`), so the virtual
  * keyboard and the physical `keyEvent` map share one vocabulary. The CPC has
  * more dedicated punctuation keys (`- = ^ @ [ ] : ; \\ …`) than fit a uniform
  * ten-key grid, so — as the BBC/Atom layouts do — the overflow symbols are the
@@ -25,7 +25,7 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
  *
  * The main block sits on the standard 40-column five-row template, assembled
  * with the shared `templateRows` helpers (`centerRow`/`bottomRow`) like every
- * other dialect: the bottom row is SHIFT · a centred SPACE · COPY · DEL. Rather
+ * other dialect: the bottom row is SHIFT · a centred SPACE · " · DEL. Rather
  * than four dedicated cursor keys, the cursor cluster is a CURSOR mode that
  * overlays `↑ ← ↓ →` on the W/A/S/D keys (moving the editor caret); the real
  * `CursorUp`/… matrix cells stay reachable via the physical arrow keys and the
@@ -146,18 +146,18 @@ const delKey: KeyDef = {
   labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null, null],
 };
 
-/** COPY doubles as the on-screen controller's fire button (CPC convention). */
-const copyKey: KeyDef = {
-  id: 'Copy',
+/** Double quote, typed as SHIFT+2 on the CPC matrix (as the BBC/Atom do). */
+const quoteKey: KeyDef = {
+  id: 'Quote',
   spanX: 4,
-  emits: ['Copy'],
-  labels: [{ text: 'COPY', editor: null }, null, null, null],
+  emits: ['Shift', 'Digit2'],
+  labels: [{ text: '"' }, null, null, null],
 };
 
-// Bottom row: SHIFT · centred SPACE · COPY · DEL, via the shared helper that
-// pads the flanks and sizes the space bar to the 40-col grid (BBC/Atom shape).
+// Bottom row: SHIFT · centred SPACE · " · DEL, via the shared helper that pads
+// the flanks and sizes the space bar to the 40-col grid (BBC/Atom shape).
 const bottomRowKeys: KeyDef[] = bottomRow([shiftKey], spaceKey, [
-  copyKey,
+  quoteKey,
   delKey,
 ]);
 
@@ -240,7 +240,7 @@ export const cpc464KeyboardLayout: KeyboardLayout = {
   controllerKeys,
   glyphs: {},
   options: { minHoldFrames: 4 },
-  // CPC keyboard-joystick: the cursor cluster steers, COPY (and SPACE) fire.
+  // CPC keyboard-joystick: the cursor cluster steers, SPACE / ENTER fire.
   // The cursor keys are the non-rendered `controllerKeys` above (surfaced to the
   // typist as the CURSOR overlay on WASD); the real hardware joystick (matrix
   // line 9 via setJoystick, `native` mode) is a separate path.
@@ -251,7 +251,7 @@ export const cpc464KeyboardLayout: KeyboardLayout = {
       left: 'CursorLeft',
       right: 'CursorRight',
       fire1: 'Space',
-      fire2: 'Copy',
+      fire2: 'Return',
     },
   },
 };

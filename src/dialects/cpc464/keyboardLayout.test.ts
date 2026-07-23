@@ -80,8 +80,10 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('F')!, 'cursor')).toEqual({
       insert: 'F',
     });
-    // COPY is a machine-only key: no editor action.
-    expect(resolveEditorAction(layout, byId.get('Copy')!, 'base')).toBeNull();
+    // The bottom-row quote key inserts a double quote.
+    expect(resolveEditorAction(layout, byId.get('Quote')!, 'base')).toEqual({
+      insert: '"',
+    });
   });
 });
 
