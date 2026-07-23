@@ -803,26 +803,34 @@
 
 /* ---------------------------------------------------------------------------
    Amstrad CPC 464 keyboard theme: the machine's signature blue keycaps on the
-   numeric-keypad function keys (f0-f9) and the cursor cluster, with the SYM
-   punctuation page low-right on the keycap in the same blue. Activated by the
-   layout's `theme: 'vk-theme-cpc464'`. */
-.vk-theme-cpc464 .vk-style-fn .vk-keycap,
-.vk-theme-cpc464 .vk-style-cursor .vk-keycap {
+   numeric-keypad function keys (f0-f9), with the SYM punctuation page low-right
+   and the CURSOR overlay (↑←↓→ on WASD) top-right on the keycap in the same
+   blue. Activated by the layout's `theme: 'vk-theme-cpc464'`. */
+.vk-theme-cpc464 .vk-style-fn .vk-keycap {
   background: linear-gradient(#2f6fb0, #23517f);
 }
 
-.vk-theme-cpc464 .vk-style-fn .vk-label,
-.vk-theme-cpc464 .vk-style-cursor .vk-label {
+.vk-theme-cpc464 .vk-style-fn .vk-label {
   color: #eaf2fb;
+}
+
+.vk-theme-cpc464:not(.vk-compact) .vk-pos-br,
+.vk-theme-cpc464:not(.vk-compact) .vk-pos-tr {
+  font-size: 9px;
+  color: #6f9bd1;
 }
 
 .vk-theme-cpc464:not(.vk-compact) .vk-pos-br {
   right: 4px;
   bottom: 15px;
-  font-size: 9px;
-  color: #6f9bd1;
 }
 
-.vk-theme-cpc464 .vk-pos-br.vk-active {
+.vk-theme-cpc464:not(.vk-compact) .vk-pos-tr {
+  right: 4px;
+  top: 4px;
+}
+
+.vk-theme-cpc464 .vk-pos-br.vk-active,
+.vk-theme-cpc464 .vk-pos-tr.vk-active {
   color: #cfe0ff;
 }

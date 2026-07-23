@@ -36,11 +36,15 @@ export const CONTROLLER_ROLE_NAMES: Record<ControllerRole, string> = {
 /** User remap overrides for a dialect: role → KeyDef id. */
 export type ControllerOverrides = Partial<Record<ControllerRole, string>>;
 
-/** Index every key in a layout (rows + top-strip function keys) by id. */
+/**
+ * Index every key a controller may bind to (rows + top-strip function keys +
+ * the non-rendered {@link KeyboardLayout.controllerKeys}) by id.
+ */
 export function indexKeyDefs(layout: KeyboardLayout): Map<string, KeyDef> {
   const map = new Map<string, KeyDef>();
   for (const row of layout.rows) for (const k of row) map.set(k.id, k);
   for (const k of layout.functionKeys ?? []) map.set(k.id, k);
+  for (const k of layout.controllerKeys ?? []) map.set(k.id, k);
   return map;
 }
 

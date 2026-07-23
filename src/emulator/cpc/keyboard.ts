@@ -4,10 +4,12 @@
  * then reads that line back, one bit per key, ACTIVE LOW (a pressed key reads
  * 0). Line 9 doubles as joystick 0.
  *
- * Key tokens are DOM `KeyboardEvent.code` style strings so the virtual keyboard
- * and the physical `keyEvent` map share one vocabulary (the ZX81/Spectrum
- * precedent). {@link MATRIX} is the single source of truth; every other table
- * is derived from it.
+ * Key tokens are a CPC-specific vocabulary shared by the virtual keyboard and
+ * the physical `keyEvent` map (`CODE_TO_TOKEN`): single letters `A`-`Z`,
+ * `Digit0`-`Digit9`, named punctuation/control cells (`BracketOpen`, `At`,
+ * `Return`, `Del`, `Copy`, `Esc`…) and `CursorUp`/… - not raw DOM
+ * `KeyboardEvent.code`s. {@link MATRIX} is the single source of truth; every
+ * other table is derived from it.
  */
 
 /**
@@ -20,7 +22,7 @@
  * ROM and OCR-ing the echoed glyph, so `setKey` drives exactly the cell the
  * firmware decodes. The remaining control cells (cursor cluster, Shift, Ctrl,
  * Esc, Tab, Caps, Copy, Clr, keypad Enter and the joystick row) are the
- * canonical CPC positions; Stage 3's keyboard-layout work verifies those.
+ * canonical CPC positions.
  */
 export const MATRIX: readonly (readonly (string | null)[])[] = [
   // line 0: CurUp CurRight CurDown f9 f6 f3 Enter(keypad) f.

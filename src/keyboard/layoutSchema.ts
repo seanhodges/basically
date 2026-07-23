@@ -37,6 +37,15 @@ export interface KeyboardLayout {
    * `emits` tokens drive the matrix; they have no editor action.
    */
   functionKeys?: KeyDef[];
+  /**
+   * Matrix-only keys the controller may bind to but that are never rendered on
+   * the on-screen keyboard. Lets a machine expose its game keys to the gamepad
+   * without a dedicated keycap - e.g. the CPC's cursor cluster, surfaced as a
+   * CURSOR overlay on the WASD keys rather than four bottom-row keys, while the
+   * keyboard-joystick still presses the real `CursorUp`/… matrix cells. Indexed
+   * for controller binding; ignored by the renderer and the input engine.
+   */
+  controllerKeys?: KeyDef[];
   options?: {
     /** Minimum emulated frames a matrix press is held so the ROM scan sees it. */
     minHoldFrames?: number;
