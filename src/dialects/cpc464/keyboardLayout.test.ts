@@ -8,7 +8,11 @@ import {
   CODE_TO_TOKEN,
 } from '../../emulator/cpc/keyboard';
 
-const allKeys = [...layout.rows.flat(), ...(layout.functionKeys ?? [])];
+const allKeys = [
+  ...layout.rows.flat(),
+  ...(layout.functionKeys ?? []),
+  ...(layout.controllerKeys ?? []),
+];
 const byId = new Map(allKeys.map((k) => [k.id, k]));
 
 describe('cpc464 keyboard layout', () => {
@@ -25,7 +29,7 @@ describe('cpc464 keyboard layout', () => {
     });
   });
 
-  it('labels are index-aligned with the three layers', () => {
+  it('labels are index-aligned with the layers', () => {
     for (const k of allKeys) {
       if (k.style === 'spacer') continue;
       expect(k.labels.length, k.id).toBe(layout.layers.length);
@@ -49,9 +53,6 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Del')!, 'base')).toEqual({
       action: 'backspace',
     });
-    expect(
-      resolveEditorAction(layout, byId.get('CursorLeft')!, 'base'),
-    ).toEqual({ action: 'left' });
     // SHIFT and SYM layers surface the punctuation as editor inserts.
     expect(resolveEditorAction(layout, byId.get('Digit1')!, 'shifted')).toEqual(
       {
@@ -61,8 +62,28 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Digit5')!, 'sym')).toEqual({
       insert: '^',
     });
-    // COPY is a machine-only key: no editor action.
-    expect(resolveEditorAction(layout, byId.get('Copy')!, 'base')).toBeNull();
+    // CURSOR mode overlays the caret moves onto W/A/S/D.
+    expect(resolveEditorAction(layout, byId.get('W')!, 'cursor')).toEqual({
+      action: 'up',
+    });
+    expect(resolveEditorAction(layout, byId.get('A')!, 'cursor')).toEqual({
+      action: 'left',
+    });
+    expect(resolveEditorAction(layout, byId.get('S')!, 'cursor')).toEqual({
+      action: 'down',
+    });
+    expect(resolveEditorAction(layout, byId.get('D')!, 'cursor')).toEqual({
+      action: 'right',
+    });
+    // A letter outside the WASD cluster falls back to typing itself in CURSOR
+    // mode (only W/A/S/D carry the overlay).
+    expect(resolveEditorAction(layout, byId.get('F')!, 'cursor')).toEqual({
+      insert: 'F',
+    });
+    // The bottom-row quote key inserts a double quote.
+    expect(resolveEditorAction(layout, byId.get('Quote')!, 'base')).toEqual({
+      insert: '"',
+    });
   });
 });
 
@@ -117,6 +138,26 @@ describe('cpc464 controller', () => {
       const def = byId.get(id!);
       expect(def, `${role} -> ${id}`).toBeDefined();
       expect(def!.emits.length, id).toBeGreaterThan(0);
+    }
+  });
+
+  it('steers with the cursor cluster via controller-only keys', () => {
+    const cfg = layout.controller!;
+    const renderedIds = new Set(
+      [...layout.rows.flat(), ...(layout.functionKeys ?? [])].map((k) => k.id),
+    );
+    // The directions bind to the real CursorUp/… matrix cells, which live in
+    // controllerKeys and are never drawn as keycaps (the CURSOR overlay is on
+    // WASD instead).
+    for (const [role, token] of [
+      ['up', 'CursorUp'],
+      ['down', 'CursorDown'],
+      ['left', 'CursorLeft'],
+      ['right', 'CursorRight'],
+    ] as const) {
+      expect(cfg.bindings[role]).toBe(token);
+      expect(renderedIds.has(token), `${token} not rendered`).toBe(false);
+      expect(byId.get(token)!.emits).toEqual([token]);
     }
   });
 });

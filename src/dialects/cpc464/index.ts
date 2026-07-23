@@ -32,9 +32,8 @@ import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from '../../emulator/cpc/display';
  * program-area byte layout - binary numeric constants and all - and that
  * tokenized program is the dialect's "image", loadable at &170. The AMSDOS
  * `.bas` container (basfile.ts) wraps/unwraps it for file import/export.
- * Emulation lands in Stage 2 (`src/emulator/cpc/`); the dialect stays
- * unregistered in src/dialects/registry.ts until Stage 3 (which also adds
- * the `mode` share verb to src/player/routes.ts in the same change).
+ * Emulation lands in Stage 2 (`src/emulator/cpc/`), and the dialect is
+ * registered in src/dialects/registry.ts.
  * The CPC 6128 sibling (../cpc6128/) delegates to this dialect.
  */
 export const cpc464: Dialect = {
