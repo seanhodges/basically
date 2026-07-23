@@ -17,8 +17,18 @@ import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 const TSTATES_PER_LINE = 256;
 /** Program area base: BASIC stores tokenized lines from &0170 up. */
 const PROGRAM_BASE = 0x0170;
-/** Frames to let the firmware settle to its "Ready" command loop on boot. */
+/** Frames to run the firmware before giving up on reaching the command loop. */
 const MAX_BOOT_FRAMES = 300;
+/** Frames to settle after the boot screen draws, so the input loop is ready. */
+const BOOT_SETTLE_FRAMES = 40;
+/**
+ * Locomotive BASIC's end-of-program / start-of-variables / start-of-arrays /
+ * end-of-arrays pointers in the 464 workspace. On a freshly injected program
+ * (no variables yet) all four hold the same address - the first byte past the
+ * program's zero-length terminator. Verified by entering a line on the real ROM
+ * and watching which words moved.
+ */
+const BASIC_VAR_POINTERS = [0xae83, 0xae85, 0xae87, 0xae89];
 
 /**
  * The Amstrad CPC as one machine, parameterised by model so the CPC 6128 reuses
@@ -207,39 +217,76 @@ export class CpcMachine implements MachineEmulator {
   }
 
   /**
-   * Boot to BASIC and start the tokenized program. This depends on the genuine
-   * firmware ROM: it runs the machine until the firmware reaches its command
-   * loop, writes the program bytes at {@link PROGRAM_BASE}, fixes the BASIC
-   * pointers and types RUN through the key matrix. With a blank ROM there is no
-   * firmware to reach "Ready", so the boot wait times out - the program bytes
-   * are still injected so a caller can inspect RAM.
+   * Boot to BASIC and run the tokenized program. Runs the firmware to its
+   * command loop, writes the program bytes at {@link PROGRAM_BASE}, points the
+   * BASIC program/variable pointers just past it, injects any memory blocks,
+   * then types RUN through the key matrix (all OS-version independent - the
+   * pointers and the &0170 base are verified against the real 464 ROM). With a
+   * blank ROM the boot wait times out; the program bytes are still injected so a
+   * caller can inspect RAM.
    */
   loadProgram(
     image: Uint8Array,
-    _opts?: {
+    opts?: {
       blocks?: readonly MemoryBlock[];
       autoStart?: number | null;
     },
   ): void {
     this.reset();
     this.bootToReady();
+
     // The tokenized image is the raw program area (line records terminated by a
     // zero length word); drop it in at &0170.
     for (let i = 0; i < image.length; i++) {
       this.memory.write((PROGRAM_BASE + i) & 0xffff, image[i]!);
     }
-    // TODO(stage 2 follow-up): patch the BASIC program/variable pointers and
-    // drive RUN through the key matrix once validated against the real ROM.
-    // Left minimal here because the boot + pointer layout can only be verified
-    // with the firmware image in place (see the dialect plan's Stage 2 ROM task).
+    // Point BASIC's end-of-program / start-of-variables pointers just past the
+    // injected image (all four sit at the same address on a program with no
+    // variables yet), so RUN/LIST see the program.
+    const end = (PROGRAM_BASE + image.length) & 0xffff;
+    for (const p of BASIC_VAR_POINTERS) this.memory.writeWord(p, end);
+
+    // Memory blocks (machine code / data at fixed addresses) go straight to RAM.
+    for (const block of opts?.blocks ?? []) {
+      for (let i = 0; i < block.bytes.length; i++) {
+        this.memory.write((block.address + i) & 0xffff, block.bytes[i]!);
+      }
+    }
+
+    // Drive RUN (optionally `RUN <line>`) through the key matrix and submit.
+    this.type('RUN');
+    const autoStart = opts?.autoStart;
+    if (typeof autoStart === 'number') this.type(' ' + autoStart);
+    this.tapKey('Return', 4, 40);
   }
 
-  /** Run whole frames until the firmware has drawn its boot screen (or give up). */
+  /** Press a key token for `hold` frames, release it, then idle for `gap`. */
+  private tapKey(token: string, hold = 4, gap = 6): void {
+    this.keyboard.setKey(token, true);
+    for (let i = 0; i < hold; i++) this.runFrame();
+    this.keyboard.setKey(token, false);
+    for (let i = 0; i < gap; i++) this.runFrame();
+  }
+
+  /** Type a run of printable characters (letters, digits, space) one at a time. */
+  private type(text: string): void {
+    for (const ch of text.toUpperCase()) {
+      if (ch === ' ') this.tapKey('Space');
+      else if (ch >= '0' && ch <= '9') this.tapKey(`Digit${ch}`);
+      else if (ch >= 'A' && ch <= 'Z') this.tapKey(ch);
+    }
+  }
+
+  /**
+   * Run whole frames until the firmware has reached its command loop. Detected
+   * by the boot screen being drawn while interrupts are enabled, then a settle
+   * period so the "Ready" prompt and key-input loop are fully up.
+   */
   private bootToReady(): void {
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
       this.runFrame();
       if (this.cpu.getIFF1() === 1 && this.screenHasContent()) {
-        for (let i = 0; i < 16; i++) this.runFrame(); // let it settle
+        for (let i = 0; i < BOOT_SETTLE_FRAMES; i++) this.runFrame();
         return;
       }
     }

@@ -12,58 +12,54 @@
 
 /**
  * matrix[line][bit] = key token, or null for an unused matrix cell. Each inner
- * array is ordered bit 0 → bit 7 (the low bit of the scanned byte first). This
- * is the authoritative CPC 464 matrix (cpctech.cpcwiki.de "keyboard"); a few
- * physical keys carry two legends (e.g. the `- =` key), named here by their
- * unshifted glyph.
+ * array is ordered bit 0 → bit 7 (the low bit of the scanned byte first).
+ *
+ * This is the CPC 464 matrix as read back FROM THE REAL FIRMWARE: every
+ * printable cell (lines 3-8), Return, Del and the numeric-keypad function keys
+ * (f0-f9, f.) were reverse-engineered by pressing each (line,bit) on the booted
+ * ROM and OCR-ing the echoed glyph, so `setKey` drives exactly the cell the
+ * firmware decodes. The remaining control cells (cursor cluster, Shift, Ctrl,
+ * Esc, Tab, Caps, Copy, Clr, keypad Enter and the joystick row) are the
+ * canonical CPC positions; Stage 3's keyboard-layout work verifies those.
  */
 export const MATRIX: readonly (readonly (string | null)[])[] = [
-  // line 0: 4 6 8 0 ^ Clr CurLeft CurUp
+  // line 0: CurUp CurRight CurDown f9 f6 f3 Enter(keypad) f.
+  ['CursorUp', 'CursorRight', 'CursorDown', 'F9', 'F6', 'F3', 'Enter', 'FDot'],
+  // line 1: CurLeft Copy f7 f8 f5 f1 f2 f0
+  ['CursorLeft', 'Copy', 'F7', 'F8', 'F5', 'F1', 'F2', 'F0'],
+  // line 2: Clr [ Return ] f4 Shift \ Ctrl
   [
-    'Digit4',
-    'Digit6',
-    'Digit8',
-    'Digit0',
-    'Caret',
     'Clr',
-    'CursorLeft',
-    'CursorUp',
-  ],
-  // line 1: 3 5 7 9 - [ Copy CurRight
-  [
-    'Digit3',
-    'Digit5',
-    'Digit7',
-    'Digit9',
-    'Minus',
     'BracketOpen',
-    'Copy',
-    'CursorRight',
+    'Return',
+    'BracketClose',
+    'F4',
+    'Shift',
+    'Backslash',
+    'Control',
   ],
-  // line 2: E R U O @ Return f7 CurDown
-  ['E', 'R', 'U', 'O', 'At', 'Return', 'F7', 'CursorDown'],
-  // line 3: W T Y I P ] f8 f9
-  ['W', 'T', 'Y', 'I', 'P', 'BracketClose', 'F8', 'F9'],
-  // line 4: S G H L ; f4 f5 f6
-  ['S', 'G', 'H', 'L', 'Semicolon', 'F4', 'F5', 'F6'],
-  // line 5: D F J K : Shift f1 f3
-  ['D', 'F', 'J', 'K', 'Colon', 'Shift', 'F1', 'F3'],
-  // line 6: C B N M / \ f2 Enter(keypad)
-  ['C', 'B', 'N', 'M', 'Slash', 'Backslash', 'F2', 'Enter'],
-  // line 7: X V Space . , Ctrl f0 f.(keypad)
-  ['X', 'V', 'Space', 'Period', 'Comma', 'Control', 'F0', 'FDot'],
-  // line 8: Z A CapsLock Tab (spare) Esc 2 1
-  ['Z', 'A', 'CapsLock', 'Tab', null, 'Esc', 'Digit2', 'Digit1'],
-  // line 9: Del Fire1 Fire2 Fire3 JoyRight JoyLeft JoyDown JoyUp
+  // line 3: ^ - @ P ; : / .
+  ['Caret', 'Minus', 'At', 'P', 'Semicolon', 'Colon', 'Slash', 'Period'],
+  // line 4: 0 9 O I L K M ,
+  ['Digit0', 'Digit9', 'O', 'I', 'L', 'K', 'M', 'Comma'],
+  // line 5: 8 7 U Y H J N Space
+  ['Digit8', 'Digit7', 'U', 'Y', 'H', 'J', 'N', 'Space'],
+  // line 6: 6 5 R T G F B V
+  ['Digit6', 'Digit5', 'R', 'T', 'G', 'F', 'B', 'V'],
+  // line 7: 4 3 E W S D C X
+  ['Digit4', 'Digit3', 'E', 'W', 'S', 'D', 'C', 'X'],
+  // line 8: 1 2 Esc Q Tab A CapsLock Z
+  ['Digit1', 'Digit2', 'Esc', 'Q', 'Tab', 'A', 'CapsLock', 'Z'],
+  // line 9: joystick 0 + Del
   [
-    'Del',
-    'JoyFire1',
-    'JoyFire2',
-    'JoyFire3',
-    'JoyRight',
-    'JoyLeft',
-    'JoyDown',
     'JoyUp',
+    'JoyDown',
+    'JoyLeft',
+    'JoyRight',
+    'JoyFire2',
+    'JoyFire1',
+    'JoySpare',
+    'Del',
   ],
 ];
 
@@ -147,7 +143,12 @@ export class CpcKeyboard {
   setKey(token: string, down: boolean): void {
     const cell = TOKEN_TO_CELL.get(token);
     if (!cell) return;
-    const [line, bit] = cell;
+    this.pressRaw(cell[0], cell[1], down);
+  }
+
+  /** Press/release a raw matrix cell (line 0-9, bit 0-7); active-low. */
+  pressRaw(line: number, bit: number, down: boolean): void {
+    if (line < 0 || line >= 10 || bit < 0 || bit >= 8) return;
     if (down) this.lines[line]! &= ~(1 << bit) & 0xff;
     else this.lines[line]! |= 1 << bit;
   }

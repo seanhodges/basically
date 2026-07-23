@@ -111,8 +111,8 @@ issue — the IDE also supports supplying your own ROM image at runtime.
 
 `cpc/cpc464.rom` is the 32K Amstrad CPC 464 firmware image, formed by
 concatenating the two standard 16K halves: the lower ROM (the CPC 464
-OS/firmware) followed by the upper ROM (Locomotive BASIC 1.0). It is
-copyright © 1984 Amstrad plc / Locomotive Software.
+OS/firmware, CRC32 `815752df`) followed by the upper ROM (Locomotive BASIC 1.0,
+CRC32 `7d9a3bac`). It is copyright © 1984 Amstrad plc / Locomotive Software.
 
 Amstrad has long granted permission for the distribution of its CPC firmware
 ROM images for use with emulators, provided the copyright notice remains
@@ -120,11 +120,7 @@ intact and no fee is charged for the ROM itself — the same stance, and the
 same rights holder, as the Sinclair ROMs above (Amstrad acquired the Sinclair
 computer business in 1986). This is the basis on which open-source emulators
 such as Arnold, CPCemu, Caprice32, WinAPE and JavaCPC distribute these images.
+They are included here, unmodified, solely for use with the bundled emulator.
+(The IDE also supports supplying your own ROM image at runtime.)
 
-_This repository does not bundle the CPC ROM: the emulator loads it from
-`public/roms/cpc/cpc464.rom` at runtime, and the IDE also supports supplying
-your own ROM image. Drop the combined 32K `cpc464.rom` (OS 16K + BASIC 16K)
-there to enable the CPC 464._
-
-If you are the rights holder and want this file removed (once present), please
-open an issue.
+If you are the rights holder and want this file removed, please open an issue.

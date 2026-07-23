@@ -9,28 +9,28 @@ describe('CpcKeyboard matrix', () => {
 
   it('pulls exactly one bit low for a pressed key (active-low)', () => {
     const kb = new CpcKeyboard();
-    // "A" is line 8, bit 1.
+    // "A" is line 8, bit 5 (verified against the real firmware).
     kb.setKey('A', true);
-    expect(kb.readLine(8)).toBe(0xff & ~0b10);
+    expect(kb.readLine(8)).toBe(0xff & ~(1 << 5));
     kb.setKey('A', false);
     expect(kb.readLine(8)).toBe(0xff);
   });
 
   it('places Return and the keypad Enter on different cells', () => {
     const kb = new CpcKeyboard();
-    kb.setKey('Return', true); // line 2, bit 5
-    expect(kb.readLine(2) & (1 << 5)).toBe(0);
-    kb.setKey('Enter', true); // line 6, bit 7 (keypad)
-    expect(kb.readLine(6) & (1 << 7)).toBe(0);
+    kb.setKey('Return', true); // line 2, bit 2
+    expect(kb.readLine(2) & (1 << 2)).toBe(0);
+    kb.setKey('Enter', true); // line 0, bit 6 (numeric keypad)
+    expect(kb.readLine(0) & (1 << 6)).toBe(0);
   });
 
   it('holds several keys at once without cross-talk', () => {
     const kb = new CpcKeyboard();
-    kb.setKey('Shift', true); // line 5, bit 5
-    kb.setKey('E', true); // line 2, bit 0
-    expect(kb.readLine(5) & (1 << 5)).toBe(0);
-    expect(kb.readLine(2) & (1 << 0)).toBe(0);
-    expect(kb.readLine(0)).toBe(0xff); // untouched line
+    kb.setKey('Shift', true); // line 2, bit 5
+    kb.setKey('E', true); // line 7, bit 2
+    expect(kb.readLine(2) & (1 << 5)).toBe(0);
+    expect(kb.readLine(7) & (1 << 2)).toBe(0);
+    expect(kb.readLine(1)).toBe(0xff); // untouched line
   });
 
   it('releaseAll lifts every held key', () => {
@@ -47,14 +47,14 @@ describe('CpcKeyboard physical key events', () => {
     const kb = new CpcKeyboard();
     const ev = { code: 'KeyA' } as KeyboardEvent;
     expect(kb.handleKey(ev, true)).toBe(true);
-    expect(kb.readLine(8) & 0b10).toBe(0); // A pressed
+    expect(kb.readLine(8) & (1 << 5)).toBe(0); // A pressed
     expect(kb.handleKey({ code: 'F13' } as KeyboardEvent, true)).toBe(false);
   });
 
   it('routes the arrow keys to the cursor cluster', () => {
     const kb = new CpcKeyboard();
-    kb.handleKey({ code: 'ArrowUp' } as KeyboardEvent, true); // line 0 bit 7
-    expect(kb.readLine(0) & (1 << 7)).toBe(0);
+    kb.handleKey({ code: 'ArrowUp' } as KeyboardEvent, true); // line 0 bit 0
+    expect(kb.readLine(0) & (1 << 0)).toBe(0);
   });
 });
 
