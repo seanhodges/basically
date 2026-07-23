@@ -34,7 +34,8 @@ import {
 import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import { EmulatorPane, type MachineApi } from '../components/EmulatorPane';
 import { InputOverlayToggle } from '../components/InputOverlayToggle';
-import { CodeIcon } from '../components/icons';
+import { TransferDialog } from '../components/TransferDialog';
+import { CodeIcon, FloppyIcon } from '../components/icons';
 import styles from './PlayerApp.module.css';
 
 type Phase = 'loading' | 'running' | 'incompatible' | 'error';
@@ -104,6 +105,7 @@ export default function PlayerApp({
   const dialect = useIdeStore((s) => s.dialect);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const requestRun = useIdeStore((s) => s.requestRun);
+  const setTransferOpen = useIdeStore((s) => s.setTransferOpen);
   const keyboardEnabled = useIdeStore((s) => s.keyboardEnabled);
   const controllerEnabled = useIdeStore((s) => s.controllerEnabled);
   const setKeyboardEnabledEphemeral = useIdeStore(
@@ -297,6 +299,17 @@ export default function PlayerApp({
         <span className={styles.machineName}>{dialectName(dialectId)}</span>
         <div className={styles.topActions}>
           {phase === 'running' && runButton}
+          {phase === 'running' && (
+            <button
+              type="button"
+              className={styles.exportButton}
+              title="Export to real hardware (files, cassette audio, serial)"
+              aria-label="Export to real hardware"
+              onClick={() => setTransferOpen(true)}
+            >
+              <FloppyIcon />
+            </button>
+          )}
           <InputOverlayToggle
             keyboardEnabled={keyboardEnabled}
             controllerEnabled={controllerEnabled}
@@ -391,6 +404,7 @@ export default function PlayerApp({
           </>
         )}
       </div>
+      <TransferDialog />
     </div>
   );
 }
