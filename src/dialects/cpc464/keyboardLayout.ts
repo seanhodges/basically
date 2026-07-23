@@ -4,6 +4,7 @@ import type {
   KeyLabel,
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
+import { bottomRow, centerRow } from '../../keyboard/templateRows';
 
 /**
  * The Amstrad CPC 464 keyboard as pure layout data.
@@ -15,19 +16,18 @@ import type {
  *
  * Key tokens are exactly the matrix tokens the emulator's `setKey` decodes
  * (`src/emulator/cpc/keyboard.ts` — single letters `A`-`Z`, `Digit0`-`Digit9`,
- * `Return`, `Del`, `Shift`, `CursorUp`…, `Copy`, `F0`-`F9`), so the virtual
- * keyboard and the physical `keyEvent` map share one vocabulary. The CPC has
- * more dedicated punctuation keys (`- = ^ @ [ ] : ; \\ …`) than fit a uniform
- * ten-key grid, so — as the BBC/Atom layouts do — the overflow symbols are the
- * SYM mode's editor inserts on the number/QWERTY rows; the key still emits its
- * base matrix token, but code is written in the editor where SYM applies.
+ * `Return`, `Del`, `Shift`, `Copy`, `F0`-`F9`), so the virtual keyboard and the
+ * physical `keyEvent` map share one vocabulary. The CPC has more dedicated
+ * punctuation keys (`- = ^ @ [ ] : ; \\ …`) than fit a uniform ten-key grid, so
+ * — as the BBC/Atom layouts do — the overflow symbols are the SYM mode's editor
+ * inserts on the number/QWERTY rows; the key still emits its base matrix token,
+ * but code is written in the editor where SYM applies.
  *
- * The main block sits on the standard 40-column five-row template; the bottom
- * row carries the space bar, DEL, the COPY key and the cursor cluster (which the
- * on-screen controller binds as its joystick — the CPC's keyboard-joystick).
- * The numeric-keypad function keys `f0`-`f9` live in the top strip. The 464's
- * coloured keycaps come from the `vk-theme-cpc464` block in VirtualKeyboard.css;
- * the CPC 6128 sibling re-exports these rows under its own grey theme.
+ * The main block sits on the standard 40-column five-row template, assembled
+ * with the shared `templateRows` helpers (`centerRow`/`bottomRow`) like every
+ * other dialect: the bottom row is SHIFT · a centred SPACE · COPY · DEL. The
+ * numeric-keypad function keys `f0`-`f9` live in the top strip. The 464's
+ * coloured keycaps come from the `vk-theme-cpc464` block in VirtualKeyboard.css.
  */
 
 type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
@@ -96,7 +96,7 @@ const homeRow = [
   } satisfies KeyDef,
 ];
 
-const zxcvRow = [
+const zxcvRow = centerRow([
   key('Z', ['Z', null, null]),
   key('X', ['X', null, null]),
   key('C', ['C', null, null]),
@@ -107,7 +107,7 @@ const zxcvRow = [
   key('Comma', [',', '<', null]),
   key('Period', ['.', '>', null]),
   key('Slash', ['/', '?', null]),
-];
+]);
 
 const shiftKey: KeyDef = {
   id: 'Shift',
@@ -118,13 +118,12 @@ const shiftKey: KeyDef = {
   labels: [{ text: '⇧' }, null, null],
 };
 
-const spaceKey: KeyDef = {
+const spaceKey = {
   id: 'Space',
-  spanX: 10,
   emits: ['Space'],
   style: 'small-main',
   labels: [{ text: '␣', editor: { insert: ' ' } }, null, null],
-};
+} satisfies Omit<KeyDef, 'spanX'>;
 
 const delKey: KeyDef = {
   id: 'Del',
@@ -141,32 +140,20 @@ const copyKey: KeyDef = {
   labels: [{ text: 'COPY', editor: null }, null, null],
 };
 
-/** A cursor key: a machine matrix cell that also nudges the editor caret. */
-const cursorKey = (
-  token: string,
-  glyph: string,
-  action: 'left' | 'right' | 'up' | 'down',
-): KeyDef => ({
-  id: token,
-  spanX: 4,
-  emits: [token],
-  style: 'cursor',
-  labels: [{ text: glyph, editor: { action } }, null, null],
-});
-
-// Bottom row: SHIFT · SPACE · DEL · COPY · ← ↓ ↑ → — sums to the 40-col grid.
-const bottomRow: KeyDef[] = [
-  shiftKey,
-  spaceKey,
-  delKey,
+// Bottom row: SHIFT · centred SPACE · COPY · DEL, via the shared helper that
+// pads the flanks and sizes the space bar to the 40-col grid (BBC/Atom shape).
+const bottomRowKeys: KeyDef[] = bottomRow([shiftKey], spaceKey, [
   copyKey,
-  cursorKey('CursorLeft', '←', 'left'),
-  cursorKey('CursorDown', '↓', 'down'),
-  cursorKey('CursorUp', '↑', 'up'),
-  cursorKey('CursorRight', '→', 'right'),
-];
+  delKey,
+]);
 
-const rows: KeyDef[][] = [numberRow, qwertyRow, homeRow, zxcvRow, bottomRow];
+const rows: KeyDef[][] = [
+  numberRow,
+  qwertyRow,
+  homeRow,
+  zxcvRow,
+  bottomRowKeys,
+];
 
 // The numeric-keypad function keys f0–f9, in the top strip behind the toggle.
 const functionKeys: KeyDef[] = Array.from({ length: 10 }, (_, i) => ({
@@ -213,13 +200,16 @@ export const cpc464KeyboardLayout: KeyboardLayout = {
   functionKeys,
   glyphs: {},
   options: { minHoldFrames: 4 },
-  // CPC keyboard-joystick: the cursor cluster steers, COPY (and SPACE) fire.
+  // Keymapped joystick on the Acorn/BBC sibling convention (the cursor cluster
+  // is no longer on the on-screen keyboard): Z/X = left/right, K/M = up/down,
+  // SPACE / COPY fire. The real hardware joystick (matrix line 9 via
+  // setJoystick, `native` mode) is unaffected by this keymapping.
   controller: {
     bindings: {
-      up: 'CursorUp',
-      down: 'CursorDown',
-      left: 'CursorLeft',
-      right: 'CursorRight',
+      up: 'K',
+      down: 'M',
+      left: 'Z',
+      right: 'X',
       fire1: 'Space',
       fire2: 'Copy',
     },

@@ -49,9 +49,6 @@ describe('cpc464 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Del')!, 'base')).toEqual({
       action: 'backspace',
     });
-    expect(
-      resolveEditorAction(layout, byId.get('CursorLeft')!, 'base'),
-    ).toEqual({ action: 'left' });
     // SHIFT and SYM layers surface the punctuation as editor inserts.
     expect(resolveEditorAction(layout, byId.get('Digit1')!, 'shifted')).toEqual(
       {
