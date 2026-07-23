@@ -128,18 +128,18 @@ describe('cpc464 samples', () => {
 
   it('the maze sample DATA is a solvable maze from start to the exit', () => {
     const text = cpc464Samples.find((s) => s.name === 'maze.bas')!.text;
-    // Pull the DATA rows in order; each is a quoted 14-char field.
+    // Pull the DATA rows in order; each is a quoted 39-char field.
     const rows = [...text.matchAll(/^\d+\s+DATA\s+"([^"]*)"/gm)].map(
       (m) => m[1]!,
     );
-    expect(rows).toHaveLength(11);
-    for (const row of rows) expect(row).toHaveLength(14);
+    expect(rows).toHaveLength(21);
+    for (const row of rows) expect(row).toHaveLength(39);
 
     // The program walks a 1-based grid: start (col2,row2), walls '#', exit 'E'.
     const at = (c: number, r: number) => rows[r - 1]![c - 1]!;
-    expect(at(2, 2)).toBe('.'); // the '@' start cell must be walkable
+    expect(at(2, 2)).toBe(' '); // the '@' start cell must be walkable
 
-    // BFS over walkable cells ('.'/'E'); the exit must be reachable.
+    // BFS over walkable cells (spaces/'E'); the exit must be reachable.
     const seen = new Set<string>(['2,2']);
     const queue: [number, number][] = [[2, 2]];
     let reachedExit = false;
@@ -154,7 +154,7 @@ describe('cpc464 samples', () => {
       ]) {
         const nc = c + dc;
         const nr = r + dr;
-        if (nc < 1 || nc > 14 || nr < 1 || nr > 11) continue;
+        if (nc < 1 || nc > 39 || nr < 1 || nr > 21) continue;
         if (at(nc, nr) === '#') continue;
         const key = `${nc},${nr}`;
         if (seen.has(key)) continue;
