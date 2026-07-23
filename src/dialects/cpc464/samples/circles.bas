@@ -1,4 +1,5 @@
-10 REM Concentric circles in Mode 0 - Locomotive graphics
+10 REM Neal-Pitteway concentric circles - Mode 0, Locomotive graphics
+15 REM X=X-E/2*Y:Y=Y+E*X:X=X-E/2*Y
 20 MODE 0
 30 FOR I=0 TO 15:INK I,I:NEXT
 40 BORDER 0
@@ -8,8 +9,8 @@
 80 RD=R*13
 90 X=RD:Y=0
 100 PLOT XC+X,YC+Y,R
-110 FOR A=1 TO 130
-120 X=X-E*Y:Y=Y+E*X:X=X-E*Y
+110 FOR A=1 TO 260
+120 X=X-E/2*Y:Y=Y+E*X:X=X-E/2*Y
 130 DRAW XC+X,YC+Y,R
 140 NEXT A
 150 NEXT R
