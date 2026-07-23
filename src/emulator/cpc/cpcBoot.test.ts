@@ -5,6 +5,7 @@ import { CpcMachine } from './cpcMachine';
 import { Crtc } from './crtc';
 import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { tokenizeProgram } from '../../dialects/cpc464/tokenizer';
+import { cpc464Samples } from '../../dialects/cpc464/samples';
 
 /**
  * Acceptance tests for the real CPC 464 firmware. The ROM is copyright Amstrad
@@ -112,4 +113,27 @@ suite('CpcMachine loadProgram', () => {
     expect(ocr(m)).toContain(' 42');
     m.dispose();
   });
+});
+
+suite('CpcMachine sample programs run without BASIC errors', () => {
+  // Every bundled sample must reach and stay in the interpreter without
+  // tripping a runtime report - guards against tokenizer regressions (e.g. the
+  // integer-10 token) and sample bugs (reserved-word variables, bad array
+  // bounds) that only surface on the real ROM. 400 frames is enough for each to
+  // reach its idle GOTO loop (or a natural GAME OVER, which is not an error).
+  for (const sample of cpc464Samples) {
+    it(`${sample.name}`, () => {
+      const m = new CpcMachine({ rom });
+      const { bytes, errors } = tokenizeProgram(sample.text, 'basic10');
+      expect(errors, sample.name).toEqual([]);
+      m.loadProgram(bytes);
+      for (let i = 0; i < 400; i++) m.runFrame();
+      const report = m.readReport();
+      expect(
+        report?.isError ?? false,
+        `${sample.name}: ${report?.message}`,
+      ).toBe(false);
+      m.dispose();
+    });
+  }
 });
