@@ -28,6 +28,7 @@ import { bbcEscapes } from './bbc';
 import { commodore64Escapes } from './commodore64';
 import { trs80Escapes } from './trs80';
 import { atomEscapes } from './atom';
+import { cpcEscapes } from './cpc';
 
 import {
   parseChar as zx81ParseChar,
@@ -75,6 +76,10 @@ import {
   parseChar as atomParseChar,
   decodeSpan as atomDecodeSpan,
 } from '../../../../src/dialects/atom/charset';
+import {
+  parseChar as cpcParseChar,
+  decodeSpan as cpcDecodeSpan,
+} from '../../../../src/dialects/cpc464/charset';
 
 interface Adapter {
   data: EscapeTableData;
@@ -198,6 +203,16 @@ const ADAPTERS: [string, Adapter][] = [
       data: atomEscapes,
       parse: (t) => parseAll(t, atomParseChar),
       decode: (b) => atomDecodeSpan(Uint8Array.of(b), 0, 1).text,
+      isEscapeForm: (t) => /^\{.+\}$/.test(t),
+      rawPattern: /^\{0x[0-9A-F]{2}\}$/,
+    },
+  ],
+  [
+    'cpc',
+    {
+      data: cpcEscapes,
+      parse: (t) => parseAllMulti(t, cpcParseChar),
+      decode: (b) => cpcDecodeSpan(Uint8Array.of(b), 0, 1).text,
       isEscapeForm: (t) => /^\{.+\}$/.test(t),
       rawPattern: /^\{0x[0-9A-F]{2}\}$/,
     },

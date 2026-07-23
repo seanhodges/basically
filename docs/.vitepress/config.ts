@@ -164,6 +164,15 @@ export default withPwa(
                   { text: 'File formats', link: '/reference/trs80/formats' },
                 ],
               },
+              {
+                text: 'Amstrad CPC BASIC',
+                link: '/reference/cpc',
+                collapsed: true,
+                items: [
+                  { text: 'Escape codes', link: '/reference/cpc/escapes' },
+                  { text: 'File formats', link: '/reference/cpc/formats' },
+                ],
+              },
               // The assembler is per-CPU, not per-dialect, so machine-code
               // blocks share one instruction reference per processor.
               { text: 'Z80 assembly', link: '/reference/z80-assembly' },

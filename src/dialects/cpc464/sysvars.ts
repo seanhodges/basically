@@ -34,6 +34,14 @@ export interface LocoSysVars {
   errCode: number;
   /** LE word: the BASIC line number the last error occurred on (ERL). */
   errLine: number;
+  /**
+   * LE word holding a POINTER to the currently-executing line's line-number
+   * field: `word(word(curLinePtr))` is the BASIC line number being interpreted,
+   * updated as execution moves from line to line. Zero (→ an invalid deref) in
+   * direct mode / at the Ready prompt, which the debugger reads as "no line".
+   * Used by {@link MachineEmulator.currentLine}.
+   */
+  curLinePtr: number;
 }
 
 /** BASIC 1.0 workspace (Amstrad CPC 464), verified against the real ROM. */
@@ -45,6 +53,7 @@ const BASIC_10: LocoSysVars = {
   freeTop: 0xae7b,
   errCode: 0xadaa,
   errLine: 0xb0c2,
+  curLinePtr: 0xae36,
 };
 
 export function locoSysVars(variant: LocoBasicVariant): LocoSysVars {

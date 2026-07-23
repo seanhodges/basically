@@ -7,6 +7,7 @@ import { bbcEscapes } from './bbc';
 import { commodore64Escapes } from './commodore64';
 import { trs80Escapes } from './trs80';
 import { atomEscapes } from './atom';
+import { cpcEscapes } from './cpc';
 
 const SETS: [string, EscapeTableData][] = [
   ['zx81', zx81Escapes],
@@ -16,6 +17,7 @@ const SETS: [string, EscapeTableData][] = [
   ['commodore64', commodore64Escapes],
   ['trs80', trs80Escapes],
   ['atom', atomEscapes],
+  ['cpc', cpcEscapes],
 ];
 
 describe.each(SETS)('escape data: %s', (_id, data) => {

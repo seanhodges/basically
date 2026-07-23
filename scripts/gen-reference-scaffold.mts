@@ -19,6 +19,7 @@ import { bbcKeywords } from '../src/dialects/bbcmicro/keywords';
 import { c64Keywords } from '../src/dialects/commodore64/keywords';
 import { atomKeywords } from '../src/dialects/atom/keywords';
 import { trs80Keywords } from '../src/dialects/trs80/keywords';
+import { locoKeywordTable } from '../src/dialects/cpc464/keywords';
 import { z80Engine } from '../src/asm/z80';
 import { m6502Engine } from '../src/asm/m6502';
 import type { AsmEngine } from '../src/asm/types';
@@ -142,6 +143,21 @@ const sets: { id: string; varName: string; data: ReferenceTableData }[] = [
       title: 'TRS-80 Level II BASIC',
       machines: ['TRS-80 Model I (Level II BASIC)'],
       entries: dedupe(trs80Keywords.map((k) => toEntry(k))),
+    },
+  },
+  {
+    id: 'cpc',
+    varName: 'cpcReference',
+    data: {
+      title: 'Amstrad CPC Locomotive BASIC (1.0 & 1.1)',
+      machines: ['Amstrad CPC 464', 'Amstrad CPC 6128'],
+      // 1.1-only additions carry `since: 'basic11'`; tag them so the shared page
+      // marks what the BASIC 1.0 464 rejects (the '128K only' precedent).
+      entries: dedupe(
+        locoKeywordTable.map((k) =>
+          toEntry(k, k.since === 'basic11' ? 'BASIC 1.1 only' : undefined),
+        ),
+      ),
     },
   },
   {
