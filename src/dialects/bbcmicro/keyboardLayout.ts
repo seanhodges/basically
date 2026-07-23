@@ -21,6 +21,11 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
  * keys. Code is written in the editor (where these inserts apply); the keyboard
  * therefore optimises for that path. The f0–f9 function keys live in the top
  * strip behind the mode/function toggle.
+ *
+ * A fourth `cursor` layer (pinned by the CURSOR mode tab, top-right on the
+ * keycap) overlays `↑ ← ↓ →` on the W/A/S/D keys, moving the editor caret -
+ * the same concept as the CPC 464 sibling. Non-WASD keys keep typing normally
+ * in CURSOR mode via the base-layer fallback.
  */
 
 type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
@@ -39,9 +44,18 @@ const lbl = (legend: Legend): KeyLabel | null =>
       ? { text: legend }
       : { text: legend.text, editor: legend.editor };
 
-/** A standard key: [base, shifted, sym] legends, one matrix token. */
-function key(token: string, legends: Legends): KeyDef {
-  return { id: token, spanX: 4, emits: [token], labels: legends.map(lbl) };
+/**
+ * A standard key: [base, shifted, sym] legends plus an optional CURSOR-layer
+ * legend (the ↑←↓→ overlay on the WASD keys), one matrix token. The four layers
+ * are index-aligned with `layout.layers` below.
+ */
+function key(token: string, legends: Legends, cursor: Legend = null): KeyDef {
+  return {
+    id: token,
+    spanX: 4,
+    emits: [token],
+    labels: [...legends.map(lbl), lbl(cursor)],
+  };
 }
 
 const numberRow = [
@@ -59,7 +73,7 @@ const numberRow = [
 
 const qwertyRow = [
   key('KeyQ', ['Q', null, '~']),
-  key('KeyW', ['W', null, '|']),
+  key('KeyW', ['W', null, '|'], act('↑', 'up')),
   key('KeyE', ['E', null, '{']),
   key('KeyR', ['R', null, '}']),
   key('KeyT', ['T', null, '_']),
@@ -71,9 +85,9 @@ const qwertyRow = [
 ];
 
 const homeRow = [
-  key('KeyA', ['A', null, null]),
-  key('KeyS', ['S', null, null]),
-  key('KeyD', ['D', null, null]),
+  key('KeyA', ['A', null, null], act('←', 'left')),
+  key('KeyS', ['S', null, null], act('↓', 'down')),
+  key('KeyD', ['D', null, null], act('→', 'right')),
   key('KeyF', ['F', null, null]),
   key('KeyG', ['G', null, null]),
   key('KeyH', ['H', null, null]),
@@ -102,7 +116,7 @@ const shiftKey: KeyDef = {
   emits: ['Shift'],
   modifier: 'shift',
   style: 'shift',
-  labels: [{ text: '⇧' }, null, null],
+  labels: [{ text: '⇧' }, null, null, null],
 };
 
 /** Escape, to the left of the space bar; a machine key with no editor insert. */
@@ -110,28 +124,28 @@ const escKey: KeyDef = {
   id: 'Escape',
   spanX: 4,
   emits: ['Escape'],
-  labels: [{ text: 'Esc', editor: null }, null, null],
+  labels: [{ text: 'Esc', editor: null }, null, null, null],
 };
 
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: [{ text: '␣', editor: { insert: ' ' } }, null, null],
+  labels: [{ text: '␣', editor: { insert: ' ' } }, null, null, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
 const quoteKey: KeyDef = {
   id: 'Quote',
   spanX: 4,
   emits: ['Shift', 'Digit2'],
-  labels: [{ text: '"' }, null, null],
+  labels: [{ text: '"' }, null, null, null],
 };
 
 const backspaceKey: KeyDef = {
   id: 'Delete',
   spanX: 4,
   emits: ['Delete'],
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null, null],
 };
 
 const rows: KeyDef[][] = [
@@ -147,7 +161,7 @@ const functionKeys: KeyDef[] = Array.from({ length: 10 }, (_, i) => ({
   spanX: 4,
   emits: [`F${i}`],
   style: 'fn',
-  labels: [{ text: `f${i}`, editor: null }, null, null],
+  labels: [{ text: `f${i}`, editor: null }, null, null, null],
 }));
 
 export const bbcKeyboardLayout: KeyboardLayout = {
@@ -176,10 +190,17 @@ export const bbcKeyboardLayout: KeyboardLayout = {
       activeWhen: [],
       editorInsertStyle: 'char',
     },
+    {
+      id: 'cursor',
+      name: 'CURSOR',
+      position: 'tr',
+      activeWhen: [],
+    },
   ],
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'base' },
     { id: 'sym', name: 'SYM', layer: 'sym' },
+    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows,

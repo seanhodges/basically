@@ -666,6 +666,18 @@
   color: #fff;
 }
 
+/* The CURSOR overlay (↑←↓→ on WASD) top-right on the keycap, in the BBC's red. */
+.vk-theme-bbc:not(.vk-compact) .vk-pos-tr {
+  right: 4px;
+  top: 4px;
+  font-size: 9px;
+  color: #d98682;
+}
+
+.vk-theme-bbc .vk-pos-tr.vk-active {
+  color: #ffd7d3;
+}
+
 /* Non-interactive filler used to right-align the symbol page's keys. */
 .vk-key.vk-style-spacer {
   pointer-events: none;
@@ -721,7 +733,16 @@
   color: #6f9bd1;
 }
 
-.vk-theme-atom .vk-pos-br.vk-active {
+/* The CURSOR overlay (↑←↓→ on WASD) top-right on the keycap, in the same blue. */
+.vk-theme-atom:not(.vk-compact) .vk-pos-tr {
+  right: 4px;
+  top: 4px;
+  font-size: 9px;
+  color: #6f9bd1;
+}
+
+.vk-theme-atom .vk-pos-br.vk-active,
+.vk-theme-atom .vk-pos-tr.vk-active {
   color: #cfe0ff;
 }
 
@@ -736,7 +757,16 @@
   color: #9aa0a6;
 }
 
-.vk-theme-trs80 .vk-pos-tr.vk-active {
+/* The CURSOR overlay (↑←↓→ on WASD) bottom-right, since SHIFT holds top-right. */
+.vk-theme-trs80:not(.vk-compact) .vk-pos-br {
+  right: 4px;
+  bottom: 15px;
+  font-size: 9px;
+  color: #9aa0a6;
+}
+
+.vk-theme-trs80 .vk-pos-tr.vk-active,
+.vk-theme-trs80 .vk-pos-br.vk-active {
   color: #e8e8e8;
 }
 

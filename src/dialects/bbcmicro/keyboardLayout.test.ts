@@ -22,11 +22,35 @@ describe('bbcmicro keyboard layout', () => {
     });
   });
 
-  it('offers ABC and SYM modes plus the f0–f9 function keys', () => {
-    expect((layout.editorModes ?? []).map((m) => m.id)).toEqual(['abc', 'sym']);
+  it('offers ABC, SYM and CURSOR modes plus the f0–f9 function keys', () => {
+    expect((layout.editorModes ?? []).map((m) => m.id)).toEqual([
+      'abc',
+      'sym',
+      'cursor',
+    ]);
     expect(functionKeys.map((k) => k.id)).toEqual(
       Array.from({ length: 10 }, (_, i) => `F${i}`),
     );
+  });
+
+  it('overlays the arrow caret moves on W/A/S/D in CURSOR mode', () => {
+    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    expect(resolveEditorAction(layout, byId.get('KeyW')!, 'cursor')).toEqual({
+      action: 'up',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyA')!, 'cursor')).toEqual({
+      action: 'left',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyS')!, 'cursor')).toEqual({
+      action: 'down',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyD')!, 'cursor')).toEqual({
+      action: 'right',
+    });
+    // A letter outside the WASD cluster keeps typing itself in CURSOR mode.
+    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toEqual({
+      insert: 'F',
+    });
   });
 
   it('labels are index-aligned with the layers', () => {

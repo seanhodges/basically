@@ -4,26 +4,40 @@ import { bottomRow } from '../../keyboard/templateRows';
 /**
  * The TRS-80 keyboard on the standard virtual-keyboard template. The
  * TRS-80 is a plain QWERTY with SHIFT - no keyword or graphics typing layers -
- * so there are just two legend layers: base and SHIFT. Each key `emits` the
+ * so there are two character layers: base and SHIFT. Each key `emits` the
  * DOM-`code`-style token the interpreter's input adapter understands
  * (`interpreter/input.ts`), and the SHIFT legends double as editor inserts for
  * the symbols and operators that ride the shifted number/letter keys.
+ *
+ * A third `cursor` layer (pinned by the CURSOR mode tab, bottom-right on the
+ * keycap since SHIFT already sits top-right) overlays `↑ ← ↓ →` on the W/A/S/D
+ * keys, moving the editor caret - the same concept as the CPC 464 sibling.
+ * Non-WASD keys keep typing normally in CURSOR mode via the base-layer fallback.
  */
 
 type Shift = string | { text: string; insert: string };
+type Cursor = { text: string; action: 'up' | 'down' | 'left' | 'right' };
 
-function key(token: string, main: string, shift?: Shift): KeyDef {
+function key(
+  token: string,
+  main: string,
+  shift?: Shift,
+  cursor?: Cursor,
+): KeyDef {
   const shiftLabel =
     shift === undefined
       ? null
       : typeof shift === 'string'
         ? { text: shift }
         : { text: shift.text, editor: { insert: shift.insert } as const };
+  const cursorLabel = cursor
+    ? { text: cursor.text, editor: { action: cursor.action } as const }
+    : null;
   return {
     id: token,
     spanX: 4,
     emits: [token],
-    labels: [{ text: main }, shiftLabel],
+    labels: [{ text: main }, shiftLabel, cursorLabel],
   };
 }
 
@@ -43,7 +57,7 @@ const numberRow = [
 
 const qwertyRow = [
   key('KeyQ', 'Q'),
-  key('KeyW', 'W'),
+  key('KeyW', 'W', undefined, { text: '↑', action: 'up' }),
   key('KeyE', 'E'),
   key('KeyR', 'R'),
   key('KeyT', 'T'),
@@ -56,9 +70,9 @@ const qwertyRow = [
 
 // SHIFT legends on the home row expose the common operators as editor inserts.
 const homeRow = [
-  key('KeyA', 'A', '+'),
-  key('KeyS', 'S', '-'),
-  key('KeyD', 'D', '*'),
+  key('KeyA', 'A', '+', { text: '←', action: 'left' }),
+  key('KeyS', 'S', '-', { text: '↓', action: 'down' }),
+  key('KeyD', 'D', '*', { text: '→', action: 'right' }),
   key('KeyF', 'F', '/'),
   key('KeyG', 'G', '='),
   key('KeyH', 'H', ':'),
@@ -69,7 +83,7 @@ const homeRow = [
     id: 'Enter',
     spanX: 4,
     emits: ['Enter'],
-    labels: [{ text: '↵', editor: { action: 'newline' } }, null],
+    labels: [{ text: '↵', editor: { action: 'newline' } }, null, null],
   } satisfies KeyDef,
 ];
 
@@ -92,35 +106,35 @@ const shiftKey: KeyDef = {
   emits: ['Shift'],
   modifier: 'shift',
   style: 'shift',
-  labels: [{ text: '⇧' }, null],
+  labels: [{ text: '⇧' }, null, null],
 };
 
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: [{ text: '␣', editor: { insert: ' ' } }, null],
+  labels: [{ text: '␣', editor: { insert: ' ' } }, null, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
 const quoteKey: KeyDef = {
   id: 'Quote',
   spanX: 4,
   emits: ['Shift', 'Digit2'], // " is SHIFT-2
-  labels: [{ text: '"' }, null],
+  labels: [{ text: '"' }, null, null],
 };
 
 const breakKey: KeyDef = {
   id: 'Break',
   spanX: 4,
   emits: ['Break'],
-  labels: [{ text: 'BRK' }, null],
+  labels: [{ text: 'BRK' }, null, null],
 };
 
 const backspaceKey: KeyDef = {
   id: 'Backspace',
   spanX: 4,
   emits: ['ArrowLeft'], // the Model I backspaces with the left arrow
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null],
 };
 
 const rows: KeyDef[][] = [
@@ -150,6 +164,16 @@ export const trs80KeyboardLayout: KeyboardLayout = {
       activeWhen: ['shift'],
       editorInsertStyle: 'char',
     },
+    {
+      id: 'cursor',
+      name: 'CURSOR',
+      position: 'br',
+      activeWhen: [],
+    },
+  ],
+  editorModes: [
+    { id: 'abc', name: 'ABC', layer: 'base' },
+    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows,

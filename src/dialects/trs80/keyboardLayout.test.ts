@@ -18,11 +18,38 @@ describe('trs80 keyboard layout', () => {
     });
   });
 
-  it('labels are index-aligned with the two layers', () => {
+  it('labels are index-aligned with the layers', () => {
     for (const k of allKeys) {
       if (k.style === 'spacer') continue;
       expect(k.labels.length, k.id).toBe(layout.layers.length);
     }
+  });
+
+  it('offers ABC and CURSOR modes', () => {
+    expect((layout.editorModes ?? []).map((m) => m.id)).toEqual([
+      'abc',
+      'cursor',
+    ]);
+  });
+
+  it('overlays the arrow caret moves on W/A/S/D in CURSOR mode', () => {
+    const byId = new Map(allKeys.map((k) => [k.id, k]));
+    expect(resolveEditorAction(layout, byId.get('KeyW')!, 'cursor')).toEqual({
+      action: 'up',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyA')!, 'cursor')).toEqual({
+      action: 'left',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyS')!, 'cursor')).toEqual({
+      action: 'down',
+    });
+    expect(resolveEditorAction(layout, byId.get('KeyD')!, 'cursor')).toEqual({
+      action: 'right',
+    });
+    // A letter outside the WASD cluster keeps typing itself in CURSOR mode.
+    expect(resolveEditorAction(layout, byId.get('KeyF')!, 'cursor')).toEqual({
+      insert: 'F',
+    });
   });
 
   it('every referenced modifier exists', () => {
