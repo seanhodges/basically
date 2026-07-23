@@ -3,8 +3,17 @@ import type { Z80Core } from '../z80/z80core.js';
 import type {
   MachineEmulator,
   MachineFileStore,
+  MachineMemoryStats,
+  MachineReport,
+  MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
+import { locoSysVars, type LocoSysVars } from '../../dialects/cpc464/sysvars';
+import {
+  readLocoVariables,
+  type LocoMemPort,
+} from '../../dialects/cpc464/vars';
+import { readLocoReport } from '../../dialects/cpc464/reports';
 import { Ay38912, AY_SAMPLE_RATE, AY_CLOCK_CPC } from '../ay';
 import { CpcMemory, type CpcModel } from './memory';
 import { GateArray } from './gateArray';
@@ -70,6 +79,15 @@ export class CpcMachine implements MachineEmulator {
   private speed = 1;
   private disposed = false;
 
+  /**
+   * Locomotive workspace pointers for runtime introspection (variables, report,
+   * memory stats), keyed by the model's BASIC variant. Null for the 6128 until
+   * its BASIC 1.1 sysvars are pinned - those readers then simply do nothing.
+   */
+  private readonly sysvars: LocoSysVars | null;
+  /** Side-effect-free RAM view the introspection readers walk. */
+  private readonly memPort: LocoMemPort;
+
   private imageData: ImageData | null = null;
   private readonly frameBuffer = new Uint8ClampedArray(
     DISPLAY_WIDTH * DISPLAY_HEIGHT * 4,
@@ -80,7 +98,15 @@ export class CpcMachine implements MachineEmulator {
     model?: CpcModel;
     files?: MachineFileStore;
   }) {
-    this.memory = new CpcMemory(opts.rom, opts.model ?? '464');
+    const model = opts.model ?? '464';
+    this.memory = new CpcMemory(opts.rom, model);
+    // BASIC 1.0 on the 464; the 6128 (BASIC 1.1) has its own sysvar table, not
+    // yet pinned, so its readers stay inert until that dialect's stage lands.
+    this.sysvars = model === '464' ? locoSysVars('basic10') : null;
+    this.memPort = {
+      read: (addr) => this.memory.readScreen(addr),
+      readWord: (addr) => this.memory.readWord(addr),
+    };
 
     const host: PpiHost = {
       aySelectRegister: (reg) => {
@@ -316,6 +342,36 @@ export class CpcMachine implements MachineEmulator {
 
   setSpeed(multiplier: number): void {
     this.speed = Math.max(0.1, multiplier);
+  }
+
+  /** Live BASIC variables walked from the Locomotive variable storage. */
+  readVariables(): MachineVariable[] {
+    if (!this.sysvars) return [];
+    return readLocoVariables(this.memPort, this.sysvars);
+  }
+
+  /** The last BASIC runtime report (ERR/ERL), or null when not introspectable. */
+  readReport(): MachineReport | null {
+    if (!this.sysvars) return null;
+    return readLocoReport(this.memPort, this.sysvars);
+  }
+
+  /**
+   * Actual BASIC RAM used/free from the workspace pointers: &0170 to the end of
+   * arrays is in use; that up to HIMEM is free (`PRINT FRE(0)` on a clean boot
+   * equals `HIMEM - arrEnd`). Null while the pointers are implausible (mid-boot,
+   * mid-injection), so the IDE falls back to the tokenized-size estimate.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (!this.sysvars) return null;
+    const arrEnd = this.memory.readWord(this.sysvars.arrEnd);
+    const freeTop = this.memory.readWord(this.sysvars.freeTop);
+    const used = arrEnd - this.sysvars.programStart;
+    const free = freeTop - arrEnd;
+    if (used <= 0 || free < 0 || freeTop <= this.sysvars.programStart) {
+      return null;
+    }
+    return { used, free };
   }
 
   setMemoryActivityRecording(enabled: boolean): void {
