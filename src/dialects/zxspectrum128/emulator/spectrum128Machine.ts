@@ -19,7 +19,7 @@ import {
   kempstonByte,
 } from '../../zxspectrum/emulator/joystick';
 import { Spectrum128Memory } from './memory128';
-import { Ay38912 } from './ay';
+import { Ay38912 } from '../../../emulator/ay';
 import { readSpectrumVariables } from '../../zxspectrum/vars';
 import { readSpectrumReport } from '../../zxspectrum/reports';
 import { SpectrumKeyboard } from './keyboard';
