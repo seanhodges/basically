@@ -70,7 +70,9 @@ describe('cpc464 line records', () => {
 describe('cpc464 numeric constants', () => {
   it('encodes each binary numeric form', () => {
     expect(bodyOf('10 PRINT 0')).toEqual([0xbf, 0x20, 0x0e]);
-    expect(bodyOf('10 PRINT 10')).toEqual([0xbf, 0x20, 0x18]);
+    expect(bodyOf('10 PRINT 9')).toEqual([0xbf, 0x20, 0x17]);
+    // 10 is past the single-byte 0-9 range, so it uses the 8-bit form.
+    expect(bodyOf('10 PRINT 10')).toEqual([0xbf, 0x20, 0x19, 0x0a]);
     expect(bodyOf('10 PRINT 11')).toEqual([0xbf, 0x20, 0x19, 0x0b]);
     expect(bodyOf('10 PRINT 255')).toEqual([0xbf, 0x20, 0x19, 0xff]);
     expect(bodyOf('10 PRINT 256')).toEqual([0xbf, 0x20, 0x1a, 0x00, 0x01]);

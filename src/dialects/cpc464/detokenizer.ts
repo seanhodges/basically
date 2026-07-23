@@ -207,15 +207,15 @@ function decodeBody(
       continue;
     }
 
-    // Binary numeric constants.
-    if (b >= SMALL_INT_BASE && b <= 0x18) {
+    // Binary numeric constants. The single-byte tokens &0E-&17 cover 0-9 only.
+    if (b >= SMALL_INT_BASE && b <= 0x17) {
       text += String(b - SMALL_INT_BASE);
       i++;
       continue;
     }
     if (b === BYTE_INT && i + 1 < end) {
       const value = program[i + 1]!;
-      if (value <= 10) {
+      if (value <= 9) {
         warnings.push(
           `A byte-encoded constant ${value} will re-encode in its short form.`,
         );
