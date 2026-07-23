@@ -9,12 +9,16 @@ import { cpc464Keywords } from './keywords';
 import { cpcCharset } from './charset';
 import { cpcLanguageSupport, cpcCompletionSource } from './language';
 import { tokenizeProgram } from './tokenizer';
-import { detokenizeProgram, detokenizeWithReport } from './detokenizer';
-import { parseBasFile } from './basfile';
+import { importCpcImage } from './importCpc';
 import { cpc464KeyboardLayout } from './keyboardLayout';
 import { cpc464Samples } from './samples';
 import { cpc464BuildTargets } from './targets';
 import { cpc464AiProfile } from './aiProfile';
+import {
+  buildCassetteSamples,
+  decodeCassette,
+  CASSETTE_SAMPLE_RATE,
+} from './audio/cassette';
 import { CpcMachine } from '../../emulator/cpc/cpcMachine';
 import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from '../../emulator/cpc/display';
 
@@ -58,13 +62,11 @@ export const cpc464: Dialect = {
   },
 
   detokenize(image: Uint8Array): string {
-    return detokenizeProgram(parseBasFile(image).program, 'basic10');
+    return importCpcImage(image).source;
   },
 
   detokenizeWithReport(image: Uint8Array) {
-    const { program, warnings } = parseBasFile(image);
-    const report = detokenizeWithReport(program, 'basic10');
-    return { ...report, warnings: [...warnings, ...report.warnings] };
+    return importCpcImage(image);
   },
 
   lint(source: string): TokenizeError[] {
@@ -80,6 +82,27 @@ export const cpc464: Dialect = {
   samples: cpc464Samples,
 
   buildTargets: cpc464BuildTargets,
+
+  binaryImports: [{ extension: '.cdt', label: 'Import .CDT tape…' }],
+
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the CPC type RUN" and press ENTER (or LOAD "" for a program you want to list first), then press any key to start the tape. Press-any-key and the "Loading" message appear as it reads.',
+    decodeSamples: (samples, sampleRate) => {
+      const { name, program, warnings } = decodeCassette(samples, sampleRate);
+      const report = importCpcImage(program);
+      return {
+        programName: name,
+        source: report.source,
+        warnings: [...warnings, ...report.warnings],
+      };
+    },
+    saveInstructions:
+      'On the CPC type SAVE "NAME" and press ENTER, then press REC and PLAY; the program plays out as a tape tone you can capture here.',
+  },
 
   aiProfile: cpc464AiProfile,
 };
