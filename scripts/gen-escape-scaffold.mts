@@ -14,6 +14,7 @@ import { decodeSpan as bbcDecodeSpan } from '../src/dialects/bbcmicro/charset';
 import { petsciiToText } from '../src/dialects/commodore64/petscii';
 import { decodeSpan as trs80DecodeSpan } from '../src/dialects/trs80/charset';
 import { decodeSpan as atomDecodeSpan } from '../src/dialects/atom/charset';
+import { decodeSpan as cpcDecodeSpan } from '../src/dialects/cpc464/charset';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = resolve(here, '../docs/reference/data/escapes');
@@ -105,6 +106,16 @@ const SOURCES: Source[] = [
     title: 'Acorn Atom escape codes',
     machines: ['Acorn Atom'],
     decode: (b) => atomDecodeSpan(Uint8Array.of(b), 0, 1).text,
+    isEscapeForm: (t) => /^\{.+\}$/.test(t),
+    rawPattern: /^\{0x[0-9A-F]{2}\}$/,
+    rawSpelling: '{0xNN}',
+  },
+  {
+    id: 'cpc',
+    varName: 'cpcEscapes',
+    title: 'Amstrad CPC escape codes',
+    machines: ['Amstrad CPC 464', 'Amstrad CPC 6128'],
+    decode: (b) => cpcDecodeSpan(Uint8Array.of(b), 0, 1).text,
     isEscapeForm: (t) => /^\{.+\}$/.test(t),
     rawPattern: /^\{0x[0-9A-F]{2}\}$/,
     rawSpelling: '{0xNN}',

@@ -16,6 +16,7 @@ THE DIALECT - STRICT RULES
 - ? is shorthand for PRINT; ' is shorthand for REM. LET is optional (X=5 works).
 - Numbers: decimal, hex with & (&7F00), binary with &X (&X1010). Operators: + - * / ^ (power), \\ (integer divide), MOD, = <> < > <= >=, AND OR NOT XOR.
 - Keyboard input in games: use INKEY(n) to test a specific key by number - it returns -1 when the key is up, and 0 (or a positive value with Shift/Ctrl) when down. Cursor keys are INKEY(0)=up, INKEY(2)=down, INKEY(8)=left, INKEY(1)=right; COPY is INKEY(9), SPACE is INKEY(47). INKEY$ reads one buffered character (empty string if none). INPUT halts for a typed line.
+- Joystick: JOY(0) returns joystick 0 as a bit mask - bit 0 (value 1) up, bit 1 (2) down, bit 2 (4) left, bit 3 (8) right, bit 4 (16) fire 2, bit 5 (32) fire 1. Test with (JOY(0) AND 1) etc. The on-screen game controller can drive it, so JOY(0) works for pad-friendly games alongside the cursor-key INKEY approach.
 - Timers: AFTER t[,timer] GOSUB line runs a routine once after t fiftieths of a second; EVERY t[,timer] GOSUB repeats. Use them for animation clocks.
 - Functions: ABS ATN CHR$ COS EXP INT LEFT$ LEN LOG MID$ RIGHT$ RND SGN SIN SPACE$ SQR STR$ STRING$ TAN UPPER$ VAL ASC INKEY INKEY$ JOY. RND gives 0..<1; RND(0) repeats the last; use INT(RND*n) for 0..n-1.
 - User-defined graphics: SYMBOL AFTER n frees characters n..255; SYMBOL c,r1,...,r8 redefines a character from eight row bytes. CALL address runs machine code (this IDE injects code blocks the program can CALL).

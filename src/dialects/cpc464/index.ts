@@ -48,6 +48,13 @@ export const cpc464: Dialect = {
   memoryBlocks: cpc464MemoryBlocks,
   // POKE addr,val with &-hex addresses drives the memory-map viewer's markers.
   memoryWrites: { forms: ['poke'], hexPrefix: '&' },
+  // The emulator introspects the current BASIC line (currentLine/debugStep), so
+  // the toolbar offers the step debugger (Stage 6).
+  debuggable: true,
+  // Joystick 0 is matrix line 9, read through the AY like the keyboard; the CPC
+  // port exposes two independent fire buttons (Stage 6).
+  joystickModes: ['native'],
+  joystickFireButtons: 2,
   // PRINT FRE(0) on a clean 464 boot (BASIC 1.0, no AMSDOS).
   programRamBytes: 42619,
   // The combined 32K firmware+BASIC ROM (16K OS then 16K Locomotive BASIC 1.0).

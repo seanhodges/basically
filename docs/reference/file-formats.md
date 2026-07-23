@@ -79,17 +79,18 @@ reference page:
 
 ## Native binary formats
 
-| Dialect            | Export         | Import         | What it is                                                     |
-| ------------------ | -------------- | -------------- | -------------------------------------------------------------- |
-| ZX81               | `.P`           | `.P`           | RAM dump 0x4009 → E_LINE-1                                     |
-| ZX80               | `.O`           | `.O`           | RAM dump 0x4000 → E_LINE-1                                     |
-| ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                                      |
-| BBC Micro / Master | `.bbc`, `.ssd` | `.bbc`, `.ssd` | tokenized program from PAGE; `.ssd` disc adds code/data blocks |
-| Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801                    |
-| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001                    |
-| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401                    |
-| TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks |
-| Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks   |
+| Dialect            | Export         | Import         | What it is                                                         |
+| ------------------ | -------------- | -------------- | ------------------------------------------------------------------ |
+| ZX81               | `.P`           | `.P`           | RAM dump 0x4009 → E_LINE-1                                         |
+| ZX80               | `.O`           | `.O`           | RAM dump 0x4000 → E_LINE-1                                         |
+| ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                                          |
+| BBC Micro / Master | `.bbc`, `.ssd` | `.bbc`, `.ssd` | tokenized program from PAGE; `.ssd` disc adds code/data blocks     |
+| Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801                        |
+| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001                        |
+| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401                        |
+| TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks     |
+| Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks       |
+| Amstrad CPC 464    | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -106,6 +107,7 @@ full on its own page:
 - [Commodore 64 / VIC-20 / PET file formats](./commodore64/formats) — `.prg`, `.d64`
 - [TRS-80 file formats](./trs80/formats) — `.cas`, `.dsk`
 - [Acorn Atom file formats](./atom/formats) — `.atm`, `.dsk`
+- [Amstrad CPC file formats](./cpc/formats) — `.bas`, `.cdt`
 
 ## Machine code & data blocks
 

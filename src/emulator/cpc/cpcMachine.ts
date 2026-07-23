@@ -1,6 +1,10 @@
 import Z80 from '../z80/z80core.js';
 import type { Z80Core } from '../z80/z80core.js';
 import type {
+  DebugStepOptions,
+  DebugStepResult,
+  JoystickMode,
+  JoystickState,
   MachineEmulator,
   MachineFileStore,
   MachineMemoryStats,
@@ -199,14 +203,7 @@ export class CpcMachine implements MachineEmulator {
 
   /** Emulate one CRTC scanline: clock the interrupt, then run its T-states. */
   private runScanline(line: number): void {
-    this.vsync = this.crtc.inVsync(line);
-    this.gateArray.onHsync(this.vsync);
-    // Deliver a pending interrupt when the CPU has them enabled (this also lifts
-    // a HALT the firmware parks in while waiting for frame flyback).
-    if (this.gateArray.interruptPending && this.cpu.getIFF1()) {
-      this.cpu.interrupt(false, 0xff); // IM 1 → RST &38
-      this.gateArray.acknowledgeInterrupt();
-    }
+    this.beginScanline(line);
     const budget = TSTATES_PER_LINE * this.speed;
     let t = 0;
     while (t < budget) {
@@ -216,6 +213,22 @@ export class CpcMachine implements MachineEmulator {
         continue;
       }
       t += this.cpu.run_instruction();
+    }
+  }
+
+  /**
+   * Start a scanline: sample VSYNC, clock the Gate Array interrupt counter off
+   * HSYNC, and deliver a pending interrupt when the CPU has them enabled (this
+   * also lifts a HALT the firmware parks in waiting for frame flyback). Shared by
+   * {@link runScanline} and {@link debugStep} so run and debug keep identical
+   * timing.
+   */
+  private beginScanline(line: number): void {
+    this.vsync = this.crtc.inVsync(line);
+    this.gateArray.onHsync(this.vsync);
+    if (this.gateArray.interruptPending && this.cpu.getIFF1()) {
+      this.cpu.interrupt(false, 0xff); // IM 1 → RST &38
+      this.gateArray.acknowledgeInterrupt();
     }
   }
 
@@ -340,6 +353,23 @@ export class CpcMachine implements MachineEmulator {
     this.keyboard.releaseAll();
   }
 
+  /**
+   * Drive the CPC's joystick 0 from the on-screen game controller. The CPC has
+   * no separate joystick port register: joystick 0 IS matrix line 9, read back
+   * through the AY exactly like the keyboard (JOY(0) and INKEY on the joystick
+   * keys decode that row). So the `native` mode simply presses/releases the
+   * line-9 tokens - the CPC's two independent fire buttons stay distinct (unlike
+   * the Sinclair/Kempston single fire), matching joystickFireButtons: 2.
+   */
+  setJoystick(_mode: JoystickMode, state: JoystickState): void {
+    this.keyboard.setKey('JoyUp', state.up);
+    this.keyboard.setKey('JoyDown', state.down);
+    this.keyboard.setKey('JoyLeft', state.left);
+    this.keyboard.setKey('JoyRight', state.right);
+    this.keyboard.setKey('JoyFire1', state.fire1);
+    this.keyboard.setKey('JoyFire2', state.fire2);
+  }
+
   setSpeed(multiplier: number): void {
     this.speed = Math.max(0.1, multiplier);
   }
@@ -372,6 +402,67 @@ export class CpcMachine implements MachineEmulator {
       return null;
     }
     return { used, free };
+  }
+
+  /**
+   * The BASIC line number about to execute, for the step debugger. Locomotive
+   * keeps a pointer to the current line's line-number field in the workspace
+   * ({@link LocoSysVars.curLinePtr}); dereferencing it gives the live line, which
+   * tracks GOTO/GOSUB and loop iteration. Null when the pointer is zero (direct
+   * mode / the Ready prompt) or out of the program area - the debugger then has
+   * no line to label. Verified against the real 464 ROM (a program looping over
+   * two lines reads back exactly those two numbers, and reads null once ENDed).
+   */
+  currentLine(): number | null {
+    if (!this.sysvars) return null;
+    const rec = this.memory.readWord(this.sysvars.curLinePtr);
+    if (rec < this.sysvars.programStart || rec >= 0xc000) return null;
+    const line = this.memory.readWord(rec);
+    return line >= 1 && line <= 65535 ? line : null;
+  }
+
+  /**
+   * Advance up to one frame of CPU time instruction by instruction, pausing on a
+   * breakpoint ('run') or as soon as the line changes ('step'). Mirrors
+   * {@link runFrame}'s per-scanline interrupt delivery so timing and the keyboard
+   * scan hold while debugging; when paused mid-frame it renders the screen from
+   * wherever execution stopped. See {@link DebugStepOptions} for the run/step and
+   * `fromLine`-arming semantics (shared with the other steppable dialects).
+   */
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    if (!this.sysvars) return { paused: false, line: null };
+    // In run mode, ignore breakpoints until execution has left the resumed-from
+    // line, so Continue off a breakpointed line doesn't immediately re-trigger.
+    let armed = opts.fromLine === null;
+    const lines = this.crtc.linesPerFrame();
+    for (let line = 0; line < lines; line++) {
+      this.beginScanline(line);
+      const budget = TSTATES_PER_LINE * this.speed;
+      let t = 0;
+      while (t < budget) {
+        if (this.cpu.isHalted()) {
+          t += 4;
+          continue;
+        }
+        t += this.cpu.run_instruction();
+        const cur = this.currentLine();
+        if (cur === null) continue;
+        if (opts.mode === 'step') {
+          if (opts.fromLine === null || cur !== opts.fromLine) {
+            this.renderFrame();
+            return { paused: true, line: cur };
+          }
+        } else {
+          if (!armed && cur !== opts.fromLine) armed = true;
+          if (armed && opts.breakpoints.has(cur)) {
+            this.renderFrame();
+            return { paused: true, line: cur };
+          }
+        }
+      }
+    }
+    this.renderFrame();
+    return { paused: false, line: this.currentLine() };
   }
 
   setMemoryActivityRecording(enabled: boolean): void {
