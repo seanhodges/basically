@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { cpc464Samples } from './samples';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { CPC464_KALEIDO_BLOCK, cpc464Samples } from './samples';
+import { cpc464MemoryBlocks } from './memoryBlocks';
 import { tokenizeProgram } from './tokenizer';
+import { asmEngineFor } from '../../asm/registry';
+import { CpcMachine } from '../../emulator/cpc/cpcMachine';
+
+const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc464.rom');
+const hasRom = existsSync(ROM_PATH);
+const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 
 describe('cpc464 samples', () => {
   it('ships the canonical five with hello first', () => {
@@ -29,4 +38,90 @@ describe('cpc464 samples', () => {
       expect(text, name).toMatch(/INKEY\(/);
     }
   });
+
+  it('the kaleidoscope block assembles clean inside its valid range', () => {
+    const engine = asmEngineFor(cpc464MemoryBlocks.cpu)!;
+    const result = engine.assemble(
+      CPC464_KALEIDO_BLOCK.asmSource,
+      CPC464_KALEIDO_BLOCK.address,
+    );
+    expect(result.ok, result.ok ? '' : JSON.stringify(result.errors)).toBe(
+      true,
+    );
+    if (!result.ok) return;
+    expect(result.bytes.length).toBeGreaterThan(0);
+    const end = CPC464_KALEIDO_BLOCK.address + result.bytes.length - 1;
+    const inRange = cpc464MemoryBlocks.validRanges.some(
+      (r) => CPC464_KALEIDO_BLOCK.address >= r.start && end <= r.end,
+    );
+    expect(inRange).toBe(true);
+    // The BASIC program POKEs &8000-&8002 and calls &8003: pin the entry so an
+    // asm edit that moves it breaks loudly here, not silently at run.
+    expect(CPC464_KALEIDO_BLOCK.entry).toBe(CPC464_KALEIDO_BLOCK.address + 3);
+  });
+
+  // The render check drives the genuine firmware, so it skips without the ROM.
+  (hasRom ? it : it.skip)(
+    'the kaleidoscope routine fills the Mode 0 screen with a 4-way mirror',
+    () => {
+      // The sample's own BASIC INPUTs the parameters; drive the same routine
+      // with POKEd values instead so the test needs no keyboard scripting.
+      // Line 40 loops forever so the run stays alive and the "Ready" prompt
+      // doesn't scroll the screen and disturb the drawn cells.
+      const driver = [
+        '10 POKE &8000,3:POKE &8001,5:POKE &8002,2',
+        '20 MODE 0',
+        '30 CALL &8003',
+        '40 GOTO 40',
+      ].join('\n');
+      const { bytes, errors } = tokenizeProgram(driver, 'basic10');
+      expect(errors).toEqual([]);
+      const engine = asmEngineFor(cpc464MemoryBlocks.cpu)!;
+      const assembled = engine.assemble(
+        CPC464_KALEIDO_BLOCK.asmSource,
+        CPC464_KALEIDO_BLOCK.address,
+      );
+      expect(assembled.ok).toBe(true);
+      if (!assembled.ok) return;
+
+      const machine = new CpcMachine({ rom });
+      machine.loadProgram(bytes, {
+        blocks: [
+          {
+            id: 'sample-kaleido',
+            name: CPC464_KALEIDO_BLOCK.name,
+            address: CPC464_KALEIDO_BLOCK.address,
+            bytes: assembled.bytes,
+            kind: 'code',
+          },
+        ],
+      });
+      for (let i = 0; i < 120; i++) machine.runFrame();
+
+      // The block's bytes landed at its address...
+      expect(machine.mem.readScreen(0x8003)).toBe(assembled.bytes[3]);
+
+      // Read the top-left byte of every Mode 0 cell (20 cols x 25 rows). A cell
+      // (cx, cy) starts at &C000 + cy*80 + cx*4 (scanline 0 of the cell).
+      const cellByte = (cx: number, cy: number) =>
+        machine.mem.readScreen(0xc000 + cy * 80 + cx * 4);
+
+      // ...the screen holds a drawn pattern, not a plain MODE 0 clear.
+      const distinct = new Set<number>();
+      for (let cy = 0; cy < 25; cy++) {
+        for (let cx = 0; cx < 20; cx++) distinct.add(cellByte(cx, cy));
+      }
+      expect(distinct.size).toBeGreaterThan(4);
+
+      // ...and every cell holds the routine's 4-way mirror symmetry.
+      for (let cy = 0; cy < 13; cy++) {
+        for (let cx = 0; cx < 10; cx++) {
+          const v = cellByte(cx, cy);
+          expect(cellByte(19 - cx, cy)).toBe(v);
+          expect(cellByte(cx, 24 - cy)).toBe(v);
+          expect(cellByte(19 - cx, 24 - cy)).toBe(v);
+        }
+      }
+    },
+  );
 });
