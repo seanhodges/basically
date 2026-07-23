@@ -112,15 +112,39 @@ issue — the IDE also supports supplying your own ROM image at runtime.
 `cpc/cpc464.rom` is the 32K Amstrad CPC 464 firmware image, formed by
 concatenating the two standard 16K halves: the lower ROM (the CPC 464
 OS/firmware, CRC32 `815752df`) followed by the upper ROM (Locomotive BASIC 1.0,
-CRC32 `7d9a3bac`). It is copyright © 1984 Amstrad plc / Locomotive Software.
+CRC32 `7d9a3bac`). As the machine's own boot banner states, it is
+**copyright © 1984 Amstrad Consumer Electronics plc and Locomotive Software
+Ltd** — the two rights holders are distinct, and the copyright notice inside
+the image is unaltered here.
 
-Amstrad has long granted permission for the distribution of its CPC firmware
-ROM images for use with emulators, provided the copyright notice remains
-intact and no fee is charged for the ROM itself — the same stance, and the
-same rights holder, as the Sinclair ROMs above (Amstrad acquired the Sinclair
-computer business in 1986). This is the basis on which open-source emulators
-such as Arnold, CPCemu, Caprice32, WinAPE and JavaCPC distribute these images.
-They are included here, unmodified, solely for use with the bundled emulator.
-(The IDE also supports supplying your own ROM image at runtime.)
+The licensing is not a single blanket grant, so it is worth stating precisely:
 
-If you are the rights holder and want this file removed, please open an issue.
+- **Amstrad's permission.** Cliff Lawson, speaking for Amstrad, extended
+  Amstrad's long-standing "distribute the ROMs with your emulator" permission
+  (the same one that covers the Sinclair ROMs above — Amstrad acquired the
+  Sinclair computer business in 1986) to the CPC machines, saying it "applies
+  equally well to all the CPC stuff." The condition is that the copyright
+  message is not altered and that Amstrad's retained copyright is acknowledged
+  — Amstrad ask that redistributions note they "have kindly given their
+  permission for the redistribution of their copyrighted material but retain
+  that copyright."
+- **Locomotive Software's copyright.** Parts of the firmware are also
+  © Locomotive Software, a separate rights holder, and Lawson noted that "some
+  bits of that are also (c)Locomotive so you need to seek their permission too
+  — however I don't think there's ever a problem in so doing." Locomotive have
+  generally granted this, but their own stated position has been more
+  conservative than Amstrad's: redistribution on a non-profit basis (any charge
+  covering only distribution costs) and with prior written permission. This
+  project is free and non-commercial, and distributes the image unmodified
+  solely for use with the bundled emulator, which is consistent with that.
+
+This combined Amstrad-plus-Locomotive basis is how the long-running CPC
+emulators (CPCemu, WinAPE, Arnold, Caprice32, JavaCPC) ship these images;
+CPCemu's documentation, for example, credits distribution permission from both
+Amstrad (for BASIC) and Locomotive (for the firmware). The image is included
+here, unmodified and with its copyright notice intact, on that same basis. (The
+IDE also supports supplying your own ROM image at runtime, so the bundled copy
+can be removed without disabling the feature.)
+
+If you are a rights holder (Amstrad or Locomotive Software) and want this file
+removed, please open an issue and it will be taken out.
