@@ -14,6 +14,8 @@ import { cpc464KeyboardLayout } from './keyboardLayout';
 import { cpc464Samples } from './samples';
 import { cpc464BuildTargets } from './targets';
 import { cpc464AiProfile } from './aiProfile';
+import { cpc464MemoryMap } from './memoryMap';
+import { cpc464MemoryBlocks } from './memoryBlocks';
 import {
   buildCassetteSamples,
   decodeCassette,
@@ -41,6 +43,11 @@ export const cpc464: Dialect = {
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',
+  // The 64K memory map + where user memory blocks may live (Stage 5).
+  memoryMap: cpc464MemoryMap,
+  memoryBlocks: cpc464MemoryBlocks,
+  // POKE addr,val with &-hex addresses drives the memory-map viewer's markers.
+  memoryWrites: { forms: ['poke'], hexPrefix: '&' },
   // PRINT FRE(0) on a clean 464 boot (BASIC 1.0, no AMSDOS).
   programRamBytes: 42619,
   // The combined 32K firmware+BASIC ROM (16K OS then 16K Locomotive BASIC 1.0).
