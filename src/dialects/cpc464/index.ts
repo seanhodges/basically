@@ -15,6 +15,8 @@ import { cpc464KeyboardLayout } from './keyboardLayout';
 import { cpc464Samples } from './samples';
 import { cpc464BuildTargets } from './targets';
 import { cpc464AiProfile } from './aiProfile';
+import { CpcMachine } from '../../emulator/cpc/cpcMachine';
+import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from '../../emulator/cpc/display';
 
 /**
  * Amstrad CPC 464 (Locomotive BASIC 1.0).
@@ -35,6 +37,10 @@ export const cpc464: Dialect = {
   docsReference: 'cpc',
   // PRINT FRE(0) on a clean 464 boot (BASIC 1.0, no AMSDOS).
   programRamBytes: 42619,
+  // The combined 32K firmware+BASIC ROM (16K OS then 16K Locomotive BASIC 1.0).
+  romUrl: `${import.meta.env.BASE_URL}roms/cpc/cpc464.rom`,
+  // All three modes render into one 640×400 canvas (see emulator/cpc/display).
+  displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
   fileExtensions: ['.txt', '.bas'],
   keywords: cpc464Keywords,
   charset: cpcCharset,
@@ -63,10 +69,8 @@ export const cpc464: Dialect = {
     return tokenizeProgram(source, 'basic10').errors;
   },
 
-  createEmulator(_opts): MachineEmulator {
-    throw new Error(
-      'cpc464: emulator not implemented until Stage 2 of the dialect plan',
-    );
+  createEmulator(opts): MachineEmulator {
+    return new CpcMachine({ rom: opts.rom, model: '464', files: opts.files });
   },
 
   keyboardLayout: cpc464KeyboardLayout,

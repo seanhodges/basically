@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Ay38912, AY_SAMPLE_RATE } from './ay';
+import { Ay38912, AY_SAMPLE_RATE, AY_CLOCK_128K, AY_CLOCK_CPC } from './ay';
 
 const SAMPLES_PER_FRAME = AY_SAMPLE_RATE / 50;
 
@@ -183,5 +183,28 @@ describe('Ay38912 synthesis', () => {
     ay.render();
     ay.reset();
     expect(ay.render()).toHaveLength(0);
+  });
+
+  it('scales pitch by the input clock (CPC 1MHz vs 128K 1.77MHz)', () => {
+    // Same tone period, different chip clock: the slower CPC clock yields a
+    // proportionally lower tone frequency, so fewer zero crossings per frame.
+    expect(AY_CLOCK_CPC).toBeLessThan(AY_CLOCK_128K);
+    const spectrum = new Ay38912(AY_CLOCK_128K);
+    toneA(spectrum, 0x080);
+    const cpc = new Ay38912(AY_CLOCK_CPC);
+    toneA(cpc, 0x080);
+    expect(zeroCrossings(cpc.render())).toBeLessThan(
+      zeroCrossings(spectrum.render()),
+    );
+  });
+
+  it('defaults to the 128K clock when none is given', () => {
+    const explicit = new Ay38912(AY_CLOCK_128K);
+    toneA(explicit, 0x080);
+    const implicit = new Ay38912();
+    toneA(implicit, 0x080);
+    expect(zeroCrossings(implicit.render())).toBe(
+      zeroCrossings(explicit.render()),
+    );
   });
 });

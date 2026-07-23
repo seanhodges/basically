@@ -1,11 +1,14 @@
 /**
- * AY-3-8912 PSG: register file + synthesis.
+ * AY-3-8912 PSG: register file + synthesis. Shared by every machine that
+ * carries the chip - the ZX Spectrum 128K/+2 and the Amstrad CPC - since the
+ * silicon is identical; only the wiring to it differs (see below).
  *
  * The chip exposes 16 registers (three square-wave tone channels + noise +
  * envelope + mixer + two I/O ports). On the 128K they are reached through two
  * ports: the register number is latched by an OUT to 0xFFFD, then the selected
- * register is written via 0xBFFD (and read back via 0xFFFD). BASIC's PLAY and
- * the 128 BEEP drive it.
+ * register is written via 0xBFFD (and read back via 0xFFFD); BASIC's PLAY and
+ * the 128 BEEP drive it. On the CPC the same latch/write/read is carried on the
+ * 8255 PPI (port A is the AY data bus, port C the control lines).
  *
  * Synthesis (the ZX Spectrum 128K stage of the emulator-audio work) runs the
  * chip as a real PSG: three 12-bit tone counters, a 17-bit noise LFSR, a 16-bit
@@ -24,17 +27,18 @@ export const AY_SAMPLE_RATE = 44100;
 /** Samples emitted per 50Hz frame. */
 const SAMPLES_PER_FRAME = AY_SAMPLE_RATE / 50;
 /** AY clock on the 128K: the 3.5469MHz CPU clock divided by two. */
-const AY_CLOCK = 1773400;
+export const AY_CLOCK_128K = 1773400;
+/** AY clock on the Amstrad CPC: a flat 1MHz off the Gate Array. */
+export const AY_CLOCK_CPC = 1000000;
 /**
  * The generators advance one base step every eight AY clocks. A tone toggles on
  * each step it reaches its period, so a full square cycle is 2×period steps -
  * giving the datasheet tone frequency clock / (16 × period). Noise and the
  * envelope step every 2×period base steps, matching clock / (16 × period) and
- * the envelope's clock / (256 × period) full-cycle (16 ramp steps).
+ * the envelope's clock / (256 × period) full-cycle (16 ramp steps). The clock is
+ * per-machine (see the two constants above), so the base-step rate - and thus
+ * the steps advanced per output sample - is computed per instance.
  */
-const BASE_STEP_RATE = AY_CLOCK / 8;
-/** Base counter steps advanced per output sample (~5.03 at 44.1kHz). */
-const STEPS_PER_SAMPLE = BASE_STEP_RATE / AY_SAMPLE_RATE;
 
 /** Per-channel peak amplitude; three channels at full volume stay below ~0.75. */
 const AY_CHANNEL_AMPLITUDE = 0.25;
@@ -70,6 +74,9 @@ const REG_MASKS = [
 export class Ay38912 {
   readonly sampleRate = AY_SAMPLE_RATE;
 
+  /** Base counter steps advanced per output sample (~5.03 at 44.1kHz, 128K). */
+  private readonly stepsPerSample: number;
+
   private readonly regs = new Uint8Array(16);
   private selected = 0;
 
@@ -95,6 +102,16 @@ export class Ay38912 {
   /** DC-blocker memory, kept across frames so the filter stays continuous. */
   private dcPrevIn = 0;
   private dcPrevOut = 0;
+
+  /**
+   * @param clockHz the chip's input clock. Defaults to the ZX Spectrum 128K's
+   * {@link AY_CLOCK_128K}; the CPC passes {@link AY_CLOCK_CPC}. It only scales
+   * pitch/tempo (the datasheet clock / (16 × period) tone frequency), so the
+   * register file and every shape are identical across machines.
+   */
+  constructor(clockHz: number = AY_CLOCK_128K) {
+    this.stepsPerSample = clockHz / 8 / AY_SAMPLE_RATE;
+  }
 
   /** OUT to 0xFFFD: latch the register number to read or write next (0-15). */
   selectRegister(reg: number): void {
@@ -248,7 +265,7 @@ export class Ay38912 {
     let prevIn = this.dcPrevIn;
     let prevOut = this.dcPrevOut;
     for (let i = 0; i < SAMPLES_PER_FRAME; i++) {
-      this.stepAccumulator += STEPS_PER_SAMPLE;
+      this.stepAccumulator += this.stepsPerSample;
       while (this.stepAccumulator >= 1) {
         this.stepBase();
         this.stepAccumulator -= 1;
