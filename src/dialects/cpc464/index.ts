@@ -35,6 +35,8 @@ export const cpc464: Dialect = {
   id: 'cpc464',
   name: 'CPC 464',
   docsReference: 'cpc',
+  // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
+  addressNotation: 'hex',
   // PRINT FRE(0) on a clean 464 boot (BASIC 1.0, no AMSDOS).
   programRamBytes: 42619,
   // The combined 32K firmware+BASIC ROM (16K OS then 16K Locomotive BASIC 1.0).

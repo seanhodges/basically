@@ -27,6 +27,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'sys', dialectId: 'vic20' }, // SYS - VIC-20 BASIC V2 jump-to-machine-code
   { verb: 'link', dialectId: 'atom' }, // LINK - Atom BASIC "execute machine code"
   { verb: 'cload', dialectId: 'trs80' }, // CLOAD - Level II BASIC tape load
+  { verb: 'mode', dialectId: 'cpc464' }, // MODE - the iconic Locomotive BASIC screen-mode command
 ];
 
 // Six characters from an unambiguous lowercase alphabet (no 0/O/1/l/i).
