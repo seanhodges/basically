@@ -1,12 +1,23 @@
 import type { SampleFile } from '../types';
 import hello from './samples/hello.bas?raw';
+import circles from './samples/circles.bas?raw';
+import breakout from './samples/breakout.bas?raw';
+import maze from './samples/maze.bas?raw';
+import kaleido from './samples/kaleido.bas?raw';
 
 /**
- * CPC 464 example programs; the first is the starter for a fresh document.
- * Stage 3 ports the canonical set (hello, circles, breakout, maze, kaleido —
- * kaleido with a Z80 memory block + CALL &8000); only the placeholder
- * starter ships until then.
+ * CPC 464 example programs in Locomotive BASIC 1.0; the first is the starter
+ * shown for a fresh document. `circles`/`kaleido` exercise the Mode 0 graphics
+ * statements (`ORIGIN`/`PLOT`/`DRAW`, per-`PLOT` ink), and `breakout`/`maze`
+ * read the cursor keys through `INKEY(n)` so the on-screen controller (bound to
+ * the cursor cluster) drives them. `kaleido` ships as the BASIC-only variant
+ * until Stage 5 lands block injection (the plan's `CALL &8000` machine-code
+ * version).
  */
 export const cpc464Samples: SampleFile[] = [
   { name: 'hello.bas', title: 'Hello world', text: hello },
+  { name: 'circles.bas', title: 'Circles', text: circles },
+  { name: 'breakout.bas', title: 'Breakout', text: breakout },
+  { name: 'maze.bas', title: 'Maze', text: maze },
+  { name: 'kaleido.bas', title: 'Kaleidoscope', text: kaleido },
 ];

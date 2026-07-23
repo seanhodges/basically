@@ -10,6 +10,7 @@ import { pet } from './pet';
 import { vic20 } from './vic20';
 import { atom } from './atom';
 import { trs80 } from './trs80';
+import { cpc464 } from './cpc464';
 
 export const dialects: Dialect[] = [
   zx81,
@@ -23,6 +24,7 @@ export const dialects: Dialect[] = [
   vic20,
   atom,
   trs80,
+  cpc464,
 ];
 
 export function getDialect(id: string): Dialect {

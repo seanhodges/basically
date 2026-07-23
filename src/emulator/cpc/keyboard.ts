@@ -76,8 +76,11 @@ for (let line = 0; line < MATRIX.length; line++) {
  * Map a browser `KeyboardEvent.code` to a matrix token. Only the physical keys
  * that exist on the CPC are mapped; anything else returns null and is left for
  * the browser. The numeric-keypad function keys map to the CPC's F0-F9 block.
+ *
+ * Exported so the virtual-keyboard layout tests can assert that the physical map
+ * and the on-screen layout together reach every (non-joystick) matrix cell.
  */
-const CODE_TO_TOKEN: Record<string, string> = {
+export const CODE_TO_TOKEN: Record<string, string> = {
   ArrowUp: 'CursorUp',
   ArrowDown: 'CursorDown',
   ArrowLeft: 'CursorLeft',
@@ -87,6 +90,7 @@ const CODE_TO_TOKEN: Record<string, string> = {
   Space: 'Space',
   Backspace: 'Del',
   Delete: 'Clr',
+  End: 'Copy',
   Escape: 'Esc',
   Tab: 'Tab',
   CapsLock: 'CapsLock',
@@ -104,6 +108,9 @@ const CODE_TO_TOKEN: Record<string, string> = {
   BracketRight: 'BracketClose',
   Backslash: 'Backslash',
   Backquote: 'At',
+  // ISO keyboards' extra key by the left Shift stands in for the CPC's
+  // dedicated ^/£ key, the one CPC printable with no natural US-PC code.
+  IntlBackslash: 'Caret',
   Equal: 'Minus',
   Digit0: 'Digit0',
   Digit1: 'Digit1',
