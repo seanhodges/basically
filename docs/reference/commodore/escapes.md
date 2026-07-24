@@ -3,7 +3,7 @@ title: Commodore PETSCII escape codes
 ---
 
 <script setup>
-import { commodore64Escapes } from '../data/escapes/commodore64';
+import { commodoreEscapes } from '../data/escapes/commodore';
 </script>
 
 # Commodore PETSCII escape codes
@@ -13,4 +13,4 @@ Every escape that can be typed in Commodore source, and the PETSCII byte it stor
 See also the [Commodore BASIC reference](../commodore) and
 [file formats](../file-formats#escape-notation).
 
-<EscapeTable :data="commodore64Escapes" />
+<EscapeTable :data="commodoreEscapes" />

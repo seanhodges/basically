@@ -25,7 +25,7 @@ import { zx81Escapes } from './zx81';
 import { zx80Escapes } from './zx80';
 import { zxspectrumEscapes } from './zxspectrum';
 import { bbcEscapes } from './bbc';
-import { commodore64Escapes } from './commodore64';
+import { commodoreEscapes } from './commodore';
 import { trs80Escapes } from './trs80';
 import { atomEscapes } from './atom';
 import { cpcEscapes } from './cpc';
@@ -178,9 +178,9 @@ const ADAPTERS: [string, Adapter][] = [
     },
   ],
   [
-    'commodore64',
+    'commodore',
     {
-      data: commodore64Escapes,
+      data: commodoreEscapes,
       parse: (t) => parseAll(t, parseC64Char),
       decode: (b) => petsciiToText(b),
       isEscapeForm: (t) => /^\{.*\}$/.test(t),
@@ -325,10 +325,7 @@ describe('escape cross-check: table-driven extras', () => {
 
   it('every petcat alias appears as a C64 row or alias', () => {
     const spellings = new Set(
-      commodore64Escapes.entries.flatMap((e) => [
-        e.escape,
-        ...(e.aliases ?? []),
-      ]),
+      commodoreEscapes.entries.flatMap((e) => [e.escape, ...(e.aliases ?? [])]),
     );
     for (const name of Object.keys(PETCAT_ALIASES)) {
       expect(spellings.has(`{${name}}`), name).toBe(true);
@@ -336,7 +333,7 @@ describe('escape cross-check: table-driven extras', () => {
   });
 
   it('every C64 letter-key graphic has a {CBM-x}/{SHIFT-x} row', () => {
-    const spellings = new Set(commodore64Escapes.entries.map((e) => e.escape));
+    const spellings = new Set(commodoreEscapes.entries.map((e) => e.escape));
     for (const { key } of C64_COMMODORE_GRAPHICS) {
       if (/^[A-Z]$/.test(key)) {
         expect(spellings.has(`{CBM-${key.toLowerCase()}}`), key).toBe(true);

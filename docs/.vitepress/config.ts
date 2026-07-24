@@ -86,41 +86,16 @@ export default withPwa(
               // Each dialect page nests its hardware sub-page (screen,
               // colour, graphics, sound, memory), its searchable escape-codes
               // sub-page (the "embedded control codes & graphics" reference)
-              // and its file-formats sub-page.
+              // and its file-formats sub-page. The BASIC dialects are listed
+              // alphabetically; the per-CPU assembly references stay at the end.
               {
-                text: 'ZX81 BASIC',
-                link: '/reference/zx81',
+                text: 'Atom BASIC',
+                link: '/reference/atom',
                 collapsed: true,
                 items: [
-                  { text: 'Hardware', link: '/reference/zx81/hardware' },
-                  { text: 'Escape codes', link: '/reference/zx81/escapes' },
-                  { text: 'File formats', link: '/reference/zx81/formats' },
-                ],
-              },
-              {
-                text: 'ZX80 BASIC',
-                link: '/reference/zx80',
-                collapsed: true,
-                items: [
-                  { text: 'Hardware', link: '/reference/zx80/hardware' },
-                  { text: 'Escape codes', link: '/reference/zx80/escapes' },
-                  { text: 'File formats', link: '/reference/zx80/formats' },
-                ],
-              },
-              {
-                text: 'ZX Spectrum BASIC',
-                link: '/reference/zxspectrum',
-                collapsed: true,
-                items: [
-                  { text: 'Hardware', link: '/reference/zxspectrum/hardware' },
-                  {
-                    text: 'Escape codes',
-                    link: '/reference/zxspectrum/escapes',
-                  },
-                  {
-                    text: 'File formats',
-                    link: '/reference/zxspectrum/formats',
-                  },
+                  { text: 'Hardware', link: '/reference/atom/hardware' },
+                  { text: 'Escape codes', link: '/reference/atom/escapes' },
+                  { text: 'File formats', link: '/reference/atom/formats' },
                 ],
               },
               {
@@ -155,13 +130,13 @@ export default withPwa(
                 ],
               },
               {
-                text: 'Atom BASIC',
-                link: '/reference/atom',
+                text: 'Locomotive BASIC',
+                link: '/reference/cpc',
                 collapsed: true,
                 items: [
-                  { text: 'Hardware', link: '/reference/atom/hardware' },
-                  { text: 'Escape codes', link: '/reference/atom/escapes' },
-                  { text: 'File formats', link: '/reference/atom/formats' },
+                  { text: 'Hardware', link: '/reference/cpc/hardware' },
+                  { text: 'Escape codes', link: '/reference/cpc/escapes' },
+                  { text: 'File formats', link: '/reference/cpc/formats' },
                 ],
               },
               {
@@ -175,13 +150,39 @@ export default withPwa(
                 ],
               },
               {
-                text: 'Locomotive BASIC',
-                link: '/reference/cpc',
+                text: 'ZX Spectrum BASIC',
+                link: '/reference/zxspectrum',
                 collapsed: true,
                 items: [
-                  { text: 'Hardware', link: '/reference/cpc/hardware' },
-                  { text: 'Escape codes', link: '/reference/cpc/escapes' },
-                  { text: 'File formats', link: '/reference/cpc/formats' },
+                  { text: 'Hardware', link: '/reference/zxspectrum/hardware' },
+                  {
+                    text: 'Escape codes',
+                    link: '/reference/zxspectrum/escapes',
+                  },
+                  {
+                    text: 'File formats',
+                    link: '/reference/zxspectrum/formats',
+                  },
+                ],
+              },
+              {
+                text: 'ZX80 BASIC',
+                link: '/reference/zx80',
+                collapsed: true,
+                items: [
+                  { text: 'Hardware', link: '/reference/zx80/hardware' },
+                  { text: 'Escape codes', link: '/reference/zx80/escapes' },
+                  { text: 'File formats', link: '/reference/zx80/formats' },
+                ],
+              },
+              {
+                text: 'ZX81 BASIC',
+                link: '/reference/zx81',
+                collapsed: true,
+                items: [
+                  { text: 'Hardware', link: '/reference/zx81/hardware' },
+                  { text: 'Escape codes', link: '/reference/zx81/escapes' },
+                  { text: 'File formats', link: '/reference/zx81/formats' },
                 ],
               },
               // The assembler is per-CPU, not per-dialect, so machine-code

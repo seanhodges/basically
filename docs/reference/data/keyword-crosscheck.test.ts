@@ -22,7 +22,7 @@ import { zx81Reference } from './zx81';
 import { zx80Reference } from './zx80';
 import { zxspectrumReference } from './zxspectrum';
 import { bbcReference } from './bbc';
-import { commodore64Reference } from './commodore64';
+import { commodoreReference } from './commodore';
 import { atomReference } from './atom';
 import { trs80Reference } from './trs80';
 import { cpcReference } from './cpc';
@@ -57,7 +57,7 @@ const PAIRS: [string, ReferenceTableData, EditorKeyword[]][] = [
   // One page covers all three Commodore machines: the merged table is
   // crosschecked against the PET's keyword set (= the C64 V2 core plus the 15
   // BASIC 4.0 disk commands), the same union model as zxspectrum's 48K+128K.
-  ['commodore', commodore64Reference, petKeywords],
+  ['commodore', commodoreReference, petKeywords],
   ['atom', atomReference, atomKeywords],
   ['trs80', trs80Reference, trs80Keywords],
   ['cpc', cpcReference, locoKeywordTable],

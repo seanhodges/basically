@@ -3,7 +3,7 @@ title: Commodore BASIC reference
 ---
 
 <script setup>
-import { commodore64Reference } from './data/commodore64';
+import { commodoreReference } from './data/commodore';
 </script>
 
 # Commodore BASIC reference
@@ -26,4 +26,4 @@ Commodore PET.
   machines, though the colour-control codes have no visible effect on the PET's
   monochrome display.
 
-<ReferenceTable :data="commodore64Reference" />
+<ReferenceTable :data="commodoreReference" />

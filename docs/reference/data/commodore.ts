@@ -9,7 +9,7 @@
 // (src/dialects/pet/keywords.ts) is the union checked by keyword-crosscheck.
 import type { ReferenceTableData } from './types';
 
-export const commodore64Reference: ReferenceTableData = {
+export const commodoreReference: ReferenceTableData = {
   title: 'Commodore 64, VIC-20 & PET BASIC',
   machines: ['Commodore 64', 'Commodore VIC-20', 'Commodore PET'],
   entries: [
