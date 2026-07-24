@@ -14,7 +14,7 @@ Basically supports — the **Commodore 64**, **VIC-20** and **PET**, the **BBC
 Micro** and **Master**, and the **Acorn Atom** all share the identical
 instruction set and assembler syntax. What differs between them is only the
 memory map (where a block may live and the entry points you call), which stays
-on each machine's own language-reference page.
+on each machine's own hardware page.
 
 Use the search box to filter by mnemonic, the buttons to show only
 **Instructions** or **Directives**, and the **Name** / **Kind** headers to
@@ -75,11 +75,10 @@ Four pseudo-ops control layout and data:
 
 The address ranges a routine may occupy, the default load address, and the entry
 points you call (`SYS`, `CALL`, `USR`, `LINK`) are machine-specific — see the
-"Machine code & data blocks" section on each machine's page:
-[Commodore 64 & VIC-20](./commodore64#machine-code-data-blocks),
-[Commodore PET](./pet#machine-code-data-blocks),
-[BBC Micro & Master](./bbc#machine-code-data-blocks) and
-[Acorn Atom](./atom#machine-code-data-blocks).
+**Memory** section on each machine's hardware page:
+[Commodore 64 & VIC-20](./commodore64/hardware),
+[Commodore PET](./pet/hardware), [BBC Micro & Master](./bbc/hardware) and
+[Acorn Atom](./atom/hardware).
 
 See also the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.

@@ -10,22 +10,19 @@ import { trs80Reference } from './data/trs80';
 
 Every command, function and operator in TRS-80 Level II BASIC.
 
+## Notes and caveats
+
+- Multiple statements per line are allowed with `:`; `?` is shorthand for
+  `PRINT` and `'` for `REM`.
+- Variable names may be any length but only the first two characters are
+  significant, with `$` (string), `%` (integer), `!` (single) and `#` (double)
+  type suffixes; `DEFSTR`/`DEFINT`/`DEFSNG`/`DEFDBL` set the default type per
+  initial letter.
+
 <ReferenceTable :data="trs80Reference" />
 
-## Machine code & data blocks
-
-A TRS-80 program can carry fixed-address machine code or data — **memory
-blocks** — that load into RAM alongside the BASIC program before it runs. On the
-TRS-80 a block may sit from **0x4000 to 0x7FFF**; new blocks default to
-**0x7000**, high in RAM clear of a typical program.
-
-Blocks travel with the document through the
-[project bundle](./file-formats#project-bundle-zip) and through share links,
-and can arrive on **import**: a machine-language SYSTEM-format `.cas` brings each
-of its address records in as a block. An ordinary BASIC `.cas` is unaffected.
-
-On Run the IDE refuses to start if a block would overlap the BASIC program. See
-the [machine code guide](../guide/machine-code) and the cross-dialect
-[Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.
-Every mnemonic, directive and operand form the assembly editor accepts is in the
-[Z80 assembly reference](./z80-assembly).
+The machine hardware — screen modes, colour, graphics, sound and memory — is on
+the [hardware](./trs80/hardware) page; the control codes and graphics bytes you
+can embed in source are on the [escape codes](./trs80/escapes) page; the native
+file containers and cassette encoding are on the
+[file formats](./trs80/formats) page.
