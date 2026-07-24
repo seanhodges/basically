@@ -354,6 +354,96 @@ export const atomReference: ReferenceTableData = {
         'Returns the constant 3.14159265 (requires the floating-point ROM).',
     },
     {
+      name: 'LEN',
+      kind: 'function',
+      syntax: 'LEN <addr>',
+      description:
+        'Returns the length of the string stored at an address, counting characters up to its terminating carriage return.',
+    },
+    {
+      name: 'COUNT',
+      kind: 'function',
+      syntax: 'COUNT',
+      description:
+        'Returns the current text cursor column — the number of characters printed since the last newline — like POS in other dialects.',
+    },
+    {
+      name: 'PTR',
+      kind: 'function',
+      syntax: 'PTR <handle>',
+      description:
+        'Returns the read/write pointer of an open file (the number of bytes transferred so far); it can also be assigned to seek to a position within the file.',
+    },
+    {
+      name: 'EXT',
+      kind: 'function',
+      syntax: 'EXT <handle>',
+      description: 'Returns the length (extent) in bytes of an open file.',
+    },
+    {
+      name: 'SGET',
+      kind: 'function',
+      syntax: 'SGET <handle>',
+      description:
+        'Reads a whole string (up to a carriage return) from an input file opened with FIN — the string companion of BGET.',
+    },
+    {
+      name: 'SPUT',
+      kind: 'command',
+      syntax: 'SPUT <handle>,$<addr>',
+      description:
+        'Writes a string (the characters at an address, up to a carriage return) to an output file opened with FOUT — the string companion of BPUT.',
+    },
+    {
+      name: '?',
+      kind: 'operator',
+      syntax: '?<addr> | ?<addr>=<number>',
+      description:
+        'Byte indirection: reads or writes the single byte at an address (the Atom equivalent of PEEK/POKE). As a statement, ?addr=value stores a byte; in an expression, ?addr reads one. The dyadic form base?offset addresses base+offset.',
+    },
+    {
+      name: '!',
+      kind: 'operator',
+      syntax: '!<addr> | !<addr>=<number>',
+      description:
+        'Word indirection: reads or writes the 4-byte word at an address, low byte first. As a statement, !addr=value stores four bytes; in an expression, !addr reads them. The dyadic form base!offset addresses base+offset.',
+    },
+    {
+      name: '$',
+      kind: 'operator',
+      syntax: '$<addr> | $<addr>="…"',
+      description:
+        'String indirection: addresses the string stored at a location, terminated by a carriage return. $addr="TEXT" stores a string; PRINT $addr prints one.',
+    },
+    {
+      name: '%',
+      kind: 'operator',
+      syntax: '<number> % <number>',
+      description:
+        'Remainder after integer division (for example 7 % 3 is 1). Not to be confused with %A–%Z, the floating-point ROM variables.',
+    },
+    {
+      name: '&',
+      kind: 'operator',
+      syntax: '<number> & <number>',
+      description:
+        'Bitwise AND of two integers (distinct from the logical AND keyword used in conditions).',
+    },
+    {
+      name: '\\',
+      kind: 'operator',
+      syntax: '<number> \\ <number>',
+      description:
+        'Bitwise OR of two integers (distinct from the logical OR keyword used in conditions).',
+    },
+    {
+      name: ':',
+      kind: 'operator',
+      syntax: '<number> : <number>',
+      description:
+        'Bitwise exclusive-OR (XOR) of two integers, setting each result bit where exactly one operand bit is set.',
+    },
+    {
       name: 'AND',
       kind: 'operator',
       syntax: '<number> AND <number>',

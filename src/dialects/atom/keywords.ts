@@ -205,6 +205,12 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     doc: "Write the low byte of expr to an output file opened with FOUT. In the IDE these bytes go to the emulator's virtual filesystem (see the Emulator files viewer).",
   },
   {
+    word: 'SPUT',
+    kind: 'command',
+    signature: 'SPUT handle,$addr',
+    doc: 'Write a string (the characters at addr, up to a carriage return) to an output file opened with FOUT — the string companion of BPUT.',
+  },
+  {
     word: 'PUT',
     kind: 'command',
     signature: 'PUT port,value',
@@ -270,7 +276,31 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     word: 'LEN',
     kind: 'function',
     signature: 'LEN str',
-    doc: 'Length of a string at the given address.',
+    doc: 'Length of the string at the given address, up to its terminating carriage return.',
+  },
+  {
+    word: 'COUNT',
+    kind: 'function',
+    signature: 'COUNT',
+    doc: 'The current text cursor column (characters printed since the last newline), like POS on other dialects.',
+  },
+  {
+    word: 'PTR',
+    kind: 'function',
+    signature: 'PTR handle',
+    doc: 'The read/write pointer of an open file — the number of bytes read or written so far. May also be assigned to seek within the file.',
+  },
+  {
+    word: 'EXT',
+    kind: 'function',
+    signature: 'EXT handle',
+    doc: 'The length (extent) in bytes of an open file.',
+  },
+  {
+    word: 'SGET',
+    kind: 'function',
+    signature: 'SGET handle',
+    doc: 'Read a string (up to a carriage return) from an input file opened with FIN — the string companion of BGET.',
   },
   {
     word: 'ABS',
@@ -381,25 +411,13 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     word: 'AND',
     kind: 'operator',
     signature: 'a AND b',
-    doc: 'Bitwise/logical AND.',
+    doc: 'Logical AND of two conditions (bitwise AND is the & operator).',
   },
   {
     word: 'OR',
     kind: 'operator',
     signature: 'a OR b',
-    doc: 'Bitwise/logical OR.',
-  },
-  {
-    word: 'DIV',
-    kind: 'operator',
-    signature: 'a DIV b',
-    doc: 'Integer division.',
-  },
-  {
-    word: 'MOD',
-    kind: 'operator',
-    signature: 'a MOD b',
-    doc: 'Integer remainder.',
+    doc: 'Logical OR of two conditions (bitwise OR is the \\ operator).',
   },
 ];
 

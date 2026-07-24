@@ -159,6 +159,42 @@ describe('buildBasicLanguage highlighting', () => {
     it('tags the caret exponent operator', () => {
       expect(classify('10 A=B^2')).toContainEqual(['^', 'op']);
     });
+
+    // Acorn Atom opts its own operators (! % & \) into the operator set via
+    // extraOperators; ?, $ and : are already shared.
+    const atom = { graphicsEscapes: false, suffixChars: '', hexPrefix: '#' };
+    const atomOps = { ...atom, extraOperators: '!%&\\' };
+
+    it.each(['!', '%', '&', '\\'])(
+      'tags the Atom operator %s when extraOperators includes it',
+      (op) => {
+        expect(classify(`10 A=B${op}C`, testKeywords, atomOps)).toContainEqual([
+          op,
+          'op',
+        ]);
+      },
+    );
+
+    it('does not tag those characters as operators without extraOperators', () => {
+      // Same lexical options minus extraOperators: ! % & \ fall through untagged
+      // (guarding that the option, not the shared set, is what styles them).
+      for (const op of ['!', '%', '&', '\\']) {
+        expect(classify(`10 A=B${op}C`, testKeywords, atom)).not.toContainEqual(
+          [op, 'op'],
+        );
+      }
+    });
+
+    it('still tags the shared ? $ : operators for the Atom', () => {
+      expect(classify('10 ?A=B', testKeywords, atomOps)).toContainEqual([
+        '?',
+        'op',
+      ]);
+      expect(classify('10 A=B:C', testKeywords, atomOps)).toContainEqual([
+        ':',
+        'op',
+      ]);
+    });
   });
 
   describe('crunched highlighting (C64/TRS-80)', () => {
