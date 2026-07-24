@@ -10,6 +10,8 @@ import { trs80Reference } from './data/trs80';
 
 Every command, function and operator in TRS-80 Level II BASIC.
 
+**In this reference:** [Hardware](./trs80/hardware) · [Escape codes](./trs80/escapes) · [File formats](./trs80/formats)
+
 ## Notes and caveats
 
 - Multiple statements per line are allowed with `:`; `?` is shorthand for
@@ -20,9 +22,3 @@ Every command, function and operator in TRS-80 Level II BASIC.
   initial letter.
 
 <ReferenceTable :data="trs80Reference" />
-
-The machine hardware — screen modes, colour, graphics, sound and memory — is on
-the [hardware](./trs80/hardware) page; the control codes and graphics bytes you
-can embed in source are on the [escape codes](./trs80/escapes) page; the native
-file containers and cassette encoding are on the
-[file formats](./trs80/formats) page.

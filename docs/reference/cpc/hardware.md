@@ -5,7 +5,7 @@ title: Amstrad CPC hardware
 # Amstrad CPC hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
-[Amstrad CPC Locomotive BASIC](../cpc), and where machine-code and data blocks
+[Locomotive BASIC](../cpc), and where machine-code and data blocks
 live in its memory.
 
 ## Amstrad CPC 464

@@ -98,7 +98,7 @@ export default withPwa(
                 ],
               },
               {
-                text: 'ZX80 integer BASIC',
+                text: 'ZX80 BASIC',
                 link: '/reference/zx80',
                 collapsed: true,
                 items: [
@@ -134,7 +134,7 @@ export default withPwa(
                 ],
               },
               {
-                text: 'Commodore 64 & VIC-20 BASIC',
+                text: 'Commodore BASIC V2',
                 link: '/reference/commodore64',
                 collapsed: true,
                 items: [
@@ -153,7 +153,7 @@ export default withPwa(
                 ],
               },
               {
-                text: 'Commodore PET BASIC 4.0',
+                text: 'Commodore BASIC 4.0',
                 link: '/reference/pet',
                 collapsed: true,
                 items: [
@@ -171,7 +171,7 @@ export default withPwa(
                 ],
               },
               {
-                text: 'Acorn Atom BASIC',
+                text: 'Atom BASIC',
                 link: '/reference/atom',
                 collapsed: true,
                 items: [
@@ -191,7 +191,7 @@ export default withPwa(
                 ],
               },
               {
-                text: 'Amstrad CPC BASIC',
+                text: 'Locomotive BASIC',
                 link: '/reference/cpc',
                 collapsed: true,
                 items: [

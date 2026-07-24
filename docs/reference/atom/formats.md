@@ -13,7 +13,7 @@ audio](#cassette-audio) below).
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
-overview](../file-formats). See also the [Acorn Atom BASIC reference](../atom)
+overview](../file-formats). See also the [Atom BASIC reference](../atom)
 and its [escape codes](./escapes).
 
 ## Acorn Atom `.atm`

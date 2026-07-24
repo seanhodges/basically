@@ -11,6 +11,8 @@ import { bbcReference } from './data/bbc';
 Every command, function and operator in BBC BASIC, shared by the BBC Micro and
 the BBC Master.
 
+**In this reference:** [Hardware](./bbc/hardware) · [Escape codes](./bbc/escapes) · [File formats](./bbc/formats)
+
 ## Notes and caveats
 
 - BBC BASIC also uses the symbolic memory operators `?` (byte) and `!` (word)
@@ -19,9 +21,3 @@ the BBC Master.
   table below.
 
 <ReferenceTable :data="bbcReference" />
-
-The machine hardware — screen modes, colour, graphics, sound and memory — is on
-the [hardware](./bbc/hardware) page; the control codes and graphics bytes you
-can embed in source are on the [escape codes](./bbc/escapes) page; the native
-file containers and cassette encoding are on the
-[file formats](./bbc/formats) page.

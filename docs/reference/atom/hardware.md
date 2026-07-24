@@ -5,7 +5,7 @@ title: Acorn Atom hardware
 # Acorn Atom hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
-[Acorn Atom BASIC](../atom), and where machine-code and data blocks live in its
+[Atom BASIC](../atom), and where machine-code and data blocks live in its
 memory.
 
 ## Acorn Atom

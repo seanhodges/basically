@@ -5,7 +5,7 @@ title: Commodore PET hardware
 # Commodore PET hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
-[Commodore PET BASIC 4.0](../pet), and where machine-code and data blocks live
+[Commodore BASIC 4.0](../pet), and where machine-code and data blocks live
 in its memory.
 
 ## Commodore PET
