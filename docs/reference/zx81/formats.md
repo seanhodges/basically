@@ -14,7 +14,7 @@ cross-machine machine-code overview, see the [file formats
 overview](../file-formats). See also the [ZX81 BASIC reference](../zx81) and its
 [escape codes](./escapes).
 
-## `.P`
+## ZX81 `.P`
 
 A `.P` file is the ZX81 memory dump from 0x4009 (VERSN) up to but not including
 the address in E_LINE - identical to what the ROM's SAVE writes:

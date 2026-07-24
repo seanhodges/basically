@@ -118,7 +118,7 @@ through the [project bundle](#project-bundle-zip) and through
 [share links](../guide/publishing). The ZX Spectrum `.TAP`, the Commodore `.d64`,
 the BBC `.ssd`, and the Atom and TRS-80 `.dsk` disc images carry blocks in
 **both directions** (see each machine's page —
-[`.TAP`](./zxspectrum/formats#tap),
+[`.TAP`](./zxspectrum/formats#zx-spectrum-tap),
 [`.d64`](./commodore64/formats#commodore-64-vic-20-pet-d64),
 [`.ssd`](./bbc/formats#bbc-micro-master-ssd),
 [Atom `.dsk`](./atom/formats#acorn-atom-dsk),
@@ -159,7 +159,7 @@ Every block-capable machine carries its blocks inside a container in **both
 directions**: the BBC in a [`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc (or
 as inline assembly in the `.bbc`), the Commodore in a
 [`.d64`](./commodore64/formats#commodore-64-vic-20-pet-d64), the ZX Spectrum in a
-[`.TAP`](./zxspectrum/formats#tap), and the Acorn Atom and TRS-80 in a
+[`.TAP`](./zxspectrum/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
 [`.dsk`](./atom/formats#acorn-atom-dsk) disc image. The ZX81/ZX80 keep their
 machine code inside the listing as `#BIN` REM records.
 

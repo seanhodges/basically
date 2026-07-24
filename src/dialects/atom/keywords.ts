@@ -419,6 +419,55 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     signature: 'a OR b',
     doc: 'Logical OR of two conditions (bitwise OR is the \\ operator).',
   },
+
+  // ---- Symbolic operators ----
+  // Stored verbatim like every Atom keyword. The editor highlighter/completion
+  // only key off alphabetic words, so these drive neither directly (highlighting
+  // for '!'/'%'/'&'/'\\' comes from the language's extraOperators); they are
+  // listed so the reference table stays in step with the language (see the
+  // keyword-crosscheck test) and to document the indirection/bitwise operators.
+  {
+    word: '?',
+    kind: 'operator',
+    signature: '?addr | ?addr=n',
+    doc: 'Byte indirection: read or write the byte at addr (the Atom PEEK/POKE).',
+  },
+  {
+    word: '!',
+    kind: 'operator',
+    signature: '!addr | !addr=n',
+    doc: 'Word indirection: read or write the 4-byte word at addr, low byte first.',
+  },
+  {
+    word: '$',
+    kind: 'operator',
+    signature: '$addr | $addr="…"',
+    doc: 'String indirection: the string stored at addr, terminated by a carriage return.',
+  },
+  {
+    word: '%',
+    kind: 'operator',
+    signature: 'a % b',
+    doc: 'Remainder after integer division (e.g. 7%3 is 1). Not the FP-variable prefix %A–%Z.',
+  },
+  {
+    word: '&',
+    kind: 'operator',
+    signature: 'a & b',
+    doc: 'Bitwise AND (the logical AND keyword combines conditions).',
+  },
+  {
+    word: '\\',
+    kind: 'operator',
+    signature: 'a \\ b',
+    doc: 'Bitwise OR (the logical OR keyword combines conditions).',
+  },
+  {
+    word: ':',
+    kind: 'operator',
+    signature: 'a : b',
+    doc: 'Bitwise exclusive-OR (XOR).',
+  },
 ];
 
 export const atomKeywords: KeywordInfo[] = table.map((k, i) => ({

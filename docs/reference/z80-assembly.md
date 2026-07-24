@@ -10,11 +10,11 @@ import { z80AssemblyReference } from './data/z80-assembly';
 
 Every documented Z80 instruction, plus the assembler directives, understood by
 the built-in assembly editor. This one reference covers every Z80 machine
-Basically supports — the **ZX81**, **ZX80**, **ZX Spectrum** (48K & 128K) and
-**TRS-80** all share the identical instruction set and assembler syntax. What
-differs between them is only the memory map (where a block may live and the
-entry addresses you call), which stays on each machine's own language-reference
-page.
+Basically supports — the **ZX81**, **ZX80**, **ZX Spectrum** (48K & 128K),
+**TRS-80** and **Amstrad CPC** all share the identical instruction set and
+assembler syntax. What differs between them is only the memory map (where a
+block may live and the entry addresses you call), which stays on each machine's
+own hardware page.
 
 Use the search box to filter by mnemonic, the buttons to show only
 **Instructions** or **Directives**, and the **Name** / **Kind** headers to
@@ -71,11 +71,10 @@ Four pseudo-ops control layout and data:
 ## Where blocks live on each machine
 
 The address ranges a routine may occupy, the default load address, and the entry
-points you call from BASIC are machine-specific — see the "Machine code & data
-blocks" section on each machine's page: [ZX81](./zx81#machine-code-data-blocks),
-[ZX80](./zx80#machine-code-data-blocks),
-[ZX Spectrum](./zxspectrum#machine-code-data-blocks) and
-[TRS-80](./trs80#machine-code-data-blocks).
+points you call from BASIC are machine-specific — see the **Memory** section on
+each machine's hardware page: [ZX81](./zx81/hardware),
+[ZX80](./zx80/hardware), [ZX Spectrum](./zxspectrum/hardware),
+[TRS-80](./trs80/hardware) and [Amstrad CPC](./cpc/hardware).
 
 See also the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.

@@ -83,13 +83,16 @@ export default withPwa(
             text: 'Language reference',
             items: [
               { text: 'Overview', link: '/reference/' },
-              // Each dialect page nests its searchable escape-codes sub-page
-              // (the "embedded control codes & graphics" reference).
+              // Each dialect page nests its hardware sub-page (screen,
+              // colour, graphics, sound, memory), its searchable escape-codes
+              // sub-page (the "embedded control codes & graphics" reference)
+              // and its file-formats sub-page.
               {
                 text: 'ZX81 BASIC',
                 link: '/reference/zx81',
                 collapsed: true,
                 items: [
+                  { text: 'Hardware', link: '/reference/zx81/hardware' },
                   { text: 'Escape codes', link: '/reference/zx81/escapes' },
                   { text: 'File formats', link: '/reference/zx81/formats' },
                 ],
@@ -99,6 +102,7 @@ export default withPwa(
                 link: '/reference/zx80',
                 collapsed: true,
                 items: [
+                  { text: 'Hardware', link: '/reference/zx80/hardware' },
                   { text: 'Escape codes', link: '/reference/zx80/escapes' },
                   { text: 'File formats', link: '/reference/zx80/formats' },
                 ],
@@ -108,6 +112,7 @@ export default withPwa(
                 link: '/reference/zxspectrum',
                 collapsed: true,
                 items: [
+                  { text: 'Hardware', link: '/reference/zxspectrum/hardware' },
                   {
                     text: 'Escape codes',
                     link: '/reference/zxspectrum/escapes',
@@ -123,6 +128,7 @@ export default withPwa(
                 link: '/reference/bbc',
                 collapsed: true,
                 items: [
+                  { text: 'Hardware', link: '/reference/bbc/hardware' },
                   { text: 'Escape codes', link: '/reference/bbc/escapes' },
                   { text: 'File formats', link: '/reference/bbc/formats' },
                 ],
@@ -132,6 +138,10 @@ export default withPwa(
                 link: '/reference/commodore64',
                 collapsed: true,
                 items: [
+                  {
+                    text: 'Hardware',
+                    link: '/reference/commodore64/hardware',
+                  },
                   {
                     text: 'Escape codes',
                     link: '/reference/commodore64/escapes',
@@ -145,12 +155,27 @@ export default withPwa(
               {
                 text: 'Commodore PET BASIC 4.0',
                 link: '/reference/pet',
+                collapsed: true,
+                items: [
+                  { text: 'Hardware', link: '/reference/pet/hardware' },
+                  // The PET shares the C64's PETSCII escapes and containers,
+                  // so its group links to the shared sub-pages.
+                  {
+                    text: 'Escape codes',
+                    link: '/reference/commodore64/escapes',
+                  },
+                  {
+                    text: 'File formats',
+                    link: '/reference/commodore64/formats',
+                  },
+                ],
               },
               {
                 text: 'Acorn Atom BASIC',
                 link: '/reference/atom',
                 collapsed: true,
                 items: [
+                  { text: 'Hardware', link: '/reference/atom/hardware' },
                   { text: 'Escape codes', link: '/reference/atom/escapes' },
                   { text: 'File formats', link: '/reference/atom/formats' },
                 ],
@@ -160,6 +185,7 @@ export default withPwa(
                 link: '/reference/trs80',
                 collapsed: true,
                 items: [
+                  { text: 'Hardware', link: '/reference/trs80/hardware' },
                   { text: 'Escape codes', link: '/reference/trs80/escapes' },
                   { text: 'File formats', link: '/reference/trs80/formats' },
                 ],
@@ -169,6 +195,7 @@ export default withPwa(
                 link: '/reference/cpc',
                 collapsed: true,
                 items: [
+                  { text: 'Hardware', link: '/reference/cpc/hardware' },
                   { text: 'Escape codes', link: '/reference/cpc/escapes' },
                   { text: 'File formats', link: '/reference/cpc/formats' },
                 ],

@@ -231,10 +231,66 @@ export const atomReference: ReferenceTableData = {
       description: 'Halts the program and prints a STOP report.',
     },
     {
+      name: 'FPRINT',
+      kind: 'command',
+      syntax: 'FPRINT <number>',
+      description:
+        'Prints a floating-point value; the floating-point counterpart of PRINT (requires the floating-point ROM). Abbreviate as FP.',
+    },
+    {
+      name: 'FINPUT',
+      kind: 'command',
+      syntax: 'FINPUT %<var>',
+      description:
+        'Reads a floating-point value from the keyboard into a %A–%Z floating-point variable (requires the floating-point ROM).',
+    },
+    {
+      name: 'FDIM',
+      kind: 'command',
+      syntax: 'FDIM %<var>(<number>)',
+      description:
+        'Reserves space for a floating-point array indexed from zero (requires the floating-point ROM).',
+    },
+    {
+      name: 'FIF',
+      kind: 'command',
+      syntax: 'FIF <number> THEN <statement>',
+      description:
+        'Runs the statement after THEN only when a floating-point comparison is true (requires the floating-point ROM).',
+    },
+    {
+      name: 'FUNTIL',
+      kind: 'command',
+      syntax: 'FUNTIL <number>',
+      description:
+        'Closes a DO loop, repeating until a floating-point condition becomes true (requires the floating-point ROM).',
+    },
+    {
+      name: 'FPUT',
+      kind: 'command',
+      syntax: 'FPUT <handle>,%<var>',
+      description:
+        'Writes a floating-point value to an output file opened with FOUT (requires the floating-point ROM).',
+    },
+    {
+      name: 'FGET',
+      kind: 'command',
+      syntax: 'FGET <handle>,%<var>',
+      description:
+        'Reads a floating-point value from an input file opened with FIN (requires the floating-point ROM).',
+    },
+    {
       name: 'ABS',
       kind: 'function',
       syntax: 'ABS(<number>)',
       description: 'Returns the absolute (unsigned) value of n.',
+    },
+    {
+      name: 'LEN',
+      kind: 'function',
+      syntax: 'LEN(<number>)',
+      description:
+        'Returns the length of the string stored at the given address (a $ string), not counting its terminating carriage return.',
     },
     {
       name: 'RND',
@@ -352,13 +408,6 @@ export const atomReference: ReferenceTableData = {
       syntax: 'PI',
       description:
         'Returns the constant 3.14159265 (requires the floating-point ROM).',
-    },
-    {
-      name: 'LEN',
-      kind: 'function',
-      syntax: 'LEN <addr>',
-      description:
-        'Returns the length of the string stored at an address, counting characters up to its terminating carriage return.',
     },
     {
       name: 'COUNT',
