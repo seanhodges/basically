@@ -23,7 +23,6 @@ import { zx80Reference } from './zx80';
 import { zxspectrumReference } from './zxspectrum';
 import { bbcReference } from './bbc';
 import { commodore64Reference } from './commodore64';
-import { petReference } from './pet';
 import { atomReference } from './atom';
 import { trs80Reference } from './trs80';
 import { cpcReference } from './cpc';
@@ -39,7 +38,6 @@ import {
   PLAY_KEYWORD,
 } from '../../../src/dialects/zxspectrum128/keywords';
 import { bbcKeywords } from '../../../src/dialects/bbcmicro/keywords';
-import { c64Keywords } from '../../../src/dialects/commodore64/keywords';
 import { petKeywords } from '../../../src/dialects/pet/keywords';
 import { atomKeywords } from '../../../src/dialects/atom/keywords';
 import { trs80Keywords } from '../../../src/dialects/trs80/keywords';
@@ -56,8 +54,10 @@ const PAIRS: [string, ReferenceTableData, EditorKeyword[]][] = [
     [...spectrumKeywords, SPECTRUM_KEYWORD, PLAY_KEYWORD],
   ],
   ['bbc', bbcReference, bbcKeywords],
-  ['commodore64', commodore64Reference, c64Keywords],
-  ['pet', petReference, petKeywords],
+  // One page covers all three Commodore machines: the merged table is
+  // crosschecked against the PET's keyword set (= the C64 V2 core plus the 15
+  // BASIC 4.0 disk commands), the same union model as zxspectrum's 48K+128K.
+  ['commodore', commodore64Reference, petKeywords],
   ['atom', atomReference, atomKeywords],
   ['trs80', trs80Reference, trs80Keywords],
   ['cpc', cpcReference, locoKeywordTable],

@@ -16,8 +16,7 @@ Each dialect powers one or more of the emulated machines:
 - [ZX80 BASIC](./zx80) — ZX80
 - [ZX Spectrum BASIC](./zxspectrum) — ZX Spectrum 48K, ZX Spectrum 128K
 - [BBC BASIC](./bbc) — BBC Micro, BBC Master
-- [Commodore BASIC V2](./commodore64) — Commodore 64, VIC-20
-- [Commodore BASIC 4.0](./pet) — Commodore PET
+- [Commodore BASIC](./commodore) — Commodore 64, VIC-20, PET
 - [Atom BASIC](./atom) — Acorn Atom
 - [TRS-80 Level II BASIC](./trs80) — TRS-80
 - [Locomotive BASIC](./cpc) — Amstrad CPC 464

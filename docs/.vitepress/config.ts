@@ -134,39 +134,23 @@ export default withPwa(
                 ],
               },
               {
-                text: 'Commodore BASIC V2',
-                link: '/reference/commodore64',
+                // One page covers V2 (C64/VIC-20) and 4.0 (PET); the 4.0 disk
+                // commands are tagged on the shared table.
+                text: 'Commodore BASIC',
+                link: '/reference/commodore',
                 collapsed: true,
                 items: [
                   {
                     text: 'Hardware',
-                    link: '/reference/commodore64/hardware',
+                    link: '/reference/commodore/hardware',
                   },
                   {
                     text: 'Escape codes',
-                    link: '/reference/commodore64/escapes',
+                    link: '/reference/commodore/escapes',
                   },
                   {
                     text: 'File formats',
-                    link: '/reference/commodore64/formats',
-                  },
-                ],
-              },
-              {
-                text: 'Commodore BASIC 4.0',
-                link: '/reference/pet',
-                collapsed: true,
-                items: [
-                  { text: 'Hardware', link: '/reference/pet/hardware' },
-                  // The PET shares the C64's PETSCII escapes and containers,
-                  // so its group links to the shared sub-pages.
-                  {
-                    text: 'Escape codes',
-                    link: '/reference/commodore64/escapes',
-                  },
-                  {
-                    text: 'File formats',
-                    link: '/reference/commodore64/formats',
+                    link: '/reference/commodore/formats',
                   },
                 ],
               },
@@ -306,8 +290,8 @@ export default withPwa(
           // help's `?q=` keyword search, the row-level `?name=` anchor, and the
           // escape tables' `?cat=` category - (alongside the workbox defaults)
           // before matching a request against the precache. Without this, a
-          // deep link like `reference/commodore64?q=poke` misses the precached
-          // `reference/commodore64.html`, so the SPA NavigationRoute falls
+          // deep link like `reference/commodore?q=poke` misses the precached
+          // `reference/commodore.html`, so the SPA NavigationRoute falls
           // back to the precached home `index.html` - rendering the home hero
           // above the reference page until VitePress client-routes over it.
           ignoreURLParametersMatching: [
