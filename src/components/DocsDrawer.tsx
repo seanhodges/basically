@@ -4,6 +4,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { referenceTopicFor } from '../app/docsTopic';
+import { dialects } from '../dialects/registry';
+import { useAiStore } from '../ai/aiStore';
+import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
+import { getAiProvider, getProviderApiKey } from '../storage/settings';
+import { getProvider } from '../ai/providers/registry';
 import { GearsSpinner } from './GearsSpinner';
 import styles from './DocsDrawer.module.css';
 
@@ -14,10 +19,19 @@ const SWIPE_CLOSE_THRESHOLD = 40;
 const DOCS_BASE = '/docs/';
 
 /**
- * Message the docs iframe posts to `window.parent` when its in-nav close button
- * is clicked (see docs/.vitepress/theme/Layout.vue). Kept in sync by string.
+ * Messages the docs iframe posts to `window.parent`. Kept in sync by string with
+ * the docs side: `docs-close` from Layout.vue's close button, and the two
+ * `compare-*` actions from the Compare dialects page (DialectCompare.vue).
  */
 const DOCS_CLOSE_MESSAGE = 'basically:docs-close';
+const COMPARE_EXPLAIN_MESSAGE = 'basically:compare-explain';
+const COMPARE_CONVERT_MESSAGE = 'basically:compare-convert';
+
+/** Resolve a docs reference-page slug to the dialect whose page it is. */
+function dialectForPage(slug: unknown) {
+  if (typeof slug !== 'string') return undefined;
+  return dialects.find((d) => (d.docsReference ?? d.id) === slug);
+}
 
 function ChevronRightIcon() {
   return (
@@ -76,22 +90,94 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   const openDocs = useIdeStore((s) => s.openDocs);
   const closeDocs = useIdeStore((s) => s.closeDocs);
 
-  // The docs render in an iframe, so its in-nav close button (Layout.vue) can't
-  // reach the store directly - it posts a message that we translate to closeDocs.
+  // The docs render in an iframe, so its in-nav controls can't reach the store
+  // directly - they post messages we translate here: the nav close button, and
+  // the Compare dialects page's "explain"/"convert" AI actions.
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
-      if (
-        e.data &&
-        typeof e.data === 'object' &&
-        e.data.type === DOCS_CLOSE_MESSAGE
-      ) {
+      const data = e.data;
+      if (!data || typeof data !== 'object') return;
+      if (data.type === DOCS_CLOSE_MESSAGE) {
         closeDocs();
+      } else if (data.type === COMPARE_EXPLAIN_MESSAGE) {
+        explainPorting(data);
+      } else if (data.type === COMPARE_CONVERT_MESSAGE) {
+        convertProgram(data);
       }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
+    // Handlers read the freshest state via useIdeStore.getState(), so this only
+    // depends on closeDocs (stable) - re-subscribing per render is unnecessary.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeDocs]);
+
+  /** Resolve the active AI provider + key, or open settings when no key is set. */
+  const aiCredentials = () => {
+    const providerId = getAiProvider();
+    const provider = getProvider(providerId);
+    const apiKey = getProviderApiKey(providerId);
+    if (!apiKey) {
+      useIdeStore.getState().openSettings('ai');
+      return null;
+    }
+    return { providerId, apiKey, model: provider.defaultModel };
+  };
+
+  // "Explain porting" from the compare page: stream a narrative of the diff into
+  // the AI panel, in the target dialect's voice. Reveal the panel and close the
+  // docs drawer so the answer is visible.
+  const explainPorting = (data: { toId?: unknown; summary?: unknown }) => {
+    const target = dialectForPage(data.toId);
+    if (!target || typeof data.summary !== 'string') return;
+    const creds = aiCredentials();
+    if (!creds) return;
+    closeDocs();
+    useIdeStore.getState().showAiPanel();
+    void useAiStore.getState().send({
+      ...creds,
+      maxTokens: target.aiProfile.maxTokens,
+      system: buildSystemPrompt(target),
+      userContent:
+        `${data.summary}\n\nExplain what these differences mean for someone ` +
+        `porting a program between these dialects, and how to handle the most ` +
+        `important ones. Do not write a full program.`,
+      displayRequest: 'Explain the porting differences',
+    });
+  };
+
+  // "Convert my program" from the compare page: switch into the target dialect
+  // (keeping the current program as the starting point, so applying the result
+  // lints against the right machine) and ask the AI to translate it.
+  const convertProgram = (data: { toId?: unknown; toLabel?: unknown }) => {
+    const target = dialectForPage(data.toId);
+    if (!target) return;
+    const creds = aiCredentials();
+    if (!creds) return;
+    const label = typeof data.toLabel === 'string' ? data.toLabel : target.name;
+    const original = useIdeStore.getState().source;
+    closeDocs();
+    // A real dialect switch that keeps the program text and bypasses the confirm
+    // dialog (the user chose to convert). Clears the AI thread, so send after.
+    useIdeStore
+      .getState()
+      .openSharedInIde({ dialectId: target.id, source: original });
+    useIdeStore.getState().showAiPanel();
+    void useAiStore.getState().send({
+      ...creds,
+      maxTokens: target.aiProfile.maxTokens,
+      system: buildSystemPrompt(target),
+      userContent: buildUserMessage(
+        `Translate this program to ${label}, keeping the behaviour identical ` +
+          `where the hardware allows and noting any lines that cannot be ` +
+          `ported. Return the complete converted program.`,
+        original,
+        [],
+      ),
+      displayRequest: `Convert this program to ${label}`,
+    });
+  };
 
   // Open to the same context-aware topic as the toolbar book button: the current
   // dialect's reference page anchored to the selected keyword, if any. Read the

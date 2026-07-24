@@ -2,6 +2,7 @@ import DefaultTheme from 'vitepress/theme';
 import Layout from './Layout.vue';
 import ReferenceTable from './components/ReferenceTable.vue';
 import EscapeTable from './components/EscapeTable.vue';
+import DialectCompare from './components/DialectCompare.vue';
 import './custom.css';
 
 export default {
@@ -12,5 +13,6 @@ export default {
   enhanceApp({ app }) {
     app.component('ReferenceTable', ReferenceTable);
     app.component('EscapeTable', EscapeTable);
+    app.component('DialectCompare', DialectCompare);
   },
 };
