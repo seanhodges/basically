@@ -389,18 +389,6 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     signature: 'a OR b',
     doc: 'Bitwise/logical OR.',
   },
-  {
-    word: 'DIV',
-    kind: 'operator',
-    signature: 'a DIV b',
-    doc: 'Integer division.',
-  },
-  {
-    word: 'MOD',
-    kind: 'operator',
-    signature: 'a MOD b',
-    doc: 'Integer remainder.',
-  },
 ];
 
 export const atomKeywords: KeywordInfo[] = table.map((k, i) => ({
