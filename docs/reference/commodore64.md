@@ -1,15 +1,17 @@
 ---
-title: Commodore 64 & VIC-20 BASIC reference
+title: Commodore BASIC V2 reference
 ---
 
 <script setup>
 import { commodore64Reference } from './data/commodore64';
 </script>
 
-# Commodore 64 & VIC-20 BASIC reference
+# Commodore BASIC V2 reference
 
 Every command, function and operator in Commodore BASIC V2, the BASIC built into
 the ROMs of both the Commodore 64 and the VIC-20.
+
+**In this reference:** [Hardware](./commodore64/hardware) · [Escape codes](./commodore64/escapes) · [File formats](./commodore64/formats)
 
 ## Notes and caveats
 
@@ -23,9 +25,3 @@ the ROMs of both the Commodore 64 and the VIC-20.
   machines.
 
 <ReferenceTable :data="commodore64Reference" />
-
-The machine hardware — screen modes, colour, graphics, sound and memory — is on
-the [hardware](./commodore64/hardware) page; the control codes and graphics
-bytes you can embed in source are on the
-[escape codes](./commodore64/escapes) page; the native file containers and
-cassette encoding are on the [file formats](./commodore64/formats) page.

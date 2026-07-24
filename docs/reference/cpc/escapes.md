@@ -21,7 +21,7 @@ is not a recognised escape stays literal text (the CPC has real `{`/`}`
 characters at 0x7B/0x7D). Filters can be prefilled with `?q=` and `?cat=` query
 parameters.
 
-See also the [Amstrad CPC Locomotive BASIC reference](../cpc) and
+See also the [Locomotive BASIC reference](../cpc) and
 [file formats](../file-formats#escape-notation).
 
 <EscapeTable :data="cpcEscapes" />

@@ -5,7 +5,7 @@ title: ZX80 hardware
 # ZX80 hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
-[ZX80 integer BASIC](../zx80), and where machine-code and data blocks live in
+[ZX80 BASIC](../zx80), and where machine-code and data blocks live in
 its memory.
 
 ## Sinclair ZX80

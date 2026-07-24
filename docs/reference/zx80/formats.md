@@ -11,7 +11,7 @@ to editable source. The machine also exports and imports a cassette **`.wav`**
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
-overview](../file-formats). See also the [ZX80 integer BASIC
+overview](../file-formats). See also the [ZX80 BASIC
 reference](../zx80) and its [escape codes](./escapes).
 
 ## ZX80 `.O`

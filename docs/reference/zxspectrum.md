@@ -10,6 +10,8 @@ import { zxspectrumReference } from './data/zxspectrum';
 
 Every command, function and operator in Sinclair ZX Spectrum BASIC.
 
+**In this reference:** [Hardware](./zxspectrum/hardware) · [Escape codes](./zxspectrum/escapes) · [File formats](./zxspectrum/formats)
+
 ## Notes and caveats
 
 - Keywords tagged **128K only** are available solely on the 128K models.
@@ -18,9 +20,3 @@ Every command, function and operator in Sinclair ZX Spectrum BASIC.
   colour attributes and their famous clash.
 
 <ReferenceTable :data="zxspectrumReference" />
-
-The machine hardware — screen modes, colour, graphics, sound and memory — is on
-the [hardware](./zxspectrum/hardware) page; the control codes and graphics
-bytes you can embed in source are on the
-[escape codes](./zxspectrum/escapes) page; the native file containers and
-cassette encoding are on the [file formats](./zxspectrum/formats) page.

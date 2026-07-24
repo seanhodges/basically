@@ -1,16 +1,18 @@
 ---
-title: Amstrad CPC Locomotive BASIC reference
+title: Locomotive BASIC reference
 ---
 
 <script setup>
 import { cpcReference } from './data/cpc';
 </script>
 
-# Amstrad CPC Locomotive BASIC reference
+# Locomotive BASIC reference
 
 Every command, function and operator in Locomotive BASIC 1.0, the full-featured
 BASIC of the Amstrad CPC 464 — with real structured keywords such as `IF … THEN
 … ELSE`, `WHILE … WEND` and the `AFTER`/`EVERY` interrupt timers.
+
+**In this reference:** [Hardware](./cpc/hardware) · [Escape codes](./cpc/escapes) · [File formats](./cpc/formats)
 
 ## Notes and caveats
 
@@ -28,9 +30,3 @@ BASIC of the Amstrad CPC 464 — with real structured keywords such as `IF … T
   CPC 6128) brings; the BASIC 1.0 464 rejects them.
 
 <ReferenceTable :data="cpcReference" />
-
-The machine hardware — screen modes, colour, graphics, sound and memory — is on
-the [hardware](./cpc/hardware) page; the control codes and graphics bytes you
-can embed in source are on the [escape codes](./cpc/escapes) page; the native
-file containers and cassette encoding are on the
-[file formats](./cpc/formats) page.

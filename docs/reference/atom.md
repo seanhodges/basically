@@ -1,14 +1,17 @@
 ---
-title: Acorn Atom BASIC reference
+title: Atom BASIC reference
 ---
 
 <script setup>
 import { atomReference } from './data/atom';
 </script>
 
-# Acorn Atom BASIC reference
+# Atom BASIC reference
 
-Every command, function and operator in Acorn Atom BASIC.
+Every command, function and operator in Atom BASIC, the BASIC built into the
+Acorn Atom.
+
+**In this reference:** [Hardware](./atom/hardware) · [Escape codes](./atom/escapes) · [File formats](./atom/formats)
 
 ## Notes and caveats
 
@@ -26,9 +29,3 @@ Every command, function and operator in Acorn Atom BASIC.
   no `DIV` or `MOD` - those are BBC BASIC.)
 
 <ReferenceTable :data="atomReference" />
-
-The machine hardware — screen modes, colour, graphics, sound and memory — is on
-the [hardware](./atom/hardware) page; the control codes and graphics bytes you
-can embed in source are on the [escape codes](./atom/escapes) page; the native
-file containers and cassette encoding are on the
-[file formats](./atom/formats) page.

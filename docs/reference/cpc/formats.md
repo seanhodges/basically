@@ -14,7 +14,7 @@ share links instead.
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
 cross-machine machine-code overview, see the [file formats
-overview](../file-formats). See also the [Amstrad CPC Locomotive BASIC
+overview](../file-formats). See also the [Locomotive BASIC
 reference](../cpc) and its [escape codes](./escapes).
 
 ## Tokenized program

@@ -10,8 +10,8 @@ import { commodore64Escapes } from '../data/escapes/commodore64';
 
 Every escape that can be typed in Commodore source, and the PETSCII byte it stores. PETSCII is shared byte-for-byte across the whole Commodore 8-bit line, so this table is the escape reference for the [Commodore 64](../commodore64), the [VIC-20](../commodore64) and the [PET](../pet) alike. The colour-control escapes (`{red}`, `{cyan}`…) drive the colour display on the C64 and VIC-20; on the monochrome PET they store and round-trip identically but have no visible effect. Escapes are recognised in string literals, REM and DATA bodies. Canonical names follow this app's decode; the petcat/VICE aliases (`{wht}`, `{rvof}`, decimal `{147}`, `{CBM-x}`/`{SHIFT-x}`) are accepted on input so archived petcat listings paste straight in. The lower-case display bank and tokenizer keyword abbreviations (`pO`, `gO`, ...) are not yet modelled. Filters can be prefilled with `?q=` and `?cat=` query parameters.
 
-See also the [Commodore 64 & VIC-20 BASIC reference](../commodore64), the
-[PET BASIC 4.0 reference](../pet) and
+See also the [Commodore BASIC V2 reference](../commodore64), the
+[Commodore BASIC 4.0 reference](../pet) and
 [file formats](../file-formats#escape-notation).
 
 <EscapeTable :data="commodore64Escapes" />
