@@ -205,6 +205,12 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     doc: "Write the low byte of expr to an output file opened with FOUT. In the IDE these bytes go to the emulator's virtual filesystem (see the Emulator files viewer).",
   },
   {
+    word: 'SPUT',
+    kind: 'command',
+    signature: 'SPUT handle,$addr',
+    doc: 'Write a string (the characters at addr, up to a carriage return) to an output file opened with FOUT — the string companion of BPUT.',
+  },
+  {
     word: 'PUT',
     kind: 'command',
     signature: 'PUT port,value',
@@ -270,7 +276,31 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     word: 'LEN',
     kind: 'function',
     signature: 'LEN str',
-    doc: 'Length of a string at the given address.',
+    doc: 'Length of the string at the given address, up to its terminating carriage return.',
+  },
+  {
+    word: 'COUNT',
+    kind: 'function',
+    signature: 'COUNT',
+    doc: 'The current text cursor column (characters printed since the last newline), like POS on other dialects.',
+  },
+  {
+    word: 'PTR',
+    kind: 'function',
+    signature: 'PTR handle',
+    doc: 'The read/write pointer of an open file — the number of bytes read or written so far. May also be assigned to seek within the file.',
+  },
+  {
+    word: 'EXT',
+    kind: 'function',
+    signature: 'EXT handle',
+    doc: 'The length (extent) in bytes of an open file.',
+  },
+  {
+    word: 'SGET',
+    kind: 'function',
+    signature: 'SGET handle',
+    doc: 'Read a string (up to a carriage return) from an input file opened with FIN — the string companion of BGET.',
   },
   {
     word: 'ABS',
@@ -381,13 +411,62 @@ const table: Omit<KeywordInfo, 'token'>[] = [
     word: 'AND',
     kind: 'operator',
     signature: 'a AND b',
-    doc: 'Bitwise/logical AND.',
+    doc: 'Logical AND of two conditions (bitwise AND is the & operator).',
   },
   {
     word: 'OR',
     kind: 'operator',
     signature: 'a OR b',
-    doc: 'Bitwise/logical OR.',
+    doc: 'Logical OR of two conditions (bitwise OR is the \\ operator).',
+  },
+
+  // ---- Symbolic operators ----
+  // Stored verbatim like every Atom keyword. The editor highlighter/completion
+  // only key off alphabetic words, so these drive neither directly (highlighting
+  // for '!'/'%'/'&'/'\\' comes from the language's extraOperators); they are
+  // listed so the reference table stays in step with the language (see the
+  // keyword-crosscheck test) and to document the indirection/bitwise operators.
+  {
+    word: '?',
+    kind: 'operator',
+    signature: '?addr | ?addr=n',
+    doc: 'Byte indirection: read or write the byte at addr (the Atom PEEK/POKE).',
+  },
+  {
+    word: '!',
+    kind: 'operator',
+    signature: '!addr | !addr=n',
+    doc: 'Word indirection: read or write the 4-byte word at addr, low byte first.',
+  },
+  {
+    word: '$',
+    kind: 'operator',
+    signature: '$addr | $addr="…"',
+    doc: 'String indirection: the string stored at addr, terminated by a carriage return.',
+  },
+  {
+    word: '%',
+    kind: 'operator',
+    signature: 'a % b',
+    doc: 'Remainder after integer division (e.g. 7%3 is 1). Not the FP-variable prefix %A–%Z.',
+  },
+  {
+    word: '&',
+    kind: 'operator',
+    signature: 'a & b',
+    doc: 'Bitwise AND (the logical AND keyword combines conditions).',
+  },
+  {
+    word: '\\',
+    kind: 'operator',
+    signature: 'a \\ b',
+    doc: 'Bitwise OR (the logical OR keyword combines conditions).',
+  },
+  {
+    word: ':',
+    kind: 'operator',
+    signature: 'a : b',
+    doc: 'Bitwise exclusive-OR (XOR).',
   },
 ];
 

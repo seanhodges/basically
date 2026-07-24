@@ -159,6 +159,22 @@ describe('atom tokenizer statement validation', () => {
     expect(tokenizeProgram(src).errors).toEqual([]);
   });
 
+  it('does not flag the function words COUNT/PTR/EXT as bad variable names', () => {
+    // The Atom lints variables in strict single-letter mode; these multi-letter
+    // words are exempt only because they are in the keyword table, so a program
+    // using them must lint clean rather than reporting "single letter" errors.
+    for (const src of ['10 X=COUNT', '10 P=PTR H', '10 E=EXT H']) {
+      const errors = atom.lint(src);
+      expect(errors, src).toEqual([]);
+    }
+  });
+
+  it('still flags a real multi-letter variable name', () => {
+    const errors = atom.lint('10 XY=1');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((e) => /single letter/i.test(e.message))).toBe(true);
+  });
+
   it('warns (non-fatally) on a lower-case keyword', () => {
     const { errors } = tokenizeProgram('10 print "hi"\n');
     expect(errors).toHaveLength(1);

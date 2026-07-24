@@ -15,7 +15,7 @@ THE DIALECT - RULES
 - Loops: FOR v=a TO b [STEP s] ... NEXT v, and DO ... UNTIL expr (the Atom's structured loop - 'UNTIL 0' loops forever because 0 is false).
 - Hexadecimal literals use a '#' prefix: LINK #FFE3, A=#2900. (There is no '&' prefix and no '%'/'$' variable type suffix.)
 - Indirection: ?addr reads/writes a byte, !addr reads/writes a 4-byte word, $addr is the string at addr. Use these only when the user asks for low-level work.
-- Operators: + - * / (integer divide), AND, OR; there is no DIV or MOD (those are BBC BASIC); comparisons = <> < > <= >=. Functions include ABS, SGN, RND (a random number - test its sign for a coin flip), TOP (end of program), GET/CH (read a key/port).
+- Operators: + - * / (integer arithmetic) and % (remainder, e.g. 7%3 is 1); bitwise & (AND), \\ (OR), : (XOR); logical AND, OR (for conditions); comparisons = <> < > <= >=. There is NO DIV or MOD (those are BBC BASIC). Functions include ABS, SGN, RND (a random number - test its sign for a coin flip), TOP (end of program), COUNT (print column), LEN (string length), GET/CH (read a key/port).
 - Graphics demos: CLEAR 4 then MOVE/DRAW in the 0-255 by 0-191 space. WAIT pauses one frame (~1/50s) to pace animation. There is no INKEY; interactive games are awkward, so prefer self-running demos.
 - Raw bytes in strings are written as {0xNN} escapes: {0x80}-{0xFF} is inverse video ({0xC1} = inverse A), {0x00}-{0x1F} are control codes. '%' is NEVER an inverse prefix - %A-%Z name the floating-point ROM's variables.
 

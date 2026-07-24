@@ -38,6 +38,36 @@ export interface BasicLanguageOptions {
    * requiring a keyword to consume the whole run. Default false.
    */
   crunched?: boolean;
+  /**
+   * Extra single characters a dialect styles as operators, on top of the shared
+   * symbolic-operator set. Used by the Acorn Atom for its indirection/bitwise
+   * operators `!` (word), `%` (remainder), `&` (AND) and `\` (OR) - `?`, `$` and
+   * `:` are already in the shared set. Default none. Each character is added to
+   * the operator character class verbatim (escaped), so pass bare characters.
+   */
+  extraOperators?: string;
+}
+
+/** The symbolic single characters every dialect highlights as an operator. */
+const BASE_OPERATOR_CHARS = '+-*/=<>;,():?$£^.';
+
+/** Escape a single character for safe inclusion in a regex character class. */
+function escapeForCharClass(ch: string): string {
+  return /[\\\]^-]/.test(ch) ? `\\${ch}` : ch;
+}
+
+/**
+ * The `^[…]` single-operator matcher, combining the shared symbolic operators
+ * with any dialect {@link BasicLanguageOptions.extraOperators}. Each character is
+ * escaped for a character class as needed (`-`, `^`, `]`, `\`), so ordering
+ * doesn't matter. Built once per dialect rather than per token.
+ */
+function buildOperatorRegex(extra = ''): RegExp {
+  const chars = (BASE_OPERATOR_CHARS + extra)
+    .split('')
+    .map(escapeForCharClass)
+    .join('');
+  return new RegExp(`^[${chars}]`);
 }
 
 /**
@@ -105,6 +135,7 @@ export function buildBasicLanguage(
     : null;
   const { headRe, varRe } = buildIdentifierRegexes(options);
   const crunch = options.crunched ? makeCrunchMatcher(kinds.keys()) : null;
+  const operatorRe = buildOperatorRegex(options.extraOperators);
 
   const language = StreamLanguage.define<BasicStreamState>({
     name: 'basic',
@@ -192,7 +223,7 @@ export function buildBasicLanguage(
       if (binRe && stream.match(binRe)) return 'number'; // BBC %1010
       if (stream.match(/^(\*\*|<=|>=|<>)/)) return 'operator';
       if (graphicsEscapes && stream.match(/^[%\\]../)) return 'atom'; // graphics escape / inverse
-      if (stream.match(/^[+\-*/=<>;,():?$£^.]/)) return 'operator';
+      if (stream.match(operatorRe)) return 'operator';
       stream.next();
       return null;
     },
