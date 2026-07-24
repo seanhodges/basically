@@ -71,3 +71,54 @@ export interface EscapeTableData {
   categories: { id: string; label: string }[];
   entries: EscapeEntry[];
 }
+
+/**
+ * The language-rule and hardware facts a porter needs to compare, one entry per
+ * dialect reference page. Split into two classes for the crosscheck test
+ * (facts-crosscheck.test.ts):
+ *
+ *  - CROSSCHECKED against `src/dialects/<id>/`: `freeRamBytes` (← programRamBytes),
+ *    `addressNotation`, `hexPrefix`, `statementSepChar` (← memoryWrites) and the
+ *    shape of `memoryWriteSyntax` (← memoryWrites.forms).
+ *  - HAND-AUTHORED from the hardware page + tokenizer/aiProfile, with no
+ *    structured source in `src/`: `lineNumberRange`, `statementSeparator`,
+ *    `elseSupported`, `letRequired`, `variableNaming`, `exponentOperator`,
+ *    `screen`, `colour`, `sound`. (`screen` is prose, not `displaySize` — the
+ *    latter is the emulator canvas size in pixels, not the logical text/graphics
+ *    screen a porter cares about; `exponentOperator` is prose because several
+ *    dialects spell it with a symbol key — `↑`/`^` — that has no reference row.)
+ */
+export interface PortingFacts {
+  /** Page slug, matching the dialect's `ReferenceTableData` (e.g. "zx81"). */
+  id: string;
+  // --- Language rules (hand-authored) ---
+  /** Valid line-number range as written, e.g. "1–9999". */
+  lineNumberRange: string;
+  /** Multi-statement separator (usually ":"), or null when one statement per line. */
+  statementSeparator: string | null;
+  /** Whether IF…THEN…ELSE is available. */
+  elseSupported: boolean;
+  /** Whether LET is required, optional, or unsupported on assignment. */
+  letRequired: 'required' | 'optional' | 'none';
+  /** Variable-naming rule, e.g. "single letter A–Z" or "long names, A–Z0–9". */
+  variableNaming: string;
+  /** Exponent operator spelling ("**", "^", "↑"), or undefined if the dialect has none. */
+  exponentOperator?: string;
+  // --- Hardware ---
+  /** Text/graphics screen summary, e.g. "32×24 text; 256×192 bitmap". */
+  screen: string;
+  /** Free RAM for a BASIC program, in bytes (← Dialect.programRamBytes). */
+  freeRamBytes: number;
+  /** Colour capability summary. */
+  colour: string;
+  /** Sound capability summary. */
+  sound: string;
+  /** How the dialect writes memory, e.g. "POKE addr,val" or "?addr=val". */
+  memoryWriteSyntax: string;
+  /** Address notation (← Dialect.addressNotation, defaults to 'hex'). */
+  addressNotation: 'hex' | 'dec';
+  /** Hex literal prefix where the dialect has one, e.g. "&" (← memoryWrites.hexPrefix). */
+  hexPrefix?: string;
+  /** Statement separator inside a memory-write form, if any (← memoryWrites.statementSep). */
+  statementSepChar?: string;
+}

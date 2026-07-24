@@ -8,6 +8,10 @@ A reference page for each BASIC dialect Basically supports, with a searchable,
 sortable table of every command, function and operator, plus sub-pages for the
 machine's hardware, escape codes and file formats.
 
+Porting a program between machines? The [Compare dialects](./compare) tool
+summarises the keyword, control-code and hardware differences between any two
+dialects.
+
 ## BASIC dialects
 
 Each dialect powers one or more of the emulated machines:

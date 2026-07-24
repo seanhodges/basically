@@ -83,6 +83,7 @@ export default withPwa(
             text: 'Language reference',
             items: [
               { text: 'Overview', link: '/reference/' },
+              { text: 'Compare dialects', link: '/reference/compare' },
               // Each dialect page nests its hardware sub-page (screen,
               // colour, graphics, sound, memory), its searchable escape-codes
               // sub-page (the "embedded control codes & graphics" reference)
@@ -301,6 +302,10 @@ export default withPwa(
             /^q$/,
             /^cat$/,
             /^name$/,
+            // The compare page's source/target selection (?from=&to=), so a
+            // shared comparison deep link still matches the precached page.
+            /^from$/,
+            /^to$/,
           ],
         },
       },
