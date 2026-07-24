@@ -4,8 +4,7 @@ import { zx81Reference } from './zx81';
 import { zx80Reference } from './zx80';
 import { zxspectrumReference } from './zxspectrum';
 import { bbcReference } from './bbc';
-import { commodore64Reference } from './commodore64';
-import { petReference } from './pet';
+import { commodoreReference } from './commodore';
 import { atomReference } from './atom';
 import { trs80Reference } from './trs80';
 import { cpcReference } from './cpc';
@@ -15,8 +14,7 @@ const SETS: [string, ReferenceTableData][] = [
   ['zx80', zx80Reference],
   ['zxspectrum', zxspectrumReference],
   ['bbc', bbcReference],
-  ['commodore64', commodore64Reference],
-  ['pet', petReference],
+  ['commodore', commodoreReference],
   ['atom', atomReference],
   ['trs80', trs80Reference],
   ['cpc', cpcReference],

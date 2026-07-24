@@ -101,7 +101,7 @@ describe('referenceTopicFor', () => {
         editorSelection: 'POKE',
         activeBlockId: null,
       }),
-    ).toBe('reference/commodore64?q=POKE');
+    ).toBe('reference/commodore?q=POKE');
   });
 
   // Guards the CPU -> asm-page mapping the same way the BASIC test above does:

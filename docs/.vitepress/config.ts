@@ -86,25 +86,67 @@ export default withPwa(
               // Each dialect page nests its hardware sub-page (screen,
               // colour, graphics, sound, memory), its searchable escape-codes
               // sub-page (the "embedded control codes & graphics" reference)
-              // and its file-formats sub-page.
+              // and its file-formats sub-page. The BASIC dialects are listed
+              // alphabetically; the per-CPU assembly references stay at the end.
               {
-                text: 'ZX81 BASIC',
-                link: '/reference/zx81',
+                text: 'Atom BASIC',
+                link: '/reference/atom',
                 collapsed: true,
                 items: [
-                  { text: 'Hardware', link: '/reference/zx81/hardware' },
-                  { text: 'Escape codes', link: '/reference/zx81/escapes' },
-                  { text: 'File formats', link: '/reference/zx81/formats' },
+                  { text: 'Hardware', link: '/reference/atom/hardware' },
+                  { text: 'Escape codes', link: '/reference/atom/escapes' },
+                  { text: 'File formats', link: '/reference/atom/formats' },
                 ],
               },
               {
-                text: 'ZX80 BASIC',
-                link: '/reference/zx80',
+                text: 'BBC BASIC',
+                link: '/reference/bbc',
                 collapsed: true,
                 items: [
-                  { text: 'Hardware', link: '/reference/zx80/hardware' },
-                  { text: 'Escape codes', link: '/reference/zx80/escapes' },
-                  { text: 'File formats', link: '/reference/zx80/formats' },
+                  { text: 'Hardware', link: '/reference/bbc/hardware' },
+                  { text: 'Escape codes', link: '/reference/bbc/escapes' },
+                  { text: 'File formats', link: '/reference/bbc/formats' },
+                ],
+              },
+              {
+                // One page covers V2 (C64/VIC-20) and 4.0 (PET); the 4.0 disk
+                // commands are tagged on the shared table.
+                text: 'Commodore BASIC',
+                link: '/reference/commodore',
+                collapsed: true,
+                items: [
+                  {
+                    text: 'Hardware',
+                    link: '/reference/commodore/hardware',
+                  },
+                  {
+                    text: 'Escape codes',
+                    link: '/reference/commodore/escapes',
+                  },
+                  {
+                    text: 'File formats',
+                    link: '/reference/commodore/formats',
+                  },
+                ],
+              },
+              {
+                text: 'Locomotive BASIC',
+                link: '/reference/cpc',
+                collapsed: true,
+                items: [
+                  { text: 'Hardware', link: '/reference/cpc/hardware' },
+                  { text: 'Escape codes', link: '/reference/cpc/escapes' },
+                  { text: 'File formats', link: '/reference/cpc/formats' },
+                ],
+              },
+              {
+                text: 'TRS-80 Level II BASIC',
+                link: '/reference/trs80',
+                collapsed: true,
+                items: [
+                  { text: 'Hardware', link: '/reference/trs80/hardware' },
+                  { text: 'Escape codes', link: '/reference/trs80/escapes' },
+                  { text: 'File formats', link: '/reference/trs80/formats' },
                 ],
               },
               {
@@ -124,80 +166,23 @@ export default withPwa(
                 ],
               },
               {
-                text: 'BBC BASIC',
-                link: '/reference/bbc',
+                text: 'ZX80 BASIC',
+                link: '/reference/zx80',
                 collapsed: true,
                 items: [
-                  { text: 'Hardware', link: '/reference/bbc/hardware' },
-                  { text: 'Escape codes', link: '/reference/bbc/escapes' },
-                  { text: 'File formats', link: '/reference/bbc/formats' },
+                  { text: 'Hardware', link: '/reference/zx80/hardware' },
+                  { text: 'Escape codes', link: '/reference/zx80/escapes' },
+                  { text: 'File formats', link: '/reference/zx80/formats' },
                 ],
               },
               {
-                text: 'Commodore BASIC V2',
-                link: '/reference/commodore64',
+                text: 'ZX81 BASIC',
+                link: '/reference/zx81',
                 collapsed: true,
                 items: [
-                  {
-                    text: 'Hardware',
-                    link: '/reference/commodore64/hardware',
-                  },
-                  {
-                    text: 'Escape codes',
-                    link: '/reference/commodore64/escapes',
-                  },
-                  {
-                    text: 'File formats',
-                    link: '/reference/commodore64/formats',
-                  },
-                ],
-              },
-              {
-                text: 'Commodore BASIC 4.0',
-                link: '/reference/pet',
-                collapsed: true,
-                items: [
-                  { text: 'Hardware', link: '/reference/pet/hardware' },
-                  // The PET shares the C64's PETSCII escapes and containers,
-                  // so its group links to the shared sub-pages.
-                  {
-                    text: 'Escape codes',
-                    link: '/reference/commodore64/escapes',
-                  },
-                  {
-                    text: 'File formats',
-                    link: '/reference/commodore64/formats',
-                  },
-                ],
-              },
-              {
-                text: 'Atom BASIC',
-                link: '/reference/atom',
-                collapsed: true,
-                items: [
-                  { text: 'Hardware', link: '/reference/atom/hardware' },
-                  { text: 'Escape codes', link: '/reference/atom/escapes' },
-                  { text: 'File formats', link: '/reference/atom/formats' },
-                ],
-              },
-              {
-                text: 'TRS-80 Level II BASIC',
-                link: '/reference/trs80',
-                collapsed: true,
-                items: [
-                  { text: 'Hardware', link: '/reference/trs80/hardware' },
-                  { text: 'Escape codes', link: '/reference/trs80/escapes' },
-                  { text: 'File formats', link: '/reference/trs80/formats' },
-                ],
-              },
-              {
-                text: 'Locomotive BASIC',
-                link: '/reference/cpc',
-                collapsed: true,
-                items: [
-                  { text: 'Hardware', link: '/reference/cpc/hardware' },
-                  { text: 'Escape codes', link: '/reference/cpc/escapes' },
-                  { text: 'File formats', link: '/reference/cpc/formats' },
+                  { text: 'Hardware', link: '/reference/zx81/hardware' },
+                  { text: 'Escape codes', link: '/reference/zx81/escapes' },
+                  { text: 'File formats', link: '/reference/zx81/formats' },
                 ],
               },
               // The assembler is per-CPU, not per-dialect, so machine-code
@@ -306,8 +291,8 @@ export default withPwa(
           // help's `?q=` keyword search, the row-level `?name=` anchor, and the
           // escape tables' `?cat=` category - (alongside the workbox defaults)
           // before matching a request against the precache. Without this, a
-          // deep link like `reference/commodore64?q=poke` misses the precached
-          // `reference/commodore64.html`, so the SPA NavigationRoute falls
+          // deep link like `reference/commodore?q=poke` misses the precached
+          // `reference/commodore.html`, so the SPA NavigationRoute falls
           // back to the precached home `index.html` - rendering the home hero
           // above the reference page until VitePress client-routes over it.
           ignoreURLParametersMatching: [

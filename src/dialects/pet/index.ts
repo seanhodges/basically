@@ -38,6 +38,9 @@ import { c64VariableErrors } from '../../editor/variableLint';
 export const pet: Dialect = {
   id: 'pet',
   name: 'PET',
+  // BASIC 4.0 shares the merged 'commodore' reference page with the C64/VIC-20
+  // (V2); its fifteen extra disk commands are tagged there as BASIC 4.0.
+  docsReference: 'commodore',
   // BASIC 4.0 "31743 BYTES FREE" on a 32KB machine.
   programRamBytes: 31743,
   memoryMap: petMemoryMap,

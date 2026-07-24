@@ -1,13 +1,14 @@
-// Escape-code table for the Commodore 64 escapes page. Seeded from
-// src/dialects/commodore64/petscii.ts (canonical names + PETCAT_ALIASES) and
-// graphics.ts ({CBM-x}/{SHIFT-x}) by scripts/gen-escape-scaffold.mts, then
-// hand-enriched. Pinned against the implementation by
-// escapes/escape-crosscheck.test.ts.
+// Escape-code table for the Commodore escapes page. PETSCII is shared
+// byte-for-byte across the C64, VIC-20 and PET, so this one table serves all
+// three. Seeded from src/dialects/commodore64/petscii.ts (canonical names +
+// PETCAT_ALIASES) and graphics.ts ({CBM-x}/{SHIFT-x}) by
+// scripts/gen-escape-scaffold.mts, then hand-enriched. Pinned against the
+// implementation by escapes/escape-crosscheck.test.ts.
 import type { EscapeTableData } from '../types';
 
-export const commodore64Escapes: EscapeTableData = {
-  title: 'Commodore 64 escape codes',
-  machines: ['Commodore 64'],
+export const commodoreEscapes: EscapeTableData = {
+  title: 'Commodore PETSCII escape codes',
+  machines: ['Commodore 64', 'Commodore VIC-20', 'Commodore PET'],
   categories: [
     {
       id: 'colour',

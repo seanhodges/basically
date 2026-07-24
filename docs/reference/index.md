@@ -12,15 +12,14 @@ machine's hardware, escape codes and file formats.
 
 Each dialect powers one or more of the emulated machines:
 
-- [ZX81 BASIC](./zx81) — ZX81
-- [ZX80 BASIC](./zx80) — ZX80
-- [ZX Spectrum BASIC](./zxspectrum) — ZX Spectrum 48K, ZX Spectrum 128K
-- [BBC BASIC](./bbc) — BBC Micro, BBC Master
-- [Commodore BASIC V2](./commodore64) — Commodore 64, VIC-20
-- [Commodore BASIC 4.0](./pet) — Commodore PET
 - [Atom BASIC](./atom) — Acorn Atom
-- [TRS-80 Level II BASIC](./trs80) — TRS-80
+- [BBC BASIC](./bbc) — BBC Micro, BBC Master
+- [Commodore BASIC](./commodore) — Commodore 64, VIC-20, PET
 - [Locomotive BASIC](./cpc) — Amstrad CPC 464
+- [TRS-80 Level II BASIC](./trs80) — TRS-80
+- [ZX Spectrum BASIC](./zxspectrum) — ZX Spectrum 48K, ZX Spectrum 128K
+- [ZX80 BASIC](./zx80) — ZX80
+- [ZX81 BASIC](./zx81) — ZX81
 
 ## Assembly language
 

@@ -73,7 +73,7 @@ reference page:
 - [ZX80 escape codes](./zx80/escapes)
 - [ZX Spectrum escape codes](./zxspectrum/escapes) (48K & 128K)
 - [BBC escape codes](./bbc/escapes) (Micro & Master, teletext names)
-- [Commodore 64 escape codes](./commodore64/escapes) (petcat-interoperable)
+- [Commodore 64 escape codes](./commodore/escapes) (petcat-interoperable)
 - [TRS-80 escape codes](./trs80/escapes)
 - [Acorn Atom escape codes](./atom/escapes)
 
@@ -104,7 +104,7 @@ full on its own page:
 - [ZX80 file formats](./zx80/formats) — `.O`
 - [ZX Spectrum file formats](./zxspectrum/formats) — `.TAP` (48K & 128K)
 - [BBC Micro / Master file formats](./bbc/formats) — `.bbc`, `.ssd`
-- [Commodore 64 / VIC-20 / PET file formats](./commodore64/formats) — `.prg`, `.d64`
+- [Commodore 64 / VIC-20 / PET file formats](./commodore/formats) — `.prg`, `.d64`
 - [TRS-80 file formats](./trs80/formats) — `.cas`, `.dsk`
 - [Acorn Atom file formats](./atom/formats) — `.atm`, `.dsk`
 - [Amstrad CPC file formats](./cpc/formats) — `.bas`, `.cdt`
@@ -119,7 +119,7 @@ through the [project bundle](#project-bundle-zip) and through
 the BBC `.ssd`, and the Atom and TRS-80 `.dsk` disc images carry blocks in
 **both directions** (see each machine's page —
 [`.TAP`](./zxspectrum/formats#zx-spectrum-tap),
-[`.d64`](./commodore64/formats#commodore-64-vic-20-pet-d64),
+[`.d64`](./commodore/formats#commodore-64-vic-20-pet-d64),
 [`.ssd`](./bbc/formats#bbc-micro-master-ssd),
 [Atom `.dsk`](./atom/formats#acorn-atom-dsk),
 [TRS-80 `.dsk`](./trs80/formats#trs-80-dsk) — for the export layouts); several
@@ -158,7 +158,7 @@ block over live hardware such as the screen is allowed but flagged.
 Every block-capable machine carries its blocks inside a container in **both
 directions**: the BBC in a [`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc (or
 as inline assembly in the `.bbc`), the Commodore in a
-[`.d64`](./commodore64/formats#commodore-64-vic-20-pet-d64), the ZX Spectrum in a
+[`.d64`](./commodore/formats#commodore-64-vic-20-pet-d64), the ZX Spectrum in a
 [`.TAP`](./zxspectrum/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
 [`.dsk`](./atom/formats#acorn-atom-dsk) disc image. The ZX81/ZX80 keep their
 machine code inside the listing as `#BIN` REM records.
@@ -189,7 +189,7 @@ its format page:
   tape format, derived from the same two blocks the `.TAP` export uses.
 - [BBC Micro / Master](./bbc/formats#cassette-audio) — the cassette filing
   system (CFS) over Kansas City Standard FSK at 1200 baud.
-- [Commodore 64 / VIC-20 / PET](./commodore64/formats#cassette-audio) — the
+- [Commodore 64 / VIC-20 / PET](./commodore/formats#cassette-audio) — the
   authentic KERNAL datasette format, shared across the whole lineage; carries
   memory blocks as a multi-file tape.
 - [TRS-80](./trs80/formats#cassette-audio) — the Model I 500-baud cassette

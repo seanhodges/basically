@@ -76,9 +76,8 @@ Four pseudo-ops control layout and data:
 The address ranges a routine may occupy, the default load address, and the entry
 points you call (`SYS`, `CALL`, `USR`, `LINK`) are machine-specific — see the
 **Memory** section on each machine's hardware page:
-[Commodore 64 & VIC-20](./commodore64/hardware),
-[Commodore PET](./pet/hardware), [BBC Micro & Master](./bbc/hardware) and
-[Acorn Atom](./atom/hardware).
+[Commodore 64, VIC-20 & PET](./commodore/hardware),
+[BBC Micro & Master](./bbc/hardware) and [Acorn Atom](./atom/hardware).
 
 See also the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.

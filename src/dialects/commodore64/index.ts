@@ -41,6 +41,9 @@ import {
 export const commodore64: Dialect = {
   id: 'commodore64',
   name: 'C64',
+  // The docs button deep-links to the shared 'commodore' reference page, which
+  // covers C64/VIC-20 (BASIC V2) and PET (BASIC 4.0) together.
+  docsReference: 'commodore',
   programRamBytes: 38911,
   memoryMap: c64MemoryMap,
   memoryBlocks: c64MemoryBlocks,

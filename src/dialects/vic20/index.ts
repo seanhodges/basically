@@ -43,7 +43,7 @@ export const vic20: Dialect = {
   // VIC-20 BASIC V2 is token-identical to the C64's, so the keyword reference
   // (what the docs button deep-links) is the same page - reuse it rather than
   // duplicate it, as bbcmaster reuses 'bbc' and zxspectrum128 reuses 'zxspectrum'.
-  docsReference: 'commodore64',
+  docsReference: 'commodore',
   // Unexpanded VIC-20: "3583 BYTES FREE".
   programRamBytes: 3583,
   memoryMap: vic20MemoryMap,

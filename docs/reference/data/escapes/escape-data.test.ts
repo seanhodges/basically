@@ -4,7 +4,7 @@ import { zx81Escapes } from './zx81';
 import { zx80Escapes } from './zx80';
 import { zxspectrumEscapes } from './zxspectrum';
 import { bbcEscapes } from './bbc';
-import { commodore64Escapes } from './commodore64';
+import { commodoreEscapes } from './commodore';
 import { trs80Escapes } from './trs80';
 import { atomEscapes } from './atom';
 import { cpcEscapes } from './cpc';
@@ -14,7 +14,7 @@ const SETS: [string, EscapeTableData][] = [
   ['zx80', zx80Escapes],
   ['zxspectrum', zxspectrumEscapes],
   ['bbc', bbcEscapes],
-  ['commodore64', commodore64Escapes],
+  ['commodore', commodoreEscapes],
   ['trs80', trs80Escapes],
   ['atom', atomEscapes],
   ['cpc', cpcEscapes],
