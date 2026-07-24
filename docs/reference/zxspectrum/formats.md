@@ -16,7 +16,7 @@ cross-machine machine-code overview, see the [file formats
 overview](../file-formats). See also the [ZX Spectrum BASIC
 reference](../zxspectrum) and its [escape codes](./escapes).
 
-## `.TAP`
+## ZX Spectrum `.TAP`
 
 A `.TAP` is a sequence of blocks, each `u16 LE length` then `length` bytes: a
 flag byte (0x00 header / 0xFF data), the payload, and a parity byte (the XOR of
