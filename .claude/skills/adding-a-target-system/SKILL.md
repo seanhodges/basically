@@ -153,6 +153,13 @@ own the memory map/blocks, AI profile, metadata and emulator variant"):
 
 ### Canonical samples (Stage 3)
 
+> **Use the `authoring-dialect-samples` sub-skill to write the samples.** It
+> covers the per-sample intent and accuracy gotchas (the Pitteway `E/2` circles
+> recurrence and ring-closure count, solvable mazes, keyword-as-variable
+> collisions), the `samples.ts` / machine-code-block registration shape, and the
+> colocated `samples.test.ts` checks each dialect must ship. The summary below is
+> just the Stage-3 placement.
+
 Every dialect ships the same sample set, **in the same order**, ported to the
 machine's own BASIC (match the _behaviour_, not bytes; degrade gracefully rather
 than dropping). The first (`hello`) is the starter shown for a fresh document.
