@@ -13,6 +13,10 @@ was previously active, and switching machines within the dialog SHALL NOT ask th
 user to resolve what happens to their existing code — the choice already answers
 that.
 
+A starting point that cannot currently work SHALL be presented as unavailable,
+stating why and offering a route to resolve it, rather than being hidden or
+offered only to fail once chosen.
+
 #### Scenario: Creating a project on a different machine
 
 - **WHEN** the user creates a project choosing a machine other than the active
@@ -24,6 +28,12 @@ that.
 
 - **WHEN** the user changes the chosen machine while creating a project
 - **THEN** the offered sample programs are that machine's own
+
+#### Scenario: A starting point that cannot work
+
+- **WHEN** a starting point depends on something the user has not yet set up
+- **THEN** it is offered as unavailable with the reason and a way to resolve it,
+  and the other starting points remain usable
 
 ### Requirement: Nothing is chosen implicitly
 

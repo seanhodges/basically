@@ -35,9 +35,12 @@
 - [ ] 5.3 Add the project name field, defaulting to empty and yielding an untitled document when left blank
 - [ ] 5.4 Add the starting-point control — Blank, Sample (a list of the *selected* machine's samples by title, reset to the first when the machine changes), and Describe it
 - [ ] 5.5 Wire Create: call `createProject` once with the chosen machine, source and name, materializing sample blocks via `materializeSampleBlocks` from `src/app/sampleBlocks.ts`
-- [ ] 5.6 Wire the Describe-it path: create the project blank, then `showAiPanel()` and `useAiStore.send()` with the dialect's system prompt, following the hand-off in `DocsDrawer.tsx`; when no API key is set, still create the project and open AI settings
-- [ ] 5.7 Pre-select the active machine and Blank on open, and support Escape to cancel, Enter to create, and autofocus on the name field
-- [ ] 5.8 Mount `<NewProjectDialog />` in `src/App.tsx` alongside the other dialogs
+- [ ] 5.6 Wire the Describe-it path: create the project blank, then `showAiPanel()` and `useAiStore.send()` with the dialect's system prompt, following the hand-off in `DocsDrawer.tsx`
+- [ ] 5.7 Disable the Describe-it option when no API key is set, with a note explaining a key is required and a link that opens AI settings, leaving the creation dialog open beneath so the user's choices survive the round trip
+- [ ] 5.8 Re-read key presence when `settingsOpen` changes (the key lives in localStorage, not the store) so returning from settings with a key set enables the option without restarting creation
+- [ ] 5.9 Pre-select the active machine and Blank on open, and support Escape to cancel, Enter to create, and autofocus on the name field
+- [ ] 5.10 Mount `<NewProjectDialog />` in `src/App.tsx` **before** `<AiSettingsDialog />` — all modals share one z-index, so DOM order decides stacking and mounting it last would paint it over the settings dialog it links to
+- [ ] 5.11 Add a test covering the gate: with no key the Describe-it option is disabled and its link opens AI settings; once a key is set the option is enabled and the machine, name and starting-point choices are unchanged
 
 ## 6. Retire File ▸ Samples and chain the welcome
 
