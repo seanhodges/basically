@@ -31,8 +31,8 @@ one rule: **the user always chooses; nothing is ever chosen for them.**
   machine's bundled samples, or a plain-English description handed to the AI
   assistant.
 - The description starting point is offered only when an API key is set;
-  otherwise it appears disabled, with a note and a link to set one and come back
-  to the project being created.
+  otherwise it appears disabled, noting that the AI assistant must be configured
+  in settings before it becomes available.
 - The dialog pre-selects the current machine and *Blank*, so the keyboard path
   stays two keystrokes.
 - The first-launch welcome greeting stays; its **Start coding** card now opens
@@ -79,8 +79,7 @@ one rule: **the user always chooses; nothing is ever chosen for them.**
   behaviour of restoring a bundled sample is removed.
 - `ai-assistant`: creating a project from a plain-English description seeds the
   conversation, making project creation a new entry point into the assistant —
-  offered only when a key is set, and reachable again without restarting once
-  one is.
+  offered only once the assistant has been configured with a key.
 
 ## Impact
 

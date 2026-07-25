@@ -128,36 +128,32 @@ shared, rather than copied a second time.
 
 ### The description option is gated, not failed
 
-The description starting point is disabled when no API key is set, with a note
-explaining why and a link into AI settings — rather than accepting the choice and
-creating a project whose defining feature silently does not happen. The drawer's
-"resolve, else open settings" shape is right for a hand-off the user has already
-committed to; it is the wrong shape for an option being offered, where the honest
-answer is "not yet, and here's how". So creation gates on key presence up front,
-and `aiCredentials()` remains the resolution helper for the send itself.
+The description starting point is disabled when no API key is set, carrying a
+note that the assistant must be configured in settings before the option becomes
+available — rather than accepting the choice and creating a project whose
+defining feature silently does not happen. The drawer's "resolve, else open
+settings" shape is right for a hand-off the user has already committed to; it is
+the wrong shape for an option being offered, where the honest answer is simply
+"not until that is set up". `aiCredentials()` remains the resolution helper for
+the send itself, once the option is available.
 
-Two consequences that are easy to get wrong:
+The note is **text, not a link**: the dialog does not send the user to settings
+and bring them back. A round trip out of a modal and back into half-finished
+state is more machinery than the situation earns, and configuring the assistant
+is a one-off the user does on their own terms.
 
-**Mount order in `src/App.tsx` decides the stacking.** Every modal shares
-`z-index: 100` from `Dialog.module.css`, so DOM order alone decides what paints on
-top, and `AiSettingsDialog` is mounted *first* in the list. Adding
-`<NewProjectDialog />` in the natural place — at the end, beside `WelcomeDialog` —
-would paint it over the settings dialog it just sent the user to. It must be
-mounted **before** `<AiSettingsDialog />`. The creation dialog stays open
-underneath, which is what makes "set a key and return" preserve the user's
-in-progress choices.
+That keeps the gate genuinely simple, and specifically means two things are
+*not* needed:
 
-**Key presence must be re-read, not snapshotted.** The API key lives in
-localStorage (`getProviderApiKey`), not in the store, so nothing re-renders when
-it changes. The dialog subscribes to `settingsOpen` — which does live in the
-store — and re-reads key presence when it changes, so closing settings with a key
-now set enables the option. This keeps the existing convention of reading
-credentials imperatively rather than mirroring them into the store.
-
-*Alternative rejected:* moving provider and key into the Zustand store to get
-reactivity. It widens the blast radius to every credential reader for one
-dialog's benefit, and puts a secret into a store that is otherwise serialisable
-state.
+- **No mount-order constraint.** Because the creation dialog never opens
+  settings, the two modals cannot coexist, so the shared `z-index: 100` in
+  `Dialog.module.css` never has to be reasoned about. `<NewProjectDialog />` goes
+  wherever the other dialogs go in `src/App.tsx`.
+- **No reactive key tracking.** The API key lives in localStorage
+  (`getProviderApiKey`), not in the store, and cannot change while the dialog is
+  open — the dialog is modal, so settings are unreachable behind it. Availability
+  is therefore read once when the dialog opens. No store subscription, and no
+  reason to mirror credentials into the store.
 
 ### Dialog composition
 

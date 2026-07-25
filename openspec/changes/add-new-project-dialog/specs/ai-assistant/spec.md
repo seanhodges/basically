@@ -9,9 +9,8 @@ the assistant revealed so the answer is visible as it arrives.
 
 Because the assistant requires the user's own API key, this starting point SHALL
 be offered only when a key is set. Without one it SHALL be presented as
-unavailable rather than hidden or silently failing, explaining that a key is
-needed and offering a way to set one. Once a key is set the option SHALL become
-available without the user having to abandon and restart creating the project.
+unavailable rather than hidden or silently failing, noting that the assistant
+must be configured in settings before the option becomes available.
 
 #### Scenario: Describing a program to start from
 
@@ -21,13 +20,8 @@ available without the user having to abandon and restart creating the project.
 
 #### Scenario: The description option with no API key set
 
-- **WHEN** the user is creating a project and no API key has been set
-- **THEN** the description option is shown as unavailable, explaining that an
-  API key is required and offering a route to set one
-
-#### Scenario: Setting a key without losing the project in progress
-
-- **WHEN** the user follows that route, sets an API key, and returns
-- **THEN** the project they were creating is still being created, with their
-  machine, name and starting-point choices intact, and the description option
-  now available
+- **WHEN** the user is creating a project and the assistant has not been
+  configured with an API key
+- **THEN** the description option is shown as unavailable, noting that the
+  assistant must be configured in settings first, and the other starting points
+  remain usable

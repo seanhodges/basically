@@ -14,8 +14,8 @@ user to resolve what happens to their existing code — the choice already answe
 that.
 
 A starting point that cannot currently work SHALL be presented as unavailable,
-stating why and offering a route to resolve it, rather than being hidden or
-offered only to fail once chosen.
+noting what the user must do elsewhere to make it available, rather than being
+hidden or offered only to fail once chosen.
 
 #### Scenario: Creating a project on a different machine
 
@@ -32,8 +32,8 @@ offered only to fail once chosen.
 #### Scenario: A starting point that cannot work
 
 - **WHEN** a starting point depends on something the user has not yet set up
-- **THEN** it is offered as unavailable with the reason and a way to resolve it,
-  and the other starting points remain usable
+- **THEN** it is offered as unavailable, noting what must be set up first, and
+  the other starting points remain usable
 
 ### Requirement: Nothing is chosen implicitly
 
