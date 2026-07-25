@@ -5,3 +5,6 @@ src/emulator/6502/
 src/emulator/c64/viciious/
 src/samples/
 package-lock.json
+openspec/
+.claude/commands/opsx/
+.claude/skills/openspec-*/

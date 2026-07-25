@@ -1,0 +1,65 @@
+schema: spec-driven
+
+# Shown to the AI when creating change artifacts (proposals, designs, specs,
+# tasks). Keep it to the load-bearing conventions; the full map lives in
+# docs/contributing/architecture.md and CLAUDE.md.
+context: |
+  Basically is a fully client-side browser IDE for retro microcomputer BASIC
+  dialects: write, run (in-browser emulators), and ship programs to real
+  hardware. 12 registered dialects today (Sinclair, Acorn, Commodore, Tandy,
+  Amstrad machines) - src/dialects/registry.ts is the source of truth; never
+  assume the list or count.
+
+  Stack: TypeScript (strict), React 18, Vite 6, Vitest 3, Zustand 5,
+  CodeMirror 6. License: GPL-3.0-or-later; every new dependency needs a
+  compatible-license check and attribution where required.
+
+  Hard conventions:
+  - The app talks ONLY to the Dialect / MachineEmulator seam
+    (src/dialects/types.ts) - the single machine boundary. Machine-specific
+    code lives in src/dialects/<name>/ or src/emulator/<name>/; never bypass
+    the seam.
+  - Errors, not throws: tokenizers/assemblers collect error lists
+    (TokenizeError[]/AsmError[], 1-based line, 0-based column) for inline
+    editor display.
+  - Single Zustand store (src/app/store.ts); components subscribe via narrow
+    selectors; cross-module commands bump a request counter that a useEffect
+    watches - no shared handles.
+  - Tests are colocated *.test.ts next to the source; emulator tests may load
+    real ROMs from public/roms/.
+  - Machine behaviour and accuracy are derived from real hardware, original
+    ROMs, and primary sources - never from memory.
+  - Vendored, don't touch: src/emulator/z80/, src/emulator/6502/cpu6502.js,
+    src/emulator/c64/viciious/, the jsbeeb npm package, public/roms/**.
+  - Prettier formats everything not listed in .prettierignore.
+  - docs/ publishes to the public site; only docs/contributing/ may reference
+    internal files (src/..., CLAUDE.md, .claude/ skills).
+
+  Quality gates for every change:
+  npm run typecheck && npm test && npm run lint && npm run format:check
+  (+ npm run docs:build when docs/ changes; npm run e2e locally for
+  app-visible changes).
+
+  Workflow boundary: new target systems (machines/dialects) are planned by the
+  adding-a-target-system skill into docs/contributing/dialect-plans/ - not by
+  OpenSpec changes. OpenSpec is the path for every other feature and fix.
+
+rules:
+  proposal:
+    - Include a "Non-goals" section.
+    - Name the affected capability spec(s) under openspec/specs/, or state
+      explicitly that no spec changes (pure refactor or infra work).
+  design:
+    - Reference docs/contributing/architecture.md instead of restating it.
+    - State the impact (or explicit non-impact) on the Dialect/MachineEmulator
+      seam.
+  specs:
+    - Requirements state WHAT the product guarantees, behaviourally - no file
+      paths or implementation detail (that belongs in design.md and
+      architecture.md).
+    - Write spec deltas only for behaviour changes; refactors get no delta.
+  tasks:
+    - The final task group must run the quality gates (typecheck, test, lint,
+      format:check; docs:build and e2e when applicable).
+    - Tokenizer, emulator, or charset work must include colocated *.test.ts
+      tasks.

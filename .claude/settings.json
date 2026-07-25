@@ -13,10 +13,15 @@
       "Bash(npm run build)",
       "Bash(npm run dev)",
       "Bash(npx vitest run:*)",
+      "Bash(openspec:*)",
+      "Bash(npx openspec:*)",
       "Bash(git status)",
       "Bash(git diff:*)",
       "Bash(git log:*)"
     ]
+  },
+  "env": {
+    "OPENSPEC_TELEMETRY": "0"
   },
   "hooks": {
     "SessionStart": [
