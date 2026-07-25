@@ -772,6 +772,23 @@ export interface Dialect {
   id: string;
   name: string;
   /**
+   * Who made the machine, e.g. 'Sinclair'. Groups the New-project machine
+   * picker, so machines from one maker sit together; use the short familiar
+   * form the rest of the project uses rather than the full legal name.
+   */
+  manufacturer: string;
+  /**
+   * The year the machine was released, shown beside its name when choosing a
+   * target. Derive it from a primary source, never from memory.
+   */
+  year: number;
+  /**
+   * One line describing what the machine is, shown when it is selected in the
+   * New-project picker. Derive it from the machine's own hardware reference
+   * page (`docs/reference/<machine>/hardware.md`) so it stays accurate.
+   */
+  blurb: string;
+  /**
    * Editor-source extensions this dialect recognises. The first is the default
    * for saving (`.txt`); the rest (e.g. legacy `.bas`) are also accepted on
    * load.
@@ -885,7 +902,10 @@ export interface Dialect {
   }): MachineEmulator;
   /** On-screen keyboard: authentic layout, labels and theme as pure data. */
   keyboardLayout: KeyboardLayout;
-  /** Bundled example programs; the first is the starter shown for a fresh document. */
+  /**
+   * Bundled example programs, offered as starting points when creating a new
+   * project. No entry is special - nothing is ever loaded automatically.
+   */
   samples: SampleFile[];
   buildTargets: BuildTarget[];
   /**

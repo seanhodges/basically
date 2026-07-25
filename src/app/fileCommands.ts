@@ -35,10 +35,15 @@ export function confirmDiscard(): boolean {
   return !dirty || !source.trim() || window.confirm('Discard unsaved changes?');
 }
 
-/** Clear the editor to a fresh untitled program (guarded by {@link confirmDiscard}). */
+/**
+ * Start a new project: run the discard guard, then open the New-project dialog
+ * where the user chooses the machine, a name and what to start from. The guard
+ * runs *first* so its `window.confirm` never appears underneath the modal; the
+ * dialog itself installs the document via `createProject`.
+ */
 export function newDocument(): void {
   if (!confirmDiscard()) return;
-  useIdeStore.getState().loadUnsavedDocument('');
+  useIdeStore.getState().setNewProjectOpen(true);
 }
 
 /**

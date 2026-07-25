@@ -1,4 +1,5 @@
-import { test as base } from '@playwright/test';
+import { test as base, expect as expectPw } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 /**
  * Shared Playwright fixtures.
@@ -41,3 +42,37 @@ export const test = base.extend<{ welcomeSeen: boolean }>({
 
 export { expect } from '@playwright/test';
 export type { Page } from '@playwright/test';
+
+/** Open the New-project dialog from File ▸ New and return its locator. */
+export async function openNewProjectDialog(page: Page) {
+  await page.getByRole('button', { name: 'File ▾' }).click();
+  await page.getByRole('button', { name: 'New project' }).click();
+  const dialog = page.getByRole('dialog');
+  await expectPw(dialog).toBeVisible();
+  return dialog;
+}
+
+/**
+ * Create a project from a bundled sample through the New-project dialog - the
+ * only way a program gets into the editor now that File ▸ Samples is gone and
+ * nothing is ever loaded implicitly.
+ *
+ * `title` is the sample's title (e.g. 'Breakout'). `machineId` is a registry
+ * dialect id (e.g. 'commodore64'), or omitted to keep whichever machine is
+ * active. Machines are picked by id rather than name because the names prefix
+ * one another ('Spectrum' / 'Spectrum 128').
+ */
+export async function createProjectWithSample(
+  page: Page,
+  title: string,
+  machineId?: string,
+): Promise<void> {
+  const dialog = await openNewProjectDialog(page);
+  if (machineId !== undefined) {
+    await dialog.locator(`button[data-machine="${machineId}"]`).click();
+  }
+  await dialog.getByLabel('Sample program').selectOption({ label: title });
+  await dialog.getByRole('button', { name: 'Create project' }).click();
+  await expectPw(dialog).toBeHidden();
+  await expectPw(page.locator('.cm-content')).toBeVisible();
+}

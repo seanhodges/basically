@@ -19,7 +19,7 @@ export const VIC20_KALEIDO_BLOCK = {
  * Commodore VIC-20 example programs, re-laid-out for the unexpanded machine's
  * 22×23 colour screen (screen RAM at 7680/$1E00, colour RAM at 38400/$9600,
  * border+background via POKE 36879). They stay well inside the 3583 free BASIC
- * bytes. The first is the starter for a fresh document; `circles` plots PETSCII
+ * bytes, and are offered when creating a new project; `circles` plots PETSCII
  * characters since the VIC-20 has no bitmap mode from BASIC.
  */
 export const vic20Samples: SampleFile[] = [

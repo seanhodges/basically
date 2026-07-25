@@ -50,11 +50,12 @@ Vite.
    npm test           # unit tests, incl. booting the emulator ROM
    ```
 
-Open the IDE, pick **File ▸ Samples ▸ Breakout**, press **▶ Run** (or
-Ctrl+Enter), click the screen and follow thebin-game instructions.
+Open the IDE, choose **File ▸ New project**, start from the **Breakout** sample
+and press **Create project**. Then press **▶ Run** (or Ctrl+Enter), click the
+screen and follow the in-game instructions.
 
 For AI generation, click **✦ AI**, pick your AI provider and follow the instructions to enter your API key.
-Open `http://localhost:5173`, pick a sample from **File → SAMPLES**, and press
+Open `http://localhost:5173` and create a project from a sample, then press
 **▶ Run** to confirm everything works before you change anything.
 
 To work on these docs, use `npm run docs:dev` (VitePress dev server).

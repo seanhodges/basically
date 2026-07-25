@@ -20,8 +20,9 @@ block. Press **+** after the last tab to add a machine-code block: it appears at
 the machine's suggested address with a one-instruction return stub, and its tab
 opens the **assembly editor**. Type assembly and it re-assembles as you go, with
 errors flagged inline; the bytes it produces are the block. Try it with the
-**Kaleidoscope** sample (File ▸ Samples on the ZX Spectrum), which pairs a BASIC
-front-end with a routine that paints the whole screen.
+**Kaleidoscope** sample (choose **File ▸ New project**, pick the ZX Spectrum and
+start from that sample), which pairs a BASIC front-end with a routine that
+paints the whole screen.
 
 **Right-click** a block's tab (or **long-press** on a touch screen) for its
 menu:

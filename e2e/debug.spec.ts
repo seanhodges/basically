@@ -141,7 +141,7 @@ test('Step/Continue show for every dialect', async ({ page }) => {
   // Every shipped machine implements the step-through debugger, so all four
   // controls are present whichever dialect is selected - including the BBC and
   // Commodore cores, which were the last to gain single-stepping.
-  for (const label of ['ZX81', 'Commodore 64', 'BBC Micro', 'Spectrum']) {
+  for (const label of ['ZX81', 'C64', 'BBC Micro', 'Spectrum']) {
     await select.selectOption({ label });
     await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();

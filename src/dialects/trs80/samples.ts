@@ -6,8 +6,8 @@ import maze from './samples/maze.bas?raw';
 
 /**
  * TRS-80 example programs, ported to Level II BASIC (SET/RESET/POINT
- * block graphics, INKEY$, no colour/sound). The first is the starter shown for a
- * fresh document.
+ * block graphics, INKEY$, no colour/sound) and offered when creating a new
+ * project.
  */
 export const trs80Samples: SampleFile[] = [
   { name: 'hello.bas', title: 'Hello world', text: hello },

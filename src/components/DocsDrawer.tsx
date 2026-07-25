@@ -7,8 +7,7 @@ import { referenceTopicFor } from '../app/docsTopic';
 import { dialects } from '../dialects/registry';
 import { useAiStore } from '../ai/aiStore';
 import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
-import { getAiProvider, getProviderApiKey } from '../storage/settings';
-import { getProvider } from '../ai/providers/registry';
+import { aiCredentials } from '../ai/credentials';
 import { GearsSpinner } from './GearsSpinner';
 import styles from './DocsDrawer.module.css';
 
@@ -112,18 +111,6 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     // depends on closeDocs (stable) - re-subscribing per render is unnecessary.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeDocs]);
-
-  /** Resolve the active AI provider + key, or open settings when no key is set. */
-  const aiCredentials = () => {
-    const providerId = getAiProvider();
-    const provider = getProvider(providerId);
-    const apiKey = getProviderApiKey(providerId);
-    if (!apiKey) {
-      useIdeStore.getState().openSettings('ai');
-      return null;
-    }
-    return { providerId, apiKey, model: provider.defaultModel };
-  };
 
   // "Explain porting" from the compare page: stream a narrative of the diff into
   // the AI panel, in the target dialect's voice. Reveal the panel and close the

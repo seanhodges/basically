@@ -43,6 +43,10 @@ import {
 export const bbcmaster: Dialect = {
   id: 'bbcmaster',
   name: 'BBC Master',
+  manufacturer: 'Acorn',
+  year: 1986,
+  blurb:
+    'The BBC Micro’s modes, graphics and sound, plus shadow screen modes that keep the display out of the program’s memory.',
   docsReference: 'bbc',
   programRamBytes: 30720,
   fileExtensions: ['.txt', '.bas'],

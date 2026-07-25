@@ -14,8 +14,6 @@ import {
   setDialectId,
   getLastShare,
   setLastShare,
-  getHasLaunched,
-  setHasLaunched,
   type PersistedMessage,
 } from './settings';
 import type { MemoryBlock, TapeFile } from '../dialects/types';
@@ -483,23 +481,6 @@ describe('AI provider settings', () => {
     setProviderApiKey('openai', '');
     expect(getProviderApiKey('openai')).toBe('');
     expect(getProviderApiKey('gemini')).toBe('AIza');
-  });
-});
-
-describe('has-launched flag', () => {
-  beforeEach(() => {
-    installStorages();
-  });
-
-  it('defaults to false on a fresh browser', () => {
-    expect(getHasLaunched()).toBe(false);
-  });
-
-  it('round-trips the launched flag', () => {
-    setHasLaunched(true);
-    expect(getHasLaunched()).toBe(true);
-    setHasLaunched(false);
-    expect(getHasLaunched()).toBe(false);
   });
 });
 

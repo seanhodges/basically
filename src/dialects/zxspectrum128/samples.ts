@@ -11,8 +11,8 @@ import { KALEIDO_BLOCK } from '../zxspectrum/samples';
 
 /**
  * ZX Spectrum 128K example programs. The language is identical to the 48K, so
- * this set mirrors the shared canonical samples. The first is the starter for a
- * fresh document.
+ * this set mirrors the shared canonical samples. Offered when creating a new
+ * project.
  */
 export const spectrum128Samples: SampleFile[] = [
   { name: 'hello.bas', title: 'Hello world', text: hello },

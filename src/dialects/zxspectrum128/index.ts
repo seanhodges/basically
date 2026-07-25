@@ -49,6 +49,10 @@ import { spectrumMemoryBlocks } from '../zxspectrum/memoryBlocks';
 export const zxspectrum128: Dialect = {
   id: 'zxspectrum128',
   name: 'Spectrum 128',
+  manufacturer: 'Sinclair',
+  year: 1985,
+  blurb:
+    'The 48K Spectrum’s display and BASIC, plus an AY-3-8912 three-channel sound chip played from BASIC with PLAY.',
   docsReference: 'zxspectrum',
   programRamBytes: 41472,
   memoryMap: spectrum128MemoryMap,
