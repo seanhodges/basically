@@ -39,6 +39,10 @@ import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from '../../emulator/cpc/display';
 export const cpc464: Dialect = {
   id: 'cpc464',
   name: 'CPC 464',
+  manufacturer: 'Amstrad',
+  year: 1984,
+  blurb:
+    'Three MODEs up to 640×200, 27 hardware colours, and three-channel SOUND with volume and tone envelopes.',
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',

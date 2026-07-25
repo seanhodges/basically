@@ -17,8 +17,8 @@ export const PET_KALEIDO_BLOCK = {
 
 /**
  * Commodore PET example programs, ported to the monochrome 40x25 machine (screen
- * RAM at 32768/$8000, no colour, no SID). The first is the starter for a fresh
- * document; `circles` degrades to PETSCII character plotting since the PET has
+ * RAM at 32768/$8000, no colour, no SID) and offered when creating a new
+ * project. `circles` degrades to PETSCII character plotting since the PET has
  * no bitmap.
  */
 export const petSamples: SampleFile[] = [

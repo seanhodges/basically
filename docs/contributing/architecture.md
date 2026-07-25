@@ -73,10 +73,16 @@ byte-budget ticker; `MobileTabBar` does the same job on a phone.
 
 Dialogs cover transfer/export, import, settings, publishing a share link, the
 emulator-filesystem inspector, the program outline, block settings and deletion,
-the target-switch confirmation, and the first-launch welcome. `DocsDrawer`
-embeds this documentation site from `/docs/` in an iframe and talks to it over
-`postMessage` (close, and the Compare page's "explain"/"convert" hand-offs into
-the AI panel).
+the target-switch confirmation, the first-launch welcome, and `NewProjectDialog`
+
+- the single place a program starts, carrying the machine picker (grouped by
+  manufacturer), the project name and the starting point (blank, a bundled sample,
+  or a description handed to the AI panel). Nothing is ever loaded implicitly:
+  there is no "starter" sample, so a first launch and an empty-editor target
+  switch both leave the editor empty. `DocsDrawer`
+  embeds this documentation site from `/docs/` in an iframe and talks to it over
+  `postMessage` (close, and the Compare page's "explain"/"convert" hand-offs into
+  the AI panel).
 
 The virtual keyboard and game controller (`src/keyboard/`) are **pure
 data-driven renderers**: each dialect supplies a `KeyboardLayout` object
@@ -91,7 +97,7 @@ A single store, `useIdeStore` (`src/app/store.ts`), holds three kinds of state:
   listing-block overrides, preserved tape files, an imported auto-start line,
   and (for a disc image that won't decompose) a verbatim boot disc. Everything
   in this group survives autosave and Save/Open together, and is reset as a unit
-  whenever a _different_ program becomes active (New, Open, Sample, Import,
+  whenever a _different_ program becomes active (New project, Open, Import,
   target switch, player boot).
 - **Session state** - active dialect, emulator status, live memory figures,
   breakpoints and the paused debug line, block assembly errors.
@@ -561,6 +567,11 @@ Two stores, with different jobs:
 | AI conversation                                                                                      | Throttled (~1 s) while a reply streams                      |
 | Settings                                                                                             | On change (dialect, editor, emulator, keyboard, controller) |
 | AI provider + API keys                                                                               | On entry in the AI settings dialog; per-provider keys       |
+
+Autosave holds only real work: an _untitled_ empty editor, or an untitled
+unmodified sample, is cleared rather than restored. Naming a project when you
+create it makes it real straight away, so the name survives a reload even before
+the first edit.
 
 **IndexedDB** (via RxDB) holds only the emulator virtual filesystem mirror -
 files a _running program_ wrote. It is a debugging window, not document state:

@@ -1,4 +1,4 @@
-import { test, type Page } from './fixtures';
+import { test, createProjectWithSample, type Page } from './fixtures';
 
 /**
  * Capture the screenshots used by the docs site (docs/index.md) and the README.
@@ -41,17 +41,16 @@ async function open(page: Page) {
 
 /** Switch to a target machine via the toolbar's dialect selector. Safe while the
  *  document is still a pristine sample - it swaps in the same-named sample on the
- *  new machine without a confirm dialog. */
+ *  new machine without a confirm dialog (and empties the editor when that machine
+ *  has no sample of that name). */
 async function useDialect(page: Page, label: string) {
   await page.locator('select.dialect-select').first().selectOption({ label });
   await page.locator('.cm-content').waitFor({ state: 'visible' });
 }
 
-/** Load a bundled sample via File ▸ Samples by its menu title. */
+/** Start a project from a bundled sample, by its title in the New-project dialog. */
 async function loadSample(page: Page, title: string) {
-  await page.getByRole('button', { name: 'File ▾' }).click();
-  await page.getByRole('button', { name: title, exact: true }).click();
-  await page.locator('.cm-content').waitFor({ state: 'visible' });
+  await createProjectWithSample(page, title);
 }
 
 /** Build and run the current program, waiting for the ROM to boot and render. */

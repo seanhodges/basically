@@ -29,6 +29,10 @@ import { spectrumMemoryBlocks } from './memoryBlocks';
 export const zxspectrum: Dialect = {
   id: 'zxspectrum',
   name: 'Spectrum',
+  manufacturer: 'Sinclair',
+  year: 1982,
+  blurb:
+    'A 256×192 colour bitmap with eight colours per 8×8 attribute cell — the famous attribute clash — plus BEEP through the beeper.',
   programRamBytes: 41472,
   memoryMap: spectrumMemoryMap,
   memoryBlocks: spectrumMemoryBlocks,

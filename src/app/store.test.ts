@@ -54,20 +54,9 @@ const BLOCK_B: MemoryBlock = {
 };
 
 describe('initialDocument (boot document choice)', () => {
-  const STARTER = '10 REM STARTER';
-
-  it('restores autosave when present, regardless of launch history', () => {
+  it('restores autosave when present', () => {
     const saved = { name: 'mygame.bas', text: '10 REM SAVED', blocks: [] };
-    expect(initialDocument(saved, false, STARTER)).toEqual({
-      fileName: 'mygame.bas',
-      text: '10 REM SAVED',
-      blocks: [],
-      listingBlockMeta: {},
-      autoStart: null,
-      tapeFiles: [],
-      bootDisc: null,
-    });
-    expect(initialDocument(saved, true, STARTER)).toEqual({
+    expect(initialDocument(saved)).toEqual({
       fileName: 'mygame.bas',
       text: '10 REM SAVED',
       blocks: [],
@@ -87,7 +76,7 @@ describe('initialDocument (boot document choice)', () => {
       kind: 'data' as const,
     };
     const saved = { name: 'mygame.bas', text: '10 REM SAVED', blocks: [block] };
-    expect(initialDocument(saved, false, STARTER)).toEqual({
+    expect(initialDocument(saved)).toEqual({
       fileName: 'mygame.bas',
       text: '10 REM SAVED',
       blocks: [block],
@@ -98,22 +87,11 @@ describe('initialDocument (boot document choice)', () => {
     });
   });
 
-  it('greets the very first launch with the starter sample', () => {
-    expect(initialDocument(null, false, STARTER)).toEqual({
-      fileName: 'untitled.txt',
-      text: STARTER,
-      blocks: [],
-      listingBlockMeta: {},
-      autoStart: null,
-      tapeFiles: [],
-      bootDisc: null,
-    });
-  });
-
-  it('starts a returning user with no autosave empty, not the sample', () => {
-    // The regression: clearing your program empties autosave, so a later reload
-    // must not push the starter sample back at you.
-    expect(initialDocument(null, true, STARTER)).toEqual({
+  it('starts empty with no autosave, on any launch', () => {
+    // Nothing is ever loaded implicitly: a fresh browser and a returning user
+    // who cleared their work both get an empty editor, and a program appears
+    // only once they create a project and choose what to start from.
+    expect(initialDocument(null)).toEqual({
       fileName: 'untitled.txt',
       text: '',
       blocks: [],
@@ -146,25 +124,47 @@ describe('setDialect', () => {
     expect(s.pendingDialectId).toBeNull();
   });
 
-  it('loads the new starter when the editor is empty', () => {
+  it('leaves the editor empty when switching with nothing in it', () => {
+    // No sample is ever loaded implicitly - switching machine on an empty
+    // editor just switches.
     useIdeStore.getState().setDialect('bbcmicro');
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('bbcmicro');
-    expect(s.source).toBe(bbc.samples[0]!.text);
+    expect(s.source).toBe('');
+    expect(s.blocks).toEqual([]);
     expect(s.fileName).toBe('untitled.txt');
     expect(s.dirty).toBe(false);
     expect(s.pendingDialectId).toBeNull();
   });
 
-  it('swaps a pristine starter for the new machine starter', () => {
+  it('swaps a pristine sample for the new machine same-named sample', () => {
     useIdeStore.setState({
-      source: zx81.samples[0]!.text,
+      source: sample('zx81', 'hello.bas').text,
       fileName: 'hello.bas',
     });
     useIdeStore.getState().setDialect('bbcmicro');
     const s = useIdeStore.getState();
     expect(s.dialect.id).toBe('bbcmicro');
-    expect(s.source).toBe(bbc.samples[0]!.text);
+    expect(s.source).toBe(sample('bbcmicro', 'hello.bas').text);
+    expect(s.dirty).toBe(false);
+  });
+
+  it('empties the editor when the new machine has no such sample', () => {
+    // The ZX80 ships no breakout (its ROM has no non-blocking key read), so
+    // there is nothing to swap to. Rather than hand over some other program the
+    // user never picked, the editor goes empty.
+    useIdeStore.setState({
+      source: sample('zx81', 'breakout.bas').text,
+      fileName: 'untitled.txt',
+    });
+    expect(
+      getDialect('zx80').samples.some((x) => x.name === 'breakout.bas'),
+    ).toBe(false);
+    useIdeStore.getState().setDialect('zx80');
+    const s = useIdeStore.getState();
+    expect(s.dialect.id).toBe('zx80');
+    expect(s.source).toBe('');
+    expect(s.blocks).toEqual([]);
     expect(s.dirty).toBe(false);
   });
 
@@ -577,10 +577,28 @@ describe('persistAutosave', () => {
     // deliberately cleared program stays cleared across a browser restart.
     expect(localStorage.getItem('mbide.autosave.doc')).toBeNull();
 
+    // Emptying a *named* file is how the user deliberately makes the IDE forget
+    // a program, so it clears too. Driven through setSource (not setState) so it
+    // goes the way the editor does - which is what leaves it dirty, and what
+    // tells it apart from a named project that was never touched.
     seedRealAutosave('pristine-b');
-    useIdeStore.setState({ source: '' });
+    useIdeStore.getState().setSource('');
+    expect(useIdeStore.getState().dirty).toBe(true);
     persistAutosave();
     expect(loadAutosave()).toBeNull();
+  });
+
+  it('keeps a named project the user has created but not yet touched', () => {
+    // The name is a choice the user made when creating the project; losing it
+    // on reload would be a silent surprise, even with the editor still empty.
+    seedRealAutosave('named-untouched');
+    useIdeStore.setState({
+      fileName: 'mygame.txt',
+      source: '',
+      dirty: false,
+    });
+    persistAutosave();
+    expect(loadAutosave()?.name).toBe('mygame.txt');
   });
 
   it('mirrors a real document under its fileName', () => {

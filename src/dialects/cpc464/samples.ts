@@ -16,8 +16,8 @@ export const CPC464_KALEIDO_BLOCK = {
 } as const;
 
 /**
- * CPC 464 example programs in Locomotive BASIC 1.0; the first is the starter
- * shown for a fresh document. `circles` exercises the Mode 0 graphics
+ * CPC 464 example programs in Locomotive BASIC 1.0, offered when creating a
+ * new project. `circles` exercises the Mode 0 graphics
  * statements (`ORIGIN`/`PLOT`/`DRAW`, per-`PLOT` ink), and `breakout`/`maze`
  * offer a keyboard/joystick menu, then read the cursor cluster through
  * `INKEY(n)` (so the on-screen controller drives them) or `JOY(0)`, with

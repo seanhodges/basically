@@ -15,7 +15,7 @@ export const C64_KALEIDO_BLOCK = {
   entry: 0xc003,
 } as const;
 
-/** Commodore 64 example programs; the first is the starter for a fresh document. */
+/** Commodore 64 example programs, offered when creating a new project. */
 export const c64Samples: SampleFile[] = [
   { name: 'hello.bas', title: 'Hello world', text: hello },
   { name: 'circles.bas', title: 'Circles', text: circles },

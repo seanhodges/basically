@@ -20,7 +20,7 @@ test.describe('1.1/1.2 first run (fresh profile)', () => {
   // Opt back into the welcome modal that the shared fixture suppresses.
   test.use({ welcomeSeen: false });
 
-  test('1.1 welcome dialog, sample program, no console errors', async ({
+  test('1.1 welcome dialog, empty editor, no console errors', async ({
     page,
   }) => {
     const errors = collectErrors(page);
@@ -28,8 +28,9 @@ test.describe('1.1/1.2 first run (fresh profile)', () => {
     await expect(
       page.getByRole('heading', { name: 'Welcome to Basically' }),
     ).toBeVisible();
-    // The default machine's bundled sample is preloaded behind the modal.
-    await expect(page.locator(EDITOR)).toContainText('HELLO FROM THE ZX81');
+    // Nothing is loaded implicitly: the editor behind the modal is empty until
+    // the user creates a project and chooses what to start from.
+    await expect(page.locator(EDITOR)).toHaveText('');
     expect(
       fatalErrors(errors),
       `console/page errors: ${fatalErrors(errors).join('\n')}`,
@@ -38,10 +39,13 @@ test.describe('1.1/1.2 first run (fresh profile)', () => {
 
   test('1.2 welcome stays dismissed after a reload', async ({ page }) => {
     await page.goto('/');
+    // "Start coding" hands off to the New-project dialog; cancel out of it -
+    // the welcome itself is what must stay dismissed.
     await page.getByRole('button', { name: /Start coding/ }).click();
     await expect(
       page.getByRole('heading', { name: 'Welcome to Basically' }),
     ).toBeHidden();
+    await page.getByRole('button', { name: 'Cancel' }).click();
     await page.reload();
     await expect(page.locator(EDITOR)).toBeVisible();
     await expect(
@@ -76,9 +80,13 @@ test('1.5 blocked localStorage: app still boots and works (no white screen)', as
   });
   await openApp(page);
   // With storage blocked the welcome flag can't persist, so the modal may
-  // show - dismiss it if it did.
+  // show - dismiss it if it did. "Start coding" hands off to the New-project
+  // dialog, so cancel that too and leave the editor clear.
   const welcome = page.getByRole('button', { name: /Start coding/ });
-  if (await welcome.isVisible().catch(() => false)) await welcome.click();
+  if (await welcome.isVisible().catch(() => false)) {
+    await welcome.click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+  }
   // The IDE is fully usable.
   await setEditorSource(page, '10 PRINT "STILL ALIVE"');
   await expect(page.locator(EDITOR)).toContainText('STILL ALIVE');
@@ -106,7 +114,10 @@ test('1.5b blocked localStorage AND sessionStorage: app still boots and works', 
   });
   await openApp(page);
   const welcome = page.getByRole('button', { name: /Start coding/ });
-  if (await welcome.isVisible().catch(() => false)) await welcome.click();
+  if (await welcome.isVisible().catch(() => false)) {
+    await welcome.click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+  }
   await setEditorSource(page, '10 PRINT "STILL ALIVE"');
   await expect(page.locator(EDITOR)).toContainText('STILL ALIVE');
   expect(
@@ -155,7 +166,7 @@ test('1.8 tabs keep independent target machines', async ({ page, context }) => {
   const pageB = await context.newPage();
   await pageB.goto('/');
   await expect(pageB.locator(EDITOR)).toBeVisible();
-  await selectDialect(pageB, 'Commodore 64');
+  await selectDialect(pageB, 'C64');
 
   // Tab A's machine survives a reload despite tab B's later switch.
   await page.reload();

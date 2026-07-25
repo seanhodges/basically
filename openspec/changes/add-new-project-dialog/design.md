@@ -98,12 +98,28 @@ The `confirmDiscard()` guard runs **before** the dialog opens, so its
 ### Autosave must learn about names
 
 `persistAutosave()` decides what is worth keeping purely from content: empty or
-an unmodified sample is "pristine" and clears autosave. A named project that the
-user has not yet typed into is pristine by that test, so its name would be lost
-on reload — which the new naming feature makes reachable for the first time.
+an unmodified sample is "pristine" and clears autosave. A named project the user
+has not yet typed into is pristine by that test, so its name would be lost on
+reload — which the new naming feature makes reachable for the first time.
 
-The pristine test gains a `fileName === UNTITLED_FILE_NAME` conjunct. Content
-still decides for untitled documents, so nothing about existing behaviour moves.
+Naming alone is not enough to decide, because "named and empty" is two different
+situations with opposite correct answers:
+
+| State | Wanted |
+| --- | --- |
+| A project just created and named, not yet typed into | Keep it — the name is a choice |
+| A *saved* file the user emptied | Forget it — clearing is how you reset |
+
+The store already distinguishes them, via `dirty`: `createProject` leaves the
+document clean, while `setSource` deliberately keeps a named file **dirty** when
+it is emptied (so `Ctrl+S` overwrites rather than opening Save As). So the
+pristine test excludes only an *untouched named* document — `fileName !==
+UNTITLED_FILE_NAME && !dirty` — and everything else falls through to the
+existing content rule unchanged.
+
+This also fixes a latent oddity: a *saved* file whose contents happen to equal a
+bundled sample was previously cleared from autosave as though it were a pristine
+sample. It is now kept, because it is named and untouched.
 
 ### Removing the starter strands a setting
 

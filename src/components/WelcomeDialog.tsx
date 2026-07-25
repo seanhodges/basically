@@ -37,14 +37,17 @@ function CodeIcon({ size = 16 }: { size?: number }) {
 /**
  * First-launch welcome modal. Shown once on a fresh browser (opened from
  * App.tsx after checking `getHasSeenWelcome`), then a persisted flag stops it
- * reappearing. Offers two large illustration cards - read the docs, or jump
- * straight into the editor - and notes the docs are reachable any time from the
- * toolbar.
+ * reappearing. Offers two large illustration cards - read the docs, or start
+ * coding, which hands off to the New-project dialog where the machine and
+ * starting point are chosen - and notes the docs are reachable any time from
+ * the toolbar. Dismissing via the backdrop just closes it: the editor is empty
+ * until a project is created.
  */
 export function WelcomeDialog() {
   const open = useIdeStore((s) => s.welcomeOpen);
   const setOpen = useIdeStore((s) => s.setWelcomeOpen);
   const openDocs = useIdeStore((s) => s.openDocs);
+  const setNewProjectOpen = useIdeStore((s) => s.setNewProjectOpen);
 
   if (!open) return null;
 
@@ -87,13 +90,20 @@ export function WelcomeDialog() {
             </span>
           </button>
 
-          <button type="button" className={styles.card} onClick={dismiss}>
+          <button
+            type="button"
+            className={styles.card}
+            onClick={() => {
+              dismiss();
+              setNewProjectOpen(true);
+            }}
+          >
             <span className={styles.cardIcon}>
               <CodeIcon size={48} />
             </span>
             <span className={styles.cardTitle}>Start coding</span>
             <span className={styles.cardSub}>
-              Jump straight into the editor and run your first program.
+              Pick a machine and a starting point, and run your first program.
             </span>
           </button>
         </div>

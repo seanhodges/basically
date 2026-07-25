@@ -38,7 +38,6 @@ import {
   loadAutosave,
   saveAutosave,
   clearAutosave,
-  getHasLaunched,
   getDialectId,
   setDialectId as persistDialectId,
   getAutoLineNumbering,
@@ -339,6 +338,8 @@ interface IdeState {
   docsTopic: string | null;
   /** First-launch welcome modal (shown once, then persisted as dismissed). */
   welcomeOpen: boolean;
+  /** New-project modal - the only place a program is created. */
+  newProjectOpen: boolean;
   /**
    * Transient notice shown in the status bar (e.g. a failed `?open=` shared
    * program load). Null when there is nothing to report. Not persisted.
@@ -400,6 +401,28 @@ interface IdeState {
   openSharedInIde(args: {
     dialectId: string;
     source: string;
+    blocks?: readonly MemoryBlock[];
+  }): void;
+  /**
+   * Create a brand-new project from the New-project dialog: switch to the
+   * chosen machine and install the chosen starting point (empty, or a bundled
+   * sample and its blocks) under the chosen name, in one update.
+   *
+   * Like {@link openProject} this is a real dialect switch that bypasses the
+   * confirmation dialog - the user picked the machine as part of creating the
+   * project, so there is nothing left to resolve, and routing through
+   * `setDialect` would either stack a dialog or swap in a sample they did not
+   * choose. Callers run the discard guard *before* opening the dialog, so this
+   * action never has to ask.
+   *
+   * `dialectId` MUST be registered. `fileName` is the user's name, or
+   * `UNTITLED_FILE_NAME` when they left it blank. `blocks` MUST already be
+   * valid and unique - the caller materializes them from the sample.
+   */
+  createProject(args: {
+    dialectId: string;
+    source: string;
+    fileName: string;
     blocks?: readonly MemoryBlock[];
   }): void;
   /**
@@ -609,6 +632,7 @@ interface IdeState {
   setProcedureListOpen(open: boolean): void;
   setMemoryMapOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
+  setNewProjectOpen(open: boolean): void;
   setStatusNotice(text: string | null): void;
   /** Open the docs drawer, optionally to a specific docs sub-path/topic. */
   openDocs(topic?: string): void;
@@ -776,11 +800,21 @@ let lastAutosaveSig: string | null = autosaved
 /**
  * Mirror the current document to autosave, or empty it. Autosave holds only
  * *real* work: an empty editor with no blocks, or a pristine (unmodified)
- * sample with no blocks - including the starter, which is `samples[0]` - is
- * cleared so it isn't restored on reload; anything else is saved under its
- * `fileName`. Content-derived, not gated on `dirty`, so Open/Import/Save all
- * persist without special-casing. The signature includes a blocks digest, so
- * a block edit alone (no source change) still autosaves.
+ * sample with no blocks, is cleared so it isn't restored on reload; anything
+ * else is saved under its `fileName`. Mostly content-derived, not gated on
+ * `dirty`, so Open/Import/Save all persist without special-casing.
+ *
+ * The one exception is a document the user has *named but not yet touched* -
+ * a project they just created. Its name is a choice they made, and losing it
+ * on reload would be a silent surprise, so it counts as real work even while
+ * the editor is still empty. That has to be told apart from a *saved* file the
+ * user deliberately emptied, which should stay cleared across a restart
+ * (emptying the editor is how you make the IDE forget a program). `dirty`
+ * separates them: creating a project leaves it clean, while emptying a named
+ * file leaves it dirty (see `setSource`).
+ *
+ * The signature includes a blocks digest, so a block edit alone (no source
+ * change) still autosaves.
  */
 export function persistAutosave(): void {
   const {
@@ -792,8 +826,15 @@ export function persistAutosave(): void {
     autoStart,
     tapeFiles,
     bootDisc,
+    dirty,
   } = useIdeStore.getState();
+  // A named document the user hasn't touched since creating it: keep it, name
+  // and all. (A named document they *edited* is real content anyway; a named
+  // one they emptied is dirty, so it falls through to the content rule below
+  // and clears.)
+  const untouchedNamedProject = fileName !== UNTITLED_FILE_NAME && !dirty;
   const pristine =
+    !untouchedNamedProject &&
     blocks.length === 0 &&
     Object.keys(listingBlockMeta).length === 0 &&
     tapeFiles.length === 0 &&
@@ -866,10 +907,9 @@ function applyDialectSwitch(
 }
 
 /**
- * Choose the boot document. Real saved work in autosave always wins. With no
- * autosave, the very first launch in a fresh browser is greeted with the
- * starter sample; every later launch starts empty - the user cleared their work
- * (which empties autosave), so the sample must not be pushed back on reload.
+ * Choose the boot document: the autosaved document when there is one, an empty
+ * untitled document otherwise. Nothing is ever loaded implicitly - a program
+ * appears only once the user creates a project and chooses what to start from.
  *
  * Exported for unit testing; the store computes its startup document from it.
  */
@@ -883,8 +923,6 @@ export function initialDocument(
     tapeFiles?: TapeFile[];
     bootDisc?: Uint8Array | null;
   } | null,
-  launchedBefore: boolean,
-  starterText: string,
 ): {
   fileName: string;
   text: string;
@@ -907,7 +945,7 @@ export function initialDocument(
   }
   return {
     fileName: UNTITLED_FILE_NAME,
-    text: launchedBefore ? '' : starterText,
+    text: '',
     blocks: [],
     listingBlockMeta: {},
     autoStart: null,
@@ -917,13 +955,7 @@ export function initialDocument(
 }
 
 const startupDialect = initialDialect();
-const launchedBefore =
-  typeof localStorage !== 'undefined' ? getHasLaunched() : false;
-const startupDoc = initialDocument(
-  autosaved,
-  launchedBefore,
-  startupDialect.samples[0]?.text ?? '',
-);
+const startupDoc = initialDocument(autosaved);
 const startupText = startupDoc.text;
 
 /**
@@ -1015,6 +1047,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   procedureListOpen: false,
   memoryMapOpen: false,
   welcomeOpen: false,
+  newProjectOpen: false,
   statusNotice: null,
   docsDrawerOpen: false,
   docsTopic: null,
@@ -1035,26 +1068,25 @@ export const useIdeStore = create<IdeState>((set) => ({
       if (id === s.dialect.id) return {};
       const next = getDialect(id);
 
-      // Empty editor: switch and load the new machine's starter, including any
-      // memory blocks it bundles (applyDialectSwitch clears blocks, so install
-      // the starter's alongside its text - mirrors the Samples-menu load).
+      // Empty editor: nothing to preserve, so just switch. No sample is ever
+      // loaded implicitly - a program only ever arrives because the user chose
+      // it when creating a project.
       if (s.source.trim() === '') {
-        const starter = next.samples[0];
         return {
-          ...applyDialectSwitch(s, next, starter?.text ?? ''),
-          blocks: starter ? materializeSampleBlocks(next, starter) : [],
+          ...applyDialectSwitch(s, next, ''),
           fileName: UNTITLED_FILE_NAME,
           dirty: false,
         };
       }
 
-      // Pristine starter or sample: swap in the same-named sample for the new
-      // target (falling back to its starter), keeping the document "untouched".
-      // The swapped sample is not a saved file, so fileName stays untitled.
+      // Pristine sample: swap in the same-named sample for the new target,
+      // keeping the document "untouched". A machine with no sample of that name
+      // switches to an empty editor rather than being handed a different
+      // program the user didn't pick. The swapped sample is not a saved file, so
+      // fileName stays untitled.
       const sampleName = matchingSampleName(s.dialect, s.source);
       if (sampleName !== null) {
-        const sample =
-          next.samples.find((x) => x.name === sampleName) ?? next.samples[0];
+        const sample = next.samples.find((x) => x.name === sampleName);
         return {
           ...applyDialectSwitch(s, next, sample?.text ?? ''),
           // Reinstall the matched sample's bundled blocks (applyDialectSwitch
@@ -1085,8 +1117,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       // confirmation dialog. Don't switch or persist the choice yet.
       return { pendingDialectId: id };
     });
-    // A pristine/empty switch loaded the new starter (a sample) - empty autosave
-    // so it isn't restored on reload.
+    // A pristine/empty switch leaves pristine content (an empty editor, or the
+    // swapped sample) - empty autosave so it isn't restored on reload.
     persistAutosave();
   },
   playerBoot: ({ dialectId, source, fileName, blocks }) =>
@@ -1140,6 +1172,28 @@ export const useIdeStore = create<IdeState>((set) => ({
       blocks: blocks ?? [],
     }));
     // Real content: mirror it to autosave so it survives a reload.
+    persistAutosave();
+  },
+  createProject: ({ dialectId, source, fileName, blocks }) => {
+    set((s) => ({
+      // applyDialectSwitch so machine teardown, AI-thread reset, breakpoint
+      // clearing and persisting the dialect all match a real target switch -
+      // this is a clean-slate load of a different program even when the chosen
+      // machine is the active one.
+      ...applyDialectSwitch(s, getDialect(dialectId), source),
+      fileName,
+      // Nothing has been typed yet, so there is nothing unsaved to warn about.
+      dirty: false,
+      // The chosen sample's blocks, materialized by the caller for this machine.
+      blocks: blocks ?? [],
+      listingBlockMeta: {},
+      autoStart: null,
+      tapeFiles: [],
+      bootDisc: null,
+    }));
+    // A named project is worth keeping even before it is edited; an untitled
+    // blank or sample is pristine and empties autosave instead (persistAutosave
+    // decides, from the name and the content).
     persistAutosave();
   },
   openProject: ({
@@ -1571,6 +1625,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         : { memoryMapOpen: false },
     ),
   setWelcomeOpen: (open) => set({ welcomeOpen: open }),
+  setNewProjectOpen: (open) => set({ newProjectOpen: open }),
   setStatusNotice: (text) => set({ statusNotice: text }),
   openDocs: (topic) => set({ docsDrawerOpen: true, docsTopic: topic ?? null }),
   closeDocs: () => set({ docsDrawerOpen: false }),

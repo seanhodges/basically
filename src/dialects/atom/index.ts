@@ -30,6 +30,10 @@ import { AtomMachine } from '../../emulator/atom/atomMachine';
 export const atom: Dialect = {
   id: 'atom',
   name: 'Atom',
+  manufacturer: 'Acorn',
+  year: 1980,
+  blurb:
+    'Acorn’s forerunner to the BBC Micro: CLEAR selects monochrome modes up to 256×192, drawn with MOVE, DRAW and PLOT.',
   programRamBytes: 8192,
   fileExtensions: ['.txt', '.bas'],
   keywords: atomKeywords,

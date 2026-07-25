@@ -8,25 +8,34 @@ This guide walks through running your first program, then generating one with AI
 ## Run a sample program
 
 1. Open the IDE at **[ba.sical.ly](https://ba.sical.ly/)**.
-2. The toolbar's machine selector shows the active target (the **ZX81** by
-   default). Each machine has its own dialect and emulator - you can switch at
-   any time.
-3. Choose **File ▸ Samples ▸ Breakout** to load a bundled sample game into the
-   editor.
-4. Press **▶ Run** (or `Ctrl`+`Enter`). Basically tokenizes your source to a
+2. Choose **File ▸ New project**. Everything a program needs to start is here:
+   which machine to write for, what to call the project, and what to begin with.
+3. Pick a machine. They're grouped by the company that made them, with the year
+   and a line describing each one - every machine has its own BASIC dialect and
+   its own emulator.
+4. Under **Start from**, choose **Sample** and pick **Breakout**, then press
+   **Create project**.
+5. Press **▶ Run** (or `Ctrl`+`Enter`). Basically tokenizes your source to a
    machine image and boots it in the emulator through the ROM's own load path.
-5. Click the emulator screen to give it focus, then play with the `5` and `8`
-   keys.
+6. Click the emulator screen to give it focus, then play - on most machines the
+   paddle keys are shown on screen when the game starts.
 
 The emulator is hardware-accurate: it runs the machine's real ROM, so the
 display and keyboard behave exactly as they would on the original.
 
+The toolbar's machine selector switches an in-progress program to a different
+target. Starting a new project is how you choose a machine _and_ what to write
+on it together.
+
 ## Write your own
 
-Clear the editor and start typing. The editor highlights your dialect's
-keywords, autocompletes them (with documentation), and runs the tokenizer as you
-type so mistakes are underlined inline. A byte counter in the status bar shows
-how much of the machine's RAM your program uses.
+Create a project and choose **Blank program**, then start typing. The editor
+highlights your dialect's keywords, autocompletes them (with documentation), and
+runs the tokenizer as you type so mistakes are underlined inline. A byte counter
+in the status bar shows how much of the machine's RAM your program uses.
+
+Naming the project when you create it means **Save project** already knows what
+to call it; leave the name blank and it stays untitled until you save.
 
 Each machine has its own BASIC rules - see **[Writing BASIC](/guide/writing-basic)**
 for the conventions and the per-machine notes.
@@ -44,6 +53,12 @@ Basically can write BASIC for you with the Claude API:
    actually runs.
 4. Apply a suggestion with one click: **replace** the editor, **merge** by line
    number, or **replace and run**.
+
+Once your key is set you can also start a whole project this way: choose
+**File ▸ New project**, pick a machine, and under **Start from** choose
+**Describe it** and say what you want ("a snake game"). The project is created
+and the assistant starts writing it for that machine. Until a key is set, that
+option is shown but not selectable.
 
 ## Save and load
 

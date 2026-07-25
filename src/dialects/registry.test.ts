@@ -42,6 +42,37 @@ describe('dialect registry', () => {
     }
   });
 
+  // The New-project picker groups machines by manufacturer and shows each one's
+  // year and blurb, so a dialect missing any of the three would show up there as
+  // a blank. The fields are required by the type, but these guard the values.
+  it('every dialect describes itself for the machine picker', () => {
+    for (const d of dialects) {
+      expect(d.manufacturer.trim(), `${d.id} needs a manufacturer`).not.toBe(
+        '',
+      );
+      expect(d.blurb.trim(), `${d.id} needs a blurb`).not.toBe('');
+      // A one-liner: long enough to say something, short enough for the picker.
+      expect(
+        d.blurb.length,
+        `${d.id} blurb should be a single line, not a paragraph`,
+      ).toBeLessThanOrEqual(160);
+      expect(d.blurb, `${d.id} blurb should be one line`).not.toContain('\n');
+    }
+  });
+
+  it('every dialect declares a plausible release year', () => {
+    for (const d of dialects) {
+      expect(
+        Number.isInteger(d.year),
+        `${d.id} year should be an integer`,
+      ).toBe(true);
+      // The 8-bit microcomputer era, generously bounded - a typo like 19881
+      // or a default 0 fails, a genuine machine does not.
+      expect(d.year, `${d.id} year looks wrong`).toBeGreaterThanOrEqual(1975);
+      expect(d.year, `${d.id} year looks wrong`).toBeLessThanOrEqual(1995);
+    }
+  });
+
   it('covers every registered dialect in the notation expectations', () => {
     expect(new Set(Object.keys(expectedNotation))).toEqual(
       new Set(dialects.map((d) => d.id)),

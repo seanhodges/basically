@@ -15,9 +15,10 @@ import { DeleteBlockDialog } from './components/DeleteBlockDialog';
 import { BlockSettingsDialog } from './components/BlockSettingsDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
 import { WelcomeDialog } from './components/WelcomeDialog';
+import { NewProjectDialog } from './components/NewProjectDialog';
 import { DocsDrawer } from './components/DocsDrawer';
 import { StatusBar } from './components/StatusBar';
-import { getHasSeenWelcome, setHasLaunched } from './storage/settings';
+import { getHasSeenWelcome } from './storage/settings';
 import {
   isMobileViewport,
   isLandscapeMobileViewport,
@@ -56,15 +57,6 @@ export default function App() {
     }
   }, []);
 
-  // Mark the IDE as launched so future reloads start empty (or from autosave)
-  // rather than re-loading the starter sample. The store's boot logic reads
-  // this flag *before* this effect runs, so the first launch still gets the
-  // sample; every launch after that does not. Only the IDE sets it - the
-  // standalone player leaves it untouched.
-  useEffect(() => {
-    setHasLaunched(true);
-  }, []);
-
   // Mirror the document to autosave every 2s. persistAutosave is self-gating:
   // it writes only when the content changed, and empties autosave for a pristine
   // sample or an empty editor, so unmodified samples aren't restored on reload.
@@ -101,6 +93,7 @@ export default function App() {
       <BlockSettingsDialog />
       <ProcedureListDialog />
       <WelcomeDialog />
+      <NewProjectDialog />
       <DocsDrawer />
     </div>
   );

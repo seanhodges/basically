@@ -16,7 +16,7 @@ export const ATOM_KALEIDO_BLOCK = {
 } as const;
 
 /**
- * Acorn Atom example programs; the first is the starter for a fresh document.
+ * Acorn Atom example programs, offered when creating a new project.
  * Like the ZX80, the Atom omits breakout: the real ROM has no non-blocking
  * keyboard read, so a real-time paddle game isn't practical. `files.bas`
  * demonstrates the virtual filesystem via FOUT/BPUT then FIN/BGET.

@@ -15,7 +15,7 @@ export const KALEIDO_BLOCK = {
   entry: 0x8003,
 } as const;
 
-/** ZX Spectrum example programs; the first is the starter for a fresh document. */
+/** ZX Spectrum example programs, offered when creating a new project. */
 export const spectrumSamples: SampleFile[] = [
   { name: 'hello.bas', title: 'Hello world', text: hello },
   { name: 'circles.bas', title: 'Circles', text: circles },

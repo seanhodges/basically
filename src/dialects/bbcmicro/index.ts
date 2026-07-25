@@ -39,6 +39,10 @@ import {
 export const bbcmicro: Dialect = {
   id: 'bbcmicro',
   name: 'BBC Micro',
+  manufacturer: 'Acorn',
+  year: 1981,
+  blurb:
+    'Eight screen modes from 80-column text to 640×256 graphics, a teletext mode, and four-channel SOUND with envelopes.',
   docsReference: 'bbc',
   programRamBytes: 28672,
   fileExtensions: ['.txt', '.bas'],
