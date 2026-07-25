@@ -70,5 +70,5 @@
 - [x] 9.3 `npm run lint`
 - [x] 9.4 `npm run format:check` (or `npm run format`)
 - [x] 9.5 `npm run docs:build`
-- [ ] 9.6 `npm run e2e`
+- [x] 9.6 `npm run e2e` (chromium: 113 passed; 2 pre-existing viewport failures reproduce on baseline - see below)
 - [x] 9.7 `npx openspec validate --specs`
