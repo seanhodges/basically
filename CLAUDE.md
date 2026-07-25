@@ -54,6 +54,29 @@ npm run build          # tsc -b && vite build → dist/
 For tokenizer / emulator / charset changes, add or update the colocated
 `*.test.ts` rather than only checking by hand.
 
+## Spec-driven changes (OpenSpec)
+
+New features and behaviour changes go through
+[OpenSpec](https://github.com/Fission-AI/OpenSpec) (a pinned devDependency;
+invoke as `npx openspec …`): `/opsx:explore` to think a change through,
+`/opsx:propose` to create the change folder with proposal/design/spec-delta/
+tasks artifacts, `/opsx:apply` to implement, `/opsx:archive` to merge the
+spec deltas into the baseline once shipped.
+
+- Baseline capability specs (what the product guarantees, behaviourally) live
+  in `openspec/specs/<capability>/spec.md`; in-flight changes in
+  `openspec/changes/`. Validate with `npx openspec validate --specs`.
+- Project conventions the artifacts must respect are in
+  `openspec/config.yaml` (`context:` and per-artifact `rules:`).
+- Specs say **what**; `docs/contributing/architecture.md` says **how**. Write
+  spec deltas only for behaviour changes — refactors get none.
+- **Exception:** planning a whole new target system stays with the
+  `adding-a-target-system` skill and `docs/contributing/dialect-plans/`;
+  OpenSpec covers everything else.
+- `openspec/` and the generated `.claude/commands/opsx/` +
+  `.claude/skills/openspec-*/` files are Prettier-ignored; never hand-edit
+  the generated files (`npx openspec update` regenerates them).
+
 ## Architecture
 
 | Path                           | Role                                                                                                                                      |

@@ -85,6 +85,21 @@ For the full layer breakdown and data-flow diagrams, see the
 [architecture overview](/contributing/architecture); the project's `CLAUDE.md`
 at the repository root is the companion quick-reference map.
 
+## Spec-driven changes (OpenSpec)
+
+The project uses [OpenSpec](https://github.com/Fission-AI/OpenSpec) for
+spec-driven development. Baseline capability specs — short, behavioural
+statements of what the product guarantees — live in
+`openspec/specs/<capability>/spec.md`, and each feature or behaviour change
+starts as a change folder under `openspec/changes/` (proposal, design, spec
+deltas, tasks) that is archived into the baseline once shipped. The CLI is a
+devDependency: `npx openspec list --specs` shows the capabilities and
+`npx openspec validate --specs` checks them. Specs describe **what** the
+product does; the [architecture overview](/contributing/architecture)
+describes **how** — keep implementation detail out of specs. Planning a whole
+new target system is the exception: that stays with the dialect plans under
+`docs/contributing/dialect-plans/`.
+
 ## Conventions and best practices
 
 - **Strict TypeScript.** `noUnusedLocals`, `noUnusedParameters`, and
