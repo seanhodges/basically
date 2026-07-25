@@ -25,8 +25,8 @@
 
 ## 4. Shared AI credentials helper
 
-- [ ] 4.1 Extract the private `aiCredentials()` helper from `src/components/DocsDrawer.tsx` into `src/ai/credentials.ts`, keeping its behaviour of opening AI settings when no key is set
-- [ ] 4.2 Point `DocsDrawer.tsx` at the shared helper
+- [x] 4.1 Extract the private `aiCredentials()` helper from `src/components/DocsDrawer.tsx` into `src/ai/credentials.ts`, keeping its behaviour of opening AI settings when no key is set
+- [x] 4.2 Point `DocsDrawer.tsx` at the shared helper
 
 ## 5. The New project dialog
 
@@ -61,14 +61,14 @@
 - [x] 8.2 Update the File ▸ Samples reference in `docs/guide/machine-code.md`
 - [x] 8.3 Update the File ▸ Samples quick-check in `docs/contributing/contributing.md`
 - [x] 8.4 Add the New project dialog to the dialog inventory in `docs/contributing/architecture.md` and correct its description of the first-launch behaviour
-- [ ] 8.5 Regenerate the docs screenshots and review the output for stale UI
+- [x] 8.5 Regenerate the docs screenshots and review the output for stale UI
 
 ## 9. Quality gates
 
-- [ ] 9.1 `npm run typecheck`
-- [ ] 9.2 `npm test`
-- [ ] 9.3 `npm run lint`
-- [ ] 9.4 `npm run format:check` (or `npm run format`)
-- [ ] 9.5 `npm run docs:build`
+- [x] 9.1 `npm run typecheck`
+- [x] 9.2 `npm test`
+- [x] 9.3 `npm run lint`
+- [x] 9.4 `npm run format:check` (or `npm run format`)
+- [x] 9.5 `npm run docs:build`
 - [ ] 9.6 `npm run e2e`
-- [ ] 9.7 `npx openspec validate --specs`
+- [x] 9.7 `npx openspec validate --specs`

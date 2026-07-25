@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures';
+import { test, expect, createProjectWithSample } from '../fixtures';
 import { EDITOR, clearEditor, openApp, playAndWaitRunning } from './helpers';
 
 /**
@@ -66,6 +66,8 @@ test('4.6 game-controller overlay shows while running and takes presses', async 
 }) => {
   test.setTimeout(90_000);
   await openApp(page);
+  // Needs a program to run: the editor starts empty now.
+  await createProjectWithSample(page, 'Hello world');
   await playAndWaitRunning(page);
   // Cycle off → keyboard → gamepad. With the emulator the active surface the
   // gamepad overlay appears.
