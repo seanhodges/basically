@@ -1,10 +1,10 @@
 ## 1. Stop the comparison reporting operators
 
-- [ ] 1.1 Exclude `kind: 'operator'` entries from `diffKeywords` in
+- [x] 1.1 Exclude `kind: 'operator'` entries from `diffKeywords` in
       `docs/.vitepress/theme/dialectCompare.ts`, so operators appear in neither
       `mustReplace`, `newlyAvailable` nor `behaviourChanged`. Keep the file's
       no-`src/`-imports rule.
-- [ ] 1.2 Extend `docs/.vitepress/theme/dialectCompare.test.ts`: no operator
+- [x] 1.2 Extend `docs/.vitepress/theme/dialectCompare.test.ts`: no operator
       reaches any bucket; a real command difference is unaffected; the
       `unchanged` count stays consistent.
 

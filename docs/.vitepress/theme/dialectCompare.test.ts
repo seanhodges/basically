@@ -29,6 +29,18 @@ const PROC: ReferenceEntry = {
   syntax: 'PROC<name>',
   description: 'Call a procedure.',
 };
+const PLUS: ReferenceEntry = {
+  name: '+',
+  kind: 'operator',
+  syntax: '<expr> + <expr>',
+  description: 'Add.',
+};
+const NOT_OP: ReferenceEntry = {
+  name: 'NOT',
+  kind: 'operator',
+  syntax: 'NOT <expr>',
+  description: 'Logical negation.',
+};
 
 describe('diffKeywords', () => {
   it('buckets source-only names into mustReplace', () => {
@@ -45,12 +57,46 @@ describe('diffKeywords', () => {
   });
 
   it('flags a differing kind as a behaviour change', () => {
-    const asOperator: ReferenceEntry = { ...PRINT, kind: 'operator' };
-    const diff = diffKeywords(refTable([PRINT]), refTable([asOperator]));
+    const asFunction: ReferenceEntry = { ...PRINT, kind: 'function' };
+    const diff = diffKeywords(refTable([PRINT]), refTable([asFunction]));
     expect(diff.behaviourChanged).toHaveLength(1);
     expect(diff.behaviourChanged[0]!.from.kind).toBe('command');
-    expect(diff.behaviourChanged[0]!.to.kind).toBe('operator');
+    expect(diff.behaviourChanged[0]!.to.kind).toBe('function');
     expect(diff.unchanged).toBe(0);
+  });
+
+  // The reference tables disagree about which operators earn a row, so diffing
+  // them reports editorial choices as language differences - "the ZX81 lacks
+  // `(`". They are excluded from every bucket instead.
+  it('never reports an operator as missing, gained or changed', () => {
+    const diff = diffKeywords(
+      refTable([PRINT, PLUS, NOT_OP]),
+      refTable([PRINT]),
+    );
+    expect(diff.mustReplace).toEqual([]);
+    expect(diff.newlyAvailable).toEqual([]);
+    expect(diff.behaviourChanged).toEqual([]);
+    expect(diff.unchanged).toBe(1);
+  });
+
+  it('ignores an operator the target tabulates and the source does not', () => {
+    const diff = diffKeywords(refTable([PRINT]), refTable([PRINT, PLUS]));
+    expect(diff.newlyAvailable).toEqual([]);
+  });
+
+  // NOT is an operator row on the BBC page and a function row on the ZX81's.
+  // Filtering each page on its own would report it as newly available on a
+  // machine that has had it all along, so the exclusion spans both pages.
+  it('ignores a keyword either page calls an operator', () => {
+    const asFunction: ReferenceEntry = { ...NOT_OP, kind: 'function' };
+    const diff = diffKeywords(refTable([NOT_OP]), refTable([asFunction]));
+    expect(diff.behaviourChanged).toEqual([]);
+    expect(diff.newlyAvailable).toEqual([]);
+    expect(diff.mustReplace).toEqual([]);
+
+    const reverse = diffKeywords(refTable([asFunction]), refTable([NOT_OP]));
+    expect(reverse.newlyAvailable).toEqual([]);
+    expect(reverse.mustReplace).toEqual([]);
   });
 
   it('flags a differing syntax as a behaviour change', () => {

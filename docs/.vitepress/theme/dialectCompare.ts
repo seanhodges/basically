@@ -68,6 +68,30 @@ function escapeChanged(a: EscapeEntry, b: EscapeEntry): boolean {
 }
 
 /**
+ * Names to drop from the keyword diff: everything either page calls an
+ * operator. The reference tables have no common rule for which operators earn a
+ * row - `+ - * /` are tabulated on four of the eight BASIC pages and `( ) , ;`
+ * on one - so diffing them compares editorial choices rather than languages,
+ * and reports that a dialect "lacks" `+`. Operator differences that matter to a
+ * port are carried by `PortingFacts` instead (as `exponentOperator` already is)
+ * and shown in the facts table.
+ *
+ * The union matters: the pages also disagree about *kind*, so `NOT` is an
+ * operator row on the BBC and a function row on the ZX81. Filtering each page
+ * on its own would drop the BBC's row, keep the ZX81's, and report `NOT` as
+ * newly available on a machine that has had it all along.
+ */
+function operatorNames(...tables: ReferenceTableData[]): Set<string> {
+  const names = new Set<string>();
+  for (const table of tables) {
+    for (const entry of table.entries) {
+      if (entry.kind === 'operator') names.add(entry.name);
+    }
+  }
+  return names;
+}
+
+/**
  * Diff two keyword tables by unique `name`. Buckets are returned in the
  * canonical name order the reference tables already use (via `sortEntries`);
  * comparing a dialect with itself yields empty buckets.
@@ -76,14 +100,18 @@ export function diffKeywords(
   source: ReferenceTableData,
   target: ReferenceTableData,
 ): KeywordDiff {
-  const sourceByName = new Map(source.entries.map((e) => [e.name, e]));
-  const targetByName = new Map(target.entries.map((e) => [e.name, e]));
+  const operators = operatorNames(source, target);
+  const comparable = (e: ReferenceEntry) => !operators.has(e.name);
+  const sourceEntries = source.entries.filter(comparable);
+  const targetEntries = target.entries.filter(comparable);
+  const sourceByName = new Map(sourceEntries.map((e) => [e.name, e]));
+  const targetByName = new Map(targetEntries.map((e) => [e.name, e]));
 
   const mustReplace: ReferenceEntry[] = [];
   const behaviourChanged: KeywordChange[] = [];
   let unchanged = 0;
 
-  for (const entry of source.entries) {
+  for (const entry of sourceEntries) {
     const match = targetByName.get(entry.name);
     if (!match) {
       mustReplace.push(entry);
@@ -94,9 +122,7 @@ export function diffKeywords(
     }
   }
 
-  const newlyAvailable = target.entries.filter(
-    (e) => !sourceByName.has(e.name),
-  );
+  const newlyAvailable = targetEntries.filter((e) => !sourceByName.has(e.name));
 
   return {
     mustReplace: sortEntries(mustReplace, 'name', 'asc'),
