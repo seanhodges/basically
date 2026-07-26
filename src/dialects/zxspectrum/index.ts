@@ -31,8 +31,7 @@ export const zxspectrum: Dialect = {
   name: 'Spectrum',
   manufacturer: 'Sinclair',
   year: 1982,
-  blurb:
-    'A 256×192 colour bitmap with eight colours per 8×8 attribute cell — the famous attribute clash — plus BEEP through the beeper.',
+  blurb: 'Britain’s best-selling computer. 48K Sinclair BASIC.',
   programRamBytes: 41472,
   memoryMap: spectrumMemoryMap,
   memoryBlocks: spectrumMemoryBlocks,

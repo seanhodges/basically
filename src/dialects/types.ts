@@ -783,9 +783,17 @@ export interface Dialect {
    */
   year: number;
   /**
-   * One line describing what the machine is, shown when it is selected in the
-   * New-project picker. Derive it from the machine's own hardware reference
-   * page (`docs/reference/<machine>/hardware.md`) so it stays accurate.
+   * One line describing the machine, shown against it in the machine picker.
+   * Two short sentences: one distinguishing fact about the machine, then the
+   * name of the BASIC it runs (`Runs BBC BASIC II.`). Aim for 60 characters
+   * and never exceed 72 — the picker row clamps to two lines, so a longer one
+   * is simply cut off on a phone. When only one of the two fits, the BASIC
+   * wins; it is what the user is actually choosing.
+   *
+   * Take the BASIC's name from that dialect's reference page
+   * (`docs/reference/<page>.md`), and verify the machine fact against a
+   * primary source — never write it from memory. Hardware specifics belong on
+   * the reference pages, not here.
    */
   blurb: string;
   /**

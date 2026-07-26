@@ -30,8 +30,7 @@ export const cpc6128: Dialect = {
   name: 'CPC 6128',
   manufacturer: 'Amstrad',
   year: 1985,
-  blurb:
-    'The CPC with 128K and a built-in disc drive: the same three MODEs up to 640×200, 27 colours and three-channel SOUND, driven by Locomotive BASIC 1.1.',
+  blurb: 'The CPC with 128K and a disc drive. Locomotive BASIC 1.1.',
   docsReference: 'cpc',
   // Set from what the shipped boot configuration reports (PRINT FRE(0)):
   // 42619 while AMSDOS is deferred, 42249 once AMSDOS lands — see the plan's

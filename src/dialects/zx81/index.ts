@@ -35,8 +35,7 @@ export const zx81: Dialect = {
   name: 'ZX81',
   manufacturer: 'Sinclair',
   year: 1981,
-  blurb:
-    'A 32×24 black-and-white screen with chunky block graphics and no sound, and SLOW/FAST modes that trade the picture for speed.',
+  blurb: 'Sinclair’s million-selling breakthrough. ZX81 BASIC.',
   programRamBytes: 15360,
   memoryMap: zx81MemoryMap,
   memoryBlocks: zx81MemoryBlocks,

@@ -43,8 +43,7 @@ export const commodore64: Dialect = {
   name: 'C64',
   manufacturer: 'Commodore',
   year: 1982,
-  blurb:
-    'A 40×25 screen in sixteen colours; the VIC-II’s bitmap modes and eight sprites are reached by POKE, since BASIC V2 has no keywords for them.',
+  blurb: 'The best-selling desktop computer ever. Commodore BASIC V2.',
   // The docs button deep-links to the shared 'commodore' reference page, which
   // covers C64/VIC-20 (BASIC V2) and PET (BASIC 4.0) together.
   docsReference: 'commodore',
