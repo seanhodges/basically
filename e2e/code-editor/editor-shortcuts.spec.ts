@@ -10,19 +10,18 @@ import {
 } from '../helpers';
 
 /**
- * Test plan §2 - Editor & keyboard shortcuts.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Editor & keyboard shortcuts.
  *
- * 2.5's outcome legitimately differs per browser: where the async clipboard
+ * Paste's outcome legitimately differs per browser: where the async clipboard
  * read is allowed the text pastes; where it isn't (e.g. Firefox denying the
  * read without its interactive paste prompt) the app must show the
  * explanatory alert instead of failing silently - both are passes.
  *
- * 2.8 is exercised with synthetic KeyboardEvents (real AltGr needs a Windows
- * machine with a European layout - keep the manual check too).
+ * AltGr chords are exercised with synthetic KeyboardEvents (real AltGr needs
+ * a Windows machine with a European layout - keep the manual check too).
  */
 
-test('2.1 completion popup and live lint errors', async ({ page }) => {
+test('completion popup and live lint errors', async ({ page }) => {
   await openApp(page);
   await clearEditor(page);
   await page.keyboard.type('PR');
@@ -35,7 +34,7 @@ test('2.1 completion popup and live lint errors', async ({ page }) => {
   await expect(page.getByText(/\d+ error/)).toBeVisible();
 });
 
-test('2.2 auto line numbering on Enter', async ({ page }) => {
+test('auto line numbering on Enter', async ({ page }) => {
   await openApp(page);
   await clearEditor(page);
   await page.keyboard.type('10 PRINT "A"');
@@ -44,7 +43,7 @@ test('2.2 auto line numbering on Enter', async ({ page }) => {
   await expect(page.locator(EDITOR)).toContainText('20 PRINT "B"');
 });
 
-test('2.3 undo/redo via Edit menu and shortcut', async ({ page }) => {
+test('undo/redo via Edit menu and shortcut', async ({ page }) => {
   await openApp(page);
   await setEditorSource(page, '10 PRINT "ONE"');
   await page.keyboard.press('Enter');
@@ -61,7 +60,7 @@ test('2.3 undo/redo via Edit menu and shortcut', async ({ page }) => {
   await expect(page.locator(EDITOR)).not.toContainText('PRINT "TWO"');
 });
 
-test('2.3b Edit menu opens, stays open, and dismisses on outside click / Escape', async ({
+test('Edit menu opens, stays open, and dismisses on outside click / Escape', async ({
   page,
 }) => {
   await openApp(page);
@@ -81,7 +80,7 @@ test('2.3b Edit menu opens, stays open, and dismisses on outside click / Escape'
   await expect(page.getByRole('button', { name: /^Undo/ })).toBeHidden();
 });
 
-test('2.4 menu Cut with no selection removes the whole line (copy reached the clipboard)', async ({
+test('menu Cut with no selection removes the whole line (copy reached the clipboard)', async ({
   page,
 }) => {
   await openApp(page);
@@ -95,7 +94,7 @@ test('2.4 menu Cut with no selection removes the whole line (copy reached the cl
   await expect(page.locator(EDITOR)).toContainText('KEEP');
 });
 
-test('2.5 menu Paste pastes or explains itself - never a silent no-op', async ({
+test('menu Paste pastes or explains itself - never a silent no-op', async ({
   page,
 }) => {
   const dialogs = await openApp(page);
@@ -119,7 +118,7 @@ test('2.5 menu Paste pastes or explains itself - never a silent no-op', async ({
     .toBe(true);
 });
 
-test('2.6 in-editor find/replace panel on Mod+F, Escape closes', async ({
+test('in-editor find/replace panel on Mod+F, Escape closes', async ({
   page,
 }) => {
   await openApp(page);
@@ -131,7 +130,7 @@ test('2.6 in-editor find/replace panel on Mod+F, Escape closes', async ({
   await expect(panel).toBeHidden();
 });
 
-test('2.7 F5 runs, Shift+F5 stops - browser defaults suppressed', async ({
+test('F5 runs, Shift+F5 stops - browser defaults suppressed', async ({
   page,
 }) => {
   await openApp(page);
@@ -150,9 +149,7 @@ test('2.7 F5 runs, Shift+F5 stops - browser defaults suppressed', async ({
   await expect(page.locator(EDITOR)).toContainText('RUN ME');
 });
 
-test('2.7 Mod+, opens Settings; F1 toggles the docs drawer', async ({
-  page,
-}) => {
+test('Mod+, opens Settings; F1 toggles the docs drawer', async ({ page }) => {
   await openApp(page);
   await page.keyboard.press('ControlOrMeta+Comma');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
@@ -165,7 +162,7 @@ test('2.7 Mod+, opens Settings; F1 toggles the docs drawer', async ({
   await expect(drawer).toBeHidden();
 });
 
-test('2.8 AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async ({
+test('AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async ({
   page,
   browserName,
 }) => {
@@ -204,7 +201,7 @@ test('2.8 AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async
   ).toBeVisible();
 });
 
-test('2.9 outline dialog on Mod+Shift+O', async ({ page }) => {
+test('outline dialog on Mod+Shift+O', async ({ page }) => {
   await openApp(page);
   await page.locator(EDITOR).click();
   await page.keyboard.press('ControlOrMeta+Shift+o');

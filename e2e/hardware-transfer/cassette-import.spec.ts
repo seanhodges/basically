@@ -11,16 +11,15 @@ import {
 } from '../helpers';
 
 /**
- * Test plan §6 - Cassette audio import.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Cassette audio import.
  *
- * 6.5 is fully automated as a lossless loop: export the cassette .wav, then
- * decode it back through the Web Audio pipeline (decodeAudioData → dialect
- * decoder). Real microphone capture (6.1–6.4, 6.6) needs a signal path and
+ * The round trip is fully automated as a lossless loop: export the cassette
+ * .wav, then decode it back through the Web Audio pipeline (decodeAudioData
+ * → dialect decoder). Real microphone capture needs a signal path and
  * permission UI that automation can't provide - manual.
  */
 
-test('6.5 wav round trip: export cassette .wav, import and decode it', async ({
+test('wav round trip: export cassette .wav, import and decode it', async ({
   page,
 }) => {
   test.setTimeout(120_000); // encoding + decodeAudioData of ~30s of audio

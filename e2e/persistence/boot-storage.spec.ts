@@ -10,20 +10,17 @@ import {
 } from '../helpers';
 
 /**
- * Test plan §1 - Boot, storage & first run.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Boot, storage & first run.
  *
- * 1.4 (private browsing semantics) stays manual: Playwright contexts are
- * always ephemeral, so a real private window has to be checked by hand.
+ * Private-browsing semantics stay manual: Playwright contexts are always
+ * ephemeral, so a real private window has to be checked by hand.
  */
 
-test.describe('1.1/1.2 first run (fresh profile)', () => {
+test.describe('first run (fresh profile)', () => {
   // Opt back into the welcome modal that the shared fixture suppresses.
   test.use({ welcomeSeen: false });
 
-  test('1.1 welcome dialog, empty editor, no console errors', async ({
-    page,
-  }) => {
+  test('welcome dialog, empty editor, no console errors', async ({ page }) => {
     const errors = collectErrors(page);
     await page.goto('/');
     await expect(
@@ -38,7 +35,7 @@ test.describe('1.1/1.2 first run (fresh profile)', () => {
     ).toEqual([]);
   });
 
-  test('1.2 welcome stays dismissed after a reload', async ({ page }) => {
+  test('welcome stays dismissed after a reload', async ({ page }) => {
     await page.goto('/');
     // "Start coding" hands off to the New-project dialog; cancel out of it -
     // the welcome itself is what must stay dismissed.
@@ -55,7 +52,7 @@ test.describe('1.1/1.2 first run (fresh profile)', () => {
   });
 });
 
-test('1.3 edits survive a reload (autosave)', async ({ page }) => {
+test('edits survive a reload (autosave)', async ({ page }) => {
   await openApp(page);
   await setEditorSource(page, '10 PRINT "AUTOSAVE CHECK"');
   // The autosave loop persists dirty documents every 2s.
@@ -64,7 +61,7 @@ test('1.3 edits survive a reload (autosave)', async ({ page }) => {
   await expect(page.locator(EDITOR)).toContainText('AUTOSAVE CHECK');
 });
 
-test('1.5 blocked localStorage: app still boots and works (no white screen)', async ({
+test('blocked localStorage: app still boots and works (no white screen)', async ({
   page,
 }) => {
   const errors = collectErrors(page);
@@ -97,7 +94,7 @@ test('1.5 blocked localStorage: app still boots and works (no white screen)', as
   ).toEqual([]);
 });
 
-test('1.5b blocked localStorage AND sessionStorage: app still boots and works', async ({
+test('blocked localStorage AND sessionStorage: app still boots and works', async ({
   page,
 }) => {
   const errors = collectErrors(page);
@@ -127,9 +124,7 @@ test('1.5b blocked localStorage AND sessionStorage: app still boots and works', 
   ).toEqual([]);
 });
 
-test('1.6 selected target machine is restored after a reload', async ({
-  page,
-}) => {
+test('selected target machine is restored after a reload', async ({ page }) => {
   await openApp(page);
   await selectDialect(page, 'bbcmicro');
   await page.reload();
@@ -140,7 +135,7 @@ test('1.6 selected target machine is restored after a reload', async ({
   );
 });
 
-test('1.7 tabs keep independent programs (sessionStorage isolation)', async ({
+test('tabs keep independent programs (sessionStorage isolation)', async ({
   page,
   context,
 }) => {
@@ -163,7 +158,7 @@ test('1.7 tabs keep independent programs (sessionStorage isolation)', async ({
   await expect(page.locator(EDITOR)).not.toContainText('TAB B');
 });
 
-test('1.8 tabs keep independent target machines', async ({ page, context }) => {
+test('tabs keep independent target machines', async ({ page, context }) => {
   await openApp(page);
   await selectDialect(page, 'bbcmicro');
 

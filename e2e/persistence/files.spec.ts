@@ -12,16 +12,15 @@ import {
 } from '../helpers';
 
 /**
- * Test plan §5 - Files: open & save.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Files: open & save.
  *
  * All tests force the classic file-input/download fallback (see helpers) so
  * one code path runs identically across the matrix - Playwright cannot drive
- * the Chromium-native FS Access pickers, so that half of 5.1/5.2 (and dialog
- * cancel behaviour, 5.3) stays a manual check.
+ * the Chromium-native FS Access pickers, so that half (and dialog cancel
+ * behaviour) stays a manual check.
  */
 
-test('5.1 Save project downloads a .zip with the chosen name and clears the dirty marker', async ({
+test('Save project downloads a .zip with the chosen name and clears the dirty marker', async ({
   page,
 }) => {
   await forceFallbackFilePickers(page);
@@ -35,7 +34,7 @@ test('5.1 Save project downloads a .zip with the chosen name and clears the dirt
   await expect(page.getByText(/myprog\.zip\s*•/)).toBeHidden();
 });
 
-test('5.1b File menu opens, stays open, and dismisses on outside click / Escape', async ({
+test('File menu opens, stays open, and dismisses on outside click / Escape', async ({
   page,
 }) => {
   await openApp(page);
@@ -60,7 +59,7 @@ test('5.1b File menu opens, stays open, and dismisses on outside click / Escape'
   await expect(menuNew).toBeHidden();
 });
 
-test('5.2 Open loads a legacy .bas file (content and filename)', async ({
+test('Open loads a legacy .bas file (content and filename)', async ({
   page,
 }) => {
   await forceFallbackFilePickers(page);
@@ -78,9 +77,7 @@ test('5.2 Open loads a legacy .bas file (content and filename)', async ({
   await expect(page.getByText('loaded.bas')).toBeVisible();
 });
 
-test('5.4/5.5 native binary round trip: export .P, re-import it', async ({
-  page,
-}) => {
+test('native binary round trip: export .P, re-import it', async ({ page }) => {
   await forceFallbackFilePickers(page);
   const dialogs = await openApp(page);
   await setEditorSource(page, '10 PRINT "ROUNDTRIP"\n20 GOTO 10');

@@ -3,15 +3,14 @@ import { test, expect } from '../fixtures';
 import { openApp } from '../helpers';
 
 /**
- * Test plan §12 - Documentation.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Documentation.
  *
- * The standalone docs site (12.1, 12.3) builds and serves separately
+ * The standalone docs site builds and serves separately
  * (`npm run docs:dev`) - outside this suite's web server, so manual. The
- * in-app drawer (12.2) is automated here.
+ * in-app drawer is automated here.
  */
 
-test('12.2 docs drawer opens from the toolbar and F1, with content', async ({
+test('docs drawer opens from the toolbar and F1, with content', async ({
   page,
 }) => {
   await openApp(page);

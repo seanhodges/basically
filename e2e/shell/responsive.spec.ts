@@ -3,15 +3,14 @@ import { test, expect } from '../fixtures';
 import { EDITOR, openApp } from '../helpers';
 
 /**
- * Test plan §11 - Responsive layout sweep.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Responsive layout sweep.
  *
- * 11.3/11.4 (phone-landscape rail + keyboard overlay) are covered by
- * e2e/landscape-layout.spec.ts (Chromium touch contexts). Real-device safe
- * areas (11.5) and browser zoom (11.6) are manual.
+ * The phone-landscape rail + keyboard overlay are covered by
+ * e2e/shell/landscape-layout.spec.ts (Chromium touch contexts). Real-device
+ * safe areas and browser zoom are manual.
  */
 
-test('11.1 desktop split view: divider drags and resizes the panes', async ({
+test('desktop split view: divider drags and resizes the panes', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -35,7 +34,7 @@ test('11.1 desktop split view: divider drags and resizes the panes', async ({
   expect(after).not.toBe(before);
 });
 
-test('11.2 narrow viewport switches to the tabbed mobile layout', async ({
+test('narrow viewport switches to the tabbed mobile layout', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 700, height: 1000 });
@@ -50,7 +49,7 @@ test('11.2 narrow viewport switches to the tabbed mobile layout', async ({
   await expect(page.locator(EDITOR)).toBeVisible();
 });
 
-test('11.2 widening back restores the split layout', async ({ page }) => {
+test('widening back restores the split layout', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 1000 });
   await openApp(page);
   await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();

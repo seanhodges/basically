@@ -10,9 +10,7 @@ import {
  * Specs live under `e2e/` (kept out of `src/` so Vitest - which globs
  * `src/**\/*.test.ts` - never tries to run them), in one folder per OpenSpec
  * capability mirroring `openspec/specs/` (plus `e2e/shell/` for cross-cutting
- * UI specs). Tests that automate the numbered items of
- * `docs/contributing/cross-browser-test-plan.md` carry the plan IDs in their
- * test titles.
+ * UI specs).
  *
  * Browser matrix: every test runs against Chromium (Chrome), Firefox, WebKit
  * (Safari's engine) and Microsoft Edge. The first three come from

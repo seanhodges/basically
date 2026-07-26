@@ -9,16 +9,15 @@ import {
 } from '../helpers';
 
 /**
- * Test plan §9 - Insecure context (plain http over LAN), simulated.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Insecure context (plain http over LAN), simulated.
  *
  * A dev server on localhost is always a secure context, so these tests
  * simulate the API surface of plain http by removing the secure-context-only
- * APIs before the app loads. A real `http://<lan-ip>` pass (9.1, 9.5) is
- * still worth one manual run.
+ * APIs before the app loads. A real `http://<lan-ip>` pass is still worth
+ * one manual run.
  */
 
-test('9.2 menu Cut still works without navigator.clipboard (legacy fallback)', async ({
+test('menu Cut still works without navigator.clipboard (legacy fallback)', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -35,7 +34,7 @@ test('9.2 menu Cut still works without navigator.clipboard (legacy fallback)', a
   await expect(page.locator(EDITOR)).toContainText('KEEP');
 });
 
-test('9.3 menu Paste explains itself without navigator.clipboard', async ({
+test('menu Paste explains itself without navigator.clipboard', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -52,7 +51,7 @@ test('9.3 menu Paste explains itself without navigator.clipboard', async ({
     .toBe(true);
 });
 
-test('9.4 mic import fails with a clear message without getUserMedia', async ({
+test('mic import fails with a clear message without getUserMedia', async ({
   page,
 }) => {
   await page.addInitScript(() => {

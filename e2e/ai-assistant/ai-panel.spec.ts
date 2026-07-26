@@ -3,17 +3,14 @@ import { test, expect } from '../fixtures';
 import { openApp } from '../helpers';
 
 /**
- * Test plan §8 - AI assistant.
- * (docs/contributing/cross-browser-test-plan.md)
+ * AI assistant.
  *
- * 8.1–8.3 (streaming, Replace + Run, reload mid-stream) need a live provider
- * API - manual. 8.4's persistence half is automated here with a dummy key
+ * Streaming, Replace + Run, and reload mid-stream need a live provider
+ * API - manual. Key persistence is automated here with a dummy key
  * (nothing is sent anywhere: the key is only written to settings storage).
  */
 
-test('8.4 API key survives a reload (per-provider storage)', async ({
-  page,
-}) => {
+test('API key survives a reload (per-provider storage)', async ({ page }) => {
   await openApp(page);
   await page.keyboard.press('ControlOrMeta+Comma');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();

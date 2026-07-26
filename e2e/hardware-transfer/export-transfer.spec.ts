@@ -21,13 +21,12 @@ async function openExportOnUnsavedDoc(page: Page) {
 }
 
 /**
- * Test plan §7 - Export / transfer to hardware.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Export / transfer to hardware.
  *
- * 7.2 asserts the playback flow (status, Stop) - whether the tone is audible
- * and loads on real hardware (7.3's mixing, real machine loading) is manual.
- * 7.5's actual serial transfer needs bridge hardware - manual; the gating
- * (enabled on Chromium/Edge, disabled+tooltip elsewhere) is automated.
+ * Cassette playback asserts the flow (status, Stop) - whether the tone is
+ * audible and loads on real hardware (mixing, real machine loading) is
+ * manual. The actual serial transfer needs bridge hardware - manual; the
+ * gating (enabled on Chromium/Edge, disabled+tooltip elsewhere) is automated.
  */
 
 /** Save a small program so the export dialog opens with a deliberate name. */
@@ -42,7 +41,7 @@ async function openExportOnSavedDoc(page: Page) {
   ).toBeVisible();
 }
 
-test('7.1 unsaved program exports immediately under the PROGRAM name', async ({
+test('unsaved program exports immediately under the PROGRAM name', async ({
   page,
 }) => {
   await openExportOnUnsavedDoc(page);
@@ -58,7 +57,7 @@ test('7.1 unsaved program exports immediately under the PROGRAM name', async ({
   expect(download.suggestedFilename()).toBe('program.p');
 });
 
-test('7.2 cassette playback starts from the click and stops on demand', async ({
+test('cassette playback starts from the click and stops on demand', async ({
   page,
 }) => {
   await openExportOnSavedDoc(page);
@@ -81,7 +80,7 @@ test('7.2 cassette playback starts from the click and stops on demand', async ({
   ).toBeVisible();
 });
 
-test('7.5/7.6 serial bridge button gates on WebSerial support', async ({
+test('serial bridge button gates on WebSerial support', async ({
   page,
   browserName,
 }) => {
@@ -116,7 +115,7 @@ async function openC64WithBlock(page: Page) {
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
 }
 
-test('7.8 C64 .d64 export carries blocks; .prg warns before dropping them', async ({
+test('C64 .d64 export carries blocks; .prg warns before dropping them', async ({
   page,
 }) => {
   await openC64WithBlock(page);
@@ -146,9 +145,7 @@ test('7.8 C64 .d64 export carries blocks; .prg warns before dropping them', asyn
   expect((await prgDownload).suggestedFilename()).toMatch(/\.prg$/);
 });
 
-test('7.7 robust mode produces a longer cassette recording', async ({
-  page,
-}) => {
+test('robust mode produces a longer cassette recording', async ({ page }) => {
   test.setTimeout(120_000);
   await openExportOnSavedDoc(page);
 

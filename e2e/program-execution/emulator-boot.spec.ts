@@ -13,15 +13,15 @@ import {
 } from '../helpers';
 
 /**
- * Test plan §3 - Emulator, every dialect.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Emulator, every dialect.
  *
- * 3.1 boots every machine's bundled sample and asserts the screen actually
+ * Boots every machine's bundled sample and asserts the screen actually
  * painted (pixel-level check). The sample is chosen explicitly through the
  * New-project dialog: nothing is loaded implicitly any more, so without that
- * step this would run an *empty* program on every machine and still pass. 3.2 (sharpness), 3.4 (audible sound), 3.5
- * (pitch at speed) and 3.7 (background-tab recovery) need eyes/ears - manual.
- * 3.6 (debugger) is covered by e2e/debug.spec.ts.
+ * step this would run an *empty* program on every machine and still pass.
+ * Sharpness, audible sound, pitch at speed and background-tab recovery need
+ * eyes/ears - manual. The debugger is covered by
+ * e2e/program-execution/debug.spec.ts.
  */
 
 /** Keep in sync with src/dialects/registry.ts - the guard test below fails
@@ -43,7 +43,7 @@ const MACHINES = [
   { id: 'zx81', label: 'ZX81' },
 ];
 
-test('3.1 guard: automated machine list matches the machine picker', async ({
+test('guard: automated machine list matches the machine picker', async ({
   page,
 }) => {
   await openApp(page);
@@ -68,9 +68,7 @@ test('3.1 guard: automated machine list matches the machine picker', async ({
 });
 
 for (const machine of MACHINES) {
-  test(`3.1 sample boots, runs and paints - ${machine.label}`, async ({
-    page,
-  }) => {
+  test(`sample boots, runs and paints - ${machine.label}`, async ({ page }) => {
     test.setTimeout(120_000); // ROM boot + first frames can be slow in CI
     await openApp(page);
     await createProjectWithSample(page, 'Hello world', machine.id);
@@ -87,7 +85,7 @@ for (const machine of MACHINES) {
   });
 }
 
-test('3.3 screen focus captures keys; Escape releases it', async ({ page }) => {
+test('screen focus captures keys; Escape releases it', async ({ page }) => {
   test.setTimeout(90_000);
   await openApp(page);
   // Needs a program to run: the editor starts empty now.

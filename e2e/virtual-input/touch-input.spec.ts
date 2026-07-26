@@ -3,17 +3,16 @@ import { test, expect, createProjectWithSample } from '../fixtures';
 import { EDITOR, clearEditor, openApp, playAndWaitRunning } from '../helpers';
 
 /**
- * Test plan §4 - Virtual keyboard & game controller.
- * (docs/contributing/cross-browser-test-plan.md)
+ * Virtual keyboard & game controller.
  *
  * These drive the on-screen input with pointer events (mouse), which shares
- * the code path with touch. Real multi-touch chords (4.3), key sound (4.4),
- * haptics (4.5), device rotation (4.7) and iOS gesture suppression (4.8)
- * still need a physical device - manual. 4.7's layout switching is covered
- * on Chromium by e2e/landscape-layout.spec.ts.
+ * the code path with touch. Real multi-touch chords, key sound, haptics,
+ * device rotation and iOS gesture suppression still need a physical device -
+ * manual. Rotation's layout switching is covered on Chromium by
+ * e2e/shell/landscape-layout.spec.ts.
  */
 
-test('4.1 on-screen keyboard toggles and types into the editor', async ({
+test('on-screen keyboard toggles and types into the editor', async ({
   page,
 }) => {
   await openApp(page);
@@ -32,7 +31,7 @@ test('4.1 on-screen keyboard toggles and types into the editor', async ({
   await expect(keyH).toBeHidden();
 });
 
-test('4.2 sliding between keys follows the pointer (capture works)', async ({
+test('sliding between keys follows the pointer (capture works)', async ({
   page,
 }) => {
   await openApp(page);
@@ -62,7 +61,7 @@ test('4.2 sliding between keys follows the pointer (capture works)', async ({
   await expect(page.locator(EDITOR)).toContainText('J');
 });
 
-test('4.6 game-controller overlay shows while running and takes presses', async ({
+test('game-controller overlay shows while running and takes presses', async ({
   page,
 }) => {
   test.setTimeout(90_000);
