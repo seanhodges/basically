@@ -6,7 +6,6 @@ import {
   useMediaQuery,
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
-import { dialects } from '../dialects/registry';
 import { referenceTopicFor } from '../app/docsTopic';
 import { newDocument, openDocument, saveDocument } from '../app/fileCommands';
 import {
@@ -17,6 +16,7 @@ import {
 } from '../app/shortcuts';
 import { MobileTabBar } from './MobileTabBar';
 import { InputOverlayToggle } from './InputOverlayToggle';
+import { MachineTrigger } from './MachineTrigger';
 import {
   SparkleIcon,
   GearIcon,
@@ -31,7 +31,7 @@ import styles from './Toolbar.module.css';
 
 export function Toolbar() {
   const dialect = useIdeStore((s) => s.dialect);
-  const setDialect = useIdeStore((s) => s.setDialect);
+  const setMachinePickerOpen = useIdeStore((s) => s.setMachinePickerOpen);
   const requestRun = useIdeStore((s) => s.requestRun);
   const requestStop = useIdeStore((s) => s.requestStop);
   const requestStep = useIdeStore((s) => s.requestStep);
@@ -192,14 +192,6 @@ export function Toolbar() {
     openDocs(topic ?? undefined);
   };
 
-  const dialectOptions = [...dialects]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((d) => (
-      <option key={d.id} value={d.id}>
-        {d.name}
-      </option>
-    ));
-
   return (
     <div className={`${styles.toolbar} ${landscape ? styles.rail : ''}`}>
       <div className={styles.toolbarLeft}>
@@ -316,17 +308,13 @@ export function Toolbar() {
           )}
         </div>
 
-        <label className={styles.dialectLabel}>
-          <span className={styles.dialectLabelText}>Target:</span>
-          <select
-            className="dialect-select"
-            value={dialect.id}
-            onChange={(e) => setDialect(e.target.value)}
-            title="Target machine"
-          >
-            {dialectOptions}
-          </select>
-        </label>
+        <MachineTrigger
+          dialect={dialect}
+          onClick={() => setMachinePickerOpen(true)}
+          artSize={20}
+          className={styles.targetButton}
+          labelClassName={styles.targetButtonLabel}
+        />
       </div>
 
       <div className={styles.toolbarRight}>
@@ -561,14 +549,17 @@ export function Toolbar() {
                   collapses to a rail with no inline room (see .targetInOverflow). */}
               <div className={styles.targetInOverflow}>
                 {contextTab && <div className={styles.menuSeparator} />}
-                <select
-                  className="dialect-select"
-                  value={dialect.id}
-                  onChange={(e) => setDialect(e.target.value)}
-                  title="Target machine"
-                >
-                  {dialectOptions}
-                </select>
+                <MachineTrigger
+                  dialect={dialect}
+                  // Close the menu first: it dismisses itself on any outside
+                  // pointerdown, and would tear down under the picker anyway.
+                  onClick={() => {
+                    setOverflowMenuOpen(false);
+                    setMachinePickerOpen(true);
+                  }}
+                  artSize={18}
+                  className={styles.targetInOverflowButton}
+                />
               </div>
             </div>
           )}

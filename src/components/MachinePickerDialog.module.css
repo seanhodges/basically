@@ -1,0 +1,97 @@
+/* Above the standard modal layer (Dialog.module.css uses 100): the picker can
+   open on top of the New-project dialog. */
+.backdrop {
+  z-index: 110;
+}
+
+.panel {
+  width: min(520px, 94vw);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 10px 0 4px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.groupName {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.machine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.machine:hover,
+.machine:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.machineOn {
+  border-color: var(--accent);
+  background: var(--bg-panel);
+}
+
+.art {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.machineName {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.machineYear {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+/* The machine's one-line description. Clamped rather than wrapped freely, so a
+   long blurb cannot push the list into a scroll on a phone. */
+.blurb {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}

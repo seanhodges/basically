@@ -68,7 +68,7 @@ editor, `AsmEditor` is the sibling editor for a memory block's assembly source,
 and `EditorTabBar` switches between the BASIC source and each block. In the
 right-hand column `EmulatorPane` hosts the canvas and drives the run loop, while
 `AiPanel`, `MemoryMapPanel`, and the docs drawer take over that slot when
-opened. `Toolbar` / `StatusBar` carry the menus, target selector, and the
+opened. `Toolbar` / `StatusBar` carry the menus, target machine control, and the
 byte-budget ticker; `MobileTabBar` does the same job on a phone.
 
 Dialogs cover transfer/export, import, settings, publishing a share link, the

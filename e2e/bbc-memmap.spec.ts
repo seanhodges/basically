@@ -1,4 +1,4 @@
-import { test, expect, type Page } from './fixtures';
+import { test, expect, chooseTargetMachine, type Page } from './fixtures';
 
 /** A long-running loop keeps the emulator busy so the live overlay has activity
     to draw while we assert. */
@@ -19,10 +19,14 @@ async function setEditorSource(page: Page, source: string) {
 
 const memoryHost = (page: Page) => page.locator('[class*="memoryHost"]');
 
-for (const label of ['BBC Micro', 'BBC Master', 'Atom']) {
+for (const { id, label } of [
+  { id: 'bbcmicro', label: 'BBC Micro' },
+  { id: 'bbcmaster', label: 'BBC Master' },
+  { id: 'atom', label: 'Atom' },
+]) {
   test(`memory map opens for the ${label} dialect`, async ({ page }) => {
     await open(page);
-    await page.locator('select.dialect-select').selectOption({ label });
+    await chooseTargetMachine(page, id);
 
     // The toolbar toggle only renders when the dialect defines a memory map.
     const toggle = page.locator('button[title^="Memory map"]');

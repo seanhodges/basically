@@ -1,4 +1,4 @@
-import { test, expect, type Page } from './fixtures';
+import { test, expect, chooseTargetMachine, type Page } from './fixtures';
 
 /** A long-running loop so the emulator stays in the 'running' state while we
     assert the layout (the BASIC program keeps the machine busy). */
@@ -27,9 +27,7 @@ test('memory map swaps to the left column while the emulator runs', async ({
   await open(page);
 
   // ZX Spectrum is the shipped dialect with a memory map.
-  await page
-    .locator('select.dialect-select')
-    .selectOption({ label: 'Spectrum' });
+  await chooseTargetMachine(page, 'zxspectrum');
   await setEditorSource(page, LOOP_SRC);
 
   // Open the memory map from the toolbar.

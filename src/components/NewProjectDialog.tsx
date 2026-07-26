@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useDismiss } from '../app/useDismiss';
-import { dialects, getDialect } from '../dialects/registry';
+import { getDialect } from '../dialects/registry';
 import { useAiStore } from '../ai/aiStore';
 import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
 import { aiCredentials, hasAiKey } from '../ai/credentials';
 import {
   AI_UNCONFIGURED_NOTE,
-  groupMachinesByManufacturer,
   projectFileName,
   startingDocument,
   type StartingPoint,
 } from './newProjectOptions';
+import { MachinePickerDialog } from './MachinePickerDialog';
+import { MachineTrigger } from './MachineTrigger';
 import dialog from './Dialog.module.css';
 import styles from './NewProjectDialog.module.css';
 
@@ -39,13 +40,14 @@ export function NewProjectDialog() {
   const [startingPoint, setStartingPoint] = useState<StartingPoint>('blank');
   const [sampleName, setSampleName] = useState('');
   const [request, setRequest] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // The assistant cannot be configured while this modal is up, so key presence
   // is settled for the dialog's lifetime - read it when it opens.
   const [aiReady, setAiReady] = useState(false);
 
   const machine = getDialect(machineId);
-  const groups = useMemo(() => groupMachinesByManufacturer(dialects), []);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Reset to "the machine you're on, and a blank program" each time it opens,
   // so Ctrl+N then Enter reproduces the old instant-blank behaviour.
@@ -56,11 +58,17 @@ export function NewProjectDialog() {
     setStartingPoint('blank');
     setSampleName(getDialect(activeDialectId).samples[0]?.name ?? '');
     setRequest('');
+    setPickerOpen(false);
     setAiReady(hasAiKey());
   }, [open, activeDialectId]);
 
   const cancel = () => setOpen(false);
-  const ref = useDismiss<HTMLFormElement>(open, cancel);
+  // While the machine picker is up it owns dismissal. The picker renders inside
+  // this form, so an outside-click test already reads "inside", but Escape must
+  // close only the picker - suspending this hook keeps exactly one modal
+  // closing at a time. `useDismiss` re-arms in an effect after commit, so the
+  // very keypress that closed the picker can never reach it.
+  const ref = useDismiss<HTMLFormElement>(open && !pickerOpen, cancel);
 
   if (!open) return null;
 
@@ -72,6 +80,13 @@ export function NewProjectDialog() {
   const chooseMachine = (id: string) => {
     setMachineId(id);
     setSampleName(getDialect(id).samples[0]?.name ?? '');
+    closePicker();
+  };
+
+  /** Hand focus back to the trigger, so the keyboard does not lose its place. */
+  const closePicker = () => {
+    setPickerOpen(false);
+    triggerRef.current?.focus();
   };
 
   const create = () => {
@@ -123,29 +138,15 @@ export function NewProjectDialog() {
         <h2 id="new-project-title">Start a new project</h2>
 
         <h3>Machine</h3>
-        <div className={styles.groups}>
-          {groups.map((group) => (
-            <div key={group.manufacturer} className={styles.group}>
-              <span className={styles.groupName}>{group.manufacturer}</span>
-              <div className={styles.machines}>
-                {group.machines.map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    // Stable hook for tests: machine names prefix one another
-                    // ("Spectrum" / "Spectrum 128"), so text is ambiguous.
-                    data-machine={d.id}
-                    className={`${styles.machine} ${d.id === machineId ? styles.machineOn : ''}`}
-                    aria-pressed={d.id === machineId}
-                    onClick={() => chooseMachine(d.id)}
-                  >
-                    <span className={styles.machineName}>{d.name}</span>
-                    <span className={styles.machineYear}>{d.year}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className={styles.machineField}>
+          <MachineTrigger
+            ref={triggerRef}
+            dialect={machine}
+            onClick={() => setPickerOpen(true)}
+            artSize={28}
+            showYear
+            className={styles.machineTrigger}
+          />
         </div>
         <p className={styles.blurb}>{machine.blurb}</p>
 
@@ -229,6 +230,18 @@ export function NewProjectDialog() {
             Create project
           </button>
         </div>
+
+        {/* Inside the form on purpose: the form's own `useDismiss` closes on any
+            pointerdown outside its subtree, and the picker's overlay would
+            otherwise count as outside and take this dialog down with it. Its
+            `position: fixed` still covers the viewport - nothing above it
+            establishes a containing block. */}
+        <MachinePickerDialog
+          open={pickerOpen}
+          selectedId={machineId}
+          onChoose={chooseMachine}
+          onDismiss={closePicker}
+        />
       </form>
     </div>
   );

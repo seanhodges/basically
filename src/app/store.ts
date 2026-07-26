@@ -341,6 +341,14 @@ interface IdeState {
   /** New-project modal - the only place a program is created. */
   newProjectOpen: boolean;
   /**
+   * The machine picker raised from the toolbar's target control. Held in the
+   * store because the picker is a modal and the toolbar is a stacking context
+   * (`z-index: 40`), so it is mounted at app level rather than inside the bar.
+   * The New-project dialog runs its own copy off local state instead - there
+   * the machine is part of a choice that has not been applied yet.
+   */
+  machinePickerOpen: boolean;
+  /**
    * Transient notice shown in the status bar (e.g. a failed `?open=` shared
    * program load). Null when there is nothing to report. Not persisted.
    */
@@ -633,6 +641,7 @@ interface IdeState {
   setMemoryMapOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
   setNewProjectOpen(open: boolean): void;
+  setMachinePickerOpen(open: boolean): void;
   setStatusNotice(text: string | null): void;
   /** Open the docs drawer, optionally to a specific docs sub-path/topic. */
   openDocs(topic?: string): void;
@@ -1048,6 +1057,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   memoryMapOpen: false,
   welcomeOpen: false,
   newProjectOpen: false,
+  machinePickerOpen: false,
   statusNotice: null,
   docsDrawerOpen: false,
   docsTopic: null,
@@ -1626,6 +1636,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     ),
   setWelcomeOpen: (open) => set({ welcomeOpen: open }),
   setNewProjectOpen: (open) => set({ newProjectOpen: open }),
+  setMachinePickerOpen: (open) => set({ machinePickerOpen: open }),
   setStatusNotice: (text) => set({ statusNotice: text }),
   openDocs: (topic) => set({ docsDrawerOpen: true, docsTopic: topic ?? null }),
   closeDocs: () => set({ docsDrawerOpen: false }),

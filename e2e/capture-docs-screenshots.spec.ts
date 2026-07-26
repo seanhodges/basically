@@ -1,4 +1,9 @@
-import { test, createProjectWithSample, type Page } from './fixtures';
+import {
+  test,
+  chooseTargetMachine,
+  createProjectWithSample,
+  type Page,
+} from './fixtures';
 
 /**
  * Capture the screenshots used by the docs site (docs/index.md) and the README.
@@ -26,7 +31,7 @@ test.skip(
 const OUT = 'docs/public';
 const VIEWPORT = { width: 1440, height: 900 };
 const MOBILE_VIEWPORT = { width: 390, height: 800 };
-const DIALECT = 'Commodore 64';
+const DIALECT = 'commodore64';
 const SAMPLE = 'Breakout';
 const DESKTOP_HERO_SAMPLE = 'Maze';
 const MOBILE_HERO_SAMPLE = 'Breakout';
@@ -39,12 +44,12 @@ async function open(page: Page) {
   await page.locator('.cm-content').waitFor({ state: 'visible' });
 }
 
-/** Switch to a target machine via the toolbar's dialect selector. Safe while the
+/** Switch to a target machine via the toolbar's target control. Safe while the
  *  document is still a pristine sample - it swaps in the same-named sample on the
  *  new machine without a confirm dialog (and empties the editor when that machine
- *  has no sample of that name). */
-async function useDialect(page: Page, label: string) {
-  await page.locator('select.dialect-select').first().selectOption({ label });
+ *  has no sample of that name). Takes a registry dialect id. */
+async function useDialect(page: Page, machineId: string) {
+  await chooseTargetMachine(page, machineId);
   await page.locator('.cm-content').waitFor({ state: 'visible' });
 }
 
@@ -412,7 +417,7 @@ test('writing-basic: code completion popup', async ({ page }) => {
 
 test('writing-basic: program outline', async ({ page }) => {
   await open(page);
-  await useDialect(page, 'BBC Micro');
+  await useDialect(page, 'bbcmicro');
   // A small BBC program exercising every jump type the outline groups:
   // named PROC/FN definitions, a GOSUB subroutine, and GOTO targets - each with
   // a nearby REM the outline reads for a descriptive title.
@@ -465,7 +470,7 @@ test('writing-basic: program outline', async ({ page }) => {
 test('writing-basic: byte budget in the status bar', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 700 });
   await open(page);
-  await useDialect(page, 'ZX81');
+  await useDialect(page, 'zx81');
   // Grow a filler program until the byte budget crosses into the amber warning
   // band (>=80%), so the shot shows the colour-change the guide describes -
   // without tipping past the 95% red threshold.
@@ -493,7 +498,7 @@ test('writing-basic: byte budget in the status bar', async ({ page }) => {
 
 test('writing-basic: memory map overview (zoomed out)', async ({ page }) => {
   await open(page);
-  await useDialect(page, 'C64');
+  await useDialect(page, 'commodore64');
   await setEditorSource(page, C64_POKES);
   await openMemoryMap(page);
   // Opens at minimum zoom: the major region groups each with their share of
@@ -508,7 +513,7 @@ test('writing-basic: memory map overview (zoomed out)', async ({ page }) => {
 
 test('writing-basic: memory map zoomed in', async ({ page }) => {
   await open(page);
-  await useDialect(page, 'C64');
+  await useDialect(page, 'commodore64');
   await setEditorSource(page, C64_POKES);
   await openMemoryMap(page);
   // Zoom well in to reveal the sub-regions, the address scale down the side, and
@@ -522,7 +527,7 @@ test('writing-basic: memory map zoomed in', async ({ page }) => {
 
 test('writing-basic: memory map region details', async ({ page }) => {
   await open(page);
-  await useDialect(page, 'C64');
+  await useDialect(page, 'commodore64');
   await setEditorSource(page, C64_POKES);
   await openMemoryMap(page);
   await zoomIn(page, 4);
@@ -540,7 +545,7 @@ test('writing-basic: memory map live activity beside the emulator', async ({
   page,
 }) => {
   await open(page);
-  await useDialect(page, 'C64');
+  await useDialect(page, 'commodore64');
   await setEditorSource(page, C64_POKES);
   await openMemoryMap(page);
   // Run it: the map jumps to the left column, the live emulator appears on the

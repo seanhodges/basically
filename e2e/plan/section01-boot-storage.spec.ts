@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures';
+import { test, expect, targetMachine } from '../fixtures';
 import {
   EDITOR,
   collectErrors,
@@ -130,10 +130,13 @@ test('1.6 selected target machine is restored after a reload', async ({
   page,
 }) => {
   await openApp(page);
-  await selectDialect(page, 'BBC Micro');
+  await selectDialect(page, 'bbcmicro');
   await page.reload();
   await expect(page.locator(EDITOR)).toBeVisible();
-  await expect(page.locator('select.dialect-select')).toHaveValue(/bbc/i);
+  await expect(targetMachine(page)).toHaveAttribute(
+    'data-target-machine',
+    'bbcmicro',
+  );
 });
 
 test('1.7 tabs keep independent programs (sessionStorage isolation)', async ({
@@ -161,18 +164,22 @@ test('1.7 tabs keep independent programs (sessionStorage isolation)', async ({
 
 test('1.8 tabs keep independent target machines', async ({ page, context }) => {
   await openApp(page);
-  await selectDialect(page, 'BBC Micro');
+  await selectDialect(page, 'bbcmicro');
 
   const pageB = await context.newPage();
   await pageB.goto('/');
   await expect(pageB.locator(EDITOR)).toBeVisible();
-  await selectDialect(pageB, 'C64');
+  await selectDialect(pageB, 'commodore64');
 
   // Tab A's machine survives a reload despite tab B's later switch.
   await page.reload();
   await expect(page.locator(EDITOR)).toBeVisible();
-  await expect(page.locator('select.dialect-select')).toHaveValue(/bbc/i);
-  await expect(pageB.locator('select.dialect-select')).toHaveValue(
-    /commodore|c64/i,
+  await expect(targetMachine(page)).toHaveAttribute(
+    'data-target-machine',
+    'bbcmicro',
+  );
+  await expect(targetMachine(pageB)).toHaveAttribute(
+    'data-target-machine',
+    'commodore64',
   );
 });
