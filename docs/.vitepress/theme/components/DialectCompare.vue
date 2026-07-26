@@ -7,6 +7,7 @@ import type {
 } from '../../../reference/data/types';
 import { diffEscapes, diffKeywords } from '../dialectCompare';
 import { KIND_META } from '../kindMeta';
+import { useDeepLinkParams } from '../deepLinkParams';
 
 /** One selectable dialect: its reference/escape tables and porting facts. */
 interface DialectOption {
@@ -165,9 +166,12 @@ async function copyLink() {
 
 onMounted(() => {
   if (window.parent !== window.self) embedded.value = true;
-  const params = new URLSearchParams(window.location.search);
-  const f = params.get('from');
-  const t = params.get('to');
+});
+
+// `?from=`/`?to=` select the pair. Unlike the tables' `?q=`, a link without them
+// leaves the current selection alone - the selects have meaningful defaults the
+// reader may have already changed.
+useDeepLinkParams(({ from: f, to: t }) => {
   if (f && optionFor(f)) from.value = f;
   if (t && optionFor(t)) to.value = t;
 });

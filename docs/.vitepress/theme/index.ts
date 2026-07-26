@@ -1,4 +1,5 @@
 import DefaultTheme from 'vitepress/theme';
+import { defineAsyncComponent } from 'vue';
 import Layout from './Layout.vue';
 import ReferenceTable from './components/ReferenceTable.vue';
 import EscapeTable from './components/EscapeTable.vue';
@@ -14,5 +15,14 @@ export default {
     app.component('ReferenceTable', ReferenceTable);
     app.component('EscapeTable', EscapeTable);
     app.component('DialectCompare', DialectCompare);
+    // Only contributing/architecture.md has ```mermaid fences. Registering the
+    // wrapper asynchronously keeps it out of VitePress's app entry chunk, and
+    // the wrapper import()s mermaid itself - two dynamic hops, so mermaid never
+    // reaches the modulepreload list VitePress builds from the app chunk's
+    // direct dynamic imports. See the `markdown.config` note in config.ts.
+    app.component(
+      'Mermaid',
+      defineAsyncComponent(() => import('./components/Mermaid.vue')),
+    );
   },
 };

@@ -330,7 +330,7 @@ flowchart TB
 | fflate                                            | Zip codec for the `.zip` project bundle                                       |
 | RxDB + RxJS                                       | Reactive IndexedDB store behind the emulator virtual filesystem (lazy-loaded) |
 | Vite 6 + `vite-plugin-pwa`                        | Build, dev server, PWA/service worker                                         |
-| VitePress (+ mermaid)                             | This documentation site                                                       |
+| VitePress (+ mermaid)                             | This documentation site (mermaid is lazy-loaded, only on pages with diagrams) |
 | Vitest 3 + Playwright                             | Unit and end-to-end/visual tests                                              |
 
 ## Data flow
