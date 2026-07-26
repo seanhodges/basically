@@ -31,8 +31,9 @@ const octet = (bytes: Uint8Array) =>
 /**
  * Hardware-export targets: an AMSDOS-headered `.bas` (the on-disc tokenized
  * program), a `.cdt` tape image (the TZX-derived firmware tape) and a cassette
- * `.wav`. None carries memory blocks yet - the CPC gains its block editor in a
- * later stage - so all three export the BASIC program only.
+ * `.wav`. None carries memory blocks: the CPC has a block editor, and blocks
+ * travel with the project bundle and share links, but no CPC container here
+ * transports them, so all three export the BASIC program only.
  *
  * Built per dialect: the three container formats are byte-identical on the 464
  * and the 6128, so only the target ids and the BASIC variant the source is

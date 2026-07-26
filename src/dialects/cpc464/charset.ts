@@ -14,8 +14,7 @@ import { CharsetError, type CharsetMapping } from '../types';
  * byte-exact. A `{...}` matching no escape is literal text (the CPC has real
  * `{`/`}` characters at 0x7B/0x7D). Escapes are only recognised inside
  * string / REM / DATA literals; the tokenizer's expression path stays
- * per-character. Stage 6 (`npm run gen:escapes`) scaffolds the published
- * escape table; the glyph forms follow the CPC firmware manual's character
+ * per-character. `npm run gen:escapes` scaffolds the published escape table; the glyph forms follow the CPC firmware manual's character
  * set as tabulated on Wikipedia's "Amstrad CPC character set".
  */
 const UP_ARROW = 0x5e;

@@ -2,18 +2,17 @@ import type { KeywordInfo } from '../types';
 
 /**
  * Which Locomotive BASIC the keyword table targets: 1.0 (CPC 464) or 1.1
- * (CPC 664/6128). The variant seam mirrors bbcmicro's BASIC_II/BASIC_IV flag
- * so the cpc6128 dialect is one import away. See
- * docs/contributing/dialect-plans/cpc464.md Stage 1.
+ * (CPC 664/6128). The variant seam mirrors bbcmicro's BASIC_II/BASIC_IV flag,
+ * so the cpc6128 dialect selects its table with one call.
  */
 export type LocoBasicVariant = 'basic10' | 'basic11';
 
 /**
  * One Locomotive BASIC keyword, with the extra data the native tokenizer
  * needs on top of the editor-facing {@link KeywordInfo}. Token values are the
- * genuine Locomotive BASIC bytes from the CPCWiki token table (see the plan's
- * primary references); byte-exactness against the real ROM is re-verified when
- * the emulator lands in Stage 2.
+ * genuine Locomotive BASIC bytes from the CPCWiki token table, cross-checked
+ * against SOFT968; byte-exactness is pinned against the real ROM by the
+ * emulator suites in `src/emulator/cpc/`.
  */
 export interface LocoKeyword extends KeywordInfo {
   /**

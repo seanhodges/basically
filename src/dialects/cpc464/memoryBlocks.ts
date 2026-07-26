@@ -4,8 +4,8 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
  * Amstrad CPC 464 {@link MemoryBlocksSupport} for the memory-block linter
  * (`src/app/blockLint.ts`). The CPC is a flat 64K of RAM (the ROMs are read
  * overlays only), so a block may sit almost anywhere - the ranges below mirror
- * `./memoryMap.ts`. Machine-side injection already landed in Stage 2's
- * `loadProgram`.
+ * `./memoryMap.ts`. Machine-side injection is handled by `loadProgram` in
+ * `src/emulator/cpc/cpcMachine.ts`.
  */
 
 /** BASIC program area start on the 464 (tokenized lines from &0170 up). */

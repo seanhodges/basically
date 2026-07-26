@@ -8,11 +8,12 @@ import { tokenizeProgram } from '../../dialects/cpc464/tokenizer';
 import { cpc464Samples } from '../../dialects/cpc464/samples';
 
 /**
- * Acceptance tests for the real CPC 464 firmware. The ROM is copyright Amstrad
- * and not committed (see public/roms/ATTRIBUTION.md); this suite skips until the
- * combined 32K `cpc464.rom` (OS 16K + BASIC 16K) is present at
- * public/roms/cpc/cpc464.rom. With it, these are the Stage 2 acceptance checks:
- * the firmware boots to its BASIC banner and a tokenized program runs to output.
+ * Acceptance tests for the real CPC 464 firmware. The combined 32K `cpc464.rom`
+ * (OS 16K + BASIC 16K) ships at public/roms/cpc/cpc464.rom under the terms in
+ * public/roms/ATTRIBUTION.md; the suite still skips if it is absent, so a
+ * checkout with the ROM removed stays green. With it, these are the acceptance
+ * checks: the firmware boots to its BASIC banner and a tokenized program runs
+ * to output.
  */
 const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc464.rom');
 const hasRom = existsSync(ROM_PATH);

@@ -127,7 +127,7 @@ export class CpcMachine implements MachineEmulator {
           ? this.keyboard.readLine(line)
           : this.ay.readData(),
       vsyncActive: () => this.vsync,
-      tapeInput: () => 0, // cassette in lands in Stage 4
+      tapeInput: () => 0, // tape *input* to the machine is not modelled
     };
     this.ppi = new Ppi(host);
 

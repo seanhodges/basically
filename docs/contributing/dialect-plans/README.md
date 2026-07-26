@@ -13,6 +13,16 @@ dialect complete.
 - **Companion scaffolding** lives under `src/dialects/<id>/` as throwing stubs
   until each stage fills them in. The dialect is not registered in
   `src/dialects/registry.ts` until its wire-up stage.
+- **A plan is deleted once its machine ships.** These files are scaffolding for
+  work in flight, not a permanent record: once every stage is ✅ the shipped
+  code, its tests and the reference docs are the truth, and a stale plan
+  alongside them is a second, decaying account of the same machine. So this
+  directory holds only unfinished plans - if a machine is in
+  `src/dialects/registry.ts` and has no file here, that is the finished state,
+  not a missing document. Delete the plan in the change that completes it, and
+  clear the references to it in the same commit: its roadmap row, any sibling
+  plan that cross-links it, and the `Stage N` pointers in the dialect's own
+  source comments, which stop meaning anything once the stages are gone.
 
 See `docs/contributing/dialect-roadmap.md` for the higher-level tiered roadmap (which machines
 to add and why), and `docs/contributing/adding-a-dialect.md` (dialect folder +

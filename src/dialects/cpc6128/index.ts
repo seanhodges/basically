@@ -39,7 +39,7 @@ import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from '../../emulator/cpc/display';
  * 464 behind the BASIC variant seam. The machine is `CpcMachine` model '6128':
  * bank-switched 128K and the BASIC 1.1 / OS 2.x ROM pair. AMSDOS, the µPD765
  * FDC and `.dsk` are deliberately deferred - it boots and runs BASIC without
- * them. See docs/contributing/dialect-plans/cpc6128.md.
+ * them.
  */
 export const cpc6128: Dialect = {
   id: 'cpc6128',
@@ -48,7 +48,7 @@ export const cpc6128: Dialect = {
   year: 1985,
   // Deliberately not "…and a disc drive", true of the machine though that is:
   // this build runs it tape-only, and the picker should not sell a feature the
-  // IDE does not have. See the plan's deferred-AMSDOS note.
+  // IDE does not have.
   blurb: 'The CPC with 128K and more keywords. Locomotive BASIC 1.1.',
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
@@ -63,9 +63,9 @@ export const cpc6128: Dialect = {
   // port exposes two independent fire buttons.
   joystickModes: ['native'],
   joystickFireButtons: 2,
-  // Set from what the shipped boot configuration reports (PRINT FRE(0)):
-  // 42619 while AMSDOS is deferred, 42249 once AMSDOS lands — see the plan's
-  // target summary before changing this.
+  // The real machine's documented free-RAM figure with no AMSDOS - the same
+  // as the 464's, since AMSDOS is exactly the 370 bytes that take a
+  // disc-equipped 6128 down to 42249. Revisit only when AMSDOS ships.
   programRamBytes: 42619,
   // The combined 32K firmware+BASIC ROM (16K OS 2.x then 16K Locomotive
   // BASIC 1.1). No AMSDOS ROM: the 6128 runs tape-only here.

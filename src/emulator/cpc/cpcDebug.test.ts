@@ -6,7 +6,7 @@ import { tokenizeProgram } from '../../dialects/cpc464/tokenizer';
 import type { DebugStepOptions } from '../../dialects/types';
 
 /**
- * Stage 6 debugger + joystick acceptance tests against the genuine 464 firmware.
+ * Debugger + joystick acceptance tests against the genuine 464 firmware.
  * The current-line sysvar (src/dialects/cpc464/sysvars.ts `curLinePtr`) was
  * pinned against this ROM, so these confirm currentLine/debugStep track live
  * execution and that `native` joystick input reaches JOY(0). Skips until the ROM

@@ -9,7 +9,7 @@
  * Only the standard firmware register set is modelled to the accuracy the
  * renderer and the interrupt need - displayed geometry, the screen base, and
  * where VSYNC sits in the frame. Demo-grade mid-frame register tricks
- * (rupture, hardware scroll every line) are out of scope for this stage.
+ * (rupture, hardware scroll every line) are out of scope.
  */
 
 /** CRTC register indices, for readability at the call sites. */
