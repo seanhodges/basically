@@ -19,12 +19,17 @@ const DOCS_BASE = '/docs/';
 
 /**
  * Messages the docs iframe posts to `window.parent`. Kept in sync by string with
- * the docs side: `docs-close` from Layout.vue's close button, and the two
- * `compare-*` actions from the Compare dialects page (DialectCompare.vue).
+ * the docs side: `docs-close` from Layout.vue's close button, `docs-ready` when
+ * that layout has its listener attached, and the two `compare-*` actions from
+ * the Compare dialects page (DialectCompare.vue).
  */
 const DOCS_CLOSE_MESSAGE = 'basically:docs-close';
+const DOCS_READY_MESSAGE = 'basically:docs-ready';
 const COMPARE_EXPLAIN_MESSAGE = 'basically:compare-explain';
 const COMPARE_CONVERT_MESSAGE = 'basically:compare-convert';
+
+/** The one message we post *into* the frame: route to another docs topic. */
+const DOCS_NAVIGATE_MESSAGE = 'basically:docs-navigate';
 
 /** Resolve a docs reference-page slug to the dialect whose page it is. */
 function dialectForPage(slug: unknown) {
@@ -89,6 +94,19 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   const openDocs = useIdeStore((s) => s.openDocs);
   const closeDocs = useIdeStore((s) => s.closeDocs);
 
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  // The docs frame only listens once its layout has mounted; a navigation sent
+  // before then is dropped, so hold it and flush on `docs-ready`.
+  const frameReady = useRef(false);
+  const pendingPath = useRef<string | null>(null);
+
+  const postNavigate = (path: string) => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: DOCS_NAVIGATE_MESSAGE, path },
+      window.location.origin,
+    );
+  };
+
   // The docs render in an iframe, so its in-nav controls can't reach the store
   // directly - they post messages we translate here: the nav close button, and
   // the Compare dialects page's "explain"/"convert" AI actions.
@@ -99,6 +117,13 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
       if (!data || typeof data !== 'object') return;
       if (data.type === DOCS_CLOSE_MESSAGE) {
         closeDocs();
+      } else if (data.type === DOCS_READY_MESSAGE) {
+        frameReady.current = true;
+        setFrameLoaded(true);
+        if (pendingPath.current !== null) {
+          postNavigate(pendingPath.current);
+          pendingPath.current = null;
+        }
       } else if (data.type === COMPARE_EXPLAIN_MESSAGE) {
         explainPorting(data);
       } else if (data.type === COMPARE_CONVERT_MESSAGE) {
@@ -177,22 +202,41 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   // Keep an absolute URL so the docs site's own base ('/docs/') and service
   // worker resolve correctly in production (deployed at the domain root).
   const target = topic ?? storeTopic ?? '';
-  const src = DOCS_BASE + target.replace(/^\//, '');
+  const path = target.replace(/^\//, '');
 
   // Mount the iframe lazily (don't fetch the docs bundle on app start) but keep
   // it mounted once opened, so its scroll/navigation state survives close/open.
-  const [loaded, setLoaded] = useState(false);
+  // Its `src` is frozen at the topic that first opened it: re-pointing `src`
+  // reloads the entire docs document, so every context-help open used to pay a
+  // full cold boot. Later topics are client-routed inside the live frame via
+  // `docs-navigate` instead (see the effect below and Layout.vue).
+  const [frameSrc, setFrameSrc] = useState<string | null>(null);
   useEffect(() => {
-    if (open) setLoaded(true);
+    if (open) setFrameSrc((cur) => cur ?? DOCS_BASE + path);
+    // `path` is read only when there is no frame yet, i.e. on the first open;
+    // adding it here would re-run this on every topic change for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Show a busy indicator until the iframe fires `load`. The docs bundle can be
-  // slow the first time, and re-pointing `src` at a new topic reloads it, so
-  // reset the flag whenever `src` changes.
-  const [frameLoaded, setFrameLoaded] = useState(false);
+  // Route the live frame whenever the topic changes after that first open.
+  const shownPath = useRef<string | null>(null);
   useEffect(() => {
-    setFrameLoaded(false);
-  }, [src]);
+    if (frameSrc === null) return;
+    if (shownPath.current === null) {
+      shownPath.current = path; // the frozen `src` already shows this one
+      return;
+    }
+    if (shownPath.current === path) return;
+    shownPath.current = path;
+    // postNavigate only touches refs, so it is stable across renders.
+    if (frameReady.current) postNavigate(path);
+    else pendingPath.current = path;
+  }, [path, frameSrc]);
+
+  // Show a busy indicator until the docs frame reports ready (or, as a fallback
+  // for a page that isn't our layout, until it fires `load`). Only the first
+  // open waits: topic changes are now a client-side route inside the frame.
+  const [frameLoaded, setFrameLoaded] = useState(false);
 
   // Track a horizontal drag on the handle so a rightward swipe dismisses the
   // drawer, in addition to a plain tap/click.
@@ -248,11 +292,12 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         >
           <ChevronRightIcon />
         </button>
-        {loaded && (
+        {frameSrc !== null && (
           <>
             <iframe
+              ref={iframeRef}
               className={styles.frame}
-              src={src}
+              src={frameSrc}
               title="Documentation"
               onLoad={() => setFrameLoaded(true)}
             />

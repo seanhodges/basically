@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import type { ReferenceTableData } from '../../../reference/data/types';
 import {
   filterEntries,
@@ -8,6 +8,7 @@ import {
   type KindFilter,
   type SortKey,
 } from '../referenceTable';
+import { useDeepLinkParams } from '../deepLinkParams';
 import { KIND_META, KIND_ORDER } from '../kindMeta';
 
 const props = defineProps<{ data: ReferenceTableData }>();
@@ -24,20 +25,14 @@ let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
 // Seed from query params so the in-app docs drawer and shared links can deep
 // link into the table: `?q=` seeds the search box (substring, context-aware
-// help), `?name=` pins one exact keyword row. Client-only, so SSG stays safe.
-onMounted(() => {
-  const params = new URLSearchParams(window.location.search);
-  const q = params.get('q');
-  if (q) query.value = q;
-  const name = params.get('name');
-  if (name) {
-    const match = findEntryByName(props.data.entries, name);
-    if (match) {
-      highlighted.value = match.name;
-      // Wait for the rows to render before scrolling to the pinned one.
-      nextTick(() => scrollToRow(match.name));
-    }
-  }
+// help), `?name=` pins one exact keyword row. Re-runs when the drawer routes
+// this frame to a new topic on the same page, which never remounts us.
+useDeepLinkParams(({ q, name }) => {
+  query.value = q ?? '';
+  const match = name ? findEntryByName(props.data.entries, name) : undefined;
+  highlighted.value = match?.name ?? null;
+  // Wait for the rows to render before scrolling to the pinned one.
+  if (match) nextTick(() => scrollToRow(match.name));
 });
 
 onBeforeUnmount(() => clearTimeout(copiedTimer));

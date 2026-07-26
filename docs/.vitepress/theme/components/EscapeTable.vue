@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { EscapeTableData } from '../../../reference/data/types';
 import { filterEscapes, sortEscapes, type SortKey } from '../escapeTable';
+import { useDeepLinkParams } from '../deepLinkParams';
 
 const props = defineProps<{ data: EscapeTableData }>();
 
@@ -10,15 +11,12 @@ const category = ref('all');
 
 // Seed the search and category filter from `?q=` / `?cat=` query params so
 // pages (and the in-app docs drawer) can deep link to an escape or a group.
-// Client-only, so SSG stays safe.
-onMounted(() => {
-  const params = new URLSearchParams(window.location.search);
-  const q = params.get('q');
-  if (q) query.value = q;
-  const cat = params.get('cat');
-  if (cat && props.data.categories.some((c) => c.id === cat)) {
-    category.value = cat;
-  }
+// Re-runs when the drawer routes this frame to a new topic on the same page,
+// which never remounts us.
+useDeepLinkParams(({ q, cat }) => {
+  query.value = q ?? '';
+  const known = cat !== null && props.data.categories.some((c) => c.id === cat);
+  category.value = known ? (cat as string) : 'all';
 });
 
 // Byte order is the natural reading order for an escape table.
