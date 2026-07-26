@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type {
   EscapeTableData,
+  FalseFriend,
+  KeywordEquivalence,
   ReferenceEntry,
   ReferenceTableData,
 } from '../../reference/data/types';
-import { diffEscapes, diffKeywords } from './dialectCompare';
+import {
+  diffEscapes,
+  diffKeywords,
+  falseFriendsBetween,
+} from './dialectCompare';
 
 /** Build a minimal reference table from bare entries (title/machines unused by the diff). */
 function refTable(entries: ReferenceEntry[]): ReferenceTableData {
@@ -28,6 +34,16 @@ const PROC: ReferenceEntry = {
   kind: 'command',
   syntax: 'PROC<name>',
   description: 'Call a procedure.',
+};
+const GOTO: ReferenceEntry = {
+  name: 'GOTO',
+  kind: 'command',
+  syntax: 'GOTO <line>',
+  description: 'Jump to a line.',
+};
+const JUMP: KeywordEquivalence = {
+  concept: 'unconditional-jump',
+  spellings: { zx81: 'GOTO', zxspectrum: 'GO TO', bbc: 'GOTO' },
 };
 const PLUS: ReferenceEntry = {
   name: '+',
@@ -97,6 +113,41 @@ describe('diffKeywords', () => {
     const reverse = diffKeywords(refTable([asFunction]), refTable([NOT_OP]));
     expect(reverse.newlyAvailable).toEqual([]);
     expect(reverse.mustReplace).toEqual([]);
+  });
+
+  it('reports an equivalent spelling as a rename, not a loss and a gain', () => {
+    const goTo: ReferenceEntry = { ...GOTO, name: 'GO TO' };
+    const diff = diffKeywords(refTable([GOTO]), refTable([goTo]), {
+      from: 'zx81',
+      to: 'zxspectrum',
+      equivalences: [JUMP],
+    });
+    expect(diff.renamed).toHaveLength(1);
+    expect(diff.renamed[0]!.from.name).toBe('GOTO');
+    expect(diff.renamed[0]!.to.name).toBe('GO TO');
+    expect(diff.mustReplace).toEqual([]);
+    expect(diff.newlyAvailable).toEqual([]);
+  });
+
+  it('leaves a genuinely absent command in mustReplace', () => {
+    const diff = diffKeywords(refTable([GOTO]), refTable([PRINT]), {
+      from: 'zx81',
+      to: 'zxspectrum',
+      equivalences: [JUMP],
+    });
+    expect(diff.mustReplace.map((e) => e.name)).toEqual(['GOTO']);
+    expect(diff.renamed).toEqual([]);
+  });
+
+  it('ignores an equivalence group that does not name both pages', () => {
+    const goTo: ReferenceEntry = { ...GOTO, name: 'GO TO' };
+    const diff = diffKeywords(refTable([GOTO]), refTable([goTo]), {
+      from: 'atom',
+      to: 'bbc',
+      equivalences: [JUMP],
+    });
+    expect(diff.renamed).toEqual([]);
+    expect(diff.mustReplace.map((e) => e.name)).toEqual(['GOTO']);
   });
 
   it('flags a differing syntax as a behaviour change', () => {
@@ -181,5 +232,33 @@ describe('diffEscapes', () => {
     const diff = diffEscapes(escTable([INK, BLOCK]), escTable([INK, BLOCK]));
     expect(diff.unchanged).toBe(2);
     expect(diff.mustReplace).toEqual([]);
+  });
+});
+
+describe('falseFriendsBetween', () => {
+  const LOG: FalseFriend = {
+    keyword: 'LOG',
+    meanings: {
+      bbc: 'Base-10 logarithm.',
+      atom: 'Base-10 logarithm.',
+      commodore: 'Natural logarithm.',
+    },
+  };
+
+  it('warns when both pages have the spelling with different meanings', () => {
+    const warnings = falseFriendsBetween('bbc', 'commodore', [LOG]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]!.keyword).toBe('LOG');
+    expect(warnings[0]!.from).toBe('Base-10 logarithm.');
+    expect(warnings[0]!.to).toBe('Natural logarithm.');
+  });
+
+  it('stays silent when the two pages agree', () => {
+    expect(falseFriendsBetween('bbc', 'atom', [LOG])).toEqual([]);
+  });
+
+  it('stays silent when either page has nothing to say', () => {
+    expect(falseFriendsBetween('bbc', 'zx81', [LOG])).toEqual([]);
+    expect(falseFriendsBetween('zx81', 'commodore', [LOG])).toEqual([]);
   });
 });

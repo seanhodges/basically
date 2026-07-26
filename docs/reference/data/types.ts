@@ -73,6 +73,43 @@ export interface EscapeTableData {
 }
 
 /**
+ * One command that several dialects provide under different spellings, keyed by
+ * page slug: `{ commodore: 'CLR', bbc: 'CLEAR' }`. The comparison reports these
+ * as a rename to carry out rather than as a command lost plus an unrelated
+ * command gained.
+ *
+ * Page-scoped on purpose. A spelling can mean something else entirely on a page
+ * that is simply left out of the map: the Atom's `CLEAR` selects a screen mode,
+ * so `atom` is absent from the clear-variables group and its `CLEAR` is left to
+ * be reported as the {@link FalseFriend} it is.
+ */
+export interface KeywordEquivalence {
+  /** Stable id for the shared command, e.g. "clear-variables". Not shown. */
+  concept: string;
+  /** Page slug → the spelling that page uses. Two or more entries. */
+  spellings: Record<string, string>;
+}
+
+/**
+ * One spelling that several dialects provide with materially different
+ * meanings, keyed by page slug. The exact dual of {@link KeywordEquivalence}:
+ * that one is a concept with many spellings, this is a spelling with many
+ * concepts.
+ *
+ * These are the differences nothing else on the page can surface. A false
+ * friend has the same name, the same `kind` and often the same syntax on both
+ * sides, so it lands in none of the difference buckets while quietly changing
+ * what a program computes - `LOG` is a base-10 logarithm on the Acorn machines
+ * and a natural logarithm on the Commodore, Amstrad and Tandy ones.
+ */
+export interface FalseFriend {
+  /** The shared spelling, exactly as the reference tables write it. */
+  keyword: string;
+  /** Page slug → what it means there. Two or more entries, not all equal. */
+  meanings: Record<string, string>;
+}
+
+/**
  * The language-rule and hardware facts a porter needs to compare, one entry per
  * dialect reference page. Split into two classes for the crosscheck test
  * (facts-crosscheck.test.ts):

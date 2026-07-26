@@ -10,28 +10,28 @@
 
 ## 2. Keyword equivalences
 
-- [ ] 2.1 Add a `KeywordEquivalence` type to `docs/reference/data/types.ts` — a
+- [x] 2.1 Add a `KeywordEquivalence` type to `docs/reference/data/types.ts` — a
       group of spellings meaning the same command.
-- [ ] 2.2 Create `docs/reference/data/porting.ts` with the equivalence groups,
+- [x] 2.2 Create `docs/reference/data/porting.ts` with the equivalence groups,
       seeded from the known cases (`GOTO`/`GO TO`, `GOSUB`/`GO SUB`,
       `CLEAR`/`CLR`, `CONT`/`CONTINUE`, `RAND`/`RANDOMIZE`/`RANDOMISE`) and
       extended by scanning the eight reference tables.
-- [ ] 2.3 Teach `diffKeywords` to treat grouped spellings as the same command,
+- [x] 2.3 Teach `diffKeywords` to treat grouped spellings as the same command,
       reporting them as a rename rather than a loss plus an unrelated gain.
-- [ ] 2.4 Cover in `dialectCompare.test.ts`: a renamed command appears in
+- [x] 2.4 Cover in `dialectCompare.test.ts`: a renamed command appears in
       neither the missing nor the newly-gained list; a genuinely absent command
       still does.
 
 ## 3. False friends
 
-- [ ] 3.1 Add a `FalseFriend` type to `types.ts` — a keyword with a page→meaning
+- [x] 3.1 Add a `FalseFriend` type to `types.ts` — a keyword with a page→meaning
       map — and the data to `porting.ts`. Draft from the mechanical candidate
       list (same name, same kind, divergent description); confirm each against
       the reference tables before keeping it. Known: `LOG`, `CLEAR`, `GET`,
       `UNTIL`, `RND`, `CMD`.
-- [ ] 3.2 Add the lookup to `dialectCompare.ts`: given source and target page
+- [x] 3.2 Add the lookup to `dialectCompare.ts`: given source and target page
       slugs, return the false friends both list whose meanings differ.
-- [ ] 3.3 Cover in `dialectCompare.test.ts`: fires when meanings differ; silent
+- [x] 3.3 Cover in `dialectCompare.test.ts`: fires when meanings differ; silent
       when they match or when either page is absent from the map.
 
 ## 4. Porting content
@@ -81,12 +81,12 @@
 - [ ] 7.1 Create `docs/reference/data/porting-crosscheck.test.ts`: every
       substitution names a command present on some page and **absent** from the
       dialect it is attached to.
-- [ ] 7.2 Every false friend names only real pages, lists at least two, names a
+- [x] 7.2 Every false friend names only real pages, lists at least two, names a
       command each of those pages actually **has**, and gives at least two
       differing meanings.
-- [ ] 7.3 Every equivalence group names spellings that exist somewhere, and no
+- [x] 7.3 Every equivalence group names spellings that exist somewhere, and no
       group holds two spellings present on the same page.
-- [ ] 7.4 Every pair note names real page slugs, has `from !== to`, and no pair
+- [x] 7.4 Every pair note names real page slugs, has `from !== to`, and no pair
       is duplicated.
 - [ ] 7.5 Character caps and bullet counts hold for every note, so the
       five-minute budget cannot rot.
