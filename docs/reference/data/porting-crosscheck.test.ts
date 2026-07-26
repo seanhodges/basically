@@ -23,6 +23,7 @@ import { zx80Reference } from './zx80';
 import { zx81Reference } from './zx81';
 import { zxspectrumReference } from './zxspectrum';
 import { falseFriends, keywordEquivalences } from './porting';
+import { portingFacts } from './facts';
 import type { ReferenceTableData } from './types';
 
 const PAGES: Record<string, ReferenceTableData> = {
@@ -131,3 +132,56 @@ describe('false friends', () => {
     expect(new Set(keywords).size).toBe(keywords.length);
   });
 });
+
+// The reading budget from the change proposal, made mechanical. The comparison
+// already renders the fact rows and the full keyword lists, so prose that
+// restates them would spend the whole budget adding nothing.
+const MAX_NOTES = 6;
+const MAX_NOTE_CHARS = 220;
+const MAX_SUBSTITUTION_CHARS = 160;
+
+describe.each(portingFacts.map((f) => [f.id, f] as const))(
+  'porting guidance: %s',
+  (id, facts) => {
+    it('has a few short notes, within the reading budget', () => {
+      expect(facts.portingNotes.length).toBeGreaterThan(0);
+      expect(facts.portingNotes.length).toBeLessThanOrEqual(MAX_NOTES);
+      for (const note of facts.portingNotes) {
+        expect(note.trim()).not.toBe('');
+        expect(note.length, `too long to scan: "${note}"`).toBeLessThanOrEqual(
+          MAX_NOTE_CHARS,
+        );
+      }
+    });
+
+    it('only advises on commands this dialect does not have', () => {
+      for (const { keyword } of facts.substitutions) {
+        expect(
+          NAMES[id]!.has(keyword),
+          `${id} already has "${keyword}", so advice on what to use instead is redundant`,
+        ).toBe(false);
+      }
+    });
+
+    it('only advises on commands that exist somewhere', () => {
+      for (const { keyword } of facts.substitutions) {
+        const pages = Object.keys(PAGES).filter((p) => NAMES[p]!.has(keyword));
+        expect(
+          pages.length,
+          `no reference page has "${keyword}", so nobody can arrive here needing it`,
+        ).toBeGreaterThan(0);
+      }
+    });
+
+    it('keeps each substitution to a sentence, and names each once', () => {
+      const seen = new Set<string>();
+      for (const { keyword, note } of facts.substitutions) {
+        expect(seen.has(keyword), `${keyword} advised twice`).toBe(false);
+        seen.add(keyword);
+        expect(note.length, `too long: "${note}"`).toBeLessThanOrEqual(
+          MAX_SUBSTITUTION_CHARS,
+        );
+      }
+    });
+  },
+);

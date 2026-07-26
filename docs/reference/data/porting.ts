@@ -84,15 +84,19 @@ export const falseFriends: FalseFriend[] = [
     },
   },
   {
+    // Only the Atom is the trap here. The others differ over whether CLEAR
+    // takes an argument, which is a detail the "changed behaviour" list already
+    // shows from the syntax - so they deliberately share one wording, and
+    // identical meanings raise no warning between them.
     keyword: 'CLEAR',
     meanings: {
       atom: 'Selects a screen mode and clears it — CLEAR 0 is the text screen.',
-      bbc: 'Discards all variables, arrays and procedure definitions.',
-      cpc: 'Clears all variables.',
-      trs80: 'Erases all variables; an argument sets the string-space size.',
-      zx80: 'Deletes all variables, leaving the program intact.',
-      zx81: 'Deletes all variables and arrays, leaving the program intact.',
-      zxspectrum: 'Deletes all variables; an argument also lowers RAMTOP.',
+      bbc: 'Discards all variables, leaving the program intact.',
+      cpc: 'Discards all variables, leaving the program intact.',
+      trs80: 'Discards all variables, leaving the program intact.',
+      zx80: 'Discards all variables, leaving the program intact.',
+      zx81: 'Discards all variables, leaving the program intact.',
+      zxspectrum: 'Discards all variables, leaving the program intact.',
     },
   },
   {

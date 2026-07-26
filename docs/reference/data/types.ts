@@ -158,4 +158,23 @@ export interface PortingFacts {
   hexPrefix?: string;
   /** Statement separator inside a memory-write form, if any (← memoryWrites.statementSep). */
   statementSepChar?: string;
+  // --- Porting guidance (hand-authored) ---
+  /**
+   * What to watch for when writing *for* this machine, whatever you are coming
+   * from. Kept to a few short bullets: the comparison already shows the fact
+   * rows and the keyword lists, so these earn their place only by saying what
+   * those cannot. Capped by porting-crosscheck.test.ts.
+   */
+  portingNotes: string[];
+  /**
+   * "If you need X here, do this instead", for commands this dialect does not
+   * have. Shown against the command in the difference lists rather than in a
+   * section of its own.
+   *
+   * Deliberately partial: written where it helps, and a command without one
+   * still appears in the comparison exactly as it does now. Each `keyword` must
+   * be absent from this dialect (otherwise the advice is redundant) - checked
+   * by porting-crosscheck.test.ts.
+   */
+  substitutions: { keyword: string; note: string }[];
 }

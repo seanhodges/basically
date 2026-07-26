@@ -50,4 +50,35 @@ documents, so a program that tokenises on both may still depend on hardware the
 target lacks. Use it alongside each machine's full
 [language reference](./).
 
+## What a port usually involves
+
+Four things account for most of the work, and only the first is visible in a
+listing.
+
+**Restructuring.** If the target puts one statement on a line, every `:` has to
+become a new line — which renumbers everything after it. If the target has no
+`ELSE`, each `IF … THEN … ELSE` becomes a test and its inverse. Machines that
+require `LET` reject a bare `X=1`. The table below tells you which of these
+apply to your pair.
+
+**Variable names.** This is where silent breakage lives. Where only the first
+two characters are significant, `SCORE` and `SCALE` are the same variable and a
+program that used both will misbehave rather than fail. Where names are a single
+letter, long names have to be re-mapped by hand. And on the machines that ignore
+spaces outside strings, a name that contains a reserved word is a syntax error —
+`SCORE` contains `OR`.
+
+**Anything numeric.** Integer-only machines have no fractions at all, so
+division truncates and every fractional calculation needs rescaling. Watch the
+exponent operator too: it is spelled `**`, `^` or `↑` depending on the machine,
+and some have none.
+
+**Everything touching hardware.** Addresses never travel. A `POKE`, `USR`,
+`CALL` or `SYS` aimed at one machine's screen, sound chip or system variables
+means nothing on another, and neither do that machine's control codes. Graphics
+and sound are rewritten rather than translated: the machines here range from no
+graphics commands whatsoever — where you print block characters or drive the
+video chip by hand — to full `PLOT`/`DRAW`/`CIRCLE` with envelope-shaped sound.
+Budget for rewriting those parts, and port the logic around them.
+
 <DialectCompare :dialects="dialects" />

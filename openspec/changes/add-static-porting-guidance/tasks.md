@@ -36,49 +36,49 @@
 
 ## 4. Porting content
 
-- [ ] 4.1 Add `portingNotes: string[]` and
+- [x] 4.1 Add `portingNotes: string[]` and
       `substitutions: { keyword: string; note: string }[]` to `PortingFacts` in
       `types.ts`, documenting that substitutions are best-effort. Classify the
       new fields in the type's crosschecked/hand-authored doc block.
 - [ ] 4.2 Add the optional interpolatable address fields to `PortingFacts`
       (screen base, program start), documented as optional because ZX80/ZX81
       have no screen region and the TRS-80 has no memory map at all.
-- [ ] 4.3 Fill `portingNotes` and `substitutions` for all eight entries in
+- [x] 4.3 Fill `portingNotes` and `substitutions` for all eight entries in
       `docs/reference/data/facts.ts` — 3–5 notes each, roughly 10–20
       substitutions each, within the character caps. End-user documentation: no
       `src/` paths, no internal symbols.
-- [ ] 4.4 Add a `PairPortingNotes` type and the sparse pair notes to
+- [x] 4.4 Add a `PairPortingNotes` type and the sparse pair notes to
       `porting.ts` — the Sinclair family pairs, `commodore↔trs80`, `atom↔bbc`,
       and the carrier traps (`#BIN` versus `.TAP`, the ZX80/ZX81 escape-byte
       remapping).
-- [ ] 4.5 Write the generic guide in `docs/reference/compare.md` — about 450
+- [x] 4.5 Write the generic guide in `docs/reference/compare.md` — about 450
       words, covering only what the tables cannot show. Do not narrate the fact
       rows.
 
 ## 5. Rendering
 
-- [ ] 5.1 Add `composeGuidance()` to `dialectCompare.ts` returning the guide,
+- [x] 5.1 Add `composeGuidance()` to `dialectCompare.ts` returning the guide,
       target notes, pair notes and false friends for a chosen pair.
-- [ ] 5.2 Render in `DialectCompare.vue`: guide → target notes → pair notes →
+- [x] 5.2 Render in `DialectCompare.vue`: guide → target notes → pair notes →
       false friends as their own section → per-row substitutions inside the
       existing keyword lists. **Not** gated on `embedded`.
-- [ ] 5.3 Confirm the guidance renders on a standalone docs visit (outside the
+- [x] 5.3 Confirm the guidance renders on a standalone docs visit (outside the
       IDE iframe) and that `?from=`/`?to=` deep links still select the pair.
 
 ## 6. Remove the AI explain action
 
-- [ ] 6.1 Delete `diffSummaryText()`, `explainWithAi()`, `EXPLAIN_MESSAGE` and
+- [x] 6.1 Delete `diffSummaryText()`, `explainWithAi()`, `EXPLAIN_MESSAGE` and
       the Explain button from `DialectCompare.vue`, keeping `convertWithAi` and
       its message intact.
-- [ ] 6.2 Delete `COMPARE_EXPLAIN_MESSAGE`, `explainPorting()` and its listener
+- [x] 6.2 Delete `COMPARE_EXPLAIN_MESSAGE`, `explainPorting()` and its listener
       branch from `src/components/DocsDrawer.tsx`, leaving `convertProgram`
       untouched.
-- [ ] 6.3 Verify in the IDE drawer that "Convert my program to \<machine\>"
+- [x] 6.3 Verify in the IDE drawer that "Convert my program to \<machine\>"
       still works and still opens AI settings when no key is configured.
 
 ## 7. Staleness guards
 
-- [ ] 7.1 Create `docs/reference/data/porting-crosscheck.test.ts`: every
+- [x] 7.1 Create `docs/reference/data/porting-crosscheck.test.ts`: every
       substitution names a command present on some page and **absent** from the
       dialect it is attached to.
 - [x] 7.2 Every false friend names only real pages, lists at least two, names a
@@ -88,16 +88,16 @@
       group holds two spellings present on the same page.
 - [x] 7.4 Every pair note names real page slugs, has `from !== to`, and no pair
       is duplicated.
-- [ ] 7.5 Character caps and bullet counts hold for every note, so the
+- [x] 7.5 Character caps and bullet counts hold for every note, so the
       five-minute budget cannot rot.
-- [ ] 7.6 Extend the id-set assertion in `facts-crosscheck.test.ts` so a page
+- [x] 7.6 Extend the id-set assertion in `facts-crosscheck.test.ts` so a page
       missing `portingNotes` fails, rather than duplicating that check.
 
 ## 8. Quality gates
 
-- [ ] 8.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
-- [ ] 8.2 `npm run docs:build` (this change edits `docs/`)
-- [ ] 8.3 `npm run e2e:chromium -- e2e/shell` — the docs drawer is covered by
+- [x] 8.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
+- [x] 8.2 `npm run docs:build` (this change edits `docs/`)
+- [x] 8.3 `npm run e2e:chromium -- e2e/shell` — the docs drawer is covered by
       `e2e/shell/docs-drawer.spec.ts`, and task 6.2 changes it. Only check this
       off when the run passes; if it fails, leave it unchecked with a note on
       what failed.
