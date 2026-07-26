@@ -32,6 +32,7 @@ const MACHINES = [
   { id: 'bbcmicro', label: 'BBC Micro' },
   { id: 'commodore64', label: 'C64' },
   { id: 'cpc464', label: 'CPC 464' },
+  { id: 'cpc6128', label: 'CPC 6128' },
   { id: 'pet', label: 'PET' },
   { id: 'zxspectrum', label: 'Spectrum' },
   { id: 'zxspectrum128', label: 'Spectrum 128' },

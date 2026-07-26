@@ -36,12 +36,18 @@ const MAX_BOOT_FRAMES = 300;
 const BOOT_SETTLE_FRAMES = 40;
 /**
  * Locomotive BASIC's end-of-program / start-of-variables / start-of-arrays /
- * end-of-arrays pointers in the 464 workspace. On a freshly injected program
- * (no variables yet) all four hold the same address - the first byte past the
- * program's zero-length terminator. Verified by entering a line on the real ROM
- * and watching which words moved.
+ * end-of-arrays pointers. On a freshly injected program (no variables yet) all
+ * four hold the same address - the first byte past the program's zero-length
+ * terminator. Taken from the model's own workspace table: BASIC 1.1 keeps them
+ * &1D lower than 1.0, so a 6128 given the 464's addresses reports a syntax
+ * error on line 0 instead of seeing the program.
  */
-const BASIC_VAR_POINTERS = [0xae83, 0xae85, 0xae87, 0xae89];
+const basicVarPointers = (v: LocoSysVars) => [
+  v.progEnd,
+  v.varStart,
+  v.arrStart,
+  v.arrEnd,
+];
 
 /**
  * The Amstrad CPC as one machine, parameterised by model so the CPC 6128 reuses
@@ -84,11 +90,11 @@ export class CpcMachine implements MachineEmulator {
   private disposed = false;
 
   /**
-   * Locomotive workspace pointers for runtime introspection (variables, report,
-   * memory stats), keyed by the model's BASIC variant. Null for the 6128 until
-   * its BASIC 1.1 sysvars are pinned - those readers then simply do nothing.
+   * Locomotive workspace pointers for program injection and runtime
+   * introspection (variables, report, memory stats), keyed by the model's BASIC
+   * variant: 1.0 on the 464, 1.1 on the 6128.
    */
-  private readonly sysvars: LocoSysVars | null;
+  private readonly sysvars: LocoSysVars;
   /** Side-effect-free RAM view the introspection readers walk. */
   private readonly memPort: LocoMemPort;
 
@@ -104,9 +110,7 @@ export class CpcMachine implements MachineEmulator {
   }) {
     const model = opts.model ?? '464';
     this.memory = new CpcMemory(opts.rom, model);
-    // BASIC 1.0 on the 464; the 6128 (BASIC 1.1) has its own sysvar table, not
-    // yet pinned, so its readers stay inert until that dialect's stage lands.
-    this.sysvars = model === '464' ? locoSysVars('basic10') : null;
+    this.sysvars = locoSysVars(model === '464' ? 'basic10' : 'basic11');
     this.memPort = {
       read: (addr) => this.memory.readScreen(addr),
       readWord: (addr) => this.memory.readWord(addr),
@@ -123,7 +127,7 @@ export class CpcMachine implements MachineEmulator {
           ? this.keyboard.readLine(line)
           : this.ay.readData(),
       vsyncActive: () => this.vsync,
-      tapeInput: () => 0, // cassette in lands in Stage 4
+      tapeInput: () => 0, // tape *input* to the machine is not modelled
     };
     this.ppi = new Ppi(host);
 
@@ -283,7 +287,9 @@ export class CpcMachine implements MachineEmulator {
     // injected image (all four sit at the same address on a program with no
     // variables yet), so RUN/LIST see the program.
     const end = (PROGRAM_BASE + image.length) & 0xffff;
-    for (const p of BASIC_VAR_POINTERS) this.memory.writeWord(p, end);
+    for (const p of basicVarPointers(this.sysvars)) {
+      this.memory.writeWord(p, end);
+    }
 
     // Memory blocks (machine code / data at fixed addresses) go straight to RAM.
     for (const block of opts?.blocks ?? []) {
@@ -376,13 +382,11 @@ export class CpcMachine implements MachineEmulator {
 
   /** Live BASIC variables walked from the Locomotive variable storage. */
   readVariables(): MachineVariable[] {
-    if (!this.sysvars) return [];
     return readLocoVariables(this.memPort, this.sysvars);
   }
 
   /** The last BASIC runtime report (ERR/ERL), or null when not introspectable. */
   readReport(): MachineReport | null {
-    if (!this.sysvars) return null;
     return readLocoReport(this.memPort, this.sysvars);
   }
 
@@ -393,7 +397,6 @@ export class CpcMachine implements MachineEmulator {
    * mid-injection), so the IDE falls back to the tokenized-size estimate.
    */
   readMemoryStats(): MachineMemoryStats | null {
-    if (!this.sysvars) return null;
     const arrEnd = this.memory.readWord(this.sysvars.arrEnd);
     const freeTop = this.memory.readWord(this.sysvars.freeTop);
     const used = arrEnd - this.sysvars.programStart;
@@ -414,7 +417,6 @@ export class CpcMachine implements MachineEmulator {
    * two lines reads back exactly those two numbers, and reads null once ENDed).
    */
   currentLine(): number | null {
-    if (!this.sysvars) return null;
     const rec = this.memory.readWord(this.sysvars.curLinePtr);
     if (rec < this.sysvars.programStart || rec >= 0xc000) return null;
     const line = this.memory.readWord(rec);
@@ -430,7 +432,6 @@ export class CpcMachine implements MachineEmulator {
    * `fromLine`-arming semantics (shared with the other steppable dialects).
    */
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    if (!this.sysvars) return { paused: false, line: null };
     // In run mode, ignore breakpoints until execution has left the resumed-from
     // line, so Continue off a breakpointed line doesn't immediately re-trigger.
     let armed = opts.fromLine === null;

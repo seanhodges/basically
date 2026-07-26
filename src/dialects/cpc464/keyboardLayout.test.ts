@@ -110,7 +110,7 @@ describe('cpc464 keyboard matrix coverage', () => {
   it('the physical + virtual union reaches every non-joystick cell', () => {
     for (const tok of matrixTokens) {
       // The joystick row (row 9 directions/fire) is driven by setJoystick
-      // (Stage 6), not the keyboard; everything else must be typeable.
+      // by the joystick, not the keyboard; everything else must be typeable.
       if (tok.startsWith('Joy')) continue;
       expect(physicalTokens.has(tok) || virtualTokens.has(tok), tok).toBe(true);
     }

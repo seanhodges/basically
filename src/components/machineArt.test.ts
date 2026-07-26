@@ -28,9 +28,11 @@ describe('machine portraits', () => {
     expect(machineArtId('commodore64')).toBe('commodore64');
   });
 
-  it('falls back for a dialect that exists on disk but is not registered', () => {
-    // `src/dialects/cpc6128/` is a half-built stub outside the registry.
-    expect(machineArtId('cpc6128')).toBe('generic');
+  it('falls back for a dialect id with no portrait drawn for it', () => {
+    // Nothing on disk is in this state today - every registered dialect has a
+    // portrait - but a new one can land before its artwork does, and that must
+    // degrade to the stand-in rather than throw.
+    expect(machineArtId('cpc664')).toBe('generic');
   });
 
   it('is total - any string resolves to something drawable', () => {

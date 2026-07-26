@@ -16,9 +16,9 @@ import { MemoryActivityBuffer } from '../memoryActivityBuffer';
  * screen stays writable while BASIC ROM is paged in for reads.
  *
  * The 464 has a single lower and a single upper ROM and a flat 64K of RAM. The
- * {@link setRamConfig} seam is where the 6128's bank-switched second 64K (its
- * &7Fxx `&C0`–`&DF` PAL configurations) will hook in; on the 464 only
- * configuration 0 exists, so it is inert.
+ * 6128 fits a second 64K that the PAL banks over the base one in 16K windows -
+ * see {@link setRamConfig}; on the 464 only configuration 0 exists, so it is
+ * inert.
  */
 
 /** Combined ROM image size: 16K lower (OS) + 16K upper (BASIC). */
@@ -30,6 +30,32 @@ const UPPER_ROM_BASE = 0xc000; // &C000–&FFFF
 export const SCREEN_BASE = 0xc000;
 
 export type CpcModel = '464' | '6128';
+
+/** The four 16K CPU windows a RAM configuration maps: &0000/&4000/&8000/&C000. */
+const WINDOW_SIZE = 0x4000;
+const WINDOWS = 4;
+
+/**
+ * The eight standard 6128 RAM configurations, as the PAL (40010) decodes bits
+ * 0-2 of a `&7Fxx` `%11xxxxxx` write. Each row is the 16K bank mapped into
+ * &0000, &4000, &8000 and &C000; banks 0-3 are the base 64K and banks 4-7 the
+ * expansion 64K.
+ *
+ * Configuration 0 is the flat base 64K the machine boots into and the only one
+ * BASIC itself uses. Configuration 2 is the "all expansion" one CP/M Plus runs
+ * from; the rest window a single expansion bank into &4000 (4-7) or juggle the
+ * base banks around &C000 (1, 3).
+ */
+const RAM_CONFIGS: readonly (readonly number[])[] = [
+  [0, 1, 2, 3], // 0
+  [0, 1, 2, 7], // 1
+  [4, 5, 6, 7], // 2
+  [0, 3, 2, 7], // 3
+  [0, 4, 2, 3], // 4
+  [0, 5, 2, 3], // 5
+  [0, 6, 2, 3], // 6
+  [0, 7, 2, 3], // 7
+];
 
 export class CpcMemory {
   /** The always-present base 64K of RAM; the renderer reads screen bytes here. */
@@ -46,10 +72,31 @@ export class CpcMemory {
   /** Live memory-activity set for the map overlay; off unless the panel asks. */
   readonly activity = new MemoryActivityBuffer(0x10000);
 
+  /**
+   * The 6128's second 64K, as four 16K banks (4-7). Empty on the 464, which has
+   * none fitted.
+   */
+  readonly expansionRam: Uint8Array;
+  /** The selected RAM configuration (index into {@link RAM_CONFIGS}). */
+  private ramConfig = 0;
+  /**
+   * Base offset of each 16K CPU window within {@link expansionRam}, or -1 when
+   * that window is mapped to the base RAM at its own address. All -1 in
+   * configuration 0, which is why that case can take the direct path below.
+   */
+  private readonly windowOffset = new Int32Array(WINDOWS).fill(-1);
+  /** True while any window is mapped somewhere other than its own base RAM. */
+  private banked = false;
+  /** True when a base bank (0-3) is windowed at an address that is not its own. */
+  private baseRemap = false;
+  /** The bank each window currently holds, for the remap path. */
+  private configBanks: readonly number[] = RAM_CONFIGS[0]!;
+
   constructor(
     rom: Uint8Array,
     readonly model: CpcModel = '464',
   ) {
+    this.expansionRam = new Uint8Array(model === '6128' ? 0x10000 : 0);
     // Accept either a combined 32K image (OS then BASIC, the layout of the
     // standard cpc464.rom) or the two halves already concatenated.
     this.lowerRom.set(rom.subarray(0, ROM_BANK_SIZE));
@@ -59,12 +106,14 @@ export class CpcMemory {
   /** Wipe RAM (e.g. on reset); the ROM images are untouched. */
   clearRam(): void {
     this.ram.fill(0);
+    this.expansionRam.fill(0);
   }
 
   /** Re-enable both ROM overlays, as a hard reset leaves the Gate Array. */
   resetPaging(): void {
     this.lowerRomEnabled = true;
     this.upperRomEnabled = true;
+    this.setRamConfig(0);
   }
 
   /** Gate Array mode/ROM register: enable (bit clear) or disable each overlay. */
@@ -74,12 +123,60 @@ export class CpcMemory {
   }
 
   /**
-   * 6128 RAM-configuration seam (&7Fxx `&C0`–`&DF`). On the 464 only config 0
-   * exists (flat 64K), so any request is a no-op; the 6128 stage overrides the
-   * banked window here. Present so the machine wiring needs no change later.
+   * Select a RAM configuration from a `&7Fxx` `%11xxxxxx` write (bits 0-2; the
+   * upper bits are the expansion-RAM bank select on machines with more than
+   * 128K, which the 6128 does not have). On the 464 no second bank is fitted,
+   * so every request is a no-op and the flat 64K stands.
    */
-  setRamConfig(_config: number): void {
-    // 464: no second 64K bank fitted - nothing to switch.
+  setRamConfig(config: number): void {
+    if (this.model !== '6128') return;
+    const selected = config & 0x07;
+    this.ramConfig = selected;
+    const banks = RAM_CONFIGS[selected]!;
+    for (let w = 0; w < WINDOWS; w++) {
+      const bank = banks[w]!;
+      // Banks 0-3 are the base 64K; only 4-7 come from the expansion, and only
+      // then does the window need redirecting.
+      this.windowOffset[w] = bank < 4 ? -1 : (bank - 4) * WINDOW_SIZE;
+    }
+    // Configuration 3 windows a *base* bank (3) at an address that is not its
+    // own (&4000), which the -1 fast path cannot express - it assumes a base
+    // bank sits where it belongs. Flag that case so reads and writes go through
+    // the explicit bank index instead.
+    this.baseRemap = banks.some((bank, w) => bank < 4 && bank !== w);
+    this.banked = selected !== 0;
+    this.configBanks = banks;
+  }
+
+  /** The currently selected RAM configuration (0-7). */
+  get ramConfiguration(): number {
+    return this.ramConfig;
+  }
+
+  /**
+   * Resolve a CPU address to the array and offset the current configuration
+   * maps it to. Only reached when a non-zero configuration is selected.
+   */
+  private mappedRead(a: number): number {
+    const w = a >> 14;
+    const off = this.windowOffset[w]!;
+    if (off >= 0) return this.expansionRam[off + (a & 0x3fff)]!;
+    if (!this.baseRemap) return this.ram[a]!;
+    return this.ram[this.configBanks[w]! * WINDOW_SIZE + (a & 0x3fff)]!;
+  }
+
+  private mappedWrite(a: number, value: number): void {
+    const w = a >> 14;
+    const off = this.windowOffset[w]!;
+    if (off >= 0) {
+      this.expansionRam[off + (a & 0x3fff)] = value;
+      return;
+    }
+    if (!this.baseRemap) {
+      this.ram[a] = value;
+      return;
+    }
+    this.ram[this.configBanks[w]! * WINDOW_SIZE + (a & 0x3fff)] = value;
   }
 
   /** CPU read: ROM overlay where enabled, otherwise RAM. */
@@ -90,14 +187,16 @@ export class CpcMemory {
     if (this.upperRomEnabled && a >= UPPER_ROM_BASE) {
       return this.upperRom[a - UPPER_ROM_BASE]!;
     }
-    return this.ram[a]!;
+    return this.banked ? this.mappedRead(a) : this.ram[a]!;
   };
 
   /** CPU write: always to RAM (ROM is a read overlay only). */
   write = (addr: number, value: number): void => {
     const a = addr & 0xffff;
+    const v = value & 0xff;
     if (this.activity.enabled) this.activity.hits[a]! |= 2;
-    this.ram[a] = value & 0xff;
+    if (this.banked) this.mappedWrite(a, v);
+    else this.ram[a] = v;
   };
 
   /** Side-effect-free RAM read for the renderer and introspection. */

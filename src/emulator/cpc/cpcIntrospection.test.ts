@@ -5,7 +5,7 @@ import { CpcMachine } from './cpcMachine';
 import { tokenizeProgram } from '../../dialects/cpc464/tokenizer';
 
 /**
- * Stage 5 runtime-introspection acceptance tests against the genuine 464
+ * Runtime-introspection acceptance tests against the genuine 464
  * firmware: the sysvar addresses in src/dialects/cpc464/sysvars.ts were pinned
  * against this ROM, so these confirm the variable walk, the ERR/ERL report and
  * the memory-stats read hold up end to end. Skips until the ROM is present

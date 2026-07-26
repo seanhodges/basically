@@ -16,6 +16,7 @@
  */
 
 import { tokenizeProgram } from '../tokenizer';
+import type { LocoBasicVariant } from '../keywords';
 import { fatalErrors } from '../../types';
 import { buildFirmwareStream, parseFirmwareStream } from './firmware';
 
@@ -38,14 +39,17 @@ interface TapeTiming {
 /**
  * Encode CPC BASIC source to cassette samples (the dialect's `buildSamples`).
  * Throws on tokenizer errors so a broken program is reported, not silently
- * exported. `robust` halves the baud rate for a more survivable recording.
+ * exported. `robust` halves the baud rate for a more survivable recording;
+ * `variant` picks the BASIC the source is tokenized against (the tape format
+ * itself is identical on both machines).
  */
 export function buildCassetteSamples(
   source: string,
   programName: string,
   robust = false,
+  variant: LocoBasicVariant = 'basic10',
 ): Float32Array {
-  const { bytes, errors } = tokenizeProgram(source);
+  const { bytes, errors } = tokenizeProgram(source, variant);
   const fatal = fatalErrors(errors);
   if (fatal.length > 0) {
     throw new Error(

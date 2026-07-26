@@ -24,6 +24,7 @@ export const MACHINE_ART_IDS = [
   'pet',
   'trs80',
   'cpc464',
+  'cpc6128',
 ] as const;
 
 export type MachineArtId = (typeof MACHINE_ART_IDS)[number];
@@ -33,9 +34,9 @@ export const GENERIC_ART_ID = 'generic';
 
 /**
  * The art key a dialect id resolves to - `'generic'` when we have no portrait
- * for it. A dialect can exist on disk before it is registered (see
- * `src/dialects/cpc6128/`), and a newly registered one may land before its
- * artwork, so this degrades rather than throwing.
+ * for it. A dialect can exist on disk before it is registered, and a newly
+ * registered one may land before its artwork, so this degrades rather than
+ * throwing.
  */
 export function machineArtId(id: string): MachineArtId | typeof GENERIC_ART_ID {
   return (MACHINE_ART_IDS as readonly string[]).includes(id)

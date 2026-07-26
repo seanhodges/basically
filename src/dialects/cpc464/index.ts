@@ -27,14 +27,12 @@ import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from '../../emulator/cpc/display';
 /**
  * Amstrad CPC 464 (Locomotive BASIC 1.0).
  *
- * The language layer (Stage 1 of docs/contributing/dialect-plans/cpc464.md)
- * is native TypeScript: the tokenizer produces the genuine Locomotive BASIC
- * program-area byte layout - binary numeric constants and all - and that
- * tokenized program is the dialect's "image", loadable at &170. The AMSDOS
- * `.bas` container (basfile.ts) wraps/unwraps it for file import/export.
- * Emulation lands in Stage 2 (`src/emulator/cpc/`), and the dialect is
- * registered in src/dialects/registry.ts.
- * The CPC 6128 sibling (../cpc6128/) delegates to this dialect.
+ * The language layer is native TypeScript: the tokenizer produces the genuine
+ * Locomotive BASIC program-area byte layout - binary numeric constants and all
+ * - and that tokenized program is the dialect's "image", loadable at &170. The
+ * AMSDOS `.bas` container (basfile.ts) wraps/unwraps it for file import/export.
+ * The machine lives in `src/emulator/cpc/`, shared with the CPC 6128 sibling
+ * (../cpc6128/), which delegates to this dialect.
  */
 export const cpc464: Dialect = {
   id: 'cpc464',
@@ -45,16 +43,16 @@ export const cpc464: Dialect = {
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',
-  // The 64K memory map + where user memory blocks may live (Stage 5).
+  // The 64K memory map + where user memory blocks may live.
   memoryMap: cpc464MemoryMap,
   memoryBlocks: cpc464MemoryBlocks,
   // POKE addr,val with &-hex addresses drives the memory-map viewer's markers.
   memoryWrites: { forms: ['poke'], hexPrefix: '&' },
   // The emulator introspects the current BASIC line (currentLine/debugStep), so
-  // the toolbar offers the step debugger (Stage 6).
+  // the toolbar offers the step debugger.
   debuggable: true,
   // Joystick 0 is matrix line 9, read through the AY like the keyboard; the CPC
-  // port exposes two independent fire buttons (Stage 6).
+  // port exposes two independent fire buttons.
   joystickModes: ['native'],
   joystickFireButtons: 2,
   // PRINT FRE(0) on a clean 464 boot (BASIC 1.0, no AMSDOS).

@@ -451,6 +451,9 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   atom: ATOM,
   trs80: TRS80,
   cpc464: CPC,
+  // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 6128's
+  // blocks are the 464's.
+  cpc6128: CPC,
 };
 
 /**

@@ -6,7 +6,7 @@ schema: spec-driven
 context: |
   Basically is a fully client-side browser IDE for retro microcomputer BASIC
   dialects: write, run (in-browser emulators), and ship programs to real
-  hardware. 12 registered dialects today (Sinclair, Acorn, Commodore, Tandy,
+  hardware. 13 registered dialects today (Sinclair, Acorn, Commodore, Tandy,
   Amstrad machines) - src/dialects/registry.ts is the source of truth; never
   assume the list or count.
 

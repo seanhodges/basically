@@ -28,6 +28,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'link', dialectId: 'atom' }, // LINK - Atom BASIC "execute machine code"
   { verb: 'cload', dialectId: 'trs80' }, // CLOAD - Level II BASIC tape load
   { verb: 'mode', dialectId: 'cpc464' }, // MODE - the iconic Locomotive BASIC screen-mode command
+  { verb: 'fill', dialectId: 'cpc6128' }, // FILL - a BASIC 1.1-only keyword the 464 lacks
 ];
 
 // Six characters from an unambiguous lowercase alphabet (no 0/O/1/l/i).

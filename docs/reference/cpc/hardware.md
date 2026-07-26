@@ -43,7 +43,7 @@ PEN`/`GRAPHICS PAPER` statements are BASIC 1.1 only and are not available on the
 `period` is `62500 / frequency`. `ENV` and `ENT` define volume and tone
 envelopes.
 
-### Memory
+### Memory {#cpc464-memory}
 
 A CPC program can carry fixed-address machine code or data — **memory blocks** —
 that load into RAM alongside the BASIC program and are in place before it runs.
@@ -67,3 +67,58 @@ warns (but allows) a block over reserved workspace or the screen. See the
 [Machine code & data blocks](../file-formats#machine-code-data-blocks) overview.
 Every mnemonic, directive and operand form the assembly editor accepts is in the
 [Z80 assembly reference](../z80-assembly).
+
+## Amstrad CPC 6128
+
+The 6128 is the same computer with more memory and a later BASIC. Its screen
+modes, colours, graphics coordinate space and sound hardware are identical to the
+[464's](#amstrad-cpc-464) — everything above applies unchanged.
+
+### Locomotive BASIC 1.1
+
+The 6128 runs BASIC 1.1, which adds eleven keywords to BASIC 1.0. They are marked
+**BASIC 1.1 only** in the [keyword reference](../cpc), and the most useful in
+practice are:
+
+| Keyword                           | What it does                                             |
+| --------------------------------- | -------------------------------------------------------- |
+| `FRAME`                           | Waits for display flyback, so animation stops flickering |
+| `GRAPHICS PEN` / `GRAPHICS PAPER` | Set the plotting inks once instead of per `PLOT`/`DRAW`  |
+| `FILL`                            | Flood-fills the area around the graphics cursor          |
+| `MASK`                            | Sets the dot pattern lines are drawn with                |
+| `COPYCHR$`                        | Reads back the character under the text cursor           |
+| `CURSOR`                          | Shows or hides the text cursor                           |
+| `DEC$`                            | Formats a number to a template                           |
+| `CLEAR INPUT`                     | Discards pending keypresses                              |
+| `ON BREAK CONT`                   | Makes <kbd>ESC</kbd> ignored                             |
+| `DERR`                            | The last disc error number                               |
+
+A program written in BASIC 1.0 runs on both machines and builds the same
+program bytes on either; one using the keywords above runs only on the 6128.
+
+### The second 64K
+
+The 6128 has 128K of RAM, but BASIC works in the same 64K as a 464: `HIMEM` is
+the same `&AB7F` and `PRINT FRE(0)` reports the same free RAM. The extra 64K is
+four 16K banks that the hardware windows _over_ the addresses BASIC already uses,
+selected with `OUT &7F00,&C0+n` for one of eight configurations — it is for
+machine code, not for BASIC variables or arrays. Configuration 0 is the flat base
+64K the machine boots into; configuration 2 maps all four expansion banks at
+once. The display always reads the base 64K whatever is selected, so banking
+never disturbs the screen.
+
+### Tape, not disc
+
+The real 6128 has a 3" disc drive, and boots addressing it. This IDE runs the
+machine with **tape only** — there is no disc drive and no AMSDOS ROM — so a
+program doing cassette `LOAD`/`SAVE` must issue `|TAPE` first (the `|` is
+<kbd>SHIFT</kbd>+<kbd>@</kbd>). The AMSDOS disc commands (`|DIR`, `|ERA`, `|REN`)
+are not available, and `.dsk` images are neither imported nor exported. Because
+AMSDOS is absent, the machine reports the 464's free-RAM figure rather than the
+42,249 bytes a disc-equipped 6128 leaves.
+
+### Memory {#cpc6128-memory}
+
+Memory blocks work exactly as on the [464](#cpc464-memory), with the same valid
+range, the same **&8000** default and the same three warned regions — blocks live
+in the base 64K, which is what `CALL` and the assembler address.

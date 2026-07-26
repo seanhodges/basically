@@ -31,6 +31,7 @@ describe('dialect registry', () => {
     zxspectrum128: 'dec',
     trs80: 'dec',
     cpc464: 'hex',
+    cpc6128: 'hex',
   };
 
   it('every dialect declares its memory-map address notation', () => {

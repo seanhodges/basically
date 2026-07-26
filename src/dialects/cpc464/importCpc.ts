@@ -14,22 +14,30 @@
 
 import type { DetokenizeResult } from '../types';
 import { detokenizeWithReport } from './detokenizer';
+import type { LocoBasicVariant } from './keywords';
 import { parseBasFile } from './basfile';
 import { isCdt, parseCdt } from './cdt';
 
 const latin1 = new TextDecoder('latin1');
 
-/** Decode any CPC program container into editor text with fidelity warnings. */
-export function importCpcImage(bytes: Uint8Array): DetokenizeResult {
+/**
+ * Decode any CPC program container into editor text with fidelity warnings.
+ * `variant` picks the keyword table the tokens are read against, so the 6128
+ * recovers its BASIC 1.1-only keywords instead of falling back to `|`-escapes.
+ */
+export function importCpcImage(
+  bytes: Uint8Array,
+  variant: LocoBasicVariant = 'basic10',
+): DetokenizeResult {
   if (isCdt(bytes)) {
     const { program, warnings } = parseCdt(bytes);
-    return withWarnings(detokenizeWithReport(program, 'basic10'), warnings);
+    return withWarnings(detokenizeWithReport(program, variant), warnings);
   }
 
   // parseBasFile strips a valid AMSDOS header, or passes raw bytes through.
   const { program, warnings } = parseBasFile(bytes);
   if (looksTokenized(program)) {
-    return withWarnings(detokenizeWithReport(program, 'basic10'), warnings);
+    return withWarnings(detokenizeWithReport(program, variant), warnings);
   }
 
   // A plain-text listing: normalise line endings and load it as source.
