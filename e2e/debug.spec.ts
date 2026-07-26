@@ -1,4 +1,4 @@
-import { test, expect, type Page } from './fixtures';
+import { test, expect, chooseTargetMachine, type Page } from './fixtures';
 
 /**
  * End-to-end checks for the step-through debugger (ZX81 / ZX80 / Spectrum):
@@ -137,12 +137,11 @@ test('Step/Continue show for every dialect', async ({ page }) => {
   // The Debug toggle is gone - debugging is always on.
   await expect(page.getByRole('button', { name: 'Debug' })).toHaveCount(0);
 
-  const select = page.locator('select.dialect-select');
   // Every shipped machine implements the step-through debugger, so all four
   // controls are present whichever dialect is selected - including the BBC and
   // Commodore cores, which were the last to gain single-stepping.
-  for (const label of ['ZX81', 'C64', 'BBC Micro', 'Spectrum']) {
-    await select.selectOption({ label });
+  for (const id of ['zx81', 'commodore64', 'bbcmicro', 'zxspectrum']) {
+    await chooseTargetMachine(page, id);
     await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Step' })).toBeVisible();

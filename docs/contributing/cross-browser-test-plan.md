@@ -111,7 +111,7 @@ Windows machine with a European layout is still worthwhile._
 
 ## 3. Emulator — every dialect
 
-For **each** machine in the Target dropdown: load a sample (File ▸ sample or
+For **each** machine in the target machine picker: load a sample (File ▸ sample or
 type one), Run, interact, Stop.
 
 | #   | Auto               | Step                                                                             | Expected                                                                                          |

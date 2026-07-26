@@ -1,4 +1,9 @@
-import { test, expect, createProjectWithSample } from '../fixtures';
+import {
+  test,
+  expect,
+  createProjectWithSample,
+  machinePicker,
+} from '../fixtures';
 import {
   canvasPainted,
   openApp,
@@ -20,7 +25,7 @@ import {
 
 /** Keep in sync with src/dialects/registry.ts - the guard test below fails
  *  with a helpful message when a machine is added, renamed or re-identified.
- *  Ids drive the New-project machine picker; labels drive the Target dropdown. */
+ *  Ids and labels both come from the rows of the shared machine picker. */
 const MACHINES = [
   { id: 'atom', label: 'Atom' },
   { id: 'bbcmaster', label: 'BBC Master' },
@@ -36,15 +41,24 @@ const MACHINES = [
   { id: 'zx81', label: 'ZX81' },
 ];
 
-test('3.1 guard: automated machine list matches the Target dropdown', async ({
+test('3.1 guard: automated machine list matches the machine picker', async ({
   page,
 }) => {
   await openApp(page);
-  const opts = page.locator('select.dialect-select option');
-  const labels = await opts.allTextContents();
-  const ids = await opts.evaluateAll((os) =>
-    os.map((o) => (o as HTMLOptionElement).value),
-  );
+  await page.locator('button[data-target-machine]').first().click();
+  const rows = machinePicker(page).locator('button[data-machine]');
+  await expect(rows.first()).toBeVisible();
+
+  const { ids, labels } = await rows.evaluateAll((els) => ({
+    ids: els.map((e) => (e as HTMLElement).dataset.machine ?? ''),
+    // The name is the row's first line; the year and blurb follow it.
+    labels: els.map(
+      (e) =>
+        e.querySelector('[class*="machineName"]')?.firstChild?.textContent ??
+        '',
+    ),
+  }));
+
   const msg =
     'a machine was added/renamed - update MACHINES in section03-emulator.spec.ts';
   expect(labels.sort(), msg).toEqual(MACHINES.map((m) => m.label).sort());

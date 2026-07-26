@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   AI_UNCONFIGURED_NOTE,
-  groupMachinesByManufacturer,
   isStartingPointAvailable,
   projectFileName,
   startingDocument,
 } from './newProjectOptions';
-import { dialects, getDialect } from '../dialects/registry';
+import { getDialect } from '../dialects/registry';
 import { materializeSampleBlocks } from '../app/sampleBlocks';
 
 const zx81 = getDialect('zx81');
@@ -14,35 +13,6 @@ const c64 = getDialect('commodore64');
 
 const sample = (id: string, name: string) =>
   getDialect(id).samples.find((s) => s.name === name)!;
-
-describe('grouping machines for the picker', () => {
-  const groups = groupMachinesByManufacturer(dialects);
-
-  it('covers every registered machine exactly once', () => {
-    const grouped = groups.flatMap((g) => g.machines.map((d) => d.id));
-    expect(grouped.sort()).toEqual(dialects.map((d) => d.id).sort());
-  });
-
-  it('orders manufacturers alphabetically', () => {
-    const makers = groups.map((g) => g.manufacturer);
-    expect(makers).toEqual([...makers].sort((a, b) => a.localeCompare(b)));
-  });
-
-  it('orders each manufacturer machines oldest first', () => {
-    for (const g of groups) {
-      const years = g.machines.map((d) => d.year);
-      expect(years, `${g.manufacturer} should be oldest first`).toEqual(
-        [...years].sort((a, b) => a - b),
-      );
-    }
-  });
-
-  it('puts every machine under its own manufacturer', () => {
-    for (const g of groups) {
-      for (const d of g.machines) expect(d.manufacturer).toBe(g.manufacturer);
-    }
-  });
-});
 
 describe('starting-point availability', () => {
   it('offers blank and sample regardless of the assistant', () => {

@@ -69,9 +69,11 @@
   display: none;
 }
 
-.targetInOverflow select {
+/* As a menu row rather than a chip, so it lines up with the items above it. */
+.targetInOverflowButton {
   width: 100%;
   margin: 2px 0 4px;
+  justify-content: flex-start;
 }
 
 /* The Docs entry ("Help") hosted inside the overflow menu - only used once the
@@ -154,17 +156,14 @@
   padding: 4px 10px 2px;
 }
 
-.dialectLabel {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-dim);
+/* The target-machine control. Not `.icon-btn`: that class is hidden inside the
+   toolbar at narrow widths, and the machine must stay reachable on a phone. */
+.targetButton {
   white-space: nowrap;
 }
 
-.dialectLabelText {
-  display: inline;
+.targetButtonLabel {
+  display: flex;
 }
 
 /* The overflow trigger on the AI/Settings tabs exists only to host the Target
@@ -177,16 +176,23 @@
 
 /* Once the toolbar is narrow enough that the mobile tab labels drop to
    icon-only (the 640px tier in MobileTabBar.module.css), drop the File menu
-   label and the inline "Target:" label to match - leaving the floppy icon and
-   the bare Target selector. Collapsing here (rather than lower) keeps the full
-   labels from overflowing and wrapping the toolbar in the ~570–640px band. */
+   label and the target machine's name to match - leaving the floppy icon and
+   the machine's portrait, which still identifies it (the button's aria-label
+   and tooltip keep naming it in words). Collapsing here (rather than lower)
+   keeps the full labels from overflowing and wrapping the toolbar in the
+   ~570–640px band. */
 @container toolbar (max-width: 640px) {
   .fileLabel {
     display: none;
   }
 
-  .dialectLabelText {
+  .targetButtonLabel {
     display: none;
+  }
+
+  .targetButton {
+    gap: 4px;
+    padding: 4px 6px;
   }
 }
 
@@ -288,9 +294,9 @@
     align-items: center;
   }
 
-  /* No inline room on the 56px rail - move the Target selector into the
+  /* No inline room on the 56px rail - move the target machine control into the
      overflow menu and reveal the trigger that hosts it. */
-  .dialectLabel {
+  .targetButton {
     display: none;
   }
 

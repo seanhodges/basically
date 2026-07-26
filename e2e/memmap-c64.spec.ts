@@ -1,4 +1,4 @@
-import { test, expect, type Page } from './fixtures';
+import { test, expect, chooseTargetMachine, type Page } from './fixtures';
 
 /**
  * The C64 memory map: opening it for the Commodore 64 dialect renders the
@@ -31,7 +31,7 @@ test('C64 memory map renders regions, POKE markers and a live overlay', async ({
 }) => {
   await open(page);
 
-  await page.locator('select.dialect-select').selectOption({ label: 'C64' });
+  await chooseTargetMachine(page, 'commodore64');
   await setEditorSource(page, SRC);
 
   // The toolbar entry is gated on the dialect having a memory map, so its

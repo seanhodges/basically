@@ -10,6 +10,7 @@ import { TransferDialog } from './components/TransferDialog';
 import { ShareLinkDialog } from './components/ShareLinkDialog';
 import { VfsInspectorDialog } from './components/VfsInspectorDialog';
 import { ImportDialog } from './components/ImportDialog';
+import { TargetMachineDialog } from './components/TargetMachineDialog';
 import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { DeleteBlockDialog } from './components/DeleteBlockDialog';
 import { BlockSettingsDialog } from './components/BlockSettingsDialog';
@@ -88,6 +89,7 @@ export default function App() {
       <ShareLinkDialog />
       <VfsInspectorDialog />
       <ImportDialog />
+      <TargetMachineDialog />
       <SwitchTargetDialog />
       <DeleteBlockDialog />
       <BlockSettingsDialog />

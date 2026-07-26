@@ -1,4 +1,4 @@
-import { expect, type Page } from '../fixtures';
+import { chooseTargetMachine, expect, type Page } from '../fixtures';
 
 /**
  * Shared helpers for the `e2e/plan/` specs, which automate the numbered items
@@ -94,9 +94,16 @@ export async function clearEditor(page: Page): Promise<void> {
   await page.keyboard.press('Delete');
 }
 
-/** Switch machine via the toolbar's dialect selector. */
-export async function selectDialect(page: Page, label: string): Promise<void> {
-  await page.locator('select.dialect-select').first().selectOption({ label });
+/**
+ * Switch machine via the toolbar's target control and the machine picker it
+ * raises. Takes a registry dialect id, not a name: the names prefix one another
+ * ('Spectrum' / 'Spectrum 128').
+ */
+export async function selectDialect(
+  page: Page,
+  machineId: string,
+): Promise<void> {
+  await chooseTargetMachine(page, machineId);
   await expect(page.locator(EDITOR)).toBeVisible();
 }
 
