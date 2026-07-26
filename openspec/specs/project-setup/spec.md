@@ -84,11 +84,23 @@ manufacturer, its release year, and a one-line description of what it is, and
 SHALL group the machines by manufacturer. Every machine the IDE supports SHALL
 carry this information.
 
+Each machine's description SHALL name the dialect of BASIC that machine runs,
+and SHALL add one distinguishing fact about the machine where that also fits. It
+SHALL be brief enough to be read in full on a phone-width screen rather than
+being cut short; where both cannot fit, naming the dialect takes precedence over
+the machine fact.
+
 #### Scenario: Choosing an unfamiliar machine
 
 - **WHEN** the user is choosing a target machine while creating a project
 - **THEN** each machine is shown grouped under its manufacturer, with its
   release year and a description of the machine
+
+#### Scenario: Reading the descriptions on a phone
+
+- **WHEN** the user is choosing a target machine on a phone-width screen
+- **THEN** each machine's description reads in full rather than being cut off
+  part-way, and names the dialect of BASIC that machine runs
 
 ### Requirement: A project may be named when it is created
 

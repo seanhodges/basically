@@ -30,8 +30,7 @@ export const trs80: Dialect = {
   name: 'TRS-80',
   manufacturer: 'Tandy',
   year: 1977,
-  blurb:
-    'A 64×16 monochrome screen with SET, RESET and POINT block graphics on a 128×48 grid, and no sound hardware.',
+  blurb: 'Tandy’s Radio Shack original. Runs Level II BASIC.',
   programRamBytes: 15572,
   memoryBlocks: trs80MemoryBlocks,
   fileExtensions: ['.txt', '.bas'],

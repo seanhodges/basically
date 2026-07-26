@@ -51,11 +51,14 @@ describe('dialect registry', () => {
         '',
       );
       expect(d.blurb.trim(), `${d.id} needs a blurb`).not.toBe('');
-      // A one-liner: long enough to say something, short enough for the picker.
+      // The picker row clamps its description to two lines, so a long blurb is
+      // cut off mid-sentence on a phone rather than wrapped. Aim for 60
+      // characters; 72 is the ceiling, for a machine whose BASIC has a long
+      // name.
       expect(
         d.blurb.length,
-        `${d.id} blurb should be a single line, not a paragraph`,
-      ).toBeLessThanOrEqual(160);
+        `${d.id} blurb should fit a picker row on a phone`,
+      ).toBeLessThanOrEqual(72);
       expect(d.blurb, `${d.id} blurb should be one line`).not.toContain('\n');
     }
   });

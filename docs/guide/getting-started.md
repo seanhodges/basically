@@ -10,9 +10,15 @@ This guide walks through running your first program, then generating one with AI
 1. Open the IDE at **[ba.sical.ly](https://ba.sical.ly/)**.
 2. Choose **File ▸ New project**. Everything a program needs to start is here:
    which machine to write for, what to call the project, and what to begin with.
-3. Pick a machine. They're grouped by the company that made them, with the year
-   and a line describing each one - every machine has its own BASIC dialect and
-   its own emulator.
+
+   ![The Start a new project dialog: the chosen machine with its description, a name field, and Blank program / Sample / Describe it as starting points](/new-project-dialog.png)
+
+3. Press the machine to open the picker and pick one. They're grouped by the
+   company that made them, with the year and a line naming the BASIC each one
+   runs - every machine has its own dialect and its own emulator.
+
+   ![The Choose a machine picker, listing every machine grouped under Acorn, Amstrad, Commodore, Sinclair and Tandy, each with its illustration, release year and a one-line description naming its BASIC](/machine-picker.png)
+
 4. Under **Start from**, choose **Sample** and pick **Breakout**, then press
    **Create project**.
 5. Press **▶ Run** (or `Ctrl`+`Enter`). Basically tokenizes your source to a

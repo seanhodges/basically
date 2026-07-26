@@ -40,8 +40,7 @@ export const pet: Dialect = {
   name: 'PET',
   manufacturer: 'Commodore',
   year: 1977,
-  blurb:
-    'Commodore’s all-in-one original: a 40×25 monochrome green screen with PETSCII block graphics, no colour and no sound.',
+  blurb: 'Commodore’s all-in-one original. Runs Commodore BASIC 4.0.',
   // BASIC 4.0 shares the merged 'commodore' reference page with the C64/VIC-20
   // (V2); its fifteen extra disk commands are tagged there as BASIC 4.0.
   docsReference: 'commodore',

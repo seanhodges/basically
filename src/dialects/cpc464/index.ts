@@ -41,8 +41,7 @@ export const cpc464: Dialect = {
   name: 'CPC 464',
   manufacturer: 'Amstrad',
   year: 1984,
-  blurb:
-    'Three MODEs up to 640×200, 27 hardware colours, and three-channel SOUND with volume and tone envelopes.',
+  blurb: 'Amstrad’s all-in-one with tape. Locomotive BASIC 1.0.',
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',

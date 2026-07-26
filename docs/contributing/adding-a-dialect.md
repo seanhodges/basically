@@ -49,7 +49,14 @@ BASIC:
    - `aiProfile.ts` - a system prompt teaching Claude the dialect's rules.
    - `targets.ts` - `BuildTarget[]` for file exports, plus optional cassette
      audio support (`audio.buildSamples`).
-   - `index.ts` - assemble and export the `Dialect` object.
+   - `index.ts` - assemble and export the `Dialect` object, including the four
+     fields the machine picker shows: `name`, `manufacturer`, `year` and
+     `blurb`. The blurb is two short sentences - one distinguishing fact about
+     the machine, then the BASIC it runs - aiming for 60 characters and never
+     over 72, since the picker clamps each row to two lines and a longer blurb
+     is cut off on a phone. Hardware specifics belong on the reference pages
+     instead. See `.claude/skills/adding-a-target-system/SKILL.md` § Picker
+     identity.
 
    Import is the mirror of export and is just as dialect-agnostic - the app's
    Import dialog drives it entirely from the interface. Two optional fields turn

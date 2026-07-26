@@ -41,8 +41,7 @@ export const bbcmicro: Dialect = {
   name: 'BBC Micro',
   manufacturer: 'Acorn',
   year: 1981,
-  blurb:
-    'Eight screen modes from 80-column text to 640×256 graphics, a teletext mode, and four-channel SOUND with envelopes.',
+  blurb: 'The BBC’s computer literacy machine. Runs BBC BASIC II.',
   docsReference: 'bbc',
   programRamBytes: 28672,
   fileExtensions: ['.txt', '.bas'],
