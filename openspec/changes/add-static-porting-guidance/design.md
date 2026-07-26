@@ -1,43 +1,46 @@
 ## Context
 
-The Compare dialects page is `docs/reference/compare.md`, which feeds eight
+The Compare dialects page is `docs/reference/compare.md`, feeding eight
 per-dialect reference tables, eight escape tables and `portingFacts` into
-`docs/.vitepress/theme/components/DialectCompare.vue`. The diff itself is pure
-logic in `docs/.vitepress/theme/dialectCompare.ts` (`diffKeywords`,
-`diffEscapes`), whose header states the constraint the whole docs layer obeys:
-*Node-testable and SSG-safe: imports only the docs data types, never `src/`.*
-Docs data is hand-authored and held true to `src/` by four crosscheck test
-suites, not by regeneration — see `docs/contributing/architecture.md` for how
-the docs and app layers relate.
+`docs/.vitepress/theme/components/DialectCompare.vue`. The diff is pure logic in
+`docs/.vitepress/theme/dialectCompare.ts` (`diffKeywords`, `diffEscapes`), whose
+header states the constraint the docs layer obeys: *Node-testable and SSG-safe:
+imports only the docs data types, never `src/`.* Docs data is hand-authored and
+held true to `src/` by four crosscheck suites rather than by regeneration — see
+`docs/contributing/architecture.md` for how the two layers relate.
 
 Today's "Explain porting with AI" button is gated on `embedded` (true only
-inside the IDE's docs-drawer iframe), builds a plain-text diff summary, and
-posts it to the app, which appends a fixed instruction and streams a reply into
-the AI panel. Critically, that path never includes the user's program or lint
-errors — unlike the sibling convert action. Its input is therefore entirely
-checked-in documentation data.
+inside the IDE's docs-drawer iframe), builds a plain-text diff summary and posts
+it to the app, which appends a fixed instruction and streams a reply into the AI
+panel. That path never includes the user's program or lint errors — unlike the
+sibling convert action — so its input is entirely checked-in documentation data.
 
-Measurements taken across the eight reference tables, which drove the shape
-below: 341 unique keyword names, 805 rows, and 2973 "must replace" instances
-across the 56 ordered dialect pairs. 195 of the 341 names (57%) appear on
-exactly one page.
+Measurements taken over the eight pages, which drove the design:
+
+- 341 unique keyword names, 805 rows, 2973 "must replace" instances across the
+  56 ordered pairs; 195 of the 341 names (57%) appear on exactly one page.
+- Keyword-set relatedness (Jaccard) has a **baseline of 27–33%** — simply how
+  much vocabulary any two BASICs share. Only `zx81↔zxspectrum` (54%),
+  `commodore↔trs80` (46%) and `zx80↔zx81` (41%) clear it.
+- **342 of the 2973 "must replace" entries (11%) are operator rows**, reaching
+  11 of 14 on `zx80 → zx81`.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Porting guidance is present on the page for every reader — no API key, no
-  iframe, offline.
-- The keyword comparison stops misreporting spelling variants as missing
-  commands.
-- Authoring cost grows with the number of dialects, not with its square.
-- Staleness is caught by `npm test`, in the same style as the existing docs
-  crosscheck suites.
+- Guidance present for every reader — no API key, no iframe, offline.
+- The comparison stops reporting operators and spelling variants as missing
+  commands, and starts reporting same-name-different-meaning commands.
+- Authoring cost grows with the number of dialects, not its square.
+- Any one pair view reads in about five minutes.
+- Staleness caught by `npm test`, in the style of the existing crosschecks.
 
 **Non-Goals:**
 
 - Automatic program translation (the convert action keeps that job).
-- Exhaustive per-command porting notes.
+- Exhaustive per-command notes.
+- Normalising the reference tables' operator rows.
 - Any change to the `Dialect` / `MachineEmulator` seam. **This change does not
   touch `src/dialects/` or `src/emulator/` at all** — the docs layer never
   imports `src/` at runtime, and the only app-side edit is deleting a message
@@ -45,114 +48,134 @@ exactly one page.
 
 ## Decisions
 
-### Author per target dialect, not per dialect pair
+### Four tiers of content, chosen by what each is anchored to
 
-Guidance is written once per target machine and reused across all seven source
-machines, plus one shared machine-independent guide.
+| Tier | Anchored to | Count |
+|---|---|---|
+| Generic guide | nothing; interpolates both sides | 1 |
+| Target-only notes and substitutions | target page | 8 |
+| False friends | keyword, with a page→meaning map | ~30–68 |
+| Source→target notes | ordered pair | ~10–12 |
 
 *Alternative considered — one explanation per ordered pair (56 units), closest
-to today's AI output.* Rejected on scaling and review cost: 56 essays become
-published documentation needing review, and a ninth dialect page would add
-sixteen more.
+to today's AI output.* Rejected on scaling and review cost: 56 pieces of
+published prose, and a ninth page would add sixteen more.
 
-*Alternative considered — a note for every `(keyword, target)` combination.*
-Rejected on measurement. Because 57% of keyword names appear on a single page,
-the average such note would serve only **1.55** of the 56 pairs; full coverage
-is 1923 notes, and even restricting to keywords shared by four or more pages is
-138 notes for 22% of the cases. The reuse that motivated the idea is not there.
+*Alternative considered — a note for every `(keyword, target)` pair.* Rejected on
+measurement: because 57% of keyword names appear on a single page, such a note
+would average **1.55** of the 56 pairs of reuse; full coverage is 1923 notes.
 
-### Keyword equivalences are a data relation, not prose
+*Alternative considered — folding false friends into the pairwise tier,* as
+originally scoped. Rejected because they are anchored to a keyword, not a pair:
+`LOG` differs between Commodore and both Acorn pages, so a pairwise encoding
+duplicates it and a page→meaning map does not. The map also covers new dialect
+pairs automatically.
 
-`diffKeywords` matches on exact spelling, so `GOTO`/`GO TO` and `CLEAR`/`CLR`
-each surface twice: once as a command to replace and once as a command newly
-gained. This is a correctness defect in the comparison, and no amount of
-generated prose fixes it. A small hand-authored list of equivalent spellings,
-consumed by `diffKeywords`, reclassifies them as a rename.
+### Pairwise notes only where the relationship is real
 
-This is deliberately sequenced first: it improves the page on its own, and it
-shrinks the set of differences the prose must account for.
+Given the 27–33% baseline, a pair note at that level would be padding. Tier 4 is
+reserved for the three pairs that clear it, plus two cases the numbers do not
+capture:
 
-*Alternative considered — describing the variants in prose instead.* Rejected:
-it would leave the comparison's own counts and lists wrong, which is what
-readers scan first.
+- **Carrier incompatibilities.** ZX80/ZX81 carry machine code inside the listing
+  as hidden-REM records (`supportsBinaryLines`); the Spectrum uses separate
+  `.TAP` CODE blocks, so such a program cannot port as-is. And ZX80/ZX81 use
+  identical escape spellings with different byte values (20 of 23 differ), so
+  block graphics port silently wrong between the two closest machines.
+- **False continuity.** `atom↔bbc` scores 32% — baseline, and below
+  `atom↔zx81` — so the note exists to warn that same-manufacturer intuition is
+  wrong here.
+
+### Operators are excluded from the keyword diff, not normalised
+
+The tables have no consistent inclusion rule for `kind: 'operator'`: `+ - * /`
+appear on four of eight pages, `( ) , ;` only on zx80, and `NOT` is an operator
+row on four pages, a function row on three and absent on atom. Excluding them
+from `diffKeywords` removes 11% of false claims in one edit.
+
+*Alternative considered — normalising the operator rows across all eight
+tables.* Rejected as separate, larger work whose primary consumer is the
+language reference rather than the comparison, and some divergence is
+deliberate (`docs/reference/bbc.md:18-21` omits `?`/`!`/`$` on purpose).
+Operator differences that matter to a port are carried by `PortingFacts`
+instead, as `exponentOperator` already is.
 
 ### Porting content extends `portingFacts`
 
-`docs/reference/data/facts.ts` already holds exactly one entry per documentation
-page, and `facts-crosscheck.test.ts` already asserts its id set matches the
-page set. Adding the per-dialect notes and substitutions there inherits that
-completeness guarantee instead of duplicating it, and keeps all per-dialect
-porting data in one file.
+`docs/reference/data/facts.ts` already holds one entry per page, and
+`facts-crosscheck.test.ts` already asserts its id set matches the page set.
+Putting the target-anchored notes there inherits that completeness guarantee.
+The keyword- and pair-anchored data is sparse and belongs in its own module.
 
-*Alternative considered — a separate module per dialect.* Rejected as premature
-for a corpus this size, and it would need its own completeness test.
+### Brevity is enforced, not merely intended
 
-### The shared guide is page prose, not data
-
-The machine-independent part of a port is written directly in
-`docs/reference/compare.md`. It has no per-dialect structure to model, so making
-it data would buy nothing and cost a schema.
-
-### Authored by AI draft, then edited and committed
-
-The repo has zero checked-in generated data files; generation is one-shot
-scaffolding that refuses to overwrite (`scripts/gen-reference-scaffold.mts`),
-with correctness held by crosscheck tests. This content follows the same rule:
-drafted once, edited by a human, committed as ordinary prose data. No generator
-script is added — at eight units plus one guide it would not earn its keep.
-
-Once committed, this is published end-user documentation and is bound by the
-`docs/` house rules: no `src/` paths, no internal symbols, no references to
-unpublished files.
+The page already renders the twelve fact rows side by side and the full keyword
+lists. Prose that restates them would consume the entire reading budget without
+adding anything, so the crosscheck asserts a character cap per note and a
+maximum bullet count. This keeps the budget from rotting as dialects are added.
 
 ### Removal, not deprecation, of the AI explain action
 
 `diffSummaryText()`, `explainWithAi()`, `EXPLAIN_MESSAGE` and the app-side
-`explainPorting()` handler and its listener branch are deleted outright. Keeping
-both paths would mean two answers to the same question that can disagree.
-`convertWithAi` / `convertProgram` and their message type are untouched.
+`explainPorting()` handler are deleted outright; keeping both paths would mean
+two answers to one question that can disagree. `convertWithAi` /
+`convertProgram` are untouched.
+
+### Authored by AI draft, then edited and committed
+
+The repo has zero checked-in generated data files; generation is one-shot
+scaffolding that refuses to overwrite. This content follows the same rule:
+drafted once, edited by a human, committed as prose data. No generator script —
+at eight units plus one guide it would not earn its keep. Two mechanical
+worklists keep the drafting bounded: the 68 same-name/same-kind/divergent-
+description false-friend candidates, and `(keyword, target)` gaps ranked by how
+many pages carry the keyword.
 
 ## Risks / Trade-offs
 
-- **Prose goes stale when a keyword table changes** → a new
-  `docs/reference/data/porting-crosscheck.test.ts` fails `npm test` when a
-  substitution names a command that exists on no page, when it names one the
-  target dialect already has (making the advice redundant), or when an
-  equivalence group names a spelling absent everywhere or groups two spellings
-  that both exist on the same page.
-- **Guidance is less specific than a tailored AI answer for an unusual pair** →
-  accepted, and offset by reaching every reader rather than only key-holding IDE
-  users. The convert action remains for users who want something specific to
-  their own program.
-- **An equivalence group could assert a false synonym**, hiding a real
-  difference → the same-page assertion catches the structural error; semantic
-  correctness rests on review, as it does for every other hand-authored row in
-  `docs/reference/data/`.
-- **Notes are best-effort, so coverage is visibly uneven** → accepted
-  deliberately; a command with no note renders exactly as it does today, so the
-  page is never worse than the current state.
-- **Removing the AI action is user-visible in the IDE drawer** → the replacement
-  is present on the same page, unconditionally, so no one loses access to the
-  answer.
-- **The compare page has no e2e coverage today** (`e2e/` has no docs capability
-  folder) → the new behaviour is covered by unit tests in the docs theme and by
-  the crosscheck suite; whether the page earns e2e coverage is left open below.
+- **Prose goes stale when a keyword table changes** → the new
+  `porting-crosscheck.test.ts` fails when a substitution names a command the
+  target already has or that exists nowhere; when a false friend names a page
+  that lacks that command, lists fewer than two pages, or gives identical
+  meanings; when a pair note names a non-page, has `from === to`, or duplicates
+  another; when an equivalence group names a spelling absent everywhere or
+  groups two spellings present on the same page. The substitution and
+  false-friend assertions are mirror images — one requires absence on the
+  target, the other presence on both.
+- **A false friend or equivalence could assert something untrue** → structural
+  errors are caught by the above; semantic correctness rests on review, as for
+  every other hand-authored row under `docs/reference/data/`.
+- **Excluding operators hides a genuine operator difference** → mitigated by
+  carrying the ones that matter in `PortingFacts`; `exponentOperator` already
+  establishes the pattern and is already rendered in the fact table.
+- **Notes are best-effort, so coverage is uneven** → accepted; a command with no
+  note renders exactly as today, so the page is never worse than now.
+- **The drafting pass could launder unverified machine behaviour into published
+  docs** → CLAUDE.md requires machine behaviour to come from primary sources,
+  never from memory. Known repo contradictions must be resolved or omitted
+  rather than smoothed over: ZX81 variable naming (`docs/reference/zx81.md:19`
+  versus `facts.ts` and the aiProfile), Atom's `?` operator (documented as
+  working in the reference, "not yet implemented" on the hardware page), and
+  `PRINT @` / `PRINT USING`, which are TRS-80 reference rows that the shipped
+  interpreter does not implement.
+- **The Commodore/TRS-80 lineage claim is not on any published page** — it is
+  stated only in `src/editor/variableLint.ts` and `src/editor/crunch.ts`
+  comments. Writing it into the guide introduces the claim rather than repeating
+  it, so it needs review against primary sources.
 
 ## Migration Plan
 
-Additive and self-contained. The equivalence relation ships first and stands
-alone; the guidance sections follow. Rollback is reverting the change — no data
-migration, no stored state, no persisted user content is involved. The docs
-offline cache picks up the new content on its normal update cycle, since the
-guidance ships inside the already-precached page bundle.
+Additive and self-contained, and sequenced so each step stands alone: the
+operator exclusion and equivalences improve the page on their own, before any
+prose exists. Rollback is reverting — no data migration, no stored state, no
+persisted user content. The docs offline cache picks the content up on its
+normal update cycle, since it ships inside the already-precached page bundle.
 
 ## Open Questions
 
-- Should the compare page gain e2e coverage? Not required: the layout guard in
+- Should the compare page gain e2e coverage? Not required — the layout guard in
   `src/e2eCapabilityLayout.test.ts` is deliberately one-way ("Capabilities
   without e2e coverage … are legal"), so the new capability needs no `e2e/`
-  folder and nothing fails without one. The question is whether the page is
-  worth covering on its own merits.
-- Should the per-dialect notes eventually be surfaced on each dialect's own
-  reference page, not just in the comparison? Out of scope here, but the data
-  shape chosen allows it.
+  folder. The question is whether the page is worth covering on its own merits.
+- Should the per-dialect notes also appear on each dialect's own reference page?
+  Out of scope here; the data shape allows it.
