@@ -1,3 +1,4 @@
+// Capability: project-setup — openspec/specs/project-setup/spec.md
 import {
   test,
   expect,
@@ -7,7 +8,7 @@ import {
   openNewProjectDialog,
   targetMachine,
   type Page,
-} from './fixtures';
+} from '../fixtures';
 
 /**
  * The New-project dialog - the single place a program starts.

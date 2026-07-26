@@ -1,4 +1,5 @@
-import { test, expect, createProjectWithSample, type Page } from './fixtures';
+// Capability: code-editor — openspec/specs/code-editor/spec.md
+import { test, expect, createProjectWithSample, type Page } from '../fixtures';
 
 /**
  * Visual / behavioural checks for the Edit ▸ Outline navigation feature:

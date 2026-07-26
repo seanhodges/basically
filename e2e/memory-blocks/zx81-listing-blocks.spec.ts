@@ -1,4 +1,5 @@
-import { test, expect, type Page } from './fixtures';
+// Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
+import { test, expect, type Page } from '../fixtures';
 
 /**
  * ZX80/ZX81 listing-backed memory blocks: a block IS a hidden-machine-code

@@ -1,4 +1,5 @@
-import { test, expect, chooseTargetMachine, type Page } from './fixtures';
+// Capability: program-execution — openspec/specs/program-execution/spec.md
+import { test, expect, chooseTargetMachine, type Page } from '../fixtures';
 
 /**
  * End-to-end checks for the step-through debugger (ZX81 / ZX80 / Spectrum):

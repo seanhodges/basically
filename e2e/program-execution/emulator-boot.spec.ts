@@ -1,3 +1,4 @@
+// Capability: program-execution — openspec/specs/program-execution/spec.md
 import {
   test,
   expect,
@@ -9,7 +10,7 @@ import {
   openApp,
   playAndWaitRunning,
   stopEmulator,
-} from './helpers';
+} from '../helpers';
 
 /**
  * Test plan §3 - Emulator, every dialect.

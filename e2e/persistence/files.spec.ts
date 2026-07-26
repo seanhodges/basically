@@ -1,3 +1,4 @@
+// Capability: persistence — openspec/specs/persistence/spec.md
 import { readFile } from 'node:fs/promises';
 import { test, expect } from '../fixtures';
 import {
@@ -8,7 +9,7 @@ import {
   openApp,
   saveAsProject,
   setEditorSource,
-} from './helpers';
+} from '../helpers';
 
 /**
  * Test plan §5 - Files: open & save.

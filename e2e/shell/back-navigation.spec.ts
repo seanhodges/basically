@@ -1,4 +1,5 @@
-import { test, expect, type Page } from './fixtures';
+// Cross-cutting shell spec (no owning capability).
+import { test, expect, type Page } from '../fixtures';
 
 /**
  * End-to-end checks for browser Back-button navigation over the app's ephemeral

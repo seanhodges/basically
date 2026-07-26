@@ -1,5 +1,6 @@
+// Capability: virtual-input — openspec/specs/virtual-input/spec.md
 import { test, expect, createProjectWithSample } from '../fixtures';
-import { EDITOR, clearEditor, openApp, playAndWaitRunning } from './helpers';
+import { EDITOR, clearEditor, openApp, playAndWaitRunning } from '../helpers';
 
 /**
  * Test plan §4 - Virtual keyboard & game controller.

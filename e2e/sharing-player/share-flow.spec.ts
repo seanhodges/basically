@@ -1,6 +1,7 @@
-import { test, expect } from './fixtures';
-import { SHARE_VERBS } from '../src/player/routes';
-import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from './shareStub';
+// Capability: sharing-player — openspec/specs/sharing-player/spec.md
+import { test, expect } from '../fixtures';
+import { SHARE_VERBS } from '../../src/player/routes';
+import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from '../shareStub';
 
 /**
  * Share-flow routing and the player → IDE handover (Stage 7 e2e).

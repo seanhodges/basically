@@ -1,4 +1,5 @@
-import { test, expect, chooseTargetMachine, type Page } from './fixtures';
+// Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
+import { test, expect, chooseTargetMachine, type Page } from '../fixtures';
 
 /**
  * The C64 memory map: opening it for the Commodore 64 dialect renders the

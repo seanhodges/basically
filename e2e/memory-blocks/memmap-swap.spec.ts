@@ -1,4 +1,5 @@
-import { test, expect, chooseTargetMachine, type Page } from './fixtures';
+// Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
+import { test, expect, chooseTargetMachine, type Page } from '../fixtures';
 
 /** A long-running loop so the emulator stays in the 'running' state while we
     assert the layout (the BASIC program keeps the machine busy). */

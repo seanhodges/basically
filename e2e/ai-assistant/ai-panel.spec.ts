@@ -1,5 +1,6 @@
+// Capability: ai-assistant — openspec/specs/ai-assistant/spec.md
 import { test, expect } from '../fixtures';
-import { openApp } from './helpers';
+import { openApp } from '../helpers';
 
 /**
  * Test plan §8 - AI assistant.

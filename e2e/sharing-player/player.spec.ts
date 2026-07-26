@@ -1,7 +1,8 @@
-import { test, expect } from './fixtures';
+// Capability: sharing-player — openspec/specs/sharing-player/spec.md
+import { test, expect } from '../fixtures';
 import { chromium } from '@playwright/test';
-import { canvasPainted } from './plan/helpers';
-import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from './shareStub';
+import { canvasPainted } from '../helpers';
+import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from '../shareStub';
 
 /**
  * Standalone player (src/player/PlayerApp.tsx), Stage 7 e2e.

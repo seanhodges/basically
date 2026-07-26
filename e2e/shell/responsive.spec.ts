@@ -1,5 +1,6 @@
+// Cross-cutting shell spec (no owning capability).
 import { test, expect } from '../fixtures';
-import { EDITOR, openApp } from './helpers';
+import { EDITOR, openApp } from '../helpers';
 
 /**
  * Test plan §11 - Responsive layout sweep.

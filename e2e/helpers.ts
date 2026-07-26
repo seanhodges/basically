@@ -1,8 +1,9 @@
-import { chooseTargetMachine, expect, type Page } from '../fixtures';
+import { chooseTargetMachine, expect, type Page } from './fixtures';
 
 /**
- * Shared helpers for the `e2e/plan/` specs, which automate the numbered items
- * of docs/contributing/cross-browser-test-plan.md across the whole browser
+ * Shared helpers for the `e2e/<capability>/` specs (folders mirror
+ * openspec/specs/). The plan-numbered tests automate the items of
+ * docs/contributing/cross-browser-test-plan.md across the whole browser
  * matrix (see playwright.config.ts).
  */
 

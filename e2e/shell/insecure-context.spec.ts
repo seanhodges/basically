@@ -1,3 +1,4 @@
+// Cross-cutting shell spec (no owning capability).
 import { test, expect } from '../fixtures';
 import {
   EDITOR,
@@ -5,7 +6,7 @@ import {
   fileMenu,
   openApp,
   setEditorSource,
-} from './helpers';
+} from '../helpers';
 
 /**
  * Test plan §9 - Insecure context (plain http over LAN), simulated.

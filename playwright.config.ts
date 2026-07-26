@@ -8,15 +8,18 @@ import {
  * Playwright end-to-end / cross-browser config.
  *
  * Specs live under `e2e/` (kept out of `src/` so Vitest - which globs
- * `src/**\/*.test.ts` - never tries to run them). The specs under `e2e/plan/`
- * automate the numbered items of `docs/contributing/cross-browser-test-plan.md`
- * and carry the plan IDs in their test titles.
+ * `src/**\/*.test.ts` - never tries to run them), in one folder per OpenSpec
+ * capability mirroring `openspec/specs/` (plus `e2e/shell/` for cross-cutting
+ * UI specs). Tests that automate the numbered items of
+ * `docs/contributing/cross-browser-test-plan.md` carry the plan IDs in their
+ * test titles.
  *
  * Browser matrix: every test runs against Chromium (Chrome), Firefox, WebKit
  * (Safari's engine) and Microsoft Edge. The first three come from
  * `npx playwright install`; Edge is a branded channel that needs a one-time
  * `npx playwright install msedge` (or uses a system-installed Edge).
- * To run a subset: `npm run e2e -- --project=chromium --project=firefox`.
+ * To run a subset: `npm run e2e -- --project=chromium --project=firefox`,
+ * or one capability on Chromium only: `npm run e2e:chromium -- e2e/<capability>`.
  *
  * Browser binaries are resolved from `PLAYWRIGHT_BROWSERS_PATH` when set
  * (the managed environment pre-installs them under `/opt/pw-browsers`).

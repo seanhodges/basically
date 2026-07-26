@@ -36,8 +36,9 @@ npm test               # run all unit tests once (vitest run)
 npm run test:watch     # vitest in watch mode
 npx vitest run src/dialects/zx81/tokenizer.test.ts   # run a single test file
 
-npm run e2e            # Playwright end-to-end / visual tests (specs in e2e/)
-npm run e2e:headed     # same, with a visible browser
+npm run e2e            # Playwright end-to-end / visual tests, full browser matrix (specs in e2e/)
+npm run e2e:chromium -- e2e/<capability>   # e2e for one capability, Chromium only (agent default)
+npm run e2e:headed     # same as e2e, with a visible browser
 npm run e2e:report     # open the last Playwright HTML report
 
 npm run typecheck      # fast type check (tsc -b, no bundle)
@@ -52,7 +53,18 @@ npm run build          # tsc -b && vite build → dist/
 **Before finishing a change**, run `npm run typecheck`, `npm test`,
 `npm run lint`, and `npm run format:check` (or `npm run format` to auto-fix).
 For tokenizer / emulator / charset changes, add or update the colocated
-`*.test.ts` rather than only checking by hand.
+`*.test.ts` rather than only checking by hand. For app-visible changes, also
+run the e2e folder(s) for the affected capabilities, Chromium-only:
+`npm run e2e:chromium -- e2e/<capability>`. The full `npm run e2e` matrix is
+for humans and releases — managed agent environments only have Chromium
+installed, so never run the bare full matrix there.
+
+The `e2e/` layout mirrors `openspec/specs/`: one folder per capability, plus
+`e2e/shell/` for cross-cutting UI specs no capability owns. Shared helpers
+live flat at the `e2e/` root (`fixtures.ts`, `helpers.ts`, `shareStub.ts`).
+New user-visible scenarios belong in the matching capability folder; a unit
+test (`src/e2eCapabilityLayout.test.ts`) guards the folder↔capability
+mapping.
 
 ## Spec-driven changes (OpenSpec)
 

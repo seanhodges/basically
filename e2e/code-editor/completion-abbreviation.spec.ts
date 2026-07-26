@@ -1,4 +1,5 @@
-import { test, expect, type Page } from './fixtures';
+// Capability: code-editor — openspec/specs/code-editor/spec.md
+import { test, expect, type Page } from '../fixtures';
 
 /**
  * BBC-style keyword abbreviation: while the autocomplete popup is open, typing a

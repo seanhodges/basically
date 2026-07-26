@@ -148,10 +148,12 @@ npm run format:check   # Prettier check (use `npm run format` to auto-fix)
 ```
 
 For changes that affect the running app (UI, emulator, transfer), also run the
-end-to-end / visual tests:
+end-to-end / visual tests. The `e2e/` folders mirror the `openspec/specs/`
+capabilities, so you can run just the specs for the area you touched:
 
 ```bash
-npm run e2e            # Playwright (specs in e2e/)
+npm run e2e:chromium -- e2e/<capability>   # Playwright, one capability, Chromium only
+npm run e2e                                # the full cross-browser matrix
 ```
 
 If you changed behaviour, add or update a test that would have caught the bug.

@@ -1,3 +1,4 @@
+// Capability: code-editor — openspec/specs/code-editor/spec.md
 import { test, expect } from '../fixtures';
 import {
   EDITOR,
@@ -6,7 +7,7 @@ import {
   expectMenuStaysOpen,
   openApp,
   setEditorSource,
-} from './helpers';
+} from '../helpers';
 
 /**
  * Test plan §2 - Editor & keyboard shortcuts.

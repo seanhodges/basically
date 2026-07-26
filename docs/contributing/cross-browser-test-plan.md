@@ -11,7 +11,7 @@ full desktop browser matrix — **Chromium (Chrome), Firefox, WebKit (Safari's
 engine) and Microsoft Edge**:
 
 ```bash
-npm run e2e          # run the whole matrix (specs in e2e/, plan specs in e2e/plan/)
+npm run e2e          # run the whole matrix (specs in e2e/<capability>/, mirroring openspec/specs/)
 npm run e2e:report   # open the consolidated HTML report (playwright-report/)
 ```
 
@@ -29,9 +29,25 @@ Every table below has an **Auto** column:
 | 🤖 partial    | The mechanics are automated; the judgement noted in the row (audibility, sharpness, real devices/hardware) still needs a human.        |
 | **🖐 MANUAL** | **Cannot be meaningfully automated — must be QA-tested by hand.** These rows are the priority for a manual pass.                       |
 
-Spec key: `s01`–`s12` = `e2e/plan/section01-…` to `section12-…`; `dbg` =
-`e2e/debug.spec.ts`; `land` = `e2e/landscape-layout.spec.ts` (Chromium-only
-touch contexts); `outl` = `e2e/outline.spec.ts`.
+Spec key (specs are grouped by OpenSpec capability; plan-section tests keep
+their `N.M` plan IDs in the test titles):
+
+| Key    | Spec file                                                           |
+| ------ | ------------------------------------------------------------------- |
+| `s01`  | `e2e/persistence/boot-storage.spec.ts`                              |
+| `s02`  | `e2e/code-editor/editor-shortcuts.spec.ts`                          |
+| `s03`  | `e2e/program-execution/emulator-boot.spec.ts`                       |
+| `s04`  | `e2e/virtual-input/touch-input.spec.ts`                             |
+| `s05`  | `e2e/persistence/files.spec.ts`                                     |
+| `s06`  | `e2e/hardware-transfer/cassette-import.spec.ts`                     |
+| `s07`  | `e2e/hardware-transfer/export-transfer.spec.ts`                     |
+| `s08`  | `e2e/ai-assistant/ai-panel.spec.ts`                                 |
+| `s09`  | `e2e/shell/insecure-context.spec.ts`                                |
+| `s11`  | `e2e/shell/responsive.spec.ts`                                      |
+| `s12`  | `e2e/shell/docs-drawer.spec.ts`                                     |
+| `dbg`  | `e2e/program-execution/debug.spec.ts`                               |
+| `land` | `e2e/shell/landscape-layout.spec.ts` (Chromium-only touch contexts) |
+| `outl` | `e2e/code-editor/outline.spec.ts`                                   |
 
 > **WebKit ≠ Safari, and desktop ≠ mobile.** The automated matrix covers
 > Safari's engine but not Safari's UI, permission prompts, or iOS. Rows

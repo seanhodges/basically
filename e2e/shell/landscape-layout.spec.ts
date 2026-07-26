@@ -1,5 +1,6 @@
+// Cross-cutting shell spec (no owning capability).
 import { expect, chromium } from '@playwright/test';
-import { test } from './fixtures';
+import { test } from '../fixtures';
 
 /**
  * Phone-landscape layout (a short, wide, touch viewport - `LANDSCAPE_MOBILE_QUERY`

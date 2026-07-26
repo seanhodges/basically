@@ -1,4 +1,5 @@
-import { test, expect, type Page } from './fixtures';
+// Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
+import { test, expect, type Page } from '../fixtures';
 
 /**
  * The per-block assembly editor:

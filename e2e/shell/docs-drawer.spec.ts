@@ -1,5 +1,6 @@
+// Cross-cutting shell spec (no owning capability).
 import { test, expect } from '../fixtures';
-import { openApp } from './helpers';
+import { openApp } from '../helpers';
 
 /**
  * Test plan §12 - Documentation.

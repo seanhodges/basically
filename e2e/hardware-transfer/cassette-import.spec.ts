@@ -1,3 +1,4 @@
+// Capability: hardware-transfer — openspec/specs/hardware-transfer/spec.md
 import { readFile } from 'node:fs/promises';
 import { test, expect } from '../fixtures';
 import {
@@ -7,7 +8,7 @@ import {
   openApp,
   saveAsProject,
   setEditorSource,
-} from './helpers';
+} from '../helpers';
 
 /**
  * Test plan §6 - Cassette audio import.

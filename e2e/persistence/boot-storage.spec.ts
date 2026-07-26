@@ -1,3 +1,4 @@
+// Capability: persistence — openspec/specs/persistence/spec.md
 import { test, expect, targetMachine } from '../fixtures';
 import {
   EDITOR,
@@ -6,7 +7,7 @@ import {
   openApp,
   selectDialect,
   setEditorSource,
-} from './helpers';
+} from '../helpers';
 
 /**
  * Test plan §1 - Boot, storage & first run.

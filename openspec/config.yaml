@@ -37,8 +37,12 @@ context: |
 
   Quality gates for every change:
   npm run typecheck && npm test && npm run lint && npm run format:check
-  (+ npm run docs:build when docs/ changes; npm run e2e locally for
-  app-visible changes).
+  (+ npm run docs:build when docs/ changes). For app-visible changes, also
+  run the e2e specs for each affected capability, Chromium only:
+  npm run e2e:chromium -- e2e/<capability>. The e2e/ folders mirror the
+  openspec/specs/ capability names (cross-cutting UI specs live in
+  e2e/shell/); the full cross-browser npm run e2e matrix is a release
+  activity, not a per-change gate.
 
   Workflow boundary: new target systems (machines/dialects) are planned by the
   adding-a-target-system skill into docs/contributing/dialect-plans/ - not by
@@ -60,6 +64,10 @@ rules:
     - Write spec deltas only for behaviour changes; refactors get no delta.
   tasks:
     - The final task group must run the quality gates (typecheck, test, lint,
-      format:check; docs:build and e2e when applicable).
+      format:check; docs:build when docs/ changes). For app-visible changes it
+      must name the affected capability's e2e folder(s) explicitly, e.g.
+      "npm run e2e:chromium -- e2e/sharing-player". An e2e task may only be
+      checked off when that run passes; a failing run leaves the task
+      unchecked with a note on what failed.
     - Tokenizer, emulator, or charset work must include colocated *.test.ts
       tasks.

@@ -1,4 +1,5 @@
-import { test, expect, type Page } from './fixtures';
+// Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
+import { test, expect, type Page } from '../fixtures';
 
 /**
  * Block creation, settings and deletion from the editor tab strip:
