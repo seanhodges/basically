@@ -116,7 +116,9 @@ test('debug session survives an orientation change', async ({ page }) => {
   // Rotate to a mobile portrait viewport (crosses the 768px breakpoint, so the
   // layout switches to the tabbed mobile mode and MobileTabBar mounts)...
   await page.setViewportSize({ width: 700, height: 1000 });
-  await expect(page.getByRole('tablist')).toBeVisible(); // mobile layout active
+  // mobile layout active (the editor's block tab-strip is a tablist too, so
+  // pick the app-pane bar by name)
+  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
   // ...then back to a desktop landscape viewport.
   await page.setViewportSize({ width: 1000, height: 700 });
 

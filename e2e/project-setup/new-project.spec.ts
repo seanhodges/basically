@@ -135,7 +135,7 @@ test('the machine picker groups machines by manufacturer', async ({ page }) => {
   // unfamiliar one can be chosen without leaving the list.
   const zx81 = picker.locator('button[data-machine="zx81"]');
   await expect(zx81).toContainText('1981');
-  await expect(zx81).toContainText(/black-and-white/i);
+  await expect(zx81).toContainText(/million-selling/i);
 });
 
 test('the picker closes without taking the new-project dialog with it', async ({

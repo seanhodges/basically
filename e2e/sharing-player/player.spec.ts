@@ -218,15 +218,21 @@ test.describe('phone landscape', () => {
         page.getByRole('button', { name: '▶', exact: true }),
       ).toBeVisible({ timeout: 30_000 });
 
-      // The flanking gamepad is the default surface; the keyboard stays hidden.
-      await expect(page.locator('.game-controller')).toBeVisible();
+      // Even with auto-show opted in, the landscape emulator surface never
+      // pops the keyboard, and the opt-in gamepad starts hidden too (see
+      // resolveInputOverlays: overlays only show on explicit intent here).
+      await expect(page.getByTestId('input-overlay-toggle')).toBeVisible();
       await expect(page.locator('.virtual-keyboard')).toHaveCount(0);
+      await expect(page.locator('.game-controller')).toHaveCount(0);
 
-      // The rail input-overlay button still brings the keyboard up on demand
-      // (one click off → keyboard) and hides the flanking gamepad.
+      // The rail input-overlay button cycles off → keyboard → gamepad.
       await page.getByTestId('input-overlay-toggle').click();
       await expect(page.locator('.virtual-keyboard')).toBeVisible();
       await expect(page.locator('.game-controller')).toHaveCount(0);
+
+      await page.getByTestId('input-overlay-toggle').click();
+      await expect(page.locator('.game-controller')).toBeVisible();
+      await expect(page.locator('.virtual-keyboard')).toHaveCount(0);
     } finally {
       await browser.close();
     }
