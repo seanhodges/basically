@@ -2,6 +2,8 @@ import {
   test,
   chooseTargetMachine,
   createProjectWithSample,
+  machinePicker,
+  openNewProjectDialog,
   type Page,
 } from './fixtures';
 
@@ -342,6 +344,40 @@ test('annotated editor features - desktop', async ({ page }) => {
   ]);
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/editor-features.png` });
+});
+
+// ---------------------------------------------------------------------------
+// Getting-started guide figures.
+//
+// Both crop to the dialog itself rather than the whole window: the guide is
+// walking through one decision at a time, so the surrounding IDE is noise.
+// ---------------------------------------------------------------------------
+
+test('getting-started: the New-project dialog', async ({ page }) => {
+  await open(page);
+  await useDialect(page, DIALECT);
+  const dialog = await openNewProjectDialog(page);
+  await page.waitForTimeout(300);
+  // The backdrop carries role="dialog"; its only child is the form that is the
+  // visible panel.
+  await dialog
+    .locator('> form')
+    .screenshot({ path: `${OUT}/new-project-dialog.png` });
+});
+
+test('getting-started: the machine picker', async ({ page }) => {
+  await open(page);
+  const dialog = await openNewProjectDialog(page);
+  // Every machine at once is taller than the capture viewport, and the panel
+  // caps at 88vh - so give it the height rather than shooting a scrolled slice.
+  await page.setViewportSize({ width: VIEWPORT.width, height: 1200 });
+  await dialog.locator('button[data-target-machine]').first().click();
+  const picker = machinePicker(page);
+  await picker.waitFor({ state: 'visible' });
+  await page.waitForTimeout(300);
+  await picker
+    .locator('> div')
+    .screenshot({ path: `${OUT}/machine-picker.png` });
 });
 
 // ---------------------------------------------------------------------------
