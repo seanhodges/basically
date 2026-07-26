@@ -108,7 +108,7 @@ test('shows only the chosen machine until the picker is opened', async ({
   await open(page);
   const dialog = await openNewProjectDialog(page);
 
-  // One collapsed control, and none of the twelve machine rows on screen.
+  // One collapsed control, and none of the machine rows on screen.
   await expect(dialog.locator('button[data-target-machine]')).toHaveCount(1);
   await expect(dialog.locator('button[data-machine]')).toHaveCount(0);
   await expect(dialog.locator('button[data-target-machine]')).toContainText(

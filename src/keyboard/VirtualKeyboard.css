@@ -864,3 +864,36 @@
 .vk-theme-cpc464 .vk-pos-tr.vk-active {
   color: #cfe0ff;
 }
+
+/* ---------------------------------------------------------------------------
+   Amstrad CPC 6128 keyboard theme: the same layout as the 464 in the 6128's
+   own colours - the later machine dropped the blue keypad for grey caps with
+   pale legends. Activated by the layout's `theme: 'vk-theme-cpc6128'`. */
+.vk-theme-cpc6128 .vk-style-fn .vk-keycap {
+  background: linear-gradient(#8d9299, #666b72);
+}
+
+.vk-theme-cpc6128 .vk-style-fn .vk-label {
+  color: #f2f4f6;
+}
+
+.vk-theme-cpc6128:not(.vk-compact) .vk-pos-br,
+.vk-theme-cpc6128:not(.vk-compact) .vk-pos-tr {
+  font-size: 9px;
+  color: #9aa1a9;
+}
+
+.vk-theme-cpc6128:not(.vk-compact) .vk-pos-br {
+  right: 4px;
+  bottom: 15px;
+}
+
+.vk-theme-cpc6128:not(.vk-compact) .vk-pos-tr {
+  right: 4px;
+  top: 4px;
+}
+
+.vk-theme-cpc6128 .vk-pos-br.vk-active,
+.vk-theme-cpc6128 .vk-pos-tr.vk-active {
+  color: #e6eaee;
+}

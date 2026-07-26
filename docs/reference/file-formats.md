@@ -90,7 +90,7 @@ reference page:
 | Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401                        |
 | TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks     |
 | Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks       |
-| Amstrad CPC 464    | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape |
+| Amstrad CPC        | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The

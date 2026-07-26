@@ -60,6 +60,7 @@ const PET_PHOSPHOR = '#4f9a5a'; // VirtualKeyboard.css .vk-theme-pet
 const ATOM_BLUE = '#6f9bd1'; // VirtualKeyboard.css .vk-theme-atom
 const TRS_SILVER = '#9aa0a6'; // VirtualKeyboard.css .vk-theme-trs80
 const CPC_BLUE = '#2f6fb0'; // VirtualKeyboard.css .vk-theme-cpc464
+const CPC_GREY = '#8d9299'; // VirtualKeyboard.css .vk-theme-cpc6128
 
 const DARK_KEYS = '#2a2a2e';
 
@@ -366,6 +367,28 @@ function Cpc464Art({ size }: ArtProps) {
   );
 }
 
+/**
+ * CPC 6128: the same black case, but the cassette deck is gone - in its place
+ * the 3" disc drive with its slot and eject button, and the keypad went grey.
+ */
+function Cpc6128Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M2 24h44v5H2z" fill={BASE.cpc} />
+      <path d="M2 11h44v13H2z" fill={CPC_CASE} />
+      <path d="M5 7h41v4H5z" fill="#2b2b31" />
+      <rect x="5" y="13.5" width="24" height="2.4" fill="#3a3a42" />
+      <rect x="5" y="17.4" width="24" height="2.4" fill="#3a3a42" />
+      <rect x="5" y="21.3" width="20" height="2.4" fill="#3a3a42" />
+      {/* 3" disc drive - the 6128's silhouette tell against the 464's deck. */}
+      <rect x="31" y="12.6" width="13" height="11" fill="#33333b" />
+      <rect x="32.5" y="15.4" width="10" height="2.6" fill="#15151a" />
+      <rect x="32.5" y="20.4" width="6" height="1.8" fill={CPC_GREY} />
+      <rect x="40.5" y="20" width="2" height="2.6" fill={CPC_GREY} />
+    </svg>
+  );
+}
+
 /* ---------------------------------------------------------------------------
    Fallback */
 
@@ -406,6 +429,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   pet: PetArt,
   trs80: Trs80Art,
   cpc464: Cpc464Art,
+  cpc6128: Cpc6128Art,
 };
 
 /** A machine's portrait, `size` px tall. */

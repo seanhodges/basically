@@ -1,0 +1,53 @@
+import { describe, it, expect } from 'vitest';
+import { cpc6128MemoryMap } from './memoryMap';
+import { cpc464MemoryMap } from '../cpc464/memoryMap';
+
+describe('cpc6128MemoryMap', () => {
+  const { addressSpace, regions } = cpc6128MemoryMap;
+
+  it('covers a 64K address space, not 128K', () => {
+    // The extra 64K is banked *over* these addresses, not addressable beside
+    // them - see the note in memoryMap.ts (the Spectrum 128 precedent).
+    expect(addressSpace).toBe(0x10000);
+  });
+
+  it('has contiguous, ascending regions covering the whole space with no gaps or overlaps', () => {
+    expect(regions.length).toBeGreaterThan(0);
+    expect(regions[0]!.start).toBe(0);
+    expect(regions[regions.length - 1]!.end).toBe(addressSpace - 1);
+    for (let i = 0; i < regions.length; i++) {
+      const r = regions[i]!;
+      expect(r.end).toBeGreaterThanOrEqual(r.start);
+      if (i > 0) expect(r.start).toBe(regions[i - 1]!.end + 1);
+    }
+  });
+
+  it('places the BASIC program area from &0170 up to the default HIMEM', () => {
+    const program = regions.find((r) => r.kind === 'program');
+    expect(program).toBeDefined();
+    expect(program!.start).toBe(0x0170);
+    // HIMEM reads &AB7F on a clean 6128 boot, same as the 464.
+    expect(program!.end).toBe(0xab7f);
+  });
+
+  it('maps the 16K screen at its power-on &C000–&FFFF address', () => {
+    const screen = regions.find((r) => r.kind === 'screen');
+    expect(screen).toBeDefined();
+    expect(screen!.start).toBe(0xc000);
+    expect(screen!.end).toBe(0xffff);
+  });
+
+  it('draws the same bands as the 464, differing only in wording', () => {
+    // The machines share a 64K layout; if that stops being true the two maps
+    // should stop being parallel deliberately, not by drift.
+    expect(regions.map((r) => [r.start, r.end, r.kind])).toEqual(
+      cpc464MemoryMap.regions.map((r) => [r.start, r.end, r.kind]),
+    );
+  });
+
+  it('explains the banked second 64K in the notes rather than as a band', () => {
+    const notes = regions.map((r) => r.note ?? '').join(' ');
+    expect(notes).toMatch(/second/i);
+    expect(notes).toMatch(/configuration/i);
+  });
+});

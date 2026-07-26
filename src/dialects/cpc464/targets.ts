@@ -1,6 +1,7 @@
 import type { BuildTarget } from '../types';
 import { fatalErrors } from '../types';
 import { tokenizeProgram } from './tokenizer';
+import type { LocoBasicVariant } from './keywords';
 import { buildBasFile } from './basfile';
 import { buildCdt } from './cdt';
 import { buildCassetteSamples, CASSETTE_SAMPLE_RATE } from './audio/cassette';
@@ -11,8 +12,8 @@ import { samplesToWav } from '../../transfer/wav';
  * marker), throwing on tokenizer errors so a broken program is reported rather
  * than silently exported.
  */
-function programImage(source: string): Uint8Array {
-  const { bytes, errors } = tokenizeProgram(source);
+function programImage(source: string, variant: LocoBasicVariant): Uint8Array {
+  const { bytes, errors } = tokenizeProgram(source, variant);
   const fatal = fatalErrors(errors);
   if (fatal.length > 0) {
     throw new Error(
@@ -32,45 +33,61 @@ const octet = (bytes: Uint8Array) =>
  * program), a `.cdt` tape image (the TZX-derived firmware tape) and a cassette
  * `.wav`. None carries memory blocks yet - the CPC gains its block editor in a
  * later stage - so all three export the BASIC program only.
+ *
+ * Built per dialect: the three container formats are byte-identical on the 464
+ * and the 6128, so only the target ids and the BASIC variant the source is
+ * tokenized against differ.
  */
-export const cpc464BuildTargets: BuildTarget[] = [
-  {
-    id: 'cpc464-bas',
-    label: 'Export .bas (AMSDOS)',
-    fileExtension: 'bas',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.bas`,
-          blob: octet(buildBasFile(programImage(source), programName)),
-        },
-      ]),
-  },
-  {
-    id: 'cpc464-cdt',
-    label: 'Export .cdt tape',
-    fileExtension: 'cdt',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.cdt`,
-          blob: octet(buildCdt(programImage(source), programName)),
-        },
-      ]),
-  },
-  {
-    id: 'cpc464-wav',
-    label: 'Export cassette .wav',
-    fileExtension: 'wav',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.wav`,
-          blob: samplesToWav(
-            buildCassetteSamples(source, programName),
-            CASSETTE_SAMPLE_RATE,
-          ),
-        },
-      ]),
-  },
-];
+export function locoBuildTargets(
+  dialectId: string,
+  variant: LocoBasicVariant,
+): BuildTarget[] {
+  return [
+    {
+      id: `${dialectId}-bas`,
+      label: 'Export .bas (AMSDOS)',
+      fileExtension: 'bas',
+      build: (source, { programName }) =>
+        Promise.resolve([
+          {
+            fileName: `${programName.toLowerCase()}.bas`,
+            blob: octet(
+              buildBasFile(programImage(source, variant), programName),
+            ),
+          },
+        ]),
+    },
+    {
+      id: `${dialectId}-cdt`,
+      label: 'Export .cdt tape',
+      fileExtension: 'cdt',
+      build: (source, { programName }) =>
+        Promise.resolve([
+          {
+            fileName: `${programName.toLowerCase()}.cdt`,
+            blob: octet(buildCdt(programImage(source, variant), programName)),
+          },
+        ]),
+    },
+    {
+      id: `${dialectId}-wav`,
+      label: 'Export cassette .wav',
+      fileExtension: 'wav',
+      build: (source, { programName }) =>
+        Promise.resolve([
+          {
+            fileName: `${programName.toLowerCase()}.wav`,
+            blob: samplesToWav(
+              buildCassetteSamples(source, programName, false, variant),
+              CASSETTE_SAMPLE_RATE,
+            ),
+          },
+        ]),
+    },
+  ];
+}
+
+export const cpc464BuildTargets: BuildTarget[] = locoBuildTargets(
+  'cpc464',
+  'basic10',
+);

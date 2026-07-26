@@ -6,16 +6,25 @@ import type { LocoBasicVariant } from './keywords';
  * and BASIC 1.1 (6128) workspaces sit at different addresses, so the cpc6128
  * dialect supplies its own table through the same readers rather than new code.
  *
- * The BASIC 1.0 addresses were pinned against the genuine 464 ROM in the
- * emulator (the Stage 2 approach): a program that assigns/errors is injected and
- * RUN, then the workspace words that move are read back. `varStart`/`arrStart`/
- * `arrEnd` are the same pointers Stage 2's `loadProgram` patches; `freeTop`,
- * `errCode` and `errLine` were located by diffing a clean run against errored
- * runs and correlating with `PRINT FRE(0)` / the printed error line.
+ * Both tables were pinned against the genuine ROM in the emulator rather than
+ * quoted: a program that assigns/errors is injected and RUN, then the workspace
+ * words that move are read back. `progEnd`/`varStart`/`arrStart`/`arrEnd` are
+ * the pointers `loadProgram` patches, and were confirmed by *typing* lines into
+ * the booted firmware and watching which four words the ROM itself advanced;
+ * `freeTop`, `errCode` and `errLine` were located by diffing a clean run against
+ * errored runs and correlating with `PRINT FRE(0)` / the printed error line.
+ *
+ * BASIC 1.1's workspace sits lower than 1.0's, but by a different amount for
+ * each pointer, so no address here is derived from another machine's.
  */
 export interface LocoSysVars {
   /** First byte of the BASIC program area (tokenized lines from here up). */
   programStart: number;
+  /**
+   * LE word: first byte past the tokenized program (past its zero-length
+   * terminator). Equal to {@link varStart} until variables are created.
+   */
+  progEnd: number;
   /** LE word: start of the simple (scalar) variables area. */
   varStart: number;
   /** LE word: start of the arrays area (== end of the simple variables). */
@@ -47,6 +56,7 @@ export interface LocoSysVars {
 /** BASIC 1.0 workspace (Amstrad CPC 464), verified against the real ROM. */
 const BASIC_10: LocoSysVars = {
   programStart: 0x0170,
+  progEnd: 0xae83,
   varStart: 0xae85,
   arrStart: 0xae87,
   arrEnd: 0xae89,
@@ -56,15 +66,29 @@ const BASIC_10: LocoSysVars = {
   curLinePtr: 0xae36,
 };
 
+/**
+ * BASIC 1.1 workspace (Amstrad CPC 6128), verified against the real ROM the
+ * same way. The whole workspace sits lower than 1.0's but NOT by a single
+ * offset - the pointer block moves by &1D, `errCode` by &1A, `errLine` by &22
+ * and `curLinePtr` by &19 - so every address here was measured, none derived.
+ */
+const BASIC_11: LocoSysVars = {
+  programStart: 0x0170,
+  progEnd: 0xae66,
+  varStart: 0xae68,
+  arrStart: 0xae6a,
+  arrEnd: 0xae6c,
+  freeTop: 0xae5e,
+  errCode: 0xad90,
+  errLine: 0xb0a0,
+  curLinePtr: 0xae1d,
+};
+
 export function locoSysVars(variant: LocoBasicVariant): LocoSysVars {
   switch (variant) {
     case 'basic10':
       return BASIC_10;
     case 'basic11':
-      // The 6128's BASIC 1.1 workspace sits at different addresses; the cpc6128
-      // stage (docs/contributing/dialect-plans/cpc6128.md) pins them against
-      // that ROM and fills this branch in. Until then the 6128 machine isn't
-      // wired to these readers, so this stays a throwing stub.
-      throw new Error('cpc6128: BASIC 1.1 sysvars not implemented');
+      return BASIC_11;
   }
 }

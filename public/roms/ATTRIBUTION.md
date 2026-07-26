@@ -109,13 +109,22 @@ issue — the IDE also supports supplying your own ROM image at runtime.
 
 # Amstrad CPC ROM attribution
 
-`cpc/cpc464.rom` is the 32K Amstrad CPC 464 firmware image, formed by
-concatenating the two standard 16K halves: the lower ROM (the CPC 464
-OS/firmware, CRC32 `815752df`) followed by the upper ROM (Locomotive BASIC 1.0,
-CRC32 `7d9a3bac`). As the machine's own boot banner states, it is
-**copyright © 1984 Amstrad Consumer Electronics plc and Locomotive Software
-Ltd** — the two rights holders are distinct, and the copyright notice inside
-the image is unaltered here.
+Two 32K firmware images ship here, each formed by concatenating that machine's
+two standard 16K halves — the lower ROM (the OS/firmware) followed by the upper
+ROM (Locomotive BASIC):
+
+- `cpc/cpc464.rom` — the Amstrad CPC 464: lower ROM CRC32 `815752df`, upper ROM
+  (Locomotive BASIC 1.0) CRC32 `7d9a3bac`. As the machine's own boot banner
+  states, it is **copyright © 1984 Amstrad Consumer Electronics plc and
+  Locomotive Software Ltd**.
+- `cpc/cpc6128.rom` — the Amstrad CPC 6128: lower ROM (OS 2.x) CRC32
+  `0219bb74`, upper ROM (Locomotive BASIC 1.1) CRC32 `ca6af63d`. Its banner
+  states **copyright © 1985 Amstrad Consumer Electronics plc and Locomotive
+  Software Ltd**. The AMSDOS ROM is not included: the IDE runs the 6128
+  tape-only, and the machine boots to BASIC without it.
+
+In both images the two rights holders are distinct, and the copyright notice
+inside the image is unaltered here.
 
 The licensing is not a single blanket grant, so it is worth stating precisely:
 
@@ -141,10 +150,10 @@ The licensing is not a single blanket grant, so it is worth stating precisely:
 This combined Amstrad-plus-Locomotive basis is how the long-running CPC
 emulators (CPCemu, WinAPE, Arnold, Caprice32, JavaCPC) ship these images;
 CPCemu's documentation, for example, credits distribution permission from both
-Amstrad (for BASIC) and Locomotive (for the firmware). The image is included
-here, unmodified and with its copyright notice intact, on that same basis. (The
-IDE also supports supplying your own ROM image at runtime, so the bundled copy
-can be removed without disabling the feature.)
+Amstrad (for BASIC) and Locomotive (for the firmware). Both images are included
+here, unmodified and with their copyright notices intact, on that same basis.
+(The IDE also supports supplying your own ROM image at runtime, so the bundled
+copies can be removed without disabling the feature.)
 
-If you are a rights holder (Amstrad or Locomotive Software) and want this file
-removed, please open an issue and it will be taken out.
+If you are a rights holder (Amstrad or Locomotive Software) and want these files
+removed, please open an issue and they will be taken out.
