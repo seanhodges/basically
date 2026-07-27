@@ -1,5 +1,10 @@
 import OpenAI from 'openai';
-import type { ProviderBackend, StreamHandle, StreamOptions } from './types';
+import type {
+  ProviderBackend,
+  StopReason,
+  StreamHandle,
+  StreamOptions,
+} from './types';
 
 /**
  * Stream a chat completion from the OpenAI API directly from the browser.
@@ -24,14 +29,18 @@ function streamChat(
       { signal: controller.signal },
     );
     let text = '';
+    let stop: StopReason = 'complete';
     for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content ?? '';
+      const choice = chunk.choices[0];
+      const delta = choice?.delta?.content ?? '';
       if (delta) {
         text += delta;
         onText(delta);
       }
+      if (choice?.finish_reason === 'length') stop = 'truncated';
+      else if (choice?.finish_reason === 'content_filter') stop = 'refused';
     }
-    return text;
+    return { text, stop };
   })();
 
   return {

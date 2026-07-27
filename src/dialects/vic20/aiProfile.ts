@@ -38,7 +38,6 @@ PERFORMANCE TRICKS
 - Remember the 3583-byte budget: prefer compact code, reuse variables, and avoid large DIM arrays.
 
 OUTPUT FORMAT
-- Respond with the COMPLETE program (not a diff) in a single \`\`\`basic fenced block, unless the user explicitly asks for a fragment to merge.
 - Write each line flush-left: the line number is the FIRST character of the line (column 0), then a single space, then the statement. Do NOT indent or zero-pad line numbers - the tokeniser needs a digit as the first character of the line.
 - After the code, add at most 3 short sentences: controls and anything to verify.`;
 

@@ -2,14 +2,70 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEditorFix,
   buildRunFix,
+  buildSystemPrompt,
   FORMAT_RETRY_MESSAGE,
+  RETURNING_CODE_RULES,
 } from './promptBuilder';
+import { dialects } from '../dialects/registry';
 import type { MachineReport } from '../dialects/types';
 
 describe('FORMAT_RETRY_MESSAGE', () => {
-  it('asks for the program in a basic fenced block', () => {
-    expect(FORMAT_RETRY_MESSAGE).toContain('```basic');
-    expect(FORMAT_RETRY_MESSAGE.toLowerCase()).toContain('fenced');
+  it('asks for a fenced code block', () => {
+    expect(FORMAT_RETRY_MESSAGE.toLowerCase()).toContain('fenced code block');
+  });
+
+  // It must not re-impose "the complete program": that would contradict the
+  // shared rules, which ask for the smallest correct edit.
+  it('does not demand a complete program', () => {
+    expect(FORMAT_RETRY_MESSAGE.toLowerCase()).not.toContain('complete');
+  });
+
+  it('does not pin a fence tag the rules may not want', () => {
+    expect(FORMAT_RETRY_MESSAGE).not.toContain('```');
+  });
+});
+
+describe('RETURNING_CODE_RULES', () => {
+  it('names both fence tags and the delete convention', () => {
+    expect(RETURNING_CODE_RULES).toContain('```basic-partial');
+    expect(RETURNING_CODE_RULES).toContain('```basic ');
+    expect(RETURNING_CODE_RULES).toContain('deletes that line');
+  });
+});
+
+describe('buildSystemPrompt', () => {
+  // Nothing referenced aiProfile in any test before this change, so the 13
+  // prompts were entirely unverified.
+  it('gives every registered dialect the shared rules exactly once', () => {
+    expect(dialects.length).toBeGreaterThan(0);
+    for (const dialect of dialects) {
+      const prompt = buildSystemPrompt(dialect);
+      expect(prompt.split(RETURNING_CODE_RULES).length - 1).toBe(1);
+    }
+  });
+
+  it('keeps each dialect its own machine-specific rules', () => {
+    for (const dialect of dialects) {
+      const prompt = buildSystemPrompt(dialect);
+      expect(prompt).toContain(dialect.aiProfile.systemPrompt);
+      expect(prompt).toContain('OUTPUT FORMAT');
+    }
+  });
+
+  // The old per-dialect bullet forbade fragments outright; leaving a copy
+  // behind anywhere would contradict the shared rules.
+  it('leaves no dialect telling the model to always send the whole program', () => {
+    for (const dialect of dialects) {
+      expect(dialect.aiProfile.systemPrompt).not.toContain(
+        'Respond with the COMPLETE program',
+      );
+    }
+  });
+
+  it('is byte-stable for a given dialect, so the cached prefix holds', () => {
+    for (const dialect of dialects) {
+      expect(buildSystemPrompt(dialect)).toBe(buildSystemPrompt(dialect));
+    }
   });
 });
 

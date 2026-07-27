@@ -1,5 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ProviderBackend, StreamHandle, StreamOptions } from './types';
+import type {
+  ProviderBackend,
+  StopReason,
+  StreamHandle,
+  StreamOptions,
+} from './types';
 
 /**
  * Stream a chat completion from the Claude API directly from the browser.
@@ -17,6 +22,15 @@ function streamChat(
     thinking: { type: 'adaptive' },
     system,
     messages,
+    // Cache the conversation prefix. Every turn re-sends the system prompt and
+    // the whole thread, and that prefix is already byte-stable: the system
+    // prompt is a per-dialect constant, there are no tools, and history is
+    // append-only. The top-level form puts the breakpoint at the end of the
+    // whole prefix - deliberately NOT on the system prompt alone, which is
+    // under the model's minimum cacheable size on most dialects and would
+    // silently never cache. Default 5-minute TTL: a read costs about a tenth
+    // of an input token against a 1.25x write, so it pays from the second turn.
+    cache_control: { type: 'ephemeral' },
   });
 
   stream.on('text', (delta) => onText(delta));
@@ -26,7 +40,17 @@ function streamChat(
     for (const block of message.content) {
       if (block.type === 'text') text += block.text;
     }
-    return text;
+    // Both of these come back as ordinary successful responses. `max_tokens`
+    // means the answer stops mid-thought - and the output budget is shared
+    // with adaptive thinking, so a long listing can hit it; `refusal` returns
+    // no content at all, which would otherwise look like an empty reply.
+    const stop: StopReason =
+      message.stop_reason === 'max_tokens'
+        ? 'truncated'
+        : message.stop_reason === 'refusal'
+          ? 'refused'
+          : 'complete';
+    return { text, stop };
   });
 
   return {

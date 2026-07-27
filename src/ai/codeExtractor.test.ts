@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { extractCodeBlocks, mergeBasicLines } from './codeExtractor';
+import {
+  classifyBlock,
+  extractCodeBlocks,
+  mergeBasicLines,
+  mergePlan,
+  type CodeBlock,
+} from './codeExtractor';
 import { bytesToBase64 } from '../storage/vfs/base64';
+
+/** A source listing of `count` lines numbered 10, 20, 30… */
+const listing = (count: number, from = 1) =>
+  Array.from({ length: count }, (_, i) => `${(from + i) * 10} PRINT ${i}`).join(
+    '\n',
+  ) + '\n';
+
+const block = (code: string, declared?: 'full' | 'partial'): CodeBlock => ({
+  code,
+  language: 'basic',
+  ...(declared ? { declared } : {}),
+});
 
 const b64 = (bytes: number[]) => bytesToBase64(Uint8Array.from(bytes));
 
@@ -23,6 +41,82 @@ describe('extractCodeBlocks', () => {
   it('extracts multiple blocks', () => {
     const md = '```basic\n10 CLS\n```\ntext\n```basic\n20 CLS\n```';
     expect(extractCodeBlocks(md).length).toBe(2);
+  });
+
+  describe('fence tag declares the kind', () => {
+    const declaredOf = (md: string) => extractCodeBlocks(md)[0]!.declared;
+
+    it('reads ```basic as a whole listing', () => {
+      expect(declaredOf('```basic\n10 CLS\n```')).toBe('full');
+    });
+
+    it('reads ```basic-partial as a fragment', () => {
+      expect(declaredOf('```basic-partial\n20 CLS\n```')).toBe('partial');
+    });
+
+    it('declares nothing for an untagged fence', () => {
+      // The `basic` language default must not read as a declaration.
+      const blocks = extractCodeBlocks('```\n10 CLS\n```');
+      expect(blocks[0]!.language).toBe('basic');
+      expect(blocks[0]!.declared).toBeUndefined();
+    });
+
+    it('declares nothing for an unrelated tag', () => {
+      expect(declaredOf('```text\n10 CLS\n```')).toBeUndefined();
+    });
+  });
+});
+
+describe('classifyBlock', () => {
+  it('calls anything a whole listing when the editor is empty', () => {
+    expect(classifyBlock(block('10 CLS\n', 'partial'), '')).toBe('full');
+  });
+
+  it('recognises a fragment that starts after the program does', () => {
+    const source = listing(40);
+    expect(classifyBlock(block('60 PRINT "X"\n'), source)).toBe('partial');
+  });
+
+  it('recognises a listing that starts at the top and covers the program', () => {
+    const source = listing(40);
+    expect(classifyBlock(block(source), source)).toBe('full');
+  });
+
+  // The case a subset test gets wrong: a rewrite that shrinks 40 lines to 12
+  // has a line-number set that is a subset of the program's, exactly like a
+  // genuine fragment. Merging it would resurrect all 28 dropped lines.
+  it('does not call a shrinking full rewrite a fragment', () => {
+    const source = listing(40);
+    const rewrite = listing(12);
+    expect(classifyBlock(block(rewrite, 'full'), source)).toBe('full');
+    // Even undeclared, the heuristic must not assert `partial` here.
+    expect(classifyBlock(block(rewrite), source)).not.toBe('partial');
+  });
+
+  it('lets the declaration decide when the line numbers are inconclusive', () => {
+    const source = listing(40);
+    const rewrite = listing(12);
+    expect(classifyBlock(block(rewrite, 'partial'), source)).toBe('partial');
+    expect(classifyBlock(block(rewrite, 'full'), source)).toBe('full');
+  });
+
+  it('resolves to unknown when a declaration contradicts the line numbers', () => {
+    const source = listing(40);
+    // Claims to be the whole program, but has no beginning - the case that
+    // wipes the program if Replace is offered.
+    expect(classifyBlock(block('60 PRINT "X"\n', 'full'), source)).toBe(
+      'unknown',
+    );
+    // Claims to be a fragment, but is plainly the whole listing.
+    expect(classifyBlock(block(source, 'partial'), source)).toBe('unknown');
+  });
+
+  it('resolves to unknown with no declaration and inconclusive numbers', () => {
+    expect(classifyBlock(block(listing(12)), listing(40))).toBe('unknown');
+  });
+
+  it('resolves to unknown when the block has no numbered lines', () => {
+    expect(classifyBlock(block('PRINT "HI"\n'), listing(40))).toBe('unknown');
   });
 });
 
@@ -75,5 +169,106 @@ describe('mergeBasicLines', () => {
         [bin1a, '1 CLS', '2 STOP'].join('\n') + '\n',
       );
     });
+  });
+
+  describe('deleting with a bare line number', () => {
+    const existing = '10 CLS\n20 PAUSE 50\n30 STOP\n';
+
+    it('removes the line when merging a fragment', () => {
+      expect(mergeBasicLines(existing, '20\n', { allowDeletes: true })).toBe(
+        '10 CLS\n30 STOP\n',
+      );
+    });
+
+    it('leaves every other line untouched', () => {
+      expect(
+        mergeBasicLines(existing, '20\n30 GOTO 10\n', { allowDeletes: true }),
+      ).toBe('10 CLS\n30 GOTO 10\n');
+    });
+
+    it('does not delete from a whole listing', () => {
+      // A stray bare number in a full listing must not destroy a line.
+      const merged = mergeBasicLines(existing, '20\n');
+      expect(merged).toContain('20');
+      expect(merged.split('\n').filter(Boolean).length).toBe(3);
+    });
+
+    it('ignores a delete for a line that is not there', () => {
+      expect(mergeBasicLines(existing, '99\n', { allowDeletes: true })).toBe(
+        existing,
+      );
+    });
+
+    it('leaves an empty program when every line is deleted', () => {
+      expect(
+        mergeBasicLines(existing, '10\n20\n30\n', { allowDeletes: true }),
+      ).toBe('');
+    });
+
+    it('cannot reach a #BIN record', () => {
+      const bin1 = `#BIN ${b64([0x00, 0x01, 0x03, 0x00, 0xea, 0xaf, 0x76])}`;
+      const withBin = [bin1, '1 CLS', '2 STOP'].join('\n') + '\n';
+      // Line 1 is both a directive's embedded number and a text line; the
+      // delete takes the text line and leaves the record alone.
+      expect(mergeBasicLines(withBin, '1\n', { allowDeletes: true })).toBe(
+        [bin1, '2 STOP'].join('\n') + '\n',
+      );
+    });
+  });
+});
+
+describe('mergePlan', () => {
+  const existing = '10 CLS\n20 PAUSE 50\n30 STOP\n';
+
+  it('reports each kind of change', () => {
+    const plan = mergePlan(existing, '20 PAUSE 10\n25 BEEP\n30\n', {
+      allowDeletes: true,
+    });
+    expect(plan).toEqual([
+      { kind: 'context', lineNo: 10, text: '10 CLS', before: '10 CLS' },
+      {
+        kind: 'changed',
+        lineNo: 20,
+        text: '20 PAUSE 10',
+        before: '20 PAUSE 50',
+      },
+      { kind: 'added', lineNo: 25, text: '25 BEEP' },
+      { kind: 'removed', lineNo: 30, before: '30 STOP' },
+    ]);
+  });
+
+  it('reports no changes for a fragment that changes nothing', () => {
+    const plan = mergePlan(existing, '20 PAUSE 50\n', { allowDeletes: true });
+    expect(plan.every((row) => row.kind === 'context')).toBe(true);
+  });
+
+  it('shows #BIN records as context and never as changes', () => {
+    const bin0 = `#BIN ${b64([0x00, 0x00, 0x03, 0x00, 0xea, 0xcd, 0x76])}`;
+    const withBin = [bin0, '2 CLS'].join('\n') + '\n';
+    const plan = mergePlan(withBin, '3 STOP\n', { allowDeletes: true });
+    const binRows = plan.filter((row) => row.text === bin0);
+    expect(binRows).toEqual([{ kind: 'context', lineNo: 0, text: bin0 }]);
+  });
+
+  // The preview is built from the plan, so this pins the two together: if
+  // mergeBasicLines is ever reimplemented independently they must still agree.
+  it('reproduces the merged text when applied', () => {
+    const cases: Array<[string, string]> = [
+      [existing, '20 PAUSE 10\n25 BEEP\n30\n'],
+      [existing, '5 REM TOP\n'],
+      [existing, '10\n20\n30\n'],
+      ['', '10 CLS\n'],
+      [existing, ''],
+    ];
+    for (const [before, fragment] of cases) {
+      const rows = mergePlan(before, fragment, { allowDeletes: true });
+      const applied = rows
+        .filter((row) => row.kind !== 'removed')
+        .map((row) => row.text!);
+      const expected = applied.length === 0 ? '' : applied.join('\n') + '\n';
+      expect(mergeBasicLines(before, fragment, { allowDeletes: true })).toBe(
+        expected,
+      );
+    }
   });
 });

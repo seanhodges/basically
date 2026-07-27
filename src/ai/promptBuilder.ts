@@ -15,19 +15,36 @@ export interface PendingFix {
 /**
  * Sent automatically as a follow-up turn when the assistant returns an empty
  * reply, to nudge it into the required format. Dialect-agnostic on purpose: the
- * per-dialect OUTPUT FORMAT rules live in the (cached) system prompt, so this
- * only needs to remind the model to actually produce the fenced program.
+ * OUTPUT FORMAT and RETURNING CODE rules live in the (cached) system prompt, so
+ * this only needs to remind the model to actually produce the fenced block.
  */
 export const FORMAT_RETRY_MESSAGE =
-  'Your previous reply was empty. Please resend the complete program in a ' +
-  'single ```basic fenced code block, exactly as instructed.';
+  'Your previous reply was empty. Please resend your answer with the code in ' +
+  'a single fenced code block, tagged exactly as instructed.';
+
+/**
+ * How much code to send, and how to label it. Machine-independent by design:
+ * the choice between a fragment and a whole listing must not vary by which
+ * machine happens to be selected, so it lives here rather than in thirteen
+ * per-dialect copies that would drift. Each dialect's own OUTPUT FORMAT section
+ * still owns how a line is written, which genuinely does differ per machine.
+ *
+ * A single constant, so the composed prompt stays byte-stable per dialect -
+ * which is what prefix caching needs.
+ */
+export const RETURNING_CODE_RULES = `RETURNING CODE
+- Send the SMALLEST correct edit. When you are changing an existing program and your change affects notably fewer lines than the program contains, return ONLY the lines you add or change, in a single \`\`\`basic-partial fenced code block. Do NOT repeat lines you are not touching.
+- Return the COMPLETE program in a single \`\`\`basic fenced code block when you are writing a new program, or when your change rewrites most of an existing one.
+- The fence tag is how the editor knows which of the two you sent, so it must match what you actually wrote: \`\`\`basic-partial for changed lines only, \`\`\`basic for a whole program. Getting it wrong makes the editor stop and ask the user to sort it out.
+- Never mix the two in one block: a block is either the whole program or only the lines that change.
+- In a \`\`\`basic-partial block, a line consisting of ONLY a line number deletes that line - exactly as you would delete it at the keyboard. That is the only way to remove a line, and the only reason to write a bare line number.`;
 
 /**
  * The system prompt stays byte-stable per dialect (good for prompt caching);
  * volatile context - current program, lint errors - rides in the user turn.
  */
 export function buildSystemPrompt(dialect: Dialect): string {
-  return dialect.aiProfile.systemPrompt;
+  return `${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}`;
 }
 
 export function buildUserMessage(

@@ -18,11 +18,10 @@ THE DIALECT - STRICT RULES
 - Strings exist (e.g. PRINT "HELLO"). String variables are limited; prefer numeric work and literal PRINT strings.
 - The ZX80's "integral functions" are available: RND, PEEK, USR, ABS, CODE, CHR$, STR$, TL$ (tail of a string). Type them out letter by letter and ALWAYS use parentheses - e.g. PEEK(16384), ABS(0-X), CODE(A$), CHR$(N), TL$(A$), and RND(N) (on the ZX80, RND takes an argument). They have no keyword token; spelling them out is exactly how the real ZX80 works.
 - Block graphics in strings are written as unicode blocks (▌▄▘█▒ etc.) or backslash escapes naming the left/right cell halves (\\' . = top-left, \\:: = full block, \\!! = grey, \\|| = inverse grey). Inverse video is %c (%A = inverse A). "" inside a string is an embedded quote; \\{NN} stores any raw byte as two hex digits - prefer the named forms when writing code.
-- Lines reading "#BIN <base64>" are opaque machine-code blocks imported from a .O file. NEVER edit, move, renumber or delete them, and NEVER invent new ones - when returning the complete program, repeat each #BIN line verbatim in its original position.
+- Lines reading "#BIN <base64>" are opaque machine-code blocks imported from a .O file. NEVER edit, move, renumber or delete them, and NEVER invent new ones - when returning a COMPLETE program, repeat each #BIN line verbatim in its original position; when returning changed lines only, omit them entirely - the editor preserves them for you.
 - Keep line numbers in steps of 10.
 
 OUTPUT FORMAT
-- Respond with the COMPLETE program (not a diff) in a single \`\`\`basic fenced block, unless the user explicitly asks for a fragment to merge.
 - Write each line flush-left: the line number is the FIRST character of the line, with no leading or aligning spaces, then a single space then the statement. Do NOT right-align or pad the numbers, and do NOT indent loops.
 - After the code, add at most 3 short sentences: controls and anything to verify.`;
 

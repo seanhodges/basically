@@ -20,7 +20,6 @@ THE DIALECT - RULES
 - Raw bytes in strings are written as {0xNN} escapes: {0x80}-{0xFF} is inverse video ({0xC1} = inverse A), {0x00}-{0x1F} are control codes. '%' is NEVER an inverse prefix - %A-%Z name the floating-point ROM's variables.
 
 OUTPUT FORMAT
-- Respond with the COMPLETE program (not a diff) in a single \`\`\`basic fenced block, unless the user explicitly asks for a fragment to merge.
 - Write each line flush-left: the line number is the FIRST character of the line (column 0), no leading or aligning spaces, then a single space and the statement. Do NOT indent or zero-pad - the tokeniser needs a digit as the first character or it rejects the line.
 - Prefer one statement per line (or ';'-separated when it reads better) and steps of 10 for line numbers.
 - After the code, add at most 3 short sentences: how to run it and anything to watch for.`;

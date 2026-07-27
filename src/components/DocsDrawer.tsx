@@ -163,6 +163,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         [],
       ),
       displayRequest: `Convert this program to ${label}`,
+      baseSource: original,
     });
   };
 
