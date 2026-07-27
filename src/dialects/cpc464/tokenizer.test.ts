@@ -263,6 +263,21 @@ describe('cpc464 tokenizer', () => {
     expect(hasFatalErrors(errors)).toBe(false);
     expect(bytes.length).toBeGreaterThan(2);
   });
+
+  it('flags a bad statement after a colon', () => {
+    // ':' re-arms the statement check, so every statement on the line is
+    // checked - not just the first.
+    const { bytes, errors } = tokenizeProgram('10 PRINT 1:SIN(1)');
+    expect(errors.length).toBe(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toContain('SIN');
+    expect(errors[0]!.endColumn).toBeGreaterThan(errors[0]!.column!);
+    expect(bytes.length).toBeGreaterThan(2);
+  });
+
+  it('accepts a valid multi-statement line', () => {
+    expect(tokenizeProgram('10 CLS:PRINT 1:GOTO 10').errors).toEqual([]);
+  });
 });
 
 describe('cpc464 detokenizer imports', () => {

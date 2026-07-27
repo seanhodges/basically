@@ -201,6 +201,22 @@ describe('tokenizeProgram #BIN directives', () => {
     expect(errors[0]!.message).toMatch(/too short/);
   });
 
+  // Columns are offsets into the physical editor line, so an indented line's
+  // diagnostics owe the indent width.
+  it('offsets diagnostic columns by a line indent', () => {
+    expect(tokenizeProgram('10 X=5\n').errors[0]).toMatchObject({ column: 3 });
+    expect(tokenizeProgram('   10 X=5\n').errors[0]).toMatchObject({
+      column: 6,
+    });
+    expect(tokenizeProgram('   PRINT 1\n').errors[0]).toMatchObject({
+      column: 3,
+      message: 'Missing line number',
+    });
+    expect(tokenizeProgram('  #BIN not-base64!\n').errors[0]).toMatchObject({
+      column: 7,
+    });
+  });
+
   it('rejects records whose length field disagrees with the payload', () => {
     const rec = record(1, [0xea, 0x00]);
     rec[2] = 9; // lie about the length

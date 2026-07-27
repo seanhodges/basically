@@ -83,12 +83,17 @@ export function tokenizeProgram(
     const text = raw.trim();
     if (text === '') continue;
     const editorLine = li + 1;
+    // Columns are offsets into the *physical* editor line (the linter adds them
+    // to the line start), but everything below is measured against the trimmed
+    // text - so every column owes the indent width. Trailing space costs
+    // nothing, only the leading run matters.
+    const lead = raw.length - raw.trimStart().length;
 
     const m = /^(\d+)\s?/.exec(text);
     if (!m) {
       errors.push({
         line: editorLine,
-        column: 0,
+        column: lead,
         message: 'Missing line number',
       });
       continue;
@@ -101,7 +106,7 @@ export function tokenizeProgram(
     if (lineNo > 16383) {
       errors.push({
         line: editorLine,
-        column: 0,
+        column: lead,
         message: `Line number ${lineNo} out of range 0-16383`,
       });
       continue;
@@ -109,7 +114,7 @@ export function tokenizeProgram(
     if (lineNo < 1 || lineNo > 9999) {
       errors.push({
         line: editorLine,
-        column: 0,
+        column: lead,
         fatal: false,
         message: `Line number ${lineNo} is outside the normal 1-9999 range`,
       });
@@ -117,7 +122,7 @@ export function tokenizeProgram(
     if (lineNo <= prevLineNo) {
       errors.push({
         line: editorLine,
-        column: 0,
+        column: lead,
         message: `Line number ${lineNo} not greater than previous line ${prevLineNo}`,
       });
       continue;
@@ -127,7 +132,7 @@ export function tokenizeProgram(
     const tokens = tokenizeBody(
       body,
       editorLine,
-      m[0].length,
+      lead + m[0].length,
       errors,
       tables,
       udgLast,
@@ -198,6 +203,14 @@ function tokenizeBody(
   const upper = body.toUpperCase();
   let i = 0;
   let firstWordChecked = false;
+  // Whether the cursor sits at a statement opener. Distinct from
+  // `firstWordChecked`, which says only "this line has produced its first
+  // command keyword" and stays latched: it drives the *fatal* first-word check
+  // and the line-framing rules below, so it must not be re-armed. This flag is
+  // re-armed at every ':' and after THEN, and drives the non-fatal
+  // per-statement lint - which is gated on `firstWordChecked` throughout, so
+  // the first statement on a line keeps being reported the old way, once.
+  let statementStart = true;
   let prevSignificant = '';
   // Track what a line emits before any statement keyword, for the trailing
   // "no statement keyword" check. A line whose only content is leading
@@ -221,6 +234,28 @@ function tokenizeBody(
   const fail = (message: string, at: number): null => {
     errors.push({ line: editorLine, column: colOffset + at, message });
     return null;
+  };
+
+  // A statement after the first that doesn't open the way the ROM requires.
+  // Non-fatal: unlike the first-word check (which also decides whether the line
+  // can be framed at all), the bytes here are unambiguous - the machine would
+  // store them and object only at RUN - so this keeps its squiggle without
+  // blocking the image or hardware export. Spectrum BASIC has no implied LET,
+  // so a bare name is as wrong as anything else; there is no assignment-shape
+  // escape hatch to check for.
+  const flagStatement = (
+    at: number,
+    end: number,
+    got: string,
+    hint = '',
+  ): void => {
+    errors.push({
+      line: editorLine,
+      column: colOffset + at,
+      endColumn: colOffset + end,
+      message: `Statement must start with a command keyword (got ${got})${hint}`,
+      fatal: false,
+    });
   };
 
   // A `\t`/`\u` UDG escape on a dialect that reuses 0xA3/0xA4 as tokens (the
@@ -290,10 +325,15 @@ function tokenizeBody(
       continue;
     }
 
-    // A leading ':' is an empty statement (real tape programs contain them);
-    // the command-keyword check applies to the next word instead.
-    if (ch === ':' && !firstWordChecked) {
+    // ':' separates statements, and a run of them (or a leading or trailing
+    // one) is just an empty statement - real tape programs contain those, so
+    // re-arming without complaint is the whole handling. Byte-identical to the
+    // generic character path this used to fall through to once the first word
+    // had been checked: the charset maps ':' to 0x3a and records it as the
+    // previous significant character, exactly as here.
+    if (ch === ':') {
       out.push(0x3a);
+      statementStart = true;
       prevSignificant = ':';
       i++;
       continue;
@@ -302,6 +342,8 @@ function tokenizeBody(
     // Strings: "" inside a string stores a doubled quote.
     if (ch === '"') {
       if (!firstWordChecked) leadingOtherContent = true;
+      else if (statementStart) flagStatement(i, i + 1, '"');
+      statementStart = false;
       out.push(QUOTE);
       i++;
       let closed = false;
@@ -347,6 +389,8 @@ function tokenizeBody(
           );
         }
         firstWordChecked = true;
+      } else if (statementStart && !statementKeywords.has(kw.canonical)) {
+        flagStatement(i, i + consumed, kw.word);
       }
 
       const token = canonicalToken.get(kw.canonical)!;
@@ -354,6 +398,11 @@ function tokenizeBody(
       i += consumed;
       prevSignificant = ' ';
       matched = true;
+      // THEN introduces a fresh statement (`IF a=1 THEN PRINT b`). It must be
+      // re-armed *after* the check above, or THEN - an operator, not a command
+      // - would flag itself. Every other keyword closes the opener. Matched on
+      // the canonical form so aliases like GOTO/GO TO resolve alike.
+      statementStart = kw.canonical === 'THEN';
 
       if (kw.canonical === 'REM') {
         // Rest of the line is literal text.
@@ -377,6 +426,7 @@ function tokenizeBody(
       awaitingDefFnParen = false;
       inDefFnParams = true;
       paramPending = false;
+      statementStart = false;
       prevSignificant = '(';
       i++;
       continue;
@@ -388,6 +438,7 @@ function tokenizeBody(
       }
       out.push(ch.charCodeAt(0));
       if (ch === ')') inDefFnParams = false;
+      statementStart = false;
       prevSignificant = ch;
       i++;
       continue;
@@ -403,6 +454,9 @@ function tokenizeBody(
       const override = parseFloatOverride(body, i);
       if (override) {
         if (!firstWordChecked) leadingOtherContent = true;
+        else if (statementStart)
+          flagStatement(i, override.end, body.slice(i, override.end));
+        statementStart = false;
         out.push(NUMBER_MARKER, ...override.bytes);
         i = override.end;
         prevSignificant = '0';
@@ -414,6 +468,10 @@ function tokenizeBody(
         continue;
       }
     }
+    // Deliberately leaves `statementStart` armed: a control escape carries
+    // bytes rather than opening a statement, so `PRINT 1:{INK 2}PRNT 2` still
+    // checks PRNT and `{INK 2}:{PAPER 6}` stays clean - the same reading the
+    // line-level `leadingControlEscape` rule already takes.
     const escape = escapeUnitAt(body, i);
     if (escape) {
       if (!firstWordChecked) leadingControlEscape = true;
@@ -429,6 +487,37 @@ function tokenizeBody(
         'Statement must start with a command keyword (e.g. LET, PRINT, IF…)',
         i,
       );
+    }
+
+    // Anything else opening a later statement: a bare name, a number, or a
+    // stray symbol. Sits below the guard above so the first statement on a line
+    // is never reported twice. A number is wrong here like any other: Spectrum
+    // BASIC has no `IF … THEN <line>` shorthand - the jump is `THEN GO TO n` -
+    // so THEN never legitimately introduces a bare line number.
+    if (statementStart) {
+      if (/[A-Za-z]/.test(ch)) {
+        let j = i;
+        while (j < body.length && IDENT.test(body[j]!)) j++;
+        // An assignment without LET is the likeliest real hit, and the rule is
+        // unobvious coming from a BASIC that implies it, so say so outright.
+        let k = j;
+        while (body[k] === ' ') k++;
+        flagStatement(
+          i,
+          j,
+          body.slice(i, j),
+          body[k] === '=' ? ' - ZX Spectrum BASIC needs LET to assign' : '',
+        );
+      } else if (/[0-9.]/.test(ch)) {
+        const numMatch = /^(\d+(\.\d*)?|\.\d+)(E[+-]?\d+)?/.exec(
+          upper.slice(i),
+        );
+        const len = numMatch && numMatch[0] !== '.' ? numMatch[0].length : 1;
+        flagStatement(i, i + len, body.slice(i, i + len));
+      } else {
+        flagStatement(i, i + 1, ch);
+      }
+      statementStart = false;
     }
 
     // Numeric literal not continuing an identifier.

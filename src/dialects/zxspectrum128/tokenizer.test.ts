@@ -68,4 +68,18 @@ describe('zxspectrum128 tokenizer', () => {
     expect(tokenizeProgram('20 PRINT 1\n10 PRINT 2\n').errors.length).toBe(1);
     expect(tokenizeProgram('99999 PRINT 1\n').errors.length).toBe(1);
   });
+
+  it('inherits the per-statement check for statements after the first', () => {
+    const { errors } = tokenizeProgram('10 PRINT 1: PRNT 2\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toContain('PRNT');
+  });
+
+  it('drives that check from the 128 keyword table, not the 48K one', () => {
+    // PLAY opens an inline statement fine here; on the 48K table, whose
+    // statement keywords omit it, the same line is flagged.
+    expect(tokenizeProgram('10 PRINT 1: PLAY "c"\n').errors).toEqual([]);
+    expect(tokenizeSpectrum('10 PRINT 1: PLAY "c"\n').errors).toHaveLength(1);
+  });
 });
