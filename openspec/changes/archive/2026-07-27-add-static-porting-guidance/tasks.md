@@ -40,7 +40,7 @@
       `substitutions: { keyword: string; note: string }[]` to `PortingFacts` in
       `types.ts`, documenting that substitutions are best-effort. Classify the
       new fields in the type's crosschecked/hand-authored doc block.
-- [ ] 4.2 Add the optional interpolatable address fields to `PortingFacts`
+- [x] 4.2 Add the optional interpolatable address fields to `PortingFacts`
       (screen base, program start), documented as optional because ZX80/ZX81
       have no screen region and the TRS-80 has no memory map at all.
 - [x] 4.3 Fill `portingNotes` and `substitutions` for all eight entries in
