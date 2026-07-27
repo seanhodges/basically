@@ -285,7 +285,7 @@ function convertWithAi() {
   const t = target.value;
   if (!t) return;
   window.parent.postMessage(
-    { type: CONVERT_MESSAGE, to: t.id, toLabel: t.label },
+    { type: CONVERT_MESSAGE, toId: t.id, toLabel: t.label },
     window.location.origin,
   );
 }
