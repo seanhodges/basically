@@ -73,7 +73,7 @@
 - [x] 6.2 Delete `COMPARE_EXPLAIN_MESSAGE`, `explainPorting()` and its listener
       branch from `src/components/DocsDrawer.tsx`, leaving `convertProgram`
       untouched.
-- [x] 6.3 Verify in the IDE drawer that "Convert my program to \<machine\>"
+- [x] 6.3 Verify in the IDE drawer that "Convert to \<machine\> using AI"
       still works and still opens AI settings when no key is configured.
 
 ## 7. Staleness guards

@@ -291,7 +291,7 @@ function convertWithAi() {
 
       <div v-if="embedded" class="cmp-ai">
         <button type="button" @click="convertWithAi">
-          Convert my program to {{ target.label }}
+          Convert to {{ target.label }} using AI
         </button>
       </div>
 

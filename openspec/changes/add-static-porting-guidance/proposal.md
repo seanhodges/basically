@@ -45,7 +45,7 @@ all, and silently produces different numbers.
   maintain grows with the number of machines, not with its square.
 - **BREAKING:** the "Explain porting with AI" action is removed. Its answer is
   now always present on the page, for every reader, without a key.
-- Unchanged: "Convert my program to \<machine\>" remains an AI action inside the
+- Unchanged: "Convert to \<machine\> using AI" remains an AI action inside the
   IDE, because it works on the user's own program rather than on documentation.
 
 ## Capabilities

@@ -95,12 +95,6 @@ export default withPwa(
           text: 'Language reference',
           items: [
             { text: 'Overview', link: '/reference/' },
-            { text: 'Compare dialects', link: '/reference/compare' },
-            // Each dialect page nests its hardware sub-page (screen,
-            // colour, graphics, sound, memory), its searchable escape-codes
-            // sub-page (the "embedded control codes & graphics" reference)
-            // and its file-formats sub-page. The BASIC dialects are listed
-            // alphabetically; the per-CPU assembly references stay at the end.
             {
               text: 'Atom BASIC',
               link: '/reference/atom',
@@ -198,10 +192,14 @@ export default withPwa(
                 { text: 'File formats', link: '/reference/zx81/formats' },
               ],
             },
-            // The assembler is per-CPU, not per-dialect, so machine-code
-            // blocks share one instruction reference per processor.
-            { text: 'Z80 assembly', link: '/reference/z80-assembly' },
-            { text: '6502 assembly', link: '/reference/6502-assembly' },
+            {
+            text: 'Assembly reference',
+            items: [
+              { text: 'Z80 assembly', link: '/reference/z80-assembly' },
+              { text: '6502 assembly', link: '/reference/6502-assembly' },
+              ],
+            },
+            { text: 'Porting guide', link: '/reference/compare' },
           ],
         },
         {
