@@ -193,10 +193,10 @@ export default withPwa(
               ],
             },
             {
-            text: 'Assembly reference',
-            items: [
-              { text: 'Z80 assembly', link: '/reference/z80-assembly' },
-              { text: '6502 assembly', link: '/reference/6502-assembly' },
+              text: 'Assembly reference',
+              items: [
+                { text: 'Z80 assembly', link: '/reference/z80-assembly' },
+                { text: '6502 assembly', link: '/reference/6502-assembly' },
               ],
             },
             { text: 'Porting guide', link: '/reference/compare' },

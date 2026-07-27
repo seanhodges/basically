@@ -45,12 +45,12 @@ page summarises what to change: the keywords you'll lose, gain, or that behave
 differently, the control codes that differ, and the language-rule and hardware
 differences between the two machines.
 
-The guide includes a feature to automatically port your program via the AI 
-assistant. In order to use this you must be viewing these docs inside the IDE 
+The guide includes a feature to automatically port your program via the AI
+assistant. In order to use this you must be viewing these docs inside the IDE
 with your program open, and AI must be configured in the settings.
 
-This guide and the automation act as a starting point. There will likely be 
-performance considerations, hardware inputs and other things still to address 
+This guide and the automation act as a starting point. There will likely be
+performance considerations, hardware inputs and other things still to address
 after porting is complete.
 
 ## What a port usually involves

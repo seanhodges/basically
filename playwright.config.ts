@@ -74,7 +74,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       // The standalone-player specs stub the share API with page.route.
-      // Point it at a dummy origin so the fetch is actually issued and then 
+      // Point it at a dummy origin so the fetch is actually issued and then
       // intercepted; no real network call is made.
       env: { ...process.env, VITE_SHARE_API_URL: 'https://api.example.test' },
     },
