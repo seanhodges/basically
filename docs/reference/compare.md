@@ -53,6 +53,8 @@ This guide and the automation act as a starting point. There will likely be
 performance considerations, hardware inputs and other things still to address
 after porting is complete.
 
+<DialectCompare :dialects="dialects">
+
 ## What a port usually involves
 
 Four things account for most of the work:
@@ -61,7 +63,7 @@ Four things account for most of the work:
 has to become a new line, which renumbers everything after it (you can use the
 **Renumber file** feature to fix this). If the target has no `ELSE`, each
 `IF … THEN … ELSE` becomes a test and its inverse. Dialects that
-require `LET` reject a bare `X=1`. The table below tells you which of these
+require `LET` reject a bare `X=1`. The table above tells you which of these
 apply to your pair.
 
 **Variable names.** This is where silent breakage lives. Where only the first
@@ -83,4 +85,4 @@ means nothing to another machine, and neither do the control codes. Graphics
 and sound must be rewritten rather than translated: the machines here range from
 no graphics commands whatsoever to full `PLOT`/`DRAW`/`CIRCLE` with sound.
 
-<DialectCompare :dialects="dialects" />
+</DialectCompare>
