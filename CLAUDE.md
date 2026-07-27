@@ -1,21 +1,15 @@
 # CLAUDE.md
 
-Guidance for working in this repository. Read the **Commands** and
-**Architecture** sections first — they cover most tasks.
-
 ## What this is
 
-**Basically** is a browser-based IDE for microcomputer BASIC dialects spanning
-several classic machines (Sinclair, Acorn/BBC, Commodore, Tandy…). The exact set
-ships in the registry, so don't assume a count or list — check
-`src/dialects/registry.ts` (`getDialect`/the registered dialects) for what's
+**Basically** is a browser-based IDE for microcomputer BASIC dialects and supporting
+multiple machines (Sinclair, Acorn/BBC, Commodore, Tandy…). Don't assume a count or list;
+check `src/dialects/registry.ts` (`getDialect`/the registered dialects) for what's
 actually available. Each dialect has an in-browser CPU emulator, per-dialect
-hardware export (cassette audio plus a native binary such as `.P`, `.O`, `.TAP`,
-`.bbc`, `.prg`, `.cas`, or `.atm`, and a WebSerial bridge), and an optional
-Claude-powered code assistant.
+hardware import/export (cassette audio, native binary downloads, serial device, etc),
+and an optional Claude-powered code assistant.
 
-**Stack:** TypeScript (strict), React 18, Vite 6, Vitest 3, CodeMirror 6,
-Zustand 5, and the Anthropic SDK.
+**Stack:** TypeScript (strict), React 18, Vite 6, Vitest 3, CodeMirror 6, Zustand 5.
 
 **Key mental model:** the app talks only to the `Dialect` interface
 (`src/dialects/types.ts`) and the `MachineEmulator` it returns — never to a
@@ -24,6 +18,29 @@ dialects keep a small self-contained machine under that folder; others wrap a
 larger vendored/third-party core under `src/emulator/` (e.g. the BBC's jsbeeb in
 `src/emulator/bbc/`, the C64's viciious in `src/emulator/c64/`). The `Dialect`
 seam is what stays uniform and makes new dialects pluggable.
+
+## Spec-driven changes (OpenSpec)
+
+New features and behaviour changes go through
+[OpenSpec](https://github.com/Fission-AI/OpenSpec) (a pinned devDependency;
+invoke as `npx openspec …`): `/opsx:explore` to think a change through,
+`/opsx:propose` to create the change folder with proposal/design/spec-delta/
+tasks artifacts, `/opsx:apply` to implement, `/opsx:archive` to merge the
+spec deltas into the baseline once shipped.
+
+- Baseline capability specs (what the product guarantees, behaviourally) live
+  in `openspec/specs/<capability>/spec.md`; in-flight changes in
+  `openspec/changes/`. Validate with `npx openspec validate --specs`.
+- Project conventions the artifacts must respect are in
+  `openspec/config.yaml` (`context:` and per-artifact `rules:`).
+- Specs say **what**; `docs/contributing/architecture.md` says **how**. Write
+  spec deltas only for behaviour changes — refactors get none.
+- **Exception:** planning a whole new target system stays with the
+  `adding-a-target-system` skill and `docs/contributing/dialect-plans/`;
+  OpenSpec covers everything else.
+- `openspec/` and the generated `.claude/commands/opsx/` +
+  `.claude/skills/openspec-*/` files are Prettier-ignored; never hand-edit
+  the generated files (`npx openspec update` regenerates them).
 
 ## Commands
 
@@ -66,29 +83,6 @@ New user-visible scenarios belong in the matching capability folder; a unit
 test (`src/e2eCapabilityLayout.test.ts`) guards the folder↔capability
 mapping.
 
-## Spec-driven changes (OpenSpec)
-
-New features and behaviour changes go through
-[OpenSpec](https://github.com/Fission-AI/OpenSpec) (a pinned devDependency;
-invoke as `npx openspec …`): `/opsx:explore` to think a change through,
-`/opsx:propose` to create the change folder with proposal/design/spec-delta/
-tasks artifacts, `/opsx:apply` to implement, `/opsx:archive` to merge the
-spec deltas into the baseline once shipped.
-
-- Baseline capability specs (what the product guarantees, behaviourally) live
-  in `openspec/specs/<capability>/spec.md`; in-flight changes in
-  `openspec/changes/`. Validate with `npx openspec validate --specs`.
-- Project conventions the artifacts must respect are in
-  `openspec/config.yaml` (`context:` and per-artifact `rules:`).
-- Specs say **what**; `docs/contributing/architecture.md` says **how**. Write
-  spec deltas only for behaviour changes — refactors get none.
-- **Exception:** planning a whole new target system stays with the
-  `adding-a-target-system` skill and `docs/contributing/dialect-plans/`;
-  OpenSpec covers everything else.
-- `openspec/` and the generated `.claude/commands/opsx/` +
-  `.claude/skills/openspec-*/` files are Prettier-ignored; never hand-edit
-  the generated files (`npx openspec update` regenerates them).
-
 ## Architecture
 
 | Path                           | Role                                                                                                                                      |
@@ -96,10 +90,7 @@ spec deltas into the baseline once shipped.
 | `src/dialects/types.ts`        | The `Dialect` / `MachineEmulator` contracts — the app's only seam                                                                         |
 | `src/dialects/registry.ts`     | Registers available dialects (`getDialect(id)`)                                                                                           |
 | `src/dialects/<name>/`         | One folder per dialect (tokenizer, charset, keywords, samples, `aiProfile`, `targets`); the Z80 dialects also hold their `emulator/` here |
-| `src/emulator/z80/`            | Vendored Z80 CPU core; used by the Sinclair machines (ZX81/ZX80/Spectrum)                                                                 |
-| `src/emulator/bbc/`            | BBC Micro/Master machine (`bbcMachine.ts`), an adapter around the jsbeeb core                                                             |
-| `src/emulator/c64/`            | Commodore 64 machine (`c64Machine.ts`) around the vendored viciious core                                                                  |
-| `src/emulator/6502/`           | Vendored 6502 CPU core (present; not yet wired to a dialect)                                                                              |
+| `src/emulator/`                | Emulator cores used by the supported dialects/machines.                                                                                   |
 | `src/editor/`                  | Generic CodeMirror builders: BASIC language, completions, lint, line numbering                                                            |
 | `src/app/`                     | Zustand store (`store.ts`) and app-level hooks/utilities                                                                                  |
 | `src/components/`              | React UI: `Workspace`, `EmulatorPane`, `AiPanel`, `Toolbar`, status bar                                                                   |
@@ -110,9 +101,11 @@ spec deltas into the baseline once shipped.
 | `src/storage/`                 | localStorage settings + autosave                                                                                                          |
 | `src/dialects/<name>/samples/` | Bundled sample `.bas` programs for that dialect (registered in its `samples.ts`)                                                          |
 
-**Run-a-program data flow** (ZX81 shown; the build step is dialect-specific —
+**Run-a-program data flow** (the build step is dialect-specific —
 `buildPFile`/`.P`, `.O`, `.TAP`, raw BBC bytes, `.prg` — but the shape is the
 same for every dialect):
+
+Example for ZX81:
 
 ```
 editor (CodeMirror)
@@ -128,12 +121,8 @@ The AI path is parallel: prompt + lint errors → `streamChat()` →
 
 ## Adding a dialect
 
-Implement the `Dialect` interface in a new `src/dialects/<name>/` folder and
-register it in `src/dialects/registry.ts`. A small self-contained machine can
-live in that folder (mirror `zx81/`); when you wrap a large external core, put
-the machine under `src/emulator/` instead (see `bbc/` and `c64/`). Either way the
-app only ever talks to the `Dialect` seam. Full step-by-step guide:
-**`docs/contributing/adding-a-dialect.md`**; see also `docs/contributing/dialect-roadmap.md`,
+Full step-by-step guide: **`docs/contributing/adding-a-dialect.md`**;
+see also `docs/contributing/dialect-roadmap.md`,
 `docs/reference/file-formats.md` (`.bas` / `.P` / `.O` / `.TAP` / `.BBC` / `.prg` /
 cassette audio), and `docs/reference/serial-protocol.md` (the WebSerial bridge).
 
@@ -158,25 +147,6 @@ cassette audio), and `docs/reference/serial-protocol.md` (the WebSerial bridge).
   files, `.claude/` skills) or internal API symbols — describe what the IDE does,
   and cross-link other docs with relative links (`./page`). `docs/contributing/`
   is the developer exception, where references to project files are fine.
-
-## ZX81 BASIC gotchas
-
-These rules are ZX81-specific (shown as a worked example); the other dialects
-have their own syntax rules in their dialect folders.
-
-- One numbered statement per line; line numbers are 1–9999 and must be strictly
-  ascending. No multi-statement lines, no `ELSE`.
-- Variable names are single letters (`A`–`Z`, optional `$` for strings).
-- Keywords tokenize to single bytes; the charset maps unicode block graphics and
-  escapes to ZX81 codes.
-- Display has two modes: **FAST** (CPU full speed, screen blanked) and **SLOW**
-  (continuous display, ~1/4 speed).
-- `#BIN <base64>` source lines are opaque program-area line records (the
-  hidden-machine-code-in-REM trick from imported `.P`/`.O` files: line 0,
-  duplicate numbers, embedded 0x76). The tokenizer splices them verbatim; the
-  editor collapses them to chips; renumber/AI-merge must preserve them
-  untouched (see `src/dialects/binaryDirective.ts`). ZX80 records have no
-  length field (`lineNo BE + body + 0x76`).
 
 ## Don't touch
 
