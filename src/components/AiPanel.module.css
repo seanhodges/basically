@@ -89,6 +89,64 @@
   padding: 3px 8px;
 }
 
+/* The inline merge preview. Unified rather than side-by-side: the panel is a
+   narrow column, and two columns of BASIC would wrap unreadably. */
+.aiDiff {
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 6px 8px;
+  overflow-x: auto;
+}
+
+.aiDiffRow {
+  white-space: pre;
+  color: var(--text-dim);
+}
+
+/* Tinted surfaces rather than coloured text, so the code itself stays at full
+   contrast and the sign column is not the only thing distinguishing them. */
+.aiDiffAdded {
+  color: var(--text);
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+}
+
+.aiDiffRemoved {
+  color: var(--text);
+  background: color-mix(in srgb, var(--error) 16%, transparent);
+}
+
+.aiDiffSkip {
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 2px 0;
+  user-select: none;
+}
+
+.aiDiffEmpty {
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.aiDiffToggle {
+  display: block;
+  font-size: 11px;
+  padding: 0 8px 6px;
+}
+
+.aiBlockNote {
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 6px 8px 0;
+}
+
+.aiBlockWarn {
+  color: var(--warn);
+  font-size: 12px;
+  padding: 6px 8px 0;
+}
+
 .aiError {
   color: var(--error);
   font-size: 13px;

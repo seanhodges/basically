@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useOnline } from '../app/useOnline';
 import { useAiStore, type DisplayMessage } from '../ai/aiStore';
@@ -7,11 +7,226 @@ import {
   buildUserMessage,
   buildEditorFix,
 } from '../ai/promptBuilder';
-import { extractCodeBlocks, mergeBasicLines } from '../ai/codeExtractor';
+import {
+  classifyBlock,
+  extractCodeBlocks,
+  mergeBasicLines,
+  mergePlan,
+  type CodeBlock,
+  type MergeRow,
+} from '../ai/codeExtractor';
+import { sourceFingerprint } from '../ai/sourceFingerprint';
 import { getAiProvider, getProviderApiKey } from '../storage/settings';
 import { getProvider } from '../ai/providers/registry';
 import { GearsSpinner } from './GearsSpinner';
 import styles from './AiPanel.module.css';
+
+/**
+ * Whether the program has moved on since this answer was written. A reply
+ * stored before the base was recorded has no fingerprint - an unknown base,
+ * which raises nothing rather than warning on every old thread.
+ */
+function staleAgainst(msg: DisplayMessage, source: string): boolean {
+  return (
+    msg.baseFingerprint !== undefined &&
+    msg.baseFingerprint !== sourceFingerprint(source)
+  );
+}
+
+/** Unchanged lines kept either side of a change, for orientation. */
+const DIFF_CONTEXT_LINES = 2;
+
+type DiffEntry = MergeRow | { collapsed: number };
+
+/**
+ * Keep every change plus a little context around it, collapsing the untouched
+ * stretches between. A small edit to a long program is otherwise mostly
+ * scrolling.
+ */
+function withCollapsedContext(rows: MergeRow[]): DiffEntry[] {
+  const keep = new Set<number>();
+  rows.forEach((row, i) => {
+    if (row.kind === 'context') return;
+    for (let j = i - DIFF_CONTEXT_LINES; j <= i + DIFF_CONTEXT_LINES; j++) {
+      if (j >= 0 && j < rows.length) keep.add(j);
+    }
+  });
+
+  const out: DiffEntry[] = [];
+  let hidden = 0;
+  rows.forEach((row, i) => {
+    if (!keep.has(i)) {
+      hidden++;
+      return;
+    }
+    if (hidden > 0) {
+      out.push({ collapsed: hidden });
+      hidden = 0;
+    }
+    out.push(row);
+  });
+  if (hidden > 0) out.push({ collapsed: hidden });
+  return out;
+}
+
+/**
+ * What merging this fragment would do to the current program, inline. Built
+ * from the same plan the merge itself uses, so it cannot show one thing and
+ * apply another - and computed against the *current* editor content, so a
+ * fragment written against an older program visibly makes no sense.
+ */
+function MergeDiff({ rows }: { rows: MergeRow[] }) {
+  if (!rows.some((row) => row.kind !== 'context')) {
+    return (
+      <div className={styles.aiDiffEmpty}>
+        This changes nothing in the current program.
+      </div>
+    );
+  }
+  return (
+    <div className={styles.aiDiff}>
+      {withCollapsedContext(rows).map((entry, i) => {
+        if ('collapsed' in entry) {
+          return (
+            <div key={i} className={styles.aiDiffSkip}>
+              {`⋮ ${entry.collapsed} unchanged line${entry.collapsed === 1 ? '' : 's'}`}
+            </div>
+          );
+        }
+        return (
+          <Fragment key={i}>
+            {(entry.kind === 'removed' || entry.kind === 'changed') && (
+              <div
+                className={`${styles.aiDiffRow} ${styles.aiDiffRemoved}`}
+                aria-label={`removed: ${entry.before}`}
+              >
+                <span aria-hidden="true">{'- '}</span>
+                {entry.before}
+              </div>
+            )}
+            {(entry.kind === 'added' || entry.kind === 'changed') && (
+              <div
+                className={`${styles.aiDiffRow} ${styles.aiDiffAdded}`}
+                aria-label={`added: ${entry.text}`}
+              >
+                <span aria-hidden="true">{'+ '}</span>
+                {entry.text}
+              </div>
+            )}
+            {entry.kind === 'context' && (
+              <div className={styles.aiDiffRow}>
+                <span aria-hidden="true">{'  '}</span>
+                {entry.text}
+              </div>
+            )}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * One generated code block with the actions that are valid for it. A fragment
+ * merges, a whole listing replaces; when the two signals disagree the kind is
+ * unknown and both are offered, because neither default is safe - replacing
+ * with a fragment destroys the program, merging a listing leaves stale lines.
+ */
+function AiCodeBlock({
+  block,
+  source,
+  stale,
+  incomplete,
+  onApply,
+}: {
+  block: CodeBlock;
+  source: string;
+  stale: boolean;
+  incomplete: boolean;
+  onApply: (text: string, run: boolean) => void;
+}) {
+  const [showRaw, setShowRaw] = useState(false);
+  const kind = classifyBlock(block, source);
+  // A whole listing replaces outright, so a stray bare number in it must not
+  // read as a deletion.
+  const allowDeletes = kind !== 'full';
+  const rows = useMemo(
+    () =>
+      kind === 'full' ? null : mergePlan(source, block.code, { allowDeletes }),
+    [kind, source, block.code, allowDeletes],
+  );
+
+  const merged = () => mergeBasicLines(source, block.code, { allowDeletes });
+  const whole = () =>
+    block.code.endsWith('\n') ? block.code : block.code + '\n';
+
+  const canMerge = kind !== 'full';
+  const canReplace = kind !== 'partial';
+  const asDiff = rows !== null && !showRaw;
+
+  return (
+    <div className={styles.aiCode} data-block-kind={kind}>
+      {asDiff ? <MergeDiff rows={rows} /> : <pre>{block.code}</pre>}
+      {rows !== null && (
+        <button
+          className={`linklike ${styles.aiDiffToggle}`}
+          onClick={() => setShowRaw((v) => !v)}
+        >
+          {showRaw ? 'Show what this changes' : 'Show the lines as written'}
+        </button>
+      )}
+      {incomplete ? (
+        <div className={styles.aiBlockNote}>
+          This answer was cut off, so the code is unfinished - ask again to get
+          the rest.
+        </div>
+      ) : (
+        <>
+          {kind === 'unknown' && (
+            <div className={styles.aiBlockNote}>
+              The assistant didn&rsquo;t say whether this is the whole program
+              or only the changed lines. Check the changes above, then choose.
+            </div>
+          )}
+          {stale && canMerge && (
+            <div className={styles.aiBlockWarn}>
+              You&rsquo;ve edited the program since this answer, so it may not
+              apply as intended.
+            </div>
+          )}
+          <div className={styles.aiCodeActions}>
+            {canMerge && (
+              <>
+                <button
+                  onClick={() => onApply(merged(), false)}
+                  title="Merge by BASIC line number"
+                >
+                  Merge lines
+                </button>
+                <button onClick={() => onApply(merged(), true)}>
+                  Merge + Run ▶
+                </button>
+              </>
+            )}
+            {canReplace && (
+              <>
+                <button
+                  onClick={() => onApply(whole(), false)}
+                  title="Replace the whole program"
+                >
+                  Replace program
+                </button>
+                <button onClick={() => onApply(whole(), true)}>
+                  Replace + Run ▶
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function AiPanel() {
   const dialect = useIdeStore((s) => s.dialect);
@@ -62,6 +277,7 @@ export function AiPanel() {
       system: buildSystemPrompt(dialect),
       userContent: buildUserMessage(request, source, errors),
       displayRequest: request,
+      baseSource: source,
     });
   };
 
@@ -81,28 +297,21 @@ export function AiPanel() {
     return false;
   };
 
-  const applyReplace = (code: string) => {
-    const text = code.endsWith('\n') ? code : code + '\n';
+  /**
+   * Land already-resolved program text in the editor. The block decides whether
+   * that text came from replacing or merging; this only cares about running it
+   * afterwards.
+   *
+   * On "+ Run": apply, then either prompt to fix editor errors (the program
+   * can't run with them) or reveal the emulator and run with the AI runtime-error
+   * check armed. showEmulator() is what actually swaps the AI view for the
+   * emulator - on the split layout it closes the AI panel (which otherwise hides
+   * the preview), and in the tabbed layout it switches to the preview tab (the
+   * run-request auto-switch only covers portrait, not the split/landscape cases).
+   */
+  const applyText = (text: string, run: boolean) => {
     replaceDocument(text);
-    checkEditorErrors(text);
-  };
-
-  const applyMerge = (code: string) => {
-    const text = mergeBasicLines(source, code);
-    replaceDocument(text);
-    checkEditorErrors(text);
-  };
-
-  // "Replace + Run": apply, then either prompt to fix editor errors (the program
-  // can't run with them) or reveal the emulator and run with the AI runtime-error
-  // check armed. showEmulator() is what actually swaps the AI view for the
-  // emulator - on the split layout it closes the AI panel (which otherwise hides
-  // the preview), and in the tabbed layout it switches to the preview tab (the
-  // run-request auto-switch only covers portrait, not the split/landscape cases).
-  const applyReplaceAndRun = (code: string) => {
-    const text = code.endsWith('\n') ? code : code + '\n';
-    replaceDocument(text);
-    if (!checkEditorErrors(text)) {
+    if (!checkEditorErrors(text) && run) {
       showEmulator();
       requestAiRun();
     }
@@ -128,6 +337,7 @@ export function AiPanel() {
       system: buildSystemPrompt(dialect),
       userContent: fix.userContent,
       displayRequest: fix.displayRequest,
+      baseSource: source,
     });
   };
 
@@ -151,32 +361,24 @@ export function AiPanel() {
         const fenceEnd = rest.indexOf('```', fenceStart + 3);
         rest = fenceEnd >= 0 ? rest.slice(fenceEnd + 3) : '';
       }
+      // Only offer the apply actions once the whole answer is in - while
+      // streaming the code is partial, so applying it would use a truncated
+      // program. Rendering the block itself while streaming is fine.
       parts.push(
-        <div key={`c${bi}`} className={styles.aiCode}>
-          <pre>{block.code}</pre>
-          {/* Only offer the apply actions once the whole answer is in - while
-              streaming the code is partial, so applying it would use a
-              truncated program. */}
-          {!msg.streaming && (
-            <div className={styles.aiCodeActions}>
-              <button
-                onClick={() => applyReplace(block.code)}
-                title="Replace the whole program"
-              >
-                Replace program
-              </button>
-              <button
-                onClick={() => applyMerge(block.code)}
-                title="Merge by BASIC line number"
-              >
-                Merge lines
-              </button>
-              <button onClick={() => applyReplaceAndRun(block.code)}>
-                Replace + Run ▶
-              </button>
-            </div>
-          )}
-        </div>,
+        msg.streaming ? (
+          <div key={`c${bi}`} className={styles.aiCode}>
+            <pre>{block.code}</pre>
+          </div>
+        ) : (
+          <AiCodeBlock
+            key={`c${bi}`}
+            block={block}
+            source={source}
+            stale={staleAgainst(msg, source)}
+            incomplete={msg.incomplete === true}
+            onApply={applyText}
+          />
+        ),
       );
     });
     const tail = rest.trim();

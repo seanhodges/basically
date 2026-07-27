@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StreamOptions } from './providers/types';
+import type {
+  StopReason,
+  StreamOptions,
+  StreamResult,
+} from './providers/types';
 
 // Install storage stubs and a shared streaming handle BEFORE the modules under
 // test are imported (aiStore reads the stored conversation at module init).
@@ -22,7 +26,8 @@ const h = vi.hoisted(() => {
   return {
     current: null as null | {
       onText: (d: string) => void;
-      resolve: (t: string) => void;
+      /** Finish the attempt; `stop` defaults to a normal completion. */
+      resolve: (t: string, stop?: StopReason) => void;
       reject: (e: unknown) => void;
     },
   };
@@ -34,10 +39,10 @@ vi.mock('./aiClient', () => ({
     _opts: StreamOptions,
     onText: (d: string) => void,
   ) => {
-    let resolve!: (t: string) => void;
+    let resolve!: (t: string, stop?: StopReason) => void;
     let reject!: (e: unknown) => void;
-    const done = new Promise<string>((res, rej) => {
-      resolve = res;
+    const done = new Promise<StreamResult>((res, rej) => {
+      resolve = (text, stop = 'complete') => res({ text, stop });
       reject = rej;
     });
     h.current = { onText, resolve, reject };
@@ -57,6 +62,9 @@ vi.mock('./aiClient', () => ({
 import { useAiStore } from './aiStore';
 import { useIdeStore } from '../app/store';
 import { loadAiConversation } from '../storage/settings';
+import { sourceFingerprint } from './sourceFingerprint';
+
+const BASE_SOURCE = '10 CLS\n20 GOTO 10\n';
 
 const params = {
   providerId: 'anthropic' as const,
@@ -66,6 +74,7 @@ const params = {
   system: 'sys',
   userContent: 'full context',
   displayRequest: 'make breakout',
+  baseSource: BASE_SOURCE,
 };
 
 const plain = (m: { role: string; content: string }) => ({
@@ -96,8 +105,55 @@ describe('aiStore', () => {
     expect(useAiStore.getState().busy).toBe(false);
     expect(loadAiConversation()).toEqual([
       { role: 'user', content: 'make breakout' },
-      { role: 'assistant', content: '10 PRINT' },
+      {
+        role: 'assistant',
+        content: '10 PRINT',
+        baseFingerprint: sourceFingerprint(BASE_SOURCE),
+      },
     ]);
+  });
+
+  describe('base fingerprint', () => {
+    it('records the program the answer was written against', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT');
+      await p;
+
+      const answer = useAiStore.getState().messages.at(-1)!;
+      expect(answer.baseFingerprint).toBe(sourceFingerprint(BASE_SOURCE));
+      // The point of recording it: an edited program no longer matches.
+      expect(answer.baseFingerprint).not.toBe(
+        sourceFingerprint(BASE_SOURCE + '30 STOP\n'),
+      );
+    });
+
+    it('survives a persist and reload', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT');
+      await p;
+
+      const restored = loadAiConversation().at(-1)!;
+      expect(restored.baseFingerprint).toBe(sourceFingerprint(BASE_SOURCE));
+    });
+
+    it('is recorded even when the answer was cut short', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT', 'truncated');
+      await p;
+      expect(useAiStore.getState().messages.at(-1)!.baseFingerprint).toBe(
+        sourceFingerprint(BASE_SOURCE),
+      );
+    });
+
+    it('leaves a thread stored without one alone', () => {
+      // Threads written before the fingerprint existed have no base; that is a
+      // defined state (unknown), not a missing field to repair.
+      sessionStorage.setItem(
+        'mbide.autosave.ai',
+        JSON.stringify([{ role: 'assistant', content: '10 PRINT' }]),
+      );
+      expect(loadAiConversation()[0]!.baseFingerprint).toBeUndefined();
+    });
   });
 
   it('retries once with a format nudge when the first reply is empty', async () => {
@@ -182,6 +238,42 @@ describe('aiStore', () => {
     ]);
     expect(msgs[1]!.incomplete).toBe(true);
     expect(useAiStore.getState().busy).toBe(false);
+  });
+
+  describe('why generation stopped', () => {
+    it('marks an answer cut off by the output limit as incomplete', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.resolve('10 CLS\n20 PRINT "HAL', 'truncated');
+      await p;
+
+      const answer = useAiStore.getState().messages.at(-1)!;
+      expect(answer.content).toContain('HAL');
+      // The program stops mid-line; it must not read as a finished answer.
+      expect(answer.incomplete).toBe(true);
+      expect(useAiStore.getState().error).toBe('');
+    });
+
+    it('leaves a normally finished answer applicable', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.resolve('10 CLS');
+      await p;
+      expect(useAiStore.getState().messages.at(-1)!.incomplete).toBeUndefined();
+    });
+
+    it('reports a decline instead of retrying it as an empty reply', async () => {
+      const first = h;
+      const p = useAiStore.getState().send(params);
+      first.current!.resolve('', 'refused');
+      await p;
+
+      expect(useAiStore.getState().error).toContain('declined');
+      expect(useAiStore.getState().busy).toBe(false);
+      // No blank bubble left behind, and no second request was made: the
+      // retry path would have installed a fresh handle to resolve.
+      expect(useAiStore.getState().messages.map(plain)).toEqual([
+        { role: 'user', content: 'make breakout' },
+      ]);
+    });
   });
 
   it('clears when the IDE store signals a new program (aiResetSeq)', async () => {

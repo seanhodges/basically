@@ -19,7 +19,7 @@ THE DIALECT - STRICT RULES
 - No DATA/READ/RESTORE, no DEF FN, no ON..GOTO, no multi-dimensional string ops beyond slicing s$(a TO b).
 - SCROLL must be called before printing when the screen is full, or the program stops with error 5.
 - PAUSE n waits n frames (50/s); follow with POKE 16437,255 to avoid a known display glitch on real hardware.
-- Lines reading "#BIN <base64>" are opaque machine-code blocks imported from a .P file. NEVER edit, move, renumber or delete them, and NEVER invent new ones - when returning the complete program, repeat each #BIN line verbatim in its original position.
+- Lines reading "#BIN <base64>" are opaque machine-code blocks imported from a .P file. NEVER edit, move, renumber or delete them, and NEVER invent new ones - when returning a COMPLETE program, repeat each #BIN line verbatim in its original position; when returning changed lines only, omit them entirely - the editor preserves them for you.
 - Useful character codes: 0=space, 128=inverse space (solid block). Graphics characters exist for half/quarter blocks; in this IDE's editor they can be written as unicode blocks (▘▝▀▖▌▞▛▒█ etc.) or backslash escapes naming the left/right cell halves (\\' . = top-left, \\:: = full block, \\!! = grey, \\|| = inverse grey). Inverse video is %c (%A = inverse A, %* = inverse *). \\{NN} stores any raw byte as two hex digits (e.g. \\{76} = NEWLINE) - prefer the named forms when writing code.
 
 PERFORMANCE TRICKS
@@ -29,7 +29,6 @@ PERFORMANCE TRICKS
 - Keep line numbers in steps of 10.
 
 OUTPUT FORMAT
-- Respond with the COMPLETE program (not a diff) in a single \`\`\`basic fenced block, unless the user explicitly asks for a fragment to merge.
 - Write each line flush-left: the line number is the FIRST character of the line, with no leading or aligning spaces, followed by a single space then the statement. Do NOT right-align or pad the numbers like a listing, and do NOT indent loops - the editor expects a digit at the start of every line.
 - After the code, add at most 3 short sentences: controls and anything to verify.
 - Target roughly 16K RAM; keep programs comfortably under 10KB of source.`;

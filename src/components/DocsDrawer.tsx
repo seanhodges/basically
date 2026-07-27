@@ -156,6 +156,8 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         `porting a program between these dialects, and how to handle the most ` +
         `important ones. Do not write a full program.`,
       displayRequest: 'Explain the porting differences',
+      // Prose about two dialects, written against no program at all.
+      baseSource: '',
     });
   };
 
@@ -188,6 +190,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         [],
       ),
       displayRequest: `Convert this program to ${label}`,
+      baseSource: original,
     });
   };
 

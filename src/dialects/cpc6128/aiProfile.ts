@@ -45,7 +45,6 @@ GRAPHICS / GAME PATTERNS
 - The on-screen controller is wired to the cursor cluster (movement) and COPY/SPACE (fire), so read those keys for pad-friendly games.
 
 OUTPUT FORMAT
-- Respond with the COMPLETE program (not a diff) in a single \`\`\`basic fenced block, unless the user explicitly asks for a fragment to merge.
 - Write each line flush-left: the line number is the FIRST character of the line (column 0), then a single space, then the statement. Do NOT indent or zero-pad line numbers - the tokeniser needs a digit as the first character of the line. Use steps of 10 so lines are easy to insert.
 - After the code, add at most 3 short sentences: controls and anything to verify.`;
 

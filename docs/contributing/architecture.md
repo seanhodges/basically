@@ -460,25 +460,46 @@ sequenceDiagram
   C->>X: dynamic import + API call<br/>(key from localStorage)
   X-->>P: streamed markdown deltas
   P->>P: extractCodeBlocks(reply)
-  U->>P: Replace · Merge lines · Replace + Run
-  P->>E: replaceDocument() / mergeBasicLines()
+  P->>P: classifyBlock() - whole listing or fragment?
+  U->>P: Merge lines · Merge + Run<br/>or Replace program · Replace + Run
+  P->>E: mergeBasicLines() / replaceDocument()
   E->>E: re-lint - offer a fix prompt on errors
-  P->>M: (Replace + Run) requestAiRun()
+  P->>M: (… + Run) requestAiRun()
   M-->>P: readReport() error → suggested fix in chat
 ```
 
 Key details:
 
-- The system prompt is the dialect's `aiProfile.systemPrompt` - byte-stable
-  per dialect so provider-side prompt caching works. It teaches the model the
+- The system prompt is the dialect's `aiProfile.systemPrompt` plus the shared
+  `RETURNING_CODE_RULES` from `promptBuilder` - byte-stable per dialect so
+  provider-side prompt caching works. The profile teaches the model the
   machine's rules (for the ZX81: one statement per line, mandatory `LET`,
-  `PRINT AT`, …).
+  `PRINT AT`, …); the shared part governs how much code to send, which must not
+  vary by machine.
 - The user message embeds the current program and up to 20 tokenizer errors.
-- `mergeBasicLines()` merges generated code by BASIC line number: matching
-  line numbers replace, new ones insert in order.
-- After **Replace + Run**, the run loop polls `machine.readReport()` for a few
+- Each generated block is either a whole listing or a fragment. The model
+  declares which with the fence tag (` ```basic ` / ` ```basic-partial `), and
+  `classifyBlock()` cross-checks that against the block's line numbers. The
+  heuristic only speaks when it is certain, because "the block's numbers are a
+  subset, so it's a fragment" misreads a rewrite that _shrinks_ the program.
+  Declaration and heuristic in conflict resolve to `unknown`, and the panel asks
+  the user - neither default is safe.
+- Only the actions valid for the block are offered: **Merge lines** /
+  **Merge + Run** for a fragment, **Replace program** / **Replace + Run** for a
+  whole listing, both for `unknown`. Applying goes through the editor's normal
+  undo history, so a mis-click is one Ctrl+Z away and no confirm step is needed.
+- `mergePlan()` computes exactly what a merge would change; `mergeBasicLines()`
+  is defined in terms of it, so the inline diff the panel shows for a fragment
+  cannot drift from what applying does. Matching line numbers replace, new ones
+  insert in order, and in a fragment a bare line number deletes that line.
+  `#BIN` records are always context and a deletion cannot reach them.
+- After a **… + Run**, the run loop polls `machine.readReport()` for a few
   seconds; a genuine runtime error (not OK/STOP/BREAK) is fed back to the chat
   as a one-click fix request.
+- Providers report _why_ generation stopped. An answer cut off by the output
+  limit is marked incomplete and offers no apply actions - the output budget is
+  shared with adaptive thinking, so a long listing can hit it - and a declined
+  request is reported as declined rather than retried as an empty reply.
 - The docs drawer is a second entry point: the Compare page's "explain" and
   "convert" actions post a message to the app, which opens the AI panel with a
   prepared prompt.

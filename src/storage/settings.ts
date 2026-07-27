@@ -35,7 +35,15 @@ type ListingBlockMetaMap = Record<
  * that was still streaming when the page was closed/reloaded - it cannot be
  * resumed (the streaming API isn't reconnectable), so it is kept as truncated.
  */
-export type PersistedMessage = ChatMessage & { incomplete?: boolean };
+export type PersistedMessage = ChatMessage & {
+  incomplete?: boolean;
+  /**
+   * Fingerprint of the program the reply was written against, so a fragment
+   * applied later can be flagged as possibly stale. Absent on threads stored
+   * before it was recorded - an unknown base, which raises no warning.
+   */
+  baseFingerprint?: string;
+};
 
 /**
  * Name given to a document that hasn't been saved to disk yet. The `.txt`

@@ -9,9 +9,23 @@ export interface ChatMessage {
   content: string;
 }
 
+/**
+ * Why the model stopped generating. `truncated` and `refused` both arrive as
+ * successful responses, so without this an answer cut off mid-program - or a
+ * declined request, which returns no text at all - is indistinguishable from a
+ * finished one.
+ */
+export type StopReason = 'complete' | 'truncated' | 'refused';
+
+export interface StreamResult {
+  /** The assistant text produced, which may be partial when `truncated`. */
+  text: string;
+  stop: StopReason;
+}
+
 export interface StreamHandle {
-  /** Resolves with the complete assistant text. */
-  done: Promise<string>;
+  /** Resolves with the assistant text and why generation stopped. */
+  done: Promise<StreamResult>;
   abort(): void;
 }
 

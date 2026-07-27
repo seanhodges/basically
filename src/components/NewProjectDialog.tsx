@@ -112,6 +112,8 @@ export function NewProjectDialog() {
       system: buildSystemPrompt(machine),
       userContent: buildUserMessage(request, '', []),
       displayRequest: request,
+      // A description, not an edit: the assistant is shown no program.
+      baseSource: '',
     });
   };
 

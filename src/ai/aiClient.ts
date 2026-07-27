@@ -5,7 +5,12 @@ import type {
   StreamOptions,
 } from './providers/types';
 
-export type { ChatMessage, StreamHandle } from './providers/types';
+export type {
+  ChatMessage,
+  StopReason,
+  StreamHandle,
+  StreamResult,
+} from './providers/types';
 
 /**
  * Lazily load each backend so its (heavy) vendor SDK is code-split into its own

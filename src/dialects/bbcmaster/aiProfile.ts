@@ -28,7 +28,6 @@ PERFORMANCE TRICKS
 - Steps of 10 for line numbers.
 
 OUTPUT FORMAT
-- Respond with the COMPLETE program (not a diff) in a single \`\`\`basic fenced block, unless the user explicitly asks for a fragment to merge.
 - Write each line flush-left: the line number is the FIRST character of the line (column 0), with no leading or aligning spaces, followed by a single space then the statement. Do NOT right-align or zero-pad the numbers like a LIST/LISTO listing (e.g. "   10", "  100"), and do NOT indent nested loops/procedures - the editor's tokeniser needs a digit as the first character of the line or it rejects the line as having no line number.
 - After the code, add at most 3 short sentences: controls and anything to verify.`;
 

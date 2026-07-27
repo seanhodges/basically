@@ -2,6 +2,7 @@ import { GoogleGenAI, ApiError, type Content } from '@google/genai';
 import type {
   ChatMessage,
   ProviderBackend,
+  StopReason,
   StreamHandle,
   StreamOptions,
 } from './types';
@@ -40,6 +41,7 @@ function streamChat(
       },
     });
     let text = '';
+    let stop: StopReason = 'complete';
     for await (const chunk of stream) {
       if (controller.signal.aborted) break;
       const delta = chunk.text ?? '';
@@ -47,8 +49,11 @@ function streamChat(
         text += delta;
         onText(delta);
       }
+      const finish = chunk.candidates?.[0]?.finishReason;
+      if (finish === 'MAX_TOKENS') stop = 'truncated';
+      else if (finish && finish !== 'STOP') stop = 'refused';
     }
-    return text;
+    return { text, stop };
   })();
 
   return {

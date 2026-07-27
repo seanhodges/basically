@@ -4,6 +4,7 @@ import {
   describeAiError,
   type ChatMessage,
   type StreamHandle,
+  type StreamResult,
 } from './aiClient';
 import type { AiProviderId } from './providers/types';
 import {
@@ -17,17 +18,24 @@ import {
   FORMAT_RETRY_MESSAGE,
   type PendingFix,
 } from './promptBuilder';
+import { sourceFingerprint } from './sourceFingerprint';
 
 export type { PendingFix } from './promptBuilder';
 
-/** A message as shown in the thread. `streaming`/`incomplete` are UI-only. */
+/** A message as shown in the thread. `streaming`/`retrying` are UI-only. */
 export interface DisplayMessage extends ChatMessage {
   /** True while the assistant answer is still arriving. */
   streaming?: boolean;
-  /** True for a truncated answer restored after a reload (cannot resume). */
+  /** True for a truncated answer (stopped, or cut off by the output limit). */
   incomplete?: boolean;
   /** True while re-requesting after an empty reply (shows a distinct status). */
   retrying?: boolean;
+  /**
+   * Fingerprint of the program this answer was written against. A fragment is
+   * a delta, so applying it once the editor has moved on may not be what the
+   * assistant meant; the panel compares this with the current source.
+   */
+  baseFingerprint?: string;
 }
 
 /** Everything `send` needs that depends on the active dialect/editor. */
@@ -44,6 +52,11 @@ export interface SendParams {
   userContent: string;
   /** Bare request shown in the thread. */
   displayRequest: string;
+  /**
+   * The program as it stood when this request was sent. Fingerprinted onto the
+   * answer so a fragment applied later can be flagged as possibly stale.
+   */
+  baseSource: string;
 }
 
 interface AiState {
@@ -81,6 +94,7 @@ function persist(messages: DisplayMessage[]): void {
         role: m.role,
         content: m.content,
         ...(m.streaming || m.incomplete ? { incomplete: true } : {}),
+        ...(m.baseFingerprint ? { baseFingerprint: m.baseFingerprint } : {}),
       })),
   );
 }
@@ -104,7 +118,9 @@ export const useAiStore = create<AiState>((set, get) => ({
     system,
     userContent,
     displayRequest,
+    baseSource,
   }) => {
+    const baseFingerprint = sourceFingerprint(baseSource);
     const prior = get().messages;
     // History for the API: prior turns (role+content only) + the new request.
     const baseHistory: ChatMessage[] = [
@@ -128,7 +144,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     // `myGen`/`gen` guards make late deltas/completions from a superseded stream
     // no-ops just as before.
     let lastPersist = 0;
-    const runAttempt = (history: ChatMessage[]): Promise<string> => {
+    const runAttempt = (history: ChatMessage[]): Promise<StreamResult> => {
       const handle = streamChat(
         providerId,
         { apiKey, model, maxTokens, system, messages: history },
@@ -152,14 +168,30 @@ export const useAiStore = create<AiState>((set, get) => ({
     };
 
     try {
-      let finalText = await runAttempt(baseHistory);
+      let result = await runAttempt(baseHistory);
       if (gen !== myGen) return;
+
+      // A decline comes back as a successful, empty response. Retrying it as
+      // though the transport had failed just spends another request to be
+      // declined again, and then reports the wrong reason.
+      if (result.stop === 'refused') {
+        set((s) => ({
+          messages: s.messages.filter(
+            (m) => !(m.streaming && m.content === ''),
+          ),
+          busy: false,
+          error:
+            'The AI declined this request. Try rephrasing it, or ask for something else.',
+        }));
+        persist(get().messages);
+        return;
+      }
 
       // An empty reply (e.g. the whole token budget went to adaptive thinking)
       // renders as a blank bubble. Re-request once with a format nudge before
       // giving up. Only a truly empty reply retries - legitimate prose answers
       // are left alone.
-      if (finalText.trim() === '') {
+      if (result.text.trim() === '') {
         set((s) => {
           const copy = [...s.messages];
           copy[copy.length - 1] = {
@@ -177,10 +209,10 @@ export const useAiStore = create<AiState>((set, get) => ({
           { role: 'assistant', content: '(no response)' },
           { role: 'user', content: FORMAT_RETRY_MESSAGE },
         ];
-        finalText = await runAttempt(retryHistory);
+        result = await runAttempt(retryHistory);
         if (gen !== myGen) return;
 
-        if (finalText.trim() === '') {
+        if (result.text.trim() === '') {
           // Twice empty: drop the placeholder and surface an error.
           set((s) => ({
             messages: s.messages.filter(
@@ -197,7 +229,14 @@ export const useAiStore = create<AiState>((set, get) => ({
 
       set((s) => {
         const copy = [...s.messages];
-        copy[copy.length - 1] = { role: 'assistant', content: finalText };
+        copy[copy.length - 1] = {
+          role: 'assistant',
+          content: result.text,
+          baseFingerprint,
+          // Cut off by the output limit: the code in it stops mid-thought, so
+          // it must not be offered as a finished answer to apply.
+          ...(result.stop === 'truncated' ? { incomplete: true } : {}),
+        };
         return { messages: copy, busy: false };
       });
       persist(get().messages);
@@ -210,7 +249,12 @@ export const useAiStore = create<AiState>((set, get) => ({
           .filter((m) => !(m.streaming && m.content === ''))
           .map((m) =>
             m.streaming
-              ? { role: m.role, content: m.content, incomplete: true }
+              ? {
+                  role: m.role,
+                  content: m.content,
+                  incomplete: true,
+                  baseFingerprint,
+                }
               : m,
           );
         return { messages, busy: false, error: describeAiError(providerId, e) };
