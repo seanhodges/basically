@@ -108,7 +108,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
 
   // The docs render in an iframe, so its in-nav controls can't reach the store
   // directly - they post messages we translate here: the nav close button, and
-  // the Compare dialects page's "convert" AI action.
+  // the porting guide's "convert" AI action.
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
