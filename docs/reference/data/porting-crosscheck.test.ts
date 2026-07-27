@@ -22,7 +22,7 @@ import { trs80Reference } from './trs80';
 import { zx80Reference } from './zx80';
 import { zx81Reference } from './zx81';
 import { zxspectrumReference } from './zxspectrum';
-import { falseFriends, keywordEquivalences } from './porting';
+import { falseFriends, keywordEquivalences, pairPortingNotes } from './porting';
 import { portingFacts } from './facts';
 import type { ReferenceTableData } from './types';
 
@@ -185,3 +185,30 @@ describe.each(portingFacts.map((f) => [f.id, f] as const))(
     });
   },
 );
+
+describe('pair porting notes', () => {
+  it.each(pairPortingNotes.map((p) => [`${p.from}→${p.to}`, p] as const))(
+    '%s names real pages, is directional, and stays within budget',
+    (_label, pair) => {
+      expect(Object.keys(PAGES)).toContain(pair.from);
+      expect(Object.keys(PAGES)).toContain(pair.to);
+      expect(
+        pair.from,
+        'a pair note must compare two different pages',
+      ).not.toBe(pair.to);
+      expect(pair.notes.length).toBeGreaterThan(0);
+      expect(pair.notes.length).toBeLessThanOrEqual(MAX_NOTES);
+      for (const note of pair.notes) {
+        expect(note.trim()).not.toBe('');
+        expect(note.length, `too long to scan: "${note}"`).toBeLessThanOrEqual(
+          MAX_NOTE_CHARS,
+        );
+      }
+    },
+  );
+
+  it('has no duplicate ordered pair', () => {
+    const keys = pairPortingNotes.map((p) => `${p.from}→${p.to}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+});

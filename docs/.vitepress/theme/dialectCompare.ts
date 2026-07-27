@@ -8,6 +8,8 @@ import type {
   EscapeTableData,
   FalseFriend,
   KeywordEquivalence,
+  PairPortingNotes,
+  PortingFacts,
   ReferenceEntry,
   ReferenceTableData,
 } from '../../reference/data/types';
@@ -207,6 +209,59 @@ export function falseFriendsBetween(
     if (a && b && a !== b) warnings.push({ keyword, from: a, to: b });
   }
   return warnings.sort((x, y) => x.keyword.localeCompare(y.keyword));
+}
+
+/** Everything needed to compose the prose guidance for one ordered pair. */
+export interface GuidanceContext {
+  /** Source page slug. */
+  from: string;
+  /** Target page slug. */
+  to: string;
+  /** Facts for the target, whose portingNotes and substitutions are surfaced. */
+  targetFacts?: PortingFacts;
+  /** The full sparse pair-note table; the matching (from,to) entry is selected. */
+  pairNotes: PairPortingNotes[];
+  /** The full false-friend table; the pair's warnings are selected. */
+  falseFriends: FalseFriend[];
+}
+
+/**
+ * The prose guidance for one chosen pair, gathered in one place: what to watch
+ * for on the target machine, notes specific to this direction, the same-name-
+ * different-meaning warnings, and the per-command "do this instead" advice.
+ *
+ * The hardware address facts (screen base, program start) are deliberately not
+ * here: they interpolate both sides and render as rows of the fact table, not
+ * as prose.
+ */
+export interface PairGuidance {
+  /** Target-anchored bullets (PortingFacts.portingNotes); may be empty. */
+  targetNotes: string[];
+  /** Notes for exactly this ordered pair; empty when the pair has none. */
+  pairNotes: string[];
+  /** Same-name-different-meaning warnings for this pair. */
+  falseFriends: FalseFriendWarning[];
+  /** keyword → "do this instead", for inline display against the diff lists. */
+  substitutions: Map<string, string>;
+}
+
+/**
+ * Assemble the per-pair prose guidance. Pure and SSG-safe like the diff
+ * functions: every input is passed in, nothing is imported from the data
+ * modules or from `src/`.
+ */
+export function composeGuidance(ctx: GuidanceContext): PairGuidance {
+  const pair = ctx.pairNotes.find(
+    (n) => n.from === ctx.from && n.to === ctx.to,
+  );
+  return {
+    targetNotes: ctx.targetFacts?.portingNotes ?? [],
+    pairNotes: pair?.notes ?? [],
+    falseFriends: falseFriendsBetween(ctx.from, ctx.to, ctx.falseFriends),
+    substitutions: new Map(
+      (ctx.targetFacts?.substitutions ?? []).map((s) => [s.keyword, s.note]),
+    ),
+  };
 }
 
 /**

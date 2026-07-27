@@ -5,14 +5,11 @@ import type {
   PortingFacts,
   ReferenceTableData,
 } from '../../../reference/data/types';
-import {
-  diffEscapes,
-  diffKeywords,
-  falseFriendsBetween,
-} from '../dialectCompare';
+import { composeGuidance, diffEscapes, diffKeywords } from '../dialectCompare';
 import {
   falseFriends,
   keywordEquivalences,
+  pairPortingNotes,
 } from '../../../reference/data/porting';
 import { KIND_META } from '../kindMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
@@ -64,25 +61,20 @@ const keywordDiff = computed(() => {
   });
 });
 
-// Commands both machines spell alike and mean differently. Nothing else on this
-// page can surface them: they match on name, kind and usually syntax, so they
-// reach none of the diff buckets while still changing what a program computes.
-const traps = computed(() => {
-  const s = source.value;
-  const t = target.value;
-  if (!s || !t) return [];
-  return falseFriendsBetween(s.id, t.id, falseFriends);
-});
-
-/** "If you need X here, do this instead" for the machine being ported to. */
-const substitutions = computed(
-  () =>
-    new Map(
-      (target.value?.facts?.substitutions ?? []).map((s) => [
-        s.keyword,
-        s.note,
-      ]),
-    ),
+// The prose guidance for the chosen pair, gathered in one place: what to watch
+// for on the target machine, notes specific to this direction, the same-name-
+// different-meaning traps (which nothing else on the page can surface, since
+// they match on name, kind and usually syntax), and the per-command "do this
+// instead" advice. The hardware address facts interpolate both sides as rows of
+// the fact table instead (see factRows), not as prose.
+const guidance = computed(() =>
+  composeGuidance({
+    from: from.value,
+    to: to.value,
+    targetFacts: target.value?.facts,
+    pairNotes: pairPortingNotes,
+    falseFriends,
+  }),
 );
 
 const escapeDiff = computed(() => {
@@ -137,7 +129,9 @@ const factRows = computed<FactRow[]>(() => {
     ['Variable names', (f) => f.variableNaming],
     ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
     ['Screen', (f) => f.screen],
+    ['Screen base', (f) => f.screenBase ?? 'No dedicated screen RAM'],
     ['Free program RAM', fmtRam],
+    ['Program start', (f) => f.programStart ?? '—'],
     ['Colour', (f) => f.colour],
     ['Sound', (f) => f.sound],
     ['Writing memory', (f) => f.memoryWriteSyntax],
@@ -296,12 +290,29 @@ function convertWithAi() {
       </div>
 
       <section
-        v-if="target.facts?.portingNotes?.length"
+        v-if="guidance.targetNotes.length"
         class="cmp-section cmp-guidance"
       >
         <h2>Writing for {{ target.label }}</h2>
         <ul class="cmp-notes">
-          <li v-for="note in target.facts.portingNotes" :key="note">
+          <li v-for="note in guidance.targetNotes" :key="note">
+            {{ note }}
+          </li>
+        </ul>
+      </section>
+
+      <!--
+        Notes specific to this direction: the few pairs close enough, or
+        trap-laden enough, that the target-only notes and the false-friend
+        warnings cannot carry the advice on their own.
+      -->
+      <section
+        v-if="guidance.pairNotes.length"
+        class="cmp-section cmp-guidance"
+      >
+        <h2>{{ source.label }} → {{ target.label }}: this pair</h2>
+        <ul class="cmp-notes">
+          <li v-for="note in guidance.pairNotes" :key="note">
             {{ note }}
           </li>
         </ul>
@@ -312,14 +323,19 @@ function convertWithAi() {
         command exists on both machines, so nothing else on this page flags it,
         and the program runs and quietly computes something else.
       -->
-      <section v-if="traps.length" class="cmp-section cmp-traps">
-        <h2>Same word, different meaning ({{ traps.length }})</h2>
+      <section
+        v-if="guidance.falseFriends.length"
+        class="cmp-section cmp-traps"
+      >
+        <h2>
+          Same word, different meaning ({{ guidance.falseFriends.length }})
+        </h2>
         <p class="cmp-hint">
           These exist on both machines, so they raise no error — they just do
           something else.
         </p>
         <ul class="cmp-list">
-          <li v-for="t in traps" :key="t.keyword">
+          <li v-for="t in guidance.falseFriends" :key="t.keyword">
             <code>{{ t.keyword }}</code>
             <span class="cmp-change-detail">
               <span class="cmp-from">{{ source.label }}: {{ t.from }}</span>
@@ -407,8 +423,8 @@ function convertWithAi() {
             <code>{{ e.name }}</code>
             <span v-if="e.tag" class="cmp-tag">{{ e.tag }}</span>
             <span class="cmp-desc">{{ e.description }}</span>
-            <span v-if="substitutions.get(e.name)" class="cmp-instead">
-              {{ substitutions.get(e.name) }}
+            <span v-if="guidance.substitutions.get(e.name)" class="cmp-instead">
+              {{ guidance.substitutions.get(e.name) }}
             </span>
           </li>
           <li v-if="keywordDiff.mustReplace.length === 0" class="cmp-empty">

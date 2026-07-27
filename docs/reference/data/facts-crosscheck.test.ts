@@ -38,6 +38,17 @@ const PAIRS: [string, PortingFacts, Dialect][] = portingFacts.map((facts) => {
   return [facts.id, facts, getDialect(id)];
 });
 
+/** Start of the dialect's first region of a kind, or undefined if it has none. */
+const regionStart = (
+  d: Dialect,
+  kind: 'screen' | 'program',
+): number | undefined =>
+  d.memoryMap?.regions.find((r) => r.kind === kind)?.start;
+
+/** Parse an authored address string ("$4000", "&C000", "0x1900") to a number. */
+const parseAddr = (s: string): number =>
+  parseInt(s.replace(/^0x/i, '').replace(/^[$&]/, ''), 16);
+
 describe('facts crosscheck', () => {
   it('has one facts entry per comparable reference page', () => {
     const ids = portingFacts.map((f) => f.id).sort();
@@ -75,6 +86,30 @@ describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {
     }
     if (forms?.includes('indirection')) {
       expect(facts.memoryWriteSyntax).toMatch(/[?!]/);
+    }
+  });
+
+  it('screenBase matches the dialect screen region, or is absent when it has none', () => {
+    const start = regionStart(dialect, 'screen');
+    if (start === undefined) {
+      // ZX80/ZX81 (display file folded into program RAM) and the TRS-80
+      // (no memory map) have no screen region, so they carry no screenBase.
+      expect(facts.screenBase).toBeUndefined();
+    } else {
+      expect(facts.screenBase).toBeDefined();
+      expect(parseAddr(facts.screenBase!)).toBe(start);
+    }
+  });
+
+  it('programStart matches the dialect program region, tolerating the C64 zero byte', () => {
+    const start = regionStart(dialect, 'program');
+    if (start === undefined) {
+      // Only the TRS-80 lacks a program region (it has no memory map at all).
+      expect(facts.programStart).toBeUndefined();
+    } else {
+      expect(facts.programStart).toBeDefined();
+      // The C64 region starts at 0x0800 but BASIC text begins at 0x0801.
+      expect([start, start + 1]).toContain(parseAddr(facts.programStart!));
     }
   });
 });

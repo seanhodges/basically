@@ -110,13 +110,36 @@ export interface FalseFriend {
 }
 
 /**
+ * Advice anchored to one *ordered* pair of pages (from → to): the few pairs
+ * whose relationship is close enough, or trap-laden enough, to warrant notes
+ * that the target-only {@link PortingFacts.portingNotes} and the
+ * {@link FalseFriend} warnings cannot carry - e.g. that ZX80 and ZX81 spell
+ * their block graphics with the same escapes but different byte values, so
+ * graphics port silently wrong between the two closest machines.
+ *
+ * Directional on purpose: what one direction gains the other loses, so a pair
+ * and its reverse are two distinct entries. Sparse: most pairs have none.
+ * Pinned by porting-crosscheck.test.ts (real slugs, `from` ≠ `to`, no duplicate
+ * ordered pair, notes within the same reading budget as the other prose).
+ */
+export interface PairPortingNotes {
+  /** Source page slug being ported *from*. */
+  from: string;
+  /** Target page slug being ported *to*. */
+  to: string;
+  /** A few short notes specific to this ordered pair. */
+  notes: string[];
+}
+
+/**
  * The language-rule and hardware facts a porter needs to compare, one entry per
  * dialect reference page. Split into two classes for the crosscheck test
  * (facts-crosscheck.test.ts):
  *
  *  - CROSSCHECKED against `src/dialects/<id>/`: `freeRamBytes` (← programRamBytes),
- *    `addressNotation`, `hexPrefix`, `statementSepChar` (← memoryWrites) and the
- *    shape of `memoryWriteSyntax` (← memoryWrites.forms).
+ *    `addressNotation`, `hexPrefix`, `statementSepChar` (← memoryWrites), the
+ *    shape of `memoryWriteSyntax` (← memoryWrites.forms), and `screenBase` /
+ *    `programStart` (← memoryMap `screen` / `program` region starts).
  *  - HAND-AUTHORED from the hardware page + tokenizer/aiProfile, with no
  *    structured source in `src/`: `lineNumberRange`, `statementSeparator`,
  *    `elseSupported`, `letRequired`, `variableNaming`, `exponentOperator`,
@@ -144,6 +167,21 @@ export interface PortingFacts {
   // --- Hardware ---
   /** Text/graphics screen summary, e.g. "32×24 text; 256×192 bitmap". */
   screen: string;
+  /**
+   * Screen-memory base address, in this machine's own hex convention
+   * ("$4000", "&C000"). Optional: omitted for the ZX80/ZX81, whose display file
+   * has no dedicated region, and the TRS-80, which has no structured memory map.
+   * Pinned to the dialect's first `screen` memoryMap region by
+   * facts-crosscheck.test.ts.
+   */
+  screenBase?: string;
+  /**
+   * BASIC program-text start address, same convention ("$0801", "&0170").
+   * Optional: omitted only for the TRS-80 (no memory map). Pinned to the
+   * dialect's `program` memoryMap region start - the C64 value is the true text
+   * start ($0801), one byte past the region start, which the crosscheck allows.
+   */
+  programStart?: string;
   /** Free RAM for a BASIC program, in bytes (← Dialect.programRamBytes). */
   freeRamBytes: number;
   /** Colour capability summary. */

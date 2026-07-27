@@ -3,10 +3,13 @@ import type {
   EscapeTableData,
   FalseFriend,
   KeywordEquivalence,
+  PairPortingNotes,
+  PortingFacts,
   ReferenceEntry,
   ReferenceTableData,
 } from '../../reference/data/types';
 import {
+  composeGuidance,
   diffEscapes,
   diffKeywords,
   falseFriendsBetween,
@@ -260,5 +263,100 @@ describe('falseFriendsBetween', () => {
   it('stays silent when either page has nothing to say', () => {
     expect(falseFriendsBetween('bbc', 'zx81', [LOG])).toEqual([]);
     expect(falseFriendsBetween('zx81', 'commodore', [LOG])).toEqual([]);
+  });
+});
+
+describe('composeGuidance', () => {
+  /** Minimal PortingFacts; only the guidance-bearing fields matter here. */
+  function facts(over: Partial<PortingFacts> & { id: string }): PortingFacts {
+    return {
+      lineNumberRange: '1–9999',
+      statementSeparator: null,
+      elseSupported: false,
+      letRequired: 'optional',
+      variableNaming: 'A–Z',
+      screen: 'text',
+      freeRamBytes: 1024,
+      colour: 'none',
+      sound: 'none',
+      memoryWriteSyntax: 'POKE addr,val',
+      addressNotation: 'dec',
+      portingNotes: [],
+      substitutions: [],
+      ...over,
+    };
+  }
+
+  const LOG: FalseFriend = {
+    keyword: 'LOG',
+    meanings: { bbc: 'Base-10 logarithm.', commodore: 'Natural logarithm.' },
+  };
+  const PAIRS: PairPortingNotes[] = [
+    { from: 'zx81', to: 'zxspectrum', notes: ['Jumps are GO TO here.'] },
+    { from: 'zxspectrum', to: 'zx81', notes: ['Code moves back into REM.'] },
+  ];
+
+  it('selects the notes for exactly this ordered pair', () => {
+    const g = composeGuidance({
+      from: 'zx81',
+      to: 'zxspectrum',
+      targetFacts: facts({ id: 'zxspectrum' }),
+      pairNotes: PAIRS,
+      falseFriends: [],
+    });
+    expect(g.pairNotes).toEqual(['Jumps are GO TO here.']);
+  });
+
+  it('is directional: the reverse pair gets its own notes', () => {
+    const g = composeGuidance({
+      from: 'zxspectrum',
+      to: 'zx81',
+      targetFacts: facts({ id: 'zx81' }),
+      pairNotes: PAIRS,
+      falseFriends: [],
+    });
+    expect(g.pairNotes).toEqual(['Code moves back into REM.']);
+  });
+
+  it('returns no pair notes when the pair has none', () => {
+    const g = composeGuidance({
+      from: 'zx81',
+      to: 'bbc',
+      targetFacts: facts({ id: 'bbc' }),
+      pairNotes: PAIRS,
+      falseFriends: [],
+    });
+    expect(g.pairNotes).toEqual([]);
+  });
+
+  it('surfaces the target notes, substitutions and false friends', () => {
+    const g = composeGuidance({
+      from: 'bbc',
+      to: 'commodore',
+      targetFacts: facts({
+        id: 'commodore',
+        portingNotes: ['No ELSE here.'],
+        substitutions: [{ keyword: 'ELSE', note: 'Invert the test.' }],
+      }),
+      pairNotes: PAIRS,
+      falseFriends: [LOG],
+    });
+    expect(g.targetNotes).toEqual(['No ELSE here.']);
+    expect(g.substitutions.get('ELSE')).toBe('Invert the test.');
+    expect(g.falseFriends.map((f) => f.keyword)).toEqual(['LOG']);
+  });
+
+  it('is empty-safe when the target facts are missing', () => {
+    const g = composeGuidance({
+      from: 'zx81',
+      to: 'zxspectrum',
+      targetFacts: undefined,
+      pairNotes: PAIRS,
+      falseFriends: [LOG],
+    });
+    expect(g.targetNotes).toEqual([]);
+    expect(g.substitutions.size).toBe(0);
+    // Pair notes and false friends do not depend on the target facts.
+    expect(g.pairNotes).toEqual(['Jumps are GO TO here.']);
   });
 });
