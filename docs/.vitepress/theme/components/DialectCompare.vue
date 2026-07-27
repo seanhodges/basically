@@ -1,11 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import {
+  computed,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+  type ComputedRef,
+} from 'vue';
 import type {
   EscapeTableData,
   PortingFacts,
   ReferenceTableData,
 } from '../../../reference/data/types';
-import { diffEscapes, diffKeywords } from '../dialectCompare';
+import { composeGuidance, diffEscapes, diffKeywords } from '../dialectCompare';
+import {
+  falseFriends,
+  keywordEquivalences,
+  pairPortingNotes,
+} from '../../../reference/data/porting';
 import { KIND_META } from '../kindMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
 
@@ -22,17 +34,17 @@ interface DialectOption {
 
 const props = defineProps<{ dialects: DialectOption[] }>();
 
-// Message types the embedded app listens for (src/components/DocsDrawer.tsx).
+// Message type the embedded app listens for (src/components/DocsDrawer.tsx).
 // Kept in sync with that file by string, like DOCS_CLOSE_MESSAGE there.
-const EXPLAIN_MESSAGE = 'basically:compare-explain';
 const CONVERT_MESSAGE = 'basically:compare-convert';
 
 const from = ref(props.dialects[0]?.id ?? '');
 const to = ref(props.dialects[1]?.id ?? props.dialects[0]?.id ?? '');
 const showUnchanged = ref(false);
 // True only when these docs are hosted inside the app's iframe (same check as
-// Layout.vue). The AI actions post to the parent app, so they only make sense
-// when there is one; a standalone visit shows the deterministic diff alone.
+// Layout.vue). Converting a program posts to the parent app and needs the user's
+// own program, so it only makes sense when there is one. Everything else on this
+// page - including all the porting guidance - renders for a standalone visit too.
 const embedded = ref(false);
 const copied = ref(false);
 let copiedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -49,8 +61,28 @@ const keywordDiff = computed(() => {
   const s = source.value;
   const t = target.value;
   if (!s || !t) return null;
-  return diffKeywords(s.reference, t.reference);
+  return diffKeywords(s.reference, t.reference, {
+    from: s.id,
+    to: t.id,
+    equivalences: keywordEquivalences,
+  });
 });
+
+// The prose guidance for the chosen pair, gathered in one place: what to watch
+// for on the target machine, notes specific to this direction, the same-name-
+// different-meaning traps (which nothing else on the page can surface, since
+// they match on name, kind and usually syntax), and the per-command "do this
+// instead" advice. The hardware address facts interpolate both sides as rows of
+// the fact table instead (see factRows), not as prose.
+const guidance = computed(() =>
+  composeGuidance({
+    from: from.value,
+    to: to.value,
+    targetFacts: target.value?.facts,
+    pairNotes: pairPortingNotes,
+    falseFriends,
+  }),
+);
 
 const escapeDiff = computed(() => {
   const s = source.value;
@@ -58,6 +90,65 @@ const escapeDiff = computed(() => {
   if (!s?.escapes || !t?.escapes) return null;
   return diffEscapes(s.escapes, t.escapes);
 });
+
+// Some cmp-list's run to dozens of rows for dissimilar pairs (e.g. ZX81 →
+// BBC). Cap each at TRUNCATE_LIMIT and let the reader reveal the rest -
+// section headings still count the full array, only the rendered rows are
+// capped. `resetKey` re-collapses every list when the compared pair changes.
+const TRUNCATE_LIMIT = 10;
+
+function useTruncatedList<T>(
+  getList: () => T[],
+  resetKey: ComputedRef<string>,
+) {
+  const list = computed(getList);
+  const expanded = ref(false);
+  watch(resetKey, () => {
+    expanded.value = false;
+  });
+  return reactive({
+    visible: computed(() =>
+      expanded.value ? list.value : list.value.slice(0, TRUNCATE_LIMIT),
+    ),
+    hasMore: computed(() => list.value.length > TRUNCATE_LIMIT),
+    remaining: computed(() => list.value.length - TRUNCATE_LIMIT),
+    expanded,
+    expand: () => {
+      expanded.value = true;
+    },
+  });
+}
+
+const pairKey = computed(() => `${from.value}:${to.value}`);
+
+const falseFriendsList = useTruncatedList(
+  () => guidance.value.falseFriends,
+  pairKey,
+);
+const renamedList = useTruncatedList(
+  () => keywordDiff.value?.renamed ?? [],
+  pairKey,
+);
+const mustReplaceList = useTruncatedList(
+  () => keywordDiff.value?.mustReplace ?? [],
+  pairKey,
+);
+const behaviourChangedList = useTruncatedList(
+  () => keywordDiff.value?.behaviourChanged ?? [],
+  pairKey,
+);
+const newlyAvailableList = useTruncatedList(
+  () => keywordDiff.value?.newlyAvailable ?? [],
+  pairKey,
+);
+const escMustReplaceList = useTruncatedList(
+  () => escapeDiff.value?.mustReplace ?? [],
+  pairKey,
+);
+const escNewlyAvailableList = useTruncatedList(
+  () => escapeDiff.value?.newlyAvailable ?? [],
+  pairKey,
+);
 
 /** One row of the language & hardware comparison. */
 interface FactRow {
@@ -104,7 +195,9 @@ const factRows = computed<FactRow[]>(() => {
     ['Variable names', (f) => f.variableNaming],
     ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
     ['Screen', (f) => f.screen],
+    ['Screen base', (f) => f.screenBase ?? 'No dedicated screen RAM'],
     ['Free program RAM', fmtRam],
+    ['Program start', (f) => f.programStart ?? '—'],
     ['Colour', (f) => f.colour],
     ['Sound', (f) => f.sound],
     ['Writing memory', (f) => f.memoryWriteSyntax],
@@ -176,54 +269,6 @@ useDeepLinkParams(({ from: f, to: t }) => {
   if (t && optionFor(t)) to.value = t;
 });
 
-/** Plain-text rendering of the diff, handed to the app for the AI prompt. */
-function diffSummaryText(): string {
-  const s = source.value;
-  const t = target.value;
-  const kw = keywordDiff.value;
-  if (!s || !t || !kw) return '';
-  const lines: string[] = [`Porting from ${s.label} to ${t.label}.`, ''];
-  const names = (list: { name: string }[]) =>
-    list.map((e) => e.name).join(', ') || '(none)';
-  lines.push(
-    `Keywords in ${s.label} that ${t.label} lacks (replace or drop): ${names(
-      kw.mustReplace,
-    )}`,
-  );
-  lines.push(
-    `Keywords whose kind or syntax differs: ${
-      kw.behaviourChanged.map((c) => c.name).join(', ') || '(none)'
-    }`,
-  );
-  lines.push(
-    `Keywords ${t.label} adds over ${s.label}: ${names(kw.newlyAvailable)}`,
-  );
-  const changed = factRows.value.filter((r) => r.changed);
-  if (changed.length) {
-    lines.push('', 'Language & hardware differences:');
-    for (const r of changed) {
-      lines.push(`- ${r.label}: ${r.fromText} → ${r.toText}`);
-    }
-  }
-  return lines.join('\n');
-}
-
-function explainWithAi() {
-  const s = source.value;
-  const t = target.value;
-  if (!s || !t) return;
-  window.parent.postMessage(
-    {
-      type: EXPLAIN_MESSAGE,
-      fromLabel: s.label,
-      toLabel: t.label,
-      toId: t.id,
-      summary: diffSummaryText(),
-    },
-    window.location.origin,
-  );
-}
-
 function convertWithAi() {
   const t = target.value;
   if (!t) return;
@@ -236,56 +281,103 @@ function convertWithAi() {
 
 <template>
   <div class="cmp">
-    <div class="cmp-controls">
-      <label class="cmp-field">
-        <span>Porting from</span>
-        <select v-model="from" @change="syncUrl">
-          <option v-for="d in dialects" :key="d.id" :value="d.id">
-            {{ d.label }}
-          </option>
-        </select>
-      </label>
-      <button
-        type="button"
-        class="cmp-swap"
-        title="Swap source and target"
-        aria-label="Swap source and target"
-        @click="swap"
-      >
-        ⇄
-      </button>
-      <label class="cmp-field">
-        <span>to</span>
-        <select v-model="to" @change="syncUrl">
-          <option v-for="d in dialects" :key="d.id" :value="d.id">
-            {{ d.label }}
-          </option>
-        </select>
-      </label>
-      <button
-        type="button"
-        class="cmp-copy"
-        :class="{ copied }"
-        title="Copy a link to this comparison"
-        @click="copyLink"
-      >
-        {{ copied ? 'Link copied' : 'Copy link' }}
-      </button>
-    </div>
+    <div class="cmp-panel">
+      <div class="cmp-controls">
+        <label class="cmp-field">
+          <span>Porting from</span>
+          <select v-model="from" @change="syncUrl">
+            <option v-for="d in dialects" :key="d.id" :value="d.id">
+              {{ d.label }}
+            </option>
+          </select>
+        </label>
+        <button
+          type="button"
+          class="cmp-swap"
+          title="Swap source and target"
+          aria-label="Swap source and target"
+          @click="swap"
+        >
+          ⇄
+        </button>
+        <label class="cmp-field">
+          <span>to</span>
+          <select v-model="to" @change="syncUrl">
+            <option v-for="d in dialects" :key="d.id" :value="d.id">
+              {{ d.label }}
+            </option>
+          </select>
+        </label>
+        <button
+          type="button"
+          class="cmp-copy"
+          :class="{ copied }"
+          title="Copy a link to this comparison"
+          @click="copyLink"
+        >
+          {{ copied ? 'Link copied' : 'Copy link' }}
+        </button>
+      </div>
 
-    <p v-if="sameSelection" class="cmp-note">
-      Pick two different dialects to see what changes.
-    </p>
+      <p v-if="sameSelection" class="cmp-note">
+        Pick two different dialects to see what changes.
+      </p>
 
-    <template v-else-if="source && target && keywordDiff">
-      <p class="cmp-summary">
+      <p v-else-if="source && target && keywordDiff" class="cmp-summary">
         <strong>{{ source.label }} → {{ target.label }}:</strong>
         {{ keywordDiff.mustReplace.length }} keyword(s) to replace,
+        {{ keywordDiff.renamed.length }} to rename,
         {{ keywordDiff.behaviourChanged.length }} changed,
         {{ keywordDiff.newlyAvailable.length }} newly available,
         {{ changedFactCount }} language/hardware difference(s).
       </p>
+    </div>
 
+    <!--
+      Language & hardware differences, surfaced right under the picker (above
+      the general porting prose) so the key dialect/machine differences are
+      visible at a glance as the from/to inputs change. Guarded like the rest
+      of the results, since it means nothing without a valid pair.
+    -->
+    <section
+      v-if="!sameSelection && source && target && keywordDiff"
+      class="cmp-section"
+    >
+      <h2>Language &amp; hardware</h2>
+      <label class="cmp-toggle">
+        <input v-model="showUnchanged" type="checkbox" />
+        Show unchanged rows
+      </label>
+      <table class="cmp-facts">
+        <thead>
+          <tr>
+            <th></th>
+            <th>{{ source.label }}</th>
+            <th>{{ target.label }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="row in visibleFactRows"
+            :key="row.label"
+            :class="{ 'cmp-changed': row.changed }"
+          >
+            <th scope="row">{{ row.label }}</th>
+            <td>{{ row.fromText }}</td>
+            <td>{{ row.toText }}</td>
+          </tr>
+          <tr v-if="visibleFactRows.length === 0">
+            <td colspan="3" class="cmp-empty">
+              No language or hardware differences.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="cmp-intro"><slot /></div>
+
+    <template v-if="!sameSelection && source && target && keywordDiff">
       <div class="cmp-links">
         <span
           >Full reference:
@@ -304,49 +396,109 @@ function convertWithAi() {
       </div>
 
       <div v-if="embedded" class="cmp-ai">
-        <button type="button" @click="explainWithAi">
-          Explain porting with AI
-        </button>
         <button type="button" @click="convertWithAi">
-          Convert my program to {{ target.label }}
+          Convert to {{ target.label }} using AI
         </button>
       </div>
 
-      <!-- Language & hardware differences -->
-      <section class="cmp-section">
-        <h2>Language &amp; hardware</h2>
-        <label class="cmp-toggle">
-          <input v-model="showUnchanged" type="checkbox" />
-          Show unchanged rows
-        </label>
-        <table class="cmp-facts">
-          <thead>
-            <tr>
-              <th></th>
-              <th>{{ source.label }}</th>
-              <th>{{ target.label }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in visibleFactRows"
-              :key="row.label"
-              :class="{ 'cmp-changed': row.changed }"
+      <section
+        v-if="guidance.targetNotes.length"
+        class="cmp-section cmp-guidance"
+      >
+        <h2>Writing for {{ target.label }}</h2>
+        <ul class="cmp-notes">
+          <li v-for="note in guidance.targetNotes" :key="note">
+            {{ note }}
+          </li>
+        </ul>
+      </section>
+
+      <!--
+        Notes specific to this direction: the few pairs close enough, or
+        trap-laden enough, that the target-only notes and the false-friend
+        warnings cannot carry the advice on their own.
+      -->
+      <section
+        v-if="guidance.pairNotes.length"
+        class="cmp-section cmp-guidance"
+      >
+        <h2>{{ source.label }} → {{ target.label }}: this pair</h2>
+        <ul class="cmp-notes">
+          <li v-for="note in guidance.pairNotes" :key="note">
+            {{ note }}
+          </li>
+        </ul>
+      </section>
+
+      <!--
+        First, because these are the only differences that fail silently: the
+        command exists on both machines, so nothing else on this page flags it,
+        and the program runs and quietly computes something else.
+      -->
+      <section
+        v-if="guidance.falseFriends.length"
+        class="cmp-section cmp-traps"
+      >
+        <h2>
+          Same word, different meaning ({{ guidance.falseFriends.length }})
+        </h2>
+        <p class="cmp-hint">
+          These exist on both machines, so they raise no error — they just do
+          something else.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="t in falseFriendsList.visible" :key="t.keyword">
+            <code>{{ t.keyword }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from">{{ source.label }}: {{ t.from }}</span>
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to">{{ target.label }}: {{ t.to }}</span>
+            </span>
+          </li>
+          <li
+            v-if="falseFriendsList.hasMore && !falseFriendsList.expanded"
+            class="cmp-more"
+          >
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="falseFriendsList.expand()"
             >
-              <th scope="row">{{ row.label }}</th>
-              <td>{{ row.fromText }}</td>
-              <td>{{ row.toText }}</td>
-            </tr>
-            <tr v-if="visibleFactRows.length === 0">
-              <td colspan="3" class="cmp-empty">
-                No language or hardware differences.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              Show {{ falseFriendsList.remaining }} more…
+            </button>
+          </li>
+        </ul>
       </section>
 
       <!-- Keyword differences -->
+      <section v-if="keywordDiff.renamed.length" class="cmp-section">
+        <h2>Keywords to rename ({{ keywordDiff.renamed.length }})</h2>
+        <p class="cmp-hint">
+          The same command, spelled differently — a search and replace, not a
+          rewrite.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="r in renamedList.visible" :key="r.from.name">
+            <code>{{ r.from.name }}</code>
+            <span class="cmp-arrow">→</span>
+            <code>{{ r.to.name }}</code>
+            <span class="cmp-desc">{{ r.to.description }}</span>
+          </li>
+          <li
+            v-if="renamedList.hasMore && !renamedList.expanded"
+            class="cmp-more"
+          >
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="renamedList.expand()"
+            >
+              Show {{ renamedList.remaining }} more…
+            </button>
+          </li>
+        </ul>
+      </section>
+
       <section class="cmp-section">
         <h2>Keywords to replace ({{ keywordDiff.mustReplace.length }})</h2>
         <p class="cmp-hint">
@@ -354,7 +506,7 @@ function convertWithAi() {
           these.
         </p>
         <ul class="cmp-list cmp-remove">
-          <li v-for="e in keywordDiff.mustReplace" :key="e.name">
+          <li v-for="e in mustReplaceList.visible" :key="e.name">
             <span class="cmp-icon" :class="`kind-${e.kind}`">
               <svg
                 width="14"
@@ -373,6 +525,21 @@ function convertWithAi() {
             <code>{{ e.name }}</code>
             <span v-if="e.tag" class="cmp-tag">{{ e.tag }}</span>
             <span class="cmp-desc">{{ e.description }}</span>
+            <span v-if="guidance.substitutions.get(e.name)" class="cmp-instead">
+              {{ guidance.substitutions.get(e.name) }}
+            </span>
+          </li>
+          <li
+            v-if="mustReplaceList.hasMore && !mustReplaceList.expanded"
+            class="cmp-more"
+          >
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="mustReplaceList.expand()"
+            >
+              Show {{ mustReplaceList.remaining }} more…
+            </button>
           </li>
           <li v-if="keywordDiff.mustReplace.length === 0" class="cmp-empty">
             Every {{ source.label }} keyword exists in {{ target.label }}.
@@ -386,7 +553,7 @@ function convertWithAi() {
           Same keyword, different kind or syntax — check each use.
         </p>
         <ul class="cmp-list cmp-change">
-          <li v-for="c in keywordDiff.behaviourChanged" :key="c.name">
+          <li v-for="c in behaviourChangedList.visible" :key="c.name">
             <code>{{ c.name }}</code>
             <span class="cmp-change-detail">
               <span class="cmp-from"
@@ -399,6 +566,20 @@ function convertWithAi() {
                 <code>{{ c.to.syntax }}</code></span
               >
             </span>
+          </li>
+          <li
+            v-if="
+              behaviourChangedList.hasMore && !behaviourChangedList.expanded
+            "
+            class="cmp-more"
+          >
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="behaviourChangedList.expand()"
+            >
+              Show {{ behaviourChangedList.remaining }} more…
+            </button>
           </li>
           <li
             v-if="keywordDiff.behaviourChanged.length === 0"
@@ -415,7 +596,7 @@ function convertWithAi() {
           In {{ target.label }} but not {{ source.label }} — you can use these.
         </p>
         <ul class="cmp-list cmp-add">
-          <li v-for="e in keywordDiff.newlyAvailable" :key="e.name">
+          <li v-for="e in newlyAvailableList.visible" :key="e.name">
             <span class="cmp-icon" :class="`kind-${e.kind}`">
               <svg
                 width="14"
@@ -434,6 +615,18 @@ function convertWithAi() {
             <code>{{ e.name }}</code>
             <span v-if="e.tag" class="cmp-tag">{{ e.tag }}</span>
             <span class="cmp-desc">{{ e.description }}</span>
+          </li>
+          <li
+            v-if="newlyAvailableList.hasMore && !newlyAvailableList.expanded"
+            class="cmp-more"
+          >
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="newlyAvailableList.expand()"
+            >
+              Show {{ newlyAvailableList.remaining }} more…
+            </button>
           </li>
           <li v-if="keywordDiff.newlyAvailable.length === 0" class="cmp-empty">
             {{ target.label }} adds no keywords over {{ source.label }}.
@@ -452,9 +645,23 @@ function convertWithAi() {
             <div>
               <h3>To replace ({{ escapeDiff.mustReplace.length }})</h3>
               <ul class="cmp-list cmp-remove">
-                <li v-for="e in escapeDiff.mustReplace" :key="e.escape">
+                <li v-for="e in escMustReplaceList.visible" :key="e.escape">
                   <code>{{ e.escape }}</code>
                   <span class="cmp-desc">{{ e.description }}</span>
+                </li>
+                <li
+                  v-if="
+                    escMustReplaceList.hasMore && !escMustReplaceList.expanded
+                  "
+                  class="cmp-more"
+                >
+                  <button
+                    type="button"
+                    class="cmp-expand"
+                    @click="escMustReplaceList.expand()"
+                  >
+                    Show {{ escMustReplaceList.remaining }} more…
+                  </button>
                 </li>
                 <li
                   v-if="escapeDiff.mustReplace.length === 0"
@@ -467,9 +674,24 @@ function convertWithAi() {
             <div>
               <h3>Newly available ({{ escapeDiff.newlyAvailable.length }})</h3>
               <ul class="cmp-list cmp-add">
-                <li v-for="e in escapeDiff.newlyAvailable" :key="e.escape">
+                <li v-for="e in escNewlyAvailableList.visible" :key="e.escape">
                   <code>{{ e.escape }}</code>
                   <span class="cmp-desc">{{ e.description }}</span>
+                </li>
+                <li
+                  v-if="
+                    escNewlyAvailableList.hasMore &&
+                    !escNewlyAvailableList.expanded
+                  "
+                  class="cmp-more"
+                >
+                  <button
+                    type="button"
+                    class="cmp-expand"
+                    @click="escNewlyAvailableList.expand()"
+                  >
+                    Show {{ escNewlyAvailableList.remaining }} more…
+                  </button>
                 </li>
                 <li
                   v-if="escapeDiff.newlyAvailable.length === 0"
@@ -491,12 +713,24 @@ function convertWithAi() {
 </template>
 
 <style scoped>
+/* The picker panel: grouped, bordered and set apart so the from/to controls
+   read as the page's primary action, above the explanatory prose. */
+.cmp-panel {
+  margin: 2rem 0;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+  background: var(--vp-c-bg-soft);
+}
+.cmp-intro {
+  margin-top: 2rem;
+}
 .cmp-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.75rem;
-  margin: 1rem 0;
+  margin: 0;
 }
 .cmp-field {
   display: flex;
@@ -505,11 +739,13 @@ function convertWithAi() {
   font-size: 0.8rem;
   color: var(--vp-c-text-2);
 }
+/* Inputs sit on the soft panel, so give them the base background to lift
+   them off it. */
 .cmp-field select {
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 6px;
-  background: var(--vp-c-bg-soft);
+  background: var(--vp-c-bg);
   color: var(--vp-c-text-1);
   font-size: 0.9rem;
 }
@@ -518,7 +754,7 @@ function convertWithAi() {
   padding: 0.4rem 0.7rem;
   border: 1px solid var(--vp-c-divider);
   border-radius: 6px;
-  background: var(--vp-c-bg-soft);
+  background: var(--vp-c-bg);
   color: var(--vp-c-text-2);
   cursor: pointer;
   font-size: 0.9rem;
@@ -527,10 +763,12 @@ function convertWithAi() {
   color: var(--vp-c-green-1);
   border-color: var(--vp-c-green-1);
 }
+/* Sits inside the panel under the controls, so a divider rather than its own
+   box separates it from them. */
 .cmp-summary {
-  padding: 0.6rem 0.8rem;
-  border-radius: 6px;
-  background: var(--vp-c-bg-soft);
+  margin: 0.85rem 0 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--vp-c-divider);
 }
 .cmp-links {
   margin: 0.5rem 0 0;
@@ -562,6 +800,10 @@ function convertWithAi() {
 .cmp-note {
   color: var(--vp-c-text-2);
   font-size: 0.9rem;
+}
+/* In the panel, under the controls. */
+.cmp-note {
+  margin: 0.85rem 0 0;
 }
 .cmp-toggle {
   display: inline-flex;
@@ -617,6 +859,22 @@ function convertWithAi() {
   flex-direction: column;
   align-items: stretch;
 }
+.cmp-more {
+  border-left-color: transparent !important;
+  justify-content: center;
+}
+.cmp-expand {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-brand-1);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.cmp-expand:hover {
+  background: var(--vp-c-brand-soft);
+}
 .cmp-icon {
   display: inline-flex;
   align-items: center;
@@ -638,6 +896,25 @@ function convertWithAi() {
 .cmp-desc {
   color: var(--vp-c-text-2);
   font-size: 0.85rem;
+}
+/* The "do this instead" line, set apart from the neutral description. */
+.cmp-instead {
+  font-size: 0.85rem;
+  color: var(--vp-c-text-1);
+  border-left: 2px solid var(--vp-c-brand-1, var(--vp-c-text-3));
+  padding-left: 0.5rem;
+}
+.cmp-notes {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+.cmp-notes li {
+  margin: 0.3rem 0;
+  line-height: 1.5;
+}
+/* Same word, different meaning: the only differences here that fail silently. */
+.cmp-traps h2 {
+  color: var(--vp-c-warning-1, var(--vp-c-text-1));
 }
 .cmp-change-detail {
   display: flex;

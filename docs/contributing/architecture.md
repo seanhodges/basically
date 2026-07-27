@@ -81,8 +81,8 @@ the target-switch confirmation, the first-launch welcome, and `NewProjectDialog`
   there is no "starter" sample, so a first launch and an empty-editor target
   switch both leave the editor empty. `DocsDrawer`
   embeds this documentation site from `/docs/` in an iframe and talks to it over
-  `postMessage` (close, and the Compare page's "explain"/"convert" hand-offs into
-  the AI panel).
+  `postMessage` (close, and the Compare page's "convert" hand-off into the AI
+  panel).
 
 The virtual keyboard and game controller (`src/keyboard/`) are **pure
 data-driven renderers**: each dialect supplies a `KeyboardLayout` object
@@ -500,9 +500,8 @@ Key details:
   limit is marked incomplete and offers no apply actions - the output budget is
   shared with adaptive thinking, so a long listing can hit it - and a declined
   request is reported as declined rather than retried as an empty reply.
-- The docs drawer is a second entry point: the Compare page's "explain" and
-  "convert" actions post a message to the app, which opens the AI panel with a
-  prepared prompt.
+- The docs drawer is a second entry point: the Compare page's "convert" action
+  posts a message to the app, which opens the AI panel with a prepared prompt.
 
 ### Hardware transfer - export and import
 

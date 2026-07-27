@@ -7,11 +7,6 @@ import {
 /**
  * Playwright end-to-end / cross-browser config.
  *
- * Specs live under `e2e/` (kept out of `src/` so Vitest - which globs
- * `src/**\/*.test.ts` - never tries to run them), in one folder per OpenSpec
- * capability mirroring `openspec/specs/` (plus `e2e/shell/` for cross-cutting
- * UI specs).
- *
  * Browser matrix: every test runs against Chromium (Chrome), Firefox, WebKit
  * (Safari's engine) and Microsoft Edge. The first three come from
  * `npx playwright install`; Edge is a branded channel that needs a one-time
@@ -23,23 +18,16 @@ import {
  * (the managed environment pre-installs them under `/opt/pw-browsers`).
  */
 
-// Console reporter alongside the HTML file: annotations on CI, a list locally.
 const consoleReporter: ReporterDescription = process.env.CI
   ? ['github']
   : ['list'];
 
-/** Chromium-only context extras: clipboard permissions so the Edit-menu
- *  copy/paste tests can exercise the async Clipboard API path. Firefox and
- *  WebKit don't accept these permission names (their tests exercise the
- *  fallback paths instead). */
 const CHROMIUM_PERMISSIONS = ['clipboard-read', 'clipboard-write'];
 
 export default defineConfig({
   testDir: './e2e',
-  // The docs/README screenshot-capture spec is a utility that writes image files
-  // into docs/public/ rather than asserting behaviour, so keep it out of the
-  // normal suite. Run it on demand via `npm run e2e:docs-screenshots`, which
-  // points at playwright.docs.config.ts.
+  // The screenshot-capture spec is a utility that writes image files
+  // into docs/public/ rather than asserting behaviour, exclude here.
   testIgnore: '**/capture-docs-screenshots.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -85,16 +73,15 @@ export default defineConfig({
       url: 'http://localhost:5173',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
-      // The standalone-player specs stub the share API with page.route, but the
-      // client short-circuits with 'unconfigured' before any request when
-      // VITE_SHARE_API_URL is unset. Point it at a dummy origin so the fetch is
-      // actually issued (and then intercepted); no real network call is made.
+      // The standalone-player specs stub the share API with page.route.
+      // Point it at a dummy origin so the fetch is actually issued and then
+      // intercepted; no real network call is made.
       env: { ...process.env, VITE_SHARE_API_URL: 'https://api.example.test' },
     },
     {
       // The in-app docs drawer iframes /docs/, which the IDE dev server
       // proxies to this VitePress dev server (see vite.config.ts). Without it
-      // the drawer-content assertions (test plan 12.2) have nothing to show.
+      // the drawer-content assertions have nothing to show.
       command: 'npm run docs:dev -- --port 5174',
       url: 'http://localhost:5174/docs/',
       reuseExistingServer: !process.env.CI,
