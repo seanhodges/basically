@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
-import { decodeSpectrumNumber } from './numbers';
+import { decodeSpectrumNumber, encodeSpectrumNumber } from './numbers';
+import { hasFatalErrors } from '../types';
 
 function bytes(src: string): number[] {
   const { bytes, errors } = tokenizeProgram(src);
@@ -184,6 +185,132 @@ describe('zxspectrum tokenizer', () => {
       const round = tokenizeProgram(listing);
       expect(round.errors).toEqual([]);
       expect(Array.from(round.bytes)).toEqual(Array.from(first.bytes));
+    });
+  });
+
+  // Every statement on a line gets the command-keyword check, not just the
+  // first. The first statement keeps its own (fatal) reporting - see the
+  // "rejects line-leading non-commands" cases above, which must not double up.
+  describe('statements after the first on a line', () => {
+    it('flags a bad statement after a colon', () => {
+      const { errors } = tokenizeProgram('10 PRINT 1: PRNT 2\n');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({
+        line: 1,
+        column: 12,
+        endColumn: 16,
+        fatal: false,
+      });
+      expect(errors[0]!.message).toContain('PRNT');
+    });
+
+    it('flags a bad statement after THEN', () => {
+      // Spectrum BASIC has no `IF … THEN <line>` shorthand (the jump is
+      // `THEN GO TO n`), so THEN always introduces a statement to check.
+      const { errors } = tokenizeProgram('10 IF a=1 THEN PRNT 2\n');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({ column: 15, endColumn: 19 });
+    });
+
+    it('flags a bare line number after THEN', () => {
+      const { errors } = tokenizeProgram('10 IF a=1 THEN 20\n');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.message).toContain('20');
+    });
+
+    it('names LET when an inline assignment omits it', () => {
+      // The likeliest real hit, and the rule is unobvious coming from a BASIC
+      // with an implied LET.
+      const { errors } = tokenizeProgram('10 PRINT 1: a=5\n');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.message).toMatch(/LET/);
+    });
+
+    it('flags a non-command keyword opening a later statement', () => {
+      const { errors } = tokenizeProgram('10 PRINT 1: RND\n');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.message).toContain('RND');
+    });
+
+    it('flags a string opening a later statement', () => {
+      const { errors } = tokenizeProgram('10 PRINT 1: "hi"\n');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({ column: 12, endColumn: 13 });
+    });
+
+    it.each([
+      '10 BORDER 0: PAPER 0: INK 7: CLS\n',
+      '10 FOR n=1 TO 2: BEEP .12,0: NEXT n\n',
+      '10 IF a=1 THEN LET b=2: PRINT b\n',
+      '10 GO SUB 100: GO TO 200\n',
+      '10 PRINT 1::PRINT 2\n', // an empty statement between two good ones
+      '10 PRINT 1:\n', // a trailing empty statement
+      '10 :PRINT 1\n', // a leading one, as real tapes carry
+      '10 REM a: b: c\n', // REM swallows the rest of the line
+      '10 PRINT "a:b": PRINT 2\n', // a colon inside a string is not a separator
+      '10 DATA 1,2: PRINT 3\n', // DATA items tokenize normally; the colon ends it
+      '10 PRINT 1:{INK 2}PRINT 2\n', // an escape carries bytes, it doesn't open
+      '10 PRINT 1: DEF FN a(i)=i\n',
+    ])('accepts %j', (src) => {
+      expect(tokenizeProgram(src).errors).toEqual([]);
+    });
+
+    it('leaves the colon separator byte-identical', () => {
+      // The colon used to reach the generic character path; it now has its own
+      // branch, which must emit the same byte and leave the same state.
+      expect(bytes('10 PRINT 1: PRINT 2\n').slice(4)).toEqual([
+        0xf5,
+        0x31,
+        0x0e,
+        ...encodeSpectrumNumber(1),
+        0x3a,
+        0xf5,
+        0x32,
+        0x0e,
+        ...encodeSpectrumNumber(2),
+        0x0d,
+      ]);
+    });
+
+    it('is non-fatal, so the program still builds', () => {
+      const { errors, bytes: image } = tokenizeProgram('10 PRINT 1: PRNT 2\n');
+      expect(hasFatalErrors(errors)).toBe(false);
+      expect(image.length).toBeGreaterThan(0);
+      // The first statement's check is unchanged and still blocks the image.
+      expect(hasFatalErrors(tokenizeProgram('10 x=5\n').errors)).toBe(true);
+    });
+
+    it('round-trips multi-statement lines through the detokenizer', () => {
+      const src =
+        '10 BORDER 0: PAPER 0: INK 7: CLS\n20 IF a=1 THEN LET b=2: PRINT b\n30 PRINT 1::PRINT 2\n40 REM x: y\n';
+      const first = tokenizeProgram(src);
+      expect(first.errors).toEqual([]);
+      const round = tokenizeProgram(detokenizeProgram(first.bytes));
+      expect(round.errors).toEqual([]);
+      expect(Array.from(round.bytes)).toEqual(Array.from(first.bytes));
+    });
+  });
+
+  describe('diagnostic columns on indented lines', () => {
+    // Columns are offsets into the physical editor line, so they owe the indent.
+    it('offsets a body error by the indent', () => {
+      expect(tokenizeProgram('10 x=5\n').errors[0]).toMatchObject({
+        column: 3,
+      });
+      expect(tokenizeProgram('   10 x=5\n').errors[0]).toMatchObject({
+        column: 6,
+      });
+      expect(tokenizeProgram('  10 PRINT 1: PRNT 2\n').errors[0]).toMatchObject(
+        { column: 14, endColumn: 18 },
+      );
+    });
+
+    it('offsets a line-number error by the indent', () => {
+      const { errors } = tokenizeProgram('   PRINT 1\n');
+      expect(errors[0]).toMatchObject({
+        column: 3,
+        message: 'Missing line number',
+      });
     });
   });
 });

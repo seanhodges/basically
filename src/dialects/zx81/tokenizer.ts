@@ -34,13 +34,18 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     const text = raw.trim();
     if (text === '') continue;
     const editorLine = li + 1;
+    // Columns are offsets into the *physical* editor line (the linter adds them
+    // to the line start), but everything below is measured against the trimmed
+    // text - so every column owes the indent width. Trailing space costs
+    // nothing, only the leading run matters.
+    const lead = raw.length - raw.trimStart().length;
 
     const directive = parseBinaryDirective(text);
     if (directive) {
       if ('error' in directive) {
         errors.push({
           line: editorLine,
-          column: directive.column,
+          column: lead + directive.column,
           message: directive.error,
         });
         continue;
@@ -54,7 +59,7 @@ export function tokenizeProgram(source: string): TokenizedProgram {
       if (rec.length < 4) {
         errors.push({
           line: editorLine,
-          column: 0,
+          column: lead,
           message:
             '#BIN record too short (needs line number and length fields)',
         });
@@ -64,7 +69,7 @@ export function tokenizeProgram(source: string): TokenizedProgram {
       if (recLen !== rec.length - 4) {
         errors.push({
           line: editorLine,
-          column: 0,
+          column: lead,
           message:
             `#BIN record length field (${recLen}) does not match ` +
             `payload size (${rec.length - 4})`,
@@ -83,7 +88,7 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     if (!m) {
       errors.push({
         line: editorLine,
-        column: 0,
+        column: lead,
         message: 'Missing line number',
       });
       continue;
@@ -92,7 +97,7 @@ export function tokenizeProgram(source: string): TokenizedProgram {
     if (lineNo < 1 || lineNo > 9999) {
       errors.push({
         line: editorLine,
-        column: 0,
+        column: lead,
         message: `Line number ${lineNo} out of range 1-9999`,
       });
       continue;
@@ -105,14 +110,14 @@ export function tokenizeProgram(source: string): TokenizedProgram {
       // detokenizer always emits ascending lines.
       errors.push({
         line: editorLine,
-        column: 0,
+        column: lead,
         message: `Line number ${lineNo} not greater than previous line ${prevLineNo}`,
       });
       continue;
     }
 
     const body = text.slice(m[0].length);
-    const tokens = tokenizeBody(body, editorLine, m[0].length, errors);
+    const tokens = tokenizeBody(body, editorLine, lead + m[0].length, errors);
     if (tokens === null) continue; // error already recorded
 
     prevLineNo = lineNo;

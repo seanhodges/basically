@@ -82,6 +82,20 @@ describe('zx80 tokenizer', () => {
     expect(errors[0]!.message).toMatch(/statement keyword/);
   });
 
+  // Columns are offsets into the physical editor line, so an indented line's
+  // diagnostics owe the indent width.
+  it('offsets diagnostic columns by a line indent', () => {
+    expect(tokenizeProgram('10 A=1').errors[0]).toMatchObject({ column: 3 });
+    expect(tokenizeProgram('   10 A=1').errors[0]).toMatchObject({ column: 6 });
+    expect(tokenizeProgram('  PRINT 1').errors[0]).toMatchObject({
+      column: 2,
+      message: 'Missing line number',
+    });
+    expect(tokenizeProgram('  #BIN not-base64!').errors[0]).toMatchObject({
+      column: 7,
+    });
+  });
+
   it('keeps REM text literal', () => {
     const { bytes } = tokenizeProgram('10 REM HI');
     // REM (0xfe) then 'H' 'I' (0x2d 0x2e), NEWLINE

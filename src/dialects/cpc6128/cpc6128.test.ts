@@ -150,4 +150,12 @@ describe('cpc6128 dialect', () => {
     // Target ids are per-dialect so the two machines' exports stay distinct.
     for (const t of cpc6128.buildTargets) expect(t.id).toMatch(/^cpc6128-/);
   });
+
+  it('lints every statement on a line, not just the first', () => {
+    const errors = cpc6128.lint('10 PRINT 1:SIN(1)\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toContain('SIN');
+    expect(cpc6128.lint('10 MODE 1:PRINT 1\n')).toEqual([]);
+  });
 });
