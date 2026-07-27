@@ -9,9 +9,7 @@ export default defineConfig({
     // In production the VitePress docs build is deployed under /docs/ next to
     // the app; in dev the docs are a separate server (`npm run docs:dev`).
     // Without this proxy the SPA fallback answers /docs/ with the IDE shell
-    // itself, so the in-app docs drawer shows the IDE recursively. Proxy
-    // /docs to the docs dev server instead (so running `npm run docs:dev`
-    // alongside `npm run dev` shows the docs in the drawer during development).
+    // itself, the in-app docs drawer will show the IDE.
     proxy: {
       '^/docs(/|$)': {
         target: `http://localhost:${process.env.DOCS_PORT ?? 5174}`,
@@ -30,10 +28,10 @@ export default defineConfig({
       manifest: false,
       workbox: {
         // The emulator cores and a few assets are large; raise the precache
-        // size ceiling so the app shell is fully cached.
+        // maximum file size so the app shell is fully cached.
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest,woff2,wasm}'],
-        // Third-party ROMs load on demand and cache at runtime.
+        // Third-party ROMs cache at runtime.
         globIgnores: ['**/roms/**'],
         runtimeCaching: [
           {
@@ -48,8 +46,7 @@ export default defineConfig({
         ],
         // Never let the app's SPA navigation fallback answer for docs URLs.
         // Match the bare `/docs` too (no trailing slash) so a visit to
-        // ba.sical.ly/docs reaches the server's redirect to /docs/ instead of
-        // being served the app shell.
+        // ba.sical.ly/docs reaches the server's redirect to /docs/.
         navigateFallbackDenylist: [/^\/docs(\/|$)/],
       },
     }),

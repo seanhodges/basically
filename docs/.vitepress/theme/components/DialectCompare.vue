@@ -5,7 +5,12 @@ import type {
   PortingFacts,
   ReferenceTableData,
 } from '../../../reference/data/types';
-import { diffEscapes, diffKeywords } from '../dialectCompare';
+import { composeGuidance, diffEscapes, diffKeywords } from '../dialectCompare';
+import {
+  falseFriends,
+  keywordEquivalences,
+  pairPortingNotes,
+} from '../../../reference/data/porting';
 import { KIND_META } from '../kindMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
 
@@ -22,17 +27,17 @@ interface DialectOption {
 
 const props = defineProps<{ dialects: DialectOption[] }>();
 
-// Message types the embedded app listens for (src/components/DocsDrawer.tsx).
+// Message type the embedded app listens for (src/components/DocsDrawer.tsx).
 // Kept in sync with that file by string, like DOCS_CLOSE_MESSAGE there.
-const EXPLAIN_MESSAGE = 'basically:compare-explain';
 const CONVERT_MESSAGE = 'basically:compare-convert';
 
 const from = ref(props.dialects[0]?.id ?? '');
 const to = ref(props.dialects[1]?.id ?? props.dialects[0]?.id ?? '');
 const showUnchanged = ref(false);
 // True only when these docs are hosted inside the app's iframe (same check as
-// Layout.vue). The AI actions post to the parent app, so they only make sense
-// when there is one; a standalone visit shows the deterministic diff alone.
+// Layout.vue). Converting a program posts to the parent app and needs the user's
+// own program, so it only makes sense when there is one. Everything else on this
+// page - including all the porting guidance - renders for a standalone visit too.
 const embedded = ref(false);
 const copied = ref(false);
 let copiedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -49,8 +54,28 @@ const keywordDiff = computed(() => {
   const s = source.value;
   const t = target.value;
   if (!s || !t) return null;
-  return diffKeywords(s.reference, t.reference);
+  return diffKeywords(s.reference, t.reference, {
+    from: s.id,
+    to: t.id,
+    equivalences: keywordEquivalences,
+  });
 });
+
+// The prose guidance for the chosen pair, gathered in one place: what to watch
+// for on the target machine, notes specific to this direction, the same-name-
+// different-meaning traps (which nothing else on the page can surface, since
+// they match on name, kind and usually syntax), and the per-command "do this
+// instead" advice. The hardware address facts interpolate both sides as rows of
+// the fact table instead (see factRows), not as prose.
+const guidance = computed(() =>
+  composeGuidance({
+    from: from.value,
+    to: to.value,
+    targetFacts: target.value?.facts,
+    pairNotes: pairPortingNotes,
+    falseFriends,
+  }),
+);
 
 const escapeDiff = computed(() => {
   const s = source.value;
@@ -104,7 +129,9 @@ const factRows = computed<FactRow[]>(() => {
     ['Variable names', (f) => f.variableNaming],
     ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
     ['Screen', (f) => f.screen],
+    ['Screen base', (f) => f.screenBase ?? 'No dedicated screen RAM'],
     ['Free program RAM', fmtRam],
+    ['Program start', (f) => f.programStart ?? '—'],
     ['Colour', (f) => f.colour],
     ['Sound', (f) => f.sound],
     ['Writing memory', (f) => f.memoryWriteSyntax],
@@ -176,54 +203,6 @@ useDeepLinkParams(({ from: f, to: t }) => {
   if (t && optionFor(t)) to.value = t;
 });
 
-/** Plain-text rendering of the diff, handed to the app for the AI prompt. */
-function diffSummaryText(): string {
-  const s = source.value;
-  const t = target.value;
-  const kw = keywordDiff.value;
-  if (!s || !t || !kw) return '';
-  const lines: string[] = [`Porting from ${s.label} to ${t.label}.`, ''];
-  const names = (list: { name: string }[]) =>
-    list.map((e) => e.name).join(', ') || '(none)';
-  lines.push(
-    `Keywords in ${s.label} that ${t.label} lacks (replace or drop): ${names(
-      kw.mustReplace,
-    )}`,
-  );
-  lines.push(
-    `Keywords whose kind or syntax differs: ${
-      kw.behaviourChanged.map((c) => c.name).join(', ') || '(none)'
-    }`,
-  );
-  lines.push(
-    `Keywords ${t.label} adds over ${s.label}: ${names(kw.newlyAvailable)}`,
-  );
-  const changed = factRows.value.filter((r) => r.changed);
-  if (changed.length) {
-    lines.push('', 'Language & hardware differences:');
-    for (const r of changed) {
-      lines.push(`- ${r.label}: ${r.fromText} → ${r.toText}`);
-    }
-  }
-  return lines.join('\n');
-}
-
-function explainWithAi() {
-  const s = source.value;
-  const t = target.value;
-  if (!s || !t) return;
-  window.parent.postMessage(
-    {
-      type: EXPLAIN_MESSAGE,
-      fromLabel: s.label,
-      toLabel: t.label,
-      toId: t.id,
-      summary: diffSummaryText(),
-    },
-    window.location.origin,
-  );
-}
-
 function convertWithAi() {
   const t = target.value;
   if (!t) return;
@@ -281,6 +260,7 @@ function convertWithAi() {
       <p class="cmp-summary">
         <strong>{{ source.label }} → {{ target.label }}:</strong>
         {{ keywordDiff.mustReplace.length }} keyword(s) to replace,
+        {{ keywordDiff.renamed.length }} to rename,
         {{ keywordDiff.behaviourChanged.length }} changed,
         {{ keywordDiff.newlyAvailable.length }} newly available,
         {{ changedFactCount }} language/hardware difference(s).
@@ -304,13 +284,67 @@ function convertWithAi() {
       </div>
 
       <div v-if="embedded" class="cmp-ai">
-        <button type="button" @click="explainWithAi">
-          Explain porting with AI
-        </button>
         <button type="button" @click="convertWithAi">
-          Convert my program to {{ target.label }}
+          Convert to {{ target.label }} using AI
         </button>
       </div>
+
+      <section
+        v-if="guidance.targetNotes.length"
+        class="cmp-section cmp-guidance"
+      >
+        <h2>Writing for {{ target.label }}</h2>
+        <ul class="cmp-notes">
+          <li v-for="note in guidance.targetNotes" :key="note">
+            {{ note }}
+          </li>
+        </ul>
+      </section>
+
+      <!--
+        Notes specific to this direction: the few pairs close enough, or
+        trap-laden enough, that the target-only notes and the false-friend
+        warnings cannot carry the advice on their own.
+      -->
+      <section
+        v-if="guidance.pairNotes.length"
+        class="cmp-section cmp-guidance"
+      >
+        <h2>{{ source.label }} → {{ target.label }}: this pair</h2>
+        <ul class="cmp-notes">
+          <li v-for="note in guidance.pairNotes" :key="note">
+            {{ note }}
+          </li>
+        </ul>
+      </section>
+
+      <!--
+        First, because these are the only differences that fail silently: the
+        command exists on both machines, so nothing else on this page flags it,
+        and the program runs and quietly computes something else.
+      -->
+      <section
+        v-if="guidance.falseFriends.length"
+        class="cmp-section cmp-traps"
+      >
+        <h2>
+          Same word, different meaning ({{ guidance.falseFriends.length }})
+        </h2>
+        <p class="cmp-hint">
+          These exist on both machines, so they raise no error — they just do
+          something else.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="t in guidance.falseFriends" :key="t.keyword">
+            <code>{{ t.keyword }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from">{{ source.label }}: {{ t.from }}</span>
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to">{{ target.label }}: {{ t.to }}</span>
+            </span>
+          </li>
+        </ul>
+      </section>
 
       <!-- Language & hardware differences -->
       <section class="cmp-section">
@@ -347,6 +381,22 @@ function convertWithAi() {
       </section>
 
       <!-- Keyword differences -->
+      <section v-if="keywordDiff.renamed.length" class="cmp-section">
+        <h2>Keywords to rename ({{ keywordDiff.renamed.length }})</h2>
+        <p class="cmp-hint">
+          The same command, spelled differently — a search and replace, not a
+          rewrite.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="r in keywordDiff.renamed" :key="r.from.name">
+            <code>{{ r.from.name }}</code>
+            <span class="cmp-arrow">→</span>
+            <code>{{ r.to.name }}</code>
+            <span class="cmp-desc">{{ r.to.description }}</span>
+          </li>
+        </ul>
+      </section>
+
       <section class="cmp-section">
         <h2>Keywords to replace ({{ keywordDiff.mustReplace.length }})</h2>
         <p class="cmp-hint">
@@ -373,6 +423,9 @@ function convertWithAi() {
             <code>{{ e.name }}</code>
             <span v-if="e.tag" class="cmp-tag">{{ e.tag }}</span>
             <span class="cmp-desc">{{ e.description }}</span>
+            <span v-if="guidance.substitutions.get(e.name)" class="cmp-instead">
+              {{ guidance.substitutions.get(e.name) }}
+            </span>
           </li>
           <li v-if="keywordDiff.mustReplace.length === 0" class="cmp-empty">
             Every {{ source.label }} keyword exists in {{ target.label }}.
@@ -638,6 +691,25 @@ function convertWithAi() {
 .cmp-desc {
   color: var(--vp-c-text-2);
   font-size: 0.85rem;
+}
+/* The "do this instead" line, set apart from the neutral description. */
+.cmp-instead {
+  font-size: 0.85rem;
+  color: var(--vp-c-text-1);
+  border-left: 2px solid var(--vp-c-brand-1, var(--vp-c-text-3));
+  padding-left: 0.5rem;
+}
+.cmp-notes {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+.cmp-notes li {
+  margin: 0.3rem 0;
+  line-height: 1.5;
+}
+/* Same word, different meaning: the only differences here that fail silently. */
+.cmp-traps h2 {
+  color: var(--vp-c-warning-1, var(--vp-c-text-1));
 }
 .cmp-change-detail {
   display: flex;

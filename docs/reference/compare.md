@@ -1,5 +1,5 @@
 ---
-title: Compare dialects
+title: Porting guide
 ---
 
 <script setup>
@@ -38,16 +38,49 @@ const dialects = [
 ];
 </script>
 
-# Compare dialects
+# Porting guide
 
 Pick a dialect you're porting **from** and one you're porting **to**, and this
 page summarises what to change: the keywords you'll lose, gain, or that behave
 differently, the control codes that differ, and the language-rule and hardware
 differences between the two machines.
 
-It's a guide, not an automatic translator — it compares what each dialect
-documents, so a program that tokenises on both may still depend on hardware the
-target lacks. Use it alongside each machine's full
-[language reference](./).
+The guide includes a feature to automatically port your program via the AI
+assistant. In order to use this you must be viewing these docs inside the [IDE](https://ba.sical.ly/)
+with your program open, and AI must be configured in the settings.
+
+This guide and the automation act as a starting point. There will likely be
+performance considerations, hardware inputs and other things still to address
+after porting is complete.
+
+## What a port usually involves
+
+Four things account for most of the work:
+
+**Restructuring.** If the target allows ony one statement on a line, every `:`
+has to become a new line, which renumbers everything after it (you can use the
+**Renumber file** feature to fix this). If the target has no `ELSE`, each
+`IF … THEN … ELSE` becomes a test and its inverse. Dialects that
+require `LET` reject a bare `X=1`. The table below tells you which of these
+apply to your pair.
+
+**Variable names.** This is where silent breakage lives. Where only the first
+two characters are significant, `SCORE` and `SCALE` are the same variable and a
+program that used both will misbehave rather than fail. Where names are a single
+letter, long names have to be re-mapped by hand. And on the machines that ignore
+spaces outside strings, a name that contains a reserved word is a syntax error,
+`SCORE` contains `OR`. You can use the variable watcher in the emulator to monitor
+variable usage.
+
+**Anything numeric.** Integer-only machines have no fractions at all, so
+division truncates and every fractional calculation needs rescaling. Watch the
+exponent operator too: it is spelled `**`, `^` or `↑` depending on the machine,
+some have no support.
+
+**Everything touching hardware.** Addresses never travel. A `POKE`, `USR`,
+`CALL` or `SYS` aimed at one machine's screen, sound chip or system variables
+means nothing to another machine, and neither do the control codes. Graphics
+and sound must be rewritten rather than translated: the machines here range from
+no graphics commands whatsoever to full `PLOT`/`DRAW`/`CIRCLE` with sound.
 
 <DialectCompare :dialects="dialects" />

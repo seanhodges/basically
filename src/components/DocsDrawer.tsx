@@ -20,12 +20,11 @@ const DOCS_BASE = '/docs/';
 /**
  * Messages the docs iframe posts to `window.parent`. Kept in sync by string with
  * the docs side: `docs-close` from Layout.vue's close button, `docs-ready` when
- * that layout has its listener attached, and the two `compare-*` actions from
- * the Compare dialects page (DialectCompare.vue).
+ * that layout has its listener attached, and `compare-convert` from the Compare
+ * dialects page (DialectCompare.vue).
  */
 const DOCS_CLOSE_MESSAGE = 'basically:docs-close';
 const DOCS_READY_MESSAGE = 'basically:docs-ready';
-const COMPARE_EXPLAIN_MESSAGE = 'basically:compare-explain';
 const COMPARE_CONVERT_MESSAGE = 'basically:compare-convert';
 
 /** The one message we post *into* the frame: route to another docs topic. */
@@ -109,7 +108,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
 
   // The docs render in an iframe, so its in-nav controls can't reach the store
   // directly - they post messages we translate here: the nav close button, and
-  // the Compare dialects page's "explain"/"convert" AI actions.
+  // the porting guide's "convert" AI action.
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
@@ -124,8 +123,6 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
           postNavigate(pendingPath.current);
           pendingPath.current = null;
         }
-      } else if (data.type === COMPARE_EXPLAIN_MESSAGE) {
-        explainPorting(data);
       } else if (data.type === COMPARE_CONVERT_MESSAGE) {
         convertProgram(data);
       }
@@ -136,28 +133,6 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     // depends on closeDocs (stable) - re-subscribing per render is unnecessary.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeDocs]);
-
-  // "Explain porting" from the compare page: stream a narrative of the diff into
-  // the AI panel, in the target dialect's voice. Reveal the panel and close the
-  // docs drawer so the answer is visible.
-  const explainPorting = (data: { toId?: unknown; summary?: unknown }) => {
-    const target = dialectForPage(data.toId);
-    if (!target || typeof data.summary !== 'string') return;
-    const creds = aiCredentials();
-    if (!creds) return;
-    closeDocs();
-    useIdeStore.getState().showAiPanel();
-    void useAiStore.getState().send({
-      ...creds,
-      maxTokens: target.aiProfile.maxTokens,
-      system: buildSystemPrompt(target),
-      userContent:
-        `${data.summary}\n\nExplain what these differences mean for someone ` +
-        `porting a program between these dialects, and how to handle the most ` +
-        `important ones. Do not write a full program.`,
-      displayRequest: 'Explain the porting differences',
-    });
-  };
 
   // "Convert my program" from the compare page: switch into the target dialect
   // (keeping the current program as the starting point, so applying the result

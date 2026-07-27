@@ -73,13 +73,73 @@ export interface EscapeTableData {
 }
 
 /**
+ * One command that several dialects provide under different spellings, keyed by
+ * page slug: `{ commodore: 'CLR', bbc: 'CLEAR' }`. The comparison reports these
+ * as a rename to carry out rather than as a command lost plus an unrelated
+ * command gained.
+ *
+ * Page-scoped on purpose. A spelling can mean something else entirely on a page
+ * that is simply left out of the map: the Atom's `CLEAR` selects a screen mode,
+ * so `atom` is absent from the clear-variables group and its `CLEAR` is left to
+ * be reported as the {@link FalseFriend} it is.
+ */
+export interface KeywordEquivalence {
+  /** Stable id for the shared command, e.g. "clear-variables". Not shown. */
+  concept: string;
+  /** Page slug → the spelling that page uses. Two or more entries. */
+  spellings: Record<string, string>;
+}
+
+/**
+ * One spelling that several dialects provide with materially different
+ * meanings, keyed by page slug. The exact dual of {@link KeywordEquivalence}:
+ * that one is a concept with many spellings, this is a spelling with many
+ * concepts.
+ *
+ * These are the differences nothing else on the page can surface. A false
+ * friend has the same name, the same `kind` and often the same syntax on both
+ * sides, so it lands in none of the difference buckets while quietly changing
+ * what a program computes - `LOG` is a base-10 logarithm on the Acorn machines
+ * and a natural logarithm on the Commodore, Amstrad and Tandy ones.
+ */
+export interface FalseFriend {
+  /** The shared spelling, exactly as the reference tables write it. */
+  keyword: string;
+  /** Page slug → what it means there. Two or more entries, not all equal. */
+  meanings: Record<string, string>;
+}
+
+/**
+ * Advice anchored to one *ordered* pair of pages (from → to): the few pairs
+ * whose relationship is close enough, or trap-laden enough, to warrant notes
+ * that the target-only {@link PortingFacts.portingNotes} and the
+ * {@link FalseFriend} warnings cannot carry - e.g. that ZX80 and ZX81 spell
+ * their block graphics with the same escapes but different byte values, so
+ * graphics port silently wrong between the two closest machines.
+ *
+ * Directional on purpose: what one direction gains the other loses, so a pair
+ * and its reverse are two distinct entries. Sparse: most pairs have none.
+ * Pinned by porting-crosscheck.test.ts (real slugs, `from` ≠ `to`, no duplicate
+ * ordered pair, notes within the same reading budget as the other prose).
+ */
+export interface PairPortingNotes {
+  /** Source page slug being ported *from*. */
+  from: string;
+  /** Target page slug being ported *to*. */
+  to: string;
+  /** A few short notes specific to this ordered pair. */
+  notes: string[];
+}
+
+/**
  * The language-rule and hardware facts a porter needs to compare, one entry per
  * dialect reference page. Split into two classes for the crosscheck test
  * (facts-crosscheck.test.ts):
  *
  *  - CROSSCHECKED against `src/dialects/<id>/`: `freeRamBytes` (← programRamBytes),
- *    `addressNotation`, `hexPrefix`, `statementSepChar` (← memoryWrites) and the
- *    shape of `memoryWriteSyntax` (← memoryWrites.forms).
+ *    `addressNotation`, `hexPrefix`, `statementSepChar` (← memoryWrites), the
+ *    shape of `memoryWriteSyntax` (← memoryWrites.forms), and `screenBase` /
+ *    `programStart` (← memoryMap `screen` / `program` region starts).
  *  - HAND-AUTHORED from the hardware page + tokenizer/aiProfile, with no
  *    structured source in `src/`: `lineNumberRange`, `statementSeparator`,
  *    `elseSupported`, `letRequired`, `variableNaming`, `exponentOperator`,
@@ -107,6 +167,21 @@ export interface PortingFacts {
   // --- Hardware ---
   /** Text/graphics screen summary, e.g. "32×24 text; 256×192 bitmap". */
   screen: string;
+  /**
+   * Screen-memory base address, in this machine's own hex convention
+   * ("$4000", "&C000"). Optional: omitted for the ZX80/ZX81, whose display file
+   * has no dedicated region, and the TRS-80, which has no structured memory map.
+   * Pinned to the dialect's first `screen` memoryMap region by
+   * facts-crosscheck.test.ts.
+   */
+  screenBase?: string;
+  /**
+   * BASIC program-text start address, same convention ("$0801", "&0170").
+   * Optional: omitted only for the TRS-80 (no memory map). Pinned to the
+   * dialect's `program` memoryMap region start - the C64 value is the true text
+   * start ($0801), one byte past the region start, which the crosscheck allows.
+   */
+  programStart?: string;
   /** Free RAM for a BASIC program, in bytes (← Dialect.programRamBytes). */
   freeRamBytes: number;
   /** Colour capability summary. */
@@ -121,4 +196,23 @@ export interface PortingFacts {
   hexPrefix?: string;
   /** Statement separator inside a memory-write form, if any (← memoryWrites.statementSep). */
   statementSepChar?: string;
+  // --- Porting guidance (hand-authored) ---
+  /**
+   * What to watch for when writing *for* this machine, whatever you are coming
+   * from. Kept to a few short bullets: the comparison already shows the fact
+   * rows and the keyword lists, so these earn their place only by saying what
+   * those cannot. Capped by porting-crosscheck.test.ts.
+   */
+  portingNotes: string[];
+  /**
+   * "If you need X here, do this instead", for commands this dialect does not
+   * have. Shown against the command in the difference lists rather than in a
+   * section of its own.
+   *
+   * Deliberately partial: written where it helps, and a command without one
+   * still appears in the comparison exactly as it does now. Each `keyword` must
+   * be absent from this dialect (otherwise the advice is redundant) - checked
+   * by porting-crosscheck.test.ts.
+   */
+  substitutions: { keyword: string; note: string }[];
 }
