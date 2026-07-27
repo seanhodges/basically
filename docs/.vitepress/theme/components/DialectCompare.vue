@@ -38,8 +38,20 @@ const props = defineProps<{ dialects: DialectOption[] }>();
 // Kept in sync with that file by string, like DOCS_CLOSE_MESSAGE there.
 const CONVERT_MESSAGE = 'basically:compare-convert';
 
-const from = ref(props.dialects[0]?.id ?? '');
-const to = ref(props.dialects[1]?.id ?? props.dialects[0]?.id ?? '');
+// The pair the page opens on when the URL names no `?from=`/`?to=`: the two
+// most-used dialects, and a genuinely instructive port (integer-ish Microsoft
+// BASIC with PEEK/POKE graphics → a dialect with PLOT/DRAW/CIRCLE and colour).
+// Falls back to the first two options if either id is ever unregistered.
+const DEFAULT_FROM = 'commodore';
+const DEFAULT_TO = 'zxspectrum';
+
+function defaultId(preferred: string, fallbackIndex: number): string {
+  if (props.dialects.some((d) => d.id === preferred)) return preferred;
+  return props.dialects[fallbackIndex]?.id ?? props.dialects[0]?.id ?? '';
+}
+
+const from = ref(defaultId(DEFAULT_FROM, 0));
+const to = ref(defaultId(DEFAULT_TO, 1));
 const showUnchanged = ref(false);
 // True only when these docs are hosted inside the app's iframe (same check as
 // Layout.vue). Converting a program posts to the parent app and needs the user's
@@ -273,7 +285,7 @@ function convertWithAi() {
   const t = target.value;
   if (!t) return;
   window.parent.postMessage(
-    { type: CONVERT_MESSAGE, to: t.id, toLabel: t.label },
+    { type: CONVERT_MESSAGE, toId: t.id, toLabel: t.label },
     window.location.origin,
   );
 }

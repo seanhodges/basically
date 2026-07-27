@@ -25,7 +25,13 @@ const DOCS_BASE = '/docs/';
  */
 const DOCS_CLOSE_MESSAGE = 'basically:docs-close';
 const DOCS_READY_MESSAGE = 'basically:docs-ready';
-const COMPARE_CONVERT_MESSAGE = 'basically:compare-convert';
+export const COMPARE_CONVERT_MESSAGE = 'basically:compare-convert';
+
+export const COMPARE_CONVERT_FIELDS = ['toId', 'toLabel'] as const;
+
+type CompareConvertMessage = Partial<
+  Record<(typeof COMPARE_CONVERT_FIELDS)[number], unknown>
+>;
 
 /** The one message we post *into* the frame: route to another docs topic. */
 const DOCS_NAVIGATE_MESSAGE = 'basically:docs-navigate';
@@ -137,7 +143,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   // "Convert my program" from the compare page: switch into the target dialect
   // (keeping the current program as the starting point, so applying the result
   // lints against the right machine) and ask the AI to translate it.
-  const convertProgram = (data: { toId?: unknown; toLabel?: unknown }) => {
+  const convertProgram = (data: CompareConvertMessage) => {
     const target = dialectForPage(data.toId);
     if (!target) return;
     const creds = aiCredentials();

@@ -6,7 +6,9 @@ Help a user move a BASIC program from one machine to another: pick a dialect to
 port **from** and a dialect to port **to**, and get a brief, shareable, no-setup
 comparison of what the move involves — which commands change, which behave
 differently, and how the two machines differ in language rules and hardware —
-with general and target-specific guidance always present.
+with general and target-specific guidance always present. Inside the IDE, where
+the user's own program is at hand, additionally offer to carry the port out with
+the AI assistant.
 
 ## Requirements
 
@@ -115,6 +117,41 @@ available wherever the comparison itself is available, not only inside the IDE.
 - **WHEN** a user reopens a previously loaded comparison with no network
   connection
 - **THEN** the porting guidance is still present
+
+### Requirement: Carrying out the port is offered only where there is a program
+
+Where the comparison is shown inside the IDE, and the user's own program is
+therefore at hand, the comparison SHALL additionally offer to convert that
+program to the target dialect using the AI assistant. Where the comparison is
+read on its own, outside the IDE, that offer SHALL be absent and every other
+part of the comparison SHALL be unaffected — the assistant is an extra for the
+user who has a program to convert, never a condition of the guidance.
+
+Accepting the offer SHALL switch the IDE to the target machine keeping the
+current program, and ask the assistant to translate it: preserving behaviour
+where the target machine allows, and reporting what could not be ported.
+Accepting it with no assistant configured SHALL take the user to configure one,
+rather than appearing to do nothing.
+
+#### Scenario: Converting the open program
+
+- **WHEN** a user reading the comparison inside the IDE, with an assistant
+  configured, asks for their program to be converted to the target dialect
+- **THEN** the IDE switches to the target machine with the program kept, and the
+  assistant is asked to translate it to that dialect
+
+#### Scenario: Reading the comparison outside the IDE
+
+- **WHEN** a user opens the comparison on its own, outside the IDE
+- **THEN** no offer to convert a program is made, and the rest of the comparison
+  and its guidance are unchanged
+
+#### Scenario: Asking to convert with no assistant configured
+
+- **WHEN** a user inside the IDE asks for their program to be converted, having
+  configured no assistant
+- **THEN** they are taken to configure one, and the machine and program are left
+  as they were
 
 ### Requirement: Guidance covers both the general and the machine-specific
 
