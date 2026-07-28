@@ -5,7 +5,7 @@
       "file": "basically-graphics.woff2",
       "source": "unscii-16",
       "license": "public-domain",
-      "unicodeRange": "U+00A1, U+00A3, U+00A7-A9, U+00AC, U+00B1, U+00B4, U+00B6-B7, U+00BC-BF, U+00F7, U+03A3, U+03A9, U+03B1-3B5, U+03B8, U+03BB-3BC, U+03C0, U+03C3, U+03C6-3C9, U+2019, U+2190-2191, U+2500, U+2502, U+250C, U+2510, U+2514, U+2518, U+251C, U+2524, U+252C, U+2534, U+253C, U+256D-2577, U+2580-2584, U+2588, U+258C-2590, U+2592, U+2594-25A1, U+25B2, U+25B6, U+25BC, U+25C0, U+25CB, U+25CF, U+25E2-25E5, U+2639-263A, U+2640, U+2642, U+2660, U+2663, U+2665-2666, U+2669-266A, U+1FB00-1FB3B, U+1FB70-1FB71, U+1FB73-1FB74, U+1FB76-1FB77, U+1FB79, U+1FB82-1FB83, U+1FB88, U+1FB8C, U+1FB8E-1FB92",
+      "unicodeRange": "U+00A1, U+00A3, U+00A7-00A9, U+00AC, U+00B1, U+00B4, U+00B6-00B7, U+00BC-00BF, U+00F7, U+03A3, U+03A9, U+03B1-03B5, U+03B8, U+03BB-03BC, U+03C0, U+03C3, U+03C6-03C9, U+2019, U+2190-2191, U+2500, U+2502, U+250C, U+2510, U+2514, U+2518, U+251C, U+2524, U+252C, U+2534, U+253C, U+256D-2577, U+2580-2584, U+2588, U+258C-2590, U+2592, U+2594-25A1, U+25B2, U+25B6, U+25BC, U+25C0, U+25CB, U+25CF, U+25E2-25E5, U+2639-263A, U+2640, U+2642, U+2660, U+2663, U+2665-2666, U+2669-266A, U+1FB00-1FB3B, U+1FB70-1FB71, U+1FB73-1FB74, U+1FB76-1FB77, U+1FB79, U+1FB82-1FB83, U+1FB88, U+1FB8C-1FB92, U+1FB95, U+1FB9C-1FBA9, U+1FBAE",
       "codepoints": [
         "00A1",
         "00A3",
@@ -180,11 +180,28 @@
         "1FB83",
         "1FB88",
         "1FB8C",
+        "1FB8D",
         "1FB8E",
         "1FB8F",
         "1FB90",
         "1FB91",
-        "1FB92"
+        "1FB92",
+        "1FB95",
+        "1FB9C",
+        "1FB9D",
+        "1FB9E",
+        "1FB9F",
+        "1FBA0",
+        "1FBA1",
+        "1FBA2",
+        "1FBA3",
+        "1FBA4",
+        "1FBA5",
+        "1FBA6",
+        "1FBA7",
+        "1FBA8",
+        "1FBA9",
+        "1FBAE"
       ]
     },
     {

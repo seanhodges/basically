@@ -58,7 +58,7 @@ describe('semigraphics support page', () => {
     for (const heading of [
       '## How to read it',
       '## Known wrinkles',
-      '## Machines this change did not cover',
+      '## Machines this page does not yet cover',
     ]) {
       expect(outside, heading).toContain(heading);
     }

@@ -84,8 +84,14 @@ function modePinnedLayerId(
   return mode.layer;
 }
 
-/** How a palette cell names itself: the character, then where it lives. */
+/**
+ * How a palette cell names itself: the character, then how the machine reaches
+ * it - the key it is printed on, or its character code where the machine had no
+ * graphics keys.
+ */
 function graphicAriaLabel(entry: GraphicEntry): string {
+  if (entry.key === undefined)
+    return `Insert ${entry.char}, character code ${entry.code}`;
   const key = entry.modifier ? `${entry.modifier} + ${entry.key}` : entry.key;
   return `Insert ${entry.char}, key ${key}`;
 }
@@ -812,7 +818,7 @@ export function VirtualKeyboard({
                   if (idx === focusIdx) classes.push('vk-focus');
                   return (
                     <div
-                      key={`${entry.code}-${entry.key}`}
+                      key={entry.code}
                       data-graphic={idx}
                       className={classes.join(' ')}
                       role="button"
@@ -820,8 +826,14 @@ export function VirtualKeyboard({
                       aria-label={graphicAriaLabel(entry)}
                     >
                       <span className="vk-graphic-key" aria-hidden="true">
-                        {entry.modifier ? `${entry.modifier} ` : ''}
-                        {entry.key}
+                        {entry.key === undefined ? (
+                          entry.code
+                        ) : (
+                          <>
+                            {entry.modifier ? `${entry.modifier} ` : ''}
+                            {entry.key}
+                          </>
+                        )}
                       </span>
                       <span className="vk-graphic-char" aria-hidden="true">
                         {entry.char}

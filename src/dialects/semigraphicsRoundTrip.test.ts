@@ -108,6 +108,20 @@ const CASES: Case[] = [
       0xff: 'π (SHIFT ↑) is a real PETSCII code above the graphics block',
     },
   },
+  {
+    id: 'trs80',
+    target: 'trs80-cas',
+    unreachable: {
+      0x80: 'the blank cell; its text form would be a space, so it has none',
+    },
+  },
+  ...(['cpc464', 'cpc6128'] as const).map((id) => ({
+    id,
+    target: `${id}-bas`,
+    unreachable: {
+      0x80: 'the blank cell; its text form would be a space, so it has none',
+    },
+  })),
 ];
 
 const hex = (code: number): string => `0x${code.toString(16)}`;

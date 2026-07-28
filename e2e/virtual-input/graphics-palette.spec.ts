@@ -5,8 +5,9 @@ import { PALETTE_MACHINES } from '../paletteMachines';
 
 /**
  * The graphics palette: the machines' block graphics offered as a grid rather
- * than as keycap legends, each cell labelled with the key that produces it on
- * the real machine.
+ * than as keycap legends, each cell labelled with how the real machine reaches
+ * it - the key it is printed on, or its character code on the machines that
+ * printed no graphics on the keyboard at all.
  *
  * Covers what only a browser can answer - that a cell insert reaches the
  * editor, that the column count follows the viewport, and that the bundled
@@ -50,6 +51,33 @@ test('inserts a block graphic and a user-defined graphic on the Spectrum', async
   const udg = page.getByRole('button', { name: 'Insert 🄰, key A' });
   await udg.click();
   await expect(page.locator(EDITOR)).toContainText('🄰');
+});
+
+test('labels cells by character code on a machine with no graphics keys', async ({
+  page,
+}) => {
+  // The CPC printed no graphics on its keycaps - a program reached them with
+  // PRINT CHR$(n) - so its cells name the code rather than a key that does not
+  // exist. The characters still insert exactly like any other palette cell.
+  await openApp(page);
+  await chooseTargetMachine(page, 'cpc464');
+  await clearEditor(page);
+  await openPalette(page);
+
+  // Three sections: the mosaics, the line segments, the shades and diagonals.
+  await expect(page.locator('.vk-palette-section')).toHaveCount(3);
+
+  // 0x85 (133) is the left half block.
+  const half = page.getByRole('button', { name: 'Insert ▌, character code 133' }); // prettier-ignore
+  await expect(half).toBeVisible();
+  await half.click();
+  await expect(page.locator(EDITOR)).toContainText('▌');
+
+  // The corner hint shows the bare code, which is what CHR$ takes.
+  await expect(half.locator('.vk-graphic-key')).toHaveText('133');
+
+  // No cell on this machine claims a key.
+  await expect(page.getByRole('button', { name: /, key / })).toHaveCount(0);
 });
 
 test('scrolling the palette by dragging does not insert a character', async ({

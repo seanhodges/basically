@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cpc464KeyboardLayout as layout } from './keyboardLayout';
+import { cpcCharset } from './charset';
 import { resolveEditorAction } from '../../keyboard/editorActions';
 import { CONTROLLER_ROLES } from '../../keyboard/controllerConfig';
 import {
@@ -159,5 +160,28 @@ describe('cpc464 controller', () => {
       expect(renderedIds.has(token), `${token} not rendered`).toBe(false);
       expect(byId.get(token)!.emits).toEqual([token]);
     }
+  });
+
+  it('offers a graphics palette whose characters encode to their codes', () => {
+    const palette = layout.graphicsPalette;
+    expect(palette).toBeDefined();
+    const entries = palette!.sections.flatMap((s) => s.entries);
+    expect(entries.length).toBeGreaterThan(0);
+    for (const entry of entries) {
+      // The CPC printed no graphics on its keys, so every cell is
+      // labelled by character code instead.
+      expect(entry.key, `0x${entry.code.toString(16)}`).toBeUndefined();
+      expect(
+        [...cpcCharset.toMachine(entry.char)],
+        `0x${entry.code.toString(16)}`,
+      ).toEqual([entry.code]);
+    }
+    // Codes appear once each, so no character is offered twice.
+    expect(new Set(entries.map((e) => e.code)).size).toBe(entries.length);
+  });
+
+  it('reaches the palette from an editor mode', () => {
+    const mode = layout.editorModes!.find((m) => m.palette === 'graphics');
+    expect(mode).toBeDefined();
   });
 });

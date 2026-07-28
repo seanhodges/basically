@@ -35,23 +35,36 @@ describe('graphics palette machines', () => {
     ).toEqual(withPalette);
   });
 
-  it('every palette entry carries a character and the key that types it', () => {
+  it('every palette entry carries a character and a way to reach it', () => {
+    // A cell has to say how the machine produces its character: the key it is
+    // printed on, or - where the machine printed no graphics on the keyboard at
+    // all - the character code its BASIC takes. Never neither, and never an
+    // empty string standing in for one.
     for (const dialect of dialects) {
       const palette = dialect.keyboardLayout.graphicsPalette;
       if (!palette) continue;
       for (const section of palette.sections) {
         expect(section.entries.length, dialect.id).toBeGreaterThan(0);
         for (const entry of section.entries) {
-          expect(
-            entry.char,
-            `${dialect.id} 0x${entry.code.toString(16)}`,
-          ).not.toBe('');
-          expect(
-            entry.key,
-            `${dialect.id} 0x${entry.code.toString(16)}`,
-          ).not.toBe('');
+          const where = `${dialect.id} 0x${entry.code.toString(16)}`;
+          expect(entry.char, where).not.toBe('');
+          if (entry.key === undefined)
+            expect(Number.isInteger(entry.code), where).toBe(true);
+          else expect(entry.key, where).not.toBe('');
         }
       }
+    }
+  });
+
+  it('a machine either labels every cell with a key or none of them', () => {
+    // Mixing the two within one palette would read as an inconsistency rather
+    // than as a fact about the machine.
+    for (const dialect of dialects) {
+      const palette = dialect.keyboardLayout.graphicsPalette;
+      if (!palette) continue;
+      const entries = palette.sections.flatMap((s) => s.entries);
+      const keyed = entries.filter((e) => e.key !== undefined).length;
+      expect([0, entries.length], dialect.id).toContain(keyed);
     }
   });
 });
