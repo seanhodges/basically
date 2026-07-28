@@ -243,6 +243,10 @@ export default withPwa(
               text: 'Semigraphics support',
               link: '/contributing/semigraphics-support',
             },
+            {
+              text: 'Glyph sources',
+              link: '/contributing/glyph-sources',
+            },
           ],
         },
       ],
