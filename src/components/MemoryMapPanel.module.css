@@ -187,7 +187,7 @@
 }
 
 .bandAddr {
-  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-family: var(--mono);
   font-size: 11px;
   color: var(--text-dim);
 }
@@ -248,7 +248,7 @@
   right: 3px;
   top: 0;
   transform: translateY(-50%);
-  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-family: var(--mono);
   font-size: 10px;
   line-height: 1;
   color: #12141a;
@@ -294,7 +294,7 @@
   right: 3px;
   top: 0;
   transform: translateY(-50%);
-  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-family: var(--mono);
   font-size: 10px;
   line-height: 1;
   color: #12141a;
@@ -322,7 +322,7 @@
   right: 3px;
   top: 0;
   transform: translateY(-50%);
-  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-family: var(--mono);
   font-size: 10px;
   line-height: 1;
   color: var(--text-dim);
@@ -402,7 +402,7 @@
 }
 
 .mono {
-  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-family: var(--mono);
 }
 
 .leafList {

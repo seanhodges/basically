@@ -140,13 +140,13 @@ describe('C64 PETSCII table', () => {
       0xa8, 0xb6, 0xb7, 0xb8, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xd4, 0xd9, 0xdc,
     ]);
     const covered = new Set<number>();
-    for (const { char, petscii } of C64_GRAPHICS) {
-      if (!distinct.has(petscii)) continue;
+    for (const { char, code } of C64_GRAPHICS) {
+      if (!distinct.has(code)) continue;
       expect(
         c64Charset.toMachine(char)[0],
-        `key for $${petscii.toString(16)}`,
-      ).toBe(petscii);
-      covered.add(petscii);
+        `key for $${code.toString(16)}`,
+      ).toBe(code);
+      covered.add(code);
     }
     // Every ROM-distinct code appears on a key and is asserted above.
     expect(covered.size).toBe(distinct.size);

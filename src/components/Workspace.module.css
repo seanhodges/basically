@@ -290,6 +290,21 @@
   }
 }
 
+/* ---------- Portrait tablets: give the floating palette its own box ----------
+   The keyboard hugs its content here, so a child sized with `flex: 1` has no
+   height to fill: the graphics palette would grow to fit every row at once and
+   push the keyboard off the top of the band. It brings its own box instead -
+   wide enough for a useful column count, never taller than the band it floats
+   in (less the mode strip above it), and scrolling for the rest. Landscape is
+   left alone: there the palette is sized from the same aspect maths as the key
+   block (see VirtualKeyboard.css). */
+@media (min-width: 769px) and (orientation: portrait) {
+  .workspaceVkOverlay :global(.vk-palette) {
+    width: min(100cqw, 760px);
+    max-height: calc(100cqh - 56px);
+  }
+}
+
 /* ---------- Phone landscape: full-height, click-through keyboard band ----------
    Override the shared float block above so the band spans the whole workspace
    (making cqh/cqw resolve against the full workspace - the keyboard then fills up

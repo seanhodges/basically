@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { c64KeyboardLayout } from './keyboardLayout';
 import { resolveEditorAction } from '../../keyboard/editorActions';
+import type { GraphicEntry } from '../../keyboard/layoutSchema';
+import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
 
 const layout = c64KeyboardLayout;
 const functionKeys = layout.functionKeys ?? [];
@@ -19,7 +21,7 @@ describe('commodore64 keyboard layout', () => {
     });
   });
 
-  it('offers ABC, SYM and GRAPHICS modes, the last with a shifted layer', () => {
+  it('offers ABC, SYM and GRAPHICS modes, the last showing the palette', () => {
     expect(layout.editorModes?.map((m) => m.id)).toEqual([
       'abc',
       'sym',
@@ -28,8 +30,10 @@ describe('commodore64 keyboard layout', () => {
     const sym = layout.editorModes?.find((m) => m.id === 'sym');
     expect(sym?.layer).toBe('sym');
     const graphics = layout.editorModes?.find((m) => m.id === 'graphics');
-    expect(graphics?.layer).toBe('gfxCommodore');
-    expect(graphics?.shiftedLayer).toBe('gfxShift');
+    expect(graphics?.palette).toBe('graphics');
+    // The graphics sets are the palette's, not a pinned key layer's.
+    expect(graphics?.shiftedLayer).toBeUndefined();
+    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift', 'sym']);
   });
 
   it('carries eight function keys f1..f8 in the top strip', () => {
@@ -50,19 +54,25 @@ describe('commodore64 keyboard layout', () => {
     expect(byId.get('F8')!.emits).toEqual(['LeftShift', 'F7']);
   });
 
-  it('puts both block-graphic sets on the letter keys', () => {
-    const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('A')!, 'gfxCommodore')).toEqual(
-      {
-        insert: '┌',
-      },
-    );
-    expect(resolveEditorAction(layout, byId.get('A')!, 'gfxShift')).toEqual({
-      insert: '♠',
-    });
-    expect(resolveEditorAction(layout, byId.get('S')!, 'gfxShift')).toEqual({
-      insert: '♥',
-    });
+  it('puts both block-graphic sets in the palette, keyed and labelled', () => {
+    const sections = layout.graphicsPalette!.sections;
+    expect(sections.map((s) => s.title)).toEqual([
+      'C= graphics',
+      'SHIFT graphics',
+    ]);
+    expect(sections[0]!.entries).toEqual(C64_COMMODORE_GRAPHICS);
+    expect(sections[1]!.entries).toEqual(C64_SHIFT_GRAPHICS);
+    const find = (section: number, key: string) =>
+      sections[section]!.entries.find((e) => e.key === key);
+    expect(find(0, 'A')?.char).toBe('┌');
+    expect(find(1, 'A')?.char).toBe('♠');
+    expect(find(1, 'S')?.char).toBe('♥');
+    // Every entry says which key and modifier produces it on the real machine.
+    for (const section of sections)
+      for (const entry of section.entries) {
+        expect(entry.key, String(entry.code)).toBeTruthy();
+        expect(entry.modifier, entry.key).toBeTruthy();
+      }
   });
 
   it('hosts the six graphics symbols (+ - £ @ * ↑) on the number row', () => {
@@ -77,23 +87,18 @@ describe('commodore64 keyboard layout', () => {
     expect(resolveEditorAction(layout, byId.get('Num6')!, 'sym')).toEqual({
       insert: '↑',
     });
-    // GRAPHICS mode types the C= graphic; GRAPHICS ⇧ the SHIFT graphic.
-    expect(
-      resolveEditorAction(layout, byId.get('Num1')!, 'gfxCommodore'),
-    ).toEqual({ insert: '▒' });
-    expect(resolveEditorAction(layout, byId.get('Num1')!, 'gfxShift')).toEqual({
-      insert: '┼',
-    });
-    expect(resolveEditorAction(layout, byId.get('Num5')!, 'gfxShift')).toEqual({
-      insert: '─',
-    });
-    // ↑ has no C= graphic, only SHIFT π; C= falls back to the base digit.
-    expect(resolveEditorAction(layout, byId.get('Num6')!, 'gfxShift')).toEqual({
-      insert: 'π',
-    });
-    expect(
-      resolveEditorAction(layout, byId.get('Num6')!, 'gfxCommodore'),
-    ).toEqual({ insert: '6' });
+  });
+
+  it("carries those six keys' graphics in the palette, under their keycaps", () => {
+    const [cmd, shifted] = layout.graphicsPalette!.sections;
+    const find = (entries: GraphicEntry[] | undefined, key: string) =>
+      entries?.find((e) => e.key === key);
+    expect(find(cmd?.entries, '+')?.char).toBe('▒');
+    expect(find(shifted?.entries, '+')?.char).toBe('┼');
+    expect(find(shifted?.entries, '*')?.char).toBe('─');
+    // ↑ has no C= graphic, only SHIFT π.
+    expect(find(shifted?.entries, '↑')?.char).toBe('π');
+    expect(find(cmd?.entries, '↑')).toBeUndefined();
   });
 
   it('keeps the number keys emitting their own digit matrix token', () => {

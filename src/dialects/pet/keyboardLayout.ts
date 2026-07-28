@@ -21,8 +21,8 @@ import { C64_SHIFT_GRAPHICS } from '../commodore64/graphics';
  *    needs. As on the C64 layout these SHIFT legends are editor inserts: the
  *    live matrix still sees SHIFT+key (which on the real machine draws the
  *    block graphic), so they are typing conveniences, not hardware fidelity.
- *  - **GRAPHICS** - the block graphics on the 26 letter keys, pinned by the
- *    mode (`gfxShift`), so a graphic can be typed without holding SHIFT.
+ *  - **GRAPHICS** - the block graphics as a palette rather than as key legends,
+ *    each cell labelled with the SHIFT+key that draws it on the real machine.
  *
  * Every key `emits` a PET matrix token (see `../../emulator/pet/keyboard.ts`);
  * the punctuation keys use the PET's direct-key tokens (`,` `.` `/` `"`) rather
@@ -31,16 +31,9 @@ import { C64_SHIFT_GRAPHICS } from '../commodore64/graphics';
  * on-screen keyboard; the ten digit keys stand in for the pad.
  */
 
-const shiftGfx = new Map(C64_SHIFT_GRAPHICS.map((g) => [g.key, g.char]));
-
-/** A block-graphic legend that inserts its own character, or null if none. */
-const gfxLabel = (char: string | undefined): KeyLabel | null =>
-  char === undefined ? null : { text: char, editor: { insert: char } };
-
 /**
- * A key: base label, optional shifted label, and the letter's block graphic
- * looked up by id. Label tuple order matches `layers` below:
- * [base, shift, gfxShift].
+ * A key: base label and optional shifted label. Label tuple order matches
+ * `layers` below: [base, shift].
  */
 function key(
   id: string,
@@ -52,15 +45,14 @@ function key(
   const labels: (KeyLabel | null)[] = [
     { text: base },
     shift ? { text: shift } : null,
-    gfxLabel(shiftGfx.get(id)),
   ];
   return { id, spanX, emits: [emit], labels };
 }
 
 const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
 
-/** A bottom-row / strip key with only a main label (no shift, no graphics). */
-const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [main, null, null];
+/** A bottom-row / strip key with only a main label (no shift). */
+const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [main, null];
 
 // Numeric row: the graphics keyboard's pad digits, with the PET's top-row
 // punctuation offered as SHIFT editor inserts (! " # $ % & ' ( )).
@@ -180,18 +172,20 @@ export const petKeyboardLayout: KeyboardLayout = {
       activeWhen: ['shift'],
       editorInsertStyle: 'char',
     },
-    // The single graphics set, pinned by GRAPHICS mode (not a modifier), so it
-    // stays always-rendered (activeWhen []) and carries its own inserts.
-    { id: 'gfxShift', name: 'GRAPHICS', position: 'bl', activeWhen: [] },
   ],
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'base' },
-    { id: 'graphics', name: 'GRAPHICS', layer: 'gfxShift' },
+    // GRAPHICS shows the palette; it pins no layer, so SHIFT keeps its ordinary
+    // meaning while the palette is open.
+    { id: 'graphics', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
   ],
   modifiers: [
     { id: 'shift', emits: ['LeftShift'], sticky: true, lockable: true },
   ],
   rows,
+  // One set only: the PET has no Commodore key, so the graphics printed on the
+  // key fronts are reached with SHIFT.
+  graphicsPalette: { sections: [{ entries: C64_SHIFT_GRAPHICS }] },
   glyphs: {},
   // WASD movement + Space/Return fire (the convention the bundled PET games use).
   controller: {

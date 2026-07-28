@@ -17,13 +17,10 @@ import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
  *  - **SYM** - the six C64 graphics-key characters `+ - £ @ * ↑`, which have no
  *    dedicated key on the 10-wide grid, surfaced as editor inserts on the number
  *    row (keys 1-6). Editor-only, like the BBC's SYM overflow layer.
- *  - **GRAPHICS** - the C= block graphics unmodified, the SHIFT block graphics
- *    with SHIFT held (`shiftedLayer`).
- *
- * Every keyboard-reachable block graphic stays typeable in GRAPHICS mode: the 26
- * letters carry theirs, and the six graphics keys' block graphics ride the
- * number row alongside their SYM characters (Num1-Num6 = `+ - £ @ * ↑`), the
- * only keys whose graphics faces are otherwise empty.
+ *  - **GRAPHICS** - the sixty-odd block graphics as a palette in two sections
+ *    (the C= set and the SHIFT set) rather than as key legends: they do not fit
+ *    on the keycaps legibly, and the palette labels each one with the key and
+ *    modifier that produces it on the real machine.
  *
  * The four physical function keys yield eight values (f2/f4/f6/f8 are SHIFT of
  * the odd keys); all eight are shown as separate keys in the top strip, behind
@@ -31,17 +28,9 @@ import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
  * dropped. Each key `emits` a VIC-II button name (see c64Machine.ts).
  */
 
-const cmdGfx = new Map(C64_COMMODORE_GRAPHICS.map((g) => [g.key, g.char]));
-const shiftGfx = new Map(C64_SHIFT_GRAPHICS.map((g) => [g.key, g.char]));
-
-/** A block-graphic legend that inserts its own character, or null if none. */
-const gfxLabel = (char: string | undefined): KeyLabel | null =>
-  char === undefined ? null : { text: char, editor: { insert: char } };
-
 /**
- * A key: base label, optional shifted label, the two block graphics looked up by
- * id, an empty SYM slot. Label tuple order matches `layers` below:
- * [base, shift, gfxCommodore, gfxShift, sym].
+ * A key: base label, optional shifted label, an empty SYM slot. Label tuple
+ * order matches `layers` below: [base, shift, sym].
  */
 function key(
   id: string,
@@ -53,8 +42,6 @@ function key(
   const labels: (KeyLabel | null)[] = [
     { text: base },
     shift ? { text: shift } : null,
-    gfxLabel(cmdGfx.get(id)),
-    gfxLabel(shiftGfx.get(id)),
     null, // SYM layer: only the symbol-hosting number keys populate this.
   ];
   return { id, spanX, emits: [emit], labels };
@@ -62,23 +49,19 @@ function key(
 
 /**
  * A number-row key that also hosts one of the six C64 graphics-key symbols. It
- * keeps its digit + SHIFT punctuation, adds the symbol character on the SYM
- * layer, and carries that symbol's C=/SHIFT block graphics (looked up by the
- * *symbol's* id, so `UpArrow`'s absent C= graphic stays null). The key still
- * emits its own digit matrix token, so the SYM character is editor-only.
+ * keeps its digit + SHIFT punctuation and adds the symbol character on the SYM
+ * layer. The key still emits its own digit matrix token, so the SYM character is
+ * editor-only.
  */
 function symbolKey(
   id: string,
   base: string,
   shift: string,
-  symId: string,
   symChar: string,
 ): KeyDef {
   const labels: (KeyLabel | null)[] = [
     { text: base },
     { text: shift },
-    gfxLabel(cmdGfx.get(symId)),
-    gfxLabel(shiftGfx.get(symId)),
     { text: symChar },
   ];
   return { id, spanX: 4, emits: [id], labels };
@@ -86,24 +69,18 @@ function symbolKey(
 
 const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
 
-/** A bottom-row / strip key with only a main label (no shift, no graphics). */
-const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [
-  main,
-  null,
-  null,
-  null,
-  null,
-];
+/** A bottom-row / strip key with only a main label (no shift, no SYM). */
+const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [main, null, null];
 
-// Keys 1-6 double as the SYM layer's + - £ @ * ↑ (in physical keyboard order)
-// and carry those six graphics keys' block graphics on the GRAPHICS layers.
+// Keys 1-6 double as the SYM layer's + - £ @ * ↑ (in physical keyboard order);
+// those six keys' block graphics live in the palette, under their own keycaps.
 const numberRow = [
-  symbolKey('Num1', '1', '!', 'Plus', '+'),
-  symbolKey('Num2', '2', '"', 'Minus', '-'),
-  symbolKey('Num3', '3', '#', 'Pound', '£'),
-  symbolKey('Num4', '4', '$', 'At', '@'),
-  symbolKey('Num5', '5', '%', 'Asterisk', '*'),
-  symbolKey('Num6', '6', '&', 'UpArrow', '↑'),
+  symbolKey('Num1', '1', '!', '+'),
+  symbolKey('Num2', '2', '"', '-'),
+  symbolKey('Num3', '3', '#', '£'),
+  symbolKey('Num4', '4', '$', '@'),
+  symbolKey('Num5', '5', '%', '*'),
+  symbolKey('Num6', '6', '&', '↑'),
   key('Num7', 'Num7', '7', "'"),
   key('Num8', 'Num8', '8', '('),
   key('Num9', 'Num9', '9', ')'),
@@ -239,10 +216,6 @@ export const c64KeyboardLayout: KeyboardLayout = {
       activeWhen: ['shift'],
       editorInsertStyle: 'char',
     },
-    // The two graphic sets are pinned by the GRAPHICS mode (not a modifier), so
-    // they stay always-rendered (activeWhen []) and carry their own inserts.
-    { id: 'gfxCommodore', name: 'GRAPHICS', position: 'bl', activeWhen: [] },
-    { id: 'gfxShift', name: 'GRAPHICS ⇧', position: 'br', activeWhen: [] },
     // The six graphics-key characters (+ - £ @ * ↑), pinned by the SYM mode.
     {
       id: 'sym',
@@ -255,18 +228,21 @@ export const c64KeyboardLayout: KeyboardLayout = {
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'base' },
     { id: 'sym', name: 'SYM', layer: 'sym' },
-    {
-      id: 'graphics',
-      name: 'GRAPHICS',
-      layer: 'gfxCommodore',
-      shiftedLayer: 'gfxShift',
-    },
+    // GRAPHICS shows the palette; it pins no layer, so SHIFT keeps its ordinary
+    // meaning while the palette is open.
+    { id: 'graphics', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
   ],
   modifiers: [
     { id: 'shift', emits: ['LeftShift'], sticky: true, lockable: true },
     { id: 'commodore', emits: ['Commodore'], sticky: true, lockable: true },
   ],
   rows,
+  graphicsPalette: {
+    sections: [
+      { title: 'C= graphics', entries: C64_COMMODORE_GRAPHICS },
+      { title: 'SHIFT graphics', entries: C64_SHIFT_GRAPHICS },
+    ],
+  },
   functionKeys,
   glyphs: {},
   // WASD movement + Space/Return fire (the convention the bundled C64 games use).

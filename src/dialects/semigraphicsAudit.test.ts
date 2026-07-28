@@ -97,13 +97,17 @@ describe('semigraphics audit', () => {
     }
   });
 
-  it('reports the Spectrum graphics as mapped but not yet typeable', () => {
-    // The gap this change exists to close: the charset can represent the block
-    // graphics, the keyboard cannot produce them.
+  it('reports the Spectrum graphics as typeable from the palette', () => {
+    // The gap this change closed: the charset could always represent the block
+    // graphics, and now the keyboard can produce them too - all but the blank
+    // graphic at 0x80, whose text form is a space (there is nothing to type).
     const audit = audits.find((a) => a.id === 'zxspectrum')!;
     const facts = graphicsFacts(audit);
     expect(facts.some((f) => f.cls === 'glyph-bmp')).toBe(true);
-    expect(facts.filter((f) => f.typeable)).toEqual([]);
+    expect(
+      facts.filter((f) => !f.typeable).map((f) => f.code),
+      'only the blank graphic should be untypeable',
+    ).toEqual([0x80]);
   });
 
   it('agrees with each charset about what a graphics character encodes to', () => {

@@ -37,12 +37,12 @@ reported as such rather than guessed at.
 | --- | :-: | --- | --: | --: | --: | --: | --- |
 | ZX81 | ✅ | 21 (0x01-0x0A, 0x80-0x8A) | 21 | 5 | 0 | 0 | 21/21 |
 | ZX80 | ✅ | 21 (0x02-0x0B, 0x80, 0x82-0x8B) | 21 | 5 | 0 | 0 | 21/21 |
-| Spectrum | ✅ | 37 (0x80-0xA4) | 15 | 0 | 21 | 1 | 0/37 |
-| Spectrum 128 | ✅ | 35 (0x80-0xA2) | 15 | 0 | 19 | 1 | 0/35 |
+| Spectrum | ✅ | 37 (0x80-0xA4) | 15 | 0 | 21 | 1 | 36/37 |
+| Spectrum 128 | ✅ | 35 (0x80-0xA2) | 15 | 0 | 19 | 1 | 34/35 |
 | BBC Micro | — | 96 (0xA0-0xFF) | 0 | 0 | 0 | 96 | 0/96 |
 | BBC Master | — | 96 (0xA0-0xFF) | 0 | 0 | 0 | 96 | 0/96 |
 | C64 | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 58/64 |
-| PET | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 26/64 |
+| PET | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 29/64 |
 | VIC-20 | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 58/64 |
 | Atom | — | _not established_ | — | — | — | — | — |
 | TRS-80 | — | 64 (0x80-0xBF) | 63 | 60 | 0 | 1 | 0/64 |
@@ -80,7 +80,7 @@ Spelled as: 21 escape-named, 1 escape-raw, 15 glyph-bmp.
 
 **Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
 
-**Gap:** 37 graphics bytes cannot be typed on the on-screen keyboard: 0x80-0xA4.
+**Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0x80.
 
 ### Spectrum 128
 
@@ -90,7 +90,7 @@ Spelled as: 19 escape-named, 1 escape-raw, 15 glyph-bmp.
 
 **Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
 
-**Gap:** 35 graphics bytes cannot be typed on the on-screen keyboard: 0x80-0xA2.
+**Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0x80.
 
 ### BBC Micro
 
@@ -130,7 +130,7 @@ Spelled as: 1 ascii, 1 escape-named, 5 escape-raw, 12 glyph-astral, 45 glyph-bmp
 
 **Gap:** 5 graphics bytes have no character of their own and render as raw escapes: 0xAA, 0xB4, 0xC3, 0xDD-0xDE.
 
-**Gap:** 38 graphics bytes cannot be typed on the on-screen keyboard: 0xA0-0xBF, 0xC3, 0xDB-0xDF.
+**Gap:** 35 graphics bytes cannot be typed on the on-screen keyboard: 0xA0-0xA8, 0xAA-0xB9, 0xBB-0xBF, 0xC3, 0xDC-0xDF.
 
 ### VIC-20
 
@@ -379,8 +379,9 @@ This is the exact set the bundled character-graphics font is subset to.
 ### Commodore characters that share a bitmap
 
 A few Commodore graphics have character-ROM bitmaps identical to a lower code —
-`C= H` (`$B4`), `C= N` (`$AA`) and `SHIFT −` (`$DD`) draw the same bars as
-`$A5`, `$A7` and `$C2`. Injectivity means they cannot have their own Unicode
+`C= H` (`$B4`), `C= N` (`$AA`), `SHIFT C` (`$C3`) and `SHIFT −` (`$DD`) draw the
+same bars and lines as `$A5`, `$A7`, `$C0` and `$C2`. Injectivity means they
+cannot have their own Unicode
 character, so their palette entries insert the canonical twin's byte. The
 palette still lists them under their real keys, because it is there to teach the
 physical keyboard; the difference is invisible on screen and is pinned as a
@@ -403,6 +404,21 @@ This does re-encode a ZX81 program saved with the old spelling: `\!'` and `\!.`
 (and their inverses `\|'` and `\|.`) now store the other half's byte. Nothing
 else changes — the Unicode characters, which are the canonical spelling, were
 correct throughout.
+
+### The shapes come from a bundled font, in text proportions
+
+Almost no monospace font ships the Symbols-for-Legacy-Computing block, so the IDE
+bundles two small `unicode-range`-gated subsets covering exactly the code points
+the audit says the dialects emit (`src/assets/fonts/`, with the licences and the
+subsetting commands in its `ATTRIBUTION.md`; `fontCoverage.test.ts` fails if a
+dialect starts emitting something no face covers).
+
+They are text faces — half an em wide by one em tall — which is right for the
+editor's character cells but draws a machine's square `8×8` cell as a taller
+rectangle. The editor keeps the text metrics (columns have to line up, and the
+metrics are pinned to the primary font's so a graphic cannot change a row's
+height); the graphics palette scales its cells horizontally so the shape reads in
+the proportions the machine draws it.
 
 ### Stacked graphics do not tile vertically
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { zx80KeyboardLayout } from './keyboardLayout';
 import { zx80Charset } from './charset';
 import { resolveEditorAction } from '../../keyboard/editorActions';
+import { ZX80_GRAPHICS } from './graphics';
 
 const layout = zx80KeyboardLayout;
 const allKeys = layout.rows.flat();
@@ -65,27 +66,10 @@ describe('zx80 keyboard layout editor mapping', () => {
     }
   });
 
-  it('every graphics-layer glyph has an explicit insert', () => {
-    const graphicIdx = layout.layers.findIndex((l) => l.id === 'graphic');
-    for (const key of allKeys) {
-      const label = key.labels[graphicIdx];
-      if (!label?.glyph) continue;
-      const action = resolveEditorAction(layout, key, 'graphic');
-      expect(action, key.id).not.toBeNull();
-      expect(action && 'insert' in action, key.id).toBe(true);
-    }
-  });
-
   it('spot checks the headline keys', () => {
     const byId = new Map(allKeys.map((k) => [k.id, k]));
     expect(resolveEditorAction(layout, byId.get('KeyO')!, 'keyword')).toEqual({
       insert: 'PRINT ',
-    });
-    expect(resolveEditorAction(layout, byId.get('Digit1')!, 'graphic')).toEqual(
-      { insert: '▘' },
-    );
-    expect(resolveEditorAction(layout, byId.get('KeyA')!, 'graphic')).toEqual({
-      insert: '▒',
     });
     expect(resolveEditorAction(layout, byId.get('Digit2')!, 'shift')).toEqual({
       insert: 'AND ',
@@ -140,6 +124,36 @@ describe('zx80 keyboard layout editor mapping', () => {
       const canonical = zx80Charset.toUnicode(codes);
       expect(canonical, esc).not.toBe(esc);
       expect([...zx80Charset.toMachine(canonical)], esc).toEqual([...codes]);
+    }
+  });
+});
+
+describe('zx80 graphics palette', () => {
+  const entries = (layout.graphicsPalette?.sections ?? []).flatMap(
+    (s) => s.entries,
+  );
+
+  it('is what the GRAPHICS mode shows, in place of a graphics key layer', () => {
+    const mode = layout.editorModes!.find((m) => m.id === 'graphic')!;
+    expect(mode.palette).toBe('graphics');
+    expect(layout.graphicsPalette?.sections).toHaveLength(1);
+    expect(entries).toEqual(ZX80_GRAPHICS);
+  });
+
+  it('has no graphics key layer or glyph legend left over', () => {
+    expect(layout.layers.map((l) => l.id)).not.toContain('graphic');
+    expect(layout.glyphs).toEqual({});
+    for (const key of allKeys)
+      for (const label of key.labels)
+        expect(label?.glyph, key.id).toBeUndefined();
+  });
+
+  it('labels every entry with the key that types it', () => {
+    for (const entry of entries) {
+      expect(entry.key, `0x${entry.code.toString(16)}`).toBeTruthy();
+      expect([...zx80Charset.toMachine(entry.char)], entry.key).toEqual([
+        entry.code,
+      ]);
     }
   });
 });

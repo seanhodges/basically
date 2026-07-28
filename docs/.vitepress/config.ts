@@ -309,6 +309,11 @@ export default withPwa(
         // Inter subsets: most of the font bytes, and an English-language site
         // never requests them (their @font-face rules are unicode-range
         // gated, so the browser only fetches a subset a page actually needs).
+        // The bundled character-graphics faces need no entry of their own: both
+        // subsets are small enough (~3KB together) that Vite inlines them into
+        // the stylesheet as data URIs, so the `**/*.css` pattern already carries
+        // them - and the reference pages draw a machine's block graphics rather
+        // than missing-glyph boxes offline too.
         globPatterns: ['**/*.{js,css,html,json,svg,ico}', '**/*-latin.*.woff2'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [

@@ -1,3 +1,5 @@
+import type { GraphicEntry } from '../../keyboard/layoutSchema';
+
 /**
  * Commodore 64 keyboard block-graphics - the two PETSCII graphics printed on the
  * front face of each letter key:
@@ -30,14 +32,15 @@
  * their keys insert the exact byte.)
  */
 
-export interface C64GraphicEntry {
-  /** Matrix key token (also the layout key id), e.g. 'A'. */
-  key: string;
-  char: string;
-  petscii: number;
-}
+/**
+ * The keyboard's own {@link GraphicEntry}: `key` is what the keycap says (so the
+ * palette can print it), `modifier` which front face it is on, and `code` the
+ * PETSCII byte. The matrix key id, where it differs from the printed key (the
+ * six symbol keys), is in {@link SYMBOL_KEY_IDS}.
+ */
+export type C64GraphicEntry = GraphicEntry;
 
-/** Per-letter [C= char, C= petscii, SHIFT char, SHIFT petscii]. */
+/** Per-letter [C= char, C= code, SHIFT char, SHIFT code]. */
 const LETTERS: Array<[string, string, number, string, number]> = [
   ['A', '┌', 0xb0, '♠', 0xc1],
   ['B', '▚', 0xbf, '│', 0xc2],
@@ -73,30 +76,52 @@ const LETTERS: Array<[string, string, number, string, number]> = [
  * `↑` has only a SHIFT graphic (π); it takes no C= graphic (null char).
  */
 const SYMBOLS: Array<[string, string | null, number, string, number]> = [
-  ['Plus', '▒', 0xa6, '┼', 0xdb],
-  ['Minus', '🮌', 0xdc, '│', 0xdd],
-  ['At', '▁', 0xa4, '⌟', 0xba],
-  ['Pound', '🮏', 0xa8, '◤', 0xa9],
-  ['Asterisk', '◥', 0xdf, '─', 0xc0],
-  ['UpArrow', null, 0xde, 'π', 0xff],
+  ['+', '▒', 0xa6, '┼', 0xdb],
+  ['-', '🮌', 0xdc, '│', 0xdd],
+  ['@', '▁', 0xa4, '⌟', 0xba],
+  ['£', '🮏', 0xa8, '◤', 0xa9],
+  ['*', '◥', 0xdf, '─', 0xc0],
+  ['↑', null, 0xde, 'π', 0xff],
 ];
+
+/**
+ * The six symbol keys' matrix key ids, keyed by the character on the keycap.
+ * The letter keys' ids are the letters themselves, so only these need a map.
+ */
+export const SYMBOL_KEY_IDS: Record<string, string> = {
+  '+': 'Plus',
+  '-': 'Minus',
+  '@': 'At',
+  '£': 'Pound',
+  '*': 'Asterisk',
+  '↑': 'UpArrow',
+};
 
 /** C= (Commodore) graphics: one per letter key, then the symbol keys. */
 export const C64_COMMODORE_GRAPHICS: C64GraphicEntry[] = [
-  ...LETTERS.map(([key, char, petscii]) => ({ key, char, petscii })),
-  ...SYMBOLS.filter(([, char]) => char !== null).map(
-    ([key, char, petscii]) => ({
-      key,
-      char: char!,
-      petscii,
-    }),
-  ),
+  ...LETTERS.map(([key, char, code]) => ({ key, modifier: 'C=', char, code })),
+  ...SYMBOLS.filter(([, char]) => char !== null).map(([key, char, code]) => ({
+    key,
+    modifier: 'C=',
+    char: char!,
+    code,
+  })),
 ];
 
 /** SHIFT graphics: one per letter key, then the symbol keys. */
 export const C64_SHIFT_GRAPHICS: C64GraphicEntry[] = [
-  ...LETTERS.map(([key, , , char, petscii]) => ({ key, char, petscii })),
-  ...SYMBOLS.map(([key, , , char, petscii]) => ({ key, char, petscii })),
+  ...LETTERS.map(([key, , , char, code]) => ({
+    key,
+    modifier: 'SHIFT',
+    char,
+    code,
+  })),
+  ...SYMBOLS.map(([key, , , char, code]) => ({
+    key,
+    modifier: 'SHIFT',
+    char,
+    code,
+  })),
 ];
 
 /** Every graphic, both sets, for charset round-tripping. */
