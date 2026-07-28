@@ -14,13 +14,13 @@
 
 ## 3. Semigraphics audit
 
-- [ ] 3.1 Add `src/dialects/semigraphicsAudit.ts`: classify every byte `0x00–0xFF` of every registered dialect from its own `CharsetMapping` (ascii / bmp glyph / astral glyph / named escape / raw escape / control)
-- [ ] 3.2 Add `SEMIGRAPHIC_RANGES` — the machines' real graphics byte ranges, each with a primary-source citation in a comment; record an open question rather than guessing where no source is to hand
-- [ ] 3.3 Add `typeableCodes(dialect)`: walk the layout's key layers via `resolveEditorAction` and the graphics palette, push each insert through `charset.toMachine()`, return the reachable byte set
-- [ ] 3.4 Add `src/dialects/semigraphicsAudit.test.ts`: every byte classified exactly once for every registered dialect; `typeableCodes()` non-empty for each in-scope dialect
-- [ ] 3.5 Add `scripts/gen-semigraphics-audit.mts` and the `gen:semigraphics` npm script, rewriting the region between the document's begin/end markers
-- [ ] 3.6 Write `docs/contributing/semigraphics-support.md` covering all 13 dialects, marking the seven in scope, with hand-written sections for the injectivity invariant, the Commodore twin drift, the line-height limitation and the out-of-scope families
-- [ ] 3.7 Add `docs/contributing/semigraphics-support.test.ts` regenerating the marked region and asserting it matches, and add the sidebar entry in `docs/.vitepress/config.ts`
+- [x] 3.1 Add `src/dialects/semigraphicsAudit.ts`: classify every byte `0x00–0xFF` of every registered dialect from its own `CharsetMapping` (ascii / bmp glyph / astral glyph / named escape / raw escape / control)
+- [x] 3.2 Add `SEMIGRAPHIC_RANGES` — the machines' real graphics byte ranges, each with a primary-source citation in a comment; record an open question rather than guessing where no source is to hand
+- [x] 3.3 Add `typeableCodes(dialect)`: walk the layout's key layers via `resolveEditorAction` and the graphics palette, push each insert through `charset.toMachine()`, return the reachable byte set
+- [x] 3.4 Add `src/dialects/semigraphicsAudit.test.ts`: every byte classified exactly once for every registered dialect; `typeableCodes()` non-empty for each in-scope dialect
+- [x] 3.5 Add `scripts/gen-semigraphics-audit.mts` and the `gen:semigraphics` npm script, rewriting the region between the document's begin/end markers
+- [x] 3.6 Write `docs/contributing/semigraphics-support.md` covering all 13 dialects, marking the seven in scope, with hand-written sections for the injectivity invariant, the Commodore twin drift, the line-height limitation and the out-of-scope families
+- [x] 3.7 Add `docs/contributing/semigraphics-support.test.ts` regenerating the marked region and asserting it matches, and add the sidebar entry in `docs/.vitepress/config.ts`
 
 ## 4. Bundled character-graphics font
 
