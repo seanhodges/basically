@@ -6,12 +6,20 @@
  * shape came from* on the real machine, so a mapping can be traced back to its
  * evidence and shapes can be searched for by address.
  *
- * The recorded address is the address **on the real machine** - the CPU address
- * the glyph's bitmap lives at - not the unicode code point (that is the IDE
- * font's identifier) and not the offset in the ROM image we happen to ship.
- * Those genuinely differ: the Spectrum 128's font sits at offset `0x7D00` of the
- * 32K dual-ROM image but at `0x3D00` on the machine, once that bank is paged in.
- * {@link RomGlyphSource} therefore carries both.
+ * The recorded address is the address **on the real machine**, and specifically
+ * the number that machine's own documentation names - not the unicode code
+ * point (that is the IDE font's identifier) and not the offset in the ROM image
+ * we happen to ship. Those genuinely differ: the Spectrum 128's font sits at
+ * offset `0x7C00` of the 32K dual-ROM image but at `0x3C00` on the machine, once
+ * that bank is paged in. {@link RomGlyphSource} therefore carries both.
+ *
+ * Where the documented address does not name the first stored glyph, the two are
+ * kept apart rather than reconciled by moving the address: {@link
+ * RomGlyphSource.base} is the documented number and {@link
+ * RomGlyphSource.baseCode} is the code it names. The Spectrum's `CHARS` names
+ * code 0 while its table starts at code 0x20; the BBC's `&C000` names code 0x20
+ * directly. Folding that difference into the address would make the same field
+ * mean a different thing on each machine.
  *
  * Not every shape is stored anywhere, and pretending otherwise would be the
  * easy mistake. Three kinds:
@@ -49,16 +57,27 @@ export interface RomGlyphSource extends GlyphSourceBase {
   kind: 'rom';
   /** Path under `public/roms/`. */
   file: string;
-  /** CPU address of glyph index 0 on the real machine. */
+  /**
+   * The address the machine's own documentation names for this table - the
+   * number a manual entry would give you, which is what makes the record
+   * searchable from the reader's side.
+   */
   base: number;
   /**
-   * A second address the machine's own documentation names for the same table,
-   * where that documentation counts from a different character code. Recorded
-   * so a reader who has the documented number finds this entry by searching for
-   * it, rather than being told it does not exist.
+   * The character code `base` names. Kept as its own field because it is
+   * precisely the offset that would otherwise hide inside the address: the
+   * Spectrum's CHARS names code 0 even though the first glyph actually stored
+   * is code 0x20, while the BBC's &C000 names code 0x20 directly. Folding that
+   * into `base` makes the same field mean different things per machine.
    */
-  documentedBase?: { address: number; as: string };
-  /** Offset of that same glyph in the shipped image. */
+  baseCode: number;
+  /**
+   * What `baseCode` counts in, where that is not the dialect's own character
+   * codes. The Commodore character ROM is indexed by screen code, so saying
+   * "code 0x00" there would name the wrong numbering.
+   */
+  baseCodeIs?: string;
+  /** Offset in the shipped image corresponding to `base`. */
   fileOffset: number;
   /** Bytes per glyph. */
   stride: number;
@@ -132,11 +151,16 @@ export function formatAddress(dialectId: string, address: number): string {
 const range = (from: number, to: number): number[] =>
   Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
-/** The common case: glyph index is the code, offset by where the table starts. */
+/**
+ * The common case: the glyph index is the code counted from `baseCode`, which
+ * is the code `base` names. That is usually the first code with a bitmap, but
+ * not always - the Spectrum's documented base names code 0 while its first
+ * stored glyph is 0x20, so the first 32 indices are simply never asked for.
+ */
 const linear =
-  (firstCode: number, lastCode: number) =>
+  (firstCode: number, lastCode: number, baseCode = firstCode) =>
   (code: number): number | undefined =>
-    code >= firstCode && code <= lastCode ? code - firstCode : undefined;
+    code >= firstCode && code <= lastCode ? code - baseCode : undefined;
 
 /**
  * Commodore PETSCII code -> screen code, which is what the character ROM is
@@ -159,6 +183,7 @@ const sinclairFont = (file: string, at: number): RomGlyphSource => ({
   kind: 'rom',
   file,
   base: at,
+  baseCode: 0x00,
   fileOffset: at,
   stride: 8,
   cell: { w: 8, h: 8 },
@@ -174,6 +199,7 @@ const cpcFont = (file: string): RomGlyphSource => ({
   kind: 'rom',
   file,
   base: 0x3800,
+  baseCode: 0x00,
   fileOffset: 0x3800,
   stride: 8,
   cell: { w: 8, h: 8 },
@@ -195,6 +221,10 @@ const commodoreFont = (
   // Where the character ROM appears in the address space is a banking question;
   // -1 records "shipped image only, machine address not established".
   base: base ?? -1,
+  // Index 0 is screen code 0: the character ROM is indexed by screen code, and
+  // petsciiToScreen() below is the separate mapping from the charset's codes.
+  baseCode: 0x00,
+  baseCodeIs: 'screen code',
   fileOffset: 0x0000,
   stride: 8,
   cell: { w: 8, h: 8 },
@@ -223,19 +253,20 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
     {
       kind: 'rom',
       file: 'zxspectrum.rom',
-      base: 0x3d00,
-      fileOffset: 0x3d00,
+      // CHARS (23606) holds this: the number the machine documents, and the one
+      // the ROM adds 8*code to with the code counted from 0.
+      base: 0x3c00,
+      baseCode: 0x00,
+      fileOffset: 0x3c00,
       stride: 8,
       cell: { w: 8, h: 8 },
       codes: range(0x20, 0x7f),
-      indexOf: linear(0x20, 0x7f),
-      documentedBase: { address: 0x3c00, as: 'CHARS (23606)' },
+      indexOf: linear(0x20, 0x7f, 0x00),
       note:
-        'Ninety-six 8x8 glyphs from 0x20; the ROM ends exactly at the table end. ' +
-        'The machine itself names a base 256 lower: the CHARS system variable ' +
-        'holds 0x3C00, because the ROM finds a glyph at CHARS + 8*code with the ' +
-        'code counted from 0, while the table starts at code 0x20. Both numbers ' +
-        'reach the same bytes - spectrum128Machine.ts uses the CHARS one.',
+        'CHARS is the pointer the machine documents, and 0x3C00 is what it holds ' +
+        'on a 48K. It names code 0, so it sits 256 bytes below the first glyph ' +
+        'actually stored - codes 0x00-0x1F have no bitmap, and the table runs ' +
+        'from 0x20 to the end of the ROM.',
     },
     {
       kind: 'logic',
@@ -249,19 +280,18 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
     {
       kind: 'rom',
       file: 'zxspectrum128.rom',
-      // The 48K BASIC ROM is the second 16K bank of the dual-ROM image, so the
-      // file offset and the machine address differ by a whole bank.
-      base: 0x3d00,
-      fileOffset: 0x7d00,
+      // As the 48K: CHARS names 0x3C00. The file offset is a whole bank higher
+      // because the 48 BASIC ROM is the second 16K of the dual-ROM image.
+      base: 0x3c00,
+      baseCode: 0x00,
+      fileOffset: 0x7c00,
       stride: 8,
       cell: { w: 8, h: 8 },
       codes: range(0x20, 0x7f),
-      indexOf: linear(0x20, 0x7f),
-      documentedBase: { address: 0x3c00, as: 'CHARS (23606)' },
+      indexOf: linear(0x20, 0x7f, 0x00),
       note:
-        'Bank 1 of the 32K image; 0x3D00 once that bank is paged in. As the 48K, ' +
-        'the machine names 0x3C00 - which is the number spectrum128Machine.ts ' +
-        "uses for the boot menu's own text rendering.",
+        'As the 48K, and the same CHARS value once bank 1 is paged in; only the ' +
+        'offset into the shipped image differs.',
     },
     {
       kind: 'logic',
@@ -277,12 +307,16 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
       kind: 'rom',
       file: 'os.rom',
       base: 0xc000,
+      baseCode: 0x20,
       fileOffset: 0x0000,
       stride: 8,
       cell: { w: 8, h: 8 },
       codes: range(0x20, 0x7f),
       indexOf: linear(0x20, 0x7f),
-      note: 'MOS font, first thing in the OS ROM, which sits at 0xC000.',
+      note:
+        'MOS font, first thing in the OS ROM, which sits at 0xC000. Unlike the ' +
+        "Spectrum's, this address names code 0x20 directly - the table's first " +
+        'stored glyph - so no offset separates the two.',
     },
     {
       kind: 'chip',
@@ -312,6 +346,7 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
       // font is in the last of those. Bank derived from jsbeeb's loadOs
       // arithmetic rather than observed on the machine - see the test.
       base: 0xb900,
+      baseCode: 0x20,
       fileOffset: 0x1f900,
       stride: 8,
       cell: { w: 8, h: 8 },

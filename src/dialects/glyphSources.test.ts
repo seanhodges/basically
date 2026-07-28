@@ -322,18 +322,44 @@ describe('glyph sources', () => {
   });
 
   describe('the addresses a machine names for itself', () => {
-    it("records the Spectrum's CHARS base alongside the table start", () => {
-      // The ROM finds a glyph at CHARS + 8*code with the code counted from 0,
-      // so CHARS is 256 below where the table physically starts. Both numbers
-      // reach the same bytes and both are in the repo - spectrum128Machine.ts
-      // uses the CHARS one - so both have to be findable.
+    it('records the base as the documented number, with the code it names', () => {
+      // The Spectrum's CHARS names code 0 while the first stored glyph is 0x20;
+      // the BBC's &C000 names 0x20 directly. Keeping baseCode separate is what
+      // lets `base` be the documented number on both without meaning two
+      // different things.
+      const romBase = (id: string) => {
+        const source = GLYPH_SOURCES[id]!.find((s) => s.kind === 'rom');
+        if (source?.kind !== 'rom') throw new Error(`${id} has no ROM source`);
+        return source;
+      };
       for (const id of ['zxspectrum', 'zxspectrum128']) {
-        const source = GLYPH_SOURCES[id]!.find((s) => s.kind === 'rom')!;
-        if (source.kind !== 'rom') continue;
-        expect(source.documentedBase?.address, id).toBe(0x3c00);
-        expect(source.base - source.documentedBase!.address, id).toBe(
-          0x20 * source.stride,
-        );
+        expect(romBase(id).base, id).toBe(0x3c00);
+        expect(romBase(id).baseCode, id).toBe(0x00);
+      }
+      for (const id of ['bbcmicro', 'bbcmaster']) {
+        expect(romBase(id).baseCode, id).toBe(0x20);
+      }
+      expect(romBase('bbcmicro').base).toBe(0xc000);
+    });
+
+    it('resolves an address as base + stride from the code the base names', () => {
+      // The one formula every ROM source obeys. If baseCode and indexOf ever
+      // disagree, an address silently shifts by a whole number of glyphs.
+      for (const [id, sources] of Object.entries(GLYPH_SOURCES)) {
+        for (const source of sources) {
+          if (source.kind !== 'rom' || source.base < 0) continue;
+          // The Commodores index by screen code, so the step from baseCode is
+          // the mapping rather than the code itself; they are checked against
+          // the character ROM by shape below instead.
+          if (id === 'commodore64' || id === 'vic20' || id === 'pet') continue;
+          for (const code of source.codes) {
+            const index = source.indexOf(code);
+            if (index === undefined) continue;
+            expect(index, `${id} 0x${code.toString(16)}`).toBe(
+              code - source.baseCode,
+            );
+          }
+        }
       }
     });
 

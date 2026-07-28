@@ -62,10 +62,12 @@ function whereColumn(dialectId: string, source: GlyphSource): string {
   if (source.kind === 'chip') return `${source.chip} internal ROM`;
   if (source.base < 0)
     return `\`${source.file}\` (machine address not established)`;
-  const also = source.documentedBase
-    ? `, also ${formatAddress(dialectId, source.documentedBase.address)} as ${source.documentedBase.as}`
-    : '';
-  return `\`${source.file}\` @ ${formatAddress(dialectId, source.base)}${also}`;
+  // The base alone is ambiguous - it is only useful with the code it names and
+  // the step between codes, which is exactly the offset kept out of it.
+  return (
+    `\`${source.file}\` @ ${formatAddress(dialectId, source.base)}` +
+    ` = ${source.baseCodeIs ?? 'code'} ${hex(source.baseCode)}, +${source.stride}/code`
+  );
 }
 
 function summary(): string {
@@ -136,11 +138,16 @@ const generated = [
   '',
   summary(),
   '',
-  'The address column is the address **on the real machine**, written the way',
-  'that machine writes one - `&C000` on the Acorns and Amstrads, `$D000` on the',
-  'Commodores, `#8000` on the Atom. Where it reads "generated", nothing is stored',
-  "anywhere - the shape comes out of the code's own bits - so there is no address",
-  'to record and none is invented.',
+  'The address column is the number **the machine itself documents**, written the',
+  'way that machine writes one - `&C000` on the Acorns and Amstrads, `$D000` on',
+  'the Commodores, `#8000` on the Atom - followed by the code it names and the',
+  'step between codes. Those two are stated rather than folded into the address,',
+  "because they differ per machine: the Spectrum's CHARS names code 0 while its",
+  "table starts at 0x20, and the BBC's &C000 names 0x20 directly.",
+  '',
+  'Where the column reads "generated", nothing is stored anywhere - the shape',
+  "comes out of the code's own bits - so there is no address to record and none",
+  'is invented.',
   '',
   '## Address index',
   '',
