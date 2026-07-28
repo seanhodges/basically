@@ -224,6 +224,14 @@ export function buildBasicLanguage(
       if (stream.match(/^(\*\*|<=|>=|<>)/)) return 'operator';
       if (graphicsEscapes && stream.match(/^[%\\]../)) return 'atom'; // graphics escape / inverse
       if (stream.match(operatorRe)) return 'operator';
+      // A run of the machine's own characters - block graphics, PETSCII, the
+      // user-defined graphics. They are not keywords, names or numbers, so
+      // without this they fell through to the default (dimmed) style, which is
+      // exactly the wrong emphasis for the shapes a program draws with. Tagged
+      // like the escape spellings above so both forms of the same character
+      // look alike. The `u` flag makes the class match a whole code point, so
+      // an astral character (the Spectrum's user-defined graphics) is one unit.
+      if (stream.match(/^[\u0080-\u{10FFFF}]+/u)) return 'atom';
       stream.next();
       return null;
     },

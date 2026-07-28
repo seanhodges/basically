@@ -120,6 +120,38 @@ onto `0x80–0x8F`, each shifted entry is its unshifted partner's complement
 (`code ^ 0x0F`), and every entry's character round-trips through the charset. A
 test that drives the emulator would confirm this rather than establish it.
 
+### The ZX81's graphics-mode keys, derived from the ROM too
+
+The ZX81 table was first taken from the shapes the old key legends drew, and two
+of them (E and R, the three-quarter blocks ▛ and ▜) carried each other's shape.
+The ROM settles it, the same way the Spectrum's did.
+
+Its keyboard tables are three 39-entry blocks in matrix-scan order, indexed by
+the same `E` the decode carries: the unshifted characters at `0x007D+E`, the
+shifted ones at `0x00A4+E` (a shifted key is `E` + 39, which is why one base
+serves both), and the graphics ones at `0x00C7+E`. The graphics-mode branch at
+`0x04DF` reads the key's character and, if it is below `0x40`, just sets bit 7 —
+inverse video. A character of `0x40` or above (a token — what the shifted digit
+and letter keys hold) indexes the graphics table instead.
+
+So the twenty block graphics are exactly the shifted keys whose shifted meaning
+is a token, plus the solid block, which is unshifted SPACE arriving as the
+inverse of `0x00`. `zx81/graphics.test.ts` re-derives the whole table that way
+and compares it with the palette's, so no entry can drift again.
+
+### The Spectrum's user-defined graphics are one character each
+
+A UDG has no shape of its own — its bitmap is whatever the program pokes into
+UDG RAM — so the only thing to show is which UDG it is. Written as the `\a`–`\u`
+escape it took two editor characters for one machine byte, which laid out as two
+palette cells and let a backspace strand half of it in the program.
+
+The squared capitals `U+1F130`–`U+1F144` (🄰–🅄) are exactly twenty-one
+characters, one per UDG, name the key that types each, and are visibly not the
+ordinary letter beside them. They are astral, so the charset reads whole code
+points rather than UTF-16 units; the escape spelling stays accepted on input, so
+nothing saved before stops loading.
+
 ### Visually-identical Commodore characters keep their keys
 
 A few Commodore graphics have character-ROM bitmaps identical to a lower code

@@ -31,14 +31,24 @@ describe('zxspectrum charset', () => {
     expect(() => spectrumCharset.toMachine('€')).toThrow(CharsetError);
   });
 
-  it('maps \\a-\\u UDG escapes to 0x90-0xA4, lowercase on output', () => {
+  it('maps the UDG characters to 0x90-0xA4 and back', () => {
+    expect(Array.from(spectrumCharset.toMachine('\u{1F130}\u{1F144}'))).toEqual(
+      [0x90, 0xa4],
+    );
+    expect(spectrumCharset.toUnicode([0x90, 0xa2, 0xa4])).toBe(
+      '\u{1F130}\u{1F142}\u{1F144}',
+    );
+  });
+
+  it('still reads the older \\a-\\u UDG escapes, in either case', () => {
+    // Programs written before the UDGs had characters of their own must still
+    // load, and encode to the same bytes.
     expect(Array.from(spectrumCharset.toMachine('\\a\\u'))).toEqual([
       0x90, 0xa4,
     ]);
     expect(Array.from(spectrumCharset.toMachine('\\A\\S'))).toEqual([
       0x90, 0xa2,
     ]);
-    expect(spectrumCharset.toUnicode([0x90, 0xa2, 0xa4])).toBe('\\a\\s\\u');
   });
 
   it('handles literal backslashes and rejects unknown escapes', () => {

@@ -5,8 +5,10 @@ import {
   ENTER,
   NUMBER_MARKER,
   QUOTE,
+  UDG_FIRST,
   UDG_LAST,
 } from './charset';
+import { UDG_UNICODE } from './graphics';
 import { spectrumKeywords, keywordAliases } from './keywords';
 import { encodeSpectrumNumber } from './numbers';
 import { parseFloatOverride } from './floatOverride';
@@ -149,6 +151,39 @@ export function tokenizeProgram(
   return { bytes: Uint8Array.from(out), errors };
 }
 
+/** Character -> code for the user-defined graphics, for reading them back. */
+const UDG_CODES = new Map(
+  Object.entries(UDG_UNICODE).map(([code, ch]) => [ch, Number(code)]),
+);
+
+/** How a UDG is spelled: as its own character, or as the older escape. */
+type UdgSpelling = 'char' | 'escape';
+
+/** The UDG written at index i, either way, or null if there is none there. */
+function udgAt(
+  body: string,
+  i: number,
+): { code: number; text: string; spelling: UdgSpelling } | null {
+  if (body[i] === '\\') {
+    const next = body[i + 1];
+    if (!next || !/[a-uA-U]/.test(next)) return null;
+    const code = UDG_FIRST + (next.toLowerCase().charCodeAt(0) - 97);
+    return { code, text: `\\${next}`, spelling: 'escape' };
+  }
+  const cp = body.codePointAt(i);
+  if (cp === undefined) return null;
+  const text = String.fromCodePoint(cp);
+  const code = UDG_CODES.get(text);
+  return code === undefined ? null : { code, text, spelling: 'char' };
+}
+
+/** How a code is written in a given spelling, for a message about a range. */
+function udgSpelling(code: number, spelling: UdgSpelling): string {
+  return spelling === 'char'
+    ? UDG_UNICODE[code]!
+    : `\\${String.fromCharCode(97 + code - UDG_FIRST)}`;
+}
+
 /**
  * A genuine `{...}` control directive or `\a`-`\u` UDG escape at index i, or
  * null for a literal `{`/`\` character. Used in the expression path so embedded
@@ -258,22 +293,24 @@ function tokenizeBody(
     });
   };
 
-  // A `\t`/`\u` UDG escape on a dialect that reuses 0xA3/0xA4 as tokens (the
-  // 128K): keep the byte but flag it non-fatally, since there is no such UDG.
+  // A T/U user-defined graphic on a dialect that reuses 0xA3/0xA4 as tokens
+  // (the 128K): keep the byte but flag it non-fatally, since there is no such
+  // UDG. Either spelling counts - the 🅃 character or the older \t escape.
   const warnRestrictedUdg = (at: number): void => {
-    if (udgLast >= UDG_LAST || body[at] !== '\\') return;
-    const next = body[at + 1];
-    if (!next || !/[a-uA-U]/.test(next)) return;
-    const code = 0x90 + (next.toLowerCase().charCodeAt(0) - 97);
-    if (code <= udgLast) return;
+    if (udgLast >= UDG_LAST) return;
+    const written = udgAt(body, at);
+    if (!written || written.code <= udgLast) return;
+    const { spelling } = written;
     errors.push({
       line: editorLine,
       column: colOffset + at,
       fatal: false,
       message:
-        `\\${next} is not a UDG on the 128K (its UDGs are \\a-\\s); byte ` +
-        `0x${code.toString(16).toUpperCase()} is the ${
-          code === 0xa3 ? 'SPECTRUM' : 'PLAY'
+        `${written.text} is not a UDG on the 128K (its UDGs are ` +
+        `${udgSpelling(UDG_FIRST, spelling)}-${udgSpelling(udgLast, spelling)}` +
+        `); byte ` +
+        `0x${written.code.toString(16).toUpperCase()} is the ${
+          written.code === 0xa3 ? 'SPECTRUM' : 'PLAY'
         } token`,
     });
   };
@@ -549,12 +586,16 @@ function tokenizeBody(
       }
     }
 
-    if (!emitChar(body[i]!, i)) return null;
+    // A whole code point, not a UTF-16 unit: a user-defined graphic outside a
+    // string is astral, and half of one encodes to nothing.
+    const unit = String.fromCodePoint(body.codePointAt(i)!);
+    warnRestrictedUdg(i);
+    if (!emitChar(unit, i)) return null;
     // A parameter name char (a letter or `$`) inside a DEF FN list: mark that a
     // reserved slot is now owed, to be flushed at the next `,` or `)`.
-    if (inDefFnParams && IDENT.test(body[i]!)) paramPending = true;
-    prevSignificant = body[i]!;
-    i++;
+    if (inDefFnParams && IDENT.test(unit)) paramPending = true;
+    prevSignificant = unit;
+    i += unit.length;
   }
 
   if (!firstWordChecked && out.length > 0) {

@@ -92,13 +92,28 @@ export const SPECTRUM_BLOCK_GRAPHICS: GraphicEntry[] = [
 ];
 
 /**
- * The twenty-one user-defined graphics, 0x90-0xA4. Their shapes live in the
- * machine's UDG RAM and are whatever the program puts there, so the palette
- * shows the charset's own text form for each - the `\a`-`\u` escape.
+ * First of the Enclosed Alphanumeric Supplement's squared capitals: 🄰 is
+ * U+1F130, 🅄 (U) is U+1F144 - twenty-one letters, exactly the UDG set.
+ */
+const SQUARED_A = 0x1f130;
+
+/**
+ * The twenty-one user-defined graphics, 0x90-0xA4.
+ *
+ * A UDG has no fixed shape: its bitmap lives in the machine's UDG RAM and is
+ * whatever the program pokes there. What identifies it is the letter of the key
+ * that types it, so it is written as that letter in a box - one character, and
+ * visibly not the ordinary letter beside it.
+ *
+ * One character matters beyond looks. The `\a`-`\u` escape this replaced was
+ * two characters in the editor, so it laid out as two cells in the palette and
+ * a backspace could take half of it away and leave a stray letter in the
+ * program. The escape spelling is still accepted when reading a program, so
+ * anything written before still loads (see ./charset).
  */
 export const SPECTRUM_UDG_GRAPHICS: GraphicEntry[] = UDG_KEYS.map((key) => ({
   key,
-  char: `\\${key.toLowerCase()}`,
+  char: String.fromCodePoint(SQUARED_A + (key.charCodeAt(0) - 0x41)),
   code: key.charCodeAt(0) + UDG_OFFSET,
 }));
 
@@ -111,4 +126,9 @@ export const SPECTRUM_GRAPHICS: GraphicEntry[] = [
 /** The block-graphics table as the charset wants it: code -> character. */
 export const BLOCK_GRAPHIC_UNICODE: Record<number, string> = Object.fromEntries(
   SPECTRUM_BLOCK_GRAPHICS.map(({ code, char }) => [code, char]),
+);
+
+/** The same for the user-defined graphics: code -> squared letter. */
+export const UDG_UNICODE: Record<number, string> = Object.fromEntries(
+  SPECTRUM_UDG_GRAPHICS.map(({ code, char }) => [code, char]),
 );

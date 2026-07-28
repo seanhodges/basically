@@ -15,6 +15,10 @@ so the palette teaches the machine's own keyboard. The palette SHALL adapt the
 number of characters it shows per row to the space available, without changing
 how large each character is drawn.
 
+Where the palette holds more characters than fit at once, it SHALL scroll, and
+scrolling it SHALL NOT insert anything: a character is inserted by a tap that
+stays on it, not by touching it.
+
 #### Scenario: Machine-specific legend
 
 - **WHEN** the user switches target machine with the virtual keyboard open
@@ -26,6 +30,12 @@ how large each character is drawn.
   picks a character
 - **THEN** that character is inserted into the source, and the program still
   tokenizes
+
+#### Scenario: Scrolling past the characters that do not fit
+
+- **WHEN** the user drags the graphics palette to reach the characters below
+  the ones on screen
+- **THEN** the palette scrolls and nothing is inserted into the source
 
 #### Scenario: The palette shows where a character lives
 

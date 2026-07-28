@@ -50,7 +50,7 @@ describe('zxspectrum128 foreign-image round-trip', () => {
     ).toBe(true);
   });
 
-  it('keeps 0xA3/0xA4 inside a string as \\t/\\u with a non-fatal warning', () => {
+  it('keeps 0xA3/0xA4 inside a string as the T/U UDGs with a non-fatal warning', () => {
     const image = buildTap(
       programArea([
         // 10 PRINT "<0xA3><0xA4>" - token bytes as string data.
@@ -59,8 +59,8 @@ describe('zxspectrum128 foreign-image round-trip', () => {
     );
 
     const outcome = importRoundTrip(zxspectrum128, image);
-    expect(outcome.source).toContain('\\t');
-    expect(outcome.source).toContain('\\u');
+    expect(outcome.source).toContain('\u{1F143}');
+    expect(outcome.source).toContain('\u{1F144}');
     // No such UDGs on the 128, so the tokenizer flags them - but non-fatally,
     // and the bytes still round-trip exactly.
     expect(outcome.errors.length).toBeGreaterThan(0);

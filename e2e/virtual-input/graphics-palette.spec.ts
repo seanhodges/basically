@@ -44,10 +44,42 @@ test('inserts a block graphic and a user-defined graphic on the Spectrum', async
     page.getByRole('button', { name: 'Insert ▟, key CAPS + 1' }),
   ).toBeVisible();
 
-  // A user-defined graphic: no fixed shape, so its text form is the \a escape.
-  const udg = page.getByRole('button', { name: 'Insert \\a, key A' });
+  // A user-defined graphic: no fixed shape, so it is written as the squared
+  // capital of the key that types it - one character, like the byte it stores.
+  const udg = page.getByRole('button', { name: 'Insert 🄰, key A' });
   await udg.click();
-  await expect(page.locator(EDITOR)).toContainText('\\a');
+  await expect(page.locator(EDITOR)).toContainText('🄰');
+});
+
+test('scrolling the palette by dragging does not insert a character', async ({
+  page,
+}) => {
+  await openApp(page);
+  await chooseTargetMachine(page, 'zxspectrum');
+  await clearEditor(page);
+  await openPalette(page);
+
+  // A short viewport, so the palette has more rows than it can show at once.
+  await page.setViewportSize({ width: 420, height: 700 });
+  const palette = page.locator('.vk-palette');
+  const cell = page.getByRole('button', { name: 'Insert ▘, key 1' });
+  const box = (await cell.boundingBox())!;
+  const before = await page.locator(EDITOR).innerText();
+
+  // Press on a character and drag up, the way a finger pans the grid.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (const dy of [10, 30, 60]) {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - dy);
+  }
+  await page.mouse.up();
+
+  await expect(page.locator(EDITOR)).toHaveText(before);
+
+  // ...and a tap in the same place still types.
+  await cell.click();
+  await expect(page.locator(EDITOR)).toContainText('▘');
+  await expect(palette).toBeVisible();
 });
 
 test('inserts from either section of the C64 two-section palette', async ({
