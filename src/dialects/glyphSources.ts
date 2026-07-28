@@ -51,6 +51,13 @@ export interface RomGlyphSource extends GlyphSourceBase {
   file: string;
   /** CPU address of glyph index 0 on the real machine. */
   base: number;
+  /**
+   * A second address the machine's own documentation names for the same table,
+   * where that documentation counts from a different character code. Recorded
+   * so a reader who has the documented number finds this entry by searching for
+   * it, rather than being told it does not exist.
+   */
+  documentedBase?: { address: number; as: string };
   /** Offset of that same glyph in the shipped image. */
   fileOffset: number;
   /** Bytes per glyph. */
@@ -75,6 +82,51 @@ export interface LogicGlyphSource extends GlyphSourceBase {
 }
 
 export type GlyphSource = RomGlyphSource | ChipGlyphSource | LogicGlyphSource;
+
+/**
+ * How each machine writes a hex address, so an address is recorded in the form
+ * a reader actually has: a BBC listing says `&C000`, a Commodore reference
+ * `$D000`, the Atom `#8000`. `0x` is this project's notation, not any of theirs.
+ *
+ * Where the machine's BASIC has a hex literal, the dialect already declares its
+ * prefix on `memoryWrites.hexPrefix`, and `glyphSources.test.ts` asserts these
+ * agree so the two cannot drift. The rest are declared here because that field
+ * is a *parser* concern and is deliberately absent for machines whose BASIC
+ * cannot write hex at all - which is not the same as having no way to read one.
+ *
+ * Addresses are always stored and rendered in hex, including for the machines
+ * whose manuals count in decimal; converting a decimal input is the searching
+ * side's job, and carrying two spellings per line would only make the index
+ * harder to read.
+ */
+export const ADDRESS_SIGIL: Record<string, string> = {
+  // Acorn and Amstrad BASIC both write `&`; these mirror memoryWrites.hexPrefix.
+  bbcmicro: '&',
+  bbcmaster: '&',
+  cpc464: '&',
+  cpc6128: '&',
+  // Atom BASIC writes `#` (`?#8000=1`), likewise mirrored.
+  atom: '#',
+  // Commodore BASIC has no hex literal - you POKE decimal - but every Commodore
+  // reference, and this project's own memory maps, write `$D020`.
+  commodore64: '$',
+  vic20: '$',
+  pet: '$',
+  // Sinclair and the TRS-80 have no native hex notation at all. `$` follows the
+  // precedent already set in docs/reference/data/facts.ts, which spells the
+  // Spectrum's screen base `$4000`.
+  zx80: '$',
+  zx81: '$',
+  zxspectrum: '$',
+  zxspectrum128: '$',
+  trs80: '$',
+};
+
+/** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
+export function formatAddress(dialectId: string, address: number): string {
+  const sigil = ADDRESS_SIGIL[dialectId] ?? '0x';
+  return `${sigil}${address.toString(16).toUpperCase().padStart(4, '0')}`;
+}
 
 /** Inclusive byte range. */
 const range = (from: number, to: number): number[] =>
@@ -177,7 +229,13 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
       cell: { w: 8, h: 8 },
       codes: range(0x20, 0x7f),
       indexOf: linear(0x20, 0x7f),
-      note: 'Ninety-six 8x8 glyphs from 0x20; the ROM ends exactly at the table end.',
+      documentedBase: { address: 0x3c00, as: 'CHARS (23606)' },
+      note:
+        'Ninety-six 8x8 glyphs from 0x20; the ROM ends exactly at the table end. ' +
+        'The machine itself names a base 256 lower: the CHARS system variable ' +
+        'holds 0x3C00, because the ROM finds a glyph at CHARS + 8*code with the ' +
+        'code counted from 0, while the table starts at code 0x20. Both numbers ' +
+        'reach the same bytes - spectrum128Machine.ts uses the CHARS one.',
     },
     {
       kind: 'logic',
@@ -199,7 +257,11 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
       cell: { w: 8, h: 8 },
       codes: range(0x20, 0x7f),
       indexOf: linear(0x20, 0x7f),
-      note: 'Bank 1 of the 32K image; 0x3D00 once that bank is paged in.',
+      documentedBase: { address: 0x3c00, as: 'CHARS (23606)' },
+      note:
+        'Bank 1 of the 32K image; 0x3D00 once that bank is paged in. As the 48K, ' +
+        'the machine names 0x3C00 - which is the number spectrum128Machine.ts ' +
+        "uses for the boot menu's own text rendering.",
     },
     {
       kind: 'logic',
@@ -277,7 +339,12 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
   ],
 
   commodore64: [commodoreFont('c64/chargen.bin', 0xd000, 0xff)],
-  vic20: [commodoreFont('vic20/chargen.bin', null, 0xff)],
+  // vic20/memoryMap.ts already declares this ROM as a region at 0x8000-0x8FFF -
+  // "the 4K character generator ROM (901460-03)" - so the address was in the
+  // repo all along and only had to be looked up.
+  vic20: [commodoreFont('vic20/chargen.bin', 0x8000, 0xff)],
+  // The PET's stays unestablished: unlike the VIC-20's, its memory map declares
+  // no character-ROM region, and the character set is not CPU-visible there.
   pet: [commodoreFont('pet/characters-2.901447-10.bin', null, 0x7f)],
 
   cpc464: [cpcFont('cpc/cpc464.rom')],

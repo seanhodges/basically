@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 import { dialects } from './registry';
 import {
+  ADDRESS_SIGIL,
   GLYPH_SOURCES,
+  formatAddress,
   glyphLocation,
   petsciiToScreen,
   sourceFor,
@@ -277,6 +279,80 @@ describe('glyph sources', () => {
         chip: 'MC6847',
         index: 0x01,
       });
+    });
+  });
+
+  describe('address notation', () => {
+    it('names a sigil for every registered dialect', () => {
+      expect(Object.keys(ADDRESS_SIGIL).sort()).toEqual(
+        dialects.map((d) => d.id).sort(),
+      );
+    });
+
+    it('agrees with the hex prefix the dialect already declares', () => {
+      // Where a machine's BASIC has a hex literal the dialect declares its
+      // prefix for the POKE parser. Rendering must use the same character, or
+      // the index would spell an address differently from the code the user
+      // would write to reach it.
+      for (const dialect of dialects) {
+        const declared = dialect.memoryWrites?.hexPrefix;
+        if (declared === undefined) continue;
+        expect(ADDRESS_SIGIL[dialect.id], dialect.id).toBe(declared);
+      }
+    });
+
+    it('writes each address the way its machine does', () => {
+      expect(formatAddress('bbcmicro', 0xc000)).toBe('&C000');
+      expect(formatAddress('cpc464', 0x3800)).toBe('&3800');
+      expect(formatAddress('atom', 0x8000)).toBe('#8000');
+      expect(formatAddress('commodore64', 0xd000)).toBe('$D000');
+      expect(formatAddress('zxspectrum', 0x3d00)).toBe('$3D00');
+    });
+
+    it("never writes an address in this project's own notation", () => {
+      // 0x is the notation of the code, not of any machine here. If a dialect
+      // ever falls through to the default, the index stops being searchable in
+      // the form its reader has.
+      for (const dialect of dialects) {
+        expect(formatAddress(dialect.id, 0x1234), dialect.id).not.toContain(
+          '0x',
+        );
+      }
+    });
+  });
+
+  describe('the addresses a machine names for itself', () => {
+    it("records the Spectrum's CHARS base alongside the table start", () => {
+      // The ROM finds a glyph at CHARS + 8*code with the code counted from 0,
+      // so CHARS is 256 below where the table physically starts. Both numbers
+      // reach the same bytes and both are in the repo - spectrum128Machine.ts
+      // uses the CHARS one - so both have to be findable.
+      for (const id of ['zxspectrum', 'zxspectrum128']) {
+        const source = GLYPH_SOURCES[id]!.find((s) => s.kind === 'rom')!;
+        if (source.kind !== 'rom') continue;
+        expect(source.documentedBase?.address, id).toBe(0x3c00);
+        expect(source.base - source.documentedBase!.address, id).toBe(
+          0x20 * source.stride,
+        );
+      }
+    });
+
+    it("takes the VIC-20's character ROM address from its memory map", () => {
+      // vic20/memoryMap.ts declares the region at 0x8000; recording it as
+      // "not established" here contradicted a fact the repo already held.
+      const loc = glyphLocation('vic20', 0x41);
+      expect(loc?.kind).toBe('rom');
+      if (loc?.kind !== 'rom') return;
+      expect(loc.address).toBe(0x8000 + 0x01 * 8);
+    });
+
+    it("leaves the PET's unestablished, because nothing establishes it", () => {
+      // Its memory map declares no character-ROM region: the set is not
+      // CPU-visible there, so an address would be invented rather than found.
+      const loc = glyphLocation('pet', 0x41);
+      expect(loc?.kind).toBe('rom');
+      if (loc?.kind !== 'rom') return;
+      expect(loc.address).toBe(-1);
     });
   });
 
