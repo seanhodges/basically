@@ -138,10 +138,22 @@ describe('tokenizeProgram', () => {
   });
 
   it('round-trips graphics and inverse video', () => {
-    const src = '10 PRINT "▌▀█ %A%B \\!. OK"';
+    // \!. is the chequered upper half; it detokenizes to its unicode character
+    // now, so the source is written that way here. The escape-spelling path is
+    // covered below.
+    const src = '10 PRINT "▌▀█ %A%B \u{1FB8E} OK"';
     const { bytes, errors } = tokenizeProgram(src);
     expect(errors).toEqual([]);
     expect(normalize(detokenizeProgram(bytes))).toBe(normalize(src));
+  });
+
+  it('accepts the grey-block escapes alongside their characters', () => {
+    // Both spellings must reach the same byte. \!. is the lower chequered half
+    // (' = upper, . = lower, matching the ZX80); U+1FB8F draws that shape.
+    const viaEscape = tokenizeProgram('10 PRINT "\\!."');
+    const viaChar = tokenizeProgram('10 PRINT "\u{1FB8F}"');
+    expect(viaEscape.errors).toEqual([]);
+    expect([...viaEscape.bytes]).toEqual([...viaChar.bytes]);
   });
 });
 

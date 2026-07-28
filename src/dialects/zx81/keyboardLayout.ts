@@ -66,11 +66,16 @@ const GRAPHIC_INSERT: Record<string, string> = {
   diagTLBR: '▚',
   diagTRBL: '▞',
   grey: '▒',
-  greyInv: '\\||',
-  greyT: "\\!'",
-  greyB: '\\!.',
-  greyTSolidB: "\\|'",
-  solidTGreyB: '\\|.',
+  // The chequered cells have their own characters now (Symbols for Legacy
+  // Computing), so insert those rather than an escape - the names below say
+  // which shape each key draws, and the character has to match it. They were
+  // previously escapes, and the two halves were the wrong way round: the
+  // "grey top" key inserted the grey *bottom* character.
+  greyInv: '\u{1FB90}',
+  greyT: '\u{1FB8E}',
+  greyB: '\u{1FB8F}',
+  greyTSolidB: '\u{1FB92}',
+  solidTGreyB: '\u{1FB91}',
 };
 
 // Label tuple order matches `layers` below: [main, shift, keyword, function,

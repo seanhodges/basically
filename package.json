@@ -25,7 +25,8 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "gen:reference": "vite-node scripts/gen-reference-scaffold.mts",
-    "gen:escapes": "vite-node scripts/gen-escape-scaffold.mts"
+    "gen:escapes": "vite-node scripts/gen-escape-scaffold.mts",
+    "gen:semigraphics": "vite-node scripts/gen-semigraphics-audit.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

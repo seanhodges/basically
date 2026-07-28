@@ -65,11 +65,13 @@ const GRAPHIC_INSERT: Record<string, string> = {
   diagTLBR: '▚',
   diagTRBL: '▞',
   grey: '▒',
-  greyInv: '\\||',
-  greyT: "\\!'",
-  greyB: '\\!.',
-  greyTInv: "\\|'",
-  greyBInv: '\\|.',
+  // As on the ZX81: the chequered cells insert their own characters rather
+  // than an escape, so the key types the shape its legend draws.
+  greyInv: '\u{1FB90}',
+  greyT: '\u{1FB8E}',
+  greyB: '\u{1FB8F}',
+  greyTInv: '\u{1FB92}',
+  greyBInv: '\u{1FB91}',
 };
 
 // Label tuple order matches `layers` below: [main, shift, keyword, graphic].

@@ -30,6 +30,12 @@ export interface KeyboardLayout {
    */
   editorModes?: EditorModeDef[];
   /**
+   * The machine's block-graphics characters, shown as a grid by any editor mode
+   * with `palette: 'graphics'`. Single source of truth with the charset, so the
+   * legends and the byte mapping cannot drift apart.
+   */
+  graphicsPalette?: GraphicsPalette;
+  /**
    * Machine function keys (e.g. the C64's f1/f3/f5/f7, the BBC's f0–f9) shown
    * in the top strip when the machine has no extra typing layers, or - when
    * `editorModes` are also present - behind an icon toggle that flips the strip
@@ -126,6 +132,34 @@ export interface EditorModeDef {
    * layer (there the engaged modifier already drives the layer).
    */
   shiftedLayer?: string;
+  /**
+   * Show the layout's {@link KeyboardLayout.graphicsPalette} instead of the key
+   * grid while this mode is selected. Machines with more graphics characters
+   * than keys (or none printed on the keys at all) offer them this way; the
+   * palette still produces ordinary editor inserts, so nothing downstream
+   * treats it differently from a keypress.
+   */
+  palette?: 'graphics';
+}
+
+/**
+ * One selectable character in a graphics palette: what it inserts, which byte
+ * that is, and where it lives on the real machine's keyboard.
+ */
+export interface GraphicEntry {
+  /** Physical key it is printed on, shown small in the cell corner. */
+  key: string;
+  /** Modifier that selects it, e.g. 'C=' or 'SHIFT'. Omit when the mode alone does. */
+  modifier?: string;
+  /** Text inserted into the editor - the character's canonical form. */
+  char: string;
+  /** The machine character code this stands for. */
+  code: number;
+}
+
+export interface GraphicsPalette {
+  /** Grouped for display, e.g. the C64's C= set and SHIFT set. */
+  sections: Array<{ title?: string; entries: GraphicEntry[] }>;
 }
 
 export interface KeyDef {

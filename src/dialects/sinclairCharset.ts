@@ -101,28 +101,34 @@ export function createSinclairCharset(
       return { code: newline, length: 1 };
     }
     if (ch === '%') {
-      const next = text[i + 1];
-      if (next === undefined)
+      const point = text.codePointAt(i + 1);
+      if (point === undefined)
         throw new CharsetError(
           '% at end of input (expected a character to invert)',
           i,
         );
+      // Whole codepoint again - the chequered graphics are invertible too.
+      const next = String.fromCodePoint(point);
       const upper = next.toUpperCase();
       const base = charToCode.get(upper);
       if (base === undefined || base > 0x3f) {
         throw new CharsetError(`Cannot invert "${next}"`, i);
       }
-      return { code: base | inverse, length: 2 };
+      return { code: base | inverse, length: 1 + next.length };
     }
-    const upper = ch.toUpperCase();
+    // Read a whole codepoint, not a UTF-16 unit: the chequered graphics live in
+    // Symbols for Legacy Computing (U+1FB8E+), so each is a surrogate pair and
+    // indexing by unit would hand us half a character.
+    const point = String.fromCodePoint(text.codePointAt(i)!);
+    const upper = point.toUpperCase();
     const code = charToCode.get(upper);
     if (code === undefined) {
       throw new CharsetError(
-        `Character "${ch}" does not exist on the ${machineName}`,
+        `Character "${point}" does not exist on the ${machineName}`,
         i,
       );
     }
-    return { code, length: 1 };
+    return { code, length: point.length };
   }
 
   function codeToText(code: number): string {
