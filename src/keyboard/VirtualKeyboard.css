@@ -9,6 +9,10 @@
      ratio (ten ~1.2:1 keys over five rows) used to cap key width on wide
      screens so keys keep their shape instead of stretching. */
   --vk-key-min: 40px;
+  /* Palette cell floor: wide enough to draw a graphic at a glanceable size, and
+     chosen so a phone in portrait fits five or six across (a 390px screen has
+     ~344px of palette inside the overlay padding). */
+  --vk-graphic-min: 64px;
   --vk-aspect: 2.4;
   display: flex;
   flex-direction: column;
@@ -69,9 +73,10 @@
    machines have more graphics characters than the keyboard can print at a
    readable size, so they get a grid of their own: each character drawn large,
    with the key it lives on in the corner so the palette still teaches the real
-   keyboard. Column count follows the width available (auto-fill) while the cell
-   - and so the character - keeps its size; the grid scrolls inside the
-   keyboard's height rather than growing it. */
+   keyboard. Cells keep a floor size (--vk-graphic-min, chosen so a phone in
+   portrait fits five or six across) and the column count grows with the width
+   available; the rows flow on down and the grid scrolls inside the keyboard's
+   height rather than growing it. */
 .vk-palette {
   flex: 1;
   min-height: 0;
@@ -80,10 +85,46 @@
   /* The palette is a scroller, so it opts back into touch panning (the
      keyboard as a whole sets touch-action: none for key drags). */
   touch-action: pan-y;
+  /* Reserve the scrollbar's width whether or not it is showing, so adding a
+     row cannot reflow the columns underneath the reader's finger. */
+  scrollbar-gutter: stable;
+  /* ...and the classic scroll-shadow trick as a second cue, since a touch
+     device's scrollbar is an overlay one that fades away: the `local` layers
+     scroll with the content and cover an edge once it is reached, so the
+     `scroll` layers - a light fog, which is what reads on a dark panel - show
+     only while there are more characters that way. */
+  background:
+    linear-gradient(#16161a, rgb(22 22 26 / 0%)) top / 100% 18px local no-repeat,
+    linear-gradient(rgb(22 22 26 / 0%), #16161a) bottom / 100% 18px local
+      no-repeat,
+    linear-gradient(rgb(255 255 255 / 22%), rgb(255 255 255 / 0%)) top / 100%
+      16px scroll no-repeat,
+    linear-gradient(rgb(255 255 255 / 0%), rgb(255 255 255 / 22%)) bottom / 100%
+      16px scroll no-repeat;
   padding: 2px 2px 4px;
   max-width: calc(var(--vk-aspect) * 46vh);
   margin-inline: auto;
   width: 100%;
+}
+
+/* Two overflow cues, because the platform's own scrollbar is an overlay one on
+   touch devices - it fades out, leaving no sign that there are more characters
+   below. Styling ::-webkit-scrollbar opts back into a persistent classic bar
+   (which is also why `scrollbar-width`/`scrollbar-color` are deliberately not
+   set here: setting them makes Chromium ignore these rules). */
+.vk-palette::-webkit-scrollbar {
+  width: 10px;
+}
+
+.vk-palette::-webkit-scrollbar-track {
+  background: #101014;
+  border-radius: 5px;
+}
+
+.vk-palette::-webkit-scrollbar-thumb {
+  background: #565d6d;
+  border: 2px solid #101014;
+  border-radius: 5px;
 }
 
 .vk-palette-title {
@@ -96,25 +137,24 @@
 
 .vk-palette-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--vk-key-min), 1fr));
-  gap: 3px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--vk-graphic-min), 1fr));
+  gap: 4px;
 }
 
 .vk-graphic {
   position: relative;
-  /* Sizes the character off the cell (60cqw below) so it fills whatever width
-     the auto-fill column count settles on. */
+  /* Sizes the character off the cell (the cq units below) so it fills whatever
+     width the auto-fill column count settles on. */
   container-type: inline-size;
-  aspect-ratio: 1;
-  min-height: var(--vk-key-min);
+  /* Taller than wide by the height of the key hint's row: the character below it
+     then gets a square of its own, as wide as the cell allows. */
+  aspect-ratio: 1 / 1.2;
   display: flex;
-  /* Bottom-aligned: the face draws its graphics up from the baseline (descent
-     0), so anchoring to the bottom of the cell both matches how the machine
-     fills a character cell and keeps the top-left key hint clear of most
-     shapes. */
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  padding-bottom: 4px;
+  /* The top padding is the hint's row - the character fills the space below it
+     and never draws behind it. */
+  padding: 14px 4px 4px;
   border-radius: 4px;
   background: #0a0a0a;
   box-shadow:
@@ -144,19 +184,27 @@
    the point of the palette; the editor keeps the text metrics. */
 .vk-graphic-char {
   font-family: var(--mono);
-  font-size: clamp(15px, 50cqw, 26px);
+  /* Fills the cell below the hint row. The face draws a full-cell graphic 1.2em
+     tall and 0.6em wide (after the size-adjust in src/styles.css), which the
+     scaleX doubles to 1.2em square - so 1.2 x this size is the drawn size, and
+     83% of the cell's inner width makes it just fill that width. Capped so one
+     stretched cell on a wide screen doesn't run away with it. */
+  font-size: min(83cqw, 64px);
   line-height: 1;
   color: #e8ecf4;
   display: inline-block;
-  transform: scaleX(2);
+  /* The glyphs sit on the baseline with no descent, so their ink is 0.225em
+     above the centre of the line box; nudging it back down centres the shape in
+     the cell instead of the text metrics. */
+  transform: translateY(0.225em) scaleX(2);
 }
 
 .vk-graphic-key {
   position: absolute;
-  top: 2px;
-  left: 3px;
+  top: 3px;
+  left: 4px;
   color: #aab1c0;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1;
   letter-spacing: 0.02em;
   /* A full-cell graphic reaches under the hint; the shadow keeps it readable. */
@@ -605,6 +653,7 @@
    the workspace height or 95% of its width - whichever binds first (min() picks
    it), aspect ratio preserved. */
 @media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .vk-landscape .vk-palette,
   .vk-landscape .vk-rows {
     height: min(
       75cqh,
@@ -613,17 +662,21 @@
   }
 }
 
-/* The palette takes the same box the key block would: fill the height, take the
-   aspect-derived width clamped to what's left beside the strip. Without an
-   explicit width the auto-sized grid column collapses to one cell wide, and the
-   palette's content height then pushes the whole keyboard out of the overlay. */
+/* The palette takes the same box the key block would: as tall as the container
+   allows, as wide as is left beside the strip. Both have to be explicit - the
+   keyboard hugs its content in this layout, so a percentage height would resolve
+   against nothing and the palette's rows would push the keyboard out of the
+   band, and an auto-sized grid column collapses to a single cell wide. */
 .vk-landscape .vk-palette {
   grid-column: 2;
-  align-self: stretch;
-  height: 100%;
+  align-self: center;
   min-height: 0;
   margin: 0;
   max-width: none;
+  height: min(
+    100cqh,
+    calc((100cqw - var(--vk-rows-reserve, 0px)) / var(--vk-aspect))
+  );
   width: min(
     calc(100cqh * var(--vk-aspect)),
     calc(100cqw - var(--vk-rows-reserve, 0px))
