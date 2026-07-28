@@ -19,8 +19,10 @@ key matrix.
 Where the machine's character set contains graphics characters, the on-screen
 keyboard SHALL offer them as a palette rather than as key legends: every
 graphics character the machine can express, each shown large enough to
-distinguish from the others, and each labelled with the physical key it lives on
-so the palette teaches the machine's own keyboard. The palette SHALL adapt the
+distinguish from the others, and each labelled with how the machine itself
+reaches it — the physical key it lives on, or, where the machine printed no
+graphics on its keyboard, the character code its BASIC would use — so the
+palette teaches the machine rather than the IDE. The palette SHALL adapt the
 number of characters it shows per row to the space available, without changing
 how large each character is drawn.
 
@@ -60,9 +62,17 @@ stays on it, not by touching it.
 
 #### Scenario: The palette shows where a character lives
 
-- **WHEN** the user looks at a character in the graphics palette
+- **WHEN** the user looks at a character in the graphics palette on a machine
+  whose keyboard produces it
 - **THEN** it is labelled with the key, and any modifier, that produces it on
   the real machine
+
+#### Scenario: The palette shows how to reach a character with no key
+
+- **WHEN** the user looks at a character in the graphics palette on a machine
+  that printed no graphics on its keyboard
+- **THEN** it is labelled with the character code that machine's BASIC uses to
+  produce it
 
 #### Scenario: The palette adapts to the space available
 
