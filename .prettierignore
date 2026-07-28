@@ -9,6 +9,8 @@ openspec/
 # Generated between markers by scripts/gen-semigraphics-audit.mts; Prettier
 # would realign the tables and the regenerate-and-diff test would then fail.
 docs/contributing/semigraphics-support.md
+# Same, for scripts/gen-glyph-addresses.mts.
+docs/contributing/glyph-sources.md
 .claude/commands/opsx/
 .claude/skills/openspec-*/
 .superpowers/
