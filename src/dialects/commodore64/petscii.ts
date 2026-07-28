@@ -99,11 +99,13 @@ for (const [name, code] of Object.entries(PETCAT_ALIASES)) {
 }
 // {CBM-x} / {SHIFT-x}: the graphic on a letter key's C= or SHIFT front face,
 // keyed off the same table the virtual keyboard uses so the two never drift.
+// Every Commodore graphic is printed on a key, so `key` is always set here;
+// the optional case is for machines with no graphics keys at all.
 for (const { key, code } of C64_COMMODORE_GRAPHICS) {
-  if (/^[A-Z]$/.test(key)) nameToCode.set(`cbm-${key.toLowerCase()}`, code);
+  if (key && /^[A-Z]$/.test(key)) nameToCode.set(`cbm-${key.toLowerCase()}`, code); // prettier-ignore
 }
 for (const { key, code } of C64_SHIFT_GRAPHICS) {
-  if (/^[A-Z]$/.test(key)) nameToCode.set(`shift-${key.toLowerCase()}`, code);
+  if (key && /^[A-Z]$/.test(key)) nameToCode.set(`shift-${key.toLowerCase()}`, code); // prettier-ignore
 }
 
 /** Canonical editor text for a PETSCII code (glyph or `{...}` escape). */

@@ -38,6 +38,20 @@ BASIC:
      subroutines/procedures auto-complete as whole numbered blocks (IntelliJ
      "live template" style) rather than as a bare keyword.
    - `charset.ts` - a `CharsetMapping` between editor text and machine codes.
+     Give each of the machine's block graphics its exact unicode character where
+     one exists - Block Elements first, then Symbols for Legacy Computing - and
+     fall back to a `{0xNN}` escape only where the mapping's injectivity or
+     unicode itself leaves no character to use. Declare which bytes the machine
+     treats as graphics in `SEMIGRAPHIC_CODES`
+     (`src/dialects/semigraphicsAudit.ts`), cited to a primary source; see
+     [Semigraphics support](./semigraphics-support) for what each machine
+     currently manages and why.
+   - `graphics.ts` - the machine's block graphics as a `GraphicEntry[]`, read by
+     both the keyboard's palette and the charset so the two cannot drift. Derive
+     which key types each character from the ROM rather than from a picture of
+     the keyboard; on a machine that printed no graphics on its keycaps at all,
+     leave `key` unset and the palette labels the cell with the character code
+     its BASIC takes instead.
    - `tokenizer.ts` / `detokenizer.ts` - text ↔ tokenized program bytes.
    - an image builder (the Spectrum equivalent of `pfile.ts` is a `.tap`/
      `.sna` builder).
@@ -114,6 +128,15 @@ The virtual keyboard is entirely data-driven. The `VirtualKeyboard` component
 and `inputEngine` contain no machine-specific logic; all you do is produce a
 `KeyboardLayout` object and wire it into your emulator's `setKey()`. Adding a
 keyboard for a new machine never requires touching keyboard code.
+
+That includes the **graphics palette**: a machine with block graphics offers
+them as a grid of characters rather than as keycap legends, because there are
+usually more of them than the keyboard can show at a readable size. Set
+`graphicsPalette` on the layout and add an `editorModes` entry with
+`palette: 'graphics'`; the cells insert text exactly as a key does, so nothing
+downstream treats them differently. Keep the entries in a `graphics.ts` the
+charset also reads, so the palette and the mapping cannot drift, and list the
+dialect id in `e2e/paletteMachines.ts` so the palette specs cover it.
 
 #### The standard template
 

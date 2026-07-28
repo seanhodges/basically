@@ -58,16 +58,22 @@ describe('semigraphics audit', () => {
     }
   });
 
-  it('scopes exactly the Sinclair and Commodore machines', () => {
+  it('scopes the machines whose graphics are guaranteed end to end', () => {
     for (const id of IN_SCOPE) {
       expect(
         dialects.some((d) => d.id === id),
         `IN_SCOPE names unregistered dialect "${id}"`,
       ).toBe(true);
     }
+    // The Sinclair, Commodore, Tandy and Amstrad families. The BBC pair and the
+    // Atom are still out: see docs/contributing/semigraphics-support.md for
+    // what each of them needs first.
     expect([...IN_SCOPE].sort()).toEqual([
       'commodore64',
+      'cpc464',
+      'cpc6128',
       'pet',
+      'trs80',
       'vic20',
       'zx80',
       'zx81',

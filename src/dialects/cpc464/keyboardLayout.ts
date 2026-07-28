@@ -5,6 +5,11 @@ import type {
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
 import { bottomRow, centerRow } from '../../keyboard/templateRows';
+import {
+  CPC_LINE_GRAPHICS,
+  CPC_MOSAIC_GRAPHICS,
+  CPC_SHADE_GRAPHICS,
+} from './graphics';
 
 /**
  * The Amstrad CPC 464 keyboard as pure layout data.
@@ -233,9 +238,20 @@ export const cpc464KeyboardLayout: KeyboardLayout = {
     { id: 'abc', name: 'ABC', layer: 'base' },
     { id: 'sym', name: 'SYM', layer: 'sym' },
     { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+    // The CPC prints no graphics on its keycaps, so this mode pins no layer:
+    // the palette below carries the characters and labels each with the code
+    // CHR$ takes, which is how the machine itself reached them.
+    { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows,
+  graphicsPalette: {
+    sections: [
+      { title: 'Mosaics', entries: CPC_MOSAIC_GRAPHICS },
+      { title: 'Lines', entries: CPC_LINE_GRAPHICS },
+      { title: 'Shades and diagonals', entries: CPC_SHADE_GRAPHICS },
+    ],
+  },
   functionKeys,
   controllerKeys,
   glyphs: {},

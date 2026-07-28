@@ -45,9 +45,9 @@ reported as such rather than guessed at.
 | PET | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 29/64 |
 | VIC-20 | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 58/64 |
 | Atom | — | _not established_ | — | — | — | — | — |
-| TRS-80 | — | 64 (0x80-0xBF) | 63 | 60 | 0 | 1 | 0/64 |
-| CPC 464 | — | 64 (0x80-0x9F, 0xC0-0xDF) | 43 | 0 | 0 | 21 | 0/64 |
-| CPC 6128 | — | 64 (0x80-0x9F, 0xC0-0xDF) | 43 | 0 | 0 | 21 | 0/64 |
+| TRS-80 | ✅ | 64 (0x80-0xBF) | 63 | 60 | 0 | 1 | 63/64 |
+| CPC 464 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
+| CPC 6128 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
 
 "Typeable" counts graphics bytes reachable by typing on the on-screen
 keyboard, including its graphics palette. "…astral" counts the characters
@@ -155,31 +155,31 @@ Spelled as: 1 escape-raw, 60 glyph-astral, 3 glyph-bmp.
 
 **Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
 
-**Gap:** 64 graphics bytes cannot be typed on the on-screen keyboard: 0x80-0xBF.
+**Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0x80.
 
 ### CPC 464
 
 Charset family `cpc`. Graphics bytes 0x80-0x9F, 0xC0-0xDF.
 
-Spelled as: 21 escape-raw, 43 glyph-bmp.
+Spelled as: 1 escape-raw, 20 glyph-astral, 43 glyph-bmp.
 
-**Gap:** 21 graphics bytes have no character of their own and render as raw escapes: 0x80, 0xC0-0xCA, 0xCE, 0xD8-0xDF.
+**Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
 
-**Gap:** 64 graphics bytes cannot be typed on the on-screen keyboard: 0x80-0x9F, 0xC0-0xDF.
+**Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0x80.
 
 ### CPC 6128
 
 Charset family `cpc`. Graphics bytes 0x80-0x9F, 0xC0-0xDF.
 
-Spelled as: 21 escape-raw, 43 glyph-bmp.
+Spelled as: 1 escape-raw, 20 glyph-astral, 43 glyph-bmp.
 
-**Gap:** 21 graphics bytes have no character of their own and render as raw escapes: 0x80, 0xC0-0xCA, 0xCE, 0xD8-0xDF.
+**Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
 
-**Gap:** 64 graphics bytes cannot be typed on the on-screen keyboard: 0x80-0x9F, 0xC0-0xDF.
+**Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0x80.
 
 ## Characters the machines need
 
-208 distinct non-ASCII codepoints, 97 of them astral.
+225 distinct non-ASCII codepoints, 114 of them astral.
 This is the exact set the bundled character-graphics font is subset to.
 
 | Codepoint | Character | Plane | Used by |
@@ -386,12 +386,29 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+1FB82` | 🮂 | astral | commodore64, pet, vic20 |
 | `U+1FB83` | 🮃 | astral | commodore64, pet, vic20 |
 | `U+1FB88` | 🮈 | astral | commodore64, pet, vic20 |
-| `U+1FB8C` | 🮌 | astral | commodore64, pet, vic20 |
-| `U+1FB8E` | 🮎 | astral | zx80, zx81 |
-| `U+1FB8F` | 🮏 | astral | commodore64, pet, vic20, zx80, zx81 |
+| `U+1FB8C` | 🮌 | astral | commodore64, cpc464, cpc6128, pet, vic20 |
+| `U+1FB8D` | 🮍 | astral | cpc464, cpc6128 |
+| `U+1FB8E` | 🮎 | astral | cpc464, cpc6128, zx80, zx81 |
+| `U+1FB8F` | 🮏 | astral | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81 |
 | `U+1FB90` | 🮐 | astral | zx80, zx81 |
 | `U+1FB91` | 🮑 | astral | zx80, zx81 |
 | `U+1FB92` | 🮒 | astral | zx80, zx81 |
+| `U+1FB95` | 🮕 | astral | cpc464, cpc6128 |
+| `U+1FB9C` | 🮜 | astral | cpc464, cpc6128 |
+| `U+1FB9D` | 🮝 | astral | cpc464, cpc6128 |
+| `U+1FB9E` | 🮞 | astral | cpc464, cpc6128 |
+| `U+1FB9F` | 🮟 | astral | cpc464, cpc6128 |
+| `U+1FBA0` | 🮠 | astral | cpc464, cpc6128 |
+| `U+1FBA1` | 🮡 | astral | cpc464, cpc6128 |
+| `U+1FBA2` | 🮢 | astral | cpc464, cpc6128 |
+| `U+1FBA3` | 🮣 | astral | cpc464, cpc6128 |
+| `U+1FBA4` | 🮤 | astral | cpc464, cpc6128 |
+| `U+1FBA5` | 🮥 | astral | cpc464, cpc6128 |
+| `U+1FBA6` | 🮦 | astral | cpc464, cpc6128 |
+| `U+1FBA7` | 🮧 | astral | cpc464, cpc6128 |
+| `U+1FBA8` | 🮨 | astral | cpc464, cpc6128 |
+| `U+1FBA9` | 🮩 | astral | cpc464, cpc6128 |
+| `U+1FBAE` | 🮮 | astral | cpc464, cpc6128 |
 
 <!-- semigraphics:end -->
 
@@ -477,10 +494,33 @@ height, and it is larger. That is a property of the CSS line box rather than of
 the font, so no font choice fixes it: block characters render correctly but a
 picture built from stacked rows shows thin gaps between them.
 
-## Machines this change did not cover
+### The blank cell nobody can type
 
-The BBC Micro/Master, Acorn Atom, Amstrad CPC and TRS-80 keep whatever support
-they had. What each would need:
+Three machines declare a graphics code that draws an empty cell — the Spectrum's
+`0x80`, the TRS-80's `0x80` and the CPC's `0x80`. Its only faithful text form is
+a space, and `0x20` already owns that, so injectivity leaves it spelled
+`{0x80}`. The palette does not offer it: a cell that inserted a space would look
+like a bug, and printing the code has the same effect as printing a space
+anyway. That is the whole of the "1 raw escape / 63 of 64 typeable" line those
+machines show above.
+
+### Neither the CPC nor the TRS-80 has graphics keys
+
+Both machines printed nothing but letters, digits and punctuation on their
+keycaps; a program reached the block graphics through `PRINT CHR$(n)`. On the
+CPC this is confirmed by the firmware's key translation tables, which map no key
+— plain, shifted, or with CONTROL — into the graphics range: CONTROL yields the
+`0x00–0x1F` control codes, and the only upper-range codes a key emits are the
+cursor arrows at `0xF0–0xF3`, outside the graphics block.
+
+So their palette cells are labelled with the character code rather than a key,
+which is what those machines' BASIC actually needs. The palette still teaches
+the machine — it is the machine that reaches its graphics differently.
+
+## Machines this page does not yet cover
+
+The BBC Micro/Master and the Acorn Atom keep whatever support they had. What
+each would need:
 
 - **BBC Micro / Master** — the MODE 7 mosaics map algorithmically onto the same
   `U+1FB00` sextant space the TRS-80 already uses, so the mapping itself is
@@ -494,12 +534,3 @@ they had. What each would need:
   video, which is not the same thing as its chunky graphics; inverse Latin has
   no Unicode form and must stay escaped regardless. Where the graphics actually
   sit needs the Atom technical manual and the MC6847 datasheet.
-- **Amstrad CPC** — the quadrant mosaics at `0x80–0x9F` already have characters;
-  `0xC0–0xDF` are Legacy Computing shapes left as numeric escapes. Mapping them
-  is straightforward but changes what the machine's `toUnicode` emits, so it was
-  deliberately kept out of a change that was otherwise Sinclair and Commodore
-  only.
-- **TRS-80** — the sextants are fully mapped already; what it lacks is a way to
-  type them, since the real machine had no graphics keys either (you wrote
-  `CHR$(128+n)`). The graphics palette is the mechanism, and enabling it is
-  mostly a matter of building the entry table.

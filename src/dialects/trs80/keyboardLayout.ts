@@ -1,5 +1,6 @@
 import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
 import { bottomRow } from '../../keyboard/templateRows';
+import { TRS80_GRAPHICS } from './graphics';
 
 /**
  * The TRS-80 keyboard on the standard virtual-keyboard template. The
@@ -174,9 +175,14 @@ export const trs80KeyboardLayout: KeyboardLayout = {
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'base' },
     { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+    // The TRS-80 prints no graphics on its keycaps, so this mode pins no layer:
+    // the palette below carries the characters and labels each with the code
+    // CHR$ takes, which is how the machine itself reached them.
+    { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows,
+  graphicsPalette: { sections: [{ entries: TRS80_GRAPHICS }] },
   glyphs: {},
   options: { minHoldFrames: 1 },
   // WASD movement + Space/Enter fire (the convention the bundled TRS-80 games use).

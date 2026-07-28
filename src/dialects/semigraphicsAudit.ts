@@ -58,8 +58,14 @@ const range = (from: number, to: number): number[] =>
   Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
 /**
- * The families this change covers. Everything else keeps whatever support it
- * had; the audit still reports on it so the gaps are visible.
+ * The families whose semigraphics support is guaranteed end to end: every
+ * graphics character they can express is typeable from the palette and is
+ * proven by `semigraphicsRoundTrip.test.ts` to survive the editor, the
+ * tokenizer and a hardware export/import cycle.
+ *
+ * A dialect joins this set when it earns the guarantee, not when someone
+ * intends it to. Everything else keeps whatever support it had; the audit still
+ * reports on it so the gaps stay visible.
  */
 export const IN_SCOPE = new Set([
   'zx80',
@@ -69,6 +75,9 @@ export const IN_SCOPE = new Set([
   'commodore64',
   'vic20',
   'pet',
+  'trs80',
+  'cpc464',
+  'cpc6128',
 ]);
 
 /**

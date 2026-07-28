@@ -22,11 +22,17 @@ const OPEN_BRACE = 0x7b;
 const CLOSE_BRACE = 0x7d;
 
 /**
- * Unicode forms for the upper-half codes with a faithful BMP equivalent.
- * 0x80 (a blank cell) and the codes whose glyphs only exist in Unicode's
- * supplementary Legacy Computing block are left to `{0xNN}` escapes.
+ * Unicode forms for the upper-half codes. Every graphics code has one except
+ * 0x80, a blank cell whose only text form would be a space - and the charset is
+ * injective, so the space already spoken for by 0x20 cannot serve two bytes.
+ * That single code is left to a `{0xNN}` escape, as the Spectrum's blank
+ * graphic is.
+ *
+ * The shapes drawn from Symbols for Legacy Computing are astral, so they are
+ * surrogate pairs in a JS string; {@link parseChar} reads whole code points for
+ * that reason.
  */
-const CPC_GLYPHS: Record<number, string> = {
+export const CPC_GLYPHS: Record<number, string> = {
   // 0x81-0x8F: 2x2 quadrant mosaic (bit0 = top-left, bit1 = top-right,
   // bit2 = bottom-left, bit3 = bottom-right).
   0x81: '▘',
@@ -95,11 +101,26 @@ const CPC_GLYPHS: Record<number, string> = {
   0xbd: 'ω',
   0xbe: 'Σ',
   0xbf: 'Ω',
-  // 0xC0-0xDF: diagonals, shades and eighth blocks (Legacy Computing-only
-  // glyphs in the range are escaped).
+  // 0xC0-0xCA: the diamond construction kit. 0xC0-0xC3 are the four diagonal
+  // edges of a diamond and 0xC4-0xCA are unions of them, which is exactly how
+  // Unicode's U+1FBA0-U+1FBAE family is defined; ./charsetRom.test.ts derives
+  // the edges from the ROM and asserts each composite is their union.
+  0xc0: '\u{1FBA0}', // NW: upper centre to middle left
+  0xc1: '\u{1FBA1}', // NE: upper centre to middle right
+  0xc2: '\u{1FBA3}', // SE: middle right to lower centre
+  0xc3: '\u{1FBA2}', // SW: middle left to lower centre
+  0xc4: '\u{1FBA7}', // NW+NE
+  0xc5: '\u{1FBA5}', // NE+SE
+  0xc6: '\u{1FBA6}', // SE+SW
+  0xc7: '\u{1FBA4}', // NW+SW
+  0xc8: '\u{1FBA8}', // NW+SE
+  0xc9: '\u{1FBA9}', // NE+SW
+  0xca: '\u{1FBAE}', // all four: the whole diamond
+  // 0xCB-0xDF: diagonals, shades and eighth blocks.
   0xcb: '╳',
   0xcc: '╱',
   0xcd: '╲',
+  0xce: '\u{1FB95}', // 2x2 chequerboard, twice the pitch of 0xCF
   0xcf: '▒',
   0xd0: '▔',
   0xd1: '▕',
@@ -109,6 +130,17 @@ const CPC_GLYPHS: Record<number, string> = {
   0xd5: '◥',
   0xd6: '◢',
   0xd7: '◣',
+  // 0xD8-0xDF: the same chequer dither as 0xCF, masked to half the cell and
+  // then to each corner triangle. 0xD8/0xDA are byte-identical in the ROM to
+  // ZX81 0x0A/0x09, which zx81/charset.ts already maps to these characters.
+  0xd8: '\u{1FB8E}', // upper half medium shade
+  0xd9: '\u{1FB8D}', // right half medium shade
+  0xda: '\u{1FB8F}', // lower half medium shade
+  0xdb: '\u{1FB8C}', // left half medium shade
+  0xdc: '\u{1FB9C}', // upper left triangular medium shade
+  0xdd: '\u{1FB9D}', // upper right triangular medium shade
+  0xde: '\u{1FB9E}', // lower right triangular medium shade
+  0xdf: '\u{1FB9F}', // lower left triangular medium shade
   // 0xE0-0xF7: pictographs, suits and arrows.
   0xe0: '☺',
   0xe1: '☹',
@@ -171,8 +203,7 @@ export function parseChar(
   text: string,
   i: number,
 ): { codes: number[]; length: number } {
-  const ch = text[i]!;
-  if (ch === '{') {
+  if (text[i] === '{') {
     const close = text.indexOf('}', i + 1);
     if (close !== -1) {
       const code = parseEscape(text.slice(i + 1, close));
@@ -180,8 +211,11 @@ export function parseChar(
     }
     // Not an escape: fall through to a literal '{' (0x7B).
   }
+  // A whole code point, not a UTF-16 unit: the Legacy Computing shapes at
+  // 0xC0-0xCA and 0xD8-0xDF are astral, so each is a surrogate pair.
+  const ch = String.fromCodePoint(text.codePointAt(i)!);
   const mapped = codeByGlyph.get(ch);
-  if (mapped !== undefined) return { codes: [mapped], length: 1 };
+  if (mapped !== undefined) return { codes: [mapped], length: ch.length };
   if (ch === '^') return { codes: [UP_ARROW], length: 1 };
   const code = ch.charCodeAt(0);
   if (ch.length !== 1 || code < 0x20 || code > 0x7e) {

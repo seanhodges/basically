@@ -57,9 +57,33 @@ describe('cpc464 charset totality', () => {
 
   it('escapes upper-half codes without a stable unicode form', () => {
     expect(decodeByte(0x7f)).toBe('{0x7F}');
+    // The one graphics code with no character of its own: it draws a blank
+    // cell, and 0x20 already owns the space.
     expect(decodeByte(0x80)).toBe('{0x80}');
-    expect(decodeByte(0xc0)).toBe('{0xC0}');
     expect(decodeByte(0xff)).toBe('{0xFF}');
+  });
+
+  it('gives the diamond and dither codes their Legacy Computing forms', () => {
+    expect(decodeByte(0xc0)).toBe('\u{1FBA0}'); // upper centre to middle left
+    expect(decodeByte(0xca)).toBe('\u{1FBAE}'); // the whole diamond
+    expect(decodeByte(0xce)).toBe('\u{1FB95}'); // 2x2 chequerboard
+    expect(decodeByte(0xd8)).toBe('\u{1FB8E}'); // upper half medium shade
+    expect(decodeByte(0xdf)).toBe('\u{1FB9F}'); // lower left triangular shade
+    // Astral characters are surrogate pairs; parsing reads whole code points.
+    expect(encode('\u{1FBAE}')).toEqual([0xca]);
+    expect(encode('\u{1FB9F}')).toEqual([0xdf]);
+    expect([...cpcCharset.toMachine('\u{1FBA0}\u{1FB8E}')]).toEqual([
+      0xc0, 0xd8,
+    ]);
+  });
+
+  it('still reads the escape spelling these codes used to render as', () => {
+    // Programs saved before these gained characters must keep loading, and
+    // encode to the same bytes they always did.
+    for (const code of [0xc0, 0xca, 0xce, 0xd8, 0xdb, 0xdf]) {
+      const hex = code.toString(16).padStart(2, '0').toUpperCase();
+      expect(encode(`{0x${hex}}`)).toEqual([code]);
+    }
   });
 
   it('keeps a non-escape brace literal, and escapes a colliding brace', () => {

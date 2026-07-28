@@ -144,11 +144,16 @@ export interface EditorModeDef {
 
 /**
  * One selectable character in a graphics palette: what it inserts, which byte
- * that is, and where it lives on the real machine's keyboard.
+ * that is, and how the real machine reaches it.
  */
 export interface GraphicEntry {
-  /** Physical key it is printed on, shown small in the cell corner. */
-  key: string;
+  /**
+   * Physical key it is printed on, shown small in the cell corner. Omitted on
+   * machines that printed no graphics on the keyboard at all (the CPC and the
+   * TRS-80, where you wrote `CHR$(n)`); the cell then shows {@link code}
+   * instead, which is what those machines' BASIC needs.
+   */
+  key?: string;
   /** Modifier that selects it, e.g. 'C=' or 'SHIFT'. Omit when the mode alone does. */
   modifier?: string;
   /** Text inserted into the editor - the character's canonical form. */
