@@ -12,9 +12,15 @@ const RESERVED = ['shell'];
 const ROOT_SPEC_EXCEPTIONS = ['capture-docs-screenshots.spec.ts'];
 
 function dirNames(path: string): string[] {
-  return readdirSync(path, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
+  return (
+    readdirSync(path, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      // `__`-prefixed folders are generated output, not spec folders: a
+      // Playwright run writes e2e/__screenshots__/ (gitignored), and it must
+      // not make this check fail on a working copy that has run the suite.
+      .filter((entry) => !entry.name.startsWith('__'))
+      .map((entry) => entry.name)
+  );
 }
 
 describe('e2e capability layout', () => {

@@ -1,5 +1,5 @@
 import { CharsetError, type CharsetMapping } from '../types';
-import { BLOCK_GRAPHIC_UNICODE } from './graphics';
+import { BLOCK_GRAPHIC_UNICODE, UDG_UNICODE } from './graphics';
 
 /**
  * ZX Spectrum character set <-> editor text.
@@ -10,17 +10,25 @@ import { BLOCK_GRAPHIC_UNICODE } from './graphics';
  * here as Unicode block elements. Keyword tokens (0xA5–0xFF) are handled by the
  * tokenizer, not the charset.
  *
- * Two escape forms cover the bytes with no unicode equivalent, so imported
+ * UDGs 0x90–0xA4 are written as the squared capital of the key that types them
+ * (🄰–🅄): a UDG's shape is whatever the program pokes into UDG RAM, so what
+ * identifies it is its letter. They were `\a`–`\u` (the zmakebas convention)
+ * before, and that spelling is still accepted on the way in — it is two editor
+ * characters, which is one too many for something the machine stores as a
+ * single byte.
+ *
+ * One escape form covers the bytes with no unicode equivalent, so imported
  * programs round-trip without loss:
  *
- * - UDGs 0x90–0xA4 are written `\a`–`\u` (the zmakebas convention); `\\` is a
- *   literal backslash.
  * - Embedded attribute-control sequences are written as brace directives:
  *   `{INK n}`, `{PAPER n}`, `{FLASH n}`, `{BRIGHT n}`, `{INVERSE n}`,
  *   `{OVER n}` (one operand byte), `{AT r,c}` and `{TAB n}` (two operand
  *   bytes; TAB's operand is 16-bit little-endian). `{0xNN}` is a raw byte for
  *   anything else. A `{...}` that doesn't match a directive is literal text —
  *   the Spectrum has real `{`/`}` characters at 0x7B/0x7D.
+ *
+ * `\\` stays a literal backslash, since a lone backslash still opens a UDG
+ * escape.
  */
 
 /**
@@ -57,6 +65,11 @@ for (const [code, ch] of Object.entries(GRAPHIC_UNICODE)) {
   codeToChar.set(Number(code), ch);
   if (ch !== ' ') charToCode.set(ch, Number(code));
 }
+// The user-defined graphics, from the same table the keyboard palette shows.
+for (const [code, ch] of Object.entries(UDG_UNICODE)) {
+  codeToChar.set(Number(code), ch);
+  charToCode.set(ch, Number(code));
+}
 
 export const ENTER = 0x0d;
 export const NUMBER_MARKER = 0x0e;
@@ -65,7 +78,8 @@ export const QUOTE = 0x22;
 const BACKSLASH = 0x5c;
 const OPEN_BRACE = 0x7b;
 const CLOSE_BRACE = 0x7d;
-const UDG_FIRST = 0x90;
+/** First UDG code (`🄰`, the graphic on the A key). */
+export const UDG_FIRST = 0x90;
 /** Last UDG code on the 48K (`\u`); the 128K reuses 0xA3/0xA4 as tokens. */
 export const UDG_LAST = 0xa4;
 
@@ -146,20 +160,24 @@ export function parseChar(
     }
     // Not a directive: fall through to a literal '{'.
   }
-  const code = charToCode.get(ch);
+  // The UDG characters are astral, so read a whole code point rather than a
+  // UTF-16 unit - a lone surrogate maps to nothing and would report the
+  // character as one the machine does not have.
+  const unit = String.fromCodePoint(text.codePointAt(i)!);
+  const code = charToCode.get(unit);
   if (code === undefined) {
     throw new CharsetError(
-      `Character "${ch}" does not exist on the ZX Spectrum`,
+      `Character "${unit}" does not exist on the ZX Spectrum`,
       i,
     );
   }
-  return { codes: [code], length: 1 };
+  return { codes: [code], length: unit.length };
 }
 
 /**
  * The plain editor character for a code, or undefined for anything that would
- * need an escape (UDGs, control codes…). Used by the detokenizer outside
- * strings, where escapes are not recognized.
+ * need an escape (control codes…). Used by the detokenizer outside strings,
+ * where escapes are not recognized.
  */
 export function plainChar(code: number): string | undefined {
   return codeToChar.get(code);
@@ -195,7 +213,7 @@ export function decodeSpan(
     return { text: `{${ctrl.name} ${bytes[i + 1]}}`, length: 2 };
   }
   if (b >= UDG_FIRST && b <= UDG_LAST) {
-    return { text: '\\' + String.fromCharCode(97 + b - UDG_FIRST), length: 1 };
+    return { text: UDG_UNICODE[b]!, length: 1 };
   }
   // The blank graphic renders as a space but is a distinct byte; escape it so
   // the decode is byte-exact (a plain space would re-tokenize as 0x20).

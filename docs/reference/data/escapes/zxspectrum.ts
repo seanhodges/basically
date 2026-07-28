@@ -83,23 +83,27 @@ export const zxspectrumEscapes: EscapeTableData = {
       codes: [0x17],
       example: { source: '{TAB 5}', bytes: [0x17, 0x05, 0x00] },
     },
-    // UDGs \a-\u (zmakebas convention). One row per letter so a search for
+    // UDGs. Each is written as the squared capital of the key that types it
+    // (🄰-🅄), so the `\a`-`\u` escapes (the zmakebas convention this used to
+    // render) are parse-only spellings now. One row per letter so a search for
     // the letter or the byte finds it.
     ...Array.from({ length: 21 }, (_, i) => {
       const letter = String.fromCharCode(0x61 + i);
       const code = 0x90 + i;
+      const char = String.fromCodePoint(0x1f130 + i);
       const is128Token = code >= 0xa3;
       return {
         escape: `\\${letter}`,
         bytes: `0x${code.toString(16).toUpperCase()}`,
         category: 'udg',
-        description: `User-defined graphic ${letter.toUpperCase()} (CHR$ ${code}).${
+        description: `User-defined graphic ${letter.toUpperCase()} (CHR$ ${code}), written ${char}.${
           is128Token
             ? ` On the 128K this byte is the ${code === 0xa3 ? 'SPECTRUM' : 'PLAY'} token, not a UDG - the tokenizer warns (non-fatally).`
             : ''
         }`,
         ...(is128Token ? { tag: '48K only' } : {}),
-        codes: [code],
+        aliases: [char],
+        parseOnly: true,
         example: { source: `\\${letter}`, bytes: [code] },
       };
     }),

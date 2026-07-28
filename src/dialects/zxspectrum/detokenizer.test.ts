@@ -35,11 +35,11 @@ describe('zxspectrum detokenizer escapes', () => {
     expect(detokenizeProgram(prog)).toBe('10 PRINT "{AT 5,3}{TAB 260}"\n');
   });
 
-  it('renders UDG bytes in strings as \\a-\\u escapes', () => {
+  it('renders UDG bytes in strings as their own characters', () => {
     const prog = Uint8Array.from(
       line(24, [0xf1, 0x43, 0x24, 0x3d, Q, 0x90, Q]),
     );
-    expect(detokenizeProgram(prog)).toBe('24 LET C$="\\a"\n');
+    expect(detokenizeProgram(prog)).toBe('24 LET C$="\u{1F130}"\n');
   });
 
   it('preserves control sequences outside strings and round-trips them', () => {
@@ -54,9 +54,9 @@ describe('zxspectrum detokenizer escapes', () => {
   });
 
   it('preserves unrepresentable bytes outside strings as escapes', () => {
-    // A UDG byte outside a string now round-trips as a \a escape, not dropped.
+    // A UDG byte outside a string round-trips as its character, not dropped.
     const prog = Uint8Array.from(line(10, [PRINT, Q, Q, 0x90]));
-    expect(detokenizeProgram(prog)).toBe('10 PRINT ""\\a\n');
+    expect(detokenizeProgram(prog)).toBe('10 PRINT ""\u{1F130}\n');
     const round = tokenizeProgram(detokenizeProgram(prog));
     expect(round.errors).toEqual([]);
     expect(Array.from(round.bytes)).toEqual(Array.from(prog));
@@ -75,7 +75,7 @@ describe('zxspectrum detokenizer escapes', () => {
     const prog = Uint8Array.from(
       line(1, [REM, 0x12, 0x01, 0x48, 0x49, 0x03, 0x9c]),
     );
-    expect(detokenizeProgram(prog)).toBe('1 REM {FLASH 1}HI{0x03}\\m\n');
+    expect(detokenizeProgram(prog)).toBe('1 REM {FLASH 1}HI{0x03}\u{1F13C}\n');
   });
 
   it('renders a control byte with truncated operands as a raw escape', () => {

@@ -56,6 +56,12 @@ const COMPACT_MAX_VIEWPORT_HEIGHT = 560;
 const REPEAT_DELAY_MS = 450;
 const REPEAT_INTERVAL_MS = 60;
 
+/** How far a finger may travel and still count as a tap on a palette cell.
+    The palette scrolls, so a press there is only an insert once the pointer
+    lifts without having panned - otherwise flicking through the characters
+    would type every cell it started on. */
+const TAP_SLOP_PX = 10;
+
 interface RepeatTimer {
   timeout?: ReturnType<typeof setTimeout>;
   interval?: ReturnType<typeof setInterval>;
@@ -376,6 +382,21 @@ export function VirtualKeyboard({
     pressFeedback();
   };
 
+  /** The palette cell a pointer went down on, until it taps or pans away. */
+  const paletteTap = useRef<{
+    pointerId: number;
+    idx: number;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  /** Index of the palette cell at a point, or null if there is none there. */
+  const graphicIdxAt = (x: number, y: number): number | null => {
+    const el = document.elementFromPoint(x, y)?.closest('[data-graphic]');
+    if (!el || !containerRef.current?.contains(el)) return null;
+    return Number(el.getAttribute('data-graphic'));
+  };
+
   const keyIdAt = (x: number, y: number): string | null => {
     const el = document.elementFromPoint(x, y);
     const keyEl = el?.closest('[data-keyid]');
@@ -390,11 +411,19 @@ export function VirtualKeyboard({
     if (!enabled) return;
     const cell = (e.target as Element).closest('[data-graphic]');
     if (cell) {
+      // Remembered, not typed: the palette is a scroller, so the insert waits
+      // for the lift (see onPointerUp) and a pan cancels it instead.
       const idx = Number(cell.getAttribute('data-graphic'));
       setFocusIdx(idx);
-      applyGraphic(paletteEntries[idx]);
+      paletteTap.current = {
+        pointerId: e.pointerId,
+        idx,
+        x: e.clientX,
+        y: e.clientY,
+      };
       return;
     }
+    paletteTap.current = null;
     const keyId = (e.target as Element)
       .closest('[data-keyid]')
       ?.getAttribute('data-keyid');
@@ -417,6 +446,16 @@ export function VirtualKeyboard({
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    const tap = paletteTap.current;
+    if (tap && tap.pointerId === e.pointerId) {
+      // Past the slop the gesture is a scroll, not a tap on a character.
+      if (
+        Math.abs(e.clientX - tap.x) > TAP_SLOP_PX ||
+        Math.abs(e.clientY - tap.y) > TAP_SLOP_PX
+      )
+        paletteTap.current = null;
+      return;
+    }
     if (!enabled || !activePointers.current.has(e.pointerId)) return;
     const keyId = keyIdAt(e.clientX, e.clientY);
     const prev = pointerKey.current.get(e.pointerId);
@@ -430,6 +469,16 @@ export function VirtualKeyboard({
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
+    const tap = paletteTap.current;
+    if (tap && tap.pointerId === e.pointerId) {
+      paletteTap.current = null;
+      // Still over the cell it went down on: the grid can have scrolled under
+      // a finger that itself barely moved, and then this is a different
+      // character - typing it would be typing something nobody aimed at.
+      if (enabled && graphicIdxAt(e.clientX, e.clientY) === tap.idx)
+        applyGraphic(paletteEntries[tap.idx]);
+      return;
+    }
     if (!activePointers.current.delete(e.pointerId)) return;
     pointerKey.current.delete(e.pointerId);
     stopRepeat(e.pointerId);
@@ -437,6 +486,9 @@ export function VirtualKeyboard({
   };
 
   const onPointerCancel = (e: React.PointerEvent) => {
+    // A pan the browser took over cancels the pointer; drop the pending tap.
+    if (paletteTap.current?.pointerId === e.pointerId)
+      paletteTap.current = null;
     if (!activePointers.current.delete(e.pointerId)) return;
     pointerKey.current.delete(e.pointerId);
     stopRepeat(e.pointerId);

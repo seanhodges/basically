@@ -24,7 +24,7 @@ fonts, which is precisely the shape vocabulary these machines used — so the
 block graphics look like block graphics rather than like a text font's
 approximation of them.
 
-Covers 178 of the 187 code points the dialects emit.
+Covers 178 of the 208 code points the dialects emit.
 
 ## `basically-graphics-extra.woff2` — unscii-16-full
 
@@ -36,11 +36,12 @@ Covers 178 of the 187 code points the dialects emit.
   GPL because of how Unifont is licensed". Compatible with this project's
   GPL-3.0-or-later.
 
-The nine code points `unscii-16` does not cover: `U+231C`–`U+231F` (the ZX81
-corner brackets), `U+263C` (`☼`) and `U+2B60`–`U+2B63` (the wide arrows). Kept
-as a separate `unicode-range`-gated face rather than switching the primary one,
-so the licence footprint of the bytes actually served for the common case stays
-public domain.
+The thirty code points `unscii-16` does not cover: `U+231C`–`U+231F` (the ZX81
+corner brackets), `U+263C` (`☼`), `U+2B60`–`U+2B63` (the wide arrows) and
+`U+1F130`–`U+1F144` (the squared capitals 🄰–🅄, which is how the ZX Spectrum's
+twenty-one user-defined graphics are written). Kept as a separate
+`unicode-range`-gated face rather than switching the primary one, so the licence
+footprint of the bytes actually served for the common case stays public domain.
 
 Both variants share one 8×16 grid at 64 units/em — advance 32 (0.5 em), ascent
 64, descent 0 — so a single set of `@font-face` metric descriptors serves both.

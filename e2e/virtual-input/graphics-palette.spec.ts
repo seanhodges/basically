@@ -1,6 +1,7 @@
 // Capability: virtual-input — openspec/specs/virtual-input/spec.md
 import { test, expect, chooseTargetMachine } from '../fixtures';
 import { EDITOR, clearEditor, openApp } from '../helpers';
+import { PALETTE_MACHINES } from '../paletteMachines';
 
 /**
  * The graphics palette: the machines' block graphics offered as a grid rather
@@ -44,10 +45,42 @@ test('inserts a block graphic and a user-defined graphic on the Spectrum', async
     page.getByRole('button', { name: 'Insert ▟, key CAPS + 1' }),
   ).toBeVisible();
 
-  // A user-defined graphic: no fixed shape, so its text form is the \a escape.
-  const udg = page.getByRole('button', { name: 'Insert \\a, key A' });
+  // A user-defined graphic: no fixed shape, so it is written as the squared
+  // capital of the key that types it - one character, like the byte it stores.
+  const udg = page.getByRole('button', { name: 'Insert 🄰, key A' });
   await udg.click();
-  await expect(page.locator(EDITOR)).toContainText('\\a');
+  await expect(page.locator(EDITOR)).toContainText('🄰');
+});
+
+test('scrolling the palette by dragging does not insert a character', async ({
+  page,
+}) => {
+  await openApp(page);
+  await chooseTargetMachine(page, 'zxspectrum');
+  await clearEditor(page);
+  await openPalette(page);
+
+  // A short viewport, so the palette has more rows than it can show at once.
+  await page.setViewportSize({ width: 420, height: 700 });
+  const palette = page.locator('.vk-palette');
+  const cell = page.getByRole('button', { name: 'Insert ▘, key 1' });
+  const box = (await cell.boundingBox())!;
+  const before = await page.locator(EDITOR).innerText();
+
+  // Press on a character and drag up, the way a finger pans the grid.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (const dy of [10, 30, 60]) {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - dy);
+  }
+  await page.mouse.up();
+
+  await expect(page.locator(EDITOR)).toHaveText(before);
+
+  // ...and a tap in the same place still types.
+  await cell.click();
+  await expect(page.locator(EDITOR)).toContainText('▘');
+  await expect(palette).toBeVisible();
 });
 
 test('inserts from either section of the C64 two-section palette', async ({
@@ -99,6 +132,50 @@ test('shows fewer characters per row on a narrow viewport', async ({
   // The characters stay a comparable size - the grid reflows, it does not
   // shrink the cells to keep the same column count.
   expect(narrowCell).toBeGreaterThan(wideCell * 0.6);
+});
+
+test('every machine draws its palette as ink on paper, like the editor', async ({
+  page,
+}) => {
+  // The cells used to be dark tiles with light characters - the opposite way
+  // round to the editor, which made a half-block cell read as the half its
+  // *unlit* band covered: the palette appeared to say "top" where the program
+  // then showed "bottom". The editor is dark on light for every machine,
+  // whatever colours that machine's own screen uses, so every palette is too.
+  const luminance = (colour: string): number => {
+    const [r, g, b] = colour.match(/[\d.]+/g)!.map(Number) as [
+      number,
+      number,
+      number,
+    ];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+
+  await openApp(page);
+  for (const machine of PALETTE_MACHINES) {
+    await chooseTargetMachine(page, machine);
+    await clearEditor(page);
+    await openPalette(page);
+
+    const cell = page.locator('.vk-graphic').first();
+    const paper = luminance(
+      await cell.evaluate((el) => getComputedStyle(el).backgroundColor),
+    );
+    const ink = luminance(
+      await cell
+        .locator('.vk-graphic-char')
+        .evaluate((el) => getComputedStyle(el).color),
+    );
+    expect(
+      ink,
+      `${machine}: the character must be the darker of the two`,
+    ).toBeLessThan(paper);
+    // ...and far enough apart to read as ink on paper rather than as a tint.
+    expect(paper - ink, `${machine}: contrast`).toBeGreaterThan(128);
+
+    // Leave the palette behind for the next machine's keyboard to rebuild.
+    await page.getByTestId('input-overlay-toggle').click();
+  }
 });
 
 test('draws the graphics with the bundled font, not a fallback', async ({

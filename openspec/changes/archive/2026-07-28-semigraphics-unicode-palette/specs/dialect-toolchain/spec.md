@@ -13,6 +13,10 @@ when it renders that code. A spelling that was canonical before SHALL still be
 accepted when reading a program, and SHALL encode to the same machine code, so
 that no previously saved program becomes unreadable.
 
+A graphics character the machine stores as one byte SHALL be one character in
+the editor, including where the machine's own shape for it is undefined (the
+user-defined graphics), so that editing cannot leave half of one behind.
+
 #### Scenario: Block graphics survive the round trip
 
 - **WHEN** the user writes a program using the dialect's block-graphic
@@ -32,3 +36,10 @@ that no previously saved program becomes unreadable.
   the dialect used to render it
 - **THEN** the program loads, that character encodes to the same machine code
   as before, and it is shown in the canonical form
+
+#### Scenario: A user-defined graphic is a single character
+
+- **WHEN** the user inserts one of the machine's user-defined graphics and then
+  deletes it with a single backspace
+- **THEN** the whole graphic is removed, leaving no fragment of it in the
+  program

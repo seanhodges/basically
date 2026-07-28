@@ -140,6 +140,32 @@ describe('buildBasicLanguage highlighting', () => {
       expect(classify('10 PRINT %ab')).toContainEqual(['%ab', 'atom']);
     });
 
+    it('tags the machine graphics characters like the escape spellings', () => {
+      // A block graphic is not a keyword, name or number; without a tag of its
+      // own it would draw in the default (dimmed) style, which is the wrong
+      // emphasis for the shapes a program draws with.
+      expect(classify('10 PRINT ▘▄▒')).toContainEqual(['▘▄▒', 'atom']);
+    });
+
+    it('tags an astral graphics character as one unit', () => {
+      // The Spectrum's user-defined graphics are outside the BMP, so a naive
+      // per-code-unit rule would split one character in two.
+      expect(classify('10 PRINT 🄰')).toContainEqual(['🄰', 'atom']);
+    });
+
+    it('leaves the graphics tagging to the dialect for BBC-style dialects', () => {
+      // Mode-7 mosaics are graphics too - the rule is not gated on
+      // graphicsEscapes, which only governs the `%`/`\` two-char spellings.
+      expect(classify('10 PRINT "x"', bbcKeywords, bbc)).toContainEqual([
+        '"x"',
+        'str',
+      ]);
+      expect(classify('10 PRINT ▘', bbcKeywords, bbc)).toContainEqual([
+        '▘',
+        'atom',
+      ]);
+    });
+
     it('real BBC dialect tags A% as a variable', () => {
       expect(classify('10 A%', bbcKeywords, bbc)).toContainEqual(['A%', 'var']);
     });

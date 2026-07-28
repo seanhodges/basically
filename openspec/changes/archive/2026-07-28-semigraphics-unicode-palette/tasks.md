@@ -64,12 +64,26 @@
 - [x] 7.7 Add `e2e/virtual-input/graphics-palette.spec.ts`: insert a block and a user-defined graphic on the Spectrum, insert from a two-section palette on the C64, check the column count drops on a narrow viewport, and check the bundled font is loaded and applied
 - [x] 7.8 Re-run `npm run gen:semigraphics` so the computed font-coverage and typeable columns reflect the finished work
 
-## 8. Quality gates
+## 8. Follow-up fixes from using it
 
-- [x] 8.1 `npm run typecheck`
-- [x] 8.2 `npm test`
-- [x] 8.3 `npm run lint`
-- [x] 8.4 `npm run format:check`
-- [x] 8.5 `npm run docs:build`
-- [x] 8.6 `npm run e2e:chromium -- e2e/virtual-input`
-- [x] 8.7 `npm run e2e:chromium -- e2e/code-editor`
+- [x] 8.1 Insert a palette character on the tap that lifts on it, not on the press, so panning the grid on a touch screen scrolls without typing every cell the finger started on
+- [x] 8.2 Cover that in `e2e/virtual-input/graphics-palette.spec.ts`: a drag down the palette inserts nothing, and a tap in the same place still does
+- [x] 8.3 Re-derive the ZX81's graphics key assignments from the ROM keyboard tables (E and R carried each other's shape) and pin the whole table in `src/dialects/zx81/graphics.test.ts`
+- [x] 8.4 Give the ZX Spectrum's user-defined graphics a single-character form - the squared capitals 🄰-🅄 - in `src/dialects/zxspectrum/graphics.ts` and its charset, keeping `\a`-`\u` accepted on the way in
+- [x] 8.5 Make the Spectrum tokenizer read a whole code point outside strings, and warn about the 128K's missing T/U graphics in whichever spelling the program used
+- [x] 8.6 Update the colocated charset/tokenizer/detokenizer/foreign-round-trip tests for the new canonical form, keeping a case for the older escapes
+- [x] 8.7 Add the squared capitals to the `unscii-16-full` subset (`basically-graphics-extra.woff2`), its manifest, both stylesheets' `unicode-range`, and `ATTRIBUTION.md`
+- [x] 8.8 Mark the docs' UDG escape rows parse-only with the character as an alias, and re-run `npm run gen:semigraphics`
+- [x] 8.9 Tag the machines' own characters in the editor so they draw like the program's literals instead of falling through to the dimmed default style
+- [x] 8.10 Draw the palette cells as paper and ink rather than as dark keycaps, so a half-block cell reads the same way round as the editor and as the machines whose screen is black on white
+- [x] 8.11 Make that a rule rather than a one-machine fix: state it in the virtual-input delta, and walk every machine with a palette in `e2e/virtual-input/graphics-palette.spec.ts`, with `e2e/paletteMachines.ts` pinned to the registry by `src/dialects/graphicsPalette.test.ts`
+
+## 9. Quality gates
+
+- [x] 9.1 `npm run typecheck`
+- [x] 9.2 `npm test`
+- [x] 9.3 `npm run lint`
+- [x] 9.4 `npm run format:check`
+- [x] 9.5 `npm run docs:build`
+- [x] 9.6 `npm run e2e:chromium -- e2e/virtual-input`
+- [x] 9.7 `npm run e2e:chromium -- e2e/code-editor`

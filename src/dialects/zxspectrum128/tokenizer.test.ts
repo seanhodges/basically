@@ -29,10 +29,10 @@ describe('zxspectrum128 tokenizer', () => {
     // A line body of just the two 128-only token bytes.
     const prog = Uint8Array.from([0x00, 0x0a, 0x03, 0x00, 0xa3, 0xa4, 0x0d]);
     expect(detokenizeProgram(prog)).toBe('10 SPECTRUM PLAY\n');
-    // The same bytes are UDGs (\t, \u) to the 48K, which lacks these tokens.
+    // The same bytes are the T and U UDGs to the 48K, which lacks these tokens.
     const on48k = detokenizeSpectrum(prog);
-    expect(on48k).toContain('\\t');
-    expect(on48k).toContain('\\u');
+    expect(on48k).toContain('\u{1F143}');
+    expect(on48k).toContain('\u{1F144}');
   });
 
   it('round-trips tokenize → detokenize for a 128 program', () => {
@@ -61,6 +61,17 @@ describe('zxspectrum128 tokenizer', () => {
     // ...but a non-fatal warning flags that it is not a real UDG on the 128K.
     expect(errors.length).toBe(1);
     expect(errors[0]!.fatal).toBe(false);
+    expect(errors[0]!.message).toMatch(/SPECTRUM/);
+  });
+
+  it('warns the same way on the T/U UDG characters, naming them', () => {
+    const { bytes, errors } = tokenizeProgram('10 PRINT "\u{1F143}"\n');
+    expect(Array.from(bytes).slice(4)).toEqual([0xf5, 0x22, 0xa3, 0x22, 0x0d]);
+    expect(errors.length).toBe(1);
+    expect(errors[0]!.fatal).toBe(false);
+    // The message reads in the spelling the program used, not the other one.
+    expect(errors[0]!.message).toContain('\u{1F143}');
+    expect(errors[0]!.message).toContain('\u{1F130}-\u{1F142}');
     expect(errors[0]!.message).toMatch(/SPECTRUM/);
   });
 

@@ -37,8 +37,8 @@ reported as such rather than guessed at.
 | --- | :-: | --- | --: | --: | --: | --: | --- |
 | ZX81 | ✅ | 21 (0x01-0x0A, 0x80-0x8A) | 21 | 5 | 0 | 0 | 21/21 |
 | ZX80 | ✅ | 21 (0x02-0x0B, 0x80, 0x82-0x8B) | 21 | 5 | 0 | 0 | 21/21 |
-| Spectrum | ✅ | 37 (0x80-0xA4) | 15 | 0 | 21 | 1 | 36/37 |
-| Spectrum 128 | ✅ | 35 (0x80-0xA2) | 15 | 0 | 19 | 1 | 34/35 |
+| Spectrum | ✅ | 37 (0x80-0xA4) | 36 | 21 | 0 | 1 | 36/37 |
+| Spectrum 128 | ✅ | 35 (0x80-0xA2) | 34 | 19 | 0 | 1 | 34/35 |
 | BBC Micro | — | 96 (0xA0-0xFF) | 0 | 0 | 0 | 96 | 0/96 |
 | BBC Master | — | 96 (0xA0-0xFF) | 0 | 0 | 0 | 96 | 0/96 |
 | C64 | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 58/64 |
@@ -76,7 +76,7 @@ No gaps: every graphics byte has its own character and can be typed.
 
 Charset family `zxspectrum`. Graphics bytes 0x80-0xA4.
 
-Spelled as: 21 escape-named, 1 escape-raw, 15 glyph-bmp.
+Spelled as: 1 escape-raw, 21 glyph-astral, 15 glyph-bmp.
 
 **Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
 
@@ -86,7 +86,7 @@ Spelled as: 21 escape-named, 1 escape-raw, 15 glyph-bmp.
 
 Charset family `zxspectrum`. Graphics bytes 0x80-0xA2.
 
-Spelled as: 19 escape-named, 1 escape-raw, 15 glyph-bmp.
+Spelled as: 1 escape-raw, 19 glyph-astral, 15 glyph-bmp.
 
 **Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
 
@@ -179,7 +179,7 @@ Spelled as: 21 escape-raw, 43 glyph-bmp.
 
 ## Characters the machines need
 
-187 distinct non-ASCII codepoints, 76 of them astral.
+208 distinct non-ASCII codepoints, 97 of them astral.
 This is the exact set the bundled character-graphics font is subset to.
 
 | Codepoint | Character | Plane | Used by |
@@ -295,6 +295,27 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+2B61` | ⭡ | BMP | cpc464, cpc6128 |
 | `U+2B62` | ⭢ | BMP | cpc464, cpc6128 |
 | `U+2B63` | ⭣ | BMP | cpc464, cpc6128 |
+| `U+1F130` | 🄰 | astral | zxspectrum, zxspectrum128 |
+| `U+1F131` | 🄱 | astral | zxspectrum, zxspectrum128 |
+| `U+1F132` | 🄲 | astral | zxspectrum, zxspectrum128 |
+| `U+1F133` | 🄳 | astral | zxspectrum, zxspectrum128 |
+| `U+1F134` | 🄴 | astral | zxspectrum, zxspectrum128 |
+| `U+1F135` | 🄵 | astral | zxspectrum, zxspectrum128 |
+| `U+1F136` | 🄶 | astral | zxspectrum, zxspectrum128 |
+| `U+1F137` | 🄷 | astral | zxspectrum, zxspectrum128 |
+| `U+1F138` | 🄸 | astral | zxspectrum, zxspectrum128 |
+| `U+1F139` | 🄹 | astral | zxspectrum, zxspectrum128 |
+| `U+1F13A` | 🄺 | astral | zxspectrum, zxspectrum128 |
+| `U+1F13B` | 🄻 | astral | zxspectrum, zxspectrum128 |
+| `U+1F13C` | 🄼 | astral | zxspectrum, zxspectrum128 |
+| `U+1F13D` | 🄽 | astral | zxspectrum, zxspectrum128 |
+| `U+1F13E` | 🄾 | astral | zxspectrum, zxspectrum128 |
+| `U+1F13F` | 🄿 | astral | zxspectrum, zxspectrum128 |
+| `U+1F140` | 🅀 | astral | zxspectrum, zxspectrum128 |
+| `U+1F141` | 🅁 | astral | zxspectrum, zxspectrum128 |
+| `U+1F142` | 🅂 | astral | zxspectrum, zxspectrum128 |
+| `U+1F143` | 🅃 | astral | zxspectrum, zxspectrum128 |
+| `U+1F144` | 🅄 | astral | zxspectrum, zxspectrum128 |
 | `U+1FB00` | 🬀 | astral | trs80 |
 | `U+1FB01` | 🬁 | astral | trs80 |
 | `U+1FB02` | 🬂 | astral | trs80 |
@@ -404,6 +425,35 @@ This does re-encode a ZX81 program saved with the old spelling: `\!'` and `\!.`
 (and their inverses `\|'` and `\|.`) now store the other half's byte. Nothing
 else changes — the Unicode characters, which are the canonical spelling, were
 correct throughout.
+
+### The Spectrum's user-defined graphics are letters in boxes
+
+A UDG (`0x90–0xA4`) has no shape of its own: its bitmap lives in UDG RAM and is
+whatever the program pokes there. What identifies it is the letter of the key
+that types it, so each is written as that letter squared — `🄰`–`🅄`
+(`U+1F130–U+1F144`), the twenty-one characters of the Enclosed Alphanumeric
+Supplement that match the twenty-one UDGs exactly.
+
+They were spelled `\a`–`\u` (the zmakebas convention) before. That is two editor
+characters for one machine byte, which made the palette lay them out as two
+cells and let a backspace take half of a graphic away and leave a stray letter
+behind in the program. The escapes are still accepted when reading a program, so
+anything written or imported with them still loads and encodes to the same
+bytes; they are simply no longer what the IDE writes.
+
+### The palette draws in the editor's polarity, not the machine's
+
+The graphics palette is a preview of text that is about to land in the editor,
+and the editor is dark ink on light paper for every machine. So the palette
+cells are drawn that way too — for the Commodores as much as the Sinclairs, even
+though a real C64 screen is light on dark. Drawing them as light-on-dark tiles
+(which is how they started, matching the keycaps around them) makes a half-block
+cell read as the half its *unlit* band covers: the palette appears to say "top"
+where the program then shows "bottom".
+
+`e2e/virtual-input/graphics-palette.spec.ts` walks every machine that has a
+palette and checks the character is the darker of the two; the machine list is
+pinned to the registry by `src/dialects/graphicsPalette.test.ts`.
 
 ### The shapes come from a bundled font, in text proportions
 

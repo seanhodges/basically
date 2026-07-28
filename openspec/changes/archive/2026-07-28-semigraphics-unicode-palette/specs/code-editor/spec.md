@@ -8,7 +8,7 @@ missing-glyph box, and SHALL NOT depend on which fonts are installed on the
 user's device.
 
 Displaying a graphics character SHALL NOT change the height or alignment of the
-line it appears on.
+line it appears on, and SHALL NOT dim it relative to the program text around it.
 
 #### Scenario: Block graphics on a device without a suitable font
 
@@ -22,3 +22,11 @@ line it appears on.
   program
 - **THEN** that line keeps the same height and stays aligned with its line
   number and with the lines around it
+
+#### Scenario: A graphics character is as readable as the code around it
+
+- **WHEN** a program containing machine graphics characters is shown in the
+  editor
+- **THEN** those characters are drawn in the same weight of colour as the
+  program's literals, not in the muted style the editor uses for text it does
+  not recognise
