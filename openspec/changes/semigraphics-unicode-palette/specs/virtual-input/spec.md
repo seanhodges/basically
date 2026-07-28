@@ -15,9 +15,11 @@ so the palette teaches the machine's own keyboard. The palette SHALL adapt the
 number of characters it shows per row to the space available, without changing
 how large each character is drawn.
 
-Each character SHALL be drawn in the palette the same way round as the editor
-draws it - ink for ink, background for background - so that a cell cannot read
-as the inverse of the character it inserts.
+The palette SHALL draw every machine's graphics characters the same way round as
+the editor draws them - dark ink on light ground - whatever colours that
+machine's own screen uses, because the palette is a preview of the text that
+lands in the editor. A cell SHALL NOT read as the inverse of the character it
+inserts.
 
 Where the palette holds more characters than fit at once, it SHALL scroll, and
 scrolling it SHALL NOT insert anything: a character is inserted by a tap that
@@ -38,7 +40,7 @@ stays on it, not by touching it.
 #### Scenario: A palette cell reads the same way as the editor
 
 - **WHEN** the user compares a half-block character in the graphics palette with
-  the same character after inserting it
+  the same character after inserting it, on any machine that has a palette
 - **THEN** the same half of the cell carries the ink in both
 
 #### Scenario: Scrolling past the characters that do not fit

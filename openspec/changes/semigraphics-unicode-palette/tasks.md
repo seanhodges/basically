@@ -76,6 +76,7 @@
 - [x] 8.8 Mark the docs' UDG escape rows parse-only with the character as an alias, and re-run `npm run gen:semigraphics`
 - [x] 8.9 Tag the machines' own characters in the editor so they draw like the program's literals instead of falling through to the dimmed default style
 - [x] 8.10 Draw the palette cells as paper and ink rather than as dark keycaps, so a half-block cell reads the same way round as the editor and as the machines whose screen is black on white
+- [x] 8.11 Make that a rule rather than a one-machine fix: state it in the virtual-input delta, and walk every machine with a palette in `e2e/virtual-input/graphics-palette.spec.ts`, with `e2e/paletteMachines.ts` pinned to the registry by `src/dialects/graphicsPalette.test.ts`
 
 ## 9. Quality gates
 

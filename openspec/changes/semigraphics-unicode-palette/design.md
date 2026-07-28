@@ -149,9 +149,18 @@ went on to show "bottom", and the shapes were reported as inverted when they
 were not.
 
 The cells now use the editor's paper colour and the editor's ink, so a cell and
-the line the character lands in are the same picture. The keys keep their
-keycap styling; only the graphics grid, which is a preview of program text
-rather than a set of keys, changes.
+the line the character lands in are the same picture. The keys keep their keycap
+styling; only the graphics grid, which is a preview of program text rather than
+a set of keys, changes.
+
+The polarity to follow is the *editor's*, not the machine's, and it is the same
+for every dialect: the palette types into an editor that is dark on light
+whichever machine is selected, so a machine whose own screen is light on dark
+(the Commodores) is no exception - matching its screen there would reintroduce
+exactly the misreading on that machine instead. The palette is styled once, for
+all of them, and `graphics-palette.spec.ts` walks every machine that has a
+palette (`e2e/paletteMachines.ts`, pinned to the registry by
+`graphicsPalette.test.ts`) checking the character is the darker of the two.
 
 ### The Spectrum's user-defined graphics are one character each
 

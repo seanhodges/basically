@@ -441,6 +441,20 @@ behind in the program. The escapes are still accepted when reading a program, so
 anything written or imported with them still loads and encodes to the same
 bytes; they are simply no longer what the IDE writes.
 
+### The palette draws in the editor's polarity, not the machine's
+
+The graphics palette is a preview of text that is about to land in the editor,
+and the editor is dark ink on light paper for every machine. So the palette
+cells are drawn that way too — for the Commodores as much as the Sinclairs, even
+though a real C64 screen is light on dark. Drawing them as light-on-dark tiles
+(which is how they started, matching the keycaps around them) makes a half-block
+cell read as the half its *unlit* band covers: the palette appears to say "top"
+where the program then shows "bottom".
+
+`e2e/virtual-input/graphics-palette.spec.ts` walks every machine that has a
+palette and checks the character is the darker of the two; the machine list is
+pinned to the registry by `src/dialects/graphicsPalette.test.ts`.
+
 ### The shapes come from a bundled font, in text proportions
 
 Almost no monospace font ships the Symbols-for-Legacy-Computing block, so the IDE

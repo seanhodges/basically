@@ -1,6 +1,7 @@
 // Capability: virtual-input — openspec/specs/virtual-input/spec.md
 import { test, expect, chooseTargetMachine } from '../fixtures';
 import { EDITOR, clearEditor, openApp } from '../helpers';
+import { PALETTE_MACHINES } from '../paletteMachines';
 
 /**
  * The graphics palette: the machines' block graphics offered as a grid rather
@@ -133,18 +134,14 @@ test('shows fewer characters per row on a narrow viewport', async ({
   expect(narrowCell).toBeGreaterThan(wideCell * 0.6);
 });
 
-test('draws palette characters as ink on paper, like the editor', async ({
+test('every machine draws its palette as ink on paper, like the editor', async ({
   page,
 }) => {
-  await openApp(page);
-  await chooseTargetMachine(page, 'zx81');
-  await clearEditor(page);
-  await openPalette(page);
-
   // The cells used to be dark tiles with light characters - the opposite way
   // round to the editor, which made a half-block cell read as the half its
-  // *unlit* band covered. Whatever the exact colours, the character must be
-  // the darker of the two, as it is in the editor.
+  // *unlit* band covered: the palette appeared to say "top" where the program
+  // then showed "bottom". The editor is dark on light for every machine,
+  // whatever colours that machine's own screen uses, so every palette is too.
   const luminance = (colour: string): number => {
     const [r, g, b] = colour.match(/[\d.]+/g)!.map(Number) as [
       number,
@@ -153,14 +150,32 @@ test('draws palette characters as ink on paper, like the editor', async ({
     ];
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
-  const cell = page.locator('.vk-graphic').first();
-  const paper = await cell.evaluate(
-    (el) => getComputedStyle(el).backgroundColor,
-  );
-  const ink = await cell
-    .locator('.vk-graphic-char')
-    .evaluate((el) => getComputedStyle(el).color);
-  expect(luminance(ink)).toBeLessThan(luminance(paper));
+
+  await openApp(page);
+  for (const machine of PALETTE_MACHINES) {
+    await chooseTargetMachine(page, machine);
+    await clearEditor(page);
+    await openPalette(page);
+
+    const cell = page.locator('.vk-graphic').first();
+    const paper = luminance(
+      await cell.evaluate((el) => getComputedStyle(el).backgroundColor),
+    );
+    const ink = luminance(
+      await cell
+        .locator('.vk-graphic-char')
+        .evaluate((el) => getComputedStyle(el).color),
+    );
+    expect(
+      ink,
+      `${machine}: the character must be the darker of the two`,
+    ).toBeLessThan(paper);
+    // ...and far enough apart to read as ink on paper rather than as a tint.
+    expect(paper - ink, `${machine}: contrast`).toBeGreaterThan(128);
+
+    // Leave the palette behind for the next machine's keyboard to rebuild.
+    await page.getByTestId('input-overlay-toggle').click();
+  }
 });
 
 test('draws the graphics with the bundled font, not a fallback', async ({
