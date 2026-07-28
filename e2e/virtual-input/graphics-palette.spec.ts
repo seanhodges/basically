@@ -133,6 +133,36 @@ test('shows fewer characters per row on a narrow viewport', async ({
   expect(narrowCell).toBeGreaterThan(wideCell * 0.6);
 });
 
+test('draws palette characters as ink on paper, like the editor', async ({
+  page,
+}) => {
+  await openApp(page);
+  await chooseTargetMachine(page, 'zx81');
+  await clearEditor(page);
+  await openPalette(page);
+
+  // The cells used to be dark tiles with light characters - the opposite way
+  // round to the editor, which made a half-block cell read as the half its
+  // *unlit* band covered. Whatever the exact colours, the character must be
+  // the darker of the two, as it is in the editor.
+  const luminance = (colour: string): number => {
+    const [r, g, b] = colour.match(/[\d.]+/g)!.map(Number) as [
+      number,
+      number,
+      number,
+    ];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const cell = page.locator('.vk-graphic').first();
+  const paper = await cell.evaluate(
+    (el) => getComputedStyle(el).backgroundColor,
+  );
+  const ink = await cell
+    .locator('.vk-graphic-char')
+    .evaluate((el) => getComputedStyle(el).color);
+  expect(luminance(ink)).toBeLessThan(luminance(paper));
+});
+
 test('draws the graphics with the bundled font, not a fallback', async ({
   page,
 }) => {

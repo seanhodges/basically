@@ -156,10 +156,15 @@
      and never draws behind it. */
   padding: 14px 4px 4px;
   border-radius: 4px;
-  background: #0a0a0a;
+  /* Paper, not keycap: the editor's own background, with the character drawn
+     in the editor's ink below. A dark tile drew the same character in the
+     opposite polarity to the editor and to the machines whose screen is black
+     on white, so a half-block cell read as the half the *unlit* band covered -
+     the palette said "top" where the program then showed "bottom". */
+  background: #fdfdf8;
   box-shadow:
     0 2px 0 rgb(0 0 0 / 80%),
-    inset 0 1px 0 rgb(255 255 255 / 7%);
+    inset 0 0 0 1px rgb(0 0 0 / 12%);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -191,7 +196,10 @@
      stretched cell on a wide screen doesn't run away with it. */
   font-size: min(83cqw, 64px);
   line-height: 1;
-  color: #e8ecf4;
+  /* The colour the editor draws a machine character in (see the `atom` tag in
+     src/editor/basicLanguage.ts), so the cell and the line it lands in are the
+     same picture. */
+  color: #000;
   display: inline-block;
   /* The glyphs sit on the baseline with no descent, so their ink is 0.225em
      above the centre of the line box; nudging it back down centres the shape in
@@ -203,14 +211,15 @@
   position: absolute;
   top: 3px;
   left: 4px;
-  color: #aab1c0;
+  color: #565d6d;
   font-size: 10px;
   line-height: 1;
   letter-spacing: 0.02em;
-  /* A full-cell graphic reaches under the hint; the shadow keeps it readable. */
+  /* A full-cell graphic reaches under the hint; the halo keeps it readable
+     against the ink as well as against the paper. */
   text-shadow:
-    0 0 3px #000,
-    0 0 2px #000;
+    0 0 3px #fdfdf8,
+    0 0 2px #fdfdf8;
   pointer-events: none;
 }
 

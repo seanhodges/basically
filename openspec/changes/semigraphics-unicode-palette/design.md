@@ -139,6 +139,20 @@ is a token, plus the solid block, which is unshifted SPACE arriving as the
 inverse of `0x00`. `zx81/graphics.test.ts` re-derives the whole table that way
 and compares it with the palette's, so no entry can drift again.
 
+### The palette is paper and ink, not a keycap
+
+The palette first drew its characters the way the keys around it are drawn -
+light on a dark tile - which is the opposite polarity to the editor and to the
+Sinclair machines' own screens. A half-block cell then read as the half the
+*unlit* band covered, so the palette appeared to say "top" where the program
+went on to show "bottom", and the shapes were reported as inverted when they
+were not.
+
+The cells now use the editor's paper colour and the editor's ink, so a cell and
+the line the character lands in are the same picture. The keys keep their
+keycap styling; only the graphics grid, which is a preview of program text
+rather than a set of keys, changes.
+
 ### The Spectrum's user-defined graphics are one character each
 
 A UDG has no shape of its own — its bitmap is whatever the program pokes into

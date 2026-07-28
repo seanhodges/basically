@@ -75,6 +75,7 @@
 - [x] 8.7 Add the squared capitals to the `unscii-16-full` subset (`basically-graphics-extra.woff2`), its manifest, both stylesheets' `unicode-range`, and `ATTRIBUTION.md`
 - [x] 8.8 Mark the docs' UDG escape rows parse-only with the character as an alias, and re-run `npm run gen:semigraphics`
 - [x] 8.9 Tag the machines' own characters in the editor so they draw like the program's literals instead of falling through to the dimmed default style
+- [x] 8.10 Draw the palette cells as paper and ink rather than as dark keycaps, so a half-block cell reads the same way round as the editor and as the machines whose screen is black on white
 
 ## 9. Quality gates
 
