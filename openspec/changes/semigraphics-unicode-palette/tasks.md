@@ -46,7 +46,7 @@
 
 ## 6. ZX Spectrum 48K and 128
 
-- [ ] 6.1 Derive the Spectrum's graphics-mode key assignments from the real ROM — add `src/dialects/zxspectrum/graphicsMode.rom.test.ts` driving the emulator into graphics mode and reading back what each key stores
+- [x] 6.1 Derive the Spectrum's graphics-mode key assignments from the real ROM — decoded out of `K-DECODE` in `public/roms/zxspectrum.rom` and written up in `design.md`; reproduce that derivation as a comment on `graphics.ts` rather than restating the table bare
 - [ ] 6.2 Add `src/dialects/zxspectrum/graphics.ts`: block graphics `0x80–0x8F` with their keys, and the user-defined graphics `0x90–0xA4` with theirs
 - [ ] 6.3 Derive `GRAPHIC_UNICODE` in `src/dialects/zxspectrum/charset.ts` from that table instead of duplicating it
 - [ ] 6.4 Wire the palette into `src/dialects/zxspectrum/keyboardLayout.ts` with sections for blocks and user-defined graphics

@@ -54,6 +54,72 @@ The Commodore dialects already prove the pattern: a single table of
 for its mapping, so the two cannot drift. The Spectrum gets the same treatment,
 and its charset's graphics table is derived from it rather than written twice.
 
+### The Spectrum's graphics-mode keys, derived from the ROM
+
+Established by reading `K-DECODE` out of `public/roms/zxspectrum.rom`. Driving
+the emulator turned out to be unnecessary: the routine is short enough to decode
+directly, and the ROM bytes are the primary source either way. Recorded here so
+the table in `zxspectrum/graphics.ts` can cite a derivation rather than assert a
+mapping.
+
+On entry `C` holds `MODE` (0 = K/L/C, 1 = E, 2 = G), `E` holds the character from
+the main key table at `0x0205` — which stores letters **uppercase** — and `B` is
+`0xFF` when no shift is held.
+
+**Letters become user-defined graphics.** The graphics-mode branch of the mode
+dispatch at `0x0333` is a single instruction, `ADD A,$4F` at `0x033E`:
+
+```
+0338  DEC C
+0339  JP M,$034F      ; MODE 0: ordinary letter
+033C  JR Z,$0341      ; MODE 1: extended
+033E  ADD A,$4F       ; MODE 2 (graphics)
+```
+
+So `code = uppercase ASCII + 0x4F`: `A` (0x41) becomes `0x90` and `U` (0x55)
+becomes `0xA4`. Twenty-one letters onto exactly the twenty-one user-defined
+graphics codes, ending precisely on the `UDG_LAST` the charset already declares.
+
+**Digits become block graphics.** At `0x0389`, reached when `MODE` is 2:
+
+```
+038C  CP $39 / JR Z   ; '9' and '0' are handled elsewhere
+0390  CP $30 / JR Z   ; (mode toggle and delete)
+0394  AND $07
+0396  ADD A,$80       ; code = 0x80 + (ASCII & 7)
+0398  INC B
+0399  RET Z           ; unshifted: done
+039A  XOR $0F         ; shifted: complement the quadrant bits
+039C  RET
+```
+
+`ASCII & 7` maps `'1'`–`'7'` to 1–7 and **`'8'` to 0**, and `XOR $0F`
+complements all four quadrant bits, which is exactly inverse video:
+
+| Key | Plain | CAPS SHIFT |
+| --- | --- | --- |
+| 1 | `0x81` ▘ | `0x8E` ▟ |
+| 2 | `0x82` ▝ | `0x8D` ▙ |
+| 3 | `0x83` ▀ | `0x8C` ▄ |
+| 4 | `0x84` ▖ | `0x8B` ▜ |
+| 5 | `0x85` ▌ | `0x8A` ▐ |
+| 6 | `0x86` ▞ | `0x89` ▚ |
+| 7 | `0x87` ▛ | `0x88` ▗ |
+| 8 | `0x80` blank | `0x8F` █ |
+
+Eight keys times two shift states cover all sixteen codes exactly once. Note that
+**key 8 carries the blank and the solid block** rather than a quadrant — the one
+assignment nobody would guess from the keycaps, and the reason this had to come
+from the ROM rather than from the manual's picture of the keyboard.
+
+The ROM complements on any shift reaching that point, but CAPS SHIFT is the
+documented modifier and is what the palette should show as the key hint.
+
+The table can therefore be pinned without running the machine: it is a bijection
+onto `0x80–0x8F`, each shifted entry is its unshifted partner's complement
+(`code ^ 0x0F`), and every entry's character round-trips through the charset. A
+test that drives the emulator would confirm this rather than establish it.
+
 ### Visually-identical Commodore characters keep their keys
 
 A few Commodore graphics have character-ROM bitmaps identical to a lower code
