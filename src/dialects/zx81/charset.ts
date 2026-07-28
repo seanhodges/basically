@@ -9,15 +9,15 @@ import { createSinclairCharset } from '../sinclairCharset';
  *  - Block graphics may be written as unicode block elements (▘▝▀▖▌▞▛ etc.)
  *    or as backslash escapes describing the left/right half of the cell:
  *    ' = top, . = bottom, : = full, space = empty.  E.g. \' . = 0x01, \:: = █.
- *    Grey (chequered) blocks: \!! (full), \!' (lower half), \!. (upper half);
- *    inverse grey \|| \|' \|.
+ *    Grey (chequered) blocks: \!! (full), \!' (upper half), \!. (lower half);
+ *    inverse grey \|| (full), \|' and \|. inverting \!' and \!. respectively.
  *
- *    Note the half-cell greys read backwards from the quadrant convention: the
- *    ROM font at 0x1E00 has 0x09 blank over chequer and 0x0A chequer over
- *    blank, so \!' is the *lower* half and \!. the *upper* one - the opposite
- *    of the ZX80, where \!' is the upper half. The spellings are kept as they
- *    are because changing them would re-encode every saved program that uses
- *    one; the unicode forms below are what the ROM bitmaps actually draw.
+ *    \!' and \!. used to mean the opposite halves here - the reverse of both
+ *    the ' = top / . = bottom convention and of the ZX80, which spells them the
+ *    right way round. They now follow the ROM: 0x0A is chequer over blank and
+ *    0x09 blank over chequer (see sinclairGraphics.test.ts). A ZX81 program
+ *    saved with the old spelling therefore re-encodes to the other half; the
+ *    unicode forms are unaffected and are the canonical spelling now.
  *  - %c makes the next character inverse video, e.g. %A → inverse A.
  *
  * The parsing/rendering machinery is shared with the ZX80 via
@@ -91,8 +91,8 @@ export const ESCAPES: Record<string, number> = {
   ".'": 0x06,
   ":'": 0x07,
   '!!': 0x08,
-  "!'": 0x09,
-  '!.': 0x0a,
+  "!'": 0x0a, // ' = upper: 0x0A is chequer over blank
+  '!.': 0x09, // . = lower: 0x09 is blank over chequer
   '::': 0x80,
   '.:': 0x81,
   ':.': 0x82,
@@ -102,8 +102,8 @@ export const ESCAPES: Record<string, number> = {
   "'.": 0x86,
   ' .': 0x87,
   '||': 0x88,
-  "|'": 0x89,
-  '|.': 0x8a,
+  "|'": 0x8a, // inverse of \!'
+  '|.': 0x89, // inverse of \!.
 };
 
 export const NEWLINE = 0x76;

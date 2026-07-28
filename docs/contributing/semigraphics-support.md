@@ -387,15 +387,22 @@ physical keyboard; the difference is invisible on screen and is pinned as a
 named allowlist in `semigraphicsRoundTrip.test.ts` rather than left to be
 rediscovered.
 
-### The Sinclair grey escapes disagree between machines
+### The Sinclair grey escapes used to disagree between machines
 
-The chequered half-cells are spelled `\!'` and `\!.` on both Sinclair machines,
-but they mean opposite halves: on the ZX81 `\!'` is the _lower_ half, on the
-ZX80 the _upper_ one. The ROM bitmaps settle which shape each byte draws (see
-`sinclairGraphics.test.ts`), and the Unicode forms follow the ROM on both
-machines. The escape spellings are left as they are — changing them would
-re-encode every saved program that uses one — so this stays a wart rather than
-a bug to fix silently.
+The two-character escapes name the halves of a cell: `'` upper, `.` lower, `:`
+full, space empty, with `!` chequered and `|` inverse-chequered. The ZX81 had
+`\!'` and `\!.` the wrong way round — `\!'` produced the _lower_ half — which
+also meant the two Sinclair machines spelled the same shape differently, and the
+ZX81's on-screen "grey top" key typed the grey _bottom_ character.
+
+Both now follow the ROM bitmaps, and `sinclairGraphics.test.ts` checks each
+spelling against the shape the ROM actually draws, on both machines, so they
+cannot drift apart again.
+
+This does re-encode a ZX81 program saved with the old spelling: `\!'` and `\!.`
+(and their inverses `\|'` and `\|.`) now store the other half's byte. Nothing
+else changes — the Unicode characters, which are the canonical spelling, were
+correct throughout.
 
 ### Stacked graphics do not tile vertically
 

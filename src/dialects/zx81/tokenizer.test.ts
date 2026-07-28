@@ -147,11 +147,11 @@ describe('tokenizeProgram', () => {
     expect(normalize(detokenizeProgram(bytes))).toBe(normalize(src));
   });
 
-  it('still accepts the old grey-block escape spellings', () => {
-    // A program saved before the chequered graphics gained unicode characters
-    // must keep loading, and must produce the same bytes as the character does.
+  it('accepts the grey-block escapes alongside their characters', () => {
+    // Both spellings must reach the same byte. \!. is the lower chequered half
+    // (' = upper, . = lower, matching the ZX80); U+1FB8F draws that shape.
     const viaEscape = tokenizeProgram('10 PRINT "\\!."');
-    const viaChar = tokenizeProgram('10 PRINT "\u{1FB8E}"');
+    const viaChar = tokenizeProgram('10 PRINT "\u{1FB8F}"');
     expect(viaEscape.errors).toEqual([]);
     expect([...viaEscape.bytes]).toEqual([...viaChar.bytes]);
   });

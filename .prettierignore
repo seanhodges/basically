@@ -6,6 +6,9 @@ src/emulator/c64/viciious/
 src/samples/
 package-lock.json
 openspec/
+# Generated between markers by scripts/gen-semigraphics-audit.mts; Prettier
+# would realign the tables and the regenerate-and-diff test would then fail.
+docs/contributing/semigraphics-support.md
 .claude/commands/opsx/
 .claude/skills/openspec-*/
 .superpowers/

@@ -2,8 +2,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { GRAPHIC_UNICODE as ZX81_GRAPHICS } from './zx81/charset';
-import { GRAPHIC_UNICODE as ZX80_GRAPHICS } from './zx80/charset';
+import {
+  GRAPHIC_UNICODE as ZX81_GRAPHICS,
+  ESCAPES as ZX81_ESCAPES,
+} from './zx81/charset';
+import {
+  GRAPHIC_UNICODE as ZX80_GRAPHICS,
+  ESCAPES as ZX80_ESCAPES,
+} from './zx80/charset';
 
 /**
  * Re-derive the Sinclair block-graphics unicode tables from the real ROM
@@ -20,8 +26,18 @@ import { GRAPHIC_UNICODE as ZX80_GRAPHICS } from './zx80/charset';
  */
 
 const ROMS = {
-  zx81: { file: 'zx81.rom', fontBase: 0x1e00, table: ZX81_GRAPHICS },
-  zx80: { file: 'zx80.rom', fontBase: 0x0e00, table: ZX80_GRAPHICS },
+  zx81: {
+    file: 'zx81.rom',
+    fontBase: 0x1e00,
+    table: ZX81_GRAPHICS,
+    escapes: ZX81_ESCAPES,
+  },
+  zx80: {
+    file: 'zx80.rom',
+    fontBase: 0x0e00,
+    table: ZX80_GRAPHICS,
+    escapes: ZX80_ESCAPES,
+  },
 } as const;
 
 type Quadrant = 'blank' | 'solid' | 'chequer' | 'chequerInverse';
@@ -115,7 +131,7 @@ const SHAPES: Record<string, string> = {
 
 describe.each(Object.entries(ROMS))(
   'Sinclair block graphics from the %s ROM font',
-  (_id, { file, fontBase, table }) => {
+  (_id, { file, fontBase, table, escapes }) => {
     const rom = new Uint8Array(
       readFileSync(join(__dirname, '../../public/roms', file)),
     );
@@ -154,6 +170,28 @@ describe.each(Object.entries(ROMS))(
           table[code],
           `0x${code.toString(16)} draws ${expected} but is not in GRAPHIC_UNICODE`,
         ).toBe(expected);
+      }
+    });
+
+    it('spells each escape for the shape it names', () => {
+      // The two-character escapes describe the cell: ' = upper, . = lower,
+      // : = full, space = empty, ! = chequered, | = inverse chequered. The
+      // half-cell greys on the ZX81 used to be the wrong way round, so check
+      // the spelling against the shape the ROM actually draws.
+      const HALVES: Record<string, [string, string]> = {
+        "!'": ['chequer', 'blank'],
+        '!.': ['blank', 'chequer'],
+        "|'": ['chequerInverse', 'solid'],
+        '|.': ['solid', 'chequerInverse'],
+        '!!': ['chequer', 'chequer'],
+        '||': ['chequerInverse', 'chequerInverse'],
+      };
+      for (const [spelling, [upper, lower]] of Object.entries(HALVES)) {
+        const code = escapes[spelling as keyof typeof escapes];
+        expect(code, `\\${spelling} is not an escape here`).toBeDefined();
+        expect(signature(bitmap(rom, fontBase, code)), `\\${spelling}`).toBe(
+          [upper, upper, lower, lower].join('|'),
+        );
       }
     });
 
