@@ -128,12 +128,18 @@ describe('zx80 keyboard layout editor mapping', () => {
     );
   });
 
-  it('grey-block escapes round-trip through the charset', () => {
+  it('grey-block escapes still encode, and render as their unicode form', () => {
+    // The chequered graphics now have Symbols for Legacy Computing characters,
+    // so the canonical rendering is the character rather than the escape. The
+    // escape spellings stay readable - a program saved before the change must
+    // still load - and both forms must reach the same byte.
     const greys = ['\\||', "\\!'", '\\!.', "\\|'", '\\|.'];
     for (const esc of greys) {
       const codes = zx80Charset.toMachine(esc);
       expect(codes.length, esc).toBe(1);
-      expect(zx80Charset.toUnicode(codes), esc).toBe(esc);
+      const canonical = zx80Charset.toUnicode(codes);
+      expect(canonical, esc).not.toBe(esc);
+      expect([...zx80Charset.toMachine(canonical)], esc).toEqual([...codes]);
     }
   });
 });

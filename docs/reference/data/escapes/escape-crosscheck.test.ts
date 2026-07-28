@@ -31,14 +31,14 @@ import { atomEscapes } from './atom';
 import { cpcEscapes } from './cpc';
 
 import {
-  parseChar as zx81ParseChar,
-  zx81Charset,
+  CHARSET_PROBES,
+  type CharsetProbe,
+} from '../../../../src/dialects/charsetProbes';
+import {
   ESCAPES as ZX81_ESCAPES,
   GRAPHIC_UNICODE as ZX81_GRAPHICS,
 } from '../../../../src/dialects/zx81/charset';
 import {
-  parseChar as zx80ParseChar,
-  zx80Charset,
   ESCAPES as ZX80_ESCAPES,
   GRAPHIC_UNICODE as ZX80_GRAPHICS,
 } from '../../../../src/dialects/zx80/charset';
@@ -47,177 +47,21 @@ import {
   parseFloatOverride as zx81ParseFloat,
 } from '../../../../src/dialects/zx81/zxfloat';
 import {
-  parseChar as spectrumParseChar,
-  decodeSpan as spectrumDecodeSpan,
-} from '../../../../src/dialects/zxspectrum/charset';
-import {
   floatOverrideNotation as spectrumFloatNotation,
   parseFloatOverride as spectrumParseFloat,
 } from '../../../../src/dialects/zxspectrum/floatOverride';
-import {
-  parseChar as bbcParseChar,
-  decodeSpan as bbcDecodeSpan,
-  TELETEXT_NAMES,
-} from '../../../../src/dialects/bbcmicro/charset';
-import {
-  parseC64Char,
-  petsciiToText,
-  PETCAT_ALIASES,
-} from '../../../../src/dialects/commodore64/petscii';
+import { TELETEXT_NAMES } from '../../../../src/dialects/bbcmicro/charset';
+import { PETCAT_ALIASES } from '../../../../src/dialects/commodore64/petscii';
 import {
   C64_COMMODORE_GRAPHICS,
   C64_SHIFT_GRAPHICS,
 } from '../../../../src/dialects/commodore64/graphics';
-import {
-  parseChar as trs80ParseChar,
-  decodeSpan as trs80DecodeSpan,
-} from '../../../../src/dialects/trs80/charset';
-import {
-  parseChar as atomParseChar,
-  decodeSpan as atomDecodeSpan,
-} from '../../../../src/dialects/atom/charset';
-import {
-  parseChar as cpcParseChar,
-  decodeSpan as cpcDecodeSpan,
-} from '../../../../src/dialects/cpc464/charset';
 
-interface Adapter {
-  data: EscapeTableData;
-  /** Parse a full source string to machine bytes via the dialect charset. */
-  parse(text: string): number[];
-  /** Canonical decode of one byte (string/literal context). */
-  decode(byte: number): string;
-  /** True when a decode form is an escape (not a plain printable). */
-  isEscapeForm(text: string): boolean;
-  /** What the 'rest' row's decode forms look like. */
-  rawPattern: RegExp;
-  /** For probe:'float' rows. */
-  float?: {
-    parse(source: string): number[] | null;
-    notation(bytes: number[]): string;
-  };
+/** A float-override probe, for the two dialects whose docs carry float rows. */
+interface FloatProbe {
+  parse(source: string): number[] | null;
+  notation(bytes: number[]): string;
 }
-
-/** Drive a `{code,length}`-shaped per-unit parser over a whole string. */
-function parseAll(
-  text: string,
-  unit: (text: string, i: number) => { code: number; length: number },
-): number[] {
-  const out: number[] = [];
-  let i = 0;
-  while (i < text.length) {
-    const { code, length } = unit(text, i);
-    out.push(code);
-    i += length;
-  }
-  return out;
-}
-
-/** Same, for the `{codes,length}` shape (Spectrum, BBC). */
-function parseAllMulti(
-  text: string,
-  unit: (text: string, i: number) => { codes: number[]; length: number },
-): number[] {
-  const out: number[] = [];
-  let i = 0;
-  while (i < text.length) {
-    const { codes, length } = unit(text, i);
-    out.push(...codes);
-    i += length;
-  }
-  return out;
-}
-
-const ADAPTERS: [string, Adapter][] = [
-  [
-    'zx81',
-    {
-      data: zx81Escapes,
-      parse: (t) => parseAll(t, zx81ParseChar),
-      decode: (b) => zx81Charset.glyph(b),
-      isEscapeForm: (t) => t.startsWith('\\') || t.startsWith('%'),
-      rawPattern: /^\\\{[0-9A-F]{2}\}$/,
-      float: {
-        parse: floatParserFor(zx81ParseFloat),
-        notation: zx81FloatNotation,
-      },
-    },
-  ],
-  [
-    'zx80',
-    {
-      data: zx80Escapes,
-      parse: (t) => parseAll(t, zx80ParseChar),
-      decode: (b) => zx80Charset.glyph(b),
-      isEscapeForm: (t) => t.startsWith('\\') || t.startsWith('%'),
-      rawPattern: /^\\\{[0-9A-F]{2}\}$/,
-    },
-  ],
-  [
-    'zxspectrum',
-    {
-      data: zxspectrumEscapes,
-      parse: (t) => parseAllMulti(t, spectrumParseChar),
-      decode: (b) => spectrumDecodeSpan(Uint8Array.of(b), 0, 1).text,
-      isEscapeForm: (t) => t.startsWith('\\') || /^\{.*\}$/.test(t),
-      rawPattern: /^\{0x[0-9A-F]{2}\}$/,
-      float: {
-        parse: floatParserFor(spectrumParseFloat),
-        notation: spectrumFloatNotation,
-      },
-    },
-  ],
-  [
-    'bbc',
-    {
-      data: bbcEscapes,
-      parse: (t) => parseAllMulti(t, bbcParseChar),
-      decode: (b) => bbcDecodeSpan(Uint8Array.of(b), 0, 1).text,
-      isEscapeForm: (t) => /^\{.*\}$/.test(t),
-      rawPattern: /^\{0x[0-9A-F]{2}\}$/,
-    },
-  ],
-  [
-    'commodore',
-    {
-      data: commodoreEscapes,
-      parse: (t) => parseAll(t, parseC64Char),
-      decode: (b) => petsciiToText(b),
-      isEscapeForm: (t) => /^\{.*\}$/.test(t),
-      rawPattern: /^\{\$[0-9a-f]{2}\}$/,
-    },
-  ],
-  [
-    'trs80',
-    {
-      data: trs80Escapes,
-      parse: (t) => parseAll(t, trs80ParseChar),
-      decode: (b) => trs80DecodeSpan(Uint8Array.of(b), 0, 1).text,
-      isEscapeForm: (t) => /^\{.+\}$/.test(t),
-      rawPattern: /^\{0x[0-9A-F]{2}\}$/,
-    },
-  ],
-  [
-    'atom',
-    {
-      data: atomEscapes,
-      parse: (t) => parseAll(t, atomParseChar),
-      decode: (b) => atomDecodeSpan(Uint8Array.of(b), 0, 1).text,
-      isEscapeForm: (t) => /^\{.+\}$/.test(t),
-      rawPattern: /^\{0x[0-9A-F]{2}\}$/,
-    },
-  ],
-  [
-    'cpc',
-    {
-      data: cpcEscapes,
-      parse: (t) => parseAllMulti(t, cpcParseChar),
-      decode: (b) => cpcDecodeSpan(Uint8Array.of(b), 0, 1).text,
-      isEscapeForm: (t) => /^\{.+\}$/.test(t),
-      rawPattern: /^\{0x[0-9A-F]{2}\}$/,
-    },
-  ],
-];
 
 /** Adapt a parseFloatOverride to a whole-source parser. */
 function floatParserFor(
@@ -232,6 +76,47 @@ function floatParserFor(
     return parsed.bytes;
   };
 }
+
+/**
+ * What the shared charset probes don't carry: the docs table each family is
+ * pinned against, and the float-override probe where the page documents one.
+ * Keyed by charset-probe id, so a new probe without a table fails loudly below
+ * rather than silently going unchecked.
+ */
+const EXTRAS: Record<string, { data: EscapeTableData; float?: FloatProbe }> = {
+  zx81: {
+    data: zx81Escapes,
+    float: {
+      parse: floatParserFor(zx81ParseFloat),
+      notation: zx81FloatNotation,
+    },
+  },
+  zx80: { data: zx80Escapes },
+  zxspectrum: {
+    data: zxspectrumEscapes,
+    float: {
+      parse: floatParserFor(spectrumParseFloat),
+      notation: spectrumFloatNotation,
+    },
+  },
+  bbc: { data: bbcEscapes },
+  commodore: { data: commodoreEscapes },
+  trs80: { data: trs80Escapes },
+  atom: { data: atomEscapes },
+  cpc: { data: cpcEscapes },
+};
+
+type Adapter = CharsetProbe & { data: EscapeTableData; float?: FloatProbe };
+
+const ADAPTERS: [string, Adapter][] = CHARSET_PROBES.map((probe) => {
+  const extra = EXTRAS[probe.id];
+  if (!extra) {
+    throw new Error(
+      `charset probe "${probe.id}" has no escape table registered in EXTRAS`,
+    );
+  }
+  return [probe.id, { ...probe, ...extra }];
+});
 
 describe.each(ADAPTERS)('escape cross-check: %s', (_id, adapter) => {
   const { data } = adapter;

@@ -9,7 +9,15 @@ import { createSinclairCharset } from '../sinclairCharset';
  *  - Block graphics may be written as unicode block elements (▘▝▀▖▌▞▛ etc.)
  *    or as backslash escapes describing the left/right half of the cell:
  *    ' = top, . = bottom, : = full, space = empty.  E.g. \' . = 0x01, \:: = █.
- *    Grey blocks: \!! (full), \!' (top), \!. (bottom); inverse grey \|| \|' \|.
+ *    Grey (chequered) blocks: \!! (full), \!' (lower half), \!. (upper half);
+ *    inverse grey \|| \|' \|.
+ *
+ *    Note the half-cell greys read backwards from the quadrant convention: the
+ *    ROM font at 0x1E00 has 0x09 blank over chequer and 0x0A chequer over
+ *    blank, so \!' is the *lower* half and \!. the *upper* one - the opposite
+ *    of the ZX80, where \!' is the upper half. The spellings are kept as they
+ *    are because changing them would re-encode every saved program that uses
+ *    one; the unicode forms below are what the ROM bitmaps actually draw.
  *  - %c makes the next character inverse video, e.g. %A → inverse A.
  *
  * The parsing/rendering machinery is shared with the ZX80 via
@@ -37,7 +45,18 @@ const BASE_PUNCT: Record<number, string> = {
   0x1b: '.',
 };
 
-/** Unicode forms for the block-graphics codes that have exact equivalents. */
+/**
+ * Unicode forms for the block-graphics codes.
+ *
+ * The quadrants come from Block Elements; the chequered ("grey") cells and
+ * their inverses come from Symbols for Legacy Computing (U+1FB8E-U+1FB92),
+ * which unicode added for exactly this family of machines. Every code here was
+ * checked against the ROM font at 0x1E00 - see sinclairGraphics.test.ts, which
+ * re-derives the whole table from the ROM bitmaps so it cannot drift.
+ *
+ * Codes 0x80-0x8A are the inverse-video twins of 0x00-0x0A: the hardware
+ * inverts the 8x8 bitmap, so each glyph here is the complement of its base.
+ */
 export const GRAPHIC_UNICODE: Record<number, string> = {
   0x01: '▘',
   0x02: '▝',
@@ -47,6 +66,8 @@ export const GRAPHIC_UNICODE: Record<number, string> = {
   0x06: '▞',
   0x07: '▛',
   0x08: '▒',
+  0x09: '\u{1FB8F}', // lower half medium shade
+  0x0a: '\u{1FB8E}', // upper half medium shade
   0x80: '█',
   0x81: '▟',
   0x82: '▙',
@@ -55,6 +76,9 @@ export const GRAPHIC_UNICODE: Record<number, string> = {
   0x85: '▐',
   0x86: '▚',
   0x87: '▗',
+  0x88: '\u{1FB90}', // inverse medium shade
+  0x89: '\u{1FB91}', // upper half block and lower half inverse medium shade
+  0x8a: '\u{1FB92}', // upper half inverse medium shade and lower half block
 };
 
 /** Backslash escapes (two chars following the backslash) -> code. */

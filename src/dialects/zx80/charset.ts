@@ -37,7 +37,18 @@ const BASE_PUNCT: Record<number, string> = {
   0x1b: '.',
 };
 
-/** Unicode forms for the block-graphics codes that have exact equivalents. */
+/**
+ * Unicode forms for the block-graphics codes.
+ *
+ * The quadrants come from Block Elements; the chequered ("grey") cells and
+ * their inverses come from Symbols for Legacy Computing (U+1FB8E-U+1FB92),
+ * which unicode added for exactly this family of machines. Every code here was
+ * checked against the 4K ROM font at 0x0E00 - see sinclairGraphics.test.ts, which
+ * re-derives the whole table from the ROM bitmaps so it cannot drift.
+ *
+ * Codes 0x80-0x8B are the inverse-video twins of 0x00-0x0B: the hardware
+ * inverts the 8x8 bitmap, so each glyph here is the complement of its base.
+ */
 export const GRAPHIC_UNICODE: Record<number, string> = {
   0x02: '▌',
   0x03: '▄',
@@ -47,6 +58,8 @@ export const GRAPHIC_UNICODE: Record<number, string> = {
   0x07: '▗',
   0x08: '▞',
   0x09: '▒',
+  0x0a: '\u{1FB8F}', // lower half medium shade
+  0x0b: '\u{1FB8E}', // upper half medium shade
   0x80: '█',
   0x82: '▐',
   0x83: '▀',
@@ -55,6 +68,9 @@ export const GRAPHIC_UNICODE: Record<number, string> = {
   0x86: '▜',
   0x87: '▛',
   0x88: '▚',
+  0x89: '\u{1FB90}', // inverse medium shade
+  0x8a: '\u{1FB91}', // upper half block and lower half inverse medium shade
+  0x8b: '\u{1FB92}', // upper half inverse medium shade and lower half block
 };
 
 /**
