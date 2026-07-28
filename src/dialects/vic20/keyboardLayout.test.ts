@@ -41,15 +41,10 @@ describe('vic20 keyboard layout', () => {
       'graphics',
     ]);
     const byId = new Map(allKeys.map((k) => [k.id, k]));
-    // Both C=/SHIFT block graphics ride the letter keys, as on the C64.
-    expect(resolveEditorAction(layout, byId.get('A')!, 'gfxCommodore')).toEqual(
-      {
-        insert: '┌',
-      },
-    );
-    expect(resolveEditorAction(layout, byId.get('A')!, 'gfxShift')).toEqual({
-      insert: '♠',
-    });
+    // Both C=/SHIFT sets come through in the palette, as on the C64.
+    const [cmd, shifted] = layout.graphicsPalette!.sections;
+    expect(cmd!.entries.find((e) => e.key === 'A')?.char).toBe('┌');
+    expect(shifted!.entries.find((e) => e.key === 'A')?.char).toBe('♠');
     // The six graphics symbols (+ - £ @ * ↑) sit on the number row's SYM layer.
     expect(resolveEditorAction(layout, byId.get('Num1')!, 'sym')).toEqual({
       insert: '+',

@@ -40,7 +40,7 @@
 .lineNo {
   flex: none;
   min-width: 3.5em;
-  font-family: 'IBM Plex Mono', 'Fira Mono', monospace;
+  font-family: var(--mono);
   font-size: 12px;
   color: var(--text-dim);
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { spectrum128KeyboardLayout } from './keyboardLayout';
 import { spectrum128Charset } from './charset';
 import { resolveEditorAction } from '../../keyboard/editorActions';
+import { spectrumKeyboardLayout } from '../zxspectrum/keyboardLayout';
 
 // The 128 layout is reused from the 48K Spectrum (the matrix and key tokens are
 // identical), so these guard that the reuse stays valid: labels stay aligned
@@ -55,6 +56,27 @@ describe('zxspectrum128 keyboard layout', () => {
     ]) {
       expect(byId.has(token), token).toBe(true);
     }
+  });
+
+  it('drops the two user-defined graphics the 128 spends on keywords', () => {
+    // \t and \u are 0xA3/0xA4, which on this machine are the SPECTRUM and PLAY
+    // tokens (see ./keywords) - so those two keys type a keyword, not a
+    // graphic, and the palette must not offer them.
+    const udgs = layout.graphicsPalette!.sections.find(
+      (s) => s.title === 'User-defined graphics',
+    )!;
+    expect(udgs.entries.map((e) => e.code)).toEqual(
+      Array.from({ length: 0xa2 - 0x90 + 1 }, (_, i) => 0x90 + i),
+    );
+    expect(udgs.entries.at(-1)).toMatchObject({ key: 'S', code: 0xa2 });
+    expect(udgs.entries.some((e) => e.char === '\\t')).toBe(false);
+    expect(udgs.entries.some((e) => e.char === '\\u')).toBe(false);
+    // The 48K keeps all twenty-one.
+    expect(
+      spectrumKeyboardLayout.graphicsPalette!.sections.find(
+        (s) => s.title === 'User-defined graphics',
+      )!.entries,
+    ).toHaveLength(21);
   });
 
   it('spot checks the headline keys', () => {

@@ -199,7 +199,10 @@ export function AsmEditor({
         EditorView.theme({
           '&': { height: '100%', fontSize: '14px' },
           '.cm-scroller': {
-            fontFamily: "'IBM Plex Mono', 'Fira Mono', monospace",
+            fontFamily: 'var(--mono)',
+            // See CodeMirrorHost: pinned so a graphics character cannot change
+            // the height of the row it lands in.
+            lineHeight: '1.3',
           },
         }),
       ],

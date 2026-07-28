@@ -5,6 +5,7 @@ import type {
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
 import { bottomRow, centerRow } from '../../keyboard/templateRows';
+import { SPECTRUM_BLOCK_GRAPHICS, SPECTRUM_UDG_GRAPHICS } from './graphics';
 
 /**
  * The ZX Spectrum 48K keyboard on the standard virtual-keyboard template.
@@ -15,6 +16,12 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
  *  - symbol:   SYMBOL SHIFT - the red symbol
  *  - keyword:  the white K-mode BASIC keyword (pinned by the KEYWORD mode tab)
  *  - function: the green extended-mode function (pinned by the FUNCTION mode tab)
+ *
+ * The machine's graphics mode (CAPS SHIFT + 9 on the real keyboard) is a
+ * GRAPHICS tab showing the palette: the sixteen block graphics on the digit
+ * keys and the twenty-one user-defined graphics on A-U, each labelled with the
+ * key - and, for the inverse blocks, the CAPS SHIFT - that types it. They are
+ * not key legends because a UDG has no fixed shape to print.
  *
  * Per the template the number-row CAPS edit/cursor functions are dropped (the
  * editor handles cursor placement by touch); CAPS and SYMBOL shift sit on the
@@ -230,12 +237,21 @@ export const spectrumKeyboardLayout: KeyboardLayout = {
     { id: 'keyword', name: 'KEYWORD', layer: 'keyword' },
     { id: 'function', name: 'FUNCTION', layer: 'function' },
     { id: 'symbol', name: 'SYMBOL', layer: 'symbol' },
+    // GRAPHICS pins no layer - the palette carries the characters, and CAPS /
+    // SYMBOL keep their ordinary meaning while it is open.
+    { id: 'graphics', name: 'GRAPHICS', layer: 'main', palette: 'graphics' },
   ],
   modifiers: [
     { id: 'caps', emits: ['CapsShift'], sticky: true, lockable: true },
     { id: 'symbol', emits: ['SymShift'], sticky: true, lockable: true },
   ],
   rows,
+  graphicsPalette: {
+    sections: [
+      { title: 'Block graphics', entries: SPECTRUM_BLOCK_GRAPHICS },
+      { title: 'User-defined graphics', entries: SPECTRUM_UDG_GRAPHICS },
+    ],
+  },
   glyphs: {},
   options: { minHoldFrames: 3, compactDefaultLayer: 'keyword' },
   // Sinclair joystick convention: 5/6/7/8 = left/down/up/right; Space/Enter as

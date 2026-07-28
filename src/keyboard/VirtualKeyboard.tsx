@@ -3,6 +3,7 @@ import type { MachineEmulator } from '../dialects/types';
 import type {
   EditorKeyAction,
   EditorModeDef,
+  GraphicEntry,
   KeyDef,
   KeyboardLayout,
   LayerDef,
@@ -77,6 +78,12 @@ function modePinnedLayerId(
   return mode.layer;
 }
 
+/** How a palette cell names itself: the character, then where it lives. */
+function graphicAriaLabel(entry: GraphicEntry): string {
+  const key = entry.modifier ? `${entry.modifier} + ${entry.key}` : entry.key;
+  return `Insert ${entry.char}, key ${key}`;
+}
+
 function keyAriaLabel(
   def: KeyDef,
   layout: KeyboardLayout,
@@ -115,10 +122,20 @@ export function VirtualKeyboard({
   // pins a layer. Shown for both targets; for the machine target the mode is
   // purely cosmetic (it emphasises a legend) - matrix tokens are unaffected.
   const editorModes = layout.editorModes ?? [];
+  // A palette mode produces editor inserts and nothing else, so it has nothing
+  // to do while the keyboard drives the machine (there the machine's own
+  // graphics mode and its modifier keys do the job). The tab stays in the strip
+  // - the mode list must not shuffle as focus moves - but greys out.
+  const paletteUnavailable = (m: EditorModeDef): boolean =>
+    !!m.palette && target.kind !== 'editor';
   const [modeId, setModeId] = useState<string | null>(null);
   useEffect(() => setModeId(null), [layout]);
-  const mode =
+  const selected =
     editorModes.find((m) => m.id === modeId) ?? editorModes[0] ?? null;
+  // Losing the editor (the emulator takes focus) drops a palette mode back to
+  // the first one, so the keyboard never sits in a mode it cannot honour.
+  const mode =
+    selected && paletteUnavailable(selected) ? editorModes[0]! : selected;
   const modeRef = useRef(mode);
   modeRef.current = mode;
 
@@ -279,6 +296,22 @@ export function VirtualKeyboard({
     };
   }, []);
 
+  // The graphics palette: a grid of the machine's block-graphics characters,
+  // shown instead of the keys while a mode selects it. Cells are not keys -
+  // they carry no matrix tokens - so they bypass the input engine and apply
+  // their insert straight to the editor, exactly as a key's insert would.
+  const palette = layout.graphicsPalette;
+  const showPalette =
+    !onPickKey &&
+    !!palette &&
+    mode?.palette === 'graphics' &&
+    target.kind === 'editor';
+  const paletteEntries = useMemo(
+    () => (palette ? palette.sections.flatMap((s) => s.entries) : []),
+    [palette],
+  );
+  const paletteRef = useRef<HTMLDivElement>(null);
+
   const displayRows = layout.rows;
   const gridCols = layout.gridColumns;
   const fnCols = functionKeys.reduce((n, k) => n + k.spanX, 0);
@@ -335,6 +368,14 @@ export function VirtualKeyboard({
     osc.stop(ctx.currentTime + 0.035);
   };
 
+  /** Type a palette character, the same insert a key legend would produce. */
+  const applyGraphic = (entry: GraphicEntry | undefined) => {
+    const t = targetRef.current;
+    if (!entry || t.kind !== 'editor') return;
+    t.apply({ insert: entry.char });
+    pressFeedback();
+  };
+
   const keyIdAt = (x: number, y: number): string | null => {
     const el = document.elementFromPoint(x, y);
     const keyEl = el?.closest('[data-keyid]');
@@ -347,6 +388,13 @@ export function VirtualKeyboard({
     // or the editor, so physical-keyboard input keeps working.
     e.preventDefault();
     if (!enabled) return;
+    const cell = (e.target as Element).closest('[data-graphic]');
+    if (cell) {
+      const idx = Number(cell.getAttribute('data-graphic'));
+      setFocusIdx(idx);
+      applyGraphic(paletteEntries[idx]);
+      return;
+    }
     const keyId = (e.target as Element)
       .closest('[data-keyid]')
       ?.getAttribute('data-keyid');
@@ -405,9 +453,38 @@ export function VirtualKeyboard({
     [displayRows, showFnKeys, functionKeys],
   );
   const [focusIdx, setFocusIdx] = useState(0);
+  // The palette and the key grid are separate roving-focus sets; swapping
+  // between them must not leave the cursor past the end of the new one.
+  useEffect(() => setFocusIdx(0), [showPalette, modeId]);
+
+  /** Columns the palette grid currently renders, for up/down arrow moves. */
+  const paletteColumns = (): number => {
+    const el = paletteRef.current;
+    if (!el) return 1;
+    const cols = getComputedStyle(el).gridTemplateColumns.trim();
+    return cols === '' || cols === 'none' ? 1 : cols.split(/\s+/).length;
+  };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (!enabled) return;
+    if (showPalette) {
+      const move = (delta: number) => {
+        setFocusIdx(
+          (i) =>
+            (i + delta + paletteEntries.length) % (paletteEntries.length || 1),
+        );
+        e.preventDefault();
+      };
+      if (e.key === 'ArrowRight') move(1);
+      else if (e.key === 'ArrowLeft') move(-1);
+      else if (e.key === 'ArrowDown') move(paletteColumns());
+      else if (e.key === 'ArrowUp') move(-paletteColumns());
+      else if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
+        applyGraphic(paletteEntries[focusIdx]);
+        e.preventDefault();
+      }
+      return;
+    }
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       const dir = e.key === 'ArrowRight' ? 1 : -1;
       setFocusIdx((i) => (i + dir + flatKeys.length) % flatKeys.length);
@@ -626,6 +703,12 @@ export function VirtualKeyboard({
                   className={`vk-legend-btn${m.id === mode?.id ? ' active' : ''}`}
                   role="radio"
                   aria-checked={m.id === mode?.id}
+                  disabled={paletteUnavailable(m)}
+                  title={
+                    paletteUnavailable(m)
+                      ? 'The graphics palette types into the editor - focus the editor to use it'
+                      : undefined
+                  }
                   tabIndex={-1}
                   onPointerDown={(e) => {
                     e.preventDefault(); // keep editor focus (R4)
@@ -651,17 +734,66 @@ export function VirtualKeyboard({
           )}
         </div>
       )}
-      <div className="vk-rows">
-        {displayRows.map((row, rowIdx) => (
-          <div
-            key={rowIdx}
-            className="vk-row"
-            style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
-          >
-            {row.map((k) => renderKey(k))}
-          </div>
-        ))}
-      </div>
+      {showPalette ? (
+        <div
+          ref={paletteRef}
+          className="vk-palette"
+          role="group"
+          aria-label="Graphics characters"
+        >
+          {palette!.sections.map((section, sectionIdx) => (
+            <div
+              key={section.title ?? sectionIdx}
+              className="vk-palette-section"
+              role="group"
+              aria-label={section.title}
+            >
+              {section.title && (
+                <div className="vk-palette-title" aria-hidden="true">
+                  {section.title}
+                </div>
+              )}
+              <div className="vk-palette-grid">
+                {section.entries.map((entry) => {
+                  const idx = paletteEntries.indexOf(entry);
+                  const classes = ['vk-graphic'];
+                  if (idx === focusIdx) classes.push('vk-focus');
+                  return (
+                    <div
+                      key={`${entry.code}-${entry.key}`}
+                      data-graphic={idx}
+                      className={classes.join(' ')}
+                      role="button"
+                      tabIndex={-1}
+                      aria-label={graphicAriaLabel(entry)}
+                    >
+                      <span className="vk-graphic-key" aria-hidden="true">
+                        {entry.modifier ? `${entry.modifier} ` : ''}
+                        {entry.key}
+                      </span>
+                      <span className="vk-graphic-char" aria-hidden="true">
+                        {entry.char}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="vk-rows">
+          {displayRows.map((row, rowIdx) => (
+            <div
+              key={rowIdx}
+              className="vk-row"
+              style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
+            >
+              {row.map((k) => renderKey(k))}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

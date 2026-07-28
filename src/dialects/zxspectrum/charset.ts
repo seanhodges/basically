@@ -1,4 +1,5 @@
 import { CharsetError, type CharsetMapping } from '../types';
+import { BLOCK_GRAPHIC_UNICODE } from './graphics';
 
 /**
  * ZX Spectrum character set <-> editor text.
@@ -22,25 +23,13 @@ import { CharsetError, type CharsetMapping } from '../types';
  *   the Spectrum has real `{`/`}` characters at 0x7B/0x7D.
  */
 
-/** Codes 0x80–0x8F: block graphics, by quadrant bits TL=1 TR=2 BL=4 BR=8. */
-const GRAPHIC_UNICODE: Record<number, string> = {
-  0x80: ' ', // blank graphic (renders as a space)
-  0x81: '▘',
-  0x82: '▝',
-  0x83: '▀',
-  0x84: '▖',
-  0x85: '▌',
-  0x86: '▞',
-  0x87: '▛',
-  0x88: '▗',
-  0x89: '▚',
-  0x8a: '▐',
-  0x8b: '▜',
-  0x8c: '▄',
-  0x8d: '▙',
-  0x8e: '▟',
-  0x8f: '█',
-};
+/**
+ * Codes 0x80-0x8F: block graphics, by quadrant bits TL=1 TR=2 BL=4 BR=8. Taken
+ * from the keyboard's own table (`./graphics`), which derives both the codes and
+ * the keys they live on from the ROM - so the charset and the graphics palette
+ * cannot disagree about what a key types.
+ */
+const GRAPHIC_UNICODE: Record<number, string> = BLOCK_GRAPHIC_UNICODE;
 
 const charToCode = new Map<string, number>();
 const codeToChar = new Map<number, string>();

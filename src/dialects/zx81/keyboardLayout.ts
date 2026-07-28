@@ -1,12 +1,11 @@
 import type {
   EditorKeyAction,
-  GlyphRegistry,
   KeyDef,
   KeyLabel,
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
-import { QUAD, chequer, glyph } from '../../keyboard/sinclairGlyphs';
 import { bottomRow, centerRow } from '../../keyboard/templateRows';
+import { ZX81_GRAPHICS } from './graphics';
 
 /**
  * The ZX81 keyboard on the standard virtual-keyboard template: a uniform
@@ -18,68 +17,17 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
  *  - shift:    the red symbol in the top-right corner (SHIFT held)
  *  - keyword:  the white K-mode keyword (pinned by the KEYWORD mode tab)
  *  - function: the red FUNCTION-mode name (pinned by the FUNCTION mode tab)
- *  - graphic:  the block-graphics glyph (pinned by the GRAPHICS mode tab)
+ *
+ * The block graphics are not key legends: there are twenty-one of them and they
+ * would be illegible at keycap size, so the GRAPHICS mode shows them as a
+ * palette instead (see ./graphics).
  *
  * Per the template, the dedicated cursor/EDIT/RUBOUT keys and the number-row
  * arrow legends are dropped (the editor handles cursor placement by touch); a
  * single quote and backspace key live on the common bottom row instead.
  */
 
-const zx81Glyphs: GlyphRegistry = {
-  quadTL: glyph(QUAD.tl),
-  quadTR: glyph(QUAD.tr),
-  quadBL: glyph(QUAD.bl),
-  quadBR: glyph(QUAD.br),
-  halfT: glyph('M0 0H16V8H0Z'),
-  halfB: glyph('M0 8H16V16H0Z'),
-  halfL: glyph('M0 0H8V16H0Z'),
-  halfR: glyph('M8 0H16V16H8Z'),
-  solid: glyph('M0 0H16V16H0Z'),
-  q3NoTL: glyph(QUAD.tr + QUAD.bl + QUAD.br),
-  q3NoTR: glyph(QUAD.tl + QUAD.bl + QUAD.br),
-  q3NoBL: glyph(QUAD.tl + QUAD.tr + QUAD.br),
-  q3NoBR: glyph(QUAD.tl + QUAD.tr + QUAD.bl),
-  diagTLBR: glyph(QUAD.tl + QUAD.br),
-  diagTRBL: glyph(QUAD.tr + QUAD.bl),
-  grey: glyph(chequer(0, 0, 16, 16)),
-  greyInv: glyph(chequer(0, 0, 16, 16, 1)),
-  greyT: glyph(chequer(0, 0, 16, 8)),
-  greyB: glyph(chequer(0, 8, 16, 8)),
-  greyTSolidB: glyph(chequer(0, 0, 16, 8) + 'M0 8H16V16H0Z'),
-  solidTGreyB: glyph('M0 0H16V8H0Z' + chequer(0, 8, 16, 8)),
-};
-
-const GRAPHIC_INSERT: Record<string, string> = {
-  quadTL: '▘',
-  quadTR: '▝',
-  quadBL: '▖',
-  quadBR: '▗',
-  halfT: '▀',
-  halfB: '▄',
-  halfL: '▌',
-  halfR: '▐',
-  solid: '█',
-  q3NoTL: '▟',
-  q3NoTR: '▙',
-  q3NoBL: '▜',
-  q3NoBR: '▛',
-  diagTLBR: '▚',
-  diagTRBL: '▞',
-  grey: '▒',
-  // The chequered cells have their own characters now (Symbols for Legacy
-  // Computing), so insert those rather than an escape - the names below say
-  // which shape each key draws, and the character has to match it. They were
-  // previously escapes, and the two halves were the wrong way round: the
-  // "grey top" key inserted the grey *bottom* character.
-  greyInv: '\u{1FB90}',
-  greyT: '\u{1FB8E}',
-  greyB: '\u{1FB8F}',
-  greyTSolidB: '\u{1FB92}',
-  solidTGreyB: '\u{1FB91}',
-};
-
-// Label tuple order matches `layers` below: [main, shift, keyword, function,
-// graphic].
+// Label tuple order matches `layers` below: [main, shift, keyword, function].
 type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
 
 /** Legend that inserts the keyword plus a trailing space. */
@@ -98,7 +46,7 @@ const ins = (text: string, insert: string): Legend => ({
   editor: { insert },
 });
 
-type Legends = [Legend, Legend, Legend, Legend, string | null];
+type Legends = [Legend, Legend, Legend, Legend];
 
 const lbl = (legend: Legend): KeyLabel | null =>
   legend === null
@@ -107,79 +55,64 @@ const lbl = (legend: Legend): KeyLabel | null =>
       ? { text: legend }
       : { text: legend.text, editor: legend.editor };
 
-function key(
-  token: string,
-  [main, shift, keyword, fn, graphic]: Legends,
-): KeyDef {
-  const glyphInsert = graphic === null ? undefined : GRAPHIC_INSERT[graphic];
+function key(token: string, [main, shift, keyword, fn]: Legends): KeyDef {
   return {
     id: token,
     spanX: 4,
     emits: [token],
-    labels: [
-      lbl(main),
-      lbl(shift),
-      lbl(keyword),
-      lbl(fn),
-      graphic === null
-        ? null
-        : {
-            glyph: graphic,
-            editor: glyphInsert === undefined ? null : { insert: glyphInsert },
-          },
-    ],
+    labels: [lbl(main), lbl(shift), lbl(keyword), lbl(fn)],
   };
 }
 
 const numberRow = [
-  key('Digit1', ['1', null, null, null, 'quadTL']),
-  key('Digit2', ['2', word('AND'), null, null, 'quadTR']),
-  key('Digit3', ['3', word('THEN'), null, null, 'quadBR']),
-  key('Digit4', ['4', word('TO'), null, null, 'quadBL']),
-  key('Digit5', ['5', { text: '←', editor: null }, null, null, 'halfL']),
-  key('Digit6', ['6', { text: '↓', editor: null }, null, null, 'halfB']),
-  key('Digit7', ['7', { text: '↑', editor: null }, null, null, 'halfT']),
-  key('Digit8', ['8', { text: '→', editor: null }, null, null, 'halfR']),
-  key('Digit9', ['9', null, null, null, null]),
-  key('Digit0', ['0', null, null, null, null]),
+  key('Digit1', ['1', null, null, null]),
+  key('Digit2', ['2', word('AND'), null, null]),
+  key('Digit3', ['3', word('THEN'), null, null]),
+  key('Digit4', ['4', word('TO'), null, null]),
+  key('Digit5', ['5', { text: '←', editor: null }, null, null]),
+  key('Digit6', ['6', { text: '↓', editor: null }, null, null]),
+  key('Digit7', ['7', { text: '↑', editor: null }, null, null]),
+  key('Digit8', ['8', { text: '→', editor: null }, null, null]),
+  key('Digit9', ['9', null, null, null]),
+  key('Digit0', ['0', null, null, null]),
 ];
 
 const qwertyRow = [
-  key('KeyQ', ['Q', '""', 'PLOT', 'SIN', 'q3NoTL']),
-  key('KeyW', ['W', word('OR'), 'UNPLOT', 'COS', 'q3NoTR']),
-  key('KeyE', ['E', word('STEP'), 'REM', 'TAN', 'q3NoBR']),
-  key('KeyR', ['R', '<=', 'RUN', 'INT', 'q3NoBL']),
-  key('KeyT', ['T', '<>', 'RAND', 'RND', 'diagTRBL']),
-  key('KeyY', ['Y', '>=', 'RETURN', 'STR$', 'diagTLBR']),
-  key('KeyU', ['U', '$', 'IF', 'CHR$', null]),
-  key('KeyI', ['I', '(', 'INPUT', 'CODE', null]),
-  key('KeyO', ['O', ')', 'POKE', 'PEEK', null]),
-  key('KeyP', ['P', '"', 'PRINT', 'TAB', null]),
+  key('KeyQ', ['Q', '""', 'PLOT', 'SIN']),
+  key('KeyW', ['W', word('OR'), 'UNPLOT', 'COS']),
+  key('KeyE', ['E', word('STEP'), 'REM', 'TAN']),
+  key('KeyR', ['R', '<=', 'RUN', 'INT']),
+  key('KeyT', ['T', '<>', 'RAND', 'RND']),
+  key('KeyY', ['Y', '>=', 'RETURN', 'STR$']),
+  key('KeyU', ['U', '$', 'IF', 'CHR$']),
+  key('KeyI', ['I', '(', 'INPUT', 'CODE']),
+  key('KeyO', ['O', ')', 'POKE', 'PEEK']),
+  key('KeyP', ['P', '"', 'PRINT', 'TAB']),
 ];
 
 const homeRow = [
-  key('KeyA', ['A', word('STOP'), 'NEW', 'ARCSIN', 'grey']),
-  key('KeyS', ['S', word('LPRINT'), 'SAVE', 'ARCCOS', 'greyT']),
-  key('KeyD', ['D', word('SLOW'), 'DIM', 'ARCTAN', 'greyB']),
-  key('KeyF', ['F', word('FAST'), 'FOR', 'SGN', 'greyTSolidB']),
-  key('KeyG', ['G', word('LLIST'), 'GOTO', 'ABS', 'solidTGreyB']),
-  key('KeyH', ['H', '**', 'GOSUB', 'SQR', 'greyInv']),
+  key('KeyA', ['A', word('STOP'), 'NEW', 'ARCSIN']),
+  key('KeyS', ['S', word('LPRINT'), 'SAVE', 'ARCCOS']),
+  key('KeyD', ['D', word('SLOW'), 'DIM', 'ARCTAN']),
+  key('KeyF', ['F', word('FAST'), 'FOR', 'SGN']),
+  key('KeyG', ['G', word('LLIST'), 'GOTO', 'ABS']),
+  key('KeyH', ['H', '**', 'GOSUB', 'SQR']),
   // '−' is U+2212 (not in the ZX81 charset); insert the ASCII hyphen.
-  key('KeyJ', ['J', ins('−', '-'), 'LOAD', 'VAL', null]),
-  key('KeyK', ['K', '+', 'LIST', 'LEN', null]),
-  key('KeyL', ['L', '=', 'LET', 'USR', null]),
-  key('Enter', [act('↵', 'newline'), null, null, null, null]),
+  key('KeyJ', ['J', ins('−', '-'), 'LOAD', 'VAL']),
+  key('KeyK', ['K', '+', 'LIST', 'LEN']),
+  key('KeyL', ['L', '=', 'LET', 'USR']),
+  key('Enter', [act('↵', 'newline'), null, null, null]),
 ];
 
 const zxcvRow = centerRow([
-  key('KeyZ', ['Z', ':', 'COPY', 'LN', null]),
-  key('KeyX', ['X', ';', 'CLEAR', 'EXP', null]),
-  key('KeyC', ['C', '?', 'CONT', 'AT', null]),
-  key('KeyV', ['V', '/', 'CLS', null, null]),
-  key('KeyB', ['B', '*', 'SCROLL', 'INKEY$', null]),
-  key('KeyN', ['N', '<', 'NEXT', 'NOT', null]),
-  key('KeyM', ['M', '>', 'PAUSE', 'PI', null]),
-  key('Period', ['.', ',', null, null, null]),
+  key('KeyZ', ['Z', ':', 'COPY', 'LN']),
+  key('KeyX', ['X', ';', 'CLEAR', 'EXP']),
+  key('KeyC', ['C', '?', 'CONT', 'AT']),
+  key('KeyV', ['V', '/', 'CLS', null]),
+  key('KeyB', ['B', '*', 'SCROLL', 'INKEY$']),
+  key('KeyN', ['N', '<', 'NEXT', 'NOT']),
+  key('KeyM', ['M', '>', 'PAUSE', 'PI']),
+  key('Period', ['.', ',', null, null]),
 ]);
 
 const shiftKey: KeyDef = {
@@ -188,40 +121,28 @@ const shiftKey: KeyDef = {
   emits: ['Shift'],
   modifier: 'shift',
   style: 'shift',
-  labels: [{ text: '⇧' }, null, null, null, null],
+  labels: [{ text: '⇧' }, null, null, null],
 };
 
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: [
-    { text: '␣', editor: { insert: ' ' } },
-    { text: '£' },
-    null,
-    null,
-    { glyph: 'solid', editor: { insert: '█' } },
-  ],
+  labels: [{ text: '␣', editor: { insert: ' ' } }, { text: '£' }, null, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
 const quoteKey: KeyDef = {
   id: 'Quote',
   spanX: 4,
   emits: ['Shift', 'KeyP'],
-  labels: [{ text: '"' }, null, null, null, null],
+  labels: [{ text: '"' }, null, null, null],
 };
 
 const backspaceKey: KeyDef = {
   id: 'Backspace',
   spanX: 4,
   emits: ['Shift', 'Digit0'],
-  labels: [
-    { text: '⌫', editor: { action: 'backspace' } },
-    null,
-    null,
-    null,
-    null,
-  ],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null, null],
 };
 
 const rows: KeyDef[][] = [
@@ -265,17 +186,19 @@ export const zx81KeyboardLayout: KeyboardLayout = {
       activeWhen: [],
       editorInsertStyle: 'word',
     },
-    { id: 'graphic', name: 'GRAPHICS', position: 'br', activeWhen: [] },
   ],
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'main' },
     { id: 'keyword', name: 'KEYWORD', layer: 'keyword' },
     { id: 'function', name: 'FUNCTION', layer: 'function' },
-    { id: 'graphic', name: 'GRAPHICS', layer: 'graphic' },
+    // The graphics have no key layer of their own; the mode shows the palette
+    // below, whose cells insert the characters directly.
+    { id: 'graphic', name: 'GRAPHICS', layer: 'main', palette: 'graphics' },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows,
-  glyphs: zx81Glyphs,
+  graphicsPalette: { sections: [{ entries: ZX81_GRAPHICS }] },
+  glyphs: {},
   options: { minHoldFrames: 3, compactDefaultLayer: 'keyword' },
   // Sinclair joystick convention: 5/6/7/8 = left/down/up/right; Space/Enter as
   // fire (key-mapped mode).

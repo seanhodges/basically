@@ -64,6 +64,108 @@
   gap: 3px;
 }
 
+/* ---------- Graphics palette ----------
+   Shown in place of the key rows by a mode with `palette: 'graphics'`. The
+   machines have more graphics characters than the keyboard can print at a
+   readable size, so they get a grid of their own: each character drawn large,
+   with the key it lives on in the corner so the palette still teaches the real
+   keyboard. Column count follows the width available (auto-fill) while the cell
+   - and so the character - keeps its size; the grid scrolls inside the
+   keyboard's height rather than growing it. */
+.vk-palette {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The palette is a scroller, so it opts back into touch panning (the
+     keyboard as a whole sets touch-action: none for key drags). */
+  touch-action: pan-y;
+  padding: 2px 2px 4px;
+  max-width: calc(var(--vk-aspect) * 46vh);
+  margin-inline: auto;
+  width: 100%;
+}
+
+.vk-palette-title {
+  padding: 4px 2px 2px;
+  color: #9aa0ae;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vk-palette-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--vk-key-min), 1fr));
+  gap: 3px;
+}
+
+.vk-graphic {
+  position: relative;
+  /* Sizes the character off the cell (60cqw below) so it fills whatever width
+     the auto-fill column count settles on. */
+  container-type: inline-size;
+  aspect-ratio: 1;
+  min-height: var(--vk-key-min);
+  display: flex;
+  /* Bottom-aligned: the face draws its graphics up from the baseline (descent
+     0), so anchoring to the bottom of the cell both matches how the machine
+     fills a character cell and keeps the top-left key hint clear of most
+     shapes. */
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+  border-radius: 4px;
+  background: #0a0a0a;
+  box-shadow:
+    0 2px 0 rgb(0 0 0 / 80%),
+    inset 0 1px 0 rgb(255 255 255 / 7%);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vk-graphic:active {
+  transform: translateY(1px);
+}
+
+.vk-graphic.vk-focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* The character itself: the bundled graphics faces first (src/styles.css), so
+   a shape renders as itself rather than as a missing-glyph box. Sized off the
+   cell so it stays large whatever the column count works out to.
+
+   The scaleX squares the shape up. The bundled face is a text font - half an em
+   wide by one em tall, which is right in the editor's 1:2 character cells but
+   draws a machine's square 8x8 cell as a narrow bar. Doubling the width makes
+   the palette show the shape in the proportions the machine draws it, which is
+   the point of the palette; the editor keeps the text metrics. */
+.vk-graphic-char {
+  font-family: var(--mono);
+  font-size: clamp(15px, 50cqw, 26px);
+  line-height: 1;
+  color: #e8ecf4;
+  display: inline-block;
+  transform: scaleX(2);
+}
+
+.vk-graphic-key {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  color: #aab1c0;
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  /* A full-cell graphic reaches under the hint; the shadow keeps it readable. */
+  text-shadow:
+    0 0 3px #000,
+    0 0 2px #000;
+  pointer-events: none;
+}
+
 .vk-key {
   position: relative;
   height: 100%;
@@ -509,6 +611,23 @@
       calc((95cqw - var(--vk-rows-reserve, 0px)) / var(--vk-aspect))
     );
   }
+}
+
+/* The palette takes the same box the key block would: fill the height, take the
+   aspect-derived width clamped to what's left beside the strip. Without an
+   explicit width the auto-sized grid column collapses to one cell wide, and the
+   palette's content height then pushes the whole keyboard out of the overlay. */
+.vk-landscape .vk-palette {
+  grid-column: 2;
+  align-self: stretch;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  max-width: none;
+  width: min(
+    calc(100cqh * var(--vk-aspect)),
+    calc(100cqw - var(--vk-rows-reserve, 0px))
+  );
 }
 
 .vk-landscape .vk-strip {

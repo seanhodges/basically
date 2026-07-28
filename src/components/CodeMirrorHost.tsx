@@ -769,7 +769,12 @@ export function CodeMirrorHost({
         EditorView.theme({
           '&': { height: '100%', fontSize: '14px' },
           '.cm-scroller': {
-            fontFamily: "'IBM Plex Mono', 'Fira Mono', monospace",
+            fontFamily: 'var(--mono)',
+            // Fixed rather than derived from the font: the mono stack starts
+            // with the bundled graphics faces (src/styles.css), and letting the
+            // row height come from whichever face drew the line would resize a
+            // row the moment a block graphic appeared in it.
+            lineHeight: '1.3',
           },
         }),
       ],

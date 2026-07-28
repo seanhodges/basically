@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { petKeyboardLayout } from './keyboardLayout';
 import { resolveEditorAction } from '../../keyboard/editorActions';
+import { C64_SHIFT_GRAPHICS } from '../commodore64/graphics';
 import { petTokenToPositions } from '../../emulator/pet/keyboard';
 
 const layout = petKeyboardLayout;
@@ -22,23 +23,25 @@ describe('pet keyboard layout', () => {
   it('offers ABC and GRAPHICS modes and has no Commodore key', () => {
     expect(layout.editorModes?.map((m) => m.id)).toEqual(['abc', 'graphics']);
     const graphics = layout.editorModes?.find((m) => m.id === 'graphics');
-    expect(graphics?.layer).toBe('gfxShift');
+    expect(graphics?.palette).toBe('graphics');
+    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift']);
     // The graphics keyboard has no Commodore key or modifier - only SHIFT.
     expect(layout.modifiers.map((m) => m.id)).toEqual(['shift']);
     expect(allKeys.some((k) => k.id === 'Commodore')).toBe(false);
   });
 
-  it('puts the single block-graphic set on the letter keys', () => {
-    const byId = new Map(allKeys.map((k) => [k.id, k]));
-    expect(resolveEditorAction(layout, byId.get('A')!, 'gfxShift')).toEqual({
-      insert: '♠',
-    });
-    expect(resolveEditorAction(layout, byId.get('S')!, 'gfxShift')).toEqual({
-      insert: '♥',
-    });
-    expect(resolveEditorAction(layout, byId.get('Z')!, 'gfxShift')).toEqual({
-      insert: '♦',
-    });
+  it('offers the single block-graphic set as one palette section', () => {
+    const sections = layout.graphicsPalette!.sections;
+    expect(sections).toHaveLength(1);
+    expect(sections[0]!.entries).toEqual(C64_SHIFT_GRAPHICS);
+    const find = (key: string) =>
+      sections[0]!.entries.find((e) => e.key === key);
+    expect(find('A')?.char).toBe('♠');
+    expect(find('S')?.char).toBe('♥');
+    expect(find('Z')?.char).toBe('♦');
+    // The PET reaches them with SHIFT; the palette says so on every cell.
+    for (const entry of sections[0]!.entries)
+      expect(entry.modifier, entry.key).toBe('SHIFT');
   });
 
   it('puts operators and punctuation on the SHIFT layer as editor inserts', () => {
