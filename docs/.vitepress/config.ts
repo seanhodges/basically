@@ -239,14 +239,6 @@ export default withPwa(
               text: 'Dialect roadmap',
               link: '/contributing/dialect-roadmap',
             },
-            {
-              text: 'Semigraphics support',
-              link: '/contributing/semigraphics-support',
-            },
-            {
-              text: 'Glyph sources',
-              link: '/contributing/glyph-sources',
-            },
           ],
         },
       ],

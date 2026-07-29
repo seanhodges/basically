@@ -147,6 +147,10 @@ cassette audio), and `docs/reference/serial-protocol.md` (the WebSerial bridge).
   files, `.claude/` skills) or internal API symbols — describe what the IDE does,
   and cross-link other docs with relative links (`./page`). `docs/contributing/`
   is the developer exception, where references to project files are fine.
+- **Docs sidebar** — never add, remove, or reorder entries in the `sidebar`
+  config in `docs/.vitepress/config.ts` unless the user explicitly asks for it.
+  Adding a new docs page does **not** imply adding it to the sidebar: ask first,
+  and leave the sidebar untouched until the user says yes.
 
 ## Don't touch
 
