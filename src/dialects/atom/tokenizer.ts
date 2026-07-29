@@ -157,7 +157,10 @@ function validateStatements(
       skipStatement();
       continue;
     }
-    flag(i, i + 1, c);
+    // One character may be an astral Semigraphics-6 sextant (a surrogate pair),
+    // so report the whole code point rather than half of one.
+    const ch = String.fromCodePoint(body.codePointAt(i)!);
+    flag(i, i + ch.length, ch);
     skipStatement();
   }
 }

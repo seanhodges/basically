@@ -29,11 +29,12 @@ describe('atom keyboard layout', () => {
     });
   });
 
-  it('offers ABC, SYM and CURSOR modes and no function keys', () => {
+  it('offers ABC, SYM, CURSOR and GRAPHICS modes and no function keys', () => {
     expect((layout.editorModes ?? []).map((m) => m.id)).toEqual([
       'abc',
       'sym',
       'cursor',
+      'graphic',
     ]);
     expect(functionKeys).toHaveLength(0);
   });
@@ -100,6 +101,23 @@ describe('atom keyboard layout', () => {
           ).not.toThrow();
         }
       }
+    }
+  });
+
+  it('every graphics-palette character re-encodes to its declared code', () => {
+    const sections = layout.graphicsPalette?.sections ?? [];
+    expect(sections.length).toBe(1);
+    const entries = sections.flatMap((s) => s.entries);
+    // 0xA1–0xDF: the 64 Semigraphics-6 cells minus the blank, which has no
+    // character of its own.
+    expect(entries.length).toBe(63);
+    for (const entry of entries) {
+      expect(
+        Array.from(atomCharset.toMachine(entry.char)),
+        `${entry.char} -> 0x${entry.code.toString(16)}`,
+      ).toEqual([entry.code]);
+      // No Atom keycap carries a graphic, so cells are labelled by code.
+      expect(entry.key).toBeUndefined();
     }
   });
 

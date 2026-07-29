@@ -17,6 +17,7 @@ export const PALETTE_MACHINES = [
   'commodore64',
   'pet',
   'vic20',
+  'atom',
   'trs80',
   'cpc464',
   'cpc6128',

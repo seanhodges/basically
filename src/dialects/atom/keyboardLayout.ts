@@ -5,6 +5,7 @@ import type {
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
 import { bottomRow, centerRow } from '../../keyboard/templateRows';
+import { ATOM_GRAPHICS } from './graphics';
 
 /**
  * The Acorn Atom keyboard on the standard virtual-keyboard template.
@@ -29,6 +30,10 @@ import { bottomRow, centerRow } from '../../keyboard/templateRows';
  * keycap) overlays `↑ ← ↓ →` on the W/A/S/D keys, moving the editor caret -
  * the same concept as the CPC 464 sibling. Non-WASD keys keep typing normally
  * in CURSOR mode via the base-layer fallback.
+ *
+ * A GRAPHICS mode tab pins no layer of its own: it swaps the key grid for the
+ * Semigraphics-6 palette in {@link import('./graphics').ATOM_GRAPHICS}, since
+ * the machine printed no graphics on any keycap.
  */
 
 type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
@@ -197,9 +202,16 @@ export const atomKeyboardLayout: KeyboardLayout = {
     { id: 'abc', name: 'ABC', layer: 'base' },
     { id: 'sym', name: 'SYM', layer: 'sym' },
     { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+    // The Atom prints no graphics on its keycaps and its BASIC has no CHR$, so
+    // this mode pins no layer: the palette below carries the Semigraphics-6
+    // cells and labels each with the byte a program puts in a string literal.
+    { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows,
+  graphicsPalette: {
+    sections: [{ title: 'Semigraphics 6 (161–223)', entries: ATOM_GRAPHICS }],
+  },
   glyphs: {},
   options: { minHoldFrames: 4 },
   // Acorn convention: Z/X = left/right, K/M = up/down; Space / Return as fire.

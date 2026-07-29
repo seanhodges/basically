@@ -79,6 +79,13 @@ when it renders that code. A spelling that was canonical before SHALL still be
 accepted when reading a program, and SHALL encode to the same machine code, so
 that no previously saved program becomes unreadable.
 
+Where the machine shows one stored byte as either a graphics shape or a
+letter depending on the display state in force when it is shown, the graphics
+shape SHALL be that byte's canonical editor form. A byte's text form SHALL
+NOT vary with the contents of other bytes: the editor shows one spelling, and
+the program still encodes byte-exactly whichever way the machine would have
+displayed it.
+
 A graphics character the machine stores as one byte SHALL be one character in
 the editor, including where the machine's own shape for it is undefined (the
 user-defined graphics), so that editing cannot leave half of one behind.
@@ -102,6 +109,13 @@ user-defined graphics), so that editing cannot leave half of one behind.
   the dialect used to render it
 - **THEN** the program loads, that character encodes to the same machine code
   as before, and it is shown in the canonical form
+
+#### Scenario: A context-dependent byte keeps one spelling
+
+- **WHEN** the user imports a program that stores a byte the machine would
+  display as a letter in one display state and as a graphics shape in another
+- **THEN** the editor shows the graphics shape, and exporting the program
+  writes back the identical byte
 
 #### Scenario: A user-defined graphic is a single character
 

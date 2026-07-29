@@ -29,6 +29,15 @@ declare module 'jsbeeb/src/ppia.js' {
   }
 }
 
+declare module 'jsbeeb/src/6847_fontdata.js' {
+  /**
+   * The MC6847 internal character ROM the Atom's VDG draws with: 160 glyphs of
+   * 12 rows, one byte per row (8 pixels, high bit leftmost). Entries 0x40-0x7F
+   * are the 64 Semigraphics-6 cell patterns.
+   */
+  export function makeCharsAtom(): Uint8Array;
+}
+
 declare module 'jsbeeb/src/utils_atom.js' {
   /** Atom key-matrix positions by key name: `[row, col]`. */
   export const ATOM: Record<string, readonly [number, number]>;
