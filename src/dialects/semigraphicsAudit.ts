@@ -78,6 +78,8 @@ export const IN_SCOPE = new Set([
   'trs80',
   'cpc464',
   'cpc6128',
+  'bbcmicro',
+  'bbcmaster',
 ]);
 
 /**
@@ -110,9 +112,13 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // Quadrant mosaics plus the upper block cpc464/charset.ts leaves unmapped.
   cpc464: [...range(0x80, 0x9f), ...range(0xc0, 0xdf)],
   cpc6128: [...range(0x80, 0x9f), ...range(0xc0, 0xdf)],
-  // SAA5050 MODE 7 sixel mosaics, per bbcmicro/charset.ts.
-  bbcmicro: range(0xa0, 0xff),
-  bbcmaster: range(0xa0, 0xff),
+  // SAA5050 MODE 7 mosaics. The chip treats a code as a mosaic iff bit 5 is
+  // set (%xx1xxxxx; teletext level-1 character set, and the SAA5050
+  // implementation the IDE's own emulator ships - see the jsbeeb crosscheck in
+  // bbcmicro/mode7Graphics.test.ts). Bit-5-clear codes blast through as
+  // capitals even in graphics mode, so 0xC0-0xDF are not graphics.
+  bbcmicro: [...range(0xa0, 0xbf), ...range(0xe0, 0xff)],
+  bbcmaster: [...range(0xa0, 0xbf), ...range(0xe0, 0xff)],
   // The Atom's charset comment covers 0x80-0xFF as MC6847 inverse video, which
   // is not the same thing as its chunky graphics. Establishing where those sit
   // needs the Atom technical manual / MC6847 datasheet, so this stays open

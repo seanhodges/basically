@@ -248,7 +248,9 @@ function tokenizeBody(
   };
 
   while (i < body.length) {
-    const ch = body[i]!;
+    // One character may be an astral mosaic sextant (a surrogate pair), so
+    // read by code point and advance by its UTF-16 length.
+    const ch = String.fromCodePoint(body.codePointAt(i)!);
 
     // Spaces are copied verbatim and leave statement/line-number state intact.
     if (ch === ' ' || ch === '\t') {
@@ -414,7 +416,7 @@ function tokenizeBody(
     }
     if (!emit(ch, i)) return null;
     statementStart = false;
-    i++;
+    i += ch.length;
   }
 
   return failed ? null : out;

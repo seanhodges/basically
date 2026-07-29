@@ -66,6 +66,13 @@ const CASES: Case[] = [
     target: 'tap-file',
     notText: { 0x80: 'the blank graphic renders as a space' },
   },
+  ...(['bbcmicro', 'bbcmaster'] as const).map((id) => ({
+    id,
+    target: 'bbc-file',
+    unreachable: {
+      0xa0: 'the blank mosaic; its text form would be a space, so it has none',
+    },
+  })),
   {
     id: 'commodore64',
     target: 'c64-prg',

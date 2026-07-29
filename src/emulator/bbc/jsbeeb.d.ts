@@ -226,3 +226,19 @@ declare module 'jsbeeb/src/utils.js' {
   /** BBC keyboard matrix positions by key name: [column, row]. */
   export const BBC: Record<string, [number, number]>;
 }
+
+declare module 'jsbeeb/src/teletext.js' {
+  /**
+   * The SAA5050 emulation. Its constructor builds the three 96-character ×
+   * 20-scanline glyph sets (each row a packed 32-bit word of 12 doubled
+   * pixels: bits 0-15 the left half of the cell, bits 16-31 the right half);
+   * index `(charCode - 0x20) * 20 + row`. `graphicsGlyphs` holds the mosaic
+   * set - codes with bit 5 clear (the blast-through capitals) keep their
+   * `normalGlyphs` shapes.
+   */
+  export class Teletext {
+    normalGlyphs: Uint32Array;
+    graphicsGlyphs: Uint32Array;
+    separatedGlyphs: Uint32Array;
+  }
+}

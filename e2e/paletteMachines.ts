@@ -12,6 +12,8 @@ export const PALETTE_MACHINES = [
   'zx80',
   'zxspectrum',
   'zxspectrum128',
+  'bbcmicro',
+  'bbcmaster',
   'commodore64',
   'pet',
   'vic20',

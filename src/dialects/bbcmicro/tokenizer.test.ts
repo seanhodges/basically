@@ -196,8 +196,20 @@ describe('BBC detokenizer is context-aware', () => {
     expect(detokenizeProgram(data.bytes)).toBe('10 DATA {0x0C},x:y\n');
   });
 
+  // A mosaic byte inside a string is MODE 7 graphics data whose code (0xE4)
+  // collides with a keyword token; it must come back as the sextant, not text.
+  it('does not expand mosaic-valued bytes inside a string', () => {
+    const glyph = '\u{1FB22}'; // sextant -> code 0xE4
+    const src = `10 PRINT "{GRAPHICS RED}${glyph}"`;
+    const { bytes, errors } = tokenizeProgram(src);
+    expect(errors).toEqual([]);
+    expect(Array.from(bytes)).toContain(0xe4);
+    expect(detokenizeProgram(bytes)).toBe(src + '\n');
+  });
+
   it('round-trips raw control-code and top-bit escapes in strings', () => {
-    const source = '10 PRINT "{0x0C}beep{0x07}{0xFF}"';
+    // 0xDF is a blast-through capital, so the raw escape is its canonical form.
+    const source = '10 PRINT "{0x0C}beep{0x07}{0xDF}"';
     const { bytes, errors } = tokenizeProgram(source);
     expect(errors).toEqual([]);
     expect(Array.from(bytes)).toEqual(
@@ -237,7 +249,7 @@ describe('BBC import round-trip fixtures', () => {
       '10 MODE 7',
       '20 PRINT "{RED}RED {YELLOW}YELLOW"',
       '30 PRINT "{DOUBLE HEIGHT}BIG"',
-      '40 PRINT "{GRAPHICS BLUE}{0xFF}{0xFF}"',
+      '40 PRINT "{GRAPHICS BLUE}██"',
     ].join('\n');
     const { image, errors } = bbcmicro.tokenize(source);
     expect(errors).toEqual([]);

@@ -65,10 +65,12 @@ describe('semigraphics audit', () => {
         `IN_SCOPE names unregistered dialect "${id}"`,
       ).toBe(true);
     }
-    // The Sinclair, Commodore, Tandy and Amstrad families. The BBC pair and the
-    // Atom are still out: see docs/contributing/semigraphics-support.md for
-    // what each of them needs first.
+    // The Sinclair, Acorn BBC, Commodore, Tandy and Amstrad families. The
+    // Atom is still out: see docs/contributing/semigraphics-support.md for
+    // what it needs first.
     expect([...IN_SCOPE].sort()).toEqual([
+      'bbcmaster',
+      'bbcmicro',
       'commodore64',
       'cpc464',
       'cpc6128',

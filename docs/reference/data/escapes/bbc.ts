@@ -148,7 +148,7 @@ export const bbcEscapes: EscapeTableData = {
       bytes: 'any',
       category: 'raw',
       description:
-        'Any raw byte as two hex digits - VDU control codes 0x00–0x1F, delete (0x7F), the unnamed teletext slots (0x80, 0x8E–0x90, 0x9B) and every top-bit byte 0xA0–0xFF. Recognised in strings, REM, DATA and *-command lines.',
+        'Any raw byte as two hex digits - VDU control codes 0x00–0x1F, delete (0x7F), the unnamed teletext slots (0x80, 0x8E–0x90, 0x9B), the blank mosaic (0xA0) and the top-bit capitals 0xC0–0xDF. The MODE 7 mosaics 0xA1–0xBF and 0xE0–0xFF are written as their block-graphics characters instead, though {0xNN} still loads. Recognised in strings, REM, DATA and *-command lines.',
       codes: 'rest',
       example: { source: '{0x7F}', bytes: [0x7f] },
     },

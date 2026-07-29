@@ -5,6 +5,7 @@ import type {
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
 import { bottomRow, centerRow } from '../../keyboard/templateRows';
+import { BBC_LOW_MOSAICS, BBC_HIGH_MOSAICS } from './graphics';
 
 /**
  * The BBC Micro Model B keyboard on the standard virtual-keyboard template.
@@ -201,9 +202,19 @@ export const bbcKeyboardLayout: KeyboardLayout = {
     { id: 'abc', name: 'ABC', layer: 'base' },
     { id: 'sym', name: 'SYM', layer: 'sym' },
     { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
+    // The BBC prints no graphics on its keycaps, so this mode pins no layer:
+    // the palette below carries the MODE 7 mosaics and labels each with the
+    // code CHR$ takes, which is how the machine itself reached them.
+    { id: 'graphic', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows,
+  graphicsPalette: {
+    sections: [
+      { title: 'CHR$(161)–CHR$(191)', entries: BBC_LOW_MOSAICS },
+      { title: 'CHR$(224)–CHR$(255)', entries: BBC_HIGH_MOSAICS },
+    ],
+  },
   functionKeys,
   glyphs: {},
   options: { minHoldFrames: 4 },
