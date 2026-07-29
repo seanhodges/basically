@@ -119,10 +119,11 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // capitals even in graphics mode, so 0xC0-0xDF are not graphics.
   bbcmicro: [...range(0xa0, 0xbf), ...range(0xe0, 0xff)],
   bbcmaster: [...range(0xa0, 0xbf), ...range(0xe0, 0xff)],
-  // The Atom's charset comment covers 0x80-0xFF as MC6847 inverse video, which
-  // is not the same thing as its chunky graphics. Establishing where those sit
-  // needs the Atom technical manual / MC6847 datasheet, so this stays open
-  // rather than being guessed at.
+  // Established but not yet mapped: the kernel ROM sends program bytes
+  // 0xA0-0xDF to the MC6847's 64 Semigraphics-6 sextant patterns (see
+  // docs/contributing/dialect-plans/atom-semigraphics.md for the probe and
+  // the recommended change). Stays null until the charset actually maps
+  // them - declaring the range first would report 64 gaps, not an open item.
   atom: null,
 };
 

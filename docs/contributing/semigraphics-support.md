@@ -538,9 +538,11 @@ the machine — it is the machine that reaches its graphics differently.
 
 ## Machines this page does not yet cover
 
-The Acorn Atom keeps whatever support it had. What it would need:
-
-- **Acorn Atom** — the charset currently treats `0x80–0xFF` as MC6847 inverse
-  video, which is not the same thing as its chunky graphics; inverse Latin has
-  no Unicode form and must stay escaped regardless. Where the graphics actually
-  sit needs the Atom technical manual and the MC6847 datasheet.
+The Acorn Atom keeps whatever support it had. Its graphics range has now been
+established — the kernel ROM maps program bytes `0xA0`–`0xDF` onto the full
+64-pattern MC6847 Semigraphics-6 sextant set — but the change that would map
+them has not been made. The findings, and the recommended shape of that
+change, are in `dialect-plans/atom-semigraphics.md`; the audit keeps
+reporting the Atom as unestablished until the mapping actually ships, because
+a declared range with no glyphs would read as 64 new gaps rather than as the
+open item it is.
