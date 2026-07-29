@@ -39,8 +39,8 @@ reported as such rather than guessed at.
 | ZX80 | ✅ | 21 (0x02-0x0B, 0x80, 0x82-0x8B) | 21 | 5 | 0 | 0 | 21/21 |
 | Spectrum | ✅ | 37 (0x80-0xA4) | 36 | 21 | 0 | 1 | 36/37 |
 | Spectrum 128 | ✅ | 35 (0x80-0xA2) | 34 | 19 | 0 | 1 | 34/35 |
-| BBC Micro | — | 96 (0xA0-0xFF) | 0 | 0 | 0 | 96 | 0/96 |
-| BBC Master | — | 96 (0xA0-0xFF) | 0 | 0 | 0 | 96 | 0/96 |
+| BBC Micro | ✅ | 64 (0xA0-0xBF, 0xE0-0xFF) | 63 | 60 | 0 | 1 | 63/64 |
+| BBC Master | ✅ | 64 (0xA0-0xBF, 0xE0-0xFF) | 63 | 60 | 0 | 1 | 63/64 |
 | C64 | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 58/64 |
 | PET | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 29/64 |
 | VIC-20 | ✅ | 64 (0xA0-0xDF) | 57 | 12 | 1 | 5 | 58/64 |
@@ -94,23 +94,23 @@ Spelled as: 1 escape-raw, 19 glyph-astral, 15 glyph-bmp.
 
 ### BBC Micro
 
-Charset family `bbc`. Graphics bytes 0xA0-0xFF.
+Charset family `bbc`. Graphics bytes 0xA0-0xBF, 0xE0-0xFF.
 
-Spelled as: 96 escape-raw.
+Spelled as: 1 escape-raw, 60 glyph-astral, 3 glyph-bmp.
 
-**Gap:** 96 graphics bytes have no character of their own and render as raw escapes: 0xA0-0xFF.
+**Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0xA0.
 
-**Gap:** 96 graphics bytes cannot be typed on the on-screen keyboard: 0xA0-0xFF.
+**Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0xA0.
 
 ### BBC Master
 
-Charset family `bbc`. Graphics bytes 0xA0-0xFF.
+Charset family `bbc`. Graphics bytes 0xA0-0xBF, 0xE0-0xFF.
 
-Spelled as: 96 escape-raw.
+Spelled as: 1 escape-raw, 60 glyph-astral, 3 glyph-bmp.
 
-**Gap:** 96 graphics bytes have no character of their own and render as raw escapes: 0xA0-0xFF.
+**Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0xA0.
 
-**Gap:** 96 graphics bytes cannot be typed on the on-screen keyboard: 0xA0-0xFF.
+**Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0xA0.
 
 ### C64
 
@@ -249,12 +249,12 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+2582` | ▂ | BMP | commodore64, pet, vic20 |
 | `U+2583` | ▃ | BMP | commodore64, pet, vic20 |
 | `U+2584` | ▄ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2588` | █ | BMP | cpc464, cpc6128, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+258C` | ▌ | BMP | commodore64, cpc464, cpc6128, pet, trs80, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2588` | █ | BMP | bbcmaster, bbcmicro, cpc464, cpc6128, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+258C` | ▌ | BMP | bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, pet, trs80, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+258D` | ▍ | BMP | commodore64, pet, vic20 |
 | `U+258E` | ▎ | BMP | commodore64, pet, vic20 |
 | `U+258F` | ▏ | BMP | cpc464, cpc6128 |
-| `U+2590` | ▐ | BMP | cpc464, cpc6128, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2590` | ▐ | BMP | bbcmaster, bbcmicro, cpc464, cpc6128, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+2592` | ▒ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81 |
 | `U+2594` | ▔ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
 | `U+2595` | ▕ | BMP | commodore64, cpc464, cpc6128, pet, vic20 |
@@ -316,66 +316,66 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+1F142` | 🅂 | astral | zxspectrum, zxspectrum128 |
 | `U+1F143` | 🅃 | astral | zxspectrum, zxspectrum128 |
 | `U+1F144` | 🅄 | astral | zxspectrum, zxspectrum128 |
-| `U+1FB00` | 🬀 | astral | trs80 |
-| `U+1FB01` | 🬁 | astral | trs80 |
-| `U+1FB02` | 🬂 | astral | trs80 |
-| `U+1FB03` | 🬃 | astral | trs80 |
-| `U+1FB04` | 🬄 | astral | trs80 |
-| `U+1FB05` | 🬅 | astral | trs80 |
-| `U+1FB06` | 🬆 | astral | trs80 |
-| `U+1FB07` | 🬇 | astral | trs80 |
-| `U+1FB08` | 🬈 | astral | trs80 |
-| `U+1FB09` | 🬉 | astral | trs80 |
-| `U+1FB0A` | 🬊 | astral | trs80 |
-| `U+1FB0B` | 🬋 | astral | trs80 |
-| `U+1FB0C` | 🬌 | astral | trs80 |
-| `U+1FB0D` | 🬍 | astral | trs80 |
-| `U+1FB0E` | 🬎 | astral | trs80 |
-| `U+1FB0F` | 🬏 | astral | trs80 |
-| `U+1FB10` | 🬐 | astral | trs80 |
-| `U+1FB11` | 🬑 | astral | trs80 |
-| `U+1FB12` | 🬒 | astral | trs80 |
-| `U+1FB13` | 🬓 | astral | trs80 |
-| `U+1FB14` | 🬔 | astral | trs80 |
-| `U+1FB15` | 🬕 | astral | trs80 |
-| `U+1FB16` | 🬖 | astral | trs80 |
-| `U+1FB17` | 🬗 | astral | trs80 |
-| `U+1FB18` | 🬘 | astral | trs80 |
-| `U+1FB19` | 🬙 | astral | trs80 |
-| `U+1FB1A` | 🬚 | astral | trs80 |
-| `U+1FB1B` | 🬛 | astral | trs80 |
-| `U+1FB1C` | 🬜 | astral | trs80 |
-| `U+1FB1D` | 🬝 | astral | trs80 |
-| `U+1FB1E` | 🬞 | astral | trs80 |
-| `U+1FB1F` | 🬟 | astral | trs80 |
-| `U+1FB20` | 🬠 | astral | trs80 |
-| `U+1FB21` | 🬡 | astral | trs80 |
-| `U+1FB22` | 🬢 | astral | trs80 |
-| `U+1FB23` | 🬣 | astral | trs80 |
-| `U+1FB24` | 🬤 | astral | trs80 |
-| `U+1FB25` | 🬥 | astral | trs80 |
-| `U+1FB26` | 🬦 | astral | trs80 |
-| `U+1FB27` | 🬧 | astral | trs80 |
-| `U+1FB28` | 🬨 | astral | trs80 |
-| `U+1FB29` | 🬩 | astral | trs80 |
-| `U+1FB2A` | 🬪 | astral | trs80 |
-| `U+1FB2B` | 🬫 | astral | trs80 |
-| `U+1FB2C` | 🬬 | astral | trs80 |
-| `U+1FB2D` | 🬭 | astral | trs80 |
-| `U+1FB2E` | 🬮 | astral | trs80 |
-| `U+1FB2F` | 🬯 | astral | trs80 |
-| `U+1FB30` | 🬰 | astral | trs80 |
-| `U+1FB31` | 🬱 | astral | trs80 |
-| `U+1FB32` | 🬲 | astral | trs80 |
-| `U+1FB33` | 🬳 | astral | trs80 |
-| `U+1FB34` | 🬴 | astral | trs80 |
-| `U+1FB35` | 🬵 | astral | trs80 |
-| `U+1FB36` | 🬶 | astral | trs80 |
-| `U+1FB37` | 🬷 | astral | trs80 |
-| `U+1FB38` | 🬸 | astral | trs80 |
-| `U+1FB39` | 🬹 | astral | trs80 |
-| `U+1FB3A` | 🬺 | astral | trs80 |
-| `U+1FB3B` | 🬻 | astral | trs80 |
+| `U+1FB00` | 🬀 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB01` | 🬁 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB02` | 🬂 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB03` | 🬃 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB04` | 🬄 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB05` | 🬅 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB06` | 🬆 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB07` | 🬇 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB08` | 🬈 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB09` | 🬉 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB0A` | 🬊 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB0B` | 🬋 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB0C` | 🬌 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB0D` | 🬍 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB0E` | 🬎 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB0F` | 🬏 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB10` | 🬐 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB11` | 🬑 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB12` | 🬒 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB13` | 🬓 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB14` | 🬔 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB15` | 🬕 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB16` | 🬖 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB17` | 🬗 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB18` | 🬘 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB19` | 🬙 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB1A` | 🬚 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB1B` | 🬛 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB1C` | 🬜 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB1D` | 🬝 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB1E` | 🬞 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB1F` | 🬟 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB20` | 🬠 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB21` | 🬡 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB22` | 🬢 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB23` | 🬣 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB24` | 🬤 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB25` | 🬥 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB26` | 🬦 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB27` | 🬧 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB28` | 🬨 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB29` | 🬩 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB2A` | 🬪 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB2B` | 🬫 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB2C` | 🬬 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB2D` | 🬭 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB2E` | 🬮 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB2F` | 🬯 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB30` | 🬰 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB31` | 🬱 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB32` | 🬲 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB33` | 🬳 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB34` | 🬴 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB35` | 🬵 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB36` | 🬶 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB37` | 🬷 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB38` | 🬸 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB39` | 🬹 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB3A` | 🬺 | astral | bbcmaster, bbcmicro, trs80 |
+| `U+1FB3B` | 🬻 | astral | bbcmaster, bbcmicro, trs80 |
 | `U+1FB70` | 🭰 | astral | commodore64, pet, vic20 |
 | `U+1FB71` | 🭱 | astral | commodore64, pet, vic20 |
 | `U+1FB73` | 🭳 | astral | commodore64, pet, vic20 |
@@ -496,13 +496,32 @@ picture built from stacked rows shows thin gaps between them.
 
 ### The blank cell nobody can type
 
-Three machines declare a graphics code that draws an empty cell — the Spectrum's
-`0x80`, the TRS-80's `0x80` and the CPC's `0x80`. Its only faithful text form is
-a space, and `0x20` already owns that, so injectivity leaves it spelled
-`{0x80}`. The palette does not offer it: a cell that inserted a space would look
-like a bug, and printing the code has the same effect as printing a space
-anyway. That is the whole of the "1 raw escape / 63 of 64 typeable" line those
-machines show above.
+Four machine families declare a graphics code that draws an empty cell — the
+Spectrum's `0x80`, the TRS-80's `0x80`, the CPC's `0x80` and the BBC's `0xA0`
+(the empty MODE 7 mosaic). Its only faithful text form is a space, and `0x20`
+already owns that, so injectivity leaves it spelled as a raw escape. The
+palette does not offer it: a cell that inserted a space would look like a bug,
+and printing the code has the same effect as printing a space anyway. That is
+the whole of the "1 raw escape / 63 of 64 typeable" line those machines show
+above.
+
+### A BBC mosaic byte is only sometimes a mosaic on the machine
+
+In MODE 7 the SAA5050 shows a stored byte as a sixel mosaic only while a
+graphics-colour control code is in force on the row; the same byte after a
+text-colour code is a letter, and in modes 0–6 it is whatever the mode's font
+says. The editor cannot know that state — it depends on control codes, the
+mode and what the program pokes — and a spelling that changed when a distant
+byte was edited would break one-byte-one-character editing. So the graphics
+form is canonical, unconditionally: `0xA1`–`0xBF` and `0xE0`–`0xFF` always
+render as their sextants, the byte round-trips exactly either way, and a
+top-bit byte meant as MODE 7 text simply reads as its mosaic twin in the
+editor. `0xC0`–`0xDF` are not mosaics at all — the SAA5050 treats a code as
+graphics only when bit 5 is set, and bit-5-clear codes "blast through" as
+capitals — so they stay raw escapes, as does everything a mosaic is not.
+`src/dialects/bbcmicro/mode7Graphics.test.ts` derives all of this from the
+glyph set of jsbeeb's own SAA5050, the one the emulator pane draws with, so
+the mapping cannot drift from what the user sees when the program runs.
 
 ### Neither the CPC nor the TRS-80 has graphics keys
 
@@ -519,18 +538,11 @@ the machine — it is the machine that reaches its graphics differently.
 
 ## Machines this page does not yet cover
 
-The BBC Micro/Master and the Acorn Atom keep whatever support they had. What
-each would need:
-
-- **BBC Micro / Master** — the MODE 7 mosaics map algorithmically onto the same
-  `U+1FB00` sextant space the TRS-80 already uses, so the mapping itself is
-  mechanical (note the SAA5050 bit order differs: bit 5 is the graphics flag, so
-  bottom-right is bit 6). The obstacle is semantic: the same byte is a mosaic
-  only after a graphics-colour control code and a letter otherwise, so decoding
-  it unconditionally as a mosaic would be wrong half the time. Deciding between
-  a context-aware decode, a named `{MOSAIC nn}` escape, or mapping anyway is a
-  design question worth its own change.
-- **Acorn Atom** — the charset currently treats `0x80–0xFF` as MC6847 inverse
-  video, which is not the same thing as its chunky graphics; inverse Latin has
-  no Unicode form and must stay escaped regardless. Where the graphics actually
-  sit needs the Atom technical manual and the MC6847 datasheet.
+The Acorn Atom keeps whatever support it had. Its graphics range has now been
+established — the kernel ROM maps program bytes `0xA0`–`0xDF` onto the full
+64-pattern MC6847 Semigraphics-6 sextant set — but the change that would map
+them has not been made. The findings, and the recommended shape of that
+change, are in `dialect-plans/atom-semigraphics.md`; the audit keeps
+reporting the Atom as unestablished until the mapping actually ships, because
+a declared range with no glyphs would read as 64 new gaps rather than as the
+open item it is.

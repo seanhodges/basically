@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { bbcKeyboardLayout } from './keyboardLayout';
+import { bbcCharset } from './charset';
 import { matrixForToken } from '../../emulator/bbc/keyboard';
 import { resolveEditorAction } from '../../keyboard/editorActions';
 
@@ -22,15 +23,31 @@ describe('bbcmicro keyboard layout', () => {
     });
   });
 
-  it('offers ABC, SYM and CURSOR modes plus the f0–f9 function keys', () => {
+  it('offers ABC, SYM, CURSOR and GRAPHICS modes plus the f0–f9 function keys', () => {
     expect((layout.editorModes ?? []).map((m) => m.id)).toEqual([
       'abc',
       'sym',
       'cursor',
+      'graphic',
     ]);
     expect(functionKeys.map((k) => k.id)).toEqual(
       Array.from({ length: 10 }, (_, i) => `F${i}`),
     );
+  });
+
+  it('every graphics-palette character re-encodes to its declared code', () => {
+    const sections = layout.graphicsPalette?.sections ?? [];
+    expect(sections.length).toBe(2);
+    for (const section of sections) {
+      for (const entry of section.entries) {
+        expect(
+          Array.from(bbcCharset.toMachine(entry.char)),
+          `${entry.char} -> 0x${entry.code.toString(16)}`,
+        ).toEqual([entry.code]);
+        // No BBC keycap carries a graphic, so cells are labelled by code.
+        expect(entry.key).toBeUndefined();
+      }
+    }
   });
 
   it('overlays the arrow caret moves on W/A/S/D in CURSOR mode', () => {

@@ -16,7 +16,12 @@ describe('BBC charset', () => {
   });
 
   it('rejects characters with no BBC equivalent', () => {
-    expect(() => bbcCharset.toMachine('10 PRINT "█"')).toThrow();
+    expect(() => bbcCharset.toMachine('10 PRINT "☺"')).toThrow();
+  });
+
+  it('maps the MODE 7 mosaics to their bytes', () => {
+    expect(Array.from(bbcCharset.toMachine('█'))).toEqual([0xff]);
+    expect(bbcCharset.toUnicode([0xff])).toBe('█');
   });
 });
 

@@ -49,11 +49,37 @@ describe('BBC charset totality', () => {
     }
   });
 
-  it('escapes unnamed top-bit bytes 0xA0-0xFF as {0xNN}', () => {
+  it('renders the MODE 7 mosaics 0xA1-0xBF / 0xE0-0xFF as sextants, both ways', () => {
+    const mosaics = [];
+    for (let b = 0xa1; b <= 0xbf; b++) mosaics.push(b);
+    for (let b = 0xe0; b <= 0xff; b++) mosaics.push(b);
+    for (const b of mosaics) {
+      const text = decodeByte(b);
+      expect(text, `0x${b.toString(16)}`).not.toMatch(/^\{0x/);
+      expect(encode(text), `0x${b.toString(16)} via ${text}`).toEqual([b]);
+      // The old {0xNN} spelling keeps loading and encodes to the same byte.
+      const hex = b.toString(16).padStart(2, '0').toUpperCase();
+      expect(encode(`{0x${hex}}`)).toEqual([b]);
+    }
+    // Spot-check the SAA5050 bit permutation (bottom-right is bit 6, not 5).
+    expect(decodeByte(0xa1)).toBe('🬀'); // top-left only
+    expect(decodeByte(0xe0)).toBe('🬞'); // bottom-right only (bit 6)
+    expect(decodeByte(0xb5)).toBe('▌'); // left column
+    expect(decodeByte(0xea)).toBe('▐'); // right column
+    expect(decodeByte(0xff)).toBe('█'); // all six cells
+  });
+
+  it('keeps the blank mosaic 0xA0 and the blast-through capitals escaped', () => {
+    // 0xA0 draws nothing; its only faithful text form would be a space.
     expect(decodeByte(0xa0)).toBe('{0xA0}');
-    expect(decodeByte(0xff)).toBe('{0xFF}');
     expect(encode('{0xA0}')).toEqual([0xa0]);
-    expect(encode('{0xFF}')).toEqual([0xff]);
+    // 0xC0-0xDF display as capital letters even in graphics mode (bit 5 is
+    // the SAA5050's graphics flag, and theirs is clear).
+    for (let b = 0xc0; b <= 0xdf; b++) {
+      const hex = b.toString(16).padStart(2, '0').toUpperCase();
+      expect(decodeByte(b)).toBe(`{0x${hex}}`);
+      expect(encode(`{0x${hex}}`)).toEqual([b]);
+    }
   });
 
   it('keeps a non-escape brace literal, and escapes a brace that would collide', () => {
@@ -78,6 +104,6 @@ describe('BBC charset totality', () => {
   });
 
   it('rejects characters with no BBC equivalent', () => {
-    expect(() => bbcCharset.toMachine('█')).toThrow();
+    expect(() => bbcCharset.toMachine('☺')).toThrow();
   });
 });

@@ -6,9 +6,7 @@ Put the real machine's input devices on screen: an authentic per-machine
 virtual keyboard and a virtual game controller, usable by touch or mouse,
 driven entirely by per-dialect layout data so the input code itself contains
 no machine specifics.
-
 ## Requirements
-
 ### Requirement: Authentic per-machine keyboard
 
 The on-screen keyboard SHALL reproduce the active machine's real key layout,
@@ -128,3 +126,4 @@ each independently switchable.
 
 - **WHEN** the user disables keyboard sound
 - **THEN** taps produce no click while haptics (if enabled) still fire
+
