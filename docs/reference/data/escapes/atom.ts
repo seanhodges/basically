@@ -9,17 +9,36 @@ export const atomEscapes: EscapeTableData = {
   machines: ['Acorn Atom'],
   categories: [
     { id: 'inverse', label: 'Inverse video' },
+    { id: 'graphics', label: 'Graphics' },
     { id: 'raw', label: 'Raw bytes' },
   ],
   entries: [
     {
-      escape: '{0x80}…{0xFF}',
-      bytes: '0x80–0xFF',
+      escape: '{0x80}…{0x9F}',
+      bytes: '0x80–0x9F',
       category: 'inverse',
       description:
-        'Inverse video: byte 0x80+c displays character c inverted ({0xC1} is inverse A). There is no %c prefix - on the floating-point ROM %A–%Z name the FP variables, so % stays a literal character.',
-      codes: range(0x80, 0xff),
-      example: { source: '{0xC1}', bytes: [0xc1] },
+        'Inverse video digits and punctuation: byte 0x80+c displays character 0x20+c reversed ({0x81} is an inverse !). These have no unicode form of their own, so they stay escapes. There is no %c prefix - on the floating-point ROM %A–%Z name the FP variables, so % stays a literal character. Inverse capitals are not escapes at all: they are the lower-case letters 0x60–0x7E, which the machine displays reversed because it has no lower case.',
+      codes: range(0x80, 0x9f),
+      example: { source: '{0x81}', bytes: [0x81] },
+    },
+    {
+      escape: '{0xA0}',
+      bytes: '0xA0',
+      category: 'graphics',
+      description:
+        'The blank Semigraphics 6 cell (all six blocks off) - escaped because its glyph would be indistinguishable from a space. The other graphics bytes 0xA1–0xDF are typed as their unicode sextant glyphs (🬀…█), not escapes: PRINTing byte 0xA0+p draws pattern p, and the GRAPHICS palette on the on-screen keyboard inserts them.',
+      codes: [0xa0],
+      example: { source: '{0xA0}', bytes: [0xa0] },
+    },
+    {
+      escape: '{0xE0}…{0xFF}',
+      bytes: '0xE0–0xFF',
+      category: 'graphics',
+      description:
+        'The second colour set: these draw the same 32 shapes as 0xC0–0xDF, in the other MC6847 colour pair. Editor text carries shape but not colour, and one glyph cannot stand for two different bytes, so these keep their escapes - a program using them still exports and re-imports exactly.',
+      codes: range(0xe0, 0xff),
+      example: { source: '{0xE0}', bytes: [0xe0] },
     },
     {
       escape: '{0xNN}',

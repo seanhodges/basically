@@ -129,6 +129,13 @@ const CASES: Case[] = [
       0x80: 'the blank cell; its text form would be a space, so it has none',
     },
   })),
+  {
+    id: 'atom',
+    target: 'atom-atm',
+    unreachable: {
+      0xa0: 'the blank cell; its text form would be a space, so it has none',
+    },
+  },
 ];
 
 const hex = (code: number): string => `0x${code.toString(16)}`;

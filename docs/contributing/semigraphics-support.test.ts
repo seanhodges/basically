@@ -55,11 +55,9 @@ describe('semigraphics support page', () => {
       markdown.slice(markdown.indexOf(END) + END.length);
     // These are the sections the generator must never clobber; losing them
     // would silently strip the context that makes the matrix readable.
-    for (const heading of [
-      '## How to read it',
-      '## Known wrinkles',
-      '## Machines this page does not yet cover',
-    ]) {
+    // ("Machines this page does not yet cover" was retired with the Atom, the
+    // last machine in it - every registered dialect is now in scope.)
+    for (const heading of ['## How to read it', '## Known wrinkles']) {
       expect(outside, heading).toContain(heading);
     }
   });

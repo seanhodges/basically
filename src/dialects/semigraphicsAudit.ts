@@ -80,6 +80,7 @@ export const IN_SCOPE = new Set([
   'cpc6128',
   'bbcmicro',
   'bbcmaster',
+  'atom',
 ]);
 
 /**
@@ -119,12 +120,13 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // capitals even in graphics mode, so 0xC0-0xDF are not graphics.
   bbcmicro: [...range(0xa0, 0xbf), ...range(0xe0, 0xff)],
   bbcmaster: [...range(0xa0, 0xbf), ...range(0xe0, 0xff)],
-  // Established but not yet mapped: the kernel ROM sends program bytes
-  // 0xA0-0xDF to the MC6847's 64 Semigraphics-6 sextant patterns (see
-  // docs/contributing/dialect-plans/atom-semigraphics.md for the probe and
-  // the recommended change). Stays null until the charset actually maps
-  // them - declaring the range first would report 64 gaps, not an open item.
-  atom: null,
+  // The MC6847's 64 Semigraphics-6 cells. The Atom kernel's write-character
+  // routine sends program byte 0xA0+p to screen code 0xC0+p, which the VDG
+  // draws as pattern p - probed against the real ROM, and the cell shapes
+  // crosschecked against the MC6847 font the emulator draws with, both in
+  // atom/semigraphics.test.ts. 0xE0-0xFF repeats patterns 0x20-0x3F in the
+  // other colour set, so it is not a second graphics range.
+  atom: range(0xa0, 0xdf),
 };
 
 /** Classify one byte from its canonical text form. */
