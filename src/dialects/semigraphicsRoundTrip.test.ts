@@ -72,6 +72,24 @@ const CASES: Case[] = [
     unreachable: {
       0xa0: 'the blank mosaic; its text form would be a space, so it has none',
     },
+    // The MODE 7 control codes are not mosaics, but the palette offers them
+    // beside the mosaics because the SAA5050 shows a mosaic byte as a mosaic
+    // only while one of the graphics colours is in force on its row - without
+    // one the palette hands out characters that cannot draw.
+    outsideRange: {
+      ...Object.fromEntries(
+        [0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97].map((code) => [
+          code,
+          'a graphics colour: the code a mosaic needs earlier on its row',
+        ]),
+      ),
+      ...Object.fromEntries(
+        [0x99, 0x9a, 0x9e, 0x9f].map((code) => [
+          code,
+          'a graphics display attribute (contiguous/separated, hold/release)',
+        ]),
+      ),
+    },
   })),
   {
     id: 'commodore64',

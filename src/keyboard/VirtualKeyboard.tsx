@@ -12,6 +12,7 @@ import { KeyboardInputEngine } from './inputEngine';
 import { isRepeatable, resolveEditorAction } from './editorActions';
 import { pickableKeys } from './controllerConfig';
 import { GlyphSvg } from './GlyphSvg';
+import { ControlChipSvg } from './ControlChipSvg';
 import './VirtualKeyboard.css';
 
 /**
@@ -90,6 +91,10 @@ function modePinnedLayerId(
  * graphics keys.
  */
 function graphicAriaLabel(entry: GraphicEntry): string {
+  // A control cell inserts an escape, not a character: name it by what the
+  // code does, which is also what its chip draws.
+  if (entry.chip)
+    return `Insert ${entry.chip.title}, character code ${entry.code}`;
   if (entry.key === undefined)
     return `Insert ${entry.char}, character code ${entry.code}`;
   const key = entry.modifier ? `${entry.modifier} + ${entry.key}` : entry.key;
@@ -811,10 +816,14 @@ export function VirtualKeyboard({
                   {section.title}
                 </div>
               )}
+              {section.note && (
+                <div className="vk-palette-note">{section.note}</div>
+              )}
               <div className="vk-palette-grid">
                 {section.entries.map((entry) => {
                   const idx = paletteEntries.indexOf(entry);
                   const classes = ['vk-graphic'];
+                  if (entry.chip) classes.push('vk-graphic-control');
                   if (idx === focusIdx) classes.push('vk-focus');
                   return (
                     <div
@@ -836,7 +845,11 @@ export function VirtualKeyboard({
                         )}
                       </span>
                       <span className="vk-graphic-char" aria-hidden="true">
-                        {entry.char}
+                        {entry.chip ? (
+                          <ControlChipSvg chip={entry.chip} />
+                        ) : (
+                          entry.char
+                        )}
                       </span>
                     </div>
                   );

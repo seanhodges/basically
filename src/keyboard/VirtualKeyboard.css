@@ -135,6 +135,17 @@
   text-transform: uppercase;
 }
 
+/* A section's one-line rule, where the cells cannot say it themselves - e.g.
+   that the BBC's mosaics print as letters until a graphics colour precedes
+   them on the row. Sentence case, not the title's caps, so it reads as prose. */
+.vk-palette-note {
+  padding: 0 2px 4px;
+  max-width: 62ch;
+  color: #8b91a0;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .vk-palette-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--vk-graphic-min), 1fr));
@@ -205,6 +216,22 @@
      above the centre of the line box; nudging it back down centres the shape in
      the cell instead of the text metrics. */
   transform: translateY(0.225em) scaleX(2);
+}
+
+/* A control-code cell draws a chip rather than a character: the box carries its
+   own colour and outline, so it wants none of the graphics face's metrics - not
+   the scaleX that squares a text glyph up, and not the baseline nudge. Sized a
+   little under the glyph cells so a coloured box does not shout over the shapes
+   it exists to enable. */
+.vk-graphic-control .vk-graphic-char {
+  font-size: min(62cqw, 46px);
+  transform: none;
+}
+
+.vk-graphic-control .vk-graphic-char svg {
+  display: block;
+  width: 1em;
+  height: 1em;
 }
 
 .vk-graphic-key {

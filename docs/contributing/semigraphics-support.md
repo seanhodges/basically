@@ -529,6 +529,19 @@ capitals — so they stay raw escapes, as does everything a mosaic is not.
 glyph set of jsbeeb's own SAA5050, the one the emulator pane draws with, so
 the mapping cannot drift from what the user sees when the program runs.
 
+The consequence is felt at authoring time: a palette of mosaics with no way to
+reach a graphics colour hands out characters that print as letters, which is
+exactly what it looked like when someone first tried it. So the palette leads
+with the graphics-colour codes (`0x91`–`0x97`) and says under the title that
+the mosaics need one earlier on the same screen row, and closes with the
+display attributes (`{CONTIGUOUS}`, `{SEPARATED}`, `{HOLD GRAPHICS}`,
+`{RELEASE GRAPHICS}`). The text colours `0x81`–`0x87` are deliberately not
+offered — they clear the chip's graphics flag — and the same test derives that
+set from `handleControlCode` so a later addition of one fails rather than
+quietly reintroducing the problem. Both surfaces draw a control code as a chip
+(`src/dialects/controlChip.ts`) rather than spelling its escape across sixteen
+columns of a forty-column line.
+
 ### The Atom's second colour set has no character of its own
 
 The MC6847's Semigraphics 6 mode draws each of its 64 cell patterns in one of

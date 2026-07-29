@@ -25,7 +25,11 @@ Pick a mode with `MODE`; each clears the screen and resets the graphics state:
 | `MODE 7` | 40 × 25 | teletext  | teletext |
 
 MODE 7 is the teletext mode, driven by control bytes in the character stream
-(the named teletext escapes on the [escape codes](./escapes) page).
+(the named teletext escapes on the [escape codes](./escapes) page). Its block
+graphics are not simply characters you print: every screen line starts in text
+mode, so a mosaic needs a graphics colour earlier on the same line or it comes
+out as a letter — see
+[turn graphics on first](./escapes#mode-7-turn-graphics-on-first).
 Higher-resolution modes consume more RAM — in graphics modes the screen fills
 0x3000–0x7FFF, but only 0x7C00 and up in MODE 7.
 

@@ -1,6 +1,7 @@
 import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import type { KeyboardLayout } from '../keyboard/layoutSchema';
+import type { ControlChip } from './controlChip';
 
 /**
  * A keyword as the editor sees it, for highlighting and autocomplete. Carries no
@@ -930,6 +931,17 @@ export interface Dialect {
    * would hide a line the tokenizer rejects.
    */
   supportsBinaryLines?: boolean;
+  /**
+   * Display control codes this dialect draws as chips, keyed by the escape text
+   * exactly as {@link charset} spells it (e.g. `'{GRAPHICS WHITE}'`). Machines
+   * that carry display attributes in the character stream - the BBC's MODE 7
+   * teletext codes - name them as escapes, and a name spelled out costs more of
+   * the line than the picture it stands for. Gates the editor's inline chips
+   * and supplies the palette's control cells; absent on a dialect whose escapes
+   * are all raw bytes, which stay spelled out. Presentation only: the source
+   * text and the stored byte are the same either way.
+   */
+  displayControls?: Record<string, ControlChip>;
   /** Cassette-audio support, when the machine loads from / saves to tape. */
   audio?: {
     sampleRate: number;

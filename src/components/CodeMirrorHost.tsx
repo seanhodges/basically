@@ -61,6 +61,7 @@ import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { dialectLinter } from '../editor/lintIntegration';
 import { basicHighlightStyle } from '../editor/basicLanguage';
 import { binaryLineExtension } from '../editor/binaryLineWidget';
+import { controlChipExtension } from '../editor/controlChipWidget';
 import { numberingConfig, fullCompletion } from '../editor/completions';
 import { crunchMatcher } from '../editor/crunch';
 import { useIdeStore } from '../app/store';
@@ -702,6 +703,16 @@ export function CodeMirrorHost({
         // dialects whose tokenizer accepts them - elsewhere the raw text must
         // stay visible so its tokenizer error is.
         ...(dialect.supportsBinaryLines ? [binaryLineExtension()] : []),
+        // Draw the machine's display control codes rather than spelling them:
+        // a MODE 7 line is mostly attributes, and `{GRAPHICS WHITE}` costs
+        // sixteen of its forty columns to say what a chip shows.
+        ...(dialect.displayControls
+          ? [
+              controlChipExtension(dialect.displayControls, (text) =>
+                dialect.charset.toMachine(text),
+              ),
+            ]
+          : []),
         keymap.of([
           ...defaultKeymap,
           ...historyKeymap,

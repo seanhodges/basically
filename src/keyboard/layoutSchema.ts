@@ -7,6 +7,8 @@
  * layout object, never keyboard code.
  */
 
+import type { ControlChip } from '../dialects/controlChip';
+
 export interface KeyboardLayout {
   id: string;
   name: string;
@@ -160,11 +162,25 @@ export interface GraphicEntry {
   char: string;
   /** The machine character code this stands for. */
   code: number;
+  /**
+   * Draw the cell as this chip rather than as a glyph, for an entry whose
+   * insert is a multi-character escape - a display control code - instead of a
+   * character. Presentation only: {@link char} is still exactly what the cell
+   * inserts and still the byte's canonical text form, so a control cell
+   * satisfies the same charset round trip every other cell does. The editor
+   * draws the same chip over the same escape, so the cell is a preview of the
+   * text it types.
+   */
+  chip?: ControlChip;
 }
 
 export interface GraphicsPalette {
-  /** Grouped for display, e.g. the C64's C= set and SHIFT set. */
-  sections: Array<{ title?: string; entries: GraphicEntry[] }>;
+  /**
+   * Grouped for display, e.g. the C64's C= set and SHIFT set. A section may
+   * carry a `note` - one line under the title - where the characters in it need
+   * something said about them that the cells cannot say alone.
+   */
+  sections: Array<{ title?: string; note?: string; entries: GraphicEntry[] }>;
 }
 
 export interface KeyDef {
