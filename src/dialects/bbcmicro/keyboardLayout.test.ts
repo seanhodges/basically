@@ -37,15 +37,49 @@ describe('bbcmicro keyboard layout', () => {
 
   it('every graphics-palette character re-encodes to its declared code', () => {
     const sections = layout.graphicsPalette?.sections ?? [];
-    expect(sections.length).toBe(2);
+    expect(sections.length).toBe(4);
     for (const section of sections) {
       for (const entry of section.entries) {
+        // A control cell inserts an escape rather than a character, but it is
+        // held to the same round trip: the text it types is the byte it claims.
         expect(
           Array.from(bbcCharset.toMachine(entry.char)),
           `${entry.char} -> 0x${entry.code.toString(16)}`,
         ).toEqual([entry.code]);
         // No BBC keycap carries a graphic, so cells are labelled by code.
         expect(entry.key).toBeUndefined();
+      }
+    }
+  });
+
+  it('leads with the graphics colours and states why they are there', () => {
+    // The palette's whole job on this machine: the mosaics below print as
+    // letters until one of these appears earlier on the same screen line, so
+    // they come first and the section says so.
+    const sections = layout.graphicsPalette?.sections ?? [];
+    expect(sections[0]!.entries.map((e) => e.code)).toEqual([
+      0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+    ]);
+    expect(sections[0]!.note).toMatch(/letters/i);
+    expect(sections[3]!.entries.map((e) => e.code)).toEqual([
+      0x99, 0x9a, 0x9e, 0x9f,
+    ]);
+  });
+
+  it('draws the control codes as chips and the mosaics as characters', () => {
+    const sections = layout.graphicsPalette?.sections ?? [];
+    const isControl = (code: number): boolean => code < 0xa0;
+    for (const section of sections) {
+      for (const entry of section.entries) {
+        const where = `0x${entry.code.toString(16)}`;
+        if (isControl(entry.code)) {
+          // Spelled out, `{GRAPHICS WHITE}` would be sixteen columns in a cell
+          // sized for one character.
+          expect(entry.chip, where).toBeDefined();
+          expect(entry.chip!.title, where).not.toBe('');
+        } else {
+          expect(entry.chip, where).toBeUndefined();
+        }
       }
     }
   });

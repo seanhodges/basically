@@ -22,6 +22,7 @@ import {
 import { bbcLanguageSupport, bbcCompletionSource } from '../bbcmicro/language';
 import { decodeCassette } from '../bbcmicro/audio/cassetteDecoder';
 import { bbcKeyboardLayout } from '../bbcmicro/keyboardLayout';
+import { BBC_DISPLAY_CONTROLS } from '../bbcmicro/teletextChips';
 import { bbcSamples } from '../bbcmicro/samples';
 import { bbcMasterMemoryMap } from './memoryMap';
 import { bbcMasterMemoryBlocks } from './memoryBlocks';
@@ -104,6 +105,8 @@ export const bbcmaster: Dialect = {
   },
 
   keyboardLayout: bbcKeyboardLayout,
+
+  displayControls: BBC_DISPLAY_CONTROLS,
 
   samples: bbcSamples,
 

@@ -17,6 +17,7 @@ import { decodeCassette } from './audio/cassetteDecoder';
 import { bbcLanguageSupport, bbcCompletionSource } from './language';
 import { bbcAiProfile } from './aiProfile';
 import { bbcKeyboardLayout } from './keyboardLayout';
+import { BBC_DISPLAY_CONTROLS } from './teletextChips';
 import { bbcSamples } from './samples';
 import { bbcMicroMemoryMap } from './memoryMap';
 import { bbcMicroMemoryBlocks } from './memoryBlocks';
@@ -100,6 +101,8 @@ export const bbcmicro: Dialect = {
   },
 
   keyboardLayout: bbcKeyboardLayout,
+
+  displayControls: BBC_DISPLAY_CONTROLS,
 
   samples: bbcSamples,
 

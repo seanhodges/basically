@@ -5,7 +5,12 @@ import type {
   KeyboardLayout,
 } from '../../keyboard/layoutSchema';
 import { bottomRow, centerRow } from '../../keyboard/templateRows';
-import { BBC_LOW_MOSAICS, BBC_HIGH_MOSAICS } from './graphics';
+import {
+  BBC_LOW_MOSAICS,
+  BBC_HIGH_MOSAICS,
+  BBC_GRAPHICS_COLOURS,
+  BBC_GRAPHICS_STYLES,
+} from './graphics';
 
 /**
  * The BBC Micro Model B keyboard on the standard virtual-keyboard template.
@@ -211,8 +216,17 @@ export const bbcKeyboardLayout: KeyboardLayout = {
   rows,
   graphicsPalette: {
     sections: [
-      { title: 'CHR$(161)–CHR$(191)', entries: BBC_LOW_MOSAICS },
-      { title: 'CHR$(224)–CHR$(255)', entries: BBC_HIGH_MOSAICS },
+      {
+        title: 'Graphics colour – CHR$(145)–CHR$(151)',
+        note: 'MODE 7 prints the mosaics below as letters until one of these appears earlier on the same screen line.',
+        entries: BBC_GRAPHICS_COLOURS,
+      },
+      { title: 'Mosaics – CHR$(161)–CHR$(191)', entries: BBC_LOW_MOSAICS },
+      { title: 'Mosaics – CHR$(224)–CHR$(255)', entries: BBC_HIGH_MOSAICS },
+      {
+        title: 'Graphics style – CHR$(153), CHR$(154), CHR$(158), CHR$(159)',
+        entries: BBC_GRAPHICS_STYLES,
+      },
     ],
   },
   functionKeys,

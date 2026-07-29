@@ -240,5 +240,21 @@ declare module 'jsbeeb/src/teletext.js' {
     normalGlyphs: Uint32Array;
     graphicsGlyphs: Uint32Array;
     separatedGlyphs: Uint32Array;
+    /** Glyph set the next character will be drawn from. */
+    nextGlyphs: Uint32Array;
+    /** True while a graphics colour is in force on the current row. */
+    gfx: boolean;
+    /** True while the separated mosaic set is selected. */
+    sep: boolean;
+    /**
+     * Act on one control code, 0x00-0x1F as the chip sees it (the stored byte
+     * with bit 7 stripped - the SAA5050 has a seven-bit data bus).
+     */
+    handleControlCode(data: number): number;
   }
+}
+
+declare module 'jsbeeb/src/bbc-palette.js' {
+  /** The 16 standard BBC colours in ABGR (0xffBBGGRR), 0-7 the primaries. */
+  export const BbcDefaultPalette: Uint32Array;
 }

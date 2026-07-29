@@ -27,6 +27,14 @@ function screenText(machine: BbcMachine): string {
   return text;
 }
 
+/** MODE 7 screen RAM (0x7C00-0x7FFF) verbatim - control bytes and all. */
+function screenBytes(machine: BbcMachine): number[] {
+  const out: number[] = [];
+  for (let addr = 0x7c00; addr < 0x8000; addr++)
+    out.push(machine.processor.readmem(addr));
+  return out;
+}
+
 /** Run frames (yielding to the microtask queue) until the predicate holds. */
 async function runUntil(
   machine: BbcMachine,
@@ -62,6 +70,33 @@ describe('BbcMachine (jsbeeb adapter)', () => {
       screenText(machine).includes('HELLO BEEB'),
     );
     expect(ran).toBe(true);
+    machine.dispose();
+  }, 60000);
+
+  it('puts MODE 7 control bytes and mosaics on screen unaltered', async () => {
+    // The bug report this pins: mosaics printed as ASCII. They were not
+    // corrupted on the way in - the SAA5050 has a seven-bit data bus and
+    // starts every row in text mode, so a mosaic byte with no graphics colour
+    // ahead of it on the row draws the letter its low seven bits name. What
+    // the machine must do is carry the bytes through untouched; making them
+    // draw is the graphics colour's job, and the program supplies one.
+    const machine = new BbcMachine();
+    const mosaics = [0xa1, 0xb5, 0xff];
+    const source =
+      '10 MODE 7\n' +
+      `20 PRINT CHR$(151);${mosaics.map((c) => `CHR$(${c})`).join(';')}\n` +
+      '30 GOTO 30\n';
+    const { bytes } = tokenizeProgram(source);
+    machine.loadProgram(bytes);
+
+    const row = [0x97, ...mosaics];
+    const drawn = await runUntil(machine, () => {
+      const screen = screenBytes(machine);
+      return screen.some((_, i) => row.every((b, j) => screen[i + j] === b));
+    });
+    expect(drawn, 'the graphics colour and its mosaics reach screen RAM').toBe(
+      true,
+    );
     machine.dispose();
   }, 60000);
 

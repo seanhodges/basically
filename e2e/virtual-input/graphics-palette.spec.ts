@@ -80,6 +80,44 @@ test('labels cells by character code on a machine with no graphics keys', async 
   await expect(page.getByRole('button', { name: /, key / })).toHaveCount(0);
 });
 
+test('the BBC palette leads with the control code its mosaics need', async ({
+  page,
+}) => {
+  // On the BBC a mosaic byte prints as a letter until a graphics colour has
+  // appeared earlier on the same screen row, so the palette offers those codes
+  // first, says so, and draws each as a chip rather than spelling out an
+  // escape sixteen characters long in a cell sized for one.
+  await openApp(page);
+  await chooseTargetMachine(page, 'bbcmicro');
+  await clearEditor(page);
+  await openPalette(page);
+
+  // Graphics colours, the two mosaic banks, graphics styles.
+  await expect(page.locator('.vk-palette-section')).toHaveCount(4);
+  await expect(page.locator('.vk-palette-title').first()).toContainText(
+    'Graphics colour',
+  );
+  await expect(page.locator('.vk-palette-note').first()).toBeVisible();
+
+  // The colour goes in first, then the shapes it makes drawable.
+  const white = page.getByRole('button', {
+    name: 'Insert GRAPHICS WHITE, character code 151',
+  });
+  await expect(white.locator('.vk-graphic-key')).toHaveText('151');
+  await expect(white.locator('svg')).toBeVisible();
+  await white.click();
+  await expect(page.locator(EDITOR)).toContainText('{GRAPHICS WHITE}');
+
+  const mosaic = page.getByRole('button', {
+    name: 'Insert 🬀, character code 161',
+  });
+  await mosaic.click();
+  await expect(page.locator(EDITOR)).toContainText('🬀');
+
+  // No cell claims a key: the BBC printed no graphics on its keyboard.
+  await expect(page.getByRole('button', { name: /, key / })).toHaveCount(0);
+});
+
 test('scrolling the palette by dragging does not insert a character', async ({
   page,
 }) => {
@@ -185,7 +223,11 @@ test('every machine draws its palette as ink on paper, like the editor', async (
     await clearEditor(page);
     await openPalette(page);
 
-    const cell = page.locator('.vk-graphic').first();
+    // The first cell that draws a *character*. A control-code cell draws a
+    // chip in the colour the code selects instead, which this rule is not
+    // about - it is about the machine's graphics reading the same way in the
+    // palette as in the editor.
+    const cell = page.locator('.vk-graphic:not(.vk-graphic-control)').first();
     const paper = luminance(
       await cell.evaluate((el) => getComputedStyle(el).backgroundColor),
     );
