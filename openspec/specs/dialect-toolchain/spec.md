@@ -86,6 +86,13 @@ NOT vary with the contents of other bytes: the editor shows one spelling, and
 the program still encodes byte-exactly whichever way the machine would have
 displayed it.
 
+Where the machine draws the same graphics shape from more than one character
+code, at most one of those codes SHALL use the unicode character for that
+shape, so that every text form encodes back to exactly one machine code. The
+remaining codes SHALL keep a text form that is distinguishable from it and
+from each other, and a program using them SHALL still export and re-import
+byte-exactly.
+
 A graphics character the machine stores as one byte SHALL be one character in
 the editor, including where the machine's own shape for it is undefined (the
 user-defined graphics), so that editing cannot leave half of one behind.
@@ -116,6 +123,13 @@ user-defined graphics), so that editing cannot leave half of one behind.
   display as a letter in one display state and as a graphics shape in another
 - **THEN** the editor shows the graphics shape, and exporting the program
   writes back the identical byte
+
+#### Scenario: Two codes for one shape keep separate spellings
+
+- **WHEN** the user imports a program using a character code that draws the
+  same shape as another code on the same machine
+- **THEN** it is shown in a form distinct from the other code's, and exporting
+  the program writes back the identical byte rather than the other code
 
 #### Scenario: A user-defined graphic is a single character
 
