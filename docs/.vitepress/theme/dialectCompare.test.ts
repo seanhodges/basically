@@ -16,6 +16,7 @@ import {
   diffEscapes,
   diffKeywords,
   domainSections,
+  escapeSections,
   falseFriendsBetween,
   groupByDomain,
 } from './dialectCompare';
@@ -52,6 +53,30 @@ const GOTO: ReferenceEntry = {
 const JUMP: KeywordEquivalence = {
   concept: 'unconditional-jump',
   spellings: { zx81: 'GOTO', zxspectrum: 'GO TO', bbc: 'GOTO' },
+};
+const ABS: ReferenceEntry = {
+  name: 'ABS',
+  kind: 'function',
+  syntax: 'ABS(<number>)',
+  description: 'Absolute value.',
+};
+const DRAW: ReferenceEntry = {
+  name: 'DRAW',
+  kind: 'command',
+  syntax: 'DRAW <number>, <number>',
+  description: 'Draw a line.',
+};
+const LIST: ReferenceEntry = {
+  name: 'LIST',
+  kind: 'command',
+  syntax: 'LIST [<line>]',
+  description: 'List the program.',
+};
+const DEG: ReferenceEntry = {
+  name: 'DEG',
+  kind: 'function',
+  syntax: 'DEG',
+  description: 'Degrees.',
 };
 const PLUS: ReferenceEntry = {
   name: '+',
@@ -171,6 +196,61 @@ describe('diffKeywords', () => {
     expect(diff.unchanged).toBe(1);
   });
 
+  // The eight reference pages were authored independently: the Amstrad page
+  // writes ABS(n) where the others write ABS(<number>). That is a difference
+  // between two docs pages, not between two machines.
+  it('ignores a syntax difference that is only how the pages name placeholders', () => {
+    const angled: ReferenceEntry = { ...ABS, syntax: 'ABS(<number>)' };
+    const terse: ReferenceEntry = { ...ABS, syntax: 'ABS(n)' };
+    const diff = diffKeywords(refTable([angled]), refTable([terse]));
+    expect(diff.behaviourChanged).toEqual([]);
+    expect(diff.unchanged).toBe(1);
+  });
+
+  it('ignores placeholder naming across a whole argument list', () => {
+    const angled: ReferenceEntry = {
+      ...DRAW,
+      syntax: 'DRAW <number>, <number>',
+    };
+    const terse: ReferenceEntry = { ...DRAW, syntax: 'DRAW x,y' };
+    const diff = diffKeywords(refTable([angled]), refTable([terse]));
+    expect(diff.behaviourChanged).toEqual([]);
+  });
+
+  it('still reports a parenthesisation difference, as "parens"', () => {
+    const bracketed: ReferenceEntry = { ...ABS, syntax: 'ABS(<number>)' };
+    const bare: ReferenceEntry = { ...ABS, syntax: 'ABS <number>' };
+    const diff = diffKeywords(refTable([bracketed]), refTable([bare]));
+    expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['parens']);
+  });
+
+  it('still reports an argument difference, as "arguments"', () => {
+    const plain: ReferenceEntry = {
+      ...DRAW,
+      syntax: 'DRAW <number>, <number>',
+    };
+    const inked: ReferenceEntry = { ...DRAW, syntax: 'DRAW x,y,ink' };
+    const diff = diffKeywords(refTable([plain]), refTable([inked]));
+    expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['arguments']);
+  });
+
+  it('still reports an optional-argument difference the shapes keep', () => {
+    const ranged: ReferenceEntry = {
+      ...LIST,
+      syntax: 'LIST [<line>][-[<line>]]',
+    };
+    const single: ReferenceEntry = { ...LIST, syntax: 'LIST [line]' };
+    const diff = diffKeywords(refTable([ranged]), refTable([single]));
+    expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['arguments']);
+  });
+
+  it('reports a changed kind as "kind", whatever the syntax says', () => {
+    const asFunction: ReferenceEntry = { ...DEG, kind: 'function' };
+    const asCommand: ReferenceEntry = { ...DEG, kind: 'command' };
+    const diff = diffKeywords(refTable([asFunction]), refTable([asCommand]));
+    expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['kind']);
+  });
+
   it('ignores description differences', () => {
     const reworded: ReferenceEntry = {
       ...PRINT,
@@ -240,6 +320,84 @@ describe('diffEscapes', () => {
     const diff = diffEscapes(escTable([INK, BLOCK]), escTable([INK, BLOCK]));
     expect(diff.unchanged).toBe(2);
     expect(diff.mustReplace).toEqual([]);
+  });
+});
+
+describe('escapeSections', () => {
+  const CURSOR: EscapeTableData['entries'][number] = {
+    escape: '{home}',
+    bytes: '0x13',
+    category: 'cursor',
+    description: 'Cursor home.',
+    example: { source: '{home}', bytes: [0x13] },
+  };
+  const RAW: EscapeTableData['entries'][number] = {
+    escape: '{$xx}',
+    bytes: '0xnn',
+    category: 'raw',
+    description: 'Any raw byte.',
+    example: { source: '{$aa}', bytes: [0xaa] },
+  };
+  /** Colour before graphics before raw, as a real escape table declares them. */
+  const categories = [
+    { id: 'colour', label: 'Colours' },
+    { id: 'graphics', label: 'Block graphics' },
+    { id: 'cursor', label: 'Cursor' },
+    { id: 'raw', label: 'Raw bytes' },
+  ];
+  const table = (entries: EscapeTableData['entries']): EscapeTableData => ({
+    title: 't',
+    machines: ['m'],
+    categories,
+    entries,
+  });
+
+  it('groups in the table’s own category order, not alphabetically', () => {
+    const sections = escapeSections(
+      [RAW, BLOCK, INK, CURSOR],
+      table([RAW, BLOCK, INK, CURSOR]),
+    );
+    expect(sections.map((s) => s.category)).toEqual([
+      'colour',
+      'graphics',
+      'cursor',
+      'raw',
+    ]);
+    expect(sections.map((s) => s.label)).toEqual([
+      'Colours',
+      'Block graphics',
+      'Cursor',
+      'Raw bytes',
+    ]);
+  });
+
+  it('omits a category nothing landed in', () => {
+    const sections = escapeSections([INK], table([INK, BLOCK]));
+    expect(sections.map((s) => s.category)).toEqual(['colour']);
+  });
+
+  it('loses no code: every one lands in exactly one group', () => {
+    const entries = [RAW, BLOCK, INK, CURSOR];
+    const sections = escapeSections(entries, table(entries));
+    const grouped = sections.flatMap((s) => s.entries.map((e) => e.escape));
+    expect(grouped.sort()).toEqual(entries.map((e) => e.escape).sort());
+  });
+
+  it('counts per group', () => {
+    const second = { ...INK, escape: '{PAPER n}' };
+    const sections = escapeSections([INK, second, BLOCK], table([]));
+    expect(sections.map((s) => s.entries.length)).toEqual([2, 1]);
+  });
+
+  it('puts a code whose category the table does not declare in a trailing bucket', () => {
+    const odd = { ...INK, escape: '{odd}', category: 'unlisted' };
+    const sections = escapeSections([INK, odd], table([]));
+    expect(sections.map((s) => s.category)).toEqual(['colour', undefined]);
+    expect(sections[1].entries.map((e) => e.escape)).toEqual(['{odd}']);
+  });
+
+  it('yields no sections for no codes', () => {
+    expect(escapeSections([], table([]))).toEqual([]);
   });
 });
 

@@ -33,6 +33,7 @@ export const portingFacts: PortingFacts[] = [
     letRequired: 'required',
     variableNaming:
       'Numeric names may be multiple characters (start with a letter); string and array names are a single letter.',
+    numberHandling: 'Floating point.',
     exponentOperator: '**',
     screen: '32×22 usable text; 64×44 block-pixel graphics via PLOT/UNPLOT.',
     // No dedicated screen region: the display file lives inside program RAM.
@@ -72,6 +73,7 @@ export const portingFacts: PortingFacts[] = [
     letRequired: 'required',
     variableNaming:
       'A single letter A–Z (numeric arrays and FOR variables too).',
+    numberHandling: 'Integer only: -32768 to 32767, and division truncates.',
     exponentOperator: '**',
     screen:
       '32×24 text; no graphics mode. FAST display only (screen blanks while computing).',
@@ -111,6 +113,7 @@ export const portingFacts: PortingFacts[] = [
     letRequired: 'required',
     variableNaming:
       'Numeric names may be long; string and array names are a single letter with $.',
+    numberHandling: 'Floating point.',
     exponentOperator: '↑',
     screen: '32×22 usable text; 256×176 pixel graphics via PLOT/DRAW/CIRCLE.',
     screenBase: '$4000',
@@ -151,6 +154,7 @@ export const portingFacts: PortingFacts[] = [
     letRequired: 'optional',
     variableNaming:
       'Any-length names; % suffix = fast integer, $ = string. A%–Z% are static and fastest.',
+    numberHandling: 'Floating point, with a 32-bit integer type marked by %.',
     exponentOperator: '^',
     screen:
       'MODE-dependent: 40×25 teletext (MODE 7) up to 640×256 2-colour (MODE 0); graphics space 0–1279 × 0–1023.',
@@ -202,6 +206,7 @@ export const portingFacts: PortingFacts[] = [
     letRequired: 'optional',
     variableNaming:
       'Only the first two characters are significant; % suffix = integer, $ = string.',
+    numberHandling: 'Floating point, with an integer type marked by %.',
     exponentOperator: '↑',
     screen:
       '40×25 text; C64 bitmap 320×200 (VIC-20 is 22×23, the PET 40×25 monochrome — see the hardware page).',
@@ -250,6 +255,8 @@ export const portingFacts: PortingFacts[] = [
     letRequired: 'optional',
     variableNaming:
       'Single letters A–Z hold 32-bit integers; %A–%Z name the floating-point ROM variables.',
+    numberHandling:
+      'Integer only: 32-bit, -2147483648 to 2147483647, and / truncates. The floating-point ROM adds %A–%Z reals.',
     // Integer BASIC has no exponent operator (the FP ROM adds functions, not **).
     screen: '32×16 text (CLEAR 0); graphics up to 256×192 (CLEAR 4).',
     screenBase: '&8000',
@@ -292,6 +299,8 @@ export const portingFacts: PortingFacts[] = [
     letRequired: 'optional',
     variableNaming:
       'Only the first two characters are significant; $ = string, % = integer, ! = single, # = double.',
+    numberHandling:
+      'Floating point, single (!) or double (#), with an integer type marked by %.',
     exponentOperator: '↑',
     screen: '64×16 text, monochrome.',
     freeRamBytes: 15572,
@@ -325,6 +334,8 @@ export const portingFacts: PortingFacts[] = [
     letRequired: 'optional',
     variableNaming:
       'Up to 40 significant characters; % = integer, ! = real (default), $ = string.',
+    numberHandling:
+      'Floating point (! real, the default), with an integer type marked by %.',
     exponentOperator: '^',
     screen:
       'MODE 0 (20×25, 160×200, 16 inks), MODE 1 (40×25, 320×200, 4 inks), MODE 2 (80×25, 640×200, 2 inks); graphics space 640×400.',

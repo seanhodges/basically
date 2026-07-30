@@ -41,48 +41,40 @@ const dialects = [
 # Porting guide
 
 Pick a dialect you're porting **from** and one you're porting **to**, and this
-page summarises what to change: the keywords you'll lose, gain, or that behave
-differently, the control codes that differ, and the language-rule and hardware
-differences between the two machines.
-
-The guide includes a feature to automatically port your program via the AI
-assistant. In order to use this you must be viewing these docs inside the [IDE](https://ba.sical.ly/)
-with your program open, and AI must be configured in the settings.
-
-This guide and the automation act as a starting point. There will likely be
-performance considerations, hardware inputs and other things still to address
-after porting is complete.
+page tells you what changes: the keywords you lose, gain or must rewrite, the
+control codes that differ, and how the two machines differ in language rules and
+hardware. Reading it inside the [IDE](https://ba.sical.ly/) with a program open
+and an AI assistant configured, you can also have the port carried out for you.
+Either way it is a starting point — performance and hardware input usually need
+attention afterwards.
 
 <DialectCompare :dialects="dialects">
 
 ## Porting between dialects
 
-Four things account for most of the work:
+Four things account for most of the work.
 
-**Restructuring.** If the target allows ony one statement on a line, every `:`
-has to become a new line, which renumbers everything after it (you can use the
-**Renumber file** feature to fix this). If the target has no `ELSE`, each
-`IF … THEN … ELSE` becomes a test and its inverse. Dialects that
-require `LET` reject a bare `X=1`. The table above tells you which of these
-apply to your pair.
+**Restructuring.** If the target allows only one statement per line, every `:`
+becomes a new line, which renumbers everything after it — the **Renumber file**
+feature fixes that. Without `ELSE`, each `IF … THEN … ELSE` becomes a test and
+its inverse, and a dialect that requires `LET` rejects a bare `X=1`.
 
-**Variable names.** This is where silent breakage lives. Where only the first
-two characters are significant, `SCORE` and `SCALE` are the same variable and a
-program that used both will misbehave rather than fail. Where names are a single
-letter, long names have to be re-mapped by hand. And on the machines that ignore
-spaces outside strings, a name that contains a reserved word is a syntax error,
-`SCORE` contains `OR`. You can use the variable watcher in the emulator to monitor
-variable usage.
+**Variable names.** Where only the first two characters are significant, `SCORE`
+and `SCALE` are one variable, and the program misbehaves rather than fails.
+Where names are a single letter, long names must be remapped by hand. On the
+machines that ignore spaces outside strings, a name containing a reserved word
+is a syntax error — `SCORE` contains `OR`. The emulator's variable watcher shows
+what the program actually ends up with.
 
-**Anything numeric.** Integer-only machines have no fractions at all, so
-division truncates and every fractional calculation needs rescaling. Watch the
-exponent operator too: it is spelled `**`, `^` or `↑` depending on the machine,
-some have no support.
+**Anything numeric.** An integer-only machine has no fractions at all: division
+truncates and every fractional calculation needs rescaling. The exponent
+operator is spelled `**`, `^` or `↑` depending on the machine, and some have
+none.
 
-**Everything touching hardware.** Addresses never travel. A `POKE`, `USR`,
+**Everything touching hardware.** Addresses never travel: a `POKE`, `USR`,
 `CALL` or `SYS` aimed at one machine's screen, sound chip or system variables
-means nothing to another machine, and neither do the control codes. Graphics
-and sound must be rewritten rather than translated: the machines here range from
-no graphics commands whatsoever to full `PLOT`/`DRAW`/`CIRCLE` with sound.
+means nothing on another, and neither do its control codes. Graphics and sound
+have to be rewritten rather than translated — these machines range from no
+graphics commands at all to `PLOT`/`DRAW`/`CIRCLE` with sound.
 
 </DialectCompare>

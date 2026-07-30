@@ -5,7 +5,10 @@ written as words. The editor highlights
 the active dialect, autocompletes keywords, and underlines errors as you type.
 
 Each machine has its own dialect with its own rules - the selector in the
-toolbar chooses which one the editor and emulator use.
+toolbar chooses which one the editor and emulator use. Moving a program you
+have already written to another machine? The
+[porting guide](../reference/compare) sets any two dialects side by side and
+says what has to change.
 
 ## Example
 

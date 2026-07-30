@@ -24,11 +24,21 @@ const SUPPORT_RANK: Record<DomainGuidance['support'], number> = {
   full: 2,
 };
 
+/**
+ * What changed about a keyword the two dialects both provide. Derived here
+ * rather than in the template so the classification is testable, and so the
+ * reader is told what changed instead of being handed two usage strings to
+ * compare by eye.
+ */
+export type KeywordChangeKind = 'kind' | 'parens' | 'arguments';
+
 /** One keyword that exists in both dialects but changed kind or syntax. */
 export interface KeywordChange {
   name: string;
   from: ReferenceEntry;
   to: ReferenceEntry;
+  /** Which of the three ways this keyword differs; see {@link KeywordChangeKind}. */
+  change: KeywordChangeKind;
 }
 
 /** One command both dialects provide, spelled differently: `GOTO` → `GO TO`. */
@@ -88,15 +98,56 @@ function normaliseSyntax(syntax: string): string {
 }
 
 /**
- * A keyword "changed behaviour" when the same name has a different kind, or a
- * different syntax once whitespace is normalised. `description` is deliberately
- * excluded: prose wording differs between pages without implying a real porting
- * difference, so it would only add noise.
+ * The *shape* of a usage string: what it accepts, with the names of its
+ * placeholders thrown away. `<…>` groups and lowercase identifiers collapse to
+ * one `#` marker, and spacing around separators and inside brackets is
+ * normalised, so `<number>, <number>` and `x,y` come out alike. Every marker is
+ * kept, so a third argument is still a difference; brackets, punctuation and
+ * literal (uppercase) keywords survive too.
+ *
+ * This exists because the eight reference pages were authored independently and
+ * do not share a placeholder convention - the Amstrad page writes `ABS(n)`
+ * where the other seven write `ABS(<number>)`. Comparing the text reports 72
+ * "behaviour changes" between the BBC and the Amstrad, nearly all of them
+ * editorial; comparing the shape reports the ones a port has to act on.
+ *
+ * Kept deliberately coarse-but-structural: `SIN <number>` and `SIN(n)` still
+ * differ (the Sinclair machines take the argument unparenthesised) and
+ * `LIST [<line>][-[<line>]]` still differs from `LIST [<line>]`.
  */
-function keywordChanged(a: ReferenceEntry, b: ReferenceEntry): boolean {
-  return (
-    a.kind !== b.kind || normaliseSyntax(a.syntax) !== normaliseSyntax(b.syntax)
-  );
+function syntaxShape(syntax: string): string {
+  return normaliseSyntax(syntax)
+    .replace(/<[^>]*>/g, '#')
+    .replace(/[A-Za-z_][A-Za-z0-9_$#]*\$?/g, (word) =>
+      /^[A-Z][A-Z0-9$#]*$/.test(word) ? word : '#',
+    )
+    .replace(/\s*([,;|])\s*/g, '$1')
+    .replace(/([([])\s+/g, '$1')
+    .replace(/\s+([)\]])/g, '$1')
+    .trim();
+}
+
+/** True when two shapes differ only in whether the arguments are bracketed. */
+function parenthesesOnly(a: string, b: string): boolean {
+  const bare = (shape: string) => shape.replace(/[()\s]/g, '');
+  return bare(a) === bare(b);
+}
+
+/**
+ * How a keyword both dialects provide differs, or `undefined` when it does not.
+ * `description` is deliberately excluded: prose wording differs between pages
+ * without implying a real porting difference, so it would only add noise. So is
+ * placeholder naming, for the same reason - see {@link syntaxShape}.
+ */
+function keywordChange(
+  a: ReferenceEntry,
+  b: ReferenceEntry,
+): KeywordChangeKind | undefined {
+  if (a.kind !== b.kind) return 'kind';
+  const from = syntaxShape(a.syntax);
+  const to = syntaxShape(b.syntax);
+  if (from === to) return undefined;
+  return parenthesesOnly(from, to) ? 'parens' : 'arguments';
 }
 
 /** An escape code "changed" when the same spelling maps to different bytes or category. */
@@ -158,11 +209,21 @@ export function diffKeywords(
     const match = targetByName.get(renamedTo ?? entry.name);
     if (!match) {
       mustReplace.push(entry);
-    } else if (renamedTo) {
+      continue;
+    }
+    if (renamedTo) {
       claimed.add(match.name);
       renamed.push({ from: entry, to: match });
-    } else if (keywordChanged(entry, match)) {
-      behaviourChanged.push({ name: entry.name, from: entry, to: match });
+      continue;
+    }
+    const change = keywordChange(entry, match);
+    if (change) {
+      behaviourChanged.push({
+        name: entry.name,
+        from: entry,
+        to: match,
+        change,
+      });
     } else {
       unchanged += 1;
     }
@@ -294,6 +355,61 @@ export function domainSections(
       support: supportOf(bucket.domain),
     }))
     .sort((a, b) => SUPPORT_RANK[a.support] - SUPPORT_RANK[b.support]);
+}
+
+/** One render-ready group of control codes: a category's worth of them. */
+export interface EscapeSection {
+  /** Category id from the owning table, or `undefined` for the trailing bucket. */
+  category: string | undefined;
+  /** Human label from the owning table's `categories`; the id if it names none. */
+  label: string;
+  entries: EscapeEntry[];
+}
+
+/**
+ * Group control codes by what they do, in the order the owning table declares
+ * its categories - which is already editorial (the Commodore page leads with
+ * colour and cursor and ends with the raw-byte escape), so the reader meets the
+ * codes a screen layout depends on rather than an alphabetical run of keycap
+ * block graphics. Categories nothing landed in are omitted; a code whose
+ * category the table does not declare lands in a trailing bucket rather than
+ * disappearing.
+ *
+ * Unlike {@link domainSections} this does *not* rank a category by whether the
+ * other dialect covers it. `KeywordDomain` is one closed vocabulary shared by
+ * every page, but escape categories are page-scoped: `colour` and `cursor` are
+ * Commodore categories, while the Spectrum files its `{INK n}` under `control`.
+ * Matching ids across the two would announce "nothing like it on the target"
+ * for codes the target plainly has.
+ *
+ * `table` is the table the entries came from - the source table for the codes a
+ * port must replace, the target's for the ones it gains.
+ */
+export function escapeSections(
+  entries: EscapeEntry[],
+  table: EscapeTableData,
+): EscapeSection[] {
+  const labels = new Map(table.categories.map((c) => [c.id, c.label]));
+  const byCategory = new Map<string, EscapeEntry[]>();
+  const rest: EscapeEntry[] = [];
+  for (const entry of entries) {
+    if (!labels.has(entry.category)) {
+      rest.push(entry);
+      continue;
+    }
+    const bucket = byCategory.get(entry.category);
+    if (bucket) bucket.push(entry);
+    else byCategory.set(entry.category, [entry]);
+  }
+
+  const sections: EscapeSection[] = [];
+  for (const { id, label } of table.categories) {
+    const found = byCategory.get(id);
+    if (found) sections.push({ category: id, label, entries: found });
+  }
+  if (rest.length)
+    sections.push({ category: undefined, label: 'Other', entries: rest });
+  return sections;
 }
 
 /**
