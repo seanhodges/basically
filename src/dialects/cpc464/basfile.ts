@@ -1,3 +1,4 @@
+import { PROGRAM_BASE } from './sysvars';
 /**
  * AMSDOS `.bas` container: a 128-byte header ahead of the tokenized program,
  * carrying the file type, load/length/entry fields and a 16-bit checksum of
@@ -18,7 +19,6 @@ const OFF_LENGTH24 = 64; // 24-bit file length
 const OFF_CHECKSUM = 67; // 16-bit LE sum of bytes 0-66
 
 /** BASIC program area start; where a tokenized `.bas` loads. */
-const PROGRAM_BASE = 0x0170;
 
 /** Sum of header bytes 0-66, as AMSDOS computes it. */
 function headerChecksum(header: Uint8Array): number {

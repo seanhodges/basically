@@ -1,4 +1,5 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { PROGRAM_BASE } from './addresses';
 
 /**
  * Commodore PET {@link MemoryBlocksSupport} figures for the memory-block linter
@@ -11,7 +12,7 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
  */
 
 /** BASIC program start on a 32K PET: TXTTAB = $0401 = 1025. */
-const PROG = 0x0401;
+const PROG = PROGRAM_BASE;
 
 /**
  * Headroom reserved beyond the raw tokenized program bytes for BASIC's

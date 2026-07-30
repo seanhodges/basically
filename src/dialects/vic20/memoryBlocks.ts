@@ -1,4 +1,5 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { PROGRAM_BASE } from './addresses';
 
 /**
  * Commodore VIC-20 {@link MemoryBlocksSupport} figures for the memory-block
@@ -11,7 +12,7 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
  */
 
 /** BASIC program start on the unexpanded VIC-20: TXTTAB = $1001 = 4097. */
-const PROG = 0x1001;
+const PROG = PROGRAM_BASE;
 
 /**
  * Headroom reserved beyond the raw tokenized program bytes for BASIC's

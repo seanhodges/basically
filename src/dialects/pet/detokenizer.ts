@@ -8,6 +8,7 @@ import {
   type CbmTapeFile,
 } from '../commodore64/detokenizer';
 import { petWordByToken } from './keywords';
+import { PROGRAM_BASE } from './addresses';
 
 /**
  * The PET's LIST/import variant: .prg images load at $0401, tokens decode
@@ -15,7 +16,7 @@ import { petWordByToken } from './keywords';
  * foreign load address is reported as most likely a C64/VIC-20/C128 image.
  */
 const PET_DETOKENIZE_VARIANT: CbmDetokenizeVariant = {
-  loadAddress: 0x0401,
+  loadAddress: PROGRAM_BASE,
   wordByToken: petWordByToken,
   machineHint: 'C64/VIC-20/C128 or machine-code',
   machineName: 'PET',

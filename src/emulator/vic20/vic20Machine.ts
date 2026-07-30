@@ -29,6 +29,13 @@ import {
 import { Vic20Memory, type Vic20Roms, SCREEN_BASE } from './memory';
 import { VicI, VIC20_DISPLAY_WIDTH, VIC20_DISPLAY_HEIGHT } from './vicI';
 import { vic20DomCodeToTokens, vic20TokenToPositions } from './keyboard';
+import {
+  BASIC_V2_ZP,
+  MAX_BASIC_LINE,
+  KEYBUF,
+  NDX,
+} from '../commodore/basicPointers';
+import { PROGRAM_BASE } from '../../dialects/vic20/addresses';
 
 export { VIC20_DISPLAY_WIDTH, VIC20_DISPLAY_HEIGHT } from './vicI';
 export type { Vic20Roms } from './memory';
@@ -61,13 +68,16 @@ const BOOT_CYCLE_CAP = 4_000_000;
 /** 22×23 visible character matrix. */
 const SCREEN_CELLS = 22 * 23;
 
-/** CBM BASIC zero-page pointers (identical to the C64 — the VIC-20 zero page is). */
-const TXTTAB = 0x2b; // start of program text
-const VARTAB = 0x2d; // start of variables
-const ARYTAB = 0x2f; // start of arrays
-const STREND = 0x31; // end of arrays (+1)
-const FRETOP = 0x33; // bottom of string heap
-const MEMSIZ = 0x37; // top of BASIC RAM
+// The VIC-20 zero page is the C64's: one BASIC V2 layout serves both.
+const {
+  txttab: TXTTAB,
+  vartab: VARTAB,
+  arytab: ARYTAB,
+  strend: STREND,
+  fretop: FRETOP,
+  memsiz: MEMSIZ,
+  curlin: CURLIN,
+} = BASIC_V2_ZP;
 
 /**
  * CBM BASIC's "current line number" (`CURLIN`), a 16-bit LE cell updated as each
@@ -75,8 +85,6 @@ const MEMSIZ = 0x37; // top of BASIC RAM
  * high byte is `$FF`, so any value above the highest legal line number (63999)
  * means no program line is executing.
  */
-const CURLIN = 0x39;
-const MAX_BASIC_LINE = 63999;
 /**
  * Cycles ticked between line checks in {@link Vic20Machine.debugStep}. Any BASIC
  * line takes far more cycles than this to execute, so a transition is never
@@ -100,11 +108,8 @@ const VIC20_REPORT_LAYOUTS: CbmScreenLayout[] = [
 ];
 
 /** Unexpanded VIC-20 programs load at $1001 (vs. the C64's $0801). */
-const PROG_START = 0x1001;
+const PROG_START = PROGRAM_BASE;
 
-/** KERNAL keyboard buffer and its count (NDX) — same addresses as the C64. */
-const KEYBUF = 0x0277;
-const NDX = 0xc6;
 const KEYBUF_MAX = 10;
 
 /** Screen codes for the `READY.` prompt, used to detect a completed boot. */

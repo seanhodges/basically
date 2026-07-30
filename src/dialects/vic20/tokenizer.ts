@@ -4,6 +4,7 @@ import {
   type TokenizedProgram,
 } from '../commodore64/tokenizer';
 import { vic20KeywordsByLength } from './keywords';
+import { PROGRAM_BASE } from './addresses';
 
 /**
  * The VIC-20's Commodore-BASIC variant: programs load at $1001 (vs the C64's
@@ -12,7 +13,7 @@ import { vic20KeywordsByLength } from './keywords';
  * $1201 with +8K/+16K) and are out of scope for Stage 1.
  */
 export const VIC20_VARIANT: CbmVariant = {
-  progStart: 0x1001,
+  progStart: PROGRAM_BASE,
   keywordsByLength: vic20KeywordsByLength,
 };
 

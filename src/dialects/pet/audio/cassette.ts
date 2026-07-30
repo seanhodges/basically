@@ -26,11 +26,12 @@ import {
   decodeCassette,
   decodeCassetteFiles,
 } from '../../commodore64/audio/cassetteDecoder';
+import { PROGRAM_BASE } from '../addresses';
 
 export { CASSETTE_SAMPLE_RATE };
 
 /** The PET base address — programs load at $0401 (vs the C64's $0801). */
-const PET_LOAD_ADDRESS = 0x0401;
+const PET_LOAD_ADDRESS = PROGRAM_BASE;
 
 /**
  * Encode PET source to cassette samples (the dialect's `buildSamples`). Without

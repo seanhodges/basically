@@ -51,6 +51,7 @@ import { attach as cias } from './viciious/target/cias.js';
 import { attach as cpu } from './viciious/target/cpu.js';
 // @ts-expect-error vendored JS, no types
 import { attach as tape } from './viciious/target/tape.js';
+import { BASIC_V2_ZP, MAX_BASIC_LINE } from '../commodore/basicPointers';
 
 /** PAL frame: 312 rows × 63 cycles. One {@link runFrame} ticks this many cycles. */
 const CYCLES_PER_FRAME = 63 * 312;
@@ -59,17 +60,13 @@ const CYCLES_PER_FRAME = 63 * 312;
  * program line starts. In direct mode the high byte is `$FF`, so any value above
  * the highest legal line number (63999) means no program line is executing.
  */
-const CURLIN = 0x39;
-const MAX_BASIC_LINE = 63999;
-/**
- * CBM BASIC zero-page pointers bounding the program area, used for the RAM
- * readout: TXTTAB = start of program text, STREND = end of arrays (top of the
- * upward-growing area), FRETOP = bottom of the downward-growing string heap.
- */
-const TXTTAB = 0x2b;
-const STREND = 0x31;
-const FRETOP = 0x33;
-const MEMSIZ = 0x37;
+const {
+  curlin: CURLIN,
+  txttab: TXTTAB,
+  strend: STREND,
+  fretop: FRETOP,
+  memsiz: MEMSIZ,
+} = BASIC_V2_ZP;
 /**
  * Cycles ticked between line checks in {@link C64Machine.debugStep}. Any BASIC
  * line takes far more cycles than this to execute, so a transition is never

@@ -2,6 +2,7 @@ import type { DetokenizeResult } from '../types';
 import { decodeSpan, plainChar } from './charset';
 import { locoVariant, type LocoBasicVariant } from './keywords';
 import { decodeLocoFloat, formatLocoFloat } from './numbers';
+import { PROGRAM_BASE } from './sysvars';
 
 /**
  * Tokenized Locomotive BASIC program bytes → editable source. Numeric
@@ -40,7 +41,6 @@ const VAR_SUFFIX: Record<number, string> = {
 };
 
 /** BASIC program area start (`&170`), for resolving &1D line pointers. */
-const PROGRAM_BASE = 0x0170;
 
 const rawByte = (b: number): string =>
   `{0x${b.toString(16).padStart(2, '0').toUpperCase()}}`;

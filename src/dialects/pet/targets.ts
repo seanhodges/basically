@@ -5,9 +5,10 @@ import { samplesToWav } from '../../transfer/wav';
 import { buildD64, type D64ExportEntry } from '../commodore64/d64';
 import { loaderProgramBytes } from './loader';
 import { CASSETTE_SAMPLE_RATE, buildCassetteSamples } from './audio/cassette';
+import { PROGRAM_BASE } from './addresses';
 
 /** Programs load at $0401 on the PET. */
-const LOAD_ADDRESS = 0x0401;
+const LOAD_ADDRESS = PROGRAM_BASE;
 
 /**
  * Build the loadable .prg image: the 2-byte load address ($0401, the PET base)

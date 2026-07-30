@@ -27,11 +27,12 @@ import {
   decodeCassette,
   decodeCassetteFiles,
 } from '../../commodore64/audio/cassetteDecoder';
+import { PROGRAM_BASE } from '../addresses';
 
 export { CASSETTE_SAMPLE_RATE };
 
 /** The unexpanded VIC-20 base — programs load at $1001 (vs the C64's $0801). */
-const VIC20_LOAD_ADDRESS = 0x1001;
+const VIC20_LOAD_ADDRESS = PROGRAM_BASE;
 
 /**
  * Encode VIC-20 source to cassette samples (the dialect's `buildSamples`).

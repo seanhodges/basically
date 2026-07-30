@@ -32,6 +32,8 @@ import {
   petDomCodeToToken,
   petTokenToPositions,
 } from './keyboard';
+import { BASIC_4_ZP, MAX_BASIC_LINE } from '../commodore/basicPointers';
+import { PROGRAM_BASE } from '../../dialects/pet/addresses';
 
 /**
  * Commodore PET 4032 (BASIC 4.0, 40-column graphics keyboard, discrete-TTL
@@ -82,13 +84,16 @@ const RETRACE_CYCLES = 1_600; // ~8% of the frame in vertical blanking
  */
 const BOOT_CYCLE_CAP = 4_000_000;
 
-/** BASIC 4.0 zero-page pointers (40xx). */
-const TXTTAB = 0x28; // start of program text
-const VARTAB = 0x2a; // start of variables
-const ARYTAB = 0x2c; // start of arrays
-const STREND = 0x2e; // end of arrays (+1)
-const FRETOP = 0x30; // bottom of string heap
-const MEMSIZ = 0x34; // top of BASIC RAM
+// BASIC 4.0 zero page (40xx) - two below the V2 machines' in places.
+const {
+  txttab: TXTTAB,
+  vartab: VARTAB,
+  arytab: ARYTAB,
+  strend: STREND,
+  fretop: FRETOP,
+  memsiz: MEMSIZ,
+  curlin: CURLIN,
+} = BASIC_4_ZP;
 /**
  * BASIC 4.0's "current line number" (`CURLIN`), a 16-bit LE cell updated as
  * each program line starts — two below the C64's $39 (see the loop test in
@@ -96,8 +101,6 @@ const MEMSIZ = 0x34; // top of BASIC RAM
  * typed direct-mode line executes the high byte is $FF, so any value above the
  * highest legal line number (63999) means no program line is executing.
  */
-const CURLIN = 0x36;
-const MAX_BASIC_LINE = 63999;
 /**
  * Cycles ticked between line checks in {@link PetMachine.debugStep}. Any BASIC
  * line takes far more cycles than this to execute, so a transition is never
@@ -120,7 +123,7 @@ const PET_SCREEN_LAYOUT: CbmScreenLayout = {
 };
 
 /** PET programs load at $0401 (vs. the C64's $0801). */
-const PROG_START = 0x0401;
+const PROG_START = PROGRAM_BASE;
 
 /** Screen codes for the `READY.` prompt, used to detect a completed boot. */
 const READY = screenCodesForText('READY.');
