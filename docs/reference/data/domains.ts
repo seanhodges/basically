@@ -16,9 +16,14 @@
 //    `text-screen` / `graphics` / `colour`.** `PEEK`, `INP` and `ADVAL` read
 //    hardware whatever they read it from; `PLOT`, `CLS` and `INK` are classified
 //    by the part of the display they change.
-// 3. **Multi-word variants take their head keyword's domain.** `ON BREAK`,
-//    `ON BREAK CONT`, `ON BREAK GOSUB` and `ON BREAK STOP` are all
-//    `error-handling`, following `ON BREAK`; `SPEED INK` follows `SPEED`.
+// 3. **A multi-word variant follows its head keyword only where it refines what
+//    the head does.** `ON BREAK CONT`, `ON BREAK GOSUB` and `ON BREAK STOP` are
+//    all `error-handling` like `ON BREAK`, each being a way of trapping the
+//    break key. Where the compound is a command in its own right with an effect
+//    of its own, rule 1 wins over the head: `SPEED INK` sets the flash rate of
+//    flashing colours, so it is `colour` rather than `SPEED`'s domain, and
+//    `CLEAR INPUT` discards pending keypresses, so it is `input` rather than
+//    `CLEAR`'s.
 
 /**
  * The 13 capability domains, in canonical render order: the order the porting

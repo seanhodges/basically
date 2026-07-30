@@ -1272,21 +1272,21 @@ export const cpcReference: BasicReferenceTableData = {
     {
       name: 'SPEED WRITE',
       kind: 'command',
-      domain: 'memory-hardware',
+      domain: 'storage',
       syntax: 'SPEED WRITE n',
       description: 'Set the cassette write speed (0 or 1).',
     },
     {
       name: 'SPEED INK',
       kind: 'command',
-      domain: 'memory-hardware',
+      domain: 'colour',
       syntax: 'SPEED INK on,off',
       description: 'Set the flash rate of flashing colours.',
     },
     {
       name: 'SPEED KEY',
       kind: 'command',
-      domain: 'memory-hardware',
+      domain: 'input',
       syntax: 'SPEED KEY delay,repeat',
       description: 'Set the keyboard auto-repeat rates.',
     },
@@ -1335,7 +1335,7 @@ export const cpcReference: BasicReferenceTableData = {
     {
       name: 'CLEAR INPUT',
       kind: 'command',
-      domain: 'data',
+      domain: 'input',
       syntax: 'CLEAR INPUT',
       description: 'Discard pending keyboard input.',
       tag: 'BASIC 1.1 only',

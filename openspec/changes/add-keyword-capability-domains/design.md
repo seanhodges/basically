@@ -186,8 +186,10 @@ tags on keywords).
   rather than `text-screen`.** → Write the three tie-break rules into the header
   of `domains.ts` (what the keyword does *on this machine* wins over what the
   word usually means; reading hardware → `memory-hardware`, changing the screen →
-  `text-screen`/`graphics`/`colour`; multi-word variants take their head
-  keyword's domain). Commit one dialect file at a time so each is reviewable.
+  `text-screen`/`graphics`/`colour`; a multi-word variant takes its head
+  keyword's domain where it refines what the head does, but a compound that is a
+  command in its own right is classified by its own effect — `SPEED INK` is
+  `colour`, not `SPEED`'s domain). Commit one dialect file at a time so each is reviewable.
   Add a test asserting the union of domains used across the eight tables equals
   the vocabulary, which catches both a dead domain and a drifted one.
 

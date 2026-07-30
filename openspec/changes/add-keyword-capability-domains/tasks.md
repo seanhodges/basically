@@ -6,8 +6,10 @@
 - [x] 1.2 Write the three tie-break rules into the `domains.ts` header comment:
       what the keyword does on *this* machine wins over what the word usually
       means; reading a hardware value is `memory-hardware` while changing the
-      screen is `text-screen`/`graphics`/`colour`; multi-word variants take
-      their head keyword's domain
+      screen is `text-screen`/`graphics`/`colour`; a multi-word variant takes
+      its head keyword's domain where it refines what the head does, but a
+      compound that is a command in its own right is classified by its own
+      effect (`SPEED INK` is `colour`, `CLEAR INPUT` is `input`)
 - [x] 1.3 Add optional `domain?: KeywordDomain` to `ReferenceEntry` in
       `docs/reference/data/types.ts`, with a comment explaining it is optional
       only because the interface is shared with the assembly references
