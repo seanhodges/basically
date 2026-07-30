@@ -26,6 +26,10 @@ export interface Ctx {
   callUserFn(name: string, args: BasicValue[]): BasicValue;
   /** EOF(n) for a sequential file open for input (Disk BASIC). */
   fileEof(fd: number): boolean;
+  /** LOC(n): records read or written so far on an open file. */
+  fileLoc(fd: number): number;
+  /** LOF(n): records the open file holds. */
+  fileLof(fd: number): number;
 }
 
 /** Keyword words that are functions (drive expression parsing). */
@@ -46,6 +50,96 @@ function one(args: BasicValue[]): number {
 /** A char code -> the interpreter string character for it (byte-preserving). */
 function chr(code: number): string {
   return codeToRuntimeChar(((code % 256) + 256) % 256);
+}
+
+/**
+ * Split a string into its characters. A TRS-80 string is a byte string, but the
+ * block-graphics codes 0x81–0xBF map to astral Unicode sextants that occupy two
+ * UTF-16 units each - so every length and slice has to count code points, or a
+ * graphics character would measure 2 and a slice could cut a surrogate pair in
+ * half.
+ */
+function chars(s: string): string[] {
+  return Array.from(s);
+}
+
+/** Bytes -> an interpreter string, one character per byte. */
+function stringFromBytes(bytes: readonly number[]): string {
+  return bytes.map((b) => chr(b)).join('');
+}
+
+/** The first `n` bytes of a string, or `?FC ERROR` if it is too short. */
+function bytesFromString(s: string, n: number): number[] {
+  const out: number[] = [];
+  for (const ch of s) {
+    if (out.length === n) break;
+    const code = runtimeCharToCode(ch);
+    if (code === undefined) throw new BasicError('FC');
+    out.push(code);
+  }
+  if (out.length < n) throw new BasicError('FC');
+  return out;
+}
+
+/**
+ * Microsoft binary format, the layout MKS$/MKD$ write and CVS/CVD read: the
+ * mantissa little-endian with its implicit leading 1 replaced by the sign bit,
+ * then a final exponent byte biased by 128 (0 for the value zero). A 4-byte
+ * string holds single precision, an 8-byte string double.
+ *
+ * Mantissa bits beyond the host double's 53 are zero, so an 8-byte value
+ * round-trips to full JavaScript precision rather than the ROM's full 56 bits.
+ */
+function mbfFromNumber(value: number, size: number): number[] {
+  const out = new Array<number>(size).fill(0);
+  if (value === 0 || !Number.isFinite(value)) return out;
+  let a = Math.abs(value);
+  let exp = 0;
+  while (a >= 1) {
+    a /= 2;
+    exp++;
+  }
+  while (a < 0.5) {
+    a *= 2;
+    exp--;
+  }
+  const mantBytes = size - 1;
+  const bits: number[] = [];
+  for (let i = 0; i < mantBytes * 8; i++) {
+    a *= 2;
+    const bit = a >= 1 ? 1 : 0;
+    if (bit) a -= 1;
+    bits.push(bit);
+  }
+  bits[0] = value < 0 ? 1 : 0; // the sign sits where the leading 1 would be
+  for (let b = 0; b < mantBytes; b++) {
+    let byte = 0;
+    for (let k = 0; k < 8; k++) byte = (byte << 1) | bits[b * 8 + k]!;
+    out[mantBytes - 1 - b] = byte; // bits run most-significant first
+  }
+  out[size - 1] = (exp + 128) & 0xff;
+  return out;
+}
+
+function numberFromMbf(bytes: readonly number[]): number {
+  const size = bytes.length;
+  const exp = bytes[size - 1]!;
+  if (exp === 0) return 0;
+  const high = bytes[size - 2]!;
+  let mant = 0.5; // the implicit leading 1
+  let weight = 0.25;
+  for (let k = 6; k >= 0; k--) {
+    if (high & (1 << k)) mant += weight;
+    weight /= 2;
+  }
+  for (let b = size - 3; b >= 0; b--) {
+    for (let k = 7; k >= 0; k--) {
+      if (bytes[b]! & (1 << k)) mant += weight;
+      weight /= 2;
+    }
+  }
+  const value = mant * Math.pow(2, exp - 128);
+  return (high & 0x80) !== 0 ? -value : value;
 }
 
 export function evalFunction(
@@ -112,10 +206,33 @@ export function evalFunction(
       return 0;
     case 'EOF':
       return ctx.fileEof(Math.floor(one(args))) ? REL_TRUE : REL_FALSE;
+    case 'LOC':
+      return ctx.fileLoc(Math.floor(one(args)));
+    case 'LOF':
+      return ctx.fileLof(Math.floor(one(args)));
+
+    // --- number <-> byte-string conversions (Disk BASIC) ------------------
+    case 'MKI$': {
+      const n = Math.round(one(args)) & 0xffff;
+      return stringFromBytes([n & 0xff, (n >> 8) & 0xff]);
+    }
+    case 'MKS$':
+      return stringFromBytes(mbfFromNumber(one(args), 4));
+    case 'MKD$':
+      return stringFromBytes(mbfFromNumber(one(args), 8));
+    case 'CVI': {
+      const [lo, hi] = bytesFromString(asStr(args[0]!), 2);
+      const v = lo! | (hi! << 8);
+      return v >= 0x8000 ? v - 0x10000 : v;
+    }
+    case 'CVS':
+      return numberFromMbf(bytesFromString(asStr(args[0]!), 4));
+    case 'CVD':
+      return numberFromMbf(bytesFromString(asStr(args[0]!), 8));
 
     // --- strings -------------------------------------------------------
     case 'LEN':
-      return asStr(args[0]!).length;
+      return chars(asStr(args[0]!)).length;
     case 'ASC': {
       const s = asStr(args[0]!);
       if (s.length === 0) throw new BasicError('FC');
@@ -135,34 +252,34 @@ export function evalFunction(
       return m ? Number(m[0].replace(/[dD]/, 'E')) : 0;
     }
     case 'LEFT$': {
-      const s = asStr(args[0]!);
-      return s.slice(0, Math.max(0, asNum(args[1]!)));
+      const s = chars(asStr(args[0]!));
+      return s.slice(0, Math.max(0, asNum(args[1]!))).join('');
     }
     case 'RIGHT$': {
-      const s = asStr(args[0]!);
+      const s = chars(asStr(args[0]!));
       const n = Math.max(0, asNum(args[1]!));
-      return n >= s.length ? s : s.slice(s.length - n);
+      return (n >= s.length ? s : s.slice(s.length - n)).join('');
     }
     case 'MID$': {
-      const s = asStr(args[0]!);
+      const s = chars(asStr(args[0]!));
       const start = Math.max(1, Math.floor(asNum(args[1]!)));
       const len = args.length >= 3 ? Math.max(0, asNum(args[2]!)) : s.length;
-      return s.substr(start - 1, len);
+      return s.slice(start - 1, start - 1 + len).join('');
     }
     case 'STRING$': {
       const n = Math.max(0, Math.floor(asNum(args[0]!)));
       const c = isStr(args[1]!)
-        ? (asStr(args[1]!)[0] ?? ' ')
+        ? (chars(asStr(args[1]!))[0] ?? ' ')
         : chr(asNum(args[1]!));
       return c.repeat(n);
     }
     case 'INSTR': {
-      // INSTR([start,] s$, t$)
-      let i = 0;
+      // INSTR([start,] s$, t$) - positions count characters, not UTF-16 units.
+      let from = 0;
       let s: string;
       let t: string;
       if (args.length === 3) {
-        i = Math.max(1, Math.floor(asNum(args[0]!))) - 1;
+        from = Math.max(1, Math.floor(asNum(args[0]!))) - 1;
         s = asStr(args[1]!);
         t = asStr(args[2]!);
       } else if (args.length === 2) {
@@ -171,11 +288,17 @@ export function evalFunction(
       } else {
         throw new BasicError('FC');
       }
-      return s.indexOf(t, i) + 1;
+      const hay = chars(s);
+      const needle = chars(t);
+      for (let i = from; i + needle.length <= hay.length; i++) {
+        if (needle.every((c, k) => hay[i + k] === c)) return i + 1;
+      }
+      return 0;
     }
 
     default:
-      // VARPTR, USR, CVI/CVS/CVD, MKI$…, and any disk-only function.
+      // VARPTR (no authentic variable storage to point at) and USR (no Z80 in
+      // this backend) have nothing meaningful to return here.
       throw new BasicError('FC');
   }
 }

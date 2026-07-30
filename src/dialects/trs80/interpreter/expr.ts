@@ -185,7 +185,8 @@ function parseAtom(s: Stream, ctx: Ctx): BasicValue {
       s.advance();
       return evalFunction(word, [], ctx);
     }
-    if (FUNCTION_WORDS.has(word) && word !== 'TAB(' && word !== 'SPC(') {
+    // TAB( is a PRINT item, not an expression term - doPrint consumes it.
+    if (FUNCTION_WORDS.has(word) && word !== 'TAB(') {
       s.advance();
       if (!s.eatPunct('(')) throw new BasicError('SN');
       const args = parseArgs(s, ctx);

@@ -172,6 +172,41 @@ describe('trs80 sequential file I/O (Disk BASIC over the VFS)', () => {
     expect(text(files, 'PART')).toBe('KEPT\n');
   });
 
+  it('writes formatted text with PRINT# USING', () => {
+    const { store, files } = fakeStore();
+    run(
+      '10 OPEN "O",1,"FMT"\n20 PRINT #1,USING "##.##";3.5;12\n30 CLOSE 1\n',
+      store,
+    );
+    expect(text(files, 'FMT')).toBe(' 3.5012.00\n');
+  });
+
+  it('rejects PRINT# @ - a file has no cursor', () => {
+    const { store } = fakeStore();
+    const interp = run('10 OPEN "O",1,"F"\n20 PRINT #1,@0,"X"\n', store);
+    expect(interp.getReport()).toMatchObject({ isError: true, code: 'SN' });
+  });
+
+  it('reports file size and position in records with LOF and LOC', () => {
+    const { store } = fakeStore();
+    const src =
+      '10 OPEN "O",1,"D"\n20 FOR I=1 TO 40\n30 PRINT #1,"0123456789"\n' +
+      '40 NEXT\n50 PRINT LOC(1);LOF(1)\n60 CLOSE 1\n';
+    // 40 lines of 11 bytes = 440 bytes, so two 256-byte records.
+    expect(row(run(src, store), 0)).toBe(' 2  2');
+  });
+
+  it('counts LOC forward as an input file is read', () => {
+    const { store } = fakeStore();
+    run('10 OPEN "O",1,"E"\n20 PRINT #1,"AB"\n30 CLOSE 1\n', store);
+    const src =
+      '10 OPEN "I",1,"E"\n20 PRINT LOC(1);LOF(1)\n' +
+      '30 INPUT #1,A$\n40 PRINT LOC(1)\n50 CLOSE 1\n';
+    const interp = run(src, store);
+    expect(row(interp, 0)).toBe(' 0  1');
+    expect(row(interp, 1)).toBe(' 1');
+  });
+
   it('skips all file statements when no store is wired (old behavior)', () => {
     const interp = run(
       '10 OPEN "O",1,"F"\n20 PRINT #1,"X"\n30 INPUT #1,A$\n' +

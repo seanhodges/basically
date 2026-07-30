@@ -10,7 +10,12 @@ import { evalExpr } from './expr';
 import { asNum, asStr, formatNumber, type BasicValue } from './values';
 import type { Ctx } from './builtins';
 import { SequentialFiles, type PrintSink } from './seqfiles';
+import { UsingFormat } from './using';
 import type { MachineFileStore } from '../../types';
+import { COLS, ROWS } from '../emulator/display';
+
+/** Screen cells addressable by `PRINT @` (0 = top-left). */
+const SCREEN_CELLS = COLS * ROWS;
 
 export type RunStatus = 'idle' | 'running' | 'input' | 'ended' | 'error';
 
@@ -100,6 +105,8 @@ export class Interpreter implements Ctx {
 
   private inputTargets: LValue[] = [];
   private inputBuffer = '';
+  /** LINE INPUT: take the typed line verbatim instead of splitting on commas. */
+  private inputWholeLine = false;
 
   /** Disk BASIC sequential files over the IDE's virtual filesystem. */
   private readonly seqFiles = new SequentialFiles();
@@ -146,6 +153,7 @@ export class Interpreter implements Ctx {
     this.report = null;
     this.inputTargets = [];
     this.inputBuffer = '';
+    this.inputWholeLine = false;
     this.lineIdx = 0;
     this.cur = this.program.lines.length
       ? new Stream(this.program.lines[0]!.lexemes)
@@ -382,14 +390,29 @@ export class Interpreter implements Ctx {
         this.doDefType(s, 'str');
         break;
       case 'END':
+        this.status = 'ended';
+        this.seqFiles.closeAll(true); // Disk BASIC END closes files
+        break;
       case 'STOP':
         this.status = 'ended';
-        this.seqFiles.closeAll(true); // Disk BASIC END/STOP closes files
+        this.seqFiles.closeAll(true);
+        // STOP is a deliberate halt, not a fault: the ROM says which line.
+        this.report = {
+          isError: false,
+          message: `BREAK IN ${this.program.lines[this.lineIdx]?.lineNo ?? 0}`,
+        };
         break;
-      case 'RUN':
+      case 'RUN': {
+        // `RUN n` restarts at line n rather than at the top.
+        const start =
+          s.eof() || s.peekPunct() === ':'
+            ? null
+            : Math.floor(asNum(evalExpr(s, this)));
         this.seqFiles.closeAll(true); // as does RUN, before restarting
         this.reset();
+        if (start !== null) this.jump(start);
         break;
+      }
       case 'OPEN': {
         if (!this.seqFiles.active) {
           this.skipStatement(s);
@@ -425,10 +448,10 @@ export class Interpreter implements Ctx {
         break;
       }
       case 'LINE': {
-        // Only the Disk BASIC `LINE INPUT #n, v$` form is supported; plain
-        // keyboard LINE INPUT stays unimplemented, as before.
-        if (!s.eatKw('INPUT') || s.peekPunct() !== '#') {
-          throw new BasicError('SN');
+        if (!s.eatKw('INPUT')) throw new BasicError('SN');
+        if (s.peekPunct() !== '#') {
+          this.doLineInput(s); // keyboard form
+          break;
         }
         s.advance(); // '#'
         const fd = Math.floor(asNum(evalExpr(s, this)));
@@ -487,6 +510,7 @@ export class Interpreter implements Ctx {
       tab: (n) => this.screen.tab(n),
       newline: () => this.screen.newline(),
     };
+    let toFile = false;
     if (s.peekPunct() === '#') {
       s.advance();
       const fd = Math.floor(asNum(evalExpr(s, this)));
@@ -496,7 +520,28 @@ export class Interpreter implements Ctx {
         return;
       }
       sink = this.seqFiles.writer(fd);
+      toFile = true;
     }
+
+    // `PRINT @ n,` homes the cursor to a screen cell before printing. It only
+    // opens the item list (as on the ROM) and has no meaning for a file, which
+    // has no cursor.
+    if (s.peekPunct() === '@') {
+      if (toFile) throw new BasicError('SN');
+      s.advance();
+      const cell = Math.floor(asNum(evalExpr(s, this)));
+      if (cell < 0 || cell >= SCREEN_CELLS) throw new BasicError('FC');
+      this.screen.setCell(cell);
+      // The position is followed by a separator that is part of the `@` syntax,
+      // not a print separator - it neither tabs a zone nor suppresses newline.
+      if (!s.eatPunct(',') && !s.eatPunct(';')) throw new BasicError('SN');
+    }
+
+    if (s.eatKw('USING')) {
+      this.doPrintUsing(s, sink);
+      return;
+    }
+
     let trailingSep = false;
     while (!s.eof() && s.peekPunct() !== ':') {
       const p = s.peekPunct();
@@ -511,13 +556,11 @@ export class Interpreter implements Ctx {
         trailingSep = true;
         continue;
       }
-      const w = s.peekKw();
-      if (w === 'TAB(' || w === 'SPC(') {
+      if (s.peekKw() === 'TAB(') {
         s.advance();
         const n = asNum(evalExpr(s, this));
         this.expect(s, ')');
-        if (w === 'TAB(') sink.tab(n);
-        else sink.text(' '.repeat(Math.max(0, Math.floor(n))));
+        sink.tab(n);
         trailingSep = true;
         continue;
       }
@@ -526,6 +569,29 @@ export class Interpreter implements Ctx {
       else sink.text(`${formatNumber(v)} `);
       trailingSep = false;
     }
+    if (!trailingSep) sink.newline();
+  }
+
+  /**
+   * `PRINT USING fmt$; a; b, c` - every item is rendered through the template
+   * instead of the default PRINT formatting, so `,` and `;` are plain item
+   * separators here and neither tabs a print zone.
+   */
+  private doPrintUsing(s: Stream, sink: PrintSink): void {
+    const fmt = new UsingFormat(asStr(evalExpr(s, this)));
+    this.expect(s, ';');
+    let trailingSep = false;
+    while (!s.eof() && s.peekPunct() !== ':') {
+      const p = s.peekPunct();
+      if (p === ';' || p === ',') {
+        s.advance();
+        trailingSep = true;
+        continue;
+      }
+      sink.text(fmt.format(evalExpr(s, this)));
+      trailingSep = false;
+    }
+    sink.text(fmt.tail());
     if (!trailingSep) sink.newline();
   }
 
@@ -673,6 +739,26 @@ export class Interpreter implements Ctx {
     this.status = 'input';
   }
 
+  /**
+   * `LINE INPUT ["prompt";] v$` - the whole typed line goes into one string
+   * variable verbatim, so commas and leading spaces are kept and the `?` INPUT
+   * prompt is not printed.
+   */
+  private doLineInput(s: Stream): void {
+    const t = s.peek();
+    if (t && t.kind === 'str') {
+      s.advance();
+      this.screen.printText(t.value);
+      if (!s.eatPunct(';')) s.eatPunct(',');
+    }
+    const lv = this.readLValue(s);
+    if (!this.nameIsString(lv.name)) throw new BasicError('TM');
+    this.inputTargets = [lv];
+    this.inputBuffer = '';
+    this.inputWholeLine = true;
+    this.status = 'input';
+  }
+
   private doDim(s: Stream): void {
     do {
       const t = s.advance();
@@ -752,16 +838,21 @@ export class Interpreter implements Ctx {
   }
 
   private finishInput(): void {
-    const items = this.inputBuffer.split(',');
-    this.inputTargets.forEach((lv, i) => {
-      const raw = (items[i] ?? '').trim();
-      const value = this.nameIsString(lv.name)
-        ? (items[i] ?? '')
-        : Number(raw) || 0;
-      this.assignLValue(lv, value);
-    });
+    if (this.inputWholeLine) {
+      this.assignLValue(this.inputTargets[0]!, this.inputBuffer);
+    } else {
+      const items = this.inputBuffer.split(',');
+      this.inputTargets.forEach((lv, i) => {
+        const raw = (items[i] ?? '').trim();
+        const value = this.nameIsString(lv.name)
+          ? (items[i] ?? '')
+          : Number(raw) || 0;
+        this.assignLValue(lv, value);
+      });
+    }
     this.inputTargets = [];
     this.inputBuffer = '';
+    this.inputWholeLine = false;
     this.status = 'running';
   }
 
@@ -808,6 +899,12 @@ export class Interpreter implements Ctx {
   }
   fileEof(fd: number): boolean {
     return this.seqFiles.eof(fd);
+  }
+  fileLoc(fd: number): number {
+    return this.seqFiles.loc(fd);
+  }
+  fileLof(fd: number): number {
+    return this.seqFiles.lof(fd);
   }
   rnd(x: number): number {
     if (x < 0) this.seed = (Math.floor(-x) & 0xffffffff) >>> 0 || 1;

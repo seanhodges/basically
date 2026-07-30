@@ -15,6 +15,9 @@ export interface PrintSink {
 /** TRS-80 print zones are 16 columns wide (4 per 64-column line). */
 const ZONE_WIDTH = 16;
 
+/** Disk BASIC counts file positions in 256-byte records (LOC / LOF). */
+const RECORD_SIZE = 256;
+
 interface OpenFile {
   name: string;
   mode: 'I' | 'O';
@@ -179,6 +182,22 @@ export class SequentialFiles {
     return f.inPos >= f.inText.length;
   }
 
+  /** LOC(fd): records read (mode I) or written (mode O) so far. */
+  loc(fd: number): number {
+    const f = this.handles.get(fd);
+    if (!f) throw new BasicError('NO');
+    const pos = f.mode === 'I' ? f.inPos : outLength(f);
+    return Math.ceil(pos / RECORD_SIZE);
+  }
+
+  /** LOF(fd): records the file holds. */
+  lof(fd: number): number {
+    const f = this.handles.get(fd);
+    if (!f) throw new BasicError('NO');
+    const len = f.mode === 'I' ? f.inText.length : outLength(f);
+    return Math.ceil(len / RECORD_SIZE);
+  }
+
   private reader(fd: number): OpenFile {
     const f = this.handles.get(fd);
     if (!f || f.mode !== 'I') throw new BasicError('NO');
@@ -199,6 +218,13 @@ export class SequentialFiles {
     if (f.mode !== 'O') return;
     this.store?.save(f.name, bytesFromText(f.out.join('')), { kind: 'data' });
   }
+}
+
+/** Bytes buffered for an output file so far. */
+function outLength(f: OpenFile): number {
+  let n = 0;
+  for (const chunk of f.out) n += chunk.length;
+  return n;
 }
 
 /** Space/tab between fields (newlines are separators, not padding). */
