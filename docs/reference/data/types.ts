@@ -1,3 +1,5 @@
+import type { KeywordDomain } from './domains';
+
 /** One row of a dialect reference table. */
 export interface ReferenceEntry {
   /**
@@ -17,6 +19,14 @@ export interface ReferenceEntry {
   description: string;
   /** Optional badge, e.g. "128K only" or "Master only". */
   tag?: string;
+  /**
+   * The capability this keyword provides - graphics, sound, storage and so on.
+   * Optional *only* because this interface is shared with the per-CPU assembly
+   * references, whose mnemonics have no BASIC capability. Every BASIC row has
+   * one: the eight BASIC tables are typed as {@link BasicReferenceTableData},
+   * which narrows this to required.
+   */
+  domain?: KeywordDomain;
 }
 
 /** Everything one reference page renders. */
@@ -26,6 +36,24 @@ export interface ReferenceTableData {
   /** Machines this language set covers, for the page intro. */
   machines: string[];
   entries: ReferenceEntry[];
+}
+
+/**
+ * A BASIC keyword row, where the capability domain is mandatory. Assignable to
+ * {@link ReferenceEntry}, so every shared consumer keeps working unchanged.
+ */
+export interface BasicReferenceEntry extends ReferenceEntry {
+  domain: KeywordDomain;
+}
+
+/**
+ * A BASIC dialect's reference page. The eight BASIC data files annotate
+ * themselves with this rather than {@link ReferenceTableData} so that a row
+ * missing its `domain` fails `npm run typecheck` - the strongest available
+ * guard on a hand-authored classification of every keyword.
+ */
+export interface BasicReferenceTableData extends ReferenceTableData {
+  entries: BasicReferenceEntry[];
 }
 
 /** One row of a dialect escape-code table. */
