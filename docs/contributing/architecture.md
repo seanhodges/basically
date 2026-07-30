@@ -143,6 +143,28 @@ interface:
 - **`memoryMap`**, **`memoryBlocks`**, **`addressNotation`** and
   **`memoryWrites`** - what the memory-map viewer draws, and where machine-code
   blocks may legally live.
+
+::: tip One address, one definition
+A dialect declares each hardware address **exactly once**, in its
+`sysvars.ts` (where the machine already has one) or its `addresses.ts` - and
+the memory map, the block linter, the file formats and the emulator all import
+it from there. Before writing an address literal, check whether that module
+already names it.
+
+Two consequences worth knowing:
+
+- Values genuinely shared by a family live one level up:
+  `src/emulator/bbc/addresses.ts` for the layout both BBC models share,
+  `src/emulator/commodore/basicPointers.ts` for the CBM zero-page blocks.
+  Values that merely happen to be equal stay separate - the BBC Master's PAGE
+  and the Model B's tape PAGE are both `&0E00` for unrelated reasons, so they
+  are two constants.
+- `memoryMap.ts` stays a table of literals, because being readable as a table
+  is the point. It is held honest by test instead: each dialect's
+  `memoryMap.test.ts` pins its regions to the canonical constants, and the
+  shared `src/dialects/memoryMap.test.ts` checks every registered dialect's
+  map against the program base its `memoryBlocks` reports.
+  :::
 - **`keyboardLayout`**, **`samples`**, **`programRamBytes`**, and
   **`createEmulator()`**.
 - Capability flags the UI feature-detects on: **`romUrl`** (absent for a machine

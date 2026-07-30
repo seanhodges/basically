@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { zx81MemoryMap } from './memoryMap';
 import { PROGRAM_BASE } from './sysvars';
+import { ROM_BYTES } from './emulator/memory';
 
 describe('zx81MemoryMap', () => {
   const { addressSpace, regions } = zx81MemoryMap;
@@ -24,5 +25,9 @@ describe('zx81MemoryMap', () => {
     const echo = regions[regions.length - 1]!;
     expect(echo.start).toBe(0x8000);
     expect(echo.kind).toBe('reserved');
+  });
+  it('sizes the ROM band to the ROM image the machine loads', () => {
+    const rom = regions.find((r) => r.kind === 'rom')!;
+    expect(rom.end - rom.start + 1).toBe(ROM_BYTES);
   });
 });

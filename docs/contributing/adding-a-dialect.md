@@ -52,6 +52,12 @@ BASIC:
      the keyboard; on a machine that printed no graphics on its keycaps at all,
      leave `key` unset and the palette labels the cell with the character code
      its BASIC takes instead.
+   - `addresses.ts` - the machine's fixed hardware addresses, declared **once**
+     for the whole dialect: the program base, the screen base, whatever else the
+     map, the linter and the emulator all need. Where the machine already has a
+     `sysvars.ts`, put them there instead of adding a second module. Everything
+     else imports from it rather than repeating a literal, so a layout fact has
+     one definition to change. Cite the manual or ROM the value came from.
    - `tokenizer.ts` / `detokenizer.ts` - text ↔ tokenized program bytes.
    - an image builder (the Spectrum equivalent of `pfile.ts` is a `.tap`/
      `.sna` builder).

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { petMemoryMap } from './memoryMap';
+import { BASIC_RAM_BASE, SCREEN_BASE } from './addresses';
 
 describe('petMemoryMap', () => {
   const { addressSpace, regions } = petMemoryMap;
@@ -15,13 +16,13 @@ describe('petMemoryMap', () => {
   it('starts the BASIC program area at $0400', () => {
     const program = regions.find((r) => r.kind === 'program');
     expect(program).toBeDefined();
-    expect(program!.start).toBe(0x0400);
+    expect(program!.start).toBe(BASIC_RAM_BASE);
   });
 
   it('places the screen matrix at $8000', () => {
     const screen = regions.find((r) => r.kind === 'screen');
     expect(screen).toBeDefined();
-    expect(screen!.start).toBe(0x8000);
+    expect(screen!.start).toBe(SCREEN_BASE);
   });
 
   it('collapses the three system leaves under one band', () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { vic20MemoryMap } from './memoryMap';
+import { BASIC_RAM_BASE, SCREEN_BASE } from './addresses';
 
 describe('vic20MemoryMap', () => {
   const { addressSpace, regions } = vic20MemoryMap;
@@ -15,13 +16,13 @@ describe('vic20MemoryMap', () => {
   it('starts the BASIC program area at $1000', () => {
     const program = regions.find((r) => r.kind === 'program');
     expect(program).toBeDefined();
-    expect(program!.start).toBe(0x1000);
+    expect(program!.start).toBe(BASIC_RAM_BASE);
   });
 
   it('places the screen matrix at $1E00', () => {
     const screen = regions.find((r) => r.kind === 'screen');
     expect(screen).toBeDefined();
-    expect(screen!.start).toBe(0x1e00);
+    expect(screen!.start).toBe(SCREEN_BASE);
   });
 
   it('collapses the three system leaves under one band', () => {

@@ -12,6 +12,9 @@ import {
  *   0x8000-0xFFFF  echo of 0x0000-0x7FFF (the region the display routine
  *                  "executes"; see the opcode-fetch hook in zx81Machine)
  */
+/** Size of the ZX81's 8K ROM image; the memory map's ROM region matches it. */
+export const ROM_BYTES = 8192;
+
 export class Zx81Memory {
   readonly rom: Uint8Array;
   readonly ram: Uint8Array;
@@ -24,8 +27,8 @@ export class Zx81Memory {
   readonly activity = new MemoryActivityBuffer(0x10000);
 
   constructor(rom: Uint8Array, ramKb: 16 | 32 | 64) {
-    if (rom.length !== 8192)
-      throw new Error(`ZX81 ROM must be 8192 bytes, got ${rom.length}`);
+    if (rom.length !== ROM_BYTES)
+      throw new Error(`ZX81 ROM must be ${ROM_BYTES} bytes, got ${rom.length}`);
     this.rom = rom;
     this.ram = new Uint8Array(ramKb * 1024);
     this.ramMask = ramKb * 1024 - 1;

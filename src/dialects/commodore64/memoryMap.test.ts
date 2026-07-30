@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { c64MemoryMap } from './memoryMap';
+import { BASIC_RAM_BASE, SCREEN_BASE } from './addresses';
 
 describe('c64MemoryMap', () => {
   const { addressSpace, regions } = c64MemoryMap;
@@ -15,7 +16,12 @@ describe('c64MemoryMap', () => {
   it('starts the BASIC program area at $0800', () => {
     const program = regions.find((r) => r.kind === 'program');
     expect(program).toBeDefined();
-    expect(program!.start).toBe(0x0800);
+    expect(program!.start).toBe(BASIC_RAM_BASE);
+  });
+
+  it('places the default video matrix at the screen base', () => {
+    const screen = regions.find((r) => r.kind === 'screen');
+    expect(screen!.start).toBe(SCREEN_BASE);
   });
 
   it('collapses the three system leaves under one band', () => {
