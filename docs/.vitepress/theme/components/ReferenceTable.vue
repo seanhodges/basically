@@ -5,16 +5,19 @@ import {
   filterEntries,
   findEntryByName,
   sortEntries,
+  type DomainFilter,
   type KindFilter,
   type SortKey,
 } from '../referenceTable';
 import { useDeepLinkParams } from '../deepLinkParams';
 import { KIND_META, KIND_ORDER } from '../kindMeta';
+import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 
 const props = defineProps<{ data: ReferenceTableData }>();
 
 const query = ref('');
 const kind = ref<KindFilter>('all');
+const domain = ref<DomainFilter>('all');
 // The keyword pinned by a `?name=` deep link (exact match), highlighted and
 // scrolled to on load. Also set when a row's own link is copied, so the click
 // confirms which row it captured.
@@ -27,8 +30,10 @@ let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 // link into the table: `?q=` seeds the search box (substring, context-aware
 // help), `?name=` pins one exact keyword row. Re-runs when the drawer routes
 // this frame to a new topic on the same page, which never remounts us.
-useDeepLinkParams(({ q, name }) => {
+useDeepLinkParams(({ q, name, domain: d }) => {
   query.value = q ?? '';
+  const known = presentDomains.value.find((p) => p === d);
+  domain.value = known ?? 'all';
   const match = name ? findEntryByName(props.data.entries, name) : undefined;
   highlighted.value = match?.name ?? null;
   // Wait for the rows to render before scrolling to the pinned one.
@@ -82,9 +87,17 @@ const kindList = computed(() =>
   presentKinds.value.map((k) => [k, KIND_META[k]] as const),
 );
 
+// The capability domains this table actually uses, in canonical order. The two
+// assembly pages carry no domains, so this is empty there and the whole chip
+// row disappears - no special-casing needed for them.
+const presentDomains = computed(() => {
+  const seen = new Set(props.data.entries.map((e) => e.domain));
+  return DOMAIN_ORDER.filter((d) => seen.has(d));
+});
+
 const visible = computed(() =>
   sortEntries(
-    filterEntries(props.data.entries, query.value, kind.value),
+    filterEntries(props.data.entries, query.value, kind.value, domain.value),
     sortKey.value,
     sortDir.value,
   ),
@@ -127,6 +140,37 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
           {{ k.label }}
         </button>
       </div>
+    </div>
+
+    <!--
+      Capability chips, a distinct smaller second row so the header does not
+      read as one long strip of controls. Orthogonal to the kind chips: the two
+      filters AND together and neither resets the other.
+    -->
+    <div
+      v-if="presentDomains.length"
+      class="reftable-domains"
+      role="group"
+      aria-label="Filter by capability"
+    >
+      <button
+        type="button"
+        class="reftable-domain"
+        :class="{ active: domain === 'all' }"
+        @click="domain = 'all'"
+      >
+        All
+      </button>
+      <button
+        v-for="d in presentDomains"
+        :key="d"
+        type="button"
+        class="reftable-domain"
+        :class="{ active: domain === d }"
+        @click="domain = d"
+      >
+        {{ DOMAIN_META[d].label }}
+      </button>
     </div>
 
     <p class="reftable-legend">
@@ -289,6 +333,29 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
 .reftable-kinds {
   display: flex;
   gap: 0.25rem;
+}
+/* A second, deliberately smaller chip row: the header already carries a search
+   box, the kind chips and a legend, so the capability filter is subordinate to
+   them rather than a second peer strip. */
+.reftable-domains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: -0.5rem 0 1rem;
+}
+.reftable-domain {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vp-c-text-2);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.reftable-domain.active {
+  background: var(--vp-c-brand-soft);
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
 }
 .reftable-kind {
   padding: 0.35rem 0.7rem;

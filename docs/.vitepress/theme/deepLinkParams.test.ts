@@ -4,11 +4,14 @@ import { parseDeepLinkParams } from './deepLinkParams';
 describe('parseDeepLinkParams', () => {
   it('reads every deep-link param the reference pages use', () => {
     expect(
-      parseDeepLinkParams('?q=print&name=PLOT&cat=colour&from=zx81&to=bbc'),
+      parseDeepLinkParams(
+        '?q=print&name=PLOT&cat=colour&domain=graphics&from=zx81&to=bbc',
+      ),
     ).toEqual({
       q: 'print',
       name: 'PLOT',
       cat: 'colour',
+      domain: 'graphics',
       from: 'zx81',
       to: 'bbc',
     });
@@ -19,6 +22,7 @@ describe('parseDeepLinkParams', () => {
       q: null,
       name: null,
       cat: null,
+      domain: null,
       from: null,
       to: null,
     });
@@ -29,6 +33,7 @@ describe('parseDeepLinkParams', () => {
     // must clear the search box rather than filter on the empty string.
     expect(parseDeepLinkParams('?q=&name=').q).toBeNull();
     expect(parseDeepLinkParams('?q=&name=').name).toBeNull();
+    expect(parseDeepLinkParams('?domain=').domain).toBeNull();
   });
 
   it('decodes percent-encoded values', () => {
@@ -44,6 +49,7 @@ describe('parseDeepLinkParams', () => {
       q: 'poke',
       name: null,
       cat: null,
+      domain: null,
       from: null,
       to: null,
     });

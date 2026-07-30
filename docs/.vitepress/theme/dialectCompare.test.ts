@@ -8,11 +8,14 @@ import type {
   ReferenceEntry,
   ReferenceTableData,
 } from '../../reference/data/types';
+import type { KeywordDomain } from '../../reference/data/domains';
 import {
   composeGuidance,
   diffEscapes,
   diffKeywords,
+  domainSections,
   falseFriendsBetween,
+  groupByDomain,
 } from './dialectCompare';
 
 /** Build a minimal reference table from bare entries (title/machines unused by the diff). */
@@ -358,5 +361,119 @@ describe('composeGuidance', () => {
     expect(g.substitutions.size).toBe(0);
     // Pair notes and false friends do not depend on the target facts.
     expect(g.pairNotes).toEqual(['Jumps are GO TO here.']);
+  });
+});
+
+/** A bare entry carrying just the fields the grouping cares about. */
+function domained(name: string, domain?: KeywordDomain): ReferenceEntry {
+  return {
+    name,
+    kind: 'command',
+    syntax: name,
+    description: `${name}.`,
+    ...(domain ? { domain } : {}),
+  };
+}
+
+// Deliberately not the canonical vocabulary order, so "honours the order given"
+// is distinguishable from "happens to match the real order".
+const ORDER: KeywordDomain[] = ['graphics', 'control-flow', 'sound'];
+
+describe('groupByDomain', () => {
+  it('returns buckets in the supplied order, not alphabetically', () => {
+    const buckets = groupByDomain(
+      [
+        domained('BEEP', 'sound'),
+        domained('GOTO', 'control-flow'),
+        domained('PLOT', 'graphics'),
+      ],
+      ORDER,
+    );
+    expect(buckets.map((b) => b.domain)).toEqual([
+      'graphics',
+      'control-flow',
+      'sound',
+    ]);
+  });
+
+  it('omits domains nothing landed in', () => {
+    const buckets = groupByDomain([domained('PLOT', 'graphics')], ORDER);
+    expect(buckets.map((b) => b.domain)).toEqual(['graphics']);
+  });
+
+  it('preserves the input order within a bucket', () => {
+    const buckets = groupByDomain(
+      [
+        domained('PLOT', 'graphics'),
+        domained('DRAW', 'graphics'),
+        domained('CIRCLE', 'graphics'),
+      ],
+      ORDER,
+    );
+    expect(buckets[0].entries.map((e) => e.name)).toEqual([
+      'PLOT',
+      'DRAW',
+      'CIRCLE',
+    ]);
+  });
+
+  it('puts an undomained entry in a trailing bucket rather than dropping it', () => {
+    const buckets = groupByDomain(
+      [domained('PLOT', 'graphics'), domained('LDA')],
+      ORDER,
+    );
+    expect(buckets.map((b) => b.domain)).toEqual(['graphics', undefined]);
+    expect(buckets[1].entries.map((e) => e.name)).toEqual(['LDA']);
+  });
+
+  it('yields no buckets for empty input', () => {
+    expect(groupByDomain([], ORDER)).toEqual([]);
+  });
+});
+
+describe('domainSections', () => {
+  it('reports a domain the target lacks entirely above one it provides', () => {
+    // The target has control-flow but no sound at all.
+    const target = refTable([domained('GOTO', 'control-flow')]);
+    const sections = domainSections(
+      [domained('GOSUB', 'control-flow'), domained('BEEP', 'sound')],
+      target,
+      ORDER,
+    );
+    expect(sections.map((s) => s.domain)).toEqual(['sound', 'control-flow']);
+    expect(sections.map((s) => s.absentFromTarget)).toEqual([true, false]);
+  });
+
+  it('falls back to the supplied vocabulary order when the tier ties', () => {
+    // The target provides neither, so both are absent and only order separates
+    // them - graphics comes before sound in ORDER.
+    const sections = domainSections(
+      [domained('BEEP', 'sound'), domained('PLOT', 'graphics')],
+      refTable([domained('GOTO', 'control-flow')]),
+      ORDER,
+    );
+    expect(sections.map((s) => s.domain)).toEqual(['graphics', 'sound']);
+  });
+
+  it('still lists a group whose domain the target has nothing in', () => {
+    const sections = domainSections(
+      [domained('BEEP', 'sound'), domained('PLAY', 'sound')],
+      refTable([domained('GOTO', 'control-flow')]),
+      ORDER,
+    );
+    expect(sections).toHaveLength(1);
+    expect(sections[0].entries.map((e) => e.name)).toEqual(['BEEP', 'PLAY']);
+  });
+
+  it('loses no entry: every command lands in exactly one group', () => {
+    const entries = [
+      domained('BEEP', 'sound'),
+      domained('PLOT', 'graphics'),
+      domained('GOSUB', 'control-flow'),
+      domained('DRAW', 'graphics'),
+    ];
+    const sections = domainSections(entries, refTable([]), ORDER);
+    const grouped = sections.flatMap((s) => s.entries.map((e) => e.name));
+    expect(grouped.sort()).toEqual(entries.map((e) => e.name).sort());
   });
 });

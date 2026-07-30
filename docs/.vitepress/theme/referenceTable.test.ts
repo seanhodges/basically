@@ -6,24 +6,28 @@ const ENTRIES: ReferenceEntry[] = [
   {
     name: 'PRINT',
     kind: 'command',
+    domain: 'text-screen',
     syntax: 'PRINT [<expr>…]',
     description: 'Write to the screen.',
   },
   {
     name: 'INPUT',
     kind: 'command',
+    domain: 'input',
     syntax: 'INPUT [<string>;] <var>',
     description: 'Read from the keyboard.',
   },
   {
     name: 'RND',
     kind: 'function',
+    domain: 'numeric',
     syntax: 'RND',
     description: 'Random number.',
   },
   {
     name: 'AND',
     kind: 'operator',
+    domain: 'numeric',
     syntax: '<number> AND <number>',
     description: 'Bitwise AND.',
   },
@@ -101,5 +105,44 @@ describe('sortEntries', () => {
       'function:RND',
       'operator:AND',
     ]);
+  });
+});
+
+describe('filterEntries: capability domain', () => {
+  it('keeps only the entries in the chosen domain', () => {
+    expect(
+      filterEntries(ENTRIES, '', 'all', 'numeric').map((e) => e.name),
+    ).toEqual(['RND', 'AND']);
+  });
+
+  it('defaults to "all", so the assembly pages need pass nothing', () => {
+    expect(filterEntries(ENTRIES, '', 'all')).toHaveLength(4);
+    expect(filterEntries(ENTRIES, '', 'all', 'all')).toHaveLength(4);
+  });
+
+  // Orthogonal to the other two: narrowing by domain must not widen or reset
+  // the kind and query filters, and vice versa.
+  it('ANDs with the kind filter', () => {
+    expect(
+      filterEntries(ENTRIES, '', 'function', 'numeric').map((e) => e.name),
+    ).toEqual(['RND']);
+    expect(filterEntries(ENTRIES, '', 'command', 'numeric')).toEqual([]);
+  });
+
+  it('ANDs with the query', () => {
+    expect(
+      filterEntries(ENTRIES, 'n', 'all', 'numeric').map((e) => e.name),
+    ).toEqual(['RND', 'AND']);
+    expect(filterEntries(ENTRIES, 'print', 'all', 'numeric')).toEqual([]);
+  });
+
+  it('ANDs all three at once', () => {
+    expect(
+      filterEntries(ENTRIES, 'a', 'operator', 'numeric').map((e) => e.name),
+    ).toEqual(['AND']);
+  });
+
+  it('matches nothing when no entry carries the domain', () => {
+    expect(filterEntries(ENTRIES, '', 'all', 'sound')).toEqual([]);
   });
 });

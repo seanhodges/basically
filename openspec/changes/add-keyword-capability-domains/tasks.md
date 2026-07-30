@@ -1,17 +1,19 @@
 ## 1. Vocabulary and type
 
-- [ ] 1.1 Create `docs/reference/data/domains.ts` exporting `KEYWORD_DOMAINS` as
+- [x] 1.1 Create `docs/reference/data/domains.ts` exporting `KEYWORD_DOMAINS` as
       a `const` array of the 13 domains in render order, and the derived
       `KeywordDomain` union type
-- [ ] 1.2 Write the three tie-break rules into the `domains.ts` header comment:
+- [x] 1.2 Write the three tie-break rules into the `domains.ts` header comment:
       what the keyword does on *this* machine wins over what the word usually
       means; reading a hardware value is `memory-hardware` while changing the
-      screen is `text-screen`/`graphics`/`colour`; multi-word variants take
-      their head keyword's domain
-- [ ] 1.3 Add optional `domain?: KeywordDomain` to `ReferenceEntry` in
+      screen is `text-screen`/`graphics`/`colour`; a multi-word variant takes
+      its head keyword's domain where it refines what the head does, but a
+      compound that is a command in its own right is classified by its own
+      effect (`SPEED INK` is `colour`, `CLEAR INPUT` is `input`)
+- [x] 1.3 Add optional `domain?: KeywordDomain` to `ReferenceEntry` in
       `docs/reference/data/types.ts`, with a comment explaining it is optional
       only because the interface is shared with the assembly references
-- [ ] 1.4 Add `BasicReferenceEntry` and `BasicReferenceTableData` to `types.ts`,
+- [x] 1.4 Add `BasicReferenceEntry` and `BasicReferenceTableData` to `types.ts`,
       narrowing `domain` to required
 
 ## 2. Categorise the eight BASIC reference tables
@@ -22,101 +24,110 @@ One commit per file. Change the file's type annotation to
 too (a PRINT separator is `text-screen`, a bitwise operator is `numeric`, an
 indirection operator is `memory-hardware`).
 
-- [ ] 2.1 `docs/reference/data/zx80.ts` (47 rows)
-- [ ] 2.2 `docs/reference/data/zx81.ts` (65 rows)
-- [ ] 2.3 `docs/reference/data/atom.ts` (73 rows)
-- [ ] 2.4 `docs/reference/data/commodore.ts` (92 rows)
-- [ ] 2.5 `docs/reference/data/zxspectrum.ts` (93 rows)
-- [ ] 2.6 `docs/reference/data/bbc.ts` (121 rows)
-- [ ] 2.7 `docs/reference/data/trs80.ts` (123 rows)
-- [ ] 2.8 `docs/reference/data/cpc.ts` (191 rows)
+- [x] 2.1 `docs/reference/data/zx80.ts` (47 rows)
+- [x] 2.2 `docs/reference/data/zx81.ts` (65 rows)
+- [x] 2.3 `docs/reference/data/atom.ts` (73 rows)
+- [x] 2.4 `docs/reference/data/commodore.ts` (92 rows)
+- [x] 2.5 `docs/reference/data/zxspectrum.ts` (93 rows)
+- [x] 2.6 `docs/reference/data/bbc.ts` (121 rows)
+- [x] 2.7 `docs/reference/data/trs80.ts` (123 rows)
+- [x] 2.8 `docs/reference/data/cpc.ts` (192 rows)
 
 ## 3. Data invariants
 
-- [ ] 3.1 Extend "every entry is structurally complete" in
+- [x] 3.1 Extend "every entry is structurally complete" in
       `docs/reference/data/reference-data.test.ts` to assert each entry's
       `domain` is in `KEYWORD_DOMAINS`, naming the offending keyword in the
       assertion message
-- [ ] 3.2 Add a suite-level test that the union of domains used across all eight
+- [x] 3.2 Add a suite-level test that the union of domains used across all eight
       BASIC tables equals `KEYWORD_DOMAINS`, so a dead or drifted domain fails
-- [ ] 3.3 Add the mirror assertion to `docs/reference/data/asm-reference.test.ts`:
+- [x] 3.3 Add the mirror assertion to `docs/reference/data/asm-reference.test.ts`:
       assembly entries carry no `domain`
 
 ## 4. Grouping logic
 
-- [ ] 4.1 Add `DomainBucket` and `groupByDomain(entries, order)` to
+- [x] 4.1 Add `DomainBucket` and `groupByDomain(entries, order)` to
       `docs/.vitepress/theme/dialectCompare.ts` — supplied order honoured, empty
       domains omitted, within-bucket name order preserved, undomained rows in a
       trailing bucket
-- [ ] 4.2 Add `DomainSection` and `domainSections(mustReplace, to, order)`,
+- [x] 4.2 Add `DomainSection` and `domainSections(mustReplace, to, order)`,
       ordering groups so domains the target has no entry in come before those it
       does, then by canonical vocabulary order
-- [ ] 4.3 Confirm `diffKeywords`, `composeGuidance`, `falseFriendsBetween`,
+- [x] 4.3 Confirm `diffKeywords`, `composeGuidance`, `falseFriendsBetween`,
       `diffEscapes`, `renameMap` and `operatorNames` are unchanged, and that
       `dialectCompare.ts` still imports only types from the data layer
-- [ ] 4.4 Add `groupByDomain` tests to
+- [x] 4.4 Add `groupByDomain` tests to
       `docs/.vitepress/theme/dialectCompare.test.ts`: honours supplied order
       rather than alphabetical, omits empty domains, preserves within-bucket
       order, trailing bucket for an undomained entry, empty input yields `[]`
-- [ ] 4.5 Add `domainSections` tests: a domain absent from the target sorts above
+- [x] 4.5 Add `domainSections` tests: a domain absent from the target sorts above
       one present in it, ties fall back to vocabulary order, and a group with no
       match still renders its entries
-- [ ] 4.6 Confirm every pre-existing test in `dialectCompare.test.ts` still
+- [x] 4.6 Confirm every pre-existing test in `dialectCompare.test.ts` still
       passes unmodified
 
 ## 5. Grouped rendering
 
-- [ ] 5.1 Create `docs/.vitepress/theme/domainMeta.ts` with `DOMAIN_ORDER` and
+- [x] 5.1 Create `docs/.vitepress/theme/domainMeta.ts` with `DOMAIN_ORDER` and
       `DOMAIN_META` (label + icon paths per domain), mirroring the existing
       `kindMeta.ts` split
-- [ ] 5.2 Render "Keywords to replace" as one section per domain: icon, label
+- [x] 5.2 Render "Keywords to replace" as one section per domain: icon, label
       and full group count, then the group's commands as a single
       comma-separated run of names — not a detailed row per command. Keep any
       version tag (`128K only`, `Master only`) inline against the name it
       qualifies
-- [ ] 5.3 Render the handful of commands that carry a `substitutions` note as a
+- [x] 5.3 Render the handful of commands that carry a `substitutions` note as a
       short exceptions run beneath their group, so per-command advice still sits
       with its command
-- [ ] 5.4 Omit any capability from which the port loses no command; show no
+- [x] 5.4 Omit any capability from which the port loses no command; show no
       reveal control anywhere in this section
-- [ ] 5.5 Delete `mustReplaceList`; leave `falseFriendsList`, `renamedList`,
+- [x] 5.5 Delete `mustReplaceList`; leave `falseFriendsList`, `renamedList`,
       `behaviourChangedList`, `newlyAvailableList` and the two escape lists on
       `useTruncatedList` with `TRUNCATE_LIMIT = 10`, unchanged
-- [ ] 5.6 Update the summary line to report the number of capability areas
+- [x] 5.6 Update the summary line to report the number of capability areas
       alongside the existing full keyword counts
-- [ ] 5.7 Verify against the rendered page that group counts reflect every
+- [x] 5.7 Verify against the rendered page that group counts reflect every
       command, that every lost command is named, and that no capability with
       nothing lost is shown
 
 ## 6. Reference-page domain filter
 
-- [ ] 6.1 Add a `domain` field to `docs/.vitepress/theme/deepLinkParams.ts`,
+- [x] 6.1 Add a `domain` field to `docs/.vitepress/theme/deepLinkParams.ts`,
       treating an empty `?domain=` as absent per the existing contract
-- [ ] 6.2 Add a domain argument to `filterEntries` in
+- [x] 6.2 Add a domain argument to `filterEntries` in
       `docs/.vitepress/theme/referenceTable.ts`, AND-combined with the existing
       query and kind filters
-- [ ] 6.3 Add a `presentDomains` chip row to
+- [x] 6.3 Add a `presentDomains` chip row to
       `docs/.vitepress/theme/components/ReferenceTable.vue`, rendered only when
       some entry carries a domain, so the two assembly pages hide it
       automatically; follow `EscapeTable.vue`'s `?cat=` chips
-- [ ] 6.4 Add tests to `referenceTable.test.ts` (domain filter alone and combined
+- [x] 6.4 Add tests to `referenceTable.test.ts` (domain filter alone and combined
       with kind and query) and `deepLinkParams.test.ts` (`?domain=` parsed, empty
       value absent)
-- [ ] 6.5 Confirm both assembly reference pages render with no domain chip row
+- [x] 6.5 Confirm both assembly reference pages render with no domain chip row
 
 ## 7. Quality gates
 
-- [ ] 7.1 `npm run typecheck`
-- [ ] 7.2 `npm test`
-- [ ] 7.3 `npm run lint`
-- [ ] 7.4 `npm run format:check` (or `npm run format` to fix)
-- [ ] 7.5 `npm run docs:build`
-- [ ] 7.6 `npm run e2e:chromium -- e2e/porting-guidance`
-- [ ] 7.7 `npx openspec validate --changes`
-- [ ] 7.8 Manual check via `npm run docs:dev` at `/docs/reference/compare`:
+- [x] 7.1 `npm run typecheck`
+- [x] 7.2 `npm test`
+- [x] 7.3 `npm run lint`
+- [x] 7.4 `npm run format:check` (or `npm run format` to fix)
+- [x] 7.5 `npm run docs:build`
+- [x] 7.6 `npm run e2e:chromium -- e2e/porting-guidance`
+- [x] 7.7 `npx openspec validate --changes`
+- [x] 7.8 Manual check via `npm run docs:dev` at `/docs/reference/compare`:
       `cpc → zx80` (147 lost — must read as a short set of capability groups
       with comma-separated names, not a wall of rows, and the ZX80's missing
       capabilities first), `zx81 → cpc` (the motivating case — the top of the
       section must now show lost capabilities, not `AFTER ASC AUTO BIN$`), and
       `zx81 → zxspectrum` (near pair; few groups shown, and `GOTO` → `GO TO`
       still renders as a rename)
+
+      Checked against the rendered dev server. `cpc → zx80` reports 146 (not
+      147 — the tables have gained a row since the proposal was written) across
+      13 groups, graphics/colour/sound/error-handling leading as the ones the
+      ZX80 has no equivalent of; `zx81 → cpc` reports 13 across 7 groups; and
+      `zx81 → zxspectrum` reports 4 across 3, with `GOTO` → `GO TO` still a
+      rename. `AFTER ASC AUTO BIN$` are CPC-only keywords, so for `zx81 → cpc`
+      they sit in "Newly available", which this change deliberately leaves
+      alone — regrouping that list belongs to `add-capability-porting-advice`.

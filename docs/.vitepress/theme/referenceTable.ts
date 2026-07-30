@@ -1,18 +1,27 @@
+import type { KeywordDomain } from '../../reference/data/domains';
 import type { ReferenceEntry } from '../../reference/data/types';
 
 export type KindFilter = 'all' | ReferenceEntry['kind'];
+export type DomainFilter = 'all' | KeywordDomain;
 export type SortKey = 'name' | 'kind';
 export type SortDir = 'asc' | 'desc';
 
-/** Case-insensitive substring match on name, plus kind filter. */
+/**
+ * Case-insensitive substring match on name, plus the kind and capability-domain
+ * filters. The three are AND-combined and orthogonal, so narrowing by one never
+ * resets another. `domain` defaults to 'all', which is also what the two
+ * assembly pages (whose entries carry no domain) always pass.
+ */
 export function filterEntries(
   entries: ReferenceEntry[],
   query: string,
   kind: KindFilter,
+  domain: DomainFilter = 'all',
 ): ReferenceEntry[] {
   const q = query.trim().toLowerCase();
   return entries.filter((e) => {
     if (kind !== 'all' && e.kind !== kind) return false;
+    if (domain !== 'all' && e.domain !== domain) return false;
     if (!q) return true;
     return e.name.toLowerCase().includes(q);
   });
