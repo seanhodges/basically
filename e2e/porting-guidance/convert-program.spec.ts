@@ -60,7 +60,7 @@ test('converting the open program switches machine and asks the assistant', asyn
   // Spectrum and the app should end up there with the program intact.
   const convert = drawer
     .frameLocator('iframe')
-    .getByRole('button', { name: 'Convert to ZX Spectrum BASIC using AI' });
+    .getByRole('button', { name: 'Convert with AI' });
   await expect(convert).toBeVisible({ timeout: 15_000 });
   await convert.click();
 
@@ -79,7 +79,7 @@ test('asking to convert with no assistant configured offers to set one up', asyn
   const drawer = await openPortingGuide(page);
   await drawer
     .frameLocator('iframe')
-    .getByRole('button', { name: 'Convert to ZX Spectrum BASIC using AI' })
+    .getByRole('button', { name: 'Convert with AI' })
     .click();
 
   // Taken to configure a provider, rather than the button appearing to do
