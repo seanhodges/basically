@@ -37,6 +37,15 @@ describe.each(SETS)('assembly reference data: %s', (_id, data, engine) => {
     expect(new Set(names).size).toBe(names.length);
   });
 
+  // The mirror of the BASIC pages' domain check: a CPU mnemonic has no BASIC
+  // capability, so `domain` stays absent here. `ReferenceEntry` makes it
+  // optional purely to allow that, which no type can enforce - hence the test.
+  it('carries no capability domain', () => {
+    for (const e of data.entries) {
+      expect(e.domain, `domain for ${e.name}`).toBeUndefined();
+    }
+  });
+
   // The heart of the sync guard: the page lists exactly the assembler's own
   // instruction set - every mnemonic the engine can encode, and nothing it
   // cannot. `engine.mnemonics` includes the directives, so subtract those.

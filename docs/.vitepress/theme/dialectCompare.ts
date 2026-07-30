@@ -3,6 +3,7 @@
 // and control codes into what a porter loses ("must replace"), gains ("newly
 // available") and what changed shape ("behaviour changed"). Node-testable and
 // SSG-safe: imports only the docs data types, never `src/`.
+import type { KeywordDomain } from '../../reference/data/domains';
 import type {
   EscapeEntry,
   EscapeTableData,
@@ -174,6 +175,86 @@ export function diffKeywords(
     ),
     unchanged,
   };
+}
+
+/** Entries sharing one capability domain, in the order they were given. */
+export interface DomainBucket {
+  /**
+   * The shared domain, or `undefined` for the trailing bucket that catches
+   * anything the supplied order does not name - so a row is never dropped.
+   */
+  domain: KeywordDomain | undefined;
+  entries: ReferenceEntry[];
+}
+
+/**
+ * Bucket entries by capability. Buckets come back in the order supplied (not
+ * alphabetically), domains nothing landed in are omitted, and the input order
+ * is preserved within each bucket - so the caller's own sort still shows
+ * through. Anything whose domain the order does not name lands in a single
+ * trailing `undefined` bucket rather than disappearing.
+ *
+ * The order is an argument rather than an import, exactly as `composeGuidance`
+ * takes its `pairNotes`: this module imports only types from the data layer,
+ * which is what keeps it node-testable and SSG-safe.
+ */
+export function groupByDomain(
+  entries: ReferenceEntry[],
+  order: readonly KeywordDomain[],
+): DomainBucket[] {
+  const known = new Set(order);
+  const byDomain = new Map<KeywordDomain, ReferenceEntry[]>();
+  const rest: ReferenceEntry[] = [];
+  for (const entry of entries) {
+    if (entry.domain === undefined || !known.has(entry.domain)) {
+      rest.push(entry);
+      continue;
+    }
+    const bucket = byDomain.get(entry.domain);
+    if (bucket) bucket.push(entry);
+    else byDomain.set(entry.domain, [entry]);
+  }
+
+  const buckets: DomainBucket[] = [];
+  for (const domain of order) {
+    const found = byDomain.get(domain);
+    if (found) buckets.push({ domain, entries: found });
+  }
+  if (rest.length) buckets.push({ domain: undefined, entries: rest });
+  return buckets;
+}
+
+/** One render-ready group of the commands a port must replace. */
+export interface DomainSection extends DomainBucket {
+  /**
+   * True when the target dialect has no keyword in this domain at all - the
+   * port loses the capability outright rather than a few of its commands.
+   */
+  absentFromTarget: boolean;
+}
+
+/**
+ * Group the commands to replace by capability, reporting the capabilities the
+ * target does not provide at all before the ones it does. Ties keep the
+ * canonical vocabulary order, since the sort is stable and `groupByDomain`
+ * already returns the buckets in the supplied order.
+ *
+ * "The target has no equivalent of this capability" is read straight off the
+ * target's own table - no authored support levels are needed for it.
+ */
+export function domainSections(
+  mustReplace: ReferenceEntry[],
+  to: ReferenceTableData,
+  order: readonly KeywordDomain[],
+): DomainSection[] {
+  const provided = new Set(to.entries.map((e) => e.domain));
+  return groupByDomain(mustReplace, order)
+    .map((bucket) => ({
+      ...bucket,
+      absentFromTarget:
+        bucket.domain !== undefined && !provided.has(bucket.domain),
+    }))
+    .sort((a, b) => Number(b.absentFromTarget) - Number(a.absentFromTarget));
 }
 
 /**
