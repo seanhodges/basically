@@ -31,7 +31,15 @@ import {
   DISPLAY_HEIGHT,
 } from './display';
 import { buildTap, codeTap, parseTap } from '../tapfile';
-import { PPC, PROG, STKEND, RAMTOP } from '../../zxspectrum/sysvars';
+import {
+  PPC,
+  PROG,
+  STKEND,
+  RAMTOP,
+  ROM_LD_BYTES as LD_BYTES,
+  ROM_SA_BYTES as SA_BYTES,
+  ROM_REPORT_R as REPORT_R,
+} from '../../zxspectrum/sysvars';
 import {
   injectBlocks,
   minBlockAddress,
@@ -46,9 +54,6 @@ const TSTATES_PER_LINE = 228; // one 128K raster line (311 lines x 228 = 70908)
 const DISPLAY_START_T = 14361;
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 400; // the 128 menu takes longer than the 48K prompt
-const LD_BYTES = 0x0556; // 48 BASIC ROM tape-loader entry; trapped for flash loading
-const SA_BYTES = 0x04c2; // 48 BASIC ROM tape-saver entry; trapped for VFS data saves
-const REPORT_R = 0x0806; // 48 BASIC ROM "R Tape loading error" (RST 8, code 0x1A)
 // The 128 menu (drawn by ROM 0) renders text with the 48 BASIC font, which sits
 // at 0x3C00 within ROM 1 - i.e. file offset 0x4000 + 0x3C00. Glyph for char code
 // c is at FONT_ORIGIN + c*8.

@@ -27,7 +27,15 @@ import {
   DISPLAY_HEIGHT,
 } from './display';
 import { buildTap, codeTap, parseTap } from '../tapfile';
-import { PPC, PROG, STKEND, RAMTOP } from '../sysvars';
+import {
+  PPC,
+  PROG,
+  STKEND,
+  RAMTOP,
+  ROM_LD_BYTES as LD_BYTES,
+  ROM_SA_BYTES as SA_BYTES,
+  ROM_REPORT_R as REPORT_R,
+} from '../sysvars';
 import { injectBlocks, minBlockAddress } from './blockInject';
 
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
@@ -39,9 +47,6 @@ const TSTATES_PER_LINE = 224; // one 48K raster line (312 lines x 224 = 69888)
 const DISPLAY_START_T = 14336;
 const FLASH_FRAMES = 16; // FLASH attribute toggles every 16 frames
 const MAX_BOOT_FRAMES = 200;
-const LD_BYTES = 0x0556; // ROM tape-loader entry; trapped for flash loading
-const SA_BYTES = 0x04c2; // ROM tape-saver entry; trapped for VFS data saves
-const REPORT_R = 0x0806; // ROM "R Tape loading error" report (RST 8, code 0x1A)
 
 /**
  * The ZX Spectrum 48K: Z80 + 16K ROM + 48K RAM + the ULA pieces the unmodified

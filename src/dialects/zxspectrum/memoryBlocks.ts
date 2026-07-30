@@ -1,4 +1,5 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { PROG_BASE } from './sysvars';
 
 /**
  * ZX Spectrum 48K {@link MemoryBlocksSupport} figures for the memory-block
@@ -7,8 +8,8 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
  * breakdown this collapses into coarser bands.
  */
 
-/** BASIC program area start on a fresh 48K machine: PROG = 23755 = 0x5CCB. */
-const PROG = 0x5ccb;
+/** BASIC program area start on a fresh 48K machine (23755). */
+const PROG = PROG_BASE;
 
 /**
  * Headroom reserved beyond the raw tokenized program bytes for the BASIC

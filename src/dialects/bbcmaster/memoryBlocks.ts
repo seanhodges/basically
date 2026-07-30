@@ -1,4 +1,6 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { PAGE } from './addresses';
+import { SCREEN_FLOOR, RAM_TOP } from '../../emulator/bbc/addresses';
 
 /**
  * BBC Master 128 {@link MemoryBlocksSupport} figures for the memory-block
@@ -13,9 +15,6 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
  * reads PAGE live from &18 at load time (see `bbcMachine.ts`'s `loadProgram`).
  */
 
-/** BASIC program area start on the Master (no main-RAM filing workspace): 0x0E00. */
-const PAGE = 0x0e00;
-
 /**
  * Headroom reserved beyond the raw tokenized program bytes for BASIC's
  * variables and workspace, which grow as the program declares variables and
@@ -26,7 +25,7 @@ const PAGE = 0x0e00;
 const PROGRAM_AREA_SLACK_BYTES = 512;
 
 /** User RAM from PAGE up to the top of main RAM (below the 0x8000 ROM slot). */
-const VALID_RANGES: readonly MemoryRange[] = [{ start: PAGE, end: 0x7fff }];
+const VALID_RANGES: readonly MemoryRange[] = [{ start: PAGE, end: RAM_TOP }];
 
 /**
  * Live machine state a block would clobber once the machine is running:
@@ -37,7 +36,7 @@ const VALID_RANGES: readonly MemoryRange[] = [{ start: PAGE, end: 0x7fff }];
  * MODE, which the static linter can't know, hence the conservative band.
  */
 const RESERVED_RANGES: readonly MemoryRange[] = [
-  { start: 0x3000, end: 0x7fff },
+  { start: SCREEN_FLOOR, end: RAM_TOP },
 ];
 
 /**

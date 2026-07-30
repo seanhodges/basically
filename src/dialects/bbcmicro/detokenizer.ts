@@ -3,9 +3,11 @@ import { BASIC_II, type BbcVariant } from './keywords';
 import { LINE_NUMBER_TOKEN, decodeLineNumber } from './lineNumber';
 import type { DetokenizeResult, MemoryBlock } from '../types';
 import { readBbcDisc } from '../../emulator/bbc/bbcDisc';
+import { PAGE_DFS } from './addresses';
+import { RAM_TOP } from '../../emulator/bbc/addresses';
 
-/** BASIC program area start on a DFS-equipped machine (PAGE = &1900). */
-const PAGE = 0x1900;
+/** BASIC program area start on a DFS-equipped machine. */
+const PAGE = PAGE_DFS;
 
 /** Tokens whose remaining line is stored verbatim (no further tokenizing). */
 const REM_TOKEN = 0xf4;
@@ -100,7 +102,7 @@ function looksLikeBasic(bytes: Uint8Array): boolean {
 }
 
 /** Top of user RAM below the paged-ROM slot; a block above it can't be RAM. */
-const RAM_TOP = 0x7fff;
+
 /**
  * Headroom past the raw program bytes for BASIC's variables/workspace, matching
  * the memory-block linter's {@link bbcMicroMemoryBlocks} slack so the
