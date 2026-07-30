@@ -4,6 +4,7 @@
 // available") and what changed shape ("behaviour changed"). Node-testable and
 // SSG-safe: imports only the docs data types, never `src/`.
 import type { KeywordDomain } from '../../reference/data/domains';
+import type { DomainGuidance } from '../../reference/data/domain-guidance';
 import type {
   EscapeEntry,
   EscapeTableData,
@@ -15,6 +16,13 @@ import type {
   ReferenceTableData,
 } from '../../reference/data/types';
 import { sortEntries } from './referenceTable';
+
+/** Support tiers in the order a port should read them: worst-placed first. */
+const SUPPORT_RANK: Record<DomainGuidance['support'], number> = {
+  none: 0,
+  partial: 1,
+  full: 2,
+};
 
 /** One keyword that exists in both dialects but changed kind or syntax. */
 export interface KeywordChange {
@@ -231,30 +239,61 @@ export interface DomainSection extends DomainBucket {
    * port loses the capability outright rather than a few of its commands.
    */
   absentFromTarget: boolean;
+  /**
+   * How well the target replaces this capability: authored `DomainGuidance`
+   * support where given, falling back to `absentFromTarget` (`'none'` vs
+   * `'full'`) when no guidance table is supplied - the same signal the
+   * previous placeholder ordering used.
+   */
+  support: DomainGuidance['support'];
 }
 
 /**
- * Group the commands to replace by capability, reporting the capabilities the
- * target does not provide at all before the ones it does. Ties keep the
- * canonical vocabulary order, since the sort is stable and `groupByDomain`
- * already returns the buckets in the supplied order.
+ * Group the commands to replace by capability, reporting the worst-placed
+ * capabilities first: those the target has no equivalent of at all, then
+ * those it supports only partially, then those it has fully (under other
+ * names). Ties keep the canonical vocabulary order, since the sort is stable
+ * and `groupByDomain` already returns the buckets in the supplied order.
  *
- * "The target has no equivalent of this capability" is read straight off the
- * target's own table - no authored support levels are needed for it.
+ * `domainGuidance` and `toSlug` are optional and taken as arguments, exactly
+ * as `composeGuidance` takes its `pairNotes` - this module imports only types
+ * from the data layer. Omitting them falls back to the target's own table
+ * ("has no keyword in this domain at all" vs "has one"), the same two-tier
+ * ordering the preceding change shipped as a placeholder.
  */
 export function domainSections(
   mustReplace: ReferenceEntry[],
   to: ReferenceTableData,
   order: readonly KeywordDomain[],
+  domainGuidance?: DomainGuidance[],
+  toSlug?: string,
 ): DomainSection[] {
   const provided = new Set(to.entries.map((e) => e.domain));
+  const guidanceByDomain = toSlug
+    ? new Map(
+        (domainGuidance ?? [])
+          .filter((g) => g.to === toSlug)
+          .map((g) => [g.domain, g]),
+      )
+    : undefined;
+
+  const supportOf = (
+    domain: KeywordDomain | undefined,
+  ): DomainGuidance['support'] => {
+    if (domain === undefined) return 'full';
+    const cell = guidanceByDomain?.get(domain);
+    if (cell) return cell.support;
+    return provided.has(domain) ? 'full' : 'none';
+  };
+
   return groupByDomain(mustReplace, order)
     .map((bucket) => ({
       ...bucket,
       absentFromTarget:
         bucket.domain !== undefined && !provided.has(bucket.domain),
+      support: supportOf(bucket.domain),
     }))
-    .sort((a, b) => Number(b.absentFromTarget) - Number(a.absentFromTarget));
+    .sort((a, b) => SUPPORT_RANK[a.support] - SUPPORT_RANK[b.support]);
 }
 
 /**
@@ -304,6 +343,8 @@ export interface GuidanceContext {
   pairNotes: PairPortingNotes[];
   /** The full false-friend table; the pair's warnings are selected. */
   falseFriends: FalseFriend[];
+  /** The full domain-guidance table; cells for `to` are exposed via `domains`. */
+  domainGuidance?: DomainGuidance[];
 }
 
 /**
@@ -324,6 +365,11 @@ export interface PairGuidance {
   falseFriends: FalseFriendWarning[];
   /** keyword → "do this instead", for inline display against the diff lists. */
   substitutions: Map<string, string>;
+  /**
+   * The target's domain-guidance cells, keyed by domain. Target-scoped (every
+   * cell has `to === ctx.to`) and empty when `domainGuidance` is omitted.
+   */
+  domains: Map<KeywordDomain, DomainGuidance>;
 }
 
 /**
@@ -342,7 +388,64 @@ export function composeGuidance(ctx: GuidanceContext): PairGuidance {
     substitutions: new Map(
       (ctx.targetFacts?.substitutions ?? []).map((s) => [s.keyword, s.note]),
     ),
+    domains: new Map(
+      (ctx.domainGuidance ?? [])
+        .filter((g) => g.to === ctx.to)
+        .map((g) => [g.domain, g]),
+    ),
   };
+}
+
+/** One line of the "newly available" brief: a capability's worth of gains. */
+export interface CapabilityBrief {
+  domain: KeywordDomain;
+  /** How many target-only commands land in this capability. */
+  count: number;
+  /** "What this machine offers here" — DomainGuidance.summary for the cell. */
+  summary: string;
+  /** Up to a few command names to name in the line, routed to the target's page. */
+  reachFor: string[];
+}
+
+/** How many command names a capability-brief line names, at most. */
+const BRIEF_NAMES = 4;
+
+/**
+ * Summarise "newly available" by capability instead of listing every command:
+ * one line per capability with its gain count, the authored summary, and a
+ * few names to reach for. `reachFor` prefers the authored names, filtered to
+ * ones the source actually lacks (so a command the reader already has is
+ * never offered as new), falling back to the bucket's own first names.
+ * Ordered by size of gain, so the biggest new capability reads first.
+ *
+ * Pure like `domainSections`: `domainGuidance` and `order` are arguments, not
+ * imports, so this stays node-testable and SSG-safe.
+ */
+export function capabilityBrief(
+  newlyAvailable: ReferenceEntry[],
+  to: string,
+  domainGuidance: DomainGuidance[],
+  order: readonly KeywordDomain[],
+): CapabilityBrief[] {
+  const guidanceByDomain = new Map(
+    domainGuidance.filter((g) => g.to === to).map((g) => [g.domain, g]),
+  );
+  const briefs: CapabilityBrief[] = [];
+  for (const bucket of groupByDomain(newlyAvailable, order)) {
+    if (!bucket.domain) continue;
+    const cell = guidanceByDomain.get(bucket.domain);
+    if (!cell) continue;
+    const names = bucket.entries.map((e) => e.name);
+    const nameSet = new Set(names);
+    const reachFor = (cell.reachFor ?? []).filter((n) => nameSet.has(n));
+    briefs.push({
+      domain: bucket.domain,
+      count: bucket.entries.length,
+      summary: cell.summary,
+      reachFor: (reachFor.length ? reachFor : names).slice(0, BRIEF_NAMES),
+    });
+  }
+  return briefs.sort((a, b) => b.count - a.count);
 }
 
 /**

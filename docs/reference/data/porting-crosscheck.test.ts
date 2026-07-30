@@ -183,6 +183,23 @@ describe.each(portingFacts.map((f) => [f.id, f] as const))(
         );
       }
     });
+
+    // Bridges the per-command substitutions to the per-capability domain
+    // guidance: every keyword advised on here must carry a domain wherever it
+    // exists, so the two forms of advice can never disagree about which
+    // capability group a command belongs to.
+    it('every substitution keyword carries a capability domain', () => {
+      for (const { keyword } of facts.substitutions) {
+        const carrier = Object.values(PAGES).find((page) =>
+          page.entries.some((e) => e.name === keyword),
+        );
+        const entry = carrier?.entries.find((e) => e.name === keyword);
+        expect(
+          entry?.domain,
+          `"${keyword}" exists without a capability domain`,
+        ).toBeDefined();
+      }
+    });
   },
 );
 

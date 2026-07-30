@@ -9,7 +9,9 @@ import type {
   ReferenceTableData,
 } from '../../reference/data/types';
 import type { KeywordDomain } from '../../reference/data/domains';
+import type { DomainGuidance } from '../../reference/data/domain-guidance';
 import {
+  capabilityBrief,
   composeGuidance,
   diffEscapes,
   diffKeywords,
@@ -362,6 +364,42 @@ describe('composeGuidance', () => {
     // Pair notes and false friends do not depend on the target facts.
     expect(g.pairNotes).toEqual(['Jumps are GO TO here.']);
   });
+
+  const SOUND_CELL: DomainGuidance = {
+    to: 'zx81',
+    domain: 'sound',
+    support: 'none',
+    summary: 'No sound.',
+    instead: 'Drop the effect.',
+  };
+  const GRAPHICS_CELL: DomainGuidance = {
+    to: 'zxspectrum',
+    domain: 'graphics',
+    support: 'full',
+    summary: 'PLOT/DRAW/CIRCLE cover it.',
+  };
+
+  it('scopes the domains map to the target, keyed by domain', () => {
+    const g = composeGuidance({
+      from: 'bbc',
+      to: 'zx81',
+      pairNotes: [],
+      falseFriends: [],
+      domainGuidance: [SOUND_CELL, GRAPHICS_CELL],
+    });
+    expect([...g.domains.keys()]).toEqual(['sound']);
+    expect(g.domains.get('sound')).toBe(SOUND_CELL);
+  });
+
+  it('is empty when domainGuidance is omitted', () => {
+    const g = composeGuidance({
+      from: 'bbc',
+      to: 'zx81',
+      pairNotes: [],
+      falseFriends: [],
+    });
+    expect(g.domains.size).toBe(0);
+  });
 });
 
 /** A bare entry carrying just the fields the grouping cares about. */
@@ -475,5 +513,147 @@ describe('domainSections', () => {
     const sections = domainSections(entries, refTable([]), ORDER);
     const grouped = sections.flatMap((s) => s.entries.map((e) => e.name));
     expect(grouped.sort()).toEqual(entries.map((e) => e.name).sort());
+  });
+
+  it('orders none above partial above full when given a guidance table', () => {
+    const target = refTable([
+      domained('GOTO', 'control-flow'),
+      domained('PLOT', 'graphics'),
+    ]);
+    const guidance: DomainGuidance[] = [
+      { to: 'x', domain: 'graphics', support: 'partial', summary: 's' },
+      { to: 'x', domain: 'control-flow', support: 'full', summary: 's' },
+      { to: 'x', domain: 'sound', support: 'none', summary: 's' },
+    ];
+    const sections = domainSections(
+      [
+        domained('BEEP', 'sound'),
+        domained('DRAW', 'graphics'),
+        domained('GOSUB', 'control-flow'),
+      ],
+      target,
+      ORDER,
+      guidance,
+      'x',
+    );
+    expect(sections.map((s) => s.support)).toEqual(['none', 'partial', 'full']);
+    expect(sections.map((s) => s.domain)).toEqual([
+      'sound',
+      'graphics',
+      'control-flow',
+    ]);
+  });
+
+  it('ties by the supplied vocabulary order within a support tier', () => {
+    // Both graphics and sound are 'none' - only ORDER separates them.
+    const guidance: DomainGuidance[] = [
+      { to: 'x', domain: 'graphics', support: 'none', summary: 's' },
+      { to: 'x', domain: 'sound', support: 'none', summary: 's' },
+    ];
+    const sections = domainSections(
+      [domained('BEEP', 'sound'), domained('PLOT', 'graphics')],
+      refTable([]),
+      ORDER,
+      guidance,
+      'x',
+    );
+    expect(sections.map((s) => s.domain)).toEqual(['graphics', 'sound']);
+  });
+
+  it('falls back to present/absent when no cell names the domain', () => {
+    const target = refTable([domained('GOTO', 'control-flow')]);
+    const sections = domainSections(
+      [domained('BEEP', 'sound'), domained('GOSUB', 'control-flow')],
+      target,
+      ORDER,
+      [],
+      'x',
+    );
+    expect(sections.map((s) => s.support)).toEqual(['none', 'full']);
+  });
+});
+
+describe('capabilityBrief', () => {
+  const GUIDANCE: DomainGuidance[] = [
+    {
+      to: 'bbc',
+      domain: 'graphics',
+      support: 'full',
+      summary: 'Full vector graphics.',
+      reachFor: ['DRAW', 'PLOT', 'MISSING'],
+    },
+    {
+      to: 'bbc',
+      domain: 'sound',
+      support: 'full',
+      summary: 'Four-channel sound.',
+    },
+  ];
+
+  it('reports one line per capability with its gain count', () => {
+    const briefs = capabilityBrief(
+      [
+        domained('DRAW', 'graphics'),
+        domained('PLOT', 'graphics'),
+        domained('CIRCLE', 'graphics'),
+      ],
+      'bbc',
+      GUIDANCE,
+      ORDER,
+    );
+    expect(briefs).toHaveLength(1);
+    expect(briefs[0].domain).toBe('graphics');
+    expect(briefs[0].count).toBe(3);
+    expect(briefs[0].summary).toBe('Full vector graphics.');
+  });
+
+  it('prefers the authored reachFor names, dropping one the source already has', () => {
+    const briefs = capabilityBrief(
+      [domained('DRAW', 'graphics'), domained('CIRCLE', 'graphics')],
+      'bbc',
+      GUIDANCE,
+      ORDER,
+    );
+    // MISSING is not in newlyAvailable (the source already has it), so it is
+    // dropped; PLOT is authored but not gained here, so it never appears.
+    expect(briefs[0].reachFor).toEqual(['DRAW']);
+  });
+
+  it('falls back to the bucket’s own first names with no reachFor match', () => {
+    const briefs = capabilityBrief(
+      [domained('BEEP', 'sound'), domained('ENVELOPE', 'sound')],
+      'bbc',
+      GUIDANCE,
+      ORDER,
+    );
+    expect(briefs[0].reachFor).toEqual(['BEEP', 'ENVELOPE']);
+  });
+
+  it('orders lines by size of gain, largest first', () => {
+    const briefs = capabilityBrief(
+      [
+        domained('BEEP', 'sound'),
+        domained('DRAW', 'graphics'),
+        domained('PLOT', 'graphics'),
+      ],
+      'bbc',
+      GUIDANCE,
+      ORDER,
+    );
+    expect(briefs.map((b) => b.domain)).toEqual(['graphics', 'sound']);
+  });
+
+  it('yields no lines for empty input', () => {
+    expect(capabilityBrief([], 'bbc', GUIDANCE, ORDER)).toEqual([]);
+  });
+
+  it('skips a domain with no guidance cell for the target', () => {
+    const briefs = capabilityBrief(
+      [domained('GOSUB', 'control-flow')],
+      'bbc',
+      GUIDANCE,
+      ORDER,
+    );
+    expect(briefs).toEqual([]);
   });
 });

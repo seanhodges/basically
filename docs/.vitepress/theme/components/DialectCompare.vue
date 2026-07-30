@@ -13,10 +13,12 @@ import type {
   ReferenceTableData,
 } from '../../../reference/data/types';
 import {
+  capabilityBrief,
   composeGuidance,
   diffEscapes,
   diffKeywords,
   domainSections,
+  type CapabilityBrief,
   type DomainSection,
 } from '../dialectCompare';
 import {
@@ -24,7 +26,8 @@ import {
   keywordEquivalences,
   pairPortingNotes,
 } from '../../../reference/data/porting';
-import { KIND_META } from '../kindMeta';
+import { domainGuidance } from '../../../reference/data/domain-guidance';
+import type { DomainGuidance } from '../../../reference/data/domain-guidance';
 import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
 
@@ -100,6 +103,7 @@ const guidance = computed(() =>
     targetFacts: target.value?.facts,
     pairNotes: pairPortingNotes,
     falseFriends,
+    domainGuidance,
   }),
 );
 
@@ -152,10 +156,6 @@ const behaviourChangedList = useTruncatedList(
   () => keywordDiff.value?.behaviourChanged ?? [],
   pairKey,
 );
-const newlyAvailableList = useTruncatedList(
-  () => keywordDiff.value?.newlyAvailable ?? [],
-  pairKey,
-);
 const escMustReplaceList = useTruncatedList(
   () => escapeDiff.value?.mustReplace ?? [],
   pairKey,
@@ -175,13 +175,26 @@ const replaceSections = computed<DomainSection[]>(() => {
   const diff = keywordDiff.value;
   const t = target.value;
   if (!diff || !t) return [];
-  return domainSections(diff.mustReplace, t.reference, DOMAIN_ORDER);
+  return domainSections(
+    diff.mustReplace,
+    t.reference,
+    DOMAIN_ORDER,
+    domainGuidance,
+    t.id,
+  );
 });
+
+/** The authored (target, capability) advice for a group, if any. */
+function domainAdvice(section: DomainSection): DomainGuidance | undefined {
+  return section.domain
+    ? guidance.value.domains.get(section.domain)
+    : undefined;
+}
 
 /**
  * The few commands in a group that carry a "do this instead" note. Per-command
  * advice still sits with its command: with no row to hang off, it renders as a
- * short exceptions run beneath the group's names.
+ * short exceptions run beneath the group's names, under the group's own advice.
  */
 function substitutionsIn(
   section: DomainSection,
@@ -192,6 +205,21 @@ function substitutionsIn(
     return note ? [{ name: e.name, note }] : [];
   });
 }
+
+// The "newly available" section summarised by capability rather than listed
+// command by command: at most thirteen lines against up to 147 rows, so no
+// useTruncatedList is needed here (see the deleted newlyAvailableList).
+const additionsBrief = computed<CapabilityBrief[]>(() => {
+  const diff = keywordDiff.value;
+  const t = target.value;
+  if (!diff || !t) return [];
+  return capabilityBrief(
+    diff.newlyAvailable,
+    t.id,
+    domainGuidance,
+    DOMAIN_ORDER,
+  );
+});
 
 /** The trailing bucket is unreachable while every BASIC row carries a domain. */
 function domainLabel(section: DomainSection): string {
@@ -380,7 +408,7 @@ function convertWithAi() {
         {{ replaceSections.length }} capability area(s),
         {{ keywordDiff.renamed.length }} to rename,
         {{ keywordDiff.behaviourChanged.length }} changed,
-        {{ keywordDiff.newlyAvailable.length }} newly available,
+        {{ additionsBrief.length }} new capability area(s),
         {{ changedFactCount }} language/hardware difference(s).
       </p>
     </div>
@@ -567,7 +595,10 @@ function convertWithAi() {
           v-for="s in replaceSections"
           :key="s.domain ?? 'other'"
           class="cmp-group"
-          :class="{ 'cmp-group-absent': s.absentFromTarget }"
+          :class="{
+            'cmp-group-absent': s.support === 'none',
+            'cmp-group-partial': s.support === 'partial',
+          }"
         >
           <h3 class="cmp-group-head">
             <span v-if="s.domain" class="cmp-icon">
@@ -587,8 +618,14 @@ function convertWithAi() {
             </span>
             {{ domainLabel(s) }}
             <span class="cmp-group-count">{{ s.entries.length }}</span>
-            <span v-if="s.absentFromTarget" class="cmp-group-none">
+            <span v-if="s.support === 'none'" class="cmp-group-none">
               nothing like it in {{ target.label }}
+            </span>
+            <span
+              v-else-if="s.support === 'partial'"
+              class="cmp-group-partial-badge"
+            >
+              only partly covered in {{ target.label }}
             </span>
           </h3>
           <p class="cmp-group-names">
@@ -598,6 +635,17 @@ function convertWithAi() {
               ><span v-if="i < s.entries.length - 1" class="cmp-sep">, </span>
             </span>
           </p>
+          <div v-if="domainAdvice(s)?.instead" class="cmp-group-advice">
+            <p class="cmp-group-instead-text">{{ domainAdvice(s)?.instead }}</p>
+            <div v-if="domainAdvice(s)?.example" class="cmp-example">
+              <p class="cmp-example-caption">
+                {{ domainAdvice(s)?.example?.caption }}
+              </p>
+              <pre class="cmp-example-code"><code>{{
+                domainAdvice(s)?.example?.code.join('\n')
+              }}</code></pre>
+            </div>
+          </div>
           <ul v-if="substitutionsIn(s).length" class="cmp-group-instead">
             <li v-for="x in substitutionsIn(s)" :key="x.name">
               <code>{{ x.name }}</code> — {{ x.note }}
@@ -653,13 +701,18 @@ function convertWithAi() {
       </section>
 
       <section class="cmp-section">
-        <h2>Newly available ({{ keywordDiff.newlyAvailable.length }})</h2>
+        <h2>
+          Newly available ({{ keywordDiff.newlyAvailable.length }} across
+          {{ additionsBrief.length }} capability area(s))
+        </h2>
         <p class="cmp-hint">
-          In {{ target.label }} but not {{ source.label }} — you can use these.
+          In {{ target.label }} but not {{ source.label }}, summarised by
+          capability rather than listed command by command — see the full
+          reference for every one.
         </p>
-        <ul class="cmp-list cmp-add">
-          <li v-for="e in newlyAvailableList.visible" :key="e.name">
-            <span class="cmp-icon" :class="`kind-${e.kind}`">
+        <ul class="cmp-list cmp-brief">
+          <li v-for="b in additionsBrief" :key="b.domain">
+            <span class="cmp-icon">
               <svg
                 width="14"
                 height="14"
@@ -670,27 +723,25 @@ function convertWithAi() {
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 role="img"
-                :aria-label="KIND_META[e.kind].label"
-                v-html="KIND_META[e.kind].paths"
+                :aria-label="DOMAIN_META[b.domain].label"
+                v-html="DOMAIN_META[b.domain].paths"
               />
             </span>
-            <code>{{ e.name }}</code>
-            <span v-if="e.tag" class="cmp-tag">{{ e.tag }}</span>
-            <span class="cmp-desc">{{ e.description }}</span>
-          </li>
-          <li
-            v-if="newlyAvailableList.hasMore && !newlyAvailableList.expanded"
-            class="cmp-more"
-          >
-            <button
-              type="button"
-              class="cmp-expand"
-              @click="newlyAvailableList.expand()"
+            <strong>{{ DOMAIN_META[b.domain].label }}</strong>
+            <span class="cmp-group-count">{{ b.count }}</span>
+            <span class="cmp-desc">{{ b.summary }}</span>
+            <span v-if="b.reachFor.length" class="cmp-reach-for">
+              e.g.
+              <span v-for="(n, i) in b.reachFor" :key="n">
+                <code>{{ n }}</code
+                ><span v-if="i < b.reachFor.length - 1">, </span>
+              </span>
+            </span>
+            <a :href="refLinks(target.id).reference" class="cmp-reach-link"
+              >Full {{ target.label }} reference →</a
             >
-              Show {{ newlyAvailableList.remaining }} more…
-            </button>
           </li>
-          <li v-if="keywordDiff.newlyAvailable.length === 0" class="cmp-empty">
+          <li v-if="additionsBrief.length === 0" class="cmp-empty">
             {{ target.label }} adds no keywords over {{ source.label }}.
           </li>
         </ul>
@@ -933,6 +984,15 @@ function convertWithAi() {
 .cmp-group.cmp-group-absent {
   background: var(--vp-c-red-soft);
 }
+/* Capabilities the target only partly covers - between "none" and "full". */
+.cmp-group.cmp-group-partial {
+  border-left-color: var(--vp-c-yellow-1);
+}
+.cmp-group-partial-badge {
+  color: var(--vp-c-text-2);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
 .cmp-group-head {
   display: flex;
   flex-wrap: wrap;
@@ -976,6 +1036,49 @@ function convertWithAi() {
 .cmp-group-instead li {
   margin: 0.15rem 0;
 }
+/* The authored per-capability advice: one or two sentences plus an optional
+   worked example, shown once for the whole group above the per-command
+   substitutions run. */
+.cmp-group-advice {
+  margin: 0.5rem 0 0;
+}
+.cmp-group-instead-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--vp-c-text-1);
+}
+.cmp-example {
+  margin: 0.4rem 0 0;
+}
+.cmp-example-caption {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  color: var(--vp-c-text-2);
+  font-style: italic;
+}
+.cmp-example-code {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  font-size: 0.8rem;
+  overflow-x: auto;
+}
+/* The "newly available" capability brief: one line per capability rather
+   than a row per command. */
+.cmp-brief li {
+  flex-direction: column;
+  align-items: flex-start;
+  border-left-color: var(--vp-c-green-1);
+  gap: 0.2rem;
+}
+.cmp-reach-for {
+  font-size: 0.8rem;
+  color: var(--vp-c-text-2);
+}
+.cmp-reach-link {
+  font-size: 0.8rem;
+}
 .cmp-more {
   border-left-color: transparent !important;
   justify-content: center;
@@ -996,12 +1099,6 @@ function convertWithAi() {
   display: inline-flex;
   align-items: center;
   color: var(--vp-c-text-2);
-}
-.cmp-icon.kind-function {
-  color: var(--vp-c-green-1);
-}
-.cmp-icon.kind-operator {
-  color: var(--vp-c-yellow-1);
 }
 .cmp-tag {
   padding: 0 0.35rem;
