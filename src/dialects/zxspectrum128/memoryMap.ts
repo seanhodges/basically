@@ -19,6 +19,13 @@ import type { MemoryMap } from '../types';
  * Regions are contiguous, ascending and cover the whole 0x0000-0xFFFF space; a
  * colocated test enforces that. `udgBase` carries over the 48K default (0xFF58):
  * 128 BASIC keeps user-defined graphics just below RAMTOP, in the paged window.
+ *
+ * Sources:
+ *  - Sinclair *ZX Spectrum BASIC Programming* and the *+2/+3 manual* for the
+ *    48K layout the 128 keeps below 0x8000 and for its paging behaviour.
+ *  - Logan & O'Hara, *The Complete Spectrum ROM Disassembly*, for the shared
+ *    system-variable boundaries.
+ *  - `./emulator/memory128.ts` for the bank windows this map describes.
  */
 export const spectrum128MemoryMap: MemoryMap = {
   addressSpace: 0x10000,

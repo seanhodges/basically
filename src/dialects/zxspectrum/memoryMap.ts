@@ -13,6 +13,14 @@ import type { MemoryMap } from '../types';
  * colocated test enforces that. Leaves sharing a `group` collapse into one band
  * when the viewer is zoomed out (Screen memory = bitmap + attributes; System
  * area = printer buffer + system variables + channel information).
+ *
+ * Sources:
+ *  - Sinclair *ZX Spectrum BASIC Programming* (Vickers), Chapter 24 and the
+ *    system-variables appendix, for the display file, attributes, printer
+ *    buffer, system variables and channel information, and for those names.
+ *  - Logan & O'Hara, *The Complete Spectrum ROM Disassembly*, for the boundaries
+ *    between them.
+ *  - `./sysvars.ts` for the program base, verified against the running machine.
  */
 export const spectrumMemoryMap: MemoryMap = {
   addressSpace: 0x10000,

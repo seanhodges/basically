@@ -17,6 +17,12 @@ import type { MemoryMap } from '../types';
  * colocated test enforces that. Leaves sharing a `group` collapse into one band
  * when the viewer is zoomed out. No `udgBase`: Atom BASIC has no ZX-style
  * `USR "letter"` UDG area.
+ *
+ * Sources:
+ *  - *Acorn Atom Technical Manual* for the memory layout, the video RAM at
+ *    #8000 and the I/O and ROM areas.
+ *  - *Atom Theory and Practice* for the OS/BASIC workspace description.
+ *  - `./addresses.ts` for the text start and video base.
  */
 export const atomMemoryMap: MemoryMap = {
   addressSpace: 0x10000,

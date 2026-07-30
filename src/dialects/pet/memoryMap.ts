@@ -24,6 +24,11 @@ import type { MemoryMap } from '../types';
  * Regions are contiguous, ascending and cover the whole $0000-$FFFF space; a
  * colocated test enforces that. The PET has no `USR "letter"` user-defined-
  * graphics area, so `udgBase` is omitted.
+ *
+ * Sources:
+ *  - *PET/CBM Personal Computer Guide* and the BASIC 4.0 memory-map appendix
+ *    for the region names and the ROM boundaries.
+ *  - `./addresses.ts` and `../../emulator/pet/petMachine.ts` for the addresses.
  */
 export const petMemoryMap: MemoryMap = {
   addressSpace: 0x10000,

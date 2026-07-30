@@ -20,6 +20,14 @@ import type { MemoryMap } from '../types';
  * space; a colocated test enforces that. Leaves sharing a `group` collapse into
  * one band when the viewer is zoomed out. No `udgBase`: BBC BASIC has no ZX-style
  * `USR "letter"` UDG area.
+ *
+ * Sources:
+ *  - *BBC Microcomputer Advanced User Guide* (Bray, Dickens & Holmes), the
+ *    memory-map chapter, for the zero page, stack, OS and language workspace,
+ *    buffers, paged ROM and vector names.
+ *  - Acorn's DFS documentation for the &0E00-&18FF filing-system workspace that
+ *    pushes PAGE to &1900.
+ *  - `./addresses.ts` and `../../emulator/bbc/addresses.ts` for the addresses.
  */
 export const bbcMicroMemoryMap: MemoryMap = {
   addressSpace: 0x10000,

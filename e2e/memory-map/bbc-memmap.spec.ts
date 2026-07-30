@@ -1,4 +1,4 @@
-// Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
+// Capability: memory-map — openspec/specs/memory-map/spec.md
 import { test, expect, chooseTargetMachine, type Page } from '../fixtures';
 
 /** A long-running loop keeps the emulator busy so the live overlay has activity
