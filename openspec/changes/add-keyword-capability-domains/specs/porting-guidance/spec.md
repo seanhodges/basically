@@ -10,12 +10,19 @@ SHALL be ordered so that capabilities the target machine does not provide at all
 are reported before capabilities it does provide, and every command SHALL appear
 in exactly one group. Each group SHALL state how many commands it contains.
 
+A group SHALL name its commands compactly, as a single run of names, rather than
+as one detailed row per command — the advice a reader acts on is written per
+capability, not per command, so repeating a description against every lost
+command makes the guide longer without making it clearer. Every command in a
+group SHALL be named, with nothing hidden behind a control to reveal more. A
+capability from which the port loses no command SHALL NOT be shown at all.
+
 #### Scenario: A port that loses a whole capability
 
 - **WHEN** the user compares a source dialect against a target that provides no
   equivalent of an entire capability the source has
 - **THEN** that capability is reported as a group, before capabilities the target
-  does provide, and the commands lost from it are listed within it
+  does provide, and the commands lost from it are named within it
 
 #### Scenario: Grouping loses nothing
 
@@ -28,17 +35,26 @@ in exactly one group. Each group SHALL state how many commands it contains.
 - **WHEN** the source dialect loses no command belonging to a given capability
 - **THEN** no group is shown for that capability
 
+#### Scenario: A group with many commands
+
+- **WHEN** a port loses a large number of commands from one capability
+- **THEN** every one of them is named in that group as a compact run of names,
+  and no control to reveal further commands is present
+
 ## MODIFIED Requirements
 
 ### Requirement: Long difference lists are capped, with more available
 
-Where a difference list (a category of commands or control codes the
-comparison reports), or a group within such a list, has more entries than fit
+Where a difference list that reports a detailed row per entry (a category of
+commands or control codes the comparison reports) has more entries than fit
 comfortably on screen, the comparison SHALL render only an initial portion of it
 by default and SHALL offer a way to reveal the remaining entries. The count shown
-alongside the heading or summary of that list or group SHALL always reflect every
-entry in it, not only the portion currently visible. A list or group short enough
-to fit already SHALL render in full, with no such control shown.
+alongside the list's heading or summary SHALL always reflect every entry in the
+list, not only the portion currently visible. A list short enough to fit already
+SHALL render in full, with no such control shown.
+
+The commands a port must replace are exempt: they are grouped by capability and
+named compactly rather than given a row each, so every one of them is shown.
 
 #### Scenario: A short list needs no control
 
@@ -71,8 +87,8 @@ to fit already SHALL render in full, with no such control shown.
   previously revealed a capped list in full
 - **THEN** the new comparison's difference lists are shown capped again
 
-#### Scenario: Each group is capped on its own
+#### Scenario: The grouped commands to replace are never capped
 
-- **WHEN** one group of a grouped difference list is long and another is short
-- **THEN** the long group is capped with a control to reveal the rest, the short
-  group renders in full, and revealing one group does not reveal the other
+- **WHEN** a port loses more commands than would fit as detailed rows
+- **THEN** every lost command is still named within its capability group, and no
+  control to reveal more is shown for those groups

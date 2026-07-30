@@ -28,8 +28,15 @@ problem now and is the prerequisite for attaching per-capability porting advice
   XOR). Enforced at compile time by a narrowed table type, not only by tests.
 - **"Keywords to replace" is grouped by capability** instead of presented as one
   alphabetical list, with each group showing its full count.
-- **Truncation becomes per-group**, so a long group caps independently of a
-  short one and revealing one does not reveal the others.
+- **Commands are named, not tabulated.** Each group lists its commands as one
+  comma-separated run rather than a detailed row each, so 41 lost graphics
+  commands are a wrapped line instead of 41 rows. The advice a reader acts on is
+  written per capability, so a description repeated against every lost command
+  makes the guide longer without making it clearer.
+- **No truncation in that section.** Because a group is a line rather than a
+  table, every lost command is shown; capabilities the port does not touch are
+  omitted entirely instead of collapsed behind a control. The five lists that do
+  render a row per entry keep their existing cap unchanged.
 - **Reference pages gain a `?domain=` filter** — a second chip row alongside the
   existing kind chips, mirroring the escape pages' existing `?cat=` filter. It
   renders only where entries carry domains, so the two assembly reference pages

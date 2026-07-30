@@ -69,24 +69,24 @@ indirection operator is `memory-hardware`).
 - [ ] 5.1 Create `docs/.vitepress/theme/domainMeta.ts` with `DOMAIN_ORDER` and
       `DOMAIN_META` (label + icon paths per domain), mirroring the existing
       `kindMeta.ts` split
-- [ ] 5.2 Add `useTruncatedGroups(pairKey, limit)` to
-      `docs/.vitepress/theme/components/DialectCompare.vue` — one expanded-set
-      keyed by domain, cleared on the same `pairKey` watch as `useTruncatedList`
-- [ ] 5.3 Render "Keywords to replace" as one section per domain: icon, label,
-      full group count, then the entries, keeping the existing per-entry
-      rendering (kind icon, code, tag, description, and the `substitutions` note)
-      exactly as-is
-- [ ] 5.4 Replace `mustReplaceList` with the per-group helper; leave
-      `falseFriendsList`, `renamedList`, `behaviourChangedList`,
-      `newlyAvailableList` and the two escape lists on `useTruncatedList` with
-      `TRUNCATE_LIMIT = 10`
-- [ ] 5.5 Update the summary line to report the number of capability areas
+- [ ] 5.2 Render "Keywords to replace" as one section per domain: icon, label
+      and full group count, then the group's commands as a single
+      comma-separated run of names — not a detailed row per command. Keep any
+      version tag (`128K only`, `Master only`) inline against the name it
+      qualifies
+- [ ] 5.3 Render the handful of commands that carry a `substitutions` note as a
+      short exceptions run beneath their group, so per-command advice still sits
+      with its command
+- [ ] 5.4 Omit any capability from which the port loses no command; show no
+      reveal control anywhere in this section
+- [ ] 5.5 Delete `mustReplaceList`; leave `falseFriendsList`, `renamedList`,
+      `behaviourChangedList`, `newlyAvailableList` and the two escape lists on
+      `useTruncatedList` with `TRUNCATE_LIMIT = 10`, unchanged
+- [ ] 5.6 Update the summary line to report the number of capability areas
       alongside the existing full keyword counts
-- [ ] 5.6 Verify against the rendered page that group counts and the section
-      count reflect every entry, and that revealing one group leaves the others
-      capped
-- [ ] 5.7 Settle the per-group truncation limit by looking at the `cpc → zx80`
-      extreme (working assumption: 6)
+- [ ] 5.7 Verify against the rendered page that group counts reflect every
+      command, that every lost command is named, and that no capability with
+      nothing lost is shown
 
 ## 6. Reference-page domain filter
 
@@ -114,7 +114,9 @@ indirection operator is `memory-hardware`).
 - [ ] 7.6 `npm run e2e:chromium -- e2e/porting-guidance`
 - [ ] 7.7 `npx openspec validate --changes`
 - [ ] 7.8 Manual check via `npm run docs:dev` at `/docs/reference/compare`:
-      `cpc → zx80` (147 lost, grouped, capabilities the ZX80 lacks first),
-      `zx81 → cpc` (the motivating case — the fold must now show lost
-      capabilities, not `AFTER ASC AUTO BIN$`), and `zx81 → zxspectrum` (near
-      pair; groups stay short and `GOTO` → `GO TO` still renders as a rename)
+      `cpc → zx80` (147 lost — must read as a short set of capability groups
+      with comma-separated names, not a wall of rows, and the ZX80's missing
+      capabilities first), `zx81 → cpc` (the motivating case — the top of the
+      section must now show lost capabilities, not `AFTER ASC AUTO BIN$`), and
+      `zx81 → zxspectrum` (near pair; few groups shown, and `GOTO` → `GO TO`
+      still renders as a rename)

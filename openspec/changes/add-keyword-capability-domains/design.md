@@ -134,19 +134,37 @@ derived from whether the target has any entry in that domain at all — data thi
 change already has. The follow-up change refines the tiering with authored
 `support` values without changing the contract.
 
-### Per-group truncation needs a new helper
+### Commands are named, not tabulated — so truncation disappears
 
-`useTruncatedList` is a setup-time factory over one fixed list, instantiated
-seven times in `DialectCompare.vue`. The number of groups varies per pair, so it
-cannot be reused as-is. `useTruncatedGroups(pairKey, limit)` keeps a single
-expanded-set keyed by domain and clears it on the same `pairKey` watch, giving
-each group the same reset contract. The five other lists keep `useTruncatedList`
-and `TRUNCATE_LIMIT = 10` untouched; groups use a smaller limit since there are
-now several of them on screen.
+A group renders its commands as one comma-separated run of names, not as a row
+each with icon, tag and description. This is the decision that makes grouping
+work at the sizes involved: 41 lost graphics commands become a single wrapped
+line instead of 41 rows.
 
-Headings show `entries.length` for the group and the untouched
-`keywordDiff.mustReplace.length` for the section, so the counting guarantee
-holds at both levels.
+It follows from where the advice lives. A reader acts on the per-capability
+guidance — what this machine offers in this area and what to do instead — not on
+131 individual descriptions, each of which describes the command on the machine
+being left behind rather than telling the reader anything about the port. The
+descriptions are still one click away on the source dialect's own reference page.
+
+Because a group is now a line rather than a table, **the "keywords to replace"
+section is not truncated at all**: every lost command is named, and irrelevant
+capabilities are omitted entirely rather than collapsed. No
+`useTruncatedGroups` helper is needed, and `useTruncatedList` /
+`TRUNCATE_LIMIT = 10` stay exactly as they are for the five lists that do render
+a detailed row per entry (renames, changed behaviour, false friends, and the two
+control-code lists). `mustReplaceList` is simply deleted.
+
+Group headings show `entries.length` and the section keeps the untouched
+`keywordDiff.mustReplace.length`, so the counting guarantee holds at both levels
+— trivially, since nothing is hidden.
+
+*Consequence to watch.* The existing requirement "Per-command advice sits with
+the command" is satisfied by the 28 authored `substitutions` in `facts.ts`. With
+no per-command row to attach to, those render beneath their group's advice as a
+short exceptions run (`PLOT — use …`), keeping the requirement met. At two to
+five substitutions per target this adds a few lines to the whole page, not per
+group.
 
 ### The reference-page filter ships last
 
@@ -187,6 +205,14 @@ tags on keywords).
   sound is more useful than that keyword buried at position 94 of an alphabetical
   list. Empty domains are omitted entirely, so no group is ever noise.
 
+- **Naming commands instead of tabulating them drops each command's `kind`,
+  `tag` and description from this page.** → Accepted, and the point of the
+  change. Those columns describe the command on the machine being left behind,
+  which is not what a porter needs; they remain on the source dialect's own
+  reference page, one link away. Version tags (`128K only`, `Master only`) are
+  the one loss with real information content — keep them inline against the name
+  they qualify rather than dropping them.
+
 - **Multi-word variants still inflate group counts.** → Accepted and named as a
   non-goal. Grouping already places them adjacent, which contains the visual
   noise; folding them would renegotiate the counting guarantee this change is
@@ -209,9 +235,9 @@ npm run format:check`, plus `npm run docs:build` and
 
 ## Open Questions
 
-- The exact per-group truncation limit (6 is the working assumption against the
-  existing 10 for flat lists). Best settled by looking at the rendered page for
-  the `cpc → zx80` extreme rather than decided up front.
 - Whether the trailing "undomained" bucket should render at all once the type
   makes it unreachable for BASIC pages. Keeping it costs little and is a safety
   net; it can be dropped if it proves dead.
+- Whether the comma run should stay in source-page order (currently alphabetical
+  within a bucket) or lead with the commands that carry substitution advice.
+  Best judged on the rendered `cpc → zx80` page.
