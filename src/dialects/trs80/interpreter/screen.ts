@@ -130,6 +130,17 @@ export class Screen {
     }
   }
 
+  /**
+   * PRINT @ n: move the cursor straight to screen cell n, counting left to
+   * right and top to bottom from 0 at the top-left. Out-of-range cells are
+   * clamped; the caller rejects them first with the ROM's `?FC ERROR`.
+   */
+  setCell(cell: number): void {
+    const n = Math.max(0, Math.min(COLS * ROWS - 1, Math.floor(cell)));
+    this.row = Math.floor(n / COLS);
+    this.col = n % COLS;
+  }
+
   /** PRINT TAB(n): pad with spaces to column n (0-based); never moves left. */
   tab(n: number): void {
     const target = Math.max(0, Math.floor(n));

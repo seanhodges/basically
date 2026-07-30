@@ -15,6 +15,17 @@ function run(src: string, frames = 500): Interpreter {
   return interp;
 }
 
+/** Type a line (ending in Enter) into a program paused at INPUT. */
+function type(interp: Interpreter, text: string): void {
+  for (const ch of text) {
+    interp.input.handleEvent({ key: ch } as KeyboardEvent, true);
+  }
+  interp.input.handleEvent({ key: 'Enter' } as KeyboardEvent, true);
+  for (let i = 0; i < 100 && interp.state !== 'ended'; i++) {
+    interp.runBudget(5000);
+  }
+}
+
 /** One screen row as trimmed ASCII text. */
 function row(interp: Interpreter, r: number): string {
   let s = '';
@@ -69,6 +80,86 @@ describe('trs80 interpreter - output & expressions', () => {
     expect(r[0]).toBe('A');
     expect(r[16]).toBe('B');
   });
+
+  it('PRINT TAB(n) pads to an absolute column', () => {
+    const r = row(run('10 PRINT TAB(5);"A";TAB(20);"B"\n'), 0);
+    expect(r[5]).toBe('A');
+    expect(r[20]).toBe('B');
+  });
+});
+
+describe('trs80 interpreter - PRINT @', () => {
+  it('positions output at a screen cell', () => {
+    expect(row(run('10 PRINT @0,"TOP"\n'), 0)).toBe('TOP');
+    // Cell 512 is the start of row 8 on the 64-column screen.
+    const mid = run('10 PRINT @512,"MID"\n');
+    expect(row(mid, 8)).toBe('MID');
+    // A cell part-way along a row keeps its column.
+    const off = run('10 PRINT @70,"X"\n');
+    expect(row(off, 1)[6]).toBe('X');
+  });
+
+  it('prints at the last cell, scrolling as the line wraps', () => {
+    const interp = run('10 PRINT @1023,"Z"\n');
+    // The final cell holds "Z" until the trailing newline scrolls it up a row.
+    expect(row(interp, ROWS - 2)[COLS - 1]).toBe('Z');
+  });
+
+  it('accepts either separator after the cell number', () => {
+    expect(row(run('10 PRINT @64;"A"\n'), 1)).toBe('A');
+  });
+
+  it('does not zone-tab on the separator that follows the cell', () => {
+    // A "," here belongs to the @ syntax, so "A" lands at cell 3, not col 16.
+    expect(row(run('10 PRINT @3,"A"\n'), 0)).toBe('   A');
+  });
+
+  it('rejects a cell outside the screen with ?FC', () => {
+    const interp = run('10 PRINT @1024,"X"\n');
+    expect(interp.state).toBe('error');
+    expect(interp.getReport()?.code).toBe('FC');
+  });
+
+  it('rejects @ part-way through the item list', () => {
+    const interp = run('10 PRINT "A";@100,"B"\n');
+    expect(interp.state).toBe('error');
+    expect(interp.getReport()?.code).toBe('SN');
+  });
+});
+
+describe('trs80 interpreter - PRINT USING', () => {
+  it('formats numbers against a template', () => {
+    expect(row(run('10 PRINT USING "###.##";3.14159\n'), 0)).toBe('  3.14');
+    expect(row(run('10 PRINT USING "$$###.##";12.5\n'), 0)).toBe('  $12.50');
+  });
+
+  it('reuses the template across the item list without zone tabs', () => {
+    // ";" and "," are both plain separators in USING mode.
+    expect(row(run('10 PRINT USING "##";1;2,3\n'), 0)).toBe(' 1 2 3');
+  });
+
+  it('emits the literal text around the fields', () => {
+    expect(row(run('10 PRINT USING "<##.#>";4.26\n'), 0)).toBe('< 4.3>');
+  });
+
+  it('marks an overflowing value with %', () => {
+    expect(row(run('10 PRINT USING "##";1234\n'), 0)).toBe('% 1234');
+  });
+
+  it('formats a string variable through a % % field', () => {
+    const src = '10 A$="BASIC"\n20 PRINT USING "[%  %]";A$\n';
+    expect(row(run(src), 0)).toBe('[BASI]');
+  });
+
+  it('reports a type mismatch against a numeric field', () => {
+    const interp = run('10 PRINT USING "##";"A"\n');
+    expect(interp.state).toBe('error');
+    expect(interp.getReport()?.code).toBe('TM');
+  });
+
+  it('works after a PRINT @ position', () => {
+    expect(row(run('10 PRINT @64,USING "##.#";2.5\n'), 1)).toBe(' 2.5');
+  });
 });
 
 describe('trs80 interpreter - control flow', () => {
@@ -110,6 +201,85 @@ describe('trs80 interpreter - control flow', () => {
     const interp = run('10 GOTO 999\n');
     expect(interp.state).toBe('error');
     expect(interp.getReport()?.code).toBe('UL');
+  });
+
+  it('RUN with a line number restarts there', () => {
+    const src =
+      '10 A=1\n20 IF A=1 THEN A=2:RUN 40\n30 PRINT "SKIPPED"\n40 PRINT "AT40"\n';
+    // RUN clears variables, so line 20 does not loop on the second pass.
+    expect(firstText(run(src))).toBe('AT40');
+  });
+
+  it('STOP halts and reports the line it broke on', () => {
+    const interp = run('10 PRINT "A"\n20 STOP\n30 PRINT "B"\n');
+    expect(interp.state).toBe('ended');
+    expect(interp.getReport()).toEqual({
+      isError: false,
+      message: 'BREAK IN 20',
+    });
+    expect(firstText(interp)).toBe('A');
+  });
+});
+
+describe('trs80 interpreter - keyboard LINE INPUT', () => {
+  it('takes the whole typed line, commas and all', () => {
+    const interp = run('10 LINE INPUT A$\n20 PRINT "["+A$+"]"\n');
+    expect(interp.state).toBe('input');
+    type(interp, 'ONE, TWO');
+    // Row 0 is the echoed input; the program's own output follows it.
+    expect(row(interp, 1)).toBe('[ONE, TWO]');
+  });
+
+  it('prints the prompt without adding a ? marker', () => {
+    const interp = run('10 LINE INPUT "NAME";A$\n20 PRINT A$\n');
+    type(interp, 'ADA');
+    expect(row(interp, 0)).toBe('NAMEADA');
+  });
+
+  it('rejects a numeric target', () => {
+    const interp = run('10 LINE INPUT A\n');
+    expect(interp.state).toBe('error');
+    expect(interp.getReport()?.code).toBe('TM');
+  });
+});
+
+describe('trs80 interpreter - Disk BASIC conversions', () => {
+  it('round-trips integers through MKI$/CVI', () => {
+    expect(firstText(run('10 PRINT CVI(MKI$(1234))\n'))).toBe('1234');
+    expect(firstText(run('10 PRINT CVI(MKI$(-2))\n'))).toBe('-2');
+  });
+
+  it('stores MKI$ as two little-endian bytes', () => {
+    expect(firstText(run('10 PRINT ASC(MKI$(258))\n'))).toBe('2');
+    expect(firstText(run('10 PRINT LEN(MKI$(0))\n'))).toBe('2');
+  });
+
+  it('round-trips singles and doubles through MKS$/CVS and MKD$/CVD', () => {
+    expect(firstText(run('10 PRINT CVS(MKS$(0))\n'))).toBe('0');
+    expect(firstText(run('10 PRINT CVD(MKD$(3.5))\n'))).toBe('3.5');
+    expect(firstText(run('10 PRINT CVD(MKD$(-1.25))\n'))).toBe('-1.25');
+    expect(firstText(run('10 PRINT LEN(MKS$(1))+LEN(MKD$(1))\n'))).toBe('12');
+  });
+
+  it('measures a byte string by its bytes, not its UTF-16 units', () => {
+    // 0x81-0xBF are block-graphics characters that take two UTF-16 units each.
+    expect(firstText(run('10 PRINT LEN(CHR$(129)+CHR$(130))\n'))).toBe('2');
+    expect(firstText(run('10 PRINT ASC(LEFT$(CHR$(129)+"A",1))\n'))).toBe(
+      '129',
+    );
+    expect(firstText(run('10 PRINT ASC(RIGHT$("A"+CHR$(160),1))\n'))).toBe(
+      '160',
+    );
+    expect(firstText(run('10 PRINT ASC(MID$(CHR$(129)+"AB",2,1))\n'))).toBe(
+      '65',
+    );
+    expect(firstText(run('10 PRINT INSTR(CHR$(129)+"AB","B")\n'))).toBe('3');
+  });
+
+  it('rejects a string too short for the conversion', () => {
+    const interp = run('10 PRINT CVI("A")\n');
+    expect(interp.state).toBe('error');
+    expect(interp.getReport()?.code).toBe('FC');
   });
 });
 

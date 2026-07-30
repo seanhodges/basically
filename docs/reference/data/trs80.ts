@@ -451,7 +451,7 @@ export const trs80Reference: ReferenceTableData = {
       kind: 'operator',
       syntax: 'PRINT USING <string>; <expr>[, <expr>]…',
       description:
-        'Formats output against a template string using markers such as # for digit positions, "." for the decimal point, and "$" for currency.',
+        'Formats output against a template string: "#" is a digit position, "." fixes the decimal point, "," groups thousands, "**" pads with asterisks, "$$" floats a currency sign, a leading or trailing "+"/"-" places the sign, and "^^^^" selects E notation. For strings, "!" takes the first character and "%" with spaces between makes a field that wide. The template repeats if there are more values than fields, and a value too wide for its field prints after a "%" marker.',
     },
     {
       name: 'VARPTR',
