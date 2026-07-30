@@ -12,13 +12,20 @@ import type {
   PortingFacts,
   ReferenceTableData,
 } from '../../../reference/data/types';
-import { composeGuidance, diffEscapes, diffKeywords } from '../dialectCompare';
+import {
+  composeGuidance,
+  diffEscapes,
+  diffKeywords,
+  domainSections,
+  type DomainSection,
+} from '../dialectCompare';
 import {
   falseFriends,
   keywordEquivalences,
   pairPortingNotes,
 } from '../../../reference/data/porting';
 import { KIND_META } from '../kindMeta';
+import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
 
 /** One selectable dialect: its reference/escape tables and porting facts. */
@@ -141,10 +148,6 @@ const renamedList = useTruncatedList(
   () => keywordDiff.value?.renamed ?? [],
   pairKey,
 );
-const mustReplaceList = useTruncatedList(
-  () => keywordDiff.value?.mustReplace ?? [],
-  pairKey,
-);
 const behaviourChangedList = useTruncatedList(
   () => keywordDiff.value?.behaviourChanged ?? [],
   pairKey,
@@ -161,6 +164,42 @@ const escNewlyAvailableList = useTruncatedList(
   () => escapeDiff.value?.newlyAvailable ?? [],
   pairKey,
 );
+
+// The commands to replace are grouped by capability rather than capped. A group
+// names its commands in one run instead of giving each a row, so 41 lost
+// graphics commands are a wrapped line and nothing has to be hidden - hence no
+// `useTruncatedList` here. Capabilities the target has no equivalent of at all
+// lead, because "you lose sound entirely" is the headline, not entry 94 of an
+// alphabetical list.
+const replaceSections = computed<DomainSection[]>(() => {
+  const diff = keywordDiff.value;
+  const t = target.value;
+  if (!diff || !t) return [];
+  return domainSections(diff.mustReplace, t.reference, DOMAIN_ORDER);
+});
+
+/**
+ * The few commands in a group that carry a "do this instead" note. Per-command
+ * advice still sits with its command: with no row to hang off, it renders as a
+ * short exceptions run beneath the group's names.
+ */
+function substitutionsIn(
+  section: DomainSection,
+): { name: string; note: string }[] {
+  const notes = guidance.value.substitutions;
+  return section.entries.flatMap((e) => {
+    const note = notes.get(e.name);
+    return note ? [{ name: e.name, note }] : [];
+  });
+}
+
+/** The trailing bucket is unreachable while every BASIC row carries a domain. */
+function domainLabel(section: DomainSection): string {
+  return section.domain ? DOMAIN_META[section.domain].label : 'Other';
+}
+function domainPaths(section: DomainSection): string {
+  return section.domain ? DOMAIN_META[section.domain].paths : '';
+}
 
 /** One row of the language & hardware comparison. */
 interface FactRow {
@@ -337,7 +376,8 @@ function convertWithAi() {
 
       <p v-else-if="source && target && keywordDiff" class="cmp-summary">
         <strong>{{ source.label }} → {{ target.label }}:</strong>
-        {{ keywordDiff.mustReplace.length }} keyword(s) to replace,
+        {{ keywordDiff.mustReplace.length }} keyword(s) to replace across
+        {{ replaceSections.length }} capability area(s),
         {{ keywordDiff.renamed.length }} to rename,
         {{ keywordDiff.behaviourChanged.length }} changed,
         {{ keywordDiff.newlyAvailable.length }} newly available,
@@ -511,15 +551,26 @@ function convertWithAi() {
         </ul>
       </section>
 
+      <!--
+        Grouped by capability, not capped: a group names its commands in one
+        run, so every lost command is shown and capabilities the port does not
+        touch are simply absent rather than collapsed behind a control.
+      -->
       <section class="cmp-section">
         <h2>Keywords to replace ({{ keywordDiff.mustReplace.length }})</h2>
         <p class="cmp-hint">
           In {{ source.label }} but not {{ target.label }} — rewrite or remove
-          these.
+          these. Grouped by what they do, with the capabilities
+          {{ target.label }} has no equivalent of at all first.
         </p>
-        <ul class="cmp-list cmp-remove">
-          <li v-for="e in mustReplaceList.visible" :key="e.name">
-            <span class="cmp-icon" :class="`kind-${e.kind}`">
+        <div
+          v-for="s in replaceSections"
+          :key="s.domain ?? 'other'"
+          class="cmp-group"
+          :class="{ 'cmp-group-absent': s.absentFromTarget }"
+        >
+          <h3 class="cmp-group-head">
+            <span v-if="s.domain" class="cmp-icon">
               <svg
                 width="14"
                 height="14"
@@ -530,33 +581,32 @@ function convertWithAi() {
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 role="img"
-                :aria-label="KIND_META[e.kind].label"
-                v-html="KIND_META[e.kind].paths"
+                :aria-label="domainLabel(s)"
+                v-html="domainPaths(s)"
               />
             </span>
-            <code>{{ e.name }}</code>
-            <span v-if="e.tag" class="cmp-tag">{{ e.tag }}</span>
-            <span class="cmp-desc">{{ e.description }}</span>
-            <span v-if="guidance.substitutions.get(e.name)" class="cmp-instead">
-              {{ guidance.substitutions.get(e.name) }}
+            {{ domainLabel(s) }}
+            <span class="cmp-group-count">{{ s.entries.length }}</span>
+            <span v-if="s.absentFromTarget" class="cmp-group-none">
+              nothing like it in {{ target.label }}
             </span>
-          </li>
-          <li
-            v-if="mustReplaceList.hasMore && !mustReplaceList.expanded"
-            class="cmp-more"
-          >
-            <button
-              type="button"
-              class="cmp-expand"
-              @click="mustReplaceList.expand()"
-            >
-              Show {{ mustReplaceList.remaining }} more…
-            </button>
-          </li>
-          <li v-if="keywordDiff.mustReplace.length === 0" class="cmp-empty">
-            Every {{ source.label }} keyword exists in {{ target.label }}.
-          </li>
-        </ul>
+          </h3>
+          <p class="cmp-group-names">
+            <span v-for="(e, i) in s.entries" :key="e.name" class="cmp-name">
+              <code>{{ e.name }}</code
+              ><span v-if="e.tag" class="cmp-tag">{{ e.tag }}</span
+              ><span v-if="i < s.entries.length - 1" class="cmp-sep">, </span>
+            </span>
+          </p>
+          <ul v-if="substitutionsIn(s).length" class="cmp-group-instead">
+            <li v-for="x in substitutionsIn(s)" :key="x.name">
+              <code>{{ x.name }}</code> — {{ x.note }}
+            </li>
+          </ul>
+        </div>
+        <p v-if="keywordDiff.mustReplace.length === 0" class="cmp-empty">
+          Every {{ source.label }} keyword exists in {{ target.label }}.
+        </p>
       </section>
 
       <section class="cmp-section">
@@ -870,6 +920,61 @@ function convertWithAi() {
   border-left-color: var(--vp-c-yellow-1);
   flex-direction: column;
   align-items: stretch;
+}
+/* One capability's worth of lost commands: a heading and a run of names,
+   rather than a row per command. Red left edge to match .cmp-remove, which
+   this section no longer uses. */
+.cmp-group {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0 0.5rem 0.7rem;
+  border-left: 3px solid var(--vp-c-red-1);
+}
+/* The capabilities the target has no equivalent of - the ones that lead. */
+.cmp-group.cmp-group-absent {
+  background: var(--vp-c-red-soft);
+}
+.cmp-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+.cmp-group-count {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.cmp-group-none {
+  color: var(--vp-c-red-1);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.cmp-group-names {
+  margin: 0.35rem 0 0;
+  line-height: 1.9;
+}
+/* Comma-separated run. The separator is a real text node, not a ::after, so
+   the list of lost commands copies and reads out as prose - and it sits after
+   any version tag rather than between the name and its tag. */
+.cmp-sep {
+  color: var(--vp-c-text-3, var(--vp-c-text-2));
+}
+.cmp-name .cmp-tag {
+  margin-left: 0.2rem;
+}
+.cmp-group-instead {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+.cmp-group-instead li {
+  margin: 0.15rem 0;
 }
 .cmp-more {
   border-left-color: transparent !important;

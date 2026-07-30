@@ -66,25 +66,25 @@ indirection operator is `memory-hardware`).
 
 ## 5. Grouped rendering
 
-- [ ] 5.1 Create `docs/.vitepress/theme/domainMeta.ts` with `DOMAIN_ORDER` and
+- [x] 5.1 Create `docs/.vitepress/theme/domainMeta.ts` with `DOMAIN_ORDER` and
       `DOMAIN_META` (label + icon paths per domain), mirroring the existing
       `kindMeta.ts` split
-- [ ] 5.2 Render "Keywords to replace" as one section per domain: icon, label
+- [x] 5.2 Render "Keywords to replace" as one section per domain: icon, label
       and full group count, then the group's commands as a single
       comma-separated run of names — not a detailed row per command. Keep any
       version tag (`128K only`, `Master only`) inline against the name it
       qualifies
-- [ ] 5.3 Render the handful of commands that carry a `substitutions` note as a
+- [x] 5.3 Render the handful of commands that carry a `substitutions` note as a
       short exceptions run beneath their group, so per-command advice still sits
       with its command
-- [ ] 5.4 Omit any capability from which the port loses no command; show no
+- [x] 5.4 Omit any capability from which the port loses no command; show no
       reveal control anywhere in this section
-- [ ] 5.5 Delete `mustReplaceList`; leave `falseFriendsList`, `renamedList`,
+- [x] 5.5 Delete `mustReplaceList`; leave `falseFriendsList`, `renamedList`,
       `behaviourChangedList`, `newlyAvailableList` and the two escape lists on
       `useTruncatedList` with `TRUNCATE_LIMIT = 10`, unchanged
-- [ ] 5.6 Update the summary line to report the number of capability areas
+- [x] 5.6 Update the summary line to report the number of capability areas
       alongside the existing full keyword counts
-- [ ] 5.7 Verify against the rendered page that group counts reflect every
+- [x] 5.7 Verify against the rendered page that group counts reflect every
       command, that every lost command is named, and that no capability with
       nothing lost is shown
 
