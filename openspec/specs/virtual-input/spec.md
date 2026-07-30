@@ -24,6 +24,16 @@ palette teaches the machine rather than the IDE. The palette SHALL adapt the
 number of characters it shows per row to the space available, without changing
 how large each character is drawn.
 
+Where the machine displays its graphics characters as graphics only after a
+display control code, the palette SHALL also offer those control codes, placed
+ahead of the characters they enable, and SHALL say that the characters need
+one — so a user who takes a character from the palette can make it appear. A
+control code SHALL be offered as a picture of what it does rather than as its
+name spelled out, and SHALL be labelled with the character code that produces
+it, like any other cell on such a machine. The palette SHALL NOT offer a
+control code that would stop the machine displaying those characters as
+graphics.
+
 The palette SHALL draw every machine's graphics characters the same way round as
 the editor draws them - dark ink on light ground - whatever colours that
 machine's own screen uses, because the palette is a preview of the text that
@@ -71,6 +81,21 @@ stays on it, not by touching it.
   that printed no graphics on its keyboard
 - **THEN** it is labelled with the character code that machine's BASIC uses to
   produce it
+
+#### Scenario: The palette offers the control code a graphics character needs
+
+- **WHEN** the user opens the graphics palette on a machine whose graphics
+  characters display as graphics only after a display control code, and picks
+  that control code and then a graphics character
+- **THEN** both are inserted into the source, and running the program shows the
+  graphics character as graphics
+
+#### Scenario: The palette says a graphics character needs a mode set first
+
+- **WHEN** the user looks at the graphics characters of such a machine in the
+  palette
+- **THEN** the palette states that they display as graphics only after one of
+  the control codes it offers ahead of them
 
 #### Scenario: The palette adapts to the space available
 
