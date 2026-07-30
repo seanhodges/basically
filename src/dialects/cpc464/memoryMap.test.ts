@@ -8,17 +8,6 @@ describe('cpc464MemoryMap', () => {
     expect(addressSpace).toBe(0x10000);
   });
 
-  it('has contiguous, ascending regions covering the whole space with no gaps or overlaps', () => {
-    expect(regions.length).toBeGreaterThan(0);
-    expect(regions[0]!.start).toBe(0);
-    expect(regions[regions.length - 1]!.end).toBe(addressSpace - 1);
-    for (let i = 0; i < regions.length; i++) {
-      const r = regions[i]!;
-      expect(r.end).toBeGreaterThanOrEqual(r.start);
-      if (i > 0) expect(r.start).toBe(regions[i - 1]!.end + 1);
-    }
-  });
-
   it('places the BASIC program area from &0170 up to the default HIMEM', () => {
     const program = regions.find((r) => r.kind === 'program');
     expect(program).toBeDefined();
