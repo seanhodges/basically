@@ -106,17 +106,26 @@ indirection operator is `memory-hardware`).
 
 ## 7. Quality gates
 
-- [ ] 7.1 `npm run typecheck`
-- [ ] 7.2 `npm test`
-- [ ] 7.3 `npm run lint`
-- [ ] 7.4 `npm run format:check` (or `npm run format` to fix)
-- [ ] 7.5 `npm run docs:build`
-- [ ] 7.6 `npm run e2e:chromium -- e2e/porting-guidance`
-- [ ] 7.7 `npx openspec validate --changes`
-- [ ] 7.8 Manual check via `npm run docs:dev` at `/docs/reference/compare`:
+- [x] 7.1 `npm run typecheck`
+- [x] 7.2 `npm test`
+- [x] 7.3 `npm run lint`
+- [x] 7.4 `npm run format:check` (or `npm run format` to fix)
+- [x] 7.5 `npm run docs:build`
+- [x] 7.6 `npm run e2e:chromium -- e2e/porting-guidance`
+- [x] 7.7 `npx openspec validate --changes`
+- [x] 7.8 Manual check via `npm run docs:dev` at `/docs/reference/compare`:
       `cpc → zx80` (147 lost — must read as a short set of capability groups
       with comma-separated names, not a wall of rows, and the ZX80's missing
       capabilities first), `zx81 → cpc` (the motivating case — the top of the
       section must now show lost capabilities, not `AFTER ASC AUTO BIN$`), and
       `zx81 → zxspectrum` (near pair; few groups shown, and `GOTO` → `GO TO`
       still renders as a rename)
+
+      Checked against the rendered dev server. `cpc → zx80` reports 146 (not
+      147 — the tables have gained a row since the proposal was written) across
+      13 groups, graphics/colour/sound/error-handling leading as the ones the
+      ZX80 has no equivalent of; `zx81 → cpc` reports 13 across 7 groups; and
+      `zx81 → zxspectrum` reports 4 across 3, with `GOTO` → `GO TO` still a
+      rename. `AFTER ASC AUTO BIN$` are CPC-only keywords, so for `zx81 → cpc`
+      they sit in "Newly available", which this change deliberately leaves
+      alone — regrouping that list belongs to `add-capability-porting-advice`.
