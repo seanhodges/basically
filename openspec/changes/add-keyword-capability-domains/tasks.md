@@ -90,19 +90,19 @@ indirection operator is `memory-hardware`).
 
 ## 6. Reference-page domain filter
 
-- [ ] 6.1 Add a `domain` field to `docs/.vitepress/theme/deepLinkParams.ts`,
+- [x] 6.1 Add a `domain` field to `docs/.vitepress/theme/deepLinkParams.ts`,
       treating an empty `?domain=` as absent per the existing contract
-- [ ] 6.2 Add a domain argument to `filterEntries` in
+- [x] 6.2 Add a domain argument to `filterEntries` in
       `docs/.vitepress/theme/referenceTable.ts`, AND-combined with the existing
       query and kind filters
-- [ ] 6.3 Add a `presentDomains` chip row to
+- [x] 6.3 Add a `presentDomains` chip row to
       `docs/.vitepress/theme/components/ReferenceTable.vue`, rendered only when
       some entry carries a domain, so the two assembly pages hide it
       automatically; follow `EscapeTable.vue`'s `?cat=` chips
-- [ ] 6.4 Add tests to `referenceTable.test.ts` (domain filter alone and combined
+- [x] 6.4 Add tests to `referenceTable.test.ts` (domain filter alone and combined
       with kind and query) and `deepLinkParams.test.ts` (`?domain=` parsed, empty
       value absent)
-- [ ] 6.5 Confirm both assembly reference pages render with no domain chip row
+- [x] 6.5 Confirm both assembly reference pages render with no domain chip row
 
 ## 7. Quality gates
 

@@ -2,13 +2,15 @@ import { onBeforeUnmount, onMounted } from 'vue';
 
 /**
  * Deep-link query params the reference pages understand: `?q=` seeds a search
- * box, `?name=` pins one keyword row, `?cat=` picks an escape category, and
- * `?from=`/`?to=` select the compare page's two dialects.
+ * box, `?name=` pins one keyword row, `?cat=` picks an escape category,
+ * `?domain=` picks a keyword capability, and `?from=`/`?to=` select the compare
+ * page's two dialects.
  */
 export interface DeepLinkParams {
   q: string | null;
   name: string | null;
   cat: string | null;
+  domain: string | null;
   from: string | null;
   to: string | null;
 }
@@ -25,6 +27,7 @@ export function parseDeepLinkParams(search: string): DeepLinkParams {
     q: get('q'),
     name: get('name'),
     cat: get('cat'),
+    domain: get('domain'),
     from: get('from'),
     to: get('to'),
   };
