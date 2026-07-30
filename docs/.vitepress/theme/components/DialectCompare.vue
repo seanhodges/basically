@@ -396,6 +396,14 @@ function convertWithAi() {
         >
           {{ copied ? 'Link copied' : 'Copy link' }}
         </button>
+        <button
+          v-if="embedded && !sameSelection"
+          type="button"
+          class="cmp-ai-button"
+          @click="convertWithAi"
+        >
+          Convert with AI
+        </button>
       </div>
 
       <p v-if="sameSelection" class="cmp-note">
@@ -458,29 +466,6 @@ function convertWithAi() {
     <div class="cmp-intro"><slot /></div>
 
     <template v-if="!sameSelection && source && target && keywordDiff">
-      <div class="cmp-links">
-        <span
-          >Full reference:
-          <a :href="refLinks(source.id).reference">{{ source.label }}</a>
-          (<a :href="refLinks(source.id).hardware">hardware</a>,
-          <a :href="refLinks(source.id).escapes">escape codes</a>,
-          <a :href="refLinks(source.id).formats">file formats</a>)</span
-        >
-        <span
-          >·
-          <a :href="refLinks(target.id).reference">{{ target.label }}</a>
-          (<a :href="refLinks(target.id).hardware">hardware</a>,
-          <a :href="refLinks(target.id).escapes">escape codes</a>,
-          <a :href="refLinks(target.id).formats">file formats</a>)</span
-        >
-      </div>
-
-      <div v-if="embedded" class="cmp-ai">
-        <button type="button" @click="convertWithAi">
-          Convert to {{ target.label }} using AI
-        </button>
-      </div>
-
       <section
         v-if="guidance.targetNotes.length"
         class="cmp-section cmp-guidance"
@@ -491,6 +476,22 @@ function convertWithAi() {
             {{ note }}
           </li>
         </ul>
+        <div class="cmp-links">
+          <span
+            >Full reference:
+            <a :href="refLinks(source.id).reference">{{ source.label }}</a>
+            (<a :href="refLinks(source.id).hardware">hardware</a>,
+            <a :href="refLinks(source.id).escapes">escape codes</a>,
+            <a :href="refLinks(source.id).formats">file formats</a>)</span
+          >
+          <span
+            >·
+            <a :href="refLinks(target.id).reference">{{ target.label }}</a>
+            (<a :href="refLinks(target.id).hardware">hardware</a>,
+            <a :href="refLinks(target.id).escapes">escape codes</a>,
+            <a :href="refLinks(target.id).formats">file formats</a>)</span
+          >
+        </div>
       </section>
 
       <!--
@@ -579,6 +580,49 @@ function convertWithAi() {
         </ul>
       </section>
 
+      <section class="cmp-section">
+        <h2>Changed behaviour ({{ keywordDiff.behaviourChanged.length }})</h2>
+        <p class="cmp-hint">
+          Same keyword, different kind or syntax — check each use.
+        </p>
+        <ul class="cmp-list cmp-change">
+          <li v-for="c in behaviourChangedList.visible" :key="c.name">
+            <code>{{ c.name }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from"
+                >{{ source.label }}: {{ c.from.kind }} ·
+                <code>{{ c.from.syntax }}</code></span
+              >
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to"
+                >{{ target.label }}: {{ c.to.kind }} ·
+                <code>{{ c.to.syntax }}</code></span
+              >
+            </span>
+          </li>
+          <li
+            v-if="
+              behaviourChangedList.hasMore && !behaviourChangedList.expanded
+            "
+            class="cmp-more"
+          >
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="behaviourChangedList.expand()"
+            >
+              Show {{ behaviourChangedList.remaining }} more…
+            </button>
+          </li>
+          <li
+            v-if="keywordDiff.behaviourChanged.length === 0"
+            class="cmp-empty"
+          >
+            No shared keyword changed kind or syntax.
+          </li>
+        </ul>
+      </section>
+
       <!--
         Grouped by capability, not capped: a group names its commands in one
         run, so every lost command is shown and capabilities the port does not
@@ -655,49 +699,6 @@ function convertWithAi() {
         <p v-if="keywordDiff.mustReplace.length === 0" class="cmp-empty">
           Every {{ source.label }} keyword exists in {{ target.label }}.
         </p>
-      </section>
-
-      <section class="cmp-section">
-        <h2>Changed behaviour ({{ keywordDiff.behaviourChanged.length }})</h2>
-        <p class="cmp-hint">
-          Same keyword, different kind or syntax — check each use.
-        </p>
-        <ul class="cmp-list cmp-change">
-          <li v-for="c in behaviourChangedList.visible" :key="c.name">
-            <code>{{ c.name }}</code>
-            <span class="cmp-change-detail">
-              <span class="cmp-from"
-                >{{ source.label }}: {{ c.from.kind }} ·
-                <code>{{ c.from.syntax }}</code></span
-              >
-              <span class="cmp-arrow">→</span>
-              <span class="cmp-to"
-                >{{ target.label }}: {{ c.to.kind }} ·
-                <code>{{ c.to.syntax }}</code></span
-              >
-            </span>
-          </li>
-          <li
-            v-if="
-              behaviourChangedList.hasMore && !behaviourChangedList.expanded
-            "
-            class="cmp-more"
-          >
-            <button
-              type="button"
-              class="cmp-expand"
-              @click="behaviourChangedList.expand()"
-            >
-              Show {{ behaviourChangedList.remaining }} more…
-            </button>
-          </li>
-          <li
-            v-if="keywordDiff.behaviourChanged.length === 0"
-            class="cmp-empty"
-          >
-            No shared keyword changed kind or syntax.
-          </li>
-        </ul>
       </section>
 
       <section class="cmp-section">
@@ -884,24 +885,18 @@ function convertWithAi() {
   border-top: 1px solid var(--vp-c-divider);
 }
 .cmp-links {
-  margin: 0.5rem 0 0;
+  margin: 0.75rem 0 0;
   font-size: 0.85rem;
   color: var(--vp-c-text-2);
 }
-.cmp-ai {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
-}
-.cmp-ai button {
-  padding: 0.45rem 0.8rem;
+.cmp-ai-button {
+  padding: 0.4rem 0.7rem;
   border: 1px solid var(--vp-c-brand-1);
   border-radius: 6px;
   background: var(--vp-c-brand-1);
   color: #fff;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 .cmp-section {
   margin-top: 2rem;

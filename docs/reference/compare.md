@@ -55,7 +55,7 @@ after porting is complete.
 
 <DialectCompare :dialects="dialects">
 
-## What a port usually involves
+## Porting between dialects
 
 Four things account for most of the work:
 
