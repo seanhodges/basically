@@ -331,33 +331,81 @@
   white-space: nowrap;
 }
 
-/* ---- Per-kind band tints: the region hue mixed into the panel surface. ---- */
+/* ---- Per-kind band tints: the region hue mixed into the panel surface. ----
+
+   The hue always says what a region is FOR, and it never varies by machine: ROM
+   is the same violet on the ZX81 as on the C64, so switching dialects doesn't
+   make the user relearn the map.
+
+   The strength of the mix says which GROUP a region belongs to. When the user
+   zooms in and a band opens into its sub-regions, each successive sibling is
+   drawn a step stronger (--mm-shade counts 0, 1, 2 … within the group), so they
+   read as one family while staying individually distinguishable. The ramp is
+   clamped so a long run can't march off into full saturation, and the left
+   border stays the undiluted hue at every step - that edge is what makes a run
+   read as a family even where two siblings' fills are close.
+
+   Only the mix percentage changes: a sub-region can never be mistaken for a
+   different kind. Where a leaf's kind differs from its group-mates' (the ZX81's
+   printer buffer inside its system-variables group) it keeps its own hue, and
+   that is deliberate - hue wins over grouping. */
+.band {
+  /* 14% base, +10% per sibling, clamped so a long run can't reach saturation:
+     14 / 24 / 34 / 44 / 44 … The step was chosen by eye against a 26px band (the
+     minimum height a band shrinks to), not by arithmetic - 7% was legible when
+     compared side by side but too close to read at a glance. */
+  --mm-tint: clamp(14%, calc(14% + var(--mm-shade, 0) * 10%), 44%);
+}
 .rom {
-  background: color-mix(in srgb, var(--mm-rom) 20%, var(--bg-panel));
+  background: color-mix(in srgb, var(--mm-rom) var(--mm-tint), var(--bg-panel));
   border-left-color: var(--mm-rom);
 }
 .screen {
-  background: color-mix(in srgb, var(--mm-screen) 20%, var(--bg-panel));
+  background: color-mix(
+    in srgb,
+    var(--mm-screen) var(--mm-tint),
+    var(--bg-panel)
+  );
   border-left-color: var(--mm-screen);
 }
 .attributes {
-  background: color-mix(in srgb, var(--mm-attributes) 20%, var(--bg-panel));
+  background: color-mix(
+    in srgb,
+    var(--mm-attributes) var(--mm-tint),
+    var(--bg-panel)
+  );
   border-left-color: var(--mm-attributes);
 }
 .buffer {
-  background: color-mix(in srgb, var(--mm-buffer) 20%, var(--bg-panel));
+  background: color-mix(
+    in srgb,
+    var(--mm-buffer) var(--mm-tint),
+    var(--bg-panel)
+  );
   border-left-color: var(--mm-buffer);
 }
 .system {
-  background: color-mix(in srgb, var(--mm-system) 20%, var(--bg-panel));
+  background: color-mix(
+    in srgb,
+    var(--mm-system) var(--mm-tint),
+    var(--bg-panel)
+  );
   border-left-color: var(--mm-system);
 }
 .program {
-  background: color-mix(in srgb, var(--mm-program) 20%, var(--bg-panel));
+  background: color-mix(
+    in srgb,
+    var(--mm-program) var(--mm-tint),
+    var(--bg-panel)
+  );
   border-left-color: var(--mm-program);
 }
 .reserved {
-  background: color-mix(in srgb, var(--mm-reserved) 20%, var(--bg-panel));
+  background: color-mix(
+    in srgb,
+    var(--mm-reserved) var(--mm-tint),
+    var(--bg-panel)
+  );
   border-left-color: var(--mm-reserved);
 }
 

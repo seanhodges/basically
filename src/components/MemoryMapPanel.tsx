@@ -462,7 +462,16 @@ export function MemoryMapPanel({ getMachine }: Props = {}) {
                   className={`${styles.band} ${styles[b.kind]} ${
                     b.key === selectedKey ? styles.selected : ''
                   }`}
-                  style={{ height: `${px}px` }}
+                  style={
+                    {
+                      height: `${px}px`,
+                      // Sub-regions of one group are drawn as progressively
+                      // stronger shades of their kind's colour: the hue still
+                      // says what the region is for, the shade says which
+                      // family it belongs to. See --mm-shade in the stylesheet.
+                      '--mm-shade': b.shade,
+                    } as React.CSSProperties
+                  }
                   onClick={() => setSelectedKey(b.key)}
                   title={`${fmt(b.start)}–${fmt(b.end)} ${b.label}`}
                 >

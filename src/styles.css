@@ -97,8 +97,10 @@
   --mm-program: #4fce6a;
   --mm-reserved: #ff6f7d;
   /* Where a program loads binary code (LOAD "" CODE / LOAD "",dev,1): blue
-     markers, distinct from the amber POKE write markers (--warn). */
-  --mm-load: #4f8cff;
+     markers, distinct from the amber POKE write markers (--warn). A deeper blue
+     than --mm-screen on purpose - the two were the same value, which made a
+     LOAD CODE marker vanish into the Spectrum's display-file band. */
+  --mm-load: #1f6feb;
 
   font-family: 'Segoe UI', system-ui, sans-serif;
 }

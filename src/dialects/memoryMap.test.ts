@@ -118,6 +118,31 @@ describe.each(mapped.map((d) => [d.id, d] as const))(
       expect(host!.kind, `${id} udgBase is not in ROM`).not.toBe('rom');
     });
 
+    it('uses at most one screen region, so the colour means one thing', () => {
+      // A machine has one display bitmap or none. The ZX80 and ZX81 have none:
+      // their display file lives inside program RAM and moves as the program
+      // grows, so there is no fixed region to draw - and the porting-facts
+      // cross-check depends on that staying true.
+      const screens = regions.filter((r) => r.kind === 'screen');
+      expect(
+        screens.length,
+        `${id} screen regions: ${screens.map((r) => r.label).join(', ')}`,
+      ).toBeLessThanOrEqual(1);
+    });
+
+    it('only uses the attributes colour for per-cell colour memory', () => {
+      // `attributes` means colour memory paired with a screen. If a map has an
+      // attributes region but no screen, the kind has been borrowed for
+      // something else and the colour has stopped meaning the same thing here as
+      // it does on every other machine.
+      const hasAttributes = regions.some((r) => r.kind === 'attributes');
+      if (!hasAttributes) return;
+      expect(
+        regions.some((r) => r.kind === 'screen'),
+        `${id} has an attributes region but no screen region`,
+      ).toBe(true);
+    });
+
     it('groups collapse unambiguously', () => {
       // A band takes its label from the first leaf's `group` and swallows every
       // following leaf whose `group` matches that label. A group may legitimately

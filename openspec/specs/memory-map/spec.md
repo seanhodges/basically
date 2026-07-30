@@ -69,3 +69,27 @@ than present an invented name as authoritative.
   does not name
 - **THEN** the region's explanation states that the area is undocumented, rather
   than asserting a purpose for it
+
+### Requirement: Colour means the same thing on every machine
+
+A region's colour SHALL be determined by what the region is for, not by which
+machine is selected, so that ROM, screen memory, the BASIC program area and the
+other region classes keep recognisably the same colour as the user switches
+between machines.
+
+Where a region resolves into sub-regions as the user zooms in, those sub-regions
+SHALL be drawn as distinguishable shades of their group's colour, so that each
+can be told apart from its neighbours while remaining visibly part of the same
+group. Shading SHALL vary only the strength of the colour, never which colour it
+is, so a sub-region can never be mistaken for a region of a different class.
+
+#### Scenario: Switching machines keeps the colours
+
+- **WHEN** the user changes the target machine with the memory map open
+- **THEN** each class of region keeps the colour it had on the previous machine
+
+#### Scenario: Sub-regions read as one family
+
+- **WHEN** the user zooms in on a band that groups several regions
+- **THEN** the sub-regions are drawn in shades of that group's colour, each
+  distinguishable from the ones beside it
