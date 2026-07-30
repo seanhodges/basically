@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { trs80 } from './index';
-import { PROG_START } from './tokenizer';
+import { PROG_START } from './addresses';
 import { buildCasImage } from './casfile';
 import { detokenizeProgramWithReport } from './detokenizer';
 import { importRoundTrip, firstDifference } from '../roundTripHarness';

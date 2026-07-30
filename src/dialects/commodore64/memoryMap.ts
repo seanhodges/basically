@@ -30,6 +30,12 @@ import type { MemoryMap } from '../types';
  * Regions are contiguous, ascending and cover the whole $0000-$FFFF space; a
  * colocated test enforces that. The C64 has no `USR "letter"` user-defined-
  * graphics area, so `udgBase` is omitted.
+ *
+ * Sources:
+ *  - *Commodore 64 Programmer's Reference Guide*, the memory-map appendix and
+ *    the chip register chapters, for the region names and boundaries.
+ *  - Leemon, *Mapping the Commodore 64*, for the workspace subdivisions.
+ *  - `./addresses.ts` for the BASIC RAM base and screen base.
  */
 export const c64MemoryMap: MemoryMap = {
   addressSpace: 0x10000,

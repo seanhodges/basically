@@ -28,8 +28,6 @@ import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 
 /** 4MHz Z80, 64µs (256 T-state) scanlines, 312 lines → ~50.08Hz. */
 const TSTATES_PER_LINE = 256;
-/** Program area base: BASIC stores tokenized lines from &0170 up. */
-const PROGRAM_BASE = 0x0170;
 /** Frames to run the firmware before giving up on reaching the command loop. */
 const MAX_BOOT_FRAMES = 300;
 /** Frames to settle after the boot screen draws, so the input loop is ready. */
@@ -261,7 +259,7 @@ export class CpcMachine implements MachineEmulator {
 
   /**
    * Boot to BASIC and run the tokenized program. Runs the firmware to its
-   * command loop, writes the program bytes at {@link PROGRAM_BASE}, points the
+   * command loop, writes the program bytes at the model's program base, points the
    * BASIC program/variable pointers just past it, injects any memory blocks,
    * then types RUN through the key matrix (all OS-version independent - the
    * pointers and the &0170 base are verified against the real 464 ROM). With a
@@ -279,14 +277,15 @@ export class CpcMachine implements MachineEmulator {
     this.bootToReady();
 
     // The tokenized image is the raw program area (line records terminated by a
-    // zero length word); drop it in at &0170.
+    // zero length word); drop it in at the model's program base (&0170).
+    const programBase = this.sysvars.programStart;
     for (let i = 0; i < image.length; i++) {
-      this.memory.write((PROGRAM_BASE + i) & 0xffff, image[i]!);
+      this.memory.write((programBase + i) & 0xffff, image[i]!);
     }
     // Point BASIC's end-of-program / start-of-variables pointers just past the
     // injected image (all four sit at the same address on a program with no
     // variables yet), so RUN/LIST see the program.
-    const end = (PROGRAM_BASE + image.length) & 0xffff;
+    const end = (programBase + image.length) & 0xffff;
     for (const p of basicVarPointers(this.sysvars)) {
       this.memory.writeWord(p, end);
     }

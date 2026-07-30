@@ -1,13 +1,8 @@
 import type { DetokenizeResult, TapeFile } from '../types';
 import { atomCharset } from './charset';
 import { codeFilesToBlocks, type ImportedCodeFile } from '../importBlocks';
-import {
-  ATM_HEADER_SIZE,
-  ATOM_TEXT_START,
-  buildAtm,
-  parseAtm,
-  stripAtmHeader,
-} from './atm';
+import { ATM_HEADER_SIZE, buildAtm, parseAtm, stripAtmHeader } from './atm';
+import { TEXT_START } from './addresses';
 import { isAtomDsk, parseAtomDsk, type AtomDskEntry } from './atomDsk';
 
 const LINE_MARK = 0x0d;
@@ -107,8 +102,8 @@ export function detokenizeAtomDskWithReport(
   file: Uint8Array,
 ): DetokenizeResult {
   const { entries, warnings } = parseAtomDsk(file);
-  const basics = entries.filter((e) => e.load === ATOM_TEXT_START);
-  const others = entries.filter((e) => e.load !== ATOM_TEXT_START);
+  const basics = entries.filter((e) => e.load === TEXT_START);
+  const others = entries.filter((e) => e.load !== TEXT_START);
 
   let chosen: AtomDskEntry | null = null;
   for (const b of basics) {

@@ -1,4 +1,6 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { PAGE_DFS } from './addresses';
+import { SCREEN_FLOOR, RAM_TOP } from '../../emulator/bbc/addresses';
 
 /**
  * BBC Micro Model B {@link MemoryBlocksSupport} figures for the memory-block
@@ -13,8 +15,8 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
  * value - the same value the memory map is drawn against.
  */
 
-/** BASIC program area start on a fresh DFS-equipped Model B: PAGE = 0x1900. */
-const PAGE = 0x1900;
+/** BASIC program area start on a fresh DFS-equipped Model B. */
+const PAGE = PAGE_DFS;
 
 /**
  * Headroom reserved beyond the raw tokenized program bytes for BASIC's
@@ -26,7 +28,7 @@ const PAGE = 0x1900;
 const PROGRAM_AREA_SLACK_BYTES = 512;
 
 /** User RAM from PAGE up to the top of main RAM (below the 0x8000 ROM slot). */
-const VALID_RANGES: readonly MemoryRange[] = [{ start: PAGE, end: 0x7fff }];
+const VALID_RANGES: readonly MemoryRange[] = [{ start: PAGE, end: RAM_TOP }];
 
 /**
  * Live machine state a block would clobber once the machine is running:
@@ -37,7 +39,7 @@ const VALID_RANGES: readonly MemoryRange[] = [{ start: PAGE, end: 0x7fff }];
  * MODE, which the static linter can't know, hence the conservative band.
  */
 const RESERVED_RANGES: readonly MemoryRange[] = [
-  { start: 0x3000, end: 0x7fff },
+  { start: SCREEN_FLOOR, end: RAM_TOP },
 ];
 
 /**

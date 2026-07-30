@@ -2,7 +2,7 @@ import type { DetokenizeResult, MemoryBlock, TapeFile } from '../types';
 import { decodeSpan } from './charset';
 import { trs80WordByToken } from './keywords';
 import { codeFilesToBlocks, type ImportedCodeFile } from '../importBlocks';
-import { PROG_START } from './tokenizer';
+import { PROG_START } from './addresses';
 import {
   isCasImage,
   parseCasImage,

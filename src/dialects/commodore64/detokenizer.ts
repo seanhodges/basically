@@ -3,9 +3,10 @@ import { c64Charset } from './charset';
 import { c64WordByToken } from './keywords';
 import { codeFilesToBlocks, type ImportedCodeFile } from '../importBlocks';
 import { parseD64, type D64Entry } from './d64';
+import { PROGRAM_BASE } from './addresses';
 
 /** Programs load at $0801 on the C64; a .prg's leading word is this address. */
-const DEFAULT_LOAD_ADDRESS = 0x0801;
+const DEFAULT_LOAD_ADDRESS = PROGRAM_BASE;
 
 /**
  * A Commodore-BASIC machine variant for the LIST/import side. Sibling dialects

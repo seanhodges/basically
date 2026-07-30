@@ -14,6 +14,7 @@
  * of the flag. Load/exec are PAGE-style (&FFFF0E00); CHAIN relocates a BASIC
  * program to PAGE on load regardless, so the value is advisory.
  */
+import { TAPE_HOST_ADDR } from '../addresses';
 
 const BIT_MICROS = 1e6 / 1200; // one start/data/stop bit
 const CYCLE_2400_MICROS = 1e6 / 2400;
@@ -21,8 +22,8 @@ const HALF_2400_MICROS = CYCLE_2400_MICROS / 2; // 2400 Hz half-cycle
 const HALF_1200_MICROS = 1e6 / 1200 / 2; // 1200 Hz half-cycle
 
 const SYNC = 0x2a; // '*'
-const LOAD_ADDR = 0xffff0e00; // tape PAGE
-const EXEC_ADDR = 0xffff0e00;
+const LOAD_ADDR = TAPE_HOST_ADDR;
+const EXEC_ADDR = TAPE_HOST_ADDR;
 const MAX_BLOCK_DATA = 256;
 
 export interface BbcTapeOptions {

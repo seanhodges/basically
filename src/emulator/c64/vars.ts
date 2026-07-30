@@ -1,4 +1,5 @@
 import type { MachineVariable } from '../../dialects/types';
+import { BASIC_V2_ZP } from '../commodore/basicPointers';
 
 /**
  * Decoder for the Commodore 64 BASIC (CBM BASIC V2) variables area, used by the
@@ -43,9 +44,9 @@ export interface CbmVarsLayout {
 
 /** BASIC V2 pointers, shared by the C64 and the VIC-20. */
 const C64_VARS_LAYOUT: CbmVarsLayout = {
-  vartab: 0x2d,
-  arytab: 0x2f,
-  strend: 0x31,
+  vartab: BASIC_V2_ZP.vartab,
+  arytab: BASIC_V2_ZP.arytab,
+  strend: BASIC_V2_ZP.strend,
 };
 /** Guards against runaway parsing of a corrupt or unexpected variables area. */
 const MAX_VARS = 1000;

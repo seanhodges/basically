@@ -13,6 +13,9 @@ import {
  *
  * Contended-memory timing is not modelled - it does not affect BASIC results.
  */
+/** Size of the ZX Spectrum's 16K ROM image; the memory map's ROM region matches it. */
+export const ROM_BYTES = 16384;
+
 export class SpectrumMemory {
   readonly rom: Uint8Array;
   readonly ram = new Uint8Array(0xc000); // 48K, addressed from 0x4000
@@ -24,8 +27,10 @@ export class SpectrumMemory {
   readonly activity = new MemoryActivityBuffer(0x10000);
 
   constructor(rom: Uint8Array) {
-    if (rom.length !== 16384)
-      throw new Error(`ZX Spectrum ROM must be 16384 bytes, got ${rom.length}`);
+    if (rom.length !== ROM_BYTES)
+      throw new Error(
+        `ZX Spectrum ROM must be ${ROM_BYTES} bytes, got ${rom.length}`,
+      );
     this.rom = rom;
   }
 

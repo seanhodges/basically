@@ -1,6 +1,7 @@
 import { CharsetError, type TokenizeError } from '../types';
 import { parseC64Char } from './petscii';
 import { c64KeywordsByLength, type C64Keyword } from './keywords';
+import { PROGRAM_BASE } from './addresses';
 
 export interface TokenizedProgram {
   /**
@@ -28,7 +29,7 @@ export interface CbmVariant {
 }
 
 /** Program base on the C64; other machines override it via {@link CbmVariant}. */
-const DEFAULT_PROG_START = 0x0801;
+const DEFAULT_PROG_START = PROGRAM_BASE;
 /** Highest line number Commodore BASIC accepts. */
 const MAX_LINE = 63999;
 

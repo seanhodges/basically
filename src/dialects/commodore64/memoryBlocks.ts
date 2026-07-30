@@ -1,4 +1,5 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { PROGRAM_BASE } from './addresses';
 
 /**
  * Commodore 64 {@link MemoryBlocksSupport} figures for the memory-block linter
@@ -8,7 +9,7 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
  */
 
 /** BASIC program start on a fresh C64: TXTTAB = $0801 = 2049. */
-const PROG = 0x0801;
+const PROG = PROGRAM_BASE;
 
 /**
  * Headroom reserved beyond the raw tokenized program bytes for BASIC's

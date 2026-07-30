@@ -1,4 +1,5 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { PROGRAM_BASE } from './sysvars';
 
 /**
  * Amstrad CPC 464 {@link MemoryBlocksSupport} for the memory-block linter
@@ -9,7 +10,6 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
  */
 
 /** BASIC program area start on the 464 (tokenized lines from &0170 up). */
-const PROGRAM_BASE = 0x0170;
 
 /**
  * Headroom reserved beyond the raw tokenized program bytes for the variables

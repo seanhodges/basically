@@ -10,11 +10,11 @@
  * it reaches here, so reads of 0x3800-0x3BFF in this class return open-bus 0xFF.
  * All TRS-80 I/O is memory-mapped - there is no echo region and no NMI, which
  * makes this the simplest of the Z80 buses in the project.
+ *
+ * The boundaries themselves live in `../addresses`, so the block linter and the
+ * file formats read the same layout this bus implements.
  */
-const ROM_SIZE = 0x3000; // 12K
-const VIDEO_BASE = 0x3c00;
-const VIDEO_SIZE = 0x0400; // 1K
-const RAM_BASE = 0x4000;
+import { ROM_SIZE, VIDEO_BASE, VIDEO_SIZE, RAM_BASE } from '../addresses';
 
 export class Trs80Memory {
   readonly rom: Uint8Array;

@@ -18,6 +18,13 @@ import type { MemoryMap } from '../types';
  * test enforces that. Leaves sharing a `group` collapse into one band when the
  * viewer is zoomed out. No `udgBase`: BBC BASIC has no ZX-style `USR "letter"`
  * UDG area.
+ *
+ * Sources:
+ *  - *BBC Master Reference Manual* for the MOS layout, the private ANDY/HAZEL
+ *    RAM that keeps PAGE at &0E00, and the FRED/JIM/SHEILA I/O pages.
+ *  - *BBC Microcomputer Advanced User Guide* for the layout shared with the
+ *    Model B.
+ *  - `./addresses.ts` and `../../emulator/bbc/addresses.ts` for the addresses.
  */
 export const bbcMasterMemoryMap: MemoryMap = {
   addressSpace: 0x10000,

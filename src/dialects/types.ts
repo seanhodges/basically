@@ -646,6 +646,29 @@ export interface SampleFile {
  * onto the same small palette (ROM, screen bitmap, colour/attribute area,
  * hardware buffers, system workspace, the user's BASIC program area, and RAM
  * reserved above it).
+ *
+ * **The same purpose takes the same kind on every machine.** Colour is what
+ * carries a user's understanding from one dialect to the next: if ROM is violet
+ * on the ZX81 it must be violet on the C64, so switching machines never makes
+ * them relearn the map. Concretely:
+ *
+ *  - `screen` - the display bitmap or character matrix, and only that. A machine
+ *    whose display file lives inside program RAM and moves as the program grows
+ *    (the ZX80 and ZX81) has no `screen` region at all rather than a guessed one.
+ *  - `attributes` - per-cell colour memory alongside a screen: the Spectrum's
+ *    attribute file, the C64's and VIC-20's colour RAM. Never anything else.
+ *  - `buffer` - memory-mapped chip registers and hardware buffers (VIC-II, SID,
+ *    the CIAs, the BBC's I/O page, the Sinclair printer buffer).
+ *  - `system` - OS and interpreter workspace, vectors, stacks and jumpblocks.
+ *  - `program` - the RAM the user's BASIC program and its variables occupy.
+ *  - `rom` - read-only memory as the CPU sees it. Not for RAM a ROM merely
+ *    *overlays* for reads: the CPC pages its ROMs over RAM that POKEs still
+ *    reach, so those regions are not `rom` (see `cpc464/memoryMap.ts`).
+ *  - `reserved` - RAM the interpreter will not use: mirrors, echo regions and
+ *    unfitted expansion.
+ *
+ * The cross-dialect test in `src/dialects/memoryMap.test.ts` enforces the parts
+ * of this that can be checked mechanically.
  */
 export type MemoryRegionKind =
   | 'rom'

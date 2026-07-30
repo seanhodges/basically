@@ -25,6 +25,7 @@ import type { MemoryBlock } from '../../types';
 import { buildPrg } from '../targets';
 import { loaderProgramBytes } from '../loader';
 import { parseC64Char } from '../petscii';
+import { PROGRAM_BASE } from '../addresses';
 
 export const CASSETTE_SAMPLE_RATE = 44100;
 
@@ -40,7 +41,7 @@ export const PULSE_LONG_MICROS = 680;
 const HEADER_SIZE = 192;
 const FILE_TYPE_RELOCATABLE = 0x01; // BASIC program, relocated to $0801 on load
 const FILE_TYPE_NON_RELOCATABLE = 0x03; // absolute load at the header's address
-const LOAD_ADDRESS = 0x0801;
+const LOAD_ADDRESS = PROGRAM_BASE;
 const FILENAME_OFFSET = 5;
 const FILENAME_LENGTH = 16;
 const FILENAME_PAD = 0x20; // space

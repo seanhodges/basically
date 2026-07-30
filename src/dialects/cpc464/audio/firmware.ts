@@ -1,3 +1,4 @@
+import { PROGRAM_BASE } from '../sysvars';
 /**
  * Amstrad CPC firmware cassette record scheme (the byte layer shared by the
  * `.wav` cassette encoder and the `.cdt` tape image).
@@ -30,7 +31,6 @@ const MAX_BLOCK_DATA = 2048;
 /** Bytes in the record header (padded into the first segment). */
 const HEADER_LEN = 64;
 /** BASIC program area start; where a tokenized `.bas` loads (matches basfile.ts). */
-const PROGRAM_BASE = 0x0170;
 
 /** Header field offsets, per SOFT968's cassette header. */
 const OFF_NAME = 0; // 16 bytes, space padded

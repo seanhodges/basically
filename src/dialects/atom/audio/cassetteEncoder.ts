@@ -22,7 +22,7 @@
  * which our decoder round-trips and which common Atom tools also accept.)
  */
 
-import { ATOM_TEXT_START } from '../atm';
+import { TEXT_START } from '../addresses';
 import { samplesToWav } from '../../../transfer/wav';
 import { tokenizeProgram } from '../tokenizer';
 import { fatalErrors } from '../../types';
@@ -34,7 +34,7 @@ const HALF_1200_MICROS = 1e6 / 1200 / 2; // 1200 Hz half-cycle
 
 const SYNC = 0x2a; // '*'
 const SYNC_COUNT = 4;
-const EXEC_ADDR = ATOM_TEXT_START;
+const EXEC_ADDR = TEXT_START;
 const MAX_BLOCK_DATA = 256;
 
 export const CASSETTE_SAMPLE_RATE = 44100;
@@ -73,7 +73,7 @@ export function buildAtomBlock(
   data: Uint8Array,
   isLast: boolean,
 ): Uint8Array {
-  const loadAddr = ATOM_TEXT_START + blockNumber * MAX_BLOCK_DATA;
+  const loadAddr = TEXT_START + blockNumber * MAX_BLOCK_DATA;
   // Header + data, all of which the checksum covers (the sync bytes do not).
   const body: number[] = [];
   body.push(...name, 0x0d); // filename + CR terminator

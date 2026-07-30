@@ -14,7 +14,8 @@ import {
   type CasBasicFile,
   type CasSystemFile,
 } from './casfile';
-import { tokenizeProgram, PROG_START } from './tokenizer';
+import { tokenizeProgram } from './tokenizer';
+import { PROG_START } from './addresses';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 
 /**

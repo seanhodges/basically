@@ -29,6 +29,11 @@ import type { MemoryMap } from '../types';
  * Regions are contiguous, ascending and cover the whole $0000-$FFFF space; a
  * colocated test enforces that. The VIC-20 has no `USR "letter"` user-defined-
  * graphics area, so `udgBase` is omitted.
+ *
+ * Sources:
+ *  - *VIC-20 Programmer's Reference Guide*, the memory-map appendix, for the
+ *    unexpanded layout, the expansion blocks and the colour RAM.
+ *  - `./addresses.ts` and `../../emulator/vic20/memory.ts` for the addresses.
  */
 export const vic20MemoryMap: MemoryMap = {
   addressSpace: 0x10000,

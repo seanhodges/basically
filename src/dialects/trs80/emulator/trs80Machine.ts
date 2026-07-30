@@ -4,14 +4,11 @@ import type { MachineEmulator, MemoryBlock } from '../../types';
 import { Trs80Memory } from './memory';
 import { Trs80Keyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT, COLS } from './display';
-import { PROG_START } from '../tokenizer';
+import { PROG_START, KEYBOARD_BASE, KEYBOARD_END } from '../addresses';
 
 /** Z80 @ ~1.77 MHz over a 50 Hz frame. */
 const TSTATES_PER_FRAME = 35500;
 const MAX_BOOT_FRAMES = 600;
-
-const KEYBOARD_BASE = 0x3800;
-const KEYBOARD_END = 0x3bff;
 
 /**
  * Level II BASIC pointer block in the 0x40xx communication region. TXTTAB points

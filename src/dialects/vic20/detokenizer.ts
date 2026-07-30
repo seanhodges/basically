@@ -8,6 +8,7 @@ import {
   type CbmTapeFile,
 } from '../commodore64/detokenizer';
 import { vic20WordByToken } from './keywords';
+import { PROGRAM_BASE } from './addresses';
 
 /**
  * The VIC-20's LIST/import variant: unexpanded .prg images load at $1001,
@@ -16,7 +17,7 @@ import { vic20WordByToken } from './keywords';
  * RAM-expanded VIC-20 ($0401 with +3K, $1201 with +8K/+16K) image.
  */
 const VIC20_DETOKENIZE_VARIANT: CbmDetokenizeVariant = {
-  loadAddress: 0x1001,
+  loadAddress: PROGRAM_BASE,
   wordByToken: vic20WordByToken,
   machineHint:
     'C64 ($0801), a RAM-expanded VIC-20 ($0401 with +3K, $1201 with +8K/+16K) or machine-code',

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { tokenizeProgram, PROG_START } from './tokenizer';
+import { tokenizeProgram } from './tokenizer';
+import { PROG_START } from './addresses';
 import { detokenizeProgram } from './detokenizer';
 import { trs80 } from './index';
 

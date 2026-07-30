@@ -49,6 +49,13 @@ any **reserved** RAM above it. Every region is a distinct colour so you can see
 at a glance how the address space is carved up and how much of it your program
 has to share.
 
+A colour always means the same thing, on every machine. ROM is the same colour on
+a ZX81 as on a Commodore 64, and so is your program area - so once you've read
+one machine's map, switching to another doesn't mean learning it again. Where a
+band opens into smaller regions as you zoom in, those appear as progressively
+deeper shades of the band's own colour: each is easy to tell from its neighbours,
+while the shared colour keeps showing which group they belong to.
+
 ![The Commodore 64 memory map zoomed out: major region groups - system area, screen memory, BASIC program, ROM and I/O - each shown with the percentage of memory it takes](/memory-map-overview.png)
 
 The map opens zoomed out, showing just the major groups with the percentage of

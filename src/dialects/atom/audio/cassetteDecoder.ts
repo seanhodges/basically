@@ -1,5 +1,5 @@
 import { atomChecksum } from './cassetteEncoder';
-import { ATOM_TEXT_START } from '../atm';
+import { TEXT_START } from '../addresses';
 
 /**
  * Acorn Atom cassette decoding - the inverse of {@link encodeAtomTape}.
@@ -156,7 +156,7 @@ function parseAtomFile(bytes: Uint8Array): DecodeCassetteResult | null {
 
   // Reject a file that clearly is not a BASIC program (BASIC text loads at
   // #2900) rather than pasting its bytes into the editor as garbage.
-  if (load !== undefined && load !== ATOM_TEXT_START) {
+  if (load !== undefined && load !== TEXT_START) {
     const hex = load.toString(16).toUpperCase().padStart(4, '0');
     throw new Error(
       `Atom cassette loads at #${hex}, not #2900 — this is a machine-code or ` +

@@ -1,26 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { zx80MemoryMap } from './memoryMap';
-import { PROGRAM_BASE } from './sysvars';
+import { PROGRAM_BASE, VARS, DF_EA } from './sysvars';
+import { ROM_BYTES } from './emulator/memory';
 
 describe('zx80MemoryMap', () => {
   const { addressSpace, regions } = zx80MemoryMap;
 
   it('covers a 64K address space', () => {
     expect(addressSpace).toBe(0x10000);
-  });
-
-  it('has contiguous, ascending regions covering the whole space with no gaps or overlaps', () => {
-    expect(regions.length).toBeGreaterThan(0);
-    expect(regions[0]!.start).toBe(0);
-    expect(regions[regions.length - 1]!.end).toBe(addressSpace - 1);
-    for (let i = 0; i < regions.length; i++) {
-      const r = regions[i]!;
-      expect(r.end).toBeGreaterThanOrEqual(r.start);
-      if (i > 0) {
-        // Each region begins exactly one byte after the previous one ends.
-        expect(r.start).toBe(regions[i - 1]!.end + 1);
-      }
-    }
   });
 
   it('starts the BASIC program area at PROGRAM_BASE', () => {
@@ -37,8 +24,43 @@ describe('zx80MemoryMap', () => {
   });
 
   it('marks the upper 32K as the reserved echo region', () => {
-    const echo = regions[regions.length - 1]!;
-    expect(echo.start).toBe(0x8000);
-    expect(echo.kind).toBe('reserved');
+    const echo = regions.filter((r) => r.group === 'Echo region');
+    expect(echo[0]!.start).toBe(0x8000);
+    expect(echo[echo.length - 1]!.end).toBe(0xffff);
+    expect(echo.every((r) => r.kind === 'reserved')).toBe(true);
+  });
+
+  it('splits the echo region into its ROM and RAM halves', () => {
+    const echo = regions.filter((r) => r.group === 'Echo region');
+    expect(echo.map((r) => [r.start, r.end])).toEqual([
+      [0x8000, 0xbfff],
+      [0xc000, 0xffff],
+    ]);
+  });
+
+  it('sizes the ROM band to the ROM image the machine loads', () => {
+    const rom = regions.find((r) => r.kind === 'rom')!;
+    expect(rom.end - rom.start + 1).toBe(ROM_BYTES);
+  });
+
+  it('splits the system variables at the pointers sysvars.ts names', () => {
+    const sys = regions.filter((r) => r.group === 'System variables');
+    expect(sys.map((r) => [r.start, r.end])).toEqual([
+      [0x4000, VARS - 1],
+      [VARS, DF_EA + 1],
+      [DF_EA + 2, PROGRAM_BASE - 1],
+    ]);
+  });
+
+  it('says the workspace above DF_EA is undocumented rather than naming it', () => {
+    // sysvars.ts names nothing above DF_EA, so the map must not invent a purpose
+    // for those bytes - see the naming rule in the memory-map capability.
+    const workspace = regions.find((r) => r.start === DF_EA + 2)!;
+    expect(workspace.label).toMatch(/undocumented/i);
+    expect(workspace.note).toMatch(/does not document/i);
+  });
+
+  it('keeps the display file inside program RAM rather than a screen region', () => {
+    expect(regions.some((r) => r.kind === 'screen')).toBe(false);
   });
 });

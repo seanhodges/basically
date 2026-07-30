@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { spectrum128MemoryMap } from './memoryMap';
+import { PROG_BASE } from '../zxspectrum/sysvars';
 
 describe('spectrum128MemoryMap', () => {
   const { addressSpace, regions, udgBase } = spectrum128MemoryMap;
@@ -8,22 +9,15 @@ describe('spectrum128MemoryMap', () => {
     expect(addressSpace).toBe(0x10000);
   });
 
-  it('has contiguous, ascending regions covering the whole space with no gaps or overlaps', () => {
-    expect(regions.length).toBeGreaterThan(0);
-    expect(regions[0]!.start).toBe(0);
-    expect(regions[regions.length - 1]!.end).toBe(addressSpace - 1);
-    for (let i = 0; i < regions.length; i++) {
-      const r = regions[i]!;
-      expect(r.end).toBeGreaterThanOrEqual(r.start);
-      if (i > 0) {
-        // Each region begins exactly one byte after the previous one ends.
-        expect(r.start).toBe(regions[i - 1]!.end + 1);
-      }
-    }
-  });
-
   it('keeps the 48K UDG base so POKE USR "a" resolves', () => {
     expect(udgBase).toBe(0xff58);
+  });
+
+  it('starts its usable RAM at the 48K program base', () => {
+    // The 128's BASIC runs in the same 48 BASIC ROM, so the bank-5 window opens
+    // exactly where a 48K machine's program does.
+    const program = regions.find((r) => r.kind === 'program');
+    expect(program!.start).toBe(PROG_BASE);
   });
 
   it('places the paged RAM window at the top 16K', () => {

@@ -1,6 +1,10 @@
 /**
- * ZX Spectrum system variable addresses (48K BASIC). Only the handful the
- * variable watcher needs are defined here.
+ * ZX Spectrum system variable addresses (48K BASIC), plus the fixed ROM
+ * addresses the machine traps. Shared by the 48K and 128K dialects - the 128's
+ * BASIC runs in the same 48 BASIC ROM, so it uses these unchanged.
+ *
+ * Only the handful the variable watcher, the block linter and the tape traps
+ * need are defined here.
  */
 
 /** VARS: 16-bit LE pointer to the start of the BASIC variables area. */
@@ -17,3 +21,18 @@ export const PROG = 0x5c53;
 export const STKEND = 0x5c65;
 /** RAMTOP: 16-bit LE address of the last byte of BASIC's RAM. */
 export const RAMTOP = 0x5cb2;
+
+/**
+ * Where the BASIC program starts on a freshly booted 48K machine (23755): just
+ * above the system variables and the channel information block. This is the
+ * value PROG holds at the READY prompt, and where the memory map's program
+ * region begins.
+ */
+export const PROG_BASE = 0x5ccb;
+
+/** ROM tape-loader entry (LD-BYTES); trapped for flash loading. */
+export const ROM_LD_BYTES = 0x0556;
+/** ROM tape-saver entry (SA-BYTES); trapped for VFS data saves. */
+export const ROM_SA_BYTES = 0x04c2;
+/** ROM "R Tape loading error" report entry (RST 8, code 0x1A). */
+export const ROM_REPORT_R = 0x0806;

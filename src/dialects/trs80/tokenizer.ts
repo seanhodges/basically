@@ -1,6 +1,7 @@
 import { CharsetError, type TokenizeError } from '../types';
 import { trs80Charset, parseChar } from './charset';
 import { trs80KeywordsByLength, type Trs80Keyword } from './keywords';
+import { PROG_START } from './addresses';
 
 export interface TokenizedProgram {
   /**
@@ -14,8 +15,6 @@ export interface TokenizedProgram {
   errors: TokenizeError[];
 }
 
-/** Level II BASIC programs load at 0x42E9 (TXTTAB); link pointers are absolute. */
-export const PROG_START = 0x42e9;
 /** Highest line number Level II BASIC accepts. */
 const MAX_LINE = 65529;
 

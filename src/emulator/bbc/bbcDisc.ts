@@ -39,6 +39,7 @@
  */
 
 import type { MemoryBlock } from '../../dialects/types';
+import { PAGE_DFS } from '../../dialects/bbcmicro/addresses';
 
 const SECTOR_SIZE = 256;
 const SECTORS_PER_TRACK = 10;
@@ -178,8 +179,9 @@ export function isBbcDisc(image: Uint8Array): boolean {
   return true;
 }
 
-/** BASIC program area start on a DFS-equipped machine (PAGE = &1900). */
-const PAGE = 0x1900;
+// The disc builder and reader are the Model B path (the Master shares only the
+// format sniff), so the DFS PAGE comes from that dialect.
+const PAGE = PAGE_DFS;
 
 /** Sanitise a name into a DFS-legal 7-char upper-case filename. */
 function dfsName(raw: string, fallback: string): string {

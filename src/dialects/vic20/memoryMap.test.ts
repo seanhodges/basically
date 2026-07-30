@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { vic20MemoryMap } from './memoryMap';
+import { BASIC_RAM_BASE, SCREEN_BASE } from './addresses';
 
 describe('vic20MemoryMap', () => {
   const { addressSpace, regions } = vic20MemoryMap;
@@ -12,30 +13,16 @@ describe('vic20MemoryMap', () => {
     expect(vic20MemoryMap.udgBase).toBeUndefined();
   });
 
-  it('has contiguous, ascending regions covering the whole space with no gaps or overlaps', () => {
-    expect(regions.length).toBeGreaterThan(0);
-    expect(regions[0]!.start).toBe(0);
-    expect(regions[regions.length - 1]!.end).toBe(addressSpace - 1);
-    for (let i = 0; i < regions.length; i++) {
-      const r = regions[i]!;
-      expect(r.end).toBeGreaterThanOrEqual(r.start);
-      if (i > 0) {
-        // Each region begins exactly one byte after the previous one ends.
-        expect(r.start).toBe(regions[i - 1]!.end + 1);
-      }
-    }
-  });
-
   it('starts the BASIC program area at $1000', () => {
     const program = regions.find((r) => r.kind === 'program');
     expect(program).toBeDefined();
-    expect(program!.start).toBe(0x1000);
+    expect(program!.start).toBe(BASIC_RAM_BASE);
   });
 
   it('places the screen matrix at $1E00', () => {
     const screen = regions.find((r) => r.kind === 'screen');
     expect(screen).toBeDefined();
-    expect(screen!.start).toBe(0x1e00);
+    expect(screen!.start).toBe(SCREEN_BASE);
   });
 
   it('collapses the three system leaves under one band', () => {

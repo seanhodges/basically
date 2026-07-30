@@ -53,9 +53,16 @@ export interface LocoSysVars {
   curLinePtr: number;
 }
 
+/**
+ * Where Locomotive BASIC stores the tokenized program (&0170), on both the 464
+ * and the 6128: the rest of the workspace moved between BASIC 1.0 and 1.1, but
+ * the program base did not.
+ */
+export const PROGRAM_BASE = 0x0170;
+
 /** BASIC 1.0 workspace (Amstrad CPC 464), verified against the real ROM. */
 const BASIC_10: LocoSysVars = {
-  programStart: 0x0170,
+  programStart: PROGRAM_BASE,
   progEnd: 0xae83,
   varStart: 0xae85,
   arrStart: 0xae87,
@@ -73,7 +80,7 @@ const BASIC_10: LocoSysVars = {
  * and `curLinePtr` by &19 - so every address here was measured, none derived.
  */
 const BASIC_11: LocoSysVars = {
-  programStart: 0x0170,
+  programStart: PROGRAM_BASE,
   progEnd: 0xae66,
   varStart: 0xae68,
   arrStart: 0xae6a,

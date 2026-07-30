@@ -1,22 +1,15 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { TEXT_START, RAM_END } from './addresses';
 
 /**
  * Acorn Atom {@link MemoryBlocksSupport} figures for the memory-block linter
- * (`src/app/blockLint.ts`). Addresses mirror `./memoryMap.ts`'s documented
- * layout - see that file for the byte-for-byte breakdown this collapses into
- * coarser bands.
+ * (`src/app/blockLint.ts`). Addresses come from `./addresses.ts`, the dialect's
+ * single source for them; see `./memoryMap.ts` for the byte-for-byte breakdown
+ * this collapses into coarser bands.
+ *
+ * A block may occupy RAM from {@link TEXT_START} up to {@link RAM_END}, the last
+ * byte below the MC6847 VDG screen - placing one there won't corrupt the display.
  */
-
-/** BASIC program text start (`#2900`), matching the emulator's TEXT_START. */
-const TEXT_START = 0x2900;
-
-/**
- * Last byte of user RAM a block may occupy. On the emulated `Atom-Tape-FP`
- * model RAM runs unbroken from {@link TEXT_START} up to (but not including) the
- * MC6847 VDG screen at `#8000`, so `#7FFF` is the last usable byte below it - a
- * block placed here won't corrupt the display.
- */
-const RAM_END = 0x7fff;
 
 /**
  * Headroom reserved beyond the raw tokenized program bytes for the BASIC
