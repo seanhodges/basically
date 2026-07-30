@@ -1343,7 +1343,7 @@ export const cpcReference: BasicReferenceTableData = {
     {
       name: 'GRAPHICS PEN',
       kind: 'command',
-      domain: 'graphics',
+      domain: 'colour',
       syntax: 'GRAPHICS PEN [ink][,mode]',
       description: 'Set the graphics drawing ink.',
       tag: 'BASIC 1.1 only',
@@ -1351,7 +1351,7 @@ export const cpcReference: BasicReferenceTableData = {
     {
       name: 'GRAPHICS PAPER',
       kind: 'command',
-      domain: 'graphics',
+      domain: 'colour',
       syntax: 'GRAPHICS PAPER ink',
       description: 'Set the graphics background ink.',
       tag: 'BASIC 1.1 only',
