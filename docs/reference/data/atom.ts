@@ -2,15 +2,16 @@
 // Seeded from the dialect's keyword table by scripts/gen-reference-scaffold.mts,
 // then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
 // the generator skips this file once it exists.
-import type { ReferenceTableData } from './types';
+import type { BasicReferenceTableData } from './types';
 
-export const atomReference: ReferenceTableData = {
+export const atomReference: BasicReferenceTableData = {
   title: 'Acorn Atom BASIC',
   machines: ['Acorn Atom'],
   entries: [
     {
       name: 'PRINT',
       kind: 'command',
+      domain: 'text-screen',
       syntax: 'PRINT [<number> | "…" | &<number> | $<number>] [, | ; | \'] …',
       description:
         "Prints values to the screen (abbreviate as P.); it adds no trailing newline, so use a quote ' to emit a carriage return. A comma tabs to the next field, a semicolon suppresses spacing, & prints a value in hexadecimal, and $<addr> prints the string stored at that address.",
@@ -18,6 +19,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'INPUT',
       kind: 'command',
+      domain: 'input',
       syntax: 'INPUT ["…",] <var>',
       description:
         'Reads a number from the keyboard into a numeric variable (A–Z), or text into a string when the target is a $ string. An optional quoted prompt is printed before the cursor.',
@@ -25,6 +27,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'IF',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'IF <number> THEN <statement>',
       description:
         'Runs the statement after THEN only when the condition is non-zero (true). Atom BASIC has no ELSE and only one statement per line.',
@@ -32,6 +35,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'THEN',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'IF <number> THEN <statement>',
       description:
         'Introduces the single statement executed when the preceding IF condition is true.',
@@ -39,6 +43,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'GOTO',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'GOTO <line>',
       description:
         'Jumps unconditionally to a line number, which may itself be a computed expression. Abbreviate as G.',
@@ -46,6 +51,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'GOSUB',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'GOSUB <line>',
       description:
         'Calls the subroutine at the given line; a later RETURN resumes after the GOSUB. Abbreviate as GOS.',
@@ -53,6 +59,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'RETURN',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'RETURN',
       description:
         'Returns from a GOSUB to the statement following the most recent call.',
@@ -60,6 +67,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'FOR',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'FOR <numvar>=<number> TO <number> [STEP <number>]',
       description:
         'Begins a counted loop over an integer variable, closed by NEXT. The counter is one of A–Z and steps by 1 unless STEP gives another value.',
@@ -67,12 +75,14 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'TO',
       kind: 'operator',
+      domain: 'control-flow',
       syntax: 'FOR <numvar>=<number> TO <number>',
       description: 'Separates the start and end values of a FOR loop counter.',
     },
     {
       name: 'STEP',
       kind: 'operator',
+      domain: 'control-flow',
       syntax: 'FOR <numvar>=<number> TO <number> STEP <number>',
       description:
         'Sets the increment added to the FOR counter on each pass; it may be negative to count down.',
@@ -80,6 +90,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'NEXT',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'NEXT [<numvar>]',
       description:
         'Marks the end of a FOR loop and advances the counter, looping back while the limit is not yet passed. Naming the variable is optional.',
@@ -87,6 +98,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'DO',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'DO … UNTIL <number>',
       description:
         "Begins a loop whose body repeats until the UNTIL condition is true (tested at the bottom, so the body always runs at least once). Because 0 is false, 'UNTIL 0' loops forever.",
@@ -94,6 +106,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'UNTIL',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'UNTIL <number>',
       description:
         'Closes a DO loop, testing its condition at the bottom and repeating the body until the expression is true (non-zero).',
@@ -101,6 +114,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'REM',
       kind: 'command',
+      domain: 'program-editing',
       syntax: 'REM …',
       description:
         'Marks a comment; the rest of the line is ignored by the interpreter.',
@@ -108,6 +122,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'LET',
       kind: 'command',
+      domain: 'data',
       syntax: 'LET <var>=<number>',
       description:
         'Assigns a value to a variable; the LET keyword is optional, so V=expr works on its own. Only one variable is assigned per statement.',
@@ -115,6 +130,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'DIM',
       kind: 'command',
+      domain: 'data',
       syntax: 'DIM <name>(<number>)',
       description:
         'Reserves space for an array or a byte buffer of the given size for later indexed or ?/! access.',
@@ -122,6 +138,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'LINK',
       kind: 'command',
+      domain: 'memory-hardware',
       syntax: 'LINK <number>',
       description:
         'Calls a machine-code routine at the given address; addresses are commonly written as hex with a # prefix (e.g. LINK #FFE3).',
@@ -129,6 +146,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'WAIT',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'WAIT',
       description:
         'Pauses for one display frame (about 1/50 s), typically used to pace animation.',
@@ -136,6 +154,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'CLEAR',
       kind: 'command',
+      domain: 'graphics',
       syntax: 'CLEAR <number>',
       description:
         'Selects a screen mode and clears it: CLEAR 0 is the 32×16 text screen, while CLEAR 1–4 select graphics modes, with CLEAR 4 the highest resolution (256×192).',
@@ -143,6 +162,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'MOVE',
       kind: 'command',
+      domain: 'graphics',
       syntax: 'MOVE <number>,<number>',
       description:
         'Moves the graphics cursor to x,y without drawing. The graphics origin is the bottom-left of the screen.',
@@ -150,6 +170,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'DRAW',
       kind: 'command',
+      domain: 'graphics',
       syntax: 'DRAW <number>,<number>',
       description:
         "Draws a line from the current graphics cursor to x,y; drawing to the cursor's own point plots a single dot.",
@@ -157,6 +178,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'PLOT',
       kind: 'command',
+      domain: 'graphics',
       syntax: 'PLOT <number>,<number>,<number>',
       description:
         'Plots at x,y with a mode that controls whether the point is set, cleared, or inverted. The Atom has no colour list like the BBC.',
@@ -164,18 +186,21 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'END',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'END',
       description: 'Stops the program cleanly and returns to the prompt.',
     },
     {
       name: 'RUN',
       kind: 'command',
+      domain: 'program-editing',
       syntax: 'RUN',
       description: 'Runs the program in memory from its lowest line number.',
     },
     {
       name: 'LIST',
       kind: 'command',
+      domain: 'program-editing',
       syntax: 'LIST [<line>,<line>]',
       description:
         'Lists the program text, optionally restricted to a start and end line range.',
@@ -183,12 +208,14 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'NEW',
       kind: 'command',
+      domain: 'program-editing',
       syntax: 'NEW',
       description: 'Erases the program currently held in memory.',
     },
     {
       name: 'OLD',
       kind: 'command',
+      domain: 'program-editing',
       syntax: 'OLD',
       description:
         'Recovers the previous program after a NEW, provided its text has not yet been overwritten.',
@@ -196,24 +223,28 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'LOAD',
       kind: 'command',
+      domain: 'storage',
       syntax: 'LOAD "…"',
       description: 'Loads a named program from cassette into memory.',
     },
     {
       name: 'SAVE',
       kind: 'command',
+      domain: 'storage',
       syntax: 'SAVE "…"',
       description: 'Saves the program in memory to cassette under a name.',
     },
     {
       name: 'SHUT',
       kind: 'command',
+      domain: 'storage',
       syntax: 'SHUT',
       description: 'Closes all open cassette or disc files.',
     },
     {
       name: 'BPUT',
       kind: 'command',
+      domain: 'storage',
       syntax: 'BPUT <handle>,<number>',
       description:
         "Writes the low byte of the value to an output file opened with FOUT. In the IDE these bytes are stored in the emulator's virtual filesystem, viewable via the Emulator files viewer.",
@@ -221,18 +252,21 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'PUT',
       kind: 'command',
+      domain: 'memory-hardware',
       syntax: 'PUT <number>,<number>',
       description: 'Writes a value to the given hardware I/O port.',
     },
     {
       name: 'STOP',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'STOP',
       description: 'Halts the program and prints a STOP report.',
     },
     {
       name: 'FPRINT',
       kind: 'command',
+      domain: 'text-screen',
       syntax: 'FPRINT <number>',
       description:
         'Prints a floating-point value; the floating-point counterpart of PRINT (requires the floating-point ROM). Abbreviate as FP.',
@@ -240,6 +274,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'FINPUT',
       kind: 'command',
+      domain: 'input',
       syntax: 'FINPUT %<var>',
       description:
         'Reads a floating-point value from the keyboard into a %A–%Z floating-point variable (requires the floating-point ROM).',
@@ -247,6 +282,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'FDIM',
       kind: 'command',
+      domain: 'data',
       syntax: 'FDIM %<var>(<number>)',
       description:
         'Reserves space for a floating-point array indexed from zero (requires the floating-point ROM).',
@@ -254,6 +290,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'FIF',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'FIF <number> THEN <statement>',
       description:
         'Runs the statement after THEN only when a floating-point comparison is true (requires the floating-point ROM).',
@@ -261,6 +298,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'FUNTIL',
       kind: 'command',
+      domain: 'control-flow',
       syntax: 'FUNTIL <number>',
       description:
         'Closes a DO loop, repeating until a floating-point condition becomes true (requires the floating-point ROM).',
@@ -268,6 +306,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'FPUT',
       kind: 'command',
+      domain: 'storage',
       syntax: 'FPUT <handle>,%<var>',
       description:
         'Writes a floating-point value to an output file opened with FOUT (requires the floating-point ROM).',
@@ -275,6 +314,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'FGET',
       kind: 'command',
+      domain: 'storage',
       syntax: 'FGET <handle>,%<var>',
       description:
         'Reads a floating-point value from an input file opened with FIN (requires the floating-point ROM).',
@@ -282,12 +322,14 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'ABS',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'ABS(<number>)',
       description: 'Returns the absolute (unsigned) value of n.',
     },
     {
       name: 'LEN',
       kind: 'function',
+      domain: 'strings',
       syntax: 'LEN(<number>)',
       description:
         'Returns the length of the string stored at the given address (a $ string), not counting its terminating carriage return.',
@@ -295,6 +337,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'RND',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'RND',
       description:
         'Returns a random integer; test its sign for a coin flip since arithmetic on A–Z is integer-only.',
@@ -302,6 +345,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'FOUT',
       kind: 'function',
+      domain: 'storage',
       syntax: 'FOUT "…"',
       description:
         "Opens a file for output and returns a handle to pass to BPUT. In the IDE the file lives in the emulator's virtual filesystem (see the Emulator files viewer).",
@@ -309,6 +353,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'FIN',
       kind: 'function',
+      domain: 'storage',
       syntax: 'FIN "…"',
       description:
         'Opens a file for input and returns a handle to pass to BGET, or 0 if no such file exists. In the IDE it reads from the emulator virtual filesystem.',
@@ -316,6 +361,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'BGET',
       kind: 'function',
+      domain: 'storage',
       syntax: 'BGET <handle>',
       description:
         'Reads and returns the next byte from an input file opened with FIN.',
@@ -323,6 +369,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'TOP',
       kind: 'function',
+      domain: 'memory-hardware',
       syntax: 'TOP',
       description:
         'Returns the address of the byte just past the end of the program text, marking the start of free memory.',
@@ -330,12 +377,14 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'CH',
       kind: 'function',
+      domain: 'input',
       syntax: 'CH <number>',
       description: 'Reads a character or key code.',
     },
     {
       name: 'GET',
       kind: 'function',
+      domain: 'memory-hardware',
       syntax: 'GET <number>',
       description:
         'Reads and returns a value from the given hardware I/O port.',
@@ -343,12 +392,14 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'SGN',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'SGN(<number>)',
       description: 'Returns the sign of n as -1, 0, or 1.',
     },
     {
       name: 'SQR',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'SQR(<number>)',
       description:
         'Returns the square root of n (requires the floating-point ROM).',
@@ -356,6 +407,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'SIN',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'SIN(<number>)',
       description:
         'Returns the sine of n in radians (requires the floating-point ROM).',
@@ -363,6 +415,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'COS',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'COS(<number>)',
       description:
         'Returns the cosine of n in radians (requires the floating-point ROM).',
@@ -370,6 +423,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'TAN',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'TAN(<number>)',
       description:
         'Returns the tangent of n in radians (requires the floating-point ROM).',
@@ -377,6 +431,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'ATN',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'ATN(<number>)',
       description:
         'Returns the arctangent of n in radians (requires the floating-point ROM).',
@@ -384,6 +439,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'EXP',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'EXP(<number>)',
       description:
         'Returns e raised to the power n (requires the floating-point ROM).',
@@ -391,6 +447,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'LN',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'LN(<number>)',
       description:
         'Returns the natural (base-e) logarithm of n (requires the floating-point ROM).',
@@ -398,6 +455,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'LOG',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'LOG(<number>)',
       description:
         'Returns the base-10 logarithm of n (requires the floating-point ROM).',
@@ -405,6 +463,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'PI',
       kind: 'function',
+      domain: 'numeric',
       syntax: 'PI',
       description:
         'Returns the constant 3.14159265 (requires the floating-point ROM).',
@@ -412,6 +471,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'COUNT',
       kind: 'function',
+      domain: 'text-screen',
       syntax: 'COUNT',
       description:
         'Returns the current text cursor column — the number of characters printed since the last newline — like POS in other dialects.',
@@ -419,6 +479,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'PTR',
       kind: 'function',
+      domain: 'storage',
       syntax: 'PTR <handle>',
       description:
         'Returns the read/write pointer of an open file (the number of bytes transferred so far); it can also be assigned to seek to a position within the file.',
@@ -426,12 +487,14 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'EXT',
       kind: 'function',
+      domain: 'storage',
       syntax: 'EXT <handle>',
       description: 'Returns the length (extent) in bytes of an open file.',
     },
     {
       name: 'SGET',
       kind: 'function',
+      domain: 'storage',
       syntax: 'SGET <handle>',
       description:
         'Reads a whole string (up to a carriage return) from an input file opened with FIN — the string companion of BGET.',
@@ -439,6 +502,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'SPUT',
       kind: 'command',
+      domain: 'storage',
       syntax: 'SPUT <handle>,$<addr>',
       description:
         'Writes a string (the characters at an address, up to a carriage return) to an output file opened with FOUT — the string companion of BPUT.',
@@ -446,6 +510,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: '?',
       kind: 'operator',
+      domain: 'memory-hardware',
       syntax: '?<addr> | ?<addr>=<number>',
       description:
         'Byte indirection: reads or writes the single byte at an address (the Atom equivalent of PEEK/POKE). As a statement, ?addr=value stores a byte; in an expression, ?addr reads one. The dyadic form base?offset addresses base+offset.',
@@ -453,6 +518,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: '!',
       kind: 'operator',
+      domain: 'memory-hardware',
       syntax: '!<addr> | !<addr>=<number>',
       description:
         'Word indirection: reads or writes the 4-byte word at an address, low byte first. As a statement, !addr=value stores four bytes; in an expression, !addr reads them. The dyadic form base!offset addresses base+offset.',
@@ -460,6 +526,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: '$',
       kind: 'operator',
+      domain: 'strings',
       syntax: '$<addr> | $<addr>="…"',
       description:
         'String indirection: addresses the string stored at a location, terminated by a carriage return. $addr="TEXT" stores a string; PRINT $addr prints one.',
@@ -467,6 +534,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: '%',
       kind: 'operator',
+      domain: 'numeric',
       syntax: '<number> % <number>',
       description:
         'Remainder after integer division (for example 7 % 3 is 1). Not to be confused with %A–%Z, the floating-point ROM variables.',
@@ -474,6 +542,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: '&',
       kind: 'operator',
+      domain: 'numeric',
       syntax: '<number> & <number>',
       description:
         'Bitwise AND of two integers (distinct from the logical AND keyword used in conditions).',
@@ -481,6 +550,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: '\\',
       kind: 'operator',
+      domain: 'numeric',
       syntax: '<number> \\ <number>',
       description:
         'Bitwise OR of two integers (distinct from the logical OR keyword used in conditions).',
@@ -488,6 +558,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: ':',
       kind: 'operator',
+      domain: 'numeric',
       syntax: '<number> : <number>',
       description:
         'Bitwise exclusive-OR (XOR) of two integers, setting each result bit where exactly one operand bit is set.',
@@ -495,6 +566,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'AND',
       kind: 'operator',
+      domain: 'numeric',
       syntax: '<number> AND <number>',
       description:
         'Logical AND used to combine conditions (bitwise masking uses the & operator). Arithmetic on A–Z is integer-only.',
@@ -502,6 +574,7 @@ export const atomReference: ReferenceTableData = {
     {
       name: 'OR',
       kind: 'operator',
+      domain: 'numeric',
       syntax: '<number> OR <number>',
       description:
         'Logical OR used to combine conditions (bitwise OR uses the \\ operator). Arithmetic on A–Z is integer-only.',
