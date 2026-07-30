@@ -48,7 +48,7 @@ Blocks travel with the document through the
 [project bundle](../file-formats#project-bundle-zip) and through share links,
 and can arrive on **import**: a `.prg` whose load address isn't the BASIC start
 comes in as a single block at that address, and a normal `.prg` with extra bytes
-past the end of the tokenized program brings those trailing bytes in as a block.
+past the end of the tokenised program brings those trailing bytes in as a block.
 
 On Run the IDE refuses to start if a block would overlap the BASIC program, and
 warns (but allows) a block over reserved hardware.
@@ -128,7 +128,7 @@ Blocks travel with the document through the
 They can also arrive on **import**, using the same `.prg` rule as the
 [C64 and VIC-20](#memory): a `.prg` whose load address isn't the BASIC start
 ($0401) comes in as a block at that address, and a normal `.prg` with bytes past
-the end of the tokenized program brings those trailing bytes in as a block.
+the end of the tokenised program brings those trailing bytes in as a block.
 
 On Run the IDE refuses to start if a block would overlap the BASIC program. See
 the [machine code guide](../../guide/machine-code) and the cross-dialect

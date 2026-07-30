@@ -59,12 +59,12 @@ listing on its own, use the editor tab's download action described above.
 ## Escape notation
 
 Every dialect's charset is **total**: each byte 0x00–0xFF has a text form
-that tokenizes back to the same byte, so imported programs never lose data
+that tokenises back to the same byte, so imported programs never lose data
 silently. Bytes with no printable glyph round-trip through dialect-styled
 escapes (Sinclair `\{NN}`, Spectrum/BBC/TRS-80/Atom `{0xNN}`, C64 `{$xx}`,
 plus named forms like `{INK 2}`, `{RED}` or `{clr}`), recognised in the
 literal contexts where raw bytes live in a real program. Characters outside a
-machine's set remain tokenizer errors.
+machine's set remain tokenisererrors.
 
 Each dialect's full notation is a searchable table on its escape-codes
 reference page:
@@ -84,13 +84,13 @@ reference page:
 | ZX81               | `.P`           | `.P`           | RAM dump 0x4009 → E_LINE-1                                         |
 | ZX80               | `.O`           | `.O`           | RAM dump 0x4000 → E_LINE-1                                         |
 | ZX Spectrum / 128  | `.TAP`         | `.TAP`         | header + data tape blocks                                          |
-| BBC Micro / Master | `.bbc`, `.ssd` | `.bbc`, `.ssd` | tokenized program from PAGE; `.ssd` disc adds code/data blocks     |
-| Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0801                        |
-| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $1001                        |
-| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenized program from $0401                        |
+| BBC Micro / Master | `.bbc`, `.ssd` | `.bbc`, `.ssd` | tokenised program from PAGE; `.ssd` disc adds code/data blocks     |
+| Commodore 64       | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenised program from $0801                        |
+| Commodore VIC-20   | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenised program from $1001                        |
+| Commodore PET      | `.prg`, `.d64` | `.prg`, `.d64` | load address + tokenised program from $0401                        |
 | TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks     |
 | Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks       |
-| Amstrad CPC        | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape |
+| Amstrad CPC        | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenised program from &0170; `.cdt` firmware tape |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -131,7 +131,7 @@ native formats carry blocks on **import** only:
   (with a note) and the real program imported.
 - **Commodore `.prg` / `.d64`** — a `.prg` whose load address is not the BASIC
   start ($0801 C64, $1001 VIC-20, $0401 PET) imports as a single block at that
-  address; a normal program with extra bytes past the end of the tokenized
+  address; a normal program with extra bytes past the end of the tokenised
   program imports the program plus those trailing bytes as a block. A `.d64`
   disk image (C64, VIC-20 or PET) imports every non-BASIC file as a block.
 - **BBC `.ssd`** — a DFS disc image imports the BASIC program (the file at PAGE)

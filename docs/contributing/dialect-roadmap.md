@@ -1,42 +1,10 @@
 # Dialect roadmap
 
-Basically is built around one seam - the `Dialect` / `MachineEmulator`
-contracts in `src/dialects/types.ts`. Adding a machine is additive at the
-_logic_ layer: a folder under `src/dialects/<id>/`, with no changes to editor,
-transfer, or UI code (see [adding a dialect](./adding-a-dialect.md) and the
-`adding-a-target-system` skill).
-
-It is not a one-line registration, though. Budget for these registration points
-as well - the first two are enforced by tests, so forgetting them fails
-`npm test` rather than degrading quietly:
-
-- `src/dialects/registry.ts` - the import and the array entry. Array order is
-  the order machines are offered in the UI.
-- `src/player/routes.ts` - a `SHARE_VERBS` entry. The verb must be a real
-  keyword of that machine's own BASIC and unique across the table;
-  `routes.test.ts` asserts a strict bijection with the registry.
-- `src/dialects/registry.test.ts` - an `expectedNotation` entry; the test
-  asserts the table covers exactly the registered set.
-- `src/editor/constructs.ts` - a `constructsByDialect.<id>` entry. A sibling can
-  point at the base dialect's array, as `bbcmaster` reuses `BBC`.
-- `src/editor/variableLint.ts` - a `<id>VariableErrors` wrapper, or reuse of an
-  existing one (the VIC-20 reuses the C64's).
-- Optional: a portrait in `src/components/machineArtIds.ts` + `machineArt.tsx`
-  (omit it and the machine falls back to `'generic'`), and a `vk-theme-<id>`
-  block in `src/keyboard/VirtualKeyboard.css`.
-
 This document tracks which machines we can realistically support, grouped by
 **which already-bundled emulator can drive them**. The bundled emulator cores
 are the limiting factor, so they define Tiers 1-5. Tier 0 sits above them and
 cuts across: machines that need no new core _or_ new language layer, because a
 shipped sibling already supplies both.
-
-The cross-cutting language-layer quality bar - total charsets with escape
-notations, context-aware import, loud container parsers - is baked into every
-shipped dialect (see the charset/import feature-completeness checklist in
-[adding a dialect](./adding-a-dialect.md)). Two C64 items remain deferred:
-the lower-case display bank and the tokenizer keyword-abbreviation table
-(`pO`, `gO`, …).
 
 | Core                              | CPU          | Licence          | Wrapper                                                                                           | Powers                                                                          |
 | --------------------------------- | ------------ | ---------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -50,10 +18,7 @@ The last row is the odd one out and worth understanding, because it changes what
 is cheap. The TRS-80 has no CPU core at all: the Level II ROM is copyright
 Tandy/Microsoft and cannot be redistributed, so the shipped backend is a
 clean-room interpreter. That makes every machine in the TRS-80 family
-**licence-free to add** - there is no ROM to source. `src/dialects/trs80/emulator/`
-(the Z80 + ROM accuracy mode) is currently unreachable from the registered
-dialect: it activates only if a user supplies their own `public/roms/trs80.rom`,
-which does not ship.
+**licence-free to add**.
 
 **Status legend:** ✅ shipped · 🔨 in progress · ⬜ planned · ⛔ blocked / needs
 a new emulator core.
@@ -63,8 +28,8 @@ a new emulator core.
 ## Tier 0 - Delegation siblings of a shipped machine
 
 The tiers below are organised by CPU core, but the cheapest shape of all cuts
-across them: a machine whose BASIC we **already tokenize** running on hardware an
-existing machine class **already covers**. There is no new tokenizer, no new
+across them: a machine whose BASIC we **already tokenise** running on hardware an
+existing machine class **already covers**. There is no new tokeniser, no new
 charset, no new keyboard and no new sample set - only a memory map, an AI
 profile, and a model parameter.
 
@@ -96,14 +61,14 @@ Tier 5.
 ## Tier 1 - Reuse the bundled jsbeeb (6502 + Acorn hardware)
 
 The lowest-effort additions short of a Tier 0 sibling: the emulator already
-exists, so most work is the tokenizer/charset and pointing `BbcMachine` at a
+exists, so most work is the tokeniser/charset and pointing `BbcMachine` at a
 different `findModel()` name.
 
 | Status | Machine           | CPU   | BASIC        | Notes                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------ | ----------------- | ----- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ✅     | BBC Micro Model B | 6502  | BBC BASIC II | `bbcmicro`; reference jsbeeb integration. Cassette WAV export (CFS over Kansas City Standard FSK). Variable watching via `readVariables()`.                                                                                                                                                                                                                                                                                |
 | ✅     | BBC Master        | 65C12 | BBC BASIC IV | `bbcmaster`; reuses the entire BBC language layer (BASIC IV shares BASIC II's tokens), keyboard, samples, and build targets - only the jsbeeb model name and AI profile differ. MOS 3.20 ROM already bundled. Cassette WAV export shared with BBC Micro. Variable watching shared with BBC Micro.                                                                                                                          |
-| ✅     | Acorn Atom        | 6502  | Atom BASIC   | `atom`; a genuinely new BASIC dialect (its own tokenizer/charset/keywords - a program line is near-plain ASCII from `#2900`) wrapping jsbeeb's `Atom-Tape-FP` model via `src/emulator/atom/atomMachine.ts`. Native `.atm` binary import/export plus cassette WAV (Acorn CFS over 300-baud Kansas City FSK). Variable watching omitted (the core doesn't expose Atom BASIC's variables in readable memory; ZX80 precedent). |
+| ✅     | Acorn Atom        | 6502  | Atom BASIC   | `atom`; a genuinely new BASIC dialect (its own tokeniser/charset/keywords - a program line is near-plain ASCII from `#2900`) wrapping jsbeeb's `Atom-Tape-FP` model via `src/emulator/atom/atomMachine.ts`. Native `.atm` binary import/export plus cassette WAV (Acorn CFS over 300-baud Kansas City FSK). Variable watching omitted (the core doesn't expose Atom BASIC's variables in readable memory; ZX80 precedent). |
 
 **BBC Master implementation notes.** `src/emulator/bbc/bbcMachine.ts` takes a
 model name; the Master needed two adjustments, both already made: its MOS 3.20
@@ -113,7 +78,7 @@ is typed through the key matrix (OS-version independent) rather than poked into
 the buffer.
 
 **Acorn Atom language-coverage gaps** (surfaced by the reference-manual audit).
-The `atom` tokenizer is missing several genuine Atom BASIC features, so they are also absent from `docs/reference/data/atom.ts`:
+The `atom` tokeniseris missing several genuine Atom BASIC features, so they are also absent from `docs/reference/data/atom.ts`:
 
 - The memory indirection operators `?` (byte), `!` (4-byte word) and `$`
   (string) - the Atom's idiomatic replacement for `PEEK`/`POKE`.
@@ -133,9 +98,9 @@ straightforward bitmap driven by the CPU.
 | ------ | -------------------------- | --- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ✅     | Sinclair ZX81              | Z80 | Sinclair BASIC           | `zx81`; the reference Z80 integration (FAST/SLOW, NMI generator, R-register interrupt). Cassette WAV (Sinclair pulse scheme). Variable watching via `readVariables()`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ✅     | Sinclair ZX Spectrum 48K   | Z80 | Sinclair BASIC           | `zxspectrum`; `.TAP` format and cassette WAV (standard ROM tape encoding). Variable watching via `readVariables()`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ✅     | Sinclair ZX80              | Z80 | ZX80 integer BASIC       | `zx80`; integer-BASIC tokenizer/detokenizer, `.O` image format, authentic tape-LOAD trap + auto-RUN, cassette WAV export. The ZX80's "integral functions" (`RND`, `PEEK`, `USR`, `ABS`, `CODE`, `CHR$`, `STR$`, `TL$`) are supported as typed-out, token-less functions (`zx80IntegralFunctions`): they have no one-byte token, so the tokenizer stores them as their literal characters - exactly how the real ROM parses them letter by letter - while the editor still highlights and autocompletes them. **Known gap:** no variable introspection (`readVariables()` not implemented).                                                                  |
+| ✅     | Sinclair ZX80              | Z80 | ZX80 integer BASIC       | `zx80`; integer-BASIC tokeniser/detokeniser, `.O` image format, authentic tape-LOAD trap + auto-RUN, cassette WAV export. The ZX80's "integral functions" (`RND`, `PEEK`, `USR`, `ABS`, `CODE`, `CHR$`, `STR$`, `TL$`) are supported as typed-out, token-less functions (`zx80IntegralFunctions`): they have no one-byte token, so the tokeniserstores them as their literal characters - exactly how the real ROM parses them letter by letter - while the editor still highlights and autocompletes them. **Known gap:** no variable introspection (`readVariables()` not implemented).                                                                  |
 | ✅     | ZX Spectrum 128K / +2 / +3 | Z80 | Sinclair BASIC           | Extend `zxspectrum` with memory paging (port `0x7FFD`), the dual 128/48 ROM and AY-3-8912 sound; reuses the 48K language, charset, `.TAP` and keyboard layers (like `bbcmaster` reuses `bbcmicro`).                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ✅     | TRS-80                     | Z80 | Microsoft Level II BASIC | `trs80`; Microsoft Level II BASIC tokenizer (linked-line layout from `0x42E8`, like the C64), monochrome 64×16 character display, SET/RESET/POINT block graphics, 500-baud `.cas` cassette + WAV export/import, variable watching and step debugging. **Ships ROM-free:** the Level II ROM is copyright Tandy/Microsoft, so the default backend is a clean-room high-level Level II interpreter (`src/dialects/trs80/interpreter/`); the Z80 + ROM machine remains an optional accuracy mode that activates only if a user supplies their own `public/roms/trs80.rom`. Model III sibling dialect is a future follow-up - now tracked as a Tier 0 row above. |
+| ✅     | TRS-80                     | Z80 | Microsoft Level II BASIC | `trs80`; Microsoft Level II BASIC tokeniser(linked-line layout from `0x42E8`, like the C64), monochrome 64×16 character display, SET/RESET/POINT block graphics, 500-baud `.cas` cassette + WAV export/import, variable watching and step debugging. **Ships ROM-free:** the Level II ROM is copyright Tandy/Microsoft, so the default backend is a clean-room high-level Level II interpreter (`src/dialects/trs80/interpreter/`); the Z80 + ROM machine remains an optional accuracy mode that activates only if a user supplies their own `public/roms/trs80.rom`. Model III sibling dialect is a future follow-up - now tracked as a Tier 0 row above. |
 | ⬜     | Mattel Aquarius            | Z80 | Microsoft BASIC (subset) | About the simplest Z80 bus of any candidate: 40×24 character text with an 8×8 font, 80×72 semigraphics in 16 colours, no sprites, cassette storage. Ships only 4K RAM, so free BASIC space is tiny - the VIC-20 (3583 bytes) is the precedent for surfacing that honestly in `programRamBytes`.                                                                                                                                                                                                                                                                                                                                                             |
 | ⬜     | Exidy Sorcerer / Nascom 2  | Z80 | Microsoft BASIC          | One row because the work is the same shape: a plain monochrome character display with a programmable charset over a straightforward Z80 bus. Sorcerer (1978) is 64×30, with BASIC supplied on a ROM-PAC cartridge; Nascom 2 (1980) is 48×16, with an 8K Microsoft-derivative BASIC in ROM alongside the 2K NasSys monitor. Both are Microsoft-family BASICs, so `microsoftVariableErrors` in `src/editor/variableLint.ts` applies as-is.                                                                                                                                                                                                                    |
 
@@ -161,13 +126,13 @@ bare CPU only: each new machine needs its own bus: memory map, I/O, video.
 
 | Status | Machine                            | CPU  | BASIC                     | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ------ | ---------------------------------- | ---- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅     | Commodore 64                       | 6510 | Commodore BASIC           | `commodore64`; native BASIC v2 tokenizer, `.prg` import/export ($0801 load address). PAL frame timing (63 cycles × 312 rows). Variable watching via `readVariables()`. **Known gap:** no cassette audio support (tape I/O not exposed from viciious).                                                                                                                                                                                                                                                                                                                                                       |
+| ✅     | Commodore 64                       | 6510 | Commodore BASIC           | `commodore64`; native BASIC v2 tokeniser, `.prg` import/export ($0801 load address). PAL frame timing (63 cycles × 312 rows). Variable watching via `readVariables()`. **Known gap:** no cassette audio support (tape I/O not exposed from viciious).                                                                                                                                                                                                                                                                                                                                                       |
 | ✅     | Commodore PET                      | 6502 | Commodore BASIC 4.0       | `pet`; registered and playable (BASIC 4.0, 40×25 green-phosphor mono, graphics keyboard). viciious is C64-only, so the PET wires the standalone `src/emulator/6502/` core into an in-tree bus - the easiest such machine (no video chip: screen RAM at $8000 through the chargen ROM, PIA/VIA I/O). Shares the C64 language layer via a `CbmVariant` seam ($0401 load address + BASIC 4.0 disk tokens). Cassette WAV export/import and `.prg` import are wired (Stage 4), and variable watching, the step-through debugger and CB2 shift-register sound are wired (Stage 5) - the plan is complete.         |
 | ✅     | Commodore VIC-20                   | 6502 | Commodore BASIC           | `vic20`; registered and playable (unexpanded PAL, 22×23 colour, 3583 BASIC bytes free, native joystick). In-tree bus over the standalone `src/emulator/6502/` core with a from-scratch frame-approximate VIC-I renderer and 6522 VIAs (shared chip modules come from the PET plan). BASIC V2 is token-identical to the C64's - the language layer, charset and keyboard are re-exported with a $1001 load address. Cassette WAV export/import and `.prg` import are wired (Stage 4), and variable watching, the step-through debugger and VIC-I sound synthesis are wired (Stage 5) - the plan is complete. |
 | ⬜     | Acorn Electron                     | 6502 | BBC BASIC II              | Language/dialect layer can be shared wholesale with BBC Micro. **jsbeeb cannot drive it** (no Electron in `allModels`), so this is not a Tier 0 sibling: it needs either [ElkJS](https://github.com/dmcoles/elkjs) (a 6502 core ported from Elkulator) or an in-tree bus over `src/emulator/6502/`, following the VIC-20 / PET precedent. It would be the **third** BBC-family variant, which is the trigger point flagged in `src/dialects/bbcmaster/index.ts` for factoring the shared pieces into a `src/dialects/bbcShared/` module.                                                                    |
 | ⬜     | Apple II                           | 6502 | Applesoft / Integer BASIC | Needs a custom soft-switch memory map and video (text / lores / hires). Standalone 6502 core could provide the CPU.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ⬜     | Atari 400 / 800 / XL               | 6502 | Atari BASIC               | ANTIC display-list + GTIA graphics hardware; no ready-made core.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ⬜     | Commodore C16 / Plus/4             | 6502 | Commodore BASIC 3.5       | The most attractive new-dialect candidate on this core: the language side is an **extension of the existing `CbmVariant` seam** (`src/dialects/commodore64/tokenizer.ts`) rather than a new tokenizer, since BASIC 3.5 is BASIC V2 plus graphics, sound and structured-programming keywords and a mini-assembler. It is still a new dialect, not a sibling - 3.5 programs are not source-compatible back to the C64. The cost is the **TED chip**, which combines video, sound and timers in one, wired over `src/emulator/6502/` the way the VIC-20 and PET already are.                                   |
+| ⬜     | Commodore C16 / Plus/4             | 6502 | Commodore BASIC 3.5       | The most attractive new-dialect candidate on this core: the language side is an **extension of the existing `CbmVariant` seam** (`src/dialects/commodore64/tokenizer.ts`) rather than a new tokeniser, since BASIC 3.5 is BASIC V2 plus graphics, sound and structured-programming keywords and a mini-assembler. It is still a new dialect, not a sibling - 3.5 programs are not source-compatible back to the C64. The cost is the **TED chip**, which combines video, sound and timers in one, wired over `src/emulator/6502/` the way the VIC-20 and PET already are.                                   |
 | ⬜     | Compukit UK101 / OSI Superboard II | 6502 | Microsoft 6502 BASIC      | Worth a row as the **minimum-effort new 6502 machine** - simpler than the PET, which this tier currently calls "the easiest such machine". There is no video chip at all: a memory-mapped 1K character display (UK101 48×16, Superboard II 24×24), a 6850 ACIA for I/O, no bitmapped graphics, and 8K Microsoft BASIC in ROM. That BASIC is the direct ancestor of Commodore BASIC, so the charset and variable-lint layers have close precedent in `commodore64/`.                                                                                                                                         |
 | ⬜     | Oric-1 / Atmos                     | 6502 | Oric BASIC                | Custom ULA; no ready-made core.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
@@ -240,16 +205,16 @@ Two machines that get grouped with these but should **not** be:
 
 0. **Tier 0 → shipped:** check for a shipped sibling _first_ - it is by far the
    cheapest shape. Clone `src/dialects/bbcmaster/`: import charset, keywords,
-   tokenizer, detokenizer, language, keyboard, samples and targets from the base
+   tokeniser, detokeniser, language, keyboard, samples and targets from the base
    dialect, own only `memoryMap.ts`, `memoryBlocks.ts`, `aiProfile.ts` and the
    metadata, and express the hardware delta as a model parameter on the existing
    machine class (`new BbcMachine('Master')`, `CpcModel`). Point `docsReference`
    at the base dialect's page so the docs stage stays nearly free.
 1. **Tier 1 → shipped:** clone the `bbcmaster` pattern - share the BBC language
-   layer if it's an Acorn BASIC, or add a new tokenizer/charset, and point
+   layer if it's an Acorn BASIC, or add a new tokeniser/charset, and point
    `BbcMachine` at the jsbeeb model name (add its ROMs under `public/roms/`).
 2. **Tier 2 → shipped:** follow `docs/contributing/adding-a-dialect.md`, reusing the ZX81 /
-   Spectrum Z80 wiring. The work is the tokenizer, the image format, and the
+   Spectrum Z80 wiring. The work is the tokeniser, the image format, and the
    video snapshot.
 3. **Tier 3 → shipped:** adapt the existing `C64Machine` wrapper
    if the target's hardware is close enough to the C64. For other 6502 machines,

@@ -29,9 +29,6 @@ with BASIC 1.1, which adds eleven keywords to the same language.
   up. The cursor keys are `INKEY(0)` up, `INKEY(2)` down, `INKEY(8)` left and
   `INKEY(1)` right. `JOY(0)` returns the joystick as a bit mask (bit 0 up, 1
   down, 2 left, 3 right, 4 fire 2, 5 fire 1).
-- Entries tagged **BASIC 1.1 only** are the additions Locomotive BASIC 1.1 (the
-  CPC 6128) brings; the BASIC 1.0 464 rejects them. Everything untagged works on
-  both machines and produces the same program either way, so a listing that
-  avoids the tagged entries moves between them unchanged.
+- Entries tagged **BASIC 1.1 only** are the additions Locomotive BASIC 1.1.
 
 <ReferenceTable :data="cpcReference" />

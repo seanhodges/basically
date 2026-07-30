@@ -26,7 +26,7 @@ in param2), then the program area immediately followed by the variables area (a
 lone 0x80 end-marker when there are no variables). param1 ≥ 0x8000 means "load
 only"; the IDE exports with auto-run disabled and drives `RUN` itself. The
 Spectrum 128's `.TAP` is byte-for-byte identical to the 48K's - only the
-tokenizer differs (so `PLAY`/`SPECTRUM` keywords export correctly).
+tokeniserdiffers (so `PLAY`/`SPECTRUM` keywords export correctly).
 
 A 48K Spectrum document with [memory
 blocks](../file-formats#machine-code-data-blocks) exports as a **multi-file
@@ -60,4 +60,4 @@ bytes MSB-first where bit `0` = two 855 T pulses and bit `1` = two 1710 T pulses
 (1 T-state = 1/3.5MHz). The decoder estimates the pilot pulse length from the
 recording and classifies every pulse relative to it, then re-frames the blocks
 into a `.TAP` image. The Spectrum 128 reuses this encoder byte-for-byte, driven
-from the 128 tokenizer.
+from the 128 tokeniser.

@@ -12,8 +12,8 @@ The status bar always shows how full the machine's memory is, and it reads two
 different ways depending on whether a program is running.
 
 - **While you edit** (emulator stopped) it shows the **byte budget**: the size
-  of your tokenized program against the machine's documented free RAM - for
-  example `842 bytes (13% of 16K budget)`. Keywords tokenize to single bytes and
+  of your tokenised program against the machine's documented free RAM - for
+  example `842 bytes (13% of 16K budget)`. Keywords tokenise to single bytes and
   numeric literals carry an extra binary form, so this tracks the real cost of
   what you type. This is only an estimate of headroom - a running program's
   actual free space also depends on its variables and the display mode.

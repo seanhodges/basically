@@ -84,13 +84,13 @@ families of design work across every dialect:
    - **ZX80** - DMA to 0x4000 and patch the system variables.
    - **ZX Spectrum / 128** - load the `.TAP` program block to PROG and set
      PROG/VARS/E_LINE.
-   - **BBC Micro / Master** - copy the tokenized image to PAGE and set TOP.
+   - **BBC Micro / Master** - copy the tokenised image to PAGE and set TOP.
    - **Commodore 64** - copy past the 2-byte load address to $0801 and fix the
      BASIC link pointers / end-of-program (a `.prg`-style load).
    - **Commodore VIC-20** - the same `.prg`-style load, but to $1001 on the
      unexpanded machine (the load address in the image's first two bytes).
    - **Commodore PET** - the same `.prg`-style load, but to $0401.
-   - **TRS-80** - write the tokenized program to 0x42E8.
+   - **TRS-80** - write the tokenised program to 0x42E8.
    - **Acorn Atom** - write the `#2900` image to memory at #2900.
 
 ### Per-dialect load commands and payloads

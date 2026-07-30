@@ -12,14 +12,7 @@ toolbar chooses which one the editor and emulator use.
 The example below is for
 the **ZX81**; the other machines follow their own syntax.
 
-One numbered line per statement, keywords as words. A few ZX81-specific
-conventions:
-
-- **Block graphics** as unicode (`█▀▌▒` …) or as escapes (`\::`).
-- **Inverse video** as `%A` … `%9`.
-- **Power** is `**`.
-- Line numbers must be strictly ascending; one statement per line, no `ELSE`.
-- Variable names are single letters (`A`–`Z`, optionally with `$` for strings).
+ZX81 Notes: One numbered line per statement, keywords as words. Line numbers must be strictly ascending; one statement per line, no `ELSE`.Variable names are single letters (`A`–`Z`, optionally with `$` for strings).
 
 ```basic
 10 LET S=0
@@ -102,7 +95,7 @@ Retro machines have very little RAM, and two of the IDE's tools help you stay
 within it without leaving the editor.
 
 The status bar tracks your **byte budget** live as you type: the size of your
-tokenized program against the target machine's available RAM. Keywords tokenize
+tokenised program against the target machine's available RAM. Keywords tokenise
 to single bytes and numeric literals carry an extra binary form, so the count
 reflects the real cost of each line you add - and it turns amber, then red, as
 you approach the limit. On the smallest machines (the unexpanded ZX81 has just

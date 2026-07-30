@@ -18,7 +18,7 @@ reference](../zx80) and its [escape codes](./escapes).
 
 A straight RAM dump from 0x4000 (the start of the 40-byte system-variable block)
 up to the byte before E_LINE - exactly what the ROM's SAVE writes and LOAD reads
-back. Layout: `system variables | tokenized program | 0x80 variables-end
+back. Layout: `system variables | tokenised program | 0x80 variables-end
 marker`. The edit line and display file are not part of the image; the ROM
 rebuilds them on load. The system-variable values were captured from the real
 ROM on an empty machine and have their pointers recomputed for the program

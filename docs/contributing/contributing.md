@@ -13,7 +13,7 @@ If you are adding a whole new machine, read this page first, then jump to
 
 - **Fix a bug or rough edge** - start small; a focused PR is the best way to
   learn the codebase.
-- **Improve a dialect** - better tokenizer accuracy, keyword docs, samples, or
+- **Improve a dialect** - better tokeniseraccuracy, keyword docs, samples, or
   emulator fidelity for a machine you know well.
 - **Add a new target machine** - a BASIC dialect, emulator, and virtual
   keyboard. This is a larger effort; see [Adding a dialect](/contributing/adding-a-dialect).
@@ -72,7 +72,7 @@ making cross-cutting changes.
 | -------------------------- | ----------------------------------------------------------------- |
 | `src/dialects/types.ts`    | The `Dialect` / `MachineEmulator` contracts - the app's only seam |
 | `src/dialects/registry.ts` | Registers the available dialects (`getDialect(id)`)               |
-| `src/dialects/<name>/`     | One folder per dialect (tokenizer, charset, keywords, samples, …) |
+| `src/dialects/<name>/`     | One folder per dialect (tokeniser, charset, keywords, samples, …) |
 | `src/emulator/`            | Vendored/third-party CPU cores and large machine wrappers         |
 | `src/editor/`              | Generic CodeMirror builders: language, completions, lint          |
 | `src/keyboard/`            | The data-driven virtual keyboard (no per-machine logic)           |
@@ -109,7 +109,7 @@ new target system is the exception: that stays with the dialect plans under
 - **Respect the seam.** A change that touches the editor, transfer dialog,
   status bar, or emulator pane to support one machine usually means the seam is
   being bypassed - keep machine-specific code inside `src/dialects/<name>/`.
-- **Errors, not throws.** The tokenizer collects `TokenizeError[]` (1-based
+- **Errors, not throws.** The tokenisercollects `TokenizeError[]` (1-based
   line, 0-based column) for inline display rather than throwing.
 - **State.** A single Zustand store; components subscribe via narrow selectors
   (`useIdeStore((s) => s.source)`). Async work is requested by bumping a counter
@@ -117,7 +117,7 @@ new target system is the exception: that stays with the dialect plans under
 - **Naming.** Components `PascalCase`, functions/vars `camelCase`, hardware
   constants `SCREAMING_SNAKE_CASE` (e.g. `TSTATES_PER_FRAME`).
 - **Tests live next to code.** Add or update colocated `*.test.ts` files,
-  especially for tokenizer, emulator, and charset changes - don't rely on
+  especially for tokeniser, emulator, and charset changes - don't rely on
   manual checking alone. Emulator tests may read the real ROMs under
   `public/roms/`.
 - **Keep changes focused.** One logical change per PR makes review faster and
@@ -174,7 +174,7 @@ reviewed on GitHub before merging.
 2. **Create a topic branch** with a descriptive name:
 
    ```bash
-   git checkout -b fix/spectrum-tokenizer-edge-case
+   git checkout -b fix/spectrum-tokeniser-edge-case
    ```
 
 3. **Make your change**, with focused commits and clear messages (a short
@@ -186,7 +186,7 @@ reviewed on GitHub before merging.
    `seanhodges/basically:main`:
 
    ```bash
-   git push -u origin fix/spectrum-tokenizer-edge-case
+   git push -u origin fix/spectrum-tokeniser-edge-case
    ```
 
    GitHub will offer a "Compare & pull request" button. In the PR description,

@@ -5,7 +5,7 @@ title: BBC Micro / Master file formats
 # BBC Micro / Master file formats
 
 BBC BASIC (Micro & Master) exports two native binaries: the headerless **`.bbc`**
-tokenized program, and the block-carrying **`.ssd`** disc image. Both double as
+tokenised program, and the block-carrying **`.ssd`** disc image. Both double as
 export files and import formats that round-trip back to editable source, and the
 `.ssd` carries [memory blocks](../file-formats#machine-code-data-blocks) in
 **both directions**. The machine also exports and imports a cassette **`.wav`**
@@ -21,13 +21,13 @@ overview](../file-formats). See also the [BBC BASIC reference](../bbc) and its
 The exact byte layout BBC BASIC keeps from PAGE and that SAVE writes to disc, so
 it doubles as the export file and the payload the emulator pokes in at PAGE. For
 each line: `0x0D`, the line number big-endian, a length byte (= body length + 4),
-then the tokenized body; the program ends with `0x0D 0xFF`. The output is
+then the tokenised body; the program ends with `0x0D 0xFF`. The output is
 byte-for-byte what the genuine ROM tokeniser produces (regression-tested). The
 BBC Master uses the same format.
 
 Machine code can ride inside the `.bbc` itself as **inline assembly** — a
 `[ … ]` assembler block in the BASIC listing (`DIM` a buffer, `[OPT…]` assemble
-into it at run time). That is ordinary BASIC source, so it tokenizes to the same
+into it at run time). That is ordinary BASIC source, so it tokenises to the same
 ROM bytes and round-trips through the `.bbc` with no separate file. Machine code
 that lives at its own fixed address instead — a separate code/data block — is
 carried by the `.ssd` disc below.
@@ -59,7 +59,7 @@ boots it verbatim (exactly as SHIFT+BREAK does on real hardware) so its loader
 runs and every file lands at its true address; the recovered loader listing is
 shown in the editor for reference. Editing that listing (or adding a block)
 turns the document back into a normal, editable program that runs through the
-tokenizer.
+tokeniser.
 
 ## Cassette audio
 

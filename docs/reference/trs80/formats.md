@@ -20,7 +20,7 @@ reference](../trs80) and its [escape codes](./escapes).
 
 The Model I Level II BASIC cassette (CSAVE) block at the byte level: a leader of
 `0x00` sync bytes, the `0xA5` sync byte that ends the leader, the three-byte
-`0xD3 0xD3 0xD3` BASIC-file marker, a one-character filename, then the tokenized
+`0xD3 0xD3 0xD3` BASIC-file marker, a one-character filename, then the tokenised
 program exactly as it sits from 0x42E8 (which already ends with its own `0x0000`
 link, doubling as the end marker). The `.cas` is both the export file and what an
 emulator's virtual cassette deck reads back.
@@ -65,4 +65,4 @@ the cell, a `0` does not - so the spacing between pulses carries the data (a `1`
 is two half-cell gaps, a `0` is one full-cell gap). Bytes are MSB-first. A block
 is a long leader of `0x00` bytes (all clock pulses, letting the reader lock on),
 the `0xA5` sync byte, the `0xD3 0xD3 0xD3` BASIC marker, a one-character
-filename and the tokenized program - i.e. the `.cas` image rendered to audio.
+filename and the tokenised program - i.e. the `.cas` image rendered to audio.

@@ -19,7 +19,7 @@ type), and an empty program reports **Program is empty**. Fix the highlighted
 lines and press Play again. If you want to run anyway - say, to watch the
 machine's own error report - turn off **Block Run on editor lint errors** under
 **Settings → Emulator**; only errors that break the program build itself will
-stop a run then.
+stop a run.
 
 The status bar shows the emulator state - **stopped**, **running**, or
 **paused** - alongside the byte budget.
@@ -48,7 +48,7 @@ from the status bar.
 ### The on-screen keyboard
 
 Press the **⌨** button in the status bar to show or hide the on-screen keyboard.
-It reproduces the target machine's real key legends, including its shift/mode
+It reproduces the target machine's keys, including most shift/mode/control
 keys, and sends keystrokes to whichever surface is active - into the editor while
 you're editing, or into the running program when the emulator is in front.
 
@@ -80,7 +80,7 @@ instead). Under **Settings ▸ Gamepad** you can choose the **layout** (4- or
   **long-press** a control while the program is stopped and pick a new key.
 
 If you choose a joystick mode on a machine that lacks one, Settings tells you so
-and falls back to Key mapped for that machine.
+and falls back to the key mapped for that machine.
 
 ## Debugging with breakpoints
 

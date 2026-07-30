@@ -10,7 +10,7 @@ import { cpcEscapes } from '../data/escapes/cpc';
 
 The Amstrad CPC's block graphics and symbols are typed as their Unicode glyphs
 (`█`, `▛`, `α`, `♠`…), and every code with no printable form is written as a raw
-`{0xNN}` byte, so imported listings re-tokenize byte-exactly. The escapes that
+`{0xNN}` byte, so imported listings re-tokenise byte-exactly. The escapes that
 carry meaning are the firmware's **text VDU control codes** 0x00–0x1F — the
 `CHR$` codes that move the cursor, switch `MODE`, set `PEN`/`PAPER`/`INK`, ring
 the buzzer and so on. Each stores a single introducer byte; several then read

@@ -1,7 +1,7 @@
 # Adding a new BASIC dialect
 
 A **target system** is one microcomputer's worth of support: a BASIC **dialect**
-(tokenizer, charset, keywords), an **emulator** (CPU bus + display + I/O), a
+(tokeniser, charset, keywords), an **emulator** (CPU bus + display + I/O), a
 **virtual keyboard**, transfer/tape I/O, an AI profile and samples - roughly 20
 files.
 
@@ -58,7 +58,7 @@ BASIC:
      `sysvars.ts`, put them there instead of adding a second module. Everything
      else imports from it rather than repeating a literal, so a layout fact has
      one definition to change. Cite the manual or ROM the value came from.
-   - `tokenizer.ts` / `detokenizer.ts` - text ↔ tokenized program bytes.
+   - `tokenizer.ts` / `detokenizer.ts` - text ↔ tokenised program bytes.
    - an image builder (the Spectrum equivalent of `pfile.ts` is a `.tap`/
      `.sna` builder).
    - `emulator/` - a `MachineEmulator` implementation. The Z80 core in
@@ -93,17 +93,17 @@ BASIC:
    - every machine byte 0x00–0xFF gets a text form `toMachine` maps back to
      the same byte - glyph, named escape, or a dialect-styled raw escape
      (Spectrum `{0xNN}`, C64 `{$xx}`) - never a lossy `?`/space fallback;
-   - `detokenize` interprets tokens/markers only _outside_ strings, REM and
+   - `detokenise` interprets tokens/markers only _outside_ strings, REM and
      DATA; inside them, bytes round-trip exactly;
    - loss the importer can detect (unmappable bytes, truncation, trailing
      machine code) is reported via the optional `detokenizeWithReport`, which
-     the import UI prefers over bare `detokenize`;
+     the import UI prefers over bare `detokenise`;
    - heuristic statement lint that real hardware would store sets
-     `fatal: false` on its `TokenizeError`s, and the dialect's `tokenize`
+     `fatal: false` on its `TokenizeError`s, and the dialect's `tokenise`
      gates its image on `hasFatalErrors(errors)` - not `errors.length` - so
      imported-but-odd programs still run;
    - `src/dialects/roundTrip.test.ts` must pass: every sample's image decodes
-     to text that re-tokenizes byte-exactly. Add foreign-image fixtures
+     to text that re-tokenises byte-exactly. Add foreign-image fixtures
      (control codes, tokens-in-strings, top-bit bytes) with
      `roundTripHarness.ts` as the importer learns to preserve or report them.
 
@@ -114,7 +114,7 @@ BASIC:
    verb fails `npm test`.
 3. **Drop the ROM** into `public/roms/` with an attribution block in
    `public/roms/ATTRIBUTION.md`.
-4. **Add tests**: tokenizer round-trip, image-builder pointer consistency,
+4. **Add tests**: tokeniserround-trip, image-builder pointer consistency,
    and a machine boot test like `zx81Machine.test.ts` (boot the ROM, inject a
    program, assert on display memory).
 
@@ -288,8 +288,8 @@ in `src/emulator/bbc/`. That pattern looks like:
   the surface used (jsbeeb ships no types);
 - ROM assets copied into `public/roms/` in the layout the package's loader
   expects, with attribution;
-- a native tokenizer is still preferred over delegating to the emulated ROM:
-  the BBC dialect tokenizes in TypeScript (`src/dialects/bbcmicro/tokenizer.ts`)
+- a native tokeniseris still preferred over delegating to the emulated ROM:
+  the BBC dialect tokenises in TypeScript (`src/dialects/bbcmicro/tokenizer.ts`)
   to the genuine BASIC II byte layout, so the emulator just pokes the `image`
   in at PAGE - the same image used for `.bbc` import/export. Its output is
   regression-tested byte-for-byte against jsbeeb's ROM tokeniser

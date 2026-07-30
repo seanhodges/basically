@@ -16,8 +16,6 @@ the BBC Master.
 ## Notes and caveats
 
 - BBC BASIC also uses the symbolic memory operators `?` (byte) and `!` (word)
-  and the string indirection `$`, plus the `@%` print-format variable. These
-  are operators rather than keyword tokens, so they are not listed in the
-  table below.
+  and the string indirection `$`, plus the `@%` print-format variable.
 
 <ReferenceTable :data="bbcReference" />

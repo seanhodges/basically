@@ -23,7 +23,7 @@ Commodore PET.
   commands. Keywords tagged **BASIC 4.0** are those extra disk commands; the C64
   and VIC-20 run the V2 core without them.
 - The [PETSCII escape codes](./commodore/escapes) sub-page covers all three
-  machines, though the colour-control codes have no visible effect on the PET's
+  machines, colour-control codes have no visible effect on the PET's
   monochrome display.
 
 <ReferenceTable :data="commodoreReference" />

@@ -12,7 +12,7 @@ afterwards.
 Basically is a **client-side single-page application**. There is no application
 server, no server-side session, and no account system: the IDE (a Vite + React
 SPA) and this documentation site (VitePress) are built into one static artifact
-and served from static hosting. Everything - the editors, the tokenizers, the
+and served from static hosting. Everything - the editors, the tokenisers, the
 assemblers, the CPU emulators, the cassette-audio codecs - runs in your browser,
 and both the IDE and the docs are installable PWAs that work offline. The docs
 are served from `/docs/` next to the app, which lets the IDE embed them in an
@@ -129,11 +129,11 @@ Acorn, Commodore, Tandy and Amstrad machines and counting; the registry is the
 source of truth for what ships). Each dialect folder provides, behind the one
 interface:
 
-- **`tokenize` / `detokenize`** - editor text ⇄ program bytes plus a full
+- **`tokenise` / `detokenise`** - editor text ⇄ program bytes plus a full
   loadable machine image. Errors are collected as `TokenizeError[]` (1-based
   line, 0-based column) for inline display, never thrown. An importer that can
   detect lossy round-trips grows `detokenizeWithReport` alongside.
-- **`lint`** - a tokenizer dry-run for as-you-type diagnostics.
+- **`lint`** - a tokeniserdry-run for as-you-type diagnostics.
 - **`charset`** - unicode block graphics and escapes ⇄ machine codes.
 - **`keywords`**, **`languageSupport()`** and **`completionSource`** - feed the
   generic editor highlighting and autocomplete.
@@ -229,7 +229,7 @@ table, keyword/variable/construct completion sources, the lint bridge
 numbering and renumbering, the program outline, POKE-address detection that
 feeds the memory-map viewer's markers, and the collapsed chips that stand in for
 `#BIN` binary lines. A `CrunchMatcher` facet handles the Microsoft-BASIC
-dialects, whose ROM tokenizers ignore spaces and match the longest keyword at
+dialects, whose ROM tokenisers ignore spaces and match the longest keyword at
 every position (`POKEA,10` is `POKE A,10`). Nothing in this folder knows about
 any specific machine.
 
@@ -303,7 +303,7 @@ flowchart TB
   end
 
   subgraph seam ["The Dialect seam - src/dialects/types.ts"]
-    dialect["Dialect<br/>tokenize · lint · detokenize · charset · keywords ·<br/>buildTargets · audio · memoryMap · memoryBlocks ·<br/>aiProfile · keyboardLayout"]
+    dialect["Dialect<br/>tokenise · lint · detokenise · charset · keywords ·<br/>buildTargets · audio · memoryMap · memoryBlocks ·<br/>aiProfile · keyboardLayout"]
     machine["MachineEmulator<br/>loadProgram · runFrame · renderTo · keys ·<br/>readAudio · readReport · readMemoryStats · debugStep"]
   end
 
@@ -360,7 +360,7 @@ flowchart TB
 ### Running a program
 
 The core loop of the IDE. Pressing **▶ Run** bumps `runRequest` in the store;
-`EmulatorPane` reacts, builds the machine if needed, tokenizes the current
+`EmulatorPane` reacts, builds the machine if needed, tokenises the current
 source into a full memory image, and flash-loads it the same way the real ROM
 would load from tape. The build step is dialect-specific (`.P`, `.O`, `.TAP`,
 raw BBC bytes, `.prg`, …) but the shape is identical for every machine.
@@ -404,11 +404,11 @@ Step by step:
 3. **Gate** - the run is refused on editor lint errors (when the Run-gate
    setting is on) and on any error-severity block problem from `lintBlocks()` -
    a block outside the machine's legal range, overlapping another block, or
-   colliding with the tokenized program.
+   colliding with the tokenised program.
 4. **Build the machine** - on first run for a dialect, `EmulatorPane` fetches
    and caches the ROM (skipped for a dialect with no `romUrl`), then calls
    `dialect.createEmulator()`.
-5. **Tokenize** - `dialect.tokenize(source)` produces the program bytes, the
+5. **Tokenise** - `dialect.tokenize(source)` produces the program bytes, the
    full loadable image, the byte size for the RAM budget, and any errors.
 6. **Load and run** - `machine.loadProgram(image, …)` writes the blocks into
    RAM, mounts any preserved tape files, and starts the program; then a
@@ -420,7 +420,7 @@ Step by step:
 
 ### Editing and linting
 
-While you type, two debounced consumers run the tokenizer as a dry-run - no
+While you type, two debounced consumers run the tokeniseras a dry-run - no
 machine involved:
 
 ```mermaid
@@ -431,7 +431,7 @@ flowchart LR
   stats -->|"dialect.tokenize(source)"| budget["byte count vs programRamBytes<br/>→ status bar ticker"]
 ```
 
-Once a machine is running, the status-bar figure switches from the tokenized
+Once a machine is running, the status-bar figure switches from the tokenised
 estimate to `machine.readMemoryStats()` - the machine's own BASIC pointers -
 falling back to the estimate whenever the machine can't report them.
 
@@ -498,7 +498,7 @@ Key details:
   machine's rules (for the ZX81: one statement per line, mandatory `LET`,
   `PRINT AT`, …); the shared part governs how much code to send, which must not
   vary by machine.
-- The user message embeds the current program and up to 20 tokenizer errors.
+- The user message embeds the current program and up to 20 tokenisererrors.
 - Each generated block is either a whole listing or a fragment. The model
   declares which with the fence tag (` ```basic ` / ` ```basic-partial `), and
   `classifyBlock()` cross-checks that against the block's line numbers. The

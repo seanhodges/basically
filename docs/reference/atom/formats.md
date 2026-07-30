@@ -29,7 +29,7 @@ The de-facto interchange format used by Atom emulators (Atomulator, AtoMMC): a
 22..    data bytes
 ```
 
-For a BASIC program the data is exactly the `#2900` program image the tokenizer
+For a BASIC program the data is exactly the `#2900` program image the tokeniser
 produces (line records ending in `0D FF`), with `load = exec = #2900`. Import
 accepts either an `.atm` or a bare image (a bare image always begins with the
 `0D` line marker). An `.atm` that loads anywhere other than `#2900` is a

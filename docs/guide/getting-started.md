@@ -21,50 +21,37 @@ This guide walks through running your first program, then generating one with AI
 
 4. Under **Start from**, choose **Sample** and pick **Breakout**, then press
    **Create project**.
-5. Press **▶ Run** (or `Ctrl`+`Enter`). Basically tokenizes your source to a
+5. Press **▶ Run** (or `Ctrl`+`Enter`). Basically tokenises your source to a
    machine image and boots it in the emulator through the ROM's own load path.
 6. Click the emulator screen to give it focus, then play - on most machines the
    paddle keys are shown on screen when the game starts.
 
-The emulator is hardware-accurate: it runs the machine's real ROM, so the
-display and keyboard behave exactly as they would on the original.
-
-The toolbar's machine selector switches an in-progress program to a different
-target. Starting a new project is how you choose a machine _and_ what to write
-on it together.
-
 ## Write your own
 
 Create a project and choose **Blank program**, then start typing. The editor
-highlights your dialect's keywords, autocompletes them (with documentation), and
-runs the tokenizer as you type so mistakes are underlined inline. A byte counter
+highlights your dialect's keywords, autocompletes and checks as you type so mistakes are underlined inline. A byte counter
 in the status bar shows how much of the machine's RAM your program uses.
 
-Naming the project when you create it means **Save project** already knows what
-to call it; leave the name blank and it stays untitled until you save.
-
 Each machine has its own BASIC rules - see **[Writing BASIC](/guide/writing-basic)**
-for the conventions and the per-machine notes.
+for per-machine notes.
 
 ## Generate code with AI
 
-Basically can write BASIC for you with the Claude API:
+Basically has an AI assistant to support with writing BASIC code:
 
 1. Click **✦ AI** to open the assistant panel.
-2. Add your Anthropic API key - create one at
-   [platform.claude.com](https://platform.claude.com/). The key is stored only
+2. Add your AI provider API key in the settings. The key is stored only
    in your browser.
-3. Ask for what you want ("write a snake game", "add a high-score counter").
+3. Ask for what you want ("add a high-score counter").
    Claude is given the active machine's dialect rules, so the BASIC it produces
    actually runs.
 4. Apply a suggestion with one click: **replace** the editor, **merge** by line
    number, or **replace and run**.
 
-Once your key is set you can also start a whole project this way: choose
+You can also create a whole project this way: choose
 **File ▸ New project**, pick a machine, and under **Start from** choose
 **Describe it** and say what you want ("a snake game"). The project is created
-and the assistant starts writing it for that machine. Until a key is set, that
-option is shown but not selectable.
+and the assistant starts writing it for that machine.
 
 ## Save and load
 
@@ -76,7 +63,7 @@ option is shown but not selectable.
   to the browser's local storage.
 - To download just the BASIC listing as a `.bas`, right-click the **BASIC**
   editor tab and choose **Download .bas**.
-- You can **import** an existing machine image (for example a ZX81 `.P` file)
+- You can import an existing machine image (for example a ZX81 `.P` file)
   back into editable source.
 
 ## Run on real hardware
@@ -92,7 +79,7 @@ to edit and test it in the IDE. See **[Running on real hardware](/guide/hardware
 Basically is an installable PWA - use your browser's _Install_ / _Add to Home
 Screen_ action to run it standalone on desktop or mobile.
 
-The app works almost entirely offline, so you can sit on a flight, train or mountain summit and tinker with that game you're working on at home. There are a couple of things to be aware of:
+The app works almost entirely offline, so you can sit on a flight, train or mountain summit and tinker with that game you're working on at home. There are a couple of things to be aware of however:
 
 - **AI support** currently only supports cloud-based solutions and requires Internet access at all times to work. In future we might add local LLM support.
 - **Running the emulator** usually requires downloading a third-party ROM for the target machine, whuch are often large blobs and can have complex licencing rules. You should run the emulator **before** going offline, to ensure any runtime dependencies are cached and ready to use.

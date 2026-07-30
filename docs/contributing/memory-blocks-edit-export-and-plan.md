@@ -97,7 +97,7 @@ the notes below:
   come.)_
 - **BASIC referencing: both** plain addresses with autocomplete and symbolic
   `@name` refs substituted in an app-level pre-pass (IDE-side syntax;
-  detokenize/import emits plain numbers). Distinct from the shipped
+  detokenise/import emits plain numbers). Distinct from the shipped
   `#BIN <base64>` directive (`src/dialects/binaryDirective.ts`), which is
   position-relative - a verbatim program-area line record spliced where the
   line sits - not a fixed-address block; the two syntaxes are intentionally
@@ -299,7 +299,7 @@ per-CPU `Disassembler` interface in a new `src/asm/` module.
 
 BASIC source may write `RANDOMIZE USR @border`; the IDE substitutes the address
 everywhere bytes are produced; completions and lint understand blocks.
-Detokenize/import continues to emit plain numbers.
+Detokenise/import continues to emit plain numbers.
 
 - [ ] New `src/editor/blockRefs.ts` — the single substitution implementation:
       `resolveBlockRefs(source, blocks)` → `{ source, errors, mapColumn }`
@@ -308,7 +308,7 @@ Detokenize/import continues to emit plain numbers.
       `blockRefWarnings(source, blocks, usrKeywords)` — "USR 32768 matches no
       block", non-fatal.
 - [ ] New `src/app/buildSource.ts` — `resolveForDialect(dialect, source, blocks)`,
-      the **single** substitution point ahead of every `dialect.tokenize`:
+      the **single** substitution point ahead of every `dialect.tokenise`:
       run path (`EmulatorPane`), export (`TransferDialog` / target `build`),
       lint (`lintIntegration.ts` reads blocks imperatively inside the debounced
       callback — no extension rebuild on block edits — and remaps diagnostic
@@ -320,14 +320,14 @@ Detokenize/import continues to emit plain numbers.
 - [ ] `src/share/compatibility.ts` + `ShareLinkDialog.tsx` — documents with `@`
       refs flagged not-shareable with a clear notice **until the load & run
       plan's share stage lands**; once both are in, the shared blocks travel and
-      the receiver resolves `@name` at its own tokenize time.
+      the receiver resolves `@name` at its own tokenise time.
 - [ ] Tests: substitution, strings/REM immunity, unknown-name error position,
       `mapColumn` across multiple refs per line, unmatched-address warnings;
       lint integration test that the squiggle lands on the `@name` token; run
-      path test that `10 RANDOMIZE USR @border` tokenizes cleanly.
+      path test that `10 RANDOMIZE USR @border` tokenises cleanly.
 
 **Design note:** substitution at the app layer, not inside each dialect's
-tokenizer — all tokenizers stay untouched, one tested implementation, composes
+tokeniser— all tokenisers stay untouched, one tested implementation, composes
 with the errors-not-throws convention.
 
 **Depends on:** Stages 1–2 (Stage 3 or the load & run plan's emulator loading

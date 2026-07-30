@@ -21,8 +21,8 @@ reference](../commodore) and the [escape codes](./escapes).
 ## Commodore 64 / VIC-20 / PET `.prg`
 
 The 2-byte little-endian load address (`$01 $08` = $0801) followed by the
-tokenized program as it sits in memory from $0801: for each line a 2-byte link
-to the next line (an absolute address), the 2-byte line number, the tokenized
+tokenised program as it sits in memory from $0801: for each line a 2-byte link
+to the next line (an absolute address), the 2-byte line number, the tokenised
 body and a `0x00` terminator, ending with a `0x0000` null link. This is the same
 image the emulator injects and the import/export file.
 
@@ -33,7 +33,7 @@ $1001 (`$01 $10`), the PET at $0401 (`$01 $04`).
 
 On import, a `.prg` whose load address is not the BASIC start imports as a single
 block at that address; a normal program with extra bytes past the end of the
-tokenized program imports the program plus those trailing bytes as a block.
+tokenised program imports the program plus those trailing bytes as a block.
 
 ## Commodore 64 / VIC-20 / PET `.d64`
 
@@ -83,9 +83,9 @@ Each block is a long pilot of short pulses, the bytes, then an end-of-data
 marker - and the KERNAL writes every block **twice** (first copy prefixed with
 the countdown $89..$81, second with $09..$01, each carrying an XOR checksum
 byte). A program is two blocks: a 192-byte header (file type, start/end address,
-filename) and the tokenized program bytes. The single shared encoder/decoder is
+filename) and the tokenised program bytes. The single shared encoder/decoder is
 parameterized by the machine's load address ($0801 C64, $1001 VIC-20, $0401 PET)
-and the machine's detokenizer (so the PET's BASIC 4.0 disk tokens list correctly
+and the machine's detokeniser(so the PET's BASIC 4.0 disk tokens list correctly
 on decode); each of the three exports and imports through it. A document with
 [memory blocks](../file-formats#machine-code-data-blocks) exports as a
 **multi-file tape** — the program followed by one file per block, optionally

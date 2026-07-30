@@ -21,7 +21,7 @@ the address in E_LINE - identical to what the ROM's SAVE writes:
 
 ```
 0x4009  system variables (0x74 bytes)
-0x407D  tokenized program
+0x407D  tokenised program
         display file (this IDE writes a collapsed one: 25 x 0x76)
         variables area (terminated by 0x80)
 ```
@@ -37,8 +37,8 @@ Run starts from that line rather than the first. Only the program text
 survives import, so if such a `.P` was saved with live variables the import
 notes that the resumed start runs with fresh state.
 
-**Tokenized program area** (ZX81): per line `u16 BE line number`, `u16 LE length`
-(body + terminator), tokenized body, `0x76` (NEWLINE). Numeric literals appear
+**tokenised program area** (ZX81): per line `u16 BE line number`, `u16 LE length`
+(body + terminator), tokenised body, `0x76` (NEWLINE). Numeric literals appear
 as their printable characters followed by `0x7E` and the 5-byte ZX81 float
 (exponent+0x80, then a 4-byte mantissa whose top bit is replaced by the sign).
 
