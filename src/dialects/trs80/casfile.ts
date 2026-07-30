@@ -1,4 +1,4 @@
-import { PROG_START } from './tokenizer';
+import { PROG_START } from './addresses';
 
 /**
  * The Model I Level II BASIC cassette (CSAVE) block, at the byte level. A real

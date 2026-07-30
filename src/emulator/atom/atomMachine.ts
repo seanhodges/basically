@@ -17,6 +17,14 @@ import {
 } from './keyboard';
 import { AtomDiskDrive, type Bus } from './diskDrive';
 import { JsbeebMemoryActivity } from '../jsbeebMemoryActivity';
+// The dialect owns the Atom's address facts. RAM_TOP is the VDG screen base:
+// RAM runs unbroken from TEXT_START up to it (confirmed by write-probing the
+// booted machine). The dialect's `programRamBytes` budget is deliberately more
+// conservative; the live readout reports what this machine actually has.
+import {
+  TEXT_START,
+  VIDEO_BASE as RAM_TOP,
+} from '../../dialects/atom/addresses';
 
 /** jsbeeb's Video renders into a fixed 1024×625 RGBA framebuffer… */
 const FB_WIDTH = 1024;
@@ -74,7 +82,6 @@ const KEY_UP_CYCLES = 40_000;
  * program and reading zero page back. Fixing that pointer after poking an image
  * is what makes BASIC's RUN see the loaded program.
  */
-const TEXT_START = 0x2900;
 const TOP_OF_TEXT = 0x0d;
 
 /**
@@ -125,14 +132,6 @@ const SENT_BPUT = 0xffa0;
 /** Cap on traps serviced within one {@link AtomMachine.runCycles} call, so a
  *  bug that kept reporting a stop for a non-trap reason couldn't spin forever. */
 const MAX_TRAPS_PER_CALL = 100_000;
-/**
- * Top of the RAM contiguously available to BASIC text on the emulated
- * `Atom-Tape-FP` model: RAM runs unbroken from {@link TEXT_START} until the
- * VDG screen at `#8000` (confirmed by write-probing the booted machine). The
- * dialect's `programRamBytes` budget is deliberately more conservative; the
- * live readout reports what this machine actually has.
- */
-const RAM_TOP = 0x8000;
 
 // In the browser, jsbeeb fetches 'roms/…' relative to this base; the Atom ROM
 // set is committed under public/roms/atom/ in the layout jsbeeb expects.

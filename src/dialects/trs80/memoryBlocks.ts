@@ -1,4 +1,5 @@
 import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import { PROG_START, RAM_BASE, RAM_END_16K } from './addresses';
 
 /**
  * TRS-80 (Model I, 16K) {@link MemoryBlocksSupport} figures for the memory-block
@@ -13,8 +14,8 @@ import type { MemoryBlocksSupport, MemoryRange } from '../types';
  * likely to run on rather than the most generous.
  */
 
-/** BASIC program area start (TXTTAB) on a fresh machine: PROG = 0x42E9. */
-const PROG = 0x42e9;
+/** BASIC program area start (TXTTAB) on a fresh machine. */
+const PROG = PROG_START;
 
 /**
  * Headroom reserved beyond the raw tokenized program bytes for the BASIC
@@ -32,7 +33,9 @@ const PROGRAM_AREA_SLACK_BYTES = 768;
  * The video page sits *below* this base, so it needs no reserved entry - it is
  * simply outside every valid range.
  */
-const VALID_RANGES: readonly MemoryRange[] = [{ start: 0x4000, end: 0x7fff }];
+const VALID_RANGES: readonly MemoryRange[] = [
+  { start: RAM_BASE, end: RAM_END_16K },
+];
 
 /**
  * No reserved ranges: the only live machine state a block might clobber - the

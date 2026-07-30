@@ -17,10 +17,9 @@
  * image wrapped in the header with `load = exec = #2900`.
  */
 
-/** Default load/exec address for a BASIC program image (`#2900`). */
-export const ATOM_TEXT_START = 0x2900;
-
 /** Fixed size of the `.atm` header that precedes the data. */
+import { TEXT_START } from './addresses';
+
 export const ATM_HEADER_SIZE = 22;
 
 const NAME_FIELD = 16;
@@ -44,8 +43,8 @@ export function buildAtm(image: Uint8Array, name: string): Uint8Array {
     out[off] = v & 0xff;
     out[off + 1] = (v >> 8) & 0xff;
   };
-  u16(16, ATOM_TEXT_START); // load
-  u16(18, ATOM_TEXT_START); // exec
+  u16(16, TEXT_START); // load
+  u16(18, TEXT_START); // exec
   u16(20, image.length); // data length
   out.set(image, ATM_HEADER_SIZE);
   return out;
@@ -67,7 +66,7 @@ export function stripAtmHeader(file: Uint8Array): Uint8Array {
   if (file.length >= ATM_HEADER_SIZE) {
     const load = file[16]! | (file[17]! << 8);
     const data = file.subarray(ATM_HEADER_SIZE);
-    if (load !== ATOM_TEXT_START || data[0] !== 0x0d) {
+    if (load !== TEXT_START || data[0] !== 0x0d) {
       const hex = load.toString(16).toUpperCase().padStart(4, '0');
       throw new Error(
         `Not an Atom BASIC program: the .atm loads at #${hex} (BASIC text ` +

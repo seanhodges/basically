@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ATM_HEADER_SIZE,
-  ATOM_TEXT_START,
-  atmName,
-  buildAtm,
-  stripAtmHeader,
-} from './atm';
+import { ATM_HEADER_SIZE, atmName, buildAtm, stripAtmHeader } from './atm';
+import { TEXT_START } from './addresses';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 
@@ -31,8 +26,8 @@ describe('Atom .atm native binary', () => {
     expect(atmName(atm)).toBe('HELLO');
     expect(atm[5]).toBe(0x00); // padding past the 5-char name
     // Load and exec are both #2900, little-endian.
-    expect(atm[16]! | (atm[17]! << 8)).toBe(ATOM_TEXT_START);
-    expect(atm[18]! | (atm[19]! << 8)).toBe(ATOM_TEXT_START);
+    expect(atm[16]! | (atm[17]! << 8)).toBe(TEXT_START);
+    expect(atm[18]! | (atm[19]! << 8)).toBe(TEXT_START);
     // Length word matches the data.
     expect(atm[20]! | (atm[21]! << 8)).toBe(img.length);
     // The payload is the image verbatim.

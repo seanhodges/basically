@@ -30,7 +30,7 @@ import {
   isBbcDisc,
   type BbcFile,
 } from '../../emulator/bbc/bbcDisc';
-import { ATOM_TEXT_START } from './atm';
+import { TEXT_START } from './addresses';
 
 /** One file read out of a `.dsk` catalogue. */
 export interface AtomDskEntry {
@@ -100,8 +100,8 @@ export function composeAtomDskFiles(
   if (hasBasic) {
     files.push({
       name: uniqueName(dskName(programName, 'PROG'), taken),
-      load: ATOM_TEXT_START,
-      exec: ATOM_TEXT_START,
+      load: TEXT_START,
+      exec: TEXT_START,
       bytes: programImage,
     });
   }
