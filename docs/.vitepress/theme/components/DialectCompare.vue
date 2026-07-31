@@ -414,11 +414,13 @@ interface LegendItem {
 }
 
 /**
- * What the colours on this page mean, for the colours this pair actually uses.
- * Nothing else says why one capability group is tinted red and the next has a
- * green edge, and a key listing colours the pair does not use would be its own
- * small puzzle - so each entry is conditioned on the same thing the template
- * renders it from.
+ * What the capability-group colours on this page mean, for the colours this
+ * pair actually uses. Nothing else says why one group is tinted red and the
+ * next has a green edge, and a key listing colours the pair does not use would
+ * be its own small puzzle - so each entry is conditioned on the same thing the
+ * template renders it from. The highlighted fact rows are not keyed: the table
+ * they sit in has a "show unchanged rows" tick right above it, which says what
+ * the highlight means better than a swatch does.
  */
 const legend = computed<LegendItem[]>(() => {
   const t = target.value;
@@ -429,12 +431,6 @@ const legend = computed<LegendItem[]>(() => {
     support: CapabilitySection['support'],
   ) => s.entries.length > 0 && s.support === support;
   const items: LegendItem[] = [];
-  if (visibleFactRows.value.some((r) => r.changed))
-    items.push({
-      key: 'changed',
-      className: 'cmp-key-changed',
-      label: 'Differs between the two machines',
-    });
   if (groups.some((s) => losing(s, 'none')))
     items.push({
       key: 'none',
@@ -654,23 +650,6 @@ function convertWithAi() {
 
     <template v-if="!sameSelection && source && target && keywordDiff">
       <!--
-        The colour key, above the sections that use the colours: one row, so it
-        costs a glance rather than a paragraph, and only the colours this pair
-        puts on the page.
-      -->
-      <div v-if="legend.length" class="cmp-legend">
-        <span class="cmp-legend-title">Colour key</span>
-        <span v-for="item in legend" :key="item.key" class="cmp-legend-item">
-          <span
-            class="cmp-legend-swatch"
-            :class="item.className"
-            aria-hidden="true"
-          />
-          {{ item.label }}
-        </span>
-      </div>
-
-      <!--
         Language & hardware first: the differences that decide how much of the
         program has to change at all, right under the picker so they move as
         the from/to inputs do.
@@ -736,6 +715,24 @@ function convertWithAi() {
           </li>
         </ul>
       </section>
+
+      <!--
+        The colour key, once the reader has been told what to watch for and
+        immediately above the graded sections that use the colours: one row, so
+        it costs a glance rather than a paragraph, and only the colours this
+        pair puts on the page.
+      -->
+      <div v-if="legend.length" class="cmp-legend">
+        <span class="cmp-legend-title">Colour key</span>
+        <span v-for="item in legend" :key="item.key" class="cmp-legend-item">
+          <span
+            class="cmp-legend-swatch"
+            :class="item.className"
+            aria-hidden="true"
+          />
+          {{ item.label }}
+        </span>
+      </div>
 
       <!--
         Before the lists of what to change: these are the only differences that
@@ -807,6 +804,7 @@ function convertWithAi() {
           :class="{
             'cmp-group-absent': s.entries.length && s.support === 'none',
             'cmp-group-partial': s.entries.length && s.support === 'partial',
+            'cmp-group-covered': s.entries.length && s.support === 'full',
             'cmp-group-gain-only': !s.entries.length,
           }"
         >
@@ -1152,18 +1150,14 @@ function convertWithAi() {
   border-radius: 2px;
   background: var(--vp-c-bg-soft);
 }
-.cmp-key-changed {
-  background: var(--vp-c-warning-soft, var(--vp-c-yellow-soft));
-  border: 1px solid var(--vp-c-divider);
-}
 .cmp-key-none {
   border-left: 3px solid var(--vp-c-red-1);
   background: var(--vp-c-red-soft);
 }
-.cmp-key-full {
+.cmp-key-partial {
   border-left: 3px solid var(--vp-c-red-1);
 }
-.cmp-key-partial {
+.cmp-key-full {
   border-left: 3px solid var(--vp-c-yellow-1);
 }
 .cmp-key-gain {
@@ -1264,7 +1258,9 @@ function convertWithAi() {
 }
 /* One capability's worth of lost commands: a heading and a run of names,
    rather than a row per command. Red left edge to match .cmp-remove, which
-   this section no longer uses. */
+   this section no longer uses. Red is the "needs your attention" end of the
+   scale: the groups whose commands the target cannot replace outright keep it,
+   and the ones it does cover step down to amber. */
 .cmp-group {
   margin: 0.75rem 0;
   padding: 0.5rem 0 0.5rem 0.7rem;
@@ -1274,8 +1270,14 @@ function convertWithAi() {
 .cmp-group.cmp-group-absent {
   background: var(--vp-c-red-soft);
 }
-/* Capabilities the target only partly covers - between "none" and "full". */
+/* Capabilities the target only partly covers - still work you have to think
+   about, so they keep the red edge and are told apart by the badge. */
 .cmp-group.cmp-group-partial {
+  border-left-color: var(--vp-c-red-1);
+}
+/* Capabilities the target covers under other names - the least of the work
+   here, so amber rather than red. */
+.cmp-group.cmp-group-covered {
   border-left-color: var(--vp-c-yellow-1);
 }
 /* Capabilities the port loses nothing from - news, not work, so they read as
