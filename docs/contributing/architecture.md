@@ -133,7 +133,7 @@ interface:
   loadable machine image. Errors are collected as `TokenizeError[]` (1-based
   line, 0-based column) for inline display, never thrown. An importer that can
   detect lossy round-trips grows `detokenizeWithReport` alongside.
-- **`lint`** - a tokeniserdry-run for as-you-type diagnostics.
+- **`lint`** - a tokeniser dry-run for as-you-type diagnostics.
 - **`charset`** - unicode block graphics and escapes ⇄ machine codes.
 - **`keywords`**, **`languageSupport()`** and **`completionSource`** - feed the
   generic editor highlighting and autocomplete.
