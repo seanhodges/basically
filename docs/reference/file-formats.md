@@ -64,7 +64,7 @@ silently. Bytes with no printable glyph round-trip through dialect-styled
 escapes (Sinclair `\{NN}`, Spectrum/BBC/TRS-80/Atom `{0xNN}`, C64 `{$xx}`,
 plus named forms like `{INK 2}`, `{RED}` or `{clr}`), recognised in the
 literal contexts where raw bytes live in a real program. Characters outside a
-machine's set remain tokenisererrors.
+machine's set remain tokeniser errors.
 
 Each dialect's full notation is a searchable table on its escape-codes
 reference page:
