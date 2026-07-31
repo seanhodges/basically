@@ -25,7 +25,7 @@ little-endian **line number**, the tokenised statement bytes, then a `0x00`
 terminator; the program ends with a **zero length word**. Unlike a keyword-only
 table this stores numeric constants in **binary** — small integers, bytes, 16-bit
 integers, binary/hex literals, line-number references and 5-byte floats each have
-their own inline encoding — so the IDE's detokeniserreformats them losslessly
+their own inline encoding — so the IDE's detokeniser reformats them losslessly
 (hex back to `&…`, floats to Locomotive's display form).
 
 ## Amstrad CPC `.bas` (AMSDOS)
