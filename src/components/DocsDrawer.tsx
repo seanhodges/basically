@@ -36,10 +36,24 @@ type CompareConvertMessage = Partial<
 /** The one message we post *into* the frame: route to another docs topic. */
 const DOCS_NAVIGATE_MESSAGE = 'basically:docs-navigate';
 
-/** Resolve a docs reference-page slug to the dialect whose page it is. */
+/**
+ * Resolve what the porting guide sends as its target to a dialect.
+ *
+ * It sends a machine id when the reader picked a machine, and a docs page slug
+ * when they picked a BASIC covering a whole family. The exact id has to win:
+ * matching on the page alone returns whichever family member is first in
+ * registry order, which is why converting to Locomotive BASIC used to open a
+ * CPC 464 however clearly the reader had asked for a 6128.
+ *
+ * A family slug still falls back to the page lookup - the IDE must open some
+ * machine, and the first member of the family is the one it opens.
+ */
 function dialectForPage(slug: unknown) {
   if (typeof slug !== 'string') return undefined;
-  return dialects.find((d) => (d.docsReference ?? d.id) === slug);
+  return (
+    dialects.find((d) => d.id === slug) ??
+    dialects.find((d) => (d.docsReference ?? d.id) === slug)
+  );
 }
 
 function ChevronRightIcon() {
@@ -148,7 +162,15 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     if (!target) return;
     const creds = aiCredentials();
     if (!creds) return;
-    const label = typeof data.toLabel === 'string' ? data.toLabel : target.name;
+    // The guide's own label is right when the reader picked a machine, and
+    // wrong when they picked a BASIC covering several ("Locomotive BASIC
+    // (either CPC)") - the conversion targets one machine, so it has to say
+    // which. An exact id match is what tells the two cases apart.
+    const namedAMachine = dialects.some((d) => d.id === data.toId);
+    const label =
+      namedAMachine && typeof data.toLabel === 'string'
+        ? data.toLabel
+        : target.name;
     const original = useIdeStore.getState().source;
     closeDocs();
     // A real dialect switch that keeps the program text and bypasses the confirm

@@ -94,3 +94,31 @@ test('asking to convert with no assistant configured offers to set one up', asyn
   await expect(targetMachine(page)).toHaveText(/64/);
   await expect(page.locator('.cm-content')).toContainText('PRINT "HI"');
 });
+
+test('converting to a variant lands in that variant, not its sibling', async ({
+  page,
+}) => {
+  await page.route('**/api.anthropic.com/**', (route) => route.abort());
+  await openApp(page);
+  await selectDialect(page, 'commodore64');
+  await setEditorSource(page, '10 PRINT "HI"');
+  await saveApiKey(page);
+
+  const drawer = await openPortingGuide(page);
+  const frame = drawer.frameLocator('iframe');
+
+  // The CPC 464 and 6128 share a reference page, and the guide used to offer
+  // that page rather than the two machines - so "Locomotive BASIC" resolved to
+  // whichever came first in the registry and always opened a 464. Choosing the
+  // 6128 has to open a 6128.
+  const target = frame.locator('select').nth(1);
+  await expect(target).toBeVisible({ timeout: 15_000 });
+  await target.selectOption('cpc6128');
+
+  await frame.getByRole('button', { name: 'Convert with AI' }).click();
+
+  await expect(drawer).toBeHidden();
+  await expect(targetMachine(page)).toHaveText(/CPC 6128/, {
+    timeout: 15_000,
+  });
+});

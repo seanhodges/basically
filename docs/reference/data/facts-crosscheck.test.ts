@@ -6,37 +6,27 @@
  * sound) have no machine-readable source and are reviewed against the hardware
  * page and aiProfile by hand.
  *
- * Each facts entry maps to the dialect that best represents its page. This
- * mirrors keyword-crosscheck.test.ts, except the Commodore page is pinned to the
- * C64 (the marquee machine whose hardware the facts describe) rather than the
- * PET (whose keyword superset the reference table is pinned to). Like the
- * keyword crosscheck, this file may import src/ freely: vitest runs it in node
- * and the VitePress bundle never includes *.test.ts.
+ * Every registered machine has its own entry, pinned to its own `Dialect`.
+ * There used to be a REPRESENTATIVE map here, sending each docs *page* to the
+ * one machine whose hardware its facts described - which is precisely how a
+ * reader porting to a VIC-20 came to be told the C64's 38911 bytes free rather
+ * than its own 3583. Its deletion is what makes the facts per-machine; if a map
+ * like it reappears, the fold has come back with it.
+ *
+ * Like the keyword crosscheck, this file may import src/ freely: vitest runs it
+ * in node and the VitePress bundle never includes *.test.ts.
  */
 import { describe, expect, it } from 'vitest';
 import type { Dialect } from '../../../src/dialects/types';
-import { getDialect } from '../../../src/dialects/registry';
+import { dialects, getDialect } from '../../../src/dialects/registry';
 import type { PortingFacts } from './types';
 import { portingFacts } from './facts';
 
-/** Page slug → representative dialect id whose hardware the facts describe. */
-const REPRESENTATIVE: Record<string, string> = {
-  zx81: 'zx81',
-  zx80: 'zx80',
-  zxspectrum: 'zxspectrum',
-  bbc: 'bbcmicro',
-  commodore: 'commodore64',
-  atom: 'atom',
-  trs80: 'trs80',
-  cpc: 'cpc464',
-};
-
-const PAIRS: [string, PortingFacts, Dialect][] = portingFacts.map((facts) => {
-  const id = REPRESENTATIVE[facts.id];
-  if (!id)
-    throw new Error(`No representative dialect for facts page: ${facts.id}`);
-  return [facts.id, facts, getDialect(id)];
-});
+const PAIRS: [string, PortingFacts, Dialect][] = portingFacts.map((facts) => [
+  facts.id,
+  facts,
+  getDialect(facts.id),
+]);
 
 /** Start of the dialect's first region of a kind, or undefined if it has none. */
 const regionStart = (
@@ -50,12 +40,12 @@ const parseAddr = (s: string): number =>
   parseInt(s.replace(/^0x/i, '').replace(/^[$&]/, ''), 16);
 
 describe('facts crosscheck', () => {
-  it('has one facts entry per comparable reference page', () => {
+  it('has one facts entry per registered machine', () => {
     const ids = portingFacts.map((f) => f.id).sort();
-    expect(ids).toEqual(Object.keys(REPRESENTATIVE).sort());
+    expect(ids).toEqual(dialects.map((d) => d.id).sort());
   });
 
-  it('has no duplicate page ids', () => {
+  it('has no duplicate machine ids', () => {
     const ids = portingFacts.map((f) => f.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -63,7 +53,7 @@ describe('facts crosscheck', () => {
   // Prose like the other hand-authored fields, so there is nothing in src/ to
   // pin it to - but it is the fact the porting guidance leans on hardest, so
   // every page has to answer it in the same terms rather than leave it vague.
-  it('every page says whether it has floating point or is integer-only', () => {
+  it('every machine says whether it has floating point or is integer-only', () => {
     for (const facts of portingFacts) {
       expect(facts.numberHandling, facts.id).toMatch(
         /floating point|integer only/i,
@@ -71,7 +61,7 @@ describe('facts crosscheck', () => {
     }
   });
 
-  it('an integer-only page states the range it holds', () => {
+  it('an integer-only machine states the range it holds', () => {
     for (const facts of portingFacts) {
       if (!/^integer only/i.test(facts.numberHandling)) continue;
       expect(facts.numberHandling, facts.id).toMatch(/-?\d+ to -?\d+/);

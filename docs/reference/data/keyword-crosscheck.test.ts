@@ -9,6 +9,16 @@
  *     actually contains, so the docs never document a keyword the tokenizer
  *     doesn't accept.
  *
+ * Both run **per machine**, over all thirteen registered dialects, not per docs
+ * page. Four pages cover more than one machine, and their rows are the union of
+ * what those machines have - so checking the page against the union let a row
+ * belong to every machine on the page whether or not that machine had it, which
+ * is exactly what made the porting comparison report BASIC 1.1 commands to a
+ * CPC 464. `ReferenceEntry.onlyOn` narrows a row to the machines that have it,
+ * and these assertions are what make that hand-authored scoping trustworthy: a
+ * mis-scoped row fails one machine's check, and a newly registered dialect fails
+ * until its rows exist.
+ *
  * Comparison is by unique name (keyword tables may list alias spellings that
  * collapse into one row), mirroring scripts/gen-reference-scaffold.mts. Like
  * escapes/escape-crosscheck.test.ts, this file may import src/ freely: vitest
@@ -27,44 +37,51 @@ import { atomReference } from './atom';
 import { trs80Reference } from './trs80';
 import { cpcReference } from './cpc';
 
-import { zx81Keywords } from '../../../src/dialects/zx81/keywords';
-import {
-  zx80Keywords,
-  zx80IntegralFunctions,
-} from '../../../src/dialects/zx80/keywords';
-import { spectrumKeywords } from '../../../src/dialects/zxspectrum/keywords';
-import {
-  SPECTRUM_KEYWORD,
-  PLAY_KEYWORD,
-} from '../../../src/dialects/zxspectrum128/keywords';
-import { bbcKeywords } from '../../../src/dialects/bbcmicro/keywords';
-import { petKeywords } from '../../../src/dialects/pet/keywords';
-import { atomKeywords } from '../../../src/dialects/atom/keywords';
-import { trs80Keywords } from '../../../src/dialects/trs80/keywords';
-import { locoKeywordTable } from '../../../src/dialects/cpc464/keywords';
+import { dialects } from '../../../src/dialects/registry';
+import { zx80IntegralFunctions } from '../../../src/dialects/zx80/keywords';
 
-const PAIRS: [string, ReferenceTableData, EditorKeyword[]][] = [
-  ['zx81', zx81Reference, zx81Keywords],
-  // The ZX80's integral functions are computed by the editor rather than
-  // tokenized, but they are part of the language and sit in its table.
-  ['zx80', zx80Reference, [...zx80Keywords, ...zx80IntegralFunctions]],
-  [
-    'zxspectrum',
-    zxspectrumReference,
-    [...spectrumKeywords, SPECTRUM_KEYWORD, PLAY_KEYWORD],
-  ],
-  ['bbc', bbcReference, bbcKeywords],
-  // One page covers all three Commodore machines: the merged table is
-  // crosschecked against the PET's keyword set (= the C64 V2 core plus the 15
-  // BASIC 4.0 disk commands), the same union model as zxspectrum's 48K+128K.
-  ['commodore', commodoreReference, petKeywords],
-  ['atom', atomReference, atomKeywords],
-  ['trs80', trs80Reference, trs80Keywords],
-  ['cpc', cpcReference, locoKeywordTable],
-];
+const PAGES: Record<string, ReferenceTableData> = {
+  atom: atomReference,
+  bbc: bbcReference,
+  commodore: commodoreReference,
+  cpc: cpcReference,
+  trs80: trs80Reference,
+  zx80: zx80Reference,
+  zx81: zx81Reference,
+  zxspectrum: zxspectrumReference,
+};
 
-describe.each(PAIRS)('keyword crosscheck: %s', (_id, data, keywords) => {
-  const rowNames = new Set(data.entries.map((e) => e.name));
+/**
+ * Words the editor knows for a machine but the tokenizer does not emit. The
+ * ZX80's integral functions are computed by the editor rather than tokenized,
+ * yet they are part of the language and belong in its table.
+ */
+const EXTRA_KEYWORDS: Record<string, EditorKeyword[]> = {
+  zx80: zx80IntegralFunctions,
+};
+
+/** The rows a page carries for one machine: unscoped, plus those naming it. */
+function rowsFor(page: ReferenceTableData, dialectId: string) {
+  return page.entries.filter((e) => !e.onlyOn || e.onlyOn.includes(dialectId));
+}
+
+const CASES = dialects.map((dialect) => {
+  const page = PAGES[dialect.docsReference ?? dialect.id];
+  if (!page) {
+    throw new Error(
+      `No reference page registered for dialect: ${dialect.id} ` +
+        `(looked for "${dialect.docsReference ?? dialect.id}")`,
+    );
+  }
+  return [
+    dialect.id,
+    rowsFor(page, dialect.id),
+    [...dialect.keywords, ...(EXTRA_KEYWORDS[dialect.id] ?? [])],
+  ] as const;
+});
+
+describe.each(CASES)('keyword crosscheck: %s', (_id, rows, keywords) => {
+  const rowNames = new Set(rows.map((e) => e.name));
   const keywordWords = new Set(keywords.map((k) => k.word));
 
   it('every keyword has a reference row', () => {
@@ -75,5 +92,31 @@ describe.each(PAIRS)('keyword crosscheck: %s', (_id, data, keywords) => {
   it('every reference row is a real keyword', () => {
     const invented = [...rowNames].filter((n) => !keywordWords.has(n));
     expect(invented).toEqual([]);
+  });
+});
+
+describe('page coverage', () => {
+  it('every reference page belongs to at least one registered machine', () => {
+    const used = new Set(dialects.map((d) => d.docsReference ?? d.id));
+    expect([...Object.keys(PAGES)].filter((p) => !used.has(p))).toEqual([]);
+  });
+
+  // A scoped row naming a machine that is not on its own page would be silently
+  // dropped from every machine's set, hiding a keyword from the docs entirely.
+  it('every onlyOn names a machine the page covers', () => {
+    for (const [page, data] of Object.entries(PAGES)) {
+      const onPage = new Set(
+        dialects
+          .filter((d) => (d.docsReference ?? d.id) === page)
+          .map((d) => d.id),
+      );
+      for (const entry of data.entries) {
+        for (const id of entry.onlyOn ?? []) {
+          expect(onPage, `${page}: ${entry.name} scoped to ${id}`).toContain(
+            id,
+          );
+        }
+      }
+    }
   });
 });

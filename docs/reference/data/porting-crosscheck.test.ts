@@ -24,6 +24,7 @@ import { zx81Reference } from './zx81';
 import { zxspectrumReference } from './zxspectrum';
 import { falseFriends, keywordEquivalences, pairPortingNotes } from './porting';
 import { portingFacts } from './facts';
+import { dialects } from '../../../src/dialects/registry';
 import type { ReferenceTableData } from './types';
 
 const PAGES: Record<string, ReferenceTableData> = {
@@ -43,6 +44,36 @@ const namesOn = (page: string): Set<string> =>
 const NAMES: Record<string, Set<string>> = Object.fromEntries(
   Object.keys(PAGES).map((p) => [p, namesOn(p)]),
 );
+
+/**
+ * Page slug for a machine, and the machines on a page. `keywordEquivalences`,
+ * `falseFriends` and `pairPortingNotes` stay keyed by *page*, because a
+ * spelling is a property of the BASIC and every machine on a page shares it -
+ * while `portingFacts` is keyed by *machine*, because free RAM and colour are
+ * not. Both are right, so this file crosses between them.
+ */
+const pageOf = (dialectId: string): string => {
+  const dialect = dialects.find((d) => d.id === dialectId);
+  if (!dialect) throw new Error(`unknown dialect: ${dialectId}`);
+  return dialect.docsReference ?? dialect.id;
+};
+
+const machinesOn = (page: string): string[] =>
+  dialects.filter((d) => (d.docsReference ?? d.id) === page).map((d) => d.id);
+
+/**
+ * Command names one machine has - its page's rows less those scoped to a
+ * relative. Narrower than `NAMES[page]`, and deliberately: advice on what to use
+ * instead of `FILL` is redundant on a CPC 6128 but useful on a 464.
+ */
+const namesForMachine = (dialectId: string): Set<string> => {
+  const page = PAGES[pageOf(dialectId)]!;
+  return new Set(
+    page.entries
+      .filter((e) => !e.onlyOn || e.onlyOn.includes(dialectId))
+      .map((e) => e.name),
+  );
+};
 
 describe('keyword equivalences', () => {
   it.each(keywordEquivalences.map((e) => [e.concept, e] as const))(
@@ -165,10 +196,11 @@ describe.each(portingFacts.map((f) => [f.id, f] as const))(
       }
     });
 
-    it('only advises on commands this dialect does not have', () => {
+    it('only advises on commands this machine does not have', () => {
+      const has = namesForMachine(id);
       for (const { keyword } of facts.substitutions) {
         expect(
-          NAMES[id]!.has(keyword),
+          has.has(keyword),
           `${id} already has "${keyword}", so advice on what to use instead is redundant`,
         ).toBe(false);
       }
@@ -242,8 +274,16 @@ describe('pair porting notes', () => {
   it.each(pairPortingNotes.map((p) => [`${p.from}→${p.to}`, p] as const))(
     '%s only claims to cover topics its target writes about',
     (_label, pair) => {
-      const target = portingFacts.find((f) => f.id === pair.to);
-      const written = new Set(target?.portingNotes.flatMap((n) => n.topics));
+      // Pair notes name pages; facts name machines. A topic counts as written
+      // about if any machine on the target page writes about it - within a
+      // family the notes are shared, so in practice they all do.
+      const written = new Set(
+        machinesOn(pair.to)
+          .flatMap(
+            (id) => portingFacts.find((f) => f.id === id)?.portingNotes ?? [],
+          )
+          .flatMap((n) => n.topics),
+      );
       for (const note of pair.notes) {
         for (const topic of note.covers ?? []) {
           expect(

@@ -567,6 +567,16 @@ export const bbcReference: BasicReferenceTableData = {
         'An immediate-mode command that deletes all program lines in the given range, inclusive.',
     },
     {
+      name: 'EDIT',
+      kind: 'command',
+      domain: 'program-editing',
+      syntax: 'EDIT [<line>]',
+      description:
+        'An immediate-mode command that opens a line — or the whole program, given no line number — in the full-screen editor, where the program text can be changed in place and Escape returns to BASIC. Added by BASIC IV; it occupies the single token BASIC II leaves unused between SAVE and PTR.',
+      tag: 'BASIC IV only',
+      onlyOn: ['bbcmaster'],
+    },
+    {
       name: 'LOAD',
       kind: 'command',
       domain: 'storage',

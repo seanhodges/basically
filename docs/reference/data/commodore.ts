@@ -633,6 +633,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Appends one sequential disk file onto the end of another, leaving the source unchanged.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'DOPEN',
@@ -642,6 +643,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Opens a disk file to a logical file number for reading, or for writing with W.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'DCLOSE',
@@ -651,6 +653,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Closes a disk file opened with DOPEN, or all open files when no logical file number is given.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'RECORD',
@@ -660,6 +663,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Positions to a record (and optional byte) within an open relative file.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'HEADER',
@@ -669,6 +673,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Formats (news) a disk, writing a name and two-character id.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'COLLECT',
@@ -678,6 +683,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Validates the disk, reclaiming space allocated to improperly closed files.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'BACKUP',
@@ -687,6 +693,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Duplicates an entire disk from one drive to another on a dual-drive unit.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'COPY',
@@ -696,6 +703,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Copies a single disk file to a new name (or another drive).',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'APPEND',
@@ -705,6 +713,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Opens an existing sequential file positioned at its end so PRINT# adds to it.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'DSAVE',
@@ -714,6 +723,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Saves the BASIC program to disk by name — the disk equivalent of SAVE.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'DLOAD',
@@ -723,6 +733,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Loads a BASIC program from disk by name — the disk equivalent of LOAD.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'CATALOG',
@@ -732,6 +743,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Displays the disk directory without disturbing the program in memory (synonym of DIRECTORY).',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'RENAME',
@@ -740,6 +752,7 @@ export const commodoreReference: BasicReferenceTableData = {
       syntax: 'RENAME <string> TO <string>',
       description: 'Renames a file on the disk.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'SCRATCH',
@@ -748,6 +761,7 @@ export const commodoreReference: BasicReferenceTableData = {
       syntax: 'SCRATCH <string> [, D<number>]',
       description: 'Deletes (scratches) a file from the disk.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
     {
       name: 'DIRECTORY',
@@ -757,6 +771,7 @@ export const commodoreReference: BasicReferenceTableData = {
       description:
         'Displays the disk directory without disturbing the program in memory.',
       tag: 'BASIC 4.0',
+      onlyOn: ['pet'],
     },
   ],
 };

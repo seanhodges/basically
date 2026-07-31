@@ -18,6 +18,10 @@ import {
   diffEscapes,
   diffKeywords,
   escapeSections,
+  escapeTableForMachine,
+  factText,
+  fmtBytes,
+  tableForMachine,
   type CapabilitySection,
   type EscapeSection,
   type KeywordChange,
@@ -32,15 +36,30 @@ import type { DomainGuidance } from '../../../reference/data/domain-guidance';
 import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
 
-/** One selectable dialect: its reference/escape tables and porting facts. */
+/**
+ * One selectable option: a machine, or a BASIC shared by a family of them.
+ *
+ * The reference and escape tables belong to the *page*, which may cover several
+ * machines; `machine` is what narrows them to one (see `tableForMachine`).
+ * `facts` carries one entry for a machine and one per member for a family, so a
+ * figure the family disagrees on can be reported as a range instead of quietly
+ * becoming the marquee machine's.
+ */
 interface DialectOption {
-  /** Page slug (e.g. "zx81"), used for deep links and reference links. */
+  /** Selection id: a dialect id, or a family slug. Used in `?from=`/`?to=`. */
   id: string;
+  /** Reference page slug (e.g. "cpc"), for reference links and pair data. */
+  page: string;
+  /** Dialect id to narrow the page's rows to; undefined for a family. */
+  machine?: string;
   /** Human name shown in the dropdown. */
   label: string;
+  /** Manufacturer, for grouping the dropdown. Absent on family options. */
+  group?: string;
   reference: ReferenceTableData;
   escapes?: EscapeTableData;
-  facts?: PortingFacts;
+  /** One entry for a machine; one per member, in reading order, for a family. */
+  facts: { label: string; facts: PortingFacts }[];
 }
 
 const props = defineProps<{ dialects: DialectOption[] }>();
@@ -50,10 +69,11 @@ const props = defineProps<{ dialects: DialectOption[] }>();
 const CONVERT_MESSAGE = 'basically:compare-convert';
 
 // The pair the page opens on when the URL names no `?from=`/`?to=`: the two
-// most-used dialects, and a genuinely instructive port (integer-ish Microsoft
-// BASIC with PEEK/POKE graphics → a dialect with PLOT/DRAW/CIRCLE and colour).
-// Falls back to the first two options if either id is ever unregistered.
-const DEFAULT_FROM = 'commodore';
+// most-used machines, and a genuinely instructive port (integer-ish Microsoft
+// BASIC with PEEK/POKE graphics → a machine with PLOT/DRAW/CIRCLE and colour).
+// Machines now, not families: the default should demonstrate what the page is
+// for. Falls back to the first two options if either id is ever unregistered.
+const DEFAULT_FROM = 'commodore64';
 const DEFAULT_TO = 'zxspectrum';
 
 function defaultId(preferred: string, fallbackIndex: number): string {
@@ -76,17 +96,58 @@ function optionFor(id: string): DialectOption | undefined {
   return props.dialects.find((d) => d.id === id);
 }
 
+/**
+ * Dropdown options under manufacturer headings, with the shared BASICs last.
+ *
+ * Seventeen flat options is a list to search rather than scan; grouped, it is
+ * the same shape as the machine picker in the IDE. Order comes from the option
+ * array, so `machines.ts` decides it in one place.
+ */
+const optionGroups = computed(() => {
+  const groups: { label: string; options: DialectOption[] }[] = [];
+  for (const option of props.dialects) {
+    const label = option.group ?? 'Shared BASICs';
+    const existing = groups.find((g) => g.label === label);
+    if (existing) existing.options.push(option);
+    else groups.push({ label, options: [option] });
+  }
+  // Whichever group holds the family options sorts last: they are the fallback
+  // for a reader who has not yet picked a machine, not the primary choice.
+  return [
+    ...groups.filter((g) => g.label !== 'Shared BASICs'),
+    ...groups.filter((g) => g.label === 'Shared BASICs'),
+  ];
+});
+
 const source = computed(() => optionFor(from.value));
 const target = computed(() => optionFor(to.value));
 const sameSelection = computed(() => from.value === to.value);
 
+/**
+ * The chosen side's rows, narrowed to the machine it names. A page's rows are
+ * the union of what its machines have, so without this a port to a CPC 464 is
+ * offered BASIC 1.1 commands and a C64 port is asked to deal with PET-only disk
+ * commands. A family selection keeps the whole page, which is what it means.
+ */
+const sourceTable = computed(() => {
+  const s = source.value;
+  return s ? tableForMachine(s.reference, s.machine) : undefined;
+});
+const targetTable = computed(() => {
+  const t = target.value;
+  return t ? tableForMachine(t.reference, t.machine) : undefined;
+});
+
 const keywordDiff = computed(() => {
   const s = source.value;
   const t = target.value;
-  if (!s || !t) return null;
-  return diffKeywords(s.reference, t.reference, {
-    from: s.id,
-    to: t.id,
+  if (!s || !t || !sourceTable.value || !targetTable.value) return null;
+  // `from`/`to` stay *page* slugs: the cross-dialect spelling data
+  // (equivalences, false friends, pair notes) is a property of the BASIC, which
+  // every machine on a page shares.
+  return diffKeywords(sourceTable.value, targetTable.value, {
+    from: s.page,
+    to: t.page,
     equivalences: keywordEquivalences,
   });
 });
@@ -99,20 +160,29 @@ const keywordDiff = computed(() => {
 // the fact table instead (see factRows), not as prose.
 const guidance = computed(() =>
   composeGuidance({
-    from: from.value,
-    to: to.value,
-    targetFacts: target.value?.facts,
+    from: source.value?.page ?? from.value,
+    to: target.value?.page ?? to.value,
+    // Notes and substitutions are written for the BASIC, so every machine on a
+    // page carries the same ones; the first member speaks for a family.
+    targetFacts: target.value?.facts[0]?.facts,
     pairNotes: pairPortingNotes,
     falseFriends,
     domainGuidance,
   }),
 );
 
-const escapeDiff = computed(() => {
+const sourceEscapes = computed(() => {
   const s = source.value;
+  return s?.escapes ? escapeTableForMachine(s.escapes, s.machine) : undefined;
+});
+const targetEscapes = computed(() => {
   const t = target.value;
-  if (!s?.escapes || !t?.escapes) return null;
-  return diffEscapes(s.escapes, t.escapes);
+  return t?.escapes ? escapeTableForMachine(t.escapes, t.machine) : undefined;
+});
+
+const escapeDiff = computed(() => {
+  if (!sourceEscapes.value || !targetEscapes.value) return null;
+  return diffEscapes(sourceEscapes.value, targetEscapes.value);
 });
 
 // Some cmp-list's run to dozens of rows for dissimilar pairs (e.g. ZX81 →
@@ -234,10 +304,13 @@ const capabilities = computed<CapabilitySection[]>(() => {
   return capabilitySections(
     diff.mustReplace,
     diff.newlyAvailable,
-    t.reference,
+    // Narrowed, so "the target has no keyword in this domain at all" is judged
+    // on what the chosen machine has rather than what its family has.
+    targetTable.value ?? t.reference,
     DOMAIN_ORDER,
     domainGuidance,
-    t.id,
+    // Page-keyed: domain guidance is written per BASIC, not per machine.
+    t.page,
   );
 });
 
@@ -322,7 +395,7 @@ function fmtLet(f: PortingFacts): string {
   }[f.letRequired];
 }
 function fmtRam(f: PortingFacts): string {
-  return `${f.freeRamBytes.toLocaleString('en-GB')} bytes`;
+  return fmtBytes(f.freeRamBytes);
 }
 function fmtAddress(f: PortingFacts): string {
   if (f.addressNotation === 'hex') {
@@ -332,9 +405,9 @@ function fmtAddress(f: PortingFacts): string {
 }
 
 const factRows = computed<FactRow[]>(() => {
-  const s = source.value?.facts;
-  const t = target.value?.facts;
-  if (!s || !t) return [];
+  const s = source.value;
+  const t = target.value;
+  if (!s?.facts.length || !t?.facts.length) return [];
   const rows: [string, (f: PortingFacts) => string][] = [
     ['Line numbers', (f) => f.lineNumberRange],
     ['Statements per line', fmtSeparator],
@@ -355,8 +428,8 @@ const factRows = computed<FactRow[]>(() => {
     ['Address notation', fmtAddress],
   ];
   return rows.map(([label, get]) => {
-    const fromText = get(s);
-    const toText = get(t);
+    const fromText = factText(s.facts, get);
+    const toText = factText(t.facts, get);
     return { label, fromText, toText, changed: fromText !== toText };
   });
 });
@@ -573,9 +646,11 @@ function convertWithAi() {
         <label class="cmp-field">
           <span>Porting from</span>
           <select v-model="from" @change="syncUrl">
-            <option v-for="d in dialects" :key="d.id" :value="d.id">
-              {{ d.label }}
-            </option>
+            <optgroup v-for="g in optionGroups" :key="g.label" :label="g.label">
+              <option v-for="d in g.options" :key="d.id" :value="d.id">
+                {{ d.label }}
+              </option>
+            </optgroup>
           </select>
         </label>
         <button
@@ -590,9 +665,11 @@ function convertWithAi() {
         <label class="cmp-field">
           <span>to</span>
           <select v-model="to" @change="syncUrl">
-            <option v-for="d in dialects" :key="d.id" :value="d.id">
-              {{ d.label }}
-            </option>
+            <optgroup v-for="g in optionGroups" :key="g.label" :label="g.label">
+              <option v-for="d in g.options" :key="d.id" :value="d.id">
+                {{ d.label }}
+              </option>
+            </optgroup>
           </select>
         </label>
         <button
@@ -615,7 +692,7 @@ function convertWithAi() {
       </div>
 
       <p v-if="sameSelection" class="cmp-note">
-        Pick two different dialects to see what changes.
+        Pick two different machines to see what changes.
       </p>
 
       <template v-else-if="source && target && keywordDiff">
@@ -636,14 +713,14 @@ function convertWithAi() {
         </nav>
         <p class="cmp-links">
           Full reference:
-          <a :href="refLinks(source.id).reference">{{ source.label }}</a>
-          (<a :href="refLinks(source.id).hardware">hardware</a>,
-          <a :href="refLinks(source.id).escapes">escape codes</a>,
-          <a :href="refLinks(source.id).formats">file formats</a>) ·
-          <a :href="refLinks(target.id).reference">{{ target.label }}</a>
-          (<a :href="refLinks(target.id).hardware">hardware</a>,
-          <a :href="refLinks(target.id).escapes">escape codes</a>,
-          <a :href="refLinks(target.id).formats">file formats</a>)
+          <a :href="refLinks(source.page).reference">{{ source.label }}</a>
+          (<a :href="refLinks(source.page).hardware">hardware</a>,
+          <a :href="refLinks(source.page).escapes">escape codes</a>,
+          <a :href="refLinks(source.page).formats">file formats</a>) ·
+          <a :href="refLinks(target.page).reference">{{ target.label }}</a>
+          (<a :href="refLinks(target.page).hardware">hardware</a>,
+          <a :href="refLinks(target.page).escapes">escape codes</a>,
+          <a :href="refLinks(target.page).formats">file formats</a>)
         </p>
       </template>
     </div>
@@ -1003,7 +1080,7 @@ function convertWithAi() {
         <p class="cmp-hint">
           Embedded colour and graphics control codes differ between the
           machines. Grouped by what they do; the
-          <a :href="refLinks(source.id).escapes"
+          <a :href="refLinks(source.page).escapes"
             >{{ source.label }} escape-code reference</a
           >
           gives every code's meaning.
@@ -1035,7 +1112,7 @@ function convertWithAi() {
           {{ target.label }} adds {{ count(escapeAdded, 'code') }} across
           {{ count(escapeAddedCategories, 'category', 'categories') }} the
           program has not used —
-          <a :href="refLinks(target.id).escapes"
+          <a :href="refLinks(target.page).escapes"
             >see its escape-code reference</a
           >.
         </p>

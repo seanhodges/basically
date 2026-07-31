@@ -901,17 +901,35 @@ const ABBREVIATION_TOKEN_ORDER: readonly number[] = [
   0xb9, 0xfd, 0xba, 0xfe, 0xff,
 ];
 
+/** Editor-facing shape of a keyword: display word plus its optional help. */
+function editorKeyword(k: BbcKeyword): KeywordInfo {
+  return {
+    word: displayWord(k.word),
+    token: k.token,
+    kind: k.kind,
+    ...(k.signature ? { signature: k.signature } : {}),
+    ...(k.doc ? { doc: k.doc } : {}),
+  };
+}
+
 /**
- * Editor-facing keyword list (highlighting + autocomplete). Same data as
- * {@link bbcKeywordTable} with the trailing '(' removed from the display word.
+ * Editor-facing keyword list for BASIC II (highlighting + autocomplete). Same
+ * data as {@link bbcKeywordTable} with the trailing '(' removed from the
+ * display word.
  */
-export const bbcKeywords: KeywordInfo[] = bbcKeywordTable.map((k) => ({
-  word: displayWord(k.word),
-  token: k.token,
-  kind: k.kind,
-  ...(k.signature ? { signature: k.signature } : {}),
-  ...(k.doc ? { doc: k.doc } : {}),
-}));
+export const bbcKeywords: KeywordInfo[] = bbcKeywordTable.map(editorKeyword);
+
+/**
+ * The same for BASIC IV (BBC Master), which adds EDIT. The Master's tokenizer
+ * has always accepted it - it runs {@link BASIC_IV} - so listing the BASIC II
+ * set here left the editor unable to highlight or complete a command the
+ * machine takes, and left it out of the docs, whose reference table is pinned
+ * to this list.
+ */
+export const bbcMasterKeywords: KeywordInfo[] = [
+  ...bbcKeywordTable,
+  ...basicIVExtraKeywords,
+].map(editorKeyword);
 
 /** Keywords sorted longest spelling first, for greedy matching. */
 export const bbcKeywordsByLength: BbcKeyword[] = [...bbcKeywordTable].sort(

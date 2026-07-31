@@ -38,9 +38,13 @@ The fold produces wrong output the user acts on:
   stops pinning pages to family *unions*. Both are replaced by per-machine
   assertions covering all 13 dialects — strictly stronger, and they fail until
   the data is scoped correctly.
-- Fixes a pre-existing gap the same seam explains: `bbcReference` is pinned to
-  `bbcKeywords` (BASIC II), so BASIC IV's `EDIT` is absent from the BBC docs
-  entirely.
+- Fixes a pre-existing gap of exactly the class this change addresses — a
+  variant not represented as itself. The BBC Master's tokenizer runs BASIC IV and
+  accepts `EDIT`, but `bbcmaster.keywords` was the BASIC II list, so the editor
+  could neither highlight nor complete a command the machine takes, and the docs
+  (whose table is pinned to that list) never documented it. The Master now
+  carries its own editor keyword list, and `EDIT` gains a reference row scoped
+  to it.
 
 ## Capabilities
 
@@ -93,8 +97,11 @@ None.
 - **Tests**: `keyword-crosscheck`, `escape-crosscheck`, `facts-crosscheck` and
   `porting-crosscheck` all move to per-machine pinning; `e2e/porting-guidance/`
   gains coverage that converting to a variant lands in that variant.
-- **No `src/dialects/` or emulator changes.** The `Dialect` seam is untouched;
-  this change only stops the docs from flattening what the seam already models.
+- **`src/dialects/`**: one targeted fix only — the BBC Master gains its own
+  editor keyword list (`bbcMasterKeywords`, BASIC II plus `EDIT`) instead of
+  sharing the Model B's. No emulator changes, and the `Dialect` / `MachineEmulator`
+  seam is untouched: this is a dialect declaring the keywords its own tokenizer
+  already accepted.
 - **Constraint respected:** the docs runtime still never imports `src/` — the
   registry pulls in every emulator core. Per-machine data stays hand-authored in
   `docs/` and is pinned by crosscheck tests, which may import `src/` freely.

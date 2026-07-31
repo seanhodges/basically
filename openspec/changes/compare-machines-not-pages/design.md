@@ -49,9 +49,16 @@ them. Every decision below follows from that.
 
 ### Scope rows by machine id, keep `tag` as the display label
 
-`ReferenceEntry` and `EscapeEntry` gain `machines?: string[]` — dialect ids the
+`ReferenceEntry` and `EscapeEntry` gain `onlyOn?: string[]` — dialect ids the
 row exists on, absent meaning every machine on the page. The existing prose `tag`
 (`'BASIC 4.0'`, `'BASIC 1.1 only'`, `'128K only'`) stays as the human label.
+
+The field is **not** called `machines`, because `ReferenceTableData` already has
+a `machines: string[]` — the page's *display names*
+(`['Commodore 64', 'Commodore VIC-20', 'Commodore PET']`). Two different meanings
+behind one name, one nested inside the other, is a trap for the next reader.
+`onlyOn: ['cpc6128']` reads correctly at the call site and cannot be confused
+with it.
 
 *Alternative considered: drive the filter off `tag` itself.* Rejected on three
 counts. It is prose, so matching it means string-sniffing; `bbc.ts` has no tags
@@ -62,6 +69,39 @@ them. Structured scoping says exactly what it means.
 *Alternative considered: one reference table per machine.* Rejected — it would
 triple the Commodore table and duplicate ~90% of every family's rows by hand,
 which is precisely the drift the crosscheck tests exist to prevent.
+
+### Narrow the tables at the call site; the diff engine is unchanged
+
+`dialectCompare.ts` needs **no signature changes**. Every function in it is
+already pure with all inputs passed in: `diffKeywords` takes whole
+`ReferenceTableData` objects, `capabilitySections` takes entry arrays plus a
+table, `escapeSections` takes entries plus a table, `composeGuidance` takes
+`targetFacts` ready-made. So machine scoping is applied by narrowing the tables
+*before* they go in:
+
+```
+tableForMachine(page: ReferenceTableData, dialectId): ReferenceTableData
+  → the same table with entries filtered by onlyOn
+```
+
+*Alternative considered: thread a machine id through the four entry points.*
+Rejected — it would change four public signatures and every existing test in
+`dialectCompare.test.ts` to achieve what one filter does at the call site, and it
+would push a machine concept into a module whose header promises it imports only
+docs data types and stays node-testable and SSG-safe.
+
+Two engine details must survive the change:
+
+- `operatorNames(source, target)` deliberately unions **both** tables, because
+  the pages disagree about kind — `NOT` is an operator row on the BBC and a
+  function row on the ZX81. Narrowing happens before that union and must not
+  disturb it, or `NOT` gets reported as newly available on a machine that has
+  always had it.
+- `composeGuidance`'s `from`/`to` stay **page slugs**. Pair notes and false
+  friends are family-wide by design; machine → page resolution happens at the
+  call site.
+
+The only genuinely new engine logic is the union-range presentation for facts.
 
 ### Per-machine crosschecks replace the union crosschecks
 
@@ -142,10 +182,23 @@ under.
   Screen, colour, sound and program start all differ across the Commodore family.
   Decide the range/"varies" presentation once, in `dialectCompare.ts`, rather
   than per field at the call sites.
-- **Escape-code scoping is the least-mapped part.** The PET is monochrome, so
-  colour control codes in `escapes/commodore.ts` do not apply to it. → The
-  per-machine escape crosscheck will enumerate exactly which rows need scoping;
-  do that pass before hand-scoping, not after.
+- **What a machine's hardware ignores is a fact, not an absent row.** The
+  Commodore escape codes are the worked example: all three machines re-export
+  `c64Charset`, and `pet/charset.ts` states that the colour escapes are
+  "meaningless-but-harmless bytes on a monochrome PET: a program may still store
+  and round-trip them, they just have no visible effect". Scoping them off the
+  PET would tell a porter to *replace* `{red}`, and the charset probe in
+  `escape-crosscheck.test.ts` would still pass for the PET — the scoping would
+  contradict its own crosscheck. → The PET's monochrome display belongs in its
+  `colour` fact. Only scope a row when the machine genuinely cannot express it.
+  The same trap applies in reverse to keywords: never scope one in a way the
+  charset disagrees with.
+- **The Spectrum scopes in both directions.** `escapes/zxspectrum.ts` already
+  tags the UDG rows for `0xA3`/`0xA4` `'48K only'` — on a 128K those bytes are
+  the `SPECTRUM` and `PLAY` tokens, not UDGs. So the Spectrum needs 2 keyword
+  rows scoped to `zxspectrum128` *and* 2 escape rows scoped to `zxspectrum`.
+  These two rows are the only escape scoping in the change; every other escape
+  table is a single-machine page or has one row.
 - **Selection count roughly doubles (8 → 17) in a native `<select>`.** → Group
   the options so the list stays scannable. The follow-up picker change removes
   this concern entirely, which is part of why it follows closely.

@@ -29,6 +29,7 @@ import { commodoreEscapes } from './commodore';
 import { trs80Escapes } from './trs80';
 import { atomEscapes } from './atom';
 import { cpcEscapes } from './cpc';
+import { dialects } from '../../../../src/dialects/registry';
 
 import {
   CHARSET_PROBES,
@@ -250,5 +251,68 @@ describe('escape cross-check: table-driven extras', () => {
         }
       }
     }
+  });
+});
+
+/**
+ * Machine scoping on escape rows.
+ *
+ * The probes above stay per-*family*, and deliberately so: a control code is a
+ * property of the charset, and machines sharing a reference page share their
+ * charset module outright (`pet/charset.ts` and `vic20/charset.ts` both
+ * re-export `c64Charset`; the 128K Spectrum's extends the 48K's). Running the
+ * same parse probe once per machine would assert the same thing three times.
+ *
+ * What *is* per-machine is `onlyOn`, and it needs guarding in two directions:
+ * a row must not name a machine its page does not cover, and - the trap this
+ * change nearly fell into - a row must not be scoped away from a machine whose
+ * charset still accepts it. The Commodore colour codes are the worked example:
+ * they are meaningless on a monochrome PET but parse and round-trip there
+ * exactly as on a C64, so scoping them off the PET would tell a porter to
+ * replace `{red}` while this file's own probe kept proving the PET accepts it.
+ * What the hardware ignores is a fact (`PortingFacts.colour`), not an absent
+ * row.
+ */
+describe('escape machine scoping', () => {
+  const pageOf = (d: { id: string; docsReference?: string }) =>
+    d.docsReference ?? d.id;
+
+  it('every onlyOn names a machine the page covers', () => {
+    for (const [id, adapter] of ADAPTERS) {
+      const onPage = new Set(
+        dialects.filter((d) => pageOf(d) === id).map((d) => d.id),
+      );
+      for (const entry of adapter.data.entries) {
+        for (const scoped of entry.onlyOn ?? []) {
+          expect(
+            onPage,
+            `${id}: ${entry.escape} scoped to ${scoped}`,
+          ).toContain(scoped);
+        }
+      }
+    }
+  });
+
+  it('a scoped row still parses on the machines it names', () => {
+    for (const [id, adapter] of ADAPTERS) {
+      for (const entry of adapter.data.entries) {
+        if (!entry.onlyOn || entry.probe === 'float') continue;
+        expect(
+          adapter.parse(entry.example.source),
+          `${id}: ${entry.escape}`,
+        ).toEqual(entry.example.bytes);
+      }
+    }
+  });
+
+  // Pins the enumeration this change is built on, so a future scoping has to be
+  // a deliberate act rather than a quiet one.
+  it('scopes only the Spectrum UDG rows that a 128K reads as tokens', () => {
+    const scoped = ADAPTERS.flatMap(([id, adapter]) =>
+      adapter.data.entries
+        .filter((e) => e.onlyOn)
+        .map((e) => `${id}:${e.escape}`),
+    );
+    expect(scoped.sort()).toEqual(['zxspectrum:\\t', 'zxspectrum:\\u']);
   });
 });

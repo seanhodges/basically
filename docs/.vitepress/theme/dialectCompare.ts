@@ -93,6 +93,96 @@ export interface EscapeDiff {
   unchanged: number;
 }
 
+/**
+ * Rows one machine actually has. A row with no `onlyOn` belongs to every machine
+ * its page covers; one that names ids belongs only to those.
+ *
+ * `dialectId` is `undefined` for a family selection ("either CPC"), which keeps
+ * the whole page - the union of its machines, which is what that selection
+ * means.
+ */
+function entriesForMachine<E extends { onlyOn?: string[] }>(
+  entries: readonly E[],
+  dialectId: string | undefined,
+): E[] {
+  if (dialectId === undefined) return [...entries];
+  return entries.filter((e) => !e.onlyOn || e.onlyOn.includes(dialectId));
+}
+
+/**
+ * Narrow a reference table to one machine, so the diff compares machines rather
+ * than pages.
+ *
+ * Four of the eight reference pages cover more than one machine - the Spectrum's
+ * 48K and 128K, the BBC's BASIC II and IV, Locomotive 1.0 and 1.1, and the
+ * Commodore V2 and 4.0 - and the rows a page carries are the *union* of what its
+ * machines have. Diffing the unions reports commands the reader's machine does
+ * not have (a C64 port asked to deal with the PET-only `DLOAD`) and offers
+ * commands the target does not have (`FILL` on a CPC 464).
+ *
+ * Applied by the caller rather than inside {@link diffKeywords} and friends:
+ * those take whole tables already, so one filter here spares four signatures a
+ * machine parameter and keeps this module what its header promises - pure, and
+ * knowing nothing about `src/`.
+ */
+export function tableForMachine(
+  table: ReferenceTableData,
+  dialectId: string | undefined,
+): ReferenceTableData {
+  return { ...table, entries: entriesForMachine(table.entries, dialectId) };
+}
+
+/**
+ * Narrow an escape table to one machine. See {@link tableForMachine}; the rule
+ * is identical, only rarer - a control code is a property of the charset, and
+ * machines sharing a page usually share the charset outright.
+ */
+export function escapeTableForMachine(
+  table: EscapeTableData,
+  dialectId: string | undefined,
+): EscapeTableData {
+  return { ...table, entries: entriesForMachine(table.entries, dialectId) };
+}
+
+/** A byte count as the fact table writes it: "38,911 bytes". */
+export function fmtBytes(bytes: number): string {
+  return `${bytes.toLocaleString('en-GB')} bytes`;
+}
+
+/**
+ * One fact as a chosen side reports it, given that side's machines.
+ *
+ * A machine answers for itself: one entry, one value. A family answers for all
+ * its machines at once, and the two cases it has to tell apart are agreement
+ * and disagreement. Where its machines agree the figure is stated plainly;
+ * where they disagree it is reported across them - a "Commodore BASIC"
+ * selection has between 3,583 and 38,911 bytes free depending on which machine
+ * you mean, and quietly picking the C64's number is how the page-keyed table
+ * misled a VIC-20 port by a factor of ten.
+ *
+ * Byte counts collapse to a span because a span is what a reader can act on.
+ * Prose cannot be spanned, so it names which machine says what instead.
+ */
+export function factText<F>(
+  entries: readonly { label: string; facts: F }[],
+  get: (facts: F) => string,
+): string {
+  if (!entries.length) return '';
+  const texts = entries.map((e) => get(e.facts));
+  const distinct = [...new Set(texts)];
+  if (distinct.length === 1) return distinct[0]!;
+
+  const numbers = texts.map((t) => Number(t.replace(/[^\d]/g, '')));
+  const allBytes = texts.every(
+    (t, i) => /^[\d,]+ bytes$/.test(t) && numbers[i]! > 0,
+  );
+  if (allBytes) {
+    const low = Math.min(...numbers).toLocaleString('en-GB');
+    return `${low}\u2013${fmtBytes(Math.max(...numbers))}`;
+  }
+  return entries.map((e, i) => `${e.label}: ${texts[i]}`).join('; ');
+}
+
 /** Collapse runs of internal whitespace so cosmetic spacing isn't a "change". */
 function normaliseSyntax(syntax: string): string {
   return syntax.trim().replace(/\s+/g, ' ');
