@@ -36,10 +36,18 @@ type CompareConvertMessage = Partial<
 /** The one message we post *into* the frame: route to another docs topic. */
 const DOCS_NAVIGATE_MESSAGE = 'basically:docs-navigate';
 
-/** Resolve a docs reference-page slug to the dialect whose page it is. */
-function dialectForPage(slug: unknown) {
-  if (typeof slug !== 'string') return undefined;
-  return dialects.find((d) => (d.docsReference ?? d.id) === slug);
+/**
+ * Resolve the porting guide's conversion target to a dialect.
+ *
+ * The guide sends a machine id and nothing else. It used to send a docs page
+ * slug, which several machines share - so the lookup matched on the page and
+ * returned whichever family member came first in the registry, and converting
+ * to Locomotive BASIC opened a CPC 464 however clearly the reader had asked for
+ * a 6128. Matching ids only is what removes that whole class of ambiguity.
+ */
+function dialectForMachineId(id: unknown) {
+  if (typeof id !== 'string') return undefined;
+  return dialects.find((d) => d.id === id);
 }
 
 function ChevronRightIcon() {
@@ -144,7 +152,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   // (keeping the current program as the starting point, so applying the result
   // lints against the right machine) and ask the AI to translate it.
   const convertProgram = (data: CompareConvertMessage) => {
-    const target = dialectForPage(data.toId);
+    const target = dialectForMachineId(data.toId);
     if (!target) return;
     const creds = aiCredentials();
     if (!creds) return;

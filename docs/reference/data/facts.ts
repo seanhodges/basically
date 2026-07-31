@@ -1,13 +1,26 @@
-// Porting facts for each dialect reference page: the language-rule and hardware
+// Porting facts for each supported machine: the language-rule and hardware
 // differences a comparison highlights. Hand-authored from each dialect's
 // hardware page, tokenizer and aiProfile; edit by hand. The structural fields
 // (freeRamBytes, addressNotation, hexPrefix, statementSepChar, and the shape of
 // memoryWriteSyntax) are pinned to src/dialects/ by facts-crosscheck.test.ts, so
-// keep them true to the representative dialect listed there. Shared pages
-// describe the marquee machine (Commodore → C64) with a note about siblings.
-import type { PortingFacts } from './types';
+// keep them true to the machine whose id the entry carries.
+//
+// One entry per machine, keyed by dialect id. These used to be keyed by docs
+// *page*, with a shared page describing its marquee machine and hedging about
+// the others in prose - "40×25 text (VIC-20 is 22×23, the PET 40×25 monochrome
+// - see the hardware page)". That hedging is what a per-machine table replaces:
+// a reader porting to a VIC-20 was being shown the C64's 38911 bytes free when
+// the real figure is 3583, and no parenthetical fixes a number.
+//
+// Machines that differ from a relative in only a few facts use `extends` and
+// state just those, so the shared prose exists once. See PortingFactsEntry.
+import {
+  resolvePortingFacts,
+  type PortingFacts,
+  type PortingFactsEntry,
+} from './types';
 
-export const portingFacts: PortingFacts[] = [
+const entries: PortingFactsEntry[] = [
   {
     id: 'zx81',
     portingNotes: [
@@ -168,7 +181,7 @@ export const portingFacts: PortingFacts[] = [
     addressNotation: 'dec',
   },
   {
-    id: 'bbc',
+    id: 'bbcmicro',
     portingNotes: [
       {
         text: 'Structured: DEF PROC…ENDPROC, DEF FN and REPEAT…UNTIL — but there is no WHILE.',
@@ -224,7 +237,7 @@ export const portingFacts: PortingFacts[] = [
     hexPrefix: '&',
   },
   {
-    id: 'commodore',
+    id: 'commodore64',
     portingNotes: [
       {
         text: 'There is no ELSE — every IF…THEN…ELSE has to be restructured.',
@@ -277,16 +290,14 @@ export const portingFacts: PortingFacts[] = [
       'Only the first two characters are significant; % suffix = integer, $ = string.',
     numberHandling: 'Floating point, with an integer type marked by %.',
     exponentOperator: '↑',
-    screen:
-      '40×25 text; C64 bitmap 320×200 (VIC-20 is 22×23, the PET 40×25 monochrome — see the hardware page).',
-    // C64 defaults (the VIC-20 and PET place both elsewhere — see the hardware page).
+    screen: '40×25 text; bitmap 320×200.',
     screenBase: '$0400',
+    // The region starts at $0800; BASIC text begins one byte in, past the zero
+    // byte the interpreter expects there.
     programStart: '$0801',
     freeRamBytes: 38911,
-    colour:
-      '16 colours and hardware sprites on the C64 (VIC-20 has 8 colours; the PET is monochrome).',
-    sound:
-      'Three-voice SID on the C64 (the VIC-20 has a 3-voice VIC, the PET a single square-wave voice).',
+    colour: '16 colours and eight hardware sprites.',
+    sound: 'Three-voice SID with filters, driven by POKE.',
     memoryWriteSyntax: 'POKE addr,val',
     addressNotation: 'dec',
   },
@@ -423,7 +434,7 @@ export const portingFacts: PortingFacts[] = [
     addressNotation: 'dec',
   },
   {
-    id: 'cpc',
+    id: 'cpc464',
     portingNotes: [
       {
         text: 'Locomotive is the richest of these BASICs: real ELSE, WHILE…WEND, and AFTER/EVERY interrupt timers that call a subroutine on a clock.',
@@ -476,4 +487,62 @@ export const portingFacts: PortingFacts[] = [
     addressNotation: 'hex',
     hexPrefix: '&',
   },
+
+  // --- Variants -----------------------------------------------------------
+  // Each states only what differs from the relative it extends. What is absent
+  // here is shared, and shared deliberately: the 128K Spectrum runs the same
+  // BASIC in the same memory map as a 48K, and a CPC 6128 differs from a 464 in
+  // its keyword set (which the reference table carries) rather than its facts.
+
+  {
+    id: 'zxspectrum128',
+    extends: 'zxspectrum',
+    // Same 41472-byte BASIC area and memory map as the 48K: the extra 64K is
+    // bank-switched RAM the interpreter uses for its own workspace, not program
+    // space. The audible difference is the whole difference.
+    sound: 'PLAY strings on the three-channel AY-3-8912, or BEEP as on a 48K.',
+  },
+  {
+    id: 'bbcmaster',
+    extends: 'bbcmicro',
+    freeRamBytes: 30720,
+    // Shadow screen memory keeps the display out of the program's way, so BASIC
+    // text starts lower than the Model B's &1900.
+    programStart: '&0E00',
+  },
+  {
+    id: 'pet',
+    extends: 'commodore64',
+    freeRamBytes: 31743,
+    screenBase: '$8000',
+    programStart: '$0400',
+    screen: '40×25 text, monochrome; no bitmap mode and no sprites.',
+    colour:
+      'None - the display is monochrome. Colour control codes are accepted and round-trip, but have no visible effect.',
+    sound:
+      'A single square-wave voice driven through the user port; no sound chip.',
+  },
+  {
+    id: 'vic20',
+    extends: 'commodore64',
+    // The smallest BASIC budget of any machine here by an order of magnitude:
+    // a program that fits a C64 very often will not fit unexpanded.
+    freeRamBytes: 3583,
+    screenBase: '$1E00',
+    programStart: '$1000',
+    screen: '22×23 text; no bitmap mode, and characters are 8×8 as on the C64.',
+    colour: '8 colours, set per character cell; no sprites.',
+    sound: 'Three tone voices and a noise voice on the VIC-I, driven by POKE.',
+  },
+  {
+    id: 'cpc6128',
+    extends: 'cpc464',
+    // Identical on every crosschecked figure: the 6128's extra 64K is banked,
+    // not BASIC program space, so its free RAM matches the 464's exactly. What
+    // it adds is the twelve BASIC 1.1 commands, which the reference table
+    // carries as rows scoped to this machine.
+  },
 ];
+
+/** Machine facts with every `extends` folded in; see {@link resolvePortingFacts}. */
+export const portingFacts: PortingFacts[] = resolvePortingFacts(entries);

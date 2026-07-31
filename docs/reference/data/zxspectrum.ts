@@ -730,6 +730,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       description:
         'Switches a 128K machine back into 48 BASIC mode. Only meaningful on the 128K models.',
       tag: '128K only',
+      onlyOn: ['zxspectrum128'],
     },
     {
       name: 'PLAY',
@@ -739,6 +740,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       description:
         'Plays music strings on the AY-3-8912 sound chip, one string per channel. Only available in 128K mode.',
       tag: '128K only',
+      onlyOn: ['zxspectrum128'],
     },
   ],
 };

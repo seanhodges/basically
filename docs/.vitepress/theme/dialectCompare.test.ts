@@ -16,8 +16,10 @@ import {
   diffEscapes,
   diffKeywords,
   escapeSections,
+  escapeTableForMachine,
   falseFriendsBetween,
   groupByDomain,
+  tableForMachine,
 } from './dialectCompare';
 
 /** Build a minimal reference table from bare entries (title/machines unused by the diff). */
@@ -89,6 +91,60 @@ const NOT_OP: ReferenceEntry = {
   syntax: 'NOT <expr>',
   description: 'Logical negation.',
 };
+
+/** A row only the CPC 6128 has, standing in for any BASIC-version addition. */
+const FILL: ReferenceEntry = {
+  name: 'FILL',
+  kind: 'command',
+  syntax: 'FILL <ink>',
+  description: 'Flood-fill from the graphics cursor.',
+  tag: 'BASIC 1.1 only',
+  onlyOn: ['cpc6128'],
+};
+
+describe('tableForMachine', () => {
+  const page = refTable([PRINT, FILL]);
+
+  it('keeps unscoped rows and drops rows another machine owns', () => {
+    expect(tableForMachine(page, 'cpc464').entries).toEqual([PRINT]);
+  });
+
+  it('keeps a scoped row for the machine that owns it', () => {
+    expect(tableForMachine(page, 'cpc6128').entries).toEqual([PRINT, FILL]);
+  });
+
+  it('leaves the source table untouched', () => {
+    tableForMachine(page, 'cpc464');
+    expect(page.entries).toEqual([PRINT, FILL]);
+  });
+
+  it('carries the rest of the table through', () => {
+    const narrowed = tableForMachine(page, 'cpc464');
+    expect(narrowed.title).toBe(page.title);
+    expect(narrowed.machines).toEqual(page.machines);
+  });
+
+  // The whole point of the helper: diffing unions reports commands the reader's
+  // machine does not have, and offers commands the target does not have.
+  it('stops a sibling-only command being reported as a gain', () => {
+    const union = diffKeywords(refTable([PRINT]), page);
+    expect(union.newlyAvailable.map((e) => e.name)).toEqual(['FILL']);
+
+    const perMachine = diffKeywords(
+      refTable([PRINT]),
+      tableForMachine(page, 'cpc464'),
+    );
+    expect(perMachine.newlyAvailable).toEqual([]);
+  });
+
+  it('still reports the command as a gain on the machine that has it', () => {
+    const diff = diffKeywords(
+      refTable([PRINT]),
+      tableForMachine(page, 'cpc6128'),
+    );
+    expect(diff.newlyAvailable.map((e) => e.name)).toEqual(['FILL']);
+  });
+});
 
 describe('diffKeywords', () => {
   it('buckets source-only names into mustReplace', () => {
@@ -319,6 +375,38 @@ describe('diffEscapes', () => {
     const diff = diffEscapes(escTable([INK, BLOCK]), escTable([INK, BLOCK]));
     expect(diff.unchanged).toBe(2);
     expect(diff.mustReplace).toEqual([]);
+  });
+});
+
+describe('escapeTableForMachine', () => {
+  // The real case: the Spectrum's \a UDG rows are 48K-only, because a 128K
+  // reads 0xA3/0xA4 as the SPECTRUM and PLAY tokens instead.
+  const UDG: EscapeTableData['entries'][number] = {
+    escape: '\\a',
+    bytes: '0xA3',
+    category: 'udg',
+    description: 'User-defined graphic A.',
+    tag: '48K only',
+    onlyOn: ['zxspectrum'],
+    example: { source: '\\a', bytes: [0xa3] },
+  };
+  const page = escTable([INK, UDG]);
+
+  it('drops a 48K-only row for the 128K', () => {
+    expect(escapeTableForMachine(page, 'zxspectrum128').entries).toEqual([INK]);
+  });
+
+  it('keeps it for the 48K', () => {
+    expect(escapeTableForMachine(page, 'zxspectrum').entries).toEqual([
+      INK,
+      UDG,
+    ]);
+  });
+
+  it('carries the categories through', () => {
+    expect(escapeTableForMachine(page, 'zxspectrum128').categories).toEqual(
+      page.categories,
+    );
   });
 });
 

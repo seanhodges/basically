@@ -21,6 +21,28 @@ export interface ReferenceEntry {
   /** Optional badge, e.g. "128K only" or "Master only". */
   tag?: string;
   /**
+   * Dialect ids this row exists on, when it does not exist on every machine the
+   * page covers - e.g. `['cpc6128']` for a Locomotive BASIC 1.1 command. Absent
+   * (the common case) means every machine on the page has it.
+   *
+   * Deliberately *not* named `machines`: {@link ReferenceTableData.machines}
+   * already holds the page's display names ("Commodore 64", "Commodore PET"),
+   * and one name for two meanings, nested, is a trap.
+   *
+   * This is what makes the porting comparison per-machine rather than
+   * per-page - see docs/.vitepress/theme/dialectCompare.ts `tableForMachine`.
+   * The prose {@link tag} remains the human-facing badge; this is the machine-
+   * readable form, and keyword-crosscheck.test.ts pins the two together by
+   * requiring each dialect's selected rows to equal its own keyword table.
+   *
+   * Scope a row only when the machine genuinely cannot express it. What a
+   * machine's *hardware* ignores is a fact, not an absent row: the Commodore
+   * colour escapes exist on the monochrome PET and round-trip fine, they simply
+   * have no visible effect, so they stay unscoped and the PET's `colour` fact
+   * carries the truth.
+   */
+  onlyOn?: string[];
+  /**
    * The capability this keyword provides - graphics, sound, storage and so on.
    * Optional *only* because this interface is shared with the per-CPU assembly
    * references, whose mnemonics have no BASIC capability. Every BASIC row has
@@ -71,6 +93,17 @@ export interface EscapeEntry {
   aliases?: string[];
   /** Optional badge, e.g. "48K only" or "parse-only". */
   tag?: string;
+  /**
+   * Dialect ids this row exists on, when it does not exist on every machine the
+   * page covers. See {@link ReferenceEntry.onlyOn} for the full contract - the
+   * two fields mean the same thing and are filtered by the same helper.
+   *
+   * Rare here: a control code is a property of the charset, and the machines
+   * sharing a page usually share that charset outright. The one case in the
+   * tree is the Spectrum's `\a`-`\u` UDG rows for 0xA3/0xA4, which are 48K-only
+   * because a 128K reads those bytes as the SPECTRUM and PLAY tokens.
+   */
+  onlyOn?: string[];
   /**
    * Concrete probe pinning the row to the implementation: `source` must
    * tokenize to exactly `bytes` via the dialect charset (checked by
@@ -215,7 +248,14 @@ export interface PairPortingNotes {
  *    has no reference row.)
  */
 export interface PortingFacts {
-  /** Page slug, matching the dialect's `ReferenceTableData` (e.g. "zx81"). */
+  /**
+   * Dialect id, matching `Dialect.id` in the registry (e.g. "vic20").
+   *
+   * One entry per *machine*, not per reference page. Pages used to be the unit,
+   * with a shared page describing its marquee machine - which told a reader
+   * porting to a VIC-20 that it had the C64's 38911 bytes free rather than its
+   * own 3583, an order of magnitude out.
+   */
   id: string;
   // --- Language rules (hand-authored) ---
   /** Valid line-number range as written, e.g. "1–9999". */
@@ -292,4 +332,53 @@ export interface PortingFacts {
    * by porting-crosscheck.test.ts.
    */
   substitutions: { keyword: string; note: string }[];
+}
+
+/**
+ * A facts entry as authored. Either complete in itself, or naming a relative to
+ * inherit from with `extends` and stating only what differs.
+ *
+ * Thirteen machines would otherwise mean thirteen copies of the same
+ * paragraphs: the VIC-20 and the C64 share every language rule and differ only
+ * in hardware, so the VIC-20 states its screen, colour, sound and addresses and
+ * inherits the rest. Prose written once cannot drift from itself, and the
+ * fields the crosscheck pins are exactly the ones a sibling has to restate.
+ */
+export type PortingFactsEntry = { id: string; extends?: string } & Partial<
+  Omit<PortingFacts, 'id'>
+>;
+
+/**
+ * Resolve authored entries into complete ones by folding each `extends` base
+ * in beneath its overrides.
+ *
+ * One level only - a base may not itself extend - which keeps "what does this
+ * machine actually say?" answerable by reading two entries rather than a chain.
+ * An entry naming a missing or extending base throws: the alternative is a
+ * silently half-populated fact table.
+ */
+export function resolvePortingFacts(
+  entries: readonly PortingFactsEntry[],
+): PortingFacts[] {
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  return entries.map((entry) => {
+    if (entry.extends === undefined) return entry as PortingFacts;
+    const base = byId.get(entry.extends);
+    if (!base) {
+      throw new Error(
+        `porting facts "${entry.id}" extends unknown entry "${entry.extends}"`,
+      );
+    }
+    if (base.extends !== undefined) {
+      throw new Error(
+        `porting facts "${entry.id}" extends "${base.id}", which itself ` +
+          `extends "${base.extends}" - inheritance is one level only`,
+      );
+    }
+    // `extends` is dropped: a resolved entry stands alone.
+    const { extends: _base, ...own } = entry;
+    const merged: Record<string, unknown> = { ...base, ...own };
+    delete merged.extends;
+    return merged as unknown as PortingFacts;
+  });
 }

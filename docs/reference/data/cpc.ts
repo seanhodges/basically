@@ -659,6 +659,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'FILL ink',
       description: 'Flood-fill from the graphics cursor.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'GRAPHICS',
@@ -667,6 +668,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'GRAPHICS PEN [ink][,mode]',
       description: 'GRAPHICS PEN / PAPER prefix.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'MASK',
@@ -675,6 +677,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'MASK [pattern][,first]',
       description: 'Set the line-drawing dot pattern.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'FRAME',
@@ -683,6 +686,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'FRAME',
       description: 'Wait for a display frame flyback.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'CURSOR',
@@ -691,6 +695,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'CURSOR [system][,user]',
       description: 'Switch the text cursor on or off.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'ERL',
@@ -1154,6 +1159,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'DERR',
       description: 'Disc error number of the last error.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'BIN$',
@@ -1169,6 +1175,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'DEC$(n,format)',
       description: 'Number formatted to a template.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'HEX$',
@@ -1254,6 +1261,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'COPYCHR$(#s)',
       description: 'Character under the text cursor.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'VPOS',
@@ -1339,6 +1347,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'CLEAR INPUT',
       description: 'Discard pending keyboard input.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'GRAPHICS PEN',
@@ -1347,6 +1356,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'GRAPHICS PEN [ink][,mode]',
       description: 'Set the graphics drawing ink.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'GRAPHICS PAPER',
@@ -1355,6 +1365,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'GRAPHICS PAPER ink',
       description: 'Set the graphics background ink.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
     {
       name: 'ON BREAK CONT',
@@ -1363,6 +1374,7 @@ export const cpcReference: BasicReferenceTableData = {
       syntax: 'ON BREAK CONT',
       description: 'Ignore the ESC (break) key.',
       tag: 'BASIC 1.1 only',
+      onlyOn: ['cpc6128'],
     },
   ],
 };

@@ -93,6 +93,52 @@ export interface EscapeDiff {
   unchanged: number;
 }
 
+/**
+ * Rows one machine actually has. A row with no `onlyOn` belongs to every machine
+ * its page covers; one that names ids belongs only to those.
+ */
+function entriesForMachine<E extends { onlyOn?: string[] }>(
+  entries: readonly E[],
+  dialectId: string,
+): E[] {
+  return entries.filter((e) => !e.onlyOn || e.onlyOn.includes(dialectId));
+}
+
+/**
+ * Narrow a reference table to one machine, so the diff compares machines rather
+ * than pages.
+ *
+ * Four of the eight reference pages cover more than one machine - the Spectrum's
+ * 48K and 128K, the BBC's BASIC II and IV, Locomotive 1.0 and 1.1, and the
+ * Commodore V2 and 4.0 - and the rows a page carries are the *union* of what its
+ * machines have. Diffing the unions reports commands the reader's machine does
+ * not have (a C64 port asked to deal with the PET-only `DLOAD`) and offers
+ * commands the target does not have (`FILL` on a CPC 464).
+ *
+ * Applied by the caller rather than inside {@link diffKeywords} and friends:
+ * those take whole tables already, so one filter here spares four signatures a
+ * machine parameter and keeps this module what its header promises - pure, and
+ * knowing nothing about `src/`.
+ */
+export function tableForMachine(
+  table: ReferenceTableData,
+  dialectId: string,
+): ReferenceTableData {
+  return { ...table, entries: entriesForMachine(table.entries, dialectId) };
+}
+
+/**
+ * Narrow an escape table to one machine. See {@link tableForMachine}; the rule
+ * is identical, only rarer - a control code is a property of the charset, and
+ * machines sharing a page usually share the charset outright.
+ */
+export function escapeTableForMachine(
+  table: EscapeTableData,
+  dialectId: string,
+): EscapeTableData {
+  return { ...table, entries: entriesForMachine(table.entries, dialectId) };
+}
+
 /** Collapse runs of internal whitespace so cosmetic spacing isn't a "change". */
 function normaliseSyntax(syntax: string): string {
   return syntax.trim().replace(/\s+/g, ' ');

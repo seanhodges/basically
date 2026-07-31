@@ -6,7 +6,7 @@ import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 // (If this sibling-import coupling grows, factor the shared pieces into a
 // src/dialects/bbcShared/ module - see docs/dialect-roadmap.md.)
 import { bbcCharset } from '../bbcmicro/charset';
-import { bbcKeywords, BASIC_IV } from '../bbcmicro/keywords';
+import { bbcMasterKeywords, BASIC_IV } from '../bbcmicro/keywords';
 import { tokenizeProgram } from '../bbcmicro/tokenizer';
 import {
   detokenizeProgram,
@@ -50,7 +50,7 @@ export const bbcmaster: Dialect = {
   docsReference: 'bbc',
   programRamBytes: 30720,
   fileExtensions: ['.txt', '.bas'],
-  keywords: bbcKeywords,
+  keywords: bbcMasterKeywords,
   charset: bbcCharset,
   languageSupport: bbcLanguageSupport,
   completionSource: bbcCompletionSource,

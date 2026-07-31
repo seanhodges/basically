@@ -22,31 +22,73 @@ import { zx80Escapes } from './data/escapes/zx80';
 import { zx81Escapes } from './data/escapes/zx81';
 
 import { portingFacts } from './data/facts';
+import { machines as machineList } from './data/machines';
+
+// Reference and escape tables belong to the docs *page*, which may cover
+// several machines; DialectCompare narrows their rows to whichever machine is
+// selected. Facts belong to the *machine*, because free RAM and colour do not
+// survive being averaged across a family.
+const referenceByPage = {
+  atom: atomReference,
+  bbc: bbcReference,
+  commodore: commodoreReference,
+  cpc: cpcReference,
+  trs80: trs80Reference,
+  zxspectrum: zxspectrumReference,
+  zx80: zx80Reference,
+  zx81: zx81Reference,
+};
+const escapesByPage = {
+  atom: atomEscapes,
+  bbc: bbcEscapes,
+  commodore: commodoreEscapes,
+  cpc: cpcEscapes,
+  trs80: trs80Escapes,
+  zxspectrum: zxspectrumEscapes,
+  zx80: zx80Escapes,
+  zx81: zx81Escapes,
+};
+
+// Manufacturer headings for the dropdown. Restated here rather than read from
+// the registry because these docs never import src/; machines-crosscheck.test.ts
+// pins the machine list itself, and a machine missing a heading just groups
+// under its own label rather than breaking.
+const makerOf = {
+  atom: 'Acorn', bbcmicro: 'Acorn', bbcmaster: 'Acorn',
+  pet: 'Commodore', vic20: 'Commodore', commodore64: 'Commodore',
+  cpc464: 'Amstrad', cpc6128: 'Amstrad',
+  trs80: 'Tandy',
+  zx80: 'Sinclair', zx81: 'Sinclair',
+  zxspectrum: 'Sinclair', zxspectrum128: 'Sinclair',
+};
 
 const factsFor = (id) => portingFacts.find((f) => f.id === id);
 
-// Alphabetical by dialect, matching the reference sidebar order.
-const dialects = [
-  { id: 'atom', label: 'Atom BASIC', reference: atomReference, escapes: atomEscapes, facts: factsFor('atom') },
-  { id: 'bbc', label: 'BBC BASIC', reference: bbcReference, escapes: bbcEscapes, facts: factsFor('bbc') },
-  { id: 'commodore', label: 'Commodore BASIC', reference: commodoreReference, escapes: commodoreEscapes, facts: factsFor('commodore') },
-  { id: 'cpc', label: 'Locomotive BASIC', reference: cpcReference, escapes: cpcEscapes, facts: factsFor('cpc') },
-  { id: 'trs80', label: 'TRS-80 Level II BASIC', reference: trs80Reference, escapes: trs80Escapes, facts: factsFor('trs80') },
-  { id: 'zxspectrum', label: 'ZX Spectrum BASIC', reference: zxspectrumReference, escapes: zxspectrumEscapes, facts: factsFor('zxspectrum') },
-  { id: 'zx80', label: 'ZX80 BASIC', reference: zx80Reference, escapes: zx80Escapes, facts: factsFor('zx80') },
-  { id: 'zx81', label: 'ZX81 BASIC', reference: zx81Reference, escapes: zx81Escapes, facts: factsFor('zx81') },
-];
+const dialects = machineList.map((m) => ({
+  id: m.id,
+  page: m.page,
+  machine: m.id,
+  label: m.label,
+  group: makerOf[m.id],
+  reference: referenceByPage[m.page],
+  escapes: escapesByPage[m.page],
+  facts: factsFor(m.id),
+}));
 </script>
 
 # Porting guide
 
-Pick a dialect you're porting **from** and one you're porting **to**, and this
+Pick a machine you're porting **from** and one you're porting **to**, and this
 page tells you what changes: the keywords you lose, gain or must rewrite, the
 control codes that differ, and how the two machines differ in language rules and
 hardware. Reading it inside the [IDE](https://ba.sical.ly/) with a program open
 and an AI assistant configured, you can also have the port carried out for you.
 Either way it is a starting point — performance and hardware input usually need
 attention afterwards.
+
+Every machine is listed in its own right, because sharing a BASIC is not
+sharing a machine: a program that fits a Commodore 64 will not necessarily fit
+an unexpanded VIC-20, and a CPC 6128 has commands a 464 does not.
 
 If you're new to porting programs, read [this](./porting-basics) first.
 

@@ -101,7 +101,11 @@ export const zxspectrumEscapes: EscapeTableData = {
             ? ` On the 128K this byte is the ${code === 0xa3 ? 'SPECTRUM' : 'PLAY'} token, not a UDG - the tokenizer warns (non-fatally).`
             : ''
         }`,
-        ...(is128Token ? { tag: '48K only' } : {}),
+        // The only escape rows in the tree that belong to one machine rather
+        // than a whole page: 0xA3/0xA4 are UDGs on a 48K and the SPECTRUM/PLAY
+        // tokens on a 128K, so a port to the 128 must not be told it loses two
+        // graphics it never had.
+        ...(is128Token ? { tag: '48K only', onlyOn: ['zxspectrum'] } : {}),
         aliases: [char],
         parseOnly: true,
         example: { source: `\\${letter}`, bytes: [code] },
