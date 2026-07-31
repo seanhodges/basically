@@ -293,8 +293,23 @@ export function groupByDomain(
   return buckets;
 }
 
-/** One render-ready group of the commands a port must replace. */
-export interface DomainSection extends DomainBucket {
+/** What the target adds in one capability, summarised rather than listed. */
+export interface CapabilityGain {
+  /** How many target-only commands land in this capability. */
+  count: number;
+  /** "What this machine offers here" — DomainGuidance.summary for the cell. */
+  summary: string;
+  /** Up to a few of the target's command names to reach for. */
+  reachFor: string[];
+}
+
+/** One render-ready account of what a port does to a single capability. */
+export interface CapabilitySection extends DomainBucket {
+  /**
+   * The commands the port loses here. Empty for a capability the target only
+   * adds to - `entries` is the same array, kept for {@link DomainBucket}.
+   */
+  entries: ReferenceEntry[];
   /**
    * True when the target dialect has no keyword in this domain at all - the
    * port loses the capability outright rather than a few of its commands.
@@ -307,28 +322,51 @@ export interface DomainSection extends DomainBucket {
    * previous placeholder ordering used.
    */
   support: DomainGuidance['support'];
+  /**
+   * What the target adds here, where it adds anything and the guidance table
+   * has a cell to describe it. Absent when the port gains nothing in this
+   * capability.
+   */
+  gained?: CapabilityGain;
 }
 
+/** How many command names a capability's gain line names, at most. */
+const GAIN_NAMES = 4;
+
 /**
- * Group the commands to replace by capability, reporting the worst-placed
- * capabilities first: those the target has no equivalent of at all, then
- * those it supports only partially, then those it has fully (under other
- * names). Ties keep the canonical vocabulary order, since the sort is stable
- * and `groupByDomain` already returns the buckets in the supplied order.
+ * One account per capability: what the port loses here, and what the target
+ * adds here, together.
+ *
+ * They were two sections until the reader's own question turned out to span
+ * both - "what happens to my graphics code" was answered once under the
+ * commands to replace and again under the commands newly available, from the
+ * two halves (`instead` and `summary`) of the same `DomainGuidance` cell. Over
+ * half of all capability mentions were made twice.
+ *
+ * Capabilities the port loses commands from lead, worst-placed first: those the
+ * target has no equivalent of at all, then those it supports only partially,
+ * then those it has fully under other names. Ties keep the canonical vocabulary
+ * order, since the sort is stable and `groupByDomain` already returns the
+ * buckets in the supplied order. Capabilities the port only *gains* follow,
+ * largest gain first - news rather than work.
+ *
+ * `reachFor` prefers the authored names, filtered to ones the source actually
+ * lacks, so a command the reader already has is never offered as new.
  *
  * `domainGuidance` and `toSlug` are optional and taken as arguments, exactly
  * as `composeGuidance` takes its `pairNotes` - this module imports only types
  * from the data layer. Omitting them falls back to the target's own table
- * ("has no keyword in this domain at all" vs "has one"), the same two-tier
- * ordering the preceding change shipped as a placeholder.
+ * ("has no keyword in this domain at all" vs "has one") and reports no gains,
+ * since a gain has nothing to say without its authored summary.
  */
-export function domainSections(
+export function capabilitySections(
   mustReplace: ReferenceEntry[],
+  newlyAvailable: ReferenceEntry[],
   to: ReferenceTableData,
   order: readonly KeywordDomain[],
   domainGuidance?: DomainGuidance[],
   toSlug?: string,
-): DomainSection[] {
+): CapabilitySection[] {
   const provided = new Set(to.entries.map((e) => e.domain));
   const guidanceByDomain = toSlug
     ? new Map(
@@ -347,14 +385,49 @@ export function domainSections(
     return provided.has(domain) ? 'full' : 'none';
   };
 
-  return groupByDomain(mustReplace, order)
+  /** domain → what the target adds there, for the domains it adds to. */
+  const gains = new Map<KeywordDomain, CapabilityGain>();
+  for (const bucket of groupByDomain(newlyAvailable, order)) {
+    if (!bucket.domain) continue;
+    const cell = guidanceByDomain?.get(bucket.domain);
+    if (!cell) continue;
+    const names = bucket.entries.map((e) => e.name);
+    const nameSet = new Set(names);
+    const reachFor = (cell.reachFor ?? []).filter((n) => nameSet.has(n));
+    gains.set(bucket.domain, {
+      count: bucket.entries.length,
+      summary: cell.summary,
+      reachFor: (reachFor.length ? reachFor : names).slice(0, GAIN_NAMES),
+    });
+  }
+
+  const losing = groupByDomain(mustReplace, order)
     .map((bucket) => ({
       ...bucket,
       absentFromTarget:
         bucket.domain !== undefined && !provided.has(bucket.domain),
       support: supportOf(bucket.domain),
+      gained: bucket.domain ? gains.get(bucket.domain) : undefined,
     }))
     .sort((a, b) => SUPPORT_RANK[a.support] - SUPPORT_RANK[b.support]);
+
+  const lost = new Set(losing.map((s) => s.domain));
+  const gaining: CapabilitySection[] = [];
+  for (const domain of order) {
+    if (lost.has(domain)) continue;
+    const gained = gains.get(domain);
+    if (!gained) continue;
+    gaining.push({
+      domain,
+      entries: [],
+      absentFromTarget: false,
+      support: supportOf(domain),
+      gained,
+    });
+  }
+  gaining.sort((a, b) => (b.gained?.count ?? 0) - (a.gained?.count ?? 0));
+
+  return [...losing, ...gaining];
 }
 
 /** One render-ready group of control codes: a category's worth of them. */
@@ -375,7 +448,7 @@ export interface EscapeSection {
  * category the table does not declare lands in a trailing bucket rather than
  * disappearing.
  *
- * Unlike {@link domainSections} this does *not* rank a category by whether the
+ * Unlike {@link capabilitySections} this does *not* rank a category by whether the
  * other dialect covers it. `KeywordDomain` is one closed vocabulary shared by
  * every page, but escape categories are page-scoped: `colour` and `cursor` are
  * Commodore categories, while the Spectrum files its `{INK n}` under `control`.
@@ -510,58 +583,6 @@ export function composeGuidance(ctx: GuidanceContext): PairGuidance {
         .map((g) => [g.domain, g]),
     ),
   };
-}
-
-/** One line of the "newly available" brief: a capability's worth of gains. */
-export interface CapabilityBrief {
-  domain: KeywordDomain;
-  /** How many target-only commands land in this capability. */
-  count: number;
-  /** "What this machine offers here" — DomainGuidance.summary for the cell. */
-  summary: string;
-  /** Up to a few command names to name in the line, routed to the target's page. */
-  reachFor: string[];
-}
-
-/** How many command names a capability-brief line names, at most. */
-const BRIEF_NAMES = 4;
-
-/**
- * Summarise "newly available" by capability instead of listing every command:
- * one line per capability with its gain count, the authored summary, and a
- * few names to reach for. `reachFor` prefers the authored names, filtered to
- * ones the source actually lacks (so a command the reader already has is
- * never offered as new), falling back to the bucket's own first names.
- * Ordered by size of gain, so the biggest new capability reads first.
- *
- * Pure like `domainSections`: `domainGuidance` and `order` are arguments, not
- * imports, so this stays node-testable and SSG-safe.
- */
-export function capabilityBrief(
-  newlyAvailable: ReferenceEntry[],
-  to: string,
-  domainGuidance: DomainGuidance[],
-  order: readonly KeywordDomain[],
-): CapabilityBrief[] {
-  const guidanceByDomain = new Map(
-    domainGuidance.filter((g) => g.to === to).map((g) => [g.domain, g]),
-  );
-  const briefs: CapabilityBrief[] = [];
-  for (const bucket of groupByDomain(newlyAvailable, order)) {
-    if (!bucket.domain) continue;
-    const cell = guidanceByDomain.get(bucket.domain);
-    if (!cell) continue;
-    const names = bucket.entries.map((e) => e.name);
-    const nameSet = new Set(names);
-    const reachFor = (cell.reachFor ?? []).filter((n) => nameSet.has(n));
-    briefs.push({
-      domain: bucket.domain,
-      count: bucket.entries.length,
-      summary: cell.summary,
-      reachFor: (reachFor.length ? reachFor : names).slice(0, BRIEF_NAMES),
-    });
-  }
-  return briefs.sort((a, b) => b.count - a.count);
 }
 
 /**

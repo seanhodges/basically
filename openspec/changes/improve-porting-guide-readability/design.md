@@ -88,6 +88,41 @@ Commodore pair, whose visible first ten were keycap block graphics.
 Rejected — the cap is what buries the colour and cursor codes; sorting inside a ten-row window does
 not fix it.
 
+### One capability, one account: fold the additions brief into the domain sections
+
+`domainSections` groups what the port loses by capability; `capabilityBrief` groups what it gains by
+the same vocabulary. Both read the same `DomainGuidance` cell — `instead` for one, `summary` for the
+other — and across the 56 ordered pairs they name the same capability 340 times against 154 + 154
+one-sided mentions. So the reader is told about strings, or graphics, twice, in two sections with
+unrelated content between them, and the gains section is the tallest thing on the page.
+
+They become one builder returning, per capability: the lost entries, the authored `instead` and its
+example, and the gained count/`summary`/`reachFor`. Ordering keeps the existing support tiers
+(`none` → `partial` → `full`) for capabilities that lose something, with gain-only capabilities
+after them — a capability you lose nothing from is news, not work.
+
+*Alternative considered: keep two sections and cross-link them.* Rejected: a link between two places
+that describe the same capability is a worse answer than one place that does.
+
+The per-capability "Full `<target>` reference →" link goes with the merge: it repeated up to
+thirteen times, and the panel has carried a reference link for both dialects since the section
+reorder.
+
+### Renames belong with the other commands that exist on both machines
+
+A rename and a usage change share a premise — the command is on both machines, written differently —
+and renames are 1–4 per pair against a section costing 5% of the page, because each row carried a
+sentence of description lifted from the reference page. A reader doing a search and replace does not
+need it. They become a compact run of `FROM → TO` pairs at the head of the merged section, in the
+shape the parenthesis rule already uses.
+
+### Control codes: what you lose is work, what you gain is browsing
+
+The gains column duplicated the losses column's machinery for codes the program being ported never
+used. It becomes one line — count, category count, and the link to the target's control-code
+reference — leaving the grouped losses the full width. This is the treatment gains already get for
+keywords, applied to codes.
+
 ### Reorder in the template, and lift the prose out of the middle
 
 Section order is presentation: move the `<section>` blocks in `DialectCompare.vue` and move the
@@ -113,5 +148,10 @@ to the representative dialect in `src/dialects/` as it does for `freeRamBytes` a
   commands to replace; the per-code detail is one link away and that link is already on the page.
 - **Reordering moves a section a returning reader knows the position of** → Mitigated by the
   linkable headings and the on-this-page row added in the same change.
+- **Merging sections loses the per-capability gains link and the renames' descriptions** → Both are
+  one click away on the reference pages the panel links, and neither is something a port acts on.
+- **A merged capability section is longer per group** → It is shorter in total (one account instead
+  of two) and each group is still a heading, a run of names and a couple of sentences; the ordering
+  keeps the capabilities the target cannot reproduce first, so length accrues below the fold.
 - **`numberHandling` is a required field** → It is authored for all eight dialects here, and the
   crosscheck fails loudly rather than silently defaulting if a ninth arrives without it.

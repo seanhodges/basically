@@ -31,12 +31,16 @@ about it, rather than only presenting each dialect's usage for the reader to com
 
 ### Requirement: Control codes are grouped by what they do
 
-The comparison SHALL group the control codes a port must replace, and those it newly gains, by what
-the codes do — colour, cursor movement, block graphics and so on — rather than as a single
-alphabetical list. Each set of codes SHALL be grouped and ordered as its own dialect's control-code
-reference categorises them, since what the categories mean is particular to each machine. Each group
-SHALL state how many codes it contains, every code SHALL be named within exactly one group, and a
-category from which the port loses or gains no code SHALL NOT be shown.
+The comparison SHALL group the control codes a port must replace by what the codes do — colour,
+cursor movement, block graphics and so on — rather than as a single alphabetical list, grouped and
+ordered as the source dialect's own control-code reference categorises them, since what the
+categories mean is particular to each machine. Each group SHALL state how many codes it contains,
+every code SHALL be named within exactly one group, and a category from which the port loses no code
+SHALL NOT be shown.
+
+The control codes the target adds and the source never had are not work the port must do, so they
+SHALL be reported only as a count, with a pointer to the target's control-code reference, and SHALL
+NOT be listed code by code.
 
 #### Scenario: Codes reported by category
 
@@ -54,25 +58,67 @@ category from which the port loses or gains no code SHALL NOT be shown.
 - **WHEN** the port loses no code belonging to a given category
 - **THEN** no group is shown for that category
 
+#### Scenario: Codes the target adds
+
+- **WHEN** the target dialect has control codes the source dialect does not
+- **THEN** they are reported as a count, with a pointer to the target's control-code reference,
+  rather than listed individually
+
 ### Requirement: The comparison leads with what the port requires
 
 The comparison SHALL present what the port requires the reader to do — how the two machines differ,
 what is specific to this pair and this target, the commands that fail silently, and the commands
-that must be rewritten — before the lists it provides for reference, being the commands to rename,
-the commands whose behaviour changed, and the control codes. Guidance that does not vary with the
-chosen pair SHALL NOT be placed between two sections that do.
+that must be rewritten — before the lists it provides for reference, being the commands whose
+spelling or usage differs and the control codes. Guidance that does not vary with the chosen pair
+SHALL NOT be placed between two sections that do.
 
 #### Scenario: Reading the comparison top to bottom
 
 - **WHEN** the user reads a comparison from the top
 - **THEN** the language and hardware differences, the guidance for this pair and target, the
   same-name-different-meaning warnings and the commands to replace are reached before the commands
-  to rename, the commands whose behaviour changed, and the control codes
+  whose spelling or usage differs and the control codes
 
 #### Scenario: Guidance that does not depend on the pair
 
 - **WHEN** the comparison presents guidance that is the same whichever pair is chosen
 - **THEN** that guidance is not interleaved with the sections that describe the chosen pair
+
+### Requirement: What the port loses and gains in a capability is reported together
+
+Where the comparison reports the commands a port must replace in a capability and the commands the
+target adds in that same capability, it SHALL report them together, as one account of that
+capability, rather than in two separate places. A capability the target adds commands to but from
+which the port loses nothing SHALL still be reported, after the capabilities that lose commands.
+
+#### Scenario: A capability that both loses and gains commands
+
+- **WHEN** a port loses commands from a capability and the target provides commands in that
+  capability the source does not
+- **THEN** both are reported together in that capability's own account, not in two separate parts of
+  the comparison
+
+#### Scenario: A capability that only gains
+
+- **WHEN** the target adds commands in a capability the port loses nothing from
+- **THEN** that capability is still reported, after the capabilities the port loses commands from
+
+### Requirement: Differing spellings and differing usage are reported together
+
+The commands both dialects provide under different spellings and the commands they provide with
+different usage SHALL be reported together, as one account of the commands that exist on both
+machines but are not written the same way. A command that only changes spelling SHALL be reported
+compactly — its two spellings — rather than as a detailed entry.
+
+#### Scenario: A pair with both renames and usage differences
+
+- **WHEN** the comparison reports commands to rename and commands whose usage differs
+- **THEN** both are reported together rather than in two separate parts of the comparison
+
+#### Scenario: A command that only changes spelling
+
+- **WHEN** a command exists on both dialects under different spellings and is otherwise the same
+- **THEN** it is reported as its two spellings, without a detailed entry of its own
 
 ### Requirement: The language differences report how the machine handles numbers
 
@@ -96,9 +142,9 @@ shown alongside the list's heading or summary SHALL always reflect every entry i
 the portion currently visible. A list short enough to fit already SHALL render in full, with no such
 control shown.
 
-The commands a port must replace and the control codes are exempt: they are grouped — by capability
-and by what the code does respectively — and named compactly rather than given a row each, so every
-one of them is shown.
+The commands a port must replace, the commands it need only rename, and the control codes it must
+replace are exempt: they are named compactly — grouped by capability, grouped by what the code does,
+or given as a run of spellings — rather than given a row each, so every one of them is shown.
 
 #### Scenario: A short list needs no control
 
@@ -139,6 +185,12 @@ one of them is shown.
 
 #### Scenario: The grouped control codes are never capped
 
-- **WHEN** a port loses or gains more control codes than would fit as detailed rows
+- **WHEN** a port loses more control codes than would fit as detailed rows
 - **THEN** every one of them is still named within its category group, and no control to reveal
   more is shown for those groups
+
+#### Scenario: The commands to rename are never capped
+
+- **WHEN** a port renames more commands than would fit as detailed rows
+- **THEN** every rename is still named in the compact run, and no control to reveal more is shown
+  for it

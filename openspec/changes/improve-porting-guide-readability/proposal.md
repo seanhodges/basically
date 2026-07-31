@@ -19,6 +19,19 @@ comparison cannot report: whether the target machine has floating point at all.
   rather than showing two usage strings for the reader to compare by eye.
 - The comparison's sections are ordered so that the sections a porter acts on lead, and the
   reference lists follow.
+- What a port loses and gains in a capability is reported together, in one account of that
+  capability, instead of once under the commands to replace and again under the commands newly
+  available. Measured across the 56 ordered pairs, 52% of capability mentions are currently made
+  twice — 12 of 13 capabilities on BBC → Locomotive — and the newly-available section is the
+  tallest on the page (21–30% of its height) while being the least actionable part of a port.
+- The commands that only change spelling are reported with the commands whose usage differs, as one
+  account of the commands that exist on both machines but are not written the same way, and a rename
+  is reported as its two spellings rather than as a detailed entry carrying a description the
+  reference page already gives.
+- The control codes the target adds and the source never used are reported as a count with a pointer
+  to the target's control-code reference, rather than listed — they are not work the port must do.
+- The guidance specific to this pair and the guidance for writing on the target are shown as one
+  section rather than two adjacent identical lists.
 - Control and escape codes are grouped by what they do, the way the commands to replace are already
   grouped by capability, with the categories the target cannot reproduce reported first.
 - The language and hardware comparison gains a numeric-type row: integer-only versus floating point,
@@ -51,15 +64,18 @@ None.
 
 - `porting-guidance`: differences that exist only in how two reference pages write their usage
   strings are not reported as changed behaviour; the comparison's sections are ordered so the
-  sections a porter acts on come first; control codes are grouped by what they do; and the language
-  differences include whether the machine has floating point.
+  sections a porter acts on come first; what a port loses and gains in a capability is reported
+  together, as are differing spellings and differing usage; control codes to replace are grouped by
+  what they do while the ones the target adds are reported as a count; and the language differences
+  include whether the machine has floating point.
 
 ## Impact
 
 - `docs/.vitepress/theme/dialectCompare.ts` — syntax-shape comparison, the "what changed"
-  classification, and escape-code grouping (mirroring the existing `domainSections`).
-- `docs/.vitepress/theme/components/DialectCompare.vue` — section order, the escape-code and
-  changed-behaviour rendering, the numeric fact row, headings and summary line.
+  classification, escape-code grouping (mirroring the existing `domainSections`), and one
+  capability-section builder replacing the separate `domainSections` and `capabilityBrief`.
+- `docs/.vitepress/theme/components/DialectCompare.vue` — section order and the merges, the
+  escape-code and changed-behaviour rendering, the numeric fact row, headings and summary line.
 - `docs/reference/compare.md` — condensed prose, moved above the picker.
 - `docs/reference/data/types.ts`, `docs/reference/data/facts.ts` — the numeric-type fact for all
   eight dialects, pinned by `facts-crosscheck.test.ts`.

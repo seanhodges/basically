@@ -64,7 +64,7 @@
 - [x] 6.2 Confirm `docs/reference/data/porting-crosscheck.test.ts` still passes — it fails if a
       spelling named in a note does not exist on both sides.
 
-## 7. Quality gates
+## 7. Quality gates (first pass)
 
 - [x] 7.1 `npm run typecheck`
 - [x] 7.2 `npm test`
@@ -74,3 +74,44 @@
 - [x] 7.6 `npm run e2e:chromium -- e2e/porting-guidance`
 - [x] 7.7 Read the built page for the pairs that stress it: `?from=commodore&to=zxspectrum`,
       `?from=cpc&to=zx81`, `?from=zx80&to=zx81`, `?from=bbc&to=cpc`, `?from=commodore&to=bbc`.
+
+## 8. One account per capability
+
+- [x] 8.1 Replace `domainSections` and `capabilityBrief` in `dialectCompare.ts` with one builder
+      returning, per capability: the lost entries, the authored `instead` and example, and the
+      gained count, `summary` and `reachFor`.
+- [x] 8.2 Order it by the existing support tiers for capabilities that lose commands, with
+      gain-only capabilities after them.
+- [x] 8.3 Update `dialectCompare.test.ts`: a capability that both loses and gains is one section, a
+      gain-only capability comes last, no entry is lost, and `reachFor` still drops a name the
+      source already has.
+- [x] 8.4 Render one section in `DialectCompare.vue`, dropping the per-capability
+      "Full `<target>` reference →" link (the panel carries it for both dialects).
+
+## 9. One account for renames and usage changes
+
+- [x] 9.1 Render renames as a compact `FROM → TO` run at the head of the changed-behaviour section,
+      without the reference description, and retire the separate section and its truncated list.
+- [x] 9.2 Retitle the section for what it now covers, and update `pageSections` and the summary
+      sentence to match.
+
+## 10. Control codes the target adds
+
+- [x] 10.1 Replace the newly-available escape column with a single line — count, category count and
+      a link to the target's control-code reference — and give the grouped losses the full width.
+
+## 11. One guidance section
+
+- [x] 11.1 Merge the pair-notes section into the target-notes section, pair bullets first, under a
+      heading naming both dialects; update `pageSections`.
+
+## 12. Quality gates (after the merges)
+
+- [x] 12.1 `npm run typecheck`
+- [x] 12.2 `npm test`
+- [x] 12.3 `npm run lint`
+- [x] 12.4 `npm run format:check`
+- [x] 12.5 `npm run docs:build`
+- [x] 12.6 `npm run e2e:chromium -- e2e/porting-guidance`
+- [x] 12.7 Re-measure section heights on `?from=commodore&to=zxspectrum`, `?from=bbc&to=cpc` and
+      `?from=zx81&to=bbc`, and confirm no capability is described in two places.
