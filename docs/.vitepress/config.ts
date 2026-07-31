@@ -203,12 +203,7 @@ export default withPwa(
               text: 'Porting guide',
               link: '/reference/compare',
               collapsed: true,
-              items: [
-                {
-                  text: 'Porting between dialects',
-                  link: '/reference/porting-basics',
-                },
-              ],
+              items: [{ text: 'Basics', link: '/reference/porting-basics' }],
             },
           ],
         },
