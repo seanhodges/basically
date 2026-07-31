@@ -109,7 +109,7 @@ new target system is the exception: that stays with the dialect plans under
 - **Respect the seam.** A change that touches the editor, transfer dialog,
   status bar, or emulator pane to support one machine usually means the seam is
   being bypassed - keep machine-specific code inside `src/dialects/<name>/`.
-- **Errors, not throws.** The tokenisercollects `TokenizeError[]` (1-based
+- **Errors, not throws.** The tokeniser collects `TokenizeError[]` (1-based
   line, 0-based column) for inline display rather than throwing.
 - **State.** A single Zustand store; components subscribe via narrow selectors
   (`useIdeStore((s) => s.source)`). Async work is requested by bumping a counter
