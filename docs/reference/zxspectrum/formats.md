@@ -26,7 +26,7 @@ in param2), then the program area immediately followed by the variables area (a
 lone 0x80 end-marker when there are no variables). param1 ≥ 0x8000 means "load
 only"; the IDE exports with auto-run disabled and drives `RUN` itself. The
 Spectrum 128's `.TAP` is byte-for-byte identical to the 48K's - only the
-tokeniserdiffers (so `PLAY`/`SPECTRUM` keywords export correctly).
+tokeniser differs (so `PLAY`/`SPECTRUM` keywords export correctly).
 
 A 48K Spectrum document with [memory
 blocks](../file-formats#machine-code-data-blocks) exports as a **multi-file
