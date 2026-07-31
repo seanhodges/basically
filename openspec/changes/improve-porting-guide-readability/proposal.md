@@ -30,6 +30,11 @@ comparison cannot report: whether the target machine has floating point at all.
   reference page already gives.
 - The control codes the target adds and the source never used are reported as a count with a pointer
   to the target's control-code reference, rather than listed — they are not work the port must do.
+- What the target adds where the port loses nothing — the capabilities with nothing to replace, and
+  those control codes — is filtered out by default behind a control that says how much it is hiding,
+  since it is the one part of the comparison that is news rather than work. What the target offers
+  in a capability the port does lose commands from is the advice for replacing them, and is never
+  hidden.
 - The guidance specific to this pair and the guidance for writing on the target are shown as one
   section rather than two adjacent identical lists.
 - Control and escape codes are grouped by what they do, the way the commands to replace are already

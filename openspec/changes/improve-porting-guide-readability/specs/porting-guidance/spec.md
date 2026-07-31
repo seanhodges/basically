@@ -89,7 +89,7 @@ SHALL NOT be placed between two sections that do.
 Where the comparison reports the commands a port must replace in a capability and the commands the
 target adds in that same capability, it SHALL report them together, as one account of that
 capability, rather than in two separate places. A capability the target adds commands to but from
-which the port loses nothing SHALL still be reported, after the capabilities that lose commands.
+which the port loses nothing SHALL be reported after the capabilities that lose commands.
 
 #### Scenario: A capability that both loses and gains commands
 
@@ -101,7 +101,33 @@ which the port loses nothing SHALL still be reported, after the capabilities tha
 #### Scenario: A capability that only gains
 
 - **WHEN** the target adds commands in a capability the port loses nothing from
-- **THEN** that capability is still reported, after the capabilities the port loses commands from
+- **THEN** that capability is reported after the capabilities the port loses commands from
+
+### Requirement: What the target adds and the program never used can be filtered out
+
+What the target offers where the port loses nothing is the one part of the comparison that is not
+work the port requires. The comparison SHALL offer a control that hides it — both the capabilities
+with nothing to replace and the control codes the target adds — and that control SHALL be on by
+default, with what it is hiding stated so it can be found. Turning it off SHALL report them again.
+What the target offers in a capability the port *does* lose commands from is the advice for
+replacing them, and SHALL NOT be hidden by this control.
+
+#### Scenario: The default view
+
+- **WHEN** the user opens a comparison
+- **THEN** the capabilities the target only adds to and the control codes it adds are hidden, and
+  the comparison states how many capability areas are hidden
+
+#### Scenario: Asking to see them
+
+- **WHEN** the user turns the control off
+- **THEN** the capabilities the target only adds to, and the control codes it adds, are reported
+
+#### Scenario: Advice for a capability that loses commands is never hidden
+
+- **WHEN** the control is on and the port loses commands from a capability the target also adds to
+- **THEN** what the target offers in that capability is still reported with the commands lost from
+  it
 
 ### Requirement: Differing spellings and differing usage are reported together
 

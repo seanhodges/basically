@@ -105,6 +105,14 @@
 - [x] 11.1 Merge the pair-notes section into the target-notes section, pair bullets first, under a
       heading naming both dialects; update `pageSections`.
 
+## 11a. Filtering out what is news rather than work
+
+- [x] 11a.1 Retitle the merged section "What changes", in the heading and in `pageSections`.
+- [x] 11a.2 Add one filter, on by default, shared by both sections that report what the target adds
+      where the port loses nothing: the gain-only capability groups and the added control codes.
+- [x] 11a.3 State what the filter is hiding beneath the capability groups, so it is discoverable,
+      and leave the per-capability advice for capabilities that do lose commands unfiltered.
+
 ## 12. Quality gates (after the merges)
 
 - [x] 12.1 `npm run typecheck`

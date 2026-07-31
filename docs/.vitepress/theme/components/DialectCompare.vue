@@ -183,9 +183,12 @@ const CHANGE_LABEL: Record<KeywordChange['change'], string> = {
   arguments: 'Different arguments',
 };
 
-/** "1 command" / "3 commands", so the summary reads as a sentence. */
-function count(n: number, singular: string): string {
-  return `${n} ${n === 1 ? singular : `${singular}s`}`;
+/**
+ * "1 command" / "3 commands", so the counts read as sentences rather than as
+ * "1 command(s)". `plural` is for the words a trailing "s" gets wrong.
+ */
+function count(n: number, singular: string, plural = `${singular}s`): string {
+  return `${n} ${n === 1 ? singular : plural}`;
 }
 
 /** "a", "a and b", "a, b and c". */
@@ -245,6 +248,20 @@ const losingCount = computed(
 /** How many it only gains in - the "N new capability areas" of the summary. */
 const gainingCount = computed(
   () => capabilities.value.filter((s) => !s.entries.length).length,
+);
+
+// A port is a translation, so what the target adds and the program never used
+// is the one part of the comparison that is news rather than work. It is
+// filtered out by default and a tick away, in both the sections that report it:
+// the capabilities with nothing to replace, and the control codes the target
+// adds. What the target offers *in a capability the port loses commands from*
+// is not filtered - that is the "do this instead" the reader came for.
+const hideAdditions = ref(true);
+
+const visibleCapabilities = computed<CapabilitySection[]>(() =>
+  hideAdditions.value
+    ? capabilities.value.filter((s) => s.entries.length)
+    : capabilities.value,
 );
 
 /** The authored (target, capability) advice for a group, if any. */
@@ -410,11 +427,7 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'false-friends',
       'Same word, different meaning',
     ],
-    [
-      capabilities.value.length > 0,
-      'capabilities',
-      'What changes, by capability',
-    ],
+    [capabilities.value.length > 0, 'capabilities', 'What changes'],
     [
       keywordDiff.value.renamed.length + changedCount.value > 0,
       'different-form',
@@ -700,15 +713,19 @@ function convertWithAi() {
         absent.
       -->
       <section v-if="capabilities.length" id="capabilities" class="cmp-section">
-        <h2>What changes, by capability</h2>
+        <h2>What changes</h2>
         <p class="cmp-hint">
           {{ count(keywordDiff.mustReplace.length, 'command') }} to rewrite or
-          remove, with what {{ target.label }} offers in their place. The
-          capabilities {{ target.label }} has no equivalent of at all come
-          first; the ones it only adds to come last.
+          remove, grouped by what they do, with what {{ target.label }} offers
+          in their place. The capabilities {{ target.label }} has no equivalent
+          of at all come first.
         </p>
+        <label v-if="gainingCount" class="cmp-toggle">
+          <input v-model="hideAdditions" type="checkbox" />
+          Hide what {{ target.label }} adds that the program has not used
+        </label>
         <div
-          v-for="s in capabilities"
+          v-for="s in visibleCapabilities"
           :key="s.domain ?? 'other'"
           class="cmp-group"
           :class="{
@@ -805,6 +822,12 @@ function convertWithAi() {
             </span>
           </p>
         </div>
+        <!-- Say what the filter is holding back, so it is discoverable. -->
+        <p v-if="hideAdditions && gainingCount" class="cmp-empty">
+          {{ count(gainingCount, 'capability area') }}
+          {{ target.label }} only adds to
+          {{ gainingCount === 1 ? 'is' : 'are' }} hidden.
+        </p>
       </section>
 
       <!--
@@ -911,6 +934,10 @@ function convertWithAi() {
           >
           gives every code's meaning.
         </p>
+        <label v-if="escapeAdded" class="cmp-toggle">
+          <input v-model="hideAdditions" type="checkbox" />
+          Hide what {{ target.label }} adds that the program has not used
+        </label>
         <div
           v-for="s in escReplaceSections"
           :key="s.category ?? 'other'"
@@ -930,10 +957,10 @@ function convertWithAi() {
         <p v-if="!escReplaceSections.length" class="cmp-empty">
           No {{ source.label }} control code needs replacing.
         </p>
-        <p v-if="escapeAdded" class="cmp-esc-gain">
+        <p v-if="escapeAdded && !hideAdditions" class="cmp-esc-gain">
           {{ target.label }} adds {{ count(escapeAdded, 'code') }} across
-          {{ count(escapeAddedCategories, 'category') }} the program has not
-          used —
+          {{ count(escapeAddedCategories, 'category', 'categories') }} the
+          program has not used —
           <a :href="refLinks(target.id).escapes"
             >see its escape-code reference</a
           >.
