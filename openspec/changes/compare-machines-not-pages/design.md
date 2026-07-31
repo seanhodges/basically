@@ -33,8 +33,8 @@ them. Every decision below follows from that.
 - The comparison's unit is the machine; all 13 answer for themselves.
 - Per-machine data is *derived from* and *pinned to* `src/dialects/`, not
   independently researched, so it cannot drift.
-- Family selections survive, relabelled honestly, so existing shared links keep
-  working without an alias table.
+- One selection namespace: a machine id, meaning exactly one machine, in the
+  URL and the dropdown alike.
 - The crosscheck tests get stronger, not weaker: one union assertion per page
   becomes an exact assertion per machine.
 
@@ -101,7 +101,8 @@ Two engine details must survive the change:
   friends are family-wide by design; machine → page resolution happens at the
   call site.
 
-The only genuinely new engine logic is the union-range presentation for facts.
+No new engine logic is needed at all: with only machines selectable, each side
+has exactly one set of facts and the existing accessors read it unchanged.
 
 ### Per-machine crosschecks replace the union crosschecks
 
@@ -110,7 +111,7 @@ The only genuinely new engine logic is the union-range presentation for facts.
 that with: for each of the 13 registered dialects, the rows selected for that
 machine equal `getDialect(id).keywords` exactly, in both directions.
 
-This is what makes hand-authored `machines` data trustworthy — a mis-scoped row
+This is what makes hand-authored `onlyOn` data trustworthy — a mis-scoped row
 fails immediately, and a newly registered dialect fails until its scoping exists.
 It also surfaces the pre-existing BBC gap on the first run: `bbcReference` is
 pinned to `bbcKeywords` (BASIC II), so BASIC IV's `EDIT` is missing from the docs
@@ -140,35 +141,42 @@ it duplicates paragraphs of hand-written prose across family members, and the
 crosscheck can only pin the structural fields, not the prose, so the copies would
 drift silently.
 
-### Family selections stay, as explicit unions
+### One namespace: machine ids only
 
-The four multi-machine pages remain selectable, keeping today's union semantics
-but relabelled ("Locomotive BASIC — either CPC"). Where a figure differs across
-members the union reports the range (Commodore free RAM as a spread across
-3583–38911) rather than the marquee machine's value.
+Only machine ids are selectable. Docs page slugs are not offered at all, and the
+comparison has no notion of a family selection.
 
-This is what makes keeping the family slugs defensible: it converts a silent
-inaccuracy into a labelled choice, and it means `?from=cpc&to=bbc` reopens
-exactly the comparison it always did — no redirect, no legacy alias table,
-because family slugs are still first-class selections. Single-machine pages
-(`zx81`, `zx80`, `atom`, `trs80`) already have slug === dialect id, so they need
-no union entry.
+*Alternative considered: keep the four page slugs as "whole family" selections
+alongside the machine ids, relabelled as unions and reporting a range where their
+members disagree.* It preserves existing shared links, and it was the first
+design here. It was dropped because the two namespaces collide: `zxspectrum` is
+both the 48K machine's dialect id and the page its 128K sibling shares. Resolving
+that needs either a machine addressed by something other than its id, or a family
+slugged something other than its page — a special case either way, and one that
+has to be explained everywhere selections are parsed, rendered or tested.
 
-### `dialectForPage` resolves machine ids exactly
+The cost is real and accepted: `?from=cpc&to=bbc` stops resolving and falls back
+to the default pair. What is bought is that every selection means exactly one
+machine, in the URL, the dropdown and the conversion hand-off alike — no union
+facts to range-format, no family label to keep honest, no marquee-member
+fallback when converting. `machines-crosscheck.test.ts` asserts the namespace
+holds no page slug, so the collision cannot be reintroduced by accident.
 
-`DocsDrawer.tsx:42` currently does `dialects.find((d) => (d.docsReference ?? d.id) === slug)`,
-which returns whichever family member is first in registry order — so "Convert my
-program" to Locomotive BASIC always opens a CPC 464. It must try an exact id
-match first, falling back to the page lookup. A union selection necessarily still
-resolves to the family's marquee machine, since the IDE has to open *some*
-machine; the spec now requires that machine to be named in the offer.
+### The conversion hand-off resolves machine ids only
+
+`DocsDrawer.tsx` matched the guide's target with
+`dialects.find((d) => (d.docsReference ?? d.id) === slug)`, which returns whichever
+family member is first in registry order — so "Convert my program" to Locomotive
+BASIC always opened a CPC 464. The guide now sends a machine id and nothing else,
+so the lookup matches ids and stops there. No page fallback, and no case where
+the IDE has to guess which member of a family was meant.
 
 ### Hand-authored and pinned, not generated
 
 `scripts/gen-reference-scaffold.mts` exists and could emit the scoping, but the
 scoping is a one-off classification of ~30 rows, not an ongoing generation
 pipeline, and the reference tables are hand-maintained prose everywhere else.
-Hand-author the `machines` fields and let the per-machine crosschecks be the
+Hand-author the `onlyOn` fields and let the per-machine crosschecks be the
 guarantee — the same contract every other docs data module already operates
 under.
 
@@ -178,10 +186,6 @@ under.
   a genuine reference row (syntax, description, domain) written from
   `basicIVExtraKeywords` in `src/dialects/bbcmicro/keywords.ts`, scoped to
   `bbcmaster`. Treat it as content work, not a test fix.
-- **Union facts need a defined answer for every field, not just free RAM.** →
-  Screen, colour, sound and program start all differ across the Commodore family.
-  Decide the range/"varies" presentation once, in `dialectCompare.ts`, rather
-  than per field at the call sites.
 - **What a machine's hardware ignores is a fact, not an absent row.** The
   Commodore escape codes are the worked example: all three machines re-export
   `c64Charset`, and `pet/charset.ts` states that the colour escapes are
@@ -199,31 +203,34 @@ under.
   rows scoped to `zxspectrum128` *and* 2 escape rows scoped to `zxspectrum`.
   These two rows are the only escape scoping in the change; every other escape
   table is a single-machine page or has one row.
-- **Selection count roughly doubles (8 → 17) in a native `<select>`.** → Group
-  the options so the list stays scannable. The follow-up picker change removes
-  this concern entirely, which is part of why it follows closely.
+- **Selection count rises from 8 to 13 in a native `<select>`.** → Group the
+  options under manufacturer headings so the list stays scannable. The follow-up
+  picker change removes this concern entirely, which is part of why it follows
+  closely.
 - **`porting.ts` equivalences stay page-keyed.** Spellings are family-wide, so
   this is correct today — but a future variant that renames a command would need
   row-level scoping there too. → Extend `porting-crosscheck.test.ts` so a scoped
   entry must name a row that exists for that machine, making the gap loud if it
   ever arrives.
-- **Docs bundle size.** Adding `machines` arrays and 13 facts entries grows the
+- **Docs bundle size.** Adding `onlyOn` arrays and 13 facts entries grows the
   shipped data slightly. → Negligible next to the reference tables themselves,
   and far smaller than the alternative of importing the registry.
 
 ## Migration Plan
 
 No user data or persisted state is involved. Shared links are the only external
-contract, and they are preserved by keeping family slugs selectable — a link
-using a machine id is new, a link using a family slug behaves as before. Rollback
-is a straight revert; nothing is written anywhere that a revert would strand.
+contract, and they break: `?from=cpc&to=bbc` names page slugs, which are no
+longer selections, so the page falls back to its default pair. That is accepted
+rather than mitigated — see the namespace decision above. A legacy alias table
+mapping each old slug to a marquee machine would preserve them, and can be added
+later without disturbing anything here, but it reintroduces exactly the
+slug-shaped ambiguity the single namespace removes.
+
+Rollback is a straight revert; nothing is written anywhere that a revert would
+strand.
 
 ## Open Questions
 
-- Should a union selection be offered as a *target* at all, or only as a source?
-  Converting to "either CPC" has to pick a machine anyway, so restricting unions
-  to the source side is defensible. Deferred — the spec currently allows both and
-  requires the chosen machine be named.
 - Does the VIC-20 warrant a bespoke porting note about its 3583-byte budget?
   Its free RAM is small enough that a program fitting on any other Commodore may
   not fit at all, which is arguably guidance rather than a figure.

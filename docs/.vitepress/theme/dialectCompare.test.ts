@@ -113,10 +113,6 @@ describe('tableForMachine', () => {
     expect(tableForMachine(page, 'cpc6128').entries).toEqual([PRINT, FILL]);
   });
 
-  it('keeps the whole page for a family selection', () => {
-    expect(tableForMachine(page, undefined).entries).toEqual([PRINT, FILL]);
-  });
-
   it('leaves the source table untouched', () => {
     tableForMachine(page, 'cpc464');
     expect(page.entries).toEqual([PRINT, FILL]);
@@ -405,10 +401,6 @@ describe('escapeTableForMachine', () => {
       INK,
       UDG,
     ]);
-  });
-
-  it('keeps the whole page for a family selection', () => {
-    expect(escapeTableForMachine(page, undefined).entries).toEqual([INK, UDG]);
   });
 
   it('carries the categories through', () => {

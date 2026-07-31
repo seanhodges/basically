@@ -96,16 +96,11 @@ export interface EscapeDiff {
 /**
  * Rows one machine actually has. A row with no `onlyOn` belongs to every machine
  * its page covers; one that names ids belongs only to those.
- *
- * `dialectId` is `undefined` for a family selection ("either CPC"), which keeps
- * the whole page - the union of its machines, which is what that selection
- * means.
  */
 function entriesForMachine<E extends { onlyOn?: string[] }>(
   entries: readonly E[],
-  dialectId: string | undefined,
+  dialectId: string,
 ): E[] {
-  if (dialectId === undefined) return [...entries];
   return entries.filter((e) => !e.onlyOn || e.onlyOn.includes(dialectId));
 }
 
@@ -127,7 +122,7 @@ function entriesForMachine<E extends { onlyOn?: string[] }>(
  */
 export function tableForMachine(
   table: ReferenceTableData,
-  dialectId: string | undefined,
+  dialectId: string,
 ): ReferenceTableData {
   return { ...table, entries: entriesForMachine(table.entries, dialectId) };
 }
@@ -139,48 +134,9 @@ export function tableForMachine(
  */
 export function escapeTableForMachine(
   table: EscapeTableData,
-  dialectId: string | undefined,
+  dialectId: string,
 ): EscapeTableData {
   return { ...table, entries: entriesForMachine(table.entries, dialectId) };
-}
-
-/** A byte count as the fact table writes it: "38,911 bytes". */
-export function fmtBytes(bytes: number): string {
-  return `${bytes.toLocaleString('en-GB')} bytes`;
-}
-
-/**
- * One fact as a chosen side reports it, given that side's machines.
- *
- * A machine answers for itself: one entry, one value. A family answers for all
- * its machines at once, and the two cases it has to tell apart are agreement
- * and disagreement. Where its machines agree the figure is stated plainly;
- * where they disagree it is reported across them - a "Commodore BASIC"
- * selection has between 3,583 and 38,911 bytes free depending on which machine
- * you mean, and quietly picking the C64's number is how the page-keyed table
- * misled a VIC-20 port by a factor of ten.
- *
- * Byte counts collapse to a span because a span is what a reader can act on.
- * Prose cannot be spanned, so it names which machine says what instead.
- */
-export function factText<F>(
-  entries: readonly { label: string; facts: F }[],
-  get: (facts: F) => string,
-): string {
-  if (!entries.length) return '';
-  const texts = entries.map((e) => get(e.facts));
-  const distinct = [...new Set(texts)];
-  if (distinct.length === 1) return distinct[0]!;
-
-  const numbers = texts.map((t) => Number(t.replace(/[^\d]/g, '')));
-  const allBytes = texts.every(
-    (t, i) => /^[\d,]+ bytes$/.test(t) && numbers[i]! > 0,
-  );
-  if (allBytes) {
-    const low = Math.min(...numbers).toLocaleString('en-GB');
-    return `${low}\u2013${fmtBytes(Math.max(...numbers))}`;
-  }
-  return entries.map((e, i) => `${e.label}: ${texts[i]}`).join('; ');
 }
 
 /** Collapse runs of internal whitespace so cosmetic spacing isn't a "change". */

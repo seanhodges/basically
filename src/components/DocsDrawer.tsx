@@ -37,23 +37,17 @@ type CompareConvertMessage = Partial<
 const DOCS_NAVIGATE_MESSAGE = 'basically:docs-navigate';
 
 /**
- * Resolve what the porting guide sends as its target to a dialect.
+ * Resolve the porting guide's conversion target to a dialect.
  *
- * It sends a machine id when the reader picked a machine, and a docs page slug
- * when they picked a BASIC covering a whole family. The exact id has to win:
- * matching on the page alone returns whichever family member is first in
- * registry order, which is why converting to Locomotive BASIC used to open a
- * CPC 464 however clearly the reader had asked for a 6128.
- *
- * A family slug still falls back to the page lookup - the IDE must open some
- * machine, and the first member of the family is the one it opens.
+ * The guide sends a machine id and nothing else. It used to send a docs page
+ * slug, which several machines share - so the lookup matched on the page and
+ * returned whichever family member came first in the registry, and converting
+ * to Locomotive BASIC opened a CPC 464 however clearly the reader had asked for
+ * a 6128. Matching ids only is what removes that whole class of ambiguity.
  */
-function dialectForPage(slug: unknown) {
-  if (typeof slug !== 'string') return undefined;
-  return (
-    dialects.find((d) => d.id === slug) ??
-    dialects.find((d) => (d.docsReference ?? d.id) === slug)
-  );
+function dialectForMachineId(id: unknown) {
+  if (typeof id !== 'string') return undefined;
+  return dialects.find((d) => d.id === id);
 }
 
 function ChevronRightIcon() {
@@ -158,19 +152,11 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   // (keeping the current program as the starting point, so applying the result
   // lints against the right machine) and ask the AI to translate it.
   const convertProgram = (data: CompareConvertMessage) => {
-    const target = dialectForPage(data.toId);
+    const target = dialectForMachineId(data.toId);
     if (!target) return;
     const creds = aiCredentials();
     if (!creds) return;
-    // The guide's own label is right when the reader picked a machine, and
-    // wrong when they picked a BASIC covering several ("Locomotive BASIC
-    // (either CPC)") - the conversion targets one machine, so it has to say
-    // which. An exact id match is what tells the two cases apart.
-    const namedAMachine = dialects.some((d) => d.id === data.toId);
-    const label =
-      namedAMachine && typeof data.toLabel === 'string'
-        ? data.toLabel
-        : target.name;
+    const label = typeof data.toLabel === 'string' ? data.toLabel : target.name;
     const original = useIdeStore.getState().source;
     closeDocs();
     // A real dialect switch that keeps the program text and bypasses the confirm

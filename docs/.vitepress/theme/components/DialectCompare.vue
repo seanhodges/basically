@@ -19,8 +19,6 @@ import {
   diffKeywords,
   escapeSections,
   escapeTableForMachine,
-  factText,
-  fmtBytes,
   tableForMachine,
   type CapabilitySection,
   type EscapeSection,
@@ -37,29 +35,29 @@ import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
 
 /**
- * One selectable option: a machine, or a BASIC shared by a family of them.
+ * One selectable machine.
  *
  * The reference and escape tables belong to the *page*, which may cover several
- * machines; `machine` is what narrows them to one (see `tableForMachine`).
- * `facts` carries one entry for a machine and one per member for a family, so a
- * figure the family disagrees on can be reported as a range instead of quietly
- * becoming the marquee machine's.
+ * machines; `id` is what narrows them to one (see `tableForMachine`). Facts
+ * belong to the machine outright.
+ *
+ * Only machines are selectable - a page slug is not. `zxspectrum` is both the
+ * 48K machine's id and the page its 128K sibling shares, so admitting slugs to
+ * the same `?from=`/`?to=` namespace would leave that string meaning two things
+ * with no way to say which.
  */
 interface DialectOption {
-  /** Selection id: a dialect id, or a family slug. Used in `?from=`/`?to=`. */
+  /** Dialect id. The value used in `?from=`/`?to=`. */
   id: string;
   /** Reference page slug (e.g. "cpc"), for reference links and pair data. */
   page: string;
-  /** Dialect id to narrow the page's rows to; undefined for a family. */
-  machine?: string;
   /** Human name shown in the dropdown. */
   label: string;
-  /** Manufacturer, for grouping the dropdown. Absent on family options. */
+  /** Manufacturer, for grouping the dropdown. */
   group?: string;
   reference: ReferenceTableData;
   escapes?: EscapeTableData;
-  /** One entry for a machine; one per member, in reading order, for a family. */
-  facts: { label: string; facts: PortingFacts }[];
+  facts: PortingFacts;
 }
 
 const props = defineProps<{ dialects: DialectOption[] }>();
@@ -71,8 +69,7 @@ const CONVERT_MESSAGE = 'basically:compare-convert';
 // The pair the page opens on when the URL names no `?from=`/`?to=`: the two
 // most-used machines, and a genuinely instructive port (integer-ish Microsoft
 // BASIC with PEEK/POKE graphics → a machine with PLOT/DRAW/CIRCLE and colour).
-// Machines now, not families: the default should demonstrate what the page is
-// for. Falls back to the first two options if either id is ever unregistered.
+// Falls back to the first two options if either id is ever unregistered.
 const DEFAULT_FROM = 'commodore64';
 const DEFAULT_TO = 'zxspectrum';
 
@@ -97,26 +94,21 @@ function optionFor(id: string): DialectOption | undefined {
 }
 
 /**
- * Dropdown options under manufacturer headings, with the shared BASICs last.
+ * Dropdown options under manufacturer headings.
  *
- * Seventeen flat options is a list to search rather than scan; grouped, it is
+ * Thirteen flat options is a list to search rather than scan; grouped, it is
  * the same shape as the machine picker in the IDE. Order comes from the option
  * array, so `machines.ts` decides it in one place.
  */
 const optionGroups = computed(() => {
   const groups: { label: string; options: DialectOption[] }[] = [];
   for (const option of props.dialects) {
-    const label = option.group ?? 'Shared BASICs';
+    const label = option.group ?? option.label;
     const existing = groups.find((g) => g.label === label);
     if (existing) existing.options.push(option);
     else groups.push({ label, options: [option] });
   }
-  // Whichever group holds the family options sorts last: they are the fallback
-  // for a reader who has not yet picked a machine, not the primary choice.
-  return [
-    ...groups.filter((g) => g.label !== 'Shared BASICs'),
-    ...groups.filter((g) => g.label === 'Shared BASICs'),
-  ];
+  return groups;
 });
 
 const source = computed(() => optionFor(from.value));
@@ -127,15 +119,15 @@ const sameSelection = computed(() => from.value === to.value);
  * The chosen side's rows, narrowed to the machine it names. A page's rows are
  * the union of what its machines have, so without this a port to a CPC 464 is
  * offered BASIC 1.1 commands and a C64 port is asked to deal with PET-only disk
- * commands. A family selection keeps the whole page, which is what it means.
+ * commands.
  */
 const sourceTable = computed(() => {
   const s = source.value;
-  return s ? tableForMachine(s.reference, s.machine) : undefined;
+  return s ? tableForMachine(s.reference, s.id) : undefined;
 });
 const targetTable = computed(() => {
   const t = target.value;
-  return t ? tableForMachine(t.reference, t.machine) : undefined;
+  return t ? tableForMachine(t.reference, t.id) : undefined;
 });
 
 const keywordDiff = computed(() => {
@@ -162,9 +154,7 @@ const guidance = computed(() =>
   composeGuidance({
     from: source.value?.page ?? from.value,
     to: target.value?.page ?? to.value,
-    // Notes and substitutions are written for the BASIC, so every machine on a
-    // page carries the same ones; the first member speaks for a family.
-    targetFacts: target.value?.facts[0]?.facts,
+    targetFacts: target.value?.facts,
     pairNotes: pairPortingNotes,
     falseFriends,
     domainGuidance,
@@ -173,11 +163,11 @@ const guidance = computed(() =>
 
 const sourceEscapes = computed(() => {
   const s = source.value;
-  return s?.escapes ? escapeTableForMachine(s.escapes, s.machine) : undefined;
+  return s?.escapes ? escapeTableForMachine(s.escapes, s.id) : undefined;
 });
 const targetEscapes = computed(() => {
   const t = target.value;
-  return t?.escapes ? escapeTableForMachine(t.escapes, t.machine) : undefined;
+  return t?.escapes ? escapeTableForMachine(t.escapes, t.id) : undefined;
 });
 
 const escapeDiff = computed(() => {
@@ -395,7 +385,7 @@ function fmtLet(f: PortingFacts): string {
   }[f.letRequired];
 }
 function fmtRam(f: PortingFacts): string {
-  return fmtBytes(f.freeRamBytes);
+  return `${f.freeRamBytes.toLocaleString('en-GB')} bytes`;
 }
 function fmtAddress(f: PortingFacts): string {
   if (f.addressNotation === 'hex') {
@@ -405,9 +395,9 @@ function fmtAddress(f: PortingFacts): string {
 }
 
 const factRows = computed<FactRow[]>(() => {
-  const s = source.value;
-  const t = target.value;
-  if (!s?.facts.length || !t?.facts.length) return [];
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  if (!s || !t) return [];
   const rows: [string, (f: PortingFacts) => string][] = [
     ['Line numbers', (f) => f.lineNumberRange],
     ['Statements per line', fmtSeparator],
@@ -428,8 +418,8 @@ const factRows = computed<FactRow[]>(() => {
     ['Address notation', fmtAddress],
   ];
   return rows.map(([label, get]) => {
-    const fromText = factText(s.facts, get);
-    const toText = factText(t.facts, get);
+    const fromText = get(s);
+    const toText = get(t);
     return { label, fromText, toText, changed: fromText !== toText };
   });
 });

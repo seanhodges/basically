@@ -12,13 +12,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../../../src/dialects/registry';
-import {
-  families,
-  machineForSelection,
-  machines,
-  pageForSelection,
-  selectableIds,
-} from './machines';
+import { machines } from './machines';
 
 const registryIds = dialects.map((d) => d.id).sort();
 
@@ -38,91 +32,35 @@ describe('machine list', () => {
   );
 });
 
-describe('families', () => {
-  it('names only registered machines as members', () => {
-    for (const family of families) {
-      for (const member of family.members) {
-        expect(registryIds, `${family.slug} member ${member}`).toContain(
-          member,
-        );
-      }
-    }
-  });
-
-  it('covers every page that more than one machine shares', () => {
-    const byPage = new Map<string, string[]>();
-    for (const m of machines) {
-      byPage.set(m.page, [...(byPage.get(m.page) ?? []), m.id]);
-    }
-    const shared = [...byPage.entries()]
-      .filter(([, ids]) => ids.length > 1)
-      .map(([page]) => page)
-      .sort();
-    expect(families.map((f) => f.page).sort()).toEqual(shared);
-  });
-
-  it('lists exactly the machines on its page', () => {
-    for (const family of families) {
-      const onPage = machines
-        .filter((m) => m.page === family.page)
-        .map((m) => m.id)
-        .sort();
-      expect([...family.members].sort(), family.slug).toEqual(onPage);
-    }
-  });
-
-  it('says in its label that it covers more than one machine', () => {
-    // The spec requires a family selection be distinguishable from a single
-    // machine. The convention is a trailing parenthetical opening with "either"
-    // or "any" - what follows names whatever reads best for that family
-    // ("either machine", "either CPC"), so the check pins the promise, not the
-    // wording.
-    for (const family of families) {
-      expect(family.label, family.slug).toMatch(/\((?:either|any) .*\)$/);
-    }
-  });
-});
-
 describe('selection namespace', () => {
-  // A family slug that collided with a machine id would make ?from= ambiguous.
-  // `zxspectrum` is the near miss: it is the 48K machine's dialect id, so its
-  // family is slugged `zxspectrum-any`.
-  it('keeps machine ids and family slugs disjoint', () => {
+  // Only machine ids are selectable. A docs page slug is not, because
+  // `zxspectrum` is both the 48K machine's id and the page its 128K sibling
+  // shares - one string with two meanings in one namespace, which no URL can
+  // disambiguate. Keeping pages out of the namespace is what removes the case.
+  it('has no duplicate ids', () => {
+    const ids = machines.map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has a page slug that is not a machine id, and does not offer it', () => {
     const ids = new Set(machines.map((m) => m.id));
-    for (const family of families) {
-      expect(
-        ids.has(family.slug),
-        `${family.slug} collides with a machine id`,
-      ).toBe(false);
+    const pageOnly = [...new Set(machines.map((m) => m.page))].filter(
+      (page) => !ids.has(page),
+    );
+    // If this is ever empty the clash risk is gone, but so is the reason for
+    // the rule - so assert the shape that makes the rule necessary.
+    expect(pageOnly.length).toBeGreaterThan(0);
+    for (const page of pageOnly) {
+      expect(ids, `${page} is a page, not a selection`).not.toContain(page);
     }
   });
 
-  it('has no duplicates', () => {
-    expect(new Set(selectableIds).size).toBe(selectableIds.length);
+  it('covers a machine whose id is also its page, and one where it is not', () => {
+    expect(machines.find((m) => m.id === 'zxspectrum')?.page).toBe(
+      'zxspectrum',
+    );
+    expect(machines.find((m) => m.id === 'zxspectrum128')?.page).toBe(
+      'zxspectrum',
+    );
   });
-
-  it('resolves a machine selection to itself and a family to no machine', () => {
-    expect(machineForSelection('cpc6128')).toBe('cpc6128');
-    expect(machineForSelection('cpc')).toBeUndefined();
-    expect(machineForSelection('zxspectrum')).toBe('zxspectrum');
-    expect(machineForSelection('zxspectrum-any')).toBeUndefined();
-  });
-
-  it('resolves every selection to a reference page', () => {
-    for (const id of selectableIds) {
-      expect(pageForSelection(id), id).toBeDefined();
-    }
-    expect(pageForSelection('nonesuch')).toBeUndefined();
-  });
-
-  // The links people have already shared use the reference page slugs. Three of
-  // the four still mean the family; `zxspectrum` deliberately now means the 48K
-  // machine (see machines.ts).
-  it.each(['bbc', 'commodore', 'cpc'])(
-    'keeps the legacy page slug %s pointing at its family',
-    (slug) => {
-      expect(families.some((f) => f.slug === slug)).toBe(true);
-      expect(machineForSelection(slug)).toBeUndefined();
-    },
-  );
 });

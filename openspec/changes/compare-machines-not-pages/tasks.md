@@ -2,7 +2,7 @@
 
 - [x] 1.1 Add `onlyOn?: string[]` to `ReferenceEntry` and `EscapeEntry` in `docs/reference/data/types.ts`, documenting that absent means every machine on the page and that the existing prose `tag` stays the display label. Named `onlyOn`, not `machines`, to avoid colliding with `ReferenceTableData.machines` (page display names)
 - [x] 1.2 Add `tableForMachine(page, dialectId)` and its escape-table counterpart to `docs/.vitepress/theme/dialectCompare.ts` — returning the same table with entries filtered by `onlyOn` — with cases in `dialectCompare.test.ts`. No existing signature in that module changes
-- [x] 1.3 Add a `docs/reference/data/machines.ts` listing the 13 machine ids with their page slug, plus the 4 family/union entries, as the single source of what is selectable
+- [x] 1.3 Add a `docs/reference/data/machines.ts` listing the 13 machine ids with their page slug, as the single source of what is selectable. Machine ids only — a docs page slug is not selectable, because `zxspectrum` is both the 48K machine's id and the page its 128K sibling shares
 
 ## 2. Per-machine keyword crosscheck, then scope the rows to satisfy it
 
@@ -32,15 +32,15 @@
 ## 5. Comparison engine and selections
 
 - [x] 5.1 Narrow the tables with `tableForMachine` at the call site in `DialectCompare.vue` before they reach `diffKeywords`, `capabilitySections` and `escapeSections`, and resolve machine → page for `composeGuidance`'s `from`/`to`. Extend `dialectCompare.test.ts` to cover a variant pair on each side; every existing case in it must still pass unmodified
-- [x] 5.2 Implement union-selection facts: report a range where members differ, a plain figure where they agree, with tests for both
-- [x] 5.3 Build `compare.md`'s options from `machines.ts` — 13 machines plus 4 unions labelled as covering several machines — and group them so the longer list stays scannable
-- [x] 5.4 Accept both machine ids and family slugs in `?from=`/`?to=` with no redirect, and confirm `syncUrl` round-trips whichever the user picked
+- [x] 5.2 Dropped with the family selections: with only machines selectable each side has exactly one set of facts, so the existing accessors read it unchanged and no range presentation is needed
+- [x] 5.3 Build `compare.md`'s options from `machines.ts` — the 13 machines — and group them under manufacturer headings so the longer list stays scannable
+- [x] 5.4 Accept machine ids only in `?from=`/`?to=`, and confirm `syncUrl` round-trips them. Page slugs are no longer selections, so links shared as `?from=cpc&to=bbc` fall back to the default pair — accepted, so that one string never means two machines
 - [x] 5.5 Keep `porting.ts` page-keyed (a spelling is a property of the BASIC, shared by every machine on a page) and teach `porting-crosscheck.test.ts` to cross between page-keyed spellings and machine-keyed facts: substitutions are now checked against that machine's own rows, so advice on `FILL` is redundant on a 6128 but valid on a 464
 
 ## 6. IDE handoff
 
-- [x] 6.1 Make `dialectForPage` in `src/components/DocsDrawer.tsx` resolve an exact machine id before falling back to the page lookup, so converting to a variant opens that variant
-- [x] 6.2 Name the machine in the convert offer when the target selection covers several machines
+- [x] 6.1 Replace `dialectForPage` in `src/components/DocsDrawer.tsx` with `dialectForMachineId`, matching ids only and dropping the shared-page fallback, so converting to a variant opens that variant
+- [x] 6.2 Dropped with the family selections: the convert offer always names a machine, because a machine is the only thing that can be selected
 - [x] 6.3 Drive-by: correct the BASIC 1.1 keyword count from eleven to twelve in `src/dialects/cpc6128/keywords.ts`'s doc comment and in `docs/contributing/dialect-roadmap.md` — both omit standalone `GRAPHICS` (`0xDE`)
 
 ## 7. Quality gates
@@ -50,5 +50,5 @@
 - [x] 7.3 `npm run lint` and `npm run format:check`
 - [x] 7.4 `npm run docs:build`
 - [x] 7.5 `npm run e2e:chromium -- e2e/porting-guidance`, extending `convert-program.spec.ts` to assert converting to a variant lands the IDE in that machine (6128, not 464). Only check this off when the run passes; on failure leave it unchecked with a note on what failed
-- [x] 7.6 Pinned every scenario from the manual list as permanent tests in `docs/.vitepress/theme/perMachineCompare.test.ts` (18 cases over the real tables) rather than checking them once by hand: C64 → BBC omits the PET-only disk commands; BBC → CPC 464 omits `FILL`/`MASK` while BBC → CPC 6128 offers them; VIC-20 reports 3583 and PET 31743; CPC 464 → CPC 6128 is 12 gains and 0 losses; a family selection spans free RAM as `3,583–38,911 bytes`. The e2e run covers the page rendering and the `?from=`/`?to=` round trip in a real browser
+- [x] 7.6 Pinned every scenario from the manual list as permanent tests in `docs/.vitepress/theme/perMachineCompare.test.ts` (14 cases over the real tables) rather than checking them once by hand: C64 → BBC omits the PET-only disk commands; BBC → CPC 464 omits `FILL`/`MASK` while BBC → CPC 6128 offers them; VIC-20 reports 3583 and PET 31743; CPC 464 → CPC 6128 is 12 gains and 0 losses. The e2e run covers the page rendering and the `?from=`/`?to=` round trip in a real browser
 - [x] 7.7 `npx openspec validate --specs`

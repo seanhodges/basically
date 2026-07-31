@@ -15,17 +15,12 @@ import { cpcReference } from '../../reference/data/cpc';
 import { zxspectrumReference } from '../../reference/data/zxspectrum';
 import { portingFacts } from '../../reference/data/facts';
 import { keywordEquivalences } from '../../reference/data/porting';
-import {
-  diffKeywords,
-  factText,
-  fmtBytes,
-  tableForMachine,
-} from './dialectCompare';
+import { diffKeywords, tableForMachine } from './dialectCompare';
 
 /** The keyword diff between two machines, as the page computes it. */
 function diffBetween(
-  source: { page: Parameters<typeof tableForMachine>[0]; machine?: string },
-  target: { page: Parameters<typeof tableForMachine>[0]; machine?: string },
+  source: { page: Parameters<typeof tableForMachine>[0]; machine: string },
+  target: { page: Parameters<typeof tableForMachine>[0]; machine: string },
   slugs: { from: string; to: string },
 ) {
   return diffKeywords(
@@ -190,37 +185,5 @@ describe('hardware facts answer for the machine chosen', () => {
     expect(b.freeRamBytes).toBe(a.freeRamBytes);
     expect(b.screenBase).toBe(a.screenBase);
     expect(b.programStart).toBe(a.programStart);
-  });
-});
-
-describe('a family selection reports the spread, not one member', () => {
-  const factsFor = (id: string) => portingFacts.find((f) => f.id === id)!;
-  const commodore = ['pet', 'vic20', 'commodore64'].map((id) => ({
-    label: id,
-    facts: factsFor(id),
-  }));
-  const cpc = ['cpc464', 'cpc6128'].map((id) => ({
-    label: id,
-    facts: factsFor(id),
-  }));
-
-  it('spans free RAM across the Commodore machines', () => {
-    expect(factText(commodore, (f) => fmtBytes(f.freeRamBytes))).toBe(
-      '3,583–38,911 bytes',
-    );
-  });
-
-  it('states a figure plainly where the family agrees', () => {
-    expect(factText(cpc, (f) => fmtBytes(f.freeRamBytes))).toBe('42,619 bytes');
-  });
-
-  it('names which machine says what for prose that differs', () => {
-    const colour = factText(commodore, (f) => f.colour);
-    expect(colour).toContain('pet:');
-    expect(colour).toContain('commodore64:');
-  });
-
-  it('states shared prose once', () => {
-    expect(factText(commodore, (f) => f.lineNumberRange)).toBe('0–63999');
   });
 });

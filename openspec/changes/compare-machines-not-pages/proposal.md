@@ -28,11 +28,14 @@ The fold produces wrong output the user acts on:
   only on some machines of a family is no longer attributed to all of them.
 - Porting facts are keyed by machine instead of by page, so hardware figures
   describe the machine the user chose.
-- The four family entries remain selectable and are relabelled as explicit
-  unions ("Locomotive BASIC — either CPC"). Where a hardware figure differs
-  across a union's members it is reported as a spread rather than one member's
-  value. This keeps every existing `?from=…&to=…` link reopening the comparison
-  it always did.
+- **BREAKING (shared links):** only machine ids are selectable. Docs page slugs
+  leave the `?from=`/`?to=` namespace entirely, so a link shared as
+  `?from=cpc&to=bbc` no longer resolves and the page opens on its default pair.
+  The alternative was keeping page slugs as family selections alongside machine
+  ids, but the two namespaces collide — `zxspectrum` is both the 48K machine's
+  dialect id and the page its 128K sibling shares, one string with two meanings
+  and no way for a URL to say which. One namespace of machine ids has no such
+  case to resolve, and an unambiguous link is worth more than an old one.
 - **BREAKING (internal test contract):** the `REPRESENTATIVE` page→marquee-dialect
   map in `facts-crosscheck.test.ts` is deleted, and `keyword-crosscheck.test.ts`
   stops pinning pages to family *unions*. Both are replaced by per-machine
@@ -57,10 +60,10 @@ None.
 - `porting-guidance`: the comparison's unit becomes the machine rather than the
   docs page. New requirements that a command present on only some machines of a
   family is not reported as gained or lost for a machine that lacks it, that
-  hardware figures describe the selected machine, and that a union selection is
-  labelled as covering several machines and reports differing figures as a
-  spread. The shareable-link requirement is amended to state that both machine
-  ids and family slugs are valid selections.
+  hardware figures describe the selected machine, and that carrying out the port
+  targets the machine chosen rather than a relative. The shareable-link
+  requirement is amended to state that machines are the only thing offered and
+  that each is named by one string meaning only that machine.
 
 ## Non-goals
 
@@ -91,9 +94,10 @@ None.
 - **Docs theme** (`docs/.vitepress/theme/`): `dialectCompare.ts` filters rows by
   the selected machine through `diffKeywords`, `capabilitySections`,
   `escapeSections` and `composeGuidance`; `DialectCompare.vue` and `compare.md`
-  offer 13 machines plus 4 labelled unions.
-- **IDE**: `src/components/DocsDrawer.tsx` — `dialectForPage` must resolve a
-  machine id exactly so "Convert my program" opens the chosen machine.
+  offer the 13 machines, grouped by manufacturer.
+- **IDE**: `src/components/DocsDrawer.tsx` — the conversion hand-off resolves a
+  machine id (`dialectForMachineId`) rather than a shared page slug, so "Convert
+  my program" opens the chosen machine.
 - **Tests**: `keyword-crosscheck`, `escape-crosscheck`, `facts-crosscheck` and
   `porting-crosscheck` all move to per-machine pinning; `e2e/porting-guidance/`
   gains coverage that converting to a variant lands in that variant.

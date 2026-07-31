@@ -22,7 +22,7 @@ import { zx80Escapes } from './data/escapes/zx80';
 import { zx81Escapes } from './data/escapes/zx81';
 
 import { portingFacts } from './data/facts';
-import { machines as machineList, families } from './data/machines';
+import { machines as machineList } from './data/machines';
 
 // Reference and escape tables belong to the docs *page*, which may cover
 // several machines; DialectCompare narrows their rows to whichever machine is
@@ -63,9 +63,8 @@ const makerOf = {
 };
 
 const factsFor = (id) => portingFacts.find((f) => f.id === id);
-const labelOf = (id) => machineList.find((m) => m.id === id)?.label ?? id;
 
-const machineOptions = machineList.map((m) => ({
+const dialects = machineList.map((m) => ({
   id: m.id,
   page: m.page,
   machine: m.id,
@@ -73,24 +72,8 @@ const machineOptions = machineList.map((m) => ({
   group: makerOf[m.id],
   reference: referenceByPage[m.page],
   escapes: escapesByPage[m.page],
-  facts: [{ label: m.label, facts: factsFor(m.id) }],
+  facts: factsFor(m.id),
 }));
-
-// The shared BASICs, for a reader who has not yet chosen between close
-// relatives. `machine` is undefined, so the whole page's rows are kept — and
-// every member's facts ride along, so a figure they disagree on is reported
-// across them rather than becoming one machine's.
-const familyOptions = families.map((f) => ({
-  id: f.slug,
-  page: f.page,
-  machine: undefined,
-  label: f.label,
-  reference: referenceByPage[f.page],
-  escapes: escapesByPage[f.page],
-  facts: f.members.map((id) => ({ label: labelOf(id), facts: factsFor(id) })),
-}));
-
-const dialects = [...machineOptions, ...familyOptions];
 </script>
 
 # Porting guide
@@ -103,11 +86,9 @@ and an AI assistant configured, you can also have the port carried out for you.
 Either way it is a starting point — performance and hardware input usually need
 attention afterwards.
 
-Machines that share a BASIC are listed separately, because sharing a BASIC is
-not sharing a machine: a program that fits a Commodore 64 will not necessarily
-fit an unexpanded VIC-20, and a CPC 6128 has commands a 464 does not. If you
-have not settled on a particular machine, the shared BASICs at the end of each
-list cover a whole family at once.
+Every machine is listed in its own right, because sharing a BASIC is not
+sharing a machine: a program that fits a Commodore 64 will not necessarily fit
+an unexpanded VIC-20, and a CPC 6128 has commands a 464 does not.
 
 If you're new to porting programs, read [this](./porting-basics) first.
 

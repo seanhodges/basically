@@ -7,8 +7,11 @@ port **to**, and be told what moving a program between them involves: which
 commands the target lacks, which the target adds, which behave differently, and
 how the two machines differ in language rules and hardware. Every machine the
 IDE supports SHALL be offered on both sides, including machines that share a
-BASIC with a close relative. A chosen comparison SHALL be shareable as a link
-that reopens the same pair.
+BASIC with a close relative, and machines SHALL be the only thing offered. A
+chosen comparison SHALL be shareable as a link that reopens the same pair.
+
+Each machine SHALL be identified by one name that means only that machine, so a
+shared link cannot be ambiguous about which machine it names.
 
 #### Scenario: Choosing a pair
 
@@ -27,6 +30,11 @@ that reopens the same pair.
   their BASIC version
 - **THEN** both are selectable in their own right, and the comparison reports
   what that BASIC version changes rather than reporting no difference
+
+#### Scenario: A shared link names one machine unambiguously
+
+- **WHEN** a comparison is shared as a link and reopened
+- **THEN** each side resolves to exactly the machine that was chosen
 
 ## ADDED Requirements
 
@@ -77,38 +85,10 @@ user selected, not a representative relative.
   from its relatives'
 - **THEN** the screen and sound described are that machine's own
 
-### Requirement: A selection covering several machines says so
-
-For a reader who has not yet chosen between close relatives, a BASIC shared by a
-family MAY be offered as a selection in its own right. Such a selection SHALL be
-labelled so the reader can tell it covers more than one machine, and SHALL NOT
-be presented as though it were a single machine. Where a figure differs across
-the machines it covers, the selection SHALL report the range rather than any one
-machine's value.
-
-#### Scenario: Choosing a whole family
-
-- **WHEN** the user selects a BASIC shared by several machines rather than one
-  machine
-- **THEN** the selection is labelled as covering several machines
-
-#### Scenario: A figure that differs across the family
-
-- **WHEN** a selection covers machines whose free memory differs
-- **THEN** the free memory is reported as a range across those machines, not as
-  a single machine's figure
-
-#### Scenario: A figure common to the whole family
-
-- **WHEN** a selection covers machines that agree on a figure
-- **THEN** that figure is reported plainly, without a range
-
 ### Requirement: Carrying out the port targets the machine chosen
 
 Where the comparison offers to carry the port out, it SHALL convert the program
-for the machine the user selected as the target. Where the user selected a BASIC
-covering several machines rather than one machine, the offer SHALL make clear
-which machine the program will be converted for.
+for the machine the user selected as the target.
 
 #### Scenario: Converting to a specific machine
 
@@ -117,8 +97,9 @@ which machine the program will be converted for.
 - **THEN** the program is converted for that machine, and the IDE continues on
   that machine
 
-#### Scenario: Converting when the target covers several machines
+#### Scenario: Converting to a machine that shares a BASIC with a relative
 
-- **WHEN** the user asks for the port to be carried out having selected a BASIC
-  that covers several machines
-- **THEN** the machine the program is converted for is named
+- **WHEN** the user selects a machine whose BASIC a close relative also runs,
+  and asks for the port to be carried out
+- **THEN** the program is converted for the machine selected, not for its
+  relative
