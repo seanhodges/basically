@@ -498,7 +498,7 @@ Key details:
   machine's rules (for the ZX81: one statement per line, mandatory `LET`,
   `PRINT AT`, …); the shared part governs how much code to send, which must not
   vary by machine.
-- The user message embeds the current program and up to 20 tokenisererrors.
+- The user message embeds the current program and up to 20 tokeniser errors.
 - Each generated block is either a whole listing or a fragment. The model
   declares which with the fence tag (` ```basic ` / ` ```basic-partial `), and
   `classifyBlock()` cross-checks that against the block's line numbers. The
