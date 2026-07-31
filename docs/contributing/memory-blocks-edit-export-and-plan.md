@@ -308,7 +308,7 @@ Detokenise/import continues to emit plain numbers.
       `blockRefWarnings(source, blocks, usrKeywords)` — "USR 32768 matches no
       block", non-fatal.
 - [ ] New `src/app/buildSource.ts` — `resolveForDialect(dialect, source, blocks)`,
-      the **single** substitution point ahead of every `dialect.tokenise`:
+      the **single** substitution point ahead of every `dialect.tokenize`:
       run path (`EmulatorPane`), export (`TransferDialog` / target `build`),
       lint (`lintIntegration.ts` reads blocks imperatively inside the debounced
       callback — no extension rebuild on block edits — and remaps diagnostic
