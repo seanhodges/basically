@@ -420,7 +420,7 @@ Step by step:
 
 ### Editing and linting
 
-While you type, two debounced consumers run the tokeniseras a dry-run - no
+While you type, two debounced consumers run the tokeniser as a dry-run - no
 machine involved:
 
 ```mermaid
