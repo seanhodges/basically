@@ -13,7 +13,7 @@ If you are adding a whole new machine, read this page first, then jump to
 
 - **Fix a bug or rough edge** - start small; a focused PR is the best way to
   learn the codebase.
-- **Improve a dialect** - better tokeniseraccuracy, keyword docs, samples, or
+- **Improve a dialect** - better tokeniser accuracy, keyword docs, samples, or
   emulator fidelity for a machine you know well.
 - **Add a new target machine** - a BASIC dialect, emulator, and virtual
   keyboard. This is a larger effort; see [Adding a dialect](/contributing/adding-a-dialect).
