@@ -146,10 +146,21 @@ describe.each(portingFacts.map((f) => [f.id, f] as const))(
     it('has a few short notes, within the reading budget', () => {
       expect(facts.portingNotes.length).toBeGreaterThan(0);
       expect(facts.portingNotes.length).toBeLessThanOrEqual(MAX_NOTES);
-      for (const note of facts.portingNotes) {
-        expect(note.trim()).not.toBe('');
-        expect(note.length, `too long to scan: "${note}"`).toBeLessThanOrEqual(
+      for (const { text } of facts.portingNotes) {
+        expect(text.trim()).not.toBe('');
+        expect(text.length, `too long to scan: "${text}"`).toBeLessThanOrEqual(
           MAX_NOTE_CHARS,
+        );
+      }
+    });
+
+    // An untagged note could never be superseded by a pair note, so it would
+    // silently reintroduce the duplication the topics exist to remove.
+    it('says what each note is about', () => {
+      for (const { text, topics } of facts.portingNotes) {
+        expect(topics.length, `untagged note: "${text}"`).toBeGreaterThan(0);
+        expect(new Set(topics).size, `topic repeated: "${text}"`).toBe(
+          topics.length,
         );
       }
     });
@@ -215,11 +226,31 @@ describe('pair porting notes', () => {
       ).not.toBe(pair.to);
       expect(pair.notes.length).toBeGreaterThan(0);
       expect(pair.notes.length).toBeLessThanOrEqual(MAX_NOTES);
-      for (const note of pair.notes) {
-        expect(note.trim()).not.toBe('');
-        expect(note.length, `too long to scan: "${note}"`).toBeLessThanOrEqual(
+      for (const { text } of pair.notes) {
+        expect(text.trim()).not.toBe('');
+        expect(text.length, `too long to scan: "${text}"`).toBeLessThanOrEqual(
           MAX_NOTE_CHARS,
         );
+      }
+    },
+  );
+
+  // A `covers` tag exists to drop one of the target's own bullets. Naming a
+  // topic that target never writes about drops nothing, so the tag is either a
+  // typo or a leftover from a bullet that has since been reworded - either way
+  // it is claiming to have said something the reader will never miss.
+  it.each(pairPortingNotes.map((p) => [`${p.from}→${p.to}`, p] as const))(
+    '%s only claims to cover topics its target writes about',
+    (_label, pair) => {
+      const target = portingFacts.find((f) => f.id === pair.to);
+      const written = new Set(target?.portingNotes.flatMap((n) => n.topics));
+      for (const note of pair.notes) {
+        for (const topic of note.covers ?? []) {
+          expect(
+            written.has(topic),
+            `no ${pair.to} note is about "${topic}", so covering it drops nothing`,
+          ).toBe(true);
+        }
       }
     },
   );

@@ -256,12 +256,16 @@ const gainingCount = computed(
 // the capabilities with nothing to replace, and the control codes the target
 // adds. What the target offers *in a capability the port loses commands from*
 // is not filtered - that is the "do this instead" the reader came for.
-const hideAdditions = ref(true);
+//
+// Phrased as a "show", like every other checkbox here: a page mixing "show X"
+// with "hide Y" makes the reader work out which way each tick points before
+// ticking it. Off by default, so the additions still start hidden.
+const showAdditions = ref(false);
 
 const visibleCapabilities = computed<CapabilitySection[]>(() =>
-  hideAdditions.value
-    ? capabilities.value.filter((s) => s.entries.length)
-    : capabilities.value,
+  showAdditions.value
+    ? capabilities.value
+    : capabilities.value.filter((s) => s.entries.length),
 );
 
 /** The authored (target, capability) advice for a group, if any. */
@@ -401,6 +405,63 @@ const summary = computed(() => {
   return sentences.join(' ');
 });
 
+/** One entry of the colour key: a swatch style and what that colour means. */
+interface LegendItem {
+  key: string;
+  /** Modifier class carrying the same colour as the thing it explains. */
+  className: string;
+  label: string;
+}
+
+/**
+ * What the colours on this page mean, for the colours this pair actually uses.
+ * Nothing else says why one capability group is tinted red and the next has a
+ * green edge, and a key listing colours the pair does not use would be its own
+ * small puzzle - so each entry is conditioned on the same thing the template
+ * renders it from.
+ */
+const legend = computed<LegendItem[]>(() => {
+  const t = target.value;
+  if (!t) return [];
+  const groups = visibleCapabilities.value;
+  const losing = (
+    s: CapabilitySection,
+    support: CapabilitySection['support'],
+  ) => s.entries.length > 0 && s.support === support;
+  const items: LegendItem[] = [];
+  if (visibleFactRows.value.some((r) => r.changed))
+    items.push({
+      key: 'changed',
+      className: 'cmp-key-changed',
+      label: 'Differs between the two machines',
+    });
+  if (groups.some((s) => losing(s, 'none')))
+    items.push({
+      key: 'none',
+      className: 'cmp-key-none',
+      label: `Nothing like it in ${t.label}`,
+    });
+  if (groups.some((s) => losing(s, 'partial')))
+    items.push({
+      key: 'partial',
+      className: 'cmp-key-partial',
+      label: `Only partly covered in ${t.label}`,
+    });
+  if (groups.some((s) => losing(s, 'full')))
+    items.push({
+      key: 'full',
+      className: 'cmp-key-full',
+      label: `Covered in ${t.label} under other names`,
+    });
+  if (groups.some((s) => !s.entries.length))
+    items.push({
+      key: 'gain',
+      className: 'cmp-key-gain',
+      label: `Nothing to replace — ${t.label} only adds here`,
+    });
+  return items;
+});
+
 /**
  * The sections this pair actually renders, in page order: the "on this page"
  * row, and the ids its links and the headings share. Built from the same
@@ -507,12 +568,10 @@ function convertWithAi() {
 <template>
   <div class="cmp">
     <!--
-      The guidance that does not change with the pair sits here, with the page
-      intro and above the picker, so the sections below run pair-specific from
-      first to last instead of being split by generic prose.
+      Anything that does not change with the pair - the page intro, and the
+      link to the porting primer - stays in the markdown above this component,
+      so every section below runs pair-specific from first to last.
     -->
-    <div class="cmp-intro"><slot /></div>
-
     <div class="cmp-panel">
       <div class="cmp-controls">
         <label class="cmp-field">
@@ -594,6 +653,23 @@ function convertWithAi() {
     </div>
 
     <template v-if="!sameSelection && source && target && keywordDiff">
+      <!--
+        The colour key, above the sections that use the colours: one row, so it
+        costs a glance rather than a paragraph, and only the colours this pair
+        puts on the page.
+      -->
+      <div v-if="legend.length" class="cmp-legend">
+        <span class="cmp-legend-title">Colour key</span>
+        <span v-for="item in legend" :key="item.key" class="cmp-legend-item">
+          <span
+            class="cmp-legend-swatch"
+            :class="item.className"
+            aria-hidden="true"
+          />
+          {{ item.label }}
+        </span>
+      </div>
+
       <!--
         Language & hardware first: the differences that decide how much of the
         program has to change at all, right under the picker so they move as
@@ -721,8 +797,8 @@ function convertWithAi() {
           of at all come first.
         </p>
         <label v-if="gainingCount" class="cmp-toggle">
-          <input v-model="hideAdditions" type="checkbox" />
-          Hide what {{ target.label }} adds that the program has not used
+          <input v-model="showAdditions" type="checkbox" />
+          Show what {{ target.label }} adds that the program has not used
         </label>
         <div
           v-for="s in visibleCapabilities"
@@ -823,7 +899,7 @@ function convertWithAi() {
           </p>
         </div>
         <!-- Say what the filter is holding back, so it is discoverable. -->
-        <p v-if="hideAdditions && gainingCount" class="cmp-empty">
+        <p v-if="!showAdditions && gainingCount" class="cmp-empty">
           {{ count(gainingCount, 'capability area') }}
           {{ target.label }} only adds to
           {{ gainingCount === 1 ? 'is' : 'are' }} hidden.
@@ -935,8 +1011,8 @@ function convertWithAi() {
           gives every code's meaning.
         </p>
         <label v-if="escapeAdded" class="cmp-toggle">
-          <input v-model="hideAdditions" type="checkbox" />
-          Hide what {{ target.label }} adds that the program has not used
+          <input v-model="showAdditions" type="checkbox" />
+          Show what {{ target.label }} adds that the program has not used
         </label>
         <div
           v-for="s in escReplaceSections"
@@ -957,7 +1033,7 @@ function convertWithAi() {
         <p v-if="!escReplaceSections.length" class="cmp-empty">
           No {{ source.label }} control code needs replacing.
         </p>
-        <p v-if="escapeAdded && !hideAdditions" class="cmp-esc-gain">
+        <p v-if="escapeAdded && showAdditions" class="cmp-esc-gain">
           {{ target.label }} adds {{ count(escapeAdded, 'code') }} across
           {{ count(escapeAddedCategories, 'category', 'categories') }} the
           program has not used —
@@ -979,9 +1055,6 @@ function convertWithAi() {
   border: 1px solid var(--vp-c-divider);
   border-radius: 10px;
   background: var(--vp-c-bg-soft);
-}
-.cmp-intro {
-  margin-top: 2rem;
 }
 .cmp-controls {
   display: flex;
@@ -1050,6 +1123,51 @@ function convertWithAi() {
   color: #fff;
   cursor: pointer;
   font-size: 0.9rem;
+}
+/* The colour key: one horizontal run above the sections, wrapping on narrow
+   screens rather than becoming a stacked list that outgrows what it explains. */
+.cmp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  margin: 1.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--vp-c-text-2);
+}
+.cmp-legend-title {
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+.cmp-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+/* Each swatch carries the treatment it explains: a left bar for the capability
+   groups, a filled block for the highlighted fact rows. */
+.cmp-legend-swatch {
+  width: 1.1rem;
+  height: 0.9rem;
+  border-radius: 2px;
+  background: var(--vp-c-bg-soft);
+}
+.cmp-key-changed {
+  background: var(--vp-c-warning-soft, var(--vp-c-yellow-soft));
+  border: 1px solid var(--vp-c-divider);
+}
+.cmp-key-none {
+  border-left: 3px solid var(--vp-c-red-1);
+  background: var(--vp-c-red-soft);
+}
+.cmp-key-full {
+  border-left: 3px solid var(--vp-c-red-1);
+}
+.cmp-key-partial {
+  border-left: 3px solid var(--vp-c-yellow-1);
+}
+.cmp-key-gain {
+  border-left: 3px solid var(--vp-c-green-1);
 }
 .cmp-section {
   margin-top: 2rem;

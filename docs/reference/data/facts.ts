@@ -11,11 +11,26 @@ export const portingFacts: PortingFacts[] = [
   {
     id: 'zx81',
     portingNotes: [
-      'One statement per line, and LET is required on every assignment.',
-      'Numeric names may be several characters, but string and array names are a single letter.',
-      'SCROLL when the screen fills, or the program stops with report 5.',
-      'No DATA/READ/RESTORE, no DEF FN and no ON…GOTO — use GOTO on a computed line number.',
-      "CHR$ uses the ZX81's own character codes, not ASCII.",
+      {
+        text: 'One statement per line, and LET is required on every assignment.',
+        topics: ['statement-layout'],
+      },
+      {
+        text: 'Numeric names may be several characters, but string and array names are a single letter.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'SCROLL when the screen fills, or the program stops with report 5.',
+        topics: ['text-screen'],
+      },
+      {
+        text: 'No DATA/READ/RESTORE, no DEF FN and no ON…GOTO — use GOTO on a computed line number.',
+        topics: ['control-flow'],
+      },
+      {
+        text: "CHR$ uses the ZX81's own character codes, not ASCII.",
+        topics: ['control-codes'],
+      },
     ],
     substitutions: [
       {
@@ -47,11 +62,26 @@ export const portingFacts: PortingFacts[] = [
   {
     id: 'zx80',
     portingNotes: [
-      'Integer only. There is no floating point, values run -32768 to 32767, and division truncates — rescale anything fractional.',
-      'Variable names are a single letter A–Z, arrays and FOR counters included.',
-      'No <=, >= or <>: combine with AND/OR/NOT, e.g. NOT A<B for A>=B.',
-      'FOR has no STEP — the counter always increments by one.',
-      'One statement per line, LET required, no ELSE, and the screen blanks while the program computes.',
+      {
+        text: 'Integer only. There is no floating point, values run -32768 to 32767, and division truncates — rescale anything fractional.',
+        topics: ['numbers'],
+      },
+      {
+        text: 'Variable names are a single letter A–Z, arrays and FOR counters included.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'No <=, >= or <>: combine with AND/OR/NOT, e.g. NOT A<B for A>=B.',
+        topics: ['operators'],
+      },
+      {
+        text: 'FOR has no STEP — the counter always increments by one.',
+        topics: ['control-flow'],
+      },
+      {
+        text: 'One statement per line, LET required, no ELSE, and the screen blanks while the program computes.',
+        topics: ['statement-layout', 'control-flow', 'text-screen'],
+      },
     ],
     substitutions: [
       {
@@ -88,10 +118,22 @@ export const portingFacts: PortingFacts[] = [
   {
     id: 'zxspectrum',
     portingNotes: [
-      'Listings spell the jumps GO TO and GO SUB with a space; the glued forms are accepted on entry.',
-      "LET is required. There is no ELSE, but everything after THEN — including further ':' statements — runs only when the test is true.",
-      'One ink and paper per 8×8 cell, so colours clash where shapes overlap.',
-      'Control codes are brace directives inside strings, such as {INK 2} and {AT 5,3}.',
+      {
+        text: 'Listings spell the jumps GO TO and GO SUB with a space; the glued forms are accepted on entry.',
+        topics: ['spelling'],
+      },
+      {
+        text: "LET is required. There is no ELSE, but everything after THEN — including further ':' statements — runs only when the test is true.",
+        topics: ['statement-layout', 'control-flow'],
+      },
+      {
+        text: 'One ink and paper per 8×8 cell, so colours clash where shapes overlap.',
+        topics: ['colour'],
+      },
+      {
+        text: 'Control codes are brace directives inside strings, such as {INK 2} and {AT 5,3}.',
+        topics: ['control-codes'],
+      },
     ],
     substitutions: [
       {
@@ -128,10 +170,22 @@ export const portingFacts: PortingFacts[] = [
   {
     id: 'bbc',
     portingNotes: [
-      'Structured: DEF PROC…ENDPROC, DEF FN and REPEAT…UNTIL — but there is no WHILE.',
-      'Memory is written with ?addr= for a byte and !addr= for a word rather than POKE, and hex literals are written &nn.',
-      'MODE picks the screen; every graphics mode shares one 0–1279 by 0–1023 space with the origin bottom-left.',
-      'Variable names may be any length; the % integer suffix is the fast one, and A%–Z% are fastest of all.',
+      {
+        text: 'Structured: DEF PROC…ENDPROC, DEF FN and REPEAT…UNTIL — but there is no WHILE.',
+        topics: ['control-flow'],
+      },
+      {
+        text: 'Memory is written with ?addr= for a byte and !addr= for a word rather than POKE, and hex literals are written &nn.',
+        topics: ['memory'],
+      },
+      {
+        text: 'MODE picks the screen; every graphics mode shares one 0–1279 by 0–1023 space with the origin bottom-left.',
+        topics: ['graphics'],
+      },
+      {
+        text: 'Variable names may be any length; the % integer suffix is the fast one, and A%–Z% are fastest of all.',
+        topics: ['variable-names'],
+      },
     ],
     substitutions: [
       {
@@ -172,11 +226,26 @@ export const portingFacts: PortingFacts[] = [
   {
     id: 'commodore',
     portingNotes: [
-      'There is no ELSE — every IF…THEN…ELSE has to be restructured.',
-      'Only the first two characters of a variable name are significant, so SCORE and SCALE are one variable; a name containing a reserved word is a syntax error.',
-      'There are no graphics or sound keywords at all: the video and sound chips are driven by POKE.',
-      'LOG is the natural logarithm and there is no LN.',
-      'Control codes go inside string literals as escapes, such as {clr} and {red}.',
+      {
+        text: 'There is no ELSE — every IF…THEN…ELSE has to be restructured.',
+        topics: ['control-flow'],
+      },
+      {
+        text: 'Only the first two characters of a variable name are significant, so SCORE and SCALE are one variable; a name containing a reserved word is a syntax error.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'There are no graphics or sound keywords at all: the video and sound chips are driven by POKE.',
+        topics: ['graphics', 'sound'],
+      },
+      {
+        text: 'LOG is the natural logarithm and there is no LN.',
+        topics: ['numbers'],
+      },
+      {
+        text: 'Control codes go inside string literals as escapes, such as {clr} and {red}.',
+        topics: ['control-codes'],
+      },
     ],
     substitutions: [
       {
@@ -224,11 +293,33 @@ export const portingFacts: PortingFacts[] = [
   {
     id: 'atom',
     portingNotes: [
-      "Statements on a line are separated by ';', not ':', and there is no ELSE.",
-      'There are no string variables. A string is CR-terminated bytes at an address, reached with the $ prefix operator, so there is no CHR$, ASC, LEFT$, MID$, RIGHT$, STR$ or VAL.',
-      "Single letters A–Z hold 32-bit integers; real arithmetic needs the floating-point ROM's %A–%Z variables and F… statements.",
-      'CLEAR selects a screen mode. Memory is written with ?addr= and !addr=, and hex literals are written #nn.',
-      "PRINT does not end the line — ' emits the newline. There is no DIV or MOD; % is remainder.",
+      {
+        text: "Statements on a line are separated by ';', not ':', and there is no ELSE.",
+        topics: ['statement-layout', 'control-flow'],
+      },
+      {
+        text: 'There are no string variables. A string is CR-terminated bytes at an address, reached with the $ prefix operator, so there is no CHR$, ASC, LEFT$, MID$, RIGHT$, STR$ or VAL.',
+        topics: ['strings'],
+      },
+      {
+        text: "Single letters A–Z hold 32-bit integers; real arithmetic needs the floating-point ROM's %A–%Z variables and F… statements.",
+        topics: ['variable-names', 'numbers'],
+      },
+      {
+        text: 'CLEAR selects a screen mode rather than clearing variables.',
+        topics: ['graphics'],
+      },
+      // Split from the CLEAR note so that a pair arriving from a machine whose
+      // own notes already teach ?addr=/!addr= (the BBC) drops this one without
+      // taking the unrelated CLEAR fact with it.
+      {
+        text: 'Memory is written with ?addr= and !addr=, and hex literals are written #nn.',
+        topics: ['memory'],
+      },
+      {
+        text: "PRINT does not end the line — ' emits the newline. There is no DIV or MOD; % is remainder.",
+        topics: ['text-screen', 'operators'],
+      },
     ],
     substitutions: [
       {
@@ -272,11 +363,33 @@ export const portingFacts: PortingFacts[] = [
   {
     id: 'trs80',
     portingNotes: [
-      'Only the first two characters of a variable name are significant, and a name containing a reserved word is a syntax error.',
-      'Spaces are ignored outside strings and REM, so FORI=1TO5 is valid — and a variable may not embed a keyword.',
-      'Four types: % integer, ! single, # double and $ string, with DEFINT/DEFSNG/DEFDBL/DEFSTR setting the default by initial letter.',
-      '64 by 16 text, monochrome, no sound. Graphics are SET, RESET and POINT on a 128 by 48 grid of cells.',
-      'LOG is the natural logarithm.',
+      {
+        text: 'Only the first two characters of a variable name are significant, and a name containing a reserved word is a syntax error.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'Spaces are ignored outside strings and REM, so FORI=1TO5 is valid — and a variable may not embed a keyword.',
+        topics: ['statement-layout', 'variable-names'],
+      },
+      {
+        text: 'Four types: % integer, ! single, # double and $ string, with DEFINT/DEFSNG/DEFDBL/DEFSTR setting the default by initial letter.',
+        topics: ['numbers'],
+      },
+      {
+        text: '64 by 16 text, and the display is monochrome.',
+        topics: ['text-screen', 'colour'],
+      },
+      // Kept apart from the screen note above so that a pair arriving from a
+      // machine that drove its display and sound chip by POKE (the Commodore)
+      // drops this one without taking the screen size with it.
+      {
+        text: 'Graphics are SET, RESET and POINT on a 128 by 48 grid of cells, and the Model I has no sound.',
+        topics: ['graphics', 'sound'],
+      },
+      {
+        text: 'LOG is the natural logarithm.',
+        topics: ['numbers'],
+      },
     ],
     substitutions: [
       {
@@ -312,11 +425,26 @@ export const portingFacts: PortingFacts[] = [
   {
     id: 'cpc',
     portingNotes: [
-      'Locomotive is the richest of these BASICs: real ELSE, WHILE…WEND, and AFTER/EVERY interrupt timers that call a subroutine on a clock.',
-      'Variable names may be up to 40 characters, all significant, and may contain embedded keywords — SCORE and PRINTER are both fine.',
-      'Three types: % integer, ! real (the default) and $ string.',
-      'MODE 0, 1 and 2 change the text width and colour count, but the graphics space is always 640 by 400 with the origin bottom-left.',
-      'Hex literals are written &nn and binary &X1010.',
+      {
+        text: 'Locomotive is the richest of these BASICs: real ELSE, WHILE…WEND, and AFTER/EVERY interrupt timers that call a subroutine on a clock.',
+        topics: ['control-flow'],
+      },
+      {
+        text: 'Variable names may be up to 40 characters, all significant, and may contain embedded keywords — SCORE and PRINTER are both fine.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'Three types: % integer, ! real (the default) and $ string.',
+        topics: ['numbers'],
+      },
+      {
+        text: 'MODE 0, 1 and 2 change the text width and colour count, but the graphics space is always 640 by 400 with the origin bottom-left.',
+        topics: ['graphics'],
+      },
+      {
+        text: 'Hex literals are written &nn and binary &X1010.',
+        topics: ['memory'],
+      },
     ],
     substitutions: [
       {

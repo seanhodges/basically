@@ -36,7 +36,18 @@ comparison cannot report: whether the target machine has floating point at all.
   in a capability the port does lose commands from is the advice for replacing them, and is never
   hidden.
 - The guidance specific to this pair and the guidance for writing on the target are shown as one
-  section rather than two adjacent identical lists.
+  section rather than two adjacent identical lists, and where the pair's own bullets already make
+  every point one of the target's bullets makes, that bullet is not shown again in more general
+  terms — 18 of the eight dialects' 40 target bullets are superseded somewhere, 26 times across the
+  18 pairs that have notes of their own.
+- Every control over what the comparison reports is phrased as showing what it reveals rather than
+  hiding what it removes, so a ticked box always means more is reported; which of them start ticked
+  is unchanged.
+- The colours the comparison distinguishes its reports by are explained by a key above the
+  sections, in one horizontal run, naming only the colours the chosen pair puts on the page.
+- What any port between these BASICs involves — the four things that account for most of the work —
+  becomes a page of its own, linked from the end of the intro as the thing to read first, rather
+  than prose every reader of every comparison scrolls past.
 - Control and escape codes are grouped by what they do, the way the commands to replace are already
   grouped by capability, with the categories the target cannot reproduce reported first.
 - The language and hardware comparison gains a numeric-type row: integer-only versus floating point,
@@ -81,7 +92,12 @@ None.
   capability-section builder replacing the separate `domainSections` and `capabilityBrief`.
 - `docs/.vitepress/theme/components/DialectCompare.vue` — section order and the merges, the
   escape-code and changed-behaviour rendering, the numeric fact row, headings and summary line.
-- `docs/reference/compare.md` — condensed prose, moved above the picker.
+- `docs/reference/compare.md` — condensed prose, moved above the picker, then reduced to the intro
+  and a link once the general guidance moved out; `docs/reference/porting-basics.md` — the page it
+  moved to.
+- `docs/reference/data/porting-topics.ts` — the topic vocabulary the guidance de-duplication is
+  authored against; `docs/reference/data/porting.ts` and `docs/reference/data/facts.ts` — the tags
+  themselves, pinned by `porting-crosscheck.test.ts`.
 - `docs/reference/data/types.ts`, `docs/reference/data/facts.ts` — the numeric-type fact for all
   eight dialects, pinned by `facts-crosscheck.test.ts`.
 - `docs/.vitepress/theme/dialectCompare.test.ts` — coverage for the new comparison and grouping.

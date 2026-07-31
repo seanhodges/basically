@@ -454,8 +454,16 @@ describe('composeGuidance', () => {
     meanings: { bbc: 'Base-10 logarithm.', commodore: 'Natural logarithm.' },
   };
   const PAIRS: PairPortingNotes[] = [
-    { from: 'zx81', to: 'zxspectrum', notes: ['Jumps are GO TO here.'] },
-    { from: 'zxspectrum', to: 'zx81', notes: ['Code moves back into REM.'] },
+    {
+      from: 'zx81',
+      to: 'zxspectrum',
+      notes: [{ text: 'Jumps are GO TO here.' }],
+    },
+    {
+      from: 'zxspectrum',
+      to: 'zx81',
+      notes: [{ text: 'Code moves back into REM.' }],
+    },
   ];
 
   it('selects the notes for exactly this ordered pair', () => {
@@ -497,7 +505,7 @@ describe('composeGuidance', () => {
       to: 'commodore',
       targetFacts: facts({
         id: 'commodore',
-        portingNotes: ['No ELSE here.'],
+        portingNotes: [{ text: 'No ELSE here.', topics: ['control-flow'] }],
         substitutions: [{ keyword: 'ELSE', note: 'Invert the test.' }],
       }),
       pairNotes: PAIRS,
@@ -520,6 +528,78 @@ describe('composeGuidance', () => {
     expect(g.substitutions.size).toBe(0);
     // Pair notes and false friends do not depend on the target facts.
     expect(g.pairNotes).toEqual(['Jumps are GO TO here.']);
+  });
+
+  // The pair notes lead the one guidance section and the target notes follow
+  // them, so a target note whose points a pair note has already made would be
+  // read twice under one heading.
+  describe('target notes the pair notes have already made', () => {
+    const TARGET = facts({
+      id: 'commodore',
+      portingNotes: [
+        { text: 'No ELSE here.', topics: ['control-flow'] },
+        { text: 'Two significant characters.', topics: ['variable-names'] },
+        {
+          text: 'No graphics or sound keywords.',
+          topics: ['graphics', 'sound'],
+        },
+      ],
+    });
+
+    function guidanceFor(notes: PairPortingNotes['notes']) {
+      return composeGuidance({
+        from: 'bbc',
+        to: 'commodore',
+        targetFacts: TARGET,
+        pairNotes: [{ from: 'bbc', to: 'commodore', notes }],
+        falseFriends: [],
+      });
+    }
+
+    it('drops a target note whose only topic a pair note covers', () => {
+      const g = guidanceFor([
+        {
+          text: 'Every structured block becomes IF…THEN.',
+          covers: ['control-flow'],
+        },
+      ]);
+      expect(g.targetNotes).toEqual([
+        'Two significant characters.',
+        'No graphics or sound keywords.',
+      ]);
+      expect(g.pairNotes).toEqual(['Every structured block becomes IF…THEN.']);
+    });
+
+    it('keeps a target note only partly covered', () => {
+      const g = guidanceFor([
+        { text: 'Graphics are POKEs.', covers: ['graphics'] },
+      ]);
+      expect(g.targetNotes).toContain('No graphics or sound keywords.');
+    });
+
+    it('drops it once the pair notes between them cover every topic', () => {
+      const g = guidanceFor([
+        { text: 'Graphics are POKEs.', covers: ['graphics'] },
+        { text: 'Sound is POKEs too.', covers: ['sound'] },
+      ]);
+      expect(g.targetNotes).not.toContain('No graphics or sound keywords.');
+    });
+
+    it('keeps every target note when the pair covers nothing', () => {
+      const g = guidanceFor([{ text: 'A steep step down.' }]);
+      expect(g.targetNotes).toHaveLength(3);
+    });
+
+    it('keeps every target note for a pair with no notes of its own', () => {
+      const g = composeGuidance({
+        from: 'zx81',
+        to: 'commodore',
+        targetFacts: TARGET,
+        pairNotes: [],
+        falseFriends: [],
+      });
+      expect(g.targetNotes).toHaveLength(3);
+    });
   });
 
   const SOUND_CELL: DomainGuidance = {
