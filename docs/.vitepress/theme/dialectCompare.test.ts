@@ -11,11 +11,11 @@ import type {
 import type { KeywordDomain } from '../../reference/data/domains';
 import type { DomainGuidance } from '../../reference/data/domain-guidance';
 import {
-  capabilityBrief,
+  capabilitySections,
   composeGuidance,
   diffEscapes,
   diffKeywords,
-  domainSections,
+  escapeSections,
   falseFriendsBetween,
   groupByDomain,
 } from './dialectCompare';
@@ -52,6 +52,30 @@ const GOTO: ReferenceEntry = {
 const JUMP: KeywordEquivalence = {
   concept: 'unconditional-jump',
   spellings: { zx81: 'GOTO', zxspectrum: 'GO TO', bbc: 'GOTO' },
+};
+const ABS: ReferenceEntry = {
+  name: 'ABS',
+  kind: 'function',
+  syntax: 'ABS(<number>)',
+  description: 'Absolute value.',
+};
+const DRAW: ReferenceEntry = {
+  name: 'DRAW',
+  kind: 'command',
+  syntax: 'DRAW <number>, <number>',
+  description: 'Draw a line.',
+};
+const LIST: ReferenceEntry = {
+  name: 'LIST',
+  kind: 'command',
+  syntax: 'LIST [<line>]',
+  description: 'List the program.',
+};
+const DEG: ReferenceEntry = {
+  name: 'DEG',
+  kind: 'function',
+  syntax: 'DEG',
+  description: 'Degrees.',
 };
 const PLUS: ReferenceEntry = {
   name: '+',
@@ -171,6 +195,61 @@ describe('diffKeywords', () => {
     expect(diff.unchanged).toBe(1);
   });
 
+  // The eight reference pages were authored independently: the Amstrad page
+  // writes ABS(n) where the others write ABS(<number>). That is a difference
+  // between two docs pages, not between two machines.
+  it('ignores a syntax difference that is only how the pages name placeholders', () => {
+    const angled: ReferenceEntry = { ...ABS, syntax: 'ABS(<number>)' };
+    const terse: ReferenceEntry = { ...ABS, syntax: 'ABS(n)' };
+    const diff = diffKeywords(refTable([angled]), refTable([terse]));
+    expect(diff.behaviourChanged).toEqual([]);
+    expect(diff.unchanged).toBe(1);
+  });
+
+  it('ignores placeholder naming across a whole argument list', () => {
+    const angled: ReferenceEntry = {
+      ...DRAW,
+      syntax: 'DRAW <number>, <number>',
+    };
+    const terse: ReferenceEntry = { ...DRAW, syntax: 'DRAW x,y' };
+    const diff = diffKeywords(refTable([angled]), refTable([terse]));
+    expect(diff.behaviourChanged).toEqual([]);
+  });
+
+  it('still reports a parenthesisation difference, as "parens"', () => {
+    const bracketed: ReferenceEntry = { ...ABS, syntax: 'ABS(<number>)' };
+    const bare: ReferenceEntry = { ...ABS, syntax: 'ABS <number>' };
+    const diff = diffKeywords(refTable([bracketed]), refTable([bare]));
+    expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['parens']);
+  });
+
+  it('still reports an argument difference, as "arguments"', () => {
+    const plain: ReferenceEntry = {
+      ...DRAW,
+      syntax: 'DRAW <number>, <number>',
+    };
+    const inked: ReferenceEntry = { ...DRAW, syntax: 'DRAW x,y,ink' };
+    const diff = diffKeywords(refTable([plain]), refTable([inked]));
+    expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['arguments']);
+  });
+
+  it('still reports an optional-argument difference the shapes keep', () => {
+    const ranged: ReferenceEntry = {
+      ...LIST,
+      syntax: 'LIST [<line>][-[<line>]]',
+    };
+    const single: ReferenceEntry = { ...LIST, syntax: 'LIST [line]' };
+    const diff = diffKeywords(refTable([ranged]), refTable([single]));
+    expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['arguments']);
+  });
+
+  it('reports a changed kind as "kind", whatever the syntax says', () => {
+    const asFunction: ReferenceEntry = { ...DEG, kind: 'function' };
+    const asCommand: ReferenceEntry = { ...DEG, kind: 'command' };
+    const diff = diffKeywords(refTable([asFunction]), refTable([asCommand]));
+    expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['kind']);
+  });
+
   it('ignores description differences', () => {
     const reworded: ReferenceEntry = {
       ...PRINT,
@@ -240,6 +319,84 @@ describe('diffEscapes', () => {
     const diff = diffEscapes(escTable([INK, BLOCK]), escTable([INK, BLOCK]));
     expect(diff.unchanged).toBe(2);
     expect(diff.mustReplace).toEqual([]);
+  });
+});
+
+describe('escapeSections', () => {
+  const CURSOR: EscapeTableData['entries'][number] = {
+    escape: '{home}',
+    bytes: '0x13',
+    category: 'cursor',
+    description: 'Cursor home.',
+    example: { source: '{home}', bytes: [0x13] },
+  };
+  const RAW: EscapeTableData['entries'][number] = {
+    escape: '{$xx}',
+    bytes: '0xnn',
+    category: 'raw',
+    description: 'Any raw byte.',
+    example: { source: '{$aa}', bytes: [0xaa] },
+  };
+  /** Colour before graphics before raw, as a real escape table declares them. */
+  const categories = [
+    { id: 'colour', label: 'Colours' },
+    { id: 'graphics', label: 'Block graphics' },
+    { id: 'cursor', label: 'Cursor' },
+    { id: 'raw', label: 'Raw bytes' },
+  ];
+  const table = (entries: EscapeTableData['entries']): EscapeTableData => ({
+    title: 't',
+    machines: ['m'],
+    categories,
+    entries,
+  });
+
+  it('groups in the table’s own category order, not alphabetically', () => {
+    const sections = escapeSections(
+      [RAW, BLOCK, INK, CURSOR],
+      table([RAW, BLOCK, INK, CURSOR]),
+    );
+    expect(sections.map((s) => s.category)).toEqual([
+      'colour',
+      'graphics',
+      'cursor',
+      'raw',
+    ]);
+    expect(sections.map((s) => s.label)).toEqual([
+      'Colours',
+      'Block graphics',
+      'Cursor',
+      'Raw bytes',
+    ]);
+  });
+
+  it('omits a category nothing landed in', () => {
+    const sections = escapeSections([INK], table([INK, BLOCK]));
+    expect(sections.map((s) => s.category)).toEqual(['colour']);
+  });
+
+  it('loses no code: every one lands in exactly one group', () => {
+    const entries = [RAW, BLOCK, INK, CURSOR];
+    const sections = escapeSections(entries, table(entries));
+    const grouped = sections.flatMap((s) => s.entries.map((e) => e.escape));
+    expect(grouped.sort()).toEqual(entries.map((e) => e.escape).sort());
+  });
+
+  it('counts per group', () => {
+    const second = { ...INK, escape: '{PAPER n}' };
+    const sections = escapeSections([INK, second, BLOCK], table([]));
+    expect(sections.map((s) => s.entries.length)).toEqual([2, 1]);
+  });
+
+  it('puts a code whose category the table does not declare in a trailing bucket', () => {
+    const odd = { ...INK, escape: '{odd}', category: 'unlisted' };
+    const sections = escapeSections([INK, odd], table([]));
+    expect(sections.map((s) => s.category)).toEqual(['colour', undefined]);
+    expect(sections[1].entries.map((e) => e.escape)).toEqual(['{odd}']);
+  });
+
+  it('yields no sections for no codes', () => {
+    expect(escapeSections([], table([]))).toEqual([]);
   });
 });
 
@@ -469,12 +626,29 @@ describe('groupByDomain', () => {
   });
 });
 
-describe('domainSections', () => {
+describe('capabilitySections', () => {
+  const GUIDANCE: DomainGuidance[] = [
+    {
+      to: 'bbc',
+      domain: 'graphics',
+      support: 'full',
+      summary: 'Full vector graphics.',
+      reachFor: ['DRAW', 'PLOT', 'MISSING'],
+    },
+    {
+      to: 'bbc',
+      domain: 'sound',
+      support: 'full',
+      summary: 'Four-channel sound.',
+    },
+  ];
+
   it('reports a domain the target lacks entirely above one it provides', () => {
     // The target has control-flow but no sound at all.
     const target = refTable([domained('GOTO', 'control-flow')]);
-    const sections = domainSections(
+    const sections = capabilitySections(
       [domained('GOSUB', 'control-flow'), domained('BEEP', 'sound')],
+      [],
       target,
       ORDER,
     );
@@ -485,8 +659,9 @@ describe('domainSections', () => {
   it('falls back to the supplied vocabulary order when the tier ties', () => {
     // The target provides neither, so both are absent and only order separates
     // them - graphics comes before sound in ORDER.
-    const sections = domainSections(
+    const sections = capabilitySections(
       [domained('BEEP', 'sound'), domained('PLOT', 'graphics')],
+      [],
       refTable([domained('GOTO', 'control-flow')]),
       ORDER,
     );
@@ -494,8 +669,9 @@ describe('domainSections', () => {
   });
 
   it('still lists a group whose domain the target has nothing in', () => {
-    const sections = domainSections(
+    const sections = capabilitySections(
       [domained('BEEP', 'sound'), domained('PLAY', 'sound')],
+      [],
       refTable([domained('GOTO', 'control-flow')]),
       ORDER,
     );
@@ -510,7 +686,7 @@ describe('domainSections', () => {
       domained('GOSUB', 'control-flow'),
       domained('DRAW', 'graphics'),
     ];
-    const sections = domainSections(entries, refTable([]), ORDER);
+    const sections = capabilitySections(entries, [], refTable([]), ORDER);
     const grouped = sections.flatMap((s) => s.entries.map((e) => e.name));
     expect(grouped.sort()).toEqual(entries.map((e) => e.name).sort());
   });
@@ -525,12 +701,13 @@ describe('domainSections', () => {
       { to: 'x', domain: 'control-flow', support: 'full', summary: 's' },
       { to: 'x', domain: 'sound', support: 'none', summary: 's' },
     ];
-    const sections = domainSections(
+    const sections = capabilitySections(
       [
         domained('BEEP', 'sound'),
         domained('DRAW', 'graphics'),
         domained('GOSUB', 'control-flow'),
       ],
+      [],
       target,
       ORDER,
       guidance,
@@ -550,8 +727,9 @@ describe('domainSections', () => {
       { to: 'x', domain: 'graphics', support: 'none', summary: 's' },
       { to: 'x', domain: 'sound', support: 'none', summary: 's' },
     ];
-    const sections = domainSections(
+    const sections = capabilitySections(
       [domained('BEEP', 'sound'), domained('PLOT', 'graphics')],
+      [],
       refTable([]),
       ORDER,
       guidance,
@@ -562,8 +740,9 @@ describe('domainSections', () => {
 
   it('falls back to present/absent when no cell names the domain', () => {
     const target = refTable([domained('GOTO', 'control-flow')]);
-    const sections = domainSections(
+    const sections = capabilitySections(
       [domained('BEEP', 'sound'), domained('GOSUB', 'control-flow')],
+      [],
       target,
       ORDER,
       [],
@@ -571,89 +750,93 @@ describe('domainSections', () => {
     );
     expect(sections.map((s) => s.support)).toEqual(['none', 'full']);
   });
-});
 
-describe('capabilityBrief', () => {
-  const GUIDANCE: DomainGuidance[] = [
-    {
-      to: 'bbc',
-      domain: 'graphics',
-      support: 'full',
-      summary: 'Full vector graphics.',
-      reachFor: ['DRAW', 'PLOT', 'MISSING'],
-    },
-    {
-      to: 'bbc',
-      domain: 'sound',
-      support: 'full',
-      summary: 'Four-channel sound.',
-    },
-  ];
-
-  it('reports one line per capability with its gain count', () => {
-    const briefs = capabilityBrief(
-      [
-        domained('DRAW', 'graphics'),
-        domained('PLOT', 'graphics'),
-        domained('CIRCLE', 'graphics'),
-      ],
-      'bbc',
-      GUIDANCE,
+  // The whole point of the merge: one account of a capability, not one under
+  // what the port loses and another under what it gains.
+  it('reports what a capability loses and gains in one section', () => {
+    const sections = capabilitySections(
+      [domained('CIRCLE', 'graphics')],
+      [domained('DRAW', 'graphics'), domained('PLOT', 'graphics')],
+      refTable([domained('DRAW', 'graphics')]),
       ORDER,
+      GUIDANCE,
+      'bbc',
     );
-    expect(briefs).toHaveLength(1);
-    expect(briefs[0].domain).toBe('graphics');
-    expect(briefs[0].count).toBe(3);
-    expect(briefs[0].summary).toBe('Full vector graphics.');
+    expect(sections).toHaveLength(1);
+    expect(sections[0].entries.map((e) => e.name)).toEqual(['CIRCLE']);
+    expect(sections[0].gained?.count).toBe(2);
+    expect(sections[0].gained?.summary).toBe('Full vector graphics.');
   });
 
-  it('prefers the authored reachFor names, dropping one the source already has', () => {
-    const briefs = capabilityBrief(
-      [domained('DRAW', 'graphics'), domained('CIRCLE', 'graphics')],
-      'bbc',
-      GUIDANCE,
+  it('puts a capability it only gains in after the ones it loses from', () => {
+    const sections = capabilitySections(
+      [domained('BEEP', 'sound')],
+      [domained('DRAW', 'graphics')],
+      refTable([domained('DRAW', 'graphics')]),
       ORDER,
+      GUIDANCE,
+      'bbc',
     );
-    // MISSING is not in newlyAvailable (the source already has it), so it is
-    // dropped; PLOT is authored but not gained here, so it never appears.
-    expect(briefs[0].reachFor).toEqual(['DRAW']);
+    expect(sections.map((s) => s.domain)).toEqual(['sound', 'graphics']);
+    expect(sections[1].entries).toEqual([]);
+    expect(sections[1].gained?.count).toBe(1);
   });
 
-  it('falls back to the bucket’s own first names with no reachFor match', () => {
-    const briefs = capabilityBrief(
-      [domained('BEEP', 'sound'), domained('ENVELOPE', 'sound')],
-      'bbc',
-      GUIDANCE,
-      ORDER,
-    );
-    expect(briefs[0].reachFor).toEqual(['BEEP', 'ENVELOPE']);
-  });
-
-  it('orders lines by size of gain, largest first', () => {
-    const briefs = capabilityBrief(
+  it('orders gain-only capabilities by size of gain, largest first', () => {
+    const sections = capabilitySections(
+      [],
       [
         domained('BEEP', 'sound'),
         domained('DRAW', 'graphics'),
         domained('PLOT', 'graphics'),
       ],
-      'bbc',
-      GUIDANCE,
+      refTable([]),
       ORDER,
+      GUIDANCE,
+      'bbc',
     );
-    expect(briefs.map((b) => b.domain)).toEqual(['graphics', 'sound']);
+    expect(sections.map((s) => s.domain)).toEqual(['graphics', 'sound']);
   });
 
-  it('yields no lines for empty input', () => {
-    expect(capabilityBrief([], 'bbc', GUIDANCE, ORDER)).toEqual([]);
+  it('prefers the authored reachFor names, dropping one the source already has', () => {
+    const sections = capabilitySections(
+      [],
+      [domained('DRAW', 'graphics'), domained('CIRCLE', 'graphics')],
+      refTable([]),
+      ORDER,
+      GUIDANCE,
+      'bbc',
+    );
+    // MISSING is not in newlyAvailable (the source already has it), so it is
+    // dropped; PLOT is authored but not gained here, so it never appears.
+    expect(sections[0].gained?.reachFor).toEqual(['DRAW']);
   });
 
-  it('skips a domain with no guidance cell for the target', () => {
-    const briefs = capabilityBrief(
+  it('falls back to the bucket’s own first names with no reachFor match', () => {
+    const sections = capabilitySections(
+      [],
+      [domained('BEEP', 'sound'), domained('ENVELOPE', 'sound')],
+      refTable([]),
+      ORDER,
+      GUIDANCE,
+      'bbc',
+    );
+    expect(sections[0].gained?.reachFor).toEqual(['BEEP', 'ENVELOPE']);
+  });
+
+  it('reports no gain for a domain with no guidance cell for the target', () => {
+    const sections = capabilitySections(
+      [],
       [domained('GOSUB', 'control-flow')],
-      'bbc',
-      GUIDANCE,
+      refTable([]),
       ORDER,
+      GUIDANCE,
+      'bbc',
     );
-    expect(briefs).toEqual([]);
+    expect(sections).toEqual([]);
+  });
+
+  it('yields no sections for empty input', () => {
+    expect(capabilitySections([], [], refTable([]), ORDER)).toEqual([]);
   });
 });

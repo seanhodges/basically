@@ -170,11 +170,12 @@ export interface PairPortingNotes {
  *    `programStart` (← memoryMap `screen` / `program` region starts).
  *  - HAND-AUTHORED from the hardware page + tokenizer/aiProfile, with no
  *    structured source in `src/`: `lineNumberRange`, `statementSeparator`,
- *    `elseSupported`, `letRequired`, `variableNaming`, `exponentOperator`,
- *    `screen`, `colour`, `sound`. (`screen` is prose, not `displaySize` — the
- *    latter is the emulator canvas size in pixels, not the logical text/graphics
- *    screen a porter cares about; `exponentOperator` is prose because several
- *    dialects spell it with a symbol key — `↑`/`^` — that has no reference row.)
+ *    `elseSupported`, `letRequired`, `variableNaming`, `numberHandling`,
+ *    `exponentOperator`, `screen`, `colour`, `sound`. (`screen` is prose, not
+ *    `displaySize` — the latter is the emulator canvas size in pixels, not the
+ *    logical text/graphics screen a porter cares about; `exponentOperator` is
+ *    prose because several dialects spell it with a symbol key — `↑`/`^` — that
+ *    has no reference row.)
  */
 export interface PortingFacts {
   /** Page slug, matching the dialect's `ReferenceTableData` (e.g. "zx81"). */
@@ -190,6 +191,14 @@ export interface PortingFacts {
   letRequired: 'required' | 'optional' | 'none';
   /** Variable-naming rule, e.g. "single letter A–Z" or "long names, A–Z0–9". */
   variableNaming: string;
+  /**
+   * How the dialect handles numbers: floating point, or integer-only with the
+   * range it holds. Required, because whether the target has fractions at all
+   * decides how much of a port is arithmetic - an integer-only machine
+   * truncates every division and needs every fractional calculation rescaled -
+   * and nothing else in these facts implies it.
+   */
+  numberHandling: string;
   /** Exponent operator spelling ("**", "^", "↑"), or undefined if the dialect has none. */
   exponentOperator?: string;
   // --- Hardware ---

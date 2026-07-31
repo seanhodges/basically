@@ -24,11 +24,21 @@ const SUPPORT_RANK: Record<DomainGuidance['support'], number> = {
   full: 2,
 };
 
+/**
+ * What changed about a keyword the two dialects both provide. Derived here
+ * rather than in the template so the classification is testable, and so the
+ * reader is told what changed instead of being handed two usage strings to
+ * compare by eye.
+ */
+export type KeywordChangeKind = 'kind' | 'parens' | 'arguments';
+
 /** One keyword that exists in both dialects but changed kind or syntax. */
 export interface KeywordChange {
   name: string;
   from: ReferenceEntry;
   to: ReferenceEntry;
+  /** Which of the three ways this keyword differs; see {@link KeywordChangeKind}. */
+  change: KeywordChangeKind;
 }
 
 /** One command both dialects provide, spelled differently: `GOTO` → `GO TO`. */
@@ -88,15 +98,56 @@ function normaliseSyntax(syntax: string): string {
 }
 
 /**
- * A keyword "changed behaviour" when the same name has a different kind, or a
- * different syntax once whitespace is normalised. `description` is deliberately
- * excluded: prose wording differs between pages without implying a real porting
- * difference, so it would only add noise.
+ * The *shape* of a usage string: what it accepts, with the names of its
+ * placeholders thrown away. `<…>` groups and lowercase identifiers collapse to
+ * one `#` marker, and spacing around separators and inside brackets is
+ * normalised, so `<number>, <number>` and `x,y` come out alike. Every marker is
+ * kept, so a third argument is still a difference; brackets, punctuation and
+ * literal (uppercase) keywords survive too.
+ *
+ * This exists because the eight reference pages were authored independently and
+ * do not share a placeholder convention - the Amstrad page writes `ABS(n)`
+ * where the other seven write `ABS(<number>)`. Comparing the text reports 72
+ * "behaviour changes" between the BBC and the Amstrad, nearly all of them
+ * editorial; comparing the shape reports the ones a port has to act on.
+ *
+ * Kept deliberately coarse-but-structural: `SIN <number>` and `SIN(n)` still
+ * differ (the Sinclair machines take the argument unparenthesised) and
+ * `LIST [<line>][-[<line>]]` still differs from `LIST [<line>]`.
  */
-function keywordChanged(a: ReferenceEntry, b: ReferenceEntry): boolean {
-  return (
-    a.kind !== b.kind || normaliseSyntax(a.syntax) !== normaliseSyntax(b.syntax)
-  );
+function syntaxShape(syntax: string): string {
+  return normaliseSyntax(syntax)
+    .replace(/<[^>]*>/g, '#')
+    .replace(/[A-Za-z_][A-Za-z0-9_$#]*\$?/g, (word) =>
+      /^[A-Z][A-Z0-9$#]*$/.test(word) ? word : '#',
+    )
+    .replace(/\s*([,;|])\s*/g, '$1')
+    .replace(/([([])\s+/g, '$1')
+    .replace(/\s+([)\]])/g, '$1')
+    .trim();
+}
+
+/** True when two shapes differ only in whether the arguments are bracketed. */
+function parenthesesOnly(a: string, b: string): boolean {
+  const bare = (shape: string) => shape.replace(/[()\s]/g, '');
+  return bare(a) === bare(b);
+}
+
+/**
+ * How a keyword both dialects provide differs, or `undefined` when it does not.
+ * `description` is deliberately excluded: prose wording differs between pages
+ * without implying a real porting difference, so it would only add noise. So is
+ * placeholder naming, for the same reason - see {@link syntaxShape}.
+ */
+function keywordChange(
+  a: ReferenceEntry,
+  b: ReferenceEntry,
+): KeywordChangeKind | undefined {
+  if (a.kind !== b.kind) return 'kind';
+  const from = syntaxShape(a.syntax);
+  const to = syntaxShape(b.syntax);
+  if (from === to) return undefined;
+  return parenthesesOnly(from, to) ? 'parens' : 'arguments';
 }
 
 /** An escape code "changed" when the same spelling maps to different bytes or category. */
@@ -158,11 +209,21 @@ export function diffKeywords(
     const match = targetByName.get(renamedTo ?? entry.name);
     if (!match) {
       mustReplace.push(entry);
-    } else if (renamedTo) {
+      continue;
+    }
+    if (renamedTo) {
       claimed.add(match.name);
       renamed.push({ from: entry, to: match });
-    } else if (keywordChanged(entry, match)) {
-      behaviourChanged.push({ name: entry.name, from: entry, to: match });
+      continue;
+    }
+    const change = keywordChange(entry, match);
+    if (change) {
+      behaviourChanged.push({
+        name: entry.name,
+        from: entry,
+        to: match,
+        change,
+      });
     } else {
       unchanged += 1;
     }
@@ -232,8 +293,23 @@ export function groupByDomain(
   return buckets;
 }
 
-/** One render-ready group of the commands a port must replace. */
-export interface DomainSection extends DomainBucket {
+/** What the target adds in one capability, summarised rather than listed. */
+export interface CapabilityGain {
+  /** How many target-only commands land in this capability. */
+  count: number;
+  /** "What this machine offers here" — DomainGuidance.summary for the cell. */
+  summary: string;
+  /** Up to a few of the target's command names to reach for. */
+  reachFor: string[];
+}
+
+/** One render-ready account of what a port does to a single capability. */
+export interface CapabilitySection extends DomainBucket {
+  /**
+   * The commands the port loses here. Empty for a capability the target only
+   * adds to - `entries` is the same array, kept for {@link DomainBucket}.
+   */
+  entries: ReferenceEntry[];
   /**
    * True when the target dialect has no keyword in this domain at all - the
    * port loses the capability outright rather than a few of its commands.
@@ -246,28 +322,51 @@ export interface DomainSection extends DomainBucket {
    * previous placeholder ordering used.
    */
   support: DomainGuidance['support'];
+  /**
+   * What the target adds here, where it adds anything and the guidance table
+   * has a cell to describe it. Absent when the port gains nothing in this
+   * capability.
+   */
+  gained?: CapabilityGain;
 }
 
+/** How many command names a capability's gain line names, at most. */
+const GAIN_NAMES = 4;
+
 /**
- * Group the commands to replace by capability, reporting the worst-placed
- * capabilities first: those the target has no equivalent of at all, then
- * those it supports only partially, then those it has fully (under other
- * names). Ties keep the canonical vocabulary order, since the sort is stable
- * and `groupByDomain` already returns the buckets in the supplied order.
+ * One account per capability: what the port loses here, and what the target
+ * adds here, together.
+ *
+ * They were two sections until the reader's own question turned out to span
+ * both - "what happens to my graphics code" was answered once under the
+ * commands to replace and again under the commands newly available, from the
+ * two halves (`instead` and `summary`) of the same `DomainGuidance` cell. Over
+ * half of all capability mentions were made twice.
+ *
+ * Capabilities the port loses commands from lead, worst-placed first: those the
+ * target has no equivalent of at all, then those it supports only partially,
+ * then those it has fully under other names. Ties keep the canonical vocabulary
+ * order, since the sort is stable and `groupByDomain` already returns the
+ * buckets in the supplied order. Capabilities the port only *gains* follow,
+ * largest gain first - news rather than work.
+ *
+ * `reachFor` prefers the authored names, filtered to ones the source actually
+ * lacks, so a command the reader already has is never offered as new.
  *
  * `domainGuidance` and `toSlug` are optional and taken as arguments, exactly
  * as `composeGuidance` takes its `pairNotes` - this module imports only types
  * from the data layer. Omitting them falls back to the target's own table
- * ("has no keyword in this domain at all" vs "has one"), the same two-tier
- * ordering the preceding change shipped as a placeholder.
+ * ("has no keyword in this domain at all" vs "has one") and reports no gains,
+ * since a gain has nothing to say without its authored summary.
  */
-export function domainSections(
+export function capabilitySections(
   mustReplace: ReferenceEntry[],
+  newlyAvailable: ReferenceEntry[],
   to: ReferenceTableData,
   order: readonly KeywordDomain[],
   domainGuidance?: DomainGuidance[],
   toSlug?: string,
-): DomainSection[] {
+): CapabilitySection[] {
   const provided = new Set(to.entries.map((e) => e.domain));
   const guidanceByDomain = toSlug
     ? new Map(
@@ -286,14 +385,104 @@ export function domainSections(
     return provided.has(domain) ? 'full' : 'none';
   };
 
-  return groupByDomain(mustReplace, order)
+  /** domain → what the target adds there, for the domains it adds to. */
+  const gains = new Map<KeywordDomain, CapabilityGain>();
+  for (const bucket of groupByDomain(newlyAvailable, order)) {
+    if (!bucket.domain) continue;
+    const cell = guidanceByDomain?.get(bucket.domain);
+    if (!cell) continue;
+    const names = bucket.entries.map((e) => e.name);
+    const nameSet = new Set(names);
+    const reachFor = (cell.reachFor ?? []).filter((n) => nameSet.has(n));
+    gains.set(bucket.domain, {
+      count: bucket.entries.length,
+      summary: cell.summary,
+      reachFor: (reachFor.length ? reachFor : names).slice(0, GAIN_NAMES),
+    });
+  }
+
+  const losing = groupByDomain(mustReplace, order)
     .map((bucket) => ({
       ...bucket,
       absentFromTarget:
         bucket.domain !== undefined && !provided.has(bucket.domain),
       support: supportOf(bucket.domain),
+      gained: bucket.domain ? gains.get(bucket.domain) : undefined,
     }))
     .sort((a, b) => SUPPORT_RANK[a.support] - SUPPORT_RANK[b.support]);
+
+  const lost = new Set(losing.map((s) => s.domain));
+  const gaining: CapabilitySection[] = [];
+  for (const domain of order) {
+    if (lost.has(domain)) continue;
+    const gained = gains.get(domain);
+    if (!gained) continue;
+    gaining.push({
+      domain,
+      entries: [],
+      absentFromTarget: false,
+      support: supportOf(domain),
+      gained,
+    });
+  }
+  gaining.sort((a, b) => (b.gained?.count ?? 0) - (a.gained?.count ?? 0));
+
+  return [...losing, ...gaining];
+}
+
+/** One render-ready group of control codes: a category's worth of them. */
+export interface EscapeSection {
+  /** Category id from the owning table, or `undefined` for the trailing bucket. */
+  category: string | undefined;
+  /** Human label from the owning table's `categories`; the id if it names none. */
+  label: string;
+  entries: EscapeEntry[];
+}
+
+/**
+ * Group control codes by what they do, in the order the owning table declares
+ * its categories - which is already editorial (the Commodore page leads with
+ * colour and cursor and ends with the raw-byte escape), so the reader meets the
+ * codes a screen layout depends on rather than an alphabetical run of keycap
+ * block graphics. Categories nothing landed in are omitted; a code whose
+ * category the table does not declare lands in a trailing bucket rather than
+ * disappearing.
+ *
+ * Unlike {@link capabilitySections} this does *not* rank a category by whether the
+ * other dialect covers it. `KeywordDomain` is one closed vocabulary shared by
+ * every page, but escape categories are page-scoped: `colour` and `cursor` are
+ * Commodore categories, while the Spectrum files its `{INK n}` under `control`.
+ * Matching ids across the two would announce "nothing like it on the target"
+ * for codes the target plainly has.
+ *
+ * `table` is the table the entries came from - the source table for the codes a
+ * port must replace, the target's for the ones it gains.
+ */
+export function escapeSections(
+  entries: EscapeEntry[],
+  table: EscapeTableData,
+): EscapeSection[] {
+  const labels = new Map(table.categories.map((c) => [c.id, c.label]));
+  const byCategory = new Map<string, EscapeEntry[]>();
+  const rest: EscapeEntry[] = [];
+  for (const entry of entries) {
+    if (!labels.has(entry.category)) {
+      rest.push(entry);
+      continue;
+    }
+    const bucket = byCategory.get(entry.category);
+    if (bucket) bucket.push(entry);
+    else byCategory.set(entry.category, [entry]);
+  }
+
+  const sections: EscapeSection[] = [];
+  for (const { id, label } of table.categories) {
+    const found = byCategory.get(id);
+    if (found) sections.push({ category: id, label, entries: found });
+  }
+  if (rest.length)
+    sections.push({ category: undefined, label: 'Other', entries: rest });
+  return sections;
 }
 
 /**
@@ -394,58 +583,6 @@ export function composeGuidance(ctx: GuidanceContext): PairGuidance {
         .map((g) => [g.domain, g]),
     ),
   };
-}
-
-/** One line of the "newly available" brief: a capability's worth of gains. */
-export interface CapabilityBrief {
-  domain: KeywordDomain;
-  /** How many target-only commands land in this capability. */
-  count: number;
-  /** "What this machine offers here" — DomainGuidance.summary for the cell. */
-  summary: string;
-  /** Up to a few command names to name in the line, routed to the target's page. */
-  reachFor: string[];
-}
-
-/** How many command names a capability-brief line names, at most. */
-const BRIEF_NAMES = 4;
-
-/**
- * Summarise "newly available" by capability instead of listing every command:
- * one line per capability with its gain count, the authored summary, and a
- * few names to reach for. `reachFor` prefers the authored names, filtered to
- * ones the source actually lacks (so a command the reader already has is
- * never offered as new), falling back to the bucket's own first names.
- * Ordered by size of gain, so the biggest new capability reads first.
- *
- * Pure like `domainSections`: `domainGuidance` and `order` are arguments, not
- * imports, so this stays node-testable and SSG-safe.
- */
-export function capabilityBrief(
-  newlyAvailable: ReferenceEntry[],
-  to: string,
-  domainGuidance: DomainGuidance[],
-  order: readonly KeywordDomain[],
-): CapabilityBrief[] {
-  const guidanceByDomain = new Map(
-    domainGuidance.filter((g) => g.to === to).map((g) => [g.domain, g]),
-  );
-  const briefs: CapabilityBrief[] = [];
-  for (const bucket of groupByDomain(newlyAvailable, order)) {
-    if (!bucket.domain) continue;
-    const cell = guidanceByDomain.get(bucket.domain);
-    if (!cell) continue;
-    const names = bucket.entries.map((e) => e.name);
-    const nameSet = new Set(names);
-    const reachFor = (cell.reachFor ?? []).filter((n) => nameSet.has(n));
-    briefs.push({
-      domain: bucket.domain,
-      count: bucket.entries.length,
-      summary: cell.summary,
-      reachFor: (reachFor.length ? reachFor : names).slice(0, BRIEF_NAMES),
-    });
-  }
-  return briefs.sort((a, b) => b.count - a.count);
 }
 
 /**

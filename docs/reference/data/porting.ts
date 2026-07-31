@@ -205,6 +205,78 @@ export const pairPortingNotes: PairPortingNotes[] = [
     ],
   },
   {
+    from: 'commodore',
+    to: 'zxspectrum',
+    notes: [
+      'The jumps are spelled with a space: GOTO and GOSUB become GO TO and GO SUB, while CLR becomes CLEAR and CONT becomes CONTINUE.',
+      'Everything the Commodore did by POKEing the VIC and SID becomes real keywords — PLOT, DRAW, CIRCLE, INK, PAPER and BEEP — so those routines are rewritten, not translated.',
+      'LEFT$, MID$ and RIGHT$ have no equivalent: slice with A$(start TO end). Numeric names may now be long, but string and array names are a single letter with $.',
+    ],
+  },
+  {
+    from: 'zxspectrum',
+    to: 'commodore',
+    notes: [
+      'GO TO, GO SUB, CLEAR and CONTINUE are written GOTO, GOSUB, CLR and CONT here.',
+      'The Commodore has no graphics, colour or sound keywords at all: PLOT, DRAW, CIRCLE, INK, PAPER and BEEP all become POKEs to the VIC and SID registers.',
+      'Only the first two characters of a variable name are significant, and a name containing a reserved word is a syntax error — check long names before anything else.',
+    ],
+  },
+  {
+    from: 'commodore',
+    to: 'bbc',
+    notes: [
+      'A close port on paper — most control flow and string handling carries — but POKE and PEEK are written ?addr=val and ?addr, and hex is &nn rather than decimal.',
+      'The BBC has ELSE, REPEAT…UNTIL and DEF PROC, so IF tests split across lines and GOSUB-based structure can be rewritten properly.',
+      'The disk commands (DLOAD, DOPEN, PRINT#) become OPENIN/OPENOUT with BGET#/BPUT#, and screen POKEs mean nothing: use MODE, PLOT, GCOL and SOUND.',
+    ],
+  },
+  {
+    from: 'bbc',
+    to: 'commodore',
+    notes: [
+      'A steep step down: no ELSE, no REPEAT…UNTIL and no DEF PROC, so every structured block becomes IF…THEN with GOTO and GOSUB.',
+      'MODE, PLOT, DRAW, GCOL, COLOUR and SOUND have no equivalent — the video and sound chips are reached by POKE, and ?addr=val becomes POKE addr,val.',
+      'Only the first two characters of a variable name are significant here, so any-length BBC names must be checked for collisions before the port runs.',
+    ],
+  },
+  {
+    from: 'zxspectrum',
+    to: 'bbc',
+    notes: [
+      'GO TO and GO SUB are glued back together as GOTO and GOSUB, and the BBC adds ELSE, REPEAT…UNTIL and DEF PROC.',
+      'Both machines have full graphics, colour and sound, but none of the names match: INK/PAPER become COLOUR and GCOL, BEEP becomes SOUND, and MODE picks the screen first.',
+      'Pixel coordinates do not carry: the Spectrum plots on 256×176 with the origin bottom-left, the BBC on a 0–1279 by 0–1023 space whatever the mode.',
+    ],
+  },
+  {
+    from: 'bbc',
+    to: 'zxspectrum',
+    notes: [
+      'GOTO and GOSUB are written GO TO and GO SUB, and LET is required on every assignment.',
+      'There is no ELSE, REPEAT…UNTIL, DEF PROC or ON…GOTO, and no error trapping at all, so structured programs need restructuring around IF…THEN and GO TO.',
+      'Memory indirection goes back to POKE addr,val and PEEK, addresses are decimal, and colour is one ink and paper per 8×8 cell rather than per pixel.',
+    ],
+  },
+  {
+    from: 'cpc',
+    to: 'zxspectrum',
+    notes: [
+      'The richest of these BASICs to one of the plainer ones: WHILE…WEND, ELSE, AFTER/EVERY timers and ON ERROR GOTO all have to be rebuilt from IF…THEN and GO TO.',
+      'LOCATE, WINDOW, PRINT USING and the string set (LEFT$, MID$, RIGHT$, UPPER$, HEX$) are gone: position with PRINT AT and slice with A$(start TO end).',
+      'Graphics and sound both narrow — 640×400 with 27 inks becomes 256×176 with 8, and the three-channel SOUND becomes single-channel BEEP.',
+    ],
+  },
+  {
+    from: 'zxspectrum',
+    to: 'cpc',
+    notes: [
+      'A step up: Locomotive adds ELSE, WHILE…WEND, error trapping and 40-character variable names that may contain keywords.',
+      'GO TO and GO SUB are written GOTO and GOSUB, LET becomes optional, and hex literals are written &nn.',
+      'Colour works differently: INK assigns one of 27 colours to a pen and PEN selects it, ATTR, BRIGHT, FLASH and INVERSE are gone, and nothing clashes per cell.',
+    ],
+  },
+  {
     from: 'atom',
     to: 'bbc',
     notes: [

@@ -13,13 +13,14 @@ import type {
   ReferenceTableData,
 } from '../../../reference/data/types';
 import {
-  capabilityBrief,
+  capabilitySections,
   composeGuidance,
   diffEscapes,
   diffKeywords,
-  domainSections,
-  type CapabilityBrief,
-  type DomainSection,
+  escapeSections,
+  type CapabilitySection,
+  type EscapeSection,
+  type KeywordChange,
 } from '../dialectCompare';
 import {
   falseFriends,
@@ -148,35 +149,91 @@ const falseFriendsList = useTruncatedList(
   () => guidance.value.falseFriends,
   pairKey,
 );
-const renamedList = useTruncatedList(
-  () => keywordDiff.value?.renamed ?? [],
-  pairKey,
+// The renames have no truncated list of their own: they are 1-4 commands for
+// every pair here, named in one run like the parenthesis rule below.
+
+// "The argument goes without parentheses" is one rule of the target language,
+// not fifteen facts about fifteen functions: on Commodore → Spectrum exactly
+// that difference accounts for half the changed keywords. Those are named in a
+// single run, like a capability group, and only the changes that differ keyword
+// by keyword get a row.
+const parensChanged = computed<KeywordChange[]>(() =>
+  (keywordDiff.value?.behaviourChanged ?? []).filter(
+    (c) => c.change === 'parens',
+  ),
+);
+const detailedChanges = computed<KeywordChange[]>(() =>
+  (keywordDiff.value?.behaviourChanged ?? []).filter(
+    (c) => c.change !== 'parens',
+  ),
 );
 const behaviourChangedList = useTruncatedList(
-  () => keywordDiff.value?.behaviourChanged ?? [],
-  pairKey,
-);
-const escMustReplaceList = useTruncatedList(
-  () => escapeDiff.value?.mustReplace ?? [],
-  pairKey,
-);
-const escNewlyAvailableList = useTruncatedList(
-  () => escapeDiff.value?.newlyAvailable ?? [],
+  () => detailedChanges.value,
   pairKey,
 );
 
-// The commands to replace are grouped by capability rather than capped. A group
+const changedCount = computed(
+  () => keywordDiff.value?.behaviourChanged.length ?? 0,
+);
+
+/** What changed about a keyword, for the row's own label. */
+const CHANGE_LABEL: Record<KeywordChange['change'], string> = {
+  kind: 'Different kind of keyword',
+  parens: 'Parentheses differ',
+  arguments: 'Different arguments',
+};
+
+/**
+ * "1 command" / "3 commands", so the counts read as sentences rather than as
+ * "1 command(s)". `plural` is for the words a trailing "s" gets wrong.
+ */
+function count(n: number, singular: string, plural = `${singular}s`): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** "a", "a and b", "a, b and c". */
+function listOf(parts: string[]): string {
+  if (parts.length < 2) return parts[0] ?? '';
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+// Grouped by what the codes do, in each table's own category order - the same
+// treatment the commands to replace get, and for the same reason: the reader
+// acts per category, and an alphabetical cap buries the colour and cursor codes
+// a screen layout depends on under the block-graphics keycaps.
+const escReplaceSections = computed<EscapeSection[]>(() => {
+  const s = source.value;
+  return escapeDiff.value && s?.escapes
+    ? escapeSections(escapeDiff.value.mustReplace, s.escapes)
+    : [];
+});
+// The codes the target adds and the source never used are not work the port has
+// to do, so they are a count and a pointer rather than a second grouped column -
+// the same treatment the capabilities the target adds already get.
+const escapeAdded = computed(
+  () => escapeDiff.value?.newlyAvailable.length ?? 0,
+);
+const escapeAddedCategories = computed(() => {
+  const t = target.value;
+  return escapeDiff.value && t?.escapes
+    ? escapeSections(escapeDiff.value.newlyAvailable, t.escapes).length
+    : 0;
+});
+
+// One account per capability: the commands the port loses here, what to do
+// instead, and what the target adds here. Grouped rather than capped - a group
 // names its commands in one run instead of giving each a row, so 41 lost
-// graphics commands are a wrapped line and nothing has to be hidden - hence no
-// `useTruncatedList` here. Capabilities the target has no equivalent of at all
-// lead, because "you lose sound entirely" is the headline, not entry 94 of an
-// alphabetical list.
-const replaceSections = computed<DomainSection[]>(() => {
+// graphics commands are a wrapped line and nothing has to be hidden.
+// Capabilities the target has no equivalent of at all lead, because "you lose
+// sound entirely" is the headline, not entry 94 of an alphabetical list;
+// capabilities the port only gains follow, being news rather than work.
+const capabilities = computed<CapabilitySection[]>(() => {
   const diff = keywordDiff.value;
   const t = target.value;
   if (!diff || !t) return [];
-  return domainSections(
+  return capabilitySections(
     diff.mustReplace,
+    diff.newlyAvailable,
     t.reference,
     DOMAIN_ORDER,
     domainGuidance,
@@ -184,8 +241,31 @@ const replaceSections = computed<DomainSection[]>(() => {
   );
 });
 
+/** How many capabilities the port loses commands from, for the summary. */
+const losingCount = computed(
+  () => capabilities.value.filter((s) => s.entries.length).length,
+);
+/** How many it only gains in - the "N new capability areas" of the summary. */
+const gainingCount = computed(
+  () => capabilities.value.filter((s) => !s.entries.length).length,
+);
+
+// A port is a translation, so what the target adds and the program never used
+// is the one part of the comparison that is news rather than work. It is
+// filtered out by default and a tick away, in both the sections that report it:
+// the capabilities with nothing to replace, and the control codes the target
+// adds. What the target offers *in a capability the port loses commands from*
+// is not filtered - that is the "do this instead" the reader came for.
+const hideAdditions = ref(true);
+
+const visibleCapabilities = computed<CapabilitySection[]>(() =>
+  hideAdditions.value
+    ? capabilities.value.filter((s) => s.entries.length)
+    : capabilities.value,
+);
+
 /** The authored (target, capability) advice for a group, if any. */
-function domainAdvice(section: DomainSection): DomainGuidance | undefined {
+function domainAdvice(section: CapabilitySection): DomainGuidance | undefined {
   return section.domain
     ? guidance.value.domains.get(section.domain)
     : undefined;
@@ -197,7 +277,7 @@ function domainAdvice(section: DomainSection): DomainGuidance | undefined {
  * short exceptions run beneath the group's names, under the group's own advice.
  */
 function substitutionsIn(
-  section: DomainSection,
+  section: CapabilitySection,
 ): { name: string; note: string }[] {
   const notes = guidance.value.substitutions;
   return section.entries.flatMap((e) => {
@@ -206,26 +286,11 @@ function substitutionsIn(
   });
 }
 
-// The "newly available" section summarised by capability rather than listed
-// command by command: at most thirteen lines against up to 147 rows, so no
-// useTruncatedList is needed here (see the deleted newlyAvailableList).
-const additionsBrief = computed<CapabilityBrief[]>(() => {
-  const diff = keywordDiff.value;
-  const t = target.value;
-  if (!diff || !t) return [];
-  return capabilityBrief(
-    diff.newlyAvailable,
-    t.id,
-    domainGuidance,
-    DOMAIN_ORDER,
-  );
-});
-
 /** The trailing bucket is unreachable while every BASIC row carries a domain. */
-function domainLabel(section: DomainSection): string {
+function domainLabel(section: CapabilitySection): string {
   return section.domain ? DOMAIN_META[section.domain].label : 'Other';
 }
-function domainPaths(section: DomainSection): string {
+function domainPaths(section: CapabilitySection): string {
   return section.domain ? DOMAIN_META[section.domain].paths : '';
 }
 
@@ -272,6 +337,9 @@ const factRows = computed<FactRow[]>(() => {
     ['Conditionals', fmtElse],
     ['LET on assignment', fmtLet],
     ['Variable names', (f) => f.variableNaming],
+    // Whether the target has fractions at all decides how much of the port is
+    // arithmetic, so it sits with the language rules rather than the hardware.
+    ['Numbers', (f) => f.numberHandling],
     ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
     ['Screen', (f) => f.screen],
     ['Screen base', (f) => f.screenBase ?? 'No dedicated screen RAM'],
@@ -297,6 +365,84 @@ const visibleFactRows = computed(() =>
     ? factRows.value
     : factRows.value.filter((r) => r.changed),
 );
+
+/**
+ * The pair in one sentence, naming only what this port actually involves - a
+ * clause reporting "0 commands to rename" beside a page with no rename section
+ * is a form to decode rather than a summary to read.
+ */
+const summary = computed(() => {
+  const t = target.value;
+  const diff = keywordDiff.value;
+  if (!t || !diff) return '';
+  const work: string[] = [];
+  if (diff.mustReplace.length)
+    work.push(
+      `${count(diff.mustReplace.length, 'command')} to rewrite across ` +
+        `${count(losingCount.value, 'capability area')}`,
+    );
+  if (diff.renamed.length)
+    work.push(`${count(diff.renamed.length, 'command')} to rename`);
+  if (changedCount.value)
+    work.push(`${count(changedCount.value, 'command')} whose usage differs`);
+
+  const facts = changedFactCount.value;
+  const sentences = work.length ? [`${listOf(work)}.`] : [];
+  const rest = [
+    `${count(facts, 'language or hardware rule')} ${
+      facts === 1 ? 'differs' : 'differ'
+    }`,
+  ];
+  if (gainingCount.value)
+    rest.push(
+      `${t.label} adds ${count(gainingCount.value, 'capability area')}`,
+    );
+  sentences.push(`${listOf(rest)}.`);
+  return sentences.join(' ');
+});
+
+/**
+ * The sections this pair actually renders, in page order: the "on this page"
+ * row, and the ids its links and the headings share. Built from the same
+ * conditions the template guards each section with, so a section is listed
+ * exactly when it is shown. The headings are rendered by this component rather
+ * than by markdown, so VitePress's own outline cannot see them.
+ */
+const pageSections = computed<{ id: string; label: string }[]>(() => {
+  if (sameSelection.value || !keywordDiff.value) return [];
+  const g = guidance.value;
+  const entries: [boolean, string, string][] = [
+    [
+      visibleFactRows.value.length > 0,
+      'language-hardware',
+      'Language & hardware',
+    ],
+    [
+      g.pairNotes.length + g.targetNotes.length > 0,
+      'guidance',
+      'Before you start',
+    ],
+    [
+      g.falseFriends.length > 0,
+      'false-friends',
+      'Same word, different meaning',
+    ],
+    [capabilities.value.length > 0, 'capabilities', 'What changes'],
+    [
+      keywordDiff.value.renamed.length + changedCount.value > 0,
+      'different-form',
+      'Same command, different form',
+    ],
+    [
+      escReplaceSections.value.length + escapeAdded.value > 0,
+      'escape-codes',
+      'Control & escape codes',
+    ],
+  ];
+  return entries
+    .filter(([shown]) => shown)
+    .map(([, id, label]) => ({ id, label }));
+});
 
 /** Reference sub-pages for a dialect page slug, relative to /reference/compare. */
 function refLinks(id: string) {
@@ -360,6 +506,13 @@ function convertWithAi() {
 
 <template>
   <div class="cmp">
+    <!--
+      The guidance that does not change with the pair sits here, with the page
+      intro and above the picker, so the sections below run pair-specific from
+      first to last instead of being split by generic prose.
+    -->
+    <div class="cmp-intro"><slot /></div>
+
     <div class="cmp-panel">
       <div class="cmp-controls">
         <label class="cmp-field">
@@ -410,114 +563,113 @@ function convertWithAi() {
         Pick two different dialects to see what changes.
       </p>
 
-      <p v-else-if="source && target && keywordDiff" class="cmp-summary">
-        <strong>{{ source.label }} → {{ target.label }}:</strong>
-        {{ keywordDiff.mustReplace.length }} keyword(s) to replace across
-        {{ replaceSections.length }} capability area(s),
-        {{ keywordDiff.renamed.length }} to rename,
-        {{ keywordDiff.behaviourChanged.length }} changed,
-        {{ additionsBrief.length }} new capability area(s),
-        {{ changedFactCount }} language/hardware difference(s).
-      </p>
+      <template v-else-if="source && target && keywordDiff">
+        <p class="cmp-summary">
+          <strong>{{ source.label }} → {{ target.label }}:</strong>
+          {{ summary }}
+        </p>
+        <!--
+          The component renders every heading below, so VitePress's own outline
+          (built from the markdown) cannot see them and none of them can be
+          linked to. This row is the page's contents, listing exactly the
+          sections this pair renders.
+        -->
+        <nav v-if="pageSections.length" class="cmp-jump" aria-label="Sections">
+          <a v-for="s in pageSections" :key="s.id" :href="`#${s.id}`">{{
+            s.label
+          }}</a>
+        </nav>
+        <p class="cmp-links">
+          Full reference:
+          <a :href="refLinks(source.id).reference">{{ source.label }}</a>
+          (<a :href="refLinks(source.id).hardware">hardware</a>,
+          <a :href="refLinks(source.id).escapes">escape codes</a>,
+          <a :href="refLinks(source.id).formats">file formats</a>) ·
+          <a :href="refLinks(target.id).reference">{{ target.label }}</a>
+          (<a :href="refLinks(target.id).hardware">hardware</a>,
+          <a :href="refLinks(target.id).escapes">escape codes</a>,
+          <a :href="refLinks(target.id).formats">file formats</a>)
+        </p>
+      </template>
     </div>
 
-    <!--
-      Language & hardware differences, surfaced right under the picker (above
-      the general porting prose) so the key dialect/machine differences are
-      visible at a glance as the from/to inputs change. Guarded like the rest
-      of the results, since it means nothing without a valid pair.
-    -->
-    <section
-      v-if="!sameSelection && source && target && keywordDiff"
-      class="cmp-section"
-    >
-      <h2>Language &amp; hardware</h2>
-      <label class="cmp-toggle">
-        <input v-model="showUnchanged" type="checkbox" />
-        Show unchanged rows
-      </label>
-      <table class="cmp-facts">
-        <thead>
-          <tr>
-            <th></th>
-            <th>{{ source.label }}</th>
-            <th>{{ target.label }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in visibleFactRows"
-            :key="row.label"
-            :class="{ 'cmp-changed': row.changed }"
-          >
-            <th scope="row">{{ row.label }}</th>
-            <td>{{ row.fromText }}</td>
-            <td>{{ row.toText }}</td>
-          </tr>
-          <tr v-if="visibleFactRows.length === 0">
-            <td colspan="3" class="cmp-empty">
-              No language or hardware differences.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <div class="cmp-intro"><slot /></div>
-
     <template v-if="!sameSelection && source && target && keywordDiff">
+      <!--
+        Language & hardware first: the differences that decide how much of the
+        program has to change at all, right under the picker so they move as
+        the from/to inputs do.
+      -->
       <section
-        v-if="guidance.targetNotes.length"
+        v-if="visibleFactRows.length || factRows.length"
+        id="language-hardware"
+        class="cmp-section"
+      >
+        <h2>Language &amp; hardware</h2>
+        <label class="cmp-toggle">
+          <input v-model="showUnchanged" type="checkbox" />
+          Show unchanged rows
+        </label>
+        <table class="cmp-facts">
+          <thead>
+            <tr>
+              <th></th>
+              <th>{{ source.label }}</th>
+              <th>{{ target.label }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="row in visibleFactRows"
+              :key="row.label"
+              :class="{ 'cmp-changed': row.changed }"
+            >
+              <th scope="row">{{ row.label }}</th>
+              <td>{{ row.fromText }}</td>
+              <td>{{ row.toText }}</td>
+            </tr>
+            <tr v-if="visibleFactRows.length === 0">
+              <td colspan="3" class="cmp-empty">
+                No language or hardware differences.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!--
+        One list of prose guidance, not two: the notes for this direction (the
+        few pairs close enough, or trap-laden enough, to warrant them) lead,
+        then what to watch for on the target whatever you arrive from.
+      -->
+      <section
+        v-if="guidance.pairNotes.length || guidance.targetNotes.length"
+        id="guidance"
         class="cmp-section cmp-guidance"
       >
-        <h2>Writing for {{ target.label }}</h2>
+        <h2>Before you start: {{ source.label }} → {{ target.label }}</h2>
         <ul class="cmp-notes">
+          <li
+            v-for="note in guidance.pairNotes"
+            :key="note"
+            class="cmp-pair-note"
+          >
+            {{ note }}
+          </li>
           <li v-for="note in guidance.targetNotes" :key="note">
             {{ note }}
           </li>
         </ul>
-        <div class="cmp-links">
-          <span
-            >Full reference:
-            <a :href="refLinks(source.id).reference">{{ source.label }}</a>
-            (<a :href="refLinks(source.id).hardware">hardware</a>,
-            <a :href="refLinks(source.id).escapes">escape codes</a>,
-            <a :href="refLinks(source.id).formats">file formats</a>)</span
-          >
-          <span
-            >·
-            <a :href="refLinks(target.id).reference">{{ target.label }}</a>
-            (<a :href="refLinks(target.id).hardware">hardware</a>,
-            <a :href="refLinks(target.id).escapes">escape codes</a>,
-            <a :href="refLinks(target.id).formats">file formats</a>)</span
-          >
-        </div>
       </section>
 
       <!--
-        Notes specific to this direction: the few pairs close enough, or
-        trap-laden enough, that the target-only notes and the false-friend
-        warnings cannot carry the advice on their own.
-      -->
-      <section
-        v-if="guidance.pairNotes.length"
-        class="cmp-section cmp-guidance"
-      >
-        <h2>{{ source.label }} → {{ target.label }}: this pair</h2>
-        <ul class="cmp-notes">
-          <li v-for="note in guidance.pairNotes" :key="note">
-            {{ note }}
-          </li>
-        </ul>
-      </section>
-
-      <!--
-        First, because these are the only differences that fail silently: the
-        command exists on both machines, so nothing else on this page flags it,
-        and the program runs and quietly computes something else.
+        Before the lists of what to change: these are the only differences that
+        fail silently. The command exists on both machines, so nothing else on
+        this page flags it, and the program runs and quietly computes something
+        else.
       -->
       <section
         v-if="guidance.falseFriends.length"
+        id="false-friends"
         class="cmp-section cmp-traps"
       >
         <h2>
@@ -551,43 +703,183 @@ function convertWithAi() {
         </ul>
       </section>
 
-      <!-- Keyword differences -->
-      <section v-if="keywordDiff.renamed.length" class="cmp-section">
-        <h2>Keywords to rename ({{ keywordDiff.renamed.length }})</h2>
+      <!--
+        One account per capability: what the port loses here, what to do
+        instead, and what the target adds here. These were two sections until
+        the measurements showed over half of all capability mentions were being
+        made twice, from the two halves of the same authored guidance cell.
+        Grouped, not capped: a group names its commands in one run, so every
+        lost command is shown and a capability the port does not touch is simply
+        absent.
+      -->
+      <section v-if="capabilities.length" id="capabilities" class="cmp-section">
+        <h2>What changes</h2>
         <p class="cmp-hint">
-          The same command, spelled differently — a search and replace, not a
-          rewrite.
+          {{ count(keywordDiff.mustReplace.length, 'command') }} to rewrite or
+          remove, grouped by what they do, with what {{ target.label }} offers
+          in their place. The capabilities {{ target.label }} has no equivalent
+          of at all come first.
         </p>
-        <ul class="cmp-list">
-          <li v-for="r in renamedList.visible" :key="r.from.name">
-            <code>{{ r.from.name }}</code>
-            <span class="cmp-arrow">→</span>
-            <code>{{ r.to.name }}</code>
-            <span class="cmp-desc">{{ r.to.description }}</span>
-          </li>
-          <li
-            v-if="renamedList.hasMore && !renamedList.expanded"
-            class="cmp-more"
-          >
-            <button
-              type="button"
-              class="cmp-expand"
-              @click="renamedList.expand()"
+        <label v-if="gainingCount" class="cmp-toggle">
+          <input v-model="hideAdditions" type="checkbox" />
+          Hide what {{ target.label }} adds that the program has not used
+        </label>
+        <div
+          v-for="s in visibleCapabilities"
+          :key="s.domain ?? 'other'"
+          class="cmp-group"
+          :class="{
+            'cmp-group-absent': s.entries.length && s.support === 'none',
+            'cmp-group-partial': s.entries.length && s.support === 'partial',
+            'cmp-group-gain-only': !s.entries.length,
+          }"
+        >
+          <h3 class="cmp-group-head">
+            <span v-if="s.domain" class="cmp-icon">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                role="img"
+                :aria-label="domainLabel(s)"
+                v-html="domainPaths(s)"
+              />
+            </span>
+            {{ domainLabel(s) }}
+            <span v-if="s.entries.length" class="cmp-group-count">{{
+              s.entries.length
+            }}</span>
+            <span
+              v-if="s.entries.length && s.support === 'none'"
+              class="cmp-group-none"
             >
-              Show {{ renamedList.remaining }} more…
-            </button>
-          </li>
-        </ul>
+              nothing like it in {{ target.label }}
+            </span>
+            <span
+              v-else-if="s.entries.length && s.support === 'partial'"
+              class="cmp-group-partial-badge"
+            >
+              only partly covered in {{ target.label }}
+            </span>
+            <span v-else-if="!s.entries.length" class="cmp-group-gain-badge">
+              nothing to replace — {{ target.label }} adds
+              {{ s.gained?.count }} here
+            </span>
+          </h3>
+          <p v-if="s.entries.length" class="cmp-group-names">
+            <span v-for="(e, i) in s.entries" :key="e.name" class="cmp-name">
+              <code>{{ e.name }}</code
+              ><span v-if="e.tag" class="cmp-tag">{{ e.tag }}</span
+              ><span v-if="i < s.entries.length - 1" class="cmp-sep">, </span>
+            </span>
+          </p>
+          <div
+            v-if="s.entries.length && domainAdvice(s)?.instead"
+            class="cmp-group-advice"
+          >
+            <p class="cmp-group-instead-text">{{ domainAdvice(s)?.instead }}</p>
+            <div v-if="domainAdvice(s)?.example" class="cmp-example">
+              <p class="cmp-example-caption">
+                {{ domainAdvice(s)?.example?.caption }}
+              </p>
+              <pre class="cmp-example-code"><code>{{
+                domainAdvice(s)?.example?.code.join('\n')
+              }}</code></pre>
+            </div>
+          </div>
+          <ul v-if="substitutionsIn(s).length" class="cmp-group-instead">
+            <li v-for="x in substitutionsIn(s)" :key="x.name">
+              <code>{{ x.name }}</code> — {{ x.note }}
+            </li>
+          </ul>
+          <!--
+            What the target offers here, in the same account as what it costs.
+            The count leads as its own sentence: run into the summary it read as
+            though the summary listed the additions, which it does not - it
+            describes the capability whole. `reachFor` names appear only where
+            there is no list of lost commands above them to anchor the group, so
+            no name is printed twice.
+          -->
+          <p v-if="s.gained" class="cmp-group-gain">
+            <span v-if="s.entries.length" class="cmp-gain-lead"
+              >{{ target.label }} adds {{ s.gained.count }} here.</span
+            >
+            {{ s.gained.summary }}
+            <span
+              v-if="!s.entries.length && s.gained.reachFor.length"
+              class="cmp-reach-for"
+            >
+              e.g.
+              <span v-for="(n, i) in s.gained.reachFor" :key="n">
+                <code>{{ n }}</code
+                ><span v-if="i < s.gained.reachFor.length - 1">, </span>
+              </span>
+            </span>
+          </p>
+        </div>
+        <!-- Say what the filter is holding back, so it is discoverable. -->
+        <p v-if="hideAdditions && gainingCount" class="cmp-empty">
+          {{ count(gainingCount, 'capability area') }}
+          {{ target.label }} only adds to
+          {{ gainingCount === 1 ? 'is' : 'are' }} hidden.
+        </p>
       </section>
 
-      <section class="cmp-section">
-        <h2>Changed behaviour ({{ keywordDiff.behaviourChanged.length }})</h2>
+      <!--
+        From here down the page is reference rather than work. Renames and
+        usage changes share a premise - the command is on both machines,
+        written differently - so they share a section; a rename is its two
+        spellings, not a row carrying a description the reference page gives.
+      -->
+      <section
+        v-if="keywordDiff.renamed.length || changedCount"
+        id="different-form"
+        class="cmp-section"
+      >
+        <h2>Same command, different form</h2>
         <p class="cmp-hint">
-          Same keyword, different kind or syntax — check each use.
+          On both machines, but not written the same way — a search and replace
+          for the first two, a look at each use for the rest.
         </p>
-        <ul class="cmp-list cmp-change">
+        <p v-if="keywordDiff.renamed.length" class="cmp-change-rule">
+          {{ count(keywordDiff.renamed.length, 'command') }} spelled
+          differently:
+          <span
+            v-for="(r, i) in keywordDiff.renamed"
+            :key="r.from.name"
+            class="cmp-name"
+          >
+            <code>{{ r.from.name }}</code> → <code>{{ r.to.name }}</code
+            ><span v-if="i < keywordDiff.renamed.length - 1" class="cmp-sep"
+              >,
+            </span>
+          </span>
+        </p>
+        <!--
+          One rule of the target language, named once with the keywords it
+          applies to, rather than repeated as a row each: on Commodore →
+          Spectrum this alone would otherwise be fifteen rows saying the same
+          thing.
+        -->
+        <p v-if="parensChanged.length" class="cmp-change-rule">
+          {{ count(parensChanged.length, 'command') }} differing only in whether
+          the argument is bracketed — write them as {{ target.label }} does:
+          <span v-for="(c, i) in parensChanged" :key="c.name" class="cmp-name">
+            <code>{{ c.name }}</code
+            ><span v-if="i < parensChanged.length - 1" class="cmp-sep">, </span>
+          </span>
+        </p>
+        <ul v-if="detailedChanges.length" class="cmp-list cmp-change">
           <li v-for="c in behaviourChangedList.visible" :key="c.name">
-            <code>{{ c.name }}</code>
+            <span class="cmp-change-head">
+              <code>{{ c.name }}</code>
+              <span class="cmp-change-what">{{ CHANGE_LABEL[c.change] }}</span>
+            </span>
             <span class="cmp-change-detail">
               <span class="cmp-from"
                 >{{ source.label }}: {{ c.from.kind }} ·
@@ -614,212 +906,64 @@ function convertWithAi() {
               Show {{ behaviourChangedList.remaining }} more…
             </button>
           </li>
-          <li
-            v-if="keywordDiff.behaviourChanged.length === 0"
-            class="cmp-empty"
-          >
-            No shared keyword changed kind or syntax.
-          </li>
         </ul>
       </section>
 
       <!--
-        Grouped by capability, not capped: a group names its commands in one
-        run, so every lost command is shown and capabilities the port does not
-        touch are simply absent rather than collapsed behind a control.
+        The codes to replace are grouped by what they do, in the source's own
+        category order, and not capped: the same treatment the commands to
+        replace get. An alphabetical cap buried the colour and cursor codes a
+        screen layout depends on under the block-graphics keycaps. The codes the
+        target adds and the program never used are a count and a pointer - not
+        work the port has to do.
       -->
-      <section class="cmp-section">
-        <h2>Keywords to replace ({{ keywordDiff.mustReplace.length }})</h2>
+      <section
+        v-if="escReplaceSections.length || escapeAdded"
+        id="escape-codes"
+        class="cmp-section"
+      >
+        <h2>
+          Control &amp; escape codes ({{ escapeDiff?.mustReplace.length ?? 0 }}
+          to replace)
+        </h2>
         <p class="cmp-hint">
-          In {{ source.label }} but not {{ target.label }} — rewrite or remove
-          these. Grouped by what they do, with the capabilities
-          {{ target.label }} has no equivalent of at all first.
+          Embedded colour and graphics control codes differ between the
+          machines. Grouped by what they do; the
+          <a :href="refLinks(source.id).escapes"
+            >{{ source.label }} escape-code reference</a
+          >
+          gives every code's meaning.
         </p>
+        <label v-if="escapeAdded" class="cmp-toggle">
+          <input v-model="hideAdditions" type="checkbox" />
+          Hide what {{ target.label }} adds that the program has not used
+        </label>
         <div
-          v-for="s in replaceSections"
-          :key="s.domain ?? 'other'"
-          class="cmp-group"
-          :class="{
-            'cmp-group-absent': s.support === 'none',
-            'cmp-group-partial': s.support === 'partial',
-          }"
+          v-for="s in escReplaceSections"
+          :key="s.category ?? 'other'"
+          class="cmp-group cmp-group-esc"
         >
           <h3 class="cmp-group-head">
-            <span v-if="s.domain" class="cmp-icon">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                role="img"
-                :aria-label="domainLabel(s)"
-                v-html="domainPaths(s)"
-              />
-            </span>
-            {{ domainLabel(s) }}
+            {{ s.label }}
             <span class="cmp-group-count">{{ s.entries.length }}</span>
-            <span v-if="s.support === 'none'" class="cmp-group-none">
-              nothing like it in {{ target.label }}
-            </span>
-            <span
-              v-else-if="s.support === 'partial'"
-              class="cmp-group-partial-badge"
-            >
-              only partly covered in {{ target.label }}
-            </span>
           </h3>
           <p class="cmp-group-names">
-            <span v-for="(e, i) in s.entries" :key="e.name" class="cmp-name">
-              <code>{{ e.name }}</code
-              ><span v-if="e.tag" class="cmp-tag">{{ e.tag }}</span
+            <span v-for="(e, i) in s.entries" :key="e.escape" class="cmp-name">
+              <code>{{ e.escape }}</code
               ><span v-if="i < s.entries.length - 1" class="cmp-sep">, </span>
             </span>
           </p>
-          <div v-if="domainAdvice(s)?.instead" class="cmp-group-advice">
-            <p class="cmp-group-instead-text">{{ domainAdvice(s)?.instead }}</p>
-            <div v-if="domainAdvice(s)?.example" class="cmp-example">
-              <p class="cmp-example-caption">
-                {{ domainAdvice(s)?.example?.caption }}
-              </p>
-              <pre class="cmp-example-code"><code>{{
-                domainAdvice(s)?.example?.code.join('\n')
-              }}</code></pre>
-            </div>
-          </div>
-          <ul v-if="substitutionsIn(s).length" class="cmp-group-instead">
-            <li v-for="x in substitutionsIn(s)" :key="x.name">
-              <code>{{ x.name }}</code> — {{ x.note }}
-            </li>
-          </ul>
         </div>
-        <p v-if="keywordDiff.mustReplace.length === 0" class="cmp-empty">
-          Every {{ source.label }} keyword exists in {{ target.label }}.
+        <p v-if="!escReplaceSections.length" class="cmp-empty">
+          No {{ source.label }} control code needs replacing.
         </p>
-      </section>
-
-      <section class="cmp-section">
-        <h2>
-          Newly available ({{ keywordDiff.newlyAvailable.length }} across
-          {{ additionsBrief.length }} capability area(s))
-        </h2>
-        <p class="cmp-hint">
-          In {{ target.label }} but not {{ source.label }}, summarised by
-          capability rather than listed command by command — see the full
-          reference for every one.
-        </p>
-        <ul class="cmp-list cmp-brief">
-          <li v-for="b in additionsBrief" :key="b.domain">
-            <span class="cmp-icon">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                role="img"
-                :aria-label="DOMAIN_META[b.domain].label"
-                v-html="DOMAIN_META[b.domain].paths"
-              />
-            </span>
-            <strong>{{ DOMAIN_META[b.domain].label }}</strong>
-            <span class="cmp-group-count">{{ b.count }}</span>
-            <span class="cmp-desc">{{ b.summary }}</span>
-            <span v-if="b.reachFor.length" class="cmp-reach-for">
-              e.g.
-              <span v-for="(n, i) in b.reachFor" :key="n">
-                <code>{{ n }}</code
-                ><span v-if="i < b.reachFor.length - 1">, </span>
-              </span>
-            </span>
-            <a :href="refLinks(target.id).reference" class="cmp-reach-link"
-              >Full {{ target.label }} reference →</a
-            >
-          </li>
-          <li v-if="additionsBrief.length === 0" class="cmp-empty">
-            {{ target.label }} adds no keywords over {{ source.label }}.
-          </li>
-        </ul>
-      </section>
-
-      <!-- Escape-code differences -->
-      <section class="cmp-section">
-        <h2>Control &amp; escape codes</h2>
-        <template v-if="escapeDiff">
-          <p class="cmp-hint">
-            Embedded colour/graphics control codes differ between the machines.
-          </p>
-          <div class="cmp-esc-cols">
-            <div>
-              <h3>To replace ({{ escapeDiff.mustReplace.length }})</h3>
-              <ul class="cmp-list cmp-remove">
-                <li v-for="e in escMustReplaceList.visible" :key="e.escape">
-                  <code>{{ e.escape }}</code>
-                  <span class="cmp-desc">{{ e.description }}</span>
-                </li>
-                <li
-                  v-if="
-                    escMustReplaceList.hasMore && !escMustReplaceList.expanded
-                  "
-                  class="cmp-more"
-                >
-                  <button
-                    type="button"
-                    class="cmp-expand"
-                    @click="escMustReplaceList.expand()"
-                  >
-                    Show {{ escMustReplaceList.remaining }} more…
-                  </button>
-                </li>
-                <li
-                  v-if="escapeDiff.mustReplace.length === 0"
-                  class="cmp-empty"
-                >
-                  None.
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3>Newly available ({{ escapeDiff.newlyAvailable.length }})</h3>
-              <ul class="cmp-list cmp-add">
-                <li v-for="e in escNewlyAvailableList.visible" :key="e.escape">
-                  <code>{{ e.escape }}</code>
-                  <span class="cmp-desc">{{ e.description }}</span>
-                </li>
-                <li
-                  v-if="
-                    escNewlyAvailableList.hasMore &&
-                    !escNewlyAvailableList.expanded
-                  "
-                  class="cmp-more"
-                >
-                  <button
-                    type="button"
-                    class="cmp-expand"
-                    @click="escNewlyAvailableList.expand()"
-                  >
-                    Show {{ escNewlyAvailableList.remaining }} more…
-                  </button>
-                </li>
-                <li
-                  v-if="escapeDiff.newlyAvailable.length === 0"
-                  class="cmp-empty"
-                >
-                  None.
-                </li>
-              </ul>
-            </div>
-          </div>
-        </template>
-        <p v-else class="cmp-hint">
-          One of these dialects has no documented escape-code set, so there is
-          nothing to compare.
+        <p v-if="escapeAdded && !hideAdditions" class="cmp-esc-gain">
+          {{ target.label }} adds {{ count(escapeAdded, 'code') }} across
+          {{ count(escapeAddedCategories, 'category', 'categories') }} the
+          program has not used —
+          <a :href="refLinks(target.id).escapes"
+            >see its escape-code reference</a
+          >.
         </p>
       </section>
     </template>
@@ -884,8 +1028,17 @@ function convertWithAi() {
   padding-top: 0.85rem;
   border-top: 1px solid var(--vp-c-divider);
 }
+/* Both sit in the panel under the summary: the page's contents, then the two
+   dialects' full reference pages. */
+.cmp-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.6rem;
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+}
 .cmp-links {
-  margin: 0.75rem 0 0;
+  margin: 0.6rem 0 0;
   font-size: 0.85rem;
   color: var(--vp-c-text-2);
 }
@@ -967,6 +1120,30 @@ function convertWithAi() {
   flex-direction: column;
   align-items: stretch;
 }
+.cmp-change-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+/* What changed, so the reader is told rather than left to compare two usage
+   strings by eye. */
+.cmp-change-what {
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  font-size: 0.75rem;
+}
+/* One rule of the target language, stated once above the per-keyword rows. */
+.cmp-change-rule {
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.6rem;
+  border-left: 3px solid var(--vp-c-yellow-1);
+  background: var(--vp-c-bg-soft);
+  font-size: 0.85rem;
+  line-height: 1.9;
+}
 /* One capability's worth of lost commands: a heading and a run of names,
    rather than a row per command. Red left edge to match .cmp-remove, which
    this section no longer uses. */
@@ -982,6 +1159,37 @@ function convertWithAi() {
 /* Capabilities the target only partly covers - between "none" and "full". */
 .cmp-group.cmp-group-partial {
   border-left-color: var(--vp-c-yellow-1);
+}
+/* Capabilities the port loses nothing from - news, not work, so they read as
+   an addition rather than a loss and sit after the groups that cost something. */
+.cmp-group.cmp-group-gain-only {
+  border-left-color: var(--vp-c-green-1);
+}
+.cmp-group-gain-badge {
+  color: var(--vp-c-text-2);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+/* What the target offers in a capability, below what the port loses in it. */
+.cmp-group-gain {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--vp-c-text-2);
+}
+.cmp-gain-lead {
+  color: var(--vp-c-text-1);
+  font-weight: 600;
+}
+/* A control-code category: the same group shape as a capability. */
+.cmp-group-esc {
+  margin: 0.5rem 0;
+}
+.cmp-group-esc .cmp-group-head {
+  font-size: 0.85rem;
+  color: var(--vp-c-text-2);
+}
+.cmp-group-esc .cmp-group-names {
+  line-height: 1.8;
 }
 .cmp-group-partial-badge {
   color: var(--vp-c-text-2);
@@ -1013,6 +1221,12 @@ function convertWithAi() {
 .cmp-group-names {
   margin: 0.35rem 0 0;
   line-height: 1.9;
+}
+/* Wrap between names, never inside one: an escape like {SHIFT-d} splitting
+   across two lines reads as two different codes. */
+.cmp-group-names code,
+.cmp-change-rule code {
+  white-space: nowrap;
 }
 /* Comma-separated run. The separator is a real text node, not a ::after, so
    the list of lost commands copies and reads out as prose - and it sits after
@@ -1059,20 +1273,9 @@ function convertWithAi() {
   font-size: 0.8rem;
   overflow-x: auto;
 }
-/* The "newly available" capability brief: one line per capability rather
-   than a row per command. */
-.cmp-brief li {
-  flex-direction: column;
-  align-items: flex-start;
-  border-left-color: var(--vp-c-green-1);
-  gap: 0.2rem;
-}
 .cmp-reach-for {
   font-size: 0.8rem;
   color: var(--vp-c-text-2);
-}
-.cmp-reach-link {
-  font-size: 0.8rem;
 }
 .cmp-more {
   border-left-color: transparent !important;
@@ -1121,6 +1324,12 @@ function convertWithAi() {
   margin: 0.3rem 0;
   line-height: 1.5;
 }
+/* The notes for this direction lead the list, and are the more specific of the
+   two - marked so they don't read as more of the general target advice. */
+.cmp-notes li.cmp-pair-note {
+  color: var(--vp-c-text-1);
+  font-weight: 500;
+}
 /* Same word, different meaning: the only differences here that fail silently. */
 .cmp-traps h2 {
   color: var(--vp-c-warning-1, var(--vp-c-text-1));
@@ -1136,15 +1345,14 @@ function convertWithAi() {
 .cmp-arrow {
   color: var(--vp-c-text-3, var(--vp-c-text-2));
 }
-.cmp-esc-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+/* What the target adds, closing the control-code section: a count and a
+   pointer, not a second grouped column. */
+.cmp-esc-gain {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--vp-c-text-2);
 }
 @media (max-width: 640px) {
-  .cmp-esc-cols {
-    grid-template-columns: 1fr;
-  }
   .cmp-facts tbody th {
     width: auto;
   }

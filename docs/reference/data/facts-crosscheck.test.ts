@@ -59,6 +59,24 @@ describe('facts crosscheck', () => {
     const ids = portingFacts.map((f) => f.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  // Prose like the other hand-authored fields, so there is nothing in src/ to
+  // pin it to - but it is the fact the porting guidance leans on hardest, so
+  // every page has to answer it in the same terms rather than leave it vague.
+  it('every page says whether it has floating point or is integer-only', () => {
+    for (const facts of portingFacts) {
+      expect(facts.numberHandling, facts.id).toMatch(
+        /floating point|integer only/i,
+      );
+    }
+  });
+
+  it('an integer-only page states the range it holds', () => {
+    for (const facts of portingFacts) {
+      if (!/^integer only/i.test(facts.numberHandling)) continue;
+      expect(facts.numberHandling, facts.id).toMatch(/-?\d+ to -?\d+/);
+    }
+  });
 });
 
 describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {
