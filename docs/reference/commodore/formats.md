@@ -85,7 +85,7 @@ the countdown $89..$81, second with $09..$01, each carrying an XOR checksum
 byte). A program is two blocks: a 192-byte header (file type, start/end address,
 filename) and the tokenised program bytes. The single shared encoder/decoder is
 parameterized by the machine's load address ($0801 C64, $1001 VIC-20, $0401 PET)
-and the machine's detokeniser(so the PET's BASIC 4.0 disk tokens list correctly
+and the machine's detokeniser (so the PET's BASIC 4.0 disk tokens list correctly
 on decode); each of the three exports and imports through it. A document with
 [memory blocks](../file-formats#machine-code-data-blocks) exports as a
 **multi-file tape** — the program followed by one file per block, optionally
