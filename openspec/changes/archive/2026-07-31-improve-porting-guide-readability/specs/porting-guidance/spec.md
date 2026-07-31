@@ -106,26 +106,26 @@ which the port loses nothing SHALL be reported after the capabilities that lose 
 ### Requirement: What the target adds and the program never used can be filtered out
 
 What the target offers where the port loses nothing is the one part of the comparison that is not
-work the port requires. The comparison SHALL offer a control that hides it — both the capabilities
-with nothing to replace and the control codes the target adds — and that control SHALL be on by
-default, with what it is hiding stated so it can be found. Turning it off SHALL report them again.
-What the target offers in a capability the port *does* lose commands from is the advice for
-replacing them, and SHALL NOT be hidden by this control.
+work the port requires. The comparison SHALL leave it out by default — both the capabilities with
+nothing to replace and the control codes the target adds — and SHALL offer a control that reports
+it, with what is being left out stated so the control can be found. What the target offers in a
+capability the port *does* lose commands from is the advice for replacing them, and SHALL NOT be
+left out by this control.
 
 #### Scenario: The default view
 
 - **WHEN** the user opens a comparison
-- **THEN** the capabilities the target only adds to and the control codes it adds are hidden, and
-  the comparison states how many capability areas are hidden
+- **THEN** the capabilities the target only adds to and the control codes it adds are absent, and
+  the comparison states how many capability areas are being left out
 
 #### Scenario: Asking to see them
 
-- **WHEN** the user turns the control off
+- **WHEN** the user turns the control on
 - **THEN** the capabilities the target only adds to, and the control codes it adds, are reported
 
 #### Scenario: Advice for a capability that loses commands is never hidden
 
-- **WHEN** the control is on and the port loses commands from a capability the target also adds to
+- **WHEN** the control is off and the port loses commands from a capability the target also adds to
 - **THEN** what the target offers in that capability is still reported with the commands lost from
   it
 
@@ -157,7 +157,83 @@ integer-only, and where it is integer-only, the range of values it can hold.
 - **THEN** the language differences report the target as integer-only, with the range of values it
   holds, against the source's own number handling
 
+### Requirement: Controls over what is reported are phrased as showing
+
+Every control the comparison offers over how much it reports SHALL be labelled with what turning it
+on reveals, never with what turning it on removes, so that a control turned on always means more is
+reported. Which controls start on SHALL be decided by what the comparison should open on, and is
+unaffected by that phrasing.
+
+#### Scenario: Reading the controls
+
+- **WHEN** the user reads any control the comparison offers over what it reports
+- **THEN** it is labelled as showing something, and turning it on adds to what is reported
+
+#### Scenario: What the comparison opens on
+
+- **WHEN** the user opens a comparison
+- **THEN** the rows that do not differ, and what the target adds where the port loses nothing, are
+  still absent until asked for
+
+### Requirement: The comparison explains its colour coding
+
+Where the comparison distinguishes what it reports by colour, it SHALL give a key to what those
+colours mean, placed ahead of the sections that use them and laid out as one horizontal run rather
+than as a list, so it costs a glance. The key SHALL name only the colours the chosen pair actually
+puts on the page.
+
+#### Scenario: Reading a comparison that colours what it reports
+
+- **WHEN** the user opens a comparison whose sections distinguish what they report by colour
+- **THEN** a key to those colours is present ahead of those sections, as a single horizontal run
+
+#### Scenario: A colour this pair does not use
+
+- **WHEN** the comparison reports nothing in one of its colours — because the pair has nothing of
+  that kind, or because the reader has not asked to see it
+- **THEN** the key does not explain that colour, and explains it once it is on the page
+
+### Requirement: The pair's guidance is not restated by the target's
+
+The guidance written for the chosen pair and the guidance written for the target machine are shown
+under one heading, the pair's first. Where the pair's guidance already makes every point one of the
+target's own bullets makes, that bullet SHALL NOT also be shown. A bullet whose points the pair's
+guidance makes only some of SHALL still be shown.
+
+#### Scenario: A point made by both
+
+- **WHEN** the guidance for the chosen pair makes every point one of the target's own bullets makes
+- **THEN** that point is read once, in the terms specific to this pair
+
+#### Scenario: A point only the target's guidance makes
+
+- **WHEN** one of the target's bullets makes a point the pair's guidance does not
+- **THEN** that bullet is still shown
+
 ## MODIFIED Requirements
+
+### Requirement: Guidance covers both the general and the machine-specific
+
+The guidance SHALL describe what any port between these BASICs involves, independently of the pair
+chosen, and SHALL additionally describe what is specific to the machine being ported **to**. Every
+dialect offered as a target SHALL carry its own guidance, so no valid pair produces a comparison
+without it.
+
+What any port involves does not change with the pair, so it SHALL be given a page of its own rather
+than sit within the comparison, and the comparison SHALL point to it before the reader reaches the
+pair-specific sections, naming it as the thing to read first by a reader new to porting.
+
+#### Scenario: Guidance for any target
+
+- **WHEN** the user selects any dialect as the porting target
+- **THEN** the guidance specific to that target is shown, and what any port involves is one link
+  away, offered before the pair-specific sections
+
+#### Scenario: Reading what any port involves
+
+- **WHEN** the user follows that link
+- **THEN** what any port between these BASICs involves is given in full
+
 
 ### Requirement: Long difference lists are capped, with more available
 

@@ -123,3 +123,34 @@
 - [x] 12.6 `npm run e2e:chromium -- e2e/porting-guidance`
 - [x] 12.7 Re-measure section heights on `?from=commodore&to=zxspectrum`, `?from=bbc&to=cpc` and
       `?from=zx81&to=bbc`, and confirm no capability is described in two places.
+
+## 13. Review fixes
+
+- [x] 13.1 Phrase every control over what the comparison reports as a "show": the additions filter
+      becomes `showAdditions`, labelled with what ticking it reveals, still off by default so the
+      comparison opens on the same view.
+- [x] 13.2 Give the target guidance a topic vocabulary (`docs/reference/data/porting-topics.ts`),
+      tag every `portingNotes` bullet with what it is about, and tag each pair note with the topics
+      it already `covers`.
+- [x] 13.3 Drop a target note in `composeGuidance` once the pair notes cover its every topic, and
+      cover it in `dialectCompare.test.ts` (fully covered drops, partly covered survives, a pair
+      with no notes keeps all).
+- [x] 13.4 Where a pair note only half-made a target bullet worth dropping, move the missing half
+      into the pair note; split a target bullet that yoked two unrelated points together.
+- [x] 13.5 Guard the tags in `porting-crosscheck.test.ts`: every target note is tagged, and a
+      `covers` topic must be one its target actually writes about.
+- [x] 13.6 Add the colour key to `DialectCompare.vue` — one horizontal run above the sections,
+      each swatch carrying the treatment it explains, listing only the colours this pair uses.
+- [x] 13.7 Move "Porting between dialects" to `docs/reference/porting-basics.md`, link it from the
+      end of the intro, and retire the component's `<slot />`.
+
+## 14. Quality gates (review fixes)
+
+- [x] 14.1 `npm run typecheck`
+- [x] 14.2 `npm test`
+- [x] 14.3 `npm run lint`
+- [x] 14.4 `npm run format:check`
+- [x] 14.5 `npm run docs:build`
+- [x] 14.6 `npm run e2e:chromium -- e2e/porting-guidance`
+- [x] 14.7 Read the built page for every pair that has notes of its own, confirming no point is
+      made twice under "Before you start" and that the key matches the colours on the page.

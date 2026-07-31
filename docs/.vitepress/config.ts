@@ -199,7 +199,12 @@ export default withPwa(
                 { text: '6502 assembly', link: '/reference/6502-assembly' },
               ],
             },
-            { text: 'Porting guide', link: '/reference/compare' },
+            {
+              text: 'Porting guide',
+              link: '/reference/compare',
+              collapsed: true,
+              items: [{ text: 'Basics', link: '/reference/porting-basics' }],
+            },
           ],
         },
         {

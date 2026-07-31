@@ -1,4 +1,5 @@
 import type { KeywordDomain } from './domains';
+import type { PortingTopic } from './porting-topics';
 
 /** One row of a dialect reference table. */
 export interface ReferenceEntry {
@@ -138,6 +139,42 @@ export interface FalseFriend {
 }
 
 /**
+ * One bullet of the guidance written for a machine you are porting *to*,
+ * whatever you are arriving from.
+ *
+ * `topics` is what the bullet is about, and exists so a note for the chosen
+ * ordered pair can supersede it: the pair notes are the more specific of the
+ * two, and a reader met "only the first two characters of a variable name are
+ * significant" once in each. See {@link PortingTopic}.
+ */
+export interface TargetPortingNote {
+  /** The bullet as shown. */
+  text: string;
+  /**
+   * What this bullet is about. A bullet making several points carries several
+   * topics, and is dropped only where the pair notes cover all of them.
+   */
+  topics: PortingTopic[];
+}
+
+/**
+ * One bullet of the guidance written for a single ordered pair, and what of
+ * the target's own guidance it makes redundant.
+ */
+export interface PairPortingNote {
+  /** The bullet as shown, ahead of whatever target guidance survives. */
+  text: string;
+  /**
+   * The {@link TargetPortingNote} topics this bullet already makes for the
+   * reader. Omitted where it supersedes nothing - most notes say something the
+   * target guidance cannot, which is why the pair earned notes at all. Each
+   * topic named must be one the target's own notes carry, or the tag is stale;
+   * porting-crosscheck.test.ts fails on one that is.
+   */
+  covers?: PortingTopic[];
+}
+
+/**
  * Advice anchored to one *ordered* pair of pages (from → to): the few pairs
  * whose relationship is close enough, or trap-laden enough, to warrant notes
  * that the target-only {@link PortingFacts.portingNotes} and the
@@ -156,7 +193,7 @@ export interface PairPortingNotes {
   /** Target page slug being ported *to*. */
   to: string;
   /** A few short notes specific to this ordered pair. */
-  notes: string[];
+  notes: PairPortingNote[];
 }
 
 /**
@@ -239,8 +276,11 @@ export interface PortingFacts {
    * from. Kept to a few short bullets: the comparison already shows the fact
    * rows and the keyword lists, so these earn their place only by saying what
    * those cannot. Capped by porting-crosscheck.test.ts.
+   *
+   * A bullet is dropped for a pair whose own notes already make its every
+   * point - see {@link TargetPortingNote} and {@link PairPortingNote}.
    */
-  portingNotes: string[];
+  portingNotes: TargetPortingNote[];
   /**
    * "If you need X here, do this instead", for commands this dialect does not
    * have. Shown against the command in the difference lists rather than in a

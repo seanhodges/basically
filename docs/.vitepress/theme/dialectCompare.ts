@@ -14,6 +14,7 @@ import type {
   PortingFacts,
   ReferenceEntry,
   ReferenceTableData,
+  TargetPortingNote,
 } from '../../reference/data/types';
 import { sortEntries } from './referenceTable';
 
@@ -546,7 +547,11 @@ export interface GuidanceContext {
  * as prose.
  */
 export interface PairGuidance {
-  /** Target-anchored bullets (PortingFacts.portingNotes); may be empty. */
+  /**
+   * Target-anchored bullets (PortingFacts.portingNotes), less the ones the
+   * pair notes have already made - the two are shown as one list, so a point
+   * made in both would be read twice. May be empty.
+   */
   targetNotes: string[];
   /** Notes for exactly this ordered pair; empty when the pair has none. */
   pairNotes: string[];
@@ -565,14 +570,30 @@ export interface PairGuidance {
  * Assemble the per-pair prose guidance. Pure and SSG-safe like the diff
  * functions: every input is passed in, nothing is imported from the data
  * modules or from `src/`.
+ *
+ * The pair notes lead the section and the target notes follow it, so a target
+ * note whose every point the pair notes have already made is dropped rather
+ * than read a second time in more general terms - what each note covers is
+ * authored, not inferred from the prose.
  */
 export function composeGuidance(ctx: GuidanceContext): PairGuidance {
   const pair = ctx.pairNotes.find(
     (n) => n.from === ctx.from && n.to === ctx.to,
   );
+  const notes = pair?.notes ?? [];
+  const covered = new Set(notes.flatMap((n) => n.covers ?? []));
+  /**
+   * Superseded when the pair notes above it have already made its every point.
+   * A note carrying several points survives until all of them are covered, and
+   * one carrying none (which the crosscheck forbids) is never dropped.
+   */
+  const superseded = (note: TargetPortingNote) =>
+    note.topics.length > 0 && note.topics.every((topic) => covered.has(topic));
   return {
-    targetNotes: ctx.targetFacts?.portingNotes ?? [],
-    pairNotes: pair?.notes ?? [],
+    targetNotes: (ctx.targetFacts?.portingNotes ?? [])
+      .filter((n) => !superseded(n))
+      .map((n) => n.text),
+    pairNotes: notes.map((n) => n.text),
     falseFriends: falseFriendsBetween(ctx.from, ctx.to, ctx.falseFriends),
     substitutions: new Map(
       (ctx.targetFacts?.substitutions ?? []).map((s) => [s.keyword, s.note]),
