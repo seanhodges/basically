@@ -77,6 +77,7 @@ const {
   fretop: FRETOP,
   memsiz: MEMSIZ,
   curlin: CURLIN,
+  blnsw: BLNSW,
 } = BASIC_V2_ZP;
 
 /**
@@ -335,6 +336,26 @@ export class Vic20Machine implements MachineEmulator {
     const mem = this.memory.mem;
     const line = mem[CURLIN]! | (mem[CURLIN + 1]! << 8);
     return line <= MAX_BASIC_LINE ? line : null;
+  }
+
+  /**
+   * Whether BASIC is executing a program, read from the screen editor's
+   * cursor-blink enable (`BLNSW`) exactly as on the C64: zero while the editor
+   * blinks the cursor at a prompt, non-zero while a program has the machine.
+   * CURLIN can't answer it - the ROM leaves it holding the last line executed
+   * once a program stops.
+   *
+   * Null until the machine has taken the program: while booting or injecting,
+   * and while the queued `RUN` is still in the KERNAL keyboard buffer (`NDX`
+   * non-zero), where BASIC is legitimately still at the prompt.
+   */
+  isProgramRunning(): boolean | null {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
+      return null;
+    }
+    const mem = this.memory.mem;
+    if (mem[NDX] !== 0) return null; // queued RUN not consumed yet
+    return mem[BLNSW] !== 0;
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {

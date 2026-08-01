@@ -12,6 +12,13 @@ check ends SHALL be treated as having run, not as having failed, because a
 program that never returns to the machine's ready state is the normal shape of a
 game or an animation.
 
+Telling a program that has finished from one that is still going requires more
+than the failure report, so where the machine can also say whether a program is
+executing, the outcome SHALL distinguish the two. Where it cannot, a run that
+raises no failure SHALL be reported as having run without failing. Either way no
+correction follows, so which of the two is reported SHALL NOT change what the
+assistant is asked to do.
+
 Where the machine cannot report its runtime state, no outcome SHALL be reported
 and the rest of the assistant SHALL be unaffected.
 
@@ -24,9 +31,17 @@ and the rest of the assistant SHALL be unaffected.
 #### Scenario: A program that runs without failing
 
 - **WHEN** a program applied and run from the assistant reaches the machine's
-  ready state with no error
-- **THEN** the conversation reflects that it ran, rather than nothing being
-  reported
+  ready state with no error, on a machine that can tell a finished program from
+  a running one
+- **THEN** the conversation reflects that it ran to completion, rather than
+  nothing being reported
+
+#### Scenario: A machine that cannot tell finished from still running
+
+- **WHEN** a program applied and run from the assistant raises no failure, on a
+  machine that cannot say whether a program is executing
+- **THEN** the conversation reflects that it ran without failing, and no
+  correction is attempted
 
 #### Scenario: A program still running when the check ends
 

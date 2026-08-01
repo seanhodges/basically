@@ -11,13 +11,18 @@ import {
   loadAiConversation,
   saveAiConversation,
   clearAiConversation,
+  getAiProvider,
+  getProviderApiKey,
 } from '../storage/settings';
 import { useIdeStore } from '../app/store';
 import {
   buildRunFix,
+  buildRunNote,
+  buildSystemPrompt,
   FORMAT_RETRY_MESSAGE,
   type PendingFix,
 } from './promptBuilder';
+import { getProvider } from './providers/registry';
 import { sourceFingerprint } from './sourceFingerprint';
 
 export type { PendingFix } from './promptBuilder';
@@ -30,6 +35,13 @@ export interface DisplayMessage extends ChatMessage {
   incomplete?: boolean;
   /** True while re-requesting after an empty reply (shows a distinct status). */
   retrying?: boolean;
+  /**
+   * True while this answer is a correction the assistant was asked for without
+   * the user requesting it, after a run of its own program failed. UI-only, and
+   * distinct from `retrying`: both are attempts the store started by itself,
+   * but they are worth different words in the panel.
+   */
+  autoFix?: boolean;
   /**
    * Fingerprint of the program this answer was written against. A fragment is
    * a delta, so applying it once the editor has moved on may not be what the
@@ -57,6 +69,13 @@ export interface SendParams {
    * answer so a fragment applied later can be flagged as possibly stale.
    */
   baseSource: string;
+  /**
+   * True when the store raised this request itself to correct a failed run,
+   * rather than the user asking for it. Marks the answer in the panel, and
+   * spends one of the bounded automatic attempts instead of releasing them -
+   * only a request the user makes does that.
+   */
+  automatic?: boolean;
 }
 
 interface AiState {
@@ -84,6 +103,21 @@ interface AiState {
  */
 let activeHandle: StreamHandle | null = null;
 let gen = 0;
+
+/**
+ * How many corrections the assistant may be asked for without the user asking.
+ * Small and fixed: past this the failure goes back to being a fix the user
+ * chooses to accept, so the decision to keep spending requests is always
+ * theirs. Counted per applied block and released by any request the user makes.
+ */
+const MAX_AUTO_FIX_ATTEMPTS = 2;
+let autoFixAttempts = 0;
+
+/**
+ * How the last run turned out, when it didn't fail, waiting to ride along with
+ * the next request (see {@link buildRunNote}). Cleared as soon as it is spent.
+ */
+let pendingRunNote = '';
 
 /** Persist the thread, dropping the empty placeholder and the `streaming` flag. */
 function persist(messages: DisplayMessage[]): void {
@@ -119,13 +153,24 @@ export const useAiStore = create<AiState>((set, get) => ({
     userContent,
     displayRequest,
     baseSource,
+    automatic,
   }) => {
+    // A request the user makes is a fresh start for the automatic corrections:
+    // a long conversation must not exhaust its budget early and then silently
+    // stop correcting itself.
+    if (!automatic) autoFixAttempts = 0;
+    // Spend any noted run outcome on this request, whoever asked for it.
+    const note = pendingRunNote;
+    pendingRunNote = '';
     const baseFingerprint = sourceFingerprint(baseSource);
     const prior = get().messages;
     // History for the API: prior turns (role+content only) + the new request.
     const baseHistory: ChatMessage[] = [
       ...prior.map(({ role, content }) => ({ role, content })),
-      { role: 'user', content: userContent },
+      {
+        role: 'user',
+        content: note ? `${note}\n\n${userContent}` : userContent,
+      },
     ];
     const myGen = ++gen;
     set({
@@ -135,7 +180,12 @@ export const useAiStore = create<AiState>((set, get) => ({
       messages: [
         ...prior,
         { role: 'user', content: displayRequest },
-        { role: 'assistant', content: '', streaming: true },
+        {
+          role: 'assistant',
+          content: '',
+          streaming: true,
+          ...(automatic ? { autoFix: true } : {}),
+        },
       ],
     });
 
@@ -199,6 +249,7 @@ export const useAiStore = create<AiState>((set, get) => ({
             content: '',
             streaming: true,
             retrying: true,
+            ...(automatic ? { autoFix: true } : {}),
           };
           return { messages: copy };
         });
@@ -274,32 +325,93 @@ export const useAiStore = create<AiState>((set, get) => ({
     gen++;
     activeHandle?.abort();
     activeHandle = null;
+    autoFixAttempts = 0;
+    pendingRunNote = '';
     clearAiConversation();
     set({ messages: [], busy: false, error: '', pendingFix: null });
   },
 }));
 
+/**
+ * Everything a request needs that doesn't come from the caller. The panel reads
+ * the same settings when the user sends something; the automatic correction has
+ * no panel to read them from, so it resolves them here. Null when there is no
+ * API key, which is where the automatic path gives up (asking the user for a
+ * key is a conversation to have when they asked for something, not in the
+ * middle of a run they didn't).
+ */
+function resolveRequestContext(): {
+  providerId: ReturnType<typeof getAiProvider>;
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  system: string;
+} | null {
+  const providerId = getAiProvider();
+  const apiKey = getProviderApiKey(providerId);
+  if (!apiKey) return null;
+  const { dialect } = useIdeStore.getState();
+  return {
+    providerId,
+    apiKey,
+    model: getProvider(providerId).defaultModel,
+    maxTokens: dialect.aiProfile.maxTokens,
+    system: buildSystemPrompt(dialect),
+  };
+}
+
 // Module-level reactions to IDE-store changes. These run regardless of whether
 // AiPanel is mounted, so they work even with the panel closed or, on mobile,
 // while the editor tab is showing.
 let prevReset = useIdeStore.getState().aiResetSeq;
-let prevReportSeq = useIdeStore.getState().runReport?.seq ?? -1;
+let prevOutcomeSeq = useIdeStore.getState().runOutcome?.seq ?? -1;
 useIdeStore.subscribe((state) => {
   // A different program became active: clear the thread (and storage).
   if (state.aiResetSeq !== prevReset) {
     prevReset = state.aiResetSeq;
     useAiStore.getState().reset();
   }
-  // The emulator reported a runtime error for an AI-checked run: offer a fix and
-  // surface the panel so the user can review it.
-  const report = state.runReport;
-  if (report && report.seq !== prevReportSeq) {
-    prevReportSeq = report.seq;
-    if (report.report.isError) {
-      useAiStore
-        .getState()
-        .setPendingFix(buildRunFix(state.source, report.report));
-      state.showAiPanel();
-    }
+
+  const run = state.runOutcome;
+  if (!run || run.seq === prevOutcomeSeq) return;
+  prevOutcomeSeq = run.seq;
+
+  // A run that didn't fail is worth telling the assistant about, but not worth
+  // a request of its own: note it and let the next request carry it.
+  if (run.outcome.kind !== 'errored') {
+    pendingRunNote = buildRunNote(run.outcome);
+    return;
   }
+
+  const ai = useAiStore.getState();
+  const fix = buildRunFix(state.source, run.outcome.report);
+  // Correcting a program the user has edited since it ran would be answering a
+  // question they have already moved on from.
+  const edited =
+    sourceFingerprint(run.ranSource) !== sourceFingerprint(state.source);
+  const context = resolveRequestContext();
+  if (
+    edited ||
+    ai.busy ||
+    context === null ||
+    autoFixAttempts >= MAX_AUTO_FIX_ATTEMPTS
+  ) {
+    // Out of automatic attempts (or not entitled to one): back to offering the
+    // fix for the user to accept, which is what happens without this feature.
+    ai.setPendingFix(fix);
+    state.showAiPanel();
+    return;
+  }
+
+  autoFixAttempts++;
+  // Surface the panel so a correction the user didn't ask for is visible while
+  // it runs, and stoppable like any other reply.
+  state.showAiPanel();
+  void ai.send({
+    ...context,
+    userContent: fix.userContent,
+    displayRequest: fix.displayRequest,
+    baseSource: state.source,
+    automatic: true,
+  });
 });

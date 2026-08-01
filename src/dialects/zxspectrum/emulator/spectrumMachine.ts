@@ -574,6 +574,13 @@ export class SpectrumMachine implements MachineEmulator {
     return readSpectrumReport(this.memory);
   }
 
+  // No isProgramRunning(): the ROM leaves no reliable trace of the difference.
+  // ERR_NR reads "0 OK" both while a program runs and after it ends cleanly
+  // (see sinclairReports.ts) and PPC keeps the last line executed, so
+  // currentLine() cannot answer it either. The only system variable that does
+  // separate the two is ERR_SP, and only by four bytes of machine-stack depth -
+  // too incidental to build on. See MachineEmulator.isProgramRunning.
+
   /**
    * Actual RAM figures from the ROM's own pointers: PROG to STKEND (program,
    * variables, edit line, workspace and calculator stack) is in use; STKEND to

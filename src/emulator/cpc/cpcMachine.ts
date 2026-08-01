@@ -423,6 +423,19 @@ export class CpcMachine implements MachineEmulator {
   }
 
   /**
+   * Whether BASIC is executing a program. {@link currentLine} answers it
+   * directly: Locomotive zeroes its current-line pointer at the Ready prompt,
+   * so a live line number means a program is running and null means none is.
+   * Never returns "not answerable yet" - {@link loadProgram} boots, injects and
+   * submits RUN synchronously, so the hand-over is complete before any caller
+   * can ask.
+   */
+  isProgramRunning(): boolean | null {
+    if (this.disposed) return null;
+    return this.currentLine() !== null;
+  }
+
+  /**
    * Advance up to one frame of CPU time instruction by instruction, pausing on a
    * breakpoint ('run') or as soon as the line changes ('step'). Mirrors
    * {@link runFrame}'s per-scanline interrupt delivery so timing and the keyboard

@@ -51,7 +51,7 @@ import { attach as cias } from './viciious/target/cias.js';
 import { attach as cpu } from './viciious/target/cpu.js';
 // @ts-expect-error vendored JS, no types
 import { attach as tape } from './viciious/target/tape.js';
-import { BASIC_V2_ZP, MAX_BASIC_LINE } from '../commodore/basicPointers';
+import { BASIC_V2_ZP, MAX_BASIC_LINE, NDX } from '../commodore/basicPointers';
 
 /** PAL frame: 312 rows × 63 cycles. One {@link runFrame} ticks this many cycles. */
 const CYCLES_PER_FRAME = 63 * 312;
@@ -62,6 +62,7 @@ const CYCLES_PER_FRAME = 63 * 312;
  */
 const {
   curlin: CURLIN,
+  blnsw: BLNSW,
   txttab: TXTTAB,
   strend: STREND,
   fretop: FRETOP,
@@ -504,6 +505,28 @@ export class C64Machine implements MachineEmulator {
     const read = (a: number) => this.rawCpuRead(a);
     const line = read(CURLIN) | (read(CURLIN + 1) << 8);
     return line <= MAX_BASIC_LINE ? line : null;
+  }
+
+  /**
+   * Whether BASIC is executing a program, read from the screen editor's
+   * cursor-blink enable (`BLNSW`): zero while the editor blinks the cursor at a
+   * prompt, non-zero while a program has the machine. CURLIN can't answer this
+   * - the ROM leaves it holding the last line executed once a program stops.
+   *
+   * Null until the machine has actually taken the program: while booting or
+   * injecting, and while the typed `RUN` is still sitting in the KERNAL
+   * keyboard buffer (`NDX` non-zero), where BASIC is legitimately still at the
+   * prompt and would otherwise read as "finished".
+   *
+   * A program blocked on `INPUT` reads as not running, since the editor blinks
+   * the cursor for an `INPUT` prompt exactly as it does at READY.
+   */
+  isProgramRunning(): boolean | null {
+    if (!this.booted || this.injecting || this.disposed || !this.c64) {
+      return null;
+    }
+    if (this.rawCpuRead(NDX) !== 0) return null; // typed RUN not consumed yet
+    return this.rawCpuRead(BLNSW) !== 0;
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {

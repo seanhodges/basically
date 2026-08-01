@@ -280,6 +280,14 @@ export class Zx81Machine implements MachineEmulator {
     return readZx81Report(this.memory);
   }
 
+  // No isProgramRunning(): the ZX81 ROM leaves no reliable trace of the
+  // difference. ERR_NR reads "0 OK" both while a program runs and after it ends
+  // cleanly (see reports.ts), PPC keeps the last line executed, and NXTLIN
+  // already points past a single-line program while that line is still running.
+  // Sweeping every system variable across running and finished programs turns
+  // up no cell that separates the two, so the post-run check falls back to "no
+  // error appeared inside the window" - see MachineEmulator.isProgramRunning.
+
   /**
    * Actual RAM figures from the ROM's own pointers: everything from the system
    * variables up to STKEND (program, display file, variables, workspace and

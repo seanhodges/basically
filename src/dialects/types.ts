@@ -483,6 +483,26 @@ export interface MachineEmulator {
    * same way as {@link currentLine}; a machine offering one offers both.
    */
   debugStep?(opts: DebugStepOptions): DebugStepResult;
+  /**
+   * Whether a BASIC program is executing right now:
+   *
+   *  - `true` - a program is running.
+   *  - `false` - nothing is running; BASIC is back at its prompt.
+   *  - `null` - not answerable yet: the machine is still booting, or is still
+   *    being handed the program. Without this third state the seconds between
+   *    {@link loadProgram} and the injected RUN taking effect would read as
+   *    "finished".
+   *
+   * Distinct from {@link currentLine}, which several machines leave pointing at
+   * the last line executed once a program stops - fine for labelling a paused
+   * line, useless for asking whether anything is still running.
+   *
+   * Optional: a machine whose ROM leaves no reliable trace of the difference
+   * (the Sinclair machines) simply omits it, and the post-run check falls back
+   * to "no error appeared inside the window". Detected via
+   * `typeof machine.isProgramRunning === 'function'`.
+   */
+  isProgramRunning?(): boolean | null;
 }
 
 export interface AiProfile {

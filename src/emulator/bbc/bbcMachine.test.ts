@@ -430,6 +430,50 @@ describe('BbcMachine (jsbeeb adapter)', () => {
     }, 60000);
   });
 
+  describe('run state', () => {
+    /**
+     * Sample isProgramRunning() once per frame from the moment the program is
+     * handed over, so the hand-over itself is observable and not just the
+     * settled state.
+     */
+    async function trace(
+      source: string,
+      frames = 500,
+    ): Promise<(boolean | null)[]> {
+      const machine = new BbcMachine();
+      const { bytes } = tokenizeProgram(source);
+      machine.loadProgram(bytes);
+      const seen: (boolean | null)[] = [];
+      for (let i = 0; i < frames; i++) {
+        machine.runFrame();
+        seen.push(machine.isProgramRunning());
+        if (i % 10 === 0) await new Promise((r) => setTimeout(r, 0));
+      }
+      machine.dispose();
+      return seen;
+    }
+
+    it('reports a looping program as running', async () => {
+      const seen = await trace('10 GOTO 10\n');
+      expect(seen.at(-1)).toBe(true);
+    }, 60000);
+
+    it('reports a finished program as not running', async () => {
+      const seen = await trace('10 PRINT "HI"\n20 END\n');
+      expect(seen.at(-1)).toBe(false);
+    }, 60000);
+
+    it('never reads as finished before the program has started', async () => {
+      // Everything up to the first `true` must be "not answerable yet" - a
+      // `false` in that window would tell the caller a program that has not
+      // begun has already ended.
+      const seen = await trace('10 GOTO 10\n');
+      const started = seen.indexOf(true);
+      expect(started).toBeGreaterThanOrEqual(0);
+      expect(seen.slice(0, started)).not.toContain(false);
+    }, 60000);
+  });
+
   describe('VFS-backed data file I/O', () => {
     function fakeStore() {
       const files = new Map<string, { data: Uint8Array; kind?: string }>();

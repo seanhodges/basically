@@ -33,6 +33,18 @@ export interface CbmBasicPointers {
    * line is running.
    */
   curlin: number;
+  /**
+   * BLNSW: the screen editor's cursor-blink enable. Zero while the editor is
+   * blinking the cursor - i.e. BASIC is sitting at a prompt waiting for input -
+   * and non-zero while a program has the machine.
+   *
+   * This, not CURLIN, is what answers "is a program running": every ROM in the
+   * lineage leaves CURLIN holding the last line executed once a program stops,
+   * so a finished program is indistinguishable from one paused on that line.
+   * Confirmed against the real ROMs by the run-state tests in each machine's
+   * own test file.
+   */
+  blnsw: number;
 }
 
 /** BASIC V2 zero page, shared by the Commodore 64 and the VIC-20. */
@@ -44,6 +56,7 @@ export const BASIC_V2_ZP: CbmBasicPointers = {
   fretop: 0x33,
   memsiz: 0x37,
   curlin: 0x39,
+  blnsw: 0xcc,
 };
 
 /**
@@ -58,6 +71,7 @@ export const BASIC_4_ZP: CbmBasicPointers = {
   fretop: 0x30,
   memsiz: 0x34,
   curlin: 0x36,
+  blnsw: 0xa7,
 };
 
 /** Highest line number a CBM BASIC accepts; above it means "not running". */

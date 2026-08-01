@@ -1,4 +1,5 @@
 import type { Dialect, MachineReport, TokenizeError } from '../dialects/types';
+import type { AiRunOutcome } from '../app/store';
 
 /**
  * A correction the assistant is offering after an apply/run turned up problems.
@@ -87,6 +88,31 @@ export function buildEditorFix(
     ),
     displayRequest: `Fix ${n} editor error${n === 1 ? '' : 's'} from the last change`,
   };
+}
+
+/**
+ * How a run of the assistant's own program turned out, for the cases that are
+ * not failures. Folded into the front of the next request rather than sent as a
+ * turn of its own: it costs no extra request, keeps the user/assistant
+ * alternation the APIs expect, and rides along invisibly exactly as the current
+ * program and its lint errors already do.
+ *
+ * Without this the assistant only ever hears about its programs when they
+ * break, so a working one is indistinguishable from one that was never run.
+ */
+export function buildRunNote(outcome: AiRunOutcome): string {
+  switch (outcome.kind) {
+    case 'ended-ok':
+      return 'For context: I ran the last program you gave me and it finished without reporting an error.';
+    case 'still-running':
+      return 'For context: I ran the last program you gave me and it was still running, with no error reported, when I stopped watching it.';
+    case 'never-started':
+      return 'For context: I tried to run the last program you gave me, but the machine never started it.';
+    case 'errored':
+      // Errors travel as a correction request of their own (see buildRunFix),
+      // which carries the report and asks for a fix.
+      return '';
+  }
 }
 
 /** Offer to fix a runtime error the emulator reported after Replace + Run. */

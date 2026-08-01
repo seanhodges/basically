@@ -158,4 +158,39 @@ describe('Trs80InterpreterMachine', () => {
     expect(vars).toContainEqual({ name: 'B$', kind: 'string', value: 'HI' });
     m.dispose();
   });
+  describe('run state', () => {
+    function machineFor(src: string, frames: number) {
+      const m = new Trs80InterpreterMachine();
+      const { program } = tokenizeProgram(src);
+      m.loadProgram(program);
+      for (let i = 0; i < frames; i++) m.runFrame();
+      return m;
+    }
+
+    it('reports a looping program as running', () => {
+      const m = machineFor('10 GOTO 10\n', 50);
+      expect(m.isProgramRunning()).toBe(true);
+      m.dispose();
+    });
+
+    it('reports a finished program as not running', () => {
+      const m = machineFor('10 PRINT "HI"\n20 END\n', 50);
+      expect(m.isProgramRunning()).toBe(false);
+      m.dispose();
+    });
+
+    it('reports a program stopped by an error as not running', () => {
+      const m = machineFor('10 PRINT 1/0\n', 50);
+      expect(m.readReport()?.isError).toBe(true);
+      expect(m.isProgramRunning()).toBe(false);
+      m.dispose();
+    });
+
+    it('counts a program blocked on INPUT as still running', () => {
+      // INPUT hasn't ended the program, it is waiting on the user.
+      const m = machineFor('10 INPUT A\n20 GOTO 10\n', 50);
+      expect(m.isProgramRunning()).toBe(true);
+      m.dispose();
+    });
+  });
 });

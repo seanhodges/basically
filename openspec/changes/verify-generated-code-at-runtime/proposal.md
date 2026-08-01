@@ -22,6 +22,11 @@ offers it.
   assistant and it revises, up to a small fixed number of attempts, after which
   the existing offer-a-fix behaviour takes over. Attempts are visible while they
   run and stop when the user stops them.
+- The machine seam gains one optional question — **is a BASIC program
+  executing?** — because the error report alone cannot answer it. A machine that
+  can tell distinguishes a program that finished from one that is still going; a
+  machine that cannot reports neither and its runs read as "ran without
+  failing", the same way a machine with no error report gets no check at all.
 - Machines that cannot introspect their error state are unchanged: no outcome is
   reported and nothing is retried, exactly as no fix is offered for them today.
 
@@ -55,7 +60,14 @@ change consumes that guarantee rather than extending it.
   offer gains a small bounded retry state machine.
 - `src/components/AiPanel.tsx` — an automatic correction is visibly in progress
   and interruptible.
-- No dialect or emulator code changes; no new dependencies.
+- `src/dialects/types.ts` — one new **optional** `MachineEmulator` member
+  answering whether a BASIC program is executing, detected the same way the
+  other optional introspection members are.
+- The machines that can answer it implement it from state they already read:
+  the BBC, the CPC and the TRS-80 from their existing current-line reads, the
+  Commodore machines from the editor's cursor-blink flag. The Sinclair machines
+  leave no reliable trace of the difference and so do not implement it.
+- No new dependencies.
 
 ## Non-goals
 
@@ -67,7 +79,9 @@ change consumes that guarantee rather than extending it.
   apply-and-run actions are verified.
 - **Tool-calling / function-calling.** The correction is an ordinary follow-up
   turn, so the behaviour is identical across every supported provider.
-- **Changing the `Dialect` / `MachineEmulator` seam.** This change only consumes
-  what the seam already exposes.
+- **Reshaping the `Dialect` / `MachineEmulator` seam.** One optional member is
+  added, following the pattern the seam already uses for machine-specific
+  introspection; nothing existing is changed or removed, and no machine is
+  obliged to answer.
 - **An open-ended agentic loop.** The number of automatic attempts is small,
   fixed, and user-interruptible.
