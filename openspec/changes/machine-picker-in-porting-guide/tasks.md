@@ -6,13 +6,16 @@
       `machineChoiceLabel` off it, removing the `../dialects/types` import.
 - [ ] 1.2 Retype `MachineTrigger.tsx` from `dialect: Dialect` to
       `MachineLike`, removing its `../dialects/types` import.
+- [ ] 1.2a Give `MachineTrigger` a `role` prop and build its accessible name as
+      `<role>: <name>`; keep `targetMachineLabel` as the IDE's wrapper passing
+      `Target machine`, and pass it explicitly from all three IDE call sites
+      (`NewProjectDialog`, `Toolbar` ×2).
 - [ ] 1.3 Give `MachinePickerDialog.tsx` a `machines: readonly MachineLike[]`
       prop, group inside the component memoised on it, and delete the
       module-scope `groupMachinesByManufacturer(dialects)` and the
       `../dialects/registry` import.
 - [ ] 1.4 Pass `machines={dialects}` from `NewProjectDialog.tsx` and
-      `TargetMachineDialog.tsx`. `Toolbar.tsx` needs no change — confirm it
-      only uses `MachineTrigger`.
+      `TargetMachineDialog.tsx`.
 - [ ] 1.5 Retarget `src/components/machinePicker.test.ts` to `MachineLike`,
       keeping all 9 existing cases; the registry-driven cases still pass
       `dialects` as `MachineLike[]`.
@@ -70,10 +73,12 @@
       of `group`.
 - [ ] 5.4 Check the swap, copy-link and convert-with-AI controls, the
       `sameSelection` note and every section below still behave unchanged.
-- [ ] 5.5 Settle the two open questions from the design: whether the trigger
-      shows the year, and how the trigger's accessible name distinguishes the
-      two fields (role parameter on the shared helper, or an override at the
-      call site).
+- [ ] 5.5 Render both triggers with `showYear` on, and pass `Porting from` /
+      `Porting to` as their roles. Keep the visible field labels as they are
+      today (`Porting from` and `to`) — only the accessible name is fuller.
+- [ ] 5.6 Compare the guide's picker against the IDE's New-project dialog side
+      by side and resolve any visual difference as a defect in the shim, not by
+      tuning the docs copy. The two are the same component; they must look it.
 
 ## 6. Tests over the new behaviour
 

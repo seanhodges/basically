@@ -146,6 +146,48 @@ shadow roots.
 That was the previous design in a cheaper form. It still duplicates ~320 lines
 of markup and CSS and still needs the art shared somehow.
 
+### The trigger names its own field; the guide keeps its own words
+
+`targetMachineLabel` returns `Target machine: <name>`. That is correct in the
+IDE, where there is one machine and it is the target, and wrong in the guide,
+where one of the two fields is the machine being ported *from* — calling it a
+target machine would be actively misleading, not merely terse.
+
+So the role becomes the caller's to supply. `MachineTrigger` takes a `role`
+string and builds `<role>: <name>`; the IDE passes `Target machine` at all three
+of its call sites, and the guide passes `Porting from` and `Porting to`,
+matching the words the page already uses. `targetMachineLabel` stays as the
+IDE's thin wrapper so its meaning is still named somewhere, and the shared
+helper underneath takes the role.
+
+The guide's *visible* field labels are unchanged: `Porting from` and `to`, as
+today. Only the accessible name is fuller — `to: BBC Micro` would not stand on
+its own read out of context, whereas `Porting to: BBC Micro` does. A visible
+label shorter than its accessible name is the normal shape here, not a
+divergence.
+
+*Alternative considered: override `aria-label` in the docs wrapper.* Rejected —
+it leaves the shared component asserting something false about one of its
+callers and relies on every future caller remembering to override it. Making
+the role a parameter puts the fact that a trigger has a role into the component
+that renders it.
+
+### The two surfaces look identical
+
+The docs picker is the IDE's picker, so any visual difference is a defect, not a
+tuning decision. That is the point of sharing it, and it constrains two things
+that would otherwise be free choices:
+
+- **The trigger shows the year.** `showYear` is on, as in the IDE's New-project
+  dialog. The guide's fields are wide enough for it, and the year is what
+  separates a 464 from a 6128 without opening the list — precisely the
+  same-family confusion this change exists to fix. (The toolbar omits it only
+  because it is space-constrained; that is a container decision, not a
+  different picker.)
+- **The six-token shim must reproduce the IDE's surface exactly**, not
+  approximate it with the nearest VitePress equivalents. Values come from
+  `src/styles.css`, verified side by side.
+
 ### SSG: the picker is client-only, with a reserved placeholder
 
 VitePress statically renders every page; a React island cannot participate. The
@@ -221,13 +263,6 @@ docs use it.
 
 ## Open Questions
 
-- Should the trigger show the year (`showYear`) as the IDE's New-project dialog
-  does, or only the name as its toolbar does? The guide's fields are wider than
-  the toolbar's, and the year is a cheap way to separate a 464 from a 6128
-  without opening the list — but it competes with the field's own "Porting
-  from" label for the same glance.
-- The trigger's accessible name comes from `targetMachineLabel`, which returns
-  `Target machine: <name>` — correct in the IDE, wrong on a page with two
-  fields where neither is "the target machine". Does the shared helper gain a
-  role parameter, or does the docs wrapper override `aria-label` at the call
-  site? The former shares more; the latter leaves the IDE's helper alone.
+None outstanding. The two that stood here — whether the trigger shows the year,
+and how its accessible name handles a field that is not a target machine — are
+settled in the Decisions above.

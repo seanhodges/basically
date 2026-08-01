@@ -56,10 +56,18 @@ two sit a panel apart, disagreeing about how a machine is named.
   docs runtime never reaches `src/dialects/registry.ts` or `src/emulator/`",
   which is the hazard the old rule was a proxy for, and a new import-graph test
   enforces it instead of a convention.
+- The trigger's accessible name stops being hardcoded to the IDE's phrasing.
+  `targetMachineLabel` returns `Target machine: <name>`, which is right in the
+  IDE and wrong in the guide, where one of the two fields is the machine being
+  ported *from*. The role becomes the caller's to supply, so the guide keeps its
+  own words — `Porting from` / `Porting to` — while rendering the same
+  component. Visible field labels are unchanged.
 - **BREAKING (internal component contract):** `MachinePickerDialog` no longer
-  reads the dialect registry itself and requires a `machines` prop. Its two IDE
+  reads the dialect registry itself and requires a `machines` prop; its two IDE
   call sites — `NewProjectDialog` and `TargetMachineDialog` — pass `dialects`.
-  No behaviour changes.
+  `MachineTrigger` gains a `role` prop; its three IDE call sites —
+  `NewProjectDialog` and `Toolbar` ×2 — pass `Target machine`. No behaviour
+  changes on either.
 - **BREAKING (internal test contract):** `e2e/porting-guidance/convert-program.spec.ts`
   drives the target with `frame.locator('select').nth(1).selectOption('cpc6128')`.
   There is no `<select>` afterwards; it selects through the picker instead.
@@ -108,11 +116,11 @@ None.
 ## Impact
 
 - **IDE picker** (`src/components/`): `machinePicker.ts` gains `MachineLike` and
-  is retyped off `Dialect`; `MachineTrigger.tsx` likewise; `MachinePickerDialog.tsx`
-  takes `machines` and drops its registry import; `NewProjectDialog.tsx` and
-  `TargetMachineDialog.tsx` pass `dialects`. `Toolbar.tsx` needs no change — it
-  only uses `MachineTrigger`, which already took its machine as a prop.
-  `machineArt.tsx`, `machineArtIds.ts`, `useDismiss.ts` and all three CSS
+  is retyped off `Dialect`; `MachineTrigger.tsx` likewise, plus a `role` prop;
+  `MachinePickerDialog.tsx` takes `machines` and drops its registry import.
+  Call sites: `NewProjectDialog.tsx` and `TargetMachineDialog.tsx` pass
+  `dialects`; `NewProjectDialog.tsx` and `Toolbar.tsx` (two triggers) pass a
+  role. `machineArt.tsx`, `machineArtIds.ts`, `useDismiss.ts` and all three CSS
   modules are unchanged and shared as they stand.
 - **Docs data** (`docs/reference/data/`): `machines.ts` gains `manufacturer`,
   `year` and `blurb` and renames `label` → `name`;
