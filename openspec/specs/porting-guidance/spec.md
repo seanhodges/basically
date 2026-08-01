@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Help a user move a BASIC program from one machine to another: pick a dialect to
-port **from** and a dialect to port **to**, and get a brief, shareable, no-setup
+Help a user move a BASIC program from one machine to another: pick a machine to
+port **from** and a machine to port **to**, and get a brief, shareable, no-setup
 comparison of what the move involves — which commands change, which behave
 differently, and how the two machines differ in language rules and hardware —
 with guidance for the target machine always present and the general primer a
