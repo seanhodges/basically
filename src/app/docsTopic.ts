@@ -63,3 +63,19 @@ export function referenceTopicFor(state: ReferenceTopicState): string | null {
   }
   return referenceTopic(state.dialect, state.editorSelection);
 }
+
+/**
+ * The topic opening the documentation should land on: the porting comparison
+ * offered for the open program where there is one, else the usual contextual
+ * reference.
+ *
+ * Every opener goes through this, so however the user reaches the documentation
+ * after keeping their program on a new machine - the drawer handle, the toolbar
+ * button, F1 - they land on the comparison that was offered rather than on the
+ * reference page for a machine they have just left behind.
+ */
+export function openingTopicFor(
+  state: ReferenceTopicState & { docsProgramTopic: string | null },
+): string | null {
+  return state.docsProgramTopic ?? referenceTopicFor(state);
+}

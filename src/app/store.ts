@@ -336,6 +336,22 @@ interface IdeState {
    * docs home. Detection of the target is not implemented yet.
    */
   docsTopic: string | null;
+  /**
+   * A docs topic belonging to *one program*: the porting comparison offered
+   * when the user kept their program on a machine that will not run it. Opening
+   * the documentation by any means while it is set lands on it rather than on
+   * the usual topic, and loading a different program forgets it (a comparison
+   * narrowed to one program says nothing true about another). `null` the rest
+   * of the time, which is nearly always.
+   */
+  docsProgramTopic: string | null;
+  /**
+   * Bumped to ask for the "the comparison is waiting for you" indicator beside
+   * the docs handle - the `runRequest`/`stopRequest` convention, since the
+   * indicator is transient UI a `useEffect` drives rather than state to hold.
+   * Only raised where the documentation was *not* opened outright.
+   */
+  docsHintRequest: number;
   /** First-launch welcome modal (shown once, then persisted as dismissed). */
   welcomeOpen: boolean;
   /** New-project modal - the only place a program is created. */
@@ -867,6 +883,35 @@ export function persistAutosave(): void {
     );
 }
 
+/** Docs topic for the porting comparison between two machines. */
+function compareTopic(fromId: string, toId: string): string {
+  return `reference/compare?from=${encodeURIComponent(
+    fromId,
+  )}&to=${encodeURIComponent(toId)}`;
+}
+
+/**
+ * Forget a comparison offered for a program that is no longer the open one, and
+ * close the documentation if that comparison is what it is showing.
+ *
+ * A comparison narrowed to one program says nothing true about another, so it
+ * must not outlive it. Documentation showing anything *else* is left where the
+ * user put it - their place in the reference is not ours to take away.
+ *
+ * Spread into the three sites that bump `aiResetSeq`, which already enumerate
+ * exactly "a different program became active".
+ */
+function clearProgramDocs(s: IdeState): Partial<IdeState> {
+  const showingIt =
+    s.docsProgramTopic !== null &&
+    s.docsDrawerOpen &&
+    s.docsTopic === s.docsProgramTopic;
+  return {
+    docsProgramTopic: null,
+    ...(showingIt ? { docsDrawerOpen: false } : {}),
+  };
+}
+
 /**
  * State patch that performs an actual target switch: persist the choice, swap
  * the dialect, push `text` into the (rebuilt) editor, and stop the emulator.
@@ -910,6 +955,11 @@ function applyDialectSwitch(
     tapeFiles: [],
     autoStart: null,
     bootDisc: null,
+    // A switch is a different program on a different machine, so any comparison
+    // offered for the old one is void. `confirmDialectSwitch`'s 'keep' branch
+    // spreads this first and sets its own comparison *after*, so the switch that
+    // offers one does not immediately clear it.
+    ...clearProgramDocs(s),
     // On mobile, surface the change in the editor the user is now editing.
     ...(isMobileViewport() ? { mobileTab: 'editor' as MobileTab } : {}),
   };
@@ -1061,6 +1111,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   statusNotice: null,
   docsDrawerOpen: false,
   docsTopic: null,
+  docsProgramTopic: null,
+  docsHintRequest: 0,
   jumpTarget: { lineNo: 0, seq: 0 },
   autoLineNumbering:
     typeof localStorage !== 'undefined' ? getAutoLineNumbering() : true,
@@ -1247,8 +1299,24 @@ export const useIdeStore = create<IdeState>((set) => ({
           dirty: false,
         };
       }
-      // Keep the existing code as-is on the new machine.
-      return applyDialectSwitch(s, next, s.source);
+      // Keep the existing code as-is on the new machine. This is the moment a
+      // port begins - the user has just said their program is moving to a
+      // machine whose BASIC will not run it - so offer the comparison for
+      // exactly that port. Both machines are in scope only here: `s.dialect` is
+      // the one being left, and nothing downstream remembers it.
+      const topic = compareTopic(s.dialect.id, next.id);
+      // Where the documentation would take the whole screen, opening it unbidden
+      // would bury the very program the user just chose to port. Remember the
+      // comparison and point at how to open it instead. The same one-shot
+      // `isMobileViewport()` applyDialectSwitch uses for `mobileTab`.
+      const narrow = isMobileViewport();
+      return {
+        ...applyDialectSwitch(s, next, s.source),
+        docsProgramTopic: topic,
+        ...(narrow
+          ? { docsHintRequest: s.docsHintRequest + 1 }
+          : { docsDrawerOpen: true, docsTopic: topic }),
+      };
     });
     persistAutosave();
   },
@@ -1285,6 +1353,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       ...(fileName !== undefined
         ? {
             aiResetSeq: s.aiResetSeq + 1,
+            // A different program: a comparison offered for the old one is void.
+            ...clearProgramDocs(s),
             breakpoints: new Set<number>(),
             blocks: opts?.blocks ?? [],
             listingBlockMeta: opts?.listingBlockMeta ?? {},
@@ -1312,8 +1382,10 @@ export const useIdeStore = create<IdeState>((set) => ({
       docOverride: { text, seq: s.docOverride.seq + 1 },
       // Sample/New/Import are not saved files - only Open/Save name a document.
       fileName: UNTITLED_FILE_NAME,
-      // A different program: clear the AI thread and old-program breakpoints.
+      // A different program: clear the AI thread and old-program breakpoints,
+      // and forget any comparison offered for the program being replaced.
       aiResetSeq: s.aiResetSeq + 1,
+      ...clearProgramDocs(s),
       breakpoints: new Set<number>(),
       dirty: opts?.dirty ?? false,
       // Always a different program, so blocks reset unless the caller installs

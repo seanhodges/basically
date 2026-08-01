@@ -30,8 +30,74 @@
 @media (prefers-reduced-motion: reduce) {
   .drawer,
   .handle,
-  .openHandle {
+  .openHandle,
+  .hint {
     transition: none;
+    animation: none;
+  }
+}
+
+/* "The porting guide is waiting for this move": shown beside the open handle it
+   points at, where the documentation was not opened outright because it would
+   have covered the whole screen. Vertically centred on the 32x64px handle.
+
+   z-index sits in the free 91-99 band - above the drawer and its handle (90/89)
+   so it is never covered, below the modal dialog backdrops (100) so a dialog
+   still overlays it. */
+.hint {
+  position: fixed;
+  right: 36px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 95;
+  max-width: min(16rem, calc(100vw - 4rem));
+  animation: hintIn 180ms ease;
+}
+
+/* The triangle pointing at the handle, so the indicator reads as being about
+   that control rather than as a floating notice. */
+.hint::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translateY(-50%) rotate(45deg);
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.hintButton {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  color: var(--text, currentColor);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: -4px 0 12px rgb(0 0 0 / 25%);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.hintButton:hover {
+  border-color: var(--accent, var(--border));
+}
+
+/* Both keyframes carry the -50% the base rule uses to centre on the handle:
+   a `transform` in one of them replaces it wholesale rather than adding to it. */
+@keyframes hintIn {
+  from {
+    opacity: 0;
+    transform: translate(6px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
   }
 }
 

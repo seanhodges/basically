@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { dialects, getDialect } from '../dialects/registry';
 import {
   asmReferenceTopic,
+  openingTopicFor,
   referenceTopic,
   referenceTopicFor,
 } from './docsTopic';
@@ -123,5 +124,52 @@ describe('referenceTopicFor', () => {
       }))
       .filter(({ topic }) => !existsSync(`${docsDir}${topic}.md`));
     expect(missing).toEqual([]);
+  });
+});
+
+describe('openingTopicFor', () => {
+  const base = {
+    dialect: getDialect('commodore64'),
+    editorSelection: 'POKE',
+    activeBlockId: null,
+  };
+
+  it('opens on the comparison offered for the open program when there is one', () => {
+    // Wherever the user reaches the documentation from after keeping their
+    // program on a new machine, they land on the port that was offered - not on
+    // the reference page for a machine they have just left behind.
+    expect(
+      openingTopicFor({
+        ...base,
+        docsProgramTopic: 'reference/compare?from=commodore64&to=zx81',
+      }),
+    ).toBe('reference/compare?from=commodore64&to=zx81');
+  });
+
+  it('falls back to the usual contextual reference with no comparison', () => {
+    expect(openingTopicFor({ ...base, docsProgramTopic: null })).toBe(
+      'reference/commodore?q=POKE',
+    );
+  });
+
+  it('falls back to null when there is no context either', () => {
+    expect(
+      openingTopicFor({
+        ...base,
+        editorSelection: '',
+        docsProgramTopic: null,
+      }),
+    ).toBeNull();
+  });
+
+  it('still prefers the comparison over an active block tab', () => {
+    expect(
+      openingTopicFor({
+        ...base,
+        editorSelection: 'JSR $FFD2',
+        activeBlockId: 'block-1',
+        docsProgramTopic: 'reference/compare?from=commodore64&to=zx81',
+      }),
+    ).toBe('reference/compare?from=commodore64&to=zx81');
   });
 });

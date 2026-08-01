@@ -37,6 +37,24 @@ const spectrum = getDialect('zxspectrum');
 const sample = (id: string, name: string) =>
   getDialect(id).samples.find((s) => s.name === name)!;
 
+/**
+ * Run `body` with `isMobileViewport()` answering `narrow`. The test environment
+ * is `node` and has no `window`, so the store's one-shot viewport reads default
+ * to "wide"; the narrow paths need a stub to be reachable at all.
+ */
+function withViewport(narrow: boolean, body: () => void): void {
+  const g = globalThis as { window?: unknown };
+  const had = 'window' in g;
+  const previous = g.window;
+  g.window = { matchMedia: () => ({ matches: narrow }) };
+  try {
+    body();
+  } finally {
+    if (had) g.window = previous;
+    else delete g.window;
+  }
+}
+
 const BLOCK_A: MemoryBlock = {
   id: 'blk-a',
   name: 'SPRITES',
@@ -280,6 +298,141 @@ describe('confirmDialectSwitch / cancelDialectSwitch', () => {
     expect(s.dialect.id).toBe('zx81');
     expect(s.source).toBe('10 REM mine');
     expect(s.pendingDialectId).toBeNull();
+  });
+
+  // Keeping a program on a machine that will not run it is the moment a port
+  // begins, and the guide has no other entry point in the IDE. How it is offered
+  // follows how much room there is: where the documentation would take the whole
+  // screen, opening it unbidden would bury the very program the user just chose
+  // to port.
+  describe('offering the porting comparison', () => {
+    const TOPIC = 'reference/compare?from=zx81&to=bbcmicro';
+
+    it("'keep' opens the comparison for that port on a wide viewport", () => {
+      withViewport(false, () =>
+        useIdeStore.getState().confirmDialectSwitch('keep'),
+      );
+      const s = useIdeStore.getState();
+      expect(s.docsProgramTopic).toBe(TOPIC);
+      expect(s.docsDrawerOpen).toBe(true);
+      expect(s.docsTopic).toBe(TOPIC);
+      expect(s.docsHintRequest).toBe(0);
+    });
+
+    it("'keep' only points at it on a narrow viewport", () => {
+      const before = useIdeStore.getState().docsHintRequest;
+      withViewport(true, () =>
+        useIdeStore.getState().confirmDialectSwitch('keep'),
+      );
+      const s = useIdeStore.getState();
+      expect(s.docsProgramTopic).toBe(TOPIC);
+      expect(s.docsDrawerOpen).toBe(false);
+      expect(s.docsHintRequest).toBe(before + 1);
+    });
+
+    it("'new' offers nothing - there is no program to port", () => {
+      for (const narrow of [false, true]) {
+        useIdeStore.setState({ pendingDialectId: 'bbcmicro', dialect: zx81 });
+        const before = useIdeStore.getState().docsHintRequest;
+        withViewport(narrow, () =>
+          useIdeStore.getState().confirmDialectSwitch('new'),
+        );
+        const s = useIdeStore.getState();
+        expect(s.docsProgramTopic).toBeNull();
+        expect(s.docsDrawerOpen).toBe(false);
+        expect(s.docsHintRequest).toBe(before);
+      }
+    });
+
+    it('cancelling offers nothing', () => {
+      for (const narrow of [false, true]) {
+        useIdeStore.setState({ pendingDialectId: 'bbcmicro' });
+        const before = useIdeStore.getState().docsHintRequest;
+        withViewport(narrow, () =>
+          useIdeStore.getState().cancelDialectSwitch(),
+        );
+        const s = useIdeStore.getState();
+        expect(s.docsProgramTopic).toBeNull();
+        expect(s.docsDrawerOpen).toBe(false);
+        expect(s.docsHintRequest).toBe(before);
+      }
+    });
+
+    it('a compatible switch, which never asks, offers nothing', () => {
+      for (const narrow of [false, true]) {
+        useIdeStore.setState({ dialect: zx81, source: '10 REM mine' });
+        const before = useIdeStore.getState().docsHintRequest;
+        // No confirmation is raised, so nothing is kept and nothing is offered.
+        withViewport(narrow, () => useIdeStore.getState().setDialect('zx80'));
+        const s = useIdeStore.getState();
+        // It really did switch, silently - no confirmation was raised.
+        expect(s.dialect.id).toBe('zx80');
+        expect(s.pendingDialectId).toBeNull();
+        expect(s.docsProgramTopic).toBeNull();
+        expect(s.docsDrawerOpen).toBe(false);
+        expect(s.docsHintRequest).toBe(before);
+      }
+    });
+  });
+});
+
+// A comparison narrowed to one program says nothing true about another, so it
+// must not outlive it. Same path list as the memory-block reset below - the two
+// answer the same question, "did a different program become active".
+describe('a comparison belongs to the program it was offered for', () => {
+  const TOPIC = 'reference/compare?from=zx81&to=bbcmicro';
+
+  const offered = (extra: Record<string, unknown> = {}) =>
+    useIdeStore.setState({
+      dialect: zx81,
+      source: '10 REM mine',
+      fileName: 'mine.bas',
+      docsProgramTopic: TOPIC,
+      docsDrawerOpen: true,
+      docsTopic: TOPIC,
+      ...extra,
+    });
+
+  it('starting a new program forgets it and closes the documentation', () => {
+    offered();
+    useIdeStore.getState().loadUnsavedDocument('');
+    const s = useIdeStore.getState();
+    expect(s.docsProgramTopic).toBeNull();
+    expect(s.docsDrawerOpen).toBe(false);
+  });
+
+  it('opening a named document forgets it and closes the documentation', () => {
+    offered();
+    useIdeStore.getState().replaceDocument('10 PRINT 1', 'other.bas');
+    const s = useIdeStore.getState();
+    expect(s.docsProgramTopic).toBeNull();
+    expect(s.docsDrawerOpen).toBe(false);
+  });
+
+  it('importing a program forgets it and closes the documentation', () => {
+    offered();
+    useIdeStore.getState().loadUnsavedDocument('10 PRINT 1', { dirty: true });
+    const s = useIdeStore.getState();
+    expect(s.docsProgramTopic).toBeNull();
+    expect(s.docsDrawerOpen).toBe(false);
+  });
+
+  it('leaves documentation showing anything else where the user put it', () => {
+    offered({ docsTopic: 'reference/zx81?q=PRINT' });
+    useIdeStore.getState().loadUnsavedDocument('');
+    const s = useIdeStore.getState();
+    expect(s.docsProgramTopic).toBeNull();
+    expect(s.docsDrawerOpen).toBe(true);
+    expect(s.docsTopic).toBe('reference/zx81?q=PRINT');
+  });
+
+  it('an in-place apply is the same program and changes neither', () => {
+    offered();
+    // AI Replace/Merge passes no file name: the same program, still being ported.
+    useIdeStore.getState().replaceDocument('10 REM edited');
+    const s = useIdeStore.getState();
+    expect(s.docsProgramTopic).toBe(TOPIC);
+    expect(s.docsDrawerOpen).toBe(true);
   });
 });
 

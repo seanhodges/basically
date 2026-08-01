@@ -5,7 +5,11 @@ import { trs80Keywords } from './keywords';
 import { trs80VariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
-import { trs80LanguageSupport, trs80CompletionSource } from './language';
+import {
+  trs80LanguageSupport,
+  trs80CompletionSource,
+  trs80Crunched,
+} from './language';
 import { trs80AiProfile } from './aiProfile';
 import { trs80BuildTargets } from './targets';
 import { Trs80InterpreterMachine } from './interpreter/machine';
@@ -38,6 +42,7 @@ export const trs80: Dialect = {
   charset: trs80Charset,
   languageSupport: trs80LanguageSupport,
   completionSource: trs80CompletionSource,
+  crunched: trs80Crunched,
 
   tokenize(source: string): TokenizeResult {
     const { program, errors } = tokenizeProgram(source);

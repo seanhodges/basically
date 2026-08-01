@@ -13,6 +13,13 @@ import { openApp, selectDialect, setEditorSource } from '../helpers';
  * the button silently do nothing, with no error anywhere.
  */
 
+/**
+ * A Commodore program the ZX81 cannot run: `{clr}` is a PETSCII control code
+ * with no ZX81 equivalent, so switching machine raises the "keep my code"
+ * confirmation - the moment a port begins, and the guide's entry point.
+ */
+const PROGRAM = '10 PRINT "{clr}HI"';
+
 /** Store a provider key so the hand-off proceeds instead of opening settings. */
 async function saveApiKey(page: Page): Promise<void> {
   await page.keyboard.press('ControlOrMeta+Comma');
@@ -22,25 +29,32 @@ async function saveApiKey(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Close' }).click();
 }
 
-/** Open the docs drawer and route its frame to the porting guide. */
+/**
+ * Reach the porting guide the way a user does: switching to a machine that will
+ * not run the open program and keeping it opens the documentation on exactly
+ * that comparison. These tests then re-point the guide at the pair they are
+ * about, through its own picker.
+ */
 async function openPortingGuide(page: Page) {
   const drawer = page.getByRole('dialog', { name: 'Documentation' });
-  await page.getByRole('button', { name: /^Documentation/ }).click();
+  await selectDialect(page, 'zx81', 'keep my code');
   await expect(drawer).toBeVisible();
   await expect(
-    drawer.frameLocator('iframe').locator('h1, h2').first(),
+    drawer.frameLocator('iframe').getByRole('button', { name: /^Porting to:/ }),
   ).toBeVisible({ timeout: 15_000 });
-
-  // At the drawer's width the docs sidebar is behind a menu, and the guide has
-  // no in-app entry point yet, so drive the frame directly. `location.assign`
-  // from a timeout, so the evaluate resolves before the navigation tears its
-  // execution context down.
-  const frame = page.frames().find((f) => f.url().includes('/docs/'));
-  expect(frame).toBeTruthy();
-  await frame!.evaluate(() => {
-    setTimeout(() => location.assign('/docs/reference/compare'), 0);
-  });
   return drawer;
+}
+
+/** Point the guide's source or target field at `machineId`. */
+async function chooseGuideMachine(
+  drawer: ReturnType<Page['getByRole']>,
+  field: 'from' | 'to',
+  machineId: string,
+) {
+  const frame = drawer.frameLocator('iframe');
+  const label = field === 'from' ? /^Porting from:/ : /^Porting to:/;
+  await frame.getByRole('button', { name: label }).click();
+  await frame.locator(`button[data-machine="${machineId}"]`).click();
 }
 
 test('converting the open program switches machine and asks the assistant', async ({
@@ -51,13 +65,14 @@ test('converting the open program switches machine and asks the assistant', asyn
   await page.route('**/api.anthropic.com/**', (route) => route.abort());
   await openApp(page);
   await selectDialect(page, 'commodore64');
-  await setEditorSource(page, '10 PRINT "HI"');
+  await setEditorSource(page, PROGRAM);
   await saveApiKey(page);
 
   const drawer = await openPortingGuide(page);
+  // Point the guide at the Spectrum, so the offer names a machine the app is
+  // not already on and the switch it performs is visible.
+  await chooseGuideMachine(drawer, 'to', 'zxspectrum');
 
-  // The guide defaults to Commodore → ZX Spectrum, so the offer names the
-  // Spectrum and the app should end up there with the program intact.
   const convert = drawer
     .frameLocator('iframe')
     .getByRole('button', { name: 'Convert with AI' });
@@ -66,7 +81,7 @@ test('converting the open program switches machine and asks the assistant', asyn
 
   await expect(drawer).toBeHidden();
   await expect(targetMachine(page)).toHaveText(/Spectrum/, { timeout: 15_000 });
-  await expect(page.locator('.cm-content')).toContainText('PRINT "HI"');
+  await expect(page.locator('.cm-content')).toContainText('{clr}HI');
 });
 
 test('asking to convert with no assistant configured offers to set one up', async ({
@@ -74,7 +89,7 @@ test('asking to convert with no assistant configured offers to set one up', asyn
 }) => {
   await openApp(page);
   await selectDialect(page, 'commodore64');
-  await setEditorSource(page, '10 PRINT "HI"');
+  await setEditorSource(page, PROGRAM);
 
   const drawer = await openPortingGuide(page);
   await drawer
@@ -91,8 +106,9 @@ test('asking to convert with no assistant configured offers to set one up', asyn
   // Exact: the docs drawer is still open behind the dialog, and its handle is
   // "Close documentation".
   await page.getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(targetMachine(page)).toHaveText(/64/);
-  await expect(page.locator('.cm-content')).toContainText('PRINT "HI"');
+  // The machine is the one the port moved to; the program is untouched.
+  await expect(targetMachine(page)).toHaveText(/ZX81/);
+  await expect(page.locator('.cm-content')).toContainText('{clr}HI');
 });
 
 test('converting to a variant lands in that variant, not its sibling', async ({
@@ -101,7 +117,7 @@ test('converting to a variant lands in that variant, not its sibling', async ({
   await page.route('**/api.anthropic.com/**', (route) => route.abort());
   await openApp(page);
   await selectDialect(page, 'commodore64');
-  await setEditorSource(page, '10 PRINT "HI"');
+  await setEditorSource(page, PROGRAM);
   await saveApiKey(page);
 
   const drawer = await openPortingGuide(page);

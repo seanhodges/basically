@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
-import { referenceTopicFor } from '../app/docsTopic';
+import { openingTopicFor } from '../app/docsTopic';
+import { useDismiss } from '../app/useDismiss';
+import { vocabularyReply } from '../app/programVocabulary';
 import { dialects } from '../dialects/registry';
 import { useAiStore } from '../ai/aiStore';
 import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
@@ -20,8 +22,8 @@ const DOCS_BASE = '/docs/';
 /**
  * Messages the docs iframe posts to `window.parent`. Kept in sync by string with
  * the docs side: `docs-close` from Layout.vue's close button, `docs-ready` when
- * that layout has its listener attached, and `compare-convert` from the Compare
- * dialects page (DialectCompare.vue).
+ * that layout has its listener attached, and `compare-convert` /
+ * `program-vocabulary` from the Compare dialects page (DialectCompare.vue).
  */
 const DOCS_CLOSE_MESSAGE = 'basically:docs-close';
 const DOCS_READY_MESSAGE = 'basically:docs-ready';
@@ -32,6 +34,37 @@ export const COMPARE_CONVERT_FIELDS = ['toId', 'toLabel'] as const;
 type CompareConvertMessage = Partial<
   Record<(typeof COMPARE_CONVERT_FIELDS)[number], unknown>
 >;
+
+/**
+ * The porting guide asking what the open program uses, so it can narrow the
+ * differences it reports to that. `from` names the machine being ported *from* -
+ * a program's vocabulary is what a particular BASIC finds in its text, and the
+ * guide is about the language being left, not whichever machine the IDE
+ * currently has selected. Sent on mount and again whenever that machine changes.
+ */
+export const PROGRAM_VOCABULARY_REQUEST =
+  'basically:program-vocabulary-request';
+export const PROGRAM_VOCABULARY_MESSAGE = 'basically:program-vocabulary';
+
+/**
+ * The fields of the reply, pinned against the docs side by
+ * `DocsDrawer.test.ts` exactly as {@link COMPARE_CONVERT_FIELDS} is: the two
+ * sides agree by string literal, so a field renamed on one of them would
+ * silently narrow nothing.
+ *
+ * `status` is `'ready'` (the vocabulary applies), `'empty'` (nothing is open)
+ * or `'unreadable'` (the program cannot be read as a program in this language).
+ * `dialectId` is the machine the reply answers for, which the guide compares
+ * against its own source selection before narrowing by it.
+ */
+export const PROGRAM_VOCABULARY_FIELDS = [
+  'status',
+  'dialectId',
+  'keywords',
+  'escapeCodes',
+] as const;
+
+type ProgramVocabularyRequest = { from?: unknown };
 
 /** The one message we post *into* the frame: route to another docs topic. */
 const DOCS_NAVIGATE_MESSAGE = 'basically:docs-navigate';
@@ -49,6 +82,17 @@ function dialectForMachineId(id: unknown) {
   if (typeof id !== 'string') return undefined;
   return dialects.find((d) => d.id === id);
 }
+
+/** The machine id a vocabulary request names, or null when it names none. */
+function readDialectId(data: ProgramVocabularyRequest): string | null {
+  return typeof data.from === 'string' ? data.from : null;
+}
+
+/** How long editing settles before the guide is re-told what the program uses. */
+const VOCABULARY_DEBOUNCE_MS = 300;
+
+/** How long the "the porting guide is waiting" indicator stands before going. */
+const HINT_TIMEOUT_MS = 5000;
 
 function ChevronRightIcon() {
   return (
@@ -139,6 +183,10 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         }
       } else if (data.type === COMPARE_CONVERT_MESSAGE) {
         convertProgram(data);
+      } else if (data.type === PROGRAM_VOCABULARY_REQUEST) {
+        vocabularyFrom.current = readDialectId(data);
+        requested.current = true;
+        postVocabulary();
       }
     };
     window.addEventListener('message', onMessage);
@@ -147,6 +195,38 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     // depends on closeDocs (stable) - re-subscribing per render is unnecessary.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeDocs]);
+
+  // What the porting guide last asked to have the program read as, and whether
+  // it has asked at all. The reply is only ever sent in response to a request,
+  // so a drawer sitting on a reference page costs nothing.
+  const vocabularyFrom = useRef<string | null>(null);
+  const requested = useRef(false);
+
+  /** Answer the guide's request; see {@link vocabularyReply} for the decision. */
+  const postVocabulary = () => {
+    const state = useIdeStore.getState();
+    iframeRef.current?.contentWindow?.postMessage(
+      {
+        type: PROGRAM_VOCABULARY_MESSAGE,
+        ...vocabularyReply(state.source, state.dialect, vocabularyFrom.current),
+      },
+      window.location.origin,
+    );
+  };
+
+  // Keep the guide in step with the program while the drawer is open. Debounced
+  // at the cadence useProgramStats uses, since this tokenizes on every keystroke
+  // otherwise, and only once the guide has asked - an unasked push would reach a
+  // page that does not listen.
+  const source = useIdeStore((s) => s.source);
+  const dialect = useIdeStore((s) => s.dialect);
+  useEffect(() => {
+    if (!open || !requested.current) return;
+    const t = setTimeout(postVocabulary, VOCABULARY_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+    // postVocabulary only reads refs and the live store, so it is deliberately
+    // not a dependency; the effect re-runs on what it is actually watching.
+  }, [open, source, dialect]);
 
   // "Convert my program" from the compare page: switch into the target dialect
   // (keeping the current program as the starting point, so applying the result
@@ -181,11 +261,12 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     });
   };
 
-  // Open to the same context-aware topic as the toolbar book button: the current
-  // dialect's reference page anchored to the selected keyword, if any. Read the
+  // Open to the same context-aware topic as the toolbar book button: the porting
+  // comparison offered for the open program where there is one, else the current
+  // dialect's reference page anchored to the selected keyword. Read the
   // selection imperatively so this component doesn't re-render as the cursor moves.
   const openContextual = () => {
-    const topic = referenceTopicFor(useIdeStore.getState());
+    const topic = openingTopicFor(useIdeStore.getState());
     openDocs(topic ?? undefined);
   };
 
@@ -228,6 +309,33 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   // open waits: topic changes are now a client-side route inside the frame.
   const [frameLoaded, setFrameLoaded] = useState(false);
 
+  // The "the porting guide is waiting for you" indicator. Raised only where the
+  // documentation was *not* opened outright (a full-width drawer would bury the
+  // program), so it never stands between the user and their work: it goes on any
+  // other interaction, and on its own shortly after appearing.
+  const hintRequest = useIdeStore((s) => s.docsHintRequest);
+  const [hintVisible, setHintVisible] = useState(false);
+  useEffect(() => {
+    if (hintRequest === 0) return;
+    setHintVisible(true);
+    const t = setTimeout(() => setHintVisible(false), HINT_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [hintRequest]);
+  // Opening the drawer by any route makes the pointer moot.
+  useEffect(() => {
+    if (open) setHintVisible(false);
+  }, [open]);
+
+  // useCallback-stable, or useDismiss re-subscribes its listeners every render.
+  const dismissHint = useCallback(() => setHintVisible(false), []);
+  const hintRef = useDismiss<HTMLDivElement>(hintVisible, dismissHint);
+
+  const openRememberedComparison = () => {
+    const topic = openingTopicFor(useIdeStore.getState());
+    setHintVisible(false);
+    openDocs(topic ?? undefined);
+  };
+
   // Track a horizontal drag on the handle so a rightward swipe dismisses the
   // drawer, in addition to a plain tap/click.
   const dragStartX = useRef<number | null>(null);
@@ -245,6 +353,21 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
 
   return (
     <>
+      {hintVisible && !open && (
+        // Where the documentation would take the whole screen it is not opened
+        // for the user - that would bury the very program they just chose to
+        // port - so this points at the handle that opens it. Actionable rather
+        // than a sign pointing elsewhere: it *is* the button.
+        <div ref={hintRef} className={styles.hint}>
+          <button
+            type="button"
+            className={styles.hintButton}
+            onClick={openRememberedComparison}
+          >
+            Porting guide ready for this move
+          </button>
+        </div>
+      )}
       {/* Open tab: mirrors the close handle but sits on the right viewport edge
           and stays put (it's outside the sliding drawer). Shown only while the
           drawer is closed, so opening the docs has a visible affordance right

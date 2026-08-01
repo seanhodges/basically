@@ -14,12 +14,17 @@ import {
   capabilitySections,
   composeGuidance,
   diffEscapes,
+  diffForProgram,
   diffKeywords,
+  escapeDiffForProgram,
   escapeSections,
   escapeTableForMachine,
   falseFriendsBetween,
+  falseFriendsForProgram,
   groupByDomain,
+  noticeState,
   tableForMachine,
+  type ProgramVocabulary,
 } from './dialectCompare';
 
 /** Build a minimal reference table from bare entries (title/machines unused by the diff). */
@@ -1006,5 +1011,252 @@ describe('capabilitySections', () => {
 
   it('yields no sections for empty input', () => {
     expect(capabilitySections([], [], refTable([]), ORDER)).toEqual([]);
+  });
+});
+
+/** A vocabulary reply, defaulted to the machine the diff tests port from. */
+function vocab(
+  keywords: string[],
+  escapeCodes: number[] = [],
+  dialectId = 'zx81',
+): ProgramVocabulary {
+  return { dialectId, keywords, escapeCodes };
+}
+
+describe('diffForProgram', () => {
+  const diff = diffKeywords(
+    refTable([PRINT, LET, PROC, GOTO, ABS]),
+    refTable([{ ...PRINT }, { ...ABS, syntax: 'ABS <number>' }, DRAW]),
+  );
+
+  it('narrows the commands to rewrite to the ones the program uses', () => {
+    expect(diff.mustReplace.map((e) => e.name)).toEqual([
+      'GOTO',
+      'LET',
+      'PROC',
+    ]);
+    const narrowed = diffForProgram(diff, vocab(['LET', 'PRINT']));
+    expect(narrowed.mustReplace.map((e) => e.name)).toEqual(['LET']);
+  });
+
+  it('narrows the commands whose usage differs', () => {
+    expect(diff.behaviourChanged.map((c) => c.name)).toEqual(['ABS']);
+    expect(diffForProgram(diff, vocab(['PRINT'])).behaviourChanged).toEqual([]);
+    expect(
+      diffForProgram(diff, vocab(['ABS'])).behaviourChanged.map((c) => c.name),
+    ).toEqual(['ABS']);
+  });
+
+  it('narrows the renames by the source spelling, which is what the program contains', () => {
+    const renamedDiff = diffKeywords(
+      refTable([GOTO, LET]),
+      refTable([{ ...GOTO, name: 'GO TO' }]),
+      { from: 'zx81', to: 'zxspectrum', equivalences: [JUMP] },
+    );
+    expect(renamedDiff.renamed.map((r) => r.from.name)).toEqual(['GOTO']);
+    expect(diffForProgram(renamedDiff, vocab(['GO TO'])).renamed).toEqual([]);
+    expect(
+      diffForProgram(renamedDiff, vocab(['GOTO'])).renamed.map(
+        (r) => r.from.name,
+      ),
+    ).toEqual(['GOTO']);
+  });
+
+  it('leaves what the target adds and the unchanged count alone', () => {
+    // The load-bearing one. Narrowing the source table before the diff would be
+    // a smaller change and would report every command the program did not use
+    // as newly available on the target, inverting the whole gains half of the
+    // page - so these two deliberately pass straight through.
+    const narrowed = diffForProgram(diff, vocab(['LET']));
+    expect(narrowed.newlyAvailable.map((e) => e.name)).toEqual(
+      diff.newlyAvailable.map((e) => e.name),
+    );
+    expect(narrowed.newlyAvailable.map((e) => e.name)).toContain('DRAW');
+    expect(narrowed.unchanged).toBe(diff.unchanged);
+  });
+
+  it('narrows to nothing for a vocabulary sharing no command', () => {
+    const narrowed = diffForProgram(diff, vocab(['CIRCLE']));
+    expect(narrowed.mustReplace).toEqual([]);
+    expect(narrowed.renamed).toEqual([]);
+    expect(narrowed.behaviourChanged).toEqual([]);
+  });
+});
+
+describe('falseFriendsForProgram', () => {
+  const warnings = falseFriendsBetween('zx81', 'bbc', [
+    {
+      keyword: 'CLEAR',
+      meanings: { zx81: 'Clears the screen', bbc: 'Clears variables' },
+    },
+    { keyword: 'DRAW', meanings: { zx81: 'Relative', bbc: 'Absolute' } },
+  ]);
+
+  it('keeps only the traps the program can hit', () => {
+    expect(warnings.map((w) => w.keyword)).toEqual(['CLEAR', 'DRAW']);
+    expect(
+      falseFriendsForProgram(warnings, vocab(['DRAW', 'PRINT'])).map(
+        (w) => w.keyword,
+      ),
+    ).toEqual(['DRAW']);
+  });
+
+  it('keeps none for a program that uses neither', () => {
+    expect(falseFriendsForProgram(warnings, vocab(['PRINT']))).toEqual([]);
+  });
+});
+
+describe('escapeDiffForProgram', () => {
+  const CLR = {
+    escape: '{clr}',
+    bytes: '0x93',
+    category: 'cursor',
+    description: 'Clear the screen.',
+    example: { source: '{clr}', bytes: [0x93] },
+    codes: [0x93],
+  };
+  const WHITE = {
+    escape: '{white}',
+    bytes: '0x05',
+    category: 'colour',
+    description: 'White text.',
+    example: { source: '{white}', bytes: [0x05] },
+    codes: [0x05],
+  };
+  const INK_OP = {
+    ...INK,
+    // Operand-carrying: the row claims the leading byte only, which is exactly
+    // what the program analyser records.
+    codes: [0x10],
+  };
+  const RAW = {
+    escape: '{$xx}',
+    bytes: 'any',
+    category: 'raw',
+    description: 'Any other byte.',
+    example: { source: '{$aa}', bytes: [0xaa] },
+    codes: 'rest' as const,
+  };
+  const diff = diffEscapes(
+    escTable([CLR, WHITE, INK_OP, RAW]),
+    escTable([BLOCK]),
+  );
+
+  it('narrows the codes to replace to the bytes the program uses', () => {
+    expect(diff.mustReplace.map((e) => e.escape)).toHaveLength(4);
+    const narrowed = escapeDiffForProgram(diff, vocab([], [0x93]));
+    expect(narrowed.mustReplace.map((e) => e.escape)).toEqual(['{clr}']);
+  });
+
+  it('matches an operand-carrying escape on its leading byte', () => {
+    const narrowed = escapeDiffForProgram(diff, vocab([], [0x10]));
+    expect(narrowed.mustReplace.map((e) => e.escape)).toEqual(['{INK n}']);
+  });
+
+  it('falls a used byte no row claims to the catch-all row', () => {
+    const narrowed = escapeDiffForProgram(diff, vocab([], [0xaa]));
+    expect(narrowed.mustReplace.map((e) => e.escape)).toEqual(['{$xx}']);
+  });
+
+  it('drops the catch-all row when every used byte is claimed', () => {
+    const narrowed = escapeDiffForProgram(diff, vocab([], [0x05, 0x93]));
+    expect(narrowed.mustReplace.map((e) => e.escape)).toEqual([
+      '{clr}',
+      '{white}',
+    ]);
+  });
+
+  it('narrows to nothing for a program using no control codes', () => {
+    expect(escapeDiffForProgram(diff, vocab([], [])).mustReplace).toEqual([]);
+  });
+
+  it('leaves what the target adds and the unchanged count alone', () => {
+    const narrowed = escapeDiffForProgram(diff, vocab([], [0x93]));
+    expect(narrowed.newlyAvailable).toEqual(diff.newlyAvailable);
+    expect(narrowed.unchanged).toBe(diff.unchanged);
+  });
+});
+
+describe('noticeState', () => {
+  const READY = vocab(['PRINT'], [], 'zx81');
+  const base = {
+    embedded: true,
+    vocabulary: READY,
+    status: 'ready' as const,
+    sourceDialectId: 'zx81',
+    showAll: false,
+  };
+
+  it('invites a standalone reader to open their program in the IDE', () => {
+    // Whatever else is true: outside the IDE there is no program to narrow to.
+    for (const showAll of [false, true]) {
+      for (const status of ['ready', 'empty', 'unreadable'] as const) {
+        expect(
+          noticeState({ ...base, embedded: false, status, showAll }),
+        ).toEqual({ kind: 'standalone', narrowed: false, offerControl: false });
+      }
+    }
+  });
+
+  it('says nothing is open when the editor is empty', () => {
+    expect(noticeState({ ...base, status: 'empty' })).toEqual({
+      kind: 'no-program',
+      narrowed: false,
+      offerControl: false,
+    });
+  });
+
+  it('says the program cannot be read yet', () => {
+    expect(noticeState({ ...base, status: 'unreadable' })).toEqual({
+      kind: 'unreadable',
+      narrowed: false,
+      offerControl: false,
+    });
+  });
+
+  it('is narrowed, offering the control, for a readable program', () => {
+    expect(noticeState(base)).toEqual({
+      kind: 'narrowed',
+      narrowed: true,
+      offerControl: true,
+    });
+  });
+
+  it('keeps the control but stops narrowing once the reader asks for everything', () => {
+    expect(noticeState({ ...base, showAll: true })).toEqual({
+      kind: 'narrowed',
+      narrowed: false,
+      offerControl: true,
+    });
+  });
+
+  it('is reading while no reply has arrived', () => {
+    expect(noticeState({ ...base, vocabulary: null, status: null })).toEqual({
+      kind: 'reading',
+      narrowed: false,
+      offerControl: false,
+    });
+  });
+
+  it('is reading while the reply answers for another machine', () => {
+    // A vocabulary describes one BASIC. Pointed at a different source machine,
+    // those spellings no longer refer to the language on screen, so the page
+    // waits for the answer in that language rather than filtering by one that
+    // does not apply.
+    expect(noticeState({ ...base, sourceDialectId: 'bbcmicro' })).toEqual({
+      kind: 'reading',
+      narrowed: false,
+      offerControl: false,
+    });
+  });
+
+  it('never narrows outside the narrowed state', () => {
+    for (const status of ['empty', 'unreadable'] as const) {
+      for (const showAll of [false, true]) {
+        const state = noticeState({ ...base, status, showAll });
+        expect(state.narrowed).toBe(false);
+        expect(state.offerControl).toBe(false);
+      }
+    }
   });
 });

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   computed,
+  onBeforeUnmount,
   onMounted,
   reactive,
   ref,
@@ -16,13 +17,18 @@ import {
   capabilitySections,
   composeGuidance,
   diffEscapes,
+  diffForProgram,
   diffKeywords,
+  escapeDiffForProgram,
   escapeSections,
   escapeTableForMachine,
+  falseFriendsForProgram,
+  noticeState,
   tableForMachine,
   type CapabilitySection,
   type EscapeSection,
   type KeywordChange,
+  type ProgramVocabulary,
 } from '../dialectCompare';
 import {
   falseFriends,
@@ -68,9 +74,12 @@ interface DialectOption {
 
 const props = defineProps<{ dialects: DialectOption[] }>();
 
-// Message type the embedded app listens for (src/components/DocsDrawer.tsx).
-// Kept in sync with that file by string, like DOCS_CLOSE_MESSAGE there.
+// Message types the embedded app listens for (src/components/DocsDrawer.tsx).
+// Kept in sync with that file by string, like DOCS_CLOSE_MESSAGE there, and
+// pinned by its DocsDrawer.test.ts - nothing typechecks across an iframe.
 const CONVERT_MESSAGE = 'basically:compare-convert';
+const VOCABULARY_REQUEST = 'basically:program-vocabulary-request';
+const VOCABULARY_MESSAGE = 'basically:program-vocabulary';
 
 // The pair the page opens on when the URL names no `?from=`/`?to=`: the two
 // most-used machines, and a genuinely instructive port (integer-ish Microsoft
@@ -132,7 +141,7 @@ const targetTable = computed(() => {
   return t ? tableForMachine(t.reference, t.id) : undefined;
 });
 
-const keywordDiff = computed(() => {
+const fullKeywordDiff = computed(() => {
   const s = source.value;
   const t = target.value;
   if (!s || !t || !sourceTable.value || !targetTable.value) return null;
@@ -172,9 +181,92 @@ const targetEscapes = computed(() => {
   return t?.escapes ? escapeTableForMachine(t.escapes, t.id) : undefined;
 });
 
-const escapeDiff = computed(() => {
+const fullEscapeDiff = computed(() => {
   if (!sourceEscapes.value || !targetEscapes.value) return null;
   return diffEscapes(sourceEscapes.value, targetEscapes.value);
+});
+
+/*
+ * ---- Narrowing to the open program -------------------------------------
+ *
+ * Inside the IDE the reader's own program is at hand, and a dissimilar pair
+ * reports dozens of commands across thirteen capability domains plus a whole
+ * escape table - a small fraction of which the program is subject to. The guide
+ * asks the app what the program uses and narrows the differences it reports to
+ * that, saying always how much it recognised and how much it is holding back.
+ *
+ * A handshake rather than a one-way push: the docs frame is client-routed and
+ * long-lived, so a push sent when the frame loaded would have gone to a page
+ * that did not exist yet. The reply is only sent in answer to a request, so a
+ * drawer sitting on a reference page costs nothing.
+ */
+const vocabulary = ref<ProgramVocabulary | null>(null);
+const vocabularyStatus = ref<'ready' | 'empty' | 'unreadable' | null>(null);
+/** Whether `?from=` named the source machine; a named link always wins. */
+const fromNamedByUrl = ref(false);
+/** So the program's own machine is selected once, not on every re-push. */
+const appliedProgramMachine = ref(false);
+
+// Phrased as a "show", like every other control on this page: turning it on
+// reveals the differences the program does not use. Off by default, so a
+// comparison opened with a program open opens narrowed.
+const showEveryDifference = ref(false);
+
+const notice = computed(() =>
+  noticeState({
+    embedded: embedded.value,
+    vocabulary: vocabulary.value,
+    status: vocabularyStatus.value,
+    sourceDialectId: from.value,
+    showAll: showEveryDifference.value,
+  }),
+);
+
+/** The vocabulary to filter by, or null when nothing is being narrowed. */
+const narrowingBy = computed<ProgramVocabulary | null>(() =>
+  notice.value.narrowed ? vocabulary.value : null,
+);
+
+// The narrowing applies to what the diff *returned*, never to the tables handed
+// to it - see `diffForProgram`. Everything downstream reads these, so the page
+// is written once and the narrowing is a property of the diff it reads.
+const keywordDiff = computed(() => {
+  const diff = fullKeywordDiff.value;
+  const v = narrowingBy.value;
+  return diff && v ? diffForProgram(diff, v) : diff;
+});
+const escapeDiff = computed(() => {
+  const diff = fullEscapeDiff.value;
+  const v = narrowingBy.value;
+  return diff && v ? escapeDiffForProgram(diff, v) : diff;
+});
+const visibleFalseFriends = computed(() => {
+  const all = guidance.value.falseFriends;
+  const v = narrowingBy.value;
+  return v ? falseFriendsForProgram(all, v) : all;
+});
+
+/**
+ * How many differences the narrowing is holding back. Stating this is what keeps
+ * the narrowing honest: a difference the analyser failed to recognise is never
+ * silently lost, because the count reveals it and the control reaches it.
+ *
+ * Only the narrowed buckets are counted - what the target adds is governed by
+ * its own control, and the fact table and prose guidance are never narrowed.
+ */
+const heldBack = computed(() => {
+  const full = fullKeywordDiff.value;
+  const shown = keywordDiff.value;
+  if (!full || !shown || !narrowingBy.value) return 0;
+  return (
+    full.mustReplace.length -
+    shown.mustReplace.length +
+    (full.renamed.length - shown.renamed.length) +
+    (full.behaviourChanged.length - shown.behaviourChanged.length) +
+    (guidance.value.falseFriends.length - visibleFalseFriends.value.length) +
+    ((fullEscapeDiff.value?.mustReplace.length ?? 0) -
+      (escapeDiff.value?.mustReplace.length ?? 0))
+  );
 });
 
 // Some cmp-list's run to dozens of rows for dissimilar pairs (e.g. ZX81 →
@@ -205,10 +297,15 @@ function useTruncatedList<T>(
   });
 }
 
-const pairKey = computed(() => `${from.value}:${to.value}`);
+// Toggling the narrowing changes what every truncated list holds, so it belongs
+// in the reset key beside the pair: a list expanded over the narrowed rows would
+// otherwise stay expanded over the full set.
+const pairKey = computed(
+  () => `${from.value}:${to.value}:${narrowingBy.value ? 'narrowed' : 'full'}`,
+);
 
 const falseFriendsList = useTruncatedList(
-  () => guidance.value.falseFriends,
+  () => visibleFalseFriends.value,
   pairKey,
 );
 // The renames have no truncated list of their own: they are 1-4 commands for
@@ -463,24 +560,36 @@ const visibleFactRows = computed(() =>
  * The pair in one sentence, naming only what this port actually involves - a
  * clause reporting "0 commands to rename" beside a page with no rename section
  * is a form to decode rather than a summary to read.
+ *
+ * Narrowed, the same counts are about the program rather than about the pair,
+ * so the sentence says so outright: "3 commands in your program to rewrite"
+ * reads very differently from "3 commands to rewrite", and a reader who did not
+ * notice the notice would otherwise take the smaller number for the whole port.
+ * The language and hardware clause is untouched either way - those rules hold
+ * for any program whatever commands it uses.
  */
 const summary = computed(() => {
   const t = target.value;
   const diff = keywordDiff.value;
   if (!t || !diff) return '';
+  const mine = narrowingBy.value ? ' in your program' : '';
   const work: string[] = [];
   if (diff.mustReplace.length)
     work.push(
-      `${count(diff.mustReplace.length, 'command')} to rewrite across ` +
+      `${count(diff.mustReplace.length, 'command')}${mine} to rewrite across ` +
         `${count(losingCount.value, 'capability area')}`,
     );
   if (diff.renamed.length)
-    work.push(`${count(diff.renamed.length, 'command')} to rename`);
+    work.push(`${count(diff.renamed.length, 'command')}${mine} to rename`);
   if (changedCount.value)
-    work.push(`${count(changedCount.value, 'command')} whose usage differs`);
+    work.push(
+      `${count(changedCount.value, 'command')}${mine} whose usage differs`,
+    );
 
   const facts = changedFactCount.value;
   const sentences = work.length ? [`${listOf(work)}.`] : [];
+  if (!work.length && narrowingBy.value)
+    sentences.push('Nothing in your program has to be rewritten.');
   const rest = [
     `${count(facts, 'language or hardware rule')} ${
       facts === 1 ? 'differs' : 'differ'
@@ -491,6 +600,55 @@ const summary = computed(() => {
   sentences.push(`${listOf(rest)}.`);
   return sentences.join(' ');
 });
+
+/**
+ * The notice under the summary, in words. The page must always say where it
+ * stands with respect to the open program - narrowed, or not narrowed and what
+ * would narrow it - so every state {@link noticeState} can return has a sentence
+ * here and the template renders whichever one it resolved to.
+ *
+ * No error count for the unreadable case: the status bar beside the editor
+ * already counts every finding, and this one is about the few that stop the
+ * program being read at all. Two different numbers for "errors" would be worse
+ * than one.
+ */
+const noticeText = computed(() => {
+  const s = source.value;
+  switch (notice.value.kind) {
+    case 'standalone':
+      return 'Open your program in the Basically IDE to narrow this comparison to the commands and control codes it actually uses.';
+    case 'no-program':
+      return 'Nothing is open in the editor. Write or load a program to narrow this comparison to the commands and control codes it uses.';
+    case 'unreadable':
+      return `Your program cannot be read as ${
+        s?.name ?? 'this machine'
+      } BASIC yet, so every difference is shown. Fix the errors flagged in the editor and it will narrow to what the program uses.`;
+    case 'reading':
+      return `Reading your program as ${s?.name ?? 'this machine'} BASIC…`;
+    case 'narrowed':
+      return recognisedText.value;
+  }
+  return '';
+});
+
+/** How much of the program the comparison recognised, for the narrowed notice. */
+const recognisedText = computed(() => {
+  const v = vocabulary.value;
+  if (!v) return '';
+  const parts = [count(v.keywords.length, 'command')];
+  if (v.escapeCodes.length)
+    parts.push(count(v.escapeCodes.length, 'control code'));
+  return `Narrowed to your program: ${listOf(parts)} recognised.`;
+});
+
+/** What the narrowing is holding back, so the control can be found. */
+const heldBackText = computed(() =>
+  heldBack.value
+    ? `${count(heldBack.value, 'other difference')} for this pair ${
+        heldBack.value === 1 ? 'is' : 'are'
+      } not shown.`
+    : '',
+);
 
 /** One entry of the colour key: a swatch style and what that colour means. */
 interface LegendItem {
@@ -567,7 +725,7 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'Before you start',
     ],
     [
-      g.falseFriends.length > 0,
+      visibleFalseFriends.value.length > 0,
       'false-friends',
       'Same word, different meaning',
     ],
@@ -634,7 +792,12 @@ onMounted(() => {
 // leaves the current selection alone - the selects have meaningful defaults the
 // reader may have already changed.
 useDeepLinkParams(({ from: f, to: t }) => {
-  if (f && optionFor(f)) from.value = f;
+  if (f && optionFor(f)) {
+    from.value = f;
+    // A link that names the machines must resolve to the comparison it names,
+    // for everyone: the program's own machine is only the *default* source.
+    fromNamedByUrl.value = true;
+  }
   if (t && optionFor(t)) to.value = t;
 });
 
@@ -646,6 +809,61 @@ function convertWithAi() {
     window.location.origin,
   );
 }
+
+/**
+ * Ask the app what the open program uses, read as the machine being ported
+ * *from*. Sent on mount and again whenever that machine changes - a vocabulary
+ * describes one BASIC, so pointing the comparison somewhere else re-reads the
+ * program in that language rather than abandoning the narrowing.
+ */
+function requestVocabulary() {
+  if (!embedded.value) return;
+  window.parent.postMessage(
+    { type: VOCABULARY_REQUEST, from: from.value },
+    window.location.origin,
+  );
+}
+
+function onVocabularyMessage(e: MessageEvent) {
+  if (e.origin !== window.location.origin) return;
+  const data = e.data;
+  if (!data || typeof data !== 'object') return;
+  if (data.type !== VOCABULARY_MESSAGE) return;
+  vocabularyStatus.value =
+    data.status === 'ready' || data.status === 'unreadable'
+      ? data.status
+      : 'empty';
+  vocabulary.value = {
+    dialectId: String(data.dialectId ?? ''),
+    keywords: Array.isArray(data.keywords) ? data.keywords : [],
+    escapeCodes: Array.isArray(data.escapeCodes) ? data.escapeCodes : [],
+  };
+  // On the first answer, open on the machine the program is written for: it is
+  // the one selection under which the narrowing means anything. A link that
+  // named the source machine still wins.
+  if (
+    !appliedProgramMachine.value &&
+    !fromNamedByUrl.value &&
+    optionFor(vocabulary.value.dialectId)
+  ) {
+    appliedProgramMachine.value = true;
+    if (from.value !== vocabulary.value.dialectId) {
+      from.value = vocabulary.value.dialectId;
+      syncUrl();
+      return; // the `from` watcher below re-asks in that machine's language
+    }
+  }
+  appliedProgramMachine.value = true;
+}
+
+onMounted(() => {
+  window.addEventListener('message', onVocabularyMessage);
+  requestVocabulary();
+});
+onBeforeUnmount(() =>
+  window.removeEventListener('message', onVocabularyMessage),
+);
+watch(from, requestVocabulary);
 </script>
 
 <template>
@@ -701,6 +919,23 @@ function convertWithAi() {
           <strong>{{ source.name }} → {{ target.name }}:</strong>
           {{ summary }}
         </p>
+        <!--
+          Where the comparison stands with respect to the open program, in one
+          block under the summary: narrowed and by how much, or not narrowed and
+          what would narrow it. It is one block rather than a line per narrowed
+          section because the narrowing governs five of them, and a reader who
+          has not noticed the control has to be able to find it from any of them.
+        -->
+        <p class="cmp-note cmp-program-note">
+          {{ noticeText }}
+          <span v-if="notice.narrowed && heldBackText" class="cmp-held-back">
+            {{ heldBackText }}
+          </span>
+        </p>
+        <label v-if="notice.offerControl" class="cmp-toggle">
+          <input v-model="showEveryDifference" type="checkbox" />
+          Show every difference, not just the ones your program uses
+        </label>
         <!--
           The component renders every heading below, so VitePress's own outline
           (built from the markdown) cannot see them and none of them can be
@@ -819,13 +1054,11 @@ function convertWithAi() {
         else.
       -->
       <section
-        v-if="guidance.falseFriends.length"
+        v-if="visibleFalseFriends.length"
         id="false-friends"
         class="cmp-section cmp-traps"
       >
-        <h2>
-          Same word, different meaning ({{ guidance.falseFriends.length }})
-        </h2>
+        <h2>Same word, different meaning ({{ visibleFalseFriends.length }})</h2>
         <p class="cmp-hint">
           These exist on both machines, so they raise no error — they just do
           something else.
@@ -1172,6 +1405,14 @@ function convertWithAi() {
   .cmp-ai-button {
     order: 1;
   }
+}
+/* Where the comparison stands with respect to the open program, directly under
+   the summary whose counts it qualifies. */
+.cmp-program-note {
+  margin: 0.5rem 0 0.35rem;
+}
+.cmp-held-back {
+  color: var(--vp-c-text-3, var(--vp-c-text-2));
 }
 /* Sits inside the panel under the controls, so a divider rather than its own
    box separates it from them. */

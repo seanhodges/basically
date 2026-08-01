@@ -98,12 +98,23 @@ export async function clearEditor(page: Page): Promise<void> {
  * Switch machine via the toolbar's target control and the machine picker it
  * raises. Takes a registry dialect id, not a name: the names prefix one another
  * ('Spectrum' / 'Spectrum 128').
+ *
+ * `keep` answers the confirmation the app raises when the editor holds the
+ * user's own code and the new machine's BASIC will not run it - the switch that
+ * begins a port. Left unset, the switch is expected to be silent, which is what
+ * every caller before this needed: nothing here had code of its own in the
+ * editor when it switched.
  */
 export async function selectDialect(
   page: Page,
   machineId: string,
+  keep?: 'keep my code' | 'start new',
 ): Promise<void> {
   await chooseTargetMachine(page, machineId);
+  if (keep) {
+    const name = keep === 'keep my code' ? 'Keep my code' : 'Start new';
+    await page.getByRole('button', { name, exact: true }).click();
+  }
   await expect(page.locator(EDITOR)).toBeVisible();
 }
 
