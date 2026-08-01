@@ -21,15 +21,25 @@ having no idea what the program used.
 - What the target adds, the language and hardware fact table, and the prose
   guidance are **not** narrowed. The first is already about what the program did
   not use; the other two describe rules that apply to any program.
-- The narrowing states how many differences it is holding back, and a control
-  reports them — phrased as a "show", like every other control on the page.
+- The narrowing states how much of the program it recognised and how many
+  differences it is holding back, and a control reports them — phrased as a
+  "show", like every other control on the page.
+- The program is read **as the language being ported from**, not as the machine
+  the IDE currently has selected. Changing the source machine re-reads the
+  program in that language rather than abandoning the narrowing.
+- A program with errors that stop it being read at all counts as no program, and
+  the full comparison returns. Findings that do not stop it being read — advice
+  about what a real machine would refuse at the keyboard, or about variables —
+  leave the narrowing alone, so ordinary half-finished editing does not keep
+  discarding it.
 - Opening the guide from inside the IDE selects the machine the program is
   written for as the machine being ported *from*, unless the link names one.
-  Changing that selection away from the program's machine turns the narrowing
-  off, because the vocabulary no longer describes the language being compared.
-- The guide gains an entry point in the IDE. It has none today, so a narrowing
-  that only exists in the IDE would be unreachable.
-- A standalone visit to the docs site is unchanged in every respect.
+- **Keeping a program on a machine that will not run it opens the guide**, for
+  exactly that port. That is the moment a port begins, and the guide has no entry
+  point in the IDE today.
+- The guide always says where it stands: narrowed, or not narrowed and what would
+  narrow it. A standalone visit therefore gains one line inviting the reader to
+  open their program in the IDE; nothing else about it changes.
 
 ## Non-goals
 
@@ -55,11 +65,13 @@ None.
 ### Modified Capabilities
 
 - `porting-guidance`: adds requirements for narrowing the reported differences
-  to the open program's vocabulary, for stating what the narrowing holds back,
-  for tying the narrowing to the machine the program is written for, and for
-  opening on that machine. Extends the existing "controls are phrased as
-  showing" requirement to name the narrowed view among the things a comparison
-  opens on.
+  to the open program's vocabulary, for reading the program as the language
+  being ported from, for treating an unreadable program as no program, for
+  always saying whether the comparison is narrowed and what would narrow it, for
+  offering the comparison when a program is kept on a new machine, and for
+  opening on the machine the program is written for. Extends the existing
+  "controls are phrased as showing" requirement to name the narrowed view among
+  the things a comparison opens on.
 
 ## Impact
 
@@ -67,10 +79,11 @@ None.
   escape bytes; a pure filter over the already-computed difference buckets on
   the docs side.
 - **Modified**: the IDE↔docs message contract (two new messages); the
-  comparison component's computeds, controls and summary sentence; the
-  `Dialect` seam gains one descriptive flag naming which dialects' tokenizers
-  match keywords greedily across spaces; the shared charset-probe table gains a
-  per-unit parse already present in every family.
+  comparison component's computeds, controls, notice and summary sentence; the
+  target-switch confirmation's "keep my code" branch, which now opens the docs
+  drawer on the comparison; the `Dialect` seam gains one descriptive flag naming
+  which dialects' tokenizers match keywords greedily across spaces; the shared
+  charset-probe table gains a per-unit parse already present in every family.
 - **Tests**: colocated unit tests for the analyser and the filter, the
   message-contract test, and an end-to-end scenario under
   `e2e/porting-guidance/`. The existing keyword and escape cross-checks come to

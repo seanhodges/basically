@@ -14,13 +14,12 @@ NOT be narrowed: the first is already about what the program did not use, and th
 rules that hold for any program whatever commands it uses.
 
 Where the comparison is read on its own, outside the IDE, no narrowing SHALL take place and every
-part of the comparison SHALL be unaffected — narrowing is an extra for the user who has a program,
-never a condition of the guidance.
+difference SHALL be reported — narrowing is an extra for the user who has a program, never a
+condition of the guidance.
 
 #### Scenario: Reading the comparison with a program open
 
-- **WHEN** a user reads the comparison inside the IDE with a program open, ported from the machine
-  that program is written for
+- **WHEN** a user reads the comparison inside the IDE with a program open
 - **THEN** the commands to rewrite, rename and re-check, the same-word-different-meaning warnings,
   and the control codes to replace name only commands and codes the program contains
 
@@ -38,29 +37,94 @@ never a condition of the guidance.
 #### Scenario: Reading the comparison outside the IDE
 
 - **WHEN** a user opens the comparison on its own, outside the IDE
-- **THEN** every difference is reported, no narrowing control is offered, and the comparison is
-  unchanged in every other respect
+- **THEN** every difference is reported and no narrowing control is offered
 
 #### Scenario: An empty program
 
 - **WHEN** a user reads the comparison inside the IDE with nothing written in the editor
 - **THEN** every difference is reported, as it is for a reader with no program at all
 
-### Requirement: The narrowed comparison says what it is holding back
+### Requirement: The program is read as the language being ported from
 
-A comparison that reports less than it knows SHALL say so. Where the narrowing is in effect, the
-comparison SHALL state how many differences it is leaving out, and SHALL offer a control that
-reports them. Both SHALL be present whenever anything is being held back, so that a difference the
-narrowing did not recognise is never silently lost.
+A program's vocabulary is what a *particular* BASIC finds in its text, so the comparison SHALL
+decide which commands and control codes the program uses by reading it as the language of the
+machine being ported **from**, not as the language of whichever machine the IDE currently has
+selected.
 
-Turning the control on SHALL report every difference for the chosen pair, and SHALL leave the
-narrowing available to return to.
+This is what lets a program keep its narrowing after it has been moved to a machine that cannot run
+it: the text is unchanged, and the comparison is about the language it was written in. Changing the
+machine being ported from SHALL re-read the program in that machine's language rather than abandon
+the narrowing.
 
-#### Scenario: Differences are being held back
+#### Scenario: A program kept on a machine that cannot run it
 
-- **WHEN** the comparison is narrowed and some differences fall outside the program's vocabulary
-- **THEN** the comparison states how many differences are being left out, and a control to report
-  them is present
+- **WHEN** the user keeps their program while switching to a machine whose BASIC will not run it,
+  and reads the comparison from the machine they left to the machine they chose
+- **THEN** the comparison is narrowed to what the program uses, and does not report the program as
+  unreadable
+
+#### Scenario: Changing the machine being ported from
+
+- **WHEN** the user selects a different source machine
+- **THEN** the comparison narrows to the commands and codes the program's text contains in that
+  machine's language
+
+### Requirement: A program that cannot be read is treated as no program
+
+Where the open program has errors that prevent it being read as a program at all in the language
+being ported from, the comparison SHALL report every difference, as it does for a reader with no
+program. Findings that do not prevent it being read — advice about what a real machine would refuse
+at the keyboard, or about variables — SHALL NOT suppress the narrowing, so that ordinary
+half-finished editing does not repeatedly discard it.
+
+#### Scenario: A program that cannot be read
+
+- **WHEN** the open program has an error that prevents it being read as a program
+- **THEN** every difference is reported, and the comparison says the program cannot be read yet
+
+#### Scenario: A program with findings that still reads
+
+- **WHEN** the open program has findings that do not prevent it being read as a program
+- **THEN** the comparison stays narrowed to what the program uses
+
+#### Scenario: Fixing the program
+
+- **WHEN** the user corrects an error that prevented the program being read
+- **THEN** the comparison narrows to the program again
+
+### Requirement: The comparison says whether it is narrowed, and why not
+
+The comparison SHALL always state where it stands with respect to the open program, so that a
+reader can tell a narrowed comparison from a full one without counting rows.
+
+Where it is narrowed it SHALL say so, stating both how much of the program it recognised and how
+many differences it is holding back, and SHALL offer a control that reports them. Where it is not
+narrowed but could be, it SHALL say what would narrow it — that the program should be opened in the
+IDE, that there is nothing open, or that the open program cannot be read yet.
+
+Stating what is held back is what keeps the narrowing honest: a difference the comparison failed to
+recognise is never silently lost, because the count reveals it and the control reaches it.
+
+#### Scenario: Read outside the IDE
+
+- **WHEN** a user opens the comparison on its own
+- **THEN** it says that opening the program in the IDE narrows it to what that program uses
+
+#### Scenario: Inside the IDE with nothing open
+
+- **WHEN** a user reads the comparison inside the IDE with nothing written in the editor
+- **THEN** it says that opening a program narrows it to what that program uses
+
+#### Scenario: Inside the IDE with a program that cannot be read
+
+- **WHEN** a user reads the comparison inside the IDE with a program that cannot be read
+- **THEN** it says the program cannot be read yet, and points at the errors flagged in the editor
+
+#### Scenario: Narrowed
+
+- **WHEN** the comparison is narrowed to the open program
+- **THEN** it says how much of the program it recognised, states how many differences are being
+  held back, and offers a control that reports them
 
 #### Scenario: Asking to see everything
 
@@ -72,56 +136,54 @@ narrowing available to return to.
 - **WHEN** the program's vocabulary covers every difference the comparison would report
 - **THEN** nothing is stated as held back, and no control to reveal more is shown
 
-### Requirement: Narrowing applies only to the machine the program is written for
+### Requirement: Keeping a program on a new machine offers the comparison
 
-A program's vocabulary describes one language. The comparison SHALL narrow only while the machine
-being ported *from* is the machine the open program is written for. Where the user selects any
-other source machine, the comparison SHALL report every difference and SHALL NOT offer the
-narrowing control, rather than filter by a vocabulary that does not describe the language on
-screen.
+Switching to a machine that will not run the open program asks the user whether to keep that
+program. Keeping it is the moment a port begins, so the IDE SHALL then open the comparison for
+exactly that port — from the machine left to the machine chosen — narrowed to the program that was
+kept.
 
-#### Scenario: Changing the source machine away from the program's
+Starting a new program instead SHALL NOT open it, there being no program to port; neither SHALL
+cancelling, nor switching to a machine that runs the program as it stands and so never asks.
 
-- **WHEN** the user selects a source machine other than the one the open program is written for
-- **THEN** every difference is reported and no narrowing control is present
+#### Scenario: Keeping the program
 
-#### Scenario: Changing it back
+- **WHEN** the user switches to a machine that will not run their program and chooses to keep it
+- **THEN** the comparison opens, comparing from the machine they left to the machine they chose,
+  narrowed to that program
 
-- **WHEN** the user selects the open program's machine as the source machine again
-- **THEN** the comparison narrows to the program once more
+#### Scenario: Starting a new program instead
 
-#### Scenario: Changing the target machine
+- **WHEN** the user switches machine and chooses to start a new program
+- **THEN** the comparison is not opened
 
-- **WHEN** the user selects a different target machine
-- **THEN** the comparison stays narrowed to the program
+#### Scenario: Cancelling the switch
+
+- **WHEN** the user cancels the switch
+- **THEN** the machine is unchanged and the comparison is not opened
+
+#### Scenario: Switching to a machine that runs the program
+
+- **WHEN** the user switches to a machine that runs the program as it stands, and so is not asked
+  whether to keep it
+- **THEN** the comparison is not opened
 
 ### Requirement: The comparison opens on the machine the program is written for
 
-Where the comparison is opened inside the IDE and the link names no source machine, it SHALL open
-comparing *from* the machine the open program is written for — the one selection under which the
-narrowing means anything. A link that names a source machine SHALL still resolve to the comparison
+Where the comparison is opened inside the IDE and nothing names the machines to compare, it SHALL
+open comparing *from* the machine the open program is written for — the one selection under which
+the narrowing means anything. A link that names the machines SHALL still resolve to the comparison
 it names, so a shared comparison reads the same for everyone.
 
 #### Scenario: Opening the comparison from the IDE
 
-- **WHEN** a user with a program open opens the comparison, following no link that names machines
+- **WHEN** a user with a program open opens the comparison, following nothing that names machines
 - **THEN** the source machine is the one the program is written for
 
 #### Scenario: Following a link that names the machines
 
 - **WHEN** a user inside the IDE opens a link naming both machines to compare
 - **THEN** the comparison shows that pair, whatever machine the open program is written for
-
-### Requirement: The comparison is reachable from the IDE
-
-The IDE SHALL offer a way to open the comparison directly, without the user having to find it
-through the documentation's own navigation. Opening it that way SHALL leave the program and the
-selected machine as they were.
-
-#### Scenario: Opening the comparison from the IDE
-
-- **WHEN** a user asks the IDE for the porting guide
-- **THEN** the comparison opens, with the program and the selected machine unchanged
 
 ## MODIFIED Requirements
 
