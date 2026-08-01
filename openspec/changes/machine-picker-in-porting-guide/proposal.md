@@ -90,6 +90,16 @@ None.
   the only thing offered, and that each is named by one string meaning only that
   machine, is unaffected and not restated.
 
+  The delta additionally carries a **wording-only** tidy-up that changes no
+  guarantee: three requirements and one requirement name still describe the user
+  as selecting a *dialect*, which `compare-machines-not-pages` stopped being a
+  thing the comparison offers — it made the machine the unit of selection but
+  modified only the one requirement that names it. Those are corrected here
+  rather than in a change of their own, since this is the next change to archive
+  against this capability and the edits are one word each. They are marked
+  MODIFIED and RENAMED so the archive applies them; nothing about them depends on
+  the picker work, and reverting the picker would revert them too.
+
 ## Non-goals
 
 - **Changing what the comparison reports.** Every section below the controls —
