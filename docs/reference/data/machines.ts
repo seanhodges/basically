@@ -15,11 +15,15 @@
 // reference page a machine reads from; it is a property of the machine, not
 // something a reader can select.
 //
-// Hand-authored because the docs runtime must never import src/ (the dialect
-// registry pulls in every emulator core), and pinned to the registry by
-// machines-crosscheck.test.ts, which may import it freely - so a newly
-// registered dialect, a renamed machine or a changed docs page fails until this
-// file agrees.
+// Hand-authored because the docs runtime must never reach the dialect registry
+// (it imports every dialect index, and each pulls in an emulator core), and
+// pinned to the registry by machines-crosscheck.test.ts, which may import it
+// freely - so a newly registered dialect, a renamed machine, a changed docs
+// page or a reworded blurb fails until this file agrees.
+//
+// The fields beyond `id`/`page` are what the machine picker shows: this shape
+// satisfies `MachineLike` in src/components/machinePicker.ts, which is what
+// lets the guide render the IDE's own picker rather than a lookalike of it.
 
 /** One machine the comparison can be pointed at. */
 export interface MachineChoice {
@@ -28,7 +32,13 @@ export interface MachineChoice {
   /** Reference page slug, matching `Dialect.docsReference ?? Dialect.id`. */
   page: string;
   /** Display name, matching `Dialect.name`. */
-  label: string;
+  name: string;
+  /** Maker, matching `Dialect.manufacturer`. Groups the picker's list. */
+  manufacturer: string;
+  /** Year of release, matching `Dialect.year`. Orders each maker's machines. */
+  year: number;
+  /** One-line description, matching `Dialect.blurb`. Shown on a picker row. */
+  blurb: string;
 }
 
 /**
@@ -37,17 +47,108 @@ export interface MachineChoice {
  * moving between them is not re-sorting in their head.
  */
 export const machines: MachineChoice[] = [
-  { id: 'atom', page: 'atom', label: 'Atom' },
-  { id: 'bbcmicro', page: 'bbc', label: 'BBC Micro' },
-  { id: 'bbcmaster', page: 'bbc', label: 'BBC Master' },
-  { id: 'pet', page: 'commodore', label: 'PET' },
-  { id: 'vic20', page: 'commodore', label: 'VIC-20' },
-  { id: 'commodore64', page: 'commodore', label: 'C64' },
-  { id: 'cpc464', page: 'cpc', label: 'CPC 464' },
-  { id: 'cpc6128', page: 'cpc', label: 'CPC 6128' },
-  { id: 'trs80', page: 'trs80', label: 'TRS-80' },
-  { id: 'zx80', page: 'zx80', label: 'ZX80' },
-  { id: 'zx81', page: 'zx81', label: 'ZX81' },
-  { id: 'zxspectrum', page: 'zxspectrum', label: 'Spectrum' },
-  { id: 'zxspectrum128', page: 'zxspectrum', label: 'Spectrum 128' },
+  {
+    id: 'atom',
+    page: 'atom',
+    name: 'Atom',
+    manufacturer: 'Acorn',
+    year: 1980,
+    blurb: 'Acorn’s forerunner to the BBC Micro. Runs Atom BASIC.',
+  },
+  {
+    id: 'bbcmicro',
+    page: 'bbc',
+    name: 'BBC Micro',
+    manufacturer: 'Acorn',
+    year: 1981,
+    blurb: 'The BBC’s computer literacy machine. Runs BBC BASIC II.',
+  },
+  {
+    id: 'bbcmaster',
+    page: 'bbc',
+    name: 'BBC Master',
+    manufacturer: 'Acorn',
+    year: 1986,
+    blurb: 'The BBC Micro, upgraded. Runs BBC BASIC IV.',
+  },
+  {
+    id: 'pet',
+    page: 'commodore',
+    name: 'PET',
+    manufacturer: 'Commodore',
+    year: 1977,
+    blurb: 'Commodore’s all-in-one original. Runs Commodore BASIC 4.0.',
+  },
+  {
+    id: 'vic20',
+    page: 'commodore',
+    name: 'VIC-20',
+    manufacturer: 'Commodore',
+    year: 1981,
+    blurb: 'The first computer to sell a million. Commodore BASIC V2.',
+  },
+  {
+    id: 'commodore64',
+    page: 'commodore',
+    name: 'C64',
+    manufacturer: 'Commodore',
+    year: 1982,
+    blurb: 'The best-selling desktop computer ever. Commodore BASIC V2.',
+  },
+  {
+    id: 'cpc464',
+    page: 'cpc',
+    name: 'CPC 464',
+    manufacturer: 'Amstrad',
+    year: 1984,
+    blurb: 'Amstrad’s all-in-one with tape. Locomotive BASIC 1.0.',
+  },
+  {
+    id: 'cpc6128',
+    page: 'cpc',
+    name: 'CPC 6128',
+    manufacturer: 'Amstrad',
+    year: 1985,
+    blurb: 'The CPC with 128K and more keywords. Locomotive BASIC 1.1.',
+  },
+  {
+    id: 'trs80',
+    page: 'trs80',
+    name: 'TRS-80',
+    manufacturer: 'Tandy',
+    year: 1977,
+    blurb: 'Tandy’s Radio Shack original. Runs Level II BASIC.',
+  },
+  {
+    id: 'zx80',
+    page: 'zx80',
+    name: 'ZX80',
+    manufacturer: 'Sinclair',
+    year: 1980,
+    blurb: 'Sinclair’s first home computer. Runs ZX80 BASIC.',
+  },
+  {
+    id: 'zx81',
+    page: 'zx81',
+    name: 'ZX81',
+    manufacturer: 'Sinclair',
+    year: 1981,
+    blurb: 'Sinclair’s million-selling breakthrough. ZX81 BASIC.',
+  },
+  {
+    id: 'zxspectrum',
+    page: 'zxspectrum',
+    name: 'Spectrum',
+    manufacturer: 'Sinclair',
+    year: 1982,
+    blurb: 'Britain’s best-selling computer. 48K Sinclair BASIC.',
+  },
+  {
+    id: 'zxspectrum128',
+    page: 'zxspectrum',
+    name: 'Spectrum 128',
+    manufacturer: 'Sinclair',
+    year: 1985,
+    blurb: 'The Spectrum with AY sound. Runs 128 Sinclair BASIC.',
+  },
 ];

@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useDismiss } from '../app/useDismiss';
-import { getDialect } from '../dialects/registry';
+import { dialects, getDialect } from '../dialects/registry';
 import { useAiStore } from '../ai/aiStore';
 import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
 import { aiCredentials, hasAiKey } from '../ai/credentials';
@@ -16,6 +16,7 @@ import {
 } from './newProjectOptions';
 import { MachinePickerDialog } from './MachinePickerDialog';
 import { MachineTrigger } from './MachineTrigger';
+import { TARGET_MACHINE_ROLE } from './machinePicker';
 import dialog from './Dialog.module.css';
 import styles from './NewProjectDialog.module.css';
 
@@ -144,6 +145,7 @@ export function NewProjectDialog() {
           <MachineTrigger
             ref={triggerRef}
             dialect={machine}
+            role={TARGET_MACHINE_ROLE}
             onClick={() => setPickerOpen(true)}
             artSize={28}
             showYear
@@ -240,6 +242,7 @@ export function NewProjectDialog() {
             establishes a containing block. */}
         <MachinePickerDialog
           open={pickerOpen}
+          machines={dialects}
           selectedId={machineId}
           onChoose={chooseMachine}
           onDismiss={closePicker}

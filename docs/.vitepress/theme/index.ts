@@ -24,5 +24,14 @@ export default {
       'Mermaid',
       defineAsyncComponent(() => import('./components/Mermaid.vue')),
     );
+    // Only reference/compare.md renders the machine picker, and it is React -
+    // the IDE's own components, mounted as an island. Registered lazily for
+    // exactly the reason Mermaid is: the wrapper import()s react-dom itself,
+    // so those two dynamic hops keep it off every other page's modulepreload
+    // list.
+    app.component(
+      'MachinePicker',
+      defineAsyncComponent(() => import('./components/MachinePicker.vue')),
+    );
   },
 };

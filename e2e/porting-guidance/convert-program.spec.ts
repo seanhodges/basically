@@ -111,9 +111,15 @@ test('converting to a variant lands in that variant, not its sibling', async ({
   // that page rather than the two machines - so "Locomotive BASIC" resolved to
   // whichever came first in the registry and always opened a 464. Choosing the
   // 6128 has to open a 6128.
-  const target = frame.locator('select').nth(1);
+  //
+  // Driven through the same hooks the IDE's own picker specs use: the guide
+  // renders that picker, so `data-target-machine` and `data-machine` mean here
+  // exactly what they mean there.
+  const target = frame.getByRole('button', { name: /^Porting to:/ });
   await expect(target).toBeVisible({ timeout: 15_000 });
-  await target.selectOption('cpc6128');
+  await target.click();
+  await frame.locator('button[data-machine="cpc6128"]').click();
+  await expect(target).toHaveAttribute('data-target-machine', 'cpc6128');
 
   await frame.getByRole('button', { name: 'Convert with AI' }).click();
 

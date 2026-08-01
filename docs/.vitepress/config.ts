@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress';
 import { withPwa } from '@vite-pwa/vitepress';
 import { MermaidMarkdown } from 'vitepress-plugin-mermaid';
+import react from '@vitejs/plugin-react';
 
 // Docs site for Basically, published at https://ba.sical.ly/docs.
 // The app (a Vite SPA) is served from the root of the same deployment;
@@ -18,6 +19,17 @@ export default withPwa(
     cleanUrls: true,
     lastUpdated: true,
     appearance: 'force-dark',
+
+    // The porting guide renders the IDE's own machine picker - React
+    // components, imported from src/ - as an island inside the Vue page (see
+    // theme/components/MachinePicker.vue). This gives the docs build the JSX
+    // transform for them; the .module.css they bring is handled by Vite
+    // natively. Scoped to .tsx so nothing else in the docs is touched: the two
+    // island files are the only JSX here, and react-refresh has no business
+    // rewriting the theme's plain TypeScript.
+    vite: {
+      plugins: [react({ include: [/\.tsx$/] })],
+    },
 
     markdown: {
       // Shiki has no generic "basic" grammar; alias our ```basic fences to the

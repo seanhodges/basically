@@ -220,13 +220,15 @@ describe('escape cross-check: table-driven extras', () => {
 
   it('every C64 letter-key graphic has a {CBM-x}/{SHIFT-x} row', () => {
     const spellings = new Set(commodoreEscapes.entries.map((e) => e.escape));
+    // A graphic printed on no key (`key` is optional - the CPC and TRS-80
+    // printed none) has no {CBM-x} spelling to look for.
     for (const { key } of C64_COMMODORE_GRAPHICS) {
-      if (/^[A-Z]$/.test(key)) {
+      if (key && /^[A-Z]$/.test(key)) {
         expect(spellings.has(`{CBM-${key.toLowerCase()}}`), key).toBe(true);
       }
     }
     for (const { key } of C64_SHIFT_GRAPHICS) {
-      if (/^[A-Z]$/.test(key)) {
+      if (key && /^[A-Z]$/.test(key)) {
         expect(spellings.has(`{SHIFT-${key.toLowerCase()}}`), key).toBe(true);
       }
     }

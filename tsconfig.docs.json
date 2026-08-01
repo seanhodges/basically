@@ -1,0 +1,40 @@
+{
+  // The documentation site's TypeScript, which nothing checked until the
+  // porting guide started rendering the IDE's machine picker. Sharing a
+  // component across the two makes a docs-side misuse of `MachineLike` a real
+  // possibility, and without this project it would fail silently in a browser
+  // rather than loudly at `tsc`.
+  //
+  // Mirrors tsconfig.app.json: same strictness, same module resolution, plus
+  // JSX for the React island under docs/.vitepress/theme/components/. The
+  // theme's .vue script blocks are still unchecked - that needs vue-tsc, which
+  // this project deliberately does not pull in; the island and every data
+  // module are what the guide's types actually live in.
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+
+    "types": ["w3c-web-serial"]
+  },
+  // The crosscheck tests import the registry, so this program contains src/ too
+  // - and needs the app's ambient declarations (vite/client, the jsbeeb module
+  // shims) to make sense of it.
+  "include": ["docs/**/*.ts", "docs/**/*.tsx", "src/**/*.d.ts"],
+  "exclude": ["docs/.vitepress/cache", "docs/.vitepress/dist"]
+}

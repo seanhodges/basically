@@ -2,17 +2,25 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { forwardRef } from 'react';
-import type { Dialect } from '../dialects/types';
 import { MachineArt } from './machineArt';
-import { machineSummary, targetMachineLabel } from './machinePicker';
+import {
+  machineSummary,
+  machineTriggerLabel,
+  type MachineLike,
+} from './machinePicker';
 import styles from './MachineTrigger.module.css';
 
 /**
  * The collapsed machine control: a portrait of the current machine plus its
  * name, opening the shared `MachinePickerDialog`. Used by the New-project
- * dialog and by the toolbar's target switcher, which is why the chrome comes
- * from the caller's stylesheet - the toolbar's container queries need to target
- * their own classes.
+ * dialog, by the toolbar's target switcher and by the docs' porting guide,
+ * which is why the chrome comes from the caller's stylesheet - the toolbar's
+ * container queries need to target their own classes.
+ *
+ * `role` is likewise the caller's: it names the part this machine plays, which
+ * is "Target machine" in the IDE and one of "Porting from" / "Porting to" in
+ * the guide, where a trigger called a target machine would be wrong rather than
+ * merely terse.
  *
  * `type="button"` matters: in the New-project dialog this sits inside a
  * `<form>`, where a bare button would submit and create the project.
@@ -20,7 +28,9 @@ import styles from './MachineTrigger.module.css';
 export const MachineTrigger = forwardRef<
   HTMLButtonElement,
   {
-    dialect: Dialect;
+    dialect: MachineLike;
+    /** What this machine is to the caller, e.g. `'Target machine'`. */
+    role: string;
     onClick: () => void;
     /** Portrait height in px. */
     artSize?: number;
@@ -32,6 +42,7 @@ export const MachineTrigger = forwardRef<
 >(function MachineTrigger(
   {
     dialect,
+    role,
     onClick,
     artSize = 24,
     showYear = false,
@@ -40,7 +51,7 @@ export const MachineTrigger = forwardRef<
   },
   ref,
 ) {
-  const label = targetMachineLabel(dialect);
+  const label = machineTriggerLabel(role, dialect);
   return (
     <button
       ref={ref}

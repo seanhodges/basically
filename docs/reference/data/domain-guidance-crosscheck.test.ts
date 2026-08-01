@@ -59,7 +59,12 @@ function losableDomains(to: string): Set<KeywordDomain> {
       to,
       equivalences: keywordEquivalences,
     });
-    for (const entry of diff.mustReplace) losable.add(entry.domain);
+    // `domain` is optional on a reference row in general; every BASIC row
+    // carries one, so the guard never skips anything here - it is what lets
+    // the docs project typecheck this file at all.
+    for (const entry of diff.mustReplace) {
+      if (entry.domain) losable.add(entry.domain);
+    }
   }
   return losable;
 }
