@@ -12,194 +12,201 @@ drawer.
 The component layout and dialect seam this builds on are described in
 `docs/contributing/architecture.md`.
 
-**Dialect seam impact: none.** Nothing here crosses the `Dialect` /
-`MachineEmulator` boundary, and nothing under `src/` is edited at all — the IDE's
-picker is read as the reference, not modified. The `Dialect` fields this change
-surfaces in the docs (`manufacturer`, `year`, `blurb`) are already declared and
-already populated for all 13 machines; the docs restate them and the crosscheck
-pins the restatement.
+**Dialect seam impact: none.** This change edits `src/components/`, but nothing
+in it crosses the `Dialect` / `MachineEmulator` boundary: no dialect, tokenizer,
+charset or emulator is touched, and no `Dialect` field changes. The picker
+edits *narrow* what the components ask of a dialect — from the whole interface
+to five fields — which loosens the coupling to the seam rather than adding to
+it.
 
-The binding constraint is unchanged from `compare-machines-not-pages`: **the docs
+The binding constraint from `compare-machines-not-pages` was that **the docs
 runtime must never import `src/`**, because `src/dialects/registry.ts` imports
-every dialect index and each pulls in its emulator core. Only `*.test.ts` files
-under `docs/` may import `src/` — vitest runs them in node and the VitePress
-bundle never includes them. That is what forces the restate-and-pin shape below
-rather than a shared import.
+every dialect index and each pulls in its emulator core. Two findings reopened
+that constraint:
+
+- The rule is a proxy. Of the picker's five modules, exactly one reaches the
+  registry — `MachinePickerDialog.tsx:15`, a module-scope
+  `groupMachinesByManufacturer(dialects)`. `machineArtIds.ts` imports nothing at
+  all; `machinePicker.ts` imports only `import type { Dialect }`, erased at
+  build. Two of the five are already safe to import today.
+- The picker touches five `Dialect` fields in total: `id`, `name`, `year`,
+  `manufacturer`, `blurb`.
+
+So the components are already near-pure presentation, and the boundary is
+stricter than the hazard it guards.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Choosing a machine in the guide looks and reads like choosing one in the IDE:
-  same grouping, same portraits, same wording.
-- Two machines of the same family can be told apart before the comparison is
-  drawn, not only after.
-- Every restated fact — manufacturer, year, blurb, portrait — is pinned to
-  `src/`, so none of them can drift.
+- One picker implementation, rendered on both surfaces. Not two that agree.
+- The IDE's picker behaves exactly as it does today.
+- The hazard the import rule guarded — an emulator core in the docs bundle — is
+  enforced by a test rather than a convention.
 - `dialectCompare.ts` is untouched. The picker changes what fills `from`/`to`,
   not what is done with them.
 
 **Non-Goals:**
 
-- A shared component runtime between React and Vue.
-- Editing anything under `src/`.
+- A shared package, workspace, or published module.
+- Changing picker behaviour, markup or styling on either surface.
 - Changing `?from=`/`?to=`, the sections below the controls, or what the
   comparison reports.
 - New or redrawn artwork.
 
 ## Decisions
 
-### Restate the portraits as neutral SVG; pin them by rendering the originals
+### Share the component; do not restate it
 
-`docs/reference/data/machineArt.ts` exports one entry per art id holding the
-*inner* markup of that portrait as a string, plus the shared `'0 0 48 32'`
-viewBox. Vue renders it with `v-html` inside an `<svg>` whose width/height the
-caller sizes, which is the direct analogue of what the React components do.
+The first design here restated the 13 portraits as neutral SVG under `docs/` and
+pinned them to the React originals with a crosscheck that rendered
+`machineArt.tsx` through `renderToStaticMarkup` and compared normalised markup.
+That is replaced by importing the components directly.
 
-The portraits are unusually well suited to this. `machineArt.tsx`'s own header
-commits to fill-only shapes with no gradients and no `<defs>` — deliberately, so
-that repeated portraits on one page cannot collide on gradient ids — and nothing
-in them inherits `currentColor`. So a portrait is a self-contained run of
-`<path>`/`<rect>` elements with literal fills: no theme coupling, no id
-namespacing, nothing that changes meaning when it moves runtime. It renders
-identically in the docs' light and dark themes for the same reason it renders
-identically in the IDE's.
+The crosscheck approach costs ~590 lines of restatement plus a test that must be
+maintained forever, and its own risk list conceded the pin was brittle:
+`renderToStaticMarkup` output is a React implementation detail, so an upgrade
+that changes attribute ordering or self-closing style fails the test on a change
+nobody made. A crosscheck test is a permanent tax paid to simulate what an
+import gives for free. It earns that cost when an import is impossible; here it
+is not.
 
-`machine-art-crosscheck.test.ts` imports `machineArt.tsx`, renders each portrait
-with `renderToStaticMarkup` (`react-dom/server` is already a dependency), strips
-the outer `<svg>` wrapper and the `aria-hidden`/`focusable` attributes the
-wrapper carries, normalises attribute order and whitespace, and asserts equality
-with the docs copy. It also asserts the two id sets match, so a machine drawn in
-the IDE and missing from the docs — or the reverse — fails.
+What is shared, unmodified: `machineArt.tsx` (440 lines, 13 portraits, 110 SVG
+elements), `machineArtIds.ts`, `useDismiss.ts`, and all three CSS modules
+(`Dialog`, `MachinePickerDialog`, `MachineTrigger` — 215 lines). The art in
+particular stops being something that *can* drift.
 
-*Alternative considered: generate `.svg` files into `docs/public/` from the React
-art and use `<img>`.* Rejected: it adds a generation step and a committed build
-artifact to a repo that hand-authors every other piece of docs data, and an
-`<img>` cannot take a `size` in the way the trigger and the list rows need
-without a second dimension source. The crosscheck gives the same
-cannot-drift guarantee without the pipeline.
+### `MachineLike` replaces `Dialect` in the picker
 
-*Alternative considered: extract the art to a dependency-free module under `src/`
-and import it from the docs.* Rejected: it buys zero duplication at the price of
-turning "the docs runtime never imports `src/`" into "the docs runtime never
-imports `src/`, except this one file", which every future reader then has to
-re-derive the safety of. The rule's value is that it needs no case analysis.
+```
+MachineLike { id, name, year, manufacturer, blurb }
+```
 
-*Alternative considered: pin by hash rather than by markup.* Rejected — a hash
-mismatch says "something changed" and nothing else. Comparing markup puts the
-actual diff in the failure output, which is what the person fixing it needs.
+Those five fields are everything `machinePicker.ts`, `MachineTrigger.tsx` and
+`MachinePickerDialog.tsx` read. `Dialect` satisfies it structurally, so no IDE
+caller changes; the docs' `MachineChoice` satisfies it once it gains
+`manufacturer`, `year` and `blurb` and renames `label` to `name`. No adapter on
+either side.
 
-### `machines.ts` grows the picker's fields; `makerOf` is deleted
+The reason to bother is subtler than "fewer fields". `src/dialects/types.ts` is
+**not** types-only — it exports `CharsetError`, `hasFatalErrors` and
+`fatalErrors` at runtime. Today's safety comes from the picker's imports being
+`import type` and therefore erased, which makes the leaf *accidentally* safe
+rather than *structurally* safe: a later contributor writing a value import from
+the same module would not be doing anything obviously wrong. Declaring
+`MachineLike` locally makes the shared leaves genuinely self-contained, which is
+what lets the import-graph guard assert something clean.
 
-`MachineChoice` gains `manufacturer`, `year` and `blurb`, matching `Dialect`
-exactly. `machines-crosscheck.test.ts` already asserts `label` and `page` per
-machine and extends to these three the same way.
+*Alternative considered: keep `Dialect` and have the docs build a conforming
+object.* Rejected — it puts an adapter in the docs whose only job is to satisfy
+a type the docs cannot import, and it leaves `types.ts` in the shared set.
 
-This *removes* a restatement rather than adding one. `makerOf` in `compare.md`
-is thirteen unpinned entries of the same information, sitting in a page's
-`<script setup>` where no test looks; its own comment concedes "a machine
-missing a heading just groups under its own label rather than breaking" — a
-silent degradation. Moving it into the pinned list makes the failure loud and
-puts all of a machine's docs facts in one file.
+### The dialog takes its machines as a prop
 
-`blurb` is the one field with no equivalent in the current guide, and it is the
-one that does the work the `<select>` could not: "The 1MHz cousin with a proper
-keyboard" tells a reader which BBC they are looking at in a way "BBC Master"
-alone does not.
+`MachinePickerDialog.tsx:15` computes `groupMachinesByManufacturer(dialects)` at
+module scope. That single line is the only registry reach in the picker and the
+only thing that made it unshareable. It becomes a `machines: readonly
+MachineLike[]` prop, grouped inside the component.
 
-### Port the two components; keep the logic in a plain sibling
+This finishes a sentence the component already started. Its own doc comment
+reads: *"Deliberately controlled and store-free: the New-project dialog points
+it at its own local choice, while the toolbar points it at `setDialect`. Keeping
+the store out is what lets one component serve both without either caller's
+semantics leaking into the other."* It was store-free but not registry-free —
+the list was the one thing it still reached out and took. A third caller is
+exactly the pressure that exposes that.
 
-`docs/.vitepress/theme/machinePicker.ts` mirrors
-`src/components/machinePicker.ts` — `groupMachinesByManufacturer`,
-`machineSummary`, `machineChoiceLabel`, and a trigger label — over the docs'
-`MachineChoice` rather than `Dialect`. The IDE keeps its component logic in
-plain `.ts` siblings for unit-testability and the docs theme already does the
-same (`dialectCompare.ts`, `escapeTable.ts`, `referenceTable.ts`); this follows
-both.
+Grouping moves from module scope into the component, so it is memoised on
+`machines` rather than computed once at import.
 
-The IDE's `targetMachineLabel` returns `Target machine: <name>`, which is wrong
-here — the guide has two fields and neither is "the target machine" in the IDE's
-sense. The docs helper takes the field's role, giving
-`Porting from: Commodore 64` / `Porting to: BBC Micro`, so the two triggers are
-distinguishable to a screen reader. This is the one place the wording
-deliberately diverges, and a unit test states why.
+### The docs mount it as a React island, on the Mermaid two-hop pattern
 
-`MachinePickerDialog.vue` reproduces the React dialog's structure: a
-`role="dialog" aria-modal="true"` panel, manufacturer `<h3>` headings, one
-`<button type="button" data-machine="<id>" :aria-pressed>` per machine carrying
-portrait, name, year and blurb, and a Cancel action. Focus moves to the pressed
-row on open, matching the IDE's "open on the current machine, so the keyboard
-starts where the eye does".
+A Vue wrapper (`MachinePicker.vue`) creates a React root in `onMounted` and
+tears it down in `onUnmounted`. It owns one `openField: 'from' | 'to' | null`
+for the pair, so opening one picker closes the other by construction — the IDE
+has no two-field case, so this is the one piece of genuinely new logic.
 
-Dismissal is Escape plus an outside `pointerdown`, the same two gestures
-`useDismiss` implements, written directly in the component rather than as a Vue
-port of the hook — it is roughly ten lines and the docs theme has no other
-consumer. `isOutside`'s composed-path test is the part worth copying exactly,
-because it is what makes the trigger's own click read as "inside" and avoids the
-double toggle.
+**The wrapper must be registered with `defineAsyncComponent` and must
+`import()` react-dom rather than import it statically.** This is mandatory, not
+stylistic. `config.ts:27-38` records what happens otherwise: VitePress emits a
+`<link rel="modulepreload">` for every *direct* dynamic import of the app entry
+chunk, which is how mermaid's ~2.1MB reached the preload list of all 39 pages
+when only one had a diagram. The Mermaid wrapper solves it with two dynamic hops
+— async component registration, and an `import()` inside — and the picker uses
+the same shape for the same reason.
 
-*Alternative considered: `<dialog>` with `showModal()`.* It would give
-focus-trapping and Escape for free. Rejected for now because VitePress renders
-these pages server-side and `<dialog>` needs an `onMounted` guard either way,
-and because matching the IDE's markup is what lets one set of e2e selectors
-describe both. Worth revisiting for both surfaces together, not for one.
+*Alternative considered: a web component / `defineCustomElement`.* Rejected —
+Vue is only a transitive dependency of VitePress, so a Vue custom element would
+put Vue in the *app's* bundle to render a docs component, and a vanilla custom
+element means authoring the picker a third time in an idiom that exists nowhere
+in this repo, with shadow-DOM theming and Playwright selectors that pierce
+shadow roots.
 
-### SSR: the dialog renders nothing until it is opened
+*Alternative considered: reimplement the picker in Vue and share only the data.*
+That was the previous design in a cheaper form. It still duplicates ~320 lines
+of markup and CSS and still needs the art shared somehow.
 
-VitePress statically renders every page. The trigger is plain markup and renders
-fine; the dialog is behind `v-if="open"` and so never renders during SSG, which
-also keeps 13 portraits × 2 fields out of the pre-rendered HTML. The trigger's
-own portrait does render — one per field, which is the point of it.
+### SSG: the picker is client-only, with a reserved placeholder
 
-### e2e selects through the picker, using the IDE's hooks
+VitePress statically renders every page; a React island cannot participate. The
+wrapper is `<ClientOnly>` with a placeholder sized to the trigger, so the
+picker's absence from the pre-rendered HTML costs a paint, not a layout shift.
 
-`data-target-machine` on the trigger and `data-machine` on each row are carried
-over verbatim from the IDE, including the reason they are distinct: machine
-names prefix one another, so text is an ambiguous selector, and the two
-attributes must not collide when both are on screen.
+This is a real regression against the pure-Vue alternative, where the trigger
+would have been in the static HTML. It is accepted: the trigger carries no
+content a reader needs before hydration — it names the machine they are about to
+change — and the sections below it, which are the page's substance, render
+statically as they do today.
 
-`convert-program.spec.ts`'s `frame.locator('select').nth(1).selectOption('cpc6128')`
-becomes: click the "porting to" trigger, click `[data-machine="cpc6128"]`. The
-`.nth(1)` positional index goes with it — a second field addressed by its
-position in the DOM is exactly the kind of selector that breaks silently when a
-control is added, and the trigger's role label gives it a name instead.
+### The styling transfers, because both surfaces are dark
 
-### The URL contract is untouched
+The three CSS modules use six custom properties: `--bg-panel`, `--bg-raised`,
+`--border`, `--text`, `--text-dim`, `--accent`. The docs are
+`appearance: 'force-dark'` and the IDE has no light theme, so a shim defining
+those six on the picker's root — values from `src/styles.css` — is the whole of
+the theming work. Vite handles `.module.css` natively, so the modules need no
+build configuration beyond the `vite:` section that gives the docs JSX.
 
-`syncUrl` fires on choice as it fired on `change`, with the same values. Machine
-ids are what the picker returns and what `?from=`/`?to=` already carry, so every
-existing shared link keeps working and `deepLinkParams.ts` is not edited.
+### The boundary becomes executable
+
+"The docs runtime never imports `src/`" becomes "the docs runtime never reaches
+`src/dialects/registry.ts` or `src/emulator/`" — the hazard the original rule
+was a proxy for. A test walks the transitive imports of each docs-importable
+leaf and asserts the resolved set contains neither.
+
+This is strictly better than the prose rule it replaces. The rule's stated
+virtue was that it needed no case analysis; the test makes the case analysis
+executable, which is the same virtue with a failure message attached. It also
+catches the realistic regression — someone adding a registry import to
+`machinePicker.ts` in six months — which the prose rule could only catch in
+review.
 
 ## Risks / Trade-offs
 
-- **The portraits are now maintained in two places.** → This is the accepted
-  cost of the import boundary, and it is the same bargain `machines.ts`,
-  `facts.ts` and every reference table already strike. The crosscheck is what
-  makes it safe: a redraw in `machineArt.tsx` fails the docs build's test run
-  with a markup diff naming the machine. The risk that remains is a redraw
-  *plus* a copied-across mismatch nobody reads — small, and no worse than the
-  existing pinned data.
-- **`renderToStaticMarkup` output is a React implementation detail.** A React
-  upgrade could change attribute ordering or self-closing style and fail the
-  crosscheck on a change nobody made. → Normalise before comparing (parse
-  attributes into a sorted map, collapse whitespace) rather than string-equating
-  raw output. The test compares shapes and fills, not React's formatting.
-- **Two fields, two modals, one page.** Opening the "from" picker while the "to"
-  picker is open would stack backdrops. → One `openField: 'from' | 'to' | null`
-  in `DialectCompare.vue` rather than a boolean per trigger, so opening one
-  closes the other by construction.
-- **The guide is embedded in an iframe.** A modal inside the docs drawer is
-  confined to the frame, so it cannot centre over the IDE the way the IDE's own
-  picker does. → Acceptable: the frame is the reading surface and the picker
-  belongs to the guide, not to the app. Worth checking the panel's `min(520px,
-  94vw)` still fits the drawer's width at its narrowest.
-- **Thirteen blurbs are new prose in the docs bundle.** → They are one line each
-  and already written; the portraits they sit beside are larger. Negligible next
-  to the reference tables.
-- **A machine registered without a portrait.** The IDE degrades to `generic`
-  rather than throwing, for the stated reason that art can lag registration. →
-  The docs copy carries `generic` and the same total resolution, so the guide
-  degrades identically instead of rendering an empty box.
+- **react-dom in the docs bundle.** ~45KB gzipped. → Lazy, on one page, via the
+  two-hop pattern. The check that it worked is inspecting the emitted chunks
+  after `docs:build`, not trusting the pattern was applied.
+- **The picker is absent from pre-rendered HTML.** → Placeholder sized to the
+  trigger. Accepted, per the SSG decision above.
+- **A React boundary inside a Vue app is a new thing to reason about.** → It is
+  confined to one wrapper file with an explicit mount/unmount lifecycle, and the
+  repo already has the analogous case in `Mermaid.vue` (a component whose real
+  work happens outside Vue's render).
+- **Docs TypeScript is never typechecked.** `tsconfig.app.json` includes only
+  `src`; `tsconfig.node.json` only `vite.config.ts`; nothing covers `docs/`.
+  Sharing makes this worse — a docs-side misuse of `MachineLike` fails silently
+  at runtime rather than at `tsc`. → Add a docs project to `tsc -b` as part of
+  this change. It is a pre-existing gap, but this change is what makes it bite.
+- **Nothing would catch a portrait rendering wrong.** There is no
+  `toHaveScreenshot` anywhere in `e2e/`, so the retype and prop refactor are
+  verified by types and by e2e that reads `data-machine` attributes — neither of
+  which sees pixels. → Compare the IDE's picker before and after by eye, and the
+  two surfaces side by side. Named here because it is the one risk the test
+  suite does not cover.
+- **Two IDE call sites now pass a list they did not pass before.** A caller
+  passing the wrong list would silently offer the wrong machines. → Both pass
+  `dialects` from the registry, which is what the component read itself; there
+  is no third list in the app to confuse it with.
 
 ## Migration Plan
 
@@ -207,9 +214,10 @@ No user data, no persisted state, no URL change — `?from=`/`?to=` keep their
 values and their meaning, so every existing shared link resolves exactly as it
 does today. The only external-facing difference is the control's appearance.
 
-Rollback is a straight revert. Nothing is written anywhere a revert would
-strand, and the crosscheck tests fail closed: if the docs copy is reverted and
-the art is not, the mismatch is reported rather than shipped.
+Rollback is a straight revert. The IDE changes are behaviour-neutral, so
+reverting the docs half alone is also safe if the island proves troublesome —
+`MachinePickerDialog` keeps working with a `machines` prop whether or not the
+docs use it.
 
 ## Open Questions
 
@@ -218,3 +226,8 @@ the art is not, the mismatch is reported rather than shipped.
   the toolbar's, and the year is a cheap way to separate a 464 from a 6128
   without opening the list — but it competes with the field's own "Porting
   from" label for the same glance.
+- The trigger's accessible name comes from `targetMachineLabel`, which returns
+  `Target machine: <name>` — correct in the IDE, wrong on a page with two
+  fields where neither is "the target machine". Does the shared helper gain a
+  role parameter, or does the docs wrapper override `aria-label` at the call
+  site? The former shares more; the latter leaves the IDE's helper alone.
