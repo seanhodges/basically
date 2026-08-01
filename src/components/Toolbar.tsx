@@ -17,6 +17,7 @@ import {
 import { MobileTabBar } from './MobileTabBar';
 import { InputOverlayToggle } from './InputOverlayToggle';
 import { MachineTrigger } from './MachineTrigger';
+import { TARGET_MACHINE_ROLE } from './machinePicker';
 import {
   SparkleIcon,
   GearIcon,
@@ -310,6 +311,7 @@ export function Toolbar() {
 
         <MachineTrigger
           dialect={dialect}
+          role={TARGET_MACHINE_ROLE}
           onClick={() => setMachinePickerOpen(true)}
           artSize={20}
           className={styles.targetButton}
@@ -551,6 +553,7 @@ export function Toolbar() {
                 {contextTab && <div className={styles.menuSeparator} />}
                 <MachineTrigger
                   dialect={dialect}
+                  role={TARGET_MACHINE_ROLE}
                   // Close the menu first: it dismisses itself on any outside
                   // pointerdown, and would tear down under the picker anyway.
                   onClick={() => {

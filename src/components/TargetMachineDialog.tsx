@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { useIdeStore } from '../app/store';
+import { dialects } from '../dialects/registry';
 import { MachinePickerDialog } from './MachinePickerDialog';
 
 /**
@@ -26,6 +27,7 @@ export function TargetMachineDialog() {
   return (
     <MachinePickerDialog
       open={open}
+      machines={dialects}
       selectedId={activeId}
       onChoose={(id) => {
         setOpen(false);

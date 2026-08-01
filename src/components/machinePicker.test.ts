@@ -3,18 +3,25 @@ import {
   groupMachinesByManufacturer,
   machineChoiceLabel,
   machineSummary,
+  machineTriggerLabel,
   targetMachineLabel,
+  type MachineLike,
 } from './machinePicker';
 import { dialects, getDialect } from '../dialects/registry';
 
-const c64 = getDialect('commodore64');
+// The picker asks a machine for five fields, and both surfaces that render it
+// supply them from their own list: the IDE from the registry, the porting guide
+// from `docs/reference/data/machines.ts`. The registry-driven cases below pass
+// dialects *as* `MachineLike`, which is the structural claim the docs rely on.
+const machines: readonly MachineLike[] = dialects;
+const c64: MachineLike = getDialect('commodore64');
 
 describe('grouping machines for the picker', () => {
-  const groups = groupMachinesByManufacturer(dialects);
+  const groups = groupMachinesByManufacturer(machines);
 
   it('covers every registered machine exactly once', () => {
     const grouped = groups.flatMap((g) => g.machines.map((d) => d.id));
-    expect(grouped.sort()).toEqual(dialects.map((d) => d.id).sort());
+    expect(grouped.sort()).toEqual(machines.map((d) => d.id).sort());
   });
 
   it('orders manufacturers alphabetically', () => {
@@ -49,8 +56,8 @@ describe('picker labels', () => {
   });
 
   it('disambiguates rows whose names prefix one another', () => {
-    const spectrum = getDialect('zxspectrum');
-    const spectrum128 = getDialect('zxspectrum128');
+    const spectrum: MachineLike = getDialect('zxspectrum');
+    const spectrum128: MachineLike = getDialect('zxspectrum128');
     expect(machineChoiceLabel(spectrum)).not.toBe(
       machineChoiceLabel(spectrum128),
     );
@@ -58,7 +65,14 @@ describe('picker labels', () => {
   });
 
   it('gives every registered machine a distinct row label', () => {
-    const labels = dialects.map(machineChoiceLabel);
-    expect(new Set(labels).size).toBe(dialects.length);
+    const labels = machines.map(machineChoiceLabel);
+    expect(new Set(labels).size).toBe(machines.length);
+  });
+
+  it('lets the caller name the part the machine plays', () => {
+    // The IDE's phrasing is one caller's, not the component's: in the porting
+    // guide one of the two triggers is the machine being ported *from*.
+    expect(machineTriggerLabel('Porting from', c64)).toBe('Porting from: C64');
+    expect(targetMachineLabel(c64)).toBe('Target machine: C64');
   });
 });

@@ -1,42 +1,49 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useDismiss } from '../app/useDismiss';
-import { dialects } from '../dialects/registry';
 import { MachineArt } from './machineArt';
 import {
   groupMachinesByManufacturer,
   machineChoiceLabel,
+  type MachineLike,
 } from './machinePicker';
 import dialog from './Dialog.module.css';
 import styles from './MachinePickerDialog.module.css';
 
-const groups = groupMachinesByManufacturer(dialects);
-
 /**
  * The machine list, grouped by manufacturer and illustrated - the one place a
- * target machine is chosen, whether that is while starting a project or while
- * switching the machine of the program already open.
+ * machine is chosen, whether that is while starting a project, while switching
+ * the machine of the program already open, or while choosing the two ends of a
+ * port in the docs' porting guide.
  *
- * Deliberately controlled and store-free: the New-project dialog points it at
- * its own local choice, while the toolbar points it at `setDialect`. Keeping
- * the store out is what lets one component serve both without either caller's
- * semantics leaking into the other.
+ * Deliberately controlled, store-free and registry-free: the New-project dialog
+ * points it at its own local choice, the toolbar points it at `setDialect`, and
+ * the porting guide points it at a list the docs own. Taking the machines as a
+ * prop rather than reading the registry is what lets it render outside the app
+ * at all - the registry imports every dialect index, and each pulls in an
+ * emulator core.
  */
 export function MachinePickerDialog({
   open,
+  machines,
   selectedId,
   onChoose,
   onDismiss,
 }: {
   open: boolean;
+  machines: readonly MachineLike[];
   selectedId: string;
   onChoose: (id: string) => void;
   onDismiss: () => void;
 }) {
   const ref = useDismiss<HTMLDivElement>(open, onDismiss);
   const listRef = useRef<HTMLDivElement>(null);
+  const groups = useMemo(
+    () => groupMachinesByManufacturer(machines),
+    [machines],
+  );
 
   // Open on the current machine, so the keyboard starts where the eye does.
   useEffect(() => {

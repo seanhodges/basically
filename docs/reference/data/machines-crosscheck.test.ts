@@ -2,16 +2,26 @@
  * Pins the comparison's machine list to the dialect registry, so the porting
  * guide cannot fall behind the IDE.
  *
- * The docs runtime may never import `src/` - the registry pulls in every
- * emulator core - so `machines.ts` restates what the registry knows. This file
- * is what makes that restatement safe: a newly registered dialect, a renamed
- * machine or a changed `docsReference` fails here until `machines.ts` agrees.
+ * The docs runtime may never reach the registry - it pulls in every emulator
+ * core - so `machines.ts` restates what the registry knows. This file is what
+ * makes that restatement safe: a newly registered dialect, a renamed machine, a
+ * changed `docsReference` or a reworded blurb fails here until `machines.ts`
+ * agrees.
+ *
+ * The manufacturer, year and blurb are pinned for the same reason the name is:
+ * the guide renders the IDE's own machine picker, which shows all three. They
+ * replace a `makerOf` map that `compare.md` inlined with nothing pinning it, so
+ * a machine missing a manufacturer used to group silently under its own name.
  *
  * Like the sibling crosschecks it imports `src/` freely: vitest runs it in node
  * and the VitePress bundle never includes *.test.ts.
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../../../src/dialects/registry';
+import {
+  groupMachinesByManufacturer,
+  type MachineLike,
+} from '../../../src/components/machinePicker';
 import { machines } from './machines';
 
 const registryIds = dialects.map((d) => d.id).sort();
@@ -22,14 +32,34 @@ describe('machine list', () => {
   });
 
   it.each(dialects.map((d) => [d.id, d] as const))(
-    '%s carries the dialect name and docs page',
+    '%s carries the dialect name, docs page and picker facts',
     (id, dialect) => {
       const choice = machines.find((m) => m.id === id);
       expect(choice).toBeDefined();
-      expect(choice!.label).toBe(dialect.name);
+      expect(choice!.name).toBe(dialect.name);
       expect(choice!.page).toBe(dialect.docsReference ?? dialect.id);
+      expect(choice!.manufacturer).toBe(dialect.manufacturer);
+      expect(choice!.year).toBe(dialect.year);
+      expect(choice!.blurb).toBe(dialect.blurb);
     },
   );
+});
+
+describe('what the picker asks of a machine', () => {
+  // `MachineChoice` has to satisfy `MachineLike` for the guide to render the
+  // IDE's picker at all. The check is a type assignment rather than an
+  // assertion: it fails at `tsc`, where the mistake is made.
+  it('supplies every field the shared picker reads', () => {
+    const asMachines: readonly MachineLike[] = machines;
+    expect(asMachines).toHaveLength(machines.length);
+    // And the picker's own grouping agrees with the registry, so the list the
+    // guide shows is ordered exactly as the IDE's is.
+    for (const group of groupMachinesByManufacturer(asMachines)) {
+      for (const machine of group.machines) {
+        expect(machine.manufacturer).toBe(group.manufacturer);
+      }
+    }
+  });
 });
 
 describe('selection namespace', () => {

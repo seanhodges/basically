@@ -49,27 +49,21 @@ const escapesByPage = {
   zx81: zx81Escapes,
 };
 
-// Manufacturer headings for the dropdown. Restated here rather than read from
-// the registry because these docs never import src/; machines-crosscheck.test.ts
-// pins the machine list itself, and a machine missing a heading just groups
-// under its own label rather than breaking.
-const makerOf = {
-  atom: 'Acorn', bbcmicro: 'Acorn', bbcmaster: 'Acorn',
-  pet: 'Commodore', vic20: 'Commodore', commodore64: 'Commodore',
-  cpc464: 'Amstrad', cpc6128: 'Amstrad',
-  trs80: 'Tandy',
-  zx80: 'Sinclair', zx81: 'Sinclair',
-  zxspectrum: 'Sinclair', zxspectrum128: 'Sinclair',
-};
-
 const factsFor = (id) => portingFacts.find((f) => f.id === id);
 
+// The manufacturer, year and blurb are what the machine picker shows on a row.
+// They come from machines.ts, where machines-crosscheck.test.ts pins each of
+// them to the registry - unlike the manufacturer map that used to be inlined
+// here, which nothing checked and which grouped a machine under its own name
+// when it was missing.
 const dialects = machineList.map((m) => ({
   id: m.id,
   page: m.page,
   machine: m.id,
-  label: m.label,
-  group: makerOf[m.id],
+  name: m.name,
+  manufacturer: m.manufacturer,
+  year: m.year,
+  blurb: m.blurb,
   reference: referenceByPage[m.page],
   escapes: escapesByPage[m.page],
   facts: factsFor(m.id),

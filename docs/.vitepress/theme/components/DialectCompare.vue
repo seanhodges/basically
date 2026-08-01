@@ -51,10 +51,16 @@ interface DialectOption {
   id: string;
   /** Reference page slug (e.g. "cpc"), for reference links and pair data. */
   page: string;
-  /** Human name shown in the dropdown. */
-  label: string;
-  /** Manufacturer, for grouping the dropdown. */
-  group?: string;
+  /**
+   * The four fields the machine picker reads beyond `id`, which together make
+   * this a `MachineLike` (src/components/machinePicker.ts) - the guide renders
+   * the IDE's own picker, so it supplies what that picker asks of a machine.
+   * `name` is also what every sentence on this page calls the machine.
+   */
+  name: string;
+  manufacturer: string;
+  year: number;
+  blurb: string;
   reference: ReferenceTableData;
   escapes?: EscapeTableData;
   facts: PortingFacts;
@@ -94,22 +100,18 @@ function optionFor(id: string): DialectOption | undefined {
 }
 
 /**
- * Dropdown options under manufacturer headings.
+ * A field's choice, from the picker. The two fields are one component so that
+ * opening one closes the other; which of them changed comes back here.
  *
- * Thirteen flat options is a list to search rather than scan; grouped, it is
- * the same shape as the machine picker in the IDE. Order comes from the option
- * array, so `machines.ts` decides it in one place.
+ * `syncUrl` runs exactly where the `<select>`'s `@change` used to call it, so
+ * `?from=`/`?to=` keep their values and every link already shared still
+ * resolves to the comparison it named.
  */
-const optionGroups = computed(() => {
-  const groups: { label: string; options: DialectOption[] }[] = [];
-  for (const option of props.dialects) {
-    const label = option.group ?? option.label;
-    const existing = groups.find((g) => g.label === label);
-    if (existing) existing.options.push(option);
-    else groups.push({ label, options: [option] });
-  }
-  return groups;
-});
+function choose(field: 'from' | 'to', id: string) {
+  if (field === 'from') from.value = id;
+  else to.value = id;
+  syncUrl();
+}
 
 const source = computed(() => optionFor(from.value));
 const target = computed(() => optionFor(to.value));
@@ -461,9 +463,7 @@ const summary = computed(() => {
     }`,
   ];
   if (gainingCount.value)
-    rest.push(
-      `${t.label} adds ${count(gainingCount.value, 'capability area')}`,
-    );
+    rest.push(`${t.name} adds ${count(gainingCount.value, 'capability area')}`);
   sentences.push(`${listOf(rest)}.`);
   return sentences.join(' ');
 });
@@ -498,25 +498,25 @@ const legend = computed<LegendItem[]>(() => {
     items.push({
       key: 'none',
       className: 'cmp-key-none',
-      label: `Nothing like it in ${t.label}`,
+      label: `Nothing like it in ${t.name}`,
     });
   if (groups.some((s) => losing(s, 'partial')))
     items.push({
       key: 'partial',
       className: 'cmp-key-partial',
-      label: `Only partly covered in ${t.label}`,
+      label: `Only partly covered in ${t.name}`,
     });
   if (groups.some((s) => losing(s, 'full')))
     items.push({
       key: 'full',
       className: 'cmp-key-full',
-      label: `Covered in ${t.label} under other names`,
+      label: `Covered in ${t.name} under other names`,
     });
   if (groups.some((s) => !s.entries.length))
     items.push({
       key: 'gain',
       className: 'cmp-key-gain',
-      label: `Nothing to replace — ${t.label} only adds here`,
+      label: `Nothing to replace — ${t.name} only adds here`,
     });
   return items;
 });
@@ -618,7 +618,7 @@ function convertWithAi() {
   const t = target.value;
   if (!t) return;
   window.parent.postMessage(
-    { type: CONVERT_MESSAGE, toId: t.id, toLabel: t.label },
+    { type: CONVERT_MESSAGE, toId: t.id, toLabel: t.name },
     window.location.origin,
   );
 }
@@ -633,35 +633,22 @@ function convertWithAi() {
     -->
     <div class="cmp-panel">
       <div class="cmp-controls">
-        <label class="cmp-field">
-          <span>Porting from</span>
-          <select v-model="from" @change="syncUrl">
-            <optgroup v-for="g in optionGroups" :key="g.label" :label="g.label">
-              <option v-for="d in g.options" :key="d.id" :value="d.id">
-                {{ d.label }}
-              </option>
-            </optgroup>
-          </select>
-        </label>
-        <button
-          type="button"
-          class="cmp-swap"
-          title="Swap source and target"
-          aria-label="Swap source and target"
-          @click="swap"
+        <MachinePicker
+          :machines="props.dialects"
+          :from="from"
+          :to="to"
+          @choose="choose"
         >
-          ⇄
-        </button>
-        <label class="cmp-field">
-          <span>to</span>
-          <select v-model="to" @change="syncUrl">
-            <optgroup v-for="g in optionGroups" :key="g.label" :label="g.label">
-              <option v-for="d in g.options" :key="d.id" :value="d.id">
-                {{ d.label }}
-              </option>
-            </optgroup>
-          </select>
-        </label>
+          <button
+            type="button"
+            class="cmp-swap"
+            title="Swap source and target"
+            aria-label="Swap source and target"
+            @click="swap"
+          >
+            ⇄
+          </button>
+        </MachinePicker>
         <button
           type="button"
           class="cmp-copy"
@@ -687,7 +674,7 @@ function convertWithAi() {
 
       <template v-else-if="source && target && keywordDiff">
         <p class="cmp-summary">
-          <strong>{{ source.label }} → {{ target.label }}:</strong>
+          <strong>{{ source.name }} → {{ target.name }}:</strong>
           {{ summary }}
         </p>
         <!--
@@ -703,11 +690,11 @@ function convertWithAi() {
         </nav>
         <p class="cmp-links">
           Full reference:
-          <a :href="refLinks(source.page).reference">{{ source.label }}</a>
+          <a :href="refLinks(source.page).reference">{{ source.name }}</a>
           (<a :href="refLinks(source.page).hardware">hardware</a>,
           <a :href="refLinks(source.page).escapes">escape codes</a>,
           <a :href="refLinks(source.page).formats">file formats</a>) ·
-          <a :href="refLinks(target.page).reference">{{ target.label }}</a>
+          <a :href="refLinks(target.page).reference">{{ target.name }}</a>
           (<a :href="refLinks(target.page).hardware">hardware</a>,
           <a :href="refLinks(target.page).escapes">escape codes</a>,
           <a :href="refLinks(target.page).formats">file formats</a>)
@@ -735,8 +722,8 @@ function convertWithAi() {
           <thead>
             <tr>
               <th></th>
-              <th>{{ source.label }}</th>
-              <th>{{ target.label }}</th>
+              <th>{{ source.name }}</th>
+              <th>{{ target.name }}</th>
             </tr>
           </thead>
           <tbody>
@@ -768,7 +755,7 @@ function convertWithAi() {
         id="guidance"
         class="cmp-section cmp-guidance"
       >
-        <h2>Before you start: {{ source.label }} → {{ target.label }}</h2>
+        <h2>Before you start: {{ source.name }} → {{ target.name }}</h2>
         <ul class="cmp-notes">
           <li
             v-for="note in guidance.pairNotes"
@@ -823,9 +810,9 @@ function convertWithAi() {
           <li v-for="t in falseFriendsList.visible" :key="t.keyword">
             <code>{{ t.keyword }}</code>
             <span class="cmp-change-detail">
-              <span class="cmp-from">{{ source.label }}: {{ t.from }}</span>
+              <span class="cmp-from">{{ source.name }}: {{ t.from }}</span>
               <span class="cmp-arrow">→</span>
-              <span class="cmp-to">{{ target.label }}: {{ t.to }}</span>
+              <span class="cmp-to">{{ target.name }}: {{ t.to }}</span>
             </span>
           </li>
           <li
@@ -856,13 +843,13 @@ function convertWithAi() {
         <h2>What changes</h2>
         <p class="cmp-hint">
           {{ count(keywordDiff.mustReplace.length, 'command') }} to rewrite or
-          remove, grouped by what they do, with what {{ target.label }} offers
-          in their place. The capabilities {{ target.label }} has no equivalent
-          of at all come first.
+          remove, grouped by what they do, with what {{ target.name }} offers in
+          their place. The capabilities {{ target.name }} has no equivalent of
+          at all come first.
         </p>
         <label v-if="gainingCount" class="cmp-toggle">
           <input v-model="showAdditions" type="checkbox" />
-          Show what {{ target.label }} adds that the program has not used
+          Show what {{ target.name }} adds that the program has not used
         </label>
         <div
           v-for="s in visibleCapabilities"
@@ -899,16 +886,16 @@ function convertWithAi() {
               v-if="s.entries.length && s.support === 'none'"
               class="cmp-group-none"
             >
-              nothing like it in {{ target.label }}
+              nothing like it in {{ target.name }}
             </span>
             <span
               v-else-if="s.entries.length && s.support === 'partial'"
               class="cmp-group-partial-badge"
             >
-              only partly covered in {{ target.label }}
+              only partly covered in {{ target.name }}
             </span>
             <span v-else-if="!s.entries.length" class="cmp-group-gain-badge">
-              nothing to replace — {{ target.label }} adds
+              nothing to replace — {{ target.name }} adds
               {{ s.gained?.count }} here
             </span>
           </h3>
@@ -948,7 +935,7 @@ function convertWithAi() {
           -->
           <p v-if="s.gained" class="cmp-group-gain">
             <span v-if="s.entries.length" class="cmp-gain-lead"
-              >{{ target.label }} adds {{ s.gained.count }} here.</span
+              >{{ target.name }} adds {{ s.gained.count }} here.</span
             >
             {{ s.gained.summary }}
             <span
@@ -966,7 +953,7 @@ function convertWithAi() {
         <!-- Say what the filter is holding back, so it is discoverable. -->
         <p v-if="!showAdditions && gainingCount" class="cmp-empty">
           {{ count(gainingCount, 'capability area') }}
-          {{ target.label }} only adds to
+          {{ target.name }} only adds to
           {{ gainingCount === 1 ? 'is' : 'are' }} hidden.
         </p>
       </section>
@@ -1009,7 +996,7 @@ function convertWithAi() {
         -->
         <p v-if="parensChanged.length" class="cmp-change-rule">
           {{ count(parensChanged.length, 'command') }} differing only in whether
-          the argument is bracketed — write them as {{ target.label }} does:
+          the argument is bracketed — write them as {{ target.name }} does:
           <span v-for="(c, i) in parensChanged" :key="c.name" class="cmp-name">
             <code>{{ c.name }}</code
             ><span v-if="i < parensChanged.length - 1" class="cmp-sep">, </span>
@@ -1023,12 +1010,12 @@ function convertWithAi() {
             </span>
             <span class="cmp-change-detail">
               <span class="cmp-from"
-                >{{ source.label }}: {{ c.from.kind }} ·
+                >{{ source.name }}: {{ c.from.kind }} ·
                 <code>{{ c.from.syntax }}</code></span
               >
               <span class="cmp-arrow">→</span>
               <span class="cmp-to"
-                >{{ target.label }}: {{ c.to.kind }} ·
+                >{{ target.name }}: {{ c.to.kind }} ·
                 <code>{{ c.to.syntax }}</code></span
               >
             </span>
@@ -1071,13 +1058,13 @@ function convertWithAi() {
           Embedded colour and graphics control codes differ between the
           machines. Grouped by what they do; the
           <a :href="refLinks(source.page).escapes"
-            >{{ source.label }} escape-code reference</a
+            >{{ source.name }} escape-code reference</a
           >
           gives every code's meaning.
         </p>
         <label v-if="escapeAdded" class="cmp-toggle">
           <input v-model="showAdditions" type="checkbox" />
-          Show what {{ target.label }} adds that the program has not used
+          Show what {{ target.name }} adds that the program has not used
         </label>
         <div
           v-for="s in escReplaceSections"
@@ -1096,10 +1083,10 @@ function convertWithAi() {
           </p>
         </div>
         <p v-if="!escReplaceSections.length" class="cmp-empty">
-          No {{ source.label }} control code needs replacing.
+          No {{ source.name }} control code needs replacing.
         </p>
         <p v-if="escapeAdded && showAdditions" class="cmp-esc-gain">
-          {{ target.label }} adds {{ count(escapeAdded, 'code') }} across
+          {{ target.name }} adds {{ count(escapeAdded, 'code') }} across
           {{ count(escapeAddedCategories, 'category', 'categories') }} the
           program has not used —
           <a :href="refLinks(target.page).escapes"
@@ -1128,23 +1115,8 @@ function convertWithAi() {
   gap: 0.75rem;
   margin: 0;
 }
-.cmp-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.8rem;
-  color: var(--vp-c-text-2);
-}
-/* Inputs sit on the soft panel, so give them the base background to lift
-   them off it. */
-.cmp-field select {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 6px;
-  background: var(--vp-c-bg);
-  color: var(--vp-c-text-1);
-  font-size: 0.9rem;
-}
+/* The two machine fields are rendered by MachinePicker, which styles them:
+   a scoped rule here would not reach inside a child component anyway. */
 .cmp-swap,
 .cmp-copy {
   padding: 0.4rem 0.7rem;
@@ -1158,6 +1130,24 @@ function convertWithAi() {
 .cmp-copy.copied {
   color: var(--vp-c-green-1);
   border-color: var(--vp-c-green-1);
+}
+/* Narrow: a phone, or the IDE's docs drawer, which is an iframe and so has a
+   viewport of its own. Left to wrap on their own the five controls break
+   wherever they happen to run out of room - the swap button beside "Porting
+   from", and "to" sharing a line with Copy link, which reads as two unrelated
+   pairs rather than two machines and some actions. Each machine gets a line,
+   and the buttons that act on the pair follow on a line below it. */
+@media (max-width: 640px) {
+  /* `:deep` because MachinePicker renders the fields; the *layout* of the row
+     they sit in is this component's, which is why the rule lives here. */
+  .cmp-controls :deep(.mp-field) {
+    flex: 1 0 100%;
+  }
+  .cmp-swap,
+  .cmp-copy,
+  .cmp-ai-button {
+    order: 1;
+  }
 }
 /* Sits inside the panel under the controls, so a divider rather than its own
    box separates it from them. */

@@ -12,12 +12,32 @@
  * the toolbar's target switcher, so its logic is no longer new-project specific.
  */
 
-import type { Dialect } from '../dialects/types';
+/**
+ * Everything the picker asks of a machine: five fields, no more. `Dialect`
+ * satisfies it structurally, and so does the porting guide's `MachineChoice` -
+ * which is what lets one picker serve the IDE and the docs without an adapter
+ * on either side.
+ *
+ * Declared here rather than imported from `../dialects/types`, so this module
+ * and the components built on it are genuinely self-contained. `types.ts` is
+ * not types-only - it exports `CharsetError` and friends at runtime - so a
+ * picker that imported it would be safe to bundle into the docs only for as
+ * long as every one of those imports stayed an erased `import type`. The
+ * import-graph guard (`machinePickerBoundary.test.ts`) has something clean to
+ * assert because of this.
+ */
+export interface MachineLike {
+  id: string;
+  name: string;
+  year: number;
+  manufacturer: string;
+  blurb: string;
+}
 
 /** One manufacturer's machines, as shown in the picker. */
 export interface MachineGroup {
   manufacturer: string;
-  machines: Dialect[];
+  machines: MachineLike[];
 }
 
 /**
@@ -27,9 +47,9 @@ export interface MachineGroup {
  * shift as dialects are registered.
  */
 export function groupMachinesByManufacturer(
-  machines: readonly Dialect[],
+  machines: readonly MachineLike[],
 ): MachineGroup[] {
-  const byMaker = new Map<string, Dialect[]>();
+  const byMaker = new Map<string, MachineLike[]>();
   for (const d of machines) {
     const group = byMaker.get(d.manufacturer);
     if (group) group.push(d);
@@ -49,23 +69,43 @@ export function groupMachinesByManufacturer(
  * Maker and year for a machine, e.g. `'Commodore 1982'`. Shown beside the name
  * on a collapsed trigger, where the manufacturer group heading is not in view.
  */
-export function machineSummary(dialect: Dialect): string {
-  return `${dialect.manufacturer} ${dialect.year}`;
+export function machineSummary(machine: MachineLike): string {
+  return `${machine.manufacturer} ${machine.year}`;
 }
 
 /**
  * The accessible name of the control that opens the picker. It names the
- * current machine as well as the control's purpose, because the label is hidden
- * at narrow widths and the illustration alone carries no text.
+ * current machine as well as the part the control plays, because the label is
+ * hidden at narrow widths and the illustration alone carries no text.
+ *
+ * The role is the caller's to supply: the IDE has one machine and it is the
+ * target, while the porting guide has two and one of them is the machine being
+ * ported *from* - which "Target machine" would describe not merely tersely but
+ * wrongly.
  */
-export function targetMachineLabel(dialect: Dialect): string {
-  return `Target machine: ${dialect.name}`;
+export function machineTriggerLabel(
+  role: string,
+  machine: MachineLike,
+): string {
+  return `${role}: ${machine.name}`;
+}
+
+/** The role every machine control in the IDE plays. */
+export const TARGET_MACHINE_ROLE = 'Target machine';
+
+/**
+ * The accessible name an IDE trigger ends up with - `targetMachineLabel` and
+ * `TARGET_MACHINE_ROLE` are the same fact stated for the two things that need
+ * it, the label a reader hears and the prop a call site passes.
+ */
+export function targetMachineLabel(machine: MachineLike): string {
+  return machineTriggerLabel(TARGET_MACHINE_ROLE, machine);
 }
 
 /**
  * The accessible name of a machine's row in the picker. Names prefix one
  * another ("Spectrum" / "Spectrum 128"), so the maker and year disambiguate.
  */
-export function machineChoiceLabel(dialect: Dialect): string {
-  return `${dialect.name}, ${machineSummary(dialect)}`;
+export function machineChoiceLabel(machine: MachineLike): string {
+  return `${machine.name}, ${machineSummary(machine)}`;
 }
