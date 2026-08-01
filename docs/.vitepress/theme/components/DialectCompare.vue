@@ -1131,6 +1131,24 @@ function convertWithAi() {
   color: var(--vp-c-green-1);
   border-color: var(--vp-c-green-1);
 }
+/* Narrow: a phone, or the IDE's docs drawer, which is an iframe and so has a
+   viewport of its own. Left to wrap on their own the five controls break
+   wherever they happen to run out of room - the swap button beside "Porting
+   from", and "to" sharing a line with Copy link, which reads as two unrelated
+   pairs rather than two machines and some actions. Each machine gets a line,
+   and the buttons that act on the pair follow on a line below it. */
+@media (max-width: 640px) {
+  /* `:deep` because MachinePicker renders the fields; the *layout* of the row
+     they sit in is this component's, which is why the rule lives here. */
+  .cmp-controls :deep(.mp-field) {
+    flex: 1 0 100%;
+  }
+  .cmp-swap,
+  .cmp-copy,
+  .cmp-ai-button {
+    order: 1;
+  }
+}
 /* Sits inside the panel under the controls, so a divider rather than its own
    box separates it from them. */
 .cmp-summary {
