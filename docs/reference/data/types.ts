@@ -257,6 +257,18 @@ export interface PortingFacts {
    * own 3583, an order of magnitude out.
    */
   id: string;
+  /**
+   * The BASIC this machine runs, named as its own documentation names it -
+   * "Commodore BASIC V2", "BBC BASIC IV", "Locomotive BASIC 1.1".
+   *
+   * Per machine rather than per page, like every other fact here: the two BBCs
+   * share a reference page and run different versions of BASIC, which is
+   * precisely the difference a porter reading "BBC BASIC (Micro & Master)"
+   * cannot see. Pinned by facts-crosscheck.test.ts to the name the dialect's
+   * own `blurb` gives, so the guide and the machine picker cannot disagree
+   * about what a machine runs.
+   */
+  basicDialect: string;
   // --- Language rules (hand-authored) ---
   /** Valid line-number range as written, e.g. "1–9999". */
   lineNumberRange: string;

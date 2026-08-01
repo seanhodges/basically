@@ -23,6 +23,7 @@ import {
 const entries: PortingFactsEntry[] = [
   {
     id: 'zx81',
+    basicDialect: 'ZX81 BASIC',
     portingNotes: [
       {
         text: 'One statement per line, and LET is required on every assignment.',
@@ -74,6 +75,7 @@ const entries: PortingFactsEntry[] = [
   },
   {
     id: 'zx80',
+    basicDialect: 'ZX80 BASIC',
     portingNotes: [
       {
         text: 'Integer only. There is no floating point, values run -32768 to 32767, and division truncates — rescale anything fractional.',
@@ -130,6 +132,7 @@ const entries: PortingFactsEntry[] = [
   },
   {
     id: 'zxspectrum',
+    basicDialect: '48K Sinclair BASIC',
     portingNotes: [
       {
         text: 'Listings spell the jumps GO TO and GO SUB with a space; the glued forms are accepted on entry.',
@@ -182,6 +185,7 @@ const entries: PortingFactsEntry[] = [
   },
   {
     id: 'bbcmicro',
+    basicDialect: 'BBC BASIC II',
     portingNotes: [
       {
         text: 'Structured: DEF PROC…ENDPROC, DEF FN and REPEAT…UNTIL — but there is no WHILE.',
@@ -238,6 +242,7 @@ const entries: PortingFactsEntry[] = [
   },
   {
     id: 'commodore64',
+    basicDialect: 'Commodore BASIC V2',
     portingNotes: [
       {
         text: 'There is no ELSE — every IF…THEN…ELSE has to be restructured.',
@@ -303,6 +308,7 @@ const entries: PortingFactsEntry[] = [
   },
   {
     id: 'atom',
+    basicDialect: 'Atom BASIC',
     portingNotes: [
       {
         text: "Statements on a line are separated by ';', not ':', and there is no ELSE.",
@@ -373,6 +379,7 @@ const entries: PortingFactsEntry[] = [
   },
   {
     id: 'trs80',
+    basicDialect: 'Level II BASIC',
     portingNotes: [
       {
         text: 'Only the first two characters of a variable name are significant, and a name containing a reserved word is a syntax error.',
@@ -435,6 +442,7 @@ const entries: PortingFactsEntry[] = [
   },
   {
     id: 'cpc464',
+    basicDialect: 'Locomotive BASIC 1.0',
     portingNotes: [
       {
         text: 'Locomotive is the richest of these BASICs: real ELSE, WHILE…WEND, and AFTER/EVERY interrupt timers that call a subroutine on a clock.',
@@ -490,13 +498,16 @@ const entries: PortingFactsEntry[] = [
 
   // --- Variants -----------------------------------------------------------
   // Each states only what differs from the relative it extends. What is absent
-  // here is shared, and shared deliberately: the 128K Spectrum runs the same
-  // BASIC in the same memory map as a 48K, and a CPC 6128 differs from a 464 in
-  // its keyword set (which the reference table carries) rather than its facts.
+  // here is shared, and shared deliberately: the 128K Spectrum runs its BASIC in
+  // the same memory map and to the same language rules as a 48K, and a CPC 6128
+  // differs from a 464 in its keyword set (which the reference table carries)
+  // rather than its hardware figures. The BASIC each of them runs is still its
+  // own, and every variant below names it.
 
   {
     id: 'zxspectrum128',
     extends: 'zxspectrum',
+    basicDialect: '128 Sinclair BASIC',
     // Same 41472-byte BASIC area and memory map as the 48K: the extra 64K is
     // bank-switched RAM the interpreter uses for its own workspace, not program
     // space. The audible difference is the whole difference.
@@ -505,6 +516,7 @@ const entries: PortingFactsEntry[] = [
   {
     id: 'bbcmaster',
     extends: 'bbcmicro',
+    basicDialect: 'BBC BASIC IV',
     freeRamBytes: 30720,
     // Shadow screen memory keeps the display out of the program's way, so BASIC
     // text starts lower than the Model B's &1900.
@@ -513,6 +525,7 @@ const entries: PortingFactsEntry[] = [
   {
     id: 'pet',
     extends: 'commodore64',
+    basicDialect: 'Commodore BASIC 4.0',
     freeRamBytes: 31743,
     screenBase: '$8000',
     programStart: '$0400',
@@ -525,6 +538,8 @@ const entries: PortingFactsEntry[] = [
   {
     id: 'vic20',
     extends: 'commodore64',
+    // Commodore BASIC V2 inherited from the C64, and genuinely the same BASIC:
+    // the two differ in hardware, which is what the figures below state.
     // The smallest BASIC budget of any machine here by an order of magnitude:
     // a program that fits a C64 very often will not fit unexpanded.
     freeRamBytes: 3583,
@@ -537,10 +552,12 @@ const entries: PortingFactsEntry[] = [
   {
     id: 'cpc6128',
     extends: 'cpc464',
+    basicDialect: 'Locomotive BASIC 1.1',
     // Identical on every crosschecked figure: the 6128's extra 64K is banked,
     // not BASIC program space, so its free RAM matches the 464's exactly. What
     // it adds is the twelve BASIC 1.1 commands, which the reference table
-    // carries as rows scoped to this machine.
+    // carries as rows scoped to this machine - and the version name above,
+    // which is what tells a reader why those twelve are there.
   },
 ];
 

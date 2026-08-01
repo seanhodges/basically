@@ -12,7 +12,7 @@ additionally offer to carry the port out with the AI assistant.
 
 ## Requirements
 
-### Requirement: Comparing two BASIC dialects
+### Requirement: Comparing two machines
 
 The user SHALL be able to choose a machine to port **from** and a machine to
 port **to**, and be told what moving a program between them involves: which
@@ -47,6 +47,43 @@ shared link cannot be ambiguous about which machine it names.
 
 - **WHEN** a comparison is shared as a link and reopened
 - **THEN** each side resolves to exactly the machine that was chosen
+
+### Requirement: Choosing a machine distinguishes it from its relatives
+
+Machines that share a BASIC often have names that prefix or echo one another,
+and those are exactly the pairs whose comparisons differ most — in free memory,
+in the commands available, and in which machine a port is carried out for. The
+choice of machine SHALL therefore identify each one by more than its name, so
+that a reader can tell two machines of the same family apart while choosing,
+rather than only on reading the comparison that follows.
+
+The machine currently chosen SHALL remain identifiable without reopening the
+list.
+
+#### Scenario: Telling two machines of a family apart
+
+- **WHEN** the user is choosing between two machines whose names prefix or echo
+  one another
+- **THEN** each is identified by more than its name, so which is which is
+  apparent before the comparison is drawn
+
+#### Scenario: Seeing what is currently chosen
+
+- **WHEN** the user has chosen a machine and is not looking at the list of
+  machines
+- **THEN** the machine chosen is still identified
+
+#### Scenario: Choosing without a pointer
+
+- **WHEN** the user operates the choice of machine by keyboard alone
+- **THEN** each machine can be reached and chosen, and each is named
+  unambiguously
+
+#### Scenario: Which choice is being made
+
+- **WHEN** the user is presented with the choice of machine to port from and the
+  choice of machine to port to
+- **THEN** each states which of the two it is
 
 ### Requirement: A command is reported only for machines that have it
 
@@ -134,14 +171,78 @@ SHALL NOT be placed between two sections that do.
 - **WHEN** the comparison presents guidance that is the same whichever pair is chosen
 - **THEN** that guidance is not interleaved with the sections that describe the chosen pair
 
+### Requirement: The comparison names the BASIC each machine runs
+
+The language and hardware differences SHALL name the BASIC each of the two
+chosen machines runs, as its own version is named, and SHALL report it before
+every other language or hardware difference.
+
+The name SHALL be that of the machine chosen, not of the family it belongs to:
+machines that share a reference for their BASIC do not always run the same
+version of it, and that version is what a difference in the commands available
+follows from. Two machines that genuinely run the same BASIC SHALL be named the
+same, so a reader can tell a port between two BASICs from a port between two
+versions of one.
+
+#### Scenario: Two machines running different versions of one BASIC
+
+- **WHEN** the user compares two machines of the same family whose BASIC
+  versions differ
+- **THEN** each is named with the version it runs, ahead of the other language
+  and hardware differences
+
+#### Scenario: Two machines running the same BASIC
+
+- **WHEN** the user compares two machines that run the same BASIC
+- **THEN** both are named with that same BASIC, and the comparison reports no
+  difference in the BASIC they run
+
+#### Scenario: The BASIC a machine runs is named consistently
+
+- **WHEN** the user reads the name of a machine's BASIC while choosing it and
+  again in the comparison
+- **THEN** the two agree
+
+### Requirement: The language and hardware differences are ordered by what the port turns on
+
+The language and hardware differences SHALL be reported in a fixed order that
+does not vary with the pair chosen, running from the differences that decide how
+much of the program must change to those that affect only a program that reads
+or writes memory directly.
+
+The differences that describe memory — how memory is written, how an address is
+written, and the addresses themselves — SHALL be reported together as one run
+rather than interleaved with the language rules, and the addresses SHALL be
+adjacent within it, so a reader needing them finds them in one place and a
+reader who does not passes them in one step.
+
+#### Scenario: Reading the differences top to bottom
+
+- **WHEN** the user reads the language and hardware differences from the top
+- **THEN** the BASIC each machine runs, how it handles numbers, and how much
+  program memory it has are reached before the rules that affect only how
+  individual statements are written
+
+#### Scenario: Finding the memory addresses
+
+- **WHEN** the comparison reports the machines' memory addresses
+- **THEN** they are reported next to each other, within one run of the
+  memory-related differences, rather than separated by unrelated rows
+
+#### Scenario: The order does not depend on the pair
+
+- **WHEN** the user changes which machines are compared
+- **THEN** the differences that are reported appear in the same relative order
+  as before
+
 ### Requirement: The language differences report how the machine handles numbers
 
-The language and hardware differences SHALL report whether each dialect has floating point or is
+The language and hardware differences SHALL report whether each machine has floating point or is
 integer-only, and where it is integer-only, the range of values it can hold.
 
 #### Scenario: Porting to an integer-only machine
 
-- **WHEN** the user selects a target dialect that has no floating point
+- **WHEN** the user selects a target machine that has no floating point
 - **THEN** the language differences report the target as integer-only, with the range of values it
   holds, against the source's own number handling
 
@@ -251,12 +352,12 @@ reported among the language-rule differences instead.
 
 ### Requirement: Guidance is brief
 
-The guidance SHALL be readable in a few minutes for any dialect pair, and SHALL
+The guidance SHALL be readable in a few minutes for any machine pair, and SHALL
 NOT restate what the difference tables already show.
 
 #### Scenario: Guidance for a distant pair
 
-- **WHEN** the user selects two dialects with a large number of differences
+- **WHEN** the user selects two machines with a large number of differences
 - **THEN** the guidance stays brief rather than growing with the size of the
   difference lists
 
@@ -317,7 +418,7 @@ rather than appearing to do nothing.
 
 The guidance SHALL describe what any port between these BASICs involves, independently of the pair
 chosen, and SHALL additionally describe what is specific to the machine being ported **to**. Every
-dialect offered as a target SHALL carry its own guidance, so no valid pair produces a comparison
+machine offered as a target SHALL carry its own guidance, so no valid pair produces a comparison
 without it.
 
 What any port involves does not change with the pair, so it SHALL be given a page of its own rather
@@ -326,7 +427,7 @@ pair-specific sections, naming it as the thing to read first by a reader new to 
 
 #### Scenario: Guidance for any target
 
-- **WHEN** the user selects any dialect as the porting target
+- **WHEN** the user selects any machine as the porting target
 - **THEN** the guidance specific to that target is shown, and what any port involves is one link
   away, offered before the pair-specific sections
 
