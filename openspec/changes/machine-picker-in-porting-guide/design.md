@@ -178,12 +178,19 @@ The docs picker is the IDE's picker, so any visual difference is a defect, not a
 tuning decision. That is the point of sharing it, and it constrains two things
 that would otherwise be free choices:
 
-- **The trigger shows the year.** `showYear` is on, as in the IDE's New-project
-  dialog. The guide's fields are wide enough for it, and the year is what
-  separates a 464 from a 6128 without opening the list — precisely the
-  same-family confusion this change exists to fix. (The toolbar omits it only
-  because it is space-constrained; that is a container decision, not a
-  different picker.)
+- **The trigger does not show the year.** `showYear` is off, as in the toolbar
+  rather than in the New-project dialog. This was decided the other way first,
+  on the reasoning that the year separates a 464 from a 6128 without opening
+  the list; seeing it built settled it against. The maker and year go on a
+  second line, which makes each collapsed control twice the height of the swap
+  and copy-link buttons it sits beside, and wide enough for
+  "Spectrum 128 / Sinclair 1985" whatever machine is named — so the two fields
+  read as the heaviest thing on the page when they are only its first. Like the
+  toolbar, this is a container decision and not a different picker: the maker
+  and year are on every row of the list, which is where the choosing happens
+  and where a reader weighing a 464 against a 6128 is looking. What the
+  collapsed control keeps is the portrait and the name, which is what "the
+  machine chosen remains identifiable" asks of it.
 - **The six-token shim must reproduce the IDE's surface exactly**, not
   approximate it with the nearest VitePress equivalents. Values come from
   `src/styles.css`, verified side by side.

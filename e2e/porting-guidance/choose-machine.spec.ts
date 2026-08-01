@@ -62,10 +62,12 @@ test('a machine is told from its relative while choosing', async ({ page }) => {
   await expect(list).toBeHidden();
 
   // Collapsed again, the chosen machine is still identified - by name on the
-  // trigger, and by the id the comparison below is drawn from.
+  // trigger, and by the id the comparison below is drawn from. The maker and
+  // year are not repeated here: the collapsed control is deliberately compact,
+  // and a machine name identifies one machine on its own.
   await expect(to).toHaveAttribute('data-target-machine', 'cpc6128');
   await expect(to).toContainText('CPC 6128');
-  await expect(to).toContainText('Amstrad 1985');
+  await expect(to).toHaveAttribute('aria-label', 'Porting to: CPC 6128');
 });
 
 test('each field says which of the two choices it is', async ({ page }) => {

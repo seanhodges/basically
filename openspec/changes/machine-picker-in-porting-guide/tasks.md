@@ -73,9 +73,14 @@
       of `group`.
 - [x] 5.4 Check the swap, copy-link and convert-with-AI controls, the
       `sameSelection` note and every section below still behave unchanged.
-- [x] 5.5 Render both triggers with `showYear` on, and pass `Porting from` /
+- [x] 5.5 Render both triggers with `showYear` **off**, and pass `Porting from` /
       `Porting to` as their roles. Keep the visible field labels as they are
       today (`Porting from` and `to`) — only the accessible name is fuller.
+      — `showYear` was on when this task was written and when it was first
+      implemented; seeing the two controls in the row settled it the other way,
+      because the maker/year line makes each field twice the height of the
+      buttons beside it. The list still carries the maker and year on every
+      row. Design updated to match.
 - [x] 5.6 Compare the guide's picker against the IDE's New-project dialog side
       by side and resolve any visual difference as a defect in the shim, not by
       tuning the docs copy. The two are the same component; they must look it.

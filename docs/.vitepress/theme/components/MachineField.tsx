@@ -50,10 +50,11 @@ export function MachineField({
         dialect={machine}
         role={role}
         onClick={onOpen}
-        // As in the New-project dialog: the year is what tells a 464 from a
-        // 6128 without opening the list, which is the confusion this picker is
-        // here to end. The toolbar omits it only for want of room.
-        showYear
+        // No `showYear`, unlike the New-project dialog: the maker and year on a
+        // second line make a collapsed control twice the height of the buttons
+        // beside it, and the guide has two of them in a row that also carries
+        // the swap and copy-link controls. They are on every row of the list
+        // one click away, which is where the reader is choosing.
         className="mp-trigger"
       />
       <MachinePickerDialog

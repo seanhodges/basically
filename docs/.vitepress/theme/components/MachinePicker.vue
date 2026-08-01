@@ -178,11 +178,12 @@ onUnmounted(() => {
 .mp-slot {
   display: flex;
   min-height: 40px;
-  /* Both fields the same width, and wide enough for the longest machine, so
-     the pair does not go ragged - and the row does not shift under the cursor
-     when a longer name is chosen. The `<select>`s this replaced sized
-     themselves to their widest option, which came to the same thing. */
-  min-width: 12rem;
+  /* Sized to the machine it names, rather than to the longest machine in the
+     list: these two sit in a row with the swap and copy-link buttons, and a
+     pair of controls wide enough for "Spectrum 128" reads as the page's
+     heaviest element when it is only its first. The maker and year are on
+     every row of the list, one click away, which is where the choosing
+     happens. */
   /* The app's typography, not the docs': this is the IDE's picker, and it has
      to look like it wherever it is rendered. `line-height` matters as much as
      the family - VitePress sets an absolute 24px for prose, which stretched
@@ -192,9 +193,11 @@ onUnmounted(() => {
   line-height: normal;
 }
 
+/* Roughly the width of a trigger naming a typical machine, so what the reader
+   sees before React mounts is the size of what replaces it. */
 .mp-placeholder {
   display: block;
-  width: 12rem;
+  width: 8rem;
   height: 40px;
   border: 1px solid var(--border);
   border-radius: 6px;
