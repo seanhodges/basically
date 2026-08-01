@@ -139,34 +139,114 @@ recognise is never silently lost, because the count reveals it and the control r
 ### Requirement: Keeping a program on a new machine offers the comparison
 
 Switching to a machine that will not run the open program asks the user whether to keep that
-program. Keeping it is the moment a port begins, so the IDE SHALL then open the comparison for
+program. Keeping it is the moment a port begins, so the IDE SHALL then offer the comparison for
 exactly that port — from the machine left to the machine chosen — narrowed to the program that was
-kept.
+kept. How it is offered depends on how much of the screen the documentation would take; see "The
+comparison is offered, not imposed, where it would cover the work".
 
-Starting a new program instead SHALL NOT open it, there being no program to port; neither SHALL
+Starting a new program instead SHALL NOT offer it, there being no program to port; neither SHALL
 cancelling, nor switching to a machine that runs the program as it stands and so never asks.
 
 #### Scenario: Keeping the program
 
 - **WHEN** the user switches to a machine that will not run their program and chooses to keep it
-- **THEN** the comparison opens, comparing from the machine they left to the machine they chose,
-  narrowed to that program
+- **THEN** the comparison offered is from the machine they left to the machine they chose, narrowed
+  to that program
 
 #### Scenario: Starting a new program instead
 
 - **WHEN** the user switches machine and chooses to start a new program
-- **THEN** the comparison is not opened
+- **THEN** no comparison is offered
 
 #### Scenario: Cancelling the switch
 
 - **WHEN** the user cancels the switch
-- **THEN** the machine is unchanged and the comparison is not opened
+- **THEN** the machine is unchanged and no comparison is offered
 
 #### Scenario: Switching to a machine that runs the program
 
 - **WHEN** the user switches to a machine that runs the program as it stands, and so is not asked
   whether to keep it
-- **THEN** the comparison is not opened
+- **THEN** no comparison is offered
+
+### Requirement: The comparison is offered, not imposed, where it would cover the work
+
+Where the documentation would take the whole screen, opening it unbidden would bury the very
+program the user has just chosen to port. The IDE SHALL therefore not open it, and SHALL instead
+show a brief indication of how to open it; opening the documentation by any means while that
+comparison is still current SHALL land on it rather than on the usual topic.
+
+Where the documentation would take only part of the screen, and so leaves the program in view, the
+IDE SHALL open it on the comparison straight away and SHALL NOT show any indication.
+
+Acting on the indication SHALL open the comparison. Any other interaction SHALL dismiss it
+immediately, and it SHALL disappear on its own shortly after appearing, so it never stands between
+the user and their program.
+
+#### Scenario: Documentation would take the whole screen
+
+- **WHEN** the user keeps their program while switching machine, and the documentation would cover
+  the whole screen
+- **THEN** the documentation does not open, and a brief indication of how to open it is shown
+
+#### Scenario: Opening the documentation afterwards
+
+- **WHEN** the user opens the documentation by any means while that comparison is still current
+- **THEN** it opens on that comparison rather than on the topic it would otherwise show
+
+#### Scenario: Acting on the indication
+
+- **WHEN** the user acts on the indication
+- **THEN** the documentation opens on the comparison
+
+#### Scenario: Dismissing the indication
+
+- **WHEN** the user interacts with anything other than the indication
+- **THEN** it disappears immediately, and the comparison is still there to be opened
+
+#### Scenario: Leaving the indication alone
+
+- **WHEN** the user does nothing
+- **THEN** the indication disappears on its own, and the comparison is still there to be opened
+
+#### Scenario: Documentation would take only part of the screen
+
+- **WHEN** the user keeps their program while switching machine, and the documentation would leave
+  the program in view
+- **THEN** the documentation opens on the comparison, and no indication is shown
+
+### Requirement: A comparison belongs to the program it was opened for
+
+A comparison narrowed to one program says nothing true about another, so it SHALL NOT outlive the
+program it was offered for. WHEN a different program is loaded, a comparison waiting to be opened
+SHALL be forgotten, and documentation already showing that comparison SHALL be closed.
+Documentation showing anything else SHALL be left as it is — the user's place in the reference is
+not the IDE's to take away.
+
+Editing the open program SHALL NOT count as loading a different one, including applying an
+assistant's rewrite of it: that is the same program, still being ported.
+
+#### Scenario: A different program is loaded
+
+- **WHEN** the user starts, opens or imports a different program
+- **THEN** a comparison waiting to be opened is forgotten, and opening the documentation shows the
+  topic it would otherwise show
+
+#### Scenario: The comparison is on screen when it happens
+
+- **WHEN** a different program is loaded while the documentation is showing that comparison
+- **THEN** the documentation closes
+
+#### Scenario: The documentation is showing something else
+
+- **WHEN** a different program is loaded while the documentation is showing anything other than
+  that comparison
+- **THEN** the documentation stays open, where the user left it
+
+#### Scenario: Editing the program it belongs to
+
+- **WHEN** the user edits the open program, or applies an assistant's rewrite of it
+- **THEN** the comparison is still current
 
 ### Requirement: The comparison opens on the machine the program is written for
 

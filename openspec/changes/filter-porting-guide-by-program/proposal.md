@@ -34,9 +34,20 @@ having no idea what the program used.
   discarding it.
 - Opening the guide from inside the IDE selects the machine the program is
   written for as the machine being ported *from*, unless the link names one.
-- **Keeping a program on a machine that will not run it opens the guide**, for
+- **Keeping a program on a machine that will not run it offers the guide**, for
   exactly that port. That is the moment a port begins, and the guide has no entry
   point in the IDE today.
+- How it is offered follows how much room there is. Where the documentation
+  would take the whole screen it is *not* opened — burying the program the user
+  just chose to port would be perverse — and a brief, dismissable indication
+  points at how to open it; opening the documentation afterwards by any means
+  lands on that comparison. Where it takes only part of the screen it opens
+  straight away, with no indication.
+- A comparison belongs to the program it was offered for. Loading a different
+  program forgets it, and closes the documentation if that comparison is what is
+  on screen — documentation showing anything else is left where the user put it.
+  Editing the program, including applying an assistant's rewrite of it, is the
+  same program and changes nothing.
 - The guide always says where it stands: narrowed, or not narrowed and what would
   narrow it. A standalone visit therefore gains one line inviting the reader to
   open their program in the IDE; nothing else about it changes.
@@ -68,8 +79,10 @@ None.
   to the open program's vocabulary, for reading the program as the language
   being ported from, for treating an unreadable program as no program, for
   always saying whether the comparison is narrowed and what would narrow it, for
-  offering the comparison when a program is kept on a new machine, and for
-  opening on the machine the program is written for. Extends the existing
+  offering the comparison when a program is kept on a new machine, for offering
+  rather than imposing it where the documentation would cover the whole screen,
+  for tying a comparison to the program it was offered for, and for opening on
+  the machine the program is written for. Extends the existing
   "controls are phrased as showing" requirement to name the narrowed view among
   the things a comparison opens on.
 
@@ -80,10 +93,13 @@ None.
   the docs side.
 - **Modified**: the IDE↔docs message contract (two new messages); the
   comparison component's computeds, controls, notice and summary sentence; the
-  target-switch confirmation's "keep my code" branch, which now opens the docs
-  drawer on the comparison; the `Dialect` seam gains one descriptive flag naming
-  which dialects' tokenizers match keywords greedily across spaces; the shared
-  charset-probe table gains a per-unit parse already present in every family.
+  target-switch confirmation's "keep my code" branch, which now offers the
+  comparison; the store gains a docs topic scoped to one program, dropped
+  wherever the "a different program became active" counter is already bumped;
+  the docs drawer gains a transient indicator, the first in the app; the
+  `Dialect` seam gains one descriptive flag naming which dialects' tokenizers
+  match keywords greedily across spaces; the shared charset-probe table gains a
+  per-unit parse already present in every family.
 - **Tests**: colocated unit tests for the analyser and the filter, the
   message-contract test, and an end-to-end scenario under
   `e2e/porting-guidance/`. The existing keyword and escape cross-checks come to
