@@ -5,10 +5,13 @@ import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { trs80Keywords } from './keywords';
 
+/** See `c64Crunched`: Level II BASIC crunches the same way. */
+export const trs80Crunched = true;
+
 export const trs80CompletionSource: CompletionSource = buildCompletionSource(
   trs80Keywords,
   constructsByDialect.trs80,
-  { crunched: true },
+  { crunched: trs80Crunched },
 );
 
 export function trs80LanguageSupport(): Extension {
@@ -21,6 +24,6 @@ export function trs80LanguageSupport(): Extension {
   return buildBasicLanguage(trs80Keywords, trs80CompletionSource, {
     suffixChars: '$%!#',
     graphicsEscapes: false,
-    crunched: true,
+    crunched: trs80Crunched,
   });
 }

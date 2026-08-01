@@ -5,10 +5,18 @@ import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { c64Keywords } from './keywords';
 
+/**
+ * The ROM ignores spaces outside strings/REM and matches the longest keyword at
+ * every position. Stated here once and read by both consumers: the editor
+ * extensions below, and `Dialect.crunched` in `./index` (which imports this
+ * module, so the constant lives on this side of the pair).
+ */
+export const c64Crunched = true;
+
 export const c64CompletionSource: CompletionSource = buildCompletionSource(
   c64Keywords,
   constructsByDialect.commodore64,
-  { crunched: true },
+  { crunched: c64Crunched },
 );
 
 export function c64LanguageSupport(): Extension {
@@ -20,6 +28,6 @@ export function c64LanguageSupport(): Extension {
   return buildBasicLanguage(c64Keywords, c64CompletionSource, {
     suffixChars: '$%',
     graphicsEscapes: false,
-    crunched: true,
+    crunched: c64Crunched,
   });
 }

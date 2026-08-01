@@ -64,6 +64,46 @@ describe('charset probes', () => {
     }
   });
 
+  it('drives parseUnit to exactly what parse returns', () => {
+    // `parseUnit` is what a caller telling escapes from plain characters walks
+    // (the porting guide's program analyser), so a family whose per-unit parser
+    // reports the wrong span - or a different byte - would silently mis-read
+    // every string literal while `parse` stayed correct. Drive both over the
+    // same strings and require them to agree: every canonical form on its own,
+    // and every adjacent pair, which is where a bad `length` shows up.
+    const driveUnits = (
+      probe: (typeof CHARSET_PROBES)[number],
+      text: string,
+    ) => {
+      const out: number[] = [];
+      let i = 0;
+      while (i < text.length) {
+        const { codes, length } = probe.parseUnit(text, i);
+        expect(
+          length,
+          `${probe.id} parseUnit made no progress in ${text}`,
+        ).toBeGreaterThan(0);
+        out.push(...codes);
+        i += length;
+      }
+      return out;
+    };
+
+    for (const probe of CHARSET_PROBES) {
+      const forms = Array.from({ length: 256 }, (_, b) => probe.decode(b));
+      const cases = [
+        ...forms,
+        ...forms.slice(0, -1).map((form, i) => form + forms[i + 1]),
+      ];
+      for (const text of cases) {
+        expect(
+          driveUnits(probe, text),
+          `${probe.id} parseUnit disagrees with parse over ${JSON.stringify(text)}`,
+        ).toEqual(probe.parse(text));
+      }
+    }
+  });
+
   it('classifies its own raw escapes as escape forms', () => {
     for (const probe of CHARSET_PROBES) {
       let sawRaw = false;

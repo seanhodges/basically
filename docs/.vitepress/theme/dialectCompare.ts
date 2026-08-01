@@ -653,6 +653,146 @@ export function composeGuidance(ctx: GuidanceContext): PairGuidance {
 }
 
 /**
+ * What the open program uses, as the IDE reports it across the iframe boundary
+ * (`PROGRAM_VOCABULARY_FIELDS` in `src/components/DocsDrawer.tsx`). Declared
+ * here rather than imported: this module never reaches into `src/`, and the two
+ * sides agree by field name, pinned by `DocsDrawer.test.ts`.
+ *
+ * Keywords cross as names because the names are already identical on both sides
+ * and cross-checked per machine. Control codes cross as *bytes*, because a
+ * spelling match would have to reconcile aliases (`{wht}` against the canonical
+ * `{white}`), operand-carrying forms (a program's `{INK 2}` against the table's
+ * `{INK n}`) and raw-byte escapes - none of which a byte value has.
+ */
+export interface ProgramVocabulary {
+  /** The machine the program was read as; only meaningful against that one. */
+  dialectId: string;
+  keywords: string[];
+  escapeCodes: number[];
+}
+
+/**
+ * Narrow a keyword diff to the commands the program actually uses.
+ *
+ * The narrowing applies to the buckets {@link diffKeywords} *returned*, never to
+ * the tables handed to it. This is the load-bearing decision of the whole
+ * feature: narrowing the source table first would be a smaller diff and is
+ * wrong, because every command the program did not use would vanish from the
+ * source side and reappear as "newly available on the target", inverting the
+ * meaning of the entire gains half of the page.
+ *
+ * So `newlyAvailable` and `unchanged` pass through untouched - the first is by
+ * definition about what the program did not use (and has its own control), and
+ * the second is a count of what the port does not have to touch. Only the three
+ * buckets that are work for the reader are narrowed.
+ */
+export function diffForProgram(
+  diff: KeywordDiff,
+  vocabulary: ProgramVocabulary,
+): KeywordDiff {
+  const used = new Set(vocabulary.keywords);
+  return {
+    ...diff,
+    mustReplace: diff.mustReplace.filter((e) => used.has(e.name)),
+    renamed: diff.renamed.filter((r) => used.has(r.from.name)),
+    behaviourChanged: diff.behaviourChanged.filter((c) => used.has(c.name)),
+  };
+}
+
+/** The same-word-different-meaning warnings the program can actually hit. */
+export function falseFriendsForProgram(
+  warnings: FalseFriendWarning[],
+  vocabulary: ProgramVocabulary,
+): FalseFriendWarning[] {
+  const used = new Set(vocabulary.keywords);
+  return warnings.filter((w) => used.has(w.keyword));
+}
+
+/**
+ * Narrow an escape diff to the control codes the program actually uses.
+ *
+ * A row claims byte values through its `codes` field - the leading byte only,
+ * for the operand-carrying escapes, which is the same rule the program analyser
+ * records them under. The table's single `'rest'` row is the catch-all raw-byte
+ * escape: a used byte no row names is exactly what that row stands for, so it
+ * survives rather than the code disappearing from the comparison.
+ *
+ * Rows claiming no codes at all are the parse-only spellings, whose bytes
+ * decode to another row's form; the row that owns those bytes is the one that
+ * shows. As in {@link diffForProgram}, only `mustReplace` is narrowed.
+ */
+export function escapeDiffForProgram(
+  diff: EscapeDiff,
+  vocabulary: ProgramVocabulary,
+): EscapeDiff {
+  const used = new Set(vocabulary.escapeCodes);
+  const claimed = new Set<number>();
+  for (const entry of diff.mustReplace) {
+    if (entry.codes && entry.codes !== 'rest') {
+      for (const code of entry.codes) claimed.add(code);
+    }
+  }
+  const unclaimed = [...used].some((code) => !claimed.has(code));
+  return {
+    ...diff,
+    mustReplace: diff.mustReplace.filter((entry) => {
+      if (entry.codes === 'rest') return unclaimed;
+      return (entry.codes ?? []).some((code) => used.has(code));
+    }),
+  };
+}
+
+/**
+ * Where the comparison stands with respect to the open program. One resolver
+ * rather than a chain of conditions in the template, because the page must
+ * *always* say where it stands - narrowed, or not narrowed and what would
+ * narrow it - and a template growing one more `v-else-if` is how a combination
+ * ends up saying nothing.
+ *
+ * `reading` is the state between choosing a different source machine and being
+ * told what the program looks like in *that* language: a vocabulary describes
+ * one BASIC, so a reply for another machine is not an answer to the question on
+ * screen. The page re-asks whenever the source machine changes, so it is brief.
+ */
+export type NoticeKind =
+  | 'standalone'
+  | 'no-program'
+  | 'unreadable'
+  | 'reading'
+  | 'narrowed';
+
+export interface NoticeState {
+  kind: NoticeKind;
+  /** True when the reported differences are actually being narrowed. */
+  narrowed: boolean;
+  /** True when the control that reveals everything applies to this state. */
+  offerControl: boolean;
+}
+
+export function noticeState(input: {
+  /** True only inside the IDE's docs drawer. */
+  embedded: boolean;
+  /** The reply the IDE last sent, or null before one has arrived. */
+  vocabulary: ProgramVocabulary | null;
+  /** The reply's status; ignored when there is no reply. */
+  status: 'ready' | 'empty' | 'unreadable' | null;
+  /** The machine currently being ported *from*. */
+  sourceDialectId: string;
+  /** True when the reader has asked to see every difference. */
+  showAll: boolean;
+}): NoticeState {
+  const plain = { narrowed: false, offerControl: false };
+  if (!input.embedded) return { kind: 'standalone', ...plain };
+  if (input.vocabulary === null || input.status === null)
+    return { kind: 'reading', ...plain };
+  if (input.status === 'empty') return { kind: 'no-program', ...plain };
+  if (input.status === 'unreadable') return { kind: 'unreadable', ...plain };
+  if (input.vocabulary.dialectId !== input.sourceDialectId)
+    return { kind: 'reading', ...plain };
+  return { kind: 'narrowed', narrowed: !input.showAll, offerControl: true };
+}
+
+/**
  * Diff two escape-code tables by unique `escape` spelling. Same bucket shape as
  * {@link diffKeywords}. Only meaningful when both dialects have escape data; the
  * caller decides whether to render it.

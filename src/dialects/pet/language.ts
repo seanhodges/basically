@@ -5,10 +5,13 @@ import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { petKeywords } from './keywords';
 
+/** See `c64Crunched`: the PET shares the C64's ROM tokenizer behaviour. */
+export const petCrunched = true;
+
 export const petCompletionSource: CompletionSource = buildCompletionSource(
   petKeywords,
   constructsByDialect.pet,
-  { crunched: true },
+  { crunched: petCrunched },
 );
 
 export function petLanguageSupport(): Extension {
@@ -21,6 +24,6 @@ export function petLanguageSupport(): Extension {
   return buildBasicLanguage(petKeywords, petCompletionSource, {
     suffixChars: '$%',
     graphicsEscapes: false,
-    crunched: true,
+    crunched: petCrunched,
   });
 }

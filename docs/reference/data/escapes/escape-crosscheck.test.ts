@@ -14,6 +14,15 @@
  *     enumeration (Sinclair backslash graphics, petcat aliases, {CBM-x} and
  *     {SHIFT-x}) are checked against their source tables.
  *
+ * Coverage (2) guards a second seam as well. The porting guide narrows itself
+ * to the open program by matching the *byte values* it reports across the
+ * IDE↔docs iframe boundary (`PROGRAM_VOCABULARY_FIELDS` in
+ * src/components/DocsDrawer.tsx) against each row's `codes`. A byte no row
+ * claims falls to the `'rest'` row, so a named escape added to a charset
+ * without its docs row would quietly report the raw-byte escape instead of the
+ * code the program actually used - which is the drift this check already
+ * forbids.
+ *
  * This test may import src/ freely: vitest runs it in node and the VitePress
  * bundle never includes *.test.ts, so the docs pages themselves stay free of
  * dialect code.

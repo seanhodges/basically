@@ -19,6 +19,15 @@
  * mis-scoped row fails one machine's check, and a newly registered dialect fails
  * until its rows exist.
  *
+ * These assertions now guard a second seam as well. The porting guide narrows
+ * itself to the open program by matching *keyword names* sent across the
+ * IDE↔docs iframe boundary (`PROGRAM_VOCABULARY_FIELDS` in
+ * src/components/DocsDrawer.tsx): the app names what the program uses in the
+ * dialect's own spelling, and the docs side looks those names up in these
+ * tables. Nothing typechecks across that boundary, so what keeps a name meaning
+ * the same thing on both sides of it is exactly the per-machine agreement
+ * checked here - drift would silently narrow a comparison to nothing.
+ *
  * Comparison is by unique name (keyword tables may list alias spellings that
  * collapse into one row), mirroring scripts/gen-reference-scaffold.mts. Like
  * escapes/escape-crosscheck.test.ts, this file may import src/ freely: vitest

@@ -955,6 +955,16 @@ export interface Dialect {
    */
   supportsBinaryLines?: boolean;
   /**
+   * True when the ROM tokenizer ignores spaces outside strings/REM and matches
+   * the longest keyword at every position ("code crunching"), so `POKEA,10` is
+   * `POKE A,10` and `FORI=1TO10` is `FOR I=1 TO 10`. The editor layer has always
+   * known this per dialect (`buildBasicLanguage`'s `crunched` option); the flag
+   * hoists it onto the seam so a consumer outside the editor - the program
+   * analyser behind the porting guide's narrowing - can read it too, instead of
+   * guessing and finding keywords inside ordinary variable names.
+   */
+  crunched?: boolean;
+  /**
    * Display control codes this dialect draws as chips, keyed by the escape text
    * exactly as {@link charset} spells it (e.g. `'{GRAPHICS WHITE}'`). Machines
    * that carry display attributes in the character stream - the BBC's MODE 7

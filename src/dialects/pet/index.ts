@@ -15,7 +15,11 @@ import {
   detokenizeD64WithReport,
 } from './detokenizer';
 import { isD64 } from '../commodore64/d64';
-import { petLanguageSupport, petCompletionSource } from './language';
+import {
+  petLanguageSupport,
+  petCompletionSource,
+  petCrunched,
+} from './language';
 import { petBuildTargets } from './targets';
 import { petKeyboardLayout } from './keyboardLayout';
 import { petSamples } from './samples';
@@ -58,6 +62,7 @@ export const pet: Dialect = {
   charset: petCharset,
   languageSupport: petLanguageSupport,
   completionSource: petCompletionSource,
+  crunched: petCrunched,
 
   tokenize(source: string): TokenizeResult {
     const { program, errors } = tokenizeProgram(source);

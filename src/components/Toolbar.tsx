@@ -6,7 +6,7 @@ import {
   useMediaQuery,
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
-import { referenceTopicFor } from '../app/docsTopic';
+import { openingTopicFor } from '../app/docsTopic';
 import { newDocument, openDocument, saveDocument } from '../app/fileCommands';
 import {
   SHORTCUTS,
@@ -186,10 +186,11 @@ export function Toolbar() {
 
   // Shared by the Docs book icon and the "Help" overflow item. With a keyword
   // selected in the editor, jump straight to that keyword on the current
-  // dialect's reference page; otherwise open the docs home. Read the selection
-  // imperatively so the toolbar doesn't re-render as the cursor moves.
+  // dialect's reference page; otherwise open the docs home - unless a porting
+  // comparison was offered for the open program, which wins over both. Read the
+  // selection imperatively so the toolbar doesn't re-render as the cursor moves.
   const openDocumentation = () => {
-    const topic = referenceTopicFor(useIdeStore.getState());
+    const topic = openingTopicFor(useIdeStore.getState());
     openDocs(topic ?? undefined);
   };
 

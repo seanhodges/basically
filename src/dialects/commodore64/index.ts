@@ -12,7 +12,11 @@ import {
 } from './detokenizer';
 import { isD64 } from './d64';
 import { c64BuildTargets } from './targets';
-import { c64LanguageSupport, c64CompletionSource } from './language';
+import {
+  c64LanguageSupport,
+  c64CompletionSource,
+  c64Crunched,
+} from './language';
 import { c64VariableErrors } from '../../editor/variableLint';
 import { c64AiProfile } from './aiProfile';
 import { c64KeyboardLayout } from './keyboardLayout';
@@ -61,6 +65,7 @@ export const commodore64: Dialect = {
   charset: c64Charset,
   languageSupport: c64LanguageSupport,
   completionSource: c64CompletionSource,
+  crunched: c64Crunched,
 
   tokenize(source: string): TokenizeResult {
     const { program, errors } = tokenizeProgram(source);

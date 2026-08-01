@@ -5,10 +5,13 @@ import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { vic20Keywords } from './keywords';
 
+/** See `c64Crunched`: the VIC-20 shares the C64's ROM tokenizer behaviour. */
+export const vic20Crunched = true;
+
 export const vic20CompletionSource: CompletionSource = buildCompletionSource(
   vic20Keywords,
   constructsByDialect.vic20,
-  { crunched: true },
+  { crunched: vic20Crunched },
 );
 
 export function vic20LanguageSupport(): Extension {
@@ -21,6 +24,6 @@ export function vic20LanguageSupport(): Extension {
   return buildBasicLanguage(vic20Keywords, vic20CompletionSource, {
     suffixChars: '$%',
     graphicsEscapes: false,
-    crunched: true,
+    crunched: vic20Crunched,
   });
 }

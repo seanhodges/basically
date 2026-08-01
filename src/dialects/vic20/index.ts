@@ -15,7 +15,11 @@ import {
   detokenizeD64WithReport,
 } from './detokenizer';
 import { isD64 } from '../commodore64/d64';
-import { vic20LanguageSupport, vic20CompletionSource } from './language';
+import {
+  vic20LanguageSupport,
+  vic20CompletionSource,
+  vic20Crunched,
+} from './language';
 import { vic20BuildTargets } from './targets';
 import { vic20KeyboardLayout } from './keyboardLayout';
 import { vic20Samples } from './samples';
@@ -61,6 +65,7 @@ export const vic20: Dialect = {
   charset: vic20Charset,
   languageSupport: vic20LanguageSupport,
   completionSource: vic20CompletionSource,
+  crunched: vic20Crunched,
 
   tokenize(source: string): TokenizeResult {
     const { program, errors } = tokenizeProgram(source);
