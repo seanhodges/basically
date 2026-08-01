@@ -70,6 +70,16 @@ describe('facts crosscheck', () => {
 });
 
 describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {
+  // The one name a machine's own registration already gives: every dialect's
+  // blurb names the BASIC it runs ("Runs BBC BASIC IV", "Locomotive BASIC
+  // 1.1"), so the guide's name for it is pinned to that rather than authored
+  // twice. A machine whose blurb is reworded away from its BASIC fails here,
+  // which is the point - the picker and the comparison must not disagree about
+  // what a machine runs.
+  it('basicDialect is the BASIC the dialect blurb names', () => {
+    expect(dialect.blurb).toContain(facts.basicDialect);
+  });
+
   it('freeRamBytes matches the dialect program RAM budget', () => {
     expect(facts.freeRamBytes).toBe(dialect.programRamBytes);
   });

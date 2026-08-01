@@ -396,28 +396,52 @@ function fmtAddress(f: PortingFacts): string {
   return 'Decimal';
 }
 
+/**
+ * The rows in the order a porter meets the work, most consequential first.
+ *
+ * The BASIC each machine runs leads: it is what the rest of the table is about,
+ * it is the one row that says outright whether this is a port between two
+ * BASICs or between two versions of one, and for the four families that share a
+ * reference page it is the difference the page title cannot show.
+ *
+ * Then the differences by how much of the program they touch. Arithmetic and
+ * free RAM decide whether the program can work at all - an integer-only target
+ * rescales every fractional calculation, and 3,583 bytes is a rewrite a C64
+ * program does not survive by editing keywords. The language rules that follow
+ * force edits wherever they apply (two significant characters renames
+ * variables; no ELSE restructures conditionals) but leave the program's shape
+ * alone. The hardware the program draws and sounds on comes next.
+ *
+ * The memory facts close it as one run, addresses last: how memory is written
+ * and how addresses are spelled, then the two addresses themselves. They are
+ * the only rows that matter solely to a program that pokes at hardware, and
+ * they were previously scattered - screen base between the screen and the free
+ * RAM, program start after it, and the notation five rows further down.
+ */
 const factRows = computed<FactRow[]>(() => {
   const s = source.value?.facts;
   const t = target.value?.facts;
   if (!s || !t) return [];
   const rows: [string, (f: PortingFacts) => string][] = [
-    ['Line numbers', (f) => f.lineNumberRange],
-    ['Statements per line', fmtSeparator],
-    ['Conditionals', fmtElse],
-    ['LET on assignment', fmtLet],
-    ['Variable names', (f) => f.variableNaming],
+    ['BASIC dialect', (f) => f.basicDialect],
     // Whether the target has fractions at all decides how much of the port is
-    // arithmetic, so it sits with the language rules rather than the hardware.
+    // arithmetic, so it leads the language rules rather than sitting among the
+    // hardware.
     ['Numbers', (f) => f.numberHandling],
-    ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
-    ['Screen', (f) => f.screen],
-    ['Screen base', (f) => f.screenBase ?? 'No dedicated screen RAM'],
     ['Free program RAM', fmtRam],
-    ['Program start', (f) => f.programStart ?? '—'],
+    ['Variable names', (f) => f.variableNaming],
+    ['Conditionals', fmtElse],
+    ['Statements per line', fmtSeparator],
+    ['LET on assignment', fmtLet],
+    ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
+    ['Line numbers', (f) => f.lineNumberRange],
+    ['Screen', (f) => f.screen],
     ['Colour', (f) => f.colour],
     ['Sound', (f) => f.sound],
     ['Writing memory', (f) => f.memoryWriteSyntax],
     ['Address notation', fmtAddress],
+    ['Screen base', (f) => f.screenBase ?? 'No dedicated screen RAM'],
+    ['Program start', (f) => f.programStart ?? '—'],
   ];
   return rows.map(([label, get]) => {
     const fromText = get(s);
