@@ -343,6 +343,26 @@ export interface MachineMemoryStats {
   free: number;
 }
 
+/**
+ * A running machine's screen, as characters in reading order.
+ *
+ * Rows are fixed width - every entry in {@link lines} is exactly {@link cols}
+ * characters, padded with spaces rather than trimmed, so a column index means
+ * the same thing on every row. Callers that want a single string join it
+ * themselves; callers asserting on printed text trim at the assertion.
+ *
+ * "Characters" means code points, not UTF-16 units. Several machines decode
+ * their block graphics to astral glyphs (the TRS-80's sextants are U+1FB00 and
+ * up), so a row of graphics has more `.length` than it has columns. Index and
+ * measure a row with `[...line]`, never with `line[col]` or `line.length`.
+ */
+export interface MachineScreenText {
+  /** One entry per row, top to bottom; each exactly `cols` code points long. */
+  lines: string[];
+  cols: number;
+  rows: number;
+}
+
 export interface MachineEmulator {
   reset(): void;
   /**
@@ -503,6 +523,26 @@ export interface MachineEmulator {
    * `typeof machine.isProgramRunning === 'function'`.
    */
   isProgramRunning?(): boolean | null;
+  /**
+   * The characters currently on the screen, in reading order, or null when they
+   * can't be determined *right now* - mid-boot before the ROM has set the screen
+   * up, mid-{@link loadProgram}, after {@link dispose}, or in a display mode this
+   * machine's reader can't decode. A blank screen is spaces, never null: null
+   * means "no answer", not "nothing on screen".
+   *
+   * Characters are decoded through the dialect's own charset, so a screen read
+   * and a listing agree about what a byte means - graphics blocks come back as
+   * the same Unicode the editor shows.
+   *
+   * Machines whose display holds no characters (the Spectrums, the CPCs, the
+   * Acorn machines outside mode 7) recover them by matching the stock ROM font,
+   * so they report what that font says: a program that redefines its glyphs, or
+   * draws free-hand pixels, reads back as spaces rather than as text.
+   *
+   * Optional and detected the same way as the other introspection members, via
+   * `typeof machine.readScreenText === 'function'`.
+   */
+  readScreenText?(): MachineScreenText | null;
 }
 
 export interface AiProfile {

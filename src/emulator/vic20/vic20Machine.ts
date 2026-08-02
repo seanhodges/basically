@@ -9,11 +9,13 @@ import type {
   MachineFileStore,
   MachineMemoryStats,
   MachineReport,
+  MachineScreenText,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
 import { readC64Variables } from '../c64/vars';
 import { readC64Report, type CbmScreenLayout } from '../c64/reports';
+import { readCbmScreenText } from '../cbmScreenText';
 import { Via6522 } from '../commodore/via6522';
 import { VicAudioRenderer, VIC_AUDIO_SAMPLE_RATE } from './vicAudio';
 import {
@@ -593,6 +595,30 @@ export class Vic20Machine implements MachineEmulator {
       if (report) return report;
     }
     return null;
+  }
+
+  /**
+   * The 22x23 screen matrix as characters.
+   *
+   * Both the matrix address and the character generator are programmable on
+   * this machine, and the VIC-I already derives each from its own registers for
+   * rendering — {@link VicI.screenBase} and {@link VicI.charBase} — so the
+   * reader asks the chip rather than assuming $1E00. A program that relocates
+   * its screen still reads back correctly.
+   */
+  readScreenText(): MachineScreenText | null {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
+      return null;
+    }
+    const mem = this.memory.mem;
+    // The 4K character ROM is four 1K sets from $8000: upper/graphics, its
+    // reverse, lower/text, its reverse. Bit 11 picks the lower-case pair.
+    const charBase = this.vic.charBase();
+    return readCbmScreenText({
+      read: (a) => mem[a & 0xffff]!,
+      layout: { screen: this.vic.screenBase(), cols: 22, rows: 23 },
+      set: (charBase & 0x0800) !== 0 ? 'text' : 'graphics',
+    });
   }
 
   /**

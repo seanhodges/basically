@@ -96,6 +96,65 @@ describe('C64Machine', () => {
   );
 
   it(
+    'reads the booted screen back as text',
+    async () => {
+      const m = new C64Machine({ roms });
+      expect(m.readScreenText()).toBeNull(); // not booted: no answer, not blank
+      await m.whenReady();
+      for (let i = 0; i < 200; i++) m.runFrame();
+      const s = m.readScreenText()!;
+      expect(s.cols).toBe(40);
+      expect(s.rows).toBe(25);
+      for (const line of s.lines) expect([...line]).toHaveLength(40);
+      expect(s.lines.join('\n')).toContain('READY.');
+      m.dispose();
+      expect(m.readScreenText()).toBeNull();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'follows the screen when the program moves it',
+    async () => {
+      // The matrix address is not a constant on this machine: $D018 bits 4-7
+      // pick a 1K slot inside CIA 2's 16K bank. Move the screen to $0C00 (slot
+      // 3) the way a program would and the reader must follow it there. This is
+      // what pins the derivation - a hard-coded $0400 fails here.
+      const { image, errors } = commodore64.tokenize(
+        '10 POKE 3072,8:POKE 3073,9:POKE 3074,32:POKE 3075,20\n' +
+          '20 POKE 53272,(PEEK(53272)AND15)OR48\n' +
+          '30 GOTO 30\n',
+      );
+      expect(errors).toEqual([]);
+      const m = new C64Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image);
+      await new Promise((r) => setTimeout(r, 0));
+      for (let i = 0; i < 400; i++) m.runFrame();
+      // Screen codes 8, 9, 32, 20 spell "HI T" in the graphics set.
+      expect(m.readScreenText()!.lines[0]!.startsWith('HI T')).toBe(true);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'reads back what a program printed',
+    async () => {
+      const { image, errors } = commodore64.tokenize('10 PRINT "HELLO"\n');
+      expect(errors).toEqual([]);
+      const m = new C64Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(image);
+      await new Promise((r) => setTimeout(r, 0));
+      for (let i = 0; i < 300; i++) m.runFrame();
+      expect(m.readScreenText()!.lines.join('\n')).toContain('HELLO');
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
     'reports plausible actual RAM figures while a program runs',
     async () => {
       const { image, errors } = commodore64.tokenize(

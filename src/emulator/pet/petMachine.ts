@@ -8,11 +8,13 @@ import type {
   MachineFileStore,
   MachineMemoryStats,
   MachineReport,
+  MachineScreenText,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
 import { readC64Variables, type CbmVarsLayout } from '../c64/vars';
 import { readC64Report, type CbmScreenLayout } from '../c64/reports';
+import { readCbmScreenText } from '../cbmScreenText';
 import {
   MemoryActivityBuffer,
   READ_BIT,
@@ -654,6 +656,23 @@ export class PetMachine implements MachineEmulator {
       { read: (a) => this.readMem(a & 0xffff) },
       PET_SCREEN_LAYOUT,
     );
+  }
+
+  /**
+   * The 40x25 screen matrix at $8000 as characters.
+   *
+   * Which glyphs the codes stand for depends on the character set the VIA's CA2
+   * line selects - the same bit {@link renderTo} uses to pick the ROM half - so
+   * the set is read from the machine rather than assumed, and a program that has
+   * switched to the text set reads back in lower case.
+   */
+  readScreenText(): MachineScreenText | null {
+    if (!this.booted || this.injecting || this.disposed) return null;
+    return readCbmScreenText({
+      read: (a) => this.readMem(a & 0xffff),
+      layout: PET_SCREEN_LAYOUT,
+      set: this.via.ca2Out() ? 'text' : 'graphics',
+    });
   }
 
   /**

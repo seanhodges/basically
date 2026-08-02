@@ -81,6 +81,14 @@ interface MachineScreenText {
 'function'`, the same as the five optional members already there. A machine that
 does not implement it keeps working with no edit.
 
+**Found during implementation: "characters" must mean code points.** Several
+charsets decode block graphics to astral glyphs — the TRS-80's sextants are
+U+1FB00 and up — so a row of graphics has more `String.length` than it has
+columns, and `line[col]` lands mid-surrogate. The contract is one *code point*
+per column; callers index and measure with `[...line]`. Pinned on the seam
+member's doc comment and by a per-machine test that asserts
+`[...line].length === cols` on a row containing graphics.
+
 Alternatives rejected:
 
 - **A single `\n`-joined string.** Cheaper to assert against, but it throws away

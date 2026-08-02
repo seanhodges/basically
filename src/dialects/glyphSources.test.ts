@@ -9,6 +9,7 @@ import {
   formatAddress,
   glyphLocation,
   petsciiToScreen,
+  screenToPetscii,
   sourceFor,
 } from './glyphSources';
 
@@ -394,6 +395,36 @@ describe('glyph sources', () => {
     it('has no glyph for the control codes', () => {
       for (const code of [0x00, 0x0d, 0x13, 0x91]) {
         expect(petsciiToScreen(code)).toBeUndefined();
+      }
+    });
+  });
+
+  describe('screenToPetscii', () => {
+    it('round-trips every screen code back to a PETSCII code that maps to it', () => {
+      // The forward map is many-to-one, so the inverse cannot return the code
+      // it started from for every input - but whatever it returns must land
+      // back on the same screen code, which is what makes a screen read agree
+      // with the character ROM.
+      for (let screen = 0x00; screen <= 0x7f; screen++) {
+        const petscii = screenToPetscii(screen);
+        expect(petscii, `screen 0x${screen.toString(16)}`).toBeDefined();
+        expect(
+          petsciiToScreen(petscii!),
+          `screen 0x${screen.toString(16)} -> petscii 0x${petscii!.toString(16)}`,
+        ).toBe(screen);
+      }
+    });
+
+    it('picks the unshifted letters, so a screen read reads like a listing', () => {
+      expect(screenToPetscii(0x01)).toBe(0x41); // A, not the 0xC1 shifted twin
+      expect(screenToPetscii(0x1a)).toBe(0x5a); // Z
+      expect(screenToPetscii(0x20)).toBe(0x20); // space
+      expect(screenToPetscii(0x30)).toBe(0x30); // '0'
+    });
+
+    it('ignores the reverse-video flag', () => {
+      for (const screen of [0x01, 0x20, 0x5e]) {
+        expect(screenToPetscii(screen | 0x80)).toBe(screenToPetscii(screen));
       }
     });
 

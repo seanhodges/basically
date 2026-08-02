@@ -446,7 +446,7 @@ export class Spectrum128Machine implements MachineEmulator {
   }
 
   /** OCR a run of characters off the displayed screen by matching the font. */
-  private readScreenText(
+  private ocrRun(
     sigs: Map<string, number>,
     row: number,
     col: number,
@@ -501,7 +501,7 @@ export class Spectrum128Machine implements MachineEmulator {
     const out: { row: number; text: string; paper: number }[] = [];
     const bgPaper = (this.memory.readScreen(0x5800) >> 3) & 0x07;
     for (let row = 0; row < 24; row++) {
-      const text = this.readScreenText(sigs, row, 0, 32).trim().toUpperCase();
+      const text = this.ocrRun(sigs, row, 0, 32).trim().toUpperCase();
       if (!MENU_ITEMS.some((label) => text.includes(label))) continue;
       // The item's paper is the first cell on the row whose paper differs from
       // the screen background (the highlighted item differs; others match it).

@@ -1,15 +1,15 @@
 ## 1. The seam
 
-- [ ] 1.1 Add `MachineScreenText` (`lines`, `cols`, `rows`) and the optional
+- [x] 1.1 Add `MachineScreenText` (`lines`, `cols`, `rows`) and the optional
       `readScreenText?(): MachineScreenText | null` member to
       `src/dialects/types.ts`, documented like the other optional introspection
       members: detected via `typeof`, `null` means "cannot determine now" and a
       blank screen is spaces, and OCR machines report what the stock font says.
-- [ ] 1.2 Add the screen-code → charset-byte inverse the Commodore readers need
+- [x] 1.2 Add the screen-code → charset-byte inverse the Commodore readers need
       beside `petsciiToScreen` in `src/dialects/glyphSources.ts`, with cases in
       `glyphSources.test.ts` pinning it as the exact inverse over every code
       `petsciiToScreen` maps.
-- [ ] 1.3 Add a cross-machine font-signature matcher under `src/emulator/`
+- [x] 1.3 Add a cross-machine font-signature matcher under `src/emulator/`
       (signature map builder + a matcher taking a per-cell supplier of eight
       1-bpp mask bytes), with a colocated test covering an exact hit, an
       unmatched cell reading as a space, and space winning a signature clash.
@@ -21,11 +21,11 @@ registers/system variables (never a constant), decode through the dialect
 charset, and add colocated `*.test.ts` cases for a known program's output, a
 blank screen reading as spaces, and `null` before the machine is up.
 
-- [ ] 2.1 TRS-80 (`src/dialects/trs80/interpreter/machine.ts`) — 64×16 from the
+- [x] 2.1 TRS-80 (`src/dialects/trs80/interpreter/machine.ts`) — 64×16 from the
       interpreter's video array. Simplest machine; do it first to settle the
       shape the rest follow.
-- [ ] 2.2 PET (`src/emulator/pet/petMachine.ts`) — 40×25 at `$8000`.
-- [ ] 2.3 C64 (`src/emulator/c64/c64Machine.ts`) — 40×25, base from the VIC-II
+- [x] 2.2 PET (`src/emulator/pet/petMachine.ts`) — 40×25 at `$8000`.
+- [x] 2.3 C64 (`src/emulator/c64/c64Machine.ts`) — 40×25, base from the VIC-II
       register, with a test that moves the matrix and still reads it back.
 - [ ] 2.4 VIC-20 (`src/emulator/vic20/vic20Machine.ts`) — 22×23, base and
       geometry from the VIC-I registers, same moved-matrix test.
