@@ -6,7 +6,7 @@ import {
   type StreamHandle,
   type StreamResult,
 } from './aiClient';
-import type { AiProviderId } from './providers/types';
+import type { AiProviderId, ChatImage } from './providers/types';
 import {
   loadAiConversation,
   saveAiConversation,
@@ -14,12 +14,25 @@ import {
   getAiProvider,
   getProviderApiKey,
 } from '../storage/settings';
-import { useIdeStore } from '../app/store';
+import { useIdeStore, type AiRunOutcome } from '../app/store';
 import type { Dialect } from '../dialects/types';
+import {
+  applyJudgement,
+  leaveUnjudged,
+  type ExpectationResult,
+} from './expectations';
+import {
+  extractCodeBlocks,
+  extractJudgement,
+  isApplicableBlock,
+} from './codeExtractor';
 import {
   buildExpectationFix,
   buildRunFix,
   buildRunNote,
+  buildScreenJudgeRequest,
+  buildViewNote,
+  unavailableViews,
   FORMAT_RETRY_MESSAGE,
   loadSystemPrompt,
   type PendingFix,
@@ -29,8 +42,20 @@ import { sourceFingerprint } from './sourceFingerprint';
 
 export type { PendingFix } from './promptBuilder';
 
-/** A message as shown in the thread. `streaming`/`retrying` are UI-only. */
+/**
+ * A message as shown in the thread. `streaming`/`retrying` are UI-only.
+ *
+ * An `image` (inherited from `ChatMessage`) is a screen shown with that turn.
+ * It survives in memory for as long as the thread does - so the panel can show
+ * what was sent, and so the wire history keeps a stable, cacheable prefix - but
+ * never reaches storage; see {@link persist} and `screenShown`.
+ */
 export interface DisplayMessage extends ChatMessage {
+  /**
+   * A screen was shown with this turn, but its image is gone: set on a turn
+   * restored from storage, where the marker was kept and the bytes were not.
+   */
+  screenShown?: boolean;
   /** True while the assistant answer is still arriving. */
   streaming?: boolean;
   /** True for a truncated answer (stopped, or cut off by the output limit). */
@@ -66,6 +91,12 @@ export interface SendParams {
   userContent: string;
   /** Bare request shown in the thread. */
   displayRequest: string;
+  /**
+   * The machine's display, shown to the assistant with this request. Only ever
+   * set when the user attached it or a run needs looking at, and only for a
+   * provider that can be shown one.
+   */
+  image?: ChatImage;
   /**
    * The program as it stood when this request was sent. Fingerprinted onto the
    * answer so a fragment applied later can be flagged as possibly stale.
@@ -121,7 +152,23 @@ let autoFixAttempts = 0;
  */
 let pendingRunNote = '';
 
-/** Persist the thread, dropping the empty placeholder and the `streaming` flag. */
+/**
+ * The screen from that run, when the assistant asked to be shown it and the run
+ * gave no other reason to send one. It waits with the note and is spent with it:
+ * a view that was asked for is carried whether or not the program failed, and a
+ * successful run is not a reason to withhold what was requested.
+ */
+let pendingRunImage: ChatImage | null = null;
+
+/**
+ * Persist the thread, dropping the empty placeholder and the `streaming` flag.
+ *
+ * A shown screen is recorded as a marker and not as pixels: the conversation
+ * backup shares a few megabytes of localStorage with the autosaved program and
+ * everything else the IDE keeps, and a handful of upscaled PNGs would evict
+ * them. A restored thread can still say a screen was shown; it just cannot show
+ * it again.
+ */
 function persist(messages: DisplayMessage[]): void {
   saveAiConversation(
     messages
@@ -131,6 +178,7 @@ function persist(messages: DisplayMessage[]): void {
         content: m.content,
         ...(m.streaming || m.incomplete ? { incomplete: true } : {}),
         ...(m.baseFingerprint ? { baseFingerprint: m.baseFingerprint } : {}),
+        ...(m.image || m.screenShown ? { screenShown: true } : {}),
       })),
   );
 }
@@ -154,6 +202,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     system,
     userContent,
     displayRequest,
+    image,
     baseSource,
     automatic,
   }) => {
@@ -161,17 +210,29 @@ export const useAiStore = create<AiState>((set, get) => ({
     // a long conversation must not exhaust its budget early and then silently
     // stop correcting itself.
     if (!automatic) autoFixAttempts = 0;
-    // Spend any noted run outcome on this request, whoever asked for it.
+    // Spend any noted run outcome on this request, whoever asked for it - and
+    // with it the screen that outcome was asked to carry, unless this request
+    // is already carrying one of its own.
     const note = pendingRunNote;
     pendingRunNote = '';
+    const shown = image ?? pendingRunImage ?? undefined;
+    pendingRunImage = null;
     const baseFingerprint = sourceFingerprint(baseSource);
     const prior = get().messages;
-    // History for the API: prior turns (role+content only) + the new request.
+    // History for the API: prior turns + the new request. A screen shown with
+    // an earlier turn stays on it rather than being rewritten out - the prefix
+    // has to stay byte-stable for the provider's cache to hit, and a cached
+    // image reads for a fraction of what re-writing the prefix would cost.
     const baseHistory: ChatMessage[] = [
-      ...prior.map(({ role, content }) => ({ role, content })),
+      ...prior.map(({ role, content, image: was }) => ({
+        role,
+        content,
+        ...(was ? { image: was } : {}),
+      })),
       {
         role: 'user',
         content: note ? `${note}\n\n${userContent}` : userContent,
+        ...(shown ? { image: shown } : {}),
       },
     ];
     const myGen = ++gen;
@@ -181,7 +242,11 @@ export const useAiStore = create<AiState>((set, get) => ({
       pendingFix: null,
       messages: [
         ...prior,
-        { role: 'user', content: displayRequest },
+        {
+          role: 'user',
+          content: displayRequest,
+          ...(shown ? { image: shown } : {}),
+        },
         {
           role: 'assistant',
           content: '',
@@ -329,6 +394,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     activeHandle = null;
     autoFixAttempts = 0;
     pendingRunNote = '';
+    pendingRunImage = null;
     clearAiConversation();
     set({ messages: [], busy: false, error: '', pendingFix: null });
   },
@@ -363,6 +429,93 @@ function resolveRequestContext(): {
   };
 }
 
+/**
+ * Show the assistant the screen its program produced and ask it to judge what
+ * it said that screen would show - correcting the program in the same reply if
+ * it does not hold.
+ *
+ * One request, not two: the model has everything it needs to judge and to fix
+ * at once, and folding them is what keeps a look at the screen costing no more
+ * unrequested requests than a runtime error does.
+ *
+ * The bound is spent by corrections, not by looking. This request spends none
+ * of it; the counter moves only if the reply comes back carrying a corrected
+ * program, which is the same one attempt an error correction would have used.
+ */
+function judgeScreen(
+  outcome: AiRunOutcome,
+  ranSource: string,
+  results: readonly ExpectationResult[],
+  screen: ChatImage,
+  context: NonNullable<ReturnType<typeof resolveRequestContext>>,
+): void {
+  const ai = useAiStore.getState();
+  const visuals = results
+    .map((r) => r.expectation)
+    .filter((e) => e.kind === 'visual');
+  const judge = buildScreenJudgeRequest(ranSource, visuals);
+  const { dialect, ...request } = context;
+  void loadSystemPrompt(dialect, true)
+    .then((system) =>
+      ai.send({
+        ...request,
+        system,
+        userContent: judge.userContent,
+        displayRequest: judge.displayRequest,
+        image: screen,
+        baseSource: ranSource,
+        automatic: true,
+      }),
+    )
+    .then(() => settleJudgement(outcome, ranSource, results));
+}
+
+/**
+ * Read the verdict out of the reply the judging request produced, and turn it
+ * into the run's answer.
+ *
+ * A reply that never finished - stopped, failed, empty - judges nothing: the
+ * expectations stay unchecked and no correction follows, which is what stopping
+ * a reply has always meant.
+ */
+function settleJudgement(
+  outcome: AiRunOutcome,
+  ranSource: string,
+  results: readonly ExpectationResult[],
+): void {
+  const ai = useAiStore.getState();
+  const reply = ai.messages[ai.messages.length - 1];
+  if (
+    !reply ||
+    reply.role !== 'assistant' ||
+    reply.incomplete ||
+    reply.streaming ||
+    reply.content.trim() === ''
+  ) {
+    pendingRunNote = buildRunNote(
+      outcome,
+      leaveUnjudged(results, 'the judgement did not finish'),
+    );
+    return;
+  }
+
+  const judged = applyJudgement(results, extractJudgement(reply.content));
+  if (!judged.some((r) => r.status === 'failed')) {
+    pendingRunNote = buildRunNote(outcome, judged);
+    return;
+  }
+
+  // It found its own program wanting. If it corrected it in the same breath,
+  // that reply IS the correction and costs the one attempt an error correction
+  // would have; if it only said what was wrong, there is nothing to apply, so
+  // the fix goes back to being one the user chooses to ask for.
+  if (extractCodeBlocks(reply.content).some(isApplicableBlock)) {
+    autoFixAttempts++;
+  } else {
+    ai.setPendingFix(buildExpectationFix(ranSource, judged, true));
+  }
+}
+
 // Module-level reactions to IDE-store changes. These run regardless of whether
 // AiPanel is mounted, so they work even with the panel closed or, on mobile,
 // while the editor tab is showing.
@@ -388,23 +541,86 @@ useIdeStore.subscribe((state) => {
     run.outcome.kind !== 'errored' &&
     run.expectations.some((r) => r.status === 'failed');
 
-  // A run that didn't fail is worth telling the assistant about, but not worth
-  // a request of its own: note it and let the next request carry it.
-  if (run.outcome.kind !== 'errored' && !wrongResult) {
-    pendingRunNote = buildRunNote(run.outcome, run.expectations);
-    return;
-  }
-
   const ai = useAiStore.getState();
-  const fix =
-    run.outcome.kind === 'errored'
-      ? buildRunFix(state.source, run.outcome.report)
-      : buildExpectationFix(state.source, run.expectations);
   // Correcting a program the user has edited since it ran would be answering a
   // question they have already moved on from.
   const edited =
     sourceFingerprint(run.ranSource) !== sourceFingerprint(state.source);
   const context = resolveRequestContext();
+  const canShowScreen =
+    context !== null && getProvider(context.providerId).acceptsImages;
+  // The display travels only where the assistant asked to see it (the capture
+  // is taken on that basis) and only to a backend that can be shown one.
+  const screen = canShowScreen ? run.screen : undefined;
+  // What it asked for and did not get - reported back rather than passed over.
+  const missedViews = unavailableViews(run.views, screen !== undefined);
+  // A picture was possible and it asked for none: the correction says so, so a
+  // failure it did not foresee is one turn from being visible rather than out
+  // of reach.
+  const screenOffered =
+    canShowScreen && !run.views.image && run.screen === undefined;
+
+  // Expectations about how the screen looks are the one form no machine can
+  // settle. They arrive unchecked and are settled by showing the assistant what
+  // its program drew - if there is a screen, somewhere to show it, and an
+  // automatic request still going spare.
+  const visuals = run.expectations.filter(
+    (r) => r.expectation.kind === 'visual',
+  );
+  if (run.outcome.kind !== 'errored' && !wrongResult && visuals.length > 0) {
+    const blocked =
+      screen === undefined
+        ? canShowScreen
+          ? 'there was no screen to show'
+          : 'the screen cannot be shown to this assistant'
+        : edited || ai.busy || context === null
+          ? 'it was not judged'
+          : autoFixAttempts >= MAX_AUTO_FIX_ATTEMPTS
+            ? 'the automatic corrections for this run were already used up'
+            : null;
+    if (blocked !== null) {
+      // Unchecked, never failed: not looking is not evidence of anything.
+      pendingRunNote = buildRunNote(
+        run.outcome,
+        leaveUnjudged(run.expectations, blocked),
+        missedViews,
+      );
+      return;
+    }
+    judgeScreen(run.outcome, state.source, run.expectations, screen!, context!);
+    state.showAiPanel();
+    return;
+  }
+
+  // A run that didn't fail is worth telling the assistant about, but not worth
+  // a request of its own: note it and let the next request carry it.
+  if (run.outcome.kind !== 'errored' && !wrongResult) {
+    pendingRunNote = buildRunNote(
+      run.outcome,
+      run.expectations,
+      missedViews,
+      screen !== undefined,
+    );
+    // Asked for and produced: it travels with the note, so a view is carried
+    // whether or not the program that produced it failed.
+    pendingRunImage = screen ?? null;
+    return;
+  }
+
+  const buildFix = (screenAttached: boolean): PendingFix =>
+    run.outcome.kind === 'errored'
+      ? buildRunFix(
+          state.source,
+          run.outcome.report,
+          screenAttached,
+          screenOffered,
+        )
+      : buildExpectationFix(
+          state.source,
+          run.expectations,
+          screenAttached,
+          screenOffered,
+        );
   if (
     edited ||
     ai.busy ||
@@ -413,12 +629,18 @@ useIdeStore.subscribe((state) => {
   ) {
     // Out of automatic attempts (or not entitled to one): back to offering the
     // fix for the user to accept, which is what happens without this feature.
-    ai.setPendingFix(fix);
+    // No screen rides along with a banner the user may never accept, so the fix
+    // is built as one that has none.
+    ai.setPendingFix(buildFix(false));
     state.showAiPanel();
     return;
   }
 
   autoFixAttempts++;
+  const fix = buildFix(screen !== undefined);
+  // A failing run's outcome is the correction request, so an unavailable view
+  // rides in front of it - the same words a run that didn't fail would use.
+  pendingRunNote = buildViewNote(missedViews);
   // Surface the panel so a correction the user didn't ask for is visible while
   // it runs, and stoppable like any other reply.
   state.showAiPanel();
@@ -426,12 +648,13 @@ useIdeStore.subscribe((state) => {
   // asynchronously - which costs this path nothing, since it was already firing
   // the request without waiting for it.
   const { dialect, ...request } = context;
-  void loadSystemPrompt(dialect).then((system) =>
+  void loadSystemPrompt(dialect, canShowScreen).then((system) =>
     ai.send({
       ...request,
       system,
       userContent: fix.userContent,
       displayRequest: fix.displayRequest,
+      ...(screen ? { image: screen } : {}),
       baseSource: state.source,
       automatic: true,
     }),

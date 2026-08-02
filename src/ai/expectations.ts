@@ -23,6 +23,12 @@ export type Expectation =
   /** `needle` should appear somewhere on the screen. */
   | { kind: 'screen'; needle: string; source: string }
   /**
+   * The screen should look like `description` - the one form no machine can
+   * evaluate, settled instead by showing the assistant the display and asking
+   * it to judge its own program (see {@link parseJudgement}).
+   */
+  | { kind: 'visual'; description: string; source: string }
+  /**
    * A line that parses as neither. Kept rather than dropped: a malformed
    * expectation the assistant can see reported back is one it can rewrite,
    * where a silently discarded one reads as having passed.
@@ -34,6 +40,7 @@ export const EXPECT_FENCE_TAG = 'basic-expect';
 
 const VAR_RE = /^VAR\s+(\S+)\s*=\s*(.*)$/i;
 const SCREEN_RE = /^SCREEN\s+CONTAINS\s+(.*)$/i;
+const VISUAL_RE = /^SCREEN\s+SHOWS\s+(.*)$/i;
 
 /** Strip one layer of surrounding double quotes, if present. */
 function unquote(text: string): string {
@@ -81,6 +88,18 @@ export function parseExpectations(block: string): Expectation[] {
         continue;
       }
       out.push({ kind: 'screen', needle, source: line });
+      continue;
+    }
+
+    const visualMatch = VISUAL_RE.exec(line);
+    if (visualMatch) {
+      const description = unquote(visualMatch[1]!).trim();
+      // Nothing described is nothing to judge.
+      if (description === '') {
+        out.push({ kind: 'malformed', source: line });
+        continue;
+      }
+      out.push({ kind: 'visual', description, source: line });
       continue;
     }
 
@@ -169,6 +188,18 @@ export function evaluateExpectations(
       };
     }
 
+    if (expectation.kind === 'visual') {
+      // Never judged from the machine: no reader answers "does this look
+      // right". It stays unchecked here and is settled by the assistant, shown
+      // the display (see `applyJudgement`) - or stays unchecked for good when
+      // there is nothing to show it or no way to show it.
+      return {
+        expectation,
+        status: 'unchecked',
+        reason: 'the screen has not been looked at',
+      };
+    }
+
     if (expectation.kind === 'var') {
       if (readings.variables === null) {
         return {
@@ -212,5 +243,157 @@ export function evaluateExpectations(
       collapseSpaces(line).includes(needle),
     );
     return { expectation, status: hit ? 'passed' : 'failed' };
+  });
+}
+
+/** The fence tag the assistant names the views it wants to be shown in. */
+export const VIEW_FENCE_TAG = 'basic-view';
+
+/**
+ * The views of the machine's screen the assistant asked to be shown when the
+ * program it just returned is run.
+ *
+ * The decision is the assistant's rather than the IDE's because only the
+ * assistant knows what it wrote: nothing about a finished screen distinguishes a
+ * program that printed a table from one that drew a table's border out of
+ * graphics characters.
+ */
+export interface ScreenViewRequest {
+  /** The screen as a picture. */
+  image: boolean;
+  /**
+   * Views named that cannot be produced. Kept rather than dropped, for the same
+   * reason a malformed expectation is: a mistaken ask the assistant can see
+   * reported back is one it can correct, where a silently ignored one reads as
+   * having been answered.
+   */
+  unknown: string[];
+}
+
+/** Nothing asked for - what most replies say, and the shape of saying nothing. */
+export function noScreenViews(): ScreenViewRequest {
+  return { image: false, unknown: [] };
+}
+
+const IMAGE_VIEW_RE = /^SCREEN\s+IMAGE$/i;
+
+/**
+ * Parse one ` ```basic-view ` block: one view per line.
+ *
+ * Only the screen image can be named. The screen as text is deliberately not a
+ * view here - `SCREEN CONTAINS` already checks text locally and for free, so
+ * offering it would be adding a channel rather than handing over a decision.
+ * The shape takes a list so the next view costs a line.
+ */
+export function parseScreenViews(block: string): ScreenViewRequest {
+  const out = noScreenViews();
+  for (const raw of block.split('\n')) {
+    const line = raw.trim().replace(/[.;,]$/, '');
+    if (line === '') continue;
+    if (IMAGE_VIEW_RE.test(line)) {
+      out.image = true;
+      continue;
+    }
+    out.unknown.push(line);
+  }
+  return out;
+}
+
+/** Fold several view requests (one per block) into one. */
+export function mergeScreenViews(
+  requests: readonly ScreenViewRequest[],
+): ScreenViewRequest {
+  return requests.reduce<ScreenViewRequest>(
+    (acc, r) => ({
+      image: acc.image || r.image,
+      unknown: [...acc.unknown, ...r.unknown],
+    }),
+    noScreenViews(),
+  );
+}
+
+/** The fence tag the assistant answers a "look at this screen" request in. */
+export const JUDGE_FENCE_TAG = 'basic-judge';
+
+/** One line of the assistant's verdict on its own screen. */
+export interface Judgement {
+  held: boolean;
+  /** What it said - the description echoed back, or why it did not hold. */
+  detail: string;
+}
+
+const JUDGE_RE = /^(PASS|FAIL)\b[:\s-]*(.*)$/i;
+
+/**
+ * Parse a ` ```basic-judge ` block: one `PASS`/`FAIL` line per visual
+ * expectation, in the order they were stated.
+ *
+ * Lines that are neither are skipped rather than kept. Unlike an expectation -
+ * where a malformed line is a thing the assistant wrote and can be shown - this
+ * is the assistant answering a question the IDE asked, and the answer that
+ * matters is how many verdicts came back against how many were asked for. A
+ * short answer leaves the rest unjudged (see {@link applyJudgement}).
+ */
+export function parseJudgement(block: string): Judgement[] {
+  const out: Judgement[] = [];
+  for (const raw of block.split('\n')) {
+    const line = raw.trim();
+    if (line === '') continue;
+    const m = JUDGE_RE.exec(line);
+    if (!m) continue;
+    out.push({
+      held: m[1]!.toUpperCase() === 'PASS',
+      detail: m[2]!.trim(),
+    });
+  }
+  return out;
+}
+
+/**
+ * Leave every visual expectation unchecked, saying why.
+ *
+ * For the cases where the screen was never looked at at all: nothing to show,
+ * nowhere to show it, or the judgement never happened. Reported rather than
+ * quietly counted as passing - an expectation nobody judged is not evidence the
+ * program worked - and never as a failure, which would send the assistant to
+ * fix a program that may be perfectly correct.
+ */
+export function leaveUnjudged(
+  results: readonly ExpectationResult[],
+  reason: string,
+): ExpectationResult[] {
+  return results.map((result) =>
+    result.expectation.kind === 'visual'
+      ? { expectation: result.expectation, status: 'unchecked', reason }
+      : result,
+  );
+}
+
+/**
+ * Settle the visual expectations in `results` with the assistant's verdicts,
+ * matched to them in order.
+ *
+ * A verdict that never came back leaves its expectation unchecked. Silence is
+ * not a pass: an expectation nobody judged is not evidence the program worked,
+ * which is the same rule the machine-checked forms already follow.
+ */
+export function applyJudgement(
+  results: readonly ExpectationResult[],
+  judgements: readonly Judgement[],
+): ExpectationResult[] {
+  let next = 0;
+  return results.map((result) => {
+    if (result.expectation.kind !== 'visual') return result;
+    const judgement = judgements[next++];
+    if (!judgement) {
+      return { ...result, status: 'unchecked', reason: 'it was not judged' };
+    }
+    return judgement.held
+      ? { expectation: result.expectation, status: 'passed' }
+      : {
+          expectation: result.expectation,
+          status: 'failed',
+          ...(judgement.detail ? { actual: judgement.detail } : {}),
+        };
   });
 }

@@ -9,12 +9,21 @@ import type {
 
 /**
  * Map the app's `user`/`assistant` history onto Gemini `contents`. Gemini names
- * the model turn `model` (not `assistant`); each turn is a single text part.
+ * the model turn `model` (not `assistant`); a turn is a single text part, or an
+ * inline image part ahead of the text when a screen was shown with it.
  */
 export function toGeminiContents(messages: ChatMessage[]): Content[] {
   return messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
+    parts:
+      m.image && m.role === 'user'
+        ? [
+            {
+              inlineData: { mimeType: m.image.mediaType, data: m.image.base64 },
+            },
+            { text: m.content },
+          ]
+        : [{ text: m.content }],
   }));
 }
 

@@ -33,7 +33,13 @@ import {
   type GamepadMode,
 } from '../keyboard/controllerConfig';
 import { materializeSampleBlocks } from './sampleBlocks';
-import type { Expectation, ExpectationResult } from '../ai/expectations';
+import {
+  noScreenViews,
+  type Expectation,
+  type ExpectationResult,
+  type ScreenViewRequest,
+} from '../ai/expectations';
+import type { ScreenCapture } from './screenCapture';
 import { computeCompatibleDialects } from '../share/compatibility';
 import {
   loadAutosave,
@@ -244,6 +250,14 @@ interface IdeState {
    */
   aiRunExpectations: Expectation[];
   /**
+   * The views of the screen the assistant asked to be shown when the program it
+   * just handed over runs (see `../ai/expectations`). Set by the apply that
+   * armed the check; nothing asked for when the reply named none, which is the
+   * ordinary case. What decides whether the run is captured - deliberately the
+   * assistant's ask rather than the IDE's guess at when pixels matter.
+   */
+  aiRunViews: ScreenViewRequest;
+  /**
    * How the latest AI-checked run turned out, tagged with the `runRequest` it
    * came from so a stale outcome from a superseded run is ignorable. The AI
    * session store watches this to correct a failure or to tell the assistant
@@ -269,11 +283,31 @@ interface IdeState {
      * only offering the fix.
      */
     ranSource: string;
+    /**
+     * The machine's display as it stood when the verdict was formed, for
+     * showing to the assistant. Absent unless it was asked for - by a named
+     * view, or by an expectation only a look can settle - so a run nobody
+     * wanted to see costs nothing.
+     */
+    screen?: ScreenCapture;
+    /**
+     * What the assistant asked to be shown for this run, so a view that could
+     * not be produced can be reported back as unavailable rather than answered
+     * with silence.
+     */
+    views: ScreenViewRequest;
   } | null;
   /** Bumped to ask the emulator pane to stop. */
   stopRequest: number;
   /** Bumped to ask the emulator pane to reset the machine. */
   resetRequest: number;
+  /**
+   * Whether there is a machine display the assistant could be shown - a live
+   * one, or the last frame before the emulator pane went away (see
+   * `./screenCapture`). The capture itself is not render data and stays in that
+   * module; this is only what the AI panel's attach control needs to know.
+   */
+  screenCaptureAvailable: boolean;
   /**
    * Breakpointed BASIC line numbers. Keyed by line number (not editor row) so
    * they survive edits and renumbering. Cleared when a different program loads.
@@ -635,16 +669,20 @@ interface IdeState {
    * `expectations` are what the applied reply said should be true once the
    * program has run; omitted or empty when it said nothing.
    */
-  requestAiRun(expectations?: Expectation[]): void;
+  requestAiRun(expectations?: Expectation[], views?: ScreenViewRequest): void;
   /**
    * Record how an AI-checked run turned out, once the check reaches a verdict.
-   * `ranSource` is the program that was loaded for the run, and `expectations`
-   * how the assistant's stated expectations held up (empty when none).
+   * `ranSource` is the program that was loaded for the run, `expectations` how
+   * the assistant's stated expectations held up (empty when none), and `screen`
+   * the display at the verdict when this run is one the assistant may need to
+   * see (omitted otherwise).
    */
   reportRun(
     outcome: AiRunOutcome,
     ranSource: string,
     expectations?: ExpectationResult[],
+    screen?: ScreenCapture,
+    views?: ScreenViewRequest,
   ): void;
   /** Open the AI panel (and, on mobile, switch to its tab). */
   showAiPanel(): void;
@@ -706,6 +744,8 @@ interface IdeState {
   setSplitRatio(n: number): void;
   setEmulatorStatus(status: EmulatorStatus): void;
   setLiveMemory(stats: MachineMemoryStats | null): void;
+  /** Report whether there is a display the assistant could be shown. */
+  setScreenCaptureAvailable(available: boolean): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
   setShareLinkOpen(open: boolean): void;
@@ -1117,9 +1157,11 @@ export const useIdeStore = create<IdeState>((set) => ({
   runRequest: 0,
   aiRunCheckSeq: 0,
   aiRunExpectations: [],
+  aiRunViews: noScreenViews(),
   runOutcome: null,
   stopRequest: 0,
   resetRequest: 0,
+  screenCaptureAvailable: false,
   breakpoints: new Set<number>(),
   debugLine: null,
   stepRequest: 0,
@@ -1640,15 +1682,29 @@ export const useIdeStore = create<IdeState>((set) => ({
       return { asmErrorBlocks: next };
     }),
   requestRun: () => set((s) => ({ runRequest: s.runRequest + 1 })),
-  requestAiRun: (expectations = []) =>
+  requestAiRun: (expectations = [], views = noScreenViews()) =>
     set((s) => ({
       runRequest: s.runRequest + 1,
       aiRunCheckSeq: s.runRequest + 1,
       aiRunExpectations: expectations,
+      aiRunViews: views,
     })),
-  reportRun: (outcome, ranSource, expectations = []) =>
+  reportRun: (
+    outcome,
+    ranSource,
+    expectations = [],
+    screen,
+    views = noScreenViews(),
+  ) =>
     set((s) => ({
-      runOutcome: { seq: s.runRequest, outcome, ranSource, expectations },
+      runOutcome: {
+        seq: s.runRequest,
+        outcome,
+        ranSource,
+        expectations,
+        views,
+        ...(screen ? { screen } : {}),
+      },
     })),
   // The AI panel, emulator and memory map share the right-hand slot, so showing
   // one closes the memory map (it otherwise wins the slot and hides them).
@@ -1753,6 +1809,12 @@ export const useIdeStore = create<IdeState>((set) => ({
   setSplitRatio: (n) => set({ splitRatio: n }),
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
   setLiveMemory: (stats) => set({ liveMemory: stats }),
+  setScreenCaptureAvailable: (available) =>
+    set((s) =>
+      s.screenCaptureAvailable === available
+        ? {}
+        : { screenCaptureAvailable: available },
+    ),
   toggleAiPanel: () =>
     set((s) => ({ aiPanelOpen: !s.aiPanelOpen, memoryMapOpen: false })),
   setTransferOpen: (open) => set({ transferOpen: open }),

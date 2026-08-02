@@ -1,3 +1,18 @@
+> **Partially synced, after the fact.** This delta was archived unsynced, and the
+> feature was later built to a different design (see the sibling archive
+> `2026-08-02-show-the-assistant-the-screen-implemented`). Two guarantees below
+> are true of what shipped and have been folded into the baseline: the image is
+> the machine's screen at its own resolution, unenlarged, and carrying a screen
+> does not change what the assistant is asked to do.
+>
+> The rest was deliberately NOT synced, because nothing implements it: the
+> assistant naming which view or views it wants alongside its code, and an
+> outcome reporting a named-but-unproducible view as unavailable. The clause
+> requiring the whole behaviour to be identical on every provider was left out
+> too — it contradicts the shipped requirement "Being shown the screen is a
+> stated capability", under which a provider that cannot take an image degrades
+> instead. Treat what follows as a design proposal, not as shipped behaviour.
+
 ## MODIFIED Requirements
 
 ### Requirement: Errors flow back into the conversation

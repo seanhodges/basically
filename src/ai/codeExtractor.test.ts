@@ -7,6 +7,8 @@ import {
   mergeBasicLines,
   mergePlan,
   type CodeBlock,
+  extractJudgement,
+  extractScreenViews,
 } from './codeExtractor';
 import { bytesToBase64 } from '../storage/vfs/base64';
 
@@ -357,5 +359,51 @@ describe('expectation blocks', () => {
       'VAR A = 1',
       'VAR B = 2',
     ]);
+  });
+});
+
+describe('a verdict on a screen', () => {
+  const reply =
+    'Looking at it:\n\n```basic-judge\nPASS a circle\nFAIL there is no paddle\n```\n\n```basic\n10 PLOT 1,1\n```\n';
+
+  it('is never offered for applying to the editor', () => {
+    const [judge, code] = extractCodeBlocks(reply);
+    expect(judge!.verdict).toBe(true);
+    expect(isApplicableBlock(judge!)).toBe(false);
+    // The program in the same reply still is.
+    expect(isApplicableBlock(code!)).toBe(true);
+  });
+
+  it('is read back as verdicts, in order', () => {
+    expect(extractJudgement(reply)).toEqual([
+      { held: true, detail: 'a circle' },
+      { held: false, detail: 'there is no paddle' },
+    ]);
+  });
+
+  it('is empty when the reply carries none', () => {
+    expect(extractJudgement('```basic\n10 PRINT\n```')).toEqual([]);
+  });
+});
+
+describe('a request to be shown the screen', () => {
+  const reply =
+    'Here you go:\n\n```basic\n10 PLOT 1,1\n```\n\n```basic-view\nSCREEN IMAGE\n```\n';
+
+  it('is never offered for applying to the editor', () => {
+    const view = extractCodeBlocks(reply).find((b) => b.view === true);
+    expect(view).toBeDefined();
+    expect(isApplicableBlock(view!)).toBe(false);
+  });
+
+  it('is read back as the views the assistant asked for', () => {
+    expect(extractScreenViews(reply)).toEqual({ image: true, unknown: [] });
+  });
+
+  it('asks for nothing when the reply names no views', () => {
+    expect(extractScreenViews('```basic\n10 PRINT\n```')).toEqual({
+      image: false,
+      unknown: [],
+    });
   });
 });

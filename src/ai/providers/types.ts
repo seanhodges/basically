@@ -4,9 +4,28 @@
  * interchangeable behind the `streamChat` dispatcher (`../aiClient`).
  */
 
+/**
+ * An image sent alongside a user turn - in practice the machine's display,
+ * captured from the emulator (see `../../app/screenCapture`).
+ *
+ * PNG only: what is ever sent is a retro screen, where lossy compression
+ * destroys the single-pixel detail that is the point of showing it.
+ */
+export interface ChatImage {
+  mediaType: 'image/png';
+  /** The image data, base64, without the `data:` URI prefix. */
+  base64: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  /**
+   * An image shown to the assistant with this turn. User turns only - no
+   * provider accepts an image on an assistant turn, and nothing here produces
+   * one. Absent on every turn that shows nothing, which is most of them.
+   */
+  image?: ChatImage;
 }
 
 /**
@@ -61,6 +80,16 @@ export interface ProviderMeta {
   consoleLabel: string;
   /** Host the key is sent to (shown in the privacy warning). */
   apiHost: string;
+  /**
+   * Whether this backend can be shown an image ({@link ChatMessage.image}).
+   *
+   * Stated here rather than discovered by trying: the attach control and the
+   * system prompt both have to know before a request is made, and neither may
+   * load a vendor SDK to find out. All three backends accept images today; the
+   * flag exists so a backend that cannot is honestly incapable - no image sent,
+   * nothing offered - instead of failing a request the user has already made.
+   */
+  acceptsImages: boolean;
 }
 
 /**

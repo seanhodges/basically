@@ -11,13 +11,19 @@ import {
   classifyBlock,
   extractCodeBlocks,
   extractExpectations,
+  extractScreenViews,
   isApplicableBlock,
   mergeBasicLines,
   mergePlan,
   type CodeBlock,
   type MergeRow,
 } from '../ai/codeExtractor';
-import type { Expectation } from '../ai/expectations';
+import {
+  noScreenViews,
+  type Expectation,
+  type ScreenViewRequest,
+} from '../ai/expectations';
+import { captureScreen, type ScreenCapture } from '../app/screenCapture';
 import { sourceFingerprint } from '../ai/sourceFingerprint';
 import { getAiProvider, getProviderApiKey } from '../storage/settings';
 import { getProvider } from '../ai/providers/registry';
@@ -254,6 +260,15 @@ export function AiPanel() {
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Showing the assistant the screen: available when there is a display to show
+  // (live, or the last frame before the emulator pane made way for this panel)
+  // and the chosen backend can be shown one. Attached to the next request only,
+  // and droppable before it is sent.
+  const screenAvailable = useIdeStore((s) => s.screenCaptureAvailable);
+  const canShowScreen = getProvider(getAiProvider()).acceptsImages;
+  const [attached, setAttached] = useState<ScreenCapture | null>(null);
+  const attachScreen = () => setAttached(captureScreen());
+
   // Keep the thread scrolled to the newest content as it streams or on remount.
   useEffect(() => {
     const el = scrollRef.current;
@@ -271,15 +286,18 @@ export function AiPanel() {
       return;
     }
     setInput('');
+    const screen = provider.acceptsImages ? attached : null;
+    setAttached(null);
     const errors = dialect.lint(source);
     void useAiStore.getState().send({
       providerId,
       apiKey,
       model: provider.defaultModel,
       maxTokens: dialect.aiProfile.maxTokens,
-      system: await loadSystemPrompt(dialect),
-      userContent: buildUserMessage(request, source, errors),
+      system: await loadSystemPrompt(dialect, provider.acceptsImages),
+      userContent: buildUserMessage(request, source, errors, screen !== null),
       displayRequest: request,
+      ...(screen ? { image: screen } : {}),
       baseSource: source,
     });
   };
@@ -316,11 +334,12 @@ export function AiPanel() {
     text: string,
     run: boolean,
     expectations: Expectation[] = [],
+    views: ScreenViewRequest = noScreenViews(),
   ) => {
     replaceDocument(text);
     if (!checkEditorErrors(text) && run) {
       showEmulator();
-      requestAiRun(expectations);
+      requestAiRun(expectations, views);
     }
   };
 
@@ -341,7 +360,7 @@ export function AiPanel() {
       apiKey,
       model: provider.defaultModel,
       maxTokens: dialect.aiProfile.maxTokens,
-      system: await loadSystemPrompt(dialect),
+      system: await loadSystemPrompt(dialect, provider.acceptsImages),
       userContent: fix.userContent,
       displayRequest: fix.displayRequest,
       baseSource: source,
@@ -352,6 +371,19 @@ export function AiPanel() {
     if (msg.role === 'user') {
       return (
         <div key={idx} className={`${styles.aiMsg} ${styles.aiUser}`}>
+          {/* What the assistant was shown, shown back: a thread nobody can
+              read afterwards is a thread nobody can check. A turn restored
+              from storage kept the marker and not the pixels, so it says the
+              screen was shown without being able to show it again. */}
+          {msg.image ? (
+            <img
+              className={styles.aiScreenShot}
+              src={`data:${msg.image.mediaType};base64,${msg.image.base64}`}
+              alt="The machine screen shown to the assistant"
+            />
+          ) : msg.screenShown ? (
+            <div className={styles.aiScreenGone}>Screen shown</div>
+          ) : null}
           {msg.content}
         </div>
       );
@@ -361,6 +393,9 @@ export function AiPanel() {
     // that the apply arms - so a program that runs is checked against what its
     // author said it should produce.
     const expectations = extractExpectations(msg.content);
+    // What this reply asked to be shown when its program runs. Read from the
+    // same reply as the expectations and carried on the same journey.
+    const views = extractScreenViews(msg.content);
     // Render text with code blocks replaced by panels
     const parts: React.ReactNode[] = [];
     let rest = msg.content;
@@ -391,7 +426,7 @@ export function AiPanel() {
             source={source}
             stale={staleAgainst(msg, source)}
             incomplete={msg.incomplete === true}
-            onApply={(text, run) => applyText(text, run, expectations)}
+            onApply={(text, run) => applyText(text, run, expectations, views)}
           />
         ),
       );
@@ -465,6 +500,19 @@ export function AiPanel() {
           unavailable until you reconnect.
         </div>
       )}
+      {attached && (
+        <div className={styles.aiAttached}>
+          <img
+            className={styles.aiScreenShot}
+            src={`data:${attached.mediaType};base64,${attached.base64}`}
+            alt="The machine screen that will be sent with your message"
+          />
+          <span>This screen goes with your next message.</span>
+          <button className="linklike" onClick={() => setAttached(null)}>
+            Remove
+          </button>
+        </div>
+      )}
       <div className={styles.aiInput}>
         <textarea
           value={input}
@@ -483,6 +531,26 @@ export function AiPanel() {
             }
           }}
         />
+        {/* Presented as unavailable rather than hidden when there is nothing to
+            show or nowhere to show it, so it is clear the option exists. */}
+        <button
+          className={styles.aiShowScreen}
+          onClick={attachScreen}
+          disabled={
+            !screenAvailable || !canShowScreen || attached !== null || !online
+          }
+          title={
+            !canShowScreen
+              ? 'This AI provider cannot be shown a picture of the screen'
+              : !screenAvailable
+                ? 'Run your program first - there is no screen to show yet'
+                : attached !== null
+                  ? 'The screen is already attached to your next message'
+                  : 'Show the assistant what is on the machine screen'
+          }
+        >
+          Show screen
+        </button>
         {busy ? (
           <button onClick={stop}>Stop</button>
         ) : (

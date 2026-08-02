@@ -17,6 +17,7 @@ export const PROVIDERS: ProviderMeta[] = [
     consoleUrl: 'https://platform.claude.com/',
     consoleLabel: 'platform.claude.com',
     apiHost: 'api.anthropic.com',
+    acceptsImages: true,
   },
   {
     id: 'openai',
@@ -27,6 +28,7 @@ export const PROVIDERS: ProviderMeta[] = [
     consoleUrl: 'https://platform.openai.com/api-keys',
     consoleLabel: 'platform.openai.com',
     apiHost: 'api.openai.com',
+    acceptsImages: true,
   },
   {
     id: 'gemini',
@@ -37,6 +39,7 @@ export const PROVIDERS: ProviderMeta[] = [
     consoleUrl: 'https://aistudio.google.com/apikey',
     consoleLabel: 'aistudio.google.com',
     apiHost: 'generativelanguage.googleapis.com',
+    acceptsImages: true,
   },
 ];
 

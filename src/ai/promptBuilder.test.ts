@@ -4,12 +4,15 @@ import {
   buildExpectationFix,
   buildRunFix,
   buildRunNote,
+  buildScreenJudgeRequest,
   buildSystemPrompt,
+  buildUserMessage,
   FORMAT_RETRY_MESSAGE,
   loadSystemPrompt,
   RETURNING_CODE_RULES,
+  unavailableViews,
 } from './promptBuilder';
-import type { ExpectationResult } from './expectations';
+import type { Expectation, ExpectationResult } from './expectations';
 import { dialects } from '../dialects/registry';
 import type { MachineReport } from '../dialects/types';
 
@@ -290,5 +293,160 @@ describe('buildExpectationFix', () => {
     ]);
     expect(fix.userContent).not.toContain('```basic');
     expect(fix.userContent).toContain('did not produce what you said');
+  });
+});
+
+describe('showing the assistant the screen', () => {
+  /** A visual expectation as the run check carries one: never yet judged. */
+  const visual = (description: string): ExpectationResult => ({
+    expectation: {
+      kind: 'visual',
+      description,
+      source: `SCREEN SHOWS ${description}`,
+    },
+    status: 'unchecked',
+    reason: 'the screen has not been looked at',
+  });
+
+  it('says nothing about a screen when none is attached', () => {
+    expect(buildUserMessage('make it faster', '10 PRINT', [])).not.toContain(
+      'picture',
+    );
+    expect(
+      buildRunFix('10 PRINT', { isError: true, message: 'Nope' }).userContent,
+    ).not.toContain('attached');
+    expect(
+      buildExpectationFix('10 PRINT', [visual('a circle')]).userContent,
+    ).not.toContain('attached');
+  });
+
+  it('tells the assistant what it is looking at when one is', () => {
+    expect(
+      buildUserMessage('why is it blank?', '10 PRINT', [], true),
+    ).toContain("my machine's screen right now");
+    const runFix = buildRunFix(
+      '10 PRINT',
+      { isError: true, message: 'Nope' },
+      true,
+    );
+    expect(runFix.userContent).toContain('attached');
+    // The request itself is unchanged - the screen is evidence, not the ask.
+    expect(runFix.userContent).toContain('return a corrected program');
+  });
+
+  it('keeps the request itself the same either way', () => {
+    const withScreen = buildRunFix(
+      '10 PRINT',
+      { isError: true, message: 'Nope', line: 10 },
+      true,
+    );
+    const without = buildRunFix('10 PRINT', {
+      isError: true,
+      message: 'Nope',
+      line: 10,
+    });
+    expect(withScreen.summary).toBe(without.summary);
+    expect(withScreen.displayRequest).toBe(without.displayRequest);
+  });
+
+  it('describes a failed visual expectation in the words it judged with', () => {
+    const fix = buildExpectationFix(
+      '10 PLOT 1,1',
+      [{ ...visual('a circle'), status: 'failed', actual: 'an egg' }],
+      true,
+    );
+    expect(fix.userContent).toContain(
+      'you said the screen would show a circle, and looking at it you found an egg',
+    );
+  });
+});
+
+describe('buildScreenJudgeRequest', () => {
+  const visualExpectation = (description: string): Expectation => ({
+    kind: 'visual',
+    description,
+    source: `SCREEN SHOWS ${description}`,
+  });
+
+  it('numbers what was stated and asks for a verdict per line', () => {
+    const req = buildScreenJudgeRequest('10 PLOT 1,1\n', [
+      visualExpectation('a circle in the middle'),
+      visualExpectation('a score at the top'),
+    ]);
+    expect(req.userContent).toContain('10 PLOT 1,1');
+    expect(req.userContent).toContain('1. a circle in the middle');
+    expect(req.userContent).toContain('2. a score at the top');
+    expect(req.userContent).toContain('```basic-judge');
+    expect(req.userContent).toContain('in the same order');
+    expect(req.displayRequest).toContain('2 points');
+  });
+
+  it('asks for the correction in the same reply, so judging costs one request', () => {
+    const req = buildScreenJudgeRequest('10 PLOT 1,1\n', [
+      visualExpectation('a circle'),
+    ]);
+    expect(req.userContent).toContain('also return a corrected program');
+    // ...and for no code at all when nothing is wrong.
+    expect(req.userContent).toContain('do not return code');
+    expect(req.displayRequest).toContain('1 point');
+  });
+});
+
+describe('asking to be shown the screen', () => {
+  it('reports a view that could not be produced', () => {
+    expect(unavailableViews({ image: true, unknown: [] }, false)).toEqual([
+      'the screen as an image',
+    ]);
+    expect(
+      unavailableViews({ image: true, unknown: ['SCREEN AUDIO'] }, true),
+    ).toEqual(['`SCREEN AUDIO`']);
+    // Asked for and produced: nothing to report.
+    expect(unavailableViews({ image: true, unknown: [] }, true)).toEqual([]);
+    expect(unavailableViews({ image: false, unknown: [] }, false)).toEqual([]);
+  });
+
+  it('says so in the run note, without disturbing the rest of it', () => {
+    const note = buildRunNote(
+      { kind: 'ended-ok' },
+      [],
+      ['the screen as an image'],
+    );
+    expect(note).toContain('finished without reporting an error');
+    expect(note).toContain(
+      'You asked to be shown the screen as an image, which I could not produce',
+    );
+  });
+
+  it('announces a screen the outcome carries', () => {
+    const note = buildRunNote({ kind: 'ended-ok' }, [], [], true);
+    expect(note).toContain('screen you asked to see is attached');
+    // ...and says nothing when it carries none.
+    expect(buildRunNote({ kind: 'ended-ok' })).not.toContain('attached');
+  });
+
+  it('offers the screen to a failure that did not ask for one', () => {
+    const fix = buildRunFix(
+      '10 PRINT',
+      { isError: true, message: 'Nope' },
+      false,
+      true,
+    );
+    expect(fix.userContent).toContain('```basic-view');
+    expect(fix.userContent).toContain('If seeing the screen would help');
+    // The ask is the only difference; what it is asked to do is unchanged.
+    expect(fix.summary).toBe(
+      buildRunFix('10 PRINT', { isError: true, message: 'Nope' }).summary,
+    );
+  });
+
+  it('does not offer the screen alongside one it is already showing', () => {
+    const fix = buildRunFix(
+      '10 PRINT',
+      { isError: true, message: 'Nope' },
+      true,
+      false,
+    );
+    expect(fix.userContent).toContain('attached');
+    expect(fix.userContent).not.toContain('```basic-view');
   });
 });
