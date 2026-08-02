@@ -95,13 +95,13 @@ states, keeps the machine's quirks, performance advice, escape/graphics-characte
 conventions, `#BIN` rules and OUTPUT FORMAT, and is reviewed against that
 machine's composed block before it is checked off.
 
-- [ ] 6.1 Sinclair: `zx80`, `zx81`.
-- [ ] 6.2 Sinclair: `zxspectrum`, `zxspectrum128`.
-- [ ] 6.3 Acorn: `atom`, `bbcmicro`, `bbcmaster`.
-- [ ] 6.4 Commodore: `pet`, `vic20`, `commodore64`.
-- [ ] 6.5 Amstrad: `cpc464`, `cpc6128`.
-- [ ] 6.6 Tandy: `trs80`.
-- [ ] 6.7 Re-run the completeness test and spot-check two thinned machines'
+- [x] 6.1 Sinclair: `zx80`, `zx81`.
+- [x] 6.2 Sinclair: `zxspectrum`, `zxspectrum128`.
+- [x] 6.3 Acorn: `atom`, `bbcmicro`, `bbcmaster`.
+- [x] 6.4 Commodore: `pet`, `vic20`, `commodore64`.
+- [x] 6.5 Amstrad: `cpc464`, `cpc6128`.
+- [x] 6.6 Tandy: `trs80`.
+- [x] 6.7 Re-run the completeness test and spot-check two thinned machines'
       full composed prompts end to end for contradiction between prose and data.
 
 ## 7. Point the contributor documentation at the new home
