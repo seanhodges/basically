@@ -6,7 +6,7 @@ import type { KeywordInfo } from '../src/dialects/types';
 import type {
   ReferenceEntry,
   ReferenceTableData,
-} from '../docs/reference/data/types';
+} from '../src/reference/types';
 
 import { zx81Keywords } from '../src/dialects/zx81/keywords';
 import { zx80Keywords } from '../src/dialects/zx80/keywords';
@@ -25,7 +25,7 @@ import { m6502Engine } from '../src/asm/m6502';
 import type { AsmEngine } from '../src/asm/types';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = resolve(here, '../docs/reference/data');
+const dataDir = resolve(here, '../src/reference');
 
 /** The assembler directives both engines add on top of the CPU mnemonics. */
 const ASM_DIRECTIVES = ['ORG', 'DB', 'DW', 'DS'];
@@ -197,7 +197,7 @@ mkdirSync(dataDir, { recursive: true });
 for (const { id, varName, data } of sets) {
   const file = resolve(dataDir, `${id}.ts`);
   if (existsSync(file)) {
-    console.log(`skip (exists): docs/reference/data/${id}.ts`);
+    console.log(`skip (exists): src/reference/${id}.ts`);
     continue;
   }
   const body =
@@ -208,7 +208,5 @@ for (const { id, varName, data } of sets) {
     `import type { ReferenceTableData } from './types';\n\n` +
     `export const ${varName}: ReferenceTableData = ${JSON.stringify(data, null, 2)};\n`;
   writeFileSync(file, body, 'utf8');
-  console.log(
-    `wrote docs/reference/data/${id}.ts (${data.entries.length} entries)`,
-  );
+  console.log(`wrote src/reference/${id}.ts (${data.entries.length} entries)`);
 }

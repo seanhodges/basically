@@ -2,10 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type {
-  EscapeEntry,
-  EscapeTableData,
-} from '../docs/reference/data/types';
+import type { EscapeEntry, EscapeTableData } from '../src/reference/types';
 
 import {
   CHARSET_PROBES,
@@ -13,7 +10,7 @@ import {
 } from '../src/dialects/charsetProbes';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataDir = resolve(here, '../docs/reference/data/escapes');
+const dataDir = resolve(here, '../src/reference/escapes');
 
 /**
  * Seed a draft escape table for each dialect by enumerating the canonical
@@ -75,7 +72,7 @@ mkdirSync(dataDir, { recursive: true });
 for (const src of CHARSET_PROBES) {
   const file = resolve(dataDir, `${src.id}.ts`);
   if (existsSync(file)) {
-    console.log(`skip (exists): docs/reference/data/escapes/${src.id}.ts`);
+    console.log(`skip (exists): src/reference/escapes/${src.id}.ts`);
     continue;
   }
   const data = scaffold(src);
@@ -89,6 +86,6 @@ for (const src of CHARSET_PROBES) {
     `export const ${src.varName}: EscapeTableData = ${JSON.stringify(data, null, 2)};\n`;
   writeFileSync(file, body, 'utf8');
   console.log(
-    `wrote docs/reference/data/escapes/${src.id}.ts (${data.entries.length} draft rows)`,
+    `wrote src/reference/escapes/${src.id}.ts (${data.entries.length} draft rows)`,
   );
 }

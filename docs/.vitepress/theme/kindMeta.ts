@@ -2,7 +2,7 @@
 // order and the Lucide-style icon/label for each kind. Extracted so both
 // ReferenceTable.vue and DialectCompare.vue render kinds identically instead of
 // keeping two copies that could drift.
-import type { ReferenceEntry } from '../../reference/data/types';
+import type { ReferenceEntry } from '../../../src/reference/types';
 
 /** Canonical display order; BASIC kinds first, then the assembly kinds. */
 export const KIND_ORDER: ReferenceEntry['kind'][] = [

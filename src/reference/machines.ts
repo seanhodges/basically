@@ -16,7 +16,8 @@
 // something a reader can select.
 //
 // Hand-authored because the docs runtime must never reach the dialect registry
-// (it imports every dialect index, and each pulls in an emulator core), and
+// (it imports every dialect index, and each pulls in an emulator core) - a ban
+// this file keeps now that it sits under `src/` next to the registry - and
 // pinned to the registry by machines-crosscheck.test.ts, which may import it
 // freely - so a newly registered dialect, a renamed machine, a changed docs
 // page or a reworded blurb fails until this file agrees.

@@ -132,7 +132,7 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   vic20: '$',
   pet: '$',
   // Sinclair and the TRS-80 have no native hex notation at all. `$` follows the
-  // precedent already set in docs/reference/data/facts.ts, which spells the
+  // precedent already set in src/reference/facts.ts, which spells the
   // Spectrum's screen base `$4000`.
   zx80: '$',
   zx81: '$',

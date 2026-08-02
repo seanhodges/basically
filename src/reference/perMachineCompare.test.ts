@@ -1,7 +1,7 @@
 /**
  * The comparison over the *real* reference tables, machine by machine.
  *
- * dialectCompare.test.ts proves the diff logic on fixtures; this proves the
+ * compare.test.ts proves the diff logic on fixtures; this proves the
  * shipped data flows through it correctly. Each case below is a defect the
  * page-keyed comparison actually produced, kept here so it cannot come back:
  * the rows a page carries are the union of what its machines have, and reading
@@ -9,13 +9,13 @@
  * and offered a CPC 464 commands only a 6128 has.
  */
 import { describe, expect, it } from 'vitest';
-import { bbcReference } from '../../reference/data/bbc';
-import { commodoreReference } from '../../reference/data/commodore';
-import { cpcReference } from '../../reference/data/cpc';
-import { zxspectrumReference } from '../../reference/data/zxspectrum';
-import { portingFacts } from '../../reference/data/facts';
-import { keywordEquivalences } from '../../reference/data/porting';
-import { diffKeywords, tableForMachine } from './dialectCompare';
+import { bbcReference } from './bbc';
+import { commodoreReference } from './commodore';
+import { cpcReference } from './cpc';
+import { zxspectrumReference } from './zxspectrum';
+import { portingFacts } from './facts';
+import { keywordEquivalences } from './porting';
+import { diffKeywords, tableForMachine } from './compare';
 
 /** The keyword diff between two machines, as the page computes it. */
 function diffBetween(

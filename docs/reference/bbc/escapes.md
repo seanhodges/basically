@@ -3,7 +3,7 @@ title: BBC escape codes
 ---
 
 <script setup>
-import { bbcEscapes } from '../data/escapes/bbc';
+import { bbcEscapes } from '../../../src/reference/escapes/bbc';
 </script>
 
 # BBC escape codes

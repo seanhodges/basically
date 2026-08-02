@@ -3,26 +3,26 @@ title: Porting guide
 ---
 
 <script setup>
-import { atomReference } from './data/atom';
-import { bbcReference } from './data/bbc';
-import { commodoreReference } from './data/commodore';
-import { cpcReference } from './data/cpc';
-import { trs80Reference } from './data/trs80';
-import { zxspectrumReference } from './data/zxspectrum';
-import { zx80Reference } from './data/zx80';
-import { zx81Reference } from './data/zx81';
+import { atomReference } from '../../src/reference/atom';
+import { bbcReference } from '../../src/reference/bbc';
+import { commodoreReference } from '../../src/reference/commodore';
+import { cpcReference } from '../../src/reference/cpc';
+import { trs80Reference } from '../../src/reference/trs80';
+import { zxspectrumReference } from '../../src/reference/zxspectrum';
+import { zx80Reference } from '../../src/reference/zx80';
+import { zx81Reference } from '../../src/reference/zx81';
 
-import { atomEscapes } from './data/escapes/atom';
-import { bbcEscapes } from './data/escapes/bbc';
-import { commodoreEscapes } from './data/escapes/commodore';
-import { cpcEscapes } from './data/escapes/cpc';
-import { trs80Escapes } from './data/escapes/trs80';
-import { zxspectrumEscapes } from './data/escapes/zxspectrum';
-import { zx80Escapes } from './data/escapes/zx80';
-import { zx81Escapes } from './data/escapes/zx81';
+import { atomEscapes } from '../../src/reference/escapes/atom';
+import { bbcEscapes } from '../../src/reference/escapes/bbc';
+import { commodoreEscapes } from '../../src/reference/escapes/commodore';
+import { cpcEscapes } from '../../src/reference/escapes/cpc';
+import { trs80Escapes } from '../../src/reference/escapes/trs80';
+import { zxspectrumEscapes } from '../../src/reference/escapes/zxspectrum';
+import { zx80Escapes } from '../../src/reference/escapes/zx80';
+import { zx81Escapes } from '../../src/reference/escapes/zx81';
 
-import { portingFacts } from './data/facts';
-import { machines as machineList } from './data/machines';
+import { portingFacts } from '../../src/reference/facts';
+import { machines as machineList } from '../../src/reference/machines';
 
 // Reference and escape tables belong to the docs *page*, which may cover
 // several machines; DialectCompare narrows their rows to whichever machine is

@@ -3,7 +3,7 @@ title: Commodore BASIC reference
 ---
 
 <script setup>
-import { commodoreReference } from './data/commodore';
+import { commodoreReference } from '../../src/reference/commodore';
 </script>
 
 # Commodore BASIC reference

@@ -12,7 +12,7 @@ import type {
   EscapeTableData,
   PortingFacts,
   ReferenceTableData,
-} from '../../../reference/data/types';
+} from '../../../../src/reference/types';
 import {
   capabilitySections,
   composeGuidance,
@@ -29,14 +29,14 @@ import {
   type EscapeSection,
   type KeywordChange,
   type ProgramVocabulary,
-} from '../dialectCompare';
+} from '../../../../src/reference/compare';
 import {
   falseFriends,
   keywordEquivalences,
   pairPortingNotes,
-} from '../../../reference/data/porting';
-import { domainGuidance } from '../../../reference/data/domain-guidance';
-import type { DomainGuidance } from '../../../reference/data/domain-guidance';
+} from '../../../../src/reference/porting';
+import { domainGuidance } from '../../../../src/reference/domain-guidance';
+import type { DomainGuidance } from '../../../../src/reference/domain-guidance';
 import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
 

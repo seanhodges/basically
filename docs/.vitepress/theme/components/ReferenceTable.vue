@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
-import type { ReferenceTableData } from '../../../reference/data/types';
+import type { ReferenceTableData } from '../../../../src/reference/types';
 import {
   filterEntries,
   findEntryByName,

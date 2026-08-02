@@ -30,11 +30,12 @@
  *
  * Comparison is by unique name (keyword tables may list alias spellings that
  * collapse into one row), mirroring scripts/gen-reference-scaffold.mts. Like
- * escapes/escape-crosscheck.test.ts, this file may import src/ freely: vitest
- * runs it in node and the VitePress bundle never includes *.test.ts.
+ * escapes/escape-crosscheck.test.ts, this file may reach the dialect registry
+ * freely: vitest runs it in node, and neither the VitePress bundle nor the IDE's
+ * own bundle includes *.test.ts.
  */
 import { describe, expect, it } from 'vitest';
-import type { EditorKeyword } from '../../../src/dialects/types';
+import type { EditorKeyword } from '../dialects/types';
 import type { ReferenceTableData } from './types';
 
 import { zx81Reference } from './zx81';
@@ -46,8 +47,8 @@ import { atomReference } from './atom';
 import { trs80Reference } from './trs80';
 import { cpcReference } from './cpc';
 
-import { dialects } from '../../../src/dialects/registry';
-import { zx80IntegralFunctions } from '../../../src/dialects/zx80/keywords';
+import { dialects } from '../dialects/registry';
+import { zx80IntegralFunctions } from '../dialects/zx80/keywords';
 
 const PAGES: Record<string, ReferenceTableData> = {
   atom: atomReference,

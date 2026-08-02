@@ -3,7 +3,8 @@
  * guide cannot fall behind the IDE.
  *
  * The docs runtime may never reach the registry - it pulls in every emulator
- * core - so `machines.ts` restates what the registry knows. This file is what
+ * core - so `machines.ts` restates what the registry knows. Living under `src/`
+ * makes that import newly tempting and no more correct. This file is what
  * makes that restatement safe: a newly registered dialect, a renamed machine, a
  * changed `docsReference` or a reworded blurb fails here until `machines.ts`
  * agrees.
@@ -13,15 +14,15 @@
  * replace a `makerOf` map that `compare.md` inlined with nothing pinning it, so
  * a machine missing a manufacturer used to group silently under its own name.
  *
- * Like the sibling crosschecks it imports `src/` freely: vitest runs it in node
- * and the VitePress bundle never includes *.test.ts.
+ * Like the sibling crosschecks it reaches the registry freely: vitest runs it in
+ * node, and neither the VitePress bundle nor the IDE's own includes *.test.ts.
  */
 import { describe, expect, it } from 'vitest';
-import { dialects } from '../../../src/dialects/registry';
+import { dialects } from '../dialects/registry';
 import {
   groupMachinesByManufacturer,
   type MachineLike,
-} from '../../../src/components/machinePicker';
+} from '../components/machinePicker';
 import { machines } from './machines';
 
 const registryIds = dialects.map((d) => d.id).sort();

@@ -3,7 +3,7 @@
 // scripts/gen-reference-scaffold.mts, then hand-enriched (typed operand syntax
 // + fuller descriptions). Edit by hand; the generator skips this file once it
 // exists. The instruction rows are kept in sync with z80Engine.mnemonics by
-// docs/reference/data/asm-reference.test.ts.
+// src/reference/asm-reference.test.ts.
 //
 // Operand shorthand used in the syntax column (see the page prose):
 //   r  = 8-bit register (A B C D E H L)      n  = 8-bit immediate

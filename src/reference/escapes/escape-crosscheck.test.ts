@@ -23,9 +23,9 @@
  * code the program actually used - which is the drift this check already
  * forbids.
  *
- * This test may import src/ freely: vitest runs it in node and the VitePress
- * bundle never includes *.test.ts, so the docs pages themselves stay free of
- * dialect code.
+ * This test may reach the dialect registry freely: vitest runs it in node and
+ * neither the VitePress bundle nor the IDE's own includes *.test.ts, so the
+ * escape data itself stays free of dialect code.
  */
 import { describe, expect, it } from 'vitest';
 import type { EscapeEntry, EscapeTableData } from '../types';
@@ -38,34 +38,34 @@ import { commodoreEscapes } from './commodore';
 import { trs80Escapes } from './trs80';
 import { atomEscapes } from './atom';
 import { cpcEscapes } from './cpc';
-import { dialects } from '../../../../src/dialects/registry';
+import { dialects } from '../../dialects/registry';
 
 import {
   CHARSET_PROBES,
   type CharsetProbe,
-} from '../../../../src/dialects/charsetProbes';
+} from '../../dialects/charsetProbes';
 import {
   ESCAPES as ZX81_ESCAPES,
   GRAPHIC_UNICODE as ZX81_GRAPHICS,
-} from '../../../../src/dialects/zx81/charset';
+} from '../../dialects/zx81/charset';
 import {
   ESCAPES as ZX80_ESCAPES,
   GRAPHIC_UNICODE as ZX80_GRAPHICS,
-} from '../../../../src/dialects/zx80/charset';
+} from '../../dialects/zx80/charset';
 import {
   floatOverrideNotation as zx81FloatNotation,
   parseFloatOverride as zx81ParseFloat,
-} from '../../../../src/dialects/zx81/zxfloat';
+} from '../../dialects/zx81/zxfloat';
 import {
   floatOverrideNotation as spectrumFloatNotation,
   parseFloatOverride as spectrumParseFloat,
-} from '../../../../src/dialects/zxspectrum/floatOverride';
-import { TELETEXT_NAMES } from '../../../../src/dialects/bbcmicro/charset';
-import { PETCAT_ALIASES } from '../../../../src/dialects/commodore64/petscii';
+} from '../../dialects/zxspectrum/floatOverride';
+import { TELETEXT_NAMES } from '../../dialects/bbcmicro/charset';
+import { PETCAT_ALIASES } from '../../dialects/commodore64/petscii';
 import {
   C64_COMMODORE_GRAPHICS,
   C64_SHIFT_GRAPHICS,
-} from '../../../../src/dialects/commodore64/graphics';
+} from '../../dialects/commodore64/graphics';
 
 /** A float-override probe, for the two dialects whose docs carry float rows. */
 interface FloatProbe {

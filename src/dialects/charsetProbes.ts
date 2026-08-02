@@ -35,7 +35,7 @@ import {
  *
  * Four consumers read this table, which is the reason it exists: the escape
  * scaffolder (`scripts/gen-escape-scaffold.mts`), the escape cross-check
- * (`docs/reference/data/escapes/escape-crosscheck.test.ts`), the semigraphics
+ * (`src/reference/escapes/escape-crosscheck.test.ts`), the semigraphics
  * audit ({@link ./semigraphicsAudit}), and the program analyser behind the
  * porting guide's narrowing ({@link ../app/programVocabulary}), which walks a
  * string literal a unit at a time through {@link CharsetProbe.parseUnit}. They
@@ -47,7 +47,7 @@ import {
  * place; nothing in the app reads them.
  */
 export interface CharsetProbe {
-  /** Charset-family id; matches `docs/reference/data/escapes/<id>.ts`. */
+  /** Charset-family id; matches `src/reference/escapes/<id>.ts`. */
   id: string;
   /** Name of the exported table in that data file. */
   varName: string;

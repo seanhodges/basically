@@ -1,10 +1,14 @@
 // Pure, framework-free diff logic behind the dialect comparison page. Given a
 // source and target dialect's reference/escape tables, it buckets the keywords
 // and control codes into what a porter loses ("must replace"), gains ("newly
-// available") and what changed shape ("behaviour changed"). Node-testable and
-// SSG-safe: imports only the docs data types, never `src/`.
-import type { KeywordDomain } from '../../reference/data/domains';
-import type { DomainGuidance } from '../../reference/data/domain-guidance';
+// available") and what changed shape ("behaviour changed").
+//
+// Node-testable and SSG-safe, and it stays that way by importing only its
+// sibling reference data - never the dialect registry or anything reaching an
+// emulator core. That is what lets the documentation site's static build and the
+// IDE both use it; see the folder's note in docs/contributing/architecture.md.
+import type { KeywordDomain } from './domains';
+import type { DomainGuidance } from './domain-guidance';
 import type {
   EscapeEntry,
   EscapeTableData,
@@ -15,8 +19,8 @@ import type {
   ReferenceEntry,
   ReferenceTableData,
   TargetPortingNote,
-} from '../../reference/data/types';
-import { sortEntries } from './referenceTable';
+} from './types';
+import { sortEntries } from './sort';
 
 /** Support tiers in the order a port should read them: worst-placed first. */
 const SUPPORT_RANK: Record<DomainGuidance['support'], number> = {

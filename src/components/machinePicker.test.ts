@@ -11,7 +11,7 @@ import { dialects, getDialect } from '../dialects/registry';
 
 // The picker asks a machine for five fields, and both surfaces that render it
 // supply them from their own list: the IDE from the registry, the porting guide
-// from `docs/reference/data/machines.ts`. The registry-driven cases below pass
+// from `src/reference/machines.ts`. The registry-driven cases below pass
 // dialects *as* `MachineLike`, which is the structural claim the docs rely on.
 const machines: readonly MachineLike[] = dialects;
 const c64: MachineLike = getDialect('commodore64');

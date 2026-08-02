@@ -1,10 +1,15 @@
-import type { KeywordDomain } from '../../reference/data/domains';
-import type { ReferenceEntry } from '../../reference/data/types';
+import type { KeywordDomain } from '../../../src/reference/domains';
+import type { ReferenceEntry } from '../../../src/reference/types';
+
+// Row ordering lives with the data it orders (src/reference/sort.ts), because
+// the comparison logic and the assistant's machine description order rows the
+// same way. Re-exported here so this module stays the one place the reference
+// page reaches for its table behaviour.
+export { sortEntries } from '../../../src/reference/sort';
+export type { SortDir, SortKey } from '../../../src/reference/sort';
 
 export type KindFilter = 'all' | ReferenceEntry['kind'];
 export type DomainFilter = 'all' | KeywordDomain;
-export type SortKey = 'name' | 'kind';
-export type SortDir = 'asc' | 'desc';
 
 /**
  * Case-insensitive substring match on name, plus the kind and capability-domain
@@ -39,21 +44,4 @@ export function findEntryByName(
   const n = name.trim().toLowerCase();
   if (!n) return undefined;
   return entries.find((e) => e.name.toLowerCase() === n);
-}
-
-/** Stable sort by the chosen key; ties (and the `kind` key) fall back to name. Never mutates `entries`. */
-export function sortEntries(
-  entries: ReferenceEntry[],
-  key: SortKey,
-  dir: SortDir,
-): ReferenceEntry[] {
-  const sign = dir === 'asc' ? 1 : -1;
-  return [...entries].sort((a, b) => {
-    const primary =
-      key === 'kind'
-        ? a.kind.localeCompare(b.kind)
-        : a.name.localeCompare(b.name);
-    if (primary !== 0) return primary * sign;
-    return a.name.localeCompare(b.name) * sign;
-  });
 }

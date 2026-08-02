@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { EscapeTableData } from '../../../reference/data/types';
+import type { EscapeTableData } from '../../../../src/reference/types';
 import { filterEscapes, sortEscapes, type SortKey } from '../escapeTable';
 import { useDeepLinkParams } from '../deepLinkParams';
 

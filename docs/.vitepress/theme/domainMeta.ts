@@ -1,9 +1,9 @@
 // Presentation metadata for the keyword capability domains: the display order
 // and a Lucide-style icon/label for each. The same split as `kindMeta.ts` -
-// the ids and their canonical order are data (`reference/data/domains.ts`),
+// the ids and their canonical order are data (`src/reference/domains.ts`),
 // and how they are labelled and drawn is theme.
-import { KEYWORD_DOMAINS } from '../../reference/data/domains';
-import type { KeywordDomain } from '../../reference/data/domains';
+import { KEYWORD_DOMAINS } from '../../../src/reference/domains';
+import type { KeywordDomain } from '../../../src/reference/domains';
 
 /**
  * Display order: the vocabulary's own canonical order, re-exported so a

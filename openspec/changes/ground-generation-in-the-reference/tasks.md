@@ -1,46 +1,46 @@
 ## 1. Move the reference data and the comparison logic into `src/`
 
-- [ ] 1.1 `git mv docs/reference/data` → `src/reference` (data modules, the
+- [x] 1.1 `git mv docs/reference/data` → `src/reference` (data modules, the
       `escapes/` subfolder and every colocated crosscheck test move together);
       fix only the imports *inside* the moved tree.
-- [ ] 1.2 `git mv docs/.vitepress/theme/dialectCompare.ts` →
+- [x] 1.2 `git mv docs/.vitepress/theme/dialectCompare.ts` →
       `src/reference/compare.ts`, together with `dialectCompare.test.ts` and
       `perMachineCompare.test.ts`; repoint its data imports at their new
       siblings.
-- [ ] 1.3 Move `sortEntries` out of `docs/.vitepress/theme/referenceTable.ts`
+- [x] 1.3 Move `sortEntries` out of `docs/.vitepress/theme/referenceTable.ts`
       into the shared tree and re-export it from `referenceTable.ts`, leaving
       `filterEntries`/`findEntryByName` (page search, `?name=` deep link) in the
       docs theme.
-- [ ] 1.4 Update the moved crosscheck tests' relative imports of
+- [x] 1.4 Update the moved crosscheck tests' relative imports of
       `src/dialects/**` (they climbed three levels out of `docs/`, and now sit
       next door).
 
 ## 2. Rewire the documentation site to the new home
 
-- [ ] 2.1 Repoint the theme components — `ReferenceTable.vue`,
+- [x] 2.1 Repoint the theme components — `ReferenceTable.vue`,
       `EscapeTable.vue`, `DialectCompare.vue` — at `src/reference/**`.
-- [ ] 2.2 Repoint the remaining theme modules and their tests:
+- [x] 2.2 Repoint the remaining theme modules and their tests:
       `referenceTable.ts`, `escapeTable.ts`, `domainMeta.ts`, `kindMeta.ts`,
       `referenceTable.test.ts`, `escapeTable.test.ts`.
-- [ ] 2.3 Repoint the two scaffold generators, `scripts/gen-reference-scaffold.mts`
+- [x] 2.3 Repoint the two scaffold generators, `scripts/gen-reference-scaffold.mts`
       and `scripts/gen-escape-scaffold.mts`, and confirm each still runs
       (`npm run gen:reference`, `npm run gen:escapes`) and emits what it did.
-- [ ] 2.4 Widen `tsconfig.docs.json`'s `include` to cover `src/reference/**/*.ts`
+- [x] 2.4 Widen `tsconfig.docs.json`'s `include` to cover `src/reference/**/*.ts`
       so the crosscheck tests stay typechecked, with a comment saying why (the
       app project excludes `src/**/*.test.ts`).
 
 ## 3. Prove the move changed nothing
 
-- [ ] 3.1 Build the docs from the pre-move tree and keep
+- [x] 3.1 Build the docs from the pre-move tree and keep
       `docs/.vitepress/dist` aside for comparison.
-- [ ] 3.2 Rebuild after the rewire and diff the two trees; rendered HTML must be
+- [x] 3.2 Rebuild after the rewire and diff the two trees; rendered HTML must be
       identical, with only hashed asset filenames allowed to differ. Record what
       differed and why.
-- [ ] 3.3 Open the comparison page, a multi-machine reference page and an escape
+- [x] 3.3 Open the comparison page, a multi-machine reference page and an escape
       page in `npm run docs:preview` and confirm by eye that filtering, sorting,
       the machine picker and the `?name=` deep link still work — the `.vue`
       script blocks are not typechecked, so nothing else covers them.
-- [ ] 3.4 Run the full unit suite; the crosscheck tests must pass unchanged from
+- [x] 3.4 Run the full unit suite; the crosscheck tests must pass unchanged from
       their new location.
 
 ## 4. Compose the machine description from the shared data

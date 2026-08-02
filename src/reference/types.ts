@@ -30,7 +30,7 @@ export interface ReferenceEntry {
    * and one name for two meanings, nested, is a trap.
    *
    * This is what makes the porting comparison per-machine rather than
-   * per-page - see docs/.vitepress/theme/dialectCompare.ts `tableForMachine`.
+   * per-page - see src/reference/compare.ts `tableForMachine`.
    * The prose {@link tag} remains the human-facing badge; this is the machine-
    * readable form, and keyword-crosscheck.test.ts pins the two together by
    * requiring each dialect's selected rows to equal its own keyword table.

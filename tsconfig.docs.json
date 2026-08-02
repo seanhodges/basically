@@ -35,6 +35,18 @@
   // The crosscheck tests import the registry, so this program contains src/ too
   // - and needs the app's ambient declarations (vite/client, the jsbeeb module
   // shims) to make sense of it.
-  "include": ["docs/**/*.ts", "docs/**/*.tsx", "src/**/*.d.ts"],
+  //
+  // `src/reference/**` is listed because this is the project that typechecks the
+  // shared reference tree's *tests*: tsconfig.app.json excludes
+  // `src/**/*.test.ts`, so without this line the crosschecks that pin the tables
+  // to the real dialects would be checked by no program at all. Overlapping
+  // `include` with the app project is harmless - both are `noEmit`, and they
+  // already overlap on `src/**/*.d.ts`.
+  "include": [
+    "docs/**/*.ts",
+    "docs/**/*.tsx",
+    "src/**/*.d.ts",
+    "src/reference/**/*.ts"
+  ],
   "exclude": ["docs/.vitepress/cache", "docs/.vitepress/dist"]
 }

@@ -3,7 +3,7 @@ title: TRS-80 Level II BASIC reference
 ---
 
 <script setup>
-import { trs80Reference } from './data/trs80';
+import { trs80Reference } from '../../src/reference/trs80';
 </script>
 
 # TRS-80 Level II BASIC reference

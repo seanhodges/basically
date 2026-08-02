@@ -7,9 +7,9 @@ import type {
   PortingFacts,
   ReferenceEntry,
   ReferenceTableData,
-} from '../../reference/data/types';
-import type { KeywordDomain } from '../../reference/data/domains';
-import type { DomainGuidance } from '../../reference/data/domain-guidance';
+} from './types';
+import type { KeywordDomain } from './domains';
+import type { DomainGuidance } from './domain-guidance';
 import {
   capabilitySections,
   composeGuidance,
@@ -25,7 +25,7 @@ import {
   noticeState,
   tableForMachine,
   type ProgramVocabulary,
-} from './dialectCompare';
+} from './compare';
 
 /** Build a minimal reference table from bare entries (title/machines unused by the diff). */
 function refTable(entries: ReferenceEntry[]): ReferenceTableData {
@@ -525,11 +525,13 @@ describe('composeGuidance', () => {
   /** Minimal PortingFacts; only the guidance-bearing fields matter here. */
   function facts(over: Partial<PortingFacts> & { id: string }): PortingFacts {
     return {
+      basicDialect: 'Test BASIC',
       lineNumberRange: '1–9999',
       statementSeparator: null,
       elseSupported: false,
       letRequired: 'optional',
       variableNaming: 'A–Z',
+      numberHandling: 'Floating point.',
       screen: 'text',
       freeRamBytes: 1024,
       colour: 'none',

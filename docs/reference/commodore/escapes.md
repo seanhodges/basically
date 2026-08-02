@@ -3,7 +3,7 @@ title: Commodore PETSCII escape codes
 ---
 
 <script setup>
-import { commodoreEscapes } from '../data/escapes/commodore';
+import { commodoreEscapes } from '../../../src/reference/escapes/commodore';
 </script>
 
 # Commodore PETSCII escape codes
