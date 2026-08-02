@@ -17,13 +17,7 @@ beforeAll(() => {
 });
 
 function screenText(machine: AtomMachine): string {
-  let text = '';
-  for (let addr = 0x8000; addr < 0x8400; addr++) {
-    const code = machine.processor.readmem(addr) & 0x7f;
-    const ascii = code < 0x20 ? code | 0x40 : code;
-    text += ascii >= 0x20 && ascii < 0x7f ? String.fromCharCode(ascii) : ' ';
-  }
-  return text;
+  return machine.readScreenText()?.lines.join('\n') ?? '';
 }
 
 describe('atom dialect → machine', () => {

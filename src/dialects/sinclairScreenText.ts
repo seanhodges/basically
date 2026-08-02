@@ -23,17 +23,25 @@ const MIN_DFILE = 0x4000;
 /**
  * One display-file code as the character it draws.
  *
- * A code carries its glyph in the low six bits and inverse video in bit 7, so
- * an inverse cell reports the character it draws rather than a marker. Decoding
- * goes through the dialect's own charset, so the block graphics come back as
- * the same Unicode a listing shows. Codes with no single-character form -
- * keyword tokens seen as data, unused slots - read as spaces, the same rule
- * every other machine applies.
+ * A code carries its glyph in the low six bits and inverse video in bit 7.
+ * Inverse video is a real shape for the graphics codes - inverse space is a
+ * solid block, and the charset has its own Unicode for that and for the
+ * inverse shades - so the code is offered to the charset whole first. An
+ * inverse *letter* has no character of its own (the charset spells it as a
+ * `%A`-style escape), and there the cell reports the letter it draws rather
+ * than a marker, which is what a reader of the screen wants.
+ *
+ * Decoding goes through the dialect's own charset either way, so the block
+ * graphics come back as the same Unicode a listing shows. Codes with no
+ * single-character form - keyword tokens seen as data, unused slots - read as
+ * spaces, the same rule every other machine applies.
  */
 export function sinclairScreenChar(
   charset: CharsetMapping,
   code: number,
 ): string {
+  const inverse = charset.glyph(code);
+  if ([...inverse].length === 1) return inverse;
   const text = charset.glyph(code & 0x3f);
   return [...text].length === 1 ? text : ' ';
 }

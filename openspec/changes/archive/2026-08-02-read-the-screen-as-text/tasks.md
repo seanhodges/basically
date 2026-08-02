@@ -51,54 +51,59 @@ blank screen reading as spaces, and `null` before the machine is up.
 - [x] 4.2 Spectrum 128 (`src/dialects/zxspectrum128/emulator/spectrum128Machine.ts`)
       — the same, read through `mem.readScreen` so the shadow screen resolves;
       test both screen pages.
-- [ ] 4.3 CPC 464 and 6128 (`src/emulator/cpc/cpcMachine.ts`) — OCR against the
+- [x] 4.3 CPC 464 and 6128 (`src/emulator/cpc/cpcMachine.ts`) — OCR against the
       lower-ROM font with the 2-bpp unpacker as the matcher's supplier; geometry
       per MODE. Confirm the font base against the real ROM. Colocated tests for
       MODE 1 and one other mode.
-- [ ] 4.4 BBC Micro / Master (`src/emulator/bbc/bbcMachine.ts`), mode 7 —
+- [x] 4.4 BBC Micro / Master (`src/emulator/bbc/bbcMachine.ts`), mode 7 —
       teletext RAM, base derived so hardware scroll is followed; test a scrolled
       screen.
-- [ ] 4.5 BBC modes 0–6 — read the mode from the MOS VDU variables and OCR with
-      the MOS font at that mode's geometry and pixel depth, accounting for the
-      blank scanline gaps in modes 3 and 6. Confirm every address and layout
-      against the real ROM and primary documentation. Colocated tests for one
-      mode at each pixel depth (e.g. 6, 1, 2). Any mode that cannot be verified
-      returns `null` and the gap is noted in the task list rather than guessed.
+- [x] 4.5 BBC modes 0–6 — OCR with the MOS font at the mode's geometry and pixel
+      depth, accounting for the blank scanline gaps in modes 3 and 6. Confirm
+      every address and layout against the real ROM and primary documentation.
+      Colocated tests for one mode at each pixel depth (e.g. 6, 1, 2). Any mode
+      that cannot be verified returns `null` and the gap is noted in the task
+      list rather than guessed. **Done differently, and better:** the mode is
+      not read from the MOS VDU variables at all. The ULA's own
+      characters-per-line setting is the text width and the CRTC's byte count
+      gives the depth, so no mode number is involved and a program that drives
+      the hardware directly is still followed. Every mode 0–6 reads back; no
+      gaps.
 
 ## 5. Migrate the tests off the seam
 
 Delete each helper and re-express its assertions against `readScreenText()`,
 one machine at a time, only after that machine's own reader tests pass.
 
-- [ ] 5.1 TRS-80: `screenRow` in `src/dialects/trs80/interpreter/machine.test.ts`.
-- [ ] 5.2 Atom: `screenText` in `src/dialects/atom/atom.test.ts`,
+- [x] 5.1 TRS-80: `screenRow` in `src/dialects/trs80/interpreter/machine.test.ts`.
+- [x] 5.2 Atom: `screenText` in `src/dialects/atom/atom.test.ts`,
       `src/dialects/atom/samples.test.ts`, `src/emulator/atom/atomMachine.test.ts`,
       and `findPlayer` in `samples.test.ts` (becomes a search over `lines`).
-- [ ] 5.3 Acorn: `screenText` in `src/emulator/bbc/bbcMachine.test.ts`,
+- [x] 5.3 Acorn: `screenText` in `src/emulator/bbc/bbcMachine.test.ts`,
       `bbcMachine.blocks.test.ts`, `bootDisc.test.ts`,
       `src/dialects/bbcmicro/samples.test.ts`, `src/dialects/bbcmaster/bbcmaster.test.ts`.
-- [ ] 5.4 Sinclair: `firstTextRow` in
+- [x] 5.4 Sinclair: `firstTextRow` in
       `src/dialects/zx80/emulator/zx80Machine.test.ts`, `findPlayer` in
       `src/dialects/zx80/samples.test.ts`, `readScreen`/`screenRows` in
       `src/dialects/zxspectrum/emulator/spectrumMachine.test.ts`, `readScreen` in
       `src/dialects/zxspectrum128/emulator/spectrum128Machine.test.ts`.
-- [ ] 5.5 CPC: `ocr` in `src/emulator/cpc/cpcBoot.test.ts` and
+- [x] 5.5 CPC: `ocr` in `src/emulator/cpc/cpcBoot.test.ts` and
       `src/emulator/cpc/cpc6128Boot.test.ts`.
-- [ ] 5.6 Confirm the deliberate non-migrations are still in place and still
+- [x] 5.6 Confirm the deliberate non-migrations are still in place and still
       justified: `screenCodes(machine)` in `src/dialects/atom/semigraphics.test.ts`
       and `screen(m)` in the PET/VIC-20/C64 tests assert on encoding, and
       `screenMem(rows)` in `src/emulator/c64/reports.test.ts` builds input.
-- [ ] 5.7 Add a registry-level test asserting every registered dialect's machine
+- [x] 5.7 Add a registry-level test asserting every registered dialect's machine
       implements `readScreenText`, so a new machine cannot silently omit it.
 
 ## 6. Quality gates
 
-- [ ] 6.1 `npm run typecheck`
-- [ ] 6.2 `npm test`
-- [ ] 6.3 `npm run lint`
-- [ ] 6.4 `npm run format:check` (or `npm run format`)
-- [ ] 6.5 `npm run e2e:chromium -- e2e/program-execution` — the modified
+- [x] 6.1 `npm run typecheck`
+- [x] 6.2 `npm test`
+- [x] 6.3 `npm run lint`
+- [x] 6.4 `npm run format:check` (or `npm run format`)
+- [x] 6.5 `npm run e2e:chromium -- e2e/program-execution` — the modified
       capability. Nothing user-visible changes, so this is a regression check on
       the machines being edited; check off only when the run passes, and on
       failure leave it unchecked with a note on what failed.
-- [ ] 6.6 `npx openspec validate --changes`
+- [x] 6.6 `npx openspec validate --changes`

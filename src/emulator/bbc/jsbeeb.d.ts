@@ -34,6 +34,24 @@ declare module 'jsbeeb/src/video.js' {
     );
     /** True while the ULA is in teletext (mode 7) operation. */
     teletextMode: boolean;
+    /**
+     * The 6845 CRTC registers. The screen reader uses R1 (displayed chars per
+     * line), R6 (displayed character rows) and R12/R13 (the screen start
+     * address), which is what makes it follow a MODE change or a hardware
+     * scroll instead of assuming a mode's usual layout.
+     */
+    readonly regs: Uint8Array;
+    /**
+     * The ULA's characters-per-line setting, `(ULA control >> 2) & 3`:
+     * 0 = 10, 1 = 20, 2 = 40, 3 = 80 - which is also its colour depth, since
+     * a byte is spread over 1, 2, 4 or 8 pixels accordingly.
+     */
+    ulaMode: number;
+    /**
+     * The hardware-scroll wrap offset the system VIA selected, subtracted from
+     * the top address nibble when the CRTC address wraps past the screen.
+     */
+    screenSubtract: number;
   }
 }
 
@@ -140,6 +158,24 @@ declare module 'jsbeeb/src/fake6502.js' {
     setReset(resetOn: boolean): void;
     readmem(addr: number): number;
     writemem(addr: number, value: number): void;
+    /**
+     * A byte as the *video* hardware fetches it: a display address resolved
+     * through the Master's shadow-screen page select, so a screen read sees
+     * the bank the CRTC is actually showing rather than whatever the CPU has
+     * paged. Addresses here are display addresses, not CPU ones.
+     */
+    videoRead(addr: number): number;
+    /** The video hardware this CPU drives (the same instance handed to it). */
+    readonly video: Video;
+    /**
+     * The whole memory image - RAM, then the sixteen sideways ROM banks at
+     * {@link romOffset}, then the OS ROM. The screen reader indexes the ROM
+     * banks directly to reach the Master's font, which lives in a bank that is
+     * not paged in while a program runs.
+     */
+    readonly ramRomOs: Uint8Array;
+    /** Where the sixteen 16K sideways ROM banks start in {@link ramRomOs}. */
+    readonly romOffset: number;
     readonly sysvia: SysVia;
     /** The µPD7002 ADC, source of analogue joystick input (absent on the Atom). */
     readonly adconverter: Adc;

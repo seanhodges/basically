@@ -14,12 +14,7 @@ beforeAll(() => {
 
 /** Mode-7 screen RAM (0x7C00–0x7FFF) as a string of printable characters. */
 function screenText(machine: BbcMachine): string {
-  let text = '';
-  for (let addr = 0x7c00; addr < 0x8000; addr++) {
-    const b = machine.processor.readmem(addr);
-    text += b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ' ';
-  }
-  return text;
+  return machine.readScreenText()?.lines.join('\n') ?? '';
 }
 
 /** Run frames (yielding to the microtask queue) until the predicate holds. */

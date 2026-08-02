@@ -16,6 +16,7 @@ import type {
   MachineFileStore,
   MachineMemoryStats,
   MachineReport,
+  MachineScreenText,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
@@ -26,6 +27,12 @@ import { readBbcReport, FAULT_PTR } from './reports';
 import { BbcDiskDrive, type Bus } from './diskDrive';
 import { buildBbcDisc, composeDiscFiles } from './bbcDisc';
 import { JsbeebMemoryActivity } from '../jsbeebMemoryActivity';
+import {
+  acornFontSignatures,
+  readAcornScreenText,
+  type AcornScreenPort,
+} from './screenText';
+import type { GlyphSignatures } from '../fontMatcher';
 
 /** jsbeeb's Video ULA renders into a fixed 1024×625 RGBA framebuffer… */
 const FB_WIDTH = 1024;
@@ -212,6 +219,10 @@ export class BbcMachine implements MachineEmulator {
 
   private readonly ready: Promise<void>;
   private initialised = false;
+  /** True for the Master models, which keep their MOS font in a ROM bank. */
+  private readonly isMaster: boolean;
+  /** MOS font index for {@link readScreenText}; built on first use. */
+  private fontSigs: GlyphSignatures | null = null;
   private injecting = false;
   private loadGeneration = 0;
   private loadError = '';
@@ -248,6 +259,7 @@ export class BbcMachine implements MachineEmulator {
   constructor(modelName = 'B', opts?: { files?: MachineFileStore }) {
     const model = findModel(modelName);
     if (!model) throw new Error(`Unknown jsbeeb model: ${modelName}`);
+    this.isMaster = model.isMaster;
     this.bootCycles = model.isMaster ? BOOT_CYCLES_MASTER : BOOT_CYCLES_B;
     this.drive = opts?.files ? new BbcDiskDrive(opts.files) : null;
     const fb32 = new Uint32Array(this.fb8.buffer);
@@ -775,6 +787,38 @@ export class BbcMachine implements MachineEmulator {
       read: (a) => this.cpu.readmem(a),
       readWord: (a) => this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8),
     });
+  }
+
+  /**
+   * How {@link readAcornScreenText} reaches this machine: video-side memory,
+   * the 6845 and the ULA. The font index is built once, on first use - the
+   * Master's comes out of a ROM bank that is rarely paged in, so it cannot be
+   * fetched lazily per cell.
+   */
+  private get screenPort(): AcornScreenPort {
+    const cpu = this.cpu;
+    return {
+      videoRead: (a) => cpu.videoRead(a),
+      romBankByte: (bank, offset) =>
+        cpu.ramRomOs[cpu.romOffset + bank * 0x4000 + offset] ?? 0,
+      readmem: (a) => cpu.readmem(a),
+      crtc: (reg) => cpu.video.regs[reg] ?? 0,
+      teletext: cpu.video.teletextMode,
+      ulaMode: cpu.video.ulaMode,
+      screenSubtract: cpu.video.screenSubtract,
+      isMaster: this.isMaster,
+    };
+  }
+
+  /**
+   * The screen as characters: the teletext matrix in MODE 7, and the bitmap
+   * OCRed against the MOS font in modes 0-6. Null until the machine is up.
+   */
+  readScreenText(): MachineScreenText | null {
+    if (!this.initialised || this.disposed) return null;
+    const port = this.screenPort;
+    this.fontSigs ??= acornFontSignatures(port);
+    return readAcornScreenText(port, this.fontSigs);
   }
 
   readReport(): MachineReport | null {
