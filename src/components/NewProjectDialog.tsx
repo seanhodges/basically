@@ -6,7 +6,7 @@ import { useIdeStore } from '../app/store';
 import { useDismiss } from '../app/useDismiss';
 import { dialects, getDialect } from '../dialects/registry';
 import { useAiStore } from '../ai/aiStore';
-import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
+import { buildUserMessage, loadSystemPrompt } from '../ai/promptBuilder';
 import { aiCredentials, hasAiKey } from '../ai/credentials';
 import {
   AI_UNCONFIGURED_NOTE,
@@ -90,7 +90,7 @@ export function NewProjectDialog() {
     triggerRef.current?.focus();
   };
 
-  const create = () => {
+  const create = async () => {
     const { source, blocks } = startingDocument(machine, startingPoint, sample);
     useIdeStore.getState().createProject({
       dialectId: machine.id,
@@ -110,7 +110,7 @@ export function NewProjectDialog() {
     void useAiStore.getState().send({
       ...creds,
       maxTokens: machine.aiProfile.maxTokens,
-      system: buildSystemPrompt(machine),
+      system: await loadSystemPrompt(machine),
       userContent: buildUserMessage(request, '', []),
       displayRequest: request,
       // A description, not an edit: the assistant is shown no program.

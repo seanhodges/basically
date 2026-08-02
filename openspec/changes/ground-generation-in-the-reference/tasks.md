@@ -45,47 +45,47 @@
 
 ## 4. Compose the machine description from the shared data
 
-- [ ] 4.1 Add `src/ai/machineReference.ts` with per-page deferred importers
+- [x] 4.1 Add `src/ai/machineReference.ts` with per-page deferred importers
       (`Record<slug, () => Promise<…>>`, mirroring `src/ai/aiClient.ts`'s
       provider map) and a per-dialect memo of the composed block.
-- [ ] 4.2 Compose **THIS MACHINE**: name, manufacturer, year, `basicDialect`,
+- [x] 4.2 Compose **THIS MACHINE**: name, manufacturer, year, `basicDialect`,
       free RAM, program start, screen base.
-- [ ] 4.3 Compose **LANGUAGE RULES** from `PortingFacts`: line-number range,
+- [x] 4.3 Compose **LANGUAGE RULES** from `PortingFacts`: line-number range,
       statement separator, `ELSE`, `LET`, variable naming, number handling,
       exponent operator, memory-write syntax, address notation, hex prefix.
-- [ ] 4.4 Compose **SCREEN, COLOUR AND SOUND** from the three prose capability
+- [x] 4.4 Compose **SCREEN, COLOUR AND SOUND** from the three prose capability
       facts.
-- [ ] 4.5 Compose **COMMANDS, FUNCTIONS AND OPERATORS** from
+- [x] 4.5 Compose **COMMANDS, FUNCTIONS AND OPERATORS** from
       `tableForMachine(page, dialect.id)`, grouped by capability domain in
       `KEYWORD_DOMAINS` order and sorted within each group by `sortEntries`; one
       line per row carrying name, kind, syntax, description and tag.
-- [ ] 4.6 Compose **WHERE THIS MACHINE IS SHORT** from the `domainGuidance` cells
+- [x] 4.6 Compose **WHERE THIS MACHINE IS SHORT** from the `domainGuidance` cells
       for this machine's page whose `support` is `partial` or `none`, carrying
       each `instead` and its worked `example` verbatim.
-- [ ] 4.7 Add `src/ai/machineReference.test.ts`: every registered dialect
+- [x] 4.7 Add `src/ai/machineReference.test.ts`: every registered dialect
       composes without throwing; every name in a dialect's keyword table appears
       in its composed block (the completeness assertion, made of what the
       assistant is actually sent); two compositions for the same dialect are
       byte-identical; a machine with a `none`/`partial` domain carries its
       `instead` text.
-- [ ] 4.8 Record the composed block's size per machine in the change notes, so
+- [x] 4.8 Record the composed block's size per machine in the change notes, so
       the prompt cost is a measured number.
 
 ## 5. Send it with every request
 
-- [ ] 5.1 Give `buildSystemPrompt` the composed block as a parameter, keeping it
+- [x] 5.1 Give `buildSystemPrompt` the composed block as a parameter, keeping it
       pure and synchronous, and add `loadSystemPrompt(dialect)` that performs the
       deferred import and calls it.
-- [ ] 5.2 Await it at the three call sites — `AiPanel.tsx` (send and pending-fix),
+- [x] 5.2 Await it at the three call sites — `AiPanel.tsx` (send and pending-fix),
       `DocsDrawer.tsx` (convert), `NewProjectDialog.tsx` (describe) — making each
       handler async; nothing else about `aiStore.send` changes.
-- [ ] 5.3 Extend `src/ai/promptBuilder.test.ts` for the new parameter: the block
+- [x] 5.3 Extend `src/ai/promptBuilder.test.ts` for the new parameter: the block
       lands in the composed prompt, and the existing blocks keep their order.
-- [ ] 5.4 Add the ESLint `no-restricted-imports` rule banning static imports of
+- [x] 5.4 Add the ESLint `no-restricted-imports` rule banning static imports of
       `src/reference/**` from `src/` outside the reference tree and `*.test.ts`,
       so the deferred boundary fails `npm run lint` rather than quietly growing
       the main bundle.
-- [ ] 5.5 Confirm the split: build and check that `src/reference` lands in
+- [x] 5.5 Confirm the split: build and check that `src/reference` lands in
       dynamically-imported chunks, not the entry chunk.
 
 ## 6. Thin the thirteen prose descriptions

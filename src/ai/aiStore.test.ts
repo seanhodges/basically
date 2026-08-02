@@ -63,6 +63,7 @@ vi.mock('./aiClient', () => ({
 }));
 
 import { useAiStore } from './aiStore';
+import { loadMachineReference } from './machineReference';
 import { useIdeStore, type AiRunOutcome } from '../app/store';
 import {
   loadAiConversation,
@@ -304,16 +305,22 @@ describe('aiStore', () => {
      * Publish a run outcome the way EmulatorPane does. `ranSource` defaults to
      * the live source, i.e. a program the user hasn't touched since it ran.
      */
-    function reportRun(
+    async function reportRun(
       outcome: AiRunOutcome,
       ranSource?: string,
       expectations: ExpectationResult[] = [],
-    ): void {
+    ): Promise<void> {
       // Each run is its own request, exactly as an apply-and-run makes it; the
       // outcome is tagged with that sequence so a stale one can be ignored.
       useIdeStore.getState().requestAiRun();
       const state = useIdeStore.getState();
       state.reportRun(outcome, ranSource ?? state.source, expectations);
+      // The correction's system prompt carries the machine's reference, which is
+      // loaded on demand - so the request leaves a few microtasks after the
+      // outcome is published rather than inside the same call. Settling here
+      // keeps every assertion below about what the store did, not about when.
+      // (`beforeEach` warms the reference cache, so this is only microtasks.)
+      for (let i = 0; i < 8; i++) await Promise.resolve();
     }
 
     /** An expectation result as the run check would report one. */
@@ -340,13 +347,16 @@ describe('aiStore', () => {
         .reverse()
         .find((m) => m.role === 'user')?.content ?? '';
 
-    beforeEach(() => {
+    beforeEach(async () => {
       setProviderApiKey(getAiProvider(), 'key');
       useIdeStore.setState({ source: BASE_SOURCE, runOutcome: null });
+      // Warm the on-demand reference for the active machine, so the automatic
+      // correction below is waiting on nothing but microtasks.
+      await loadMachineReference(useIdeStore.getState().dialect);
     });
 
     it('sends a correction unasked when a run fails', async () => {
-      reportRun({ kind: 'errored', report: FAILED });
+      await reportRun({ kind: 'errored', report: FAILED });
 
       // A request went out on its own: a stream handle exists and the panel is
       // busy, with no user action in between.
@@ -364,7 +374,7 @@ describe('aiStore', () => {
 
     it('stops after the bound and offers the fix instead', async () => {
       for (let attempt = 0; attempt < 2; attempt++) {
-        reportRun({ kind: 'errored', report: FAILED });
+        await reportRun({ kind: 'errored', report: FAILED });
         expect(useAiStore.getState().busy).toBe(true);
         h.current!.resolve('10 LET A=1');
         await Promise.resolve();
@@ -382,7 +392,7 @@ describe('aiStore', () => {
 
     it('releases the bound when the user makes a new request', async () => {
       for (let attempt = 0; attempt < 2; attempt++) {
-        reportRun({ kind: 'errored', report: FAILED });
+        await reportRun({ kind: 'errored', report: FAILED });
         h.current!.resolve('10 LET A=1');
         await Promise.resolve();
         await Promise.resolve();
@@ -393,13 +403,16 @@ describe('aiStore', () => {
       await p;
 
       h.current = null;
-      reportRun({ kind: 'errored', report: FAILED });
+      await reportRun({ kind: 'errored', report: FAILED });
       expect(h.current).not.toBeNull(); // corrections are available again
       expect(useAiStore.getState().pendingFix).toBeNull();
     });
 
-    it('only offers the fix when the program has changed since the run', () => {
-      reportRun({ kind: 'errored', report: FAILED }, '10 SOMETHING ELSE\n');
+    it('only offers the fix when the program has changed since the run', async () => {
+      await reportRun(
+        { kind: 'errored', report: FAILED },
+        '10 SOMETHING ELSE\n',
+      );
 
       expect(h.current).toBeNull();
       expect(useAiStore.getState().busy).toBe(false);
@@ -408,13 +421,13 @@ describe('aiStore', () => {
       );
     });
 
-    it('corrects nothing when the run did not fail', () => {
+    it('corrects nothing when the run did not fail', async () => {
       for (const kind of [
         'ended-ok',
         'still-running',
         'never-started',
       ] as const) {
-        reportRun({ kind });
+        await reportRun({ kind });
         expect(h.current).toBeNull();
         expect(useAiStore.getState().busy).toBe(false);
         expect(useAiStore.getState().pendingFix).toBeNull();
@@ -422,7 +435,7 @@ describe('aiStore', () => {
     });
 
     it('tells the assistant about a run that did not fail on the next request', async () => {
-      reportRun({ kind: 'ended-ok' });
+      await reportRun({ kind: 'ended-ok' });
       const p = useAiStore.getState().send(params);
       h.current!.resolve('10 PRINT');
       await p;
@@ -440,7 +453,7 @@ describe('aiStore', () => {
     });
 
     it('spends the note once', async () => {
-      reportRun({ kind: 'ended-ok' });
+      await reportRun({ kind: 'ended-ok' });
       const first = useAiStore.getState().send(params);
       h.current!.resolve('10 PRINT');
       await first;
@@ -453,7 +466,7 @@ describe('aiStore', () => {
     });
 
     it('leaves no further attempt queued when the user stops a correction', async () => {
-      reportRun({ kind: 'errored', report: FAILED });
+      await reportRun({ kind: 'errored', report: FAILED });
       expect(useAiStore.getState().busy).toBe(true);
 
       useAiStore.getState().stop();
@@ -468,8 +481,8 @@ describe('aiStore', () => {
     });
 
     describe('a program that ran but produced the wrong answer', () => {
-      it('corrects it unasked, exactly as a runtime error is corrected', () => {
-        reportRun({ kind: 'ended-ok' }, undefined, [
+      it('corrects it unasked, exactly as a runtime error is corrected', async () => {
+        await reportRun({ kind: 'ended-ok' }, undefined, [
           expectation('failed', 'T', '41'),
         ]);
 
@@ -489,7 +502,7 @@ describe('aiStore', () => {
       it('shares one budget with runtime errors rather than doubling it', async () => {
         // Two runtime errors spend both automatic attempts...
         for (let attempt = 0; attempt < 2; attempt++) {
-          reportRun({ kind: 'errored', report: FAILED });
+          await reportRun({ kind: 'errored', report: FAILED });
           h.current!.resolve('10 LET A=1');
           await Promise.resolve();
           await Promise.resolve();
@@ -507,8 +520,8 @@ describe('aiStore', () => {
         );
       });
 
-      it('only offers the fix when the program has changed since the run', () => {
-        reportRun({ kind: 'ended-ok' }, '10 SOMETHING ELSE\n', [
+      it('only offers the fix when the program has changed since the run', async () => {
+        await reportRun({ kind: 'ended-ok' }, '10 SOMETHING ELSE\n', [
           expectation('failed', 'T', '41'),
         ]);
 
@@ -519,8 +532,10 @@ describe('aiStore', () => {
         );
       });
 
-      it('corrects nothing when every expectation held', () => {
-        reportRun({ kind: 'ended-ok' }, undefined, [expectation('passed')]);
+      it('corrects nothing when every expectation held', async () => {
+        await reportRun({ kind: 'ended-ok' }, undefined, [
+          expectation('passed'),
+        ]);
         expect(h.current).toBeNull();
         expect(useAiStore.getState().busy).toBe(false);
         expect(useAiStore.getState().pendingFix).toBeNull();
@@ -537,7 +552,9 @@ describe('aiStore', () => {
       });
 
       it('tells the assistant on the next request that its expectations held', async () => {
-        reportRun({ kind: 'ended-ok' }, undefined, [expectation('passed')]);
+        await reportRun({ kind: 'ended-ok' }, undefined, [
+          expectation('passed'),
+        ]);
         const p = useAiStore.getState().send(params);
         h.current!.resolve('10 PRINT');
         await p;
@@ -547,7 +564,7 @@ describe('aiStore', () => {
       });
 
       it('reports an unchecked expectation rather than passing it silently', async () => {
-        reportRun({ kind: 'still-running' }, undefined, [
+        await reportRun({ kind: 'still-running' }, undefined, [
           {
             ...expectation('unchecked'),
             reason: 'the screen could not be read',
