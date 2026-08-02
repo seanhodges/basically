@@ -19,22 +19,29 @@ raises no failure SHALL be reported as having run without failing. Either way no
 correction follows, so which of the two is reported SHALL NOT change what the
 assistant is asked to do.
 
-A reported outcome MAY additionally carry the machine's screen as an image.
-Because what a program drew is not always expressible as characters, the outcome
-SHALL carry the image where the program produced output the screen text cannot
-convey — a screen holding no text, or only the block characters that stand in
-for graphics, after a program that ran. It SHALL also carry the image where the
-machine cannot report its screen as text at all, that being the only account of
-the screen available for such a machine. Where the screen text does convey what
-the program produced, the outcome SHALL NOT carry an image, so that the exact
-account is preferred to the depicted one.
+A reported outcome MAY additionally carry the machine's screen — as text, as an
+image, or as both. Which of these it carries SHALL be the assistant's own
+choice: the assistant SHALL be told that both views exist and what each one can
+and cannot convey, and MAY name the view or views it wants alongside the code it
+returns. The outcome SHALL then carry what was named, and nothing further. Where
+the assistant names nothing, the outcome SHALL carry the screen as text alone.
+
+The choice belongs to the assistant because only the assistant knows what it
+wrote, and no rule applied to the finished screen distinguishes a program that
+printed a table from one that drew a table's border out of graphics characters.
+
+So that the choice can be made well, the assistant SHALL be told which views the
+machine in front of it can actually produce. Where it nonetheless names a view
+that machine cannot produce, the outcome SHALL report that view as unavailable
+rather than silently substituting another, so that a mistaken request is visible
+rather than answered with something else.
 
 The image SHALL be the machine's screen at the machine's own resolution and
 SHALL NOT be enlarged, so that what the assistant is shown is what the machine
 drew and the cost of showing it stays proportional to the machine.
 
-Whether an outcome carries an image SHALL NOT change what the assistant is asked
-to do, and SHALL be the same for every provider.
+Which views an outcome carries SHALL NOT change what the assistant is asked to
+do, and the whole of this behaviour SHALL be the same for every provider.
 
 Where the machine cannot report its runtime state, no outcome SHALL be reported
 and the rest of the assistant SHALL be unaffected.
@@ -66,25 +73,28 @@ and the rest of the assistant SHALL be unaffected.
   check ends
 - **THEN** it is treated as having run, and no failure is reported
 
-#### Scenario: A program whose output is graphical
+#### Scenario: The assistant asks to see the screen
 
-- **WHEN** a program applied and run from the assistant leaves the screen holding
-  no text, or only the block characters that stand in for graphics
-- **THEN** the outcome carries the screen as an image, so that what was drawn
-  reaches the conversation
+- **WHEN** the assistant names the screen image as the view it wants to verify
+  with, and the program it returned is applied and run
+- **THEN** the outcome carries the screen as an image
 
-#### Scenario: A program that printed its answer
+#### Scenario: The assistant asks for both views
 
-- **WHEN** a program applied and run from the assistant leaves text on the screen
-  that conveys what it produced
-- **THEN** the outcome carries that text and no image
+- **WHEN** the assistant names both the screen text and the screen image
+- **THEN** the outcome carries both, so that what was printed and what was drawn
+  are reported together
 
-#### Scenario: A machine that cannot report its screen as text
+#### Scenario: The assistant asks for nothing in particular
 
-- **WHEN** a program is applied and run from the assistant on a machine that
-  cannot determine its screen text
-- **THEN** the outcome carries the screen as an image, that being the only
-  account of the screen available
+- **WHEN** the assistant returns code without naming any view
+- **THEN** the outcome carries the screen as text alone
+
+#### Scenario: The assistant asks for a view this machine cannot produce
+
+- **WHEN** the assistant names a view the running machine cannot produce
+- **THEN** the outcome reports that view as unavailable, rather than carrying a
+  different view in its place
 
 #### Scenario: The screen is shown as the machine drew it
 
@@ -94,8 +104,9 @@ and the rest of the assistant SHALL be unaffected.
 
 #### Scenario: The same on every provider
 
-- **WHEN** an outcome carrying an image is reported, on any configured provider
-- **THEN** the assistant is shown the screen and asked to do the same thing,
+- **WHEN** an outcome carrying a screen view is reported, on any configured
+  provider
+- **THEN** the assistant may choose its views and is shown them in the same way,
   rather than the behaviour varying with the provider
 
 #### Scenario: A machine that cannot report its runtime state
