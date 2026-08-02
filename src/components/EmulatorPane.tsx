@@ -6,7 +6,18 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useIdeStore } from '../app/store';
-import { classifyAiRunFrame, type AiRunFrameCounts } from '../app/aiRunCheck';
+import {
+  classifyAiRunFrame,
+  finaliseExpectations,
+  latchExpectationSample,
+  AI_CHECK_EXPECT_SAMPLE_FRAMES,
+  type AiRunFrameCounts,
+} from '../app/aiRunCheck';
+import {
+  evaluateExpectations,
+  type Expectation,
+  type ExpectationResult,
+} from '../ai/expectations';
 import { countProgramErrors } from '../app/useProgramStats';
 import { lintBlocks } from '../app/blockLint';
 import {
@@ -148,6 +159,12 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // The program this check's run was loaded from, so the outcome can be matched
   // against what the editor holds by the time it lands.
   const aiCheckSourceRef = useRef('');
+  // What the assistant said should be true once this program has run, and how
+  // those expectations have stood up across the samples so far (null until the
+  // first sample). Sampled rather than evaluated per frame - reading the screen
+  // back is expensive - and latched, so a value that held once stays held.
+  const aiCheckExpectRef = useRef<Expectation[]>([]);
+  const aiCheckLatchRef = useRef<ExpectationResult[] | null>(null);
   // A step-through debug session is live (run started in debug mode).
   const debugActiveRef = useRef(false);
   // What the current run of slices is doing: 'run' (to next breakpoint) or
@@ -270,11 +287,38 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           },
           aiCheckCountsRef.current,
         );
+        // Check the assistant's stated expectations on a cadence while the run
+        // is being watched, and once more at the verdict so the final state is
+        // always seen. Skipped entirely when it stated none, which is the
+        // ordinary case and must cost nothing.
+        if (aiCheckExpectRef.current.length > 0) {
+          const due =
+            verdict.done ||
+            aiCheckCountsRef.current.totalFrames %
+              AI_CHECK_EXPECT_SAMPLE_FRAMES ===
+              0;
+          if (due) {
+            aiCheckLatchRef.current = latchExpectationSample(
+              aiCheckLatchRef.current,
+              evaluateExpectations(aiCheckExpectRef.current, {
+                variables: machine.readVariables?.() ?? null,
+                screen: machine.readScreenText?.() ?? null,
+              }),
+            );
+          }
+        }
         if (verdict.done) {
           aiCheckActiveRef.current = false;
           useIdeStore
             .getState()
-            .reportRun(verdict.outcome, aiCheckSourceRef.current);
+            .reportRun(
+              verdict.outcome,
+              aiCheckSourceRef.current,
+              finaliseExpectations(
+                aiCheckLatchRef.current ?? [],
+                verdict.outcome,
+              ),
+            );
         } else {
           aiCheckCountsRef.current = {
             readyFrames: verdict.readyFrames,
@@ -411,6 +455,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           typeof machine.readReport === 'function';
         aiCheckCountsRef.current = { readyFrames: 0, totalFrames: 0 };
         aiCheckSourceRef.current = source;
+        aiCheckExpectRef.current = aiCheckActiveRef.current
+          ? useIdeStore.getState().aiRunExpectations
+          : [];
+        aiCheckLatchRef.current = null;
         // Start a step-through session when debug mode is armed and the machine
         // supports it; the loop then advances by debug slices instead of frames.
         // A session with no breakpoints simply never pauses and runs normally.

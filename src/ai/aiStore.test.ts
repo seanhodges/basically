@@ -71,6 +71,7 @@ import {
 } from '../storage/settings';
 import { sourceFingerprint } from './sourceFingerprint';
 import type { MachineReport } from '../dialects/types';
+import type { ExpectationResult } from './expectations';
 
 const BASE_SOURCE = '10 CLS\n20 GOTO 10\n';
 
@@ -303,12 +304,34 @@ describe('aiStore', () => {
      * Publish a run outcome the way EmulatorPane does. `ranSource` defaults to
      * the live source, i.e. a program the user hasn't touched since it ran.
      */
-    function reportRun(outcome: AiRunOutcome, ranSource?: string): void {
+    function reportRun(
+      outcome: AiRunOutcome,
+      ranSource?: string,
+      expectations: ExpectationResult[] = [],
+    ): void {
       // Each run is its own request, exactly as an apply-and-run makes it; the
       // outcome is tagged with that sequence so a stale one can be ignored.
       useIdeStore.getState().requestAiRun();
       const state = useIdeStore.getState();
-      state.reportRun(outcome, ranSource ?? state.source);
+      state.reportRun(outcome, ranSource ?? state.source, expectations);
+    }
+
+    /** An expectation result as the run check would report one. */
+    function expectation(
+      status: ExpectationResult['status'],
+      name = 'T',
+      actual?: string,
+    ): ExpectationResult {
+      return {
+        expectation: {
+          kind: 'var',
+          name,
+          expected: '42',
+          source: `VAR ${name} = 42`,
+        },
+        status,
+        ...(actual !== undefined ? { actual } : {}),
+      };
     }
 
     /** The user turn of the most recent exchange, whoever raised it. */
@@ -442,6 +465,100 @@ describe('aiStore', () => {
       h.current = null;
       await Promise.resolve();
       expect(h.current).toBeNull();
+    });
+
+    describe('a program that ran but produced the wrong answer', () => {
+      it('corrects it unasked, exactly as a runtime error is corrected', () => {
+        reportRun({ kind: 'ended-ok' }, undefined, [
+          expectation('failed', 'T', '41'),
+        ]);
+
+        expect(useAiStore.getState().busy).toBe(true);
+        expect(h.current).not.toBeNull();
+        expect(useAiStore.getState().messages.at(-1)!.autoFix).toBe(true);
+        expect(useAiStore.getState().pendingFix).toBeNull();
+        // The thread shows what it is correcting, and the message actually sent
+        // says what was expected and what the machine reported instead.
+        expect(lastRequest()).toContain('wrong result');
+        expect(sentUserContent()).toContain('did not produce what you said');
+        expect(sentUserContent()).toContain(
+          'you said T would be 42, but the machine reported 41',
+        );
+      });
+
+      it('shares one budget with runtime errors rather than doubling it', async () => {
+        // Two runtime errors spend both automatic attempts...
+        for (let attempt = 0; attempt < 2; attempt++) {
+          reportRun({ kind: 'errored', report: FAILED });
+          h.current!.resolve('10 LET A=1');
+          await Promise.resolve();
+          await Promise.resolve();
+        }
+        h.current = null;
+
+        // ...so a wrong answer on the same applied block gets the banner, not a
+        // third request. A per-kind allowance would let one block spend four.
+        reportRun({ kind: 'ended-ok' }, undefined, [
+          expectation('failed', 'T', '41'),
+        ]);
+        expect(h.current).toBeNull();
+        expect(useAiStore.getState().pendingFix?.summary).toContain(
+          'Wrong result',
+        );
+      });
+
+      it('only offers the fix when the program has changed since the run', () => {
+        reportRun({ kind: 'ended-ok' }, '10 SOMETHING ELSE\n', [
+          expectation('failed', 'T', '41'),
+        ]);
+
+        expect(h.current).toBeNull();
+        expect(useAiStore.getState().busy).toBe(false);
+        expect(useAiStore.getState().pendingFix?.summary).toContain(
+          'Wrong result',
+        );
+      });
+
+      it('corrects nothing when every expectation held', () => {
+        reportRun({ kind: 'ended-ok' }, undefined, [expectation('passed')]);
+        expect(h.current).toBeNull();
+        expect(useAiStore.getState().busy).toBe(false);
+        expect(useAiStore.getState().pendingFix).toBeNull();
+      });
+
+      it('corrects nothing when an expectation could not be checked', () => {
+        // Unchecked is not failed: a program nobody could judge must not be
+        // sent back for a fix it may not need.
+        reportRun({ kind: 'still-running' }, undefined, [
+          expectation('unchecked'),
+        ]);
+        expect(h.current).toBeNull();
+        expect(useAiStore.getState().pendingFix).toBeNull();
+      });
+
+      it('tells the assistant on the next request that its expectations held', async () => {
+        reportRun({ kind: 'ended-ok' }, undefined, [expectation('passed')]);
+        const p = useAiStore.getState().send(params);
+        h.current!.resolve('10 PRINT');
+        await p;
+        expect(sentUserContent()).toContain(
+          'Everything you said should be true of it held',
+        );
+      });
+
+      it('reports an unchecked expectation rather than passing it silently', async () => {
+        reportRun({ kind: 'still-running' }, undefined, [
+          {
+            ...expectation('unchecked'),
+            reason: 'the screen could not be read',
+          },
+        ]);
+        const p = useAiStore.getState().send(params);
+        h.current!.resolve('10 PRINT');
+        await p;
+        expect(sentUserContent()).toContain('I could not check');
+        expect(sentUserContent()).toContain('the screen could not be read');
+      });
     });
   });
 

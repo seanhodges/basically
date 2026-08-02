@@ -3,6 +3,11 @@ import {
   isBinaryDirective,
   parseBinaryDirective,
 } from '../dialects/binaryDirective';
+import {
+  EXPECT_FENCE_TAG,
+  parseExpectations,
+  type Expectation,
+} from './expectations';
 
 /**
  * What a code block claims to be. The assistant declares this with the fence
@@ -19,6 +24,14 @@ export interface CodeBlock {
   language: string;
   /** The kind the assistant declared via the fence tag, if it declared one. */
   declared?: BlockKind;
+  /**
+   * True for a ` ```basic-expect ` block: what the assistant says should be true
+   * once the program has run (see `./expectations`). Deliberately not a
+   * {@link BlockKind} - an expectation block declares nothing, so it can never
+   * be classified as a listing or a fragment, and so it can never be applied to
+   * the editor.
+   */
+  expectations?: true;
 }
 
 /** Pull fenced code blocks out of (possibly still-streaming) markdown. */
@@ -42,10 +55,34 @@ export function extractCodeBlocks(markdown: string): CodeBlock[] {
         language: m[1]! || 'basic',
         code,
         ...(declared ? { declared } : {}),
+        ...(tag === EXPECT_FENCE_TAG ? { expectations: true as const } : {}),
       });
     }
   }
   return blocks;
+}
+
+/**
+ * True for a block that can be landed in the editor.
+ *
+ * The one thing that must never happen is an expectation block being applied as
+ * though it were a program, so the apply paths filter on this rather than
+ * reaching for "the last block" - which would pick the expectations whenever the
+ * assistant states them after its code, as it naturally does.
+ */
+export function isApplicableBlock(block: CodeBlock): boolean {
+  return block.expectations !== true;
+}
+
+/**
+ * Every expectation stated in a reply, across all of its expectation blocks.
+ * Empty when the reply states none, which is the common case and behaves
+ * exactly as a reply did before expectations existed.
+ */
+export function extractExpectations(markdown: string): Expectation[] {
+  return extractCodeBlocks(markdown)
+    .filter((b) => b.expectations === true)
+    .flatMap((b) => parseExpectations(b.code));
 }
 
 /** A numbered BASIC line, keyed by line number. `#BIN` directives excluded. */

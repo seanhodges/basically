@@ -16,6 +16,7 @@ import {
 } from '../storage/settings';
 import { useIdeStore } from '../app/store';
 import {
+  buildExpectationFix,
   buildRunFix,
   buildRunNote,
   buildSystemPrompt,
@@ -376,15 +377,27 @@ useIdeStore.subscribe((state) => {
   if (!run || run.seq === prevOutcomeSeq) return;
   prevOutcomeSeq = run.seq;
 
+  // A program that ran cleanly but produced the wrong answer has failed just as
+  // surely as one that stopped on an error, so it takes the same path: the same
+  // correction, out of the same bounded budget. One budget, deliberately - a
+  // separate allowance per kind of failure would let a single applied block
+  // spend twice over.
+  const wrongResult =
+    run.outcome.kind !== 'errored' &&
+    run.expectations.some((r) => r.status === 'failed');
+
   // A run that didn't fail is worth telling the assistant about, but not worth
   // a request of its own: note it and let the next request carry it.
-  if (run.outcome.kind !== 'errored') {
-    pendingRunNote = buildRunNote(run.outcome);
+  if (run.outcome.kind !== 'errored' && !wrongResult) {
+    pendingRunNote = buildRunNote(run.outcome, run.expectations);
     return;
   }
 
   const ai = useAiStore.getState();
-  const fix = buildRunFix(state.source, run.outcome.report);
+  const fix =
+    run.outcome.kind === 'errored'
+      ? buildRunFix(state.source, run.outcome.report)
+      : buildExpectationFix(state.source, run.expectations);
   // Correcting a program the user has edited since it ran would be answering a
   // question they have already moved on from.
   const edited =

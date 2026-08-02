@@ -10,11 +10,14 @@ import {
 import {
   classifyBlock,
   extractCodeBlocks,
+  extractExpectations,
+  isApplicableBlock,
   mergeBasicLines,
   mergePlan,
   type CodeBlock,
   type MergeRow,
 } from '../ai/codeExtractor';
+import type { Expectation } from '../ai/expectations';
 import { sourceFingerprint } from '../ai/sourceFingerprint';
 import { getAiProvider, getProviderApiKey } from '../storage/settings';
 import { getProvider } from '../ai/providers/registry';
@@ -309,11 +312,15 @@ export function AiPanel() {
    * the preview), and in the tabbed layout it switches to the preview tab (the
    * run-request auto-switch only covers portrait, not the split/landscape cases).
    */
-  const applyText = (text: string, run: boolean) => {
+  const applyText = (
+    text: string,
+    run: boolean,
+    expectations: Expectation[] = [],
+  ) => {
     replaceDocument(text);
     if (!checkEditorErrors(text) && run) {
       showEmulator();
-      requestAiRun();
+      requestAiRun(expectations);
     }
   };
 
@@ -350,6 +357,10 @@ export function AiPanel() {
       );
     }
     const blocks = extractCodeBlocks(msg.content);
+    // Stated alongside the code in this same reply, and carried into the run
+    // that the apply arms - so a program that runs is checked against what its
+    // author said it should produce.
+    const expectations = extractExpectations(msg.content);
     // Render text with code blocks replaced by panels
     const parts: React.ReactNode[] = [];
     let rest = msg.content;
@@ -364,8 +375,12 @@ export function AiPanel() {
       // Only offer the apply actions once the whole answer is in - while
       // streaming the code is partial, so applying it would use a truncated
       // program. Rendering the block itself while streaming is fine.
+      //
+      // An expectation block is shown but never offered: it is what the
+      // assistant says should be true once the program has run, not program
+      // text, so there is nothing here to land in the editor.
       parts.push(
-        msg.streaming ? (
+        msg.streaming || !isApplicableBlock(block) ? (
           <div key={`c${bi}`} className={styles.aiCode}>
             <pre>{block.code}</pre>
           </div>
@@ -376,7 +391,7 @@ export function AiPanel() {
             source={source}
             stale={staleAgainst(msg, source)}
             incomplete={msg.incomplete === true}
-            onApply={applyText}
+            onApply={(text, run) => applyText(text, run, expectations)}
           />
         ),
       );
