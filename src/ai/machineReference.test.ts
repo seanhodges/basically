@@ -15,7 +15,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../dialects/registry';
-import { loadMachineReference } from './machineReference';
+import {
+  loadEscapePage,
+  loadMachineReference,
+  loadReferencePage,
+  pageFor,
+} from './machineReference';
 
 /**
  * Keyword names as the dialect itself spells them, deduplicated - keyword tables
@@ -127,5 +132,41 @@ describe('the machine description', () => {
     );
     expect(only6128.filter((w) => listed464.has(w))).toEqual([]);
     expect(await loadMachineReference(cpc6128)).not.toBe(text464);
+  });
+});
+
+/**
+ * The tables a port report is composed from, which the same module serves and
+ * the same page slug keys.
+ *
+ * A machine whose control codes go missing does not fail anything on its own -
+ * `loadPortReport` degrades to a report without them, which reads as "this port
+ * changes no control codes". So the sweep is the guard: a page with no escape
+ * table has to be named here deliberately, rather than discovered by a user
+ * whose `{clr}` was quietly not mentioned.
+ */
+const PAGES_WITHOUT_ESCAPES: string[] = [];
+
+describe('the tables a port report is composed from', () => {
+  it.each(dialects.map((d) => d.id))(
+    'resolves both tables for %s',
+    async (id) => {
+      const dialect = dialects.find((d) => d.id === id)!;
+      const page = pageFor(dialect);
+      expect(await loadReferencePage(page)).toBeDefined();
+      if (PAGES_WITHOUT_ESCAPES.includes(page)) {
+        expect(await loadEscapePage(page)).toBeUndefined();
+      } else {
+        expect((await loadEscapePage(page))?.entries.length).toBeGreaterThan(0);
+      }
+    },
+  );
+
+  it('resolves nothing for a page that is not registered', async () => {
+    // The degrading half of the contract: unlike loadMachineReference, these
+    // hand back `undefined` rather than throwing, because their caller is a
+    // click that must still do the work it can.
+    expect(await loadReferencePage('dragon32')).toBeUndefined();
+    expect(await loadEscapePage('dragon32')).toBeUndefined();
   });
 });

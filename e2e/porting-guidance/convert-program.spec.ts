@@ -1,6 +1,11 @@
 // Capability: porting-guidance — openspec/specs/porting-guidance/spec.md
 import { test, expect, targetMachine, type Page } from '../fixtures';
-import { openApp, selectDialect, setEditorSource } from '../helpers';
+import {
+  clearEditor,
+  openApp,
+  selectDialect,
+  setEditorSource,
+} from '../helpers';
 
 /**
  * Converting the open program from the porting guide.
@@ -45,6 +50,32 @@ async function openPortingGuide(page: Page) {
   return drawer;
 }
 
+/**
+ * Collect what the app sends to the provider instead of letting it out.
+ *
+ * The suite stays offline either way; the difference from a bare abort is that
+ * the request body is what these tests are about - the whole point of the
+ * feature is what the turn carries, and only a real click through the iframe
+ * proves the two sides still agree on the message that produced it.
+ */
+function captureProviderRequests(page: Page): string[] {
+  const bodies: string[] = [];
+  void page.route('**/api.anthropic.com/**', (route) => {
+    bodies.push(route.request().postData() ?? '');
+    return route.abort();
+  });
+  return bodies;
+}
+
+/** The text of the user turn in a captured provider request. */
+function userTurn(body: string): string {
+  const parsed = JSON.parse(body) as {
+    messages: { role: string; content: string }[];
+  };
+  const last = parsed.messages[parsed.messages.length - 1];
+  return last?.content ?? '';
+}
+
 /** Point the guide's source or target field at `machineId`. */
 async function chooseGuideMachine(
   drawer: ReturnType<Page['getByRole']>,
@@ -82,6 +113,110 @@ test('converting the open program switches machine and asks the assistant', asyn
   await expect(drawer).toBeHidden();
   await expect(targetMachine(page)).toHaveText(/Spectrum/, { timeout: 15_000 });
   await expect(page.locator('.cm-content')).toContainText('{clr}HI');
+});
+
+test('the port hands the assistant what the comparison found for this program', async ({
+  page,
+}) => {
+  const requests = captureProviderRequests(page);
+  await openApp(page);
+  await selectDialect(page, 'commodore64');
+  await setEditorSource(page, PROGRAM);
+  await saveApiKey(page);
+
+  const drawer = await openPortingGuide(page);
+  await chooseGuideMachine(drawer, 'to', 'zxspectrum');
+  const convert = drawer
+    .frameLocator('iframe')
+    .getByRole('button', { name: 'Convert with AI' });
+  await expect(convert).toBeVisible({ timeout: 15_000 });
+  await convert.click();
+
+  await expect
+    .poll(() => requests.length, { timeout: 15_000 })
+    .toBeGreaterThan(0);
+  const turn = userTurn(requests[0]!);
+
+  // The machine being ported *from*, which the request never used to carry at
+  // all - the assistant was told where the program was going and never where it
+  // came from, and worked the rest out from memory.
+  expect(turn).toContain('Commodore C64 (1982)');
+  expect(turn).toContain('Commodore BASIC V2');
+  // And the finding this program actually turns on: a PETSCII control code the
+  // Spectrum has no equivalent of.
+  expect(turn).toContain('{clr}');
+
+  // What the Spectrum adds and this program never used is not work the port
+  // requires, so it stays out - the turn is bounded by the program, not by the
+  // distance between the machines. (BRIGHT, BORDER and VERIFY are Spectrum
+  // commands the C64 has nothing like, and none of them are named in the
+  // guidance prose for this pair.)
+  for (const gained of ['BRIGHT', 'BORDER', 'VERIFY']) {
+    expect(turn, gained).not.toContain(gained);
+  }
+});
+
+test('asking to convert with nothing written is declined, not attempted', async ({
+  page,
+}) => {
+  const requests = captureProviderRequests(page);
+  await openApp(page);
+  await selectDialect(page, 'commodore64');
+  await setEditorSource(page, PROGRAM);
+  await saveApiKey(page);
+
+  // The guide is reached by keeping a program across a machine it will not run,
+  // so the program has to exist to get here; emptying the editor afterwards is
+  // how a user reaches this state. On desktop the IDE stays visible beside the
+  // half-width drawer.
+  const drawer = await openPortingGuide(page);
+  await clearEditor(page);
+  await drawer
+    .frameLocator('iframe')
+    .getByRole('button', { name: 'Convert with AI' })
+    .click();
+
+  // Nothing was sent, and nothing moved: the drawer is still open, the machine
+  // is still the one the port moved to, and the editor is still empty.
+  await expect(drawer).toBeVisible();
+  await expect(targetMachine(page)).toHaveText(/ZX81/);
+  // Closed to read the status bar it would otherwise cover.
+  await page.getByRole('button', { name: 'Close documentation' }).click();
+  await expect(page.getByText(/nothing to convert/i).first()).toBeVisible();
+  expect(requests).toHaveLength(0);
+  await expect(page.locator('.cm-content')).not.toContainText('{clr}HI');
+});
+
+test('asking to convert a program that cannot be read is declined, not attempted', async ({
+  page,
+}) => {
+  const requests = captureProviderRequests(page);
+  await openApp(page);
+  await selectDialect(page, 'commodore64');
+  await setEditorSource(page, PROGRAM);
+  await saveApiKey(page);
+
+  const drawer = await openPortingGuide(page);
+  // A half-typed escape is a framing error: the line cannot be turned into a
+  // C64 program at all, so the comparison has nothing to narrow to and a port
+  // carried out anyway would be recollection wearing its authority.
+  const UNREADABLE = '10 PRINT "{whi"';
+  await setEditorSource(page, UNREADABLE);
+  await drawer
+    .frameLocator('iframe')
+    .getByRole('button', { name: 'Convert with AI' })
+    .click();
+
+  await expect(drawer).toBeVisible();
+  await expect(targetMachine(page)).toHaveText(/ZX81/);
+  await page.getByRole('button', { name: 'Close documentation' }).click();
+  // Naming the machine it was read as is what makes this actionable: a program
+  // is only unreadable *as some particular BASIC*.
+  await expect(
+    page.getByText(/cannot be read as C64 BASIC/i).first(),
+  ).toBeVisible();
+  expect(requests).toHaveLength(0);
+  await expect(page.locator('.cm-content')).toContainText('{whi"');
 });
 
 test('asking to convert with no assistant configured offers to set one up', async ({

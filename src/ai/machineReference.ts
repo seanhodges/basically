@@ -1,8 +1,10 @@
 import type { Dialect } from '../dialects/types';
-import type { ReferenceTableData } from '../reference/types';
+import type { EscapeTableData, ReferenceTableData } from '../reference/types';
 
 /**
- * Loads the machine's own language definition for the system prompt, on demand.
+ * Loads the reference data the assistant is given, on demand: the machine's own
+ * language definition for the system prompt, and the tables a port report is
+ * composed from.
  *
  * The reference tables are some twelve thousand lines of data, and the assistant
  * is optional - most sessions never open it. So nothing here is imported
@@ -29,6 +31,26 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
 };
 
 /**
+ * The control-code tables, code-split exactly as the reference pages are and
+ * for the same reason: they are only wanted when a port is actually asked for.
+ *
+ * Keyed by the same page slug, because a control code is a property of the
+ * charset and the machines sharing a reference page share their escapes too.
+ */
+const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
+  atom: () => import('../reference/escapes/atom').then((m) => m.atomEscapes),
+  bbc: () => import('../reference/escapes/bbc').then((m) => m.bbcEscapes),
+  commodore: () =>
+    import('../reference/escapes/commodore').then((m) => m.commodoreEscapes),
+  cpc: () => import('../reference/escapes/cpc').then((m) => m.cpcEscapes),
+  trs80: () => import('../reference/escapes/trs80').then((m) => m.trs80Escapes),
+  zx80: () => import('../reference/escapes/zx80').then((m) => m.zx80Escapes),
+  zx81: () => import('../reference/escapes/zx81').then((m) => m.zx81Escapes),
+  zxspectrum: () =>
+    import('../reference/escapes/zxspectrum').then((m) => m.zxspectrumEscapes),
+};
+
+/**
  * Composed descriptions, by dialect id. The composition is pure and its input
  * is module-level constant data, so the result never goes stale - and the
  * second request for a machine costs nothing.
@@ -36,8 +58,31 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
 const cache = new Map<string, string>();
 
 /** Which reference page a dialect reads from; several machines share one. */
-function pageFor(dialect: Dialect): string {
+export function pageFor(dialect: Dialect): string {
   return dialect.docsReference ?? dialect.id;
+}
+
+/**
+ * One page's keyword table, or `undefined` where no page is registered under
+ * that slug.
+ *
+ * Undefined rather than throwing, unlike {@link loadMachineReference}: that one
+ * is swept by `machineReference.test.ts` over every registered dialect, so an
+ * unregistered page fails the suite before a user could reach it. These two sit
+ * on a click path whose caller degrades (see `./portReport.ts`), where refusing
+ * to work is a worse answer than working with less.
+ */
+export async function loadReferencePage(
+  page: string,
+): Promise<ReferenceTableData | undefined> {
+  return REFERENCE_PAGES[page]?.();
+}
+
+/** One page's control-code table; see {@link loadReferencePage}. */
+export async function loadEscapePage(
+  page: string,
+): Promise<EscapeTableData | undefined> {
+  return ESCAPE_PAGES[page]?.();
 }
 
 /**
