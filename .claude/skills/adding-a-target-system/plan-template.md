@@ -130,7 +130,7 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 
 - [ ] reference docs: `npm run gen:reference` / `npm run gen:escapes` scaffolds,
       then `docs/reference/<id>.md` + `<id>/{escapes,formats}.md`, data in
-      `docs/reference/data/<id>.ts`, sidebar entry in `docs/.vitepress/config.ts`
+      `src/reference/<id>.ts`, sidebar entry in `docs/.vitepress/config.ts`
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md`
 - [ ] `joystickModes` + `setJoystick` where the machine had joysticks
 - [ ] debugger hooks (`debuggable`, `currentLine`, `debugStep`)

@@ -234,6 +234,36 @@ dialects, whose ROM tokenizers ignore spaces and match the longest keyword at
 every position (`POKEA,10` is `POKE A,10`). Nothing in this folder knows about
 any specific machine.
 
+### Shared reference data (`src/reference/`)
+
+The machine reference the project holds in structured form: one table per
+reference page listing every command, function and operator with its usage,
+description and capability domain; the per-machine language-rule and hardware
+facts; the per-(machine, capability) porting advice with worked examples; the
+escape/control-code tables; and `compare.ts`, the pure diff logic behind the
+porting comparison. Colocated crosscheck tests pin all of it to the real
+dialects, per machine.
+
+Two consumers, deliberately: the documentation site renders it as the reference
+and comparison pages, and the AI assistant composes it into the machine
+description sent with every request (`machineDescription.ts`). That is why it
+lives under `src/` rather than under `docs/` - the dependency runs docs → src
+and never the reverse.
+
+Nothing in this folder may reach the dialect registry: the docs runtime cannot
+afford it (the registry imports every dialect index, and each pulls in an
+emulator core), and `machines.ts` restates what the registry knows for exactly
+that reason, with `machines-crosscheck.test.ts` keeping the restatement honest.
+The tests themselves import the registry freely - vitest runs them in node, and
+neither bundle includes `*.test.ts`.
+
+The app reaches this folder **only** through a dynamic `import()`
+(`src/ai/machineReference.ts`): it is ~12,000 lines the assistant alone needs,
+so it is code-split into one chunk per reference page. An ESLint
+`no-restricted-imports` rule refuses static imports of `src/reference/**` from
+the rest of `src/`, so the boundary fails the linter rather than quietly growing
+the initial download.
+
 ### Integration services
 
 - **AI (`src/ai/`)** - a provider registry with three lazy-loaded backends
@@ -471,13 +501,16 @@ sequenceDiagram
   actor U as User
   participant P as AiPanel
   participant B as promptBuilder
+  participant R as src/reference<br/>(lazy-loaded)
   participant C as aiClient
   participant X as Provider SDK<br/>(lazy-loaded)
   participant E as Editor
   participant M as Emulator
 
   U->>P: "Write me a breakout game"
-  P->>B: buildSystemPrompt(dialect.aiProfile)
+  P->>R: loadMachineReference(dialect)<br/>(dynamic import, memoised)
+  R-->>B: the machine's commands, rules and shortfalls
+  P->>B: buildSystemPrompt(dialect, machine reference)
   P->>B: buildUserMessage(request, source, lint errors)
   P->>C: streamChat(providerId, messages)
   C->>X: dynamic import + API call<br/>(key from localStorage)
@@ -493,12 +526,24 @@ sequenceDiagram
 
 Key details:
 
-- The system prompt is the dialect's `aiProfile.systemPrompt` plus the shared
-  `RETURNING_CODE_RULES` from `promptBuilder` - byte-stable per dialect so
-  provider-side prompt caching works. The profile teaches the model the
-  machine's rules (for the ZX81: one statement per line, mandatory `LET`,
-  `PRINT AT`, …); the shared part governs how much code to send, which must not
-  vary by machine.
+- The system prompt is the machine's composed reference, then the dialect's
+  `aiProfile.systemPrompt`, then the shared `RETURNING_CODE_RULES` and
+  expectation rules from `promptBuilder` - byte-stable per dialect so
+  provider-side prompt caching works.
+- The reference block is composed from `src/reference/` (see above): every
+  command, function and operator the machine has, its language rules and
+  hardware figures, and what to do where it lacks a capability. It is the same
+  data the docs render, so what the assistant is told and what the user is shown
+  cannot disagree, and every machine is described to the same standard.
+  `machineReference.test.ts` asserts that every word in a dialect's keyword
+  table appears in it.
+- The `aiProfile` prose carries only what no table holds - the machine's speed
+  and what to design around it, its hardware registers, how escapes are written
+  in this editor, and the reply format. The shared part governs how much code to
+  send, which must not vary by machine.
+- `buildSystemPrompt` is pure and synchronous, taking the composed block as an
+  argument; `loadSystemPrompt` awaits the deferred load and is what callers
+  use.
 - The user message embeds the current program and up to 20 tokenizer errors.
 - Each generated block is either a whole listing or a fragment. The model
   declares which with the fence tag (` ```basic ` / ` ```basic-partial `), and

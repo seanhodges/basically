@@ -106,21 +106,21 @@ machine's composed block before it is checked off.
 
 ## 7. Point the contributor documentation at the new home
 
-- [ ] 7.1 Update `docs/contributing/glyph-sources.md` and
+- [x] 7.1 Update `docs/contributing/glyph-sources.md` and
       `docs/contributing/dialect-roadmap.md`.
-- [ ] 7.2 Update the `adding-a-target-system` and `dialect-reference-docs` skills
+- [x] 7.2 Update the `adding-a-target-system` and `dialect-reference-docs` skills
       (`SKILL.md` and `plan-template.md`) where they name `docs/reference/data`.
-- [ ] 7.3 Add the shared reference tree to `docs/contributing/architecture.md`'s
+- [x] 7.3 Add the shared reference tree to `docs/contributing/architecture.md`'s
       component map, noting that it is consumed by both the docs site and the
       assistant, and that the app reaches it only through a deferred import.
 
 ## 8. Quality gates
 
-- [ ] 8.1 `npm run typecheck`
-- [ ] 8.2 `npm test`
-- [ ] 8.3 `npm run lint`
-- [ ] 8.4 `npm run format:check` (or `npm run format`)
-- [ ] 8.5 `npm run docs:build`
-- [ ] 8.6 `npm run e2e:chromium -- e2e/ai-assistant`
-- [ ] 8.7 `npm run e2e:chromium -- e2e/porting-guidance`
-- [ ] 8.8 `npm run e2e:chromium -- e2e/project-setup`
+- [x] 8.1 `npm run typecheck`
+- [x] 8.2 `npm test`
+- [x] 8.3 `npm run lint`
+- [x] 8.4 `npm run format:check` (or `npm run format`)
+- [x] 8.5 `npm run docs:build`
+- [x] 8.6 `npm run e2e:chromium -- e2e/ai-assistant`
+- [x] 8.7 `npm run e2e:chromium -- e2e/porting-guidance`
+- [x] 8.8 `npm run e2e:chromium -- e2e/project-setup`
