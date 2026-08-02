@@ -5,8 +5,11 @@ import {
 } from '../dialects/binaryDirective';
 import {
   EXPECT_FENCE_TAG,
+  JUDGE_FENCE_TAG,
   parseExpectations,
+  parseJudgement,
   type Expectation,
+  type Judgement,
 } from './expectations';
 
 /**
@@ -32,6 +35,13 @@ export interface CodeBlock {
    * the editor.
    */
   expectations?: true;
+  /**
+   * True for a ` ```basic-judge ` block: the assistant's verdict on the screen
+   * its program produced (see `./expectations`). Like an expectation block it
+   * declares nothing and is never program text, so it can never be applied to
+   * the editor.
+   */
+  verdict?: true;
 }
 
 /** Pull fenced code blocks out of (possibly still-streaming) markdown. */
@@ -56,6 +66,7 @@ export function extractCodeBlocks(markdown: string): CodeBlock[] {
         code,
         ...(declared ? { declared } : {}),
         ...(tag === EXPECT_FENCE_TAG ? { expectations: true as const } : {}),
+        ...(tag === JUDGE_FENCE_TAG ? { verdict: true as const } : {}),
       });
     }
   }
@@ -65,13 +76,14 @@ export function extractCodeBlocks(markdown: string): CodeBlock[] {
 /**
  * True for a block that can be landed in the editor.
  *
- * The one thing that must never happen is an expectation block being applied as
- * though it were a program, so the apply paths filter on this rather than
- * reaching for "the last block" - which would pick the expectations whenever the
- * assistant states them after its code, as it naturally does.
+ * The one thing that must never happen is an expectation block - or a verdict on
+ * a screen - being applied as though it were a program, so the apply paths
+ * filter on this rather than reaching for "the last block", which would pick the
+ * expectations whenever the assistant states them after its code, as it
+ * naturally does.
  */
 export function isApplicableBlock(block: CodeBlock): boolean {
-  return block.expectations !== true;
+  return block.expectations !== true && block.verdict !== true;
 }
 
 /**
@@ -83,6 +95,17 @@ export function extractExpectations(markdown: string): Expectation[] {
   return extractCodeBlocks(markdown)
     .filter((b) => b.expectations === true)
     .flatMap((b) => parseExpectations(b.code));
+}
+
+/**
+ * The assistant's verdicts on a screen it was shown, across the reply's verdict
+ * blocks. Empty when it returned none - which leaves what it was asked about
+ * unjudged rather than passed (see `applyJudgement`).
+ */
+export function extractJudgement(markdown: string): Judgement[] {
+  return extractCodeBlocks(markdown)
+    .filter((b) => b.verdict === true)
+    .flatMap((b) => parseJudgement(b.code));
 }
 
 /** A numbered BASIC line, keyed by line number. `#BIN` directives excluded. */

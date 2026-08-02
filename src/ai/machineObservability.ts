@@ -37,12 +37,32 @@ export function canReportVariables(dialectId: string): boolean {
  * expectation about an array element cannot be satisfied at all. Saying so is
  * what stops those being written.
  */
-export function buildExpectationRules(dialect: Dialect): string {
+export function buildExpectationRules(
+  dialect: Dialect,
+  /**
+   * Whether the display can be shown to the chosen provider. Gates the one
+   * form nothing else can settle: an expectation about how the screen looks is
+   * only ever judged by the assistant looking at it, so on a backend that
+   * cannot be shown an image it would be unanswerable by construction - and
+   * asking for expectations that can never be evaluated is exactly what these
+   * rules exist to prevent.
+   */
+  canShowScreen = false,
+): string {
   const variables = canReportVariables(dialect.id);
-  const forms = variables
-    ? `- \`VAR <name> = <value>\` - the value a variable should hold, written as the program names it (\`A\`, \`N$\`, \`T%\`).
-- \`SCREEN CONTAINS "<text>"\` - text that should appear somewhere on the screen.`
-    : `- \`SCREEN CONTAINS "<text>"\` - text that should appear somewhere on the screen.`;
+  const forms = [
+    ...(variables
+      ? [
+          `- \`VAR <name> = <value>\` - the value a variable should hold, written as the program names it (\`A\`, \`N$\`, \`T%\`).`,
+        ]
+      : []),
+    `- \`SCREEN CONTAINS "<text>"\` - text that should appear somewhere on the screen.`,
+    ...(canShowScreen
+      ? [
+          `- \`SCREEN SHOWS <description>\` - how the screen should look once the program has run, in your own words. This is the form for what characters cannot express: a shape, a layout, a colour, something drawn.`,
+        ]
+      : []),
+  ].join('\n');
 
   const variableNotes = variables
     ? `
@@ -51,10 +71,16 @@ export function buildExpectationRules(dialect: Dialect): string {
     : `
 - This machine CANNOT report its variables, so do not state \`VAR\` expectations for it. Check it on its screen instead.`;
 
+  const visualNotes = canShowScreen
+    ? `
+- A \`SCREEN SHOWS\` expectation is settled by showing you a picture of the screen and asking whether it holds, so describe what you could settle by looking at one: what is drawn and roughly where, not exact pixel positions or counts of things too small to count.`
+    : `
+- The screen CANNOT be shown to you as a picture here, so do not state \`SCREEN SHOWS\` expectations. Anything you want checked must be checkable as text or as a variable.`;
+
   return `CHECKING YOUR OWN PROGRAM
 - After the code, you MAY add a single \`\`\`basic-expect fenced block saying what should be true once the program has run. It is optional; omit it when there is nothing cheap and definite to state.
 - One expectation per line, in exactly one of these forms:
-${forms}${variableNotes}
+${forms}${variableNotes}${visualNotes}
 - A \`basic-expect\` block is NEVER program text and is never applied to the editor. Do not put BASIC in it, and do not use it to explain your reasoning.
 - Screen text is matched a row at a time, ignoring how many spaces separate words, and it is case-sensitive. Do not expect text to span two rows, and do not predict where on the screen it lands.
 - State only what your program definitely produces. A program that waits for a keypress never reaches its result, and expectations that were never reached are reported as unchecked rather than as failures.

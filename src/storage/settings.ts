@@ -35,7 +35,7 @@ type ListingBlockMetaMap = Record<
  * that was still streaming when the page was closed/reloaded - it cannot be
  * resumed (the streaming API isn't reconnectable), so it is kept as truncated.
  */
-export type PersistedMessage = ChatMessage & {
+export type PersistedMessage = Omit<ChatMessage, 'image'> & {
   incomplete?: boolean;
   /**
    * Fingerprint of the program the reply was written against, so a fragment
@@ -43,6 +43,13 @@ export type PersistedMessage = ChatMessage & {
    * before it was recorded - an unknown base, which raises no warning.
    */
   baseFingerprint?: string;
+  /**
+   * A screen was shown to the assistant with this turn. The image itself is
+   * deliberately absent - `Omit`ted from the type so it cannot be written by
+   * accident: conversation storage is a few megabytes shared with the autosaved
+   * program, and images belong in neither.
+   */
+  screenShown?: boolean;
 };
 
 /**

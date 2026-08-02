@@ -28,6 +28,13 @@ import {
 } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
+import {
+  captureFromCanvas,
+  captureScreen,
+  forgetScreenCapture,
+  registerScreenCapture,
+  snapshotScreen,
+} from '../app/screenCapture';
 import type { MachineEmulator } from '../dialects/types';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { EmulatorAudio } from '../audio/emulatorAudio';
@@ -192,6 +199,32 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
   }, []);
 
+  // Offer the rendered screen to the AI assistant (see ../app/screenCapture),
+  // and take it back when the machine goes away. The snapshot on teardown is
+  // what keeps "show the assistant the screen" available on the layouts where
+  // opening the assistant unmounts this pane.
+  const unregisterCaptureRef = useRef<(() => void) | null>(null);
+  const registerCapture = useCallback(() => {
+    unregisterCaptureRef.current?.();
+    unregisterCaptureRef.current = registerScreenCapture(() =>
+      captureFromCanvas(canvasRef.current),
+    );
+    useIdeStore.getState().setScreenCaptureAvailable(true);
+  }, []);
+  /** Keep the last frame, then stop offering a live one. Call before blanking. */
+  const stashCapture = useCallback(() => {
+    snapshotScreen();
+    unregisterCaptureRef.current?.();
+    unregisterCaptureRef.current = null;
+  }, []);
+  /** Drop it entirely: this machine's screen is no longer anyone's screen. */
+  const dropCapture = useCallback(() => {
+    unregisterCaptureRef.current?.();
+    unregisterCaptureRef.current = null;
+    forgetScreenCapture();
+    useIdeStore.getState().setScreenCaptureAvailable(false);
+  }, []);
+
   // Let the browser paint at least once. Used to surface the loading overlay
   // before a synchronous ROM boot (loadProgram) blocks the main thread.
   const nextPaint = useCallback(
@@ -219,6 +252,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         if (firstFrameRef.current) {
           firstFrameRef.current = false;
           setLoading(false);
+          // There is now a frame worth showing the assistant. Registered here
+          // rather than on mount so "show it the screen" is never offered for a
+          // canvas that has not drawn anything yet.
+          registerCapture();
         }
       };
 
@@ -309,15 +346,29 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         }
         if (verdict.done) {
           aiCheckActiveRef.current = false;
+          const results = finaliseExpectations(
+            aiCheckLatchRef.current ?? [],
+            verdict.outcome,
+          );
+          // Show the assistant the screen only where it has something to
+          // answer with it: a failure to diagnose, or an expectation that can
+          // only be settled by looking. A run that simply worked sends nothing.
+          const needsScreen =
+            verdict.outcome.kind === 'errored' ||
+            results.some((r) => r.status === 'failed') ||
+            aiCheckExpectRef.current.some((e) => e.kind === 'visual');
+          // Render before capturing so the picture is the frame this verdict
+          // was formed on, not the one before it. The tick's own render below
+          // then repeats the same machine state, which costs a redraw and
+          // keeps the picture and the words describing the same instant.
+          if (needsScreen) render();
           useIdeStore
             .getState()
             .reportRun(
               verdict.outcome,
               aiCheckSourceRef.current,
-              finaliseExpectations(
-                aiCheckLatchRef.current ?? [],
-                verdict.outcome,
-              ),
+              results,
+              needsScreen ? (captureScreen() ?? undefined) : undefined,
             );
         } else {
           aiCheckCountsRef.current = {
@@ -330,7 +381,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-  }, [stopLoop]);
+  }, [stopLoop, registerCapture]);
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
     if (machineRef.current) return machineRef.current;
@@ -489,6 +540,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   useEffect(() => {
     if (stopRequest === 0) return;
     stopLoop();
+    // Before the canvas is blanked: a stopped machine's last frame is still the
+    // screen the user was looking at, and still worth showing the assistant.
+    stashCapture();
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
@@ -502,7 +556,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     firstFrameRef.current = false;
     setLoading(false);
     setEmulatorStatus('stopped');
-  }, [stopRequest, stopLoop, clearCanvas, disposeAudio, setEmulatorStatus]);
+  }, [
+    stopRequest,
+    stopLoop,
+    clearCanvas,
+    disposeAudio,
+    setEmulatorStatus,
+    stashCapture,
+  ]);
 
   // Step request: run the paused debugger to the next BASIC line.
   useEffect(() => {
@@ -560,6 +621,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   useEffect(
     () => () => {
       stopLoop();
+      // Keep the last frame before the canvas goes: on the split and mobile
+      // layouts this unmount is usually the assistant being opened, which is
+      // exactly when the user wants to show it what they were just looking at.
+      stashCapture();
       machineRef.current?.releaseAllKeys();
       machineRef.current?.dispose();
       machineRef.current = null;
@@ -567,7 +632,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       disposeAudio();
       setLiveMemory(null);
     },
-    [stopLoop, disposeAudio, setLiveMemory],
+    [stopLoop, disposeAudio, setLiveMemory, stashCapture],
   );
 
   // While the machine is up, poll its actual RAM figures for the status bar.
@@ -603,13 +668,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     emulatorVfs.clear(dialect.id); // machine gone: its files go with it
     disposeAudio();
     clearCanvas(); // drop the old machine's last frame; next run starts fresh
+    // Forgotten rather than stashed: a question about this machine must never
+    // be answered against the screen of the one before it.
+    dropCapture();
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
     firstFrameRef.current = false;
     setLoading(false);
     setError('');
-  }, [dialect, stopLoop, clearCanvas, disposeAudio]);
+  }, [dialect, stopLoop, clearCanvas, disposeAudio, dropCapture]);
 
   // Backgrounding pauses the rAF loop; clear the matrix so no key stays held.
   useEffect(() => {

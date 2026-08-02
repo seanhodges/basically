@@ -199,3 +199,47 @@
   resize: none;
   font-family: inherit;
 }
+
+/* A screen shown to the assistant, in the thread and in the composer. Pixel
+   art: never smoothed, and scaled by the box rather than by the browser's
+   idea of a nice photo. */
+.aiScreenShot {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  image-rendering: pixelated;
+}
+
+/* A turn restored from storage kept the marker, not the pixels. */
+.aiScreenGone {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.aiAttached {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: 13px;
+}
+
+.aiAttached .aiScreenShot {
+  width: 84px;
+  margin-bottom: 0;
+}
+
+.aiAttached span {
+  flex: 1;
+}
+
+.aiShowScreen {
+  white-space: nowrap;
+}

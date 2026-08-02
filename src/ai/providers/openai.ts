@@ -1,10 +1,38 @@
 import OpenAI from 'openai';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type {
+  ChatMessage,
   ProviderBackend,
   StopReason,
   StreamHandle,
   StreamOptions,
 } from './types';
+
+/**
+ * Map the app's history onto OpenAI `messages`. A turn with nothing shown keeps
+ * its plain string content; a turn carrying an image becomes content parts,
+ * the image (as a data URI) ahead of the text.
+ */
+export function toOpenAiMessages(
+  messages: ChatMessage[],
+): ChatCompletionMessageParam[] {
+  return messages.map((m) =>
+    m.image && m.role === 'user'
+      ? {
+          role: 'user' as const,
+          content: [
+            {
+              type: 'image_url' as const,
+              image_url: {
+                url: `data:${m.image.mediaType};base64,${m.image.base64}`,
+              },
+            },
+            { type: 'text' as const, text: m.content },
+          ],
+        }
+      : { role: m.role, content: m.content },
+  );
+}
 
 /**
  * Stream a chat completion from the OpenAI API directly from the browser.
@@ -24,7 +52,10 @@ function streamChat(
         model,
         max_tokens: maxTokens,
         stream: true,
-        messages: [{ role: 'system', content: system }, ...messages],
+        messages: [
+          { role: 'system', content: system },
+          ...toOpenAiMessages(messages),
+        ],
       },
       { signal: controller.signal },
     );

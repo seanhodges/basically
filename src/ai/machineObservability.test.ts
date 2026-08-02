@@ -116,6 +116,27 @@ describe('buildExpectationRules', () => {
       expect(buildExpectationRules(dialect)).toBe(
         buildExpectationRules(dialect),
       );
+      expect(buildExpectationRules(dialect, true)).toBe(
+        buildExpectationRules(dialect, true),
+      );
+    }
+  });
+
+  it('offers the visual form only where the screen can be shown', () => {
+    for (const dialect of dialects) {
+      const shown = buildExpectationRules(dialect, true);
+      expect(shown).toContain('SCREEN SHOWS <description>');
+      expect(shown).toContain('showing you a picture of the screen');
+    }
+  });
+
+  it('forbids the visual form where the screen cannot be shown', () => {
+    for (const dialect of dialects) {
+      const unseen = buildExpectationRules(dialect, false);
+      expect(unseen).not.toContain('SCREEN SHOWS <description>');
+      expect(unseen).toContain('do not state `SCREEN SHOWS` expectations');
+      // Losing the visual form must not lose the text one.
+      expect(unseen).toContain('SCREEN CONTAINS');
     }
   });
 });

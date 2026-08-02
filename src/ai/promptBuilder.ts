@@ -1,6 +1,10 @@
 import type { Dialect, MachineReport, TokenizeError } from '../dialects/types';
 import type { AiRunOutcome } from '../app/store';
-import type { ExpectationResult } from './expectations';
+import {
+  JUDGE_FENCE_TAG,
+  type Expectation,
+  type ExpectationResult,
+} from './expectations';
 import { buildExpectationRules } from './machineObservability';
 import { loadMachineReference } from './machineReference';
 
@@ -60,11 +64,14 @@ export const RETURNING_CODE_RULES = `RETURNING CODE
 export function buildSystemPrompt(
   dialect: Dialect,
   machineReference: string,
+  canShowScreen = false,
 ): string {
   // The expectation rules vary by machine (two of them cannot report their
-  // variables), but only by machine - so the composed prompt is still
-  // byte-stable per dialect, which is what prefix caching needs.
-  return `${machineReference}\n\n${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}\n\n${buildExpectationRules(dialect)}`;
+  // variables) and by whether the chosen backend can be shown the screen - but
+  // only by those, so the composed prompt is still byte-stable per
+  // (dialect, provider), which is what prefix caching needs: neither changes
+  // within a conversation without starting a different request path anyway.
+  return `${machineReference}\n\n${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}\n\n${buildExpectationRules(dialect, canShowScreen)}`;
 }
 
 /**
@@ -75,14 +82,23 @@ export function buildSystemPrompt(
  * is memoised per dialect, so this is one dynamic import per machine per
  * session and free thereafter.
  */
-export async function loadSystemPrompt(dialect: Dialect): Promise<string> {
-  return buildSystemPrompt(dialect, await loadMachineReference(dialect));
+export async function loadSystemPrompt(
+  dialect: Dialect,
+  canShowScreen = false,
+): Promise<string> {
+  return buildSystemPrompt(
+    dialect,
+    await loadMachineReference(dialect),
+    canShowScreen,
+  );
 }
 
 export function buildUserMessage(
   request: string,
   currentSource: string,
   errors: TokenizeError[],
+  /** The user attached the machine's display to this request. */
+  screenAttached = false,
 ): string {
   let msg = '';
   const source = currentSource.trim();
@@ -95,6 +111,11 @@ export function buildUserMessage(
       msg += `- editor line ${e.line}: ${e.message}\n`;
     }
     msg += '\n';
+  }
+  if (screenAttached) {
+    // Said, not left to be noticed: a model told what it is looking at reads
+    // the picture as evidence rather than as decoration.
+    msg += `The attached picture is my machine's screen right now.\n\n`;
   }
   msg += request;
   return msg;
@@ -174,6 +195,56 @@ export function buildRunNote(
   return note;
 }
 
+/**
+ * Said alongside a correction request that carries the machine's display.
+ *
+ * The picture is only half of it: a model told what it is looking at diagnoses
+ * from it, where an unannounced image is easily read as decoration.
+ */
+const SCREEN_ATTACHED_NOTE =
+  'The screen as it was at that moment is attached - the picture is what the machine was actually showing, so read it as evidence of what the program did.';
+
+/**
+ * Ask the assistant to judge its own program against the screen it produced.
+ *
+ * The one expectation form no machine can settle, settled the only way it can
+ * be. Judging and correcting are asked for in the same turn deliberately: the
+ * model has everything it needs to do both, and folding them keeps being shown
+ * the screen to a single request - so a run that looked right costs nothing
+ * more, and one that did not costs exactly the one correction a runtime error
+ * would have.
+ *
+ * The verdict block is per stated expectation, in order, because matching free
+ * text back to what it was judging is a guess this does not need to make.
+ */
+export function buildScreenJudgeRequest(
+  source: string,
+  visuals: readonly Expectation[],
+): { userContent: string; displayRequest: string } {
+  const stated = visuals
+    .map(
+      (e, i) => `${i + 1}. ${e.kind === 'visual' ? e.description : e.source}`,
+    )
+    .join('\n');
+  let userContent = '';
+  const trimmed = source.trim();
+  if (trimmed !== '') {
+    userContent += `Current program in my editor:\n\`\`\`basic\n${trimmed}\n\`\`\`\n\n`;
+  }
+  userContent +=
+    `I ran this program and here is its screen. You said it should show:\n${stated}\n\n` +
+    `Answer with a single \`\`\`${JUDGE_FENCE_TAG} fenced block, one line per numbered item above, in the same order: ` +
+    `\`PASS <the item>\` if it holds in the picture, or \`FAIL <what is wrong instead>\` if it does not. ` +
+    `Judge only what you can see; if the picture cannot settle an item, FAIL it and say so. ` +
+    `If every item passes, that block is your whole answer - do not return code. ` +
+    `If any item fails, work out why and also return a corrected program in the usual fenced block.`;
+  const n = visuals.length;
+  return {
+    userContent,
+    displayRequest: `Check the screen against what you said it would show (${n} ${n === 1 ? 'point' : 'points'})`,
+  };
+}
+
 /** How one failed expectation reads when it goes back to the assistant. */
 function describeFailure(result: ExpectationResult): string {
   const e = result.expectation;
@@ -184,6 +255,12 @@ function describeFailure(result: ExpectationResult): string {
   }
   if (e.kind === 'screen') {
     return `you said the screen would contain "${e.needle}", but it did not`;
+  }
+  if (e.kind === 'visual') {
+    // Its own verdict, quoted back: it judged this from the screen itself.
+    return result.actual !== undefined
+      ? `you said the screen would show ${e.description}, and looking at it you found ${result.actual}`
+      : `you said the screen would show ${e.description}, and looking at it you found it did not`;
   }
   return e.source;
 }
@@ -199,6 +276,7 @@ function describeFailure(result: ExpectationResult): string {
 export function buildExpectationFix(
   source: string,
   expectations: readonly ExpectationResult[],
+  screenAttached = false,
 ): PendingFix {
   const failed = expectations.filter((r) => r.status === 'failed');
   const detail = failed.map(describeFailure).join('; ');
@@ -209,6 +287,7 @@ export function buildExpectationFix(
   }
   userContent +=
     `This program ran without reporting an error, but it did not produce what you said it would: ${detail}. ` +
+    (screenAttached ? `${SCREEN_ATTACHED_NOTE} ` : '') +
     `Please work out why and return a corrected program.`;
   const n = failed.length;
   return {
@@ -219,7 +298,11 @@ export function buildExpectationFix(
 }
 
 /** Offer to fix a runtime error the emulator reported after Replace + Run. */
-export function buildRunFix(source: string, report: MachineReport): PendingFix {
+export function buildRunFix(
+  source: string,
+  report: MachineReport,
+  screenAttached = false,
+): PendingFix {
   const where = report.line !== undefined ? ` at line ${report.line}` : '';
   const codePart = report.code ? `${report.code} ` : '';
   const detail = `${codePart}${report.message}`.trim();
@@ -230,6 +313,7 @@ export function buildRunFix(source: string, report: MachineReport): PendingFix {
   }
   userContent +=
     `When I ran this program the machine reported a runtime error${where}: ${detail}. ` +
+    (screenAttached ? `${SCREEN_ATTACHED_NOTE} ` : '') +
     `Please work out what causes it and return a corrected program.`;
   return {
     summary: `Runtime error${where}: ${detail}`,

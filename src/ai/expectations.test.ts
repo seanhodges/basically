@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { MachineScreenText, MachineVariable } from '../dialects/types';
 import {
+  applyJudgement,
   evaluateExpectations,
+  leaveUnjudged,
   parseExpectations,
+  parseJudgement,
   type Expectation,
+  type Judgement,
 } from './expectations';
 
 /** A screen of fixed-width rows, padded the way a real reader pads them. */
@@ -288,6 +292,130 @@ describe('evaluateExpectations - malformed', () => {
     expect(results[0]).toMatchObject({
       status: 'unchecked',
       reason: 'not a recognised expectation',
+    });
+  });
+});
+
+describe('the visual form', () => {
+  it('reads SCREEN SHOWS as an expectation only a look can settle', () => {
+    expect(
+      parseExpectations('SCREEN SHOWS a circle in the middle of the screen'),
+    ).toEqual<Expectation[]>([
+      {
+        kind: 'visual',
+        description: 'a circle in the middle of the screen',
+        source: 'SCREEN SHOWS a circle in the middle of the screen',
+      },
+    ]);
+  });
+
+  it('drops surrounding quotes, as the text form does', () => {
+    const [e] = parseExpectations('SCREEN SHOWS "a maze with no gaps"');
+    expect(e).toMatchObject({
+      kind: 'visual',
+      description: 'a maze with no gaps',
+    });
+  });
+
+  it('treats a SCREEN SHOWS with nothing described as malformed', () => {
+    expect(parseExpectations('SCREEN SHOWS   ')[0]!.kind).toBe('malformed');
+  });
+
+  it('does not swallow the SCREEN CONTAINS form', () => {
+    expect(parseExpectations('SCREEN CONTAINS "SHOWS"')[0]!.kind).toBe(
+      'screen',
+    );
+  });
+
+  it('is unchecked from the machine, never passed and never failed', () => {
+    const results = evaluateExpectations(
+      parseExpectations('SCREEN SHOWS a ball bouncing off the paddle'),
+      { variables: [], screen: screen(['READY.']) },
+    );
+    expect(results[0]).toMatchObject({
+      status: 'unchecked',
+      reason: 'the screen has not been looked at',
+    });
+  });
+});
+
+describe('parseJudgement', () => {
+  it('reads a verdict per line, in order', () => {
+    expect(
+      parseJudgement('PASS the maze fills the screen\nFAIL nothing is drawn'),
+    ).toEqual<Judgement[]>([
+      { held: true, detail: 'the maze fills the screen' },
+      { held: false, detail: 'nothing is drawn' },
+    ]);
+  });
+
+  it('accepts the punctuation a model tends to add', () => {
+    expect(parseJudgement('PASS: a circle\nfail - it is an egg')).toEqual<
+      Judgement[]
+    >([
+      { held: true, detail: 'a circle' },
+      { held: false, detail: 'it is an egg' },
+    ]);
+  });
+
+  it('skips anything that is not a verdict', () => {
+    expect(parseJudgement('Looking at the screen:\n\nPASS a circle')).toEqual([
+      { held: true, detail: 'a circle' },
+    ]);
+  });
+});
+
+describe('applyJudgement', () => {
+  const visuals = (...descriptions: string[]) =>
+    evaluateExpectations(
+      parseExpectations(
+        descriptions.map((d) => `SCREEN SHOWS ${d}`).join('\n'),
+      ),
+      { variables: [], screen: null },
+    );
+
+  it('settles each visual expectation with the verdict in its position', () => {
+    const results = applyJudgement(visuals('a circle', 'a paddle'), [
+      { held: true, detail: 'a circle' },
+      { held: false, detail: 'there is no paddle' },
+    ]);
+    expect(results[0]).toMatchObject({ status: 'passed' });
+    expect(results[1]).toMatchObject({
+      status: 'failed',
+      actual: 'there is no paddle',
+    });
+  });
+
+  it('leaves an unjudged expectation unchecked rather than passed', () => {
+    const results = applyJudgement(visuals('a circle', 'a paddle'), [
+      { held: true, detail: 'a circle' },
+    ]);
+    expect(results[1]).toMatchObject({
+      status: 'unchecked',
+      reason: 'it was not judged',
+    });
+  });
+
+  it('leaves the machine-checked expectations exactly as they were', () => {
+    const mixed = evaluateExpectations(
+      parseExpectations('VAR T = 42\nSCREEN SHOWS a circle'),
+      { variables: [num('T', '42')], screen: null },
+    );
+    const results = applyJudgement(mixed, [{ held: false, detail: 'an egg' }]);
+    expect(results[0]).toMatchObject({ status: 'passed' });
+    expect(results[1]).toMatchObject({ status: 'failed' });
+  });
+
+  it('leaveUnjudged says why, and touches nothing else', () => {
+    const mixed = evaluateExpectations(
+      parseExpectations('VAR T = 42\nSCREEN SHOWS a circle'),
+      { variables: [num('T', '1')], screen: null },
+    );
+    const results = leaveUnjudged(mixed, 'the screen cannot be shown');
+    expect(results[0]).toMatchObject({ status: 'failed' });
+    expect(results[1]).toMatchObject({
+      status: 'unchecked',
+      reason: 'the screen cannot be shown',
     });
   });
 });

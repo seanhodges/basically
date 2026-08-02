@@ -34,6 +34,7 @@ import {
 } from '../keyboard/controllerConfig';
 import { materializeSampleBlocks } from './sampleBlocks';
 import type { Expectation, ExpectationResult } from '../ai/expectations';
+import type { ScreenCapture } from './screenCapture';
 import { computeCompatibleDialects } from '../share/compatibility';
 import {
   loadAutosave,
@@ -269,11 +270,25 @@ interface IdeState {
      * only offering the fix.
      */
     ranSource: string;
+    /**
+     * The machine's display as it stood when the verdict was formed, for
+     * showing to the assistant. Absent unless this run needs looking at - a
+     * failure, or an expectation only a look can settle - so the ordinary
+     * working run costs nothing.
+     */
+    screen?: ScreenCapture;
   } | null;
   /** Bumped to ask the emulator pane to stop. */
   stopRequest: number;
   /** Bumped to ask the emulator pane to reset the machine. */
   resetRequest: number;
+  /**
+   * Whether there is a machine display the assistant could be shown - a live
+   * one, or the last frame before the emulator pane went away (see
+   * `./screenCapture`). The capture itself is not render data and stays in that
+   * module; this is only what the AI panel's attach control needs to know.
+   */
+  screenCaptureAvailable: boolean;
   /**
    * Breakpointed BASIC line numbers. Keyed by line number (not editor row) so
    * they survive edits and renumbering. Cleared when a different program loads.
@@ -638,13 +653,16 @@ interface IdeState {
   requestAiRun(expectations?: Expectation[]): void;
   /**
    * Record how an AI-checked run turned out, once the check reaches a verdict.
-   * `ranSource` is the program that was loaded for the run, and `expectations`
-   * how the assistant's stated expectations held up (empty when none).
+   * `ranSource` is the program that was loaded for the run, `expectations` how
+   * the assistant's stated expectations held up (empty when none), and `screen`
+   * the display at the verdict when this run is one the assistant may need to
+   * see (omitted otherwise).
    */
   reportRun(
     outcome: AiRunOutcome,
     ranSource: string,
     expectations?: ExpectationResult[],
+    screen?: ScreenCapture,
   ): void;
   /** Open the AI panel (and, on mobile, switch to its tab). */
   showAiPanel(): void;
@@ -706,6 +724,8 @@ interface IdeState {
   setSplitRatio(n: number): void;
   setEmulatorStatus(status: EmulatorStatus): void;
   setLiveMemory(stats: MachineMemoryStats | null): void;
+  /** Report whether there is a display the assistant could be shown. */
+  setScreenCaptureAvailable(available: boolean): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
   setShareLinkOpen(open: boolean): void;
@@ -1120,6 +1140,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   runOutcome: null,
   stopRequest: 0,
   resetRequest: 0,
+  screenCaptureAvailable: false,
   breakpoints: new Set<number>(),
   debugLine: null,
   stepRequest: 0,
@@ -1646,9 +1667,15 @@ export const useIdeStore = create<IdeState>((set) => ({
       aiRunCheckSeq: s.runRequest + 1,
       aiRunExpectations: expectations,
     })),
-  reportRun: (outcome, ranSource, expectations = []) =>
+  reportRun: (outcome, ranSource, expectations = [], screen) =>
     set((s) => ({
-      runOutcome: { seq: s.runRequest, outcome, ranSource, expectations },
+      runOutcome: {
+        seq: s.runRequest,
+        outcome,
+        ranSource,
+        expectations,
+        ...(screen ? { screen } : {}),
+      },
     })),
   // The AI panel, emulator and memory map share the right-hand slot, so showing
   // one closes the memory map (it otherwise wins the slot and hides them).
@@ -1753,6 +1780,12 @@ export const useIdeStore = create<IdeState>((set) => ({
   setSplitRatio: (n) => set({ splitRatio: n }),
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
   setLiveMemory: (stats) => set({ liveMemory: stats }),
+  setScreenCaptureAvailable: (available) =>
+    set((s) =>
+      s.screenCaptureAvailable === available
+        ? {}
+        : { screenCaptureAvailable: available },
+    ),
   toggleAiPanel: () =>
     set((s) => ({ aiPanelOpen: !s.aiPanelOpen, memoryMapOpen: false })),
   setTransferOpen: (open) => set({ transferOpen: open }),

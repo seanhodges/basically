@@ -19,4 +19,23 @@ describe('toGeminiContents', () => {
   it('returns an empty array for no messages', () => {
     expect(toGeminiContents([])).toEqual([]);
   });
+
+  it('sends a shown screen as an inline image part ahead of the text', () => {
+    const messages: ChatMessage[] = [
+      {
+        role: 'user',
+        content: 'why is the circle squashed?',
+        image: { mediaType: 'image/png', base64: 'AAAA' },
+      },
+    ];
+    expect(toGeminiContents(messages)).toEqual([
+      {
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: 'image/png', data: 'AAAA' } },
+          { text: 'why is the circle squashed?' },
+        ],
+      },
+    ]);
+  });
 });

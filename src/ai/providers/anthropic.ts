@@ -1,10 +1,41 @@
 import Anthropic from '@anthropic-ai/sdk';
+import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import type {
+  ChatMessage,
   ProviderBackend,
   StopReason,
   StreamHandle,
   StreamOptions,
 } from './types';
+
+/**
+ * Map the app's history onto Claude `messages`.
+ *
+ * A turn with nothing shown keeps its plain string content, byte for byte as
+ * before - the prefix has to stay stable for the cache to hit. A turn carrying
+ * an image becomes two blocks, the image first: what the text says about the
+ * screen reads better once the screen has been seen.
+ */
+export function toAnthropicMessages(messages: ChatMessage[]): MessageParam[] {
+  return messages.map((m) =>
+    m.image
+      ? {
+          role: m.role,
+          content: [
+            {
+              type: 'image' as const,
+              source: {
+                type: 'base64' as const,
+                media_type: m.image.mediaType,
+                data: m.image.base64,
+              },
+            },
+            { type: 'text' as const, text: m.content },
+          ],
+        }
+      : { role: m.role, content: m.content },
+  );
+}
 
 /**
  * Stream a chat completion from the Claude API directly from the browser.
@@ -21,11 +52,15 @@ function streamChat(
     max_tokens: maxTokens,
     thinking: { type: 'adaptive' },
     system,
-    messages,
+    messages: toAnthropicMessages(messages),
     // Cache the conversation prefix. Every turn re-sends the system prompt and
     // the whole thread, and that prefix is already byte-stable: the system
     // prompt is a per-dialect constant, there are no tools, and history is
-    // append-only. The top-level form puts the breakpoint at the end of the
+    // append-only - including a shown screen, which stays on the turn that
+    // showed it rather than being rewritten out of the prefix later (a cached
+    // image reads for a fraction of an input token; rewriting it would cost a
+    // full cache write on every turn after). The top-level form puts the
+    // breakpoint at the end of the
     // whole prefix - deliberately NOT on the system prompt alone, which is
     // under the model's minimum cacheable size on most dialects and would
     // silently never cache. Default 5-minute TTL: a read costs about a tenth
