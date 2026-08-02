@@ -51,14 +51,14 @@ blank screen reading as spaces, and `null` before the machine is up.
 - [x] 4.2 Spectrum 128 (`src/dialects/zxspectrum128/emulator/spectrum128Machine.ts`)
       — the same, read through `mem.readScreen` so the shadow screen resolves;
       test both screen pages.
-- [ ] 4.3 CPC 464 and 6128 (`src/emulator/cpc/cpcMachine.ts`) — OCR against the
+- [x] 4.3 CPC 464 and 6128 (`src/emulator/cpc/cpcMachine.ts`) — OCR against the
       lower-ROM font with the 2-bpp unpacker as the matcher's supplier; geometry
       per MODE. Confirm the font base against the real ROM. Colocated tests for
       MODE 1 and one other mode.
-- [ ] 4.4 BBC Micro / Master (`src/emulator/bbc/bbcMachine.ts`), mode 7 —
+- [x] 4.4 BBC Micro / Master (`src/emulator/bbc/bbcMachine.ts`), mode 7 —
       teletext RAM, base derived so hardware scroll is followed; test a scrolled
       screen.
-- [ ] 4.5 BBC modes 0–6 — read the mode from the MOS VDU variables and OCR with
+- [x] 4.5 BBC modes 0–6 — read the mode from the MOS VDU variables and OCR with
       the MOS font at that mode's geometry and pixel depth, accounting for the
       blank scanline gaps in modes 3 and 6. Confirm every address and layout
       against the real ROM and primary documentation. Colocated tests for one

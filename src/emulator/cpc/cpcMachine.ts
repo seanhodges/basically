@@ -9,6 +9,7 @@ import type {
   MachineFileStore,
   MachineMemoryStats,
   MachineReport,
+  MachineScreenText,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
@@ -25,6 +26,8 @@ import { Crtc } from './crtc';
 import { Ppi, type PpiHost } from './ppi';
 import { CpcKeyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
+import { cpcFontSignatures, readCpcScreenText } from './screenText';
+import type { GlyphSignatures } from '../fontMatcher';
 
 /** 4MHz Z80, 64µs (256 T-state) scanlines, 312 lines → ~50.08Hz. */
 const TSTATES_PER_LINE = 256;
@@ -96,6 +99,8 @@ export class CpcMachine implements MachineEmulator {
   /** Side-effect-free RAM view the introspection readers walk. */
   private readonly memPort: LocoMemPort;
 
+  /** Firmware font index for {@link readScreenText}; built on first use. */
+  private fontSigs: GlyphSignatures | null = null;
   private imageData: ImageData | null = null;
   private readonly frameBuffer = new Uint8ClampedArray(
     DISPLAY_WIDTH * DISPLAY_HEIGHT * 4,
@@ -387,6 +392,21 @@ export class CpcMachine implements MachineEmulator {
   /** The last BASIC runtime report (ERR/ERL), or null when not introspectable. */
   readReport(): MachineReport | null {
     return readLocoReport(this.memPort, this.sysvars);
+  }
+
+  /**
+   * The screen as characters, OCRed against the firmware font. Geometry follows
+   * the CRTC and the Gate Array's MODE, so a program that re-`MODE`s or moves
+   * the screen base still reads back - see {@link readCpcScreenText}.
+   */
+  readScreenText(): MachineScreenText | null {
+    this.fontSigs ??= cpcFontSignatures(this.memory.lowerRom);
+    return readCpcScreenText({
+      signatures: this.fontSigs,
+      crtc: this.crtc,
+      mode: this.gateArray.mode,
+      readScreenByte: this.memory.readScreen,
+    });
   }
 
   /**

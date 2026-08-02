@@ -72,16 +72,30 @@ export function readFontText(opts: {
   rows: number;
   /** The eight 1-bpp mask bytes of the cell at (`row`, `col`), top row first. */
   cellMask: (row: number, col: number) => readonly number[];
+  /**
+   * The character a matched code stands for, when the machine's charset says
+   * something other than ASCII - the CPC's block graphics at 0x80 and up, say.
+   * Must return exactly one code point; anything else reads as a space, which
+   * keeps the seam's "one code point per column" contract. Defaults to
+   * `String.fromCharCode`, right for a font indexed over ASCII alone.
+   */
+  charFor?: (code: number) => string;
 }): string[] {
-  const { signatures, cols, rows, cellMask } = opts;
+  const { signatures, cols, rows, cellMask, charFor } = opts;
   const lines: string[] = [];
   for (let row = 0; row < rows; row++) {
     let line = '';
     for (let col = 0; col < cols; col++) {
       const code = matchCell(signatures, cellMask(row, col));
-      line += code === undefined ? ' ' : String.fromCharCode(code);
+      line += code === undefined ? ' ' : charOf(code, charFor);
     }
     lines.push(line);
   }
   return lines;
+}
+
+function charOf(code: number, charFor?: (code: number) => string): string {
+  if (!charFor) return String.fromCharCode(code);
+  const ch = charFor(code);
+  return [...ch].length === 1 ? ch : ' ';
 }
