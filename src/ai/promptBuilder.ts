@@ -1,5 +1,7 @@
 import type { Dialect, MachineReport, TokenizeError } from '../dialects/types';
 import type { AiRunOutcome } from '../app/store';
+import type { ExpectationResult } from './expectations';
+import { buildExpectationRules } from './machineObservability';
 
 /**
  * A correction the assistant is offering after an apply/run turned up problems.
@@ -45,7 +47,10 @@ export const RETURNING_CODE_RULES = `RETURNING CODE
  * volatile context - current program, lint errors - rides in the user turn.
  */
 export function buildSystemPrompt(dialect: Dialect): string {
-  return `${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}`;
+  // The expectation rules vary by machine (two of them cannot report their
+  // variables), but only by machine - so the composed prompt is still
+  // byte-stable per dialect, which is what prefix caching needs.
+  return `${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}\n\n${buildExpectationRules(dialect)}`;
 }
 
 export function buildUserMessage(
@@ -100,19 +105,91 @@ export function buildEditorFix(
  * Without this the assistant only ever hears about its programs when they
  * break, so a working one is indistinguishable from one that was never run.
  */
-export function buildRunNote(outcome: AiRunOutcome): string {
-  switch (outcome.kind) {
-    case 'ended-ok':
-      return 'For context: I ran the last program you gave me and it finished without reporting an error.';
-    case 'still-running':
-      return 'For context: I ran the last program you gave me and it was still running, with no error reported, when I stopped watching it.';
-    case 'never-started':
-      return 'For context: I tried to run the last program you gave me, but the machine never started it.';
-    case 'errored':
-      // Errors travel as a correction request of their own (see buildRunFix),
-      // which carries the report and asks for a fix.
-      return '';
+export function buildRunNote(
+  outcome: AiRunOutcome,
+  expectations: readonly ExpectationResult[] = [],
+): string {
+  const base = ((): string => {
+    switch (outcome.kind) {
+      case 'ended-ok':
+        return 'For context: I ran the last program you gave me and it finished without reporting an error.';
+      case 'still-running':
+        return 'For context: I ran the last program you gave me and it was still running, with no error reported, when I stopped watching it.';
+      case 'never-started':
+        return 'For context: I tried to run the last program you gave me, but the machine never started it.';
+      case 'errored':
+        // Errors travel as a correction request of their own (see buildRunFix),
+        // which carries the report and asks for a fix.
+        return '';
+    }
+  })();
+  if (base === '' || expectations.length === 0) return base;
+
+  // A failure gets a correction of its own rather than a note (see
+  // buildExpectationFix), so anything reaching here held or could not be judged.
+  const passed = expectations.filter((r) => r.status === 'passed');
+  const unchecked = expectations.filter((r) => r.status === 'unchecked');
+  let note = base;
+  if (passed.length > 0) {
+    note +=
+      passed.length === expectations.length
+        ? ' Everything you said should be true of it held.'
+        : ` These things you said should be true of it held: ${passed
+            .map((r) => r.expectation.source)
+            .join('; ')}.`;
   }
+  if (unchecked.length > 0) {
+    // Reported rather than quietly counted as passing: an expectation nobody
+    // could judge is not evidence the program worked.
+    note += ` I could not check ${unchecked
+      .map((r) => `${r.expectation.source} (${r.reason ?? 'not evaluated'})`)
+      .join('; ')}.`;
+  }
+  return note;
+}
+
+/** How one failed expectation reads when it goes back to the assistant. */
+function describeFailure(result: ExpectationResult): string {
+  const e = result.expectation;
+  if (e.kind === 'var') {
+    return result.actual !== undefined
+      ? `you said ${e.name} would be ${e.expected}, but the machine reported ${result.actual}`
+      : `you said ${e.name} would be ${e.expected}, but ${result.reason ?? 'it was not there'}`;
+  }
+  if (e.kind === 'screen') {
+    return `you said the screen would contain "${e.needle}", but it did not`;
+  }
+  return e.source;
+}
+
+/**
+ * Ask for a correction after the program ran cleanly but produced the wrong
+ * answer.
+ *
+ * Deliberately shaped like {@link buildRunFix}: a wrong result is a failure of
+ * the run on exactly the same terms as a runtime error, so it travels the same
+ * way, spends the same bounded attempts, and falls back to the same banner.
+ */
+export function buildExpectationFix(
+  source: string,
+  expectations: readonly ExpectationResult[],
+): PendingFix {
+  const failed = expectations.filter((r) => r.status === 'failed');
+  const detail = failed.map(describeFailure).join('; ');
+  let userContent = '';
+  const trimmed = source.trim();
+  if (trimmed !== '') {
+    userContent += `Current program in my editor:\n\`\`\`basic\n${trimmed}\n\`\`\`\n\n`;
+  }
+  userContent +=
+    `This program ran without reporting an error, but it did not produce what you said it would: ${detail}. ` +
+    `Please work out why and return a corrected program.`;
+  const n = failed.length;
+  return {
+    summary: `Wrong result: ${detail}`,
+    userContent,
+    displayRequest: `Fix the wrong result - ${n} expectation${n === 1 ? '' : 's'} did not hold: ${detail}`,
+  };
 }
 
 /** Offer to fix a runtime error the emulator reported after Replace + Run. */

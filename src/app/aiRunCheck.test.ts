@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   classifyAiRunFrame,
+  finaliseExpectations,
+  latchExpectationSample,
   AI_CHECK_MAX_FRAMES,
   AI_CHECK_ABS_MAX_FRAMES,
   type AiRunFrame,
   type AiRunFrameCounts,
 } from './aiRunCheck';
 import type { MachineReport } from '../dialects/types';
+import type { ExpectationResult } from '../ai/expectations';
 
 const OK: MachineReport = { isError: false, message: 'OK', code: '0' };
 const FAILED: MachineReport = {
@@ -121,5 +124,131 @@ describe('classifyAiRunFrame', () => {
       };
     }
     expect(outcome).toEqual({ kind: 'still-running' });
+  });
+});
+
+/** One expectation result, with only the fields the latch rules care about. */
+function result(
+  status: ExpectationResult['status'],
+  name = 'A',
+): ExpectationResult {
+  return {
+    expectation: {
+      kind: 'var',
+      name,
+      expected: '1',
+      source: `VAR ${name} = 1`,
+    },
+    status,
+  };
+}
+
+describe('latchExpectationSample', () => {
+  it('takes the first sample as-is', () => {
+    const sample = [result('failed'), result('passed', 'B')];
+    expect(latchExpectationSample(null, sample)).toEqual(sample);
+  });
+
+  it('keeps a pass once it has held', () => {
+    const latched = latchExpectationSample(null, [result('passed')]);
+    // The value was overwritten by the time of the next sample; it still passed.
+    const next = latchExpectationSample(latched, [result('failed')]);
+    expect(next[0]!.status).toBe('passed');
+  });
+
+  it('lets a failure be replaced by a later pass', () => {
+    const latched = latchExpectationSample(null, [result('failed')]);
+    const next = latchExpectationSample(latched, [result('passed')]);
+    expect(next[0]!.status).toBe('passed');
+  });
+
+  it('latches each expectation independently', () => {
+    const first = latchExpectationSample(null, [
+      result('passed', 'A'),
+      result('failed', 'B'),
+    ]);
+    const second = latchExpectationSample(first, [
+      result('failed', 'A'),
+      result('passed', 'B'),
+    ]);
+    expect(second.map((r) => r.status)).toEqual(['passed', 'passed']);
+  });
+
+  it('does not latch an unchecked result into a pass', () => {
+    const latched = latchExpectationSample(null, [result('unchecked')]);
+    expect(latchExpectationSample(latched, [result('failed')])[0]!.status).toBe(
+      'failed',
+    );
+  });
+});
+
+describe('finaliseExpectations', () => {
+  // One row per line of the design's outcome table.
+  it('fails an expectation that never held when the program ended cleanly', () => {
+    const out = finaliseExpectations([result('failed')], { kind: 'ended-ok' });
+    expect(out[0]!.status).toBe('failed');
+  });
+
+  it('leaves it unchecked when the program was still running', () => {
+    const out = finaliseExpectations([result('failed')], {
+      kind: 'still-running',
+    });
+    expect(out[0]).toMatchObject({
+      status: 'unchecked',
+      reason: 'the program was still running when the check ended',
+    });
+  });
+
+  it('leaves it unchecked when the program never started', () => {
+    const out = finaliseExpectations([result('failed')], {
+      kind: 'never-started',
+    });
+    expect(out[0]).toMatchObject({
+      status: 'unchecked',
+      reason: 'the program never started',
+    });
+  });
+
+  it('judges nothing at all when the run errored', () => {
+    // The error is the failure, and it travels as a correction of its own.
+    expect(
+      finaliseExpectations([result('failed'), result('passed', 'B')], {
+        kind: 'errored',
+        report: FAILED,
+      }),
+    ).toEqual([]);
+  });
+
+  it('keeps a pass whatever the verdict', () => {
+    // The game-loop case: the expectation held on an early sample and the run
+    // never returned to READY, so the verdict is still-running. It still passed.
+    for (const outcome of [
+      { kind: 'ended-ok' } as const,
+      { kind: 'still-running' } as const,
+      { kind: 'never-started' } as const,
+    ]) {
+      expect(finaliseExpectations([result('passed')], outcome)[0]!.status).toBe(
+        'passed',
+      );
+    }
+  });
+
+  it('leaves an already-unchecked expectation unchecked, never failed', () => {
+    // A variable expectation on a machine that cannot report variables: the
+    // prompt should have stopped it being written, and it must not be reported
+    // as a failure of the program.
+    const cannotCheck: ExpectationResult = {
+      ...result('unchecked'),
+      reason: 'this machine cannot report its variables',
+    };
+    const out = finaliseExpectations([cannotCheck], { kind: 'ended-ok' });
+    expect(out[0]).toMatchObject({
+      status: 'unchecked',
+      reason: 'this machine cannot report its variables',
+    });
+  });
+
+  it('returns nothing when nothing was stated', () => {
+    expect(finaliseExpectations([], { kind: 'ended-ok' })).toEqual([]);
   });
 });

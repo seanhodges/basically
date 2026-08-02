@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyBlock,
   extractCodeBlocks,
+  extractExpectations,
+  isApplicableBlock,
   mergeBasicLines,
   mergePlan,
   type CodeBlock,
@@ -270,5 +272,90 @@ describe('mergePlan', () => {
         expected,
       );
     }
+  });
+});
+
+describe('expectation blocks', () => {
+  const reply = [
+    'Here is the program:',
+    '',
+    '```basic',
+    '10 LET T=6*7',
+    '20 PRINT T',
+    '```',
+    '',
+    'It should end with:',
+    '',
+    '```basic-expect',
+    'VAR T = 42',
+    'SCREEN CONTAINS "42"',
+    '```',
+  ].join('\n');
+
+  it('marks the block without declaring a kind', () => {
+    const blocks = extractCodeBlocks(reply);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toMatchObject({ declared: 'full' });
+    expect(blocks[0]!.expectations).toBeUndefined();
+    expect(blocks[1]!.expectations).toBe(true);
+    // The whole point: it declares nothing, so nothing can resolve it to a
+    // listing or a fragment.
+    expect(blocks[1]!.declared).toBeUndefined();
+  });
+
+  it('is never classified as a listing or a fragment it could replace', () => {
+    const block = extractCodeBlocks(reply)[1]!;
+    // classifyBlock only ever speaks about code; an expectation block must not
+    // reach it, which is what isApplicableBlock guarantees.
+    expect(isApplicableBlock(block)).toBe(false);
+    expect(isApplicableBlock(extractCodeBlocks(reply)[0]!)).toBe(true);
+  });
+
+  it('leaves only the code appliable when a reply carries both', () => {
+    const appliable = extractCodeBlocks(reply).filter(isApplicableBlock);
+    expect(appliable).toHaveLength(1);
+    expect(appliable[0]!.code).toContain('10 LET T=6*7');
+    expect(appliable[0]!.code).not.toContain('VAR T = 42');
+  });
+
+  it('picks the code even when the expectations come last', () => {
+    // The failure this guards: "the last block" would be the expectations.
+    const blocks = extractCodeBlocks(reply);
+    const last = blocks[blocks.length - 1]!;
+    expect(last.expectations).toBe(true);
+    const applied = blocks.filter(isApplicableBlock).at(-1)!;
+    expect(applied.code).toContain('20 PRINT T');
+  });
+
+  it('extracts the stated expectations from a whole reply', () => {
+    expect(extractExpectations(reply)).toEqual([
+      { kind: 'var', name: 'T', expected: '42', source: 'VAR T = 42' },
+      {
+        kind: 'screen',
+        needle: '42',
+        source: 'SCREEN CONTAINS "42"',
+      },
+    ]);
+  });
+
+  it('returns nothing for a reply that states none', () => {
+    expect(extractExpectations('```basic\n10 PRINT 1\n```')).toEqual([]);
+    expect(extractExpectations('just prose')).toEqual([]);
+  });
+
+  it('gathers expectations from more than one block', () => {
+    const two = [
+      '```basic-expect',
+      'VAR A = 1',
+      '```',
+      'and',
+      '```basic-expect',
+      'VAR B = 2',
+      '```',
+    ].join('\n');
+    expect(extractExpectations(two).map((e) => e.source)).toEqual([
+      'VAR A = 1',
+      'VAR B = 2',
+    ]);
   });
 });

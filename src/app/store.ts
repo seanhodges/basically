@@ -33,6 +33,7 @@ import {
   type GamepadMode,
 } from '../keyboard/controllerConfig';
 import { materializeSampleBlocks } from './sampleBlocks';
+import type { Expectation, ExpectationResult } from '../ai/expectations';
 import { computeCompatibleDialects } from '../share/compatibility';
 import {
   loadAutosave,
@@ -237,6 +238,12 @@ interface IdeState {
    */
   aiRunCheckSeq: number;
   /**
+   * What the assistant said should be true once the program it just handed over
+   * has run (see `../ai/expectations`). Set by the apply that armed the check;
+   * empty when the reply stated none, which is the ordinary case.
+   */
+  aiRunExpectations: Expectation[];
+  /**
    * How the latest AI-checked run turned out, tagged with the `runRequest` it
    * came from so a stale outcome from a superseded run is ignorable. The AI
    * session store watches this to correct a failure or to tell the assistant
@@ -245,6 +252,16 @@ interface IdeState {
   runOutcome: {
     seq: number;
     outcome: AiRunOutcome;
+    /**
+     * How the assistant's stated expectations held up, one entry per stated
+     * expectation. Empty when none were stated, or when the run errored - an
+     * error is the failure, and it travels on its own.
+     *
+     * Deliberately a sibling of `outcome` rather than a fifth kind of outcome:
+     * a wrong answer is a judgement layered over a run that ended fine, not a
+     * different way for the run to have gone.
+     */
+    expectations: ExpectationResult[];
     /**
      * The program as it was loaded for this run. The AI session store compares
      * it with the live source to tell whether the user has edited the program
@@ -613,13 +630,22 @@ interface IdeState {
   /** Close the block-metadata dialog. */
   closeBlockSettings(): void;
   requestRun(): void;
-  /** Like {@link requestRun}, but flags the run for the AI post-run check. */
-  requestAiRun(): void;
+  /**
+   * Like {@link requestRun}, but flags the run for the AI post-run check.
+   * `expectations` are what the applied reply said should be true once the
+   * program has run; omitted or empty when it said nothing.
+   */
+  requestAiRun(expectations?: Expectation[]): void;
   /**
    * Record how an AI-checked run turned out, once the check reaches a verdict.
-   * `ranSource` is the program that was loaded for the run.
+   * `ranSource` is the program that was loaded for the run, and `expectations`
+   * how the assistant's stated expectations held up (empty when none).
    */
-  reportRun(outcome: AiRunOutcome, ranSource: string): void;
+  reportRun(
+    outcome: AiRunOutcome,
+    ranSource: string,
+    expectations?: ExpectationResult[],
+  ): void;
   /** Open the AI panel (and, on mobile, switch to its tab). */
   showAiPanel(): void;
   /**
@@ -1090,6 +1116,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   liveMemory: null,
   runRequest: 0,
   aiRunCheckSeq: 0,
+  aiRunExpectations: [],
   runOutcome: null,
   stopRequest: 0,
   resetRequest: 0,
@@ -1613,13 +1640,16 @@ export const useIdeStore = create<IdeState>((set) => ({
       return { asmErrorBlocks: next };
     }),
   requestRun: () => set((s) => ({ runRequest: s.runRequest + 1 })),
-  requestAiRun: () =>
+  requestAiRun: (expectations = []) =>
     set((s) => ({
       runRequest: s.runRequest + 1,
       aiRunCheckSeq: s.runRequest + 1,
+      aiRunExpectations: expectations,
     })),
-  reportRun: (outcome, ranSource) =>
-    set((s) => ({ runOutcome: { seq: s.runRequest, outcome, ranSource } })),
+  reportRun: (outcome, ranSource, expectations = []) =>
+    set((s) => ({
+      runOutcome: { seq: s.runRequest, outcome, ranSource, expectations },
+    })),
   // The AI panel, emulator and memory map share the right-hand slot, so showing
   // one closes the memory map (it otherwise wins the slot and hides them).
   showAiPanel: () =>
