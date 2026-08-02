@@ -134,6 +134,29 @@ function screenCodes(machine: AtomMachine): Uint8Array {
   return out;
 }
 
+/** The MC6847 screen code for a space - what an empty cell holds. */
+const SCREEN_SPACE = 0x20;
+
+/**
+ * Blank screen RAM before the machine runs.
+ *
+ * jsbeeb's 6502 reset fills 0x8000-0x8FFF with `Math.random()` bytes to mimic
+ * uninitialised hardware - and on an Atom that range *is* the screen. So the
+ * search below would otherwise be hunting its two marker codes through a
+ * kilobyte of random noise, and roughly one run in sixty found them there: a
+ * stray 0xC1 with a stray 0xFF sixty-two cells later ended the loop on a row of
+ * garbage, long before the program had printed anything.
+ *
+ * Clearing it restores what the search assumes - that every code on screen was
+ * put there by the ROM - which is what makes finding the first and last cells
+ * mean the whole run has been drawn.
+ */
+function blankScreen(machine: AtomMachine): void {
+  for (let i = 0; i < 0x400; i++) {
+    machine.processor.writemem(0x8000 + i, SCREEN_SPACE);
+  }
+}
+
 describe('atom Semigraphics-6 mapping vs the real kernel ROM', () => {
   it('PRINTs each graphics byte as its Semigraphics-6 screen code', async () => {
     // One PRINT of all 64 bytes: the ROM's WRCH is what decides whether these
@@ -156,9 +179,11 @@ describe('atom Semigraphics-6 mapping vs the real kernel ROM', () => {
     const machine = new AtomMachine();
     await machine.whenReady();
     machine.loadProgram(image);
+    blankScreen(machine);
 
     // Run until the 64 cells appear on screen: the first graphics screen code
-    // is 0xC0, which nothing in the boot banner produces.
+    // is 0xC0, which nothing in the boot banner produces. PRINT draws the row
+    // left to right, so the last cell being present means every cell is.
     let row: Uint8Array | undefined;
     for (let i = 0; i < 900 && row === undefined; i++) {
       machine.runFrame();
