@@ -42,6 +42,9 @@ reference layer already reads from it (`id`, `name`, `manufacturer`, `year`, and
   changes, the same-word-different-meaning warnings, the control codes to
   replace, and the guidance specific to this pair and this target.
 - What travels is narrowed to the program, exactly as the guide's own report is.
+- A port with nothing to work from — no program, or one that cannot be read as
+  the language being ported from — is declined with a reason the user can act
+  on, rather than attempted from recollection.
 - Assembly happens where the program is, so a later entry point that is not the
   guide can reuse it unchanged.
 - Every other part of the offer behaves identically: same trigger, same switch
@@ -79,9 +82,13 @@ export interface PortSide extends MachineIdentity {
 export function describePort(
   from: PortSide,
   to: PortSide,
-  vocabulary: ProgramVocabulary | null,
+  vocabulary: ProgramVocabulary,
 ): string;
 ```
+
+`vocabulary` is required, not nullable: by decision 6 there is no path to a
+conversion request without a readable program, so a null case would be
+unreachable code pretending to be a policy.
 
 Only the four tables are arguments, because those are what must stay
 code-split; everything else it needs (`porting.ts`, `facts.ts`,
@@ -204,23 +211,39 @@ the selected dialect is the machine being ported *to*. A source machine guessed
 wrong yields confidently wrong advice carrying the authority of tested data,
 which is worse than the recollection it replaces.
 
-### 6. Narrowing follows the guide, including where it does not narrow
+### 6. Without a readable program the port is declined, not attempted
 
 The status decision is the one `vocabularyReply` already makes: tokenize as the
 machine being ported *from*, using `tokenize().errors` and never `lint()`, so
-ordinary half-finished editing does not keep discarding the narrowing.
+ordinary half-finished editing does not keep discarding the narrowing. Only
+`'ready'` proceeds.
 
-Where the guide does not narrow, neither does the request. An empty program and
-one that cannot be read both report every difference, because that is what the
-comparison does for them and the requirement is that what is handed over is
-narrowed *as the comparison's own report is*. An un-narrowed report for a
-distant pair is a few kilobytes — large, but not large enough to justify the
-request and the guide disagreeing about the same port.
+`'empty'` and `'unreadable'` cancel the conversion. Nothing is sent, the machine
+is not switched, the program is not touched, and the status bar says why —
+`setStatusNotice`, the same channel a failed shared-program load and a failed
+import already use, rendered by `StatusBar`. Two messages, naming the actual
+obstacle: there is nothing written to convert, and the program cannot be read as
+<source machine> BASIC so there is nothing to work the port out from.
 
-*Alternative rejected:* sending no report at all for an unreadable program. It
-reads as the safer choice and is smaller, but it makes the assistant's picture
-of the port depend on a tokenizer verdict the user never sees, at exactly the
-moment — a half-converted program — when the help is most wanted.
+This is the same shape as the unconfigured-assistant path that requirement
+already owns — accepting an offer in a state that cannot produce an answer stops
+early and says so, leaving machine and program as they were — and it is why the
+new scenarios live in that requirement rather than beside the report.
+
+*Alternative rejected:* handing over the un-narrowed report, mirroring what the
+guide displays for an unreadable program. It is the more literal reading of "as
+the comparison's own report is", but the guide is *showing a human* every
+difference to browse, whereas the request is *instructing a model* to carry out
+a port. Narrowed to nothing, the second becomes the assistant's own recollection
+of both machines with the guide's authority stamped on it — the exact failure
+this change exists to remove. Declining is the honest answer, and the user is
+one keystroke from making the program readable.
+
+*Alternative rejected:* hiding or disabling the button in the guide when the
+program is empty or unreadable. The guide already knows the narrowing state, so
+it could. But the app must handle the case regardless — a cached older
+documentation bundle, or a future entry point that is not the guide — and a
+button that vanishes explains less than a message that names the problem.
 
 ### 7. Degrade, never block
 
@@ -231,6 +254,13 @@ tables, and `from === to` all fall back to today's message. This is the opposite
 of `loadMachineReference`, which throws for an unregistered page because a test
 sweeps every registered dialect and would catch it before a user could.
 
+Note the two failure modes are deliberately different. A missing *source
+machine* or a missing *reference page* is the app's own gap, invisible to the
+user and no reason to refuse work it can still do adequately — so it degrades to
+today's message. A missing or unreadable *program* is the user's own state, one
+they can see and fix, and there is no adequate port to be had from it — so it
+stops and says so (decision 6).
+
 Everything the requirement says is unchanged stays unchanged, and is listed here
 so a reviewer can check it: the trigger is the same button and message type;
 `aiCredentials()` is still consulted first, so an unconfigured assistant still
@@ -239,6 +269,12 @@ opens its settings and leaves machine and program alone; the switch is still
 `displayRequest` shown in the thread is still `Convert this program to <label>`;
 `maxTokens` and `baseSource` are untouched. The report and the system prompt are
 awaited together, so the click does not serialise two chains of dynamic imports.
+
+The program check from decision 6 goes *after* the credentials check and before
+the switch, so the existing order is preserved: a user with no assistant sees
+the same thing they see today whatever their program looks like. The whole guard
+sits before `openSharedInIde`, which is what makes "the machine and the program
+are left as they were" true for both cases rather than only the first.
 
 ## Risks / Trade-offs
 
@@ -265,6 +301,18 @@ awaited together, so the click does not serialise two chains of dynamic imports.
 - **[Risk] A stale cached documentation bundle posts no `fromId`.** → The
   fallback chain, ending in no report rather than a wrong one. The offer itself
   never breaks.
+
+- **[Risk] The decline fires on a program the user considers fine**, turning a
+  working button into a refusal. → The verdict is `tokenize().errors` filtered by
+  `hasFatalErrors` — the same test the guide already uses to decide whether to
+  narrow, so a program the guide is narrowing for will always convert. Variable
+  and keyboard-entry advice does not count. The message names the obstacle and
+  the machine it was read as, so the fix is visible rather than guessable.
+
+- **[Trade-off] A user with a half-written program can no longer get a rough
+  port.** Accepted, and it is the point: the request would have carried the
+  guide's authority over the assistant's recollection. The program is one
+  correction away from converting, and the editor already marks where.
 
 - **[Risk] `ProgramVocabulary` is declared twice** — in `compare.ts` and in
   `programVocabulary.ts` — and could diverge silently. → A type-level

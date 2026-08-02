@@ -30,6 +30,11 @@ again from the assistant's memory, which is where porting mistakes come from.
 - What is passed SHALL be narrowed to the program being converted, as the guide's
   own display already is, so it describes this port rather than the two machines
   in general.
+- Asking for a port with nothing written, or with a program that cannot be read
+  in the language being ported from, SHALL be declined with a reason rather than
+  attempted. There is nothing for the comparison to narrow to in either case, and
+  a port carried out anyway would be the assistant's recollection again — only
+  now wearing the authority of the guide's findings.
 - The offer SHALL continue to work exactly as it does now in every other respect:
   same trigger, same switch to the target machine keeping the program, same
   requirement for a configured assistant.
@@ -42,10 +47,13 @@ None.
 
 ### Modified Capabilities
 
-- `porting-guidance`: the existing requirement that carrying out the port targets
-  the machine chosen strengthens — the port is carried out with the differences
+- `porting-guidance`: two existing requirements strengthen. Carrying out the port
+  targets the machine chosen — the port is now carried out with the differences
   the comparison reported for this program, not merely aimed at the right
-  machine.
+  machine. And carrying out the port is offered only where there is a program —
+  which now means a program there is something to say about, so an empty or
+  unreadable one is declined with a reason, alongside the unconfigured-assistant
+  case that requirement already covers.
 
 `ai-assistant` is deliberately **not** modified. What a conversion request
 carries is one behaviour, and `porting-guidance` already owns carrying out the

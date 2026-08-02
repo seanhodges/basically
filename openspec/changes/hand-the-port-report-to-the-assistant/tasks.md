@@ -7,15 +7,16 @@ where the two could diverge, the test in group 2 is what holds them together.
 
 - [ ] 1.1 Add `src/reference/portDescription.ts` with `PortSide` (extending
       `MachineIdentity` with the machine's `table` and optional `escapes`) and
-      `describePort(from, to, vocabulary)`. Header comment in the house style:
-      why it sits beside `machineDescription.ts`, and that
+      `describePort(from, to, vocabulary)`. `vocabulary` is required, not
+      nullable — nothing reaches here without a readable program. Header comment
+      in the house style: why it sits beside `machineDescription.ts`, and that
       `DialectCompare.vue` is the recipe it mirrors.
 - [ ] 1.2 Compute the diffs once at the top of `describePort`:
       `tableForMachine` per side, `diffKeywords(source, target, { from: from.page,
       to: to.page, equivalences: keywordEquivalences })`, `composeGuidance(...)`
       and `diffEscapes(...)`, then narrow with `diffForProgram`,
-      `falseFriendsForProgram` and `escapeDiffForProgram` when `vocabulary` is
-      not `null`. Take the page slug from `MachineIdentity.page` and the machine
+      `falseFriendsForProgram` and `escapeDiffForProgram`. Take the page slug
+      from `MachineIdentity.page` and the machine
       id from `.id` — `diffKeywords` and `composeGuidance` want the page,
       `tableForMachine` wants the id, and several machines share a page.
 - [ ] 1.3 Compose `PORTING THIS PROGRAM`: both machines with manufacturer and
@@ -61,8 +62,7 @@ where the two could diverge, the test in group 2 is what holds them together.
       program uses appears and one for a command it does not use is absent.
 - [ ] 2.2 Narrowing assertions: a keyword in `mustReplace` but not in the
       vocabulary never appears anywhere in the output; a capability whose
-      commands the program does not use is absent; a `null` vocabulary reports
-      every difference.
+      commands the program does not use is absent.
 - [ ] 2.3 Exclusion assertions: no keyword from `diff.newlyAvailable` and no
       escape from the escape diff's `newlyAvailable` appears; no
       `DomainGuidance.example` code line appears.
@@ -94,20 +94,32 @@ where the two could diverge, the test in group 2 is what holds them together.
       it varies with the program; the `import()`s are already memoised by the
       module system.
 - [ ] 3.5 Add `buildConversionMessage({ from, to, toLabel, source })` to the same
-      module: `vocabularyReply` for the status, `loadPortReport` for the
-      findings, then `buildUserMessage(`${report}\n\n${instruction}`, source,
-      [])` so the turn reads program → findings → ask. Move the instruction
-      sentence here byte-identical to the one in `DocsDrawer.tsx`. This is the
-      seam a future non-guide entry point uses.
-- [ ] 3.6 Add `src/ai/portReport.test.ts`: `from: null`, `from === to` and an
-      unregistered page each produce a message byte-identical to today's
+      module, returning a discriminated result so the decision to decline travels
+      with the seam rather than living in the component: `{ ok: true;
+      userContent }` or `{ ok: false; problem: 'empty' | 'unreadable'; message }`.
+      It calls `vocabularyReply` for the status, declines on `'empty'` and
+      `'unreadable'`, and otherwise calls `loadPortReport` and returns
+      `buildUserMessage(`${report}\n\n${instruction}`, source, [])` so the turn
+      reads program → findings → ask. Move the instruction sentence here
+      byte-identical to the one in `DocsDrawer.tsx`. This is the seam a future
+      non-guide entry point uses.
+- [ ] 3.6 Write the two decline messages here, next to the decision that emits
+      them: nothing written to convert, and the program cannot be read as
+      `<source machine>` BASIC so there is nothing to work the port out from.
+      Naming the machine it was read as is what makes the message actionable —
+      a program is only unreadable *as some particular BASIC*.
+- [ ] 3.7 Add `src/ai/portReport.test.ts`: an empty source and an unreadable one
+      each return `ok: false` with the matching `problem` and a message naming
+      the source machine; `from: null`, `from === to` and an unregistered page
+      each return `ok: true` with a message byte-identical to today's
       (constructed from `buildUserMessage` directly, as a regression pin); a
       `commodore64` → `zxspectrum` program produces program, report and
-      instruction in that order; the report names the source machine; an empty
-      and an unreadable program both carry the un-narrowed report, matching what
-      the guide shows them; a program using sixty keywords stays under an agreed
-      size bound; a type-level assertion that `programVocabulary.ts`'s
-      `ProgramVocabulary` is assignable to `compare.ts`'s.
+      instruction in that order; the report names the source machine; a program
+      carrying only variable-lint findings still converts (the `hasFatalErrors`
+      trap — it must not be read as unreadable); a program using sixty keywords
+      stays under an agreed size bound; a type-level assertion that
+      `programVocabulary.ts`'s `ProgramVocabulary` is assignable to
+      `compare.ts`'s.
 
 ## 4. Carry the source machine across the boundary
 
@@ -135,13 +147,21 @@ where the two could diverge, the test in group 2 is what holds them together.
       selected dialect), then `Promise.all` `buildConversionMessage(...)` with
       `loadSystemPrompt(target)` so the click does not serialise two chains of
       dynamic imports.
-- [ ] 5.2 Leave the rest byte-identical and check each against the requirement:
-      `aiCredentials()` consulted first, `openSharedInIde({ dialectId, source })`
-      then `showAiPanel()`, `displayRequest` still `Convert this program to
-      <label>`, `maxTokens` and `baseSource` unchanged.
-- [ ] 5.3 Comment recording that a wrongly guessed source machine is worse than
+- [ ] 5.2 On `ok: false`, call `setStatusNotice(message)` and return — before
+      `closeDocs()`, before `openSharedInIde` and before `showAiPanel`, so the
+      machine, the program and the drawer are all left as they were and the
+      notice is the only thing that happens. `StatusBar` renders it; this is the
+      channel a failed shared-program load and a failed import already use.
+- [ ] 5.3 Keep the credentials check first, so a user with no assistant sees
+      exactly what they see today whatever state their program is in, and leave
+      the rest byte-identical: `openSharedInIde({ dialectId, source })` then
+      `showAiPanel()`, `displayRequest` still `Convert this program to <label>`,
+      `maxTokens` and `baseSource` unchanged.
+- [ ] 5.4 Comment recording that a wrongly guessed source machine is worse than
       none, which is why the chain ends in "no report" rather than in the
-      selected dialect.
+      selected dialect — and that a missing *page* degrades while a missing
+      *program* declines, because one is the app's gap and the other is the
+      user's, fixable and visible.
 
 ## 6. Prove it end to end
 
@@ -153,7 +173,14 @@ where the two could diverge, the test in group 2 is what holds them together.
       still agree, and the suite stays offline.
 - [ ] 6.2 Assert in that same test that the turn does not carry what the
       Spectrum adds and the program never used.
-- [ ] 6.3 Re-run the three existing tests in that file unchanged — the switch,
+- [ ] 6.3 Add a test that asks to convert with the editor empty: no provider
+      request is made, the status bar says there is nothing to convert, and the
+      machine and the program are as they were.
+- [ ] 6.4 Add a test that asks to convert a program that cannot be read as the
+      source machine's BASIC: no provider request is made, the status bar says
+      the program cannot be read and names that machine, and the machine and
+      program are as they were.
+- [ ] 6.5 Re-run the three existing tests in that file unchanged — the switch,
       the variant targeting and the unconfigured-assistant path are the
       "everything else stays identical" guard.
 
