@@ -457,6 +457,19 @@ export class BbcMachine implements MachineEmulator {
     return null;
   }
 
+  /**
+   * Whether BASIC is executing a program. {@link currentLine} answers this
+   * directly here: it tracks the live interpreter pointer, which sits inside a
+   * program line only while one is running and moves into the command-line
+   * buffer the moment BASIC returns to the `>` prompt. Null while the machine
+   * is still booting or still being handed the program, so the gap before the
+   * injected RUN takes effect never reads as "finished".
+   */
+  isProgramRunning(): boolean | null {
+    if (!this.initialised || this.injecting || this.disposed) return null;
+    return this.currentLine() !== null;
+  }
+
   debugStep(opts: DebugStepOptions): DebugStepResult {
     if (!this.initialised || this.injecting || this.disposed) {
       return { paused: false, line: null };

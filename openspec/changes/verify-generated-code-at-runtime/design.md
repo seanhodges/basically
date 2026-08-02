@@ -47,25 +47,83 @@ code.
   variables and screen output is later, separate work.
 - Starting the machine from a plain apply. Applying stays one action.
 - Tool-calling on any provider.
-- Any change to the `Dialect` / `MachineEmulator` seam.
+- Reshaping the `Dialect` / `MachineEmulator` seam. One optional member is
+  added; nothing existing changes, and answering it stays optional.
 
 ## Decisions
 
-### The outcome is derived from `readReport()`'s existing three-state semantics
+### `readReport()` alone cannot tell a finished program from a running one
 
-`MachineReport` already distinguishes the three cases the watcher needs, and the
-frame window supplies the fourth:
+The obvious reading — a report of `{ isError: false }` means "back at READY, no
+error" — does not survive contact with the machines. Checked against every
+implementation:
 
-| Observation | Outcome |
+| Machine | while running | after a clean end | on an error |
+| --- | --- | --- | --- |
+| ZX81, Spectrum, Spectrum 128 | `{ isError: false, code: '0' }` | **identical** | `{ isError: true }` |
+| CPC 464, CPC 6128 | `{ isError: false }` | **identical** | `{ isError: true }` |
+| BBC Micro, BBC Master | `null` | `null` | `{ isError: true }` |
+| C64, VIC-20, PET | `null` | `null` | `{ isError: true }` |
+| TRS-80 | `null` | `null` | `{ isError: true }` |
+
+The Sinclair and CPC ROMs hold "0 OK" in their report cell the whole time a
+program runs, so treating a non-error report as "finished" would report every
+Sinclair run as finished on its first frame — and never see the error that
+arrives thirty frames later, which is a regression of the check that works
+today. The other machines report `null` both while running and while idle, so a
+clean run is indistinguishable from a machine that never came up.
+
+Through `readReport()` alone the only observable distinction is **an error
+appeared inside the window, or it did not**. The four-way outcome therefore
+needs one more question, which the next decision adds.
+
+### The seam gains one optional question: is a program executing?
+
+`MachineEmulator` gets an optional `isProgramRunning(): boolean | null`,
+alongside the optional `readReport` / `readVariables` / `currentLine` members it
+already has, and detected the same way. Three states, because two are not
+enough:
+
+- `true` — a BASIC program is executing.
+- `false` — nothing is executing; BASIC is back at its prompt.
+- `null` — not answerable yet: the machine is still booting, or is still being
+  handed the program. Without this a machine would read as "finished" during the
+  seconds between `loadProgram` and the injected `RUN` taking effect.
+
+What each machine answers it from, all state it already reads:
+
+| Machine | Signal |
 | --- | --- |
-| `{ isError: true }` | `errored` — carries the report |
-| `{ isError: false }` | `ended-ok` — back at READY, no error (also STOP/BREAK) |
-| non-null throughout, window expires | `still-running` |
-| never non-null, absolute cap reached | `never-started` |
+| BBC Micro / Master | `currentLine()` — null once the program stops (already relied on by the step debugger) |
+| CPC 464 / 6128 | `currentLine()` — the firmware zeroes its current-line pointer at the Ready prompt |
+| TRS-80 | the interpreter's own execution state |
+| C64 / VIC-20 | `BLNSW` (`$CC`), the editor's cursor-blink flag: 0 at the prompt, non-zero while a program runs |
+| PET | `BLNSW` (`$A7`) — the same flag, at BASIC 4.0's address |
+| ZX81 / Spectrum / Spectrum 128 | **none** — not implemented |
 
-`still-running` is a **success**, not a timeout. Most of the bundled samples are
-game loops that never return to READY; treating "did not finish" as a failure
-would report almost every working program as broken.
+The Sinclair machines are the deliberate gap. Their `PPC` keeps the last line
+executed after a program stops, so `currentLine()` cannot answer this, and a
+sweep of every system variable across several running and several finished
+programs turned up no cell that stably distinguishes the two. (The Spectrum's
+`ERR_SP` does, by four bytes of stack depth — too incidental to build on, and
+the ZX81 has no equivalent at all.) The remaining option, trapping the ROM's
+keyboard-wait loop, costs a comparison per instruction in the Z80 inner loop and
+only separates two outcomes that behave identically, so it is not worth it.
+
+A machine that does not answer degrades exactly as one with no `readReport`
+does: its runs report `still-running` when no error appears, which the assistant
+is told is a run that did not fail.
+
+Note what this cannot see on the machines that do answer: a program blocked on
+`INPUT` reads as finished on the Commodore machines (the cursor blinks for an
+`INPUT` prompt as it does at the READY prompt). Both readings are non-failing
+and neither triggers a correction, so the distinction costs nothing here.
+
+### `still-running` is a success, not a timeout
+
+Most of the bundled samples are game loops that never return to READY; treating
+"did not finish" as a failure would report almost every working program as
+broken.
 
 Alternative considered: keep reporting only errors and add a separate "ran
 clean" signal. Rejected — two channels for one question, and the caller still has
@@ -125,9 +183,12 @@ already detects a program changed since a reply arrived is what decides this.
 
 ### Seam impact
 
-**None.** This change consumes `MachineEmulator.readReport()` and nothing else
-from the machine boundary. No interface member is added, removed or changed, and
-no dialect or emulator file is touched.
+One optional member added, `isProgramRunning()`, and nothing else changed:
+no existing member is altered or removed, every machine that omits it keeps
+working, and the app reaches it through the same `typeof` test it already uses
+for the rest of the optional introspection surface. The eight machines that
+implement it answer from state they already read for the debugger or the
+report, so no new ROM archaeology rides along.
 
 ## Risks / Trade-offs
 
@@ -148,6 +209,14 @@ no dialect or emulator file is touched.
 - **`ended-ok` and a user-pressed BREAK are indistinguishable**, since both are
   `isError: false`. → Both are genuinely "the program stopped without failing",
   which is what the assistant is told; nothing is retried either way.
+
+- **The run-state signal is per-machine and empirical.** The Commodore
+  cursor-blink flag and the BBC/CPC current-line pointers were confirmed against
+  the real ROMs, but they are ROM behaviour, not documented contract. → Each is
+  pinned by a colocated test that boots the genuine ROM and checks a looping
+  program against a finished one, so a wrong reading fails the suite rather than
+  reaching the assistant. And a wrong reading is bounded anyway: it can only
+  mislabel one non-failing outcome as another, never invent a failure.
 
 - **The outcome is reported while a long program is still running.**
   `still-running` is decided by the window expiring, so a program that would have

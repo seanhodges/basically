@@ -118,7 +118,7 @@ state serialisable.
 flowchart LR
   src["Toolbar · shortcut · AI panel"] -->|"requestRun() bumps runRequest"| store[("useIdeStore")]
   store -->|"useEffect keyed on runRequest"| ep["EmulatorPane"]
-  ep -->|"emulatorStatus · liveMemory · runReport"| store
+  ep -->|"emulatorStatus · liveMemory · runOutcome"| store
 ```
 
 ### Language toolchain - the `Dialect` seam (`src/dialects/`)
@@ -178,10 +178,11 @@ Two consequences worth knowing:
 opts)`, `runFrame()` (one 50 Hz frame of CPU time), `renderTo(canvas)`, key and
 joystick input, `setSpeed()`, and `dispose()`. Everything beyond that is an
 **optional capability the app feature-detects per machine** - `readAudio()`,
-`readVariables()`, `readReport()` (BASIC runtime errors), `readMemoryStats()`,
-the memory-activity tap (`setMemoryActivityRecording()` /
-`drainMemoryActivity()`) behind the memory-map overlay, and
-`currentLine()` / `debugStep()` for the line-level debugger.
+`readVariables()`, `readReport()` (BASIC runtime errors), `isProgramRunning()`
+(whether a program is executing at all), `readMemoryStats()`, the
+memory-activity tap (`setMemoryActivityRecording()` / `drainMemoryActivity()`)
+behind the memory-map overlay, and `currentLine()` / `debugStep()` for the
+line-level debugger.
 
 `loadProgram`'s options carry the rest of the document model into the machine:
 memory blocks written straight into RAM, extra tape files mounted on the virtual
@@ -304,7 +305,7 @@ flowchart TB
 
   subgraph seam ["The Dialect seam - src/dialects/types.ts"]
     dialect["Dialect<br/>tokenize · lint · detokenize · charset · keywords ·<br/>buildTargets · audio · memoryMap · memoryBlocks ·<br/>aiProfile · keyboardLayout"]
-    machine["MachineEmulator<br/>loadProgram · runFrame · renderTo · keys ·<br/>readAudio · readReport · readMemoryStats · debugStep"]
+    machine["MachineEmulator<br/>loadProgram · runFrame · renderTo · keys ·<br/>readAudio · readReport · isProgramRunning · readMemoryStats · debugStep"]
   end
 
   subgraph machines ["Per-machine code"]
@@ -391,7 +392,7 @@ sequenceDiagram
   end
   E->>M: readMemoryStats() every 500 ms → status bar
   U->>M: keys - DOM events or virtual keyboard setKey()
-  M-->>S: readReport() - runtime error surfaced after an AI-initiated run
+  M-->>S: readReport() · isProgramRunning() - how an AI-initiated run went
 ```
 
 Step by step:
@@ -487,7 +488,7 @@ sequenceDiagram
   P->>E: mergeBasicLines() / replaceDocument()
   E->>E: re-lint - offer a fix prompt on errors
   P->>M: (… + Run) requestAiRun()
-  M-->>P: readReport() error → suggested fix in chat
+  M-->>P: run outcome → correction sent unasked, or a suggested fix
 ```
 
 Key details:
@@ -515,9 +516,15 @@ Key details:
   cannot drift from what applying does. Matching line numbers replace, new ones
   insert in order, and in a fragment a bare line number deletes that line.
   `#BIN` records are always context and a deletion cannot reach them.
-- After a **… + Run**, the run loop polls `machine.readReport()` for a few
-  seconds; a genuine runtime error (not OK/STOP/BREAK) is fed back to the chat
-  as a one-click fix request.
+- After a **… + Run**, the run loop watches the machine for a few seconds and
+  classifies how the run went (`src/app/aiRunCheck.ts`): it failed, it finished
+  without failing, it was still running, or it never started. A genuine runtime
+  error (not OK/STOP/BREAK) is corrected automatically, up to two attempts per
+  applied block, after which it falls back to the one-click fix request; a run
+  that didn't fail rides along with the next request so the assistant hears
+  about its successes too. Telling "finished" from "still running" needs
+  `isProgramRunning()`, which the Sinclair machines can't answer - their runs
+  read as "ran without failing", which is what the assistant is told.
 - Providers report _why_ generation stopped. An answer cut off by the output
   limit is marked incomplete and offers no apply actions - the output budget is
   shared with adaptive thinking, so a long listing can hit it - and a declined

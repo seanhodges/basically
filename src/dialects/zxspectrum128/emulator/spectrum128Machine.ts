@@ -680,6 +680,10 @@ export class Spectrum128Machine implements MachineEmulator {
     return readSpectrumReport(this.memory);
   }
 
+  // No isProgramRunning(), for the same reason as the 48K machine: the ROM
+  // reports "0 OK" while a program runs as well as after a clean end, and PPC
+  // keeps the last line executed. See MachineEmulator.isProgramRunning.
+
   /**
    * Actual RAM figures from the ROM's own pointers - the 128 keeps the 48K
    * system variables at the same addresses in the fixed bank-5 window, so the

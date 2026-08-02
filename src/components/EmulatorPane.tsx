@@ -6,6 +6,7 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useIdeStore } from '../app/store';
+import { classifyAiRunFrame, type AiRunFrameCounts } from '../app/aiRunCheck';
 import { countProgramErrors } from '../app/useProgramStats';
 import { lintBlocks } from '../app/blockLint';
 import {
@@ -24,17 +25,6 @@ import { GearsSpinner } from './GearsSpinner';
 import styles from './EmulatorPane.module.css';
 
 const romCache = new Map<string, Promise<Uint8Array>>();
-
-/**
- * Frames of *running* emulation to watch a freshly-started AI-checked run for a
- * runtime error before giving up. A genuine error surfaces within a handful of
- * frames; a clean program (or a game that keeps running) simply never reports
- * one. Only counts frames where the machine is up (readReport != null), so a
- * slow async boot (BBC/C64) doesn't eat the window before the program runs.
- */
-const AI_CHECK_MAX_FRAMES = 150;
-/** Absolute frame cap so a machine that never comes up can't poll forever. */
-const AI_CHECK_ABS_MAX_FRAMES = 600;
 
 /** The machine handle the virtual-keyboard overlay needs to send keys. */
 export interface MachineApi {
@@ -148,11 +138,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // Set true the moment a (re)start kicks off; the first rendered frame clears
   // both it and the loading overlay (see startLoop / the run + reset effects).
   const firstFrameRef = useRef(false);
-  // While true, the run loop polls machine.readReport() and feeds the first
-  // genuine error back to the AI store (set only for "Replace + Run").
+  // While true, the run loop asks the machine how the run is going each frame
+  // and feeds the verdict back to the AI store (set by either apply-and-run).
   const aiCheckActiveRef = useRef(false);
-  const aiCheckReadyFramesRef = useRef(0); // frames the machine was up, no error
-  const aiCheckTotalFramesRef = useRef(0); // all frames since the check armed
+  const aiCheckCountsRef = useRef<AiRunFrameCounts>({
+    readyFrames: 0,
+    totalFrames: 0,
+  });
+  // The program this check's run was loaded from, so the outcome can be matched
+  // against what the editor holds by the time it lands.
+  const aiCheckSourceRef = useRef('');
   // A step-through debug session is live (run started in debug mode).
   const debugActiveRef = useRef(false);
   // What the current run of slices is doing: 'run' (to next breakpoint) or
@@ -263,23 +258,28 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       machine.runFrame();
       frameHookRef.current?.(); // virtual-keyboard frame-counted releases
       pumpAudio();
-      // AI "Replace + Run": watch the freshly-started program for a runtime
-      // error and hand the first one to the assistant, then stop watching.
+      // An apply-and-run from the AI panel: watch the freshly-started program
+      // until the check can say how it went, hand that verdict to the
+      // assistant, then stop watching. The rules live in classifyAiRunFrame;
+      // this only supplies what the machine says and holds the counts.
       if (aiCheckActiveRef.current && machine.readReport) {
-        const report = machine.readReport();
-        if (report?.isError) {
+        const verdict = classifyAiRunFrame(
+          {
+            report: machine.readReport(),
+            running: machine.isProgramRunning?.(),
+          },
+          aiCheckCountsRef.current,
+        );
+        if (verdict.done) {
           aiCheckActiveRef.current = false;
-          useIdeStore.getState().reportRun(report);
+          useIdeStore
+            .getState()
+            .reportRun(verdict.outcome, aiCheckSourceRef.current);
         } else {
-          // Count toward the window only once the machine is actually up
-          // (report != null); cap total frames so a stuck boot can't hang on.
-          if (report !== null) aiCheckReadyFramesRef.current++;
-          if (
-            aiCheckReadyFramesRef.current >= AI_CHECK_MAX_FRAMES ||
-            ++aiCheckTotalFramesRef.current >= AI_CHECK_ABS_MAX_FRAMES
-          ) {
-            aiCheckActiveRef.current = false;
-          }
+          aiCheckCountsRef.current = {
+            readyFrames: verdict.readyFrames,
+            totalFrames: verdict.totalFrames,
+          };
         }
       }
       render();
@@ -403,13 +403,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         );
         machine.setSpeed(speed);
         firstFrameRef.current = true; // the next rendered frame hides the overlay
-        // Only watch for a runtime error when this run came from "Replace + Run"
-        // and the machine can introspect its error state.
+        // Only check the run when it came from an apply-and-run in the AI panel
+        // (both "Replace + Run" and "Merge + Run" go through applyText, so both
+        // arm it) and the machine can introspect its error state.
         aiCheckActiveRef.current =
           useIdeStore.getState().aiRunCheckSeq === runRequest &&
           typeof machine.readReport === 'function';
-        aiCheckReadyFramesRef.current = 0;
-        aiCheckTotalFramesRef.current = 0;
+        aiCheckCountsRef.current = { readyFrames: 0, totalFrames: 0 };
+        aiCheckSourceRef.current = source;
         // Start a step-through session when debug mode is armed and the machine
         // supports it; the loop then advances by debug slices instead of frames.
         // A session with no breakpoints simply never pauses and runs normally.

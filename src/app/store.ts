@@ -101,6 +101,28 @@ export type EditorCommandName =
   | 'renumber'
   | 'renumberFile';
 
+/**
+ * How a run launched from the AI panel turned out, as far as the post-run check
+ * could tell within its frame window. Every case except `errored` is a program
+ * that did not fail - `still-running` in particular is a success, since a
+ * program that never returns to the machine's ready state is the normal shape
+ * of a game or an animation.
+ *
+ * Which of the non-failing three is reported depends on what the machine can
+ * introspect (see `MachineEmulator.isProgramRunning`); none of them causes the
+ * assistant to be asked for a correction, so the distinction is what the
+ * conversation is told, not what it does.
+ */
+export type AiRunOutcome =
+  /** The machine reported a genuine runtime error. */
+  | { kind: 'errored'; report: MachineReport }
+  /** The machine says nothing is running any more, and never failed. */
+  | { kind: 'ended-ok' }
+  /** Still going when the window closed - or the machine couldn't say. */
+  | { kind: 'still-running' }
+  /** The machine never came up at all inside the absolute frame cap. */
+  | { kind: 'never-started' };
+
 interface IdeState {
   /** Active target machine. Switching it rebuilds the editor, emulator and keyboard. */
   dialect: Dialect;
@@ -215,11 +237,22 @@ interface IdeState {
    */
   aiRunCheckSeq: number;
   /**
-   * The latest runtime error the emulator pane detected for an AI-checked run,
-   * tagged with the `runRequest` it came from. The AI session store watches this
-   * to offer a fix. Null until one is reported.
+   * How the latest AI-checked run turned out, tagged with the `runRequest` it
+   * came from so a stale outcome from a superseded run is ignorable. The AI
+   * session store watches this to correct a failure or to tell the assistant
+   * the program ran. Null until one is reported.
    */
-  runReport: { seq: number; report: MachineReport } | null;
+  runOutcome: {
+    seq: number;
+    outcome: AiRunOutcome;
+    /**
+     * The program as it was loaded for this run. The AI session store compares
+     * it with the live source to tell whether the user has edited the program
+     * since, which is what decides between correcting a failure unasked and
+     * only offering the fix.
+     */
+    ranSource: string;
+  } | null;
   /** Bumped to ask the emulator pane to stop. */
   stopRequest: number;
   /** Bumped to ask the emulator pane to reset the machine. */
@@ -580,10 +613,13 @@ interface IdeState {
   /** Close the block-metadata dialog. */
   closeBlockSettings(): void;
   requestRun(): void;
-  /** Like {@link requestRun}, but flags the run for the AI runtime-error check. */
+  /** Like {@link requestRun}, but flags the run for the AI post-run check. */
   requestAiRun(): void;
-  /** Record a runtime error the emulator detected during an AI-checked run. */
-  reportRun(report: MachineReport): void;
+  /**
+   * Record how an AI-checked run turned out, once the check reaches a verdict.
+   * `ranSource` is the program that was loaded for the run.
+   */
+  reportRun(outcome: AiRunOutcome, ranSource: string): void;
   /** Open the AI panel (and, on mobile, switch to its tab). */
   showAiPanel(): void;
   /**
@@ -1054,7 +1090,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   liveMemory: null,
   runRequest: 0,
   aiRunCheckSeq: 0,
-  runReport: null,
+  runOutcome: null,
   stopRequest: 0,
   resetRequest: 0,
   breakpoints: new Set<number>(),
@@ -1582,8 +1618,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       runRequest: s.runRequest + 1,
       aiRunCheckSeq: s.runRequest + 1,
     })),
-  reportRun: (report) =>
-    set((s) => ({ runReport: { seq: s.runRequest, report } })),
+  reportRun: (outcome, ranSource) =>
+    set((s) => ({ runOutcome: { seq: s.runRequest, outcome, ranSource } })),
   // The AI panel, emulator and memory map share the right-hand slot, so showing
   // one closes the memory map (it otherwise wins the slot and hides them).
   showAiPanel: () =>

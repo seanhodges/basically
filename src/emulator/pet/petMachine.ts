@@ -93,6 +93,7 @@ const {
   fretop: FRETOP,
   memsiz: MEMSIZ,
   curlin: CURLIN,
+  blnsw: BLNSW,
 } = BASIC_4_ZP;
 /**
  * BASIC 4.0's "current line number" (`CURLIN`), a 16-bit LE cell updated as
@@ -579,6 +580,25 @@ export class PetMachine implements MachineEmulator {
     }
     const line = this.mem[CURLIN]! | (this.mem[CURLIN + 1]! << 8);
     return line <= MAX_BASIC_LINE ? line : null;
+  }
+
+  /**
+   * Whether BASIC is executing a program, read from the screen editor's
+   * cursor-blink enable (`BLNSW`, `$A7` on BASIC 4.0 against the V2 machines'
+   * `$CC`): zero while the editor blinks the cursor at a prompt, non-zero while
+   * a program has the machine. This is why CURLIN can't answer it - as the note
+   * on {@link currentLine} says, the 4.0 ROM keeps the last program line at
+   * READY.
+   *
+   * Null only while booting, injecting or disposed: unlike the C64 and VIC-20
+   * the RUN is typed through the key matrix synchronously inside
+   * {@link loadProgram}, so there is no queued keystroke left to wait on.
+   */
+  isProgramRunning(): boolean | null {
+    if (!this.booted || this.injecting || this.disposed || !this.cpu) {
+      return null;
+    }
+    return this.mem[BLNSW] !== 0;
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {

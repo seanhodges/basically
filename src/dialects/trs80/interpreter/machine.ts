@@ -102,6 +102,18 @@ export class Trs80InterpreterMachine implements MachineEmulator {
     return this.interp.currentLine();
   }
 
+  /**
+   * Whether a program is executing. The interpreter tracks this itself, so no
+   * inference is needed: `running` and `input` (blocked on INPUT, which is
+   * still a live program) both count, while `idle`, `ended` and `error` do not.
+   * Never "not answerable yet" - {@link loadProgram} arms execution
+   * synchronously, with no ROM to boot and no keystrokes to inject.
+   */
+  isProgramRunning(): boolean | null {
+    const state = this.interp.state;
+    return state === 'running' || state === 'input';
+  }
+
   /** Single-step / run-to-breakpoint at BASIC-line granularity. */
   debugStep(opts: DebugStepOptions): DebugStepResult {
     const budget = Math.round(STATEMENTS_PER_FRAME * this.speed);

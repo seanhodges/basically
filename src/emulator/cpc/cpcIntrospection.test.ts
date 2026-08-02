@@ -88,4 +88,45 @@ suite('CpcMachine runtime introspection', () => {
     expect(report?.line).toBe(55);
     m.dispose();
   });
+  describe('run state', () => {
+    /**
+     * Sample isProgramRunning() once per frame. loadProgram boots, injects and
+     * submits RUN synchronously, so the hand-over is already complete when the
+     * first sample is taken.
+     */
+    function trace(src: string, frames = 200): (boolean | null)[] {
+      const m = new CpcMachine({ rom });
+      const { bytes, errors } = tokenizeProgram(src, 'basic10');
+      expect(errors).toHaveLength(0);
+      m.loadProgram(bytes);
+      const seen: (boolean | null)[] = [];
+      for (let i = 0; i < frames; i++) {
+        m.runFrame();
+        seen.push(m.isProgramRunning());
+      }
+      m.dispose();
+      return seen;
+    }
+
+    it('reports a looping program as running', () => {
+      const seen = trace('10 GOTO 10\n');
+      expect(seen.at(-1)).toBe(true);
+      // The hand-over is synchronous, so it is running from the first frame.
+      expect(seen).not.toContain(false);
+    });
+
+    it('reports a finished program as not running', () => {
+      expect(trace('10 PRINT "HI"\n20 END\n').at(-1)).toBe(false);
+    });
+
+    it('reports a program stopped by an error as not running', () => {
+      const m = new CpcMachine({ rom });
+      const { bytes } = tokenizeProgram('10 GOTO 9000\n', 'basic10');
+      m.loadProgram(bytes);
+      for (let i = 0; i < 90; i++) m.runFrame();
+      expect(m.readReport()?.isError).toBe(true);
+      expect(m.isProgramRunning()).toBe(false);
+      m.dispose();
+    });
+  });
 });

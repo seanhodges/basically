@@ -386,11 +386,15 @@ export function AiPanel() {
     // While the answer is arriving, show a live busy indicator with a status
     // hint (in place of the old static ellipsis, which read as "stuck").
     if (msg.streaming) {
+      // An automatic correction says so, so a reply nobody asked for never
+      // looks like one the user did.
       const status = msg.retrying
         ? 'Reformatting response…'
-        : msg.content.trim() === ''
-          ? 'Thinking…'
-          : 'Writing code…';
+        : msg.autoFix
+          ? 'Fixing the failed run…'
+          : msg.content.trim() === ''
+            ? 'Thinking…'
+            : 'Writing code…';
       parts.push(
         <div key="status" className={styles.aiStatus}>
           <GearsSpinner size={16} />
