@@ -72,7 +72,11 @@ import {
 } from '../storage/settings';
 import { sourceFingerprint } from './sourceFingerprint';
 import type { MachineReport } from '../dialects/types';
-import type { ExpectationResult } from './expectations';
+import {
+  noScreenViews,
+  type ExpectationResult,
+  type ScreenViewRequest,
+} from './expectations';
 import type { ScreenCapture } from '../app/screenCapture';
 import { getProvider } from './providers/registry';
 
@@ -312,12 +316,19 @@ describe('aiStore', () => {
       ranSource?: string,
       expectations: ExpectationResult[] = [],
       screen?: ScreenCapture,
+      views: ScreenViewRequest = noScreenViews(),
     ): Promise<void> {
       // Each run is its own request, exactly as an apply-and-run makes it; the
       // outcome is tagged with that sequence so a stale one can be ignored.
-      useIdeStore.getState().requestAiRun();
+      useIdeStore.getState().requestAiRun([], views);
       const state = useIdeStore.getState();
-      state.reportRun(outcome, ranSource ?? state.source, expectations, screen);
+      state.reportRun(
+        outcome,
+        ranSource ?? state.source,
+        expectations,
+        screen,
+        views,
+      );
       // The correction's system prompt carries the machine's reference, which is
       // loaded on demand - so the request leaves a few microtasks after the
       // outcome is published rather than inside the same call. Settling here
@@ -624,12 +635,16 @@ describe('aiStore', () => {
         }
       };
 
-      it('shows the screen with the correction for a failed run', async () => {
+      /** The assistant asked to be shown the screen with its code. */
+      const ASKED: ScreenViewRequest = { image: true, unknown: [] };
+
+      it('shows the screen with the correction when it asked to see it', async () => {
         await reportRun(
           { kind: 'errored', report: FAILED },
           undefined,
           [],
           SCREEN,
+          ASKED,
         );
 
         expect(sentImage()?.base64).toBe('PNGDATA');
@@ -637,19 +652,109 @@ describe('aiStore', () => {
         expect(sentUserContent()).toContain('attached');
       });
 
-      it('shows nothing for a run that did not fail', async () => {
+      it('shows no screen for a failure it did not ask about, but says it can', async () => {
+        await reportRun({ kind: 'errored', report: FAILED });
+
+        // The correction still happens, on the same terms as ever.
+        expect(h.current).not.toBeNull();
+        expect(sentImage()).toBeUndefined();
+        expect(sentUserContent()).toContain('runtime error');
+        // ...and the picture is one turn away rather than out of reach.
+        expect(sentUserContent()).toContain('```basic-view');
+      });
+
+      it('does not offer a screen it could not show anyway', async () => {
+        await withTextOnlyProvider(async () => {
+          await reportRun({ kind: 'errored', report: FAILED });
+          expect(sentUserContent()).not.toContain('```basic-view');
+        });
+      });
+
+      it('reports a view it could not produce, without failing the run', async () => {
+        await reportRun({ kind: 'ended-ok' }, undefined, [], undefined, {
+          image: true,
+          unknown: ['SCREEN AUDIO'],
+        });
+        // No correction: a mistaken ask is not a broken program.
+        expect(h.current).toBeNull();
+        expect(useAiStore.getState().pendingFix).toBeNull();
+
+        const p = useAiStore.getState().send(params);
+        h.current!.resolve('10 PRINT');
+        await p;
+        expect(sentUserContent()).toContain('You asked to be shown');
+        expect(sentUserContent()).toContain('the screen as an image');
+        expect(sentUserContent()).toContain('SCREEN AUDIO');
+      });
+
+      it('reports the image as unavailable on a provider that cannot be shown one', async () => {
+        await withTextOnlyProvider(async () => {
+          await reportRun({ kind: 'ended-ok' }, undefined, [], SCREEN, ASKED);
+
+          const p = useAiStore.getState().send(params);
+          h.current!.resolve('10 PRINT');
+          await p;
+          expect(sentUserContent()).toContain('the screen as an image');
+          expect(sentUserContent()).toContain('could not produce');
+        });
+      });
+
+      it('carries a screen it asked for even when the run went fine', async () => {
         await reportRun(
           { kind: 'ended-ok' },
           undefined,
           [expectation('passed')],
           SCREEN,
+          ASKED,
         );
+        // Nothing failed, so no request of its own - the view rides along with
+        // the note on the next one, as the outcome always has.
+        expect(h.current).toBeNull();
+
+        const p = useAiStore.getState().send(params);
+        h.current!.resolve('10 PRINT');
+        await p;
+        expect(sentImage()?.base64).toBe('PNGDATA');
+        expect(sentUserContent()).toContain('screen you asked to see');
+      });
+
+      it('carries nothing for a run it asked nothing about', async () => {
+        await reportRun({ kind: 'ended-ok' }, undefined, [
+          expectation('passed'),
+        ]);
         expect(h.current).toBeNull();
 
         const p = useAiStore.getState().send(params);
         h.current!.resolve('10 PRINT');
         await p;
         expect(sentImage()).toBeUndefined();
+        expect(sentUserContent()).not.toContain('screen you asked to see');
+      });
+
+      it('spends a carried screen once, on the next request only', async () => {
+        await reportRun({ kind: 'ended-ok' }, undefined, [], SCREEN, ASKED);
+
+        const first = useAiStore.getState().send(params);
+        h.current!.resolve('10 PRINT');
+        await first;
+        expect(sentImage()?.base64).toBe('PNGDATA');
+
+        const second = useAiStore.getState().send(params);
+        h.current!.resolve('20 PRINT');
+        await second;
+        expect(sentImage()).toBeUndefined();
+      });
+
+      it('lets the user’s own attachment win over a carried one', async () => {
+        await reportRun({ kind: 'ended-ok' }, undefined, [], SCREEN, ASKED);
+
+        const p = useAiStore.getState().send({
+          ...params,
+          image: { mediaType: 'image/png', base64: 'USERSHOT' },
+        });
+        h.current!.resolve('10 PRINT');
+        await p;
+        expect(sentImage()?.base64).toBe('USERSHOT');
       });
 
       it('corrects a failure in words alone on a provider that cannot be shown one', async () => {
@@ -659,6 +764,7 @@ describe('aiStore', () => {
             undefined,
             [],
             SCREEN,
+            ASKED,
           );
           // The correction still happens - it just has no picture with it.
           expect(h.current).not.toBeNull();

@@ -33,7 +33,12 @@ import {
   type GamepadMode,
 } from '../keyboard/controllerConfig';
 import { materializeSampleBlocks } from './sampleBlocks';
-import type { Expectation, ExpectationResult } from '../ai/expectations';
+import {
+  noScreenViews,
+  type Expectation,
+  type ExpectationResult,
+  type ScreenViewRequest,
+} from '../ai/expectations';
 import type { ScreenCapture } from './screenCapture';
 import { computeCompatibleDialects } from '../share/compatibility';
 import {
@@ -245,6 +250,14 @@ interface IdeState {
    */
   aiRunExpectations: Expectation[];
   /**
+   * The views of the screen the assistant asked to be shown when the program it
+   * just handed over runs (see `../ai/expectations`). Set by the apply that
+   * armed the check; nothing asked for when the reply named none, which is the
+   * ordinary case. What decides whether the run is captured - deliberately the
+   * assistant's ask rather than the IDE's guess at when pixels matter.
+   */
+  aiRunViews: ScreenViewRequest;
+  /**
    * How the latest AI-checked run turned out, tagged with the `runRequest` it
    * came from so a stale outcome from a superseded run is ignorable. The AI
    * session store watches this to correct a failure or to tell the assistant
@@ -272,11 +285,17 @@ interface IdeState {
     ranSource: string;
     /**
      * The machine's display as it stood when the verdict was formed, for
-     * showing to the assistant. Absent unless this run needs looking at - a
-     * failure, or an expectation only a look can settle - so the ordinary
-     * working run costs nothing.
+     * showing to the assistant. Absent unless it was asked for - by a named
+     * view, or by an expectation only a look can settle - so a run nobody
+     * wanted to see costs nothing.
      */
     screen?: ScreenCapture;
+    /**
+     * What the assistant asked to be shown for this run, so a view that could
+     * not be produced can be reported back as unavailable rather than answered
+     * with silence.
+     */
+    views: ScreenViewRequest;
   } | null;
   /** Bumped to ask the emulator pane to stop. */
   stopRequest: number;
@@ -650,7 +669,7 @@ interface IdeState {
    * `expectations` are what the applied reply said should be true once the
    * program has run; omitted or empty when it said nothing.
    */
-  requestAiRun(expectations?: Expectation[]): void;
+  requestAiRun(expectations?: Expectation[], views?: ScreenViewRequest): void;
   /**
    * Record how an AI-checked run turned out, once the check reaches a verdict.
    * `ranSource` is the program that was loaded for the run, `expectations` how
@@ -663,6 +682,7 @@ interface IdeState {
     ranSource: string,
     expectations?: ExpectationResult[],
     screen?: ScreenCapture,
+    views?: ScreenViewRequest,
   ): void;
   /** Open the AI panel (and, on mobile, switch to its tab). */
   showAiPanel(): void;
@@ -1137,6 +1157,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   runRequest: 0,
   aiRunCheckSeq: 0,
   aiRunExpectations: [],
+  aiRunViews: noScreenViews(),
   runOutcome: null,
   stopRequest: 0,
   resetRequest: 0,
@@ -1661,19 +1682,27 @@ export const useIdeStore = create<IdeState>((set) => ({
       return { asmErrorBlocks: next };
     }),
   requestRun: () => set((s) => ({ runRequest: s.runRequest + 1 })),
-  requestAiRun: (expectations = []) =>
+  requestAiRun: (expectations = [], views = noScreenViews()) =>
     set((s) => ({
       runRequest: s.runRequest + 1,
       aiRunCheckSeq: s.runRequest + 1,
       aiRunExpectations: expectations,
+      aiRunViews: views,
     })),
-  reportRun: (outcome, ranSource, expectations = [], screen) =>
+  reportRun: (
+    outcome,
+    ranSource,
+    expectations = [],
+    screen,
+    views = noScreenViews(),
+  ) =>
     set((s) => ({
       runOutcome: {
         seq: s.runRequest,
         outcome,
         ranSource,
         expectations,
+        views,
         ...(screen ? { screen } : {}),
       },
     })),

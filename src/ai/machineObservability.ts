@@ -84,5 +84,33 @@ ${forms}${variableNotes}${visualNotes}
 - A \`basic-expect\` block is NEVER program text and is never applied to the editor. Do not put BASIC in it, and do not use it to explain your reasoning.
 - Screen text is matched a row at a time, ignoring how many spaces separate words, and it is case-sensitive. Do not expect text to span two rows, and do not predict where on the screen it lands.
 - State only what your program definitely produces. A program that waits for a keypress never reaches its result, and expectations that were never reached are reported as unchecked rather than as failures.
-- If an expectation does not hold, you will be asked to correct the program exactly as you would be for a runtime error.`;
+- If an expectation does not hold, you will be asked to correct the program exactly as you would be for a runtime error.
+
+${buildScreenViewRules(canShowScreen)}`;
+}
+
+/**
+ * How the assistant asks to be shown the screen when its program is run.
+ *
+ * The ask exists because the IDE cannot make this call: nothing about a
+ * finished screen distinguishes a program that printed a table from one that
+ * drew a table's border out of graphics characters, and the only party that
+ * knows which it wrote is the one that wrote it.
+ *
+ * Stated as plainly as the expectation rules are, and gated the same way: on a
+ * backend that cannot be shown a picture, asking for one is not a thing to
+ * mention as available and then refuse.
+ */
+export function buildScreenViewRules(canShowScreen: boolean): string {
+  if (!canShowScreen) {
+    return `SEEING THE SCREEN
+- The screen CANNOT be shown to you as a picture on this setup. Check what your program does through \`SCREEN CONTAINS\` and \`VAR\` expectations, which are read from the machine itself.`;
+  }
+  return `SEEING THE SCREEN
+- After the code, you MAY add a single \`\`\`basic-view fenced block asking to be shown the machine's screen when your program is run. One view per line; the only view is \`SCREEN IMAGE\`.
+- Ask when the output is something to look at - anything plotted, drawn, coloured, animated, or laid out on the screen - and when seeing it would tell you something the machine's own error report and your expectations would not.
+- Do NOT ask when the program's output is text you could assert on instead: \`SCREEN CONTAINS\` is checked directly against the machine, costs nothing, and is exact.
+- A \`SCREEN SHOWS\` expectation already asks to be shown the screen. You do not need a \`basic-view\` block as well when you have stated one.
+- Naming nothing is perfectly normal and is what most replies do. If you name nothing, you will not be shown the screen - including when the program fails, where you will instead be told that the screen can be shown if you ask for it.
+- A \`basic-view\` block is NEVER program text and is never applied to the editor. Do not put BASIC in it.`;
 }

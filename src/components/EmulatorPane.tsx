@@ -15,8 +15,10 @@ import {
 } from '../app/aiRunCheck';
 import {
   evaluateExpectations,
+  noScreenViews,
   type Expectation,
   type ExpectationResult,
+  type ScreenViewRequest,
 } from '../ai/expectations';
 import { countProgramErrors } from '../app/useProgramStats';
 import { lintBlocks } from '../app/blockLint';
@@ -172,6 +174,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // back is expensive - and latched, so a value that held once stays held.
   const aiCheckExpectRef = useRef<Expectation[]>([]);
   const aiCheckLatchRef = useRef<ExpectationResult[] | null>(null);
+  // The screen views the assistant asked to be shown for this run. What decides
+  // whether the verdict is captured: the pane infers nothing about when a
+  // picture is wanted, it captures what it was asked for.
+  const aiCheckViewsRef = useRef<ScreenViewRequest>(noScreenViews());
   // A step-through debug session is live (run started in debug mode).
   const debugActiveRef = useRef(false);
   // What the current run of slices is doing: 'run' (to next breakpoint) or
@@ -350,12 +356,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             aiCheckLatchRef.current ?? [],
             verdict.outcome,
           );
-          // Show the assistant the screen only where it has something to
-          // answer with it: a failure to diagnose, or an expectation that can
-          // only be settled by looking. A run that simply worked sends nothing.
+          // Captured because the assistant asked to see it - by naming the
+          // view, or by stating an expectation only a look can settle. A run it
+          // did not ask about sends nothing, however it went: whether the
+          // picture is worth having is a judgement only the program's author
+          // can make.
           const needsScreen =
-            verdict.outcome.kind === 'errored' ||
-            results.some((r) => r.status === 'failed') ||
+            aiCheckViewsRef.current.image ||
             aiCheckExpectRef.current.some((e) => e.kind === 'visual');
           // Render before capturing so the picture is the frame this verdict
           // was formed on, not the one before it. The tick's own render below
@@ -369,6 +376,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
               aiCheckSourceRef.current,
               results,
               needsScreen ? (captureScreen() ?? undefined) : undefined,
+              aiCheckViewsRef.current,
             );
         } else {
           aiCheckCountsRef.current = {
@@ -509,6 +517,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         aiCheckExpectRef.current = aiCheckActiveRef.current
           ? useIdeStore.getState().aiRunExpectations
           : [];
+        aiCheckViewsRef.current = aiCheckActiveRef.current
+          ? useIdeStore.getState().aiRunViews
+          : noScreenViews();
         aiCheckLatchRef.current = null;
         // Start a step-through session when debug mode is armed and the machine
         // supports it; the loop then advances by debug slices instead of frames.

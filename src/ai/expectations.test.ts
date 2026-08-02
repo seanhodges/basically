@@ -3,6 +3,9 @@ import type { MachineScreenText, MachineVariable } from '../dialects/types';
 import {
   applyJudgement,
   evaluateExpectations,
+  mergeScreenViews,
+  noScreenViews,
+  parseScreenViews,
   leaveUnjudged,
   parseExpectations,
   parseJudgement,
@@ -417,5 +420,45 @@ describe('applyJudgement', () => {
       status: 'unchecked',
       reason: 'the screen cannot be shown',
     });
+  });
+});
+
+describe('parseScreenViews', () => {
+  it('reads a request to be shown the screen', () => {
+    expect(parseScreenViews('SCREEN IMAGE')).toEqual({
+      image: true,
+      unknown: [],
+    });
+  });
+
+  it('forgives the punctuation and casing a model adds', () => {
+    expect(parseScreenViews('screen image.')).toEqual({
+      image: true,
+      unknown: [],
+    });
+  });
+
+  it('keeps a view it cannot produce, rather than dropping it', () => {
+    expect(parseScreenViews('SCREEN IMAGE\nSCREEN AUDIO')).toEqual({
+      image: true,
+      unknown: ['SCREEN AUDIO'],
+    });
+  });
+
+  it('asks for nothing when the block is empty', () => {
+    expect(parseScreenViews('\n  \n')).toEqual({ image: false, unknown: [] });
+  });
+
+  it('merges the blocks of one reply into a single request', () => {
+    expect(
+      mergeScreenViews([
+        parseScreenViews('SCREEN IMAGE'),
+        parseScreenViews('SCREEN SMELL'),
+      ]),
+    ).toEqual({ image: true, unknown: ['SCREEN SMELL'] });
+  });
+
+  it('merges nothing into nothing asked for', () => {
+    expect(mergeScreenViews([])).toEqual(noScreenViews());
   });
 });

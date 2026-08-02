@@ -11,13 +11,18 @@ import {
   classifyBlock,
   extractCodeBlocks,
   extractExpectations,
+  extractScreenViews,
   isApplicableBlock,
   mergeBasicLines,
   mergePlan,
   type CodeBlock,
   type MergeRow,
 } from '../ai/codeExtractor';
-import type { Expectation } from '../ai/expectations';
+import {
+  noScreenViews,
+  type Expectation,
+  type ScreenViewRequest,
+} from '../ai/expectations';
 import { captureScreen, type ScreenCapture } from '../app/screenCapture';
 import { sourceFingerprint } from '../ai/sourceFingerprint';
 import { getAiProvider, getProviderApiKey } from '../storage/settings';
@@ -329,11 +334,12 @@ export function AiPanel() {
     text: string,
     run: boolean,
     expectations: Expectation[] = [],
+    views: ScreenViewRequest = noScreenViews(),
   ) => {
     replaceDocument(text);
     if (!checkEditorErrors(text) && run) {
       showEmulator();
-      requestAiRun(expectations);
+      requestAiRun(expectations, views);
     }
   };
 
@@ -387,6 +393,9 @@ export function AiPanel() {
     // that the apply arms - so a program that runs is checked against what its
     // author said it should produce.
     const expectations = extractExpectations(msg.content);
+    // What this reply asked to be shown when its program runs. Read from the
+    // same reply as the expectations and carried on the same journey.
+    const views = extractScreenViews(msg.content);
     // Render text with code blocks replaced by panels
     const parts: React.ReactNode[] = [];
     let rest = msg.content;
@@ -417,7 +426,7 @@ export function AiPanel() {
             source={source}
             stale={staleAgainst(msg, source)}
             incomplete={msg.incomplete === true}
-            onApply={(text, run) => applyText(text, run, expectations)}
+            onApply={(text, run) => applyText(text, run, expectations, views)}
           />
         ),
       );

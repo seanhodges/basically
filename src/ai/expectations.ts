@@ -246,6 +246,72 @@ export function evaluateExpectations(
   });
 }
 
+/** The fence tag the assistant names the views it wants to be shown in. */
+export const VIEW_FENCE_TAG = 'basic-view';
+
+/**
+ * The views of the machine's screen the assistant asked to be shown when the
+ * program it just returned is run.
+ *
+ * The decision is the assistant's rather than the IDE's because only the
+ * assistant knows what it wrote: nothing about a finished screen distinguishes a
+ * program that printed a table from one that drew a table's border out of
+ * graphics characters.
+ */
+export interface ScreenViewRequest {
+  /** The screen as a picture. */
+  image: boolean;
+  /**
+   * Views named that cannot be produced. Kept rather than dropped, for the same
+   * reason a malformed expectation is: a mistaken ask the assistant can see
+   * reported back is one it can correct, where a silently ignored one reads as
+   * having been answered.
+   */
+  unknown: string[];
+}
+
+/** Nothing asked for - what most replies say, and the shape of saying nothing. */
+export function noScreenViews(): ScreenViewRequest {
+  return { image: false, unknown: [] };
+}
+
+const IMAGE_VIEW_RE = /^SCREEN\s+IMAGE$/i;
+
+/**
+ * Parse one ` ```basic-view ` block: one view per line.
+ *
+ * Only the screen image can be named. The screen as text is deliberately not a
+ * view here - `SCREEN CONTAINS` already checks text locally and for free, so
+ * offering it would be adding a channel rather than handing over a decision.
+ * The shape takes a list so the next view costs a line.
+ */
+export function parseScreenViews(block: string): ScreenViewRequest {
+  const out = noScreenViews();
+  for (const raw of block.split('\n')) {
+    const line = raw.trim().replace(/[.;,]$/, '');
+    if (line === '') continue;
+    if (IMAGE_VIEW_RE.test(line)) {
+      out.image = true;
+      continue;
+    }
+    out.unknown.push(line);
+  }
+  return out;
+}
+
+/** Fold several view requests (one per block) into one. */
+export function mergeScreenViews(
+  requests: readonly ScreenViewRequest[],
+): ScreenViewRequest {
+  return requests.reduce<ScreenViewRequest>(
+    (acc, r) => ({
+      image: acc.image || r.image,
+      unknown: [...acc.unknown, ...r.unknown],
+    }),
+    noScreenViews(),
+  );
+}
+
 /** The fence tag the assistant answers a "look at this screen" request in. */
 export const JUDGE_FENCE_TAG = 'basic-judge';
 

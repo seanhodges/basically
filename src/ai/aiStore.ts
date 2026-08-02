@@ -31,6 +31,8 @@ import {
   buildRunFix,
   buildRunNote,
   buildScreenJudgeRequest,
+  buildViewNote,
+  unavailableViews,
   FORMAT_RETRY_MESSAGE,
   loadSystemPrompt,
   type PendingFix,
@@ -151,6 +153,14 @@ let autoFixAttempts = 0;
 let pendingRunNote = '';
 
 /**
+ * The screen from that run, when the assistant asked to be shown it and the run
+ * gave no other reason to send one. It waits with the note and is spent with it:
+ * a view that was asked for is carried whether or not the program failed, and a
+ * successful run is not a reason to withhold what was requested.
+ */
+let pendingRunImage: ChatImage | null = null;
+
+/**
  * Persist the thread, dropping the empty placeholder and the `streaming` flag.
  *
  * A shown screen is recorded as a marker and not as pixels: the conversation
@@ -200,9 +210,13 @@ export const useAiStore = create<AiState>((set, get) => ({
     // a long conversation must not exhaust its budget early and then silently
     // stop correcting itself.
     if (!automatic) autoFixAttempts = 0;
-    // Spend any noted run outcome on this request, whoever asked for it.
+    // Spend any noted run outcome on this request, whoever asked for it - and
+    // with it the screen that outcome was asked to carry, unless this request
+    // is already carrying one of its own.
     const note = pendingRunNote;
     pendingRunNote = '';
+    const shown = image ?? pendingRunImage ?? undefined;
+    pendingRunImage = null;
     const baseFingerprint = sourceFingerprint(baseSource);
     const prior = get().messages;
     // History for the API: prior turns + the new request. A screen shown with
@@ -210,15 +224,15 @@ export const useAiStore = create<AiState>((set, get) => ({
     // has to stay byte-stable for the provider's cache to hit, and a cached
     // image reads for a fraction of what re-writing the prefix would cost.
     const baseHistory: ChatMessage[] = [
-      ...prior.map(({ role, content, image: shown }) => ({
+      ...prior.map(({ role, content, image: was }) => ({
         role,
         content,
-        ...(shown ? { image: shown } : {}),
+        ...(was ? { image: was } : {}),
       })),
       {
         role: 'user',
         content: note ? `${note}\n\n${userContent}` : userContent,
-        ...(image ? { image } : {}),
+        ...(shown ? { image: shown } : {}),
       },
     ];
     const myGen = ++gen;
@@ -228,7 +242,11 @@ export const useAiStore = create<AiState>((set, get) => ({
       pendingFix: null,
       messages: [
         ...prior,
-        { role: 'user', content: displayRequest, ...(image ? { image } : {}) },
+        {
+          role: 'user',
+          content: displayRequest,
+          ...(shown ? { image: shown } : {}),
+        },
         {
           role: 'assistant',
           content: '',
@@ -376,6 +394,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     activeHandle = null;
     autoFixAttempts = 0;
     pendingRunNote = '';
+    pendingRunImage = null;
     clearAiConversation();
     set({ messages: [], busy: false, error: '', pendingFix: null });
   },
@@ -530,9 +549,16 @@ useIdeStore.subscribe((state) => {
   const context = resolveRequestContext();
   const canShowScreen =
     context !== null && getProvider(context.providerId).acceptsImages;
-  // The display travels only where the assistant has something to answer with
-  // it, and only to a backend that can be shown one.
+  // The display travels only where the assistant asked to see it (the capture
+  // is taken on that basis) and only to a backend that can be shown one.
   const screen = canShowScreen ? run.screen : undefined;
+  // What it asked for and did not get - reported back rather than passed over.
+  const missedViews = unavailableViews(run.views, screen !== undefined);
+  // A picture was possible and it asked for none: the correction says so, so a
+  // failure it did not foresee is one turn from being visible rather than out
+  // of reach.
+  const screenOffered =
+    canShowScreen && !run.views.image && run.screen === undefined;
 
   // Expectations about how the screen looks are the one form no machine can
   // settle. They arrive unchecked and are settled by showing the assistant what
@@ -557,6 +583,7 @@ useIdeStore.subscribe((state) => {
       pendingRunNote = buildRunNote(
         run.outcome,
         leaveUnjudged(run.expectations, blocked),
+        missedViews,
       );
       return;
     }
@@ -568,14 +595,32 @@ useIdeStore.subscribe((state) => {
   // A run that didn't fail is worth telling the assistant about, but not worth
   // a request of its own: note it and let the next request carry it.
   if (run.outcome.kind !== 'errored' && !wrongResult) {
-    pendingRunNote = buildRunNote(run.outcome, run.expectations);
+    pendingRunNote = buildRunNote(
+      run.outcome,
+      run.expectations,
+      missedViews,
+      screen !== undefined,
+    );
+    // Asked for and produced: it travels with the note, so a view is carried
+    // whether or not the program that produced it failed.
+    pendingRunImage = screen ?? null;
     return;
   }
 
   const buildFix = (screenAttached: boolean): PendingFix =>
     run.outcome.kind === 'errored'
-      ? buildRunFix(state.source, run.outcome.report, screenAttached)
-      : buildExpectationFix(state.source, run.expectations, screenAttached);
+      ? buildRunFix(
+          state.source,
+          run.outcome.report,
+          screenAttached,
+          screenOffered,
+        )
+      : buildExpectationFix(
+          state.source,
+          run.expectations,
+          screenAttached,
+          screenOffered,
+        );
   if (
     edited ||
     ai.busy ||
@@ -593,6 +638,9 @@ useIdeStore.subscribe((state) => {
 
   autoFixAttempts++;
   const fix = buildFix(screen !== undefined);
+  // A failing run's outcome is the correction request, so an unavailable view
+  // rides in front of it - the same words a run that didn't fail would use.
+  pendingRunNote = buildViewNote(missedViews);
   // Surface the panel so a correction the user didn't ask for is visible while
   // it runs, and stoppable like any other reply.
   state.showAiPanel();

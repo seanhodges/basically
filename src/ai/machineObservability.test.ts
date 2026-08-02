@@ -130,6 +130,27 @@ describe('buildExpectationRules', () => {
     }
   });
 
+  it('teaches how to ask for the screen, and when not to', () => {
+    for (const dialect of dialects) {
+      const shown = buildExpectationRules(dialect, true);
+      expect(shown).toContain('```basic-view');
+      expect(shown).toContain('SCREEN IMAGE');
+      // The decision it is being handed: ask when looking tells it something.
+      expect(shown).toContain('Ask when the output is something to look at');
+      // ...and the two ways of not needing to ask.
+      expect(shown).toContain('already asks to be shown the screen');
+      expect(shown).toContain('Naming nothing is perfectly normal');
+    }
+  });
+
+  it('does not offer the ask where the screen cannot be shown', () => {
+    for (const dialect of dialects) {
+      const unseen = buildExpectationRules(dialect, false);
+      expect(unseen).not.toContain('```basic-view');
+      expect(unseen).toContain('CANNOT be shown to you as a picture');
+    }
+  });
+
   it('forbids the visual form where the screen cannot be shown', () => {
     for (const dialect of dialects) {
       const unseen = buildExpectationRules(dialect, false);
