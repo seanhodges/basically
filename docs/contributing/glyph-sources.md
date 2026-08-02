@@ -18,7 +18,7 @@ notation and none of theirs, so it is used only for the file offsets, which are
 offsets into an image this repo ships rather than addresses on any machine.
 Sinclair and TRS-80 BASIC have no hex literal at all and their manuals count in
 decimal; they still record hex here, spelled `$` after the convention
-`docs/reference/data/facts.ts` already uses — translating a decimal input is the
+`src/reference/facts.ts` already uses — translating a decimal input is the
 searching side's job, and carrying two spellings per line would only make the
 index harder to read.
 

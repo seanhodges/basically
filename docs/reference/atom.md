@@ -3,7 +3,7 @@ title: Atom BASIC reference
 ---
 
 <script setup>
-import { atomReference } from './data/atom';
+import { atomReference } from '../../src/reference/atom';
 </script>
 
 # Atom BASIC reference

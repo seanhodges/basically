@@ -24,7 +24,7 @@ import { zx81Reference } from './zx81';
 import { zxspectrumReference } from './zxspectrum';
 import { falseFriends, keywordEquivalences, pairPortingNotes } from './porting';
 import { portingFacts } from './facts';
-import { dialects } from '../../../src/dialects/registry';
+import { dialects } from '../dialects/registry';
 import type { ReferenceTableData } from './types';
 
 const PAGES: Record<string, ReferenceTableData> = {

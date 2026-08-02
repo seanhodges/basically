@@ -3,7 +3,7 @@ title: Acorn Atom escape codes
 ---
 
 <script setup>
-import { atomEscapes } from '../data/escapes/atom';
+import { atomEscapes } from '../../../src/reference/escapes/atom';
 </script>
 
 # Acorn Atom escape codes

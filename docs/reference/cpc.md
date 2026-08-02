@@ -3,7 +3,7 @@ title: Locomotive BASIC reference
 ---
 
 <script setup>
-import { cpcReference } from './data/cpc';
+import { cpcReference } from '../../src/reference/cpc';
 </script>
 
 # Locomotive BASIC reference

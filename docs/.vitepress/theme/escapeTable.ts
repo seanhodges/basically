@@ -1,4 +1,4 @@
-import type { EscapeEntry } from '../../reference/data/types';
+import type { EscapeEntry } from '../../../src/reference/types';
 
 export type SortKey = 'bytes' | 'escape';
 export type SortDir = 'asc' | 'desc';

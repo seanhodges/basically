@@ -13,12 +13,13 @@
  * than its own 3583. Its deletion is what makes the facts per-machine; if a map
  * like it reappears, the fold has come back with it.
  *
- * Like the keyword crosscheck, this file may import src/ freely: vitest runs it
- * in node and the VitePress bundle never includes *.test.ts.
+ * Like the keyword crosscheck, this file may reach the dialect registry freely:
+ * vitest runs it in node, and neither the VitePress bundle nor the IDE's own
+ * bundle includes *.test.ts.
  */
 import { describe, expect, it } from 'vitest';
-import type { Dialect } from '../../../src/dialects/types';
-import { dialects, getDialect } from '../../../src/dialects/registry';
+import type { Dialect } from '../dialects/types';
+import { dialects, getDialect } from '../dialects/registry';
 import type { PortingFacts } from './types';
 import { portingFacts } from './facts';
 

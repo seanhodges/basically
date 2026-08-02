@@ -8,7 +8,7 @@ import { useDismiss } from '../app/useDismiss';
 import { vocabularyReply } from '../app/programVocabulary';
 import { dialects } from '../dialects/registry';
 import { useAiStore } from '../ai/aiStore';
-import { buildSystemPrompt, buildUserMessage } from '../ai/promptBuilder';
+import { buildUserMessage, loadSystemPrompt } from '../ai/promptBuilder';
 import { aiCredentials } from '../ai/credentials';
 import { GearsSpinner } from './GearsSpinner';
 import styles from './DocsDrawer.module.css';
@@ -231,7 +231,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   // "Convert my program" from the compare page: switch into the target dialect
   // (keeping the current program as the starting point, so applying the result
   // lints against the right machine) and ask the AI to translate it.
-  const convertProgram = (data: CompareConvertMessage) => {
+  const convertProgram = async (data: CompareConvertMessage) => {
     const target = dialectForMachineId(data.toId);
     if (!target) return;
     const creds = aiCredentials();
@@ -248,7 +248,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     void useAiStore.getState().send({
       ...creds,
       maxTokens: target.aiProfile.maxTokens,
-      system: buildSystemPrompt(target),
+      system: await loadSystemPrompt(target),
       userContent: buildUserMessage(
         `Translate this program to ${label}, keeping the behaviour identical ` +
           `where the hardware allows and noting any lines that cannot be ` +

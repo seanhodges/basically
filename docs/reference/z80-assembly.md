@@ -3,7 +3,7 @@ title: Z80 assembly reference
 ---
 
 <script setup>
-import { z80AssemblyReference } from './data/z80-assembly';
+import { z80AssemblyReference } from '../../src/reference/z80-assembly';
 </script>
 
 # Z80 assembly reference

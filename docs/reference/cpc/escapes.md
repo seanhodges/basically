@@ -3,7 +3,7 @@ title: Amstrad CPC escape codes
 ---
 
 <script setup>
-import { cpcEscapes } from '../data/escapes/cpc';
+import { cpcEscapes } from '../../../src/reference/escapes/cpc';
 </script>
 
 # Amstrad CPC escape codes

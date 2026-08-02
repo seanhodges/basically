@@ -6,6 +6,7 @@ import {
   buildRunNote,
   buildSystemPrompt,
   FORMAT_RETRY_MESSAGE,
+  loadSystemPrompt,
   RETURNING_CODE_RULES,
 } from './promptBuilder';
 import type { ExpectationResult } from './expectations';
@@ -37,22 +38,60 @@ describe('RETURNING_CODE_RULES', () => {
 });
 
 describe('buildSystemPrompt', () => {
+  /**
+   * Stands in for the machine's composed reference, which the caller loads on
+   * demand. Kept a fixture rather than the real thing so these tests stay
+   * synchronous and stay about composition; what the real one contains is
+   * machineReference.test.ts's subject.
+   */
+  const REFERENCE = 'THIS MACHINE\n- A test machine.';
+
   // Nothing referenced aiProfile in any test before this change, so the 13
   // prompts were entirely unverified.
   it('gives every registered dialect the shared rules exactly once', () => {
     expect(dialects.length).toBeGreaterThan(0);
     for (const dialect of dialects) {
-      const prompt = buildSystemPrompt(dialect);
+      const prompt = buildSystemPrompt(dialect, REFERENCE);
       expect(prompt.split(RETURNING_CODE_RULES).length - 1).toBe(1);
     }
   });
 
   it('keeps each dialect its own machine-specific rules', () => {
     for (const dialect of dialects) {
-      const prompt = buildSystemPrompt(dialect);
+      const prompt = buildSystemPrompt(dialect, REFERENCE);
       expect(prompt).toContain(dialect.aiProfile.systemPrompt);
       expect(prompt).toContain('OUTPUT FORMAT');
     }
+  });
+
+  it('carries the machine reference, ahead of the dialect prose', () => {
+    for (const dialect of dialects) {
+      const prompt = buildSystemPrompt(dialect, REFERENCE);
+      expect(prompt).toContain(REFERENCE);
+      expect(prompt.indexOf(REFERENCE)).toBeLessThan(
+        prompt.indexOf(dialect.aiProfile.systemPrompt),
+      );
+    }
+  });
+
+  it('keeps the four blocks in order', () => {
+    const dialect = dialects[0]!;
+    const prompt = buildSystemPrompt(dialect, REFERENCE);
+    expect(prompt.indexOf(dialect.aiProfile.systemPrompt)).toBeLessThan(
+      prompt.indexOf(RETURNING_CODE_RULES),
+    );
+    expect(prompt.indexOf(RETURNING_CODE_RULES)).toBeLessThan(
+      prompt.indexOf('CHECKING YOUR OWN PROGRAM'),
+    );
+  });
+
+  it('composes the real reference into the prompt it sends', async () => {
+    const dialect = dialects.find((d) => d.id === 'zx81')!;
+    const prompt = await loadSystemPrompt(dialect);
+    expect(prompt).toContain('EVERY COMMAND, FUNCTION AND OPERATOR');
+    expect(prompt).toContain(dialect.aiProfile.systemPrompt);
+    expect(prompt).toContain(RETURNING_CODE_RULES);
+    expect(prompt).toBe(await loadSystemPrompt(dialect));
   });
 
   // The old per-dialect bullet forbade fragments outright; leaving a copy
@@ -67,7 +106,9 @@ describe('buildSystemPrompt', () => {
 
   it('is byte-stable for a given dialect, so the cached prefix holds', () => {
     for (const dialect of dialects) {
-      expect(buildSystemPrompt(dialect)).toBe(buildSystemPrompt(dialect));
+      expect(buildSystemPrompt(dialect, REFERENCE)).toBe(
+        buildSystemPrompt(dialect, REFERENCE),
+      );
     }
   });
 });

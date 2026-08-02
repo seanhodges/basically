@@ -3,7 +3,7 @@ title: ZX Spectrum BASIC reference
 ---
 
 <script setup>
-import { zxspectrumReference } from './data/zxspectrum';
+import { zxspectrumReference } from '../../src/reference/zxspectrum';
 </script>
 
 # ZX Spectrum BASIC reference

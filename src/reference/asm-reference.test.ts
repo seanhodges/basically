@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ReferenceTableData } from './types';
-import { m6502Engine } from '../../../src/asm/m6502';
-import { z80Engine } from '../../../src/asm/z80';
-import type { AsmEngine } from '../../../src/asm/types';
+import { m6502Engine } from '../asm/m6502';
+import { z80Engine } from '../asm/z80';
+import type { AsmEngine } from '../asm/types';
 import { z80AssemblyReference } from './z80-assembly';
 import { m6502AssemblyReference } from './m6502-assembly';
 

@@ -3,7 +3,7 @@ title: 6502 assembly reference
 ---
 
 <script setup>
-import { m6502AssemblyReference } from './data/m6502-assembly';
+import { m6502AssemblyReference } from '../../src/reference/m6502-assembly';
 </script>
 
 # 6502 assembly reference

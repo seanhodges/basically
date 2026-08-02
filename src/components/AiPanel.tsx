@@ -3,7 +3,7 @@ import { useIdeStore } from '../app/store';
 import { useOnline } from '../app/useOnline';
 import { useAiStore, type DisplayMessage } from '../ai/aiStore';
 import {
-  buildSystemPrompt,
+  loadSystemPrompt,
   buildUserMessage,
   buildEditorFix,
 } from '../ai/promptBuilder';
@@ -260,7 +260,7 @@ export function AiPanel() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  const send = () => {
+  const send = async () => {
     const request = input.trim();
     if (request === '' || busy || !online) return;
     const providerId = getAiProvider();
@@ -277,7 +277,7 @@ export function AiPanel() {
       apiKey,
       model: provider.defaultModel,
       maxTokens: dialect.aiProfile.maxTokens,
-      system: buildSystemPrompt(dialect),
+      system: await loadSystemPrompt(dialect),
       userContent: buildUserMessage(request, source, errors),
       displayRequest: request,
       baseSource: source,
@@ -325,7 +325,7 @@ export function AiPanel() {
   };
 
   // Accept a one-tap fix: send it to Claude, continuing the conversation.
-  const sendFix = () => {
+  const sendFix = async () => {
     const fix = useAiStore.getState().pendingFix;
     if (!fix || busy || !online) return;
     const providerId = getAiProvider();
@@ -341,7 +341,7 @@ export function AiPanel() {
       apiKey,
       model: provider.defaultModel,
       maxTokens: dialect.aiProfile.maxTokens,
-      system: buildSystemPrompt(dialect),
+      system: await loadSystemPrompt(dialect),
       userContent: fix.userContent,
       displayRequest: fix.displayRequest,
       baseSource: source,

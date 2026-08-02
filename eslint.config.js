@@ -54,6 +54,35 @@ export default tseslint.config(
       ],
     },
   },
+  // The shared reference tree (src/reference/) is ~12,000 lines of tables that
+  // only the AI assistant needs, and only once the user sends something. It is
+  // reached through a dynamic import in src/ai/machineReference.ts so it lands
+  // in chunks of its own; one static import from anywhere in the app would put
+  // the lot back in the initial download, and nothing would fail. So it fails
+  // here instead.
+  //
+  // `import()` is untouched (this rule only sees static imports), as are type
+  // imports, which are erased at build. The tree itself is exempt - its modules
+  // are each other's siblings - and so are tests, which vitest runs in node.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/reference/**', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/reference/*', '**/reference/**/*'],
+              message:
+                'Load the reference data on demand instead: import() it (see src/ai/machineReference.ts), or import only its types.',
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Keep ESLint out of Prettier's lane (must be last).
   prettier,
 );

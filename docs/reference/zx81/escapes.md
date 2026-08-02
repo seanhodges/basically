@@ -3,7 +3,7 @@ title: ZX81 escape codes
 ---
 
 <script setup>
-import { zx81Escapes } from '../data/escapes/zx81';
+import { zx81Escapes } from '../../../src/reference/escapes/zx81';
 </script>
 
 # ZX81 escape codes

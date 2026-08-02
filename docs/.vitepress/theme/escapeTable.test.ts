@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { EscapeEntry } from '../../reference/data/types';
+import type { EscapeEntry } from '../../../src/reference/types';
 import { filterEscapes, sortEscapes } from './escapeTable';
 
 const entry = (over: Partial<EscapeEntry>): EscapeEntry => ({

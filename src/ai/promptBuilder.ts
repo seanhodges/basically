@@ -2,6 +2,7 @@ import type { Dialect, MachineReport, TokenizeError } from '../dialects/types';
 import type { AiRunOutcome } from '../app/store';
 import type { ExpectationResult } from './expectations';
 import { buildExpectationRules } from './machineObservability';
+import { loadMachineReference } from './machineReference';
 
 /**
  * A correction the assistant is offering after an apply/run turned up problems.
@@ -45,12 +46,37 @@ export const RETURNING_CODE_RULES = `RETURNING CODE
 /**
  * The system prompt stays byte-stable per dialect (good for prompt caching);
  * volatile context - current program, lint errors - rides in the user turn.
+ *
+ * `machineReference` is the machine's own language definition, composed from the
+ * shared reference data - every command it has, its language rules and hardware
+ * figures, and what to do where it is short of a capability. It is passed in
+ * rather than read here so this function stays synchronous and total: the data
+ * behind it is loaded on demand (see {@link loadSystemPrompt}), and a prompt
+ * builder that had to await its own inputs would be far harder to test.
+ *
+ * It leads the prompt. The dialect's own prose follows, carrying what the data
+ * cannot - the machine's quirks, its performance advice and the reply format.
  */
-export function buildSystemPrompt(dialect: Dialect): string {
+export function buildSystemPrompt(
+  dialect: Dialect,
+  machineReference: string,
+): string {
   // The expectation rules vary by machine (two of them cannot report their
   // variables), but only by machine - so the composed prompt is still
   // byte-stable per dialect, which is what prefix caching needs.
-  return `${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}\n\n${buildExpectationRules(dialect)}`;
+  return `${machineReference}\n\n${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}\n\n${buildExpectationRules(dialect)}`;
+}
+
+/**
+ * {@link buildSystemPrompt} with the machine's reference fetched on demand.
+ *
+ * What every caller wants: the reference tables are large and the assistant is
+ * optional, so they are code-split and pulled in at the point of use. The result
+ * is memoised per dialect, so this is one dynamic import per machine per
+ * session and free thereafter.
+ */
+export async function loadSystemPrompt(dialect: Dialect): Promise<string> {
+  return buildSystemPrompt(dialect, await loadMachineReference(dialect));
 }
 
 export function buildUserMessage(

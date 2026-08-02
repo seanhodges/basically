@@ -113,7 +113,7 @@ is typed through the key matrix (OS-version independent) rather than poked into
 the buffer.
 
 **Acorn Atom language-coverage gaps** (surfaced by the reference-manual audit).
-The `atom` tokenizer is missing several genuine Atom BASIC features, so they are also absent from `docs/reference/data/atom.ts`:
+The `atom` tokenizer is missing several genuine Atom BASIC features, so they are also absent from `src/reference/atom.ts`:
 
 - The memory indirection operators `?` (byte), `!` (4-byte word) and `$`
   (string) - the Atom's idiomatic replacement for `PEEK`/`POKE`.

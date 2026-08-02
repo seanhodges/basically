@@ -3,7 +3,7 @@ title: ZX Spectrum escape codes
 ---
 
 <script setup>
-import { zxspectrumEscapes } from '../data/escapes/zxspectrum';
+import { zxspectrumEscapes } from '../../../src/reference/escapes/zxspectrum';
 </script>
 
 # ZX Spectrum escape codes

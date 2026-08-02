@@ -3,7 +3,7 @@ title: TRS-80 escape codes
 ---
 
 <script setup>
-import { trs80Escapes } from '../data/escapes/trs80';
+import { trs80Escapes } from '../../../src/reference/escapes/trs80';
 </script>
 
 # TRS-80 escape codes

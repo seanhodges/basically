@@ -7,7 +7,7 @@
  * actually ask, or these tests reject it as dead.
  */
 import { describe, expect, it } from 'vitest';
-import { diffKeywords } from '../../.vitepress/theme/dialectCompare';
+import { diffKeywords } from './compare';
 import { atomReference } from './atom';
 import { bbcReference } from './bbc';
 import { commodoreReference } from './commodore';

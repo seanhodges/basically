@@ -3,7 +3,7 @@ title: BBC BASIC reference
 ---
 
 <script setup>
-import { bbcReference } from './data/bbc';
+import { bbcReference } from '../../src/reference/bbc';
 </script>
 
 # BBC BASIC reference

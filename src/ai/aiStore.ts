@@ -15,12 +15,13 @@ import {
   getProviderApiKey,
 } from '../storage/settings';
 import { useIdeStore } from '../app/store';
+import type { Dialect } from '../dialects/types';
 import {
   buildExpectationFix,
   buildRunFix,
   buildRunNote,
-  buildSystemPrompt,
   FORMAT_RETRY_MESSAGE,
+  loadSystemPrompt,
   type PendingFix,
 } from './promptBuilder';
 import { getProvider } from './providers/registry';
@@ -346,7 +347,8 @@ function resolveRequestContext(): {
   apiKey: string;
   model: string;
   maxTokens: number;
-  system: string;
+  /** The machine to build the system prompt for; see {@link loadSystemPrompt}. */
+  dialect: Dialect;
 } | null {
   const providerId = getAiProvider();
   const apiKey = getProviderApiKey(providerId);
@@ -357,7 +359,7 @@ function resolveRequestContext(): {
     apiKey,
     model: getProvider(providerId).defaultModel,
     maxTokens: dialect.aiProfile.maxTokens,
-    system: buildSystemPrompt(dialect),
+    dialect,
   };
 }
 
@@ -420,11 +422,18 @@ useIdeStore.subscribe((state) => {
   // Surface the panel so a correction the user didn't ask for is visible while
   // it runs, and stoppable like any other reply.
   state.showAiPanel();
-  void ai.send({
-    ...context,
-    userContent: fix.userContent,
-    displayRequest: fix.displayRequest,
-    baseSource: state.source,
-    automatic: true,
-  });
+  // The machine's reference is fetched on demand, so the system prompt resolves
+  // asynchronously - which costs this path nothing, since it was already firing
+  // the request without waiting for it.
+  const { dialect, ...request } = context;
+  void loadSystemPrompt(dialect).then((system) =>
+    ai.send({
+      ...request,
+      system,
+      userContent: fix.userContent,
+      displayRequest: fix.displayRequest,
+      baseSource: state.source,
+      automatic: true,
+    }),
+  );
 });

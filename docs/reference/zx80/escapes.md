@@ -3,7 +3,7 @@ title: ZX80 escape codes
 ---
 
 <script setup>
-import { zx80Escapes } from '../data/escapes/zx80';
+import { zx80Escapes } from '../../../src/reference/escapes/zx80';
 </script>
 
 # ZX80 escape codes

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ReferenceEntry } from '../../reference/data/types';
+import type { ReferenceEntry } from '../../../src/reference/types';
 import { filterEntries, findEntryByName, sortEntries } from './referenceTable';
 
 const ENTRIES: ReferenceEntry[] = [

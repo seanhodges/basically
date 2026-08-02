@@ -24,8 +24,8 @@ Machines and docs pages are not 1:1: sibling dialects share a page via the
 
 | Artifact                                            | Content                                                                                                                                                                                                                                                          |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/reference/data/<page>.ts`                     | `ReferenceTableData` — every keyword, hand-enriched syntax + descriptions                                                                                                                                                                                        |
-| `docs/reference/data/escapes/<page>.ts`             | `EscapeTableData` — every escape spelling with byte probes                                                                                                                                                                                                       |
+| `src/reference/<page>.ts`                           | `ReferenceTableData` — every keyword, hand-enriched syntax + descriptions                                                                                                                                                                                        |
+| `src/reference/escapes/<page>.ts`                   | `EscapeTableData` — every escape spelling with byte probes                                                                                                                                                                                                       |
 | `docs/reference/<page>.md`                          | Parent page: intro → Notes and caveats → `<ReferenceTable>` → footer                                                                                                                                                                                             |
 | `docs/reference/<page>/hardware.md`                 | One H2 per machine × `### Screen modes/Colour/Graphics/Sound/Memory`                                                                                                                                                                                             |
 | `docs/reference/<page>/escapes.md` and `formats.md` | `<EscapeTable>` page; native containers + closing `## Cassette audio`                                                                                                                                                                                            |
@@ -57,7 +57,7 @@ has no sound hardware.").
    enrichment.
 2. **Enrich by hand.** Rewrite each row's `syntax` into the typed `<…>` style
    and each `description` into 1–3 sentences in the docs voice (see any mature
-   set, e.g. `docs/reference/data/zx81.ts`). `tag` marks machine/version
+   set, e.g. `src/reference/zx81.ts`). `tag` marks machine/version
    availability only ("128K only", "BASIC 1.1 only") — semantic notes belong in
    the description. Escape rows additionally need `category`, an
    `example: {source, bytes}` probe, and `codes` claims — the crosscheck suite
@@ -72,14 +72,14 @@ has no sound hardware.").
    shared ones — see the PET group), index bullet in registry order, the CPU's
    assembly-page machine lists, `docsReference` on any sibling dialect.
 5. **Extend the crosscheck layer.** Add the new set to
-   `docs/reference/data/reference-data.test.ts`,
-   `docs/reference/data/keyword-crosscheck.test.ts` and
-   `docs/reference/data/escapes/escape-crosscheck.test.ts` (imports + a
+   `src/reference/reference-data.test.ts`,
+   `src/reference/keyword-crosscheck.test.ts` and
+   `src/reference/escapes/escape-crosscheck.test.ts` (imports + a
    per-dialect probe block for the escapes).
 
 ## Workflow B — update or audit an existing dialect
 
-1. Run `npx vitest run docs/reference/data` — the crosscheck suites surface
+1. Run `npx vitest run src/reference` — the crosscheck suites surface
    drift mechanically: a keyword without a reference row, an invented row, an
    escape byte no row claims, a probe that no longer tokenizes.
 2. Diff the hardware page's Memory section against `memoryBlocks.ts` /
