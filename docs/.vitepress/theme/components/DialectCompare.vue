@@ -801,11 +801,27 @@ useDeepLinkParams(({ from: f, to: t }) => {
   if (t && optionFor(t)) to.value = t;
 });
 
+/**
+ * Ask the app to carry the port out.
+ *
+ * Both ends travel, not just the target: the app assembles the request from the
+ * same comparison data this page renders, and it cannot work out which machine
+ * the program is being ported *from* on its own - the guide is normally reached
+ * by switching to a machine that will not run the program and keeping it, so by
+ * then the IDE's selected dialect is the target. `fromId` is undefined where the
+ * source selection does not resolve, which the app reads as "no source machine"
+ * and answers by sending its plain request rather than a wrong report.
+ */
 function convertWithAi() {
   const t = target.value;
   if (!t) return;
   window.parent.postMessage(
-    { type: CONVERT_MESSAGE, toId: t.id, toLabel: t.name },
+    {
+      type: CONVERT_MESSAGE,
+      toId: t.id,
+      toLabel: t.name,
+      fromId: source.value?.id,
+    },
     window.location.origin,
   );
 }

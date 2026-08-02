@@ -8,6 +8,7 @@ import {
   PROGRAM_VOCABULARY_MESSAGE,
   PROGRAM_VOCABULARY_REQUEST,
 } from './DocsDrawer';
+import { convertSource } from './convertMessage';
 import { vocabularyReply } from '../app/programVocabulary';
 import { getDialect } from '../dialects/registry';
 
@@ -47,6 +48,58 @@ describe('compare-convert message contract', () => {
     expect(postedFields('CONVERT_MESSAGE')).toEqual(
       expect.arrayContaining(['type', ...COMPARE_CONVERT_FIELDS]),
     );
+  });
+
+  it('the request names the machine being ported from', () => {
+    // Covered by the assertion above too, but named here for what it costs: a
+    // convert with no source machine silently loses the entire port report -
+    // the whole point of the request - and sends the plain "translate this"
+    // message the feature exists to replace. Nothing raises; it just quietly
+    // gets worse.
+    expect(postedFields('CONVERT_MESSAGE')).toContain('fromId');
+  });
+});
+
+describe('resolving the machine a port comes from', () => {
+  const spectrum = getDialect('zxspectrum');
+
+  it('takes the machine the request names', () => {
+    expect(convertSource('commodore64', null, spectrum)?.id).toBe(
+      'commodore64',
+    );
+  });
+
+  it('falls back to the machine the guide last read the program as', () => {
+    // A cached older documentation bundle posts no `fromId` at all, but still
+    // asks what the program uses and names the machine it wants it read as.
+    expect(convertSource(undefined, 'commodore64', spectrum)?.id).toBe(
+      'commodore64',
+    );
+    expect(convertSource('dragon32', 'commodore64', spectrum)?.id).toBe(
+      'commodore64',
+    );
+  });
+
+  it('resolves nothing when neither names a registered machine', () => {
+    expect(convertSource(undefined, null, spectrum)).toBeNull();
+    expect(convertSource('dragon32', 'oric1', spectrum)).toBeNull();
+    expect(convertSource(42, null, spectrum)).toBeNull();
+  });
+
+  it('never returns the machine being ported to', () => {
+    // A port from a machine to itself has nothing to report, and a report
+    // claiming otherwise would be describing a port that is not happening.
+    expect(convertSource('zxspectrum', null, spectrum)).toBeNull();
+    expect(convertSource(undefined, 'zxspectrum', spectrum)).toBeNull();
+  });
+
+  it('never guesses, so no source machine means no report', () => {
+    // The chain deliberately does not end in the IDE's selected dialect. The
+    // guide is reached by switching to a machine that will not run the program
+    // and keeping it, so at convert time the selected dialect *is* the target -
+    // and a report built on the wrong source is confidently wrong advice
+    // carrying the authority of tested data.
+    expect(convertSource(null, null, spectrum)).toBeNull();
   });
 });
 

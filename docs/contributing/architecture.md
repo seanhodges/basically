@@ -246,9 +246,19 @@ dialects, per machine.
 
 Two consumers, deliberately: the documentation site renders it as the reference
 and comparison pages, and the AI assistant composes it into the machine
-description sent with every request (`machineDescription.ts`). That is why it
+description sent with every request (`machineDescription.ts`) and into the
+findings sent with a port request (`portDescription.ts`). That is why it
 lives under `src/` rather than under `docs/` - the dependency runs docs → src
 and never the reverse.
+
+The two composers are halves of one answer, and are written to be read as one
+document: `machineDescription.ts` says what the target machine _is_, the same
+every time, and rides in the cached system prompt; `portDescription.ts` says
+what _this_ port of _this_ program requires, so it varies with the program and
+rides in the user turn. `describePort` mirrors `DialectCompare.vue`'s
+composition call for call - the same `compare.ts` functions with the same
+arguments, narrowed by the same three helpers - so the guide's display and the
+assistant's briefing cannot report different ports.
 
 Nothing in this folder may reach the dialect registry: the docs runtime cannot
 afford it (the registry imports every dialect index, and each pulls in an
@@ -258,11 +268,17 @@ The tests themselves import the registry freely - vitest runs them in node, and
 neither bundle includes `*.test.ts`.
 
 The app reaches this folder **only** through a dynamic `import()`
-(`src/ai/machineReference.ts`): it is ~12,000 lines the assistant alone needs,
-so it is code-split into one chunk per reference page. An ESLint
-`no-restricted-imports` rule refuses static imports of `src/reference/**` from
-the rest of `src/`, so the boundary fails the linter rather than quietly growing
-the initial download.
+(`src/ai/machineReference.ts`, which serves the keyword pages and the escape
+pages alike): it is ~12,000 lines the assistant alone needs, so it is code-split
+into one chunk per reference page. An ESLint `no-restricted-imports` rule
+refuses static imports of `src/reference/**` from the rest of `src/`, so the
+boundary fails the linter rather than quietly growing the initial download.
+
+Two loading contracts sit behind that one module, and the difference is
+deliberate. `loadMachineReference` **throws** for an unregistered page, because
+a test sweeps every registered dialect and catches it long before a user could.
+`loadReferencePage` / `loadEscapePage` return `undefined`, because their caller
+is a click that must still do the work it can.
 
 ### Integration services
 
@@ -545,6 +561,22 @@ Key details:
   argument; `loadSystemPrompt` awaits the deferred load and is what callers
   use.
 - The user message embeds the current program and up to 20 tokenizer errors.
+- **Carrying out a port** takes a second path through the same reference data.
+  `src/ai/portReport.ts` is the seam: `buildConversionMessage()` reads the
+  program's vocabulary as the machine being ported _from_, composes the
+  narrowed findings via `loadPortReport()` → `describePort()`, and returns the
+  turn `program → findings → the ask`. The findings ride in the user turn, not
+  the system prompt, precisely because they vary with the program - putting them
+  in the prompt would destroy the byte-stability prefix caching depends on.
+  Their size is bounded by the program's vocabulary rather than by the distance
+  between the machines, and what the target _adds_ is never included.
+  The source machine crosses the docs-iframe boundary as `fromId` (see
+  `COMPARE_CONVERT_FIELDS`); it is never inferred from the selected dialect,
+  which at convert time is the machine being ported _to_. Two failure modes,
+  deliberately different: a gap in the app's own data (no source machine, an
+  unregistered page) degrades to the plain request, while an empty or unreadable
+  _program_ declines with a status-bar notice and changes nothing - one is the
+  app's gap, the other is the user's, visible and fixable.
 - Each generated block is either a whole listing or a fragment. The model
   declares which with the fence tag (` ```basic ` / ` ```basic-partial `), and
   `classifyBlock()` cross-checks that against the block's line numbers. The

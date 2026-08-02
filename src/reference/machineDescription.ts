@@ -39,8 +39,15 @@ export interface MachineIdentity {
   page: string;
 }
 
-/** How a keyword's capability domain is titled in the command list. */
-const DOMAIN_TITLES: Record<KeywordDomain, string> = {
+/**
+ * How a keyword's capability domain is titled in the command list.
+ *
+ * Exported for `./portDescription.ts`, which titles the same domains in the
+ * per-port findings: the standing machine description and the findings sent with
+ * a request are read as one document, so "Memory and hardware" must not become
+ * "Memory & hardware" halfway down it.
+ */
+export const DOMAIN_TITLES: Record<KeywordDomain, string> = {
   'control-flow': 'Control flow',
   data: 'Data',
   numeric: 'Numbers',

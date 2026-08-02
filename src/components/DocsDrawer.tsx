@@ -6,9 +6,10 @@ import { useIdeStore } from '../app/store';
 import { openingTopicFor } from '../app/docsTopic';
 import { useDismiss } from '../app/useDismiss';
 import { vocabularyReply } from '../app/programVocabulary';
-import { dialects } from '../dialects/registry';
+import { convertSource, dialectForMachineId } from './convertMessage';
 import { useAiStore } from '../ai/aiStore';
-import { buildUserMessage, loadSystemPrompt } from '../ai/promptBuilder';
+import { loadSystemPrompt } from '../ai/promptBuilder';
+import { buildConversionMessage } from '../ai/portReport';
 import { aiCredentials } from '../ai/credentials';
 import { GearsSpinner } from './GearsSpinner';
 import styles from './DocsDrawer.module.css';
@@ -29,7 +30,19 @@ const DOCS_CLOSE_MESSAGE = 'basically:docs-close';
 const DOCS_READY_MESSAGE = 'basically:docs-ready';
 export const COMPARE_CONVERT_MESSAGE = 'basically:compare-convert';
 
-export const COMPARE_CONVERT_FIELDS = ['toId', 'toLabel'] as const;
+/**
+ * `fromId` is the machine being ported *from*. It travels with the request
+ * rather than being inferred because there is nothing here to infer it from: the
+ * guide is normally reached by switching to a machine that will not run the
+ * program and keeping it, so at convert time the selected dialect is the machine
+ * being ported *to*. A message asking for a port should say what the port is,
+ * both ends of it.
+ *
+ * There is no `fromLabel`, unlike `toLabel`: the app resolves the dialect from
+ * the registry and has its name, manufacturer and year already. `toLabel` exists
+ * only because it predates the id-based lookup.
+ */
+export const COMPARE_CONVERT_FIELDS = ['toId', 'toLabel', 'fromId'] as const;
 
 type CompareConvertMessage = Partial<
   Record<(typeof COMPARE_CONVERT_FIELDS)[number], unknown>
@@ -68,20 +81,6 @@ type ProgramVocabularyRequest = { from?: unknown };
 
 /** The one message we post *into* the frame: route to another docs topic. */
 const DOCS_NAVIGATE_MESSAGE = 'basically:docs-navigate';
-
-/**
- * Resolve the porting guide's conversion target to a dialect.
- *
- * The guide sends a machine id and nothing else. It used to send a docs page
- * slug, which several machines share - so the lookup matched on the page and
- * returned whichever family member came first in the registry, and converting
- * to Locomotive BASIC opened a CPC 464 however clearly the reader had asked for
- * a 6128. Matching ids only is what removes that whole class of ambiguity.
- */
-function dialectForMachineId(id: unknown) {
-  if (typeof id !== 'string') return undefined;
-  return dialects.find((d) => d.id === id);
-}
 
 /** The machine id a vocabulary request names, or null when it names none. */
 function readDialectId(data: ProgramVocabularyRequest): string | null {
@@ -230,14 +229,48 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
 
   // "Convert my program" from the compare page: switch into the target dialect
   // (keeping the current program as the starting point, so applying the result
-  // lints against the right machine) and ask the AI to translate it.
+  // lints against the right machine) and ask the AI to translate it - carrying
+  // what the comparison already worked out for this program, so the port is not
+  // worked out a second time from the assistant's recollection.
+  //
+  // Two gaps, handled deliberately differently. A missing source machine or an
+  // unregistered reference page is the *app's* own gap: invisible to the user,
+  // and no reason to refuse work that can still be done adequately, so
+  // `buildConversionMessage` degrades to the message this button always sent. A
+  // missing or unreadable *program* is the user's own state - visible to them,
+  // one keystroke from being fixed, and there is no adequate port to be had from
+  // it - so that stops and says why.
   const convertProgram = async (data: CompareConvertMessage) => {
     const target = dialectForMachineId(data.toId);
     if (!target) return;
+    // First, so a user with no assistant configured sees exactly what they see
+    // today whatever state their program is in.
     const creds = aiCredentials();
     if (!creds) return;
     const label = typeof data.toLabel === 'string' ? data.toLabel : target.name;
     const original = useIdeStore.getState().source;
+    // Resolved before the switch below, which changes the selected dialect: after
+    // it, the machine being ported *from* is no longer anywhere in the store.
+    const from = convertSource(data.fromId, vocabularyFrom.current, target);
+    // Awaited together so the click does not serialise two chains of dynamic
+    // imports - the report and the system prompt each pull in reference data.
+    const [message, system] = await Promise.all([
+      buildConversionMessage({
+        from,
+        to: target,
+        toLabel: label,
+        source: original,
+      }),
+      loadSystemPrompt(target),
+    ]);
+    if (!message.ok) {
+      // Before the drawer closes, before the switch and before the panel opens,
+      // so the machine, the program and the drawer are all left as they were and
+      // the notice is the only thing that happens. `StatusBar` renders it - the
+      // channel a failed shared-program load and a failed import already use.
+      useIdeStore.getState().setStatusNotice(message.message);
+      return;
+    }
     closeDocs();
     // A real dialect switch that keeps the program text and bypasses the confirm
     // dialog (the user chose to convert). Clears the AI thread, so send after.
@@ -248,14 +281,8 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     void useAiStore.getState().send({
       ...creds,
       maxTokens: target.aiProfile.maxTokens,
-      system: await loadSystemPrompt(target),
-      userContent: buildUserMessage(
-        `Translate this program to ${label}, keeping the behaviour identical ` +
-          `where the hardware allows and noting any lines that cannot be ` +
-          `ported. Return the complete converted program.`,
-        original,
-        [],
-      ),
+      system,
+      userContent: message.userContent,
       displayRequest: `Convert this program to ${label}`,
       baseSource: original,
     });
