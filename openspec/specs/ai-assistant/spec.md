@@ -212,6 +212,15 @@ raises no failure SHALL be reported as having run without failing. Either way no
 correction follows, so which of the two is reported SHALL NOT change what the
 assistant is asked to do.
 
+A reported outcome MAY additionally carry the machine's screen, as text or as an
+image or as both. Where it carries an image, that image SHALL be the machine's
+screen at the machine's own resolution and SHALL NOT be enlarged, so that what
+the assistant is shown is what the machine drew and the cost of showing it stays
+proportional to the machine.
+
+Which views an outcome carries SHALL NOT change what the assistant is asked to
+do.
+
 Where the machine cannot report its runtime state, no outcome SHALL be reported
 and the rest of the assistant SHALL be unaffected.
 
@@ -241,6 +250,18 @@ and the rest of the assistant SHALL be unaffected.
 - **WHEN** a program applied and run from the assistant is still running when the
   check ends
 - **THEN** it is treated as having run, and no failure is reported
+
+#### Scenario: The screen is shown as the machine drew it
+
+- **WHEN** an outcome carries the screen as an image
+- **THEN** the image is the machine's own screen at its own resolution, neither
+  enlarged nor otherwise resampled
+
+#### Scenario: A screen does not change the request
+
+- **WHEN** an outcome carries the screen as well as how the run went
+- **THEN** what the assistant is asked to do is what the outcome alone would have
+  asked of it
 
 #### Scenario: A machine that cannot report its runtime state
 
