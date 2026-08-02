@@ -147,9 +147,21 @@ correction is.
 **Why one turn rather than two:** a separate "judge" turn followed by a "fix"
 turn doubles the request count and the latency for the failing case, and the
 model has everything it needs to do both at once. Folding them keeps the cost of
-being shown the screen to one request, which is what lets the judging turn sit
-inside the existing `MAX_AUTO_FIX_ATTEMPTS` budget rather than needing a budget
-of its own.
+being shown the screen to one request.
+
+**How it meets `MAX_AUTO_FIX_ATTEMPTS`:** the budget counts corrections, not
+round trips. Judging is how the run's outcome is established — the visual
+counterpart of reading `readReport` — so a judging turn does not spend an
+attempt by itself, and a run that looked right costs nothing. When the same turn
+comes back with a failure and a corrected program, that correction increments the
+counter exactly as an error correction does, so a visually-checked run gets the
+same two unrequested corrections as any other and no more. The judging turn is
+issued once per run (the run check settles once), which is what bounds it without
+being counted: further judgements need another run, and runs are user-initiated.
+Rejected: charging the judging turn to the budget — it makes the machinery for
+checking a run compete with the corrections that machinery exists to trigger, so
+a program judged good would have silently cost the user one of its two chances to
+be fixed later.
 
 **Why the assistant judges rather than the IDE:** the alternative is the IDE
 deciding what "the maze is drawn with no gaps" means, which is the pixel analysis
@@ -184,9 +196,9 @@ describe the same instant, which matters for a program that is still animating.
 
 - **Cost per correction rises.** An upscaled retro screen is on the order of a
   few hundred input tokens, and it persists in history. → Bounded by only ever
-  sending on attach or on a failing/judging run, by the integer-upscale cap, and
-  by the unchanged `MAX_AUTO_FIX_ATTEMPTS` budget that the judging turn now
-  shares rather than extends.
+  sending on attach or on a failing/judging run, by the integer-upscale cap, by
+  one judging turn per run, and by the unchanged `MAX_AUTO_FIX_ATTEMPTS` cap on
+  the corrections that follow.
 - **The assistant marks its own homework.** A model asked whether its program did
   what it said may be generous. → The verdict only ever gates an *additional*
   unrequested correction; a false pass leaves the user exactly where they are

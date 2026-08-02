@@ -77,14 +77,17 @@
       into the run note, fail reports the run as failed, malformed or missing
       reports unchecked.
 - [ ] 5.5 Issue the judging turn from `aiStore.ts` when the run check settles:
-      inside `MAX_AUTO_FIX_ATTEMPTS`, marked as an automatic turn, stoppable, and
-      never started when the program has changed since.
+      once per run, marked as an automatic turn, stoppable, and never started
+      when the program has changed since. It does not spend
+      `MAX_AUTO_FIX_ATTEMPTS` by itself — the counter increments only when the
+      reply carries a correction, exactly as an error correction does.
 - [ ] 5.6 Report visual expectations as unchecked (never failed) when there is no
       capture or the provider cannot be shown one.
 - [ ] 5.7 Extend `src/ai/expectations.test.ts`, `promptBuilder.test.ts` and
       `aiStore.test.ts` for parsing, prompt gating, verdict parsing (including
-      malformed), the bound being shared with corrections, and stopping a
-      judgement mid-flight.
+      malformed), one judging turn per run, a passing judgement spending none of
+      `MAX_AUTO_FIX_ATTEMPTS` (a later failure still gets its full allowance), a
+      failing one spending exactly one, and stopping a judgement mid-flight.
 
 ## 6. Quality gates
 

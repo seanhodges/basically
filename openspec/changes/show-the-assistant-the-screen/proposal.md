@@ -28,8 +28,11 @@ permission — and the plumbing — to put that frame in front of the assistant.
   `SCREEN CONTAINS`. Because no machine can evaluate one, a visual expectation
   is settled by showing the assistant the captured display and asking it to
   judge its own program; a verdict of "not as stated" is a failed run on exactly
-  the terms a runtime error already is, and travels through the same bounded,
-  stoppable, unrequested-correction loop.
+  the terms a runtime error already is, and travels through the same stoppable,
+  unrequested-correction loop. Judging is part of settling the run, not one of
+  the corrections, so it does not spend the bound on unrequested corrections —
+  a run whose outcome needed a look at the screen still gets its full allowance
+  of corrections, and one that looked right costs none of it.
 - **The provider seam grows image input, capability-gated.** A message may carry
   an image as well as text, and each backend maps it to its own wire format. A
   provider that cannot take images is honestly incapable rather than silently

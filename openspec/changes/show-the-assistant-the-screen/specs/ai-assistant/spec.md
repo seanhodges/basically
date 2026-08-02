@@ -221,12 +221,17 @@ When a run initiated from the assistant fails with a genuine machine error, the
 assistant SHALL be asked to correct it without the user having to request it.
 
 The number of corrections attempted without asking SHALL be bounded and the same
-for every machine and every provider. Asking the assistant to judge its own
-program against the display it produced SHALL be counted against that same
-bound, so being shown the screen cannot make a failing program cost more
-unrequested requests than it does today. Once the bound is reached the failure
-SHALL be offered as a fix the user chooses to accept, rather than attempted
-again — so the user is always the one who decides whether to keep going.
+for every machine and every provider. The bound SHALL count corrections, not the
+requests made to establish whether a run failed: asking the assistant to judge
+its own program against the display it produced is part of settling that run, and
+SHALL NOT spend the bound by itself. Where such a request also returns a
+correction, that correction SHALL spend exactly one — the same one an error
+correction spends — so a run whose outcome needed judging gets no fewer, and no
+more, unrequested corrections than one whose outcome did not. At most one judging
+request SHALL be made per run, so leaving it out of the bound cannot make a run
+cost an unbounded number of requests. Once the bound is reached the failure SHALL
+be offered as a fix the user chooses to accept, rather than attempted again — so
+the user is always the one who decides whether to keep going.
 
 The bound SHALL apply to the run being corrected, and SHALL be released when the
 user makes a new request, so that a long conversation does not exhaust it.
@@ -253,12 +258,24 @@ without being run SHALL NOT cause the machine to start.
 - **THEN** no further correction is attempted, and the failure is offered as a
   fix for the user to accept
 
-#### Scenario: Judging counts against the bound
+#### Scenario: A judgement that finds nothing wrong
 
 - **WHEN** the assistant is asked to judge its program against the display it
-  produced
-- **THEN** that request is counted against the same bound on requests made
-  without the user asking
+  produced, and judges that what it stated holds
+- **THEN** none of the bound on unrequested corrections has been spent, and a
+  later failure of that run still gets its full allowance
+
+#### Scenario: A judgement that finds a failure
+
+- **WHEN** a judging request finds that what the assistant stated does not hold
+  and returns a corrected program
+- **THEN** exactly one of the bounded corrections is spent — the same as for a
+  runtime error, and no more for having needed a judgement
+
+#### Scenario: One judgement per run
+
+- **WHEN** a run is settled by asking the assistant to judge the display
+- **THEN** no more than one such request is made for that run
 
 #### Scenario: A new request releases the bound
 
