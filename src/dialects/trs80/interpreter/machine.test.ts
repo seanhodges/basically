@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MemoryBlock } from '../../types';
 import { tokenizeProgram } from '../tokenizer';
+import { plainChar } from '../charset';
 import { COLS } from '../emulator/display';
 import { trs80Samples } from '../samples';
 import { Trs80InterpreterMachine } from './machine';
@@ -14,6 +15,69 @@ function screenRow(m: Trs80InterpreterMachine, r: number): string {
   }
   return s.replace(/\s+$/, '');
 }
+
+describe('Trs80InterpreterMachine readScreenText', () => {
+  it('reads back what a program printed', () => {
+    const m = new Trs80InterpreterMachine();
+    const { program } = tokenizeProgram('10 PRINT "HELLO"\n20 END\n');
+    m.loadProgram(program);
+    for (let i = 0; i < 5; i++) m.runFrame();
+    const screen = m.readScreenText()!;
+    expect(screen.cols).toBe(64);
+    expect(screen.rows).toBe(16);
+    expect(screen.lines[0]!.trimEnd()).toBe('HELLO');
+    m.dispose();
+  });
+
+  it('pads every row to the full width rather than trimming', () => {
+    const m = new Trs80InterpreterMachine();
+    const { program } = tokenizeProgram('10 PRINT "HI"\n20 END\n');
+    m.loadProgram(program);
+    for (let i = 0; i < 5; i++) m.runFrame();
+    const screen = m.readScreenText()!;
+    expect(screen.lines).toHaveLength(16);
+    // Code points, not UTF-16 units - the block graphics are astral.
+    for (const line of screen.lines) expect([...line]).toHaveLength(64);
+    m.dispose();
+  });
+
+  it('reads a screen with nothing on it as spaces, not as null', () => {
+    // A blank screen is a real answer. null is reserved for "cannot determine",
+    // which on this machine is unreachable: there is no ROM to boot and the
+    // interpreter's video page exists from construction.
+    const m = new Trs80InterpreterMachine();
+    const screen = m.readScreenText()!;
+    expect(screen).not.toBeNull();
+    expect(screen.lines.join('').trim()).toBe('');
+    m.dispose();
+  });
+
+  it('decodes block graphics to the same glyphs a listing shows', () => {
+    const m = new Trs80InterpreterMachine();
+    // 0x81 is the 2x3 sextant with only its top-left sub-cell set; the charset
+    // maps it to the Unicode legacy-computing sextant, and so must the screen.
+    m.interpreter.screen.video[0] = 0x81;
+    m.interpreter.screen.video[1] = 0xbf; // all six sub-cells set
+    const screen = m.readScreenText()!;
+    // Astral glyphs: slice code points, not UTF-16 units.
+    expect([...screen.lines[0]!].slice(0, 2).join('')).toBe(
+      `${plainChar(0x81)}${plainChar(0xbf)}`,
+    );
+    // And the row still measures one code point per column.
+    expect([...screen.lines[0]!]).toHaveLength(64);
+    m.dispose();
+  });
+
+  it('reads codes with no printable form as spaces', () => {
+    const m = new Trs80InterpreterMachine();
+    m.interpreter.screen.video[0] = 0x00; // control
+    m.interpreter.screen.video[1] = 0x80; // the blank graphics cell
+    m.interpreter.screen.video[2] = 0xc5; // a space-compression code
+    const screen = m.readScreenText()!;
+    expect(screen.lines[0]!.slice(0, 3)).toBe('   ');
+    m.dispose();
+  });
+});
 
 describe('Trs80InterpreterMachine', () => {
   it('runs a tokenized program ROM-free and renders to video RAM', () => {

@@ -119,6 +119,65 @@ describe('PetMachine', () => {
     BOOT_TIMEOUT_MS,
   );
 
+  it(
+    'reads the booted screen back as text',
+    async () => {
+      const m = new PetMachine({ roms });
+      await m.whenReady();
+      for (let i = 0; i < 200; i++) m.runFrame();
+      const s = m.readScreenText()!;
+      expect(s.cols).toBe(40);
+      expect(s.rows).toBe(25);
+      expect(s.lines).toHaveLength(25);
+      for (const line of s.lines) expect([...line]).toHaveLength(40);
+      const all = s.lines.join('\n');
+      expect(all).toContain('READY.');
+      expect(all).toContain('31743 BYTES FREE');
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'reads back what a program printed',
+    async () => {
+      const m = new PetMachine({ roms });
+      await m.whenReady();
+      m.loadProgram(image('10 PRINT "HI"\n'));
+      await m.whenReady();
+      for (let i = 0; i < 200; i++) m.runFrame();
+      expect(m.readScreenText()!.lines.join('\n')).toContain('HI');
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it('cannot answer before the machine is up, and says so with null', () => {
+    // Constructed but not booted: null is "no answer", distinct from a screen
+    // that is genuinely blank.
+    const m = new PetMachine({ roms });
+    expect(m.readScreenText()).toBeNull();
+    m.dispose();
+  });
+
+  it(
+    'reads a code with no glyph of its own as a space',
+    async () => {
+      const m = new PetMachine({ roms });
+      await m.whenReady();
+      for (let i = 0; i < 200; i++) m.runFrame();
+      // Screen code 0x63 -> PETSCII 0xA3, which the charset keeps as a {$..}
+      // escape rather than a glyph. One cell must stay one character.
+      m.loadProgram(image('10 POKE 32768,99\n20 GOTO 20\n'));
+      await m.whenReady();
+      for (let i = 0; i < 200; i++) m.runFrame();
+      const s = m.readScreenText()!;
+      expect([...s.lines[0]!]).toHaveLength(40);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
   // ---- Stage 5 — watcher / report / debugger / audio ----------------------
 
   it(

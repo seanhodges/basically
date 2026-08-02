@@ -116,7 +116,7 @@ export class VicI {
   }
 
   /** Screen-matrix base address in CPU space (default $1E00). */
-  private screenBase(): number {
+  screenBase(): number {
     const vic =
       ((this.regs[REG_SCREEN_HI]! & 0x80) << 2) |
       ((this.regs[REG_CHAR_MATRIX]! & 0xf0) << 6);
@@ -124,7 +124,7 @@ export class VicI {
   }
 
   /** Character-generator base address in CPU space (default $8000 ROM). */
-  private charBase(): number {
+  charBase(): number {
     return vicToCpu((this.regs[REG_CHAR_MATRIX]! & 0x0f) << 10);
   }
 

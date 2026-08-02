@@ -178,6 +178,26 @@ export function petsciiToScreen(code: number): number | undefined {
   return undefined; // control codes have no glyph
 }
 
+/**
+ * Screen code -> PETSCII, the direction a screen *reader* needs: screen RAM
+ * holds screen codes, and the charset that turns bytes into characters speaks
+ * PETSCII.
+ *
+ * {@link petsciiToScreen} is many-to-one - four PETSCII ranges land on the same
+ * 0x00-0x3F screen codes, and 0xFF (pi) shares 0x5E with 0xDE - so the inverse
+ * has to pick one PETSCII code per screen code. It picks the *unshifted* range
+ * each glyph is normally typed and listed as, which is what makes a screen read
+ * agree with a listing. Reverse video (bit 7 of the stored byte) is the
+ * caller's to strip before asking.
+ */
+export function screenToPetscii(code: number): number | undefined {
+  const c = code & 0x7f;
+  if (c <= 0x1f) return c + 0x40; // @, A-Z, [, £, ], up-arrow, left-arrow
+  if (c <= 0x3f) return c; // space, punctuation, digits
+  if (c <= 0x5f) return c + 0x80; // graphics, and pi at 0x5E -> 0xDE
+  return c + 0x40; // 0x60-0x7F: the second graphics block
+}
+
 /** The Sinclair 64-glyph font: codes 0x00-0x3F, with 0x80+ their inverses. */
 const sinclairFont = (file: string, at: number): RomGlyphSource => ({
   kind: 'rom',

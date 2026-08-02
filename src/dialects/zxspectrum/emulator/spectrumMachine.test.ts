@@ -11,41 +11,18 @@ const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../../public/roms/zxspectrum.rom')),
 );
 
-/** Map each ROM font glyph (8 bytes) to its character code, for OCR of the screen. */
-function fontSignatures(): Map<string, number> {
-  const map = new Map<string, number>();
-  for (let c = 32; c <= 127; c++) {
-    const base = 0x3c00 + c * 8;
-    const sig = Array.from({ length: 8 }, (_, i) => rom[base + i]!).join(',');
-    if (!map.has(sig)) map.set(sig, c);
-  }
-  return map;
-}
-const SIGNATURES = fontSignatures();
-
-function bitmapAddr(y: number, xb: number): number {
-  return (
-    0x4000 | ((y & 0x07) << 8) | ((y & 0x38) << 2) | ((y & 0xc0) << 5) | xb
-  );
-}
-
-/** Read a run of characters off the screen at char row/col by matching the font. */
+/**
+ * A run of characters off the screen, through the machine's own screen reader
+ * rather than a test-local OCR of the display file.
+ */
 function readScreen(
   machine: SpectrumMachine,
   row: number,
   col: number,
   len: number,
 ): string {
-  let s = '';
-  for (let i = 0; i < len; i++) {
-    const xb = col + i;
-    const bytes = Array.from({ length: 8 }, (_, r) =>
-      machine.mem.read(bitmapAddr(row * 8 + r, xb)),
-    );
-    const code = SIGNATURES.get(bytes.join(','));
-    s += code === undefined ? '?' : String.fromCharCode(code);
-  }
-  return s;
+  const line = machine.readScreenText()!.lines[row]!;
+  return [...line].slice(col, col + len).join('');
 }
 
 describe('SpectrumMachine', () => {
@@ -175,9 +152,14 @@ describe('SpectrumMachine', () => {
       // setSpeed is applied after the load handshake (which relies on the
       // default 1x boot/flash-load timing) so only the run itself is throttled.
       machine.setSpeed(speed);
+      // Sampled every POLL frames rather than every frame: reading the screen
+      // OCRs all 768 cells, which is far too heavy to run in a 3000-iteration
+      // poll. Quantising the answer leaves the comparison below intact - half
+      // speed still needs about twice the frames.
+      const POLL = 25;
       for (let i = 1; i <= 3000; i++) {
         machine.runFrame();
-        if (readScreen(machine, 0, 0, 4) === 'DONE') return i;
+        if (i % POLL === 0 && readScreen(machine, 0, 0, 4) === 'DONE') return i;
       }
       throw new Error('never displayed DONE');
     }

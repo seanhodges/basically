@@ -4,11 +4,15 @@ import type {
   MachineEmulator,
   MachineFileStore,
   MachineReport,
+  MachineScreenText,
   MachineVariable,
   MemoryBlock,
 } from '../../types';
+import { plainChar } from '../charset';
 import {
   renderDisplay,
+  COLS,
+  ROWS,
   DISPLAY_WIDTH,
   DISPLAY_HEIGHT,
 } from '../emulator/display';
@@ -132,6 +136,28 @@ export class Trs80InterpreterMachine implements MachineEmulator {
       kind: v.isString ? 'string' : 'number',
       value: v.value,
     }));
+  }
+
+  /**
+   * The 64x16 video map as characters. The TRS-80 has no video chip and no
+   * movable screen base - video RAM at 0x3C00 *is* the character map - so this
+   * is a straight walk of the interpreter's page, decoded through the dialect's
+   * own charset so the block-graphics cells come back as the same sextant
+   * glyphs a listing shows. Codes with no printable form (controls, the blank
+   * graphic 0x80, the space-compression codes) read as spaces.
+   */
+  readScreenText(): MachineScreenText | null {
+    const video = this.interp.screen.video;
+    if (video.length < COLS * ROWS) return null;
+    const lines: string[] = [];
+    for (let row = 0; row < ROWS; row++) {
+      let line = '';
+      for (let col = 0; col < COLS; col++) {
+        line += plainChar(video[row * COLS + col]!) ?? ' ';
+      }
+      lines.push(line);
+    }
+    return { lines, cols: COLS, rows: ROWS };
   }
 
   /** Surface a Level II runtime error (or OK) for the post-run check. */

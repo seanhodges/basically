@@ -84,6 +84,50 @@ describe('Vic20Machine', () => {
   );
 
   it(
+    'reads the booted screen back as text',
+    async () => {
+      const m = new Vic20Machine({ roms });
+      expect(m.readScreenText()).toBeNull(); // not booted: no answer
+      await m.whenReady();
+      for (let i = 0; i < 300; i++) m.runFrame();
+      const s = m.readScreenText()!;
+      expect(s.cols).toBe(22);
+      expect(s.rows).toBe(23);
+      for (const line of s.lines) expect([...line]).toHaveLength(22);
+      const all = s.lines.join('\n');
+      expect(all).toContain('READY.');
+      expect(all).toContain('3583 BYTES FREE');
+      m.dispose();
+      expect(m.readScreenText()).toBeNull();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
+    'follows the screen when the program moves it',
+    async () => {
+      // The matrix address is not a constant here either: the VIC-I builds it
+      // from $9005 bits 4-7 plus $9002 bit 7, which is video-matrix address bit
+      // 9. Clearing that bit moves the screen from $1E00 down to $1C00, and the
+      // reader must follow it there - a hard-coded $1E00 fails this.
+      const m = new Vic20Machine({ roms });
+      await m.whenReady();
+      m.loadProgram(
+        image(
+          '10 POKE 7168,8:POKE 7169,9\n' +
+            '20 POKE 36866,PEEK(36866)AND127\n' +
+            '30 GOTO 30\n',
+        ),
+      );
+      await m.whenReady();
+      for (let i = 0; i < 300; i++) m.runFrame();
+      expect(m.readScreenText()!.lines[0]!.startsWith('HI')).toBe(true);
+      m.dispose();
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  it(
     'injects and runs a program that pokes the screen',
     async () => {
       const m = new Vic20Machine({ roms });

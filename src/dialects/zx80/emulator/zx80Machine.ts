@@ -5,8 +5,11 @@ import type {
   DebugStepResult,
   MachineEmulator,
   MachineMemoryStats,
+  MachineScreenText,
 } from '../../types';
 import { Zx80Memory } from './memory';
+import { NEWLINE, zx80Charset } from '../charset';
+import { readSinclairScreenText } from '../../sinclairScreenText';
 import { Zx81Keyboard } from '../../zx81/emulator/keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import {
@@ -222,6 +225,20 @@ export class Zx80Machine implements MachineEmulator {
       this.imageData.data,
     );
     ctx.putImageData(this.imageData, 0, 0);
+  }
+
+  /**
+   * The display file as 32x24 characters, through the shared Sinclair walk -
+   * the ZX80's display file has the same variable-length, NEWLINE-terminated
+   * shape as the ZX81's, and collapses the same way when RAM is short.
+   */
+  readScreenText(): MachineScreenText | null {
+    return readSinclairScreenText({
+      read: (a) => this.memory.read(a),
+      dfile: this.memory.readWord(D_FILE),
+      charset: zx80Charset,
+      newline: NEWLINE,
+    });
   }
 
   /** Direct access for tests and debugging. */

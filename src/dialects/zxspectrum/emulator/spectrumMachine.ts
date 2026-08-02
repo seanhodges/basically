@@ -9,6 +9,7 @@ import type {
   MachineFileStore,
   MachineMemoryStats,
   MachineReport,
+  MachineScreenText,
   MachineVariable,
   MemoryBlock,
   TapeFile,
@@ -17,6 +18,8 @@ import { VfsTapeDeck } from './tapeDeck';
 import { SpectrumMemory } from './memory';
 import { readSpectrumVariables } from '../vars';
 import { readSpectrumReport } from '../reports';
+import { readSpectrumScreenText, spectrumFontSignatures } from './screenText';
+import type { GlyphSignatures } from '../../../emulator/fontMatcher';
 import { SpectrumKeyboard } from './keyboard';
 import { applySinclairJoystick, kempstonByte } from './joystick';
 import { Beeper, BEEPER_SAMPLE_RATE } from './beeper';
@@ -95,6 +98,8 @@ export class SpectrumMachine implements MachineEmulator {
     DISPLAY_WIDTH * DISPLAY_HEIGHT * 4,
   );
   private disposed = false;
+  /** ROM font index for {@link readScreenText}; built on first use. */
+  private fontSigs: GlyphSignatures | null = null;
   /** Header + data blocks waiting to be injected at the next LOAD. */
   private pending: { header: Uint8Array; data: Uint8Array } | null = null;
   /**
@@ -572,6 +577,22 @@ export class SpectrumMachine implements MachineEmulator {
 
   readReport(): MachineReport {
     return readSpectrumReport(this.memory);
+  }
+
+  /**
+   * The screen as 32x24 characters, recovered by matching the ROM font.
+   *
+   * The Spectrum stores no characters at all - the display is a bitmap - so
+   * this compares each cell against the glyphs the ROM would have drawn. It
+   * therefore reports what the *stock* font says: a program that redefines its
+   * glyphs (CHARS moved elsewhere) or draws free-hand pixels reads back as
+   * blank, which is honest - there is no text on such a screen.
+   *
+   * The signature index is built once and kept, since the ROM never changes.
+   */
+  readScreenText(): MachineScreenText | null {
+    this.fontSigs ??= spectrumFontSignatures(this.memory.rom);
+    return readSpectrumScreenText(this.fontSigs, (a) => this.memory.read(a));
   }
 
   // No isProgramRunning(): the ROM leaves no reliable trace of the difference.

@@ -7,11 +7,13 @@ import type {
   MachineFileStore,
   MachineMemoryStats,
   MachineReport,
+  MachineScreenText,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
 import { readC64Variables } from './vars';
 import { readC64Report } from './reports';
+import { readCbmScreenText } from '../cbmScreenText';
 import { remapRgb } from './palette';
 import {
   MemoryActivityBuffer,
@@ -823,6 +825,39 @@ export class C64Machine implements MachineEmulator {
       return null;
     }
     return readC64Report({ read: (a) => this.rawCpuRead(a & 0xffff) });
+  }
+
+  /**
+   * The 40x25 screen matrix as characters.
+   *
+   * Neither the matrix address nor the character set is fixed on this machine,
+   * so both are read from the chips rather than assumed. The VIC-II's memory
+   * pointer at $D018 gives the matrix its 1K slot within the 16K bank CIA 2's
+   * port A selects, and bit 1 of the same $D018 picks which half of the
+   * character ROM the codes stand for. A program that moves its screen, or
+   * switches to the lower-case set, still reads back correctly.
+   *
+   * Both registers are plain reads with no side effects. If the program has
+   * banked I/O out from under the CPU the values are not the chips' - the
+   * derived address is range-checked and falls back to the power-on $0400
+   * rather than reporting a screen from somewhere arbitrary.
+   */
+  readScreenText(): MachineScreenText | null {
+    if (!this.booted || this.injecting || this.disposed || !this.c64) {
+      return null;
+    }
+    const read = (a: number) => this.rawCpuRead(a & 0xffff);
+    const d018 = read(0xd018);
+    // CIA 2 port A drives the two bank-select lines inverted: %11 is bank 0.
+    const bank = (3 - (read(0xdd00) & 0x03)) * 0x4000;
+    const matrix = bank + ((d018 >> 4) & 0x0f) * 0x0400;
+    const screen = matrix + 40 * 25 <= 0x10000 ? matrix : 0x0400;
+    return readCbmScreenText({
+      read,
+      layout: { screen, cols: 40, rows: 25 },
+      // $D018 bit 1 selects the second 2K of the character ROM: the text set.
+      set: (d018 & 0x02) !== 0 ? 'text' : 'graphics',
+    });
   }
 
   /**

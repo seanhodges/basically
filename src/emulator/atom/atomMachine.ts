@@ -7,6 +7,7 @@ import type {
   MachineEmulator,
   MachineFileStore,
   MachineMemoryStats,
+  MachineScreenText,
   MemoryBlock,
 } from '../../dialects/types';
 import {
@@ -15,6 +16,7 @@ import {
   matrixForToken,
   stringToMatrix,
 } from './keyboard';
+import { plainChar, sextantChar } from '../../dialects/atom/charset';
 import { AtomDiskDrive, type Bus } from './diskDrive';
 import { JsbeebMemoryActivity } from '../jsbeebMemoryActivity';
 // The dialect owns the Atom's address facts. RAM_TOP is the VDG screen base:
@@ -44,6 +46,38 @@ const ATOM_FB_HEIGHT = 384;
 /** Native display the dialect advertises (the classic MC6847 256×192). */
 export const ATOM_DISPLAY_WIDTH = 256;
 export const ATOM_DISPLAY_HEIGHT = 192;
+
+/** MC6847 text-mode matrix: 32x16 codes from #8000. */
+const ATOM_SCREEN_BASE = 0x8000;
+const ATOM_SCREEN_COLS = 32;
+const ATOM_SCREEN_ROWS = 16;
+
+/**
+ * One MC6847 screen code as the character it displays.
+ *
+ * The ranges are established against the real kernel ROM rather than assumed -
+ * see {@link AtomMachine.readScreenText} for the derivation and for why
+ * `#40-#7F` is deliberately blank.
+ */
+function atomScreenChar(screenCode: number): string {
+  const code = screenCode & 0xff;
+  // Semigraphics: OSWRCH adds #20 to the source byte, so subtract it back.
+  if (code >= 0xc0) return sextantChar(code - 0x20) ?? ' ';
+  if (code >= 0xa0) {
+    // Inverse video with no lower-case meaning (the cursor's inverse space
+    // lands here): report the character the glyph draws.
+    return plainChar(code & 0x3f) ?? ' ';
+  }
+  if (code >= 0x80) {
+    // Inverse letters, which is how the Atom writes lower case.
+    const glyph = code & 0x3f;
+    if (glyph >= 0x01 && glyph <= 0x1a)
+      return String.fromCharCode(0x60 + glyph);
+    return plainChar(glyph < 0x20 ? glyph + 0x40 : glyph) ?? ' ';
+  }
+  if (code >= 0x40) return ' '; // unclaimed by OSWRCH and by the glyph tables
+  return plainChar(code < 0x20 ? code + 0x40 : code) ?? ' ';
+}
 
 const CPU_HZ = 1_000_000; // the Atom runs its 6502 at 1 MHz
 const CYCLES_PER_FRAME = CPU_HZ / 50;
@@ -357,6 +391,44 @@ export class AtomMachine implements MachineEmulator {
       if (this.cpu.execute(remaining)) return; // ran the full remaining budget
       remaining -= this.cpu.currentCycles - before;
     }
+  }
+
+  /**
+   * The 32x16 MC6847 matrix at #8000 as characters.
+   *
+   * Screen codes are not charset codes: OSWRCH masks a printable byte down to
+   * the video chip's own 64-glyph set, so charset #41 'A' is stored as #01.
+   * The two ranges that fall out of that (`#00-#1F` the letters, `#20-#3F`
+   * space through '?') invert straight back.
+   *
+   * Bit 7 is inverse video, and the Atom uses it for lower case because the
+   * MC6847 has no lower-case glyphs: OSWRCH stores 'a' as #81, an inverse 'A'.
+   * That makes the two indistinguishable on screen, so the reader resolves
+   * #81-#9A back to lower case - which is what round-trips a program's own
+   * output. The cursor is #A0, an inverse space, and reads as a space.
+   *
+   * Semigraphics live at #C0-#FF, which is source #A0-#DF plus the #20 OSWRCH
+   * adds (pinned against the real kernel ROM by `atom/semigraphics.test.ts`),
+   * and decode to the same sextant glyphs a listing shows.
+   *
+   * `#40-#7F` is left blank deliberately: OSWRCH never produces it and the
+   * project's glyph declaration claims no character for it, so guessing would
+   * be inventing hardware behaviour.
+   */
+  readScreenText(): MachineScreenText | null {
+    if (!this.initialised || this.injecting || this.disposed) return null;
+    const lines: string[] = [];
+    for (let row = 0; row < ATOM_SCREEN_ROWS; row++) {
+      let line = '';
+      for (let col = 0; col < ATOM_SCREEN_COLS; col++) {
+        const code = this.cpu.readmem(
+          ATOM_SCREEN_BASE + row * ATOM_SCREEN_COLS + col,
+        );
+        line += atomScreenChar(code);
+      }
+      lines.push(line);
+    }
+    return { lines, cols: ATOM_SCREEN_COLS, rows: ATOM_SCREEN_ROWS };
   }
 
   /**

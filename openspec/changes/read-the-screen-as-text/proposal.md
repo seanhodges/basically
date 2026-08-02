@@ -7,11 +7,12 @@ screen as characters, and nothing in the IDE can produce that: the only pixel
 surface a machine exposes needs a drawing context, which answers "what colour is
 this pixel", not "what does it say".
 
-The knowledge exists but is scattered and out of bounds. Nine separate helpers in
-the test suite each read one machine's screen back as text, and every one of them
-reaches around the machine boundary into a concrete emulator's internals — the
-exact thing the project's single machine seam exists to prevent. They cannot be
-reused by the IDE, they disagree in shape, and each new machine adds a tenth.
+The knowledge exists but is scattered and out of bounds. Nineteen separate
+helpers across eighteen test files each read one machine's screen back, and every
+one of them reaches around the machine boundary into a concrete emulator's
+internals — the exact thing the project's single machine seam exists to prevent.
+They cannot be reused by the IDE, they disagree in shape, and each new machine
+adds another.
 
 This is the observation channel the assistant needs before it can check anything
 about output, and it is the **only** channel for the two machines that cannot
@@ -50,12 +51,14 @@ None.
 - The machine boundary gains one optional member; nothing existing changes shape,
   so every machine that does not implement it keeps working untouched.
 - Each registered machine gains a screen reader, derived from the helper its own
-  tests already use: screen RAM on the Acorn, Commodore, Amstrad and Tandy
-  machines, a display-file walk on the two ZX machines, and font matching on the
-  two Spectrums.
+  tests already use: a character matrix in RAM on the Commodore, Atom, Tandy and
+  Acorn (mode 7) machines, a display-file walk on the two ZX machines, and font
+  matching on the two Spectrums, the two Amstrads and the Acorn machines in their
+  graphics modes.
 - The Commodore family reuses the screen decoding already written for its runtime
   report, which reads the screen today to find error lines.
-- Nine test-local helpers are deleted in favour of the real one.
+- The test-local helpers are deleted in favour of the real one, except the few
+  that assert on the machine's own encoding rather than on text.
 - No new dependencies.
 
 ## Non-goals

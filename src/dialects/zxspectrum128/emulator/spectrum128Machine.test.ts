@@ -12,43 +12,22 @@ const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 
 /**
- * Map each ROM font glyph (8 bytes) to its char code, for OCR of the screen. The
- * 128 BASIC editor renders text with the 48 BASIC font, which lives at 0x3C00
- * within ROM 1 - file offset 0x4000 + 0x3C00.
+ * A run of characters off the screen, through the machine's own screen reader
+ * rather than a test-local OCR. The reader resolves the displayed screen page
+ * itself, so this follows the 128K onto its shadow screen.
+ *
+ * The leading `sigs` parameter is kept so the call sites read unchanged; the
+ * machine now owns its own font index.
  */
-function fontSignatures(): Map<string, number> {
-  const map = new Map<string, number>();
-  for (let c = 32; c <= 127; c++) {
-    const base = 0x4000 + 0x3c00 + c * 8;
-    const sig = Array.from({ length: 8 }, (_, i) => rom[base + i]!).join(',');
-    if (!map.has(sig)) map.set(sig, c);
-  }
-  return map;
-}
-
-function bitmapAddr(y: number, xb: number): number {
-  return (
-    0x4000 | ((y & 0x07) << 8) | ((y & 0x38) << 2) | ((y & 0xc0) << 5) | xb
-  );
-}
-
 function readScreen(
-  sigs: Map<string, number>,
+  _sigs: unknown,
   machine: Spectrum128Machine,
   row: number,
   col: number,
   len: number,
 ): string {
-  let s = '';
-  for (let i = 0; i < len; i++) {
-    const xb = col + i;
-    const bytes = Array.from({ length: 8 }, (_, r) =>
-      machine.mem.readScreen(bitmapAddr(row * 8 + r, xb)),
-    );
-    const code = sigs.get(bytes.join(','));
-    s += code === undefined ? '?' : String.fromCharCode(code);
-  }
-  return s;
+  const line = machine.readScreenText()!.lines[row]!;
+  return [...line].slice(col, col + len).join('');
 }
 
 /** Read an IO port through the machine's real decode (no ROM needed). */
@@ -137,7 +116,9 @@ describe('Spectrum128Machine joystick', () => {
 const suite = hasRom ? describe : describe.skip;
 
 suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
-  const SIGNATURES = fontSignatures();
+  // The machine owns its font index now; kept as a token so the readScreen
+  // call sites below read unchanged.
+  const SIGNATURES = null;
 
   it('flash-loads and runs 10 PRINT "HELLO" via the 128 menu', () => {
     const machine = new Spectrum128Machine({ rom });
