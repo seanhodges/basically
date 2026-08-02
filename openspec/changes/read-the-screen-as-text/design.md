@@ -224,6 +224,13 @@ over `lines` and lose their private decoders.
   and the gap is recorded rather than papered over.
 - **Cost.** OCR over a full screen is a few thousand map lookups. → It is called
   on demand, never per frame; no caller in this change is in the render loop.
+  **Confirmed during implementation, and sharper than expected:** a Spectrum
+  read is 768 cells x 8 byte fetches, ~6k reads per call, and one existing test
+  that polled a 4-character cell every frame for 3000 frames timed out once it
+  went through the reader. There is no cheaper way to answer "what is on the
+  whole screen" for a bitmap machine, so this is a property to document rather
+  than a bug: the reader answers a question, it is not a polling primitive. The
+  test now samples on a cadence.
 - **The display-file walk has no fixed row length.** A ZX81 blank row is a single
   `HALT` byte, and a collapsed display file can be shorter than 24 rows. → The
   walk pads each row out to 32 characters and the file out to 24 rows, so the

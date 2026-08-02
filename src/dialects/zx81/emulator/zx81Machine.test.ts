@@ -5,6 +5,7 @@ import { Zx81Machine } from './zx81Machine';
 import { tokenizeProgram } from '../tokenizer';
 import { buildPFile } from '../pfile';
 import { D_FILE } from '../sysvars';
+import { zx81Charset } from '../charset';
 import { formatBinaryDirective } from '../../binaryDirective';
 import { buildRemRecord } from '../../../app/listingBlockEdit';
 import { zx81ListingLayout } from '../listingLayout';
@@ -51,6 +52,46 @@ describe('Zx81Machine', () => {
     for (let i = 0; i < 200; i++) machine.runFrame();
     // H E L L O in ZX81 codes
     expect(displayContains(machine, [0x2d, 0x2a, 0x31, 0x31, 0x34])).toBe(true);
+  });
+
+  it('reads the display file back as text', () => {
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    const { bytes } = tokenizeProgram('10 PRINT "HELLO"\n');
+    machine.loadProgram(buildPFile(bytes));
+    for (let i = 0; i < 200; i++) machine.runFrame();
+    const s = machine.readScreenText()!;
+    expect(s.cols).toBe(32);
+    expect(s.rows).toBe(24);
+    expect(s.lines).toHaveLength(24);
+    // Every row is padded to the full width even though the ROM stores
+    // variable-length rows terminated by NEWLINE.
+    for (const line of s.lines) expect([...line]).toHaveLength(32);
+    expect(s.lines.join('\n')).toContain('HELLO');
+  });
+
+  it('pads a collapsed display file out to the full rectangle', () => {
+    // Fresh out of reset the display file is at its most collapsed - the ROM
+    // has not expanded the empty rows - which is the case a fixed-rectangle
+    // walk has to survive.
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    machine.reset();
+    machine.bootToBasic();
+    const s = machine.readScreenText()!;
+    expect(s.lines).toHaveLength(24);
+    for (const line of s.lines) expect([...line]).toHaveLength(32);
+  });
+
+  it('decodes graphics to the same glyphs a listing shows', () => {
+    const machine = new Zx81Machine({ rom, ramKb: 16 });
+    machine.reset();
+    machine.bootToBasic();
+    // Write a known graphics code straight into the display file and check it
+    // comes back as the charset's own Unicode block, not as an escape.
+    const dfile = machine.mem.readWord(D_FILE);
+    machine.mem.write(dfile + 1, 0x01); // a ZX81 block graphic
+    const first = [...machine.readScreenText()!.lines[0]!][0]!;
+    expect(first).toBe(zx81Charset.glyph(0x01));
+    expect([...first]).toHaveLength(1);
   });
 
   it('starts from the auto-start line, skipping earlier lines', () => {

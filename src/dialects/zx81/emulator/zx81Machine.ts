@@ -6,6 +6,7 @@ import type {
   MachineEmulator,
   MachineMemoryStats,
   MachineReport,
+  MachineScreenText,
   MachineVariable,
 } from '../../types';
 import { Zx81Memory } from './memory';
@@ -24,7 +25,8 @@ import {
   ROM_SAVE_TRAP,
   ROM_SAVE_RESUME,
 } from '../sysvars';
-import { NEWLINE } from '../charset';
+import { NEWLINE, zx81Charset } from '../charset';
+import { readSinclairScreenText } from '../../sinclairScreenText';
 import { withAutoStart } from '../pfile';
 
 const TSTATES_PER_FRAME = 65000; // 3.25MHz / 50Hz
@@ -278,6 +280,32 @@ export class Zx81Machine implements MachineEmulator {
 
   readReport(): MachineReport {
     return readZx81Report(this.memory);
+  }
+
+  /**
+   * The display file as 32x24 characters.
+   *
+   * The ZX81 display file is not a rectangle: rows are variable-length and
+   * terminated by NEWLINE, and on a machine short of RAM the ROM collapses an
+   * empty row to its terminator alone. The walk here is deliberately the same
+   * one {@link renderDisplay} performs - leading NEWLINE, then row by row to
+   * the next one, capped at 32 columns - so what is read can never disagree
+   * with what is drawn. Short rows and a short file are padded out, because the
+   * contract is a fixed rectangle whatever the ROM stored.
+   *
+   * Codes carry the glyph in their low six bits and inverse video in bit 7, so
+   * an inverse cell reports the character it draws. Graphics decode through the
+   * dialect's own charset to the same Unicode blocks a listing shows; anything
+   * with no single-character form (keyword tokens seen as data, unused slots)
+   * reads as a space.
+   */
+  readScreenText(): MachineScreenText | null {
+    return readSinclairScreenText({
+      read: (a) => this.memory.read(a),
+      dfile: this.memory.readWord(D_FILE),
+      charset: zx81Charset,
+      newline: NEWLINE,
+    });
   }
 
   // No isProgramRunning(): the ZX81 ROM leaves no reliable trace of the

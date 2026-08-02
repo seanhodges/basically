@@ -36,23 +36,15 @@ function displayContains(machine: Zx80Machine, needle: number[]): boolean {
   return false;
 }
 
-/** Read the first non-empty display-file row back as plain ASCII text. */
+/**
+ * The first non-empty display-file row, through the machine's own screen
+ * reader rather than a test-local display-file walk.
+ */
 function firstTextRow(machine: Zx80Machine): string {
-  const dFile = machine.mem.readWord(D_FILE);
-  let addr = dFile;
-  for (let row = 0; row < 24; row++) {
-    let text = '';
-    for (let col = 0; col < 32; col++) {
-      const b = machine.mem.read(addr++);
-      if (b === 0x76) break;
-      const c = b & 0x7f;
-      if (c >= 0x1c && c <= 0x25) text += String.fromCharCode(48 + (c - 0x1c));
-      else if (c >= 0x26 && c <= 0x3f)
-        text += String.fromCharCode(65 + (c - 0x26));
-      else if (c !== 0) text += '?';
-      else text += ' ';
-    }
-    if (text.trim() !== '') return text.trim();
+  const screen = machine.readScreenText();
+  if (!screen) return '';
+  for (const line of screen.lines) {
+    if (line.trim() !== '') return line.trim();
   }
   return '';
 }
@@ -126,6 +118,29 @@ describe('Zx80Machine', () => {
     // After LOAD + RUN the program prints 13 to the display file.
     for (let i = 0; i < 40; i++) machine.runFrame();
     expect(firstTextRow(machine)).toBe('13');
+    machine.dispose();
+  });
+
+  it('reads the display file back as a full 32x24 rectangle', () => {
+    const { bytes } = tokenizeProgram('10 PRINT 6+7');
+    const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+    machine.loadProgram(buildOFile(bytes));
+    for (let i = 0; i < 40; i++) machine.runFrame();
+    const s = machine.readScreenText()!;
+    expect(s.cols).toBe(32);
+    expect(s.rows).toBe(24);
+    expect(s.lines).toHaveLength(24);
+    // The ZX80 collapses empty rows to a bare NEWLINE, so the padding is what
+    // makes this a rectangle at all.
+    for (const line of s.lines) expect([...line]).toHaveLength(32);
+    expect(s.lines.join('\n')).toContain('13');
+    machine.dispose();
+  });
+
+  it('has no answer before the display file exists', () => {
+    const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+    machine.reset(); // RAM zeroed: D_FILE is not a usable pointer yet
+    expect(machine.readScreenText()).toBeNull();
     machine.dispose();
   });
 

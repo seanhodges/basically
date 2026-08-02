@@ -89,6 +89,51 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     machine.dispose();
   }, 60000);
 
+  it('reads the booted screen back as text', async () => {
+    const machine = new AtomMachine();
+    expect(machine.readScreenText()).toBeNull(); // not up yet: no answer
+    await machine.whenReady();
+    await runUntil(machine, () =>
+      (machine.readScreenText()?.lines.join('\n') ?? '').includes('ACORN ATOM'),
+    );
+    const s = machine.readScreenText()!;
+    expect(s.cols).toBe(32);
+    expect(s.rows).toBe(16);
+    for (const line of s.lines) expect([...line]).toHaveLength(32);
+    expect(s.lines.join('\n')).toContain('ACORN ATOM');
+    machine.dispose();
+  }, 30000);
+
+  it('reads lower case back as lower case, though the VDG stores it inverse', async () => {
+    // The MC6847 has no lower-case glyphs: OSWRCH writes 'a' as #81, an
+    // inverse 'A'. Verified against the real kernel ROM - PRINTing "AZ az"
+    // stores 01 1A 20 81 9A - so the reader has to undo it or a program's own
+    // output comes back in the wrong case.
+    const machine = new AtomMachine();
+    machine.loadProgram(tokenizeProgram('10 PRINT "AZ az"\n20 END\n').bytes);
+    const ran = await runUntil(machine, () =>
+      (machine.readScreenText()?.lines.join('\n') ?? '').includes('AZ az'),
+    );
+    expect(ran).toBe(true);
+    machine.dispose();
+  }, 60000);
+
+  it('reads an inverse-video cell as the character it draws', async () => {
+    const machine = new AtomMachine();
+    await machine.whenReady();
+    await runUntil(machine, () =>
+      (machine.readScreenText()?.lines.join('\n') ?? '').includes('ACORN ATOM'),
+    );
+    // #A0 is an inverse space - what the cursor is drawn with - and must read
+    // as a space, not as a stray glyph.
+    machine.processor.writemem(0x8000, 0xa0);
+    // #21 is '!' in the chip's own set and stays itself.
+    machine.processor.writemem(0x8001, 0x21);
+    const line = machine.readScreenText()!.lines[0]!;
+    expect([...line].slice(0, 2).join('')).toBe(' !');
+    machine.dispose();
+  }, 30000);
+
   it('records live memory activity only while enabled', async () => {
     const machine = new AtomMachine();
     machine.loadProgram(tokenizeProgram('10 A=1\n20 GOTO 10\n').bytes);

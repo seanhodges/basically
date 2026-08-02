@@ -27,28 +27,28 @@ blank screen reading as spaces, and `null` before the machine is up.
 - [x] 2.2 PET (`src/emulator/pet/petMachine.ts`) — 40×25 at `$8000`.
 - [x] 2.3 C64 (`src/emulator/c64/c64Machine.ts`) — 40×25, base from the VIC-II
       register, with a test that moves the matrix and still reads it back.
-- [ ] 2.4 VIC-20 (`src/emulator/vic20/vic20Machine.ts`) — 22×23, base and
+- [x] 2.4 VIC-20 (`src/emulator/vic20/vic20Machine.ts`) — 22×23, base and
       geometry from the VIC-I registers, same moved-matrix test.
-- [ ] 2.5 Atom (`src/emulator/atom/atomMachine.ts`) — 32×16 VDG matrix at
+- [x] 2.5 Atom (`src/emulator/atom/atomMachine.ts`) — 32×16 VDG matrix at
       `$8000`; confirm the VDG code layout against the ROM before mapping it,
       and cover an inverse-video cell.
 
 ## 3. Display-file machines
 
-- [ ] 3.1 ZX81 (`src/dialects/zx81/emulator/zx81Machine.ts`) — walk from
+- [x] 3.1 ZX81 (`src/dialects/zx81/emulator/zx81Machine.ts`) — walk from
       `D_FILE`, padding short rows to 32 characters and the file to 24 rows.
       Colocated tests: a printed line, a collapsed display file, and a screen
       holding ZX81 graphics characters decoding to the same Unicode a listing
       shows.
-- [ ] 3.2 ZX80 (`src/dialects/zx80/emulator/zx80Machine.ts`) — the same walk
+- [x] 3.2 ZX80 (`src/dialects/zx80/emulator/zx80Machine.ts`) — the same walk
       against the ZX80 charset, with its own colocated tests.
 
 ## 4. Bitmap machines
 
-- [ ] 4.1 Spectrum (`src/dialects/zxspectrum/emulator/spectrumMachine.ts`) —
+- [x] 4.1 Spectrum (`src/dialects/zxspectrum/emulator/spectrumMachine.ts`) —
       32×24 OCR against the ROM font, using the shared matcher. Colocated tests
       including the boot copyright line.
-- [ ] 4.2 Spectrum 128 (`src/dialects/zxspectrum128/emulator/spectrum128Machine.ts`)
+- [x] 4.2 Spectrum 128 (`src/dialects/zxspectrum128/emulator/spectrum128Machine.ts`)
       — the same, read through `mem.readScreen` so the shadow screen resolves;
       test both screen pages.
 - [ ] 4.3 CPC 464 and 6128 (`src/emulator/cpc/cpcMachine.ts`) — OCR against the

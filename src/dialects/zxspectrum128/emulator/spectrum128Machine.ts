@@ -9,6 +9,7 @@ import type {
   MachineFileStore,
   MachineMemoryStats,
   MachineReport,
+  MachineScreenText,
   MachineVariable,
   MemoryBlock,
   TapeFile,
@@ -21,6 +22,11 @@ import {
 import { Spectrum128Memory } from './memory128';
 import { Ay38912 } from '../../../emulator/ay';
 import { readSpectrumVariables } from '../../zxspectrum/vars';
+import {
+  readSpectrumScreenText,
+  spectrumFontSignatures,
+} from '../../zxspectrum/emulator/screenText';
+import type { GlyphSignatures } from '../../../emulator/fontMatcher';
 import { readSpectrumReport } from '../../zxspectrum/reports';
 import { SpectrumKeyboard } from './keyboard';
 import { Beeper, BEEPER_SAMPLE_RATE } from '../../zxspectrum/emulator/beeper';
@@ -114,6 +120,8 @@ export class Spectrum128Machine implements MachineEmulator {
     DISPLAY_WIDTH * DISPLAY_HEIGHT * 4,
   );
   private disposed = false;
+  /** ROM font index for the screen reader; built on first use. */
+  private fontSigs: GlyphSignatures | null = null;
   /** Header + data blocks waiting to be injected at the next LOAD. */
   private pending: { header: Uint8Array; data: Uint8Array } | null = null;
   /**
@@ -425,43 +433,41 @@ export class Spectrum128Machine implements MachineEmulator {
     for (const ch of word.toUpperCase()) this.tapKeys([`Key${ch}`], 4, gap);
   }
 
-  /** Glyph-code lookup table built from the paged-in ROM font, for screen OCR. */
-  private fontSignatures(): Map<string, number> {
-    const map = new Map<string, number>();
-    for (let c = 32; c <= 127; c++) {
-      const base = FONT_ORIGIN + c * 8;
-      const sig = Array.from(
-        { length: 8 },
-        (_, i) => this.memory.rom[base + i]!,
-      ).join(',');
-      if (!map.has(sig)) map.set(sig, c);
-    }
-    return map;
-  }
-
-  private static bitmapAddr(y: number, xb: number): number {
-    return (
-      0x4000 | ((y & 0x07) << 8) | ((y & 0x38) << 2) | ((y & 0xc0) << 5) | xb
-    );
+  /**
+   * Glyph-code lookup table built from the paged-in ROM font, for screen OCR.
+   * Built once and kept: the ROM never changes.
+   */
+  private fontSignatures(): GlyphSignatures {
+    this.fontSigs ??= spectrumFontSignatures(this.memory.rom, FONT_ORIGIN);
+    return this.fontSigs;
   }
 
   /** OCR a run of characters off the displayed screen by matching the font. */
   private ocrRun(
-    sigs: Map<string, number>,
+    sigs: GlyphSignatures,
     row: number,
     col: number,
     len: number,
   ): string {
-    let s = '';
-    for (let i = 0; i < len; i++) {
-      const xb = col + i;
-      const bytes = Array.from({ length: 8 }, (_, r) =>
-        this.memory.readScreen(Spectrum128Machine.bitmapAddr(row * 8 + r, xb)),
-      );
-      const code = sigs.get(bytes.join(','));
-      s += code === undefined ? ' ' : String.fromCharCode(code);
-    }
-    return s;
+    const line = readSpectrumScreenText(sigs, this.memory.readScreen).lines[
+      row
+    ]!;
+    return [...line].slice(col, col + len).join('');
+  }
+
+  /**
+   * The screen as 32x24 characters, recovered by matching the ROM font.
+   *
+   * Reads go through {@link Spectrum128Memory.readScreen}, so whichever of the
+   * two screen pages is being displayed - the 128K can show RAM page 7 instead
+   * of page 5 - is the one that is read. As on the 48K this reports what the
+   * stock font says, so a redefined font or free-hand pixels read as blank.
+   */
+  readScreenText(): MachineScreenText | null {
+    return readSpectrumScreenText(
+      this.fontSignatures(),
+      this.memory.readScreen,
+    );
   }
 
   /**
