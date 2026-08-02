@@ -83,6 +83,7 @@ export const bbcmicro: Dialect = {
 
   // BBC BASIC addresses memory in hex (`?&2000`), so the map opens in Hex.
   addressNotation: 'hex',
+  statementSeparator: ':',
 
   // BBC BASIC has no POKE: memory writes use `?`/`!` indirection (`?&2000=5`),
   // with `&` hex addresses.

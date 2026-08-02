@@ -78,6 +78,7 @@ export const trs80: Dialect = {
   // TRS-80 BASIC PEEKs/POKEs decimal addresses. No memoryMap yet, so the viewer
   // never surfaces this, but declare it so the default is correct if one is added.
   addressNotation: 'dec',
+  statementSeparator: ':',
 
   // The interpreter introspects its own state, so the step debugger and the
   // variable watcher are available.

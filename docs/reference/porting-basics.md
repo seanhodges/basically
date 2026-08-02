@@ -8,7 +8,7 @@ What every port between these BASICs involves, whichever two machines you pick.
 For the differences between one machine and another, see the
 [porting guide](./compare).
 
-Four things account for most of the work.
+Five things account for most of the work.
 
 **Restructuring.** If the target allows only one statement per line, every `:`
 becomes a new line, which renumbers everything after it — the **Renumber file**
@@ -21,6 +21,12 @@ Where names are a single letter, long names must be remapped by hand. On the
 machines that ignore spaces outside strings, a name containing a reserved word
 is a syntax error — `SCORE` contains `OR`. The emulator's variable watcher shows
 what the program actually ends up with.
+
+**The characters themselves.** No machine here covers printable ASCII in full,
+and several fall well short — a ZX81 has no `!`, `#`, `&` or `@`, and a Commodore
+has no `\` or `^`. A character the target has no glyph for cannot appear
+anywhere: not in a string, not in a comment, not in a variable name. The porting
+guide lists the ones your program actually uses.
 
 **Anything numeric.** An integer-only machine has no fractions at all: division
 truncates and every fractional calculation needs rescaling. The exponent

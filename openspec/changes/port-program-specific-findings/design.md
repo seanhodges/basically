@@ -19,10 +19,11 @@ all sit at the boundary between those two shapes:
   the absence of an entry, discoverable at runtime by a `CharsetError` throw.
 - `diffEscapes` computes `behaviourChanged` and every consumer ignores it.
 
-**No impact on the `Dialect` / `MachineEmulator` seam.** Nothing here adds to those
-interfaces or reaches past them. The new derivation reads `CharsetMapping.glyph`, which
-is already part of the seam, and it reads it only from a crosscheck test — the app and
-the docs bundle read authored data, exactly as they do for every other porting fact.
+**Seam impact: one field added to `Dialect`, none to `MachineEmulator`.** `Dialect`
+gains `statementSeparator: string | null` — see decision 3, which is where the need for
+it emerged. Nothing else here reaches past the seam: the character derivation reads
+`CharsetMapping.glyph`, already part of it, and only from a crosscheck test; the app and
+the docs bundle otherwise read authored data, as they do for every other porting fact.
 
 ## Goals / Non-Goals
 
@@ -77,17 +78,34 @@ The unescape step is equally load-bearing in the other direction: the Spectrum's
 would report the Spectrum as having no backslash. Both directions are pinned by named
 test cases.
 
-### 3. Statement layout reads `PortingFacts.statementSeparator`, not the dialect
+### 3. The statement separator becomes a fact of the `Dialect`
 
-`Dialect.memoryWrites.statementSep` is declared only by the Atom; everything else falls
-back to `:` at the point of use (`src/editor/pokeAddresses.ts`). That fallback cannot
-express "this machine has no separator", so using it would split a ZX81 line at a
-literal colon. `PortingFacts.statementSeparator` is `null` for the ZX80 and ZX81 and is
-the only field that models the distinction, so the analyser reads that.
+`Dialect` gains `statementSeparator: string | null`, declared by all thirteen machines,
+and `PortingFacts.statementSeparator` is pinned to it by `facts-crosscheck.test.ts` —
+moving that field from hand-authored to crosschecked.
 
-This puts a `src/reference/` import into `src/app/programVocabulary.ts`. That direction
-is already established — `portDescription.ts` imports `portingFacts` as module-level
-constant data — and it is data, not behaviour, so nothing about the machine seam moves.
+The need emerged from the analyser. It runs in `src/app/`, over the program's text, and
+has to know not just what separates two statements but whether the machine allows two on
+a line at all. Neither existing source could tell it:
+
+- `Dialect.memoryWrites.statementSep` is scoped to parsing a memory-write form, only the
+  Atom declares it, and every reader falls back to `:`
+  (`src/editor/pokeAddresses.ts`). That fallback would read a ZX81 line's ordinary colon
+  — `PRINT "TIME: ";T` — as a statement break.
+- `PortingFacts.statementSeparator` does model it, but lives in `src/reference/`, which
+  an ESLint rule forbids the app from importing statically so the twelve-thousand-line
+  reference tree stays out of the initial bundle.
+
+*Alternatives considered.* Having the analyser report candidate breaks for both `:` and
+`;` and letting the reference layer choose — rejected: it hardcodes the separator set in
+the app, which is the same coupling without the honesty. Exempting `facts.ts` from the
+import rule — rejected: it is a hole in a boundary that is currently absolute, to avoid
+declaring a fact the dialect already knows.
+
+Widening the seam is the smaller change of the two, and it is the same kind of fact as
+`addressNotation`, `programRamBytes` and `crunched`, which `Dialect` already carries. It
+also retires a near-duplicate: two fields modelled the same thing and only one of them
+could say "none".
 
 ### 4. New findings are their own sections, not extra guidance bullets
 
@@ -152,6 +170,8 @@ degrades to today's behaviour rather than to a broken page.
 
 ## Open Questions
 
-None blocking. Whether the per-dialect `aiProfile` prose about escapes should be
-trimmed once the generated escape section lands is a judgement best made by reading the
-composed prompts after the fact, not before.
+None blocking. Whether the per-dialect `aiProfile` prose about escapes should be trimmed
+now that the generated escape section exists is a judgement best made by reading the
+composed prompts, not decided in advance. Measured, the section costs 748 characters on
+the ZX81's 14,623 and 2,374 on the C64's 17,449 — a prefix-cached block, so the cost is
+paid once per machine per session. Trimming is a tidiness question, not a budget one.

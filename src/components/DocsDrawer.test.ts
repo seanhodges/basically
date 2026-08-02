@@ -145,6 +145,8 @@ describe('vocabularyReply', () => {
       dialectId: 'commodore64',
       keywords: ['FOR', 'NEXT', 'TO'],
       escapeCodes: [],
+      characters: [...'01:=EFINORTX'],
+      multiStatementLines: [1],
     });
   });
 

@@ -40,6 +40,45 @@ const regionStart = (
 const parseAddr = (s: string): number =>
   parseInt(s.replace(/^0x/i, '').replace(/^[$&]/, ''), 16);
 
+/** Printable ASCII, the range `unsupportedCharacters` is defined over. */
+const PRINTABLE = Array.from({ length: 0x7f - 0x20 }, (_, i) =>
+  String.fromCharCode(0x20 + i),
+);
+
+/**
+ * The printable ASCII this machine can actually display, read off its charset.
+ *
+ * `glyph` rather than `toMachine`: a `toMachine` sweep asks "does this character
+ * parse", which is a different question and over-reports badly - `%` opens
+ * inverse video on the Sinclairs, `\` opens a graphics escape, `{` opens a
+ * PETSCII escape, and all three throw for reasons that have nothing to do with
+ * whether the machine has the character. Sweeping the bytes instead asks what
+ * the machine can put on screen, which is what a porter needs to know.
+ *
+ * The unescape arm is load-bearing in the other direction. A glyph is a *source
+ * spelling*, so a character that has to be escaped in source comes back as its
+ * escape: the Spectrum's 0x5C is a real backslash whose glyph is `\\`. Without
+ * this arm the derivation would claim the Spectrum has no backslash and the
+ * authored data would faithfully repeat it. It fires for exactly that one byte
+ * across all thirteen machines today.
+ */
+function displayableAscii(dialect: Dialect): Set<string> {
+  const found = new Set<string>();
+  for (let byte = 0x00; byte <= 0xff; byte++) {
+    const glyph = dialect.charset.glyph(byte);
+    if (glyph.length === 1 && PRINTABLE.includes(glyph)) {
+      found.add(glyph);
+    } else if (
+      glyph.length === 2 &&
+      glyph[0] === '\\' &&
+      PRINTABLE.includes(glyph[1]!)
+    ) {
+      found.add(glyph[1]!);
+    }
+  }
+  return found;
+}
+
 describe('facts crosscheck', () => {
   it('has one facts entry per registered machine', () => {
     const ids = portingFacts.map((f) => f.id).sort();
@@ -66,6 +105,30 @@ describe('facts crosscheck', () => {
     for (const facts of portingFacts) {
       if (!/^integer only/i.test(facts.numberHandling)) continue;
       expect(facts.numberHandling, facts.id).toMatch(/-?\d+ to -?\d+/);
+    }
+  });
+
+  // The sweep above is only as good as its two arms, and each has a way of
+  // failing that leaves a plausible-looking list behind. These name the machine
+  // that catches each, so a rewrite that drops an arm fails here saying which.
+  it('reports a character the machine genuinely lacks', () => {
+    const zx81 = portingFacts.find((f) => f.id === 'zx81')!;
+    expect(zx81.unsupportedCharacters).toContain('!');
+  });
+
+  it('does not report a character that only has to be escaped in source', () => {
+    // The Spectrum's 0x5C is a backslash, spelled `\\`. Losing the unescape arm
+    // makes this list it, and the guide would tell a reader to rewrite working
+    // code.
+    const spectrum = portingFacts.find((f) => f.id === 'zxspectrum')!;
+    expect(spectrum.unsupportedCharacters).not.toContain('\\');
+    expect(spectrum.unsupportedCharacters).toContain('^');
+  });
+
+  it('reports nothing for a machine that covers printable ASCII', () => {
+    for (const id of ['trs80', 'atom']) {
+      const facts = portingFacts.find((f) => f.id === id)!;
+      expect(facts.unsupportedCharacters, id).toEqual([]);
     }
   });
 });
@@ -97,6 +160,13 @@ describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {
     expect(facts.statementSepChar).toBe(dialect.memoryWrites?.statementSep);
   });
 
+  // Distinct from the row above, which is about parsing a memory-write form.
+  // This is the language rule: whether the machine takes several statements on
+  // a line at all, and what separates them if it does.
+  it('statementSeparator matches the dialect', () => {
+    expect(facts.statementSeparator).toBe(dialect.statementSeparator);
+  });
+
   it('memoryWriteSyntax matches the dialect write forms', () => {
     const forms = dialect.memoryWrites?.forms;
     // No declared forms means the dialect writes memory with POKE.
@@ -118,6 +188,24 @@ describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {
       expect(facts.screenBase).toBeDefined();
       expect(parseAddr(facts.screenBase!)).toBe(start);
     }
+  });
+
+  it('unsupportedCharacters is exactly the printable ASCII the charset cannot show', () => {
+    // Case-folded: the uppercase-only machines reach `a` through `A`, and a
+    // program that types either gets the same byte.
+    const shown = displayableAscii(dialect);
+    const missing = PRINTABLE.filter(
+      (c) => !shown.has(c) && !shown.has(c.toUpperCase()),
+    );
+    expect(facts.unsupportedCharacters).toEqual(missing);
+  });
+
+  it('unsupportedCharacters is sorted, distinct and printable ASCII only', () => {
+    const authored = facts.unsupportedCharacters;
+    expect(new Set(authored).size).toBe(authored.length);
+    expect([...authored].sort()).toEqual(authored);
+    for (const c of authored)
+      expect(PRINTABLE, `${facts.id} ${c}`).toContain(c);
   });
 
   it('programStart matches the dialect program region, tolerating the C64 zero byte', () => {

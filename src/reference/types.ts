@@ -236,8 +236,9 @@ export interface PairPortingNotes {
  *
  *  - CROSSCHECKED against `src/dialects/<id>/`: `freeRamBytes` (← programRamBytes),
  *    `addressNotation`, `hexPrefix`, `statementSepChar` (← memoryWrites), the
- *    shape of `memoryWriteSyntax` (← memoryWrites.forms), and `screenBase` /
- *    `programStart` (← memoryMap `screen` / `program` region starts).
+ *    shape of `memoryWriteSyntax` (← memoryWrites.forms), `screenBase` /
+ *    `programStart` (← memoryMap `screen` / `program` region starts), and
+ *    `unsupportedCharacters` (← charset).
  *  - HAND-AUTHORED from the hardware page + tokenizer/aiProfile, with no
  *    structured source in `src/`: `lineNumberRange`, `statementSeparator`,
  *    `elseSupported`, `letRequired`, `variableNaming`, `numberHandling`,
@@ -290,6 +291,21 @@ export interface PortingFacts {
   numberHandling: string;
   /** Exponent operator spelling ("**", "^", "↑"), or undefined if the dialect has none. */
   exponentOperator?: string;
+  /**
+   * Printable ASCII (0x20-0x7E) this machine's character set has no glyph for,
+   * in code-point order - e.g. the ZX81's `!`. Empty where the machine covers
+   * printable ASCII in full (the TRS-80 and the Atom).
+   *
+   * Only printable ASCII. The bytes with no printable form at all are the
+   * machine's control codes and graphics characters, which the escape tables
+   * describe; listing a block graphic here would report one difference twice
+   * under two names.
+   *
+   * Pinned to `src/dialects/<id>/charset.ts` by facts-crosscheck.test.ts, which
+   * re-derives it from the charset rather than trusting the prose - a character
+   * the guide wrongly says is unavailable is advice to rewrite working code.
+   */
+  unsupportedCharacters: string[];
   // --- Hardware ---
   /** Text/graphics screen summary, e.g. "32×24 text; 256×192 bitmap". */
   screen: string;

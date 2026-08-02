@@ -56,6 +56,7 @@ test('rows run most consequential first, with the memory facts together', async 
     'Conditionals',
     'Statements per line',
     'LET on assignment',
+    'Characters',
     'Exponent operator',
     'Line numbers',
     'Screen',

@@ -28,13 +28,17 @@ import {
   escapeSections,
   escapeTableForMachine,
   falseFriendsForProgram,
+  statementLayoutForProgram,
   tableForMachine,
+  unsupportedCharactersForProgram,
+  type EscapeChange,
   type FalseFriendWarning,
   type KeywordChange,
   type KeywordDiff,
   type KeywordRename,
   type PairGuidance,
   type ProgramVocabulary,
+  type StatementLayoutChange,
 } from './compare';
 import { domainGuidance } from './domain-guidance';
 import { KEYWORD_DOMAINS } from './domains';
@@ -43,6 +47,7 @@ import { DOMAIN_TITLES, type MachineIdentity } from './machineDescription';
 import { falseFriends, keywordEquivalences, pairPortingNotes } from './porting';
 import type {
   EscapeTableData,
+  PortingFacts,
   ReferenceEntry,
   ReferenceTableData,
 } from './types';
@@ -106,6 +111,103 @@ function describeGuidance(guidance: PairGuidance): string {
   const notes = [...guidance.pairNotes, ...guidance.targetNotes];
   if (notes.length === 0) return '';
   return `BEFORE YOU START\n${notes.map((n) => `- ${n}`).join('\n')}`;
+}
+
+/**
+ * The language rules that differ between the two machines.
+ *
+ * The one section here that is not narrowed, and deliberately: a rule holds
+ * whatever commands a program uses, so narrowing "one statement per line" to a
+ * program's vocabulary would drop it precisely when the port needs it. The
+ * *differences* are the narrowing - the target's own rules are already in the
+ * system prompt, and restating them all would pay for the whole fact table on
+ * every conversion turn to say what has already been said.
+ *
+ * Same rows and same order as the comparison page's fact table, less the ones
+ * that are hardware rather than language: what the machine draws and sounds with
+ * is reported through the capability sections, which say what to do about it.
+ */
+function describeLanguageRuleChanges(from: PortSide, to: PortSide): string {
+  const a = portingFacts.find((f) => f.id === from.id);
+  const b = portingFacts.find((f) => f.id === to.id);
+  if (a === undefined || b === undefined) return '';
+  // Language rules only. The hardware figures are reported through the
+  // capability sections, which say what to do about them, and the target's own
+  // are already in the system prompt - so a "Free program RAM" row here would
+  // put a hardware difference under a heading that says it is a language rule.
+  const rows: [string, (f: PortingFacts) => string][] = [
+    ['Numbers', (f) => f.numberHandling],
+    ['Variable names', (f) => f.variableNaming],
+    [
+      'Conditionals',
+      (f) => (f.elseSupported ? 'IF … THEN … ELSE' : 'IF … THEN only, no ELSE'),
+    ],
+    [
+      'Statements per line',
+      (f) =>
+        f.statementSeparator === null
+          ? 'one per line'
+          : `several, separated by ${f.statementSeparator}`,
+    ],
+    [
+      'LET on assignment',
+      (f) =>
+        ({ required: 'required', optional: 'optional', none: 'not used' })[
+          f.letRequired
+        ],
+    ],
+    ['Exponent operator', (f) => f.exponentOperator ?? 'none'],
+    ['Line numbers', (f) => f.lineNumberRange],
+    ['Writing memory', (f) => f.memoryWriteSyntax],
+  ];
+  const lines = rows
+    .filter(([, get]) => get(a) !== get(b))
+    .map(([label, get]) => `- ${label}: ${get(a)} → ${get(b)}`);
+  if (lines.length === 0) return '';
+  return `LANGUAGE RULES THAT CHANGE\n${lines.join('\n')}`;
+}
+
+/**
+ * The characters this program uses that the target has no glyph for.
+ *
+ * Named one by one rather than counted: the replacement is a judgement about
+ * the text around each one ("HELLO!" loses its `!`, `A$(1)` cannot keep its
+ * brackets), and a count says none of that.
+ */
+function describeCharactersToReplace(
+  characters: string[],
+  to: PortSide,
+): string {
+  if (characters.length === 0) return '';
+  return [
+    `CHARACTERS THIS PROGRAM USES THAT ${to.name.toUpperCase()} DOES NOT HAVE`,
+    `- ${characters.join(' ')}`,
+    '- These have no glyph on the target and cannot appear anywhere in the converted program — not in a string, not in a REM, not in a name.',
+  ].join('\n');
+}
+
+/**
+ * How this program's statement layout has to change.
+ *
+ * Names the lines, which is the whole point of the section: the rule is already
+ * in the system prompt and in the guidance prose, and what neither can say is
+ * which of *these* lines it falls on.
+ */
+function describeStatementLayout(
+  change: StatementLayoutChange | null,
+  to: PortSide,
+): string {
+  if (change === null) return '';
+  const lines = change.lines.join(', ');
+  const what =
+    change.to === null
+      ? `${to.name} takes one statement per line, so every "${change.from}" becomes a new line. Renumber the program afterwards and fix the line references.`
+      : `${to.name} separates statements with "${change.to}", not "${change.from}". The lines keep their shape; only the separator changes.`;
+  return [
+    'STATEMENT LAYOUT',
+    `- ${what}`,
+    `- Editor lines to change: ${lines}`,
+  ].join('\n');
 }
 
 /**
@@ -243,6 +345,30 @@ function describeLostEscapes(
 }
 
 /**
+ * The control codes both machines spell alike and store differently.
+ *
+ * Its own section rather than a line in the one above, because the work is
+ * different in kind: there is nothing in the program's text to search for. The
+ * spelling survives the port untouched and means something else at the other
+ * end - the ZX80 and ZX81 block graphics being the case this exists for, two
+ * machines close enough that a port between them looks finished.
+ *
+ * Both byte forms are named, because that is the whole finding.
+ */
+function describeChangedEscapes(
+  changes: EscapeChange[],
+  from: PortSide,
+  to: PortSide,
+): string {
+  if (changes.length === 0) return '';
+  const lines = changes.map(
+    (c) =>
+      `- ${c.escape}: stores ${c.from.bytes} on ${from.name}, ${c.to.bytes} on ${to.name} — ${c.to.description}`,
+  );
+  return `CONTROL CODES THAT KEEP THEIR SPELLING AND CHANGE MEANING\n${lines.join('\n')}`;
+}
+
+/**
  * What this port requires, as the assistant is told it.
  *
  * `vocabulary` is required rather than nullable: a request is never assembled
@@ -294,17 +420,29 @@ export function describePort(
     to.escapes !== undefined
       ? escapeTableForMachine(to.escapes, to.id)
       : undefined;
-  const lostEscapes =
+  const escapes =
     sourceEscapes !== undefined && targetEscapes !== undefined
       ? escapeDiffForProgram(
           diffEscapes(sourceEscapes, targetEscapes),
           vocabulary,
-        ).mustReplace
+        )
+      : undefined;
+
+  const targetFacts = portingFacts.find((f) => f.id === to.id);
+  const sourceFacts = portingFacts.find((f) => f.id === from.id);
+  const characters =
+    targetFacts !== undefined
+      ? unsupportedCharactersForProgram(targetFacts, vocabulary)
       : [];
+  const layout =
+    sourceFacts !== undefined && targetFacts !== undefined
+      ? statementLayoutForProgram(sourceFacts, targetFacts, vocabulary)
+      : null;
 
   const header = describeHeader(from, to);
   const findings = [
     describeGuidance(guidance),
+    describeLanguageRuleChanges(from, to),
     describeFalseFriends(
       falseFriendsForProgram(guidance.falseFriends, vocabulary),
       from,
@@ -313,9 +451,14 @@ export function describePort(
     describeLostCommands(diff, guidance, targetTable, to),
     describeRenames(diff.renamed),
     describeUsageChanges(diff.behaviourChanged, from, to),
-    sourceEscapes !== undefined
-      ? describeLostEscapes(lostEscapes, sourceEscapes, to)
+    sourceEscapes !== undefined && escapes !== undefined
+      ? describeLostEscapes(escapes.mustReplace, sourceEscapes, to)
       : '',
+    escapes !== undefined
+      ? describeChangedEscapes(escapes.behaviourChanged, from, to)
+      : '',
+    describeCharactersToReplace(characters, to),
+    describeStatementLayout(layout, to),
   ].filter((s) => s !== '');
 
   // An empty comparison is a finding, not an absence: without this line the

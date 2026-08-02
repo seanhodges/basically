@@ -24,7 +24,9 @@ import {
   escapeTableForMachine,
   falseFriendsForProgram,
   noticeState,
+  statementLayoutForProgram,
   tableForMachine,
+  unsupportedCharactersForProgram,
   type CapabilitySection,
   type EscapeSection,
   type KeywordChange,
@@ -247,6 +249,36 @@ const visibleFalseFriends = computed(() => {
 });
 
 /**
+ * The characters this port has to replace.
+ *
+ * Unlike the diff buckets, the unnarrowed answer is the target's whole
+ * shortfall rather than a comparison: a character is not "lost in the port", it
+ * is simply not on the machine, so a reader with no program open is told what
+ * the target cannot represent at all.
+ */
+const charactersToReplace = computed<string[]>(() => {
+  const t = target.value?.facts;
+  if (!t) return [];
+  const v = narrowingBy.value;
+  return v ? unsupportedCharactersForProgram(t, v) : t.unsupportedCharacters;
+});
+
+/**
+ * How this program's statement layout has to change, or null.
+ *
+ * Only ever narrowed: it is a statement about the program's own lines, so
+ * without one there is nothing to say that the "Statements per line" fact row
+ * does not already say better.
+ */
+const statementLayout = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return null;
+  return statementLayoutForProgram(s, t, v);
+});
+
+/**
  * How many differences the narrowing is holding back. Stating this is what keeps
  * the narrowing honest: a difference the analyser failed to recognise is never
  * silently lost, because the count reveals it and the control reaches it.
@@ -265,7 +297,11 @@ const heldBack = computed(() => {
     (full.behaviourChanged.length - shown.behaviourChanged.length) +
     (guidance.value.falseFriends.length - visibleFalseFriends.value.length) +
     ((fullEscapeDiff.value?.mustReplace.length ?? 0) -
-      (escapeDiff.value?.mustReplace.length ?? 0))
+      (escapeDiff.value?.mustReplace.length ?? 0)) +
+    ((fullEscapeDiff.value?.behaviourChanged.length ?? 0) -
+      (escapeDiff.value?.behaviourChanged.length ?? 0)) +
+    ((target.value?.facts.unsupportedCharacters.length ?? 0) -
+      charactersToReplace.value.length)
   );
 });
 
@@ -330,6 +366,14 @@ const behaviourChangedList = useTruncatedList(
   () => detailedChanges.value,
   pairKey,
 );
+// Capped like the other row-per-entry lists rather than named in a run: each
+// entry's whole point is the two byte forms side by side, so it cannot be
+// compressed to a spelling the way the codes to replace are. The ZX80 → ZX81
+// pair produces twenty-one of them.
+const escapeRecheckedList = useTruncatedList(
+  () => escapeRechecked.value,
+  pairKey,
+);
 
 const changedCount = computed(
   () => keywordDiff.value?.behaviourChanged.length ?? 0,
@@ -378,6 +422,13 @@ const escapeAddedCategories = computed(() => {
     ? escapeSections(escapeDiff.value.newlyAvailable, t.escapes).length
     : 0;
 });
+// The codes both machines spell alike and store differently. A row each rather
+// than a grouped run: the whole finding is the two byte forms side by side, and
+// there are never many - this is the one difference in the comparison a reader
+// cannot see by looking at their own program, so it earns the space.
+const escapeRechecked = computed(
+  () => escapeDiff.value?.behaviourChanged ?? [],
+);
 
 // One account per capability: the commands the port loses here, what to do
 // instead, and what the target adds here. Grouped rather than capped - a group
@@ -486,6 +537,11 @@ function fmtLet(f: PortingFacts): string {
 function fmtRam(f: PortingFacts): string {
   return `${f.freeRamBytes.toLocaleString('en-GB')} bytes`;
 }
+function fmtCharacters(f: PortingFacts): string {
+  return f.unsupportedCharacters.length === 0
+    ? 'All printable ASCII'
+    : `No ${f.unsupportedCharacters.join(' ')}`;
+}
 function fmtAddress(f: PortingFacts): string {
   if (f.addressNotation === 'hex') {
     return f.hexPrefix ? `Hexadecimal (${f.hexPrefix}nn)` : 'Hexadecimal';
@@ -530,6 +586,9 @@ const factRows = computed<FactRow[]>(() => {
     ['Conditionals', fmtElse],
     ['Statements per line', fmtSeparator],
     ['LET on assignment', fmtLet],
+    // With the language rules rather than the hardware: a character the machine
+    // has no glyph for is rejected when the program is read, not when it draws.
+    ['Characters', fmtCharacters],
     ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
     ['Line numbers', (f) => f.lineNumberRange],
     ['Screen', (f) => f.screen],
@@ -736,10 +795,19 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'Same command, different form',
     ],
     [
-      escReplaceSections.value.length + escapeAdded.value > 0,
+      escReplaceSections.value.length +
+        escapeAdded.value +
+        escapeRechecked.value.length >
+        0,
       'escape-codes',
       'Control & escape codes',
     ],
+    [
+      charactersToReplace.value.length > 0,
+      'characters',
+      'Characters to replace',
+    ],
+    [statementLayout.value !== null, 'statement-layout', 'Statement layout'],
   ];
   return entries
     .filter(([shown]) => shown)
@@ -849,10 +917,19 @@ function onVocabularyMessage(e: MessageEvent) {
     data.status === 'ready' || data.status === 'unreadable'
       ? data.status
       : 'empty';
+  // Every field defaults to empty rather than being required: the app and this
+  // guide are separately built bundles with their own service workers, so a
+  // cached older app answering without the newer fields is a real case. An empty
+  // field narrows nothing, which degrades to the guidance this page gave before
+  // that field existed.
   vocabulary.value = {
     dialectId: String(data.dialectId ?? ''),
     keywords: Array.isArray(data.keywords) ? data.keywords : [],
     escapeCodes: Array.isArray(data.escapeCodes) ? data.escapeCodes : [],
+    characters: Array.isArray(data.characters) ? data.characters : [],
+    multiStatementLines: Array.isArray(data.multiStatementLines)
+      ? data.multiStatementLines
+      : [],
   };
   // On the first answer, open on the machine the program is written for: it is
   // the one selection under which the narrowing means anything. A link that
@@ -1319,7 +1396,9 @@ watch(from, requestVocabulary);
         work the port has to do.
       -->
       <section
-        v-if="escReplaceSections.length || escapeAdded"
+        v-if="
+          escReplaceSections.length || escapeAdded || escapeRechecked.length
+        "
         id="escape-codes"
         class="cmp-section"
       >
@@ -1358,6 +1437,38 @@ watch(from, requestVocabulary);
         <p v-if="!escReplaceSections.length" class="cmp-empty">
           No {{ source.name }} control code needs replacing.
         </p>
+        <!--
+          The codes that survive the port unchanged in the source and mean
+          something else at the other end. Set apart from the groups above
+          because the work is different in kind: nothing in the program's text
+          changes, so there is nothing to search for - the reader has to be told.
+        -->
+        <div v-if="escapeRechecked.length" class="cmp-group cmp-group-esc">
+          <h3 class="cmp-group-head">
+            Same spelling, different meaning
+            <span class="cmp-group-count">{{ escapeRechecked.length }}</span>
+          </h3>
+          <ul class="cmp-list">
+            <li v-for="c in escapeRecheckedList.visible" :key="c.escape">
+              <code>{{ c.escape }}</code> stores {{ c.from.bytes }} on
+              {{ source.name }} and {{ c.to.bytes }} on {{ target.name }}.
+            </li>
+            <li
+              v-if="
+                escapeRecheckedList.hasMore && !escapeRecheckedList.expanded
+              "
+              class="cmp-more"
+            >
+              <button
+                type="button"
+                class="cmp-expand"
+                @click="escapeRecheckedList.expand()"
+              >
+                Show {{ escapeRecheckedList.remaining }} more…
+              </button>
+            </li>
+          </ul>
+        </div>
         <p v-if="escapeAdded && showAdditions" class="cmp-esc-gain">
           {{ target.name }} adds {{ count(escapeAdded, 'code') }} across
           {{ count(escapeAddedCategories, 'category', 'categories') }} the
@@ -1365,6 +1476,74 @@ watch(from, requestVocabulary);
           <a :href="refLinks(target.page).escapes"
             >see its escape-code reference</a
           >.
+        </p>
+      </section>
+
+      <!--
+        Characters, not control codes: a character the target has no glyph for
+        is rejected when the program is read, wherever it sits - in a string, a
+        REM or a variable name. Narrowed to the program's own text where there
+        is one; the target's whole shortfall where there is not.
+      -->
+      <section
+        v-if="charactersToReplace.length"
+        id="characters"
+        class="cmp-section"
+      >
+        <h2>Characters to replace ({{ charactersToReplace.length }})</h2>
+        <p class="cmp-hint">
+          {{ target.name }} has no glyph for
+          {{
+            narrowingBy
+              ? 'these characters the program uses'
+              : 'these characters'
+          }}, so they cannot appear anywhere in the program — not in a string,
+          and not in a comment.
+        </p>
+        <p class="cmp-group-names">
+          <span v-for="(c, i) in charactersToReplace" :key="c" class="cmp-name">
+            <code>{{ c }}</code
+            ><span v-if="i < charactersToReplace.length - 1" class="cmp-sep"
+              >,
+            </span>
+          </span>
+        </p>
+      </section>
+
+      <!--
+        Always narrowed: without a program this says nothing the "Statements per
+        line" fact row does not already say, and with one it is the only place
+        the reader learns which of their own lines the rule falls on.
+      -->
+      <section v-if="statementLayout" id="statement-layout" class="cmp-section">
+        <h2>
+          Statement layout ({{ count(statementLayout.lines.length, 'line') }})
+        </h2>
+        <p class="cmp-hint" v-if="statementLayout.kind === 'split'">
+          {{ target.name }} takes one statement per line, so every
+          <code>{{ statementLayout.from }}</code> becomes a new line. That
+          renumbers everything after it — <strong>Renumber file</strong> fixes
+          the line references.
+        </p>
+        <p class="cmp-hint" v-else>
+          {{ target.name }} separates statements with
+          <code>{{ statementLayout.to }}</code
+          >, not <code>{{ statementLayout.from }}</code
+          >. The lines keep their shape; only the separator changes.
+        </p>
+        <p class="cmp-group-names">
+          Editor
+          {{ statementLayout.lines.length === 1 ? 'line' : 'lines' }}
+          <span
+            v-for="(n, i) in statementLayout.lines"
+            :key="n"
+            class="cmp-name"
+          >
+            <code>{{ n }}</code
+            ><span v-if="i < statementLayout.lines.length - 1" class="cmp-sep"
+              >,
+            </span>
+          </span>
         </p>
       </section>
     </template>

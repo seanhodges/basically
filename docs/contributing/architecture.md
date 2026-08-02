@@ -143,6 +143,10 @@ interface:
 - **`memoryMap`**, **`memoryBlocks`**, **`addressNotation`** and
   **`memoryWrites`** - what the memory-map viewer draws, and where machine-code
   blocks may legally live.
+- **`statementSeparator`** - what separates two statements on a line, or `null`
+  where the machine takes only one. Distinct from `memoryWrites.statementSep`,
+  which is scoped to parsing a memory-write form; this is the language rule, and
+  the porting guide's own copy of it is crosschecked against this field.
 
 ::: tip One address, one definition
 A dialect declares each hardware address **exactly once**, in its

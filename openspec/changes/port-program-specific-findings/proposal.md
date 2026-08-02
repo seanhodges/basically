@@ -68,6 +68,10 @@ None.
 - `src/ai/machineReference.ts`: the escape table already loaded for the port path is
   wired into the machine description too. The system prompt stays byte-stable per
   dialect, so provider prefix caching is unaffected.
+- `src/dialects/types.ts` and every registered dialect: `Dialect` gains
+  `statementSeparator`, the language rule the program analyser needs and the one
+  `memoryWrites.statementSep` cannot express. See design decision 3.
 - `docs/.vitepress/theme/components/DialectCompare.vue` and
   `docs/reference/porting-basics.md`.
-- No change to the `Dialect` / `MachineEmulator` seam, and no new dependencies.
+- One field added to the `Dialect` seam (above); no change to `MachineEmulator`, and no
+  new dependencies.

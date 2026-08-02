@@ -43,6 +43,7 @@ export const cpc464: Dialect = {
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',
+  statementSeparator: ':',
   // The 64K memory map + where user memory blocks may live.
   memoryMap: cpc464MemoryMap,
   memoryBlocks: cpc464MemoryBlocks,

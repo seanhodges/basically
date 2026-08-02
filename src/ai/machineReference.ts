@@ -106,9 +106,15 @@ export async function loadMachineReference(dialect: Dialect): Promise<string> {
   if (loadPage === undefined) {
     throw new Error(`no reference page "${page}" for dialect "${dialect.id}"`);
   }
-  const [{ describeMachine }, table] = await Promise.all([
+  // The escape table joins the description rather than staying with the port
+  // path: telling the assistant a control code must be replaced is useless
+  // without telling it how this machine spells one. Its absence is tolerated
+  // (the description simply omits the section) because a page may register a
+  // keyword table and no escapes, and half a description beats none.
+  const [{ describeMachine }, table, escapes] = await Promise.all([
     import('../reference/machineDescription'),
     loadPage(),
+    loadEscapePage(page),
   ]);
   const text = describeMachine(
     {
@@ -119,6 +125,7 @@ export async function loadMachineReference(dialect: Dialect): Promise<string> {
       page,
     },
     table,
+    escapes,
   );
   cache.set(dialect.id, text);
   return text;

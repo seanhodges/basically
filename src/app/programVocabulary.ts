@@ -41,6 +41,28 @@ export interface ProgramVocabulary {
    * rows are authored under (`EscapeEntry.codes`).
    */
   escapeCodes: number[];
+  /**
+   * Distinct printable ASCII (0x20-0x7E) the program's text contains, sorted.
+   *
+   * Printable ASCII only, and deliberately: everything outside it is a control
+   * code or a graphics character, which {@link escapeCodes} already carries.
+   * Recording a block graphic here as well would put it in two findings at once
+   * - "control codes to replace" and "characters the target cannot represent" -
+   * for one difference.
+   *
+   * Read from the whole line, not just its code: a character absent from a
+   * machine's set is absent from its strings and its REM bodies too, because
+   * they are stored through the same charset.
+   */
+  characters: string[];
+  /**
+   * 1-based editor lines carrying more than one statement, sorted.
+   *
+   * Editor lines rather than BASIC line numbers, matching `TokenizeError.line`
+   * and the `- editor line N:` list the assistant is already given - a program
+   * is talked about in one coordinate system or the reader has to convert.
+   */
+  multiStatementLines: number[];
 }
 
 /**
@@ -94,17 +116,30 @@ function stringLiterals(body: string): string[] {
   return out;
 }
 
-/** The program's physical lines, less the machine-code blocks and line numbers. */
-function codeLines(source: string): string[] {
-  const bodies: string[] = [];
-  for (const raw of source.split('\n')) {
+/** One scannable line: its 1-based editor position, and its text less the line number. */
+interface CodeLine {
+  line: number;
+  body: string;
+}
+
+/**
+ * The program's physical lines, less the machine-code blocks and line numbers.
+ *
+ * The editor position rides along because one finding is about lines rather than
+ * about vocabulary: "these lines carry several statements" has to name them, and
+ * blank and `#BIN` lines are skipped here, so a position cannot be recovered by
+ * counting afterwards.
+ */
+function codeLines(source: string): CodeLine[] {
+  const bodies: CodeLine[] = [];
+  source.split('\n').forEach((raw, index) => {
     const line = raw.trim();
-    if (line === '') continue;
+    if (line === '') return;
     // `#BIN` lines carry a base64 program-area record, not BASIC text; scanning
     // one for keywords finds whatever letters the payload happens to spell.
-    if (isBinaryDirective(line)) continue;
-    bodies.push(line.replace(/^\d+\s?/, ''));
-  }
+    if (isBinaryDirective(line)) return;
+    bodies.push({ line: index + 1, body: line.replace(/^\d+\s?/, '') });
+  });
   return bodies;
 }
 
@@ -120,7 +155,7 @@ function keywordsIn(source: string, dialect: Dialect): Set<string> {
   const matcher = makeCrunchMatcher(spellings);
   const found = new Set<string>();
 
-  for (const body of codeLines(source)) {
+  for (const { body } of codeLines(source)) {
     const code = scannable(body);
     let i = 0;
     while (i < code.length) {
@@ -154,7 +189,7 @@ function escapeCodesIn(source: string, dialect: Dialect): Set<number> {
   const probe = probeFor(dialect.id);
   if (!probe) return found;
 
-  for (const body of codeLines(source)) {
+  for (const { body } of codeLines(source)) {
     for (const literal of stringLiterals(body)) {
       let i = 0;
       while (i < literal.length) {
@@ -185,6 +220,88 @@ function escapeCodesIn(source: string, dialect: Dialect): Set<number> {
   return found;
 }
 
+/** True for ASCII 0x20-0x7E, the range {@link ProgramVocabulary.characters} covers. */
+function isPrintableAscii(ch: string): boolean {
+  const code = ch.codePointAt(0);
+  return code !== undefined && code >= 0x20 && code <= 0x7e;
+}
+
+/**
+ * The distinct printable ASCII the program's text contains.
+ *
+ * Walked a unit at a time through the charset probe rather than character by
+ * character, because an escape is not what it looks like: `%A` on a ZX81 is one
+ * inverse-video character, and a naive walk would record the `%` as a character
+ * the program uses when the program does not use one. The unit walk is the same
+ * one {@link escapeCodesIn} makes, over the whole line rather than its literals.
+ *
+ * Everything a unit yields that is not printable ASCII is dropped, which is what
+ * keeps the two scans from reporting one difference twice: a block graphic is a
+ * control code, is recorded as one, and never appears here.
+ */
+function charactersIn(source: string, dialect: Dialect): Set<string> {
+  const found = new Set<string>();
+  const probe = probeFor(dialect.id);
+
+  for (const { body } of codeLines(source)) {
+    let i = 0;
+    while (i < body.length) {
+      const ch = body[i]!;
+      if (probe === undefined) {
+        if (isPrintableAscii(ch)) found.add(ch);
+        i++;
+        continue;
+      }
+      let unit;
+      try {
+        unit = probe.parseUnit(body, i);
+      } catch (e) {
+        // A half-typed escape, or a character this machine does not have in the
+        // first place. Either way the character is in the program and the user
+        // can see it, so record it and carry on rather than abandoning the line.
+        if (!(e instanceof CharsetError)) throw e;
+        if (isPrintableAscii(ch)) found.add(ch);
+        i++;
+        continue;
+      }
+      // A single-character unit is the character itself; anything longer is an
+      // escape, whose source spelling is notation rather than text.
+      if (unit.length === 1 && isPrintableAscii(ch)) found.add(ch);
+      i += Math.max(1, unit.length);
+    }
+  }
+  return found;
+}
+
+/**
+ * The lines carrying more than one statement, read as `dialect` separates them.
+ *
+ * `Dialect.statementSeparator` rather than `Dialect.memoryWrites.statementSep`:
+ * that one is scoped to parsing a memory-write form, only the Atom declares it,
+ * and every reader falls back to `:`. That default cannot say "this machine has
+ * no separator", and a ZX80 or ZX81 line reading `PRINT "TIME: ";T` would be
+ * reported as two statements on the strength of it.
+ *
+ * `scannable` blanks string literals and cuts the REM tail, so a separator
+ * inside either is not a statement boundary - which is the same reason the
+ * keyword scan reads through it.
+ */
+function multiStatementLinesIn(source: string, dialect: Dialect): number[] {
+  const separator = dialect.statementSeparator;
+  if (separator === null) return [];
+
+  const found: number[] = [];
+  for (const { line, body } of codeLines(source)) {
+    const statements = scannable(body)
+      .split(separator)
+      // A trailing or doubled separator is an empty statement, which real
+      // programs contain and which is not a second statement to split out.
+      .filter((s) => s.trim() !== '');
+    if (statements.length > 1) found.push(line);
+  }
+  return found;
+}
+
 /**
  * The distinct commands and control codes `source` contains, read as `dialect`.
  *
@@ -200,6 +317,8 @@ export function programVocabulary(
     dialectId: dialect.id,
     keywords: [...keywordsIn(source, dialect)].sort(),
     escapeCodes: [...escapeCodesIn(source, dialect)].sort((a, b) => a - b),
+    characters: [...charactersIn(source, dialect)].sort(),
+    multiStatementLines: multiStatementLinesIn(source, dialect),
   };
 }
 
@@ -209,6 +328,8 @@ export interface ProgramVocabularyReply {
   dialectId: string;
   keywords: string[];
   escapeCodes: number[];
+  characters: string[];
+  multiStatementLines: number[];
 }
 
 /**
@@ -250,5 +371,7 @@ export function vocabularyReply(
     dialectId: vocab.dialectId,
     keywords: vocab.keywords,
     escapeCodes: vocab.escapeCodes,
+    characters: vocab.characters,
+    multiStatementLines: vocab.multiStatementLines,
   };
 }

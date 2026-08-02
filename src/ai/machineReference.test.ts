@@ -15,6 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { dialects } from '../dialects/registry';
+import { portingFacts } from '../reference/facts';
 import {
   loadEscapePage,
   loadMachineReference,
@@ -71,6 +72,54 @@ describe('the machine description', () => {
       );
     },
   );
+
+  it.each(dialects.map((d) => d.id))(
+    'tells %s how to spell its own control codes',
+    async (id) => {
+      // The counterpart to the command list. Every registered machine has an
+      // escape table, so every one of them carries this section - a port that
+      // must replace a control code is otherwise told what to remove and not
+      // what to write.
+      const dialect = dialects.find((d) => d.id === id)!;
+      const text = await loadMachineReference(dialect);
+      expect(text).toContain('CONTROL CODES, AND HOW THIS MACHINE SPELLS THEM');
+    },
+  );
+
+  it.each(dialects.map((d) => d.id))(
+    'states the characters %s cannot represent, or says nothing about them',
+    async (id) => {
+      // Present exactly when there is something to say. A heading with nothing
+      // under it is something for the model to reason about, and would vary the
+      // block's shape by machine for no gain.
+      const dialect = dialects.find((d) => d.id === id)!;
+      const facts = portingFacts.find((f) => f.id === id)!;
+      const text = await loadMachineReference(dialect);
+      const heading = 'CHARACTERS THIS MACHINE DOES NOT HAVE';
+      if (facts.unsupportedCharacters.length === 0) {
+        expect(text).not.toContain(heading);
+      } else {
+        expect(text).toContain(heading);
+        for (const c of facts.unsupportedCharacters) {
+          expect(text, `${id} ${c}`).toContain(c);
+        }
+      }
+    },
+  );
+
+  it('names the character a ZX81 program most often trips over', async () => {
+    const zx81 = dialects.find((d) => d.id === 'zx81')!;
+    const text = await loadMachineReference(zx81);
+    expect(text).toContain('CHARACTERS THIS MACHINE DOES NOT HAVE');
+    expect(text).toContain('! # % &');
+    expect(text).toContain('cannot appear anywhere in a program');
+  });
+
+  it('says nothing about characters on a machine that has them all', async () => {
+    const trs80 = dialects.find((d) => d.id === 'trs80')!;
+    const text = await loadMachineReference(trs80);
+    expect(text).not.toContain('CHARACTERS THIS MACHINE DOES NOT HAVE');
+  });
 
   it('states the machine, its BASIC and its free RAM', async () => {
     const zx81 = dialects.find((d) => d.id === 'zx81')!;
