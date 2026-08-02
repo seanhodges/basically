@@ -943,6 +943,23 @@ export interface Dialect {
    */
   addressNotation?: 'hex' | 'dec';
   /**
+   * What separates two statements on one line, or `null` where this machine
+   * takes one statement per line (the ZX80 and ZX81). `':'` on most machines,
+   * `';'` on the Atom.
+   *
+   * Required, unlike its neighbours, because its two absent-ish values mean
+   * opposite things and a default cannot serve both. This exists because
+   * {@link MemoryWriteSyntax.statementSep} could not: that one is scoped to
+   * parsing a memory-write form, only the Atom declares it, and every reader
+   * falls back to `':'` - which reads a ZX81 line's ordinary colon
+   * (`PRINT "TIME: ";T`) as a statement break.
+   *
+   * `PortingFacts.statementSeparator` is pinned to this by
+   * facts-crosscheck.test.ts, so the guide and the tokenizer cannot disagree
+   * about whether a machine allows several statements on a line.
+   */
+  statementSeparator: string | null;
+  /**
    * How this dialect addresses memory, driving the memory-map viewer's markers.
    * Absent for the common `POKE addr,val` machines - those are inferred from the
    * `POKE` keyword. Set it for dialects that write memory differently (BBC/Atom

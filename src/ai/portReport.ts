@@ -172,6 +172,8 @@ export async function buildConversionMessage(input: {
     dialectId: reply.dialectId,
     keywords: reply.keywords,
     escapeCodes: reply.escapeCodes,
+    characters: reply.characters,
+    multiStatementLines: reply.multiStatementLines,
   });
   if (report === null) return { ok: true, userContent: plain() };
   return {

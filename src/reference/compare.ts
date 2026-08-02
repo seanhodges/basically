@@ -673,6 +673,10 @@ export interface ProgramVocabulary {
   dialectId: string;
   keywords: string[];
   escapeCodes: number[];
+  /** Printable ASCII the program's text contains. See the app-side twin. */
+  characters: string[];
+  /** 1-based editor lines carrying more than one statement. */
+  multiStatementLines: number[];
 }
 
 /**
@@ -723,7 +727,12 @@ export function falseFriendsForProgram(
  *
  * Rows claiming no codes at all are the parse-only spellings, whose bytes
  * decode to another row's form; the row that owns those bytes is the one that
- * shows. As in {@link diffForProgram}, only `mustReplace` is narrowed.
+ * shows.
+ *
+ * `mustReplace` and `behaviourChanged` are both narrowed; `newlyAvailable` and
+ * `unchanged` pass through untouched, for the reasons {@link diffForProgram}
+ * gives. A behaviour-changed code is judged on its *source* row, which is the
+ * one the program's bytes belong to - the target row is what it becomes.
  */
 export function escapeDiffForProgram(
   diff: EscapeDiff,
@@ -743,6 +752,101 @@ export function escapeDiffForProgram(
       if (entry.codes === 'rest') return unclaimed;
       return (entry.codes ?? []).some((code) => used.has(code));
     }),
+    behaviourChanged: diff.behaviourChanged.filter((change) =>
+      used.has(leadingByte(change.from)),
+    ),
+  };
+}
+
+/**
+ * The byte a row's spelling produces, for narrowing a behaviour change.
+ *
+ * `codes` where the row claims any, and the row's own worked example otherwise.
+ * The fallback is not a nicety: `codes` is documented as omitted for the
+ * parse-only spellings, and on the Sinclair pages *every* block-graphics row is
+ * parse-only - the canonical decode is the unicode glyph, which those rows carry
+ * as an alias rather than as a row of its own. Narrowing on `codes` alone would
+ * therefore discard the entire ZX80↔ZX81 finding, which is the one this bucket
+ * exists for.
+ *
+ * `example.bytes` is safe to read this way: every row carries one, and
+ * escapes/escape-crosscheck.test.ts pins each to what the dialect charset
+ * actually produces. The leading byte only, which is the rule the program
+ * analyser records operand-carrying escapes under.
+ */
+function leadingByte(entry: EscapeEntry): number {
+  if (entry.codes !== undefined && entry.codes !== 'rest') {
+    return entry.codes[0] ?? -1;
+  }
+  return entry.example.bytes[0] ?? -1;
+}
+
+/**
+ * The characters the program uses that the target machine cannot represent.
+ *
+ * Narrowed like every other finding, and for the same reason: the target's whole
+ * shortfall is a property of the machine, while what this port has to deal with
+ * is the intersection with the program. A ZX81 lacks sixteen printable
+ * characters; a particular program is usually subject to one or two of them.
+ *
+ * Case-folded, because the machines with the shortest repertoires are the
+ * uppercase-only ones: a program writing `Hi!` is subject to the missing `!`,
+ * and its lowercase letters are not a finding - they fold to letters the machine
+ * has.
+ */
+export function unsupportedCharactersForProgram(
+  targetFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): string[] {
+  const missing = new Set(targetFacts.unsupportedCharacters);
+  return vocabulary.characters.filter(
+    (c) => missing.has(c) || missing.has(c.toUpperCase()),
+  );
+}
+
+/** How a program's statement layout has to change. See {@link statementLayoutForProgram}. */
+export interface StatementLayoutChange {
+  /**
+   * `split` where the target takes one statement per line, so each affected line
+   * becomes several; `reseparate` where it takes several under another
+   * character, so only the separator changes. The two are different work - the
+   * first renumbers everything after it, the second does not.
+   */
+  kind: 'split' | 'reseparate';
+  /** The source machine's separator. Never null: a line cannot carry two statements without one. */
+  from: string;
+  /** The target's separator, or null where it takes one statement per line. */
+  to: string | null;
+  /** The program's 1-based editor lines that carry more than one statement. */
+  lines: number[];
+}
+
+/**
+ * What this program's statement layout costs on the target, or null.
+ *
+ * Null in all three of the ways this is not work: the two machines separate
+ * statements alike, the program has no line carrying more than one statement, or
+ * the source machine has no separator at all (in which case the vocabulary
+ * reports no such lines either, and this is belt and braces).
+ *
+ * The counting is the vocabulary's, done in the source machine's language; this
+ * only decides what the target makes of it.
+ */
+export function statementLayoutForProgram(
+  sourceFacts: PortingFacts,
+  targetFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): StatementLayoutChange | null {
+  const from = sourceFacts.statementSeparator;
+  const to = targetFacts.statementSeparator;
+  if (from === null) return null;
+  if (from === to) return null;
+  if (vocabulary.multiStatementLines.length === 0) return null;
+  return {
+    kind: to === null ? 'split' : 'reseparate',
+    from,
+    to,
+    lines: vocabulary.multiStatementLines,
   };
 }
 

@@ -15,6 +15,8 @@ describe('programVocabulary - keywords', () => {
       dialectId: 'commodore64',
       keywords: ['FOR', 'NEXT', 'PRINT', 'TO'],
       escapeCodes: [],
+      characters: [...'01:=EFINOPRTX'],
+      multiStatementLines: [1],
     });
   });
 
@@ -89,12 +91,91 @@ describe('programVocabulary - escape codes', () => {
   });
 });
 
+describe('programVocabulary - characters', () => {
+  it('records the characters of code, strings and REM bodies alike', () => {
+    // All three are stored through the same charset, so a character the target
+    // lacks fails in a comment exactly as it does in a string.
+    const vocab = programVocabulary('10 PRINT "HI!"\n20 REM &', c64);
+    expect(vocab.characters).toContain('!');
+    expect(vocab.characters).toContain('&');
+  });
+
+  it('does not record an escape spelling as characters', () => {
+    // `{clr}` is one control code. Recording `{`, `c`, `l`, `r` and `}` would
+    // report characters the program does not use - and `{` is one the C64
+    // cannot represent, so it would invent a finding.
+    const vocab = programVocabulary('10 PRINT "{clr}A"', c64);
+    // The line number is stripped with the line; `PRINT "A"` is what is left.
+    expect(vocab.characters).toEqual([...' "AINPRT']);
+    expect(vocab.characters).not.toContain('{');
+  });
+
+  it('records a block graphic as a control code and not as a character', () => {
+    // The two scans partition the program: one difference, one finding.
+    const vocab = programVocabulary('10 PRINT "\\::"', zx81);
+    expect(vocab.escapeCodes).toEqual([0x80]);
+    expect(vocab.characters).not.toContain('\\');
+    expect(vocab.characters).not.toContain(':');
+  });
+
+  it('records the inverse-video prefix as neither', () => {
+    // `%A` is one inverse-video character on a ZX81, not a `%` and an `A`.
+    const vocab = programVocabulary('10 PRINT "%A"', zx81);
+    expect(vocab.characters).not.toContain('%');
+  });
+});
+
+describe('programVocabulary - multi-statement lines', () => {
+  it('reports a line carrying several statements', () => {
+    const vocab = programVocabulary('10 A=1:B=2\n20 C=3', c64);
+    expect(vocab.multiStatementLines).toEqual([1]);
+  });
+
+  it('reports the editor line, not the BASIC line number', () => {
+    // Blank lines are skipped by the scan, so the position cannot be recovered
+    // by counting the lines it returns.
+    const vocab = programVocabulary('\n\n100 A=1:B=2', c64);
+    expect(vocab.multiStatementLines).toEqual([3]);
+  });
+
+  it('does not count a separator inside a string or after REM', () => {
+    const vocab = programVocabulary('10 PRINT "A:B"\n20 REM A:B', c64);
+    expect(vocab.multiStatementLines).toEqual([]);
+  });
+
+  it('does not count a trailing or doubled separator', () => {
+    // Real tape programs carry these; an empty statement is not one to split.
+    const vocab = programVocabulary('10 A=1:\n20 B=2::C=3', c64);
+    expect(vocab.multiStatementLines).toEqual([2]);
+  });
+
+  it('reports nothing on a machine with no statement separator', () => {
+    // The ZX81 has no separator, and `:` is ordinary text on it. Defaulting to
+    // `:` here would report this line as two statements.
+    const vocab = programVocabulary('10 PRINT "TIME: ";T', zx81);
+    expect(vocab.multiStatementLines).toEqual([]);
+  });
+
+  it('splits on the machine’s own separator', () => {
+    // The Atom separates with `;`, so a `:` is not a boundary there.
+    const atom = getDialect('atom');
+    expect(programVocabulary('10 A=1;B=2', atom).multiStatementLines).toEqual([
+      1,
+    ]);
+    expect(programVocabulary('10 A=1:B=2', atom).multiStatementLines).toEqual(
+      [],
+    );
+  });
+});
+
 describe('programVocabulary - no program', () => {
   it('is empty for an empty program', () => {
     expect(programVocabulary('', c64)).toEqual({
       dialectId: 'commodore64',
       keywords: [],
       escapeCodes: [],
+      characters: [],
+      multiStatementLines: [],
     });
   });
 

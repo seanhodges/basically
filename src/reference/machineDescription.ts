@@ -17,11 +17,16 @@
 // derived from module-level constants through pure functions in a fixed order,
 // with an explicit sort and no iteration-order dependence.
 import { sortEntries } from './sort';
-import { tableForMachine } from './compare';
+import { escapeTableForMachine, tableForMachine } from './compare';
 import { KEYWORD_DOMAINS, type KeywordDomain } from './domains';
 import { domainGuidance } from './domain-guidance';
 import { portingFacts } from './facts';
-import type { PortingFacts, ReferenceEntry, ReferenceTableData } from './types';
+import type {
+  EscapeTableData,
+  PortingFacts,
+  ReferenceEntry,
+  ReferenceTableData,
+} from './types';
 
 /**
  * Who the machine is, as the app already knows it. Taken as an argument rather
@@ -121,6 +126,56 @@ function describeLanguageRules(facts: PortingFacts): string {
     `- Writing to memory: ${facts.memoryWriteSyntax} — addresses in ${notation}.`,
   );
   return `LANGUAGE RULES\n${lines.join('\n')}`;
+}
+
+/**
+ * The printable characters this machine simply does not have.
+ *
+ * Empty string for a machine that covers printable ASCII, rather than a heading
+ * saying it lacks nothing: a section with nothing under it is something to
+ * reason about, and the absence says the same thing at no cost. It also keeps
+ * this block constant per machine, which is what the byte-stability the
+ * providers' prefix caching depends on is made of.
+ *
+ * Stated as "anywhere in a program" because the mistake it prevents is the
+ * subtle one. That a ZX81 has no `!` is easy to accept for a variable name and
+ * easy to forget for `PRINT "HELLO!"` - and the charset does not care which it
+ * is.
+ */
+function describeCharacterSet(facts: PortingFacts): string {
+  if (facts.unsupportedCharacters.length === 0) return '';
+  return [
+    'CHARACTERS THIS MACHINE DOES NOT HAVE',
+    `- ${facts.unsupportedCharacters.join(' ')}`,
+    '- These have no glyph on this machine and cannot appear anywhere in a program — not in a string, not in a REM, not in a name. Rewrite the text rather than using one.',
+  ].join('\n');
+}
+
+/**
+ * How this machine spells the control codes its character set holds.
+ *
+ * The counterpart to the command list: the assistant is told which control codes
+ * a port must replace, and without this it has no way to write the replacement.
+ * Grouped by what the codes do, in the table's own category order, which is
+ * editorial - the codes a screen layout depends on lead.
+ *
+ * Operand-carrying forms keep their placeholder spelling (`{INK n}`), because
+ * that is the row's own spelling and the description says what the operand is.
+ */
+function describeEscapes(escapes: EscapeTableData): string {
+  const shown = escapes.entries.filter((e) => e.parseOnly !== true);
+  if (shown.length === 0) return '';
+  const parts = ['CONTROL CODES, AND HOW THIS MACHINE SPELLS THEM'];
+  for (const category of escapes.categories) {
+    const inCategory = shown.filter((e) => e.category === category.id);
+    if (inCategory.length === 0) continue;
+    parts.push(
+      `\n${category.label}:\n${inCategory
+        .map((e) => `- ${e.escape}: ${e.description}`)
+        .join('\n')}`,
+    );
+  }
+  return parts.join('\n');
 }
 
 function describeCapabilities(facts: PortingFacts): string {
@@ -233,6 +288,7 @@ function describeShortfalls(
 export function describeMachine(
   machine: MachineIdentity,
   table: ReferenceTableData,
+  escapes?: EscapeTableData,
 ): string {
   const facts = portingFacts.find((f) => f.id === machine.id);
   if (facts === undefined) {
@@ -242,8 +298,14 @@ export function describeMachine(
   const sections = [
     describeIdentity(machine, facts),
     describeLanguageRules(facts),
+    // Between the language rules and the hardware, where it belongs: what the
+    // machine will accept as a program, not what it can draw.
+    describeCharacterSet(facts),
     describeCapabilities(facts),
     describeCommands(entries),
+    escapes !== undefined
+      ? describeEscapes(escapeTableForMachine(escapes, machine.id))
+      : '',
     describeShortfalls(machine, facts),
   ];
   return sections.filter((s) => s !== '').join('\n\n');

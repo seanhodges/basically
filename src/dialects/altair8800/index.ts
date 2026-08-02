@@ -82,6 +82,7 @@ export const altair8800: Dialect = {
 
   // Altair BASIC's PEEK/POKE take decimal addresses.
   addressNotation: 'dec',
+  statementSeparator: ':',
 
   createEmulator(opts) {
     return new Altair8800Machine({ rom: opts.rom, ramKb: opts.ramKb });

@@ -23,7 +23,9 @@ import {
   falseFriendsForProgram,
   groupByDomain,
   noticeState,
+  statementLayoutForProgram,
   tableForMachine,
+  unsupportedCharactersForProgram,
   type ProgramVocabulary,
 } from './compare';
 
@@ -531,6 +533,7 @@ describe('composeGuidance', () => {
       elseSupported: false,
       letRequired: 'optional',
       variableNaming: 'A–Z',
+      unsupportedCharacters: [],
       numberHandling: 'Floating point.',
       screen: 'text',
       freeRamBytes: 1024,
@@ -1021,8 +1024,16 @@ function vocab(
   keywords: string[],
   escapeCodes: number[] = [],
   dialectId = 'zx81',
+  characters: string[] = [],
+  multiStatementLines: number[] = [],
 ): ProgramVocabulary {
-  return { dialectId, keywords, escapeCodes };
+  return {
+    dialectId,
+    keywords,
+    escapeCodes,
+    characters,
+    multiStatementLines,
+  };
 }
 
 describe('diffForProgram', () => {
@@ -1176,6 +1187,134 @@ describe('escapeDiffForProgram', () => {
     const narrowed = escapeDiffForProgram(diff, vocab([], [0x93]));
     expect(narrowed.newlyAvailable).toEqual(diff.newlyAvailable);
     expect(narrowed.unchanged).toBe(diff.unchanged);
+  });
+
+  // The ZX80/ZX81 case: the same spelling on both machines, storing a different
+  // byte. Nothing in the program's text changes, so this is the one difference a
+  // reader cannot find by looking.
+  describe('codes that keep their spelling and change meaning', () => {
+    const changed = diffEscapes(
+      escTable([CLR, WHITE]),
+      escTable([{ ...CLR, bytes: '0x92' }, WHITE]),
+    );
+
+    it('narrows them to the bytes the program uses', () => {
+      expect(changed.behaviourChanged.map((c) => c.escape)).toEqual(['{clr}']);
+      const narrowed = escapeDiffForProgram(changed, vocab([], [0x05]));
+      expect(narrowed.behaviourChanged).toEqual([]);
+    });
+
+    it('keeps one the program does use', () => {
+      const narrowed = escapeDiffForProgram(changed, vocab([], [0x93]));
+      expect(narrowed.behaviourChanged.map((c) => c.escape)).toEqual(['{clr}']);
+    });
+
+    it('judges the code on its source row, not the target row', () => {
+      // The program's bytes are the source machine's, so the source row is the
+      // one they can match. Judging on the target row would narrow a code away
+      // whenever the two machines disagree about its byte - which is every code
+      // in this bucket, by definition.
+      const moved = diffEscapes(
+        escTable([CLR]),
+        escTable([{ ...CLR, bytes: '0x92', codes: [0x92] }]),
+      );
+      const narrowed = escapeDiffForProgram(moved, vocab([], [0x93]));
+      expect(narrowed.behaviourChanged.map((c) => c.escape)).toEqual(['{clr}']);
+    });
+  });
+});
+
+describe('unsupportedCharactersForProgram', () => {
+  const target = (unsupportedCharacters: string[]): PortingFacts =>
+    ({ id: 'target', unsupportedCharacters }) as PortingFacts;
+
+  it('reports only the characters the program actually uses', () => {
+    const found = unsupportedCharactersForProgram(
+      target(['!', '#', '@']),
+      vocab([], [], 'zx81', ['A', '!', '@']),
+    );
+    expect(found).toEqual(['!', '@']);
+  });
+
+  it('reports nothing for a target that represents printable ASCII in full', () => {
+    expect(
+      unsupportedCharactersForProgram(target([]), vocab([], [], 'zx81', ['!'])),
+    ).toEqual([]);
+  });
+
+  it('reports nothing for a program using none of them', () => {
+    expect(
+      unsupportedCharactersForProgram(
+        target(['!']),
+        vocab([], [], 'zx81', ['A', 'B']),
+      ),
+    ).toEqual([]);
+  });
+
+  it('folds case, because the shortest repertoires are uppercase-only', () => {
+    // A lowercase letter is not a finding on a machine that folds it to a letter
+    // it has; the missing character beside it still is.
+    expect(
+      unsupportedCharactersForProgram(
+        target(['!']),
+        vocab([], [], 'zx81', ['h', 'i', '!']),
+      ),
+    ).toEqual(['!']);
+  });
+});
+
+describe('statementLayoutForProgram', () => {
+  const machine = (statementSeparator: string | null): PortingFacts =>
+    ({ id: 'm', statementSeparator }) as PortingFacts;
+
+  it('reports splitting for a target that takes one statement per line', () => {
+    expect(
+      statementLayoutForProgram(
+        machine(':'),
+        machine(null),
+        vocab([], [], 'commodore64', [], [3, 7]),
+      ),
+    ).toEqual({ kind: 'split', from: ':', to: null, lines: [3, 7] });
+  });
+
+  it('reports re-separating for a target that spells it differently', () => {
+    expect(
+      statementLayoutForProgram(
+        machine(':'),
+        machine(';'),
+        vocab([], [], 'commodore64', [], [3]),
+      ),
+    ).toEqual({ kind: 'reseparate', from: ':', to: ';', lines: [3] });
+  });
+
+  it('reports nothing when the two machines separate statements alike', () => {
+    expect(
+      statementLayoutForProgram(
+        machine(':'),
+        machine(':'),
+        vocab([], [], 'commodore64', [], [3]),
+      ),
+    ).toBeNull();
+  });
+
+  it('reports nothing when no line of the program carries two statements', () => {
+    expect(
+      statementLayoutForProgram(
+        machine(':'),
+        machine(null),
+        vocab([], [], 'commodore64', [], []),
+      ),
+    ).toBeNull();
+  });
+
+  it('reports nothing when the source machine has no separator', () => {
+    expect(
+      statementLayoutForProgram(
+        machine(null),
+        machine(':'),
+        vocab([], [], 'zx81', [], [3]),
+      ),
+    ).toBeNull();
   });
 });
 

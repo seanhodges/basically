@@ -53,6 +53,7 @@ export const cpc6128: Dialect = {
   docsReference: 'cpc',
   // Locomotive BASIC addresses memory in &-prefixed hex (POKE &A000, …).
   addressNotation: 'hex',
+  statementSeparator: ':',
   memoryMap: cpc6128MemoryMap,
   // Same base 64K layout as the 464, so the block linter's figures carry over.
   memoryBlocks: cpc464MemoryBlocks,

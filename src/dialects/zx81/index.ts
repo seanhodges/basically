@@ -42,6 +42,7 @@ export const zx81: Dialect = {
 
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
+  statementSeparator: null,
   fileExtensions: ['.txt', '.bas'],
   keywords: zx81Keywords,
   charset: zx81Charset,

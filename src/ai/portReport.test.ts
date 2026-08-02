@@ -123,6 +123,8 @@ describe('a gap in the app’s own data degrades', () => {
         dialectId: 'commodore64',
         keywords: ['PRINT'],
         escapeCodes: [],
+        characters: [],
+        multiStatementLines: [],
       }),
     ).toBeNull();
   });
@@ -175,6 +177,13 @@ describe('the turn a port actually sends', () => {
       dialectId: 'commodore64',
       keywords,
       escapeCodes: [],
+      // A large program's text: every printable character it could plausibly
+      // contain, and a hundred lines carrying two statements. The findings this
+      // drives are what the bound is being checked against.
+      characters: [
+        ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "$%&\'()*+,-./:;<=>?',
+      ],
+      multiStatementLines: Array.from({ length: 100 }, (_, i) => i + 1),
     });
     expect(report).not.toBeNull();
     // Around 3,800 characters today. The bound is loose enough to survive

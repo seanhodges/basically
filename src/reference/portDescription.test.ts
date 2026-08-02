@@ -80,8 +80,16 @@ function vocabulary(
   dialectId: string,
   keywords: string[],
   escapeCodes: number[] = [],
+  characters: string[] = [],
+  multiStatementLines: number[] = [],
 ): ProgramVocabulary {
-  return { dialectId, keywords, escapeCodes };
+  return {
+    dialectId,
+    keywords,
+    escapeCodes,
+    characters,
+    multiStatementLines,
+  };
 }
 
 /**
@@ -315,6 +323,127 @@ describe('the shape of the report', () => {
     expect(describePort(c64, spectrum, program)).toBe(
       describePort(c64, spectrum, program),
     );
+  });
+});
+
+describe('the language rules that change', () => {
+  const c64 = side('commodore64');
+  const zx81 = side('zx81');
+  const program = vocabulary('commodore64', ['PRINT']);
+  const HEADING = 'LANGUAGE RULES THAT CHANGE';
+
+  it('states the statement rule the port has to restructure for', () => {
+    const s = section(describePort(c64, zx81, program), HEADING);
+    expect(s).toContain('Statements per line: several, separated by : → one');
+    expect(s).toContain('LET on assignment: optional → required');
+  });
+
+  it('reports differences, not the target’s whole rule set', () => {
+    // The target's own rules are already in the system prompt; restating them
+    // every turn is what this section is narrowed against. Both machines POKE,
+    // so that row is not a difference and does not appear.
+    const s = section(describePort(c64, zx81, program), HEADING);
+    expect(s).not.toContain('Writing memory:');
+  });
+
+  it('says nothing where the two machines have the same rules', () => {
+    // Same BASIC on different hardware: every language row matches, and the
+    // hardware differences are reported through the capability sections rather
+    // than under a heading that says they are language rules.
+    const vic20 = side('vic20');
+    const s = section(describePort(c64, vic20, program), HEADING);
+    expect(s).toBe('');
+  });
+
+  it('is not narrowed away by a program that uses nothing', () => {
+    // A rule holds whatever commands a program uses - narrowing this to a
+    // vocabulary would drop it exactly when the port needs it.
+    const empty = vocabulary('commodore64', []);
+    expect(section(describePort(c64, zx81, empty), HEADING)).toContain(
+      'Statements per line',
+    );
+  });
+});
+
+describe('the characters to replace', () => {
+  const c64 = side('commodore64');
+  const zx81 = side('zx81');
+  const HEADING = 'CHARACTERS THIS PROGRAM USES THAT ZX81 DOES NOT HAVE';
+
+  it('names the characters the program uses that the target lacks', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], ['A', '!', '#']);
+    const s = section(describePort(c64, zx81, program), HEADING);
+    expect(s).toContain('! #');
+    expect(s).toContain('cannot appear anywhere in the converted program');
+  });
+
+  it('is absent for a program using none of them', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], ['A', 'B']);
+    expect(section(describePort(c64, zx81, program), HEADING)).toBe('');
+  });
+
+  it('is absent for a target that represents printable ASCII in full', () => {
+    const trs80 = side('trs80');
+    const program = vocabulary('commodore64', ['PRINT'], [], ['!', '#']);
+    const report = describePort(c64, trs80, program);
+    expect(report).not.toContain('DOES NOT HAVE\n- !');
+  });
+});
+
+describe('the statement layout', () => {
+  const c64 = side('commodore64');
+  const zx81 = side('zx81');
+  const atom = side('atom');
+  const HEADING = 'STATEMENT LAYOUT';
+
+  it('names the lines to split for a one-statement-per-line target', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [3, 7]);
+    const s = section(describePort(c64, zx81, program), HEADING);
+    expect(s).toContain('takes one statement per line');
+    expect(s).toContain('Editor lines to change: 3, 7');
+  });
+
+  it('names the separator to swap for a target that has its own', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [3]);
+    const s = section(describePort(c64, atom, program), HEADING);
+    expect(s).toContain('separates statements with ";"');
+    expect(s).toContain('only the separator changes');
+  });
+
+  it('is absent for a program with no line to restructure', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], []);
+    expect(section(describePort(c64, zx81, program), HEADING)).toBe('');
+  });
+
+  it('is absent where the two machines separate statements alike', () => {
+    const spectrum = side('zxspectrum');
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [3]);
+    expect(section(describePort(c64, spectrum, program), HEADING)).toBe('');
+  });
+});
+
+describe('the control codes that change meaning', () => {
+  const HEADING = 'CONTROL CODES THAT KEEP THEIR SPELLING AND CHANGE MEANING';
+
+  it('reports the ZX80/ZX81 block graphics, which port silently wrong', () => {
+    // The two closest machines in the set: the same escape spellings, different
+    // byte values behind them. Nothing in the program's text changes, so this is
+    // the one finding a reader cannot reach by looking.
+    const zx80 = side('zx80');
+    const zx81 = side('zx81');
+    const program = vocabulary('zx80', ['PRINT'], [0x01, 0x02, 0x03, 0x04]);
+    const s = section(describePort(zx80, zx81, program), HEADING);
+    expect(s).not.toBe('');
+    expect(s).toContain('stores');
+    expect(s).toContain('on ZX80');
+    expect(s).toContain('on ZX81');
+  });
+
+  it('is narrowed to the codes the program uses', () => {
+    const zx80 = side('zx80');
+    const zx81 = side('zx81');
+    const none = vocabulary('zx80', ['PRINT'], []);
+    expect(section(describePort(zx80, zx81, none), HEADING)).toBe('');
   });
 });
 

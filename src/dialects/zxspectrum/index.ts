@@ -38,6 +38,7 @@ export const zxspectrum: Dialect = {
 
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
+  statementSeparator: ':',
   // POKE writes, plus `LOAD "" CODE [addr]` binary-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-code'] },
   fileExtensions: ['.txt', '.bas'],
