@@ -1,79 +1,61 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  captureScale,
   captureFromCanvas,
   captureScreen,
   forgetScreenCapture,
   hasScreenCapture,
   registerScreenCapture,
   snapshotScreen,
-  CAPTURE_MAX_LONG_EDGE,
-  CAPTURE_MIN_LONG_EDGE,
   type ScreenCapture,
 } from './screenCapture';
 
 const shot = (base64: string): ScreenCapture => ({
   mediaType: 'image/png',
   base64,
-  width: 512,
-  height: 384,
+  width: 256,
+  height: 192,
 });
 
-describe('captureScale', () => {
-  it('upscales a small display to at least the target long edge', () => {
-    // ZX81/Spectrum-shaped: 256 doubles to 512.
-    expect(captureScale(256, 192)).toBe(2);
-    // Commodore-shaped: 320 doubles to 640 - the smallest factor that reaches
-    // the target, not the largest that fits under the cap.
-    expect(captureScale(320, 200)).toBe(2);
-    // Scaled by the long edge, not the width: 160x200 goes by its 200.
-    expect(captureScale(160, 200)).toBe(3);
-  });
-
-  it('never takes the long edge past the cap', () => {
-    for (const [w, h] of [
-      [256, 192],
-      [320, 200],
-      [352, 288],
-      [640, 256],
-      [768, 272],
-    ]) {
-      const factor = captureScale(w!, h!);
-      expect(Math.max(w!, h!) * factor).toBeLessThanOrEqual(
-        CAPTURE_MAX_LONG_EDGE,
-      );
-    }
-  });
-
-  it('reaches the target long edge wherever the cap allows', () => {
-    for (const [w, h] of [
-      [256, 192],
-      [320, 200],
-      [352, 288],
-    ]) {
-      expect(Math.max(w!, h!) * captureScale(w!, h!)).toBeGreaterThanOrEqual(
-        CAPTURE_MIN_LONG_EDGE,
-      );
-    }
-  });
-
-  it('leaves a display that is already big enough at 1:1', () => {
-    expect(captureScale(640, 256)).toBe(1);
-    expect(captureScale(512, 384)).toBe(1);
-  });
-
-  it('never downscales, even past the cap', () => {
-    // Doubling would breach the cap and halving would drop pixels, so 1:1.
-    expect(captureScale(1200, 800)).toBe(1);
-  });
-
-  it('answers 1 for a degenerate size rather than dividing by zero', () => {
-    expect(captureScale(0, 0)).toBe(1);
-    expect(captureScale(Number.NaN, 100)).toBe(1);
-  });
-});
+/** A stand-in for the pane's canvas - the only part of it this module reads. */
+const fakeCanvas = (
+  width: number,
+  height: number,
+  toDataURL: () => string,
+): HTMLCanvasElement =>
+  ({ width, height, toDataURL }) as unknown as HTMLCanvasElement;
 
 describe('captureFromCanvas', () => {
+  it('captures at the machine’s own size, never scaled', () => {
+    const capture = captureFromCanvas(
+      fakeCanvas(256, 192, () => 'data:image/png;base64,PNGDATA'),
+    );
+    expect(capture).toEqual({
+      mediaType: 'image/png',
+      base64: 'PNGDATA',
+      width: 256,
+      height: 192,
+    });
+  });
+
+  it('is null when the browser refuses to encode', () => {
+    expect(
+      captureFromCanvas(
+        fakeCanvas(256, 192, () => {
+          throw new Error('tainted canvas');
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it('is null for anything that is not a PNG data URL', () => {
+    expect(
+      captureFromCanvas(fakeCanvas(256, 192, () => 'data:image/gif;base64,X')),
+    ).toBeNull();
+    expect(
+      captureFromCanvas(fakeCanvas(256, 192, () => 'data:image/png;base64,')),
+    ).toBeNull();
+  });
+
   it('is null when there is no canvas', () => {
     expect(captureFromCanvas(null)).toBeNull();
   });

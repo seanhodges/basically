@@ -5,12 +5,12 @@
       capture function, a last-known snapshot, and `captureScreen()` /
       `hasScreenCapture()` accessors — best-effort, returning null rather than
       throwing when there is no canvas or `toDataURL` fails.
-- [x] 1.2 Implement the integer nearest-neighbour upscale (`imageSmoothingEnabled
-      = false`, long edge at least ~512 and never over 1024) in that module, via
-      an offscreen canvas.
-- [x] 1.3 Add colocated `src/app/screenCapture.test.ts` covering the scale-factor
-      choice at several native display sizes, the cap, and the null paths (no
-      canvas registered, capture throws).
+- [x] 1.2 Capture at the machine's own resolution, straight off the pane's
+      canvas. (Originally an integer upscale to a ~512px long edge; dropped
+      after shipping on the measurements recorded in design.md.)
+- [x] 1.3 Add colocated `src/app/screenCapture.test.ts` covering the capture's
+      size and encoding, and the null paths (no canvas registered, not a PNG,
+      capture throws).
 - [x] 1.4 Register/unregister the capture function from `EmulatorPane`, taking a
       snapshot on unmount and when the machine stops so the last display stays
       attachable after the pane goes away.

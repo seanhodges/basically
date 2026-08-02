@@ -76,18 +76,25 @@ but hidden (a layout change well outside this change's scope). This follows the
 existing convention for non-render data — the same shape as `aiStore`'s
 module-level stream handle with store state for what the UI must re-render on.
 
-### PNG, integer-upscaled, capped
+### PNG, at the machine's own resolution
 
-**Decision:** capture as PNG, nearest-neighbour upscaled by the largest integer
-factor that keeps the long edge ≤1024 while reaching at least ~512px, with
-`imageSmoothingEnabled = false`.
+**Decision:** capture as PNG, straight off the pane's canvas, unscaled.
 
 **Why:** these displays are 256×192-ish with tiny palettes, so PNG is both
 lossless and small — JPEG's chroma subsampling is actively harmful on
-single-pixel plot lines and 8×8 character cells. Native resolution is legible in
-principle but risks provider-side resampling smearing exactly the detail that
-matters; an integer upscale is the one resize that cannot introduce a pixel that
-was not there. The cap keeps image tokens in the hundreds rather than thousands.
+single-pixel plot lines and 8×8 character cells.
+
+**Superseded, after this change shipped.** This section originally chose an
+integer nearest-neighbour upscale to a ~512px long edge, reasoning that
+provider-side resampling might smear the detail that matters. The earlier
+`show-the-assistant-the-screen` proposal (archived alongside this one) had
+already measured the question and answered it the other way: across captures on
+three machines the native image read back correctly every time — a Spectrum menu
+character-for-character, the BBC's concentric circles in the right colours and
+order — while a 3× upscale cost 8.4× the visual tokens and added nothing. At
+`⌈w/28⌉ × ⌈h/28⌉` tokens a 256×192 screen is about 70, cheaper than the same
+screen as text. Measurement beats the worry, so the upscale (and the offscreen
+canvas it needed) is gone. Do not reintroduce it without new measurements.
 
 ### One optional image on a user turn; capability on the provider
 
@@ -127,7 +134,7 @@ screen; the bytes are dropped. A restored thread renders the marker as "screen
 shown" with no thumbnail, and restored turns go back on the wire without images.
 
 **Why:** the conversation backup lives in `localStorage` alongside everything
-else the IDE persists, with a few megabytes for the lot; a handful of upscaled
+else the IDE persists, with a few megabytes for the lot; a handful of screen
 PNGs would evict autosaves. A reload already invalidates the provider's cache
 prefix, so nothing is lost there either.
 
@@ -194,11 +201,12 @@ describe the same instant, which matters for a program that is still animating.
 
 ## Risks / Trade-offs
 
-- **Cost per correction rises.** An upscaled retro screen is on the order of a
-  few hundred input tokens, and it persists in history. → Bounded by only ever
-  sending on attach or on a failing/judging run, by the integer-upscale cap, by
-  one judging turn per run, and by the unchanged `MAX_AUTO_FIX_ATTEMPTS` cap on
-  the corrections that follow.
+- **Cost per correction rises.** A retro screen is on the order of 70-100 input
+  tokens at native resolution, and it persists in history. → Bounded by only
+  ever sending on attach or on a failing/judging run, by one judging turn per
+  run, and by the unchanged `MAX_AUTO_FIX_ATTEMPTS` cap on the corrections that
+  follow. (Originally a larger worry, when the capture was upscaled - see the
+  superseded decision above.)
 - **The assistant marks its own homework.** A model asked whether its program did
   what it said may be generous. → The verdict only ever gates an *additional*
   unrequested correction; a false pass leaves the user exactly where they are

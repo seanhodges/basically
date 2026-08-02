@@ -36,6 +36,12 @@ test('attaches the machine screen, and lets it be removed again', async ({
   await openApp(page);
   await setEditorSource(page, PROGRAM);
   await playAndWaitRunning(page);
+  // Read while the emulator is still on screen: opening the assistant takes
+  // its place on this layout, which is the case the snapshot exists for.
+  const machineWidth = await page
+    .locator('canvas')
+    .first()
+    .evaluate((c: HTMLCanvasElement) => c.width);
   await openAiPanel(page);
 
   await expect(showScreen(page)).toBeEnabled();
@@ -46,10 +52,11 @@ test('attaches the machine screen, and lets it be removed again', async ({
     'The machine screen that will be sent with your message',
   );
   await expect(shot).toBeVisible();
-  // A real capture of the machine, upscaled - not an empty placeholder.
+  // A real capture of the machine at its own resolution - not an empty
+  // placeholder, and not resized on the way out.
   await expect
     .poll(() => shot.evaluate((img: HTMLImageElement) => img.naturalWidth))
-    .toBeGreaterThanOrEqual(512);
+    .toBe(machineWidth);
   await expect(
     page.getByText('This screen goes with your next message.'),
   ).toBeVisible();
