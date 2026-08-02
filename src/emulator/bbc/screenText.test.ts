@@ -80,9 +80,7 @@ describe('BbcMachine readScreenText (MODE 7)', () => {
       '10 MODE 7\n20 PRINT CHR$(129);"RED"\n30 GOTO 30\n',
       'RED',
     );
-    const row = machine
-      .readScreenText()!
-      .lines.find((l) => l.includes('RED'))!;
+    const row = machine.readScreenText()!.lines.find((l) => l.includes('RED'))!;
     expect(row.indexOf('RED')).toBe(1);
     machine.dispose();
   }, 60000);
@@ -96,9 +94,7 @@ describe('BbcMachine readScreenText (MODE 7)', () => {
         '30 GOTO 30\n',
       '█',
     );
-    const row = machine
-      .readScreenText()!
-      .lines.find((l) => l.includes('█'))!;
+    const row = machine.readScreenText()!.lines.find((l) => l.includes('█'))!;
     // Byte &FF ahead of the colour draws the letter its low seven bits name
     // (&7F), which the MOS font has no plain form for, so it reads as a space;
     // after the colour the same byte is the full sextant block.

@@ -19,13 +19,7 @@ beforeAll(() => {
 
 /** The Atom's MC6847 screen RAM (0x8000–0x83FF) as printable text. */
 function screenText(machine: AtomMachine): string {
-  let text = '';
-  for (let addr = 0x8000; addr < 0x8400; addr++) {
-    const code = machine.processor.readmem(addr) & 0x7f;
-    const ascii = code < 0x20 ? code | 0x40 : code;
-    text += ascii >= 0x20 && ascii < 0x7f ? String.fromCharCode(ascii) : ' ';
-  }
-  return text;
+  return machine.readScreenText()?.lines.join('\n') ?? '';
 }
 
 async function runFrames(machine: AtomMachine, frames: number): Promise<void> {
@@ -168,27 +162,22 @@ describe('atom sample programs', () => {
 // key (read into a buffer via INPUT). This drives the real ROM to prove the
 // draw + read-back + POKE-move path works.
 describe('atom maze in the emulator', () => {
-  /** Count '#' wall cells (code 0x23) in the 13 maze rows. */
+  /** Count '#' wall cells on the screen, as the machine reads it back. */
   function countWalls(machine: AtomMachine): number {
-    let walls = 0;
-    for (let r = 0; r < 13; r++) {
-      for (let c = 0; c < 29; c++) {
-        if ((machine.processor.readmem(0x8000 + r * 32 + c) & 0x7f) === 0x23)
-          walls++;
-      }
-    }
-    return walls;
+    const lines = machine.readScreenText()?.lines ?? [];
+    return lines
+      .slice(0, 13)
+      .reduce((n, line) => n + [...line].filter((c) => c === '#').length, 0);
   }
 
   /** Find the player marker 'O' (code 0x0f) in the maze rows. */
   function findPlayer(
     machine: AtomMachine,
   ): { row: number; col: number } | null {
-    for (let r = 0; r < 13; r++) {
-      for (let c = 0; c < 29; c++) {
-        if ((machine.processor.readmem(0x8000 + r * 32 + c) & 0x7f) === 0x0f)
-          return { row: r, col: c };
-      }
+    const lines = machine.readScreenText()?.lines ?? [];
+    for (let row = 0; row < lines.length; row++) {
+      const col = [...lines[row]!].indexOf('O');
+      if (col !== -1) return { row, col };
     }
     return null;
   }

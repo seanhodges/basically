@@ -2,18 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { MemoryBlock } from '../../types';
 import { tokenizeProgram } from '../tokenizer';
 import { plainChar } from '../charset';
-import { COLS } from '../emulator/display';
 import { trs80Samples } from '../samples';
 import { Trs80InterpreterMachine } from './machine';
 
+/** Row `r` of the machine's own screen reading, right-trimmed to assert on. */
 function screenRow(m: Trs80InterpreterMachine, r: number): string {
-  const video = m.interpreter.screen.video;
-  let s = '';
-  for (let c = 0; c < COLS; c++) {
-    const code = video[r * COLS + c]!;
-    s += code >= 0x20 && code < 0x80 ? String.fromCharCode(code) : ' ';
-  }
-  return s.replace(/\s+$/, '');
+  return (m.readScreenText()?.lines[r] ?? '').replace(/\s+$/, '');
 }
 
 describe('Trs80InterpreterMachine readScreenText', () => {

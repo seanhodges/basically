@@ -20,7 +20,6 @@ const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
  * machine now owns its own font index.
  */
 function readScreen(
-  _sigs: unknown,
   machine: Spectrum128Machine,
   row: number,
   col: number,
@@ -116,17 +115,13 @@ describe('Spectrum128Machine joystick', () => {
 const suite = hasRom ? describe : describe.skip;
 
 suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
-  // The machine owns its font index now; kept as a token so the readScreen
-  // call sites below read unchanged.
-  const SIGNATURES = null;
-
   it('flash-loads and runs 10 PRINT "HELLO" via the 128 menu', () => {
     const machine = new Spectrum128Machine({ rom });
     const { bytes, errors } = tokenizeProgram('10 PRINT "HELLO"\n');
     expect(errors).toEqual([]);
     machine.loadProgram(buildTap(bytes));
     for (let i = 0; i < 50; i++) machine.runFrame();
-    expect(readScreen(SIGNATURES, machine, 0, 0, 5)).toBe('HELLO');
+    expect(readScreen(machine, 0, 0, 5)).toBe('HELLO');
   });
 
   it('runs from the .TAP auto-start line, not the first line', () => {
@@ -138,7 +133,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     machine.loadProgram(buildTap(bytes), { autoStart: 30 });
     for (let i = 0; i < 50; i++) machine.runFrame();
     // RUN 30 starts at line 30, so only "CCC" prints (lines 10/20 skipped).
-    expect(readScreen(SIGNATURES, machine, 0, 0, 3)).toBe('CCC');
+    expect(readScreen(machine, 0, 0, 3)).toBe('CCC');
   });
 
   it('round-trips a data SAVE/LOAD through the virtual filesystem', () => {
@@ -169,7 +164,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
       if (i === 60) m1.setKey('KeyQ', true);
       if (i === 65) m1.setKey('KeyQ', false);
     }
-    expect(readScreen(SIGNATURES, m1, 0, 0, 2)).toBe('OK');
+    expect(readScreen(m1, 0, 0, 2)).toBe('OK');
     expect([...files.keys()]).toEqual(['S']);
     expect(files.get('S')!.kind).toBe('code');
 
@@ -180,9 +175,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     expect(load.errors).toEqual([]);
     m2.loadProgram(buildTap(load.bytes));
     for (let i = 0; i < 120; i++) m2.runFrame();
-    const rows = Array.from({ length: 6 }, (_, r) =>
-      readScreen(SIGNATURES, m2, r, 0, 32),
-    );
+    const rows = Array.from({ length: 6 }, (_, r) => readScreen(m2, r, 0, 32));
     expect(rows).toContainEqual(expect.stringContaining('P=77'));
   });
 
@@ -209,7 +202,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     expect(errors).toEqual([]);
     machine.loadProgram(buildTap(bytes));
     for (let i = 0; i < 120; i++) machine.runFrame();
-    expect(readScreen(SIGNATURES, machine, 0, 0, 4)).toBe('DONE');
+    expect(readScreen(machine, 0, 0, 4)).toBe('DONE');
   });
 
   it('synthesizes AY audio while a PLAY program runs', () => {
@@ -268,7 +261,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
       machine.setSpeed(speed);
       for (let i = 1; i <= 2000; i++) {
         machine.runFrame();
-        if (readScreen(SIGNATURES, machine, 0, 0, 4) === 'DONE') return i;
+        if (readScreen(machine, 0, 0, 4) === 'DONE') return i;
       }
       throw new Error('never displayed DONE');
     }
@@ -358,7 +351,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
       machine.loadProgram(buildTap(bytes), { blocks: [block] });
       for (let i = 0; i < 60; i++) machine.runFrame();
       const rows = Array.from({ length: 6 }, (_, r) =>
-        readScreen(SIGNATURES, machine, r, 0, 32),
+        readScreen(machine, r, 0, 32),
       );
       expect(rows).toContainEqual(expect.stringContaining('123'));
     });
@@ -384,7 +377,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
       machine.loadProgram(buildTap(bytes), { blocks: [block] });
       for (let i = 0; i < 150; i++) machine.runFrame();
       const rows = Array.from({ length: 6 }, (_, r) =>
-        readScreen(SIGNATURES, machine, r, 0, 32),
+        readScreen(machine, r, 0, 32),
       );
       expect(rows).toContainEqual(expect.stringContaining('DONE'));
       const readBack = Array.from(payload, (_, i) =>
@@ -399,7 +392,7 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
       expect(errors).toEqual([]);
       machine.loadProgram(buildTap(bytes));
       for (let i = 0; i < 50; i++) machine.runFrame();
-      expect(readScreen(SIGNATURES, machine, 0, 0, 5)).toBe('HELLO');
+      expect(readScreen(machine, 0, 0, 5)).toBe('HELLO');
     });
   });
 });

@@ -43,7 +43,8 @@ const BYTES_PER_CRTC_CELL = 2;
 /** Index the firmware font by glyph shape, once per machine. */
 export function cpcFontSignatures(lowerRom: Uint8Array): GlyphSignatures {
   return buildFontSignatures({
-    glyphByte: (code, row) => lowerRom[FONT_BASE + code * GLYPH_ROWS + row] ?? 0,
+    glyphByte: (code, row) =>
+      lowerRom[FONT_BASE + code * GLYPH_ROWS + row] ?? 0,
     firstCode: FIRST_CODE,
     lastCode: LAST_CODE,
   });

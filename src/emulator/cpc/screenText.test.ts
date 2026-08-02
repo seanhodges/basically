@@ -35,7 +35,10 @@ suite('cpcFontSignatures', () => {
     // is what pins the base - a table read even 8 bytes early would answer
     // with the neighbouring code.
     const sigs = cpcFontSignatures(rom.subarray(0, 0x4000));
-    const glyphA = Array.from({ length: 8 }, (_, i) => rom[0x3800 + 0x41 * 8 + i]);
+    const glyphA = Array.from(
+      { length: 8 },
+      (_, i) => rom[0x3800 + 0x41 * 8 + i],
+    );
     expect(sigs.get(glyphA.join(','))).toBe(0x41);
   });
 

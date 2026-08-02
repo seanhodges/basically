@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CpcMachine } from './cpcMachine';
-import { Crtc } from './crtc';
 import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { tokenizeProgram } from '../../dialects/cpc464/tokenizer';
 import { cpc464Samples } from '../../dialects/cpc464/samples';
@@ -21,42 +20,9 @@ const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 
 const suite = hasRom ? describe : describe.skip;
 
-// The CPC character matrices live in the lower (OS) ROM at &3800: char c is
-// 8 bytes at 0x3800 + c*8, bit 7 = leftmost pixel. That lets us OCR the screen.
+/** The machine's own screen reading, as one string to search. */
 function ocr(m: CpcMachine): string {
-  const crtc = new Crtc();
-  const sigToChar = new Map<string, string>();
-  for (let c = 32; c < 128; c++) {
-    const base = 0x3800 + c * 8;
-    const s = Array.from({ length: 8 }, (_, i) => rom[base + i]!).join(',');
-    if (!sigToChar.has(s)) sigToChar.set(s, String.fromCharCode(c));
-  }
-  const decode = (b: number) => [
-    ((b & 0x80) >> 7) | ((b & 0x08) >> 2),
-    ((b & 0x40) >> 6) | ((b & 0x04) >> 1),
-    ((b & 0x20) >> 5) | ((b & 0x02) >> 0),
-    ((b & 0x10) >> 4) | ((b & 0x01) << 1),
-  ];
-  const rows: string[] = [];
-  for (let row = 0; row < 25; row++) {
-    let text = '';
-    for (let col = 0; col < 40; col++) {
-      const bytes: number[] = [];
-      for (let r = 0; r < 8; r++) {
-        const addr = crtc.byteAddress(row, r, col);
-        const pens = [
-          ...decode(m.mem.readScreen(addr)),
-          ...decode(m.mem.readScreen(addr + 1)),
-        ];
-        let mask = 0;
-        for (let i = 0; i < 8; i++) if (pens[i]) mask |= 0x80 >> i;
-        bytes.push(mask);
-      }
-      text += sigToChar.get(bytes.join(',')) ?? ' ';
-    }
-    rows.push(text);
-  }
-  return rows.join('\n');
+  return m.readScreenText()?.lines.join('\n') ?? '';
 }
 
 suite('CpcMachine firmware boot', () => {

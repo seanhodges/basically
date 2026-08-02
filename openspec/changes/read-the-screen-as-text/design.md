@@ -165,6 +165,22 @@ so each reader derives its base from the machine's own registers or system
 variables, with a test that scrolls or re-`MODE`s the screen and still reads it
 back.
 
+### Fonts are where the ROM puts them, which is not where you would guess
+
+**Found during implementation.** Two of the three OCR machines keep their font
+somewhere the obvious address is wrong about, and both had to be located by
+reading the shipped ROM rather than recalled:
+
+- The **CPC**'s is the last 2K of the lower ROM at `&3800`, covering all 256
+  codes — so its block graphics OCR as well as its letters do, which the
+  Spectrum's 96-glyph table cannot manage.
+- The **BBC Master**'s is *not* at `&C000` where the Model B's OS 1.20 keeps
+  its 96 glyphs. `&C000` in MOS 3.20 is code. Its 224 glyphs are the last 1792
+  bytes of sideways ROM bank 15, a bank that is not paged in while BASIC runs,
+  so the reader goes to the ROM image rather than through the CPU's current
+  mapping. A reader that trusted the Model B's address would have reported the
+  Master's every graphics mode as blank.
+
 ### The Acorn machines answer in every mode
 
 MODE 7 is a character matrix and trivially readable, and it is where the Acorn
@@ -175,10 +191,28 @@ path for 7, and otherwise OCRs the bitmap with the MOS font and that mode's
 geometry and pixel depth (1, 2 or 4 bpp). Modes 3 and 6 have blank scanline gaps
 between character rows, which the geometry accounts for.
 
-Every address and layout here — the VDU variable holding the mode, the font base,
-the per-mode geometry — is confirmed against the real ROM and primary
-documentation during implementation and pinned by a test, not taken from memory.
-The same goes for the CPC's font base and the Atom's VDG code layout.
+Every address and layout here — the font base, the per-mode geometry — is
+confirmed against the real ROM and primary documentation during implementation
+and pinned by a test, not taken from memory. The same goes for the CPC's font
+base and the Atom's VDG code layout.
+
+**Found during implementation: the mode number is not needed, and asking for it
+would have been the weaker choice.** The ULA's own characters-per-line setting
+(10, 20, 40 or 80) *is* the text width, and the CRTC's displayed byte count
+divided by it is how many bytes a cell spans — which is the pixel depth. So the
+reader asks the hardware what it is doing rather than asking the MOS what it was
+told to do, and a program that pokes the ULA and the CRTC directly is followed
+exactly like one that used `MODE`. All seven modes read back; no mode is left
+returning `null`. The same reasoning covers teletext: the ULA's teletext bit
+picks the path, not a mode number.
+
+**Found during implementation: the Sinclair walk lost inverse graphics.** The
+display file carries inverse video in bit 7, and masking it off before decoding
+turned the ZX80/ZX81 inverse space — a solid block, and what the bundled maze
+draws its walls out of — into a space, so a full screen read back as blank. The
+code is now offered to the charset whole first (the charset has Unicode for
+`█` and the inverse shades) and only falls back to the masked form for an
+inverse *letter*, which has no character of its own.
 
 ### The tests migrate, and that is the proof
 

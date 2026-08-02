@@ -23,21 +23,12 @@ const ROM = new Uint8Array(
   readFileSync(path.resolve(__dirname, '../../../public/roms/zx80.rom')),
 );
 
-/** Find the player marker 'O' (code 0x34) on the collapsed display file. */
+/** Find the player marker 'O' on the screen, as the machine reads it back. */
 function findPlayer(machine: Zx80Machine): { row: number; col: number } | null {
-  const dFile = machine.mem.readWord(D_FILE);
-  const dfEnd = machine.mem.readWord(DF_END);
-  let row = 0;
-  let col = 0;
-  for (let a = dFile; a < dfEnd; a++) {
-    const b = machine.mem.read(a);
-    if (b === 0x76) {
-      row++;
-      col = 0;
-      continue;
-    }
-    if (b === 0x34) return { row, col };
-    col++;
+  const lines = machine.readScreenText()?.lines ?? [];
+  for (let row = 0; row < lines.length; row++) {
+    const col = [...lines[row]!].indexOf('O');
+    if (col !== -1) return { row, col };
   }
   return null;
 }
@@ -49,15 +40,13 @@ function tap(machine: Zx80Machine, code: string): void {
   for (let i = 0; i < 8; i++) machine.runFrame();
 }
 
-/** Count the █ wall cells (code 0x80) currently in the display file. */
+/** Count the █ wall cells currently on the screen. */
 function countWalls(machine: Zx80Machine): number {
-  const dFile = machine.mem.readWord(D_FILE);
-  const dfEnd = machine.mem.readWord(DF_END);
-  let walls = 0;
-  for (let a = dFile; a < dfEnd; a++) {
-    if (machine.mem.read(a) === 0x80) walls++;
-  }
-  return walls;
+  const lines = machine.readScreenText()?.lines ?? [];
+  return lines.reduce(
+    (n, line) => n + [...line].filter((c) => c === '█').length,
+    0,
+  );
 }
 
 describe('zx80 maze in the emulator', () => {
