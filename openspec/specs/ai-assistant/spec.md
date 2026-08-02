@@ -553,38 +553,91 @@ unavailable rather than failing when used.
 - **THEN** attaching is presented as unavailable, and every other part of the
   assistant remains usable
 
-### Requirement: A failed run shows the assistant the screen
+### Requirement: The assistant asks for the screen it wants to see
 
-Where a run initiated from the assistant is checked and that check ends in a
-failure, the display as it stood when the failure was settled SHALL be shown to
-the assistant along with the correction request, so the correction is made
-against what the machine displayed and not against the program text alone.
+Alongside the code it returns, the assistant MAY name the views of the machine's
+screen it wants to be shown when that program is run. Where it names one, the
+outcome of running that program SHALL carry what was named and nothing further;
+where it names none, the outcome SHALL carry no view of the screen.
 
-A run that did not fail SHALL NOT carry a display, so the ordinary working case
-costs nothing.
+The choice belongs to the assistant because only the assistant knows what it
+wrote: no rule applied to the finished screen distinguishes a program that
+printed a table from one that drew a table's border out of graphics characters.
 
-Where there is no display to carry, or the chosen provider cannot be shown one,
-the correction SHALL proceed exactly as it does today with the failure described
-in words alone.
+A stated expectation that only a look can settle SHALL itself carry the screen,
+without the assistant having to ask for it a second time.
 
-#### Scenario: A runtime error on a machine that can be shown
+So that the choice can be made well, the assistant SHALL be told which views can
+be produced for the machine and the provider in front of it. Naming a view SHALL
+be optional in every case: a reply that names none behaves exactly as a reply
+does today, and no machine or provider becomes unusable for being unable to
+produce one.
 
-- **WHEN** a program applied and run from the assistant stops with a machine
-  error report, and the chosen provider can be shown an image
-- **THEN** the correction request carries the display as it stood at that
-  failure
+What the assistant is asked to do SHALL NOT change with the views an outcome
+carries: a correction is the same correction whether or not a picture came with
+it.
 
-#### Scenario: A run that did not fail
+#### Scenario: A program whose output is a picture
 
-- **WHEN** a program applied and run from the assistant runs without failing and
-  every stated expectation holds
-- **THEN** no display is sent, and the outcome is reported as it is today
+- **WHEN** the assistant returns a drawing program and asks to be shown the
+  screen as an image, and that program is applied and run
+- **THEN** the outcome of that run carries the screen as an image
 
-#### Scenario: A provider that cannot be shown a screen
+#### Scenario: A program whose output is text
 
-- **WHEN** a run fails and the chosen provider cannot be shown an image
-- **THEN** the correction is requested with the failure described in words, and
-  the correction loop is otherwise unchanged
+- **WHEN** the assistant returns a program and asks for no view, and that
+  program is applied and run
+- **THEN** the outcome carries no view of the screen, whatever the run did
+
+#### Scenario: An expectation that needs a look
+
+- **WHEN** the assistant states an expectation about how the screen looks
+- **THEN** the screen is shown to it when that run is checked, without it having
+  asked for the view separately
+
+#### Scenario: The views do not change the request
+
+- **WHEN** a run fails and its outcome carries a view the assistant asked for
+- **THEN** the correction asked of the assistant is the one that failure would
+  have asked for regardless
+
+### Requirement: A view that cannot be produced is reported as such
+
+Where the assistant names a view that cannot be produced — one this IDE has no
+way to produce, or the screen image where the chosen provider cannot be shown an
+image, or where there is no display to capture — the outcome SHALL report that
+view as unavailable rather than silently carrying a different one or none
+without saying so.
+
+Naming an unavailable view SHALL NOT fail the run, SHALL NOT prompt a
+correction, and SHALL leave everything else about the outcome unchanged.
+
+#### Scenario: Asking for the image on a provider that cannot be shown one
+
+- **WHEN** the assistant asks for the screen as an image and the chosen provider
+  cannot be shown one
+- **THEN** the outcome reports that view as unavailable, and the run is reported
+  exactly as it otherwise would be
+
+#### Scenario: Asking for a view that does not exist
+
+- **WHEN** the assistant names a view this IDE cannot produce at all
+- **THEN** the outcome reports that view as unavailable rather than answering
+  with a different one
+
+### Requirement: A failure says when the screen could have been seen
+
+Where a run initiated from the assistant fails, a display could have been shown
+to it, and it did not ask for one, the correction request SHALL say that the
+screen can be shown if seeing it would help — so that a picture it did not
+foresee needing is one turn away rather than out of reach.
+
+#### Scenario: A failure the assistant did not expect to need a picture for
+
+- **WHEN** a run fails, the chosen provider can be shown an image, and the
+  assistant asked for no view
+- **THEN** the correction request tells it the screen can be shown if that would
+  help, and carries no image itself
 
 ### Requirement: Being shown the screen is a stated capability
 
