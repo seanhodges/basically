@@ -11,6 +11,7 @@ import {
   classifyBlock,
   extractCodeBlocks,
   isApplicableBlock,
+  isProtocolBlock,
   mergeBasicLines,
   mergePlan,
   type CodeBlock,
@@ -389,13 +390,18 @@ export function AiPanel() {
         const fenceEnd = rest.indexOf('```', fenceStart + 3);
         rest = fenceEnd >= 0 ? rest.slice(fenceEnd + 3) : '';
       }
+      // What the answer states about its program, and the views it asks to be
+      // shown, are addressed to the IDE and acted on by it. Printing them here
+      // put the machinery in front of the user beside the answer, with nothing
+      // for them to do about it - so they are read and not shown.
+      if (isProtocolBlock(block)) return;
       // Only offer the apply actions once the whole answer is in - while
       // streaming the code is partial, so applying it would use a truncated
       // program. Rendering the block itself while streaming is fine.
       //
-      // An expectation block is shown but never offered: it is what the
-      // assistant says should be true once the program has run, not program
-      // text, so there is nothing here to land in the editor.
+      // A verdict is shown but never offered: it is what the assistant made of
+      // the screen its program drew, not program text, so there is nothing here
+      // to land in the editor.
       parts.push(
         msg.streaming || !isApplicableBlock(block) ? (
           <div key={`c${bi}`} className={styles.aiCode}>
@@ -444,7 +450,8 @@ export function AiPanel() {
     // The finished work, once the assistant has stopped working on this answer:
     // the machine's own screen, for the user to look at with their own eyes.
     // Shown however the answer turned out - an answer the assistant could not
-    // settle is where a human look is worth most.
+    // settle is where a human look is worth most. The picture says what it is;
+    // a caption under it would only be a line of text to skip past.
     if (msg.finalScreen) {
       parts.push(
         <figure key="final-screen" className={styles.aiFinalScreen}>
@@ -452,12 +459,13 @@ export function AiPanel() {
             src={`data:${msg.finalScreen.mediaType};base64,${msg.finalScreen.base64}`}
             alt={`The ${dialect.name} screen after running this program`}
           />
-          <figcaption>
-            What the {dialect.name} showed - worth a look.
-          </figcaption>
         </figure>,
       );
     }
+    // A reply that was nothing but blocks the IDE reads has nothing to show;
+    // an empty bubble in the thread would read as an answer that came back
+    // blank.
+    if (parts.length === 0) return null;
     return (
       <div key={idx} className={`${styles.aiMsg} ${styles.aiAssistant}`}>
         {parts}

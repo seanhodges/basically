@@ -74,6 +74,49 @@ test('the finished work comes back as a screen to look at', async ({
   await expect(shot).toBeVisible({ timeout: 30000 });
   // Exactly one, however many attempts it took.
   await expect(shot).toHaveCount(1);
+  // The picture and nothing else: a caption under it would say what the picture
+  // already says.
+  await expect(page.locator('figcaption')).toHaveCount(0);
+});
+
+test('what the answer says to the IDE is not shown to the user', async ({
+  page,
+}) => {
+  await stubAssistant(page, [
+    [
+      'Here you go:',
+      '',
+      '```basic',
+      '10 PRINT "HI"',
+      '20 GOTO 10',
+      '```',
+      '',
+      '```basic-expect',
+      'SCREEN CONTAINS "HI"',
+      '```',
+      '',
+      '```basic-view',
+      'SCREEN IMAGE',
+      '```',
+    ].join('\n'),
+  ]);
+  await openApp(page);
+  await setEditorSource(page, PROGRAM);
+  await ask(page);
+
+  // The answer is offered, and the prose around it is still there...
+  await expect(page.locator('[data-block-kind]')).toBeVisible({
+    timeout: 15000,
+  });
+  await expect(page.getByText('Here you go:')).toBeVisible();
+  // ...but what the answer said to the IDE - what its program should produce,
+  // and which view of the screen to capture - stays between them. The IDE still
+  // acted on it: the screen it asked for is the one handed back at the end.
+  await expect(page.getByText(/SCREEN CONTAINS/)).toHaveCount(0);
+  await expect(page.getByText(/SCREEN IMAGE/)).toHaveCount(0);
+  await expect(
+    page.getByRole('img', { name: /screen after running/ }),
+  ).toBeVisible({ timeout: 30000 });
 });
 
 test('checking an answer leaves the assistant on the screen', async ({

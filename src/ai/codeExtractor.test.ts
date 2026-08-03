@@ -5,6 +5,7 @@ import {
   extractCodeBlocks,
   extractExpectations,
   isApplicableBlock,
+  isProtocolBlock,
   mergeBasicLines,
   mergePlan,
   type CodeBlock,
@@ -314,6 +315,13 @@ describe('expectation blocks', () => {
     expect(isApplicableBlock(extractCodeBlocks(reply)[0]!)).toBe(true);
   });
 
+  it('is the IDE’s to read, not the user’s to look at', () => {
+    const [code, expectations] = extractCodeBlocks(reply);
+    expect(isProtocolBlock(expectations!)).toBe(true);
+    // The answer itself still is theirs.
+    expect(isProtocolBlock(code!)).toBe(false);
+  });
+
   it('leaves only the code appliable when a reply carries both', () => {
     const appliable = extractCodeBlocks(reply).filter(isApplicableBlock);
     expect(appliable).toHaveLength(1);
@@ -375,6 +383,14 @@ describe('a verdict on a screen', () => {
     expect(isApplicableBlock(code!)).toBe(true);
   });
 
+  it('is shown to the user, unlike the blocks the IDE addresses itself', () => {
+    // A judgement that finds nothing wrong is nothing but this block, and the
+    // IDE asked the question in the thread where the user can see it - so
+    // hiding the answer would leave that question hanging.
+    const [judge] = extractCodeBlocks(reply);
+    expect(isProtocolBlock(judge!)).toBe(false);
+  });
+
   it('is read back as verdicts, in order', () => {
     expect(extractJudgement(reply)).toEqual([
       { held: true, detail: 'a circle' },
@@ -395,6 +411,11 @@ describe('a request to be shown the screen', () => {
     const view = extractCodeBlocks(reply).find((b) => b.view === true);
     expect(view).toBeDefined();
     expect(isApplicableBlock(view!)).toBe(false);
+  });
+
+  it('is the IDE’s to read, not the user’s to look at', () => {
+    const view = extractCodeBlocks(reply).find((b) => b.view === true);
+    expect(isProtocolBlock(view!)).toBe(true);
   });
 
   it('is read back as the views the assistant asked for', () => {

@@ -120,3 +120,17 @@
       assistant staying on screen, and the check still settling, while it runs
       unwatched on a phone layout
 - [x] 10.5 `npm run typecheck`, `npm test`, `npm run lint`, `npm run format:check`
+
+## 11. Keep the machinery out of the conversation
+
+- [x] 11.1 Add `isProtocolBlock` to `src/ai/codeExtractor.ts` — an expectation
+      block or a view request is written for the IDE, a verdict is written for
+      the user — and cover the three in `src/ai/codeExtractor.test.ts`
+- [x] 11.2 Skip those blocks when rendering a reply in
+      `src/components/AiPanel.tsx`, and render no bubble at all for a reply that
+      was nothing else
+- [x] 11.3 Drop the caption under the finished screen (and its style): the
+      picture says what it is
+- [x] 11.4 `npm run e2e:chromium -- e2e/ai-assistant` — add coverage for a reply
+      whose expectations and view request are acted on but not shown
+- [x] 11.5 `npm run typecheck`, `npm test`, `npm run lint`, `npm run format:check`
