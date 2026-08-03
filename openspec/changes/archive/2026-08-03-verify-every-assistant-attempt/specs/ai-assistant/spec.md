@@ -26,6 +26,14 @@ the last SHALL be the one checked.
 Where the machine cannot report its runtime state, no check SHALL be attempted
 and the answer SHALL be offered as it is on any other machine.
 
+A check SHALL run in the background. It SHALL NOT take the machine's screen or
+the keyboard from whatever the user is doing: on layouts where the assistant and
+the machine share the same space the assistant SHALL remain the one shown, and on
+every layout the keys SHALL stay where the user had them. Only an action the user
+takes — applying and running an answer, or closing the assistant — SHALL bring the
+machine forward. A check that goes unwatched SHALL be checked no differently from
+one the user happens to be looking at.
+
 #### Scenario: A reply that returns a whole program
 
 - **WHEN** the assistant returns a whole listing
@@ -73,6 +81,18 @@ and the answer SHALL be offered as it is on any other machine.
   whether it failed
 - **THEN** no check is attempted, and the answer is offered exactly as it would
   be on any other machine
+
+#### Scenario: An answer checked while the user reads it
+
+- **WHEN** an answer is being checked on the machine and the assistant is what
+  the user is looking at
+- **THEN** the assistant stays on the screen and keeps the keyboard, and the
+  check runs behind it to the same verdict it would otherwise have reached
+
+#### Scenario: Running an answer the user chose to run
+
+- **WHEN** the user applies an answer and runs it
+- **THEN** the machine is brought forward as it is for any run the user asked for
 
 ### Requirement: What the assistant is doing is stated
 
@@ -420,3 +440,126 @@ shown to the assistant, or shown to the user for a human check.
   machine's screen shown for a human check
 - **THEN** the thread still records that a screen was shown, and the display
   itself is not restored
+
+### Requirement: The assistant states what its program should produce
+
+When the assistant returns a program it MAY additionally state what should be
+true once that program has run — the values it expects named variables to hold,
+what it expects to be on the screen, and how it expects the screen to look. What
+it is asked to state SHALL be limited to what can be evaluated for the chosen
+machine and the chosen provider, so it never states an expectation that cannot be
+evaluated: it SHALL NOT be asked to state expectations about variables on a
+machine that cannot report them, and SHALL NOT be asked to state expectations
+about how the screen looks where the display cannot be shown to it.
+
+An expectation about how the screen looks SHALL be a description of what the
+program is meant to have drawn — one the assistant itself can judge by being
+shown the display — and is distinct from expecting particular text to appear,
+which the machine reports for itself.
+
+Expectations SHALL be optional: a reply that states none behaves exactly as a
+reply does today, and no machine becomes unusable for being unable to report
+them.
+
+Expectations SHALL NOT be program text. They SHALL never be applied to the
+editor, and applying generated code SHALL be unaffected by their presence.
+
+Expectations are stated to the IDE, which checks them. They SHALL NOT be shown in
+the conversation: there is nothing for the user to apply, answer or decide about
+them, and every checked answer states them, so showing them would put the
+checking machinery in front of every reply. What the assistant wrote for the user
+— its own words and its program — SHALL be shown as it always was.
+
+#### Scenario: A program with a computable result
+
+- **WHEN** the assistant returns a program whose result the machine can report
+- **THEN** it may also state what that result should be
+
+#### Scenario: A program that draws something
+
+- **WHEN** the assistant returns a program that draws, on a setup where the
+  display can be shown to it
+- **THEN** it may also state how the screen should look once the program has run
+
+#### Scenario: A machine that cannot report what an expectation needs
+
+- **WHEN** the assistant writes for a machine that cannot report its variables
+- **THEN** it is not asked to state expectations about variables
+
+#### Scenario: A provider that cannot be shown the screen
+
+- **WHEN** the assistant writes for a setup whose provider cannot be shown the
+  display
+- **THEN** it is not asked to state expectations about how the screen looks
+
+#### Scenario: Applying a reply that carries expectations
+
+- **WHEN** the user applies generated code from a reply that also states
+  expectations
+- **THEN** only the program is applied, and the expectations do not appear in the
+  editor
+
+#### Scenario: A reply that states expectations
+
+- **WHEN** the assistant returns a program and states what it should produce
+- **THEN** the conversation shows the answer and its program, and not the
+  expectations, which are still checked against the run
+
+### Requirement: The assistant asks for the screen it wants to see
+
+Alongside the code it returns, the assistant MAY name the views of the machine's
+screen it wants to be shown when that program is run. Where it names one, the
+outcome of running that program SHALL carry what was named and nothing further;
+where it names none, the outcome SHALL carry no view of the screen.
+
+The choice belongs to the assistant because only the assistant knows what it
+wrote: no rule applied to the finished screen distinguishes a program that
+printed a table from one that drew a table's border out of graphics characters.
+
+A stated expectation that only a look can settle SHALL itself carry the screen,
+without the assistant having to ask for it a second time.
+
+So that the choice can be made well, the assistant SHALL be told which views can
+be produced for the machine and the provider in front of it. Naming a view SHALL
+be optional in every case: a reply that names none behaves exactly as a reply
+does today, and no machine or provider becomes unusable for being unable to
+produce one.
+
+What the assistant is asked to do SHALL NOT change with the views an outcome
+carries: a correction is the same correction whether or not a picture came with
+it.
+
+A view is asked of the IDE, which produces it. Like an expectation, it SHALL NOT
+be shown in the conversation — the screen it asks for is what the user sees, not
+the asking.
+
+#### Scenario: A program whose output is a picture
+
+- **WHEN** the assistant returns a drawing program and asks to be shown the
+  screen as an image, and that program is applied and run
+- **THEN** the outcome of that run carries the screen as an image
+
+#### Scenario: A program whose output is text
+
+- **WHEN** the assistant returns a program and asks for no view, and that
+  program is applied and run
+- **THEN** the outcome carries no view of the screen, whatever the run did
+
+#### Scenario: An expectation that needs a look
+
+- **WHEN** the assistant states an expectation about how the screen looks
+- **THEN** the screen is shown to it when that run is checked, without it having
+  asked for the view separately
+
+#### Scenario: The views do not change the request
+
+- **WHEN** a run fails and its outcome carries a view the assistant asked for
+- **THEN** the correction asked of the assistant is the one that failure would
+  have asked for regardless
+
+#### Scenario: A reply that asks to be shown a view
+
+- **WHEN** the assistant returns a program and names the view of the screen it
+  wants to be shown
+- **THEN** the conversation shows the answer and its program, and not the
+  request, which the run still carries

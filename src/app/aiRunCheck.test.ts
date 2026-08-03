@@ -4,6 +4,7 @@ import {
   finaliseExpectations,
   latchExpectationSample,
   shouldOpenDebugSession,
+  shouldRevealEmulator,
   AI_CHECK_MAX_FRAMES,
   AI_CHECK_ABS_MAX_FRAMES,
   type AiRunFrame,
@@ -295,5 +296,19 @@ describe('shouldOpenDebugSession', () => {
         canStep: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe('shouldRevealEmulator', () => {
+  it('brings the machine forward for a run the user asked for', () => {
+    expect(shouldRevealEmulator({ checking: false })).toBe(true);
+  });
+
+  it('leaves the screen and the keys alone for a check', () => {
+    // The check starts on its own while the user is reading the reply, so
+    // switching the tab layout to the preview - or moving the keys onto the
+    // canvas - would take the assistant off the screen mid-answer for something
+    // nobody asked for.
+    expect(shouldRevealEmulator({ checking: true })).toBe(false);
   });
 });

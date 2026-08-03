@@ -101,6 +101,25 @@ export function isApplicableBlock(block: CodeBlock): boolean {
 }
 
 /**
+ * True for a block written for the IDE rather than for the user to read: the
+ * expectations an answer states about its own program, and the views of the
+ * screen it asks to be shown when that program runs.
+ *
+ * Both are addressed to the IDE, which reads them and acts on them. The user has
+ * nothing to decide about either - they cannot be applied, edited or answered -
+ * so the panel leaves them out of the conversation rather than printing the
+ * machinery alongside the answer.
+ *
+ * A verdict is deliberately not one of these. It is the assistant's answer to a
+ * question the IDE asked on the user's behalf - does the screen show what you
+ * said it would - and for a judgement that finds nothing wrong it is the whole
+ * of that reply, so hiding it would leave the question visibly unanswered.
+ */
+export function isProtocolBlock(block: CodeBlock): boolean {
+  return block.expectations === true || block.view === true;
+}
+
+/**
  * Every expectation stated in a reply, across all of its expectation blocks.
  * Empty when the reply states none, which is the common case and behaves
  * exactly as a reply did before expectations existed.

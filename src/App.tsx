@@ -26,6 +26,7 @@ import {
   useMediaQuery,
   LANDSCAPE_MOBILE_QUERY,
 } from './app/useMediaQuery';
+import { shouldRevealEmulator } from './app/aiRunCheck';
 import { useHistorySync } from './app/useHistorySync';
 import { useGlobalShortcuts } from './app/useGlobalShortcuts';
 import { useOpenShared } from './app/useOpenShared';
@@ -66,13 +67,23 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // On the tabbed layouts, jump to the Preview tab whenever a run is requested
-  // (covers the toolbar Run button, the FAB, and Ctrl+Enter). Both the portrait
-  // (max-width) and landscape (short-and-wide) phone layouts are tabbed, so a
-  // wide landscape phone - which isMobileViewport() misses - must switch too, or
-  // its round Play FAB runs the program on the hidden preview tab and looks dead.
+  // On the tabbed layouts, jump to the Preview tab whenever a run the user asked
+  // for is requested (covers the toolbar Run button, the FAB, and Ctrl+Enter).
+  // Both the portrait (max-width) and landscape (short-and-wide) phone layouts
+  // are tabbed, so a wide landscape phone - which isMobileViewport() misses -
+  // must switch too, or its round Play FAB runs the program on the hidden
+  // preview tab and looks dead.
+  //
+  // Not for a check: it starts on its own while the user is reading a reply, and
+  // switching tabs under them would take the assistant off the screen mid-answer
+  // (see shouldRevealEmulator). The check runs on the hidden tab regardless.
   useEffect(() => {
-    if (runRequest > 0 && (isMobileViewport() || isLandscapeMobileViewport())) {
+    if (runRequest === 0) return;
+    const checking = useIdeStore.getState().aiRunCheckSeq === runRequest;
+    if (
+      shouldRevealEmulator({ checking }) &&
+      (isMobileViewport() || isLandscapeMobileViewport())
+    ) {
       useIdeStore.getState().setMobileTab('preview');
     }
   }, [runRequest]);

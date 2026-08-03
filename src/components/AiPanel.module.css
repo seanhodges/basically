@@ -228,12 +228,6 @@
   image-rendering: pixelated;
 }
 
-.aiFinalScreen figcaption {
-  margin-top: 4px;
-  color: var(--text-dim);
-  font-size: 12px;
-}
-
 /* A turn restored from storage kept the marker, not the pixels. */
 .aiScreenGone {
   margin-bottom: 6px;

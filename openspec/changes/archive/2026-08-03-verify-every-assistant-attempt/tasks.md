@@ -105,3 +105,32 @@
 - [x] 9.7 `npm run e2e:chromium -- e2e/program-execution` — the run path is
       touched even though its requirements are not; confirm a plain run is
       unaffected
+
+## 10. Keep the check in the background
+
+- [x] 10.1 Add `shouldRevealEmulator` to `src/app/aiRunCheck.ts` — a run the user
+      asked for brings the machine forward, a check does not — and cover both in
+      `src/app/aiRunCheck.test.ts`
+- [x] 10.2 Gate the tabbed layouts' jump to the preview tab in `src/App.tsx` on
+      it, so a check no longer takes the assistant off a phone's screen
+      mid-answer
+- [x] 10.3 Gate the canvas focus in `src/components/EmulatorPane.tsx` on it, so a
+      check never moves the keys off what the user was typing into
+- [x] 10.4 `npm run e2e:chromium -- e2e/ai-assistant` — add coverage for the
+      assistant staying on screen, and the check still settling, while it runs
+      unwatched on a phone layout
+- [x] 10.5 `npm run typecheck`, `npm test`, `npm run lint`, `npm run format:check`
+
+## 11. Keep the machinery out of the conversation
+
+- [x] 11.1 Add `isProtocolBlock` to `src/ai/codeExtractor.ts` — an expectation
+      block or a view request is written for the IDE, a verdict is written for
+      the user — and cover the three in `src/ai/codeExtractor.test.ts`
+- [x] 11.2 Skip those blocks when rendering a reply in
+      `src/components/AiPanel.tsx`, and render no bubble at all for a reply that
+      was nothing else
+- [x] 11.3 Drop the caption under the finished screen (and its style): the
+      picture says what it is
+- [x] 11.4 `npm run e2e:chromium -- e2e/ai-assistant` — add coverage for a reply
+      whose expectations and view request are acted on but not shown
+- [x] 11.5 `npm run typecheck`, `npm test`, `npm run lint`, `npm run format:check`

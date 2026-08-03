@@ -14,6 +14,7 @@ import {
   AI_CHECK_FRAMES_PER_TICK,
   AI_CHECK_HIDDEN_TICK_MS,
   shouldOpenDebugSession,
+  shouldRevealEmulator,
   type AiRunFrameCounts,
 } from '../app/aiRunCheck';
 import {
@@ -599,7 +600,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         ensureAudio(machine);
         setEmulatorStatus('running');
         startLoop();
-        canvasRef.current?.focus();
+        // A check takes no focus: it starts on its own while the user is reading
+        // the reply (and may be typing the next one), so the keys stay wherever
+        // they had them. See shouldRevealEmulator.
+        if (shouldRevealEmulator({ checking })) canvasRef.current?.focus();
       } catch (e) {
         setLoading(false);
         setError(e instanceof Error ? e.message : String(e));
