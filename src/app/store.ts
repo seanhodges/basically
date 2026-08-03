@@ -333,13 +333,6 @@ interface IdeState {
   /** Bumped to ask the emulator pane to reset the machine. */
   resetRequest: number;
   /**
-   * Whether there is a machine display the assistant could be shown - a live
-   * one, or the last frame before the emulator pane went away (see
-   * `./screenCapture`). The capture itself is not render data and stays in that
-   * module; this is only what the AI panel's attach control needs to know.
-   */
-  screenCaptureAvailable: boolean;
-  /**
    * Breakpointed BASIC line numbers. Keyed by line number (not editor row) so
    * they survive edits and renumbering. Cleared when a different program loads.
    */
@@ -786,8 +779,6 @@ interface IdeState {
   setSplitRatio(n: number): void;
   setEmulatorStatus(status: EmulatorStatus): void;
   setLiveMemory(stats: MachineMemoryStats | null): void;
-  /** Report whether there is a display the assistant could be shown. */
-  setScreenCaptureAvailable(available: boolean): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
   setShareLinkOpen(open: boolean): void;
@@ -1205,7 +1196,6 @@ export const useIdeStore = create<IdeState>((set) => ({
   runOutcome: null,
   stopRequest: 0,
   resetRequest: 0,
-  screenCaptureAvailable: false,
   breakpoints: new Set<number>(),
   debugLine: null,
   stepRequest: 0,
@@ -1864,12 +1854,6 @@ export const useIdeStore = create<IdeState>((set) => ({
   setSplitRatio: (n) => set({ splitRatio: n }),
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
   setLiveMemory: (stats) => set({ liveMemory: stats }),
-  setScreenCaptureAvailable: (available) =>
-    set((s) =>
-      s.screenCaptureAvailable === available
-        ? {}
-        : { screenCaptureAvailable: available },
-    ),
   toggleAiPanel: () =>
     set((s) => ({ aiPanelOpen: !s.aiPanelOpen, memoryMapOpen: false })),
   setTransferOpen: (open) => set({ transferOpen: open }),

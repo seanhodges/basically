@@ -221,17 +221,15 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
   }, []);
 
-  // Offer the rendered screen to the AI assistant (see ../app/screenCapture),
-  // and take it back when the machine goes away. The snapshot on teardown is
-  // what keeps "show the assistant the screen" available on the layouts where
-  // opening the assistant unmounts this pane.
+  // Offer the rendered screen for capture (see ../app/screenCapture), and take
+  // it back when the machine goes away. The snapshot on teardown keeps the last
+  // frame readable after this pane has stopped rendering one.
   const unregisterCaptureRef = useRef<(() => void) | null>(null);
   const registerCapture = useCallback(() => {
     unregisterCaptureRef.current?.();
     unregisterCaptureRef.current = registerScreenCapture(() =>
       captureFromCanvas(canvasRef.current),
     );
-    useIdeStore.getState().setScreenCaptureAvailable(true);
   }, []);
   /** Keep the last frame, then stop offering a live one. Call before blanking. */
   const stashCapture = useCallback(() => {
@@ -244,7 +242,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     unregisterCaptureRef.current?.();
     unregisterCaptureRef.current = null;
     forgetScreenCapture();
-    useIdeStore.getState().setScreenCaptureAvailable(false);
   }, []);
 
   // Let the browser paint at least once. Used to surface the loading overlay
@@ -296,9 +293,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         if (firstFrameRef.current) {
           firstFrameRef.current = false;
           setLoading(false);
-          // There is now a frame worth showing the assistant. Registered here
-          // rather than on mount so "show it the screen" is never offered for a
-          // canvas that has not drawn anything yet.
+          // There is now a frame worth capturing. Registered here rather than on
+          // mount so a canvas that has not drawn anything yet is never offered
+          // up as this machine's screen.
           registerCapture();
         }
       };

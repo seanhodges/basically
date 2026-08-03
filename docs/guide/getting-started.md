@@ -76,6 +76,11 @@ the outcome. That last look is yours: the checks can tell that a program ran and
 that the text it printed is right, but only you can say whether the thing on the
 screen is what you actually wanted.
 
+Ask something next and that same picture goes with your question, so "why is the
+circle squashed?" is answered against what you are both looking at. There is
+nothing to attach: the screen already in the conversation is the one that is
+sent, once, and only if the assistant you have chosen can be shown a picture.
+
 Once your key is set you can also start a whole project this way: choose
 **File ▸ New project**, pick a machine, and under **Start from** choose
 **Describe it** and say what you want ("a snake game"). The project is created

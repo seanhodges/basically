@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useOnline } from '../app/useOnline';
-import { useAiStore, type DisplayMessage } from '../ai/aiStore';
+import { unsentScreen, useAiStore, type DisplayMessage } from '../ai/aiStore';
 import {
   loadSystemPrompt,
   buildUserMessage,
@@ -17,7 +17,6 @@ import {
   type CodeBlock,
   type MergeRow,
 } from '../ai/codeExtractor';
-import { captureScreen, type ScreenCapture } from '../app/screenCapture';
 import { sourceFingerprint } from '../ai/sourceFingerprint';
 import { getAiProvider, getProviderApiKey } from '../storage/settings';
 import { getProvider } from '../ai/providers/registry';
@@ -254,14 +253,11 @@ export function AiPanel() {
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Showing the assistant the screen: available when there is a display to show
-  // (live, or the last frame before the emulator pane made way for this panel)
-  // and the chosen backend can be shown one. Attached to the next request only,
-  // and droppable before it is sent.
-  const screenAvailable = useIdeStore((s) => s.screenCaptureAvailable);
-  const canShowScreen = getProvider(getAiProvider()).acceptsImages;
-  const [attached, setAttached] = useState<ScreenCapture | null>(null);
-  const attachScreen = () => setAttached(captureScreen());
+  // The screen the thread is already showing - the machine's own display from
+  // the last answer the IDE ran and checked - goes with the next request. It is
+  // the picture the user is looking at while they type, so nothing is captured
+  // again to answer them, and it travels once (see unsentScreen).
+  const threadScreen = useAiStore((s) => unsentScreen(s.messages));
 
   // Keep the thread scrolled to the newest content as it streams or on remount.
   useEffect(() => {
@@ -280,8 +276,7 @@ export function AiPanel() {
       return;
     }
     setInput('');
-    const screen = provider.acceptsImages ? attached : null;
-    setAttached(null);
+    const screen = provider.acceptsImages ? threadScreen : null;
     const errors = dialect.lint(source);
     void useAiStore.getState().send({
       providerId,
@@ -361,18 +356,13 @@ export function AiPanel() {
     if (msg.role === 'user') {
       return (
         <div key={idx} className={`${styles.aiMsg} ${styles.aiUser}`}>
-          {/* What the assistant was shown, shown back: a thread nobody can
-              read afterwards is a thread nobody can check. A turn restored
-              from storage kept the marker and not the pixels, so it says the
-              screen was shown without being able to show it again. */}
-          {msg.image ? (
-            <img
-              className={styles.aiScreenShot}
-              src={`data:${msg.image.mediaType};base64,${msg.image.base64}`}
-              alt="The machine screen shown to the assistant"
-            />
-          ) : msg.screenShown ? (
-            <div className={styles.aiScreenGone}>Screen shown</div>
+          {/* Which request carried the screen, said rather than shown again:
+              the picture it carried is the one in the thread just above it, and
+              two identical thumbnails a few lines apart read as two different
+              screens. The same words serve a turn restored from storage, which
+              kept the marker and not the pixels. */}
+          {msg.image || msg.screenShown ? (
+            <div className={styles.aiScreenNote}>Screen shown</div>
           ) : null}
           {msg.content}
         </div>
@@ -514,19 +504,6 @@ export function AiPanel() {
           unavailable until you reconnect.
         </div>
       )}
-      {attached && (
-        <div className={styles.aiAttached}>
-          <img
-            className={styles.aiScreenShot}
-            src={`data:${attached.mediaType};base64,${attached.base64}`}
-            alt="The machine screen that will be sent with your message"
-          />
-          <span>This screen goes with your next message.</span>
-          <button className="linklike" onClick={() => setAttached(null)}>
-            Remove
-          </button>
-        </div>
-      )}
       <div className={styles.aiInput}>
         <textarea
           value={input}
@@ -545,26 +522,6 @@ export function AiPanel() {
             }
           }}
         />
-        {/* Presented as unavailable rather than hidden when there is nothing to
-            show or nowhere to show it, so it is clear the option exists. */}
-        <button
-          className={styles.aiShowScreen}
-          onClick={attachScreen}
-          disabled={
-            !screenAvailable || !canShowScreen || attached !== null || !online
-          }
-          title={
-            !canShowScreen
-              ? 'This AI provider cannot be shown a picture of the screen'
-              : !screenAvailable
-                ? 'Run your program first - there is no screen to show yet'
-                : attached !== null
-                  ? 'The screen is already attached to your next message'
-                  : 'Show the assistant what is on the machine screen'
-          }
-        >
-          Show screen
-        </button>
         {busy ? (
           <button onClick={stop}>Stop</button>
         ) : (

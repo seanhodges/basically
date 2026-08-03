@@ -98,7 +98,7 @@ export function buildUserMessage(
   request: string,
   currentSource: string,
   errors: TokenizeError[],
-  /** The user attached the machine's display to this request. */
+  /** The machine's display, from the thread, rides with this request. */
   screenAttached = false,
 ): string {
   let msg = '';
@@ -116,7 +116,7 @@ export function buildUserMessage(
   if (screenAttached) {
     // Said, not left to be noticed: a model told what it is looking at reads
     // the picture as evidence rather than as decoration.
-    msg += `The attached picture is my machine's screen right now.\n\n`;
+    msg += `The attached picture is my machine's screen, as the last program you gave me left it.\n\n`;
   }
   msg += request;
   return msg;

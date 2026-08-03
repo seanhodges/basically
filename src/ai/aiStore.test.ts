@@ -62,7 +62,7 @@ vi.mock('./aiClient', () => ({
     e instanceof Error ? e.message : String(e),
 }));
 
-import { useAiStore } from './aiStore';
+import { unsentScreen, useAiStore, type DisplayMessage } from './aiStore';
 import { loadMachineReference } from './machineReference';
 import { useIdeStore, type AiRunOutcome } from '../app/store';
 import {
@@ -1156,7 +1156,7 @@ describe('aiStore', () => {
       expect(useAiStore.getState().messages.at(-1)!.finalScreen).toEqual(SHOT);
     });
 
-    it('never sends it to the provider on a later request', async () => {
+    it('rides on no request the IDE makes by itself', async () => {
       await answerAndSettle(SHOT);
 
       const p = useAiStore
@@ -1165,10 +1165,12 @@ describe('aiStore', () => {
       h.current!.resolve('ok');
       await p;
 
-      // The thread and the wire history are built from the same messages, so a
-      // picture parked on the wrong field would be replayed on every turn from
-      // here on - paying for vision tokens forever, and unstable-ing the very
-      // prefix that replaying images exists to keep cacheable.
+      // The user's own next request carries it (see unsentScreen, and the panel
+      // that reads it); nothing the store does by itself does. The thread and
+      // the wire history are built from the same messages, so a picture parked
+      // on the wrong field would be replayed on every turn from here on -
+      // paying for vision tokens forever, and unstable-ing the very prefix that
+      // replaying images exists to keep cacheable.
       expect(JSON.stringify(h.sent?.messages ?? [])).not.toContain('FINALPNG');
       for (const m of h.sent?.messages ?? []) {
         expect(m.image?.base64).not.toBe('FINALPNG');
@@ -1233,6 +1235,81 @@ describe('aiStore', () => {
       expect(
         useAiStore.getState().messages.at(-1)!.finalScreen,
       ).toBeUndefined();
+    });
+  });
+
+  describe('the screen a request carries', () => {
+    const shot = (base64: string): ScreenCapture => ({
+      mediaType: 'image/png',
+      base64,
+      width: 256,
+      height: 192,
+    });
+    const user = (extra: Partial<DisplayMessage> = {}): DisplayMessage => ({
+      role: 'user',
+      content: 'do a thing',
+      ...extra,
+    });
+    const answer = (extra: Partial<DisplayMessage> = {}): DisplayMessage => ({
+      role: 'assistant',
+      content: 'here you go',
+      ...extra,
+    });
+
+    it('is nothing when the thread is showing no screen', () => {
+      expect(unsentScreen([])).toBeNull();
+      expect(unsentScreen([user(), answer()])).toBeNull();
+    });
+
+    it('is the screen the user was handed for their look', () => {
+      const screen = shot('SHOWN');
+      expect(unsentScreen([user(), answer({ finalScreen: screen })])).toBe(
+        screen,
+      );
+    });
+
+    it('is nothing once a request has carried it', () => {
+      const screen = shot('SHOWN');
+      const thread = [
+        user(),
+        answer({ finalScreen: screen }),
+        user({ image: screen }),
+        answer(),
+      ];
+      expect(unsentScreen(thread)).toBeNull();
+    });
+
+    it('is nothing when the assistant was already shown it while judging', () => {
+      // The judging turn carries the very picture the answer then hands over -
+      // one capture, so sending it again would buy nothing twice.
+      const screen = shot('SHOWN');
+      const thread = [
+        user(),
+        answer(),
+        user({ image: screen }),
+        answer({ finalScreen: screen }),
+      ];
+      expect(unsentScreen(thread)).toBeNull();
+    });
+
+    it('is the newer screen once another answer has settled', () => {
+      const first = shot('FIRST');
+      const second = shot('SECOND');
+      const thread = [
+        answer({ finalScreen: first }),
+        user({ image: first }),
+        answer({ finalScreen: second }),
+      ];
+      expect(unsentScreen(thread)).toBe(second);
+    });
+
+    it('is nothing in a thread restored without its pixels', () => {
+      // Storage keeps the marker, never the image, so there is nothing to send.
+      const thread = [
+        user({ screenShown: true }),
+        answer({ screenShown: true }),
+      ];
+      expect(unsentScreen(thread)).toBeNull();
     });
   });
 
