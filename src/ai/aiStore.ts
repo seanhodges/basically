@@ -108,6 +108,35 @@ export interface DisplayMessage extends ChatMessage {
   baseFingerprint?: string;
 }
 
+/**
+ * The machine's display this thread is showing that the assistant has not been
+ * sent: the picture handed to the user under the latest answer, until a request
+ * carries it.
+ *
+ * A function of the messages rather than a flag kept alongside them - the thread
+ * already knows both what it is showing and what it has sent, and a second
+ * source of truth would have to be cleared correctly on reset, on restore, and
+ * on every path that ends an answer.
+ *
+ * "Already sent" compares the image itself, which works because the run check
+ * captures once: the picture the assistant was shown and the picture the user
+ * was handed are the same one. Sending it twice would pay for the same pixels
+ * again and rewrite a prefix the provider had cached - a shown screen stays on
+ * the turn that carried it and is replayed from there.
+ */
+export function unsentScreen(
+  messages: readonly DisplayMessage[],
+): ChatImage | null {
+  let latest: ChatImage | undefined;
+  for (const msg of messages) if (msg.finalScreen) latest = msg.finalScreen;
+  if (!latest) return null;
+  const shown = latest;
+  const sent = messages.some(
+    (msg) => msg.role === 'user' && msg.image?.base64 === shown.base64,
+  );
+  return sent ? null : shown;
+}
+
 /** Everything `send` needs that depends on the active dialect/editor. */
 export interface SendParams {
   /** The selected backend; also picks the error-message mapping. */

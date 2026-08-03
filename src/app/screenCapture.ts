@@ -64,12 +64,10 @@ export function captureFromCanvas(
  * frame, and the last one taken before that pane went away.
  *
  * Module-level rather than store state, for the same reason the AI stream
- * handle is: neither is render data. What the UI does need - whether there is
- * anything to show at all - is mirrored into the store as a flag.
+ * handle is: neither is render data.
  *
- * The snapshot is what makes this work at all on the layouts where opening the
- * assistant unmounts the emulator: without it, "show the assistant the screen"
- * would be unavailable in exactly the situation where the user asks for it.
+ * The snapshot keeps the machine's last frame readable after the pane has
+ * stopped rendering one - a stopped machine is still showing what it drew.
  */
 let live: (() => ScreenCapture | null) | null = null;
 let last: ScreenCapture | null = null;
@@ -99,7 +97,7 @@ export function captureScreen(): ScreenCapture | null {
   return live?.() ?? last;
 }
 
-/** Whether there is any display to show the assistant. */
+/** Whether there is any display to capture. */
 export function hasScreenCapture(): boolean {
   return live !== null || last !== null;
 }

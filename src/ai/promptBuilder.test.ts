@@ -323,7 +323,7 @@ describe('showing the assistant the screen', () => {
   it('tells the assistant what it is looking at when one is', () => {
     expect(
       buildUserMessage('why is it blank?', '10 PRINT', [], true),
-    ).toContain("my machine's screen right now");
+    ).toContain("my machine's screen, as the last program you gave me left it");
     const runFix = buildRunFix(
       '10 PRINT',
       { isError: true, message: 'Nope' },

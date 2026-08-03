@@ -61,6 +61,19 @@ function streamBody(text: string): string {
   );
 }
 
+/** A user turn as it went over the wire, with whatever it carried. */
+export interface SentTurn {
+  role: string;
+  /** Text, or the provider's content blocks where the turn carried an image. */
+  content: unknown;
+}
+
+/** What a test can ask the stub about the requests it has answered. */
+export interface AssistantStub {
+  /** Every request so far, oldest first, as the turns it was sent. */
+  requests(): SentTurn[][];
+}
+
 /**
  * Answer the assistant's requests with `replies`, in order; the last is reused
  * once they run out, so a test that only cares about the first answer does not
@@ -71,7 +84,7 @@ function streamBody(text: string): string {
 export async function stubAssistant(
   page: Page,
   replies: readonly string[],
-): Promise<void> {
+): Promise<AssistantStub> {
   await page.addInitScript(
     ([providerKey, keyStore]) => {
       try {
@@ -85,9 +98,14 @@ export async function stubAssistant(
   );
 
   let n = 0;
+  const sent: SentTurn[][] = [];
   await page.route('https://api.anthropic.com/**', async (route) => {
     const reply = replies[Math.min(n, replies.length - 1)] ?? '';
     n++;
+    // Recorded so a test can assert what a request actually carried - the one
+    // thing only the wire can settle.
+    const body = route.request().postDataJSON() as { messages?: SentTurn[] };
+    sent.push(body?.messages ?? []);
     await route.fulfill({
       status: 200,
       headers: {
@@ -97,4 +115,6 @@ export async function stubAssistant(
       body: streamBody(reply),
     });
   });
+
+  return { requests: () => sent.map((turns) => [...turns]) };
 }
