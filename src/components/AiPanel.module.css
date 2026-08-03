@@ -213,6 +213,27 @@
   image-rendering: pixelated;
 }
 
+/* The finished work, handed to the user for a look of their own. Wider than the
+   screen shown to the assistant: this one is meant to be studied, not noted. */
+.aiFinalScreen {
+  margin: 8px 0 4px;
+}
+
+.aiFinalScreen img {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  image-rendering: pixelated;
+}
+
+.aiFinalScreen figcaption {
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
 /* A turn restored from storage kept the marker, not the pixels. */
 .aiScreenGone {
   margin-bottom: 6px;

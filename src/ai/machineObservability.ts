@@ -26,6 +26,34 @@ export function canReportVariables(dialectId: string): boolean {
 }
 
 /**
+ * Dialect ids whose machines cannot report their BASIC runtime state.
+ *
+ * Derived the same way, and crosschecked by the same test: `readReport` is an
+ * optional seam member, so this is a property of the machine object, but the
+ * decision to check an answer at all is taken before any machine exists - the
+ * assistant's store has a dialect and a reply, not an emulator.
+ *
+ * Without it a check would be requested on a machine that can never reach a
+ * verdict: the run would happen, the user's emulator would be restarted for it,
+ * and nothing would ever come back. Add an error report to one of these and the
+ * crosscheck fails until the id comes out of the set.
+ */
+export const DIALECTS_WITHOUT_RUNTIME_REPORT: ReadonlySet<string> = new Set([
+  'zx80',
+  'atom',
+]);
+
+/**
+ * Whether an answer written for this dialect can be checked by running it.
+ *
+ * False means no check is attempted and the answer is offered as it is, which
+ * is what these machines do today.
+ */
+export function canCheckByRunning(dialectId: string): boolean {
+  return !DIALECTS_WITHOUT_RUNTIME_REPORT.has(dialectId);
+}
+
+/**
  * What the assistant may state about a finished run on this machine, and the
  * conventions its answers come back in.
  *

@@ -516,6 +516,12 @@ the record can't carry.
 The AI path runs parallel to the run path and meets it in two places: lint
 errors flow into the prompt, and runtime errors flow back into the chat.
 
+The second meeting point is not the user's doing. An answer that carries code is
+run **as soon as it arrives**, on the machine the user can see, without the code
+reaching the editor - so what is offered has already run. The apply-and-run
+buttons are therefore an ordinary run: by the time they exist, the checking is
+over.
+
 ```mermaid
 sequenceDiagram
   actor U as User
@@ -537,11 +543,14 @@ sequenceDiagram
   X-->>P: streamed markdown deltas
   P->>P: extractCodeBlocks(reply)
   P->>P: classifyBlock() - whole listing or fragment?
+  P->>P: candidateProgram(block, base)<br/>(editor untouched)
+  P->>M: requestAiRun({candidate, baseSource})
+  M-->>P: run outcome → correction sent unasked, or a suggested fix
+  P-->>U: the answer, already run, + the machine's screen
   U->>P: Merge lines · Merge + Run<br/>or Replace program · Replace + Run
   P->>E: mergeBasicLines() / replaceDocument()
   E->>E: re-lint - offer a fix prompt on errors
-  P->>M: (… + Run) requestAiRun()
-  M-->>P: run outcome → correction sent unasked, or a suggested fix
+  P->>M: (… + Run) requestRun() - an ordinary run
 ```
 
 Key details:
@@ -597,15 +606,49 @@ Key details:
   cannot drift from what applying does. Matching line numbers replace, new ones
   insert in order, and in a fragment a bare line number deletes that line.
   `#BIN` records are always context and a deletion cannot reach them.
-- After a **… + Run**, the run loop watches the machine for a few seconds and
-  classifies how the run went (`src/app/aiRunCheck.ts`): it failed, it finished
-  without failing, it was still running, or it never started. A genuine runtime
-  error (not OK/STOP/BREAK) is corrected automatically, up to two attempts per
-  applied block, after which it falls back to the one-click fix request; a run
-  that didn't fail rides along with the next request so the assistant hears
-  about its successes too. Telling "finished" from "still running" needs
-  `isProgramRunning()`, which the Sinclair machines can't answer - their runs
-  read as "ran without failing", which is what the assistant is told.
+- When an answer completes, `checkLatestAnswer()` resolves its last applicable
+  block against the program it was written about (`candidateProgram()`, shared
+  with what the panel would apply so the two cannot disagree) and asks the run
+  loop to run _that_, via `requestAiRun({candidate, baseSource})`. The editor is
+  never touched. `EmulatorPane` prefers `aiRunSource` over `source` when
+  `aiRunCheckSeq === runRequest`; every other run is the editor's program as
+  ever. A block whose kind is `unknown` is not checked at all - the panel asks
+  the user precisely because neither reading is safe, and a check has nobody to
+  ask.
+- The run loop watches the machine and classifies how the run went
+  (`src/app/aiRunCheck.ts`): it failed, it finished without failing, it was
+  still running, or it never started. A genuine runtime error (not OK/STOP/BREAK)
+  is corrected automatically, up to two attempts per answer, after which it falls
+  back to the one-click fix request; a run that didn't fail rides along with the
+  next request so the assistant hears about its successes too. Telling "finished"
+  from "still running" needs `isProgramRunning()`, which the Sinclair machines
+  can't answer - their runs read as "ran without failing", which is what the
+  assistant is told.
+- Three things about the check are easy to get wrong and are pinned by tests:
+  - **The staleness guard compares `baseSource`, not `ranSource`.** Whether the
+    user has moved on is a question about _their_ program. A checked answer is by
+    definition not what the editor holds, so comparing what ran would report
+    "edited" every time and silently disable every unrequested correction -
+    while passing every test that predates the change. `aiStore.test.ts` runs a
+    candidate distinct from the editor throughout, so the inversion goes red.
+  - **A check never opens a debug session** (`shouldOpenDebugSession()`).
+    `debuggable` describes the machine, not whether the user is debugging, so a
+    check would inherit a session, pause on any breakpoint they had set, and stop
+    advancing frames - hanging every reply for anyone with a breakpoint anywhere.
+  - **The screen shown to the user is not `ChatMessage.image`.** The thread and
+    the wire history are the same array, and prior turns' images are replayed to
+    keep the cached prefix byte-stable; a user-facing picture on that field would
+    be re-sent on every later turn. It rides on `finalScreen`, which never leaves
+    the browser, and is stored as a marker like every other screen.
+- A check advances `AI_CHECK_FRAMES_PER_TICK` frames per animation frame - the
+  windows are counted in frames, not seconds, so this settles a check sooner
+  without moving a rule - and falls back to a timer while the tab is hidden,
+  since a background tab gets no animation frames and a stalled check leaves the
+  assistant waiting on a verdict that can never arrive.
+- Once the assistant stops working on an answer - it settled, the correction
+  bound was spent, or the user stopped it - the machine's screen is handed to the
+  user for a look of their own, once per loop rather than once per attempt.
+  Deliberately shown for a failure too: that is where a human eye is worth most.
 - Providers report _why_ generation stopped. An answer cut off by the output
   limit is marked incomplete and offers no apply actions - the output budget is
   shared with adaptive thinking, so a long listing can hit it - and a declined

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  candidateProgram,
   classifyBlock,
   extractCodeBlocks,
   extractExpectations,
@@ -405,5 +406,41 @@ describe('a request to be shown the screen', () => {
       image: false,
       unknown: [],
     });
+  });
+});
+
+describe('candidateProgram', () => {
+  const BASE = '10 CLS\n20 GOTO 10\n';
+  const only = (markdown: string) => extractCodeBlocks(markdown)[0]!;
+
+  it('takes a whole listing as it stands', () => {
+    const block = only('```basic\n10 PRINT "A"\n20 PRINT "B"\n```');
+    expect(candidateProgram(block, BASE)).toBe('10 PRINT "A"\n20 PRINT "B"\n');
+  });
+
+  it('resolves a fragment to the program it would land in', () => {
+    const block = only('```basic-partial\n20 PRINT "X"\n```');
+    // Not the one line the assistant wrote: the program that line makes.
+    expect(candidateProgram(block, BASE)).toBe('10 CLS\n20 PRINT "X"\n');
+  });
+
+  it('refuses a block whose kind cannot be established', () => {
+    // Declared whole, but its line numbers cover only part of the program - the
+    // panel offers the user both actions rather than guessing, and a check with
+    // nobody to ask must not guess either. Replacing a program with a fragment
+    // discards every line the fragment did not mention, so the two readings are
+    // not close enough to pick one.
+    const block = only('```basic\n20 PRINT "X"\n```');
+    expect(classifyBlock(block, BASE)).toBe('unknown');
+    expect(candidateProgram(block, BASE)).toBeNull();
+  });
+
+  it('agrees with what the panel would apply', () => {
+    const block = only('```basic-partial\n20 PRINT "X"\n```');
+    // The check and the apply must never resolve a block differently, or the
+    // user would be offered something other than what was verified.
+    expect(candidateProgram(block, BASE)).toBe(
+      mergeBasicLines(BASE, block.code, { allowDeletes: true }),
+    );
   });
 });

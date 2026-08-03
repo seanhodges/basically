@@ -1348,3 +1348,61 @@ describe('block settings dialog state', () => {
     expect(useIdeStore.getState().blockSettingsId).toBeNull();
   });
 });
+
+describe('running an answer the assistant returned', () => {
+  const EDITOR = '10 PRINT "MINE"\n';
+  const CANDIDATE = '10 PRINT "THE ANSWER"\n';
+
+  beforeEach(() => {
+    useIdeStore.setState({ source: EDITOR });
+  });
+
+  it('runs the answer, not the editor, and says what it was written against', () => {
+    const before = useIdeStore.getState().runRequest;
+    useIdeStore
+      .getState()
+      .requestAiRun({ candidate: CANDIDATE, baseSource: EDITOR });
+
+    const s = useIdeStore.getState();
+    expect(s.runRequest).toBe(before + 1);
+    // Tagged as a check, so the emulator pane knows to watch it...
+    expect(s.aiRunCheckSeq).toBe(s.runRequest);
+    // ...and knows which program to run.
+    expect(s.aiRunSource).toBe(CANDIDATE);
+    expect(s.aiRunBase).toBe(EDITOR);
+    // The user's program is untouched: an answer is checked before they have
+    // decided anything about it.
+    expect(s.source).toBe(EDITOR);
+  });
+
+  it('leaves a plain run running the editor', () => {
+    useIdeStore
+      .getState()
+      .requestAiRun({ candidate: CANDIDATE, baseSource: EDITOR });
+    const before = useIdeStore.getState().runRequest;
+
+    useIdeStore.getState().requestRun();
+
+    const s = useIdeStore.getState();
+    expect(s.runRequest).toBe(before + 1);
+    // The check tag does not carry over, so this run is the editor's program.
+    expect(s.aiRunCheckSeq).not.toBe(s.runRequest);
+  });
+
+  it('carries the derived-from program on the outcome', () => {
+    useIdeStore
+      .getState()
+      .requestAiRun({ candidate: CANDIDATE, baseSource: EDITOR });
+    useIdeStore.getState().reportRun({
+      outcome: { kind: 'ended-ok' },
+      ranSource: CANDIDATE,
+      baseSource: EDITOR,
+    });
+
+    const run = useIdeStore.getState().runOutcome!;
+    expect(run.ranSource).toBe(CANDIDATE);
+    // Without this the assistant's store cannot tell "the user moved on" from
+    // "nothing was applied", which is true of every checked answer.
+    expect(run.baseSource).toBe(EDITOR);
+  });
+});

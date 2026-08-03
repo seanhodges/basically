@@ -60,6 +60,22 @@ Basically can write BASIC for you with the Claude API:
 4. Apply a suggestion with one click: **replace** the editor, **merge** by line
    number, or **replace and run**.
 
+Answers arrive already tried out. Before you are offered anything, the IDE runs
+the program on the machine itself and checks how it went — your own listing is
+left exactly as you had it while that happens. If the program fails, or does not
+produce what the assistant said it would, the assistant is asked to fix it and
+try again a couple of times before you are shown anything. So what reaches you is
+code that has run, not code that looks like it should.
+
+The panel says which stage it is at while you wait — writing the code, checking
+it on the machine, looking at the screen it drew, or fixing a run that failed —
+and **Stop** ends any of them.
+
+When it has finished, you are shown the machine's screen as it stood, whatever
+the outcome. That last look is yours: the checks can tell that a program ran and
+that the text it printed is right, but only you can say whether the thing on the
+screen is what you actually wanted.
+
 Once your key is set you can also start a whole project this way: choose
 **File ▸ New project**, pick a machine, and under **Start from** choose
 **Describe it** and say what you want ("a snake game"). The project is created

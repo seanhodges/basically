@@ -10,19 +10,12 @@ import {
 import {
   classifyBlock,
   extractCodeBlocks,
-  extractExpectations,
-  extractScreenViews,
   isApplicableBlock,
   mergeBasicLines,
   mergePlan,
   type CodeBlock,
   type MergeRow,
 } from '../ai/codeExtractor';
-import {
-  noScreenViews,
-  type Expectation,
-  type ScreenViewRequest,
-} from '../ai/expectations';
 import { captureScreen, type ScreenCapture } from '../app/screenCapture';
 import { sourceFingerprint } from '../ai/sourceFingerprint';
 import { getAiProvider, getProviderApiKey } from '../storage/settings';
@@ -241,7 +234,7 @@ export function AiPanel() {
   const dialect = useIdeStore((s) => s.dialect);
   const source = useIdeStore((s) => s.source);
   const replaceDocument = useIdeStore((s) => s.replaceDocument);
-  const requestAiRun = useIdeStore((s) => s.requestAiRun);
+  const requestRun = useIdeStore((s) => s.requestRun);
   const showAiPanel = useIdeStore((s) => s.showAiPanel);
   const showEmulator = useIdeStore((s) => s.showEmulator);
   const openSettings = useIdeStore((s) => s.openSettings);
@@ -324,22 +317,18 @@ export function AiPanel() {
    * afterwards.
    *
    * On "+ Run": apply, then either prompt to fix editor errors (the program
-   * can't run with them) or reveal the emulator and run with the AI runtime-error
-   * check armed. showEmulator() is what actually swaps the AI view for the
+   * can't run with them) or reveal the emulator and run it. An ordinary run -
+   * the answer was already run and checked when it arrived, so there is nothing
+   * here to arm. showEmulator() is what actually swaps the AI view for the
    * emulator - on the split layout it closes the AI panel (which otherwise hides
    * the preview), and in the tabbed layout it switches to the preview tab (the
    * run-request auto-switch only covers portrait, not the split/landscape cases).
    */
-  const applyText = (
-    text: string,
-    run: boolean,
-    expectations: Expectation[] = [],
-    views: ScreenViewRequest = noScreenViews(),
-  ) => {
+  const applyText = (text: string, run: boolean) => {
     replaceDocument(text);
     if (!checkEditorErrors(text) && run) {
       showEmulator();
-      requestAiRun(expectations, views);
+      requestRun();
     }
   };
 
@@ -389,13 +378,6 @@ export function AiPanel() {
       );
     }
     const blocks = extractCodeBlocks(msg.content);
-    // Stated alongside the code in this same reply, and carried into the run
-    // that the apply arms - so a program that runs is checked against what its
-    // author said it should produce.
-    const expectations = extractExpectations(msg.content);
-    // What this reply asked to be shown when its program runs. Read from the
-    // same reply as the expectations and carried on the same journey.
-    const views = extractScreenViews(msg.content);
     // Render text with code blocks replaced by panels
     const parts: React.ReactNode[] = [];
     let rest = msg.content;
@@ -426,30 +408,54 @@ export function AiPanel() {
             source={source}
             stale={staleAgainst(msg, source)}
             incomplete={msg.incomplete === true}
-            onApply={(text, run) => applyText(text, run, expectations, views)}
+            onApply={applyText}
           />
         ),
       );
     });
     const tail = rest.trim();
     if (tail) parts.push(<p key="tail">{tail}</p>);
-    // While the answer is arriving, show a live busy indicator with a status
-    // hint (in place of the old static ellipsis, which read as "stuck").
-    if (msg.streaming) {
+    // While the assistant is working, show a live busy indicator saying which
+    // stage it is in (in place of the old static ellipsis, which read as
+    // "stuck"). Not only while the text is arriving: the machine check and the
+    // judgement both begin after the answer is complete, and without a word for
+    // them the panel would fall silent for as long as the machine takes.
+    if (msg.streaming || msg.checking) {
       // An automatic correction says so, so a reply nobody asked for never
       // looks like one the user did.
-      const status = msg.retrying
-        ? 'Reformatting response…'
-        : msg.autoFix
-          ? 'Fixing the failed run…'
-          : msg.content.trim() === ''
-            ? 'Thinking…'
-            : 'Writing code…';
+      const status = msg.checking
+        ? `Checking it on the ${dialect.name}…`
+        : msg.retrying
+          ? 'Reformatting response…'
+          : msg.judging
+            ? 'Looking at the screen…'
+            : msg.autoFix
+              ? 'Fixing the failed run…'
+              : msg.content.trim() === ''
+                ? 'Thinking…'
+                : 'Writing code…';
       parts.push(
         <div key="status" className={styles.aiStatus}>
           <GearsSpinner size={16} />
           <span>{status}</span>
         </div>,
+      );
+    }
+    // The finished work, once the assistant has stopped working on this answer:
+    // the machine's own screen, for the user to look at with their own eyes.
+    // Shown however the answer turned out - an answer the assistant could not
+    // settle is where a human look is worth most.
+    if (msg.finalScreen) {
+      parts.push(
+        <figure key="final-screen" className={styles.aiFinalScreen}>
+          <img
+            src={`data:${msg.finalScreen.mediaType};base64,${msg.finalScreen.base64}`}
+            alt={`The ${dialect.name} screen after running this program`}
+          />
+          <figcaption>
+            What the {dialect.name} showed - worth a look.
+          </figcaption>
+        </figure>,
       );
     }
     return (

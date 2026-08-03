@@ -3,6 +3,7 @@ import {
   classifyAiRunFrame,
   finaliseExpectations,
   latchExpectationSample,
+  shouldOpenDebugSession,
   AI_CHECK_MAX_FRAMES,
   AI_CHECK_ABS_MAX_FRAMES,
   type AiRunFrame,
@@ -250,5 +251,49 @@ describe('finaliseExpectations', () => {
 
   it('returns nothing when nothing was stated', () => {
     expect(finaliseExpectations([], { kind: 'ended-ok' })).toEqual([]);
+  });
+});
+
+describe('shouldOpenDebugSession', () => {
+  it('opens one for an ordinary run on a machine that can step', () => {
+    expect(
+      shouldOpenDebugSession({
+        checking: false,
+        debuggable: true,
+        canStep: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('never opens one for a check, however debuggable the machine', () => {
+    // The hang this prevents: a session would pause on whatever breakpoint the
+    // user has set, a paused loop stops advancing frames, and the check would
+    // never reach a verdict - so every reply would hang for anyone with a
+    // breakpoint anywhere. `debuggable` says what the machine can do, not what
+    // the user is doing, so it cannot be the thing that decides this.
+    expect(
+      shouldOpenDebugSession({
+        checking: true,
+        debuggable: true,
+        canStep: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('opens none where the machine or dialect cannot step', () => {
+    expect(
+      shouldOpenDebugSession({
+        checking: false,
+        debuggable: true,
+        canStep: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOpenDebugSession({
+        checking: false,
+        debuggable: false,
+        canStep: true,
+      }),
+    ).toBe(false);
   });
 });

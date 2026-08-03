@@ -22,11 +22,16 @@ import {
   type ExpectationResult,
 } from './expectations';
 import {
+  candidateProgram,
   extractCodeBlocks,
+  extractExpectations,
   extractJudgement,
+  extractScreenViews,
   isApplicableBlock,
 } from './codeExtractor';
+import { canCheckByRunning } from './machineObservability';
 import {
+  buildEditorFix,
   buildExpectationFix,
   buildRunFix,
   buildRunNote,
@@ -70,6 +75,32 @@ export interface DisplayMessage extends ChatMessage {
    */
   autoFix?: boolean;
   /**
+   * True while the IDE is running this answer on the machine to see how it
+   * goes. UI-only, and the one stage that outlives the streamed text: it begins
+   * once the answer is complete, so without it the panel would fall silent for
+   * as long as the machine takes and read as having hung.
+   */
+  checking?: boolean;
+  /**
+   * True while this reply is the assistant being shown the screen its program
+   * drew and asked whether what it stated holds. Distinct from `autoFix`: both
+   * are requests the store raised itself, but "looking at the screen" and
+   * "fixing the failed run" are different waits and deserve different words.
+   */
+  judging?: boolean;
+  /**
+   * The machine's display once the assistant has stopped working on this
+   * answer, for the user's own look at the finished work.
+   *
+   * Deliberately not {@link ChatMessage.image}: that field is what a turn
+   * carries to the provider, and every later request replays it to keep the
+   * cached prefix byte-stable. A picture shown only to the user riding on it
+   * would be re-sent on every subsequent turn - paying for vision tokens
+   * forever, and destabilising the prefix that carrying images forward exists
+   * to protect. This one never leaves the browser.
+   */
+  finalScreen?: ChatImage;
+  /**
    * Fingerprint of the program this answer was written against. A fragment is
    * a delta, so applying it once the editor has moved on may not be what the
    * assistant meant; the panel compares this with the current source.
@@ -109,6 +140,28 @@ export interface SendParams {
    * only a request the user makes does that.
    */
   automatic?: boolean;
+  /**
+   * The program a fragment in the reply should be merged into for the check -
+   * the program this request is asking about, which for a correction is the
+   * candidate that just failed rather than what the editor holds.
+   *
+   * Distinct from {@link baseSource}, which answers a different question: has
+   * the *user* moved on. That one must stay the editor's program all the way
+   * down a chain of corrections, or the second correction would compare the
+   * first correction's candidate against the editor and conclude the user had
+   * edited when they had not. Defaults to `baseSource`, which is right for
+   * every request the user makes.
+   */
+  checkAgainst?: string;
+  /** Mark the reply as the assistant judging its own screen (see `judging`). */
+  judging?: boolean;
+  /**
+   * Skip checking the answer this request produces. Set only by the judging
+   * request, whose reply is settled by {@link settleJudgement} once it has been
+   * read - checking it here would start the next run before the judgement it is
+   * waiting on had been applied.
+   */
+  skipCheck?: boolean;
 }
 
 interface AiState {
@@ -161,6 +214,18 @@ let pendingRunNote = '';
 let pendingRunImage: ChatImage | null = null;
 
 /**
+ * The machine's display from the latest check, waiting to be handed to the user
+ * once the assistant stops working on this answer.
+ *
+ * Held rather than shown immediately because "the assistant has stopped" is not
+ * knowable at the moment the run ends: a failed run may be about to become a
+ * correction, and a clean one with a visual expectation may be about to become a
+ * judgement. Every branch that ends the work shows it; the branches that
+ * continue leave it for the attempt that does end.
+ */
+let latestFinalScreen: ChatImage | null = null;
+
+/**
  * Persist the thread, dropping the empty placeholder and the `streaming` flag.
  *
  * A shown screen is recorded as a marker and not as pixels: the conversation
@@ -178,7 +243,12 @@ function persist(messages: DisplayMessage[]): void {
         content: m.content,
         ...(m.streaming || m.incomplete ? { incomplete: true } : {}),
         ...(m.baseFingerprint ? { baseFingerprint: m.baseFingerprint } : {}),
-        ...(m.image || m.screenShown ? { screenShown: true } : {}),
+        // The same rule for both kinds of screen: the one shown to the
+        // assistant and the one shown to the user are equally not worth
+        // evicting the autosaved program for.
+        ...(m.image || m.finalScreen || m.screenShown
+          ? { screenShown: true }
+          : {}),
       })),
   );
 }
@@ -205,6 +275,9 @@ export const useAiStore = create<AiState>((set, get) => ({
     image,
     baseSource,
     automatic,
+    checkAgainst,
+    judging,
+    skipCheck,
   }) => {
     // A request the user makes is a fresh start for the automatic corrections:
     // a long conversation must not exhaust its budget early and then silently
@@ -252,6 +325,7 @@ export const useAiStore = create<AiState>((set, get) => ({
           content: '',
           streaming: true,
           ...(automatic ? { autoFix: true } : {}),
+          ...(judging ? { judging: true } : {}),
         },
       ],
     });
@@ -317,6 +391,7 @@ export const useAiStore = create<AiState>((set, get) => ({
             streaming: true,
             retrying: true,
             ...(automatic ? { autoFix: true } : {}),
+            ...(judging ? { judging: true } : {}),
           };
           return { messages: copy };
         });
@@ -358,6 +433,9 @@ export const useAiStore = create<AiState>((set, get) => ({
         return { messages: copy, busy: false };
       });
       persist(get().messages);
+      // The answer is complete: run it and see how it goes, before the user is
+      // asked to decide anything about it.
+      if (!skipCheck) checkLatestAnswer(checkAgainst ?? baseSource, baseSource);
     } catch (e) {
       if (gen !== myGen) return; // reset already cleared the thread
       // Keep any partial text (e.g. after Stop) as a truncated answer; drop an
@@ -383,7 +461,17 @@ export const useAiStore = create<AiState>((set, get) => ({
     }
   },
 
-  stop: () => activeHandle?.abort(),
+  stop: () => {
+    activeHandle?.abort();
+    // A check is a stage like any other, and the same action ends it. The run
+    // itself is left to finish on the machine - its verdict is simply not acted
+    // on (see stoppedCheckSeq), which is cheaper and less startling than
+    // yanking the emulator out from under whatever it is drawing.
+    if (get().messages[get().messages.length - 1]?.checking) {
+      stoppedCheckSeq = useIdeStore.getState().runRequest;
+      markChecking(false);
+    }
+  },
 
   setPendingFix: (fix) => set({ pendingFix: fix }),
   clearPendingFix: () => set({ pendingFix: null }),
@@ -395,6 +483,8 @@ export const useAiStore = create<AiState>((set, get) => ({
     autoFixAttempts = 0;
     pendingRunNote = '';
     pendingRunImage = null;
+    latestFinalScreen = null;
+    stoppedCheckSeq = -1;
     clearAiConversation();
     set({ messages: [], busy: false, error: '', pendingFix: null });
   },
@@ -445,6 +535,7 @@ function resolveRequestContext(): {
 function judgeScreen(
   outcome: AiRunOutcome,
   ranSource: string,
+  stalenessBase: string,
   results: readonly ExpectationResult[],
   screen: ChatImage,
   context: NonNullable<ReturnType<typeof resolveRequestContext>>,
@@ -463,11 +554,18 @@ function judgeScreen(
         userContent: judge.userContent,
         displayRequest: judge.displayRequest,
         image: screen,
-        baseSource: ranSource,
+        baseSource: stalenessBase,
+        checkAgainst: ranSource,
         automatic: true,
+        judging: true,
+        // The verdict has to be read out of this reply before anything is run:
+        // checking it here would start the next run before the judgement it is
+        // waiting on had been applied. `settleJudgement` checks it instead, and
+        // only when it came back carrying a correction.
+        skipCheck: true,
       }),
     )
-    .then(() => settleJudgement(outcome, ranSource, results));
+    .then(() => settleJudgement(outcome, ranSource, stalenessBase, results));
 }
 
 /**
@@ -481,6 +579,7 @@ function judgeScreen(
 function settleJudgement(
   outcome: AiRunOutcome,
   ranSource: string,
+  stalenessBase: string,
   results: readonly ExpectationResult[],
 ): void {
   const ai = useAiStore.getState();
@@ -496,12 +595,14 @@ function settleJudgement(
       outcome,
       leaveUnjudged(results, 'the judgement did not finish'),
     );
+    showFinishedWork(latestFinalScreen ?? undefined);
     return;
   }
 
   const judged = applyJudgement(results, extractJudgement(reply.content));
   if (!judged.some((r) => r.status === 'failed')) {
     pendingRunNote = buildRunNote(outcome, judged);
+    showFinishedWork(latestFinalScreen ?? undefined);
     return;
   }
 
@@ -511,9 +612,173 @@ function settleJudgement(
   // the fix goes back to being one the user chooses to ask for.
   if (extractCodeBlocks(reply.content).some(isApplicableBlock)) {
     autoFixAttempts++;
+    // Now that the verdict has been read, the corrected program it carried is
+    // an answer like any other and gets checked like any other.
+    checkLatestAnswer(ranSource, stalenessBase);
   } else {
     ai.setPendingFix(buildExpectationFix(ranSource, judged, true));
+    showFinishedWork(latestFinalScreen ?? undefined);
   }
+}
+
+/**
+ * Run the answer the assistant just returned and check how it goes - without it
+ * reaching the editor.
+ *
+ * This is where the loop starts now. It used to start when the user pressed an
+ * apply-and-run button, which meant the checking happened with an unverified
+ * program already in their document; an answer that needed two corrections sat
+ * there broken for both of them. Nothing below this point changed: the same
+ * outcomes, the same expectations, the same bounded corrections.
+ *
+ * `mergeBase` is the program a returned fragment lands in; `stalenessBase` is
+ * the editor's program, which is what decides whether the user has moved on.
+ * They are the same thing for a request the user made and differ down a chain
+ * of corrections - see {@link SendParams.checkAgainst}.
+ */
+function checkLatestAnswer(mergeBase: string, stalenessBase: string): void {
+  const ai = useAiStore.getState();
+  const reply = ai.messages[ai.messages.length - 1];
+  // Nothing to run: stopped, cut off mid-thought, refused, or still arriving.
+  if (
+    !reply ||
+    reply.role !== 'assistant' ||
+    reply.incomplete ||
+    reply.streaming ||
+    reply.content.trim() === ''
+  ) {
+    return;
+  }
+
+  const state = useIdeStore.getState();
+  // A machine with no error report can never reach a verdict, so checking on it
+  // would restart the user's emulator for an answer that never arrives.
+  if (!canCheckByRunning(state.dialect.id)) return;
+
+  // The last applicable block: a reply builds towards its answer, and an
+  // earlier block is illustrative far more often than it is the deliverable.
+  const blocks = extractCodeBlocks(reply.content).filter(isApplicableBlock);
+  const block = blocks[blocks.length - 1];
+  if (!block) return; // an answer with no program is not a thing to run
+
+  const candidate = candidateProgram(block, mergeBase);
+  if (candidate === null) return; // kind unknown - offered as it is, unchecked
+
+  // A candidate that will not tokenize never reaches the machine, and the run
+  // effect refuses it with a message rather than an outcome - so the loop would
+  // wait forever on a verdict nobody is going to produce. Report it as the
+  // failure of this answer that it is, on the same bounded terms as any other.
+  const lintErrors = state.dialect.lint(candidate);
+  if (lintErrors.length > 0) {
+    reportUnbuildableAnswer(candidate, stalenessBase, lintErrors);
+    return;
+  }
+
+  markChecking(true);
+  state.requestAiRun({
+    candidate,
+    baseSource: stalenessBase,
+    expectations: extractExpectations(reply.content),
+    views: extractScreenViews(reply.content),
+  });
+}
+
+/**
+ * Flag/unflag the latest answer as being checked, for the panel's status.
+ *
+ * Also holds `busy`, because a check is work in progress like any other stage:
+ * without it the composer would accept a new request while the machine was still
+ * running the last answer, and the two would race over the same emulator.
+ */
+function markChecking(checking: boolean): void {
+  useAiStore.setState((s) => {
+    const last = s.messages[s.messages.length - 1];
+    if (!last || last.role !== 'assistant') return { busy: checking };
+    if (!!last.checking === checking) return { busy: checking };
+    const copy = [...s.messages];
+    copy[copy.length - 1] = checking
+      ? { ...last, checking: true }
+      : { ...last, checking: undefined };
+    return { messages: copy, busy: checking };
+  });
+}
+
+/**
+ * The run whose check the user stopped, so its verdict is not acted on when it
+ * arrives - stopping a stage has always meant nothing follows from it.
+ *
+ * Its screen is still handed over: the user asked for the work to stop, not to
+ * be hidden from them, and the machine did draw something.
+ */
+let stoppedCheckSeq = -1;
+
+/**
+ * Hand the user the machine's screen for the answer they have just been given.
+ *
+ * Once per answer, replacing any earlier one, so a run that took three attempts
+ * ends with the picture from the third and not with three pictures. It rides on
+ * the answer rather than as a turn of its own, because nobody said it - it is
+ * the IDE showing its working.
+ */
+function showFinishedWork(screen: ChatImage | undefined): void {
+  if (!screen) return;
+  useAiStore.setState((s) => {
+    const last = s.messages[s.messages.length - 1];
+    if (!last || last.role !== 'assistant') return s;
+    const copy = [...s.messages];
+    copy[copy.length - 1] = { ...last, finalScreen: screen };
+    return { messages: copy };
+  });
+  // Attached after the answer's own persist, so the stored thread would
+  // otherwise never learn a screen was shown at all.
+  persist(useAiStore.getState().messages);
+}
+
+/**
+ * An answer whose program does not tokenize, handled exactly as a failed run
+ * is: corrected without being asked while the budget lasts, offered as a fix
+ * once it is spent.
+ */
+function reportUnbuildableAnswer(
+  candidate: string,
+  stalenessBase: string,
+  errors: ReturnType<Dialect['lint']>,
+): void {
+  const ai = useAiStore.getState();
+  const state = useIdeStore.getState();
+  const fix = buildEditorFix(candidate, errors);
+  const context = resolveRequestContext();
+  const edited =
+    sourceFingerprint(stalenessBase) !== sourceFingerprint(state.source);
+  if (
+    edited ||
+    ai.busy ||
+    context === null ||
+    autoFixAttempts >= MAX_AUTO_FIX_ATTEMPTS
+  ) {
+    ai.setPendingFix(fix);
+    state.showAiPanel();
+    return;
+  }
+  autoFixAttempts++;
+  state.showAiPanel();
+  const { dialect, ...request } = context;
+  void loadSystemPrompt(
+    dialect,
+    getProvider(context.providerId).acceptsImages,
+  ).then((system) =>
+    ai.send({
+      ...request,
+      system,
+      userContent: fix.userContent,
+      displayRequest: fix.displayRequest,
+      baseSource: stalenessBase,
+      // The correction is about the program that would not build, not the one
+      // in the editor.
+      checkAgainst: candidate,
+      automatic: true,
+    }),
+  );
 }
 
 // Module-level reactions to IDE-store changes. These run regardless of whether
@@ -531,6 +796,16 @@ useIdeStore.subscribe((state) => {
   const run = state.runOutcome;
   if (!run || run.seq === prevOutcomeSeq) return;
   prevOutcomeSeq = run.seq;
+  // The machine has finished with this answer, whatever it concluded.
+  markChecking(false);
+  latestFinalScreen = run.finalScreen ?? null;
+
+  // The user stopped this check: no correction, no judgement, no note - the same
+  // as stopping any other stage. They still get to see what the machine drew.
+  if (run.seq === stoppedCheckSeq) {
+    showFinishedWork(latestFinalScreen ?? undefined);
+    return;
+  }
 
   // A program that ran cleanly but produced the wrong answer has failed just as
   // surely as one that stopped on an error, so it takes the same path: the same
@@ -542,10 +817,18 @@ useIdeStore.subscribe((state) => {
     run.expectations.some((r) => r.status === 'failed');
 
   const ai = useAiStore.getState();
-  // Correcting a program the user has edited since it ran would be answering a
-  // question they have already moved on from.
+  // Correcting a program the user has edited since would be answering a question
+  // they have already moved on from.
+  //
+  // Compared against the program the answer was WRITTEN against, not the one
+  // that ran. Those used to be the same thing - the run was of applied text - so
+  // comparing `ranSource` was an equivalent shortcut. It is not equivalent any
+  // more: a checked answer is by definition not what the editor holds, so that
+  // comparison would report "edited" every single time and silently disable
+  // every unrequested correction. It would also pass every test that existed
+  // before this change.
   const edited =
-    sourceFingerprint(run.ranSource) !== sourceFingerprint(state.source);
+    sourceFingerprint(run.baseSource) !== sourceFingerprint(state.source);
   const context = resolveRequestContext();
   const canShowScreen =
     context !== null && getProvider(context.providerId).acceptsImages;
@@ -585,9 +868,17 @@ useIdeStore.subscribe((state) => {
         leaveUnjudged(run.expectations, blocked),
         missedViews,
       );
+      showFinishedWork(latestFinalScreen ?? undefined);
       return;
     }
-    judgeScreen(run.outcome, state.source, run.expectations, screen!, context!);
+    judgeScreen(
+      run.outcome,
+      run.ranSource,
+      run.baseSource,
+      run.expectations,
+      screen!,
+      context!,
+    );
     state.showAiPanel();
     return;
   }
@@ -604,19 +895,22 @@ useIdeStore.subscribe((state) => {
     // Asked for and produced: it travels with the note, so a view is carried
     // whether or not the program that produced it failed.
     pendingRunImage = screen ?? null;
+    showFinishedWork(latestFinalScreen ?? undefined);
     return;
   }
 
+  // The program to correct is the one that failed - the answer that was checked,
+  // which the user has not applied and the editor therefore does not hold.
   const buildFix = (screenAttached: boolean): PendingFix =>
     run.outcome.kind === 'errored'
       ? buildRunFix(
-          state.source,
+          run.ranSource,
           run.outcome.report,
           screenAttached,
           screenOffered,
         )
       : buildExpectationFix(
-          state.source,
+          run.ranSource,
           run.expectations,
           screenAttached,
           screenOffered,
@@ -633,6 +927,9 @@ useIdeStore.subscribe((state) => {
     // is built as one that has none.
     ai.setPendingFix(buildFix(false));
     state.showAiPanel();
+    // The assistant has given up on this answer, which is exactly where a human
+    // look is worth most.
+    showFinishedWork(latestFinalScreen ?? undefined);
     return;
   }
 
@@ -655,7 +952,11 @@ useIdeStore.subscribe((state) => {
       userContent: fix.userContent,
       displayRequest: fix.displayRequest,
       ...(screen ? { image: screen } : {}),
+      // Still the editor's program: whether the user has moved on is a question
+      // about them, and it must not drift onto the candidate chain.
       baseSource: state.source,
+      // But a fragment in the correction patches the program that failed.
+      checkAgainst: run.ranSource,
       automatic: true,
     }),
   );

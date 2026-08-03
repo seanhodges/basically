@@ -13,6 +13,58 @@ export const AI_CHECK_MAX_FRAMES = 150;
 /** Absolute frame cap so a machine that never comes up can't poll forever. */
 export const AI_CHECK_ABS_MAX_FRAMES = 600;
 
+/**
+ * Display frames advanced per animation tick while a check is armed.
+ *
+ * A check is nobody's animation - the assistant is waiting on a verdict and the
+ * user is reading the reply - so there is no reason to hold it to the machine's
+ * 50Hz. The windows above are counted in frames rather than seconds precisely so
+ * that this is a free choice: four frames a tick settles a check four times
+ * sooner without moving a single rule. At 1x the absolute cap is twelve seconds
+ * of waiting per attempt, and an answer can take three attempts.
+ *
+ * Four rather than more because the machine still has to be watched: the check
+ * reads the machine after every frame, and a settled verdict stops the batch, so
+ * a bigger batch buys less than it looks like it would.
+ */
+export const AI_CHECK_FRAMES_PER_TICK = 4;
+
+/**
+ * Milliseconds between ticks when a check is armed in a tab the user has
+ * switched away from.
+ *
+ * Browsers stop delivering animation frames to a background tab, which for an
+ * ordinary run is exactly right - a paused game is what the user expects to come
+ * back to. For a check it is not: the assistant is waiting on a verdict, and one
+ * that can never arrive leaves the whole conversation stuck on a machine nobody
+ * is watching. So a check, and only a check, falls back to a clock the browser
+ * still fires.
+ */
+export const AI_CHECK_HIDDEN_TICK_MS = 20;
+
+/**
+ * Whether a run should open a step-through debug session.
+ *
+ * A check never does, and that is not a nicety. `debuggable` is a property of
+ * the machine rather than of whether the user is debugging right now, so a check
+ * that inherited it would pause on any breakpoint the user happens to have set -
+ * and a paused loop stops advancing frames, so the check would never reach a
+ * verdict. Every reply would hang, for anyone with a breakpoint anywhere.
+ *
+ * The user's breakpoints are untouched by this: they are line numbers against a
+ * program the check never modified, so their next run debugs exactly as before.
+ */
+export function shouldOpenDebugSession(opts: {
+  /** This run is the IDE checking an answer the assistant returned. */
+  checking: boolean;
+  /** The dialect models BASIC-line debugging. */
+  debuggable: boolean;
+  /** The machine implements the step. */
+  canStep: boolean;
+}): boolean {
+  return !opts.checking && opts.debuggable && opts.canStep;
+}
+
 /** What the machine said about itself this frame, as the check sees it. */
 export interface AiRunFrame {
   /** `machine.readReport()` for this frame. */
