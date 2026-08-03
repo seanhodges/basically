@@ -308,27 +308,45 @@ describe('aiStore', () => {
     };
 
     /**
-     * Publish a run outcome the way EmulatorPane does. `ranSource` defaults to
-     * the live source, i.e. a program the user hasn't touched since it ran.
+     * The program a check runs: the answer the assistant returned, which is
+     * deliberately NOT what the editor holds - nothing has been applied.
+     *
+     * Every outcome below therefore reports a `ranSource` that differs from the
+     * live source, which makes the whole of this suite the regression test for
+     * the staleness guard: comparing the program that RAN against the editor
+     * would report "edited" every time and silently disable every unrequested
+     * correction, and these tests would go red rather than quietly passing.
+     */
+    const CHECKED_CANDIDATE = '10 PRINT "THE ANSWER BEING CHECKED"\n';
+
+    /**
+     * Publish a run outcome the way EmulatorPane does. `baseSource` is the
+     * program the answer was written against and defaults to the live source,
+     * i.e. a user who hasn't touched anything since they asked.
      */
     async function reportRun(
       outcome: AiRunOutcome,
-      ranSource?: string,
+      baseSource?: string,
       expectations: ExpectationResult[] = [],
       screen?: ScreenCapture,
       views: ScreenViewRequest = noScreenViews(),
+      ranSource: string = CHECKED_CANDIDATE,
     ): Promise<void> {
-      // Each run is its own request, exactly as an apply-and-run makes it; the
-      // outcome is tagged with that sequence so a stale one can be ignored.
-      useIdeStore.getState().requestAiRun([], views);
+      // Each run is its own request, exactly as a check makes it; the outcome is
+      // tagged with that sequence so a stale one can be ignored.
+      const base = baseSource ?? useIdeStore.getState().source;
+      useIdeStore
+        .getState()
+        .requestAiRun({ candidate: ranSource, baseSource: base, views });
       const state = useIdeStore.getState();
-      state.reportRun(
+      state.reportRun({
         outcome,
-        ranSource ?? state.source,
+        ranSource,
+        baseSource: base,
         expectations,
         screen,
         views,
-      );
+      });
       // The correction's system prompt carries the machine's reference, which is
       // loaded on demand - so the request leaves a few microtasks after the
       // outcome is published rather than inside the same call. Settling here
@@ -961,6 +979,260 @@ describe('aiStore', () => {
         screenShown: true,
       });
       expect(JSON.stringify(stored)).not.toContain('PNGDATA');
+    });
+  });
+
+  describe('checking an answer before it is offered', () => {
+    /** Send a request and let the assistant answer with `reply`. */
+    async function answer(reply: string, source = BASE_SOURCE): Promise<void> {
+      useIdeStore.setState({ source });
+      const p = useAiStore.getState().send({ ...params, baseSource: source });
+      h.current!.resolve(reply);
+      await p;
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+    }
+
+    const runState = () => useIdeStore.getState();
+
+    it('runs the answer without it reaching the editor', async () => {
+      const before = runState().runRequest;
+      await answer('Here you go:\n```basic\n10 PRINT "HI"\n```');
+
+      const s = runState();
+      // The check was requested...
+      expect(s.runRequest).toBe(before + 1);
+      expect(s.aiRunCheckSeq).toBe(s.runRequest);
+      expect(s.aiRunSource).toBe('10 PRINT "HI"\n');
+      // ...against the program the answer was written about...
+      expect(s.aiRunBase).toBe(BASE_SOURCE);
+      // ...and the user's program is exactly as they left it.
+      expect(s.source).toBe(BASE_SOURCE);
+    });
+
+    it('runs a fragment as it would land, not as it was written', async () => {
+      await answer('Just this line:\n```basic-partial\n20 PRINT "X"\n```');
+
+      // Merged into the program it was written against - the editor is a
+      // two-line program, and the check runs all of it, not the one line.
+      expect(runState().aiRunSource).toContain('10 CLS');
+      expect(runState().aiRunSource).toContain('20 PRINT "X"');
+      expect(runState().source).toBe(BASE_SOURCE);
+    });
+
+    it('does not start the machine for an answer with no program', async () => {
+      const before = runState().runRequest;
+      await answer('You could try using GOTO for that.');
+      expect(runState().runRequest).toBe(before);
+    });
+
+    it('does not check a block whose kind cannot be established', async () => {
+      const before = runState().runRequest;
+      // Declared whole, but the line numbers say otherwise: the IDE offers the
+      // user both actions and does not guess, so there is nothing to run.
+      await answer('```basic\n20 PRINT "X"\n```');
+      expect(runState().runRequest).toBe(before);
+    });
+
+    it('checks the last program when a reply carries several', async () => {
+      await answer(
+        'Not this:\n```basic\n10 PRINT "FIRST"\n```\n' +
+          'This:\n```basic\n10 PRINT "SECOND"\n```',
+      );
+      expect(runState().aiRunSource).toBe('10 PRINT "SECOND"\n');
+    });
+
+    it('does not check an answer that was cut off mid-thought', async () => {
+      const before = runState().runRequest;
+      useIdeStore.setState({ source: BASE_SOURCE });
+      const p = useAiStore
+        .getState()
+        .send({ ...params, baseSource: BASE_SOURCE });
+      h.current!.resolve('```basic\n10 PRINT "HI"\n```', 'truncated');
+      await p;
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      expect(runState().runRequest).toBe(before);
+    });
+
+    it('says it is checking, and stops saying so once the verdict lands', async () => {
+      await answer('```basic\n10 PRINT "HI"\n```');
+      expect(useAiStore.getState().messages.at(-1)!.checking).toBe(true);
+
+      const s = runState();
+      s.reportRun({
+        outcome: { kind: 'ended-ok' },
+        ranSource: s.aiRunSource,
+        baseSource: s.aiRunBase,
+      });
+      expect(useAiStore.getState().messages.at(-1)!.checking).toBeUndefined();
+    });
+
+    it('stays busy while the machine is being watched', async () => {
+      await answer('```basic\n10 PRINT "HI"\n```');
+      // A check is work in progress: the composer must not accept a new request
+      // while the last answer is still running, or the two race over the same
+      // emulator.
+      expect(useAiStore.getState().busy).toBe(true);
+
+      const s = runState();
+      s.reportRun({
+        outcome: { kind: 'ended-ok' },
+        ranSource: s.aiRunSource,
+        baseSource: s.aiRunBase,
+      });
+      expect(useAiStore.getState().busy).toBe(false);
+    });
+
+    it('stops a check like any other stage, and nothing follows from it', async () => {
+      setProviderApiKey(getAiProvider(), 'key');
+      await answer('```basic\n10 PRINT "HI"\n```');
+      expect(useAiStore.getState().messages.at(-1)!.checking).toBe(true);
+
+      useAiStore.getState().stop();
+      expect(useAiStore.getState().messages.at(-1)!.checking).toBeUndefined();
+      expect(useAiStore.getState().busy).toBe(false);
+
+      // The run finishes on the machine anyway and reports a failure - which
+      // must raise nothing, because the user said stop.
+      const s = runState();
+      const before = useAiStore.getState().messages.length;
+      s.reportRun({
+        outcome: {
+          kind: 'errored',
+          report: { isError: true, message: 'Nope', code: '2' },
+        },
+        ranSource: s.aiRunSource,
+        baseSource: s.aiRunBase,
+      });
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+
+      expect(useAiStore.getState().messages.length).toBe(before);
+      expect(useAiStore.getState().pendingFix).toBeNull();
+      expect(useAiStore.getState().busy).toBe(false);
+    });
+
+    it('reports a program that will not build as a failure of the answer', async () => {
+      const before = runState().runRequest;
+      // Nonsense the tokenizer rejects: the machine is never reached, so the
+      // check would otherwise wait forever on a verdict nobody will produce.
+      await answer('```basic\n10 @@@ ???\n```');
+
+      // Nothing ran...
+      expect(runState().runRequest).toBe(before);
+      // ...and the assistant was told, rather than the loop going quiet.
+      const ai = useAiStore.getState();
+      const corrected = ai.busy || ai.pendingFix !== null;
+      expect(corrected).toBe(true);
+    });
+  });
+
+  describe('the finished work shown to the user', () => {
+    const SHOT: ScreenCapture = {
+      mediaType: 'image/png',
+      base64: 'FINALPNG',
+      width: 256,
+      height: 192,
+    };
+
+    async function answerAndSettle(finalScreen?: ScreenCapture): Promise<void> {
+      useIdeStore.setState({ source: BASE_SOURCE });
+      const p = useAiStore
+        .getState()
+        .send({ ...params, baseSource: BASE_SOURCE });
+      h.current!.resolve('```basic\n10 PRINT "HI"\n```');
+      await p;
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      const s = useIdeStore.getState();
+      s.reportRun({
+        outcome: { kind: 'ended-ok' },
+        ranSource: s.aiRunSource,
+        baseSource: s.aiRunBase,
+        ...(finalScreen ? { finalScreen } : {}),
+      });
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+    }
+
+    it('hands the user the screen once the answer has settled', async () => {
+      await answerAndSettle(SHOT);
+      expect(useAiStore.getState().messages.at(-1)!.finalScreen).toEqual(SHOT);
+    });
+
+    it('never sends it to the provider on a later request', async () => {
+      await answerAndSettle(SHOT);
+
+      const p = useAiStore
+        .getState()
+        .send({ ...params, displayRequest: 'and now add sound' });
+      h.current!.resolve('ok');
+      await p;
+
+      // The thread and the wire history are built from the same messages, so a
+      // picture parked on the wrong field would be replayed on every turn from
+      // here on - paying for vision tokens forever, and unstable-ing the very
+      // prefix that replaying images exists to keep cacheable.
+      expect(JSON.stringify(h.sent?.messages ?? [])).not.toContain('FINALPNG');
+      for (const m of h.sent?.messages ?? []) {
+        expect(m.image?.base64).not.toBe('FINALPNG');
+      }
+    });
+
+    it('shows one screen for a whole loop, not one per attempt', async () => {
+      setProviderApiKey(getAiProvider(), 'key');
+      useIdeStore.setState({ source: BASE_SOURCE });
+      const p = useAiStore
+        .getState()
+        .send({ ...params, baseSource: BASE_SOURCE });
+      h.current!.resolve('```basic\n10 PRINT "HI"\n```');
+      await p;
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+
+      // First attempt fails, so the assistant is not finished with this answer:
+      // no screen yet, even though a run happened and produced one.
+      const first = useIdeStore.getState();
+      first.reportRun({
+        outcome: {
+          kind: 'errored',
+          report: { isError: true, message: 'Nope', code: '2' },
+        },
+        ranSource: first.aiRunSource,
+        baseSource: first.aiRunBase,
+        finalScreen: { ...SHOT, base64: 'FIRSTPNG' },
+      });
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      expect(
+        useAiStore.getState().messages.some((m) => m.finalScreen),
+        'a mid-loop attempt must not hand over a screen',
+      ).toBe(false);
+
+      // The correction lands and settles clean: now the loop is over.
+      h.current!.resolve('```basic\n10 PRINT "FIXED"\n```');
+      for (let i = 0; i < 12; i++) await Promise.resolve();
+      const second = useIdeStore.getState();
+      second.reportRun({
+        outcome: { kind: 'ended-ok' },
+        ranSource: second.aiRunSource,
+        baseSource: second.aiRunBase,
+        finalScreen: SHOT,
+      });
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+
+      const shots = useAiStore
+        .getState()
+        .messages.filter((m) => m.finalScreen !== undefined);
+      expect(shots).toHaveLength(1);
+      expect(shots[0]!.finalScreen!.base64).toBe('FINALPNG');
+    });
+
+    it('is stored as a marker, never as pixels', async () => {
+      await answerAndSettle(SHOT);
+      expect(JSON.stringify(loadAiConversation())).not.toContain('FINALPNG');
+      expect(loadAiConversation().at(-1)!.screenShown).toBe(true);
+    });
+
+    it('settles with no screen at all rather than holding the answer up', async () => {
+      await answerAndSettle(undefined);
+      expect(
+        useAiStore.getState().messages.at(-1)!.finalScreen,
+      ).toBeUndefined();
     });
   });
 

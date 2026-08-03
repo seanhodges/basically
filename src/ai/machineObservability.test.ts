@@ -6,7 +6,9 @@ import { dialects } from '../dialects/registry';
 import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
 import {
   buildExpectationRules,
+  canCheckByRunning,
   canReportVariables,
+  DIALECTS_WITHOUT_RUNTIME_REPORT,
   DIALECTS_WITHOUT_VARIABLE_READBACK,
 } from './machineObservability';
 
@@ -73,6 +75,35 @@ describe('the variable-readback table matches the machines', () => {
     // A stale id in the set would silently describe nothing.
     const ids = new Set(dialects.map((d) => d.id));
     for (const id of DIALECTS_WITHOUT_VARIABLE_READBACK) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
+  });
+});
+
+describe('the runtime-report table matches the machines', () => {
+  // The same bargain as the variable table above, for the question that decides
+  // whether an answer is checked by running it at all. Drift here costs more
+  // than a badly-worded prompt: a check requested on a machine with no error
+  // report restarts the user's emulator for a verdict that never arrives.
+  for (const dialect of dialects) {
+    it(`${dialect.id} is described as it actually is`, () => {
+      const machine = dialect.createEmulator({
+        rom: romFor(dialect.romUrl),
+        ramKb: 16,
+      });
+      const actual = typeof machine.readReport === 'function';
+      expect(
+        canCheckByRunning(dialect.id),
+        `${dialect.id} ${actual ? 'implements' : 'does not implement'} ` +
+          `readReport, so the table should ${actual ? 'not ' : ''}list it`,
+      ).toBe(actual);
+      machine.dispose();
+    });
+  }
+
+  it('names only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    for (const id of DIALECTS_WITHOUT_RUNTIME_REPORT) {
       expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
     }
   });

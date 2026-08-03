@@ -360,3 +360,28 @@ export function mergeBasicLines(
   if (kept.length === 0) return '';
   return kept.map((row) => row.text!).join('\n') + '\n';
 }
+
+/**
+ * The program a block amounts to, resolved against the program it was written
+ * against - a whole listing as it stands, a fragment as it would land.
+ *
+ * Null for a block whose kind cannot be established. The panel offers the user
+ * both actions in that case and lets them choose, but there is nobody to ask
+ * when the IDE is checking an answer by itself, and the two readings are not
+ * close: replacing a program with a fragment discards every line the fragment
+ * did not mention. Running the wrong one of the two is a worse answer than
+ * running neither.
+ */
+export function candidateProgram(
+  block: CodeBlock,
+  base: string,
+): string | null {
+  const kind = classifyBlock(block, base);
+  if (kind === 'unknown') return null;
+  // A whole listing replaces outright, so a stray bare number in it must not
+  // read as a deletion - the same rule the panel's apply actions follow.
+  if (kind === 'full') {
+    return block.code.endsWith('\n') ? block.code : block.code + '\n';
+  }
+  return mergeBasicLines(base, block.code, { allowDeletes: true });
+}

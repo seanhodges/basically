@@ -11,6 +11,9 @@ import {
   finaliseExpectations,
   latchExpectationSample,
   AI_CHECK_EXPECT_SAMPLE_FRAMES,
+  AI_CHECK_FRAMES_PER_TICK,
+  AI_CHECK_HIDDEN_TICK_MS,
+  shouldOpenDebugSession,
   type AiRunFrameCounts,
 } from '../app/aiRunCheck';
 import {
@@ -155,6 +158,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const audioRef = useRef<EmulatorAudio | null>(null);
   const frameHookRef = useRef<(() => void) | null>(null);
   const rafRef = useRef(0);
+  // The fallback clock that keeps a check advancing in a backgrounded tab, where
+  // animation frames stop arriving (see AI_CHECK_HIDDEN_TICK_MS). Null whenever
+  // the loop is running on animation frames, which is every ordinary run.
+  const hiddenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Set true the moment a (re)start kicks off; the first rendered frame clears
   // both it and the loading overlay (see startLoop / the run + reset effects).
   const firstFrameRef = useRef(false);
@@ -165,9 +172,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     readyFrames: 0,
     totalFrames: 0,
   });
-  // The program this check's run was loaded from, so the outcome can be matched
-  // against what the editor holds by the time it lands.
+  // The program this check's run was loaded from - the answer being checked,
+  // which is deliberately not what the editor holds.
   const aiCheckSourceRef = useRef('');
+  // The program that answer was written against, which IS what the editor held.
+  // The outcome carries it so the assistant's store can tell whether the user
+  // has moved on; comparing the program that ran would always say they had.
+  const aiCheckBaseRef = useRef('');
   // What the assistant said should be true once this program has run, and how
   // those expectations have stood up across the samples so far (null until the
   // first sample). Sampled rather than evaluated per frame - reading the screen
@@ -195,6 +206,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const stopLoop = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
     rafRef.current = 0;
+    if (hiddenTimerRef.current !== null) {
+      clearTimeout(hiddenTimerRef.current);
+      hiddenTimerRef.current = null;
+    }
   }, []);
 
   // Blank the preview so a freshly-started emulator never inherits the previous
@@ -243,11 +258,33 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
   const startLoop = useCallback(() => {
     stopLoop();
+    /**
+     * Schedule the next tick.
+     *
+     * Animation frames normally, which is what keeps an ordinary run in step
+     * with the display and correctly paused when the user switches tabs. But a
+     * background tab gets no animation frames at all, and a check stalled that
+     * way leaves the assistant waiting on a verdict that can never arrive - so
+     * while one is armed and the page is hidden, fall back to a clock the
+     * browser still fires.
+     */
+    const schedule = () => {
+      if (
+        aiCheckActiveRef.current &&
+        typeof document !== 'undefined' &&
+        document.hidden
+      ) {
+        hiddenTimerRef.current = setTimeout(tick, AI_CHECK_HIDDEN_TICK_MS);
+        return;
+      }
+      hiddenTimerRef.current = null;
+      rafRef.current = requestAnimationFrame(tick);
+    };
     const tick = () => {
       const machine = machineRef.current;
       const canvas = canvasRef.current;
       if (!machine || !canvas) {
-        rafRef.current = requestAnimationFrame(tick);
+        schedule();
         return;
       }
       const ctx = canvas.getContext('2d');
@@ -311,84 +348,101 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           }
           return; // do not schedule another frame until step/continue
         }
-        rafRef.current = requestAnimationFrame(tick);
+        schedule();
         return;
       }
 
-      machine.runFrame();
-      frameHookRef.current?.(); // virtual-keyboard frame-counted releases
-      pumpAudio();
-      // An apply-and-run from the AI panel: watch the freshly-started program
-      // until the check can say how it went, hand that verdict to the
-      // assistant, then stop watching. The rules live in classifyAiRunFrame;
-      // this only supplies what the machine says and holds the counts.
-      if (aiCheckActiveRef.current && machine.readReport) {
-        const verdict = classifyAiRunFrame(
-          {
-            report: machine.readReport(),
-            running: machine.isProgramRunning?.(),
-          },
-          aiCheckCountsRef.current,
-        );
-        // Check the assistant's stated expectations on a cadence while the run
-        // is being watched, and once more at the verdict so the final state is
-        // always seen. Skipped entirely when it stated none, which is the
-        // ordinary case and must cost nothing.
-        if (aiCheckExpectRef.current.length > 0) {
-          const due =
-            verdict.done ||
-            aiCheckCountsRef.current.totalFrames %
-              AI_CHECK_EXPECT_SAMPLE_FRAMES ===
-              0;
-          if (due) {
-            aiCheckLatchRef.current = latchExpectationSample(
-              aiCheckLatchRef.current,
-              evaluateExpectations(aiCheckExpectRef.current, {
-                variables: machine.readVariables?.() ?? null,
-                screen: machine.readScreenText?.() ?? null,
-              }),
+      // A check is nobody's animation: the assistant is waiting on a verdict and
+      // the user is reading the reply, so the loop advances several frames a
+      // tick instead of one. The check's windows are counted in frames, not
+      // seconds, so this settles it sooner without changing a single rule - and
+      // it is the difference between a wait of seconds and one of a moment.
+      const steps = aiCheckActiveRef.current ? AI_CHECK_FRAMES_PER_TICK : 1;
+      for (let step = 0; step < steps; step++) {
+        machine.runFrame();
+        frameHookRef.current?.(); // virtual-keyboard frame-counted releases
+        pumpAudio();
+        // The IDE checking an answer the assistant returned: watch the
+        // freshly-started program until the check can say how it went, hand that
+        // verdict over, then stop watching. The rules live in
+        // classifyAiRunFrame; this only supplies what the machine says and holds
+        // the counts.
+        if (aiCheckActiveRef.current && machine.readReport) {
+          const verdict = classifyAiRunFrame(
+            {
+              report: machine.readReport(),
+              running: machine.isProgramRunning?.(),
+            },
+            aiCheckCountsRef.current,
+          );
+          // Check the assistant's stated expectations on a cadence while the run
+          // is being watched, and once more at the verdict so the final state is
+          // always seen. Skipped entirely when it stated none, which is the
+          // ordinary case and must cost nothing.
+          if (aiCheckExpectRef.current.length > 0) {
+            const due =
+              verdict.done ||
+              aiCheckCountsRef.current.totalFrames %
+                AI_CHECK_EXPECT_SAMPLE_FRAMES ===
+                0;
+            if (due) {
+              aiCheckLatchRef.current = latchExpectationSample(
+                aiCheckLatchRef.current,
+                evaluateExpectations(aiCheckExpectRef.current, {
+                  variables: machine.readVariables?.() ?? null,
+                  screen: machine.readScreenText?.() ?? null,
+                }),
+              );
+            }
+          }
+          if (verdict.done) {
+            aiCheckActiveRef.current = false;
+            const results = finaliseExpectations(
+              aiCheckLatchRef.current ?? [],
+              verdict.outcome,
             );
+            // Shown to the assistant only because it asked - by naming the view,
+            // or by stating an expectation only a look can settle. A run it did
+            // not ask about sends it nothing, however it went: whether the picture
+            // is worth having is a judgement only the program's author can make.
+            const needsScreen =
+              aiCheckViewsRef.current.image ||
+              aiCheckExpectRef.current.some((e) => e.kind === 'visual');
+            // Render before capturing so the picture is the frame this verdict
+            // was formed on, not the one before it. The tick's own render below
+            // then repeats the same machine state, which costs a redraw and
+            // keeps the picture and the words describing the same instant.
+            //
+            // Captured unconditionally, because the user is shown the finished
+            // work whether or not the assistant wanted to see it - and the two
+            // are the same picture, so it is one capture either way.
+            render();
+            const captured = captureScreen() ?? undefined;
+            useIdeStore.getState().reportRun({
+              outcome: verdict.outcome,
+              ranSource: aiCheckSourceRef.current,
+              baseSource: aiCheckBaseRef.current,
+              expectations: results,
+              ...(needsScreen && captured ? { screen: captured } : {}),
+              ...(captured ? { finalScreen: captured } : {}),
+              views: aiCheckViewsRef.current,
+            });
+          } else {
+            aiCheckCountsRef.current = {
+              readyFrames: verdict.readyFrames,
+              totalFrames: verdict.totalFrames,
+            };
           }
         }
-        if (verdict.done) {
-          aiCheckActiveRef.current = false;
-          const results = finaliseExpectations(
-            aiCheckLatchRef.current ?? [],
-            verdict.outcome,
-          );
-          // Captured because the assistant asked to see it - by naming the
-          // view, or by stating an expectation only a look can settle. A run it
-          // did not ask about sends nothing, however it went: whether the
-          // picture is worth having is a judgement only the program's author
-          // can make.
-          const needsScreen =
-            aiCheckViewsRef.current.image ||
-            aiCheckExpectRef.current.some((e) => e.kind === 'visual');
-          // Render before capturing so the picture is the frame this verdict
-          // was formed on, not the one before it. The tick's own render below
-          // then repeats the same machine state, which costs a redraw and
-          // keeps the picture and the words describing the same instant.
-          if (needsScreen) render();
-          useIdeStore
-            .getState()
-            .reportRun(
-              verdict.outcome,
-              aiCheckSourceRef.current,
-              results,
-              needsScreen ? (captureScreen() ?? undefined) : undefined,
-              aiCheckViewsRef.current,
-            );
-        } else {
-          aiCheckCountsRef.current = {
-            readyFrames: verdict.readyFrames,
-            totalFrames: verdict.totalFrames,
-          };
-        }
+        // The verdict landed part-way through the batch: stop advancing, so a
+        // settled check never runs the machine on past the state its verdict
+        // (and the picture taken with it) describes.
+        if (steps > 1 && !aiCheckActiveRef.current) break;
       }
       render();
-      rafRef.current = requestAnimationFrame(tick);
+      schedule();
     };
-    rafRef.current = requestAnimationFrame(tick);
+    schedule();
   }, [stopLoop, registerCapture]);
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
@@ -435,8 +489,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     (async () => {
       setError('');
       try {
+        // Checking an answer the assistant just returned runs THAT program, not
+        // the editor's: an answer is checked before the user has decided whether
+        // to apply it, so the document is deliberately untouched. Every other
+        // run - the toolbar, the shortcut, the player - runs the editor as ever.
+        const checking = useIdeStore.getState().aiRunCheckSeq === runRequest;
+        const runSource = checking
+          ? useIdeStore.getState().aiRunSource
+          : source;
         // A preserved boot-disc document (a multi-file `.ssd` the memory-block
-        // model can't represent) runs its verbatim image, not `source`: the
+        // model can't represent) runs its verbatim image, not `runSource`: the
         // machine mounts-and-boots it so the disc's own loader runs. Skip every
         // source/blocks gate below - `source` is only the recovered listing.
         let image: Uint8Array = new Uint8Array(0);
@@ -447,14 +509,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           // case only tokenizer errors block the run.
           const errorCount = countProgramErrors(
             dialect,
-            source,
+            runSource,
             useIdeStore.getState().runGateLint,
           );
           if (errorCount > 0) {
             setError(`Fix ${errorCount} error(s) before running`);
             return;
           }
-          const result = dialect.tokenize(source);
+          const result = dialect.tokenize(runSource);
           if (result.image.length === 0) {
             setError('Program is empty');
             return;
@@ -506,14 +568,15 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         );
         machine.setSpeed(speed);
         firstFrameRef.current = true; // the next rendered frame hides the overlay
-        // Only check the run when it came from an apply-and-run in the AI panel
-        // (both "Replace + Run" and "Merge + Run" go through applyText, so both
-        // arm it) and the machine can introspect its error state.
+        // Only check the run when the IDE started it to check an answer the
+        // assistant returned, and the machine can introspect its error state.
         aiCheckActiveRef.current =
-          useIdeStore.getState().aiRunCheckSeq === runRequest &&
-          typeof machine.readReport === 'function';
+          checking && typeof machine.readReport === 'function';
         aiCheckCountsRef.current = { readyFrames: 0, totalFrames: 0 };
-        aiCheckSourceRef.current = source;
+        aiCheckSourceRef.current = runSource;
+        aiCheckBaseRef.current = checking
+          ? useIdeStore.getState().aiRunBase
+          : runSource;
         aiCheckExpectRef.current = aiCheckActiveRef.current
           ? useIdeStore.getState().aiRunExpectations
           : [];
@@ -524,8 +587,12 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // Start a step-through session when debug mode is armed and the machine
         // supports it; the loop then advances by debug slices instead of frames.
         // A session with no breakpoints simply never pauses and runs normally.
-        debugActiveRef.current =
-          !!dialect.debuggable && typeof machine.debugStep === 'function';
+        // Never for a check - see shouldOpenDebugSession for why that matters.
+        debugActiveRef.current = shouldOpenDebugSession({
+          checking,
+          debuggable: !!dialect.debuggable,
+          canStep: typeof machine.debugStep === 'function',
+        });
         debugModeRef.current = 'run';
         debugFromLineRef.current = null;
         useIdeStore.getState().setDebugLine(null);

@@ -243,9 +243,32 @@ no check, which is what it gets today.
 
 ## Open Questions
 
-- **A live debug session when a reply lands.** Stepping through a program is
-  state the user built up deliberately, and a check would destroy it. The options
-  are to defer the check until the session ends, to skip the check for that
-  answer and offer it unchecked, or to clobber it with warning. Deferring risks
-  a check that never runs; skipping is the most honest. To be settled during
-  apply, with whichever is chosen pinned by a test.
+None. The one the proposal left open — what a check does to a live debug session
+— is settled below.
+
+### Settled: a check ends a live debug session, and says so
+
+A step-through session paused mid-program is state the user built deliberately,
+and a check destroys it. Of the three options — defer until the session ends,
+skip the check and offer the answer unchecked, or end the session with warning —
+the last is taken. Every answer is then checked on the same terms whatever the
+machine happened to be doing, which is one rule and one set of tests rather than
+a checked path and an unchecked one that drift apart. Deferring was rejected
+because a session the user never ends is a check that never runs, and an answer
+whose verdict arrives minutes later is worse than one that arrives late.
+
+Two consequences fall out of it, one of them load-bearing:
+
+- **The check must not run in debug mode at all.** The run effect arms a
+  step-through session whenever the dialect is debuggable and the machine
+  supports it — which is a property of the machine, not of whether the user is
+  debugging right now. A check inheriting that would pause on any breakpoint the
+  user has set, and a paused loop stops advancing frames, so the classifier would
+  never reach a verdict: every reply would hang, for any user with a breakpoint
+  anywhere. The check runs its candidate as a plain run with breakpoints not
+  armed.
+- **Breakpoints outlive the session.** They are line numbers against a program
+  the check never modified — the editor is untouched by construction — so they
+  stay valid and the user's next run resumes debugging normally. Only the paused
+  session and the highlighted line are cleared, which is the teardown a stop
+  already performs.

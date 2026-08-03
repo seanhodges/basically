@@ -238,11 +238,27 @@ interface IdeState {
   /** Bumped to ask the emulator pane to (re)load + run the current source. */
   runRequest: number;
   /**
-   * When equal to `runRequest`, the current run was launched by the AI panel's
-   * "Replace + Run" and the emulator pane should watch for a runtime error to
-   * feed back to the assistant. A plain toolbar Run never sets this.
+   * When equal to `runRequest`, the current run is the IDE checking an answer
+   * the assistant just returned, and the emulator pane should watch how it goes
+   * to feed back to the assistant. A plain toolbar Run never sets this.
    */
   aiRunCheckSeq: number;
+  /**
+   * The program to run for that check - the answer the assistant returned, which
+   * is deliberately NOT what the editor holds: an answer is checked before the
+   * user has decided whether to apply it. Read by the emulator pane in place of
+   * `source` when `aiRunCheckSeq === runRequest`; ignored by every other run.
+   */
+  aiRunSource: string;
+  /**
+   * The program `aiRunSource` was derived from - the editor's text as it stood
+   * when the answer was written, which for a fragment is what it was merged
+   * into. This, not the program that ran, is what tells whether the user has
+   * moved on: the answer was written against this, so a correction to it is
+   * still about the program the user has. Comparing the program that ran would
+   * report "edited" always, since it is by definition not what the editor holds.
+   */
+  aiRunBase: string;
   /**
    * What the assistant said should be true once the program it just handed over
    * has run (see `../ai/expectations`). Set by the apply that armed the check;
@@ -277,12 +293,18 @@ interface IdeState {
      */
     expectations: ExpectationResult[];
     /**
-     * The program as it was loaded for this run. The AI session store compares
-     * it with the live source to tell whether the user has edited the program
-     * since, which is what decides between correcting a failure unasked and
-     * only offering the fix.
+     * The program as it was loaded for this run - the answer being checked,
+     * which is not what the editor holds.
      */
     ranSource: string;
+    /**
+     * The program the answer was written against. The AI session store compares
+     * this with the live source to tell whether the user has edited the program
+     * since, which is what decides between correcting a failure unasked and
+     * only offering the fix. See `aiRunBase` for why it is this and not
+     * `ranSource`.
+     */
+    baseSource: string;
     /**
      * The machine's display as it stood when the verdict was formed, for
      * showing to the assistant. Absent unless it was asked for - by a named
@@ -290,6 +312,15 @@ interface IdeState {
      * wanted to see costs nothing.
      */
     screen?: ScreenCapture;
+    /**
+     * The same display, kept for the user's own look at the finished work once
+     * the assistant has stopped working on this answer. Captured whether or not
+     * the assistant asked for one - the human check does not depend on what the
+     * program's author thought was worth seeing - and shown to the user only:
+     * it is never sent to a provider. Absent only when nothing could be
+     * captured.
+     */
+    finalScreen?: ScreenCapture;
     /**
      * What the assistant asked to be shown for this run, so a view that could
      * not be produced can be reported back as unavailable rather than answered
@@ -665,25 +696,36 @@ interface IdeState {
   closeBlockSettings(): void;
   requestRun(): void;
   /**
-   * Like {@link requestRun}, but flags the run for the AI post-run check.
-   * `expectations` are what the applied reply said should be true once the
-   * program has run; omitted or empty when it said nothing.
+   * Like {@link requestRun}, but runs `candidate` instead of the editor's
+   * program and flags the run as the IDE checking an assistant's answer.
+   *
+   * `baseSource` is the program the answer was written against; `expectations`
+   * and `views` are what that reply stated and asked to be shown, empty when it
+   * said nothing (the ordinary case).
    */
-  requestAiRun(expectations?: Expectation[], views?: ScreenViewRequest): void;
+  requestAiRun(opts: {
+    candidate: string;
+    baseSource: string;
+    expectations?: Expectation[];
+    views?: ScreenViewRequest;
+  }): void;
   /**
    * Record how an AI-checked run turned out, once the check reaches a verdict.
-   * `ranSource` is the program that was loaded for the run, `expectations` how
-   * the assistant's stated expectations held up (empty when none), and `screen`
-   * the display at the verdict when this run is one the assistant may need to
-   * see (omitted otherwise).
+   * `ranSource` is the program that was loaded for the run and `baseSource` the
+   * program it was derived from, `expectations` how the assistant's stated
+   * expectations held up (empty when none), `screen` the display to show the
+   * assistant (only when it asked), and `finalScreen` the same display for the
+   * user's own look at the finished work (whether or not it asked).
    */
-  reportRun(
-    outcome: AiRunOutcome,
-    ranSource: string,
-    expectations?: ExpectationResult[],
-    screen?: ScreenCapture,
-    views?: ScreenViewRequest,
-  ): void;
+  reportRun(report: {
+    outcome: AiRunOutcome;
+    ranSource: string;
+    baseSource: string;
+    expectations?: ExpectationResult[];
+    screen?: ScreenCapture;
+    finalScreen?: ScreenCapture;
+    views?: ScreenViewRequest;
+  }): void;
   /** Open the AI panel (and, on mobile, switch to its tab). */
   showAiPanel(): void;
   /**
@@ -1156,6 +1198,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   liveMemory: null,
   runRequest: 0,
   aiRunCheckSeq: 0,
+  aiRunSource: '',
+  aiRunBase: '',
   aiRunExpectations: [],
   aiRunViews: noScreenViews(),
   runOutcome: null,
@@ -1682,28 +1726,39 @@ export const useIdeStore = create<IdeState>((set) => ({
       return { asmErrorBlocks: next };
     }),
   requestRun: () => set((s) => ({ runRequest: s.runRequest + 1 })),
-  requestAiRun: (expectations = [], views = noScreenViews()) =>
+  requestAiRun: ({
+    candidate,
+    baseSource,
+    expectations = [],
+    views = noScreenViews(),
+  }) =>
     set((s) => ({
       runRequest: s.runRequest + 1,
       aiRunCheckSeq: s.runRequest + 1,
+      aiRunSource: candidate,
+      aiRunBase: baseSource,
       aiRunExpectations: expectations,
       aiRunViews: views,
     })),
-  reportRun: (
+  reportRun: ({
     outcome,
     ranSource,
+    baseSource,
     expectations = [],
     screen,
+    finalScreen,
     views = noScreenViews(),
-  ) =>
+  }) =>
     set((s) => ({
       runOutcome: {
         seq: s.runRequest,
         outcome,
         ranSource,
+        baseSource,
         expectations,
         views,
         ...(screen ? { screen } : {}),
+        ...(finalScreen ? { finalScreen } : {}),
       },
     })),
   // The AI panel, emulator and memory map share the right-hand slot, so showing
