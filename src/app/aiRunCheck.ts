@@ -65,6 +65,33 @@ export function shouldOpenDebugSession(opts: {
   return !opts.checking && opts.debuggable && opts.canStep;
 }
 
+/**
+ * Whether a run should bring the emulator to the front and take keyboard focus.
+ *
+ * A run the user asked for does: they pressed Play (or applied an answer and ran
+ * it), so the machine is what they are now looking at - on the tab layouts that
+ * means switching to the preview tab, and on every layout it means the screen
+ * takes the keys it is about to be sent.
+ *
+ * A check is not that run. Nobody asked for it, it happens while the user is
+ * reading a reply, and the answer it is checking is not even in their editor.
+ * Pulling the machine in front of the assistant mid-sentence - or quietly moving
+ * the keys off whatever they were typing into - would make a background check
+ * feel like something they did. So a check runs where it stands: unwatched if
+ * the assistant is what is showing, and never taking focus from it.
+ *
+ * The check itself is unaffected by going unseen: it advances on a clock rather
+ * than animation frames when the page is hidden (see
+ * {@link AI_CHECK_HIDDEN_TICK_MS}), and a canvas draws the same whether or not
+ * its pane is on screen.
+ */
+export function shouldRevealEmulator(opts: {
+  /** This run is the IDE checking an answer the assistant returned. */
+  checking: boolean;
+}): boolean {
+  return !opts.checking;
+}
+
 /** What the machine said about itself this frame, as the check sees it. */
 export interface AiRunFrame {
   /** `machine.readReport()` for this frame. */

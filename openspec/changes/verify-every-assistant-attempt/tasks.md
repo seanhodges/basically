@@ -105,3 +105,18 @@
 - [x] 9.7 `npm run e2e:chromium -- e2e/program-execution` — the run path is
       touched even though its requirements are not; confirm a plain run is
       unaffected
+
+## 10. Keep the check in the background
+
+- [x] 10.1 Add `shouldRevealEmulator` to `src/app/aiRunCheck.ts` — a run the user
+      asked for brings the machine forward, a check does not — and cover both in
+      `src/app/aiRunCheck.test.ts`
+- [x] 10.2 Gate the tabbed layouts' jump to the preview tab in `src/App.tsx` on
+      it, so a check no longer takes the assistant off a phone's screen
+      mid-answer
+- [x] 10.3 Gate the canvas focus in `src/components/EmulatorPane.tsx` on it, so a
+      check never moves the keys off what the user was typing into
+- [x] 10.4 `npm run e2e:chromium -- e2e/ai-assistant` — add coverage for the
+      assistant staying on screen, and the check still settling, while it runs
+      unwatched on a phone layout
+- [x] 10.5 `npm run typecheck`, `npm test`, `npm run lint`, `npm run format:check`

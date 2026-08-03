@@ -76,6 +76,36 @@ test('the finished work comes back as a screen to look at', async ({
   await expect(shot).toHaveCount(1);
 });
 
+test('checking an answer leaves the assistant on the screen', async ({
+  page,
+}) => {
+  await stubAssistant(page, ['```basic\n10 PRINT "HI"\n20 GOTO 10\n```']);
+  // The phone layout is where this is visible at all: the assistant and the
+  // machine are tabs of the same slot, so a check that reveals the machine takes
+  // the answer the user is reading off the screen.
+  await page.setViewportSize({ width: 700, height: 1000 });
+  await openApp(page);
+  await setEditorSource(page, PROGRAM);
+  const aiTab = page.getByRole('tab', { name: 'AI' });
+  await aiTab.click();
+  const box = page.locator('textarea').first();
+  await box.fill('make it better');
+  await box.press('Enter');
+
+  // The machine is running the answer...
+  await expect(page.getByText(/Checking it on the/)).toBeVisible({
+    timeout: 15000,
+  });
+  // ...behind the assistant, which is still what the user is looking at.
+  await expect(aiTab).toHaveAttribute('aria-selected', 'true');
+  // And running unwatched settles it just the same: the finished screen arrives
+  // in the panel without the user having been moved anywhere to get it.
+  await expect(
+    page.getByRole('img', { name: /screen after running/ }),
+  ).toBeVisible({ timeout: 30000 });
+  await expect(aiTab).toHaveAttribute('aria-selected', 'true');
+});
+
 test('an answer with no code starts nothing', async ({ page }) => {
   await stubAssistant(page, ['You could use GOTO for that, but I would not.']);
   await openApp(page);

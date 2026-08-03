@@ -26,6 +26,14 @@ the last SHALL be the one checked.
 Where the machine cannot report its runtime state, no check SHALL be attempted
 and the answer SHALL be offered as it is on any other machine.
 
+A check SHALL run in the background. It SHALL NOT take the machine's screen or
+the keyboard from whatever the user is doing: on layouts where the assistant and
+the machine share the same space the assistant SHALL remain the one shown, and on
+every layout the keys SHALL stay where the user had them. Only an action the user
+takes — applying and running an answer, or closing the assistant — SHALL bring the
+machine forward. A check that goes unwatched SHALL be checked no differently from
+one the user happens to be looking at.
+
 #### Scenario: A reply that returns a whole program
 
 - **WHEN** the assistant returns a whole listing
@@ -73,6 +81,18 @@ and the answer SHALL be offered as it is on any other machine.
   whether it failed
 - **THEN** no check is attempted, and the answer is offered exactly as it would
   be on any other machine
+
+#### Scenario: An answer checked while the user reads it
+
+- **WHEN** an answer is being checked on the machine and the assistant is what
+  the user is looking at
+- **THEN** the assistant stays on the screen and keeps the keyboard, and the
+  check runs behind it to the same verdict it would otherwise have reached
+
+#### Scenario: Running an answer the user chose to run
+
+- **WHEN** the user applies an answer and runs it
+- **THEN** the machine is brought forward as it is for any run the user asked for
 
 ### Requirement: What the assistant is doing is stated
 
