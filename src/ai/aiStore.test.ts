@@ -1016,6 +1016,47 @@ describe('aiStore', () => {
         );
       });
 
+      it('runs nothing when the user moved on while it was judging', async () => {
+        await reportRun({ kind: 'ended-ok' }, undefined, [visual()], SCREEN);
+        const before = useIdeStore.getState().runRequest;
+
+        // What the user does while reading the reply: applies an answer and
+        // runs it. The judgement is still in flight, and its correction is
+        // about the program they have just left behind.
+        useIdeStore.getState().replaceDocument('10 PLOT 1,1\n');
+        h.current!.resolve(
+          '```basic-judge\nFAIL it is an egg\n```\n\n```basic\n10 PLOT 9,9\n```',
+        );
+        await settle();
+
+        // No check was started, so the machine they just started is theirs.
+        expect(useIdeStore.getState().runRequest).toBe(before);
+        // And the attempt was not spent on work nobody asked for.
+        await reportRun({ kind: 'errored', report: FAILED });
+        expect(h.current).not.toBeNull();
+        h.current!.resolve('10 LET A=1');
+        await settle();
+        await reportRun({ kind: 'errored', report: FAILED });
+        expect(h.current).not.toBeNull();
+      });
+
+      it('keeps the correction it will not act on, for the user to take', async () => {
+        await reportRun({ kind: 'ended-ok' }, undefined, [visual()], SCREEN);
+        useIdeStore.getState().replaceDocument('10 PLOT 1,1\n');
+        h.current!.resolve(
+          '```basic-judge\nFAIL it is an egg\n```\n\n```basic\n10 PLOT 9,9\n```',
+        );
+        await settle();
+
+        // Declining is only declining to act unasked. The corrected program is
+        // in the thread with its apply buttons, which is why no fix is offered
+        // on top of it - that banner is for a fault with nothing to apply.
+        expect(useAiStore.getState().messages.at(-1)!.content).toContain(
+          '10 PLOT 9,9',
+        );
+        expect(useAiStore.getState().pendingFix).toBeNull();
+      });
+
       it('offers the fix when the judgement finds fault but returns no program', async () => {
         await reportRun({ kind: 'ended-ok' }, undefined, [visual()], SCREEN);
         h.current!.resolve('```basic-judge\nFAIL it is an egg\n```');

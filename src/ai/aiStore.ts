@@ -61,7 +61,7 @@ import {
   type PendingFix,
 } from './promptBuilder';
 import { getProvider } from './providers/registry';
-import { sourceFingerprint } from './sourceFingerprint';
+import { hasMovedOn, sourceFingerprint } from './sourceFingerprint';
 import { resolveAiTuning, type AiTuning } from './aiTuning';
 import {
   buildContinuationRequest,
@@ -1020,6 +1020,21 @@ function settleJudgement(
   // would have; if it only said what was wrong, there is nothing to apply, so
   // the fix goes back to being one the user chooses to ask for.
   if (extractCodeBlocks(reply.content).some(isApplicableBlock)) {
+    // Asked again here, and not only where this turn was dispatched, because
+    // this is the one stage with a user in the middle of it: the judgement is
+    // seconds of network and tool calls, and applying an answer and running it
+    // is exactly what the user does while reading the reply it is judging. A
+    // check started now would seize the machine they just started, to run a
+    // program they have already moved past.
+    //
+    // The correction is not lost by declining - it is in the thread, with its
+    // apply buttons, for the user to take when they want it. What is refused is
+    // only the IDE acting on it unasked.
+    if (hasMovedOn(stalenessBase, useIdeStore.getState().source)) {
+      pendingRunNote = buildRunNote(outcome, judged);
+      showFinishedWork(latestFinalScreen ?? undefined);
+      return;
+    }
     autoFixAttempts++;
     // Now that the verdict has been read, the corrected program it carried is
     // an answer like any other and gets checked like any other.
@@ -1166,8 +1181,7 @@ function reportUnbuildableAnswer(
   const state = useIdeStore.getState();
   const fix = buildEditorFix(candidate, errors);
   const context = resolveRequestContext();
-  const edited =
-    sourceFingerprint(stalenessBase) !== sourceFingerprint(state.source);
+  const edited = hasMovedOn(stalenessBase, state.source);
   if (
     edited ||
     ai.busy ||
@@ -1237,17 +1251,12 @@ useIdeStore.subscribe((state) => {
 
   const ai = useAiStore.getState();
   // Correcting a program the user has edited since would be answering a question
-  // they have already moved on from.
-  //
-  // Compared against the program the answer was WRITTEN against, not the one
-  // that ran. Those used to be the same thing - the run was of applied text - so
-  // comparing `ranSource` was an equivalent shortcut. It is not equivalent any
-  // more: a checked answer is by definition not what the editor holds, so that
-  // comparison would report "edited" every single time and silently disable
-  // every unrequested correction. It would also pass every test that existed
-  // before this change.
-  const edited =
-    sourceFingerprint(run.baseSource) !== sourceFingerprint(state.source);
+  // they have already moved on from. See {@link hasMovedOn} for why the
+  // comparison is against the program the answer was WRITTEN against rather than
+  // the one that ran - the same rule guards the judging turn's own correction,
+  // which is asked a second time because the user can move on while it is in
+  // flight.
+  const edited = hasMovedOn(run.baseSource, state.source);
   const context = resolveRequestContext();
   const canShowScreen =
     context !== null && getProvider(context.providerId).acceptsImages;
