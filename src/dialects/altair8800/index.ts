@@ -2,8 +2,12 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
+import { hasFatalErrors } from '../types';
 import { altair8800Charset } from './charset';
 import { altair8800Keywords } from './keywords';
+import { altair8800VariableErrors } from '../../editor/variableLint';
+import { tokenizeProgram } from './tokenizer';
+import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import {
   altair8800CompletionSource,
   altair8800Crunched,
@@ -46,9 +50,9 @@ export const altair8800: Dialect = {
   year: 1975,
   blurb: 'The machine that started it all. Runs Altair 8K BASIC.',
 
-  // TODO(Stage 1): derive from 8K BASIC's own "BYTES FREE" banner on the
-  // modelled RAM configuration. Zero is a placeholder, not an estimate.
-  programRamBytes: 0,
+  // 8K BASIC's own "BYTES FREE" banner on the modelled RAM configuration
+  // (48K fitted, transcendental functions retained - see addresses.ts).
+  programRamBytes: 42628,
 
   fileExtensions: ['.txt', '.bas'],
   keywords: altair8800Keywords,
@@ -57,16 +61,30 @@ export const altair8800: Dialect = {
   completionSource: altair8800CompletionSource,
   crunched: altair8800Crunched,
 
-  tokenize(_source: string): TokenizeResult {
-    throw new Error('altair8800: not implemented');
+  tokenize(source: string): TokenizeResult {
+    const { program, errors } = tokenizeProgram(source);
+    const image = hasFatalErrors(errors) ? new Uint8Array(0) : program;
+    return {
+      programBytes: program,
+      image,
+      errors,
+      byteSize: program.length,
+    };
   },
 
-  detokenize(_image: Uint8Array): string {
-    throw new Error('altair8800: not implemented');
+  detokenize(image: Uint8Array): string {
+    return detokenizeProgram(image);
   },
 
-  lint(_source: string): TokenizeError[] {
-    throw new Error('altair8800: not implemented');
+  detokenizeWithReport(image: Uint8Array) {
+    return detokenizeProgramWithReport(image);
+  },
+
+  lint(source: string): TokenizeError[] {
+    return [
+      ...tokenizeProgram(source).errors,
+      ...altair8800VariableErrors(source, altair8800Keywords),
+    ];
   },
 
   /**

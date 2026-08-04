@@ -87,7 +87,9 @@ mirroring `trs80/interpreter/` — and changes nothing else in this plan.
    subtraction consults the Z80's N flag, which the 8080 does not have. Decide
    in Stage 2 whether to correct these in the adapter or accept the divergence,
    and record which. **Fix it in the machine adapter, never in the vendored
-   core** — it is shared with six shipped machines.
+   core** — it is shared with six shipped machines. **Stage 1 confirmed the
+   parity half is fatal, not cosmetic, and what fixes it — see _Two things Stage
+   2 must act on_ below.**
 2. **Derive, don't guess.** The keyword token bytes, the program base, the
    88-2SIO port numbers and the polarity of its status bits (the ready flags are
    active-low), and `programRamBytes` must each come from a primary source — the
@@ -102,7 +104,7 @@ mirroring `trs80/interpreter/` — and changes nothing else in this plan.
 
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
-| 1     | Language core                          | ⬜     |
+| 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ⬜     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
@@ -111,35 +113,106 @@ mirroring `trs80/interpreter/` — and changes nothing else in this plan.
 
 ---
 
-## Stage 1 — Language core ⬜
+## Stage 1 — Language core ✅
 
 Text ↔ tokenized program bytes; no emulator, no registry change.
 
-- [ ] `addresses.ts` — the program base, the interpreter's RAM origin, the
+- [x] `addresses.ts` — the program base, the interpreter's RAM origin, the
       2SIO ports; each cited to its source
-- [ ] `keywords.ts` — the 8K `KeywordInfo[]` table (token byte, kind, signature,
+- [x] `keywords.ts` — the 8K `KeywordInfo[]` table (token byte, kind, signature,
       doc), derived from a disassembly or the MITS manual
-- [ ] `charset.ts` — printable ASCII as itself, control codes and the unused
+- [x] `charset.ts` — printable ASCII as itself, control codes and the unused
       0x80–0xFF range as `{0xNN}` escapes; total and injective across all 256
       bytes
-- [ ] `language.ts` — `languageSupport()` + `completionSource`. Confirm
+- [x] `language.ts` — `languageSupport()` + `completionSource`. Confirm
       `crunched` against the interpreter's CRUNCH routine; `suffixChars` is `$`
       only (8K predates Level II's `%`/`!`/`#` tags); `graphicsEscapes: false`;
       no `hexPrefix`/`binaryPrefix` (`&H` is Disk BASIC)
-- [ ] `constructsByDialect.altair8800` in `src/editor/constructs.ts`
-- [ ] `altair8800VariableErrors` in `src/editor/variableLint.ts`, over the
+- [x] `constructsByDialect.altair8800` in `src/editor/constructs.ts`
+- [x] `altair8800VariableErrors` in `src/editor/variableLint.ts`, over the
       Microsoft-family helper — 8K names are significant to two characters
-- [ ] `tokenizer.ts` / `detokenizer.ts` — linked-line layout
+- [x] `tokenizer.ts` / `detokenizer.ts` — linked-line layout
       (`[u16 LE link][u16 LE line][body][0x00]`, zero link terminates);
       collect `TokenizeError[]`, never throw
-- [ ] `basicImage.ts` — tokenized bytes → loadable image (link chain + the
+- [x] `basicImage.ts` — tokenized bytes → loadable image (link chain + the
       text/variable pointers), and parse back
-- [ ] `detokenizeWithReport` for import-fidelity warnings
-- [ ] tests: tokenizer round-trip, charset totality/injectivity, image-builder
+- [x] `detokenizeWithReport` for import-fidelity warnings
+- [x] tests: tokenizer round-trip, charset totality/injectivity, image-builder
       pointer consistency
 
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
+
+### What Stage 1 derived, and how
+
+Everything in `addresses.ts` and `keywords.ts` was read off the MITS 8K BASIC
+4.0 object tape itself (`ALTAIR BASIC REV. 4.0 / [EIGHT-K VERSION] / COPYRIGHT
+1976 BY MITS INC.`, 8192 bytes, md5 `97eead711723295e9ce4f52b300002cf` — the
+image SIMH's AltairZ80 software collection ships as `8kbas.bin`, and the image a
+user has to supply at `public/roms/altair8800.rom`). Two methods, and every
+value was checked both ways where both applied:
+
+1. **Statically**, from the image. The reserved-word table sits at 0x0073–0x0159
+   with a 0x80 end marker: each entry is its spelling with bit 7 set on the
+   _first_ character, entries run back to back from END = 0x80 to MID$ = 0xC5,
+   70 words with no gaps.
+2. **Dynamically**, by booting the image on the vendored Z80 core with a stub
+   2SIO, typing programs at its console and reading the stored program text back
+   out of memory. `TXTTAB` = 0x1939 (trig retained; 0x1877 if `WANT
+SIN-COS-TAN-ATN?` is answered `N`), and the pointer words are `TXTTAB` 0x01D6,
+   `VARTAB` 0x024B, `ARYTAB` 0x024D, `STREND` 0x024F.
+
+The tokenizer was then **differentially tested** against that running
+interpreter: 33 varied source lines typed at its console produce byte-identical
+program text to `tokenizeProgram`, and its `LIST` output matches
+`detokenizeProgram` exactly. That harness is not committed (it needs the
+copyright image), but it is what the console-derived byte expectations in
+`tokenizer.test.ts` are transcribed from.
+
+Behaviour worth knowing before Stages 2–6, all console-confirmed:
+
+- **Crunching matches at each character and does not skip spaces.** `FORI=1TO10`
+  tokenizes, but `PR INT 1` keeps `P`,`R` and then tokenizes the `INT`.
+- **a–z folds to A–Z outside literals, before crunching** — so `abc=1` stores
+  `41 42 43` and `def$` becomes the DEF token plus `$`. Exactly a–z: 0x60 and
+  0x7B–0x7E are stored as typed, and strings, REM and DATA are folded not at all.
+- **`?` is the only synonym.** It enters as PRINT (0x96) and LISTs back as
+  `PRINT`. There is no `'` comment form and no `↑`/`^` split — `^` _is_ the power
+  operator (0xA8).
+- **Highest line number is 65529**; 65530 answers `?SN ERROR`. The line-number
+  scan ignores spaces, so `20 456789…` reads as line 20456789 and is rejected.
+- **Bad statements are stored, not rejected** — `10 XYZZY` stores five plain
+  characters and fails only on RUN — which is why statement-shape lint is
+  `fatal: false`.
+- **`%`, `!` and `#` are not type tags.** `10 X%=1` stores and then fails on RUN,
+  so `suffixChars` is `$` alone.
+- **0x00 cannot appear in a line body** (it is the record terminator), so a
+  `{0x00}` escape is a fatal tokenize error rather than a silent truncation.
+- The console line buffer holds 72 characters. That is an editor limit, not a
+  storage one, so the tokenizer does not enforce it.
+
+### Two things Stage 2 must act on
+
+1. **The 8080 parity flag genuinely blocks booting.** Risk 1 below is not
+   theoretical: 8K BASIC's floating-point code runs `SBB A` and then branches on
+   `JPO`. On the 8080 `SBB A` leaves P = parity of the result (always even, so
+   P set); on the Z80 `SBC A,A` leaves P/V = overflow (clear), so the jump is
+   taken and the interpreter spins forever in FP — it prints the cold-start
+   dialogue and then never reaches `BYTES FREE`. Fixing it in the machine
+   adapter is enough: after each instruction that the 8080 defines P for
+   (`ADD/ADC/SUB/SBB/ANA/XRA/ORA/CMP` and their immediate forms, `INR`/`DCR`,
+   `DAA`), overwrite the core's P flag with the parity of the result. That is
+   what the Stage 1 derivation harness did, and with it the image boots, runs and
+   LISTs correctly. **Do not touch the vendored core** — six shipped machines
+   share it.
+2. **The console is the 88-2SIO at 0x10/0x11, with _active-high_ flags.** The
+   image ships wired for the 88-SIO at 0x00/0x01 (active-low: `ANI 01 / JNZ`)
+   but patches its own driver at cold start from the sense switches read at port
+   0xFF. With the high nibble 0 it rewrites the routines at 0x0547/0x0556 to
+   `IN 10 / ANI 02 / JZ` (transmit) and `IN 10 / ANI 01 / JZ` (receive) — the
+   6850 ACIA's active-high TDRE and RDRF. So `emulator/serial.ts` must model
+   active-high bits and the machine must answer port 0xFF with 0x08, or BASIC
+   drives the wrong ports and nothing appears.
 
 ## Stage 2 — Emulator core ⬜
 

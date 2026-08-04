@@ -16,9 +16,14 @@
  *   IN  data   -> next byte from the keyboard queue
  *   OUT data   -> one byte to {@link Altair8800Terminal}
  *
- * The port numbers and the polarity of the status bits must be read off the
- * 88-2SIO manual and cited in `addresses.ts` - the 2SIO's ready flags are
- * active-low, which is exactly the kind of detail that silently produces a
+ * The port numbers and the polarity of the status bits are settled and cited in
+ * `addresses.ts`, read off the 8K BASIC image in Stage 1: status 0x10, data
+ * 0x11, and the flags are **active high** (bit 0 RDRF, bit 1 TDRE - the 6850
+ * ACIA's own sense), not active-low as this plan first assumed. Active-low is
+ * the 88-SIO at 0x00/0x01, which is the form the *unpatched* image carries;
+ * BASIC rewrites its own driver at cold start from the sense switches it reads
+ * at port 0xFF, so the machine must answer that port with
+ * `SENSE_SWITCHES_2SIO`. Getting either detail wrong silently produces a
  * machine that boots and then never accepts a keystroke.
  */
 export class Altair8800Serial {
