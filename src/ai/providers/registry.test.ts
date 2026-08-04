@@ -10,6 +10,24 @@ describe('provider capabilities', () => {
     }
   });
 
+  it('states whether each backend can be given tools', () => {
+    // Stated rather than discovered, for the same reason as images: what the
+    // assistant is told it can do is settled while the system prompt is built,
+    // long before any vendor SDK is loaded to ask.
+    for (const p of PROVIDERS) {
+      expect(typeof p.supportsTools).toBe('boolean');
+    }
+  });
+
+  it('only claims tool support where the backend actually wires them', () => {
+    expect(getProvider('anthropic').supportsTools).toBe(true);
+    // Both SDKs are capable; neither backend passes tools through yet. An
+    // untested yes here would have the assistant asked to do something that is
+    // then silently dropped, which is the failure the flag exists to prevent.
+    expect(getProvider('openai').supportsTools).toBe(false);
+    expect(getProvider('gemini').supportsTools).toBe(false);
+  });
+
   // The budget is one app-wide number now, so the tightest backend decides what
   // that number may be. If a provider is ever added below the default, either the
   // default comes down or that provider silently truncates every long answer.

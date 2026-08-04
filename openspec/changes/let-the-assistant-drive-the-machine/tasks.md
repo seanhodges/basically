@@ -15,22 +15,22 @@
 
 ## 2. Tools on the provider seam
 
-- [ ] 2.1 Add tool definitions to `StreamOptions`, tool calls to `StreamResult`,
+- [x] 2.1 Add tool definitions to `StreamOptions`, tool calls to `StreamResult`,
       and tool results to `ChatMessage` in `src/ai/providers/types.ts`
-- [ ] 2.2 Add the tools capability flag to `ProviderMeta` and set it per backend
+- [x] 2.2 Add the tools capability flag to `ProviderMeta` and set it per backend
       in `src/ai/providers/registry.ts`
-- [ ] 2.3 Pass tools through in `src/ai/providers/anthropic.ts`, stop discarding
+- [x] 2.3 Pass tools through in `src/ai/providers/anthropic.ts`, stop discarding
       non-text blocks from the final message, and return any tool calls
-- [ ] 2.4 Correct the prompt-cache comment in `anthropic.ts` — a *fixed* tool set
+- [x] 2.4 Correct the prompt-cache comment in `anthropic.ts` — a *fixed* tool set
       is as byte-stable as the per-dialect system prompt; it is variance, not
       presence, that invalidates
-- [ ] 2.5 Declare the capability honestly for `openai.ts` and `gemini.ts`, wiring
+- [x] 2.5 Declare the capability honestly for `openai.ts` and `gemini.ts`, wiring
       tools only where the backend is given them
-- [ ] 2.6 Add the bounded exchange loop to `src/ai/aiClient.ts` beside the
+- [x] 2.6 Add the bounded exchange loop to `src/ai/aiClient.ts` beside the
       existing per-provider clamping: run the caller's handler, append results,
       repeat until the reply stops calling or the bound is reached; abort stops
       the loop as well as the in-flight request
-- [ ] 2.7 Add `src/ai/aiClient.test.ts` covering the loop, its bound, an
+- [x] 2.7 Add `src/ai/aiClient.test.ts` covering the loop, its bound, an
       unknown tool name coming back as a tool error rather than a throw, and
       that a request offering no tools takes the single-exchange path unchanged
 
