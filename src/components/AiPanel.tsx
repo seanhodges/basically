@@ -567,6 +567,13 @@ export function AiPanel() {
             src={`data:${msg.finalScreen.mediaType};base64,${msg.finalScreen.base64}`}
             alt={`The ${dialect.name} screen after running this program`}
           />
+          {/* Captioned only where the assistant drove the machine to reach
+              this screen. Ordinarily there is nothing to say and none appears
+              - but a screen produced by a keypress is one the user cannot
+              otherwise account for, and an unexplained one reads as the IDE
+              having done something odd rather than as their program being
+              tried. */}
+          {msg.drivingNote && <figcaption>{msg.drivingNote}</figcaption>}
         </figure>,
       );
     }

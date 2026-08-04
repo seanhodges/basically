@@ -59,27 +59,27 @@
 
 ## 4. The turn that drives
 
-- [ ] 4.1 Add the drive ask to the views the assistant can name, and the rules
+- [x] 4.1 Add the drive ask to the views the assistant can name, and the rules
       telling it what it can press on this machine and what driving costs
-- [ ] 4.2 Turn `judgeScreen` in `src/ai/aiStore.ts` into the turn that may drive
+- [x] 4.2 Turn `judgeScreen` in `src/ai/aiStore.ts` into the turn that may drive
       first: offer the tools, freeze the machine, run the exchange, then read the
       same `basic-judge` verdict as today
-- [ ] 4.3 Gate the whole path on the provider's stated tools capability, so a
+- [x] 4.3 Gate the whole path on the provider's stated tools capability, so a
       provider without it behaves exactly as today
-- [ ] 4.4 Report driving failures — wait timed out, unknown key, machine never up
+- [x] 4.4 Report driving failures — wait timed out, unknown key, machine never up
       — as their own outcome: never a failed run, never a correction, and any
       expectation the driving never reached left unchecked
-- [ ] 4.5 State in the thread what input was sent when input was actually sent,
+- [x] 4.5 State in the thread what input was sent when input was actually sent,
       and nothing when the assistant only waited or looked
-- [ ] 4.6 Extend `src/ai/aiStore.test.ts` for the driving turn, the provider
+- [x] 4.6 Extend `src/ai/aiStore.test.ts` for the driving turn, the provider
       gate, the failure semantics, and the visibility rule
 
 ## 5. Quality gates
 
-- [ ] 5.1 `npm run typecheck`
+- [x] 5.1 `npm run typecheck`
 - [ ] 5.2 `npm test`
-- [ ] 5.3 `npm run lint`
-- [ ] 5.4 `npm run format:check` (or `npm run format` to fix)
+- [x] 5.3 `npm run lint`
+- [x] 5.4 `npm run format:check` (or `npm run format` to fix)
 - [ ] 5.5 Extend `e2e/aiStub.ts` to answer a sequence of requests and emit
       `tool_use` blocks in the SDK's streaming wire format; add a driving
       scenario under `e2e/ai-assistant/`

@@ -6,7 +6,7 @@ import {
   type ExpectationResult,
   type ScreenViewRequest,
 } from './expectations';
-import { buildExpectationRules } from './machineObservability';
+import { buildDriveRules, buildExpectationRules } from './machineObservability';
 import { loadMachineReference } from './machineReference';
 
 /**
@@ -66,13 +66,14 @@ export function buildSystemPrompt(
   dialect: Dialect,
   machineReference: string,
   canShowScreen = false,
+  canDrive = false,
 ): string {
   // The expectation rules vary by machine (two of them cannot report their
   // variables) and by whether the chosen backend can be shown the screen - but
   // only by those, so the composed prompt is still byte-stable per
   // (dialect, provider), which is what prefix caching needs: neither changes
   // within a conversation without starting a different request path anyway.
-  return `${machineReference}\n\n${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}\n\n${buildExpectationRules(dialect, canShowScreen)}`;
+  return `${machineReference}\n\n${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}\n\n${buildExpectationRules(dialect, canShowScreen)}\n\n${buildDriveRules(dialect, canDrive)}`;
 }
 
 /**
@@ -86,11 +87,13 @@ export function buildSystemPrompt(
 export async function loadSystemPrompt(
   dialect: Dialect,
   canShowScreen = false,
+  canDrive = false,
 ): Promise<string> {
   return buildSystemPrompt(
     dialect,
     await loadMachineReference(dialect),
     canShowScreen,
+    canDrive,
   );
 }
 

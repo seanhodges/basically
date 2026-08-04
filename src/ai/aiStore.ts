@@ -5,6 +5,8 @@ import {
   type ChatMessage,
   type StreamHandle,
   type StreamResult,
+  type ToolDefinition,
+  type ToolRunner,
 } from './aiClient';
 import type { AiEffort, AiProviderId, ChatImage } from './providers/types';
 import {
@@ -15,6 +17,17 @@ import {
   getProviderApiKey,
 } from '../storage/settings';
 import { useIdeStore, type AiRunOutcome } from '../app/store';
+import { freezeMachine, machineControl } from '../app/machineControl';
+import {
+  describeDriving,
+  describeScreen,
+  driveToolDefinitions,
+  parseDriveScript,
+  runDriveScript,
+  DRIVE_TOOL,
+  LOOK_TOOL,
+  type DriveReport,
+} from './driveTools';
 import type { Dialect } from '../dialects/types';
 import {
   applyJudgement,
@@ -82,6 +95,17 @@ export interface DisplayMessage extends ChatMessage {
    * restored from storage, where the marker was kept and the bytes were not.
    */
   screenShown?: boolean;
+  /**
+   * What the assistant did to the machine to reach the screen shown with this
+   * turn - set only where driving actually sent input.
+   *
+   * Absent where it only waited and looked, because nothing then happened that
+   * the user could not have seen for themselves. The distinction is the whole
+   * point: a screen reached by a keypress is one the user cannot otherwise
+   * account for, and an unexplained screen reads as the IDE having done
+   * something odd rather than as the assistant having tried the program.
+   */
+  drivingNote?: string;
   /** True while the assistant answer is still arriving. */
   streaming?: boolean;
   /** True for a truncated answer (stopped, or cut off by the output limit). */
@@ -198,6 +222,15 @@ export interface SendParams {
   maxTokens: number;
   effort?: AiEffort;
   system: string;
+  /**
+   * Tools this request offers, and how to run one. Both or neither: a tool
+   * offered with no way to run it would hang the turn on its first call.
+   *
+   * Set only by the turn that drives the machine. Every other request offers
+   * none, and so takes exactly the single-exchange path it always has.
+   */
+  tools?: ToolDefinition[];
+  runTool?: ToolRunner;
   /** Full context (source + lint errors + request) sent to the API. */
   userContent: string;
   /** Bare request shown in the thread. */
@@ -307,6 +340,14 @@ let autoFixAttempts = 0;
  * the next request (see {@link buildRunNote}). Cleared as soon as it is spent.
  */
 let pendingRunNote = '';
+/**
+ * What to tell the user about the machine having been driven, held until the
+ * finished work is shown so it lands with the screen it explains.
+ *
+ * Empty whenever the assistant only waited and looked, which is the ordinary
+ * case and says nothing.
+ */
+let pendingDriveNote = '';
 
 /**
  * The screen from that run, when the assistant asked to be shown it and the run
@@ -380,6 +421,8 @@ export const useAiStore = create<AiState>((set, get) => ({
     maxTokens,
     effort,
     system,
+    tools,
+    runTool,
     userContent,
     displayRequest,
     image,
@@ -451,7 +494,15 @@ export const useAiStore = create<AiState>((set, get) => ({
     const runAttempt = (history: ChatMessage[]): Promise<StreamResult> => {
       const handle = streamChat(
         providerId,
-        { apiKey, model, maxTokens, effort, system, messages: history },
+        {
+          apiKey,
+          model,
+          maxTokens,
+          effort,
+          system,
+          messages: history,
+          ...(tools?.length ? { tools } : {}),
+        },
         (delta) => {
           if (gen !== myGen) return; // superseded by reset/new send
           set((s) => {
@@ -466,6 +517,7 @@ export const useAiStore = create<AiState>((set, get) => ({
             persist(get().messages);
           }
         },
+        runTool,
       );
       activeHandle = handle;
       return handle.done;
@@ -722,6 +774,8 @@ function judgeScreen(
   results: readonly ExpectationResult[],
   screen: ChatImage,
   context: NonNullable<ReturnType<typeof resolveRequestContext>>,
+  /** Whether the assistant asked to be given the machine for this answer. */
+  drive: boolean,
 ): void {
   const ai = useAiStore.getState();
   const visuals = results
@@ -729,11 +783,28 @@ function judgeScreen(
     .filter((e) => e.kind === 'visual');
   const judge = buildScreenJudgeRequest(ranSource, visuals);
   const { dialect, ...request } = context;
-  void loadSystemPrompt(dialect, true)
+
+  // The turn that judges the screen is also the only turn where driving is
+  // meaningful: the program is loaded, the machine is up, and the screen has
+  // been captured. The answering turn cannot drive - the program did not exist
+  // yet, let alone run - and a third turn would need a second set of rules for
+  // when it happens.
+  const driving = armDriving(drive);
+
+  // Told about driving on the same terms as every other turn - a property of
+  // the provider, not of whether this particular answer asked. The prompt sits
+  // in the cached prefix, so describing it only on the turns that drive would
+  // cost a cache write on every turn after one of them.
+  void loadSystemPrompt(
+    dialect,
+    true,
+    getProvider(context.providerId).supportsTools,
+  )
     .then((system) =>
       ai.send({
         ...request,
         system,
+        ...(driving ? { tools: driving.tools, runTool: driving.runTool } : {}),
         userContent: judge.userContent,
         displayRequest: judge.displayRequest,
         image: screen,
@@ -748,7 +819,75 @@ function judgeScreen(
         skipCheck: true,
       }),
     )
-    .then(() => settleJudgement(outcome, ranSource, stalenessBase, results));
+    .then(() => {
+      // Always, even if the turn failed: a machine left frozen outlives the
+      // turn that froze it and the user's own run never advances again.
+      driving?.finish();
+      settleJudgement(outcome, ranSource, stalenessBase, results);
+    });
+}
+
+/**
+ * Everything the driving turn needs, or null when there is no driving to do.
+ *
+ * Null whenever any one of the three conditions fails - the assistant did not
+ * ask, the chosen provider cannot be given tools, or there is no machine up to
+ * drive. In each case the turn is exactly the judging turn it has always been,
+ * which is what makes this safe to reach on every checked answer.
+ *
+ * Exported for its own tests: the three gates are the whole safety story, and
+ * reaching them through a streamed turn would test the mocking rather than the
+ * rule.
+ */
+export function armDriving(asked: boolean): {
+  tools: ToolDefinition[];
+  runTool: ToolRunner;
+  finish: () => void;
+} | null {
+  if (!asked) return null;
+  if (!getProvider(getAiProvider()).supportsTools) return null;
+  const control = machineControl();
+  if (!control) return null;
+
+  const reports: DriveReport[] = [];
+  freezeMachine(true);
+
+  return {
+    tools: driveToolDefinitions(),
+    runTool: async (call) => {
+      if (call.name === LOOK_TOOL) {
+        return { callId: call.id, content: describeScreen(control) };
+      }
+      if (call.name !== DRIVE_TOOL) {
+        // Reported rather than thrown, so the assistant can pick a tool that
+        // exists instead of losing everything it did before the mistake.
+        return {
+          callId: call.id,
+          content: `there is no tool called "${call.name}"`,
+          isError: true,
+        };
+      }
+      const script = String(call.input.script ?? '');
+      const report = runDriveScript(control, parseDriveScript(script));
+      reports.push(report);
+      return {
+        callId: call.id,
+        content: `${report.lines.join('\n')}\n\n${describeScreen(control)}`,
+        // An action that could not be carried out is the driving failing, not
+        // the program: flagged so the assistant corrects its driving rather
+        // than rewriting code that may be perfectly correct.
+        ...(report.ok ? {} : { isError: true }),
+      };
+    },
+    finish: () => {
+      control.releaseAll();
+      freezeMachine(false);
+      // Said only where input actually reached the machine. Waiting and looking
+      // change nothing the user could not have seen themselves, where a
+      // keypress produces a screen they cannot otherwise account for.
+      pendingDriveNote = describeDriving(reports);
+    },
+  };
 }
 
 /**
@@ -904,12 +1043,21 @@ let stoppedCheckSeq = -1;
  * the IDE showing its working.
  */
 function showFinishedWork(screen: ChatImage | undefined): void {
+  const drivingNote = pendingDriveNote;
+  pendingDriveNote = '';
   if (!screen) return;
   useAiStore.setState((s) => {
     const last = s.messages[s.messages.length - 1];
     if (!last || last.role !== 'assistant') return s;
     const copy = [...s.messages];
-    copy[copy.length - 1] = { ...last, finalScreen: screen };
+    copy[copy.length - 1] = {
+      ...last,
+      finalScreen: screen,
+      // Lands with the screen it explains rather than as a turn of its own:
+      // what the user needs is to be able to account for what they are
+      // looking at, not a running commentary on the checking machinery.
+      ...(drivingNote ? { drivingNote } : {}),
+    };
     return { messages: copy };
   });
   // Attached after the answer's own persist, so the stored thread would
@@ -949,6 +1097,7 @@ function reportUnbuildableAnswer(
   void loadSystemPrompt(
     dialect,
     getProvider(context.providerId).acceptsImages,
+    getProvider(context.providerId).supportsTools,
   ).then((system) =>
     ai.send({
       ...request,
@@ -1061,6 +1210,7 @@ useIdeStore.subscribe((state) => {
       run.expectations,
       screen!,
       context!,
+      run.views.drive,
     );
     state.showAiPanel();
     return;
@@ -1117,6 +1267,11 @@ useIdeStore.subscribe((state) => {
   }
 
   autoFixAttempts++;
+  // Whether the prompt describes driving must not vary within a conversation:
+  // the system prompt sits in the cached prefix, so a correction that described
+  // it differently from the answer it corrects would cost a full cache write on
+  // every turn after. It is a property of the provider, not of this request.
+  const canDrive = getProvider(context.providerId).supportsTools;
   const fix = buildFix(screen !== undefined);
   // A failing run's outcome is the correction request, so an unavailable view
   // rides in front of it - the same words a run that didn't fail would use.
@@ -1128,7 +1283,7 @@ useIdeStore.subscribe((state) => {
   // asynchronously - which costs this path nothing, since it was already firing
   // the request without waiting for it.
   const { dialect, ...request } = context;
-  void loadSystemPrompt(dialect, canShowScreen).then((system) =>
+  void loadSystemPrompt(dialect, canShowScreen, canDrive).then((system) =>
     ai.send({
       ...request,
       system,
