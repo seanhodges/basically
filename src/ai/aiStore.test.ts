@@ -69,6 +69,8 @@ import {
   loadAiConversation,
   getAiProvider,
   setProviderApiKey,
+  setProviderMaxTokens,
+  setProviderEffort,
 } from '../storage/settings';
 import { sourceFingerprint } from './sourceFingerprint';
 import type { MachineReport } from '../dialects/types';
@@ -274,6 +276,66 @@ describe('aiStore', () => {
       // The program stops mid-line; it must not read as a finished answer.
       expect(answer.incomplete).toBe(true);
       expect(useAiStore.getState().error).toBe('');
+    });
+
+    it('records that the output limit was what stopped it', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.resolve('10 CLS\n20 PRINT "HAL', 'truncated');
+      await p;
+
+      const answer = useAiStore.getState().messages.at(-1)!;
+      expect(answer.incomplete).toBe(true);
+      expect(answer.cutOff).toBe('outOfRoom');
+    });
+
+    it('records the user pressing Stop as their own doing', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.onText('half a program');
+      useAiStore.getState().stop();
+      await p;
+
+      expect(useAiStore.getState().messages.at(-1)!.cutOff).toBe('stopped');
+    });
+
+    it('records a dead stream as a failure, not as a length limit', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.onText('half a program');
+      h.current!.reject(new Error('network died'));
+      await p;
+
+      expect(useAiStore.getState().messages.at(-1)!.cutOff).toBe('failed');
+    });
+
+    // The whole budget went to thinking. Nudging the format spends a second
+    // request against a longer history and the same ceiling - it fails the same
+    // way, and reports the wrong reason when it does.
+    it('does not retry an out-of-room empty reply as a format mistake', async () => {
+      const p = useAiStore.getState().send(params);
+      const first = h.current!;
+      first.resolve('', 'truncated');
+      await p;
+
+      // No second attempt was started.
+      expect(h.current).toBe(first);
+      expect(useAiStore.getState().error).toMatch(/ran out of room/i);
+      expect(useAiStore.getState().busy).toBe(false);
+      // No blank bubble left behind.
+      expect(useAiStore.getState().messages.map(plain)).toEqual([
+        { role: 'user', content: 'make breakout' },
+      ]);
+    });
+
+    it('still retries a genuinely empty reply', async () => {
+      const p = useAiStore.getState().send(params);
+      const first = h.current!;
+      first.resolve(''); // complete, just empty - a format problem
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(h.current).not.toBe(first);
+      h.current!.resolve('10 PRINT');
+      await p;
+
+      expect(useAiStore.getState().messages.at(-1)!.content).toBe('10 PRINT');
     });
 
     it('leaves a normally finished answer applicable', async () => {
@@ -1322,5 +1384,127 @@ describe('aiStore', () => {
     useIdeStore.setState((s) => ({ aiResetSeq: s.aiResetSeq + 1 }));
     expect(useAiStore.getState().messages).toEqual([]);
     expect(loadAiConversation()).toEqual([]);
+  });
+
+  describe('continuing an answer that ran out of room', () => {
+    const runState = () => useIdeStore.getState();
+
+    /** Cut an answer off at the output limit, with a key set so it can resume. */
+    async function cutOff(source = BASE_SOURCE): Promise<void> {
+      setProviderApiKey(getAiProvider(), 'key');
+      useIdeStore.setState({ source });
+      const p = useAiStore.getState().send({ ...params, baseSource: source });
+      h.current!.resolve('Here:\n```basic\n10 CLS\n20 PRINT "HAL', 'truncated');
+      await p;
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+    }
+
+    it('resumes from the partial rather than starting over', async () => {
+      await cutOff();
+      useAiStore.getState().continueLastAnswer();
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+
+      // The request names the line to carry on after, and the partial is still
+      // in the history as its own assistant turn - never as a trailing one,
+      // which the provider would reject as a prefill.
+      expect(sentUserContent()).toContain('line 10');
+      const sent = h.sent!.messages;
+      expect(sent.at(-1)!.role).toBe('user');
+      expect(sent.at(-2)!.role).toBe('assistant');
+      expect(sent.at(-2)!.content).toContain('10 CLS');
+    });
+
+    it('joins the two into one answer', async () => {
+      await cutOff();
+      useAiStore.getState().continueLastAnswer();
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      h.current!.resolve('```basic\n20 PRINT "HELLO"\n30 GOTO 20\n```');
+      for (let i = 0; i < 12; i++) await Promise.resolve();
+
+      const joined = useAiStore.getState().messages.at(-1)!;
+      expect(joined.content).toContain('10 CLS');
+      expect(joined.content).toContain('30 GOTO 20');
+      // The fragment the limit cut through is gone, not stitched in twice.
+      expect(joined.content).not.toContain('PRINT "HAL');
+      expect(joined.incomplete).toBeUndefined();
+    });
+
+    it('checks the joined answer like any other', async () => {
+      const before = runState().runRequest;
+      await cutOff();
+      // A cut-off answer is never run - there is nothing finished to run.
+      expect(runState().runRequest).toBe(before);
+
+      useAiStore.getState().continueLastAnswer();
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      h.current!.resolve('```basic\n20 PRINT "HELLO"\n```');
+      for (let i = 0; i < 12; i++) await Promise.resolve();
+
+      // Now it is whole, so it goes to the machine on the usual terms.
+      expect(runState().runRequest).toBeGreaterThan(before);
+      expect(runState().aiRunSource).toContain('20 PRINT "HELLO"');
+    });
+
+    // Staleness asks whether the user has moved on since the answer was written,
+    // and it was written before the interruption - so the continuation must not
+    // take a fresh fingerprint and quietly forgive an edit made in between.
+    it('keeps the fingerprint from when the answer began', async () => {
+      await cutOff();
+      const original = useAiStore.getState().messages.at(-1)!.baseFingerprint;
+
+      useIdeStore.setState({ source: BASE_SOURCE + '30 STOP\n' });
+      useAiStore.getState().continueLastAnswer();
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      h.current!.resolve('```basic\n20 PRINT "HELLO"\n```');
+      for (let i = 0; i < 12; i++) await Promise.resolve();
+
+      const joined = useAiStore.getState().messages.at(-1)!;
+      expect(joined.baseFingerprint).toBe(original);
+      expect(joined.baseFingerprint).not.toBe(
+        sourceFingerprint(useIdeStore.getState().source),
+      );
+    });
+
+    it('can be continued again when the continuation is itself cut off', async () => {
+      await cutOff();
+      useAiStore.getState().continueLastAnswer();
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      h.current!.resolve('```basic\n20 PRINT "HELLO"\n30 GOT', 'truncated');
+      for (let i = 0; i < 12; i++) await Promise.resolve();
+
+      const joined = useAiStore.getState().messages.at(-1)!;
+      expect(joined.cutOff).toBe('outOfRoom');
+      // Nothing special-cases the first continuation.
+      expect(joined.content).toContain('20 PRINT "HELLO"');
+    });
+
+    // This path resolves its own budget rather than inheriting one from the
+    // composer - so it is exactly where a second source of truth would go
+    // unnoticed. It must land on the same value the panel would have used.
+    it('resolves the same budget the user-facing paths do', async () => {
+      await cutOff();
+      setProviderMaxTokens('anthropic', 4321);
+      setProviderEffort('anthropic', 'max');
+
+      useAiStore.getState().continueLastAnswer();
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+
+      expect(h.sent!.maxTokens).toBe(4321);
+      expect(h.sent!.effort).toBe('max');
+    });
+
+    it('does nothing for an answer the user stopped themselves', async () => {
+      setProviderApiKey(getAiProvider(), 'key');
+      const p = useAiStore.getState().send(params);
+      h.current!.onText('```basic\n10 CLS\n20 PR');
+      useAiStore.getState().stop();
+      await p;
+
+      const before = h.current;
+      useAiStore.getState().continueLastAnswer();
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      // No request was made: continuing is offered for the length limit only.
+      expect(h.current).toBe(before);
+    });
   });
 });

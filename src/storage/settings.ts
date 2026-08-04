@@ -279,7 +279,10 @@ export function hasProviderTuning(id: AiProviderId): {
   effort: boolean;
 } {
   const t = readTuning(id);
-  return { maxTokens: t.maxTokens !== undefined, effort: t.effort !== undefined };
+  return {
+    maxTokens: t.maxTokens !== undefined,
+    effort: t.effort !== undefined,
+  };
 }
 
 /**

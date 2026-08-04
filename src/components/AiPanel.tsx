@@ -1,7 +1,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useOnline } from '../app/useOnline';
-import { unsentScreen, useAiStore, type DisplayMessage } from '../ai/aiStore';
+import {
+  unsentScreen,
+  useAiStore,
+  type CutOffReason,
+  type DisplayMessage,
+} from '../ai/aiStore';
 import {
   loadSystemPrompt,
   buildUserMessage,
@@ -130,6 +135,28 @@ function MergeDiff({ rows }: { rows: MergeRow[] }) {
 }
 
 /**
+ * What to say about a code block that stops mid-program, and whether there is
+ * anything to be done about it.
+ *
+ * One sentence for all three used to mean an answer that outgrew its budget read
+ * as though the user had stopped it - and the advice, "ask again", threw the
+ * partial away and re-ran into the same ceiling.
+ */
+function cutOffNote(reason: CutOffReason | undefined): string {
+  switch (reason) {
+    case 'outOfRoom':
+      return 'This answer hit its length limit, so the program is unfinished. Continue it below, or raise the answer length in AI settings.';
+    case 'stopped':
+      return 'You stopped this answer, so the program is unfinished.';
+    case 'failed':
+      return 'This answer was interrupted, so the program is unfinished - ask again to get the rest.';
+    default:
+      // A thread restored from storage keeps the flag and not the reason.
+      return 'This answer was cut off, so the code is unfinished - ask again to get the rest.';
+  }
+}
+
+/**
  * One generated code block with the actions that are valid for it. A fragment
  * merges, a whole listing replaces; when the two signals disagree the kind is
  * unknown and both are offered, because neither default is safe - replacing
@@ -140,12 +167,17 @@ function AiCodeBlock({
   source,
   stale,
   incomplete,
+  cutOff,
+  onContinue,
   onApply,
 }: {
   block: CodeBlock;
   source: string;
   stale: boolean;
   incomplete: boolean;
+  cutOff?: CutOffReason;
+  /** Present only when this answer can be picked up where it stopped. */
+  onContinue?: () => void;
   onApply: (text: string, run: boolean) => void;
 }) {
   const [showRaw, setShowRaw] = useState(false);
@@ -179,10 +211,14 @@ function AiCodeBlock({
         </button>
       )}
       {incomplete ? (
-        <div className={styles.aiBlockNote}>
-          This answer was cut off, so the code is unfinished - ask again to get
-          the rest.
-        </div>
+        <>
+          <div className={styles.aiBlockNote}>{cutOffNote(cutOff)}</div>
+          {onContinue && (
+            <div className={styles.aiCodeActions}>
+              <button onClick={onContinue}>Continue this answer</button>
+            </div>
+          )}
+        </>
       ) : (
         <>
           {kind === 'unknown' && (
@@ -405,6 +441,17 @@ export function AiPanel() {
             source={source}
             stale={staleAgainst(msg, source)}
             incomplete={msg.incomplete === true}
+            cutOff={msg.cutOff}
+            // Only the newest answer can be resumed: continuing an older one
+            // would graft its ending onto a conversation that has moved past it.
+            onContinue={
+              msg.cutOff === 'outOfRoom' &&
+              idx === messages.length - 1 &&
+              !busy &&
+              online
+                ? () => useAiStore.getState().continueLastAnswer()
+                : undefined
+            }
             onApply={applyText}
           />
         ),

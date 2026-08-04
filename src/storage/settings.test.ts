@@ -10,6 +10,13 @@ import {
   setAiProvider,
   getProviderApiKey,
   setProviderApiKey,
+  getProviderMaxTokens,
+  setProviderMaxTokens,
+  getProviderEffort,
+  setProviderEffort,
+  hasProviderTuning,
+  DEFAULT_AI_MAX_TOKENS,
+  DEFAULT_AI_EFFORT,
   getDialectId,
   setDialectId,
   getLastShare,
@@ -537,5 +544,83 @@ describe('last share link persistence', () => {
   it('returns null for malformed entries', () => {
     sessionStorage.setItem('mbide.lastShare', JSON.stringify({ source: 'a' }));
     expect(getLastShare()).toBeNull();
+  });
+});
+
+describe('per-provider AI tuning', () => {
+  beforeEach(() => {
+    installStorages();
+  });
+
+  it('falls back to the shared default when nothing is stored', () => {
+    expect(getProviderMaxTokens('anthropic')).toBe(DEFAULT_AI_MAX_TOKENS);
+    expect(getProviderEffort('anthropic')).toBe(DEFAULT_AI_EFFORT);
+    expect(hasProviderTuning('anthropic')).toEqual({
+      maxTokens: false,
+      effort: false,
+    });
+  });
+
+  it('round-trips an override', () => {
+    setProviderMaxTokens('anthropic', 32000);
+    setProviderEffort('anthropic', 'high');
+    expect(getProviderMaxTokens('anthropic')).toBe(32000);
+    expect(getProviderEffort('anthropic')).toBe('high');
+    expect(hasProviderTuning('anthropic')).toEqual({
+      maxTokens: true,
+      effort: true,
+    });
+  });
+
+  // The whole reason these are per-provider: the ceilings and the meaning of
+  // "effort" differ, so tuning one backend and trying another must not lose it.
+  it('keeps the tuning of each provider separate', () => {
+    setProviderMaxTokens('anthropic', 32000);
+    setProviderMaxTokens('openai', 8000);
+
+    expect(getProviderMaxTokens('anthropic')).toBe(32000);
+    expect(getProviderMaxTokens('openai')).toBe(8000);
+    // Untouched, so still on the default rather than on either neighbour's value.
+    expect(getProviderMaxTokens('gemini')).toBe(DEFAULT_AI_MAX_TOKENS);
+  });
+
+  it('survives switching away and back', () => {
+    setProviderEffort('anthropic', 'max');
+    setAiProvider('openai');
+    setAiProvider('anthropic');
+    expect(getProviderEffort('anthropic')).toBe('max');
+  });
+
+  it('clearing one override leaves the other alone', () => {
+    setProviderMaxTokens('anthropic', 32000);
+    setProviderEffort('anthropic', 'low');
+
+    setProviderEffort('anthropic', null);
+    expect(getProviderEffort('anthropic')).toBe(DEFAULT_AI_EFFORT);
+    expect(getProviderMaxTokens('anthropic')).toBe(32000);
+    expect(hasProviderTuning('anthropic')).toEqual({
+      maxTokens: true,
+      effort: false,
+    });
+  });
+
+  it('removes the entry once nothing is overridden', () => {
+    setProviderMaxTokens('anthropic', 32000);
+    setProviderMaxTokens('anthropic', null);
+    expect(localStorage.getItem('mbide.aiTuning.anthropic')).toBeNull();
+  });
+
+  it('ignores a corrupt entry rather than failing a request', () => {
+    localStorage.setItem('mbide.aiTuning.anthropic', '{not json');
+    expect(getProviderMaxTokens('anthropic')).toBe(DEFAULT_AI_MAX_TOKENS);
+  });
+
+  it('ignores a stored value that is not usable as a budget', () => {
+    localStorage.setItem(
+      'mbide.aiTuning.anthropic',
+      JSON.stringify({ maxTokens: -5, effort: 'sideways' }),
+    );
+    expect(getProviderMaxTokens('anthropic')).toBe(DEFAULT_AI_MAX_TOKENS);
+    expect(getProviderEffort('anthropic')).toBe(DEFAULT_AI_EFFORT);
   });
 });

@@ -1,9 +1,6 @@
 import type { AiEffort, AiProviderId } from './providers/types';
 import { getProvider } from './providers/registry';
-import {
-  getProviderEffort,
-  getProviderMaxTokens,
-} from '../storage/settings';
+import { getProviderEffort, getProviderMaxTokens } from '../storage/settings';
 
 /** What a request needs to know about how long an answer may be. */
 export interface AiTuning {
