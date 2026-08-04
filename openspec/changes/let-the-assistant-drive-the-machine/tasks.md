@@ -50,10 +50,10 @@
 - [x] 3.5 Add `src/app/machineControl.test.ts` driving a real machine: typing
       reaches an `INPUT` prompt, waiting for text resolves and times out, and
       every key is released when driving ends
-- [ ] 3.6 Derive the per-dialect key-name list in
+- [x] 3.6 Derive the per-dialect key-name list in
       `src/ai/machineObservability.ts` from the keyboard layout, with no emulator
       constructed and byte-stable per dialect
-- [ ] 3.7 Extend `src/ai/machineObservability.test.ts` to construct every
+- [x] 3.7 Extend `src/ai/machineObservability.test.ts` to construct every
       registered machine and crosscheck that each derived key name is one that
       machine actually accepts — the project's anti-drift pattern
 

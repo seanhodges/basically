@@ -1,4 +1,32 @@
 import type { Dialect } from '../dialects/types';
+import { indexKeyDefs } from '../keyboard/controllerConfig';
+
+/**
+ * The names of the keys this machine has, for telling the assistant what it may
+ * press when it drives a program.
+ *
+ * Derived from the machine's own keyboard layout rather than written down here,
+ * because `MachineEmulator.setKey` takes an opaque machine-defined token and
+ * those tokens are genuinely not uniform - one machine's `KeyA` is another's
+ * bare `A`, and two of them map to raw matrix positions instead. A list written
+ * by hand would be a second account of thirteen keyboards, drifting from the
+ * first.
+ *
+ * Derivable without constructing an emulator, which matters: the system prompt
+ * is built from the `Dialect` alone and has to stay byte-stable per dialect for
+ * prefix caching. Sorted for exactly that reason - the layout's own order is an
+ * arrangement of a keyboard, not a promise about iteration.
+ *
+ * Keys that emit nothing are left out. A key with no tokens presses nothing on
+ * the matrix, so offering its name would be offering a key that silently fails.
+ */
+export function driveKeyNames(dialect: Dialect): string[] {
+  const names: string[] = [];
+  for (const [id, def] of indexKeyDefs(dialect.keyboardLayout)) {
+    if (def.emits.length > 0) names.push(id);
+  }
+  return names.sort();
+}
 
 /**
  * Dialect ids whose machines cannot report their BASIC variables.

@@ -8,9 +8,12 @@ import {
   buildExpectationRules,
   canCheckByRunning,
   canReportVariables,
+  driveKeyNames,
   DIALECTS_WITHOUT_RUNTIME_REPORT,
   DIALECTS_WITHOUT_VARIABLE_READBACK,
 } from './machineObservability';
+import { createMachineControl } from '../app/machineControl';
+import { indexKeyDefs } from '../keyboard/controllerConfig';
 
 /**
  * What the assistant is told this machine can be asked about must match what
@@ -53,6 +56,70 @@ function romFor(romUrl: string | undefined): Uint8Array {
     readFileSync(path.resolve(__dirname, '../../public', rel)),
   );
 }
+
+describe('the key names offered match the machines', () => {
+  // The crosscheck that stops the assistant being told about a key that does
+  // nothing. The names come from layout data, the pressing goes through the
+  // machine's own matrix, and nothing but a real machine can say whether the
+  // two agree - so every registered one is built and every name it advertises
+  // is actually pressed.
+  for (const dialect of dialects) {
+    it(`${dialect.id} can press every key name it offers`, () => {
+      const machine = dialect.createEmulator({
+        rom: romFor(dialect.romUrl),
+        ramKb: 16,
+      });
+      const control = createMachineControl({
+        machine,
+        layout: dialect.keyboardLayout,
+        gamepadMode: 'keymapped',
+        fireButtons: dialect.joystickFireButtons ?? 1,
+        step: () => machine.runFrame(),
+      });
+
+      const names = driveKeyNames(dialect);
+      // A machine offering no keys at all would leave driving useless on it
+      // while still advertising the capability.
+      expect(names.length, `${dialect.id} offers no key names`).toBeGreaterThan(
+        0,
+      );
+      for (const name of names) {
+        expect(
+          control.pressKeys([name], 1),
+          `${dialect.id} advertises "${name}" but cannot press it`,
+        ).toMatchObject({ ok: true });
+      }
+
+      control.releaseAll();
+      machine.dispose();
+    });
+  }
+
+  it('offers no key that presses nothing', () => {
+    // A key with no tokens is a legend, not a key: naming it would hand the
+    // assistant something that silently fails.
+    for (const dialect of dialects) {
+      const index = indexKeyDefs(dialect.keyboardLayout);
+      for (const name of driveKeyNames(dialect)) {
+        expect(
+          index.get(name)!.emits.length,
+          `${dialect.id} / ${name}`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('is stable, so the system prompt built from it caches', () => {
+    // The prompt is a per-dialect constant and must stay byte-identical across
+    // builds, or every conversation pays a cache write on every turn.
+    for (const dialect of dialects) {
+      expect(driveKeyNames(dialect)).toEqual(driveKeyNames(dialect));
+      expect(driveKeyNames(dialect)).toEqual(
+        [...driveKeyNames(dialect)].sort(),
+      );
+    }
+  });
+});
 
 describe('the variable-readback table matches the machines', () => {
   for (const dialect of dialects) {
