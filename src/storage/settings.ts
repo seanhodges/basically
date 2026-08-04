@@ -38,6 +38,14 @@ type ListingBlockMetaMap = Record<
 export type PersistedMessage = Omit<ChatMessage, 'image'> & {
   incomplete?: boolean;
   /**
+   * The page went away mid-answer, as opposed to the user pressing Stop or the
+   * provider hitting its output limit - which `incomplete` also covers. Only a
+   * mid-stream write can produce it, so it says what happened rather than only
+   * that something did. Absent on threads stored before it was recorded, which
+   * reads correctly as "cut short, cause unknown".
+   */
+  interrupted?: boolean;
+  /**
    * Fingerprint of the program the reply was written against, so a fragment
    * applied later can be flagged as possibly stale. Absent on threads stored
    * before it was recorded - an unknown base, which raises no warning.

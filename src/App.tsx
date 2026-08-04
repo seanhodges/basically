@@ -27,6 +27,7 @@ import {
   LANDSCAPE_MOBILE_QUERY,
 } from './app/useMediaQuery';
 import { shouldRevealEmulator } from './app/aiRunCheck';
+import { installUnloadGuard } from './ai/unloadGuard';
 import { useHistorySync } from './app/useHistorySync';
 import { useGlobalShortcuts } from './app/useGlobalShortcuts';
 import { useOpenShared } from './app/useOpenShared';
@@ -58,6 +59,10 @@ export default function App() {
       useIdeStore.getState().setWelcomeOpen(true);
     }
   }, []);
+
+  // Ask before the page is left while an answer is still arriving: a stream
+  // cannot be resumed, so a reload part-way through costs the answer.
+  useEffect(installUnloadGuard, []);
 
   // Mirror the document to autosave every 2s. persistAutosave is self-gating:
   // it writes only when the content changed, and empties autosave for a pristine
