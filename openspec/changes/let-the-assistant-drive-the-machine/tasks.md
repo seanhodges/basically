@@ -36,18 +36,18 @@
 
 ## 3. Driving the machine
 
-- [ ] 3.1 Add `src/app/machineControl.ts` — a module-level registry modelled on
+- [x] 3.1 Add `src/app/machineControl.ts` — a module-level registry modelled on
       `src/app/screenCapture.ts`, exposing press/type/joystick/advance/wait-for
       text/read/freeze/release
-- [ ] 3.2 Implement the driver's own bounded frame advance over `runFrame()` with
+- [x] 3.2 Implement the driver's own bounded frame advance over `runFrame()` with
       frame-counted key releases, honouring each layout's `minHoldFrames`; do
       **not** register a frame hook (single slot, already contended)
-- [ ] 3.3 Resolve key names through `Dialect.keyboardLayout` and joystick roles
+- [x] 3.3 Resolve key names through `Dialect.keyboardLayout` and joystick roles
       through the controller bindings, falling back to mapped keys where the
       machine has no joystick port
-- [ ] 3.4 Register the control from `EmulatorPane` alongside the screen capture,
+- [x] 3.4 Register the control from `EmulatorPane` alongside the screen capture,
       and unregister on stop/unmount; add freeze support to the tick
-- [ ] 3.5 Add `src/app/machineControl.test.ts` driving a real machine: typing
+- [x] 3.5 Add `src/app/machineControl.test.ts` driving a real machine: typing
       reaches an `INPUT` prompt, waiting for text resolves and times out, and
       every key is released when driving ends
 - [ ] 3.6 Derive the per-dialect key-name list in

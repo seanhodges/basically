@@ -41,6 +41,13 @@ import {
   registerScreenCapture,
   snapshotScreen,
 } from '../app/screenCapture';
+import {
+  createMachineControl,
+  forgetMachineControl,
+  machineFrozen,
+  registerMachineControl,
+} from '../app/machineControl';
+import { effectiveGamepadMode } from '../keyboard/controllerConfig';
 import type { MachineEmulator, MachineScreenText } from '../dialects/types';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { EmulatorAudio } from '../audio/emulatorAudio';
@@ -137,6 +144,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // the overlays, so the screen resize and the gamepad/keyboard hand-off stay in
   // lock-step through focus transitions instead of diverging.
   const { overlayUp } = useInputOverlays();
+  const gamepadMode = useIdeStore((s) => s.gamepadMode);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
 
@@ -244,6 +252,38 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     forgetScreenCapture();
   }, []);
 
+  // The driver the assistant reaches the machine through, offered on the same
+  // terms as the capture: only while a machine is up and drawing, and taken
+  // back when it goes away. Unlike the capture there is no snapshot to keep -
+  // a machine that is gone cannot be driven, and pretending otherwise would let
+  // an answer about this program be checked against the last one.
+  const unregisterControlRef = useRef<(() => void) | null>(null);
+  const registerControl = useCallback(
+    (machine: MachineEmulator, render: () => void) => {
+      unregisterControlRef.current?.();
+      unregisterControlRef.current = registerMachineControl(
+        createMachineControl({
+          machine,
+          layout: dialect.keyboardLayout,
+          gamepadMode: effectiveGamepadMode(dialect, gamepadMode),
+          fireButtons: dialect.joystickFireButtons ?? 1,
+          // A driven frame renders like any other: what the assistant is shown
+          // and what the user would have seen are the same picture.
+          step: () => {
+            machine.runFrame();
+            render();
+          },
+        }),
+      );
+    },
+    [dialect, gamepadMode],
+  );
+  const dropControl = useCallback(() => {
+    unregisterControlRef.current?.();
+    unregisterControlRef.current = null;
+    forgetMachineControl();
+  }, []);
+
   // Let the browser paint at least once. Used to surface the loading overlay
   // before a synchronous ROM boot (loadProgram) blocks the main thread.
   const nextPaint = useCallback(
@@ -297,6 +337,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           // mount so a canvas that has not drawn anything yet is never offered
           // up as this machine's screen.
           registerCapture();
+          // And a machine worth driving, for the same reason: a machine that
+          // has not drawn yet is one no key press would mean anything to.
+          registerControl(machine, render);
         }
       };
 
@@ -317,6 +360,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           audio.push(samples, machine.audioSampleRate ?? 44100);
         }
       };
+
+      // The assistant is driving: it advances the machine itself, a step at a
+      // time, so this loop must not also be running it. What it acts on has to
+      // be the screen it was last shown, not one that moved on while a tool
+      // call was in flight. The loop stays scheduled so the machine picks up
+      // again the moment driving ends.
+      if (machineFrozen()) {
+        schedule();
+        return;
+      }
 
       // Debug session: advance by one slice, pausing on a breakpoint ('run') or
       // at the next BASIC line ('step'). The machine renders progress between
@@ -466,7 +519,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       schedule();
     };
     schedule();
-  }, [stopLoop, registerCapture]);
+  }, [stopLoop, registerCapture, registerControl]);
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
     if (machineRef.current) return machineRef.current;
@@ -775,13 +828,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // Forgotten rather than stashed: a question about this machine must never
     // be answered against the screen of the one before it.
     dropCapture();
+    dropControl();
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
     firstFrameRef.current = false;
     setLoading(false);
     setError('');
-  }, [dialect, stopLoop, clearCanvas, disposeAudio, dropCapture]);
+  }, [dialect, stopLoop, clearCanvas, disposeAudio, dropCapture, dropControl]);
 
   // Backgrounding pauses the rAF loop; clear the matrix so no key stays held.
   useEffect(() => {
