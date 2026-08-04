@@ -5,6 +5,7 @@ import {
   latchExpectationSample,
   shouldOpenDebugSession,
   shouldRevealEmulator,
+  shouldTakeMachineBack,
   AI_CHECK_MAX_FRAMES,
   AI_CHECK_ABS_MAX_FRAMES,
   type AiRunFrame,
@@ -310,5 +311,20 @@ describe('shouldRevealEmulator', () => {
     // canvas - would take the assistant off the screen mid-answer for something
     // nobody asked for.
     expect(shouldRevealEmulator({ checking: true })).toBe(false);
+  });
+});
+
+describe('shouldTakeMachineBack', () => {
+  it('takes the machine back for a run the user asked for', () => {
+    // Otherwise a machine the assistant is holding still stays held through the
+    // user's own run, which shows their program and never advances a frame.
+    expect(shouldTakeMachineBack({ checking: false })).toBe(true);
+  });
+
+  it('leaves the driver alone for a check', () => {
+    // The check is what *gives* the assistant the machine: the driver is
+    // registered by the frame the check draws, so dropping it on the way in
+    // would take the machine back from nobody.
+    expect(shouldTakeMachineBack({ checking: true })).toBe(false);
   });
 });

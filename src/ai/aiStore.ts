@@ -21,6 +21,7 @@ import {
   freezeMachine,
   hasMachineControl,
   machineControl,
+  ownsMachine,
 } from '../app/machineControl';
 import {
   describeDriving,
@@ -803,12 +804,13 @@ function judgeScreen(
   // the provider, not of whether this particular answer asked. The prompt sits
   // in the cached prefix, so describing it only on the turns that drive would
   // cost a cache write on every turn after one of them.
-  void loadSystemPrompt(
-    dialect,
-    true,
-    getProvider(context.providerId).supportsTools,
-  )
-    .then((system) =>
+  settleJudgingTurn(
+    driving,
+    loadSystemPrompt(
+      dialect,
+      true,
+      getProvider(context.providerId).supportsTools,
+    ).then((system) =>
       ai.send({
         ...request,
         system,
@@ -826,13 +828,54 @@ function judgeScreen(
         // only when it came back carrying a correction.
         skipCheck: true,
       }),
-    )
-    .then(() => {
-      // Always, even if the turn failed: a machine left frozen outlives the
-      // turn that froze it and the user's own run never advances again.
+    ),
+    () => settleJudgement(outcome, ranSource, stalenessBase, results),
+    () => abandonJudgement(outcome, results, 'the judgement could not be made'),
+  );
+}
+
+/**
+ * Hand the machine back when a judging turn ends, however it ended.
+ *
+ * `finish()` has to run on both paths, and that is the whole reason this exists.
+ * A machine left frozen outlives the turn that froze it: the pane's loop bails
+ * on every tick, so the user's own run shows their program and never advances a
+ * frame. `send` catches its own transport failures, so the rejection guarded
+ * here is the turn never leaving the ground at all - a system prompt that could
+ * not be loaded, say - which is exactly the case where nothing else would ever
+ * release the machine.
+ *
+ * Two handlers rather than a trailing `.catch`, and not `.finally`, because
+ * only this form makes "the reply arrived" and "the turn never happened"
+ * exclusive: a `.catch` after the success handler would run `finish()` a second
+ * time whenever `judged` itself threw, and `.finally` would let `judged` run on
+ * the rejected path.
+ *
+ * And `abandoned` deliberately does not judge. On a rejection no reply was ever
+ * appended, so the last message in the thread is the answer being judged -
+ * complete, non-empty, not streaming. Reading a verdict out of that would apply
+ * one the assistant never gave, and a `FAIL` read that way would spend a
+ * correction attempt and start another run.
+ *
+ * Exported for its own tests: the ordering and the exclusivity are the whole
+ * rule, and reaching them through a streamed turn would test the mocking.
+ */
+export function settleJudgingTurn(
+  driving: { finish: () => void } | null,
+  turn: Promise<unknown>,
+  judged: () => void,
+  abandoned: () => void,
+): void {
+  void turn.then(
+    () => {
       driving?.finish();
-      settleJudgement(outcome, ranSource, stalenessBase, results);
-    });
+      judged();
+    },
+    () => {
+      driving?.finish();
+      abandoned();
+    },
+  );
 }
 
 /**
@@ -863,6 +906,23 @@ export function armDriving(asked: boolean): {
   return {
     tools: driveToolDefinitions(),
     runTool: async (call) => {
+      // The machine may have moved on since this turn was armed: a run the user
+      // started registers a new driver over this one. This turn's reference goes
+      // on working regardless - it closes over the machine - so without asking,
+      // it would type into whatever program the user has since loaded, and
+      // describe that program's screen as though it were its own.
+      //
+      // Reported rather than thrown, on the same terms as a tool that does not
+      // exist: the assistant keeps everything it did before, and can say in its
+      // reply that the machine was taken away rather than losing the turn.
+      if (!ownsMachine(control)) {
+        return {
+          callId: call.id,
+          content:
+            'the machine is no longer yours to drive - the user started a run of their own',
+          isError: true,
+        };
+      }
       if (call.name === LOOK_TOOL) {
         return { callId: call.id, content: describeScreen(control) };
       }
@@ -888,7 +948,12 @@ export function armDriving(asked: boolean): {
       };
     },
     finish: () => {
-      control.releaseAll();
+      // Only where this turn still owns the machine: after a Stop the machine
+      // behind that driver has been disposed, and after a run the user started
+      // the keys held are somebody else's. The thaw below is unconditional for
+      // the opposite reason - the freeze is the thing that strands a machine, so
+      // a thaw that could be skipped is exactly how one gets stranded.
+      if (ownsMachine(control)) control.releaseAll();
       freezeMachine(false);
       // Said only where input actually reached the machine. Waiting and looking
       // change nothing the user could not have seen themselves, where a
@@ -896,6 +961,24 @@ export function armDriving(asked: boolean): {
       pendingDriveNote = describeDriving(reports);
     },
   };
+}
+
+/**
+ * Finish the work with nothing judged: the run reported, its expectations left
+ * unchecked with `why`, and the screen shown to the user regardless.
+ *
+ * The screen is the point. Whatever became of the judgement, the program ran and
+ * drew something, and that is the user's to see - a judgement that could not be
+ * made is a reason to say nothing about the program, not a reason to withhold
+ * what it did.
+ */
+function abandonJudgement(
+  outcome: AiRunOutcome,
+  results: readonly ExpectationResult[],
+  why: string,
+): void {
+  pendingRunNote = buildRunNote(outcome, leaveUnjudged(results, why));
+  showFinishedWork(latestFinalScreen ?? undefined);
 }
 
 /**
@@ -921,11 +1004,7 @@ function settleJudgement(
     reply.streaming ||
     reply.content.trim() === ''
   ) {
-    pendingRunNote = buildRunNote(
-      outcome,
-      leaveUnjudged(results, 'the judgement did not finish'),
-    );
-    showFinishedWork(latestFinalScreen ?? undefined);
+    abandonJudgement(outcome, results, 'the judgement did not finish');
     return;
   }
 

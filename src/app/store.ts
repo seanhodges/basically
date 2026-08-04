@@ -1569,14 +1569,27 @@ export const useIdeStore = create<IdeState>((set) => ({
             tapeFiles: opts?.tapeFiles ?? [],
             autoStart: opts?.autoStart ?? null,
             bootDisc: opts?.bootDisc ?? null,
+            // On the tab layout, a program arriving from disk stops the machine
+            // still running the old one and brings forward the editor showing
+            // what was just loaded.
+            //
+            // Named loads only, and that is the whole point: an in-place apply
+            // is an edit to the program the user already has, and edits do not
+            // stop machines. The AI panel's apply-and-run lands this write in
+            // one commit with its own showEmulator() and requestRun(), so a stop
+            // from here would be a stop of the run the user just asked for - the
+            // emulator would appear and never start. It also brings the two
+            // layouts into line: the split layout has never stopped the machine
+            // for an apply.
+            ...(isMobileViewport()
+              ? {
+                  stopRequest: s.stopRequest + 1,
+                  mobileTab: 'editor' as MobileTab,
+                }
+              : {}),
           }
         : {}),
       dirty: fileName === undefined,
-      // On mobile, loading new content stops any running program and brings the
-      // user back to the editor showing what was just loaded.
-      ...(isMobileViewport()
-        ? { stopRequest: s.stopRequest + 1, mobileTab: 'editor' as MobileTab }
-        : {}),
     }));
     persistAutosave();
   },

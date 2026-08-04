@@ -1439,3 +1439,57 @@ describe('running an answer the assistant returned', () => {
     expect(useIdeStore.getState().runOutcome!.screenText).toBeUndefined();
   });
 });
+
+// The tab layout has one slot for the editor, the machine and the assistant, so
+// loading a document there has to say which of them the user is now looking at -
+// and whether the machine running the old program should still be running.
+describe('loading a document on the tab layout', () => {
+  beforeEach(() => {
+    useIdeStore.setState({ mobileTab: 'ai', stopRequest: 0 });
+  });
+
+  it('a named Open stops the machine and shows the editor', () => {
+    withViewport(true, () =>
+      useIdeStore.getState().replaceDocument('10 REM opened', 'other.bas'),
+    );
+    const s = useIdeStore.getState();
+    expect(s.stopRequest).toBe(1);
+    expect(s.mobileTab).toBe('editor');
+  });
+
+  it('a named Open does neither on the split layout', () => {
+    withViewport(false, () =>
+      useIdeStore.getState().replaceDocument('10 REM opened', 'other.bas'),
+    );
+    const s = useIdeStore.getState();
+    expect(s.stopRequest).toBe(0);
+    expect(s.mobileTab).toBe('ai');
+  });
+
+  it('an in-place apply stops nothing and moves the user nowhere', () => {
+    // The AI panel's apply-and-run lands this write in the same commit as its
+    // own showEmulator() and requestRun(), so a stop from here is a stop of the
+    // run the user just asked for: the emulator appears and never starts.
+    // Applying without running is only an edit, and edits do not stop machines.
+    for (const narrow of [true, false]) {
+      useIdeStore.setState({ mobileTab: 'ai', stopRequest: 0 });
+      withViewport(narrow, () =>
+        useIdeStore.getState().replaceDocument('10 REM ai edit'),
+      );
+      const s = useIdeStore.getState();
+      expect(s.stopRequest).toBe(0);
+      expect(s.mobileTab).toBe('ai');
+    }
+  });
+
+  it('a sample or import still stops the machine and shows the editor', () => {
+    // loadUnsavedDocument keeps its own bump: Sample/New/Import are always a
+    // different program, never an edit to the one in front of the user.
+    withViewport(true, () =>
+      useIdeStore.getState().loadUnsavedDocument('10 REM sample'),
+    );
+    const s = useIdeStore.getState();
+    expect(s.stopRequest).toBe(1);
+    expect(s.mobileTab).toBe('editor');
+  });
+});

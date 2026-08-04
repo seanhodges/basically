@@ -259,6 +259,21 @@ export function hasMachineControl(): boolean {
 }
 
 /**
+ * Whether `control` is still the live driver - that is, whether the turn
+ * holding it still owns the machine.
+ *
+ * A driving turn takes its driver once and then holds it across seconds of
+ * network, and in that time the user may start a run of their own, which
+ * registers a new driver over this one. The turn's own reference keeps working
+ * regardless - it closes over the machine object - so without asking, it would
+ * go on typing into whatever program the user has since loaded. Asking first is
+ * what keeps driving confined to the run it was armed for.
+ */
+export function ownsMachine(control: MachineControl): boolean {
+  return live === control;
+}
+
+/**
  * Hold the machine still, or let it go again.
  *
  * A tool round trip is seconds of network, and the pane's loop keeps ticking

@@ -92,6 +92,31 @@ export function shouldRevealEmulator(opts: {
   return !opts.checking;
 }
 
+/**
+ * Whether a run should take the machine back from the assistant.
+ *
+ * While the assistant is driving, the machine is held still between its actions
+ * so that what it acts on is the screen it was last shown. That hold has to end
+ * the moment the user starts a run of their own: they pressed Play, or applied
+ * an answer and ran it, and a machine that stays held is one that shows their
+ * program and never advances a frame. So a run the user asked for drops the
+ * driver outright - which both thaws the machine and stops an in-flight turn
+ * pressing keys into a program that is no longer the one it was driving.
+ *
+ * A check does not, and the ordering is why: the driver the assistant needs is
+ * registered by the frame the check itself draws, so a check that dropped it on
+ * the way in would be taking the machine back from nobody and handing it
+ * straight back. Worse, a check refused before it reaches the machine at all -
+ * an empty program, a lint error - would have destroyed a working driver for a
+ * run that never happened.
+ */
+export function shouldTakeMachineBack(opts: {
+  /** This run is the IDE checking an answer the assistant returned. */
+  checking: boolean;
+}): boolean {
+  return !opts.checking;
+}
+
 /** What the machine said about itself this frame, as the check sees it. */
 export interface AiRunFrame {
   /** `machine.readReport()` for this frame. */
