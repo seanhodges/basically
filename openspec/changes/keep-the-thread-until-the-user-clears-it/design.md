@@ -29,13 +29,15 @@ within.
 - Distinguish "the page went away" from "the user stopped it", and surface it on the
   message rather than only inside a code block.
 - Offer the interrupted request again in one action.
+- Make the departure that causes it ask first, so the common case stops happening.
 - Give the composer `/clear` and `/hide`.
 - Write the existing keep-working-while-away behaviour into the spec and cover it
   with tests, changing no code to do it.
 
 **Non-Goals:**
 
-- Resuming a stream, or keeping a request alive across a reload.
+- Resuming a stream, or keeping a request alive across a reload — including by moving
+  the provider call into a worker of any kind (see Decisions).
 - Persisting the pending unrequested correction — see the proposal's non-goals.
 - A general command parser. Two exact matches, no arguments, no registry.
 - Any change to the `Dialect` / `MachineEmulator` seam. **This change does not touch
@@ -84,6 +86,44 @@ correction budget and wiping stored conversation are all already one action, use
 when a different program becomes active. `/clear` gives it a user-reachable trigger;
 no new store action is introduced.
 
+**A worker cannot hold the request open, so the cheapest win is the reload that
+never happens.** The obvious way to make an interrupted answer impossible is to run
+the provider call somewhere the page's lifetime does not reach. Each candidate was
+checked and none pays:
+
+- A dedicated worker is owned by its document and is torn down with it. Every case
+  that interrupts an answer — reload, tab close, a tab the OS reclaims, a crash —
+  destroys the worker too. It would move the call off the main thread, which was
+  never the constraint: streaming is async I/O.
+- A shared worker ends when its last client disconnects, which is exactly what a
+  reload does, and it is absent on Chrome for Android — a first-class layout here.
+- A service worker is the only one with a lifetime of its own, and is genuinely
+  capable of outliving a reload. But the app's service worker is generated wholesale
+  by Workbox, so there is no source file to add to: taking this on means owning the
+  worker by hand, reimplementing the precache, the ROM runtime cache and the docs
+  navigation denylist — with the offline guarantee they serve having no end-to-end
+  coverage to catch a mistake. It would also undo the deliberate per-provider
+  code-splitting of the vendor SDKs, since a classic service worker cannot import on
+  demand. And it still could not cover a reclaimed tab or a crash, so the interrupted
+  marker would have to stay regardless.
+
+So the interruption is not prevented at the transport; the common *cause* of it is
+discouraged instead, by having the browser confirm a departure while an answer is
+arriving. It is a fraction of the work, risks nothing already shipped, and leaves the
+marker doing what it already does for everything a confirmation cannot reach.
+
+**The confirmation watches an answer arriving, not the assistant being busy.** The
+assistant is also busy while it runs an answer on the machine and while it looks at
+the screen — by which point the answer is complete and stored, and only the verdict
+would be lost. Stopping the user for that is not a trade worth making, and would
+make the prompt frequent enough to be trained away.
+
+**The guard is a module with an explicit install, not an effect in a component.**
+The unit tests run under node and collect `*.test.ts` only, so logic inside a `.tsx`
+component has nowhere to be tested. It also takes its event target as a parameter
+rather than reaching for the global: declaring a `window` in these tests is not free,
+because the machine cores read it to decide they are running in a browser.
+
 ## Risks / Trade-offs
 
 - **A user types `/clear` meaning to send it as text** → Both commands are matched
@@ -101,3 +141,11 @@ no new store action is introduced.
 - **Two commands invite a third** → Kept as a local table of exact strings, not a
   registry, so the cost of the next one is a line and the cost of not needing one is
   nothing.
+- **A departure prompt is a nag if it fires when nothing is at stake** → It is armed
+  only while an answer is arriving, which is seconds, and disarmed the moment the
+  answer is in. An idle thread, a running check and a finished conversation all leave
+  without comment.
+- **The confirmation reads as a promise the answer is safe** → It is not one, and the
+  proposal says so in as many words: it reduces how often the interrupted path is
+  reached and cannot close it. That is precisely why the marker and the offer to ask
+  again stay.

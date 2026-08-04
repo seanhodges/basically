@@ -122,6 +122,39 @@ test('closing the assistant does not cancel the answer', async ({ page }) => {
   await expect(page.getByText(/A maze it is/)).toBeVisible({ timeout: 15000 });
 });
 
+test('leaving while an answer is arriving is confirmed first', async ({
+  page,
+}) => {
+  await stubAssistant(page, ['A maze it is, then.'], { delayMs: 5000 });
+  await openApp(page);
+  await openAssistant(page);
+  await ask(page, 'write me a maze');
+  await expect(page.getByText(/Thinking|Writing code/)).toBeVisible();
+
+  // Playwright dismisses the prompt for us, so the reload goes through - what is
+  // under test is that the browser was made to ask at all.
+  const asked: string[] = [];
+  page.on('dialog', (dialog) => asked.push(dialog.type()));
+  await page.reload();
+  await expect(page.locator('.cm-content')).toBeVisible();
+  expect(asked).toContain('beforeunload');
+});
+
+test('leaving an idle thread is not confirmed', async ({ page }) => {
+  await stubAssistant(page, ['A maze it is, then.']);
+  await openApp(page);
+  await openAssistant(page);
+  await ask(page, 'write me a maze');
+  await expect(page.getByText(/A maze it is/)).toBeVisible({ timeout: 15000 });
+
+  // Nothing is arriving any more, so reloading must not stop to ask.
+  const asked: string[] = [];
+  page.on('dialog', (dialog) => asked.push(dialog.type()));
+  await page.reload();
+  await expect(page.locator('.cm-content')).toBeVisible();
+  expect(asked).toHaveLength(0);
+});
+
 test('/clear starts the conversation over', async ({ page }) => {
   const stub = await stubAssistant(page, ['A maze it is, then.']);
   await openApp(page);

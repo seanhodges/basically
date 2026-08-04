@@ -22,6 +22,9 @@ the rails can only be escaped by loading something else and coming back.
     with it — working even while the assistant is busy or has no API key set.
   - `/hide` closes the assistant as its toolbar toggle does, leaving the conversation
     and any work in flight untouched.
+- Leaving the page while an answer is still arriving is **confirmed first**, so the
+  cheapest fix for a lost answer is the reload that never happens. Only while an
+  answer is arriving — once it is in, leaving passes without comment.
 - The behaviour that already holds — that putting the assistant away does not cancel
   a request, a check, or an unrequested correction — becomes a stated requirement.
   No code changes for this; it is written down so it stays true.
@@ -44,6 +47,11 @@ None.
 
 - **Resuming an interrupted stream.** The provider's streaming API is not
   reconnectable. The answer is offered again, not continued.
+- **Guaranteeing an answer is never lost.** Confirming a departure only reaches a
+  page the browser is unloading while it is still alive. A tab the OS reclaims, a
+  crash, or a browser that ignores the confirmation all still lose the answer, which
+  is why the interrupted marker remains the thing that actually handles the case.
+- **Moving the assistant into a worker.** Considered and rejected — see design.md.
 - **Persisting an in-flight request across a reload.** Nothing keeps talking to the
   provider once the page is gone; only the text that had already arrived is kept.
 - **Persisting the pending unrequested correction.** That offer is built from a run
@@ -63,6 +71,8 @@ None.
 - `src/components/AiPanel.tsx` (+ its CSS module) — the cut-short note and its
   **Ask again** button, and the command handling at the top of `send`. `/hide` reuses
   the store's existing `showEmulator()`, which the panel already holds.
+- `src/ai/unloadGuard.ts` (new) + one call from `src/App.tsx` — the departure
+  confirmation, armed and disarmed off the AI store.
 - Tests: `src/ai/aiStore.test.ts`, `e2e/aiStub.ts` (a reply that holds the connection
   open, so reload-mid-stream stops being manual-only), `e2e/ai-assistant/`.
 - No new dependencies, no change to the `Dialect` seam, nothing machine-specific.

@@ -73,6 +73,29 @@ was already said stays in the thread as the record of what happened.
 - **WHEN** the user stops an answer themselves and later reloads
 - **THEN** it is not offered as interrupted, because nothing interrupted it
 
+### Requirement: Leaving while an answer is arriving is confirmed first
+
+While an answer is still arriving, the IDE SHALL have the browser confirm before
+the page is left, so an answer is not lost to a reload the user did not mean.
+It SHALL ask only while an answer is actually arriving: once the answer is in,
+what remains is a check whose verdict is worth less than the interruption, and
+leaving SHALL pass without comment.
+
+This makes an interrupted answer rarer; it does not make it impossible. A page
+the browser never gets to unload — a tab reclaimed by the OS, a crash — still
+reaches `An answer the page interrupted is offered again`, which continues to
+hold.
+
+#### Scenario: Reloading while an answer is arriving
+
+- **WHEN** the user reloads the IDE while an answer is still arriving
+- **THEN** the browser asks them to confirm before the page is left
+
+#### Scenario: Reloading with nothing arriving
+
+- **WHEN** the user reloads the IDE with the answer already in
+- **THEN** they are not asked anything
+
 ### Requirement: The user can clear the conversation
 
 The user SHALL be able to clear the conversation at any time by sending

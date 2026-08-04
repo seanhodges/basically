@@ -30,11 +30,20 @@
 - [x] 4.4 Spec: `/clear` empties the thread, asks the provider nothing, leaves the program in the editor unchanged, and stays empty across a reload
 - [x] 4.5 Spec: `/hide` closes the assistant on a desktop viewport **and** on a phone viewport (copy the phone pattern from `e2e/ai-assistant/checked-answers.spec.ts`), and reopening shows the conversation intact
 
-## 5. Quality gates
+## 5. Confirm a departure mid-answer
 
-- [x] 5.1 `npm run typecheck`
-- [x] 5.2 `npm test` — 4756 passed, 6 files skipped as usual
-- [x] 5.3 `npm run lint`
-- [x] 5.4 `npm run format:check` (or `npm run format`)
-- [x] 5.5 `npm run e2e:chromium -- e2e/ai-assistant` — 20 passed; `e2e/shell` also run (16 passed) because the composer gained a line
-- [x] 5.6 `npx openspec validate --specs`
+- [x] 5.1 Add `src/ai/unloadGuard.ts` exporting `installUnloadGuard(target?)`: subscribe to the AI store and add/remove a `beforeunload` listener as an answer starts and stops arriving, returning the undo. The handler both calls `preventDefault()` and sets `returnValue` — browsers disagree on which raises the prompt, and neither shows words of ours
+- [x] 5.2 Watch for an answer actually arriving, not the assistant being busy: a running check has already stored its answer, and only the verdict would be lost
+- [x] 5.3 Call it once from `src/App.tsx`. **Changed from the plan:** not from the entry module — that deliberately loads neither the editor nor the assistant so the standalone player pays for neither, and importing the AI store there would put it in the entry chunk
+- [x] 5.4 Take the event target as a parameter rather than reaching for the global, so the node tests can watch a plain object. Declaring a `window` in these tests makes the machine cores take their browser path and the suite fails to load
+- [x] 5.5 Unit-test in `src/ai/unloadGuard.test.ts`: idle is unguarded, an arriving answer is guarded, the handler raises the prompt, it stands down when the answer arrives and when the thread is cleared, it does not stack as the answer grows, and uninstalling takes it with it
+- [x] 5.6 End-to-end in `e2e/ai-assistant/ai-panel.spec.ts`: reloading mid-answer raises a `beforeunload` dialog, and reloading with the answer already in raises nothing. Both held over `--repeat-each=4`, so the flakiness the plan allowed for did not materialise and the tests stay
+
+## 6. Quality gates
+
+- [x] 6.1 `npm run typecheck`
+- [x] 6.2 `npm test` — 4763 passed, 6 files skipped as usual
+- [x] 6.3 `npm run lint`
+- [x] 6.4 `npm run format:check` (or `npm run format`)
+- [x] 6.5 `npm run e2e:chromium -- e2e/ai-assistant` — 22 passed; `e2e/shell` also run (16 passed) because the composer gained a line
+- [x] 6.6 `npx openspec validate --specs`
