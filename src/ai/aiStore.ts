@@ -94,11 +94,23 @@ export interface DisplayMessage extends ChatMessage {
    * the apply actions - and none of them should have to learn three answers to
    * keep working. Only the panel's wording and the offer to continue read this.
    *
-   * Absent on a complete answer, and on one restored from storage - the reason is
-   * not worth a byte of the conversation backup, and "it was still arriving when
-   * you closed the tab" is its own thing anyway.
+   * Covers the three ways an answer ends inside a live session. The fourth - the
+   * page going away mid-stream - is {@link interrupted}, which is a different
+   * thing in a way that matters here: it is the only one that survives a reload,
+   * because it is the only one that can be *observed* after one. Absent on a
+   * complete answer, and on one restored from storage.
    */
   cutOff?: CutOffReason;
+  /**
+   * True for an answer the page went away from mid-stream, restored from
+   * storage. Narrower than `incomplete`, which also covers Stop and the output
+   * limit: nothing interrupted those, so only this one is worth offering to ask
+   * again.
+   *
+   * Persisted, unlike {@link cutOff} - a reload is exactly when this one still
+   * needs saying, and exactly when the others no longer can be.
+   */
+  interrupted?: boolean;
   /** True while re-requesting after an empty reply (shows a distinct status). */
   retrying?: boolean;
   /**
@@ -333,6 +345,12 @@ function persist(messages: DisplayMessage[]): void {
         role: m.role,
         content: m.content,
         ...(m.streaming || m.incomplete ? { incomplete: true } : {}),
+        // Still streaming as it was written means the page went away with the
+        // answer half-arrived - the only way to be sure, and it needs no
+        // pagehide/visibilitychange listener (a tab the OS discards fires
+        // neither). Every finalize path clears `streaming` before persisting,
+        // so a stopped or completed answer can never pick this up.
+        ...(m.streaming || m.interrupted ? { interrupted: true } : {}),
         ...(m.baseFingerprint ? { baseFingerprint: m.baseFingerprint } : {}),
         // The same rule for both kinds of screen: the one shown to the
         // assistant and the one shown to the user are equally not worth

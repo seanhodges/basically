@@ -265,6 +265,93 @@ describe('aiStore', () => {
     expect(useAiStore.getState().busy).toBe(false);
   });
 
+  describe('an answer the page went away from', () => {
+    // The page going away is not an event the store gets to observe (a tab the
+    // OS discards fires nothing), so "interrupted" is whatever the mid-stream
+    // write saw: an answer still streaming as it was stored.
+    it('is stored as interrupted, not merely incomplete', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.onText('half a program'); // the throttled mid-stream write
+
+      // What a reload would find: the answer as it stood, still arriving.
+      const stored = loadAiConversation().at(-1)!;
+      expect(stored.content).toBe('half a program');
+      expect(stored.incomplete).toBe(true);
+      expect(stored.interrupted).toBe(true);
+
+      useAiStore.getState().stop(); // tidy up the stream this test left open
+      await p;
+    });
+
+    it('is distinct from an answer the user stopped', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.onText('half a program');
+      useAiStore.getState().stop();
+      await p;
+
+      const stored = loadAiConversation().at(-1)!;
+      expect(stored.incomplete).toBe(true);
+      // Nothing interrupted it, so there is nothing to offer to ask again.
+      expect(stored.interrupted).toBeUndefined();
+    });
+
+    it('is distinct from an answer that finished', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.onText('10 PRINT');
+      h.current!.resolve('10 PRINT');
+      await p;
+
+      const stored = loadAiConversation().at(-1)!;
+      expect(stored.incomplete).toBeUndefined();
+      expect(stored.interrupted).toBeUndefined();
+    });
+
+    it('is distinct from an answer cut off by the output limit', async () => {
+      const p = useAiStore.getState().send(params);
+      h.current!.resolve('10 CLS\n20 PRINT "HAL', 'truncated');
+      await p;
+
+      const stored = loadAiConversation().at(-1)!;
+      expect(stored.incomplete).toBe(true);
+      expect(stored.interrupted).toBeUndefined();
+    });
+
+    it('keeps the marker when a later turn rewrites the thread', async () => {
+      // A restored thread is persisted again whole on the next turn; the marker
+      // has to survive that or the offer to ask again disappears on use.
+      useAiStore.setState({
+        messages: [
+          { role: 'user', content: 'make breakout' },
+          {
+            role: 'assistant',
+            content: 'half a program',
+            incomplete: true,
+            interrupted: true,
+          },
+        ],
+      });
+      const p = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT');
+      await p;
+
+      const stored = loadAiConversation();
+      expect(stored[1]!.interrupted).toBe(true);
+      expect(stored.at(-1)!.interrupted).toBeUndefined();
+    });
+
+    it('leaves a thread stored without the marker alone', () => {
+      // Threads written before it existed say only that the answer was cut
+      // short, not what cut it - a defined state, not a field to repair.
+      sessionStorage.setItem(
+        'mbide.autosave.ai',
+        JSON.stringify([
+          { role: 'assistant', content: '10 PRINT', incomplete: true },
+        ]),
+      );
+      expect(loadAiConversation()[0]!.interrupted).toBeUndefined();
+    });
+  });
+
   describe('why generation stopped', () => {
     it('marks an answer cut off by the output limit as incomplete', async () => {
       const p = useAiStore.getState().send(params);
