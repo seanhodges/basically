@@ -262,6 +262,26 @@ export interface ScreenViewRequest {
   /** The screen as a picture. */
   image: boolean;
   /**
+   * The screen as the characters on it.
+   *
+   * Ungated by provider, unlike {@link image}: it travels as text like every
+   * other part of a request, so there is no backend that can be sent one and
+   * not the other. It is also the cheaper answer by an order of magnitude - a
+   * character grid costs a fraction of what a picture of the same screen does -
+   * and an exact one, where a picture of a bitmap machine is something the
+   * model has to read back off pixels.
+   */
+  text: boolean;
+  /**
+   * The machine itself, to drive before it is looked at.
+   *
+   * Named alongside the views rather than in a block of its own because it is
+   * the same kind of decision and only the assistant can make it: nothing about
+   * a program's text distinguishes one that prints its answer from one that
+   * waits at a prompt for the input that would produce it.
+   */
+  drive: boolean;
+  /**
    * Views named that cannot be produced. Kept rather than dropped, for the same
    * reason a malformed expectation is: a mistaken ask the assistant can see
    * reported back is one it can correct, where a silently ignored one reads as
@@ -272,17 +292,23 @@ export interface ScreenViewRequest {
 
 /** Nothing asked for - what most replies say, and the shape of saying nothing. */
 export function noScreenViews(): ScreenViewRequest {
-  return { image: false, unknown: [] };
+  return { image: false, text: false, drive: false, unknown: [] };
 }
 
 const IMAGE_VIEW_RE = /^SCREEN\s+IMAGE$/i;
+const TEXT_VIEW_RE = /^SCREEN\s+TEXT$/i;
+const DRIVE_VIEW_RE = /^DRIVE$/i;
 
 /**
  * Parse one ` ```basic-view ` block: one view per line.
  *
- * Only the screen image can be named. The screen as text is deliberately not a
- * view here - `SCREEN CONTAINS` already checks text locally and for free, so
- * offering it would be adding a channel rather than handing over a decision.
+ * Two views can be named: the screen as a picture, and the screen as the
+ * characters on it. Text was once deliberately excluded on the grounds that
+ * `SCREEN CONTAINS` already checks text locally and for free - but that is an
+ * argument about *assertions*, and it does not cover the assistant being shown
+ * a screen it did not predict. Asserting on text you expected and reading a
+ * screen you did not are different questions, and only the first was answered.
+ *
  * The shape takes a list so the next view costs a line.
  */
 export function parseScreenViews(block: string): ScreenViewRequest {
@@ -292,6 +318,14 @@ export function parseScreenViews(block: string): ScreenViewRequest {
     if (line === '') continue;
     if (IMAGE_VIEW_RE.test(line)) {
       out.image = true;
+      continue;
+    }
+    if (TEXT_VIEW_RE.test(line)) {
+      out.text = true;
+      continue;
+    }
+    if (DRIVE_VIEW_RE.test(line)) {
+      out.drive = true;
       continue;
     }
     out.unknown.push(line);
@@ -306,6 +340,8 @@ export function mergeScreenViews(
   return requests.reduce<ScreenViewRequest>(
     (acc, r) => ({
       image: acc.image || r.image,
+      text: acc.text || r.text,
+      drive: acc.drive || r.drive,
       unknown: [...acc.unknown, ...r.unknown],
     }),
     noScreenViews(),

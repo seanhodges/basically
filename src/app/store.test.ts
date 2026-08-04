@@ -1405,4 +1405,37 @@ describe('running an answer the assistant returned', () => {
     // "nothing was applied", which is true of every checked answer.
     expect(run.baseSource).toBe(EDITOR);
   });
+
+  it('carries the screen as characters when one was read', () => {
+    useIdeStore
+      .getState()
+      .requestAiRun({ candidate: CANDIDATE, baseSource: EDITOR });
+    useIdeStore.getState().reportRun({
+      outcome: { kind: 'ended-ok' },
+      ranSource: CANDIDATE,
+      baseSource: EDITOR,
+      screenText: { lines: ['HELLO', '     '], cols: 5, rows: 2 },
+    });
+
+    expect(useIdeStore.getState().runOutcome!.screenText).toEqual({
+      lines: ['HELLO', '     '],
+      cols: 5,
+      rows: 2,
+    });
+  });
+
+  it('leaves the screen text off when the machine could not say', () => {
+    useIdeStore
+      .getState()
+      .requestAiRun({ candidate: CANDIDATE, baseSource: EDITOR });
+    useIdeStore.getState().reportRun({
+      outcome: { kind: 'ended-ok' },
+      ranSource: CANDIDATE,
+      baseSource: EDITOR,
+    });
+
+    // Absent rather than an empty grid: nothing read is not a blank screen,
+    // and the difference is what lets the view be reported as unavailable.
+    expect(useIdeStore.getState().runOutcome!.screenText).toBeUndefined();
+  });
 });

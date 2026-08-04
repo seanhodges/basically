@@ -8,9 +8,12 @@ import {
   buildExpectationRules,
   canCheckByRunning,
   canReportVariables,
+  driveKeyNames,
   DIALECTS_WITHOUT_RUNTIME_REPORT,
   DIALECTS_WITHOUT_VARIABLE_READBACK,
 } from './machineObservability';
+import { createMachineControl } from '../app/machineControl';
+import { indexKeyDefs } from '../keyboard/controllerConfig';
 
 /**
  * What the assistant is told this machine can be asked about must match what
@@ -53,6 +56,70 @@ function romFor(romUrl: string | undefined): Uint8Array {
     readFileSync(path.resolve(__dirname, '../../public', rel)),
   );
 }
+
+describe('the key names offered match the machines', () => {
+  // The crosscheck that stops the assistant being told about a key that does
+  // nothing. The names come from layout data, the pressing goes through the
+  // machine's own matrix, and nothing but a real machine can say whether the
+  // two agree - so every registered one is built and every name it advertises
+  // is actually pressed.
+  for (const dialect of dialects) {
+    it(`${dialect.id} can press every key name it offers`, () => {
+      const machine = dialect.createEmulator({
+        rom: romFor(dialect.romUrl),
+        ramKb: 16,
+      });
+      const control = createMachineControl({
+        machine,
+        layout: dialect.keyboardLayout,
+        gamepadMode: 'keymapped',
+        fireButtons: dialect.joystickFireButtons ?? 1,
+        step: () => machine.runFrame(),
+      });
+
+      const names = driveKeyNames(dialect);
+      // A machine offering no keys at all would leave driving useless on it
+      // while still advertising the capability.
+      expect(names.length, `${dialect.id} offers no key names`).toBeGreaterThan(
+        0,
+      );
+      for (const name of names) {
+        expect(
+          control.pressKeys([name], 1),
+          `${dialect.id} advertises "${name}" but cannot press it`,
+        ).toMatchObject({ ok: true });
+      }
+
+      control.releaseAll();
+      machine.dispose();
+    });
+  }
+
+  it('offers no key that presses nothing', () => {
+    // A key with no tokens is a legend, not a key: naming it would hand the
+    // assistant something that silently fails.
+    for (const dialect of dialects) {
+      const index = indexKeyDefs(dialect.keyboardLayout);
+      for (const name of driveKeyNames(dialect)) {
+        expect(
+          index.get(name)!.emits.length,
+          `${dialect.id} / ${name}`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('is stable, so the system prompt built from it caches', () => {
+    // The prompt is a per-dialect constant and must stay byte-identical across
+    // builds, or every conversation pays a cache write on every turn.
+    for (const dialect of dialects) {
+      expect(driveKeyNames(dialect)).toEqual(driveKeyNames(dialect));
+      expect(driveKeyNames(dialect)).toEqual(
+        [...driveKeyNames(dialect)].sort(),
+      );
+    }
+  });
+});
 
 describe('the variable-readback table matches the machines', () => {
   for (const dialect of dialects) {
@@ -166,19 +233,38 @@ describe('buildExpectationRules', () => {
       const shown = buildExpectationRules(dialect, true);
       expect(shown).toContain('```basic-view');
       expect(shown).toContain('SCREEN IMAGE');
-      // The decision it is being handed: ask when looking tells it something.
-      expect(shown).toContain('Ask when the output is something to look at');
+      expect(shown).toContain('SCREEN TEXT');
+      // The decision it is being handed: ask when looking tells it something
+      // its own expectations would not.
+      expect(shown).toContain('A view is for seeing what you did not predict');
       // ...and the two ways of not needing to ask.
-      expect(shown).toContain('already asks to be shown the screen');
+      expect(shown).toContain('already asks to be shown the picture');
       expect(shown).toContain('Naming nothing is perfectly normal');
     }
   });
 
-  it('does not offer the ask where the screen cannot be shown', () => {
+  it('steers the choice of view by what the program produced', () => {
+    for (const dialect of dialects) {
+      const shown = buildExpectationRules(dialect, true);
+      // Text is the answer for characters, the picture for what characters
+      // cannot express - and the wasteful combination is called out by name,
+      // because it is the one a model reaches for by default.
+      expect(shown).toContain("when your program's output is words");
+      expect(shown).toContain('what your program produced is not characters');
+      expect(shown).toContain('Asking for the picture alone');
+    }
+  });
+
+  it('still offers the text view where the screen cannot be pictured', () => {
     for (const dialect of dialects) {
       const unseen = buildExpectationRules(dialect, false);
-      expect(unseen).not.toContain('```basic-view');
+      // The block itself survives: text travels as text, so there is no
+      // provider that can be sent a request and not be sent characters.
+      expect(unseen).toContain('```basic-view');
+      expect(unseen).toContain('SCREEN TEXT');
       expect(unseen).toContain('CANNOT be shown to you as a picture');
+      // ...but the picture is not offered as a thing to name.
+      expect(unseen).not.toContain('Ask for `SCREEN IMAGE` when');
     }
   });
 

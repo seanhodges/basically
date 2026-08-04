@@ -26,6 +26,57 @@ export interface ChatMessage {
    * one. Absent on every turn that shows nothing, which is most of them.
    */
   image?: ChatImage;
+  /**
+   * Tools this turn asked to use. Assistant turns only, and set only by the
+   * exchange loop in `../aiClient` when it feeds a reply back for another pass.
+   */
+  toolCalls?: ToolCall[];
+  /**
+   * What running those tools produced, answering the calls on the turn before.
+   * User turns only, and index-free: each result names the call it answers, so
+   * the two lists cannot silently drift out of step.
+   */
+  toolResults?: ToolResult[];
+}
+
+/**
+ * A tool a request offers the model.
+ *
+ * `input` is a JSON Schema object describing the tool's arguments. It is passed
+ * to the provider as given, so it must be a plain serializable value - the same
+ * bytes every turn of a conversation, or the prompt cache is lost (see the
+ * caching note in `./anthropic`).
+ */
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  input: Record<string, unknown>;
+}
+
+/** A model asking for a tool to be run. */
+export interface ToolCall {
+  /** Provider-assigned; what a {@link ToolResult} refers back to. */
+  id: string;
+  name: string;
+  /** The arguments, already parsed - never the raw JSON text. */
+  input: Record<string, unknown>;
+}
+
+/** What running one tool produced, sent back as the next turn. */
+export interface ToolResult {
+  /** The {@link ToolCall.id} this answers. */
+  callId: string;
+  content: string;
+  /**
+   * True when the tool could not do what was asked - an argument that made no
+   * sense, or a name that is not a tool at all.
+   *
+   * Reported rather than thrown so the model can correct itself and carry on:
+   * a turn that dies on a bad call wastes everything the model did before it,
+   * where a turn told "that key does not exist on this machine" can pick
+   * another one.
+   */
+  isError?: boolean;
 }
 
 /**
@@ -40,6 +91,14 @@ export interface StreamResult {
   /** The assistant text produced, which may be partial when `truncated`. */
   text: string;
   stop: StopReason;
+  /**
+   * Tools the model asked to run before it would go on. Empty or absent on
+   * every reply that asked for none, which is every reply the IDE makes today.
+   *
+   * A backend MUST report these rather than dropping them: a call that vanishes
+   * looks like an empty answer, which is the one failure nothing can diagnose.
+   */
+  toolCalls?: ToolCall[];
 }
 
 export interface StreamHandle {
@@ -74,6 +133,17 @@ export interface StreamOptions {
    * means a caller that didn't check rather than a user who chose it.
    */
   effort?: AiEffort;
+  /**
+   * Tools this request offers the model, or absent to offer none.
+   *
+   * Must be the same set, in the same order, for every turn of one
+   * conversation. Tool definitions render ahead of the system prompt, so a set
+   * that varies between turns invalidates the whole cached prefix behind it -
+   * the system prompt and the entire thread - which costs more than not caching
+   * at all. A fixed set is exactly as stable as the per-dialect system prompt
+   * already is.
+   */
+  tools?: ToolDefinition[];
 }
 
 /**
@@ -124,6 +194,16 @@ export interface ProviderMeta {
    * broken one.
    */
   supportsEffort: boolean;
+  /**
+   * Whether this backend can be offered tools ({@link StreamOptions.tools}).
+   *
+   * Stated for the same reason as {@link acceptsImages}: what the assistant is
+   * told it can do is decided while the system prompt is built, before any
+   * vendor SDK is loaded, so it cannot be found out by trying. A backend
+   * without it is offered no tools and asked to do nothing that needs them, and
+   * behaves exactly as it does today.
+   */
+  supportsTools: boolean;
 }
 
 /**
