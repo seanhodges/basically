@@ -77,12 +77,12 @@
 ## 5. Quality gates
 
 - [x] 5.1 `npm run typecheck`
-- [ ] 5.2 `npm test`
+- [x] 5.2 `npm test`
 - [x] 5.3 `npm run lint`
 - [x] 5.4 `npm run format:check` (or `npm run format` to fix)
-- [ ] 5.5 Extend `e2e/aiStub.ts` to answer a sequence of requests and emit
+- [x] 5.5 Extend `e2e/aiStub.ts` to answer a sequence of requests and emit
       `tool_use` blocks in the SDK's streaming wire format; add a driving
       scenario under `e2e/ai-assistant/`
-- [ ] 5.6 `npm run e2e:chromium -- e2e/ai-assistant` — leave unchecked with a
+- [x] 5.6 `npm run e2e:chromium -- e2e/ai-assistant` — leave unchecked with a
       note on what failed if it does not pass
-- [ ] 5.7 `npx openspec validate --specs`
+- [x] 5.7 `npx openspec validate --specs`

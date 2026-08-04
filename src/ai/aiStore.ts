@@ -17,7 +17,11 @@ import {
   getProviderApiKey,
 } from '../storage/settings';
 import { useIdeStore, type AiRunOutcome } from '../app/store';
-import { freezeMachine, machineControl } from '../app/machineControl';
+import {
+  freezeMachine,
+  hasMachineControl,
+  machineControl,
+} from '../app/machineControl';
 import {
   describeDriving,
   describeScreen,
@@ -772,7 +776,11 @@ function judgeScreen(
   ranSource: string,
   stalenessBase: string,
   results: readonly ExpectationResult[],
-  screen: ChatImage,
+  /**
+   * The display to show it, where there is one. Absent for a turn made only to
+   * drive: what that turn needs is the machine, not a picture of it.
+   */
+  screen: ChatImage | undefined,
   context: NonNullable<ReturnType<typeof resolveRequestContext>>,
   /** Whether the assistant asked to be given the machine for this answer. */
   drive: boolean,
@@ -807,7 +815,7 @@ function judgeScreen(
         ...(driving ? { tools: driving.tools, runTool: driving.runTool } : {}),
         userContent: judge.userContent,
         displayRequest: judge.displayRequest,
-        image: screen,
+        ...(screen ? { image: screen } : {}),
         baseSource: stalenessBase,
         checkAgainst: ranSource,
         automatic: true,
@@ -1182,9 +1190,27 @@ useIdeStore.subscribe((state) => {
   const visuals = run.expectations.filter(
     (r) => r.expectation.kind === 'visual',
   );
-  if (run.outcome.kind !== 'errored' && !wrongResult && visuals.length > 0) {
+  // Driving is the other reason to make this turn, and it stands on its own:
+  // an answer may need the machine worked before there is anything worth
+  // saying about it, without ever having stated how the screen should look.
+  // Only where it can actually happen, though - a turn made for driving that
+  // then could not drive would be a request asking nothing.
+  const drivingPossible =
+    run.views.drive &&
+    context !== null &&
+    getProvider(context.providerId).supportsTools &&
+    hasMachineControl();
+
+  if (
+    run.outcome.kind !== 'errored' &&
+    !wrongResult &&
+    (visuals.length > 0 || drivingPossible)
+  ) {
     const blocked =
-      screen === undefined
+      // A screen is required only by an expectation that needs looking at.
+      // Driving needs the machine, not a picture of it, and asking for the
+      // screen as text is answered without one.
+      visuals.length > 0 && screen === undefined
         ? canShowScreen
           ? 'there was no screen to show'
           : 'the screen cannot be shown to this assistant'
@@ -1208,7 +1234,7 @@ useIdeStore.subscribe((state) => {
       run.ranSource,
       run.baseSource,
       run.expectations,
-      screen!,
+      screen,
       context!,
       run.views.drive,
     );
