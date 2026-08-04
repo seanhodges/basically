@@ -529,8 +529,8 @@ program was given up on, because an answer the assistant could not settle is
 where a human look is worth most. Where several attempts were made, exactly one
 screen SHALL be shown: the one the last attempt produced.
 
-That display SHALL be shown to the user only. It SHALL NOT be sent to the
-provider and SHALL NOT become part of what any later request carries.
+That display SHALL NOT be sent on any request the IDE makes of its own accord. It
+is what the user's own next request carries, and nothing else sends it.
 
 Where no display can be captured, the answer SHALL be offered without one rather
 than withheld.
@@ -552,12 +552,11 @@ than withheld.
 - **THEN** exactly one screen is shown, from the last attempt, rather than one per
   attempt
 
-#### Scenario: The screen shown to the user is not sent onward
+#### Scenario: The screen shown to the user is not sent by the IDE
 
-- **WHEN** the user is shown the machine's screen at the end of an answer, and
-  then makes a further request
-- **THEN** that display is not sent to the provider, and the further request
-  carries no more than it would have carried anyway
+- **WHEN** the user is shown the machine's screen at the end of an answer and the
+  IDE goes on to ask the assistant for something without being asked to
+- **THEN** that request carries no more than it would have carried anyway
 
 ### Requirement: The assistant states what its program should produce
 
@@ -692,13 +691,142 @@ cannot be shown one — never as passed, and never as a failure of the program.
 ### Requirement: The conversation resets with the program
 
 The chat thread SHALL persist across reloads while the user keeps working on
-the same program, and SHALL clear when a different program becomes active.
+the same program, and SHALL clear when a different program becomes active or
+when the user clears it deliberately.
 
 #### Scenario: Open a different file
 
 - **WHEN** the user opens a different program
 - **THEN** the previous conversation no longer applies and the thread starts
   fresh
+
+#### Scenario: Reloading on the same program
+
+- **WHEN** the user reloads the IDE while still working on the same program
+- **THEN** the conversation is still there, in the order it was held
+
+### Requirement: The assistant keeps working while it is out of sight
+
+Putting the assistant away SHALL NOT cancel its work. Closing it, moving to
+another view, or leaving the page in the background SHALL leave a request, a
+check, and an unrequested correction all running, and coming back SHALL show
+the work as it now stands rather than as it was left. Only the user stopping
+it, clearing the conversation, or a different program becoming active SHALL
+end work that is in flight.
+
+#### Scenario: Closing the assistant while an answer is arriving
+
+- **WHEN** the user closes the assistant while an answer is still arriving and
+  opens it again afterwards
+- **THEN** the answer arrived in full and is there waiting
+
+#### Scenario: Looking away while a check runs
+
+- **WHEN** a check is running and the user moves to another view or leaves the
+  page in the background
+- **THEN** the check still reaches its verdict
+
+### Requirement: An answer the page interrupted is offered again
+
+An answer still arriving when the page goes away SHALL be restored marked as
+cut short, and SHALL be distinguishable from one the user stopped on purpose.
+This SHALL hold whether or not the answer had begun any code, so an answer
+interrupted mid-sentence never reads as a finished one.
+
+Because a stream cannot be picked up where it left off, the assistant SHALL
+offer to put the same request again rather than claiming to resume it. What
+was already said stays in the thread as the record of what happened.
+
+#### Scenario: Reloading while an answer is arriving
+
+- **WHEN** the user reloads the IDE while an answer is still arriving
+- **THEN** the part that had arrived is still there, marked as cut short, with
+  the offer to ask again
+
+#### Scenario: An answer interrupted before any code
+
+- **WHEN** the answer that was interrupted had not yet begun any code
+- **THEN** it is still marked as cut short
+
+#### Scenario: Asking again
+
+- **WHEN** the user takes the offer to ask again
+- **THEN** the same request is put afresh, and the cut-short answer remains in
+  the thread above it
+
+#### Scenario: An answer the user stopped
+
+- **WHEN** the user stops an answer themselves and later reloads
+- **THEN** it is not offered as interrupted, because nothing interrupted it
+
+### Requirement: Leaving while an answer is arriving is confirmed first
+
+While an answer is still arriving, the IDE SHALL have the browser confirm before
+the page is left, so an answer is not lost to a reload the user did not mean.
+It SHALL ask only while an answer is actually arriving: once the answer is in,
+what remains is a check whose verdict is worth less than the interruption, and
+leaving SHALL pass without comment.
+
+This makes an interrupted answer rarer; it does not make it impossible. A page
+the browser never gets to unload — a tab reclaimed by the OS, a crash — still
+reaches `An answer the page interrupted is offered again`, which continues to
+hold.
+
+#### Scenario: Reloading while an answer is arriving
+
+- **WHEN** the user reloads the IDE while an answer is still arriving
+- **THEN** the browser asks them to confirm before the page is left
+
+#### Scenario: Reloading with nothing arriving
+
+- **WHEN** the user reloads the IDE with the answer already in
+- **THEN** they are not asked anything
+
+### Requirement: The user can clear the conversation
+
+The user SHALL be able to clear the conversation at any time by sending
+`/clear`, without having to change program to do it. Clearing SHALL end
+whatever is in flight and remove the thread and everything remembered along
+with it, leaving nothing to be restored on the next reload.
+
+Because it is the way out of a conversation that has gone wrong, it SHALL work
+while the assistant is busy and when no API key is set. It SHALL NOT be sent
+to the provider, and SHALL leave the program in the editor untouched.
+
+#### Scenario: Clearing a conversation
+
+- **WHEN** the user sends `/clear`
+- **THEN** the thread is empty, and it is still empty after a reload
+
+#### Scenario: Clearing while the assistant is busy
+
+- **WHEN** the user sends `/clear` while an answer is arriving
+- **THEN** the answer stops arriving and the thread is empty
+
+#### Scenario: The command is not a question
+
+- **WHEN** the user sends `/clear`
+- **THEN** nothing is asked of the provider and the program in the editor is
+  unchanged
+
+### Requirement: The user can put the assistant away
+
+The user SHALL be able to close the assistant by sending `/hide`, with the
+same effect as its toolbar control. The conversation and any work in flight
+SHALL be left untouched, so bringing the assistant back shows it where it now
+stands. Like clearing, it SHALL NOT be sent to the provider.
+
+#### Scenario: Hiding the assistant
+
+- **WHEN** the user sends `/hide`
+- **THEN** the assistant closes and the machine takes the space it had
+
+#### Scenario: Coming back to a preserved conversation
+
+- **WHEN** the user sends `/hide` while an answer is arriving and opens the
+  assistant again
+- **THEN** the conversation is as it was, with the answer having continued to
+  arrive meanwhile
 
 ### Requirement: A project can begin from a description
 
@@ -726,43 +854,58 @@ must be configured in settings before the option becomes available.
   assistant must be configured in settings first, and the other starting points
   remain usable
 
-### Requirement: The user can show the assistant the screen
+### Requirement: The screen the user was shown goes with their next request
 
-The user SHALL be able to attach the machine's current display to a request they
-are writing, so a question about what the program does can be asked against what
-the program actually shows.
+Where the conversation is showing the user the machine's screen from an answer,
+that same display SHALL be carried to the assistant with the user's next request,
+so a question about what a program produced is answered against the picture the
+user is looking at.
 
-What is attached SHALL be the display as it stood when the user attached it, and
-the thread SHALL show that a screen was attached and what it showed, so a
-conversation can be read back without ambiguity about what the assistant was
-looking at.
+What is carried SHALL be the display already in the conversation. The IDE SHALL
+NOT capture the machine again to answer a request, so what the assistant is shown
+and what the user is looking at can never be two different pictures.
 
-Attaching SHALL be optional and reversible before sending: a request with nothing
-attached behaves exactly as a request does today, and an attachment can be
-removed before the request is sent.
+A display SHALL be carried once. A later request SHALL NOT carry a display the
+assistant has already been shown, which stays on the turn that carried it.
 
-Attaching SHALL be offered only when there is a display to attach and only when
-the chosen provider can be shown one; otherwise it SHALL be presented as
-unavailable rather than failing when used.
+A display SHALL be carried only where the chosen provider can be shown one, and
+only where the conversation is showing one. Otherwise the request SHALL be sent
+with no display and SHALL behave exactly as an ordinary request does.
 
-#### Scenario: Asking about what is on the screen
+The conversation SHALL record which request carried the display without showing
+the picture a second time: the one already in the thread is the one the assistant
+was shown.
 
-- **WHEN** the user attaches the machine's display to a request and sends it
-- **THEN** the assistant answers with that display available to it, and the
-  thread records that the screen was shown
+#### Scenario: Asking about what the program produced
 
-#### Scenario: Removing an attachment before sending
+- **WHEN** the user is shown the machine's screen at the end of an answer and
+  then makes a further request
+- **THEN** that display is sent with the request, and the thread records that the
+  request carried it
 
-- **WHEN** the user attaches the display and then removes it before sending
-- **THEN** the request is sent with no screen attached, and behaves as any
-  ordinary request does
+#### Scenario: One picture, taken once, shown once
 
-#### Scenario: Nothing to show
+- **WHEN** a request carries the screen the conversation is already showing
+- **THEN** no further capture of the machine is taken, and no second copy of the
+  picture appears in the thread
 
-- **WHEN** the user opens the assistant with no machine display available to
-  attach
-- **THEN** attaching is presented as unavailable, and every other part of the
-  assistant remains usable
+#### Scenario: Asking again
+
+- **WHEN** the user makes a further request after one that already carried the
+  screen, with no newer screen in the conversation
+- **THEN** the later request carries no display of its own
+
+#### Scenario: Nothing has been run yet
+
+- **WHEN** the user makes a request with no screen in the conversation
+- **THEN** the request is sent with no display and behaves as any ordinary
+  request does
+
+#### Scenario: A conversation restored without its pictures
+
+- **WHEN** the user makes a request in a thread restored from storage, which
+  records that a screen was shown but does not hold it
+- **THEN** the request is sent with no display
 
 ### Requirement: The assistant asks for the screen it wants to see
 
@@ -865,21 +1008,21 @@ foresee needing is one turn away rather than out of reach.
 
 Whether the assistant can be shown the machine's display SHALL be a stated
 property of the chosen provider rather than something discovered by attempting
-it. Where a provider cannot be shown one, the IDE SHALL NOT send a display to it
-and SHALL NOT present showing it as available; every other part of the assistant
-SHALL behave identically on such a provider.
+it. Where a provider cannot be shown one, the IDE SHALL NOT send a display to it;
+every other part of the assistant SHALL behave identically on such a provider.
 
 #### Scenario: Switching to a provider that cannot be shown a screen
 
 - **WHEN** the user selects a provider that does not accept images
-- **THEN** attaching the screen is presented as unavailable, no display is sent
-  on any request, and the assistant otherwise works exactly as before
+- **THEN** no display is sent on any request, and the assistant otherwise works
+  exactly as before
 
 ### Requirement: A shown screen is not retained
 
 A display shown to the assistant SHALL be sent only to the provider the user
 chose, and SHALL be held no longer than the request that carries it needs. A
-display shown to the user SHALL be sent to no provider at all.
+display shown to the user SHALL be sent no further than the user's own next
+request.
 
 The saved conversation SHALL record that a screen was shown without retaining
 the display itself, so restoring a thread never depends on stored image data and
@@ -899,3 +1042,172 @@ shown to the assistant, or shown to the user for a human check.
   machine's screen shown for a human check
 - **THEN** the thread still records that a screen was shown, and the display
   itself is not restored
+
+### Requirement: The assistant can drive the program it wrote
+
+Alongside the code it returns, the assistant MAY ask to be given the machine once
+that program has been run and observed. Where it asks, and where the chosen
+provider can be given it, the IDE SHALL let the assistant act on the running
+machine and see what happened, repeatedly, before it reports on its own program.
+
+What it can do SHALL be what a person at that machine could do: type text, press
+the machine's own keys, work the joystick, wait, and look at the screen. Keys
+SHALL be named as that machine names them, and the assistant SHALL be told which
+names that machine has, so it cannot ask for a key the machine does not have.
+Joystick directions and fire SHALL reach the program the way the machine's own
+controller does, whether that machine has a joystick port or maps it to keys.
+
+Waiting SHALL be expressible as waiting for text to appear on screen, not only as
+waiting a fixed length of machine time, so that driving does not depend on
+guessing how long a machine takes.
+
+Between the assistant's actions the machine SHALL be held still, so that what it
+acts on is the screen it was last shown rather than one that ran on while it was
+deciding.
+
+Driving SHALL be bounded — in how many times the assistant may act and in how
+much machine time it may spend — and reaching that bound SHALL end the driving
+and let the assistant report, rather than failing the answer.
+
+Asking to drive SHALL be optional. A reply that does not ask behaves exactly as a
+reply does today, and no machine becomes unusable for not being driven.
+
+#### Scenario: A program that waits for input
+
+- **WHEN** the assistant returns a program that asks the user a question, asks to
+  drive it, and that program is run
+- **THEN** it can type an answer and press the machine's enter key, and what it
+  is shown afterwards is the screen the program reached, not the question
+
+#### Scenario: A program behind a title screen
+
+- **WHEN** the assistant returns a program that waits for a keypress before it
+  starts, and asks to drive it
+- **THEN** it can wait for that prompt to appear, press a key, and see the
+  program running rather than its title screen
+
+#### Scenario: A program driven with the joystick
+
+- **WHEN** the assistant drives a program with the joystick on a machine with no
+  joystick port
+- **THEN** the input reaches the program as that machine's mapped keys, exactly
+  as the on-screen controller would deliver it
+
+#### Scenario: A reply that does not ask to drive
+
+- **WHEN** the assistant returns a program and asks for no driving
+- **THEN** the machine is not driven, and the answer is checked exactly as it is
+  today
+
+#### Scenario: Driving runs out of its bound
+
+- **WHEN** the assistant keeps acting until the bound on driving is reached
+- **THEN** driving ends, the assistant is told so, and it reports on its program
+  rather than the answer failing
+
+### Requirement: The assistant can be shown the screen as text
+
+The characters on the machine's screen SHALL be something the assistant can be
+shown, as well as the screen as a picture. It SHALL be the screen as it stood at
+the moment the run was observed — the same moment the picture is taken — rather
+than a separate reading of a machine that has moved on.
+
+The assistant SHALL be told that text is the answer for a program whose output is
+words and the picture for what only a picture can settle, so that it asks for the
+cheaper and exact one where that is enough.
+
+Unlike the picture, being shown the screen as text SHALL NOT depend on the chosen
+provider, because it is text like every other part of a request.
+
+Where the characters cannot be determined, that view SHALL be reported as
+unavailable, on the same terms as any other view that cannot be produced.
+
+#### Scenario: A program whose output is text
+
+- **WHEN** the assistant returns a program that prints its result and asks to be
+  shown the screen as text
+- **THEN** the outcome of that run carries the characters on screen
+
+#### Scenario: The text and the picture describe the same moment
+
+- **WHEN** the assistant is shown both the screen as text and the screen as a
+  picture for one run
+- **THEN** both are of the machine as it stood when that run was observed
+
+#### Scenario: A provider that cannot be shown a picture
+
+- **WHEN** the assistant writes for a provider that cannot be shown images and
+  asks to be shown the screen as text
+- **THEN** it is shown the text, and only the picture is reported as unavailable
+
+### Requirement: Being able to drive the machine is a stated capability
+
+Whether the assistant can be given the machine SHALL be a stated property of the
+chosen provider rather than something discovered by attempting it. Where a
+provider cannot be given it, the IDE SHALL NOT present driving as available and
+SHALL NOT ask the assistant to drive; every other part of the assistant SHALL
+behave identically on such a provider.
+
+#### Scenario: Switching to a provider that cannot be given the machine
+
+- **WHEN** the user selects a provider that cannot be given the machine
+- **THEN** driving is not offered, no request asks for it, and the assistant
+  otherwise works exactly as before
+
+### Requirement: Driving that fails is not the program failing
+
+Where the driving itself does not work out — waiting for text that never appears,
+naming a key the machine does not have, or a machine that never came up to be
+driven — the IDE SHALL report that to the assistant as what it is, and SHALL NOT
+treat it as the program being wrong.
+
+Such a failure SHALL NOT fail the run and SHALL NOT prompt an unrequested
+correction. Where driving was meant to reach the state an expectation describes
+and did not, that expectation SHALL be reported as unchecked rather than as
+failed — the same terms as an expectation nothing could evaluate.
+
+#### Scenario: Waiting for text that never appears
+
+- **WHEN** the assistant waits for text that the program never displays
+- **THEN** it is told the wait ran out, and the run is not reported as failed
+  because of it
+
+#### Scenario: A key the machine does not have
+
+- **WHEN** the assistant asks to press a key this machine's keyboard does not
+  have
+- **THEN** it is told so and can act again, and the program is not reported as
+  wrong
+
+#### Scenario: An expectation the driving never reached
+
+- **WHEN** driving fails before the program reaches the state a stated
+  expectation describes
+- **THEN** that expectation is reported as unchecked, and no correction is
+  attempted
+
+### Requirement: Input the assistant sent is stated
+
+Where the assistant drove the machine and that driving actually sent input, the
+conversation SHALL say what was sent, so that a screen the user could not
+otherwise account for is explained by what produced it.
+
+Where the assistant only waited or only looked, nothing SHALL be stated: nothing
+happened that the user could not have seen for themselves.
+
+What is stated SHALL be what was done to the machine, not the assistant's asking
+or the IDE's mechanics — those remain out of the conversation, as every other
+part of the checking machinery already is.
+
+#### Scenario: An answer whose screen was reached by typing
+
+- **WHEN** the assistant drove a program by typing an answer into it and the
+  finished work is shown
+- **THEN** the conversation states that input was sent and what it was
+
+#### Scenario: An answer the assistant only watched
+
+- **WHEN** the assistant asked to drive, then only waited and looked without
+  sending any input
+- **THEN** nothing is stated about driving, and the answer reads as it would have
+  without it
