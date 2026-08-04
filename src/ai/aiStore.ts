@@ -6,7 +6,7 @@ import {
   type StreamHandle,
   type StreamResult,
 } from './aiClient';
-import type { AiProviderId, ChatImage } from './providers/types';
+import type { AiEffort, AiProviderId, ChatImage } from './providers/types';
 import {
   loadAiConversation,
   saveAiConversation,
@@ -44,6 +44,7 @@ import {
 } from './promptBuilder';
 import { getProvider } from './providers/registry';
 import { sourceFingerprint } from './sourceFingerprint';
+import { resolveAiTuning, type AiTuning } from './aiTuning';
 
 export type { PendingFix } from './promptBuilder';
 
@@ -144,8 +145,13 @@ export interface SendParams {
   apiKey: string;
   /** Model id resolved for the active provider. */
   model: string;
-  /** Max output tokens (from the dialect's AI profile). */
+  /**
+   * How long the answer may be, and how hard to think first - both resolved by
+   * `resolveAiTuning`, never read from the dialect. Spread it in rather than
+   * setting `maxTokens` alone, or the effort is silently dropped.
+   */
   maxTokens: number;
+  effort?: AiEffort;
   system: string;
   /** Full context (source + lint errors + request) sent to the API. */
   userContent: string;
@@ -298,6 +304,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     apiKey,
     model,
     maxTokens,
+    effort,
     system,
     userContent,
     displayRequest,
@@ -367,7 +374,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     const runAttempt = (history: ChatMessage[]): Promise<StreamResult> => {
       const handle = streamChat(
         providerId,
-        { apiKey, model, maxTokens, system, messages: history },
+        { apiKey, model, maxTokens, effort, system, messages: history },
         (delta) => {
           if (gen !== myGen) return; // superseded by reset/new send
           set((s) => {
@@ -527,14 +534,15 @@ export const useAiStore = create<AiState>((set, get) => ({
  * key is a conversation to have when they asked for something, not in the
  * middle of a run they didn't).
  */
-function resolveRequestContext(): {
-  providerId: ReturnType<typeof getAiProvider>;
-  apiKey: string;
-  model: string;
-  maxTokens: number;
-  /** The machine to build the system prompt for; see {@link loadSystemPrompt}. */
-  dialect: Dialect;
-} | null {
+function resolveRequestContext():
+  | ({
+      providerId: ReturnType<typeof getAiProvider>;
+      apiKey: string;
+      model: string;
+      /** The machine to build the system prompt for; see {@link loadSystemPrompt}. */
+      dialect: Dialect;
+    } & AiTuning)
+  | null {
   const providerId = getAiProvider();
   const apiKey = getProviderApiKey(providerId);
   if (!apiKey) return null;
@@ -543,7 +551,10 @@ function resolveRequestContext(): {
     providerId,
     apiKey,
     model: getProvider(providerId).defaultModel,
-    maxTokens: dialect.aiProfile.maxTokens,
+    // The same resolution the panel uses. These requests are the ones nobody is
+    // watching, so they must not drift onto a different budget from the visible
+    // ones - that drift is how a correction ends up cut off unnoticed.
+    ...resolveAiTuning(providerId),
     dialect,
   };
 }

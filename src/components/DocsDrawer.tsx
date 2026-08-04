@@ -280,7 +280,6 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     useIdeStore.getState().showAiPanel();
     void useAiStore.getState().send({
       ...creds,
-      maxTokens: target.aiProfile.maxTokens,
       system,
       userContent: message.userContent,
       displayRequest: `Convert this program to ${label}`,

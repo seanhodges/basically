@@ -23,5 +23,4 @@ OUTPUT FORMAT
 
 export const atomAiProfile: AiProfile = {
   systemPrompt: SYSTEM_PROMPT,
-  maxTokens: 8192,
 };

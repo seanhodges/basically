@@ -37,5 +37,4 @@ OUTPUT FORMAT
 
 export const c64AiProfile: AiProfile = {
   systemPrompt: SYSTEM_PROMPT,
-  maxTokens: 8192,
 };

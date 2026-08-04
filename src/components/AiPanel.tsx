@@ -20,6 +20,7 @@ import {
 import { sourceFingerprint } from '../ai/sourceFingerprint';
 import { getAiProvider, getProviderApiKey } from '../storage/settings';
 import { getProvider } from '../ai/providers/registry';
+import { resolveAiTuning } from '../ai/aiTuning';
 import { GearsSpinner } from './GearsSpinner';
 import styles from './AiPanel.module.css';
 
@@ -282,7 +283,7 @@ export function AiPanel() {
       providerId,
       apiKey,
       model: provider.defaultModel,
-      maxTokens: dialect.aiProfile.maxTokens,
+      ...resolveAiTuning(providerId),
       system: await loadSystemPrompt(dialect, provider.acceptsImages),
       userContent: buildUserMessage(request, source, errors, screen !== null),
       displayRequest: request,
@@ -344,7 +345,7 @@ export function AiPanel() {
       providerId,
       apiKey,
       model: provider.defaultModel,
-      maxTokens: dialect.aiProfile.maxTokens,
+      ...resolveAiTuning(providerId),
       system: await loadSystemPrompt(dialect, provider.acceptsImages),
       userContent: fix.userContent,
       displayRequest: fix.displayRequest,

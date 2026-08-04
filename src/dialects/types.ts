@@ -547,7 +547,6 @@ export interface MachineEmulator {
 
 export interface AiProfile {
   systemPrompt: string;
-  maxTokens: number;
 }
 
 /**

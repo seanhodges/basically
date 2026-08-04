@@ -190,12 +190,53 @@ first load, which is the intended fix. Stored API keys are untouched.
 
 Rollback is a revert: the settings entries left behind are inert.
 
+## Resolved during implementation
+
+**Provider output ceilings (D2).**
+
+| Provider | Model | Max output tokens | Source |
+|---|---|---|---|
+| Anthropic | `claude-opus-4-8` | 128,000 | Anthropic model documentation |
+| OpenAI | `gpt-4o` | 16,384 | OpenAI model documentation, confirmed |
+| Google | `gemini-3.1-pro-preview` | 65,536 *(assumed)* | **Not confirmed** - see below |
+
+**The Gemini figure is an assumption, not a lookup.** Google's public model pages
+list the preview models without a specifications table, and confirming it needs an
+API key this environment does not have. 65,536 is the documented ceiling of the
+preceding Pro generation and a Pro model is not expected to regress below it.
+
+The exposure is bounded: the default budget (16,384) sits far below any plausible
+Gemini ceiling, so this figure only bounds how high a user may *manually* set the
+Gemini override. If it is wrong it is wrong in the permissive direction, and the
+failure is an immediate, visible rejection of a setting the user just typed. It is
+marked in the registry as needing confirmation.
+
+**Effort levels (D2, D3).** The Anthropic model accepts `low`, `medium`, `high`,
+`xhigh`, `max`. Omitting the setting is equivalent to `high` - which is precisely
+the behaviour being changed.
+
+**Worst-case listing size (D4).** A 20,489-byte ZX Spectrum listing (493 numbered
+lines, built from the shipped `maze.bas` as representative BASIC) is the largest
+any dialect prompt asks for. It could **not** be token-counted here - that needs
+API credentials this environment does not have - so the figure below is an estimate
+and the corresponding task is left unchecked.
+
+At the 3.2 chars/token end of the plausible range for dense ASCII BASIC, 20,489
+bytes is roughly 6,400 tokens; call it 7,000 with the prose and the stated
+expectations block. `DEFAULT_AI_MAX_TOKENS = 16384` therefore clears the worst-case
+visible answer about 2.3x over, leaving ~9,000 tokens of reasoning headroom, and is
+simultaneously the largest value the tightest provider (OpenAI) accepts - so it is
+the natural ceiling regardless of where the estimate lands within its range. The
+estimate would have to be wrong by more than a factor of two before the choice
+changed.
+
+`DEFAULT_AI_EFFORT = 'medium'`.
+
 ## Open Questions
 
-- The exact output ceiling of each provider, and the effort levels the Anthropic
-  model accepts (D2) - to be looked up, not assumed.
-- The measured token count of a worst-case 20KB listing, which settles the default
-  budget (D4).
+- Confirm the Gemini output ceiling against a live `models.get` response, and the
+  20KB listing against `count_tokens`, when credentials are available. Neither
+  blocks the change; both are recorded above as assumptions.
 - Whether the continuation control should also appear for a reply the user stopped
   themselves. It would work, but "stopped" and "ran out of room" are different
   intents and only the second is a fault the user did not choose.

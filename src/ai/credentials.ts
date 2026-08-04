@@ -11,6 +11,7 @@ import { useIdeStore } from '../app/store';
 import { getAiProvider, getProviderApiKey } from '../storage/settings';
 import { getProvider } from './providers/registry';
 import type { AiProviderId } from './providers/types';
+import { resolveAiTuning, type AiTuning } from './aiTuning';
 
 /** Whether the assistant is usable at all - i.e. the active provider has a key. */
 export function hasAiKey(): boolean {
@@ -26,11 +27,13 @@ export function hasAiKey(): boolean {
  * front instead, so it can say "not until that is set up" rather than accepting
  * the choice and then diverting.
  */
-export function aiCredentials(): {
-  providerId: AiProviderId;
-  apiKey: string;
-  model: string;
-} | null {
+export function aiCredentials():
+  | ({
+      providerId: AiProviderId;
+      apiKey: string;
+      model: string;
+    } & AiTuning)
+  | null {
   const providerId = getAiProvider();
   const provider = getProvider(providerId);
   const apiKey = getProviderApiKey(providerId);
@@ -38,5 +41,12 @@ export function aiCredentials(): {
     useIdeStore.getState().openSettings('ai');
     return null;
   }
-  return { providerId, apiKey, model: provider.defaultModel };
+  // Tuning rides along with the credentials so a caller cannot spread these into
+  // a request and silently leave the budget behind.
+  return {
+    providerId,
+    apiKey,
+    model: provider.defaultModel,
+    ...resolveAiTuning(providerId),
+  };
 }

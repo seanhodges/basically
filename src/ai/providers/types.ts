@@ -51,6 +51,16 @@ export interface StreamHandle {
 /** The backends the user can choose between in AI settings. */
 export type AiProviderId = 'anthropic' | 'openai' | 'gemini';
 
+/**
+ * How hard the model is asked to think before answering.
+ *
+ * Only meaningful on a backend whose {@link ProviderMeta.supportsEffort} is set;
+ * the others ignore it. Ordered from cheapest to most thorough.
+ */
+export type AiEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+export const AI_EFFORTS: AiEffort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+
 /** Everything a provider needs to stream one completion. */
 export interface StreamOptions {
   apiKey: string;
@@ -58,6 +68,12 @@ export interface StreamOptions {
   maxTokens: number;
   system: string;
   messages: ChatMessage[];
+  /**
+   * How hard to think before answering. Ignored by a backend that has no such
+   * control - the setting is never offered for one, so an ignored value here
+   * means a caller that didn't check rather than a user who chose it.
+   */
+  effort?: AiEffort;
 }
 
 /**
@@ -90,6 +106,24 @@ export interface ProviderMeta {
    * nothing offered - instead of failing a request the user has already made.
    */
   acceptsImages: boolean;
+  /**
+   * The largest `max_tokens` this backend accepts for its configured model.
+   *
+   * Declared here for the same reason as {@link acceptsImages}: the settings form
+   * needs it to bound the input, and the request builder needs it to clamp, and
+   * neither may load a vendor SDK to ask. Since the budget is now one app-wide
+   * number rather than a per-machine one, the tightest backend would otherwise
+   * turn a raised default into a rejected request.
+   */
+  maxOutputTokens: number;
+  /**
+   * Whether this backend has a reasoning-effort control.
+   *
+   * Only Claude does today. Stated rather than discovered so the settings form can
+   * decline to offer a setting that would do nothing - an inert control reads as a
+   * broken one.
+   */
+  supportsEffort: boolean;
 }
 
 /**

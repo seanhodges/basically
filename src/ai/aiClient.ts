@@ -4,6 +4,7 @@ import type {
   StreamHandle,
   StreamOptions,
 } from './providers/types';
+import { clampToProvider, getProvider } from './providers/registry';
 
 export type {
   ChatMessage,
@@ -50,13 +51,24 @@ export function streamChat(
   let inner: StreamHandle | null = null;
   let aborted = false;
 
+  // Fitted to the backend here rather than in each one: this is the single seam
+  // every request passes through, so a caller cannot route around it. The budget
+  // is one app-wide number but the backends' ceilings differ, and a backend that
+  // supports no effort control must not be handed a stale stored one.
+  const meta = getProvider(providerId);
+  const fitted: StreamOptions = {
+    ...opts,
+    maxTokens: clampToProvider(providerId, opts.maxTokens),
+    ...(meta.supportsEffort ? {} : { effort: undefined }),
+  };
+
   const done = loadBackend(providerId).then((backend) => {
     if (aborted) {
       const err = new Error('Generation stopped.');
       err.name = 'AbortError';
       throw err;
     }
-    inner = backend.streamChat(opts, onText);
+    inner = backend.streamChat(fitted, onText);
     return inner.done;
   });
 

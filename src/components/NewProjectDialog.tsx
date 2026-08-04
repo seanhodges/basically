@@ -109,7 +109,6 @@ export function NewProjectDialog() {
     useIdeStore.getState().showAiPanel();
     void useAiStore.getState().send({
       ...creds,
-      maxTokens: machine.aiProfile.maxTokens,
       system: await loadSystemPrompt(machine),
       userContent: buildUserMessage(request, '', []),
       displayRequest: request,

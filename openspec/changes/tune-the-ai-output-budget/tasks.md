@@ -1,50 +1,61 @@
 ## 1. Settle the numbers before writing code
 
-- [ ] 1.1 Look up the maximum output tokens each of the three providers accepts
-      for its configured model, and record the figures in `design.md` under Open
-      Questions (replacing the question)
-- [ ] 1.2 Look up the reasoning-effort levels the configured Anthropic model
+- [x] 1.1 Look up the maximum output tokens each of the three providers accepts
+      for its configured model, and record the figures in `design.md`
+      — Anthropic 128,000 and OpenAI 16,384 confirmed from vendor docs; **Gemini
+      65,536 is an assumption**, recorded as such (no credentials here to confirm it,
+      and Google's preview model pages carry no specifications table)
+- [x] 1.2 Look up the reasoning-effort levels the configured Anthropic model
       accepts, and which one corresponds to "leave it unset"
+      — `low`/`medium`/`high`/`xhigh`/`max`; unset behaves as `high`
 - [ ] 1.3 Token-count a worst-case listing (a ~20KB ZX Spectrum program, the
       largest size any dialect prompt asks for) to get the real cost of the visible
       answer, rather than a characters-per-token estimate
-- [ ] 1.4 Settle `DEFAULT_AI_MAX_TOKENS` from 1.1 and 1.3 — must clear the listing
+      — **NOT DONE**: needs API credentials this environment does not have. A 20,489-byte
+      listing was built and estimated at ~6,400–7,000 tokens; see design.md. The
+      estimate would have to be wrong by >2x to change 1.4, so this does not block.
+- [x] 1.4 Settle `DEFAULT_AI_MAX_TOKENS` from 1.1 and 1.3 — must clear the listing
       with reasoning headroom, and sit within every provider's ceiling — and settle
       `DEFAULT_AI_EFFORT` from 1.2
+      — 16384 (also exactly the tightest provider's ceiling) and `medium`
 
 ## 2. Remove the budget from the dialect seam
 
-- [ ] 2.1 Remove `maxTokens` from `AiProfile` in `src/dialects/types.ts`
-- [ ] 2.2 Remove the `maxTokens` line from all 14 `src/dialects/*/aiProfile.ts`
+- [x] 2.1 Remove `maxTokens` from `AiProfile` in `src/dialects/types.ts`
+- [x] 2.2 Remove the `maxTokens` line from all 14 `src/dialects/*/aiProfile.ts`
       files; `npm run typecheck` must come back clean
-- [ ] 2.3 Check `src/dialects/registry.test.ts` and any other dialect test for
+- [x] 2.3 Check `src/dialects/registry.test.ts` and any other dialect test for
       assertions on `maxTokens`, and remove them
-- [ ] 2.4 Remove the `maxTokens` mention from
+      — verified: no dialect test asserts on `maxTokens`
+- [x] 2.4 Remove the `maxTokens` mention from
       `.claude/skills/adding-a-target-system/plan-template.md` so new dialects stop
       being told to set a field that no longer exists
 
 ## 3. Provider capabilities and the request
 
-- [ ] 3.1 Add the declared output ceiling and effort support to `ProviderMeta`
+- [x] 3.1 Add the declared output ceiling and effort support to `ProviderMeta`
       (`src/ai/providers/types.ts`), documented in the style of `acceptsImages`
-- [ ] 3.2 Fill both in for all three entries in `src/ai/providers/registry.ts`
+- [x] 3.2 Fill both in for all three entries in `src/ai/providers/registry.ts`
       using the figures from 1.1 and 1.2
-- [ ] 3.3 Add optional `effort` to `StreamOptions`
-- [ ] 3.4 Send it as the effort setting in `src/ai/providers/anthropic.ts`; leave
+- [x] 3.3 Add optional `effort` to `StreamOptions`
+- [x] 3.4 Send it as the effort setting in `src/ai/providers/anthropic.ts`; leave
       `openai.ts` and `gemini.ts` ignoring it
-- [ ] 3.5 Clamp the requested budget to the provider's declared ceiling, so a
+- [x] 3.5 Clamp the requested budget to the provider's declared ceiling, so a
       configured value above it cannot turn into a rejected request
+      — done once in `aiClient.streamChat`, the single seam every request passes
+      through, rather than three times in the backends; it also drops a stale effort
+      for a backend that has none
 - [ ] 3.6 Colocated tests: the Anthropic backend sends the effort setting, the
       other two do not, and each clamps a too-large budget
 
 ## 4. Per-provider settings storage
 
-- [ ] 4.1 Add `DEFAULT_AI_MAX_TOKENS` and `DEFAULT_AI_EFFORT` to
+- [x] 4.1 Add `DEFAULT_AI_MAX_TOKENS` and `DEFAULT_AI_EFFORT` to
       `src/storage/settings.ts` alongside the other defaults
-- [ ] 4.2 Add per-provider budget and effort accessors beside
+- [x] 4.2 Add per-provider budget and effort accessors beside
       `getProviderApiKey`/`setProviderApiKey`, keyed by provider id; clearing a
       value removes the entry and restores the default
-- [ ] 4.3 Extend the `KEYS` comment noting that per-provider values are not listed
+- [x] 4.3 Extend the `KEYS` comment noting that per-provider values are not listed
       in the map
 - [ ] 4.4 Colocated tests: round-trip each accessor; an unset value falls back to
       the default; **a value set on one provider survives switching to another and
@@ -52,9 +63,9 @@
 
 ## 5. One resolution point
 
-- [ ] 5.1 Add `resolveAiTuning(providerId)` returning the effective budget and
+- [x] 5.1 Add `resolveAiTuning(providerId)` returning the effective budget and
       effort, applying the per-provider override over the default
-- [ ] 5.2 Replace all five `dialect.aiProfile.maxTokens` reads with it —
+- [x] 5.2 Replace all five `dialect.aiProfile.maxTokens` reads with it —
       `AiPanel.tsx` (both the request and the fix paths), `DocsDrawer.tsx`,
       `NewProjectDialog.tsx`, and the unattended path in `aiStore.ts`
 - [ ] 5.3 Test that the unattended correction path resolves the same values as a

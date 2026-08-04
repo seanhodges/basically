@@ -36,5 +36,4 @@ OUTPUT FORMAT
 
 export const cpc464AiProfile: AiProfile = {
   systemPrompt: SYSTEM_PROMPT,
-  maxTokens: 8192,
 };

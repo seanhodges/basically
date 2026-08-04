@@ -39,5 +39,4 @@ OUTPUT FORMAT
 
 export const vic20AiProfile: AiProfile = {
   systemPrompt: SYSTEM_PROMPT,
-  maxTokens: 8192,
 };

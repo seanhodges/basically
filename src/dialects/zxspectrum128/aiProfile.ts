@@ -33,5 +33,4 @@ OUTPUT FORMAT
 
 export const spectrum128AiProfile: AiProfile = {
   systemPrompt: SYSTEM_PROMPT,
-  maxTokens: 8192,
 };

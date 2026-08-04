@@ -28,5 +28,4 @@ OUTPUT FORMAT
 
 export const zx81AiProfile: AiProfile = {
   systemPrompt: SYSTEM_PROMPT,
-  maxTokens: 8192,
 };
