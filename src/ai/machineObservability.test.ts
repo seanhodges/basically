@@ -166,19 +166,38 @@ describe('buildExpectationRules', () => {
       const shown = buildExpectationRules(dialect, true);
       expect(shown).toContain('```basic-view');
       expect(shown).toContain('SCREEN IMAGE');
-      // The decision it is being handed: ask when looking tells it something.
-      expect(shown).toContain('Ask when the output is something to look at');
+      expect(shown).toContain('SCREEN TEXT');
+      // The decision it is being handed: ask when looking tells it something
+      // its own expectations would not.
+      expect(shown).toContain('A view is for seeing what you did not predict');
       // ...and the two ways of not needing to ask.
-      expect(shown).toContain('already asks to be shown the screen');
+      expect(shown).toContain('already asks to be shown the picture');
       expect(shown).toContain('Naming nothing is perfectly normal');
     }
   });
 
-  it('does not offer the ask where the screen cannot be shown', () => {
+  it('steers the choice of view by what the program produced', () => {
+    for (const dialect of dialects) {
+      const shown = buildExpectationRules(dialect, true);
+      // Text is the answer for characters, the picture for what characters
+      // cannot express - and the wasteful combination is called out by name,
+      // because it is the one a model reaches for by default.
+      expect(shown).toContain("when your program's output is words");
+      expect(shown).toContain('what your program produced is not characters');
+      expect(shown).toContain('Asking for the picture alone');
+    }
+  });
+
+  it('still offers the text view where the screen cannot be pictured', () => {
     for (const dialect of dialects) {
       const unseen = buildExpectationRules(dialect, false);
-      expect(unseen).not.toContain('```basic-view');
+      // The block itself survives: text travels as text, so there is no
+      // provider that can be sent a request and not be sent characters.
+      expect(unseen).toContain('```basic-view');
+      expect(unseen).toContain('SCREEN TEXT');
       expect(unseen).toContain('CANNOT be shown to you as a picture');
+      // ...but the picture is not offered as a thing to name.
+      expect(unseen).not.toContain('Ask for `SCREEN IMAGE` when');
     }
   });
 

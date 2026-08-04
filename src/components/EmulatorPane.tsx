@@ -41,7 +41,7 @@ import {
   registerScreenCapture,
   snapshotScreen,
 } from '../app/screenCapture';
-import type { MachineEmulator } from '../dialects/types';
+import type { MachineEmulator, MachineScreenText } from '../dialects/types';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { EmulatorAudio } from '../audio/emulatorAudio';
 import { VariableWatcher } from './VariableWatcher';
@@ -373,6 +373,22 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             },
             aiCheckCountsRef.current,
           );
+          // The characters on screen for *this* frame, read at most once and
+          // shared by everything that wants them. Reading the screen back is
+          // thousands of memory reads on some machines, so a verdict frame that
+          // needs it for both an expectation and the text view must not pay
+          // twice - and reading once is also what keeps the text, the picture
+          // and the verdict describing one instant of one machine.
+          //
+          // `undefined` means "not read yet"; `null` is the machine answering
+          // that it cannot say right now.
+          let screenTextThisFrame: MachineScreenText | null | undefined;
+          const screenTextOnce = (): MachineScreenText | null => {
+            if (screenTextThisFrame === undefined) {
+              screenTextThisFrame = machine.readScreenText?.() ?? null;
+            }
+            return screenTextThisFrame;
+          };
           // Check the assistant's stated expectations on a cadence while the run
           // is being watched, and once more at the verdict so the final state is
           // always seen. Skipped entirely when it stated none, which is the
@@ -388,7 +404,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
                 aiCheckLatchRef.current,
                 evaluateExpectations(aiCheckExpectRef.current, {
                   variables: machine.readVariables?.() ?? null,
-                  screen: machine.readScreenText?.() ?? null,
+                  screen: screenTextOnce(),
                 }),
               );
             }
@@ -416,6 +432,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             // are the same picture, so it is one capture either way.
             render();
             const captured = captureScreen() ?? undefined;
+            // The same instant as the picture, and on most verdicts already
+            // read: an answer that stated a `SCREEN CONTAINS` expectation has
+            // paid for this reading above, and asking again here costs nothing.
+            // Only where the assistant named the text view and stated no
+            // expectation does this read the machine at all.
+            const capturedText = aiCheckViewsRef.current.text
+              ? (screenTextOnce() ?? undefined)
+              : undefined;
             useIdeStore.getState().reportRun({
               outcome: verdict.outcome,
               ranSource: aiCheckSourceRef.current,
@@ -423,6 +447,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
               expectations: results,
               ...(needsScreen && captured ? { screen: captured } : {}),
               ...(captured ? { finalScreen: captured } : {}),
+              ...(capturedText ? { screenText: capturedText } : {}),
               views: aiCheckViewsRef.current,
             });
           } else {

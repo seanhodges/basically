@@ -1,15 +1,15 @@
 ## 1. Carry the screen text that is already read
 
-- [ ] 1.1 Keep the `MachineScreenText` from the verdict-frame sample in
+- [x] 1.1 Keep the `MachineScreenText` from the verdict-frame sample in
       `EmulatorPane` instead of discarding it after `evaluateExpectations`, and
       carry it on `reportRun` beside `screen` / `finalScreen`
-- [ ] 1.2 Extend the run-outcome shape in `src/app/store.ts` to hold it, and
+- [x] 1.2 Extend the run-outcome shape in `src/app/store.ts` to hold it, and
       update the store's colocated tests
-- [ ] 1.3 Add `SCREEN TEXT` to `ScreenViewRequest` / `parseScreenViews` /
+- [x] 1.3 Add `SCREEN TEXT` to `ScreenViewRequest` / `parseScreenViews` /
       `mergeScreenViews` in `src/ai/expectations.ts`, ungated by provider
-- [ ] 1.4 Extend `src/ai/expectations.test.ts` for the new view, including that
+- [x] 1.4 Extend `src/ai/expectations.test.ts` for the new view, including that
       an unreadable screen reports it unavailable rather than empty
-- [ ] 1.5 Update `buildScreenViewRules` so the assistant is told to prefer text
+- [x] 1.5 Update `buildScreenViewRules` so the assistant is told to prefer text
       for word output and the picture for what only a picture settles; update
       `src/ai/machineObservability.test.ts` and `src/ai/promptBuilder.test.ts`
 

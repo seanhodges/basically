@@ -419,12 +419,17 @@ describe('a request to be shown the screen', () => {
   });
 
   it('is read back as the views the assistant asked for', () => {
-    expect(extractScreenViews(reply)).toEqual({ image: true, unknown: [] });
+    expect(extractScreenViews(reply)).toEqual({
+      image: true,
+      text: false,
+      unknown: [],
+    });
   });
 
   it('asks for nothing when the reply names no views', () => {
     expect(extractScreenViews('```basic\n10 PRINT\n```')).toEqual({
       image: false,
+      text: false,
       unknown: [],
     });
   });

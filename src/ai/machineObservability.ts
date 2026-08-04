@@ -130,15 +130,27 @@ ${buildScreenViewRules(canShowScreen)}`;
  * mention as available and then refuse.
  */
 export function buildScreenViewRules(canShowScreen: boolean): string {
-  if (!canShowScreen) {
-    return `SEEING THE SCREEN
-- The screen CANNOT be shown to you as a picture on this setup. Check what your program does through \`SCREEN CONTAINS\` and \`VAR\` expectations, which are read from the machine itself.`;
-  }
+  const views = canShowScreen
+    ? `\`SCREEN TEXT\` (the characters on screen) and \`SCREEN IMAGE\` (a picture of it)`
+    : `\`SCREEN TEXT\` (the characters on screen)`;
+
+  // Stated ahead of the picture, and in this order, because the choice between
+  // them is the one worth getting right: a character grid is a fraction of the
+  // cost of a picture of the same screen and is exact, where a picture has to be
+  // read back off pixels. The picture earns its place only where what happened
+  // is not expressible as characters at all.
+  const pictureRules = canShowScreen
+    ? `
+- Ask for \`SCREEN IMAGE\` when what your program produced is not characters: something plotted, drawn, coloured, or laid out as shapes - where seeing the picture tells you what the characters cannot.
+- Asking for both is reasonable when a screen is part text and part drawing. Asking for the picture alone, for a program that only prints, is not: you would be reading words back off pixels that you could have been given as words.
+- A \`SCREEN SHOWS\` expectation already asks to be shown the picture. You do not need a \`basic-view\` block as well when you have stated one.`
+    : `
+- The screen CANNOT be shown to you as a picture on this setup, so do not ask for \`SCREEN IMAGE\`. What is on the screen as characters is still available to you.`;
+
   return `SEEING THE SCREEN
-- After the code, you MAY add a single \`\`\`basic-view fenced block asking to be shown the machine's screen when your program is run. One view per line; the only view is \`SCREEN IMAGE\`.
-- Ask when the output is something to look at - anything plotted, drawn, coloured, animated, or laid out on the screen - and when seeing it would tell you something the machine's own error report and your expectations would not.
-- Do NOT ask when the program's output is text you could assert on instead: \`SCREEN CONTAINS\` is checked directly against the machine, costs nothing, and is exact.
-- A \`SCREEN SHOWS\` expectation already asks to be shown the screen. You do not need a \`basic-view\` block as well when you have stated one.
+- After the code, you MAY add a single \`\`\`basic-view fenced block asking to be shown the machine's screen when your program is run. One view per line. The views are ${views}.
+- Ask for \`SCREEN TEXT\` when your program's output is words, numbers, a table, a menu, or anything else made of characters - and when seeing the whole screen would tell you something a \`SCREEN CONTAINS\` expectation would not, because it says what is actually there rather than only whether the text you predicted appeared.
+- Do NOT ask for a view merely to confirm something you already stated as an expectation: \`SCREEN CONTAINS\` and \`VAR\` are checked directly against the machine, cost nothing, and are exact. A view is for seeing what you did not predict.${pictureRules}
 - Naming nothing is perfectly normal and is what most replies do. If you name nothing, you will not be shown the screen - including when the program fails, where you will instead be told that the screen can be shown if you ask for it.
 - A \`basic-view\` block is NEVER program text and is never applied to the editor. Do not put BASIC in it.`;
 }
