@@ -97,8 +97,19 @@ export class CpcMemory {
     readonly model: CpcModel = '464',
   ) {
     this.expansionRam = new Uint8Array(model === '6128' ? 0x10000 : 0);
-    // Accept either a combined 32K image (OS then BASIC, the layout of the
-    // standard cpc464.rom) or the two halves already concatenated.
+    // A combined 32K image: OS then BASIC, the layout of the standard
+    // cpc464.rom. Anything else is refused rather than loaded in part - the
+    // `subarray` calls below would happily take a short image, fill a prefix of
+    // the lower ROM and leave the rest (and all of BASIC) zeroed, which boots to
+    // a dead machine with nothing to explain it. The likeliest way to get here
+    // is supplying one 16K half of the pair. Empty is the exception: it is the
+    // documented "no firmware to run" state (see CpcMachine's ROM note), which
+    // the suites here fall back to when the un-redistributable image is absent.
+    if (rom.length !== 0 && rom.length !== CPC_ROM_SIZE) {
+      throw new Error(
+        `Amstrad CPC ROM must be ${CPC_ROM_SIZE} bytes, got ${rom.length}`,
+      );
+    }
     this.lowerRom.set(rom.subarray(0, ROM_BANK_SIZE));
     this.upperRom.set(rom.subarray(ROM_BANK_SIZE, CPC_ROM_SIZE));
   }

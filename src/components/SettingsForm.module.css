@@ -71,3 +71,22 @@
   font-size: 13px;
   align-self: center;
 }
+
+/* Overrides the dimmed `.settingsForm p` colour: a refused ROM has to read as a
+   refusal, not as more explanatory small print. */
+.settingsError {
+  color: var(--error);
+}
+
+.settingsForm p.settingsError {
+  color: var(--error);
+}
+
+/* A row of buttons, as opposed to `.inline`, which is shaped for a checkbox and
+   its label. */
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}

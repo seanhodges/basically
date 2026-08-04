@@ -21,6 +21,7 @@ import {
   CASSETTE_SAMPLE_RATE,
 } from './targets';
 import { SpectrumMachine } from './emulator/spectrumMachine';
+import { ROM_BYTES } from './emulator/memory';
 import { spectrumKeyboardLayout } from './keyboardLayout';
 import { spectrumSamples } from './samples';
 import { spectrumMemoryMap } from './memoryMap';
@@ -81,6 +82,7 @@ export const zxspectrum: Dialect = {
   },
 
   romUrl: `${import.meta.env.BASE_URL}roms/zxspectrum.rom`,
+  romBytes: ROM_BYTES,
 
   debuggable: true,
 

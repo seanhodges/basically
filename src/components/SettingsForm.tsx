@@ -20,6 +20,9 @@ import {
   type GamepadMode,
   effectiveGamepadMode,
 } from '../keyboard/controllerConfig';
+import { openBinaryFile } from '../storage/files';
+import { localStorageIsPersistent } from '../storage/safeStorage';
+import { romUploadError, romInUseLabel } from './customRomUpload';
 import styles from './SettingsForm.module.css';
 import dialog from './Dialog.module.css';
 
@@ -59,6 +62,10 @@ export function SettingsForm() {
   );
   const gamepadMode = useIdeStore((s) => s.gamepadMode);
   const setGamepadMode = useIdeStore((s) => s.setGamepadMode);
+  const customRoms = useIdeStore((s) => s.customRoms);
+  const setCustomRom = useIdeStore((s) => s.setCustomRom);
+  const clearCustomRom = useIdeStore((s) => s.clearCustomRom);
+  const [romError, setRomError] = useState('');
   const [providerId, setProviderId] = useState<AiProviderId>(getAiProvider());
   const [key, setKey] = useState(getProviderApiKey(getAiProvider()));
   const [keySaved, setKeySaved] = useState(false);
@@ -112,6 +119,26 @@ export function SettingsForm() {
     setProviderApiKey(providerId, key.trim());
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
+  };
+
+  const customRom = customRoms[dialect.id] ?? null;
+
+  const uploadRom = async () => {
+    setRomError('');
+    const picked = await openBinaryFile('.rom');
+    if (!picked) return; // cancelled - not a failure, say nothing
+    const problem = romUploadError(dialect, picked.bytes);
+    if (problem) {
+      setRomError(problem);
+      return;
+    }
+    const result = setCustomRom(dialect.id, picked.name, picked.bytes);
+    if (!result.ok) setRomError(result.message);
+  };
+
+  const restoreRom = () => {
+    setRomError('');
+    clearCustomRom(dialect.id);
   };
 
   const tabs = [
@@ -241,6 +268,46 @@ export function SettingsForm() {
               onChange={(e) => setEmulatorVolume(Number(e.target.value))}
             />
           </label>
+          <h3>Machine ROM</h3>
+          {dialect.romBytes === undefined ? (
+            <p>
+              The {dialect.name} emulator loads its own ROM set, so it
+              can&apos;t be replaced here.
+            </p>
+          ) : (
+            <>
+              <p>{romInUseLabel(dialect, customRom)}</p>
+              <div className={styles.buttonRow}>
+                <button type="button" onClick={() => void uploadRom()}>
+                  Upload ROM image…
+                </button>
+                <button
+                  type="button"
+                  onClick={restoreRom}
+                  disabled={!customRom}
+                >
+                  Restore bundled ROM
+                </button>
+              </div>
+              {romError && (
+                <p role="alert" className={styles.settingsError}>
+                  {romError}
+                </p>
+              )}
+              <p>
+                The image must be exactly {dialect.romBytes.toLocaleString()}{' '}
+                bytes. It is kept in this browser only, is never uploaded
+                anywhere, and is not included in programs you publish. Changing
+                it restarts the machine.
+              </p>
+              {!localStorageIsPersistent() && (
+                <p role="alert" className={styles.settingsError}>
+                  This browser is blocking site data, so a ROM you upload will
+                  only last for this session.
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
 

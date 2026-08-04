@@ -41,8 +41,9 @@ import {
   registerScreenCapture,
   snapshotScreen,
 } from '../app/screenCapture';
-import type { MachineEmulator } from '../dialects/types';
+import type { Dialect, MachineEmulator } from '../dialects/types';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
+import { loadCustomRom, getCustomRomMeta } from '../storage/customRom';
 import { EmulatorAudio } from '../audio/emulatorAudio';
 import { VariableWatcher } from './VariableWatcher';
 import { GearsSpinner } from './GearsSpinner';
@@ -101,13 +102,49 @@ function landscapeSideGutter(): number {
 function fetchRom(url: string): Promise<Uint8Array> {
   let cached = romCache.get(url);
   if (!cached) {
-    cached = fetch(url).then(async (r) => {
+    const pending = fetch(url).then(async (r) => {
       if (!r.ok) throw new Error(`Failed to fetch ROM (${r.status})`);
       return new Uint8Array(await r.arrayBuffer());
     });
+    // Evict a rejection rather than memoizing it: the cache holds a promise, so
+    // without this one offline miss would answer every later attempt for the
+    // life of the page - including the fetch that "restore bundled ROM" needs.
+    pending.catch(() => {
+      if (romCache.get(url) === pending) romCache.delete(url);
+    });
+    cached = pending;
     romCache.set(url, cached);
   }
   return cached;
+}
+
+/**
+ * What to show when starting the machine threw.
+ *
+ * Two cases get replaced rather than surfaced raw. A machine whose ROM image
+ * can't be fetched is a *designed* state, not a bug: images with no
+ * redistribution grant are meant to be removable (see
+ * public/roms/ATTRIBUTION.md), and the answer is to supply one - so say that
+ * instead of "Failed to fetch ROM (404)". And a failure while the user's own
+ * image is in force names it, because a ROM that is the right size but wrong
+ * boots to nothing and is otherwise indistinguishable from a broken program.
+ * That hint is the only automatic recovery route for an image we cannot
+ * validate beyond its length.
+ */
+function describeMachineError(e: unknown, dialect: Dialect): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  const custom = dialect.romBytes ? getCustomRomMeta(dialect.id) : null;
+  if (custom) {
+    // The machine's own words are quoted rather than stated: they are written
+    // for the stock firmware and several of them ("ROM did not boot - emulator
+    // bug") accuse the IDE of a fault that is, here, simply an image that isn't
+    // a working ROM.
+    return `The ${dialect.name} didn't start on your own ROM (${custom.name}) - "${raw}". Restore the bundled ROM in Settings ▸ Emulator if that image isn't a working ${dialect.name} ROM.`;
+  }
+  if (dialect.romBytes && /Failed to fetch ROM/.test(raw)) {
+    return `The ${dialect.name} ROM image isn't available. You can supply your own ${dialect.romBytes.toLocaleString()}-byte ROM in Settings → Emulator.`;
+  }
+  return raw;
 }
 
 export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
@@ -120,6 +157,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const runRequest = useIdeStore((s) => s.runRequest);
   const stopRequest = useIdeStore((s) => s.stopRequest);
   const resetRequest = useIdeStore((s) => s.resetRequest);
+  const romChangeRequest = useIdeStore((s) => s.romChangeRequest);
   const stepRequest = useIdeStore((s) => s.stepRequest);
   const continueRequest = useIdeStore((s) => s.continueRequest);
   const debugLine = useIdeStore((s) => s.debugLine);
@@ -445,11 +483,22 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
     if (machineRef.current) return machineRef.current;
+    // An image the user supplied wins outright. It is read straight from
+    // storage rather than through a store selector: that is what lets the
+    // player (which renders this same pane) honour it with no extra hydration,
+    // and it keeps romCache - which is keyed by the bundled URL - holding only
+    // bundled images, so an override can never poison it and restoring the
+    // bundled ROM is a cache hit. The lookup is gated on romBytes, so a machine
+    // that ignores this buffer entirely is never affected.
+    //
     // A dialect without a romUrl needs no ROM image (e.g. a high-level
     // interpreter); hand its emulator an empty buffer and skip the fetch.
-    const rom = dialect.romUrl
-      ? await fetchRom(dialect.romUrl)
-      : new Uint8Array(0);
+    const custom = dialect.romBytes
+      ? loadCustomRom(dialect.id, dialect.romBytes)
+      : null;
+    const rom =
+      custom ??
+      (dialect.romUrl ? await fetchRom(dialect.romUrl) : new Uint8Array(0));
     const machine = dialect.createEmulator({
       rom,
       ramKb: 16,
@@ -603,7 +652,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         if (shouldRevealEmulator({ checking })) canvasRef.current?.focus();
       } catch (e) {
         setLoading(false);
-        setError(e instanceof Error ? e.message : String(e));
+        setError(describeMachineError(e, dialect));
       }
     })();
     return () => {
@@ -688,7 +737,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         canvasRef.current?.focus();
       } catch (e) {
         setLoading(false);
-        setError(e instanceof Error ? e.message : String(e));
+        setError(describeMachineError(e, dialect));
       }
     })();
     return () => {
@@ -736,9 +785,12 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     return () => clearInterval(id);
   }, [emulatorStatus, setLiveMemory]);
 
-  // Switching target machine: dispose the old emulator so the next run builds a
-  // fresh one with the new dialect's ROM. The editor and virtual keyboard
-  // re-render from the new dialect on their own.
+  // Switching target machine - or replacing this machine's ROM image - disposes
+  // the old emulator so the next run builds a fresh one with the ROM now in
+  // force. The editor and virtual keyboard re-render from the new dialect on
+  // their own. Tearing down a *running* machine on a ROM change is deliberate:
+  // leaving the old firmware executing while Settings reports a new image would
+  // be a lie, and the change is always an explicit act in Settings.
   useEffect(() => {
     stopLoop();
     machineRef.current?.releaseAllKeys();
@@ -756,7 +808,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     firstFrameRef.current = false;
     setLoading(false);
     setError('');
-  }, [dialect, stopLoop, clearCanvas, disposeAudio, dropCapture]);
+  }, [
+    dialect,
+    romChangeRequest,
+    stopLoop,
+    clearCanvas,
+    disposeAudio,
+    dropCapture,
+  ]);
 
   // Backgrounding pauses the rAF loop; clear the matrix so no key stays held.
   useEffect(() => {

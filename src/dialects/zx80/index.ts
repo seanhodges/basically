@@ -25,6 +25,7 @@ import {
   CASSETTE_SAMPLE_RATE,
 } from './targets';
 import { Zx80Machine } from './emulator/zx80Machine';
+import { ROM_BYTES } from './emulator/memory';
 import { zx80KeyboardLayout } from './keyboardLayout';
 import { zx80Samples } from './samples';
 import { zx80MemoryMap } from './memoryMap';
@@ -88,6 +89,7 @@ export const zx80: Dialect = {
   },
 
   romUrl: `${import.meta.env.BASE_URL}roms/zx80.rom`,
+  romBytes: ROM_BYTES,
 
   debuggable: true,
 

@@ -116,7 +116,35 @@ Screen_ action to run it standalone on desktop or mobile.
 The app works almost entirely offline, so you can sit on a flight, train or mountain summit and tinker with that game you're working on at home. There are a couple of things to be aware of:
 
 - **AI support** currently only supports cloud-based solutions and requires Internet access at all times to work. In future we might add local LLM support.
-- **Running the emulator** usually requires downloading a third-party ROM for the target machine, whuch are often large blobs and can have complex licencing rules. You should run the emulator **before** going offline, to ensure any runtime dependencies are cached and ready to use.
+- **Running the emulator** usually requires downloading a third-party ROM for the target machine, which are often large blobs and can have complex licencing rules. You should run the emulator **before** going offline, to ensure any runtime dependencies are cached and ready to use. A ROM you supply yourself (see below) is already stored in your browser, so it needs no download at all.
+
+### Supplying your own ROM
+
+Every machine ships with the ROM it needs, so there is normally nothing to do
+here. But on machines that run a single ROM image - the Sinclair and Amstrad
+ones - you can run your own image instead: a different revision of the
+firmware, or your own build.
+
+Open **Settings ▸ Emulator** and use **Upload ROM image…** under **Machine
+ROM**. The setting applies to the machine you currently have selected, and each
+machine keeps its own.
+
+A few things worth knowing:
+
+- The image must be **exactly** the size that machine's ROM is - the setting
+  tells you the figure, and says so again if the file you pick is a different
+  size. On the machines whose ROM is two banks joined together (the ZX Spectrum
+  128 and both CPCs) the usual mistake is supplying one half.
+- The image stays **in your browser**. It is never uploaded anywhere, and it is
+  not included in programs you [publish](/guide/publishing).
+- Changing it **restarts the machine**, so press Play again afterwards.
+- If a ROM doesn't work, the machine will simply sit there doing nothing. Go
+  back to **Settings ▸ Emulator** and press **Restore bundled ROM**.
+
+Only the emulator follows your image. The editor's keyword highlighting,
+completion and error checking are built for the machine's original BASIC, so an
+image with a _different_ BASIC in it will run, but the editor will disagree with
+it.
 
 ## Join the community
 

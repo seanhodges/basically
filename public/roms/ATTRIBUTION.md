@@ -29,7 +29,9 @@ https://worldofspectrum.org/assets/amstrad-roms.txt (originally posted to
 comp.sys.sinclair, 1999).
 
 If you are the rights holder and want this file removed, please open an
-issue — the IDE also supports supplying your own ROM image at runtime.
+issue — the IDE also supports supplying your own ROM image at runtime, from
+Settings ▸ Emulator. A replacement must be exactly the same size as the image
+it replaces.
 
 # Acorn ROM attribution
 
@@ -68,7 +70,7 @@ de-facto-tolerated basis. They are included here solely for use with the
 bundled emulator.
 
 If you are the rights holder and want these files removed, please open an
-issue — the IDE also supports supplying your own ROM image at runtime.
+issue.
 
 `pet/basic-4-b000.901465-23.bin`, `pet/basic-4-c000.901465-20.bin` and
 `pet/basic-4-d000.901465-21.bin` (Commodore BASIC 4.0, in three 4K banks at
@@ -87,7 +89,7 @@ decades on a de-facto-tolerated basis. They are included here, unmodified,
 solely for use with the bundled emulator.
 
 If you are the rights holder and want these files removed, please open an
-issue — the IDE also supports supplying your own ROM image at runtime.
+issue.
 
 `vic20/basic.bin` (Commodore BASIC v2 at $C000, part 901486-01),
 `vic20/kernal.bin` (the PAL KERNAL at $E000, part 901486-07) and
@@ -105,7 +107,7 @@ de-facto-tolerated basis. They are included here, unmodified, solely for use
 with the bundled emulator.
 
 If you are the rights holder and want these files removed, please open an
-issue — the IDE also supports supplying your own ROM image at runtime.
+issue.
 
 # Amstrad CPC ROM attribution
 
@@ -152,8 +154,10 @@ emulators (CPCemu, WinAPE, Arnold, Caprice32, JavaCPC) ship these images;
 CPCemu's documentation, for example, credits distribution permission from both
 Amstrad (for BASIC) and Locomotive (for the firmware). Both images are included
 here, unmodified and with their copyright notices intact, on that same basis.
-(The IDE also supports supplying your own ROM image at runtime, so the bundled
-copies can be removed without disabling the feature.)
+(The IDE also supports supplying your own ROM image at runtime, from Settings ▸
+Emulator, so the bundled copies can be removed without disabling the feature. A
+replacement must be exactly the same size — for these machines the full 32K,
+both banks.)
 
 If you are a rights holder (Amstrad or Locomotive Software) and want these files
 removed, please open an issue and they will be taken out.

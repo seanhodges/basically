@@ -25,6 +25,7 @@ import {
   CASSETTE_SAMPLE_RATE,
 } from './targets';
 import { Zx81Machine } from './emulator/zx81Machine';
+import { ROM_BYTES } from './emulator/memory';
 import { zx81KeyboardLayout } from './keyboardLayout';
 import { zx81Samples } from './samples';
 import { zx81MemoryMap } from './memoryMap';
@@ -102,6 +103,7 @@ export const zx81: Dialect = {
   },
 
   romUrl: `${import.meta.env.BASE_URL}roms/zx81.rom`,
+  romBytes: ROM_BYTES,
 
   debuggable: true,
 

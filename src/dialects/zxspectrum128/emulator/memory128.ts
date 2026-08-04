@@ -25,7 +25,8 @@ import {
 } from '../../../emulator/memoryActivityBuffer';
 
 const BANK_SIZE = 0x4000; // 16K
-const ROM_BYTES = 0x8000; // 32K - two 16K ROM banks
+/** 32K - two 16K ROM banks (ROM 0 = the 128 editor, ROM 1 = the 48 BASIC). */
+export const ROM_BYTES = 0x8000;
 /** Screen bitmap (0x1800) + attributes (0x300), measured from 0x4000. */
 const SCREEN_LEN = 0x1b00;
 
