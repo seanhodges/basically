@@ -41,7 +41,18 @@ import {
   registerScreenCapture,
   snapshotScreen,
 } from '../app/screenCapture';
-import type { Dialect, MachineEmulator } from '../dialects/types';
+import {
+  createMachineControl,
+  forgetMachineControl,
+  machineFrozen,
+  registerMachineControl,
+} from '../app/machineControl';
+import { effectiveGamepadMode } from '../keyboard/controllerConfig';
+import type {
+  Dialect,
+  MachineEmulator,
+  MachineScreenText,
+} from '../dialects/types';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { loadCustomRom, getCustomRomMeta } from '../storage/customRom';
 import { EmulatorAudio } from '../audio/emulatorAudio';
@@ -175,6 +186,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // the overlays, so the screen resize and the gamepad/keyboard hand-off stay in
   // lock-step through focus transitions instead of diverging.
   const { overlayUp } = useInputOverlays();
+  const gamepadMode = useIdeStore((s) => s.gamepadMode);
   const variableWatcher = useIdeStore((s) => s.variableWatcher);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
 
@@ -282,6 +294,38 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     forgetScreenCapture();
   }, []);
 
+  // The driver the assistant reaches the machine through, offered on the same
+  // terms as the capture: only while a machine is up and drawing, and taken
+  // back when it goes away. Unlike the capture there is no snapshot to keep -
+  // a machine that is gone cannot be driven, and pretending otherwise would let
+  // an answer about this program be checked against the last one.
+  const unregisterControlRef = useRef<(() => void) | null>(null);
+  const registerControl = useCallback(
+    (machine: MachineEmulator, render: () => void) => {
+      unregisterControlRef.current?.();
+      unregisterControlRef.current = registerMachineControl(
+        createMachineControl({
+          machine,
+          layout: dialect.keyboardLayout,
+          gamepadMode: effectiveGamepadMode(dialect, gamepadMode),
+          fireButtons: dialect.joystickFireButtons ?? 1,
+          // A driven frame renders like any other: what the assistant is shown
+          // and what the user would have seen are the same picture.
+          step: () => {
+            machine.runFrame();
+            render();
+          },
+        }),
+      );
+    },
+    [dialect, gamepadMode],
+  );
+  const dropControl = useCallback(() => {
+    unregisterControlRef.current?.();
+    unregisterControlRef.current = null;
+    forgetMachineControl();
+  }, []);
+
   // Let the browser paint at least once. Used to surface the loading overlay
   // before a synchronous ROM boot (loadProgram) blocks the main thread.
   const nextPaint = useCallback(
@@ -335,6 +379,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           // mount so a canvas that has not drawn anything yet is never offered
           // up as this machine's screen.
           registerCapture();
+          // And a machine worth driving, for the same reason: a machine that
+          // has not drawn yet is one no key press would mean anything to.
+          registerControl(machine, render);
         }
       };
 
@@ -355,6 +402,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           audio.push(samples, machine.audioSampleRate ?? 44100);
         }
       };
+
+      // The assistant is driving: it advances the machine itself, a step at a
+      // time, so this loop must not also be running it. What it acts on has to
+      // be the screen it was last shown, not one that moved on while a tool
+      // call was in flight. The loop stays scheduled so the machine picks up
+      // again the moment driving ends.
+      if (machineFrozen()) {
+        schedule();
+        return;
+      }
 
       // Debug session: advance by one slice, pausing on a breakpoint ('run') or
       // at the next BASIC line ('step'). The machine renders progress between
@@ -411,6 +468,22 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             },
             aiCheckCountsRef.current,
           );
+          // The characters on screen for *this* frame, read at most once and
+          // shared by everything that wants them. Reading the screen back is
+          // thousands of memory reads on some machines, so a verdict frame that
+          // needs it for both an expectation and the text view must not pay
+          // twice - and reading once is also what keeps the text, the picture
+          // and the verdict describing one instant of one machine.
+          //
+          // `undefined` means "not read yet"; `null` is the machine answering
+          // that it cannot say right now.
+          let screenTextThisFrame: MachineScreenText | null | undefined;
+          const screenTextOnce = (): MachineScreenText | null => {
+            if (screenTextThisFrame === undefined) {
+              screenTextThisFrame = machine.readScreenText?.() ?? null;
+            }
+            return screenTextThisFrame;
+          };
           // Check the assistant's stated expectations on a cadence while the run
           // is being watched, and once more at the verdict so the final state is
           // always seen. Skipped entirely when it stated none, which is the
@@ -426,7 +499,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
                 aiCheckLatchRef.current,
                 evaluateExpectations(aiCheckExpectRef.current, {
                   variables: machine.readVariables?.() ?? null,
-                  screen: machine.readScreenText?.() ?? null,
+                  screen: screenTextOnce(),
                 }),
               );
             }
@@ -454,6 +527,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             // are the same picture, so it is one capture either way.
             render();
             const captured = captureScreen() ?? undefined;
+            // The same instant as the picture, and on most verdicts already
+            // read: an answer that stated a `SCREEN CONTAINS` expectation has
+            // paid for this reading above, and asking again here costs nothing.
+            // Only where the assistant named the text view and stated no
+            // expectation does this read the machine at all.
+            const capturedText = aiCheckViewsRef.current.text
+              ? (screenTextOnce() ?? undefined)
+              : undefined;
             useIdeStore.getState().reportRun({
               outcome: verdict.outcome,
               ranSource: aiCheckSourceRef.current,
@@ -461,6 +542,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
               expectations: results,
               ...(needsScreen && captured ? { screen: captured } : {}),
               ...(captured ? { finalScreen: captured } : {}),
+              ...(capturedText ? { screenText: capturedText } : {}),
               views: aiCheckViewsRef.current,
             });
           } else {
@@ -479,7 +561,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       schedule();
     };
     schedule();
-  }, [stopLoop, registerCapture]);
+  }, [stopLoop, registerCapture, registerControl]);
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
     if (machineRef.current) return machineRef.current;
@@ -802,6 +884,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // Forgotten rather than stashed: a question about this machine must never
     // be answered against the screen of the one before it.
     dropCapture();
+    dropControl();
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
@@ -815,6 +898,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     clearCanvas,
     disposeAudio,
     dropCapture,
+    dropControl,
   ]);
 
   // Backgrounding pauses the rAF loop; clear the matrix so no key stays held.

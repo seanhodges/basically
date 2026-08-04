@@ -20,6 +20,7 @@ export const PROVIDERS: ProviderMeta[] = [
     acceptsImages: true,
     maxOutputTokens: 128_000,
     supportsEffort: true,
+    supportsTools: true,
   },
   {
     id: 'openai',
@@ -34,6 +35,10 @@ export const PROVIDERS: ProviderMeta[] = [
     // The tightest of the three, and therefore what bounds DEFAULT_AI_MAX_TOKENS.
     maxOutputTokens: 16_384,
     supportsEffort: false,
+    // Its SDK supports tools; this backend does not wire them yet. Declared
+    // false so the assistant is never asked to do something here that would
+    // then be silently dropped - an honest no, not an untested yes.
+    supportsTools: false,
   },
   {
     id: 'gemini',
@@ -53,6 +58,9 @@ export const PROVIDERS: ProviderMeta[] = [
     // than silently later. Confirm against `models.get` when a key is to hand.
     maxOutputTokens: 65_536,
     supportsEffort: false,
+    // As for OpenAI: capable, not yet wired, so declared false rather than
+    // assumed.
+    supportsTools: false,
   },
 ];
 

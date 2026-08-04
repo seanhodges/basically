@@ -1,4 +1,32 @@
 import type { Dialect } from '../dialects/types';
+import { indexKeyDefs } from '../keyboard/controllerConfig';
+
+/**
+ * The names of the keys this machine has, for telling the assistant what it may
+ * press when it drives a program.
+ *
+ * Derived from the machine's own keyboard layout rather than written down here,
+ * because `MachineEmulator.setKey` takes an opaque machine-defined token and
+ * those tokens are genuinely not uniform - one machine's `KeyA` is another's
+ * bare `A`, and two of them map to raw matrix positions instead. A list written
+ * by hand would be a second account of thirteen keyboards, drifting from the
+ * first.
+ *
+ * Derivable without constructing an emulator, which matters: the system prompt
+ * is built from the `Dialect` alone and has to stay byte-stable per dialect for
+ * prefix caching. Sorted for exactly that reason - the layout's own order is an
+ * arrangement of a keyboard, not a promise about iteration.
+ *
+ * Keys that emit nothing are left out. A key with no tokens presses nothing on
+ * the matrix, so offering its name would be offering a key that silently fails.
+ */
+export function driveKeyNames(dialect: Dialect): string[] {
+  const names: string[] = [];
+  for (const [id, def] of indexKeyDefs(dialect.keyboardLayout)) {
+    if (def.emits.length > 0) names.push(id);
+  }
+  return names.sort();
+}
 
 /**
  * Dialect ids whose machines cannot report their BASIC variables.
@@ -130,15 +158,62 @@ ${buildScreenViewRules(canShowScreen)}`;
  * mention as available and then refuse.
  */
 export function buildScreenViewRules(canShowScreen: boolean): string {
-  if (!canShowScreen) {
-    return `SEEING THE SCREEN
-- The screen CANNOT be shown to you as a picture on this setup. Check what your program does through \`SCREEN CONTAINS\` and \`VAR\` expectations, which are read from the machine itself.`;
-  }
+  const views = canShowScreen
+    ? `\`SCREEN TEXT\` (the characters on screen) and \`SCREEN IMAGE\` (a picture of it)`
+    : `\`SCREEN TEXT\` (the characters on screen)`;
+
+  // Stated ahead of the picture, and in this order, because the choice between
+  // them is the one worth getting right: a character grid is a fraction of the
+  // cost of a picture of the same screen and is exact, where a picture has to be
+  // read back off pixels. The picture earns its place only where what happened
+  // is not expressible as characters at all.
+  const pictureRules = canShowScreen
+    ? `
+- Ask for \`SCREEN IMAGE\` when what your program produced is not characters: something plotted, drawn, coloured, or laid out as shapes - where seeing the picture tells you what the characters cannot.
+- Asking for both is reasonable when a screen is part text and part drawing. Asking for the picture alone, for a program that only prints, is not: you would be reading words back off pixels that you could have been given as words.
+- A \`SCREEN SHOWS\` expectation already asks to be shown the picture. You do not need a \`basic-view\` block as well when you have stated one.`
+    : `
+- The screen CANNOT be shown to you as a picture on this setup, so do not ask for \`SCREEN IMAGE\`. What is on the screen as characters is still available to you.`;
+
   return `SEEING THE SCREEN
-- After the code, you MAY add a single \`\`\`basic-view fenced block asking to be shown the machine's screen when your program is run. One view per line; the only view is \`SCREEN IMAGE\`.
-- Ask when the output is something to look at - anything plotted, drawn, coloured, animated, or laid out on the screen - and when seeing it would tell you something the machine's own error report and your expectations would not.
-- Do NOT ask when the program's output is text you could assert on instead: \`SCREEN CONTAINS\` is checked directly against the machine, costs nothing, and is exact.
-- A \`SCREEN SHOWS\` expectation already asks to be shown the screen. You do not need a \`basic-view\` block as well when you have stated one.
+- After the code, you MAY add a single \`\`\`basic-view fenced block asking to be shown the machine's screen when your program is run. One view per line. The views are ${views}.
+- Ask for \`SCREEN TEXT\` when your program's output is words, numbers, a table, a menu, or anything else made of characters - and when seeing the whole screen would tell you something a \`SCREEN CONTAINS\` expectation would not, because it says what is actually there rather than only whether the text you predicted appeared.
+- Do NOT ask for a view merely to confirm something you already stated as an expectation: \`SCREEN CONTAINS\` and \`VAR\` are checked directly against the machine, cost nothing, and are exact. A view is for seeing what you did not predict.${pictureRules}
 - Naming nothing is perfectly normal and is what most replies do. If you name nothing, you will not be shown the screen - including when the program fails, where you will instead be told that the screen can be shown if you ask for it.
 - A \`basic-view\` block is NEVER program text and is never applied to the editor. Do not put BASIC in it.`;
+}
+
+/**
+ * How the assistant asks to be given the machine, and what it can do with it.
+ *
+ * The ask exists for the same reason the view ask does: only the author of a
+ * program knows whether it reaches its result on its own. Nothing about the
+ * text of a listing distinguishes one that prints its answer from one that
+ * stops at a prompt waiting for the input that would produce it.
+ *
+ * The key names are this machine's own, derived from its keyboard
+ * ({@link driveKeyNames}), so the assistant cannot ask for a key that does not
+ * exist here - and so this text stays a per-dialect constant, which the prompt
+ * cache depends on.
+ */
+export function buildDriveRules(dialect: Dialect, canDrive: boolean): string {
+  if (!canDrive) {
+    return `DRIVING THE PROGRAM
+- The machine CANNOT be driven on this setup, so do not ask to drive it. Write programs whose result you can check without input, and remember that a program waiting for a keypress never reaches its result.`;
+  }
+
+  const names = driveKeyNames(dialect);
+  const joystick = dialect.joystickModes?.length
+    ? `- The joystick works too: hold a direction (\`up\`, \`down\`, \`left\`, \`right\`) or \`fire1\`/\`fire2\` for a number of frames. On this machine it reaches the program through its own joystick port.`
+    : `- The joystick works too: hold a direction (\`up\`, \`down\`, \`left\`, \`right\`) or \`fire1\`/\`fire2\` for a number of frames. This machine has no joystick port, so those arrive as the keys its games actually read - which is what a person playing it would press.`;
+
+  return `DRIVING THE PROGRAM
+- After the code, you MAY add \`DRIVE\` to your \`\`\`basic-view block to be given this machine once your program is running. You can then press its keys, work its joystick, wait, and look at the screen - deciding each step from what the last one showed - before you say whether the program worked.
+- Ask when your program does not reach its result on its own: it waits for input, it starts on a title screen, it shows a menu, or it is a game that only does something once something is pressed. Do NOT ask when the program prints its answer and stops - there is nothing to drive it to.
+- The keys on this machine are named: ${names.join(', ')}. Press them by name. Nothing else is a key here, and asking for one that is not will tell you so rather than doing anything.
+${joystick}
+- Prefer waiting for text on screen over waiting a fixed number of frames. These machines differ by seconds in how long they take to boot and to reach a prompt, so a frame count is a guess where waiting for the prompt to actually appear is not.
+- Looking costs you: prefer reading the screen as characters over asking for a picture of it, for the same reasons the view rules give.
+- Driving is bounded, in how many times you may act and in how much machine time you may spend. When it runs out you will be told, and you should say what you found rather than asking for more.
+- A step that cannot be carried out - a key this machine does not have, text that never appears - is reported back to you, not treated as your program being wrong. Correct your driving and carry on.`;
 }

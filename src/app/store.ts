@@ -9,6 +9,7 @@ import type {
   ListingLayout,
   MachineMemoryStats,
   MachineReport,
+  MachineScreenText,
   MemoryBlock,
 } from '../dialects/types';
 import {
@@ -328,6 +329,21 @@ interface IdeState {
      * captured.
      */
     finalScreen?: ScreenCapture;
+    /**
+     * The characters on screen at that same instant, for showing to the
+     * assistant where it asked for the screen as text.
+     *
+     * Costs nothing extra: the check already reads the screen at the verdict
+     * frame to settle `SCREEN CONTAINS` expectations, and this is that reading
+     * kept rather than discarded. Taking it here rather than later is also what
+     * keeps it honest - the text and {@link screen} then describe one moment of
+     * one machine, and cannot disagree about what the program was doing.
+     *
+     * Absent when the machine could not say (mid-boot, a display mode its
+     * reader cannot decode), which is reported as the view being unavailable
+     * rather than as an empty screen.
+     */
+    screenText?: MachineScreenText;
     /**
      * What the assistant asked to be shown for this run, so a view that could
      * not be produced can be reported back as unavailable rather than answered
@@ -724,8 +740,10 @@ interface IdeState {
    * `ranSource` is the program that was loaded for the run and `baseSource` the
    * program it was derived from, `expectations` how the assistant's stated
    * expectations held up (empty when none), `screen` the display to show the
-   * assistant (only when it asked), and `finalScreen` the same display for the
-   * user's own look at the finished work (whether or not it asked).
+   * assistant (only when it asked), `finalScreen` the same display for the
+   * user's own look at the finished work (whether or not it asked), and
+   * `screenText` the characters on screen at that same instant (only when it
+   * asked, and only where the machine could say).
    */
   reportRun(report: {
     outcome: AiRunOutcome;
@@ -734,6 +752,7 @@ interface IdeState {
     expectations?: ExpectationResult[];
     screen?: ScreenCapture;
     finalScreen?: ScreenCapture;
+    screenText?: MachineScreenText;
     views?: ScreenViewRequest;
   }): void;
   /** Open the AI panel (and, on mobile, switch to its tab). */
@@ -1783,6 +1802,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     expectations = [],
     screen,
     finalScreen,
+    screenText,
     views = noScreenViews(),
   }) =>
     set((s) => ({
@@ -1795,6 +1815,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         views,
         ...(screen ? { screen } : {}),
         ...(finalScreen ? { finalScreen } : {}),
+        ...(screenText ? { screenText } : {}),
       },
     })),
   // The AI panel, emulator and memory map share the right-hand slot, so showing

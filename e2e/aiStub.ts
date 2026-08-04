@@ -25,8 +25,63 @@ function sse(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-/** A complete streamed reply carrying `text` as a single text block. */
-function streamBody(text: string): string {
+/**
+ * One tool call a stubbed reply makes.
+ *
+ * Present so the tool exchange can be tested at the wire level, which is the
+ * level this stub exists for: the loop that answers a call and comes back for
+ * more lives in the app, and a stub that could only ever say text would leave
+ * it untested.
+ */
+export interface StubToolCall {
+  id?: string;
+  name: string;
+  input: unknown;
+}
+
+/**
+ * One reply. A bare string is text, as every reply was before tools existed;
+ * the object form can also call tools, which ends the turn with `tool_use` and
+ * has the app answer and come back.
+ */
+export type StubReply = string | { text?: string; toolCalls: StubToolCall[] };
+
+/** A complete streamed reply: its text, then any tool calls it makes. */
+function streamBody(reply: StubReply): string {
+  const text = typeof reply === 'string' ? reply : (reply.text ?? '');
+  const toolCalls = typeof reply === 'string' ? [] : reply.toolCalls;
+
+  // Anthropic streams a tool call's arguments as JSON fragments against the
+  // block's index, so this mirrors that rather than sending the object whole -
+  // the accumulation is the SDK's, and a stub that skipped it would not be
+  // testing the path the app actually takes.
+  const toolBlocks = toolCalls
+    .map((call, i) => {
+      const index = i + 1;
+      return (
+        sse('content_block_start', {
+          type: 'content_block_start',
+          index,
+          content_block: {
+            type: 'tool_use',
+            id: call.id ?? `toolu_stub_${index}`,
+            name: call.name,
+            input: {},
+          },
+        }) +
+        sse('content_block_delta', {
+          type: 'content_block_delta',
+          index,
+          delta: {
+            type: 'input_json_delta',
+            partial_json: JSON.stringify(call.input),
+          },
+        }) +
+        sse('content_block_stop', { type: 'content_block_stop', index })
+      );
+    })
+    .join('');
+
   return (
     sse('message_start', {
       type: 'message_start',
@@ -52,9 +107,13 @@ function streamBody(text: string): string {
       delta: { type: 'text_delta', text },
     }) +
     sse('content_block_stop', { type: 'content_block_stop', index: 0 }) +
+    toolBlocks +
     sse('message_delta', {
       type: 'message_delta',
-      delta: { stop_reason: 'end_turn', stop_sequence: null },
+      delta: {
+        stop_reason: toolCalls.length ? 'tool_use' : 'end_turn',
+        stop_sequence: null,
+      },
       usage: { output_tokens: 1 },
     }) +
     sse('message_stop', { type: 'message_stop' })
@@ -72,6 +131,12 @@ export interface SentTurn {
 export interface AssistantStub {
   /** Every request so far, oldest first, as the turns it was sent. */
   requests(): SentTurn[][];
+  /**
+   * The tool names each request offered, oldest first - empty for a request
+   * that offered none, which is every request the IDE makes outside a driving
+   * turn.
+   */
+  toolsOffered(): string[][];
 }
 
 /** How the stub answers, beyond the replies themselves. */
@@ -98,7 +163,7 @@ export interface StubOptions {
  */
 export async function stubAssistant(
   page: Page,
-  replies: readonly string[],
+  replies: readonly StubReply[],
   options: StubOptions = {},
 ): Promise<AssistantStub> {
   await page.addInitScript(
@@ -115,13 +180,18 @@ export async function stubAssistant(
 
   let n = 0;
   const sent: SentTurn[][] = [];
+  const tools: string[][] = [];
   await page.route('https://api.anthropic.com/**', async (route) => {
     const reply = replies[Math.min(n, replies.length - 1)] ?? '';
     n++;
     // Recorded so a test can assert what a request actually carried - the one
     // thing only the wire can settle.
-    const body = route.request().postDataJSON() as { messages?: SentTurn[] };
+    const body = route.request().postDataJSON() as {
+      messages?: SentTurn[];
+      tools?: { name: string }[];
+    };
     sent.push(body?.messages ?? []);
+    tools.push((body?.tools ?? []).map((t) => t.name));
     if (options.delayMs) {
       await new Promise((done) => setTimeout(done, options.delayMs));
     }
@@ -140,5 +210,8 @@ export async function stubAssistant(
     }
   });
 
-  return { requests: () => sent.map((turns) => [...turns]) };
+  return {
+    requests: () => sent.map((turns) => [...turns]),
+    toolsOffered: () => tools.map((names) => [...names]),
+  };
 }
