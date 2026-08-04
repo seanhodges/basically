@@ -1,0 +1,115 @@
+## 1. Settle the numbers before writing code
+
+- [ ] 1.1 Look up the maximum output tokens each of the three providers accepts
+      for its configured model, and record the figures in `design.md` under Open
+      Questions (replacing the question)
+- [ ] 1.2 Look up the reasoning-effort levels the configured Anthropic model
+      accepts, and which one corresponds to "leave it unset"
+- [ ] 1.3 Token-count a worst-case listing (a ~20KB ZX Spectrum program, the
+      largest size any dialect prompt asks for) to get the real cost of the visible
+      answer, rather than a characters-per-token estimate
+- [ ] 1.4 Settle `DEFAULT_AI_MAX_TOKENS` from 1.1 and 1.3 — must clear the listing
+      with reasoning headroom, and sit within every provider's ceiling — and settle
+      `DEFAULT_AI_EFFORT` from 1.2
+
+## 2. Remove the budget from the dialect seam
+
+- [ ] 2.1 Remove `maxTokens` from `AiProfile` in `src/dialects/types.ts`
+- [ ] 2.2 Remove the `maxTokens` line from all 14 `src/dialects/*/aiProfile.ts`
+      files; `npm run typecheck` must come back clean
+- [ ] 2.3 Check `src/dialects/registry.test.ts` and any other dialect test for
+      assertions on `maxTokens`, and remove them
+- [ ] 2.4 Remove the `maxTokens` mention from
+      `.claude/skills/adding-a-target-system/plan-template.md` so new dialects stop
+      being told to set a field that no longer exists
+
+## 3. Provider capabilities and the request
+
+- [ ] 3.1 Add the declared output ceiling and effort support to `ProviderMeta`
+      (`src/ai/providers/types.ts`), documented in the style of `acceptsImages`
+- [ ] 3.2 Fill both in for all three entries in `src/ai/providers/registry.ts`
+      using the figures from 1.1 and 1.2
+- [ ] 3.3 Add optional `effort` to `StreamOptions`
+- [ ] 3.4 Send it as the effort setting in `src/ai/providers/anthropic.ts`; leave
+      `openai.ts` and `gemini.ts` ignoring it
+- [ ] 3.5 Clamp the requested budget to the provider's declared ceiling, so a
+      configured value above it cannot turn into a rejected request
+- [ ] 3.6 Colocated tests: the Anthropic backend sends the effort setting, the
+      other two do not, and each clamps a too-large budget
+
+## 4. Per-provider settings storage
+
+- [ ] 4.1 Add `DEFAULT_AI_MAX_TOKENS` and `DEFAULT_AI_EFFORT` to
+      `src/storage/settings.ts` alongside the other defaults
+- [ ] 4.2 Add per-provider budget and effort accessors beside
+      `getProviderApiKey`/`setProviderApiKey`, keyed by provider id; clearing a
+      value removes the entry and restores the default
+- [ ] 4.3 Extend the `KEYS` comment noting that per-provider values are not listed
+      in the map
+- [ ] 4.4 Colocated tests: round-trip each accessor; an unset value falls back to
+      the default; **a value set on one provider survives switching to another and
+      back, and does not leak into the other provider**
+
+## 5. One resolution point
+
+- [ ] 5.1 Add `resolveAiTuning(providerId)` returning the effective budget and
+      effort, applying the per-provider override over the default
+- [ ] 5.2 Replace all five `dialect.aiProfile.maxTokens` reads with it —
+      `AiPanel.tsx` (both the request and the fix paths), `DocsDrawer.tsx`,
+      `NewProjectDialog.tsx`, and the unattended path in `aiStore.ts`
+- [ ] 5.3 Test that the unattended correction path resolves the same values as a
+      user-made request, so the two cannot drift
+
+## 6. Settings UI
+
+- [ ] 6.1 Add the budget control to the AI tab of
+      `src/components/SettingsForm.tsx`, following the existing numeric-field
+      pattern, bounded by the selected provider's declared ceiling
+- [ ] 6.2 Add the effort control, shown only for a provider that supports one
+- [ ] 6.3 Extend the existing provider-change handler to swap both fields, as it
+      already swaps the API key field
+- [ ] 6.4 Give both controls a way back to the default, and show the effective
+      value when no override is stored
+
+## 7. Report the reason a reply was cut short
+
+- [ ] 7.1 Carry the cut-off reason alongside `incomplete` on the displayed message,
+      absent on complete answers; leave every existing consumer of `incomplete`
+      untouched
+- [ ] 7.2 Set it for all three cases — stopped by the user, connection failed,
+      reached the output limit
+- [ ] 7.3 Handle out-of-room-with-no-text **before** the empty-reply branch in
+      `src/ai/aiStore.ts`, so it is no longer retried as a formatting mistake
+- [ ] 7.4 Word each case distinctly in `src/components/AiPanel.tsx`; the
+      output-limit case points at the setting that governs it
+- [ ] 7.5 Extend `src/ai/aiStore.test.ts`: each reason is recorded correctly, and
+      an out-of-room empty reply spends no second request
+
+## 8. Continue a cut-off answer
+
+- [ ] 8.1 Add the continuation request, using the mid-array assistant turn shape
+      the empty-reply retry already uses — **not** a trailing assistant turn, which
+      current Claude models reject
+- [ ] 8.2 Stitch at a line boundary: drop the partial's incomplete trailing line
+      and resume from the following line
+- [ ] 8.3 Make the stitched program the continuation reply's content, so block
+      extraction, the run check, and staleness all work unchanged on the last
+      message
+- [ ] 8.4 Carry the original answer's staleness fingerprint onto the continuation,
+      not a fresh one
+- [ ] 8.5 Offer the control in `AiPanel.tsx` only for the output-limit case
+- [ ] 8.6 Tests: stitching drops the incomplete line and joins cleanly; a continued
+      answer is run-checked like any other; an edit made while it was cut off still
+      flags the continued answer as stale; a continuation that is itself cut off can
+      be continued again
+
+## 9. Quality gates
+
+- [ ] 9.1 `npm run typecheck`
+- [ ] 9.2 `npm test`
+- [ ] 9.3 `npm run lint`
+- [ ] 9.4 `npm run format:check` (or `npm run format` to fix)
+- [ ] 9.5 `npm run e2e:chromium -- e2e/ai-assistant` — check off only on a passing
+      run; if it fails, leave unchecked and note what failed
+- [ ] 9.6 `npm run e2e:chromium -- e2e/shell` if the settings form is covered there
+      — same rule: only on a passing run
