@@ -18,6 +18,8 @@ export const PROVIDERS: ProviderMeta[] = [
     consoleLabel: 'platform.claude.com',
     apiHost: 'api.anthropic.com',
     acceptsImages: true,
+    maxOutputTokens: 128_000,
+    supportsEffort: true,
   },
   {
     id: 'openai',
@@ -29,6 +31,9 @@ export const PROVIDERS: ProviderMeta[] = [
     consoleLabel: 'platform.openai.com',
     apiHost: 'api.openai.com',
     acceptsImages: true,
+    // The tightest of the three, and therefore what bounds DEFAULT_AI_MAX_TOKENS.
+    maxOutputTokens: 16_384,
+    supportsEffort: false,
   },
   {
     id: 'gemini',
@@ -40,6 +45,14 @@ export const PROVIDERS: ProviderMeta[] = [
     consoleLabel: 'aistudio.google.com',
     apiHost: 'generativelanguage.googleapis.com',
     acceptsImages: true,
+    // UNCONFIRMED: Google publishes no specifications table for the preview
+    // models, so this is the preceding Pro generation's documented ceiling on the
+    // assumption a Pro model does not regress below it. Only bounds how high a
+    // user may set the Gemini override by hand - the default sits far below it -
+    // so an over-generous value fails visibly at the moment it is typed rather
+    // than silently later. Confirm against `models.get` when a key is to hand.
+    maxOutputTokens: 65_536,
+    supportsEffort: false,
   },
 ];
 
@@ -50,4 +63,18 @@ export const DEFAULT_PROVIDER_ID: AiProviderId = 'anthropic';
 
 export function getProvider(id: AiProviderId): ProviderMeta {
   return PROVIDERS.find((p) => p.id === id) ?? PROVIDERS[0]!;
+}
+
+/**
+ * The budget to actually request of a provider: what was asked for, bounded by
+ * what that backend accepts.
+ *
+ * The budget is one app-wide number (see `../aiTuning`), but the backends do not
+ * share a ceiling - so without this, raising the default far enough to stop the
+ * tightest backend truncating would instead make it reject the request outright.
+ * Clamping degrades a too-large setting to a shorter answer, which is the failure
+ * this whole change exists to make rarer.
+ */
+export function clampToProvider(id: AiProviderId, maxTokens: number): number {
+  return Math.min(maxTokens, getProvider(id).maxOutputTokens);
 }

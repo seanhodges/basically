@@ -5,9 +5,17 @@ import {
   setAiProvider,
   getProviderApiKey,
   setProviderApiKey,
+  getProviderMaxTokens,
+  setProviderMaxTokens,
+  getProviderEffort,
+  setProviderEffort,
+  hasProviderTuning,
+  DEFAULT_AI_MAX_TOKENS,
+  DEFAULT_AI_EFFORT,
 } from '../storage/settings';
 import { PROVIDERS, getProvider } from '../ai/providers/registry';
-import type { AiProviderId } from '../ai/providers/types';
+import { AI_EFFORTS } from '../ai/providers/types';
+import type { AiEffort, AiProviderId } from '../ai/providers/types';
 import {
   type GamepadMode,
   effectiveGamepadMode,
@@ -54,17 +62,50 @@ export function SettingsForm() {
   const [providerId, setProviderId] = useState<AiProviderId>(getAiProvider());
   const [key, setKey] = useState(getProviderApiKey(getAiProvider()));
   const [keySaved, setKeySaved] = useState(false);
+  const [maxTokens, setMaxTokens] = useState(() =>
+    getProviderMaxTokens(getAiProvider()),
+  );
+  const [effort, setEffort] = useState<AiEffort>(() =>
+    getProviderEffort(getAiProvider()),
+  );
   const provider = getProvider(providerId);
   const tab = useIdeStore((s) => s.settingsTab);
   const setTab = useIdeStore((s) => s.setSettingsTab);
+  const tuned = hasProviderTuning(providerId);
 
-  // Switching provider persists the choice and swaps the key field to that
-  // provider's stored key, so each backend's key is kept independently.
+  // Switching provider persists the choice and swaps every per-provider field to
+  // that provider's own values, so each backend's key and tuning are kept
+  // independently - the ceilings and the meaning of "effort" differ between them.
   const changeProvider = (id: AiProviderId) => {
     setProviderId(id);
     setAiProvider(id);
     setKey(getProviderApiKey(id));
+    setMaxTokens(getProviderMaxTokens(id));
+    setEffort(getProviderEffort(id));
     setKeySaved(false);
+  };
+
+  // Written through on change rather than behind a Save button: unlike the key,
+  // there is nothing here worth losing to a closed dialog, and a number that
+  // silently didn't apply is exactly the confusion this setting exists to end.
+  const changeMaxTokens = (raw: string) => {
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n)) return;
+    const bounded = Math.min(Math.max(n, 1), provider.maxOutputTokens);
+    setMaxTokens(bounded);
+    setProviderMaxTokens(providerId, bounded);
+  };
+
+  const changeEffort = (next: AiEffort) => {
+    setEffort(next);
+    setProviderEffort(providerId, next);
+  };
+
+  const resetTuning = () => {
+    setProviderMaxTokens(providerId, null);
+    setProviderEffort(providerId, null);
+    setMaxTokens(getProviderMaxTokens(providerId));
+    setEffort(getProviderEffort(providerId));
   };
 
   const saveKey = () => {
@@ -330,6 +371,49 @@ export function SettingsForm() {
             </button>
             {keySaved && <span className={styles.settingsSaved}>Saved ✓</span>}
           </div>
+          <h3>Answer length</h3>
+          <p>
+            How long an answer may be, and how hard {provider.label} thinks
+            before writing it. Both are spent from the same budget, so a longer
+            think leaves less room for the program &mdash; if answers keep
+            getting cut off mid-listing, raise the limit or lower the effort.
+            These are kept per provider.
+          </p>
+          <label className={styles.field}>
+            Maximum answer length (tokens)
+            <input
+              type="number"
+              min={1}
+              max={provider.maxOutputTokens}
+              step={1024}
+              value={maxTokens}
+              onChange={(e) => changeMaxTokens(e.target.value)}
+            />
+          </label>
+          {provider.supportsEffort && (
+            <label className={styles.field}>
+              Thinking effort
+              <select
+                value={effort}
+                onChange={(e) => changeEffort(e.target.value as AiEffort)}
+              >
+                {AI_EFFORTS.map((e) => (
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {(tuned.maxTokens || tuned.effort) && (
+            <div className={`${dialog.modalActions} ${dialog.left}`}>
+              <button onClick={resetTuning}>
+                Reset to defaults ({DEFAULT_AI_MAX_TOKENS} tokens
+                {provider.supportsEffort ? `, ${DEFAULT_AI_EFFORT} effort` : ''}
+                )
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

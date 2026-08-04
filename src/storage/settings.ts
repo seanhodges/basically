@@ -1,5 +1,6 @@
 import type { ChatMessage } from '../ai/providers/types';
-import type { AiProviderId } from '../ai/providers/types';
+import type { AiEffort, AiProviderId } from '../ai/providers/types';
+import { AI_EFFORTS } from '../ai/providers/types';
 import {
   AI_PROVIDER_IDS,
   DEFAULT_PROVIDER_ID,
@@ -69,8 +70,9 @@ export type PersistedMessage = Omit<ChatMessage, 'image'> & {
 export const UNTITLED_FILE_NAME = 'untitled.txt';
 
 const KEYS = {
-  // Per-provider API keys are owned by the provider registry
-  // (`ProviderMeta.apiKeyStorageKey`), not listed here.
+  // Per-provider values are not listed here: API keys are owned by the provider
+  // registry (`ProviderMeta.apiKeyStorageKey`), and per-provider AI tuning is
+  // keyed by provider id (see `tuningKey`).
   aiProvider: 'mbide.aiProvider',
   autosaveDoc: 'mbide.autosave.doc',
   autosaveName: 'mbide.autosave.name',
@@ -182,6 +184,113 @@ export function setProviderApiKey(id: AiProviderId, key: string): void {
   const storageKey = getProvider(id).apiKeyStorageKey;
   if (key === '') localStorage.removeItem(storageKey);
   else localStorage.setItem(storageKey, key);
+}
+
+/**
+ * How long an answer may be, and how hard the model thinks before writing it.
+ *
+ * One default for every machine: how many tokens a model may emit is a fact about
+ * the model and about what the user wants, not about which microcomputer is
+ * selected. These used to live on each dialect's AI profile, which meant thirteen
+ * copies of one number that no dialect had a reason to differ on.
+ *
+ * The budget must clear the largest listing any dialect asks for (the ZX Spectrum
+ * prompt's "comfortably under 20KB of source", roughly 6-7k tokens) with room left
+ * for the model's own reasoning, which is spent from the same budget. It is also
+ * exactly the tightest backend's ceiling, so no provider needs a smaller default.
+ *
+ * The effort is stated rather than left unset because unset means the model's
+ * highest setting - an unbounded think against a shared budget, which is what left
+ * long listings unfinished.
+ */
+export const DEFAULT_AI_MAX_TOKENS = 16384;
+export const DEFAULT_AI_EFFORT: AiEffort = 'medium';
+
+/**
+ * Per-provider tuning, kept beside that provider's key.
+ *
+ * Keyed by provider id rather than by a declared name on `ProviderMeta` the way
+ * `apiKeyStorageKey` is: those key names predate any scheme and cannot be derived,
+ * whereas these are new and a fourth backend should cost nothing to add.
+ *
+ * The two backends differ in what they accept and in what "effort" even means, and
+ * the user keeps a key for each - so tuning one and trying another must not lose
+ * what was set for the first.
+ */
+function tuningKey(id: AiProviderId): string {
+  return `mbide.aiTuning.${id}`;
+}
+
+function readTuning(id: AiProviderId): {
+  maxTokens?: number;
+  effort?: AiEffort;
+} {
+  const raw = localStorage.getItem(tuningKey(id));
+  if (raw === null) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    // A hand-edited or half-written entry is not worth failing a request over.
+    return {};
+  }
+}
+
+function writeTuning(
+  id: AiProviderId,
+  patch: { maxTokens?: number | null; effort?: AiEffort | null },
+): void {
+  const next = { ...readTuning(id) };
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null) delete next[k as keyof typeof next];
+    else Object.assign(next, { [k]: v });
+  }
+  if (Object.keys(next).length === 0) localStorage.removeItem(tuningKey(id));
+  else localStorage.setItem(tuningKey(id), JSON.stringify(next));
+}
+
+/** This provider's output budget, or the shared default when it has no override. */
+export function getProviderMaxTokens(id: AiProviderId): number {
+  const stored = readTuning(id).maxTokens;
+  return typeof stored === 'number' && Number.isFinite(stored) && stored > 0
+    ? stored
+    : DEFAULT_AI_MAX_TOKENS;
+}
+
+/** Pass null to clear the override and go back to the shared default. */
+export function setProviderMaxTokens(
+  id: AiProviderId,
+  maxTokens: number | null,
+): void {
+  writeTuning(id, { maxTokens });
+}
+
+/** This provider's effort, or the shared default when it has no override. */
+export function getProviderEffort(id: AiProviderId): AiEffort {
+  const stored = readTuning(id).effort;
+  return stored !== undefined && AI_EFFORTS.includes(stored)
+    ? stored
+    : DEFAULT_AI_EFFORT;
+}
+
+/** Pass null to clear the override and go back to the shared default. */
+export function setProviderEffort(
+  id: AiProviderId,
+  effort: AiEffort | null,
+): void {
+  writeTuning(id, { effort });
+}
+
+/** Whether this provider has any tuning of its own, for a "back to default" control. */
+export function hasProviderTuning(id: AiProviderId): {
+  maxTokens: boolean;
+  effort: boolean;
+} {
+  const t = readTuning(id);
+  return {
+    maxTokens: t.maxTokens !== undefined,
+    effort: t.effort !== undefined,
+  };
 }
 
 /**

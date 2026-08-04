@@ -24,5 +24,4 @@ const SYSTEM_PROMPT = `You are an expert Altair 8K BASIC programmer. (Stage 3: r
 
 export const altair8800AiProfile: AiProfile = {
   systemPrompt: SYSTEM_PROMPT,
-  maxTokens: 4096,
 };

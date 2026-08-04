@@ -29,5 +29,4 @@ OUTPUT FORMAT
 
 export const trs80AiProfile: AiProfile = {
   systemPrompt: SYSTEM_PROMPT,
-  maxTokens: 8192,
 };

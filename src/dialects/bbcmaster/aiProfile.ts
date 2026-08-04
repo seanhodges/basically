@@ -29,5 +29,4 @@ OUTPUT FORMAT
 
 export const bbcMasterAiProfile: AiProfile = {
   systemPrompt: SYSTEM_PROMPT,
-  maxTokens: 8192,
 };

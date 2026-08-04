@@ -42,7 +42,7 @@ export function toAnthropicMessages(messages: ChatMessage[]): MessageParam[] {
  * The key is supplied by the user and only ever lives in localStorage.
  */
 function streamChat(
-  { apiKey, model, maxTokens, system, messages }: StreamOptions,
+  { apiKey, model, maxTokens, system, messages, effort }: StreamOptions,
   onText: (delta: string) => void,
 ): StreamHandle {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
@@ -51,6 +51,10 @@ function streamChat(
     model,
     max_tokens: maxTokens,
     thinking: { type: 'adaptive' },
+    // Stated rather than left to default: unset means the model's highest
+    // setting, and `max_tokens` is spent on thinking and on the answer together -
+    // so an unbounded think is what used to leave a long listing unfinished.
+    ...(effort ? { output_config: { effort } } : {}),
     system,
     messages: toAnthropicMessages(messages),
     // Cache the conversation prefix. Every turn re-sends the system prompt and

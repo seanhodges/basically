@@ -87,7 +87,7 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 - [ ] `samples/` + `samples.ts` — the canonical set from the audit (currently
       `hello`/`circles`/`breakout`/`maze`/`kaleido`) ported to this BASIC
       (degrade gracefully; `hello` is the starter)
-- [ ] finalize `aiProfile.ts` (system prompt teaching the dialect, maxTokens)
+- [ ] finalize `aiProfile.ts` (system prompt teaching the dialect)
 - [ ] `index.ts` — assemble the full `Dialect`
 - [ ] **register in `src/dialects/registry.ts` and add the `<verb>` entry to
       `SHARE_VERBS` in `src/player/routes.ts` in the same change** —

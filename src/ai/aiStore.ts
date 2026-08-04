@@ -6,7 +6,7 @@ import {
   type StreamHandle,
   type StreamResult,
 } from './aiClient';
-import type { AiProviderId, ChatImage } from './providers/types';
+import type { AiEffort, AiProviderId, ChatImage } from './providers/types';
 import {
   loadAiConversation,
   saveAiConversation,
@@ -44,8 +44,29 @@ import {
 } from './promptBuilder';
 import { getProvider } from './providers/registry';
 import { sourceFingerprint } from './sourceFingerprint';
+import { resolveAiTuning, type AiTuning } from './aiTuning';
+import {
+  buildContinuationRequest,
+  readPartialProgram,
+  stitchContinuation,
+  type PartialProgram,
+} from './continuation';
 
 export type { PendingFix } from './promptBuilder';
+
+/**
+ * Why an answer stopped before it was finished.
+ *
+ * These used to be one undifferentiated "incomplete", which is why an answer that
+ * ran out of room read as though the user had stopped it - the panel said the same
+ * sentence for all three, and only this one leaves no error message beside it.
+ *
+ * - `stopped`   - the user pressed Stop. Their choice; nothing to explain.
+ * - `failed`    - the stream died. An error message accompanies it.
+ * - `outOfRoom` - the provider hit the output limit. Nobody did anything wrong,
+ *                 the budget was too small, and the answer can be continued.
+ */
+export type CutOffReason = 'stopped' | 'failed' | 'outOfRoom';
 
 /**
  * A message as shown in the thread. `streaming`/`retrying` are UI-only.
@@ -66,10 +87,28 @@ export interface DisplayMessage extends ChatMessage {
   /** True for a truncated answer (stopped, or cut off by the output limit). */
   incomplete?: boolean;
   /**
+   * Why {@link incomplete} was set, when it is known.
+   *
+   * Deliberately alongside `incomplete` rather than replacing it: every existing
+   * consumer asks only "is this finished" - the run check, the judgement settling,
+   * the apply actions - and none of them should have to learn three answers to
+   * keep working. Only the panel's wording and the offer to continue read this.
+   *
+   * Covers the three ways an answer ends inside a live session. The fourth - the
+   * page going away mid-stream - is {@link interrupted}, which is a different
+   * thing in a way that matters here: it is the only one that survives a reload,
+   * because it is the only one that can be *observed* after one. Absent on a
+   * complete answer, and on one restored from storage.
+   */
+  cutOff?: CutOffReason;
+  /**
    * True for an answer the page went away from mid-stream, restored from
    * storage. Narrower than `incomplete`, which also covers Stop and the output
    * limit: nothing interrupted those, so only this one is worth offering to ask
    * again.
+   *
+   * Persisted, unlike {@link cutOff} - a reload is exactly when this one still
+   * needs saying, and exactly when the others no longer can be.
    */
   interrupted?: boolean;
   /** True while re-requesting after an empty reply (shows a distinct status). */
@@ -151,8 +190,13 @@ export interface SendParams {
   apiKey: string;
   /** Model id resolved for the active provider. */
   model: string;
-  /** Max output tokens (from the dialect's AI profile). */
+  /**
+   * How long the answer may be, and how hard to think first - both resolved by
+   * `resolveAiTuning`, never read from the dialect. Spread it in rather than
+   * setting `maxTokens` alone, or the effort is silently dropped.
+   */
   maxTokens: number;
+  effort?: AiEffort;
   system: string;
   /** Full context (source + lint errors + request) sent to the API. */
   userContent: string;
@@ -198,6 +242,21 @@ export interface SendParams {
    * waiting on had been applied.
    */
   skipCheck?: boolean;
+  /**
+   * Resume a cut-off answer rather than starting a fresh one.
+   *
+   * The reply is joined onto this partial and takes its place as one answer, so
+   * everything downstream - block extraction, the run check, staleness - sees a
+   * single complete answer and needs to know nothing about continuation.
+   */
+  continueFrom?: PartialProgram;
+  /**
+   * The fingerprint the joined answer should carry, which is the one the *original*
+   * answer carried. Staleness asks whether the user has moved on since the answer
+   * was written, and it was written before the interruption - taking a fresh
+   * fingerprint here would silently forgive an edit made in between.
+   */
+  baseFingerprintOverride?: string;
 }
 
 interface AiState {
@@ -213,6 +272,14 @@ interface AiState {
   stop(): void;
   setPendingFix(fix: PendingFix): void;
   clearPendingFix(): void;
+  /**
+   * Pick up the last answer where its output limit stopped it.
+   *
+   * Resolves its own provider/prompt the way the unattended paths do, because the
+   * offer is made from a message rather than from the composer - there is no
+   * request in flight to inherit from.
+   */
+  continueLastAnswer(): void;
   /** Clear the thread (new/loaded program). Aborts any in-flight stream. */
   reset(): void;
 }
@@ -311,6 +378,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     apiKey,
     model,
     maxTokens,
+    effort,
     system,
     userContent,
     displayRequest,
@@ -320,6 +388,8 @@ export const useAiStore = create<AiState>((set, get) => ({
     checkAgainst,
     judging,
     skipCheck,
+    continueFrom,
+    baseFingerprintOverride,
   }) => {
     // A request the user makes is a fresh start for the automatic corrections:
     // a long conversation must not exhaust its budget early and then silently
@@ -332,7 +402,8 @@ export const useAiStore = create<AiState>((set, get) => ({
     pendingRunNote = '';
     const shown = image ?? pendingRunImage ?? undefined;
     pendingRunImage = null;
-    const baseFingerprint = sourceFingerprint(baseSource);
+    const baseFingerprint =
+      baseFingerprintOverride ?? sourceFingerprint(baseSource);
     const prior = get().messages;
     // History for the API: prior turns + the new request. A screen shown with
     // an earlier turn stays on it rather than being rewritten out - the prefix
@@ -380,7 +451,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     const runAttempt = (history: ChatMessage[]): Promise<StreamResult> => {
       const handle = streamChat(
         providerId,
-        { apiKey, model, maxTokens, system, messages: history },
+        { apiKey, model, maxTokens, effort, system, messages: history },
         (delta) => {
           if (gen !== myGen) return; // superseded by reset/new send
           set((s) => {
@@ -420,10 +491,29 @@ export const useAiStore = create<AiState>((set, get) => ({
         return;
       }
 
-      // An empty reply (e.g. the whole token budget went to adaptive thinking)
-      // renders as a blank bubble. Re-request once with a format nudge before
-      // giving up. Only a truly empty reply retries - legitimate prose answers
-      // are left alone.
+      // Out of room before a word was written: the whole budget went to thinking.
+      // Checked ahead of the empty-reply branch below, which would otherwise read
+      // this as a formatting mistake and spend a second request nudging the
+      // format - against a longer history and the same ceiling, so it fails the
+      // same way. The budget is the thing to change, and saying so is the help.
+      if (result.stop === 'truncated' && result.text.trim() === '') {
+        set((s) => ({
+          messages: s.messages.filter(
+            (m) => !(m.streaming && m.content === ''),
+          ),
+          busy: false,
+          error:
+            'The AI ran out of room before it wrote anything - its whole answer ' +
+            'went on thinking. Raise the answer length, or lower the thinking ' +
+            'effort, in AI settings.',
+        }));
+        persist(get().messages);
+        return;
+      }
+
+      // An empty reply renders as a blank bubble. Re-request once with a format
+      // nudge before giving up. Only a truly empty reply retries - legitimate
+      // prose answers are left alone.
       if (result.text.trim() === '') {
         set((s) => {
           const copy = [...s.messages];
@@ -462,15 +552,25 @@ export const useAiStore = create<AiState>((set, get) => ({
         }
       }
 
+      // A continuation replaces the partial rather than sitting beside it: the
+      // joined text becomes this reply's content, so the last message is a whole
+      // answer like any other.
+      const answerText = continueFrom
+        ? stitchContinuation(continueFrom, result.text)
+        : result.text;
+
       set((s) => {
         const copy = [...s.messages];
         copy[copy.length - 1] = {
           role: 'assistant',
-          content: result.text,
+          content: answerText,
           baseFingerprint,
           // Cut off by the output limit: the code in it stops mid-thought, so
-          // it must not be offered as a finished answer to apply.
-          ...(result.stop === 'truncated' ? { incomplete: true } : {}),
+          // it must not be offered as a finished answer to apply. It can be
+          // continued, though, which is why the reason travels with it.
+          ...(result.stop === 'truncated'
+            ? { incomplete: true, cutOff: 'outOfRoom' as const }
+            : {}),
         };
         return { messages: copy, busy: false };
       });
@@ -480,6 +580,11 @@ export const useAiStore = create<AiState>((set, get) => ({
       if (!skipCheck) checkLatestAnswer(checkAgainst ?? baseSource, baseSource);
     } catch (e) {
       if (gen !== myGen) return; // reset already cleared the thread
+      // An abort that reaches here is the user's Stop: `reset` also aborts, but
+      // bumps `gen` first, so its aborts return above. Anything else is the
+      // transport giving up, which is a different thing to tell them.
+      const reason: CutOffReason =
+        e instanceof Error && e.name === 'AbortError' ? 'stopped' : 'failed';
       // Keep any partial text (e.g. after Stop) as a truncated answer; drop an
       // empty placeholder.
       set((s) => {
@@ -491,6 +596,7 @@ export const useAiStore = create<AiState>((set, get) => ({
                   role: m.role,
                   content: m.content,
                   incomplete: true,
+                  cutOff: reason,
                   baseFingerprint,
                 }
               : m,
@@ -518,6 +624,37 @@ export const useAiStore = create<AiState>((set, get) => ({
   setPendingFix: (fix) => set({ pendingFix: fix }),
   clearPendingFix: () => set({ pendingFix: null }),
 
+  continueLastAnswer: () => {
+    const state = get();
+    if (state.busy) return;
+    const last = state.messages[state.messages.length - 1];
+    if (!last || last.role !== 'assistant' || last.cutOff !== 'outOfRoom')
+      return;
+
+    const partial = readPartialProgram(last.content);
+    if (!partial) return; // stopped too early to have anything to resume
+
+    const context = resolveRequestContext();
+    if (context === null) return;
+    const { dialect, ...request } = context;
+    void loadSystemPrompt(
+      dialect,
+      getProvider(context.providerId).acceptsImages,
+    ).then((system) =>
+      useAiStore.getState().send({
+        ...request,
+        system,
+        userContent: buildContinuationRequest(partial),
+        displayRequest: 'Continue the answer',
+        // The program this answer was written against - unchanged, so the joined
+        // answer is judged stale on the same terms the original would have been.
+        baseSource: useIdeStore.getState().source,
+        baseFingerprintOverride: last.baseFingerprint,
+        continueFrom: partial,
+      }),
+    );
+  },
+
   reset: () => {
     gen++;
     activeHandle?.abort();
@@ -540,14 +677,15 @@ export const useAiStore = create<AiState>((set, get) => ({
  * key is a conversation to have when they asked for something, not in the
  * middle of a run they didn't).
  */
-function resolveRequestContext(): {
-  providerId: ReturnType<typeof getAiProvider>;
-  apiKey: string;
-  model: string;
-  maxTokens: number;
-  /** The machine to build the system prompt for; see {@link loadSystemPrompt}. */
-  dialect: Dialect;
-} | null {
+function resolveRequestContext():
+  | ({
+      providerId: ReturnType<typeof getAiProvider>;
+      apiKey: string;
+      model: string;
+      /** The machine to build the system prompt for; see {@link loadSystemPrompt}. */
+      dialect: Dialect;
+    } & AiTuning)
+  | null {
   const providerId = getAiProvider();
   const apiKey = getProviderApiKey(providerId);
   if (!apiKey) return null;
@@ -556,7 +694,10 @@ function resolveRequestContext(): {
     providerId,
     apiKey,
     model: getProvider(providerId).defaultModel,
-    maxTokens: dialect.aiProfile.maxTokens,
+    // The same resolution the panel uses. These requests are the ones nobody is
+    // watching, so they must not drift onto a different budget from the visible
+    // ones - that drift is how a correction ends up cut off unnoticed.
+    ...resolveAiTuning(providerId),
     dialect,
   };
 }
