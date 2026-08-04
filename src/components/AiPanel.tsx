@@ -35,6 +35,24 @@ function staleAgainst(msg: DisplayMessage, source: string): boolean {
   );
 }
 
+/**
+ * What the composer answers itself instead of asking the provider.
+ *
+ * Two exact strings rather than a prefix parser: a message that merely starts
+ * with a slash is a request like any other, and the whole point of these is to
+ * be reachable when the assistant is busy or unconfigured - which argues for as
+ * little machinery in front of them as possible.
+ */
+const COMMANDS = ['/clear', '/hide'] as const;
+type Command = (typeof COMMANDS)[number];
+
+function asCommand(text: string): Command | null {
+  const candidate = text.trim().toLowerCase();
+  return COMMANDS.includes(candidate as Command)
+    ? (candidate as Command)
+    : null;
+}
+
 /** Unchanged lines kept either side of a change, for orientation. */
 const DIFF_CONTEXT_LINES = 2;
 
@@ -265,8 +283,47 @@ export function AiPanel() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  const send = async () => {
-    const request = input.trim();
+  /**
+   * Run a composer command. `/clear` is the way out of a conversation that has
+   * gone wrong, so it reuses the reset that a new program already performs -
+   * abort, ignore whatever the abandoned stream still says, and take the stored
+   * thread with it.
+   *
+   * `/hide` goes through showEmulator() rather than the toolbar's own panel
+   * toggle: that toggle flips the split layout's panel flag only, which does
+   * nothing in the tabbed layout, where the panel is mounted whenever the layout
+   * is tabbed and it is the selected tab that decides what is seen. This closes
+   * it on both, and touches layout state only - the conversation is preserved
+   * because nothing here goes near it.
+   */
+  const runCommand = (command: Command) => {
+    switch (command) {
+      case '/clear':
+        useAiStore.getState().reset();
+        return;
+      case '/hide':
+        showEmulator();
+        return;
+    }
+  };
+
+  /**
+   * Put a request. Defaults to the composer's contents; `text` is passed when
+   * the thread itself offers to ask something again, in which case whatever the
+   * user has since typed is left alone.
+   */
+  const send = async (text?: string) => {
+    const fromComposer = text === undefined;
+    const request = (text ?? input).trim();
+    // Before the guards below, deliberately: a command has to work precisely
+    // when the assistant is busy, offline or was never given a key - which is
+    // when the user most wants one.
+    const command = fromComposer ? asCommand(request) : null;
+    if (command) {
+      setInput('');
+      runCommand(command);
+      return;
+    }
     if (request === '' || busy || !online) return;
     const providerId = getAiProvider();
     const provider = getProvider(providerId);
@@ -275,7 +332,7 @@ export function AiPanel() {
       openSettings('ai');
       return;
     }
-    setInput('');
+    if (fromComposer) setInput('');
     const screen = provider.acceptsImages ? threadScreen : null;
     const errors = dialect.lint(source);
     void useAiStore.getState().send({
@@ -452,6 +509,31 @@ export function AiPanel() {
         </figure>,
       );
     }
+    // An answer the page went away from mid-sentence. Said on the message and
+    // not only inside a code block: prose comes first, so an answer interrupted
+    // before it opened a fence has no block to carry the warning and would
+    // otherwise read as a finished one.
+    //
+    // A stream cannot be picked up where it left off, so the offer is to put the
+    // same request afresh. What did arrive stays above it - removing it would
+    // read as though it never happened.
+    if (msg.interrupted) {
+      const asked = messages[idx - 1];
+      parts.push(
+        <div key="interrupted" className={styles.aiBlockWarn}>
+          This answer stopped when the page went away.
+          {asked?.role === 'user' && (
+            <button
+              className={`linklike ${styles.aiAskAgain}`}
+              onClick={() => void send(asked.content)}
+              disabled={busy || !online}
+            >
+              Ask again
+            </button>
+          )}
+        </div>,
+      );
+    }
     // A reply that was nothing but blocks the IDE reads has nothing to show;
     // an empty bubble in the thread would read as an answer that came back
     // blank.
@@ -504,6 +586,11 @@ export function AiPanel() {
           unavailable until you reconnect.
         </div>
       )}
+      {messages.length > 0 && (
+        <div className={styles.aiCommandHint}>
+          <code>/clear</code> starts over · <code>/hide</code> closes this
+        </div>
+      )}
       <div className={styles.aiInput}>
         <textarea
           value={input}
@@ -518,14 +605,21 @@ export function AiPanel() {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              send();
+              void send();
             }
           }}
         />
         {busy ? (
           <button onClick={stop}>Stop</button>
         ) : (
-          <button onClick={send} disabled={input.trim() === '' || !online}>
+          <button
+            onClick={() => void send()}
+            // A command is answered here rather than sent, so being offline is
+            // no reason to refuse it.
+            disabled={
+              input.trim() === '' || (!online && asCommand(input) === null)
+            }
+          >
             Send
           </button>
         )}

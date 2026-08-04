@@ -74,6 +74,21 @@ export interface AssistantStub {
   requests(): SentTurn[][];
 }
 
+/** How the stub answers, beyond the replies themselves. */
+export interface StubOptions {
+  /**
+   * Hold each request open this long before answering, so a test can do
+   * something to the panel while an answer is still outstanding.
+   *
+   * Kept as a delay before a whole answer rather than a genuinely dribbled
+   * stream: `route.fulfill` sends one complete response, so a part-written
+   * answer is not something this level can produce. What it can prove is that
+   * the request outlives whatever the test does to the panel meanwhile, which is
+   * the behaviour worth pinning.
+   */
+  delayMs?: number;
+}
+
 /**
  * Answer the assistant's requests with `replies`, in order; the last is reused
  * once they run out, so a test that only cares about the first answer does not
@@ -84,6 +99,7 @@ export interface AssistantStub {
 export async function stubAssistant(
   page: Page,
   replies: readonly string[],
+  options: StubOptions = {},
 ): Promise<AssistantStub> {
   await page.addInitScript(
     ([providerKey, keyStore]) => {
@@ -106,14 +122,22 @@ export async function stubAssistant(
     // thing only the wire can settle.
     const body = route.request().postDataJSON() as { messages?: SentTurn[] };
     sent.push(body?.messages ?? []);
-    await route.fulfill({
-      status: 200,
-      headers: {
-        'content-type': 'text/event-stream',
-        'access-control-allow-origin': '*',
-      },
-      body: streamBody(reply),
-    });
+    if (options.delayMs) {
+      await new Promise((done) => setTimeout(done, options.delayMs));
+    }
+    try {
+      await route.fulfill({
+        status: 200,
+        headers: {
+          'content-type': 'text/event-stream',
+          'access-control-allow-origin': '*',
+        },
+        body: streamBody(reply),
+      });
+    } catch {
+      // The page went away while the answer was outstanding - which is a thing
+      // a test may be doing on purpose. Nothing left to answer.
+    }
   });
 
   return { requests: () => sent.map((turns) => [...turns]) };

@@ -147,6 +147,24 @@
   padding: 6px 8px 0;
 }
 
+/* Sits on the end of the note that explains why it is being offered. */
+.aiAskAgain {
+  margin-left: 6px;
+}
+
+/* The composer's own commands, said once the thread has something in it to
+   clear or step away from - on an empty thread there is nothing to act on and
+   the starting hint is doing the talking. */
+.aiCommandHint {
+  padding: 0 8px 6px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.aiCommandHint code {
+  font-size: 11px;
+}
+
 .aiError {
   color: var(--error);
   font-size: 13px;

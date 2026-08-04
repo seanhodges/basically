@@ -65,6 +65,13 @@ export interface DisplayMessage extends ChatMessage {
   streaming?: boolean;
   /** True for a truncated answer (stopped, or cut off by the output limit). */
   incomplete?: boolean;
+  /**
+   * True for an answer the page went away from mid-stream, restored from
+   * storage. Narrower than `incomplete`, which also covers Stop and the output
+   * limit: nothing interrupted those, so only this one is worth offering to ask
+   * again.
+   */
+  interrupted?: boolean;
   /** True while re-requesting after an empty reply (shows a distinct status). */
   retrying?: boolean;
   /**
@@ -271,6 +278,12 @@ function persist(messages: DisplayMessage[]): void {
         role: m.role,
         content: m.content,
         ...(m.streaming || m.incomplete ? { incomplete: true } : {}),
+        // Still streaming as it was written means the page went away with the
+        // answer half-arrived - the only way to be sure, and it needs no
+        // pagehide/visibilitychange listener (a tab the OS discards fires
+        // neither). Every finalize path clears `streaming` before persisting,
+        // so a stopped or completed answer can never pick this up.
+        ...(m.streaming || m.interrupted ? { interrupted: true } : {}),
         ...(m.baseFingerprint ? { baseFingerprint: m.baseFingerprint } : {}),
         // The same rule for both kinds of screen: the one shown to the
         // assistant and the one shown to the user are equally not worth
