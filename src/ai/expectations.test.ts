@@ -428,6 +428,7 @@ describe('parseScreenViews', () => {
     expect(parseScreenViews('SCREEN IMAGE')).toEqual({
       image: true,
       text: false,
+      drive: false,
       unknown: [],
     });
   });
@@ -436,6 +437,7 @@ describe('parseScreenViews', () => {
     expect(parseScreenViews('SCREEN TEXT')).toEqual({
       image: false,
       text: true,
+      drive: false,
       unknown: [],
     });
   });
@@ -444,6 +446,7 @@ describe('parseScreenViews', () => {
     expect(parseScreenViews('SCREEN IMAGE\nSCREEN TEXT')).toEqual({
       image: true,
       text: true,
+      drive: false,
       unknown: [],
     });
   });
@@ -452,11 +455,13 @@ describe('parseScreenViews', () => {
     expect(parseScreenViews('screen image.')).toEqual({
       image: true,
       text: false,
+      drive: false,
       unknown: [],
     });
     expect(parseScreenViews('screen text;')).toEqual({
       image: false,
       text: true,
+      drive: false,
       unknown: [],
     });
   });
@@ -465,6 +470,7 @@ describe('parseScreenViews', () => {
     expect(parseScreenViews('SCREEN IMAGE\nSCREEN AUDIO')).toEqual({
       image: true,
       text: false,
+      drive: false,
       unknown: ['SCREEN AUDIO'],
     });
   });
@@ -473,6 +479,7 @@ describe('parseScreenViews', () => {
     expect(parseScreenViews('\n  \n')).toEqual({
       image: false,
       text: false,
+      drive: false,
       unknown: [],
     });
   });
@@ -483,7 +490,12 @@ describe('parseScreenViews', () => {
         parseScreenViews('SCREEN IMAGE'),
         parseScreenViews('SCREEN SMELL'),
       ]),
-    ).toEqual({ image: true, text: false, unknown: ['SCREEN SMELL'] });
+    ).toEqual({
+      image: true,
+      text: false,
+      drive: false,
+      unknown: ['SCREEN SMELL'],
+    });
   });
 
   it('merges a text ask named in one block and a picture in another', () => {
@@ -492,7 +504,7 @@ describe('parseScreenViews', () => {
         parseScreenViews('SCREEN TEXT'),
         parseScreenViews('SCREEN IMAGE'),
       ]),
-    ).toEqual({ image: true, text: true, unknown: [] });
+    ).toEqual({ image: true, text: true, drive: false, unknown: [] });
   });
 
   it('merges nothing into nothing asked for', () => {

@@ -273,6 +273,15 @@ export interface ScreenViewRequest {
    */
   text: boolean;
   /**
+   * The machine itself, to drive before it is looked at.
+   *
+   * Named alongside the views rather than in a block of its own because it is
+   * the same kind of decision and only the assistant can make it: nothing about
+   * a program's text distinguishes one that prints its answer from one that
+   * waits at a prompt for the input that would produce it.
+   */
+  drive: boolean;
+  /**
    * Views named that cannot be produced. Kept rather than dropped, for the same
    * reason a malformed expectation is: a mistaken ask the assistant can see
    * reported back is one it can correct, where a silently ignored one reads as
@@ -283,11 +292,12 @@ export interface ScreenViewRequest {
 
 /** Nothing asked for - what most replies say, and the shape of saying nothing. */
 export function noScreenViews(): ScreenViewRequest {
-  return { image: false, text: false, unknown: [] };
+  return { image: false, text: false, drive: false, unknown: [] };
 }
 
 const IMAGE_VIEW_RE = /^SCREEN\s+IMAGE$/i;
 const TEXT_VIEW_RE = /^SCREEN\s+TEXT$/i;
+const DRIVE_VIEW_RE = /^DRIVE$/i;
 
 /**
  * Parse one ` ```basic-view ` block: one view per line.
@@ -314,6 +324,10 @@ export function parseScreenViews(block: string): ScreenViewRequest {
       out.text = true;
       continue;
     }
+    if (DRIVE_VIEW_RE.test(line)) {
+      out.drive = true;
+      continue;
+    }
     out.unknown.push(line);
   }
   return out;
@@ -327,6 +341,7 @@ export function mergeScreenViews(
     (acc, r) => ({
       image: acc.image || r.image,
       text: acc.text || r.text,
+      drive: acc.drive || r.drive,
       unknown: [...acc.unknown, ...r.unknown],
     }),
     noScreenViews(),

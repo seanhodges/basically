@@ -422,6 +422,7 @@ describe('a request to be shown the screen', () => {
     expect(extractScreenViews(reply)).toEqual({
       image: true,
       text: false,
+      drive: false,
       unknown: [],
     });
   });
@@ -430,6 +431,7 @@ describe('a request to be shown the screen', () => {
     expect(extractScreenViews('```basic\n10 PRINT\n```')).toEqual({
       image: false,
       text: false,
+      drive: false,
       unknown: [],
     });
   });
