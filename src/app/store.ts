@@ -43,6 +43,13 @@ import {
 import type { ScreenCapture } from './screenCapture';
 import { computeCompatibleDialects } from '../share/compatibility';
 import {
+  listCustomRoms,
+  saveCustomRom as persistCustomRom,
+  clearCustomRom as persistClearCustomRom,
+  type CustomRomMeta,
+  type SaveRomResult,
+} from '../storage/customRom';
+import {
   loadAutosave,
   saveAutosave,
   clearAutosave,
@@ -448,6 +455,16 @@ interface IdeState {
   settingsOpen: boolean;
   /** Active tab within the settings form (dialog on desktop, tab pane on mobile). */
   settingsTab: SettingsTab;
+  /**
+   * Metadata for each machine's user-supplied ROM image, keyed by dialect id.
+   * Metadata only - the images themselves stay in storage and are read when a
+   * machine is built. A machine's whole firmware in a subscribed store would be
+   * copied into every devtools snapshot and watched by selectors that only ever
+   * want to render its name.
+   */
+  customRoms: Record<string, CustomRomMeta>;
+  /** Bumped when a custom ROM is installed or removed, to force a rebuild. */
+  romChangeRequest: number;
   /** Program outline dialog (Edit ▸ Outline). */
   procedureListOpen: boolean;
   /** Memory-map viewer dialog. */
@@ -807,6 +824,18 @@ interface IdeState {
   setSettingsTab(tab: SettingsTab): void;
   /** Open the settings surface directly to a given tab. */
   openSettings(tab: SettingsTab): void;
+  /**
+   * Install a user-supplied ROM image for a machine. The caller has already
+   * checked its size. Returns the storage result unchanged so a failure can be
+   * shown: state is left untouched unless the image was really kept.
+   */
+  setCustomRom(
+    dialectId: string,
+    name: string,
+    bytes: Uint8Array,
+  ): SaveRomResult;
+  /** Drop a machine's custom ROM so it runs its bundled image again. */
+  clearCustomRom(dialectId: string): void;
   setProcedureListOpen(open: boolean): void;
   setMemoryMapOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
@@ -1187,6 +1216,21 @@ function listingOrdinal(id: string): number | null {
   return m ? parseInt(m[1]!, 10) : null;
 }
 
+/**
+ * The state a ROM change shares with a dialect switch. The emulator pane tears
+ * the machine down off `romChangeRequest` exactly as it does off `dialect`; the
+ * status has to be marked here rather than there for the same reason it is for a
+ * switch - the pane's teardown effect does not own `emulatorStatus`, and a
+ * disposed machine still reading "running" in the status bar is a lie.
+ */
+function romChanged(s: { romChangeRequest: number }) {
+  return {
+    romChangeRequest: s.romChangeRequest + 1,
+    emulatorStatus: 'stopped' as const,
+    liveMemory: null,
+  };
+}
+
 export const useIdeStore = create<IdeState>((set) => ({
   dialect: startupDialect,
   pendingDialectId: null,
@@ -1261,6 +1305,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   importOpen: false,
   settingsOpen: false,
   settingsTab: 'editor',
+  customRoms: typeof localStorage !== 'undefined' ? listCustomRoms() : {},
+  romChangeRequest: 0,
   procedureListOpen: false,
   memoryMapOpen: false,
   welcomeOpen: false,
@@ -1884,6 +1930,26 @@ export const useIdeStore = create<IdeState>((set) => ({
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setSettingsTab: (tab) => set({ settingsTab: tab }),
   openSettings: (tab) => set({ settingsOpen: true, settingsTab: tab }),
+  setCustomRom: (dialectId, name, bytes) => {
+    const result = persistCustomRom(dialectId, name, bytes);
+    if (!result.ok) return result;
+    set((s) => ({
+      customRoms: {
+        ...s.customRoms,
+        [dialectId]: { name, size: bytes.length, installedAt: Date.now() },
+      },
+      ...romChanged(s),
+    }));
+    return result;
+  },
+  clearCustomRom: (dialectId) => {
+    persistClearCustomRom(dialectId);
+    set((s) => {
+      const next = { ...s.customRoms };
+      delete next[dialectId];
+      return { customRoms: next, ...romChanged(s) };
+    });
+  },
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
   // Opening the memory map closes the AI panel: both share the right-hand slot,
   // and the map takes priority, so leaving the AI flag set would make its toolbar

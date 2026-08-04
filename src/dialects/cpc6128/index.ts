@@ -27,6 +27,7 @@ import { cpc6128Keywords } from './keywords';
 import { cpc6128AiProfile } from './aiProfile';
 import { CpcMachine } from '../../emulator/cpc/cpcMachine';
 import { DISPLAY_WIDTH, DISPLAY_HEIGHT } from '../../emulator/cpc/display';
+import { CPC_ROM_SIZE } from '../../emulator/cpc/memory';
 
 /**
  * Amstrad CPC 6128 (Locomotive BASIC 1.1), registered in
@@ -71,6 +72,7 @@ export const cpc6128: Dialect = {
   // The combined 32K firmware+BASIC ROM (16K OS 2.x then 16K Locomotive
   // BASIC 1.1). No AMSDOS ROM: the 6128 runs tape-only here.
   romUrl: `${import.meta.env.BASE_URL}roms/cpc/cpc6128.rom`,
+  romBytes: CPC_ROM_SIZE,
   // All three modes render into one 640×400 canvas (see emulator/cpc/display).
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
   fileExtensions: ['.txt', '.bas'],

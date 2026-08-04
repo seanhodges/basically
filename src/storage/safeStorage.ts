@@ -54,9 +54,12 @@ function memoryStorage(): Storage {
   return storage;
 }
 
+const substituted = new Set<StorageName>();
+
 if (typeof window !== 'undefined') {
   for (const name of ['localStorage', 'sessionStorage'] as const) {
     if (!storageAccessible(name)) {
+      substituted.add(name);
       try {
         Object.defineProperty(window, name, {
           value: memoryStorage(),
@@ -68,4 +71,18 @@ if (typeof window !== 'undefined') {
       }
     }
   }
+}
+
+/**
+ * False when `localStorage` is the in-memory stand-in above, i.e. the browser is
+ * refusing to store site data and nothing written will outlast the tab.
+ *
+ * Most callers here are best-effort and rightly don't care. It matters where a
+ * write is a deliberate user act whose whole point is that it persists - saving
+ * a custom ROM image - because the stand-in accepts and reads back a write
+ * perfectly, so no amount of checking at the call site can tell the difference.
+ * This is the only way to warn instead of silently losing it on reload.
+ */
+export function localStorageIsPersistent(): boolean {
+  return !substituted.has('localStorage');
 }

@@ -43,6 +43,31 @@ describe('dialect registry', () => {
     }
   });
 
+  // Which machines run the ROM image the seam hands them, and so can be given a
+  // replacement from Settings. Written down rather than derived so a new machine
+  // has to say which kind it is: the rest of the registry declares a ROM URL
+  // either way, and the ones absent here fetch their real ROM sets themselves.
+  // `src/dialects/romImage.test.ts` proves each entry behaviourally.
+  const takesReplaceableRom = new Set([
+    'zx80',
+    'zx81',
+    'zxspectrum',
+    'zxspectrum128',
+    'cpc464',
+    'cpc6128',
+  ]);
+
+  it('every dialect states whether its ROM can be replaced', () => {
+    for (const d of dialects) {
+      expect(
+        d.romBytes !== undefined,
+        takesReplaceableRom.has(d.id)
+          ? `${d.id} should declare romBytes`
+          : `${d.id} should not declare romBytes - its emulator loads its own ROM set, so a supplied image would be ignored`,
+      ).toBe(takesReplaceableRom.has(d.id));
+    }
+  });
+
   // The New-project picker groups machines by manufacturer and shows each one's
   // year and blurb, so a dialect missing any of the three would show up there as
   // a blank. The fields are required by the type, but these guard the values.

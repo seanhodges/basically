@@ -908,6 +908,29 @@ export interface Dialect {
    */
   romUrl?: string;
   /**
+   * Exact size, in bytes, of the ROM image this dialect's {@link createEmulator}
+   * runs from `opts.rom`.
+   *
+   * **Not implied by {@link romUrl}, and must never be derived from it.** Six
+   * registered dialects declare a `romUrl` yet ignore `opts.rom` entirely: the
+   * Acorn machines let jsbeeb resolve its model's ROM list through its own
+   * loader, and the Commodore machines fetch their three- and six-image sets
+   * themselves. Their declared URL still earns its keep - it warms the offline
+   * cache and names a representative image for tests - but nothing executes
+   * those bytes, so handing them a different image would change nothing. They
+   * omit this field, and the app uses its absence to say so rather than
+   * offering a replacement that would silently do nothing.
+   *
+   * One field carries both facts on purpose: it is the app's test for "can the
+   * user replace this machine's ROM?" *and* the size a replacement must match,
+   * so the offer and the check cannot disagree. Set it from the machine's own
+   * ROM-size constant rather than a literal (`ROM_BYTES` on the Sinclair
+   * machines, `CPC_ROM_SIZE` on the Amstrads) and it cannot disagree with the
+   * memory map either. `src/dialects/romImage.test.ts` pins it to the committed
+   * image, and pins the behavioural claim in both directions.
+   */
+  romBytes?: number;
+  /**
    * Slug of this dialect's docs reference page under `/docs/reference/`.
    * Defaults to `id` when absent; set it when several dialects share one page
    * (e.g. bbcmicro/bbcmaster → 'bbc', zxspectrum128 → 'zxspectrum').

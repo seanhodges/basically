@@ -9,6 +9,28 @@ function testRom(): Uint8Array {
   return rom;
 }
 
+describe('CpcMemory ROM image size', () => {
+  // Without this guard a short image loads in part - a prefix of the lower ROM,
+  // the rest and all of BASIC left zeroed - and boots to a dead machine with
+  // nothing to explain it. Supplying one 16K half of the 32K pair is the
+  // likeliest way to get here.
+  it('refuses an image that is not the full 32K', () => {
+    expect(() => new CpcMemory(new Uint8Array(0x4000))).toThrow(
+      /must be 32768 bytes, got 16384/,
+    );
+    expect(() => new CpcMemory(new Uint8Array(CPC_ROM_SIZE + 1))).toThrow(
+      /must be 32768 bytes/,
+    );
+  });
+
+  // The documented "no firmware to run" state (see CpcMachine's ROM note),
+  // which the CPC suites fall back to when the un-redistributable image is
+  // absent, so it stays constructible.
+  it('accepts an empty image as the absent-firmware state', () => {
+    expect(() => new CpcMemory(new Uint8Array(0))).not.toThrow();
+  });
+});
+
 describe('CpcMemory ROM overlay', () => {
   it('reads the lower ROM over &0000–&3FFF while enabled', () => {
     const mem = new CpcMemory(testRom());
