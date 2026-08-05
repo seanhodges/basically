@@ -111,7 +111,7 @@ Note: WebSerial support is **experimental**, please use with care, and be sure t
 ## Getting started
 
 1. **[Open the IDE](https://ba.sical.ly/)** - nothing to install.
-2. Pick **File** and under `SAMPLES` pick a demo or game, press **▶ Run** (or `Ctrl`+`Enter`).
+2. Pick **File** and **New Project**, pick a machine and a sample, press **▶ Run** (or `Ctrl`+`Enter`).
 
 New here? The **[Getting started guide](/guide/getting-started)** walks through
 your first program step by step.

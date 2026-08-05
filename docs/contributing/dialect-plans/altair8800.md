@@ -12,7 +12,7 @@
 - **id / name:** `altair8800` / `Altair 8800`
 - **Manufacturer / year:** MITS / 1975 — a new picker group (no sibling machine
   ships), and exactly the lower bound `registry.test.ts` allows
-- **Blurb:** `The machine that started it all. Runs Altair 8K BASIC.` (54 chars)
+- **Blurb:** `The microcomputer that started it all. Runs Altair 8K BASIC.` (54 chars)
 - **BASIC:** Altair 8K BASIC — the 4K set plus strings, `PEEK`/`POKE`,
   `OUT`/`INP`, `DEF FN`, `CSAVE`/`CLOAD` and the full maths library
 - **CPU / bus pattern:** in-tree bus over the vendored Z80 core in

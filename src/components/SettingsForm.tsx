@@ -356,19 +356,14 @@ export function SettingsForm() {
                 </p>
               )}
               <p>
-                Any image will do: a file smaller than this machine&apos;s{' '}
-                {romDialect.romBytes.toLocaleString()}-byte ROM area fills the
-                rest with unprogrammed ROM, and a larger one is used from its
-                first {romDialect.romBytes.toLocaleString()} bytes. The image is
+                The image is
                 kept in this browser only, is never uploaded anywhere, and is
-                not included in programs you publish. Changing the ROM of the
-                machine you are using restarts it.
+                not included in programs you publish.
               </p>
               {romDialect.romBundled === false && (
                 <p>
                   Until you supply one, the {romDialect.name} is not offered in
-                  the machine picker - it would only lead to an error. It
-                  appears there as soon as you do.
+                  the machine picker.
                 </p>
               )}
               {!localStorageIsPersistent() && (
@@ -509,16 +504,8 @@ export function SettingsForm() {
             </button>
             {keySaved && <span className={styles.settingsSaved}>Saved ✓</span>}
           </div>
-          <h3>Answer length</h3>
-          <p>
-            How long an answer may be, and how hard {provider.label} thinks
-            before writing it. Both are spent from the same budget, so a longer
-            think leaves less room for the program &mdash; if answers keep
-            getting cut off mid-listing, raise the limit or lower the effort.
-            These are kept per provider.
-          </p>
           <label className={styles.field}>
-            Maximum answer length (tokens)
+            Maximum tokens
             <input
               type="number"
               min={1}

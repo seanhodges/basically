@@ -1,42 +1,9 @@
 # Dialect roadmap
 
-Basically is built around one seam - the `Dialect` / `MachineEmulator`
-contracts in `src/dialects/types.ts`. Adding a machine is additive at the
-_logic_ layer: a folder under `src/dialects/<id>/`, with no changes to editor,
-transfer, or UI code (see [adding a dialect](./adding-a-dialect.md) and the
-`adding-a-target-system` skill).
-
-It is not a one-line registration, though. Budget for these registration points
-as well - the first two are enforced by tests, so forgetting them fails
-`npm test` rather than degrading quietly:
-
-- `src/dialects/registry.ts` - the import and the array entry. Array order is
-  the order machines are offered in the UI.
-- `src/player/routes.ts` - a `SHARE_VERBS` entry. The verb must be a real
-  keyword of that machine's own BASIC and unique across the table;
-  `routes.test.ts` asserts a strict bijection with the registry.
-- `src/dialects/registry.test.ts` - an `expectedNotation` entry; the test
-  asserts the table covers exactly the registered set.
-- `src/editor/constructs.ts` - a `constructsByDialect.<id>` entry. A sibling can
-  point at the base dialect's array, as `bbcmaster` reuses `BBC`.
-- `src/editor/variableLint.ts` - a `<id>VariableErrors` wrapper, or reuse of an
-  existing one (the VIC-20 reuses the C64's).
-- Optional: a portrait in `src/components/machineArtIds.ts` + `machineArt.tsx`
-  (omit it and the machine falls back to `'generic'`), and a `vk-theme-<id>`
-  block in `src/keyboard/VirtualKeyboard.css`.
-
 This document tracks which machines we can realistically support, grouped by
 **which already-bundled emulator can drive them**. The bundled emulator cores
 are the limiting factor, so they define Tiers 1-5. Tier 0 sits above them and
-cuts across: machines that need no new core _or_ new language layer, because a
-shipped sibling already supplies both.
-
-The cross-cutting language-layer quality bar - total charsets with escape
-notations, context-aware import, loud container parsers - is baked into every
-shipped dialect (see the charset/import feature-completeness checklist in
-[adding a dialect](./adding-a-dialect.md)). Two C64 items remain deferred:
-the lower-case display bank and the tokenizer keyword-abbreviation table
-(`pO`, `gO`, …).
+cuts across: machines that need no new core _or_ new language layer.
 
 | Core                              | CPU          | Licence          | Wrapper                                                                                           | Powers                                                                          |
 | --------------------------------- | ------------ | ---------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -47,20 +14,12 @@ the lower-case display bank and the tokenizer keyword-abbreviation table
 | _(none - clean-room interpreter)_ | n/a          | this project     | `src/dialects/trs80/interpreter/` - a high-level TypeScript Level II BASIC                        | TRS-80                                                                          |
 
 The Z80 row also covers the **Intel 8080**: the Z80 was designed to be binary
-compatible with it, so the vendored core executes 8080 object code and an 8080
-machine needs no new core. Two divergences have to be handled in the machine
-adapter rather than the core - the 8080's P flag is always parity where the Z80
-reuses that bit for overflow, and `DAA` after subtraction consults a Z80 N flag
-the 8080 does not have.
+compatible with it.
 
 The last row is the odd one out and worth understanding, because it changes what
 is cheap. The TRS-80 has no CPU core at all: the Level II ROM is copyright
 Tandy/Microsoft and cannot be redistributed, so the shipped backend is a
-clean-room interpreter. That makes every machine in the TRS-80 family
-**licence-free to add** - there is no ROM to source. `src/dialects/trs80/emulator/`
-(the Z80 + ROM accuracy mode) is currently unreachable from the registered
-dialect: it activates only if a user supplies their own `public/roms/trs80.rom`,
-which does not ship.
+clean-room interpreter.
 
 **Status legend:** ✅ shipped · 🔨 in progress · ⬜ planned · ⛔ blocked / needs
 a new emulator core.
@@ -215,32 +174,6 @@ These popular machines can't reuse any bundled core or the effort is potentially
 | ⛔     | Dragon 32 / 64, Tandy CoCo                             | 6809       | No 6809 core bundled                                                                                                                                                         |
 | ⛔     | Commodore Amiga, Atari ST                              | 68000      | No 68000 core bundled                                                                                                                                                        |
 | ⬜     | Memotech MTX, Tatung Einstein, Sord M5, Camputers Lynx | Z80        | Niche; each a bespoke video implementation                                                                                                                                   |
-
----
-
-## Rebadges and clones - noted, not recommended
-
-These come up every time the candidate list is revisited, so they are recorded
-here with a verdict rather than left to be rediscovered. Each runs a BASIC we
-already ship, on hardware we already emulate, with only the badge and the RAM
-size differing:
-
-- **Timex Sinclair 1000 / 1500** - ZX81 BASIC (the TS1000 is a ZX81 with 2K).
-- **Timex Computer 2048** - Spectrum-compatible, Spectrum BASIC.
-- **Video Genie EG3003 / Dick Smith System 80 / PMC-80** - TRS-80 Model I
-  clones; the PMC-80's ROMs are near-identical to Tandy's.
-
-**Verdict: don't.** A registry entry buys the user nothing the shipped machine
-does not already give them, while costing a share verb, a docs reference page, a
-machine portrait and a permanent maintenance surface. If a rebadge ever matters,
-it is a preset, not a dialect.
-
-Two machines that get grouped with these but should **not** be:
-
-- The **Timex Sinclair 2068** is not a rebadge - its ROM is not
-  Spectrum-compatible, so it is a real dialect question.
-- The **Genie III (EG3200)** is a Model III clone, so it folds into the TRS-80
-  Model III row in Tier 0 rather than standing alone.
 
 ---
 

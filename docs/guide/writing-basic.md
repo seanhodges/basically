@@ -15,15 +15,6 @@ says what has to change.
 The example below is for
 the **ZX81**; the other machines follow their own syntax.
 
-One numbered line per statement, keywords as words. A few ZX81-specific
-conventions:
-
-- **Block graphics** as unicode (`█▀▌▒` …) or as escapes (`\::`).
-- **Inverse video** as `%A` … `%9`.
-- **Power** is `**`.
-- Line numbers must be strictly ascending; one statement per line, no `ELSE`.
-- Variable names are single letters (`A`–`Z`, optionally with `$` for strings).
-
 ```basic
 10 LET S=0
 20 PRINT "GUESS A NUMBER 1-10"

@@ -54,7 +54,7 @@ export const machines: MachineChoice[] = [
     name: 'Altair 8800',
     manufacturer: 'MITS',
     year: 1975,
-    blurb: 'The machine that started it all. Runs Altair 8K BASIC.',
+    blurb: 'The microcomputer that started it all. Runs Altair 8K BASIC.',
   },
   {
     id: 'atom',
