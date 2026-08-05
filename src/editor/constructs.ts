@@ -372,6 +372,40 @@ const TRS80: ConstructTemplate[] = [
   ]),
 ];
 
+/**
+ * Altair 8K BASIC - the ancestor of the C64's and the TRS-80's BASIC, and a
+ * smaller language than either. No ELSE, no INSTR, no disc commands, and the
+ * only file commands are the cassette pair CSAVE/CLOAD, which take a *single
+ * character* name rather than a filename.
+ */
+const ALTAIR: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('CLOAD', 'load "n" from cassette'),
+  stringCmd('CSAVE', 'save "n" to cassette'),
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['CHR$', 'n'],
+    ['FRE', 'n'],
+    ['INP', 'n'],
+    ['INT', 'n'],
+    ['LEFT$', 'sn'],
+    ['LEN', 's'],
+    ['MID$', 'sn'],
+    ['PEEK', 'n'],
+    ['POS', 'n'],
+    ['RIGHT$', 'sn'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+    ['STR$', 'n'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+  ]),
+];
+
 /** Locomotive BASIC has real ELSE, WHILE…WEND loops and MERGE/CHAIN. */
 const CPC: ConstructTemplate[] = [
   ifThen(),
@@ -450,6 +484,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   vic20: C64,
   atom: ATOM,
   trs80: TRS80,
+  altair8800: ALTAIR,
   cpc464: CPC,
   // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 6128's blocks are the 464's.
   cpc6128: CPC,

@@ -15,7 +15,7 @@
  *   (`A$`), arrays (`A(`) and FOR/NEXT control variables to be a single letter,
  *   while multi-letter *numeric* names (`BX`) are legal. The ZX80 and Acorn Atom
  *   are stricter - *every* variable is a single letter - selected with `strict`.
- * - **Microsoft (C64 / TRS-80):** {@link microsoftVariableErrors}. Only the
+ * - **Microsoft (Altair / C64 / TRS-80):** {@link microsoftVariableErrors}. Only the
  *   first two characters are significant, so two different long names that
  *   collapse to the same two chars clash; and a name embedding a reserved word
  *   (`SCORE` contains `OR`) is the real `?SYNTAX ERROR`. These ROMs also ignore
@@ -24,7 +24,7 @@
  *   only a name with a keyword glued mid-run *where a variable is expected* is
  *   flagged - in expression position (`FORI=ATOB`) the split is silent, since
  *   it is indistinguishable from intentional crunch. The dialects differ only
- *   in their type-suffix characters (C64 `$%`, TRS-80 `$%!#`).
+ *   in their type-suffix characters (Altair `$`, C64 `$%`, TRS-80 `$%!#`).
  *
  * BBC BASIC has no such rule: its names are fully significant, and the only real
  * restriction (a name may not embed a non-`conditional` keyword) is already
@@ -212,7 +212,7 @@ export function atomVariableErrors(
 }
 
 // ---------------------------------------------------------------------------
-// Microsoft family (C64 / TRS-80)
+// Microsoft family (Altair 8800 / C64 / TRS-80)
 // ---------------------------------------------------------------------------
 
 /** The two significant characters + type suffix that identify the variable. */
@@ -222,7 +222,7 @@ function significanceKey(name: string, suffixChars: string): string {
   return stripSuffix(name, suffixChars).slice(0, 2).toUpperCase() + suffix;
 }
 
-/** Editor diagnostics for the Microsoft-BASIC dialects (C64, TRS-80). */
+/** Editor diagnostics for the Microsoft-BASIC dialects (Altair, C64, TRS-80). */
 function microsoftVariableErrors(
   source: string,
   keywords: EditorKeyword[],
@@ -306,5 +306,21 @@ export function trs80VariableErrors(
   return microsoftVariableErrors(source, keywords, {
     label: 'TRS-80',
     suffixChars: '$%!#',
+  });
+}
+
+/**
+ * Altair 8K BASIC is where both of these rules come from - the C64's and the
+ * TRS-80's are inherited. Two significant characters, and `$` as the only type
+ * suffix: 8K BASIC predates the `%`/`!`/`#` tags, so `X%=1` is stored happily
+ * and then fails with `?SN ERROR` when the line runs.
+ */
+export function altair8800VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return microsoftVariableErrors(source, keywords, {
+    label: 'Altair',
+    suffixChars: '$',
   });
 }
