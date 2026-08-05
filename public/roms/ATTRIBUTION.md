@@ -161,3 +161,38 @@ both banks.)
 
 If you are a rights holder (Amstrad or Locomotive Software) and want these files
 removed, please open an issue and they will be taken out.
+
+# MITS Altair 8800 — the image that is missing
+
+`altair8800.rom` is **not here, and will not be**. This section exists so its
+absence reads as a decision rather than an oversight.
+
+The Altair had no firmware at all: the base machine shipped with an empty
+S-100 backplane, and you either toggled a bootstrap in on the front panel or
+loaded BASIC itself from paper tape into RAM at 0x0000. The tape everyone
+loaded was Altair 8K BASIC — Microsoft's first product, copyright © 1975–1976
+Microsoft (as MITS's licensee), and still under copyright with no
+redistribution grant. Microsoft's 2025 open-source release was the **6502**
+BASIC under the MIT licence, a different interpreter for a different processor;
+it does not cover the 8080 Altair BASIC this machine runs. Unlike the Sinclair
+and Amstrad ROMs above there is no permission to lean on, and unlike the
+Commodore and Acorn ones there is no decades-old de-facto tolerance either, so
+nothing ships.
+
+To use the Altair 8800 dialect, supply your own image at
+`public/roms/altair8800.rom`. What the emulator expects is the 8192-byte 8K
+BASIC 4.0 object tape that signs on as
+
+    ALTAIR BASIC REV. 4.0
+    [EIGHT-K VERSION]
+    COPYRIGHT 1976 BY MITS INC.
+
+(md5 `97eead711723295e9ce4f52b300002cf` — the image the SIMH AltairZ80 software
+collection distributes as `8kbas.bin`). The addresses, the keyword tokens and
+the console port numbers this dialect is built on were all read off that image,
+so a different Altair BASIC version may boot but is not what it was derived
+against.
+
+Without the file the machine still constructs and the test suite still passes:
+the emulator opens with a message explaining what to supply, and the tests that
+need the interpreter skip rather than fail.
