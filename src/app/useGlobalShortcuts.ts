@@ -13,8 +13,11 @@
  *   only run globally (e.g. Find from anywhere) when it isn't.
  * - Function-key runs (F5/Shift+F5) must `preventDefault` or the browser
  *   reloads / does nothing useful.
- * - Native combos (Undo/Redo/Cut/Copy/Paste/Renumber/Breakpoint/Escape) are in
- *   the table for display only and have no dispatch case, so they pass through.
+ * - Native combos (Undo/Redo/Cut/Copy/Paste/Renumber/Breakpoint) are in the
+ *   table for display only and have no dispatch case, so they pass through.
+ * - Escape is the one shared key: whoever it belongs to claims it first (the
+ *   editor, the emulator canvas, an open menu), and only if nobody does does it
+ *   reach the dispatch here and close the topmost open surface.
  */
 
 import { useEffect } from 'react';
@@ -22,6 +25,7 @@ import { useIdeStore } from './store';
 import { SHORTCUTS, matchesShortcut, type ShortcutId } from './shortcuts';
 import { newDocument, openDocument, saveDocument } from './fileCommands';
 import { openingTopicFor } from './docsTopic';
+import { dismissTopSurface } from './useHistorySync';
 
 /** Surface a rejected file command without crashing the listener. */
 function report(p: Promise<void>): void {
@@ -112,6 +116,12 @@ function dispatch(id: ShortcutId): boolean {
     case 'view.vfsInspector':
       s.setVfsInspectorOpen(!s.vfsInspectorOpen);
       return true;
+    case 'view.escape':
+      // Nothing above claimed the key (the editor and the emulator both
+      // preventDefault when Escape is theirs), so close the topmost open
+      // surface. Returns false when nothing is open, letting Escape through
+      // rather than navigating away from the app.
+      return dismissTopSurface();
     default:
       // Native/editor-only shortcuts (undo, copy, renumber, breakpoint, escape…)
       // have no global action - let the browser/editor handle them.

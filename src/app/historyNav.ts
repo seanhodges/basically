@@ -2,120 +2,85 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { useIdeStore } from './store';
+import { SURFACES, isOpenValue, type SurfaceValue } from './surfaces';
 
 /**
  * Browser back-navigation for the app's ephemeral UI surfaces.
  *
- * The IDE has no router: mobile tabs, the settings dialog, the AI panel, the
- * on-screen keyboard, the gamepad and the docs drawer are all toggled through
- * the Zustand store. None of them participate in browser history, so on mobile
- * the hardware Back button leaves the app instead of closing whatever is open.
+ * The IDE has no router: dialogs, panels, drawers, overlays and the mobile tabs
+ * are all toggled through the Zustand store. None of them participate in browser
+ * history on their own, so on mobile the hardware Back button would leave the app
+ * instead of closing whatever is open - losing the unsaved program.
  *
  * This module makes Back close the most recently opened surface, stepping back
  * through stacked surfaces in LIFO order, using only the History API. It is a
- * pure observer of the store: when a surface opens it pushes a history entry,
- * and on `popstate` it writes the popped snapshot back into the store via the
+ * pure observer of the store: when a surface opens it pushes a history entry, and
+ * on `popstate` it writes the popped snapshot back into the store via the
  * existing setters. The store stays the single source of truth - no open/close
  * call site changes. A single guard flag stops the writes performed during a
  * `popstate` from re-triggering a push (no feedback loop).
+ *
+ * *Which* surfaces participate is not decided here: {@link ./surfaces} holds that
+ * list, so the Escape key (see {@link ./useGlobalShortcuts}) can dismiss exactly
+ * the same set. Escape in fact routes through `history.back()`, so the two
+ * gestures share this one implementation of "what closes next" and cannot drift
+ * apart.
  */
 
 /** The store state, derived so `store.ts` needn't export its private interface. */
 type StoreState = ReturnType<typeof useIdeStore.getState>;
 
-/** A navigable surface key. Note the four mobile tabs collapse to a single
- *  `'tab'` key: switching between non-editor tabs is lateral (one Back returns
- *  straight to the editor), matching the chosen mobile UX. */
-export type NavKey =
-  | 'tab'
-  | 'settings'
-  | 'ai'
-  | 'keyboard'
-  | 'controller'
-  | 'docs';
+/** A navigable surface key - the `key` of a {@link SURFACES} entry. */
+export type NavKey = string;
 
 /**
- * The slice of UI state that participates in history. Both the mobile
- * (`mobileTab`) and desktop (`settingsOpen`/`aiPanelOpen`) representations are
- * captured, layout-gated by {@link computeSnapshot}, so a restore is exact and
+ * The slice of UI state that participates in history: every registered surface's
+ * value, layout-gated by {@link computeSnapshot} so a restore is exact and
  * survives a breakpoint flip mid-session.
  */
-export interface NavSnapshot {
-  /** A non-editor mobile tab (`'preview' | 'ai' | 'settings'`), or `null` for
-   *  the base editor tab / any desktop layout. */
-  mobileTab: 'preview' | 'ai' | 'settings' | null;
-  /** Desktop settings dialog. */
-  settingsOpen: boolean;
-  /** Desktop AI panel. */
-  aiPanelOpen: boolean;
-  /** On-screen keyboard enabled (`keyboardEnabled`). */
-  keyboard: boolean;
-  /** Gamepad enabled. */
-  controller: boolean;
-  /** Docs drawer open. */
-  docsOpen: boolean;
-  /** Docs sub-path the drawer is showing (only meaningful while open). */
-  docsTopic: string | null;
-}
+export type NavSnapshot = Readonly<Record<NavKey, SurfaceValue>>;
 
 /** Everything closed - the baseline entry and the fallback for a `null` state. */
-export const BASELINE: NavSnapshot = {
-  mobileTab: null,
-  settingsOpen: false,
-  aiPanelOpen: false,
-  keyboard: false,
-  controller: false,
-  docsOpen: false,
-  docsTopic: null,
-};
+export const BASELINE: NavSnapshot = Object.freeze(
+  Object.fromEntries(SURFACES.map((s) => [s.key, null])),
+);
 
-/** Derive the navigable snapshot from store state, gated by the current layout. */
+/**
+ * Derive the navigable snapshot from store state, gated by the current layout.
+ *
+ * Closed surfaces are normalised to `null` whether they read as `false` or
+ * `null`, so "closed" has one representation and snapshots compare by value.
+ */
 export function computeSnapshot(s: StoreState, isMobile: boolean): NavSnapshot {
-  return {
-    // On mobile the tab carries editor/preview/ai/settings; on desktop those
-    // surfaces live in their own fields, so the tab is irrelevant there.
-    mobileTab: isMobile && s.mobileTab !== 'editor' ? s.mobileTab : null,
-    settingsOpen: isMobile ? false : s.settingsOpen,
-    aiPanelOpen: isMobile ? false : s.aiPanelOpen,
-    keyboard: s.keyboardEnabled,
-    controller: s.controllerEnabled,
-    docsOpen: s.docsDrawerOpen,
-    docsTopic: s.docsDrawerOpen ? s.docsTopic : null,
-  };
+  const out: Record<NavKey, SurfaceValue> = {};
+  for (const surface of SURFACES) {
+    const v = surface.read(s, isMobile);
+    out[surface.key] = isOpenValue(v) ? v : null;
+  }
+  return out;
 }
 
 export function snapshotsEqual(a: NavSnapshot, b: NavSnapshot): boolean {
-  return (
-    a.mobileTab === b.mobileTab &&
-    a.settingsOpen === b.settingsOpen &&
-    a.aiPanelOpen === b.aiPanelOpen &&
-    a.keyboard === b.keyboard &&
-    a.controller === b.controller &&
-    a.docsOpen === b.docsOpen &&
-    a.docsTopic === b.docsTopic
-  );
+  return SURFACES.every((s) => (a[s.key] ?? null) === (b[s.key] ?? null));
 }
 
 /** The set of surfaces currently open in a snapshot, as history keys. */
 export function openKeys(s: NavSnapshot): NavKey[] {
-  const keys: NavKey[] = [];
-  if (s.mobileTab !== null) keys.push('tab');
-  if (s.settingsOpen) keys.push('settings');
-  if (s.aiPanelOpen) keys.push('ai');
-  if (s.keyboard) keys.push('keyboard');
-  if (s.controller) keys.push('controller');
-  if (s.docsOpen) keys.push('docs');
-  return keys;
+  return SURFACES.filter((surface) => isOpenValue(s[surface.key] ?? null)).map(
+    (surface) => surface.key,
+  );
 }
 
-/** The keyboard is auto-opening (a pane gained focus with auto-show on) rather
- *  than being opened by an explicit tap - such opens must not trap Back. */
-export function isAutoShow(s: StoreState): boolean {
-  return s.keyboardAutoShow && (s.editorFocused || s.emulatorFocused);
+/** The keys of surfaces that are open on the app's initiative rather than the
+ *  user's - such opens must not trap Back. */
+export function autoShownKeys(s: StoreState): NavKey[] {
+  return SURFACES.filter((surface) => surface.autoShown?.(s)).map(
+    (s2) => s2.key,
+  );
 }
 
 /**
- * Write a snapshot back into the store, calling only the setters whose surface
+ * Write a snapshot back into the store, calling only the writers whose surface
  * differs from the live state. Persisted setters (`setKeyboardEnabled`,
  * `setControllerEnabled`) still write through to localStorage; unrelated state
  * is left untouched. Called only from inside the `popstate` guard.
@@ -123,28 +88,9 @@ export function isAutoShow(s: StoreState): boolean {
 export function applySnapshot(target: NavSnapshot, isMobile: boolean): void {
   const s = useIdeStore.getState();
   const cur = computeSnapshot(s, isMobile);
-
-  if (cur.mobileTab !== target.mobileTab) {
-    s.setMobileTab(target.mobileTab ?? 'editor');
-  }
-  if (cur.settingsOpen !== target.settingsOpen) {
-    s.setSettingsOpen(target.settingsOpen);
-  }
-  if (cur.aiPanelOpen !== target.aiPanelOpen) {
-    // No dedicated setter for the raw flag; `toggleAiPanel` would be ambiguous.
-    useIdeStore.setState({ aiPanelOpen: target.aiPanelOpen });
-  }
-  if (cur.keyboard !== target.keyboard) {
-    s.setKeyboardEnabled(target.keyboard);
-  }
-  if (cur.controller !== target.controller) {
-    s.setControllerEnabled(target.controller);
-  }
-  if (cur.docsOpen !== target.docsOpen) {
-    if (target.docsOpen) s.openDocs(target.docsTopic ?? undefined);
-    else s.closeDocs();
-  } else if (target.docsOpen && cur.docsTopic !== target.docsTopic) {
-    s.openDocs(target.docsTopic ?? undefined);
+  for (const surface of SURFACES) {
+    const want = target[surface.key] ?? null;
+    if ((cur[surface.key] ?? null) !== want) surface.write(s, want);
   }
 }
 
@@ -175,6 +121,9 @@ export interface HistorySync {
   onStoreChange(state: StoreState): void;
   /** React to a `popstate` - apply the popped snapshot back into the store. */
   onPop(event: { state: unknown }): void;
+  /** Whether any surface is open, i.e. whether Back has something to close.
+   *  Escape consults this so it doesn't navigate away from a closed app. */
+  hasOpenSurfaces(): boolean;
 }
 
 /**
@@ -221,12 +170,11 @@ export function createHistorySync(opts: {
     const opened = nowKeys.filter((k) => !prevKeys.includes(k));
     const closed = prevKeys.filter((k) => !nowKeys.includes(k));
 
-    // Deepen: a surface opened → push one entry (excluding an auto-shown
-    // keyboard, which must not consume a Back press).
+    // Deepen: a surface opened → push one entry (excluding anything auto-shown,
+    // which must not consume a Back press).
     if (opened.length > 0) {
-      const pushable = opened.filter(
-        (k) => !(k === 'keyboard' && isAutoShow(state)),
-      );
+      const auto = autoShownKeys(state);
+      const pushable = opened.filter((k) => !auto.includes(k));
       if (pushable.length > 0) {
         idx += 1;
         stack.push({ keys: pushable });
@@ -303,9 +251,18 @@ export function createHistorySync(opts: {
     }
 
     applySnapshot(target, getIsMobile());
-    last = target;
+    // Mirror what the store actually holds, not what we asked for. Some
+    // surfaces decline to re-open from a forward navigation (a confirmation
+    // prompt, the variable-detail snapshot), and trusting `target` over reality
+    // would leave us believing something is open that isn't - which the next
+    // store change would try to "close" with a spurious extra history step.
+    last = computeSnapshot(useIdeStore.getState(), getIsMobile());
     applyingPop = false;
   }
 
-  return { init, onStoreChange, onPop };
+  function hasOpenSurfaces(): boolean {
+    return stack.length > 0;
+  }
+
+  return { init, onStoreChange, onPop, hasOpenSurfaces };
 }

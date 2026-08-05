@@ -88,7 +88,9 @@ afterEach(() => {
   while (activeUnsubs.length) activeUnsubs.pop()!();
 });
 
-/** Reset the navigable store fields to a clean "everything closed" state. */
+/** Reset the navigable store fields to a clean "everything closed" state.
+ *  Covers every surface in the registry, so a test that opens one can't leak
+ *  into the next. */
 function resetStore() {
   useIdeStore.setState({
     mobileTab: 'editor',
@@ -96,10 +98,25 @@ function resetStore() {
     aiPanelOpen: false,
     keyboardEnabled: false,
     controllerEnabled: false,
+    controllerRemapRole: null,
     docsDrawerOpen: false,
     docsTopic: null,
     keyboardAutoShow: false,
     editorFocused: false,
+    emulatorFocused: false,
+    importOpen: false,
+    transferOpen: false,
+    shareLinkOpen: false,
+    vfsInspectorOpen: false,
+    procedureListOpen: false,
+    memoryMapOpen: false,
+    welcomeOpen: false,
+    newProjectOpen: false,
+    machinePickerOpen: false,
+    blockSettingsId: null,
+    variableDetail: null,
+    pendingDeleteBlockId: null,
+    pendingDialectId: null,
   });
 }
 
@@ -122,15 +139,13 @@ describe('computeSnapshot / openKeys', () => {
       docsTopic: 'reference/zx81',
     });
     const snap = computeSnapshot(useIdeStore.getState(), false);
-    expect(snap).toEqual({
-      mobileTab: null,
-      settingsOpen: true,
-      aiPanelOpen: true,
-      keyboard: true,
-      controller: true,
-      docsOpen: true,
-      docsTopic: 'reference/zx81',
-    });
+    expect(snap.settings).toBe(true);
+    expect(snap.ai).toBe(true);
+    expect(snap.keyboard).toBe(true);
+    expect(snap.controller).toBe(true);
+    // The docs value doubles as the restore payload: the topic, or '' for home.
+    expect(snap.docs).toBe('reference/zx81');
+    expect(snap.tab).toBe(null);
     expect(openKeys(snap).sort()).toEqual(
       ['ai', 'controller', 'docs', 'keyboard', 'settings'].sort(),
     );
@@ -139,9 +154,39 @@ describe('computeSnapshot / openKeys', () => {
   it('maps mobile tabs to the single `tab` key and ignores desktop flags', () => {
     useIdeStore.setState({ mobileTab: 'ai', aiPanelOpen: true });
     const snap = computeSnapshot(useIdeStore.getState(), true);
-    expect(snap.mobileTab).toBe('ai');
-    expect(snap.aiPanelOpen).toBe(false); // desktop flag ignored on mobile
+    expect(snap.tab).toBe('ai');
+    // The desktop flag is ignored on mobile, and every closed surface
+    // normalises to null regardless of how it reads.
+    expect(snap.ai).toBe(null);
     expect(openKeys(snap)).toEqual(['tab']);
+  });
+
+  it('covers the modal dialogs that used to answer to neither gesture', () => {
+    useIdeStore.setState({
+      importOpen: true,
+      transferOpen: true,
+      shareLinkOpen: true,
+      vfsInspectorOpen: true,
+      procedureListOpen: true,
+      memoryMapOpen: true,
+      welcomeOpen: true,
+      newProjectOpen: true,
+      machinePickerOpen: true,
+    });
+    const snap = computeSnapshot(useIdeStore.getState(), false);
+    expect(openKeys(snap).sort()).toEqual(
+      [
+        'import',
+        'machinePicker',
+        'memoryMap',
+        'newProject',
+        'outline',
+        'share',
+        'transfer',
+        'vfs',
+        'welcome',
+      ].sort(),
+    );
   });
 });
 

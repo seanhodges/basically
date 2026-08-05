@@ -1112,6 +1112,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
 
   const handleKey = (e: React.KeyboardEvent, down: boolean) => {
     if (e.key === 'Escape') {
+      // Claim the key so the global handler doesn't also close the surface
+      // behind the emulator: releasing the machine is what this Escape meant.
+      e.preventDefault();
       canvasRef.current?.blur();
       return;
     }

@@ -48,18 +48,37 @@ async function onHostMessage(e: MessageEvent) {
   window.dispatchEvent(new CustomEvent(DEEP_LINK_EVENT));
 }
 
+/**
+ * Escape closes the drawer, exactly as it does everywhere else in the IDE.
+ * It has to be handled *here*: while the reader's focus is inside this frame the
+ * host window never sees the keypress, so this is the only place that can.
+ *
+ * Deferring to `defaultPrevented` leaves the key to whoever else has claimed it
+ * first - VitePress's own search modal, most of all, which Escape should close
+ * before it closes the drawer around it.
+ */
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || e.defaultPrevented) return;
+  e.preventDefault();
+  closeDrawer();
+}
+
 onMounted(() => {
   if (window.parent === window.self) return;
   embedded.value = true;
   document.documentElement.classList.add('in-ide-drawer');
   window.addEventListener('message', onHostMessage);
+  window.addEventListener('keydown', onKeyDown);
   window.parent.postMessage(
     { type: DOCS_READY_MESSAGE },
     window.location.origin,
   );
 });
 
-onBeforeUnmount(() => window.removeEventListener('message', onHostMessage));
+onBeforeUnmount(() => {
+  window.removeEventListener('message', onHostMessage);
+  window.removeEventListener('keydown', onKeyDown);
+});
 
 // Ask the host IDE to close the drawer. The IDE listens for this on `window`
 // (DocsDrawer.tsx) and calls its store's `closeDocs()`. Same-origin, so we can

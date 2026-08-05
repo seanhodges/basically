@@ -44,7 +44,13 @@ export function useDismiss<T extends HTMLElement>(
       if (isOutside(e.composedPath(), ref.current)) onDismiss();
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onDismiss();
+      if (e.key !== 'Escape') return;
+      // Claim the key. The app-global handler closes the topmost history-tracked
+      // surface on an unclaimed Escape, and these overlays (dropdowns, popovers)
+      // deliberately aren't tracked - without this, one Escape would close the
+      // menu *and* whatever screen it was opened from.
+      e.preventDefault();
+      onDismiss();
     };
 
     document.addEventListener('pointerdown', onPointerDown, true);
