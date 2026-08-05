@@ -1,7 +1,7 @@
 // Capability: ai-assistant — openspec/specs/ai-assistant/spec.md
 import { test, expect } from '../fixtures';
 import type { Page } from '@playwright/test';
-import { openApp, setEditorSource } from '../helpers';
+import { openApp, setEditorSource, expectCanvasAdvancing } from '../helpers';
 
 /**
  * Which actions a generated code block offers.
@@ -128,4 +128,83 @@ test('a fragment can delete a line', async ({ page }) => {
   const editor = page.locator('.cm-content');
   await expect(editor).not.toContainText('LET X=X+1');
   await expect(editor).toContainText('60 GOTO 30');
+});
+
+/**
+ * The apply-and-run actions, run for real.
+ *
+ * These clicks were untested for as long as the buttons existed - the specs
+ * asserted only that they appeared - which is how a run that silently never
+ * started shipped twice over. A seeded thread needs no provider, so there is
+ * nothing here that could not always have been checked.
+ *
+ * The assertion that matters is {@link expectCanvasAdvancing}: `emulator:
+ * running` is set just before the loop starts and so cannot tell a live loop
+ * from a dead one.
+ */
+const RUNNING_PROGRAM = ['10 PRINT "HI"', '20 GOTO 10'].join('\n');
+
+test('applying and running an answer starts the machine', async ({ page }) => {
+  await seedThread(page, '```basic\n' + RUNNING_PROGRAM + '\n```');
+  await openApp(page);
+  await setEditorSource(page, PROGRAM);
+  await openAiPanel(page);
+
+  await button(page, 'Replace + Run ▶').click();
+
+  await expect(page.getByText('emulator: running')).toBeVisible({
+    timeout: 45_000,
+  });
+  await expectCanvasAdvancing(page);
+});
+
+test('applying and running an answer starts the machine on a phone', async ({
+  page,
+}) => {
+  // The tab layout is where this broke: loading the applied program used to
+  // stop the machine in the same commit that asked it to run, so the Run tab
+  // came forward showing a machine that never started.
+  await page.setViewportSize({ width: 390, height: 800 });
+  await seedThread(page, '```basic\n' + RUNNING_PROGRAM + '\n```');
+  await openApp(page);
+  await setEditorSource(page, PROGRAM);
+
+  // A machine has to already be up for this to be the bug it was: the stop
+  // landed on a machine that existed, disposing it out from under the run
+  // starting in the same commit. In the app that machine is the one the
+  // assistant's own check left running; here the user starts it.
+  await button(page, '▶').click(); // the editor tab's run button
+  await expect(page.getByText('emulator: running').first()).toBeVisible({
+    timeout: 45_000,
+  });
+
+  await page.getByRole('tab', { name: 'AI' }).click();
+  await button(page, 'Replace + Run ▶').click();
+
+  // The machine is what the user is now looking at...
+  await expect(page.getByRole('tab', { name: 'Run' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  // ...and it is actually running.
+  await expectCanvasAdvancing(page);
+});
+
+test('applying without running starts nothing', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await seedThread(page, '```basic\n' + RUNNING_PROGRAM + '\n```');
+  await openApp(page);
+  await setEditorSource(page, PROGRAM);
+  await page.getByRole('tab', { name: 'AI' }).click();
+
+  await button(page, 'Replace program').click();
+
+  // Applying is an edit, not a run. The code lands and the machine is left as
+  // it was - which on this layout now also means the user is left where they
+  // were, reading the answer they just applied.
+  await expect(page.getByText('emulator: running')).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'AI' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
 });

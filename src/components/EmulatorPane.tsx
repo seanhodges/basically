@@ -15,6 +15,7 @@ import {
   AI_CHECK_HIDDEN_TICK_MS,
   shouldOpenDebugSession,
   shouldRevealEmulator,
+  shouldTakeMachineBack,
   type AiRunFrameCounts,
 } from '../app/aiRunCheck';
 import {
@@ -363,7 +364,20 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     const tick = () => {
       const machine = machineRef.current;
       const canvas = canvasRef.current;
-      if (!machine || !canvas) {
+      // The two absences mean different things, and treating them alike is what
+      // used to turn an ordering mistake into a machine that silently never
+      // starts. A canvas that isn't there yet is a frame that hasn't happened -
+      // wait for it. A machine that isn't there is one that was torn down under
+      // a running loop: every legitimate start goes through ensureMachine, so
+      // there is nothing to wait for, and a loop that kept rescheduling would
+      // leave the status bar claiming a machine that is gone.
+      if (!machine) {
+        stopLoop();
+        setLoading(false);
+        setEmulatorStatus('stopped');
+        return;
+      }
+      if (!canvas) {
         schedule();
         return;
       }
@@ -561,7 +575,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       schedule();
     };
     schedule();
-  }, [stopLoop, registerCapture, registerControl]);
+  }, [stopLoop, registerCapture, registerControl, setEmulatorStatus]);
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
     if (machineRef.current) return machineRef.current;
@@ -623,6 +637,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // to apply it, so the document is deliberately untouched. Every other
         // run - the toolbar, the shortcut, the player - runs the editor as ever.
         const checking = useIdeStore.getState().aiRunCheckSeq === runRequest;
+        // A run the user asked for takes the machine back from the assistant.
+        // Done here, before the gates below, so that a run refused for a lint
+        // error still un-strands a machine the assistant was holding still -
+        // otherwise a frozen machine plus a program that won't build leaves the
+        // user with one that neither runs nor says why. See
+        // shouldTakeMachineBack for why a check is the exception.
+        if (shouldTakeMachineBack({ checking })) dropControl();
         const runSource = checking
           ? useIdeStore.getState().aiRunSource
           : source;
@@ -679,7 +700,18 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // loadProgram boots the ROM synchronously (~200ms on the Z80 machines),
         // blocking the main thread - paint the overlay first so it is visible.
         await nextPaint();
-        if (cancelled) return;
+        // `cancelled` only trips on another run request. The identity check
+        // catches the other way a start is invalidated: something disposed the
+        // machine while this was awaiting - a Stop, a dialect switch, a ROM
+        // change, each of which nulls machineRef synchronously and can land in
+        // the very same effect flush as the run that got here. Loading a
+        // program into a disposed machine and starting a loop over it is how
+        // this pane used to end up reporting a running machine that never drew
+        // a frame.
+        if (cancelled || machineRef.current !== machine) {
+          setLoading(false);
+          return;
+        }
         // A start empties the virtual filesystem; only files the new run
         // saves are visible to it (a pause mid-run does NOT clear).
         emulatorVfs.clear(dialect.id);
@@ -753,6 +785,12 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // Before the canvas is blanked: a stopped machine's last frame is still the
     // screen the user was looking at, and still worth showing the assistant.
     stashCapture();
+    // The screen is stashed but the driver is dropped, and the asymmetry is the
+    // point: a stopped machine's last frame is still worth showing, but a
+    // disposed machine cannot be driven, and a driver left registered over one
+    // would let a turn still holding it type into nothing - or, once it is
+    // frozen, leave the next run held still by a turn that is long over.
+    dropControl();
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();
     machineRef.current = null;
@@ -773,6 +811,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     disposeAudio,
     setEmulatorStatus,
     stashCapture,
+    dropControl,
   ]);
 
   // Step request: run the paused debugger to the next BASIC line.
@@ -873,7 +912,32 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   // their own. Tearing down a *running* machine on a ROM change is deliberate:
   // leaving the old firmware executing while Settings reports a new image would
   // be a lie, and the change is always an explicit act in Settings.
+  //
+  // Fires on an actual switch, rather than on every run of the effect. Every
+  // other effect here earns that by a `=== 0` guard on the request counter it
+  // watches; there is no counter for a dialect, so this remembers the machine it
+  // last tore down for and compares.
+  //
+  // Two runs it has to sit out. A mount is not a switch: there is no old machine
+  // to tear down, and this pane can be mounted with a run already requested in
+  // the same commit - the player does exactly that, asking for the run and
+  // flipping to the phase that mounts the pane together. Effects run in
+  // declaration order, so this one fires after the run effect, and where
+  // `ensureMachine` needs no ROM fetch (a user-supplied image, or a dialect with
+  // no ROM at all) it has already built and stored the machine by then; tearing
+  // that down would leave the run it belongs to loading a program into a
+  // disposed machine. And React re-runs effects with unchanged values - in
+  // StrictMode on every mount - which is a switch even less than a mount is.
+  const machineKeyRef = useRef<{ dialect: Dialect; rom: number } | null>(null);
   useEffect(() => {
+    const previous = machineKeyRef.current;
+    machineKeyRef.current = { dialect, rom: romChangeRequest };
+    if (
+      !previous ||
+      (previous.dialect === dialect && previous.rom === romChangeRequest)
+    ) {
+      return;
+    }
     stopLoop();
     machineRef.current?.releaseAllKeys();
     machineRef.current?.dispose();

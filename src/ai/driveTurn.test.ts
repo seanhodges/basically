@@ -25,7 +25,7 @@ import {
   registerMachineControl,
   type MachineControl,
 } from '../app/machineControl';
-import { armDriving } from './aiStore';
+import { armDriving, settleJudgingTurn } from './aiStore';
 import { DRIVE_TOOL, LOOK_TOOL } from './driveTools';
 import { setAiProvider } from '../storage/settings';
 
@@ -112,6 +112,61 @@ describe('when driving is armed', () => {
 
     expect(control.releaseAll).toHaveBeenCalled();
   });
+
+  it('lets the machine go even when it no longer owns it', () => {
+    const control = stubControl();
+    registerMachineControl(control);
+    const driving = armDriving(true)!;
+
+    // What a run the user started does: the pane drops the driver, and this
+    // turn is left holding one that owns nothing.
+    forgetMachineControl();
+    driving.finish();
+
+    // The thaw still has to happen - it is the freeze that strands a machine.
+    expect(machineFrozen()).toBe(false);
+    // But the keys do not: they are held on a machine that is either disposed
+    // or running somebody else's program.
+    expect(control.releaseAll).not.toHaveBeenCalled();
+  });
+});
+
+describe('a turn whose machine was taken back', () => {
+  it('refuses to drive it', async () => {
+    const control = stubControl();
+    registerMachineControl(control);
+    const driving = armDriving(true)!;
+    forgetMachineControl();
+
+    const result = await driving.runTool({
+      id: 'c1',
+      name: DRIVE_TOOL,
+      input: { script: 'PRESS KeyA' },
+    });
+
+    // Its own reference still works, so nothing but the registry would stop it
+    // typing into whatever the user loaded.
+    expect(control.pressKeys).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain('no longer yours');
+  });
+
+  it('refuses to look at it', async () => {
+    const control = stubControl();
+    registerMachineControl(control);
+    const driving = armDriving(true)!;
+    forgetMachineControl();
+
+    const result = await driving.runTool({
+      id: 'c1',
+      name: LOOK_TOOL,
+      input: {},
+    });
+
+    // A look would describe the user's program as though it were its own.
+    expect(result.isError).toBe(true);
+    expect(result.content).not.toContain('READY');
+  });
 });
 
 describe('the tools it hands over', () => {
@@ -183,5 +238,73 @@ describe('the tools it hands over', () => {
     // A turn that died here would lose everything the model did before it.
     expect(result.isError).toBe(true);
     expect(result.content).toContain('no tool called "teleport"');
+  });
+});
+
+describe('settling the turn that judges', () => {
+  const spies = () => ({
+    finish: vi.fn(),
+    judged: vi.fn(),
+    abandoned: vi.fn(),
+  });
+
+  it('hands the machine back and judges when the reply arrives', async () => {
+    const { finish, judged, abandoned } = spies();
+
+    settleJudgingTurn({ finish }, Promise.resolve('ok'), judged, abandoned);
+    await Promise.resolve();
+
+    expect(finish).toHaveBeenCalledTimes(1);
+    expect(judged).toHaveBeenCalledTimes(1);
+    expect(abandoned).not.toHaveBeenCalled();
+  });
+
+  it('hands the machine back even when the turn never happened', async () => {
+    const { finish, judged, abandoned } = spies();
+
+    settleJudgingTurn(
+      { finish },
+      Promise.reject(new Error('no system prompt')),
+      judged,
+      abandoned,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // The whole point: a turn that failed before it was sent is exactly the
+    // case where nothing else would ever release the machine.
+    expect(finish).toHaveBeenCalledTimes(1);
+    expect(abandoned).toHaveBeenCalledTimes(1);
+    // And it judges nothing. No reply was appended, so the last message in the
+    // thread is the answer being judged - reading a verdict out of that would
+    // apply one the assistant never gave.
+    expect(judged).not.toHaveBeenCalled();
+  });
+
+  it('hands the machine back before anything downstream runs', async () => {
+    const order: string[] = [];
+    const finish = vi.fn(() => void order.push('finish'));
+
+    settleJudgingTurn(
+      { finish },
+      Promise.resolve('ok'),
+      () => void order.push('judged'),
+      () => void order.push('abandoned'),
+    );
+    await Promise.resolve();
+
+    // A correction settles by starting another check run, and one that began on
+    // a machine still frozen would never advance a frame.
+    expect(order).toEqual(['finish', 'judged']);
+  });
+
+  it('settles a turn that armed no driving at all', async () => {
+    const { judged, abandoned } = spies();
+
+    settleJudgingTurn(null, Promise.resolve('ok'), judged, abandoned);
+    await Promise.resolve();
+
+    expect(judged).toHaveBeenCalledTimes(1);
+    expect(abandoned).not.toHaveBeenCalled();
   });
 });

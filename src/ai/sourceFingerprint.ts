@@ -24,3 +24,22 @@ export function sourceFingerprint(source: string): string {
   }
   return hash.toString(16).padStart(8, '0');
 }
+
+/**
+ * Whether the user has moved on from the program an answer was written against.
+ *
+ * The question every unrequested piece of work has to ask before it acts, since
+ * all of it - a correction sent on its own, a check that takes over the
+ * emulator - is work on a question the user may have already left behind.
+ *
+ * `writtenAgainst` is the program the assistant was answering about, never the
+ * one that ran. A checked answer is by definition not what the editor holds, so
+ * comparing the program that ran would report "moved on" every single time and
+ * silently disable the lot.
+ */
+export function hasMovedOn(
+  writtenAgainst: string,
+  editorSource: string,
+): boolean {
+  return sourceFingerprint(writtenAgainst) !== sourceFingerprint(editorSource);
+}

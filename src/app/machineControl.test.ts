@@ -12,6 +12,7 @@ import {
   hasMachineControl,
   machineControl,
   machineFrozen,
+  ownsMachine,
   registerMachineControl,
   MAX_DRIVE_FRAMES,
   type MachineControl,
@@ -189,5 +190,55 @@ describe('the registry', () => {
     // Otherwise a frozen machine outlives the turn that froze it and the
     // user's own run never advances again.
     expect(machineFrozen()).toBe(false);
+  });
+
+  it('thaws the machine when the driver is forgotten outright', () => {
+    forgetMachineControl();
+    const { control } = boot('10 GOTO 10');
+    registerMachineControl(control);
+    freezeMachine(true);
+
+    forgetMachineControl();
+
+    // This is the path a run the user started takes: the pane drops the driver
+    // rather than unregistering a particular one, and a drop that left the
+    // machine frozen would strand the very run that asked for it.
+    expect(machineFrozen()).toBe(false);
+  });
+
+  it('says which driver owns the machine', () => {
+    forgetMachineControl();
+    const first = boot('10 GOTO 10').control;
+    const second = boot('10 GOTO 10').control;
+
+    registerMachineControl(first);
+    expect(ownsMachine(first)).toBe(true);
+
+    // A new run registers over the old driver, and the turn still holding the
+    // old one has to be able to find that out: its own reference goes on
+    // working, so nothing else would tell it the machine had moved on.
+    registerMachineControl(second);
+    expect(ownsMachine(first)).toBe(false);
+    expect(ownsMachine(second)).toBe(true);
+
+    forgetMachineControl();
+    expect(ownsMachine(second)).toBe(false);
+  });
+
+  it('cannot be thawed by the unregister of a driver already replaced', () => {
+    forgetMachineControl();
+    const first = boot('10 GOTO 10').control;
+    const second = boot('10 GOTO 10').control;
+    const unregisterFirst = registerMachineControl(first);
+    registerMachineControl(second);
+
+    freezeMachine(true);
+    unregisterFirst();
+
+    // The pane drops and re-registers a driver on every run, so a stale
+    // unregister firing late must not reach past its own driver and thaw - or
+    // drop - the machine that replaced it.
+    expect(machineFrozen()).toBe(true);
+    expect(machineControl()).toBe(second);
   });
 });

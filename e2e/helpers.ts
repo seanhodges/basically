@@ -160,6 +160,57 @@ export function canvasPainted(page: Page): Promise<boolean> {
 }
 
 /**
+ * A cheap fingerprint of the visible emulator canvas, for comparing one moment
+ * to another. Length plus a coarse sample, not the pixels themselves: this is
+ * only ever asked whether two frames differ.
+ */
+export function canvasFingerprint(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas || canvas.width === 0) return 'no-canvas';
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 'no-context';
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let hash = 0;
+    for (let i = 0; i < data.length; i += 997) {
+      hash = (hash * 31 + data[i]!) | 0;
+    }
+    return `${data.length}:${hash}`;
+  });
+}
+
+/**
+ * Wait until the emulator canvas is still changing from one moment to the next -
+ * the machine is advancing frames, rather than merely being reported as running.
+ * The program under test has to be one whose screen keeps moving (a scrolling
+ * PRINT loop, say), since a still screen is indistinguishable from a still
+ * machine.
+ *
+ * Nothing cheaper will do. `emulator: running` is set just before the loop
+ * starts, so a loop that starts and then does nothing satisfies it.
+ * {@link canvasPainted} is satisfied by whatever the last run left behind -
+ * nothing blanks the canvas short of a Stop. And a single before/after
+ * comparison is satisfied by the blanking itself, which is exactly what a stop
+ * landing on a run does. Two samples a moment apart, repeatedly, is the only
+ * form that says the loop is live *now*.
+ */
+export async function expectCanvasAdvancing(
+  page: Page,
+  timeout = 30_000,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const before = await canvasFingerprint(page);
+        await page.waitForTimeout(150);
+        return (await canvasFingerprint(page)) !== before;
+      },
+      { timeout },
+    )
+    .toBe(true);
+}
+
+/**
  * Save the current document via File ▸ Save project using the fallback download
  * path (call {@link forceFallbackFilePickers} first). Every document now saves
  * as a `.zip` project bundle. Answers the "Save as" filename prompt with
