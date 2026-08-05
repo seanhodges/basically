@@ -32,6 +32,7 @@ describe('dialect registry', () => {
     trs80: 'dec',
     cpc464: 'hex',
     cpc6128: 'hex',
+    altair8800: 'dec',
   };
 
   it('every dialect declares its memory-map address notation', () => {
@@ -55,6 +56,9 @@ describe('dialect registry', () => {
     'zxspectrum128',
     'cpc464',
     'cpc6128',
+    // The one machine whose image does not ship at all: supplying it is the
+    // only way to start the Altair (see `romBundled` on the dialect).
+    'altair8800',
   ]);
 
   it('every dialect states whether its ROM can be replaced', () => {

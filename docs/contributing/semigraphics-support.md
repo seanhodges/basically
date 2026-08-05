@@ -48,6 +48,7 @@ reported as such rather than guessed at.
 | TRS-80 | ✅ | 64 (0x80-0xBF) | 63 | 60 | 0 | 1 | 63/64 |
 | CPC 464 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
 | CPC 6128 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
+| Altair 8800 | — | _none_ | — | — | — | — | — |
 
 "Typeable" counts graphics bytes reachable by typing on the on-screen
 keyboard, including its graphics palette. "…astral" counts the characters
@@ -181,6 +182,12 @@ Spelled as: 1 escape-raw, 20 glyph-astral, 43 glyph-bmp.
 **Gap:** 1 graphics byte has no character of its own and renders as a raw escape: 0x80.
 
 **Gap:** 1 graphics byte cannot be typed on the on-screen keyboard: 0x80.
+
+### Altair 8800
+
+This machine has no block graphics at all: it has no video hardware
+and no character generator, so every byte it can display is plain
+ASCII drawn by whatever terminal is attached.
 
 ## Characters the machines need
 

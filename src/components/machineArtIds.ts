@@ -25,6 +25,7 @@ export const MACHINE_ART_IDS = [
   'trs80',
   'cpc464',
   'cpc6128',
+  'altair8800',
 ] as const;
 
 export type MachineArtId = (typeof MACHINE_ART_IDS)[number];

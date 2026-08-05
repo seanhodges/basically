@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import { useIdeStore } from '../app/store';
-import { dialects } from '../dialects/registry';
+import { useRunnableMachines } from '../app/machineAvailability';
 import { MachinePickerDialog } from './MachinePickerDialog';
 
 /**
@@ -23,11 +23,14 @@ export function TargetMachineDialog() {
   const setOpen = useIdeStore((s) => s.setMachinePickerOpen);
   const setDialect = useIdeStore((s) => s.setDialect);
   const activeId = useIdeStore((s) => s.dialect.id);
+  // Minus any machine whose ROM is not there to run - plus the current one,
+  // whatever its state. See `useRunnableMachines`.
+  const machines = useRunnableMachines(activeId);
 
   return (
     <MachinePickerDialog
       open={open}
-      machines={dialects}
+      machines={machines}
       selectedId={activeId}
       onChoose={(id) => {
         setOpen(false);

@@ -4,7 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useDismiss } from '../app/useDismiss';
-import { dialects, getDialect } from '../dialects/registry';
+import { getDialect } from '../dialects/registry';
+import { useRunnableMachines } from '../app/machineAvailability';
 import { useAiStore } from '../ai/aiStore';
 import { buildUserMessage, loadSystemPrompt } from '../ai/promptBuilder';
 import { aiCredentials, hasAiKey } from '../ai/credentials';
@@ -48,6 +49,10 @@ export function NewProjectDialog() {
   const [aiReady, setAiReady] = useState(false);
 
   const machine = getDialect(machineId);
+  // The offerable machines: anything whose ROM is missing cannot start, so it
+  // is not a choice. `machineId` is kept so the trigger and the list agree even
+  // when the document is already on such a machine.
+  const machines = useRunnableMachines(machineId);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Reset to "the machine you're on, and a blank program" each time it opens,
@@ -241,7 +246,7 @@ export function NewProjectDialog() {
             establishes a containing block. */}
         <MachinePickerDialog
           open={pickerOpen}
-          machines={dialects}
+          machines={machines}
           selectedId={machineId}
           onChoose={chooseMachine}
           onDismiss={closePicker}

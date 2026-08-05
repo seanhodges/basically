@@ -127,6 +127,12 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // atom/semigraphics.test.ts. 0xE0-0xFF repeats patterns 0x20-0x3F in the
   // other colour set, so it is not a second graphics range.
   atom: range(0xa0, 0xdf),
+  // Empty rather than null, and the distinction is the point: the Altair has no
+  // video hardware and no character generator at all - BASIC writes 7-bit ASCII
+  // down a serial line and whatever terminal is on the other end decides what
+  // it looks like. So "this machine has no block graphics" is an established
+  // fact about the hardware, not a range nobody has read off it yet.
+  altair8800: [],
 };
 
 /** Classify one byte from its canonical text form. */

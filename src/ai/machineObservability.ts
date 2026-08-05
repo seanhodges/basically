@@ -46,6 +46,10 @@ export function driveKeyNames(dialect: Dialect): string[] {
 export const DIALECTS_WITHOUT_VARIABLE_READBACK: ReadonlySet<string> = new Set([
   'zx80',
   'atom',
+  // The Altair's VARTAB walk is Stage 5 of its plan (see
+  // docs/contributing/dialect-plans/altair8800.md); the machine offers no
+  // readVariables yet.
+  'altair8800',
 ]);
 
 /** Whether this dialect's machine can be asked for its BASIC variables. */
@@ -69,6 +73,9 @@ export function canReportVariables(dialectId: string): boolean {
 export const DIALECTS_WITHOUT_RUNTIME_REPORT: ReadonlySet<string> = new Set([
   'zx80',
   'atom',
+  // Same: Altair BASIC *prints* its errors, so the report has to be scanned off
+  // the terminal grid, which is Stage 5 work.
+  'altair8800',
 ]);
 
 /**

@@ -3,7 +3,11 @@
 
 import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core, Z80State } from '../../../emulator/z80/z80core.js';
-import type { MachineEmulator, MemoryBlock } from '../../types';
+import type {
+  MachineEmulator,
+  MachineScreenText,
+  MemoryBlock,
+} from '../../types';
 import {
   PROGRAM_BASE,
   SENSE_SWITCHES_2SIO,
@@ -15,7 +19,14 @@ import { basicImagePointers } from '../basicImage';
 import { Altair8800Keyboard } from './keyboard';
 import { Altair8800Memory } from './memory';
 import { Altair8800Serial } from './serial';
-import { Altair8800Terminal, DISPLAY_HEIGHT, DISPLAY_WIDTH } from './terminal';
+import { plainChar } from '../charset';
+import {
+  Altair8800Terminal,
+  COLS as DISPLAY_COLS,
+  DISPLAY_HEIGHT,
+  DISPLAY_WIDTH,
+  ROWS as DISPLAY_ROWS,
+} from './terminal';
 
 /**
  * Cycles of 8080 time per 50Hz frame: 2 MHz / 50. The Altair's 8080A ran at
@@ -328,6 +339,29 @@ export class Altair8800Machine implements MachineEmulator {
   /** Read one terminal row back as text (for tests). */
   readScreenRow(row: number): string {
     return this.terminal.readRow(row);
+  }
+
+  /**
+   * The terminal grid as text, for the assistant's "what is on the screen"
+   * question and for `SCREEN CONTAINS` expectations.
+   *
+   * The easiest screen reader in the project, and the only honest one: there is
+   * no video RAM to decode and no character generator to map through, because
+   * the grid *is* the text - it was assembled from the bytes BASIC sent down the
+   * wire. Rows are padded rather than trimmed, since the seam promises exactly
+   * `cols` code points per line.
+   */
+  readScreenText(): MachineScreenText {
+    const lines: string[] = [];
+    for (let row = 0; row < DISPLAY_ROWS; row++) {
+      let line = '';
+      for (let col = 0; col < DISPLAY_COLS; col++) {
+        line +=
+          plainChar(this.terminal.cells[row * DISPLAY_COLS + col]!) ?? ' ';
+      }
+      lines.push(line);
+    }
+    return { lines, cols: DISPLAY_COLS, rows: DISPLAY_ROWS };
   }
 
   /**

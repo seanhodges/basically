@@ -17,18 +17,17 @@ import { altair8800AiProfile } from './aiProfile';
 import { altair8800BuildTargets } from './targets';
 import { altair8800KeyboardLayout } from './keyboardLayout';
 import { altair8800Samples } from './samples';
+import { BASIC_IMAGE_SIZE } from './addresses';
 import { Altair8800Machine } from './emulator/altairMachine';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/terminal';
 
 /**
  * The MITS Altair 8800 (Altair 8K BASIC).
  *
- * **Scaffolding only - this dialect is deliberately NOT registered.** It is
- * absent from `src/dialects/registry.ts` and from `SHARE_VERBS` in
- * `src/player/routes.ts`, which change together in Stage 3 (`routes.test.ts`
- * asserts a strict bijection between them). Leaving it unregistered keeps the
- * app, the e2e suite and every cross-dialect guard test clean while the stages
- * are filled in. See `docs/contributing/dialect-plans/altair8800.md`.
+ * Registered since Stage 3 of `docs/contributing/dialect-plans/altair8800.md`;
+ * `targets.ts` (Stage 4) and `memoryMap.ts`/`memoryBlocks.ts`/`vars.ts`/
+ * `reports.ts` (Stage 5) are still stubs and are deliberately not wired in
+ * below, so the app hides the surfaces they would drive.
  *
  * The Altair is the odd one out in this project in three ways worth knowing
  * before working on it:
@@ -36,10 +35,12 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/terminal';
  *  - **No video hardware.** Output is a serial terminal on the 88-2SIO board,
  *    not a memory-mapped screen (`emulator/terminal.ts`).
  *  - **No graphics characters.** Plain ASCII, so no `graphics.ts`, no graphics
- *    palette, and `SEMIGRAPHIC_CODES` should record `null` for it.
+ *    palette, and `SEMIGRAPHIC_CODES` records `null` for it.
  *  - **No ROM, in two senses.** The machine had no firmware - BASIC loaded into
  *    RAM from paper tape - and the 8K BASIC image is Microsoft copyright with
  *    no redistribution grant, so it is user-supplied and does not ship here.
+ *    That is what `romBundled: false` below says, and what turns the missing
+ *    file into an offer to supply one rather than a fetch error.
  */
 export const altair8800: Dialect = {
   id: 'altair8800',
@@ -94,6 +95,14 @@ export const altair8800: Dialect = {
    * the pane surface a raw `Failed to fetch ROM (404)`.
    */
   romUrl: `${import.meta.env.BASE_URL}roms/altair8800.rom`,
+
+  /**
+   * The machine runs whatever image it is handed, and nothing is handed to it
+   * by default: `romBundled: false` is what turns the missing file from a 404
+   * into the "supply your own 8,192-byte image" offer in Settings ▸ Emulator.
+   */
+  romBytes: BASIC_IMAGE_SIZE,
+  romBundled: false,
 
   // An 80x24 terminal at an 8x16 cell, rather than the classic 256x192.
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },

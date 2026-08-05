@@ -192,6 +192,12 @@ const ANCHORS: Record<string, { code: number; rows: string[] }> = {
   },
 };
 
+/**
+ * Dialect ids with no glyph source of their own - see the assertion that pins
+ * this set at the foot of the file.
+ */
+const WITHOUT_GLYPHS = new Set(['altair8800']);
+
 /** Dialect ids that declare at least one ROM-backed source. */
 const romBacked = Object.entries(GLYPH_SOURCES)
   .filter(([, sources]) => sources.some((s) => s.kind === 'rom'))
@@ -506,8 +512,23 @@ describe('glyph sources', () => {
         }
       }
       // Every dialect accounts for at least its own letters, whatever code
-      // they sit at (the Sinclair charset is not ASCII - its 'A' is 0x26).
+      // they sit at (the Sinclair charset is not ASCII - its 'A' is 0x26) -
+      // unless it has no glyphs of its own at all, which is a claim in itself
+      // and is pinned below.
+      if (WITHOUT_GLYPHS.has(id)) continue;
       expect(sourceFor(id, ANCHORS[id]?.code ?? 0x41), id).toBeDefined();
     }
+  });
+
+  it('names the machines whose shapes are not theirs to account for', () => {
+    // The Altair has no video hardware and no character generator: its shapes
+    // belong to whichever terminal is plugged into the serial board, so there
+    // is nothing on the machine for a glyph to be traced to. Declared as a set
+    // rather than derived from the empty entry, so a dialect cannot join it by
+    // someone forgetting to fill its sources in.
+    const empty = Object.entries(GLYPH_SOURCES)
+      .filter(([, sources]) => sources.length === 0)
+      .map(([id]) => id);
+    expect(empty.sort()).toEqual([...WITHOUT_GLYPHS].sort());
   });
 });

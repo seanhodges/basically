@@ -21,6 +21,10 @@ import {
   parseChar as cpcParseChar,
   decodeSpan as cpcDecodeSpan,
 } from './cpc464/charset';
+import {
+  parseChar as altairParseChar,
+  decodeSpan as altairDecodeSpan,
+} from './altair8800/charset';
 
 /**
  * How to drive each charset generically: the canonical decode of a byte, a
@@ -221,6 +225,23 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     dialects: ['cpc464', 'cpc6128'],
     decode: (b) => cpcDecodeSpan(Uint8Array.of(b), 0, 1).text,
     ...parseAllMulti(cpcParseChar),
+    isEscapeForm: BRACED_ESCAPE_FORM,
+    rawPattern: RAW_HEX_BRACE,
+    rawSpelling: '{0xNN}',
+  },
+  {
+    // The one charset here with no pictures in it: the Altair has no video
+    // hardware and no character generator, so the "character set" is whatever
+    // 7-bit ASCII the terminal on the far end of the serial line can print.
+    // Everything else - the control codes and the whole 0x80-0xFF range the
+    // console never displays - is a raw-byte escape.
+    id: 'altair8800',
+    varName: 'altair8800Escapes',
+    title: 'Altair 8800 escape codes',
+    machines: ['MITS Altair 8800'],
+    dialects: ['altair8800'],
+    decode: (b) => altairDecodeSpan(Uint8Array.of(b), 0, 1).text,
+    ...parseAll(altairParseChar),
     isEscapeForm: BRACED_ESCAPE_FORM,
     rawPattern: RAW_HEX_BRACE,
     rawSpelling: '{0xNN}',

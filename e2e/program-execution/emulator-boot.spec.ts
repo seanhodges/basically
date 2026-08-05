@@ -26,7 +26,12 @@ import {
 
 /** Keep in sync with src/dialects/registry.ts - the guard test below fails
  *  with a helpful message when a machine is added, renamed or re-identified.
- *  Ids and labels both come from the rows of the shared machine picker. */
+ *  Ids and labels both come from the rows of the shared machine picker.
+ *
+ *  The picker offers only machines that can actually start, so a registered
+ *  dialect whose ROM is missing is deliberately absent from both - the Altair,
+ *  whose 8K BASIC image ships with nobody. `e2e/project-setup/new-project.spec.ts`
+ *  asserts that omission from the other side. */
 const MACHINES = [
   { id: 'atom', label: 'Atom' },
   { id: 'bbcmaster', label: 'BBC Master' },

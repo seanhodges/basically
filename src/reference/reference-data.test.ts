@@ -9,6 +9,7 @@ import { commodoreReference } from './commodore';
 import { atomReference } from './atom';
 import { trs80Reference } from './trs80';
 import { cpcReference } from './cpc';
+import { altair8800Reference } from './altair8800';
 
 const SETS: [string, BasicReferenceTableData][] = [
   ['zx81', zx81Reference],
@@ -19,6 +20,7 @@ const SETS: [string, BasicReferenceTableData][] = [
   ['atom', atomReference],
   ['trs80', trs80Reference],
   ['cpc', cpcReference],
+  ['altair8800', altair8800Reference],
 ];
 
 describe.each(SETS)('reference data: %s', (_id, data) => {
@@ -50,7 +52,7 @@ describe.each(SETS)('reference data: %s', (_id, data) => {
 // a table but absent from the vocabulary) are both authoring mistakes the
 // per-entry check above cannot see, since it only ever looks at one table.
 describe('reference data: the capability vocabulary', () => {
-  it('is used in full across the eight BASIC tables, and nothing beyond it', () => {
+  it('is used in full across the BASIC tables, and nothing beyond it', () => {
     const used = new Set(
       SETS.flatMap(([, d]) => d.entries.map((e) => e.domain)),
     );

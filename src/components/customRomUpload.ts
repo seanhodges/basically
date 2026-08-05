@@ -34,6 +34,14 @@ export function romInUseLabel(
     return `Using your own ROM: ${custom.name} (${custom.size.toLocaleString()} bytes).`;
   }
   const size = dialect.romBytes;
+  // A machine whose image cannot be redistributed has no bundled ROM to be
+  // "using" - saying so would be the one wrong thing this line could say, since
+  // the machine will not start until the user supplies one.
+  if (dialect.romBundled === false) {
+    return size === undefined
+      ? `No ${dialect.name} ROM ships with this IDE - upload your own to start the machine.`
+      : `No ${dialect.name} ROM ships with this IDE - upload your own ${size.toLocaleString()}-byte image to start the machine.`;
+  }
   return size === undefined
     ? `Using the bundled ${dialect.name} ROM.`
     : `Using the bundled ${dialect.name} ROM (${size.toLocaleString()} bytes).`;

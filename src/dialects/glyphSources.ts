@@ -139,6 +139,10 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   zxspectrum: '$',
   zxspectrum128: '$',
   trs80: '$',
+  // The Altair has no hex literal either - PEEK/POKE take decimal - and no
+  // house notation of its own to follow, so it takes the same `$` the other
+  // decimal machines here are written in.
+  altair8800: '$',
 };
 
 /** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
@@ -450,6 +454,14 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
         'bits, not by the character generator at all.',
     },
   ],
+
+  // Empty on purpose, and the only empty entry here: the Altair has no video
+  // hardware and no character generator of any kind. Its shapes belong to
+  // whatever terminal is plugged into the 88-2SIO - a different one every
+  // installation - so there is no ROM, no chip and no logic on *this* machine
+  // that any glyph can be traced to. Recording a source would be inventing one;
+  // the key is present so the omission is deliberate rather than forgotten.
+  altair8800: [],
 };
 
 /** What a dialect's glyph for `code` comes from, or undefined if nothing claims it. */

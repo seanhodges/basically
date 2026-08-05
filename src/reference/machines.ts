@@ -49,6 +49,14 @@ export interface MachineChoice {
  */
 export const machines: MachineChoice[] = [
   {
+    id: 'altair8800',
+    page: 'altair8800',
+    name: 'Altair 8800',
+    manufacturer: 'MITS',
+    year: 1975,
+    blurb: 'The machine that started it all. Runs Altair 8K BASIC.',
+  },
+  {
     id: 'atom',
     page: 'atom',
     name: 'Atom',
