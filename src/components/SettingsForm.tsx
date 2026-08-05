@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useIdeStore } from '../app/store';
+import { dialects, getDialect } from '../dialects/registry';
+import { groupMachinesByManufacturer } from './machinePicker';
 import {
   getAiProvider,
   setAiProvider,
@@ -66,6 +68,8 @@ export function SettingsForm() {
   const setCustomRom = useIdeStore((s) => s.setCustomRom);
   const clearCustomRom = useIdeStore((s) => s.clearCustomRom);
   const [romError, setRomError] = useState('');
+  const settingsOpen = useIdeStore((s) => s.settingsOpen);
+  const mobileTab = useIdeStore((s) => s.mobileTab);
   const [providerId, setProviderId] = useState<AiProviderId>(getAiProvider());
   const [key, setKey] = useState(getProviderApiKey(getAiProvider()));
   const [keySaved, setKeySaved] = useState(false);
@@ -121,24 +125,56 @@ export function SettingsForm() {
     setTimeout(() => setKeySaved(false), 2000);
   };
 
-  const customRom = customRoms[dialect.id] ?? null;
+  /**
+   * Which machine's ROM this section is about.
+   *
+   * Its own choice rather than the IDE's current machine, because the two
+   * questions genuinely differ: the machine you are programming, and the machine
+   * whose firmware you are installing. They were the same control until a
+   * machine appeared whose image ships with nobody - the Altair - which the
+   * picker hides until one is supplied (see `app/machineAvailability.ts`). With
+   * no way to select that machine there was no way to reach its ROM settings
+   * either, so the only route in was a self-hosted drop-in.
+   *
+   * It still *opens* on the current machine every time the settings are shown,
+   * which is what makes the common case ("replace the ROM of the thing I am
+   * looking at") a no-op.
+   */
+  const [romMachineId, setRomMachineId] = useState(dialect.id);
+  const romShowing = settingsOpen || mobileTab === 'settings';
+  useEffect(() => {
+    // Both surfaces are covered: the desktop dialog unmounts when closed, but
+    // the mobile layout keeps this form mounted behind a hidden tab, so
+    // "opened" has to mean the tab as well as the dialog.
+    if (romShowing) setRomMachineId(dialect.id);
+  }, [romShowing, dialect.id]);
+  const romDialect = getDialect(romMachineId);
+  const customRom = customRoms[romDialect.id] ?? null;
+  // The picker's own grouping, so the two lists name and order the machines
+  // the same way. Every registered machine is listed, including the six whose
+  // emulator loads its own ROM set: picking one answers "why can't I replace
+  // this?" where leaving it out would only raise the question.
+  const romMachineGroups = useMemo(
+    () => groupMachinesByManufacturer(dialects),
+    [],
+  );
 
   const uploadRom = async () => {
     setRomError('');
     const picked = await openBinaryFile('.rom');
     if (!picked) return; // cancelled - not a failure, say nothing
-    const problem = romUploadError(dialect, picked.bytes);
+    const problem = romUploadError(romDialect, picked.bytes);
     if (problem) {
       setRomError(problem);
       return;
     }
-    const result = setCustomRom(dialect.id, picked.name, picked.bytes);
+    const result = setCustomRom(romDialect.id, picked.name, picked.bytes);
     if (!result.ok) setRomError(result.message);
   };
 
   const restoreRom = () => {
     setRomError('');
-    clearCustomRom(dialect.id);
+    clearCustomRom(romDialect.id);
   };
 
   const tabs = [
@@ -269,21 +305,42 @@ export function SettingsForm() {
             />
           </label>
           <h3>Machine ROM</h3>
-          {dialect.romBytes === undefined ? (
+          <label className={styles.field}>
+            Machine
+            <select
+              data-rom-machine
+              value={romMachineId}
+              onChange={(e) => {
+                setRomError('');
+                setRomMachineId(e.target.value);
+              }}
+            >
+              {romMachineGroups.map((group) => (
+                <optgroup key={group.manufacturer} label={group.manufacturer}>
+                  {group.machines.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          {romDialect.romBytes === undefined ? (
             <p>
-              The {dialect.name} emulator loads its own ROM set, so it
+              The {romDialect.name} emulator loads its own ROM set, so it
               can&apos;t be replaced here.
             </p>
           ) : (
             <>
-              <p>{romInUseLabel(dialect, customRom)}</p>
+              <p>{romInUseLabel(romDialect, customRom)}</p>
               <div className={styles.buttonRow}>
                 <button type="button" onClick={() => void uploadRom()}>
                   Upload ROM image…
                 </button>
                 {/* Nothing to restore on a machine that bundles no image -
                     the button would offer to remove the only ROM it has. */}
-                {dialect.romBundled !== false && (
+                {romDialect.romBundled !== false && (
                   <button
                     type="button"
                     onClick={restoreRom}
@@ -299,11 +356,18 @@ export function SettingsForm() {
                 </p>
               )}
               <p>
-                The image must be exactly {dialect.romBytes.toLocaleString()}{' '}
+                The image must be exactly {romDialect.romBytes.toLocaleString()}{' '}
                 bytes. It is kept in this browser only, is never uploaded
                 anywhere, and is not included in programs you publish. Changing
-                it restarts the machine.
+                the ROM of the machine you are using restarts it.
               </p>
+              {romDialect.romBundled === false && (
+                <p>
+                  Until you supply one, the {romDialect.name} is not offered in
+                  the machine picker - it would only lead to an error. It
+                  appears there as soon as you do.
+                </p>
+              )}
               {!localStorageIsPersistent() && (
                 <p role="alert" className={styles.settingsError}>
                   This browser is blocking site data, so a ROM you upload will
