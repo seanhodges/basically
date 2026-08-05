@@ -11,6 +11,8 @@ import { altair8800Reference } from '../../src/reference/altair8800';
 Every command, function and operator in Altair 8K BASIC — the 1975–76 MITS
 interpreter that every later Microsoft BASIC descends from.
 
+**In this reference:** [Hardware](./altair8800/hardware) · [Escape codes](./altair8800/escapes) · [File formats](./altair8800/formats)
+
 ## Notes and caveats
 
 - Multiple statements per line are allowed with `:`, and `?` is shorthand for

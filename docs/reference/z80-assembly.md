@@ -16,6 +16,12 @@ assembler syntax. What differs between them is only the memory map (where a
 block may live and the entry addresses you call), which stays on each machine's
 own hardware page.
 
+The **Altair 8800** uses this reference too, though its processor is the earlier
+Intel 8080: the Z80 was designed to run 8080 code, so every 8080 instruction is
+here under its Z80 name and assembles to the same bytes. Only the reverse is a
+trap — an instruction the Z80 added will run on the emulated Altair but would
+not have run on the real machine.
+
 Use the search box to filter by mnemonic, the buttons to show only
 **Instructions** or **Directives**, and the **Name** / **Kind** headers to
 re-sort. Undocumented opcodes (SLL, the IXH/IXL register halves) are not
@@ -74,7 +80,8 @@ The address ranges a routine may occupy, the default load address, and the entry
 points you call from BASIC are machine-specific — see the **Memory** section on
 each machine's hardware page: [ZX81](./zx81/hardware),
 [ZX80](./zx80/hardware), [ZX Spectrum](./zxspectrum/hardware),
-[TRS-80](./trs80/hardware) and [Amstrad CPC](./cpc/hardware).
+[TRS-80](./trs80/hardware), [Amstrad CPC](./cpc/hardware) and
+[Altair 8800](./altair8800/hardware).
 
 See also the [machine code guide](../guide/machine-code) and the cross-dialect
 [Machine code & data blocks](./file-formats#machine-code-data-blocks) overview.

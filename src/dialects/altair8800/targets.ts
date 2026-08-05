@@ -25,8 +25,8 @@ import { samplesToWav } from '../../transfer/wav';
  *   simulators feed to a virtual 88-ACR.
  * - **Cassette audio** (`.wav`) - the same bytes modulated as the 88-ACR's
  *   300-baud FSK. Note that the board is *not* a Kansas City Standard modem,
- *   whatever this dialect's plan assumed; `audio/cassetteEncoder.ts` has the
- *   correction.
+ *   whatever its 2400 Hz mark tone suggests; `audio/cassetteEncoder.ts` has the
+ *   derivation.
  * - **Paper tape** (`.txt`) - the listing in plain ASCII, which is how a
  *   program left a machine with no cassette board at all: `LIST` with the
  *   Teletype's punch running, and BASIC re-reads it line by line on the way

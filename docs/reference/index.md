@@ -16,6 +16,7 @@ dialects.
 
 Each dialect powers one or more of the emulated machines:
 
+- [Altair 8K BASIC](./altair8800) — MITS Altair 8800
 - [Atom BASIC](./atom) — Acorn Atom
 - [BBC BASIC](./bbc) — BBC Micro, BBC Master
 - [Commodore BASIC](./commodore) — Commodore 64, VIC-20, PET
@@ -32,5 +33,5 @@ treatment for every instruction and directive the built-in assembler
 understands. The instruction set is per-CPU, not per-machine, so there is one
 reference for each processor — cross-linked from every dialect that uses it:
 
-- [Z80 assembly](./z80-assembly) — ZX81, ZX80, ZX Spectrum, TRS-80, Amstrad CPC
+- [Z80 assembly](./z80-assembly) — ZX81, ZX80, ZX Spectrum, TRS-80, Amstrad CPC, Altair 8800 (8080)
 - [6502 assembly](./6502-assembly) — Commodore 64/VIC-20/PET, BBC Micro/Master, Acorn Atom

@@ -104,6 +104,29 @@ export const PROGRAM_BASE_NO_TRIG = 0x1877;
 export const RAM_TOP = 0xbfff;
 
 /**
+ * What 8K BASIC 4.0 reports as `BYTES FREE` in its sign-on banner on the
+ * modelled machine (48K fitted, transcendental functions retained), read off a
+ * booted console. `index.ts` quotes it as the dialect's `programRamBytes`.
+ */
+export const COLD_START_BYTES_FREE = 42628;
+
+/**
+ * The address BASIC counts its free space *down to*, and therefore the ceiling
+ * `readMemoryStats()` measures against.
+ *
+ * Not a number anyone typed: it follows from the banner above. A cold-started
+ * machine has an empty program - a bare 0x0000 end-of-program link at TXTTAB -
+ * so STREND sits at {@link PROGRAM_BASE} + 2 (the same arithmetic
+ * `basicImage.ts` does for a loaded program), and BASIC called the space above
+ * it {@link COLD_START_BYTES_FREE} bytes.
+ *
+ * That lands 65 bytes below the top of fitted RAM, which is BASIC keeping its
+ * 50-byte default string pool - the one `CLEAR n` resizes - at the top of
+ * memory, plus a handful of bytes above that it does not offer to a program.
+ */
+export const BASIC_FREE_TOP = PROGRAM_BASE + 2 + COLD_START_BYTES_FREE;
+
+/**
  * Front-panel sense-switch port. 8K BASIC reads it once at cold start and
  * patches its own console driver with the port numbers of the board the high
  * nibble selects; 0 selects the 88-2SIO. {@link SENSE_SWITCHES_2SIO} is the
