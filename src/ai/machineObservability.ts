@@ -46,9 +46,14 @@ export function driveKeyNames(dialect: Dialect): string[] {
 export const DIALECTS_WITHOUT_VARIABLE_READBACK: ReadonlySet<string> = new Set([
   'zx80',
   'atom',
-  // The Altair's VARTAB walk is Stage 5 of its plan (see
-  // docs/contributing/dialect-plans/altair8800.md); the machine offers no
-  // readVariables yet.
+  // The Altair's variable table is where `addresses.ts` says it is - VARTAB,
+  // ARYTAB and STREND were all read off a booted machine - but the *encoding*
+  // of what is in it was not, and could not be: 8K BASIC is Microsoft copyright
+  // and does not ship here, so there is no image to check a 4-byte float layout
+  // or an array header against. A watcher built on a plausible guess would show
+  // confident wrong numbers, which is worse than showing none, so this machine
+  // deliberately has no `readVariables` - the ZX80 and Atom precedent. Supply
+  // an image, derive the layout from it, and the id comes out of this set.
   'altair8800',
 ]);
 
@@ -73,9 +78,6 @@ export function canReportVariables(dialectId: string): boolean {
 export const DIALECTS_WITHOUT_RUNTIME_REPORT: ReadonlySet<string> = new Set([
   'zx80',
   'atom',
-  // Same: Altair BASIC *prints* its errors, so the report has to be scanned off
-  // the terminal grid, which is Stage 5 work.
-  'altair8800',
 ]);
 
 /**

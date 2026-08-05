@@ -623,6 +623,11 @@ const entries: PortingFactsEntry[] = [
     screen:
       '80x24 serial terminal, monochrome; BASIC wraps at its own 72-column width.',
     freeRamBytes: 42628,
+    // No screenBase to give: there is no display memory on this machine. The
+    // program area starts at TXTTAB, written with the `$` the other decimal
+    // machines here use (see ADDRESS_SIGIL in src/dialects/glyphSources.ts) -
+    // Altair BASIC itself has no hex notation at all.
+    programStart: '$1939',
     colour: 'None - the output is a serial terminal.',
     sound: 'None, beyond the terminal bell at CHR$(7).',
     memoryWriteSyntax: 'POKE addr,val',

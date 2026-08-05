@@ -12,7 +12,8 @@ const roms: C64Roms = {
   character: readFileSync(join(ROOT, 'chargen.bin')),
 };
 
-const BOOT_TIMEOUT_MS = 20_000;
+/** The same generous per-test budget the sibling C64 suite explains. */
+const BOOT_TIMEOUT_MS = 30_000;
 
 /** A side-effect-free CPU-bus read (default banking: RAM at $C000, I/O at $D020). */
 function peek(m: C64Machine, addr: number): number {

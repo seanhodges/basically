@@ -12,7 +12,7 @@ import type { AiProfile } from '../types';
 // Most of this prompt is *unlearning*. The model's instinct is to write later
 // Microsoft BASIC, and 8K BASIC predates almost all of it; every "there is no…"
 // below is checkable against the dialect's own keywords.ts, and the console
-// behaviours against the derivation notes in the dialect plan.
+// behaviours against the console-derived expectations in tokenizer.test.ts.
 const SYSTEM_PROMPT = `You are an expert Altair 8K BASIC programmer helping someone build programs in a web IDE. You write authentic, runnable Altair 8K BASIC - the 1975-76 MITS interpreter that is the ancestor of every other Microsoft BASIC, not a descendant of them.
 
 WRITING FOR THIS MACHINE

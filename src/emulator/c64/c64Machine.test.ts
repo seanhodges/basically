@@ -13,12 +13,14 @@ const roms: C64Roms = {
 };
 
 /**
- * Booting the real C64 ROMs and running a few hundred frames is slow (~2–5s per
- * test) and can edge past vitest's 5s default under load, so give these a
- * generous per-test budget. The boot dominates every case, so it's applied
- * uniformly.
+ * Booting the real C64 ROMs and running a few hundred frames is the slowest
+ * thing in this suite: 4-10s per test with the whole suite running in
+ * parallel, and the heaviest disk-I/O case close to 10s. That is well past
+ * vitest's 5s default and near enough the 30s floor in `vite.config.ts` to be
+ * worth saying out loud, so these keep an explicit budget of their own. The
+ * boot dominates every case, so it's applied uniformly.
  */
-const BOOT_TIMEOUT_MS = 20_000;
+const BOOT_TIMEOUT_MS = 30_000;
 
 /** Read `len` bytes of screen RAM ($0400) as C64 screen codes. */
 function screen(m: C64Machine, len = 1000): number[] {

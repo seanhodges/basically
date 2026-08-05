@@ -5,16 +5,22 @@ import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core, Z80State } from '../../../emulator/z80/z80core.js';
 import type {
   MachineEmulator,
+  MachineMemoryStats,
+  MachineReport,
   MachineScreenText,
   MemoryBlock,
 } from '../../types';
 import {
+  BASIC_FREE_TOP,
   PROGRAM_BASE,
   SENSE_SWITCHES_2SIO,
   SENSE_SWITCH_PORT,
   SIO_DATA_PORT,
   SIO_STATUS_PORT,
+  STREND,
+  TXTTAB,
 } from '../addresses';
+import { isAtOkPrompt, readAltair8800Report } from '../reports';
 import { basicImagePointers } from '../basicImage';
 import { Altair8800Keyboard } from './keyboard';
 import { Altair8800Memory } from './memory';
@@ -74,8 +80,8 @@ const READY_PROMPT = 'OK';
  * Shown on the terminal when the machine is constructed without a BASIC image.
  * That is a designed state rather than a failure: the 8K BASIC tape is
  * Microsoft copyright with no redistribution grant, so the user supplies their
- * own. (Stage 3 gives the emulator pane its own version of this message, where
- * it can be acted on; this one is what the machine itself can say.)
+ * own. (The emulator pane has its own version of this message, where it can be
+ * acted on; this one is what the machine itself can say.)
  */
 const NO_IMAGE_NOTICE = [
   'NO BASIC IMAGE.',
@@ -190,9 +196,9 @@ export class Altair8800Machine implements MachineEmulator {
   private speed = 1;
   private disposed = false;
 
-  constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
+  constructor(opts: { rom: Uint8Array }) {
     this.interpreter = opts.rom;
-    this.memory = new Altair8800Memory(opts.ramKb);
+    this.memory = new Altair8800Memory();
     this.cpu = Z80({
       mem_read: this.memory.read,
       mem_write: this.memory.write,
@@ -362,6 +368,100 @@ export class Altair8800Machine implements MachineEmulator {
       lines.push(line);
     }
     return { lines, cols: DISPLAY_COLS, rows: DISPLAY_ROWS };
+  }
+
+  /**
+   * The BASIC runtime report, scanned off the terminal - `?SN ERROR IN 100`, or
+   * the `OK` prompt when BASIC is idle. See `../reports.ts` for why the grid is
+   * the only place to read it and what the scan can and cannot tell apart.
+   */
+  readReport(): MachineReport | null {
+    if (!this.hasInterpreter || this.disposed) return null;
+    return readAltair8800Report(this.terminalRows());
+  }
+
+  /**
+   * Whether a BASIC program is executing, as far as the terminal shows.
+   *
+   * Null rather than false while the machine has no image, has been disposed,
+   * or still has console input queued: `loadProgram` types `RUN` rather than
+   * jumping into the program, so between the load and BASIC reading that line
+   * the machine is genuinely still at its prompt, and answering "finished"
+   * there would end a post-run check before the program had started.
+   *
+   * Everything else follows the prompt: BASIC prints `OK` and waits, so an `OK`
+   * as the last thing on the terminal means nothing is running. This is the one
+   * introspection here that no other machine has to do by looking at its own
+   * output, and it is inherently coarser than a ROM flag - a program stopped at
+   * an `INPUT` prompt reads as running (it is), and a program whose final
+   * printed line is exactly `OK` reads as finished a moment early.
+   */
+  isProgramRunning(): boolean | null {
+    if (!this.hasInterpreter || this.disposed) return null;
+    if (this.serial.pendingInput > 0) return null;
+    return !isAtOkPrompt(this.terminalRows());
+  }
+
+  /**
+   * BASIC RAM in use and still free, from the interpreter's own pointers.
+   *
+   * `used` is TXTTAB to STREND: the program text, then the simple variables and
+   * arrays that grow above it. `free` is what is left below
+   * {@link BASIC_FREE_TOP}, which is the ceiling BASIC's own `BYTES FREE`
+   * counts down from - so on a cold-started machine this reports exactly the
+   * figure the sign-on banner printed.
+   *
+   * String *data* is in neither figure. 8K BASIC allocates it downwards from
+   * the top of memory rather than above the arrays, so it comes out of the
+   * 50-byte pool above the ceiling (or whatever `CLEAR n` set), not out of the
+   * span measured here.
+   *
+   * Null while the pointers cannot be believed: before the cold-start dialogue
+   * has been answered they hold whatever the image was loaded with, which is
+   * why TXTTAB is checked against the base this dialect models rather than
+   * merely being read.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (!this.hasInterpreter || this.disposed) return null;
+    if (this.memory.readWord(TXTTAB) !== PROGRAM_BASE) return null;
+    const strend = this.memory.readWord(STREND);
+    const used = strend - PROGRAM_BASE;
+    const free = BASIC_FREE_TOP - strend;
+    if (used < 0 || free < 0) return null;
+    return { used, free };
+  }
+
+  // No readVariables(), currentLine() or debugStep(), and so no `debuggable`
+  // on the dialect. Both would need facts that can only be read off the
+  // interpreter: the encoding of the variable table VARTAB points at (a 4-byte
+  // float layout and an array header), and the workspace cell holding the line
+  // being executed. `addresses.ts` says how everything else here was derived -
+  // statically from the 8K BASIC image, or by booting it - and neither of those
+  // can be derived that way here, because the image is Microsoft copyright and
+  // does not ship. A watcher or a debugger built on a plausible guess would be
+  // confidently wrong rather than absent, so they are absent: the same call the
+  // ZX80 and the Atom make. `machineObservability.ts` records the variable half
+  // of that decision, and its crosscheck keeps the two in step.
+
+  setMemoryActivityRecording(enabled: boolean): void {
+    this.memory.activity.enabled = enabled;
+    // Drop any hits accumulated in a previous session so a reopened overlay
+    // starts clean rather than flashing stale activity.
+    if (!enabled) this.memory.activity.clear();
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    if (!this.memory.activity.enabled) return null;
+    return this.memory.activity.drain(recycle);
+  }
+
+  /** The terminal grid as lines, trailing blanks trimmed. */
+  private terminalRows(): string[] {
+    const rows: string[] = [];
+    for (let row = 0; row < DISPLAY_ROWS; row++) {
+      rows.push(this.terminal.readRow(row));
+    }
+    return rows;
   }
 
   /**

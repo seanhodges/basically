@@ -22,17 +22,14 @@ import {
 import { decodeCassette } from './audio/cassetteDecoder';
 import { altair8800KeyboardLayout } from './keyboardLayout';
 import { altair8800Samples } from './samples';
-import { BASIC_IMAGE_SIZE } from './addresses';
+import { BASIC_IMAGE_SIZE, COLD_START_BYTES_FREE } from './addresses';
+import { altair8800MemoryMap } from './memoryMap';
+import { altair8800MemoryBlocks } from './memoryBlocks';
 import { Altair8800Machine } from './emulator/altairMachine';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/terminal';
 
 /**
  * The MITS Altair 8800 (Altair 8K BASIC).
- *
- * Registered since Stage 3 of `docs/contributing/dialect-plans/altair8800.md`,
- * with transfer and tape I/O since Stage 4; `memoryMap.ts`/`memoryBlocks.ts`/
- * `vars.ts`/`reports.ts` (Stage 5) are still stubs and are deliberately not
- * wired in below, so the app hides the surfaces they would drive.
  *
  * The Altair is the odd one out in this project in three ways worth knowing
  * before working on it:
@@ -40,7 +37,7 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/terminal';
  *  - **No video hardware.** Output is a serial terminal on the 88-2SIO board,
  *    not a memory-mapped screen (`emulator/terminal.ts`).
  *  - **No graphics characters.** Plain ASCII, so no `graphics.ts`, no graphics
- *    palette, and `SEMIGRAPHIC_CODES` records `null` for it.
+ *    palette, and `SEMIGRAPHIC_CODES` records `[]` for it.
  *  - **No ROM, in two senses.** The machine had no firmware - BASIC loaded into
  *    RAM from paper tape - and the 8K BASIC image is Microsoft copyright with
  *    no redistribution grant, so it is user-supplied and does not ship here.
@@ -58,7 +55,7 @@ export const altair8800: Dialect = {
 
   // 8K BASIC's own "BYTES FREE" banner on the modelled RAM configuration
   // (48K fitted, transcendental functions retained - see addresses.ts).
-  programRamBytes: 42628,
+  programRamBytes: COLD_START_BYTES_FREE,
 
   fileExtensions: ['.txt', '.bas'],
   keywords: altair8800Keywords,
@@ -95,9 +92,9 @@ export const altair8800: Dialect = {
 
   /**
    * The user-supplied Altair 8K BASIC image. This file intentionally does NOT
-   * ship - see the note above - so Stage 3 must handle its absence as a
-   * designed state with a "supply your own image" message, rather than letting
-   * the pane surface a raw `Failed to fetch ROM (404)`.
+   * ship - see the note above - so its absence is a designed state, carried by
+   * `romBundled: false` below into a "supply your own image" message rather
+   * than a raw `Failed to fetch ROM (404)` in the emulator pane.
    */
   romUrl: `${import.meta.env.BASE_URL}roms/altair8800.rom`,
 
@@ -117,8 +114,23 @@ export const altair8800: Dialect = {
   addressNotation: 'dec',
   statementSeparator: ':',
 
+  memoryMap: altair8800MemoryMap,
+
+  /**
+   * Machine-code blocks are assembled as Z80 because there is no `'8080'` in
+   * the union and 8080 assembly is a strict subset of Z80 assembly - see
+   * `memoryBlocks.ts`, which also explains why nothing is merely `reserved`.
+   */
+  memoryBlocks: altair8800MemoryBlocks,
+
+  /**
+   * The machine's RAM size is not taken from `opts.ramKb`: an S-100 backplane
+   * held whatever memory boards its owner bought, so this dialect commits to
+   * the one 48K configuration `addresses.ts` documents, which is what
+   * `programRamBytes` and the memory map describe. See `emulator/memory.ts`.
+   */
   createEmulator(opts) {
-    return new Altair8800Machine({ rom: opts.rom, ramKb: opts.ramKb });
+    return new Altair8800Machine({ rom: opts.rom });
   },
 
   keyboardLayout: altair8800KeyboardLayout,

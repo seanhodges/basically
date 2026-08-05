@@ -108,6 +108,16 @@ export default withPwa(
           items: [
             { text: 'Overview', link: '/reference/' },
             {
+              text: 'Altair 8K BASIC',
+              link: '/reference/altair8800',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/altair8800/hardware' },
+                { text: 'Escape codes', link: '/reference/altair8800/escapes' },
+                { text: 'File formats', link: '/reference/altair8800/formats' },
+              ],
+            },
+            {
               text: 'Atom BASIC',
               link: '/reference/atom',
               collapsed: true,

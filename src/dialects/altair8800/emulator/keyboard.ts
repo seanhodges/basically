@@ -15,7 +15,7 @@ import type { Altair8800Serial } from './serial';
  * keys the machine can see at all.
  *
  * That difference is worth preserving in the virtual keyboard's tokens too:
- * `setKey` receives DOM-code-style tokens from the ASR-33 layout (Stage 3), and
+ * `setKey` receives DOM-code-style tokens from the ASR-33 layout, and
  * this module maps them - with the SHIFT layer and the CTRL combinations the
  * teletype offered - to the single byte the machine would have received.
  * CTRL-C (0x03) matters most: it is how a running Altair BASIC program is
@@ -117,7 +117,7 @@ function hasShiftedForm(code: number): boolean {
 
 /**
  * The byte a key sends with the given modifiers, or null when the token is not
- * a key this machine has. Exported so the Stage 3 layout test can check that
+ * a key this machine has. Exported so the layout test can check that
  * every token the ASR-33 rows emit is one the machine actually translates.
  */
 export function tokenToByte(

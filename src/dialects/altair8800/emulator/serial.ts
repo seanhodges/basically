@@ -20,9 +20,9 @@ import type { Altair8800Terminal } from './terminal';
  *   OUT data   -> one byte to {@link Altair8800Terminal}
  *
  * The port numbers and the polarity of the status bits are settled and cited in
- * `addresses.ts`, read off the 8K BASIC image in Stage 1: status 0x10, data
+ * `addresses.ts`, read off the 8K BASIC image itself: status 0x10, data
  * 0x11, and the flags are **active high** (bit 0 RDRF, bit 1 TDRE - the 6850
- * ACIA's own sense), not active-low as this dialect's plan first assumed.
+ * ACIA's own sense), not active-low as the 88-SIO the image ships wired for.
  * Active-low is the 88-SIO at 0x00/0x01, which is the form the *unpatched*
  * image carries; BASIC rewrites its own driver at cold start from the sense
  * switches it reads at port 0xFF, so the machine must answer that port with
@@ -38,7 +38,7 @@ import type { Altair8800Terminal } from './terminal';
  *    still takes exactly one byte, so nothing about the driver's view changes.
  *  - **The transmitter is always ready.** There is no 300-baud shift register
  *    here, so TDRE never clears and BASIC never waits to print. Cassette timing
- *    is the 88-ACR's business, and that board is Stage 4's, not this one's.
+ *    is the 88-ACR's business, and that board is not fitted to this machine.
  */
 export class Altair8800Serial {
   private readonly input: number[] = [];

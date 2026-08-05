@@ -6,7 +6,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Altair8800Machine } from './altairMachine';
 import { tokenizeProgram } from '../tokenizer';
-import { BASIC_IMAGE_SIZE, PROGRAM_BASE, TXTTAB, VARTAB } from '../addresses';
+import {
+  BASIC_IMAGE_SIZE,
+  COLD_START_BYTES_FREE,
+  PROGRAM_BASE,
+  STREND,
+  TXTTAB,
+  VARTAB,
+} from '../addresses';
+import { READ_BIT, WRITE_BIT } from '../../../emulator/memoryActivityBuffer';
 
 /**
  * Unlike the other machine tests here, these cannot assert on display memory -
@@ -35,7 +43,20 @@ const withRom = ROM ? it : it.skip;
 
 /** A hand-assembled 8080 program, loaded and run exactly as BASIC would be. */
 function boot(...bytes: number[]): Altair8800Machine {
-  return new Altair8800Machine({ rom: Uint8Array.from(bytes), ramKb: 64 });
+  return new Altair8800Machine({ rom: Uint8Array.from(bytes) });
+}
+
+/**
+ * A program that prints `text` through the 2SIO and halts - one `MVI A,c` /
+ * `OUT 11h` pair per character. Used by the introspection cases below so they
+ * exercise the whole path (CPU, serial port, terminal, scan) rather than
+ * writing into the terminal behind the machine's back.
+ */
+function printer(text: string): number[] {
+  const bytes: number[] = [];
+  for (const ch of text) bytes.push(0x3e, ch.charCodeAt(0), 0xd3, 0x11);
+  bytes.push(0x76); // HLT
+  return bytes;
 }
 
 /** Run a machine on to its HLT and return what it printed on the first row. */
@@ -340,7 +361,6 @@ describe('altair8800 machine', () => {
   it('stays constructible with an empty ROM image', () => {
     const machine = new Altair8800Machine({
       rom: new Uint8Array(0),
-      ramKb: 16,
     });
     expect(machine.hasInterpreter).toBe(false);
 
@@ -357,7 +377,7 @@ describe('altair8800 machine', () => {
 
   withRom('boots the BASIC image and prints its sign-on banner', () => {
     expect(ROM!.length).toBe(BASIC_IMAGE_SIZE);
-    const machine = new Altair8800Machine({ rom: ROM!, ramKb: 64 });
+    const machine = new Altair8800Machine({ rom: ROM! });
 
     machine.bootToReady();
 
@@ -368,7 +388,7 @@ describe('altair8800 machine', () => {
   });
 
   withRom('answers the MEMORY SIZE and TERMINAL WIDTH prompts', () => {
-    const machine = new Altair8800Machine({ rom: ROM!, ramKb: 64 });
+    const machine = new Altair8800Machine({ rom: ROM! });
     machine.bootToReady();
 
     // The dialogue was answered rather than left waiting, and answering the
@@ -380,7 +400,7 @@ describe('altair8800 machine', () => {
   });
 
   withRom('runs an injected program and prints its output', () => {
-    const machine = new Altair8800Machine({ rom: ROM!, ramKb: 64 });
+    const machine = new Altair8800Machine({ rom: ROM! });
     const { program, errors } = tokenizeProgram('10 PRINT "HELLO"\n20 END\n');
     expect(errors).toEqual([]);
 
@@ -394,7 +414,7 @@ describe('altair8800 machine', () => {
   });
 
   withRom('breaks a running program on CTRL-C', () => {
-    const machine = new Altair8800Machine({ rom: ROM!, ramKb: 64 });
+    const machine = new Altair8800Machine({ rom: ROM! });
     const { program } = tokenizeProgram('10 GOTO 10\n');
 
     machine.loadProgram(program);
@@ -408,6 +428,169 @@ describe('altair8800 machine', () => {
     for (let i = 0; i < 60; i++) machine.runFrame();
 
     expect(machine.console.contains('BREAK')).toBe(true);
+    machine.dispose();
+  });
+});
+
+/**
+ * The machine's introspection, which here is mostly a matter of reading
+ * the terminal: BASIC prints its errors and its prompt rather than recording
+ * them anywhere a pointer can reach. The scan itself is unit-tested in
+ * `../reports.test.ts`; what these cases check is that the machine is wired to
+ * it, and they run hand-assembled printers so they need no copyright image.
+ */
+describe('altair8800 machine introspection', () => {
+  it('reports the error BASIC printed, with its code and line', () => {
+    const machine = boot(...printer('?SN ERROR IN 100\r\nOK\r\n'));
+    for (let i = 0; i < 4; i++) machine.runFrame();
+
+    expect(machine.readReport()).toEqual({
+      isError: true,
+      message: 'Syntax error',
+      code: 'SN',
+      line: 100,
+    });
+  });
+
+  it('reports a plain OK once BASIC is back at its prompt', () => {
+    const machine = boot(...printer('OK\r\n'));
+    for (let i = 0; i < 4; i++) machine.runFrame();
+
+    expect(machine.readReport()).toEqual({ isError: false, message: 'OK' });
+    expect(machine.isProgramRunning()).toBe(false);
+  });
+
+  it('says a program is running while the prompt is not the last thing shown', () => {
+    const machine = boot(...printer('RUN\r\n'));
+    for (let i = 0; i < 4; i++) machine.runFrame();
+
+    expect(machine.readReport()).toBeNull();
+    expect(machine.isProgramRunning()).toBe(true);
+  });
+
+  it('will not call a program finished while its typed RUN is still queued', () => {
+    // The gap loadProgram leaves: BASIC is legitimately still at the OK prompt
+    // because it has not read the line yet, and answering "finished" here would
+    // end a post-run check before the program had started.
+    const machine = boot(...printer('OK\r\n'));
+    for (let i = 0; i < 4; i++) machine.runFrame();
+    machine.port.queueText('RUN\r');
+
+    expect(machine.isProgramRunning()).toBeNull();
+  });
+
+  it('answers nothing at all without an image, or after disposal', () => {
+    const empty = new Altair8800Machine({ rom: new Uint8Array(0) });
+    expect(empty.readReport()).toBeNull();
+    expect(empty.isProgramRunning()).toBeNull();
+    expect(empty.readMemoryStats()).toBeNull();
+
+    const machine = boot(...printer('OK\r\n'));
+    for (let i = 0; i < 4; i++) machine.runFrame();
+    machine.dispose();
+    expect(machine.readReport()).toBeNull();
+    expect(machine.isProgramRunning()).toBeNull();
+  });
+
+  it('refuses to guess RAM figures from pointers BASIC has not set', () => {
+    // A hand-assembled image leaves TXTTAB holding whatever was loaded there,
+    // which is not a program base - so the figures are withheld rather than
+    // computed from nonsense.
+    const machine = boot(0x76);
+    expect(machine.mem.readWord(TXTTAB)).not.toBe(PROGRAM_BASE);
+    expect(machine.readMemoryStats()).toBeNull();
+  });
+
+  it('measures RAM from TXTTAB and STREND once they are believable', () => {
+    const machine = boot(0x76);
+    machine.mem.writeWord(TXTTAB, PROGRAM_BASE);
+    machine.mem.writeWord(STREND, PROGRAM_BASE + 2);
+
+    // An empty program is a bare end-of-program link, and BASIC calls the rest
+    // of memory free - which is the sign-on banner's own figure.
+    expect(machine.readMemoryStats()).toEqual({
+      used: 2,
+      free: COLD_START_BYTES_FREE,
+    });
+
+    machine.mem.writeWord(STREND, PROGRAM_BASE + 502);
+    expect(machine.readMemoryStats()).toEqual({
+      used: 502,
+      free: COLD_START_BYTES_FREE - 500,
+    });
+  });
+
+  it('records what the CPU touched, only while the overlay asks it to', () => {
+    // MVI A,42h / STA 3000h / HLT.
+    const machine = boot(0x3e, 0x42, 0x32, 0x00, 0x30, 0x76);
+    expect(machine.drainMemoryActivity()).toBeNull();
+
+    machine.setMemoryActivityRecording(true);
+    machine.runFrame();
+    const hits = machine.drainMemoryActivity()!;
+
+    expect(hits.length).toBe(0x10000);
+    expect(hits[0x0000]! & READ_BIT).toBe(READ_BIT); // the opcode fetch
+    expect(hits[0x3000]! & WRITE_BIT).toBe(WRITE_BIT); // the STA
+    expect(hits[0x3000]! & READ_BIT).toBe(0); // never read, only written
+
+    // Drained buffers start clean, and turning recording off stops the stamping.
+    machine.setMemoryActivityRecording(false);
+    machine.reset();
+    machine.runFrame();
+    expect(machine.drainMemoryActivity()).toBeNull();
+  });
+
+  withRom('reports the free RAM BASIC itself printed at cold start', () => {
+    const machine = new Altair8800Machine({ rom: ROM! });
+    machine.bootToReady();
+
+    // The arithmetic BASIC_FREE_TOP is derived from, checked against the
+    // interpreter rather than assumed: an empty program's STREND, and the
+    // BYTES FREE figure the banner shows for it.
+    expect(machine.mem.readWord(STREND)).toBe(PROGRAM_BASE + 2);
+    expect(machine.readMemoryStats()).toEqual({
+      used: 2,
+      free: COLD_START_BYTES_FREE,
+    });
+    expect(
+      machine.console.contains(`${COLD_START_BYTES_FREE} BYTES FREE`),
+    ).toBe(true);
+    machine.dispose();
+  });
+
+  withRom('reads back a real runtime error, and the line it stopped on', () => {
+    const machine = new Altair8800Machine({ rom: ROM! });
+    machine.loadProgram(tokenizeProgram('10 GOTO 999\n').program);
+    for (let i = 0; i < 120; i++) machine.runFrame();
+
+    const report = machine.readReport();
+    expect(report?.isError).toBe(true);
+    expect(report?.code).toBe('UL');
+    expect(report?.line).toBe(10);
+    expect(machine.isProgramRunning()).toBe(false);
+    machine.dispose();
+  });
+
+  withRom('says a clean run has finished, with no error to report', () => {
+    const machine = new Altair8800Machine({ rom: ROM! });
+    machine.loadProgram(tokenizeProgram('10 PRINT "HELLO"\n20 END\n').program);
+    for (let i = 0; i < 120; i++) machine.runFrame();
+
+    expect(machine.readReport()).toEqual({ isError: false, message: 'OK' });
+    expect(machine.isProgramRunning()).toBe(false);
+    machine.dispose();
+  });
+
+  withRom('grows the used figure as a program takes up room', () => {
+    const machine = new Altair8800Machine({ rom: ROM! });
+    const { program } = tokenizeProgram('10 PRINT "HELLO"\n20 END\n');
+    machine.loadProgram(program);
+    for (let i = 0; i < 120; i++) machine.runFrame();
+
+    const stats = machine.readMemoryStats()!;
+    expect(stats.used).toBeGreaterThanOrEqual(program.length);
+    expect(stats.used + stats.free).toBe(COLD_START_BYTES_FREE + 2);
     machine.dispose();
   });
 });
