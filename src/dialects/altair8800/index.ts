@@ -15,6 +15,11 @@ import {
 } from './language';
 import { altair8800AiProfile } from './aiProfile';
 import { altair8800BuildTargets } from './targets';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+} from './audio/cassetteEncoder';
+import { decodeCassette } from './audio/cassetteDecoder';
 import { altair8800KeyboardLayout } from './keyboardLayout';
 import { altair8800Samples } from './samples';
 import { BASIC_IMAGE_SIZE } from './addresses';
@@ -24,10 +29,10 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/terminal';
 /**
  * The MITS Altair 8800 (Altair 8K BASIC).
  *
- * Registered since Stage 3 of `docs/contributing/dialect-plans/altair8800.md`;
- * `targets.ts` (Stage 4) and `memoryMap.ts`/`memoryBlocks.ts`/`vars.ts`/
- * `reports.ts` (Stage 5) are still stubs and are deliberately not wired in
- * below, so the app hides the surfaces they would drive.
+ * Registered since Stage 3 of `docs/contributing/dialect-plans/altair8800.md`,
+ * with transfer and tape I/O since Stage 4; `memoryMap.ts`/`memoryBlocks.ts`/
+ * `vars.ts`/`reports.ts` (Stage 5) are still stubs and are deliberately not
+ * wired in below, so the app hides the surfaces they would drive.
  *
  * The Altair is the odd one out in this project in three ways worth knowing
  * before working on it:
@@ -118,5 +123,40 @@ export const altair8800: Dialect = {
   keyboardLayout: altair8800KeyboardLayout,
   samples: altair8800Samples,
   buildTargets: altair8800BuildTargets,
+
+  /**
+   * The `CSAVE` image is the machine's only binary program file (`.bin`
+   * because there is no documented extension to claim - see `targets.ts`). A
+   * paper tape is plain text and opens through `fileExtensions` instead.
+   */
+  binaryImports: [{ extension: '.bin', label: 'Import CSAVE image…' }],
+
+  /**
+   * The 88-ACR cassette board. Not a Kansas City Standard modem - 2400 Hz mark
+   * against 1850 Hz space at 300 baud, 8N1 - see `audio/cassetteEncoder.ts`.
+   *
+   * The instructions name the ACR's own commands and spell out the thing that
+   * otherwise catches people out: a program's name on tape is a *single
+   * character*, so `CSAVE"HELLO"` and `CSAVE"H"` write the same tape, and
+   * `CLOAD` has to be given that one letter back.
+   */
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      'On the Altair type CLOAD"A" (the name is a single character - use the ' +
+      'first letter of the program name) and press RETURN, then start ' +
+      'playback; BASIC returns to OK when the program has loaded, then type RUN.',
+    decodeSamples: (samples, sampleRate) => {
+      const { programName, data } = decodeCassette(samples, sampleRate);
+      return { programName, source: detokenizeProgram(data) };
+    },
+    saveInstructions:
+      'Start the recorder, then on the Altair type CSAVE"A" and press RETURN; ' +
+      'the 88-ACR plays the program out at 300 baud. Feed that into this ' +
+      'device, then start listening.',
+  },
+
   aiProfile: altair8800AiProfile,
 };

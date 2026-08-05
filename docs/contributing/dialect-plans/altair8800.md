@@ -109,7 +109,7 @@ mirroring `trs80/interpreter/` — and changes nothing else in this plan.
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ✅     |
-| 4     | Transfer & tape I/O                    | ⬜     |
+| 4     | Transfer & tape I/O                    | ✅     |
 | 5     | Memory map & runtime introspection     | ⬜     |
 | 6     | Docs & polish                          | ⬜     |
 
@@ -402,22 +402,94 @@ array and print it a cell at a time, assigning the character from a literal
 (`C$="*"`), which points into program text and costs no string space at all.
 The vertical axis is halved because a terminal cell is 8×16.
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
-- [ ] `targets.ts` — cassette `.wav`, plain-ASCII paper tape, tokenized image
-- [ ] `audio/cassetteEncoder.ts` / `cassetteDecoder.ts` — 300-baud Kansas City
-      Standard. Start from the Acorn CFS/Atom encoders, **not** the Sinclair
-      pulse scheme
-- [ ] `audio.loadInstructions` / `saveInstructions` — `CLOAD`/`CSAVE`. If the
-      ACR's byte stream carries no name field, say so rather than inventing a
-      header
-- [ ] `binaryImports` — the formats `detokenize()` reads back
-- [ ] test: cassette encode → decode round-trip
+- [x] `targets.ts` — cassette `.wav`, plain-ASCII paper tape, tokenized image
+- [x] `audio/cassetteEncoder.ts` / `cassetteDecoder.ts` — ~~300-baud Kansas City
+      Standard~~ the 88-ACR's own 2400/1850 Hz FSK; see _What Stage 4 found_
+- [x] `audio.loadInstructions` / `saveInstructions` — `CLOAD`/`CSAVE`. The tape
+      **does** carry a name field: one character
+- [x] `binaryImports` — the formats `detokenize()` reads back
+- [x] test: cassette encode → decode round-trip
       (`src/dialects/cassetteRoundTrip.test.ts` enforces this for any dialect
       offering `decodeSamples`)
 
 **Depends on:** Stage 1.
 **Verify:** audio round-trip test + import/export in the app.
+
+### What Stage 4 found
+
+**The tape format was derived, not guessed** — the same two-method discipline
+Stage 1 used, and the reason this stage took the shape it did.
+
+_From the manual._ The MITS _Altair 8800 BASIC Reference Manual_ (4.1, July
+1977), Appendix F, settles the board: the 88-ACR is an 88-SIO at I/O **channels
+6 and 7**, `CSAVE` writes through channel 7 when the Write Buffer Empty bit
+(**bit 7**) of channel 6 is **low**, `CLOAD` reads channel 7 when the Read Data
+Ready bit (**bit 0**) is **low** — both active-low, the opposite way round from
+the 2SIO console — and a program is saved "under the name specified by the
+**first character** of the string expression", read back until "3 consecutive
+zeros".
+
+_From the machine._ The 8K BASIC 4.0 image was booted on this dialect's own
+emulator with a stub ACR on ports 6/7, and `CSAVE"ABC"` captured at the data
+port. With `10 PRINT "HI"` / `20 END` in memory it writes, in order:
+
+```
+D3 D3 D3 41 | 44 19 0A 00 96 20 22 48 49 22 00 | 4A 19 14 00 80 00 | 00 00
+marker  'A'   the tokenized program, byte for byte, ending in its null link
+```
+
+So the whole format is **three 0xD3 bytes, one name character, and
+`tokenizeProgram`'s output**: no leader, no sync byte, no length, no checksum,
+no trailer. The manual's "3 consecutive zeros" are the last line's `0x00`
+terminator plus the `0x0000` end-of-program link — `CSAVE` on an empty program
+writes `D3 D3 D3 <name> 00 00` and stops. Feeding the captured bytes back to
+`CLOAD"A"` reproduces the program, and a tape holding a file named `B` in front
+of the wanted `A` is skipped rather than loaded, which is what the marker scan
+in `csaveFile.ts` models. Those exact bytes are the golden vector in
+`csaveFile.test.ts`, so the export cannot drift from the interpreter.
+
+The 0xD3 run is where Microsoft's tokenized-BASIC marker starts: TRS-80 Level II
+puts the same three bytes behind a 0xA5 sync (`src/dialects/trs80/casfile.ts`)
+and MSX writes ten of them. The Altair needs no sync byte because the ACR's idle
+mark tone already gives the receiver something to lock onto.
+
+**The 88-ACR is not a Kansas City Standard modem, and the plan was wrong to say
+so.** KCS is 2400 Hz against **1200** Hz with a whole number of cycles per bit,
+which is what the Acorn encoders here implement. The ACR is 2400 Hz mark against
+**1850** Hz space at 300 baud — MITS widened the split from the original Bell
+103A tones (2225/2025) in March 1976 because tapes would not interchange — and
+it is a continuous-phase FSK line driver, not a cycle counter: a bit lasts
+1/300 s whatever tone it carries, which is eight cycles of 2400 Hz but 6⅙ cycles
+of 1850 Hz. Bit boundaries therefore do not land on zero crossings and the Acorn
+"count four cycles, count eight cycles" decoder cannot be reused. The framing
+above it is ordinary async serial, because that is what the board is: 300 baud,
+8 data bits, no parity, one stop bit. So `cassetteDecoder.ts` recovers bits the
+way a UART does — classify each half-cycle against the hardware's own 471 µs
+mark/space split, find the falling edge that opens a start bit, sample the ten
+bit cells at their centres, and re-sync on every byte, which is also what lets it
+decode a recording made at a different sample rate or a recorder running off
+speed.
+
+**Three targets, because the machine had three ways out and no container.** The
+`CSAVE` image goes out as `.bin` — there is no documented extension to claim,
+and a raw byte stream is what Altair simulators feed to a virtual ACR. Cassette
+`.wav` is the same bytes modulated. Paper tape is the listing in plain ASCII with
+CR LF endings and `{0xNN}` escapes punched as the bytes they name; a real punch
+would interleave the nulls BASIC's `NULL` command controls, which are left out
+because BASIC ignores them on input and their absence keeps the file readable.
+Import is one door: `detokenizeProgramWithReport` strips the `CSAVE` header when
+it is there, so a tape image and a bare program image both read, and a program
+can never be mistaken for a header because its first two bytes are a link.
+
+**What is still missing, and is not this stage's.** The emulator has no ACR
+board: ports 6/7 float high, so `CSAVE` typed at the emulated console spins
+waiting for a Write Buffer Empty that never comes. That is authentic for a
+machine with no cassette board fitted — and the manual is explicit that paper-tape
+8K BASIC did not recognise `CLOAD`/`CSAVE` at all, though the image modelled here
+does — but a virtual ACR wired to the Transfer dialog's audio would make the
+round trip demonstrable inside the IDE. It is additive and changes nothing above.
 
 ## Stage 5 — Memory map & runtime introspection ⬜
 
