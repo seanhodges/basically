@@ -59,7 +59,7 @@ describe('machineIsRunnable', () => {
     expect(machineIsRunnable(altair, unprobed)).toBe(false);
   });
 
-  it('offers it once the user installs an image of the right size', () => {
+  it('offers it once the user installs an image', () => {
     const customRoms = { altair8800: rom(altair.romBytes!) };
     expect(machineIsRunnable(altair, { customRoms, bundled: null })).toBe(true);
     // …and still offers it when the probe confirms nothing is bundled.
@@ -68,14 +68,12 @@ describe('machineIsRunnable', () => {
     );
   });
 
-  it('ignores an installed image of the wrong size', () => {
-    // Nothing can install one through the UI (romUploadError refuses it), but
-    // localStorage is editable and a half-written record must not resurrect a
-    // machine that cannot boot.
+  it('offers it for an installed image of any size', () => {
+    // Size is no longer a condition of installing an image: one that doesn't
+    // fill the machine's ROM area is padded to it, so the machine has something
+    // to boot either way and hiding it would hide a machine that can start.
     const customRoms = { altair8800: rom(1024) };
-    expect(machineIsRunnable(altair, { customRoms, bundled: null })).toBe(
-      false,
-    );
+    expect(machineIsRunnable(altair, { customRoms, bundled: null })).toBe(true);
   });
 
   it('offers a self-hosted drop-in the probe finds', () => {

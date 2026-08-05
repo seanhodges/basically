@@ -3,14 +3,15 @@ import { createRequire } from 'node:module';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { dialects } from './registry';
+import { fitRomImage } from '../app/romImage';
 import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
 import type { Dialect, MachineEmulator } from './types';
 
 /**
  * `Dialect.romBytes` says two things at once: that this machine runs the image
- * the seam hands it (so the user may replace it), and how big a replacement
- * must be. Both halves have to stay true on their own, and neither is checked
- * by the type system.
+ * the seam hands it (so the user may replace it), and how big the ROM area a
+ * replacement is fitted to is. Both halves have to stay true on their own, and
+ * neither is checked by the type system.
  *
  * The size half is easy to pin and easy to get wrong once - it is compared to
  * the committed image below.
@@ -156,5 +157,32 @@ describe('romBytes tells the truth about opts.rom', () => {
         `${dialect.id} now behaves differently depending on opts.rom, so it takes a replaceable ROM - declare romBytes on it (and let the settings page offer the upload)`,
       ).toBe(a);
     }, 30_000);
+  }
+});
+
+/**
+ * A user may now supply an image of any size; it is fitted to the machine's ROM
+ * area before `createEmulator` sees it (`app/romImage.fitRomImage`). Every
+ * machine that runs a supplied image builds its memory from that buffer and
+ * rejects a wrong length, so the fit is the only thing standing between an
+ * odd-sized file and a constructor that throws. This asserts it holds for every
+ * machine, including any added later.
+ */
+describe('a fitted image of any size builds the machine', () => {
+  for (const dialect of withRomBytes) {
+    const expected = dialect.romBytes!;
+    it(`${dialect.id} accepts a padded short image and a trimmed long one`, () => {
+      for (const supplied of [
+        new Uint8Array(0),
+        new Uint8Array(1).fill(0xc9),
+        new Uint8Array(Math.floor(expected / 2)).fill(0xc9),
+        new Uint8Array(expected * 2 + 3).fill(0xc9),
+      ]) {
+        const rom = fitRomImage(supplied, expected);
+        expect(rom.length).toBe(expected);
+        const machine = dialect.createEmulator({ rom, ramKb: 16 });
+        machine.dispose();
+      }
+    });
   }
 });

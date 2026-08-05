@@ -131,10 +131,11 @@ machine keeps its own.
 
 A few things worth knowing:
 
-- The image must be **exactly** the size that machine's ROM is - the setting
-  tells you the figure, and says so again if the file you pick is a different
-  size. On the machines whose ROM is two banks joined together (the ZX Spectrum
-  128 and both CPCs) the usual mistake is supplying one half.
+- **Any image will do.** A file smaller than the machine's ROM area fills the
+  rest with unprogrammed ROM, and a larger one is used from the front. The
+  setting says which happened, so on the machines whose ROM is two banks joined
+  together (the ZX Spectrum 128 and both CPCs) you can see when you have
+  supplied one half - the usual mistake there.
 - The image stays **in your browser**. It is never uploaded anywhere, and it is
   not included in programs you [publish](/guide/publishing).
 - Changing it **restarts the machine**, so press Play again afterwards.

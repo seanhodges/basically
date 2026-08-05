@@ -922,8 +922,9 @@ export interface Dialect {
    * offering a replacement that would silently do nothing.
    *
    * One field carries both facts on purpose: it is the app's test for "can the
-   * user replace this machine's ROM?" *and* the size a replacement must match,
-   * so the offer and the check cannot disagree. Set it from the machine's own
+   * user replace this machine's ROM?" *and* the size of the ROM area a
+   * replacement is fitted to (padded or trimmed - a supplied image need not
+   * match it), so the offer and the fit cannot disagree. Set it from the machine's own
    * ROM-size constant rather than a literal (`ROM_BYTES` on the Sinclair
    * machines, `CPC_ROM_SIZE` on the Amstrads) and it cannot disagree with the
    * memory map either. `src/dialects/romImage.test.ts` pins it to the committed

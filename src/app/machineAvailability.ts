@@ -21,8 +21,8 @@ import { fetchRom } from './romImage';
  *
  * So availability is decided at runtime from two facts, in this order:
  *
- *  1. **The user's own image.** An uploaded ROM of the right size makes the
- *    machine runnable whatever the build ships, and it lives in the store, so
+ *  1. **The user's own image.** An uploaded ROM makes the machine runnable
+ *    whatever the build ships, and it lives in the store, so
  *    this half is synchronous and reactive - install one in Settings ▸ Emulator
  *    and the machine appears without a reload.
  *  2. **The bundled image.** Only a fetch can answer this, so it is probed once
@@ -40,13 +40,21 @@ function takesSuppliedRom(dialect: Dialect): boolean {
   return dialect.romBytes !== undefined;
 }
 
-/** Whether the user has installed an image of the right size for this machine. */
+/**
+ * Whether the user has installed an image for this machine.
+ *
+ * Any image counts, whatever its size: one that does not fill the machine's ROM
+ * area is fitted to it and run (`romImage.fitRomImage`), so an installed image
+ * always gives the machine something to boot. Whether it boots to anything
+ * useful is a different question, and one a correctly-sized image cannot answer
+ * either - the emulator pane reports a machine that didn't start on a supplied
+ * image, and Settings offers the bundled one back.
+ */
 function hasUserRom(
   dialect: Dialect,
   customRoms: Record<string, CustomRomMeta>,
 ): boolean {
-  const meta = customRoms[dialect.id];
-  return meta !== undefined && meta.size === dialect.romBytes;
+  return customRoms[dialect.id] !== undefined;
 }
 
 /**
