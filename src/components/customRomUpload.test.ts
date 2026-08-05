@@ -7,29 +7,12 @@ const spectrum128 = getDialect('zxspectrum128');
 const c64 = getDialect('commodore64');
 
 describe('romUploadError', () => {
-  it('accepts an image of exactly the right size', () => {
-    expect(romUploadError(zx81, new Uint8Array(8192))).toBeNull();
+  it('accepts a file of any size', () => {
+    expect(romUploadError(zx81)).toBeNull();
   });
 
   it('refuses a machine that loads its own ROM set', () => {
-    expect(romUploadError(c64, new Uint8Array(8192))).toMatch(
-      /loads its own ROM set/,
-    );
-  });
-
-  // The message names both sizes on purpose. On the two-bank machines the
-  // likeliest mistake by far is supplying one 16K half of a 32K image, and only
-  // seeing both numbers tells the user that is what happened.
-  it('names both the file size and the required size', () => {
-    const problem = romUploadError(spectrum128, new Uint8Array(16384));
-    expect(problem).toContain('16,384');
-    expect(problem).toContain('32,768');
-    expect(problem).toContain(spectrum128.name);
-  });
-
-  it('refuses an image that is too large as well as too small', () => {
-    expect(romUploadError(zx81, new Uint8Array(8193))).toContain('8,192');
-    expect(romUploadError(zx81, new Uint8Array(0))).toContain('8,192');
+    expect(romUploadError(c64)).toMatch(/loads its own ROM set/);
   });
 });
 
@@ -46,6 +29,27 @@ describe('romInUseLabel', () => {
     expect(label).toContain('shoulders.rom');
     expect(label).toContain('8,192');
     expect(label).not.toContain('bundled');
+    // Nothing about fitting, because there was none to do.
+    expect(label).not.toMatch(/padded|trimmed/);
+  });
+
+  // The label names both sizes on purpose. On the two-bank machines the
+  // likeliest mistake by far is supplying one 16K half of a 32K image, and only
+  // seeing both numbers tells the user that is what happened - the same
+  // diagnostic the old wrong-size refusal carried, now after the install.
+  it('says a short image was padded, naming both sizes', () => {
+    const label = romInUseLabel(spectrum128, {
+      name: 'half.rom',
+      size: 16384,
+    });
+    expect(label).toContain('16,384');
+    expect(label).toContain('padded to 32,768');
+  });
+
+  it('says a long image was trimmed, naming both sizes', () => {
+    const label = romInUseLabel(zx81, { name: 'big.rom', size: 20000 });
+    expect(label).toContain('20,000');
+    expect(label).toContain('trimmed to 8,192');
   });
 
   it('omits a size for a machine that declares none', () => {
@@ -59,9 +63,10 @@ describe('romInUseLabel', () => {
     const altair = getDialect('altair8800');
     const label = romInUseLabel(altair, null);
     expect(label).not.toContain('bundled');
-    expect(label).toContain('8,192');
     expect(label).toContain(altair.name);
-    // …and an uploaded image is still named the same way as anywhere else.
+    // …and it asks for an image, not for an image of a particular size.
+    expect(label).not.toMatch(/8,192|byte/);
+    // An uploaded image is still named the same way as anywhere else.
     expect(romInUseLabel(altair, { name: 'mine.rom', size: 8192 })).toContain(
       'mine.rom',
     );

@@ -24,6 +24,32 @@ const romCache = new Map<string, Promise<Uint8Array>>();
  * inside the machine's own boot with whatever that produced. The size check
  * turns that back into the fetch failure it really is.
  */
+/**
+ * An image sized to the machine's ROM area: `bytes` where it already fits, a
+ * padded copy where it is short, its leading `expected` bytes where it is long.
+ *
+ * This is the whole of what lets a user supply an image of any size. It fits
+ * here, at the seam, rather than in the machines: every machine builds its
+ * memory from the buffer it is handed and rejects a wrong length, and relaxing
+ * six constructors (one of them shared by the CPC pair) would spread the policy
+ * across them and weaken a check that still catches a genuinely wrong buffer.
+ * `createEmulator` keeps receiving exactly `romBytes`, as it always has.
+ *
+ * The padding is `0xFF` because that is what an unblown EPROM reads as, so a
+ * short image behaves the way the same image would in real hardware - and a run
+ * of `0x00` would instead be a page of NOPs (Z80) or BRKs (6502), which is both
+ * less faithful and harder to recognise on screen. A long file keeps its
+ * leading bytes: that is where an image carrying trailing padding, a checksum
+ * block, or a bank the machine cannot address puts the part that runs.
+ */
+export function fitRomImage(bytes: Uint8Array, expected: number): Uint8Array {
+  if (bytes.length === expected) return bytes;
+  if (bytes.length > expected) return bytes.subarray(0, expected);
+  const fitted = new Uint8Array(expected).fill(0xff);
+  fitted.set(bytes, 0);
+  return fitted;
+}
+
 export function fetchRom(url: string, expected?: number): Promise<Uint8Array> {
   let cached = romCache.get(url);
   if (!cached) {

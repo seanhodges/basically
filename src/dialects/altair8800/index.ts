@@ -104,7 +104,8 @@ export const altair8800: Dialect = {
   /**
    * The machine runs whatever image it is handed, and nothing is handed to it
    * by default: `romBundled: false` is what turns the missing file from a 404
-   * into the "supply your own 8,192-byte image" offer in Settings ▸ Emulator.
+   * into the "supply your own image" offer in Settings ▸ Emulator. The size is
+   * the ROM area a supplied image is fitted to, not one it has to match.
    */
   romBytes: BASIC_IMAGE_SIZE,
   romBundled: false,

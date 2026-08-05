@@ -352,8 +352,9 @@ reached the machine as an 8080 program and failed deep inside `bootToReady`.
 put a row in the machine picker that could only lead to an error, so both
 pickers (New project, and the toolbar's target switcher) now filter the registry
 through `src/app/machineAvailability.ts`. A machine is offered when it loads its
-own ROM set (no `romBytes`), when the user has installed an image of the right
-size, or when its bundled image really is there — probed once per page through
+own ROM set (no `romBytes`), when the user has installed an image of their own
+(any size — it is fitted to the machine's ROM area), or when its bundled image
+really is there — probed once per page through
 the shared `fetchRom` cache, so the probe _is_ the emulator's later download.
 The machine the document is already on is always kept, since a share link or a
 saved project can reach one. The filter is general rather than Altair-specific:
