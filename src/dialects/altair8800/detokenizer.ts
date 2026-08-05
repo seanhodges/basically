@@ -6,6 +6,7 @@ import { decodeSpan } from './charset';
 import { altair8800WordByToken } from './keywords';
 import { codeFilesToBlocks } from '../importBlocks';
 import { PROGRAM_BASE } from './addresses';
+import { CSAVE_HEADER_BYTES, hasCsaveHeader } from './csaveFile';
 
 const QUOTE = 0x22;
 const REM_TOKEN = 0x8e;
@@ -34,7 +35,18 @@ const STMT_SEP = 0x3a; // ':'
  * byte-for-byte.
  */
 export function detokenizeProgram(image: Uint8Array): string {
-  return decodeLinkedProgram(image).source;
+  return decodeLinkedProgram(stripCsaveHeader(image)).source;
+}
+
+/**
+ * Drop the `CSAVE` header if the image carries one, leaving the tokenized
+ * program. Accepting both shapes is what lets a tape image and the bare program
+ * bytes the emulator loads come in through the same door; a program can never
+ * begin with the marker run itself, since its first two bytes are the link to
+ * the second line.
+ */
+function stripCsaveHeader(image: Uint8Array): Uint8Array {
+  return hasCsaveHeader(image) ? image.subarray(CSAVE_HEADER_BYTES) : image;
 }
 
 /** Format a byte address as `0xNNNN` for warning messages. */
@@ -47,11 +59,13 @@ function hex(n: number): string {
  * capture: a truncated link chain, or bytes past the end-of-program marker.
  * The import UI prefers this over the bare `detokenize` when present.
  *
- * There is no container to unwrap first. Unlike every other dialect here the
- * Altair has no standard program file - no load-address word to check, no tape
- * header to read - so an imported image is taken to be exactly what
- * `tokenizeProgram` emits: program bytes from {@link PROGRAM_BASE}. Anything
- * after the end-of-program marker is what CSAVE would have written straight
+ * There is barely a container to unwrap. The Altair has no standard program
+ * file - no load-address word to check and no block structure - so an imported
+ * image is taken to be what `tokenizeProgram` emits: program bytes from
+ * {@link PROGRAM_BASE}. The one thing that can sit in front of them is the
+ * four-byte `CSAVE` header (`csaveFile.ts`), which this strips when it is
+ * there, so both a saved tape image and a bare program image import. Anything
+ * *after* the end-of-program marker is what would have been written straight
  * after the program, so it comes back as a memory block at the address it
  * followed the program at.
  */
@@ -59,18 +73,19 @@ export function detokenizeProgramWithReport(
   image: Uint8Array,
 ): DetokenizeResult {
   const warnings: string[] = [];
-  const decoded = decodeLinkedProgram(image);
+  const program = stripCsaveHeader(image);
+  const decoded = decodeLinkedProgram(program);
   if (decoded.truncated) {
     warnings.push(
       'The program looks truncated — the data ends before the end-of-program marker.',
     );
   }
-  const trailing = image.length - decoded.end;
+  const trailing = program.length - decoded.end;
   let blocks: MemoryBlock[] | undefined;
   if (!decoded.truncated && trailing > 0) {
     const address = PROGRAM_BASE + decoded.end;
     blocks = codeFilesToBlocks([
-      { name: '', address, bytes: image.slice(decoded.end) },
+      { name: '', address, bytes: program.slice(decoded.end) },
     ]);
     warnings.push(
       `${trailing} byte${trailing === 1 ? '' : 's'} after the end-of-program ` +
