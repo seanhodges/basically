@@ -38,7 +38,7 @@ describe('saveCustomRom / loadCustomRom', () => {
     const rom = image(8192, 0x2a);
     expect(saveCustomRom('zx81', 'myrom.rom', rom)).toEqual({ ok: true });
 
-    expect(loadCustomRom('zx81', 8192)).toEqual(rom);
+    expect(loadCustomRom('zx81')).toEqual(rom);
     expect(getCustomRomMeta('zx81')).toMatchObject({
       name: 'myrom.rom',
       size: 8192,
@@ -46,7 +46,7 @@ describe('saveCustomRom / loadCustomRom', () => {
   });
 
   it('reports no image for a machine that has none', () => {
-    expect(loadCustomRom('zx81', 8192)).toBeNull();
+    expect(loadCustomRom('zx81')).toBeNull();
     expect(getCustomRomMeta('zx81')).toBeNull();
   });
 
@@ -54,37 +54,43 @@ describe('saveCustomRom / loadCustomRom', () => {
     saveCustomRom('zx81', 'a.rom', image(8192, 1));
     saveCustomRom('zx80', 'b.rom', image(4096, 2));
 
-    expect(loadCustomRom('zx81', 8192)?.[0]).toBe(1);
-    expect(loadCustomRom('zx80', 4096)?.[0]).toBe(2);
+    expect(loadCustomRom('zx81')?.[0]).toBe(1);
+    expect(loadCustomRom('zx80')?.[0]).toBe(2);
 
     clearCustomRom('zx81');
-    expect(loadCustomRom('zx81', 8192)).toBeNull();
-    expect(loadCustomRom('zx80', 4096)).not.toBeNull();
+    expect(loadCustomRom('zx81')).toBeNull();
+    expect(loadCustomRom('zx80')).not.toBeNull();
+  });
+});
+
+describe('loadCustomRom keeps whatever the user installed', () => {
+  // Size is not this module's business: an image that doesn't fill the
+  // machine's ROM area is fitted to it when the machine is built (see
+  // app/romImage.fitRomImage), so a stored image is never dropped for its
+  // length - including after a machine's ROM size changes in a future release.
+  it('returns an image of any size, unaltered', () => {
+    const short = image(100, 0x11);
+    saveCustomRom('zx81', 'short.rom', short);
+    expect(loadCustomRom('zx81')).toEqual(short);
+    expect(getCustomRomMeta('zx81')).toMatchObject({ size: 100 });
+
+    const long = image(20000, 0x22);
+    saveCustomRom('zx81', 'long.rom', long);
+    expect(loadCustomRom('zx81')).toEqual(long);
   });
 });
 
 describe('loadCustomRom rejects what it cannot use', () => {
-  // A machine's ROM size could change in a future release. A stored image from
-  // before must not reach a constructor that throws on the wrong length: the
-  // machine falls back to its bundled image instead.
-  it('drops a stored image whose size no longer matches the machine', () => {
-    saveCustomRom('zx81', 'old.rom', image(8192));
-
-    expect(loadCustomRom('zx81', 16384)).toBeNull();
-    // Dropped, not merely refused - the next read finds nothing.
-    expect(getCustomRomMeta('zx81')).toBeNull();
-  });
-
   it('reads corrupt JSON as "no image" rather than throwing', () => {
     localStorage.setItem(KEY, '{not json');
-    expect(() => loadCustomRom('zx81', 8192)).not.toThrow();
-    expect(loadCustomRom('zx81', 8192)).toBeNull();
+    expect(() => loadCustomRom('zx81')).not.toThrow();
+    expect(loadCustomRom('zx81')).toBeNull();
     expect(getCustomRomMeta('zx81')).toBeNull();
   });
 
   it('reads a record missing its fields as "no image"', () => {
     localStorage.setItem(KEY, JSON.stringify({ name: 'x.rom' }));
-    expect(loadCustomRom('zx81', 8192)).toBeNull();
+    expect(loadCustomRom('zx81')).toBeNull();
   });
 
   it('reads corrupt base64 as "no image" rather than throwing', () => {
@@ -97,10 +103,14 @@ describe('loadCustomRom rejects what it cannot use', () => {
         dataB64: 'not base64 !!!',
       }),
     );
-    expect(() => loadCustomRom('zx81', 8192)).not.toThrow();
-    expect(loadCustomRom('zx81', 8192)).toBeNull();
+    expect(() => loadCustomRom('zx81')).not.toThrow();
+    expect(loadCustomRom('zx81')).toBeNull();
   });
 
+  // Not a check against the machine's ROM size - a record that contradicts
+  // itself is what a half-written or truncated entry looks like, and the
+  // readout quotes the declared size, so keeping it would misdescribe what the
+  // machine is actually running.
   it('drops an image whose declared size disagrees with its bytes', () => {
     localStorage.setItem(
       KEY,
@@ -111,7 +121,7 @@ describe('loadCustomRom rejects what it cannot use', () => {
         dataB64: bytesToBase64(image(16)),
       }),
     );
-    expect(loadCustomRom('zx81', 8192)).toBeNull();
+    expect(loadCustomRom('zx81')).toBeNull();
   });
 });
 

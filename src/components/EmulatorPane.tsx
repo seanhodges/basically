@@ -56,7 +56,7 @@ import type {
 } from '../dialects/types';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { loadCustomRom, getCustomRomMeta } from '../storage/customRom';
-import { fetchRom } from '../app/romImage';
+import { fetchRom, fitRomImage } from '../app/romImage';
 import { EmulatorAudio } from '../audio/emulatorAudio';
 import { VariableWatcher } from './VariableWatcher';
 import { GearsSpinner } from './GearsSpinner';
@@ -118,10 +118,9 @@ function landscapeSideGutter(): number {
  * redistribution grant are meant to be removable (see
  * public/roms/ATTRIBUTION.md), and the answer is to supply one - so say that
  * instead of "Failed to fetch ROM (404)". And a failure while the user's own
- * image is in force names it, because a ROM that is the right size but wrong
- * boots to nothing and is otherwise indistinguishable from a broken program.
- * That hint is the only automatic recovery route for an image we cannot
- * validate beyond its length.
+ * image is in force names it, because an image that isn't a working ROM boots
+ * to nothing and is otherwise indistinguishable from a broken program. That
+ * hint is the only automatic recovery route for an image nothing validates.
  */
 function describeMachineError(e: unknown, dialect: Dialect): string {
   const raw = e instanceof Error ? e.message : String(e);
@@ -139,10 +138,9 @@ function describeMachineError(e: unknown, dialect: Dialect): string {
     // deleted); the Altair never had one to fetch, because its interpreter is
     // copyright and cannot ship - so it says that outright rather than implying
     // something went wrong.
-    const size = dialect.romBytes.toLocaleString();
     return dialect.romBundled === false
-      ? `No ${dialect.name} ROM ships with this IDE - its BASIC is still under copyright. Supply your own ${size}-byte image in Settings → Emulator to start the machine.`
-      : `The ${dialect.name} ROM image isn't available. You can supply your own ${size}-byte ROM in Settings → Emulator.`;
+      ? `No ${dialect.name} ROM ships with this IDE - its BASIC is still under copyright. Supply your own image in Settings → Emulator to start the machine.`
+      : `The ${dialect.name} ROM image isn't available. You can supply your own ROM in Settings → Emulator.`;
   }
   return raw;
 }
@@ -575,16 +573,21 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // bundled ROM is a cache hit. The lookup is gated on romBytes, so a machine
     // that ignores this buffer entirely is never affected.
     //
+    // A supplied image may be any size, so it is fitted to the machine's ROM
+    // area here - short images padded, long ones taken from the front. That is
+    // what keeps every machine's own length guard intact: createEmulator still
+    // receives exactly romBytes.
+    //
     // A dialect without a romUrl needs no ROM image (e.g. a high-level
     // interpreter); hand its emulator an empty buffer and skip the fetch.
-    const custom = dialect.romBytes
-      ? loadCustomRom(dialect.id, dialect.romBytes)
-      : null;
-    const rom =
-      custom ??
-      (dialect.romUrl
-        ? await fetchRom(dialect.romUrl, dialect.romBytes)
-        : new Uint8Array(0));
+    let rom: Uint8Array | null = null;
+    if (dialect.romBytes !== undefined) {
+      const custom = loadCustomRom(dialect.id);
+      if (custom) rom = fitRomImage(custom, dialect.romBytes);
+    }
+    rom ??= dialect.romUrl
+      ? await fetchRom(dialect.romUrl, dialect.romBytes)
+      : new Uint8Array(0);
     const machine = dialect.createEmulator({
       rom,
       ramKb: 16,

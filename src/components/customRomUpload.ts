@@ -8,39 +8,50 @@ import type { Dialect } from '../dialects/types';
 /**
  * Why a picked file was refused, or null when it is acceptable.
  *
- * The message names **both** sizes deliberately. On the two-bank machines - the
- * 128K Spectrum and both CPCs, whose images are two 16K halves concatenated -
- * the likeliest mistake by far is supplying one half, and only seeing both
- * numbers tells the user that is what happened. "Wrong size" would not.
+ * Size is not a reason: an image of any length is installed and fitted to the
+ * machine's ROM area when it runs (`app/romImage.fitRomImage`). What is left is
+ * the one machine kind that would ignore the image altogether, which the
+ * settings form already keeps the upload control away from - this is the guard
+ * behind that, not a message the UI normally reaches.
  */
-export function romUploadError(
-  dialect: Dialect,
-  bytes: Uint8Array,
-): string | null {
-  const expected = dialect.romBytes;
-  if (expected === undefined) {
+export function romUploadError(dialect: Dialect): string | null {
+  if (dialect.romBytes === undefined) {
     return `The ${dialect.name} emulator loads its own ROM set, so it can't be replaced.`;
   }
-  if (bytes.length === expected) return null;
-  return `That file is ${bytes.length.toLocaleString()} bytes. The ${dialect.name} ROM must be exactly ${expected.toLocaleString()} bytes.`;
+  return null;
 }
 
-/** The line naming which image the machine is currently running. */
+/**
+ * The line naming which image the machine is currently running.
+ *
+ * A supplied image that does not fill the machine's ROM area says so, naming
+ * both its own size and the area's. That is the diagnostic the old wrong-size
+ * refusal used to carry, and it is worth as much after the install as before:
+ * on the two-bank machines - the 128K Spectrum and both CPCs, whose images are
+ * two 16K halves concatenated - the likeliest thing to supply by mistake is one
+ * half, and only seeing both numbers tells the user that is what happened.
+ */
 export function romInUseLabel(
   dialect: Dialect,
   custom: { name: string; size: number } | null,
 ): string {
-  if (custom) {
-    return `Using your own ROM: ${custom.name} (${custom.size.toLocaleString()} bytes).`;
-  }
   const size = dialect.romBytes;
+  if (custom) {
+    const own = `${custom.size.toLocaleString()} bytes`;
+    if (size === undefined || custom.size === size) {
+      return `Using your own ROM: ${custom.name} (${own}).`;
+    }
+    const fit =
+      custom.size < size
+        ? `padded to ${size.toLocaleString()}`
+        : `trimmed to ${size.toLocaleString()}`;
+    return `Using your own ROM: ${custom.name} (${own}, ${fit}).`;
+  }
   // A machine whose image cannot be redistributed has no bundled ROM to be
   // "using" - saying so would be the one wrong thing this line could say, since
   // the machine will not start until the user supplies one.
   if (dialect.romBundled === false) {
-    return size === undefined
-      ? `No ${dialect.name} ROM ships with this IDE - upload your own to start the machine.`
-      : `No ${dialect.name} ROM ships with this IDE - upload your own ${size.toLocaleString()}-byte image to start the machine.`;
+    return `No ${dialect.name} ROM ships with this IDE - upload your own image to start the machine.`;
   }
   return size === undefined
     ? `Using the bundled ${dialect.name} ROM.`

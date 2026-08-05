@@ -119,15 +119,19 @@ export function listCustomRoms(): Record<string, CustomRomMeta> {
 /**
  * The installed image for a machine, or null when it has none.
  *
- * `expectedBytes` is the size the machine requires now. A stored image that no
- * longer matches it is dropped and null returned, so a future change to a
- * machine's ROM size can't feed an incompatible image to a constructor that
- * would throw - the machine falls back to its bundled image instead.
+ * The bytes are returned as they were supplied, whatever their length: the
+ * caller fits them to the machine's ROM area (`app/romImage.fitRomImage`), so
+ * an image that is not the size that area holds is a thing to pad or trim, not
+ * a reason to drop what the user installed.
+ *
+ * What is still dropped is a record that contradicts itself - undecodable, or
+ * carrying fewer bytes than the `size` it declares, which is what a half-written
+ * or truncated entry looks like. That check is about this record's own
+ * consistency, not about any machine's size: the readout quotes `size`, so an
+ * entry whose bytes disagree with it would make the IDE misdescribe what it is
+ * running.
  */
-export function loadCustomRom(
-  dialectId: string,
-  expectedBytes: number,
-): Uint8Array | null {
+export function loadCustomRom(dialectId: string): Uint8Array | null {
   const rec = readStored(dialectId);
   if (!rec) return null;
   let bytes: Uint8Array;
@@ -137,7 +141,7 @@ export function loadCustomRom(
     clearCustomRom(dialectId);
     return null;
   }
-  if (bytes.length !== expectedBytes) {
+  if (bytes.length !== rec.size) {
     clearCustomRom(dialectId);
     return null;
   }
@@ -145,8 +149,8 @@ export function loadCustomRom(
 }
 
 /**
- * Persist a validated image. The caller has already checked the size against
- * the machine's; this only reports whether it was stored.
+ * Persist an image. Any size is storable - the machine's ROM area is filled
+ * from whatever is here - so this only reports whether it was stored.
  *
  * The write is read back and its decoded length compared before reporting
  * success, which catches both a throwing quota error and a storage that accepts
@@ -187,8 +191,8 @@ export function saveCustomRom(
             "Couldn't save the ROM: this browser isn't allowing site data to be stored.",
         };
   }
-  const readBack = loadCustomRom(dialectId, bytes.length);
-  if (!readBack) {
+  const readBack = loadCustomRom(dialectId);
+  if (!readBack || readBack.length !== bytes.length) {
     clearCustomRom(dialectId);
     return {
       ok: false,

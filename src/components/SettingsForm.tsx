@@ -163,7 +163,7 @@ export function SettingsForm() {
     setRomError('');
     const picked = await openBinaryFile('.rom');
     if (!picked) return; // cancelled - not a failure, say nothing
-    const problem = romUploadError(romDialect, picked.bytes);
+    const problem = romUploadError(romDialect);
     if (problem) {
       setRomError(problem);
       return;
@@ -356,10 +356,13 @@ export function SettingsForm() {
                 </p>
               )}
               <p>
-                The image must be exactly {romDialect.romBytes.toLocaleString()}{' '}
-                bytes. It is kept in this browser only, is never uploaded
-                anywhere, and is not included in programs you publish. Changing
-                the ROM of the machine you are using restarts it.
+                Any image will do: a file smaller than this machine&apos;s{' '}
+                {romDialect.romBytes.toLocaleString()}-byte ROM area fills the
+                rest with unprogrammed ROM, and a larger one is used from its
+                first {romDialect.romBytes.toLocaleString()} bytes. The image is
+                kept in this browser only, is never uploaded anywhere, and is
+                not included in programs you publish. Changing the ROM of the
+                machine you are using restarts it.
               </p>
               {romDialect.romBundled === false && (
                 <p>

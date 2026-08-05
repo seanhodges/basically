@@ -13,9 +13,9 @@ import type { Page } from '@playwright/test';
 /**
  * Supplying your own machine ROM.
  *
- * The load-bearing assertion here is step 3: a ROM image of the right size but
- * filled with zeros is, to a Z80, an unbroken run of NOPs, so the machine never
- * reaches the booted state it waits for and the run fails naming the image.
+ * The load-bearing assertion here is step 3: a ROM image filled with zeros is,
+ * to a Z80, an unbroken run of NOPs, so the machine never reaches the booted
+ * state it waits for and the run fails naming the image.
  * Nothing but the uploaded bytes actually reaching the CPU can produce that,
  * and pairing it with the restore in step 5 - where the same program runs and
  * paints - is what stops it passing for some unrelated reason.
@@ -69,15 +69,16 @@ test('a supplied ROM is used, persists, and can be restored', async ({
     page.getByRole('button', { name: 'Restore bundled ROM' }),
   ).toBeDisabled();
 
-  // 2. A wrong-sized file is refused, naming both sizes, and changes nothing.
+  // 2. A file that doesn't fill the machine's ROM area is installed anyway, and
+  // the readout names both its size and the area it was padded to - the
+  // diagnostic the old wrong-size refusal used to carry.
   await uploadRom(page, 'tiny.rom', Buffer.alloc(100));
-  const refusal = page.getByRole('alert');
-  await expect(refusal).toContainText('100 bytes');
-  await expect(refusal).toContainText('8,192 bytes');
-  await expect(page.getByText(/Using the bundled .* ROM/)).toBeVisible();
+  await expect(
+    page.getByText('Using your own ROM: tiny.rom (100 bytes, padded to 8,192)'),
+  ).toBeVisible();
 
-  // 3. A zero-filled image of the right size installs - and the machine tries
-  // to boot it. To a Z80 it is an unbroken run of NOPs, so the ROM never
+  // 3. A zero-filled image the size of the ROM area installs - and the machine
+  // tries to boot it. To a Z80 it is an unbroken run of NOPs, so the ROM never
   // reaches the state the machine waits for and the run fails, naming the image
   // in force. Nothing but the uploaded bytes reaching the CPU produces that.
   await uploadRom(page, 'zeros.rom', Buffer.alloc(ZX81_ROM_BYTES));

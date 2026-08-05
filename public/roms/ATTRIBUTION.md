@@ -30,8 +30,8 @@ comp.sys.sinclair, 1999).
 
 If you are the rights holder and want this file removed, please open an
 issue — the IDE also supports supplying your own ROM image at runtime, from
-Settings ▸ Emulator. A replacement must be exactly the same size as the image
-it replaces.
+Settings ▸ Emulator. A replacement image may be any size; it is fitted to the
+machine's ROM area.
 
 # Acorn ROM attribution
 
@@ -156,8 +156,8 @@ Amstrad (for BASIC) and Locomotive (for the firmware). Both images are included
 here, unmodified and with their copyright notices intact, on that same basis.
 (The IDE also supports supplying your own ROM image at runtime, from Settings ▸
 Emulator, so the bundled copies can be removed without disabling the feature. A
-replacement must be exactly the same size — for these machines the full 32K,
-both banks.)
+replacement image may be any size; it is fitted to the machine's ROM area, which
+for these machines is the full 32K, both banks.)
 
 If you are a rights holder (Amstrad or Locomotive Software) and want these files
 removed, please open an issue and they will be taken out.
