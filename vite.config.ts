@@ -54,5 +54,29 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'docs/**/*.test.ts'],
+    /**
+     * Vitest's default is 5s, which suits unit tests and does not suit this
+     * suite: a large part of it boots a real ROM and emulates hundreds of
+     * frames of machine time, and those cases legitimately take seconds. What
+     * makes 5s a *flaky* budget rather than a tight one is that the tests run
+     * in parallel workers - a case that takes 2s on an idle machine can take
+     * three times that on a loaded CI box, so the same test passes locally and
+     * times out in CI without anything about it having changed.
+     *
+     * Ten-odd files had already reached for their own 20-60s per-test budget
+     * (`BOOT_TIMEOUT_MS` in the C64 tests, the `}, 60000)` on the sample-run
+     * suites); this makes that the floor for every file, so the next
+     * emulator-backed test is not born flaky and only genuinely unusual cases
+     * need to say anything. Those explicit per-test budgets still stand where
+     * they are longer.
+     *
+     * 30s comes from measurement rather than superstition: with the whole
+     * suite running in parallel on a 4-core box the slowest case is ~12s and
+     * the slowest dozen are 5-10s, so a CI runner with half the cores has
+     * room and a genuine hang is still cut off quickly. This is a ceiling on a
+     * hang, not a target - a test that comes near it has become slow enough to
+     * be worth looking at.
+     */
+    testTimeout: 30_000,
   },
 });
