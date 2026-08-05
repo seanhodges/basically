@@ -26,66 +26,33 @@ This guide walks through running your first program, then generating one with AI
 6. Click the emulator screen to give it focus, then play - on most machines the
    paddle keys are shown on screen when the game starts.
 
-The emulator is hardware-accurate: it runs the machine's real ROM, so the
-display and keyboard behave exactly as they would on the original.
-
-The toolbar's machine selector switches an in-progress program to a different
-target. Starting a new project is how you choose a machine _and_ what to write
-on it together.
-
 ## Write your own
 
-Create a project and choose **Blank program**, then start typing. The editor
+Create a project and choose **Blank program**. The editor
 highlights your dialect's keywords, autocompletes them (with documentation), and
 runs the tokenizer as you type so mistakes are underlined inline. A byte counter
 in the status bar shows how much of the machine's RAM your program uses.
-
-Naming the project when you create it means **Save project** already knows what
-to call it; leave the name blank and it stays untitled until you save.
 
 Each machine has its own BASIC rules - see **[Writing BASIC](/guide/writing-basic)**
 for the conventions and the per-machine notes.
 
 ## Generate code with AI
 
-Basically can write BASIC for you with the Claude API:
+Basically can write programs for you with AI:
 
 1. Click **✦ AI** to open the assistant panel.
-2. Add your Anthropic API key - create one at
-   [platform.claude.com](https://platform.claude.com/). The key is stored only
-   in your browser.
+2. Select your AI provider and enter an API key.
 3. Ask for what you want ("write a snake game", "add a high-score counter").
-   Claude is given the active machine's dialect rules, so the BASIC it produces
-   actually runs.
 4. Apply a suggestion with one click: **replace** the editor, **merge** by line
    number, or **replace and run**.
 
 Answers arrive already tried out. Before you are offered anything, the IDE runs
-the program on the machine itself and checks how it went — your own listing is
-left exactly as you had it while that happens. If the program fails, or does not
-produce what the assistant said it would, the assistant is asked to fix it and
-try again a couple of times before you are shown anything. So what reaches you is
-code that has run, not code that looks like it should.
+the program on the emulator automatically and verifies it.
 
-The panel says which stage it is at while you wait — writing the code, checking
-it on the machine, looking at the screen it drew, or fixing a run that failed —
-and **Stop** ends any of them.
-
-When it has finished, you are shown the machine's screen as it stood, whatever
-the outcome. That last look is yours: the checks can tell that a program ran and
-that the text it printed is right, but only you can say whether the thing on the
-screen is what you actually wanted.
-
-Ask something next and that same picture goes with your question, so "why is the
-circle squashed?" is answered against what you are both looking at. There is
-nothing to attach: the screen already in the conversation is the one that is
-sent, once, and only if the assistant you have chosen can be shown a picture.
-
-Once your key is set you can also start a whole project this way: choose
+You can also start a whole project this way: choose
 **File ▸ New project**, pick a machine, and under **Start from** choose
 **Describe it** and say what you want ("a snake game"). The project is created
-and the assistant starts writing it for that machine. Until a key is set, that
-option is shown but not selectable.
+and the assistant starts writing it for that machine.
 
 ## Save and load
 
@@ -117,35 +84,6 @@ The app works almost entirely offline, so you can sit on a flight, train or moun
 
 - **AI support** currently only supports cloud-based solutions and requires Internet access at all times to work. In future we might add local LLM support.
 - **Running the emulator** usually requires downloading a third-party ROM for the target machine, which are often large blobs and can have complex licencing rules. You should run the emulator **before** going offline, to ensure any runtime dependencies are cached and ready to use. A ROM you supply yourself (see below) is already stored in your browser, so it needs no download at all.
-
-### Supplying your own ROM
-
-Every machine ships with the ROM it needs, so there is normally nothing to do
-here. But on machines that run a single ROM image - the Sinclair and Amstrad
-ones - you can run your own image instead: a different revision of the
-firmware, or your own build.
-
-Open **Settings ▸ Emulator** and use **Upload ROM image…** under **Machine
-ROM**. The setting applies to the machine you currently have selected, and each
-machine keeps its own.
-
-A few things worth knowing:
-
-- **Any image will do.** A file smaller than the machine's ROM area fills the
-  rest with unprogrammed ROM, and a larger one is used from the front. The
-  setting says which happened, so on the machines whose ROM is two banks joined
-  together (the ZX Spectrum 128 and both CPCs) you can see when you have
-  supplied one half - the usual mistake there.
-- The image stays **in your browser**. It is never uploaded anywhere, and it is
-  not included in programs you [publish](/guide/publishing).
-- Changing it **restarts the machine**, so press Play again afterwards.
-- If a ROM doesn't work, the machine will simply sit there doing nothing. Go
-  back to **Settings ▸ Emulator** and press **Restore bundled ROM**.
-
-Only the emulator follows your image. The editor's keyword highlighting,
-completion and error checking are built for the machine's original BASIC, so an
-image with a _different_ BASIC in it will run, but the editor will disagree with
-it.
 
 ## Join the community
 

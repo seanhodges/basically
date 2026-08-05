@@ -77,25 +77,8 @@ const dialects = machineList.map((m) => ({
 # Porting guide
 
 Pick a machine you're porting **from** and one you're porting **to**, and this
-page tells you what changes: the keywords you lose, gain or must rewrite, the
-control codes that differ, and how the two machines differ in language rules and
-hardware.
-
-Read it inside the [IDE](https://ba.sical.ly/) with a program open and it
-narrows itself to that program: the commands to rewrite, the commands to rename,
-the commands whose usage differs, the same-word-different-meaning warnings and
-the control codes to replace are limited to the ones your listing actually
-contains. It says how much of the program it recognised and how many other
-differences it is holding back, and a tick shows them all again. The language
-and hardware table, what the target machine adds and the guidance below are
-never narrowed — those apply to any program whatever it uses. With an AI
-assistant configured you can also have the port carried out for you. Either way
-it is a starting point — performance and hardware input usually need attention
-afterwards.
-
-Every machine is listed in its own right, because sharing a BASIC is not
-sharing a machine: a program that fits a Commodore 64 will not necessarily fit
-an unexpanded VIC-20, and a CPC 6128 has commands a 464 does not.
+page tells you what needs to change. Read it inside the [IDE](https://ba.sical.ly/) with a program open and it
+speclialises itself to that program.
 
 If you're new to porting programs, read [this](./porting-basics) first.
 
