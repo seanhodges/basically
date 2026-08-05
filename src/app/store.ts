@@ -10,6 +10,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  MachineVariable,
   MemoryBlock,
 } from '../dialects/types';
 import {
@@ -83,6 +84,7 @@ import {
   setControllerFireButtons as persistControllerFireButtons,
   getGamepadMode,
   setGamepadMode as persistGamepadMode,
+  setHasSeenWelcome as persistHasSeenWelcome,
   setAutoLineNumbering as persistAutoLineNumbering,
   setLineNumberIncrement as persistLineNumberIncrement,
   setShowLineNumberGutter as persistShowLineNumberGutter,
@@ -406,6 +408,19 @@ interface IdeState {
   keyboardAutoShow: boolean;
   /** Variable watcher panel under the monitor. Transient: not persisted. */
   variableWatcher: boolean;
+  /**
+   * The variable whose detail modal is open in the watcher, or null. A snapshot
+   * taken when the value was clicked, not refreshed by later polls, so the modal
+   * stays stable (and survives the program stopping). Held here rather than in
+   * the component so it is a dismissible surface like any other modal.
+   */
+  variableDetail: MachineVariable | null;
+  /**
+   * The controller role awaiting a key to bind, or null when no remap is in
+   * progress. Drives the gamepad remap picker overlay; in the store rather than
+   * in `Workspace` so Escape/Back can abandon a remap.
+   */
+  controllerRemapRole: ControllerRole | null;
   /** Audible click on virtual key presses. */
   keyboardSound: boolean;
   /** Haptic buzz on virtual key presses (where supported). */
@@ -800,6 +815,10 @@ interface IdeState {
   setGamepadMode(mode: GamepadMode): void;
   setKeyboardAutoShow(on: boolean): void;
   setVariableWatcher(on: boolean): void;
+  /** Open (or close, with null) the watcher's variable detail modal. */
+  setVariableDetail(v: MachineVariable | null): void;
+  /** Begin (or abandon, with null) binding a controller role to a machine key. */
+  setControllerRemapRole(role: ControllerRole | null): void;
   setKeyboardSound(on: boolean): void;
   setKeyboardHaptics(on: boolean): void;
   setKeyboardKeyDisplay(v: 'authentic' | 'compact'): void;
@@ -839,6 +858,12 @@ interface IdeState {
   setProcedureListOpen(open: boolean): void;
   setMemoryMapOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
+  /**
+   * Close the welcome modal *and* remember it was seen, so it never returns.
+   * Every dismissal path goes through here - the cards, the backdrop, and the
+   * Escape/Back dismissal driven by the surface registry.
+   */
+  dismissWelcome(): void;
   setNewProjectOpen(open: boolean): void;
   setMachinePickerOpen(open: boolean): void;
   setStatusNotice(text: string | null): void;
@@ -1279,6 +1304,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       ? (getKeyboardAutoShow() ?? defaultKeyboardAutoShow())
       : false,
   variableWatcher: false,
+  variableDetail: null,
+  controllerRemapRole: null,
   keyboardSound:
     typeof localStorage !== 'undefined' ? getKeyboardSound() : false,
   keyboardHaptics:
@@ -1896,7 +1923,16 @@ export const useIdeStore = create<IdeState>((set) => ({
     persistKeyboardAutoShow(on);
     set({ keyboardAutoShow: on });
   },
-  setVariableWatcher: (on) => set({ variableWatcher: on }),
+  setVariableWatcher: (on) =>
+    // Closing the panel takes its detail modal with it - the modal is a child
+    // surface, and leaving it set would re-open it with the panel.
+    set(
+      on
+        ? { variableWatcher: true }
+        : { variableWatcher: false, variableDetail: null },
+    ),
+  setVariableDetail: (v) => set({ variableDetail: v }),
+  setControllerRemapRole: (role) => set({ controllerRemapRole: role }),
   setKeyboardSound: (on) => {
     persistKeyboardSound(on);
     set({ keyboardSound: on });
@@ -1974,6 +2010,10 @@ export const useIdeStore = create<IdeState>((set) => ({
         : { memoryMapOpen: false },
     ),
   setWelcomeOpen: (open) => set({ welcomeOpen: open }),
+  dismissWelcome: () => {
+    persistHasSeenWelcome(true);
+    set({ welcomeOpen: false });
+  },
   setNewProjectOpen: (open) => set({ newProjectOpen: open }),
   setMachinePickerOpen: (open) => set({ machinePickerOpen: open }),
   setStatusNotice: (text) => set({ statusNotice: text }),

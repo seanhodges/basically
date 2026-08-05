@@ -11,7 +11,7 @@ import {
   MIN_SPLIT_RATIO,
   MAX_SPLIT_RATIO,
 } from '../storage/settings';
-import type { ControllerRole, EditorKeyAction } from '../keyboard/layoutSchema';
+import type { EditorKeyAction } from '../keyboard/layoutSchema';
 import { CONTROLLER_ROLE_NAMES } from '../keyboard/controllerConfig';
 import {
   VirtualKeyboard,
@@ -68,8 +68,10 @@ export function Workspace() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   // The controller role currently being remapped: while non-null the on-screen
-  // keyboard replaces the controller as a key picker.
-  const [remapRole, setRemapRole] = useState<ControllerRole | null>(null);
+  // keyboard replaces the controller as a key picker. In the store, not local
+  // state, so Escape and Back can abandon the remap (see src/app/surfaces.ts).
+  const remapRole = useIdeStore((s) => s.controllerRemapRole);
+  const setRemapRole = useIdeStore((s) => s.setControllerRemapRole);
 
   // The virtual keyboard types into the editor through this handle; presses
   // preventDefault so the editor never loses focus while typing.

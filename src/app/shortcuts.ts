@@ -272,11 +272,13 @@ export const SHORTCUTS: readonly Shortcut[] = [
     keys: [c('KeyF', { mod: true, alt: true })],
   },
   {
+    // Not `native`: the emulator-release half is handled by the pane itself,
+    // but when nothing else claims the key this dispatches to close the topmost
+    // open surface (see ./useHistorySync).
     id: 'view.escape',
     label: 'Release emulator / close panel',
     category: 'View',
     keys: [c('Escape')],
-    native: true,
   },
 ];
 

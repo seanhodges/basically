@@ -1,5 +1,4 @@
 import { useIdeStore } from '../app/store';
-import { setHasSeenWelcome } from '../storage/settings';
 import dialog from './Dialog.module.css';
 import styles from './WelcomeDialog.module.css';
 
@@ -45,17 +44,13 @@ function CodeIcon({ size = 16 }: { size?: number }) {
  */
 export function WelcomeDialog() {
   const open = useIdeStore((s) => s.welcomeOpen);
-  const setOpen = useIdeStore((s) => s.setWelcomeOpen);
   const openDocs = useIdeStore((s) => s.openDocs);
   const setNewProjectOpen = useIdeStore((s) => s.setNewProjectOpen);
+  // Persists as well as closing, so no exit path - backdrop, either card, or an
+  // Escape/Back dismissal - lets the modal come back.
+  const dismiss = useIdeStore((s) => s.dismissWelcome);
 
   if (!open) return null;
-
-  // Persist on every exit path (backdrop, either card) so it never shows again.
-  const dismiss = () => {
-    setHasSeenWelcome(true);
-    setOpen(false);
-  };
 
   return (
     <div

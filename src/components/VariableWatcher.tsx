@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { MachineEmulator, MachineVariable } from '../dialects/types';
+import { useIdeStore } from '../app/store';
 import styles from './VariableWatcher.module.css';
 import dialog from './Dialog.module.css';
 
@@ -33,7 +34,10 @@ const KIND_LABELS: Record<MachineVariable['kind'], string> = {
  */
 export function VariableWatcher({ getMachine, running, paused }: Props) {
   const [vars, setVars] = useState<MachineVariable[]>([]);
-  const [selected, setSelected] = useState<MachineVariable | null>(null);
+  // In the store, not local state, so Escape and Back can dismiss it like any
+  // other modal (see src/app/surfaces.ts).
+  const selected = useIdeStore((s) => s.variableDetail);
+  const setSelected = useIdeStore((s) => s.setVariableDetail);
 
   useEffect(() => {
     if (!running && !paused) {
