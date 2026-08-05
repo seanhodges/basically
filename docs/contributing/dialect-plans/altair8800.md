@@ -105,7 +105,7 @@ mirroring `trs80/interpreter/` — and changes nothing else in this plan.
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
-| 2     | Emulator core                          | ⬜     |
+| 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Memory map & runtime introspection     | ⬜     |
@@ -214,27 +214,62 @@ Behaviour worth knowing before Stages 2–6, all console-confirmed:
    active-high bits and the machine must answer port 0xFF with 0x08, or BASIC
    drives the wrong ports and nothing appears.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅
 
-- [ ] `emulator/memory.ts` — flat 64K S-100 bus; `loadInterpreter` copies the
+- [x] `emulator/memory.ts` — flat 64K S-100 bus; `loadInterpreter` copies the
       BASIC image into RAM (no ROM mapping)
-- [ ] `emulator/serial.ts` — the 88-2SIO: status port, data port in/out, input
+- [x] `emulator/serial.ts` — the 88-2SIO: status port, data port in/out, input
       queue
-- [ ] `emulator/terminal.ts` — 80×24 grid, CR/LF/backspace/bell, scroll on
+- [x] `emulator/terminal.ts` — 80×24 grid, CR/LF/backspace/bell, scroll on
       overflow, `renderTo`
-- [ ] `emulator/keyboard.ts` — key tokens and DOM events → queued ASCII bytes,
+- [x] `emulator/keyboard.ts` — key tokens and DOM events → queued ASCII bytes,
       including CTRL-C (0x03)
-- [ ] `emulator/altairMachine.ts` — `MachineEmulator` over the vendored Z80 core
+- [x] `emulator/altairMachine.ts` — `MachineEmulator` over the vendored Z80 core
       at `CYCLES_PER_FRAME` (40,000 = 2 MHz ÷ 50); resolve the 8080 flag question
-- [ ] stays constructible with an empty ROM image
-- [ ] `public/roms/ATTRIBUTION.md` block recording why no image ships
-- [ ] test: boot the image, assert the sign-on banner lands in the terminal grid;
+- [x] stays constructible with an empty ROM image
+- [x] `public/roms/ATTRIBUTION.md` block recording why no image ships
+- [x] test: boot the image, assert the sign-on banner lands in the terminal grid;
       skip (don't fail) when the user-supplied ROM is absent
 
 **Depends on:** Stage 1 (charset for the terminal, image builder for
 `loadProgram`).
 **Verify:** the boot test passes with a supplied ROM, and the suite stays green
 without one.
+
+### What Stage 2 decided
+
+**The 8080 flags are corrected, in the adapter.** Risk 1 is settled the way
+Stage 1 said it had to be: after every instruction where the 8080 defines P as
+the parity of the result and the Z80 does not — `ADD`/`ADC`/`SUB`/`SBB`/`CMP`
+and their immediate forms, `INR`/`DCR`, `DAA` — `Altair8800Machine.step`
+overwrites the core's P flag with that parity. `ANA`/`XRA`/`ORA` are left alone
+because the Z80 already sets P to parity for its logic instructions, so there is
+nothing to correct and no state read to pay for. `DAA` additionally has the N
+flag cleared before it runs, which makes the Z80's DAA adjust upwards the way
+the 8080's always did; nothing on an 8080 can observe N, so clearing it is free.
+The vendored core is untouched.
+
+What is deliberately **not** corrected, and should stay recorded rather than be
+quietly discovered later: the half-carry a Z80 `SUB` leaves is a borrow where
+the 8080's AC is its complement, so a `DAA` immediately after a subtraction can
+still differ in its bottom digit; and `ANA` sets H differently on the two CPUs.
+8K BASIC's arithmetic is binary floating point and executes no `DAA` at all, and
+nothing reads AC.
+
+**The suite tests the emulator without the copyright image.** Because the
+Altair loaded BASIC into RAM rather than running firmware, a hand-assembled
+8080 program is as legitimate a boot image as the interpreter — so
+`altairMachine.test.ts` runs a dozen of them to cover the bus, the 2SIO's
+polarity, the sense-switch port, the terminal, CTRL-C and each flag correction
+(every flag case fails if the fix is removed). The four cases that need the real
+interpreter skip when `public/roms/altair8800.rom` is absent.
+
+**Two things Stage 3 inherits.** `bootToReady()` is public: left to itself the
+machine prints `MEMORY SIZE?` and waits, which is authentic and typeable, so the
+pane has to decide whether to open at the dialogue or at the OK prompt. And
+`emulator/keyboard.ts` now owns the token vocabulary the ASR-33 rows must emit —
+`altair8800KeyTokens()` and `tokenToByte()` are exported for the layout test to
+check against.
 
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 
