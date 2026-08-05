@@ -1,3 +1,4 @@
+// Capability: shell-navigation — openspec/specs/shell-navigation/spec.md
 import { test, expect, type Page } from '../fixtures';
 
 /**
@@ -11,12 +12,7 @@ import { test, expect, type Page } from '../fixtures';
  * routes through the same history stack, so the two are equivalent by
  * construction - these specs check that equivalence holds in a real browser.
  *
- * Lives in e2e/shell/ rather than an e2e/shell-navigation/ folder: the
- * shell-navigation capability is still a change delta, and the folder↔capability
- * guard (src/e2eCapabilityLayout.test.ts) reads the baseline specs. Move it when
- * the change is archived.
- *
- * Run with `npm run e2e:chromium -- e2e/shell`.
+ * Run with `npm run e2e:chromium -- e2e/shell-navigation`.
  */
 
 /** Load the app and accept native confirms. The welcome modal is suppressed by
