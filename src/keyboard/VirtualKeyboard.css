@@ -1105,3 +1105,29 @@
 .vk-theme-cpc6128 .vk-pos-tr.vk-active {
   color: #e6eaee;
 }
+
+/* ---------------------------------------------------------------------------
+   MITS Altair 8800 keyboard theme - which is really a Teletype ASR-33 theme,
+   the Altair itself having no keyboard at all. The SHIFT legends sit top-right
+   in the dull amber of a teletype's printed key faces, brightening when SHIFT
+   is engaged; the two modifiers take the front panel's own blue-grey so CTRL
+   reads as the machine key it is. Activated by the layout's
+   `theme: 'vk-theme-altair8800'`. */
+.vk-theme-altair8800:not(.vk-compact) .vk-pos-tr {
+  right: 4px;
+  top: 4px;
+  font-size: 9px;
+  color: #b08a52;
+}
+
+.vk-theme-altair8800 .vk-pos-tr.vk-active {
+  color: #f0d29a;
+}
+
+.vk-theme-altair8800 .vk-style-shift .vk-keycap {
+  background: linear-gradient(#3c4757, #2a3240);
+}
+
+.vk-theme-altair8800 .vk-style-shift .vk-label {
+  color: #dbe3ee;
+}

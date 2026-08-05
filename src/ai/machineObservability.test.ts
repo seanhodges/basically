@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll, vi } from 'vitest';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { dialects } from '../dialects/registry';
 import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
@@ -49,12 +49,14 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
+/** As screenReadable.test.ts: a ROM that cannot ship leaves an empty image. */
 function romFor(romUrl: string | undefined): Uint8Array {
   if (!romUrl) return new Uint8Array(0);
   const rel = romUrl.slice(romUrl.indexOf('roms/'));
-  return new Uint8Array(
-    readFileSync(path.resolve(__dirname, '../../public', rel)),
-  );
+  const file = path.resolve(__dirname, '../../public', rel);
+  return existsSync(file)
+    ? new Uint8Array(readFileSync(file))
+    : new Uint8Array(0);
 }
 
 describe('the key names offered match the machines', () => {

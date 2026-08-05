@@ -73,6 +73,12 @@ function summaryTable(audits: DialectAudit[]): string {
     if (a.declared === null) {
       return `| ${a.name} | ${a.inScope ? '✅' : '—'} | _not established_ | — | — | — | — | — |`;
     }
+    // An empty declaration is the opposite claim to a null one: the hardware has
+    // been read and it has no graphics codes. Counting zeros of everything would
+    // read as a gap rather than as an absence.
+    if (a.declared.length === 0) {
+      return `| ${a.name} | ${a.inScope ? '✅' : '—'} | _none_ | — | — | — | — | — |`;
+    }
     const facts = graphicsFacts(a);
     const n = countBy(facts);
     const glyphs = (n['glyph-bmp'] ?? 0) + (n['glyph-astral'] ?? 0);
@@ -94,6 +100,15 @@ function detail(audits: DialectAudit[]): string {
       out.push(
         'Which bytes this machine treats as block graphics has not been',
         'established from a primary source, so nothing is claimed here.',
+        '',
+      );
+      continue;
+    }
+    if (a.declared.length === 0) {
+      out.push(
+        'This machine has no block graphics at all: it has no video hardware',
+        'and no character generator, so every byte it can display is plain',
+        'ASCII drawn by whatever terminal is attached.',
         '',
       );
       continue;

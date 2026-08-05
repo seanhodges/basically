@@ -111,12 +111,29 @@ function landscapeSideGutter(): number {
   return Math.max(fireReach, dpadReach) + 12;
 }
 
-function fetchRom(url: string): Promise<Uint8Array> {
+/**
+ * The bundled ROM at `url`, memoized per URL.
+ *
+ * `expected` is the dialect's `romBytes` where it declares one, and checking it
+ * is not belt-and-braces: an absent image does not reliably 404. A SPA host -
+ * the Vite dev server included - answers an unknown path with `index.html` and
+ * a 200, so the machine would otherwise be handed a page of HTML and fail deep
+ * inside its own boot with whatever that produced. The size check turns that
+ * back into the fetch failure it really is, which is the case
+ * {@link describeMachineError} knows how to explain.
+ */
+function fetchRom(url: string, expected?: number): Promise<Uint8Array> {
   let cached = romCache.get(url);
   if (!cached) {
     const pending = fetch(url).then(async (r) => {
       if (!r.ok) throw new Error(`Failed to fetch ROM (${r.status})`);
-      return new Uint8Array(await r.arrayBuffer());
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      if (expected !== undefined && bytes.length !== expected) {
+        throw new Error(
+          `Failed to fetch ROM (${bytes.length} bytes, expected ${expected})`,
+        );
+      }
+      return bytes;
     });
     // Evict a rejection rather than memoizing it: the cache holds a promise, so
     // without this one offline miss would answer every later attempt for the
@@ -154,7 +171,15 @@ function describeMachineError(e: unknown, dialect: Dialect): string {
     return `The ${dialect.name} didn't start on your own ROM (${custom.name}) - "${raw}". Restore the bundled ROM in Settings ▸ Emulator if that image isn't a working ${dialect.name} ROM.`;
   }
   if (dialect.romBytes && /Failed to fetch ROM/.test(raw)) {
-    return `The ${dialect.name} ROM image isn't available. You can supply your own ${dialect.romBytes.toLocaleString()}-byte ROM in Settings → Emulator.`;
+    // Two machines reach here for different reasons. Most have a bundled image
+    // that could not be fetched (offline, or a checkout with a removable ROM
+    // deleted); the Altair never had one to fetch, because its interpreter is
+    // copyright and cannot ship - so it says that outright rather than implying
+    // something went wrong.
+    const size = dialect.romBytes.toLocaleString();
+    return dialect.romBundled === false
+      ? `No ${dialect.name} ROM ships with this IDE - its BASIC is still under copyright. Supply your own ${size}-byte image in Settings → Emulator to start the machine.`
+      : `The ${dialect.name} ROM image isn't available. You can supply your own ${size}-byte ROM in Settings → Emulator.`;
   }
   return raw;
 }
@@ -594,7 +619,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       : null;
     const rom =
       custom ??
-      (dialect.romUrl ? await fetchRom(dialect.romUrl) : new Uint8Array(0));
+      (dialect.romUrl
+        ? await fetchRom(dialect.romUrl, dialect.romBytes)
+        : new Uint8Array(0));
     const machine = dialect.createEmulator({
       rom,
       ramKb: 16,

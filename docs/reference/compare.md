@@ -3,6 +3,7 @@ title: Porting guide
 ---
 
 <script setup>
+import { altair8800Reference } from '../../src/reference/altair8800';
 import { atomReference } from '../../src/reference/atom';
 import { bbcReference } from '../../src/reference/bbc';
 import { commodoreReference } from '../../src/reference/commodore';
@@ -12,6 +13,7 @@ import { zxspectrumReference } from '../../src/reference/zxspectrum';
 import { zx80Reference } from '../../src/reference/zx80';
 import { zx81Reference } from '../../src/reference/zx81';
 
+import { altair8800Escapes } from '../../src/reference/escapes/altair8800';
 import { atomEscapes } from '../../src/reference/escapes/atom';
 import { bbcEscapes } from '../../src/reference/escapes/bbc';
 import { commodoreEscapes } from '../../src/reference/escapes/commodore';
@@ -29,6 +31,7 @@ import { machines as machineList } from '../../src/reference/machines';
 // selected. Facts belong to the *machine*, because free RAM and colour do not
 // survive being averaged across a family.
 const referenceByPage = {
+  altair8800: altair8800Reference,
   atom: atomReference,
   bbc: bbcReference,
   commodore: commodoreReference,
@@ -39,6 +42,7 @@ const referenceByPage = {
   zx81: zx81Reference,
 };
 const escapesByPage = {
+  altair8800: altair8800Escapes,
   atom: atomEscapes,
   bbc: bbcEscapes,
   commodore: commodoreEscapes,

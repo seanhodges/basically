@@ -281,13 +281,17 @@ export function SettingsForm() {
                 <button type="button" onClick={() => void uploadRom()}>
                   Upload ROM image…
                 </button>
-                <button
-                  type="button"
-                  onClick={restoreRom}
-                  disabled={!customRom}
-                >
-                  Restore bundled ROM
-                </button>
+                {/* Nothing to restore on a machine that bundles no image -
+                    the button would offer to remove the only ROM it has. */}
+                {dialect.romBundled !== false && (
+                  <button
+                    type="button"
+                    onClick={restoreRom}
+                    disabled={!customRom}
+                  >
+                    Restore bundled ROM
+                  </button>
+                )}
               </div>
               {romError && (
                 <p role="alert" className={styles.settingsError}>

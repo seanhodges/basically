@@ -559,6 +559,76 @@ const entries: PortingFactsEntry[] = [
   // own, and every variant below names it.
 
   {
+    id: 'altair8800',
+    basicDialect: 'Altair 8K BASIC',
+    portingNotes: [
+      {
+        text: 'There is no display: BASIC writes to a serial terminal, so PRINT is the whole output repertoire - no cursor addressing, no clear-screen and no display memory to POKE.',
+        topics: ['text-screen', 'graphics'],
+      },
+      {
+        text: 'No key-at-a-time read at all: interactive programs take a whole typed line per turn through INPUT. Polling the console with INP does not help - BASIC reads it for CTRL-C between statements and takes the character first.',
+        topics: ['input'],
+      },
+      {
+        text: 'Only the first two characters of a variable name are significant, and a name containing a reserved word is mis-read rather than rejected.',
+        topics: ['variable-names'],
+      },
+      {
+        text: 'Spaces are ignored outside strings, REM and DATA, so FORI=1TO5 is valid.',
+        topics: ['statement-layout'],
+      },
+      {
+        text: 'String space is 50 bytes until a program says CLEAR n. Assigning a literal costs nothing; concatenating does.',
+        topics: ['strings'],
+      },
+      {
+        text: 'BASIC is loaded into RAM rather than being firmware, so a wrong POKE address can corrupt the interpreter itself.',
+        topics: ['memory'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'ELSE',
+        note: 'No ELSE: write a second IF, or invert the test and jump.',
+      },
+      {
+        keyword: 'INKEY$',
+        note: 'No key-at-a-time read: INPUT takes a whole line, so a real-time loop becomes one turn per typed line.',
+      },
+      {
+        keyword: 'PLOT',
+        note: 'No graphics at all: build the picture in an array and PRINT it a character at a time.',
+      },
+      {
+        keyword: 'CLS',
+        note: 'Nothing clears a scrolling terminal - PRINT blank lines, or simply let the old output scroll away.',
+      },
+      {
+        keyword: 'SOUND',
+        note: 'No sound hardware. The only noise the machine can make is the terminal bell, CHR$(7).',
+      },
+      { keyword: 'COLOUR', note: 'No colour: the console is text only.' },
+    ],
+    lineNumberRange: '0-65529',
+    statementSeparator: ':',
+    elseSupported: false,
+    letRequired: 'optional',
+    variableNaming:
+      'Only the first two characters are significant; $ marks a string, and there is no integer or double type tag.',
+    numberHandling: 'Floating point, single precision only.',
+    exponentOperator: '^',
+    // Plain 7-bit ASCII, so the machine covers printable ASCII in full.
+    unsupportedCharacters: [],
+    screen:
+      '80x24 serial terminal, monochrome; BASIC wraps at its own 72-column width.',
+    freeRamBytes: 42628,
+    colour: 'None - the output is a serial terminal.',
+    sound: 'None, beyond the terminal bell at CHR$(7).',
+    memoryWriteSyntax: 'POKE addr,val',
+    addressNotation: 'dec',
+  },
+  {
     id: 'zxspectrum128',
     extends: 'zxspectrum',
     basicDialect: '128 Sinclair BASIC',

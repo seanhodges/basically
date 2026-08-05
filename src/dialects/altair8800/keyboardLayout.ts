@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import type { KeyboardLayout } from '../../keyboard/layoutSchema';
+import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
+import { bottomRow } from '../../keyboard/templateRows';
 
 /**
- * The on-screen keyboard for the Altair (Stage 3) - which, strictly, the Altair
- * did not have. The machine's own front panel is toggle switches and LEDs; you
- * typed at a Teletype ASR-33 wired to the serial board, so that is the keyboard
- * modelled here.
+ * The on-screen keyboard for the Altair - which, strictly, the Altair did not
+ * have. The machine's own front panel is toggle switches and LEDs; you typed at
+ * a Teletype ASR-33 wired to the serial board, so that is the keyboard modelled
+ * here, arranged on the project's standard five-band template.
  *
  * Consequences for the layout data, all of them simplifications:
  *
@@ -23,9 +24,166 @@ import type { KeyboardLayout } from '../../keyboard/layoutSchema';
  *   depends on - above all CTRL-C to break a running program - so it is a real
  *   modifier here rather than decoration.
  *
- * Each key's `emits` token must match what `emulator/keyboard.ts` translates,
- * and `keyboardLayout.test.ts` checks the two agree.
+ * **The SHIFT legends are not decoration either.** `emulator/keyboard.ts` sends
+ * the byte the teletype's code bars would have sent, which is the unshifted
+ * character with bit 4 flipped - so SHIFT-K really is `[`, SHIFT-P really is
+ * `@`, and SHIFT-0 really is a space. Every shifted legend below is that byte,
+ * and `keyboardLayout.test.ts` checks each one against `tokenToByte` rather than
+ * trusting this file: a legend that disagreed would type one character into the
+ * editor and send a different one to the machine.
+ *
+ * The keys carrying no second marking on a real ASR-33 - A-J, Q-Z and the space
+ * bar - have no SHIFT legend, because flipping their bit 4 would land on another
+ * letter and the mechanism simply does not do it. They fall back to their base
+ * legend on the SHIFT layer, which is exactly what the machine does.
+ *
+ * Row order follows the teletype: digits, QWERTY, a home row ending in `;`, and
+ * the punctuation row. `:` and `-` sat at the end of the teletype's own digit
+ * band; here they move to the bottom row so every typing row keeps the project's
+ * ten-key grid. The teletype's function keys - LINE FEED, RUB OUT and ALT MODE -
+ * sit in the top strip rather than taking keycaps from the typing rows.
  */
+
+/** A printing key: one machine token, a base legend and an optional SHIFT one. */
+function key(token: string, main: string, shift?: string): KeyDef {
+  return {
+    id: token,
+    spanX: 4,
+    emits: [token],
+    labels: [{ text: main }, shift === undefined ? null : { text: shift }],
+  };
+}
+
+// SHIFT flips bit 4, so the shifted digits are the ASCII row 0x21-0x29 - and
+// SHIFT-0 (0x30 ^ 0x10) is a space, which is why the tenth key carries a `␣`
+// legend that inserts one.
+const numberRow: KeyDef[] = [
+  key('Digit1', '1', '!'),
+  key('Digit2', '2', '"'),
+  key('Digit3', '3', '#'),
+  key('Digit4', '4', '$'),
+  key('Digit5', '5', '%'),
+  key('Digit6', '6', '&'),
+  key('Digit7', '7', "'"),
+  key('Digit8', '8', '('),
+  key('Digit9', '9', ')'),
+  {
+    id: 'Digit0',
+    spanX: 4,
+    emits: ['Digit0'],
+    labels: [{ text: '0' }, { text: '␣', editor: { insert: ' ' } }],
+  },
+];
+
+// Only K-P carry a second marking: those are the six letters whose bit-4 flip
+// lands outside A-Z, on `[ \ ] ^ _ @`.
+const qwertyRow: KeyDef[] = [
+  key('KeyQ', 'Q'),
+  key('KeyW', 'W'),
+  key('KeyE', 'E'),
+  key('KeyR', 'R'),
+  key('KeyT', 'T'),
+  key('KeyY', 'Y'),
+  key('KeyU', 'U'),
+  key('KeyI', 'I'),
+  key('KeyO', 'O', '_'),
+  key('KeyP', 'P', '@'),
+];
+
+const homeRow: KeyDef[] = [
+  key('KeyA', 'A'),
+  key('KeyS', 'S'),
+  key('KeyD', 'D'),
+  key('KeyF', 'F'),
+  key('KeyG', 'G'),
+  key('KeyH', 'H'),
+  key('KeyJ', 'J'),
+  key('KeyK', 'K', '['),
+  key('KeyL', 'L', '\\'),
+  key('Semicolon', ';', '+'),
+];
+
+const punctuationRow: KeyDef[] = [
+  key('KeyZ', 'Z'),
+  key('KeyX', 'X'),
+  key('KeyC', 'C'),
+  key('KeyV', 'V'),
+  key('KeyB', 'B'),
+  key('KeyN', 'N', '^'),
+  key('KeyM', 'M', ']'),
+  key('Comma', ',', '<'),
+  key('Period', '.', '>'),
+  key('Slash', '/', '?'),
+];
+
+const ctrlKey: KeyDef = {
+  id: 'Control',
+  spanX: 6,
+  emits: ['Control'],
+  modifier: 'ctrl',
+  style: 'shift',
+  labels: [{ text: 'CTRL' }, null],
+};
+
+const shiftKey: KeyDef = {
+  id: 'Shift',
+  spanX: 6,
+  emits: ['Shift'],
+  modifier: 'shift',
+  style: 'shift',
+  labels: [{ text: '⇧' }, null],
+};
+
+const spaceKey = {
+  id: 'Space',
+  emits: ['Space'],
+  style: 'small-main',
+  labels: [{ text: '␣', editor: { insert: ' ' } }, null],
+} satisfies Omit<KeyDef, 'spanX'>;
+
+const enterKey: KeyDef = {
+  id: 'Enter',
+  spanX: 4,
+  emits: ['Enter'],
+  labels: [{ text: '↵', editor: { action: 'newline' } }, null],
+};
+
+/**
+ * Not an ASR-33 key: a host keyboard's Backspace, which the machine adapter
+ * maps to the underline BASIC's own line editor reads as "rub out the last
+ * character typed". In the editor it does the obvious thing instead.
+ */
+const backspaceKey: KeyDef = {
+  id: 'Backspace',
+  spanX: 4,
+  emits: ['Backspace'],
+  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null],
+};
+
+const rows: KeyDef[][] = [
+  numberRow,
+  qwertyRow,
+  homeRow,
+  punctuationRow,
+  bottomRow([ctrlKey, shiftKey], spaceKey, [
+    key('Colon', ':', '*'),
+    key('Minus', '-', '='),
+    enterKey,
+    backspaceKey,
+  ]),
+];
+
+/**
+ * The teletype's own function keys, in the top strip. Each sends a fixed control
+ * code whatever the modifiers are, and none of them types anything into the
+ * editor, which is why they are here rather than on the typing grid.
+ */
+const functionKeys: KeyDef[] = [
+  { id: 'LineFeed', spanX: 4, emits: ['LineFeed'], labels: [{ text: 'LF' }] },
+  { id: 'Rubout', spanX: 4, emits: ['Rubout'], labels: [{ text: 'RUB' }] },
+  { id: 'Escape', spanX: 4, emits: ['Escape'], labels: [{ text: 'ALT' }] },
+];
+
 export const altair8800KeyboardLayout: KeyboardLayout = {
   id: 'altair8800',
   name: 'Altair 8800',
@@ -50,8 +208,8 @@ export const altair8800KeyboardLayout: KeyboardLayout = {
     { id: 'shift', emits: ['Shift'], sticky: true, lockable: true },
     { id: 'ctrl', emits: ['Control'], sticky: true, lockable: false },
   ],
-  // Stage 3 fills in the ASR-33 rows.
-  rows: [],
+  rows,
+  functionKeys,
   glyphs: {},
   options: { minHoldFrames: 1 },
 };

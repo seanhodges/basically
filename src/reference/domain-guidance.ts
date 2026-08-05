@@ -1250,4 +1250,211 @@ export const domainGuidance: DomainGuidance[] = [
       'No REPORT-style plain-English error text: read the numeric ERR code and look it up, or trap specific codes you expect.',
     reachFor: ['RESUME', 'ON ERROR GOTO', 'DERR'],
   },
+  // ---------------------------------------------------------- altair8800 --
+  {
+    to: 'altair8800',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN, ON...GOTO and DEF FN cover jumps, loops and single-expression functions.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. A loop with its test at the bottom is IF...THEN <line>.',
+    example: {
+      caption: 'No ELSE: split into two branches',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
+  },
+  {
+    to: 'altair8800',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'DATA/READ/RESTORE for constants, DIM for arrays, LET for assignment, and CLEAR to reset the variables and size the string space.',
+    instead:
+      'No CLR or DEFINT/DEFSTR: CLEAR does the resetting, and there is no integer or double type to declare - every number is single-precision floating point.',
+    example: {
+      caption: 'CLEAR resets and sizes strings',
+      code: ['10 CLEAR 2000', '20 DIM A(20)', '30 READ A(1)', '40 DATA 42'],
+    },
+    reachFor: ['DATA', 'READ', 'DIM', 'CLEAR'],
+  },
+  {
+    to: 'altair8800',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Single-precision maths in full: SQR, LOG, EXP, the four trig functions, RND, INT, ABS, SGN and the ^ operator.',
+    instead:
+      'No PI, DEG, RAD, MIN/MAX or integer conversions: write PI out as a constant, convert degrees by multiplying, and use INT where FIX is meant.',
+    example: {
+      caption: 'PI and degrees, written out',
+      code: ['10 P=3.14159265', '20 D=45', '30 R=D*P/180', '40 PRINT SIN(R)'],
+    },
+    reachFor: ['SQR', 'RND', 'INT', 'ATN'],
+  },
+  {
+    to: 'altair8800',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN, LEFT$, RIGHT$, MID$, ASC, CHR$, STR$ and VAL, with + joining two strings.',
+    instead:
+      'No INSTR, STRING$, SPACE$ or UPPER$: search with a MID$ loop and build a run of characters by concatenating. MID$ is a function only and cannot be assigned to.',
+    example: {
+      caption: 'Search a string with MID$',
+      code: [
+        '10 FOR I=1 TO LEN(A$)',
+        '20 IF MID$(A$,I,1)="X" THEN 40',
+        '30 NEXT I',
+        '40 PRINT I',
+      ],
+    },
+    reachFor: ['MID$', 'LEN', 'CHR$', 'VAL'],
+  },
+  {
+    to: 'altair8800',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT with TAB( and SPC( for layout, POS for the current column, and NULL for a printing terminal line delay.',
+    instead:
+      'There is no screen to address - no CLS, LOCATE, WIDTH or WINDOW. Output scrolls up a terminal, so lay a line out with TAB( and let the old output scroll away.',
+    example: {
+      caption: 'Lay out a line with TAB(',
+      code: ['10 PRINT TAB(10);"SCORE";S', '20 PRINT'],
+    },
+    reachFor: ['PRINT', 'TAB(', 'SPC(', 'POS'],
+  },
+  {
+    to: 'altair8800',
+    domain: 'graphics',
+    support: 'none',
+    summary:
+      'None: the machine has no video hardware at all, so nothing plots.',
+    instead:
+      'Build the picture in a numeric array and PRINT it a character at a time. A terminal cell is twice as tall as it is wide, so halve the vertical axis to keep circles round.',
+    example: {
+      caption: 'Print a grid instead of plotting',
+      code: [
+        '10 DIM G(48,16)',
+        '20 G(24,8)=1',
+        '30 C$=" "',
+        '40 IF G(X,Y)=1 THEN C$="*"',
+        '50 PRINT C$;',
+      ],
+    },
+  },
+  {
+    to: 'altair8800',
+    domain: 'colour',
+    support: 'none',
+    summary: 'None: the console is monochrome text.',
+    instead:
+      'Nothing sets a colour. Where a program used colour to tell things apart, use different characters or a printed label instead.',
+    example: {
+      caption: 'Tell things apart by character',
+      code: ['10 PRINT "PLAYER *"', '20 PRINT "WALL   ="'],
+    },
+  },
+  {
+    to: 'altair8800',
+    domain: 'sound',
+    support: 'none',
+    summary: 'None: the machine has no sound hardware.',
+    instead:
+      'The only noise available is the terminal bell, CHR$(7) - and it is silent in this IDE, whose console counts the bell rather than sounding it.',
+    example: {
+      caption: 'The bell is the whole repertoire',
+      code: ['10 PRINT CHR$(7);'],
+    },
+  },
+  {
+    to: 'altair8800',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT reads a whole typed line from the terminal, with an optional prompt string.',
+    instead:
+      'No INKEY$, GET or joystick - there is no key-at-a-time read at all, so an interactive program takes one INPUT per turn rather than polling inside a loop.',
+    example: {
+      caption: 'One typed line per turn',
+      code: [
+        '10 INPUT "L,R OR S";M$',
+        '20 IF M$="L" THEN X=X-1',
+        '30 IF M$="R" THEN X=X+1',
+        '40 GOTO 10',
+      ],
+    },
+    reachFor: ['INPUT'],
+  },
+  {
+    to: 'altair8800',
+    domain: 'storage',
+    support: 'partial',
+    summary:
+      'CSAVE and CLOAD move the whole program to and from cassette through the 88-ACR board.',
+    instead:
+      'There is no file system: no OPEN, no PRINT#, no directory. Only the program itself can be saved, so hold data in DATA statements rather than in a file.',
+    example: {
+      caption: 'Constants live in DATA',
+      code: [
+        '10 FOR I=1 TO 3',
+        '20 READ N',
+        '30 PRINT N',
+        '40 NEXT I',
+        '50 DATA 10,20,30',
+      ],
+    },
+    reachFor: ['CSAVE', 'CLOAD'],
+  },
+  {
+    to: 'altair8800',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK, POKE, INP, OUT, WAIT, USR and FRE reach the whole 64K and the 8080 I/O ports, all in decimal.',
+    instead:
+      'No hex literals, and no HIMEM or PAGE: addresses are written in decimal, and space is reserved with CLEAR rather than by moving a pointer.',
+    example: {
+      caption: 'Decimal addresses, no & prefix',
+      code: ['10 POKE 16384,65', '20 PRINT PEEK(16384)'],
+    },
+    reachFor: ['PEEK', 'POKE', 'INP', 'USR'],
+  },
+  {
+    to: 'altair8800',
+    domain: 'program-editing',
+    support: 'partial',
+    summary: 'RUN, LIST, NEW and CONT at the OK prompt, with REM for comments.',
+    instead:
+      'No AUTO, RENUM, DELETE or TRACE, and no apostrophe shorthand for REM: retype a line to change it, and number in tens so there is room to insert.',
+    example: {
+      caption: 'Full REM, no apostrophe form',
+      code: ['10 REM SET UP THE BOARD', '20 W=20:H=12'],
+    },
+    reachFor: ['RUN', 'LIST', 'NEW', 'REM'],
+  },
+  {
+    to: 'altair8800',
+    domain: 'error-handling',
+    support: 'none',
+    summary: 'None: an error stops the program and prints its two-letter code.',
+    instead:
+      'No ON ERROR, ERR or RESUME. Test the value before the operation that would fail - guard a divide with IF, and range-check a subscript yourself.',
+    example: {
+      caption: 'Guard instead of trapping',
+      code: [
+        '10 IF D=0 THEN 40',
+        '20 PRINT N/D',
+        '30 GOTO 50',
+        '40 PRINT "CANNOT DIVIDE"',
+      ],
+    },
+  },
 ];

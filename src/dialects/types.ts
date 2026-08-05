@@ -931,6 +931,22 @@ export interface Dialect {
    */
   romBytes?: number;
   /**
+   * Whether an image actually ships at {@link romUrl}. Defaults to true, which
+   * is the case for every machine whose ROM this project may redistribute.
+   *
+   * `false` says the URL is where the *user's own* image goes and nothing is
+   * there in a stock build - the Altair, whose 8K BASIC is Microsoft copyright
+   * with no redistribution grant, so the machine cannot start until someone
+   * supplies one. That is a designed state rather than a fault, and this flag is
+   * what lets the app say so: without it the emulator pane surfaces a raw
+   * `Failed to fetch ROM (404)` and the settings page offers to "restore the
+   * bundled ROM" that was never there.
+   *
+   * Only meaningful alongside {@link romBytes}: a machine whose ROM cannot be
+   * replaced has nothing to say about where a replacement would come from.
+   */
+  romBundled?: boolean;
+  /**
    * Slug of this dialect's docs reference page under `/docs/reference/`.
    * Defaults to `id` when absent; set it when several dialects share one page
    * (e.g. bbcmicro/bbcmaster → 'bbc', zxspectrum128 → 'zxspectrum').

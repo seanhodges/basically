@@ -58,6 +58,10 @@ const VIC_KEYS = '#dbd3c7'; // VirtualKeyboard.css .vk-theme-vic20
 const VIC_AMBER = '#cfa96f';
 const PET_PHOSPHOR = '#4f9a5a'; // VirtualKeyboard.css .vk-theme-pet
 const ATOM_BLUE = '#6f9bd1'; // VirtualKeyboard.css .vk-theme-atom
+const ALTAIR_PANEL = '#2a3240'; // VirtualKeyboard.css .vk-theme-altair8800
+const ALTAIR_CASE = '#3c4757'; // VirtualKeyboard.css .vk-theme-altair8800
+const ALTAIR_LED = '#e05a3c';
+const ALTAIR_SWITCH = '#b9bcc2';
 const TRS_SILVER = '#9aa0a6'; // VirtualKeyboard.css .vk-theme-trs80
 const CPC_BLUE = '#2f6fb0'; // VirtualKeyboard.css .vk-theme-cpc464
 const CPC_GREY = '#8d9299'; // VirtualKeyboard.css .vk-theme-cpc6128
@@ -92,6 +96,7 @@ const BASE = {
   pet: '#8d8b83',
   trs: '#8e908c',
   cpc: '#0e0e10',
+  altair: '#20262f',
 };
 
 /* ---------------------------------------------------------------------------
@@ -412,6 +417,55 @@ function GenericArt({ size }: ArtProps) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   MITS */
+
+/**
+ * Altair 8800: the blue-grey rack box whose entire front is the panel - two
+ * banks of address/data lamps over a row of paddle switches. The only machine
+ * here with no screen and no keyboard to draw, which is exactly its silhouette.
+ */
+function Altair8800Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M2 5h44v24H2z" fill={ALTAIR_CASE} />
+      <path d="M2 27h44v2H2z" fill={BASE.altair} />
+      <path d="M5 7h38v18H5z" fill={ALTAIR_PANEL} />
+      {/* The lamps: address on top, data below. */}
+      {[0, 1].map((r) =>
+        [0, 1, 2, 3, 4, 5, 6, 7].map((c) => (
+          <circle
+            key={`l${r}-${c}`}
+            cx={8 + c * 4.4}
+            cy={10.5 + r * 4}
+            r="1.1"
+            fill={ALTAIR_LED}
+          />
+        )),
+      )}
+      {/* The paddle switches, each a stem on its bezel. */}
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((c) => (
+        <g key={`s${c}`}>
+          <rect
+            x={6.8 + c * 4.4}
+            y="19.6"
+            width="2.4"
+            height="1.4"
+            fill="#7d828b"
+          />
+          <rect
+            x={7.7 + c * 4.4}
+            y="21"
+            width="0.9"
+            height="2.6"
+            fill={ALTAIR_SWITCH}
+          />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 /**
  * Portraits by registry dialect id. Typed against `MachineArtId`, so the map
  * and `machineArtIds.ts` cannot drift apart.
@@ -430,6 +484,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   trs80: Trs80Art,
   cpc464: Cpc464Art,
   cpc6128: Cpc6128Art,
+  altair8800: Altair8800Art,
 };
 
 /** A machine's portrait, `size` px tall. */

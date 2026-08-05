@@ -18,6 +18,8 @@ import type { EscapeTableData, ReferenceTableData } from '../reference/types';
  * the whole reference tree back in the initial download.
  */
 const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
+  altair8800: () =>
+    import('../reference/altair8800').then((m) => m.altair8800Reference),
   atom: () => import('../reference/atom').then((m) => m.atomReference),
   bbc: () => import('../reference/bbc').then((m) => m.bbcReference),
   commodore: () =>
@@ -38,6 +40,8 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
  * charset and the machines sharing a reference page share their escapes too.
  */
 const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
+  altair8800: () =>
+    import('../reference/escapes/altair8800').then((m) => m.altair8800Escapes),
   atom: () => import('../reference/escapes/atom').then((m) => m.atomEscapes),
   bbc: () => import('../reference/escapes/bbc').then((m) => m.bbcEscapes),
   commodore: () =>
