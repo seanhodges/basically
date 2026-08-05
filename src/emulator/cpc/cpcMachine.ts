@@ -70,7 +70,7 @@ const basicVarPointers = (v: LocoSysVars) => [
  * ROM note: the firmware + BASIC ROM image is supplied to the constructor. With
  * a genuine 32K CPC ROM the machine boots to BASIC; with an absent/blank image
  * it constructs cleanly but has no firmware to run (see the dialect's romUrl and
- * public/roms/cpc/).
+ * public/roms/cpc464/ or public/roms/cpc6128/).
  */
 export class CpcMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;

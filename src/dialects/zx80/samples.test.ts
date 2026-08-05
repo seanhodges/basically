@@ -20,7 +20,7 @@ describe('zx80 samples', () => {
 });
 
 const ROM = new Uint8Array(
-  readFileSync(path.resolve(__dirname, '../../../public/roms/zx80.rom')),
+  readFileSync(path.resolve(__dirname, '../../../public/roms/zx80/zx80.rom')),
 );
 
 /** Find the player marker 'O' on the screen, as the machine reads it back. */
@@ -106,7 +106,7 @@ describe('zx80 maze in the emulator', () => {
 
 describe('zx80 kaleidoscope', () => {
   const ROM2 = new Uint8Array(
-    readFileSync(path.resolve(__dirname, '../../../public/roms/zx80.rom')),
+    readFileSync(path.resolve(__dirname, '../../../public/roms/zx80/zx80.rom')),
   );
 
   it('builds a full 24x32 display with 4-way mirror symmetry', () => {

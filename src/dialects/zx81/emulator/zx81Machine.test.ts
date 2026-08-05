@@ -11,7 +11,7 @@ import { buildRemRecord } from '../../../app/listingBlockEdit';
 import { zx81ListingLayout } from '../listingLayout';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../../public/roms/zx81.rom')),
+  readFileSync(join(__dirname, '../../../../public/roms/zx81/zx81.rom')),
 );
 
 function displayBytes(machine: Zx81Machine): number[] {

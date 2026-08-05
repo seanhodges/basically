@@ -138,7 +138,8 @@ cassette audio), and `docs/reference/serial-protocol.md` (the WebSerial bridge).
   (`useIdeStore((s) => s.source)`). Async work is requested by bumping a counter
   (e.g. `runRequest`) that a `useEffect` watches, not by calling across modules.
 - **Tests** — `*.test.ts` colocated with source; emulator tests may read the
-  real ROM(s) under `public/roms/` (e.g. `zx81.rom`, `zxspectrum.rom`, `c64/…`).
+  real ROM(s) under `public/roms/` (e.g. `zx81/zx81.rom`, `zxspectrum/zxspectrum.rom`,
+  `commodore64/…`), one folder per dialect id.
 - **Formatting** — Prettier (single quotes, semicolons, 2-space, trailing
   commas). Run `npm run format` before committing.
 - **Docs** — everything under `docs/` publishes to the public VitePress site.

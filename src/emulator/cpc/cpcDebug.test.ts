@@ -12,7 +12,7 @@ import type { DebugStepOptions } from '../../dialects/types';
  * execution and that `native` joystick input reaches JOY(0). Skips until the ROM
  * is present (see cpcBoot.test.ts / public/roms/ATTRIBUTION.md).
  */
-const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc464.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/cpc464/cpc464.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 const suite = hasRom ? describe : describe.skip;

@@ -9,9 +9,9 @@ import { tokenizeProgram } from '../../dialects/cpc464/tokenizer';
 /**
  * The CPC's screen reader, against the real 464 firmware. Everything here needs
  * the ROM's own font and the firmware's own text output, so the suite skips
- * without `public/roms/cpc/cpc464.rom` exactly as the boot tests do.
+ * without `public/roms/cpc464/cpc464.rom` exactly as the boot tests do.
  */
-const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc464.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/cpc464/cpc464.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 
@@ -108,7 +108,10 @@ suite('CpcMachine readScreenText', () => {
   });
 });
 
-const ROM_6128_PATH = join(__dirname, '../../../public/roms/cpc/cpc6128.rom');
+const ROM_6128_PATH = join(
+  __dirname,
+  '../../../public/roms/cpc6128/cpc6128.rom',
+);
 const has6128 = existsSync(ROM_6128_PATH);
 const rom6128 = has6128
   ? new Uint8Array(readFileSync(ROM_6128_PATH))

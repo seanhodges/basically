@@ -26,7 +26,7 @@ import {
  * the machine actually put on screen. A fake machine would answer neither.
  */
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../public/roms/zx81.rom')),
+  readFileSync(join(__dirname, '../../public/roms/zx81/zx81.rom')),
 );
 
 function boot(source: string): {

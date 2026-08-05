@@ -1,18 +1,37 @@
+# How this folder is laid out
+
+One folder per machine, named for the dialect id it belongs to
+(`src/dialects/<id>/`), holding that machine's image or image set:
+`zx81/`, `zxspectrum128/`, `commodore64/`, `cpc464/`, `pet/`, `vic20/` and so
+on. A machine's `romUrl` in its dialect file points into its own folder, and
+nothing else reaches across.
+
+**The Acorn images are the exception, and must stay where they are.** `os.rom`,
+`BASIC.ROM`, `b/DFS-0.9.rom`, `master/mos3.20` and `atom/*.rom` sit at the top
+of this folder because those paths are not ours to choose: the BBC Micro, BBC
+Master and Atom run on jsbeeb, whose model table (`jsbeeb/src/models.js`) names
+each ROM by that literal path and whose loader fetches it as
+`<base>/roms/<name>`. This subtree is a copy of jsbeeb's own `public/roms/`,
+kept in the layout jsbeeb expects. Moving or renaming any of it stops those
+three machines booting in the browser — the unit tests would not catch it,
+because under node jsbeeb reads these images straight out of
+`node_modules/jsbeeb/public/roms/` instead.
+
 # Sinclair ROM attribution
 
-`zx81.rom` is the 8K Sinclair ZX81 BASIC ROM ("improved" Edition 3),
+`zx81/zx81.rom` is the 8K Sinclair ZX81 BASIC ROM ("improved" Edition 3),
 copyright © 1981 Nine Tiles Networks Ltd / Sinclair Research Ltd, with rights
 now held by Amstrad plc (acquired by Sky in 2007).
 
-`zxspectrum.rom` is the 16K Sinclair ZX Spectrum 48K BASIC ROM,
+`zxspectrum/zxspectrum.rom` is the 16K Sinclair ZX Spectrum 48K BASIC ROM,
 copyright © 1982 Sinclair Research Ltd / Nine Tiles Networks Ltd, with rights
 now held by Amstrad plc (CRC32 ddee531f — the standard 48K image).
 
-`zx80.rom` is the 4K Sinclair ZX80 BASIC ROM, copyright © 1980 Nine Tiles
+`zx80/zx80.rom` is the 4K Sinclair ZX80 BASIC ROM, copyright © 1980 Nine Tiles
 Networks Ltd / Sinclair Research Ltd, with rights now held by Amstrad plc
 (CRC32 4c7fc597 — the standard ZX80 image).
 
-`zxspectrum128.rom` is the 32K Sinclair ZX Spectrum 128K / +2 ROM, copyright
+`zxspectrum128/zxspectrum128.rom` is the 32K Sinclair ZX Spectrum 128K / +2 ROM, copyright
 © 1986 Sinclair Research Ltd / Amstrad plc, with rights now held by Amstrad plc.
 It is the standard image, formed by concatenating the two 16K halves: ROM 0 =
 the 128 editor/menu (CRC32 e76799d2) followed by ROM 1 = the 48 BASIC ROM
@@ -55,8 +74,8 @@ issue.
 
 # Commodore ROM attribution
 
-`c64/basic.bin` (Commodore BASIC v2), `c64/kernal.bin` (KERNAL) and
-`c64/chargen.bin` (character generator) are the three Commodore 64 ROMs, the
+`commodore64/basic.bin` (Commodore BASIC v2), `commodore64/kernal.bin` (KERNAL) and
+`commodore64/chargen.bin` (character generator) are the three Commodore 64 ROMs, the
 firmware originally copyright © 1982 Commodore Business Machines, with rights
 now held by Cloanto / C64 Forever.
 
@@ -96,7 +115,7 @@ issue.
 `vic20/chargen.bin` (the character generator at $8000, part 901460-03) are the
 three Commodore VIC-20 ROMs, the firmware originally copyright © 1981–1982
 Commodore Business Machines, with rights now held by Cloanto / C64 Forever.
-The filenames mirror the `c64/` naming.
+The filenames mirror the `commodore64/` naming.
 
 They are the standard VICE/MAME unexpanded PAL VIC-20 images, identified by
 their part numbers and CRC32s (`db4c43c1`, `4be07cb4`, `83e032a6`
@@ -115,11 +134,11 @@ Two 32K firmware images ship here, each formed by concatenating that machine's
 two standard 16K halves — the lower ROM (the OS/firmware) followed by the upper
 ROM (Locomotive BASIC):
 
-- `cpc/cpc464.rom` — the Amstrad CPC 464: lower ROM CRC32 `815752df`, upper ROM
+- `cpc464/cpc464.rom` — the Amstrad CPC 464: lower ROM CRC32 `815752df`, upper ROM
   (Locomotive BASIC 1.0) CRC32 `7d9a3bac`. As the machine's own boot banner
   states, it is **copyright © 1984 Amstrad Consumer Electronics plc and
   Locomotive Software Ltd**.
-- `cpc/cpc6128.rom` — the Amstrad CPC 6128: lower ROM (OS 2.x) CRC32
+- `cpc6128/cpc6128.rom` — the Amstrad CPC 6128: lower ROM (OS 2.x) CRC32
   `0219bb74`, upper ROM (Locomotive BASIC 1.1) CRC32 `ca6af63d`. Its banner
   states **copyright © 1985 Amstrad Consumer Electronics plc and Locomotive
   Software Ltd**. The AMSDOS ROM is not included: the IDE runs the 6128
@@ -164,7 +183,7 @@ removed, please open an issue and they will be taken out.
 
 # MITS Altair 8800 — the image that is missing
 
-`altair8800.rom` is **not here, and will not be**. This section exists so its
+`altair8800/altair8800.rom` is **not here, and will not be**. This section exists so its
 absence reads as a decision rather than an oversight.
 
 The Altair had no firmware at all: the base machine shipped with an empty
@@ -180,7 +199,7 @@ Commodore and Acorn ones there is no decades-old de-facto tolerance either, so
 nothing ships.
 
 To use the Altair 8800 dialect, supply your own image at
-`public/roms/altair8800.rom`. What the emulator expects is the 8192-byte 8K
+`public/roms/altair8800/altair8800.rom`. What the emulator expects is the 8192-byte 8K
 BASIC 4.0 object tape that signs on as
 
     ALTAIR BASIC REV. 4.0

@@ -112,8 +112,12 @@ BASIC:
    keyword of the machine's own BASIC, unique in the table. A test asserts the
    verb table stays in bijection with the registry, so registering without a
    verb fails `npm test`.
-3. **Drop the ROM** into `public/roms/` with an attribution block in
-   `public/roms/ATTRIBUTION.md`.
+3. **Drop the ROM** into `public/roms/<id>/`, the folder named for the dialect
+   id, with an attribution block in `public/roms/ATTRIBUTION.md`. Machines with
+   a single image name it after themselves (`zx81/zx81.rom`); a machine with a
+   set gives each image its own name (`commodore64/kernal.bin`). The Acorn
+   images at the top of `public/roms/` are the exception — see the layout note
+   in `ATTRIBUTION.md`.
 4. **Add tests**: tokenizer round-trip, image-builder pointer consistency,
    and a machine boot test like `zx81Machine.test.ts` (boot the ROM, inject a
    program, assert on display memory).
@@ -287,7 +291,9 @@ in `src/emulator/bbc/`. That pattern looks like:
   with the third-party API to one folder, plus a hand-written `.d.ts` for
   the surface used (jsbeeb ships no types);
 - ROM assets copied into `public/roms/` in the layout the package's loader
-  expects, with attribution;
+  expects, with attribution — this overrides the one-folder-per-dialect-id
+  rule above, and is why the Acorn images sit at the top of `public/roms/`
+  rather than under `bbcmicro/`: jsbeeb names them by literal path;
 - a native tokenizer is still preferred over delegating to the emulated ROM:
   the BBC dialect tokenizes in TypeScript (`src/dialects/bbcmicro/tokenizer.ts`)
   to the genuine BASIC II byte layout, so the emulator just pokes the `image`

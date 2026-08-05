@@ -32,7 +32,10 @@ describe('zxspectrum128 sample programs', () => {
   });
 });
 
-const ROM_PATH = join(__dirname, '../../../public/roms/zxspectrum128.rom');
+const ROM_PATH = join(
+  __dirname,
+  '../../../public/roms/zxspectrum128/zxspectrum128.rom',
+);
 
 // Runs the starter on the real ROM; skips when the 128 ROM is absent.
 describe.skipIf(!existsSync(ROM_PATH))(

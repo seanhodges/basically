@@ -474,7 +474,7 @@ describe('glyph sources', () => {
         ],
       ];
       const rom = new Uint8Array(
-        readFileSync(join(ROM_DIR, 'c64/chargen.bin')),
+        readFileSync(join(ROM_DIR, 'commodore64/chargen.bin')),
       );
       for (const [code, name, expected] of shapes) {
         const screen = petsciiToScreen(code)!;

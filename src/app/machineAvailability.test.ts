@@ -78,7 +78,7 @@ describe('machineIsRunnable', () => {
 
   it('offers a self-hosted drop-in the probe finds', () => {
     // The documented way to run the Altair without uploading anything: put the
-    // image at public/roms/altair8800.rom and rebuild.
+    // image at public/roms/altair8800/altair8800.rom and rebuild.
     expect(
       machineIsRunnable(altair, {
         customRoms: {},

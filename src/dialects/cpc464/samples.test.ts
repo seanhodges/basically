@@ -8,7 +8,7 @@ import { cpc464Keywords } from './keywords';
 import { asmEngineFor } from '../../asm/registry';
 import { CpcMachine } from '../../emulator/cpc/cpcMachine';
 
-const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc464.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/cpc464/cpc464.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 

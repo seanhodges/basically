@@ -21,7 +21,7 @@
   `<package>` | delegation over `<base dialect>` | in-tree interpreter>
 - **Display size:** <256×192 default | `{ width, height }`>
 - **Image / tape format:** <`.p` | `.tap` | `.prg` | `.bbc` …>
-- **ROM:** `public/roms/<id>.rom` — <source, license, attribution> _(do not
+- **ROM:** `public/roms/<id>/<id>.rom` — <source, license, attribution> _(do not
   commit a fabricated ROM; interpreter dialects need none)_
 - **Share verb:** `<verb>` — a real keyword of this machine's BASIC, unique in
   `src/player/routes.ts` `SHARE_VERBS` (bijection with the registry is
@@ -73,7 +73,7 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
       (note any new npm dependency + its license), **or** in-tree interpreter
 - [ ] `reset` / `loadProgram` / `runFrame` / `renderTo` / `keyEvent` / `setKey` /
       `releaseAllKeys` / `setSpeed` / `dispose` + `displayWidth`/`displayHeight`
-- [ ] ROM into `public/roms/<id>.rom` **+ attribution block in
+- [ ] ROM into `public/roms/<id>/<id>.rom` **+ attribution block in
       `public/roms/ATTRIBUTION.md`** (skip both for interpreter dialects)
 - [ ] `displaySize` on the dialect if not 256×192
 - [ ] test: boot ROM, inject a program, assert on display memory

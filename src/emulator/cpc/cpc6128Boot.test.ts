@@ -8,10 +8,10 @@ import { cpc6128Samples } from '../../dialects/cpc6128/samples';
 /**
  * Acceptance tests for the real CPC 6128 firmware (OS 2.x + Locomotive BASIC
  * 1.1), the 6128 half of the cpcBoot suite. The combined 32K `cpc6128.rom`
- * ships at public/roms/cpc/cpc6128.rom under the terms in
+ * ships at public/roms/cpc6128/cpc6128.rom under the terms in
  * public/roms/ATTRIBUTION.md; the suite skips if it is absent.
  */
-const ROM_PATH = join(__dirname, '../../../public/roms/cpc/cpc6128.rom');
+const ROM_PATH = join(__dirname, '../../../public/roms/cpc6128/cpc6128.rom');
 const hasRom = existsSync(ROM_PATH);
 const rom = hasRom ? new Uint8Array(readFileSync(ROM_PATH)) : new Uint8Array(0);
 

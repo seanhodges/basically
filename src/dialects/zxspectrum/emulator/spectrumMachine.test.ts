@@ -8,7 +8,9 @@ import { RAMTOP } from '../sysvars';
 import type { MemoryBlock } from '../../types';
 
 const rom = new Uint8Array(
-  readFileSync(join(__dirname, '../../../../public/roms/zxspectrum.rom')),
+  readFileSync(
+    join(__dirname, '../../../../public/roms/zxspectrum/zxspectrum.rom'),
+  ),
 );
 
 /**

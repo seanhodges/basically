@@ -5,7 +5,7 @@ import { C64Machine, type C64Roms } from './c64Machine';
 import type { MemoryBlock } from '../../dialects/types';
 import { commodore64 } from '../../dialects/commodore64';
 
-const ROOT = join(__dirname, '../../../public/roms/c64');
+const ROOT = join(__dirname, '../../../public/roms/commodore64');
 const roms: C64Roms = {
   basic: readFileSync(join(ROOT, 'basic.bin')),
   kernal: readFileSync(join(ROOT, 'kernal.bin')),

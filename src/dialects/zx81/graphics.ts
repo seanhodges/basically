@@ -3,7 +3,7 @@ import { GRAPHIC_UNICODE } from './charset';
 
 /**
  * The ZX81's block graphics and the keys they live on, decoded from the
- * keyboard tables in `public/roms/zx81.rom` rather than read off a picture of
+ * keyboard tables in `public/roms/zx81/zx81.rom` rather than read off a picture of
  * the keyboard (`./graphics.test.ts` re-derives the whole table there).
  *
  * The machine prints twenty graphic shapes on the tops of keys 1-8, Q-Y and

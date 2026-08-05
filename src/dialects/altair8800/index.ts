@@ -99,7 +99,7 @@ export const altair8800: Dialect = {
    * designed state with a "supply your own image" message, rather than letting
    * the pane surface a raw `Failed to fetch ROM (404)`.
    */
-  romUrl: `${import.meta.env.BASE_URL}roms/altair8800.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/altair8800/altair8800.rom`,
 
   /**
    * The machine runs whatever image it is handed, and nothing is handed to it

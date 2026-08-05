@@ -20,7 +20,7 @@ project.
 The upstream README adds a caveat that the **ROMs** it ships (BASIC, KERNAL,
 CHARGEN) are derived from works by other authors and are not placed in the
 public domain. We do **not** vendor viciious's ROM source modules; the three
-ROM images live under `public/roms/c64/` as binary assets — see
+ROM images live under `public/roms/commodore64/` as binary assets — see
 `public/roms/ATTRIBUTION.md`.
 
 ## Vendored files

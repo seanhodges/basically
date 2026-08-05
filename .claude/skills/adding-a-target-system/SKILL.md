@@ -215,7 +215,7 @@ type-valid throwing stub per planned component, colocated test stubs, and a
   clean while the dialect is WIP; registration is Stage 3 of the plan.
 - **Test stubs use `describe` + `it.todo(...)`** so `npm test` passes with the
   stubs present.
-- **Do not fabricate a ROM.** Note the required `public/roms/<id>.rom` and its
+- **Do not fabricate a ROM.** Note the required `public/roms/<id>/<id>.rom` and its
   license/attribution in the plan's target summary instead.
 - **Leave the picker identity to Stage 3.** The stub's `index.ts` may hold
   placeholder `name`/`manufacturer`/`year`/`blurb` values to satisfy the type;

@@ -8,7 +8,7 @@ import { CPC_GLYPHS, cpcCharset } from './charset';
  * firmware ROM actually draws, rather than against a character-set table copied
  * from a manual.
  *
- * `public/roms/cpc/cpc464.rom` is the 32K lower+upper pair; the 256-glyph
+ * `public/roms/cpc464/cpc464.rom` is the 32K lower+upper pair; the 256-glyph
  * character matrix is the last 2K of the 16K OS half, eight bytes per glyph,
  * one bit per pixel. {@link FONT_BASE} is pinned by `agrees with the codes
  * already mapped` below, which fails if the table is not where it is read from.
@@ -25,7 +25,7 @@ import { CPC_GLYPHS, cpcCharset } from './charset';
  *   it exactly, so a mis-assigned half or triangle fails.
  */
 
-const ROM = join(__dirname, '../../../public/roms/cpc/cpc464.rom');
+const ROM = join(__dirname, '../../../public/roms/cpc464/cpc464.rom');
 const FONT_BASE = 0x3800;
 
 const rom = new Uint8Array(readFileSync(ROM));

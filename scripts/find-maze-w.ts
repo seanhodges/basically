@@ -9,7 +9,9 @@ import { buildOFile } from '../src/dialects/zx80/ofile';
 import { Zx80Machine } from '../src/dialects/zx80/emulator/zx80Machine';
 import { D_FILE, DF_END } from '../src/dialects/zx80/sysvars';
 
-const ROM = new Uint8Array(readFileSync(path.resolve('public/roms/zx80.rom')));
+const ROM = new Uint8Array(
+  readFileSync(path.resolve('public/roms/zx80/zx80.rom')),
+);
 const baseMazeText = readFileSync(
   path.resolve('src/dialects/zx80/samples/maze.bas'),
   'utf-8',

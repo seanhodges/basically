@@ -22,7 +22,7 @@
 - **Image / tape format:** no standard container. Cassette audio over the 88-ACR
   board (Kansas City Standard, 300 baud), plain-ASCII paper tape, and the
   tokenized image `CSAVE` wrote
-- **ROM:** `public/roms/altair8800.rom` — **user-supplied, does not ship**. See
+- **ROM:** `public/roms/altair8800/altair8800.rom` — **user-supplied, does not ship**. See
   _The ROM problem_ below; add the `ATTRIBUTION.md` block explaining the absence
 - **Share verb:** `csave` — confirmed in the 8K reserved-word list, unique in
   `SHARE_VERBS`, and consistent with the table's cassette-verb house style
@@ -66,7 +66,7 @@ really can corrupt the interpreter.
 Altair 8K BASIC is Microsoft copyright with no redistribution grant. Microsoft's
 2025 open-source release was the **6502** BASIC (MIT-licensed), not the 8080
 Altair BASIC, so there is no image this project can legally ship. The user
-supplies their own at `public/roms/altair8800.rom`.
+supplies their own at `public/roms/altair8800/altair8800.rom`.
 
 This is the same situation as the TRS-80's Level II ROM — but there a clean-room
 interpreter is the shipped default and the ROM path is the optional accuracy
@@ -151,7 +151,7 @@ Everything in `addresses.ts` and `keywords.ts` was read off the MITS 8K BASIC
 4.0 object tape itself (`ALTAIR BASIC REV. 4.0 / [EIGHT-K VERSION] / COPYRIGHT
 1976 BY MITS INC.`, 8192 bytes, md5 `97eead711723295e9ce4f52b300002cf` — the
 image SIMH's AltairZ80 software collection ships as `8kbas.bin`, and the image a
-user has to supply at `public/roms/altair8800.rom`). Two methods, and every
+user has to supply at `public/roms/altair8800/altair8800.rom`). Two methods, and every
 value was checked both ways where both applied:
 
 1. **Statically**, from the image. The reserved-word table sits at 0x0073–0x0159
@@ -264,7 +264,7 @@ Altair loaded BASIC into RAM rather than running firmware, a hand-assembled
 `altairMachine.test.ts` runs a dozen of them to cover the bus, the 2SIO's
 polarity, the sense-switch port, the terminal, CTRL-C and each flag correction
 (every flag case fails if the fix is removed). The four cases that need the real
-interpreter skip when `public/roms/altair8800.rom` is absent.
+interpreter skip when `public/roms/altair8800/altair8800.rom` is absent.
 
 **Two things Stage 3 inherits.** `bootToReady()` is public: left to itself the
 machine prints `MEMORY SIZE?` and waits, which is authentic and typeable, so the
@@ -364,7 +364,7 @@ what `public/roms/ATTRIBUTION.md` has always said is allowed.
 **Consequence worth knowing:** in a stock build the Altair is now unreachable
 from the UI, and Settings ▸ Emulator only offers a ROM upload for the _current_
 machine — so the supported route is a self-hosted drop-in at
-`public/roms/altair8800.rom`. Giving Settings a "machines needing a ROM" section
+`public/roms/altair8800/altair8800.rom`. Giving Settings a "machines needing a ROM" section
 would close that loop, and is not in this stage.
 
 **The machine gained `readScreenText`.** Every registered machine must implement

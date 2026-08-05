@@ -44,7 +44,7 @@ import { spectrumMemoryBlocks } from '../zxspectrum/memoryBlocks';
  * ZX Spectrum 128K / +2 / +3 (128 BASIC), registered in src/dialects/registry.ts.
  * It shares the 48K Spectrum language and tape layer, adding only the two extra
  * tokens (SPECTRUM, PLAY), memory paging, the dual ROM and the AY-3-8912 sound
- * chip. The 32K 128K ROM lives under public/roms/zxspectrum128.rom. See
+ * chip. The 32K 128K ROM lives under public/roms/zxspectrum128/zxspectrum128.rom. See
  * docs/dialect-plans/zxspectrum128.md.
  */
 export const zxspectrum128: Dialect = {
@@ -102,7 +102,7 @@ export const zxspectrum128: Dialect = {
     ];
   },
 
-  romUrl: `${import.meta.env.BASE_URL}roms/zxspectrum128.rom`,
+  romUrl: `${import.meta.env.BASE_URL}roms/zxspectrum128/zxspectrum128.rom`,
   romBytes: ROM_BYTES,
 
   debuggable: true,

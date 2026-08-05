@@ -356,9 +356,8 @@ export function SettingsForm() {
                 </p>
               )}
               <p>
-                The image is
-                kept in this browser only, is never uploaded anywhere, and is
-                not included in programs you publish.
+                The image is kept in this browser only, is never uploaded
+                anywhere, and is not included in programs you publish.
               </p>
               {romDialect.romBundled === false && (
                 <p>

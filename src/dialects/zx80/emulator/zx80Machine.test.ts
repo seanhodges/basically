@@ -50,7 +50,9 @@ function firstTextRow(machine: Zx80Machine): string {
 }
 
 const ROM = new Uint8Array(
-  readFileSync(path.resolve(__dirname, '../../../../public/roms/zx80.rom')),
+  readFileSync(
+    path.resolve(__dirname, '../../../../public/roms/zx80/zx80.rom'),
+  ),
 );
 
 /**

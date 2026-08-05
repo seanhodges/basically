@@ -82,7 +82,7 @@ const NO_IMAGE_NOTICE = [
   '',
   'The Altair had no firmware: it loaded BASIC from paper tape, and',
   'Altair 8K BASIC is still under copyright, so no image ships here.',
-  'Supply your own at public/roms/altair8800.rom to start the machine.',
+  'Supply your own at public/roms/altair8800/altair8800.rom to start the machine.',
 ];
 
 /** The opcode has no P-flag divergence worth correcting. */
@@ -173,7 +173,7 @@ const PARITY = buildParityTable();
  * **The ROM that isn't.** `opts.rom` carries the Altair 8K BASIC image, which
  * this project does not and cannot ship: it is Microsoft copyright with no
  * redistribution grant (their 2025 open-source release was the *6502* BASIC).
- * The user supplies their own at `public/roms/altair8800.rom`. The machine
+ * The user supplies their own at `public/roms/altair8800/altair8800.rom`. The machine
  * therefore stays constructible with an empty image and says so on its terminal
  * rather than throwing.
  */
@@ -494,7 +494,7 @@ export class Altair8800Machine implements MachineEmulator {
       if (done()) return;
     }
     throw new Error(
-      `Altair 8K BASIC ${failure} - the image at public/roms/altair8800.rom ` +
+      `Altair 8K BASIC ${failure} - the image at public/roms/altair8800/altair8800.rom ` +
         'is not the 8K BASIC 4.0 paper tape this dialect expects',
     );
   }

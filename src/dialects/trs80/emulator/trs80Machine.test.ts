@@ -8,7 +8,10 @@ import { tokenizeProgram } from '../tokenizer';
 // licensing note in public/roms/ATTRIBUTION.md). This Z80 + ROM machine is the
 // optional accuracy mode; these tests boot the real ROM when the user has
 // supplied it and skip cleanly otherwise, so CI stays green without it.
-const ROM_PATH = path.resolve(__dirname, '../../../../public/roms/trs80.rom');
+const ROM_PATH = path.resolve(
+  __dirname,
+  '../../../../public/roms/trs80/trs80.rom',
+);
 const ROM = existsSync(ROM_PATH)
   ? new Uint8Array(readFileSync(ROM_PATH))
   : null;

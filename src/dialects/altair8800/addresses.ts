@@ -16,7 +16,7 @@
  *
  * (md5 97eead711723295e9ce4f52b300002cf, the image the SIMH AltairZ80 software
  * collection distributes as `8kbas.bin`). That is the image a user has to supply
- * at `public/roms/altair8800.rom`; it is Microsoft copyright and does not ship
+ * at `public/roms/altair8800/altair8800.rom`; it is Microsoft copyright and does not ship
  * here - see the note in `index.ts`. Offsets below are into that image, which
  * loads at 0x0000, so an image offset and a run-time address are the same number
  * and either can be checked with a hex editor.
