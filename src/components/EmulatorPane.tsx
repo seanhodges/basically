@@ -56,12 +56,11 @@ import type {
 } from '../dialects/types';
 import { emulatorVfs } from '../storage/vfs/vfsStore';
 import { loadCustomRom, getCustomRomMeta } from '../storage/customRom';
+import { fetchRom } from '../app/romImage';
 import { EmulatorAudio } from '../audio/emulatorAudio';
 import { VariableWatcher } from './VariableWatcher';
 import { GearsSpinner } from './GearsSpinner';
 import styles from './EmulatorPane.module.css';
-
-const romCache = new Map<string, Promise<Uint8Array>>();
 
 /** The machine handle the virtual-keyboard overlay needs to send keys. */
 export interface MachineApi {
@@ -109,42 +108,6 @@ function landscapeSideGutter(): number {
   // D-pad (left edge): offset + its width.
   const dpadReach = clamp(8, 3 * vw, 64) + clamp(110, 0.26 * vmin, 200);
   return Math.max(fireReach, dpadReach) + 12;
-}
-
-/**
- * The bundled ROM at `url`, memoized per URL.
- *
- * `expected` is the dialect's `romBytes` where it declares one, and checking it
- * is not belt-and-braces: an absent image does not reliably 404. A SPA host -
- * the Vite dev server included - answers an unknown path with `index.html` and
- * a 200, so the machine would otherwise be handed a page of HTML and fail deep
- * inside its own boot with whatever that produced. The size check turns that
- * back into the fetch failure it really is, which is the case
- * {@link describeMachineError} knows how to explain.
- */
-function fetchRom(url: string, expected?: number): Promise<Uint8Array> {
-  let cached = romCache.get(url);
-  if (!cached) {
-    const pending = fetch(url).then(async (r) => {
-      if (!r.ok) throw new Error(`Failed to fetch ROM (${r.status})`);
-      const bytes = new Uint8Array(await r.arrayBuffer());
-      if (expected !== undefined && bytes.length !== expected) {
-        throw new Error(
-          `Failed to fetch ROM (${bytes.length} bytes, expected ${expected})`,
-        );
-      }
-      return bytes;
-    });
-    // Evict a rejection rather than memoizing it: the cache holds a promise, so
-    // without this one offline miss would answer every later attempt for the
-    // life of the page - including the fetch that "restore bundled ROM" needs.
-    pending.catch(() => {
-      if (romCache.get(url) === pending) romCache.delete(url);
-    });
-    cached = pending;
-    romCache.set(url, cached);
-  }
-  return cached;
 }
 
 /**

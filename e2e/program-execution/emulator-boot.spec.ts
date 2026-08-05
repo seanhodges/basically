@@ -26,9 +26,13 @@ import {
 
 /** Keep in sync with src/dialects/registry.ts - the guard test below fails
  *  with a helpful message when a machine is added, renamed or re-identified.
- *  Ids and labels both come from the rows of the shared machine picker. */
+ *  Ids and labels both come from the rows of the shared machine picker.
+ *
+ *  The picker offers only machines that can actually start, so a registered
+ *  dialect whose ROM is missing is deliberately absent from both - the Altair,
+ *  whose 8K BASIC image ships with nobody. `e2e/project-setup/new-project.spec.ts`
+ *  asserts that omission from the other side. */
 const MACHINES = [
-  { id: 'altair8800', label: 'Altair 8800' },
   { id: 'atom', label: 'Atom' },
   { id: 'bbcmaster', label: 'BBC Master' },
   { id: 'bbcmicro', label: 'BBC Micro' },
@@ -68,16 +72,7 @@ test('guard: automated machine list matches the machine picker', async ({
   expect(ids.sort(), msg).toEqual(MACHINES.map((m) => m.id).sort());
 });
 
-/**
- * Machines that cannot boot in a stock build because their interpreter is
- * copyright and ships with nobody: the Altair, whose 8K BASIC image the user
- * supplies (see public/roms/ATTRIBUTION.md). They are still in MACHINES above -
- * the picker offers them - but the paint test below has nothing to run, so what
- * is asserted instead is the designed message that says how to fix it.
- */
-const WITHOUT_BUNDLED_ROM = new Set(['altair8800']);
-
-for (const machine of MACHINES.filter((m) => !WITHOUT_BUNDLED_ROM.has(m.id))) {
+for (const machine of MACHINES) {
   test(`sample boots, runs and paints - ${machine.label}`, async ({ page }) => {
     test.setTimeout(120_000); // ROM boot + first frames can be slow in CI
     await openApp(page);
@@ -94,21 +89,6 @@ for (const machine of MACHINES.filter((m) => !WITHOUT_BUNDLED_ROM.has(m.id))) {
     await stopEmulator(page);
   });
 }
-
-test('a machine with no bundled ROM says how to supply one', async ({
-  page,
-}) => {
-  test.setTimeout(90_000);
-  await openApp(page);
-  await createProjectWithSample(page, 'Hello world', 'altair8800');
-  await expect(page.locator('.cm-content')).not.toHaveText('');
-  // Not playAndWaitRunning: the point is that it never reaches "running".
-  await page.getByRole('button', { name: '▶ Play' }).click();
-  await expect(page.getByText(/No Altair 8800 ROM ships/)).toBeVisible({
-    timeout: 45_000,
-  });
-  await expect(page.getByText(/Settings → Emulator/)).toBeVisible();
-});
 
 test('screen focus captures keys; Escape releases it', async ({ page }) => {
   test.setTimeout(90_000);

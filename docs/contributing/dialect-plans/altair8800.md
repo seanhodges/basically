@@ -348,6 +348,24 @@ upload label all read it. `EmulatorPane.fetchRom` also grew a size check against
 Vite dev server included) answers with `index.html` and a 200, which otherwise
 reached the machine as an 8080 program and failed deep inside `bootToReady`.
 
+**A machine with no ROM is not offered in the picker.** Registering the Altair
+put a row in the machine picker that could only lead to an error, so both
+pickers (New project, and the toolbar's target switcher) now filter the registry
+through `src/app/machineAvailability.ts`. A machine is offered when it loads its
+own ROM set (no `romBytes`), when the user has installed an image of the right
+size, or when its bundled image really is there — probed once per page through
+the shared `fetchRom` cache, so the probe _is_ the emulator's later download.
+The machine the document is already on is always kept, since a share link or a
+saved project can reach one. The filter is general rather than Altair-specific:
+delete any removable ROM from a build and that machine disappears too, which is
+what `public/roms/ATTRIBUTION.md` has always said is allowed.
+
+**Consequence worth knowing:** in a stock build the Altair is now unreachable
+from the UI, and Settings ▸ Emulator only offers a ROM upload for the _current_
+machine — so the supported route is a self-hosted drop-in at
+`public/roms/altair8800.rom`. Giving Settings a "machines needing a ROM" section
+would close that loop, and is not in this stage.
+
 **The machine gained `readScreenText`.** Every registered machine must implement
 it (`screenReadable.test.ts`), and here it is the easiest one in the project:
 the terminal grid already _is_ text. Two test helpers that read a dialect's ROM

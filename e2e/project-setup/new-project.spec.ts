@@ -138,6 +138,27 @@ test('the machine picker groups machines by manufacturer', async ({ page }) => {
   await expect(zx81).toContainText(/million-selling/i);
 });
 
+test('a machine whose ROM is not there is not offered', async ({ page }) => {
+  // The Altair's 8K BASIC is Microsoft copyright and ships with nobody (see
+  // public/roms/ATTRIBUTION.md), so in a stock build the machine cannot start -
+  // and a picker row leading only to an error is a dead end. It comes back the
+  // moment an image is supplied, which is what
+  // src/app/machineAvailability.test.ts covers case by case.
+  await open(page);
+  const dialog = await openNewProjectDialog(page);
+  await dialog.locator('button[data-target-machine]').click();
+  const picker = machinePicker(page);
+  await expect(picker.locator('button[data-machine]').first()).toBeVisible();
+
+  await expect(picker.locator('button[data-machine="altair8800"]')).toHaveCount(
+    0,
+  );
+  await expect(picker.getByText('MITS', { exact: true })).toHaveCount(0);
+  // Guard the guard: the registry does hold it, so this is a filter and not a
+  // machine that was never registered.
+  await expect(picker.locator('button[data-machine]').first()).toBeVisible();
+});
+
 test('the picker closes without taking the new-project dialog with it', async ({
   page,
 }) => {
