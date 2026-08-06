@@ -84,6 +84,7 @@ function vocabulary(
   escapeCodes: number[] = [],
   characters: string[] = [],
   multiStatementLines: number[] = [],
+  writeSites: ProgramVocabulary['writeSites'] = [],
 ): ProgramVocabulary {
   return {
     dialectId,
@@ -91,6 +92,7 @@ function vocabulary(
     escapeCodes,
     characters,
     multiStatementLines,
+    writeSites,
   };
 }
 

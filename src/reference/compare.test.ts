@@ -1026,6 +1026,7 @@ function vocab(
   dialectId = 'zx81',
   characters: string[] = [],
   multiStatementLines: number[] = [],
+  writeSites: ProgramVocabulary['writeSites'] = [],
 ): ProgramVocabulary {
   return {
     dialectId,
@@ -1033,6 +1034,7 @@ function vocab(
     escapeCodes,
     characters,
     multiStatementLines,
+    writeSites,
   };
 }
 

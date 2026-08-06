@@ -147,7 +147,33 @@ describe('vocabularyReply', () => {
       escapeCodes: [],
       characters: [...'01:=EFINORTX'],
       multiStatementLines: [1],
+      writeSites: [],
     });
+  });
+
+  it('reports the addresses the program writes to', () => {
+    // What the porting guide marks on both machines' memory layouts. Read as the
+    // machine named, so the addresses are the ones the program aimed at.
+    const reply = vocabularyReply(
+      '10 POKE 53280,0\n20 POKE 1024,1',
+      c64,
+      'commodore64',
+    );
+
+    expect(reply.writeSites.map((s) => s.address)).toEqual([1024, 53280]);
+    expect(reply.writeSites.every((s) => s.approximate === false)).toBe(true);
+  });
+
+  it('reads the write addresses as the machine the guide named', () => {
+    // The same trap the keyword scan has: a program kept on a machine that
+    // cannot run it is read as the machine it is being ported *from*, so its
+    // writes resolve against that machine's memory rather than the selected
+    // one's. The ZX81 has no POKE-able screen at 53280; the C64 does, and this
+    // program is a C64 program whatever the IDE currently has selected.
+    const reply = vocabularyReply('10 POKE 53280,0', zx81, 'commodore64');
+
+    expect(reply.dialectId).toBe('commodore64');
+    expect(reply.writeSites.map((s) => s.address)).toEqual([53280]);
   });
 
   it('reports an empty editor as empty', () => {

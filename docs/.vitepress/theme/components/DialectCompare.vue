@@ -930,6 +930,7 @@ function onVocabularyMessage(e: MessageEvent) {
     multiStatementLines: Array.isArray(data.multiStatementLines)
       ? data.multiStatementLines
       : [],
+    writeSites: Array.isArray(data.writeSites) ? data.writeSites : [],
   };
   // On the first answer, open on the machine the program is written for: it is
   // the one selection under which the narrowing means anything. A link that

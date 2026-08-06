@@ -7,19 +7,19 @@
 
 ## 2. Extract the presentational memory map
 
-- [ ] 2.1 Create `src/components/MemoryMapView.tsx` with the band rendering, write/load markers, address ticks and selection detail lifted from `MemoryMapPanel.tsx`, taking `map`, `zoom`, `notation`, `selectedKey`/`onSelect`, `showDetails`, `scrollTop`/`onScroll`, `sites`, `byIndirection`, `overlay`, `onGeometry` and `onZoomGesture` as props and holding no state of its own
-- [ ] 2.2 Declare the `MapWriteSite` shape in `MemoryMapView.tsx` rather than importing `PokeSite`, and add a colocated `MemoryMapView.test.ts` pinning `PokeSite` as structurally assignable to it
-- [ ] 2.3 Split the band, marker, tick and detail rules out of `MemoryMapPanel.module.css` into `MemoryMapView.module.css`, leaving the panel chrome behind
-- [ ] 2.4 Reduce `MemoryMapPanel.tsx` to the IDE wrapper: store wiring, `pokeSites()` and the write context, zoom/pinch/wheel state and the scroll anchor, the out-of-range warning, the header and controls, and the activity `<canvas>` passed in as `overlay` with `onGeometry` feeding `useMemoryActivity`
-- [ ] 2.5 Cover `MemoryMapView` in `MemoryMapView.test.ts`: the same map renders coarse groups below the detail threshold and its own leaf regions above it, reusing the fixtures behind `memoryBands.test.ts`
-- [ ] 2.6 Run `npm run e2e:chromium -- e2e/memory-map` and confirm all four specs pass unchanged — the regression gate for the extraction, before any guide work starts
+- [x] 2.1 Create `src/components/MemoryMapView.tsx` with the band rendering, write/load markers, address ticks and selection detail lifted from `MemoryMapPanel.tsx`, taking `map`, `zoom`, `notation`, `selectedKey`/`onSelect`, `showDetails`, `scrollTop`/`onScroll`, `sites`, `byIndirection`, `overlay`, `onGeometry` and `onZoomGesture` as props and holding no state of its own
+- [x] 2.2 Declare the `MapWriteSite` shape in `MemoryMapView.tsx` rather than importing `PokeSite`, and add a colocated `MemoryMapView.test.ts` pinning `PokeSite` as structurally assignable to it
+- [x] 2.3 Split the band, marker, tick and detail rules out of `MemoryMapPanel.module.css` into `MemoryMapView.module.css`, leaving the panel chrome behind
+- [x] 2.4 Reduce `MemoryMapPanel.tsx` to the IDE wrapper: store wiring, `pokeSites()` and the write context, zoom/pinch/wheel state and the scroll anchor, the out-of-range warning, the header and controls, and the activity `<canvas>` passed in as `overlay` with `onGeometry` feeding `useMemoryActivity`
+- [x] 2.5 Cover the view's boundary contract in `MemoryMapView.test.ts`: `PokeSite` stays assignable to `MapWriteSite` and arrives with the fields the markers read. (Rendering is *not* unit-tested: vitest runs in node with no DOM here, so what a band looks like at a given zoom stays an `e2e/memory-map/` assertion.)
+- [x] 2.6 Run `npm run e2e:chromium -- e2e/memory-map` and confirm all four specs pass unchanged — the regression gate for the extraction, before any guide work starts
 
 ## 3. Carry the program's write sites to the guide
 
-- [ ] 3.1 Add `writeSites` to `ProgramVocabulary` and `ProgramVocabularyReply` in `src/app/programVocabulary.ts`, resolved with `pokeSites()` against the dialect `vocabularyReply()` already selects (the machine being ported *from*, not the selected one)
-- [ ] 3.2 Add `'writeSites'` to `PROGRAM_VOCABULARY_FIELDS` in `src/components/DocsDrawer.tsx`
-- [ ] 3.3 Extend `src/components/DocsDrawer.test.ts` to pin the new field across the boundary, and to hold the two existing traps: sites are read as the requested dialect, and a program with non-fatal findings still reports them
-- [ ] 3.4 Read `writeSites` in `DialectCompare.vue`'s `onVocabularyMessage`, defaulting to `[]` like every other field, so a cached older app answering without it degrades to layouts-only
+- [x] 3.1 Add `writeSites` to `ProgramVocabulary` and `ProgramVocabularyReply` in `src/app/programVocabulary.ts`, resolved with `pokeSites()` against the dialect `vocabularyReply()` already selects (the machine being ported *from*, not the selected one)
+- [x] 3.2 Add `'writeSites'` to `PROGRAM_VOCABULARY_FIELDS` in `src/components/DocsDrawer.tsx`
+- [x] 3.3 Extend `src/components/DocsDrawer.test.ts` to pin the new field across the boundary, and to hold the two existing traps: sites are read as the requested dialect, and a program with non-fatal findings still reports them
+- [x] 3.4 Read `writeSites` in `DialectCompare.vue`'s `onVocabularyMessage`, defaulting to `[]` like every other field, so a cached older app answering without it degrades to layouts-only
 
 ## 4. The memory-layout section
 

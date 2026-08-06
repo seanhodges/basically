@@ -25,6 +25,7 @@ import { findDialect } from '../dialects/registry';
 import { isBinaryDirective } from '../dialects/binaryDirective';
 import { scannable } from '../editor/programOutline';
 import { makeCrunchMatcher } from '../editor/crunch';
+import { resolveWriteSites } from './memoryWriteSites';
 
 /** One program's distinct vocabulary, in the language it was read as. */
 export interface ProgramVocabulary {
@@ -63,6 +64,41 @@ export interface ProgramVocabulary {
    * is talked about in one coordinate system or the reader has to convert.
    */
   multiStatementLines: number[];
+  /**
+   * The addresses the program writes to, in ascending order, as resolved for the
+   * machine it is read as.
+   *
+   * The porting guide marks these on *both* compared machines' memory layouts,
+   * which is what lets it say that a write aimed at one machine's system
+   * variables reaches another machine's BASIC program text - a difference no
+   * keyword or control-code diff can find, because the program's text does not
+   * change at all.
+   *
+   * Only the sites that land inside the machine's memory; one that resolves
+   * outside it is a finding about the program rather than about the port, and
+   * the IDE's own map already reports it. Best-effort, like everything
+   * {@link resolveWriteSites} produces: `approximate` marks an address worked
+   * out at runtime, and the guide draws it as an estimate.
+   */
+  writeSites: ProgramWriteSite[];
+}
+
+/**
+ * One address the program writes to, as it crosses to the porting guide.
+ *
+ * A plain-data subset of the editor's `PokeSite` - `lineNo` is left behind
+ * because the guide has no editor to point at. Deliberately declared here as
+ * data rather than shared as a type with the docs side: the two agree by field
+ * name across `postMessage`, pinned by `DocsDrawer.test.ts`, exactly as the rest
+ * of this payload does.
+ */
+export interface ProgramWriteSite {
+  address: number;
+  expr: string;
+  computed: boolean;
+  approximate: boolean;
+  endAddress?: number;
+  role?: 'load';
 }
 
 /**
@@ -303,6 +339,26 @@ function multiStatementLinesIn(source: string, dialect: Dialect): number[] {
 }
 
 /**
+ * The addresses the program writes to, as plain data for the wire.
+ *
+ * `lineNo` is dropped: the guide has no editor to point a line number at, and
+ * everything that crosses this boundary should be what the other side actually
+ * uses.
+ */
+function writeSitesIn(source: string, dialect: Dialect): ProgramWriteSite[] {
+  return resolveWriteSites(source, dialect).inRange.map(
+    ({ address, expr, computed, approximate, endAddress, role }) => ({
+      address,
+      expr,
+      computed,
+      approximate,
+      ...(endAddress !== undefined ? { endAddress } : {}),
+      ...(role !== undefined ? { role } : {}),
+    }),
+  );
+}
+
+/**
  * The distinct commands and control codes `source` contains, read as `dialect`.
  *
  * An empty or unreadable program yields an empty vocabulary, which callers are
@@ -319,6 +375,7 @@ export function programVocabulary(
     escapeCodes: [...escapeCodesIn(source, dialect)].sort((a, b) => a - b),
     characters: [...charactersIn(source, dialect)].sort(),
     multiStatementLines: multiStatementLinesIn(source, dialect),
+    writeSites: writeSitesIn(source, dialect),
   };
 }
 
@@ -330,6 +387,7 @@ export interface ProgramVocabularyReply {
   escapeCodes: number[];
   characters: string[];
   multiStatementLines: number[];
+  writeSites: ProgramWriteSite[];
 }
 
 /**
@@ -373,5 +431,6 @@ export function vocabularyReply(
     escapeCodes: vocab.escapeCodes,
     characters: vocab.characters,
     multiStatementLines: vocab.multiStatementLines,
+    writeSites: vocab.writeSites,
   };
 }

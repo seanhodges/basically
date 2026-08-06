@@ -677,6 +677,24 @@ export interface ProgramVocabulary {
   characters: string[];
   /** 1-based editor lines carrying more than one statement. */
   multiStatementLines: number[];
+  /**
+   * The addresses the program writes to, resolved for the machine it was read
+   * as. Marked on both machines' memory layouts: on the source's because that
+   * is where the program aimed them, and on the target's because that is where
+   * they would land.
+   */
+  writeSites: ProgramWriteSite[];
+}
+
+/** One address the program writes to. The app-side twin is
+ *  `ProgramWriteSite` in `src/app/programVocabulary.ts`. */
+export interface ProgramWriteSite {
+  address: number;
+  expr: string;
+  computed: boolean;
+  approximate: boolean;
+  endAddress?: number;
+  role?: 'load';
 }
 
 /**
