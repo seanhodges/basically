@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useIdeStore } from '../app/store';
 import { useDismiss } from '../app/useDismiss';
 import { getDialect } from '../dialects/registry';
@@ -34,19 +34,31 @@ import styles from './NewProjectDialog.module.css';
  */
 export function NewProjectDialog() {
   const open = useIdeStore((s) => s.newProjectOpen);
+  // Mounted only while it is open, so every open starts from the state
+  // constructors below rather than from a reset effect. The effect that used to
+  // do the resetting ran after the dialog had already painted, so Ctrl+N and a
+  // fast Enter could submit the *previous* visit's choice - creating the sample
+  // last used instead of the blank program the keyboard path promises.
+  return open ? <NewProjectForm /> : null;
+}
+
+function NewProjectForm() {
   const setOpen = useIdeStore((s) => s.setNewProjectOpen);
   const activeDialectId = useIdeStore((s) => s.dialect.id);
 
+  // "The machine you're on, and a blank program", every time.
   const [machineId, setMachineId] = useState(activeDialectId);
   const [name, setName] = useState('');
   const [startingPoint, setStartingPoint] = useState<StartingPoint>('blank');
-  const [sampleName, setSampleName] = useState('');
+  const [sampleName, setSampleName] = useState(
+    () => getDialect(activeDialectId).samples[0]?.name ?? '',
+  );
   const [request, setRequest] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // The assistant cannot be configured while this modal is up, so key presence
   // is settled for the dialog's lifetime - read it when it opens.
-  const [aiReady, setAiReady] = useState(false);
+  const [aiReady] = useState(hasAiKey);
 
   const machine = getDialect(machineId);
   // The offerable machines: anything whose ROM is missing cannot start, so it
@@ -55,28 +67,13 @@ export function NewProjectDialog() {
   const machines = useRunnableMachines(machineId);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  // Reset to "the machine you're on, and a blank program" each time it opens,
-  // so Ctrl+N then Enter reproduces the old instant-blank behaviour.
-  useEffect(() => {
-    if (!open) return;
-    setMachineId(activeDialectId);
-    setName('');
-    setStartingPoint('blank');
-    setSampleName(getDialect(activeDialectId).samples[0]?.name ?? '');
-    setRequest('');
-    setPickerOpen(false);
-    setAiReady(hasAiKey());
-  }, [open, activeDialectId]);
-
   const cancel = () => setOpen(false);
   // While the machine picker is up it owns dismissal. The picker renders inside
   // this form, so an outside-click test already reads "inside", but Escape must
   // close only the picker - suspending this hook keeps exactly one modal
   // closing at a time. `useDismiss` re-arms in an effect after commit, so the
   // very keypress that closed the picker can never reach it.
-  const ref = useDismiss<HTMLFormElement>(open && !pickerOpen, cancel);
-
-  if (!open) return null;
+  const ref = useDismiss<HTMLFormElement>(!pickerOpen, cancel);
 
   const samples = machine.samples;
   const sample = samples.find((s) => s.name === sampleName);
