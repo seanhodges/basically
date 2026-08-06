@@ -103,7 +103,7 @@ const NOT_OP: ReferenceEntry = {
 const FILL: ReferenceEntry = {
   name: 'FILL',
   kind: 'command',
-  syntax: 'FILL <ink>',
+  syntax: 'FILL <pen>',
   description: 'Flood-fill from the graphics cursor.',
   tag: 'BASIC 1.1 only',
   onlyOn: ['cpc6128'],
@@ -258,24 +258,25 @@ describe('diffKeywords', () => {
     expect(diff.unchanged).toBe(1);
   });
 
-  // The eight reference pages were authored independently: the Amstrad page
-  // writes ABS(n) where the others write ABS(<number>). That is a difference
-  // between two docs pages, not between two machines.
+  // Every page draws its placeholders from one vocabulary, but a page may be more
+  // specific than another about the same argument, and each names a slot in its
+  // own machine's words where the machines' documentation differs. That is a
+  // difference between two docs pages, not between two machines.
   it('ignores a syntax difference that is only how the pages name placeholders', () => {
-    const angled: ReferenceEntry = { ...ABS, syntax: 'ABS(<number>)' };
-    const terse: ReferenceEntry = { ...ABS, syntax: 'ABS(n)' };
-    const diff = diffKeywords(refTable([angled]), refTable([terse]));
+    const typed: ReferenceEntry = { ...ABS, syntax: 'ABS(<number>)' };
+    const looser: ReferenceEntry = { ...ABS, syntax: 'ABS(<expr>)' };
+    const diff = diffKeywords(refTable([typed]), refTable([looser]));
     expect(diff.behaviourChanged).toEqual([]);
     expect(diff.unchanged).toBe(1);
   });
 
   it('ignores placeholder naming across a whole argument list', () => {
-    const angled: ReferenceEntry = {
+    const typed: ReferenceEntry = {
       ...DRAW,
       syntax: 'DRAW <number>, <number>',
     };
-    const terse: ReferenceEntry = { ...DRAW, syntax: 'DRAW x,y' };
-    const diff = diffKeywords(refTable([angled]), refTable([terse]));
+    const named: ReferenceEntry = { ...DRAW, syntax: 'DRAW <x>, <y>' };
+    const diff = diffKeywords(refTable([typed]), refTable([named]));
     expect(diff.behaviourChanged).toEqual([]);
   });
 
@@ -291,7 +292,10 @@ describe('diffKeywords', () => {
       ...DRAW,
       syntax: 'DRAW <number>, <number>',
     };
-    const inked: ReferenceEntry = { ...DRAW, syntax: 'DRAW x,y,ink' };
+    const inked: ReferenceEntry = {
+      ...DRAW,
+      syntax: 'DRAW <x>, <y>, <pen>',
+    };
     const diff = diffKeywords(refTable([plain]), refTable([inked]));
     expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['arguments']);
   });
@@ -301,7 +305,7 @@ describe('diffKeywords', () => {
       ...LIST,
       syntax: 'LIST [<line>][-[<line>]]',
     };
-    const single: ReferenceEntry = { ...LIST, syntax: 'LIST [line]' };
+    const single: ReferenceEntry = { ...LIST, syntax: 'LIST [<line>]' };
     const diff = diffKeywords(refTable([ranged]), refTable([single]));
     expect(diff.behaviourChanged.map((c) => c.change)).toEqual(['arguments']);
   });

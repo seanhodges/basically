@@ -150,28 +150,39 @@ function normaliseSyntax(syntax: string): string {
 
 /**
  * The *shape* of a usage string: what it accepts, with the names of its
- * placeholders thrown away. `<…>` groups and lowercase identifiers collapse to
- * one `#` marker, and spacing around separators and inside brackets is
- * normalised, so `<number>, <number>` and `x,y` come out alike. Every marker is
- * kept, so a third argument is still a difference; brackets, punctuation and
- * literal (uppercase) keywords survive too.
+ * placeholders thrown away. Every `<…>` group collapses to one `#` marker, and
+ * spacing around separators and inside brackets is normalised, so
+ * `<number>, <number>` and `<x>,<y>` come out alike. Every marker is kept, so a
+ * third argument is still a difference; brackets, punctuation and literal
+ * keywords survive too.
  *
- * This exists because the eight reference pages were authored independently and
- * do not share a placeholder convention - the Amstrad page writes `ABS(n)`
- * where the other seven write `ABS(<number>)`. Comparing the text reports 72
- * "behaviour changes" between the BBC and the Amstrad, nearly all of them
- * editorial; comparing the shape reports the ones a port has to act on.
+ * Discarding the name is the point, and it stays necessary even now that all the
+ * pages share one vocabulary (src/reference/placeholders.ts). Two things it
+ * absorbs:
  *
- * Kept deliberately coarse-but-structural: `SIN <number>` and `SIN(n)` still
- * differ (the Sinclair machines take the argument unparenthesised) and
+ * - Each page names a slot in its own machine's words where the machines'
+ *   documentation differs - the Acorn machines' `SOUND` takes an `<amplitude>`
+ *   and the Amstrad's a `<volume>`.
+ * - One page can be more specific than another about the same argument, so
+ *   `POKE <addr>, <byte>` meets `POKE <number>, <number>`.
+ *
+ * Neither is a difference a port has to act on. Note that a *bare* placeholder
+ * would now survive as itself and read as a literal keyword, so it would show up
+ * as a difference: `reference-data.test.ts` is what rules that out, rather than a
+ * rule here quietly absorbing it.
+ *
+ * Kept deliberately coarse-but-structural: `SIN <number>` and `SIN(<number>)`
+ * still differ (the Sinclair machines take the argument unparenthesised) and
  * `LIST [<line>][-[<line>]]` still differs from `LIST [<line>]`.
+ *
+ * One residue it does not fold: `DEF FN<name>` and `DEF FN <name>` differ across
+ * pages, and `normaliseSyntax` keeps that space, so machines that genuinely
+ * differ there keep reporting `DEF` as an argument change. Folding keyword
+ * spellings is a bigger job than {@link parenthesesOnly} and not this one.
  */
 function syntaxShape(syntax: string): string {
   return normaliseSyntax(syntax)
     .replace(/<[^>]*>/g, '#')
-    .replace(/[A-Za-z_][A-Za-z0-9_$#]*\$?/g, (word) =>
-      /^[A-Z][A-Z0-9$#]*$/.test(word) ? word : '#',
-    )
     .replace(/\s*([,;|])\s*/g, '$1')
     .replace(/([([])\s+/g, '$1')
     .replace(/\s+([)\]])/g, '$1')

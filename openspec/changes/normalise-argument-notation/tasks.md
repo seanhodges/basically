@@ -83,18 +83,18 @@ Batch by domain to keep each diff reviewable.
 
 ## 5. Remove the dead laundering
 
-- [ ] 5.1 Drop `syntaxShape()`'s lowercase-word → `#` replacement in
+- [x] 5.1 Drop `syntaxShape()`'s lowercase-word → `#` replacement in
       `src/reference/compare.ts`, keeping `<…>` → `#` and the whitespace/bracket
       normalisation.
-- [ ] 5.2 Rewrite the `syntaxShape` doc comment: it asserts a now-false fact and a stale
+- [x] 5.2 Rewrite the `syntaxShape` doc comment: it asserts a now-false fact and a stale
       figure. State the surviving reason — pages name the same slot differently where each
       machine's manual does, and one page may be more specific than another about the same
       argument. Note the `DEF FN<name>` vs `DEF FN <name>` residue the change does not fix.
-- [ ] 5.3 Update the five `compare.test.ts` fixtures: `ABS(n)` → `ABS(<expr>)` (test
+- [x] 5.3 Update the five `compare.test.ts` fixtures: `ABS(n)` → `ABS(<expr>)` (test
       fails otherwise), `DRAW x,y` → `DRAW <x>, <y>` (fails otherwise), `DRAW x,y,ink` →
       `DRAW <x>, <y>, <pen>`, `LIST [line]` → `LIST [<line>]`, and `FILL <ink>` →
       `FILL <pen>`. Rewrite the comment above the first, which repeats the CPC claim.
-- [ ] 5.4 Confirm `perMachineCompare.test.ts` (never asserts `behaviourChanged`),
+- [x] 5.4 Confirm `perMachineCompare.test.ts` (never asserts `behaviourChanged`),
       `portDescription.test.ts`, `keyword-crosscheck.test.ts` and `src/ai/portReport.test.ts`
       pass unchanged.
 
