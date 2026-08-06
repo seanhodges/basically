@@ -23,13 +23,23 @@ async function open(page: Page) {
   await expect(page.locator('.cm-content')).toBeVisible();
 }
 
-test('desktop: Back closes the settings dialog', async ({ page }) => {
+test('desktop: Back closes the settings dialog, and so does Escape', async ({
+  page,
+}) => {
   await open(page);
-  await page.getByRole('button', { name: 'Settings' }).click();
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  const heading = page.getByRole('heading', { name: 'Settings' });
 
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(heading).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeHidden();
+  await expect(heading).toBeHidden();
+
+  // The two gestures route through the same history stack, so the pair is one
+  // surface seen twice rather than two behaviours.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(heading).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(heading).toBeHidden();
 });
 
 test('desktop: stacked AI panel + docs close in LIFO order', async ({
@@ -67,25 +77,28 @@ test('desktop: Back closes the on-screen keyboard', async ({ page }) => {
   await expect(toggle).toHaveAttribute('data-mode', 'off');
 });
 
-test('mobile: Back returns from a deep tab to the editor', async ({ page }) => {
+test('mobile: Back returns from a deep tab to the editor, and so does Escape', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await open(page);
   await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
 
-  await page.getByRole('tab', { name: 'AI' }).click();
-  await expect(page.getByRole('tab', { name: 'AI' })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  const aiTab = page.getByRole('tab', { name: 'AI' });
+  const editorTab = page.getByRole('tab', { name: 'Editor' });
 
+  await aiTab.click();
+  await expect(aiTab).toHaveAttribute('aria-selected', 'true');
   await page.goBack();
-  await expect(page.getByRole('tab', { name: 'Editor' })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  await expect(editorTab).toHaveAttribute('aria-selected', 'true');
+
+  await aiTab.click();
+  await expect(aiTab).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Escape');
+  await expect(editorTab).toHaveAttribute('aria-selected', 'true');
 });
 
-test('baseline: Back with nothing open leaves the app (no trap)', async ({
+test('baseline: with nothing open, Back leaves the app and Escape does not', async ({
   page,
 }) => {
   // Establish a prior entry so we can observe Back leaving the app. A real
@@ -94,6 +107,12 @@ test('baseline: Back with nothing open leaves the app (no trap)', async ({
   await page.goto('/favicon.ico');
   await open(page);
 
+  // Escape with no surface to close must not navigate away...
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.cm-content')).toBeVisible();
+  await expect(page).not.toHaveURL('/favicon.ico');
+
+  // ...whereas Back, with nothing left to unwind, does leave: no trap.
   await page.goBack();
   await expect(page).toHaveURL('/favicon.ico');
 });
@@ -115,75 +134,36 @@ test('Back surfaces survive an orientation flip', async ({ page }) => {
 });
 
 /**
- * Dialogs reached through a toolbar menu that until now answered to neither
- * gesture. The point is that every one behaves identically, so they are driven
- * from one table rather than a near-identical test apiece.
+ * Import, Export and Outline are one kind of surface, not three: each is a plain
+ * boolean on the store that both gestures reach through the same registry, and
+ * that interchangeability is pinned for all three in src/app/surfaces.test.ts.
+ * What only a browser can settle is that a real Escape and a real
+ * `history.back()` reach that registry at all, so one of them is driven here.
  */
-const TOOLBAR_DIALOGS = [
-  {
-    name: 'Import',
-    menu: 'File ▾',
-    item: 'Import…',
-    heading: 'Import a program',
-  },
-  {
-    name: 'Export',
-    menu: 'File ▾',
-    item: 'Export…',
-    heading: 'Run on real hardware',
-  },
-  {
-    name: 'Outline',
-    menu: 'Edit ▾',
-    item: 'Outline',
-    heading: 'Program outline',
-  },
-] as const;
-
-for (const d of TOOLBAR_DIALOGS) {
-  test(`${d.name}: Escape closes it, and so does Back`, async ({ page }) => {
-    await open(page);
-
-    const heading = page.getByRole('heading', { name: d.heading });
-
-    // Escape.
-    await page.getByRole('button', { name: d.menu }).click();
-    await page.getByRole('button', { name: d.item }).click();
-    await expect(heading).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(heading).toBeHidden();
-
-    // Back - and crucially the app is still here afterwards.
-    await page.getByRole('button', { name: d.menu }).click();
-    await page.getByRole('button', { name: d.item }).click();
-    await expect(heading).toBeVisible();
-    await page.goBack();
-    await expect(heading).toBeHidden();
-    await expect(page.locator('.cm-content')).toBeVisible();
-  });
-}
-
-test('Escape closes the settings dialog (Back already did)', async ({
-  page,
-}) => {
+test('Import: Escape closes it, and so does Back', async ({ page }) => {
   await open(page);
-  await page.getByRole('button', { name: 'Settings' }).click();
-  const heading = page.getByRole('heading', { name: 'Settings' });
-  await expect(heading).toBeVisible();
 
+  const heading = page.getByRole('heading', { name: 'Import a program' });
+  const openImport = async () => {
+    await page.getByRole('button', { name: 'File ▾' }).click();
+    await page.getByRole('button', { name: 'Import…' }).click();
+    await expect(heading).toBeVisible();
+  };
+
+  await openImport();
   await page.keyboard.press('Escape');
   await expect(heading).toBeHidden();
+
+  // Back - and crucially the app is still here afterwards.
+  await openImport();
+  await page.goBack();
+  await expect(heading).toBeHidden();
+  await expect(page.locator('.cm-content')).toBeVisible();
 });
 
-test('Escape closes the docs drawer (Back already did)', async ({ page }) => {
-  await open(page);
-  await page.getByRole('button', { name: 'Open documentation' }).click();
-  const docs = page.locator('[aria-label="Documentation"]');
-  await expect(docs).toHaveAttribute('aria-hidden', 'false');
-
-  await page.keyboard.press('Escape');
-  await expect(docs).toHaveAttribute('aria-hidden', 'true');
-});
+// The docs drawer has no Escape test of its own: the stacked test below closes
+// it with Escape as its first step, which is the same gesture on the same
+// surface with a panel underneath to prove it stopped there.
 
 test('Escape unwinds stacked surfaces one at a time', async ({ page }) => {
   await open(page);
@@ -232,36 +212,6 @@ test('a menu closing on Escape does not also close the screen behind it', async 
   // And a second Escape then closes the panel itself.
   await page.keyboard.press('Escape');
   await expect(panel).toBeHidden();
-});
-
-test('Escape with nothing open does not leave the app', async ({ page }) => {
-  // The counterpart to the Back baseline above: Escape must not navigate away
-  // when there is no surface to close.
-  await page.goto('/favicon.ico');
-  await open(page);
-
-  await page.keyboard.press('Escape');
-  await expect(page.locator('.cm-content')).toBeVisible();
-  await expect(page).not.toHaveURL('/favicon.ico');
-});
-
-test('mobile: Escape returns from a deep tab to the editor', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 800 });
-  await open(page);
-
-  await page.getByRole('tab', { name: 'AI' }).click();
-  await expect(page.getByRole('tab', { name: 'AI' })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
-
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('tab', { name: 'Editor' })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
 });
 
 test('New project → machine picker: Escape unwinds one modal at a time', async ({
