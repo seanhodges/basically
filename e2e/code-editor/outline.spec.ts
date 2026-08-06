@@ -57,8 +57,6 @@ test('Outline sits directly below Find/Replace in the Edit menu', async ({
   const outlineIdx = allLabels.findIndex((l) => l.startsWith('Outline'));
   expect(findIdx).toBeGreaterThanOrEqual(0);
   expect(outlineIdx).toBe(findIdx + 1);
-
-  await page.screenshot({ path: 'e2e/__screenshots__/edit-menu.png' });
 });
 
 test('jumping to an outline entry scrolls the target line to the top', async ({
@@ -107,6 +105,4 @@ test('jumping to an outline entry scrolls the target line to the top', async ({
   const offsetFromTop = lineBox!.y - scrollerBox!.y;
   expect(offsetFromTop).toBeGreaterThanOrEqual(0);
   expect(offsetFromTop).toBeLessThan(36);
-
-  await page.screenshot({ path: 'e2e/__screenshots__/outline-jump.png' });
 });

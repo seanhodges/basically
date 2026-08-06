@@ -83,8 +83,6 @@ test('core flow: breakpoint, run-to-pause, step, continue, stop', async ({
   // The paused BASIC line is highlighted in the editor.
   await expect(page.locator('[class*="debugCurrentLine"]')).toHaveCount(1);
 
-  await page.screenshot({ path: 'e2e/__screenshots__/debug-paused.png' });
-
   // Step runs to the next BASIC line (30).
   await page.getByRole('button', { name: 'Step' }).click();
   await expect(page.getByText('paused at line 30')).toBeVisible({

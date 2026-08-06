@@ -31,7 +31,9 @@ export default defineConfig({
   testIgnore: '**/capture-docs-screenshots.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // One CI retry, not two: the suite runs on a single 30-minute-capped runner,
+  // where a second retry of a slow spec costs more than it buys.
+  retries: process.env.CI ? 1 : 0,
   reporter: [
     consoleReporter,
     ['html', { outputFolder: 'playwright-report', open: 'never' }],

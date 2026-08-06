@@ -1,9 +1,10 @@
 # Plan: streamline the e2e suite
 
-Status: **planned** — phases below are not yet implemented. The CLAUDE.md
-"Writing efficient tests" guidance derived from this plan _is_ already in
-place; new and updated tests should follow it now. Existing tests get
-refactored by completing the phases.
+Status: **in progress** — Phase 0 (baseline) and Phase 1 (mechanical fixes) are
+done; Phases 2–5 are not yet implemented. The CLAUDE.md "Writing efficient
+tests" guidance derived from this plan _is_ already in place; new and updated
+tests should follow it now. Existing tests get refactored by completing the
+remaining phases.
 
 ## Context
 
@@ -36,12 +37,57 @@ This is a pure test refactor — no OpenSpec spec deltas. Constraint:
 `openspec/specs/` capability (or `shell`) and no specs at the root — all
 folders stay populated throughout.
 
-## Phase 0 — Baseline
+## Phase 0 — Baseline ✅
 
 Run `npm run e2e:chromium` once; keep `playwright-report/results.json`
 per-file durations as the before-measurement.
 
-## Phase 1 — Mechanical fixes (zero coverage risk)
+`playwright-report/` is gitignored, so the measurement is recorded here
+instead. Taken on the commit before Phase 1, on a multi-core dev box (several
+workers) — so the wall clock is _not_ comparable to CI's single worker. **The
+sum of per-test durations is the figure to compare against**, since that is
+what a 1-worker runner pays.
+
+| Baseline (Chromium)               | Value                                                          |
+| --------------------------------- | -------------------------------------------------------------- |
+| Tests executed                    | 207 (the suite grew past the 199 the plan was written against) |
+| Sum of test durations             | **13.3 min**                                                   |
+| Wall clock (multi-worker dev box) | 7.0 min                                                        |
+
+Slowest specs, by summed test duration:
+
+| Spec                                         | Baseline |
+| -------------------------------------------- | -------- |
+| `program-execution/emulator-boot.spec.ts`    | 58.3s    |
+| `sharing-player/share-flow.spec.ts`          | 55.4s    |
+| `shell-navigation/dismissal.spec.ts`         | 53.7s    |
+| `ai-assistant/ai-panel.spec.ts`              | 47.1s    |
+| `persistence/boot-storage.spec.ts`           | 46.3s    |
+| `porting-guidance/filter-by-program.spec.ts` | 42.7s    |
+| `porting-guidance/convert-program.spec.ts`   | 38.5s    |
+| `virtual-input/graphics-palette.spec.ts`     | 33.5s    |
+| `code-editor/editor-shortcuts.spec.ts`       | 33.5s    |
+| `project-setup/new-project.spec.ts`          | 29.2s    |
+| `ai-assistant/apply-actions.spec.ts`         | 27.6s    |
+| `sharing-player/player.spec.ts`              | 25.2s    |
+| `ai-assistant/checked-answers.spec.ts`       | 23.7s    |
+| `porting-guidance/memory-layout.spec.ts`     | 20.6s    |
+| `ai-assistant/driving.spec.ts`               | 19.6s    |
+| `memory-blocks/asm-editor.spec.ts`           | 19.6s    |
+| `hardware-transfer/export-transfer.spec.ts`  | 18.3s    |
+| `memory-blocks/block-tabs.spec.ts`           | 15.1s    |
+
+The ordering confirms the plan's targets: the four biggest specs are all ones
+Phase 3/4 trims.
+
+**Known pre-existing flake** (not introduced by this plan): the first test to
+run against a cold Vite dev server can exceed the 5s default `expect` timeout
+while Vite transforms the module graph for the first request, failing on
+`openApp`'s `.cm-content` visibility check. It passes on a warm server. Worth
+fixing separately (warm the server before the run, or raise `expect.timeout`);
+Phase 1's drop to `retries: 1` still covers it in CI.
+
+## Phase 1 — Mechanical fixes (zero coverage risk) ✅
 
 - `playwright.config.ts`: `retries: process.env.CI ? 1 : 0` (was 2). Keep all
   4 browser projects (the release matrix) and **both** webServers (the docs
@@ -55,8 +101,8 @@ per-file durations as the before-measurement.
   `localStorage.getItem('mbide.autosave.doc')` — and replace the three
   `waitForTimeout(2600)` sleeps in `persistence/boot-storage.spec.ts` (no app
   change; the 2 s autosave interval stays).
-- Kill the 4 hand-launched Chromium instances:
-  `sharing-player/player.spec.ts` landscape describe →
+- Kill the hand-launched Chromium instances (3 `chromium.launch()` sites, not
+  the 4 first counted): `sharing-player/player.spec.ts` landscape describe →
   `test.use({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })`
   (still skipped off-chromium); `shell/landscape-layout.spec.ts` → create
   contexts from the worker's `browser` fixture (two viewports in one test).

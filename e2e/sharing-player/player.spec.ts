@@ -1,6 +1,5 @@
 // Capability: sharing-player — openspec/specs/sharing-player/spec.md
 import { test, expect } from '../fixtures';
-import { chromium } from '@playwright/test';
 import { canvasPainted } from '../helpers';
 import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from '../shareStub';
 
@@ -16,7 +15,6 @@ import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from '../shareStub';
 
 const LANDSCAPE_MOBILE_QUERY =
   '(orientation: landscape) and (max-height: 600px) and (pointer: coarse)';
-const WELCOME_SEEN_KEY = 'mbide.hasSeenWelcome';
 const KEYBOARD_AUTOSHOW_KEY = 'mbide.keyboardAutoShow';
 
 test('boots a shared program, auto-runs and paints the screen', async ({
@@ -145,96 +143,73 @@ test('shows the incompatible notice with a canonical link', async ({
   await expect(notice.locator(`a[href="/gosub/${SHARE_ID}"]`)).toBeVisible();
 });
 
-// The player uses a compact glyph-only rail in phone landscape. Like
-// landscape-layout.spec.ts, this builds its own Chromium touch context (the
-// matrix projects are all desktop) and runs once.
+// The player uses a compact glyph-only rail in phone landscape. The matrix
+// projects are all desktop, so this describe overrides the context options to a
+// short, wide, touch viewport rather than driving a browser of its own -
+// `isMobile` is Chromium-only, hence the skip.
 test.describe('phone landscape', () => {
+  test.use({
+    viewport: { width: 844, height: 390 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
   test.skip(
     ({ browserName }) => browserName !== 'chromium',
-    'builds its own Chromium touch context',
+    'isMobile is a Chromium-only context option',
   );
 
-  test('renders the compact player controls', async () => {
+  test('renders the compact player controls', async ({ page }) => {
     test.setTimeout(120_000);
-    const browser = await chromium.launch();
-    const context = await browser.newContext({
-      viewport: { width: 844, height: 390 },
-      hasTouch: true,
-      isMobile: true,
-    });
-    await context.addInitScript((key) => {
+    await page.route(SHARE_GLOB, shareGet({ body: zx81Record() }));
+    await page.goto(`/load/${SHARE_ID}`);
+
+    const landscapeActive = await page.evaluate(
+      (q) => window.matchMedia(q).matches,
+      LANDSCAPE_MOBILE_QUERY,
+    );
+    expect(landscapeActive, 'LANDSCAPE_MOBILE_QUERY should match').toBe(true);
+
+    // The restart control collapses to just the glyph in the landscape rail.
+    await expect(
+      page.getByRole('button', { name: '▶', exact: true }),
+    ).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('never auto-shows the keyboard, even with auto-show enabled', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    // Explicitly opt into keyboard auto-show: landscape must still suppress it
+    // while the emulator is the surface. (The welcome flag is already seeded by
+    // the shared fixture.)
+    await page.addInitScript((key) => {
       try {
         localStorage.setItem(key, 'true');
       } catch {
         /* opaque origin - nothing to seed */
       }
-    }, WELCOME_SEEN_KEY);
-    await context.route(SHARE_GLOB, shareGet({ body: zx81Record() }));
-    const page = await context.newPage();
-    try {
-      await page.goto(`http://localhost:5173/load/${SHARE_ID}`);
+    }, KEYBOARD_AUTOSHOW_KEY);
+    await page.route(SHARE_GLOB, shareGet({ body: zx81Record() }));
+    await page.goto(`/load/${SHARE_ID}`);
+    await expect(
+      page.getByRole('button', { name: '▶', exact: true }),
+    ).toBeVisible({ timeout: 30_000 });
 
-      const landscapeActive = await page.evaluate(
-        (q) => window.matchMedia(q).matches,
-        LANDSCAPE_MOBILE_QUERY,
-      );
-      expect(landscapeActive, 'LANDSCAPE_MOBILE_QUERY should match').toBe(true);
+    // Even with auto-show opted in, the landscape emulator surface never
+    // pops the keyboard, and the opt-in gamepad starts hidden too (see
+    // resolveInputOverlays: overlays only show on explicit intent here).
+    await expect(page.getByTestId('input-overlay-toggle')).toBeVisible();
+    await expect(page.locator('.virtual-keyboard')).toHaveCount(0);
+    await expect(page.locator('.game-controller')).toHaveCount(0);
 
-      // The restart control collapses to just the glyph in the landscape rail.
-      await expect(
-        page.getByRole('button', { name: '▶', exact: true }),
-      ).toBeVisible({ timeout: 30_000 });
-    } finally {
-      await browser.close();
-    }
-  });
+    // The rail input-overlay button cycles off → keyboard → gamepad.
+    await page.getByTestId('input-overlay-toggle').click();
+    await expect(page.locator('.virtual-keyboard')).toBeVisible();
+    await expect(page.locator('.game-controller')).toHaveCount(0);
 
-  test('never auto-shows the keyboard, even with auto-show enabled', async () => {
-    test.setTimeout(120_000);
-    const browser = await chromium.launch();
-    const context = await browser.newContext({
-      viewport: { width: 844, height: 390 },
-      hasTouch: true,
-      isMobile: true,
-    });
-    await context.addInitScript(
-      ({ welcome, autoShow }) => {
-        try {
-          localStorage.setItem(welcome, 'true');
-          // Explicitly opt into keyboard auto-show: landscape must still suppress
-          // it while the emulator is the surface.
-          localStorage.setItem(autoShow, 'true');
-        } catch {
-          /* opaque origin - nothing to seed */
-        }
-      },
-      { welcome: WELCOME_SEEN_KEY, autoShow: KEYBOARD_AUTOSHOW_KEY },
-    );
-    await context.route(SHARE_GLOB, shareGet({ body: zx81Record() }));
-    const page = await context.newPage();
-    try {
-      await page.goto(`http://localhost:5173/load/${SHARE_ID}`);
-      await expect(
-        page.getByRole('button', { name: '▶', exact: true }),
-      ).toBeVisible({ timeout: 30_000 });
-
-      // Even with auto-show opted in, the landscape emulator surface never
-      // pops the keyboard, and the opt-in gamepad starts hidden too (see
-      // resolveInputOverlays: overlays only show on explicit intent here).
-      await expect(page.getByTestId('input-overlay-toggle')).toBeVisible();
-      await expect(page.locator('.virtual-keyboard')).toHaveCount(0);
-      await expect(page.locator('.game-controller')).toHaveCount(0);
-
-      // The rail input-overlay button cycles off → keyboard → gamepad.
-      await page.getByTestId('input-overlay-toggle').click();
-      await expect(page.locator('.virtual-keyboard')).toBeVisible();
-      await expect(page.locator('.game-controller')).toHaveCount(0);
-
-      await page.getByTestId('input-overlay-toggle').click();
-      await expect(page.locator('.game-controller')).toBeVisible();
-      await expect(page.locator('.virtual-keyboard')).toHaveCount(0);
-    } finally {
-      await browser.close();
-    }
+    await page.getByTestId('input-overlay-toggle').click();
+    await expect(page.locator('.game-controller')).toBeVisible();
+    await expect(page.locator('.virtual-keyboard')).toHaveCount(0);
   });
 });
