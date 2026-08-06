@@ -10,10 +10,15 @@ import { PALETTE_MACHINES } from '../paletteMachines';
  * printed no graphics on the keyboard at all.
  *
  * Covers what only a browser can answer - that a cell insert reaches the
- * editor, that the column count follows the viewport, and that the bundled
- * character-graphics font is actually loaded and used for the characters. The
- * tables themselves (which character, which code, which key) are unit-tested in
- * src/dialects/semigraphicsRoundTrip.test.ts.
+ * editor, that a drag pans instead of typing, that the column count follows the
+ * viewport, and that the bundled character-graphics font is actually loaded and
+ * used. The tables themselves (which character, which code, which key) are
+ * unit-tested in src/dialects/semigraphicsRoundTrip.test.ts.
+ *
+ * One session per machine, with the assertions staged inside it: opening the
+ * palette means booting the app, switching machine and raising the keyboard, so
+ * three Spectrum facts asked in one session cost a third of three tests asking
+ * one each.
  */
 
 /** Show the on-screen keyboard and select its GRAPHICS mode. */
@@ -24,7 +29,7 @@ async function openPalette(page: import('@playwright/test').Page) {
   await expect(page.locator('.vk-palette')).toBeVisible();
 }
 
-test('inserts a block graphic and a user-defined graphic on the Spectrum', async ({
+test('Spectrum: inserts blocks and UDGs, and pans without typing', async ({
   page,
 }) => {
   await openApp(page);
@@ -51,6 +56,28 @@ test('inserts a block graphic and a user-defined graphic on the Spectrum', async
   const udg = page.getByRole('button', { name: 'Insert 🄰, key A' });
   await udg.click();
   await expect(page.locator(EDITOR)).toContainText('🄰');
+
+  // A short viewport, so the palette has more rows than it can show at once.
+  await page.setViewportSize({ width: 420, height: 700 });
+  const palette = page.locator('.vk-palette');
+  const box = (await block.boundingBox())!;
+  const before = await page.locator(EDITOR).innerText();
+
+  // Press on a character and drag up, the way a finger pans the grid: the grid
+  // scrolls and nothing is typed.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (const dy of [10, 30, 60]) {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - dy);
+  }
+  await page.mouse.up();
+
+  await expect(page.locator(EDITOR)).toHaveText(before);
+
+  // ...and a tap in the same place still types.
+  await block.click();
+  await expect(page.locator(EDITOR)).toContainText('▘');
+  await expect(palette).toBeVisible();
 });
 
 test('labels cells by character code on a machine with no graphics keys', async ({
@@ -118,38 +145,7 @@ test('the BBC palette leads with the control code its mosaics need', async ({
   await expect(page.getByRole('button', { name: /, key / })).toHaveCount(0);
 });
 
-test('scrolling the palette by dragging does not insert a character', async ({
-  page,
-}) => {
-  await openApp(page);
-  await chooseTargetMachine(page, 'zxspectrum');
-  await clearEditor(page);
-  await openPalette(page);
-
-  // A short viewport, so the palette has more rows than it can show at once.
-  await page.setViewportSize({ width: 420, height: 700 });
-  const palette = page.locator('.vk-palette');
-  const cell = page.getByRole('button', { name: 'Insert ▘, key 1' });
-  const box = (await cell.boundingBox())!;
-  const before = await page.locator(EDITOR).innerText();
-
-  // Press on a character and drag up, the way a finger pans the grid.
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  for (const dy of [10, 30, 60]) {
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - dy);
-  }
-  await page.mouse.up();
-
-  await expect(page.locator(EDITOR)).toHaveText(before);
-
-  // ...and a tap in the same place still types.
-  await cell.click();
-  await expect(page.locator(EDITOR)).toContainText('▘');
-  await expect(palette).toBeVisible();
-});
-
-test('inserts from either section of the C64 two-section palette', async ({
+test('C64: inserts from both sections, reflows, and uses the bundled font', async ({
   page,
 }) => {
   await openApp(page);
@@ -166,16 +162,25 @@ test('inserts from either section of the C64 two-section palette', async ({
   // ...and one from the SHIFT set.
   await page.getByRole('button', { name: 'Insert ♠, key SHIFT + A' }).click();
   await expect(page.locator(EDITOR)).toContainText('♠');
-});
 
-test('shows fewer characters per row on a narrow viewport', async ({
-  page,
-}) => {
-  await openApp(page);
-  await chooseTargetMachine(page, 'commodore64');
-  await clearEditor(page);
-  await openPalette(page);
+  // The face is unicode-range gated, so it loads only because a graphics
+  // character asked for it.
+  const loaded = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return [...document.fonts]
+      .filter((f) => f.status === 'loaded')
+      .map((f) => f.family);
+  });
+  expect(loaded).toContain('Basically Graphics');
 
+  // And it is the family the palette actually renders with.
+  const family = await page
+    .locator('.vk-graphic-char')
+    .first()
+    .evaluate((el) => getComputedStyle(el).fontFamily);
+  expect(family).toContain('Basically Graphics');
+
+  // Narrowing the viewport reflows the grid rather than shrinking the cells.
   const grid = page.locator('.vk-palette-grid').first();
   const columns = async () =>
     (
@@ -200,7 +205,21 @@ test('shows fewer characters per row on a narrow viewport', async ({
   expect(narrowCell).toBeGreaterThan(wideCell * 0.6);
 });
 
-test('every machine draws its palette as ink on paper, like the editor', async ({
+/**
+ * The three machines whose keyboards carry their own `vk-theme-*` block in
+ * src/keyboard/VirtualKeyboard.css - the only place a machine could override
+ * what the palette draws. Nothing in that stylesheet scopes a `.vk-graphic`
+ * rule to a theme, so the base rule is what every machine gets; these three are
+ * where a machine-specific rule would land if one were ever added.
+ *
+ * The remaining ten palette machines are covered by that same base rule, and
+ * `e2e/paletteMachines.ts` still lists all thirteen for
+ * `src/dialects/graphicsPalette.test.ts`, which fails if a dialect gains or
+ * loses a palette.
+ */
+const THEMED_MACHINES = ['zxspectrum', 'bbcmicro', 'commodore64'];
+
+test('a themed machine still draws its palette as ink on paper', async ({
   page,
 }) => {
   // The cells used to be dark tiles with light characters - the opposite way
@@ -217,8 +236,15 @@ test('every machine draws its palette as ink on paper, like the editor', async (
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
 
+  // Guard the trim: a themed machine that lost its palette would otherwise
+  // leave this test quietly checking fewer machines than it names.
+  expect(
+    THEMED_MACHINES.filter((m) => !PALETTE_MACHINES.includes(m)),
+    'a themed machine no longer has a palette - update THEMED_MACHINES',
+  ).toEqual([]);
+
   await openApp(page);
-  for (const machine of PALETTE_MACHINES) {
+  for (const machine of THEMED_MACHINES) {
     await chooseTargetMachine(page, machine);
     await clearEditor(page);
     await openPalette(page);
@@ -246,30 +272,4 @@ test('every machine draws its palette as ink on paper, like the editor', async (
     // Leave the palette behind for the next machine's keyboard to rebuild.
     await page.getByTestId('input-overlay-toggle').click();
   }
-});
-
-test('draws the graphics with the bundled font, not a fallback', async ({
-  page,
-}) => {
-  await openApp(page);
-  await chooseTargetMachine(page, 'commodore64');
-  await clearEditor(page);
-  await openPalette(page);
-
-  // The face is unicode-range gated, so it loads only because a graphics
-  // character asked for it.
-  const loaded = await page.evaluate(async () => {
-    await document.fonts.ready;
-    return [...document.fonts]
-      .filter((f) => f.status === 'loaded')
-      .map((f) => f.family);
-  });
-  expect(loaded).toContain('Basically Graphics');
-
-  // And it is the family the palette actually renders with.
-  const family = await page
-    .locator('.vk-graphic-char')
-    .first()
-    .evaluate((el) => getComputedStyle(el).fontFamily);
-  expect(family).toContain('Basically Graphics');
 });

@@ -1,8 +1,8 @@
 // Capability: program-execution — openspec/specs/program-execution/spec.md
-import { test, expect, chooseTargetMachine, type Page } from '../fixtures';
+import { test, expect, type Page } from '../fixtures';
 
 /**
- * End-to-end checks for the step-through debugger (ZX81 / ZX80 / Spectrum):
+ * End-to-end checks for the step-through debugger:
  *
  *  1. Core flow - debugging is always on, so just set a breakpoint in the
  *     gutter; Play pauses on it, Step advances to the next BASIC line, Continue
@@ -10,8 +10,12 @@ import { test, expect, chooseTargetMachine, type Page } from '../fixtures';
  *  2. The debug session survives an orientation change (a viewport flip that
  *     crosses the mobile/desktop breakpoint) - nothing is lost and Step still
  *     works afterwards.
- *  3. Capability - every shipped dialect is debuggable, so Step/Continue (and
- *     Play/Stop) show for the Sinclair, BBC and Commodore machines alike.
+ *
+ * Which machines offer the controls at all is not here. That is
+ * `Dialect.debuggable`, and `src/dialects/debugCapability.test.ts` crosschecks
+ * it against the currentLine/debugStep pair every registered machine actually
+ * implements - all fourteen of them, where this file could only afford four
+ * app boots to look at the toolbar.
  *
  * Run with `npm run e2e` (Chromium is pre-installed in the managed env).
  */
@@ -131,21 +135,4 @@ test('debug session survives an orientation change', async ({ page }) => {
   await expect(page.getByText('paused at line 30')).toBeVisible({
     timeout: 20_000,
   });
-});
-
-test('Step/Continue show for every dialect', async ({ page }) => {
-  await open(page);
-  // The Debug toggle is gone - debugging is always on.
-  await expect(page.getByRole('button', { name: 'Debug' })).toHaveCount(0);
-
-  // Every shipped machine implements the step-through debugger, so all four
-  // controls are present whichever dialect is selected - including the BBC and
-  // Commodore cores, which were the last to gain single-stepping.
-  for (const id of ['zx81', 'commodore64', 'bbcmicro', 'zxspectrum']) {
-    await chooseTargetMachine(page, id);
-    await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Step' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
-  }
 });

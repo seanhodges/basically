@@ -7,15 +7,33 @@ import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from '../shareStub';
  * Share-flow routing and the player → IDE handover (Stage 7 e2e).
  *
  * The share GET is stubbed with `page.route` (see e2e/shareStub.ts). These
- * specs cover the URL surface - one verb per dialect resolving to the player -
- * and the `?open=` handover that "See the Code" triggers, rather than the
- * emulator itself (that is covered for ZX81 in player.spec.ts).
+ * specs cover the URL surface - a share verb resolving to the player - and the
+ * `?open=` handover that "See the Code" triggers, rather than the emulator
+ * itself (that is covered for ZX81 in player.spec.ts).
  */
 
-// Every verb must resolve to the standalone player shell (not the IDE). The
-// verb→dialect bijection itself is unit-tested in src/player/routes.test.ts; here
-// we prove each verb boots the player end-to-end in a browser.
-for (const { verb, dialectId } of SHARE_VERBS) {
+/**
+ * A verb must resolve to the standalone player shell (not the IDE), and it is
+ * `parsePlayerPath` that decides so - one table lookup, the same code for every
+ * verb. The verb↔dialect bijection and the parsing of every entry are unit-proven
+ * against the whole table in src/player/routes.test.ts; what a browser adds is
+ * that a real navigation to a real path reaches that parser and mounts the
+ * player rather than the IDE, which two verbs demonstrate as well as fourteen.
+ *
+ * Two rather than one, and from different families: `load` is the ZX81's, the
+ * machine the rest of this folder uses, and `run` is the C64's - a different
+ * emulator core behind the same shell, so a player that only ever worked for
+ * the Sinclair wiring would show up here.
+ */
+const ROUTED_VERBS = ['load', 'run'].map((verb) => {
+  const entry = SHARE_VERBS.find((v) => v.verb === verb);
+  // Thrown at collection time: a verb that was renamed would otherwise just
+  // stop producing a test, and the file would go on passing with nothing in it.
+  if (!entry) throw new Error(`no share verb "${verb}" - update ROUTED_VERBS`);
+  return entry;
+});
+
+for (const { verb, dialectId } of ROUTED_VERBS) {
   test(`/${verb}/ opens the standalone player (${dialectId})`, async ({
     page,
   }) => {

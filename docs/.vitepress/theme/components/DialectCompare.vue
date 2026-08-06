@@ -22,6 +22,7 @@ import {
   escapeDiffForProgram,
   escapeSections,
   escapeTableForMachine,
+  factRows as buildFactRows,
   falseFriendsForProgram,
   noticeState,
   statementLayoutForProgram,
@@ -29,6 +30,7 @@ import {
   unsupportedCharactersForProgram,
   type CapabilitySection,
   type EscapeSection,
+  type FactRow,
   type KeywordChange,
   type ProgramVocabulary,
 } from '../../../../src/reference/compare';
@@ -560,108 +562,17 @@ function domainPaths(section: CapabilitySection): string {
   return section.domain ? DOMAIN_META[section.domain].paths : '';
 }
 
-/** One row of the language & hardware comparison. */
-interface FactRow {
-  label: string;
-  fromText: string;
-  toText: string;
-  changed: boolean;
-}
-
-function fmtSeparator(f: PortingFacts): string {
-  return f.statementSeparator
-    ? `Multiple, separated by "${f.statementSeparator}"`
-    : 'One statement per line';
-}
-function fmtElse(f: PortingFacts): string {
-  return f.elseSupported ? 'IF … THEN … ELSE' : 'IF … THEN only (no ELSE)';
-}
-function fmtLet(f: PortingFacts): string {
-  return {
-    required: 'Required (LET x=…)',
-    optional: 'Optional',
-    none: 'Not used',
-  }[f.letRequired];
-}
-function fmtRam(f: PortingFacts): string {
-  return `${f.freeRamBytes.toLocaleString('en-GB')} bytes`;
-}
-function fmtCharacters(f: PortingFacts): string {
-  return f.unsupportedCharacters.length === 0
-    ? 'All printable ASCII'
-    : `No ${f.unsupportedCharacters.join(' ')}`;
-}
-function fmtAddress(f: PortingFacts): string {
-  if (f.addressNotation === 'hex') {
-    return f.hexPrefix ? `Hexadecimal (${f.hexPrefix}nn)` : 'Hexadecimal';
-  }
-  return 'Decimal';
-}
-
 /**
- * The rows in the order a porter meets the work, most consequential first.
- *
- * The BASIC each machine runs leads: it is what the rest of the table is about,
- * it is the one row that says outright whether this is a port between two
- * BASICs or between two versions of one, and for the four families that share a
- * reference page it is the difference the page title cannot show.
- *
- * Then the differences by how much of the program they touch. Arithmetic and
- * free RAM decide whether the program can work at all - an integer-only target
- * rescales every fractional calculation, and 3,583 bytes is a rewrite a C64
- * program does not survive by editing keywords. The language rules that follow
- * force edits wherever they apply (two significant characters renames
- * variables; no ELSE restructures conditionals) but leave the program's shape
- * alone. The hardware the program draws and sounds on comes next.
- *
- * The memory facts close it as one run: how memory is written, then how an
- * address is spelled. They are the only rows that matter solely to a program
- * that pokes at hardware, and they were previously scattered - the notation
- * five rows away from the write syntax it describes.
- *
- * The addresses themselves are not here. A screen base and a program start were
- * the last two rows of this run until the Memory layout section below started
- * drawing both machines' whole address spaces to scale; two numbers and the
- * picture that explains them are one difference reported twice, and the picture
- * is the one a porter can act on. The facts still carry those addresses (the
- * assistant is told them, and facts-crosscheck.test.ts pins them to each
- * machine's real memory map) - they simply have a better place to be read.
+ * The language & hardware table, built by `factRows` in src/reference/compare.ts
+ * - the row list, the order and the formatting all live there, next to the
+ * facts they read, and `compare-facts-crosscheck.test.ts` pins them. This page
+ * only decides which of the rows to show.
  */
 const factRows = computed<FactRow[]>(() => {
   const s = source.value?.facts;
   const t = target.value?.facts;
   if (!s || !t) return [];
-  const rows: [string, (f: PortingFacts) => string][] = [
-    ['BASIC dialect', (f) => f.basicDialect],
-    // Whether the target has fractions at all decides how much of the port is
-    // arithmetic, so it leads the language rules rather than sitting among the
-    // hardware.
-    ['Numbers', (f) => f.numberHandling],
-    ['Free program RAM', fmtRam],
-    ['Variable names', (f) => f.variableNaming],
-    ['Conditionals', fmtElse],
-    ['Statements per line', fmtSeparator],
-    ['LET on assignment', fmtLet],
-    // With the language rules rather than the hardware: a character the machine
-    // has no glyph for is rejected when the program is read, not when it draws.
-    ['Characters', fmtCharacters],
-    ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
-    ['Line numbers', (f) => f.lineNumberRange],
-    ['Screen', (f) => f.screen],
-    ['Colour', (f) => f.colour],
-    ['Sound', (f) => f.sound],
-    ['Writing memory', (f) => f.memoryWriteSyntax],
-    ['Address notation', fmtAddress],
-    // The memory run ends here. The screen base and the program start used to
-    // follow it as two rows of numbers; the Memory layout section below draws
-    // them in place, to scale, against everything else in the address space, so
-    // reporting them here as well would give one difference twice.
-  ];
-  return rows.map(([label, get]) => {
-    const fromText = get(s);
-    const toText = get(t);
-    return { label, fromText, toText, changed: fromText !== toText };
-  });
+  return buildFactRows(s, t);
 });
 
 const changedFactCount = computed(
