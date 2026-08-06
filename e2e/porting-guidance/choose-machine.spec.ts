@@ -28,14 +28,32 @@ function picker(page: import('@playwright/test').Page) {
   return page.getByRole('dialog', { name: 'Choose a machine' });
 }
 
-test('a machine is told from its relative while choosing', async ({ page }) => {
+test('the two fields are told apart, and so is a machine from its relative', async ({
+  page,
+}) => {
   await page.goto(GUIDE);
 
+  const from = field(page, 'from');
   const to = field(page, 'to');
-  await expect(to).toBeVisible({ timeout: 15_000 });
+  await expect(from).toBeVisible({ timeout: 15_000 });
+
+  // The two controls are the same component, so nothing but the accessible
+  // name distinguishes them to a reader who cannot see the layout.
+  const fromLabel = await from.getAttribute('aria-label');
+  const toLabel = await to.getAttribute('aria-label');
+  expect(fromLabel).toMatch(/^Porting from: /);
+  expect(toLabel).toMatch(/^Porting to: /);
+  expect(fromLabel).not.toBe(toLabel);
+
+  // Opening one closes the other: there is only ever one list on screen.
+  await from.click();
+  await expect(picker(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(picker(page)).toBeHidden();
   await to.click();
 
   const list = picker(page);
+  await expect(list).toHaveCount(1);
   await expect(list).toBeVisible();
 
   // The 464 and the 6128 differ by a digit in the name and by a great deal in
@@ -68,30 +86,6 @@ test('a machine is told from its relative while choosing', async ({ page }) => {
   await expect(to).toHaveAttribute('data-target-machine', 'cpc6128');
   await expect(to).toContainText('CPC 6128');
   await expect(to).toHaveAttribute('aria-label', 'Porting to: CPC 6128');
-});
-
-test('each field says which of the two choices it is', async ({ page }) => {
-  await page.goto(GUIDE);
-
-  const from = field(page, 'from');
-  const to = field(page, 'to');
-  await expect(from).toBeVisible({ timeout: 15_000 });
-
-  // The two controls are the same component, so nothing but the accessible
-  // name distinguishes them to a reader who cannot see the layout.
-  const fromLabel = await from.getAttribute('aria-label');
-  const toLabel = await to.getAttribute('aria-label');
-  expect(fromLabel).toMatch(/^Porting from: /);
-  expect(toLabel).toMatch(/^Porting to: /);
-  expect(fromLabel).not.toBe(toLabel);
-
-  // Opening one closes the other: there is only ever one list on screen.
-  await from.click();
-  await expect(picker(page)).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(picker(page)).toBeHidden();
-  await to.click();
-  await expect(picker(page)).toHaveCount(1);
 });
 
 test('the pair can be chosen without a pointer', async ({ page }) => {
