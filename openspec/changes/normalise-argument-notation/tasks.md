@@ -22,20 +22,20 @@ says was "hand-enriched" — its syntax strings are still byte-identical to `sig
 for the autocomplete tooltip. 81 of the 192 rows take no arguments, so ~110 need work.
 Batch by domain to keep each diff reviewable.
 
-- [ ] 2.1 control-flow and data (~40 rows), including the fragment rows per R7 (`STEP`,
+- [x] 2.1 control-flow and data (~40 rows), including the fragment rows per R7 (`STEP`,
       `TO`, `THEN`, `ELSE`) and `IF <number> THEN <statement> [ELSE <statement>]`.
-- [ ] 2.2 strings and numeric (~35 rows).
-- [ ] 2.3 text-screen and storage (~45 rows), including `#<stream>` per R6 and
+- [x] 2.2 strings and numeric (~35 rows).
+- [x] 2.3 text-screen and storage (~45 rows), including `#<stream>` per R6 and
       `<filename>` replacing every quoted `"name"` per R5.
-- [ ] 2.4 graphics and colour (~30 rows), applying the `<pen>` vs `<colour>` correction:
+- [x] 2.4 graphics and colour (~30 rows), applying the `<pen>` vs `<colour>` correction:
       `PLOT`/`DRAW`/`CLG`/`FILL`/`GRAPHICS PEN` take a pen number, while
       `INK <pen>, <colour>[, <colour>]` assigns a hardware colour 0–26 to a pen.
-- [ ] 2.5 sound and memory-hardware (~27 rows), including
+- [x] 2.5 sound and memory-hardware (~27 rows), including
       `SOUND <channel>, <period>[, <duration>[, <volume>[, <volenv>[, <toneenv>[,
       <noise>]]]]]` and `POKE <addr>, <byte>`.
-- [ ] 2.6 The 17 operator rows per R12 (free — `operatorNames()` drops operator rows from
+- [x] 2.6 The 17 operator rows per R12 (free — `operatorNames()` drops operator rows from
       the diff on both pages).
-- [ ] 2.7 Lift the prose out of the syntax cells per R9: `ENT`/`ENV`
+- [x] 2.7 Lift the prose out of the syntax cells per R9: `ENT`/`ENV`
       (`(up to 5 sections)` → description), `SYMBOL code,row,…`, and
       `ON n GOSUB/GOTO line,…` → the two `|` alternatives the BBC already uses (which
       also fixes a real defect: `GOSUB/GOTO` is not something a user can type).

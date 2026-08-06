@@ -117,6 +117,10 @@ export const CORE_PLACEHOLDERS = [
   { id: 'param', meaning: 'a parameter, where the definition introduces it' },
   { id: 'arg', meaning: 'a value, where the call passes it' },
 
+  // Positions and counts within a string or a list.
+  { id: 'start', meaning: 'the position something starts at, counting from 1' },
+  { id: 'length', meaning: 'how many characters' },
+
   // The screen: graphics coordinates, text cells and modes.
   { id: 'x', meaning: 'a horizontal graphics coordinate' },
   { id: 'y', meaning: 'a vertical graphics coordinate' },
