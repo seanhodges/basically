@@ -83,6 +83,51 @@ New user-visible scenarios belong in the matching capability folder; a unit
 test (`src/e2eCapabilityLayout.test.ts`) guards the folder↔capability
 mapping.
 
+## Writing efficient tests
+
+e2e minutes are the project's scarcest CI resource (one runner, one worker,
+Chromium, 30-minute cap). Before adding an e2e test, ask what only a real
+browser can prove; everything else belongs in a colocated `*.test.ts`.
+
+- **e2e is for browser-only behaviour** — canvas actually painting,
+  pointer/touch capture, clipboard and file-picker fallbacks, real
+  `history.back()`, viewport/orientation changes, the docs-iframe
+  postMessage join, WebSerial gating, `decodeAudioData`, font loading.
+  Logic, data tables, classification, storage rules and registry facts go in
+  Vitest next to the source — headless emulator tests that boot the real
+  ROMs and read the screen back are the norm here, not the exception.
+- **One representative per browser flow; registry-driven Vitest for the
+  matrix.** Never loop all machines in a spec. Boot one machine per emulator
+  wiring family (self-contained Z80 → zxspectrum, cpu6502 → pet, viciious →
+  commodore64, jsbeeb → bbcmicro) and pin the per-machine matrix in a
+  registry-driven unit test (pattern: `e2e/paletteMachines.ts` +
+  `src/dialects/graphicsPalette.test.ts`).
+- **Reuse expensive setup within a file.** If several tests share a booted
+  machine, an opened drawer, or a saved project, merge them into one journey
+  test with staged assertions rather than repeating the setup per test.
+- **No `page.waitForTimeout`.** Poll for the observable condition with
+  `expect.poll` / web-first assertions (autosave: poll the storage key,
+  don't sleep out the 2 s interval). A fixed sleep needs a comment
+  explaining why nothing pollable exists.
+- **No `test.setTimeout` above 30 s without a one-line justification**, and
+  never above 90 s except the cassette WAV round trip (120 s). A long budget
+  usually means the test boots a machine it doesn't need.
+- **A new e2e test must pay rent**: if it will take >15 s, say in a comment
+  what browser-only fact it proves that a unit test cannot. Prefer extending
+  an existing journey in the same capability folder over a new cold
+  `page.goto('/')`.
+- **No unasserted `page.screenshot()`** — failure screenshots and traces are
+  captured automatically by the Playwright config.
+- **Don't launch browsers by hand.** For touch/mobile contexts use
+  `test.use({ viewport, hasTouch, isMobile })` (skipping non-Chromium), not
+  `chromium.launch()`.
+- Every capability keeps at least one browser smoke test even when most of
+  its coverage is unit-level, and specs stay in `e2e/<capability>/` or
+  `e2e/shell/` (`src/e2eCapabilityLayout.test.ts` enforces this).
+
+The full streamlining plan these rules come from is
+`docs/contributing/e2e-streamlining-plan.md`.
+
 ## Architecture
 
 | Path                           | Role                                                                                                                                      |
