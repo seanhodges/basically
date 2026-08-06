@@ -68,7 +68,7 @@ test('an answer that asks to drive is offered the tools to do it', async ({
   expect(offered.some((names) => names.includes('drive'))).toBe(true);
 });
 
-test('a tool call is answered, and the assistant comes back for more', async ({
+test('a tool call is answered, comes back for more, and is accounted for', async ({
   page,
 }) => {
   const stub = await stubAssistant(page, [
@@ -95,25 +95,10 @@ test('a tool call is answered, and the assistant comes back for more', async ({
   // machine looked like afterwards.
   expect(asJson).toContain('tool_result');
   expect(asJson).toContain('pressed KeyA');
-});
 
-test('the user is told what was pressed to reach the screen they are shown', async ({
-  page,
-}) => {
-  await stubAssistant(page, [
-    WAITS_FOR_A_KEY,
-    {
-      text: 'Trying it.',
-      toolCalls: [{ name: 'drive', input: { script: 'PRESS KeyA' } }],
-    },
-    '```basic-judge\nPASS it ran on\n```',
-  ]);
-  await openApp(page);
-  await setEditorSource(page, PROGRAM);
-  await ask(page);
-
-  // A screen reached by a keypress is one the user cannot otherwise account
-  // for; unexplained, it reads as the IDE having done something odd.
+  // The same exchange, from the user's side. A screen reached by a keypress is
+  // one they cannot otherwise account for; unexplained, it reads as the IDE
+  // having done something odd.
   await expect(page.getByText(/Tried the program:/)).toBeVisible({
     timeout: 30000,
   });

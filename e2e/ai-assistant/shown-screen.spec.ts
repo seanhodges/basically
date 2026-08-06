@@ -59,10 +59,13 @@ test('the composer offers no control for showing the screen', async ({
   ).toHaveCount(0);
 });
 
-test('the screen the user is shown goes with their next request, once', async ({
+test('the screen the user is shown goes with their next request, once and only once', async ({
   page,
 }) => {
-  const stub = await stubAssistant(page, [REPLY]);
+  // Three asks in one thread, because that is the shortest run in which the
+  // screen can be seen arriving, being carried, and not being carried again -
+  // and it costs one checked answer instead of two.
+  const stub = await stubAssistant(page, [REPLY, 'Nothing to change.']);
   await openApp(page);
   await setEditorSource(page, PROGRAM);
   await openAiPanel(page);
@@ -90,22 +93,7 @@ test('the screen the user is shown goes with their next request, once', async ({
   await expect(
     page.getByAltText('The machine screen that will be sent with your message'),
   ).toHaveCount(0);
-});
 
-test('a further request carries no screen of its own', async ({ page }) => {
-  const stub = await stubAssistant(page, [REPLY, 'Nothing to change.']);
-  await openApp(page);
-  await setEditorSource(page, PROGRAM);
-  await openAiPanel(page);
-  await ask(page, 'write me something');
-  await expect(
-    page.getByRole('img', { name: /screen after running/ }),
-  ).toBeVisible({
-    timeout: 30000,
-  });
-
-  await ask(page, 'now make it faster');
-  await expect.poll(() => stub.requests().length, { timeout: 30000 }).toBe(2);
   // Wait for that answer to land - the composer takes nothing while the
   // assistant is working. Prose, so nothing is run and no new screen appears.
   await expect(page.getByText('Nothing to change.')).toBeVisible();

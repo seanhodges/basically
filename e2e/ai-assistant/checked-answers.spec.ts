@@ -24,29 +24,15 @@ async function ask(page: Page, request = 'make it better'): Promise<void> {
   await box.press('Enter');
 }
 
-test('an answer is run without the editor changing', async ({ page }) => {
-  await stubAssistant(page, [
-    'Here you go:\n\n```basic\n10 PRINT "THE ANSWER"\n20 STOP\n```',
-  ]);
-  await openApp(page);
-  await setEditorSource(page, PROGRAM);
-  await ask(page);
-
-  // The answer is offered...
-  await expect(page.locator('[data-block-kind]')).toBeVisible({
-    timeout: 15000,
-  });
-  // ...and the user's own program is exactly as they left it. Nothing was
-  // applied: the checking happened on a program they never had to accept.
-  const editor = page.locator('.cm-content');
-  await expect(editor).toContainText('20 PRINT "MINE"');
-  await expect(editor).not.toContainText('THE ANSWER');
-});
-
-test('the user is told the answer is being checked on the machine', async ({
+test('an answer is offered, checked on the machine, and handed back as a screen', async ({
   page,
 }) => {
-  await stubAssistant(page, ['```basic\n10 PRINT "HI"\n20 GOTO 10\n```']);
+  // One ask, staged assertions: the check is a single run of the machine and
+  // the three things worth pinning about it - the answer offered, the stage
+  // named, the screen handed over - all happen in that one run.
+  await stubAssistant(page, [
+    'Here you go:\n\n```basic\n10 PRINT "THE ANSWER"\n20 GOTO 10\n```',
+  ]);
   await openApp(page);
   await setEditorSource(page, PROGRAM);
   await ask(page);
@@ -57,15 +43,14 @@ test('the user is told the answer is being checked on the machine', async ({
   await expect(page.getByText(/Checking it on the/)).toBeVisible({
     timeout: 15000,
   });
-});
 
-test('the finished work comes back as a screen to look at', async ({
-  page,
-}) => {
-  await stubAssistant(page, ['```basic\n10 PRINT "HI"\n20 GOTO 10\n```']);
-  await openApp(page);
-  await setEditorSource(page, PROGRAM);
-  await ask(page);
+  // The answer is offered...
+  await expect(page.locator('[data-block-kind]')).toBeVisible();
+  // ...and the user's own program is exactly as they left it. Nothing was
+  // applied: the checking happened on a program they never had to accept.
+  const editor = page.locator('.cm-content');
+  await expect(editor).toContainText('20 PRINT "MINE"');
+  await expect(editor).not.toContainText('THE ANSWER');
 
   // Once the assistant has stopped working on the answer, the machine's own
   // screen is handed over for a human look - the one judgement none of the

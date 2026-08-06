@@ -106,7 +106,9 @@ test('an answer the page went away from is offered again', async ({ page }) => {
   await expect(page.getByText(/a maze needs a grid to carve/)).toBeVisible();
 });
 
-test('closing the assistant does not cancel the answer', async ({ page }) => {
+test('/hide puts the assistant away without cancelling the answer', async ({
+  page,
+}) => {
   // Held open long enough that the answer cannot already have arrived when the
   // panel is closed - so what comes back proves the request outlived it.
   await stubAssistant(page, ['A maze it is, then.'], { delayMs: 2000 });
@@ -118,14 +120,19 @@ test('closing the assistant does not cancel the answer', async ({ page }) => {
   await ask(page, '/hide');
   await expect(page.getByText(/A maze it is/)).toHaveCount(0);
 
+  // Back on screen with the whole exchange still there, answer included: the
+  // hide put the panel away, not the conversation.
   await openAssistant(page);
   await expect(page.getByText(/A maze it is/)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText('write me a maze')).toBeVisible();
 });
 
-test('leaving while an answer is arriving is confirmed first', async ({
+test('leaving is confirmed only while an answer is arriving', async ({
   page,
 }) => {
-  await stubAssistant(page, ['A maze it is, then.'], { delayMs: 5000 });
+  // One page for both halves: the same thread is left mid-answer and then left
+  // idle, which is the pair the beforeunload guard has to tell apart.
+  await stubAssistant(page, ['A maze it is, then.'], { delayMs: 3000 });
   await openApp(page);
   await openAssistant(page);
   await ask(page, 'write me a maze');
@@ -138,18 +145,14 @@ test('leaving while an answer is arriving is confirmed first', async ({
   await page.reload();
   await expect(page.locator('.cm-content')).toBeVisible();
   expect(asked).toContain('beforeunload');
-});
 
-test('leaving an idle thread is not confirmed', async ({ page }) => {
-  await stubAssistant(page, ['A maze it is, then.']);
-  await openApp(page);
+  // Now let one through to the end. Nothing is arriving any more, so reloading
+  // must not stop to ask.
   await openAssistant(page);
   await ask(page, 'write me a maze');
   await expect(page.getByText(/A maze it is/)).toBeVisible({ timeout: 15000 });
 
-  // Nothing is arriving any more, so reloading must not stop to ask.
-  const asked: string[] = [];
-  page.on('dialog', (dialog) => asked.push(dialog.type()));
+  asked.length = 0;
   await page.reload();
   await expect(page.locator('.cm-content')).toBeVisible();
   expect(asked).toHaveLength(0);
@@ -178,23 +181,6 @@ test('/clear starts the conversation over', async ({ page }) => {
   await expect(page.locator('.cm-content')).toBeVisible();
   await openAssistant(page);
   await expect(page.getByText(/A maze it is/)).toHaveCount(0);
-});
-
-test('/hide puts the assistant away with the conversation intact', async ({
-  page,
-}) => {
-  await stubAssistant(page, ['A maze it is, then.']);
-  await openApp(page);
-  await openAssistant(page);
-  await ask(page, 'write me a maze');
-  await expect(page.getByText(/A maze it is/)).toBeVisible({ timeout: 15000 });
-
-  await ask(page, '/hide');
-  await expect(page.getByText(/A maze it is/)).toHaveCount(0);
-
-  await openAssistant(page);
-  await expect(page.getByText(/A maze it is/)).toBeVisible();
-  await expect(page.getByText('write me a maze')).toBeVisible();
 });
 
 test('/hide puts the assistant away on a phone too', async ({ page }) => {
