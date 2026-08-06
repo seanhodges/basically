@@ -1,0 +1,522 @@
+<script setup lang="ts">
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import type { MemoryMap } from '../../../../src/dialects/types';
+import type { MapWriteSite } from '../../../../src/components/MemoryMapView';
+
+/**
+ * The porting guide's memory-layout section: both machines' maps, drawn against
+ * one shared address scale, as a React island.
+ *
+ * Two dynamic hops keep React off every other page, exactly as MachinePicker.vue
+ * does it - this component is registered with `defineAsyncComponent`
+ * (theme/index.ts) and `import()`s react-dom below rather than importing it
+ * statically, so VitePress does not emit a modulepreload for the React chunk on
+ * every page of the site.
+ *
+ * Everything that decides how the maps are read lives here rather than in either
+ * pane, because it belongs to the pair: two panes at different zooms are two
+ * pictures, not one comparison. That includes the scroll offset, which is what
+ * makes the tabbed layout worth having - flipping between the machines shows the
+ * same addresses on the other one rather than starting again at the top.
+ */
+
+const props = defineProps<{
+  fromName: string;
+  toName: string;
+  fromMap: MemoryMap;
+  toMap: MemoryMap;
+  fromByIndirection?: boolean;
+  toByIndirection?: boolean;
+  /** Addresses the open program writes to, resolved for the source machine. */
+  sites: MapWriteSite[];
+  /** The source machine's own notation, which the section opens in. */
+  notation: 'hex' | 'dec';
+}>();
+
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 24;
+
+const zoom = ref(MIN_ZOOM);
+const notation = ref<'hex' | 'dec'>(props.notation);
+const showDetails = ref(false);
+const scrollTop = ref(0);
+const active = ref<'from' | 'to'>('from');
+const selectedFrom = ref<string | null>(null);
+const selectedTo = ref<string | null>(null);
+
+/** True while there is not enough width for two columns; the panes become tabs. */
+const tabbed = ref(false);
+
+const host = ref<HTMLElement | null>(null);
+const ready = ref(false);
+
+const clamp = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+const nudge = (delta: number) => {
+  zoom.value = clamp(zoom.value + delta);
+};
+
+/** The source machine's notation is what the section opens in; a machine chosen
+ *  later re-seeds it, unless the reader has already made the choice their own. */
+const notationTouched = ref(false);
+watch(
+  () => props.notation,
+  (next) => {
+    if (!notationTouched.value) notation.value = next;
+  },
+);
+
+const setNotation = (next: 'hex' | 'dec') => {
+  notationTouched.value = true;
+  notation.value = next;
+};
+
+/** Tabs, in reading order: the machine being ported from comes first. */
+const tabs = computed(
+  () =>
+    [
+      { side: 'from' as const, name: props.fromName },
+      { side: 'to' as const, name: props.toName },
+    ] satisfies { side: 'from' | 'to'; name: string }[],
+);
+
+/** Left/right arrows move between the tabs, as a tablist is expected to. */
+function onTabKey(e: KeyboardEvent) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  e.preventDefault();
+  active.value = active.value === 'from' ? 'to' : 'from';
+  nextTick(() => {
+    document.getElementById(`mm-tab-${active.value}`)?.focus();
+  });
+}
+
+interface ReactRoot {
+  render: (node: unknown) => void;
+  unmount: () => void;
+}
+
+let root: ReactRoot | null = null;
+let renderPair: (() => void) | null = null;
+let media: MediaQueryList | null = null;
+let onMedia: (() => void) | null = null;
+
+onMounted(async () => {
+  // Measured in this frame, which inside the IDE is the documentation drawer -
+  // so the same query answers "narrow phone" and "narrow drawer".
+  media = window.matchMedia('(max-width: 640px)');
+  tabbed.value = media.matches;
+  onMedia = () => {
+    tabbed.value = !!media?.matches;
+  };
+  media.addEventListener('change', onMedia);
+
+  const [{ createRoot }, { createElement }, { MemoryMapPair }] =
+    await Promise.all([
+      import('react-dom/client'),
+      import('react'),
+      import('./MemoryMapPair'),
+    ]);
+
+  // <ClientOnly> renders nothing until its own onMounted, so the host element
+  // appears a tick after ours.
+  await nextTick();
+  if (!host.value) return;
+  root = createRoot(host.value);
+
+  renderPair = () => {
+    root?.render(
+      createElement(MemoryMapPair, {
+        from: {
+          name: props.fromName,
+          map: props.fromMap,
+          byIndirection: props.fromByIndirection,
+        },
+        to: {
+          name: props.toName,
+          map: props.toMap,
+          byIndirection: props.toByIndirection,
+        },
+        zoom: zoom.value,
+        notation: notation.value,
+        showDetails: showDetails.value,
+        scrollTop: scrollTop.value,
+        sites: props.sites,
+        active: active.value,
+        tabbed: tabbed.value,
+        selectedFrom: selectedFrom.value,
+        selectedTo: selectedTo.value,
+        onSelect: (side: 'from' | 'to', key: string) => {
+          if (side === 'from') selectedFrom.value = key;
+          else selectedTo.value = key;
+        },
+        onScrollChange: (top: number) => {
+          scrollTop.value = top;
+        },
+        onZoomGesture: (next: (z: number) => number) => {
+          zoom.value = clamp(next(zoom.value));
+        },
+      }),
+    );
+  };
+
+  ready.value = true;
+  renderPair();
+});
+
+// A React root does not re-render itself when Vue's state moves, so everything
+// the island reads is pushed back into it here.
+watch(
+  () =>
+    [
+      props.fromName,
+      props.toName,
+      props.fromMap,
+      props.toMap,
+      props.sites,
+      zoom.value,
+      notation.value,
+      showDetails.value,
+      scrollTop.value,
+      active.value,
+      tabbed.value,
+      selectedFrom.value,
+      selectedTo.value,
+    ] as const,
+  () => renderPair?.(),
+);
+
+// A new pair is a new comparison: the reader's place in the old one says nothing
+// about this one, so selection goes back to nothing. Zoom, notation and scroll
+// are how the reader is reading, not what they are reading, and stay.
+watch(
+  () => [props.fromMap, props.toMap] as const,
+  () => {
+    selectedFrom.value = null;
+    selectedTo.value = null;
+  },
+);
+
+onUnmounted(() => {
+  root?.unmount();
+  root = null;
+  renderPair = null;
+  if (media && onMedia) media.removeEventListener('change', onMedia);
+});
+</script>
+
+<template>
+  <div class="mm-root">
+    <div class="mm-controls">
+      <button
+        type="button"
+        class="mm-details"
+        :class="{ 'mm-on': showDetails }"
+        :aria-pressed="showDetails"
+        @click="showDetails = !showDetails"
+      >
+        Show region details
+      </button>
+
+      <div class="mm-notation" role="group" aria-label="Address notation">
+        <button
+          type="button"
+          :class="{ 'mm-on': notation === 'hex' }"
+          :aria-pressed="notation === 'hex'"
+          @click="setNotation('hex')"
+        >
+          Hex
+        </button>
+        <button
+          type="button"
+          :class="{ 'mm-on': notation === 'dec' }"
+          :aria-pressed="notation === 'dec'"
+          @click="setNotation('dec')"
+        >
+          Int
+        </button>
+      </div>
+
+      <div class="mm-zoom">
+        <button
+          type="button"
+          class="mm-zoom-btn"
+          :disabled="zoom <= MIN_ZOOM"
+          aria-label="Zoom out"
+          @click="nudge(-2)"
+        >
+          −
+        </button>
+        <input
+          type="range"
+          class="mm-zoom-slider"
+          :min="MIN_ZOOM"
+          :max="MAX_ZOOM"
+          :step="1"
+          :value="zoom"
+          aria-label="Zoom level"
+          @input="
+            zoom = clamp(Number(($event.target as HTMLInputElement).value))
+          "
+        />
+        <button
+          type="button"
+          class="mm-zoom-btn"
+          :disabled="zoom >= MAX_ZOOM"
+          aria-label="Zoom in"
+          @click="nudge(2)"
+        >
+          +
+        </button>
+      </div>
+    </div>
+
+    <!-- Only when there is no room for both. The two names are the tabs: which
+         machine you are looking at is the whole question a tab has to answer. -->
+    <div
+      v-if="tabbed"
+      class="mm-tabs"
+      role="tablist"
+      aria-label="Machine to show the memory layout for"
+    >
+      <button
+        v-for="tab in tabs"
+        :id="`mm-tab-${tab.side}`"
+        :key="tab.side"
+        type="button"
+        role="tab"
+        class="mm-tab"
+        :class="{ 'mm-on': active === tab.side }"
+        :aria-selected="active === tab.side"
+        :tabindex="active === tab.side ? 0 : -1"
+        :aria-controls="`mm-panel-${tab.side}`"
+        @click="active = tab.side"
+        @keydown="onTabKey"
+      >
+        {{ tab.name }}
+      </button>
+    </div>
+
+    <div class="mm-slot">
+      <ClientOnly><div ref="host"></div></ClientOnly>
+      <p v-if="!ready" class="mm-placeholder" aria-hidden="true"></p>
+    </div>
+
+    <p class="mm-hint">
+      <template v-if="tabbed">
+        Both maps are drawn to the same address scale, so switching between them
+        shows the same addresses on the other machine.
+      </template>
+      <template v-else>
+        Both maps are drawn to the same address scale, so a position in one is
+        the same address in the other.
+      </template>
+      Zoom in for each machine's own sub-regions and an address scale.
+      <template v-if="sites.length">
+        Each amber line marks an address your program writes to — on
+        {{ fromName }} where the program put it, and on {{ toName }} where it
+        would land.
+      </template>
+    </p>
+  </div>
+</template>
+
+<!--
+  Unscoped on purpose: React renders the panes' markup, so Vue's scope attribute
+  never reaches it. Every selector is `mm-` prefixed instead.
+-->
+<style>
+.mm-root {
+  /* The view's CSS modules are the app's, and read these custom properties from
+     it. Both surfaces are dark - the docs are `appearance: 'force-dark'` and the
+     IDE has no light theme - so redeclaring them here, at the values in
+     src/styles.css, is the whole of the theming work. Same arrangement as
+     MachinePicker.vue, with the memory-map palette added: those hues are what
+     make a region class recognisable across the two panes. */
+  --bg-panel: #1e2128;
+  --bg-raised: #262a33;
+  --border: #343945;
+  --text: #d8dce6;
+  --text-dim: #8a91a0;
+  --accent: #4f8cff;
+  --warn: #ffb04f;
+  --mono: var(--vp-font-family-mono, ui-monospace, monospace);
+
+  --mm-rom: #a986ff;
+  --mm-screen: #4f8cff;
+  --mm-attributes: #38c8c0;
+  --mm-buffer: #e0c060;
+  --mm-system: #ff8a5c;
+  --mm-program: #4fce6a;
+  --mm-reserved: #ff6f7d;
+  --mm-load: #1f6feb;
+
+  /* The app's typography, not the docs': this is the IDE's map, and VitePress's
+     absolute 24px prose line-height would stretch every band label. */
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  line-height: normal;
+}
+
+.mm-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 0.75rem;
+}
+
+.mm-details {
+  margin-right: auto;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.mm-details.mm-on {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.mm-notation {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.mm-notation button {
+  padding: 4px 9px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.mm-notation button.mm-on {
+  color: #fff;
+  background: var(--accent);
+}
+
+.mm-zoom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mm-zoom-btn {
+  width: 28px;
+  padding: 3px 0;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mm-zoom-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.mm-zoom-slider {
+  width: 120px;
+}
+
+.mm-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.mm-tab {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  cursor: pointer;
+}
+
+.mm-tab.mm-on {
+  color: var(--text);
+  background: var(--bg-panel);
+  border-color: var(--border);
+  margin-bottom: -1px;
+}
+
+/* Reserves the maps' height before React mounts, so their absence from the
+   pre-rendered HTML costs a paint rather than a layout shift. */
+.mm-placeholder {
+  display: block;
+  height: 320px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raised);
+}
+
+/* Two columns of equal width, so the same address sits at the same height in
+   both and the comparison can be read straight across. */
+.mm-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+/* Tabbed: one pane at a time, taking the full width. */
+.mm-panes-tabbed {
+  grid-template-columns: 1fr;
+}
+
+.mm-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* Tall enough that the 64K column is worth scrolling, short enough that the
+     section does not push the rest of the comparison off the page. */
+  height: 460px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mm-pane[hidden] {
+  display: none;
+}
+
+.mm-pane-name {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.mm-pane-role {
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--text-dim);
+}
+
+.mm-hint {
+  margin: 0.75rem 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+</style>

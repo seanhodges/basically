@@ -18,7 +18,11 @@
  * dialect registry or an emulator core (see `machinePickerBoundary.test.ts`).
  */
 import type { Dialect } from '../dialects/types';
-import { pokeSites, type PokeContext, type PokeSite } from '../editor/pokeAddresses';
+import {
+  pokeSites,
+  type PokeContext,
+  type PokeSite,
+} from '../editor/pokeAddresses';
 
 /**
  * How this dialect writes memory, for the write-site markers: an explicit

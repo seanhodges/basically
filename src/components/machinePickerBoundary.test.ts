@@ -54,6 +54,12 @@ const DOCS_IMPORTABLE = [
   'components/MachineTrigger.tsx',
   'components/MachinePickerDialog.tsx',
   'app/useDismiss.ts',
+  // The porting guide's memory-layout section renders the IDE's own map view,
+  // twice. Its two escape hatches from this boundary are the reason it takes a
+  // write-site shape of its own instead of importing the editor's POKE
+  // analysis, and takes the activity canvas as an opaque node instead of
+  // drawing it: both of those reach an emulator module.
+  'components/MemoryMapView.tsx',
   ...MEMORY_MAPS,
 ];
 

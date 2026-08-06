@@ -124,6 +124,16 @@ Activity is only recorded while the map is on screen, so it costs nothing when
 the panel is closed. Pair it with the POKE markers to confirm that a write you
 intended is really happening where you expected.
 
+### Comparing two machines' memory
+
+Porting a program to another machine? The [porting guide](./compare) draws both
+machines' memory maps side by side, on one shared address scale, so a position
+in one is the same address in the other. With your program open, it marks the
+addresses your program writes to on **both** maps — where the program put them
+on the machine you're leaving, and where they would land on the machine you're
+moving to. That is how you spot a write aimed at one machine's system variables
+that would come down in the middle of another machine's BASIC program.
+
 ## Watching variables
 
 The **variable watcher** is a live table of your program's BASIC variables. Show

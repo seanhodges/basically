@@ -36,6 +36,46 @@
   gap: 3px;
 }
 
+/* Proportional: every band is exactly its share of the address space, so the
+   gap has to go too - three pixels per band accumulate, and a machine with more
+   regions would end up with a taller column than its neighbour. Memory is
+   contiguous anyway; the bands' own borders separate them. See `proportional`
+   in MemoryMapView.tsx. */
+.mapProportional {
+  gap: 0;
+}
+
+/* Everything that would stop a band being exactly its own share of the address
+   space, removed.
+
+   A band could not render shorter than 10px - `border-box` still cannot squeeze
+   a box below its own padding and borders (4px + 4px of padding, 1px + 1px of
+   border). Small regions therefore rendered too tall, by an amount that depended
+   on how many of them a machine had, so a machine with more regions ended up
+   with a taller column than its neighbour: exactly the misalignment
+   proportional mode exists to prevent.
+   
+   So the vertical padding and the horizontal borders go, and the separator is
+   drawn with an inset shadow instead, which occupies no layout height at all.
+   The 4px left border stays - it is horizontal, it costs nothing vertically, and
+   it is what makes a region's class readable at a glance in both panes. Bands
+   too short for their label don't draw one (MIN_LABEL_PX), and `overflow:
+   hidden` clips whatever is left. */
+.mapProportional .band {
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top-width: 0;
+  border-bottom-width: 0;
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+/* The selection ring has to beat the separator shadow, being the same property. */
+.mapProportional .band.selected {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 .band {
   position: relative;
   display: flex;
@@ -316,6 +356,14 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 6px 24px rgb(0 0 0 / 35%);
+}
+
+/* With nothing selected the overlay says "select a region" while covering the
+   only thing that can be selected - so while it is saying that, it lets clicks
+   through to the bands underneath. It fills, and starts catching clicks again,
+   the moment one is picked. */
+.detailOverlayEmpty {
+  pointer-events: none;
 }
 
 .detail {

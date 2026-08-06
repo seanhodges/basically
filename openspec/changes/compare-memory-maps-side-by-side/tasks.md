@@ -23,33 +23,33 @@
 
 ## 4. The memory-layout section
 
-- [ ] 4.1 Import the thirteen `memoryMap.ts` modules in `docs/reference/compare.md` and attach each to its machine in the `dialects` array, beside `reference`, `escapes` and `facts`
-- [ ] 4.2 Create `docs/.vitepress/theme/components/MemoryMapPair.tsx`, the React island rendering one or both `MemoryMapView`s with the pair's shared settings
-- [ ] 4.3 Create `docs/.vitepress/theme/components/MemoryMapPair.vue`, owning the shared zoom / detail / notation / scroll state and which pane is active, mirroring how `MachinePicker.vue` owns the state that belongs to the pair of machine fields
-- [ ] 4.4 Render `<section id="memory-layout">` in `DialectCompare.vue` immediately after `#language-hardware`, shown only when both machines have a described layout, and add the matching `pageSections` entry
-- [ ] 4.5 Mark the open program's write sites on both panes, labelling the source pane as the program's own writes and the target pane as where those addresses land, carrying through the approximate marking the IDE panel already uses
-- [ ] 4.6 Add the tabbed layout below the existing `max-width: 640px` breakpoint: tabs named for the two machines, source first and active by default, `role="tablist"`/`tab`/`tabpanel` with arrow-key navigation, and zoom, detail, notation and scroll offset held across the flip
+- [x] 4.1 Import the thirteen `memoryMap.ts` modules in `docs/reference/compare.md` and attach each to its machine in the `dialects` array, beside `reference`, `escapes` and `facts`
+- [x] 4.2 Create `docs/.vitepress/theme/components/MemoryMapPair.tsx`, the React island rendering one or both `MemoryMapView`s with the pair's shared settings
+- [x] 4.3 Create `docs/.vitepress/theme/components/MemoryMapPair.vue`, owning the shared zoom / detail / notation / scroll state and which pane is active, mirroring how `MachinePicker.vue` owns the state that belongs to the pair of machine fields
+- [x] 4.4 Render `<section id="memory-layout">` in `DialectCompare.vue` immediately after `#language-hardware`, shown only when both machines have a described layout, and add the matching `pageSections` entry
+- [x] 4.5 Mark the open program's write sites on both panes, labelling the source pane as the program's own writes and the target pane as where those addresses land, carrying through the approximate marking the IDE panel already uses
+- [x] 4.6 Add the tabbed layout below the existing `max-width: 640px` breakpoint: tabs named for the two machines, source first and active by default, `role="tablist"`/`tab`/`tabpanel` with arrow-key navigation, and zoom, detail, notation and scroll offset held across the flip
 
 ## 5. Retire the superseded address rows
 
-- [ ] 5.1 Delete the `Screen base` and `Program start` entries from `factRows` in `docs/.vitepress/theme/components/DialectCompare.vue`, leaving the memory run ending at `Address notation`
-- [ ] 5.2 Update the row-order expectation and its explanatory comment in `e2e/porting-guidance/language-hardware-table.spec.ts`, which currently describes "the two addresses adjacent at the end"
-- [ ] 5.3 Confirm `PortingFacts.screenBase`/`programStart` are untouched in `src/reference/facts.ts` and still pinned by `facts-crosscheck.test.ts`, and that `machineDescription.ts` still reports them to the assistant
+- [x] 5.1 Delete the `Screen base` and `Program start` entries from `factRows` in `docs/.vitepress/theme/components/DialectCompare.vue`, leaving the memory run ending at `Address notation`
+- [x] 5.2 Update the row-order expectation and its explanatory comment in `e2e/porting-guidance/language-hardware-table.spec.ts`, which currently describes "the two addresses adjacent at the end"
+- [x] 5.3 Confirm `PortingFacts.screenBase`/`programStart` are untouched in `src/reference/facts.ts` and still pinned by `facts-crosscheck.test.ts`, and that `machineDescription.ts` still reports them to the assistant
 
 ## 6. Tests and user docs
 
-- [ ] 6.1 Add `e2e/porting-guidance/memory-layout.spec.ts`: both layouts render for a described pair against one shared scale, one zoom control drives both, the notation toggle flips both, and a region reads out when selected
-- [ ] 6.2 Cover the absent section in that spec: choosing the machine with no described layout on either side reports no layouts and leaves no empty section behind
-- [ ] 6.3 Cover the tabbed fallback in that spec: at a narrow viewport the pair becomes two tabs named for the machines, and flipping preserves zoom and the part of the address space in view
-- [ ] 6.4 Cover the program marks in that spec, driving the IDE with a POKE-heavy sample so the write sites cross the boundary and appear on both panes
-- [ ] 6.5 Point `docs/reference/memory-management.md` ("The memory map") at the porting guide's side-by-side view, without touching the sidebar in `docs/.vitepress/config.ts`
+- [x] 6.1 Add `e2e/porting-guidance/memory-layout.spec.ts`: both layouts render for a described pair against one shared scale, one zoom control drives both, the notation toggle flips both, and a region reads out when selected
+- [x] 6.2 Cover the absent section in that spec: choosing the machine with no described layout on either side reports no layouts and leaves no empty section behind
+- [x] 6.3 Cover the tabbed fallback in that spec: at a narrow viewport the pair becomes two tabs named for the machines, and flipping preserves zoom and the part of the address space in view
+- [x] 6.4 Cover the program marks in that spec, driving the IDE with a POKE-heavy sample so the write sites cross the boundary and appear on both panes
+- [x] 6.5 Point `docs/reference/memory-management.md` ("The memory map") at the porting guide's side-by-side view, without touching the sidebar in `docs/.vitepress/config.ts`
 
 ## 7. Quality gates
 
-- [ ] 7.1 `npm run typecheck`
-- [ ] 7.2 `npm test`
-- [ ] 7.3 `npm run lint`
-- [ ] 7.4 `npm run format:check` (or `npm run format` to fix)
-- [ ] 7.5 `npm run docs:build`
-- [ ] 7.6 `npm run e2e:chromium -- e2e/memory-map`
-- [ ] 7.7 `npm run e2e:chromium -- e2e/porting-guidance`
+- [x] 7.1 `npm run typecheck`
+- [x] 7.2 `npm test`
+- [x] 7.3 `npm run lint`
+- [x] 7.4 `npm run format:check` (or `npm run format` to fix)
+- [x] 7.5 `npm run docs:build`
+- [x] 7.6 `npm run e2e:chromium -- e2e/memory-map` — passes. `bbc-memmap.spec.ts` is intermittently flaky in this container (the machine picker's dialog is occasionally still empty when `selectDialect` clicks); verified pre-existing by running it four times on unmodified `origin/main` in a worktree, where it also failed once. Unrelated to this change, which touches nothing in the picker path.
+- [x] 7.7 `npm run e2e:chromium -- e2e/porting-guidance`

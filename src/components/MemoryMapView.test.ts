@@ -28,9 +28,12 @@ describe('the write sites the map draws', () => {
     // checks below then pin that the fields actually arrive populated, which a
     // structural type alone cannot say.
     const analysed: PokeSite[] = pokeSites(
-      ['10 POKE 16384,255', '20 FOR I=1 TO 8', '30 POKE 22528+I,2', '40 NEXT I'].join(
-        '\n',
-      ),
+      [
+        '10 POKE 16384,255',
+        '20 FOR I=1 TO 8',
+        '30 POKE 22528+I,2',
+        '40 NEXT I',
+      ].join('\n'),
       { writes: ['poke'] },
     );
     const drawn: MapWriteSite[] = analysed;

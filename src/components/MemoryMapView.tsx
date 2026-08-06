@@ -38,6 +38,11 @@ const GAP_PX = 3;
 /** Hide a marker's address label if it would sit within this many pixels of the
  * last shown one (small regions clamp to MIN_BAND_PX, so labels crowd). */
 const LABEL_GAP_PX = 12;
+/** Below this height a band has no room for its name, so the name is dropped
+ *  rather than drawn across its neighbours. Only reachable in `proportional`
+ *  mode, where nothing clamps a band up to a legible size; the region is still
+ *  coloured, still selectable, and still named in its tooltip and its detail. */
+const MIN_LABEL_PX = 15;
 
 /** The zoom at which bands open into their leaves and the address scale appears. */
 export const DETAIL_ZOOM = 1.75;
@@ -103,6 +108,33 @@ export interface MemoryMapViewProps {
   onGeometry?: (geometry: BandGeometry[]) => void;
   /** Pinch and Ctrl/⌘-wheel gestures over the column, for a host that owns zoom. */
   onZoomGesture?: (next: (z: number) => number) => void;
+  /**
+   * Draw every band at exactly its share of the address space: no minimum
+   * height, no gap between bands.
+   *
+   * The default (false) is what a single map wants - a region too small to read
+   * is clamped to a legible minimum, and the gaps make the bands read as
+   * separate things. Both of those break alignment, though: clamping is
+   * non-linear, and gaps accumulate, so a machine with more regions ends up with
+   * a taller column and the same address sits at a different height on each.
+   *
+   * The porting guide sets this, because a shared address scale is the entire
+   * point of putting two maps beside each other - a reader draws a line across
+   * them. The cost is that a small region is a sliver until it is zoomed into,
+   * which is what zoom is for.
+   */
+  proportional?: boolean;
+  /**
+   * True while the host is keeping this view out of view - the porting guide's
+   * inactive tab, which is `display: none` and therefore has no layout to scroll.
+   *
+   * The view needs to be told, because a hidden column cannot take a scroll
+   * offset: the assignment lands on an element with no scroll height and is
+   * silently dropped. Knowing when it comes back is what lets it re-apply the
+   * offset, so flipping tabs shows the same addresses on the other machine
+   * rather than starting again at the top.
+   */
+  hidden?: boolean;
   /** Names this column for assistive technology, e.g. "ZX81 memory map". */
   label?: string;
 }
@@ -122,6 +154,8 @@ export function MemoryMapView({
   onGeometry,
   onZoomGesture,
   label,
+  hidden = false,
+  proportional = false,
 }: MemoryMapViewProps) {
   const detailed = zoom >= DETAIL_ZOOM;
   const bands = useMemo(() => memoryBands(map, detailed), [map, detailed]);
@@ -165,8 +199,14 @@ export function MemoryMapView({
   const sitesInRegion = (start: number, end: number) =>
     sites.filter((s) => s.address >= start && s.address <= end);
 
-  const bandHeight = (b: Band) =>
-    Math.max(MIN_BAND_PX, (b.end - b.start + 1) * PX_PER_BYTE * zoom);
+  // Proportional drops the legibility floor and the gap, so the column's height
+  // is exactly `addressSpace * PX_PER_BYTE * zoom` on every machine and two of
+  // them can be read straight across. See `proportional` on the props.
+  const gap = proportional ? 0 : GAP_PX;
+  const bandHeight = (b: Band) => {
+    const exact = (b.end - b.start + 1) * PX_PER_BYTE * zoom;
+    return proportional ? exact : Math.max(MIN_BAND_PX, exact);
+  };
 
   // --- Pinch / wheel zoom, delegated to the host that owns the zoom value ---
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -182,7 +222,8 @@ export function MemoryMapView({
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.current.size === 2) pinch.current = { dist: pointerDist(), zoom };
+    if (pointers.current.size === 2)
+      pinch.current = { dist: pointerDist(), zoom };
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (!pointers.current.has(e.pointerId)) return;
@@ -213,16 +254,16 @@ export function MemoryMapView({
   // back unchanged.
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (!el || scrollTop === undefined) return;
+    if (!el || hidden || scrollTop === undefined) return;
     if (Math.abs(el.scrollTop - scrollTop) > 1) el.scrollTop = scrollTop;
-  }, [scrollTop, zoom, detailed]);
+  }, [scrollTop, zoom, detailed, hidden]);
 
   // The band geometry, reported to a host drawing an overlay over the column.
   const geometry = useMemo(
-    () => bandLayout(bands, bandHeight, GAP_PX),
+    () => bandLayout(bands, bandHeight, gap),
     // bandHeight is a pure function of zoom, captured fresh each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bands, zoom],
+    [bands, zoom, gap],
   );
   useLayoutEffect(() => {
     onGeometry?.(geometry);
@@ -249,7 +290,11 @@ export function MemoryMapView({
         onWheel={onWheel}
         onScroll={(e) => onScrollChange?.(e.currentTarget.scrollTop)}
       >
-        <div className={styles.map} aria-label={label} role={label ? 'group' : undefined}>
+        <div
+          className={`${styles.map} ${proportional ? styles.mapProportional : ''}`}
+          aria-label={label}
+          role={label ? 'group' : undefined}
+        >
           {overlay}
           {bands.map((b) => {
             const px = bandHeight(b);
@@ -386,16 +431,22 @@ export function MemoryMapView({
                     </span>
                   );
                 })}
-                <span className={styles.bandMain}>
-                  <span className={styles.bandLabel}>{b.label}</span>
-                  {detailed && (
-                    <span className={styles.bandAddr}>
-                      {fmt(b.start)} – {fmt(b.end)}
+                {px >= MIN_LABEL_PX && (
+                  <>
+                    <span className={styles.bandMain}>
+                      <span className={styles.bandLabel}>{b.label}</span>
+                      {detailed && (
+                        <span className={styles.bandAddr}>
+                          {fmt(b.start)} – {fmt(b.end)}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-                {!detailed && (
-                  <span className={styles.bandPct}>{fraction.toFixed(1)}%</span>
+                    {!detailed && (
+                      <span className={styles.bandPct}>
+                        {fraction.toFixed(1)}%
+                      </span>
+                    )}
+                  </>
                 )}
               </button>
             );
@@ -404,7 +455,11 @@ export function MemoryMapView({
       </div>
 
       {showDetails && (
-        <div className={styles.detailOverlay}>
+        <div
+          className={`${styles.detailOverlay} ${
+            selected ? '' : styles.detailOverlayEmpty
+          }`}
+        >
           <div className={styles.detail}>
             {selected ? (
               <>
@@ -449,9 +504,14 @@ export function MemoryMapView({
                       {selectedWrites.map((s) => (
                         <li key={s.address} className={styles.mono}>
                           {s.approximate ? '≈ ' : ''}
-                          {byIndirection ? `?${s.address}` : `PEEK ${s.address}`}
+                          {byIndirection
+                            ? `?${s.address}`
+                            : `PEEK ${s.address}`}
                           {s.computed ? (
-                            <span className={styles.pokedExpr}> · {s.expr}</span>
+                            <span className={styles.pokedExpr}>
+                              {' '}
+                              · {s.expr}
+                            </span>
                           ) : (
                             ''
                           )}

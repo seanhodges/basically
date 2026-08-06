@@ -73,7 +73,9 @@ describe('every dialect that ships a memory map', () => {
       spaces.set(space, [...(spaces.get(space) ?? []), d.id]);
     }
     expect(
-      [...spaces].map(([space, ids]) => `0x${space.toString(16)}: ${ids.join(', ')}`),
+      [...spaces].map(
+        ([space, ids]) => `0x${space.toString(16)}: ${ids.join(', ')}`,
+      ),
     ).toHaveLength(1);
   });
 });

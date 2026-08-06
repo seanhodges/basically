@@ -17,6 +17,7 @@ describe('programVocabulary - keywords', () => {
       escapeCodes: [],
       characters: [...'01:=EFINOPRTX'],
       multiStatementLines: [1],
+      writeSites: [],
     });
   });
 
@@ -168,6 +169,60 @@ describe('programVocabulary - multi-statement lines', () => {
   });
 });
 
+describe('programVocabulary - write sites', () => {
+  it('records the addresses a program writes to, in address order', () => {
+    const { writeSites } = programVocabulary(
+      '10 POKE 53280,0\n20 POKE 1024,81',
+      c64,
+    );
+
+    expect(writeSites.map((s) => s.address)).toEqual([1024, 53280]);
+    expect(writeSites.every((s) => s.computed === false)).toBe(true);
+  });
+
+  it('carries a loop’s end address, which the map shades to', () => {
+    const { writeSites } = programVocabulary(
+      '10 FOR I=0 TO 15\n20 POKE 1024+I,81\n30 NEXT I',
+      c64,
+    );
+    const ranged = writeSites.find((s) => s.endAddress !== undefined);
+
+    expect(ranged?.address).toBe(1024);
+    expect(ranged?.endAddress).toBe(1039);
+    expect(ranged?.approximate).toBe(false);
+  });
+
+  it('marks a loop it could not pin down as approximate', () => {
+    // The same loop crunched onto one line. The address tracker walks a line at
+    // a time, so the loop variable is not in hand when the POKE on that same
+    // line is read: the base is right and the extent is unknown. The map draws
+    // that as an estimate rather than as an exact byte, which is the honest
+    // answer - and the reason the guide passes `approximate` across at all.
+    const { writeSites } = programVocabulary(
+      '10 FORI=0TO15:POKE1024+I,81:NEXT',
+      c64,
+    );
+
+    expect(writeSites).toHaveLength(1);
+    expect(writeSites[0]!.address).toBe(1024);
+    expect(writeSites[0]!.approximate).toBe(true);
+    expect(writeSites[0]!.endAddress).toBeUndefined();
+  });
+
+  it('leaves out an address the machine does not have', () => {
+    // A write past the top of memory is a finding about the program, not about
+    // the port; the IDE's own map reports it, and marking it on either machine's
+    // layout would mean drawing it outside the picture.
+    const { writeSites } = programVocabulary('10 POKE 70000,1', c64);
+
+    expect(writeSites).toEqual([]);
+  });
+
+  it('records nothing for a program that writes nowhere', () => {
+    expect(programVocabulary('10 PRINT "HI"', c64).writeSites).toEqual([]);
+  });
+});
+
 describe('programVocabulary - no program', () => {
   it('is empty for an empty program', () => {
     expect(programVocabulary('', c64)).toEqual({
@@ -176,6 +231,7 @@ describe('programVocabulary - no program', () => {
       escapeCodes: [],
       characters: [],
       multiStatementLines: [],
+      writeSites: [],
     });
   });
 
