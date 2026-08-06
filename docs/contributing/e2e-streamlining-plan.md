@@ -1,10 +1,13 @@
 # Plan: streamline the e2e suite
 
-Status: **in progress** — Phase 0 (baseline) and Phase 1 (mechanical fixes) are
-done; Phases 2–5 are not yet implemented. The CLAUDE.md "Writing efficient
-tests" guidance derived from this plan _is_ already in place; new and updated
-tests should follow it now. Existing tests get refactored by completing the
-remaining phases.
+Status: **in progress** — Phases 0–3 are done; Phases 4–5 are not yet
+implemented. The CLAUDE.md "Writing efficient tests" guidance derived from this
+plan _is_ already in place; new and updated tests should follow it now. Existing
+tests get refactored by completing the remaining phases.
+
+Phase 3 took the Chromium suite from 207 tests / 37 specs to **173 tests / 36
+specs**, with the emulator-booting count down by nine machines and two of the
+four 120 s budgets gone.
 
 ## Context
 
@@ -107,7 +110,7 @@ Phase 1's drop to `retries: 1` still covers it in CI.
   (still skipped off-chromium); `shell/landscape-layout.spec.ts` → create
   contexts from the worker's `browser` fixture (two viewports in one test).
 
-## Phase 2 — Unit backfill (before any e2e deletion)
+## Phase 2 — Unit backfill (before any e2e deletion) ✅
 
 1. **`src/dialects/memoryMapDetail.test.ts`** (new): for
    zx81/zx80/cpc464/cpc6128 assert the detail sub-regions and stable top-level
@@ -117,7 +120,10 @@ Phase 1's drop to `retries: 1` still covers it in CI.
    each registered dialect's debugger support (the optional `debugStep` on
    `MachineEmulator` / its dialect-level flag in `src/dialects/types.ts`)
    matches expectation — replaces `debug.spec.ts`'s 4-machine "Step/Continue
-   show" loop, for all machines at once.
+   show" loop, for all machines at once. Built as a crosscheck against every
+   machine's real `currentLine`/`debugStep` (pattern:
+   `src/ai/machineObservability.test.ts`), so the flag cannot drift from the
+   emulator; all fourteen machines construct in ~0.7 s.
 3. **Extend the `src/app/surfaces` tests**: Import/Export/Outline dialogs
    registered as same-kind dismissible surfaces (backs trimming
    `dismissal.spec.ts`'s `TOOLBAR_DIALOGS` loop 3→1).
@@ -127,8 +133,12 @@ Phase 1's drop to `retries: 1` still covers it in CI.
    `src/reference/porting-crosscheck.test.ts`) pinning the row order and
    values that `porting-guidance/language-hardware-table.spec.ts` asserts.
    Run `npm run docs:build` after touching the `.vue`.
+   Landed as `factRows`/`factRowLabels` in `src/reference/compare.ts` +
+   `src/reference/compare-facts-crosscheck.test.ts`; the `.vue` imports the
+   function under an alias, because `<script setup>` exposes imports to the
+   template and the page already had a `factRows` binding there.
 
-## Phase 3 — Matrix trims (the big wins)
+## Phase 3 — Matrix trims (the big wins) ✅
 
 - **`program-execution/emulator-boot.spec.ts` 15 → 6**: keep the
   picker↔MACHINES guard and the focus test; cut the 13-machine boot loop to
@@ -158,6 +168,24 @@ Phase 1's drop to `retries: 1` still covers it in CI.
 - **Delete `porting-guidance/language-hardware-table.spec.ts`** (3
   static-content tests, replaced by the Phase 2 crosscheck; the folder keeps
   3 other specs).
+
+Measured after Phase 3, Chromium only, one folder at a time on a dev box:
+
+| Folder              | Tests   | Wall clock |
+| ------------------- | ------- | ---------- |
+| `program-execution` | 18 → 8  | 23 s       |
+| `sharing-player`    | 24 → 12 | 29 s       |
+| `memory-map`        | 9 → 4   | 15 s       |
+| `virtual-input`     | 11 → 8  | 22 s       |
+| `porting-guidance`  | 28 → 25 | 1.1 min    |
+
+Two deviations from the plan as written, both to keep a trimmed loop from
+quietly becoming an empty one: `emulator-boot`'s picker guard now also fails
+when a `REPRESENTATIVES` id stops matching a machine, and `share-flow` resolves
+its two verbs through `SHARE_VERBS` and throws at collection time if one is
+renamed. The palette's ink-on-paper trim keeps three machines because those are
+the three with a `vk-theme-*` block in `VirtualKeyboard.css`; no rule in that
+stylesheet scopes `.vk-graphic` to a theme, so the base rule covers the rest.
 
 ## Phase 4 — Merge/dedupe passes (one capability per commit)
 
