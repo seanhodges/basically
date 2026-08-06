@@ -18,7 +18,7 @@ import { EDITOR, clearEditor, openApp, setEditorSource } from '../helpers';
 
 const PROGRAM = '10 PRINT "{GRAPHICS WHITE}\u{1FB00}\u{1FB02}"\n20 END\n';
 
-test('a teletext control code shows as a chip without disturbing its line', async ({
+test('a teletext control code shows as a chip, and the line still holds the escape', async ({
   page,
 }) => {
   await openApp(page);
@@ -43,15 +43,6 @@ test('a teletext control code shows as a chip without disturbing its line', asyn
   const withChip = (await lines.nth(0).boundingBox())!;
   const plain = (await lines.nth(1).boundingBox())!;
   expect(Math.abs(withChip.height - plain.height)).toBeLessThan(1);
-});
-
-test('the program still holds the escape the chip stands for', async ({
-  page,
-}) => {
-  await openApp(page);
-  await chooseTargetMachine(page, 'bbcmicro');
-  await clearEditor(page);
-  await setEditorSource(page, PROGRAM);
 
   // Nothing about the program changed, so it still tokenizes cleanly.
   await expect(page.getByText(/\d+ error/)).toHaveCount(0);
