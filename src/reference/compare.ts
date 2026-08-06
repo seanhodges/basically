@@ -959,3 +959,121 @@ export function diffEscapes(
     unchanged,
   };
 }
+
+/** One row of the language & hardware comparison table. */
+export interface FactRow {
+  label: string;
+  fromText: string;
+  toText: string;
+  /** True when the two machines answer this row differently. */
+  changed: boolean;
+}
+
+function fmtSeparator(f: PortingFacts): string {
+  return f.statementSeparator
+    ? `Multiple, separated by "${f.statementSeparator}"`
+    : 'One statement per line';
+}
+function fmtElse(f: PortingFacts): string {
+  return f.elseSupported ? 'IF … THEN … ELSE' : 'IF … THEN only (no ELSE)';
+}
+function fmtLet(f: PortingFacts): string {
+  return {
+    required: 'Required (LET x=…)',
+    optional: 'Optional',
+    none: 'Not used',
+  }[f.letRequired];
+}
+function fmtRam(f: PortingFacts): string {
+  return `${f.freeRamBytes.toLocaleString('en-GB')} bytes`;
+}
+function fmtCharacters(f: PortingFacts): string {
+  return f.unsupportedCharacters.length === 0
+    ? 'All printable ASCII'
+    : `No ${f.unsupportedCharacters.join(' ')}`;
+}
+function fmtAddress(f: PortingFacts): string {
+  if (f.addressNotation === 'hex') {
+    return f.hexPrefix ? `Hexadecimal (${f.hexPrefix}nn)` : 'Hexadecimal';
+  }
+  return 'Decimal';
+}
+
+/**
+ * The comparison table's rows, in the order a porter meets the work - most
+ * consequential first. The order is the content here, so it is pinned by
+ * `compare-facts-crosscheck.test.ts` rather than left to whoever edits next.
+ *
+ * The BASIC each machine runs leads: it is what the rest of the table is about,
+ * it is the one row that says outright whether this is a port between two
+ * BASICs or between two versions of one, and for the four families that share a
+ * reference page it is the difference the page title cannot show.
+ *
+ * Then the differences by how much of the program they touch. Arithmetic and
+ * free RAM decide whether the program can work at all - an integer-only target
+ * rescales every fractional calculation, and 3,583 bytes is a rewrite a C64
+ * program does not survive by editing keywords. The language rules that follow
+ * force edits wherever they apply (two significant characters renames
+ * variables; no ELSE restructures conditionals) but leave the program's shape
+ * alone. The hardware the program draws and sounds on comes next.
+ *
+ * The memory facts close it as one run: how memory is written, then how an
+ * address is spelled. They are the only rows that matter solely to a program
+ * that pokes at hardware, and they were previously scattered - the notation
+ * five rows away from the write syntax it describes.
+ *
+ * The addresses themselves are not here. A screen base and a program start were
+ * the last two rows of this run until the Memory layout section started drawing
+ * both machines' whole address spaces to scale; two numbers and the picture that
+ * explains them are one difference reported twice, and the picture is the one a
+ * porter can act on. The facts still carry those addresses (the assistant is
+ * told them, and facts-crosscheck.test.ts pins them to each machine's real
+ * memory map) - they simply have a better place to be read.
+ */
+const FACT_ROWS: readonly [string, (f: PortingFacts) => string][] = [
+  ['BASIC dialect', (f) => f.basicDialect],
+  // Whether the target has fractions at all decides how much of the port is
+  // arithmetic, so it leads the language rules rather than sitting among the
+  // hardware.
+  ['Numbers', (f) => f.numberHandling],
+  ['Free program RAM', fmtRam],
+  ['Variable names', (f) => f.variableNaming],
+  ['Conditionals', fmtElse],
+  ['Statements per line', fmtSeparator],
+  ['LET on assignment', fmtLet],
+  // With the language rules rather than the hardware: a character the machine
+  // has no glyph for is rejected when the program is read, not when it draws.
+  ['Characters', fmtCharacters],
+  ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
+  ['Line numbers', (f) => f.lineNumberRange],
+  ['Screen', (f) => f.screen],
+  ['Colour', (f) => f.colour],
+  ['Sound', (f) => f.sound],
+  ['Writing memory', (f) => f.memoryWriteSyntax],
+  ['Address notation', fmtAddress],
+  // The memory run ends here. The screen base and the program start used to
+  // follow it as two rows of numbers; the Memory layout section draws them in
+  // place, to scale, against everything else in the address space, so reporting
+  // them here as well would give one difference twice.
+];
+
+/** Every row label the table shows, top to bottom. */
+export const factRowLabels: readonly string[] = FACT_ROWS.map(
+  ([label]) => label,
+);
+
+/**
+ * The full table for a pair of machines, in {@link factRowLabels} order. The
+ * page shows the `changed` rows by default and the rest on request, so every
+ * row is built either way.
+ */
+export function factRows(
+  source: PortingFacts,
+  target: PortingFacts,
+): FactRow[] {
+  return FACT_ROWS.map(([label, get]) => {
+    const fromText = get(source);
+    const toText = get(target);
+    return { label, fromText, toText, changed: fromText !== toText };
+  });
+}

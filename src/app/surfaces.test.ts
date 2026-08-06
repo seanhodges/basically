@@ -175,6 +175,92 @@ describe('the auto-shown keyboard is not the user opening a surface', () => {
   });
 });
 
+describe('the toolbar dialogs are one kind of surface, not three', () => {
+  /**
+   * Import, Export and Outline are the dialogs reached through a toolbar menu.
+   * They are interchangeable by construction: each is a plain boolean on the
+   * store, read the same way in either layout, closed by writing anything that
+   * is not `true`. Both dismissal gestures walk this registry and nothing else,
+   * so a gesture that closes one closes all three.
+   *
+   * `e2e/shell-navigation/dismissal.spec.ts` used to drive Escape *and* Back
+   * through all three in the browser - six app boots to observe one shape three
+   * times. The shape is asserted here; the browser keeps one of them, which is
+   * what proves a real Escape and a real `history.back()` reach the registry at
+   * all.
+   */
+  const TOOLBAR_DIALOGS: { key: string; flag: string }[] = [
+    { key: 'import', flag: 'importOpen' },
+    { key: 'transfer', flag: 'transferOpen' },
+    { key: 'outline', flag: 'procedureListOpen' },
+  ];
+
+  const surfaceFor = (key: string) => {
+    const s = SURFACES.find((x) => x.key === key);
+    if (!s) throw new Error(`no surface registered for "${key}"`);
+    return s;
+  };
+
+  for (const { key, flag } of TOOLBAR_DIALOGS) {
+    it(`${key} opens and closes through the registry, in either layout`, () => {
+      const surface = surfaceFor(key);
+      const state = () => useIdeStore.getState();
+
+      for (const isMobile of [false, true]) {
+        // Closed reads closed. Not layout-gated like the settings/AI panels:
+        // these dialogs are the same dialog on a phone as on a desktop.
+        expect(isOpenValue(surface.read(state(), isMobile))).toBe(false);
+
+        useIdeStore.setState({ [flag]: true } as never);
+        expect(isOpenValue(surface.read(state(), isMobile))).toBe(true);
+        // ...and open, it is the surface a dismissal would take.
+        expect(openKeys(computeSnapshot(state(), isMobile))).toEqual([key]);
+
+        // Dismissing closes it, and closing is all it does - there is no
+        // confirmation to decline and nothing else to put back.
+        surface.write(state(), null);
+        expect(
+          (state() as unknown as Record<string, unknown>)[flag],
+          `${key} should close by clearing ${flag}`,
+        ).toBe(false);
+        expect(openKeys(computeSnapshot(state(), isMobile))).toEqual([]);
+
+        // Re-openable from a forward navigation, unlike the confirmations.
+        surface.write(state(), true);
+        expect(isOpenValue(surface.read(state(), isMobile))).toBe(true);
+        closeEverything();
+      }
+    });
+  }
+
+  it('reads and writes identically, so one browser check covers the three', () => {
+    // The claim the e2e trim rests on: given the same value, every one of these
+    // surfaces answers the same way. Compared as behaviour rather than by
+    // eyeballing the table, so a dialog that later grows a layout gate or a
+    // confirmation on close stops being interchangeable here first.
+    const behaviour = TOOLBAR_DIALOGS.map(({ key, flag }) => {
+      const surface = surfaceFor(key);
+      const trace: unknown[] = [];
+      for (const isMobile of [false, true]) {
+        closeEverything();
+        trace.push(surface.read(useIdeStore.getState(), isMobile));
+        useIdeStore.setState({ [flag]: true } as never);
+        trace.push(surface.read(useIdeStore.getState(), isMobile));
+        surface.write(useIdeStore.getState(), null);
+        trace.push(surface.read(useIdeStore.getState(), isMobile));
+        trace.push(surface.autoShown?.(useIdeStore.getState()) ?? false);
+      }
+      return trace;
+    });
+    expect(behaviour[1]).toEqual(behaviour[0]);
+    expect(behaviour[2]).toEqual(behaviour[0]);
+    // Sanity: the trace has to distinguish open from closed, or three surfaces
+    // that all did nothing would agree just as well.
+    expect(behaviour[0]).toContain(true);
+    expect(behaviour[0]).toContain(false);
+  });
+});
+
 describe('the docs value carries its topic', () => {
   it('is null when closed, the topic when open, and empty for the docs home', () => {
     const docs = SURFACES.find((s) => s.key === 'docs')!;
