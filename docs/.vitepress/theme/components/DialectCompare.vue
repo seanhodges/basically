@@ -41,6 +41,7 @@ import { domainGuidance } from '../../../../src/reference/domain-guidance';
 import type { DomainGuidance } from '../../../../src/reference/domain-guidance';
 import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
+import type { MemoryMap } from '../../../../src/dialects/types';
 
 /**
  * One selectable machine.
@@ -72,6 +73,13 @@ interface DialectOption {
   reference: ReferenceTableData;
   escapes?: EscapeTableData;
   facts: PortingFacts;
+  /**
+   * This machine's memory layout, where the IDE describes one. Absent for a
+   * machine whose layout it cannot describe, which is what makes the
+   * memory-layout section absent for any pair involving it rather than shown
+   * with one side empty.
+   */
+  memoryMap?: MemoryMap;
 }
 
 const props = defineProps<{ dialects: DialectOption[] }>();
@@ -173,6 +181,47 @@ const guidance = computed(() =>
     domainGuidance,
   }),
 );
+
+/**
+ * Everything the memory-layout section needs, or null when it should not be
+ * shown at all.
+ *
+ * Null whenever either machine's layout is undescribed: a half-drawn comparison
+ * would invite the reader to conclude something about a machine the IDE cannot
+ * describe. Both maps span the same address space, which is what lets the two
+ * panes share one scale - `src/dialects/memoryMap.test.ts` holds that.
+ *
+ * The write sites are the *source* machine's, and are marked on both panes: on
+ * the source's because that is where the program aimed them, on the target's
+ * because that is where they would land. They follow the same narrowing as the
+ * rest of the page, so they are absent when there is no program to narrow to.
+ */
+const memoryPair = computed(() => {
+  const s = source.value;
+  const t = target.value;
+  if (!s?.memoryMap || !t?.memoryMap) return null;
+  return {
+    fromName: s.name,
+    toName: t.name,
+    fromMap: s.memoryMap,
+    toMap: t.memoryMap,
+    fromByIndirection: writesByIndirection(s.facts),
+    toByIndirection: writesByIndirection(t.facts),
+    sites: narrowingBy.value?.writeSites ?? [],
+    notation: s.facts.addressNotation,
+  };
+});
+
+/**
+ * Whether a machine writes memory with `?addr=val` rather than `POKE`, read off
+ * the write syntax the facts already report. That decides how the region detail
+ * offers to read an address back - `?32768` on a BBC or an Atom, `PEEK 32768`
+ * everywhere else - and asking the facts avoids a second list of which machines
+ * those are.
+ */
+function writesByIndirection(facts: PortingFacts): boolean {
+  return /^[?!]/.test(facts.memoryWriteSyntax);
+}
 
 const sourceEscapes = computed(() => {
   const s = source.value;
@@ -565,11 +614,18 @@ function fmtAddress(f: PortingFacts): string {
  * variables; no ELSE restructures conditionals) but leave the program's shape
  * alone. The hardware the program draws and sounds on comes next.
  *
- * The memory facts close it as one run, addresses last: how memory is written
- * and how addresses are spelled, then the two addresses themselves. They are
- * the only rows that matter solely to a program that pokes at hardware, and
- * they were previously scattered - screen base between the screen and the free
- * RAM, program start after it, and the notation five rows further down.
+ * The memory facts close it as one run: how memory is written, then how an
+ * address is spelled. They are the only rows that matter solely to a program
+ * that pokes at hardware, and they were previously scattered - the notation
+ * five rows away from the write syntax it describes.
+ *
+ * The addresses themselves are not here. A screen base and a program start were
+ * the last two rows of this run until the Memory layout section below started
+ * drawing both machines' whole address spaces to scale; two numbers and the
+ * picture that explains them are one difference reported twice, and the picture
+ * is the one a porter can act on. The facts still carry those addresses (the
+ * assistant is told them, and facts-crosscheck.test.ts pins them to each
+ * machine's real memory map) - they simply have a better place to be read.
  */
 const factRows = computed<FactRow[]>(() => {
   const s = source.value?.facts;
@@ -596,8 +652,10 @@ const factRows = computed<FactRow[]>(() => {
     ['Sound', (f) => f.sound],
     ['Writing memory', (f) => f.memoryWriteSyntax],
     ['Address notation', fmtAddress],
-    ['Screen base', (f) => f.screenBase ?? 'No dedicated screen RAM'],
-    ['Program start', (f) => f.programStart ?? '—'],
+    // The memory run ends here. The screen base and the program start used to
+    // follow it as two rows of numbers; the Memory layout section below draws
+    // them in place, to scale, against everything else in the address space, so
+    // reporting them here as well would give one difference twice.
   ];
   return rows.map(([label, get]) => {
     const fromText = get(s);
@@ -778,6 +836,7 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'language-hardware',
       'Language & hardware',
     ],
+    [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
     [
       g.pairNotes.length + g.targetNotes.length > 0,
       'guidance',
@@ -930,6 +989,7 @@ function onVocabularyMessage(e: MessageEvent) {
     multiStatementLines: Array.isArray(data.multiStatementLines)
       ? data.multiStatementLines
       : [],
+    writeSites: Array.isArray(data.writeSites) ? data.writeSites : [],
   };
   // On the first answer, open on the machine the program is written for: it is
   // the one selection under which the narrowing means anything. A link that
@@ -1095,6 +1155,26 @@ watch(from, requestVocabulary);
             </tr>
           </tbody>
         </table>
+      </section>
+
+      <!--
+        The two machines' memory laid out side by side, right after the table
+        whose memory rows it completes. This is where the addresses are: the
+        table used to carry a screen base and a program start, which the maps
+        supersede - four numbers against a picture drawn to scale.
+      -->
+      <section v-if="memoryPair" id="memory-layout" class="cmp-section">
+        <h2>Memory layout</h2>
+        <MemoryMapPair
+          :from-name="memoryPair.fromName"
+          :to-name="memoryPair.toName"
+          :from-map="memoryPair.fromMap"
+          :to-map="memoryPair.toMap"
+          :from-by-indirection="memoryPair.fromByIndirection"
+          :to-by-indirection="memoryPair.toByIndirection"
+          :sites="memoryPair.sites"
+          :notation="memoryPair.notation"
+        />
       </section>
 
       <!--

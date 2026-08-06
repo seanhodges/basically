@@ -1,6 +1,6 @@
 import type { MemoryMap } from '../types';
 import { PROGRAM_BASE } from './sysvars';
-import { SCREEN_BASE } from '../../emulator/cpc/memory';
+import { SCREEN_BASE } from './addresses';
 
 /**
  * The Amstrad CPC 464 memory map for the viewer.

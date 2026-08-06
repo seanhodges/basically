@@ -46,8 +46,12 @@ test('rows run most consequential first, with the memory facts together', async 
 
   // The whole table, in order: the BASIC, then what decides whether the
   // program can work at all, then the language rules, then the hardware it
-  // draws and sounds on, then the memory facts as one run with the two
-  // addresses adjacent at the end.
+  // draws and sounds on, then the memory facts as one run at the end.
+  //
+  // The run ends at the address notation. A screen base and a program start
+  // used to follow it; the Memory layout section draws both machines' address
+  // spaces to scale instead, so the numbers are read off the picture rather
+  // than reported twice.
   await expect(rowLabels(page)).toHaveText([
     'BASIC dialect',
     'Numbers',
@@ -64,8 +68,6 @@ test('rows run most consequential first, with the memory facts together', async 
     'Sound',
     'Writing memory',
     'Address notation',
-    'Screen base',
-    'Program start',
   ]);
 });
 

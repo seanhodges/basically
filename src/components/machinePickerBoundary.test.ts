@@ -14,13 +14,37 @@
  * has to name the module that reached the registry - `machinePicker.ts →
  * … → registry.ts` is actionable in a way that a 400KB docs chunk is not.
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const srcRoot = resolve(here, '..');
+
+/**
+ * Every dialect's memory map, read off disk rather than listed.
+ *
+ * The porting guide renders both compared machines' maps, so it imports these
+ * directly - the data is structured, and mirroring it into `src/reference/`
+ * the way the porting *facts* are mirrored would buy a duplicate dataset and a
+ * deep-equality test to keep it honest. Discovered rather than enumerated so a
+ * dialect added later is covered without anyone remembering to add it here,
+ * which is the property `src/dialects/memoryMap.test.ts` is built around too.
+ */
+const MEMORY_MAPS = readdirSync(join(srcRoot, 'dialects'), {
+  withFileTypes: true,
+})
+  .filter((e) => e.isDirectory())
+  .map((e) => `dialects/${e.name}/memoryMap.ts`)
+  .filter((path) => {
+    try {
+      readFileSync(join(srcRoot, path));
+      return true;
+    } catch {
+      return false; // A dialect with no map of its own (the TRS-80).
+    }
+  });
 
 /** The modules the docs are allowed to import, and everything they reach. */
 const DOCS_IMPORTABLE = [
@@ -30,6 +54,13 @@ const DOCS_IMPORTABLE = [
   'components/MachineTrigger.tsx',
   'components/MachinePickerDialog.tsx',
   'app/useDismiss.ts',
+  // The porting guide's memory-layout section renders the IDE's own map view,
+  // twice. Its two escape hatches from this boundary are the reason it takes a
+  // write-site shape of its own instead of importing the editor's POKE
+  // analysis, and takes the activity canvas as an opaque node instead of
+  // drawing it: both of those reach an emulator module.
+  'components/MemoryMapView.tsx',
+  ...MEMORY_MAPS,
 ];
 
 /** What must never appear in the transitive set, and why it matters. */
@@ -135,10 +166,17 @@ function reachableFrom(entry: string): Map<string, string[]> {
   return chains;
 }
 
-describe('the machine picker stays importable by the docs', () => {
+describe('the modules the docs render stay importable by them', () => {
   it.each(DOCS_IMPORTABLE)('%s reaches nothing forbidden', (entry) => {
     // The walk itself asserts; reaching the end is the pass.
     expect(reachableFrom(entry).size).toBeGreaterThan(0);
+  });
+
+  it('found the memory maps to check', () => {
+    // Discovery that silently found nothing would pass forever. Every dialect
+    // but one ships a map, so the list is long; assert it is populated rather
+    // than pinning a count that a new machine would have to come and update.
+    expect(MEMORY_MAPS.length).toBeGreaterThan(1);
   });
 
   it('walks far enough to be worth having', () => {

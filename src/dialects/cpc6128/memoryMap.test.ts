@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { cpc6128MemoryMap } from './memoryMap';
 import { cpc464MemoryMap } from '../cpc464/memoryMap';
 import { PROGRAM_BASE } from '../cpc464/sysvars';
-import { SCREEN_BASE } from '../../emulator/cpc/memory';
+import { SCREEN_BASE } from '../cpc464/addresses';
 
 describe('cpc6128MemoryMap', () => {
   const { addressSpace, regions } = cpc6128MemoryMap;

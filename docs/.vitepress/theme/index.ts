@@ -33,5 +33,11 @@ export default {
       'MachinePicker',
       defineAsyncComponent(() => import('./components/MachinePicker.vue')),
     );
+    // The comparison's memory-layout section, and React for the same reason:
+    // it renders the IDE's own memory-map view, twice.
+    app.component(
+      'MemoryMapPair',
+      defineAsyncComponent(() => import('./components/MemoryMapPair.vue')),
+    );
   },
 };

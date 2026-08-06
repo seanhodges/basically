@@ -174,6 +174,7 @@ export async function buildConversionMessage(input: {
     escapeCodes: reply.escapeCodes,
     characters: reply.characters,
     multiStatementLines: reply.multiStatementLines,
+    writeSites: reply.writeSites,
   });
   if (report === null) return { ok: true, userContent: plain() };
   return {

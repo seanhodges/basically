@@ -75,6 +75,7 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'dialectId',
   'keywords',
   'escapeCodes',
+  'writeSites',
 ] as const;
 
 type ProgramVocabularyRequest = { from?: unknown };
