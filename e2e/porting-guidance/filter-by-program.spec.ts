@@ -138,34 +138,11 @@ test('the indicator goes as soon as the user does anything else', async ({
   ).toHaveAttribute('data-target-machine', 'zx81', { timeout: 15_000 });
 });
 
-test('the indicator dismisses on Escape', async ({ page }) => {
-  await page.setViewportSize({ width: 420, height: 900 });
-  await beginPort(page);
-
-  const hint = page.getByRole('button', {
-    name: /Porting guide ready for this move/,
-  });
-  await expect(hint).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(hint).toBeHidden();
-});
-
-test('the indicator goes on its own if left alone', async ({ page }) => {
-  await page.setViewportSize({ width: 420, height: 900 });
-  await beginPort(page);
-
-  const hint = page.getByRole('button', {
-    name: /Porting guide ready for this move/,
-  });
-  await expect(hint).toBeVisible();
-  // Nothing is done here on purpose: the indicator's own timeout is what makes
-  // it go, so it never becomes something the user has to deal with.
-  await expect(hint).toBeHidden({ timeout: 10_000 });
-
-  // The comparison it pointed at is still there afterwards.
-  await page.getByRole('button', { name: /^Open documentation/ }).click();
-  await expect(drawerOf(page)).toBeVisible();
-});
+// Two ways the indicator goes have no browser test of their own. Escape is the
+// other branch of the same `useDismiss` call whose outside-click branch the
+// test above drives through the real wiring, and its hit test is unit-covered
+// in src/app/useDismiss.test.ts. The self-dismissal timeout is a plain
+// setTimeout, and waiting it out cost this spec ten seconds of doing nothing.
 
 test('the indicator never appears while the documentation is already open', async ({
   page,

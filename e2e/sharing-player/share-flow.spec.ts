@@ -68,7 +68,7 @@ test('?open=<id> loads the shared program into the IDE', async ({ page }) => {
 test('the player "See the Code" button hands off to the IDE', async ({
   page,
 }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(90_000); // one ZX81 ROM boot, then a full-page navigation
   await page.route(SHARE_GLOB, shareGet({ body: zx81Record() }));
   await page.goto(`/load/${SHARE_ID}`);
   await expect(page.getByRole('button', { name: '▶ Play' })).toBeVisible({

@@ -21,14 +21,12 @@ import {
  * a Windows machine with a European layout - keep the manual check too).
  */
 
-test('completion popup and live lint errors', async ({ page }) => {
+// The completion popup itself is opened and driven for real in
+// completion-abbreviation.spec.ts, where accepting a suggestion is the subject
+// rather than a preamble - so this one only keeps the lint half.
+test('live lint errors', async ({ page }) => {
   await openApp(page);
   await clearEditor(page);
-  await page.keyboard.type('PR');
-  const popup = page.locator('.cm-tooltip-autocomplete');
-  await expect(popup).toBeVisible();
-  await expect(popup).toContainText('PRINT');
-  await page.keyboard.press('Escape');
   // An invalid statement is reported in the status bar.
   await setEditorSource(page, '10 PRINT "OK"\n20 XYZZY');
   await expect(page.getByText(/\d+ error/)).toBeVisible();
@@ -118,18 +116,6 @@ test('menu Paste pastes or explains itself - never a silent no-op', async ({
     .toBe(true);
 });
 
-test('in-editor find/replace panel on Mod+F, Escape closes', async ({
-  page,
-}) => {
-  await openApp(page);
-  await page.locator(EDITOR).click();
-  await page.keyboard.press('ControlOrMeta+f');
-  const panel = page.locator('.cm-search');
-  await expect(panel).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
-});
-
 test('F5 runs, Shift+F5 stops - browser defaults suppressed', async ({
   page,
 }) => {
@@ -149,8 +135,19 @@ test('F5 runs, Shift+F5 stops - browser defaults suppressed', async ({
   await expect(page.locator(EDITOR)).toContainText('RUN ME');
 });
 
-test('Mod+, opens Settings; F1 toggles the docs drawer', async ({ page }) => {
+test('the global shortcuts open their panels', async ({ page }) => {
+  // One app for the lot: each of these is a keystroke reaching a handler and a
+  // panel appearing, and none of them leaves anything behind for the next.
   await openApp(page);
+
+  // Find/replace is the editor's own panel, so it wants the editor focused.
+  await page.locator(EDITOR).click();
+  await page.keyboard.press('ControlOrMeta+f');
+  const search = page.locator('.cm-search');
+  await expect(search).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeHidden();
+
   await page.keyboard.press('ControlOrMeta+Comma');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
@@ -160,6 +157,12 @@ test('Mod+, opens Settings; F1 toggles the docs drawer', async ({ page }) => {
   await expect(drawer).toBeVisible();
   await page.keyboard.press('F1');
   await expect(drawer).toBeHidden();
+
+  await page.locator(EDITOR).click();
+  await page.keyboard.press('ControlOrMeta+Shift+o');
+  await expect(
+    page.getByRole('heading', { name: 'Program outline' }),
+  ).toBeVisible();
 });
 
 test('AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async ({
@@ -198,14 +201,5 @@ test('AltGr chords do not fire Ctrl+Alt shortcuts (synthetic events)', async ({
   await dispatch(false);
   await expect(
     page.getByRole('heading', { name: 'Run on real hardware' }),
-  ).toBeVisible();
-});
-
-test('outline dialog on Mod+Shift+O', async ({ page }) => {
-  await openApp(page);
-  await page.locator(EDITOR).click();
-  await page.keyboard.press('ControlOrMeta+Shift+o');
-  await expect(
-    page.getByRole('heading', { name: 'Program outline' }),
   ).toBeVisible();
 });

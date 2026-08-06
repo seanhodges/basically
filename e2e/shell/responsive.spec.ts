@@ -34,27 +34,25 @@ test('desktop split view: divider drags and resizes the panes', async ({
   expect(after).not.toBe(before);
 });
 
-test('narrow viewport switches to the tabbed mobile layout', async ({
+test('narrowing switches to the tabbed layout, and widening restores the split', async ({
   page,
 }) => {
+  // One app, taken across the breakpoint and back: the second half was booting
+  // a second app only to arrive at the state the first half already reached.
   await page.setViewportSize({ width: 700, height: 1000 });
   await openApp(page);
   // Name the pane switcher: the editor's own content tab strip is a second,
   // always-present tablist.
-  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
+  const panes = page.getByRole('tablist', { name: 'App panes' });
+  await expect(panes).toBeVisible();
   // Tabs actually switch panes.
   await page.getByRole('tab', { name: 'Run' }).click();
   await expect(page.locator('canvas').first()).toBeVisible();
   await page.getByRole('tab', { name: 'Editor' }).click();
   await expect(page.locator(EDITOR)).toBeVisible();
-});
 
-test('widening back restores the split layout', async ({ page }) => {
-  await page.setViewportSize({ width: 700, height: 1000 });
-  await openApp(page);
-  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 800 });
-  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeHidden();
+  await expect(panes).toBeHidden();
   await expect(page.locator(EDITOR)).toBeVisible();
   await expect(page.locator('canvas').first()).toBeVisible();
 });

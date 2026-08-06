@@ -12,7 +12,7 @@ import { EDITOR, clearEditor, openApp, playAndWaitRunning } from '../helpers';
  * e2e/shell/landscape-layout.spec.ts.
  */
 
-test('on-screen keyboard toggles and types into the editor', async ({
+test('the on-screen keyboard toggles, types, and follows a sliding pointer', async ({
   page,
 }) => {
   await openApp(page);
@@ -22,29 +22,17 @@ test('on-screen keyboard toggles and types into the editor', async ({
   const toggle = page.getByTestId('input-overlay-toggle');
   await toggle.click();
   const keyH = page.locator('[data-keyid="KeyH"]');
-  await expect(keyH).toBeVisible();
-  await keyH.click();
-  await expect(page.locator(EDITOR)).toContainText('H');
-  // Advancing to the gamepad state clears the keyboard - and with the editor
-  // focused the gamepad can't show either, so the overlay goes away.
-  await toggle.click();
-  await expect(keyH).toBeHidden();
-});
-
-test('sliding between keys follows the pointer (capture works)', async ({
-  page,
-}) => {
-  await openApp(page);
-  await clearEditor(page);
-  await page.getByTestId('input-overlay-toggle').click();
-  const keyH = page.locator('[data-keyid="KeyH"]');
   const keyJ = page.locator('[data-keyid="KeyJ"]');
   await expect(keyH).toBeVisible();
+
   // Outwait the editor-focus debounce (EDITOR_KB_HIDE_DELAY_MS): the ⌨ toggle
   // must not have stolen editor focus, or the keyboard silently reroutes to
   // the stopped machine here and every press below goes dead (regression
   // guard - this used to pass only by racing the debounce).
   await page.waitForTimeout(400);
+  await keyH.click();
+  await expect(page.locator(EDITOR)).toContainText('H');
+
   const from = await keyH.boundingBox();
   const to = await keyJ.boundingBox();
   expect(from).not.toBeNull();
@@ -59,6 +47,11 @@ test('sliding between keys follows the pointer (capture works)', async ({
   // No stuck key, no crash; the keyboard is still interactive.
   await keyJ.click();
   await expect(page.locator(EDITOR)).toContainText('J');
+
+  // Advancing to the gamepad state clears the keyboard - and with the editor
+  // focused the gamepad can't show either, so the overlay goes away.
+  await toggle.click();
+  await expect(keyH).toBeHidden();
 });
 
 test('game-controller overlay shows while running and takes presses', async ({

@@ -103,11 +103,24 @@ test('describing a program needs the assistant configured first', async ({
   await expect(dialog.getByLabel('Sample program')).toBeEnabled();
 });
 
-test('shows only the chosen machine until the picker is opened', async ({
+/**
+ * What is inside the picker is not browser work: the grouping by manufacturer
+ * and the row labels come from one pure function
+ * (src/components/machinePicker.test.ts pins the order and every row), and which
+ * machines are offered at all is decided by machineIsRunnable
+ * (src/app/machineAvailability.test.ts covers the Altair - shipped with no ROM,
+ * so a picker row would be a dead end - case by case, and
+ * e2e/persistence/custom-rom.spec.ts still watches a supplied ROM put a machine
+ * back in the list in a real browser).
+ *
+ * What is browser work is the nesting: two modals, one on top of the other.
+ */
+test('the picker opens over the new-project dialog and closes without it', async ({
   page,
 }) => {
   await open(page);
   const dialog = await openNewProjectDialog(page);
+  const picker = machinePicker(page);
 
   // One collapsed control, and none of the machine rows on screen.
   await expect(dialog.locator('button[data-target-machine]')).toHaveCount(1);
@@ -116,59 +129,9 @@ test('shows only the chosen machine until the picker is opened', async ({
     'ZX81',
   );
 
-  await dialog.locator('button[data-target-machine]').click();
-  await expect(
-    machinePicker(page).locator('button[data-machine]').first(),
-  ).toBeVisible();
-});
-
-test('the machine picker groups machines by manufacturer', async ({ page }) => {
-  await open(page);
-  const dialog = await openNewProjectDialog(page);
-  await dialog.locator('button[data-target-machine]').click();
-  const picker = machinePicker(page);
-
-  for (const maker of ['Acorn', 'Amstrad', 'Commodore', 'Sinclair', 'Tandy']) {
-    await expect(picker.getByText(maker, { exact: true })).toBeVisible();
-  }
-  // Each machine carries its release year and its description, so an
-  // unfamiliar one can be chosen without leaving the list.
-  const zx81 = picker.locator('button[data-machine="zx81"]');
-  await expect(zx81).toContainText('1981');
-  await expect(zx81).toContainText(/million-selling/i);
-});
-
-test('a machine whose ROM is not there is not offered', async ({ page }) => {
-  // The Altair's 8K BASIC is Microsoft copyright and ships with nobody (see
-  // public/roms/ATTRIBUTION.md), so in a stock build the machine cannot start -
-  // and a picker row leading only to an error is a dead end. It comes back the
-  // moment an image is supplied, which is what
-  // src/app/machineAvailability.test.ts covers case by case.
-  await open(page);
-  const dialog = await openNewProjectDialog(page);
-  await dialog.locator('button[data-target-machine]').click();
-  const picker = machinePicker(page);
-  await expect(picker.locator('button[data-machine]').first()).toBeVisible();
-
-  await expect(picker.locator('button[data-machine="altair8800"]')).toHaveCount(
-    0,
-  );
-  await expect(picker.getByText('MITS', { exact: true })).toHaveCount(0);
-  // Guard the guard: the registry does hold it, so this is a filter and not a
-  // machine that was never registered.
-  await expect(picker.locator('button[data-machine]').first()).toBeVisible();
-});
-
-test('the picker closes without taking the new-project dialog with it', async ({
-  page,
-}) => {
-  await open(page);
-  const dialog = await openNewProjectDialog(page);
-  const picker = machinePicker(page);
-
   // Escape dismisses only the topmost modal...
   await dialog.locator('button[data-target-machine]').click();
-  await expect(picker).toBeVisible();
+  await expect(picker.locator('button[data-machine]').first()).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(picker).toBeHidden();
   await expect(dialog).toBeVisible();
