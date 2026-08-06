@@ -13,20 +13,28 @@ import {
 } from '../helpers';
 
 /**
- * Emulator, every dialect.
+ * Emulator: the machine picker's list, and one boot per emulator wiring family.
  *
- * Boots every machine's bundled sample and asserts the screen actually
- * painted (pixel-level check). The sample is chosen explicitly through the
- * New-project dialog: nothing is loaded implicitly any more, so without that
- * step this would run an *empty* program on every machine and still pass.
- * Sharpness, audible sound, pitch at speed and background-tab recovery need
- * eyes/ears - manual. The debugger is covered by
- * e2e/program-execution/debug.spec.ts.
+ * Boots a machine's bundled sample and asserts the screen actually painted
+ * (pixel-level check). The sample is chosen explicitly through the New-project
+ * dialog: nothing is loaded implicitly any more, so without that step this would
+ * run an *empty* program and still pass. Sharpness, audible sound, pitch at
+ * speed and background-tab recovery need eyes/ears - manual. The debugger is
+ * covered by e2e/program-execution/debug.spec.ts.
+ *
+ * This used to boot all thirteen machines. What each machine's ROM puts on its
+ * screen is already proven headlessly, per machine, by the per-dialect
+ * `emulator/<id>Machine.test.ts` and `samples.test.ts` suites under src/, which
+ * boot the real ROMs and read the screen back. What a browser adds is the wiring
+ * between the app and the core - the worker, the canvas, the frame loop - and
+ * that is shared by whole families of machines, so it is checked once per family
+ * (see REPRESENTATIVES).
  */
 
-/** Keep in sync with src/dialects/registry.ts - the guard test below fails
- *  with a helpful message when a machine is added, renamed or re-identified.
- *  Ids and labels both come from the rows of the shared machine picker.
+/** Every machine the picker offers. Keep in sync with src/dialects/registry.ts -
+ *  the guard test below fails with a helpful message when a machine is added,
+ *  renamed or re-identified. Ids and labels both come from the rows of the
+ *  shared machine picker. Only the REPRESENTATIVES below are booted.
  *
  *  The picker offers only machines that can actually start, so a registered
  *  dialect whose ROM is missing is deliberately absent from both - the Altair,
@@ -67,14 +75,36 @@ test('guard: automated machine list matches the machine picker', async ({
   }));
 
   const msg =
-    'a machine was added/renamed - update MACHINES in section03-emulator.spec.ts';
+    'a machine was added/renamed - update MACHINES in emulator-boot.spec.ts';
   expect(labels.sort(), msg).toEqual(MACHINES.map((m) => m.label).sort());
   expect(ids.sort(), msg).toEqual(MACHINES.map((m) => m.id).sort());
+
+  // ...and the boot loop below really does boot something: a representative id
+  // that no longer matches a machine would silently drop its whole family.
+  expect(
+    REPRESENTATIVES.filter((id) => !ids.includes(id)),
+    'a representative machine is not in the picker - update REPRESENTATIVES',
+  ).toEqual([]);
 });
 
-for (const machine of MACHINES) {
+/**
+ * One machine per emulator wiring family - the seam a browser actually
+ * exercises. Each stands for the machines that reach their core the same way:
+ *
+ *  - `zxspectrum` - the self-contained Z80 machines under src/dialects/<id>/
+ *    (zx80, zx81, zxspectrum128, trs80, cpc464, cpc6128).
+ *  - `pet` - the shared cpu6502 core in src/emulator/ (vic20, atom).
+ *  - `commodore64` - the vendored viciious core.
+ *  - `bbcmicro` - the jsbeeb package (bbcmaster).
+ *
+ * A machine that arrives on a wiring none of these covers wants a fifth entry
+ * here; one that reuses an existing core does not.
+ */
+const REPRESENTATIVES = ['zxspectrum', 'pet', 'commodore64', 'bbcmicro'];
+
+for (const machine of MACHINES.filter((m) => REPRESENTATIVES.includes(m.id))) {
   test(`sample boots, runs and paints - ${machine.label}`, async ({ page }) => {
-    test.setTimeout(120_000); // ROM boot + first frames can be slow in CI
+    test.setTimeout(90_000); // ROM boot + first frames can be slow in CI
     await openApp(page);
     await createProjectWithSample(page, 'Hello world', machine.id);
     // Guard the guard: an empty editor would still boot and paint the ROM's
