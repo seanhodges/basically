@@ -54,6 +54,28 @@ describe('every dialect that ships a memory map', () => {
   it('has at least one mapped dialect to check', () => {
     expect(mapped.length).toBeGreaterThan(0);
   });
+
+  /**
+   * The porting guide draws two machines' maps against one shared address
+   * scale, so that a position in one pane is the same address in the other.
+   * That only means anything while every machine spans the same address space,
+   * which every 8-bit machine here does.
+   *
+   * Asserted rather than assumed: a machine with a different address space is a
+   * perfectly reasonable thing to add, and when someone does, this should fail
+   * by name here - pointing at the comparison that needs a decision - rather
+   * than ship as two panes silently drawn at different scales.
+   */
+  it('spans the same address space on every machine, which the side-by-side comparison assumes', () => {
+    const spaces = new Map<number, string[]>();
+    for (const d of mapped) {
+      const space = d.memoryMap!.addressSpace;
+      spaces.set(space, [...(spaces.get(space) ?? []), d.id]);
+    }
+    expect(
+      [...spaces].map(([space, ids]) => `0x${space.toString(16)}: ${ids.join(', ')}`),
+    ).toHaveLength(1);
+  });
 });
 
 describe.each(mapped.map((d) => [d.id, d] as const))(

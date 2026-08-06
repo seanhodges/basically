@@ -1,9 +1,9 @@
 ## 1. Clear the docs/app import boundary
 
-- [ ] 1.1 Move `SCREEN_BASE` from `src/emulator/cpc/memory.ts` to the CPC dialect beside the existing `PROGRAM_BASE` in `src/dialects/cpc464/sysvars.ts`, and import it back into `src/emulator/cpc/memory.ts` from there (the direction `src/emulator/atom/atomMachine.ts` already takes with `src/dialects/atom/addresses`)
-- [ ] 1.2 Point `src/dialects/cpc464/memoryMap.ts` and `src/dialects/cpc6128/memoryMap.ts` at the new home, so neither map module reaches `src/emulator/` any more
-- [ ] 1.3 Add a cross-dialect test in `src/dialects/memoryMap.test.ts` asserting every registered map declares the same `addressSpace`, so the guide's shared-axis assumption fails as a named assumption if a future machine breaks it
-- [ ] 1.4 Extend `DOCS_IMPORTABLE` in `src/components/machinePickerBoundary.test.ts` with the thirteen `dialects/*/memoryMap.ts` modules and the new view modules; confirm the walk still reports the registry and emulator cores as unreachable
+- [x] 1.1 Move `SCREEN_BASE` from `src/emulator/cpc/memory.ts` to a new `src/dialects/cpc464/addresses.ts`, the home the Atom, Commodore, PET and VIC-20 dialects already give their fixed addresses, and re-export it from `src/emulator/cpc/memory.ts` so its own consumers are undisturbed
+- [x] 1.2 Point `src/dialects/cpc464/memoryMap.ts` and `src/dialects/cpc6128/memoryMap.ts` at the new home, so neither map module reaches `src/emulator/` any more
+- [x] 1.3 Add a cross-dialect test in `src/dialects/memoryMap.test.ts` asserting every registered map declares the same `addressSpace`, so the guide's shared-axis assumption fails as a named assumption if a future machine breaks it
+- [x] 1.4 Extend `DOCS_IMPORTABLE` in `src/components/machinePickerBoundary.test.ts` with the thirteen `dialects/*/memoryMap.ts` modules and the new view modules; confirm the walk still reports the registry and emulator cores as unreachable
 
 ## 2. Extract the presentational memory map
 

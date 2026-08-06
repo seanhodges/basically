@@ -26,8 +26,12 @@ export const CPC_ROM_SIZE = 0x8000;
 const ROM_BANK_SIZE = 0x4000;
 const LOWER_ROM_LIMIT = 0x4000; // exclusive: &0000–&3FFF
 const UPPER_ROM_BASE = 0xc000; // &C000–&FFFF
-/** Screen RAM base at power-on (CRTC R12/R13 default). */
-export const SCREEN_BASE = 0xc000;
+/**
+ * Screen RAM base at power-on (CRTC R12/R13 default). Owned by the dialect,
+ * which is also what the memory maps read it from - the documentation bundle
+ * renders those maps and must not reach an emulator module to do it.
+ */
+export { SCREEN_BASE } from '../../dialects/cpc464/addresses';
 
 export type CpcModel = '464' | '6128';
 
