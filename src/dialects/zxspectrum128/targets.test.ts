@@ -34,8 +34,14 @@ describe('zxspectrum128 cassette round-trip', () => {
   });
 
   it('refuses to build a program with tokenizer errors', () => {
-    // A line must start with a command keyword; "x=5" is not one.
-    expect(() => buildCassetteSamples('10 x=5\n', 'BAD')).toThrow(/error/i);
+    // Only fatal errors block the build: an unterminated string leaves a line
+    // that cannot be framed at all. A statement-shape squiggle ("10 x=5")
+    // deliberately does not - the machine would store that line and object at
+    // RUN, so it must still reach a tape.
+    expect(() => buildCassetteSamples('10 PRINT "hi\n', 'BAD')).toThrow(
+      /error/i,
+    );
+    expect(() => buildCassetteSamples('10 x=5\n', 'LINT')).not.toThrow();
   });
 
   it('refuses to build an empty program', () => {

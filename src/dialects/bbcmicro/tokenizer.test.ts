@@ -336,6 +336,18 @@ describe('BBC tokenizer statement validation', () => {
     const { errors } = tokenizeProgram('10 PRINT "X":PRNT "Y"');
     expect(errors).toHaveLength(1);
     expect(errors[0]!.message).toMatch(/PRNT/);
+    expect(errors[0]!.fatal).toBe(false);
+  });
+
+  it('still builds an image when a statement is misspelled', () => {
+    // The ROM stores the line and objects only at RUN, so a statement-shape
+    // squiggle must not empty the image or block hardware export - on the
+    // second statement of a line as much as on the first.
+    for (const src of ['10 PRNT "HI"\n', '10 PRINT "X":PRNT "Y"\n']) {
+      const { image, errors } = bbcmicro.tokenize(src);
+      expect(errors).toHaveLength(1);
+      expect(image.length).toBeGreaterThan(0);
+    }
   });
 
   it('flags a function keyword used as a statement', () => {

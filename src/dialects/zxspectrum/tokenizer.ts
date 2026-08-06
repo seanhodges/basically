@@ -237,24 +237,22 @@ function tokenizeBody(
   const out: number[] = [];
   const upper = body.toUpperCase();
   let i = 0;
+  // Whether this line has opened a statement at all: set once a statement
+  // opener has been accepted *or* reported, so the line-framing check below
+  // doesn't report a line that has already had its say. It stays latched -
+  // only `statementStart` is re-armed mid-line.
   let firstWordChecked = false;
-  // Whether the cursor sits at a statement opener. Distinct from
-  // `firstWordChecked`, which says only "this line has produced its first
-  // command keyword" and stays latched: it drives the *fatal* first-word check
-  // and the line-framing rules below, so it must not be re-armed. This flag is
-  // re-armed at every ':' and after THEN, and drives the non-fatal
-  // per-statement lint - which is gated on `firstWordChecked` throughout, so
-  // the first statement on a line keeps being reported the old way, once.
+  // Whether the cursor sits at a statement opener: true at the start of the
+  // line, re-armed at every ':' and after THEN. Drives the statement-shape
+  // lint, which reads the same on the first statement of a line as on any
+  // later one.
   let statementStart = true;
   let prevSignificant = '';
-  // Track what a line emits before any statement keyword, for the trailing
-  // "no statement keyword" check. A line whose only content is leading
-  // control-code / graphics escapes (a bare `{BRIGHT 0}`, as real tapes save
-  // and the detokenizer reproduces) is a valid, non-fatal line that just
-  // carries embedded bytes; a leading string or bare numeric literal with no
-  // statement keyword is still "nonsense in BASIC".
+  // A line whose only content is leading control-code / graphics escapes (a
+  // bare `{BRIGHT 0}`, as real tapes save and the detokenizer reproduces) is a
+  // valid line that just carries embedded bytes, so it is exempt from the
+  // trailing "no statement keyword" check below.
   let leadingControlEscape = false;
-  let leadingOtherContent = false;
   // DEF FN parameter reservation. On real hardware the ROM's DEF FN command
   // reserves a hidden 6-byte slot - the number marker 0x0E plus five zero bytes
   // - after each parameter, so a later FN call has somewhere to store the
@@ -271,9 +269,8 @@ function tokenizeBody(
     return null;
   };
 
-  // A statement after the first that doesn't open the way the ROM requires.
-  // Non-fatal: unlike the first-word check (which also decides whether the line
-  // can be framed at all), the bytes here are unambiguous - the machine would
+  // A statement that doesn't open the way the ROM requires, wherever on the
+  // line it sits. Non-fatal: the bytes are unambiguous - the machine would
   // store them and object only at RUN - so this keeps its squiggle without
   // blocking the image or hardware export. Spectrum BASIC has no implied LET,
   // so a bare name is as wrong as anything else; there is no assignment-shape
@@ -378,8 +375,8 @@ function tokenizeBody(
 
     // Strings: "" inside a string stores a doubled quote.
     if (ch === '"') {
-      if (!firstWordChecked) leadingOtherContent = true;
-      else if (statementStart) flagStatement(i, i + 1, '"');
+      if (statementStart) flagStatement(i, i + 1, '"');
+      firstWordChecked = true;
       statementStart = false;
       out.push(QUOTE);
       i++;
@@ -418,17 +415,10 @@ function tokenizeBody(
         if (next !== undefined && IDENT.test(next)) continue;
       }
 
-      if (!firstWordChecked) {
-        if (!statementKeywords.has(kw.canonical)) {
-          return fail(
-            `Statement must start with a command keyword (got ${kw.word})`,
-            i,
-          );
-        }
-        firstWordChecked = true;
-      } else if (statementStart && !statementKeywords.has(kw.canonical)) {
+      if (statementStart && !statementKeywords.has(kw.canonical)) {
         flagStatement(i, i + consumed, kw.word);
       }
+      firstWordChecked = true;
 
       const token = canonicalToken.get(kw.canonical)!;
       out.push(token);
@@ -490,9 +480,9 @@ function tokenizeBody(
     if (ch === '{') {
       const override = parseFloatOverride(body, i);
       if (override) {
-        if (!firstWordChecked) leadingOtherContent = true;
-        else if (statementStart)
+        if (statementStart)
           flagStatement(i, override.end, body.slice(i, override.end));
+        firstWordChecked = true;
         statementStart = false;
         out.push(NUMBER_MARKER, ...override.bytes);
         i = override.end;
@@ -519,18 +509,10 @@ function tokenizeBody(
       continue;
     }
 
-    if (!firstWordChecked) {
-      return fail(
-        'Statement must start with a command keyword (e.g. LET, PRINT, IF…)',
-        i,
-      );
-    }
-
-    // Anything else opening a later statement: a bare name, a number, or a
-    // stray symbol. Sits below the guard above so the first statement on a line
-    // is never reported twice. A number is wrong here like any other: Spectrum
-    // BASIC has no `IF … THEN <line>` shorthand - the jump is `THEN GO TO n` -
-    // so THEN never legitimately introduces a bare line number.
+    // Anything else opening a statement: a bare name, a number, or a stray
+    // symbol. A number is wrong here like any other: Spectrum BASIC has no
+    // `IF … THEN <line>` shorthand - the jump is `THEN GO TO n` - so THEN never
+    // legitimately introduces a bare line number.
     if (statementStart) {
       if (/[A-Za-z]/.test(ch)) {
         let j = i;
@@ -554,6 +536,7 @@ function tokenizeBody(
       } else {
         flagStatement(i, i + 1, ch);
       }
+      firstWordChecked = true;
       statementStart = false;
     }
 
@@ -599,12 +582,13 @@ function tokenizeBody(
   }
 
   if (!firstWordChecked && out.length > 0) {
-    // A line whose only content is leading control-code / graphics escapes
-    // (`{BRIGHT 0}` and friends) is valid and non-fatal: real tapes save such
-    // lines and the detokenizer round-trips them, so accept the emitted bytes.
-    // A leading string or bare numeric literal with no statement keyword is
-    // still nonsense.
-    if (leadingControlEscape && !leadingOtherContent) return out;
+    // Nothing on this line opened a statement, and nothing has been reported
+    // about it yet - the content is escapes and/or bare separators. A line
+    // whose only content is control-code / graphics escapes (`{BRIGHT 0}` and
+    // friends) is valid: real tapes save such lines and the detokenizer
+    // round-trips them, so accept the emitted bytes. Bare separators with no
+    // statement anywhere on the line cannot be framed.
+    if (leadingControlEscape) return out;
     return fail('Line has a number but no statement', 0);
   }
   return out;

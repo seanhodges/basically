@@ -155,6 +155,41 @@ describe('tokenizeProgram', () => {
     expect(viaEscape.errors).toEqual([]);
     expect([...viaEscape.bytes]).toEqual([...viaChar.bytes]);
   });
+
+  describe('one statement per line', () => {
+    // The ZX81 has no statement separator, so a ':' at statement level is a
+    // second statement the machine cannot take.
+    it('reports a colon, without changing the bytes', () => {
+      const { bytes, errors } = tokenizeProgram('10 LET A=1: PRINT A\n');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({
+        line: 1,
+        column: 10,
+        endColumn: 11,
+        fatal: false,
+      });
+      expect(errors[0]!.message).toMatch(/one statement per line/i);
+      // The colon is still stored, so an imported program keeps running.
+      expect([...bytes]).toContain(0x0e);
+    });
+
+    it('reports once however many statements the line carries', () => {
+      const { errors } = tokenizeProgram('10 LET A=1: PRINT A: GOTO 10\n');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.column).toBe(10);
+    });
+
+    it('leaves a colon inside a string or a REM alone', () => {
+      expect(tokenizeProgram('10 PRINT "A:B"\n').errors).toEqual([]);
+      expect(tokenizeProgram('10 REM A: B\n').errors).toEqual([]);
+    });
+
+    it('owes the indent in the reported column', () => {
+      expect(
+        tokenizeProgram('  10 LET A=1: PRINT A\n').errors[0],
+      ).toMatchObject({ column: 12, endColumn: 13 });
+    });
+  });
 });
 
 describe('tokenizeProgram #BIN directives', () => {
