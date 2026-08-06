@@ -125,8 +125,10 @@ browser can prove; everything else belongs in a colocated `*.test.ts`.
   its coverage is unit-level, and specs stay in `e2e/<capability>/` or
   `e2e/shell/` (`src/e2eCapabilityLayout.test.ts` enforces this).
 
-The full streamlining plan these rules come from is
-`docs/contributing/e2e-streamlining-plan.md`.
+These rules come from a suite-wide streamlining pass (2026), which took the
+Chromium run from 207 tests to 138 and halved the summed test duration a
+one-worker runner pays. The existing specs are the worked examples: read the
+capability folder you are adding to before adding to it.
 
 ## Architecture
 

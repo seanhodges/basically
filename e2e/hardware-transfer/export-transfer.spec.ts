@@ -89,12 +89,10 @@ test('the cassette exports play through the speakers and download as .wav', asyn
     () => typeof AudioContext !== 'undefined',
   );
   if (!hasWebAudio) {
-    test
-      .info()
-      .annotations.push({
-        type: 'not exercised',
-        description: 'cassette playback: Web Audio missing from this build',
-      });
+    test.info().annotations.push({
+      type: 'not exercised',
+      description: 'cassette playback: Web Audio missing from this build',
+    });
     return;
   }
 
