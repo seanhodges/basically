@@ -14,7 +14,7 @@ export const atomReference: BasicReferenceTableData = {
       name: 'PRINT',
       kind: 'command',
       domain: 'text-screen',
-      syntax: "PRINT [<expr> | &<number> | $<addr>][, | ; | ']…",
+      syntax: "PRINT [<expr> | &<number> | $<addr>][,|;|']…",
       description:
         "Prints values to the screen (abbreviate as P.); it adds no trailing newline, so use a quote ' to emit a carriage return. A comma tabs to the next field, a semicolon suppresses spacing, & prints a value in hexadecimal, and $<addr> prints the string stored at that address.",
     },

@@ -194,7 +194,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'PRINT',
       kind: 'command',
       domain: 'text-screen',
-      syntax: 'PRINT [<expr>][; | ,]…',
+      syntax: 'PRINT [<expr>][;|,]…',
       description:
         'Prints to the terminal. A comma moves to the next 14-column zone, a semicolon stays put, and a trailing separator suppresses the newline. ? is shorthand for it.',
     },

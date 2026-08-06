@@ -646,7 +646,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'DOPEN',
       kind: 'command',
       domain: 'storage',
-      syntax: 'DOPEN# <file>, <string> [, D<drive>] [, W]',
+      syntax: 'DOPEN#<file>, <string> [, D<drive>] [, W]',
       description:
         'Opens a disk file to a logical file number for reading, or for writing with W.',
       tag: 'BASIC 4.0',
@@ -656,7 +656,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'DCLOSE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'DCLOSE [# <file>]',
+      syntax: 'DCLOSE [#<file>]',
       description:
         'Closes a disk file opened with DOPEN, or all open files when no logical file number is given.',
       tag: 'BASIC 4.0',
@@ -666,7 +666,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'RECORD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'RECORD# <file>, <number> [, <number>]',
+      syntax: 'RECORD#<file>, <number> [, <number>]',
       description:
         'Positions to a record (and optional byte) within an open relative file.',
       tag: 'BASIC 4.0',
@@ -716,7 +716,7 @@ export const commodoreReference: BasicReferenceTableData = {
       name: 'APPEND',
       kind: 'command',
       domain: 'storage',
-      syntax: 'APPEND# <file>, <string> [, D<drive>]',
+      syntax: 'APPEND#<file>, <string> [, D<drive>]',
       description:
         'Opens an existing sequential file positioned at its end so PRINT# adds to it.',
       tag: 'BASIC 4.0',

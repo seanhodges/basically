@@ -69,14 +69,14 @@ Batch by domain to keep each diff reviewable.
 
 ## 4. Enforce it
 
-- [ ] 4.1 Extend `src/reference/reference-data.test.ts` with the per-page assertions
+- [x] 4.1 Extend `src/reference/reference-data.test.ts` with the per-page assertions
       (D5.1–D5.7): every token in core ∪ extension, no dead extension entry, no shadowing,
       no unexplained `<`, no surviving bare placeholder, the mechanically safe structural
       rules, and entry hygiene.
-- [ ] 4.2 Add the global assertions (D5.8–D5.9): the core is used in full across the BASIC
+- [x] 4.2 Add the global assertions (D5.8–D5.9): the core is used in full across the BASIC
       tables and nothing beyond it, and two pages declaring the same extension id declare
       the same meaning.
-- [ ] 4.3 Add an explicit test that the relational-operator rows
+- [x] 4.3 Add an explicit test that the relational-operator rows
       (`'<number> < <number> | <string> < <string>'`, `<=`, `<>`) yield exactly their real
       placeholders and no phantom token — the one place a naive `<[^>]*>` scan would
       silently corrupt the check.

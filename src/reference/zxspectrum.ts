@@ -278,7 +278,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: '<=',
       kind: 'operator',
       domain: 'numeric',
-      syntax: '<=',
+      syntax: '<number> <= <number>',
       description:
         'Comparison operator, true (1) when the left value is less than or equal to the right.',
     },
@@ -286,7 +286,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: '>=',
       kind: 'operator',
       domain: 'numeric',
-      syntax: '>=',
+      syntax: '<number> >= <number>',
       description:
         'Comparison operator, true (1) when the left value is greater than or equal to the right.',
     },
@@ -294,7 +294,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: '<>',
       kind: 'operator',
       domain: 'numeric',
-      syntax: '<>',
+      syntax: '<number> <> <number>',
       description:
         'Comparison operator, true (1) when the two values are not equal.',
     },

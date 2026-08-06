@@ -864,8 +864,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'PRINT',
       kind: 'command',
       domain: 'text-screen',
-      syntax:
-        "PRINT [TAB(<number>[, <number>])] [<number> | <string>] [; , ']…",
+      syntax: "PRINT [TAB(<col>[, <row>])] [<expr>][;|,|']…",
       description:
         'Outputs numbers and strings to the screen; "," tabs to the next field, ";" suppresses the trailing newline and column spacing, and "\'" forces a newline. The @% variable controls numeric formatting.',
     },
