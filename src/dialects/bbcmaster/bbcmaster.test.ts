@@ -96,6 +96,15 @@ describe('BBC Master dialect', () => {
   it('accepts EXT#chan= as a statement (BASIC IV file-extent assignment)', () => {
     expect(bbcmaster.lint('10 EXT#1=1024\n')).toEqual([]);
   });
+
+  it('still builds an image when a statement is misspelled', () => {
+    // Inherited from the BBC Micro tokenizer: a statement-shape squiggle is
+    // lint, not a build failure, so the program still runs and exports.
+    const { image, errors } = bbcmaster.tokenize('10 PRINT "X":PRNT "Y"\n');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.fatal).toBe(false);
+    expect(image.length).toBeGreaterThan(0);
+  });
 });
 
 describe('BBC Micro (BASIC II) does not have the BASIC IV extras', () => {

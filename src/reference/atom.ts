@@ -30,7 +30,7 @@ export const atomReference: BasicReferenceTableData = {
       domain: 'control-flow',
       syntax: 'IF <number> THEN <statement>',
       description:
-        'Runs the statement after THEN only when the condition is non-zero (true). Atom BASIC has no ELSE and only one statement per line.',
+        'Runs the statement after THEN only when the condition is non-zero (true). Atom BASIC has no ELSE, and THEN takes a single statement.',
     },
     {
       name: 'THEN',

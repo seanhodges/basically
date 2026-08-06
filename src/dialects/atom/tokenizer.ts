@@ -45,8 +45,16 @@ function validateStatements(
   asm: { active: boolean },
 ): void {
   let i = 0;
+  // PRINT separates its items with ';' as well ("no gap"), the same character
+  // that separates statements, so once a line has opened a PRINT there is no
+  // telling a print item from a new statement without parsing expressions.
+  // Stop flagging statement heads for the rest of the line rather than report
+  // `PRINT "A";B` - a correct line - as a bad statement. Lower-case keyword
+  // warnings still apply: those only fire on words the table recognises.
+  let inPrintItems = false;
 
   const flag = (at: number, end: number, got: string): void => {
+    if (inPrintItems) return;
     errors.push({
       line: editorLine,
       column: colOffset + at,
@@ -117,12 +125,15 @@ function validateStatements(
       c === '!' ||
       c === '$' ||
       c === '@' ||
-      c === '%' || // floating-point ROM variable (%A–%Z) assignment target
-      c === '*' // COS / OS command (*CAT, *LOAD, *RUN, …)
+      c === '%' // floating-point ROM variable (%A–%Z) assignment target
     ) {
       skipStatement();
       continue;
     }
+    // A `*` COS command (*CAT, *LOAD, *RUN, …) is handed to the OS with
+    // everything after it, so it owns the rest of the line: a ';' inside one
+    // (`*FS 3;12`) is part of the command, not a statement break.
+    if (c === '*') return;
     const m = /^[A-Za-z]+/.exec(body.slice(i));
     if (m) {
       const word = m[0].toUpperCase();
@@ -132,17 +143,23 @@ function validateStatements(
         const typed = m[0].slice(0, cmd.length);
         if (typed !== typed.toUpperCase())
           warnLowerCase(i, i + cmd.length, typed);
+        if (cmd === 'PRINT') inPrintItems = true;
         skipStatement();
         continue;
       }
       // Dot-abbreviation: the ROM expands e.g. P. to the first keyword that
       // starts with the letters typed.
-      if (
-        body[i + m[0].length] === '.' &&
-        COMMAND_WORDS.some((k) => k.length > word.length && k.startsWith(word))
-      ) {
+      const abbreviated = COMMAND_WORDS.find(
+        (k) => k.length > word.length && k.startsWith(word),
+      );
+      if (body[i + m[0].length] === '.' && abbreviated) {
         if (m[0] !== m[0].toUpperCase())
           warnLowerCase(i, i + m[0].length, m[0]);
+        // An abbreviated comment owns the rest of the line just as the
+        // spelled-out REM does, and an abbreviated PRINT takes its items with
+        // it the same way.
+        if (abbreviated === 'REM') return;
+        if (abbreviated === 'PRINT') inPrintItems = true;
         skipStatement();
         continue;
       }

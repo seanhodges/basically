@@ -204,6 +204,9 @@ function tokenizeBody(
       column: colOffset + at,
       endColumn: colOffset + end,
       message: `Statement must start with a command keyword or assignment (got '${got}')`,
+      // The real machine stores such a line and objects only when it runs, so
+      // this squiggle must not empty the image or block hardware export.
+      fatal: false,
     });
   };
 
