@@ -153,6 +153,7 @@ export const CORE_PLACEHOLDERS = [
   // The machine.
   { id: 'addr', meaning: 'a memory address' },
   { id: 'port', meaning: 'an input/output port, by number' },
+  { id: 'mask', meaning: 'a bit mask, one bit per item' },
 ] as const;
 
 /** One shared placeholder id, derived from {@link CORE_PLACEHOLDERS}. */

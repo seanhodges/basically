@@ -95,7 +95,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'TAB',
       kind: 'function',
       domain: 'text-screen',
-      syntax: 'TAB(<number>[, <number>])',
+      syntax: 'TAB(<col>[, <row>])',
       description:
         'Within PRINT, TAB(x) moves to text column x on the current line, while TAB(x,y) moves the cursor to column x, row y (origin top-left). Only valid inside PRINT/INPUT.',
     },
@@ -119,7 +119,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'OPENIN',
       kind: 'function',
       domain: 'storage',
-      syntax: 'OPENIN(<string>)',
+      syntax: 'OPENIN(<filename>)',
       description:
         'Opens an existing file for reading and returns a channel number for use with BGET#, INPUT# and CLOSE#. Returns 0 if the file cannot be found.',
     },
@@ -127,7 +127,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'PTR',
       kind: 'function',
       domain: 'storage',
-      syntax: 'PTR#<channel> | PTR#<channel> = <number>',
+      syntax: 'PTR#<file> | PTR#<file> = <number>',
       description:
         'Reads or sets the sequential byte pointer of an open file, allowing random access; assigning to it seeks to a given offset from the start of the file.',
     },
@@ -214,7 +214,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'BGET',
       kind: 'function',
       domain: 'storage',
-      syntax: 'BGET#<channel>',
+      syntax: 'BGET#<file>',
       description:
         'Reads and returns the next byte (0–255) from an open file, advancing the file pointer.',
     },
@@ -276,7 +276,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'EXT',
       kind: 'function',
       domain: 'storage',
-      syntax: 'EXT#<channel>',
+      syntax: 'EXT#<file>',
       description:
         'Returns the total length in bytes of an open file, useful for detecting how much data is available.',
     },
@@ -292,7 +292,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'FN',
       kind: 'function',
       domain: 'control-flow',
-      syntax: 'FN<name>[(<arg>,…)]',
+      syntax: 'FN<name>[(<arg>[, <arg>]…)]',
       description:
         'Calls a user-defined function created with DEF FN; the function returns a value via an = expression and may take parameters.',
     },
@@ -316,7 +316,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'INSTR',
       kind: 'function',
       domain: 'strings',
-      syntax: 'INSTR(<string>, <string>[, <number>])',
+      syntax: 'INSTR(<string>, <string>[, <start>])',
       description:
         'Returns the position of the second string within the first (1-based), or 0 if not found; an optional third argument sets the starting position for the search.',
     },
@@ -370,7 +370,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'OPENOUT',
       kind: 'function',
       domain: 'storage',
-      syntax: 'OPENOUT(<string>)',
+      syntax: 'OPENOUT(<filename>)',
       description:
         'Creates a new file (or truncates an existing one) for writing and returns a channel number for use with BPUT#, PRINT# and CLOSE#.',
     },
@@ -385,7 +385,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'POINT',
       kind: 'function',
       domain: 'graphics',
-      syntax: 'POINT(<number>, <number>)',
+      syntax: 'POINT(<x>, <y>)',
       description:
         'Returns the logical colour of the pixel at the given graphics coordinates, or -1 if the point lies outside the screen.',
     },
@@ -461,7 +461,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'USR',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'USR(<number>)',
+      syntax: 'USR(<addr>)',
       description:
         'Calls a machine-code routine at the given address with the registers preset from A%, X%, Y% and the carry flag, and returns the resulting register values packed into one number.',
     },
@@ -509,7 +509,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'LEFT$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'LEFT$(<string>, <number>)',
+      syntax: 'LEFT$(<string>, <length>)',
       description:
         'Returns the leftmost n characters of a string (the whole string if n exceeds its length).',
     },
@@ -517,7 +517,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'MID$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'MID$(<string>, <number>[, <number>])',
+      syntax: 'MID$(<string>, <start>[, <length>])',
       description:
         'Returns a substring starting at the given 1-based position; without a length it returns the rest of the string from that point.',
     },
@@ -525,7 +525,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'RIGHT$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'RIGHT$(<string>, <number>)',
+      syntax: 'RIGHT$(<string>, <length>)',
       description:
         'Returns the rightmost n characters of a string (the whole string if n exceeds its length).',
     },
@@ -541,7 +541,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'STRING$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'STRING$(<number>, <string>)',
+      syntax: 'STRING$(<length>, <string>)',
       description:
         'Returns a string made of the given string repeated n times - handy for drawing rules or padding output.',
     },
@@ -549,7 +549,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'EOF',
       kind: 'function',
       domain: 'storage',
-      syntax: 'EOF#<channel>',
+      syntax: 'EOF#<file>',
       description:
         'Returns TRUE (-1) when the file pointer has reached the end of an open file, and FALSE (0) otherwise.',
     },
@@ -583,7 +583,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'LOAD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'LOAD <string>',
+      syntax: 'LOAD <filename>',
       description:
         'Clears the current program and loads a tokenised BASIC program from the filing system, leaving variables cleared.',
     },
@@ -623,7 +623,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'SAVE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'SAVE <string>',
+      syntax: 'SAVE <filename>',
       description:
         'Saves the current tokenised BASIC program to the filing system under the given name.',
     },
@@ -631,7 +631,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'SOUND',
       kind: 'command',
       domain: 'sound',
-      syntax: 'SOUND <channel>, <number>, <number>, <number>',
+      syntax: 'SOUND <channel>, <amplitude>, <pitch>, <duration>',
       description:
         'Plays a note on one of four sound channels: arguments are the channel, amplitude (0 to -15, or an envelope number), pitch (0–255), and duration in twentieths of a second.',
     },
@@ -639,7 +639,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'BPUT',
       kind: 'command',
       domain: 'storage',
-      syntax: 'BPUT#<channel>, <number>',
+      syntax: 'BPUT#<file>, <byte>',
       description:
         'Writes a single byte (0–255) to an open file at the current pointer, advancing it.',
     },
@@ -647,7 +647,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'CALL',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'CALL <number>[, <var>,…]',
+      syntax: 'CALL <addr>[, <var>]…',
       description:
         'Calls a machine-code routine at the given address, optionally passing parameters whose addresses are listed in a parameter block for the routine.',
     },
@@ -655,7 +655,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'CHAIN',
       kind: 'command',
       domain: 'storage',
-      syntax: 'CHAIN <string>',
+      syntax: 'CHAIN <filename>',
       description:
         'Loads another BASIC program from the filing system and runs it immediately, clearing variables first.',
     },
@@ -671,7 +671,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'CLOSE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'CLOSE#<channel>',
+      syntax: 'CLOSE#<file>',
       description:
         'Closes an open file, flushing any buffered output; CLOSE#0 closes all open files at once.',
     },
@@ -695,7 +695,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'DATA',
       kind: 'command',
       domain: 'data',
-      syntax: 'DATA <item>[, <item>]…',
+      syntax: 'DATA <constant>[, <constant>]…',
       description:
         'Holds a list of constants (numbers or strings) read sequentially by READ; leading spaces are skipped and strings need quotes only if they contain commas.',
     },
@@ -703,7 +703,8 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'DEF',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'DEF PROC<name>[(<param>,…)] | DEF FN<name>[(<param>,…)]',
+      syntax:
+        'DEF PROC<name>[(<param>[, <param>]…)] | DEF FN<name>[(<param>[, <param>]…)]',
       description:
         'Marks the start of a user-defined procedure (DEF PROC) or function (DEF FN); BASIC skips over DEF lines during normal flow, so place them after END.',
     },
@@ -719,7 +720,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'DRAW',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'DRAW <number>, <number>',
+      syntax: 'DRAW <x>, <y>',
       description:
         'Draws a line in the current graphics colour from the graphics cursor to the given coordinates, then leaves the cursor there. Coordinates run 0–1279 by 0–1023 regardless of mode.',
     },
@@ -743,7 +744,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'ENVELOPE',
       kind: 'command',
       domain: 'sound',
-      syntax: 'ENVELOPE <number>, <number>,… (14 parameters)',
+      syntax: 'ENVELOPE <envelope>, <number>[, <number>]…',
       description:
         'Defines one of the pitch/amplitude envelopes (numbered 1–4) that SOUND can use to shape a note over time; it takes 14 parameters controlling the attack, decay, sustain and release.',
     },
@@ -774,7 +775,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'GCOL',
       kind: 'command',
       domain: 'colour',
-      syntax: 'GCOL <number>, <number>',
+      syntax: 'GCOL <action>, <colour>',
       description:
         'Sets the graphics colour and plot action used by MOVE/DRAW/PLOT: the first argument is the plot mode (0 plot, 1 OR, 2 AND, 3 EOR, 4 invert) and the second the logical colour (add 128 for the background). Use COLOUR for text.',
     },
@@ -790,7 +791,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'INPUT',
       kind: 'command',
       domain: 'input',
-      syntax: 'INPUT [<string>,] <var>[, <var>]…',
+      syntax: 'INPUT [<prompt>,] <var>[, <var>]…',
       description:
         'Reads typed values into one or more variables, displaying an optional prompt string and a "?" prompt; commas separate multiple values and INPUT halts the program until Return is pressed.',
     },
@@ -814,7 +815,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'MODE',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'MODE <number>',
+      syntax: 'MODE <mode>',
       description:
         'Selects a screen mode (0–7 on the Micro; the Master adds shadow modes 128–135 and extra modes), clearing the screen and resetting graphics. MODE 7 is teletext; higher-resolution modes consume more RAM.',
     },
@@ -822,7 +823,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'MOVE',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'MOVE <number>, <number>',
+      syntax: 'MOVE <x>, <y>',
       description:
         'Moves the graphics cursor to the given coordinates without drawing, setting the start point for the next DRAW or PLOT.',
     },
@@ -839,7 +840,7 @@ export const bbcReference: BasicReferenceTableData = {
       kind: 'command',
       domain: 'control-flow',
       syntax:
-        'ON <number> GOTO <line>,… | ON <number> GOSUB <line>,… | ON ERROR <statement>',
+        'ON <number> GOTO <line>[, <line>]… | ON <number> GOSUB <line>[, <line>]… | ON ERROR <statement>',
       description:
         'Computed branch: ON n GOTO/GOSUB jumps to the nth line number in the list, and ON ERROR installs an error handler. An optional ELSE clause handles an out-of-range index.',
     },
@@ -847,7 +848,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'VDU',
       kind: 'command',
       domain: 'text-screen',
-      syntax: 'VDU <number>[, <number>]…',
+      syntax: 'VDU <byte>[, <byte>]…',
       description:
         'Sends raw bytes to the VDU (screen) driver to perform operations like setting colours, defining characters (VDU 23) or window areas; a trailing semicolon sends a value as two bytes (a 16-bit word).',
     },
@@ -855,7 +856,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'PLOT',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'PLOT <number>, <number>, <number>',
+      syntax: 'PLOT <action>, <x>, <y>',
       description:
         'The general graphics primitive: the first argument selects an action (line, point, filled triangle, circle and so on) at the given coordinates. MOVE, DRAW and others are shorthands for particular PLOT codes.',
     },
@@ -872,7 +873,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'PROC',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'PROC<name>[(<arg>,…)]',
+      syntax: 'PROC<name>[(<arg>[, <arg>]…)]',
       description:
         'Calls a user-defined procedure created with DEF PROC, optionally passing arguments; execution returns to the statement after the call when ENDPROC is reached.',
     },
@@ -943,7 +944,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'COLOUR',
       kind: 'command',
       domain: 'colour',
-      syntax: 'COLOUR <number>',
+      syntax: 'COLOUR <colour>',
       description:
         'Sets the logical colour used for subsequently PRINTed text; adding 128 to the argument sets the text background instead. Use GCOL for graphics colours. The Master also supports COLOUR to redefine the palette.',
     },

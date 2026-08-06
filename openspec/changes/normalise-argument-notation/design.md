@@ -138,7 +138,7 @@ test can see it.
 
 ### D3 — The core, and every retirement
 
-Core, 33 entries, canonical order (values → variables → program → screen → colour →
+Core, 36 entries, canonical order (values → variables → program → screen → colour →
 sound → input → storage → machine). Every one is used by at least two pages, which is
 what makes D5.8 satisfiable.
 
@@ -160,6 +160,14 @@ rule 3), so it is a CPC extension, and **`switch`** has no confirmed second user
 is not in the vocabulary at all until the sweep produces one. Starting from a core that
 is certainly right beats starting from one with two known-dubious entries — D5.8 catches
 the reverse mistake for free, and stage 3.6 reconciles.
+
+The sweep then added three the data proved necessary, taking the core to 36: **`start`**
+and **`length`** (`MID$`, `LEFT$`, `RIGHT$`, `INSTR`, `STRING$` need them on five pages,
+and `MID$(<string>, <number>[, <number>])` was hiding a position behind a count), and
+**`mask`** — first drafted as a CPC-only name until the `WAIT` rows showed the Altair and
+the Commodore need it too. `switch` was never needed: the two rows that wanted it
+(`CURSOR`, `SPEED INK`) read better as `<number>` with the description carrying the
+0-or-1, which is tie-break rule 5 working as intended.
 
 Retirements, each with its reason:
 

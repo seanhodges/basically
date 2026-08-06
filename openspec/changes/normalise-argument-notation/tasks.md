@@ -42,28 +42,28 @@ Batch by domain to keep each diff reviewable.
 
 ## 3. Normalise the other eight tables
 
-- [ ] 3.1 The 48 mechanical retirements, all shape-neutral: `<int>`→`<number>` ×22,
+- [x] 3.1 The 48 mechanical retirements, all shape-neutral: `<int>`→`<number>` ×22,
       `<handle>`→`<file>` ×8, `<channel>`→`<file>` ×7 (storage sense only — `SOUND
       <channel>` keeps it), `<expression>`→`<expr>` ×6, `<text>`→`<comment>` ×4,
       `<lf>`→`<file>` ×4, `<item>`→`<constant>` ×2, `<cond>`→`<number>` ×2, and Atom's
       `DIM <name>(…)`→`<var>` ×1.
-- [ ] 3.2 Role enrichment, ~150 rows, shape-neutral by construction (one marker in, one
+- [x] 3.2 Role enrichment, ~150 rows, shape-neutral by construction (one marker in, one
       marker out): `<addr>`, `<byte>`, `<x>`, `<y>`, `<dx>`, `<dy>`, `<row>`, `<col>`,
       `<colour>`, `<mode>`, `<action>`, `<port>`, `<pitch>`, `<duration>`, `<amplitude>`,
       `<filename>`, `<prompt>`. Enrich **heterogeneous** repeats only — leave homogeneous
       lists such as `READ <var>[, <var>]…` alone.
-- [ ] 3.3 The shape-changing structural edits (~120 rows): R2 ellipsis outside its bracket
+- [x] 3.3 The shape-changing structural edits (~120 rows): R2 ellipsis outside its bracket
       (commodore ×9, zxspectrum ×6, trs80 ×3), R5 quotes off placeholders, R11 `…` that
       means "and so on" becomes a real placeholder, R7 fragment expansion, R4 alternation
       spacing, R12 operator operands, R3 separator spacing.
-- [ ] 3.4 Verify the R0 exceptions rather than assuming them: Commodore's literal
+- [x] 3.4 Verify the R0 exceptions rather than assuming them: Commodore's literal
       `D<number>` / `[, W]` / `I<id>` stay; check whether the Atom requires
       `?<addr>=<byte>` tight against `src/dialects/atom/`; check the Spectrum's
       empty-parameter `DEF FN` form against its tokenizer. Add a row comment wherever a
       rule yields.
-- [ ] 3.5 Re-run the pairwise behaviour-change count across all 36 page pairs (scratch
+- [x] 3.5 Re-run the pairwise behaviour-change count across all 36 page pairs (scratch
       script, not committed) and confirm it moved **below** today's 650 — not above.
-- [ ] 3.6 Record any vocabulary additions or removals the sweep proved necessary back into
+- [x] 3.6 Record any vocabulary additions or removals the sweep proved necessary back into
       `placeholders.ts`, and resolve the `<switch>` open question (core if ≥2 pages use
       it, otherwise a page extension).
 

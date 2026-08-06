@@ -20,7 +20,6 @@ export const cpcReference: BasicReferenceTableData = {
     },
     { id: 'toneenv', meaning: 'a tone envelope, by number, as defined by ENT' },
     { id: 'noise', meaning: 'a noise period, 0 to 31' },
-    { id: 'mask', meaning: 'a bit mask, one bit per item' },
     {
       id: 'section',
       meaning: 'one envelope section: step count, step size and pause',
