@@ -7,6 +7,7 @@ import type { BasicReferenceTableData } from './types';
 export const zxspectrumReference: BasicReferenceTableData = {
   title: 'ZX Spectrum BASIC (48K & 128K)',
   machines: ['Sinclair ZX Spectrum 48K', 'Sinclair ZX Spectrum 128K'],
+  placeholders: [{ id: 'bits', meaning: 'a binary literal, such as 10011' }],
   entries: [
     {
       name: 'RND',

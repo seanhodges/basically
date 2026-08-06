@@ -11,6 +11,8 @@ import type { BasicReferenceTableData } from './types';
 export const altair8800Reference: BasicReferenceTableData = {
   title: 'Altair 8K BASIC',
   machines: ['MITS Altair 8800'],
+  // Nothing beyond the shared vocabulary.
+  placeholders: [],
   entries: [
     {
       name: 'END',

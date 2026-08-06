@@ -7,6 +7,8 @@ import type { BasicReferenceTableData } from './types';
 export const atomReference: BasicReferenceTableData = {
   title: 'Acorn Atom BASIC',
   machines: ['Acorn Atom'],
+  // Nothing beyond the shared vocabulary.
+  placeholders: [],
   entries: [
     {
       name: 'PRINT',

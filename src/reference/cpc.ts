@@ -7,6 +7,28 @@ import type { BasicReferenceTableData } from './types';
 export const cpcReference: BasicReferenceTableData = {
   title: 'Amstrad CPC Locomotive BASIC (1.0 & 1.1)',
   machines: ['Amstrad CPC 464', 'Amstrad CPC 6128'],
+  placeholders: [
+    { id: 'pen', meaning: 'a pen number in the current palette' },
+    { id: 'stream', meaning: 'one of the eight screen windows, #0 to #7' },
+    { id: 'timer', meaning: 'one of the four delay timers, 0 to 3' },
+    { id: 'period', meaning: 'a tone period: 62500 divided by the frequency' },
+    { id: 'volume', meaning: 'how loud a sound is' },
+    {
+      id: 'volenv',
+      meaning: 'a volume envelope, by number, as defined by ENV',
+    },
+    { id: 'toneenv', meaning: 'a tone envelope, by number, as defined by ENT' },
+    { id: 'noise', meaning: 'a noise period, 0 to 31' },
+    { id: 'mask', meaning: 'a bit mask, one bit per item' },
+    {
+      id: 'section',
+      meaning: 'one envelope section: step count, step size and pause',
+    },
+    { id: 'left', meaning: 'the left edge of a window or clipping area' },
+    { id: 'right', meaning: 'the right edge of a window or clipping area' },
+    { id: 'top', meaning: 'the top edge of a window or clipping area' },
+    { id: 'bottom', meaning: 'the bottom edge of a window or clipping area' },
+  ],
   entries: [
     {
       name: 'AFTER',

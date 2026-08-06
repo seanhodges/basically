@@ -12,6 +12,12 @@ import type { BasicReferenceTableData } from './types';
 export const commodoreReference: BasicReferenceTableData = {
   title: 'Commodore 64, VIC-20 & PET BASIC',
   machines: ['Commodore 64', 'Commodore VIC-20', 'Commodore PET'],
+  placeholders: [
+    { id: 'drive', meaning: 'a drive number, written after a literal D' },
+    { id: 'device', meaning: 'a device number: 1 for tape, 8 for disc' },
+    { id: 'secondary', meaning: 'a secondary address' },
+    { id: 'id', meaning: 'a two-character disk id, written after a literal I' },
+  ],
   entries: [
     {
       name: 'END',

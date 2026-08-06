@@ -7,6 +7,9 @@ import type { BasicReferenceTableData } from './types';
 export const bbcReference: BasicReferenceTableData = {
   title: 'BBC BASIC (Micro & Master)',
   machines: ['BBC Micro Model B', 'BBC Master'],
+  // The BBC documentation describes SOUND in amplitude, where the Amstrad says
+  // volume; each page keeps its own machine word (placeholders.ts, tie-break 3).
+  placeholders: [{ id: 'amplitude', meaning: 'how loud a note sounds' }],
   entries: [
     {
       name: 'AND',

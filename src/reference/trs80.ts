@@ -7,6 +7,10 @@ import type { BasicReferenceTableData } from './types';
 export const trs80Reference: BasicReferenceTableData = {
   title: 'TRS-80 Level II BASIC',
   machines: ['TRS-80 Model I (Level II BASIC)'],
+  placeholders: [
+    { id: 'cell', meaning: 'one of the 1024 screen cells, 0 to 1023' },
+    { id: 'record', meaning: 'a record number in a random-access file' },
+  ],
   entries: [
     {
       name: 'END',

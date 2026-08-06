@@ -7,6 +7,8 @@ import type { BasicReferenceTableData } from './types';
 export const zx80Reference: BasicReferenceTableData = {
   title: 'ZX80 integer BASIC',
   machines: ['Sinclair ZX80'],
+  // Nothing beyond the shared vocabulary.
+  placeholders: [],
   entries: [
     {
       name: 'RND',
