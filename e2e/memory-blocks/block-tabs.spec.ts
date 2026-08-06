@@ -62,7 +62,7 @@ test('the plus button creates blocks with sequential default names', async ({
   ]);
 });
 
-test('right-click opens the context menu; Escape dismisses it', async ({
+test('the context menu offers the block actions, and Settings edits its metadata', async ({
   page,
 }) => {
   await openSpectrum(page);
@@ -82,12 +82,6 @@ test('right-click opens the context menu; Escape dismisses it', async ({
 
   await page.keyboard.press('Escape');
   await expect(tabMenu(page)).toBeHidden();
-});
-
-test('Settings edits the block metadata via the dialog', async ({ page }) => {
-  await openSpectrum(page);
-  const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
 
   await page.getByRole('tab', { name: 'block1' }).click({ button: 'right' });
   await tabMenu(page).getByRole('menuitem', { name: 'Settings…' }).click();
