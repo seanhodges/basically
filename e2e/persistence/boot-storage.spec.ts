@@ -7,6 +7,7 @@ import {
   openApp,
   selectDialect,
   setEditorSource,
+  waitForAutosave,
 } from '../helpers';
 
 /**
@@ -55,8 +56,7 @@ test.describe('first run (fresh profile)', () => {
 test('edits survive a reload (autosave)', async ({ page }) => {
   await openApp(page);
   await setEditorSource(page, '10 PRINT "AUTOSAVE CHECK"');
-  // The autosave loop persists dirty documents every 2s.
-  await page.waitForTimeout(2600);
+  await waitForAutosave(page, 'AUTOSAVE CHECK');
   await page.reload();
   await expect(page.locator(EDITOR)).toContainText('AUTOSAVE CHECK');
 });
@@ -141,7 +141,7 @@ test('tabs keep independent programs (sessionStorage isolation)', async ({
 }) => {
   await openApp(page);
   await setEditorSource(page, '10 PRINT "TAB A"');
-  await page.waitForTimeout(2600);
+  await waitForAutosave(page, 'TAB A');
 
   // A brand-new tab seeds from the shared localStorage backup, so it opens on
   // the most recently edited program.
@@ -151,7 +151,7 @@ test('tabs keep independent programs (sessionStorage isolation)', async ({
 
   // From here the tabs diverge: edits in B must never leak into A.
   await setEditorSource(pageB, '10 PRINT "TAB B"');
-  await pageB.waitForTimeout(2600);
+  await waitForAutosave(pageB, 'TAB B');
 
   await page.reload();
   await expect(page.locator(EDITOR)).toContainText('TAB A');

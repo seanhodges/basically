@@ -63,10 +63,6 @@ test('memory map swaps to the left column while the emulator runs', async ({
     expect(mem!.x).toBeLessThan(emu!.x); // memory is to the LEFT of the emulator
   }
 
-  await page.screenshot({
-    path: 'e2e/__screenshots__/memmap-running-left.png',
-  });
-
   // Stop: the map returns to the right slot and the editor comes back on the left.
   await page.getByRole('button', { name: 'Stop' }).click();
   await expect(page.locator('[class*="memoryLeft"]')).toHaveCount(0);

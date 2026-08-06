@@ -57,6 +57,4 @@ test('C64 memory map renders regions, POKE markers and a live overlay', async ({
     timeout: 20_000,
   });
   await expect(page.locator('[class*="activityCanvas"]')).toBeVisible();
-
-  await page.screenshot({ path: 'e2e/__screenshots__/memmap-c64.png' });
 });

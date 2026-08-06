@@ -95,6 +95,39 @@ export async function clearEditor(page: Page): Promise<void> {
 }
 
 /**
+ * Wait until the autosave loop has written the current document out, by polling
+ * the localStorage backup for `marker` (a distinctive fragment of the source).
+ *
+ * The loop persists dirty documents on a 2s interval, so the alternative is a
+ * fixed sleep longer than the interval - paid in full on every run, whether the
+ * write landed early or not. Polling the key the write actually lands in
+ * returns as soon as it has. `localStorage`, not `sessionStorage`: the backup
+ * is the copy a second tab seeds from, so it is what the two-tab cases care
+ * about, and it carries the same value as the per-tab session slot.
+ */
+export async function waitForAutosave(
+  page: Page,
+  marker: string,
+): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          try {
+            return localStorage.getItem('mbide.autosave.doc');
+          } catch {
+            return null; // storage blocked - nothing will ever land
+          }
+        }),
+      // A steady 200ms beat, not the default backing-off intervals: those grow
+      // to 1s gaps, so a write landing just after a poll could be noticed later
+      // than the fixed sleep this replaces returned.
+      { timeout: 15_000, intervals: [200] },
+    )
+    .toContain(marker);
+}
+
+/**
  * Switch machine via the toolbar's target control and the machine picker it
  * raises. Takes a registry dialect id, not a name: the names prefix one another
  * ('Spectrum' / 'Spectrum 128').
