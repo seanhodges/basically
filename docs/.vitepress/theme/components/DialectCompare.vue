@@ -13,6 +13,7 @@ import type {
   PortingFacts,
   ReferenceTableData,
 } from '../../../../src/reference/types';
+import { writesByIndirection } from '../../../../src/reference/types';
 import {
   capabilitySections,
   composeGuidance,
@@ -213,17 +214,6 @@ const memoryPair = computed(() => {
     notation: s.facts.addressNotation,
   };
 });
-
-/**
- * Whether a machine writes memory with `?addr=val` rather than `POKE`, read off
- * the write syntax the facts already report. That decides how the region detail
- * offers to read an address back - `?32768` on a BBC or an Atom, `PEEK 32768`
- * everywhere else - and asking the facts avoids a second list of which machines
- * those are.
- */
-function writesByIndirection(facts: PortingFacts): boolean {
-  return /^[?!]/.test(facts.memoryWriteSyntax);
-}
 
 const sourceEscapes = computed(() => {
   const s = source.value;

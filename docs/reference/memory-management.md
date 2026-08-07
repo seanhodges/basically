@@ -134,6 +134,14 @@ on the machine you're leaving, and where they would land on the machine you're
 moving to. That is how you spot a write aimed at one machine's system variables
 that would come down in the middle of another machine's BASIC program.
 
+### Reading a machine's map without opening it
+
+Every machine's map is also in its language reference, in the **Memory** section
+of that machine's hardware page — the [C64, VIC-20 and PET](./commodore/hardware),
+the [BBC Micro and Master](./bbc/hardware), and so on. Same map, same controls,
+no program needed: useful for looking up where a machine keeps its screen or its
+system variables before you write the `POKE`.
+
 ## Watching variables
 
 The **variable watcher** is a live table of your program's BASIC variables. Show

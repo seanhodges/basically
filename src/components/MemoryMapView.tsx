@@ -169,6 +169,14 @@ export function MemoryMapView({
     notation === 'hex' ? hexAddr(addr) : `${addr}`;
 
   /**
+   * How to read one address back on this machine: `PEEK 32768`, or `?32768`
+   * where the dialect works by indirection. A BBC or an Atom has no `PEEK` at
+   * all, so offering one names a keyword the machine would reject.
+   */
+  const readBack = (addr: number) =>
+    byIndirection ? `?${addr}` : `PEEK ${addr}`;
+
+  /**
    * How a marker describes its site, for tooltips: a code load carries its own
    * `LOAD …` label (`expr`); a write reads `POKE 22528` or, for indirection,
    * the sigil form `?&2000`.
@@ -477,7 +485,7 @@ export function MemoryMapView({
                     {(selected.end - selected.start + 1).toLocaleString()} bytes
                   </dd>
                   <dt>Start</dt>
-                  <dd className={styles.mono}>PEEK {selected.start}</dd>
+                  <dd className={styles.mono}>{readBack(selected.start)}</dd>
                 </dl>
                 {selected.leaves.length > 1 && (
                   <ul className={styles.leafList}>
@@ -507,9 +515,7 @@ export function MemoryMapView({
                       {selectedWrites.map((s) => (
                         <li key={s.address} className={styles.mono}>
                           {s.approximate ? '≈ ' : ''}
-                          {byIndirection
-                            ? `?${s.address}`
-                            : `PEEK ${s.address}`}
+                          {readBack(s.address)}
                           {s.computed ? (
                             <span className={styles.pokedExpr}>
                               {' '}
@@ -553,8 +559,8 @@ export function MemoryMapView({
               </>
             ) : (
               <p className={styles.empty}>
-                Select a region to see its start address and the value to use in
-                a PEEK.
+                Select a region to see its start address and how to read it
+                back.
               </p>
             )}
           </div>

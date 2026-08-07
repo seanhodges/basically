@@ -39,5 +39,11 @@ export default {
       'MemoryMapPair',
       defineAsyncComponent(() => import('./components/MemoryMapPair.vue')),
     );
+    // The same map on the hardware pages, one machine at a time, and lazy for
+    // the same reason: a reference page that draws no map must not pay for React.
+    app.component(
+      'MemoryMapSingle',
+      defineAsyncComponent(() => import('./components/MemoryMapSingle.vue')),
+    );
   },
 };

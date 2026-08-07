@@ -2,6 +2,11 @@
 title: BBC hardware
 ---
 
+<script setup>
+import { bbcMicroMemoryMap } from '../../../src/dialects/bbcmicro/memoryMap';
+import { bbcMasterMemoryMap } from '../../../src/dialects/bbcmaster/memoryMap';
+</script>
+
 # BBC hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -59,6 +64,12 @@ over time.
 
 ### Memory
 
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="bbcmicro" :map="bbcMicroMemoryMap" />
+
 A BBC program can load fixed-address machine code or data — **memory blocks** —
 into RAM alongside the BASIC program before it runs. A block may live from PAGE
 (the BASIC program start) up to **0x7FFF**. On the Micro PAGE is **0x1900**,
@@ -104,6 +115,12 @@ Identical to the Micro — the same 1280 × 1024 logical coordinate space and
 Identical to the Micro — the same four-channel `SOUND` and `ENVELOPE` system.
 
 ### Memory
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="bbcmaster" :map="bbcMasterMemoryMap" />
 
 As on the Micro, but PAGE is **0x0E00** — the Master's filing systems live in
 private RAM, so BASIC programs (and blocks) get more room. The same block

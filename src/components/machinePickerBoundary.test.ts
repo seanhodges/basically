@@ -60,6 +60,13 @@ const DOCS_IMPORTABLE = [
   // analysis, and takes the activity canvas as an opaque node instead of
   // drawing it: both of those reach an emulator module.
   'components/MemoryMapView.tsx',
+  // The hardware pages draw the same view one machine at a time, and name and
+  // read each map from these two: the machine list for the display name, the
+  // porting facts for the address notation and for whether the machine reads an
+  // address back with `?` or with `PEEK`. Both restate what the registry knows
+  // rather than importing it, which is only safe while this walk says so.
+  'reference/machines.ts',
+  'reference/facts.ts',
   ...MEMORY_MAPS,
 ];
 

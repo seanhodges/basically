@@ -2,6 +2,10 @@
 title: Altair 8800 hardware
 ---
 
+<script setup>
+import { altair8800MemoryMap } from '../../../src/dialects/altair8800/memoryMap';
+</script>
+
 # Altair 8800 hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -48,6 +52,12 @@ terminal bell, `CHR$(7)` — a physical gong on a Teletype ASR-33 — and nothin
 audible for it here.
 
 ### Memory
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="altair8800" :map="altair8800MemoryMap" />
 
 An Altair program can carry fixed-address machine code or data — **memory
 blocks** — that load into RAM alongside the BASIC program before it runs. On the

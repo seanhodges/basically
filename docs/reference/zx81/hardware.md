@@ -2,6 +2,10 @@
 title: ZX81 hardware
 ---
 
+<script setup>
+import { zx81MemoryMap } from '../../../src/dialects/zx81/memoryMap';
+</script>
+
 # ZX81 hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -39,6 +43,12 @@ chunky graphics (see [escape codes](./escapes)).
 The ZX81 has no sound hardware.
 
 ### Memory
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="zx81" :map="zx81MemoryMap" />
 
 A ZX81 program can carry machine code or data — **memory blocks** — using the
 classic trick of hiding the bytes inside a `REM` line. Because a `.P` file holds

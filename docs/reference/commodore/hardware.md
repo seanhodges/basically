@@ -2,6 +2,12 @@
 title: Commodore 64, VIC-20 & PET hardware
 ---
 
+<script setup>
+import { c64MemoryMap } from '../../../src/dialects/commodore64/memoryMap';
+import { vic20MemoryMap } from '../../../src/dialects/vic20/memoryMap';
+import { petMemoryMap } from '../../../src/dialects/pet/memoryMap';
+</script>
+
 # Commodore 64, VIC-20 & PET hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -36,6 +42,12 @@ keywords: music is made by POKEing the SID registers at 54272 ($D400), with the
 master volume at 54296.
 
 ### Memory
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="commodore64" :map="c64MemoryMap" />
 
 A Commodore 64 program can load fixed-address machine code or data — **memory
 blocks** — into RAM alongside the BASIC program, ready before it runs. A block
@@ -86,6 +98,12 @@ either.
 
 ### Memory
 
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="vic20" :map="vic20MemoryMap" />
+
 On the unexpanded VIC-20 a block may live from **0x1000 to 0x1DFF**, with BASIC
 starting at $1001; new blocks default to **0x1C00**. The screen at
 **0x1E00–0x1FFF** is reserved with a warning. RAM expansions aren't modelled,
@@ -117,6 +135,12 @@ The PET shipped without dedicated sound hardware (later models could drive a
 small piezo speaker from the CB2 line), and BASIC 4.0 has no sound keywords.
 
 ### Memory
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="pet" :map="petMemoryMap" />
 
 A PET program can carry fixed-address machine code or data — **memory blocks** —
 that load into RAM alongside the BASIC program before it runs. On the PET a block

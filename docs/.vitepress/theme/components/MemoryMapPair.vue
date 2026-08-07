@@ -382,115 +382,14 @@ onUnmounted(() => {
   </div>
 </template>
 
+<!-- The tokens and the control strip, shared with the hardware pages' maps. -->
+<style src="./memoryMap.css"></style>
+
 <!--
   Unscoped on purpose: React renders the panes' markup, so Vue's scope attribute
   never reaches it. Every selector is `mm-` prefixed instead.
 -->
 <style>
-.mm-root {
-  /* The view's CSS modules are the app's, and read these custom properties from
-     it. Both surfaces are dark - the docs are `appearance: 'force-dark'` and the
-     IDE has no light theme - so redeclaring them here, at the values in
-     src/styles.css, is the whole of the theming work. Same arrangement as
-     MachinePicker.vue, with the memory-map palette added: those hues are what
-     make a region class recognisable across the two panes. */
-  --bg-panel: #1e2128;
-  --bg-raised: #262a33;
-  --border: #343945;
-  --text: #d8dce6;
-  --text-dim: #8a91a0;
-  --accent: #4f8cff;
-  --warn: #ffb04f;
-  --mono: var(--vp-font-family-mono, ui-monospace, monospace);
-
-  --mm-rom: #a986ff;
-  --mm-screen: #4f8cff;
-  --mm-attributes: #38c8c0;
-  --mm-buffer: #e0c060;
-  --mm-system: #ff8a5c;
-  --mm-program: #4fce6a;
-  --mm-reserved: #ff6f7d;
-  --mm-load: #1f6feb;
-
-  /* The app's typography, not the docs': this is the IDE's map, and VitePress's
-     absolute 24px prose line-height would stretch every band label. */
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  line-height: normal;
-}
-
-.mm-controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  margin-bottom: 0.75rem;
-}
-
-.mm-details {
-  margin-right: auto;
-  padding: 4px 10px;
-  font-size: 12px;
-  color: var(--text-dim);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.mm-details.mm-on {
-  color: #fff;
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-.mm-notation {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  overflow: hidden;
-}
-
-.mm-notation button {
-  padding: 4px 9px;
-  font-size: 12px;
-  color: var(--text-dim);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
-
-.mm-notation button.mm-on {
-  color: #fff;
-  background: var(--accent);
-}
-
-.mm-zoom {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.mm-zoom-btn {
-  width: 28px;
-  padding: 3px 0;
-  font-size: 15px;
-  line-height: 1;
-  color: var(--text);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.mm-zoom-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.mm-zoom-slider {
-  width: 120px;
-}
-
 .mm-tabs {
   display: flex;
   gap: 4px;
@@ -514,17 +413,6 @@ onUnmounted(() => {
   background: var(--bg-panel);
   border-color: var(--border);
   margin-bottom: -1px;
-}
-
-/* Reserves the maps' height before React mounts, so their absence from the
-   pre-rendered HTML costs a paint rather than a layout shift. */
-.mm-placeholder {
-  display: block;
-  height: 320px;
-  margin: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-raised);
 }
 
 /* Two columns of equal width, so the same address sits at the same height in
