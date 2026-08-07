@@ -60,7 +60,7 @@ const PRINTABLE = Array.from({ length: 0x7f - 0x20 }, (_, i) =>
  * escape: the Spectrum's 0x5C is a real backslash whose glyph is `\\`. Without
  * this arm the derivation would claim the Spectrum has no backslash and the
  * authored data would faithfully repeat it. It fires for exactly that one byte
- * across all thirteen machines today.
+ * across every registered machine today.
  */
 function displayableAscii(dialect: Dialect): Set<string> {
   const found = new Set<string>();

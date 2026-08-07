@@ -8,8 +8,8 @@
  * logic lives in plain `.ts` siblings - see `inputOverlayMode.ts`,
  * `memoryBands.ts`).
  *
- * These used to live in `newProjectOptions.ts`. The picker is now shared with
- * the toolbar's target switcher, so its logic is no longer new-project specific.
+ * Shared with the toolbar's target switcher, so nothing here is new-project
+ * specific.
  */
 
 /**

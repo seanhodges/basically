@@ -108,10 +108,10 @@ describe('Spectrum128Machine joystick', () => {
   });
 });
 
-// Stage 2 of docs/dialect-plans/zxspectrum128.md: boot the real 128 ROM, drive
-// the menu to "128 BASIC", inject + run a program, and assert on the displayed
-// bank. Skips cleanly when public/roms/zxspectrum128.rom is absent (it is not
-// committed - see ATTRIBUTION.md and the plan's "do not commit a fabricated ROM").
+// Boot the real 128 ROM, drive the menu to "128 BASIC", inject + run a program,
+// and assert on the displayed bank. Skips cleanly when
+// public/roms/zxspectrum128.rom is absent (it is not committed, and a fabricated
+// ROM must never stand in for it - see ATTRIBUTION.md).
 const suite = hasRom ? describe : describe.skip;
 
 suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
@@ -306,10 +306,9 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     expect(hit).toEqual({ paused: true, line: 20 });
   });
 
-  // Stage 3 of the memory-blocks plan, verified on the 128 ROM/editor too
-  // (the plan's manual smoke explicitly calls this out): loadProgram's
-  // `opts.blocks` writes raw bytes directly into RAM before RUN, protecting
-  // blocks below RAMTOP with a CLEAR typed out as a direct command.
+  // Verified on the 128 ROM/editor too: loadProgram's `opts.blocks` writes raw
+  // bytes directly into RAM before RUN, protecting blocks below RAMTOP with a
+  // CLEAR typed out as a direct command.
   describe('memory blocks', () => {
     function bootDefaultRamtop(): number {
       const machine = new Spectrum128Machine({ rom });

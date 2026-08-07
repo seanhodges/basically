@@ -12,7 +12,7 @@
  * spaces, or punctuation - but {@link MemoryBlock.name} must match
  * `/^[A-Za-z][A-Za-z0-9_]*$/` and be unique per document (see
  * `src/storage/projectFile.ts`'s `isValidBlockName`/`findDuplicateBlockName`,
- * which Stage 2's Run-path lint gate enforces). Passing a raw header name
+ * which the Run-path lint gate enforces). Passing a raw header name
  * through would silently produce a block the user can never Run.
  */
 

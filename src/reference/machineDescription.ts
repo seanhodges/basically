@@ -1,12 +1,10 @@
 // The machine, described to the AI assistant from the same tables the
 // documentation site renders.
 //
-// The assistant used to be told about its machine in hand-written prose, one
-// paragraph per dialect, which named a fraction of each machine's commands and
-// left the rest to be guessed from a more famous relative. Everything here is
-// instead read from the reference data next door, which the crosscheck tests pin
-// to the real dialects - so what the assistant is told and what the user is
-// shown cannot disagree, and every machine is described to the same standard.
+// Everything here is read from the reference data next door, which the
+// crosscheck tests pin to the real dialects - so what the assistant is told and
+// what the user is shown cannot disagree, and every machine is described to the
+// same standard rather than from a more famous relative.
 //
 // Pure and framework-free, like ./compare.ts: it takes the machine's identity
 // and its reference table, reads its siblings for the rest, and returns a

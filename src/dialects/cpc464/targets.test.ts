@@ -22,7 +22,7 @@ describe('cpc464 build targets', () => {
       'cdt',
       'wav',
     ]);
-    // No memory-block support yet (the block editor lands in a later stage).
+    // No memory-block support yet.
     expect(cpc464BuildTargets.some((t) => t.supportsBlocks)).toBe(false);
   });
 

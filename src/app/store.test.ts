@@ -248,7 +248,7 @@ describe('setDialect', () => {
   });
 
   it('still prompts for a block-bearing document even when compatible', () => {
-    // Memory blocks are dropped on any switch (Stage 1), so a document that
+    // Memory blocks are dropped on any switch, so a document that
     // carries one keeps the confirmation prompt regardless of compatibility.
     useIdeStore.setState({
       source: '10 PRINT "HI"\n20 GOTO 10',

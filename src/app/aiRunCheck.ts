@@ -16,16 +16,13 @@ export const AI_CHECK_ABS_MAX_FRAMES = 600;
 /**
  * Display frames advanced per animation tick while a check is armed.
  *
- * A check is nobody's animation - the assistant is waiting on a verdict and the
- * user is reading the reply - so there is no reason to hold it to the machine's
- * 50Hz. The windows above are counted in frames rather than seconds precisely so
- * that this is a free choice: four frames a tick settles a check four times
- * sooner without moving a single rule. At 1x the absolute cap is twelve seconds
- * of waiting per attempt, and an answer can take three attempts.
+ * Nobody is watching a check run, so it need not be held to the machine's 50Hz.
+ * The windows above are counted in frames rather than seconds so that this can
+ * be raised without moving a rule: at 1x the absolute cap is twelve seconds per
+ * attempt, and an answer can take three attempts.
  *
- * Four rather than more because the machine still has to be watched: the check
- * reads the machine after every frame, and a settled verdict stops the batch, so
- * a bigger batch buys less than it looks like it would.
+ * Four rather than more because the check reads the machine after every frame
+ * and a settled verdict stops the batch, so a bigger batch buys little.
  */
 export const AI_CHECK_FRAMES_PER_TICK = 4;
 

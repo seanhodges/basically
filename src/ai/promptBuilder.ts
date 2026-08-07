@@ -34,8 +34,8 @@ export const FORMAT_RETRY_MESSAGE =
 /**
  * How much code to send, and how to label it. Machine-independent by design:
  * the choice between a fragment and a whole listing must not vary by which
- * machine happens to be selected, so it lives here rather than in thirteen
- * per-dialect copies that would drift. Each dialect's own OUTPUT FORMAT section
+ * machine happens to be selected, so it lives here rather than in a
+ * per-dialect copy each that would drift. Each dialect's own OUTPUT FORMAT section
  * still owns how a line is written, which genuinely does differ per machine.
  *
  * A single constant, so the composed prompt stays byte-stable per dialect -

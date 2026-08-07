@@ -2,9 +2,8 @@
  * The Run-path collision/validation linter for {@link MemoryBlock}s: given a
  * document's blocks, a dialect's {@link MemoryBlocksSupport}, and the tokenized
  * program's byte size, reports every problem found rather than throwing -
- * matching the tokenizer's `TokenizeError[]` house style. Stage 3 wires this
- * into the Run path, gating on any `'error'`-severity issue; the edit-export
- * plan's Memory tab will also surface these as per-block badges.
+ * matching the tokenizer's `TokenizeError[]` house style. The Run path gates on
+ * any `'error'`-severity issue.
  */
 
 import type {
@@ -26,9 +25,8 @@ export type BlockIssueKind =
 /**
  * One problem found with a block. Blocks can produce several - e.g. a block
  * with a bad name that also sits outside every valid range gets one issue for
- * each - so the caller decides how to summarise them (Stage 3's Run-path gate
- * cares only whether any `'error'` exists; the later Memory tab shows all of
- * them per block).
+ * each - so the caller decides how to summarise them (the Run-path gate cares
+ * only whether any `'error'` exists).
  */
 export interface BlockIssue {
   /** {@link MemoryBlock.id} of the offending block. */

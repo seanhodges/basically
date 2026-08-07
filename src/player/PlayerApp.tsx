@@ -266,7 +266,7 @@ export default function PlayerApp({
   }, [record]);
 
   const openInIde = () => {
-    // Refresh-safe handover: the IDE re-fetches the share (Stage 6).
+    // Refresh-safe handover: the IDE re-fetches the share.
     location.assign('/?open=' + shareId);
   };
 

@@ -271,10 +271,9 @@ export interface PortingFacts {
   /**
    * Dialect id, matching `Dialect.id` in the registry (e.g. "vic20").
    *
-   * One entry per *machine*, not per reference page. Pages used to be the unit,
-   * with a shared page describing its marquee machine - which told a reader
-   * porting to a VIC-20 that it had the C64's 38911 bytes free rather than its
-   * own 3583, an order of magnitude out.
+   * One entry per *machine*, not per reference page: a shared page describes
+   * its marquee machine, which would tell a reader porting to a VIC-20 that it
+   * had the C64's 38911 bytes free rather than its own 3583.
    */
   id: string;
   /**
@@ -385,7 +384,7 @@ export interface PortingFacts {
  * A facts entry as authored. Either complete in itself, or naming a relative to
  * inherit from with `extends` and stating only what differs.
  *
- * Thirteen machines would otherwise mean thirteen copies of the same
+ * Without it, every machine would mean another copy of the same
  * paragraphs: the VIC-20 and the C64 share every language rule and differ only
  * in hardware, so the VIC-20 states its screen, colour, sound and addresses and
  * inherits the rest. Prose written once cannot drift from itself, and the

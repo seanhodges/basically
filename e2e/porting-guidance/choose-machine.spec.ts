@@ -4,7 +4,7 @@ import { test, expect } from '../fixtures';
 /**
  * Choosing the pair the porting guide compares.
  *
- * Seven of the thirteen machines are one of a pair whose names prefix or echo
+ * Several machines are one of a pair whose names prefix or echo
  * one another - Spectrum / Spectrum 128, BBC Micro / BBC Master, CPC 464 /
  * 6128, and the three Commodores - and those are exactly the pairs whose
  * comparisons differ most. What is checked here is that the reader can tell

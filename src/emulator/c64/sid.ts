@@ -11,7 +11,7 @@
  * volume, mixes the three voices, and hands the mono Float32 frame to
  * {@link C64Machine.readAudio}.
  *
- * Known limitations (the plan accepts an approximation, to be refined later):
+ * Known limitations of the approximation:
  *  - No filter (the $D418 filter mode / resonance / cutoff are ignored).
  *  - No ring modulation or hard sync (control bits 1/2 are ignored).
  *  - Combined waveforms (more than one waveform bit set) are not AND-ed as on

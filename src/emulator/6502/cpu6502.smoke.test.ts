@@ -4,10 +4,10 @@ import { StateMachineCpu, ExecutionState, Flags } from './cpu6502.js';
 import type { BusInterface } from './cpu6502.js';
 
 // Sanity checks that the vendored 6502 core (6502ts/6502.ts, cycle-exact
-// StateMachineCpu) builds and runs inside this repo. No machine/dialect exists
-// yet — this drives the core directly through a flat RAM bus. Each case targets
-// a capability the previous (instruction-counted) core lacked, to prove the new
-// core is ready for the PET/VIC-20 Stage 2 machines. See LICENSE-6502.md.
+// StateMachineCpu) builds and runs inside this repo, driving the core directly
+// through a flat RAM bus rather than through a machine. Each case targets a
+// capability the previous (instruction-counted) core lacked and the PET/VIC-20
+// machines depend on. See LICENSE-6502.md.
 
 function makeBus(mem: Uint8Array): BusInterface {
   return {
@@ -104,7 +104,7 @@ describe('vendored 6502 core (6502ts/6502.ts)', () => {
     expect(cpu.state.flags & Flags.d).toBe(0); // CLD cleared decimal mode
   });
 
-  // The Stage 2 machines drive a jiffy IRQ; the previous core lacked RTI.
+  // The PET/VIC-20 machines drive a jiffy IRQ; the previous core lacked RTI.
   it('services an IRQ and returns via RTI', () => {
     const mem = new Uint8Array(0x10000);
     mem[0xfffc] = 0x00; // reset vector -> $0200

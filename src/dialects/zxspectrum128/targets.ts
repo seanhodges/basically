@@ -6,10 +6,10 @@ import { encodeSpectrumTape } from '../zxspectrum/audio/cassetteEncoder';
 import { samplesToWav } from '../../transfer/wav';
 
 // The .TAP image and cassette codecs are byte-for-byte identical to the 48K
-// Spectrum (see docs/dialect-plans/zxspectrum128.md); only the tokenizer differs
-// so that PLAY/SPECTRUM programs export correctly. We therefore reuse
-// ../zxspectrum/audio's encoder and the shared tapfile, but drive both from the
-// 128 tokenizer here rather than re-exporting ../zxspectrum/targets.
+// Spectrum; only the tokenizer differs, so that PLAY/SPECTRUM programs export
+// correctly. ../zxspectrum/audio's encoder and the shared tapfile are therefore
+// reused, but both are driven from the 128 tokenizer here rather than
+// re-exporting ../zxspectrum/targets.
 export const CASSETTE_SAMPLE_RATE = 44100;
 
 function buildProgramBytes(source: string): Uint8Array {

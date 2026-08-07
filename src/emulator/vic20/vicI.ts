@@ -8,7 +8,7 @@
  *
  * "Frame-approximate" means the whole picture is produced from the register and
  * memory state at the moment {@link VicI.render} runs — raster-split colour and
- * mid-frame register tricks are explicitly out of scope (see the Stage 2 plan).
+ * mid-frame register tricks are explicitly out of scope.
  * Multicolour character mode is likewise not rendered: a cell's colour nibble is
  * treated as a plain hi-res foreground (bits 0–2), which covers the BASIC use
  * the IDE targets.

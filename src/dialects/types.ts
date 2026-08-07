@@ -586,8 +586,8 @@ export interface MemoryBlock {
 /**
  * An inclusive address range: `start` and `end` are both addresses that
  * belong to the range (so `end` is the last valid byte, not one past it) -
- * the same convention {@link MemoryRegion} uses, and the one the memory-blocks
- * plan's own notation writes in (e.g. "display 0x4000-0x5AFF", where 0x5AFF
+ * the same convention {@link MemoryRegion} uses, and the one the memory maps
+ * are written in (e.g. "display 0x4000-0x5AFF", where 0x5AFF
  * is the last display byte). `end >= start`; a one-byte range has
  * `end === start`. A {@link MemoryBlock} occupies the inclusive range
  * `[address, address + bytes.length - 1]` - except when `bytes.length === 0`,
@@ -766,7 +766,7 @@ export interface MemoryRegion {
 /**
  * A machine's memory map for the viewer: the full address space split into
  * contiguous, ascending {@link MemoryRegion}s that cover it end to end. Static
- * per dialect for now; a dialect opts in by setting {@link Dialect.memoryMap}.
+ * per dialect; a dialect opts in by setting {@link Dialect.memoryMap}.
  */
 export interface MemoryMap {
   /** Size of the addressable space, e.g. 0x10000 for a 64K machine. */
@@ -909,26 +909,19 @@ export interface Dialect {
   romUrl?: string;
   /**
    * Exact size, in bytes, of the ROM image this dialect's {@link createEmulator}
-   * runs from `opts.rom`.
+   * runs from `opts.rom`. Doubles as the app's test for "can the user replace
+   * this machine's ROM?", so the offer and the fit cannot disagree; a supplied
+   * image need not match, and is padded or trimmed to it.
    *
-   * **Not implied by {@link romUrl}, and must never be derived from it.** Six
-   * registered dialects declare a `romUrl` yet ignore `opts.rom` entirely: the
-   * Acorn machines let jsbeeb resolve its model's ROM list through its own
-   * loader, and the Commodore machines fetch their three- and six-image sets
-   * themselves. Their declared URL still earns its keep - it warms the offline
-   * cache and names a representative image for tests - but nothing executes
-   * those bytes, so handing them a different image would change nothing. They
-   * omit this field, and the app uses its absence to say so rather than
-   * offering a replacement that would silently do nothing.
+   * **Not implied by {@link romUrl}.** The Acorn and Commodore dialects declare
+   * a URL (it warms the offline cache and names a representative image for
+   * tests) but let their cores load their own ROM sets and ignore `opts.rom`.
+   * They omit this field, and its absence is what stops the app offering a
+   * replacement that would silently do nothing.
    *
-   * One field carries both facts on purpose: it is the app's test for "can the
-   * user replace this machine's ROM?" *and* the size of the ROM area a
-   * replacement is fitted to (padded or trimmed - a supplied image need not
-   * match it), so the offer and the fit cannot disagree. Set it from the machine's own
-   * ROM-size constant rather than a literal (`ROM_BYTES` on the Sinclair
-   * machines, `CPC_ROM_SIZE` on the Amstrads) and it cannot disagree with the
-   * memory map either. `src/dialects/romImage.test.ts` pins it to the committed
-   * image, and pins the behavioural claim in both directions.
+   * Set it from the machine's own ROM-size constant (`ROM_BYTES` on the
+   * Sinclair machines, `CPC_ROM_SIZE` on the Amstrads), not a literal, so it
+   * cannot disagree with the memory map.
    */
   romBytes?: number;
   /**
@@ -937,11 +930,10 @@ export interface Dialect {
    *
    * `false` says the URL is where the *user's own* image goes and nothing is
    * there in a stock build - the Altair, whose 8K BASIC is Microsoft copyright
-   * with no redistribution grant, so the machine cannot start until someone
-   * supplies one. That is a designed state rather than a fault, and this flag is
-   * what lets the app say so: without it the emulator pane surfaces a raw
-   * `Failed to fetch ROM (404)` and the settings page offers to "restore the
-   * bundled ROM" that was never there.
+   * with no redistribution grant. Without the flag the app treats that designed
+   * state as a fault: the emulator pane surfaces a raw `Failed to fetch ROM
+   * (404)` and the settings page offers to restore a bundled ROM that was never
+   * there.
    *
    * Only meaningful alongside {@link romBytes}: a machine whose ROM cannot be
    * replaced has nothing to say about where a replacement would come from.
@@ -986,16 +978,11 @@ export interface Dialect {
    * takes one statement per line (the ZX80 and ZX81). `':'` on most machines,
    * `';'` on the Atom.
    *
-   * Required, unlike its neighbours, because its two absent-ish values mean
-   * opposite things and a default cannot serve both. This exists because
-   * {@link MemoryWriteSyntax.statementSep} could not: that one is scoped to
-   * parsing a memory-write form, only the Atom declares it, and every reader
-   * falls back to `':'` - which reads a ZX81 line's ordinary colon
-   * (`PRINT "TIME: ";T`) as a statement break.
-   *
-   * `PortingFacts.statementSeparator` is pinned to this by
-   * facts-crosscheck.test.ts, so the guide and the tokenizer cannot disagree
-   * about whether a machine allows several statements on a line.
+   * Required, unlike its neighbours: its two absent-ish values mean opposite
+   * things, so no default serves both. Distinct from
+   * {@link MemoryWriteSyntax.statementSep}, which is scoped to parsing a
+   * memory-write form and falls back to `':'` - reading a ZX81 line's ordinary
+   * colon (`PRINT "TIME: ";T`) as a statement break.
    */
   statementSeparator: string | null;
   /**

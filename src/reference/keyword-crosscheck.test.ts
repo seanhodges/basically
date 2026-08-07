@@ -9,7 +9,7 @@
  *     actually contains, so the docs never document a keyword the tokenizer
  *     doesn't accept.
  *
- * Both run **per machine**, over all thirteen registered dialects, not per docs
+ * Both run **per machine**, over every registered dialect, not per docs
  * page. Four pages cover more than one machine, and their rows are the union of
  * what those machines have - so checking the page against the union let a row
  * belong to every machine on the page whether or not that machine had it, which

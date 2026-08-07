@@ -7,8 +7,8 @@ import type { MatrixPos } from '../commodore/machineHelpers';
  *
  * Transcribed from the PET I/O reference (zimmers.net PETio.txt), which matches
  * VICE's positional graphics-keyboard map. Tokens follow the C64 adapter's
- * naming (letters verbatim, digits `Num0`–`Num9`, `Return`/`Space`/…) so the
- * Stage 3 `keyboardLayout` and this machine agree. The graphics keyboard has no
+ * naming (letters verbatim, digits `Num0`–`Num9`, `Return`/`Space`/…) so
+ * `keyboardLayout` and this machine agree. The graphics keyboard has no
  * Commodore key and scatters its digits and symbols differently from the
  * business keyboard.
  */

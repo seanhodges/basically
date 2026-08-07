@@ -265,20 +265,17 @@ export interface ScreenViewRequest {
    * The screen as the characters on it.
    *
    * Ungated by provider, unlike {@link image}: it travels as text like every
-   * other part of a request, so there is no backend that can be sent one and
-   * not the other. It is also the cheaper answer by an order of magnitude - a
-   * character grid costs a fraction of what a picture of the same screen does -
-   * and an exact one, where a picture of a bitmap machine is something the
-   * model has to read back off pixels.
+   * other part of a request. It is also an order of magnitude cheaper than a
+   * picture of the same screen, and exact - a picture of a bitmap machine has
+   * to be read back off pixels.
    */
   text: boolean;
   /**
    * The machine itself, to drive before it is looked at.
    *
-   * Named alongside the views rather than in a block of its own because it is
-   * the same kind of decision and only the assistant can make it: nothing about
-   * a program's text distinguishes one that prints its answer from one that
-   * waits at a prompt for the input that would produce it.
+   * Only the assistant can decide this: nothing about a program's text
+   * distinguishes one that prints its answer from one that waits at a prompt
+   * for the input that would produce it.
    */
   drive: boolean;
   /**
