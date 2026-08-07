@@ -9,8 +9,8 @@ import { indexKeyDefs } from '../keyboard/controllerConfig';
  * because `MachineEmulator.setKey` takes an opaque machine-defined token and
  * those tokens are genuinely not uniform - one machine's `KeyA` is another's
  * bare `A`, and two of them map to raw matrix positions instead. A list written
- * by hand would be a second account of thirteen keyboards, drifting from the
- * first.
+ * by hand would be a second account of every machine's keyboard, drifting from
+ * the first.
  *
  * Derivable without constructing an emulator, which matters: the system prompt
  * is built from the `Dialect` alone and has to stay byte-stable per dialect for

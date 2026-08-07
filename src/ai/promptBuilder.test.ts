@@ -49,8 +49,6 @@ describe('buildSystemPrompt', () => {
    */
   const REFERENCE = 'THIS MACHINE\n- A test machine.';
 
-  // Nothing referenced aiProfile in any test before this change, so the 13
-  // prompts were entirely unverified.
   it('gives every registered dialect the shared rules exactly once', () => {
     expect(dialects.length).toBeGreaterThan(0);
     for (const dialect of dialects) {

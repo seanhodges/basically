@@ -43,8 +43,9 @@ import {
  * audit ({@link ./semigraphicsAudit}), and the program analyser behind the
  * porting guide's narrowing ({@link ../app/programVocabulary}), which walks a
  * string literal a unit at a time through {@link CharsetProbe.parseUnit}. They
- * each used to carry their own copy, which is how the scaffolder's Commodore
- * entry drifted into naming a file and a machine list the docs no longer used.
+ * are driven from this one table: separate copies are how the scaffolder's
+ * Commodore entry drifted into naming a file and a machine list the docs had
+ * stopped using.
  *
  * The doc-facing fields (`varName`, `title`, `machines`, `rawSpelling`) live
  * here rather than in the scaffolder so that a new dialect is described in one

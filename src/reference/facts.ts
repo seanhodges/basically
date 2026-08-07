@@ -5,12 +5,11 @@
 // memoryWriteSyntax) are pinned to src/dialects/ by facts-crosscheck.test.ts, so
 // keep them true to the machine whose id the entry carries.
 //
-// One entry per machine, keyed by dialect id. These used to be keyed by docs
-// *page*, with a shared page describing its marquee machine and hedging about
-// the others in prose - "40×25 text (VIC-20 is 22×23, the PET 40×25 monochrome
-// - see the hardware page)". That hedging is what a per-machine table replaces:
-// a reader porting to a VIC-20 was being shown the C64's 38911 bytes free when
-// the real figure is 3583, and no parenthetical fixes a number.
+// One entry per machine, keyed by dialect id - not per docs *page*. A shared
+// page has to hedge in prose ("40×25 text (VIC-20 is 22×23, the PET 40×25
+// monochrome - see the hardware page)"), and a reader porting to a VIC-20 would
+// be shown the C64's 38911 bytes free when the real figure is 3583. No
+// parenthetical fixes a number.
 //
 // Machines that differ from a relative in only a few facts use `extends` and
 // state just those, so the shared prose exists once. See PortingFactsEntry.

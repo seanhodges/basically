@@ -75,9 +75,9 @@ export type { PendingFix } from './promptBuilder';
 /**
  * Why an answer stopped before it was finished.
  *
- * These used to be one undifferentiated "incomplete", which is why an answer that
- * ran out of room read as though the user had stopped it - the panel said the same
- * sentence for all three, and only this one leaves no error message beside it.
+ * The three are distinguished because one sentence for all of them reads as
+ * though the user stopped an answer that in fact ran out of room, and this is
+ * the only case that leaves no error message beside it.
  *
  * - `stopped`   - the user pressed Stop. Their choice; nothing to explain.
  * - `failed`    - the stream died. An error message accompanies it.
@@ -1049,11 +1049,8 @@ function settleJudgement(
  * Run the answer the assistant just returned and check how it goes - without it
  * reaching the editor.
  *
- * This is where the loop starts now. It used to start when the user pressed an
- * apply-and-run button, which meant the checking happened with an unverified
- * program already in their document; an answer that needed two corrections sat
- * there broken for both of them. Nothing below this point changed: the same
- * outcomes, the same expectations, the same bounded corrections.
+ * Checking happens before the answer reaches the editor, so a program that
+ * needs two corrections is never left sitting broken in the user's document.
  *
  * `mergeBase` is the program a returned fragment lands in; `stalenessBase` is
  * the editor's program, which is what decides whether the user has moved on.

@@ -191,8 +191,8 @@ export function setProviderApiKey(id: AiProviderId, key: string): void {
  *
  * One default for every machine: how many tokens a model may emit is a fact about
  * the model and about what the user wants, not about which microcomputer is
- * selected. These used to live on each dialect's AI profile, which meant thirteen
- * copies of one number that no dialect had a reason to differ on.
+ * selected. Holding it per-dialect would mean a copy of one number per machine
+ * that none of them has a reason to differ on.
  *
  * The budget must clear the largest listing any dialect asks for (the ZX Spectrum
  * prompt's "comfortably under 20KB of source", roughly 6-7k tokens) with room left

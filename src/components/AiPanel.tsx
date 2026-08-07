@@ -156,9 +156,9 @@ function MergeDiff({ rows }: { rows: MergeRow[] }) {
  * What to say about a code block that stops mid-program, and whether there is
  * anything to be done about it.
  *
- * One sentence for all three used to mean an answer that outgrew its budget read
- * as though the user had stopped it - and the advice, "ask again", threw the
- * partial away and re-ran into the same ceiling.
+ * The three cases are worded separately: one sentence for all of them reads as
+ * though the user stopped an answer that in fact outgrew its budget, and the
+ * advice "ask again" throws the partial away and re-runs into the same ceiling.
  */
 function cutOffNote(
   reason: CutOffReason | undefined,

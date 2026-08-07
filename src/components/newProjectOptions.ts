@@ -7,8 +7,8 @@
  * component so they are unit-testable (the project's component logic lives in
  * plain `.ts` siblings - see `inputOverlayMode.ts`, `memoryBands.ts`).
  *
- * Machine grouping used to live here too; it moved to `machinePicker.ts` when
- * the picker became shared with the toolbar's target switcher.
+ * Machine grouping lives in `machinePicker.ts`, which the toolbar's target
+ * switcher shares.
  */
 
 import type { Dialect, MemoryBlock, SampleFile } from '../dialects/types';

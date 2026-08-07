@@ -22,7 +22,7 @@ import {
  * speed and background-tab recovery need eyes/ears - manual. The debugger is
  * covered by e2e/program-execution/debug.spec.ts.
  *
- * This used to boot all thirteen machines. What each machine's ROM puts on its
+ * Booting every machine here would be redundant. What each machine's ROM puts on its
  * screen is already proven headlessly, per machine, by the per-dialect
  * `emulator/<id>Machine.test.ts` and `samples.test.ts` suites under src/, which
  * boot the real ROMs and read the screen back. What a browser adds is the wiring
