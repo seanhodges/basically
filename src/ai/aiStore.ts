@@ -105,10 +105,9 @@ export interface DisplayMessage extends ChatMessage {
    * turn - set only where driving actually sent input.
    *
    * Absent where it only waited and looked, because nothing then happened that
-   * the user could not have seen for themselves. The distinction is the whole
-   * point: a screen reached by a keypress is one the user cannot otherwise
-   * account for, and an unexplained screen reads as the IDE having done
-   * something odd rather than as the assistant having tried the program.
+   * the user could not have seen for themselves. An unexplained screen reads as
+   * the IDE having done something odd rather than as the assistant having tried
+   * the program.
    */
   drivingNote?: string;
   /** True while the assistant answer is still arriving. */
@@ -136,8 +135,7 @@ export interface DisplayMessage extends ChatMessage {
    * limit: nothing interrupted those, so only this one is worth offering to ask
    * again.
    *
-   * Persisted, unlike {@link cutOff} - a reload is exactly when this one still
-   * needs saying, and exactly when the others no longer can be.
+   * Persisted, unlike {@link cutOff}, which cannot be observed after a reload.
    */
   interrupted?: boolean;
   /** True while re-requesting after an empty reply (shows a distinct status). */

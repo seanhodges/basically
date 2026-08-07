@@ -154,11 +154,10 @@ interface IdeState {
   source: string;
   /**
    * Memory blocks attached to the current document (raw bytes at a fixed
-   * address, alongside the BASIC source). Invisible in the UI for now - this
-   * is pure document-model state that survives autosave and Save/Open
-   * (as a `.zip` bundle) like `source` does. Reset whenever a different
-   * program becomes active (New/Open/Sample/Import/dialect switch/player
-   * boot), same as breakpoints.
+   * address, alongside the BASIC source). Document-model state that survives
+   * autosave and Save/Open (as a `.zip` bundle) like `source` does. Reset
+   * whenever a different program becomes active (New/Open/Sample/Import/dialect
+   * switch/player boot), same as breakpoints.
    */
   blocks: readonly MemoryBlock[];
   /**

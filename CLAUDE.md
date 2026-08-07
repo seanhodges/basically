@@ -188,6 +188,18 @@ cassette audio), and `docs/reference/serial-protocol.md` (the WebSerial bridge).
   real ROM(s) under `public/roms/` (e.g. `zx81.rom`, `zxspectrum.rom`, `c64/…`).
 - **Formatting** — Prettier (single quotes, semicolons, 2-space, trailing
   commas). Run `npm run format` before committing.
+- **Comments** — say what the code does and why, in the present tense.
+  Multi-line prose is for facts the code cannot express: chip port maps, tape
+  encodings, ROM layouts, cross-module invariants, and traps ("not implied by
+  X"). Everything else gets one line. Never name a planning artifact — a
+  `docs/contributing/dialect-plans/` stage, an OpenSpec change, "Stage 3", "the
+  plan expected"; those are deleted once the work ships, and half of them
+  describe work that never shipped. `eslint-rules/no-plan-references.js` fails
+  the build on them. Don't narrate a refactor either ("this used to live in X",
+  "nothing below this point changed") — git records that. Past tense earns its
+  place only where it explains why a test or guard exists ("the renderer used to
+  draw a fixed 24 rows"). Don't hardcode a machine or dialect count; say "every
+  registered machine". Best exemplar: `src/emulator/cpc/ppi.ts`.
 - **Docs** — everything under `docs/` publishes to the public VitePress site.
   Pages in `docs/guide/` and `docs/reference/` are for end-users: don't reference
   unpublished internal files there (source paths like `src/…`, `CLAUDE.md`, plan

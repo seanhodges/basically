@@ -4,6 +4,7 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import prettier from 'eslint-config-prettier';
+import noPlanReferences from './eslint-rules/no-plan-references.js';
 
 export default tseslint.config(
   // Vendored / generated / build output - not ours to lint.
@@ -82,6 +83,17 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  // Comments describe the code, not the plan that produced it. Per-dialect
+  // plans and OpenSpec change folders are deleted once the work ships, so a
+  // comment naming one is dead the day the work lands - and half of them
+  // described work that never shipped. src/ai and the AI panel are exempt: an
+  // apply "plan" is live vocabulary there, not a document.
+  {
+    files: ['src/**/*.{ts,tsx}', 'e2e/**/*.ts'],
+    ignores: ['src/ai/**', 'src/components/AiPanel.tsx'],
+    plugins: { local: { rules: { 'no-plan-references': noPlanReferences } } },
+    rules: { 'local/no-plan-references': 'error' },
   },
   // Keep ESLint out of Prettier's lane (must be last).
   prettier,
