@@ -747,12 +747,12 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'language-hardware',
       'Language & hardware',
     ],
-    [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
     [
       g.pairNotes.length + g.targetNotes.length > 0,
       'guidance',
       'Before you start',
     ],
+    [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
     [
       visibleFalseFriends.value.length > 0,
       'false-friends',
@@ -1069,26 +1069,6 @@ watch(from, requestVocabulary);
       </section>
 
       <!--
-        The two machines' memory laid out side by side, right after the table
-        whose memory rows it completes. This is where the addresses are: the
-        table used to carry a screen base and a program start, which the maps
-        supersede - four numbers against a picture drawn to scale.
-      -->
-      <section v-if="memoryPair" id="memory-layout" class="cmp-section">
-        <h2>Memory layout</h2>
-        <MemoryMapPair
-          :from-name="memoryPair.fromName"
-          :to-name="memoryPair.toName"
-          :from-map="memoryPair.fromMap"
-          :to-map="memoryPair.toMap"
-          :from-by-indirection="memoryPair.fromByIndirection"
-          :to-by-indirection="memoryPair.toByIndirection"
-          :sites="memoryPair.sites"
-          :notation="memoryPair.notation"
-        />
-      </section>
-
-      <!--
         One list of prose guidance, not two: the notes for this direction (the
         few pairs close enough, or trap-laden enough, to warrant them) lead,
         then what to watch for on the target whatever you arrive from.
@@ -1114,22 +1094,24 @@ watch(from, requestVocabulary);
       </section>
 
       <!--
-        The colour key, once the reader has been told what to watch for and
-        immediately above the graded sections that use the colours: one row, so
-        it costs a glance rather than a paragraph, and only the colours this
-        pair puts on the page.
+        The two machines' memory laid out side by side, under the prose that
+        says what to watch for on the target. This is where the addresses are:
+        the fact table used to carry a screen base and a program start, which
+        the maps supersede - four numbers against a picture drawn to scale.
       -->
-      <div v-if="legend.length" class="cmp-legend">
-        <span class="cmp-legend-title">Colour key</span>
-        <span v-for="item in legend" :key="item.key" class="cmp-legend-item">
-          <span
-            class="cmp-legend-swatch"
-            :class="item.className"
-            aria-hidden="true"
-          />
-          {{ item.label }}
-        </span>
-      </div>
+      <section v-if="memoryPair" id="memory-layout" class="cmp-section">
+        <h2>Memory layout</h2>
+        <MemoryMapPair
+          :from-name="memoryPair.fromName"
+          :to-name="memoryPair.toName"
+          :from-map="memoryPair.fromMap"
+          :to-map="memoryPair.toMap"
+          :from-by-indirection="memoryPair.fromByIndirection"
+          :to-by-indirection="memoryPair.toByIndirection"
+          :sites="memoryPair.sites"
+          :notation="memoryPair.notation"
+        />
+      </section>
 
       <!--
         Before the lists of what to change: these are the only differences that
@@ -1192,6 +1174,22 @@ watch(from, requestVocabulary);
           <input v-model="showAdditions" type="checkbox" />
           Show what {{ target.name }} adds that the program has not used
         </label>
+        <!--
+          The colour key, inside the section whose groups are graded by colour
+          and immediately above them: one row, so it costs a glance rather than
+          a paragraph, and only the colours this pair puts on the page.
+        -->
+        <div v-if="legend.length" class="cmp-legend">
+          <span class="cmp-legend-title">Colour key</span>
+          <span v-for="item in legend" :key="item.key" class="cmp-legend-item">
+            <span
+              class="cmp-legend-swatch"
+              :class="item.className"
+              aria-hidden="true"
+            />
+            {{ item.label }}
+          </span>
+        </div>
         <div
           v-for="s in visibleCapabilities"
           :key="s.domain ?? 'other'"
@@ -1630,14 +1628,15 @@ watch(from, requestVocabulary);
   cursor: pointer;
   font-size: 0.9rem;
 }
-/* The colour key: one horizontal run above the sections, wrapping on narrow
-   screens rather than becoming a stacked list that outgrows what it explains. */
+/* The colour key: one horizontal run above the graded groups it explains,
+   wrapping on narrow screens rather than becoming a stacked list that outgrows
+   what it explains. */
 .cmp-legend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 1rem;
-  margin: 1.25rem 0 0;
+  margin: 0.25rem 0 0;
   font-size: 0.8rem;
   color: var(--vp-c-text-2);
 }
