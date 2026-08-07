@@ -403,6 +403,20 @@ export type PortingFactsEntry = { id: string; extends?: string } & Partial<
  * An entry naming a missing or extending base throws: the alternative is a
  * silently half-populated fact table.
  */
+/**
+ * Whether a machine writes memory with `?addr=val` rather than `POKE`, read off
+ * the write syntax the facts already report.
+ *
+ * That decides how a memory map's region detail offers to read an address back -
+ * `?32768` on a BBC or an Atom, `PEEK 32768` everywhere else - and asking the
+ * facts avoids a second list of which machines those are. Every surface that
+ * draws a map outside the emulator (the porting guide's pair, the hardware
+ * pages' single maps) asks this, so they all ask it of the same field.
+ */
+export function writesByIndirection(facts: PortingFacts): boolean {
+  return /^[?!]/.test(facts.memoryWriteSyntax);
+}
+
 export function resolvePortingFacts(
   entries: readonly PortingFactsEntry[],
 ): PortingFacts[] {

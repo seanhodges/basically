@@ -2,6 +2,10 @@
 title: Acorn Atom hardware
 ---
 
+<script setup>
+import { atomMemoryMap } from '../../../src/dialects/atom/memoryMap';
+</script>
+
 # Acorn Atom hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -36,6 +40,12 @@ not yet implement (see the [notes on the reference page](../atom)), so there
 are no sound commands here.
 
 ### Memory
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="atom" :map="atomMemoryMap" />
 
 An Atom program can load fixed-address machine code or data — **memory blocks** —
 into RAM alongside the BASIC program before it runs. A block may sit anywhere in

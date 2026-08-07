@@ -2,6 +2,11 @@
 title: ZX Spectrum hardware
 ---
 
+<script setup>
+import { spectrumMemoryMap } from '../../../src/dialects/zxspectrum/memoryMap';
+import { spectrum128MemoryMap } from '../../../src/dialects/zxspectrum128/memoryMap';
+</script>
+
 # ZX Spectrum hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -40,6 +45,12 @@ tests whether a pixel is set.
 in seconds and the pitch in semitones above or below middle C.
 
 ### Memory
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="zxspectrum" :map="spectrumMemoryMap" />
 
 A ZX Spectrum program can carry fixed-address machine code or data — **memory
 blocks** — that load into RAM alongside the BASIC program and are in place before
@@ -96,6 +107,12 @@ channel. Keywords tagged **128K only** in the
 [reference table](../zxspectrum), such as `PLAY`, need 128 BASIC mode.
 
 ### Memory
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="zxspectrum128" :map="spectrum128MemoryMap" />
 
 Block placement is identical to the 48K: the same **0x4000–0xFFFF** window,
 default address, warnings and `CLEAR` handling described

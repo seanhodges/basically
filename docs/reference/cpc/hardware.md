@@ -2,6 +2,11 @@
 title: Amstrad CPC hardware
 ---
 
+<script setup>
+import { cpc464MemoryMap } from '../../../src/dialects/cpc464/memoryMap';
+import { cpc6128MemoryMap } from '../../../src/dialects/cpc6128/memoryMap';
+</script>
+
 # Amstrad CPC hardware
 
 The screen, colour, graphics and sound hardware of each machine that runs
@@ -45,6 +50,12 @@ PEN`/`GRAPHICS PAPER` statements are BASIC 1.1 only and are not available on the
 envelopes.
 
 ### Memory {#cpc464-memory}
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="cpc464" :map="cpc464MemoryMap" />
 
 A CPC program can carry fixed-address machine code or data — **memory blocks** —
 that load into RAM alongside the BASIC program and are in place before it runs.
@@ -119,6 +130,12 @@ AMSDOS is absent, the machine reports the 464's free-RAM figure rather than the
 42,249 bytes a disc-equipped 6128 leaves.
 
 ### Memory {#cpc6128-memory}
+
+The whole of the machine's address space, region by region. Zoom in to open a
+band into the parts it groups, and select a region for its addresses and what
+sits there.
+
+<MemoryMapSingle machine="cpc6128" :map="cpc6128MemoryMap" />
 
 Memory blocks work exactly as on the [464](#cpc464-memory), with the same valid
 range, the same **&8000** default and the same three warned regions — blocks live
