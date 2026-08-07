@@ -85,6 +85,10 @@ function vocabulary(
   characters: string[] = [],
   multiStatementLines: number[] = [],
   writeSites: ProgramVocabulary['writeSites'] = [],
+  numbers: {
+    extraStatements?: number;
+    lineNumbers?: ProgramVocabulary['lineNumbers'];
+  } = {},
 ): ProgramVocabulary {
   return {
     dialectId,
@@ -92,6 +96,8 @@ function vocabulary(
     escapeCodes,
     characters,
     multiStatementLines,
+    extraStatements: numbers.extraStatements ?? 0,
+    lineNumbers: numbers.lineNumbers ?? null,
     writeSites,
   };
 }
@@ -423,6 +429,61 @@ describe('the statement layout', () => {
     const spectrum = side('zxspectrum');
     const program = vocabulary('commodore64', ['PRINT'], [], [], [3]);
     expect(section(describePort(c64, spectrum, program), HEADING)).toBe('');
+  });
+
+  it('reports what the split does to the line count', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [3], [], {
+      extraStatements: 12,
+      lineNumbers: { lowest: 10, highest: 400, count: 40 },
+    });
+    const s = section(describePort(c64, zx81, program), HEADING);
+    expect(s).toContain('turns 40 lines into 52');
+  });
+
+  it('reports a split the target cannot be renumbered out of', () => {
+    // 12,000 lines needing numbers on a machine whose editor stops at 9,999.
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [3], [], {
+      extraStatements: 6000,
+      lineNumbers: { lowest: 10, highest: 60000, count: 6000 },
+    });
+    const s = section(describePort(c64, zx81, program), HEADING);
+    expect(s).toContain('cannot hold');
+  });
+});
+
+describe('the line numbers', () => {
+  const c64 = side('commodore64');
+  const zx81 = side('zx81');
+  const HEADING = 'LINE NUMBERS';
+
+  it('reports a program numbered past the target’s ceiling', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      lineNumbers: { lowest: 10, highest: 32767, count: 20 },
+    });
+    const s = section(describePort(c64, zx81, program), HEADING);
+    expect(s).toContain('highest is 32767, above 9999');
+    expect(s).toContain('Renumber');
+  });
+
+  it('reports a program numbered below the target’s floor', () => {
+    // Line 0 is ordinary on a Commodore and untypable on a ZX81.
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      lineNumbers: { lowest: 0, highest: 500, count: 20 },
+    });
+    const s = section(describePort(c64, zx81, program), HEADING);
+    expect(s).toContain('lowest is 0, below 1');
+  });
+
+  it('is absent where every number lies inside the target’s range', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      lineNumbers: { lowest: 10, highest: 9999, count: 20 },
+    });
+    expect(section(describePort(c64, zx81, program), HEADING)).toBe('');
+  });
+
+  it('is absent for a program with no numbered line', () => {
+    const program = vocabulary('commodore64', ['PRINT']);
+    expect(section(describePort(c64, zx81, program), HEADING)).toBe('');
   });
 });
 

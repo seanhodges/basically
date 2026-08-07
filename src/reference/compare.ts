@@ -689,6 +689,10 @@ export interface ProgramVocabulary {
   characters: string[];
   /** 1-based editor lines carrying more than one statement. */
   multiStatementLines: number[];
+  /** How many statements the program carries beyond one per line, in total. */
+  extraStatements: number;
+  /** The span of BASIC line numbers the program's text carries, or null. */
+  lineNumbers: { lowest: number; highest: number; count: number } | null;
   /**
    * The addresses the program writes to, resolved for the machine it was read
    * as. Marked on both machines' memory layouts: on the source's because that
@@ -834,6 +838,52 @@ export function unsupportedCharactersForProgram(
   );
 }
 
+/** What the target's line-number range does to this program. See {@link lineNumbersForProgram}. */
+export interface LineNumberChange {
+  /** The program's lowest and highest line numbers, as written. */
+  lowest: number;
+  highest: number;
+  /** The range the target machine's editor accepts. */
+  min: number;
+  max: number;
+  /** True where the program's lowest number is below what the target takes. */
+  belowMinimum: boolean;
+  /** True where its highest is above what the target takes. */
+  aboveMaximum: boolean;
+}
+
+/**
+ * What the target machine's line-number range does to this program, or null.
+ *
+ * Null in the three ways this is not work: the program carries no numbered line,
+ * every number it uses lies inside the target's range, or there is no vocabulary
+ * to read it from.
+ *
+ * The range compared against is the target *editor's* - what a porter has to
+ * renumber into - so a machine that stores wider numbers in a loaded program
+ * (the BBC, the Spectrum) is still reported honestly: those numbers cannot be
+ * typed on it. See `PortingFacts.lineNumbers`.
+ */
+export function lineNumbersForProgram(
+  targetFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): LineNumberChange | null {
+  const used = vocabulary.lineNumbers;
+  if (!used) return null;
+  const { min, max } = targetFacts.lineNumbers;
+  const belowMinimum = used.lowest < min;
+  const aboveMaximum = used.highest > max;
+  if (!belowMinimum && !aboveMaximum) return null;
+  return {
+    lowest: used.lowest,
+    highest: used.highest,
+    min,
+    max,
+    belowMinimum,
+    aboveMaximum,
+  };
+}
+
 /** How a program's statement layout has to change. See {@link statementLayoutForProgram}. */
 export interface StatementLayoutChange {
   /**
@@ -849,6 +899,23 @@ export interface StatementLayoutChange {
   to: string | null;
   /** The program's 1-based editor lines that carry more than one statement. */
   lines: number[];
+  /**
+   * How many lines the program becomes once split, and whether the target's
+   * line-number range can hold that many. Present only for `split`: a
+   * `reseparate` leaves the line count exactly as it was.
+   */
+  projected?: {
+    /** Numbered lines the program has now. */
+    from: number;
+    /** Numbered lines it becomes: `from` plus every statement past the first. */
+    to: number;
+    /**
+     * True where the target's range cannot hold `to` lines however they are
+     * renumbered - tested against the tightest possible scheme, step one from
+     * the target's own minimum, so a program this rejects fits under no scheme.
+     */
+    overflows: boolean;
+  };
 }
 
 /**
@@ -861,6 +928,11 @@ export interface StatementLayoutChange {
  *
  * The counting is the vocabulary's, done in the source machine's language; this
  * only decides what the target makes of it.
+ *
+ * A `split` also carries what it does to the program's *size in lines*, because
+ * splitting is the one thing a port does that creates line numbers - and the
+ * target may not have enough of them. Reported even where it fits: a program
+ * going from 60 lines to 190 is worth meeting before starting rather than after.
  */
 export function statementLayoutForProgram(
   sourceFacts: PortingFacts,
@@ -872,12 +944,25 @@ export function statementLayoutForProgram(
   if (from === null) return null;
   if (from === to) return null;
   if (vocabulary.multiStatementLines.length === 0) return null;
-  return {
+  const change: StatementLayoutChange = {
     kind: to === null ? 'split' : 'reseparate',
     from,
     to,
     lines: vocabulary.multiStatementLines,
   };
+  const numbered = vocabulary.lineNumbers?.count;
+  if (change.kind === 'split' && numbered !== undefined) {
+    const becomes = numbered + vocabulary.extraStatements;
+    const { min, max } = targetFacts.lineNumbers;
+    change.projected = {
+      from: numbered,
+      to: becomes,
+      // The tightest renumbering the target allows: one line per number from
+      // its own minimum. A program that will not fit that will not fit at all.
+      overflows: min + becomes - 1 > max,
+    };
+  }
+  return change;
 }
 
 /**

@@ -291,6 +291,22 @@ export interface PortingFacts {
   // --- Language rules (hand-authored) ---
   /** Valid line-number range as written, e.g. "1–9999". */
   lineNumberRange: string;
+  /**
+   * The same range as two numbers, so it can be compared rather than only read.
+   *
+   * The range the machine's own *editor* accepts - what a porter has to
+   * renumber into - and not the wider range a tokenizer may be willing to
+   * store. Several machines differ there deliberately: a BBC stores line
+   * numbers up to 65279 and a Spectrum up to 16383 in a *loaded* program, and
+   * both ROMs refuse those at the keyboard, so a port that renumbered into them
+   * would produce a program the target cannot be made to accept by typing.
+   *
+   * Every figure is ROM-derived where the machine has a shippable ROM: see the
+   * re-derivation in facts-crosscheck.test.ts, which holds each endpoint to
+   * being accepted by the dialect's own tokenizer and the number just outside it
+   * to being refused.
+   */
+  lineNumbers: { min: number; max: number };
   /** Multi-statement separator (usually ":"), or null when one statement per line. */
   statementSeparator: string | null;
   /** Whether IF…THEN…ELSE is available. */

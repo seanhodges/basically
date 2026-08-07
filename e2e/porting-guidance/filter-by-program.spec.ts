@@ -108,6 +108,37 @@ test('a program too large for the target is reported as not fitting', async ({
   await expect(fit).toContainText(/3,583 bytes/);
 });
 
+/**
+ * The two ways a port runs out of line numbers, both of which need the program
+ * and the target's range to meet: the numbers as written, and the numbers a
+ * split would create. Only a round trip through the app puts them together.
+ */
+test('line numbers the target will not take are reported', async ({ page }) => {
+  await beginPort(page);
+  const frame = drawerOf(page).frameLocator('iframe');
+  await expect(frame.getByText(/Narrowed to your program/)).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // A colon-separated Commodore program numbered past the ZX81's 9,999 ceiling:
+  // it must be renumbered, and the ZX81 takes one statement per line, so the
+  // split adds lines on top of that.
+  await setEditorSource(
+    page,
+    ['10 A=1:B=2', '20000 PRINT A:PRINT B'].join('\n'),
+  );
+
+  const numbers = frame.locator('#line-numbers');
+  await expect(numbers).toContainText(/Must be renumbered/);
+  await expect(numbers).toContainText(/1–9999/);
+  await expect(numbers).toContainText(/20000/);
+
+  // The split's own arithmetic, reported where the split is.
+  await expect(frame.locator('#statement-layout')).toContainText(
+    /turns 2 lines into 4/,
+  );
+});
+
 test('the narrowing states what it recognised and what it holds back', async ({
   page,
 }) => {

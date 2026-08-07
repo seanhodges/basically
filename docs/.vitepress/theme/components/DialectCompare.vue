@@ -25,6 +25,7 @@ import {
   escapeTableForMachine,
   factRows as buildFactRows,
   falseFriendsForProgram,
+  lineNumbersForProgram,
   noticeState,
   programFitForTarget,
   statementLayoutForProgram,
@@ -321,6 +322,20 @@ const statementLayout = computed(() => {
   const v = narrowingBy.value;
   if (!s || !t || !v) return null;
   return statementLayoutForProgram(s, t, v);
+});
+
+/**
+ * What the target's line-number range does to this program, or null.
+ *
+ * Narrowed like the statement layout, and for the same reason: without a program
+ * the target's range is a fact row and nothing more. The range itself is still
+ * reported there whether or not there is a program.
+ */
+const lineNumbers = computed(() => {
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!t || !v) return null;
+  return lineNumbersForProgram(t, v);
 });
 
 /**
@@ -848,6 +863,7 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'Characters to replace',
     ],
     [statementLayout.value !== null, 'statement-layout', 'Statement layout'],
+    [lineNumbers.value !== null, 'line-numbers', 'Line numbers'],
     [programFit.value !== null, 'fit', 'Fit'],
   ];
   return entries
@@ -976,6 +992,17 @@ function onVocabularyMessage(e: MessageEvent) {
     multiStatementLines: Array.isArray(data.multiStatementLines)
       ? data.multiStatementLines
       : [],
+    extraStatements: Number(data.extraStatements) || 0,
+    // Null rather than a zeroed shape for a program with no numbered line: the
+    // findings that read it ask "is there a span", and 0-to-0 is not one.
+    lineNumbers:
+      data.lineNumbers && typeof data.lineNumbers === 'object'
+        ? {
+            lowest: Number(data.lineNumbers.lowest) || 0,
+            highest: Number(data.lineNumbers.highest) || 0,
+            count: Number(data.lineNumbers.count) || 0,
+          }
+        : null,
     writeSites: Array.isArray(data.writeSites) ? data.writeSites : [],
   };
   // Carried beside the vocabulary rather than inside it: it describes the
@@ -1615,6 +1642,25 @@ watch(to, requestVocabulary);
           >, not <code>{{ statementLayout.from }}</code
           >. The lines keep their shape; only the separator changes.
         </p>
+        <!--
+          Splitting is the one thing a port does that *creates* line numbers, so
+          the count it produces is reported against the target's range here
+          rather than left beside the range as two numbers to join up.
+        -->
+        <p v-if="statementLayout.projected" class="cmp-hint">
+          <template v-if="statementLayout.projected.overflows">
+            <strong class="cmp-fit-over">Will not renumber:</strong>
+            the split turns {{ statementLayout.projected.from }} lines into
+            {{ statementLayout.projected.to }}, and {{ target.name }} numbers
+            lines {{ target.facts.lineNumberRange }} — too few to hold them
+            however they are renumbered.
+          </template>
+          <template v-else>
+            The split turns {{ statementLayout.projected.from }} lines into
+            {{ statementLayout.projected.to }}, within the
+            {{ target.facts.lineNumberRange }} {{ target.name }} allows.
+          </template>
+        </p>
         <p class="cmp-group-names">
           Editor
           {{ statementLayout.lines.length === 1 ? 'line' : 'lines' }}
@@ -1628,6 +1674,31 @@ watch(to, requestVocabulary);
               >,
             </span>
           </span>
+        </p>
+      </section>
+
+      <!--
+        Beside the statement layout, which is the other way a port runs out of
+        line numbers. The range itself is a fact row whether or not there is a
+        program; this is what the reader's own numbers do against it.
+      -->
+      <section v-if="lineNumbers" id="line-numbers" class="cmp-section">
+        <h2>Line numbers</h2>
+        <p class="cmp-fit">
+          <strong class="cmp-fit-over">Must be renumbered —</strong>
+          {{ target.name }} numbers lines {{ target.facts.lineNumberRange }},
+          and your program
+          <template v-if="lineNumbers.belowMinimum && lineNumbers.aboveMaximum">
+            runs from {{ lineNumbers.lowest }} to {{ lineNumbers.highest }}.
+          </template>
+          <template v-else-if="lineNumbers.aboveMaximum">
+            reaches {{ lineNumbers.highest }}.
+          </template>
+          <template v-else> starts at {{ lineNumbers.lowest }}. </template>
+        </p>
+        <p class="cmp-hint">
+          A line the target will not accept cannot be typed in at all, whatever
+          else the port changes.
         </p>
       </section>
 

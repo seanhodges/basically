@@ -175,6 +175,13 @@ describe('line-number ranges are the tokenizer’s own', () => {
       .split('–')
       .map((s) => parseInt(s, 10));
 
+    // The structured form is what the comparison compares; the prose is what it
+    // shows. One derivation covers both, so a range corrected in one place and
+    // not the other fails here rather than reporting two different machines.
+    expect({ min, max }, `${id}: prose and structured range disagree`).toEqual(
+      facts.lineNumbers,
+    );
+
     expect(accepts(dialect, min!), `${id} rejects its own minimum ${min}`).toBe(
       true,
     );

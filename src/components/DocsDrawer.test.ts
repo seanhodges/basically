@@ -155,6 +155,8 @@ describe('vocabularyReply', () => {
       escapeCodes: [],
       characters: [...'01:=EFINORTX'],
       multiStatementLines: [1],
+      extraStatements: 1,
+      lineNumbers: { lowest: 10, highest: 10, count: 1 },
       writeSites: [],
       targetSize: null,
     });

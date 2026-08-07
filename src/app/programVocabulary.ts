@@ -65,6 +65,26 @@ export interface ProgramVocabulary {
    */
   multiStatementLines: number[];
   /**
+   * How many statements the program carries beyond one per line, across every
+   * line that carries several.
+   *
+   * The number of lines a split would *add*: on a target that takes one
+   * statement per line, each of these becomes a line of its own, needing a line
+   * number the target will accept. Counted here rather than derived from
+   * {@link multiStatementLines}, which says which lines are affected and not how
+   * far.
+   */
+  extraStatements: number;
+  /**
+   * The span of BASIC line numbers the program's text carries, or null where it
+   * carries none.
+   *
+   * The porting guide checks these against the target machine's own range: a
+   * program numbered past the target's ceiling has to be renumbered before it
+   * can be typed in, whatever else the port involves.
+   */
+  lineNumbers: { lowest: number; highest: number; count: number } | null;
+  /**
    * The addresses the program writes to, in ascending order, as resolved for the
    * machine it is read as.
    *
@@ -156,6 +176,8 @@ function stringLiterals(body: string): string[] {
 interface CodeLine {
   line: number;
   body: string;
+  /** The BASIC line number the line opens with, or undefined where it has none. */
+  number?: number;
 }
 
 /**
@@ -164,7 +186,8 @@ interface CodeLine {
  * The editor position rides along because one finding is about lines rather than
  * about vocabulary: "these lines carry several statements" has to name them, and
  * blank and `#BIN` lines are skipped here, so a position cannot be recovered by
- * counting afterwards.
+ * counting afterwards. The BASIC line number rides along for the same reason, one
+ * finding over: the target machine's own range may not hold it.
  */
 function codeLines(source: string): CodeLine[] {
   const bodies: CodeLine[] = [];
@@ -174,7 +197,12 @@ function codeLines(source: string): CodeLine[] {
     // `#BIN` lines carry a base64 program-area record, not BASIC text; scanning
     // one for keywords finds whatever letters the payload happens to spell.
     if (isBinaryDirective(line)) return;
-    bodies.push({ line: index + 1, body: line.replace(/^\d+\s?/, '') });
+    const numbered = /^(\d+)\s?/.exec(line);
+    bodies.push({
+      line: index + 1,
+      body: line.replace(/^\d+\s?/, ''),
+      ...(numbered ? { number: parseInt(numbered[1]!, 10) } : {}),
+    });
   });
   return bodies;
 }
@@ -322,20 +350,56 @@ function charactersIn(source: string, dialect: Dialect): Set<string> {
  * inside either is not a statement boundary - which is the same reason the
  * keyword scan reads through it.
  */
-function multiStatementLinesIn(source: string, dialect: Dialect): number[] {
+function statementLayoutIn(
+  source: string,
+  dialect: Dialect,
+): { lines: number[]; extraStatements: number } {
   const separator = dialect.statementSeparator;
-  if (separator === null) return [];
+  if (separator === null) return { lines: [], extraStatements: 0 };
 
-  const found: number[] = [];
+  const lines: number[] = [];
+  let extraStatements = 0;
   for (const { line, body } of codeLines(source)) {
     const statements = scannable(body)
       .split(separator)
       // A trailing or doubled separator is an empty statement, which real
       // programs contain and which is not a second statement to split out.
       .filter((s) => s.trim() !== '');
-    if (statements.length > 1) found.push(line);
+    if (statements.length > 1) {
+      lines.push(line);
+      // Each statement past the first becomes a line of its own on a target
+      // that takes one per line, which is how a port can create line numbers.
+      extraStatements += statements.length - 1;
+    }
   }
-  return found;
+  return { lines, extraStatements };
+}
+
+/**
+ * The span of BASIC line numbers the program's text carries, or null where it
+ * carries none.
+ *
+ * The numbers as *written*, not as they would be renumbered: what the porting
+ * guide asks is whether the target machine's editor would accept them at all,
+ * and a machine whose numbers stop at 9,999 will not take a BBC program numbered
+ * to 32,767 however the lines are laid out.
+ *
+ * Lines with no number of their own contribute nothing - a continuation line, or
+ * a line still being typed - so `count` is the number of *numbered* lines, which
+ * is what a split has to renumber.
+ */
+function lineNumbersIn(
+  source: string,
+): { lowest: number; highest: number; count: number } | null {
+  const numbers = codeLines(source)
+    .map((l) => l.number)
+    .filter((n): n is number => n !== undefined);
+  if (numbers.length === 0) return null;
+  return {
+    lowest: Math.min(...numbers),
+    highest: Math.max(...numbers),
+    count: numbers.length,
+  };
 }
 
 /**
@@ -369,12 +433,15 @@ export function programVocabulary(
   source: string,
   dialect: Dialect,
 ): ProgramVocabulary {
+  const layout = statementLayoutIn(source, dialect);
   return {
     dialectId: dialect.id,
     keywords: [...keywordsIn(source, dialect)].sort(),
     escapeCodes: [...escapeCodesIn(source, dialect)].sort((a, b) => a - b),
     characters: [...charactersIn(source, dialect)].sort(),
-    multiStatementLines: multiStatementLinesIn(source, dialect),
+    multiStatementLines: layout.lines,
+    extraStatements: layout.extraStatements,
+    lineNumbers: lineNumbersIn(source),
     writeSites: writeSitesIn(source, dialect),
   };
 }
@@ -430,6 +497,8 @@ export interface ProgramVocabularyReply {
   escapeCodes: number[];
   characters: string[];
   multiStatementLines: number[];
+  extraStatements: number;
+  lineNumbers: { lowest: number; highest: number; count: number } | null;
   writeSites: ProgramWriteSite[];
   /** Null where the request named no target, or named one this build lacks. */
   targetSize: ProgramSize | null;
@@ -480,6 +549,8 @@ export function vocabularyReply(
     escapeCodes: vocab.escapeCodes,
     characters: vocab.characters,
     multiStatementLines: vocab.multiStatementLines,
+    extraStatements: vocab.extraStatements,
+    lineNumbers: vocab.lineNumbers,
     writeSites: vocab.writeSites,
     // Sized even when the program is unreadable as the *source* machine's BASIC:
     // the two are separate questions, and the guide decides for itself what to

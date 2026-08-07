@@ -82,6 +82,8 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'escapeCodes',
   'writeSites',
   'targetSize',
+  'lineNumbers',
+  'extraStatements',
 ] as const;
 
 type ProgramVocabularyRequest = { from?: unknown; to?: unknown };

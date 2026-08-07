@@ -17,6 +17,9 @@ describe('programVocabulary - keywords', () => {
       escapeCodes: [],
       characters: [...'01:=EFINOPRTX'],
       multiStatementLines: [1],
+      // FOR / PRINT / NEXT: three statements, so two lines a split would add.
+      extraStatements: 2,
+      lineNumbers: { lowest: 10, highest: 10, count: 1 },
       writeSites: [],
     });
   });
@@ -169,6 +172,66 @@ describe('programVocabulary - multi-statement lines', () => {
   });
 });
 
+describe('programVocabulary - statements a split would add', () => {
+  it('counts every statement past the first, not the lines carrying them', () => {
+    // Two lines affected, but four new lines needed on a target that takes one
+    // statement per line - which is what has to be renumbered into.
+    const vocab = programVocabulary('10 A=1:B=2:C=3\n20 D=4\n30 E=5:F=6', c64);
+    expect(vocab.multiStatementLines).toEqual([1, 3]);
+    expect(vocab.extraStatements).toBe(3);
+  });
+
+  it('counts nothing for a separator inside a string or after REM', () => {
+    const vocab = programVocabulary('10 PRINT "A:B"\n20 REM A:B', c64);
+    expect(vocab.extraStatements).toBe(0);
+  });
+
+  it('counts nothing on a machine with no statement separator', () => {
+    expect(programVocabulary('10 PRINT "TIME: ";T', zx81).extraStatements).toBe(
+      0,
+    );
+  });
+});
+
+describe('programVocabulary - line numbers', () => {
+  it('reports the span the program is numbered across', () => {
+    const vocab = programVocabulary('10 A=1\n20 B=2\n32767 C=3', c64);
+    expect(vocab.lineNumbers).toEqual({
+      lowest: 10,
+      highest: 32767,
+      count: 3,
+    });
+  });
+
+  it('reads the numbers as written, whatever order the lines are in', () => {
+    // The guide asks whether the target's editor would take these numbers, so
+    // the lowest and highest are the program's own, not the first and last.
+    const vocab = programVocabulary('100 A=1\n20 B=2\n50 C=3', c64);
+    expect(vocab.lineNumbers).toMatchObject({ lowest: 20, highest: 100 });
+  });
+
+  it('counts a line with no number of its own towards nothing', () => {
+    const vocab = programVocabulary('10 A=1\nPRINT A\n', c64);
+    expect(vocab.lineNumbers).toEqual({ lowest: 10, highest: 10, count: 1 });
+  });
+
+  it('ignores a #BIN block’s payload', () => {
+    // The payload is base64, not BASIC, and its leading digits are not a line
+    // number - reading one would report a program numbered wherever the base64
+    // happened to start.
+    const vocab = programVocabulary(
+      '10 A=1\n#BIN 32768 0123456789ABCDEF\n20 B=2',
+      c64,
+    );
+    expect(vocab.lineNumbers).toEqual({ lowest: 10, highest: 20, count: 2 });
+  });
+
+  it('reports nothing for a program with no numbered line', () => {
+    expect(programVocabulary('PRINT 1\n', c64).lineNumbers).toBeNull();
+    expect(programVocabulary('', c64).lineNumbers).toBeNull();
+  });
+});
+
 describe('programVocabulary - write sites', () => {
   it('records the addresses a program writes to, in address order', () => {
     const { writeSites } = programVocabulary(
@@ -231,6 +294,8 @@ describe('programVocabulary - no program', () => {
       escapeCodes: [],
       characters: [],
       multiStatementLines: [],
+      extraStatements: 0,
+      lineNumbers: null,
       writeSites: [],
     });
   });
