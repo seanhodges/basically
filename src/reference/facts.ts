@@ -261,7 +261,13 @@ const entries: PortingFactsEntry[] = [
         note: 'CALL addr runs machine code; USR(addr) returns a value.',
       },
     ],
-    lineNumberRange: '1–32767',
+    // Line 0 is typable and lists back: `0REM Z` entered at the keyboard of a
+    // real BASIC II and a real BASIC IV both store and LIST as `    0REM Z`,
+    // while `32768REM Z` answers `Syntax error` and stores nothing. (Higher
+    // numbers up to 65279 exist in *loaded* programs and run - the tokenizer's
+    // ENTRY_MAX/MAX_LINE split - but this row is the range a porter must
+    // renumber into, which is the editor's.)
+    lineNumberRange: '0–32767',
     statementSeparator: ':',
     elseSupported: true,
     letRequired: 'optional',
@@ -609,7 +615,10 @@ const entries: PortingFactsEntry[] = [
       },
       { keyword: 'COLOUR', note: 'No colour: the console is text only.' },
     ],
-    lineNumberRange: '0-65529',
+    // En dash, as every other entry uses: this row is compared as a string by
+    // the guide, and one machine spelling its range with a hyphen reads as a
+    // difference between the machines rather than between two keyboards.
+    lineNumberRange: '0–65529',
     statementSeparator: ':',
     elseSupported: false,
     letRequired: 'optional',

@@ -43,16 +43,24 @@ Probing every registered dialect's tokenizer against its authored prose shows
 the two answer subtly different questions:
 
 ```
-  machine        authored prose   tokenizer accepts
-  ZX81 / ZX80    1–9999           1–9999            equal
-  Spectrum       1–9999           0–16383 (soft-warns outside 1–9999)
-  BBC Micro      1–32767          0–65279
-  Commodore      0–63999          0–63999           equal
-  CPC            1–65535          1–65535           equal
-  TRS-80         0–65529          0–65529           equal
-  Altair         0-65529          0–65529           equal (prose dash differs)
-  Atom           0–32767          0–32767           equal
+  machine        prose as found   tokenizer accepts cleanly   real ROM
+  ZX81 / ZX80    1–9999           1–9999                      1–9999
+  Spectrum       1–9999           1–9999 (warns to 16383)     1–9999
+  BBC Micro      1–32767 ✗        0–32767 (warns to 65279)    0–32767
+  Commodore      0–63999          0–63999                     0–63999
+  CPC            1–65535          1–65535                     1–65535
+  TRS-80         0–65529          0–65529                     no ROM
+  Altair         0-65529 ✗        0–65529                     no ROM
+  Atom           0–32767          0–32767                     0–32767
 ```
+
+Every ROM column was taken by typing a line at the machine's own keyboard and
+listing it back. The BBC's authored minimum was the one wrong figure — `0REM Z`
+stores and lists on both a real BASIC II and a real BASIC IV, while `32768REM Z`
+answers `Syntax error` — and it has been corrected, along with the Altair's
+hyphen, ahead of this change. The band a tokenizer accepts *without any
+complaint* turned out to be the editor range on every machine, which is what
+makes the crosscheck below a re-derivation rather than a restatement.
 
 A tokenizer may legitimately store a line a real machine's ROM editor would
 refuse at the keyboard — that is the same distinction the project already draws
@@ -69,9 +77,9 @@ machine takes line numbers its editor rejects — or its tokenizer down to 9,999
 which would make an imported program's line unstorable. Neither is an
 improvement, and the crosscheck should not push anyone into one.
 
-The Altair's ASCII hyphen is normalised to the en dash the rest of the table
-uses, so the prose↔structured check can be one exact comparison rather than a
-tolerant one.
+The Altair's ASCII hyphen has been normalised to the en dash the rest of the
+table uses, so the prose↔structured check can be one exact comparison rather
+than a tolerant one.
 
 ### The finding: two questions, one section
 
@@ -136,7 +144,7 @@ not fit" as two unrelated sections would have to join them.
 
 ## Open Questions
 
-- Whether the BBC's authored minimum should be 0 rather than 1: its tokenizer
-  accepts 0 and the prose says 1. Resolve against Acorn's own documentation
-  before authoring the structured field, not from the tokenizer's tolerance —
-  the tokenizer is deliberately the looser of the two.
+None outstanding. The BBC's minimum — the one figure in doubt when this was
+written — was settled at 0 by the real ROM, and the prose row and its
+tokenizer-derived crosscheck landed ahead of this change. What remains here is
+the structured form and the finding it unlocks.

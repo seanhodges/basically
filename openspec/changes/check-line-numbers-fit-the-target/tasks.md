@@ -4,16 +4,19 @@
       (minimum and maximum) beside `lineNumberRange`, documented as the range the
       machine's own editor accepts — the range a porter must renumber into — and
       not the wider range a tokenizer may be willing to store.
-- [ ] 1.2 `src/reference/facts.ts`: author it for every machine from the same
-      sources the prose came from, and normalise the Altair's prose range to the
-      en dash the rest of the table uses.
-- [ ] 1.3 Resolve the BBC's minimum against Acorn's documentation (the prose says
-      1, the tokenizer accepts 0) and author whichever the machine's editor
-      actually takes; note the source in a comment beside the entry.
+- [ ] 1.2 `src/reference/facts.ts`: author it for every machine from the prose
+      row beside it, which is now ROM-verified for every machine that has a
+      shippable ROM.
+- [x] 1.3 Resolve the BBC's minimum (the prose said 1, the tokenizer accepts 0).
+      *Done ahead of this change: the real ROM stores and lists `0REM Z` on both
+      BASIC II and BASIC IV and answers `Syntax error` at 32768, so the row is
+      now `0–32767`. The Altair's hyphen was normalised at the same time, and
+      `facts-crosscheck.test.ts` now re-derives every machine's range from its
+      own tokenizer.*
 - [ ] 1.4 `src/reference/facts-crosscheck.test.ts`: the structured range equals
-      the prose range for every machine (one parse, exact), and each endpoint is
-      accepted by that dialect's own tokenizer — a subset check, since a
-      tokenizer may store lines the editor would refuse.
+      the prose range for every machine (one parse, exact). The prose range is
+      already re-derived from each dialect's tokenizer there; extend that case
+      to the structured field rather than adding a second one.
 
 ## 2. What the program's numbers are
 

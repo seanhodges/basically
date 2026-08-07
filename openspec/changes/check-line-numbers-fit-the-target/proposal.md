@@ -29,9 +29,11 @@ before it can be typed in, and the guide today shows the reader two strings.
   when the target's range cannot hold them however they are renumbered.
 - **The structured range is pinned two ways.** Against the prose, so the two
   cannot drift; and against each dialect's own tokenizer, which must accept the
-  authored range's endpoints. The audit that motivated this found the Altair's
-  prose range spelled with an ASCII hyphen where every other machine uses an en
-  dash — the kind of drift a string comparison invites and a number does not.
+  authored range's endpoints and refuse the numbers just outside them. The audit
+  that motivated this found two wrong figures, both since corrected: the BBC's
+  minimum (its ROM stores and lists line 0, where the prose claimed 1) and the
+  Altair's range spelled with an ASCII hyphen where every other machine uses an
+  en dash — the kind of drift a string comparison invites and a number does not.
 
 ## Capabilities
 
@@ -73,10 +75,9 @@ Affected code:
 
 - `src/reference/types.ts` — `PortingFacts` gains the structured range beside
   `lineNumberRange`, documented as the *editor* range.
-- `src/reference/facts.ts` — one field per machine; the Altair's prose dash
-  normalised so the crosscheck can be strict.
+- `src/reference/facts.ts` — one field per machine, beside the prose row.
 - `src/reference/facts-crosscheck.test.ts` — the structured range against the
-  prose, and against each dialect's tokenizer.
+  prose; the prose is already re-derived from each dialect's tokenizer there.
 - `src/reference/compare.ts` — a pure line-number finding, and the statement-
   layout finding gains the projected count; `compare.test.ts` alongside.
 - `src/app/programVocabulary.ts` — the reply carries the program's lowest and
