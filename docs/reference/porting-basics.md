@@ -8,7 +8,7 @@ What every port between these BASICs involves, whichever two machines you pick.
 For the differences between one machine and another, see the
 [porting guide](./compare).
 
-Five things account for most of the work.
+Six things account for most of the work.
 
 **Restructuring.** If the target allows only one statement per line, every `:`
 becomes a new line, which renumbers everything after it — the **Renumber file**
@@ -32,6 +32,25 @@ guide lists the ones your program actually uses.
 truncates and every fractional calculation needs rescaling. The exponent
 operator is spelled `**`, `^` or `↑` depending on the machine, and some have
 none.
+
+**The arguments themselves.** A command that survives the port under the same
+spelling can still take different arguments, and nothing about the line will look
+wrong — it simply does something else. Three ways this bites. Some machines take a
+_leading_ argument the others don't: `PLOT` is `PLOT <x>, <y>` on the Sinclair and
+Amstrad machines but `PLOT <action>, <x>, <y>` on the Acorn ones, where the first
+number chooses whether to draw, invert or move. Some take the same arguments in a
+_different order_: the BBC's `SOUND <channel>, <amplitude>, <pitch>, <duration>` puts
+duration last, the Amstrad's `SOUND <channel>, <period>, <duration>` puts it third, and
+the Spectrum's `BEEP <duration>, <pitch>` puts it first. And some measure the same
+thing differently — that Amstrad `<period>` is a tone period, not a pitch. Coordinates
+can be relative rather than absolute, too: the Spectrum's `DRAW` takes an offset from
+where the last one finished, where every other machine here draws to a point.
+
+Optional arguments are the quiet ones. Dropping an argument the target does not have
+is usually easy; noticing that the target _needs_ one is not. Each language reference
+gives the full argument list for every command, written the same way on every page, so
+two pages can be read side by side — and the porting guide reports the commands whose
+usage differs between the pair you picked.
 
 **Everything touching hardware.** Addresses never travel: a `POKE`, `USR`,
 `CALL` or `SYS` aimed at one machine's screen, sound chip or system variables

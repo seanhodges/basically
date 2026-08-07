@@ -7,6 +7,8 @@ import type { BasicReferenceTableData } from './types';
 export const zx81Reference: BasicReferenceTableData = {
   title: 'ZX81 BASIC',
   machines: ['Sinclair ZX81'],
+  // Nothing beyond the shared vocabulary.
+  placeholders: [],
   entries: [
     {
       name: 'RND',
@@ -36,7 +38,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'AT',
       kind: 'operator',
       domain: 'text-screen',
-      syntax: 'PRINT AT <number>,<number>;',
+      syntax: 'PRINT AT <row>, <col>;',
       description:
         'Used inside PRINT to position the cursor before printing: AT row,col with row 0–21 and column 0–31. Out-of-range coordinates raise an error.',
     },
@@ -168,7 +170,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'PEEK',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'PEEK <number>',
+      syntax: 'PEEK <addr>',
       description:
         'Reads and returns the byte (0–255) stored at the given memory address. For example, PEEK 16396+256*PEEK 16397 gives the start of the display file (D_FILE).',
     },
@@ -176,7 +178,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'USR',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'USR <number>',
+      syntax: 'USR <addr>',
       description:
         'Calls machine code at the given address and returns the value of the BC register pair on RET. Commonly used as LET X=USR addr to invoke routines stashed in a REM line.',
     },
@@ -345,7 +347,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'DIM',
       kind: 'command',
       domain: 'data',
-      syntax: 'DIM <var>(<int>[,<int>]…)',
+      syntax: 'DIM <var>(<number>[, <number>]…)',
       description:
         'Declares (and clears) a numeric or string array with the given dimensions; the name is a single letter. A string array DIM A$(n,m) holds n fixed-length strings of m characters, space-padded.',
     },
@@ -353,7 +355,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'REM',
       kind: 'command',
       domain: 'program-editing',
-      syntax: 'REM <text>',
+      syntax: 'REM <comment>',
       description:
         'Marks the rest of the line as a comment, ignored when the program runs. Often also used as a container to stash machine code bytes.',
     },
@@ -393,7 +395,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'LOAD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'LOAD <string>',
+      syntax: 'LOAD <filename>',
       description:
         'Loads a program from tape by name; LOAD "" loads the first program found. The named program replaces whatever is in memory.',
     },
@@ -433,7 +435,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'POKE',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'POKE <number>,<number>',
+      syntax: 'POKE <addr>, <byte>',
       description:
         'Writes a byte value (0–255) directly to the given memory address. Useful for system pokes but easy to crash the machine with if misused.',
     },
@@ -441,7 +443,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'PRINT',
       kind: 'command',
       domain: 'text-screen',
-      syntax: 'PRINT [AT <number>,<number>;] [<expr>][;|,]…',
+      syntax: 'PRINT [AT <row>, <col>;] [<expr>][;|,]…',
       description:
         'Writes text and numbers to the display. "," tabs to the next 16-column field; ";" joins items with no gap; a trailing ";" suppresses the newline. PRINT AT positions the cursor at row 0–21, column 0–31.',
     },
@@ -449,7 +451,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'PLOT',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'PLOT <number>,<number>',
+      syntax: 'PLOT <x>, <y>',
       description:
         'Sets a single block pixel on the low-resolution grid: x 0–63, y 0–43, with the origin at the bottom-left. UNPLOT clears one.',
     },
@@ -465,7 +467,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'SAVE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'SAVE <string>',
+      syntax: 'SAVE <filename>',
       description:
         'Saves the current program to tape under the given name. On the ZX81 the saved image also restarts and runs automatically when reloaded.',
     },
@@ -497,7 +499,7 @@ export const zx81Reference: BasicReferenceTableData = {
       name: 'UNPLOT',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'UNPLOT <number>,<number>',
+      syntax: 'UNPLOT <x>, <y>',
       description:
         'Clears a single block pixel set by PLOT, using the same coordinate range: x 0–63, y 0–43, origin bottom-left.',
     },

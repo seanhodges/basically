@@ -7,6 +7,7 @@ import type { BasicReferenceTableData } from './types';
 export const zxspectrumReference: BasicReferenceTableData = {
   title: 'ZX Spectrum BASIC (48K & 128K)',
   machines: ['Sinclair ZX Spectrum 48K', 'Sinclair ZX Spectrum 128K'],
+  placeholders: [{ id: 'bits', meaning: 'a binary literal, such as 10011' }],
   entries: [
     {
       name: 'RND',
@@ -36,7 +37,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'FN',
       kind: 'function',
       domain: 'control-flow',
-      syntax: 'FN <var>(<number>[, …])',
+      syntax: 'FN <name>([<number>[, <number>]…])',
       description:
         'Calls a user function previously declared with DEF FN, passing the given arguments. The function name is a single letter (add $ for a string-valued function).',
     },
@@ -44,7 +45,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'POINT',
       kind: 'function',
       domain: 'graphics',
-      syntax: 'POINT (<number>, <number>)',
+      syntax: 'POINT (<x>, <y>)',
       description:
         'Returns 1 if the pixel at x,y is set to ink, or 0 if it is paper (the origin is bottom-left).',
     },
@@ -52,7 +53,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'SCREEN$',
       kind: 'function',
       domain: 'text-screen',
-      syntax: 'SCREEN$ (<number>, <number>)',
+      syntax: 'SCREEN$ (<row>, <col>)',
       description:
         'Returns the character shown at a text row,col position, recognising the standard font; gives "" when the cell holds graphics it cannot match.',
     },
@@ -60,7 +61,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'ATTR',
       kind: 'function',
       domain: 'colour',
-      syntax: 'ATTR (<number>, <number>)',
+      syntax: 'ATTR (<row>, <col>)',
       description:
         'Returns the attribute byte at a text cell, encoding its ink, paper, bright and flash settings as a single number.',
     },
@@ -206,7 +207,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'PEEK',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'PEEK <number>',
+      syntax: 'PEEK <addr>',
       description:
         'Reads and returns the byte (0-255) stored at the given memory address.',
     },
@@ -222,7 +223,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'USR',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'USR <number> | USR <string>',
+      syntax: 'USR <addr> | USR <string>',
       description:
         'With a numeric address, calls machine code there and returns the BC register; with a single-letter string it returns the address of that user-defined graphic (UDG).',
     },
@@ -253,7 +254,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'BIN',
       kind: 'function',
       domain: 'numeric',
-      syntax: 'BIN <int>',
+      syntax: 'BIN <bits>',
       description:
         'Interprets the following binary digits as a number, e.g. BIN 1010 is 10; handy for POKEing bit patterns.',
     },
@@ -277,7 +278,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: '<=',
       kind: 'operator',
       domain: 'numeric',
-      syntax: '<=',
+      syntax: '<number> <= <number>',
       description:
         'Comparison operator, true (1) when the left value is less than or equal to the right.',
     },
@@ -285,7 +286,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: '>=',
       kind: 'operator',
       domain: 'numeric',
-      syntax: '>=',
+      syntax: '<number> >= <number>',
       description:
         'Comparison operator, true (1) when the left value is greater than or equal to the right.',
     },
@@ -293,7 +294,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: '<>',
       kind: 'operator',
       domain: 'numeric',
-      syntax: '<>',
+      syntax: '<number> <> <number>',
       description:
         'Comparison operator, true (1) when the two values are not equal.',
     },
@@ -309,7 +310,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'THEN',
       kind: 'operator',
       domain: 'control-flow',
-      syntax: 'IF <number> THEN …',
+      syntax: 'IF <number> THEN <statement>',
       description:
         'Introduces the statements run when an IF condition is true; everything after THEN on the line (including further ":"-separated statements) is conditional.',
     },
@@ -334,7 +335,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'DEF FN',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'DEF FN <var>(<var>[, …]) = <number>',
+      syntax: 'DEF FN <name>([<param>[, <param>]…]) = <expr>',
       description:
         'Defines a user function with a single-letter name and optional parameters; the body is one expression, evaluated when called with FN. Add a $ suffix for a string function.',
     },
@@ -386,7 +387,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'MERGE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'MERGE <string>',
+      syntax: 'MERGE <filename>',
       description:
         'Loads a program from tape and merges its lines into the current program rather than replacing it; lines with matching numbers are overwritten.',
     },
@@ -394,7 +395,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'VERIFY',
       kind: 'command',
       domain: 'storage',
-      syntax: 'VERIFY <string>',
+      syntax: 'VERIFY <filename>',
       description:
         'Compares a recording on tape against memory to confirm that a SAVE was written correctly.',
     },
@@ -402,7 +403,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'BEEP',
       kind: 'command',
       domain: 'sound',
-      syntax: 'BEEP <number>, <number>',
+      syntax: 'BEEP <duration>, <pitch>',
       description:
         'Produces a tone through the speaker; the first value is the duration in seconds and the second the pitch in semitones above (or below) middle C.',
     },
@@ -410,7 +411,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'CIRCLE',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'CIRCLE <number>, <number>, <number>',
+      syntax: 'CIRCLE <x>, <y>, <number>',
       description:
         'Draws a circle in the current ink centred at x,y with the given radius.',
     },
@@ -418,7 +419,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'INK',
       kind: 'command',
       domain: 'colour',
-      syntax: 'INK <number>',
+      syntax: 'INK <colour>',
       description:
         'Sets the ink (foreground) colour 0-7 for following output; 8 keeps the existing colour and 9 picks black or white for contrast.',
     },
@@ -426,7 +427,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'PAPER',
       kind: 'command',
       domain: 'colour',
-      syntax: 'PAPER <number>',
+      syntax: 'PAPER <colour>',
       description:
         'Sets the paper (background) colour 0-7 for following output; 8 and 9 behave like INK’s transparent and contrast options.',
     },
@@ -466,7 +467,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'OUT',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'OUT <number>, <number>',
+      syntax: 'OUT <port>, <byte>',
       description:
         'Writes a byte to the given Z80 I/O port, used to drive hardware directly.',
     },
@@ -474,7 +475,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'LPRINT',
       kind: 'command',
       domain: 'text-screen',
-      syntax: 'LPRINT …',
+      syntax: 'LPRINT [<expr>][;|,]…',
       description: 'Like PRINT, but sends its output to the ZX Printer.',
     },
     {
@@ -497,7 +498,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'READ',
       kind: 'command',
       domain: 'data',
-      syntax: 'READ <var>[, <var>…]',
+      syntax: 'READ <var>[, <var>]…',
       description:
         'Assigns the next unread DATA items, in order, to the listed variables.',
     },
@@ -505,7 +506,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'DATA',
       kind: 'command',
       domain: 'data',
-      syntax: 'DATA <number> | <string>[, …]',
+      syntax: 'DATA <expr>[, <expr>]…',
       description:
         'Holds a list of constants that READ consumes in sequence; the statement does nothing when execution runs over it.',
     },
@@ -528,7 +529,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'BORDER',
       kind: 'command',
       domain: 'colour',
-      syntax: 'BORDER <number>',
+      syntax: 'BORDER <colour>',
       description:
         'Sets the colour 0-7 of the screen border surrounding the main display area.',
     },
@@ -544,7 +545,8 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'DIM',
       kind: 'command',
       domain: 'data',
-      syntax: 'DIM <numvar>(<number>[, …]) | DIM <strvar>(<number>[, …])',
+      syntax:
+        'DIM <numvar>(<number>[, <number>]…) | DIM <strvar>(<number>[, <number>]…)',
       description:
         'Creates an array of the given dimensions, clearing any earlier array of that name; numeric subscripts start at 1 and a string array’s last dimension fixes the character length of each entry.',
     },
@@ -552,7 +554,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'REM',
       kind: 'command',
       domain: 'program-editing',
-      syntax: 'REM …',
+      syntax: 'REM <comment>',
       description:
         'Marks the rest of the line as a comment that is ignored when the program runs.',
     },
@@ -584,7 +586,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'INPUT',
       kind: 'command',
       domain: 'input',
-      syntax: 'INPUT [<string>;] <var>',
+      syntax: 'INPUT [<prompt>;] <var>',
       description:
         'Pauses the program to read typed values into the listed variables, optionally showing a prompt; numeric variables reject non-numeric input.',
     },
@@ -592,7 +594,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'LOAD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'LOAD <string>',
+      syntax: 'LOAD <filename>',
       description:
         'Loads a program (or data block) of the given name from tape into memory.',
     },
@@ -632,7 +634,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'POKE',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'POKE <number>, <number>',
+      syntax: 'POKE <addr>, <byte>',
       description:
         'Writes a byte (0-255) directly to the given memory address.',
     },
@@ -640,7 +642,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'PRINT',
       kind: 'command',
       domain: 'text-screen',
-      syntax: 'PRINT [AT <number>, <number>;] …',
+      syntax: 'PRINT [AT <row>, <col>;] [<expr>][;|,]…',
       description:
         'Outputs text and numbers to the screen; ";" joins items directly, "," tabs to the next half-screen field, and AT/TAB set the position.',
     },
@@ -648,7 +650,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'PLOT',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'PLOT <number>, <number>',
+      syntax: 'PLOT <x>, <y>',
       description:
         'Sets (or with INVERSE clears) a single pixel at x,y, where x runs 0-255 and y 0-175 from the bottom-left.',
     },
@@ -664,7 +666,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'SAVE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'SAVE <string> [LINE <line>]',
+      syntax: 'SAVE <filename> [LINE <line>]',
       description:
         'Saves the program to tape under the given name; adding LINE makes it auto-run from that line when reloaded.',
     },
@@ -680,7 +682,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'IF',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'IF <number> THEN …',
+      syntax: 'IF <number> THEN <statement>',
       description:
         'Tests a condition (0 is false, non-zero true) and runs the statements after THEN when it holds; there is no ELSE.',
     },
@@ -696,7 +698,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'DRAW',
       kind: 'command',
       domain: 'graphics',
-      syntax: 'DRAW <number>, <number>[, <number>]',
+      syntax: 'DRAW <dx>, <dy>[, <number>]',
       description:
         'Draws a line from the last plotted point by the given x,y offset; a third value bends it into an arc turning through that many radians.',
     },
@@ -736,7 +738,7 @@ export const zxspectrumReference: BasicReferenceTableData = {
       name: 'PLAY',
       kind: 'command',
       domain: 'sound',
-      syntax: 'PLAY <string>[, <string>…]',
+      syntax: 'PLAY <string>[, <string>]…',
       description:
         'Plays music strings on the AY-3-8912 sound chip, one string per channel. Only available in 128K mode.',
       tag: '128K only',

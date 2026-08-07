@@ -1,4 +1,5 @@
 import type { KeywordDomain } from './domains';
+import type { Placeholder } from './placeholders';
 import type { PortingTopic } from './porting-topics';
 
 /** One row of a dialect reference table. */
@@ -14,7 +15,12 @@ export interface ReferenceEntry {
    * per-CPU assembly references.
    */
   kind: 'command' | 'function' | 'operator' | 'instruction' | 'directive';
-  /** Usage example with typed arguments, e.g. "INPUT [<string>;] <var>". */
+  /**
+   * How the keyword is used, with each argument written as a `<…>` placeholder:
+   * `"INPUT [<prompt>;] <var>[, <var>]…"`. The placeholder vocabulary and the
+   * notation rules are in src/reference/placeholders.ts, and
+   * reference-data.test.ts holds every page to them - this is not free text.
+   */
   syntax: string;
   /** Brief description, including notable behaviours where relevant. */
   description: string;
@@ -58,6 +64,14 @@ export interface ReferenceTableData {
   title: string;
   /** Machines this language set covers, for the page intro. */
   machines: string[];
+  /**
+   * Placeholders this page uses that the shared vocabulary does not carry, because
+   * they name something peculiar to this machine - the Amstrad's `<stream>`, the
+   * TRS-80's `<cell>`. Optional only because the per-CPU assembly references share
+   * this interface and have a notation of their own; every BASIC page declares it,
+   * `[]` included. See src/reference/placeholders.ts.
+   */
+  placeholders?: readonly Placeholder[];
   entries: ReferenceEntry[];
 }
 
@@ -76,6 +90,11 @@ export interface BasicReferenceEntry extends ReferenceEntry {
  * guard on a hand-authored classification of every keyword.
  */
 export interface BasicReferenceTableData extends ReferenceTableData {
+  /**
+   * Required on the BASIC pages, where `[]` is a statement rather than an omission:
+   * "this page needs nothing beyond the shared vocabulary".
+   */
+  placeholders: readonly Placeholder[];
   entries: BasicReferenceEntry[];
 }
 

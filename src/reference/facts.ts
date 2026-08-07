@@ -90,7 +90,7 @@ const entries: PortingFactsEntry[] = [
     freeRamBytes: 15360,
     colour: 'None — black on white, with inverse video.',
     sound: 'None.',
-    memoryWriteSyntax: 'POKE addr,val',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
     addressNotation: 'dec',
   },
   {
@@ -167,7 +167,7 @@ const entries: PortingFactsEntry[] = [
     freeRamBytes: 15360,
     colour: 'None — black on white, with inverse video.',
     sound: 'None.',
-    memoryWriteSyntax: 'POKE addr,val',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
     addressNotation: 'dec',
   },
   {
@@ -223,7 +223,7 @@ const entries: PortingFactsEntry[] = [
     colour:
       '8 colours with BRIGHT and FLASH; one ink/paper per 8×8 cell (attribute clash).',
     sound: 'BEEP duration,pitch (single channel).',
-    memoryWriteSyntax: 'POKE addr,val',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
     addressNotation: 'dec',
   },
   {
@@ -281,7 +281,7 @@ const entries: PortingFactsEntry[] = [
     colour:
       'Up to 16 colours (mode-dependent); COLOUR sets text ink, GCOL sets graphics ink.',
     sound: 'SOUND channel,amplitude,pitch,duration with ENVELOPE.',
-    memoryWriteSyntax: '?addr=val (byte), !addr=val (word)',
+    memoryWriteSyntax: '?<addr>=<byte> (byte), !<addr>=<number> (word)',
     addressNotation: 'hex',
     hexPrefix: '&',
   },
@@ -351,7 +351,7 @@ const entries: PortingFactsEntry[] = [
     freeRamBytes: 38911,
     colour: '16 colours and eight hardware sprites.',
     sound: 'Three-voice SID with filters, driven by POKE.',
-    memoryWriteSyntax: 'POKE addr,val',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
     addressNotation: 'dec',
   },
   {
@@ -422,7 +422,7 @@ const entries: PortingFactsEntry[] = [
     freeRamBytes: 8192,
     colour: 'None — the MC6847 VDG output is rendered monochrome here.',
     sound: 'A simple speaker; most programs are silent.',
-    memoryWriteSyntax: '?addr=val (byte), !addr=val (word)',
+    memoryWriteSyntax: '?<addr>=<byte> (byte), !<addr>=<number> (word)',
     addressNotation: 'hex',
     hexPrefix: '#',
     statementSepChar: ';',
@@ -489,7 +489,7 @@ const entries: PortingFactsEntry[] = [
     freeRamBytes: 15572,
     colour: 'None.',
     sound: 'None.',
-    memoryWriteSyntax: 'POKE addr,val',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
     addressNotation: 'dec',
   },
   {
@@ -545,7 +545,7 @@ const entries: PortingFactsEntry[] = [
     freeRamBytes: 42619,
     colour: '27 hardware colours; INK/PEN/PAPER/BORDER assign them.',
     sound: 'SOUND channel,period,duration with ENV/ENT envelopes.',
-    memoryWriteSyntax: 'POKE addr,val',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
     addressNotation: 'hex',
     hexPrefix: '&',
   },
@@ -630,7 +630,7 @@ const entries: PortingFactsEntry[] = [
     programStart: '$1939',
     colour: 'None - the output is a serial terminal.',
     sound: 'None, beyond the terminal bell at CHR$(7).',
-    memoryWriteSyntax: 'POKE addr,val',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
     addressNotation: 'dec',
   },
   {

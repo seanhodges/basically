@@ -11,6 +11,8 @@ import type { BasicReferenceTableData } from './types';
 export const altair8800Reference: BasicReferenceTableData = {
   title: 'Altair 8K BASIC',
   machines: ['MITS Altair 8800'],
+  // Nothing beyond the shared vocabulary.
+  placeholders: [],
   entries: [
     {
       name: 'END',
@@ -48,7 +50,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'INPUT',
       kind: 'command',
       domain: 'input',
-      syntax: 'INPUT ["<string>";] <var>[, <var>]…',
+      syntax: 'INPUT [<prompt>;] <var>[, <var>]…',
       description:
         "Prints the prompt (or ? when there is none) and waits for a whole line to be typed at the terminal. This is the machine's only key read - 8K BASIC has no INKEY$ - so an interactive program takes one turn per typed line.",
     },
@@ -72,7 +74,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'LET',
       kind: 'command',
       domain: 'data',
-      syntax: '[LET] <var> = <expression>',
+      syntax: '[LET] <var> = <expr>',
       description:
         'Assigns a value. The keyword is optional and almost always left out; it costs a byte of program text and nothing else.',
     },
@@ -96,7 +98,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'IF',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'IF <expression> THEN <line> | <statement>',
+      syntax: 'IF <expr> THEN <line> | <statement>',
       description:
         'Runs the rest of the line when the expression is non-zero. There is no ELSE in 8K BASIC: write a second IF, or jump.',
     },
@@ -128,7 +130,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'REM',
       kind: 'command',
       domain: 'program-editing',
-      syntax: 'REM <text>',
+      syntax: 'REM <comment>',
       description:
         'A comment. Everything after it to the end of the line is stored verbatim and never executed - including a colon, so no statement can follow one.',
     },
@@ -144,7 +146,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'OUT',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'OUT <number>, <number>',
+      syntax: 'OUT <port>, <byte>',
       description:
         "Writes a byte to an 8080 I/O port (0-255). The console is the 88-2SIO at ports 16 and 17; writing to those interferes with BASIC's own terminal.",
     },
@@ -152,7 +154,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'ON',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'ON <expression> GOTO | GOSUB <line>[, <line>]…',
+      syntax: 'ON <expr> GOTO | GOSUB <line>[, <line>]…',
       description:
         'Computed jump: the expression picks the first, second, third… line in the list. A value of 0 or one past the end falls through to the next statement.',
     },
@@ -168,7 +170,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'WAIT',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'WAIT <number>, <number>[, <number>]',
+      syntax: 'WAIT <port>, <mask>[, <mask>]',
       description:
         'Spins until an input port, exclusive-ORed with the third argument and masked with the second, is non-zero. Nothing but a reset breaks the wait if the condition never comes true.',
     },
@@ -176,7 +178,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'DEF',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'DEF FN<letter>(<numvar>) = <expression>',
+      syntax: 'DEF FN<letter>(<numvar>) = <expr>',
       description:
         'Defines a single-expression numeric function. The name is FN plus one letter, and the definition must be executed before the function is called.',
     },
@@ -184,7 +186,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'POKE',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'POKE <number>, <number>',
+      syntax: 'POKE <addr>, <byte>',
       description:
         'Writes a byte to a decimal address. BASIC itself lives in RAM here, from address 0 up, so a wrong address can corrupt the interpreter.',
     },
@@ -192,7 +194,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'PRINT',
       kind: 'command',
       domain: 'text-screen',
-      syntax: 'PRINT [<expression>][; | ,]…',
+      syntax: 'PRINT [<expr>][;|,]…',
       description:
         'Prints to the terminal. A comma moves to the next 14-column zone, a semicolon stays put, and a trailing separator suppresses the newline. ? is shorthand for it.',
     },
@@ -224,7 +226,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'CLOAD',
       kind: 'command',
       domain: 'storage',
-      syntax: 'CLOAD "<string>"',
+      syntax: 'CLOAD <filename>',
       description:
         'Loads a program from cassette through the 88-ACR board, matching the one-character name.',
     },
@@ -232,7 +234,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'CSAVE',
       kind: 'command',
       domain: 'storage',
-      syntax: 'CSAVE "<string>"',
+      syntax: 'CSAVE <filename>',
       description:
         'Saves the program to cassette through the 88-ACR board under a one-character name.',
     },
@@ -362,7 +364,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: '=',
       kind: 'operator',
       domain: 'numeric',
-      syntax: '<var> = <expression> | <number> = <number>',
+      syntax: '<var> = <expr> | <number> = <number>',
       description:
         'Assignment in a statement, equality in an expression. True is -1 and false is 0.',
     },
@@ -399,7 +401,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'USR',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'USR(<number>)',
+      syntax: 'USR(<addr>)',
       description:
         'Calls the machine-code routine whose address is held in the USR vector, passing the argument and returning its result.',
     },
@@ -415,7 +417,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'INP',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'INP(<number>)',
+      syntax: 'INP(<port>)',
       description:
         'Reads a byte from an 8080 I/O port (0-255). Polling the console ports for a keystroke does not work: BASIC checks them for CTRL-C between statements and takes the character first.',
     },
@@ -490,7 +492,7 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'PEEK',
       kind: 'function',
       domain: 'memory-hardware',
-      syntax: 'PEEK(<number>)',
+      syntax: 'PEEK(<addr>)',
       description:
         'The byte at a decimal address. The whole 64K is readable, including the interpreter itself.',
     },
@@ -536,21 +538,21 @@ export const altair8800Reference: BasicReferenceTableData = {
       name: 'LEFT$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'LEFT$(<string>, <number>)',
+      syntax: 'LEFT$(<string>, <length>)',
       description: 'The leftmost n characters.',
     },
     {
       name: 'RIGHT$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'RIGHT$(<string>, <number>)',
+      syntax: 'RIGHT$(<string>, <length>)',
       description: 'The rightmost n characters.',
     },
     {
       name: 'MID$',
       kind: 'function',
       domain: 'strings',
-      syntax: 'MID$(<string>, <number>[, <number>])',
+      syntax: 'MID$(<string>, <start>[, <length>])',
       description:
         'The substring starting at position n (counted from 1), of the given length or to the end. It is a function only - unlike later Microsoft BASICs it cannot be assigned to.',
     },

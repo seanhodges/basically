@@ -28,14 +28,15 @@ drawn.
 
 ### Graphics
 
-`PLOT x,y` sets a pixel — x runs 0–255 and y 0–175 from the bottom-left.
-`DRAW` draws a line by a relative offset (a third argument bends it into an
-arc), `CIRCLE` draws a circle in the current ink, and the `POINT` function
+`PLOT <x>, <y>` sets a pixel — x runs 0–255 and y 0–175 from the bottom-left.
+`DRAW <dx>, <dy>` draws a line by a relative offset — unlike most machines here,
+which draw to an absolute point — and a third argument bends it into an arc.
+`CIRCLE <x>, <y>` takes an absolute centre and a radius, and the `POINT` function
 tests whether a pixel is set.
 
 ### Sound
 
-`BEEP duration,pitch` plays a tone through the internal beeper — the duration
+`BEEP <duration>, <pitch>` plays a tone through the internal beeper — the duration
 in seconds and the pitch in semitones above or below middle C.
 
 ### Memory

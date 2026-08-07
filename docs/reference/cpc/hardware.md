@@ -25,13 +25,14 @@ space with the origin at the bottom-left, moved with `ORIGIN`.
 
 ### Colour
 
-The CPC has **27 hardware colours** (0–26). `INK p,c` assigns colour `c` to pen
-`p`; a second argument (`INK p,c1,c2`) flashes between two colours. `PEN` selects
+The CPC has **27 hardware colours** (0–26). `INK <pen>, <colour>` assigns one of them
+to a pen; a second colour (`INK <pen>, <colour>, <colour>`) flashes between the
+two. `PEN` selects
 the text ink, `PAPER` the text background and `BORDER` the surround.
 
 ### Graphics
 
-`PLOT x,y[,pen]` lights a point, `DRAW x,y[,pen]` draws a line from the last
+`PLOT <x>, <y>[, <pen>]` lights a point, `DRAW <x>, <y>[, <pen>]` draws a line from the last
 position, and `MOVE`/`DRAWR`/`MOVER` reposition or draw relatively. In BASIC 1.0
 the plotting ink is the optional third argument to `PLOT`/`DRAW` (the `GRAPHICS
 PEN`/`GRAPHICS PAPER` statements are BASIC 1.1 only and are not available on the
@@ -39,7 +40,7 @@ PEN`/`GRAPHICS PAPER` statements are BASIC 1.1 only and are not available on the
 
 ### Sound
 
-`SOUND channel,period,duration[,volume[,volenv[,toneenv[,noise]]]]` plays a tone;
+`SOUND <channel>, <period>[, <duration>[, <volume>[, <volenv>[, <toneenv>[, <noise>]]]]]` plays a tone;
 `period` is `62500 / frequency`. `ENV` and `ENT` define volume and tone
 envelopes.
 

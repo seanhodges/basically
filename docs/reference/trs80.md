@@ -10,7 +10,7 @@ import { trs80Reference } from '../../src/reference/trs80';
 
 Every command, function and operator in TRS-80 Level II BASIC.
 
-**In this reference:** [Hardware](./trs80/hardware) · [Escape codes](./trs80/escapes) · [File formats](./trs80/formats)
+**In this reference:** [Hardware](./trs80/hardware) · [Escape codes](./trs80/escapes) · [File formats](./trs80/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 

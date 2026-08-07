@@ -12,8 +12,17 @@ import {
 import { useDeepLinkParams } from '../deepLinkParams';
 import { KIND_META, KIND_ORDER } from '../kindMeta';
 import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
+import { placeholdersUsed } from '../../../../src/reference/placeholders';
 
 const props = defineProps<{ data: ReferenceTableData }>();
+
+// The argument legend, generated from the rows rather than written by hand, so a
+// page never explains a placeholder it does not use and can never fall behind the
+// data. `data.placeholders` carries the names peculiar to this machine; the shared
+// vocabulary comes from src/reference/placeholders.ts.
+const argumentLegend = computed(() =>
+  placeholdersUsed(props.data.entries, props.data.placeholders ?? []),
+);
 
 const query = ref('');
 const kind = ref<KindFilter>('all');
@@ -307,6 +316,25 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
       </tbody>
     </table>
 
+    <details v-if="argumentLegend.length" class="reftable-args">
+      <summary>Argument notation</summary>
+      <p>
+        Anything in <code>&lt;angle brackets&gt;</code> is a value you supply;
+        everything else is typed exactly as shown. <code>[</code>square
+        brackets<code>]</code> mark an optional part, <code>|</code> separates
+        alternatives, and <code>…</code> means the part before it can repeat.
+        The arguments on this page are:
+      </p>
+      <dl>
+        <template v-for="p in argumentLegend" :key="p.id">
+          <dt>
+            <code>&lt;{{ p.id }}&gt;</code>
+          </dt>
+          <dd>{{ p.meaning }}</dd>
+        </template>
+      </dl>
+    </details>
+
     <p class="reftable-count">
       Showing {{ visible.length }} of {{ data.entries.length }} keywords
     </p>
@@ -397,9 +425,15 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
   width: 1%;
   white-space: nowrap;
 }
-.reftable-name code,
-.reftable-syntax {
+.reftable-name code {
   white-space: nowrap;
+}
+/* A usage string is the one cell that can outgrow its column - the Amstrad's
+   SOUND runs to seven arguments - so it wraps where the keyword name never
+   should. */
+.reftable-syntax {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .reftable-row-active > td {
   background: var(--vp-c-brand-soft);
@@ -486,5 +520,37 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
 .reftable-count {
   color: var(--vp-c-text-2);
   font-size: 0.85rem;
+}
+
+.reftable-args {
+  margin: 1.25rem 0 0;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  font-size: 0.85rem;
+}
+.reftable-args summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--vp-c-text-2);
+}
+.reftable-args p {
+  margin: 0.6rem 0;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+.reftable-args dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.7rem;
+  margin: 0;
+}
+.reftable-args dt {
+  white-space: nowrap;
+}
+.reftable-args dd {
+  margin: 0;
+  color: var(--vp-c-text-2);
 }
 </style>
