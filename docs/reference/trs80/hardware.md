@@ -12,7 +12,7 @@ in its memory.
 
 ### Screen modes
 
-The Model I has a single 64×16 character screen. `PRINT @ n,` positions output
+The Model I has a single 64×16 character screen. `PRINT @ <cell>,` positions output
 at any of the 1024 screen cells (0–1023), and `CLS` clears the whole screen and
 homes the cursor to cell 0.
 
@@ -23,7 +23,7 @@ The TRS-80 has no colour hardware — the display is monochrome.
 ### Graphics
 
 Block graphics divide each character cell into a 2×3 group, giving a 128×48
-grid: `SET(x,y)` lights a block, `RESET(x,y)` clears it and the `POINT(x,y)`
+grid: `SET(<x>, <y>)` lights a block, `RESET(<x>, <y>)` clears it and the `POINT(<x>, <y>)`
 function tests one — the classic tools for game screens and collision
 detection. The same sextant patterns can be printed directly as characters
 (see the [escape codes](./escapes) page).
@@ -31,7 +31,7 @@ detection. The same sextant patterns can be printed directly as characters
 ### Sound
 
 The Model I has no sound hardware — games that made sound pulsed the cassette
-output port (`OUT 255,n`) into an external amplifier.
+output port (`OUT 255, <byte>`) into an external amplifier.
 
 ### Memory
 

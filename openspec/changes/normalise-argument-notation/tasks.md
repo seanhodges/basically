@@ -117,7 +117,7 @@ Batch by domain to keep each diff reviewable.
 
 ## 7. Docs prose
 
-- [ ] 7.1 Sweep the ~18 argument-bearing code spans: `atom/hardware.md` (`MOVE x,y`,
+- [x] 7.1 Sweep the ~18 argument-bearing code spans: `atom/hardware.md` (`MOVE x,y`,
       `DRAW x,y`, `PLOT mode,x,y`), `bbc/hardware.md` (`COLOUR n`, `GCOL mode,n`,
       `PLOT k,x,y`, `SOUND channel,amplitude,pitch,duration`), `cpc/hardware.md`
       (`INK p,c`, `PLOT x,y[,pen]`, `DRAW x,y[,pen]`, `SOUND channel,period,…`,
@@ -126,14 +126,18 @@ Batch by domain to keep each diff reviewable.
       `BEEP duration,pitch`). `commodore`, `altair8800`, `zx80`, `zx81` have none.
       Concrete literals (`MODE 0`, `CLEAR 32767`, `OUT &7F00,&C0+n`, `RAND USR 16514`)
       stay literal per R10.
-- [ ] 7.2 Add an "arguments and their order" theme to `docs/reference/porting-basics.md`:
+- [x] 7.2 Add an "arguments and their order" theme to `docs/reference/porting-basics.md`:
       differing argument counts, a leading action argument on the Acorn machines only,
       reordered arguments (`SOUND` puts duration last on the BBC and third on the
       Amstrad; the Spectrum's `BEEP` puts it first), optional arguments the target lacks,
       and parenthesisation — cross-linking the comparison's existing bracketing bucket.
       Verify every claim against the reference data and the hardware pages.
-- [ ] 7.3 Fix the sentence in `docs/reference/file-formats.md` that mixes `NN` and `xx`
-      for escape placeholders.
+- [x] 7.3 ~~Fix the sentence in `docs/reference/file-formats.md` that mixes `NN` and
+      `xx` for escape placeholders.~~ **Not a defect — do not change.** The two spell
+      different things: `{0xNN}` takes a raw byte as *two* hex digits, `{$xx}` as *one
+      or two* (see the `raw` rows in `src/reference/escapes/bbc.ts` and
+      `escapes/commodore.ts`). Unifying them would delete a real difference, which is
+      exactly what R0 exists to prevent.
 
 ## 8. Optional adjacent fix
 

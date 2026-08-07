@@ -36,8 +36,8 @@ Higher-resolution modes consume more RAM — in graphics modes the screen fills
 ### Colour
 
 Text and graphics use **logical colours**, chosen from eight actual colours
-plus eight flashing pairs. `COLOUR n` sets the text colour (add 128 for the
-text background); `GCOL mode,n` sets the graphics colour together with a plot
+plus eight flashing pairs. `COLOUR <colour>` sets the text colour (add 128 for the
+text background); `GCOL <action>, <colour>` sets the graphics colour together with a plot
 action (0 plot, 1 OR, 2 AND, 3 EOR, 4 invert). `VDU 19` remaps a logical
 colour onto any actual colour.
 
@@ -45,14 +45,14 @@ colour onto any actual colour.
 
 All graphics modes share one logical coordinate space — 0–1279 by 0–1023 with
 the origin at the bottom-left — regardless of the pixel resolution. `MOVE`
-positions the graphics cursor, `DRAW` draws a line to a point, and `PLOT k,x,y`
+positions the graphics cursor, `DRAW` draws a line to a point, and `PLOT <action>, <x>, <y>`
 is the general primitive whose first argument selects the action (line, point,
 filled triangle and so on). `CLG` clears the graphics area to the graphics
 background colour.
 
 ### Sound
 
-`SOUND channel,amplitude,pitch,duration` plays a note on one of four channels —
+`SOUND <channel>, <amplitude>, <pitch>, <duration>` plays a note on one of four channels —
 channel 0 is noise, 1–3 are tone. The amplitude runs 0 to −15, or names one of
 the four `ENVELOPE`s, each defined by 14 parameters shaping pitch and amplitude
 over time.

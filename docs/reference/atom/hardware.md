@@ -23,9 +23,9 @@ point rather than choosing a colour (the Atom has no colour list like the BBC).
 
 ### Graphics
 
-`MOVE x,y` positions the graphics cursor without drawing, `DRAW x,y` draws a
+`MOVE <x>, <y>` positions the graphics cursor without drawing, `DRAW <x>, <y>` draws a
 line from it (drawing to the cursor's own point plots a single dot), and
-`PLOT mode,x,y` plots with a mode that controls whether the point is set,
+`PLOT <action>, <x>, <y>` plots with an action that controls whether the point is set,
 cleared or inverted. The origin is the bottom-left of the screen.
 
 ### Sound
