@@ -2,6 +2,10 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { MemoryMap } from '../../../../src/dialects/types';
 import type { MapWriteSite } from '../../../../src/components/MemoryMapView';
+// Pure arithmetic, and deliberately not from MemoryMapView itself: that module
+// is React, and importing it here statically would put React on every page of
+// the site - the thing the dynamic import below exists to prevent.
+import { zoomToFit } from '../../../../src/components/memoryScale';
 
 /**
  * The porting guide's memory-layout section: both machines' maps, drawn against
@@ -33,10 +37,37 @@ const props = defineProps<{
   notation: 'hex' | 'dec';
 }>();
 
+/** The zoom control's range, in multiples of the fitted zoom: 1 is the whole
+ *  map at the height of its pane, 24 is twenty-four times that. */
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 24;
 
-const zoom = ref(MIN_ZOOM);
+/**
+ * The zoom at which the map being ported *from* is exactly the height of the
+ * pane holding it, measured once the panes have been drawn.
+ *
+ * The source map is what it is measured against - the target follows the same
+ * zoom, as it must for the two to be one comparison, and every map covers the
+ * same address space (`src/dialects/memoryMap.test.ts`), so fitting one fits
+ * both. Until the measurement arrives it is 1, the zoom the maps were drawn at
+ * before they were fitted to anything, so a pane that never lays out (a
+ * pre-rendered page, a hidden tab) still draws a whole map.
+ */
+const fitZoom = ref(1);
+
+/**
+ * The zoom, counted in fitted panes rather than in pixels-per-byte: level 1
+ * fills the pane exactly, level 3 draws three panes' worth of column.
+ *
+ * It is the reader's setting, and the fit is the pane's - keeping them apart is
+ * what lets the maps be re-fitted when the section is resized without moving
+ * the reader off the addresses they were looking at.
+ */
+const zoomLevel = ref(MIN_ZOOM);
+
+/** What the maps are actually drawn at. */
+const zoom = computed(() => zoomLevel.value * fitZoom.value);
+
 const notation = ref<'hex' | 'dec'>(props.notation);
 const showDetails = ref(false);
 const scrollTop = ref(0);
@@ -50,10 +81,31 @@ const tabbed = ref(false);
 const host = ref<HTMLElement | null>(null);
 const ready = ref(false);
 
-const clamp = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
-const nudge = (delta: number) => {
-  zoom.value = clamp(zoom.value + delta);
+const clamp = (level: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, level));
+const setLevel = (level: number) => {
+  zoomLevel.value = clamp(level);
 };
+const nudge = (delta: number) => setLevel(zoomLevel.value + delta);
+
+/**
+ * Fit the maps to the pane they are drawn in.
+ *
+ * The pane's height is a matter of layout - it depends on the CSS, on whether
+ * the panes are tabbed, and inside the IDE on how wide the reader has dragged
+ * the documentation drawer - so it is measured rather than assumed. The
+ * scrolling column is the view's own element and carries a CSS-module class, so
+ * it is matched by substring the way `MemoryMapPanel` matches it in the app.
+ *
+ * A hidden pane (the inactive tab) measures zero and is skipped: it has no
+ * layout to read, and the fit it would produce is not one.
+ */
+function fitToPane() {
+  const column = host.value?.querySelector<HTMLElement>('[class*="mapScroll"]');
+  const px = column?.clientHeight ?? 0;
+  if (px <= 0) return;
+  const fit = zoomToFit(props.fromMap.addressSpace, px);
+  if (Math.abs(fit - fitZoom.value) > 0.001) fitZoom.value = fit;
+}
 
 /** The source machine's notation is what the section opens in; a machine chosen
  *  later re-seeds it, unless the reader has already made the choice their own. */
@@ -98,6 +150,7 @@ let root: ReactRoot | null = null;
 let renderPair: (() => void) | null = null;
 let media: MediaQueryList | null = null;
 let onMedia: (() => void) | null = null;
+let sizeObserver: ResizeObserver | null = null;
 
 onMounted(async () => {
   // Measured in this frame, which inside the IDE is the documentation drawer -
@@ -151,8 +204,10 @@ onMounted(async () => {
         onScrollChange: (top: number) => {
           scrollTop.value = top;
         },
+        // Pinch and Ctrl-wheel arrive as a new absolute zoom, which is the
+        // reader's level once the pane's own fit is divided back out of it.
         onZoomGesture: (next: (z: number) => number) => {
-          zoom.value = clamp(next(zoom.value));
+          setLevel(next(zoom.value) / fitZoom.value);
         },
       }),
     );
@@ -160,6 +215,17 @@ onMounted(async () => {
 
   ready.value = true;
   renderPair();
+
+  // The maps open at the height of the pane holding them, and that height is
+  // only known once React has drawn them - so the fit is taken from the DOM,
+  // and taken again whenever the section is resized (the drawer dragged wider,
+  // the panes becoming tabs). Observing the host covers the first draw too: it
+  // is empty when the observation starts and has the panes in it a frame later.
+  if (typeof ResizeObserver !== 'undefined') {
+    sizeObserver = new ResizeObserver(fitToPane);
+    sizeObserver.observe(host.value);
+  }
+  fitToPane();
 });
 
 // A React root does not re-render itself when Vue's state moves, so everything
@@ -184,6 +250,11 @@ watch(
   () => renderPair?.(),
 );
 
+// Tabbing moves each machine's name out of its pane and into a tab, so the pane
+// holds a taller column than it did: re-fit once the island has redrawn, which
+// React does a frame after the state that caused it moved.
+watch([tabbed, active], () => requestAnimationFrame(fitToPane));
+
 // A new pair is a new comparison: the reader's place in the old one says nothing
 // about this one, so selection goes back to nothing. Zoom, notation and scroll
 // are how the reader is reading, not what they are reading, and stay.
@@ -199,6 +270,8 @@ onUnmounted(() => {
   root?.unmount();
   root = null;
   renderPair = null;
+  sizeObserver?.disconnect();
+  sizeObserver = null;
   if (media && onMedia) media.removeEventListener('change', onMedia);
 });
 </script>
@@ -239,7 +312,7 @@ onUnmounted(() => {
         <button
           type="button"
           class="mm-zoom-btn"
-          :disabled="zoom <= MIN_ZOOM"
+          :disabled="zoomLevel <= MIN_ZOOM"
           aria-label="Zoom out"
           @click="nudge(-2)"
         >
@@ -251,16 +324,14 @@ onUnmounted(() => {
           :min="MIN_ZOOM"
           :max="MAX_ZOOM"
           :step="1"
-          :value="zoom"
+          :value="zoomLevel"
           aria-label="Zoom level"
-          @input="
-            zoom = clamp(Number(($event.target as HTMLInputElement).value))
-          "
+          @input="setLevel(Number(($event.target as HTMLInputElement).value))"
         />
         <button
           type="button"
           class="mm-zoom-btn"
-          :disabled="zoom >= MAX_ZOOM"
+          :disabled="zoomLevel >= MAX_ZOOM"
           aria-label="Zoom in"
           @click="nudge(2)"
         >
@@ -300,21 +371,13 @@ onUnmounted(() => {
       <p v-if="!ready" class="mm-placeholder" aria-hidden="true"></p>
     </div>
 
-    <p class="mm-hint">
-      <template v-if="tabbed">
-        Both maps are drawn to the same address scale, so switching between them
-        shows the same addresses on the other machine.
-      </template>
-      <template v-else>
-        Both maps are drawn to the same address scale, so a position in one is
-        the same address in the other.
-      </template>
-      Zoom in for each machine's own sub-regions and an address scale.
-      <template v-if="sites.length">
-        Each amber line marks an address your program writes to — on
-        {{ fromName }} where the program put it, and on {{ toName }} where it
-        would land.
-      </template>
+    <!-- Only the program's own marks are explained: nothing else on the maps
+         needs words, and a hint that describes the picture is one more thing to
+         read before looking at it. -->
+    <p v-if="sites.length" class="mm-hint">
+      Each amber line marks an address your program writes to — on
+      {{ fromName }} where the program put it, and on {{ toName }} where it
+      would land.
     </p>
   </div>
 </template>

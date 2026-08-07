@@ -12,6 +12,29 @@
 /** Roughly one tick per this many pixels of band height. */
 const PX_PER_TICK = 44;
 
+/** Pixels per byte at zoom 1, which sets how tall a column of memory draws. */
+export const PX_PER_BYTE = 0.0055;
+
+/**
+ * The height in pixels a proportional column covering `bytes` bytes draws at
+ * `zoom` - the sum of its bands, which in that mode is exactly its share of the
+ * address space with nothing between them (see `proportional` in
+ * `MemoryMapView`).
+ */
+export function columnHeight(bytes: number, zoom: number): number {
+  return bytes * PX_PER_BYTE * zoom;
+}
+
+/**
+ * The zoom at which such a column exactly fills `heightPx` pixels - the inverse
+ * of {@link columnHeight}, and what the porting guide opens at so the map it is
+ * being read against is the height of the pane holding it rather than a short
+ * column with dead space under it.
+ */
+export function zoomToFit(bytes: number, heightPx: number): number {
+  return heightPx / (bytes * PX_PER_BYTE);
+}
+
 /**
  * Round a raw step up to the nearest 1, 2 or 5 times a power of ten, so ticks
  * land on human-readable addresses (…, 1000, 2000, 5000, 10000, …).

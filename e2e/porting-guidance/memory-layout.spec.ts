@@ -56,6 +56,19 @@ test('both machines are drawn, on one shared address scale', async ({
     els.map((e) => e.querySelectorAll('button').length),
   );
   expect(bandCounts[0]).not.toBe(bandCounts[1]);
+
+  // And the section opens at the zoom that fills its panes: the map is the
+  // height of the box holding it rather than a short column with dead space
+  // under it. Measured against the scrolling column's own height, which is a
+  // matter of layout and so can only be asserted in a browser.
+  const fitted = await panes(page)
+    .first()
+    .locator('[class*="mapScroll"]')
+    .evaluate((el) => ({
+      column: Math.round(el.firstElementChild!.getBoundingClientRect().height),
+      viewport: el.clientHeight,
+    }));
+  expect(Math.abs(fitted.column - fitted.viewport)).toBeLessThanOrEqual(1);
 });
 
 test('one set of controls drives both maps', async ({ page }) => {

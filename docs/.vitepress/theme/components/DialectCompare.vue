@@ -691,13 +691,18 @@ interface LegendItem {
  * pair actually uses. Nothing else says why one group is tinted red and the
  * next has a green edge, and a key listing colours the pair does not use would
  * be its own small puzzle - so each entry is conditioned on the same thing the
- * template renders it from. The highlighted fact rows are not keyed: the table
- * they sit in has a "show unchanged rows" tick right above it, which says what
- * the highlight means better than a swatch does.
+ * template renders it from.
+ *
+ * Each label is the group badge's own words with the target's name dropped: the
+ * key names four colours on one line and the badge beside every group heading
+ * says which machine is meant, so repeating "in C64" four times only costs the
+ * width that keeps the key from wrapping into a list.
+ *
+ * The fact table's highlighted rows are not keyed, and no longer share a colour
+ * with anything here: the table has a "show unchanged rows" tick right above it,
+ * which says what its highlight means better than a swatch does.
  */
 const legend = computed<LegendItem[]>(() => {
-  const t = target.value;
-  if (!t) return [];
   const groups = visibleCapabilities.value;
   const losing = (
     s: CapabilitySection,
@@ -708,25 +713,25 @@ const legend = computed<LegendItem[]>(() => {
     items.push({
       key: 'none',
       className: 'cmp-key-none',
-      label: `Nothing like it in ${t.name}`,
+      label: 'Nothing like it',
     });
   if (groups.some((s) => losing(s, 'partial')))
     items.push({
       key: 'partial',
       className: 'cmp-key-partial',
-      label: `Only partly covered in ${t.name}`,
+      label: 'Partly covered',
     });
   if (groups.some((s) => losing(s, 'full')))
     items.push({
       key: 'full',
       className: 'cmp-key-full',
-      label: `Covered in ${t.name} under other names`,
+      label: 'Under other names',
     });
   if (groups.some((s) => !s.entries.length))
     items.push({
       key: 'gain',
       className: 'cmp-key-gain',
-      label: `Nothing to replace — ${t.name} only adds here`,
+      label: 'Nothing to replace',
     });
   return items;
 });
@@ -747,12 +752,12 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'language-hardware',
       'Language & hardware',
     ],
-    [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
     [
       g.pairNotes.length + g.targetNotes.length > 0,
       'guidance',
       'Before you start',
     ],
+    [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
     [
       visibleFalseFriends.value.length > 0,
       'false-friends',
@@ -1069,26 +1074,6 @@ watch(from, requestVocabulary);
       </section>
 
       <!--
-        The two machines' memory laid out side by side, right after the table
-        whose memory rows it completes. This is where the addresses are: the
-        table used to carry a screen base and a program start, which the maps
-        supersede - four numbers against a picture drawn to scale.
-      -->
-      <section v-if="memoryPair" id="memory-layout" class="cmp-section">
-        <h2>Memory layout</h2>
-        <MemoryMapPair
-          :from-name="memoryPair.fromName"
-          :to-name="memoryPair.toName"
-          :from-map="memoryPair.fromMap"
-          :to-map="memoryPair.toMap"
-          :from-by-indirection="memoryPair.fromByIndirection"
-          :to-by-indirection="memoryPair.toByIndirection"
-          :sites="memoryPair.sites"
-          :notation="memoryPair.notation"
-        />
-      </section>
-
-      <!--
         One list of prose guidance, not two: the notes for this direction (the
         few pairs close enough, or trap-laden enough, to warrant them) lead,
         then what to watch for on the target whatever you arrive from.
@@ -1114,22 +1099,24 @@ watch(from, requestVocabulary);
       </section>
 
       <!--
-        The colour key, once the reader has been told what to watch for and
-        immediately above the graded sections that use the colours: one row, so
-        it costs a glance rather than a paragraph, and only the colours this
-        pair puts on the page.
+        The two machines' memory laid out side by side, under the prose that
+        says what to watch for on the target. This is where the addresses are:
+        the fact table used to carry a screen base and a program start, which
+        the maps supersede - four numbers against a picture drawn to scale.
       -->
-      <div v-if="legend.length" class="cmp-legend">
-        <span class="cmp-legend-title">Colour key</span>
-        <span v-for="item in legend" :key="item.key" class="cmp-legend-item">
-          <span
-            class="cmp-legend-swatch"
-            :class="item.className"
-            aria-hidden="true"
-          />
-          {{ item.label }}
-        </span>
-      </div>
+      <section v-if="memoryPair" id="memory-layout" class="cmp-section">
+        <h2>Memory layout</h2>
+        <MemoryMapPair
+          :from-name="memoryPair.fromName"
+          :to-name="memoryPair.toName"
+          :from-map="memoryPair.fromMap"
+          :to-map="memoryPair.toMap"
+          :from-by-indirection="memoryPair.fromByIndirection"
+          :to-by-indirection="memoryPair.toByIndirection"
+          :sites="memoryPair.sites"
+          :notation="memoryPair.notation"
+        />
+      </section>
 
       <!--
         Before the lists of what to change: these are the only differences that
@@ -1192,6 +1179,22 @@ watch(from, requestVocabulary);
           <input v-model="showAdditions" type="checkbox" />
           Show what {{ target.name }} adds that the program has not used
         </label>
+        <!--
+          The colour key, inside the section whose groups are graded by colour
+          and immediately above them: one row, so it costs a glance rather than
+          a paragraph, and only the colours this pair puts on the page.
+        -->
+        <div v-if="legend.length" class="cmp-legend">
+          <span class="cmp-legend-title">Colour key</span>
+          <span v-for="item in legend" :key="item.key" class="cmp-legend-item">
+            <span
+              class="cmp-legend-swatch"
+              :class="item.className"
+              aria-hidden="true"
+            />
+            {{ item.label }}
+          </span>
+        </div>
         <div
           v-for="s in visibleCapabilities"
           :key="s.domain ?? 'other'"
@@ -1434,7 +1437,10 @@ watch(from, requestVocabulary);
           because the work is different in kind: nothing in the program's text
           changes, so there is nothing to search for - the reader has to be told.
         -->
-        <div v-if="escapeRechecked.length" class="cmp-group cmp-group-esc">
+        <div
+          v-if="escapeRechecked.length"
+          class="cmp-group cmp-group-esc cmp-group-recheck"
+        >
           <h3 class="cmp-group-head">
             Same spelling, different meaning
             <span class="cmp-group-count">{{ escapeRechecked.length }}</span>
@@ -1630,14 +1636,17 @@ watch(from, requestVocabulary);
   cursor: pointer;
   font-size: 0.9rem;
 }
-/* The colour key: one horizontal run above the sections, wrapping on narrow
-   screens rather than becoming a stacked list that outgrows what it explains. */
+/* The colour key: one horizontal run above the graded groups it explains, and
+   one line however narrow the page gets. A key that wraps into a stacked list
+   outgrows what it explains, so the labels are short enough to fit and the run
+   scrolls sideways rather than folding if they ever do not. */
 .cmp-legend {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.35rem 1rem;
-  margin: 1.25rem 0 0;
+  gap: 0.75rem;
+  margin: 0.25rem 0 0;
+  overflow-x: auto;
   font-size: 0.8rem;
   color: var(--vp-c-text-2);
 }
@@ -1645,28 +1654,36 @@ watch(from, requestVocabulary);
   font-weight: 600;
   color: var(--vp-c-text-1);
 }
+.cmp-legend-item,
+.cmp-legend-title {
+  white-space: nowrap;
+}
 .cmp-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
-/* Each swatch carries the treatment it explains: a left bar for the capability
-   groups, a filled block for the highlighted fact rows. */
+/* Each swatch carries the treatment it explains: the capability group's own
+   left bar, in the group's own colour. */
 .cmp-legend-swatch {
+  flex: none;
   width: 1.1rem;
   height: 0.9rem;
   border-radius: 2px;
   background: var(--vp-c-bg-soft);
 }
+/* One colour, one meaning - the four run from "you cannot avoid this work" to
+   "this is not work at all", and no other colour on the page repeats any of
+   them. */
 .cmp-key-none {
   border-left: 3px solid var(--vp-c-red-1);
   background: var(--vp-c-red-soft);
 }
 .cmp-key-partial {
-  border-left: 3px solid var(--vp-c-red-1);
+  border-left: 3px solid var(--vp-c-yellow-1);
 }
 .cmp-key-full {
-  border-left: 3px solid var(--vp-c-yellow-1);
+  border-left: 3px solid var(--vp-c-purple-1);
 }
 .cmp-key-gain {
   border-left: 3px solid var(--vp-c-green-1);
@@ -1712,8 +1729,12 @@ watch(from, requestVocabulary);
   color: var(--vp-c-text-2);
   font-weight: 600;
 }
+/* The rows that differ, when the unchanged ones are shown alongside them. A
+   plain raised tint rather than a colour: amber is what the capability groups
+   use for "only partly covered", and one colour meaning two things across one
+   page is worse than a highlight that is merely legible. */
 .cmp-facts .cmp-changed td {
-  background: var(--vp-c-warning-soft, var(--vp-c-yellow-soft));
+  background: var(--vp-c-default-soft, var(--vp-c-bg-soft));
 }
 .cmp-list {
   list-style: none;
@@ -1729,14 +1750,11 @@ watch(from, requestVocabulary);
   border-left: 3px solid transparent;
   border-bottom: 1px solid var(--vp-c-divider);
 }
-.cmp-remove li {
-  border-left-color: var(--vp-c-red-1);
-}
-.cmp-add li {
-  border-left-color: var(--vp-c-green-1);
-}
+/* On both machines, written differently - the same verdict the capability
+   groups draw purple, so it is the same purple here rather than a colour of
+   its own. */
 .cmp-change li {
-  border-left-color: var(--vp-c-yellow-1);
+  border-left-color: var(--vp-c-purple-1);
   flex-direction: column;
   align-items: stretch;
 }
@@ -1755,20 +1773,22 @@ watch(from, requestVocabulary);
   color: var(--vp-c-text-2);
   font-size: 0.75rem;
 }
-/* One rule of the target language, stated once above the per-keyword rows. */
+/* One rule of the target language, stated once above the per-keyword rows.
+   Purple, like everything else that says "on both machines, written
+   differently". */
 .cmp-change-rule {
   margin: 0.5rem 0 0;
   padding: 0.4rem 0.6rem;
-  border-left: 3px solid var(--vp-c-yellow-1);
+  border-left: 3px solid var(--vp-c-purple-1);
   background: var(--vp-c-bg-soft);
   font-size: 0.85rem;
   line-height: 1.9;
 }
 /* One capability's worth of lost commands: a heading and a run of names,
-   rather than a row per command. Red left edge to match .cmp-remove, which
-   this section no longer uses. Red is the "needs your attention" end of the
-   scale: the groups whose commands the target cannot replace outright keep it,
-   and the ones it does cover step down to amber. */
+   rather than a row per command. The edge grades the work, one colour per
+   verdict: red where the target cannot replace the commands at all, amber
+   where it covers the ground only partly, purple where it covers it under
+   other names, green where the port loses nothing here. */
 .cmp-group {
   margin: 0.75rem 0;
   padding: 0.5rem 0 0.5rem 0.7rem;
@@ -1779,14 +1799,14 @@ watch(from, requestVocabulary);
   background: var(--vp-c-red-soft);
 }
 /* Capabilities the target only partly covers - still work you have to think
-   about, so they keep the red edge and are told apart by the badge. */
+   about, but not the same work, so amber rather than a second red. */
 .cmp-group.cmp-group-partial {
-  border-left-color: var(--vp-c-red-1);
-}
-/* Capabilities the target covers under other names - the least of the work
-   here, so amber rather than red. */
-.cmp-group.cmp-group-covered {
   border-left-color: var(--vp-c-yellow-1);
+}
+/* Capabilities the target covers under other names - a translation rather than
+   a rewrite, which is what purple means everywhere on this page. */
+.cmp-group.cmp-group-covered {
+  border-left-color: var(--vp-c-purple-1);
 }
 /* Capabilities the port loses nothing from - news, not work, so they read as
    an addition rather than a loss and sit after the groups that cost something. */
@@ -1808,9 +1828,16 @@ watch(from, requestVocabulary);
   color: var(--vp-c-text-1);
   font-weight: 600;
 }
-/* A control-code category: the same group shape as a capability. */
+/* A control-code category: the same group shape as a capability, and the same
+   red edge, meaning the same thing - these have to be rewritten. */
 .cmp-group-esc {
   margin: 0.5rem 0;
+}
+/* Except the codes that survive the port and mean something else at the other
+   end. Nothing to rewrite, so no red: like the same-word-different-meaning
+   traps, its heading is what says what it is. */
+.cmp-group-esc.cmp-group-recheck {
+  border-left-color: var(--vp-c-divider);
 }
 .cmp-group-esc .cmp-group-head {
   font-size: 0.85rem;
@@ -1959,8 +1986,11 @@ watch(from, requestVocabulary);
   font-weight: 500;
 }
 /* Same word, different meaning: the only differences here that fail silently. */
+/* The traps section takes no colour of its own: amber is what the capability
+   groups mean by "only partly covered", and the heading and its hint say what
+   this section is better than a tint would. */
 .cmp-traps h2 {
-  color: var(--vp-c-warning-1, var(--vp-c-text-1));
+  color: var(--vp-c-text-1);
 }
 .cmp-change-detail {
   display: flex;

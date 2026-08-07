@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { MemoryMap } from '../dialects/types';
 import { memoryBands, type Band } from './memoryBands';
-import { addressTicks } from './memoryScale';
+import { addressTicks, columnHeight } from './memoryScale';
 import { bandLayout, type BandGeometry } from './memoryActivity/bandLayout';
 import styles from './MemoryMapView.module.css';
 
@@ -28,8 +28,11 @@ import styles from './MemoryMapView.module.css';
  * MemoryMapViewProps.overlay} rather than being drawn here.
  */
 
-/** Pixels-per-byte at zoom 1, and the smallest a band may shrink to. */
-const PX_PER_BYTE = 0.0055;
+/** The smallest a band may shrink to, outside proportional mode. The pixels-
+ *  per-byte the height is derived from lives in `./memoryScale`, with the
+ *  address scale drawn against it - the porting guide reads it from there to
+ *  work out the zoom that fills its panes, and cannot import this module
+ *  without pulling React into every documentation page. */
 const MIN_BAND_PX = 26;
 /** Gap between bands, in px. Mirrors the `gap` on `.map` in the CSS module so an
  *  overlay's address→pixel mapping lines up with the rendered bands.
@@ -200,11 +203,11 @@ export function MemoryMapView({
     sites.filter((s) => s.address >= start && s.address <= end);
 
   // Proportional drops the legibility floor and the gap, so the column's height
-  // is exactly `addressSpace * PX_PER_BYTE * zoom` on every machine and two of
+  // is exactly `columnHeight(addressSpace, zoom)` on every machine and two of
   // them can be read straight across. See `proportional` on the props.
   const gap = proportional ? 0 : GAP_PX;
   const bandHeight = (b: Band) => {
-    const exact = (b.end - b.start + 1) * PX_PER_BYTE * zoom;
+    const exact = columnHeight(b.end - b.start + 1, zoom);
     return proportional ? exact : Math.max(MIN_BAND_PX, exact);
   };
 
