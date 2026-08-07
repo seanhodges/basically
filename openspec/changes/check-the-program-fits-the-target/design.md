@@ -21,7 +21,8 @@ a pure comparison exactly as the vocabulary already is.
 - Report the one failure mode a zero-difference port can still hit.
 - Measure the program with the target's own tokenizer, because tokenized size
   is not portable between machines.
-- One definition of the 80%/95% budget thresholds, shared with the status bar.
+- One meaning for the 80%/95% budget thresholds across the app, held by a
+  crosscheck where the bundle boundary forbids sharing the definition.
 - Degrade silently where there is no program, as the other narrowed findings do.
 
 **Non-Goals**
@@ -101,21 +102,60 @@ is being held back, never pretend to completeness.
 `tokenize` collects errors rather than throwing, per the project's
 errors-not-throws convention, so this needs no defensive wrapping.
 
-### The thresholds live once, in `src/reference/ramBudget.ts`
+### A lower bound may only support a negative verdict
 
-`ramSeverity` (≥80% warn, ≥95% crit) currently lives in
-`src/app/useProgramStats.ts`, which imports React and the store and so cannot be
-read from `src/reference/`. The pure part — the percentage and the two
-thresholds — moves to a new `src/reference/ramBudget.ts` that imports nothing;
-`useProgramStats.ts` reads it, keeping its own exported surface, and the guide's
-fit calculation reads the same module.
+Measured rather than assumed: a tokenizer that cannot express a line drops the
+**whole line**, not the offending character. A two-line ZX81 program measures 19
+bytes clean and 10 bytes with one line unstorable, and a single-line one measures
+0. So a lower bound is not a near-miss — it can understate by any amount.
 
-Direction matters: `src/app/` → `src/reference/` is an existing dependency
-(`src/ai/portReport.ts` already reads reference data), while
-`src/reference/` → `src/app/` would invert the layering and put a module the
-docs bundle pulls in under a folder full of React. A colocated test pins that
-the status bar and the guide classify the same percentage identically, so the
-two cannot drift back apart.
+That makes one wording unsafe. A lower bound under the budget cannot be reported
+as fitting, because the unmeasured remainder is exactly the part that would push
+it over; a lower bound *over* the budget is still definitive, since the real
+figure can only be larger. The verdicts are therefore:
+
+```
+  bytes > free                    over          (definitive, lower bound or not)
+  lower bound, bytes ≤ free       at least N    (cannot claim it fits)
+  complete, ≥95% of free          no room left
+  complete, ≥80% of free          close to the limit
+  complete, under 80%             fits
+```
+
+`at least N` is reported neutrally rather than in the green a fitting program
+gets: the colour is read before the words, and a green badge over an
+understatement is the one outcome worse than saying nothing.
+
+Where the target could store none of the program at all — a lower bound of zero —
+there is no fit to report and the finding is absent. "At least 0 bytes" is not a
+finding, and the differences that made it zero are reported by the rest of the
+page.
+
+### The thresholds are restated across the bundle boundary, and pinned
+
+`ramSeverity` (≥80% warn, ≥95% crit) lives in `src/app/useProgramStats.ts`, which
+imports React and the store and so cannot be read from `src/reference/`. The
+obvious fix — move the pure part into the reference tree and import it from the
+app — is forbidden, and deliberately: `eslint.config.js` bans every static import
+from `src/**` into `src/reference/**`, because that tree is ~12,000 lines of
+tables reached by dynamic import so it lands in chunks of its own. One static
+import puts the lot back into the initial download and nothing fails, "so it
+fails here instead". A leaf module in that tree would probably tree-shake, and
+relying on that is exactly what the rule refuses to do.
+
+Inverting it — the reference tree importing a leaf under `src/app/` — would be
+lint-clean, but it breaks `compare.ts`'s own stated invariant (sibling reference
+data only) and puts a module the docs bundle pulls in inside a folder full of
+React, one edit away from reaching the store.
+
+So the figures are **restated** on the reference side and pinned by a test that
+imports both. Not a workaround: it is the arrangement this repo already runs on
+one boundary over, where `src/reference/machines.ts` restates what the registry
+knows and `machines-crosscheck.test.ts` holds it, and `facts.ts` restates each
+dialect's hardware for `facts-crosscheck.test.ts` to hold. Vitest runs in node,
+where importing both sides costs nothing. The test asserts the same budget
+arithmetic, the same classification at every percentage from 0 to 100, and that
+the guide's fit finding grades as the editor does.
 
 ### The finding is per machine, and only where there is a program
 

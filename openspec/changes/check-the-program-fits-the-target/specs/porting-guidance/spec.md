@@ -24,6 +24,15 @@ reported, measured from what the target can store and stated as a lower bound. W
 the target cannot express is reported by the comparison's other findings and is not
 itself a failure to fit.
 
+A size known only as a lower bound SHALL NOT be reported as fitting, however far
+under the machine's memory it falls: what could not be measured is precisely what
+would add to it. It SHALL be reported as being at least that size. A lower bound
+that already exceeds the machine's memory SHALL be reported as not fitting, that
+conclusion being safe in the direction the doubt runs.
+
+Where the target machine could store none of the program at all, nothing SHALL be
+reported about fit.
+
 The point at which the comparison calls the program close to the limit, and the
 point at which it calls it too large, SHALL be the same points at which the editor
 reports a program as close to or over its budget, so that one proportion of a
@@ -71,6 +80,25 @@ or a program that cannot be read — nothing SHALL be reported about fit.
   store
 - **THEN** a size is still reported, measured from what the target can store and
   stated as a lower bound, rather than the fit being left unreported
+
+#### Scenario: A lower bound that has not yet reached the limit
+
+- **WHEN** the size is known only as a lower bound and falls under the target
+  machine's free program memory
+- **THEN** it is reported as the program being at least that size, and is not
+  reported as fitting
+
+#### Scenario: A lower bound that already exceeds the limit
+
+- **WHEN** the size is known only as a lower bound and already exceeds the target
+  machine's free program memory
+- **THEN** it is reported as not fitting, the doubt running only towards a larger
+  program
+
+#### Scenario: A program the target can store none of
+
+- **WHEN** the target machine could store no part of the program
+- **THEN** nothing is reported about fit
 
 #### Scenario: Reading the comparison with no program
 

@@ -379,6 +379,49 @@ export function programVocabulary(
   };
 }
 
+/**
+ * What the program takes on the machine it is being ported *to*.
+ *
+ * Measured with the target's own tokenizer, because a program's stored size is
+ * not portable: one six-line program is 50 bytes on a ZX80, 71 on the
+ * Microsoft-derived machines, 80 on the Sinclair machines (which keep a
+ * five-byte binary form after every numeric literal) and 88 on a CPC. The
+ * guide's fit report would be wrong by a quarter if it reused the source
+ * machine's count.
+ */
+export interface ProgramSize {
+  /** The machine this size answers for. The guide ignores a size for another. */
+  dialectId: string;
+  /** Bytes the program occupies in that machine's program area. */
+  bytes: number;
+  /** False where the target's tokenizer objected to any of the program. */
+  clean: boolean;
+}
+
+/**
+ * What the program measures on `target`, or null when there is no target to
+ * measure it on.
+ *
+ * A port normally carries commands the target has no keyword for and characters
+ * it has no glyph for - that is what the rest of the porting guide is about - so
+ * the target's tokenizer reporting errors is the expected case here and not a
+ * reason to withhold the figure. The program is sized from whatever tokenized and
+ * `clean` is false, which the guide renders as a lower bound: the real program
+ * can only be larger once those differences are dealt with.
+ *
+ * Suppressing the size on error would withhold the finding exactly when it
+ * matters most - a 40KB program aimed at a 3,583-byte machine is unlikely to
+ * tokenize cleanly there.
+ */
+function programSize(
+  source: string,
+  target: Dialect | undefined,
+): ProgramSize | null {
+  if (!target) return null;
+  const { byteSize, errors } = target.tokenize(source);
+  return { dialectId: target.id, bytes: byteSize, clean: errors.length === 0 };
+}
+
 /** The reply's payload, less its `type`. */
 export interface ProgramVocabularyReply {
   status: 'ready' | 'empty' | 'unreadable';
@@ -388,6 +431,8 @@ export interface ProgramVocabularyReply {
   characters: string[];
   multiStatementLines: number[];
   writeSites: ProgramWriteSite[];
+  /** Null where the request named no target, or named one this build lacks. */
+  targetSize: ProgramSize | null;
 }
 
 /**
@@ -416,8 +461,12 @@ export function vocabularyReply(
   source: string,
   selected: Dialect,
   fromId: string | null,
+  toId: string | null = null,
 ): ProgramVocabularyReply {
   const from = (fromId !== null ? findDialect(fromId) : undefined) ?? selected;
+  // No fallback to the selected dialect, unlike `from`: a size for a machine the
+  // guide is not pointed at would be compared against another machine's free RAM.
+  const to = toId !== null ? findDialect(toId) : undefined;
   const status = !source.trim()
     ? 'empty'
     : hasFatalErrors(from.tokenize(source).errors)
@@ -432,5 +481,9 @@ export function vocabularyReply(
     characters: vocab.characters,
     multiStatementLines: vocab.multiStatementLines,
     writeSites: vocab.writeSites,
+    // Sized even when the program is unreadable as the *source* machine's BASIC:
+    // the two are separate questions, and the guide decides for itself what to
+    // show for a status it is not narrowing by.
+    targetSize: programSize(source, to),
   };
 }

@@ -54,6 +54,11 @@ type CompareConvertMessage = Partial<
  * a program's vocabulary is what a particular BASIC finds in its text, and the
  * guide is about the language being left, not whichever machine the IDE
  * currently has selected. Sent on mount and again whenever that machine changes.
+ *
+ * `to` names the machine being ported *to*, for the one thing the guide cannot
+ * work out from the vocabulary: what the program measures on the target, which
+ * only the target's own tokenizer can say. Sent alongside `from` and re-sent
+ * whenever either machine changes.
  */
 export const PROGRAM_VOCABULARY_REQUEST =
   'basically:program-vocabulary-request';
@@ -76,16 +81,21 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'keywords',
   'escapeCodes',
   'writeSites',
+  'targetSize',
 ] as const;
 
-type ProgramVocabularyRequest = { from?: unknown };
+type ProgramVocabularyRequest = { from?: unknown; to?: unknown };
 
 /** The one message we post *into* the frame: route to another docs topic. */
 const DOCS_NAVIGATE_MESSAGE = 'basically:docs-navigate';
 
-/** The machine id a vocabulary request names, or null when it names none. */
-function readDialectId(data: ProgramVocabularyRequest): string | null {
-  return typeof data.from === 'string' ? data.from : null;
+/** The machine id a vocabulary request names in `field`, or null for none. */
+function readDialectId(
+  data: ProgramVocabularyRequest,
+  field: 'from' | 'to',
+): string | null {
+  const value = data[field];
+  return typeof value === 'string' ? value : null;
 }
 
 /** How long editing settles before the guide is re-told what the program uses. */
@@ -184,7 +194,8 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
       } else if (data.type === COMPARE_CONVERT_MESSAGE) {
         convertProgram(data);
       } else if (data.type === PROGRAM_VOCABULARY_REQUEST) {
-        vocabularyFrom.current = readDialectId(data);
+        vocabularyFrom.current = readDialectId(data, 'from');
+        vocabularyTo.current = readDialectId(data, 'to');
         requested.current = true;
         postVocabulary();
       }
@@ -196,10 +207,12 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeDocs]);
 
-  // What the porting guide last asked to have the program read as, and whether
-  // it has asked at all. The reply is only ever sent in response to a request,
-  // so a drawer sitting on a reference page costs nothing.
+  // What the porting guide last asked to have the program read as, what it last
+  // asked to have the program sized for, and whether it has asked at all. The
+  // reply is only ever sent in response to a request, so a drawer sitting on a
+  // reference page costs nothing.
   const vocabularyFrom = useRef<string | null>(null);
+  const vocabularyTo = useRef<string | null>(null);
   const requested = useRef(false);
 
   /** Answer the guide's request; see {@link vocabularyReply} for the decision. */
@@ -208,7 +221,12 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     iframeRef.current?.contentWindow?.postMessage(
       {
         type: PROGRAM_VOCABULARY_MESSAGE,
-        ...vocabularyReply(state.source, state.dialect, vocabularyFrom.current),
+        ...vocabularyReply(
+          state.source,
+          state.dialect,
+          vocabularyFrom.current,
+          vocabularyTo.current,
+        ),
       },
       window.location.origin,
     );

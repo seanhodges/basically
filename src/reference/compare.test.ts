@@ -23,6 +23,7 @@ import {
   falseFriendsForProgram,
   groupByDomain,
   noticeState,
+  programFitForTarget,
   statementLayoutForProgram,
   tableForMachine,
   unsupportedCharactersForProgram,
@@ -1321,6 +1322,112 @@ describe('statementLayoutForProgram', () => {
         vocab([], [], 'zx81', [], [3]),
       ),
     ).toBeNull();
+  });
+});
+
+describe('programFitForTarget', () => {
+  const machine = (id: string, freeRamBytes: number): PortingFacts =>
+    ({ id, freeRamBytes }) as PortingFacts;
+  const size = (dialectId: string, bytes: number, clean = true) => ({
+    dialectId,
+    bytes,
+    clean,
+  });
+
+  it('reports a program that fits, with both figures', () => {
+    expect(
+      programFitForTarget(machine('zx81', 15360), size('zx81', 3072)),
+    ).toEqual({
+      bytes: 3072,
+      freeBytes: 15360,
+      percent: 20,
+      severity: 'ok',
+      verdict: 'fits',
+      lowerBound: false,
+    });
+  });
+
+  it('warns at the same share of the budget the editor warns at', () => {
+    // 80% exactly: the editor's own threshold, shared rather than restated.
+    const fit = programFitForTarget(
+      machine('zx81', 15360),
+      size('zx81', 12288),
+    );
+    expect(fit).toMatchObject({
+      percent: 80,
+      severity: 'warn',
+      verdict: 'tight',
+    });
+  });
+
+  it('separates no room left from close to the limit by severity', () => {
+    // Both still fit, so both are `tight`; the severity is what grades them.
+    expect(
+      programFitForTarget(machine('zx81', 15360), size('zx81', 15000)),
+    ).toMatchObject({ severity: 'crit', verdict: 'tight' });
+  });
+
+  it('reports a program that will not fit', () => {
+    const fit = programFitForTarget(
+      machine('vic20', 3583),
+      size('vic20', 12000),
+    );
+    // The share is clamped, as the status bar clamps it; the two byte figures
+    // are what say by how much.
+    expect(fit).toEqual({
+      bytes: 12000,
+      freeBytes: 3583,
+      percent: 100,
+      severity: 'crit',
+      verdict: 'over',
+      lowerBound: false,
+    });
+  });
+
+  it('never calls a lower bound a fit, however far under the budget', () => {
+    // A tokenizer that cannot express a line drops the whole line, so the
+    // unmeasured part is unbounded - and it is exactly the part that would push
+    // the program over.
+    expect(
+      programFitForTarget(machine('zx81', 15360), size('zx81', 3072, false)),
+    ).toMatchObject({ bytes: 3072, verdict: 'at-least', lowerBound: true });
+  });
+
+  it('still calls a lower bound over the budget a failure to fit', () => {
+    // The doubt only runs towards a larger program, so this conclusion is safe.
+    expect(
+      programFitForTarget(machine('vic20', 3583), size('vic20', 9000, false)),
+    ).toMatchObject({ verdict: 'over', lowerBound: true });
+  });
+
+  it('reports nothing when the target could store no part of the program', () => {
+    // "At least 0 bytes" is not a finding; what made it zero is reported by the
+    // characters and commands the target cannot express.
+    expect(
+      programFitForTarget(machine('zx81', 15360), size('zx81', 0, false)),
+    ).toBeNull();
+  });
+
+  it('reports nothing for a size measured on another machine', () => {
+    // The state between choosing a new target and being told what the program
+    // measures on that one.
+    expect(
+      programFitForTarget(machine('vic20', 3583), size('commodore64', 12000)),
+    ).toBeNull();
+  });
+
+  it('reports nothing when there is no program to size', () => {
+    expect(programFitForTarget(machine('vic20', 3583), null)).toBeNull();
+  });
+
+  it('finds the port that every other bucket calls free', () => {
+    // C64 → VIC-20: byte-identical Commodore BASIC V2, so the keyword diff is
+    // empty, and 38,911 bytes of program landing in 3,583.
+    const diff = diffKeywords(refTable([PRINT]), refTable([PRINT]));
+    expect(diff.mustReplace).toEqual([]);
+    expect(
+      programFitForTarget(machine('vic20', 3583), size('vic20', 9000)),
+    ).toMatchObject({ severity: 'crit' });
   });
 });
 

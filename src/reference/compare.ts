@@ -20,6 +20,7 @@ import type {
   ReferenceTableData,
   TargetPortingNote,
 } from './types';
+import { ramBudget, ramSeverity, type RamSeverity } from './ramBudget';
 import { sortEntries } from './sort';
 
 /** Support tiers in the order a port should read them: worst-placed first. */
@@ -876,6 +877,112 @@ export function statementLayoutForProgram(
     from,
     to,
     lines: vocabulary.multiStatementLines,
+  };
+}
+
+/**
+ * What the open program takes on the machine it is being ported *to*, as the IDE
+ * reports it across the iframe boundary. Declared here for the same reason
+ * {@link ProgramVocabulary} is: this module never reaches into `src/`, and the
+ * two sides agree by field name, pinned by `DocsDrawer.test.ts`.
+ *
+ * Measured by the *target's* own tokenizer, which is the whole point of carrying
+ * it: a program's stored size is not portable. The same six-line program is 50
+ * bytes on a ZX80, 71 on the Microsoft-derived machines, 80 on the Sinclair
+ * machines that keep a five-byte binary form after every numeric literal, and 88
+ * on a CPC. Sizing a port from the source machine's byte count would be wrong by
+ * a quarter before the comparison started.
+ */
+export interface ProgramSize {
+  /** The machine this size answers for; only meaningful against that one. */
+  dialectId: string;
+  /** Bytes the program occupies in that machine's program area. */
+  bytes: number;
+  /** False where the target's tokenizer objected to any of the program. */
+  clean: boolean;
+}
+
+/**
+ * What can be claimed about the size.
+ *
+ * `at-least` is the one that earns its place. A tokenizer that cannot express a
+ * line drops the *whole line*: a two-line ZX81 program measures 19 bytes clean
+ * and 10 with one line unstorable. So a lower bound under the budget cannot be
+ * called a fit - the part that was not measured is exactly the part that would
+ * push it over - while a lower bound already over the budget is definitive,
+ * because the real figure can only be larger.
+ *
+ * `tight` covers everything from the editor's warn threshold up to the last byte
+ * that still fits; `severity` grades it, so a caller can tell "close to the
+ * limit" from "no room left" without a fourth verdict meaning the same thing.
+ */
+export type FitVerdict = 'fits' | 'tight' | 'over' | 'at-least';
+
+/** Whether the program fits the target, and by how much. See {@link programFitForTarget}. */
+export interface ProgramFit {
+  /** What the program takes on the target. */
+  bytes: number;
+  /** What the target has free for a BASIC program. */
+  freeBytes: number;
+  /** `bytes` as a share of `freeBytes`, clamped to 100 as the status bar clamps it. */
+  percent: number;
+  /** The same thresholds the editor's byte counter uses: ≥80% warn, ≥95% crit. */
+  severity: RamSeverity;
+  /** What the figure supports saying; see {@link FitVerdict}. */
+  verdict: FitVerdict;
+  /**
+   * True where the target's tokenizer could not read all of the program, so the
+   * real figure can only be larger. Not a failure to fit: a port normally
+   * carries commands and characters the target has no way to store, and those
+   * are what the rest of this page is about.
+   */
+  lowerBound: boolean;
+}
+
+/**
+ * Whether the program fits the target machine's program memory.
+ *
+ * The one failure a port with no other work in it can still hit: C64 → VIC-20 is
+ * byte-identical Commodore BASIC V2 landing in 3,583 bytes instead of 38,911, and
+ * every keyword bucket on this page is empty for it.
+ *
+ * Not a narrowing of any table, unlike {@link diffForProgram} and its relatives -
+ * it is a finding that exists only where there is a program, like
+ * {@link statementLayoutForProgram}. So there is nothing for the "show every
+ * difference" control to reveal here: a fit report about no program would be a
+ * report about nothing.
+ *
+ * Null in two cases: the size answers for a machine other than the one whose facts
+ * are given (the state between choosing a new target and being told what the
+ * program measures on *that* machine), and a lower bound of nothing at all, where
+ * the target could store no part of the program - "at least 0 bytes" is not a
+ * finding, and what made it zero is reported by the rest of the page.
+ */
+export function programFitForTarget(
+  targetFacts: PortingFacts,
+  size: ProgramSize | null,
+): ProgramFit | null {
+  if (!size || size.dialectId !== targetFacts.id) return null;
+  const lowerBound = !size.clean;
+  if (lowerBound && size.bytes === 0) return null;
+  const freeBytes = targetFacts.freeRamBytes;
+  const { pct } = ramBudget(size.bytes, freeBytes);
+  const severity = ramSeverity(pct);
+  const verdict: FitVerdict =
+    size.bytes > freeBytes
+      ? 'over'
+      : lowerBound
+        ? 'at-least'
+        : severity === 'ok'
+          ? 'fits'
+          : 'tight';
+  return {
+    bytes: size.bytes,
+    freeBytes,
+    percent: pct,
+    severity,
+    verdict,
+    lowerBound,
   };
 }
 

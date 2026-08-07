@@ -26,8 +26,11 @@ instead of 38,911. The guide currently calls that port free.
   and 88 on the CPC. Sizing a port from the source machine's byte count would be
   wrong by a quarter before the comparison starts.
 - **The thresholds are the editor's own.** Amber at 80% of the budget and red at
-  95% — the same figures the status bar's RAM readout uses, from one definition,
-  so one percentage means one thing across the app.
+  95% — the same figures the status bar's RAM readout uses, so one percentage
+  means one thing across the app. The app may not import the reference tree
+  (that would put ~12,000 lines of tables into the initial download), so the
+  figures are restated there and pinned by a crosscheck, exactly as the porting
+  facts are restated from the dialects and pinned.
 - **A program the target cannot fully express still gets a figure.** The target's
   tokenizer will report errors for source the target has no keyword or character
   for; that is expected on a port and is not a fit failure. The program is sized
@@ -73,9 +76,9 @@ Affected code:
 - `src/reference/compare.ts` — a pure fit calculation over the target's facts
   and a program size measured elsewhere, in the same shape as the other
   narrowed findings; and its colocated `compare.test.ts`.
-- `src/reference/ramBudget.ts` (new) — the budget percentage and its two
-  thresholds, as the one definition both the status bar and the guide read.
-  `src/app/useProgramStats.ts` consumes it in place of its own copy.
+- `src/reference/ramBudget.ts` (new) + `ramBudget.test.ts` — the budget
+  percentage and its two thresholds for the guide's side of the bundle boundary,
+  pinned against `src/app/useProgramStats.ts`'s copy at every percentage.
 - `src/app/programVocabulary.ts` — the reply gains the program's size as
   measured by the target's tokenizer, and whether that tokenization was clean.
 - `src/components/DocsDrawer.tsx` — the vocabulary request names the target
