@@ -4,7 +4,7 @@ import { SHARE_VERBS } from '../../src/player/routes';
 import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from '../shareStub';
 
 /**
- * Share-flow routing and the player → IDE handover (Stage 7 e2e).
+ * Share-flow routing and the player → IDE handover.
  *
  * The share GET is stubbed with `page.route` (see e2e/shareStub.ts). These
  * specs cover the URL surface - a share verb resolving to the player - and the

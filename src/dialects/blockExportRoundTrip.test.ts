@@ -6,7 +6,7 @@
  * blocks through the dialect's native container format, import the artifact
  * back, and assert the ENTIRE program - BASIC source and every block -
  * survived. One case per dialect with a block-aware export (ZX Spectrum
- * today; others join here as their Stage-6 export ships).
+ * today; others join here as their block export ships).
  */
 
 import { describe, expect, it } from 'vitest';

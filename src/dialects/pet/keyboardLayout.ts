@@ -11,8 +11,8 @@ import { C64_SHIFT_GRAPHICS } from '../commodore64/graphics';
  *
  * The PET graphics keyboard has a single block-graphics set - the one printed on
  * the *front* of every letter key and produced by holding SHIFT (there is no
- * Commodore key, so unlike the C64 there is no second, C=, set). The plan
- * therefore reuses the shared C64 SHIFT graphics (`../commodore64/graphics`,
+ * Commodore key, so unlike the C64 there is no second, C=, set). It therefore
+ * reuses the shared C64 SHIFT graphics (`../commodore64/graphics`,
  * `C64_SHIFT_GRAPHICS`) as the PET's shifted set.
  *
  * Two top-strip modes:

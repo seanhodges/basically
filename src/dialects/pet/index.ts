@@ -103,7 +103,7 @@ export const pet: Dialect = {
   debuggable: true,
 
   // opts.rom/ramKb are ignored: the PET machine loads its own six ROM images and
-  // models a fixed 32 KB machine. opts.files is reserved for Stage 4 tape I/O.
+  // models a fixed 32 KB machine. opts.files carries tape I/O.
   createEmulator(opts) {
     return new PetMachine({ files: opts.files });
   },

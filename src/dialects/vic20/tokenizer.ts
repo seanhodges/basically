@@ -10,7 +10,7 @@ import { PROGRAM_BASE } from './addresses';
  * The VIC-20's Commodore-BASIC variant: programs load at $1001 (vs the C64's
  * $0801) on the unexpanded machine and use the plain BASIC V2 keyword table,
  * byte-identical to the C64's. RAM expansions relocate BASIC ($0401 with +3K,
- * $1201 with +8K/+16K) and are out of scope for Stage 1.
+ * $1201 with +8K/+16K) and are out of scope.
  */
 export const VIC20_VARIANT: CbmVariant = {
   progStart: PROGRAM_BASE,

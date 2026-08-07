@@ -4,7 +4,7 @@ import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 // charset, keywords, tokenizer, completions, keyboard, targets - is shared
 // with the bbcmicro dialect. Only the machine model and the AI profile differ.
 // (If this sibling-import coupling grows, factor the shared pieces into a
-// src/dialects/bbcShared/ module - see docs/dialect-roadmap.md.)
+// src/dialects/bbcShared/ module - see docs/contributing/dialect-roadmap.md.)
 import { bbcCharset } from '../bbcmicro/charset';
 import { bbcMasterKeywords, BASIC_IV } from '../bbcmicro/keywords';
 import { tokenizeProgram } from '../bbcmicro/tokenizer';

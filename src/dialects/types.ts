@@ -586,8 +586,8 @@ export interface MemoryBlock {
 /**
  * An inclusive address range: `start` and `end` are both addresses that
  * belong to the range (so `end` is the last valid byte, not one past it) -
- * the same convention {@link MemoryRegion} uses, and the one the memory-blocks
- * plan's own notation writes in (e.g. "display 0x4000-0x5AFF", where 0x5AFF
+ * the same convention {@link MemoryRegion} uses, and the one the memory maps
+ * are written in (e.g. "display 0x4000-0x5AFF", where 0x5AFF
  * is the last display byte). `end >= start`; a one-byte range has
  * `end === start`. A {@link MemoryBlock} occupies the inclusive range
  * `[address, address + bytes.length - 1]` - except when `bytes.length === 0`,

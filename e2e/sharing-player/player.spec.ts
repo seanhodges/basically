@@ -4,7 +4,7 @@ import { canvasPainted } from '../helpers';
 import { SHARE_ID, SHARE_GLOB, shareGet, zx81Record } from '../shareStub';
 
 /**
- * Standalone player (src/player/PlayerApp.tsx), Stage 7 e2e.
+ * Standalone player (src/player/PlayerApp.tsx).
  *
  * The player fetches its shared program from the share API; every case here
  * stubs that GET with `page.route` (the suite's first use of network

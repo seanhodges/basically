@@ -153,11 +153,11 @@ export const SIO_DATA_PORT = 0x11;
 /**
  * Status bit 0, RDRF: a character is waiting to be read. **Active high** -
  * BASIC's input routine reads `IN 10 / ANI 01 / JZ back`, so it spins while the
- * bit is *clear*. (The plan for this dialect expected active-low flags. That is
- * true of the 88-SIO form the *unpatched* image carries - `ANI 01 / JNZ back` on
- * port 0x00 - but not of the 6850 ACIA on the 88-2SIO board BASIC patches itself
- * to use. Worth stating explicitly either way: get the polarity backwards and
- * the machine boots and then ignores every keystroke.)
+ * bit is *clear*. (The flags are active-low on the 88-SIO form the *unpatched*
+ * image carries - `ANI 01 / JNZ back` on port 0x00 - but not on the 6850 ACIA
+ * of the 88-2SIO board BASIC patches itself to use. Worth stating explicitly
+ * either way: get the polarity backwards and the machine boots and then ignores
+ * every keystroke.)
  */
 export const SIO_RX_READY = 0x01;
 

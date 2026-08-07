@@ -5,8 +5,7 @@
  * handshaking) and the VIC-20 has two; this class is deliberately minimal but
  * correct for the parts a BASIC machine actually exercises — the timers, the
  * IFR/IER interrupt logic and the parallel ports. Cassette/shift-register/CA2
- * handshake fine detail is left out (see the VIC-20 Stage 2 plan for the jiffy
- * timer completion).
+ * handshake fine detail is left out.
  *
  * Register and interrupt-bit layout follow the standard 6522 datasheet; the
  * enable-mask "set if bit 7, else clear" convention mirrors the CIA's in the

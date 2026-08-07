@@ -149,7 +149,7 @@ export class Vars {
     arr.data[i] = this.coerce(value, n);
   }
 
-  /** Snapshot scalar variables for the watcher (Stage G). */
+  /** Snapshot scalar variables for the watcher. */
   snapshot(): { key: string; value: BasicValue }[] {
     return [...this.scalars.entries()].map(([key, value]) => ({ key, value }));
   }

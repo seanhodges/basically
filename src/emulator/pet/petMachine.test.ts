@@ -178,7 +178,7 @@ describe('PetMachine', () => {
     BOOT_TIMEOUT_MS,
   );
 
-  // ---- Stage 5 — watcher / report / debugger / audio ----------------------
+  // ---- watcher / report / debugger / audio --------------------------------
 
   it(
     'reads real, integer and string variables from a running program',

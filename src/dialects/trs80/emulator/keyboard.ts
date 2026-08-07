@@ -7,8 +7,8 @@
  * opposite of the active-low Sinclair matrix.
  *
  * Tokens are DOM-`KeyboardEvent.code`-style strings, matching the convention the
- * other dialects' machines use for {@link setKey}; Stage 3's keyboard layout
- * `emits` these same names.
+ * other dialects' machines use for {@link setKey}; the keyboard layout `emits`
+ * these same names.
  */
 const ROWS: string[][] = [
   // 0x3801 (A0): @ A B C D E F G

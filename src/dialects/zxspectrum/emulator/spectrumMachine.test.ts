@@ -517,7 +517,7 @@ describe('SpectrumMachine', () => {
     });
   });
 
-  // Stage 3 of the memory-blocks plan: loadProgram's `opts.blocks` writes raw
+  // loadProgram's `opts.blocks` writes raw
   // bytes directly into RAM before RUN, and protects blocks below RAMTOP with
   // a CLEAR so the BASIC stack can't grow down over them.
   describe('memory blocks', () => {

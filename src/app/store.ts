@@ -669,8 +669,9 @@ interface IdeState {
    * `opts.blocks` MUST already be valid and unique (see `assertValidBlocks`) -
    * unlike `setBlocks`/`upsertBlock`, this action installs them as-is without
    * re-validating. Sound today because the only caller (import) runs its
-   * blocks through the Stage-4 sanitizer, which guarantees valid unique names;
-   * any future load path must pre-validate the same way.
+   * blocks through `sanitizeBlockNames` in `src/dialects/importBlocks.ts`,
+   * which guarantees valid unique names; any future load path must pre-validate
+   * the same way.
    */
   loadUnsavedDocument(
     text: string,
@@ -939,10 +940,9 @@ function matchingSampleName(dialect: Dialect, source: string): string | null {
  * comment) on a full block set: every `name` must match the required
  * pattern, and no two blocks may share one. Throws a descriptive `Error`
  * otherwise. Called from `setBlocks`/`upsertBlock` - the only paths that can
- * introduce a block today (there is no block editor yet; this is exercised
- * from the dev console per the plan) - so a mistake is caught immediately at
- * the point of entry, rather than silently persisting and then being dropped
- * wholesale by autosave's defensive parse on the next reload.
+ * introduce a block - so a mistake is caught immediately at the point of entry,
+ * rather than silently persisting and then being dropped wholesale by
+ * autosave's defensive parse on the next reload.
  */
 function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
   for (const b of blocks) {
@@ -1152,8 +1152,8 @@ function applyDialectSwitch(
     breakpoints: new Set<number>(),
     debugLine: null,
     // Memory blocks belong to the old machine's address space; a dialect
-    // switch always starts with none (Stage 1: blocks aren't re-targeted
-    // across machines yet).
+    // switch always starts with none, as blocks aren't re-targeted across
+    // machines.
     blocks: [],
     listingBlockMeta: {},
     activeBlockId: null,
@@ -1397,8 +1397,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // zero errors, the same bar the share/player boundary uses - runs the
       // program as-is, so switch straight to it and keep the code without the
       // "may not run" prompt. Restricted to block-free documents: memory blocks
-      // are dropped on any switch (Stage 1), a loss the user should still
-      // confirm.
+      // are dropped on any switch, a loss the user should still confirm.
       if (
         s.blocks.length === 0 &&
         computeCompatibleDialects(s.source, [], [next]).length > 0

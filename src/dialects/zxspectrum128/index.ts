@@ -11,7 +11,7 @@ import { codeFilesToBlocks } from '../importBlocks';
 // only memory paging, the dual ROM, the AY-3-8912 sound chip and the two extra
 // BASIC tokens (SPECTRUM, PLAY) differ. Identical pieces are re-exported from
 // ../zxspectrum (see charset.ts / tapfile.ts / keyboardLayout.ts) the way
-// bbcmaster reuses bbcmicro. See docs/dialect-plans/zxspectrum128.md.
+// bbcmaster reuses bbcmicro.
 import { spectrum128Charset } from './charset';
 import { spectrum128Keywords } from './keywords';
 import { spectrumVariableErrors } from '../../editor/variableLint';
@@ -44,8 +44,7 @@ import { spectrumMemoryBlocks } from '../zxspectrum/memoryBlocks';
  * ZX Spectrum 128K / +2 / +3 (128 BASIC), registered in src/dialects/registry.ts.
  * It shares the 48K Spectrum language and tape layer, adding only the two extra
  * tokens (SPECTRUM, PLAY), memory paging, the dual ROM and the AY-3-8912 sound
- * chip. The 32K 128K ROM lives under public/roms/zxspectrum128.rom. See
- * docs/dialect-plans/zxspectrum128.md.
+ * chip. The 32K 128K ROM lives under public/roms/zxspectrum128.rom.
  */
 export const zxspectrum128: Dialect = {
   id: 'zxspectrum128',

@@ -10,7 +10,6 @@ export type { TokenizedProgram } from '../zxspectrum/tokenizer';
  * this is a thin binding rather than a copy. Errors are collected, not thrown.
  * The 128K reuses 0xA3/0xA4 as those tokens, so its UDGs stop at `\s` (0xA2);
  * passing that limit makes `\t`/`\u` earn a non-fatal warning.
- * See docs/dialect-plans/zxspectrum128.md.
  */
 export function tokenizeProgram(source: string) {
   return tokenizeSpectrum(source, spectrum128Keywords, 0xa2);
