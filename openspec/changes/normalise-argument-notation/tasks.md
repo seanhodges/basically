@@ -141,7 +141,7 @@ Batch by domain to keep each diff reviewable.
 
 ## 8. Optional adjacent fix
 
-- [ ] 8.1 `PortingFacts.memoryWriteSyntax` in `src/reference/facts.ts` is a third argument
+- [x] 8.1 `PortingFacts.memoryWriteSyntax` in `src/reference/facts.ts` is a third argument
       notation (`'POKE addr,val'` ×7, `'?addr=val (byte), !addr=val (word)'` ×2) rendered
       in the comparison's facts table right beside reference syntax. Bring the nine onto
       the same notation; `facts-crosscheck.test.ts` asserts only `/POKE/` and `/[?!]/`, so
@@ -150,14 +150,39 @@ Batch by domain to keep each diff reviewable.
 
 ## 9. Quality gates
 
-- [ ] 9.1 `npm run typecheck && npm test && npm run lint && npm run format:check`.
-- [ ] 9.2 `npm run docs:build`, then `npm run docs:dev` and read one dialect page, the
+- [x] 9.1 `npm run typecheck && npm test && npm run lint && npm run format:check`.
+- [x] 9.2 `npm run docs:build`, then `npm run docs:dev` and read one dialect page, the
       legend disclosure and the comparison page by eye.
-- [ ] 9.3 `npm run e2e:chromium -- e2e/porting-guidance` — the comparison is the only
+- [x] 9.3 `npm run e2e:chromium -- e2e/porting-guidance` — the comparison is the only
       app-visible consumer. Leave unchecked with a note if it fails.
-- [ ] 9.4 Confirm the point of the change: the pairwise behaviour-change total across all
+- [x] 9.4 Confirm the point of the change: the pairwise behaviour-change total across all
       36 page pairs is below today's 650, and spot-check that BBC → Amstrad's survivors
       are real language differences. Confirm against the `porting-guidance` requirement
       "Differences in usage notation are not reported as behaviour changes" that
       placeholder-name variation is still not reported.
-- [ ] 9.5 `npx openspec validate --specs` and `npx openspec validate --changes`.
+- [x] 9.5 `npx openspec validate --specs` and `npx openspec validate --changes`.
+
+## Outcome
+
+Measured with a throwaway reimplementation of `diffKeywords`' `behaviourChanged`
+bucket over all 36 page pairs (operator rows filtered as `operatorNames()` does):
+
+| | behaviour changes | with the lowercase rule dropped |
+| --- | --- | --- |
+| before (vocabulary landed, no data touched) | 521 | **710** |
+| after | **446** | 446 |
+
+Two things that matters. The count falls 14% — those were rows a reader was being
+asked to act on that said nothing. And dropping `syntaxShape`'s lowercase-word rule
+now changes the count by *exactly zero*, where on the pre-sweep data it would have
+added 189 spurious rows, every one on an Amstrad pair. The rule was provably dead
+before it was removed, rather than argued to be.
+
+Reading the 34 surviving BBC → Amstrad rows, they are real: `INSTR` takes its start
+position first on one machine and last on the other, `TAB` takes two arguments on the
+BBC and one on the Amstrad, `EOF` needs a channel on the BBC and none on the Amstrad,
+`TIME` is assignable on the BBC only, and `SOUND` differs in both arity and argument
+order. Two notation-residue rows found in that review were fixed rather than
+tolerated: the Amstrad's `CALL` spelled "zero or more arguments" a second way, and the
+BBC's `TO` row carried an optional `STEP` that has its own row (R7 wants the smallest
+legal form).

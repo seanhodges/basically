@@ -445,7 +445,7 @@ export const bbcReference: BasicReferenceTableData = {
       name: 'TO',
       kind: 'command',
       domain: 'control-flow',
-      syntax: 'FOR <numvar> = <number> TO <number> [STEP <number>]',
+      syntax: 'FOR <numvar> = <number> TO <number>',
       description:
         'Separates the start and limit values in a FOR statement, setting the value the loop counter runs up (or down) to.',
     },

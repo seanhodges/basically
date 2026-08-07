@@ -55,7 +55,7 @@ export const cpcReference: BasicReferenceTableData = {
       name: 'CALL',
       kind: 'command',
       domain: 'memory-hardware',
-      syntax: 'CALL <addr>[, <arg>[, <arg>]…]',
+      syntax: 'CALL <addr>[, <arg>]…',
       description: 'Call a machine-code routine.',
     },
     {
