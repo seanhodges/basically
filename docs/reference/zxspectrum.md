@@ -10,7 +10,7 @@ import { zxspectrumReference } from '../../src/reference/zxspectrum';
 
 Every command, function and operator in Sinclair ZX Spectrum BASIC.
 
-**In this reference:** [Hardware](./zxspectrum/hardware) · [Escape codes](./zxspectrum/escapes) · [File formats](./zxspectrum/formats)
+**In this reference:** [Hardware](./zxspectrum/hardware) · [Escape codes](./zxspectrum/escapes) · [File formats](./zxspectrum/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 

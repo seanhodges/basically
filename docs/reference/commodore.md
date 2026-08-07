@@ -12,7 +12,7 @@ Every command, function and operator in Commodore BASIC — BASIC V2 as built in
 the ROMs of the Commodore 64 and VIC-20, and BASIC 4.0 as built into the
 Commodore PET.
 
-**In this reference:** [Hardware](./commodore/hardware) · [Escape codes](./commodore/escapes) · [File formats](./commodore/formats)
+**In this reference:** [Hardware](./commodore/hardware) · [Escape codes](./commodore/escapes) · [File formats](./commodore/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 

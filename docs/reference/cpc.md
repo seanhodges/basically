@@ -15,7 +15,7 @@ of the Amstrad CPC — with real structured keywords such as `IF … THEN … EL
 Two machines run it here: the **CPC 464** with BASIC 1.0, and the **CPC 6128**
 with BASIC 1.1, which adds eleven keywords to the same language.
 
-**In this reference:** [Hardware](./cpc/hardware) · [Escape codes](./cpc/escapes) · [File formats](./cpc/formats)
+**In this reference:** [Hardware](./cpc/hardware) · [Escape codes](./cpc/escapes) · [File formats](./cpc/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 

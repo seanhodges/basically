@@ -11,7 +11,7 @@ import { bbcReference } from '../../src/reference/bbc';
 Every command, function and operator in BBC BASIC, shared by the BBC Micro and
 the BBC Master.
 
-**In this reference:** [Hardware](./bbc/hardware) · [Escape codes](./bbc/escapes) · [File formats](./bbc/formats)
+**In this reference:** [Hardware](./bbc/hardware) · [Escape codes](./bbc/escapes) · [File formats](./bbc/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 

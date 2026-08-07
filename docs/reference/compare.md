@@ -120,6 +120,8 @@ Pick a machine you're porting **from** and one you're porting **to**, and this
 page tells you what needs to change. Read it inside the [IDE](https://ba.sical.ly/) with a program open and it
 speclialises itself to that program.
 
-If you're new to porting programs, read [this](./porting-basics) first.
+If you're new to porting programs, read [this](./porting-basics) first. The usage
+strings below are written in the [argument notation](./#argument-notation) the
+language references use.
 
 <DialectCompare :dialects="dialects" />

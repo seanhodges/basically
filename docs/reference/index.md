@@ -12,6 +12,26 @@ Porting a program between machines? The [Porting guide](./compare)
 summarises the keyword, control-code and hardware differences between any two
 dialects.
 
+## Argument notation
+
+Every reference page writes a keyword's arguments the same way, so once you can read
+one page you can read them all:
+
+| Notation               | Meaning                                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `<number>`             | Anything in angle brackets is a value you supply. Each page lists what its own placeholders mean, under **Argument notation** below its table.                                 |
+| `PRINT`                | Anything not in angle brackets is typed exactly as shown, including punctuation such as `#`, `(` and `,`.                                                                      |
+| `[<line>]`             | Square brackets mark an optional part. Nested brackets mean the inner part needs the outer one: `[<first>[, <last>]]` allows a first argument alone, but not a last one alone. |
+| `<number> \| <string>` | A vertical bar separates alternatives — write one or the other.                                                                                                                |
+| `<var>[, <var>]…`      | An ellipsis means the bracketed part before it can repeat, so this reads "one variable, then as many more as you like".                                                        |
+
+Where a machine genuinely requires something the notation would otherwise smooth away
+— a quoted filename, no space around an `=` — the page shows what the machine
+actually wants.
+
+The two assembly references use the conventional per-processor operand notation
+instead, explained on each of those pages.
+
 ## BASIC dialects
 
 Each dialect powers one or more of the emulated machines:

@@ -11,7 +11,7 @@ import { atomReference } from '../../src/reference/atom';
 Every command, function and operator in Atom BASIC, the BASIC built into the
 Acorn Atom.
 
-**In this reference:** [Hardware](./atom/hardware) · [Escape codes](./atom/escapes) · [File formats](./atom/formats)
+**In this reference:** [Hardware](./atom/hardware) · [Escape codes](./atom/escapes) · [File formats](./atom/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 

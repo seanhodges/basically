@@ -100,19 +100,19 @@ Batch by domain to keep each diff reviewable.
 
 ## 6. The legend
 
-- [ ] 6.1 Add `## Argument notation` to `docs/reference/index.md` covering the structural
+- [x] 6.1 Add `## Argument notation` to `docs/reference/index.md` covering the structural
       markings only, in the spirit of `docs/reference/z80-assembly.md`'s
       `## Operand notation`.
-- [ ] 6.2 Render a `<details>` vocabulary legend in
+- [x] 6.2 Render a `<details>` vocabulary legend in
       `docs/.vitepress/theme/components/ReferenceTable.vue` from
       `placeholdersUsed(props.data.entries, props.data.placeholders ?? [])`, placed below
       the table above `.reftable-count`.
-- [ ] 6.3 Make `.reftable-syntax` wrap (`pre-wrap` + `overflow-wrap: anywhere`) while
+- [x] 6.3 Make `.reftable-syntax` wrap (`pre-wrap` + `overflow-wrap: anywhere`) while
       `.reftable-name code` keeps `nowrap` — CPC's `SOUND` cell goes from 52 to ~88
       characters, the longest in the tree.
-- [ ] 6.4 Add a colocated unit test for `placeholdersUsed`: given entries and an
+- [x] 6.4 Add a colocated unit test for `placeholdersUsed`: given entries and an
       extension, it returns exactly the entries used, core order then extension.
-- [ ] 6.5 Link the legend from each of the nine dialect pages and from
+- [x] 6.5 Link the legend from each of the nine dialect pages and from
       `docs/reference/compare.md`. Do not touch the sidebar config.
 
 ## 7. Docs prose
