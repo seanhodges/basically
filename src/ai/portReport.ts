@@ -59,6 +59,10 @@ async function sideFor(dialect: Dialect): Promise<PortSide | null> {
     page,
     table,
     escapes,
+    // Taken from the dialect rather than loaded: this side of the app already
+    // holds both machines, and a map is static data the dialect declares. A
+    // machine without one leaves the program's writes unjudged.
+    memoryMap: dialect.memoryMap,
   };
 }
 

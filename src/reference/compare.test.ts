@@ -31,8 +31,15 @@ import {
   variableCollisionsForProgram,
   tableForMachine,
   unsupportedCharactersForProgram,
+  writeLandingsForProgram,
   type ProgramVocabulary,
 } from './compare';
+// Real maps, for the write-landing verdicts: see that describe block. Type-only
+// for `MemoryMap`, as in the module under test.
+import type { MemoryMap } from '../dialects/types';
+import { c64MemoryMap } from '../dialects/commodore64/memoryMap';
+import { spectrumMemoryMap } from '../dialects/zxspectrum/memoryMap';
+import { zx81MemoryMap } from '../dialects/zx81/memoryMap';
 
 /** Build a minimal reference table from bare entries (title/machines unused by the diff). */
 function refTable(entries: ReferenceEntry[]): ReferenceTableData {
@@ -536,11 +543,12 @@ describe('escapeSections', () => {
       guidance,
       'zxspectrum',
     );
+    expect(sections.map((s) => s.class)).toEqual(['block-graphics', 'colour']);
     expect(sections.map((s) => s.guidance?.support)).toEqual([
-      'full',
       'partial',
+      'full',
     ]);
-    expect(sections[0]!.guidance?.instead).toBe('colour on zxspectrum');
+    expect(sections[1]!.guidance?.instead).toBe('colour on zxspectrum');
   });
 
   it('omits the cell for a class the target has no advice for', () => {
@@ -560,11 +568,30 @@ describe('escapeSections', () => {
     ).toBeUndefined();
   });
 
-  it('keeps the source page’s category order once the verdicts are attached', () => {
+  it('leads with the classes the target places worst, like the capabilities', () => {
     const sections = escapeSections(
       [RAW, BLOCK, INK, CURSOR],
       table([]),
       guidance,
+      'zxspectrum',
+    );
+    // Block graphics are only partly expressible on the Spectrum, so they lead
+    // the colour codes it has under its own spellings. Cursor and raw bytes
+    // have no cell at all, which is not a verdict: they rank with the mildest
+    // and keep the source page's order behind the classes that are judged.
+    expect(sections.map((s) => s.category)).toEqual([
+      'graphics',
+      'colour',
+      'cursor',
+      'raw',
+    ]);
+  });
+
+  it('keeps the source page’s category order where nothing is judged', () => {
+    const sections = escapeSections(
+      [RAW, BLOCK, INK, CURSOR],
+      table([]),
+      [],
       'zxspectrum',
     );
     expect(sections.map((s) => s.category)).toEqual([
@@ -572,6 +599,24 @@ describe('escapeSections', () => {
       'graphics',
       'cursor',
       'raw',
+    ]);
+  });
+
+  it('ranks a class the target cannot express at all above every other', () => {
+    const sections = escapeSections(
+      [INK, BLOCK, CURSOR],
+      table([]),
+      [
+        advice('zxspectrum', 'colour', 'full'),
+        advice('zxspectrum', 'block-graphics', 'partial'),
+        advice('zxspectrum', 'cursor', 'none'),
+      ],
+      'zxspectrum',
+    );
+    expect(sections.map((s) => s.guidance?.support)).toEqual([
+      'none',
+      'partial',
+      'full',
     ]);
   });
 
@@ -1685,6 +1730,141 @@ describe('truncatedArithmeticForProgram', () => {
     expect(
       truncatedArithmeticForProgram(floating, doing(true, true)),
     ).toBeNull();
+  });
+});
+
+/**
+ * Built from three real machines' maps rather than from invented regions: the
+ * verdicts are only as good as the region boundaries, and the boundaries are
+ * what these dialects actually declare (each pinned by
+ * `src/dialects/memoryMap.test.ts`). A synthetic map would test the arithmetic
+ * against itself.
+ *
+ * C64 → ZX81 is the pair that produces three of the four verdicts on its own:
+ * the C64's screen at $0400 is ZX81 ROM, and its chip registers at $D000-$DFFF
+ * are the ZX81's echo region.
+ */
+describe('writeLandingsForProgram', () => {
+  const site = (address: number, approximate = false) => ({
+    address,
+    expr: String(address),
+    computed: false,
+    approximate,
+  });
+  const landings = (
+    fromMap: MemoryMap | undefined,
+    toMap: MemoryMap | undefined,
+    sites: ProgramVocabulary['writeSites'],
+  ) =>
+    writeLandingsForProgram(
+      fromMap,
+      toMap,
+      vocab([], [], 'commodore64', [], [], sites),
+    );
+
+  it('reports a write that reaches something else, naming both sides', () => {
+    // 53280/$D020 is the C64's border colour register; the ZX81 has the mirror
+    // of its own RAM there, which a write reaches and corrupts.
+    const found = landings(c64MemoryMap, zx81MemoryMap, [site(0xd020)]);
+    expect(found).toHaveLength(1);
+    expect(found[0]!.verdict).toBe('different-kind');
+    expect(found[0]!.from?.label).toBe('VIC-II registers');
+    expect(found[0]!.to?.label).toBe('Echo of RAM');
+    expect(found[0]!.addresses).toEqual([0xd020]);
+    expect(found[0]!.approximate).toBe(false);
+  });
+
+  it('reports a write into read-only memory distinctly', () => {
+    // 1024/$0400 is the C64's screen and the ZX81's ROM: the write does
+    // nothing at all rather than reaching the wrong thing.
+    const found = landings(c64MemoryMap, zx81MemoryMap, [site(0x0400)]);
+    expect(found).toHaveLength(1);
+    expect(found[0]!.verdict).toBe('read-only');
+    expect(found[0]!.to?.kind).toBe('rom');
+  });
+
+  it('reports an address the target does not contain', () => {
+    // Every machine registered today spans the same 64K, so the verdict is
+    // reached by an address above that space rather than by a smaller target -
+    // and `src/dialects/memoryMap.test.ts` is what will say so by name when a
+    // machine with a different address space arrives.
+    const found = landings(c64MemoryMap, zx81MemoryMap, [site(0x12000)]);
+    expect(found).toHaveLength(1);
+    expect(found[0]!.verdict).toBe('outside');
+    expect(found[0]!.to).toBeUndefined();
+  });
+
+  it('reports a write that reaches the same kind of thing rather than nothing', () => {
+    // $6000 is BASIC program RAM on both the C64 and the Spectrum. The address
+    // still has to be checked - the two machines put their program areas in
+    // different places - so it is the mildest verdict, not silence.
+    const found = landings(c64MemoryMap, spectrumMemoryMap, [site(0x6000)]);
+    expect(found).toHaveLength(1);
+    expect(found[0]!.verdict).toBe('same-kind');
+    expect(found[0]!.from?.kind).toBe('program');
+    expect(found[0]!.to?.kind).toBe('program');
+  });
+
+  it('carries an approximate address into its verdict', () => {
+    const found = landings(c64MemoryMap, zx81MemoryMap, [site(0xd020, true)]);
+    expect(found[0]!.approximate).toBe(true);
+  });
+
+  it('reports a run of writes into one region as one finding', () => {
+    // A loop over the SID's registers: eight addresses, one thing to say about
+    // them. The border register is aimed at a different chip, so it stays its
+    // own finding even though both land in the ZX81's echo region.
+    const sid = [0xd400, 0xd401, 0xd402, 0xd403].map((a) => site(a));
+    const found = landings(c64MemoryMap, zx81MemoryMap, [
+      ...sid,
+      site(0xd020),
+      // The same register twice is one address, not two.
+      site(0xd400),
+    ]);
+    expect(found).toHaveLength(2);
+    const bySource = new Map(found.map((l) => [l.from?.label, l.addresses]));
+    expect(bySource.get('SID registers')).toEqual([
+      0xd400, 0xd401, 0xd402, 0xd403,
+    ]);
+    expect(bySource.get('VIC-II registers')).toEqual([0xd020]);
+  });
+
+  it('marks the group approximate when any of its addresses was estimated', () => {
+    const found = landings(c64MemoryMap, zx81MemoryMap, [
+      site(0xd400),
+      site(0xd401, true),
+    ]);
+    expect(found).toHaveLength(1);
+    expect(found[0]!.approximate).toBe(true);
+  });
+
+  it('reports the worst-placed writes first and the mildest last', () => {
+    const found = landings(c64MemoryMap, spectrumMemoryMap, [
+      site(0x6000), // program → program
+      site(0x0400), // screen → ROM
+      site(0x0100), // stack → ROM, a second read-only group
+      site(0x5900), // BASIC program text → the Spectrum's attributes
+    ]);
+    expect(found.map((l) => l.verdict)).toEqual([
+      'different-kind',
+      'read-only',
+      'read-only',
+      'same-kind',
+    ]);
+    // Within a verdict, by address: the two ROM groups are ordered $0100 first.
+    expect(found[1]!.addresses).toEqual([0x0100]);
+    expect(found[2]!.addresses).toEqual([0x0400]);
+  });
+
+  it('reports nothing when either machine has no described layout', () => {
+    const sites = [site(0xd020)];
+    expect(landings(undefined, zx81MemoryMap, sites)).toEqual([]);
+    expect(landings(c64MemoryMap, undefined, sites)).toEqual([]);
+    expect(landings(undefined, undefined, sites)).toEqual([]);
+  });
+
+  it('reports nothing when the program writes to nothing', () => {
+    expect(landings(c64MemoryMap, zx81MemoryMap, [])).toEqual([]);
   });
 });
 

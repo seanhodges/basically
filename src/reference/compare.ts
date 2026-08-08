@@ -11,6 +11,13 @@ import type { KeywordDomain } from './domains';
 import type { DomainGuidance } from './domain-guidance';
 import type { EscapeClass } from './escape-classes';
 import type { EscapeGuidance } from './escape-guidance';
+// Type-only, and the distinction is the whole of the purity rule above: an
+// `import type` erases at build time and reaches no runtime module, so naming
+// these costs the documentation bundle nothing. A memory map is plain data and
+// both maps arrive as arguments; the comparison page already imports the same
+// type for its own props. A *value* import from `src/dialects/` would be
+// another matter - that folder's index modules reach the emulator cores.
+import type { MemoryMap, MemoryRegion } from '../dialects/types';
 import type {
   EscapeEntry,
   EscapeTableData,
@@ -526,20 +533,28 @@ export interface EscapeSection {
  * category the table does not declare lands in a trailing bucket rather than
  * disappearing.
  *
- * Unlike {@link capabilitySections} this does *not* rank a category by whether the
- * other dialect covers it. `KeywordDomain` is one closed vocabulary shared by
- * every page, but escape categories are page-scoped: `colour` and `cursor` are
- * Commodore categories, while the Spectrum files its `{INK n}` under `control`.
- * Matching ids across the two would announce "nothing like it on the target"
- * for codes the target plainly has.
+ * The category *ids* still never cross pages, and cannot: `colour` and `cursor`
+ * are Commodore categories, while the Spectrum files its `{INK n}` under
+ * `control`. Matching ids across the two would announce "nothing like it on the
+ * target" for codes the target plainly has.
  *
- * What each group *is* still crosses pages, though, and that is what the class
- * on every category carries: `key-graphics` on the Commodore and `graphics` on
- * the Atom are both `block-graphics`, so the guidance for "what does this
- * machine do about block graphics" can be authored once per target. The verdict
- * is rendered against each group rather than used to sort it - a reader
- * scanning for what cannot be done at all reads the badges, and a reader working
- * through the codes still meets them in the order the source page intended.
+ * What each group *is* does cross pages, though, and that is what the class on
+ * every category carries: `key-graphics` on the Commodore and `graphics` on the
+ * Atom are both `block-graphics`, so the guidance for "what does this machine do
+ * about block graphics" can be authored once per target. That class is what lets
+ * these be ranked the way {@link capabilitySections} ranks the capabilities, and
+ * they are: worst-placed first, so the classes the target cannot express at all
+ * lead, then the ones it half expresses, then the ones it has under its own
+ * spellings. 52 key-graphics codes to redraw by hand and 5 cursor codes that
+ * become a print-at are not equal work, and the badge alone left the reader to
+ * find that out by scanning.
+ *
+ * Ties keep the source page's own category order, since the sort is stable and
+ * the sections are built in that order - so the editorial order still shows
+ * through wherever the ranking has nothing to say, including when no guidance
+ * table is supplied at all. A group whose class the target has no cell for ranks
+ * with the mildest: nothing is known against it, and a missing cell is not a
+ * verdict.
  *
  * `table` is the table the entries came from - the source table for the codes a
  * port must replace, the target's for the ones it gains.
@@ -594,7 +609,14 @@ export function escapeSections(
       entries: rest,
       class: undefined,
     });
-  return sections;
+  // Worst-placed first, exactly as the capability sections are ranked, and by
+  // the same table. Stable, so a rank the guidance cannot decide leaves the
+  // source page's category order untouched.
+  return sections.sort(
+    (a, b) =>
+      SUPPORT_RANK[a.guidance?.support ?? 'full'] -
+      SUPPORT_RANK[b.guidance?.support ?? 'full'],
+  );
 }
 
 /**
@@ -1132,6 +1154,147 @@ export function statementLayoutForProgram(
     };
   }
   return change;
+}
+
+/**
+ * What one of the program's writes reaches on the target machine.
+ *
+ * Four verdicts, and they are what the region kinds support - no more:
+ *
+ *  - `same-kind` - the target keeps the same kind of thing there, somewhere
+ *    else. Not "no work": the address itself is still wrong, which is exactly
+ *    what the two maps are drawn to scale to show.
+ *  - `different-kind` - the write reaches something else. A write aimed at
+ *    system variables that lands in the BASIC program text corrupts the
+ *    program, so both halves are named.
+ *  - `read-only` - the target has ROM there and the write does nothing at all.
+ *    Its own verdict rather than a case of the one above, because the failure
+ *    looks like the statement having been skipped rather than like damage.
+ *  - `outside` - the target's address space does not reach that far, so the
+ *    write has nowhere to go.
+ */
+export type WriteLandingVerdict =
+  | 'same-kind'
+  | 'different-kind'
+  | 'read-only'
+  | 'outside';
+
+/** Where one group of the program's writes lands. See {@link writeLandingsForProgram}. */
+export interface WriteLanding {
+  verdict: WriteLandingVerdict;
+  /**
+   * The region the source machine keeps at these addresses - what the program
+   * aimed at. Absent only for an address outside the source's own space, which
+   * every described map covers end to end.
+   */
+  from?: MemoryRegion;
+  /** What the target keeps there. Absent exactly for the `outside` verdict. */
+  to?: MemoryRegion;
+  /** The addresses in this group, ascending and distinct. */
+  addresses: number[];
+  /**
+   * True where any address in the group was only approximated, so the verdict
+   * is an estimate. Kept rather than suppressed: an approximate address that
+   * would change verdict a few bytes either way is the one a reader most wants
+   * to look at.
+   */
+  approximate: boolean;
+}
+
+/** The region holding an address, or `undefined` above the map's address space. */
+function regionAt(map: MemoryMap, address: number): MemoryRegion | undefined {
+  return map.regions.find((r) => address >= r.start && address <= r.end);
+}
+
+function verdictFor(
+  from: MemoryRegion | undefined,
+  to: MemoryRegion | undefined,
+): WriteLandingVerdict {
+  if (to === undefined) return 'outside';
+  if (to.kind === 'rom') return 'read-only';
+  return from !== undefined && from.kind === to.kind
+    ? 'same-kind'
+    : 'different-kind';
+}
+
+/**
+ * Findings worst-placed first, mildest last - the order the scenarios are
+ * written in, and the order a porter meets the work: a write that corrupts
+ * something, then one that silently does nothing, then one with nowhere to go,
+ * then an address that only has to move.
+ */
+const VERDICT_ORDER: readonly WriteLandingVerdict[] = [
+  'different-kind',
+  'read-only',
+  'outside',
+  'same-kind',
+];
+
+/**
+ * Where the program's writes land on the target machine.
+ *
+ * The comparison already marks these addresses on both maps - on the source's
+ * because that is where the program aimed them, on the target's because that is
+ * where they would land - and leaves the conclusion to the reader's eye. Two
+ * bands of colour at the same height mean "this POKE now writes into the BASIC
+ * program's own text", and nothing else on the page says it. This is that
+ * sentence, and it is reachable by a reader who never scrolls the maps at all.
+ *
+ * The addresses are the source machine's, as the analyser resolved them, and
+ * they are not re-resolved here: a write is judged where it points. A site that
+ * writes a range is judged at its base, which is the address the maps mark it
+ * at.
+ *
+ * Sites sharing a verdict are reported together where they share the regions
+ * that produced it, so a loop of eight POKEs into one buffer is one finding with
+ * eight addresses. Both regions are part of that grouping and not only the
+ * target's: a finding names what the program aimed at as well as what it
+ * reaches, and two sites aimed at different things have not made one finding.
+ *
+ * Empty where either machine's layout is undescribed, which is the same
+ * condition that leaves the maps themselves unshown - half a comparison of two
+ * address spaces is worse than none - and empty where the program writes to
+ * nothing.
+ */
+export function writeLandingsForProgram(
+  fromMap: MemoryMap | undefined,
+  toMap: MemoryMap | undefined,
+  vocabulary: ProgramVocabulary,
+): WriteLanding[] {
+  if (fromMap === undefined || toMap === undefined) return [];
+  const groups = new Map<string, WriteLanding>();
+  for (const site of vocabulary.writeSites) {
+    const from = regionAt(fromMap, site.address);
+    const to = regionAt(toMap, site.address);
+    const verdict = verdictFor(from, to);
+    const key = `${verdict}|${from?.start ?? 'none'}|${to?.start ?? 'none'}`;
+    const found = groups.get(key);
+    if (found === undefined) {
+      groups.set(key, {
+        verdict,
+        from,
+        to,
+        addresses: [site.address],
+        approximate: site.approximate,
+      });
+      continue;
+    }
+    // The same address twice is one address: a program poking a hardware
+    // register in two places has one finding to answer for, not two.
+    if (!found.addresses.includes(site.address)) {
+      found.addresses.push(site.address);
+    }
+    found.approximate = found.approximate || site.approximate;
+  }
+
+  for (const landing of groups.values()) {
+    landing.addresses.sort((a, b) => a - b);
+  }
+  return [...groups.values()].sort(
+    (a, b) =>
+      VERDICT_ORDER.indexOf(a.verdict) - VERDICT_ORDER.indexOf(b.verdict) ||
+      a.addresses[0]! - b.addresses[0]!,
+  );
 }
 
 /**

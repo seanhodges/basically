@@ -33,6 +33,7 @@ import {
   truncatedArithmeticForProgram,
   unsupportedCharactersForProgram,
   variableCollisionsForProgram,
+  writeLandingsForProgram,
   type CapabilitySection,
   type EscapeSection,
   type FactRow,
@@ -220,6 +221,73 @@ const memoryPair = computed(() => {
     sites: narrowingBy.value?.writeSites ?? [],
     notation: s.facts.addressNotation,
   };
+});
+
+/**
+ * Where the program's writes land on the target, as findings rather than as
+ * marks on a picture.
+ *
+ * Absent on exactly the conditions the maps themselves are - either layout
+ * undescribed, or no program to narrow to - so a reader is never told half of
+ * this. A reader who never scrolls the maps still learns that four of their
+ * POKEs land in the target's BASIC program text.
+ */
+const writeLandings = computed(() => {
+  const pair = memoryPair.value;
+  const v = narrowingBy.value;
+  if (!pair || !v) return [];
+  return writeLandingsForProgram(pair.fromMap, pair.toMap, v);
+});
+
+/** How many of a group's addresses are named before the rest are counted. */
+const ADDRESSES_NAMED = 6;
+
+/**
+ * A finding's addresses in the source machine's own notation - the one the
+ * reader's program is written in, and the one the maps open in.
+ *
+ * A loop can write hundreds of addresses; naming six and counting the rest
+ * keeps a finding one line long without hiding how many there are.
+ */
+function addressList(addresses: number[]): string {
+  const fmt = (a: number) =>
+    source.value?.facts.addressNotation === 'hex'
+      ? `&${a.toString(16).toUpperCase().padStart(4, '0')}`
+      : `${a}`;
+  const named = addresses.slice(0, ADDRESSES_NAMED).map(fmt).join(', ');
+  const rest = addresses.length - ADDRESSES_NAMED;
+  return rest > 0 ? `${named} and ${rest} more` : named;
+}
+
+/**
+ * The verdicts as sentences: what the write reaches on the target, and what it
+ * aimed at where naming only one half would leave the reader to guess the
+ * other.
+ *
+ * `estimated` is the approximation carried through rather than laundered out -
+ * the same discipline the maps follow when they draw an approximate address,
+ * and the fit report when it reports a lower bound.
+ */
+const writeLandingRows = computed(() => {
+  const s = source.value;
+  const t = target.value;
+  if (!s || !t) return [];
+  return writeLandings.value.map((landing, index) => {
+    const aimed = landing.from?.label ?? 'memory';
+    const reached = landing.to?.label ?? '';
+    const detail = {
+      'different-kind': `${aimed} on ${s.name}; ${reached} on ${t.name}. The write reaches something else entirely.`,
+      'read-only': `${aimed} on ${s.name}; ${reached} on ${t.name}, which is read-only — the write has no effect at all, and the line looks skipped.`,
+      outside: `${aimed} on ${s.name}. ${t.name} has no such address, so the write has nowhere to go.`,
+      'same-kind': `${aimed} on ${s.name}; ${reached} on ${t.name}. The same kind of memory in a different place, so the address still has to change.`,
+    }[landing.verdict];
+    return {
+      key: `${landing.verdict}-${index}`,
+      addresses: addressList(landing.addresses),
+      detail,
+      estimated: landing.approximate,
+    };
+  });
 });
 
 const sourceEscapes = computed(() => {
@@ -509,6 +577,13 @@ const falseFriendsList = useTruncatedList(
   () => visibleFalseFriends.value,
   pairKey,
 );
+// A program that pokes at hardware in a loop can produce a long run of these,
+// even grouped: the writes are grouped by what they reach, and a program
+// reaching a dozen different things has a dozen findings.
+const writeLandingList = useTruncatedList(
+  () => writeLandingRows.value,
+  pairKey,
+);
 // The renames have no truncated list of their own: they are 1-4 commands for
 // every pair here, named in one run like the parenthesis rule below.
 
@@ -565,14 +640,16 @@ function listOf(parts: string[]): string {
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
-// Grouped by what the codes do, in each table's own category order - the same
-// treatment the commands to replace get, and for the same reason: the reader
-// acts per category, and an alphabetical cap buries the colour and cursor codes
-// a screen layout depends on under the block-graphics keycaps.
-// Each group carries the verdict for its class of code, taken from the target's
-// own guidance: 52 key-graphics codes to redraw by hand and 5 cursor codes that
-// become a print-at are not equal work, and the badge is what says so before the
-// reader starts counting.
+// Grouped by what the codes do - the same treatment the commands to replace
+// get, and for the same reason: the reader acts per category, and an
+// alphabetical cap buries the colour and cursor codes a screen layout depends on
+// under the block-graphics keycaps.
+// Ranked the same way too: each group carries the verdict for its class of code
+// from the target's own guidance, and the groups lead with the classes the
+// target places worst. 52 key-graphics codes to redraw by hand and 5 cursor
+// codes that become a print-at are not equal work, so the heavier work is met
+// first rather than found by scanning the badges. Groups the guidance cannot
+// separate keep the source table's own category order.
 const escReplaceSections = computed<EscapeSection[]>(() => {
   const s = source.value;
   const t = target.value;
@@ -915,33 +992,16 @@ const legend = computed<LegendItem[]>(() => {
  * between two machines looks like the latter: the addresses it draws are ones
  * the port has to change.
  *
- * Each class is introduced by a lead-in conditioned on the sections it
+ * The order is what carries this; only two classes announce themselves in
+ * prose, and each of those lead-ins is conditioned on the sections it
  * introduces, so a class this pair produces nothing for is absent rather than
- * announced empty, and the classes around it stay in order.
+ * announced empty.
  */
 const hasBlockingWork = computed(
   () =>
     charactersToReplace.value.length > 0 ||
     statementLayout.value !== null ||
     lineNumbers.value !== null,
-);
-const hasMechanicalWork = computed(
-  () => (keywordDiff.value?.renamed.length ?? 0) > 0,
-);
-/**
- * The rewrites *after* the section the renames share. The commands whose usage
- * differs are rewrite work too, but they are reported in one account with the
- * renames, so that section stands at the head of this run rather than under its
- * lead-in - what this introduces is what follows it.
- */
-const hasRewriteWork = computed(
-  () =>
-    capabilities.value.length > 0 ||
-    escReplaceSections.value.length +
-      escapeAdded.value +
-      escapeRechecked.value.length >
-      0 ||
-    memoryPair.value !== null,
 );
 const hasSilentWork = computed(
   () =>
@@ -1477,12 +1537,6 @@ watch(to, requestVocabulary);
         </p>
       </section>
 
-      <p v-if="hasMechanicalWork" class="cmp-stage">
-        <strong>Then the mechanical work.</strong>
-        Worth doing first because it is cheap: it leaves fewer unfamiliar
-        spellings in the program the rewrites are done against.
-      </p>
-
       <!--
         Renames and usage changes share a premise - the command is on both
         machines, written differently - so they share a section; a rename is
@@ -1562,11 +1616,6 @@ watch(to, requestVocabulary);
           </li>
         </ul>
       </section>
-
-      <p v-if="hasRewriteWork" class="cmp-stage">
-        <strong>Then what has to be rewritten.</strong>
-        The bulk of the port, and the part that decides the shape of the result.
-      </p>
 
       <!--
         One account per capability: what the port loses here, what to do
@@ -1733,7 +1782,8 @@ watch(to, requestVocabulary);
         </h2>
         <p class="cmp-hint">
           Embedded colour and graphics control codes differ between the
-          machines. Grouped by what they do; the
+          machines. Grouped by what they do, with the classes
+          {{ target.name }} has no way to express at all first; the
           <a :href="refLinks(source.page).escapes"
             >{{ source.name }} escape-code reference</a
           >
@@ -1884,6 +1934,40 @@ watch(to, requestVocabulary);
           :sites="memoryPair.sites"
           :notation="memoryPair.notation"
         />
+
+        <!--
+          The conclusion the marks alone leave to the reader's eye. Two bands of
+          colour at the same height mean "this POKE now writes into the BASIC
+          program's own text", and only this says so - including to a reader on
+          a narrow screen, meeting the two maps one tab at a time.
+        -->
+        <div v-if="writeLandingRows.length" class="cmp-landings">
+          <h3 class="cmp-group-head">
+            Where these writes land ({{ writeLandingRows.length }})
+          </h3>
+          <ul class="cmp-list">
+            <li v-for="row in writeLandingList.visible" :key="row.key">
+              <code>{{ row.addresses }}</code>
+              <span class="cmp-change-detail">{{ row.detail }}</span>
+              <span v-if="row.estimated" class="cmp-landing-approx">
+                The address could only be estimated, so this is an estimate too
+                — the region is right, the exact byte may not be.
+              </span>
+            </li>
+            <li
+              v-if="writeLandingList.hasMore && !writeLandingList.expanded"
+              class="cmp-more"
+            >
+              <button
+                type="button"
+                class="cmp-expand"
+                @click="writeLandingList.expand()"
+              >
+                Show {{ writeLandingList.remaining }} more…
+              </button>
+            </li>
+          </ul>
+        </div>
       </section>
 
       <p v-if="hasSilentWork" class="cmp-stage">
@@ -1998,12 +2082,6 @@ watch(to, requestVocabulary);
           reorder so the multiply comes before the divide.
         </p>
       </section>
-
-      <p v-if="programFit && fitText" class="cmp-stage">
-        <strong>Finally, whether it still fits.</strong>
-        A property of the result, so it only settles once the work above is
-        done.
-      </p>
 
       <!--
         The one finding a port with nothing else to do can still fail - C64 to
@@ -2525,6 +2603,20 @@ watch(to, requestVocabulary);
   margin: 0.75rem 0 0;
   font-size: 0.85rem;
   color: var(--vp-c-text-2);
+}
+/* The verdicts, under the maps they are about: far enough below the picture to
+   read as its conclusion rather than as part of its controls. */
+.cmp-landings {
+  margin-top: 1.25rem;
+}
+/* Its own line under the finding it qualifies, and dimmer than the finding: the
+   doubt belongs to the verdict, and putting it in the same run of text would
+   let it be read as part of what was concluded. */
+.cmp-landing-approx {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--vp-c-text-3, var(--vp-c-text-2));
 }
 @media (max-width: 640px) {
   .cmp-facts tbody th {
