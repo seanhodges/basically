@@ -6,9 +6,9 @@ title: ZX Spectrum file formats
 
 The ZX Spectrum (48K & 128K) native binary is the **`.TAP`** file, which doubles
 as the in-memory image the IDE's emulator injects and as the import format that
-round-trips back to editable source. A 48K document can carry [memory
-blocks](../file-formats#machine-code-data-blocks) inside the `.TAP` in **both
-directions**. The machine also exports and imports a cassette **`.wav`** (see
+round-trips back to editable source. A document on either machine can carry
+[memory blocks](../file-formats#machine-code-data-blocks) inside the `.TAP` in
+**both directions**. The machine also exports and imports a cassette **`.wav`** (see
 [Cassette audio](#cassette-audio) below).
 
 For the shared editor `.txt`, `.zip` project bundle, escape notation and the
@@ -28,9 +28,10 @@ only"; the IDE exports with auto-run disabled and drives `RUN` itself. The
 Spectrum 128's `.TAP` is byte-for-byte identical to the 48K's - only the
 tokenizer differs (so `PLAY`/`SPECTRUM` keywords export correctly).
 
-A 48K Spectrum document with [memory
+A document with [memory
 blocks](../file-formats#machine-code-data-blocks) exports as a **multi-file
-tape**: each block becomes a CODE file (header type 3, param1 = load address),
+tape** on both the 48K and the 128 - the same tape, since the format is the
+same: each block becomes a CODE file (header type 3, param1 = load address),
 in address order. With the Transfer dialog's **auto-loader** on (the default
 when blocks exist), the tape leads with a generated auto-running loader
 (`CLEAR` below the lowest block, one `LOAD "" CODE` per block, then `LOAD ""`)
@@ -49,9 +50,9 @@ the real program imported.
 The ZX Spectrum exposes a `.wav` export (and "play through speakers") **and** a
 cassette-audio import - listening on the mic / line-in, or decoding a `.wav`
 recording, back into editable source. The encoder emits mono 44.1kHz and offers
-a "robust" mode that lengthens the pilot for temperamental hardware. A 48K
+a "robust" mode that lengthens the pilot for temperamental hardware. A
 document's memory blocks travel through the cassette `.wav` the same way they
-travel through the `.TAP`.
+travel through the `.TAP`, on both machines.
 
 The encoding is the standard ROM tape format, derived from the same two tape
 blocks the `.TAP` export uses. Each block is a pilot tone (2168 T-state pulses;

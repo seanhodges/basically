@@ -3,9 +3,11 @@
 export {
   buildTap,
   codeTap,
+  codeTapBlocks,
   parseTap,
   parseTapWithReport,
   parseTapAllFiles,
   tapBlocks,
+  tapImageFromBlocks,
 } from '../zxspectrum/tapfile';
-export type { CodeFile } from '../zxspectrum/tapfile';
+export type { CodeFile, TapBlock } from '../zxspectrum/tapfile';
