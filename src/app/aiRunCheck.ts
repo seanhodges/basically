@@ -14,17 +14,17 @@ export const AI_CHECK_MAX_FRAMES = 150;
 export const AI_CHECK_ABS_MAX_FRAMES = 600;
 
 /**
- * Display frames advanced per animation tick while a check is armed.
+ * Emulation speed multiplier while a check is armed.
  *
- * Nobody is watching a check run, so it need not be held to the machine's 50Hz.
- * The windows above are counted in frames rather than seconds so that this can
- * be raised without moving a rule: at 1x the absolute cap is twelve seconds per
+ * Nobody is watching a check run, so it need not be held to real time. The
+ * windows above are counted in frames rather than seconds so that this can be
+ * raised without moving a rule: at 1x the absolute cap is twelve seconds per
  * attempt, and an answer can take three attempts.
  *
  * Four rather than more because the check reads the machine after every frame
- * and a settled verdict stops the batch, so a bigger batch buys little.
+ * and a settled verdict ends the run, so going faster buys little.
  */
-export const AI_CHECK_FRAMES_PER_TICK = 4;
+export const AI_CHECK_SPEED = 4;
 
 /**
  * Milliseconds between ticks when a check is armed in a tab the user has

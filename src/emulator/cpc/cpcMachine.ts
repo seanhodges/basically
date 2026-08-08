@@ -19,7 +19,12 @@ import {
   type LocoMemPort,
 } from '../../dialects/cpc464/vars';
 import { readLocoReport } from '../../dialects/cpc464/reports';
-import { Ay38912, AY_SAMPLE_RATE, AY_CLOCK_CPC } from '../ay';
+import {
+  Ay38912,
+  AY_SAMPLE_RATE,
+  AY_SAMPLES_PER_FRAME,
+  AY_CLOCK_CPC,
+} from '../ay';
 import { CpcMemory, type CpcModel } from './memory';
 import { GateArray } from './gateArray';
 import { Crtc } from './crtc';
@@ -29,6 +34,7 @@ import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT } from './display';
 import { cpcFontSignatures, readCpcScreenText } from './screenText';
 import type { GlyphSignatures } from '../fontMatcher';
 
+const CPU_HZ = 4_000_000;
 /** 4MHz Z80, 64µs (256 T-state) scanlines, 312 lines → ~50.08Hz. */
 const TSTATES_PER_LINE = 256;
 /** Frames to run the firmware before giving up on reaching the command loop. */
@@ -75,7 +81,15 @@ const basicVarPointers = (v: LocoSysVars) => [
 export class CpcMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
-  readonly audioSampleRate = AY_SAMPLE_RATE;
+  /**
+   * The rate this machine actually emits at: a fixed count of samples per frame,
+   * {@link frameHz} times a second. A getter rather than a constant because the
+   * CRTC sets the frame length and a program can reprogram it mid-run; the host
+   * re-reads this on every push, so the stream stays matched either way.
+   */
+  get audioSampleRate(): number {
+    return AY_SAMPLES_PER_FRAME * this.frameHz;
+  }
 
   private readonly memory: CpcMemory;
   private readonly gateArray = new GateArray();
@@ -87,7 +101,14 @@ export class CpcMachine implements MachineEmulator {
 
   /** Which AY register the PPI last latched (for the reg-14 keyboard read). */
   private aySelected = 0;
-  private speed = 1;
+  /**
+   * T-states the previous scanline overran its budget by, owed back to the next.
+   * Carried across scanlines *and* across frames: a Z80 instruction is a large
+   * fraction of a 256 T-state line, so a debt reset per line - once per line,
+   * 312 times a frame - is the difference between the CPU running at 4MHz and
+   * a few percent above it.
+   */
+  private debt = 0;
   private disposed = false;
 
   /**
@@ -202,6 +223,15 @@ export class CpcMachine implements MachineEmulator {
     return 0xff;
   };
 
+  /**
+   * Unlike every other machine here this is not a constant: the CRTC's vertical
+   * registers set the frame length, and Locomotive BASIC programs reprogram them
+   * (a `BORDER`-style split, an overscan demo) while running.
+   */
+  get frameHz(): number {
+    return CPU_HZ / (TSTATES_PER_LINE * this.crtc.linesPerFrame());
+  }
+
   runFrame(): void {
     const lines = this.crtc.linesPerFrame();
     for (let line = 0; line < lines; line++) this.runScanline(line);
@@ -211,9 +241,8 @@ export class CpcMachine implements MachineEmulator {
   /** Emulate one CRTC scanline: clock the interrupt, then run its T-states. */
   private runScanline(line: number): void {
     this.beginScanline(line);
-    const budget = TSTATES_PER_LINE * this.speed;
-    let t = 0;
-    while (t < budget) {
+    let t = this.debt;
+    while (t < TSTATES_PER_LINE) {
       if (this.cpu.isHalted()) {
         // Idle until the next interrupt; burn a NOP's worth of time.
         t += 4;
@@ -221,6 +250,7 @@ export class CpcMachine implements MachineEmulator {
       }
       t += this.cpu.run_instruction();
     }
+    this.debt = t - TSTATES_PER_LINE;
   }
 
   /**
@@ -380,10 +410,6 @@ export class CpcMachine implements MachineEmulator {
     this.keyboard.setKey('JoyFire2', state.fire2);
   }
 
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
-  }
-
   /** Live BASIC variables walked from the Locomotive variable storage. */
   readVariables(): MachineVariable[] {
     return readLocoVariables(this.memPort, this.sysvars);
@@ -470,9 +496,8 @@ export class CpcMachine implements MachineEmulator {
     const lines = this.crtc.linesPerFrame();
     for (let line = 0; line < lines; line++) {
       this.beginScanline(line);
-      const budget = TSTATES_PER_LINE * this.speed;
-      let t = 0;
-      while (t < budget) {
+      let t = this.debt;
+      while (t < TSTATES_PER_LINE) {
         if (this.cpu.isHalted()) {
           t += 4;
           continue;
@@ -482,17 +507,20 @@ export class CpcMachine implements MachineEmulator {
         if (cur === null) continue;
         if (opts.mode === 'step') {
           if (opts.fromLine === null || cur !== opts.fromLine) {
+            this.debt = 0; // pausing abandons the rest of the scanline
             this.renderFrame();
             return { paused: true, line: cur };
           }
         } else {
           if (!armed && cur !== opts.fromLine) armed = true;
           if (armed && opts.breakpoints.has(cur)) {
+            this.debt = 0;
             this.renderFrame();
             return { paused: true, line: cur };
           }
         }
       }
+      this.debt = t - TSTATES_PER_LINE;
     }
     this.renderFrame();
     return { paused: false, line: this.currentLine() };

@@ -140,38 +140,6 @@ describe('SpectrumMachine', () => {
     expect(machine.readReport().isError).toBe(false);
   });
 
-  it('takes more frames to finish the same program at a slower speed', () => {
-    // A busy loop long enough that its completion spans many frames, so the
-    // run (not just the load handshake) is what setSpeed throttles. 1000
-    // iterations is ~190 frames at full speed and ~380 at half - the same
-    // count the 128K machine's version of this test uses, and a wide enough
-    // gap that the poll quantisation below cannot close it. Making the loop
-    // longer only buys emulated seconds this assertion has no use for.
-    const src = '10 FOR i=1 TO 1000\n20 NEXT i\n30 PRINT "DONE"\n';
-    function framesToDone(speed: number): number {
-      const machine = new SpectrumMachine({ rom });
-      const { bytes, errors } = tokenizeProgram(src);
-      expect(errors).toEqual([]);
-      machine.loadProgram(buildTap(bytes));
-      // setSpeed is applied after the load handshake (which relies on the
-      // default 1x boot/flash-load timing) so only the run itself is throttled.
-      machine.setSpeed(speed);
-      // Sampled every POLL frames rather than every frame: reading the screen
-      // OCRs all 768 cells, which is far too heavy to run on every iteration.
-      // Quantising the answer leaves the comparison below intact - half speed
-      // still needs about twice the frames.
-      const POLL = 25;
-      for (let i = 1; i <= 1000; i++) {
-        machine.runFrame();
-        if (i % POLL === 0 && readScreen(machine, 0, 0, 4) === 'DONE') return i;
-      }
-      throw new Error('never displayed DONE');
-    }
-    const atFullSpeed = framesToDone(1);
-    const atHalfSpeed = framesToDone(0.5);
-    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
-  });
-
   it('responds to emulated keypresses via INKEY$', () => {
     const machine = new SpectrumMachine({ rom });
     const src = '10 IF INKEY$="" THEN GO TO 10\n20 PRINT "KEY ";INKEY$\n';

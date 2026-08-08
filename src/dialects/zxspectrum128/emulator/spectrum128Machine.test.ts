@@ -207,7 +207,9 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
 
   it('synthesizes AY audio while a PLAY program runs', () => {
     const machine = new Spectrum128Machine({ rom });
-    expect(machine.audioSampleRate).toBe(44100);
+    // The rate the machine emits at, not the synth's nominal 44100: 882
+    // samples a frame at the 128K ULA's 50.02Hz.
+    expect(machine.audioSampleRate).toBeCloseTo(44118.66, 1);
     const src = '10 PLAY "cdefgab"\n20 GO TO 10\n';
     const { bytes, errors } = tokenizeProgram(src);
     expect(errors).toEqual([]);
@@ -245,29 +247,6 @@ suite('Spectrum128Machine (needs public/roms/zxspectrum128.rom)', () => {
     const report = machine.readReport();
     expect(report.isError).toBe(true);
     expect(report.code).toBe('2');
-  });
-
-  it('takes more frames to finish the same program at a slower speed', () => {
-    // A busy loop long enough that its completion spans many frames, so the
-    // run (not just the load handshake) is what setSpeed throttles.
-    const src = '10 FOR i=1 TO 1000\n20 NEXT i\n30 PRINT "DONE"\n';
-    function framesToDone(speed: number): number {
-      const machine = new Spectrum128Machine({ rom });
-      const { bytes, errors } = tokenizeProgram(src);
-      expect(errors).toEqual([]);
-      machine.loadProgram(buildTap(bytes));
-      // setSpeed is applied after the load handshake (which relies on the
-      // default 1x boot/flash-load timing) so only the run itself is throttled.
-      machine.setSpeed(speed);
-      for (let i = 1; i <= 2000; i++) {
-        machine.runFrame();
-        if (readScreen(machine, 0, 0, 4) === 'DONE') return i;
-      }
-      throw new Error('never displayed DONE');
-    }
-    const atFullSpeed = framesToDone(1);
-    const atHalfSpeed = framesToDone(0.5);
-    expect(atHalfSpeed).toBeGreaterThan(atFullSpeed);
   });
 
   it('pages RAM banks 0-7 and reads them back over the 0xC000 window', () => {

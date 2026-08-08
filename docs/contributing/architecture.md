@@ -179,8 +179,9 @@ Two consequences worth knowing:
 ### Emulation layer (`src/dialects/<name>/emulator/`, `src/emulator/`)
 
 `Dialect.createEmulator()` returns a `MachineEmulator`: `loadProgram(image,
-opts)`, `runFrame()` (one 50 Hz frame of CPU time), `renderTo(canvas)`, key and
-joystick input, `setSpeed()`, and `dispose()`. Everything beyond that is an
+opts)`, `runFrame()` (one display frame of CPU time), `frameHz` (how many of
+those a second of real time is worth), `renderTo(canvas)`, key and joystick
+input, and `dispose()`. Everything beyond that is an
 **optional capability the app feature-detects per machine** - `readAudio()`,
 `readVariables()`, `readReport()` (BASIC runtime errors), `isProgramRunning()`
 (whether a program is executing at all), `readMemoryStats()`, the
@@ -435,7 +436,7 @@ sequenceDiagram
   E->>D: tokenize(source)
   D-->>E: { image, errors, byteSize }
   E->>M: loadProgram(image, { blocks, tapeFiles, autoStart })
-  loop each animation frame (~50 Hz)
+  loop each machine frame (paced to frameHz)
     E->>M: runFrame()
     E->>M: readAudio() → worklet ring buffer
     E->>M: renderTo(canvas)
@@ -463,8 +464,12 @@ Step by step:
    full loadable image, the byte size for the RAM budget, and any errors.
 6. **Load and run** - `machine.loadProgram(image, …)` writes the blocks into
    RAM, mounts any preserved tape files, and starts the program; then a
-   `requestAnimationFrame` loop calls `runFrame()`, pumps audio, and paints the
-   canvas each frame. In debug mode the loop calls `debugStep()` instead,
+   `requestAnimationFrame` loop paints the canvas each animation frame and calls
+   `runFrame()` as often as real time says it should. Animation frames arrive at
+   the display's refresh rate, which is nobody's frame rate, so `src/app/
+frameClock.ts` converts elapsed time into whole machine frames at the
+   machine's `frameHz` - otherwise emulated speed would be a property of the
+   user's monitor. In debug mode the loop calls `debugStep()` instead,
    pausing on breakpoints at BASIC-line granularity. A document carrying a boot
    disc skips all of this and boots the disc verbatim, exactly as SHIFT+BREAK
    would on real hardware.

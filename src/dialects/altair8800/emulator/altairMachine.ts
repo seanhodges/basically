@@ -34,12 +34,17 @@ import {
   ROWS as DISPLAY_ROWS,
 } from './terminal';
 
+const CPU_HZ = 2_000_000;
 /**
- * Cycles of 8080 time per 50Hz frame: 2 MHz / 50. The Altair's 8080A ran at
- * 2 MHz, twice the ZX81's effective rate and a shade over the TRS-80's 1.77 MHz
- * Z80.
+ * Cycles of 8080 time per frame: 2 MHz / 50. The Altair's 8080A ran at 2 MHz,
+ * twice the ZX81's effective rate and a shade over the TRS-80's 1.77 MHz Z80.
+ *
+ * The 50 here is a scheduling convention, not hardware. The Altair has no video
+ * at all - the front panel and a serial terminal are the whole of its output -
+ * so nothing on the machine defines a frame; this is only how often the host is
+ * given a chance to redraw the terminal.
  */
-export const CYCLES_PER_FRAME = 40_000;
+export const CYCLES_PER_FRAME = CPU_HZ / 50;
 
 /**
  * How long each step of the cold-start dialogue is given before the boot is
@@ -186,6 +191,7 @@ const PARITY = buildParityTable();
 export class Altair8800Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / CYCLES_PER_FRAME;
 
   private readonly interpreter: Uint8Array;
   private readonly memory: Altair8800Memory;
@@ -193,7 +199,12 @@ export class Altair8800Machine implements MachineEmulator {
   private readonly serial = new Altair8800Serial(this.terminal);
   private readonly keyboard = new Altair8800Keyboard(this.serial);
   private readonly cpu: Z80Core;
-  private speed = 1;
+  /**
+   * Cycles the previous frame overran its budget by, owed back to this one. An
+   * instruction cannot be cut in half at a frame boundary, so a frame always
+   * ends a few cycles late; discarding that gains time every frame.
+   */
+  private debt = 0;
   private disposed = false;
 
   constructor(opts: { rom: Uint8Array }) {
@@ -225,7 +236,7 @@ export class Altair8800Machine implements MachineEmulator {
 
   runFrame(): void {
     if (!this.hasInterpreter) return;
-    this.runCycles(CYCLES_PER_FRAME * this.speed);
+    this.runCycles(CYCLES_PER_FRAME);
   }
 
   /**
@@ -312,10 +323,6 @@ export class Altair8800Machine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.keyboard.releaseAll();
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   dispose(): void {
@@ -497,13 +504,18 @@ export class Altair8800Machine implements MachineEmulator {
   }
 
   private runCycles(budget: number): void {
-    let cycles = 0;
+    let cycles = this.debt;
     while (cycles < budget) {
       // Nothing wakes a HALT on this machine - there is no interrupt source on
-      // the base backplane - so end the frame rather than spinning.
-      if (this.cpu.isHalted()) break;
+      // the base backplane - so end the frame rather than spinning. Nothing is
+      // owed for time the CPU was never going to run.
+      if (this.cpu.isHalted()) {
+        this.debt = 0;
+        return;
+      }
       cycles += this.step();
     }
+    this.debt = cycles - budget;
   }
 
   /**
@@ -590,7 +602,7 @@ export class Altair8800Machine implements MachineEmulator {
 
   private runUntil(done: () => boolean, failure: string): void {
     for (let frame = 0; frame < MAX_BOOT_FRAMES; frame++) {
-      this.runCycles(CYCLES_PER_FRAME); // boot at full speed, whatever setSpeed says
+      this.runCycles(CYCLES_PER_FRAME);
       if (done()) return;
     }
     throw new Error(

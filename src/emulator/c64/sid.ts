@@ -25,7 +25,7 @@
 /** Output rate of the SID stream; 44100 / 50 = 882 samples per frame (integer). */
 export const SID_SAMPLE_RATE = 44100;
 /** Samples emitted per 50Hz frame. */
-const SAMPLES_PER_FRAME = SID_SAMPLE_RATE / 50;
+export const SID_SAMPLES_PER_FRAME = SID_SAMPLE_RATE / 50;
 /** PAL system clock feeding the SID oscillators (Hz). */
 const SID_CLOCK_PAL = 985248;
 /**
@@ -198,10 +198,10 @@ export class SidRenderer {
       this.voiceFreqHz(2) / SID_SAMPLE_RATE,
     ];
 
-    const out = new Float32Array(SAMPLES_PER_FRAME);
+    const out = new Float32Array(SID_SAMPLES_PER_FRAME);
     let prevIn = this.dcPrevIn;
     let prevOut = this.dcPrevOut;
-    for (let i = 0; i < SAMPLES_PER_FRAME; i++) {
+    for (let i = 0; i < SID_SAMPLES_PER_FRAME; i++) {
       let sum = 0;
       for (let v = 0; v < 3; v++) {
         const w = this.voiceSample(v, inc[v]!); // advance phase even when muted

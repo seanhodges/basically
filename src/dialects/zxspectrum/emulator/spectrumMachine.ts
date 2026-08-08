@@ -22,7 +22,7 @@ import { readSpectrumScreenText, spectrumFontSignatures } from './screenText';
 import type { GlyphSignatures } from '../../../emulator/fontMatcher';
 import { SpectrumKeyboard } from './keyboard';
 import { applySinclairJoystick, kempstonByte } from './joystick';
-import { Beeper, BEEPER_SAMPLE_RATE } from './beeper';
+import { Beeper, BEEPER_SAMPLES_PER_FRAME } from './beeper';
 import {
   renderScanline,
   renderDisplay,
@@ -41,6 +41,7 @@ import {
 } from '../sysvars';
 import { injectBlocks, minBlockAddress } from './blockInject';
 
+const CPU_HZ = 3_500_000;
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
 const TSTATES_PER_LINE = 224; // one 48K raster line (312 lines x 224 = 69888)
 // T-states from the frame interrupt to the ULA fetching the first display line.
@@ -74,8 +75,16 @@ const MAX_BOOT_FRAMES = 200;
 export class SpectrumMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
-  /** Native rate of the mono beeper stream (see beeper.ts). */
-  readonly audioSampleRate = BEEPER_SAMPLE_RATE;
+  readonly frameHz = CPU_HZ / TSTATES_PER_FRAME;
+  /**
+   * The rate this machine actually emits at: a fixed count of samples per frame,
+   * {@link frameHz} times a second. Not the round number the synthesis is
+   * designed around - reporting that instead would have the host consume
+   * fractionally slower than the machine produces, and playback would fall
+   * further behind for as long as the program ran. The cost is that pitch sits
+   * within a quarter-percent of the synth's design rate, far below audible.
+   */
+  readonly audioSampleRate = BEEPER_SAMPLES_PER_FRAME * this.frameHz;
 
   private readonly memory: SpectrumMemory;
   private readonly keyboard = new SpectrumKeyboard();
@@ -87,7 +96,14 @@ export class SpectrumMachine implements MachineEmulator {
   private border = 7;
   /** Kempston joystick port byte (active-high: bit0 right … bit4 fire). */
   private kempston = 0;
-  private speed = 1;
+  /**
+   * T-states the previous frame overran its budget by, owed back to this one.
+   * An instruction cannot be cut in half at a frame boundary, so a frame always
+   * ends a few T-states late; discarding that gains time every frame. Zeroed
+   * rather than carried when a HALT ends a frame early - the CPU idles until
+   * the next interrupt, so nothing is owed.
+   */
+  private debt = 0;
   private frameCount = 0;
   private imageData: ImageData | null = null;
   /**
@@ -194,17 +210,22 @@ export class SpectrumMachine implements MachineEmulator {
   }
 
   runFrame(): void {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
+    // Start where the last frame actually stopped, not at zero: the overrun is
+    // real emulated time, and it also puts the scanline fetch points below on
+    // the frame's true timeline.
+    let cycles = this.debt;
     // One maskable interrupt per frame (IM1) when interrupts are enabled.
     if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
 
     const flashPhase = Math.floor(this.frameCount / FLASH_FRAMES) % 2 === 1;
     let nextLine = 0;
-    while (cycles < budget) {
+    while (cycles < TSTATES_PER_FRAME) {
       this.frameCycle = cycles; // timestamp any beeper write in this instruction
       const { t, halted } = this.stepInstruction();
-      if (halted) break; // idle until the next frame's interrupt
+      if (halted) {
+        this.debt = 0; // idle until the next frame's interrupt; nothing owed
+        break;
+      }
       cycles += t;
       // Draw every display line whose ULA fetch time we've now reached. The
       // line is sampled at most one instruction (<=~23 T << 224 T/line) after
@@ -218,8 +239,9 @@ export class SpectrumMachine implements MachineEmulator {
         nextLine++;
       }
     }
-    // HALT before the frame ended, or a slow-mo budget shorter than one frame:
-    // fill any lines we never reached from the final memory contents.
+    if (cycles >= TSTATES_PER_FRAME) this.debt = cycles - TSTATES_PER_FRAME;
+    // HALT before the frame ended: fill any lines we never reached from the
+    // final memory contents.
     while (nextLine < DISPLAY_HEIGHT) {
       renderScanline(this.memory, this.frameBuffer, nextLine, flashPhase);
       nextLine++;
@@ -252,8 +274,7 @@ export class SpectrumMachine implements MachineEmulator {
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
+    let cycles = this.debt;
     // Match runFrame's once-per-frame interrupt so timing/keyboard scan hold.
     if (this.cpu.getIFF1()) this.cpu.interrupt(false, 0xff);
 
@@ -261,15 +282,19 @@ export class SpectrumMachine implements MachineEmulator {
     // resumed from, so Continue off a breakpointed line doesn't re-trigger on
     // the spot but still re-pauses when the loop comes back around.
     let armed = opts.fromLine === null;
-    while (cycles < budget) {
+    while (cycles < TSTATES_PER_FRAME) {
       this.frameCycle = cycles; // timestamp any beeper write in this instruction
       const { t, halted } = this.stepInstruction();
-      if (halted) break; // idle until the next frame's interrupt
+      if (halted) {
+        this.debt = 0;
+        break;
+      }
       cycles += t;
       const line = this.currentLine();
       if (line === null) continue;
       if (opts.mode === 'step') {
         if (opts.fromLine === null || line !== opts.fromLine) {
+          this.debt = 0; // pausing abandons the rest of the slice
           this.frameCount++;
           this.renderWholeFrame();
           return { paused: true, line };
@@ -277,12 +302,14 @@ export class SpectrumMachine implements MachineEmulator {
       } else {
         if (!armed && line !== opts.fromLine) armed = true;
         if (armed && opts.breakpoints.has(line)) {
+          this.debt = 0;
           this.frameCount++;
           this.renderWholeFrame();
           return { paused: true, line };
         }
       }
     }
+    if (cycles >= TSTATES_PER_FRAME) this.debt = cycles - TSTATES_PER_FRAME;
     this.frameCount++;
     this.renderWholeFrame();
     return { paused: false, line: this.currentLine() };
@@ -645,10 +672,6 @@ export class SpectrumMachine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.keyboard.releaseAll();
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   dispose(): void {

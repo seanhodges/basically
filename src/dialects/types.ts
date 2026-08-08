@@ -400,7 +400,11 @@ export interface MachineEmulator {
       bootDisc?: Uint8Array;
     },
   ): void;
-  /** Advance emulation by one display frame (50Hz) worth of CPU time. */
+  /**
+   * Advance emulation by one display frame's worth of CPU time, at
+   * {@link frameHz}. The host decides how often to call it; a machine never
+   * scales its own frame to go faster or slower.
+   */
   runFrame(): void;
   renderTo(ctx: CanvasRenderingContext2D): void;
   /** Returns true when the key event was consumed. */
@@ -425,19 +429,31 @@ export interface MachineEmulator {
    * the call site via `typeof machine.setJoystick === 'function'`.
    */
   setJoystick?(mode: JoystickMode, state: JoystickState): void;
-  /** Emulation speed multiplier (1 = real time). */
-  setSpeed(multiplier: number): void;
+  /**
+   * Display frames per second of real time - what one {@link runFrame} is worth,
+   * and the rate the host paces the run loop to. Rarely a round 50: the 48K
+   * Spectrum's ULA frame is 50.08Hz, the PAL C64's 50.125Hz. Read every tick
+   * rather than cached, because on the Amstrad it is derived from CRTC
+   * registers a program can reprogram mid-run.
+   */
+  readonly frameHz: number;
   readonly displayWidth: number;
   readonly displayHeight: number;
   dispose(): void;
   /**
    * Native sample rate (Hz) of the Float32 mono stream this machine produces.
    * Present only on machines that synthesize sound; paired with {@link readAudio}.
+   *
+   * This is the rate the machine *actually* emits at - samples per frame times
+   * {@link frameHz} - not the round number the synthesis was designed around.
+   * The two differ because no machine's frame rate is exactly 50Hz, and the
+   * host consumes at the rate reported here: claim 44100 while emitting 882
+   * samples 50.08 times a second and playback falls progressively behind.
    */
   readonly audioSampleRate?: number;
   /**
    * Mono samples generated since the previous call - typically one frame's worth
-   * (~audioSampleRate / 50). Called once per rAF tick, right after
+   * (`audioSampleRate / frameHz`). Called once per emulated frame, right after
    * {@link runFrame} (and {@link debugStep}). Returns an empty array when this
    * machine emits no audio this slice. The host owns buffering, resampling,
    * volume and scheduling; the machine owns synthesis. A machine "supports audio"

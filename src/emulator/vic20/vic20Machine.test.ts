@@ -354,7 +354,9 @@ describe('Vic20Machine', () => {
     'synthesizes VIC-I audio while a voice sounds, and settles silent again',
     async () => {
       const m = new Vic20Machine({ roms });
-      expect(m.audioSampleRate).toBe(44100);
+      // The rate the machine emits at, not the synth's nominal 44100: 882
+      // samples a frame at this machine's own frame rate.
+      expect(m.audioSampleRate).toBeCloseTo(44132.01, 1);
       await m.whenReady();
       // Volume up, soprano voice on, then hold so the tone persists.
       m.loadProgram(image('10 POKE 36878,15\n20 POKE 36876,200\n30 GOTO 30\n'));

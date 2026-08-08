@@ -34,6 +34,17 @@ import { Interpreter } from './interpreter';
 const STATEMENTS_PER_FRAME = 20;
 
 /**
+ * Frames per second this backend is calibrated against.
+ *
+ * A scheduling convention rather than hardware: this backend interprets BASIC
+ * statements instead of executing Z80 cycles, so it has no cycle budget and no
+ * raster to be exact about. The figure is the one {@link STATEMENTS_PER_FRAME}
+ * was derived from, and the host paces to it so the interpreter runs at the
+ * throughput that calibration targeted.
+ */
+const FRAME_HZ = 50;
+
+/**
  * The ROM-free TRS-80 backend: a {@link MachineEmulator} over the high-level
  * Level II interpreter. It needs no ROM image (the `rom`/`ramKb` options are
  * ignored), renders through the same {@link renderDisplay} the Z80 machine uses,
@@ -43,8 +54,9 @@ export class Trs80InterpreterMachine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
 
+  readonly frameHz = FRAME_HZ;
+
   private readonly interp = new Interpreter();
-  private speed = 1;
 
   constructor(files?: MachineFileStore) {
     this.interp.setFileStore(files ?? null);
@@ -74,7 +86,7 @@ export class Trs80InterpreterMachine implements MachineEmulator {
   }
 
   runFrame(): void {
-    this.interp.runBudget(Math.round(STATEMENTS_PER_FRAME * this.speed));
+    this.interp.runBudget(STATEMENTS_PER_FRAME);
   }
 
   renderTo(ctx: CanvasRenderingContext2D): void {
@@ -91,10 +103,6 @@ export class Trs80InterpreterMachine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.interp.input.releaseAll();
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   dispose(): void {
@@ -120,9 +128,8 @@ export class Trs80InterpreterMachine implements MachineEmulator {
 
   /** Single-step / run-to-breakpoint at BASIC-line granularity. */
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    const budget = Math.round(STATEMENTS_PER_FRAME * this.speed);
     return this.interp.debugSlice(
-      budget,
+      STATEMENTS_PER_FRAME,
       opts.mode,
       opts.fromLine,
       opts.breakpoints,
