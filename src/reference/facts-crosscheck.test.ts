@@ -131,6 +131,75 @@ describe('facts crosscheck', () => {
       expect(facts.unsupportedCharacters, id).toEqual([]);
     }
   });
+
+  it('spells every line-number range the same way', () => {
+    // An en dash on twelve machines and a hyphen on the thirteenth is not a
+    // difference between the machines, but the guide compares these rows as
+    // strings and would report one.
+    for (const facts of portingFacts) {
+      expect(facts.lineNumberRange, facts.id).toMatch(/^\d+–\d+$/);
+    }
+  });
+});
+
+/**
+ * The line-number range, re-derived from each dialect's own tokenizer rather
+ * than trusted as prose - the same discipline `unsupportedCharacters` is held
+ * to above, and for the same reason: a range the guide gets wrong is advice to
+ * renumber a program that did not need it, or silence about one that did.
+ *
+ * The band checked is the one the tokenizer accepts with no complaint of any
+ * kind, which is the range a machine's own *editor* takes - what a porter must
+ * renumber into. Several tokenizers deliberately accept a wider band with a
+ * non-fatal note, for line numbers that exist in loaded programs and run but
+ * that the ROM's line editor refuses at the keyboard (the BBC's 32768-65279,
+ * the Spectrum's 0 and 10000-16383). Those are not this row.
+ *
+ * Every band below was confirmed against the real ROM by typing a line at the
+ * machine's own keyboard and listing it back: the Commodore trio store 63999
+ * and refuse 64000; the BBC Micro and Master store `0REM` and answer
+ * `Syntax error` at 32768; the Atom stores 32767 and drops 32768; the CPC
+ * refuses 0 and stores 65535; the ZX81 and Spectrum store 9999 and mark 10000
+ * with the error cursor. The TRS-80 (an interpreter, no ROM) and the Altair
+ * (whose ROM cannot be redistributed) are pinned to their tokenizers only.
+ */
+describe('line-number ranges are the tokenizer’s own', () => {
+  /** True when the tokenizer takes this line number without any complaint. */
+  const accepts = (dialect: Dialect, n: number): boolean =>
+    !dialect
+      .tokenize(`${n} PRINT 1\n`)
+      .errors.some((e) => /line number/i.test(e.message));
+
+  it.each(PAIRS)('%s', (id, facts, dialect) => {
+    const [min, max] = facts.lineNumberRange
+      .split('–')
+      .map((s) => parseInt(s, 10));
+
+    // The structured form is what the comparison compares; the prose is what it
+    // shows. One derivation covers both, so a range corrected in one place and
+    // not the other fails here rather than reporting two different machines.
+    expect({ min, max }, `${id}: prose and structured range disagree`).toEqual(
+      facts.lineNumbers,
+    );
+
+    expect(accepts(dialect, min!), `${id} rejects its own minimum ${min}`).toBe(
+      true,
+    );
+    expect(accepts(dialect, max!), `${id} rejects its own maximum ${max}`).toBe(
+      true,
+    );
+    // The endpoints have to be the edges, or the row understates the machine.
+    if (min! > 0) {
+      expect(
+        accepts(dialect, min! - 1),
+        `${id} also takes ${min! - 1}, below the ${min} it claims`,
+      ).toBe(false);
+    }
+    expect(
+      accepts(dialect, max! + 1),
+      `${id} also takes ${max! + 1}, above the ${max} it claims`,
+    ).toBe(false);
+  });
 });
 
 describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {

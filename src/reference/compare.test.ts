@@ -22,7 +22,9 @@ import {
   falseFriendsBetween,
   falseFriendsForProgram,
   groupByDomain,
+  lineNumbersForProgram,
   noticeState,
+  programFitForTarget,
   statementLayoutForProgram,
   tableForMachine,
   unsupportedCharactersForProgram,
@@ -533,6 +535,7 @@ describe('composeGuidance', () => {
     return {
       basicDialect: 'Test BASIC',
       lineNumberRange: '1–9999',
+      lineNumbers: { min: 1, max: 9999 },
       statementSeparator: null,
       elseSupported: false,
       letRequired: 'optional',
@@ -1031,6 +1034,11 @@ function vocab(
   characters: string[] = [],
   multiStatementLines: number[] = [],
   writeSites: ProgramVocabulary['writeSites'] = [],
+  /** The line-number facts, for the findings that read them. */
+  numbers: {
+    extraStatements?: number;
+    lineNumbers?: ProgramVocabulary['lineNumbers'];
+  } = {},
 ): ProgramVocabulary {
   return {
     dialectId,
@@ -1038,6 +1046,8 @@ function vocab(
     escapeCodes,
     characters,
     multiStatementLines,
+    extraStatements: numbers.extraStatements ?? 0,
+    lineNumbers: numbers.lineNumbers ?? null,
     writeSites,
   };
 }
@@ -1270,8 +1280,11 @@ describe('unsupportedCharactersForProgram', () => {
 });
 
 describe('statementLayoutForProgram', () => {
-  const machine = (statementSeparator: string | null): PortingFacts =>
-    ({ id: 'm', statementSeparator }) as PortingFacts;
+  const machine = (
+    statementSeparator: string | null,
+    lineNumbers = { min: 1, max: 9999 },
+  ): PortingFacts =>
+    ({ id: 'm', statementSeparator, lineNumbers }) as PortingFacts;
 
   it('reports splitting for a target that takes one statement per line', () => {
     expect(
@@ -1321,6 +1334,230 @@ describe('statementLayoutForProgram', () => {
         vocab([], [], 'zx81', [], [3]),
       ),
     ).toBeNull();
+  });
+
+  describe('what a split does to the line count', () => {
+    /** 40 numbered lines, 12 of them carrying one extra statement each. */
+    const program = (count: number, extraStatements: number) =>
+      vocab([], [], 'commodore64', [], [3, 7], [], {
+        extraStatements,
+        lineNumbers: { lowest: 10, highest: count * 10, count },
+      });
+
+    it('projects the line count a split produces', () => {
+      const change = statementLayoutForProgram(
+        machine(':'),
+        machine(null),
+        program(40, 12),
+      );
+      expect(change?.projected).toEqual({ from: 40, to: 52, overflows: false });
+    });
+
+    it('reports an overflow the target cannot be renumbered out of', () => {
+      // 9,999 numbers available, and 12,000 lines to place in them: no scheme
+      // fits, so this is reported rather than left to the reader to try.
+      const change = statementLayoutForProgram(
+        machine(':'),
+        machine(null),
+        program(6000, 6000),
+      );
+      expect(change?.projected).toMatchObject({ to: 12000, overflows: true });
+    });
+
+    it('measures the overflow against the tightest renumbering', () => {
+      // Exactly as many lines as the target has numbers, starting at its own
+      // minimum: the last line lands on the ceiling, which fits.
+      const exact = statementLayoutForProgram(
+        machine(':'),
+        machine(null, { min: 1, max: 100 }),
+        program(60, 40),
+      );
+      expect(exact?.projected).toMatchObject({ to: 100, overflows: false });
+
+      const oneMore = statementLayoutForProgram(
+        machine(':'),
+        machine(null, { min: 1, max: 100 }),
+        program(60, 41),
+      );
+      expect(oneMore?.projected).toMatchObject({ to: 101, overflows: true });
+    });
+
+    it('projects nothing for a re-separation, which adds no lines', () => {
+      const change = statementLayoutForProgram(
+        machine(':'),
+        machine(';'),
+        program(40, 12),
+      );
+      expect(change?.kind).toBe('reseparate');
+      expect(change?.projected).toBeUndefined();
+    });
+
+    it('projects nothing when the program carries no numbered line', () => {
+      const change = statementLayoutForProgram(
+        machine(':'),
+        machine(null),
+        vocab([], [], 'commodore64', [], [1], [], { extraStatements: 2 }),
+      );
+      expect(change?.kind).toBe('split');
+      expect(change?.projected).toBeUndefined();
+    });
+  });
+});
+
+describe('lineNumbersForProgram', () => {
+  const target = (min: number, max: number): PortingFacts =>
+    ({ id: 'm', lineNumbers: { min, max } }) as PortingFacts;
+  const numbered = (lowest: number, highest: number) =>
+    vocab([], [], 'commodore64', [], [], [], {
+      lineNumbers: { lowest, highest, count: 2 },
+    });
+
+  it('reports a program numbered past the target’s ceiling', () => {
+    // A BBC program numbered to 32,767 arriving on a ZX81.
+    expect(lineNumbersForProgram(target(1, 9999), numbered(10, 32767))).toEqual(
+      {
+        lowest: 10,
+        highest: 32767,
+        min: 1,
+        max: 9999,
+        belowMinimum: false,
+        aboveMaximum: true,
+      },
+    );
+  });
+
+  it('reports a program numbered below the target’s floor', () => {
+    // Line 0 is ordinary on a Commodore and a BBC, and typable on neither
+    // Sinclair machine.
+    expect(
+      lineNumbersForProgram(target(1, 9999), numbered(0, 500)),
+    ).toMatchObject({ belowMinimum: true, aboveMaximum: false });
+  });
+
+  it('reports both ends where both are outside', () => {
+    expect(
+      lineNumbersForProgram(target(1, 9999), numbered(0, 32767)),
+    ).toMatchObject({ belowMinimum: true, aboveMaximum: true });
+  });
+
+  it('reports nothing when every number lies inside the range', () => {
+    expect(
+      lineNumbersForProgram(target(0, 63999), numbered(10, 32767)),
+    ).toBeNull();
+    // The endpoints themselves are inside it.
+    expect(
+      lineNumbersForProgram(target(1, 9999), numbered(1, 9999)),
+    ).toBeNull();
+  });
+
+  it('reports nothing for a program with no numbered line', () => {
+    expect(lineNumbersForProgram(target(1, 9999), vocab([]))).toBeNull();
+  });
+});
+
+describe('programFitForTarget', () => {
+  const machine = (id: string, freeRamBytes: number): PortingFacts =>
+    ({ id, freeRamBytes }) as PortingFacts;
+  const size = (dialectId: string, bytes: number, clean = true) => ({
+    dialectId,
+    bytes,
+    clean,
+  });
+
+  it('reports a program that fits, with both figures', () => {
+    expect(
+      programFitForTarget(machine('zx81', 15360), size('zx81', 3072)),
+    ).toEqual({
+      bytes: 3072,
+      freeBytes: 15360,
+      percent: 20,
+      severity: 'ok',
+      verdict: 'fits',
+      lowerBound: false,
+    });
+  });
+
+  it('warns at the same share of the budget the editor warns at', () => {
+    // 80% exactly: the editor's own threshold, shared rather than restated.
+    const fit = programFitForTarget(
+      machine('zx81', 15360),
+      size('zx81', 12288),
+    );
+    expect(fit).toMatchObject({
+      percent: 80,
+      severity: 'warn',
+      verdict: 'tight',
+    });
+  });
+
+  it('separates no room left from close to the limit by severity', () => {
+    // Both still fit, so both are `tight`; the severity is what grades them.
+    expect(
+      programFitForTarget(machine('zx81', 15360), size('zx81', 15000)),
+    ).toMatchObject({ severity: 'crit', verdict: 'tight' });
+  });
+
+  it('reports a program that will not fit', () => {
+    const fit = programFitForTarget(
+      machine('vic20', 3583),
+      size('vic20', 12000),
+    );
+    // The share is clamped, as the status bar clamps it; the two byte figures
+    // are what say by how much.
+    expect(fit).toEqual({
+      bytes: 12000,
+      freeBytes: 3583,
+      percent: 100,
+      severity: 'crit',
+      verdict: 'over',
+      lowerBound: false,
+    });
+  });
+
+  it('never calls a lower bound a fit, however far under the budget', () => {
+    // A tokenizer that cannot express a line drops the whole line, so the
+    // unmeasured part is unbounded - and it is exactly the part that would push
+    // the program over.
+    expect(
+      programFitForTarget(machine('zx81', 15360), size('zx81', 3072, false)),
+    ).toMatchObject({ bytes: 3072, verdict: 'at-least', lowerBound: true });
+  });
+
+  it('still calls a lower bound over the budget a failure to fit', () => {
+    // The doubt only runs towards a larger program, so this conclusion is safe.
+    expect(
+      programFitForTarget(machine('vic20', 3583), size('vic20', 9000, false)),
+    ).toMatchObject({ verdict: 'over', lowerBound: true });
+  });
+
+  it('reports nothing when the target could store no part of the program', () => {
+    // "At least 0 bytes" is not a finding; what made it zero is reported by the
+    // characters and commands the target cannot express.
+    expect(
+      programFitForTarget(machine('zx81', 15360), size('zx81', 0, false)),
+    ).toBeNull();
+  });
+
+  it('reports nothing for a size measured on another machine', () => {
+    // The state between choosing a new target and being told what the program
+    // measures on that one.
+    expect(
+      programFitForTarget(machine('vic20', 3583), size('commodore64', 12000)),
+    ).toBeNull();
+  });
+
+  it('reports nothing when there is no program to size', () => {
+    expect(programFitForTarget(machine('vic20', 3583), null)).toBeNull();
+  });
+
+  it('finds the port that every other bucket calls free', () => {
+    // C64 → VIC-20: byte-identical Commodore BASIC V2, so the keyword diff is
+    // empty, and 38,911 bytes of program landing in 3,583.
+    const diff = diffKeywords(refTable([PRINT]), refTable([PRINT]));
+    expect(diff.mustReplace).toEqual([]);
+    expect(
+      programFitForTarget(machine('vic20', 3583), size('vic20', 9000)),
+    ).toMatchObject({ severity: 'crit' });
   });
 });
 

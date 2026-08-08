@@ -60,6 +60,83 @@ test('keeping a program on a new machine opens the comparison, narrowed', async 
   // guide reading it as the machine it was just moved to would say.
   await expect(frame.getByText(/Narrowed to your program/)).toBeVisible();
   await expect(frame.getByText(/cannot be read/)).toHaveCount(0);
+
+  // The program is sized by the *target's* tokenizer, which only a real round
+  // trip through the app can do - the docs bundle has no tokenizer at all. The
+  // ZX81 cannot store this program's PETSCII codes, so the figure it can reach
+  // is a floor and is reported as one rather than as a comfortable fit.
+  const fit = frame.locator('#fit');
+  await expect(fit).toContainText(/At least [\d,]+ bytes/);
+  await expect(fit).toContainText(/15,360 bytes free/);
+  await expect(fit).not.toContainText(/Fits/);
+});
+
+/**
+ * The finding a port with no other work in it can still fail on: C64 → VIC-20
+ * is the same Commodore BASIC V2 in a tenth of the memory, so every keyword
+ * bucket on the page is empty and the program still will not load.
+ *
+ * Rides the same journey rather than opening its own: only the target machine
+ * and the size of the program change.
+ */
+test('a program too large for the target is reported as not fitting', async ({
+  page,
+}) => {
+  await beginPort(page);
+  const frame = drawerOf(page).frameLocator('iframe');
+  await expect(frame.getByText(/Narrowed to your program/)).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // Comfortably past the VIC-20's 3,583 bytes and comfortably inside the C64's
+  // 38,911, so the same program fits the machine it was written for.
+  const big = Array.from(
+    { length: 240 },
+    (_, i) => `${(i + 1) * 10} PRINT "PADDING PADDING PADDING"`,
+  ).join('\n');
+  await setEditorSource(page, big);
+
+  await frame.getByRole('button', { name: /^Porting to:/ }).click();
+  await frame
+    .getByRole('dialog', { name: 'Choose a machine' })
+    .locator('button[data-machine="vic20"]')
+    .click();
+
+  const fit = frame.locator('#fit');
+  await expect(fit).toContainText(/Will not fit/);
+  // Both figures, so a reader told it does not fit is told by how much.
+  await expect(fit).toContainText(/3,583 bytes/);
+});
+
+/**
+ * The two ways a port runs out of line numbers, both of which need the program
+ * and the target's range to meet: the numbers as written, and the numbers a
+ * split would create. Only a round trip through the app puts them together.
+ */
+test('line numbers the target will not take are reported', async ({ page }) => {
+  await beginPort(page);
+  const frame = drawerOf(page).frameLocator('iframe');
+  await expect(frame.getByText(/Narrowed to your program/)).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // A colon-separated Commodore program numbered past the ZX81's 9,999 ceiling:
+  // it must be renumbered, and the ZX81 takes one statement per line, so the
+  // split adds lines on top of that.
+  await setEditorSource(
+    page,
+    ['10 A=1:B=2', '20000 PRINT A:PRINT B'].join('\n'),
+  );
+
+  const numbers = frame.locator('#line-numbers');
+  await expect(numbers).toContainText(/Must be renumbered/);
+  await expect(numbers).toContainText(/1–9999/);
+  await expect(numbers).toContainText(/20000/);
+
+  // The split's own arithmetic, reported where the split is.
+  await expect(frame.locator('#statement-layout')).toContainText(
+    /turns 2 lines into 4/,
+  );
 });
 
 test('the narrowing states what it recognised and what it holds back', async ({

@@ -132,6 +132,14 @@ describe('program-vocabulary message contract', () => {
       expect.arrayContaining(['type', 'from']),
     );
   });
+
+  it('the request names the machine to size the program for', () => {
+    // Without `to` the reply carries no size, and the guide cannot say whether
+    // the program fits - the one finding a port with no other work can fail on.
+    expect(postedFields('VOCABULARY_REQUEST')).toEqual(
+      expect.arrayContaining(['type', 'to']),
+    );
+  });
 });
 
 describe('vocabularyReply', () => {
@@ -147,7 +155,10 @@ describe('vocabularyReply', () => {
       escapeCodes: [],
       characters: [...'01:=EFINORTX'],
       multiStatementLines: [1],
+      extraStatements: 1,
+      lineNumbers: { lowest: 10, highest: 10, count: 1 },
       writeSites: [],
+      targetSize: null,
     });
   });
 
@@ -232,5 +243,55 @@ describe('vocabularyReply', () => {
     expect(vocabularyReply('10 PRINT 1', c64, 'dragon32').dialectId).toBe(
       'commodore64',
     );
+  });
+
+  describe('the size the program takes on the target', () => {
+    // Same source, two tokenizers: the Sinclair machines keep a five-byte binary
+    // form after every numeric literal, so a program measures larger there than
+    // on a Commodore. Sizing a port from the source machine's count would be
+    // wrong by that much before the comparison started.
+    const source = '10 PRINT 3.14159\n20 PRINT 2.71828\n';
+
+    it('measures the program on the machine being ported to', () => {
+      const onC64 = vocabularyReply(source, c64, 'commodore64', 'commodore64');
+      const onZx81 = vocabularyReply(source, c64, 'commodore64', 'zx81');
+      expect(onC64.targetSize).toEqual({
+        dialectId: 'commodore64',
+        bytes: c64.tokenize(source).byteSize,
+        clean: true,
+      });
+      expect(onZx81.targetSize?.dialectId).toBe('zx81');
+      expect(onZx81.targetSize?.bytes).toBeGreaterThan(onC64.targetSize!.bytes);
+    });
+
+    it('sizes a program the target cannot fully express, and says so', () => {
+      // `!` is not on the ZX81 at all, which is a difference the guide reports
+      // elsewhere - not a reason to withhold the one figure that says whether
+      // the program can be loaded. The unstorable line is dropped whole, so what
+      // comes back is a lower bound and is marked as one.
+      const reply = vocabularyReply(
+        '10 PRINT "OK"\n20 PRINT "HI!"\n',
+        c64,
+        'commodore64',
+        'zx81',
+      );
+      const whole = zx81.tokenize('10 PRINT "OK"\n20 PRINT "A"\n').byteSize;
+      expect(reply.targetSize?.bytes).toBeGreaterThan(0);
+      expect(reply.targetSize?.bytes).toBeLessThan(whole);
+      expect(reply.targetSize?.clean).toBe(false);
+    });
+
+    it('carries no size when the request names no target', () => {
+      expect(vocabularyReply(source, c64, 'commodore64').targetSize).toBeNull();
+    });
+
+    it('carries no size when the request names an unregistered target', () => {
+      // Never falls back to the selected machine, unlike the source: a size
+      // measured on one machine and compared against another's free RAM is a
+      // confidently wrong answer.
+      expect(
+        vocabularyReply(source, c64, 'commodore64', 'dragon32').targetSize,
+      ).toBeNull();
+    });
   });
 });

@@ -28,6 +28,7 @@ import {
   escapeSections,
   escapeTableForMachine,
   falseFriendsForProgram,
+  lineNumbersForProgram,
   statementLayoutForProgram,
   tableForMachine,
   unsupportedCharactersForProgram,
@@ -36,6 +37,7 @@ import {
   type KeywordChange,
   type KeywordDiff,
   type KeywordRename,
+  type LineNumberChange,
   type PairGuidance,
   type ProgramVocabulary,
   type StatementLayoutChange,
@@ -203,10 +205,42 @@ function describeStatementLayout(
     change.to === null
       ? `${to.name} takes one statement per line, so every "${change.from}" becomes a new line. Renumber the program afterwards and fix the line references.`
       : `${to.name} separates statements with "${change.to}", not "${change.from}". The lines keep their shape; only the separator changes.`;
+  const projected = change.projected;
   return [
     'STATEMENT LAYOUT',
     `- ${what}`,
     `- Editor lines to change: ${lines}`,
+    ...(projected
+      ? [
+          projected.overflows
+            ? `- The split turns ${projected.from} lines into ${projected.to}, which ${to.name}'s line numbers cannot hold however they are renumbered. Merge statements or shorten the program.`
+            : `- The split turns ${projected.from} lines into ${projected.to}.`,
+        ]
+      : []),
+  ].join('\n');
+}
+
+/**
+ * Line numbers the target machine's editor will not accept.
+ *
+ * A rule the assistant cannot infer from the program: the numbers are valid
+ * where they were written, and the machine they are going to simply stops
+ * lower. Nothing about the program's text shows it.
+ */
+function describeLineNumbers(
+  change: LineNumberChange | null,
+  to: PortSide,
+): string {
+  if (change === null) return '';
+  const ends: string[] = [];
+  if (change.belowMinimum)
+    ends.push(`its lowest is ${change.lowest}, below ${change.min}`);
+  if (change.aboveMaximum)
+    ends.push(`its highest is ${change.highest}, above ${change.max}`);
+  return [
+    'LINE NUMBERS',
+    `- ${to.name} numbers lines ${change.min}-${change.max}, and ${ends.join(', and ')}.`,
+    '- Renumber the program into that range and fix every GOTO, GOSUB and other line reference with it.',
   ].join('\n');
 }
 
@@ -438,6 +472,10 @@ export function describePort(
     sourceFacts !== undefined && targetFacts !== undefined
       ? statementLayoutForProgram(sourceFacts, targetFacts, vocabulary)
       : null;
+  const lineNumbers =
+    targetFacts !== undefined
+      ? lineNumbersForProgram(targetFacts, vocabulary)
+      : null;
 
   const header = describeHeader(from, to);
   const findings = [
@@ -459,6 +497,7 @@ export function describePort(
       : '',
     describeCharactersToReplace(characters, to),
     describeStatementLayout(layout, to),
+    describeLineNumbers(lineNumbers, to),
   ].filter((s) => s !== '');
 
   // An empty comparison is a finding, not an absence: without this line the

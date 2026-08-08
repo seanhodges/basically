@@ -25,7 +25,9 @@ import {
   escapeTableForMachine,
   factRows as buildFactRows,
   falseFriendsForProgram,
+  lineNumbersForProgram,
   noticeState,
+  programFitForTarget,
   statementLayoutForProgram,
   tableForMachine,
   unsupportedCharactersForProgram,
@@ -33,6 +35,7 @@ import {
   type EscapeSection,
   type FactRow,
   type KeywordChange,
+  type ProgramSize,
   type ProgramVocabulary,
 } from '../../../../src/reference/compare';
 import {
@@ -245,6 +248,8 @@ const fullEscapeDiff = computed(() => {
  */
 const vocabulary = ref<ProgramVocabulary | null>(null);
 const vocabularyStatus = ref<'ready' | 'empty' | 'unreadable' | null>(null);
+/** What the program measures on the target, as the app last reported it. */
+const targetSize = ref<ProgramSize | null>(null);
 /** Whether `?from=` named the source machine; a named link always wins. */
 const fromNamedByUrl = ref(false);
 /** So the program's own machine is selected once, not on every re-push. */
@@ -318,6 +323,91 @@ const statementLayout = computed(() => {
   if (!s || !t || !v) return null;
   return statementLayoutForProgram(s, t, v);
 });
+
+/**
+ * What the target's line-number range does to this program, or null.
+ *
+ * Narrowed like the statement layout, and for the same reason: without a program
+ * the target's range is a fact row and nothing more. The range itself is still
+ * reported there whether or not there is a program.
+ */
+const lineNumbers = computed(() => {
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!t || !v) return null;
+  return lineNumbersForProgram(t, v);
+});
+
+/**
+ * Whether the program fits the target machine, or null.
+ *
+ * Only ever narrowed, like the statement layout: it is a statement about the
+ * reader's own program, so there is no unnarrowed form of it for the "show every
+ * difference" control to reveal - `narrowingBy` is deliberately not consulted
+ * here, because that control turning it on would be a claim about a program
+ * nobody has open. The notice state is what gates it.
+ *
+ * The size is checked against the machine now selected inside
+ * `programFitForTarget`, so a reply still in flight after the target changed
+ * reports nothing rather than the previous machine's answer.
+ */
+const programFit = computed(() => {
+  const t = target.value?.facts;
+  if (!t || notice.value.kind !== 'narrowed') return null;
+  return programFitForTarget(t, targetSize.value);
+});
+
+/**
+ * The verdict as a short phrase and the two figures behind it.
+ *
+ * The phrase carries the meaning and the colour only restates it, which is why
+ * this does not join the colour key below: the key exists for the capability
+ * groups, whose colour is the *only* thing saying how well the target covers
+ * them.
+ *
+ * `at-least` never says "fits", however far under the budget it falls. A machine
+ * that cannot store a line drops the whole line, so the measured figure is a
+ * floor with no ceiling - and what went unmeasured is exactly what would push
+ * the program over.
+ */
+const fitText = computed(() => {
+  const fit = programFit.value;
+  if (!fit) return null;
+  const name = target.value?.name ?? 'the target';
+  const bytes = fit.bytes.toLocaleString('en-GB');
+  const free = fit.freeBytes.toLocaleString('en-GB');
+  const of = `of the ${free} bytes a ${name} has free.`;
+  switch (fit.verdict) {
+    case 'over':
+      return {
+        label: 'Will not fit',
+        detail: `${bytes} bytes against the ${free} bytes a ${name} has free.`,
+      };
+    case 'at-least':
+      return {
+        label: `At least ${bytes} bytes`,
+        detail: `A ${name} has ${free} bytes free.`,
+      };
+    case 'tight':
+      return fit.severity === 'crit'
+        ? { label: 'No room left', detail: `${bytes} bytes ${of}` }
+        : { label: 'Close to the limit', detail: `${bytes} bytes ${of}` };
+    case 'fits':
+      return { label: 'Fits', detail: `${bytes} bytes ${of}` };
+  }
+  return null;
+});
+
+/**
+ * The caveat under the figure, where there is one to make. Only the lower-bound
+ * case has one, and it is what keeps that figure honest: the commands and
+ * characters the target cannot store are not counted in it.
+ */
+const fitCaveat = computed(() =>
+  programFit.value?.lowerBound
+    ? 'Measured from what the target can store — the commands and characters it cannot are not counted, so the real figure is larger.'
+    : '',
+);
 
 /**
  * How many differences the narrowing is holding back. Stating this is what keeps
@@ -773,6 +863,8 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'Characters to replace',
     ],
     [statementLayout.value !== null, 'statement-layout', 'Statement layout'],
+    [lineNumbers.value !== null, 'line-numbers', 'Line numbers'],
+    [programFit.value !== null, 'fit', 'Fit'],
   ];
   return entries
     .filter(([shown]) => shown)
@@ -864,11 +956,16 @@ function convertWithAi() {
  * *from*. Sent on mount and again whenever that machine changes - a vocabulary
  * describes one BASIC, so pointing the comparison somewhere else re-reads the
  * program in that language rather than abandoning the narrowing.
+ *
+ * `to` rides along for the one question the vocabulary cannot answer: what the
+ * program measures on the target, which only the target's own tokenizer knows.
+ * So the request is re-sent when *either* machine changes, and a reply is
+ * checked against both before it is used.
  */
 function requestVocabulary() {
   if (!embedded.value) return;
   window.parent.postMessage(
-    { type: VOCABULARY_REQUEST, from: from.value },
+    { type: VOCABULARY_REQUEST, from: from.value, to: to.value },
     window.location.origin,
   );
 }
@@ -895,8 +992,31 @@ function onVocabularyMessage(e: MessageEvent) {
     multiStatementLines: Array.isArray(data.multiStatementLines)
       ? data.multiStatementLines
       : [],
+    extraStatements: Number(data.extraStatements) || 0,
+    // Null rather than a zeroed shape for a program with no numbered line: the
+    // findings that read it ask "is there a span", and 0-to-0 is not one.
+    lineNumbers:
+      data.lineNumbers && typeof data.lineNumbers === 'object'
+        ? {
+            lowest: Number(data.lineNumbers.lowest) || 0,
+            highest: Number(data.lineNumbers.highest) || 0,
+            count: Number(data.lineNumbers.count) || 0,
+          }
+        : null,
     writeSites: Array.isArray(data.writeSites) ? data.writeSites : [],
   };
+  // Carried beside the vocabulary rather than inside it: it describes the
+  // machine being ported *to*, while everything above describes the program in
+  // the language being ported *from*.
+  const size = data.targetSize;
+  targetSize.value =
+    size && typeof size === 'object' && typeof size.dialectId === 'string'
+      ? {
+          dialectId: size.dialectId,
+          bytes: Number(size.bytes) || 0,
+          clean: size.clean !== false,
+        }
+      : null;
   // On the first answer, open on the machine the program is written for: it is
   // the one selection under which the narrowing means anything. A link that
   // named the source machine still wins.
@@ -923,6 +1043,10 @@ onBeforeUnmount(() =>
   window.removeEventListener('message', onVocabularyMessage),
 );
 watch(from, requestVocabulary);
+// The target decides what the program is sized against, so a new target needs a
+// new measurement - `programFitForTarget` reports nothing until one arrives for
+// the machine now selected.
+watch(to, requestVocabulary);
 </script>
 
 <template>
@@ -1518,6 +1642,25 @@ watch(from, requestVocabulary);
           >, not <code>{{ statementLayout.from }}</code
           >. The lines keep their shape; only the separator changes.
         </p>
+        <!--
+          Splitting is the one thing a port does that *creates* line numbers, so
+          the count it produces is reported against the target's range here
+          rather than left beside the range as two numbers to join up.
+        -->
+        <p v-if="statementLayout.projected" class="cmp-hint">
+          <template v-if="statementLayout.projected.overflows">
+            <strong class="cmp-fit-over">Will not renumber:</strong>
+            the split turns {{ statementLayout.projected.from }} lines into
+            {{ statementLayout.projected.to }}, and {{ target.name }} numbers
+            lines {{ target.facts.lineNumberRange }} — too few to hold them
+            however they are renumbered.
+          </template>
+          <template v-else>
+            The split turns {{ statementLayout.projected.from }} lines into
+            {{ statementLayout.projected.to }}, within the
+            {{ target.facts.lineNumberRange }} {{ target.name }} allows.
+          </template>
+        </p>
         <p class="cmp-group-names">
           Editor
           {{ statementLayout.lines.length === 1 ? 'line' : 'lines' }}
@@ -1531,6 +1674,53 @@ watch(from, requestVocabulary);
               >,
             </span>
           </span>
+        </p>
+      </section>
+
+      <!--
+        Beside the statement layout, which is the other way a port runs out of
+        line numbers. The range itself is a fact row whether or not there is a
+        program; this is what the reader's own numbers do against it.
+      -->
+      <section v-if="lineNumbers" id="line-numbers" class="cmp-section">
+        <h2>Line numbers</h2>
+        <p class="cmp-fit">
+          <strong class="cmp-fit-over">Must be renumbered —</strong>
+          {{ target.name }} numbers lines {{ target.facts.lineNumberRange }},
+          and your program
+          <template v-if="lineNumbers.belowMinimum && lineNumbers.aboveMaximum">
+            runs from {{ lineNumbers.lowest }} to {{ lineNumbers.highest }}.
+          </template>
+          <template v-else-if="lineNumbers.aboveMaximum">
+            reaches {{ lineNumbers.highest }}.
+          </template>
+          <template v-else> starts at {{ lineNumbers.lowest }}. </template>
+        </p>
+        <p class="cmp-hint">
+          A line the target will not accept cannot be typed in at all, whatever
+          else the port changes.
+        </p>
+      </section>
+
+      <!--
+        Last, because it is a property of the *result*: the size the program
+        takes on the target is only settled once the work above it is done. Also
+        the one finding a port with nothing else to do can still fail - C64 to
+        VIC-20 is the same BASIC in a tenth of the memory - so it is never
+        conditioned on anything but having a program to size.
+      -->
+      <section v-if="programFit && fitText" id="fit" class="cmp-section">
+        <h2>Fit on {{ target.name }}</h2>
+        <p class="cmp-fit">
+          <strong :class="`cmp-fit-${programFit.verdict}`"
+            >{{ fitText.label }} —</strong
+          >
+          {{ fitText.detail }}
+        </p>
+        <p class="cmp-hint" v-if="fitCaveat">{{ fitCaveat }}</p>
+        <p class="cmp-hint">
+          The program area only — variables, arrays and strings claim their room
+          when the program runs.
         </p>
       </section>
     </template>
@@ -1677,6 +1867,24 @@ watch(from, requestVocabulary);
 }
 .cmp-key-gain {
   border-left: 3px solid var(--vp-c-green-1);
+}
+/* The verdict on whether the program fits. Its colour restates the phrase beside
+   it rather than encoding anything the phrase does not say, which is why it is
+   not in the colour key above: that key exists for the capability groups, where
+   colour is the only thing carrying the meaning. A lower bound is deliberately
+   never green - the figure is a floor, and green over an understatement is the
+   one outcome worse than saying nothing. */
+.cmp-fit-over {
+  color: var(--vp-c-red-1);
+}
+.cmp-fit-tight {
+  color: var(--vp-c-yellow-1);
+}
+.cmp-fit-fits {
+  color: var(--vp-c-green-1);
+}
+.cmp-fit-at-least {
+  color: var(--vp-c-text-1);
 }
 .cmp-section {
   margin-top: 2rem;

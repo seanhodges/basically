@@ -37,7 +37,16 @@ export function ramBudget(bytes: number, programRamBytes: number) {
 
 export type RamSeverity = 'ok' | 'warn' | 'crit';
 
-/** Threshold colouring for the RAM counter: ≥80% warn, ≥95% crit. */
+/**
+ * Threshold colouring for the RAM counter: ≥80% warn, ≥95% crit.
+ *
+ * The porting guide asks the same question about the machine a program is being
+ * ported *to*, and answers it from its own copy in `src/reference/ramBudget.ts`
+ * - the app may not statically import that tree (see eslint.config.js), so the
+ * two are restated and `src/reference/ramBudget.test.ts` pins them together. A
+ * threshold changed here and not there is a test failure, not a page where the
+ * same program is 82% full and unremarked.
+ */
 export function ramSeverity(pct: number): RamSeverity {
   if (pct >= 95) return 'crit';
   if (pct >= 80) return 'warn';
