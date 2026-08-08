@@ -20,7 +20,7 @@ import {
   READ_BIT,
   WRITE_BIT,
 } from '../memoryActivityBuffer';
-import { SidRenderer, SID_SAMPLE_RATE } from './sid';
+import { SidRenderer, SID_SAMPLES_PER_FRAME } from './sid';
 import { C64DiskDrive, type Bus, type TrapResult } from './diskDrive';
 import {
   bringup,
@@ -55,6 +55,8 @@ import { attach as cpu } from './viciious/target/cpu.js';
 import { attach as tape } from './viciious/target/tape.js';
 import { BASIC_V2_ZP, MAX_BASIC_LINE, NDX } from '../commodore/basicPointers';
 
+/** PAL 6510 clock: the 17.734472 MHz colour carrier ÷ 18. */
+const CPU_HZ = 985_248;
 /** PAL frame: 312 rows × 63 cycles. One {@link runFrame} ticks this many cycles. */
 const CYCLES_PER_FRAME = 63 * 312;
 /**
@@ -250,8 +252,17 @@ function domCodeToTokens(code: string): readonly string[] {
 export class C64Machine implements MachineEmulator {
   readonly displayWidth = C64_DISPLAY_WIDTH;
   readonly displayHeight = C64_DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / CYCLES_PER_FRAME;
   /** Native rate of the mono software-SID stream. */
-  readonly audioSampleRate = SID_SAMPLE_RATE;
+  /**
+   * The rate this machine actually emits at: a fixed count of samples per frame,
+   * {@link frameHz} times a second. Not the round number the synthesis is
+   * designed around - reporting that instead would have the host consume
+   * fractionally slower than the machine produces, and playback would fall
+   * further behind for as long as the program ran. The cost is that pitch sits
+   * within a quarter-percent of the synth's design rate, far below audible.
+   */
+  readonly audioSampleRate = SID_SAMPLES_PER_FRAME * this.frameHz;
 
   private c64: C64 | null = null;
   private readonly ready: Promise<void>;
@@ -260,7 +271,6 @@ export class C64Machine implements MachineEmulator {
   private disposed = false;
   private loadGeneration = 0;
   private loadError = '';
-  private speed = 1;
 
   /**
    * Live memory-activity recorder for the memory-map overlay. Off by default and
@@ -464,8 +474,7 @@ export class C64Machine implements MachineEmulator {
 
   runFrame(): void {
     if (!this.booted || this.injecting || this.disposed || !this.c64) return;
-    const n = Math.round(CYCLES_PER_FRAME * this.speed);
-    for (let i = 0; i < n; i++) this.tickOnce();
+    for (let i = 0; i < CYCLES_PER_FRAME; i++) this.tickOnce();
   }
 
   /**
@@ -535,7 +544,7 @@ export class C64Machine implements MachineEmulator {
     if (!this.booted || this.injecting || this.disposed || !this.c64) {
       return { paused: false, line: null };
     }
-    const budget = Math.round(CYCLES_PER_FRAME * this.speed);
+    const budget = CYCLES_PER_FRAME;
     // In run mode, ignore breakpoints until execution has left the line we
     // resumed from, so Continue off a breakpointed line doesn't re-trigger on
     // the spot but still re-pauses when the loop comes back around.
@@ -797,10 +806,6 @@ export class C64Machine implements MachineEmulator {
     const pos = BUTTON_MATRIX[button];
     if (!pos) return;
     matrix[pos[0]]! |= 1 << pos[1];
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   /**

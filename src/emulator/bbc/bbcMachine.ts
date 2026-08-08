@@ -200,6 +200,7 @@ class DigitalJoystickSource implements AnalogueSource {
 export class BbcMachine implements MachineEmulator {
   readonly displayWidth = BBC_DISPLAY_WIDTH;
   readonly displayHeight = BBC_DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / CYCLES_PER_FRAME;
   /** Native rate of the SN76489 stream (set from the chip in the constructor). */
   readonly audioSampleRate: number;
 
@@ -226,7 +227,6 @@ export class BbcMachine implements MachineEmulator {
   private injecting = false;
   private loadGeneration = 0;
   private loadError = '';
-  private speed = 1;
   private disposed = false;
 
   /** VFS-backed filing system, or null when no store was wired. */
@@ -411,7 +411,7 @@ export class BbcMachine implements MachineEmulator {
 
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
-    this.runCycles(Math.round(CYCLES_PER_FRAME * this.speed));
+    this.runCycles(CYCLES_PER_FRAME);
     // Flush sound generated this frame into the accumulation buffer.
     this.soundChip.catchUp();
   }
@@ -486,7 +486,7 @@ export class BbcMachine implements MachineEmulator {
     if (!this.initialised || this.injecting || this.disposed) {
       return { paused: false, line: null };
     }
-    const budget = Math.round(CYCLES_PER_FRAME * this.speed);
+    const budget = CYCLES_PER_FRAME;
     // In run mode, ignore breakpoints until execution has left the line we
     // resumed from, so Continue off a breakpointed line doesn't re-trigger on
     // the spot but still re-pauses when the loop comes back around.
@@ -770,10 +770,6 @@ export class BbcMachine implements MachineEmulator {
         : ADC_CENTRE;
     this.cpu.sysvia.setJoystickButton(0, state.fire1);
     this.cpu.sysvia.setJoystickButton(1, state.fire2);
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   /**

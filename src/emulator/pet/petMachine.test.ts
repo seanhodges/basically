@@ -265,7 +265,9 @@ describe('PetMachine', () => {
     async () => {
       const m = new PetMachine({ roms });
       await m.whenReady();
-      expect(m.audioSampleRate).toBe(44100);
+      // 882 samples a frame at the PET's 50Hz - the one machine here whose
+      // frame rate is exactly 50, so its emitted rate is the nominal one.
+      expect(m.audioSampleRate).toBeCloseTo(44100, 6);
       // The classic recipe: shift register free-running out ($0F pattern) at
       // the T2 rate, held for a FOR/NEXT delay, then switched off again.
       m.loadProgram(

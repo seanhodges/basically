@@ -23,7 +23,7 @@ import {
 import { Pia6520 } from '../commodore/pia6520';
 import { Via6522 } from '../commodore/via6522';
 import { CharRenderer } from '../commodore/charRenderer';
-import { Cb2Audio, CB2_SAMPLE_RATE } from './cb2Audio';
+import { Cb2Audio, CB2_SAMPLES_PER_FRAME } from './cb2Audio';
 import {
   KeyMatrix,
   screenCodesForText,
@@ -77,7 +77,8 @@ const SCREEN_CELLS = COLS * ROWS; // 1000 visible cells
  * CB1's system IRQ and is also polled on VIA PB5 — occupies the tail of each
  * frame.
  */
-const FRAME_CYCLES = 20_000;
+const CPU_HZ = 1_000_000;
+const FRAME_CYCLES = CPU_HZ / 50;
 const RETRACE_CYCLES = 1_600; // ~8% of the frame in vertical blanking
 
 /**
@@ -150,7 +151,16 @@ export interface PetRoms {
 export class PetMachine implements MachineEmulator {
   readonly displayWidth = PET_DISPLAY_WIDTH;
   readonly displayHeight = PET_DISPLAY_HEIGHT;
-  readonly audioSampleRate = CB2_SAMPLE_RATE;
+  readonly frameHz = CPU_HZ / FRAME_CYCLES;
+  /**
+   * The rate this machine actually emits at: a fixed count of samples per frame,
+   * {@link frameHz} times a second. Not the round number the synthesis is
+   * designed around - reporting that instead would have the host consume
+   * fractionally slower than the machine produces, and playback would fall
+   * further behind for as long as the program ran. The cost is that pitch sits
+   * within a quarter-percent of the synth's design rate, far below audible.
+   */
+  readonly audioSampleRate = CB2_SAMPLES_PER_FRAME * this.frameHz;
 
   /** 64 KB address space; ROM is baked in on bringup, RAM/screen writable. */
   private readonly mem = new Uint8Array(0x10000);
@@ -191,7 +201,6 @@ export class PetMachine implements MachineEmulator {
   private disposed = false;
   private loadGeneration = 0;
   private loadError = '';
-  private speed = 1;
 
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
@@ -386,7 +395,7 @@ export class PetMachine implements MachineEmulator {
 
   runFrame(): void {
     if (!this.booted || this.injecting || this.disposed || !this.cpu) return;
-    this.runCycles(Math.round(FRAME_CYCLES * this.speed));
+    this.runCycles(FRAME_CYCLES);
   }
 
   loadProgram(
@@ -514,10 +523,6 @@ export class PetMachine implements MachineEmulator {
     this.rebuildMatrix();
   }
 
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
-  }
-
   // --- video ----------------------------------------------------------------
 
   renderTo(ctx: CanvasRenderingContext2D): void {
@@ -607,7 +612,7 @@ export class PetMachine implements MachineEmulator {
     if (!this.booted || this.injecting || this.disposed || !this.cpu) {
       return { paused: false, line: null };
     }
-    const budget = Math.round(FRAME_CYCLES * this.speed);
+    const budget = FRAME_CYCLES;
     // In run mode, ignore breakpoints until execution has left the line we
     // resumed from, so Continue off a breakpointed line doesn't re-trigger on
     // the spot but still re-pauses when the loop comes back around.

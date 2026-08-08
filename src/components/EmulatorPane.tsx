@@ -11,7 +11,7 @@ import {
   finaliseExpectations,
   latchExpectationSample,
   AI_CHECK_EXPECT_SAMPLE_FRAMES,
-  AI_CHECK_FRAMES_PER_TICK,
+  AI_CHECK_SPEED,
   AI_CHECK_HIDDEN_TICK_MS,
   shouldOpenDebugSession,
   shouldRevealEmulator,
@@ -34,6 +34,7 @@ import {
   LANDSCAPE_MOBILE_QUERY,
 } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
+import { FrameClock } from '../app/frameClock';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import {
   captureFromCanvas,
@@ -196,6 +197,17 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const audioRef = useRef<EmulatorAudio | null>(null);
   const frameHookRef = useRef<(() => void) | null>(null);
   const rafRef = useRef(0);
+  /**
+   * Converts elapsed real time into whole machine frames. Animation frames fire
+   * at the display's refresh rate, which is nobody's frame rate, so running one
+   * frame per tick would run every machine at refresh/native speed.
+   */
+  const clockRef = useRef(new FrameClock());
+  /**
+   * The speed setting, read inside the loop rather than through the closure so
+   * a change takes effect on the next tick without restarting the loop.
+   */
+  const speedRef = useRef(1);
   // The fallback clock that keeps a check advancing in a backgrounded tab, where
   // animation frames stop arriving (see AI_CHECK_HIDDEN_TICK_MS). Null whenever
   // the loop is running on animation frames, which is every ordinary run.
@@ -248,6 +260,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       clearTimeout(hiddenTimerRef.current);
       hiddenTimerRef.current = null;
     }
+    // A pause is not time the machine owes: forget it, so resuming from a
+    // breakpoint or a stop does not replay the gap as fast-forward.
+    clockRef.current.reset();
   }, []);
 
   // Blank the preview so a freshly-started emulator never inherits the previous
@@ -341,13 +356,17 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         typeof document !== 'undefined' &&
         document.hidden
       ) {
-        hiddenTimerRef.current = setTimeout(tick, AI_CHECK_HIDDEN_TICK_MS);
+        // setTimeout passes no timestamp, so read the same clock rAF would.
+        hiddenTimerRef.current = setTimeout(
+          () => tick(performance.now()),
+          AI_CHECK_HIDDEN_TICK_MS,
+        );
         return;
       }
       hiddenTimerRef.current = null;
       rafRef.current = requestAnimationFrame(tick);
     };
-    const tick = () => {
+    const tick = (now: number) => {
       const machine = machineRef.current;
       const canvas = canvasRef.current;
       // The two absences mean different things, and treating them alike is what
@@ -385,20 +404,23 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         }
       };
 
+      // The assistant is nobody's audience: a check runs faster than real time
+      // (below), and the user's speed setting is theirs to set. Either way the
+      // machine is producing samples faster or slower than the speaker consumes
+      // them, so anything but 1× is drained and discarded rather than played -
+      // pushing it would grow the buffer without bound and put sound further
+      // and further behind the picture.
+      const atRealTime = () =>
+        !aiCheckActiveRef.current && speedRef.current === 1;
+
       // Drain the machine's synthesized audio and feed the speaker. Always
-      // called (so the machine's accumulation buffer stays bounded even with
-      // audio off), but only pushed to the host at 1× - fast-forward changes
-      // the cycle budget and would pitch-shift the stream, so it gates to
-      // silence (discard) instead.
+      // called, even when nothing will be played, so the machine's accumulation
+      // buffer stays bounded.
       const pumpAudio = () => {
         if (!machine.readAudio) return;
         const samples = machine.readAudio();
         const audio = audioRef.current;
-        if (
-          audio &&
-          samples.length > 0 &&
-          useIdeStore.getState().emulatorSpeed === 1
-        ) {
+        if (audio && samples.length > 0 && atRealTime()) {
           audio.push(samples, machine.audioSampleRate ?? 44100);
         }
       };
@@ -409,48 +431,71 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       // call was in flight. The loop stays scheduled so the machine picks up
       // again the moment driving ends.
       if (machineFrozen()) {
-        schedule();
-        return;
-      }
-
-      // Debug session: advance by one slice, pausing on a breakpoint ('run') or
-      // at the next BASIC line ('step'). The machine renders progress between
-      // slices so the screen stays live across long-running lines.
-      if (debugActiveRef.current && machine.debugStep) {
-        const res = machine.debugStep({
-          breakpoints: useIdeStore.getState().breakpoints,
-          mode: debugModeRef.current,
-          fromLine: debugFromLineRef.current,
-        });
-        frameHookRef.current?.();
-        pumpAudio();
-        render();
-        if (res.paused) {
-          stopLoop();
-          machine.releaseAllKeys(); // nothing stays held while paused
-          debugFromLineRef.current = res.line;
-          const store = useIdeStore.getState();
-          store.setDebugLine(res.line);
-          store.setEmulatorStatus('paused');
-          // On mobile the Preview tab is showing when a breakpoint trips, so the
-          // frozen screen gives no hint why. Jump to the editor so the user sees
-          // the highlighted line. Only for 'run' (a real breakpoint) - 'step'
-          // already starts from the editor/toolbar.
-          if (debugModeRef.current === 'run' && isMobileViewport()) {
-            store.setMobileTab('editor');
-          }
-          return; // do not schedule another frame until step/continue
-        }
+        // Frozen time is not owed: without this the machine would burst forward
+        // to "catch up" the moment the assistant let go.
+        clockRef.current.reset();
         schedule();
         return;
       }
 
       // A check is nobody's animation: the assistant is waiting on a verdict and
-      // the user is reading the reply, so the loop advances several frames a
-      // tick instead of one. The check's windows are counted in frames, not
-      // seconds, so this settles it sooner without changing a single rule - and
-      // it is the difference between a wait of seconds and one of a moment.
-      const steps = aiCheckActiveRef.current ? AI_CHECK_FRAMES_PER_TICK : 1;
+      // the user is reading the reply, so it runs faster than real time. The
+      // check's windows are counted in frames, not seconds, so this settles it
+      // sooner without changing a single rule - and it is the difference
+      // between a wait of seconds and one of a moment.
+      const effectiveSpeed = aiCheckActiveRef.current
+        ? AI_CHECK_SPEED
+        : speedRef.current;
+      // Whole frames of real time owed since the last tick, which on a display
+      // that refreshes faster than the machine is regularly none - the render
+      // below still runs, repainting the frame already on screen.
+      const steps = clockRef.current.advance(
+        now,
+        machine.frameHz,
+        effectiveSpeed,
+      );
+
+      // Debug session: advance a slice at a time, pausing on a breakpoint
+      // ('run') or at the next BASIC line ('step'). The machine renders progress
+      // between slices so the screen stays live across long-running lines.
+      //
+      // Paced like an ordinary run, and for the same reason: on every machine
+      // that models line debugging this *is* the ordinary run - a session opens
+      // whenever the user presses Play (see shouldOpenDebugSession), so a slice
+      // per animation frame would leave those machines running at the display's
+      // rate no matter what the loop below did.
+      if (debugActiveRef.current && machine.debugStep) {
+        for (let step = 0; step < steps; step++) {
+          const res = machine.debugStep({
+            breakpoints: useIdeStore.getState().breakpoints,
+            mode: debugModeRef.current,
+            fromLine: debugFromLineRef.current,
+          });
+          frameHookRef.current?.();
+          pumpAudio();
+          if (res.paused) {
+            render();
+            stopLoop();
+            machine.releaseAllKeys(); // nothing stays held while paused
+            debugFromLineRef.current = res.line;
+            const store = useIdeStore.getState();
+            store.setDebugLine(res.line);
+            store.setEmulatorStatus('paused');
+            // On mobile the Preview tab is showing when a breakpoint trips, so
+            // the frozen screen gives no hint why. Jump to the editor so the
+            // user sees the highlighted line. Only for 'run' (a real
+            // breakpoint) - 'step' already starts from the editor/toolbar.
+            if (debugModeRef.current === 'run' && isMobileViewport()) {
+              store.setMobileTab('editor');
+            }
+            return; // do not schedule another frame until step/continue
+          }
+        }
+        render();
+        schedule();
+        return;
+      }
+
       for (let step = 0; step < steps; step++) {
         machine.runFrame();
         frameHookRef.current?.(); // virtual-keyboard frame-counted releases
@@ -720,7 +765,6 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           image,
           Object.keys(loadOpts).length > 0 ? loadOpts : undefined,
         );
-        machine.setSpeed(speed);
         firstFrameRef.current = true; // the next rendered frame hides the overlay
         // Only check the run when the IDE started it to check an answer the
         // assistant returned, and the machine can introspect its error state.
@@ -969,7 +1013,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   }, []);
 
   useEffect(() => {
-    machineRef.current?.setSpeed(speed);
+    speedRef.current = speed;
   }, [speed]);
 
   // Live volume / mute changes apply to a running graph immediately.

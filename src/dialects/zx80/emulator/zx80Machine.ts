@@ -22,7 +22,14 @@ import {
   ROM_POST_LOAD,
 } from '../sysvars';
 
-const TSTATES_PER_FRAME = 65000; // ~3.25MHz / 50Hz
+const CPU_HZ = 3_250_000;
+const TSTATES_PER_LINE = 208; // one 64µs TV scanline at 3.25MHz
+/**
+ * A PAL field: 312 scanlines. Like the ZX81 the ZX80 has no frame hardware -
+ * the ROM builds the picture between keystrokes and the screen goes blank while
+ * a program runs - so this is the host's render slice, not a machine cycle.
+ */
+const TSTATES_PER_FRAME = TSTATES_PER_LINE * 312; // 64896 → ~50.08Hz
 const MAX_BOOT_FRAMES = 600;
 /** Inverse-cursor character the editor shows on the empty edit line once ready. */
 const EDIT_CURSOR = 0xb0;
@@ -48,12 +55,18 @@ const EDIT_CURSOR = 0xb0;
 export class Zx80Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / TSTATES_PER_FRAME;
 
   private readonly memory: Zx80Memory;
   private readonly keyboard = new Zx81Keyboard();
   private readonly cpu: Z80Core;
   private prevRBit6 = true;
-  private speed = 1;
+  /**
+   * T-states the previous frame overran its budget by, owed back to this one.
+   * An instruction cannot be cut in half at a frame boundary, so a frame always
+   * ends a few T-states late; discarding that gains time every frame.
+   */
+  private debt = 0;
   private imageData: ImageData | null = null;
   private disposed = false;
   /** `.O` image waiting to be injected when the ROM reaches its LOAD loop. */
@@ -128,9 +141,9 @@ export class Zx80Machine implements MachineEmulator {
   }
 
   runFrame(): void {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
-    while (cycles < budget) cycles += this.stepInstruction();
+    let cycles = this.debt;
+    while (cycles < TSTATES_PER_FRAME) cycles += this.stepInstruction();
+    this.debt = cycles - TSTATES_PER_FRAME;
   }
 
   /**
@@ -144,24 +157,29 @@ export class Zx80Machine implements MachineEmulator {
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
+    let cycles = this.debt;
     // In run mode, ignore breakpoints until execution has left the line we
     // resumed from, so Continue off a breakpointed line doesn't re-trigger on
     // the spot but still re-pauses when the loop comes back around.
     let armed = opts.fromLine === null;
-    while (cycles < budget) {
+    while (cycles < TSTATES_PER_FRAME) {
       cycles += this.stepInstruction();
       const line = this.currentLine();
       if (line === null) continue;
       if (opts.mode === 'step') {
-        if (opts.fromLine === null || line !== opts.fromLine)
+        if (opts.fromLine === null || line !== opts.fromLine) {
+          this.debt = 0; // pausing abandons the rest of the slice
           return { paused: true, line };
+        }
       } else {
         if (!armed && line !== opts.fromLine) armed = true;
-        if (armed && opts.breakpoints.has(line)) return { paused: true, line };
+        if (armed && opts.breakpoints.has(line)) {
+          this.debt = 0;
+          return { paused: true, line };
+        }
       }
     }
+    this.debt = cycles - TSTATES_PER_FRAME;
     return { paused: false, line: this.currentLine() };
   }
 
@@ -291,10 +309,6 @@ export class Zx80Machine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.keyboard.releaseAll();
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   dispose(): void {

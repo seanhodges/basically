@@ -315,23 +315,36 @@ describe('altair8800 machine', () => {
     expect(machine.processor.getState().a).toBe(0x15);
   });
 
-  it('runs more of the program per frame at a higher speed', () => {
-    function countAfterOneFrame(speed: number): number {
-      const machine = boot(
-        0x13, // INX D
-        0xc3,
-        0x00,
-        0x00, // JMP 0000h
-      );
-      machine.setSpeed(speed);
-      machine.runFrame();
-      const { d, e } = machine.processor.getState();
-      return (d << 8) | e;
-    }
+  it('carries a frame’s overrun into the next instead of gaining time', () => {
+    // A loop of INC DE (6 cycles) + JR back (12) = 18, chosen because 18 does
+    // not divide the 40000-cycle frame evenly: every frame ends mid-instruction
+    // and so owes the next one a few cycles.
+    //
+    // Over 29 frames that is 1160000 cycles, or 64444.4 iterations, and the run
+    // completes the instruction it is inside when the last frame ends - so 64445
+    // exactly. The count is what makes this worth asserting rather than the debt
+    // field: a debt that is discarded, or carried with the sign reversed, stays
+    // small and positive either way and looks perfectly healthy. Only the work
+    // done tells them apart - 64453 if the overrun is dropped (the machine gains
+    // time), 64466 if it is added instead of subtracted.
+    const machine = boot(
+      0x13, // INC DE
+      0x18,
+      0xfd, // JR -3
+    );
+    for (let frame = 0; frame < 29; frame++) machine.runFrame();
+    const { d, e } = machine.processor.getState();
+    expect((d << 8) | e).toBe(64445);
+  });
 
-    const single = countAfterOneFrame(1);
-    expect(single).toBeGreaterThan(1000);
-    expect(countAfterOneFrame(2)).toBeGreaterThan(single * 1.8);
+  it('owes nothing for a frame the CPU spent halted', () => {
+    const machine = boot(0x76); // HLT
+    machine.runFrame();
+    // The frame ends early and the rest of its budget is never run. That time
+    // is not owed - there is no interrupt source here, so the CPU was never
+    // going to use it - and recording it as a debt would leave the next frame
+    // owing a whole frame's worth and running almost nothing.
+    expect((machine as unknown as { debt: number }).debt).toBe(0);
   });
 
   it('stops at a HLT instead of spinning out the frame', () => {

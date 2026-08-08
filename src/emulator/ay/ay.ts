@@ -25,7 +25,7 @@
 /** Output rate of the AY stream; 44100 / 50 = 882 samples per frame (integer). */
 export const AY_SAMPLE_RATE = 44100;
 /** Samples emitted per 50Hz frame. */
-const SAMPLES_PER_FRAME = AY_SAMPLE_RATE / 50;
+export const AY_SAMPLES_PER_FRAME = AY_SAMPLE_RATE / 50;
 /** AY clock on the 128K: the 3.5469MHz CPU clock divided by two. */
 export const AY_CLOCK_128K = 1773400;
 /** AY clock on the Amstrad CPC: a flat 1MHz off the Gate Array. */
@@ -261,10 +261,10 @@ export class Ay38912 {
       return EMPTY_AUDIO;
     }
 
-    const out = new Float32Array(SAMPLES_PER_FRAME);
+    const out = new Float32Array(AY_SAMPLES_PER_FRAME);
     let prevIn = this.dcPrevIn;
     let prevOut = this.dcPrevOut;
-    for (let i = 0; i < SAMPLES_PER_FRAME; i++) {
+    for (let i = 0; i < AY_SAMPLES_PER_FRAME; i++) {
       this.stepAccumulator += this.stepsPerSample;
       while (this.stepAccumulator >= 1) {
         this.stepBase();

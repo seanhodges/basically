@@ -6,8 +6,9 @@ import { Trs80Keyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT, COLS } from './display';
 import { PROG_START, KEYBOARD_BASE, KEYBOARD_END } from '../addresses';
 
-/** Z80 @ ~1.77 MHz over a 50 Hz frame. */
-const TSTATES_PER_FRAME = 35500;
+const CPU_HZ = 1_775_000; // Model I Z80
+/** One 50 Hz frame of CPU time. */
+const TSTATES_PER_FRAME = CPU_HZ / 50;
 const MAX_BOOT_FRAMES = 600;
 
 /**
@@ -41,11 +42,17 @@ const PTR_STREND = 0x40aa;
 export class Trs80Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / TSTATES_PER_FRAME;
 
   private readonly memory: Trs80Memory;
   private readonly keyboard = new Trs80Keyboard();
   private readonly cpu: Z80Core;
-  private speed = 1;
+  /**
+   * T-states the previous frame overran its budget by, owed back to this one.
+   * An instruction cannot be cut in half at a frame boundary, so a frame always
+   * ends a few T-states late; discarding that gains time every frame.
+   */
+  private debt = 0;
   private disposed = false;
 
   constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
@@ -74,14 +81,18 @@ export class Trs80Machine implements MachineEmulator {
   }
 
   runFrame(): void {
-    const budget = TSTATES_PER_FRAME * this.speed;
-    let cycles = 0;
-    while (cycles < budget) {
+    let cycles = this.debt;
+    while (cycles < TSTATES_PER_FRAME) {
       // Nothing wakes a HALT on the base Model I (no interrupt source), so end
-      // the frame early rather than spinning.
-      if (this.cpu.isHalted()) break;
+      // the frame early rather than spinning. Nothing is owed for time the CPU
+      // was never going to run.
+      if (this.cpu.isHalted()) {
+        this.debt = 0;
+        return;
+      }
       cycles += this.cpu.run_instruction();
     }
+    this.debt = cycles - TSTATES_PER_FRAME;
   }
 
   /** True when the run of character codes appears anywhere in video RAM. */
@@ -197,10 +208,6 @@ export class Trs80Machine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.keyboard.releaseAll();
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   dispose(): void {

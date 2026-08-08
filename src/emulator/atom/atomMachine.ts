@@ -191,6 +191,7 @@ export function configureNodeRomPath(jsbeebRoot: string): void {
 export class AtomMachine implements MachineEmulator {
   readonly displayWidth = ATOM_DISPLAY_WIDTH;
   readonly displayHeight = ATOM_DISPLAY_HEIGHT;
+  readonly frameHz = CPU_HZ / CYCLES_PER_FRAME;
   /** Native rate of the speaker/sine stream (set from the chip in the ctor). */
   readonly audioSampleRate: number;
 
@@ -209,7 +210,6 @@ export class AtomMachine implements MachineEmulator {
   private injecting = false;
   private loadGeneration = 0;
   private loadError = '';
-  private speed = 1;
   private disposed = false;
 
   /** VFS-backed filing system, or null when no store was wired. */
@@ -480,7 +480,7 @@ export class AtomMachine implements MachineEmulator {
 
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
-    this.runCycles(Math.round(CYCLES_PER_FRAME * this.speed));
+    this.runCycles(CYCLES_PER_FRAME);
     // Flush sound generated this frame into the accumulation buffer.
     this.soundChip.catchUp();
   }
@@ -663,10 +663,6 @@ export class AtomMachine implements MachineEmulator {
 
   releaseAllKeys(): void {
     this.ppia.clearKeys();
-  }
-
-  setSpeed(multiplier: number): void {
-    this.speed = Math.max(0.1, multiplier);
   }
 
   dispose(): void {

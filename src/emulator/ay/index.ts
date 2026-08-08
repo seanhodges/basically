@@ -3,7 +3,16 @@
  * 128K/+2 (through ports 0xFFFD/0xBFFD) and the Amstrad CPC (through the 8255
  * PPI), so its register file and synthesis live here rather than inside one
  * dialect. Consumers latch a register with {@link Ay38912.selectRegister} (or
- * write one directly with {@link Ay38912.writeRegister}) and pull one 50Hz
- * frame of mono samples with {@link Ay38912.render}.
+ * write one directly with {@link Ay38912.writeRegister}) and pull one frame of
+ * mono samples with {@link Ay38912.render}. A frame is a fixed sample count, so
+ * the stream's true rate is that count times the host machine's frame rate -
+ * which is not the same on the two machines, and on the CPC is not even
+ * constant.
  */
-export { Ay38912, AY_SAMPLE_RATE, AY_CLOCK_128K, AY_CLOCK_CPC } from './ay';
+export {
+  Ay38912,
+  AY_SAMPLE_RATE,
+  AY_SAMPLES_PER_FRAME,
+  AY_CLOCK_128K,
+  AY_CLOCK_CPC,
+} from './ay';
