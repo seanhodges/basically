@@ -10,6 +10,7 @@ import type {
 } from './types';
 import type { KeywordDomain } from './domains';
 import type { DomainGuidance } from './domain-guidance';
+import type { EscapeGuidance } from './escape-guidance';
 import {
   capabilitySections,
   composeGuidance,
@@ -441,11 +442,11 @@ describe('escapeSections', () => {
     example: { source: '{$aa}', bytes: [0xaa] },
   };
   /** Colour before graphics before raw, as a real escape table declares them. */
-  const categories = [
-    { id: 'colour', label: 'Colours' },
-    { id: 'graphics', label: 'Block graphics' },
-    { id: 'cursor', label: 'Cursor' },
-    { id: 'raw', label: 'Raw bytes' },
+  const categories: EscapeTableData['categories'] = [
+    { id: 'colour', label: 'Colours', class: 'colour' },
+    { id: 'graphics', label: 'Block graphics', class: 'block-graphics' },
+    { id: 'cursor', label: 'Cursor', class: 'cursor' },
+    { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
   ];
   const table = (entries: EscapeTableData['entries']): EscapeTableData => ({
     title: 't',
@@ -500,6 +501,83 @@ describe('escapeSections', () => {
 
   it('yields no sections for no codes', () => {
     expect(escapeSections([], table([]))).toEqual([]);
+  });
+
+  it('carries each group’s class, and none for the trailing bucket', () => {
+    const odd = { ...INK, escape: '{odd}', category: 'unlisted' };
+    const sections = escapeSections([INK, BLOCK, odd], table([]));
+    expect(sections.map((s) => s.class)).toEqual([
+      'colour',
+      'block-graphics',
+      undefined,
+    ]);
+  });
+
+  const advice = (
+    to: string,
+    cls: EscapeGuidance['class'],
+    support: EscapeGuidance['support'],
+  ): EscapeGuidance => ({
+    to,
+    class: cls,
+    support,
+    instead: `${cls} on ${to}`,
+  });
+  const guidance: EscapeGuidance[] = [
+    advice('zxspectrum', 'colour', 'full'),
+    advice('zxspectrum', 'block-graphics', 'partial'),
+    advice('zx81', 'colour', 'none'),
+  ];
+
+  it('selects the guidance cell for the target, by class', () => {
+    const sections = escapeSections(
+      [INK, BLOCK],
+      table([]),
+      guidance,
+      'zxspectrum',
+    );
+    expect(sections.map((s) => s.guidance?.support)).toEqual([
+      'full',
+      'partial',
+    ]);
+    expect(sections[0]!.guidance?.instead).toBe('colour on zxspectrum');
+  });
+
+  it('omits the cell for a class the target has no advice for', () => {
+    const sections = escapeSections([INK, BLOCK], table([]), guidance, 'zx81');
+    expect(sections.map((s) => s.guidance?.support)).toEqual([
+      'none',
+      undefined,
+    ]);
+  });
+
+  it('omits every cell when no table or no target is supplied', () => {
+    expect(
+      escapeSections([INK], table([]), guidance)[0]!.guidance,
+    ).toBeUndefined();
+    expect(
+      escapeSections([INK], table([]), undefined, 'zxspectrum')[0]!.guidance,
+    ).toBeUndefined();
+  });
+
+  it('keeps the source page’s category order once the verdicts are attached', () => {
+    const sections = escapeSections(
+      [RAW, BLOCK, INK, CURSOR],
+      table([]),
+      guidance,
+      'zxspectrum',
+    );
+    expect(sections.map((s) => s.category)).toEqual([
+      'colour',
+      'graphics',
+      'cursor',
+      'raw',
+    ]);
+  });
+
+  it('still omits a category the diff does not touch when guidance is supplied', () => {
+    const sections = escapeSections([INK], table([]), guidance, 'zxspectrum');
+    expect(sections.map((s) => s.category)).toEqual(['colour']);
   });
 });
 
