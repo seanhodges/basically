@@ -54,6 +54,7 @@ import {
 import type { MemoryMap } from '../dialects/types';
 import { domainGuidance } from './domain-guidance';
 import { KEYWORD_DOMAINS } from './domains';
+import { escapeGuidance } from './escape-guidance';
 import { portingFacts } from './facts';
 import { DOMAIN_TITLES, type MachineIdentity } from './machineDescription';
 import { falseFriends, keywordEquivalences, pairPortingNotes } from './porting';
@@ -435,10 +436,18 @@ function describeLostEscapes(
   if (entries.length === 0) return '';
   // A line each rather than a run per category, unlike the commands: a control
   // code's description is what says how to replace it, and the narrowing leaves
-  // few enough of them that each can afford one. The category still orders them,
-  // which is what `escapeSections` is for - the source table's category order is
-  // editorial, so the codes a screen layout depends on lead.
-  const lines = escapeSections(entries, sourceEscapes).flatMap((s) =>
+  // few enough of them that each can afford one. The grouping still orders them,
+  // which is what `escapeSections` is for - the classes the target cannot
+  // express at all lead, and the source page's editorial order breaks the ties.
+  // The guidance table is passed for that ranking alone - the report names the
+  // codes and their meanings, and what the assistant is asked to do with them is
+  // the instruction the whole request ends in.
+  const lines = escapeSections(
+    entries,
+    sourceEscapes,
+    escapeGuidance,
+    to.page,
+  ).flatMap((s) =>
     s.entries.map((e) => `- ${e.escape} (${s.label}): ${e.description}`),
   );
   return `CONTROL CODES THIS PROGRAM USES THAT ${to.name.toUpperCase()} DOES NOT HAVE\n${lines.join('\n')}`;

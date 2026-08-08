@@ -543,11 +543,12 @@ describe('escapeSections', () => {
       guidance,
       'zxspectrum',
     );
+    expect(sections.map((s) => s.class)).toEqual(['block-graphics', 'colour']);
     expect(sections.map((s) => s.guidance?.support)).toEqual([
-      'full',
       'partial',
+      'full',
     ]);
-    expect(sections[0]!.guidance?.instead).toBe('colour on zxspectrum');
+    expect(sections[1]!.guidance?.instead).toBe('colour on zxspectrum');
   });
 
   it('omits the cell for a class the target has no advice for', () => {
@@ -567,11 +568,30 @@ describe('escapeSections', () => {
     ).toBeUndefined();
   });
 
-  it('keeps the source page’s category order once the verdicts are attached', () => {
+  it('leads with the classes the target places worst, like the capabilities', () => {
     const sections = escapeSections(
       [RAW, BLOCK, INK, CURSOR],
       table([]),
       guidance,
+      'zxspectrum',
+    );
+    // Block graphics are only partly expressible on the Spectrum, so they lead
+    // the colour codes it has under its own spellings. Cursor and raw bytes
+    // have no cell at all, which is not a verdict: they rank with the mildest
+    // and keep the source page's order behind the classes that are judged.
+    expect(sections.map((s) => s.category)).toEqual([
+      'graphics',
+      'colour',
+      'cursor',
+      'raw',
+    ]);
+  });
+
+  it('keeps the source page’s category order where nothing is judged', () => {
+    const sections = escapeSections(
+      [RAW, BLOCK, INK, CURSOR],
+      table([]),
+      [],
       'zxspectrum',
     );
     expect(sections.map((s) => s.category)).toEqual([
@@ -579,6 +599,24 @@ describe('escapeSections', () => {
       'graphics',
       'cursor',
       'raw',
+    ]);
+  });
+
+  it('ranks a class the target cannot express at all above every other', () => {
+    const sections = escapeSections(
+      [INK, BLOCK, CURSOR],
+      table([]),
+      [
+        advice('zxspectrum', 'colour', 'full'),
+        advice('zxspectrum', 'block-graphics', 'partial'),
+        advice('zxspectrum', 'cursor', 'none'),
+      ],
+      'zxspectrum',
+    );
+    expect(sections.map((s) => s.guidance?.support)).toEqual([
+      'none',
+      'partial',
+      'full',
     ]);
   });
 

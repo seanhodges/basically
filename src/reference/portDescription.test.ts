@@ -612,6 +612,26 @@ describe('the control codes that change meaning', () => {
   });
 });
 
+describe('the control codes to replace are ranked like the capabilities', () => {
+  it('leads with the class the target cannot express at all', () => {
+    // A C64 program using a function key (0x85), a clear-screen (0x93) and a
+    // colour (0x05). The Spectrum has no function keys at all, reaches only
+    // part of what the editing codes do, and carries colour under its own
+    // spellings - so the page order of the Commodore's own escape table
+    // (colours, then editing, then function keys) is exactly reversed by the
+    // ranking, which is what makes this worth asserting on the real tables.
+    const report = describePort(
+      side('commodore64'),
+      side('zxspectrum'),
+      vocabulary('commodore64', ['PRINT'], [0x85, 0x93, 0x05]),
+    );
+    const groups = section(report, 'CONTROL CODES THIS PROGRAM USES')
+      .split('\n')
+      .flatMap((l) => l.match(/\(([^)]+)\):/)?.[1] ?? []);
+    expect(groups.slice(0, 3)).toEqual(['Function keys', 'Editing', 'Colours']);
+  });
+});
+
 describe('where the program’s writes land', () => {
   const HEADING = "WHERE THIS PROGRAM'S WRITES LAND ON THE";
   const site = (address: number, approximate = false) => ({

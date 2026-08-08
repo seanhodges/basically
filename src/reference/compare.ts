@@ -533,20 +533,28 @@ export interface EscapeSection {
  * category the table does not declare lands in a trailing bucket rather than
  * disappearing.
  *
- * Unlike {@link capabilitySections} this does *not* rank a category by whether the
- * other dialect covers it. `KeywordDomain` is one closed vocabulary shared by
- * every page, but escape categories are page-scoped: `colour` and `cursor` are
- * Commodore categories, while the Spectrum files its `{INK n}` under `control`.
- * Matching ids across the two would announce "nothing like it on the target"
- * for codes the target plainly has.
+ * The category *ids* still never cross pages, and cannot: `colour` and `cursor`
+ * are Commodore categories, while the Spectrum files its `{INK n}` under
+ * `control`. Matching ids across the two would announce "nothing like it on the
+ * target" for codes the target plainly has.
  *
- * What each group *is* still crosses pages, though, and that is what the class
- * on every category carries: `key-graphics` on the Commodore and `graphics` on
- * the Atom are both `block-graphics`, so the guidance for "what does this
- * machine do about block graphics" can be authored once per target. The verdict
- * is rendered against each group rather than used to sort it - a reader
- * scanning for what cannot be done at all reads the badges, and a reader working
- * through the codes still meets them in the order the source page intended.
+ * What each group *is* does cross pages, though, and that is what the class on
+ * every category carries: `key-graphics` on the Commodore and `graphics` on the
+ * Atom are both `block-graphics`, so the guidance for "what does this machine do
+ * about block graphics" can be authored once per target. That class is what lets
+ * these be ranked the way {@link capabilitySections} ranks the capabilities, and
+ * they are: worst-placed first, so the classes the target cannot express at all
+ * lead, then the ones it half expresses, then the ones it has under its own
+ * spellings. 52 key-graphics codes to redraw by hand and 5 cursor codes that
+ * become a print-at are not equal work, and the badge alone left the reader to
+ * find that out by scanning.
+ *
+ * Ties keep the source page's own category order, since the sort is stable and
+ * the sections are built in that order - so the editorial order still shows
+ * through wherever the ranking has nothing to say, including when no guidance
+ * table is supplied at all. A group whose class the target has no cell for ranks
+ * with the mildest: nothing is known against it, and a missing cell is not a
+ * verdict.
  *
  * `table` is the table the entries came from - the source table for the codes a
  * port must replace, the target's for the ones it gains.
@@ -601,7 +609,14 @@ export function escapeSections(
       entries: rest,
       class: undefined,
     });
-  return sections;
+  // Worst-placed first, exactly as the capability sections are ranked, and by
+  // the same table. Stable, so a rank the guidance cannot decide leaves the
+  // source page's category order untouched.
+  return sections.sort(
+    (a, b) =>
+      SUPPORT_RANK[a.guidance?.support ?? 'full'] -
+      SUPPORT_RANK[b.guidance?.support ?? 'full'],
+  );
 }
 
 /**

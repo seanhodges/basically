@@ -819,11 +819,10 @@ which the port loses nothing SHALL be reported after the capabilities that lose 
 ### Requirement: Control codes are grouped by what they do
 
 The comparison SHALL group the control codes a port must replace by what the codes do — colour,
-cursor movement, block graphics and so on — rather than as a single alphabetical list, grouped and
-ordered as the source dialect's own control-code reference categorises them, since what the
-categories mean is particular to each machine. Each group SHALL state how many codes it contains,
-every code SHALL be named within exactly one group, and a category from which the port loses no code
-SHALL NOT be shown.
+cursor movement, block graphics and so on — rather than as a single alphabetical list, grouped as the
+source dialect's own control-code reference categorises them, since what the categories mean is
+particular to each machine. Each group SHALL state how many codes it contains, every code SHALL be
+named within exactly one group, and a category from which the port loses no code SHALL NOT be shown.
 
 Control codes are not equal work: a machine may express a whole class of them under its own
 spellings, express the class only partly, or have no way to express it at all. Each group SHALL
@@ -832,6 +831,12 @@ target cannot express the class fully, SHALL say what to do instead. That advice
 per group, not against each code, since what a reader acts on is the same for every code in the
 class.
 
+The groups SHALL be ordered by that same verdict, worst-placed first, as the capability groups are:
+the classes the target cannot express at all, then those it expresses only partly, then those it has
+under its own spellings — so the heaviest work is met rather than found by scanning. Groups the
+verdict cannot separate, including any the target has no advice for, SHALL keep the source dialect's
+own category order.
+
 The control codes the target adds and the source never had are not work the port must do, so they
 SHALL be reported only as a count, with a pointer to the target's control-code reference, and SHALL
 NOT be listed code by code.
@@ -839,8 +844,19 @@ NOT be listed code by code.
 #### Scenario: Codes reported by category
 
 - **WHEN** the user compares two dialects with control codes to replace
-- **THEN** the codes are reported as groups named for what they do, in the source dialect's own
-  category order, each stating its total
+- **THEN** the codes are reported as groups named for what they do, each stating its total
+
+#### Scenario: The heaviest class of work first
+
+- **WHEN** a port loses control codes of a class the target cannot express at all and codes of a
+  class it carries under its own spellings
+- **THEN** the class it cannot express is reported first, whichever order the source dialect's own
+  reference lists the two categories in
+
+#### Scenario: Classes the verdict cannot separate
+
+- **WHEN** two groups of control codes carry the same verdict for the target, or no verdict at all
+- **THEN** they keep the source dialect's own category order relative to each other
 
 #### Scenario: A class the target cannot express at all
 

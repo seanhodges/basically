@@ -640,14 +640,16 @@ function listOf(parts: string[]): string {
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
-// Grouped by what the codes do, in each table's own category order - the same
-// treatment the commands to replace get, and for the same reason: the reader
-// acts per category, and an alphabetical cap buries the colour and cursor codes
-// a screen layout depends on under the block-graphics keycaps.
-// Each group carries the verdict for its class of code, taken from the target's
-// own guidance: 52 key-graphics codes to redraw by hand and 5 cursor codes that
-// become a print-at are not equal work, and the badge is what says so before the
-// reader starts counting.
+// Grouped by what the codes do - the same treatment the commands to replace
+// get, and for the same reason: the reader acts per category, and an
+// alphabetical cap buries the colour and cursor codes a screen layout depends on
+// under the block-graphics keycaps.
+// Ranked the same way too: each group carries the verdict for its class of code
+// from the target's own guidance, and the groups lead with the classes the
+// target places worst. 52 key-graphics codes to redraw by hand and 5 cursor
+// codes that become a print-at are not equal work, so the heavier work is met
+// first rather than found by scanning the badges. Groups the guidance cannot
+// separate keep the source table's own category order.
 const escReplaceSections = computed<EscapeSection[]>(() => {
   const s = source.value;
   const t = target.value;
@@ -1780,7 +1782,8 @@ watch(to, requestVocabulary);
         </h2>
         <p class="cmp-hint">
           Embedded colour and graphics control codes differ between the
-          machines. Grouped by what they do; the
+          machines. Grouped by what they do, with the classes
+          {{ target.name }} has no way to express at all first; the
           <a :href="refLinks(source.page).escapes"
             >{{ source.name }} escape-code reference</a
           >
