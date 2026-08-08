@@ -63,15 +63,23 @@ display each error inline at its line and column, without a manual check step.
 Where the active dialect's machine allows several statements on one line, the
 linter SHALL apply its statement checks to every statement on the line, not
 only the first, including a statement introduced by a conditional's `THEN`.
+A statement that does not open the way the machine requires SHALL be reported
+once, and reported alike wherever on the line it sits — the first statement is
+not held to a different standard from the ones that follow it.
+
+Where the active dialect's machine takes only one statement per line, a line
+carrying more than one SHALL be reported, at the point the second statement
+begins. A separator character appearing as ordinary text — inside a string or a
+comment — SHALL NOT be reported.
 
 A diagnostic's reported position SHALL account for any leading whitespace on
 the line, so an indented line's errors are marked at the characters they
 actually refer to.
 
 A statement-shape diagnostic — a report that a statement does not open the way
-the machine requires — SHALL NOT by itself prevent the program from being built
-or exported, since the machine would store such a line and object only when it
-runs.
+the machine requires, or that a line carries more statements than the machine
+allows — SHALL NOT by itself prevent the program from being built or exported,
+since the machine would store such a line and object only when it runs.
 
 #### Scenario: Error appears and clears
 
@@ -86,11 +94,31 @@ runs.
   a valid statement keyword
 - **THEN** an inline diagnostic marks that second statement
 
+#### Scenario: A bad statement opening the line
+
+- **WHEN** the first statement on a line does not open with a valid statement
+  keyword
+- **THEN** one inline diagnostic marks it, and the program still builds and can
+  still be exported
+
 #### Scenario: A valid multi-statement line is clean
 
 - **WHEN** the user writes a line of several valid statements separated by the
   machine's separator, including empty statements and a trailing separator
 - **THEN** no diagnostic is reported for that line
+
+#### Scenario: Several statements on a one-statement-per-line machine
+
+- **WHEN** the active machine takes only one statement per line and the user
+  writes a line carrying several
+- **THEN** one inline diagnostic marks the line where its second statement
+  begins, and the program still builds and can still be exported
+
+#### Scenario: The separator as ordinary text
+
+- **WHEN** the active machine takes only one statement per line and the
+  separator character of another machine appears inside a string or a comment
+- **THEN** nothing is reported for that line
 
 #### Scenario: An indented line marks the right characters
 
