@@ -13,38 +13,51 @@ export const commodoreEscapes: EscapeTableData = {
     {
       id: 'colour',
       label: 'Colours',
+      class: 'colour',
     },
     {
       id: 'cursor',
       label: 'Cursor',
+      class: 'cursor',
     },
     {
       id: 'editing',
       label: 'Editing',
+      class: 'editing',
     },
     {
       id: 'mode',
       label: 'Modes',
+      class: 'mode',
     },
     {
       id: 'keys',
       label: 'Function keys',
+      class: 'function-keys',
     },
     {
       id: 'control',
       label: 'Control',
+      class: 'control',
     },
     {
+      // {space} and {shift-space} are two ordinary PETSCII characters that need
+      // an escape only because their glyphs cannot be told apart in the editor.
       id: 'character',
       label: 'Characters',
+      class: 'literal',
     },
     {
+      // The CBM/SHIFT keycap shapes - the same class as the Sinclair and Atom
+      // block graphics, though nothing outside the Commodore family draws them.
       id: 'key-graphics',
       label: 'Key graphics',
+      class: 'block-graphics',
     },
     {
       id: 'raw',
       label: 'Raw bytes',
+      class: 'raw-byte',
     },
   ],
   entries: [

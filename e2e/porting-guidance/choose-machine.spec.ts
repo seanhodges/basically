@@ -28,6 +28,27 @@ function picker(page: import('@playwright/test').Page) {
   return page.getByRole('dialog', { name: 'Choose a machine' });
 }
 
+/** Point one of the two fields at a machine, by id. */
+async function pick(
+  page: import('@playwright/test').Page,
+  role: 'from' | 'to',
+  machine: string,
+) {
+  await field(page, role).click();
+  await picker(page).locator(`button[data-machine="${machine}"]`).click();
+  await expect(field(page, role)).toHaveAttribute(
+    'data-target-machine',
+    machine,
+  );
+}
+
+/** One control-code group in the escape section, found by its category label. */
+function group(page: import('@playwright/test').Page, label: string) {
+  return page
+    .locator('#escape-codes .cmp-group-esc')
+    .filter({ has: page.getByRole('heading', { level: 3, name: label }) });
+}
+
 test('the two fields are told apart, and so is a machine from its relative', async ({
   page,
 }) => {
@@ -86,6 +107,35 @@ test('the two fields are told apart, and so is a machine from its relative', asy
   await expect(to).toHaveAttribute('data-target-machine', 'cpc6128');
   await expect(to).toContainText('CPC 6128');
   await expect(to).toHaveAttribute('aria-label', 'Porting to: CPC 6128');
+
+  // Rides this journey rather than opening a second cold page: the pickers are
+  // already warm, and re-pointing them at C64 → ZX81 is two more clicks. That
+  // pair is the one the control-code verdicts exist for - 97 PETSCII codes to
+  // replace, which the ZX81 answers three different ways.
+  await pick(page, 'from', 'commodore64');
+  await pick(page, 'to', 'zx81');
+
+  const escapes = page.locator('#escape-codes');
+  await expect(escapes).toBeVisible();
+
+  // A class the target has no way to express: the verdict says so, and the
+  // advice says what to reach for instead.
+  const colours = group(page, 'Colours');
+  await expect(colours).toContainText('nothing like it in ZX81');
+  await expect(colours).toContainText(/inverse video/);
+
+  // A class it covers under its own spellings, so a reader can tell a
+  // mechanical replacement from a rewrite before counting the codes.
+  await expect(group(page, 'Cursor')).toContainText(
+    'ZX81 has these under its own spellings',
+  );
+
+  // And the group the pair's bulk is in: 52 keycap shapes the ZX81 draws on a
+  // different grid, so it is neither of the two above.
+  const keyGraphics = group(page, 'Key graphics');
+  await expect(keyGraphics).toContainText('only partly covered in ZX81');
+  // Once for the whole group, not against each of the 52 codes.
+  await expect(keyGraphics.locator('.cmp-group-instead-text')).toHaveCount(1);
 });
 
 test('the pair can be chosen without a pointer', async ({ page }) => {

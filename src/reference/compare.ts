@@ -9,6 +9,8 @@
 // IDE both use it; see the folder's note in docs/contributing/architecture.md.
 import type { KeywordDomain } from './domains';
 import type { DomainGuidance } from './domain-guidance';
+import type { EscapeClass } from './escape-classes';
+import type { EscapeGuidance } from './escape-guidance';
 import type {
   EscapeEntry,
   EscapeTableData,
@@ -501,6 +503,18 @@ export interface EscapeSection {
   /** Human label from the owning table's `categories`; the id if it names none. */
   label: string;
   entries: EscapeEntry[];
+  /**
+   * What class of code the group holds - the cross-page handle the guidance is
+   * keyed by. `undefined` for the trailing bucket, whose codes name a category
+   * the table never declared, so nothing says what they are.
+   */
+  class: EscapeClass | undefined;
+  /**
+   * What the target can do about this class, where a guidance table was
+   * supplied and has a cell for it. Absent otherwise - the caller renders the
+   * group without a verdict rather than inventing one.
+   */
+  guidance?: EscapeGuidance;
 }
 
 /**
@@ -519,18 +533,32 @@ export interface EscapeSection {
  * Matching ids across the two would announce "nothing like it on the target"
  * for codes the target plainly has.
  *
+ * What each group *is* still crosses pages, though, and that is what the class
+ * on every category carries: `key-graphics` on the Commodore and `graphics` on
+ * the Atom are both `block-graphics`, so the guidance for "what does this
+ * machine do about block graphics" can be authored once per target. The verdict
+ * is rendered against each group rather than used to sort it - a reader
+ * scanning for what cannot be done at all reads the badges, and a reader working
+ * through the codes still meets them in the order the source page intended.
+ *
  * `table` is the table the entries came from - the source table for the codes a
  * port must replace, the target's for the ones it gains.
+ *
+ * `escapeGuidance` and `toSlug` are optional and taken as arguments, exactly as
+ * {@link capabilitySections} takes its `domainGuidance` - this module imports
+ * only types from the data layer. Omitting them yields sections with no verdict.
  */
 export function escapeSections(
   entries: EscapeEntry[],
   table: EscapeTableData,
+  escapeGuidance?: EscapeGuidance[],
+  toSlug?: string,
 ): EscapeSection[] {
-  const labels = new Map(table.categories.map((c) => [c.id, c.label]));
+  const categories = new Map(table.categories.map((c) => [c.id, c]));
   const byCategory = new Map<string, EscapeEntry[]>();
   const rest: EscapeEntry[] = [];
   for (const entry of entries) {
-    if (!labels.has(entry.category)) {
+    if (!categories.has(entry.category)) {
       rest.push(entry);
       continue;
     }
@@ -539,13 +567,33 @@ export function escapeSections(
     else byCategory.set(entry.category, [entry]);
   }
 
+  const guidanceByClass = toSlug
+    ? new Map(
+        (escapeGuidance ?? [])
+          .filter((g) => g.to === toSlug)
+          .map((g) => [g.class, g]),
+      )
+    : undefined;
+
   const sections: EscapeSection[] = [];
-  for (const { id, label } of table.categories) {
+  for (const { id, label, class: cls } of table.categories) {
     const found = byCategory.get(id);
-    if (found) sections.push({ category: id, label, entries: found });
+    if (found)
+      sections.push({
+        category: id,
+        label,
+        entries: found,
+        class: cls,
+        guidance: guidanceByClass?.get(cls),
+      });
   }
   if (rest.length)
-    sections.push({ category: undefined, label: 'Other', entries: rest });
+    sections.push({
+      category: undefined,
+      label: 'Other',
+      entries: rest,
+      class: undefined,
+    });
   return sections;
 }
 

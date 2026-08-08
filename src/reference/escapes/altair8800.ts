@@ -30,8 +30,10 @@ export const altair8800Escapes: EscapeTableData = {
   title: 'Altair 8800 escape codes',
   machines: ['MITS Altair 8800'],
   categories: [
-    { id: 'control', label: 'Terminal controls' },
-    { id: 'raw', label: 'Raw bytes' },
+    // Bell, backspace, line feed, carriage return and rub out do several
+    // different jobs between them, so the chip is a grab-bag: `control`.
+    { id: 'control', label: 'Terminal controls', class: 'control' },
+    { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
   ],
   entries: [
     control(

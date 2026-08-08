@@ -8,9 +8,9 @@ export const zx80Escapes: EscapeTableData = {
   title: 'ZX80 escape codes',
   machines: ['Sinclair ZX80'],
   categories: [
-    { id: 'graphics', label: 'Block graphics' },
-    { id: 'inverse', label: 'Inverse video' },
-    { id: 'raw', label: 'Raw bytes' },
+    { id: 'graphics', label: 'Block graphics', class: 'block-graphics' },
+    { id: 'inverse', label: 'Inverse video', class: 'inverse-video' },
+    { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
   ],
   entries: [
     // Same backslash spellings as the ZX81 (left/right cell column: ' = top,

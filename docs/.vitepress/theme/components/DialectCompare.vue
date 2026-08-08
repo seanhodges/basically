@@ -47,6 +47,8 @@ import {
 } from '../../../../src/reference/porting';
 import { domainGuidance } from '../../../../src/reference/domain-guidance';
 import type { DomainGuidance } from '../../../../src/reference/domain-guidance';
+import { escapeGuidance } from '../../../../src/reference/escape-guidance';
+import type { EscapeGuidance } from '../../../../src/reference/escape-guidance';
 import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
 import type { MemoryMap } from '../../../../src/dialects/types';
@@ -567,10 +569,20 @@ function listOf(parts: string[]): string {
 // treatment the commands to replace get, and for the same reason: the reader
 // acts per category, and an alphabetical cap buries the colour and cursor codes
 // a screen layout depends on under the block-graphics keycaps.
+// Each group carries the verdict for its class of code, taken from the target's
+// own guidance: 52 key-graphics codes to redraw by hand and 5 cursor codes that
+// become a print-at are not equal work, and the badge is what says so before the
+// reader starts counting.
 const escReplaceSections = computed<EscapeSection[]>(() => {
   const s = source.value;
+  const t = target.value;
   return escapeDiff.value && s?.escapes
-    ? escapeSections(escapeDiff.value.mustReplace, s.escapes)
+    ? escapeSections(
+        escapeDiff.value.mustReplace,
+        s.escapes,
+        escapeGuidance,
+        t?.page,
+      )
     : [];
 });
 // The codes the target adds and the source never used are not work the port has
@@ -592,6 +604,34 @@ const escapeAddedCategories = computed(() => {
 const escapeRechecked = computed(
   () => escapeDiff.value?.behaviourChanged ?? [],
 );
+// The same three colours the capability groups use, meaning the same three
+// things - but keyed again inside this section, because the capability key is
+// several screens up by the time a reader reaches the control codes, and a key
+// listing a colour this pair does not put on the page is its own small puzzle.
+const escapeLegend = computed<LegendItem[]>(() => {
+  const support = (level: EscapeGuidance['support']) =>
+    escReplaceSections.value.some((s) => s.guidance?.support === level);
+  const items: LegendItem[] = [];
+  if (support('none'))
+    items.push({
+      key: 'none',
+      className: 'cmp-key-none',
+      label: 'Nothing like it',
+    });
+  if (support('partial'))
+    items.push({
+      key: 'partial',
+      className: 'cmp-key-partial',
+      label: 'Partly covered',
+    });
+  if (support('full'))
+    items.push({
+      key: 'full',
+      className: 'cmp-key-full',
+      label: 'Under other spellings',
+    });
+  return items;
+});
 
 // One account per capability: the commands the port loses here, what to do
 // instead, and what the target adds here. Grouped rather than capped - a group
@@ -1703,14 +1743,60 @@ watch(to, requestVocabulary);
           <input v-model="showAdditions" type="checkbox" />
           Show what {{ target.name }} adds that the program has not used
         </label>
+        <!--
+          The same key as the capabilities section, repeated here rather than
+          referred back to: by this point in the page the first one has scrolled
+          away, and it only lists the colours these groups actually use.
+        -->
+        <div v-if="escapeLegend.length" class="cmp-legend">
+          <span class="cmp-legend-title">Colour key</span>
+          <span
+            v-for="item in escapeLegend"
+            :key="item.key"
+            class="cmp-legend-item"
+          >
+            <span
+              class="cmp-legend-swatch"
+              :class="item.className"
+              aria-hidden="true"
+            />
+            {{ item.label }}
+          </span>
+        </div>
         <div
           v-for="s in escReplaceSections"
           :key="s.category ?? 'other'"
           class="cmp-group cmp-group-esc"
+          :class="{
+            'cmp-group-absent': s.guidance?.support === 'none',
+            'cmp-group-partial': s.guidance?.support === 'partial',
+            'cmp-group-covered': s.guidance?.support === 'full',
+          }"
         >
           <h3 class="cmp-group-head">
             {{ s.label }}
             <span class="cmp-group-count">{{ s.entries.length }}</span>
+            <!--
+              The verdict, once per group: 52 keycap graphics to redraw and 5
+              cursor codes that become one PRINT AT are both "codes to replace"
+              without it. The covered case is stated too, not just tinted - it
+              is what tells a reader the group is a search and replace.
+            -->
+            <span v-if="s.guidance?.support === 'none'" class="cmp-group-none">
+              nothing like it in {{ target.name }}
+            </span>
+            <span
+              v-else-if="s.guidance?.support === 'partial'"
+              class="cmp-group-partial-badge"
+            >
+              only partly covered in {{ target.name }}
+            </span>
+            <span
+              v-else-if="s.guidance?.support === 'full'"
+              class="cmp-group-covered-badge"
+            >
+              {{ target.name }} has these under its own spellings
+            </span>
           </h3>
           <p class="cmp-group-names">
             <span v-for="(e, i) in s.entries" :key="e.escape" class="cmp-name">
@@ -1718,6 +1804,17 @@ watch(to, requestVocabulary);
               ><span v-if="i < s.entries.length - 1" class="cmp-sep">, </span>
             </span>
           </p>
+          <div v-if="s.guidance" class="cmp-group-advice">
+            <p class="cmp-group-instead-text">{{ s.guidance.instead }}</p>
+            <div v-if="s.guidance.example" class="cmp-example">
+              <p class="cmp-example-caption">
+                {{ s.guidance.example.caption }}
+              </p>
+              <pre class="cmp-example-code"><code>{{
+                s.guidance.example.code.join('\n')
+              }}</code></pre>
+            </div>
+          </div>
         </div>
         <p v-if="!escReplaceSections.length" class="cmp-empty">
           No {{ source.name }} control code needs replacing.
@@ -2264,7 +2361,8 @@ watch(to, requestVocabulary);
 .cmp-group-esc .cmp-group-names {
   line-height: 1.8;
 }
-.cmp-group-partial-badge {
+.cmp-group-partial-badge,
+.cmp-group-covered-badge {
   color: var(--vp-c-text-2);
   font-size: 0.75rem;
   font-weight: 400;
