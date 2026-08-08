@@ -189,18 +189,58 @@ program uses, so narrowing it would drop the rule the port most needs.
 
 ### Requirement: The comparison leads with what the port requires
 
-The comparison SHALL present what the port requires the reader to do — how the two machines differ,
-what is specific to this pair and this target, the commands that fail silently, and the commands
-that must be rewritten — before the lists it provides for reference, being the commands whose
-spelling or usage differs and the control codes. Guidance that does not vary with the chosen pair
-SHALL NOT be placed between two sections that do.
+The comparison SHALL present what the port requires the reader to do before the lists it provides
+for reference, and SHALL present it in the order the work is carried out rather than by the kind of
+thing each finding is. That order SHALL be:
+
+1. what stops the program being read on the target at all — the characters the target cannot
+   represent, the statement layout that must change, and line numbers the target will not accept;
+2. what is mechanical — the commands that need only be renamed;
+3. what must be rewritten — the commands the target has no equivalent of, the control codes that
+   must be replaced, the commands whose usage differs, and the addresses the program writes to,
+   against the two machines' memory layouts;
+4. what changes silently — the commands that mean something else under the same name, and any other
+   finding that leaves the program tokenizing cleanly and computing differently;
+5. whether the result fits the target machine.
+
+Each finding SHALL be placed in the class of work it belongs to, so that a reader working top to
+bottom meets the port in the order it is done. A finding a pair does not produce SHALL be absent
+rather than shown empty, and SHALL NOT leave the classes around it out of order.
+
+How the two machines differ in language rules and hardware, and the guidance specific to this pair
+and this target, SHALL be presented before the work list, being the frame the work is read inside.
+Nothing else SHALL be placed there: a finding that shows the reader something to change belongs to
+the class of work that change is, however it is drawn. Guidance that does not vary with the chosen
+pair SHALL NOT be placed between two sections that do.
 
 #### Scenario: Reading the comparison top to bottom
 
 - **WHEN** the user reads a comparison from the top
-- **THEN** the language and hardware differences, the guidance for this pair and target, the
-  same-name-different-meaning warnings and the commands to replace are reached before the commands
-  whose spelling or usage differs and the control codes
+- **THEN** the language and hardware differences and the guidance for this pair and target are
+  reached first, and the findings that follow run from what stops the program being read, through
+  what is mechanical and what must be rewritten, to what changes silently and whether the result
+  fits
+
+#### Scenario: Where the program's writes have to be re-aimed
+
+- **WHEN** the comparison shows the two machines' memory layouts
+- **THEN** they are reached with the rest of the rewriting work rather than ahead of it, the
+  addresses being something the port has to change
+
+#### Scenario: Mechanical work before rewrites
+
+- **WHEN** a port both renames commands and loses commands the target has no equivalent of
+- **THEN** the renames are reported before the commands that must be rewritten
+
+#### Scenario: Silent differences after the rewrites
+
+- **WHEN** a port reports commands that mean something different under the same name
+- **THEN** they are reported after the commands that must be rewritten, not before them
+
+#### Scenario: A class this pair produces nothing for
+
+- **WHEN** a pair produces no finding in one of the classes
+- **THEN** that class is absent, and the classes around it are still in order
 
 #### Scenario: Guidance that does not depend on the pair
 
@@ -785,6 +825,13 @@ categories mean is particular to each machine. Each group SHALL state how many c
 every code SHALL be named within exactly one group, and a category from which the port loses no code
 SHALL NOT be shown.
 
+Control codes are not equal work: a machine may express a whole class of them under its own
+spellings, express the class only partly, or have no way to express it at all. Each group SHALL
+therefore state which of those three the target machine offers for that class of code, and where the
+target cannot express the class fully, SHALL say what to do instead. That advice SHALL be given once
+per group, not against each code, since what a reader acts on is the same for every code in the
+class.
+
 The control codes the target adds and the source never had are not work the port must do, so they
 SHALL be reported only as a count, with a pointer to the target's control-code reference, and SHALL
 NOT be listed code by code.
@@ -794,6 +841,22 @@ NOT be listed code by code.
 - **WHEN** the user compares two dialects with control codes to replace
 - **THEN** the codes are reported as groups named for what they do, in the source dialect's own
   category order, each stating its total
+
+#### Scenario: A class the target cannot express at all
+
+- **WHEN** a group of control codes belongs to a class the target machine has no way to express
+- **THEN** the group states that, and says what to do instead
+
+#### Scenario: A class the target expresses under its own spellings
+
+- **WHEN** a group of control codes belongs to a class the target machine expresses fully under its
+  own spellings
+- **THEN** the group states that, so the reader can tell mechanical replacement from a rewrite
+
+#### Scenario: Advice is given once per group
+
+- **WHEN** a group contains many control codes of one class
+- **THEN** the advice for that class is given once for the group, not repeated against each code
 
 #### Scenario: Grouping loses no control code
 
@@ -1539,3 +1602,70 @@ or given as a run of spellings — rather than given a row each, so every one of
 - **WHEN** a port renames more commands than would fit as detailed rows
 - **THEN** every rename is still named in the compact run, and no control to reveal more is shown
   for it
+
+### Requirement: Where the program's writes land on the target is reported
+
+A program that writes directly to memory carries addresses chosen for one machine.
+On another machine those addresses reach whatever that machine keeps there, and the
+program's text does not change at all — so no list of commands, control codes or
+language rules can report it.
+
+Where the reader's own program is at hand and both machines' memory layouts are
+described, the comparison SHALL report what each address the program writes to
+reaches on the target machine, and what that means for the write. It SHALL
+distinguish an address that reaches the same kind of thing at a different place,
+one that reaches something else, one that reaches read-only memory and so has no
+effect at all, and one the target's address space does not contain.
+
+An address that reaches something else SHALL be reported with both what the
+program aimed at and what it would reach, since either alone leaves the reader to
+guess the other.
+
+An address the comparison could only approximate SHALL carry that doubt into its
+verdict, reported as an estimate rather than as a conclusion.
+
+Where either machine has no described memory layout, or there is no program, no
+verdicts SHALL be reported.
+
+#### Scenario: A write that reaches something else on the target
+
+- **WHEN** the open program writes to an address that holds one kind of thing on
+  the source machine and a different kind on the target
+- **THEN** the comparison reports the write, naming what it aimed at and what it
+  would reach on the target
+
+#### Scenario: A write into read-only memory
+
+- **WHEN** the open program writes to an address that is read-only memory on the
+  target machine
+- **THEN** the comparison reports that the write has no effect there, distinctly
+  from a write that reaches something else
+
+#### Scenario: A write the target's memory does not contain
+
+- **WHEN** the open program writes to an address beyond the target machine's
+  address space
+- **THEN** the comparison reports that the target has no such address
+
+#### Scenario: A write that reaches the same kind of thing
+
+- **WHEN** the open program writes to an address that holds the same kind of thing
+  on both machines, at different addresses
+- **THEN** the comparison reports it as an address to change rather than reporting
+  nothing
+
+#### Scenario: An address that could only be approximated
+
+- **WHEN** the comparison could not resolve a write address exactly
+- **THEN** its verdict is reported as an estimate
+
+#### Scenario: A machine with no described layout
+
+- **WHEN** either machine's memory layout is not described
+- **THEN** no verdicts are reported, as no layouts are
+
+#### Scenario: Reading the comparison with no program
+
+- **WHEN** a user reads the comparison on its own, or with nothing open
+- **THEN** no verdicts are reported
+
