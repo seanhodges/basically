@@ -104,6 +104,45 @@ import {
 import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 
 export type EmulatorStatus = 'stopped' | 'running' | 'paused';
+/**
+ * A disposable BASIC buffer held alongside the program: somewhere to write and
+ * run a snippet without touching the document. Session-only - never autosaved,
+ * never written into a project bundle, never carried by a share link.
+ */
+export interface ScratchBuffer {
+  id: string;
+  /** Shown on the tab; generated (`Scratch 1`…) and renameable. Not unique -
+   *  nothing resolves a buffer by name. */
+  name: string;
+  text: string;
+  /**
+   * This buffer's breakpointed BASIC line numbers. Per-buffer because the sets
+   * are keyed by line number, and line 20 of a snippet has nothing to do with
+   * line 20 of the program. Closing the tab drops them with it.
+   */
+  breakpoints: ReadonlySet<number>;
+}
+/** Which tab the editor pane is showing: the program, a memory block, or a
+ *  scratch buffer. */
+export type ActiveTab =
+  | { kind: 'basic' }
+  | { kind: 'block'; id: string }
+  | { kind: 'scratch'; id: string };
+/** The BASIC source tab - the tab every reset falls back to. */
+export const BASIC_TAB: ActiveTab = { kind: 'basic' };
+/** The active block's id, or `null` when a non-block tab is showing. */
+export function activeBlockIdOf(tab: ActiveTab): string | null {
+  return tab.kind === 'block' ? tab.id : null;
+}
+/**
+ * Which BASIC buffer the single mounted editor holds for a tab: a scratch
+ * buffer's id, or `null` for the program. A block tab leaves the program in the
+ * editor (it is hidden, not unmounted), so it answers `null` too - which is what
+ * makes a block → BASIC switch need no document push.
+ */
+export function editorBufferOf(tab: ActiveTab): string | null {
+  return tab.kind === 'scratch' ? tab.id : null;
+}
 export type MobileTab = 'editor' | 'preview' | 'settings' | 'ai';
 export type SettingsTab = 'editor' | 'emulator' | 'input' | 'ai';
 /** Editor operations the toolbar's Edit menu asks CodeMirrorHost to run. */
@@ -171,12 +210,24 @@ interface IdeState {
    */
   listingBlockMeta: Readonly<Record<number, ListingBlockMeta>>;
   /**
-   * The block whose tab is active in the editor pane, or `null` for the
-   * BASIC source tab. Reset to `null` whenever a different program becomes
+   * The tab active in the editor pane: the BASIC source, a memory block, or a
+   * scratch buffer. Reset to the BASIC tab whenever a different program becomes
    * active (same rule as `blocks`), and fixed up by `setBlocks`/`removeBlock`
    * when the active block disappears.
    */
-  activeBlockId: string | null;
+  activeTab: ActiveTab;
+  /**
+   * Disposable BASIC buffers alongside the program (see {@link ScratchBuffer}).
+   * Session-only state: deliberately absent from the autosave signature and the
+   * project serializer, so no future field can quietly acquire persistence
+   * through them.
+   *
+   * Their lifecycle is *not* the one `blocks` and `breakpoints` follow. A
+   * scratch buffer is a workbench rather than part of any document, so it
+   * survives New/Open/Sample/Import and is cleared only on a target-machine
+   * switch (its BASIC belongs to the machine being left) and on player boot.
+   */
+  scratchBuffers: readonly ScratchBuffer[];
   /**
    * Ids of code blocks whose assembly source currently fails to assemble -
    * transient UI state driving the error dot on the block's tab. Reset with
@@ -187,7 +238,7 @@ interface IdeState {
    * Id of a block the user asked to delete (via the tab context menu) that
    * awaits confirmation. Drives the DeleteBlockDialog; null when no deletion
    * is pending. Reset whenever a different program becomes active (same rule
-   * as `activeBlockId`).
+   * as `activeTab`).
    */
   pendingDeleteBlockId: string | null;
   /**
@@ -357,8 +408,11 @@ interface IdeState {
   /** Bumped to ask the emulator pane to reset the machine. */
   resetRequest: number;
   /**
-   * Breakpointed BASIC line numbers. Keyed by line number (not editor row) so
-   * they survive edits and renumbering. Cleared when a different program loads.
+   * The *program's* breakpointed BASIC line numbers. Keyed by line number (not
+   * editor row) so they survive edits and renumbering. Cleared when a different
+   * program loads. A scratch buffer keeps its own set on the buffer; read
+   * whichever belongs to the buffer on screen through
+   * {@link selectActiveBreakpoints}.
    */
   breakpoints: ReadonlySet<number>;
   /**
@@ -367,6 +421,14 @@ interface IdeState {
    * the emulator pane on pause/resume.
    */
   debugLine: number | null;
+  /**
+   * Which buffer `debugLine` belongs to - a scratch buffer's id, or `null` for
+   * the program. The pause belongs to the buffer that was running, so the
+   * highlight and the "paused at line N" status are shown only while that
+   * buffer is the one on screen (see {@link selectVisibleDebugLine}); otherwise
+   * pausing a snippet would mark an unrelated line of the user's program.
+   */
+  debugBufferId: string | null;
   /** Bumped to ask the emulator pane to run to the next BASIC line. */
   stepRequest: number;
   /** Bumped to ask the emulator pane to continue to the next breakpoint. */
@@ -711,8 +773,30 @@ interface IdeState {
    * set to `undefined` are removed. No-op for fixed-address dialects.
    */
   setListingBlockMeta(ordinal: number, patch: ListingBlockMeta): void;
-  /** Switch the editor pane to a block's tab (`null` = the BASIC tab). */
-  setActiveBlock(id: string | null): void;
+  /**
+   * Switch the editor pane to a tab. When the incoming tab holds a different
+   * BASIC buffer than the outgoing one, its text is pushed through the editor's
+   * `docOverride` channel - the same channel file-load and AI-apply drive.
+   */
+  setActiveTab(tab: ActiveTab): void;
+  /**
+   * Create a scratch buffer (named `Scratch <n>` for the first free `n`) and
+   * switch to its tab. Never touches the document.
+   */
+  addScratchBuffer(): void;
+  /** Rename a scratch buffer. A blank name is ignored; unknown ids are no-ops. */
+  renameScratchBuffer(id: string, name: string): void;
+  /**
+   * Mirror the editor's text into a scratch buffer. Deliberately not
+   * {@link setSource}, which carries document semantics (dirty, the boot-disc
+   * clear, the untitled-and-empty rule) a scratch must not trigger.
+   */
+  setScratchText(id: string, text: string): void;
+  /**
+   * Discard a scratch buffer and its breakpoints, with no confirmation. Closing
+   * the active one falls back to the BASIC tab, as closing the active block does.
+   */
+  closeScratchBuffer(id: string): void;
   /** Flag or clear a block's does-not-assemble state (tab error dot). */
   setBlockAsmError(id: string, hasError: boolean): void;
   /**
@@ -780,12 +864,16 @@ interface IdeState {
   showEmulator(): void;
   requestStop(): void;
   requestReset(): void;
-  /** Toggle a breakpoint on a BASIC line number. */
+  /** Toggle a breakpoint on a BASIC line number, in the buffer on screen. */
   toggleBreakpoint(lineNo: number): void;
-  /** Remove every breakpoint. */
+  /** Remove every breakpoint from the buffer on screen. */
   clearBreakpoints(): void;
-  /** Record the BASIC line the debugger is paused on (pane → store). */
-  setDebugLine(line: number | null): void;
+  /**
+   * Record the BASIC line the debugger is paused on (pane → store), and which
+   * buffer that pause belongs to (a scratch buffer's id, or `null` for the
+   * program).
+   */
+  setDebugLine(line: number | null, bufferId?: string | null): void;
   /** Ask the debugger to run to the next BASIC line. */
   requestStep(): void;
   /** Ask the debugger to continue to the next breakpoint. */
@@ -960,6 +1048,51 @@ function assertValidBlocks(blocks: readonly MemoryBlock[]): void {
   }
 }
 
+/** The BASIC text a tab shows: a scratch buffer's own, else the program. */
+function bufferTextOf(s: IdeState, tab: ActiveTab): string {
+  if (tab.kind !== 'scratch') return s.source;
+  return s.scratchBuffers.find((b) => b.id === tab.id)?.text ?? '';
+}
+
+/**
+ * The state delta that switches the editor pane to `tab`, pushing the incoming
+ * buffer's text through the editor's `docOverride` channel when the switch
+ * changes which BASIC buffer the single mounted editor holds.
+ *
+ * Every tab change goes through here rather than assigning `activeTab`
+ * directly, including the ones a block creation performs: leaving a scratch tab
+ * for a block tab has to restore the program to the (hidden) editor, or the
+ * next return to BASIC would show the snippet as the program.
+ */
+function withActiveTab(s: IdeState, tab: ActiveTab): Partial<IdeState> {
+  if (editorBufferOf(tab) === editorBufferOf(s.activeTab)) {
+    return { activeTab: tab };
+  }
+  return {
+    activeTab: tab,
+    docOverride: { text: bufferTextOf(s, tab), seq: s.docOverride.seq + 1 },
+  };
+}
+
+/**
+ * The state delta that rewrites the breakpoint set of the buffer on screen.
+ * A scratch buffer's set lives on the buffer, the program's on the store, and
+ * the toggles must never reach across: the sets are keyed by BASIC line number,
+ * so line 20 of a snippet and line 20 of the program are unrelated.
+ */
+function withBreakpoints(
+  s: IdeState,
+  edit: (current: ReadonlySet<number>) => ReadonlySet<number>,
+): Partial<IdeState> {
+  const bufferId = editorBufferOf(s.activeTab);
+  if (bufferId === null) return { breakpoints: edit(s.breakpoints) };
+  return {
+    scratchBuffers: s.scratchBuffers.map((b) =>
+      b.id === bufferId ? { ...b, breakpoints: edit(b.breakpoints) } : b,
+    ),
+  };
+}
+
 /**
  * The state delta that removes one block: the shared body of `removeBlock`
  * and `confirmRemoveBlock`. The active tab falls back to BASIC when the
@@ -969,7 +1102,7 @@ function withBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
   return {
     blocks: s.blocks.filter((b) => b.id !== id),
     dirty: true,
-    ...(s.activeBlockId === id ? { activeBlockId: null } : {}),
+    ...(activeBlockIdOf(s.activeTab) === id ? { activeTab: BASIC_TAB } : {}),
     ...(s.asmErrorBlocks.has(id)
       ? {
           asmErrorBlocks: new Set(
@@ -997,17 +1130,19 @@ function withListingBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
     if (key === ordinal) continue;
     meta[key > ordinal ? key - 1 : key] = v;
   }
-  let activeBlockId = s.activeBlockId;
+  let activeTab = s.activeTab;
+  const activeBlockId = activeBlockIdOf(activeTab);
   const activeOrd = activeBlockId ? listingOrdinal(activeBlockId) : null;
   if (activeOrd !== null) {
-    if (activeOrd === ordinal) activeBlockId = null;
-    else if (activeOrd > ordinal) activeBlockId = `listing-${activeOrd - 1}`;
+    if (activeOrd === ordinal) activeTab = BASIC_TAB;
+    else if (activeOrd > ordinal)
+      activeTab = { kind: 'block', id: `listing-${activeOrd - 1}` };
   }
   return {
     source,
     docOverride: { text: source, seq: s.docOverride.seq + 1 },
     listingBlockMeta: meta,
-    activeBlockId,
+    activeTab,
     dirty: true,
     ...(s.asmErrorBlocks.has(id)
       ? {
@@ -1150,12 +1285,20 @@ function applyDialectSwitch(
     // start the new target with a clean slate and no paused line.
     breakpoints: new Set<number>(),
     debugLine: null,
+    debugBufferId: null,
+    // Scratch buffers die with the *machine*, not with the document: they hold
+    // BASIC a different machine does not speak, but they are a workbench rather
+    // than part of any program. This helper serves both - a real target switch
+    // and the document loads (New/Open/Shared) that route through it to get the
+    // teardown semantics - so the reset is gated on the machine actually
+    // changing rather than folded into the shared reset above.
+    ...(next.id !== s.dialect.id ? { scratchBuffers: [] } : {}),
     // Memory blocks belong to the old machine's address space; a dialect
     // switch always starts with none, as blocks aren't re-targeted across
     // machines.
     blocks: [],
     listingBlockMeta: {},
-    activeBlockId: null,
+    activeTab: BASIC_TAB,
     asmErrorBlocks: new Set<string>(),
     pendingDeleteBlockId: null,
     blockSettingsId: null,
@@ -1262,7 +1405,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   source: startupText,
   blocks: startupDoc.blocks,
   listingBlockMeta: startupDoc.listingBlockMeta ?? {},
-  activeBlockId: null,
+  activeTab: BASIC_TAB,
+  scratchBuffers: [],
   asmErrorBlocks: new Set<string>(),
   pendingDeleteBlockId: null,
   blockSettingsId: null,
@@ -1285,6 +1429,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   resetRequest: 0,
   breakpoints: new Set<number>(),
   debugLine: null,
+  debugBufferId: null,
   stepRequest: 0,
   continueRequest: 0,
   emulatorSpeed: typeof localStorage !== 'undefined' ? getEmulatorSpeed() : 1,
@@ -1431,7 +1576,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         // them into RAM; a pure-BASIC share carries none and starts clean.
         blocks: blocks ?? [],
         listingBlockMeta: {},
-        activeBlockId: null,
+        activeTab: BASIC_TAB,
         asmErrorBlocks: new Set<string>(),
         pendingDeleteBlockId: null,
         blockSettingsId: null,
@@ -1443,6 +1588,10 @@ export const useIdeStore = create<IdeState>((set) => ({
         // Line numbers belong to whatever autosave seeded the store with.
         breakpoints: new Set<number>(),
         debugLine: null,
+        debugBufferId: null,
+        // The player has no tab strip, so a scratch buffer seeded from an IDE
+        // session would be unreachable code the run path could still pick up.
+        scratchBuffers: [],
         // The emulator is the player's only surface; useInputOverlays and
         // EmulatorPane's landscape ⌨ toggle key off the preview tab.
         mobileTab: 'preview' as MobileTab,
@@ -1574,6 +1723,12 @@ export const useIdeStore = create<IdeState>((set) => ({
     set((s) => ({
       source: text,
       docOverride: { text, seq: s.docOverride.seq + 1 },
+      // The push above lands in the one mounted editor whatever tab is showing,
+      // so a scratch buffer has to give the editor back: leaving it selected
+      // would show the program under a scratch tab, and the next keystroke
+      // would type the program into the snippet. A *block* tab may stay - it
+      // hides the editor rather than sharing it.
+      ...(s.activeTab.kind === 'scratch' ? { activeTab: BASIC_TAB } : {}),
       ...(fileName !== undefined ? { fileName } : {}),
       // A named load (Open) is a different program - clear the AI thread and any
       // breakpoints (their line numbers belong to the old program), and either
@@ -1587,7 +1742,9 @@ export const useIdeStore = create<IdeState>((set) => ({
             breakpoints: new Set<number>(),
             blocks: opts?.blocks ?? [],
             listingBlockMeta: opts?.listingBlockMeta ?? {},
-            activeBlockId: null,
+            // Scratch buffers survive an Open - only the tab does not, since
+            // the incoming program is what the editor must now show.
+            activeTab: BASIC_TAB,
             asmErrorBlocks: new Set<string>(),
             pendingDeleteBlockId: null,
             blockSettingsId: null,
@@ -1634,7 +1791,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       // its own (a project-bundle-shaped import).
       blocks: opts?.blocks ?? [],
       listingBlockMeta: opts?.listingBlockMeta ?? {},
-      activeBlockId: null,
+      // As for Open: the workbench survives, the tab returns to the program.
+      activeTab: BASIC_TAB,
       asmErrorBlocks: new Set<string>(),
       pendingDeleteBlockId: null,
       blockSettingsId: null,
@@ -1667,8 +1825,8 @@ export const useIdeStore = create<IdeState>((set) => ({
         blocks,
         dirty: true,
         // The active tab and error dots follow the surviving blocks.
-        ...(s.activeBlockId !== null && !ids.has(s.activeBlockId)
-          ? { activeBlockId: null }
+        ...(s.activeTab.kind === 'block' && !ids.has(s.activeTab.id)
+          ? { activeTab: BASIC_TAB }
           : {}),
         asmErrorBlocks: new Set(
           [...s.asmErrorBlocks].filter((id) => ids.has(id)),
@@ -1735,7 +1893,59 @@ export const useIdeStore = create<IdeState>((set) => ({
       else next[ordinal] = merged;
       return { listingBlockMeta: next, dirty: true };
     }),
-  setActiveBlock: (id) => set({ activeBlockId: id }),
+  setActiveTab: (tab) => set((s) => withActiveTab(s, tab)),
+  addScratchBuffer: () =>
+    set((s) => {
+      // First free ordinal, mirroring addBlock's first-free-`block<n>` rule, so
+      // closing a buffer frees its number again.
+      const taken = new Set(s.scratchBuffers.map((b) => b.id));
+      let n = 1;
+      while (taken.has(`scratch-${n}`)) n++;
+      const buffer: ScratchBuffer = {
+        id: `scratch-${n}`,
+        name: `Scratch ${n}`,
+        text: '',
+        breakpoints: new Set<number>(),
+      };
+      const scratchBuffers = [...s.scratchBuffers, buffer];
+      return {
+        scratchBuffers,
+        // Resolved against the state that already holds the new buffer, so the
+        // push carries its (empty) text rather than falling back to the program.
+        ...withActiveTab(
+          { ...s, scratchBuffers },
+          {
+            kind: 'scratch',
+            id: buffer.id,
+          },
+        ),
+      };
+    }),
+  renameScratchBuffer: (id, name) =>
+    set((s) => {
+      const trimmed = name.trim();
+      if (trimmed === '') return {};
+      return {
+        scratchBuffers: s.scratchBuffers.map((b) =>
+          b.id === id ? { ...b, name: trimmed } : b,
+        ),
+      };
+    }),
+  setScratchText: (id, text) =>
+    set((s) => ({
+      scratchBuffers: s.scratchBuffers.map((b) =>
+        b.id === id ? { ...b, text } : b,
+      ),
+    })),
+  closeScratchBuffer: (id) =>
+    set((s) => {
+      if (!s.scratchBuffers.some((b) => b.id === id)) return {};
+      const scratchBuffers = s.scratchBuffers.filter((b) => b.id !== id);
+      // The buffer's breakpoints live on the buffer, so they go with it - there
+      // is no separate cleanup path to forget.
+      if (editorBufferOf(s.activeTab) !== id) return { scratchBuffers };
+      return { scratchBuffers, ...withActiveTab(s, BASIC_TAB) };
+    }),
   addBlock: () =>
     set((s) => {
       const support = s.dialect.memoryBlocks;
@@ -1748,8 +1958,10 @@ export const useIdeStore = create<IdeState>((set) => ({
         const { source, ordinal } = insertListingBlock(s.source, layout);
         return {
           source,
+          // Always pushed, whatever the outgoing tab was: the record was
+          // appended to the program, and the hidden editor must hold it.
           docOverride: { text: source, seq: s.docOverride.seq + 1 },
-          activeBlockId: `listing-${ordinal}`,
+          activeTab: { kind: 'block', id: `listing-${ordinal}` },
           dirty: true,
         };
       }
@@ -1781,7 +1993,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       // editable one, so drop the verbatim image (as a source edit does).
       return {
         blocks,
-        activeBlockId: block.id,
+        ...withActiveTab(s, { kind: 'block', id: block.id }),
         dirty: true,
         ...(s.bootDisc !== null ? { bootDisc: null } : {}),
       };
@@ -1865,14 +2077,17 @@ export const useIdeStore = create<IdeState>((set) => ({
   requestStop: () => set((s) => ({ stopRequest: s.stopRequest + 1 })),
   requestReset: () => set((s) => ({ resetRequest: s.resetRequest + 1 })),
   toggleBreakpoint: (lineNo) =>
-    set((s) => {
-      const next = new Set(s.breakpoints);
-      if (next.has(lineNo)) next.delete(lineNo);
-      else next.add(lineNo);
-      return { breakpoints: next };
-    }),
-  clearBreakpoints: () => set({ breakpoints: new Set<number>() }),
-  setDebugLine: (line) => set({ debugLine: line }),
+    set((s) =>
+      withBreakpoints(s, (set_) => {
+        const next = new Set(set_);
+        if (next.has(lineNo)) next.delete(lineNo);
+        else next.add(lineNo);
+        return next;
+      }),
+    ),
+  clearBreakpoints: () => set((s) => withBreakpoints(s, () => new Set())),
+  setDebugLine: (line, bufferId = null) =>
+    set({ debugLine: line, debugBufferId: bufferId }),
   requestStep: () => set((s) => ({ stepRequest: s.stepRequest + 1 })),
   requestContinue: () =>
     set((s) => ({ continueRequest: s.continueRequest + 1 })),
@@ -2102,3 +2317,88 @@ export function selectBlocks(s: IdeState): readonly MemoryBlock[] {
 /** Subscribe to the document's blocks (derived for `inListing` dialects). */
 export const useBlocks = (): readonly MemoryBlock[] =>
   useIdeStore(selectBlocks);
+
+/** The BASIC text of the buffer on screen: a scratch buffer's, else the program. */
+export function selectActiveSource(s: IdeState): string {
+  return bufferTextOf(s, s.activeTab);
+}
+
+/** No breakpoints - a shared empty set, so the gutter's identity check holds. */
+const NO_LINES: ReadonlySet<number> = new Set<number>();
+
+/**
+ * The breakpoints of a named buffer: a scratch buffer's own set, or the
+ * program's for `null`. A buffer that has since been closed answers with no
+ * breakpoints rather than falling back to the program's, so a session pinned to
+ * a discarded buffer stops pausing instead of pausing on unrelated lines.
+ */
+export function selectBufferBreakpoints(
+  s: IdeState,
+  bufferId: string | null,
+): ReadonlySet<number> {
+  if (bufferId === null) return s.breakpoints;
+  return (
+    s.scratchBuffers.find((b) => b.id === bufferId)?.breakpoints ?? NO_LINES
+  );
+}
+
+/** The breakpoints of the buffer on screen, for the gutter and the toggles. */
+export function selectActiveBreakpoints(s: IdeState): ReadonlySet<number> {
+  return selectBufferBreakpoints(s, editorBufferOf(s.activeTab));
+}
+
+/**
+ * The paused BASIC line, but only while the buffer that is running is the one
+ * on screen. A pause belongs to the buffer that started the run, so looking at
+ * another one must not mark a line of it as paused.
+ */
+export function selectVisibleDebugLine(s: IdeState): number | null {
+  if (s.debugLine === null) return null;
+  return editorBufferOf(s.activeTab) === s.debugBufferId ? s.debugLine : null;
+}
+
+/**
+ * The name of the scratch buffer the run control would run, or `null` when Run
+ * means the program. What the run controls say, so it is clear before pressing
+ * one that a snippet and not the program is about to boot.
+ */
+export function selectRunTargetName(s: IdeState): string | null {
+  if (s.activeTab.kind !== 'scratch') return null;
+  const tab = s.activeTab;
+  return s.scratchBuffers.find((b) => b.id === tab.id)?.name ?? null;
+}
+
+/** What a run request resolves to: which text runs, and on whose behalf. */
+export interface RunTarget {
+  /** The BASIC to tokenize and boot. */
+  source: string;
+  /** The IDE is checking an answer the assistant just returned. */
+  checking: boolean;
+  /** A scratch buffer is being run rather than the document. */
+  scratch: boolean;
+  /** The buffer the run belongs to (a scratch id, or `null` for the program). */
+  bufferId: string | null;
+}
+
+/**
+ * Resolve what a given `runRequest` should run. An assistant's answer-check
+ * keeps precedence over everything - it runs a program the editor deliberately
+ * does not hold - and every other run takes the buffer on screen.
+ */
+export function selectRunTarget(s: IdeState, runRequest: number): RunTarget {
+  if (s.aiRunCheckSeq === runRequest) {
+    return {
+      source: s.aiRunSource,
+      checking: true,
+      scratch: false,
+      bufferId: null,
+    };
+  }
+  const bufferId = editorBufferOf(s.activeTab);
+  return {
+    source: selectActiveSource(s),
+    checking: false,
+    scratch: bufferId !== null,
+    bufferId,
+  };
+}

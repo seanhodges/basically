@@ -45,7 +45,7 @@ test('File menu opens, stays open, and dismisses on outside click / Escape', asy
   await expectMenuStaysOpen(page, /^New/);
 
   // Dismisses on a click outside the menu. (Scope to the dropdown panel: the
-  // editor tab strip's "New block" button also matches /^New/.)
+  // editor tab strip's "New tab" button also matches /^New/.)
   const menuNew = page
     .locator('[class*="menuItems"]')
     .getByRole('button', { name: /^New/ });

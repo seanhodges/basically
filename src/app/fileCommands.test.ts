@@ -27,8 +27,22 @@ beforeAll(() => {
   (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
 });
 
+// The bundle Save hands to the file picker, captured instead of written, so a
+// saved project can be compared byte for byte across store states.
+const mockSavedBundles: Uint8Array[] = [];
+vi.mock('../storage/files', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../storage/files')>();
+  return {
+    ...actual,
+    saveProjectZip: (name: string, bytes: Uint8Array) => {
+      mockSavedBundles.push(bytes.slice());
+      return Promise.resolve(name);
+    },
+  };
+});
+
 const { useIdeStore } = await import('./store');
-const { openDroppedFile } = await import('./fileCommands');
+const { openDroppedFile, saveDocument } = await import('./fileCommands');
 const { getDialect } = await import('../dialects/registry');
 const { serializeProjectZip } = await import('../storage/projectFile');
 
@@ -273,5 +287,31 @@ describe('openDroppedFile', () => {
     expect(s.blocks).toHaveLength(1);
     expect(s.blocks[0]!.address).toBe(0x5000);
     expect(Array.from(s.blocks[0]!.bytes)).toEqual([0xa9, 0x00, 0x60]);
+  });
+});
+
+describe('saving a project bundle', () => {
+  it('carries no scratch buffers', async () => {
+    // Scratch buffers are session-only: the bundle serializer is one of the two
+    // places (autosave is the other) where a future field could quietly acquire
+    // persistence, so the saved bytes are compared rather than the intent.
+    useIdeStore.setState({
+      dialect: zx81,
+      source: '10 REM PROJECT',
+      fileName: 'game.zip',
+      blocks: [],
+      scratchBuffers: [],
+    });
+    mockSavedBundles.length = 0;
+    await saveDocument();
+
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM SNIPPET');
+    await saveDocument();
+
+    expect(mockSavedBundles).toHaveLength(2);
+    expect(Array.from(mockSavedBundles[1]!)).toEqual(
+      Array.from(mockSavedBundles[0]!),
+    );
   });
 });

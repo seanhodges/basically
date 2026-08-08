@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useIdeStore } from '../app/store';
+import {
+  useIdeStore,
+  selectActiveBreakpoints,
+  selectRunTargetName,
+} from '../app/store';
 import { useDismiss } from '../app/useDismiss';
 import {
   isMobileViewport,
@@ -37,7 +41,11 @@ export function Toolbar() {
   const requestStop = useIdeStore((s) => s.requestStop);
   const requestStep = useIdeStore((s) => s.requestStep);
   const requestContinue = useIdeStore((s) => s.requestContinue);
-  const breakpoints = useIdeStore((s) => s.breakpoints);
+  // The buffer on screen owns the breakpoints the toggles act on, so the
+  // offer to clear them on Stop has to read that same set.
+  const breakpoints = useIdeStore(selectActiveBreakpoints);
+  // The scratch buffer Run would run, or null when Run means the program.
+  const runTargetName = useIdeStore(selectRunTargetName);
   const clearBreakpoints = useIdeStore((s) => s.clearBreakpoints);
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const toggleAiPanel = useIdeStore((s) => s.toggleAiPanel);
@@ -131,6 +139,11 @@ export function Toolbar() {
     if (isMobileViewport()) setMobileTab('preview');
   };
   const playProgram = runAction(requestRun);
+  // Every run control names what it would boot, so a snippet is never run in
+  // mistake for the program.
+  const playTitle = runTargetName
+    ? `Build and play ${runTargetName} in the emulator`
+    : 'Build and play in the emulator';
   const stepProgram = runAction(requestStep);
   const continueProgram = runAction(requestContinue);
   // The single Stop halts the program and shuts the emulator down; if any
@@ -248,7 +261,7 @@ export function Toolbar() {
               setMobileTab('preview');
               playProgram();
             }}
-            title="Build and play in the emulator"
+            title={playTitle}
           >
             ▶
           </button>
@@ -325,9 +338,9 @@ export function Toolbar() {
         <button
           className="run desktop-only"
           onClick={playProgram}
-          title={withKeys('Build and play in the emulator', 'run.play')}
+          title={withKeys(playTitle, 'run.play')}
         >
-          ▶ Play
+          ▶ Play{runTargetName ? ` ${runTargetName}` : ''}
         </button>
         {dialect.debuggable && (
           <>

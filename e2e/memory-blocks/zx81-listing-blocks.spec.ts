@@ -1,5 +1,6 @@
 // Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
 import { test, expect, type Page } from '../fixtures';
+import { addMemoryBlock } from '../helpers';
 
 /**
  * ZX80/ZX81 listing-backed memory blocks: a block IS a hidden-machine-code
@@ -8,7 +9,7 @@ import { test, expect, type Page } from '../fixtures';
  * chip on the BASIC tab. This checks the round trip between the two surfaces:
  *
  *  1. On a ZX81 document the tab strip is present (it is `memoryBlocks`-capable).
- *  2. "New block" appends a `#BIN` REM record: a `bin1` tab opens on the return
+ *  2. "New machine code block" appends a `#BIN` REM record: a `bin1` tab opens on the return
  *     stub, and the BASIC tab now shows a binary-line chip for it.
  *  3. Editing the block's assembly rewrites that chip (its byte count grows).
  */
@@ -32,7 +33,7 @@ test('a new block is a #BIN REM chip on the BASIC tab', async ({ page }) => {
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC']);
 
   // Create a block: it appends a hidden-code REM to the program.
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /bin1/]);
   await expect(page.getByRole('tab', { name: 'bin1' })).toHaveAttribute(
     'aria-selected',
@@ -52,8 +53,7 @@ test('a new block is a #BIN REM chip on the BASIC tab', async ({ page }) => {
 
 test('editing the block assembly rewrites its #BIN chip', async ({ page }) => {
   await openZx81(page);
-  const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
 
   // Replace the stub with three instructions, then let it re-assemble.
   const asm = asmContent(page);

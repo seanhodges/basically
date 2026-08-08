@@ -16,9 +16,9 @@ references — one per CPU, shared by every machine that uses it.
 ## Writing a block
 
 The tab strip above the editor shows your **BASIC** program plus one tab per
-block. Press **+** after the last tab to add a machine-code block: it appears at
-the machine's suggested address with a one-instruction return stub, and its tab
-opens the **assembly editor**. Type assembly and it re-assembles as you go, with
+block. Press **+** after the last tab and choose **New machine code block**: it
+appears at the machine's suggested address with a one-instruction return stub,
+and its tab opens the **assembly editor**. Type assembly and it re-assembles as you go, with
 errors flagged inline; the bytes it produces are the block. Try it with the
 **Kaleidoscope** sample (choose **File ▸ New project**, pick the ZX Spectrum and
 start from that sample), which pairs a BASIC front-end with a routine that

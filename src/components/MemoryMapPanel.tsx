@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useIdeStore } from '../app/store';
+import { useIdeStore, selectActiveSource } from '../app/store';
 import type { MachineEmulator } from '../dialects/types';
 import type { PokeSite } from '../editor/pokeAddresses';
 import {
@@ -63,7 +63,9 @@ interface Props {
 export function MemoryMapPanel({ getMachine }: Props = {}) {
   const setOpen = useIdeStore((s) => s.setMemoryMapOpen);
   const dialect = useIdeStore((s) => s.dialect);
-  const source = useIdeStore((s) => s.source);
+  // The buffer on screen: the map answers "what does this code POKE", and
+  // while a scratch buffer is showing that is the snippet, not the document.
+  const source = useIdeStore(selectActiveSource);
 
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [notation, setNotation] = useState<Notation>(

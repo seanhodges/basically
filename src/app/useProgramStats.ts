@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Dialect } from '../dialects/types';
-import { useIdeStore } from './store';
+import { useIdeStore, selectActiveSource } from './store';
 
 export interface ProgramStats {
   bytes: number;
@@ -91,10 +91,14 @@ export function ramDisplay(
   };
 }
 
-/** Debounced tokenizer dry-run for the byte counter / error count. */
+/**
+ * Debounced tokenizer dry-run for the byte counter / error count. Measures the
+ * buffer the editor is showing, not the document: the counts describe the code
+ * in front of the user, and a scratch run is gated on exactly these errors.
+ */
 export function useProgramStats(): ProgramStats {
   const dialect = useIdeStore((s) => s.dialect);
-  const source = useIdeStore((s) => s.source);
+  const source = useIdeStore(selectActiveSource);
   const [stats, setStats] = useState<ProgramStats>({ bytes: 0, errors: 0 });
 
   useEffect(() => {

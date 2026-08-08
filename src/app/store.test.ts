@@ -20,8 +20,19 @@ beforeAll(() => {
   (globalThis as { sessionStorage?: Storage }).sessionStorage = stub();
 });
 
-const { useIdeStore, persistAutosave, initialDocument, selectBlocks } =
-  await import('./store');
+const {
+  useIdeStore,
+  persistAutosave,
+  initialDocument,
+  selectBlocks,
+  selectActiveBreakpoints,
+  selectActiveSource,
+  selectBufferBreakpoints,
+  selectRunTarget,
+  selectRunTargetName,
+  selectVisibleDebugLine,
+  BASIC_TAB,
+} = await import('./store');
 const { getDialect } = await import('../dialects/registry');
 const { asmEngineFor } = await import('../asm/registry');
 const { materializeSampleBlocks } = await import('./sampleBlocks');
@@ -990,16 +1001,19 @@ describe('active block tab state', () => {
       fileName: 'game.bas',
       dirty: false,
       blocks: [BLOCK_A, BLOCK_B],
-      activeBlockId: BLOCK_B.id,
+      activeTab: { kind: 'block', id: BLOCK_B.id },
       asmErrorBlocks: new Set([BLOCK_B.id]),
     });
   });
 
-  it('setActiveBlock switches tabs, and null returns to BASIC', () => {
-    useIdeStore.getState().setActiveBlock(BLOCK_A.id);
-    expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_A.id);
-    useIdeStore.getState().setActiveBlock(null);
-    expect(useIdeStore.getState().activeBlockId).toBeNull();
+  it('setActiveTab switches tabs, and the BASIC tab returns to the program', () => {
+    useIdeStore.getState().setActiveTab({ kind: 'block', id: BLOCK_A.id });
+    expect(useIdeStore.getState().activeTab).toEqual({
+      kind: 'block',
+      id: BLOCK_A.id,
+    });
+    useIdeStore.getState().setActiveTab(BASIC_TAB);
+    expect(useIdeStore.getState().activeTab).toEqual(BASIC_TAB);
   });
 
   it('setBlockAsmError adds and clears the error flag', () => {
@@ -1012,57 +1026,63 @@ describe('active block tab state', () => {
   it('removeBlock of the active block falls back to the BASIC tab', () => {
     useIdeStore.getState().removeBlock(BLOCK_B.id);
     const s = useIdeStore.getState();
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(false);
   });
 
   it('removeBlock of another block keeps the active tab', () => {
     useIdeStore.getState().removeBlock(BLOCK_A.id);
-    expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_B.id);
+    expect(useIdeStore.getState().activeTab).toEqual({
+      kind: 'block',
+      id: BLOCK_B.id,
+    });
   });
 
   it('setBlocks keeps the active tab when the block survives', () => {
     useIdeStore.getState().setBlocks([BLOCK_B]);
     const s = useIdeStore.getState();
-    expect(s.activeBlockId).toBe(BLOCK_B.id);
+    expect(s.activeTab).toEqual({ kind: 'block', id: BLOCK_B.id });
     expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(true);
   });
 
   it('setBlocks falls back to BASIC when the active block disappears', () => {
     useIdeStore.getState().setBlocks([BLOCK_A]);
     const s = useIdeStore.getState();
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(false);
   });
 
   it('document identity changes reset the tab to BASIC', () => {
     useIdeStore.getState().loadUnsavedDocument('10 REM other');
     let s = useIdeStore.getState();
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.size).toBe(0);
 
     useIdeStore.setState({
       blocks: [BLOCK_A],
-      activeBlockId: BLOCK_A.id,
+      activeTab: { kind: 'block', id: BLOCK_A.id },
       asmErrorBlocks: new Set([BLOCK_A.id]),
     });
     useIdeStore.getState().replaceDocument('10 REM new', 'other.bas');
     s = useIdeStore.getState();
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.size).toBe(0);
 
     useIdeStore.setState({
       source: '',
       blocks: [BLOCK_A],
-      activeBlockId: BLOCK_A.id,
+      activeTab: { kind: 'block', id: BLOCK_A.id },
     });
     useIdeStore.getState().setDialect('bbcmicro');
-    expect(useIdeStore.getState().activeBlockId).toBeNull();
+    expect(useIdeStore.getState().activeTab).toEqual(BASIC_TAB);
   });
 
   it('an in-place replaceDocument (AI apply) keeps the active tab', () => {
     useIdeStore.getState().replaceDocument('10 REM ai edit');
-    expect(useIdeStore.getState().activeBlockId).toBe(BLOCK_B.id);
+    expect(useIdeStore.getState().activeTab).toEqual({
+      kind: 'block',
+      id: BLOCK_B.id,
+    });
   });
 });
 
@@ -1074,7 +1094,7 @@ describe('addBlock', () => {
       fileName: 'game.bas',
       dirty: false,
       blocks: [],
-      activeBlockId: null,
+      activeTab: BASIC_TAB,
     });
   });
 
@@ -1090,7 +1110,7 @@ describe('addBlock', () => {
     // The z80 stub is a lone RET, assembled so bytes match asmSource.
     expect(Array.from(block.bytes)).toEqual([0xc9]);
     expect(block.asmSource).toContain('RET');
-    expect(s.activeBlockId).toBe(block.id);
+    expect(s.activeTab).toEqual({ kind: 'block', id: block.id });
     expect(s.dirty).toBe(true);
   });
 
@@ -1129,7 +1149,7 @@ describe('listing-backed blocks (ZX81/ZX80)', () => {
       dirty: false,
       blocks: [],
       listingBlockMeta: {},
-      activeBlockId: null,
+      activeTab: BASIC_TAB,
     });
   });
 
@@ -1139,7 +1159,7 @@ describe('listing-backed blocks (ZX81/ZX80)', () => {
     // The store's own `blocks` array stays empty - the block lives in `source`.
     expect(s.blocks).toEqual([]);
     expect(s.source).toContain('#BIN ');
-    expect(s.activeBlockId).toBe('listing-0');
+    expect(s.activeTab).toEqual({ kind: 'block', id: 'listing-0' });
     expect(s.dirty).toBe(true);
     // The BASIC program still tokenizes, so the block rides in the .P image.
     expect(zx81.tokenize(s.source).errors).toEqual([]);
@@ -1165,7 +1185,7 @@ describe('listing-backed blocks (ZX81/ZX80)', () => {
     useIdeStore.getState().removeBlock('listing-0');
     const s = useIdeStore.getState();
     expect(s.source).not.toContain('#BIN ');
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
   });
 
   it('setListingBlockMeta records overrides and prunes defaults', () => {
@@ -1271,7 +1291,7 @@ describe('block delete confirmation flow', () => {
       fileName: 'game.bas',
       dirty: false,
       blocks: [BLOCK_A, BLOCK_B],
-      activeBlockId: BLOCK_B.id,
+      activeTab: { kind: 'block', id: BLOCK_B.id },
       asmErrorBlocks: new Set([BLOCK_B.id]),
       pendingDeleteBlockId: null,
     });
@@ -1291,7 +1311,7 @@ describe('block delete confirmation flow', () => {
     expect(s.blocks).toEqual([BLOCK_A]);
     expect(s.pendingDeleteBlockId).toBeNull();
     // Same fixups as removeBlock: active tab back to BASIC, error dot pruned.
-    expect(s.activeBlockId).toBeNull();
+    expect(s.activeTab).toEqual(BASIC_TAB);
     expect(s.asmErrorBlocks.has(BLOCK_B.id)).toBe(false);
     expect(s.dirty).toBe(true);
   });
@@ -1491,5 +1511,290 @@ describe('loading a document on the tab layout', () => {
     const s = useIdeStore.getState();
     expect(s.stopRequest).toBe(1);
     expect(s.mobileTab).toBe('editor');
+  });
+});
+
+describe('scratch buffers', () => {
+  const DISC = Uint8Array.from([1, 2, 3, 4]);
+
+  beforeEach(() => {
+    useIdeStore.setState({
+      dialect: spectrum,
+      fileName: 'game.bas',
+      source: '10 REM prog',
+      dirty: false,
+      bootDisc: DISC,
+      blocks: [],
+      listingBlockMeta: {},
+      activeTab: BASIC_TAB,
+      scratchBuffers: [],
+      breakpoints: new Set<number>(),
+      debugLine: null,
+      debugBufferId: null,
+      runRequest: 0,
+      aiRunCheckSeq: 0,
+      aiRunSource: '',
+    });
+  });
+
+  it('editing one leaves the program, the dirty flag and the boot disc alone', () => {
+    useIdeStore.getState().addScratchBuffer();
+    let s = useIdeStore.getState();
+    expect(s.scratchBuffers.map((b) => b.name)).toEqual(['Scratch 1']);
+    expect(s.activeTab).toEqual({ kind: 'scratch', id: 'scratch-1' });
+    // The new (empty) buffer is pushed into the editor straight away.
+    expect(s.docOverride.text).toBe('');
+
+    useIdeStore.getState().setScratchText('scratch-1', '10 PRINT "HI"');
+    s = useIdeStore.getState();
+    expect(s.scratchBuffers[0]!.text).toBe('10 PRINT "HI"');
+    // Not one of setSource's document semantics fires.
+    expect(s.source).toBe('10 REM prog');
+    expect(s.dirty).toBe(false);
+    expect(s.bootDisc).toBe(DISC);
+  });
+
+  it('holds several at once and pushes the chosen one into the editor', () => {
+    const store = useIdeStore.getState();
+    store.addScratchBuffer();
+    store.setScratchText('scratch-1', '10 REM one');
+    store.addScratchBuffer();
+    store.setScratchText('scratch-2', '10 REM two');
+    expect(useIdeStore.getState().scratchBuffers.map((b) => b.name)).toEqual([
+      'Scratch 1',
+      'Scratch 2',
+    ]);
+
+    const seqBefore = useIdeStore.getState().docOverride.seq;
+    store.setActiveTab({ kind: 'scratch', id: 'scratch-1' });
+    let s = useIdeStore.getState();
+    expect(s.docOverride.text).toBe('10 REM one');
+    expect(s.docOverride.seq).toBe(seqBefore + 1);
+
+    store.setActiveTab(BASIC_TAB);
+    s = useIdeStore.getState();
+    expect(s.docOverride.text).toBe('10 REM prog');
+    expect(selectActiveSource(s)).toBe('10 REM prog');
+  });
+
+  it('leaving a scratch tab for a block tab restores the program to the editor', () => {
+    // The editor is hidden behind the block tab but still holds a document;
+    // without this, returning to BASIC would show the snippet as the program.
+    const store = useIdeStore.getState();
+    store.addScratchBuffer();
+    store.setScratchText('scratch-1', '10 REM snippet');
+    store.addBlock();
+    let s = useIdeStore.getState();
+    expect(s.activeTab.kind).toBe('block');
+    expect(s.docOverride.text).toBe('10 REM prog');
+
+    useIdeStore.getState().setActiveTab(BASIC_TAB);
+    s = useIdeStore.getState();
+    expect(selectActiveSource(s)).toBe('10 REM prog');
+  });
+
+  it('names buffers by the first free ordinal and ignores a blank rename', () => {
+    const store = useIdeStore.getState();
+    store.addScratchBuffer();
+    store.addScratchBuffer();
+    store.closeScratchBuffer('scratch-1');
+    store.addScratchBuffer();
+    expect(useIdeStore.getState().scratchBuffers.map((b) => b.id)).toEqual([
+      'scratch-2',
+      'scratch-1',
+    ]);
+
+    store.renameScratchBuffer('scratch-2', '  Sprites test  ');
+    expect(useIdeStore.getState().scratchBuffers[0]!.name).toBe('Sprites test');
+    store.renameScratchBuffer('scratch-2', '   ');
+    expect(useIdeStore.getState().scratchBuffers[0]!.name).toBe('Sprites test');
+  });
+
+  it('closing the active buffer falls back to BASIC; closing another does not', () => {
+    const store = useIdeStore.getState();
+    store.addScratchBuffer();
+    store.addScratchBuffer();
+    useIdeStore.getState().setActiveTab({ kind: 'scratch', id: 'scratch-2' });
+
+    useIdeStore.getState().closeScratchBuffer('scratch-1');
+    let s = useIdeStore.getState();
+    expect(s.scratchBuffers.map((b) => b.id)).toEqual(['scratch-2']);
+    expect(s.activeTab).toEqual({ kind: 'scratch', id: 'scratch-2' });
+
+    useIdeStore.getState().closeScratchBuffer('scratch-2');
+    s = useIdeStore.getState();
+    expect(s.scratchBuffers).toEqual([]);
+    expect(s.activeTab).toEqual(BASIC_TAB);
+    expect(s.docOverride.text).toBe('10 REM prog');
+  });
+
+  it('survives a change of document, and dies with the machine', () => {
+    const seed = () => {
+      useIdeStore.setState({ scratchBuffers: [], activeTab: BASIC_TAB });
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().setScratchText('scratch-1', '10 REM snippet');
+    };
+
+    // New / Sample / Import.
+    seed();
+    useIdeStore.getState().loadUnsavedDocument('10 REM other');
+    const s = useIdeStore.getState();
+    expect(s.scratchBuffers[0]!.text).toBe('10 REM snippet');
+    // The workbench survives; the tab does not - the editor must show the
+    // program that just arrived.
+    expect(s.activeTab).toEqual(BASIC_TAB);
+
+    // Open.
+    useIdeStore.getState().replaceDocument('10 REM opened', 'opened.bas');
+    expect(useIdeStore.getState().scratchBuffers[0]!.text).toBe(
+      '10 REM snippet',
+    );
+    useIdeStore.getState().openProject({
+      dialectId: 'zxspectrum',
+      source: '10 REM project',
+      fileName: 'p.zip',
+    });
+    expect(useIdeStore.getState().scratchBuffers[0]!.text).toBe(
+      '10 REM snippet',
+    );
+
+    // A target switch: the snippet is written in a BASIC the new machine does
+    // not speak, so it goes with the old machine.
+    useIdeStore.setState({ source: '' });
+    useIdeStore.getState().setDialect('bbcmicro');
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+
+    // Player boot: the player has no tab strip to reach one from.
+    useIdeStore.setState({ dialect: spectrum });
+    seed();
+    useIdeStore.getState().playerBoot({
+      dialectId: 'zxspectrum',
+      source: '10 REM shared',
+      fileName: 'shared.bas',
+    });
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+  });
+
+  it('an in-place AI apply takes the editor back from a scratch tab', () => {
+    // replaceDocument pushes the program into the one mounted editor whatever
+    // tab is showing; leaving a scratch tab selected would show the program
+    // under it and type the next keystroke into the snippet.
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM snippet');
+    useIdeStore.getState().replaceDocument('10 REM ai edit');
+    const s = useIdeStore.getState();
+    expect(s.activeTab).toEqual(BASIC_TAB);
+    expect(s.docOverride.text).toBe('10 REM ai edit');
+    expect(s.scratchBuffers[0]!.text).toBe('10 REM snippet');
+  });
+
+  it('never reaches autosave', () => {
+    useIdeStore.setState({ bootDisc: null });
+    seedRealAutosave('scratch-autosave');
+    useIdeStore.setState({
+      dialect: spectrum,
+      fileName: 'game.bas',
+      source: '10 REM prog',
+    });
+    persistAutosave();
+    const withoutScratch = loadAutosave();
+
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM snippet');
+    persistAutosave();
+    expect(loadAutosave()).toEqual(withoutScratch);
+  });
+
+  describe('breakpoints belong to the buffer they were set on', () => {
+    it('the toggles never reach across buffers', () => {
+      useIdeStore.getState().toggleBreakpoint(20);
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().toggleBreakpoint(20);
+      useIdeStore.getState().toggleBreakpoint(30);
+
+      let s = useIdeStore.getState();
+      // Same line number, unrelated code: the program keeps only its own.
+      expect([...s.breakpoints]).toEqual([20]);
+      expect([...s.scratchBuffers[0]!.breakpoints]).toEqual([20, 30]);
+      // The gutter reads the buffer on screen.
+      expect([...selectActiveBreakpoints(s)]).toEqual([20, 30]);
+
+      useIdeStore.getState().setActiveTab(BASIC_TAB);
+      s = useIdeStore.getState();
+      expect([...selectActiveBreakpoints(s)]).toEqual([20]);
+      useIdeStore.getState().clearBreakpoints();
+      s = useIdeStore.getState();
+      expect([...s.breakpoints]).toEqual([]);
+      expect([...s.scratchBuffers[0]!.breakpoints]).toEqual([20, 30]);
+    });
+
+    it('closing a buffer drops its breakpoints with it', () => {
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().toggleBreakpoint(40);
+      useIdeStore.getState().closeScratchBuffer('scratch-1');
+      // A session still pinned to the closed buffer resolves to no breakpoints
+      // rather than falling back to the program's.
+      expect([
+        ...selectBufferBreakpoints(useIdeStore.getState(), 'scratch-1'),
+      ]).toEqual([]);
+    });
+
+    it('a session resolves breakpoints from the buffer that ran', () => {
+      useIdeStore.getState().toggleBreakpoint(10);
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().toggleBreakpoint(50);
+      // Looking at the snippet while the *program* is the one running.
+      const s = useIdeStore.getState();
+      expect([...selectBufferBreakpoints(s, null)]).toEqual([10]);
+      expect([...selectBufferBreakpoints(s, 'scratch-1')]).toEqual([50]);
+    });
+
+    it('a pause is shown only against the buffer that is running', () => {
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().setDebugLine(50, 'scratch-1');
+      expect(selectVisibleDebugLine(useIdeStore.getState())).toBe(50);
+      useIdeStore.getState().setActiveTab(BASIC_TAB);
+      expect(selectVisibleDebugLine(useIdeStore.getState())).toBeNull();
+    });
+  });
+
+  describe('what a run request runs', () => {
+    it('takes the buffer on screen, and yields to an assistant check', () => {
+      useIdeStore.setState({ runRequest: 7 });
+      expect(selectRunTarget(useIdeStore.getState(), 7)).toEqual({
+        source: '10 REM prog',
+        checking: false,
+        scratch: false,
+        bufferId: null,
+      });
+
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().setScratchText('scratch-1', '10 PLOT 1,1');
+      expect(selectRunTarget(useIdeStore.getState(), 7)).toEqual({
+        source: '10 PLOT 1,1',
+        checking: false,
+        scratch: true,
+        bufferId: 'scratch-1',
+      });
+      expect(selectRunTargetName(useIdeStore.getState())).toBe('Scratch 1');
+
+      // A block tab runs the program: the BASIC behind it is the document's.
+      useIdeStore.getState().addBlock();
+      expect(selectRunTarget(useIdeStore.getState(), 7).source).toBe(
+        '10 REM prog',
+      );
+      expect(selectRunTarget(useIdeStore.getState(), 7).scratch).toBe(false);
+      expect(selectRunTargetName(useIdeStore.getState())).toBeNull();
+
+      // The assistant's answer-check still wins over both.
+      useIdeStore.getState().setActiveTab({ kind: 'scratch', id: 'scratch-1' });
+      useIdeStore.setState({ aiRunCheckSeq: 7, aiRunSource: '10 REM answer' });
+      expect(selectRunTarget(useIdeStore.getState(), 7)).toEqual({
+        source: '10 REM answer',
+        checking: true,
+        scratch: false,
+        bufferId: null,
+      });
+    });
   });
 });

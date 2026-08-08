@@ -289,9 +289,22 @@ export async function expectMenuStaysOpen(
   item: RegExp,
 ): Promise<void> {
   // Scope to the open dropdown panel - loose names like /^New/ also match
-  // buttons elsewhere in the app (the tab strip's "New block").
+  // buttons elsewhere in the app (the tab strip's "New tab").
   const panel = page.locator('[class*="menuItems"]');
   await expect(panel.getByRole('button', { name: item })).toBeVisible();
   await page.mouse.move(0, 0);
   await expect(panel.getByRole('button', { name: item })).toBeVisible();
+}
+
+/**
+ * Create a memory block from the tab strip's plus-button menu. The plus button
+ * offers both kinds of new tab (a scratch buffer or a machine code block), so
+ * block creation is two clicks rather than one.
+ */
+export async function addMemoryBlock(page: Page): Promise<void> {
+  await page
+    .getByRole('tablist', { name: 'Editor content' })
+    .getByRole('button', { name: 'New tab' })
+    .click();
+  await page.getByRole('menuitem', { name: 'New machine code block' }).click();
 }
