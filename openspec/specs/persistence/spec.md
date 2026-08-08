@@ -84,10 +84,12 @@ For a machine whose emulation runs the ROM image the IDE gives it, the user
 SHALL be able to install a ROM image of their own in place of the bundled one,
 and SHALL be able to return to the bundled image at any time.
 
-An image SHALL be accepted only when its size exactly matches the size that
-machine's ROM requires. A refusal SHALL state both the size of the file offered
-and the size the machine requires, so a user who supplied one half of a
-two-bank image can see that is what happened.
+An image SHALL be accepted whatever its size. Where its size differs from the
+size that machine's ROM area holds, the image SHALL be fitted to that area —
+a smaller image padded as unprogrammed ROM, a larger one used from its leading
+bytes — and the IDE SHALL report which happened alongside the size of the file
+itself, so a user who supplied one half of a two-bank image can see that is what
+happened. The IDE SHALL NOT state a size an image is required to have.
 
 An installed image SHALL persist across sessions, SHALL apply wherever that
 machine runs in that browser — including the standalone player — and SHALL
@@ -107,11 +109,11 @@ be left believing it was kept.
   IDE
 - **THEN** that machine still runs the image they supplied
 
-#### Scenario: A wrong-sized file is refused by name
+#### Scenario: A file of any size is accepted and fitted
 
 - **WHEN** the user offers a file whose size differs from the machine's ROM size
-- **THEN** the file is not installed, and they are told both its size and the
-  size that machine requires
+- **THEN** the image is installed and the IDE reports the file's own size and
+  that it was padded, or trimmed, to fit the machine
 
 #### Scenario: The bundled ROM can be restored
 

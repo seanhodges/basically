@@ -246,11 +246,16 @@ does not vary with the pair chosen, running from the differences that decide how
 much of the program must change to those that affect only a program that reads
 or writes memory directly.
 
-The differences that describe memory — how memory is written, how an address is
-written, and the addresses themselves — SHALL be reported together as one run
-rather than interleaved with the language rules, and the addresses SHALL be
-adjacent within it, so a reader needing them finds them in one place and a
+The differences that describe memory — how memory is written and how an address
+is written — SHALL be reported together as one run rather than interleaved with
+the language rules, so a reader needing them finds them in one place and a
 reader who does not passes them in one step.
+
+The addresses themselves SHALL NOT be reported among these differences. Where a
+machine's memory layout is described, that layout reports its addresses, and
+reporting them here as well would give one difference twice under two forms —
+once as a pair of numbers and once as the picture that explains them. The run
+therefore ends at how an address is written, and the layouts follow it.
 
 #### Scenario: Reading the differences top to bottom
 
@@ -261,9 +266,10 @@ reader who does not passes them in one step.
 
 #### Scenario: Finding the memory addresses
 
-- **WHEN** the comparison reports the machines' memory addresses
-- **THEN** they are reported next to each other, within one run of the
-  memory-related differences, rather than separated by unrelated rows
+- **WHEN** the user looks for where the screen and the BASIC program live on
+  each machine
+- **THEN** they are found in the machines' memory layouts, and are not also
+  reported among the language and hardware differences
 
 #### Scenario: The order does not depend on the pair
 
@@ -271,16 +277,166 @@ reader who does not passes them in one step.
 - **THEN** the differences that are reported appear in the same relative order
   as before
 
+### Requirement: The comparison shows both machines' memory layouts
+
+The comparison SHALL report where things live in each machine's memory by
+showing both machines' memory layouts together, drawn against one shared
+address scale so that a position in one is the same address as that position in
+the other. It SHALL NOT report the two layouts at scales the reader has to
+reconcile.
+
+The controls over how the layouts are read — how far in they are zoomed, how
+much detail they resolve into, and whether addresses read as hexadecimal or as
+plain numbers — SHALL govern both layouts at once, so that the two are never
+read at different settings.
+
+Each region SHALL be named where it is drawn, so that what a colour means is
+read off the layout itself and the comparison's key to its own colours is
+neither extended nor contradicted by it.
+
+#### Scenario: Reading the two layouts
+
+- **WHEN** the user opens a comparison between two machines whose memory layouts
+  the IDE describes
+- **THEN** both layouts are reported against one shared address scale, and a
+  given address is found at the same position in each
+
+#### Scenario: Changing how the layouts are read
+
+- **WHEN** the user changes how far the layouts are zoomed, how much detail they
+  show, or how addresses are written
+- **THEN** the change applies to both layouts, which stay readable at the same
+  setting as each other
+
+#### Scenario: Naming what is drawn
+
+- **WHEN** the user reads a region of either layout
+- **THEN** that region is named where it is drawn, rather than identified only
+  by its colour
+
+### Requirement: A machine with no described layout reports no layout
+
+A memory layout the IDE cannot describe SHALL NOT be reported partially or
+guessed at. Where either of the two chosen machines has no described memory
+layout, the comparison SHALL report no memory layouts at all, and the section
+SHALL be absent rather than shown with one side empty.
+
+#### Scenario: One machine has no described layout
+
+- **WHEN** the user chooses a machine whose memory layout the IDE does not
+  describe, on either side of the comparison
+- **THEN** no memory layouts are reported, and the section is absent rather than
+  half-populated
+
+#### Scenario: Both machines have a described layout
+
+- **WHEN** both chosen machines have a described memory layout
+- **THEN** both are reported
+
+### Requirement: The memory layouts are narrowed to the program's own writes
+
+Where the comparison is shown inside the IDE, and the user's own program is
+therefore at hand, the memory layouts SHALL mark the addresses that program
+writes to. On the machine being ported **from** these are the program's own
+writes; on the machine being ported **to** they are where those same addresses
+land, which is what tells a reader that a write aimed at one machine's system
+variables reaches another machine's program text.
+
+The addresses SHALL be read from the program as the language being ported
+**from** reads it, as the rest of the narrowing is. An address the comparison
+can only approximate SHALL be marked as approximate rather than presented as
+exact.
+
+Where the comparison is read on its own, outside the IDE, or where there is no
+program to narrow to, the layouts SHALL be reported without marks and everything
+else about them SHALL be unaffected.
+
+#### Scenario: A program that writes to memory
+
+- **WHEN** a user reads the comparison inside the IDE with a program open that
+  writes to memory
+- **THEN** both layouts mark the addresses that program writes to, and the
+  target's layout names what sits at those addresses on the machine being ported
+  to
+
+#### Scenario: An address that can only be approximated
+
+- **WHEN** the program computes a write address the comparison cannot resolve
+  exactly
+- **THEN** the address is marked as approximate rather than reported as exact
+
+#### Scenario: Reading the layouts with no program
+
+- **WHEN** a user reads the comparison outside the IDE, or inside it with
+  nothing written
+- **THEN** both layouts are reported without marks, and are otherwise unchanged
+
+### Requirement: The layouts stay comparable where there is no room for both
+
+Two layouts side by side need width the reader does not always have. Where there
+is not enough room to show both at once, the comparison SHALL offer them one at
+a time, each reachable by a control naming the machine it shows, the machine
+being ported from first and shown first.
+
+Moving between them SHALL preserve how far they are zoomed, how much detail they
+show, how addresses are written, and which part of the address space is in view,
+so that moving from one to the other compares the same addresses on the two
+machines rather than presenting two unrelated pictures.
+
+#### Scenario: Not enough room for both
+
+- **WHEN** the user reads the comparison where there is not enough width to show
+  both layouts at once
+- **THEN** the layouts are offered one at a time, each reachable by a control
+  naming its machine, with the machine being ported from shown first
+
+#### Scenario: Moving between the two layouts
+
+- **WHEN** the user has zoomed in on part of the address space and moves to the
+  other machine's layout
+- **THEN** that layout is shown at the same zoom, the same level of detail, the
+  same address notation, and the same part of the address space
+
+#### Scenario: Reaching the layouts without a pointer
+
+- **WHEN** the user moves between the layouts by keyboard alone
+- **THEN** each can be reached and shown, and each is named by its machine
+
 ### Requirement: The language differences report how the machine handles numbers
 
 The language and hardware differences SHALL report whether each machine has floating point or is
 integer-only, and where it is integer-only, the range of values it can hold.
+
+Where the target machine has no fractions and the reader's own program is at hand, the comparison
+SHALL additionally report whether that program performs arithmetic the target would truncate — a
+division, or a fractional value — so that a reader is told which of their calculations must be
+rescaled rather than only that the machine cannot hold fractions. Where the program performs no such
+arithmetic, or the target has fractions, nothing SHALL be reported beyond the difference itself.
 
 #### Scenario: Porting to an integer-only machine
 
 - **WHEN** the user selects a target machine that has no floating point
 - **THEN** the language differences report the target as integer-only, with the range of values it
   holds, against the source's own number handling
+
+#### Scenario: A program that divides, ported to an integer-only machine
+
+- **WHEN** the target machine has no fractions and the open program divides or carries a fractional
+  value
+- **THEN** the comparison reports that this arithmetic is truncated on the target and must be
+  rescaled, naming the range the target holds
+
+#### Scenario: A program with no fractional arithmetic
+
+- **WHEN** the target machine has no fractions and the open program performs no division and carries
+  no fractional value
+- **THEN** the difference in number handling is still reported and nothing is reported about the
+  program's arithmetic
+
+#### Scenario: A target that has fractions
+
+- **WHEN** the target machine has floating point
+- **THEN** nothing is reported about the program's arithmetic being truncated
 
 ### Requirement: Equivalent spellings are reported as renames
 
@@ -511,6 +667,36 @@ guidance makes only some of SHALL still be shown.
 - **WHEN** one of the target's bullets makes a point the pair's guidance does not
 - **THEN** that bullet is still shown
 
+### Requirement: How colour attaches to the display is reported in the guidance
+
+Machines attach colour to the display in incompatible ways — to each pixel, to
+each character cell, or by screen mode — and the commands that draw are often
+spelled the same on both. A routine ported between two such machines needs no
+change to any command and looks wrong when it runs, so no list of commands can
+carry this difference.
+
+Where the target machine attaches colour to its display differently from the
+source, the guidance SHALL say so, and SHALL say what it means for a program
+being ported rather than only naming the model. Where the two machines attach
+colour alike, or the target has no colour, nothing SHALL be added.
+
+#### Scenario: Porting to a machine with per-cell colour
+
+- **WHEN** the user compares a machine that colours each pixel against a target
+  that colours each character cell
+- **THEN** the guidance says so, and says what it means for a routine that draws in
+  more than one colour
+
+#### Scenario: Porting to a machine whose colour depends on the screen mode
+
+- **WHEN** the target machine's available colours depend on the screen mode chosen
+- **THEN** the guidance says so, and names the choice the port has to make
+
+#### Scenario: Two machines with the same display model
+
+- **WHEN** the two machines attach colour to the display the same way
+- **THEN** nothing is added to the guidance about it
+
 ### Requirement: Per-command advice sits with the command
 
 Where advice exists for handling a particular command on the target machine,
@@ -666,6 +852,47 @@ describe the same difference twice under two names.
 - **WHEN** the target machine represents printable ASCII in full
 - **THEN** nothing is reported about characters, whatever the program contains
 
+### Requirement: The program's line numbers are checked against the target's range
+
+Machines differ in which line numbers a BASIC program may use, from a few thousand
+to tens of thousands, and at both ends of the range: a machine whose lowest line
+number is 1 will not accept a program that opens at line 0.
+
+Where the reader's own program is at hand, the comparison SHALL report a line
+number the target machine would not accept, naming the target's range and which
+end of it the program falls outside. Where every line number the program uses lies
+within the target's range, nothing SHALL be reported.
+
+The comparison SHALL report the target's valid range of line numbers among the
+language and hardware differences whether or not a program is open, as it does the
+other language rules.
+
+#### Scenario: A program numbered beyond the target's ceiling
+
+- **WHEN** a user compares two machines with a program open whose highest line
+  number is above the highest the target machine accepts
+- **THEN** the comparison reports that the program must be renumbered, naming the
+  target's range and the program's highest line number
+
+#### Scenario: A program numbered below the target's floor
+
+- **WHEN** the program uses a line number below the lowest the target machine
+  accepts
+- **THEN** the comparison reports it, naming the target's range
+
+#### Scenario: A program whose numbers fit
+
+- **WHEN** every line number the program uses lies within the target machine's
+  range
+- **THEN** nothing is reported about line numbers beyond the range itself among the
+  language and hardware differences
+
+#### Scenario: Reading the comparison with no program
+
+- **WHEN** a user reads the comparison on its own, or with nothing open
+- **THEN** the target's range of line numbers is still reported among the language
+  and hardware differences, and nothing is reported about a program's own numbers
+
 ### Requirement: How the program's statement layout must change is reported
 
 Machines differ in whether several statements fit on one line and in what separates
@@ -673,6 +900,12 @@ them. Where the reader's own program is at hand, the comparison SHALL report how
 program's statement layout must change: which of its lines carry more than one
 statement, and whether each such line must be split into several lines or merely
 re-separated with the target's own separator.
+
+Splitting is the one change a port makes that creates lines the program did not
+have. Where the target takes one statement per line, the comparison SHALL therefore
+report how many lines the program becomes, and SHALL report it as an overflow where
+the target's range of line numbers cannot hold that many lines however they are
+renumbered.
 
 The program's lines SHALL be counted as the language being ported **from** reads them,
 so a separator character used as ordinary text on the source machine is not mistaken
@@ -685,15 +918,29 @@ separate statements alike, nothing SHALL be reported.
 
 - **WHEN** the program has lines carrying several statements and the target machine
   takes only one statement per line
-- **THEN** the comparison reports how many of the program's lines must be split, and
-  which
+- **THEN** the comparison reports how many of the program's lines must be split,
+  which, and how many lines the program becomes
+
+#### Scenario: Splitting overflows the target's line numbers
+
+- **WHEN** splitting the program's multi-statement lines would produce more lines
+  than the target machine's range of line numbers can hold
+- **THEN** the comparison reports that the split cannot be renumbered to fit,
+  naming the projected number of lines and the target's range
+
+#### Scenario: Splitting that still fits
+
+- **WHEN** splitting produces more lines than the program had, and the target
+  machine's range of line numbers holds them
+- **THEN** the projected number of lines is reported and no overflow is reported
 
 #### Scenario: Porting to a machine that separates statements differently
 
 - **WHEN** the program has lines carrying several statements and the target machine
   separates statements with a different character
 - **THEN** the comparison reports which lines are affected and what the separator
-  becomes
+  becomes, and reports no projected line count, the program's lines being unchanged
+  in number
 
 #### Scenario: A program with nothing to restructure
 
@@ -705,6 +952,165 @@ separate statements alike, nothing SHALL be reported.
 - **WHEN** the machine being ported from has no statement separator, and the program
   uses that character as ordinary text
 - **THEN** those lines are not reported as carrying several statements
+
+### Requirement: Whether the program fits the target machine is reported
+
+Machines differ in how much memory a BASIC program may occupy, by more than an
+order of magnitude between some relatives, and a program that fits the machine it
+was written for may not load at all on the machine it is going to. This is the one
+failure a port can hit while requiring no other change whatever: two machines can
+run the same BASIC, share every command, and differ only in room.
+
+Where the reader's own program is at hand, the comparison SHALL therefore report
+the size that program takes on the **target** machine against the program memory
+that machine has free, and SHALL say whether it fits, is close to the limit, or
+has no room. Both figures SHALL be reported, so that a reader told it does not fit
+is also told by how much.
+
+The size SHALL be measured as the target machine stores the program, not as the
+source machine does: machines encode the same program text into different numbers
+of bytes, so a size carried over from the machine being ported from would describe
+the wrong machine.
+
+Where the program uses something the target cannot express, the size SHALL still be
+reported, measured from what the target can store and stated as a lower bound. What
+the target cannot express is reported by the comparison's other findings and is not
+itself a failure to fit.
+
+A size known only as a lower bound SHALL NOT be reported as fitting, however far
+under the machine's memory it falls: what could not be measured is precisely what
+would add to it. It SHALL be reported as being at least that size. A lower bound
+that already exceeds the machine's memory SHALL be reported as not fitting, that
+conclusion being safe in the direction the doubt runs.
+
+Where the target machine could store none of the program at all, nothing SHALL be
+reported about fit.
+
+The point at which the comparison calls the program close to the limit, and the
+point at which it calls it too large, SHALL be the same points at which the editor
+reports a program as close to or over its budget, so that one proportion of a
+machine's memory means one thing wherever the user meets it.
+
+Where there is no program to size — the comparison read on its own, nothing open,
+or a program that cannot be read — nothing SHALL be reported about fit.
+
+#### Scenario: A program too large for the target
+
+- **WHEN** a user compares two machines with a program open that would take more
+  memory on the target machine than that machine has free
+- **THEN** the comparison reports that the program will not fit, giving both the
+  size it takes on the target and the memory that machine has free
+
+#### Scenario: A program that fits with room to spare
+
+- **WHEN** the program takes well under the target machine's free program memory
+- **THEN** the comparison reports that it fits, giving both figures
+
+#### Scenario: A program close to the target's limit
+
+- **WHEN** the program takes most of the target machine's free program memory,
+  without exceeding it
+- **THEN** the comparison reports it as close to the limit, at the same proportion
+  of the budget at which the editor reports a program as close to its own
+
+#### Scenario: Two machines running the same BASIC with different memory
+
+- **WHEN** the source and target machines run the same BASIC, so no command,
+  control code or language rule differs between them, and the target has far less
+  program memory
+- **THEN** the comparison still reports that the program does not fit, rather than
+  reporting a port with no work in it
+
+#### Scenario: A machine whose relatives differ in memory
+
+- **WHEN** the target machine's family includes relatives with different amounts of
+  free program memory
+- **THEN** the fit is reported against the selected machine's own memory
+
+#### Scenario: A program the target cannot fully express
+
+- **WHEN** the program uses commands or characters the target machine has no way to
+  store
+- **THEN** a size is still reported, measured from what the target can store and
+  stated as a lower bound, rather than the fit being left unreported
+
+#### Scenario: A lower bound that has not yet reached the limit
+
+- **WHEN** the size is known only as a lower bound and falls under the target
+  machine's free program memory
+- **THEN** it is reported as the program being at least that size, and is not
+  reported as fitting
+
+#### Scenario: A lower bound that already exceeds the limit
+
+- **WHEN** the size is known only as a lower bound and already exceeds the target
+  machine's free program memory
+- **THEN** it is reported as not fitting, the doubt running only towards a larger
+  program
+
+#### Scenario: A program the target can store none of
+
+- **WHEN** the target machine could store no part of the program
+- **THEN** nothing is reported about fit
+
+#### Scenario: Reading the comparison with no program
+
+- **WHEN** a user reads the comparison on its own, or inside the IDE with nothing
+  open or with a program that cannot be read
+- **THEN** nothing is reported about whether the program fits, and asking to see
+  every difference does not produce a fit report
+
+### Requirement: Variable names that collide on the target are reported
+
+Machines differ in how much of a variable name they keep: some keep every
+character, some keep the first two, some keep one. A program moving to a machine
+that keeps fewer characters than it was written for can have two of its variables
+silently become one — nothing fails to tokenize, nothing is reported by any
+difference list, and the program computes the wrong answer.
+
+Where the reader's own program is at hand, the comparison SHALL report the
+variable names in that program that the target machine would treat as the same
+variable, naming the names that collide and what the target reduces them to.
+Names that remain distinct on the target SHALL NOT be reported.
+
+Whether a name's type marker distinguishes it SHALL be decided as the target
+machine decides it, so two names the target keeps apart are not reported as
+colliding.
+
+Where the target keeps at least as much of a name as the source, nothing SHALL be
+reported. Where there is no program, nothing SHALL be reported: which names
+collide is a fact about a program, not about a pair of machines.
+
+#### Scenario: Two names the target cannot tell apart
+
+- **WHEN** a user compares two machines with a program open that uses two variable
+  names which the target machine reduces to the same name
+- **THEN** the comparison reports both names together with what the target reduces
+  them to
+
+#### Scenario: Names that stay distinct
+
+- **WHEN** the program's variable names remain distinct under the target machine's
+  rule
+- **THEN** nothing is reported about variable names
+
+#### Scenario: Names distinguished by their type marker
+
+- **WHEN** two of the program's names would collide but for a type marker the
+  target machine treats as part of the name
+- **THEN** they are not reported as colliding
+
+#### Scenario: A target that keeps more of a name
+
+- **WHEN** the target machine keeps at least as many characters of a name as the
+  source machine does
+- **THEN** nothing is reported about variable names
+
+#### Scenario: Reading the comparison with no program
+
+- **WHEN** a user reads the comparison on its own, or with nothing open
+- **THEN** the target's variable-naming rule is still reported among the language
+  and hardware differences, and no collisions are reported
 
 ### Requirement: Control codes that keep their spelling and change meaning are reported
 
@@ -766,6 +1172,13 @@ must change SHALL each be limited to the commands, codes, characters and lines t
 contains. A capability, a group of control codes, or a whole section
 left with nothing to report SHALL be absent rather than empty.
 
+Some findings exist only because there is a program to make them about — how that
+program's statement layout must change, and whether it fits the target machine's
+program memory. Where there is no program, those findings SHALL be absent rather
+than reported in general terms, and the control that reveals every difference SHALL
+NOT produce them: there is no unnarrowed form of a statement about the reader's own
+program.
+
 What the target machine adds, the language and hardware differences, and the guidance prose SHALL
 NOT be narrowed: the first is already about what the program did not use, and the other two state
 rules that hold for any program whatever commands it uses.
@@ -791,6 +1204,12 @@ condition of the guidance.
 - **WHEN** the comparison is narrowed to the open program
 - **THEN** the language and hardware differences, the guidance prose, and what the target machine
   adds are reported in full, exactly as they are without a program
+
+#### Scenario: A finding that needs a program
+
+- **WHEN** a user asks to see every difference for a pair, with no program open
+- **THEN** the findings that describe the reader's own program — its statement
+  layout and whether it fits the target — remain absent
 
 #### Scenario: Reading the comparison outside the IDE
 
