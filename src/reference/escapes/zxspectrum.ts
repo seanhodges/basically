@@ -8,11 +8,13 @@ export const zxspectrumEscapes: EscapeTableData = {
   title: 'ZX Spectrum escape codes',
   machines: ['Sinclair ZX Spectrum 48K', 'Sinclair ZX Spectrum 128K'],
   categories: [
-    { id: 'control', label: 'Control directives' },
-    { id: 'udg', label: 'UDGs' },
-    { id: 'literal', label: 'Literals' },
-    { id: 'numeric', label: 'Numeric overrides' },
-    { id: 'raw', label: 'Raw bytes' },
+    // INK, PAPER, AT, TAB, OVER and the rest share one chip, so the class is the
+    // grab-bag one - the Spectrum's colour codes are not filed as colour here.
+    { id: 'control', label: 'Control directives', class: 'control' },
+    { id: 'udg', label: 'UDGs', class: 'user-defined-graphics' },
+    { id: 'literal', label: 'Literals', class: 'literal' },
+    { id: 'numeric', label: 'Numeric overrides', class: 'embedded-number' },
+    { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
   ],
   entries: [
     {

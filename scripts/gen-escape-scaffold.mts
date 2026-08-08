@@ -60,8 +60,10 @@ function scaffold(src: CharsetProbe): EscapeTableData {
     title: src.title,
     machines: src.machines,
     categories: [
-      { id: 'uncategorised', label: 'Uncategorised' },
-      { id: 'raw', label: 'Raw bytes' },
+      // The draft chip is a grab-bag until the table is split by hand, which is
+      // what the `control` class means; the split then reclassifies each chip.
+      { id: 'uncategorised', label: 'Uncategorised', class: 'control' },
+      { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
     ],
     entries,
   };

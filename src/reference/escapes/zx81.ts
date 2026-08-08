@@ -8,10 +8,10 @@ export const zx81Escapes: EscapeTableData = {
   title: 'ZX81 escape codes',
   machines: ['Sinclair ZX81'],
   categories: [
-    { id: 'graphics', label: 'Block graphics' },
-    { id: 'inverse', label: 'Inverse video' },
-    { id: 'numeric', label: 'Numeric overrides' },
-    { id: 'raw', label: 'Raw bytes' },
+    { id: 'graphics', label: 'Block graphics', class: 'block-graphics' },
+    { id: 'inverse', label: 'Inverse video', class: 'inverse-video' },
+    { id: 'numeric', label: 'Numeric overrides', class: 'embedded-number' },
+    { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
   ],
   entries: [
     // Backslash graphics escapes (zxtext2p convention): two characters naming

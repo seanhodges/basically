@@ -22,10 +22,11 @@ export const trs80Escapes: EscapeTableData = {
   title: 'TRS-80 escape codes',
   machines: ['TRS-80 Model I (Level II BASIC)'],
   categories: [
-    { id: 'control', label: 'Display controls' },
-    { id: 'graphics', label: 'Graphics' },
-    { id: 'compression', label: 'Space compression' },
-    { id: 'raw', label: 'Raw bytes' },
+    // Cursor moves, clears and a double-width mode change under one chip.
+    { id: 'control', label: 'Display controls', class: 'control' },
+    { id: 'graphics', label: 'Graphics', class: 'block-graphics' },
+    { id: 'compression', label: 'Space compression', class: 'compression' },
+    { id: 'raw', label: 'Raw bytes', class: 'raw-byte' },
   ],
   entries: [
     control(0x08, 'Backspace and erase the previous character.'),

@@ -1,4 +1,5 @@
 import type { KeywordDomain } from './domains';
+import type { EscapeClass } from './escape-classes';
 import type { Placeholder } from './placeholders';
 import type { PortingTopic } from './porting-topics';
 
@@ -142,14 +143,29 @@ export interface EscapeEntry {
   parseOnly?: boolean;
 }
 
+/** One filter chip on an escape-codes page, and what class of code it holds. */
+export interface EscapeCategory {
+  /** Chip id, referenced by `EscapeEntry.category` and `?cat=`. Page-scoped. */
+  id: string;
+  /** Chip label, in this machine's own terms. Page-scoped. */
+  label: string;
+  /**
+   * The cross-page handle for what these codes are. `id` and `label` are named
+   * in one machine's terms - `key-graphics` on the Commodore is `graphics` on
+   * the Atom - so the class is what lets porting guidance be authored per class
+   * of code rather than per page. See {@link EscapeClass} for the tie-breaks.
+   */
+  class: EscapeClass;
+}
+
 /** Everything one escape-codes sub-page renders. */
 export interface EscapeTableData {
   /** Page/table title, e.g. "ZX81 escape codes". */
   title: string;
   /** Machines the escape set covers, for the page intro. */
   machines: string[];
-  /** Ordered filter chips; ids referenced by `EscapeEntry.category` and `?cat=`. */
-  categories: { id: string; label: string }[];
+  /** Ordered filter chips. */
+  categories: EscapeCategory[];
   entries: EscapeEntry[];
 }
 
