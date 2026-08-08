@@ -103,7 +103,6 @@ good place to test a `RANDOMIZE USR` or `SYS` call. Breakpoints belong to the
 buffer they were set on.
 
 of this touches your program: saving and sharing always mean the program, and
-the buffers are gone when you reload or switch machine.
 
 ## Keeping an eye on memory as you write
 
