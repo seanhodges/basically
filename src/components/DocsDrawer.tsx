@@ -79,10 +79,15 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'status',
   'dialectId',
   'keywords',
+  'variables',
+  'divides',
+  'fractionalLiteral',
   'escapeCodes',
+  'characters',
   'writeSites',
   'targetSize',
   'lineNumbers',
+  'multiStatementLines',
   'extraStatements',
 ] as const;
 

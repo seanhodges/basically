@@ -176,6 +176,12 @@ describe('the turn a port actually sends', () => {
     const report = await loadPortReport(c64, spectrum, {
       dialectId: 'commodore64',
       keywords,
+      // The rest of what a program this size carries. The Spectrum keeps every
+      // character of a name and has fractions, so neither silent-failure
+      // finding fires on this pair - the bound below is the command list's.
+      variables: Array.from({ length: 60 }, (_, i) => `NAME${i}`),
+      divides: true,
+      fractionalLiteral: true,
       escapeCodes: [],
       // A large program's text: every printable character it could plausibly
       // contain, and a hundred lines carrying two statements. The findings this

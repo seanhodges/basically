@@ -249,6 +249,75 @@ export interface PairPortingNotes {
 }
 
 /**
+ * How much of a variable name a machine keeps, as a rule rather than a sentence.
+ *
+ * {@link PortingFacts.variableNaming} says the same thing in prose, and the prose
+ * is what the fact rows show; this is what a comparison can compute a *collision*
+ * from - the two of a program's names that the target would treat as one. Three
+ * questions decide that, and these fields are exactly those: how much of a name
+ * survives, whether the machine restricts some names further than others, and
+ * whether the type marker is part of the name.
+ *
+ * Re-derived against each dialect's own `lint()` by facts-crosscheck.test.ts,
+ * which builds a probe program from the rule authored here and requires the
+ * machine's own linter to flag it exactly when this rule says the names collide.
+ */
+export interface VariableSignificance {
+  /**
+   * Characters of a name carrying no type marker that the machine keeps, or
+   * null where every character is significant.
+   *
+   * A number larger than any name a program actually carries (the Amstrad's 40)
+   * is authored as the number, not as null: it is the machine's real rule, and
+   * nothing downstream is worse off for it.
+   */
+  plain: number | null;
+  /**
+   * The same for a name carrying a type marker, which several machines restrict
+   * further: the Sinclair machines' numeric names may be long while their string
+   * and array names are a single letter. Equal to {@link plain} on the machines
+   * that have one rule for every name.
+   */
+  marked: number | null;
+  /**
+   * Whether the type marker is part of the name, so that `AB` and `AB$` are two
+   * variables while `AB$` and `ABC$` may still be one.
+   *
+   * False only where the machine has no markers at all (the Atom), which is why
+   * it reads as a restatement of {@link markers} - but it is the question the
+   * collision rule actually asks, and a machine that answered it differently
+   * would need no other change here.
+   */
+  markerDistinguishes: boolean;
+  /**
+   * The type-marker characters this machine has, in the order its own
+   * documentation lists them - `"$%"`, `"$%!#"`, or `""` where it has none.
+   */
+  markers: string;
+}
+
+/**
+ * Whether a machine has fractions, and the range it holds where it has not.
+ *
+ * The structured form of {@link PortingFacts.numberHandling}, which stays as the
+ * prose the fact rows show. Unlike {@link VariableSignificance} there is no
+ * behavioural probe short of running a program on the emulator, so
+ * facts-crosscheck.test.ts pins this to the prose only: "Integer only" exactly
+ * when there are no fractions, quoting the same range. A weaker pin, honestly
+ * labelled.
+ */
+export interface NumberHandling {
+  /** Whether the machine can hold a fractional value at all. */
+  fractions: boolean;
+  /**
+   * The range an integer-only machine holds, as two numbers. Absent where the
+   * machine has fractions - a floating-point range is not what a port rescales
+   * against.
+   */
+  range?: { min: number; max: number };
+}
+
+/**
  * The language-rule and hardware facts a porter needs to compare, one entry per
  * dialect reference page. Split into two classes for the crosscheck test
  * (facts-crosscheck.test.ts):
@@ -261,7 +330,10 @@ export interface PairPortingNotes {
  *  - HAND-AUTHORED from the hardware page + tokenizer/aiProfile, with no
  *    structured source in `src/`: `lineNumberRange`, `statementSeparator`,
  *    `elseSupported`, `letRequired`, `variableNaming`, `numberHandling`,
- *    `exponentOperator`, `screen`, `colour`, `sound`. (`screen` is prose, not
+ *    `numbers`, `exponentOperator`, `screen`, `colour`, `sound`.
+ *    (`variableSignificance` is authored too, but re-derived against each
+ *    dialect's own `lint()` rather than only read - see the interface.
+ *    `screen` is prose, not
  *    `displaySize` — the latter is the emulator canvas size in pixels, not the
  *    logical text/graphics screen a porter cares about; `exponentOperator` is
  *    prose because several dialects spell it with a symbol key — `↑`/`^` — that
@@ -316,6 +388,12 @@ export interface PortingFacts {
   /** Variable-naming rule, e.g. "single letter A–Z" or "long names, A–Z0–9". */
   variableNaming: string;
   /**
+   * The same rule in a form that can be applied to a name rather than read.
+   * {@link variableNaming} above is what the fact rows show; this is what finds
+   * the two names in a program that become one on this machine.
+   */
+  variableSignificance: VariableSignificance;
+  /**
    * How the dialect handles numbers: floating point, or integer-only with the
    * range it holds. Required, because whether the target has fractions at all
    * decides how much of a port is arithmetic - an integer-only machine
@@ -323,6 +401,12 @@ export interface PortingFacts {
    * and nothing else in these facts implies it.
    */
   numberHandling: string;
+  /**
+   * The same fact in a form that can be compared: whether this machine has
+   * fractions, and the range it holds where it has not. {@link numberHandling}
+   * stays the prose the fact rows show.
+   */
+  numbers: NumberHandling;
   /** Exponent operator spelling ("**", "^", "↑"), or undefined if the dialect has none. */
   exponentOperator?: string;
   /**

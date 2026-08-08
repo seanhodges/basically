@@ -30,7 +30,9 @@ import {
   programFitForTarget,
   statementLayoutForProgram,
   tableForMachine,
+  truncatedArithmeticForProgram,
   unsupportedCharactersForProgram,
+  variableCollisionsForProgram,
   type CapabilitySection,
   type EscapeSection,
   type FactRow,
@@ -336,6 +338,36 @@ const lineNumbers = computed(() => {
   const v = narrowingBy.value;
   if (!t || !v) return null;
   return lineNumbersForProgram(t, v);
+});
+
+/**
+ * The program's variable names the target machine would treat as one.
+ *
+ * Always narrowed, like the statement layout: which names collide is a fact
+ * about a program, and without one there is nothing to say that the "Variable
+ * names" fact row does not already say. The rule itself is reported there
+ * whether or not there is a program.
+ */
+const variableCollisions = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return [];
+  return variableCollisionsForProgram(s, t, v);
+});
+
+/**
+ * The arithmetic in this program an integer-only target truncates, or null.
+ *
+ * Narrowed for the same reason, and against the "Numbers" fact row: that says
+ * the target has no fractions, this says which of the reader's own calculations
+ * that costs.
+ */
+const truncatedArithmetic = computed(() => {
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!t || !v) return null;
+  return truncatedArithmeticForProgram(t, v);
 });
 
 /**
@@ -843,6 +875,16 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'false-friends',
       'Same word, different meaning',
     ],
+    [
+      variableCollisions.value.length > 0,
+      'variable-collisions',
+      'Names that become one',
+    ],
+    [
+      truncatedArithmetic.value !== null,
+      'truncated-arithmetic',
+      'Arithmetic that truncates',
+    ],
     [capabilities.value.length > 0, 'capabilities', 'What changes'],
     [
       keywordDiff.value.renamed.length + changedCount.value > 0,
@@ -987,6 +1029,9 @@ function onVocabularyMessage(e: MessageEvent) {
   vocabulary.value = {
     dialectId: String(data.dialectId ?? ''),
     keywords: Array.isArray(data.keywords) ? data.keywords : [],
+    variables: Array.isArray(data.variables) ? data.variables : [],
+    divides: data.divides === true,
+    fractionalLiteral: data.fractionalLiteral === true,
     escapeCodes: Array.isArray(data.escapeCodes) ? data.escapeCodes : [],
     characters: Array.isArray(data.characters) ? data.characters : [],
     multiStatementLines: Array.isArray(data.multiStatementLines)
@@ -1270,6 +1315,73 @@ watch(to, requestVocabulary);
             </button>
           </li>
         </ul>
+      </section>
+
+      <!--
+        The other silent failure, and given the same weight as the one above:
+        the names exist on both machines, nothing fails to tokenize, and two of
+        the program's variables have quietly become one. Always narrowed - which
+        names collide is a fact about a program, not about a pair of machines.
+      -->
+      <section
+        v-if="variableCollisions.length"
+        id="variable-collisions"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Names that become one ({{ variableCollisions.length }})</h2>
+        <p class="cmp-hint">
+          {{ target.name }} keeps less of a variable name than
+          {{ source.name }} does, so these become one variable and the program
+          computes the wrong answer without reporting anything.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="c in variableCollisions" :key="c.key">
+            <code>{{ c.key }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from">{{ c.names.join(', ') }}</span>
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to">all become {{ c.key }}</span>
+            </span>
+          </li>
+        </ul>
+        <p class="cmp-hint">
+          Rename them so they differ inside what {{ target.name }} keeps, and
+          check the new name against every other name in the program.
+        </p>
+      </section>
+
+      <!--
+        Beside the collisions, and silent in the same way: the expression ports
+        unchanged and stops being the calculation it was. The "Numbers" fact row
+        says the target has no fractions; this says what that costs here.
+      -->
+      <section
+        v-if="truncatedArithmetic"
+        id="truncated-arithmetic"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Arithmetic that truncates</h2>
+        <p class="cmp-hint">
+          {{ target.name }} has no fractions at all — it holds whole numbers
+          from {{ truncatedArithmetic.min }} to {{ truncatedArithmetic.max }},
+          and every division truncates.
+        </p>
+        <p class="cmp-hint">
+          This program
+          <template v-if="truncatedArithmetic.divides">divides</template>
+          <template
+            v-if="
+              truncatedArithmetic.divides &&
+              truncatedArithmetic.fractionalLiteral
+            "
+          >
+            and
+          </template>
+          <template v-if="truncatedArithmetic.fractionalLiteral"
+            >carries fractional values</template
+          >, so rescale that arithmetic — work in tenths or hundredths, or
+          reorder so the multiply comes before the divide.
+        </p>
       </section>
 
       <!--

@@ -139,6 +139,48 @@ test('line numbers the target will not take are reported', async ({ page }) => {
   );
 });
 
+/**
+ * The two findings that fail silently: names the target cannot tell apart, and
+ * arithmetic it truncates. Both need the program's own text and the target's
+ * language rules to meet across the postMessage join - the docs bundle can read
+ * neither a variable name nor a division out of the editor on its own.
+ *
+ * Rides this journey rather than opening its own, and proves both at once: a
+ * ZX80 target keeps one character of a name *and* has no fractions, so one
+ * program answers both questions.
+ */
+test('names the target cannot tell apart, and arithmetic it truncates', async ({
+  page,
+}) => {
+  await beginPort(page);
+  const frame = drawerOf(page).frameLocator('iframe');
+  await expect(frame.getByText(/Narrowed to your program/)).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // AB and AC are two variables on the Commodore, which keeps two characters,
+  // and one on the ZX80, which keeps one. The division is exact here and still
+  // reported: proving otherwise means running the program.
+  await setEditorSource(
+    page,
+    ['10 AB=10', '20 AC=AB/2', '30 PRINT AC'].join('\n'),
+  );
+
+  await frame.getByRole('button', { name: /^Porting to:/ }).click();
+  await frame
+    .getByRole('dialog', { name: 'Choose a machine' })
+    .locator('button[data-machine="zx80"]')
+    .click();
+
+  const collisions = frame.locator('#variable-collisions');
+  await expect(collisions).toContainText('AB, AC');
+  await expect(collisions).toContainText('all become A');
+
+  const truncated = frame.locator('#truncated-arithmetic');
+  await expect(truncated).toContainText('-32768 to 32767');
+  await expect(truncated).toContainText('divides');
+});
+
 test('the narrowing states what it recognised and what it holds back', async ({
   page,
 }) => {

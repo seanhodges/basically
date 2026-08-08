@@ -19,6 +19,7 @@ import type {
   ReferenceEntry,
   ReferenceTableData,
   TargetPortingNote,
+  VariableSignificance,
 } from './types';
 import { ramBudget, ramSeverity, type RamSeverity } from './ramBudget';
 import { sortEntries } from './sort';
@@ -684,6 +685,15 @@ export interface ProgramVocabulary {
   /** The machine the program was read as; only meaningful against that one. */
   dialectId: string;
   keywords: string[];
+  /**
+   * Distinct variable names the program's code contains, upper-cased, in the
+   * source machine's own spelling. Grouped by the *target's* significance rule
+   * to find the names it would treat as one. See the app-side twin.
+   */
+  variables: string[];
+  /** Whether the program's code divides, and whether it carries a fraction. */
+  divides: boolean;
+  fractionalLiteral: boolean;
   escapeCodes: number[];
   /** Printable ASCII the program's text contains. See the app-side twin. */
   characters: string[];
@@ -836,6 +846,117 @@ export function unsupportedCharactersForProgram(
   return vocabulary.characters.filter(
     (c) => missing.has(c) || missing.has(c.toUpperCase()),
   );
+}
+
+/** Two or more of the program's names that the target treats as one. */
+export interface VariableCollision {
+  /**
+   * What the target reduces them to, marker included where it keeps one.
+   *
+   * Reported alongside the names because it is what makes the finding
+   * actionable: a reader choosing a new name has to know what the old ones
+   * became, so the replacement does not collide with a third.
+   */
+  key: string;
+  /** The program's own spellings that reduce to it, sorted. */
+  names: string[];
+}
+
+/**
+ * What the target machine keeps of one name: its significant characters, plus
+ * the type marker where the machine counts that as part of the name.
+ */
+function significanceKey(name: string, rule: VariableSignificance): string {
+  const last = name[name.length - 1] ?? '';
+  const marker = rule.markers.includes(last) ? last : '';
+  const stem = marker === '' ? name : name.slice(0, -1);
+  const significant = marker === '' ? rule.plain : rule.marked;
+  const kept = significant === null ? stem : stem.slice(0, significant);
+  return kept + (rule.markerDistinguishes ? marker : '');
+}
+
+/**
+ * The program's variable names that the target machine cannot tell apart.
+ *
+ * The silent failure this whole section exists for: nothing fails to tokenize,
+ * no difference list has a row for it, and the program computes the wrong
+ * answer because two of its variables have quietly become one.
+ *
+ * Names are grouped by the key the *target's* rule produces, and a bucket
+ * holding one name is not a finding. A bucket whose names the *source* already
+ * reduces to one key is dropped: that collision is not something the port
+ * introduces, the program has it already, and the editor's own variable lint has
+ * flagged it on the machine the program is written for. What survives is
+ * exactly what the reader would acquire by moving.
+ *
+ * Empty where the target keeps at least as much of a name as the source, and
+ * empty where there is no program: which names collide is a fact about a
+ * program, not about a pair of machines.
+ */
+export function variableCollisionsForProgram(
+  sourceFacts: PortingFacts,
+  targetFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): VariableCollision[] {
+  const target = targetFacts.variableSignificance;
+  const source = sourceFacts.variableSignificance;
+  const buckets = new Map<string, Set<string>>();
+  for (const name of vocabulary.variables) {
+    const key = significanceKey(name, target);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.add(name);
+    else buckets.set(key, new Set([name]));
+  }
+
+  const collisions: VariableCollision[] = [];
+  for (const [key, names] of buckets) {
+    if (names.size < 2) continue;
+    // Already one variable on the machine the program was written for, so the
+    // port is not what merges them.
+    const onSource = new Set([...names].map((n) => significanceKey(n, source)));
+    if (onSource.size < 2) continue;
+    collisions.push({ key, names: [...names].sort() });
+  }
+  return collisions.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+/** Arithmetic in this program that the target truncates. See {@link truncatedArithmeticForProgram}. */
+export interface TruncatedArithmetic {
+  /** True where the program's code divides. */
+  divides: boolean;
+  /** True where it carries a fractional literal. */
+  fractionalLiteral: boolean;
+  /** The range the target holds, which every rescaled value has to fit. */
+  min: number;
+  max: number;
+}
+
+/**
+ * The arithmetic in this program that an integer-only target truncates, or null.
+ *
+ * Null in the two ways this is not work: the target has fractions, or the
+ * program neither divides nor carries a fractional value. The fact row already
+ * reports the difference in number handling either way; this is what it costs
+ * *this* program.
+ *
+ * A division that only ever divides exactly is still reported. Proving otherwise
+ * means running the program, so this is arithmetic to check rather than a defect
+ * found - which is also why the two facts stay apart, so the finding can say
+ * which of them applies.
+ */
+export function truncatedArithmeticForProgram(
+  targetFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): TruncatedArithmetic | null {
+  const { fractions, range } = targetFacts.numbers;
+  if (fractions || range === undefined) return null;
+  if (!vocabulary.divides && !vocabulary.fractionalLiteral) return null;
+  return {
+    divides: vocabulary.divides,
+    fractionalLiteral: vocabulary.fractionalLiteral,
+    min: range.min,
+    max: range.max,
+  };
 }
 
 /** What the target's line-number range does to this program. See {@link lineNumbersForProgram}. */
