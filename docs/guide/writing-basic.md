@@ -102,7 +102,6 @@ to switch; each one is edited exactly like the program.
 good place to test a `RANDOMIZE USR` or `SYS` call. Breakpoints belong to the
 buffer they were set on.
 
-of this touches your program: saving and sharing always mean the program, and
 
 ## Keeping an eye on memory as you write
 
