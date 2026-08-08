@@ -137,39 +137,36 @@ test('the two fields are told apart, and so is a machine from its relative', asy
   // Once for the whole group, not against each of the 52 codes.
   await expect(keyGraphics.locator('.cmp-group-instead-text')).toHaveCount(1);
 
-  // 97 codes across those groups would be most of a screen, so the section
-  // opens with ten of them and the rest is a click away - ten for the section,
-  // not ten per group, which for this pair would be a run per category and no
-  // shorter a page. The group headings still count the whole group: the cap is
-  // on what renders, not on what was found.
-  const escNames = escapes.locator('.cmp-group-names .cmp-name');
-  const escMore = escapes.getByRole('button', { name: /^Show \d+ more/ });
-  await expect(escNames).toHaveCount(10);
-  await expect(escMore).toHaveCount(1);
-  expect(
+  // All 52 of them, however long the run: the grouped sections are capped by
+  // group, not by entry, so a category the reader is shown is shown whole. A
+  // partial run would be indistinguishable from a small category.
+  await expect(keyGraphics.locator('.cmp-group-names .cmp-name')).toHaveCount(
     Number(await keyGraphics.locator('.cmp-group-count').innerText()),
-  ).toBeGreaterThan(10);
+  );
 
-  await escMore.click();
-  await expect(escNames.first()).toBeVisible();
-  const escShown = await escNames.count();
-  expect(escShown).toBeGreaterThan(10);
-  await expect(escMore).toHaveCount(0);
+  // "What changes" is capped the same way, at ten capability accounts with the
+  // rest a click away. Ported from a BBC Micro rather than the C64 above,
+  // because that is a source rich enough to lose commands across more than ten
+  // capability areas at once - the C64 loses them across fewer, so nothing in
+  // its comparison is held back.
+  await pick(page, 'from', 'bbcmicro');
+  const groups = page.locator('#capabilities .cmp-group');
+  const capMore = page
+    .locator('#capabilities')
+    .getByRole('button', { name: /^Show \d+ more capability area/ });
+  await expect(groups).toHaveCount(10);
+  await expect(capMore).toBeVisible();
 
-  // The lost commands are grouped and budgeted the same way, in the section
-  // above.
-  const lost = page.locator('#capabilities');
-  await expect(lost.locator('.cmp-group-names .cmp-name')).toHaveCount(10);
-  await expect(
-    lost.getByRole('button', { name: /^Show \d+ more/ }),
-  ).toHaveCount(1);
+  await capMore.click();
+  await expect(capMore).toHaveCount(0);
+  expect(await groups.count()).toBeGreaterThan(10);
 
-  // And a section re-collapses when the pair changes: an expansion is about the
+  // And it re-collapses when the pair changes: an expansion is about the
   // comparison it was made in, not a preference that follows the reader to the
-  // next one. The control codes were opened in full just above.
+  // next one.
   await pick(page, 'to', 'zxspectrum');
   await pick(page, 'to', 'zx81');
-  await expect(escNames).toHaveCount(10);
+  await expect(groups).toHaveCount(10);
 });
 
 test('the pair can be chosen without a pointer', async ({ page }) => {

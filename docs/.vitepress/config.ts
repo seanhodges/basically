@@ -227,7 +227,11 @@ export default withPwa(
               collapsed: true,
               items: [
                 { text: 'Basics', link: '/reference/porting-basics' },
-                { text: 'Analysis', link: '/dialect-analysis.html', target: '_self' },
+                {
+                  text: 'Analysis',
+                  link: '/dialect-analysis.html',
+                  target: '_self',
+                },
               ],
             },
           ],

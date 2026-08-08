@@ -618,7 +618,6 @@ const escapeRecheckedList = useTruncatedList(
   pairKey,
 );
 
-
 const changedCount = computed(
   () => keywordDiff.value?.behaviourChanged.length ?? 0,
 );
@@ -1911,7 +1910,11 @@ watch(to, requestVocabulary);
           >
             Show
             {{
-              count(escapeSectionList.remaining, 'more category', 'more categories')
+              count(
+                escapeSectionList.remaining,
+                'more category',
+                'more categories',
+              )
             }}…
           </button>
         </p>
