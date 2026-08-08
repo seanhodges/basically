@@ -102,7 +102,6 @@ to switch; each one is edited exactly like the program.
 good place to test a `RANDOMIZE USR` or `SYS` call. Breakpoints belong to the
 buffer they were set on.
 
-
 ## Keeping an eye on memory as you write
 
 Retro machines have very little RAM, and two of the IDE's tools help you stay
