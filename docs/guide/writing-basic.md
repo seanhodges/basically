@@ -90,6 +90,42 @@ The sections that appear depend on the dialect: a machine with `PROC`/`FN`
 definitions lists **Procedures** and **Functions**, and every dialect groups the
 lines its `GOSUB`s and `GOTO`s jump to under **Subroutines** and **GOTOs**.
 
+### Scratch buffers
+
+Trying an idea out shouldn't mean editing the program you are trying not to
+break. Press **+** after the last tab in the strip above the editor and choose
+**New scratch buffer**: you get a second BASIC buffer, sitting beside your
+program and not part of it. Open as many as you like - `Scratch 1`,
+`Scratch 2`… - and click a tab to switch between them. (This one isn't a
+setting: scratch buffers are created from the tab strip, not from Settings.)
+
+A scratch buffer is edited exactly like the program - the same highlighting,
+completion, automatic line numbering and inline errors - so what goes in it is a
+small numbered program, not a bare expression.
+
+**▶ Play runs the buffer you are looking at**, and says which one: with a scratch
+tab open the button reads **▶ Play Scratch 1**. A snippet is loaded into a
+freshly booted machine exactly as your program is, and it takes the document's
+[machine-code blocks](./machine-code) with it - so a scratch buffer is a good
+place to try a `RANDOMIZE USR`, `SYS` or `CALL` into a routine you are still
+writing.
+
+Snippets are debuggable too, on their own breakpoints: a dot on line 20 of a
+scratch buffer has nothing to do with line 20 of your program, and a run that has
+started keeps the breakpoints it started with even if you look at another tab
+while it is paused. See
+[Debugging with breakpoints](./testing-programs#debugging-with-breakpoints).
+
+**Your program is never touched by any of this.** Saving, sharing and exporting
+always mean the program, whatever tab is showing, and typing in a scratch buffer
+never marks the document as having unsaved changes.
+
+Scratch buffers are disposable, and temporary. Right-click (or long-press) a
+scratch tab to **rename** it, **download** it as a `.bas` file, or **close** it -
+closing asks nothing, and takes that buffer's breakpoints with it. They are never
+saved anywhere: they stay with you when you start, open or import a different
+program, but they are gone when you reload the IDE or switch to another machine.
+
 ## Keeping an eye on memory as you write
 
 Retro machines have very little RAM, and two of the IDE's tools help you stay
