@@ -85,19 +85,26 @@ function vocabulary(
   characters: string[] = [],
   multiStatementLines: number[] = [],
   writeSites: ProgramVocabulary['writeSites'] = [],
-  numbers: {
+  /** The facts the remaining findings read, none of them positional. */
+  rest: {
     extraStatements?: number;
     lineNumbers?: ProgramVocabulary['lineNumbers'];
+    variables?: string[];
+    divides?: boolean;
+    fractionalLiteral?: boolean;
   } = {},
 ): ProgramVocabulary {
   return {
     dialectId,
     keywords,
+    variables: rest.variables ?? [],
+    divides: rest.divides ?? false,
+    fractionalLiteral: rest.fractionalLiteral ?? false,
     escapeCodes,
     characters,
     multiStatementLines,
-    extraStatements: numbers.extraStatements ?? 0,
-    lineNumbers: numbers.lineNumbers ?? null,
+    extraStatements: rest.extraStatements ?? 0,
+    lineNumbers: rest.lineNumbers ?? null,
     writeSites,
   };
 }
@@ -483,6 +490,80 @@ describe('the line numbers', () => {
 
   it('is absent for a program with no numbered line', () => {
     const program = vocabulary('commodore64', ['PRINT']);
+    expect(section(describePort(c64, zx81, program), HEADING)).toBe('');
+  });
+});
+
+describe('the variable names that become one', () => {
+  const bbc = side('bbcmicro');
+  const c64 = side('commodore64');
+  const HEADING = 'VARIABLE NAMES C64 CANNOT TELL APART';
+
+  it('names the collision and what the target reduces it to', () => {
+    // Any-length BBC names arriving on a machine that keeps two characters.
+    const program = vocabulary('bbcmicro', ['PRINT'], [], [], [], [], {
+      variables: ['COUNT', 'COLOUR', 'SCORE'],
+    });
+    const s = section(describePort(bbc, c64, program), HEADING);
+    expect(s).toContain('COLOUR and COUNT');
+    expect(s).toContain('"CO"');
+    expect(s).not.toContain('SCORE');
+  });
+
+  it('is absent where the names stay distinct on the target', () => {
+    const program = vocabulary('bbcmicro', ['PRINT'], [], [], [], [], {
+      variables: ['COUNT', 'SCORE'],
+    });
+    expect(section(describePort(bbc, c64, program), HEADING)).toBe('');
+  });
+
+  it('is absent where the target keeps more of a name than the source', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      variables: ['COUNT', 'COLOUR'],
+    });
+    expect(
+      section(
+        describePort(c64, bbc, program),
+        'VARIABLE NAMES BBC MICRO CANNOT TELL APART',
+      ),
+    ).toBe('');
+  });
+});
+
+describe('the arithmetic that truncates', () => {
+  const c64 = side('commodore64');
+  const zx80 = side('zx80');
+  const zx81 = side('zx81');
+  const HEADING = 'ARITHMETIC THAT TRUNCATES';
+
+  it('names the range the integer-only target holds', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      divides: true,
+    });
+    const s = section(describePort(c64, zx80, program), HEADING);
+    expect(s).toContain('-32768 to 32767');
+    expect(s).toContain('divides');
+  });
+
+  it('says which of the two the program does', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      fractionalLiteral: true,
+    });
+    const s = section(describePort(c64, zx80, program), HEADING);
+    expect(s).toContain('carries fractional values');
+    expect(s).not.toContain('divides and');
+  });
+
+  it('is absent for a program that neither divides nor holds a fraction', () => {
+    const program = vocabulary('commodore64', ['PRINT']);
+    expect(section(describePort(c64, zx80, program), HEADING)).toBe('');
+  });
+
+  it('is absent for a target that has fractions', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      divides: true,
+      fractionalLiteral: true,
+    });
     expect(section(describePort(c64, zx81, program), HEADING)).toBe('');
   });
 });

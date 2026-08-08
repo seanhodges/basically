@@ -32,35 +32,14 @@
  */
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
 import { isBinaryDirective } from '../dialects/binaryDirective';
-import {
-  buildIdentifierRegexes,
-  type BasicLanguageOptions,
-} from './basicLanguage';
+import type { BasicLanguageOptions } from './basicLanguage';
 import { forEachVariable, type VarNameRules } from './variables';
-import { makeCrunchMatcher } from './crunch';
+import { VARIABLE_LEXIS, variableRules } from './variableLexis';
 import { scannable } from './programOutline';
 
-/** Build the scanner's dialect rules from lexical options + the keyword table. */
-function rulesFor(
-  options: BasicLanguageOptions,
-  keywords: EditorKeyword[],
-): VarNameRules {
-  const { headRe, varRe } = buildIdentifierRegexes(options);
-  const words = keywords
-    .filter((k) => /^[A-Z]/.test(k.word))
-    .map((k) => k.word);
-  const set = new Set(words);
-  return {
-    headRe,
-    varRe,
-    keywords: set,
-    maxWordLen: words.length ? Math.max(...words.map((w) => w.length)) : 0,
-    hexRe: options.hexPrefix
-      ? new RegExp(`^${options.hexPrefix}[0-9A-Fa-f]+`)
-      : null,
-    callPrefixes: ['PROC', 'FN'].filter((w) => set.has(w)),
-    crunch: options.crunched ? makeCrunchMatcher(set) : null,
-  };
+/** The lexis a machine's names follow; see {@link VARIABLE_LEXIS}. */
+function lexisFor(dialectId: string): BasicLanguageOptions {
+  return VARIABLE_LEXIS[dialectId] ?? {};
 }
 
 /** A variable occurrence with its editor-line position. */
@@ -120,7 +99,7 @@ function stripSuffix(name: string, suffixChars: string): string {
 interface SingleLetterOptions {
   /** Machine name used in messages, e.g. 'ZX81', 'ZX Spectrum'. */
   label: string;
-  /** Lexical options (suffix/hex/name chars); defaults to Sinclair (`$`). */
+  /** Name lexis for the machine; defaults to Sinclair (`$`, nothing else). */
   options?: BasicLanguageOptions;
   /** When true every variable must be a single letter (ZX80, Atom). */
   strict?: boolean;
@@ -155,7 +134,7 @@ export function singleLetterVariableErrors(
 ): TokenizeError[] {
   const options = opts.options ?? {};
   const suffixChars = options.suffixChars ?? '$';
-  const rules = rulesFor(options, keywords);
+  const rules = variableRules(options, keywords);
   const errors: TokenizeError[] = [];
   eachOccurrence(source, rules, (occ) => {
     const message = singleLetterViolation(
@@ -207,7 +186,7 @@ export function atomVariableErrors(
   return singleLetterVariableErrors(source, keywords, {
     label: 'Acorn Atom',
     strict: true,
-    options: { suffixChars: '', hexPrefix: '#' },
+    options: lexisFor('atom'),
   });
 }
 
@@ -226,13 +205,14 @@ function significanceKey(name: string, suffixChars: string): string {
 function microsoftVariableErrors(
   source: string,
   keywords: EditorKeyword[],
-  opts: { label: string; suffixChars: string },
+  opts: { label: string; lexis: BasicLanguageOptions },
 ): TokenizeError[] {
-  const { label, suffixChars } = opts;
+  const { label, lexis } = opts;
+  const suffixChars = lexis.suffixChars ?? '$';
   // Crunching is inherent to the Microsoft family: the scanner ROM-splits
   // glued keywords (`POKEA` is POKE + A, never a variable) and flags only
   // names it knows the ROM will mis-read (see forEachVariable).
-  const rules = rulesFor({ suffixChars, crunched: true }, keywords);
+  const rules = variableRules(lexis, keywords);
   const occs: Occurrence[] = [];
   eachOccurrence(source, rules, (occ) => occs.push(occ));
 
@@ -295,7 +275,7 @@ export function c64VariableErrors(
 ): TokenizeError[] {
   return microsoftVariableErrors(source, keywords, {
     label: 'C64',
-    suffixChars: '$%',
+    lexis: lexisFor('commodore64'),
   });
 }
 
@@ -305,7 +285,7 @@ export function trs80VariableErrors(
 ): TokenizeError[] {
   return microsoftVariableErrors(source, keywords, {
     label: 'TRS-80',
-    suffixChars: '$%!#',
+    lexis: lexisFor('trs80'),
   });
 }
 
@@ -321,6 +301,6 @@ export function altair8800VariableErrors(
 ): TokenizeError[] {
   return microsoftVariableErrors(source, keywords, {
     label: 'Altair',
-    suffixChars: '$',
+    lexis: lexisFor('altair8800'),
   });
 }

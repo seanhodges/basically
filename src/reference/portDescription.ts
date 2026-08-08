@@ -31,7 +31,9 @@ import {
   lineNumbersForProgram,
   statementLayoutForProgram,
   tableForMachine,
+  truncatedArithmeticForProgram,
   unsupportedCharactersForProgram,
+  variableCollisionsForProgram,
   type EscapeChange,
   type FalseFriendWarning,
   type KeywordChange,
@@ -41,6 +43,8 @@ import {
   type PairGuidance,
   type ProgramVocabulary,
   type StatementLayoutChange,
+  type TruncatedArithmetic,
+  type VariableCollision,
 } from './compare';
 import { domainGuidance } from './domain-guidance';
 import { KEYWORD_DOMAINS } from './domains';
@@ -241,6 +245,55 @@ function describeLineNumbers(
     'LINE NUMBERS',
     `- ${to.name} numbers lines ${change.min}-${change.max}, and ${ends.join(', and ')}.`,
     '- Renumber the program into that range and fix every GOTO, GOSUB and other line reference with it.',
+  ].join('\n');
+}
+
+/**
+ * The program's variable names the target machine cannot tell apart.
+ *
+ * The same class of failure as the false friends below, and reported beside
+ * them: nothing fails to tokenize, no command list has a row for it, and two of
+ * the program's variables quietly become one. What the target reduces them to is
+ * named because a replacement has to avoid colliding with a third name.
+ */
+function describeVariableCollisions(
+  collisions: VariableCollision[],
+  to: PortSide,
+): string {
+  if (collisions.length === 0) return '';
+  const lines = collisions.map(
+    (c) => `- ${c.names.join(' and ')} all become "${c.key}".`,
+  );
+  return [
+    `VARIABLE NAMES ${to.name.toUpperCase()} CANNOT TELL APART`,
+    ...lines,
+    '- Rename these so they differ within what the target keeps, and change every use.',
+  ].join('\n');
+}
+
+/**
+ * Arithmetic this program does that the target truncates.
+ *
+ * The range is named because rescaling is the fix and the range is what the
+ * rescaled values have to fit. Stated as arithmetic to check rather than as a
+ * defect found: whether a division divides exactly cannot be known without
+ * running the program.
+ */
+function describeTruncatedArithmetic(
+  change: TruncatedArithmetic | null,
+  to: PortSide,
+): string {
+  if (change === null) return '';
+  const what = [
+    change.divides ? 'divides' : '',
+    change.fractionalLiteral ? 'carries fractional values' : '',
+  ]
+    .filter((s) => s !== '')
+    .join(' and ');
+  return [
+    'ARITHMETIC THAT TRUNCATES',
+    `- ${to.name} has no fractions at all: it holds whole numbers from ${change.min} to ${change.max}, and every division truncates.`,
+    `- This program ${what}, so rescale that arithmetic — work in tenths or hundredths, or reorder so the multiply comes before the divide.`,
   ].join('\n');
 }
 
@@ -476,6 +529,14 @@ export function describePort(
     targetFacts !== undefined
       ? lineNumbersForProgram(targetFacts, vocabulary)
       : null;
+  const collisions =
+    sourceFacts !== undefined && targetFacts !== undefined
+      ? variableCollisionsForProgram(sourceFacts, targetFacts, vocabulary)
+      : [];
+  const truncated =
+    targetFacts !== undefined
+      ? truncatedArithmeticForProgram(targetFacts, vocabulary)
+      : null;
 
   const header = describeHeader(from, to);
   const findings = [
@@ -486,6 +547,10 @@ export function describePort(
       from,
       to,
     ),
+    // Beside the false friends, and for the same reason: these are the findings
+    // that fail silently, so they lead the ones that fail loudly.
+    describeVariableCollisions(collisions, to),
+    describeTruncatedArithmetic(truncated, to),
     describeLostCommands(diff, guidance, targetTable, to),
     describeRenames(diff.renamed),
     describeUsageChanges(diff.behaviourChanged, from, to),

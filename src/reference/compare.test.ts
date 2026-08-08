@@ -26,6 +26,8 @@ import {
   noticeState,
   programFitForTarget,
   statementLayoutForProgram,
+  truncatedArithmeticForProgram,
+  variableCollisionsForProgram,
   tableForMachine,
   unsupportedCharactersForProgram,
   type ProgramVocabulary,
@@ -540,8 +542,15 @@ describe('composeGuidance', () => {
       elseSupported: false,
       letRequired: 'optional',
       variableNaming: 'A–Z',
+      variableSignificance: {
+        plain: null,
+        marked: null,
+        markerDistinguishes: true,
+        markers: '$',
+      },
       unsupportedCharacters: [],
       numberHandling: 'Floating point.',
+      numbers: { fractions: true },
       screen: 'text',
       freeRamBytes: 1024,
       colour: 'none',
@@ -1034,20 +1043,26 @@ function vocab(
   characters: string[] = [],
   multiStatementLines: number[] = [],
   writeSites: ProgramVocabulary['writeSites'] = [],
-  /** The line-number facts, for the findings that read them. */
-  numbers: {
+  /** The facts the remaining findings read, none of them positional. */
+  rest: {
     extraStatements?: number;
     lineNumbers?: ProgramVocabulary['lineNumbers'];
+    variables?: string[];
+    divides?: boolean;
+    fractionalLiteral?: boolean;
   } = {},
 ): ProgramVocabulary {
   return {
     dialectId,
     keywords,
+    variables: rest.variables ?? [],
+    divides: rest.divides ?? false,
+    fractionalLiteral: rest.fractionalLiteral ?? false,
     escapeCodes,
     characters,
     multiStatementLines,
-    extraStatements: numbers.extraStatements ?? 0,
-    lineNumbers: numbers.lineNumbers ?? null,
+    extraStatements: rest.extraStatements ?? 0,
+    lineNumbers: rest.lineNumbers ?? null,
     writeSites,
   };
 }
@@ -1452,6 +1467,146 @@ describe('lineNumbersForProgram', () => {
 
   it('reports nothing for a program with no numbered line', () => {
     expect(lineNumbersForProgram(target(1, 9999), vocab([]))).toBeNull();
+  });
+});
+
+describe('variableCollisionsForProgram', () => {
+  /** A machine that keeps `plain`/`marked` characters of a name. */
+  const machine = (
+    plain: number | null,
+    marked: number | null = plain,
+    markers = '$%',
+  ): PortingFacts =>
+    ({
+      id: 'm',
+      variableSignificance: {
+        plain,
+        marked,
+        markerDistinguishes: markers !== '',
+        markers,
+      },
+    }) as PortingFacts;
+
+  const using = (...variables: string[]) =>
+    vocab([], [], 'commodore64', [], [], [], { variables });
+
+  it('names the program’s own names and what the target reduces them to', () => {
+    // The headline case: a long-name machine to a two-significant one.
+    expect(
+      variableCollisionsForProgram(
+        machine(null),
+        machine(2),
+        using('COUNT', 'COLOUR', 'SCORE'),
+      ),
+    ).toEqual([{ key: 'CO', names: ['COLOUR', 'COUNT'] }]);
+  });
+
+  it('reports nothing when the target keeps every character', () => {
+    expect(
+      variableCollisionsForProgram(
+        machine(2),
+        machine(null),
+        using('COUNT', 'COLOUR'),
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps apart the names the target’s type markers keep apart', () => {
+    // `COUNT` and `COUNT$` are two variables wherever the marker is part of the
+    // name, so a rule that ignored it would invent a collision.
+    expect(
+      variableCollisionsForProgram(
+        machine(null),
+        machine(2),
+        using('COUNT', 'COUNT$', 'COST%'),
+      ),
+    ).toEqual([]);
+    // …while two names sharing both prefix and marker do collide.
+    expect(
+      variableCollisionsForProgram(
+        machine(null),
+        machine(2),
+        using('COUNT$', 'COLOUR$'),
+      ),
+    ).toEqual([{ key: 'CO$', names: ['COLOUR$', 'COUNT$'] }]);
+  });
+
+  it('collides harder on a single-letter target', () => {
+    expect(
+      variableCollisionsForProgram(
+        machine(null),
+        machine(1),
+        using('AX', 'AY', 'BX'),
+      ),
+    ).toEqual([{ key: 'A', names: ['AX', 'AY'] }]);
+  });
+
+  it('reports a collision the source machine does not already have', () => {
+    // A Sinclair source: long numeric names, single-letter string names. The
+    // numeric pair is new work on a two-significant target; the string pair is
+    // one variable on the source already, and the editor has flagged it there.
+    expect(
+      variableCollisionsForProgram(
+        machine(null, 1, '$'),
+        machine(2),
+        using('COUNT', 'COLOUR', 'TOTAL$', 'TOP$'),
+      ),
+    ).toEqual([{ key: 'CO', names: ['COLOUR', 'COUNT'] }]);
+  });
+
+  it('reports nothing for a program with no names', () => {
+    expect(
+      variableCollisionsForProgram(machine(null), machine(2), using()),
+    ).toEqual([]);
+  });
+});
+
+describe('truncatedArithmeticForProgram', () => {
+  const integerOnly = (min: number, max: number): PortingFacts =>
+    ({
+      id: 'm',
+      numbers: { fractions: false, range: { min, max } },
+    }) as PortingFacts;
+  const floating = { id: 'm', numbers: { fractions: true } } as PortingFacts;
+  const doing = (divides: boolean, fractionalLiteral: boolean) =>
+    vocab([], [], 'commodore64', [], [], [], { divides, fractionalLiteral });
+
+  it('reports a division into a machine with no fractions', () => {
+    expect(
+      truncatedArithmeticForProgram(
+        integerOnly(-32768, 32767),
+        doing(true, false),
+      ),
+    ).toEqual({
+      divides: true,
+      fractionalLiteral: false,
+      min: -32768,
+      max: 32767,
+    });
+  });
+
+  it('reports a fractional value on its own', () => {
+    expect(
+      truncatedArithmeticForProgram(
+        integerOnly(-32768, 32767),
+        doing(false, true),
+      ),
+    ).toMatchObject({ divides: false, fractionalLiteral: true });
+  });
+
+  it('reports nothing when the program does neither', () => {
+    expect(
+      truncatedArithmeticForProgram(
+        integerOnly(-32768, 32767),
+        doing(false, false),
+      ),
+    ).toBeNull();
+  });
+
+  it('reports nothing when the target has fractions', () => {
+    expect(
+      truncatedArithmeticForProgram(floating, doing(true, true)),
+    ).toBeNull();
   });
 });
 
