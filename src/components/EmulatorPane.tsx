@@ -5,7 +5,12 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { useIdeStore } from '../app/store';
+import {
+  useIdeStore,
+  selectBufferBreakpoints,
+  selectRunTarget,
+  selectVisibleDebugLine,
+} from '../app/store';
 import {
   classifyAiRunFrame,
   finaliseExpectations,
@@ -148,7 +153,6 @@ function describeMachineError(e: unknown, dialect: Dialect): string {
 
 export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const dialect = useIdeStore((s) => s.dialect);
-  const source = useIdeStore((s) => s.source);
   const blocks = useIdeStore((s) => s.blocks);
   const tapeFiles = useIdeStore((s) => s.tapeFiles);
   const autoStart = useIdeStore((s) => s.autoStart);
@@ -159,7 +163,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const romChangeRequest = useIdeStore((s) => s.romChangeRequest);
   const stepRequest = useIdeStore((s) => s.stepRequest);
   const continueRequest = useIdeStore((s) => s.continueRequest);
-  const debugLine = useIdeStore((s) => s.debugLine);
+  // The paused line, shown only while the buffer that is running is the one on
+  // screen - a pause belongs to the buffer that started the run.
+  const debugLine = useIdeStore(selectVisibleDebugLine);
   const speed = useIdeStore((s) => s.emulatorSpeed);
   const emulatorAudio = useIdeStore((s) => s.emulatorAudio);
   const emulatorVolume = useIdeStore((s) => s.emulatorVolume);
@@ -241,6 +247,12 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const aiCheckViewsRef = useRef<ScreenViewRequest>(noScreenViews());
   // A step-through debug session is live (run started in debug mode).
   const debugActiveRef = useRef(false);
+  // Which buffer the live session is running (a scratch buffer's id, or null
+  // for the program). Captured when the run starts, because the loop re-reads
+  // the breakpoint set from the store on every slice: without pinning it, a
+  // user who switches tabs mid-run would silently swap the session's
+  // breakpoints for another buffer's.
+  const debugBufferRef = useRef<string | null>(null);
   // What the current run of slices is doing: 'run' (to next breakpoint) or
   // 'step' (to the next BASIC line).
   const debugModeRef = useRef<'run' | 'step'>('run');
@@ -467,7 +479,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       if (debugActiveRef.current && machine.debugStep) {
         for (let step = 0; step < steps; step++) {
           const res = machine.debugStep({
-            breakpoints: useIdeStore.getState().breakpoints,
+            breakpoints: selectBufferBreakpoints(
+              useIdeStore.getState(),
+              debugBufferRef.current,
+            ),
             mode: debugModeRef.current,
             fromLine: debugFromLineRef.current,
           });
@@ -479,7 +494,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             machine.releaseAllKeys(); // nothing stays held while paused
             debugFromLineRef.current = res.line;
             const store = useIdeStore.getState();
-            store.setDebugLine(res.line);
+            store.setDebugLine(res.line, debugBufferRef.current);
             store.setEmulatorStatus('paused');
             // On mobile the Preview tab is showing when a breakpoint trips, so
             // the frozen screen gives no hint why. Jump to the editor so the
@@ -670,11 +685,18 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     (async () => {
       setError('');
       try {
-        // Checking an answer the assistant just returned runs THAT program, not
-        // the editor's: an answer is checked before the user has decided whether
-        // to apply it, so the document is deliberately untouched. Every other
-        // run - the toolbar, the shortcut, the player - runs the editor as ever.
-        const checking = useIdeStore.getState().aiRunCheckSeq === runRequest;
+        // What this request runs (see selectRunTarget): checking an answer the
+        // assistant just returned runs THAT program, not the editor's, since an
+        // answer is checked before the user has decided whether to apply it;
+        // every other run - the toolbar, the shortcut, the player - runs the
+        // buffer the editor is showing, which is a scratch buffer when the user
+        // is looking at one.
+        const {
+          source: runSource,
+          checking,
+          scratch,
+          bufferId,
+        } = selectRunTarget(useIdeStore.getState(), runRequest);
         // A run the user asked for takes the machine back from the assistant.
         // Done here, before the gates below, so that a run refused for a lint
         // error still un-strands a machine the assistant was holding still -
@@ -682,15 +704,18 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // user with one that neither runs nor says why. See
         // shouldTakeMachineBack for why a check is the exception.
         if (shouldTakeMachineBack({ checking })) dropControl();
-        const runSource = checking
-          ? useIdeStore.getState().aiRunSource
-          : source;
         // A preserved boot-disc document (a multi-file `.ssd` the memory-block
         // model can't represent) runs its verbatim image, not `runSource`: the
         // machine mounts-and-boots it so the disc's own loader runs. Skip every
         // source/blocks gate below - `source` is only the recovered listing.
+        //
+        // A scratch run bypasses that entirely: the image describes how the
+        // *document* was imported and says nothing about a snippet, and without
+        // this bypass Run would appear to do nothing at all on exactly those
+        // documents.
+        const bootImage = scratch ? null : bootDisc;
         let image: Uint8Array = new Uint8Array(0);
-        if (!bootDisc) {
+        if (!bootImage) {
           // Gate on the full editor lint set (not just tokenizer errors), so
           // Play refuses exactly the errors the editor underlines - unless the
           // user has turned the lint gate off in Settings > Emulator, in which
@@ -754,12 +779,17 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // saves are visible to it (a pause mid-run does NOT clear).
         emulatorVfs.clear(dialect.id);
         // A boot disc supersedes blocks/tape/auto-start: it is booted verbatim.
-        const loadOpts = bootDisc
-          ? { bootDisc }
+        // A scratch run carries the document's memory blocks - testing a call
+        // into machine code you are writing is a first-order reason to want a
+        // scratch buffer - but not its preserved tape files or imported
+        // auto-start line, which describe how the document was imported and
+        // have no bearing on a snippet.
+        const loadOpts = bootImage
+          ? { bootDisc: bootImage }
           : {
               ...(blocks.length > 0 ? { blocks } : {}),
-              ...(tapeFiles.length > 0 ? { tapeFiles } : {}),
-              ...(autoStart !== null ? { autoStart } : {}),
+              ...(!scratch && tapeFiles.length > 0 ? { tapeFiles } : {}),
+              ...(!scratch && autoStart !== null ? { autoStart } : {}),
             };
         machine.loadProgram(
           image,
@@ -793,6 +823,8 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         });
         debugModeRef.current = 'run';
         debugFromLineRef.current = null;
+        // Pin the session to the buffer that started it, for as long as it runs.
+        debugBufferRef.current = bufferId;
         useIdeStore.getState().setDebugLine(null);
         ensureAudio(machine);
         setEmulatorStatus('running');
@@ -837,6 +869,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
+    debugBufferRef.current = null;
     useIdeStore.getState().setDebugLine(null);
     firstFrameRef.current = false;
     setLoading(false);
@@ -989,6 +1022,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
+    debugBufferRef.current = null;
     firstFrameRef.current = false;
     setLoading(false);
     setError('');

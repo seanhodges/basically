@@ -101,6 +101,20 @@
   color: #fff;
 }
 
+/* A scratch tab mid-rename: sized like the tab it replaces so the strip does
+   not reflow while the user types. */
+.renameInput {
+  align-self: center;
+  width: 14ch;
+  margin: 0 6px;
+  padding: 3px 6px;
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
 /* Divider between the download actions and Settings / Delete. */
 .menuSeparator {
   height: 1px;

@@ -1,5 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useIdeStore, useBlocks, type MobileTab } from '../app/store';
+import {
+  useIdeStore,
+  useBlocks,
+  selectRunTargetName,
+  type MobileTab,
+} from '../app/store';
 import {
   useMediaQuery,
   MOBILE_QUERY,
@@ -38,7 +43,6 @@ const DIVIDER_WIDTH = 6;
 export function Workspace() {
   const dialect = useIdeStore((s) => s.dialect);
   const docOverride = useIdeStore((s) => s.docOverride);
-  const setSource = useIdeStore((s) => s.setSource);
   const aiPanelOpen = useIdeStore((s) => s.aiPanelOpen);
   const memoryMapOpen = useIdeStore((s) => s.memoryMapOpen);
   const mobileTab = useIdeStore((s) => s.mobileTab);
@@ -46,7 +50,10 @@ export function Workspace() {
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
   const requestRun = useIdeStore((s) => s.requestRun);
   const blocks = useBlocks();
-  const activeBlockId = useIdeStore((s) => s.activeBlockId);
+  const activeTab = useIdeStore((s) => s.activeTab);
+  const setScratchText = useIdeStore((s) => s.setScratchText);
+  // The scratch buffer the FAB would run, or null when Run means the program.
+  const runTargetName = useIdeStore(selectRunTargetName);
 
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
@@ -127,11 +134,29 @@ export function Workspace() {
   const hidden = (tab: MobileTab) =>
     tabbed && mobileTab !== tab ? styles.tabHidden : '';
 
+  // Where the editor's keystrokes go: a scratch buffer's own text, or the
+  // program. Deliberately routed here rather than branched inside `setSource`,
+  // which carries document semantics (dirty, the boot-disc clear, the
+  // untitled-and-empty rule) a scratch edit must not trigger. `docOverride`
+  // (the inbound half of the same channel) is switched by the store when the
+  // active tab changes, so both halves always describe the same buffer.
+  const scratchId = activeTab.kind === 'scratch' ? activeTab.id : null;
+  const onEditorChange = useCallback(
+    (text: string) => {
+      if (scratchId === null) useIdeStore.getState().setSource(text);
+      else setScratchText(scratchId, text);
+    },
+    [scratchId, setScratchText],
+  );
+
   // The block tab open in the editor pane; a stale/unknown id (defensive -
   // the store fixes ids up on every block mutation) falls back to BASIC. The
   // assembly editor needs the dialect to declare a CPU with an engine; a code
   // block without one gets the same placeholder as a data block.
-  const activeBlock = blocks.find((b) => b.id === activeBlockId) ?? null;
+  const activeBlock =
+    activeTab.kind === 'block'
+      ? (blocks.find((b) => b.id === activeTab.id) ?? null)
+      : null;
   const asmEngine =
     activeBlock !== null &&
     activeBlock.kind === 'code' &&
@@ -215,9 +240,11 @@ export function Workspace() {
         {/* The FAB anchors to this box so the docked keyboard below never
             sits underneath it. */}
         <div className={styles.editorMain}>
-          {/* The BASIC editor stays mounted while a block tab is open -
-              hiding (not unmounting) preserves the EditorView, its undo
-              history and the docOverride seq channel. */}
+          {/* One mounted editor for every BASIC buffer: it stays mounted while
+              a block tab is open - hiding (not unmounting) preserves the
+              EditorView and the docOverride seq channel - and a switch between
+              the program and a scratch buffer swaps its document through that
+              same channel. */}
           <div
             className={`${styles.basicEditorHost} ${
               activeBlock !== null ? styles.slotHidden : ''
@@ -226,7 +253,7 @@ export function Workspace() {
             <CodeMirrorHost
               dialect={dialect}
               override={docOverride}
-              onChange={setSource}
+              onChange={onEditorChange}
               inputRef={editorInputRef}
             />
           </div>
@@ -244,7 +271,11 @@ export function Workspace() {
             <button
               className={styles.fabRun}
               onClick={requestRun}
-              title="Build and run in the emulator"
+              title={
+                runTargetName
+                  ? `Build and run ${runTargetName} in the emulator`
+                  : 'Build and run in the emulator'
+              }
             >
               ▶
             </button>

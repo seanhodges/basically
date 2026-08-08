@@ -1,5 +1,6 @@
 // Capability: shell-navigation — openspec/specs/shell-navigation/spec.md
 import { test, expect, type Page } from '../fixtures';
+import { addMemoryBlock } from '../helpers';
 
 /**
  * End-to-end checks for the shell-navigation capability: dismissing the app's
@@ -253,7 +254,7 @@ test('dismissing the delete confirmation keeps the block', async ({ page }) => {
   await open(page);
 
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
   const blockTab = page.getByRole('tab', { name: 'block1' });
   await expect(blockTab).toBeVisible();
 

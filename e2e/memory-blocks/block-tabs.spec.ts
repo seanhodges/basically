@@ -1,5 +1,6 @@
 // Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
 import { test, expect, type Page } from '../fixtures';
+import { addMemoryBlock } from '../helpers';
 
 /**
  * Block creation, settings and deletion from the editor tab strip:
@@ -43,7 +44,7 @@ test('the plus button creates blocks with sequential default names', async ({
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC']);
 
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
   // The new block's tab is active and shows the assembled return stub.
   await expect(page.getByRole('tab', { name: 'block1' })).toHaveAttribute(
@@ -54,7 +55,7 @@ test('the plus button creates blocks with sequential default names', async ({
   // Spectrum defaultAddress pins the origin strip.
   await expect(page.getByText('ORG $8000')).toBeVisible();
 
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
   await expect(tablist.getByRole('tab')).toHaveText([
     'BASIC',
     /block1/,
@@ -67,7 +68,7 @@ test('the context menu offers the block actions, and Settings edits its metadata
 }) => {
   await openSpectrum(page);
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
 
   await page.getByRole('tab', { name: 'block1' }).click({ button: 'right' });
   await expect(tabMenu(page)).toBeVisible();
@@ -111,7 +112,7 @@ test('Delete asks to confirm; Delete removes the block, Cancel keeps it', async 
 }) => {
   await openSpectrum(page);
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
   const blockTab = page.getByRole('tab', { name: 'block1' });
   await expect(blockTab).toBeVisible();
 

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useIdeStore } from '../app/store';
+import { useIdeStore, selectActiveSource } from '../app/store';
 import { buildOutline, outlineCapabilities } from '../editor/programOutline';
 import dialog from './Dialog.module.css';
 import styles from './ProcedureListDialog.module.css';
@@ -11,7 +11,9 @@ import styles from './ProcedureListDialog.module.css';
 export function ProcedureListDialog() {
   const open = useIdeStore((s) => s.procedureListOpen);
   const setOpen = useIdeStore((s) => s.setProcedureListOpen);
-  const source = useIdeStore((s) => s.source);
+  // Outlines the buffer on screen - the jump targets it lists are the ones the
+  // editor can move the cursor to.
+  const source = useIdeStore(selectActiveSource);
   const dialect = useIdeStore((s) => s.dialect);
   const requestJumpToLine = useIdeStore((s) => s.requestJumpToLine);
 

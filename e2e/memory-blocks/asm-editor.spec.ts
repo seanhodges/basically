@@ -77,15 +77,13 @@ async function autosavedBlocks(
 const asmContent = (page: Page) =>
   page.locator('.cm-editor').last().locator('.cm-content');
 
-test('a blockless document still shows the strip: BASIC plus the new-block button', async ({
+test('a blockless document still shows the strip: BASIC plus the new-tab button', async ({
   page,
 }) => {
   await seedProject(page, null);
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC']);
-  await expect(
-    tablist.getByRole('button', { name: 'New block' }),
-  ).toBeVisible();
+  await expect(tablist.getByRole('button', { name: 'New tab' })).toBeVisible();
 });
 
 test('block tabs appear; the code block opens an editable disassembly', async ({

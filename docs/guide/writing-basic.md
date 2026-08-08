@@ -90,6 +90,18 @@ The sections that appear depend on the dialect: a machine with `PROC`/`FN`
 definitions lists **Procedures** and **Functions**, and every dialect groups the
 lines its `GOSUB`s and `GOTO`s jump to under **Subroutines** and **GOTOs**.
 
+### Scratch buffers
+
+To try something out without editing your program, press **+** after the last
+tab and choose **New scratch buffer**. Open as many as you like and click a tab
+to switch; each one is edited exactly like the program.
+
+**▶ Play runs the buffer you are looking at** - the button names it, so it reads
+**▶ Play Scratch 1** - and a snippet takes your
+[machine-code blocks](./machine-code) with it, which makes a scratch buffer a
+good place to test a `RANDOMIZE USR` or `SYS` call. Breakpoints belong to the
+buffer they were set on.
+
 ## Keeping an eye on memory as you write
 
 Retro machines have very little RAM, and two of the IDE's tools help you stay

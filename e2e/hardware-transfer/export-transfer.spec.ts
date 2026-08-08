@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { test, expect, type Page } from '../fixtures';
 import {
+  addMemoryBlock,
   fileMenu,
   forceFallbackFilePickers,
   installDialogHandler,
@@ -139,7 +140,7 @@ async function openC64WithBlock(page: Page) {
   await expect(page.locator('.cm-content').first()).toBeVisible();
   // Add a memory block so the document holds something the .prg can't carry.
   const tablist = page.getByRole('tablist', { name: 'Editor content' });
-  await tablist.getByRole('button', { name: 'New block' }).click();
+  await addMemoryBlock(page);
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /block1/]);
 }
 

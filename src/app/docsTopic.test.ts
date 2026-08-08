@@ -8,6 +8,7 @@ import {
   referenceTopic,
   referenceTopicFor,
 } from './docsTopic';
+import { BASIC_TAB } from './store';
 
 describe('referenceTopic', () => {
   it('returns null when the selection is empty or whitespace only', () => {
@@ -83,14 +84,14 @@ describe('referenceTopicFor', () => {
       referenceTopicFor({
         dialect: getDialect('zxspectrum'),
         editorSelection: 'PUSH HL',
-        activeBlockId: 'listing-0',
+        activeTab: { kind: 'block', id: 'listing-0' },
       }),
     ).toBe('reference/z80-assembly?q=PUSH');
     expect(
       referenceTopicFor({
         dialect: getDialect('commodore64'),
         editorSelection: 'JSR $FFD2',
-        activeBlockId: 'block-1',
+        activeTab: { kind: 'block', id: 'block-1' },
       }),
     ).toBe('reference/6502-assembly?q=JSR');
   });
@@ -100,7 +101,7 @@ describe('referenceTopicFor', () => {
       referenceTopicFor({
         dialect: getDialect('commodore64'),
         editorSelection: 'POKE',
-        activeBlockId: null,
+        activeTab: BASIC_TAB,
       }),
     ).toBe('reference/commodore?q=POKE');
   });
@@ -119,7 +120,7 @@ describe('referenceTopicFor', () => {
         topic: referenceTopicFor({
           dialect: d,
           editorSelection: '',
-          activeBlockId: 'x',
+          activeTab: { kind: 'block', id: 'x' },
         }),
       }))
       .filter(({ topic }) => !existsSync(`${docsDir}${topic}.md`));
@@ -131,7 +132,7 @@ describe('openingTopicFor', () => {
   const base = {
     dialect: getDialect('commodore64'),
     editorSelection: 'POKE',
-    activeBlockId: null,
+    activeTab: BASIC_TAB,
   };
 
   it('opens on the comparison offered for the open program when there is one', () => {
@@ -167,7 +168,7 @@ describe('openingTopicFor', () => {
       openingTopicFor({
         ...base,
         editorSelection: 'JSR $FFD2',
-        activeBlockId: 'block-1',
+        activeTab: { kind: 'block', id: 'block-1' },
         docsProgramTopic: 'reference/compare?from=commodore64&to=zx81',
       }),
     ).toBe('reference/compare?from=commodore64&to=zx81');

@@ -1,5 +1,6 @@
 import type { Cpu } from '../asm/types';
 import type { Dialect } from '../dialects/types';
+import type { ActiveTab } from './store';
 
 /** First whitespace-delimited token of a selection (a stray trailing space or a
  * two-word drag still resolves to a single keyword). */
@@ -48,17 +49,19 @@ export function asmReferenceTopic(cpu: Cpu, selection: string): string {
 export interface ReferenceTopicState {
   dialect: Dialect;
   editorSelection: string;
-  activeBlockId: string | null;
+  activeTab: ActiveTab;
 }
 
 /**
  * Pick the right reference topic for the current context: with a machine-code
  * block tab active on a CPU-backed dialect, the assembly reference for that CPU
  * (seeded to the selected mnemonic); otherwise the dialect's BASIC reference.
+ * A scratch buffer holds BASIC, so it takes the BASIC reference like the
+ * program does.
  */
 export function referenceTopicFor(state: ReferenceTopicState): string | null {
   const cpu = state.dialect.memoryBlocks?.cpu;
-  if (state.activeBlockId !== null && cpu) {
+  if (state.activeTab.kind === 'block' && cpu) {
     return asmReferenceTopic(cpu, state.editorSelection);
   }
   return referenceTopic(state.dialect, state.editorSelection);

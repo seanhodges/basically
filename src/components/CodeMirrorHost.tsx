@@ -64,7 +64,11 @@ import { binaryLineExtension } from '../editor/binaryLineWidget';
 import { controlChipExtension } from '../editor/controlChipWidget';
 import { numberingConfig, fullCompletion } from '../editor/completions';
 import { crunchMatcher } from '../editor/crunch';
-import { useIdeStore } from '../app/store';
+import {
+  useIdeStore,
+  selectActiveBreakpoints,
+  selectVisibleDebugLine,
+} from '../app/store';
 import type { EditorCommandName } from '../app/store';
 import { openDroppedFile } from '../app/fileCommands';
 import {
@@ -680,7 +684,7 @@ export function CodeMirrorHost({
           fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
         ]),
         breakpointCompartment.of(
-          combinedGutterExt(useIdeStore.getState().breakpoints),
+          combinedGutterExt(selectActiveBreakpoints(useIdeStore.getState())),
         ),
         lintGutterMarkerField,
         debugLineField,
@@ -874,8 +878,9 @@ export function CodeMirrorHost({
     });
   }, [autoLineNumbering, lineNumberIncrement, fullCodeCompletion]);
 
-  // Re-render the combined gutter whenever the breakpoint set changes.
-  const breakpoints = useIdeStore((s) => s.breakpoints);
+  // Re-render the combined gutter whenever the breakpoint set changes - the set
+  // of the buffer on screen, so the dots always belong to the code they mark.
+  const breakpoints = useIdeStore(selectActiveBreakpoints);
   useEffect(() => {
     viewRef.current?.dispatch({
       effects: breakpointCompartment.reconfigure(
@@ -886,8 +891,9 @@ export function CodeMirrorHost({
 
   // Highlight (and scroll to) the line the debugger is paused on. Breakpoints
   // and the paused line are tracked by BASIC line number, so map to an editor
-  // row here; clear the highlight when there's no paused line.
-  const debugLine = useIdeStore((s) => s.debugLine);
+  // row here; clear the highlight when there's no paused line, or when the
+  // pause belongs to a buffer other than the one on screen.
+  const debugLine = useIdeStore(selectVisibleDebugLine);
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;

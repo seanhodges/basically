@@ -11,10 +11,13 @@ import type { MemoryBlock } from '../dialects/types';
 import styles from './EditorTabBar.module.css';
 
 /**
- * Which tab a context menu belongs to: the BASIC source tab, or a memory
- * block by id.
+ * Which tab a context menu belongs to: the BASIC source tab, a memory block by
+ * id, or a scratch buffer by id.
  */
-type TabTarget = { kind: 'basic' } | { kind: 'block'; blockId: string };
+type TabTarget =
+  | { kind: 'basic' }
+  | { kind: 'block'; blockId: string }
+  | { kind: 'scratch'; scratchId: string };
 
 /** An open tab context menu: which tab, anchored where (viewport px). */
 interface TabMenu {
@@ -27,31 +30,44 @@ interface TabMenu {
 const MENU_WIDTH_PX = 160;
 
 /**
- * The editor pane's tab strip: the BASIC source plus one tab per memory
- * block, then a plus button that creates a new block. Always visible for a
- * dialect with the `memoryBlocks` capability (every current dialect), so
- * block creation is discoverable on a pure-BASIC document. Lives inside
- * `.editorPane`, above the editor, so it composes with the mobile pane
- * switcher unchanged.
+ * The editor pane's tab strip: the BASIC source, one tab per memory block, then
+ * one per scratch buffer, then a plus button whose menu creates either. Always
+ * rendered - scratch buffers are dialect-independent, so the strip is not gated
+ * on the `memoryBlocks` capability (only the block tabs and the new-block menu
+ * item are). Lives inside `.editorPane`, above the editor, so it composes with
+ * the mobile pane switcher unchanged.
  *
  * Right-clicking or long-pressing a tab opens a context menu. The BASIC tab
  * offers "Download .bas" (the single-file export that used to be File → Save's
  * plain-text listing). A block tab offers "Download .bin" (its bytes) and, for
  * a code block, "Download .asm" (its assembly source), plus "Settings" (the
  * block-metadata dialog) and "Delete" (the confirm-delete dialog) - the main
- * program can never be deleted.
+ * program can never be deleted. A scratch tab offers "Rename", "Download .bas"
+ * and "Close"; closing is unconfirmed, since a scratch buffer is disposable by
+ * definition.
  */
 export function EditorTabBar() {
   const dialect = useIdeStore((s) => s.dialect);
   const blocks = useBlocks();
-  const activeBlockId = useIdeStore((s) => s.activeBlockId);
-  const setActiveBlock = useIdeStore((s) => s.setActiveBlock);
+  const activeTab = useIdeStore((s) => s.activeTab);
+  const scratchBuffers = useIdeStore((s) => s.scratchBuffers);
+  const setActiveTab = useIdeStore((s) => s.setActiveTab);
   const addBlock = useIdeStore((s) => s.addBlock);
+  const addScratchBuffer = useIdeStore((s) => s.addScratchBuffer);
+  const renameScratchBuffer = useIdeStore((s) => s.renameScratchBuffer);
+  const closeScratchBuffer = useIdeStore((s) => s.closeScratchBuffer);
   const requestRemoveBlock = useIdeStore((s) => s.requestRemoveBlock);
   const openBlockSettings = useIdeStore((s) => s.openBlockSettings);
   const asmErrorBlocks = useIdeStore((s) => s.asmErrorBlocks);
 
   const [menu, setMenu] = useState<TabMenu | null>(null);
+  // The plus button's menu (new scratch buffer / new block), anchored under the
+  // button rather than at a pointer position.
+  const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
+  // The scratch buffer being renamed in place, or null. The tab becomes a text
+  // input for the duration; there is no dialog for a name nothing resolves by.
+  const [renaming, setRenaming] = useState<string | null>(null);
+
   const openMenu = (target: TabTarget, pos: { x: number; y: number }) =>
     setMenu({
       target,
@@ -60,6 +76,9 @@ export function EditorTabBar() {
     });
   const menuRef = useDismiss<HTMLDivElement>(menu !== null, () =>
     setMenu(null),
+  );
+  const addMenuRef = useDismiss<HTMLDivElement>(addMenu !== null, () =>
+    setAddMenu(null),
   );
   const longPress = useLongPress<TabTarget>(openMenu);
 
@@ -76,6 +95,18 @@ export function EditorTabBar() {
     downloadBlob(
       new Blob([source], { type: 'text/plain' }),
       withExtension(fileName, '.bas'),
+    );
+  };
+
+  /** Download a scratch buffer's text as `<name>.bas`. */
+  const downloadScratch = (id: string) => {
+    const buffer = useIdeStore
+      .getState()
+      .scratchBuffers.find((b) => b.id === id);
+    if (!buffer) return;
+    downloadBlob(
+      new Blob([buffer.text], { type: 'text/plain' }),
+      withExtension(buffer.name, '.bas'),
     );
   };
 
@@ -99,24 +130,24 @@ export function EditorTabBar() {
     downloadBlob(new Blob([asm], { type: 'text/plain' }), `${block.name}.asm`);
   };
 
-  if (!dialect.memoryBlocks) return null;
-
   let menuBlock: MemoryBlock | null = null;
   if (menu && menu.target.kind === 'block') {
     const { blockId } = menu.target;
     menuBlock = blocks.find((b) => b.id === blockId) ?? null;
   }
+  const menuScratchId =
+    menu?.target.kind === 'scratch' ? menu.target.scratchId : null;
 
   return (
     <div className={styles.tabBar} role="tablist" aria-label="Editor content">
       <button
         role="tab"
-        aria-selected={activeBlockId === null}
+        aria-selected={activeTab.kind === 'basic'}
         aria-label="BASIC"
         title="BASIC (right-click or long-press to download)"
-        className={activeBlockId === null ? 'active' : ''}
+        className={activeTab.kind === 'basic' ? 'active' : ''}
         onClick={() => {
-          if (!longPress.consumeFired()) setActiveBlock(null);
+          if (!longPress.consumeFired()) setActiveTab({ kind: 'basic' });
         }}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -130,7 +161,9 @@ export function EditorTabBar() {
         <button
           key={block.id}
           role="tab"
-          aria-selected={block.id === activeBlockId}
+          aria-selected={
+            activeTab.kind === 'block' && activeTab.id === block.id
+          }
           aria-label={block.name}
           title={
             (block.kind === 'code'
@@ -138,11 +171,16 @@ export function EditorTabBar() {
               : `${block.name} - data block`) +
             ' (right-click or long-press for options)'
           }
-          className={block.id === activeBlockId ? 'active' : ''}
+          className={
+            activeTab.kind === 'block' && activeTab.id === block.id
+              ? 'active'
+              : ''
+          }
           onClick={() => {
             // Swallow the click that follows a completed long-press so the
             // tab doesn't also activate under the context menu.
-            if (!longPress.consumeFired()) setActiveBlock(block.id);
+            if (!longPress.consumeFired())
+              setActiveTab({ kind: 'block', id: block.id });
           }}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -166,14 +204,111 @@ export function EditorTabBar() {
           )}
         </button>
       ))}
+      {scratchBuffers.map((buffer) =>
+        renaming === buffer.id ? (
+          <input
+            key={buffer.id}
+            className={styles.renameInput}
+            aria-label={`Rename ${buffer.name}`}
+            defaultValue={buffer.name}
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            onBlur={(e) => {
+              renameScratchBuffer(buffer.id, e.currentTarget.value);
+              setRenaming(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+              // Escape abandons the rename: blur would commit what was typed.
+              else if (e.key === 'Escape') setRenaming(null);
+            }}
+          />
+        ) : (
+          <button
+            key={buffer.id}
+            role="tab"
+            aria-selected={
+              activeTab.kind === 'scratch' && activeTab.id === buffer.id
+            }
+            aria-label={buffer.name}
+            title={`${buffer.name} - scratch buffer, not part of the document (right-click or long-press for options)`}
+            className={
+              activeTab.kind === 'scratch' && activeTab.id === buffer.id
+                ? 'active'
+                : ''
+            }
+            onClick={() => {
+              if (!longPress.consumeFired())
+                setActiveTab({ kind: 'scratch', id: buffer.id });
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              openMenu(
+                { kind: 'scratch', scratchId: buffer.id },
+                { x: e.clientX, y: e.clientY },
+              );
+            }}
+            {...longPress.bind({ kind: 'scratch', scratchId: buffer.id })}
+          >
+            {/* Distinct from the block glyphs (⚙ code, ▤ data) so a scratch
+                buffer reads as not part of the document. */}
+            <span className={styles.kindGlyph} aria-hidden="true">
+              ✎
+            </span>
+            <span className={styles.tabName}>{buffer.name}</span>
+          </button>
+        ),
+      )}
       <button
         className={styles.addTab}
-        aria-label="New block"
-        title="New machine code block"
-        onClick={addBlock}
+        aria-label="New tab"
+        aria-haspopup="menu"
+        aria-expanded={addMenu !== null}
+        title="New scratch buffer or machine code block"
+        onClick={(e) => {
+          if (addMenu !== null) {
+            setAddMenu(null);
+            return;
+          }
+          const rect = e.currentTarget.getBoundingClientRect();
+          setAddMenu({
+            x: Math.min(rect.left, window.innerWidth - MENU_WIDTH_PX),
+            y: rect.bottom,
+          });
+        }}
       >
         +
       </button>
+      {addMenu && (
+        <div
+          ref={addMenuRef}
+          className={styles.contextMenu}
+          role="menu"
+          aria-label="New tab"
+          style={{ left: addMenu.x, top: addMenu.y }}
+        >
+          <button
+            role="menuitem"
+            onClick={() => {
+              setAddMenu(null);
+              addScratchBuffer();
+            }}
+          >
+            New scratch buffer
+          </button>
+          {dialect.memoryBlocks && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setAddMenu(null);
+                addBlock();
+              }}
+            >
+              New machine code block
+            </button>
+          )}
+        </div>
+      )}
       {menu && (
         <div
           ref={menuRef}
@@ -192,6 +327,37 @@ export function EditorTabBar() {
             >
               Download .bas
             </button>
+          ) : menuScratchId !== null ? (
+            <>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  setRenaming(menuScratchId);
+                }}
+              >
+                Rename…
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  downloadScratch(menuScratchId);
+                }}
+              >
+                Download .bas
+              </button>
+              <div className={styles.menuSeparator} />
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  closeScratchBuffer(menuScratchId);
+                }}
+              >
+                Close
+              </button>
+            </>
           ) : menuBlock ? (
             <>
               {menuBlock.kind === 'code' && (
