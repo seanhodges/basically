@@ -236,5 +236,16 @@ test.describe('narrowed to the open program', () => {
     await expect(marked.first()).toBeVisible();
     expect(await marked.count()).toBeGreaterThanOrEqual(2);
     await expect(layout).toContainText('writes to');
+
+    // And the conclusion the marks leave to the eye is stated: $0400 is the
+    // C64's screen and the ZX81's ROM, so that POKE does nothing at all there.
+    // Read here rather than in a unit test because it is the whole point of
+    // the section for a reader meeting the maps one narrow tab at a time -
+    // the verdicts have to reach them without the picture.
+    const landings = layout.locator('.cmp-landings');
+    await expect(landings).toContainText('Where these writes land');
+    await expect(landings).toContainText('1024');
+    await expect(landings).toContainText('Screen memory on C64');
+    await expect(landings).toContainText('read-only');
   });
 });

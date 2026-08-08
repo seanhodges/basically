@@ -190,6 +190,20 @@ describe('the turn a port actually sends', () => {
         ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "$%&\'()*+,-./:;<=>?',
       ],
       multiStatementLines: Array.from({ length: 100 }, (_, i) => i + 1),
+      extraStatements: 100,
+      lineNumbers: { lowest: 10, highest: 1000, count: 100 },
+      // Writes spread across three of the C64's areas, so the landing verdicts
+      // are inside the bound too. Grouped by what they reach on the target,
+      // they are a few lines rather than one per address - which is the
+      // property the bound would catch the loss of.
+      writeSites: [1024, 1025, 1026, 53280, 53281, 54272, 54273].map(
+        (address) => ({
+          address,
+          expr: String(address),
+          computed: false,
+          approximate: false,
+        }),
+      ),
     });
     expect(report).not.toBeNull();
     // Around 3,800 characters today. The bound is loose enough to survive

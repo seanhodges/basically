@@ -34,6 +34,7 @@ import {
   truncatedArithmeticForProgram,
   unsupportedCharactersForProgram,
   variableCollisionsForProgram,
+  writeLandingsForProgram,
   type EscapeChange,
   type FalseFriendWarning,
   type KeywordChange,
@@ -45,7 +46,12 @@ import {
   type StatementLayoutChange,
   type TruncatedArithmetic,
   type VariableCollision,
+  type WriteLanding,
 } from './compare';
+// Type-only, exactly as in ./compare.ts, and for the same reason: a memory map
+// is plain data that arrives as an argument, and the import erases at build
+// time rather than reaching a runtime module in `src/dialects/`.
+import type { MemoryMap } from '../dialects/types';
 import { domainGuidance } from './domain-guidance';
 import { KEYWORD_DOMAINS } from './domains';
 import { portingFacts } from './facts';
@@ -76,6 +82,13 @@ export interface PortSide extends MachineIdentity {
   table: ReferenceTableData;
   /** Its escape table, where its page has one. */
   escapes?: EscapeTableData;
+  /**
+   * Its memory layout, where the IDE describes one. Absent for a machine whose
+   * layout it cannot describe, which leaves the program's writes unjudged
+   * rather than judged against a guess - the same rule the comparison page
+   * follows when it draws no maps at all for such a pair.
+   */
+  memoryMap?: MemoryMap;
 }
 
 /** `- Commodore C64 (1982), running Commodore BASIC V2.`, less the bullet. */
@@ -456,6 +469,48 @@ function describeChangedEscapes(
 }
 
 /**
+ * Where this program's writes land on the target machine.
+ *
+ * The finding nothing in the program's text can carry: the addresses are valid
+ * where they were written, they survive the port unchanged, and on the target
+ * they reach whatever that machine keeps there. No command list, control-code
+ * table or language rule reports it.
+ *
+ * Both regions are named for the verdicts that have two halves, because either
+ * alone leaves the assistant to guess the other - a write aimed at the screen
+ * that reaches the BASIC program text is a different job from one that reaches
+ * a spare page of RAM. Every address in a group is named rather than counted:
+ * unlike the comparison page there is nothing here to click on, and the
+ * addresses are what the edits are made at.
+ *
+ * An approximate address says so. The assistant is told the verdict is an
+ * estimate rather than being handed a conclusion the analysis cannot support.
+ */
+function describeWriteLandings(
+  landings: WriteLanding[],
+  from: PortSide,
+  to: PortSide,
+): string {
+  if (landings.length === 0) return '';
+  const lines = landings.map((landing) => {
+    const addresses = landing.addresses.join(', ');
+    const aimed = `${landing.from?.label ?? 'memory'} on ${from.name}`;
+    const reached = landing.to?.label ?? '';
+    const verdict = {
+      'different-kind': `${aimed}; ${reached} on ${to.name} — the write reaches something else entirely.`,
+      'read-only': `${aimed}; ${reached} on ${to.name}, which is read-only — the write has no effect at all, and the line looks skipped.`,
+      outside: `${aimed}. ${to.name} has no such address, so the write has nowhere to go.`,
+      'same-kind': `${aimed}; ${reached} on ${to.name} — the same kind of memory in a different place, so the address still has to change.`,
+    }[landing.verdict];
+    const estimate = landing.approximate
+      ? ' The address could only be estimated, so this is an estimate: the region is right, the exact byte may not be.'
+      : '';
+    return `- ${addresses}: ${verdict}${estimate}`;
+  });
+  return `WHERE THIS PROGRAM'S WRITES LAND ON THE ${to.name.toUpperCase()}\n${lines.join('\n')}`;
+}
+
+/**
  * What this port requires, as the assistant is told it.
  *
  * `vocabulary` is required rather than nullable: a request is never assembled
@@ -560,6 +615,14 @@ export function describePort(
     escapes !== undefined
       ? describeChangedEscapes(escapes.behaviourChanged, from, to)
       : '',
+    // Where the comparison page puts it: with the memory layout, after the
+    // control codes. Empty for a pair either of whose layouts is undescribed,
+    // which is the condition that leaves that page drawing no maps either.
+    describeWriteLandings(
+      writeLandingsForProgram(from.memoryMap, to.memoryMap, vocabulary),
+      from,
+      to,
+    ),
     describeCharactersToReplace(characters, to),
     describeStatementLayout(layout, to),
     describeLineNumbers(lineNumbers, to),

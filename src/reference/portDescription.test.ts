@@ -43,6 +43,10 @@ import { machines } from './machines';
 import { keywordEquivalences } from './porting';
 import { describePort, type PortSide } from './portDescription';
 import type { EscapeTableData, ReferenceTableData } from './types';
+import type { MemoryMap } from '../dialects/types';
+import { c64MemoryMap } from '../dialects/commodore64/memoryMap';
+import { spectrumMemoryMap } from '../dialects/zxspectrum/memoryMap';
+import { zx81MemoryMap } from '../dialects/zx81/memoryMap';
 
 const REFERENCES: Record<string, ReferenceTableData> = {
   atom: atomReference,
@@ -67,6 +71,20 @@ const ESCAPES: Record<string, EscapeTableData> = {
   zxspectrum: zxspectrumEscapes,
 };
 
+/**
+ * The memory layouts the write-landing verdicts are judged against, for the
+ * machines these tests port between. Keyed by machine id, not by page: two
+ * machines on one page can lay their memory out quite differently.
+ *
+ * `src/ai/portReport.ts` takes each from the dialect itself; here they are
+ * imported directly, which is the same data by a shorter route.
+ */
+const MEMORY_MAPS: Record<string, MemoryMap> = {
+  commodore64: c64MemoryMap,
+  zxspectrum: spectrumMemoryMap,
+  zx81: zx81MemoryMap,
+};
+
 /** One end of a port, assembled the way `src/ai/portReport.ts` assembles it. */
 function side(id: string): PortSide {
   const machine = machines.find((m) => m.id === id);
@@ -75,6 +93,7 @@ function side(id: string): PortSide {
     ...machine,
     table: REFERENCES[machine.page]!,
     escapes: ESCAPES[machine.page],
+    memoryMap: MEMORY_MAPS[machine.id],
   };
 }
 
@@ -590,6 +609,113 @@ describe('the control codes that change meaning', () => {
     const zx81 = side('zx81');
     const none = vocabulary('zx80', ['PRINT'], []);
     expect(section(describePort(zx80, zx81, none), HEADING)).toBe('');
+  });
+});
+
+describe('where the program’s writes land', () => {
+  const HEADING = "WHERE THIS PROGRAM'S WRITES LAND ON THE";
+  const site = (address: number, approximate = false) => ({
+    address,
+    expr: String(address),
+    computed: false,
+    approximate,
+  });
+  const poking = (dialectId: string, addresses: number[]) =>
+    vocabulary(
+      dialectId,
+      ['POKE'],
+      [],
+      [],
+      [],
+      addresses.map((a) => site(a)),
+    );
+
+  it('reports a write into the target’s ROM as having no effect', () => {
+    // 1024/$0400 is the C64's screen and the ZX81's ROM. Nothing else in the
+    // report can say this: POKE exists on both machines, so the statement
+    // survives the port and quietly does nothing.
+    const s = section(
+      describePort(
+        side('commodore64'),
+        side('zx81'),
+        poking('commodore64', [1024]),
+      ),
+      HEADING,
+    );
+    expect(s).toContain('ON THE ZX81');
+    expect(s).toContain('1024:');
+    expect(s).toContain('Screen memory on C64');
+    expect(s).toContain('read-only');
+  });
+
+  it('names both what a write aimed at and what it reaches', () => {
+    // 53280/$D020 is the C64's border colour; the ZX81 mirrors its own RAM
+    // there, so the write corrupts something rather than doing nothing.
+    const s = section(
+      describePort(
+        side('commodore64'),
+        side('zx81'),
+        poking('commodore64', [53280]),
+      ),
+      HEADING,
+    );
+    expect(s).toContain('VIC-II registers on C64');
+    expect(s).toContain('Echo of RAM on ZX81');
+  });
+
+  it('reports an estimated address as an estimate', () => {
+    const program = vocabulary(
+      'commodore64',
+      ['POKE'],
+      [],
+      [],
+      [],
+      [site(53280, true)],
+    );
+    const s = section(
+      describePort(side('commodore64'), side('zx81'), program),
+      HEADING,
+    );
+    expect(s).toContain('only be estimated');
+  });
+
+  it('reports several writes into one region as one finding', () => {
+    const s = section(
+      describePort(
+        side('commodore64'),
+        side('zx81'),
+        poking('commodore64', [54272, 54273, 54274]),
+      ),
+      HEADING,
+    );
+    expect(s.split('\n').filter((l) => l.startsWith('- '))).toHaveLength(1);
+    expect(s).toContain('54272, 54273, 54274:');
+  });
+
+  it('reports nothing where a machine has no described layout', () => {
+    // The TRS-80's layout is undescribed, so the writes are left unjudged
+    // rather than judged against a guess - the same rule that leaves the
+    // comparison page drawing no maps at all for such a pair.
+    const program = poking('commodore64', [1024]);
+    expect(
+      section(
+        describePort(side('commodore64'), side('trs80'), program),
+        HEADING,
+      ),
+    ).toBe('');
+    expect(
+      section(describePort(side('trs80'), side('zx81'), program), HEADING),
+    ).toBe('');
+  });
+
+  it('reports nothing where the program writes to nothing', () => {
+    const program = vocabulary('commodore64', ['PRINT']);
+    expect(
+      section(
+        describePort(side('commodore64'), side('zx81'), program),
+        HEADING,
+      ),
+    ).toBe('');
   });
 });
 
