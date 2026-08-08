@@ -5,8 +5,8 @@
  * The whole-document export round trip: export a sample that bundles memory
  * blocks through the dialect's native container format, import the artifact
  * back, and assert the ENTIRE program - BASIC source and every block -
- * survived. One case per dialect with a block-aware export (ZX Spectrum
- * today; others join here as their block export ships).
+ * survived. One case per dialect with a block-aware export; a dialect joins
+ * here as its block-aware export ships.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -14,6 +14,9 @@ import { getDialect } from './registry';
 import { exportImportRoundTrip } from './exportRoundTripHarness';
 import { materializeSampleBlocks } from '../app/sampleBlocks';
 import type { MemoryBlock } from './types';
+import { exportTapBlockList as spectrumTape } from './zxspectrum/targets';
+import { exportTapBlockList as spectrum128Tape } from './zxspectrum128/targets';
+import { headerName, type TapBlock } from './zxspectrum/tapfile';
 
 describe('zxspectrum kaleidoscope .TAP export round trip', () => {
   const dialect = getDialect('zxspectrum');
@@ -75,6 +78,88 @@ describe('zxspectrum kaleidoscope .TAP export round trip', () => {
     // The main program auto-starts at its first line, as the loader's final
     // LOAD "" expects.
     expect(outcome.autoStart).toBe(10);
+  });
+});
+
+describe('zxspectrum128 kaleidoscope .TAP export round trip', () => {
+  const dialect = getDialect('zxspectrum128');
+  const sample = dialect.samples.find((s) => s.name === 'kaleido.bas')!;
+  const blocks = materializeSampleBlocks(dialect, sample);
+
+  it('the sample bundles the 48K machine-code block verbatim', () => {
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.name).toBe('kaleido');
+    expect(blocks[0]!.address).toBe(0x8000);
+    expect(blocks[0]!.bytes.length).toBeGreaterThan(0);
+  });
+
+  it('loader-off export preserves the entire program', async () => {
+    const outcome = await exportImportRoundTrip(
+      dialect,
+      sample.text,
+      'kaleido',
+      blocks,
+      { targetId: 'tap-file', loader: false },
+    );
+
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.programByteExact).toBe(true);
+    expect(outcome.blocks).toHaveLength(1);
+    const block = outcome.blocks[0]!;
+    expect(block.name).toBe('kaleido');
+    expect(block.address).toBe(0x8000);
+    expect(Array.from(block.bytes)).toEqual(Array.from(blocks[0]!.bytes));
+    // Loader-off is the classic load-only layout: nothing auto-runs and no
+    // extra tape files ride along.
+    expect(outcome.autoStart).toBeNull();
+    expect(outcome.tapeFiles).toEqual([]);
+  });
+
+  it('loader-on export re-imports with the loader preserved on tape', async () => {
+    const outcome = await exportImportRoundTrip(
+      dialect,
+      sample.text,
+      'kaleido',
+      blocks,
+      { targetId: 'tap-file', loader: true },
+    );
+
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.programByteExact).toBe(true);
+    expect(outcome.blocks).toHaveLength(1);
+    expect(Array.from(outcome.blocks[0]!.bytes)).toEqual(
+      Array.from(blocks[0]!.bytes),
+    );
+    expect(outcome.tapeFiles).toHaveLength(1);
+    expect(outcome.warnings.length).toBeGreaterThan(0);
+    expect(outcome.autoStart).toBe(10);
+  });
+
+  // The two machines write the same tape format from separate layout
+  // functions, each over its own tokenizer. A round trip cannot see them
+  // drifting - a re-ordered tape still imports perfectly and only fails on
+  // real hardware - so compare the tape shape directly.
+  it('writes the same tape shape as the 48K for the same document', () => {
+    const shape = (list: TapBlock[]) =>
+      // Each tape file is a header block then a data block, so the headers sit
+      // at even indices. Type, name and param1 (load address, or auto-start
+      // line for a program) are what "same shape" means.
+      list
+        .filter((_, i) => i % 2 === 0)
+        .map((b) => {
+          const header = b.bytes.slice(1, 18);
+          return {
+            type: header[0]!,
+            name: headerName(header.slice(1, 11)),
+            param1: header[13]! | (header[14]! << 8),
+          };
+        });
+
+    for (const loader of [false, true]) {
+      expect(
+        shape(spectrum128Tape(sample.text, 'kaleido', blocks, loader)),
+      ).toEqual(shape(spectrumTape(sample.text, 'kaleido', blocks, loader)));
+    }
   });
 });
 

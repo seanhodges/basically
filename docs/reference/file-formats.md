@@ -115,7 +115,7 @@ Some programs load machine code or data at a fixed address alongside the BASIC
 program. The IDE keeps these as named **memory blocks**; on Run they are written
 straight into RAM before the program starts, and they travel with the document
 through the [project bundle](#project-bundle-zip) and through
-[share links](../guide/publishing). The ZX Spectrum `.TAP`, the Commodore `.d64`,
+[share links](../guide/publishing). The ZX Spectrum `.TAP` (48K & 128K), the Commodore `.d64`,
 the BBC `.ssd`, and the Atom and TRS-80 `.dsk` disc images carry blocks in
 **both directions** (see each machine's page —
 [`.TAP`](./zxspectrum/formats#zx-spectrum-tap),
