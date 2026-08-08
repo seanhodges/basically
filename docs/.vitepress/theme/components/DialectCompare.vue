@@ -950,33 +950,16 @@ const legend = computed<LegendItem[]>(() => {
  * between two machines looks like the latter: the addresses it draws are ones
  * the port has to change.
  *
- * Each class is introduced by a lead-in conditioned on the sections it
+ * The order is what carries this; only two classes announce themselves in
+ * prose, and each of those lead-ins is conditioned on the sections it
  * introduces, so a class this pair produces nothing for is absent rather than
- * announced empty, and the classes around it stay in order.
+ * announced empty.
  */
 const hasBlockingWork = computed(
   () =>
     charactersToReplace.value.length > 0 ||
     statementLayout.value !== null ||
     lineNumbers.value !== null,
-);
-const hasMechanicalWork = computed(
-  () => (keywordDiff.value?.renamed.length ?? 0) > 0,
-);
-/**
- * The rewrites *after* the section the renames share. The commands whose usage
- * differs are rewrite work too, but they are reported in one account with the
- * renames, so that section stands at the head of this run rather than under its
- * lead-in - what this introduces is what follows it.
- */
-const hasRewriteWork = computed(
-  () =>
-    capabilities.value.length > 0 ||
-    escReplaceSections.value.length +
-      escapeAdded.value +
-      escapeRechecked.value.length >
-      0 ||
-    memoryPair.value !== null,
 );
 const hasSilentWork = computed(
   () =>
@@ -1512,12 +1495,6 @@ watch(to, requestVocabulary);
         </p>
       </section>
 
-      <p v-if="hasMechanicalWork" class="cmp-stage">
-        <strong>Then the mechanical work.</strong>
-        Worth doing first because it is cheap: it leaves fewer unfamiliar
-        spellings in the program the rewrites are done against.
-      </p>
-
       <!--
         Renames and usage changes share a premise - the command is on both
         machines, written differently - so they share a section; a rename is
@@ -1597,11 +1574,6 @@ watch(to, requestVocabulary);
           </li>
         </ul>
       </section>
-
-      <p v-if="hasRewriteWork" class="cmp-stage">
-        <strong>Then what has to be rewritten.</strong>
-        The bulk of the port, and the part that decides the shape of the result.
-      </p>
 
       <!--
         One account per capability: what the port loses here, what to do
@@ -2010,12 +1982,6 @@ watch(to, requestVocabulary);
           reorder so the multiply comes before the divide.
         </p>
       </section>
-
-      <p v-if="programFit && fitText" class="cmp-stage">
-        <strong>Finally, whether it still fits.</strong>
-        A property of the result, so it only settles once the work above is
-        done.
-      </p>
 
       <!--
         The one finding a port with nothing else to do can still fail - C64 to
