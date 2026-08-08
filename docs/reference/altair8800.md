@@ -30,34 +30,10 @@ interpreter that every later Microsoft BASIC descends from.
 - `PEEK`, `POKE`, `INP`, `OUT` and `WAIT` all take decimal addresses. There is
   no hexadecimal notation anywhere in this BASIC.
 
-## What this machine does not have
-
-The Altair predates almost everything a later Microsoft BASIC offers, and it is
-easier to say what is absent than to notice it missing:
-
-- **No `ELSE`** — write a second `IF`, or invert the test and jump.
-- **No key-at-a-time read** — there is no `INKEY$` and no `GET`, so an
-  interactive program takes one whole typed line per turn through `INPUT`.
-  Polling the console with `INP` does not work around it: BASIC reads the same
-  port looking for CTRL-C between every statement, and takes the character
-  first.
-- **No graphics, colour or sound** — the machine has no video hardware at all.
-  Output is 7-bit ASCII down a serial line to a terminal, so `PRINT` is the
-  whole repertoire: no `CLS`, no cursor addressing, and no display memory to
-  write to. A picture is built in an array and printed a character at a time.
-- **No file system** — `CSAVE` and `CLOAD` move the whole program to and from
-  cassette, and that is all. There is no `OPEN`, no `PRINT#` and no directory.
-- **No error trapping** — no `ON ERROR`, `ERR` or `RESUME`. An error stops the
-  program and prints its two-letter code, so test a value before the operation
-  that would fail.
-- **No `PRINT USING`, `INSTR`, `STRING$` or `SPACE$`**, and `MID$` is a function
-  only — unlike later Microsoft BASICs it cannot be assigned to.
-
 ## Supplying the interpreter
 
-Altair 8K BASIC is Microsoft copyright with no redistribution grant, so no image
-ships with this IDE and the machine cannot start without one. Everything on this
-page describes the language; running it needs your own copy of the 8K BASIC 4.0
-paper tape.
+Altair 8K BASIC is Microsoft copyright with no redistribution grant, no ROM
+ships with this IDE and the emulator cannot start without one. You can upload
+a ROM in the settings page.
 
 <ReferenceTable :data="altair8800Reference" />

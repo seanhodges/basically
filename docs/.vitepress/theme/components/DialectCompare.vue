@@ -538,10 +538,13 @@ const heldBack = computed(() => {
   );
 });
 
-// Some cmp-list's run to dozens of rows for dissimilar pairs (e.g. ZX81 →
-// BBC). Cap each at TRUNCATE_LIMIT and let the reader reveal the rest -
-// section headings still count the full array, only the rendered rows are
-// capped. `resetKey` re-collapses every list when the compared pair changes.
+// Some cmp-list's run to dozens of rows for dissimilar pairs (e.g. ZX81 → BBC),
+// and the grouped sections below them to a group per capability or category.
+// TRUNCATE_LIMIT is what each opens with before the reader reveals the rest;
+// what it counts is whatever the list holds - rows here, whole groups for the
+// grouped sections, which are never cut mid-group. Section headings and group
+// counts still read the full array, only what renders is capped. `resetKey`
+// re-collapses every list when the compared pair changes.
 const TRUNCATE_LIMIT = 10;
 
 function useTruncatedList<T>(
@@ -615,6 +618,7 @@ const escapeRecheckedList = useTruncatedList(
   pairKey,
 );
 
+
 const changedCount = computed(
   () => keywordDiff.value?.behaviourChanged.length ?? 0,
 );
@@ -662,6 +666,13 @@ const escReplaceSections = computed<EscapeSection[]>(() => {
       )
     : [];
 });
+// Capped by category rather than by code: a category is the unit the reader
+// acts on, and cutting one short would leave a group naming six of its 52 codes
+// with no way to tell that from a group of six.
+const escapeSectionList = useTruncatedList(
+  () => escReplaceSections.value,
+  pairKey,
+);
 // The codes the target adds and the source never used are not work the port has
 // to do, so they are a count and a pointer rather than a second grouped column -
 // the same treatment the capabilities the target adds already get.
@@ -711,9 +722,10 @@ const escapeLegend = computed<LegendItem[]>(() => {
 });
 
 // One account per capability: the commands the port loses here, what to do
-// instead, and what the target adds here. Grouped rather than capped - a group
-// names its commands in one run instead of giving each a row, so 41 lost
-// graphics commands are a wrapped line and nothing has to be hidden.
+// instead, and what the target adds here. Grouped rather than capped by command
+// - a group names its commands in one run instead of giving each a row, so 41
+// lost graphics commands are a wrapped line rather than 41 rows. The cap counts
+// groups instead, and never cuts one short.
 // Capabilities the target has no equivalent of at all lead, because "you lose
 // sound entirely" is the headline, not entry 94 of an alphabetical list;
 // capabilities the port only gains follow, being news rather than work.
@@ -759,6 +771,14 @@ const visibleCapabilities = computed<CapabilitySection[]>(() =>
   showAdditions.value
     ? capabilities.value
     : capabilities.value.filter((s) => s.entries.length),
+);
+
+// Capped by capability rather than by command, as the control codes are: a
+// group's whole point is the account it gives of one capability, and half an
+// account is worse than the group being a click away.
+const capabilityList = useTruncatedList(
+  () => visibleCapabilities.value,
+  pairKey,
 );
 
 /** The authored (target, capability) advice for a group, if any. */
@@ -1419,12 +1439,6 @@ watch(to, requestVocabulary);
         </ul>
       </section>
 
-      <p v-if="hasBlockingWork" class="cmp-stage">
-        <strong>First, what {{ target.name }} will not take.</strong>
-        Everything below waits on these: there is nothing to try until the
-        program loads.
-      </p>
-
       <!--
         Characters, not control codes: a character the target has no glyph for
         is rejected when the program is read, wherever it sits - in a string, a
@@ -1622,9 +1636,9 @@ watch(to, requestVocabulary);
         instead, and what the target adds here. These were two sections until
         the measurements showed over half of all capability mentions were being
         made twice, from the two halves of the same authored guidance cell.
-        Grouped, not capped: a group names its commands in one run, so every
-        lost command is shown and a capability the port does not touch is simply
-        absent.
+        Grouped, then capped by group: a group names its commands in one run, so
+        every command a shown capability loses is shown, and the ten the section
+        opens with are the ten the ranking put first - worst answered first.
       -->
       <section v-if="capabilities.length" id="capabilities" class="cmp-section">
         <h2>What changes</h2>
@@ -1655,7 +1669,7 @@ watch(to, requestVocabulary);
           </span>
         </div>
         <div
-          v-for="s in visibleCapabilities"
+          v-for="s in capabilityList.visible"
           :key="s.domain ?? 'other'"
           class="cmp-group"
           :class="{
@@ -1753,6 +1767,23 @@ watch(to, requestVocabulary);
             </span>
           </p>
         </div>
+        <!--
+          One control for the whole section, below the groups it opens with. It
+          names the unit the cap counts in, because a bare "10 more" beside
+          groups that each count their own commands reads as commands.
+        -->
+        <p
+          v-if="capabilityList.hasMore && !capabilityList.expanded"
+          class="cmp-more-row"
+        >
+          <button
+            type="button"
+            class="cmp-expand"
+            @click="capabilityList.expand()"
+          >
+            Show {{ count(capabilityList.remaining, 'more capability area') }}…
+          </button>
+        </p>
         <!-- Say what the filter is holding back, so it is discoverable. -->
         <p v-if="!showAdditions && gainingCount" class="cmp-empty">
           {{ count(gainingCount, 'capability area') }}
@@ -1763,11 +1794,13 @@ watch(to, requestVocabulary);
 
       <!--
         The codes to replace are grouped by what they do, in the source's own
-        category order, and not capped: the same treatment the commands to
-        replace get. An alphabetical cap buried the colour and cursor codes a
-        screen layout depends on under the block-graphics keycaps. The codes the
-        target adds and the program never used are a count and a pointer - not
-        work the port has to do.
+        category order, then capped by category: the same treatment the commands
+        to replace get. The grouping is what makes the cap safe - a cap on codes
+        buried the colour and cursor codes a screen layout depends on under the
+        block-graphics keycaps, where a cap on ranked categories opens with the
+        class the target answers worst and shows all of it. The codes the target
+        adds and the program never used are a count and a pointer - not work the
+        port has to do.
       -->
       <section
         v-if="
@@ -1814,7 +1847,7 @@ watch(to, requestVocabulary);
           </span>
         </div>
         <div
-          v-for="s in escReplaceSections"
+          v-for="s in escapeSectionList.visible"
           :key="s.category ?? 'other'"
           class="cmp-group cmp-group-esc"
           :class="{
@@ -1866,6 +1899,22 @@ watch(to, requestVocabulary);
             </div>
           </div>
         </div>
+        <!-- The section's own control, as under "What changes" above. -->
+        <p
+          v-if="escapeSectionList.hasMore && !escapeSectionList.expanded"
+          class="cmp-more-row"
+        >
+          <button
+            type="button"
+            class="cmp-expand"
+            @click="escapeSectionList.expand()"
+          >
+            Show
+            {{
+              count(escapeSectionList.remaining, 'more category', 'more categories')
+            }}…
+          </button>
+        </p>
         <p v-if="!escReplaceSections.length" class="cmp-empty">
           No {{ source.name }} control code needs replacing.
         </p>
@@ -2541,6 +2590,12 @@ watch(to, requestVocabulary);
 }
 .cmp-expand:hover {
   background: var(--vp-c-brand-soft);
+}
+/* A grouped section's reveal control, below the groups it opens with. Aligned
+   with those groups rather than centred like .cmp-more, which is a row inside a
+   list and takes that list's width. */
+.cmp-more-row {
+  margin: 0.9rem 0 0;
 }
 .cmp-icon {
   display: inline-flex;

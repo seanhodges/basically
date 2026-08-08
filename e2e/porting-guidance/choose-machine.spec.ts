@@ -136,6 +136,40 @@ test('the two fields are told apart, and so is a machine from its relative', asy
   await expect(keyGraphics).toContainText('only partly covered in ZX81');
   // Once for the whole group, not against each of the 52 codes.
   await expect(keyGraphics.locator('.cmp-group-instead-text')).toHaveCount(1);
+
+  // 97 codes across those groups would be most of a screen, so the section
+  // opens with ten of them and the rest is a click away - ten for the section,
+  // not ten per group, which for this pair would be a run per category and no
+  // shorter a page. The group headings still count the whole group: the cap is
+  // on what renders, not on what was found.
+  const escNames = escapes.locator('.cmp-group-names .cmp-name');
+  const escMore = escapes.getByRole('button', { name: /^Show \d+ more/ });
+  await expect(escNames).toHaveCount(10);
+  await expect(escMore).toHaveCount(1);
+  expect(
+    Number(await keyGraphics.locator('.cmp-group-count').innerText()),
+  ).toBeGreaterThan(10);
+
+  await escMore.click();
+  await expect(escNames.first()).toBeVisible();
+  const escShown = await escNames.count();
+  expect(escShown).toBeGreaterThan(10);
+  await expect(escMore).toHaveCount(0);
+
+  // The lost commands are grouped and budgeted the same way, in the section
+  // above.
+  const lost = page.locator('#capabilities');
+  await expect(lost.locator('.cmp-group-names .cmp-name')).toHaveCount(10);
+  await expect(
+    lost.getByRole('button', { name: /^Show \d+ more/ }),
+  ).toHaveCount(1);
+
+  // And a section re-collapses when the pair changes: an expansion is about the
+  // comparison it was made in, not a preference that follows the reader to the
+  // next one. The control codes were opened in full just above.
+  await pick(page, 'to', 'zxspectrum');
+  await pick(page, 'to', 'zx81');
+  await expect(escNames).toHaveCount(10);
 });
 
 test('the pair can be chosen without a pointer', async ({ page }) => {
