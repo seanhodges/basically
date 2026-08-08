@@ -14,6 +14,9 @@ describe('programVocabulary - keywords', () => {
     expect(programVocabulary('10 FORI=1TO10:PRINTI:NEXT', c64)).toEqual({
       dialectId: 'commodore64',
       keywords: ['FOR', 'NEXT', 'PRINT', 'TO'],
+      variables: ['I'],
+      divides: false,
+      fractionalLiteral: false,
       escapeCodes: [],
       characters: [...'01:=EFINOPRTX'],
       multiStatementLines: [1],
@@ -286,11 +289,90 @@ describe('programVocabulary - write sites', () => {
   });
 });
 
+describe('programVocabulary - variable names', () => {
+  it('reads names in the source machine’s own spelling', () => {
+    // `_` is a BBC name character and `%`/`$` end a name there, so all three
+    // travel with the name rather than splitting it.
+    const vocab = programVocabulary(
+      '10 my_count%=1\n20 total$="x"\n30 PRINT my_count%',
+      bbc,
+    );
+    expect(vocab.variables).toEqual(['MY_COUNT%', 'TOTAL$']);
+  });
+
+  it('takes no name from a string, a REM or a #BIN payload', () => {
+    // The same three spans the keyword scan is blind to. Each of these would
+    // otherwise contribute a name that is not in the program at all.
+    const vocab = programVocabulary(
+      [
+        '10 A=1',
+        '20 PRINT "SCORE IS ";A',
+        '30 REM BONUS COUNTER',
+        '#BIN 8000 QUJDREVGRw==',
+      ].join('\n'),
+      c64,
+    );
+    expect(vocab.variables).toEqual(['A']);
+  });
+
+  it('does not read a keyword as a name', () => {
+    // On a crunching ROM `FORI=1TO10` is FOR I = 1 TO 10, so the only name is I.
+    expect(programVocabulary('10 FORI=1TO10:NEXTI', c64).variables).toEqual([
+      'I',
+    ]);
+  });
+
+  it('does not read a PROC or FN call as a name', () => {
+    const vocab = programVocabulary(
+      '10 PROCdraw(size)\n20 PRINT FNarea(size)',
+      bbc,
+    );
+    expect(vocab.variables).toEqual(['SIZE']);
+  });
+});
+
+describe('programVocabulary - fractional arithmetic', () => {
+  it('reports a division and a fractional literal apart', () => {
+    expect(programVocabulary('10 A=B/2', c64)).toMatchObject({
+      divides: true,
+      fractionalLiteral: false,
+    });
+    expect(programVocabulary('10 A=B*0.5', c64)).toMatchObject({
+      divides: false,
+      fractionalLiteral: true,
+    });
+    expect(programVocabulary('10 A=B/2+1.5', c64)).toMatchObject({
+      divides: true,
+      fractionalLiteral: true,
+    });
+  });
+
+  it('reports neither for a program that has only integers', () => {
+    expect(programVocabulary('10 A=B*2:PRINT A', c64)).toMatchObject({
+      divides: false,
+      fractionalLiteral: false,
+    });
+  });
+
+  it('does not read a slash or a decimal point out of a string or a REM', () => {
+    // A filename and a price are text, not arithmetic - and a machine with no
+    // fractions would otherwise be told to rescale a program that has none.
+    const vocab = programVocabulary(
+      '10 PRINT "0/1 AND 2.5"\n20 REM COSTS 1.99 PER 10/12',
+      c64,
+    );
+    expect(vocab).toMatchObject({ divides: false, fractionalLiteral: false });
+  });
+});
+
 describe('programVocabulary - no program', () => {
   it('is empty for an empty program', () => {
     expect(programVocabulary('', c64)).toEqual({
       dialectId: 'commodore64',
       keywords: [],
+      variables: [],
+      divides: false,
+      fractionalLiteral: false,
       escapeCodes: [],
       characters: [],
       multiStatementLines: [],

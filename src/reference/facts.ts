@@ -17,7 +17,39 @@ import {
   resolvePortingFacts,
   type PortingFacts,
   type PortingFactsEntry,
+  type TargetPortingNote,
 } from './types';
+
+/**
+ * The guidance every Commodore machine here gives, whatever you arrive from.
+ *
+ * A named list rather than five bullets typed into one entry, because `extends`
+ * replaces a field outright: a variant with anything of its own to say about
+ * porting would otherwise have to restate these five to keep them, and the copy
+ * would drift from the original the first time either was edited.
+ */
+const COMMODORE_NOTES: TargetPortingNote[] = [
+  {
+    text: 'There is no ELSE — every IF…THEN…ELSE has to be restructured.',
+    topics: ['control-flow'],
+  },
+  {
+    text: 'Only the first two characters of a variable name are significant, so SCORE and SCALE are one variable; a name containing a reserved word is a syntax error.',
+    topics: ['variable-names'],
+  },
+  {
+    text: 'There are no graphics or sound keywords at all: the video and sound chips are driven by POKE.',
+    topics: ['graphics', 'sound'],
+  },
+  {
+    text: 'LOG is the natural logarithm and there is no LN.',
+    topics: ['numbers'],
+  },
+  {
+    text: 'Control codes go inside string literals as escapes, such as {clr} and {red}.',
+    topics: ['control-codes'],
+  },
+];
 
 const entries: PortingFactsEntry[] = [
   {
@@ -62,7 +94,14 @@ const entries: PortingFactsEntry[] = [
     letRequired: 'required',
     variableNaming:
       'Numeric names may be multiple characters (start with a letter); string and array names are a single letter.',
+    variableSignificance: {
+      plain: null,
+      marked: 1,
+      markerDistinguishes: true,
+      markers: '$',
+    },
     numberHandling: 'Floating point.',
+    numbers: { fractions: true },
     exponentOperator: '**',
     // The ZX81 punctuation set is 18 marks wide; everything else in printable
     // ASCII is simply not on the machine, in strings and REMs as much as in code.
@@ -139,7 +178,14 @@ const entries: PortingFactsEntry[] = [
     letRequired: 'required',
     variableNaming:
       'A single letter A–Z (numeric arrays and FOR variables too).',
+    variableSignificance: {
+      plain: 1,
+      marked: 1,
+      markerDistinguishes: true,
+      markers: '$',
+    },
     numberHandling: 'Integer only: -32768 to 32767, and division truncates.',
+    numbers: { fractions: false, range: { min: -32768, max: 32767 } },
     exponentOperator: '**',
     // The same repertoire as the ZX81; only the byte values behind the block
     // graphics differ between the two.
@@ -184,7 +230,7 @@ const entries: PortingFactsEntry[] = [
         topics: ['statement-layout', 'control-flow'],
       },
       {
-        text: 'One ink and paper per 8×8 cell, so colours clash where shapes overlap.',
+        text: 'One ink and paper per 8×8 cell, so colours clash where shapes overlap — a routine drawing in several colours has to keep them a cell apart.',
         topics: ['colour'],
       },
       {
@@ -213,7 +259,14 @@ const entries: PortingFactsEntry[] = [
     letRequired: 'required',
     variableNaming:
       'Numeric names may be long; string and array names are a single letter with $.',
+    variableSignificance: {
+      plain: null,
+      marked: 1,
+      markerDistinguishes: true,
+      markers: '$',
+    },
     numberHandling: 'Floating point.',
+    numbers: { fractions: true },
     exponentOperator: '↑',
     // 0x5E is ↑ and 0x60 is £, the Sinclair convention. The backslash is real
     // (0x5C), written `\\` in source.
@@ -248,6 +301,10 @@ const entries: PortingFactsEntry[] = [
         text: 'Variable names may be any length; the % integer suffix is the fast one, and A%–Z% are fastest of all.',
         topics: ['variable-names'],
       },
+      {
+        text: 'How many colours you have is decided by MODE rather than by the machine, so a routine written for a fixed palette picks its mode first and is redrawn in whatever that mode leaves it.',
+        topics: ['colour'],
+      },
     ],
     substitutions: [
       {
@@ -277,7 +334,14 @@ const entries: PortingFactsEntry[] = [
     letRequired: 'optional',
     variableNaming:
       'Any-length names; % suffix = fast integer, $ = string. A%–Z% are static and fastest.',
+    variableSignificance: {
+      plain: null,
+      marked: null,
+      markerDistinguishes: true,
+      markers: '$%',
+    },
     numberHandling: 'Floating point, with a 32-bit integer type marked by %.',
+    numbers: { fractions: true },
     exponentOperator: '^',
     // 0x60 is £; the BBC has the rest of printable ASCII, `^` included.
     unsupportedCharacters: ['`'],
@@ -297,28 +361,7 @@ const entries: PortingFactsEntry[] = [
   {
     id: 'commodore64',
     basicDialect: 'Commodore BASIC V2',
-    portingNotes: [
-      {
-        text: 'There is no ELSE — every IF…THEN…ELSE has to be restructured.',
-        topics: ['control-flow'],
-      },
-      {
-        text: 'Only the first two characters of a variable name are significant, so SCORE and SCALE are one variable; a name containing a reserved word is a syntax error.',
-        topics: ['variable-names'],
-      },
-      {
-        text: 'There are no graphics or sound keywords at all: the video and sound chips are driven by POKE.',
-        topics: ['graphics', 'sound'],
-      },
-      {
-        text: 'LOG is the natural logarithm and there is no LN.',
-        topics: ['numbers'],
-      },
-      {
-        text: 'Control codes go inside string literals as escapes, such as {clr} and {red}.',
-        topics: ['control-codes'],
-      },
-    ],
+    portingNotes: COMMODORE_NOTES,
     substitutions: [
       {
         keyword: 'ELSE',
@@ -348,7 +391,14 @@ const entries: PortingFactsEntry[] = [
     letRequired: 'optional',
     variableNaming:
       'Only the first two characters are significant; % suffix = integer, $ = string.',
+    variableSignificance: {
+      plain: 2,
+      marked: 2,
+      markerDistinguishes: true,
+      markers: '$%',
+    },
     numberHandling: 'Floating point, with an integer type marked by %.',
+    numbers: { fractions: true },
     exponentOperator: '↑',
     // PETSCII spends 0x5C on £, 0x5E on ↑ and 0x7B-0x7E on graphics, so seven
     // marks a C64 keyboard cannot type are unavailable to a program too.
@@ -422,8 +472,23 @@ const entries: PortingFactsEntry[] = [
     letRequired: 'optional',
     variableNaming:
       'Single letters A–Z hold 32-bit integers; %A–%Z name the floating-point ROM variables.',
+    // No type markers at all: `$` is a prefix operator here (`$addr` reads a
+    // string from memory), not a suffix that ends a name.
+    variableSignificance: {
+      plain: 1,
+      marked: 1,
+      markerDistinguishes: false,
+      markers: '',
+    },
     numberHandling:
       'Integer only: 32-bit, -2147483648 to 2147483647, and / truncates. The floating-point ROM adds %A–%Z reals.',
+    // The floating-point ROM's %A-%Z reals are a separate variable set, not a
+    // fraction the integer path can hold: a ported expression lands on the
+    // integers, so this is what the truncation finding must answer to.
+    numbers: {
+      fractions: false,
+      range: { min: -2147483648, max: 2147483647 },
+    },
     // The Atom covers printable ASCII in full.
     unsupportedCharacters: [],
     // Integer BASIC has no exponent operator (the FP ROM adds functions, not **).
@@ -492,8 +557,15 @@ const entries: PortingFactsEntry[] = [
     letRequired: 'optional',
     variableNaming:
       'Only the first two characters are significant; $ = string, % = integer, ! = single, # = double.',
+    variableSignificance: {
+      plain: 2,
+      marked: 2,
+      markerDistinguishes: true,
+      markers: '$%!#',
+    },
     numberHandling:
       'Floating point, single (!) or double (#), with an integer type marked by %.',
+    numbers: { fractions: true },
     exponentOperator: '↑',
     // The TRS-80 covers printable ASCII in full.
     unsupportedCharacters: [],
@@ -528,6 +600,10 @@ const entries: PortingFactsEntry[] = [
         text: 'Hex literals are written &nn and binary &X1010.',
         topics: ['memory'],
       },
+      {
+        text: 'Colour is indirect and mode-dependent: INK assigns one of 27 colours to a pen, PEN selects the pen, and MODE fixes how many pens there are — 16, 4 or 2.',
+        topics: ['colour'],
+      },
     ],
     substitutions: [
       {
@@ -546,8 +622,15 @@ const entries: PortingFactsEntry[] = [
     letRequired: 'optional',
     variableNaming:
       'Up to 40 significant characters; % = integer, ! = real (default), $ = string.',
+    variableSignificance: {
+      plain: 40,
+      marked: 40,
+      markerDistinguishes: true,
+      markers: '$%!',
+    },
     numberHandling:
       'Floating point (! real, the default), with an integer type marked by %.',
+    numbers: { fractions: true },
     exponentOperator: '^',
     // 0x5E is ↑, which is also how Locomotive BASIC spells its own exponent.
     unsupportedCharacters: ['^'],
@@ -633,7 +716,14 @@ const entries: PortingFactsEntry[] = [
     letRequired: 'optional',
     variableNaming:
       'Only the first two characters are significant; $ marks a string, and there is no integer or double type tag.',
+    variableSignificance: {
+      plain: 2,
+      marked: 2,
+      markerDistinguishes: true,
+      markers: '$',
+    },
     numberHandling: 'Floating point, single precision only.',
+    numbers: { fractions: true },
     exponentOperator: '^',
     // Plain 7-bit ASCII, so the machine covers printable ASCII in full.
     unsupportedCharacters: [],
@@ -684,6 +774,17 @@ const entries: PortingFactsEntry[] = [
   {
     id: 'vic20',
     extends: 'commodore64',
+    // The C64's guidance is inherited by value, not merged, so the shared list
+    // is spread rather than restated. Colour is the one thing the VIC says for
+    // itself: the C64's note set is silent on it, and a routine that draws in
+    // more than one colour is rewritten around this.
+    portingNotes: [
+      ...COMMODORE_NOTES,
+      {
+        text: 'Colour attaches to the character cell, not the pixel: one of 8 per 8×8 cell, so a shape drawn in two colours inside one cell cannot keep both.',
+        topics: ['colour'],
+      },
+    ],
     // Commodore BASIC V2 inherited from the C64, and genuinely the same BASIC:
     // the two differ in hardware, which is what the figures below state.
     // The smallest BASIC budget of any machine here by an order of magnitude:

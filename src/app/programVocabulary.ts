@@ -25,6 +25,8 @@ import { findDialect } from '../dialects/registry';
 import { isBinaryDirective } from '../dialects/binaryDirective';
 import { scannable } from '../editor/programOutline';
 import { makeCrunchMatcher } from '../editor/crunch';
+import { forEachVariable } from '../editor/variables';
+import { variableRulesFor } from '../editor/variableLexis';
 import { resolveWriteSites } from './memoryWriteSites';
 
 /** One program's distinct vocabulary, in the language it was read as. */
@@ -33,6 +35,31 @@ export interface ProgramVocabulary {
   dialectId: string;
   /** Distinct keyword spellings, upper case, in the dialect's own spelling. */
   keywords: string[];
+  /**
+   * Distinct variable names the program's code contains, upper-cased and
+   * sorted, in the source machine's own spelling (type marker included).
+   *
+   * Read with the editor's own dialect-aware variable walk, so a keyword, a
+   * number, a hex literal and a `PROC`/`FN` call are none of them names - and
+   * read over the same `scannable` bodies the keyword scan uses, so a word
+   * inside a string literal, a `REM` tail or a `#BIN` payload contributes none.
+   *
+   * The porting guide groups these by the *target* machine's significance rule:
+   * two that reduce to one name there are a variable the port silently merges.
+   */
+  variables: string[];
+  /**
+   * Whether the program's code divides, and whether it carries a fractional
+   * literal. Two facts rather than one, so a target with no fractions can say
+   * which of them it truncates.
+   *
+   * Read from the same scannable text as everything else here, so a `/` inside
+   * a string or a decimal point inside a REM is not arithmetic. Deliberately
+   * textual: proving that a division only ever divides exactly needs the program
+   * run, and the guide reports arithmetic to check rather than a defect.
+   */
+  divides: boolean;
+  fractionalLiteral: boolean;
   /**
    * Distinct control-code bytes used inside string literals. Bytes rather than
    * spellings: a spelling match would have to reconcile aliases (`{wht}` with
@@ -247,6 +274,58 @@ function keywordsIn(source: string, dialect: Dialect): Set<string> {
   return found;
 }
 
+/**
+ * The distinct variable names the program's code contains, upper-cased.
+ *
+ * The editor's own walk rather than a second one: `forEachVariable` is what the
+ * highlighter, the completion and the variable lint already read a name with, so
+ * a defect in it is visible in three places instead of hidden in this one. The
+ * rules come from the shared lexis table, which is what knows that a BBC name may
+ * carry `_` and a TRS-80 name may end `!` or `#`.
+ *
+ * A `PROC`/`FN` call and a glued keyword are already excluded by the walk. Upper
+ * case because the machines that matter here are case-insensitive about names,
+ * and the target's significance rule is applied to what comes out.
+ */
+function variablesIn(source: string, dialect: Dialect): Set<string> {
+  const rules = variableRulesFor(dialect.id, dialect.keywords);
+  const found = new Set<string>();
+  for (const { body } of codeLines(source)) {
+    forEachVariable(scannable(body), rules, (t) =>
+      found.add(t.text.toUpperCase()),
+    );
+  }
+  return found;
+}
+
+/** A numeric literal carrying a fractional part: `1.5`, `.5`, `10.`. */
+const FRACTIONAL_LITERAL = /\d\.\d|\.\d|\d\./;
+
+/**
+ * Whether the program's code divides, and whether it carries a fractional
+ * literal.
+ *
+ * Over `scannable` bodies, so a `/` in a filename string and a decimal point in
+ * a comment are neither of them arithmetic. The literal pattern requires a digit
+ * against the point, which is what keeps a ROM's `P.` abbreviation for `PRINT`
+ * out of it; the line number is already off the body, so `10.` here is a real
+ * fractional literal rather than a line.
+ */
+function fractionalArithmeticIn(source: string): {
+  divides: boolean;
+  fractionalLiteral: boolean;
+} {
+  let divides = false;
+  let fractionalLiteral = false;
+  for (const { body } of codeLines(source)) {
+    const code = scannable(body);
+    if (code.includes('/')) divides = true;
+    if (FRACTIONAL_LITERAL.test(code)) fractionalLiteral = true;
+    if (divides && fractionalLiteral) break;
+  }
+  return { divides, fractionalLiteral };
+}
+
 /** The distinct control-code bytes the program's string literals contain. */
 function escapeCodesIn(source: string, dialect: Dialect): Set<number> {
   const found = new Set<number>();
@@ -434,9 +513,13 @@ export function programVocabulary(
   dialect: Dialect,
 ): ProgramVocabulary {
   const layout = statementLayoutIn(source, dialect);
+  const arithmetic = fractionalArithmeticIn(source);
   return {
     dialectId: dialect.id,
     keywords: [...keywordsIn(source, dialect)].sort(),
+    variables: [...variablesIn(source, dialect)].sort(),
+    divides: arithmetic.divides,
+    fractionalLiteral: arithmetic.fractionalLiteral,
     escapeCodes: [...escapeCodesIn(source, dialect)].sort((a, b) => a - b),
     characters: [...charactersIn(source, dialect)].sort(),
     multiStatementLines: layout.lines,
@@ -494,6 +577,9 @@ export interface ProgramVocabularyReply {
   status: 'ready' | 'empty' | 'unreadable';
   dialectId: string;
   keywords: string[];
+  variables: string[];
+  divides: boolean;
+  fractionalLiteral: boolean;
   escapeCodes: number[];
   characters: string[];
   multiStatementLines: number[];
@@ -546,6 +632,9 @@ export function vocabularyReply(
     status,
     dialectId: vocab.dialectId,
     keywords: vocab.keywords,
+    variables: vocab.variables,
+    divides: vocab.divides,
+    fractionalLiteral: vocab.fractionalLiteral,
     escapeCodes: vocab.escapeCodes,
     characters: vocab.characters,
     multiStatementLines: vocab.multiStatementLines,

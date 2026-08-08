@@ -171,6 +171,9 @@ export async function buildConversionMessage(input: {
   const report = await loadPortReport(from, input.to, {
     dialectId: reply.dialectId,
     keywords: reply.keywords,
+    variables: reply.variables,
+    divides: reply.divides,
+    fractionalLiteral: reply.fractionalLiteral,
     escapeCodes: reply.escapeCodes,
     characters: reply.characters,
     multiStatementLines: reply.multiStatementLines,

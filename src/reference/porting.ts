@@ -397,6 +397,7 @@ export const pairPortingNotes: PairPortingNotes[] = [
       },
       {
         text: 'Colour works differently: INK assigns one of 27 colours to a pen and PEN selects it, ATTR, BRIGHT, FLASH and INVERSE are gone, and nothing clashes per cell.',
+        covers: ['colour'],
       },
     ],
   },

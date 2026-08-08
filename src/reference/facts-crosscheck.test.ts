@@ -108,6 +108,38 @@ describe('facts crosscheck', () => {
     }
   });
 
+  // The structured form is what the comparison computes the truncation finding
+  // from; the prose is what the fact row shows. There is no behavioural probe
+  // for this short of running a program on the emulator, so the pin is
+  // prose-to-structured only - stated plainly rather than dressed up.
+  it('the structured number handling says what the prose says', () => {
+    for (const facts of portingFacts) {
+      const integerOnly = /^integer only/i.test(facts.numberHandling);
+      expect(
+        facts.numbers.fractions,
+        `${facts.id}: "${facts.numberHandling}" and the structured form disagree about fractions`,
+      ).toBe(!integerOnly);
+    }
+  });
+
+  it('an integer-only machine quotes the same range in both forms', () => {
+    for (const facts of portingFacts) {
+      if (facts.numbers.fractions) {
+        expect(facts.numbers.range, facts.id).toBeUndefined();
+        continue;
+      }
+      const range = facts.numbers.range;
+      expect(
+        range,
+        `${facts.id} has no fractions and names no range`,
+      ).toBeDefined();
+      expect(facts.numberHandling, facts.id).toContain(
+        `${range!.min} to ${range!.max}`,
+      );
+      expect(range!.min, facts.id).toBeLessThan(range!.max);
+    }
+  });
+
   // The sweep above is only as good as its two arms, and each has a way of
   // failing that leaves a plausible-looking list behind. These name the machine
   // that catches each, so a rewrite that drops an arm fails here saying which.
@@ -199,6 +231,111 @@ describe('line-number ranges are the tokenizer’s own', () => {
       accepts(dialect, max! + 1),
       `${id} also takes ${max! + 1}, above the ${max} it claims`,
     ).toBe(false);
+  });
+});
+
+/**
+ * Variable-name significance, re-derived from each dialect's own `lint()` rather
+ * than only read back off the prose beside it.
+ *
+ * Prose-to-structured equality would only prove the table agrees with itself, and
+ * this rule is the one the comparison reports *collisions* from: a machine
+ * authored as keeping more of a name than it does hides the port's silent
+ * failure, and one authored as keeping less invents renames the reader does not
+ * need. So the check is behavioural, in the spirit of the `unsupportedCharacters`
+ * re-derivation above.
+ *
+ * The probe is a pair of names sharing their first `n` characters and differing
+ * at `n + 1`. Every dialect that enforces a significance rule at all does so
+ * through `variableLint.ts`, which the machine's own `lint()` calls, so the
+ * smallest `n` at which it complains *is* the machine's significance. A machine
+ * whose lint never complains enforces no rule the probe can see, and must be
+ * authored either as fully significant or as keeping more characters than any
+ * name here reaches - which the Amstrad's 40 does, and no program's name does.
+ *
+ * `Q` is the filler because no keyword on any page here spells `QQ`, so a
+ * crunching ROM cannot split a probe name; `X`/`Y` distinguish the pair. The
+ * n = 0 control (`X` against `Y`) is what proves that: two names the rule keeps
+ * apart on every machine must lint clean, so a filler that accidentally spelled
+ * a keyword would fail there rather than silently reading as significance 1.
+ */
+describe('variable-name significance is the one each lint enforces', () => {
+  /** Characters of shared prefix the probe goes up to. See the Amstrad note above. */
+  const PROBE_LIMIT = 8;
+
+  /** Two names sharing `shared` characters and differing at the next one. */
+  const probe = (shared: number, marker: string): string => {
+    const stem = 'Q'.repeat(shared);
+    return `10 LET ${stem}X${marker}=1\n20 LET ${stem}Y${marker}=2\n`;
+  };
+
+  /** Whether the machine's own linter objects to a program. */
+  const flags = (dialect: Dialect, source: string): boolean =>
+    dialect.lint(source).length > 0;
+
+  /**
+   * The shortest shared prefix at which this machine treats two names as one,
+   * or null where it never does within {@link PROBE_LIMIT}.
+   */
+  const observed = (dialect: Dialect, marker: string): number | null => {
+    for (let n = 1; n <= PROBE_LIMIT; n++) {
+      if (flags(dialect, probe(n, marker))) return n;
+    }
+    return null;
+  };
+
+  /** What the authored rule predicts {@link observed} will find. */
+  const predicted = (significant: number | null): number | null =>
+    significant === null || significant > PROBE_LIMIT ? null : significant;
+
+  it.each(PAIRS)('%s', (id, facts, dialect) => {
+    const rule = facts.variableSignificance;
+    const marker = rule.markers[0] ?? '';
+
+    // The control: two names nothing here can confuse. A machine failing this
+    // is linting the probe for some reason other than significance, and every
+    // reading below it would be noise.
+    expect(
+      flags(dialect, probe(0, '')),
+      `${id} rejects two distinct names`,
+    ).toBe(false);
+
+    expect(
+      observed(dialect, ''),
+      `${id}: the lint and the authored plain-name rule disagree`,
+    ).toBe(predicted(rule.plain));
+
+    if (marker !== '') {
+      expect(
+        flags(dialect, probe(0, marker)),
+        `${id} rejects two distinct "${marker}" names`,
+      ).toBe(false);
+      expect(
+        observed(dialect, marker),
+        `${id}: the lint and the authored "${marker}" rule disagree`,
+      ).toBe(predicted(rule.marked));
+    }
+
+    // Whether the marker is part of the name, asked of the machine: a name and
+    // the same name with a marker are two variables where it is. Only probed on
+    // the machines that keep more than one character and treat every name
+    // alike - elsewhere the longer name is refused for a different reason, and
+    // the answer would be about that instead. (An Amstrad name one character
+    // past its 40 is refused for its *length*, which is not this question.)
+    if (
+      marker !== '' &&
+      rule.plain !== null &&
+      rule.plain === rule.marked &&
+      rule.plain > 1 &&
+      rule.plain <= PROBE_LIMIT
+    ) {
+      const stem = 'Q'.repeat(rule.plain + 1);
+      const both = `10 LET ${stem}=1\n20 LET ${stem}${marker}=2\n`;
+      expect(
+        flags(dialect, both),
+        `${id}: "${stem}" and "${stem}${marker}" are not two variables here`,
+      ).toBe(!rule.markerDistinguishes);
+    }
   });
 });
 
