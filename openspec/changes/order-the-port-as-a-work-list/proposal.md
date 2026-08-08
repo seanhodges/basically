@@ -28,7 +28,10 @@ them under a heading shared with the usage differences.
 - **Each finding is placed by its class rather than by its data type.** A
   character the target cannot represent, a statement layout that must be split
   and a line number the target will not accept are one class — they stop the
-  program being read — and are read together.
+  program being read — and are read together. The memory layout goes by the same
+  rule: it is drawn rather than listed, but what it shows is where the program's
+  writes land on the target and which regions they must be re-aimed at, so it
+  joins the rewrites rather than sitting in the frame.
 - **The existing ordering requirements are extended, not competed with.** The
   order of the language and hardware difference *rows* is a separate requirement
   and is untouched; so is the rule that guidance which does not vary with the
@@ -56,9 +59,10 @@ None.
   nothing new.
 - **Re-ordering the language and hardware difference rows.** That order is its
   own requirement, justified by what each row turns on, and stays as it is.
-- **Moving the memory layout or the guidance prose.** Both keep their place: the
-  guidance frames the port before the work list starts, and the memory layout is
-  a picture rather than a work item.
+- **Moving the guidance prose.** It keeps its place: the guidance frames the port
+  before the work list starts.
+- **Changing what the memory layout draws.** It moves into the rewrites; the two
+  maps, the shared scale and the marked write sites are all as they were.
 - **Collapsing sections.** The commands whose spelling differs and the commands
   whose usage differs remain reported together, as their own requirement demands;
   they simply sit in the class the work belongs to.
@@ -69,7 +73,8 @@ None.
 
 Affected code:
 
-- `docs/.vitepress/theme/components/DialectCompare.vue` — section order, the
+- `docs/.vitepress/theme/components/DialectCompare.vue` — section order
+  (including the memory layout, which leaves the frame for the rewrites), the
   `pageSections` "on this page" row that mirrors it, and the headings that
   introduce each class of work.
 - `e2e/porting-guidance/` — the existing order assertions move with it; one

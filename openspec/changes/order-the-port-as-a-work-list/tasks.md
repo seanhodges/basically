@@ -2,8 +2,8 @@
 
 - [x] 1.1 `docs/.vitepress/theme/components/DialectCompare.vue`: reorder the
       sections into the five classes — blocks the read, mechanical, rewrites,
-      silent, fit — keeping the language and hardware differences, the guidance
-      and the memory layout ahead of them as the frame.
+      silent, fit — keeping the language and hardware differences and the
+      guidance ahead of them as the frame.
 - [x] 1.2 Same file: introduce each class so the sequence is legible rather than
       implied, in the page's existing voice and without restating what the
       sections below say.
@@ -23,11 +23,22 @@
       language and hardware *rows* keep their own order, which this change does
       not touch.
 
-## 3. Quality gates
+## 3. The memory layout joins the rewrites
 
-- [x] 3.1 `npm run typecheck`
-- [x] 3.2 `npm test`
-- [x] 3.3 `npm run lint` and `npm run format:check`
-- [x] 3.4 `npm run docs:build`
-- [x] 3.5 `npm run e2e:chromium -- e2e/porting-guidance` — the order assertions
+- [x] 3.1 `docs/.vitepress/theme/components/DialectCompare.vue`: move the memory
+      layout out of the frame and into the rewrite class, where the addresses it
+      draws are the thing being changed; `pageSections` follows.
+- [x] 3.2 Same file: the rewrite lead-in now introduces the layout too, and the
+      layout's own comment says why it sits with the work rather than ahead of
+      it.
+- [x] 3.3 `e2e/porting-guidance/`: the order assertion's class table moves the
+      memory layout with it, so the frame is the two sections it is now made of.
+
+## 4. Quality gates
+
+- [x] 4.1 `npm run typecheck`
+- [x] 4.2 `npm test`
+- [x] 4.3 `npm run lint` and `npm run format:check`
+- [x] 4.4 `npm run docs:build`
+- [x] 4.5 `npm run e2e:chromium -- e2e/porting-guidance` — the order assertions
       above. Only check off when the run passes.

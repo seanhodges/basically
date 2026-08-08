@@ -149,13 +149,16 @@ test('line numbers the target will not take are reported', async ({ page }) => {
  * gap, so what is asserted is that whatever renders is a subsequence of this.
  */
 const WORK_LIST: { klass: string; ids: string[] }[] = [
-  { klass: 'frame', ids: ['language-hardware', 'guidance', 'memory-layout'] },
+  { klass: 'frame', ids: ['language-hardware', 'guidance'] },
   {
     klass: 'blocks the read',
     ids: ['characters', 'statement-layout', 'line-numbers'],
   },
   { klass: 'mechanical', ids: ['different-form'] },
-  { klass: 'rewrites', ids: ['capabilities', 'escape-codes'] },
+  {
+    klass: 'rewrites',
+    ids: ['capabilities', 'escape-codes', 'memory-layout'],
+  },
   {
     klass: 'changes silently',
     ids: ['false-friends', 'variable-collisions', 'truncated-arithmetic'],

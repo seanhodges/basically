@@ -851,25 +851,29 @@ const legend = computed<LegendItem[]>(() => {
 /*
  * ---- The work list, in the order the work is done -----------------------
  *
- * Below the frame - the language and hardware differences, the guidance and the
- * memory layout - the findings are ordered as five classes of work rather than
- * by what kind of thing each finding is:
+ * Below the frame - the language and hardware differences and the guidance -
+ * the findings are ordered as five classes of work rather than by what kind of
+ * thing each finding is:
  *
  *   1  blocks the read   characters the target has no glyph for, statement
  *                        layout that must be split, line numbers it will not take
  *   2  mechanical        the commands that only change spelling
  *   3  rewrites          the capabilities the target has no equivalent of, the
- *                        control codes to replace, the commands whose usage differs
+ *                        control codes to replace, the commands whose usage
+ *                        differs, the addresses the program writes to
  *   4  silent            same word different meaning, names that become one,
  *                        arithmetic the target truncates
  *   5  fit               whether the result still fits the machine
  *
- * Two placements look wrong and are not. The renames come before the rewrites
+ * Three placements look wrong and are not. The renames come before the rewrites
  * though they are the smaller finding: they are a search and replace, and doing
  * them first leaves fewer unfamiliar spellings in the program the rewrites are
  * done against. The fit comes last though it is the finding that can sink the
  * port outright: it is a property of the *result*, and the size the program
- * takes on the target is only settled once everything above it is done.
+ * takes on the target is only settled once everything above it is done. And the
+ * memory layout is work rather than scene-setting, however much a picture
+ * between two machines looks like the latter: the addresses it draws are ones
+ * the port has to change.
  *
  * Each class is introduced by a lead-in conditioned on the sections it
  * introduces, so a class this pair produces nothing for is absent rather than
@@ -896,7 +900,8 @@ const hasRewriteWork = computed(
     escReplaceSections.value.length +
       escapeAdded.value +
       escapeRechecked.value.length >
-      0,
+      0 ||
+    memoryPair.value !== null,
 );
 const hasSilentWork = computed(
   () =>
@@ -926,7 +931,6 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'guidance',
       'Before you start',
     ],
-    [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
     [
       charactersToReplace.value.length > 0,
       'characters',
@@ -948,6 +952,7 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'escape-codes',
       'Control & escape codes',
     ],
+    [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
     [
       visibleFalseFriends.value.length > 0,
       'false-friends',
@@ -1312,26 +1317,6 @@ watch(to, requestVocabulary);
             {{ note }}
           </li>
         </ul>
-      </section>
-
-      <!--
-        The two machines' memory laid out side by side, under the prose that
-        says what to watch for on the target. This is where the addresses are:
-        the fact table used to carry a screen base and a program start, which
-        the maps supersede - four numbers against a picture drawn to scale.
-      -->
-      <section v-if="memoryPair" id="memory-layout" class="cmp-section">
-        <h2>Memory layout</h2>
-        <MemoryMapPair
-          :from-name="memoryPair.fromName"
-          :to-name="memoryPair.toName"
-          :from-map="memoryPair.fromMap"
-          :to-map="memoryPair.toMap"
-          :from-by-indirection="memoryPair.fromByIndirection"
-          :to-by-indirection="memoryPair.toByIndirection"
-          :sites="memoryPair.sites"
-          :notation="memoryPair.notation"
-        />
       </section>
 
       <p v-if="hasBlockingWork" class="cmp-stage">
@@ -1780,6 +1765,28 @@ watch(to, requestVocabulary);
             >see its escape-code reference</a
           >.
         </p>
+      </section>
+
+      <!--
+        The two machines' memory laid out side by side, closing the rewrites:
+        drawn rather than listed, but what it shows is an edit to make - where
+        the program's own writes land on the target, and which of its regions
+        they have to be re-aimed at. This is where the addresses are: the fact
+        table used to carry a screen base and a program start, which the maps
+        supersede - four numbers against a picture drawn to scale.
+      -->
+      <section v-if="memoryPair" id="memory-layout" class="cmp-section">
+        <h2>Memory layout</h2>
+        <MemoryMapPair
+          :from-name="memoryPair.fromName"
+          :to-name="memoryPair.toName"
+          :from-map="memoryPair.fromMap"
+          :to-map="memoryPair.toMap"
+          :from-by-indirection="memoryPair.fromByIndirection"
+          :to-by-indirection="memoryPair.toByIndirection"
+          :sites="memoryPair.sites"
+          :notation="memoryPair.notation"
+        />
       </section>
 
       <p v-if="hasSilentWork" class="cmp-stage">

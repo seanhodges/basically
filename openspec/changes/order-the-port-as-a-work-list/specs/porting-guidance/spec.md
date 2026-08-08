@@ -10,7 +10,8 @@ thing each finding is. That order SHALL be:
    represent, the statement layout that must change, and line numbers the target will not accept;
 2. what is mechanical — the commands that need only be renamed;
 3. what must be rewritten — the commands the target has no equivalent of, the control codes that
-   must be replaced, and the commands whose usage differs;
+   must be replaced, the commands whose usage differs, and the addresses the program writes to,
+   against the two machines' memory layouts;
 4. what changes silently — the commands that mean something else under the same name, and any other
    finding that leaves the program tokenizing cleanly and computing differently;
 5. whether the result fits the target machine.
@@ -21,7 +22,9 @@ rather than shown empty, and SHALL NOT leave the classes around it out of order.
 
 How the two machines differ in language rules and hardware, and the guidance specific to this pair
 and this target, SHALL be presented before the work list, being the frame the work is read inside.
-Guidance that does not vary with the chosen pair SHALL NOT be placed between two sections that do.
+Nothing else SHALL be placed there: a finding that shows the reader something to change belongs to
+the class of work that change is, however it is drawn. Guidance that does not vary with the chosen
+pair SHALL NOT be placed between two sections that do.
 
 #### Scenario: Reading the comparison top to bottom
 
@@ -30,6 +33,12 @@ Guidance that does not vary with the chosen pair SHALL NOT be placed between two
   reached first, and the findings that follow run from what stops the program being read, through
   what is mechanical and what must be rewritten, to what changes silently and whether the result
   fits
+
+#### Scenario: Where the program's writes have to be re-aimed
+
+- **WHEN** the comparison shows the two machines' memory layouts
+- **THEN** they are reached with the rest of the rewriting work rather than ahead of it, the
+  addresses being something the port has to change
 
 #### Scenario: Mechanical work before rewrites
 
