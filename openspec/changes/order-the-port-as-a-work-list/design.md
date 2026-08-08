@@ -41,13 +41,15 @@ this decides where they read.
   3  Rewrites                          commands with no equivalent, by capability
                                        control codes to replace, by class
                                        commands whose usage differs
+                                       the addresses the program writes to
   4  Silent                            same word, different meaning
                                        variable names that collide on the target
                                        arithmetic the target truncates
   5  Fit                               whether the program fits the target's memory
 ```
 
-Two placements are worth stating outright, because both look wrong at first:
+Three placements are worth stating outright, because all three look wrong at
+first:
 
 - **Renames before rewrites**, though a rename is a smaller finding than a lost
   capability. The order is the order of *work*, not of severity: the renames are
@@ -58,6 +60,14 @@ Two placements are worth stating outright, because both look wrong at first:
   final once the rewrites are done, and a reader who moves it to the top is
   reading a figure about a program that no longer exists. It is reported at the
   end of the work list for the same reason a build is checked after the edits.
+- **The memory layout is a rewrite, not a picture in the frame.** It is drawn
+  rather than listed, which is what made it look like scene-setting, but what it
+  shows is where the program's own writes land on the target and which of the
+  target's regions they have to be re-aimed at. That is work, and it is the work
+  the capability advice for memory and hardware sends the reader to do — so it
+  closes the rewrite class rather than opening the page. A reader with no program
+  open still gets the two machines side by side; they simply get it where the
+  addresses are being changed.
 
 Class 4 sits after the rewrites because a silent difference is checked against
 code that has stopped changing. Class 1 leads because none of the rest can be
@@ -80,8 +90,8 @@ not leave a gap: sections are already conditioned individually, and
 The language and hardware differences and the guidance prose come before the work
 list, as they do now: they are the frame the work is read inside, and the
 requirement that pair-independent guidance is not interleaved with pair-specific
-guidance still holds. The memory layout keeps its place as the picture between
-the frame and the work.
+guidance still holds. Those two are the whole frame — everything below them is
+work.
 
 ## Risks / Trade-offs
 
