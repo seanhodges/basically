@@ -140,6 +140,30 @@ test('line numbers the target will not take are reported', async ({ page }) => {
 });
 
 /**
+ * The comparison's sections, in the order the page puts them: the frame the
+ * port is read inside, then the five classes of work it is carried out in.
+ * Mirrors the section order in DialectCompare.vue, which is the deliverable
+ * here - a reader working top to bottom meets the port in the order it is done.
+ *
+ * A pair produces no finding in some classes and an absent section leaves no
+ * gap, so what is asserted is that whatever renders is a subsequence of this.
+ */
+const WORK_LIST: { klass: string; ids: string[] }[] = [
+  { klass: 'frame', ids: ['language-hardware', 'guidance', 'memory-layout'] },
+  {
+    klass: 'blocks the read',
+    ids: ['characters', 'statement-layout', 'line-numbers'],
+  },
+  { klass: 'mechanical', ids: ['different-form'] },
+  { klass: 'rewrites', ids: ['capabilities', 'escape-codes'] },
+  {
+    klass: 'changes silently',
+    ids: ['false-friends', 'variable-collisions', 'truncated-arithmetic'],
+  },
+  { klass: 'fit', ids: ['fit'] },
+];
+
+/**
  * The two findings that fail silently: names the target cannot tell apart, and
  * arithmetic it truncates. Both need the program's own text and the target's
  * language rules to meet across the postMessage join - the docs bundle can read
@@ -147,9 +171,11 @@ test('line numbers the target will not take are reported', async ({ page }) => {
  *
  * Rides this journey rather than opening its own, and proves both at once: a
  * ZX80 target keeps one character of a name *and* has no fractions, so one
- * program answers both questions.
+ * program answers both questions. The same program is then what the order is
+ * asserted against, because it is the one this suite has that produces a
+ * finding in every class of work at once.
  */
-test('names the target cannot tell apart, and arithmetic it truncates', async ({
+test('names the target cannot tell apart, arithmetic it truncates, and the order it all reads in', async ({
   page,
 }) => {
   await beginPort(page);
@@ -160,10 +186,21 @@ test('names the target cannot tell apart, and arithmetic it truncates', async ({
 
   // AB and AC are two variables on the Commodore, which keeps two characters,
   // and one on the ZX80, which keeps one. The division is exact here and still
-  // reported: proving otherwise means running the program.
+  // reported: proving otherwise means running the program. The rest of the
+  // program is chosen to reach every other class of work: a colon and a line
+  // number past 9,999 the ZX80 will not take, a PETSCII control code to
+  // replace, a SYS it has no equivalent of, and a CLR it spells CLEAR. Line 40
+  // is the one line a ZX80 can store as it stands, which is what gives the fit
+  // report a figure to be a lower bound of rather than nothing to report.
   await setEditorSource(
     page,
-    ['10 AB=10', '20 AC=AB/2', '30 PRINT AC'].join('\n'),
+    [
+      '10 AB=1:AC=AB/2',
+      '20 PRINT "{clr}HI";AC',
+      '30 SYS 49152',
+      '40 PRINT AB',
+      '20000 CLR',
+    ].join('\n'),
   );
 
   await frame.getByRole('button', { name: /^Porting to:/ }).click();
@@ -179,6 +216,35 @@ test('names the target cannot tell apart, and arithmetic it truncates', async ({
   const truncated = frame.locator('#truncated-arithmetic');
   await expect(truncated).toContainText('-32768 to 32767');
   await expect(truncated).toContainText('divides');
+
+  // The fit is measured by the target's own tokenizer, so it arrives on a
+  // second round trip after the target changes - and it is the last class of
+  // work, so waiting for it is what settles the page before its order is read.
+  await expect(frame.locator('#fit')).toBeVisible();
+
+  // The sections this pair renders, in the order the page renders them.
+  const ids = await frame
+    .locator('.cmp-section')
+    .evaluateAll((els) => els.map((el) => el.id));
+  const order = WORK_LIST.flatMap((c) => c.ids);
+  expect(ids).toEqual(order.filter((id) => ids.includes(id)));
+
+  // And this program reaches every class, so the sequence above is asserted
+  // over the whole work list rather than over the half of it a sparser pair
+  // happens to produce.
+  for (const { klass, ids: inClass } of WORK_LIST) {
+    expect(
+      inClass.some((id) => ids.includes(id)),
+      klass,
+    ).toBe(true);
+  }
+
+  // The "on this page" row is the affordance for a reader who knew the old
+  // order, so it has to be the order actually rendered - not a second list.
+  const jump = await frame
+    .locator('.cmp-jump a')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('href')));
+  expect(jump).toEqual(ids.map((id) => `#${id}`));
 });
 
 test('the narrowing states what it recognised and what it holds back', async ({

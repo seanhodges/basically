@@ -848,6 +848,63 @@ const legend = computed<LegendItem[]>(() => {
   return items;
 });
 
+/*
+ * ---- The work list, in the order the work is done -----------------------
+ *
+ * Below the frame - the language and hardware differences, the guidance and the
+ * memory layout - the findings are ordered as five classes of work rather than
+ * by what kind of thing each finding is:
+ *
+ *   1  blocks the read   characters the target has no glyph for, statement
+ *                        layout that must be split, line numbers it will not take
+ *   2  mechanical        the commands that only change spelling
+ *   3  rewrites          the capabilities the target has no equivalent of, the
+ *                        control codes to replace, the commands whose usage differs
+ *   4  silent            same word different meaning, names that become one,
+ *                        arithmetic the target truncates
+ *   5  fit               whether the result still fits the machine
+ *
+ * Two placements look wrong and are not. The renames come before the rewrites
+ * though they are the smaller finding: they are a search and replace, and doing
+ * them first leaves fewer unfamiliar spellings in the program the rewrites are
+ * done against. The fit comes last though it is the finding that can sink the
+ * port outright: it is a property of the *result*, and the size the program
+ * takes on the target is only settled once everything above it is done.
+ *
+ * Each class is introduced by a lead-in conditioned on the sections it
+ * introduces, so a class this pair produces nothing for is absent rather than
+ * announced empty, and the classes around it stay in order.
+ */
+const hasBlockingWork = computed(
+  () =>
+    charactersToReplace.value.length > 0 ||
+    statementLayout.value !== null ||
+    lineNumbers.value !== null,
+);
+const hasMechanicalWork = computed(
+  () => (keywordDiff.value?.renamed.length ?? 0) > 0,
+);
+/**
+ * The rewrites *after* the section the renames share. The commands whose usage
+ * differs are rewrite work too, but they are reported in one account with the
+ * renames, so that section stands at the head of this run rather than under its
+ * lead-in - what this introduces is what follows it.
+ */
+const hasRewriteWork = computed(
+  () =>
+    capabilities.value.length > 0 ||
+    escReplaceSections.value.length +
+      escapeAdded.value +
+      escapeRechecked.value.length >
+      0,
+);
+const hasSilentWork = computed(
+  () =>
+    visibleFalseFriends.value.length > 0 ||
+    variableCollisions.value.length > 0 ||
+    truncatedArithmetic.value !== null,
+);
+
 /**
  * The sections this pair actually renders, in page order: the "on this page"
  * row, and the ids its links and the headings share. Built from the same
@@ -871,6 +928,27 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
     ],
     [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
     [
+      charactersToReplace.value.length > 0,
+      'characters',
+      'Characters to replace',
+    ],
+    [statementLayout.value !== null, 'statement-layout', 'Statement layout'],
+    [lineNumbers.value !== null, 'line-numbers', 'Line numbers'],
+    [
+      keywordDiff.value.renamed.length + changedCount.value > 0,
+      'different-form',
+      'Same command, different form',
+    ],
+    [capabilities.value.length > 0, 'capabilities', 'What changes'],
+    [
+      escReplaceSections.value.length +
+        escapeAdded.value +
+        escapeRechecked.value.length >
+        0,
+      'escape-codes',
+      'Control & escape codes',
+    ],
+    [
       visibleFalseFriends.value.length > 0,
       'false-friends',
       'Same word, different meaning',
@@ -885,27 +963,6 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'truncated-arithmetic',
       'Arithmetic that truncates',
     ],
-    [capabilities.value.length > 0, 'capabilities', 'What changes'],
-    [
-      keywordDiff.value.renamed.length + changedCount.value > 0,
-      'different-form',
-      'Same command, different form',
-    ],
-    [
-      escReplaceSections.value.length +
-        escapeAdded.value +
-        escapeRechecked.value.length >
-        0,
-      'escape-codes',
-      'Control & escape codes',
-    ],
-    [
-      charactersToReplace.value.length > 0,
-      'characters',
-      'Characters to replace',
-    ],
-    [statementLayout.value !== null, 'statement-layout', 'Statement layout'],
-    [lineNumbers.value !== null, 'line-numbers', 'Line numbers'],
     [programFit.value !== null, 'fit', 'Fit'],
   ];
   return entries
@@ -1277,112 +1334,214 @@ watch(to, requestVocabulary);
         />
       </section>
 
+      <p v-if="hasBlockingWork" class="cmp-stage">
+        <strong>First, what {{ target.name }} will not take.</strong>
+        Everything below waits on these: there is nothing to try until the
+        program loads.
+      </p>
+
       <!--
-        Before the lists of what to change: these are the only differences that
-        fail silently. The command exists on both machines, so nothing else on
-        this page flags it, and the program runs and quietly computes something
-        else.
+        Characters, not control codes: a character the target has no glyph for
+        is rejected when the program is read, wherever it sits - in a string, a
+        REM or a variable name. Narrowed to the program's own text where there
+        is one; the target's whole shortfall where there is not.
       -->
       <section
-        v-if="visibleFalseFriends.length"
-        id="false-friends"
-        class="cmp-section cmp-traps"
+        v-if="charactersToReplace.length"
+        id="characters"
+        class="cmp-section"
       >
-        <h2>Same word, different meaning ({{ visibleFalseFriends.length }})</h2>
+        <h2>Characters to replace ({{ charactersToReplace.length }})</h2>
         <p class="cmp-hint">
-          These exist on both machines, so they raise no error — they just do
-          something else.
+          {{ target.name }} has no glyph for
+          {{
+            narrowingBy
+              ? 'these characters the program uses'
+              : 'these characters'
+          }}, so they cannot appear anywhere in the program — not in a string,
+          and not in a comment.
         </p>
-        <ul class="cmp-list">
-          <li v-for="t in falseFriendsList.visible" :key="t.keyword">
-            <code>{{ t.keyword }}</code>
+        <p class="cmp-group-names">
+          <span v-for="(c, i) in charactersToReplace" :key="c" class="cmp-name">
+            <code>{{ c }}</code
+            ><span v-if="i < charactersToReplace.length - 1" class="cmp-sep"
+              >,
+            </span>
+          </span>
+        </p>
+      </section>
+
+      <!--
+        Always narrowed: without a program this says nothing the "Statements per
+        line" fact row does not already say, and with one it is the only place
+        the reader learns which of their own lines the rule falls on.
+      -->
+      <section v-if="statementLayout" id="statement-layout" class="cmp-section">
+        <h2>
+          Statement layout ({{ count(statementLayout.lines.length, 'line') }})
+        </h2>
+        <p class="cmp-hint" v-if="statementLayout.kind === 'split'">
+          {{ target.name }} takes one statement per line, so every
+          <code>{{ statementLayout.from }}</code> becomes a new line. That
+          renumbers everything after it — <strong>Renumber file</strong> fixes
+          the line references.
+        </p>
+        <p class="cmp-hint" v-else>
+          {{ target.name }} separates statements with
+          <code>{{ statementLayout.to }}</code
+          >, not <code>{{ statementLayout.from }}</code
+          >. The lines keep their shape; only the separator changes.
+        </p>
+        <!--
+          Splitting is the one thing a port does that *creates* line numbers, so
+          the count it produces is reported against the target's range here
+          rather than left beside the range as two numbers to join up.
+        -->
+        <p v-if="statementLayout.projected" class="cmp-hint">
+          <template v-if="statementLayout.projected.overflows">
+            <strong class="cmp-fit-over">Will not renumber:</strong>
+            the split turns {{ statementLayout.projected.from }} lines into
+            {{ statementLayout.projected.to }}, and {{ target.name }} numbers
+            lines {{ target.facts.lineNumberRange }} — too few to hold them
+            however they are renumbered.
+          </template>
+          <template v-else>
+            The split turns {{ statementLayout.projected.from }} lines into
+            {{ statementLayout.projected.to }}, within the
+            {{ target.facts.lineNumberRange }} {{ target.name }} allows.
+          </template>
+        </p>
+        <p class="cmp-group-names">
+          Editor
+          {{ statementLayout.lines.length === 1 ? 'line' : 'lines' }}
+          <span
+            v-for="(n, i) in statementLayout.lines"
+            :key="n"
+            class="cmp-name"
+          >
+            <code>{{ n }}</code
+            ><span v-if="i < statementLayout.lines.length - 1" class="cmp-sep"
+              >,
+            </span>
+          </span>
+        </p>
+      </section>
+
+      <!--
+        Beside the statement layout, which is the other way a port runs out of
+        line numbers. The range itself is a fact row whether or not there is a
+        program; this is what the reader's own numbers do against it.
+      -->
+      <section v-if="lineNumbers" id="line-numbers" class="cmp-section">
+        <h2>Line numbers</h2>
+        <p class="cmp-fit">
+          <strong class="cmp-fit-over">Must be renumbered —</strong>
+          {{ target.name }} numbers lines {{ target.facts.lineNumberRange }},
+          and your program
+          <template v-if="lineNumbers.belowMinimum && lineNumbers.aboveMaximum">
+            runs from {{ lineNumbers.lowest }} to {{ lineNumbers.highest }}.
+          </template>
+          <template v-else-if="lineNumbers.aboveMaximum">
+            reaches {{ lineNumbers.highest }}.
+          </template>
+          <template v-else> starts at {{ lineNumbers.lowest }}. </template>
+        </p>
+        <p class="cmp-hint">
+          A line the target will not accept cannot be typed in at all, whatever
+          else the port changes.
+        </p>
+      </section>
+
+      <p v-if="hasMechanicalWork" class="cmp-stage">
+        <strong>Then the mechanical work.</strong>
+        Worth doing first because it is cheap: it leaves fewer unfamiliar
+        spellings in the program the rewrites are done against.
+      </p>
+
+      <!--
+        Renames and usage changes share a premise - the command is on both
+        machines, written differently - so they share a section; a rename is
+        its two spellings, not a row carrying a description the reference page
+        gives. That shared section is what puts the mechanical work and the
+        first of the rewrites in one place, at the seam between the two.
+      -->
+      <section
+        v-if="keywordDiff.renamed.length || changedCount"
+        id="different-form"
+        class="cmp-section"
+      >
+        <h2>Same command, different form</h2>
+        <p class="cmp-hint">
+          On both machines, but not written the same way — a search and replace
+          for the first two, a look at each use for the rest.
+        </p>
+        <p v-if="keywordDiff.renamed.length" class="cmp-change-rule">
+          {{ count(keywordDiff.renamed.length, 'command') }} spelled
+          differently:
+          <span
+            v-for="(r, i) in keywordDiff.renamed"
+            :key="r.from.name"
+            class="cmp-name"
+          >
+            <code>{{ r.from.name }}</code> → <code>{{ r.to.name }}</code
+            ><span v-if="i < keywordDiff.renamed.length - 1" class="cmp-sep"
+              >,
+            </span>
+          </span>
+        </p>
+        <!--
+          One rule of the target language, named once with the keywords it
+          applies to, rather than repeated as a row each: on Commodore →
+          Spectrum this alone would otherwise be fifteen rows saying the same
+          thing.
+        -->
+        <p v-if="parensChanged.length" class="cmp-change-rule">
+          {{ count(parensChanged.length, 'command') }} differing only in whether
+          the argument is bracketed — write them as {{ target.name }} does:
+          <span v-for="(c, i) in parensChanged" :key="c.name" class="cmp-name">
+            <code>{{ c.name }}</code
+            ><span v-if="i < parensChanged.length - 1" class="cmp-sep">, </span>
+          </span>
+        </p>
+        <ul v-if="detailedChanges.length" class="cmp-list cmp-change">
+          <li v-for="c in behaviourChangedList.visible" :key="c.name">
+            <span class="cmp-change-head">
+              <code>{{ c.name }}</code>
+              <span class="cmp-change-what">{{ CHANGE_LABEL[c.change] }}</span>
+            </span>
             <span class="cmp-change-detail">
-              <span class="cmp-from">{{ source.name }}: {{ t.from }}</span>
+              <span class="cmp-from"
+                >{{ source.name }}: {{ c.from.kind }} ·
+                <code>{{ c.from.syntax }}</code></span
+              >
               <span class="cmp-arrow">→</span>
-              <span class="cmp-to">{{ target.name }}: {{ t.to }}</span>
+              <span class="cmp-to"
+                >{{ target.name }}: {{ c.to.kind }} ·
+                <code>{{ c.to.syntax }}</code></span
+              >
             </span>
           </li>
           <li
-            v-if="falseFriendsList.hasMore && !falseFriendsList.expanded"
+            v-if="
+              behaviourChangedList.hasMore && !behaviourChangedList.expanded
+            "
             class="cmp-more"
           >
             <button
               type="button"
               class="cmp-expand"
-              @click="falseFriendsList.expand()"
+              @click="behaviourChangedList.expand()"
             >
-              Show {{ falseFriendsList.remaining }} more…
+              Show {{ behaviourChangedList.remaining }} more…
             </button>
           </li>
         </ul>
       </section>
 
-      <!--
-        The other silent failure, and given the same weight as the one above:
-        the names exist on both machines, nothing fails to tokenize, and two of
-        the program's variables have quietly become one. Always narrowed - which
-        names collide is a fact about a program, not about a pair of machines.
-      -->
-      <section
-        v-if="variableCollisions.length"
-        id="variable-collisions"
-        class="cmp-section cmp-traps"
-      >
-        <h2>Names that become one ({{ variableCollisions.length }})</h2>
-        <p class="cmp-hint">
-          {{ target.name }} keeps less of a variable name than
-          {{ source.name }} does, so these become one variable and the program
-          computes the wrong answer without reporting anything.
-        </p>
-        <ul class="cmp-list">
-          <li v-for="c in variableCollisions" :key="c.key">
-            <code>{{ c.key }}</code>
-            <span class="cmp-change-detail">
-              <span class="cmp-from">{{ c.names.join(', ') }}</span>
-              <span class="cmp-arrow">→</span>
-              <span class="cmp-to">all become {{ c.key }}</span>
-            </span>
-          </li>
-        </ul>
-        <p class="cmp-hint">
-          Rename them so they differ inside what {{ target.name }} keeps, and
-          check the new name against every other name in the program.
-        </p>
-      </section>
-
-      <!--
-        Beside the collisions, and silent in the same way: the expression ports
-        unchanged and stops being the calculation it was. The "Numbers" fact row
-        says the target has no fractions; this says what that costs here.
-      -->
-      <section
-        v-if="truncatedArithmetic"
-        id="truncated-arithmetic"
-        class="cmp-section cmp-traps"
-      >
-        <h2>Arithmetic that truncates</h2>
-        <p class="cmp-hint">
-          {{ target.name }} has no fractions at all — it holds whole numbers
-          from {{ truncatedArithmetic.min }} to {{ truncatedArithmetic.max }},
-          and every division truncates.
-        </p>
-        <p class="cmp-hint">
-          This program
-          <template v-if="truncatedArithmetic.divides">divides</template>
-          <template
-            v-if="
-              truncatedArithmetic.divides &&
-              truncatedArithmetic.fractionalLiteral
-            "
-          >
-            and
-          </template>
-          <template v-if="truncatedArithmetic.fractionalLiteral"
-            >carries fractional values</template
-          >, so rescale that arithmetic — work in tenths or hundredths, or
-          reorder so the multiply comes before the divide.
-        </p>
-      </section>
+      <p v-if="hasRewriteWork" class="cmp-stage">
+        <strong>Then what has to be rewritten.</strong>
+        The bulk of the port, and the part that decides the shape of the result.
+      </p>
 
       <!--
         One account per capability: what the port loses here, what to do
@@ -1529,85 +1688,6 @@ watch(to, requestVocabulary);
       </section>
 
       <!--
-        From here down the page is reference rather than work. Renames and
-        usage changes share a premise - the command is on both machines,
-        written differently - so they share a section; a rename is its two
-        spellings, not a row carrying a description the reference page gives.
-      -->
-      <section
-        v-if="keywordDiff.renamed.length || changedCount"
-        id="different-form"
-        class="cmp-section"
-      >
-        <h2>Same command, different form</h2>
-        <p class="cmp-hint">
-          On both machines, but not written the same way — a search and replace
-          for the first two, a look at each use for the rest.
-        </p>
-        <p v-if="keywordDiff.renamed.length" class="cmp-change-rule">
-          {{ count(keywordDiff.renamed.length, 'command') }} spelled
-          differently:
-          <span
-            v-for="(r, i) in keywordDiff.renamed"
-            :key="r.from.name"
-            class="cmp-name"
-          >
-            <code>{{ r.from.name }}</code> → <code>{{ r.to.name }}</code
-            ><span v-if="i < keywordDiff.renamed.length - 1" class="cmp-sep"
-              >,
-            </span>
-          </span>
-        </p>
-        <!--
-          One rule of the target language, named once with the keywords it
-          applies to, rather than repeated as a row each: on Commodore →
-          Spectrum this alone would otherwise be fifteen rows saying the same
-          thing.
-        -->
-        <p v-if="parensChanged.length" class="cmp-change-rule">
-          {{ count(parensChanged.length, 'command') }} differing only in whether
-          the argument is bracketed — write them as {{ target.name }} does:
-          <span v-for="(c, i) in parensChanged" :key="c.name" class="cmp-name">
-            <code>{{ c.name }}</code
-            ><span v-if="i < parensChanged.length - 1" class="cmp-sep">, </span>
-          </span>
-        </p>
-        <ul v-if="detailedChanges.length" class="cmp-list cmp-change">
-          <li v-for="c in behaviourChangedList.visible" :key="c.name">
-            <span class="cmp-change-head">
-              <code>{{ c.name }}</code>
-              <span class="cmp-change-what">{{ CHANGE_LABEL[c.change] }}</span>
-            </span>
-            <span class="cmp-change-detail">
-              <span class="cmp-from"
-                >{{ source.name }}: {{ c.from.kind }} ·
-                <code>{{ c.from.syntax }}</code></span
-              >
-              <span class="cmp-arrow">→</span>
-              <span class="cmp-to"
-                >{{ target.name }}: {{ c.to.kind }} ·
-                <code>{{ c.to.syntax }}</code></span
-              >
-            </span>
-          </li>
-          <li
-            v-if="
-              behaviourChangedList.hasMore && !behaviourChangedList.expanded
-            "
-            class="cmp-more"
-          >
-            <button
-              type="button"
-              class="cmp-expand"
-              @click="behaviourChangedList.expand()"
-            >
-              Show {{ behaviourChangedList.remaining }} more…
-            </button>
-          </li>
-        </ul>
-      </section>
-
-      <!--
         The codes to replace are grouped by what they do, in the source's own
         category order, and not capped: the same treatment the commands to
         replace get. An alphabetical cap buried the colour and cursor codes a
@@ -1702,122 +1782,127 @@ watch(to, requestVocabulary);
         </p>
       </section>
 
+      <p v-if="hasSilentWork" class="cmp-stage">
+        <strong>Then what changes quietly.</strong>
+        Left until here because it is checked against code that has stopped
+        changing.
+      </p>
+
       <!--
-        Characters, not control codes: a character the target has no glyph for
-        is rejected when the program is read, wherever it sits - in a string, a
-        REM or a variable name. Narrowed to the program's own text where there
-        is one; the target's whole shortfall where there is not.
+        The command exists on both machines, so nothing else on this page flags
+        it, and the program runs and quietly computes something else. Read
+        after the rewrites: what a silent difference costs is only worth
+        checking against code that has stopped changing.
       -->
       <section
-        v-if="charactersToReplace.length"
-        id="characters"
-        class="cmp-section"
+        v-if="visibleFalseFriends.length"
+        id="false-friends"
+        class="cmp-section cmp-traps"
       >
-        <h2>Characters to replace ({{ charactersToReplace.length }})</h2>
+        <h2>Same word, different meaning ({{ visibleFalseFriends.length }})</h2>
         <p class="cmp-hint">
-          {{ target.name }} has no glyph for
-          {{
-            narrowingBy
-              ? 'these characters the program uses'
-              : 'these characters'
-          }}, so they cannot appear anywhere in the program — not in a string,
-          and not in a comment.
+          These exist on both machines, so they raise no error — they just do
+          something else.
         </p>
-        <p class="cmp-group-names">
-          <span v-for="(c, i) in charactersToReplace" :key="c" class="cmp-name">
-            <code>{{ c }}</code
-            ><span v-if="i < charactersToReplace.length - 1" class="cmp-sep"
-              >,
+        <ul class="cmp-list">
+          <li v-for="t in falseFriendsList.visible" :key="t.keyword">
+            <code>{{ t.keyword }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from">{{ source.name }}: {{ t.from }}</span>
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to">{{ target.name }}: {{ t.to }}</span>
             </span>
-          </span>
-        </p>
-      </section>
-
-      <!--
-        Always narrowed: without a program this says nothing the "Statements per
-        line" fact row does not already say, and with one it is the only place
-        the reader learns which of their own lines the rule falls on.
-      -->
-      <section v-if="statementLayout" id="statement-layout" class="cmp-section">
-        <h2>
-          Statement layout ({{ count(statementLayout.lines.length, 'line') }})
-        </h2>
-        <p class="cmp-hint" v-if="statementLayout.kind === 'split'">
-          {{ target.name }} takes one statement per line, so every
-          <code>{{ statementLayout.from }}</code> becomes a new line. That
-          renumbers everything after it — <strong>Renumber file</strong> fixes
-          the line references.
-        </p>
-        <p class="cmp-hint" v-else>
-          {{ target.name }} separates statements with
-          <code>{{ statementLayout.to }}</code
-          >, not <code>{{ statementLayout.from }}</code
-          >. The lines keep their shape; only the separator changes.
-        </p>
-        <!--
-          Splitting is the one thing a port does that *creates* line numbers, so
-          the count it produces is reported against the target's range here
-          rather than left beside the range as two numbers to join up.
-        -->
-        <p v-if="statementLayout.projected" class="cmp-hint">
-          <template v-if="statementLayout.projected.overflows">
-            <strong class="cmp-fit-over">Will not renumber:</strong>
-            the split turns {{ statementLayout.projected.from }} lines into
-            {{ statementLayout.projected.to }}, and {{ target.name }} numbers
-            lines {{ target.facts.lineNumberRange }} — too few to hold them
-            however they are renumbered.
-          </template>
-          <template v-else>
-            The split turns {{ statementLayout.projected.from }} lines into
-            {{ statementLayout.projected.to }}, within the
-            {{ target.facts.lineNumberRange }} {{ target.name }} allows.
-          </template>
-        </p>
-        <p class="cmp-group-names">
-          Editor
-          {{ statementLayout.lines.length === 1 ? 'line' : 'lines' }}
-          <span
-            v-for="(n, i) in statementLayout.lines"
-            :key="n"
-            class="cmp-name"
+          </li>
+          <li
+            v-if="falseFriendsList.hasMore && !falseFriendsList.expanded"
+            class="cmp-more"
           >
-            <code>{{ n }}</code
-            ><span v-if="i < statementLayout.lines.length - 1" class="cmp-sep"
-              >,
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="falseFriendsList.expand()"
+            >
+              Show {{ falseFriendsList.remaining }} more…
+            </button>
+          </li>
+        </ul>
+      </section>
+
+      <!--
+        The other silent failure, and given the same weight as the one above:
+        the names exist on both machines, nothing fails to tokenize, and two of
+        the program's variables have quietly become one. Always narrowed - which
+        names collide is a fact about a program, not about a pair of machines.
+      -->
+      <section
+        v-if="variableCollisions.length"
+        id="variable-collisions"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Names that become one ({{ variableCollisions.length }})</h2>
+        <p class="cmp-hint">
+          {{ target.name }} keeps less of a variable name than
+          {{ source.name }} does, so these become one variable and the program
+          computes the wrong answer without reporting anything.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="c in variableCollisions" :key="c.key">
+            <code>{{ c.key }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from">{{ c.names.join(', ') }}</span>
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to">all become {{ c.key }}</span>
             </span>
-          </span>
+          </li>
+        </ul>
+        <p class="cmp-hint">
+          Rename them so they differ inside what {{ target.name }} keeps, and
+          check the new name against every other name in the program.
         </p>
       </section>
 
       <!--
-        Beside the statement layout, which is the other way a port runs out of
-        line numbers. The range itself is a fact row whether or not there is a
-        program; this is what the reader's own numbers do against it.
+        Beside the collisions, and silent in the same way: the expression ports
+        unchanged and stops being the calculation it was. The "Numbers" fact row
+        says the target has no fractions; this says what that costs here.
       -->
-      <section v-if="lineNumbers" id="line-numbers" class="cmp-section">
-        <h2>Line numbers</h2>
-        <p class="cmp-fit">
-          <strong class="cmp-fit-over">Must be renumbered —</strong>
-          {{ target.name }} numbers lines {{ target.facts.lineNumberRange }},
-          and your program
-          <template v-if="lineNumbers.belowMinimum && lineNumbers.aboveMaximum">
-            runs from {{ lineNumbers.lowest }} to {{ lineNumbers.highest }}.
-          </template>
-          <template v-else-if="lineNumbers.aboveMaximum">
-            reaches {{ lineNumbers.highest }}.
-          </template>
-          <template v-else> starts at {{ lineNumbers.lowest }}. </template>
+      <section
+        v-if="truncatedArithmetic"
+        id="truncated-arithmetic"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Arithmetic that truncates</h2>
+        <p class="cmp-hint">
+          {{ target.name }} has no fractions at all — it holds whole numbers
+          from {{ truncatedArithmetic.min }} to {{ truncatedArithmetic.max }},
+          and every division truncates.
         </p>
         <p class="cmp-hint">
-          A line the target will not accept cannot be typed in at all, whatever
-          else the port changes.
+          This program
+          <template v-if="truncatedArithmetic.divides">divides</template>
+          <template
+            v-if="
+              truncatedArithmetic.divides &&
+              truncatedArithmetic.fractionalLiteral
+            "
+          >
+            and
+          </template>
+          <template v-if="truncatedArithmetic.fractionalLiteral"
+            >carries fractional values</template
+          >, so rescale that arithmetic — work in tenths or hundredths, or
+          reorder so the multiply comes before the divide.
         </p>
       </section>
 
+      <p v-if="programFit && fitText" class="cmp-stage">
+        <strong>Finally, whether it still fits.</strong>
+        A property of the result, so it only settles once the work above is
+        done.
+      </p>
+
       <!--
-        Last, because it is a property of the *result*: the size the program
-        takes on the target is only settled once the work above it is done. Also
-        the one finding a port with nothing else to do can still fail - C64 to
+        The one finding a port with nothing else to do can still fail - C64 to
         VIC-20 is the same BASIC in a tenth of the memory - so it is never
         conditioned on anything but having a program to size.
       -->
@@ -2003,6 +2088,22 @@ watch(to, requestVocabulary);
 }
 .cmp-section h2 {
   margin-bottom: 0.25rem;
+}
+/* A class of work opening. Set against the page edge rather than styled as a
+   heading: the sections under it carry the headings, and a third level above
+   them would read as a section of its own with nothing in it. The following
+   section keeps its own top margin, so the lead-in only needs the space above
+   it that separates it from the class before. */
+.cmp-stage {
+  margin: 3rem 0 0;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--vp-c-brand-1);
+  color: var(--vp-c-text-2);
+  font-size: 0.9rem;
+}
+.cmp-stage strong {
+  display: block;
+  color: var(--vp-c-text-1);
 }
 .cmp-hint,
 .cmp-note {
