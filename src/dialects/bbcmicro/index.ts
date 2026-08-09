@@ -21,6 +21,8 @@ import { BBC_DISPLAY_CONTROLS } from './teletextChips';
 import { bbcSamples } from './samples';
 import { bbcMicroMemoryMap } from './memoryMap';
 import { bbcMicroMemoryBlocks } from './memoryBlocks';
+import { PAGE_DFS } from './addresses';
+import { SCREEN_MODE7_BASE } from '../../emulator/bbc/addresses';
 import {
   BbcMachine,
   BBC_DISPLAY_WIDTH,
@@ -44,7 +46,10 @@ export const bbcmicro: Dialect = {
   year: 1981,
   blurb: 'The BBC’s computer literacy machine. Runs BBC BASIC II.',
   docsReference: 'bbc',
-  programRamBytes: 28672,
+  // PAGE (0x1900 with the DFS workspace below it) up to HIMEM in MODE 7, the
+  // mode that leaves the most room; a graphics mode drops HIMEM as far as
+  // 0x3000 and takes up to 20K of this back.
+  programRamBytes: SCREEN_MODE7_BASE - PAGE_DFS,
   fileExtensions: ['.txt', '.bas'],
   keywords: bbcKeywords,
   charset: bbcCharset,

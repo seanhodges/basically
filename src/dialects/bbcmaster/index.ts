@@ -26,6 +26,8 @@ import { BBC_DISPLAY_CONTROLS } from '../bbcmicro/teletextChips';
 import { bbcSamples } from '../bbcmicro/samples';
 import { bbcMasterMemoryMap } from './memoryMap';
 import { bbcMasterMemoryBlocks } from './memoryBlocks';
+import { PAGE } from './addresses';
+import { SCREEN_MODE7_BASE } from '../../emulator/bbc/addresses';
 import { bbcMasterAiProfile } from './aiProfile';
 import {
   BbcMachine,
@@ -48,7 +50,10 @@ export const bbcmaster: Dialect = {
   year: 1986,
   blurb: 'The BBC Micro, upgraded. Runs BBC BASIC IV.',
   docsReference: 'bbc',
-  programRamBytes: 30720,
+  // PAGE (0x0E00 - the Master's filing systems keep their workspace in private
+  // RAM, so nothing displaces it) up to HIMEM in MODE 7. The extra 64K of
+  // sideways and shadow RAM is not program space.
+  programRamBytes: SCREEN_MODE7_BASE - PAGE,
   fileExtensions: ['.txt', '.bas'],
   keywords: bbcMasterKeywords,
   charset: bbcCharset,

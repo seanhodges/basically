@@ -71,13 +71,13 @@ describe('atom sample programs', () => {
   it('runs the Kaleidoscope machine code and mirrors the screen four ways', async () => {
     const kaleido = atomSamples.find((s) => s.name === 'kaleido.bas')!;
     const blocks = materializeSampleBlocks(atom, kaleido);
-    expect(blocks[0]!.address).toBe(0x5000);
-    expect(blocks[0]!.entry).toBe(0x5003);
+    expect(blocks[0]!.address).toBe(0x3800);
+    expect(blocks[0]!.entry).toBe(0x3803);
     // Drive the routine directly (poke params + LINK) so the test needs no
     // keyboard scripting for the sample's own INPUT prompts. The GOTO self-loop
     // keeps BASIC busy so the prompt never scrolls over the drawn screen.
     const { bytes } = tokenizeProgram(
-      '10 ?#5000=3\n20 ?#5001=5\n30 ?#5002=2\n40 LINK #5003\n50 GOTO 50\n',
+      '10 ?#3800=3\n20 ?#3801=5\n30 ?#3802=2\n40 LINK #3803\n50 GOTO 50\n',
     );
     const machine = new AtomMachine();
     machine.loadProgram(bytes, { blocks });

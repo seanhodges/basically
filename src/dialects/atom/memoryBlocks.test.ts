@@ -6,9 +6,11 @@ describe('atomMemoryBlocks', () => {
     expect(atomMemoryBlocks.cpu).toBe('6502');
   });
 
-  it('exposes user RAM (#2900-#7FFF) as the only valid range', () => {
+  // The internal RAM stops at #3BFF on a fully expanded Atom; above it is the
+  // off-board expansion nothing here has, where a block would not be written.
+  it('exposes the internal RAM (#2900-#3BFF) as the only valid range', () => {
     expect(atomMemoryBlocks.validRanges).toEqual([
-      { start: 0x2900, end: 0x7fff },
+      { start: 0x2900, end: 0x3bff },
     ]);
   });
 
@@ -16,8 +18,8 @@ describe('atomMemoryBlocks', () => {
     expect(atomMemoryBlocks.reservedRanges).toEqual([]);
   });
 
-  it('suggests 0x5000 as the default block address', () => {
-    expect(atomMemoryBlocks.defaultAddress).toBe(0x5000);
+  it('suggests 0x3800 as the default block address', () => {
+    expect(atomMemoryBlocks.defaultAddress).toBe(0x3800);
   });
 
   describe('programArea', () => {

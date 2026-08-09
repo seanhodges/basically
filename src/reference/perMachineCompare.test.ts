@@ -166,7 +166,7 @@ describe('hardware facts answer for the machine chosen', () => {
   it('gives the BBC Master its own figures and inherits the rest', () => {
     const master = factsFor('bbcmaster');
     const micro = factsFor('bbcmicro');
-    expect(master.freeRamBytes).toBe(30720);
+    expect(master.freeRamBytes).toBe(28160);
     expect(master.programStart).toBe('&0E00');
     // Same BASIC, so every language rule is the Model B's, stated once.
     expect(master.lineNumberRange).toBe(micro.lineNumberRange);

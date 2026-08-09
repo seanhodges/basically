@@ -19,13 +19,17 @@ import {
 import { plainChar, sextantChar } from '../../dialects/atom/charset';
 import { AtomDiskDrive, type Bus } from './diskDrive';
 import { JsbeebMemoryActivity } from '../jsbeebMemoryActivity';
-// The dialect owns the Atom's address facts. RAM_TOP is the VDG screen base:
-// RAM runs unbroken from TEXT_START up to it (confirmed by write-probing the
-// booted machine). The dialect's `programRamBytes` budget is deliberately more
-// conservative; the live readout reports what this machine actually has.
+// The dialect owns the Atom's address facts. BASIC text runs from TEXT_START up
+// to TEXT_TOP, the ceiling of the 5K of internal RAM a fully expanded Atom
+// holds; VIDEO_TOP is the ceiling of its 6K of video RAM.
 import {
+  BLOCK_ZERO_TOP,
+  EXTENSION_SLOT_BASE,
+  FP_VARS_BASE,
   TEXT_START,
-  VIDEO_BASE as RAM_TOP,
+  TEXT_TOP,
+  VIDEO_BASE,
+  VIDEO_TOP,
 } from '../../dialects/atom/addresses';
 
 /** jsbeeb's Video renders into a fixed 1024×625 RGBA framebuffer… */
@@ -48,7 +52,7 @@ export const ATOM_DISPLAY_WIDTH = 256;
 export const ATOM_DISPLAY_HEIGHT = 192;
 
 /** MC6847 text-mode matrix: 32x16 codes from #8000. */
-const ATOM_SCREEN_BASE = 0x8000;
+const ATOM_SCREEN_BASE = VIDEO_BASE;
 const ATOM_SCREEN_COLS = 32;
 const ATOM_SCREEN_ROWS = 16;
 
@@ -267,6 +271,7 @@ export class AtomMachine implements MachineEmulator {
     // The Atom keyboard hangs off the PPIA, not the SysVia.
     this.hostKeyboard = new AtomHostKeyboard(this.cpu.atomppia);
     this.ready = this.cpu.initialise().then(() => {
+      this.unfitExpansionRam();
       this.initialised = true;
     });
     this.ready.catch((e) => {
@@ -282,6 +287,38 @@ export class AtomMachine implements MachineEmulator {
   /** Direct CPU access for tests and debugging. */
   get processor(): Cpu6502 {
     return this.cpu;
+  }
+
+  /**
+   * Take the RAM a real Atom never had back out of the address space.
+   *
+   * jsbeeb's Atom model fills 0x0000-0x9FFF with RAM unconditionally, which is
+   * an Atom carrying an off-board expansion board. A fully expanded stock
+   * machine has 12K, in three separate runs: 1K of block-zero RAM at #0000, 5K
+   * of internal RAM at #2800 (floating-point variables, then BASIC text up to
+   * {@link TEXT_TOP}), and 6K of video RAM at {@link VIDEO_BASE} up to
+   * {@link VIDEO_TOP}. What lies between those runs is the address space the
+   * expansion boards claimed - the teletext VDG RAM, the disc controller, the
+   * peripheral window and the DOS file buffers - none of it fitted here.
+   *
+   * Marking those pages as device pages routes them through jsbeeb's device
+   * handlers, which drop writes and read back the address high byte - the open
+   * bus a 6502 sees with nothing driving it. Without this the byte counter
+   * would promise room the hardware does not have, and a program that fits
+   * here would not fit on the machine it claims to be.
+   *
+   * A hard reset re-runs jsbeeb's own `setupMemoryMap`, so every `reset(true)`
+   * has to be followed by this.
+   */
+  private unfitExpansionRam(): void {
+    const unfit = (from: number, to: number) => {
+      for (let page = from >> 8; page < to >> 8; page++) {
+        this.cpu.memStat[page] = this.cpu.memStat[256 + page] = 0;
+      }
+    };
+    unfit(BLOCK_ZERO_TOP, FP_VARS_BASE);
+    unfit(TEXT_TOP, VIDEO_BASE);
+    unfit(VIDEO_TOP, EXTENSION_SLOT_BASE);
   }
 
   /** The Atom PPIA, which owns the key matrix and tape/speaker ports. */
@@ -435,14 +472,14 @@ export class AtomMachine implements MachineEmulator {
    * Actual RAM figures from BASIC's own top-of-text pointer (`#0D/#0E`), which
    * the interpreter advances past the program's `0D FF` end marker and again
    * as `DIM` allocates arrays — so TEXT_START..TOP is in use and TOP to
-   * {@link RAM_TOP} is free. `readmem` is a side-effect-free main-RAM read.
+   * {@link TEXT_TOP} is free. `readmem` is a side-effect-free main-RAM read.
    */
   readMemoryStats(): MachineMemoryStats | null {
     if (!this.initialised || this.injecting || this.disposed) return null;
     const top =
       this.cpu.readmem(TOP_OF_TEXT) | (this.cpu.readmem(TOP_OF_TEXT + 1) << 8);
     const used = top - TEXT_START;
-    const free = RAM_TOP - top;
+    const free = TEXT_TOP - top;
     // Implausible pointer means the kernel hasn't initialised BASIC yet.
     if (top < TEXT_START || free < 0) return null;
     return { used, free };
@@ -474,7 +511,9 @@ export class AtomMachine implements MachineEmulator {
     // reset, so a late flush would resurrect stale data.
     this.drive?.closeAll();
     void this.ready.then(() => {
-      if (!this.disposed) this.cpu.reset(true);
+      if (this.disposed) return;
+      this.cpu.reset(true);
+      this.unfitExpansionRam();
     });
   }
 
@@ -542,6 +581,7 @@ export class AtomMachine implements MachineEmulator {
         try {
           this.ppia.clearKeys();
           this.cpu.reset(true);
+          this.unfitExpansionRam();
           // Start each run with no carried-over channels from a previous run.
           this.drive?.closeAll();
           this.runCycles(BOOT_CYCLES);

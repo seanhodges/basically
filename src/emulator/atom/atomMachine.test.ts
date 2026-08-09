@@ -72,6 +72,59 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     machine.dispose();
   }, 30000);
 
+  /**
+   * jsbeeb's Atom model fills 0x0000-0x9FFF with RAM, which is a machine
+   * carrying an off-board expansion board. The adapter takes the expansion back
+   * out so the emulated Atom is the 12K one the byte counter and the memory map
+   * describe. Both halves matter: the fitted RAM has to still be RAM (a bug
+   * here would quietly shrink the machine), and the unfitted RAM has to swallow
+   * writes rather than remember them.
+   */
+  it('holds RAM only where a fully expanded Atom has it', async () => {
+    const machine = new AtomMachine();
+    await machine.whenReady();
+    const cpu = machine.processor;
+    const sticks = (addr: number) => {
+      cpu.writemem(addr, 0x5a);
+      return cpu.readmem(addr) === 0x5a;
+    };
+    // Block zero, the 5K of internal RAM (FP variables then BASIC text), and
+    // the 6K of video RAM.
+    expect(sticks(0x0300)).toBe(true);
+    expect(sticks(0x2800)).toBe(true);
+    expect(sticks(0x2900)).toBe(true);
+    expect(sticks(0x3bff)).toBe(true);
+    expect(sticks(0x8000)).toBe(true);
+    expect(sticks(0x97ff)).toBe(true);
+    // The expansion-board window between block zero and the internal RAM, the
+    // off-board extension RAM, and the top 2K the VDG can address but the board
+    // never populated: open bus, so a write is dropped.
+    expect(sticks(0x0400)).toBe(false);
+    expect(sticks(0x2000)).toBe(false);
+    expect(sticks(0x27ff)).toBe(false);
+    expect(sticks(0x3c00)).toBe(false);
+    expect(sticks(0x5000)).toBe(false);
+    expect(sticks(0x7fff)).toBe(false);
+    expect(sticks(0x9800)).toBe(false);
+    machine.dispose();
+  }, 30000);
+
+  /**
+   * A hard reset rebuilds jsbeeb's page table from the model, which puts the
+   * expansion RAM back. The Run path hard-resets before every injection, so a
+   * missed reapply would show up as the machine growing 17K on its second run.
+   */
+  it('keeps the expansion unfitted across the reset a run performs', async () => {
+    const machine = new AtomMachine();
+    const { bytes } = tokenizeProgram('10 PRINT "HI"\n');
+    machine.loadProgram(bytes);
+    await runUntil(machine, () => screenText(machine).includes('HI'));
+    const cpu = machine.processor;
+    cpu.writemem(0x5000, 0x5a);
+    expect(cpu.readmem(0x5000)).not.toBe(0x5a);
+    machine.dispose();
+  }, 60000);
+
   it('loads a program, auto-RUNs it and shows its output', async () => {
     const machine = new AtomMachine();
     const { bytes } = tokenizeProgram('10 PRINT "HELLO ATOM"\n20 END\n');
@@ -172,8 +225,8 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     // At least the injected program text is in use.
     expect(stats!.used).toBeGreaterThanOrEqual(bytes.length);
     expect(stats!.free).toBeGreaterThan(0);
-    // TEXT_START (#2900) to the VDG screen (#8000).
-    expect(stats!.used + stats!.free).toBe(0x8000 - 0x2900);
+    // TEXT_START (#2900) to the top of the fitted internal RAM (#3C00).
+    expect(stats!.used + stats!.free).toBe(0x3c00 - 0x2900);
     machine.dispose();
   }, 60000);
 
@@ -219,7 +272,7 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     const block: MemoryBlock = {
       id: 'b1',
       name: 'code1',
-      address: 0x5000,
+      address: 0x3800,
       bytes: new Uint8Array([0x12, 0x34, 0x56, 0x78, 0x9a]),
       kind: 'code',
     };
@@ -236,17 +289,17 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
 
   it('starts an entry-carrying block with LINK when there is no BASIC program', async () => {
     const machine = new AtomMachine();
-    // 6502 at #5000: write VDG codes for "OK" into screen RAM, then RTS back
+    // 6502 at #3800: write VDG codes for "OK" into screen RAM, then RTS back
     // to BASIC. 'O' = 0x0F, 'K' = 0x0B (ASCII minus 0x40 in the low range).
     const block: MemoryBlock = {
       id: 'b1',
       name: 'boot',
-      address: 0x5000,
+      address: 0x3800,
       bytes: new Uint8Array([
         0xa9, 0x0f, 0x8d, 0x00, 0x81, 0xa9, 0x0b, 0x8d, 0x01, 0x81, 0x60,
       ]),
       kind: 'code',
-      entry: 0x5000,
+      entry: 0x3800,
     };
     // An empty source tokenizes to just the 0D FF end marker - the
     // machine-code-.atm import shape (empty source + one entry block).
