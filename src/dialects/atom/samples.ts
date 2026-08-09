@@ -9,10 +9,10 @@ import kaleidoAsm from './samples/kaleido.asm?raw';
 /** The kaleidoscope routine's block layout (see samples/kaleido.asm). */
 export const ATOM_KALEIDO_BLOCK = {
   name: 'kaleido',
-  address: 0x5000,
+  address: 0x3800,
   kind: 'code',
   asmSource: kaleidoAsm,
-  entry: 0x5003,
+  entry: 0x3803,
 } as const;
 
 /**

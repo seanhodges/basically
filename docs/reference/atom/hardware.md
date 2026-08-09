@@ -45,12 +45,22 @@ The whole of the machine's address space, region by region. Zoom in to open a
 band into the parts it groups, and select a region for its addresses and what
 sits there.
 
+The Atom is a small machine even by 1980 standards, and the map shows why: it
+shipped with 2K of RAM and takes 12K at most without an off-board expansion.
+That 12K is three separate runs — 1K of workspace at the bottom of memory, 5K
+of internal RAM in the middle, and 6K of video RAM for the MC6847 — with
+unfitted address space in between. BASIC gets the middle run: the
+floating-point variables take its first page, leaving **0x2900 to 0x3BFF**,
+4,864 bytes, for your program and its variables. The byte counter in the status
+bar is measured against that.
+
 <MemoryMapSingle machine="atom" :map="atomMemoryMap" />
 
 An Atom program can load fixed-address machine code or data — **memory blocks** —
-into RAM alongside the BASIC program before it runs. A block may sit anywhere in
-user RAM below the screen, from **0x2900 to 0x7FFF** (the MC6847 display sits
-above it at #8000); new blocks default to **0x5000**, above a typical program.
+into RAM alongside the BASIC program before it runs. A block shares the BASIC
+program's window, **0x2900 to 0x3BFF**; new blocks default to **0x3800**, in the
+last 1K of it and so above a typical program. Nothing above 0x3BFF will do: that
+address space is unfitted, and a write there is simply dropped.
 
 Blocks travel with the document through the
 [project bundle](../file-formats#project-bundle-zip) and through share links,

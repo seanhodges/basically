@@ -12,6 +12,7 @@ import {
 import { cpcCharset } from '../cpc464/charset';
 import { tokenizeProgram } from '../cpc464/tokenizer';
 import { importCpcImage } from '../cpc464/importCpc';
+import { cpc464 } from '../cpc464';
 import { cpc464MemoryBlocks } from '../cpc464/memoryBlocks';
 import {
   buildCassetteSamples,
@@ -65,10 +66,10 @@ export const cpc6128: Dialect = {
   // port exposes two independent fire buttons.
   joystickModes: ['native'],
   joystickFireButtons: 2,
-  // The real machine's documented free-RAM figure with no AMSDOS - the same
-  // as the 464's, since AMSDOS is exactly the 370 bytes that take a
-  // disc-equipped 6128 down to 42249. Revisit only when AMSDOS ships.
-  programRamBytes: 42619,
+  // The same as the 464's: BASIC 1.1 moved its workspace pointers but not
+  // HIMEM, and this machine runs with no AMSDOS below it. Revisit only when
+  // AMSDOS ships, which would take it down to the disc machine's 42249.
+  programRamBytes: cpc464.programRamBytes,
   // The combined 32K firmware+BASIC ROM (16K OS 2.x then 16K Locomotive
   // BASIC 1.1). No AMSDOS ROM: the 6128 runs tape-only here.
   romUrl: `${import.meta.env.BASE_URL}roms/cpc/cpc6128.rom`,

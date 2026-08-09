@@ -16,6 +16,7 @@ import { atomKeyboardLayout } from './keyboardLayout';
 import { atomSamples } from './samples';
 import { atomMemoryMap } from './memoryMap';
 import { atomMemoryBlocks } from './memoryBlocks';
+import { TEXT_START, TEXT_TOP } from './addresses';
 import { AtomMachine } from '../../emulator/atom/atomMachine';
 
 /**
@@ -33,7 +34,9 @@ export const atom: Dialect = {
   manufacturer: 'Acorn',
   year: 1980,
   blurb: 'Acorn’s forerunner to the BBC Micro. Runs Atom BASIC.',
-  programRamBytes: 8192,
+  // A fully expanded 12K Atom holds 5K of internal RAM at #2800; the
+  // floating-point ROM takes the first page, leaving #2900-#3BFF for BASIC.
+  programRamBytes: TEXT_TOP - TEXT_START,
   fileExtensions: ['.txt', '.bas'],
   keywords: atomKeywords,
   charset: atomCharset,

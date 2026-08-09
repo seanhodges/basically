@@ -350,7 +350,7 @@ const entries: PortingFactsEntry[] = [
     // MODE 7 default; higher-resolution modes move the screen base down.
     screenBase: '&7C00',
     programStart: '&1900',
-    freeRamBytes: 28672,
+    freeRamBytes: 25344,
     colour:
       'Up to 16 colours (mode-dependent); COLOUR sets text ink, GCOL sets graphics ink.',
     sound: 'SOUND channel,amplitude,pitch,duration with ENVELOPE.',
@@ -495,7 +495,7 @@ const entries: PortingFactsEntry[] = [
     screen: '32×16 text (CLEAR 0); graphics up to 256×192 (CLEAR 4).',
     screenBase: '&8000',
     programStart: '&2900',
-    freeRamBytes: 8192,
+    freeRamBytes: 4864,
     colour: 'None — the MC6847 VDG output is rendered monochrome here.',
     sound: 'A simple speaker; most programs are silent.',
     memoryWriteSyntax: '?<addr>=<byte> (byte), !<addr>=<number> (word)',
@@ -638,7 +638,7 @@ const entries: PortingFactsEntry[] = [
       'MODE 0 (20×25, 160×200, 16 inks), MODE 1 (40×25, 320×200, 4 inks), MODE 2 (80×25, 640×200, 2 inks); graphics space 640×400.',
     screenBase: '&C000',
     programStart: '&0170',
-    freeRamBytes: 42619,
+    freeRamBytes: 43535,
     colour: '27 hardware colours; INK/PEN/PAPER/BORDER assign them.',
     sound: 'SOUND channel,period,duration with ENV/ENT envelopes.',
     memoryWriteSyntax: 'POKE <addr>, <byte>',
@@ -753,7 +753,7 @@ const entries: PortingFactsEntry[] = [
     id: 'bbcmaster',
     extends: 'bbcmicro',
     basicDialect: 'BBC BASIC IV',
-    freeRamBytes: 30720,
+    freeRamBytes: 28160,
     // Shadow screen memory keeps the display out of the program's way, so BASIC
     // text starts lower than the Model B's &1900.
     programStart: '&0E00',

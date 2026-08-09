@@ -57,8 +57,11 @@ export const cpc464: Dialect = {
   // port exposes two independent fire buttons.
   joystickModes: ['native'],
   joystickFireButtons: 2,
-  // PRINT FRE(0) on a clean 464 boot (BASIC 1.0, no AMSDOS).
-  programRamBytes: 42619,
+  // PRINT FRE(0) on a clean 464 boot (BASIC 1.0, no AMSDOS): the program area
+  // from &0170 up to HIMEM, which the firmware leaves at &AB7F with no disc
+  // ROM below it. Fitting AMSDOS drops HIMEM to &A67B and this to the 42,249
+  // a disc-equipped machine reports.
+  programRamBytes: 43535,
   // The combined 32K firmware+BASIC ROM (16K OS then 16K Locomotive BASIC 1.0).
   romUrl: `${import.meta.env.BASE_URL}roms/cpc/cpc464.rom`,
   romBytes: CPC_ROM_SIZE,
