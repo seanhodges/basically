@@ -19,6 +19,7 @@ import type { EscapeGuidance } from './escape-guidance';
 // another matter - that folder's index modules reach the emulator cores.
 import type { MemoryMap, MemoryRegion } from '../dialects/types';
 import type {
+  ConditionalFreeMemory,
   EscapeEntry,
   EscapeTableData,
   FalseFriend,
@@ -810,6 +811,30 @@ export interface ProgramVocabulary {
    * they would land.
    */
   writeSites: ProgramWriteSite[];
+  /**
+   * The screen modes the program selects, or null on a machine with no command
+   * for selecting one. What decides whether a target's conditionally free
+   * memory is actually free. The app-side twin is `ScreenModeUse`.
+   */
+  screenModes: ScreenModeUse | null;
+}
+
+/**
+ * What a program's text says about the screen modes it selects.
+ *
+ * `command` rides along because the vocabulary is read as the machine being
+ * ported *from* and judged against the target's regions: a BBC `MODE 0` and an
+ * Atom `CLEAR 0` are both mode 0 and are opposite ends of their machines'
+ * graphics, so a reader whose region names a different command must decline to
+ * decide rather than compare the numbers.
+ */
+export interface ScreenModeUse {
+  /** The mode command, upper case, as the machine read spells it. */
+  command: string;
+  /** Modes selected with a constant argument, ascending and distinct. */
+  modes: number[];
+  /** True where a selection's value is not fixed by the program's text. */
+  computed: boolean;
 }
 
 /** One address the program writes to. The app-side twin is
@@ -1431,6 +1456,76 @@ export function programFitForTarget(
     verdict,
     lowerBound,
   };
+}
+
+/**
+ * Whether the program's own text proves `region` untouched.
+ *
+ * Pure, and strict in one direction only: everything it cannot decide reads as
+ * "not free". A mode whose value the text does not fix, a vocabulary read as a
+ * machine whose mode command is not the region's, a write landing inside the
+ * region - each is a question this cannot answer, and doubt runs toward leaving
+ * the memory claimed, exactly as the lower-bound rule runs it toward the larger
+ * program.
+ *
+ * The write check comes first and applies to every form of condition: a program
+ * that names no graphics mode at all but pokes the region directly is using the
+ * memory, whatever its mode statements say.
+ */
+export function conditionallyFreeMet(
+  region: ConditionalFreeMemory,
+  vocabulary: ProgramVocabulary,
+): boolean {
+  const written = vocabulary.writeSites.some(
+    (site) =>
+      site.address <= region.end &&
+      region.start <= (site.endAddress ?? site.address),
+  );
+  if (written) return false;
+
+  const condition = region.condition;
+  if (condition.kind === 'without-keywords') {
+    return !condition.keywords.some((keyword) =>
+      vocabulary.keywords.includes(keyword.toUpperCase()),
+    );
+  }
+  const use = vocabulary.screenModes;
+  // Read as a machine with no mode command of its own: nothing in the program
+  // selects a mode on the target, so it stays in the one it powers on in.
+  if (use === null) return condition.modes.includes(condition.bootMode);
+  if (use.command !== condition.command) return false;
+  if (use.computed) return false;
+  if (use.modes.length === 0)
+    return condition.modes.includes(condition.bootMode);
+  return use.modes.every((mode) => condition.modes.includes(mode));
+}
+
+/**
+ * Memory the target holds that this program may take, reported only where the
+ * fit report has already called the program close to the limit or over it.
+ *
+ * The gate is the whole of what squares this with the rule that the comparison
+ * never advertises what the target adds. Under pressure the memory is not an
+ * advertisement but part of the answer to "does it fit"; with room to spare it
+ * is a feature the reader did not ask about. And an unmet condition reports
+ * nothing at all, because "rewrite the program and this memory appears" is
+ * precisely the advertisement the rule forbids.
+ *
+ * `at-least` is not pressure: a lower bound says neither that the program is
+ * close to the limit nor that it is over, and a lower bound that *is* over is
+ * reported as `over` by {@link programFitForTarget} and gates here on that.
+ */
+export function conditionallyFreeForProgram(
+  targetFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+  fit: ProgramFit | null,
+): ConditionalFreeMemory[] {
+  if (fit === null || (fit.verdict !== 'tight' && fit.verdict !== 'over')) {
+    return [];
+  }
+  return (targetFacts.conditionallyFree ?? []).filter((region) =>
+    conditionallyFreeMet(region, vocabulary),
+  );
 }
 
 /**

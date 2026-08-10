@@ -617,6 +617,70 @@ export interface MemoryRange {
 }
 
 /**
+ * The keyword a machine selects a screen mode with, and the mode it powers on
+ * in - `CLEAR 0`-`CLEAR 4` on the Atom, `MODE 0`-`MODE 7` on the BBCs.
+ *
+ * Declared so the program's own text can be read for the modes it selects
+ * (`src/app/programVocabulary.ts`), which is what
+ * {@link ConditionalFreeRange}'s screen-mode condition is decided from. A
+ * machine that omits it selects no modes as far as this app is concerned, and
+ * its programs decide no such condition.
+ */
+export interface ScreenModeCommand {
+  /** The keyword, upper case, in the machine's own spelling. */
+  keyword: string;
+  /** The mode a program that selects none of its own is running in. */
+  bootMode: number;
+}
+
+/**
+ * What a program's text has to show for a {@link ConditionalFreeRange} to be
+ * free. Both forms are decidable from the vocabulary alone, which is the bar a
+ * condition has to clear to be authored at all: a region whose freedom depends
+ * on what happens at run time (a moved RAMTOP, a banked-out ROM) is not
+ * modelled here, it is left claimed.
+ */
+export type ConditionalFreeCondition =
+  /**
+   * Every screen mode the program selects is one of `modes`. Argument-sensitive
+   * rather than keyword-sensitive because the keyword alone says nothing:
+   * `CLEAR 0` selects the Atom's text mode and must not forfeit the region the
+   * graphics modes claim.
+   */
+  | { kind: 'screen-modes'; modes: readonly number[] }
+  /** The program uses none of `keywords`, in the machine's own spelling. */
+  | { kind: 'without-keywords'; keywords: readonly string[] };
+
+/**
+ * Memory the hardware claims only while the program uses an optional feature,
+ * and the condition under which the program's own text proves it does not.
+ *
+ * Whether such a region is free is not a fact about the machine but about the
+ * machine and the program together: the Atom's video RAM holds six kilobytes
+ * because the highest graphics mode needs six, and a program that stays in text
+ * mode reaches only the first. Declaring the region lets the block linter
+ * accept what the real machine accepts (`src/app/blockLint.ts`) instead of
+ * refusing every placement on the assumption that every feature is in use.
+ *
+ * Doubt runs one way only: a condition that cannot be decided leaves the region
+ * claimed. Memory that cannot be proven free is not free.
+ */
+export interface ConditionalFreeRange {
+  /** The bytes in question, inclusive. */
+  range: MemoryRange;
+  /** What the program's text must show. */
+  condition: ConditionalFreeCondition;
+  /**
+   * The condition in words, phrased to follow "free while": "the program stays
+   * in text mode". Restated in the porting facts and pinned to this string by
+   * `src/reference/facts-crosscheck.test.ts`.
+   */
+  conditionText: string;
+  /** What claims the region when the condition does not hold. */
+  note: string;
+}
+
+/**
  * Where a dialect's {@link MemoryBlock}s may legally live - metadata only;
  * nothing renders it yet. Optional on {@link Dialect}: dialects that omit it
  * get no block-aware UI and no Run-path collision gate, so pure-BASIC
@@ -642,6 +706,20 @@ export interface MemoryBlocksSupport {
    * program bytes to reserve.
    */
   programArea(programByteSize: number): MemoryRange;
+  /**
+   * Ranges the machine claims only for an optional feature, which a block may
+   * occupy while the open program's text proves the feature unused - whether or
+   * not {@link validRanges} covers them. Absent on every machine whose regions
+   * carry no condition this app can decide, which lints exactly as before.
+   */
+  conditionallyFree?: readonly ConditionalFreeRange[];
+  /**
+   * How this machine selects a screen mode, where it has a command for it. Read
+   * by the program scan, so a {@link ConditionalFreeRange} phrased in modes can
+   * be decided; a machine with conditional ranges phrased in keywords needs it
+   * no more than a machine with none.
+   */
+  screenModeCommand?: ScreenModeCommand;
   /** Suggested address to pre-fill when the user creates a new block. */
   defaultAddress: number;
   /**

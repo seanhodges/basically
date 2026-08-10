@@ -32,6 +32,7 @@ import {
 } from '../ai/expectations';
 import { countProgramErrors } from '../app/useProgramStats';
 import { lintBlocks } from '../app/blockLint';
+import { programVocabulary } from '../app/programVocabulary';
 import {
   HAS_TOUCH,
   isMobileViewport,
@@ -744,10 +745,20 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           // extra framing (e.g. the Spectrum's TAP header) that isn't part of
           // the program area at all.
           if (dialect.memoryBlocks && blocks.length > 0) {
+            // The program's own text is what decides whether a machine's
+            // conditionally free memory is actually free, so the gate reads it
+            // here rather than leaving the linter to refuse on principle. Only
+            // scanned for a machine that declares such a region: everywhere
+            // else the vocabulary would be computed and ignored.
+            const vocabulary =
+              dialect.memoryBlocks.conditionallyFree !== undefined
+                ? programVocabulary(runSource, dialect)
+                : undefined;
             const issues = lintBlocks(
               blocks,
               dialect.memoryBlocks,
               result.byteSize,
+              vocabulary,
             );
             const blocking = issues.find((i) => i.severity === 'error');
             if (blocking) {

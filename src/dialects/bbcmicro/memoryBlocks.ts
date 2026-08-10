@@ -1,6 +1,14 @@
-import type { MemoryBlocksSupport, MemoryRange } from '../types';
+import type {
+  ConditionalFreeRange,
+  MemoryBlocksSupport,
+  MemoryRange,
+} from '../types';
 import { PAGE_DFS } from './addresses';
-import { SCREEN_FLOOR, RAM_TOP } from '../../emulator/bbc/addresses';
+import {
+  SCREEN_FLOOR,
+  SCREEN_MODE7_BASE,
+  RAM_TOP,
+} from '../../emulator/bbc/addresses';
 
 /**
  * BBC Micro Model B {@link MemoryBlocksSupport} figures for the memory-block
@@ -35,11 +43,29 @@ const VALID_RANGES: readonly MemoryRange[] = [{ start: PAGE, end: RAM_TOP }];
  * screen RAM. In graphics modes the screen reaches down as far as 0x3000
  * (MODE 0-2), so the whole 0x3000-0x7FFF band is flagged as a warning - a
  * block there is fine in MODE 7 (only 0x7C00+ is screen) but overwritten the
- * moment the program selects a graphics mode. The screen floor varies with
- * MODE, which the static linter can't know, hence the conservative band.
+ * moment the program selects a graphics mode.
  */
 const RESERVED_RANGES: readonly MemoryRange[] = [
   { start: SCREEN_FLOOR, end: RAM_TOP },
+];
+
+/**
+ * The band the bitmap screens reach down into, which a MODE 7 program leaves
+ * alone. Twenty kilobytes: the whole distance between the graphics screens'
+ * floor and the teletext screen the machine powers on displaying.
+ *
+ * This is the part of {@link RESERVED_RANGES} the blanket warning above covers
+ * conservatively because the screen floor moves with MODE. Where the program's
+ * own text fixes every MODE it selects at 7, the floor does not move and the
+ * band is ordinary RAM.
+ */
+const CONDITIONALLY_FREE: readonly ConditionalFreeRange[] = [
+  {
+    range: { start: SCREEN_FLOOR, end: SCREEN_MODE7_BASE - 1 },
+    condition: { kind: 'screen-modes', modes: [7] },
+    conditionText: 'the program stays in the teletext mode (MODE 7)',
+    note: 'the frame buffer MODE 0-MODE 6 draw into',
+  },
 ];
 
 /**
@@ -56,6 +82,8 @@ export const bbcMicroMemoryBlocks: MemoryBlocksSupport = {
   cpu: '6502',
   validRanges: VALID_RANGES,
   reservedRanges: RESERVED_RANGES,
+  conditionallyFree: CONDITIONALLY_FREE,
+  screenModeCommand: { keyword: 'MODE', bootMode: 7 },
   programArea,
   // Above a small program, below the 0x3000 graphics-screen floor.
   defaultAddress: 0x2e00,
