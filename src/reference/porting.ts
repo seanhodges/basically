@@ -77,6 +77,42 @@ export const keywordEquivalences: KeywordEquivalence[] = [
 ];
 
 export const falseFriends: FalseFriend[] = [
+  // The two that never fail. Every machine here has AND and OR, spelled the
+  // same, taking the same operands - and the Sinclair pair answer a different
+  // question with them. `IF A AND B` behaves the same way on both while the
+  // operands are 0 or 1, so the trap only springs on the line that masks bits,
+  // which is the line nobody rewrote. Measured per machine by
+  // src/dialects/operatorBattery.test.ts, not taken from the manuals.
+  {
+    keyword: 'AND',
+    meanings: {
+      altair8800: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      atom: 'Bitwise on integers: 5 AND 3 is 1. The & operator is the same thing.',
+      bbc: 'Bitwise on integers: 5 AND 3 is 1.',
+      commodore: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      cpc: 'Bitwise on integers: 5 AND 3 is 1.',
+      trs80: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      zx80: 'Bitwise on 16-bit integers: 5 AND 3 is 1.',
+      zx81: 'Picks a value, not bits: a AND b is a when b is non-zero and 0 otherwise, so 5 AND 3 is 5.',
+      zxspectrum:
+        'Picks a value, not bits: a AND b is a when b is non-zero and 0 otherwise, so 5 AND 3 is 5.',
+    },
+  },
+  {
+    keyword: 'OR',
+    meanings: {
+      altair8800: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      atom: 'Bitwise on integers: 5 OR 3 is 7. There is no symbolic spelling.',
+      bbc: 'Bitwise on integers: 5 OR 3 is 7.',
+      commodore: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      cpc: 'Bitwise on integers: 5 OR 3 is 7.',
+      trs80: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      zx80: 'Bitwise on 16-bit integers: 5 OR 3 is 7.',
+      zx81: 'Picks a value, not bits: a OR b is 1 when b is non-zero and a otherwise, so 5 OR 3 is 1.',
+      zxspectrum:
+        'Picks a value, not bits: a OR b is 1 when b is non-zero and a otherwise, so 5 OR 3 is 1.',
+    },
+  },
   {
     keyword: 'LOG',
     meanings: {

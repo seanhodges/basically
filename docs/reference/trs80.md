@@ -20,6 +20,11 @@ Every command, function and operator in TRS-80 Level II BASIC.
   significant, with `$` (string), `%` (integer), `!` (single) and `#` (double)
   type suffixes; `DEFSTR`/`DEFINT`/`DEFSNG`/`DEFDBL` set the default type per
   initial letter.
+- The power operator is `↑`, with the caret key accepted for it when typing. It
+  folds left to right, so `2↑3↑2` is `64`.
+- `AND`, `OR` and `NOT` combine their operands bit by bit — `5 AND 3` is `1` —
+  and a true comparison is `-1`. There is no integer-division, remainder or
+  exclusive-OR operator: use `INT(a/b)` and `a-b*INT(a/b)`.
 - `PRINT @ n,` moves the cursor to one of the 1024
   [screen cells](./trs80/hardware) before printing, and `PRINT USING` formats
   values against a template. The E-notation marker in a `USING` template is four

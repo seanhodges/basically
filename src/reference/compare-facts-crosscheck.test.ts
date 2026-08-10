@@ -40,6 +40,11 @@ describe('the language & hardware table', () => {
     // program can work at all, then the language rules, then the hardware it
     // draws and sounds on, then the memory facts as one run at the end.
     //
+    // The four operator rows sit together inside the language rules. They are
+    // read for one reason - an expression that survives the port unchanged and
+    // computes something else - and only the exponent spelling among them fails
+    // loudly enough to find on its own.
+    //
     // The run ends at the address notation. A screen base and a program start
     // used to follow it; the Memory layout section draws both machines' address
     // spaces to scale instead, so the numbers are read off the picture rather
@@ -54,6 +59,9 @@ describe('the language & hardware table', () => {
       'LET on assignment',
       'Characters',
       'Exponent operator',
+      'Integer division and remainder',
+      'AND, OR and NOT',
+      'Comparisons yield',
       'Line numbers',
       'Screen',
       'Colour',
@@ -99,8 +107,9 @@ describe('the language & hardware table', () => {
   it('builds every row for every registered pair of machines', () => {
     // A formatter reading a field a machine leaves undefined would show an
     // empty cell, or "undefined". Every row of every pair has text on both
-    // sides; `Exponent operator` is the one that can legitimately be absent,
-    // and it says so in words.
+    // sides. Several operator rows describe a machine that has no such operator
+    // at all - the Commodores have no integer division - and each says so in
+    // words rather than going blank.
     const ids = portingFacts.map((f) => f.id);
     expect(ids.length).toBeGreaterThan(1);
     for (const from of ids) {

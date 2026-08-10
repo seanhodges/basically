@@ -28,6 +28,12 @@
  * the same thing on both sides of it is exactly the per-machine agreement
  * checked here - drift would silently narrow a comparison to nothing.
  *
+ * Both directions exempt the punctuation the ZX80 happens to tokenize as
+ * operators (see OPERATOR_PUNCTUATION): `(`, `)`, `,` and `;` separate the parts
+ * of a line on every machine here, nothing about a port turns on them, and a row
+ * apiece across nine pages would carry no information. The exemption is narrow
+ * and named so that "every operator earns a row" stays otherwise absolute.
+ *
  * Comparison is by unique name (keyword tables may list alias spellings that
  * collapse into one row), mirroring scripts/gen-reference-scaffold.mts. Like
  * escapes/escape-crosscheck.test.ts, this file may reach the dialect registry
@@ -49,6 +55,7 @@ import { trs80Reference } from './trs80';
 import { cpcReference } from './cpc';
 
 import { dialects } from '../dialects/registry';
+import { OPERATOR_PUNCTUATION } from '../dialects/operators';
 import { zx80IntegralFunctions } from '../dialects/zx80/keywords';
 
 const PAGES: Record<string, ReferenceTableData> = {
@@ -88,13 +95,24 @@ const CASES = dialects.map((dialect) => {
   return [
     dialect.id,
     rowsFor(page, dialect.id),
-    [...dialect.keywords, ...(EXTRA_KEYWORDS[dialect.id] ?? [])],
+    [
+      ...dialect.keywords.map((k) => k.word),
+      ...(EXTRA_KEYWORDS[dialect.id] ?? []).map((k) => k.word),
+      // The operators the machine stores as something other than a token: the
+      // Sinclair `↑`, the BBC's symbolic set, Microsoft's two-token `<=`. How a
+      // machine stores an operator decided which page listed it until this was
+      // added, which is why the Spectrum page had no exponent row and the BBC
+      // page no arithmetic at all.
+      ...(dialect.operators ?? []),
+    ],
   ] as const;
 });
 
-describe.each(CASES)('keyword crosscheck: %s', (_id, rows, keywords) => {
+describe.each(CASES)('keyword crosscheck: %s', (_id, rows, spellings) => {
   const rowNames = new Set(rows.map((e) => e.name));
-  const keywordWords = new Set(keywords.map((k) => k.word));
+  const keywordWords = new Set(
+    spellings.filter((w) => !OPERATOR_PUNCTUATION.has(w)),
+  );
 
   it('every keyword has a reference row', () => {
     const missing = [...keywordWords].filter((w) => !rowNames.has(w));
@@ -102,7 +120,9 @@ describe.each(CASES)('keyword crosscheck: %s', (_id, rows, keywords) => {
   });
 
   it('every reference row is a real keyword', () => {
-    const invented = [...rowNames].filter((n) => !keywordWords.has(n));
+    const invented = [...rowNames].filter(
+      (n) => !keywordWords.has(n) && !OPERATOR_PUNCTUATION.has(n),
+    );
     expect(invented).toEqual([]);
   });
 });

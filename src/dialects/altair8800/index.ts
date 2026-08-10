@@ -4,7 +4,7 @@
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
 import { hasFatalErrors } from '../types';
 import { altair8800Charset } from './charset';
-import { altair8800Keywords } from './keywords';
+import { altair8800Keywords, altair8800Operators } from './keywords';
 import { altair8800VariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
@@ -59,6 +59,7 @@ export const altair8800: Dialect = {
 
   fileExtensions: ['.txt', '.bas'],
   keywords: altair8800Keywords,
+  operators: altair8800Operators,
   charset: altair8800Charset,
   languageSupport: altair8800LanguageSupport,
   completionSource: altair8800CompletionSource,

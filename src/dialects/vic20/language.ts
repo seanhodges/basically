@@ -4,6 +4,7 @@ import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { vic20Keywords } from './keywords';
+import { c64Operators } from '../commodore64/keywords';
 
 /** See `c64Crunched`: the VIC-20 shares the C64's ROM tokenizer behaviour. */
 export const vic20Crunched = true;
@@ -22,6 +23,7 @@ export function vic20LanguageSupport(): Extension {
   // strings/REM ("code crunching") — so the editor splits glued keywords the
   // same way.
   return buildBasicLanguage(vic20Keywords, vic20CompletionSource, {
+    operators: [...c64Operators, '^'],
     suffixChars: '$%',
     graphicsEscapes: false,
     crunched: vic20Crunched,

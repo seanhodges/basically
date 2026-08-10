@@ -29,12 +29,9 @@
  *    Those machines are named in {@link SHORTFALL_ALLOWANCE_BYTES} with the
  *    reason; everything else gets {@link DEFAULT_SHORTFALL_BYTES}.
  */
-import { describe, expect, it, beforeAll, afterAll, vi } from 'vitest';
-import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
+import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
-import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
+import { bootMachine, installNodeRomLoading, runUntil } from './bootHarness';
 import type { Dialect, MachineEmulator } from './types';
 
 /**
@@ -77,39 +74,15 @@ const SHORTFALL_ALLOWANCE_BYTES: Record<string, number> = {
   zxspectrum128: 256,
 };
 
-// The jsbeeb-backed machines (both Acorns and the Atom) load their ROMs through
-// jsbeeb's own loader; the Commodore trio and the CPCs fetch theirs from the
-// deployed `roms/` path. Point both at the committed images so construction is
-// quiet under node - the same bringup screenReadable.test.ts uses.
+let restoreRomLoading: () => void;
+
 beforeAll(() => {
-  const require = createRequire(import.meta.url);
-  const utilsPath = require.resolve('jsbeeb/src/utils.js');
-  configureNodeRomPath(path.dirname(path.dirname(utilsPath)));
-  vi.stubGlobal('fetch', async (url: string) => {
-    const rel = String(url).slice(String(url).indexOf('roms/'));
-    const data = readFileSync(path.resolve(__dirname, '../../public', rel));
-    return {
-      ok: true,
-      status: 200,
-      arrayBuffer: async () =>
-        data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
-    };
-  });
+  restoreRomLoading = installNodeRomLoading();
 });
 
 afterAll(() => {
-  vi.unstubAllGlobals();
+  restoreRomLoading();
 });
-
-/** The committed ROM behind a dialect's `romUrl`, or an empty image. */
-function romFor(romUrl: string | undefined): Uint8Array {
-  if (!romUrl) return new Uint8Array(0);
-  const rel = romUrl.slice(romUrl.indexOf('roms/'));
-  const file = path.resolve(__dirname, '../../public', rel);
-  return existsSync(file)
-    ? new Uint8Array(readFileSync(file))
-    : new Uint8Array(0);
-}
 
 /**
  * Free bytes at the Ready prompt, or null if the machine never reports any.
@@ -121,22 +94,14 @@ function romFor(romUrl: string | undefined): Uint8Array {
  */
 async function coldStartFree(machine: MachineEmulator): Promise<number | null> {
   const read = () => machine.readMemoryStats?.() ?? null;
-  let booted = false;
-  for (let frame = 0; frame < 1200 && !booted; frame++) {
-    machine.runFrame();
-    booted = (read()?.free ?? 0) > 0;
-    if (frame % 20 === 0) await new Promise((r) => setTimeout(r, 0));
-  }
+  const booted = await runUntil(machine, () => (read()?.free ?? 0) > 0);
   if (!booted) return null;
   for (let frame = 0; frame < 100; frame++) machine.runFrame();
   return read()?.free ?? null;
 }
 
 async function freeFor(dialect: Dialect): Promise<number | null> {
-  const machine = dialect.createEmulator({
-    rom: romFor(dialect.romUrl),
-    ramKb: 16,
-  });
+  const machine = await bootMachine(dialect);
   try {
     return await coldStartFree(machine);
   } finally {

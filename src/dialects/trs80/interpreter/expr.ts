@@ -96,7 +96,12 @@ function parseAdd(s: Stream, ctx: Ctx): BasicValue {
   for (;;) {
     if (s.eatKw('+')) {
       const r = parseMul(s, ctx);
-      v = isStr(v) || isStr(r) ? asStr(v) + asStr(r) : asNum(v) + asNum(r);
+      // The numeric arm is guarded like every other arithmetic operator here:
+      // adding past Level II's range is an OV report, not a silent infinity.
+      v =
+        isStr(v) || isStr(r)
+          ? asStr(v) + asStr(r)
+          : checkNum(asNum(v) + asNum(r));
     } else if (s.eatKw('-')) {
       v = checkNum(asNum(v) - asNum(parseMul(s, ctx)));
     } else break;
@@ -124,12 +129,26 @@ function parseNeg(s: Stream, ctx: Ctx): BasicValue {
 }
 
 function parsePow(s: Stream, ctx: Ctx): BasicValue {
-  const base = parseAtom(s, ctx);
-  if (s.eatKw('↑')) {
-    // Right-associative; the exponent may carry its own unary sign.
-    return checkNum(Math.pow(asNum(base), asNum(parseNeg(s, ctx))));
-  }
-  return base;
+  let v = parseAtom(s, ctx);
+  // Left-associative: Level II folds operators of equal precedence left to
+  // right, so 2↑3↑2 is (2↑3)↑2 = 64, not 2↑(3↑2) = 512 - which is what the
+  // Commodore ROMs running the same Microsoft BASIC answer, and what
+  // operatorBattery.test.ts holds this interpreter to.
+  while (s.eatKw('↑'))
+    v = checkNum(Math.pow(asNum(v), parsePowOperand(s, ctx)));
+  return v;
+}
+
+/**
+ * The right operand of ↑: one atom, with any unary sign it carries of its own.
+ *
+ * Deliberately not {@link parseNeg}, which descends back into parsePow and would
+ * swallow a following ↑, making the operator right-associative again.
+ */
+function parsePowOperand(s: Stream, ctx: Ctx): number {
+  if (s.eatKw('-')) return -parsePowOperand(s, ctx);
+  if (s.eatKw('+')) return parsePowOperand(s, ctx);
+  return asNum(parseAtom(s, ctx));
 }
 
 function parseArgs(s: Stream, ctx: Ctx): BasicValue[] {

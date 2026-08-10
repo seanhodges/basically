@@ -145,6 +145,12 @@ export const ALTAIR8800_ALIASES: Altair8800Keyword[] = [
 ];
 
 /**
+ * The relational spellings 8K BASIC has but does not tokenize: two operator
+ * tokens side by side, as on every Microsoft BASIC here.
+ */
+export const altair8800Operators = ['<=', '>=', '<>'] as const;
+
+/**
  * Keywords (canonical + aliases) sorted longest-spelling first, for greedy
  * left-to-right matching. The interpreter's own CRUNCH routine instead takes the
  * *first* table entry that matches at the cursor, which gives the same answer

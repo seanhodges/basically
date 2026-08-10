@@ -27,6 +27,35 @@ describe('programVocabulary - keywords', () => {
     });
   });
 
+  // The porting guide reports operator differences now, and can only narrow
+  // them to the open program if the scan names the operators the program
+  // carries. Only the ones a port turns on: `+` is on every machine here, and a
+  // bare `-` sits inside every negative number.
+  it('names the symbolic operators a port turns on', () => {
+    expect(programVocabulary('10 LET A=B**2', zx81).keywords).toContain('**');
+    expect(
+      programVocabulary('10 IF A<=B THEN PRINT 1', zx81).keywords,
+    ).toContain('<=');
+    expect(
+      programVocabulary('10 A=B\\2', getDialect('cpc464')).keywords,
+    ).toContain('\\');
+  });
+
+  it('reports a typed caret under the spelling the machine lists back', () => {
+    // The tokenizer takes `^` for the Commodore's `↑`, and the reference page
+    // has a row for `↑` alone - so a program carrying either is narrowed by the
+    // one name the guide can look up.
+    expect(programVocabulary('10 A=B^2', c64).keywords).toContain('↑');
+    expect(programVocabulary('10 A=B↑2', c64).keywords).toContain('↑');
+  });
+
+  it('says nothing about the operators every machine has', () => {
+    const vocab = programVocabulary('10 LET A=B+1-2*3/4', zx81);
+    for (const op of ['+', '-', '*', '/']) {
+      expect(vocab.keywords).not.toContain(op);
+    }
+  });
+
   it('does not find keywords inside variable names on a dialect that does not crunch', () => {
     // The whole reason the `crunched` flag exists: matching anywhere here would
     // report TO (in TOTAL%) and IF (in DIFF%) as commands the program uses.

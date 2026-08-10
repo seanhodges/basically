@@ -239,14 +239,14 @@ export const spectrumKeywords: KeywordInfo[] = [
     token: 0xc5,
     kind: 'operator',
     signature: 'a OR b',
-    doc: 'Logical or.',
+    doc: 'Value logic, not bitwise: 1 if b is non-zero, else a. 5 OR 3 is 1.',
   },
   {
     word: 'AND',
     token: 0xc6,
     kind: 'operator',
     signature: 'a AND b',
-    doc: 'Logical and.',
+    doc: 'Value logic, not bitwise: a if b is non-zero, else 0. 5 AND 3 is 5.',
   },
   { word: '<=', token: 0xc7, kind: 'operator', doc: 'Less than or equal.' },
   { word: '>=', token: 0xc8, kind: 'operator', doc: 'Greater than or equal.' },
@@ -632,6 +632,23 @@ export const spectrumKeywords: KeywordInfo[] = [
 ];
 
 /** Alias spellings accepted by the tokenizer, mapped to their canonical word. */
+/**
+ * Operators the Spectrum stores as character codes rather than tokens (see
+ * charset.ts). `↑` at 0x5E is the one that matters: it is this machine's power
+ * operator, it is not in the table above, and until it was declared here neither
+ * the editor nor the reference page knew the Spectrum had one.
+ */
+export const spectrumOperators = [
+  '↑',
+  '+',
+  '-',
+  '*',
+  '/',
+  '=',
+  '<',
+  '>',
+] as const;
+
 export const keywordAliases: Record<string, string> = {
   GOTO: 'GO TO',
   GOSUB: 'GO SUB',

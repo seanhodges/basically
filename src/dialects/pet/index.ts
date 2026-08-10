@@ -5,6 +5,7 @@ import {
   PET_DISPLAY_HEIGHT,
 } from '../../emulator/pet/petMachine';
 import { petKeywords } from './keywords';
+import { c64Operators } from '../commodore64/keywords';
 import { petCharset } from './charset';
 import { petMemoryMap } from './memoryMap';
 import { petMemoryBlocks } from './memoryBlocks';
@@ -60,6 +61,7 @@ export const pet: Dialect = {
   memoryWrites: { forms: ['poke', 'load-device'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: petKeywords,
+  operators: c64Operators,
   charset: petCharset,
   languageSupport: petLanguageSupport,
   completionSource: petCompletionSource,

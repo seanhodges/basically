@@ -5,7 +5,7 @@ import {
   type TokenizeResult,
 } from '../types';
 import { spectrumCharset } from './charset';
-import { spectrumKeywords } from './keywords';
+import { spectrumKeywords, spectrumOperators } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram } from './detokenizer';
 import { buildTap, headerName, parseTap, parseTapAllFiles } from './tapfile';
@@ -44,6 +44,7 @@ export const zxspectrum: Dialect = {
   memoryWrites: { forms: ['poke', 'load-code'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: spectrumKeywords,
+  operators: spectrumOperators,
   charset: spectrumCharset,
   languageSupport: spectrumLanguageSupport,
   completionSource: spectrumCompletionSource,

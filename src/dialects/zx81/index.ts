@@ -6,7 +6,7 @@ import {
   type TokenizeResult,
 } from '../types';
 import { zx81Charset } from './charset';
-import { zx81Keywords } from './keywords';
+import { zx81Keywords, zx81Operators } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import {
   detokenizeProgram,
@@ -46,6 +46,7 @@ export const zx81: Dialect = {
   statementSeparator: null,
   fileExtensions: ['.txt', '.bas'],
   keywords: zx81Keywords,
+  operators: zx81Operators,
   charset: zx81Charset,
   languageSupport: zx81LanguageSupport,
   completionSource: zx81CompletionSource,

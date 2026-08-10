@@ -1,6 +1,6 @@
 import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { bbcCharset } from './charset';
-import { bbcKeywords } from './keywords';
+import { bbcKeywords, bbcOperators } from './keywords';
 import { tokenizeProgram } from './tokenizer';
 import {
   detokenizeProgram,
@@ -52,6 +52,7 @@ export const bbcmicro: Dialect = {
   programRamBytes: SCREEN_MODE7_BASE - PAGE_DFS,
   fileExtensions: ['.txt', '.bas'],
   keywords: bbcKeywords,
+  operators: bbcOperators,
   charset: bbcCharset,
   languageSupport: bbcLanguageSupport,
   completionSource: bbcCompletionSource,

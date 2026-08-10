@@ -60,6 +60,12 @@ describe('trs80 interpreter - output & expressions', () => {
     expect(firstText(run('10 PRINT 2+3*4\n'))).toBe('14');
     expect(firstText(run('10 PRINT 2↑3\n'))).toBe('8');
     expect(firstText(run('10 PRINT -2↑2\n'))).toBe('-4');
+    // Left to right, like every operator of equal precedence in Microsoft
+    // BASIC: (2↑3)↑2, not 2↑(3↑2). The Commodore ROMs answer 64 to the same
+    // expression, and operatorBattery.test.ts holds the two together.
+    expect(firstText(run('10 PRINT 2↑3↑2\n'))).toBe('64');
+    // The exponent still carries a sign of its own.
+    expect(firstText(run('10 PRINT 2↑-2\n'))).toBe('.25');
   });
 
   it('evaluates relational and logical operators to -1/0', () => {

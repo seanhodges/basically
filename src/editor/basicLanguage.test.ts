@@ -5,9 +5,14 @@ import { highlightTree, tagHighlighter, tags } from '@lezer/highlight';
 import { buildBasicLanguage } from './basicLanguage';
 import type { KeywordInfo } from '../dialects/types';
 import { zx81Keywords } from '../dialects/zx81/keywords';
-import { spectrumKeywords } from '../dialects/zxspectrum/keywords';
-import { bbcKeywords } from '../dialects/bbcmicro/keywords';
-import { c64Keywords } from '../dialects/commodore64/keywords';
+import {
+  spectrumKeywords,
+  spectrumOperators,
+} from '../dialects/zxspectrum/keywords';
+import { bbcKeywords, bbcOperators } from '../dialects/bbcmicro/keywords';
+import { c64Keywords, c64Operators } from '../dialects/commodore64/keywords';
+import { atomKeywords, atomOperators } from '../dialects/atom/keywords';
+import { cpc464Keywords } from '../dialects/cpc464/keywords';
 
 const testKeywords: KeywordInfo[] = [
   { word: 'PRINT', token: 1, kind: 'command' },
@@ -98,15 +103,15 @@ describe('buildBasicLanguage highlighting', () => {
     });
   });
 
-  describe('dialect lexical options', () => {
-    const bbc = {
-      nameChars: '_',
-      suffixChars: '$%',
-      graphicsEscapes: false,
-      hexPrefix: '&',
-      binaryPrefix: '%',
-    };
+  const bbc = {
+    nameChars: '_',
+    suffixChars: '$%',
+    graphicsEscapes: false,
+    hexPrefix: '&',
+    binaryPrefix: '%',
+  };
 
+  describe('dialect lexical options', () => {
     it('treats BBC integer (%) and underscore variables as one variable', () => {
       expect(classify('10 A%', testKeywords, bbc)).toContainEqual([
         'A%',
@@ -182,42 +187,128 @@ describe('buildBasicLanguage highlighting', () => {
       ]);
     });
 
-    it('tags the caret exponent operator', () => {
-      expect(classify('10 A=B^2')).toContainEqual(['^', 'op']);
-    });
+    // The Acorn Atom's own operators come out of its keyword table now: ! % & ?
+    // $ : are all entries there, and the arithmetic and relational ones are
+    // declared on the dialect. Nothing is listed twice.
+    const atom = {
+      graphicsEscapes: false,
+      suffixChars: '',
+      hexPrefix: '#',
+      operators: atomOperators,
+    };
 
-    // Acorn Atom opts its own operators (! % & \) into the operator set via
-    // extraOperators; ?, $ and : are already shared.
-    const atom = { graphicsEscapes: false, suffixChars: '', hexPrefix: '#' };
-    const atomOps = { ...atom, extraOperators: '!%&\\' };
-
-    it.each(['!', '%', '&', '\\'])(
-      'tags the Atom operator %s when extraOperators includes it',
+    it.each(['!', '%', '&', '?', ':'])(
+      'tags the Atom operator %s from its own keyword table',
       (op) => {
-        expect(classify(`10 A=B${op}C`, testKeywords, atomOps)).toContainEqual([
+        expect(classify(`10 A=B${op}C`, atomKeywords, atom)).toContainEqual([
           op,
           'op',
         ]);
       },
     );
 
-    it('does not tag those characters as operators without extraOperators', () => {
-      // Same lexical options minus extraOperators: ! % & \ fall through untagged
-      // (guarding that the option, not the shared set, is what styles them).
-      for (const op of ['!', '%', '&', '\\']) {
-        expect(classify(`10 A=B${op}C`, testKeywords, atom)).not.toContainEqual(
+    it('does not tag the Atom operators for a dialect that lacks them', () => {
+      // Same lexical options over a keyword table without them: ! % & fall
+      // through untagged. What styles a character is the machine having it.
+      const bare = { ...atom, operators: [] };
+      for (const op of ['!', '%', '&']) {
+        expect(classify(`10 A=B${op}C`, testKeywords, bare)).not.toContainEqual(
           [op, 'op'],
         );
       }
     });
 
-    it('still tags the shared ? $ : operators for the Atom', () => {
-      expect(classify('10 ?A=B', testKeywords, atomOps)).toContainEqual([
+    it('does not tag the backslash the Atom turned out not to have', () => {
+      // Its keyword table used to carry `\` as a bitwise OR. The machine
+      // rejects it (operatorBattery.test.ts asks), so neither does the editor.
+      expect(classify('10 A=B\\C', atomKeywords, atom)).not.toContainEqual([
+        '\\',
+        'op',
+      ]);
+    });
+  });
+
+  // Which operators a dialect has is now the dialect's to say, and these are
+  // the differences that used to be papered over: one hardcoded regex tagged
+  // `**`, `<=`, `>=` and `<>` on every machine, and `↑` - the power operator on
+  // five of them - was in no list at all and drew as a graphics glyph.
+  describe('operators come from the dialect', () => {
+    const c64 = { suffixChars: '$%', graphicsEscapes: false };
+    const bbcOpts = { ...bbc, operators: bbcOperators };
+    const spectrum = { operators: spectrumOperators };
+
+    it('tags ↑ as an operator on the machines whose power operator it is', () => {
+      expect(
+        classify('10 PRINT A↑B', spectrumKeywords, spectrum),
+      ).toContainEqual(['↑', 'op']);
+      expect(
+        classify('10 PRINT A↑B', c64Keywords, {
+          ...c64,
+          operators: [...c64Operators, '^'],
+        }),
+      ).toContainEqual(['↑', 'op']);
+    });
+
+    it('tags ^ on the machines that spell it that way', () => {
+      expect(classify('10 A=B^2', bbcKeywords, bbcOpts)).toContainEqual([
+        '^',
+        'op',
+      ]);
+      expect(classify('10 A=B^2', cpc464Keywords, {})).toContainEqual([
+        '^',
+        'op',
+      ]);
+    });
+
+    it('tags ** on the Sinclairs that do have it', () => {
+      expect(classify('10 A=B**C', zx81Keywords, {})).toContainEqual([
+        '**',
+        'op',
+      ]);
+    });
+
+    it('leaves the pound sign to the character set, not the operators', () => {
+      // `£` sat in the shared operator characters, so every machine coloured a
+      // currency sign navy. It is a character the Sinclairs can print, and on
+      // the machines that cannot print it at all it is not an operator either.
+      expect(
+        classify('10 PRINT £', spectrumKeywords, spectrum),
+      ).not.toContainEqual(['£', 'op']);
+    });
+
+    it('does not tag ? on a machine with no such operator', () => {
+      // `?` is the BBC and Atom byte-indirection operator. A ZX81 has no `?`
+      // character at all, so colouring one as an operator was the shared set
+      // speaking for a machine it had never asked.
+      expect(classify('10 PRINT ?A', zx81Keywords, {})).not.toContainEqual([
         '?',
         'op',
       ]);
-      expect(classify('10 A=B:C', testKeywords, atomOps)).toContainEqual([
-        ':',
+      expect(classify('10 ?A=1', bbcKeywords, bbcOpts)).toContainEqual([
+        '?',
+        'op',
+      ]);
+    });
+
+    it('tags <= on the machines that accept it, tokenized or not', () => {
+      // A single token on the Spectrum, two operator tokens on the C64, copied
+      // through verbatim on the BBC - and one row of colour on all three.
+      for (const [keywords, options] of [
+        [spectrumKeywords, spectrum],
+        [c64Keywords, { ...c64, operators: c64Operators }],
+        [bbcKeywords, bbcOpts],
+      ] as const) {
+        expect(
+          classify('10 IF A<=B THEN 10', keywords, options),
+        ).toContainEqual(['<=', 'op']);
+      }
+    });
+
+    it('tags the CPC integer-division backslash', () => {
+      // Tokenized as 0xF9 and untagged until the operator set was the
+      // dialect's own: it is in the CPC keyword table, and nowhere else.
+      expect(classify('10 A=B\\C', cpc464Keywords, {})).toContainEqual([
+        '\\',
         'op',
       ]);
     });

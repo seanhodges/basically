@@ -780,5 +780,26 @@ export const commodoreReference: BasicReferenceTableData = {
       tag: 'BASIC 4.0',
       onlyOn: ['pet'],
     },
+    {
+      name: '<=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <= <number> | <string> <= <string>',
+      description: 'Less than or equal.',
+    },
+    {
+      name: '>=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> >= <number> | <string> >= <string>',
+      description: 'Greater than or equal.',
+    },
+    {
+      name: '<>',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <> <number> | <string> <> <string>',
+      description: 'Not equal.',
+    },
   ],
 };

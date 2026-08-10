@@ -8,7 +8,7 @@ What every port between these BASICs involves, whichever two machines you pick.
 For the differences between one machine and another, see the
 [porting guide](./compare).
 
-Six things account for most of the work.
+Seven things account for most of the work.
 
 **Restructuring.** If the target allows only one statement per line, every `:`
 becomes a new line, which renumbers everything after it — the **Renumber file**
@@ -30,8 +30,25 @@ guide lists the ones your program actually uses.
 
 **Anything numeric.** An integer-only machine has no fractions at all: division
 truncates and every fractional calculation needs rescaling. The exponent
-operator is spelled `**`, `^` or `↑` depending on the machine, and some have
-none.
+operator is spelled `**`, `^` or `↑` depending on the machine — on the Atom it
+belongs to the floating-point half of the language and an integer expression
+rejects it — and every machine here folds it left to right, so `2^3^2` is 64.
+Integer division and remainder are `DIV` and `MOD` on the BBC, `\` and `MOD` on
+the Amstrad, `%` for remainder alone on the Atom, and nothing at all on the
+Sinclair and Microsoft machines, where they become `INT(a/b)` and
+`a-b*INT(a/b)`.
+
+**Logic and comparisons.** This is the one that does not fail — it computes a
+different answer and says nothing. On most of these machines `AND`, `OR` and
+`NOT` combine their operands bit by bit; on the ZX81 and the Spectrum they pick
+one of the operands instead, so `5 AND 3` is `5` there and `1` on a Commodore.
+A condition built from `0` and `1` behaves the same either way, which is why the
+line that masks bits is the line nobody rewrites. The truth value differs with
+it: a true comparison is `-1` on the Microsoft, BBC and Amstrad machines and the
+ZX80, and `1` on the ZX81, the Spectrum and the Atom — so the counting idiom
+`X=X+(A>B)` changes sign after a port. Exclusive-OR is `EOR` on the BBC, `XOR`
+on the Amstrad, `:` on the Atom, and absent elsewhere. The two Sinclairs are not
+a pair here: the ZX80 sits with the bitwise machines and the ZX81 does not.
 
 **The arguments themselves.** A command that survives the port under the same
 spelling can still take different arguments, and nothing about the line will look

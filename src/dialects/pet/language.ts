@@ -4,6 +4,7 @@ import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { petKeywords } from './keywords';
+import { c64Operators } from '../commodore64/keywords';
 
 /** See `c64Crunched`: the PET shares the C64's ROM tokenizer behaviour. */
 export const petCrunched = true;
@@ -22,6 +23,7 @@ export function petLanguageSupport(): Extension {
   // strings/REM ("code crunching") — so the editor splits glued keywords the
   // same way.
   return buildBasicLanguage(petKeywords, petCompletionSource, {
+    operators: [...c64Operators, '^'],
     suffixChars: '$%',
     graphicsEscapes: false,
     crunched: petCrunched,

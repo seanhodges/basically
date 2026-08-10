@@ -984,5 +984,26 @@ export const trs80Reference: BasicReferenceTableData = {
       description:
         'Returns a substring starting at position i (1-based) for n characters; without n it returns the rest of the string.',
     },
+    {
+      name: '<=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <= <number> | <string> <= <string>',
+      description: 'Less than or equal.',
+    },
+    {
+      name: '>=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> >= <number> | <string> >= <string>',
+      description: 'Greater than or equal.',
+    },
+    {
+      name: '<>',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <> <number> | <string> <> <string>',
+      description: 'Not equal.',
+    },
   ],
 };

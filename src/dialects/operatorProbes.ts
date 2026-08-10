@@ -1,0 +1,346 @@
+/**
+ * What each machine's BASIC actually does with its operators, as a program the
+ * machine can be asked to run.
+ *
+ * Operator support is described in four places - the keyword tables, the editor's
+ * highlighting, the language reference rows and the porting guide's facts - and
+ * until this table existed none of them was compared to a running machine. That
+ * is how the Atom came to be documented as having no way to raise to a power
+ * when its floating-point ROM has one, and why nothing noticed that two machines
+ * running the same Microsoft BASIC disagreed about `2^3^2`.
+ *
+ * A probe is one printed line: a label, then the value the machine computes.
+ * `operatorBattery.test.ts` tokenizes the program through the dialect, loads it
+ * into the real machine and reads the answers back off the screen. What is
+ * written here is therefore a claim about the machine, not about the code -
+ * when the two disagree the machine is right.
+ *
+ * Probes are keyed by *language family* rather than by dialect, the same
+ * grouping the reference pages use, because the machines that share a BASIC
+ * share its operators exactly. The `dialects` field maps a family back onto the
+ * registry and the battery pins that the two agree, so a newly registered
+ * dialect fails until its operators have been looked at.
+ */
+
+/** The label each probe prints, and what it settles. */
+export const PROBE_MEANINGS: Record<string, string> = {
+  PREC: 'that * binds tighter than + - an anchor proving the screen is being read correctly',
+  POWR: 'the exponent operator exists, and its spelling on this machine',
+  ASSC: 'associativity: 64 if a^b^c folds left, 512 if it folds right',
+  UNMI: 'whether the exponent binds tighter than a leading minus',
+  ANDV: 'AND on operands that are not 0 or 1: bitwise gives 1, Sinclair value logic gives 5',
+  ORV: 'OR likewise: bitwise gives 7, value logic gives 1',
+  NOTV: 'NOT likewise: bitwise gives -6, value logic gives 0',
+  TRU: 'what a true comparison evaluates to: -1 or 1',
+  DIVV: 'whether / keeps the fraction or truncates',
+  IDIV: 'the integer-division operator, where the machine has one',
+  REMD: 'the remainder operator, where the machine has one',
+  XORV: 'the exclusive-OR operator, where the machine has one',
+  BAND: 'a symbolic bitwise AND alongside the word form (the Atom)',
+  REL: 'that the <= spelling exists and yields the same truth value as =',
+  CAT: 'that + concatenates strings',
+};
+
+export interface OperatorProbe {
+  /** Language-family id. */
+  id: string;
+  /** Human-readable machines the family covers. */
+  machines: string[];
+  /** Registered dialect ids running this BASIC's operator set. */
+  dialects: string[];
+  /**
+   * The program, in this machine's own spelling and line layout. Every line
+   * prints one label followed by one value; the last prints `ZZEND` so the
+   * battery can tell a finished run from a stalled one.
+   */
+  program: string;
+  /** Label -> the text the machine prints after it, spaces removed. */
+  expect: Record<string, string>;
+}
+
+/**
+ * Sinclair BASIC as the ZX81 and the Spectrum run it. Floating point, `**` on
+ * the ZX81 and `↑` on the Spectrum, and the value logic both share: `a AND b` is
+ * `a` when `b` is non-zero and 0 otherwise, `a OR b` is 1 when `b` is non-zero
+ * and `a` otherwise. A true comparison is 1, not -1.
+ *
+ * The ZX80 is not in this family despite the name on the case: its 4K BASIC
+ * combines AND and OR bit by bit and yields -1 for true, like the Microsoft
+ * machines. That is a trap between two Sinclairs, and it has its own entry.
+ */
+function sinclairProgram(power: string): string {
+  return [
+    '10 PRINT "PREC";2+3*4',
+    `20 PRINT "POWR";2${power}3`,
+    `30 PRINT "ASSC";2${power}3${power}2`,
+    `40 PRINT "UNMI";0-2${power}2`,
+    '50 PRINT "ANDV";5 AND 3',
+    '60 PRINT "ORV";5 OR 3',
+    '70 PRINT "NOTV";NOT 5',
+    '80 PRINT "TRU";(1=1)',
+    '90 PRINT "DIVV";7/2',
+    '100 PRINT "REL";(1<=2)',
+    '110 PRINT "CAT";"A"+"B"',
+    '120 PRINT "ZZEND"',
+    '',
+  ].join('\n');
+}
+
+const SINCLAIR_EXPECT: Record<string, string> = {
+  PREC: '14',
+  POWR: '8',
+  ASSC: '64',
+  UNMI: '-4',
+  ANDV: '5',
+  ORV: '1',
+  NOTV: '0',
+  TRU: '1',
+  DIVV: '3.5',
+  REL: '1',
+  CAT: 'AB',
+};
+
+/**
+ * Microsoft BASIC, shared by the Commodores, the TRS-80 and the Altair. Bitwise
+ * AND/OR/NOT on 16-bit integers, -1 for true, and no integer-division,
+ * remainder or exclusive-OR operator at all - a port to one of these machines
+ * rewrites those as INT() arithmetic.
+ */
+function microsoftProgram(power: string): string {
+  return [
+    '10 PRINT "PREC";2+3*4',
+    `20 PRINT "POWR";2${power}3`,
+    `30 PRINT "ASSC";2${power}3${power}2`,
+    `40 PRINT "UNMI";0-2${power}2`,
+    '50 PRINT "ANDV";5 AND 3',
+    '60 PRINT "ORV";5 OR 3',
+    '70 PRINT "NOTV";NOT 5',
+    '80 PRINT "TRU";(1=1)',
+    '90 PRINT "DIVV";7/2',
+    '100 PRINT "REL";(1<=2)',
+    '110 PRINT "CAT";"A"+"B"',
+    '120 PRINT "ZZEND"',
+    '',
+  ].join('\n');
+}
+
+const MICROSOFT_EXPECT: Record<string, string> = {
+  PREC: '14',
+  POWR: '8',
+  ASSC: '64',
+  UNMI: '-4',
+  ANDV: '1',
+  ORV: '7',
+  NOTV: '-6',
+  TRU: '-1',
+  DIVV: '3.5',
+  REL: '-1',
+  CAT: 'AB',
+};
+
+export const OPERATOR_PROBES: OperatorProbe[] = [
+  {
+    id: 'zx81',
+    machines: ['ZX81'],
+    dialects: ['zx81'],
+    program: sinclairProgram('**'),
+    expect: SINCLAIR_EXPECT,
+  },
+  {
+    id: 'zx80',
+    machines: ['ZX80'],
+    dialects: ['zx80'],
+    // Integer-only, so `/` truncates and there is no 3.5 to print. The ZX80 has
+    // no `<=`, `>=` or `<>` at all - the relational probe would not tokenize -
+    // and no string expressions to concatenate.
+    //
+    // Its logic is the surprise. The 4K ROM combines AND and OR bit by bit and
+    // yields -1 for true, so `5 AND 3` is 1 here and 5 on the ZX81 that replaced
+    // it a year later. Two machines from the same maker, one `AND` spelling,
+    // different answers - which is why the battery asks each machine rather than
+    // grouping them by badge.
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "POWR";2**3',
+      '30 PRINT "ASSC";2**3**2',
+      '40 PRINT "UNMI";0-2**2',
+      '50 PRINT "ANDV";5 AND 3',
+      '60 PRINT "ORV";5 OR 3',
+      '70 PRINT "NOTV";NOT 5',
+      '80 PRINT "TRU";(1=1)',
+      '90 PRINT "DIVV";7/2',
+      '100 PRINT "ZZEND"',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '8',
+      ASSC: '64',
+      UNMI: '-4',
+      ANDV: '1',
+      ORV: '7',
+      NOTV: '-6',
+      TRU: '-1',
+      DIVV: '3',
+    },
+  },
+  {
+    id: 'zxspectrum',
+    machines: ['ZX Spectrum', 'ZX Spectrum 128'],
+    dialects: ['zxspectrum', 'zxspectrum128'],
+    program: sinclairProgram('↑'),
+    expect: SINCLAIR_EXPECT,
+  },
+  {
+    id: 'bbc',
+    machines: ['BBC Micro', 'BBC Master'],
+    dialects: ['bbcmicro', 'bbcmaster'],
+    // The one family with the full complement: `DIV`, `MOD` and `EOR` alongside
+    // bitwise AND/OR/NOT.
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "POWR";2^3',
+      '30 PRINT "ASSC";2^3^2',
+      '40 PRINT "UNMI";0-2^2',
+      '50 PRINT "ANDV";5 AND 3',
+      '60 PRINT "ORV";5 OR 3',
+      '70 PRINT "NOTV";NOT 5',
+      '80 PRINT "TRU";(1=1)',
+      '90 PRINT "DIVV";7/2',
+      '100 PRINT "IDIV";7 DIV 2',
+      '110 PRINT "REMD";7 MOD 2',
+      '120 PRINT "XORV";5 EOR 3',
+      '130 PRINT "REL";(1<=2)',
+      '140 PRINT "CAT";"A"+"B"',
+      '150 PRINT "ZZEND"',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '8',
+      ASSC: '64',
+      UNMI: '-4',
+      ANDV: '1',
+      ORV: '7',
+      NOTV: '-6',
+      TRU: '-1',
+      DIVV: '3.5',
+      IDIV: '3',
+      REMD: '1',
+      XORV: '6',
+      REL: '-1',
+      CAT: 'AB',
+    },
+  },
+  {
+    id: 'commodore',
+    machines: ['Commodore 64', 'PET', 'VIC-20'],
+    dialects: ['commodore64', 'pet', 'vic20'],
+    program: microsoftProgram('↑'),
+    expect: MICROSOFT_EXPECT,
+  },
+  {
+    id: 'trs80',
+    machines: ['TRS-80'],
+    dialects: ['trs80'],
+    program: microsoftProgram('↑'),
+    expect: MICROSOFT_EXPECT,
+  },
+  {
+    id: 'altair8800',
+    machines: ['Altair 8800'],
+    dialects: ['altair8800'],
+    // 8K BASIC spells the power operator `^`; there is no up-arrow form.
+    program: microsoftProgram('^'),
+    expect: MICROSOFT_EXPECT,
+  },
+  {
+    id: 'cpc',
+    machines: ['CPC 464', 'CPC 6128'],
+    dialects: ['cpc464', 'cpc6128'],
+    // Locomotive BASIC has the richest operator set here: `\` for integer
+    // division as well as `MOD`, and a spelled-out `XOR`.
+    program: [
+      '10 PRINT "PREC";2+3*4',
+      '20 PRINT "POWR";2^3',
+      '30 PRINT "ASSC";2^3^2',
+      '40 PRINT "UNMI";0-2^2',
+      '50 PRINT "ANDV";5 AND 3',
+      '60 PRINT "ORV";5 OR 3',
+      '70 PRINT "NOTV";NOT 5',
+      '80 PRINT "TRU";(1=1)',
+      '90 PRINT "DIVV";7/2',
+      '100 PRINT "IDIV";7\\2',
+      '110 PRINT "REMD";7 MOD 2',
+      '120 PRINT "XORV";5 XOR 3',
+      '130 PRINT "REL";(1<=2)',
+      '140 PRINT "CAT";"A"+"B"',
+      '150 PRINT "ZZEND"',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '8',
+      ASSC: '64',
+      UNMI: '-4',
+      ANDV: '1',
+      ORV: '7',
+      NOTV: '-6',
+      TRU: '-1',
+      DIVV: '3.5',
+      IDIV: '3',
+      REMD: '1',
+      XORV: '6',
+      REL: '-1',
+      CAT: 'AB',
+    },
+  },
+  {
+    id: 'atom',
+    machines: ['Acorn Atom'],
+    dialects: ['atom'],
+    // The Atom is the odd one out twice over. `PRINT` does not end the line -
+    // `'` does - and its items run together with no separator, so every
+    // expression here is parenthesised: bare `5 AND 3` prints the 5 and then
+    // meets a word where it expects another item.
+    //
+    // And the machine has two arithmetics. A-Z are integers, where `/` truncates
+    // and `%` is the remainder; the floating-point ROM's %A-%Z are reals reached
+    // through the F-statements. **The exponent operator exists only in the
+    // second of those** - `2^3` in an integer expression is rejected outright,
+    // which is why the porting guide reported this machine as having no way to
+    // raise to a power. It has one; it is reached through the FP variables, and
+    // it goes through logs, which is what the near-miss on 2^3^2 below is.
+    program: [
+      '10 PRINT "PREC"(2+3*4)\'',
+      '20 %A=2^3',
+      '30 PRINT "POWR"; FPRINT %A',
+      '40 PRINT \'"ASSC"; %A=2^3^2; FPRINT %A',
+      '50 PRINT \'"UNMI"; %A=0-2^2; FPRINT %A',
+      '60 PRINT \'"ANDV"(5 AND 3)\'',
+      '70 PRINT "ORV"(5 OR 3)\'',
+      '80 PRINT "TRU"(1=1)\'',
+      '90 PRINT "DIVV"(7/2)\'',
+      '100 PRINT "REMD"(7%2)\'',
+      '110 PRINT "BAND"(5&3)\'',
+      '120 PRINT "XORV"(5:3)\'',
+      '130 PRINT "REL"(1<=2)\'',
+      '140 PRINT "ZZEND"\'',
+      '',
+    ].join('\n'),
+    expect: {
+      PREC: '14',
+      POWR: '8.00000000',
+      ASSC: '63.9999998',
+      UNMI: '-4.00000000',
+      ANDV: '1',
+      ORV: '7',
+      TRU: '1',
+      DIVV: '3',
+      REMD: '1',
+      BAND: '1',
+      XORV: '6',
+      REL: '1',
+    },
+  },
+];

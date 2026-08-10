@@ -24,7 +24,9 @@ with BASIC 1.1, which adds eleven keywords to the same language.
 - Variable names are up to 40 characters, all significant, with `$` (string),
   `%` (integer) and `!` (real) type suffixes.
 - Numbers may be written in decimal, hex (`&7F00`) or binary (`&X1010`);
-  operators include `^` (power), `\` (integer divide) and `MOD`.
+  operators include `^` (power, folding left to right so `2^3^2` is `64`), `\`
+  (integer divide), `MOD` and `XOR`. `AND`, `OR` and `NOT` are bitwise, and a
+  true comparison is `-1`.
 - Read the keyboard in games with `INKEY(n)` — it returns `-1` while a key is
   up. The cursor keys are `INKEY(0)` up, `INKEY(2)` down, `INKEY(8)` left and
   `INKEY(1)` right. `JOY(0)` returns the joystick as a bit mask (bit 0 up, 1

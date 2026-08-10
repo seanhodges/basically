@@ -103,6 +103,8 @@ const entries: PortingFactsEntry[] = [
     numberHandling: 'Floating point.',
     numbers: { fractions: true },
     exponentOperator: '**',
+    logicalOperators: 'value',
+    comparisonTrue: 1,
     // The ZX81 punctuation set is 18 marks wide; everything else in printable
     // ASCII is simply not on the machine, in strings and REMs as much as in code.
     unsupportedCharacters: [
@@ -187,6 +189,10 @@ const entries: PortingFactsEntry[] = [
     numberHandling: 'Integer only: -32768 to 32767, and division truncates.',
     numbers: { fractions: false, range: { min: -32768, max: 32767 } },
     exponentOperator: '**',
+    // Bitwise and -1, unlike the ZX81 a year later - the one place these two
+    // Sinclairs part company on an expression that reads the same.
+    logicalOperators: 'bitwise',
+    comparisonTrue: -1,
     // The same repertoire as the ZX81; only the byte values behind the block
     // graphics differ between the two.
     unsupportedCharacters: [
@@ -268,6 +274,8 @@ const entries: PortingFactsEntry[] = [
     numberHandling: 'Floating point.',
     numbers: { fractions: true },
     exponentOperator: '↑',
+    logicalOperators: 'value',
+    comparisonTrue: 1,
     // 0x5E is ↑ and 0x60 is £, the Sinclair convention. The backslash is real
     // (0x5C), written `\\` in source.
     unsupportedCharacters: ['^', '`'],
@@ -343,6 +351,11 @@ const entries: PortingFactsEntry[] = [
     numberHandling: 'Floating point, with a 32-bit integer type marked by %.',
     numbers: { fractions: true },
     exponentOperator: '^',
+    integerDivisionOperator: 'DIV',
+    remainderOperator: 'MOD',
+    xorOperator: 'EOR',
+    logicalOperators: 'bitwise',
+    comparisonTrue: -1,
     // 0x60 is £; the BBC has the rest of printable ASCII, `^` included.
     unsupportedCharacters: ['`'],
     screen:
@@ -400,6 +413,8 @@ const entries: PortingFactsEntry[] = [
     numberHandling: 'Floating point, with an integer type marked by %.',
     numbers: { fractions: true },
     exponentOperator: '↑',
+    logicalOperators: 'bitwise',
+    comparisonTrue: -1,
     // PETSCII spends 0x5C on £, 0x5E on ↑ and 0x7B-0x7E on graphics, so seven
     // marks a C64 keyboard cannot type are unavailable to a program too.
     unsupportedCharacters: ['\\', '^', '`', '{', '|', '}', '~'],
@@ -491,7 +506,16 @@ const entries: PortingFactsEntry[] = [
     },
     // The Atom covers printable ASCII in full.
     unsupportedCharacters: [],
-    // Integer BASIC has no exponent operator (the FP ROM adds functions, not **).
+    // The exponent operator belongs to the floating-point half of this machine:
+    // %A=2^3 works and 2^3 in an integer expression is rejected. Read off the
+    // running machine by operatorBattery.test.ts, which is what corrected a
+    // guide that reported the Atom as having no way to raise to a power.
+    exponentOperator: '^',
+    remainderOperator: '%',
+    xorOperator: ':',
+    logicalOperators: 'bitwise',
+    // 1, not the BBC's -1: the two Acorns disagree.
+    comparisonTrue: 1,
     screen: '32×16 text (CLEAR 0); graphics up to 256×192 (CLEAR 4).',
     screenBase: '&8000',
     programStart: '&2900',
@@ -567,6 +591,8 @@ const entries: PortingFactsEntry[] = [
       'Floating point, single (!) or double (#), with an integer type marked by %.',
     numbers: { fractions: true },
     exponentOperator: '↑',
+    logicalOperators: 'bitwise',
+    comparisonTrue: -1,
     // The TRS-80 covers printable ASCII in full.
     unsupportedCharacters: [],
     screen: '64×16 text, monochrome.',
@@ -632,6 +658,11 @@ const entries: PortingFactsEntry[] = [
       'Floating point (! real, the default), with an integer type marked by %.',
     numbers: { fractions: true },
     exponentOperator: '^',
+    integerDivisionOperator: '\\',
+    remainderOperator: 'MOD',
+    xorOperator: 'XOR',
+    logicalOperators: 'bitwise',
+    comparisonTrue: -1,
     // 0x5E is ↑, which is also how Locomotive BASIC spells its own exponent.
     unsupportedCharacters: ['^'],
     screen:
@@ -725,6 +756,8 @@ const entries: PortingFactsEntry[] = [
     numberHandling: 'Floating point, single precision only.',
     numbers: { fractions: true },
     exponentOperator: '^',
+    logicalOperators: 'bitwise',
+    comparisonTrue: -1,
     // Plain 7-bit ASCII, so the machine covers printable ASCII in full.
     unsupportedCharacters: [],
     screen:
