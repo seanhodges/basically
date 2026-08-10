@@ -25,7 +25,9 @@ import {
   escapeTableForMachine,
   factRows as buildFactRows,
   falseFriendsForProgram,
+  integerRangeNarrowingForProgram,
   lineNumbersForProgram,
+  markerLossForProgram,
   noticeState,
   conditionallyFreeForProgram,
   programFitForTarget,
@@ -441,6 +443,35 @@ const truncatedArithmetic = computed(() => {
   const v = narrowingBy.value;
   if (!t || !v) return null;
   return truncatedArithmeticForProgram(t, v);
+});
+
+/**
+ * The type markers this program's names carry that the target does not have,
+ * narrowed like the collisions beside them: which markers a program leans on is
+ * a fact about a program. The "Variable names" fact row states each machine's
+ * rule whether or not there is one open.
+ */
+const markerLoss = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return [];
+  return markerLossForProgram(s, t, v);
+});
+
+/**
+ * What the target's narrower integer range costs this program, or null.
+ *
+ * Beside the truncation finding and narrowed the same way. Unlike that one it
+ * is present for the pair whether or not the program's text names a value the
+ * target cannot hold: a result can overflow where no literal does.
+ */
+const integerRangeNarrowing = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return null;
+  return integerRangeNarrowingForProgram(s, t, v);
 });
 
 /**
@@ -1075,7 +1106,8 @@ const legend = computed<LegendItem[]>(() => {
  *                        control codes to replace, the commands whose usage
  *                        differs, the addresses the program writes to
  *   4  silent            same word different meaning, names that become one,
- *                        arithmetic the target truncates
+ *                        type markers that go, arithmetic the target
+ *                        truncates, values the target cannot hold
  *   5  fit               whether the result still fits the machine
  *
  * Three placements look wrong and are not. The renames come before the rewrites
@@ -1103,7 +1135,9 @@ const hasSilentWork = computed(
   () =>
     visibleFalseFriends.value.length > 0 ||
     variableCollisions.value.length > 0 ||
-    truncatedArithmetic.value !== null,
+    markerLoss.value.length > 0 ||
+    truncatedArithmetic.value !== null ||
+    integerRangeNarrowing.value !== null,
 );
 
 /**
@@ -1159,10 +1193,16 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'variable-collisions',
       'Names that become one',
     ],
+    [markerLoss.value.length > 0, 'marker-loss', 'Type markers that go'],
     [
       truncatedArithmetic.value !== null,
       'truncated-arithmetic',
       'Arithmetic that truncates',
+    ],
+    [
+      integerRangeNarrowing.value !== null,
+      'integer-range',
+      'Values that do not fit',
     ],
     [programFit.value !== null, 'fit', 'Fit'],
   ];
@@ -1291,6 +1331,7 @@ function onVocabularyMessage(e: MessageEvent) {
     variables: Array.isArray(data.variables) ? data.variables : [],
     divides: data.divides === true,
     fractionalLiteral: data.fractionalLiteral === true,
+    largeNumbers: Array.isArray(data.largeNumbers) ? data.largeNumbers : [],
     escapeCodes: Array.isArray(data.escapeCodes) ? data.escapeCodes : [],
     characters: Array.isArray(data.characters) ? data.characters : [],
     multiStatementLines: Array.isArray(data.multiStatementLines)
@@ -2213,6 +2254,51 @@ watch(to, requestVocabulary);
       </section>
 
       <!--
+        The names' other silent failure: they keep their spelling, and the type
+        their marker promised is not there to keep. The two ways that goes wrong
+        need opposite reactions, so each name says which it is.
+      -->
+      <section
+        v-if="markerLoss.length"
+        id="marker-loss"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Type markers that go ({{ markerLoss.length }})</h2>
+        <p class="cmp-hint">
+          {{ target.name }} does not recognise these markers, so the type each
+          one promised goes with its spelling — the names alone are not the
+          change.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="m in markerLoss" :key="m.marker">
+            <code>{{ m.marker }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-from"
+                >{{ m.meaning }} on {{ m.names.join(', ') }}</span
+              >
+              <span class="cmp-arrow">→</span>
+              <span class="cmp-to">
+                <template v-if="m.trap"
+                  >{{ target.name }} takes the spelling: a name like this is
+                  {{ m.trap }}, so the port loads looking finished</template
+                >
+                <template v-else-if="m.precision"
+                  >held as {{ target.name }}'s ordinary numbers, and the extra
+                  digits go silently</template
+                >
+                <template v-else>no such type on {{ target.name }}</template>
+              </span>
+            </span>
+          </li>
+        </ul>
+        <p class="cmp-hint">
+          Decide: for each of these names, whether the program depends on the
+          type its marker promised — keep that by hand where it does, and drop
+          the marker where it does not.
+        </p>
+      </section>
+
+      <!--
         Beside the collisions, and silent in the same way: the expression ports
         unchanged and stops being the calculation it was. The "Numbers" fact row
         says the target has no fractions; this says what that costs here.
@@ -2241,8 +2327,62 @@ watch(to, requestVocabulary);
           </template>
           <template v-if="truncatedArithmetic.fractionalLiteral"
             >carries fractional values</template
-          >, so rescale that arithmetic — work in tenths or hundredths, or
-          reorder so the multiply comes before the divide.
+          ><template v-if="!truncatedArithmetic.fractionsVia"
+            >, so rescale that arithmetic — work in tenths or hundredths, or
+            reorder so the multiply comes before the divide.</template
+          ><template v-else
+            >, and every one of those calculations lands on the
+            integers.</template
+          >
+        </p>
+        <!--
+          Where the machine reaches reals another way, rescaling is one of two
+          answers rather than the answer - and which one is right turns on
+          whether the fractions are the point of the program, which its text
+          cannot say. So the choice is posed rather than made.
+        -->
+        <p class="cmp-hint" v-if="truncatedArithmetic.fractionsVia">
+          Decide: if this program's fractions are essential, keep them in
+          {{ truncatedArithmetic.fractionsVia }}; if they are incidental,
+          rescale to whole numbers — work in tenths or hundredths.
+        </p>
+      </section>
+
+      <!--
+        Two integer machines of different widths: nothing divides, nothing is
+        fractional, and a value over the target's ceiling simply does not
+        arrive. Present for the pair whenever there is a program, because an
+        expression can overflow where no literal does.
+      -->
+      <section
+        v-if="integerRangeNarrowing"
+        id="integer-range"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Values that do not fit</h2>
+        <p class="cmp-hint">
+          {{ source.name }} holds whole numbers from
+          {{ integerRangeNarrowing.from.min }} to
+          {{ integerRangeNarrowing.from.max }}; {{ target.name }} holds
+          {{ integerRangeNarrowing.to.min }} to
+          {{ integerRangeNarrowing.to.max }}.
+        </p>
+        <ul class="cmp-list" v-if="integerRangeNarrowing.values.length">
+          <li v-for="value in integerRangeNarrowing.values" :key="value">
+            <code>{{ value }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-to">beyond what {{ target.name }} can hold</span>
+            </span>
+          </li>
+        </ul>
+        <p class="cmp-hint" v-else>
+          No value in this program's own text is beyond it, but a result can be:
+          arithmetic written against the wider range has to be checked against
+          the narrower one.
+        </p>
+        <p class="cmp-hint">
+          Decide: rescale these values so they fit the range, or restructure the
+          arithmetic so its results stay inside it.
         </p>
       </section>
 

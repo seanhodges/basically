@@ -43,6 +43,25 @@ function instructionFor(toLabel: string): string {
   );
 }
 
+/**
+ * The rule that stops a posed decision being settled silently.
+ *
+ * Some findings turn on what the program is *for* rather than on what its text
+ * says - whether its fractions are essential, whether a value is rescaled or
+ * the arithmetic around it restructured - so the report states the fact it can
+ * compute and poses the rest as a `Decide:` line. Handing one over only helps
+ * if the assistant either settles it from the program's own behaviour or says
+ * which reading it took: a choice made in silence is indistinguishable from a
+ * question nobody asked.
+ *
+ * Only sent with a report, because only a report carries such a line: the
+ * fallback message has no findings for it to refer to.
+ */
+const SETTLE_DECISIONS =
+  'Where a finding above says "Decide:", settle it from what this program ' +
+  "itself does; where the program's behaviour cannot settle it, say which " +
+  'reading you chose alongside the converted program.';
+
 /** One end of the port, with the tables its reference page owns. */
 async function sideFor(dialect: Dialect): Promise<PortSide | null> {
   const page = pageFor(dialect);
@@ -186,6 +205,7 @@ export async function buildConversionMessage(input: {
       variables: reply.variables,
       divides: reply.divides,
       fractionalLiteral: reply.fractionalLiteral,
+      largeNumbers: reply.largeNumbers,
       escapeCodes: reply.escapeCodes,
       characters: reply.characters,
       multiStatementLines: reply.multiStatementLines,
@@ -200,7 +220,7 @@ export async function buildConversionMessage(input: {
   return {
     ok: true,
     userContent: buildUserMessage(
-      `${report}\n\n${instruction}`,
+      `${report}\n\n${instruction} ${SETTLE_DECISIONS}`,
       input.source,
       [],
     ),

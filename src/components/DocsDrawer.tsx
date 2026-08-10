@@ -83,6 +83,7 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'variables',
   'divides',
   'fractionalLiteral',
+  'largeNumbers',
   'escapeCodes',
   'characters',
   'writeSites',

@@ -29,7 +29,9 @@ import {
   escapeSections,
   escapeTableForMachine,
   falseFriendsForProgram,
+  integerRangeNarrowingForProgram,
   lineNumbersForProgram,
+  markerLossForProgram,
   programFitForTarget,
   spellingExpansionsForProgram,
   statementLayoutForProgram,
@@ -40,10 +42,12 @@ import {
   writeLandingsForProgram,
   type EscapeChange,
   type FalseFriendWarning,
+  type IntegerRangeNarrowing,
   type KeywordChange,
   type KeywordDiff,
   type KeywordRename,
   type LineNumberChange,
+  type MarkerLoss,
   type PairGuidance,
   type ProgramSize,
   type ProgramVocabulary,
@@ -308,12 +312,51 @@ function describeVariableCollisions(
 }
 
 /**
+ * The type markers this program's names carry that the target does not have.
+ *
+ * Beside the collisions above, because the failure is the same kind: the names
+ * port unchanged and the promise their marker made stops being kept. The two
+ * ways that goes wrong are reported apart, since they need opposite reactions -
+ * a marker the target takes and then fails on is found the first time the line
+ * runs, and a precision it silently drops may never be found at all.
+ *
+ * The `Decide:` line is the part this document cannot settle: whether the
+ * program leans on the type its marker named is a fact about what the program
+ * is for, not about its text.
+ */
+function describeMarkerLoss(losses: MarkerLoss[], to: PortSide): string {
+  if (losses.length === 0) return '';
+  const lines = losses.map((loss) => {
+    const names = loss.names.join(', ');
+    const what =
+      loss.trap !== undefined
+        ? `${to.name} has no such type and does not reject the spelling: a name like this is ${loss.trap}, so the port loads looking finished`
+        : loss.precision
+          ? `${to.name} has no such type, so these are held as its ordinary numbers and the extra digits go silently — check any arithmetic that depends on them`
+          : `${to.name} has no such type, so the type goes with the marker's spelling, not just the name`;
+    return `- ${loss.marker} (${loss.meaning}) on ${names}: ${what}.`;
+  });
+  return [
+    `TYPE MARKERS ${to.name.toUpperCase()} DOES NOT HAVE`,
+    ...lines,
+    '- Decide: for each of these names, whether the program depends on the type its marker promised — keep that by hand where it does, and drop the marker where it does not.',
+  ].join('\n');
+}
+
+/**
  * Arithmetic this program does that the target truncates.
  *
  * The range is named because rescaling is the fix and the range is what the
  * rescaled values have to fit. Stated as arithmetic to check rather than as a
  * defect found: whether a division divides exactly cannot be known without
  * running the program.
+ *
+ * A target that reaches reals through a system of its own turns the advice into
+ * a decision: the Atom's floating-point ROM will hold a fraction the program
+ * depends on, and rescaling is right only where the fractions are incidental.
+ * Which they are is not in the program's text, so the line poses it rather than
+ * choosing - and the imperative is dropped along with the choice, or the
+ * decision would be posed under an answer already given.
  */
 function describeTruncatedArithmetic(
   change: TruncatedArithmetic | null,
@@ -329,7 +372,42 @@ function describeTruncatedArithmetic(
   return [
     'ARITHMETIC THAT TRUNCATES',
     `- ${to.name} has no fractions at all: it holds whole numbers from ${change.min} to ${change.max}, and every division truncates.`,
-    `- This program ${what}, so rescale that arithmetic — work in tenths or hundredths, or reorder so the multiply comes before the divide.`,
+    change.fractionsVia === undefined
+      ? `- This program ${what}, so rescale that arithmetic — work in tenths or hundredths, or reorder so the multiply comes before the divide.`
+      : `- This program ${what}, and every one of those calculations lands on the integers.`,
+    ...(change.fractionsVia !== undefined
+      ? [
+          `- Decide: if this program's fractions are essential, keep them in ${change.fractionsVia}; if they are incidental, rescale to whole numbers — work in tenths or hundredths.`,
+        ]
+      : []),
+  ].join('\n');
+}
+
+/**
+ * Values this program carries that the target's narrower integer range cannot
+ * hold.
+ *
+ * Beside the truncated arithmetic, and silent in the same way: both machines
+ * hold whole numbers, nothing divides, and a value simply does not arrive. The
+ * ranges are both named because the finding is the distance between them.
+ *
+ * Present for the pair whether or not the program's text names an offending
+ * value, since an expression can overflow with every literal in it small - the
+ * named values are the definite half, and the `Decide:` line is the rest.
+ */
+function describeIntegerRangeNarrowing(
+  change: IntegerRangeNarrowing | null,
+  from: PortSide,
+  to: PortSide,
+): string {
+  if (change === null) return '';
+  return [
+    `VALUES ${to.name.toUpperCase()} CANNOT HOLD`,
+    `- ${from.name} holds whole numbers from ${change.from.min} to ${change.from.max}; ${to.name} holds ${change.to.min} to ${change.to.max}.`,
+    change.values.length > 0
+      ? `- Values in this program's own text beyond that: ${change.values.join(', ')}.`
+      : `- No value in this program's own text is beyond it, but a result can be: arithmetic written against the wider range has to be checked against the narrower one.`,
+    '- Decide: rescale these values so they fit the range, or restructure the arithmetic so its results stay inside it.',
   ].join('\n');
 }
 
@@ -692,6 +770,14 @@ export function describePort(
     targetFacts !== undefined
       ? truncatedArithmeticForProgram(targetFacts, vocabulary)
       : null;
+  const markerLoss =
+    sourceFacts !== undefined && targetFacts !== undefined
+      ? markerLossForProgram(sourceFacts, targetFacts, vocabulary)
+      : [];
+  const rangeNarrowing =
+    sourceFacts !== undefined && targetFacts !== undefined
+      ? integerRangeNarrowingForProgram(sourceFacts, targetFacts, vocabulary)
+      : null;
   const expansions =
     targetFacts !== undefined
       ? spellingExpansionsForProgram(targetFacts, vocabulary)
@@ -719,7 +805,11 @@ export function describePort(
     // Beside the false friends, and for the same reason: these are the findings
     // that fail silently, so they lead the ones that fail loudly.
     describeVariableCollisions(collisions, to),
+    // The markers sit with the collisions: both are findings about the names
+    // the program already has, and both survive the port looking untouched.
+    describeMarkerLoss(markerLoss, to),
     describeTruncatedArithmetic(truncated, to),
+    describeIntegerRangeNarrowing(rangeNarrowing, from, to),
     describeLostCommands(diff, guidance, targetTable, to),
     describeExpansions(expansions, to),
     describeRenames(diff.renamed),

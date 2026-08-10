@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { programVocabulary } from './programVocabulary';
+import { LARGE_NUMBER_FLOOR, programVocabulary } from './programVocabulary';
 import { getDialect } from '../dialects/registry';
+import { portingFacts } from '../reference/facts';
 
 const c64 = getDialect('commodore64');
 const bbc = getDialect('bbcmicro');
@@ -18,6 +19,7 @@ describe('programVocabulary - keywords', () => {
       variables: ['I'],
       divides: false,
       fractionalLiteral: false,
+      largeNumbers: [],
       escapeCodes: [],
       characters: [...'01:=EFINOPRTX'],
       multiStatementLines: [1],
@@ -445,6 +447,58 @@ describe('programVocabulary - fractional arithmetic', () => {
   });
 });
 
+describe('programVocabulary - large whole numbers', () => {
+  it('collects the values a 16-bit integer machine could not hold', () => {
+    const vocab = programVocabulary('10 A=100000\n20 B=32768', bbc);
+    expect(vocab.largeNumbers).toEqual([32768, 100000]);
+  });
+
+  it('ignores values every integer machine here holds', () => {
+    expect(programVocabulary('10 A=32767:B=1000', bbc).largeNumbers).toEqual(
+      [],
+    );
+  });
+
+  it('reports each value once however often the program writes it', () => {
+    const vocab = programVocabulary('10 A=70000\n20 B=70000\n30 C=70000', bbc);
+    expect(vocab.largeNumbers).toEqual([70000]);
+  });
+
+  it('does not read a number out of a string or a REM', () => {
+    // A serial number in a message is text: the target holding it or not says
+    // nothing about what the program computes.
+    const vocab = programVocabulary(
+      '10 PRINT "ORDER 900000"\n20 REM SEE 123456',
+      bbc,
+    );
+    expect(vocab.largeNumbers).toEqual([]);
+  });
+
+  it('does not read a hex literal or a fractional one as a whole number', () => {
+    // `&FFFF` is 65535 and would be a finding if it were written that way; read
+    // as a decimal run the scan would report the machine's own address notation
+    // as a value the target cannot hold.
+    expect(programVocabulary('10 A=&8000:B=&H9000', bbc).largeNumbers).toEqual(
+      [],
+    );
+    expect(programVocabulary('10 A=40000.5', bbc).largeNumbers).toEqual([]);
+  });
+
+  // The bound only holds while it is the narrowest ceiling on offer. A machine
+  // registering with a narrower integer range would make the census silently
+  // miss the values that machine cannot hold, so it fails here instead.
+  it('collects from below every registered integer machine’s ceiling', () => {
+    for (const facts of portingFacts) {
+      const range = facts.numbers.range;
+      if (range === undefined) continue;
+      expect(
+        LARGE_NUMBER_FLOOR,
+        `${facts.id} stops at ${range.max}, below the census floor`,
+      ).toBeLessThanOrEqual(range.max + 1);
+    }
+  });
+});
+
 describe('programVocabulary - screen modes', () => {
   const atom = getDialect('atom');
 
@@ -543,6 +597,7 @@ describe('programVocabulary - no program', () => {
       variables: [],
       divides: false,
       fractionalLiteral: false,
+      largeNumbers: [],
       escapeCodes: [],
       characters: [],
       multiStatementLines: [],

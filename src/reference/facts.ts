@@ -534,9 +534,12 @@ const entries: PortingFactsEntry[] = [
     // The floating-point ROM's %A-%Z reals are a separate variable set, not a
     // fraction the integer path can hold: a ported expression lands on the
     // integers, so this is what the truncation finding must answer to.
+    // `fractionsVia` is what lets that finding pose the choice between moving
+    // into the ROM's variables and rescaling, rather than assume the second.
     numbers: {
       fractions: false,
       range: { min: -2147483648, max: 2147483647 },
+      fractionsVia: "the floating-point ROM's %A–%Z variables",
     },
     // The Atom covers printable ASCII in full.
     unsupportedCharacters: [],
@@ -827,6 +830,17 @@ const entries: PortingFactsEntry[] = [
     },
     numberHandling: 'Floating point, single precision only.',
     numbers: { fractions: true },
+    // 8K BASIC predates the %/!/# type tags, and does not reject the spelling
+    // it does not know: the line is stored as typed and answers ?SN ERROR when
+    // it runs, so a program arriving from a machine that has % loads looking
+    // converted. Typed at the console; the same behaviour the variable lint and
+    // the aiProfile describe.
+    markerTraps: [
+      {
+        marker: '%',
+        note: 'stored as typed and answers ?SN ERROR when the line runs',
+      },
+    ],
     exponentOperator: '^',
     logicalOperators: 'bitwise',
     comparisonTrue: -1,

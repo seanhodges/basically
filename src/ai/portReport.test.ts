@@ -177,6 +177,59 @@ describe('the turn a port actually sends', () => {
     expect(result.userContent).toContain('byte indirection');
   });
 
+  it('carries the values the target cannot hold, and the decision they force', async () => {
+    // Atom to ZX80: 32-bit integers to 16-bit ones. Nothing divides and nothing
+    // is fractional, so no other number finding fires and 100000 would simply
+    // arrive wrong.
+    const result = await convert({
+      from: getDialect('atom'),
+      source: '10 A=100000\n20 PRINT A',
+      to: getDialect('zx80'),
+      toLabel: 'ZX80',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).toContain('VALUES ZX80 CANNOT HOLD');
+    expect(result.userContent).toContain('100000');
+    expect(result.userContent).toContain('Decide: rescale these values');
+  });
+
+  it('carries a type marker the target takes and then fails on', async () => {
+    const result = await convert({
+      from: getDialect('trs80'),
+      source: '10 COUNT%=1\n20 PRINT COUNT%',
+      to: getDialect('altair8800'),
+      toLabel: 'Altair 8800',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).toContain(
+      'TYPE MARKERS ALTAIR 8800 DOES NOT HAVE',
+    );
+    expect(result.userContent).toContain('?SN ERROR when the line runs');
+  });
+
+  it('tells the assistant to settle each posed decision and say which it chose', async () => {
+    // A report can pose a decision; handing it over is only worth anything if
+    // the assistant is told not to settle it in silence.
+    const result = await convert({});
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).toContain(
+      'Where a finding above says "Decide:"',
+    );
+    expect(result.userContent).toContain('say which reading you chose');
+  });
+
+  it('leaves the decision rule out of the message that carries no findings', async () => {
+    // No source machine, so no report - and nothing above for the rule to refer
+    // to.
+    const result = await convert({ from: null });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).not.toContain('Decide:');
+  });
+
   it('never hands over the short spellings the target would accept', async () => {
     // The other direction is deliberately absent: converted programs are
     // written in full spellings, whatever the target would also read.
@@ -212,6 +265,7 @@ describe('the turn a port actually sends', () => {
       variables: Array.from({ length: 60 }, (_, i) => `NAME${i}`),
       divides: true,
       fractionalLiteral: true,
+      largeNumbers: [],
       escapeCodes: [],
       // A large program's text: every printable character it could plausibly
       // contain, and a hundred lines carrying two statements. The findings this
@@ -254,6 +308,7 @@ describe('memory the target holds beyond the program area', () => {
     variables: [],
     divides: false,
     fractionalLiteral: false,
+    largeNumbers: [],
     escapeCodes: [],
     characters: [...'PRINT'],
     multiStatementLines: [],

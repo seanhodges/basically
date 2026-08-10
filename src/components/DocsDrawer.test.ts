@@ -156,6 +156,7 @@ describe('vocabularyReply', () => {
       variables: ['I'],
       divides: false,
       fractionalLiteral: false,
+      largeNumbers: [],
       escapeCodes: [],
       characters: [...'01:=EFINORTX'],
       multiStatementLines: [1],

@@ -214,7 +214,13 @@ const WORK_LIST: { klass: string; ids: string[] }[] = [
   },
   {
     klass: 'changes silently',
-    ids: ['false-friends', 'variable-collisions', 'truncated-arithmetic'],
+    ids: [
+      'false-friends',
+      'variable-collisions',
+      'marker-loss',
+      'truncated-arithmetic',
+      'integer-range',
+    ],
   },
   { klass: 'fit', ids: ['fit'] },
 ];
@@ -301,6 +307,24 @@ test('names the target cannot tell apart, arithmetic it truncates, and the order
     .locator('.cmp-jump a')
     .evaluateAll((els) => els.map((el) => el.getAttribute('href')));
   expect(jump).toEqual(ids.map((id) => `#${id}`));
+
+  // The one silent failure this pair cannot produce, because it needs whole
+  // numbers on both sides: a Commodore holds fractions, so nothing above is
+  // about the range. Read as the Atom's 32-bit integers instead, the same ZX80
+  // target reports both ranges and the value that does not survive the trip -
+  // and the program has to cross the postMessage join to be read at all, which
+  // is what makes this a browser test rather than a unit one.
+  await setEditorSource(page, ['10 A=100000', '20 PRINT A'].join('\n'));
+  await frame.getByRole('button', { name: /^Porting from:/ }).click();
+  await frame
+    .getByRole('dialog', { name: 'Choose a machine' })
+    .locator('button[data-machine="atom"]')
+    .click();
+
+  const range = frame.locator('#integer-range');
+  await expect(range).toContainText('-2147483648 to 2147483647');
+  await expect(range).toContainText('-32768 to 32767');
+  await expect(range).toContainText('100000');
 });
 
 test('the narrowing states what it recognised and what it holds back', async ({
