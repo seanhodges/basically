@@ -213,6 +213,67 @@ describe('the turn a port actually sends', () => {
   });
 });
 
+describe('memory the target holds beyond the program area', () => {
+  const atom = getDialect('atom');
+  const HEADING = 'MEMORY THE ATOM HOLDS';
+  /** A C64 program, which selects no Atom screen mode and so meets the condition. */
+  const program: AppVocabulary = {
+    dialectId: 'commodore64',
+    keywords: ['PRINT'],
+    variables: [],
+    divides: false,
+    fractionalLiteral: false,
+    escapeCodes: [],
+    characters: [...'PRINT'],
+    multiStatementLines: [],
+    extraStatements: 0,
+    lineNumbers: { lowest: 10, highest: 10, count: 1 },
+    writeSites: [],
+    screenModes: null,
+  };
+
+  // An Atom has 4,864 bytes free, so the second of these is under pressure and
+  // the first is not. The gate lives in the comparison; this pins that the
+  // hand-over asks it rather than deciding for itself.
+  it('carries the finding exactly when the comparison reports it', async () => {
+    const size = (bytes: number) => ({ dialectId: 'atom', bytes, clean: true });
+    const comfortable = await loadPortReport(c64, atom, program, size(500));
+    const pressed = await loadPortReport(c64, atom, program, size(4500));
+    expect(comfortable).not.toContain(HEADING);
+    expect(pressed).toContain(HEADING);
+    expect(pressed).toContain('free while the program stays in text mode');
+  });
+
+  it('sizes the program for the target so the gate can be asked at all', async () => {
+    // The whole path, from source text to finding: `buildConversionMessage`
+    // measures the program on the *target*, which is what the fit pressure is
+    // judged from. A source with no size would silently never report this.
+    const long = Array.from(
+      { length: 120 },
+      (_, i) => `${(i + 1) * 10} PRINT "${'X'.repeat(40)}"`,
+    ).join('\n');
+    const result = await buildConversionMessage({
+      from: c64,
+      to: atom,
+      toLabel: 'Atom',
+      source: long,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).toContain(HEADING);
+
+    const short = await buildConversionMessage({
+      from: c64,
+      to: atom,
+      toLabel: 'Atom',
+      source: '10 PRINT "HI"',
+    });
+    expect(short.ok).toBe(true);
+    if (!short.ok) return;
+    expect(short.userContent).not.toContain(HEADING);
+  });
+});
+
 it('shares one vocabulary shape with the reference layer', () => {
   // Declared in both `src/app/programVocabulary.ts` and `src/reference/
   // compare.ts`, because the reference tree never imports from `src/`. This

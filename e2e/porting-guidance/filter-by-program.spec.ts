@@ -106,6 +106,24 @@ test('a program too large for the target is reported as not fitting', async ({
   await expect(fit).toContainText(/Will not fit/);
   // Both figures, so a reader told it does not fit is told by how much.
   await expect(fit).toContainText(/3,583 bytes/);
+
+  // The same pressed program against a target that holds memory its hardware
+  // claims only for the graphics modes. This program selects none of them, so
+  // the fit report says the memory is there, what frees it, and poses the
+  // decision. Only a round trip proves it: the condition is decided from the
+  // program's own text, which lives on the other side of the iframe.
+  await frame.getByRole('button', { name: /^Porting to:/ }).click();
+  await frame
+    .getByRole('dialog', { name: 'Choose a machine' })
+    .locator('button[data-machine="atom"]')
+    .click();
+
+  await expect(fit).toContainText(/5,120 bytes more/);
+  await expect(fit).toContainText(/#8400-#97FF/);
+  await expect(fit).toContainText(
+    /free while the program stays in text mode \(CLEAR 0\)/,
+  );
+  await expect(fit).toContainText(/Decide: put this program's data/);
 });
 
 /**

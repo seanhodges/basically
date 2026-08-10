@@ -111,6 +111,7 @@ function vocabulary(
     variables?: string[];
     divides?: boolean;
     fractionalLiteral?: boolean;
+    screenModes?: ProgramVocabulary['screenModes'];
   } = {},
 ): ProgramVocabulary {
   return {
@@ -125,6 +126,7 @@ function vocabulary(
     extraStatements: rest.extraStatements ?? 0,
     lineNumbers: rest.lineNumbers ?? null,
     writeSites,
+    screenModes: rest.screenModes ?? null,
   };
 }
 
@@ -748,6 +750,75 @@ describe('where the program’s writes land', () => {
         HEADING,
       ),
     ).toBe('');
+  });
+});
+
+describe('memory the target holds beyond the program area', () => {
+  const c64 = side('commodore64');
+  const atom = side('atom');
+  const HEADING = 'MEMORY THE ATOM HOLDS';
+  // An Atom has 4,864 bytes free for BASIC. A C64 program selects no Atom mode,
+  // so its text leaves the video RAM untouched by the boot-mode rule.
+  const program = vocabulary('commodore64', ['PRINT']);
+  const size = (bytes: number, clean = true) => ({
+    dialectId: 'atom',
+    bytes,
+    clean,
+  });
+
+  it('reports the memory and the condition for a pressed program', () => {
+    const s = section(describePort(c64, atom, program, size(4500)), HEADING);
+    expect(s).toContain('#8400-#97FF');
+    expect(s).toContain('5,120 bytes');
+    expect(s).toContain('free while the program stays in text mode (CLEAR 0)');
+  });
+
+  // The alternatives are real and the choice is the reader's, so the section
+  // poses it rather than issuing an instruction.
+  it('ends by posing the decision rather than settling it', () => {
+    const s = section(describePort(c64, atom, program, size(4500)), HEADING);
+    expect(s.trimEnd().split('\n').at(-1)).toContain(
+      "Decide: put this program's data and machine code there",
+    );
+    expect(s).toContain('or shorten the program instead');
+  });
+
+  it('reports it for a program already over the budget', () => {
+    expect(
+      section(describePort(c64, atom, program, size(9000)), HEADING),
+    ).toContain('5,120 bytes');
+  });
+
+  // Memory the target can free is a target addition until fit pressure makes it
+  // part of the answer to "does it fit". Under no pressure it is neither.
+  it('is absent for a program with room to spare', () => {
+    expect(section(describePort(c64, atom, program, size(500)), HEADING)).toBe(
+      '',
+    );
+  });
+
+  it('is absent where no size was measured at all', () => {
+    expect(section(describePort(c64, atom, program), HEADING)).toBe('');
+  });
+
+  it('is absent once the program fails the condition', () => {
+    // Read as an Atom, so `CLEAR 4` is the machine's own graphics mode.
+    const graphics = vocabulary('atom', ['CLEAR'], [], [], [], [], {
+      screenModes: { command: 'CLEAR', modes: [4], computed: false },
+    });
+    expect(
+      section(describePort(side('atom'), atom, graphics, size(4500)), HEADING),
+    ).toBe('');
+  });
+
+  it('is absent for a target that holds no such memory', () => {
+    const zx81 = side('zx81');
+    const report = describePort(c64, zx81, program, {
+      dialectId: 'zx81',
+      bytes: 15000,
+      clean: true,
+    });
+    expect(section(report, 'MEMORY THE ZX81 HOLDS')).toBe('');
   });
 });
 

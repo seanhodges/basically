@@ -50,6 +50,13 @@ export const RAM_END = TEXT_TOP - 1;
 export const VIDEO_BASE = 0x8000;
 
 /**
+ * First address above the text screen (`#8400`). `CLEAR 0` displays a 32x16
+ * character matrix out of the first page of video RAM; every address from here
+ * up is reached only by the graphics modes.
+ */
+export const VIDEO_TEXT_TOP = 0x8400;
+
+/**
  * First address above the fitted video RAM (`#9800`). The VDG can address 8K
  * from {@link VIDEO_BASE}, but the board holds 6K, which is all the highest
  * BASIC mode (`CLEAR 4`, 256x192) needs.

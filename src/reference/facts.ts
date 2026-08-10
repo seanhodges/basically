@@ -364,6 +364,25 @@ const entries: PortingFactsEntry[] = [
     screenBase: '&7C00',
     programStart: '&1900',
     freeRamBytes: 25344,
+    // The 19K the bitmap modes reach down into, between their floor at &3000
+    // and the teletext screen at &7C00. Restated from
+    // `src/dialects/bbcmicro/memoryBlocks.ts`; the Master inherits it, and both
+    // are pinned by facts-crosscheck.test.ts.
+    conditionallyFree: [
+      {
+        start: 0x3000,
+        end: 0x7bff,
+        bytes: 19456,
+        condition: {
+          kind: 'screen-modes',
+          command: 'MODE',
+          bootMode: 7,
+          modes: [7],
+        },
+        conditionText: 'the program stays in the teletext mode (MODE 7)',
+        note: 'the frame buffer MODE 0-MODE 6 draw into',
+      },
+    ],
     colour:
       'Up to 16 colours (mode-dependent); COLOUR sets text ink, GCOL sets graphics ink.',
     sound: 'SOUND channel,amplitude,pitch,duration with ENVELOPE.',
@@ -520,6 +539,26 @@ const entries: PortingFactsEntry[] = [
     screenBase: '&8000',
     programStart: '&2900',
     freeRamBytes: 4864,
+    // 5K of the 6K of video RAM: everything above the page the text screen
+    // displays out of. On the machine with the least program RAM of the two
+    // Acorns, this is more memory than BASIC itself has. Restated from
+    // `src/dialects/atom/memoryBlocks.ts` and pinned by
+    // facts-crosscheck.test.ts.
+    conditionallyFree: [
+      {
+        start: 0x8400,
+        end: 0x97ff,
+        bytes: 5120,
+        condition: {
+          kind: 'screen-modes',
+          command: 'CLEAR',
+          bootMode: 0,
+          modes: [0],
+        },
+        conditionText: 'the program stays in text mode (CLEAR 0)',
+        note: 'the video RAM the graphics modes CLEAR 1-CLEAR 4 draw into',
+      },
+    ],
     colour: 'None — the MC6847 VDG output is rendered monochrome here.',
     sound: 'A simple speaker; most programs are silent.',
     memoryWriteSyntax: '?<addr>=<byte> (byte), !<addr>=<number> (word)',

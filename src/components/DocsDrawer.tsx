@@ -89,6 +89,7 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'lineNumbers',
   'multiStatementLines',
   'extraStatements',
+  'screenModes',
 ] as const;
 
 type ProgramVocabularyRequest = { from?: unknown; to?: unknown };

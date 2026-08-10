@@ -356,6 +356,34 @@ describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {
     expect(facts.freeRamBytes).toBe(dialect.programRamBytes);
   });
 
+  // Two sources of truth for the same regions - the docs side cannot import
+  // dialect code - so the restatement is pinned byte for byte. The wording is
+  // pinned with the numbers deliberately: the fit report and the block linter
+  // name the same condition to the same reader, and a condition worded two ways
+  // reads as two different conditions.
+  it('conditionallyFree restates the dialect declaration exactly', () => {
+    const declared = dialect.memoryBlocks?.conditionallyFree ?? [];
+    const command = dialect.memoryBlocks?.screenModeCommand;
+    expect(facts.conditionallyFree ?? []).toEqual(
+      declared.map((region) => ({
+        start: region.range.start,
+        end: region.range.end,
+        bytes: region.range.end - region.range.start + 1,
+        condition:
+          region.condition.kind === 'screen-modes'
+            ? {
+                kind: 'screen-modes',
+                command: command?.keyword,
+                bootMode: command?.bootMode,
+                modes: region.condition.modes,
+              }
+            : region.condition,
+        conditionText: region.conditionText,
+        note: region.note,
+      })),
+    );
+  });
+
   it('addressNotation matches the dialect (default hex)', () => {
     expect(facts.addressNotation).toBe(dialect.addressNotation ?? 'hex');
   });
