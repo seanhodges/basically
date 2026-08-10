@@ -162,6 +162,35 @@ describe('the turn a port actually sends', () => {
     expect(result.userContent).toContain('{clr}');
   });
 
+  it('carries the spellings to write out, and the trap on one of them', async () => {
+    // A Commodore program printing with `?`, ported to a BBC - where `?` is
+    // byte indirection, so leaving it changes what the program does rather
+    // than stopping it.
+    const result = await convert({
+      source: '10 ?"HI"',
+      to: getDialect('bbcmicro'),
+      toLabel: 'BBC Micro',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).toContain('? → PRINT');
+    expect(result.userContent).toContain('byte indirection');
+  });
+
+  it('never hands over the short spellings the target would accept', async () => {
+    // The other direction is deliberately absent: converted programs are
+    // written in full spellings, whatever the target would also read.
+    const result = await convert({
+      source: '10 PRINT "HI"',
+      to: getDialect('bbcmicro'),
+      toLabel: 'BBC Micro',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).not.toContain('SPELLINGS TO WRITE OUT IN FULL');
+    expect(result.userContent).not.toContain('Dotted prefix');
+  });
+
   /**
    * The turn is not prefix-cached, so its size is a real cost - and unlike the
    * machine description it is bounded by the program rather than by the distance
@@ -176,6 +205,7 @@ describe('the turn a port actually sends', () => {
     const report = await loadPortReport(c64, spectrum, {
       dialectId: 'commodore64',
       keywords,
+      spellings: [],
       // The rest of what a program this size carries. The Spectrum keeps every
       // character of a name and has fractions, so neither silent-failure
       // finding fires on this pair - the bound below is the command list's.
@@ -220,6 +250,7 @@ describe('memory the target holds beyond the program area', () => {
   const program: AppVocabulary = {
     dialectId: 'commodore64',
     keywords: ['PRINT'],
+    spellings: [],
     variables: [],
     divides: false,
     fractionalLiteral: false,

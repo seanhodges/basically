@@ -3,8 +3,9 @@
 // then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
 // the generator skips this file once it exists.
 import type { BasicReferenceTableData } from './types';
+import { withAbbreviations } from './abbreviations';
 
-export const bbcReference: BasicReferenceTableData = {
+const bbcTable: BasicReferenceTableData = {
   title: 'BBC BASIC (Micro & Master)',
   machines: ['BBC Micro Model B', 'BBC Master'],
   // The BBC documentation describes SOUND in amplitude, where the Amstrad says
@@ -1082,3 +1083,13 @@ export const bbcReference: BasicReferenceTableData = {
     },
   ],
 };
+
+/**
+ * The page as it renders: each row carries the short spellings its keyword can
+ * be typed as, derived from the machine's own resolution order rather than
+ * authored above. See ./abbreviations.
+ */
+export const bbcReference: BasicReferenceTableData = withAbbreviations(
+  'bbc',
+  bbcTable,
+);

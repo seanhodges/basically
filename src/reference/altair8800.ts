@@ -7,8 +7,9 @@
 // the 8K BASIC 4.0 object tape itself; keyword-crosscheck.test.ts holds the two
 // in exact agreement in both directions.
 import type { BasicReferenceTableData } from './types';
+import { withAbbreviations } from './abbreviations';
 
-export const altair8800Reference: BasicReferenceTableData = {
+const altair8800Table: BasicReferenceTableData = {
   title: 'Altair 8K BASIC',
   machines: ['MITS Altair 8800'],
   // Nothing beyond the shared vocabulary.
@@ -579,3 +580,13 @@ export const altair8800Reference: BasicReferenceTableData = {
     },
   ],
 };
+
+/**
+ * The page as it renders: each row carries the short spellings its keyword can
+ * be typed as, derived from the machine's own resolution order rather than
+ * authored above. See ./abbreviations.
+ */
+export const altair8800Reference: BasicReferenceTableData = withAbbreviations(
+  'altair8800',
+  altair8800Table,
+);

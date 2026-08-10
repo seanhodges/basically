@@ -28,6 +28,17 @@ export interface ReferenceEntry {
   /** Optional badge, e.g. "128K only" or "Master only". */
   tag?: string;
   /**
+   * Short spellings this keyword can be typed as on the machines the row
+   * belongs to, shortest first - `["P."]` on the Acorns, `["?"]` for the
+   * Commodore PRINT, `["pO"]` for its POKE. Absent where the machine has none,
+   * which is every row on the Sinclair pages.
+   *
+   * Derived rather than authored, and never by hand: see ./abbreviations.ts,
+   * which reads each machine's own resolution order and is what a page's
+   * exported data passes through.
+   */
+  abbreviations?: string[];
+  /**
    * Dialect ids this row exists on, when it does not exist on every machine the
    * page covers - e.g. `['cpc6128']` for a Locomotive BASIC 1.1 command. Absent
    * (the common case) means every machine on the page has it.
@@ -334,6 +345,46 @@ export interface NumberHandling {
 }
 
 /**
+ * How short a program may spell this machine's keywords, and what that costs or
+ * saves.
+ *
+ * Three mechanisms exist across these machines and they are not variations of
+ * one thing. The Acorns take a dotted prefix (`P.`); the Commodores take a
+ * prefix whose last letter is shifted (`pO`); and several machines read a
+ * symbol as a whole command (`?` for PRINT, `'` for REM) without taking either.
+ * The Sinclairs are `none` with no symbols at all: their keywords arrive by
+ * keystroke, which is an entry method rather than a spelling, and this fact
+ * describes what a program's *text* may contain.
+ *
+ * Pinned behaviourally by facts-crosscheck.test.ts against each machine's own
+ * tokenizer, in both directions: a machine authored `none` must not read the
+ * notation, and the symbol list must be the one its keyword tables declare.
+ */
+export interface AbbreviatedEntry {
+  /** How a keyword may be typed short, or 'none' where it may not. */
+  style: 'dot' | 'shifted' | 'none';
+  /**
+   * Symbol spellings this machine's tokenizer reads as a whole command, each
+   * with the keyword it stands for.
+   *
+   * Commands only. A symbol standing for an *operator* (`^` for `↑`) is already
+   * reported by the operator facts, and carrying it here as well would put one
+   * difference in two findings.
+   */
+  symbols: { spelling: string; keyword: string }[];
+  /**
+   * Whether spelling keywords short leaves a smaller stored program.
+   *
+   * True only where the machine stores program text as typed - the Atom, where
+   * `P.` really is three bytes less than `PRINT`, in a budget under five
+   * kilobytes. Every tokenizing machine stores one byte for the keyword however
+   * it was typed, so abbreviating there saves nothing and the guide must never
+   * offer it as a way to make room.
+   */
+  shrinksProgram: boolean;
+}
+
+/**
  * What a program's text has to show for a {@link ConditionalFreeMemory} region
  * to be free, restated for this side of the boundary.
  *
@@ -387,8 +438,9 @@ export interface ConditionalFreeMemory {
  *    structured source in `src/`: `lineNumberRange`, `statementSeparator`,
  *    `elseSupported`, `letRequired`, `variableNaming`, `numberHandling`,
  *    `numbers`, `exponentOperator`, `screen`, `colour`, `sound`.
- *    (`variableSignificance` is authored too, but re-derived against each
- *    dialect's own `lint()` rather than only read - see the interface.
+ *    (`variableSignificance` and `abbreviatedEntry` are authored too, but
+ *    re-derived against each dialect's own `lint()` / `tokenize()` rather than
+ *    only read - see their interfaces.
  *    `screen` is prose, not
  *    `displaySize` — the latter is the emulator canvas size in pixels, not the
  *    logical text/graphics screen a porter cares about; `exponentOperator` is
@@ -441,6 +493,12 @@ export interface PortingFacts {
   elseSupported: boolean;
   /** Whether LET is required, optional, or unsupported on assignment. */
   letRequired: 'required' | 'optional' | 'none';
+  /**
+   * How short a program may spell this machine's keywords. See
+   * {@link AbbreviatedEntry} - a program's spellings are part of its text, so a
+   * port has to expand the ones the target does not read.
+   */
+  abbreviatedEntry: AbbreviatedEntry;
   /** Variable-naming rule, e.g. "single letter A–Z" or "long names, A–Z0–9". */
   variableNaming: string;
   /**

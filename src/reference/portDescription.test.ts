@@ -111,12 +111,14 @@ function vocabulary(
     variables?: string[];
     divides?: boolean;
     fractionalLiteral?: boolean;
+    spellings?: ProgramVocabulary['spellings'];
     screenModes?: ProgramVocabulary['screenModes'];
   } = {},
 ): ProgramVocabulary {
   return {
     dialectId,
     keywords,
+    spellings: rest.spellings ?? [],
     variables: rest.variables ?? [],
     divides: rest.divides ?? false,
     fractionalLiteral: rest.fractionalLiteral ?? false,
@@ -149,6 +151,7 @@ function findings(report: string): string {
       (b) =>
         b.startsWith('SAME WORD') ||
         b.startsWith('COMMANDS ') ||
+        b.startsWith('SPELLINGS ') ||
         b.startsWith('CONTROL CODES '),
     )
     .join('\n\n');
@@ -373,6 +376,63 @@ describe('the shape of the report', () => {
     expect(describePort(c64, spectrum, program)).toBe(
       describePort(c64, spectrum, program),
     );
+  });
+});
+
+describe('the spellings to write out in full', () => {
+  const bbc = side('bbcmicro');
+  const c64 = side('commodore64');
+
+  /** A dotted BBC program, as an archive listing writes one. */
+  const dotted = vocabulary('bbcmicro', ['PRINT', 'GOTO'], [], [], [], [], {
+    spellings: [
+      { spelling: 'P.', keyword: 'PRINT' },
+      { spelling: 'G.', keyword: 'GOTO' },
+    ],
+  });
+
+  it('reports each spelling with the command it stands for', () => {
+    const report = describePort(bbc, c64, dotted);
+    const spellings = section(report, 'SPELLINGS TO WRITE OUT IN FULL');
+    expect(spellings).toContain('P. → PRINT');
+    expect(spellings).toContain('G. → GOTO');
+  });
+
+  it('puts them with the mechanical work, ahead of the renames', () => {
+    const report = describePort(bbc, c64, dotted);
+    const headings = report.split('\n\n').map((b) => b.split('\n')[0]);
+    const spellings = headings.indexOf('SPELLINGS TO WRITE OUT IN FULL');
+    const lost = headings.findIndex((h) => h?.startsWith('COMMANDS THIS'));
+    expect(spellings).toBeGreaterThan(-1);
+    expect(spellings).toBeGreaterThan(lost);
+  });
+
+  it('warns where the target reads the spelling as something of its own', () => {
+    const report = describePort(
+      c64,
+      bbc,
+      vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+        spellings: [{ spelling: '?', keyword: 'PRINT' }],
+      }),
+    );
+    const spellings = section(report, 'SPELLINGS TO WRITE OUT IN FULL');
+    expect(spellings).toContain('? → PRINT');
+    expect(spellings).toContain('byte indirection');
+  });
+
+  it('says nothing where the target reads the spellings alike', () => {
+    // Two Acorns: `P.` means PRINT on both, so there is no work in it.
+    const report = describePort(bbc, side('bbcmaster'), dotted);
+    expect(section(report, 'SPELLINGS TO WRITE OUT IN FULL')).toBe('');
+  });
+
+  it('never hands over the spellings the target would also accept', () => {
+    // Conversions are written in full spellings; the abbreviated-entry rule is
+    // deliberately absent from the language-rules section too.
+    const report = describePort(c64, bbc, vocabulary('commodore64', ['PRINT']));
+    expect(report).not.toContain('SPELLINGS TO WRITE OUT IN FULL');
+    expect(report).not.toContain('Abbreviated entry');
+    expect(report).not.toContain('Dotted prefix');
   });
 });
 

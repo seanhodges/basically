@@ -15,6 +15,10 @@ the BBC Master.
 
 ## Notes and caveats
 
+- A keyword can be typed as a **dotted prefix** — `P.` for `PRINT`, `GOS.`
+  for `GOSUB` — which the ROM expands to the first keyword in its own lookup
+  order that the letters begin. The shortest form of each is shown beside it in
+  the table below, and the search box finds a keyword by it.
 - BBC BASIC reaches memory through the indirection operators `?` (byte), `!`
   (word) and `$` (string) rather than `PEEK`/`POKE`; all three are in the table
   below. The `@%` print-format variable is a variable rather than an operator,

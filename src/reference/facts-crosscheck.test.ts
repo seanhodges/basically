@@ -20,6 +20,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Dialect } from '../dialects/types';
 import { dialects, getDialect } from '../dialects/registry';
+import { keywordSpellingsFor } from '../dialects/keywordSpellings';
 import { operatorSpellings } from '../dialects/operators';
 import { OPERATOR_PROBES } from '../dialects/operatorProbes';
 import type { PortingFacts } from './types';
@@ -453,6 +454,121 @@ describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {
       expect(facts.programStart).toBeDefined();
       // The C64 region starts at 0x0800 but BASIC text begins at 0x0801.
       expect([start, start + 1]).toContain(parseAddr(facts.programStart!));
+    }
+  });
+});
+
+/**
+ * Abbreviated entry, re-derived from each machine's own tokenizer.
+ *
+ * Prose would only agree with itself, and this fact decides whether a port is
+ * told to expand a spelling: a machine wrongly authored as taking the notation
+ * leaves an unexpanded `P.` in a program that will not run, and one wrongly
+ * authored as refusing it invents work. So the entry style is asked of the
+ * tokenizer, in both directions - the notation tokenizes to the keyword where
+ * the style says it does, and does not where it says it does not.
+ *
+ * The size arm is the same probe measured rather than compared: the same line
+ * spelled short and in full. Only a machine that stores program text as typed
+ * comes out smaller, which is what `shrinksProgram` claims and what the fit
+ * measure is gated on.
+ */
+describe('abbreviated entry is the tokenizer’s own', () => {
+  /**
+   * The abbreviated and full spellings of one line, per entry style.
+   *
+   * Both full spellings are statements every machine here has, written the way
+   * every machine here takes them - the Sinclairs want the space after GOTO,
+   * and a probe they reject tokenizes to an empty image on both arms, which
+   * would read as "this machine takes the notation".
+   */
+  const PROBES: Record<'dot' | 'shifted', { short: string; full: string }> = {
+    dot: { short: '10 P."HI"\n', full: '10 PRINT"HI"\n' },
+    shifted: { short: '10 goT 10\n', full: '10 GOTO 10\n' },
+  };
+
+  const bytes = (d: Dialect, src: string): string =>
+    Array.from(d.tokenize(src).image).join(',');
+
+  it.each(PAIRS)('%s', (id, facts, dialect) => {
+    const { style, shrinksProgram } = facts.abbreviatedEntry;
+
+    for (const [named, probe] of Object.entries(PROBES)) {
+      // The full spelling has to be a line this machine accepts, or both arms
+      // of the comparison below are error images and the probe proves nothing.
+      expect(
+        dialect.tokenize(probe.full).errors,
+        `${id} rejects the ${named} probe's full spelling`,
+      ).toEqual([]);
+      const reads = bytes(dialect, probe.short) === bytes(dialect, probe.full);
+      if (named !== style) {
+        expect(
+          reads,
+          `${id} is authored "${style}" but reads ${named} abbreviations`,
+        ).toBe(false);
+        continue;
+      }
+      // A machine that stores text as typed cannot produce the full spelling's
+      // bytes from the short one - the shorter text is the whole point - so its
+      // pin is that its own lint takes the notation without complaint.
+      if (shrinksProgram) {
+        expect(dialect.lint(probe.short), `${id} rejects its own ${style}`) //
+          .toEqual([]);
+      } else {
+        expect(reads, `${id} does not read its own ${style} abbreviation`) //
+          .toBe(true);
+      }
+    }
+
+    if (style === 'none') {
+      expect(shrinksProgram, `${id} has no short spelling to shrink with`) //
+        .toBe(false);
+      return;
+    }
+    const probe = PROBES[style];
+    const saved =
+      dialect.tokenize(probe.full).byteSize -
+      dialect.tokenize(probe.short).byteSize;
+    expect(saved > 0, `${id}: shrinksProgram says the opposite of ${saved}`) //
+      .toBe(shrinksProgram);
+  });
+});
+
+/**
+ * The symbol spellings, pinned against the keyword tables that declare them.
+ *
+ * Structural rather than behavioural, deliberately: a symbol standing for a
+ * command does not always tokenize to that command's bytes - the TRS-80 stores
+ * `'` as its genuine `:REM'` form and the Amstrad gives it a token of its own -
+ * so byte equality would report those two machines as not having a shorthand
+ * they plainly have. What the reporting needs is which symbols the tokenizer
+ * reads as a command, and the tables are where that is declared.
+ */
+describe('symbol spellings are the ones the keyword tables declare', () => {
+  const key = (s: { spelling: string; keyword: string }): string =>
+    `${s.spelling}=${s.keyword}`;
+
+  it.each(PAIRS)('%s', (id, facts, dialect) => {
+    // The derivation, not a second reading of the same prose: what the reader's
+    // program is resolved against and what the guide reports about the target
+    // have to be one list, or a spelling would be expanded into a command the
+    // comparison never mentions.
+    const derived = keywordSpellingsFor(id);
+    expect(
+      facts.abbreviatedEntry.symbols.map(key).sort(),
+      `${id}: authored symbols and the keyword tables disagree`,
+    ).toEqual(derived.symbols.map(key).sort());
+    expect(
+      facts.abbreviatedEntry.style,
+      `${id}: authored entry style and the resolver disagree`,
+    ).toBe(derived.style);
+
+    // The keyword a symbol stands for has to be one this machine has, or the
+    // comparison would resolve a spelling to a command that is not there.
+    const words = new Set(dialect.keywords.map((k) => k.word));
+    for (const { spelling, keyword } of facts.abbreviatedEntry.symbols) {
+      expect(words, `${id}: ${spelling} stands for absent ${keyword}`) //
+        .toContain(keyword);
     }
   });
 });

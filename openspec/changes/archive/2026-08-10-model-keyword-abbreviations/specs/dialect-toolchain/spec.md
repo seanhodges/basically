@@ -50,3 +50,50 @@ keyword, as full-spelling keywords are not.
 - **WHEN** a string literal or comment contains text shaped like an
   abbreviation
 - **THEN** it is kept as text, not read as a keyword
+
+### Requirement: The language reference notes and finds a keyword's short spellings
+
+A reader consulting a reference page has usually arrived from a listing, and a
+listing spells keywords the way they were typed. Someone reading `P.` or `?`
+needs the page to answer *what is this*, which a table indexed only by canonical
+spelling cannot do.
+
+Every BASIC reference page SHALL show, against each keyword, the short spellings
+the machine accepts for it — the abbreviated prefix, the symbol standing for the
+whole command, or both where the machine has both. A keyword the machine has no
+short spelling for SHALL show none, and a page whose machines have none SHALL
+say nothing about spellings at all.
+
+Searching a reference page SHALL match a keyword's short spellings as well as
+its name, so a spelling copied out of a listing finds its row.
+
+Where a page covers several machines, a spelling SHALL be shown only where every
+machine that has the row reads it the same way; a machine-specific row SHALL
+show its own machine's spelling.
+
+Every spelling shown SHALL be one the machine's own tokenizer reads as that
+keyword — the page states what the machine does, never a plausible spelling it
+would reject or read as something else.
+
+#### Scenario: Looking up a spelling read in a listing
+
+- **WHEN** the user searches a reference page for a short spelling
+- **THEN** the keyword it stands for is among the results
+
+#### Scenario: Reading a keyword's own entry
+
+- **WHEN** the user reads the entry for a keyword the machine lets them type
+  short
+- **THEN** the entry shows the short spellings alongside the canonical one
+
+#### Scenario: A machine that abbreviates nothing
+
+- **WHEN** the user reads a reference page for a machine whose keywords arrive
+  by keystroke rather than as a spelling
+- **THEN** no short spellings are shown or searched for
+
+#### Scenario: A row belonging to one machine on a shared page
+
+- **WHEN** a reference page covers several machines and a row exists on only one
+  of them
+- **THEN** the spelling shown is the one that machine reads

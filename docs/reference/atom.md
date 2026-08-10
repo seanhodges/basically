@@ -15,6 +15,11 @@ Acorn Atom.
 
 ## Notes and caveats
 
+- A keyword can be typed as a **dotted prefix** — `P.` for `PRINT`, `GOS.` for
+  `GOSUB` — which the ROM expands to the first keyword the letters begin.
+  Because the Atom stores program text as it is typed, an abbreviated keyword is
+  genuinely fewer bytes. The shortest form of each is shown beside it in the
+  table below, and the search box finds a keyword by it.
 - **Data files.** `FIN`/`FOUT` open a file for input/output and `BGET`/`BPUT`
   read/write a byte, while `SGET`/`SPUT` transfer whole strings; in this IDE they
   are served from the emulator's virtual filesystem (open the Emulator files

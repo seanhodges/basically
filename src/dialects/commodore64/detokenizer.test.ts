@@ -86,6 +86,17 @@ describe('Commodore 64 detokenizer', () => {
   });
 });
 
+describe('Commodore 64 LIST expands abbreviations', () => {
+  it('lists a program entered with abbreviations in full spellings', () => {
+    // A shifted-letter abbreviation is entry notation, not stored text: the
+    // token is the same byte the full spelling stores, so LIST spells it out.
+    const short = tokenizeProgram('10 pO53280,0\n20 goS100\n').program;
+    const full = tokenizeProgram('10 POKE53280,0\n20 GOSUB100\n').program;
+    expect(Array.from(short)).toEqual(Array.from(full));
+    expect(detokenizeProgram(short)).toBe('10 POKE53280,0\n20 GOSUB100\n');
+  });
+});
+
 describe('Commodore 64 import report (detokenizeWithReport)', () => {
   it('decodes a clean .prg with no warnings', () => {
     const { program } = tokenizeProgram('10 PRINT "HI"\n');

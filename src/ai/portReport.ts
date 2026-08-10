@@ -182,6 +182,7 @@ export async function buildConversionMessage(input: {
     {
       dialectId: reply.dialectId,
       keywords: reply.keywords,
+      spellings: reply.spellings,
       variables: reply.variables,
       divides: reply.divides,
       fractionalLiteral: reply.fractionalLiteral,

@@ -31,6 +31,7 @@ import {
   falseFriendsForProgram,
   lineNumbersForProgram,
   programFitForTarget,
+  spellingExpansionsForProgram,
   statementLayoutForProgram,
   tableForMachine,
   truncatedArithmeticForProgram,
@@ -46,6 +47,7 @@ import {
   type PairGuidance,
   type ProgramSize,
   type ProgramVocabulary,
+  type SpellingExpansion,
   type StatementLayoutChange,
   type TruncatedArithmetic,
   type VariableCollision,
@@ -397,6 +399,34 @@ function describeLostCommands(
   return `COMMANDS THIS PROGRAM USES THAT ${to.name.toUpperCase()} DOES NOT HAVE\n${lines.join('\n')}`;
 }
 
+/**
+ * Short spellings the program uses that the target does not read.
+ *
+ * Renaming's twin, so it sits with the mechanical work and just ahead of it: the
+ * command survives the port and only the way it is written changes. The trap
+ * rides the same line it belongs to - a spelling the target reads as something
+ * of its own does not stop the program, it changes what the program does, and
+ * the expansion is what removes that.
+ *
+ * Only what the reader has to expand. The other direction - the short spellings
+ * the target would accept - is deliberately never handed over: conversions are
+ * written in full spellings.
+ */
+function describeExpansions(
+  expansions: SpellingExpansion[],
+  to: PortSide,
+): string {
+  if (expansions.length === 0) return '';
+  const lines = expansions.map((e) => {
+    const trap =
+      e.differentMeaning !== undefined
+        ? ` (unexpanded, ${to.name} reads ${e.spelling} as ${e.differentMeaning} rather than failing)`
+        : '';
+    return `- ${e.spelling} → ${e.keyword}${trap}`;
+  });
+  return `SPELLINGS TO WRITE OUT IN FULL\n${lines.join('\n')}`;
+}
+
 /** Commands both machines have under different spellings. */
 function describeRenames(renamed: KeywordRename[]): string {
   if (renamed.length === 0) return '';
@@ -662,6 +692,10 @@ export function describePort(
     targetFacts !== undefined
       ? truncatedArithmeticForProgram(targetFacts, vocabulary)
       : null;
+  const expansions =
+    targetFacts !== undefined
+      ? spellingExpansionsForProgram(targetFacts, vocabulary)
+      : [];
   // Gated inside `conditionallyFreeForProgram`: no size means no fit report,
   // which means no pressure, which means nothing to report here.
   const conditionallyFree =
@@ -687,6 +721,7 @@ export function describePort(
     describeVariableCollisions(collisions, to),
     describeTruncatedArithmetic(truncated, to),
     describeLostCommands(diff, guidance, targetTable, to),
+    describeExpansions(expansions, to),
     describeRenames(diff.renamed),
     describeUsageChanges(diff.behaviourChanged, from, to),
     sourceEscapes !== undefined && escapes !== undefined

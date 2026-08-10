@@ -19,6 +19,8 @@ with BASIC 1.1, which adds eleven keywords to the same language.
 
 ## Notes and caveats
 
+- `'` opens a comment as `REM` does, and is shown beside it in the table below;
+  the search box finds the keyword by it.
 - Line numbers 1–65535, strictly ascending; multiple statements per line with
   `:`. `?` is shorthand for `PRINT`, `'` for `REM`, and `LET` is optional.
 - Variable names are up to 40 characters, all significant, with `$` (string),

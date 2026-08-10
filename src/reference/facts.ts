@@ -92,6 +92,8 @@ const entries: PortingFactsEntry[] = [
     statementSeparator: null,
     elseSupported: false,
     letRequired: 'required',
+    // Keywords arrive by keystroke, so there is no short spelling in the text.
+    abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
     variableNaming:
       'Numeric names may be multiple characters (start with a letter); string and array names are a single letter.',
     variableSignificance: {
@@ -178,6 +180,7 @@ const entries: PortingFactsEntry[] = [
     statementSeparator: null,
     elseSupported: false,
     letRequired: 'required',
+    abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
     variableNaming:
       'A single letter A–Z (numeric arrays and FOR variables too).',
     variableSignificance: {
@@ -263,6 +266,7 @@ const entries: PortingFactsEntry[] = [
     statementSeparator: ':',
     elseSupported: false,
     letRequired: 'required',
+    abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
     variableNaming:
       'Numeric names may be long; string and array names are a single letter with $.',
     variableSignificance: {
@@ -340,6 +344,9 @@ const entries: PortingFactsEntry[] = [
     statementSeparator: ':',
     elseSupported: true,
     letRequired: 'optional',
+    // The ROM resolves a dotted prefix to the first keyword it begins, and
+    // stores the same token the full spelling stores.
+    abbreviatedEntry: { style: 'dot', symbols: [], shrinksProgram: false },
     variableNaming:
       'Any-length names; % suffix = fast integer, $ = string. A%–Z% are static and fastest.',
     variableSignificance: {
@@ -421,6 +428,11 @@ const entries: PortingFactsEntry[] = [
     statementSeparator: ':',
     elseSupported: false,
     letRequired: 'optional',
+    abbreviatedEntry: {
+      style: 'shifted',
+      symbols: [{ spelling: '?', keyword: 'PRINT' }],
+      shrinksProgram: false,
+    },
     variableNaming:
       'Only the first two characters are significant; % suffix = integer, $ = string.',
     variableSignificance: {
@@ -504,6 +516,9 @@ const entries: PortingFactsEntry[] = [
     statementSeparator: ';',
     elseSupported: false,
     letRequired: 'optional',
+    // The Atom keeps program text as typed, so a dotted keyword really is
+    // fewer stored bytes - the one machine here where spelling is a fit measure.
+    abbreviatedEntry: { style: 'dot', symbols: [], shrinksProgram: true },
     variableNaming:
       'Single letters A–Z hold 32-bit integers; %A–%Z name the floating-point ROM variables.',
     // No type markers at all: `$` is a prefix operator here (`$addr` reads a
@@ -618,6 +633,14 @@ const entries: PortingFactsEntry[] = [
     statementSeparator: ':',
     elseSupported: true,
     letRequired: 'optional',
+    abbreviatedEntry: {
+      style: 'none',
+      symbols: [
+        { spelling: '?', keyword: 'PRINT' },
+        { spelling: "'", keyword: 'REM' },
+      ],
+      shrinksProgram: false,
+    },
     variableNaming:
       'Only the first two characters are significant; $ = string, % = integer, ! = single, # = double.',
     variableSignificance: {
@@ -685,6 +708,11 @@ const entries: PortingFactsEntry[] = [
     statementSeparator: ':',
     elseSupported: true,
     letRequired: 'optional',
+    abbreviatedEntry: {
+      style: 'none',
+      symbols: [{ spelling: "'", keyword: 'REM' }],
+      shrinksProgram: false,
+    },
     variableNaming:
       'Up to 40 significant characters; % = integer, ! = real (default), $ = string.',
     variableSignificance: {
@@ -784,6 +812,11 @@ const entries: PortingFactsEntry[] = [
     statementSeparator: ':',
     elseSupported: false,
     letRequired: 'optional',
+    abbreviatedEntry: {
+      style: 'none',
+      symbols: [{ spelling: '?', keyword: 'PRINT' }],
+      shrinksProgram: false,
+    },
     variableNaming:
       'Only the first two characters are significant; $ marks a string, and there is no integer or double type tag.',
     variableSignificance: {

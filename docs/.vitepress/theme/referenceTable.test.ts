@@ -1,6 +1,17 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { ReferenceEntry } from '../../../src/reference/types';
 import { filterEntries, findEntryByName, sortEntries } from './referenceTable';
+
+// The filter below is pure and the component that drives it is not, so the
+// wiring is pinned as text: a table rendering a stripped copy of its rows, or a
+// search box that never mentions what it searches, would leave every assertion
+// here passing and the page unable to answer "what is `P.`?".
+const TABLE_COMPONENT = readFileSync(
+  fileURLToPath(new URL('./components/ReferenceTable.vue', import.meta.url)),
+  'utf8',
+);
 
 const ENTRIES: ReferenceEntry[] = [
   {
@@ -32,6 +43,47 @@ const ENTRIES: ReferenceEntry[] = [
     description: 'Bitwise AND.',
   },
 ];
+
+/**
+ * The same rows carrying short spellings. `?` and `P.` are PRINT's on the
+ * machines that take them; neither is a substring of any name here, so a match
+ * can only have come from the spellings.
+ */
+const SPELLED: ReferenceEntry[] = ENTRIES.map((e) =>
+  e.name === 'PRINT' ? { ...e, abbreviations: ['?', 'P.'] } : e,
+);
+
+describe('filterEntries by short spelling', () => {
+  // The question a reader arrives with: they have `?` in a listing in front of
+  // them, not the word PRINT.
+  it('finds a keyword by a symbol spelling nothing else contains', () => {
+    expect(filterEntries(SPELLED, '?', 'all').map((e) => e.name)).toEqual([
+      'PRINT',
+    ]);
+  });
+
+  it('finds a keyword by a dotted spelling, whatever the case typed', () => {
+    expect(filterEntries(SPELLED, 'p.', 'all').map((e) => e.name)).toEqual([
+      'PRINT',
+    ]);
+  });
+
+  it('matches a spelling from its start, not anywhere inside it', () => {
+    // Otherwise typing `.` on an Acorn page returns every dotted keyword there
+    // is, which is every keyword on the page.
+    expect(filterEntries(SPELLED, '.', 'all')).toEqual([]);
+  });
+
+  it('still narrows by kind and capability alongside a spelling', () => {
+    expect(filterEntries(SPELLED, '?', 'function').map((e) => e.name)).toEqual(
+      [],
+    );
+  });
+
+  it('leaves a page whose rows carry no spellings exactly as it was', () => {
+    expect(filterEntries(ENTRIES, '?', 'all')).toEqual([]);
+  });
+});
 
 describe('filterEntries', () => {
   it('returns everything when query is empty and kind is "all"', () => {
@@ -144,5 +196,22 @@ describe('filterEntries: capability domain', () => {
 
   it('matches nothing when no entry carries the domain', () => {
     expect(filterEntries(ENTRIES, '', 'all', 'sound')).toEqual([]);
+  });
+});
+
+describe('the table component shows what it searches', () => {
+  it('renders each row’s short spellings', () => {
+    expect(TABLE_COMPONENT).toMatch(/v-for="a in e\.abbreviations"/);
+  });
+
+  it('hands the rows themselves to the filter, spellings included', () => {
+    expect(TABLE_COMPONENT).toContain('filterEntries(props.data.entries');
+  });
+
+  it('says it searches spellings, on the pages that have any', () => {
+    expect(TABLE_COMPONENT).toContain(
+      'Search keyword names and short spellings',
+    );
+    expect(TABLE_COMPONENT).toContain('Search keyword names');
   });
 });

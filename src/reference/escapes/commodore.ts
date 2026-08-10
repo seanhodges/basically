@@ -1138,7 +1138,7 @@ export const commodoreEscapes: EscapeTableData = {
       bytes: 'any',
       category: 'raw',
       description:
-        'Any raw byte as one or two hex digits - unassigned control codes, the shifted-bank text range $60-$7F, $E0-$FE and the hardware-duplicate glyph codes ($AA, $B4, $C3, $DD, $DE). The lower-case display bank and keyword abbreviations are not yet modelled.',
+        'Any raw byte as one or two hex digits - unassigned control codes, the shifted-bank text range $60-$7F, $E0-$FE and the hardware-duplicate glyph codes ($AA, $B4, $C3, $DD, $DE). The lower-case display bank is not yet modelled.',
       example: {
         source: '{$60}',
         bytes: [96],

@@ -152,6 +152,7 @@ describe('vocabularyReply', () => {
       status: 'ready',
       dialectId: 'commodore64',
       keywords: ['FOR', 'NEXT', 'TO'],
+      spellings: [],
       variables: ['I'],
       divides: false,
       fractionalLiteral: false,

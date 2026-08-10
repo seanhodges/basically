@@ -3,8 +3,9 @@
 // then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
 // the generator skips this file once it exists.
 import type { BasicReferenceTableData } from './types';
+import { withAbbreviations } from './abbreviations';
 
-export const cpcReference: BasicReferenceTableData = {
+const cpcTable: BasicReferenceTableData = {
   title: 'Amstrad CPC Locomotive BASIC (1.0 & 1.1)',
   machines: ['Amstrad CPC 464', 'Amstrad CPC 6128'],
   placeholders: [
@@ -1406,3 +1407,13 @@ export const cpcReference: BasicReferenceTableData = {
     },
   ],
 };
+
+/**
+ * The page as it renders: each row carries the short spellings its keyword can
+ * be typed as, derived from the machine's own resolution order rather than
+ * authored above. See ./abbreviations.
+ */
+export const cpcReference: BasicReferenceTableData = withAbbreviations(
+  'cpc',
+  cpcTable,
+);

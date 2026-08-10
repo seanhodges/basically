@@ -31,6 +31,7 @@ import type {
   TargetPortingNote,
   VariableSignificance,
 } from './types';
+import { writesByIndirection } from './types';
 import { ramBudget, ramSeverity, type RamSeverity } from './ramBudget';
 import { sortEntries } from './sort';
 
@@ -787,6 +788,13 @@ export interface ProgramVocabulary {
   dialectId: string;
   keywords: string[];
   /**
+   * The short spellings the program's code contains, each with the command the
+   * source machine reads it as (`?`/`PRINT`, `P.`/`PRINT`). Their keywords are
+   * in {@link keywords} as well, so the narrowing treats a command reached
+   * through an abbreviation exactly as one spelled out. See the app-side twin.
+   */
+  spellings: ProgramSpelling[];
+  /**
    * Distinct variable names the program's code contains, upper-cased, in the
    * source machine's own spelling. Grouped by the *target's* significance rule
    * to find the names it would treat as one. See the app-side twin.
@@ -835,6 +843,17 @@ export interface ScreenModeUse {
   modes: number[];
   /** True where a selection's value is not fixed by the program's text. */
   computed: boolean;
+}
+
+/**
+ * One short spelling the program uses, and the command the source machine reads
+ * it as. The app-side twin is `SpellingUse` in
+ * `src/dialects/keywordSpellings.ts`; the two agree by field name across
+ * `postMessage`, like {@link ProgramWriteSite} below.
+ */
+export interface ProgramSpelling {
+  spelling: string;
+  keyword: string;
 }
 
 /** One address the program writes to. The app-side twin is
@@ -1128,6 +1147,114 @@ export function lineNumbersForProgram(
     belowMinimum,
     aboveMaximum,
   };
+}
+
+/** One spelling the port has to write out. See {@link spellingExpansionsForProgram}. */
+export interface SpellingExpansion {
+  /** The spelling as the program writes it, e.g. "P." or "?". */
+  spelling: string;
+  /** The command it stands for on the machine the program came from. */
+  keyword: string;
+  /**
+   * What the target reads this spelling as instead, where it has a meaning of
+   * its own for it. Absent where the target simply has no reading, in which case
+   * an unexpanded spelling fails and says so.
+   *
+   * This is the expansion that has to happen rather than the one that ought to:
+   * `?` opens a PRINT on the Microsoft-family machines and is *byte
+   * indirection* on the Acorns, so a program moved unexpanded does not fail
+   * there - it writes to memory instead of printing, silently.
+   */
+  differentMeaning?: string;
+}
+
+/** The notation a spelling is written in, read off the spelling itself. */
+function spellingStyle(spelling: string): 'dot' | 'shifted' | 'symbol' {
+  if (spelling.endsWith('.')) return 'dot';
+  return /^[a-z]+[A-Z]$/.test(spelling) ? 'shifted' : 'symbol';
+}
+
+/**
+ * The program's spellings the target machine does not read as the same command.
+ *
+ * Mechanical work, and reported with the renames rather than the rewrites: the
+ * command survives the port and only its spelling changes. A spelling the target
+ * reads identically earns no finding at all - there is nothing in it to do.
+ *
+ * Prefix notations are compared by style rather than by re-resolving them on the
+ * target, which is what keeps this module free of the dialect tables: `P.` moved
+ * between two machines that both take dot entry is left alone, and moved to a
+ * machine that takes none it is reported. The two machines that take each
+ * notation are close relatives running the same lookup order, so a prefix they
+ * would resolve differently does not arise; a family that grew one would need
+ * the resolution order here.
+ *
+ * Nothing at all where there is no program: which spellings a listing uses is a
+ * fact about a program, not about a pair of machines.
+ */
+export function spellingExpansionsForProgram(
+  targetFacts: PortingFacts,
+  vocabulary?: ProgramVocabulary,
+): SpellingExpansion[] {
+  if (!vocabulary) return [];
+  const entry = targetFacts.abbreviatedEntry;
+  const out: SpellingExpansion[] = [];
+
+  for (const { spelling, keyword } of vocabulary.spellings) {
+    const style = spellingStyle(spelling);
+    const read =
+      style === 'symbol'
+        ? entry.symbols.some(
+            (s) => s.spelling === spelling && s.keyword === keyword,
+          )
+        : entry.style === style;
+    if (read) continue;
+    // The one trap worth naming: a machine that writes memory through `?` reads
+    // the unexpanded spelling perfectly well, as something else.
+    const indirection = spelling === '?' && writesByIndirection(targetFacts);
+    out.push({
+      spelling,
+      keyword,
+      ...(indirection ? { differentMeaning: 'byte indirection' } : {}),
+    });
+  }
+  return out;
+}
+
+/**
+ * Abbreviation offered as a way to make room. See
+ * {@link shortSpellingsForFit}.
+ */
+export interface ShortSpellingMeasure {
+  /** The notation the target's own editor takes. */
+  style: 'dot' | 'shifted';
+  /** How pressed the fit is, so the measure can be worded against it. */
+  verdict: FitVerdict;
+}
+
+/**
+ * The target's own short spellings, where they would genuinely make room.
+ *
+ * Gated twice, and both gates matter. On a machine that stores a token for each
+ * keyword however it was typed, abbreviating saves nothing at all, so the
+ * measure is never offered there whatever the fit - which is the difference
+ * between a fit measure and advice to write unreadable code. And it is offered
+ * only under pressure: a program with room to spare has no reason to give up
+ * its spelling. The pressure is {@link fitIsPressed}, shared with the memory
+ * the target conditionally holds free - the two ways of making room appear
+ * together or not at all.
+ *
+ * A measure rather than an instruction; the caller poses it as a decision, and
+ * as something to reach for after the port runs.
+ */
+export function shortSpellingsForFit(
+  targetFacts: PortingFacts,
+  fit: ProgramFit | null,
+): ShortSpellingMeasure | null {
+  const entry = targetFacts.abbreviatedEntry;
+  if (!entry.shrinksProgram || entry.style === 'none') return null;
+  if (!fitIsPressed(fit)) return null;
+  return { style: entry.style, verdict: fit.verdict };
 }
 
 /** How a program's statement layout has to change. See {@link statementLayoutForProgram}. */
@@ -1511,21 +1638,34 @@ export function conditionallyFreeMet(
  * nothing at all, because "rewrite the program and this memory appears" is
  * precisely the advertisement the rule forbids.
  *
- * `at-least` is not pressure: a lower bound says neither that the program is
- * close to the limit nor that it is over, and a lower bound that *is* over is
- * reported as `over` by {@link programFitForTarget} and gates here on that.
+ * `at-least` is not pressure: see {@link fitIsPressed}.
  */
 export function conditionallyFreeForProgram(
   targetFacts: PortingFacts,
   vocabulary: ProgramVocabulary,
   fit: ProgramFit | null,
 ): ConditionalFreeMemory[] {
-  if (fit === null || (fit.verdict !== 'tight' && fit.verdict !== 'over')) {
-    return [];
-  }
+  if (!fitIsPressed(fit)) return [];
   return (targetFacts.conditionallyFree ?? []).filter((region) =>
     conditionallyFreeMet(region, vocabulary),
   );
+}
+
+/**
+ * Whether the fit report has the program close to the target's limit or over
+ * it - the pressure every measure that makes room is gated on.
+ *
+ * One predicate rather than one per measure, so the page cannot come to offer a
+ * reader the target's short spellings while withholding the memory it holds, or
+ * the other way about. Both are answers to "it does not fit"; they have to
+ * appear together or not at all.
+ *
+ * `at-least` is not pressure: a lower bound says neither that the program is
+ * close to the limit nor that it is over, and a lower bound that *is* over is
+ * reported as `over` by {@link programFitForTarget} and gates here on that.
+ */
+export function fitIsPressed(fit: ProgramFit | null): fit is ProgramFit {
+  return fit !== null && (fit.verdict === 'tight' || fit.verdict === 'over');
 }
 
 /**
@@ -1677,6 +1817,25 @@ function fmtLogicalOperators(f: PortingFacts): string {
 function fmtComparisonTrue(f: PortingFacts): string {
   return `${f.comparisonTrue} for true, 0 for false`;
 }
+/**
+ * How short a keyword may be written on this machine, and which symbols stand
+ * for a whole command.
+ *
+ * Both halves, because a machine may have one without the other: the Acorns
+ * take a dotted prefix and no symbol, the TRS-80 no prefix and two symbols.
+ */
+function fmtAbbreviatedEntry(f: PortingFacts): string {
+  const { style, symbols } = f.abbreviatedEntry;
+  const short = symbols.map((s) => `${s.spelling} for ${s.keyword}`).join(', ');
+  if (style === 'none') {
+    return short === '' ? 'None' : `No prefix abbreviation; ${short}`;
+  }
+  const prefix =
+    style === 'dot'
+      ? 'Dotted prefix (P. for PRINT)'
+      : 'Shifted last letter (pO for POKE)';
+  return short === '' ? prefix : `${prefix}; ${short}`;
+}
 function fmtAddress(f: PortingFacts): string {
   if (f.addressNotation === 'hex') {
     return f.hexPrefix ? `Hexadecimal (${f.hexPrefix}nn)` : 'Hexadecimal';
@@ -1726,6 +1885,9 @@ const FACT_ROWS: readonly [string, (f: PortingFacts) => string][] = [
   ['Conditionals', fmtElse],
   ['Statements per line', fmtSeparator],
   ['LET on assignment', fmtLet],
+  // A language rule about the program's *text*: a spelling the target does not
+  // read stops the line being read at all, wherever the command exists on both.
+  ['Abbreviated entry', fmtAbbreviatedEntry],
   // With the language rules rather than the hardware: a character the machine
   // has no glyph for is rejected when the program is read, not when it draws.
   ['Characters', fmtCharacters],

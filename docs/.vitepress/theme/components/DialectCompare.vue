@@ -29,6 +29,8 @@ import {
   noticeState,
   conditionallyFreeForProgram,
   programFitForTarget,
+  shortSpellingsForFit,
+  spellingExpansionsForProgram,
   statementLayoutForProgram,
   tableForMachine,
   truncatedArithmeticForProgram,
@@ -499,6 +501,50 @@ const fitText = computed(() => {
       return { label: 'Fits', detail: `${bytes} bytes ${of}` };
   }
   return null;
+});
+
+/**
+ * The program's spellings this target does not read, as work to do.
+ *
+ * `vocabulary`, not `narrowingBy`, for the reason the fit report and the
+ * conditionally-free regions read the same way: which spellings a listing uses
+ * is a statement about the reader's own program rather than a difference
+ * between two machines, so the "show every difference" control has nothing to
+ * reveal here - and reading it through the narrowing would make a real piece of
+ * work vanish the moment the reader asked to see more.
+ */
+const expansions = computed(() => {
+  const t = target.value?.facts;
+  const v = vocabulary.value;
+  if (!t || !v || notice.value.kind !== 'narrowed') return [];
+  return spellingExpansionsForProgram(t, v);
+});
+
+/**
+ * Abbreviation offered as a way to make room, and the decision it poses.
+ *
+ * Gated on the target storing short spellings as fewer bytes and on the fit
+ * being pressed, both inside `shortSpellingsForFit`: on every machine that
+ * stores a token per keyword this is never shown, whatever the fit. Worded as a
+ * decision and as something to reach for once the port runs, because a program
+ * abbreviated before it works is a program that is harder to fix.
+ *
+ * It sits beside the conditionally-free regions under the same gate and for the
+ * same reason: both are ways to make room, offered only once room is short.
+ */
+const fitSpellings = computed(() => {
+  const t = target.value?.facts;
+  if (!t) return null;
+  const measure = shortSpellingsForFit(t, programFit.value);
+  if (!measure) return null;
+  const name = target.value?.name ?? 'the target';
+  const example = measure.style === 'dot' ? 'P. for PRINT' : 'pO for POKE';
+  return (
+    `A ${name} stores a program as it is typed, so its own short spellings ` +
+    `(${example}) are fewer bytes every time they appear. Decide: abbreviate ` +
+    `once the port runs, or shorten the program another way — whichever ` +
+    `leaves it readable.`
+  );
 });
 
 /**
@@ -1241,6 +1287,7 @@ function onVocabularyMessage(e: MessageEvent) {
   vocabulary.value = {
     dialectId: String(data.dialectId ?? ''),
     keywords: Array.isArray(data.keywords) ? data.keywords : [],
+    spellings: Array.isArray(data.spellings) ? data.spellings : [],
     variables: Array.isArray(data.variables) ? data.variables : [],
     divides: data.divides === true,
     fractionalLiteral: data.fractionalLiteral === true,
@@ -1605,7 +1652,7 @@ watch(to, requestVocabulary);
         first of the rewrites in one place, at the seam between the two.
       -->
       <section
-        v-if="keywordDiff.renamed.length || changedCount"
+        v-if="keywordDiff.renamed.length || changedCount || expansions.length"
         id="different-form"
         class="cmp-section"
       >
@@ -1613,6 +1660,23 @@ watch(to, requestVocabulary);
         <p class="cmp-hint">
           On both machines, but not written the same way — a search and replace
           for the first two, a look at each use for the rest.
+        </p>
+        <!--
+          Expansion is renaming's twin - the command survives, only the way it
+          is written changes - so it leads the mechanical work here. A spelling
+          the target reads as something of its own carries its warning on the
+          same line, because expanding it is what removes the trap.
+        -->
+        <p v-if="expansions.length" class="cmp-change-rule">
+          {{ count(expansions.length, 'spelling') }}
+          {{ target.name }} does not read — write the command out in full:
+          <span v-for="(e, i) in expansions" :key="e.spelling" class="cmp-name">
+            <code>{{ e.spelling }}</code> → <code>{{ e.keyword }}</code
+            ><span v-if="e.differentMeaning" class="cmp-change-what">
+              (left as it is, {{ target.name }} reads it as
+              {{ e.differentMeaning }} rather than failing)</span
+            ><span v-if="i < expansions.length - 1" class="cmp-sep">, </span>
+          </span>
         </p>
         <p v-if="keywordDiff.renamed.length" class="cmp-change-rule">
           {{ count(keywordDiff.renamed.length, 'command') }} spelled
@@ -2224,6 +2288,12 @@ watch(to, requestVocabulary);
             condition true, or shorten the program instead.
           </p>
         </template>
+        <!--
+          The other way to make room, under the same gate and last of the two:
+          more memory is a better answer than fewer characters, and this one
+          costs the listing some of its readability.
+        -->
+        <p class="cmp-fit" v-if="fitSpellings">{{ fitSpellings }}</p>
       </section>
     </template>
   </div>
