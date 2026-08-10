@@ -167,6 +167,8 @@ describe('vocabularyReply', () => {
       callSites: [],
       codeBlocks: [],
       screenModes: null,
+      positions: null,
+      emptyLoopLines: [1],
       targetSize: null,
     });
   });

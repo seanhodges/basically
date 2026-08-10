@@ -117,6 +117,8 @@ function vocabulary(
     readSites?: ProgramVocabulary['readSites'];
     callSites?: ProgramVocabulary['callSites'];
     codeBlocks?: ProgramVocabulary['codeBlocks'];
+    positions?: ProgramVocabulary['positions'];
+    emptyLoopLines?: number[];
   } = {},
 ): ProgramVocabulary {
   return {
@@ -137,6 +139,8 @@ function vocabulary(
     callSites: rest.callSites ?? [],
     codeBlocks: rest.codeBlocks ?? [],
     screenModes: rest.screenModes ?? null,
+    positions: rest.positions ?? null,
+    emptyLoopLines: rest.emptyLoopLines ?? [],
   };
 }
 
@@ -1210,6 +1214,193 @@ describe('memory the target holds beyond the program area', () => {
       clean: true,
     });
     expect(section(report, 'MEMORY THE ZX81 HOLDS')).toBe('');
+  });
+});
+
+describe('where the program prints', () => {
+  const HEADING = 'WHERE THIS PROGRAM PRINTS ON THE';
+  const laidOut = (
+    dialectId: string,
+    positions: ProgramVocabulary['positions'],
+    screenModes: ProgramVocabulary['screenModes'] = null,
+  ) =>
+    vocabulary(dialectId, ['PRINT'], [], [], [], [], {
+      positions,
+      screenModes,
+    });
+
+  it('names the positions and poses the choice once', () => {
+    // A Spectrum layout at column 30, on a machine 22 columns wide.
+    const report = describePort(
+      side('zxspectrum'),
+      side('vic20'),
+      laidOut('zxspectrum', {
+        cells: [
+          { row: 5, column: 30 },
+          { row: 9, column: 28 },
+        ],
+        columns: [],
+        offsets: [],
+        origin: 0,
+        computed: false,
+      }),
+    );
+    const block = section(report, HEADING);
+    expect(block).toContain('row 5, column 30');
+    expect(block).toContain('row 9, column 28');
+    expect(block).toContain('32×22');
+    expect(block).toContain('22×23');
+    // Once, not per position: which way a layout goes is one decision about
+    // what the screen is for.
+    expect(block.match(/Decide:/g)).toHaveLength(1);
+    expect(block).toContain('reflow the layout');
+  });
+
+  it('says offsets encode the width they were written for', () => {
+    const report = describePort(
+      side('trs80'),
+      side('zxspectrum'),
+      laidOut('trs80', {
+        cells: [],
+        columns: [],
+        offsets: [200],
+        origin: 0,
+        computed: false,
+      }),
+    );
+    const block = section(report, HEADING);
+    expect(block).toContain('recomputed');
+    expect(block).toContain('64 columns here, 32 there');
+  });
+
+  it('says its check is of the boot screen where the program leaves it', () => {
+    const report = describePort(
+      side('bbcmicro'),
+      side('vic20'),
+      laidOut(
+        'bbcmicro',
+        {
+          cells: [{ row: 5, column: 30 }],
+          columns: [],
+          offsets: [],
+          origin: 0,
+          computed: false,
+        },
+        { command: 'MODE', modes: [0], computed: false },
+      ),
+    );
+    expect(section(report, HEADING)).toContain('selects screen modes');
+  });
+
+  it('says nothing where the layout fits', () => {
+    const report = describePort(
+      side('zxspectrum'),
+      side('bbcmicro'),
+      laidOut('zxspectrum', {
+        cells: [{ row: 5, column: 3 }],
+        columns: [],
+        offsets: [],
+        origin: 0,
+        computed: false,
+      }),
+    );
+    expect(section(report, HEADING)).toBe('');
+  });
+
+  it('says nothing where there is no program to read positions from', () => {
+    const report = describePort(
+      side('zxspectrum'),
+      side('vic20'),
+      vocabulary('zxspectrum', ['PRINT']),
+    );
+    expect(section(report, HEADING)).toBe('');
+  });
+});
+
+describe('the loops that only pass time', () => {
+  const HEADING = 'LOOPS THAT ONLY PASS TIME';
+  const delaying = (dialectId: string, ...emptyLoopLines: number[]) =>
+    vocabulary(dialectId, ['FOR', 'NEXT'], [], [], [], [], {
+      emptyLoopLines,
+    });
+
+  it('names the lines, quotes the ratio as the emulators’ own, and poses the choice', () => {
+    // A ZX81 at 66 iterations a second to an Atom at 1880: every pause the
+    // program counts out becomes a twenty-eighth of itself.
+    const report = describePort(
+      side('zx81'),
+      side('atom'),
+      delaying('zx81', 40, 120),
+    );
+    const block = section(report, HEADING);
+    expect(block).toContain('40, 120');
+    expect(block).toContain('faster');
+    expect(block).toContain("this IDE's emulators");
+    expect(block).toContain('not a claim about the original hardware');
+    expect(block).toContain('Decide, for each');
+    // The target's own way of waiting, which is half the decision.
+    expect(block).toContain('WAIT');
+  });
+
+  it('offers no second course to a machine with no clock', () => {
+    const report = describePort(
+      side('atom'),
+      side('trs80'),
+      delaying('atom', 40),
+    );
+    const block = section(report, HEADING);
+    expect(block).toContain('slower');
+    expect(block).toContain('Retune each count');
+    expect(block).not.toContain('Decide, for each');
+  });
+
+  it('says nothing when the program has no empty loops', () => {
+    const report = describePort(side('zx81'), side('atom'), delaying('zx81'));
+    expect(section(report, HEADING)).toBe('');
+  });
+
+  it('says nothing between two machines of similar speed', () => {
+    const report = describePort(
+      side('commodore64'),
+      side('pet'),
+      delaying('commodore64', 40),
+    );
+    expect(section(report, HEADING)).toBe('');
+  });
+});
+
+describe('the capabilities the target does not have at all', () => {
+  const HEADING = 'COMMANDS THIS PROGRAM USES THAT';
+
+  it('poses the decoration-or-information decision where colour is lost', () => {
+    const report = describePort(
+      side('zxspectrum'),
+      side('zx81'),
+      vocabulary('zxspectrum', ['INK', 'PAPER', 'BEEP']),
+    );
+    const block = section(report, HEADING);
+    expect(block).toContain('where the colour was decoration, drop it');
+    expect(block).toContain('where the sound was decoration, drop it');
+  });
+
+  it('adds nothing where the target has the capability by other means', () => {
+    // The Commodores have no colour keywords and sixteen colours: the commands
+    // are lost and the capability is not.
+    const report = describePort(
+      side('zxspectrum'),
+      side('commodore64'),
+      vocabulary('zxspectrum', ['INK', 'PAPER']),
+    );
+    expect(section(report, HEADING)).not.toContain('was decoration');
+  });
+
+  it('adds nothing where the program never used the capability', () => {
+    const report = describePort(
+      side('zxspectrum'),
+      side('zx81'),
+      vocabulary('zxspectrum', ['DRAW']),
+    );
+    expect(section(report, HEADING)).not.toContain('was decoration');
   });
 });
 

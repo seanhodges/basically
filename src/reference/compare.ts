@@ -29,6 +29,7 @@ import type {
   ReferenceEntry,
   ReferenceTableData,
   TargetPortingNote,
+  TextScreen,
   VariableSignificance,
 } from './types';
 import { writesByIndirection } from './types';
@@ -847,6 +848,42 @@ export interface ProgramVocabulary {
    * memory is actually free. The app-side twin is `ScreenModeUse`.
    */
   screenModes: ScreenModeUse | null;
+  /**
+   * Where on the text screen the program says to print, or null on a machine
+   * with no command for saying so. Checked against the target's own columns and
+   * rows: the commands port and the numbers do not. The app-side twin is
+   * `ProgramPositions`.
+   */
+  positions: ProgramPositions | null;
+  /**
+   * 1-based editor lines opening a loop that counts and does nothing else - the
+   * program's delays, written as the source machine's speed. See the app-side
+   * twin.
+   */
+  emptyLoopLines: number[];
+}
+
+/**
+ * What a program's text says about where it prints. The app-side twin is
+ * `ProgramPositions` in `src/app/programVocabulary.ts`.
+ *
+ * Three collections because the three forms are checked differently: a whole
+ * position against both of the target's dimensions, a bare column against its
+ * width, and an offset against the whole screen and against the width it
+ * silently encodes.
+ */
+export interface ProgramPositions {
+  cells: { row: number; column: number }[];
+  columns: number[];
+  offsets: number[];
+  /**
+   * Which cell the machine calls the first one: 0 on the Sinclairs and the
+   * Acorns, 1 on a CPC. What the numbers above mean, and so what they have to
+   * be compared with a screen size against.
+   */
+  origin: 0 | 1;
+  /** True where a position's value is not fixed by the program's text. */
+  computed: boolean;
 }
 
 /**
@@ -1875,6 +1912,243 @@ export function carriesMachineCodeGuidance(guidance: PairGuidance): boolean {
   return guidance.pairNotes.some((note) =>
     /machine code|CODE block/i.test(note),
   );
+}
+
+/** Where this program's layout falls on the target's screen. See
+ *  {@link positionsForProgram}. */
+export interface PositionCheck {
+  /** The screen the source machine boots into - what the layout was aimed at. */
+  from: TextScreen;
+  /** The screen the target boots into - what it has to fit. */
+  to: TextScreen;
+  /** Whole positions the target's screen does not contain, in reading order. */
+  cells: { row: number; column: number }[];
+  /** Columns beyond the target's width, ascending. */
+  columns: number[];
+  /** Offsets the target's screen does not contain, ascending. */
+  offsets: number[];
+  /**
+   * True where the program positions by single offset and the two screens
+   * differ in width.
+   *
+   * The finding that has nothing to do with bounds: an offset counts cells
+   * across a screen, so it *is* the source machine's width, and 200 on a
+   * 64-column machine is row 3 column 8 while on a 40-column one it is row 5
+   * column 0. Every offset has to be recomputed whether or not any of them is
+   * out of range.
+   */
+  widthEncoded: boolean;
+  /**
+   * True where the program selects a screen mode other than the one its machine
+   * boots into, so the check above describes a screen the program may have left.
+   */
+  otherModes: boolean;
+}
+
+/**
+ * Whether the program selects a screen mode its machine did not boot into.
+ *
+ * The boot mode is not a field of the facts: the only machines with a mode
+ * command are the ones whose conditionally free memory is decided by it, and
+ * those regions name the mode they are free in. Where no region names one there
+ * is no fact to decide with, and any selection at all counts - the caveat is
+ * cheap and judging a geometry this cannot know is not.
+ */
+function selectsOtherModes(
+  fromFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): boolean {
+  const use = vocabulary.screenModes;
+  if (use === null) return false;
+  if (use.computed) return true;
+  if (use.modes.length === 0) return false;
+  const condition = (fromFacts.conditionallyFree ?? [])
+    .map((region) => region.condition)
+    .find((c) => c.kind === 'screen-modes' && c.command === use.command);
+  if (condition === undefined || condition.kind !== 'screen-modes') return true;
+  return use.modes.some((mode) => mode !== condition.bootMode);
+}
+
+/**
+ * Where the program's stated positions fall on the target machine's screen.
+ *
+ * The finding no command list can carry: `PRINT AT 5,35` ports to a 32-column
+ * machine as `PRINT AT 5,35`, and lands off the edge or wrapped. The screens
+ * here run from 22 columns to 80, so this is not a corner case between two
+ * unusual machines - it is most pairs.
+ *
+ * Positions the program states as constants only. A computed position is not
+ * judged: doubt reports nothing, exactly as it does for a computed screen mode,
+ * and the decision the report poses is what covers the rest.
+ *
+ * Null where there is nothing to say - no program positions, every one of them
+ * inside the target's screen, and no offsets whose width has changed. Null too
+ * where either machine's positions cannot be read at all, which is the case for
+ * a source machine that lays its screen out by printing.
+ */
+export function positionsForProgram(
+  fromFacts: PortingFacts,
+  toFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): PositionCheck | null {
+  const positions = vocabulary.positions;
+  if (positions === null) return null;
+  const to = toFacts.textScreen;
+  // Positions are stated in the source machine's own origin - the Sinclairs and
+  // the Acorns count from zero, Locomotive from one - so the offset comes off
+  // before anything is compared with a size.
+  const beyond = (value: number, extent: number): boolean =>
+    value - positions.origin >= extent;
+
+  const cells = positions.cells.filter(
+    (cell) => beyond(cell.column, to.columns) || beyond(cell.row, to.rows),
+  );
+  const columns = positions.columns.filter((c) => beyond(c, to.columns));
+  const offsets = positions.offsets.filter((o) =>
+    beyond(o, to.columns * to.rows),
+  );
+  const widthEncoded =
+    positions.offsets.length > 0 && fromFacts.textScreen.columns !== to.columns;
+
+  if (
+    cells.length === 0 &&
+    columns.length === 0 &&
+    offsets.length === 0 &&
+    !widthEncoded
+  ) {
+    return null;
+  }
+  return {
+    from: fromFacts.textScreen,
+    to,
+    cells,
+    columns,
+    offsets,
+    widthEncoded,
+    otherModes: selectsOtherModes(fromFacts, vocabulary),
+  };
+}
+
+/**
+ * How far apart two machines' measured speeds have to be before the delays a
+ * program was tuned with are worth reporting.
+ *
+ * Half again as fast, either way. Below that a pause changes by less than the
+ * length of itself and a reader has better things to read; at it, a two-second
+ * countdown becomes three or one and a game's pace has changed. One constant
+ * because the finding either fires or does not - a threshold per pair, or per
+ * capability, would be a dial nobody could reason about.
+ *
+ * Comfortably outside what the measurement can wobble by: the benchmark pins
+ * each machine's figure to within a fifth of itself
+ * (`src/dialects/loopSpeedProbes.ts`), so no pair can reach this by drifting.
+ */
+export const MATERIAL_SPEED_RATIO = 1.5;
+
+/** What this program's delay loops become on the target. See
+ *  {@link delaysForProgram}. */
+export interface DelayLoops {
+  /** 1-based editor lines opening a loop that only counts. */
+  lines: number[];
+  /** Loop iterations a second on each machine, as measured in this IDE. */
+  fromSpeed: number;
+  toSpeed: number;
+  /**
+   * How the target's speed compares with the source's: 3 where the target runs
+   * the same loop three times as fast, 0.25 where it takes four times as long.
+   */
+  ratio: number;
+  /** How the target paces a wait, in its own terms. */
+  clock: string;
+  /**
+   * Whether that is something a delay can actually be moved onto. False where
+   * the machine has no timer and no pause at all - a real answer, and the one
+   * that makes the decision a single course rather than a choice.
+   */
+  hasClock: boolean;
+}
+
+/**
+ * The delays this program carries, and what the target's speed does to them.
+ *
+ * An empty counting loop is the source machine's speed written into the
+ * program: the count is however many iterations of *that* interpreter filled
+ * the pause its author wanted. Nothing about it fails to port - the loop
+ * tokenizes, runs, and takes a different length of time.
+ *
+ * Null unless the program has such loops and the two machines' measured speeds
+ * are materially apart. Null too where either machine has no measured speed,
+ * since a ratio needs two: a comparison that cannot measure one side reports
+ * nothing rather than guessing at it.
+ */
+export function delaysForProgram(
+  fromFacts: PortingFacts,
+  toFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): DelayLoops | null {
+  const lines = vocabulary.emptyLoopLines;
+  const fromSpeed = fromFacts.loopSpeed;
+  const toSpeed = toFacts.loopSpeed;
+  if (lines.length === 0 || fromSpeed === undefined || toSpeed === undefined) {
+    return null;
+  }
+  const ratio = toSpeed / fromSpeed;
+  if (ratio < MATERIAL_SPEED_RATIO && ratio > 1 / MATERIAL_SPEED_RATIO) {
+    return null;
+  }
+  return {
+    lines,
+    fromSpeed,
+    toSpeed,
+    ratio,
+    clock: toFacts.waitIdiom.text,
+    hasClock: toFacts.waitIdiom.keywords.length > 0,
+  };
+}
+
+/**
+ * Whether a capability fact denies the capability outright.
+ *
+ * Prose, like every other hardware fact here, so this reads it - and
+ * facts-crosscheck.test.ts pins the exact set of machines it answers true for,
+ * so a reworded fact fails there rather than silently withdrawing a finding.
+ */
+function deniesCapability(fact: string): boolean {
+  return /^none\b/i.test(fact.trim());
+}
+
+/**
+ * The capabilities this program uses that the target machine simply does not
+ * have, and so has to be asked about.
+ *
+ * A program uses colour and sound two ways. As decoration, which a port can
+ * drop; and as information - the colour that tells the player's piece from the
+ * wall, the beep that says the key registered - which a port must re-encode or
+ * the program stops working in a way no listing shows. Which of the two a given
+ * program is doing is not in its text, and the target's written advice for the
+ * lost capability is only half an answer until it is decided.
+ *
+ * So the decision is posed rather than guessed, and posed where the loss is
+ * already reported: the account for that capability, which the narrowing has
+ * already reduced to the commands this program actually uses. Nothing is added
+ * where the target has the capability under other means - the Commodores have
+ * no colour *keywords* and sixteen colours, and telling a reader to consider
+ * dropping their colour would be nonsense.
+ */
+export function lostCapabilitiesForProgram(
+  targetFacts: PortingFacts,
+  sections: CapabilitySection[],
+): KeywordDomain[] {
+  const denied: [KeywordDomain, string][] = [
+    ['colour', targetFacts.colour],
+    ['sound', targetFacts.sound],
+  ];
+  return denied
+    .filter(([domain, fact]) => {
+      if (!deniesCapability(fact)) return false;
+      return sections.some((s) => s.domain === domain && s.entries.length > 0);
+    })
+    .map(([domain]) => domain);
 }
 
 /**

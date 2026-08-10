@@ -39,6 +39,11 @@ import {
   spellingAt,
   type SpellingUse,
 } from '../dialects/keywordSpellings';
+import {
+  positionSyntaxFor,
+  type PositionCommand,
+  type PositionSyntax,
+} from '../dialects/positionSyntax';
 import { forEachVariable } from '../editor/variables';
 import { variableRulesFor } from '../editor/variableLexis';
 import type { PokeSite } from '../editor/pokeAddresses';
@@ -228,6 +233,61 @@ export interface ProgramVocabulary {
    * {@link ConditionalFreeRange} from this.
    */
   screenModes: ScreenModeUse | null;
+  /**
+   * Where on the text screen the program says to print, or null on a machine
+   * with no command for saying so.
+   *
+   * The program's layout, as numbers. Every one of them was written for one
+   * particular screen and survives a port untouched, so the porting guide checks
+   * them against the target's own columns and rows - which is the whole finding,
+   * since no command list can carry it: the commands port, the numbers are
+   * wrong.
+   */
+  positions: ProgramPositions | null;
+  /**
+   * 1-based editor lines opening a loop that counts and does nothing else,
+   * sorted.
+   *
+   * A delay, written as the source machine's speed: the count is however many
+   * iterations of *that* interpreter filled the pause its author wanted. The
+   * lines rather than a count, because that is what a reader searches their
+   * listing for.
+   *
+   * Only loops with no body at all. A loop that does work is a loop, and
+   * deciding whether a game's main loop was tuned for speed is beyond any
+   * reading of its text.
+   */
+  emptyLoopLines: number[];
+}
+
+/**
+ * What a program's text says about where it prints.
+ *
+ * Three collections rather than one, because the three forms are checked
+ * differently: a row-and-column pair against both of the target's dimensions, a
+ * bare column against its width, and an offset against the whole screen *and*
+ * against the width it silently encodes.
+ */
+export interface ProgramPositions {
+  /** Whole positions the program states, distinct and in reading order. */
+  cells: { row: number; column: number }[];
+  /** Columns it states alone (TAB), ascending and distinct. */
+  columns: number[];
+  /** Offsets from the start of the screen, ascending and distinct. */
+  offsets: number[];
+  /**
+   * Which cell this machine calls the first one - 0 on the Sinclairs and the
+   * Acorns, 1 on a CPC. Carried rather than normalised away, so a reported
+   * position is the number the reader will find in their own listing.
+   */
+  origin: 0 | 1;
+  /**
+   * True where the program positions with a value its text does not fix -
+   * `PRINT AT R,C`, `TAB(N+1)`, or the command with no argument at all. Not a
+   * position to judge: doubt reports nothing, and the decision the finding
+   * poses is what covers it.
+   */
+  computed: boolean;
 }
 
 /**
@@ -838,6 +898,297 @@ function screenModesIn(source: string, dialect: Dialect): ScreenModeUse | null {
 }
 
 /**
+ * A constant argument starting at `i`, and where it ends, or null where the
+ * program's text does not fix it.
+ *
+ * `close` is the character that legitimately ends the argument beyond the
+ * separators - the `)` of a bracketed form - which without it would read as an
+ * expression continuing and turn every `TAB(5)` into a computed position.
+ */
+function constantAt(
+  code: string,
+  i: number,
+  close: string | null,
+): { value: number; end: number } | null {
+  const match = MODE_ARGUMENT.exec(code.slice(i));
+  if (match === null) return null;
+  const end = i + match[0].length;
+  const tail = code[end];
+  if (tail !== undefined && tail !== close && ARGUMENT_CONTINUES.test(tail)) {
+    return null;
+  }
+  return { value: parseInt(match[1]!, 10), end };
+}
+
+/** What one position command's arguments came to, at one place in the text. */
+interface PositionArguments {
+  /** The constants read, in the order the machine writes them. */
+  values: number[];
+  /** True where the text does not fix them. */
+  computed: boolean;
+}
+
+/**
+ * The arguments of a position command written at `i`, which is the index just
+ * past its keyword.
+ *
+ * One argument or two, by the command's own form - and by what is actually
+ * there, where the second is optional: the BBC's `TAB(x)` and `TAB(x,y)` are
+ * one keyword meaning a column and a whole position, and which one a line means
+ * is decided by whether it wrote a comma.
+ */
+function positionArgumentsAt(
+  code: string,
+  i: number,
+  command: PositionCommand,
+): PositionArguments {
+  let j = i;
+  while (code[j] === ' ') j++;
+  const bracketed = code[j] === '(';
+  if (bracketed) j++;
+  const close = bracketed ? ')' : null;
+  const first = constantAt(code, j, close);
+  if (first === null) return { values: [], computed: true };
+  if (command.kind === 'column' || command.kind === 'offset') {
+    return { values: [first.value], computed: false };
+  }
+  if (code[first.end] !== ',') {
+    // A second argument that may be left off leaves a column behind; one that
+    // may not is a position the text has not finished stating.
+    return command.secondOptional === true
+      ? { values: [first.value], computed: false }
+      : { values: [], computed: true };
+  }
+  const second = constantAt(code, first.end + 1, close);
+  if (second === null) return { values: [], computed: true };
+  return { values: [first.value, second.value], computed: false };
+}
+
+/** A position collector, so the code scan and the escape scan fill one result. */
+interface PositionCollector {
+  cells: { row: number; column: number }[];
+  columns: Set<number>;
+  offsets: Set<number>;
+  computed: boolean;
+}
+
+/** File one command's arguments under the form that command states. */
+function collectPosition(
+  into: PositionCollector,
+  command: PositionCommand,
+  args: PositionArguments,
+): void {
+  if (args.computed || args.values.length === 0) {
+    into.computed = true;
+    return;
+  }
+  const [a, b] = args.values as [number, number | undefined];
+  if (command.kind === 'offset') {
+    into.offsets.add(a);
+    return;
+  }
+  if (b === undefined) {
+    into.columns.add(a);
+    return;
+  }
+  const cell =
+    command.kind === 'row-column'
+      ? { row: a, column: b }
+      : { row: b, column: a };
+  if (!into.cells.some((c) => c.row === cell.row && c.column === cell.column)) {
+    into.cells.push(cell);
+  }
+}
+
+/**
+ * A position control code written inside a string literal: `{AT 5,3}`,
+ * `{TAB 12}`.
+ *
+ * The escape scan proper records a code's leading byte and throws the operands
+ * away, which is right for what it is for - one byte identifies the row in the
+ * docs table however the operand was written. A layout, though, *is* the
+ * operands, so they are read here instead.
+ */
+const BRACED_ESCAPE = /\{\s*([A-Za-z]+)([^}]*)\}/g;
+
+/**
+ * The positions the program states, or null on a machine that states none.
+ *
+ * Over the same `scannable` bodies as everything else here for the commands, and
+ * over the string literals for the control codes - which is the same division
+ * the keyword and escape scans already make, and for the same reason: a `TAB`
+ * inside a string is text, and a `{AT 5,3}` outside one is not a control code.
+ *
+ * The machine's own short spellings count as the command, as they do for the
+ * mode scan: a BBC listing writing `T.(5,3)` positions exactly as `TAB(5,3)`
+ * does, and a scan that only knew the long spelling would report the program as
+ * stating no positions at all.
+ */
+function positionsIn(
+  source: string,
+  dialect: Dialect,
+): ProgramPositions | null {
+  const syntax: PositionSyntax | undefined = positionSyntaxFor(dialect.id);
+  if (syntax === undefined) return null;
+  const short = shortSpellingsFor(dialect.id);
+  const into: PositionCollector = {
+    cells: [],
+    columns: new Set(),
+    offsets: new Set(),
+    computed: false,
+  };
+
+  for (const { body } of codeLines(source)) {
+    const code = scannable(body).toUpperCase();
+    for (const command of syntax.commands) {
+      const spellings = [
+        command.keyword,
+        ...(short.get(command.keyword) ?? []),
+      ].map((s) => s.toUpperCase());
+      for (const spelling of spellings) {
+        for (
+          let i = code.indexOf(spelling);
+          i !== -1;
+          i = code.indexOf(spelling, i + spelling.length)
+        ) {
+          // A word boundary, or the match is inside a name: `DATA` carries an
+          // `AT` and `TOTAL` a `TA`. A spelling that is not made of identifier
+          // characters at all - the TRS-80's `@` - has no boundary to keep, and
+          // a dotted spelling ends at its own dot.
+          const before = code[i - 1];
+          const after = code[i + spelling.length];
+          const alphabetic = /[A-Z]/.test(spelling[0]!);
+          if (
+            alphabetic &&
+            (isIdent(before) ||
+              (!spelling.endsWith('.') && isIdent(after) && !/\d/.test(after)))
+          ) {
+            continue;
+          }
+          collectPosition(
+            into,
+            command,
+            positionArgumentsAt(code, i + spelling.length, command),
+          );
+        }
+      }
+    }
+    if (syntax.escapes.length === 0) continue;
+    for (const literal of stringLiterals(body)) {
+      for (const match of literal.toUpperCase().matchAll(BRACED_ESCAPE)) {
+        const command = syntax.escapes.find((e) => e.keyword === match[1]);
+        if (command === undefined) continue;
+        collectPosition(
+          into,
+          command,
+          positionArgumentsAt(match[2]!, 0, command),
+        );
+      }
+    }
+  }
+
+  return {
+    cells: into.cells,
+    columns: [...into.columns].sort((a, b) => a - b),
+    offsets: [...into.offsets].sort((a, b) => a - b),
+    origin: syntax.origin,
+    computed: into.computed,
+  };
+}
+
+/** One statement of the program, with the editor line it was written on. */
+interface Statement {
+  line: number;
+  code: string;
+}
+
+/**
+ * The program's statements in reading order, as `dialect` separates them.
+ *
+ * `Dialect.statementSeparator` for the same reason {@link statementLayoutIn}
+ * uses it: it is the only field that can say a machine has no separator, and a
+ * ZX81 line reading `PRINT "TIME: ";T` is one statement however many colons it
+ * carries.
+ */
+function statementsIn(source: string, dialect: Dialect): Statement[] {
+  const separator = dialect.statementSeparator;
+  const out: Statement[] = [];
+  for (const { line, body } of codeLines(source)) {
+    const code = scannable(body).toUpperCase();
+    const parts = separator === null ? [code] : code.split(separator);
+    for (const part of parts) {
+      if (part.trim() !== '') out.push({ line, code: part.trim() });
+    }
+  }
+  return out;
+}
+
+/** Whether a statement opens with `keyword`, in any spelling the machine reads. */
+function opensWith(
+  statement: string,
+  keyword: string,
+  dialect: Dialect,
+  short: Map<string, string[]>,
+): boolean {
+  const spellings = [keyword, ...(short.get(keyword) ?? [])].map((s) =>
+    s.toUpperCase(),
+  );
+  return spellings.some((spelling) => {
+    if (!statement.startsWith(spelling)) return false;
+    const after = statement[spelling.length];
+    // A crunching ROM reads `FORI=1TO5`, so no boundary is required there; a
+    // dotted spelling ends at its own dot and needs none either.
+    return (
+      dialect.crunched === true ||
+      spelling.endsWith('.') ||
+      after === undefined ||
+      !isIdent(after)
+    );
+  });
+}
+
+/**
+ * The lines opening a loop that counts and does nothing else.
+ *
+ * A stack walk over the program's statements rather than a per-line match,
+ * because a loop's body is not a line: `FOR I=1 TO 500: NEXT` is a delay on one
+ * line, a `FOR` and a `NEXT` on consecutive lines are the same delay written
+ * differently, and the same two lines with anything between them are a loop
+ * that does work. Only the statements decide it.
+ *
+ * A nest whose innermost loop is empty is empty throughout - `FOR I…FOR J…NEXT
+ * J…NEXT I` does nothing but count, twice - so every level of it is reported.
+ * `NEXT I,J` closes two, which is what the machines do with it.
+ *
+ * A `NEXT` with nothing open is ignored rather than treated as an error: this
+ * reads programs mid-edit, and half a loop is a normal thing to find.
+ */
+function emptyLoopLinesIn(source: string, dialect: Dialect): number[] {
+  const short = shortSpellingsFor(dialect.id);
+  const open: { line: number; hasBody: boolean }[] = [];
+  const found = new Set<number>();
+
+  for (const { line, code } of statementsIn(source, dialect)) {
+    if (opensWith(code, 'FOR', dialect, short)) {
+      open.push({ line, hasBody: false });
+      continue;
+    }
+    if (opensWith(code, 'NEXT', dialect, short)) {
+      // `NEXT I,J` names two loops and closes both.
+      const closes = Math.max(1, code.split(',').length);
+      for (let n = 0; n < closes; n++) {
+        const loop = open.pop();
+        if (loop === undefined) break;
+        if (!loop.hasBody) found.add(loop.line);
+      }
+      continue;
+    }
+    for (const loop of open) loop.hasBody = true;
+  }
+  return [...found].sort((a, b) => a - b);
+}
+
+/**
  * The addresses the program writes to, as plain data for the wire.
  *
  * `lineNo` is dropped: the guide has no editor to point a line number at, and
@@ -931,6 +1282,8 @@ export function programVocabulary(
     callSites: accessSitesIn(resolveCallSites(source, dialect)),
     codeBlocks: codeBlocksIn(blocks),
     screenModes: screenModesIn(source, dialect),
+    positions: positionsIn(source, dialect),
+    emptyLoopLines: emptyLoopLinesIn(source, dialect),
   };
 }
 
@@ -998,6 +1351,9 @@ export interface ProgramVocabularyReply {
   codeBlocks: ProgramCodeBlock[];
   /** Null on a machine with no command for selecting a screen mode. */
   screenModes: ScreenModeUse | null;
+  /** Null on a machine with no command for stating a print position. */
+  positions: ProgramPositions | null;
+  emptyLoopLines: number[];
   /** Null where the request named no target, or named one this build lacks. */
   targetSize: ProgramSize | null;
 }
@@ -1060,6 +1416,8 @@ export function vocabularyReply(
     callSites: vocab.callSites,
     codeBlocks: vocab.codeBlocks,
     screenModes: vocab.screenModes,
+    positions: vocab.positions,
+    emptyLoopLines: vocab.emptyLoopLines,
     // Sized even when the program is unreadable as the *source* machine's BASIC:
     // the two are separate questions, and the guide decides for itself what to
     // show for a status it is not narrowing by.

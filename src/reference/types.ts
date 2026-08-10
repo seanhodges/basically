@@ -462,6 +462,49 @@ export interface ConditionalFreeMemory {
 }
 
 /**
+ * The text screen a machine boots into, as numbers rather than as the prose
+ * {@link PortingFacts.screen} states.
+ *
+ * The boot screen and not the machine's fullest one: a ported program lands in
+ * the mode the machine powers on in, and the mode-dependent machines keep their
+ * fuller story in the prose. `screen` remains what the fact rows show;
+ * facts-crosscheck.test.ts requires this to be the first columns-by-rows figure
+ * that prose states, so the two cannot drift.
+ */
+export interface TextScreen {
+  /** Columns of the boot text screen. */
+  columns: number;
+  /** Rows of it. */
+  rows: number;
+}
+
+/**
+ * How a program waits on this machine, in one authored phrase.
+ *
+ * The half of the delay finding this side owns. Telling a reader their counting
+ * loops were tuned to another machine's speed is only half an answer: the other
+ * half is what to pace against instead, and every machine spells that
+ * differently - a frame pause, a centisecond counter, an interrupt timer, a
+ * jiffy clock read out of memory.
+ *
+ * `keywords` is what the phrase rests on, and every one of them must be a row on
+ * this machine's own reference page (facts-crosscheck.test.ts), so a phrase
+ * cannot come to name a command the machine does not have. Empty is a real
+ * answer rather than an omission: a machine with no timer and no pause has
+ * nothing to move a delay onto, and the finding says so instead of posing a
+ * choice with one arm missing.
+ */
+export interface WaitIdiom {
+  /** The idiom in words, phrased to follow "wait with". */
+  text: string;
+  /**
+   * Reference rows the phrase names, each of which must exist on this machine.
+   * Empty where the machine has no way to pace a wait but count.
+   */
+  keywords: string[];
+}
+
+/**
  * The language-rule and hardware facts a porter needs to compare, one entry per
  * dialect reference page. Split into two classes for the crosscheck test
  * (facts-crosscheck.test.ts):
@@ -475,7 +518,11 @@ export interface ConditionalFreeMemory {
  *    structured source in `src/`: `lineNumberRange`, `statementSeparator`,
  *    `elseSupported`, `letRequired`, `variableNaming`, `numberHandling`,
  *    `numbers`, `exponentOperator`, `screen`, `colour`, `sound`.
- *    (`variableSignificance` and `abbreviatedEntry` are authored too, but
+ *    (`textScreen` and `waitIdiom` are authored too, and pinned to the prose
+ *    beside them and to the machine's own reference rows respectively;
+ *    `loopSpeed` is not authored at all but measured, and pinned within a
+ *    tolerance by `src/dialects/loopSpeed.test.ts`.
+ *    `variableSignificance` and `abbreviatedEntry` are authored too, but
  *    re-derived against each dialect's own `lint()` / `tokenize()` rather than
  *    only read - see their interfaces.
  *    `screen` is prose, not
@@ -623,6 +670,34 @@ export interface PortingFacts {
   // --- Hardware ---
   /** Text/graphics screen summary, e.g. "32×24 text; 256×192 bitmap". */
   screen: string;
+  /**
+   * The same screen as numbers, for the boot mode only. See {@link TextScreen} -
+   * {@link screen} stays the prose the fact rows show, and this is what a
+   * program's own print positions can be checked against.
+   */
+  textScreen: TextScreen;
+  /**
+   * How fast this machine runs BASIC, as empty counting-loop iterations a
+   * second, measured in this product's own emulators by
+   * `src/dialects/loopSpeed.test.ts`.
+   *
+   * Measured rather than authored, and never quoted as a fact about the original
+   * hardware: it is what a ported program will actually exhibit *here*, which is
+   * the honest claim and also the one the reader can check. The constant lives
+   * here because the docs site cannot boot an emulator; the benchmark is the
+   * crosscheck, and a machine whose emulator changes speed fails it loudly.
+   *
+   * Absent for a machine this project cannot benchmark - one with no
+   * redistributable ROM to boot. A comparison with a speed missing on either
+   * side reports nothing about delays, which is the same way doubt runs
+   * everywhere else here.
+   */
+  loopSpeed?: number;
+  /**
+   * How a program waits on this machine. See {@link WaitIdiom} - the delay
+   * finding names it as the alternative to retuning the counts.
+   */
+  waitIdiom: WaitIdiom;
   /**
    * Screen-memory base address, in this machine's own hex convention
    * ("$4000", "&C000"). Optional: omitted for the ZX80/ZX81, whose display file

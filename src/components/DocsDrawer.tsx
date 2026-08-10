@@ -95,6 +95,8 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'multiStatementLines',
   'extraStatements',
   'screenModes',
+  'positions',
+  'emptyLoopLines',
 ] as const;
 
 type ProgramVocabularyRequest = { from?: unknown; to?: unknown };

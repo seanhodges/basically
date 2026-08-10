@@ -31,7 +31,10 @@ import {
   falseFriendsForProgram,
   integerRangeNarrowingForProgram,
   carriesMachineCodeGuidance,
+  delaysForProgram,
   lineNumbersForProgram,
+  lostCapabilitiesForProgram,
+  positionsForProgram,
   machineCodeForProgram,
   markerLossForProgram,
   programFitForTarget,
@@ -43,6 +46,7 @@ import {
   unsupportedCharactersForProgram,
   variableCollisionsForProgram,
   writeLandingsForProgram,
+  type DelayLoops,
   type EscapeChange,
   type FalseFriendWarning,
   type IntegerRangeNarrowing,
@@ -53,6 +57,7 @@ import {
   type MachineCodeRoutine,
   type MarkerLoss,
   type PairGuidance,
+  type PositionCheck,
   type ProgramSize,
   type ProgramVocabulary,
   type ReadLanding,
@@ -417,6 +422,89 @@ function describeIntegerRangeNarrowing(
 }
 
 /**
+ * Where this program's layout falls on the target machine's screen.
+ *
+ * A finding about numbers rather than commands, which is why nothing else here
+ * can carry it: `PRINT AT 5,35` ports to a 32-column machine as `PRINT AT 5,35`
+ * and lands off the edge. Every position is named, because a layout is moved
+ * one position at a time and a count says nothing about which.
+ *
+ * The `Decide:` line is posed once rather than per position, and it is the real
+ * question: whether the layout is redrawn for the target's screen or whatever
+ * falls outside it is cut. That depends on what the screen is *for* - a title
+ * centred on 64 columns wants centring on 32, a game board wants its shape -
+ * and the program's text does not say.
+ */
+function describePositions(
+  check: PositionCheck | null,
+  from: PortSide,
+  to: PortSide,
+): string {
+  if (check === null) return '';
+  const lines: string[] = [
+    `- ${from.name} boots into ${check.from.columns}×${check.from.rows} characters; ${to.name} boots into ${check.to.columns}×${check.to.rows}.`,
+  ];
+  if (check.cells.length > 0) {
+    lines.push(
+      `- Positions the ${to.name} screen does not contain: ${check.cells
+        .map((c) => `row ${c.row}, column ${c.column}`)
+        .join('; ')}.`,
+    );
+  }
+  if (check.columns.length > 0) {
+    lines.push(`- Columns beyond its width: ${check.columns.join(', ')}.`);
+  }
+  if (check.offsets.length > 0) {
+    lines.push(`- Offsets beyond its screen: ${check.offsets.join(', ')}.`);
+  }
+  if (check.widthEncoded) {
+    lines.push(
+      `- This program positions by a single offset from the start of the screen, and an offset encodes the width it was written for: ${check.from.columns} columns here, ${check.to.columns} there. Every one of them has to be recomputed for the target's width, in range or not.`,
+    );
+  }
+  if (check.otherModes) {
+    lines.push(
+      `- This program selects screen modes, so the check above describes the screen ${to.name} boots into rather than whichever one the program ends up on.`,
+    );
+  }
+  lines.push(
+    `- Decide: reflow the layout for the ${to.name}'s screen, or clip what falls outside it.`,
+  );
+  return [
+    `WHERE THIS PROGRAM PRINTS ON THE ${to.name.toUpperCase()} SCREEN`,
+    ...lines,
+  ].join('\n');
+}
+
+/**
+ * The delays this program carries, and what the target's speed does to them.
+ *
+ * Beside the positions and silent in the same way: an empty counting loop is a
+ * pause whose length is the source machine's speed, so it ports perfectly and
+ * takes a different length of time. The ratio is always said to be this
+ * project's emulators' - it is measured there, it is not a claim about the
+ * original hardware, and it is also exactly what the reader's converted program
+ * will do here.
+ *
+ * The decision has two courses where the target has a clock of its own and one
+ * where it has not, and the line says which rather than offering an alternative
+ * that does not exist.
+ */
+function describeDelays(delays: DelayLoops | null, to: PortSide): string {
+  if (delays === null) return '';
+  const faster = delays.ratio >= 1;
+  const factor = (faster ? delays.ratio : 1 / delays.ratio).toFixed(1);
+  return [
+    'LOOPS THAT ONLY PASS TIME',
+    `- Editor lines opening a loop that counts and does nothing else: ${delays.lines.join(', ')}. These are delays, and their counts are the source machine's speed written into the program.`,
+    `- Measured in this IDE's emulators, ${to.name} runs the same empty loop ${factor}× ${faster ? 'faster' : 'slower'} (${delays.fromSpeed} against ${delays.toSpeed} iterations a second). Every pause changes by that factor. This is the emulators' figure, not a claim about the original hardware — and it is what the converted program will do here.`,
+    delays.hasClock
+      ? `- Decide, for each: retune the count for the new speed, or put the delay on the ${to.name}'s own clock — ${delays.clock}.`
+      : `- Retune each count for the new speed. There is no second course here: ${delays.clock}.`,
+  ].join('\n');
+}
+
+/**
  * The commands both machines spell alike and mean differently.
  *
  * Nothing else here can surface these: they match on name, kind and usually
@@ -449,6 +537,7 @@ function describeLostCommands(
   diff: KeywordDiff,
   guidance: PairGuidance,
   targetTable: ReferenceTableData,
+  targetFacts: PortingFacts | undefined,
   to: PortSide,
 ): string {
   const sections = capabilitySections(
@@ -461,6 +550,11 @@ function describeLostCommands(
     to.page,
   );
   if (sections.length === 0) return '';
+  const decided = new Set(
+    targetFacts !== undefined
+      ? lostCapabilitiesForProgram(targetFacts, sections)
+      : [],
+  );
   const lines: string[] = [];
   for (const section of sections) {
     const title =
@@ -473,6 +567,16 @@ function describeLostCommands(
         ? guidance.domains.get(section.domain)?.instead
         : undefined;
     if (advice !== undefined) lines.push(`  Instead: ${advice}`);
+    // The question the advice above cannot answer, asked where the capability
+    // is gone outright rather than renamed: a program uses colour and sound as
+    // decoration, which a port drops, and as information, which it has to
+    // re-encode or the program silently stops working. Which one this program
+    // was doing is not in its text.
+    if (section.domain !== undefined && decided.has(section.domain)) {
+      lines.push(
+        `  Decide, for each: where the ${section.domain} was decoration, drop it; where it told things apart, re-encode it by the means named above.`,
+      );
+    }
     // Per-command advice still sits with its command, as it does on the page.
     for (const entry of section.entries) {
       const note = guidance.substitutions.get(entry.name);
@@ -867,6 +971,14 @@ export function describePort(
     targetFacts !== undefined
       ? spellingExpansionsForProgram(targetFacts, vocabulary)
       : [];
+  const positions =
+    sourceFacts !== undefined && targetFacts !== undefined
+      ? positionsForProgram(sourceFacts, targetFacts, vocabulary)
+      : null;
+  const delays =
+    sourceFacts !== undefined && targetFacts !== undefined
+      ? delaysForProgram(sourceFacts, targetFacts, vocabulary)
+      : null;
   // Gated inside `conditionallyFreeForProgram`: no size means no fit report,
   // which means no pressure, which means nothing to report here.
   const conditionallyFree =
@@ -895,7 +1007,12 @@ export function describePort(
     describeMarkerLoss(markerLoss, to),
     describeTruncatedArithmetic(truncated, to),
     describeIntegerRangeNarrowing(rangeNarrowing, from, to),
-    describeLostCommands(diff, guidance, targetTable, to),
+    // With the silent failures, because that is what they are: the layout and
+    // the pauses port without an error and arrive wrong, and no command list,
+    // control-code table or language rule reports either.
+    describePositions(positions, from, to),
+    describeDelays(delays, to),
+    describeLostCommands(diff, guidance, targetTable, targetFacts, to),
     describeExpansions(expansions, to),
     describeRenames(diff.renamed),
     describeUsageChanges(diff.behaviourChanged, from, to),

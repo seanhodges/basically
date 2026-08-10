@@ -128,6 +128,14 @@ const entries: PortingFactsEntry[] = [
       '~',
     ],
     screen: '32×22 usable text; 64×44 block-pixel graphics via PLOT/UNPLOT.',
+    textScreen: { columns: 32, rows: 22 },
+    waitIdiom: {
+      text: 'PAUSE n, which waits n frames — fifty a second',
+      keywords: ['PAUSE'],
+    },
+    // The slowest BASIC of any machine here: SLOW mode spends most of every
+    // frame building the display in software.
+    loopSpeed: 66,
     // No dedicated screen region: the display file lives inside program RAM.
     programStart: '$407D',
     freeRamBytes: 15360,
@@ -218,6 +226,16 @@ const entries: PortingFactsEntry[] = [
     ],
     screen:
       '32×24 text; no graphics mode. FAST display only (screen blanks while computing).',
+    textScreen: { columns: 32, rows: 24 },
+    // The 4K ROM has no PAUSE and no clock anywhere a program can reach, so a
+    // counting loop is not merely the usual delay here - it is the only one.
+    waitIdiom: {
+      text: 'nothing: with no pause and no clock to read, a counting loop is the only delay this machine has',
+      keywords: [],
+    },
+    // Thirteen times the ZX81's, from the same maker a year earlier: integer
+    // arithmetic, and a FAST display that stops drawing while BASIC runs.
+    loopSpeed: 871,
     // No dedicated screen region: the display file lives inside program RAM.
     programStart: '$4028',
     freeRamBytes: 15360,
@@ -284,6 +302,12 @@ const entries: PortingFactsEntry[] = [
     // (0x5C), written `\\` in source.
     unsupportedCharacters: ['^', '`'],
     screen: '32×22 usable text; 256×176 pixel graphics via PLOT/DRAW/CIRCLE.',
+    textScreen: { columns: 32, rows: 22 },
+    waitIdiom: {
+      text: 'PAUSE n, which waits n fiftieths of a second',
+      keywords: ['PAUSE'],
+    },
+    loopSpeed: 269,
     screenBase: '$4000',
     programStart: '$5CCB',
     freeRamBytes: 41472,
@@ -367,6 +391,14 @@ const entries: PortingFactsEntry[] = [
     unsupportedCharacters: ['`'],
     screen:
       'MODE-dependent: 40×25 teletext (MODE 7) up to 640×256 2-colour (MODE 0); graphics space 0–1279 × 0–1023.',
+    // MODE 7, the mode the machine boots into. The prose above leads with it for
+    // that reason, and the crosscheck reads the figure it leads with.
+    textScreen: { columns: 40, rows: 25 },
+    waitIdiom: {
+      text: 'TIME, the centisecond counter — read it, then loop until it has moved on',
+      keywords: ['TIME'],
+    },
+    loopSpeed: 1524,
     // MODE 7 default; higher-resolution modes move the screen base down.
     screenBase: '&7C00',
     programStart: '&1900',
@@ -450,6 +482,15 @@ const entries: PortingFactsEntry[] = [
     // marks a C64 keyboard cannot type are unavailable to a program too.
     unsupportedCharacters: ['\\', '^', '`', '{', '|', '}', '~'],
     screen: '40×25 text; bitmap 320×200.',
+    textScreen: { columns: 40, rows: 25 },
+    // No pause command anywhere in BASIC V2. The jiffy clock the system
+    // interrupt advances every frame is what a Commodore program paces against,
+    // and BASIC reaches it by reading the three bytes it lives in.
+    waitIdiom: {
+      text: "the jiffy clock at 160-162, which the system interrupt advances every frame: PEEK it and loop until it moves (BASIC's own TI reads the same three bytes)",
+      keywords: ['PEEK'],
+    },
+    loopSpeed: 771,
     screenBase: '$0400',
     // The region starts at $0800; BASIC text begins one byte in, past the zero
     // byte the interpreter expects there.
@@ -554,6 +595,12 @@ const entries: PortingFactsEntry[] = [
     // 1, not the BBC's -1: the two Acorns disagree.
     comparisonTrue: 1,
     screen: '32×16 text (CLEAR 0); graphics up to 256×192 (CLEAR 4).',
+    textScreen: { columns: 32, rows: 16 },
+    waitIdiom: {
+      text: 'WAIT, which pauses for one display frame — repeat it to count out a longer delay',
+      keywords: ['WAIT'],
+    },
+    loopSpeed: 1880,
     screenBase: '&8000',
     programStart: '&2900',
     freeRamBytes: 4864,
@@ -661,6 +708,17 @@ const entries: PortingFactsEntry[] = [
     // The TRS-80 covers printable ASCII in full.
     unsupportedCharacters: [],
     screen: '64×16 text, monochrome.',
+    textScreen: { columns: 64, rows: 16 },
+    // Level II has no timer a program can read: the real-time clock arrived with
+    // Disk BASIC, and TIME$ is a clock string rather than anything to pace a
+    // frame against.
+    waitIdiom: {
+      text: 'nothing in Level II BASIC: with no timer to read, a counting loop is the only delay this machine has',
+      keywords: [],
+    },
+    // The one figure here that is this project's own code rather than a ROM's:
+    // the TRS-80 backend is a statement interpreter on a per-frame budget.
+    loopSpeed: 500,
     freeRamBytes: 15572,
     colour: 'None.',
     sound: 'None.',
@@ -735,8 +793,16 @@ const entries: PortingFactsEntry[] = [
     comparisonTrue: -1,
     // 0x5E is ↑, which is also how Locomotive BASIC spells its own exponent.
     unsupportedCharacters: ['^'],
+    // MODE 1 leads because it is the mode the machine boots into, which is the
+    // screen a ported program lands on and the figure the crosscheck reads.
     screen:
-      'MODE 0 (20×25, 160×200, 16 inks), MODE 1 (40×25, 320×200, 4 inks), MODE 2 (80×25, 640×200, 2 inks); graphics space 640×400.',
+      'MODE 1 (40×25, 320×200, 4 inks), MODE 0 (20×25, 160×200, 16 inks), MODE 2 (80×25, 640×200, 2 inks); graphics space 640×400.',
+    textScreen: { columns: 40, rows: 25 },
+    waitIdiom: {
+      text: 'the AFTER and EVERY interrupt timers, which call a subroutine on a clock, or TIME, which counts in three-hundredths of a second',
+      keywords: ['AFTER', 'EVERY', 'TIME'],
+    },
+    loopSpeed: 1091,
     screenBase: '&C000',
     programStart: '&0170',
     freeRamBytes: 43535,
@@ -847,7 +913,16 @@ const entries: PortingFactsEntry[] = [
     // Plain 7-bit ASCII, so the machine covers printable ASCII in full.
     unsupportedCharacters: [],
     screen:
-      '80x24 serial terminal, monochrome; BASIC wraps at its own 72-column width.',
+      '80×24 serial terminal, monochrome; BASIC wraps at its own 72-column width.',
+    textScreen: { columns: 80, rows: 24 },
+    // The empty list is the fact: WAIT is named only to rule it out, since a
+    // reader meeting it in the keyword list would take it for a delay. It spins
+    // on an input port until a handshake arrives, which is not a clock, and the
+    // machine has no timer at all.
+    waitIdiom: {
+      text: 'nothing: the machine has no timer, and WAIT spins on an input port rather than a clock',
+      keywords: [],
+    },
     freeRamBytes: 42628,
     // No screenBase to give: there is no display memory on this machine. The
     // program area starts at TXTTAB, written with the `$` the other decimal
@@ -863,6 +938,9 @@ const entries: PortingFactsEntry[] = [
     id: 'zxspectrum128',
     extends: 'zxspectrum',
     basicDialect: '128 Sinclair BASIC',
+    // Slower than a 48K running the same listing: the 128K interpreter pays for
+    // its extra ROM paging on every statement.
+    loopSpeed: 188,
     // Same 41472-byte BASIC area and memory map as the 48K: the extra 64K is
     // bank-switched RAM the interpreter uses for its own workspace, not program
     // space. The audible difference is the whole difference.
@@ -873,6 +951,7 @@ const entries: PortingFactsEntry[] = [
     extends: 'bbcmicro',
     basicDialect: 'BBC BASIC IV',
     freeRamBytes: 28160,
+    loopSpeed: 1786,
     // Shadow screen memory keeps the display out of the program's way, so BASIC
     // text starts lower than the Model B's &1900.
     programStart: '&0E00',
@@ -882,9 +961,11 @@ const entries: PortingFactsEntry[] = [
     extends: 'commodore64',
     basicDialect: 'Commodore BASIC 4.0',
     freeRamBytes: 31743,
+    loopSpeed: 769,
     screenBase: '$8000',
     programStart: '$0400',
     screen: '40×25 text, monochrome; no bitmap mode and no sprites.',
+    textScreen: { columns: 40, rows: 25 },
     colour:
       'None - the display is monochrome. Colour control codes are accepted and round-trip, but have no visible effect.',
     sound:
@@ -912,6 +993,9 @@ const entries: PortingFactsEntry[] = [
     screenBase: '$1E00',
     programStart: '$1000',
     screen: '22×23 text; no bitmap mode, and characters are 8×8 as on the C64.',
+    // The narrowest text screen of any machine here: a layout written for 40 or
+    // 64 columns has nowhere to be on it.
+    textScreen: { columns: 22, rows: 23 },
     colour: '8 colours, set per character cell; no sprites.',
     sound: 'Three tone voices and a noise voice on the VIC-I, driven by POKE.',
   },

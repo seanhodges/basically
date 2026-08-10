@@ -159,6 +159,33 @@ test('a dotted program reports the spellings to write out', async ({
   await expect(form).toContainText(/PRINT/);
   await expect(form).toContainText(/G\./);
   await expect(form).toContainText(/GOTO/);
+
+  // Rides the same journey rather than opening its own, because it needs the
+  // same thing: a source machine that states print positions. What only the
+  // round trip proves is that the program's own numbers - the layout and the
+  // delay counts, both read by the app's scan and neither expressible as a
+  // command difference - reach the guide and are judged against the machine
+  // chosen. A BBC boots into 40 columns and a ZX81 into 32, so column 35 is
+  // off the edge; the BBC runs BASIC many times faster, so the pause is not
+  // the pause that was written.
+  await setEditorSource(
+    page,
+    ['10 PRINT TAB(35,4);"HI"', '20 FOR I=1 TO 500', '30 NEXT I'].join('\n'),
+  );
+  await frame.getByRole('button', { name: /^Porting to:/ }).click();
+  await frame
+    .getByRole('dialog', { name: 'Choose a machine' })
+    .locator('button[data-machine="zx81"]')
+    .click();
+
+  const positions = frame.locator('#positions');
+  await expect(positions).toContainText(/row 4, column 35/);
+  await expect(positions).toContainText(/32×22/);
+  await expect(positions).toContainText(/reflow the layout/);
+
+  const delays = frame.locator('#delays');
+  await expect(delays).toContainText(/slower/);
+  await expect(delays).toContainText(/PAUSE/);
 });
 
 /**

@@ -672,3 +672,82 @@ describe('operator facts match the machine', () => {
     expect(String(facts.comparisonTrue), `${id}: TRU`).toBe(probe!.expect.TRU);
   });
 });
+
+/**
+ * The boot text screen, pinned to the prose it restates.
+ *
+ * `screen` is what the fact rows show and `textScreen` is what a program's own
+ * print positions are checked against, so the two saying different things would
+ * report a layout as off the edge of a screen the reader is being shown as
+ * wider. The prose leads with the boot mode on every machine - the mode-
+ * dependent ones say so explicitly - so the figure it leads with is the one
+ * this must equal.
+ */
+describe('the boot text screen is the figure the prose leads with', () => {
+  /** The first columns-by-rows figure in a `screen` string. */
+  const firstFigure = (screen: string): { columns: number; rows: number } => {
+    const match = /(\d+)\s*[×x]\s*(\d+)/.exec(screen);
+    if (!match) throw new Error(`no columns-by-rows figure in "${screen}"`);
+    return { columns: Number(match[1]), rows: Number(match[2]) };
+  };
+
+  it.each(PAIRS)('%s states one screen in two forms', (id, facts) => {
+    expect(
+      facts.textScreen,
+      `${id}: "${facts.screen}" and the structured screen disagree`,
+    ).toEqual(firstFigure(facts.screen));
+  });
+
+  it.each(PAIRS)('%s has a text screen a program can print on', (id, facts) => {
+    expect(facts.textScreen.columns, `${id} columns`).toBeGreaterThan(0);
+    expect(facts.textScreen.rows, `${id} rows`).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The clock idiom, pinned to the machine's own reference rows.
+ *
+ * The delay finding offers this as the alternative to retuning a program's
+ * counts, so a phrase naming a command the machine does not have is advice to
+ * type something that will be rejected. Each named keyword therefore has to be
+ * a row on that machine's own page, and has to appear in the phrase - a list
+ * that has drifted from the words around it pins nothing.
+ *
+ * An empty list is a real answer: some machines have no timer and no pause at
+ * all, and the finding says so rather than posing a choice with one arm
+ * missing. Nothing further is asserted about those, because "this machine has
+ * no way to wait" is not a claim any table here can be asked to confirm.
+ */
+describe('the clock idiom answers to the machine’s own rows', () => {
+  /** Command names one machine has, its page's rows less a relative's. */
+  const namesForMachine = (id: string): Set<string> => {
+    const dialect = getDialect(id);
+    return new Set(dialect.keywords.map((k) => k.word.toUpperCase()));
+  };
+
+  it.each(PAIRS)('%s names only commands it has', (id, facts) => {
+    const has = namesForMachine(id);
+    for (const keyword of facts.waitIdiom.keywords) {
+      expect(
+        has.has(keyword),
+        `${id}: the clock idiom names "${keyword}", which this machine does not have`,
+      ).toBe(true);
+    }
+  });
+
+  it.each(PAIRS)(
+    '%s writes each named command into the phrase',
+    (id, facts) => {
+      for (const keyword of facts.waitIdiom.keywords) {
+        expect(
+          facts.waitIdiom.text,
+          `${id}: the clock idiom lists "${keyword}" and never says it`,
+        ).toContain(keyword);
+      }
+    },
+  );
+
+  it.each(PAIRS)('%s says something about waiting', (id, facts) => {
+    expect(facts.waitIdiom.text.trim(), id).not.toBe('');
+  });
+});
