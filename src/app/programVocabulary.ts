@@ -14,10 +14,12 @@
  * wire format or anything that reads it.
  *
  * A text scan rather than a tokenize round trip, so an in-progress program
- * still yields a vocabulary. The cost is that abbreviated entry (`?` for
- * `PRINT`, `pO` for `POKE`) is not resolved, which under-reports; the guide
- * always states how much it is holding back and offers the full comparison, so
- * an under-report is visible rather than silent.
+ * still yields a vocabulary. Abbreviated and symbol spellings (`?` for `PRINT`,
+ * `pO` for `POKE`, `P.` for `PRINT`) are resolved against the source machine's
+ * own tables as the scan goes, so a program that prints only with `?` is still
+ * a program that prints; the guide always states how much it is holding back
+ * and offers the full comparison, so anything still missed is visible rather
+ * than silent.
  */
 import { CharsetError, hasFatalErrors, type Dialect } from '../dialects/types';
 import { probeFor } from '../dialects/charsetProbes';
@@ -26,6 +28,11 @@ import { isBinaryDirective } from '../dialects/binaryDirective';
 import { scannable } from '../editor/programOutline';
 import { makeCrunchMatcher } from '../editor/crunch';
 import { operatorSpellings } from '../dialects/operators';
+import {
+  keywordSpellingsFor,
+  spellingAt,
+  type SpellingUse,
+} from '../dialects/keywordSpellings';
 import { forEachVariable } from '../editor/variables';
 import { variableRulesFor } from '../editor/variableLexis';
 import { resolveWriteSites } from './memoryWriteSites';
@@ -36,6 +43,23 @@ export interface ProgramVocabulary {
   dialectId: string;
   /** Distinct keyword spellings, upper case, in the dialect's own spelling. */
   keywords: string[];
+  /**
+   * The short spellings the program's code actually contains, each with the
+   * keyword the source machine reads it as - `?`/`PRINT`, `P.`/`PRINT`,
+   * `pO`/`POKE` - distinct and sorted by spelling.
+   *
+   * Both halves, because the porting guide has to name both: the reader looks
+   * for the spelling in their listing and the assistant is told which command it
+   * is. The keywords themselves also join {@link keywords}, so a command reached
+   * only through a short spelling takes part in the narrowing exactly as one
+   * spelled in full does.
+   *
+   * Empty on a machine that reads no short spelling, and on a program that uses
+   * none. A machine whose tokenizer gives a symbol a meaning of its own - `?` is
+   * byte indirection on the Acorns - resolves nothing for it, which is what
+   * keeps an Atom program's `?` out of here.
+   */
+  spellings: SpellingUse[];
   /**
    * Distinct variable names the program's code contains, upper-cased and
    * sorted, in the source machine's own spelling (type marker included).
@@ -315,6 +339,52 @@ function keywordsIn(source: string, dialect: Dialect): Set<string> {
 }
 
 /**
+ * The short spellings the program's code contains, resolved as the machine it
+ * is read as resolves them.
+ *
+ * Over the same `scannable` bodies the keyword scan walks, so a `?` inside a
+ * string and a `P.` inside a REM are text rather than commands - the machines
+ * treat them that way too.
+ *
+ * A full spelling that reaches at least as far always wins, exactly as it does
+ * in the tokenizers: without it a Commodore program written `pRINT` would be
+ * reported as the abbreviation `pR` (which is PRINT#, a different command) when
+ * the machine plainly reads PRINT.
+ */
+function shortSpellingsIn(source: string, dialect: Dialect): SpellingUse[] {
+  const spellings = keywordSpellingsFor(dialect);
+  if (spellings.style === 'none' && spellings.symbols.length === 0) return [];
+
+  const full = dialect.keywords
+    .map((k) => k.word.toUpperCase())
+    .sort((a, b) => b.length - a.length);
+  const found = new Map<string, SpellingUse>();
+
+  for (const { body } of codeLines(source)) {
+    const code = scannable(body);
+    const upper = code.toUpperCase();
+    let i = 0;
+    while (i < code.length) {
+      const hit = spellingAt(code, i, spellings);
+      if (hit === null) {
+        i++;
+        continue;
+      }
+      const spelled = full.find((w) => upper.startsWith(w, i));
+      if (spelled !== undefined && spelled.length >= hit.length) {
+        i += spelled.length;
+        continue;
+      }
+      found.set(hit.spelling, { spelling: hit.spelling, keyword: hit.keyword });
+      i += hit.length;
+    }
+  }
+  return [...found.values()].sort((a, b) =>
+    a.spelling.localeCompare(b.spelling),
+  );
+}
+
+/**
  * The distinct variable names the program's code contains, upper-cased.
  *
  * The editor's own walk rather than a second one: `forEachVariable` is what the
@@ -554,9 +624,16 @@ export function programVocabulary(
 ): ProgramVocabulary {
   const layout = statementLayoutIn(source, dialect);
   const arithmetic = fractionalArithmeticIn(source);
+  const spellings = shortSpellingsIn(source, dialect);
+  // A command the program only ever reaches through a short spelling is a
+  // command the program uses: it joins the keywords, or every finding about it
+  // would be silently absent.
+  const keywords = keywordsIn(source, dialect);
+  for (const { keyword } of spellings) keywords.add(keyword);
   return {
     dialectId: dialect.id,
-    keywords: [...keywordsIn(source, dialect)].sort(),
+    keywords: [...keywords].sort(),
+    spellings,
     variables: [...variablesIn(source, dialect)].sort(),
     divides: arithmetic.divides,
     fractionalLiteral: arithmetic.fractionalLiteral,
@@ -617,6 +694,7 @@ export interface ProgramVocabularyReply {
   status: 'ready' | 'empty' | 'unreadable';
   dialectId: string;
   keywords: string[];
+  spellings: SpellingUse[];
   variables: string[];
   divides: boolean;
   fractionalLiteral: boolean;
@@ -672,6 +750,7 @@ export function vocabularyReply(
     status,
     dialectId: vocab.dialectId,
     keywords: vocab.keywords,
+    spellings: vocab.spellings,
     variables: vocab.variables,
     divides: vocab.divides,
     fractionalLiteral: vocab.fractionalLiteral,

@@ -334,6 +334,46 @@ export interface NumberHandling {
 }
 
 /**
+ * How short a program may spell this machine's keywords, and what that costs or
+ * saves.
+ *
+ * Three mechanisms exist across these machines and they are not variations of
+ * one thing. The Acorns take a dotted prefix (`P.`); the Commodores take a
+ * prefix whose last letter is shifted (`pO`); and several machines read a
+ * symbol as a whole command (`?` for PRINT, `'` for REM) without taking either.
+ * The Sinclairs are `none` with no symbols at all: their keywords arrive by
+ * keystroke, which is an entry method rather than a spelling, and this fact
+ * describes what a program's *text* may contain.
+ *
+ * Pinned behaviourally by facts-crosscheck.test.ts against each machine's own
+ * tokenizer, in both directions: a machine authored `none` must not read the
+ * notation, and the symbol list must be the one its keyword tables declare.
+ */
+export interface AbbreviatedEntry {
+  /** How a keyword may be typed short, or 'none' where it may not. */
+  style: 'dot' | 'shifted' | 'none';
+  /**
+   * Symbol spellings this machine's tokenizer reads as a whole command, each
+   * with the keyword it stands for.
+   *
+   * Commands only. A symbol standing for an *operator* (`^` for `↑`) is already
+   * reported by the operator facts, and carrying it here as well would put one
+   * difference in two findings.
+   */
+  symbols: { spelling: string; keyword: string }[];
+  /**
+   * Whether spelling keywords short leaves a smaller stored program.
+   *
+   * True only where the machine stores program text as typed - the Atom, where
+   * `P.` really is three bytes less than `PRINT`, in a budget under five
+   * kilobytes. Every tokenizing machine stores one byte for the keyword however
+   * it was typed, so abbreviating there saves nothing and the guide must never
+   * offer it as a way to make room.
+   */
+  shrinksProgram: boolean;
+}
+
+/**
  * The language-rule and hardware facts a porter needs to compare, one entry per
  * dialect reference page. Split into two classes for the crosscheck test
  * (facts-crosscheck.test.ts):
@@ -347,8 +387,9 @@ export interface NumberHandling {
  *    structured source in `src/`: `lineNumberRange`, `statementSeparator`,
  *    `elseSupported`, `letRequired`, `variableNaming`, `numberHandling`,
  *    `numbers`, `exponentOperator`, `screen`, `colour`, `sound`.
- *    (`variableSignificance` is authored too, but re-derived against each
- *    dialect's own `lint()` rather than only read - see the interface.
+ *    (`variableSignificance` and `abbreviatedEntry` are authored too, but
+ *    re-derived against each dialect's own `lint()` / `tokenize()` rather than
+ *    only read - see their interfaces.
  *    `screen` is prose, not
  *    `displaySize` — the latter is the emulator canvas size in pixels, not the
  *    logical text/graphics screen a porter cares about; `exponentOperator` is
@@ -401,6 +442,12 @@ export interface PortingFacts {
   elseSupported: boolean;
   /** Whether LET is required, optional, or unsupported on assignment. */
   letRequired: 'required' | 'optional' | 'none';
+  /**
+   * How short a program may spell this machine's keywords. See
+   * {@link AbbreviatedEntry} - a program's spellings are part of its text, so a
+   * port has to expand the ones the target does not read.
+   */
+  abbreviatedEntry: AbbreviatedEntry;
   /** Variable-naming rule, e.g. "single letter A–Z" or "long names, A–Z0–9". */
   variableNaming: string;
   /**

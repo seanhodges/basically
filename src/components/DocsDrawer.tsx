@@ -79,6 +79,7 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'status',
   'dialectId',
   'keywords',
+  'spellings',
   'variables',
   'divides',
   'fractionalLiteral',

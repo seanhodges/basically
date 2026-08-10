@@ -57,6 +57,7 @@ describe('the language & hardware table', () => {
       'Conditionals',
       'Statements per line',
       'LET on assignment',
+      'Abbreviated entry',
       'Characters',
       'Exponent operator',
       'Integer division and remainder',

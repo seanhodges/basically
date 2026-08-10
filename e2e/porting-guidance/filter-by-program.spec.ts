@@ -109,6 +109,41 @@ test('a program too large for the target is reported as not fitting', async ({
 });
 
 /**
+ * A listing written in the source machine's own short spellings.
+ *
+ * The one case that needs a dotted source machine, so it begins its own port
+ * rather than riding the Commodore journey above. What only the round trip
+ * proves is that the spellings the *app* resolved - against the BBC's own
+ * abbreviation order, which the docs bundle has no table for - reach the guide
+ * and are reported against the machine chosen. Which spelling means which
+ * command is pinned in `src/app/programVocabulary.test.ts`.
+ */
+test('a dotted program reports the spellings to write out', async ({
+  page,
+}) => {
+  await openApp(page);
+  await selectDialect(page, 'bbcmicro');
+  // A BBC listing as an archive prints one: `P.` is PRINT and `G.` is GOTO.
+  // MODE is what makes the Commodore refuse it, raising the keep-my-code
+  // confirmation that begins the port.
+  await setEditorSource(page, ['10 MODE 1', '20 P."HI"', '30 G.20'].join('\n'));
+  await selectDialect(page, 'commodore64', 'keep my code');
+
+  const frame = drawerOf(page).frameLocator('iframe');
+  await expect(frame.getByText(/Narrowed to your program/)).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // Beside the renames, as mechanical work: the command survives the port and
+  // only the way it is written changes.
+  const form = frame.locator('#different-form');
+  await expect(form).toContainText(/P\./);
+  await expect(form).toContainText(/PRINT/);
+  await expect(form).toContainText(/G\./);
+  await expect(form).toContainText(/GOTO/);
+});
+
+/**
  * The two ways a port runs out of line numbers, both of which need the program
  * and the target's range to meet: the numbers as written, and the numbers a
  * split would create. Only a round trip through the app puts them together.

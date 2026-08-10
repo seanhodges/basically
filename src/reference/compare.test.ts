@@ -26,12 +26,15 @@ import {
   lineNumbersForProgram,
   noticeState,
   programFitForTarget,
+  shortSpellingsForFit,
+  spellingExpansionsForProgram,
   statementLayoutForProgram,
   truncatedArithmeticForProgram,
   variableCollisionsForProgram,
   tableForMachine,
   unsupportedCharactersForProgram,
   writeLandingsForProgram,
+  type ProgramFit,
   type ProgramVocabulary,
 } from './compare';
 // Real maps, for the write-landing verdicts: see that describe block. Type-only
@@ -678,6 +681,7 @@ describe('composeGuidance', () => {
         markerDistinguishes: true,
         markers: '$',
       },
+      abbreviatedEntry: { style: 'none', symbols: [], shrinksProgram: false },
       unsupportedCharacters: [],
       numberHandling: 'Floating point.',
       numbers: { fractions: true },
@@ -1182,11 +1186,13 @@ function vocab(
     variables?: string[];
     divides?: boolean;
     fractionalLiteral?: boolean;
+    spellings?: ProgramVocabulary['spellings'];
   } = {},
 ): ProgramVocabulary {
   return {
     dialectId,
     keywords,
+    spellings: rest.spellings ?? [],
     variables: rest.variables ?? [],
     divides: rest.divides ?? false,
     fractionalLiteral: rest.fractionalLiteral ?? false,
@@ -2064,5 +2070,121 @@ describe('noticeState', () => {
         expect(state.offerControl).toBe(false);
       }
     }
+  });
+});
+
+describe('spellingExpansionsForProgram', () => {
+  const machine = (
+    entry: PortingFacts['abbreviatedEntry'],
+    memoryWriteSyntax = 'POKE <addr>, <byte>',
+  ): PortingFacts =>
+    ({ id: 'm', abbreviatedEntry: entry, memoryWriteSyntax }) as PortingFacts;
+
+  type Entry = PortingFacts['abbreviatedEntry'];
+  const NONE: Entry = { style: 'none', symbols: [], shrinksProgram: false };
+  const DOT: Entry = { style: 'dot', symbols: [], shrinksProgram: false };
+  const PRINTS: Entry = {
+    style: 'none',
+    symbols: [{ spelling: '?', keyword: 'PRINT' }],
+    shrinksProgram: false,
+  };
+
+  const using = (...spellings: { spelling: string; keyword: string }[]) =>
+    vocab([], [], 'bbcmicro', [], [], [], { spellings });
+
+  it('reports a dotted program moving to a machine without dot entry', () => {
+    expect(
+      spellingExpansionsForProgram(
+        machine(NONE),
+        using(
+          { spelling: 'P.', keyword: 'PRINT' },
+          { spelling: 'G.', keyword: 'GOTO' },
+        ),
+      ),
+    ).toEqual([
+      { spelling: 'P.', keyword: 'PRINT' },
+      { spelling: 'G.', keyword: 'GOTO' },
+    ]);
+  });
+
+  it('reports nothing about a spelling the target reads the same way', () => {
+    expect(
+      spellingExpansionsForProgram(
+        machine(DOT),
+        using({ spelling: 'P.', keyword: 'PRINT' }),
+      ),
+    ).toEqual([]);
+    expect(
+      spellingExpansionsForProgram(
+        machine(PRINTS),
+        using({ spelling: '?', keyword: 'PRINT' }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('warns where the target reads the symbol as an operator of its own', () => {
+    // `?` prints on the Microsoft-family machines and is byte indirection on
+    // the Acorns, so the unexpanded program does not fail there - it writes to
+    // memory instead, silently.
+    expect(
+      spellingExpansionsForProgram(
+        machine(DOT, '?<addr>=<byte>'),
+        using({ spelling: '?', keyword: 'PRINT' }),
+      ),
+    ).toEqual([
+      { spelling: '?', keyword: 'PRINT', differentMeaning: 'byte indirection' },
+    ]);
+  });
+
+  it('reports nothing where there is no program', () => {
+    expect(spellingExpansionsForProgram(machine(NONE))).toEqual([]);
+  });
+});
+
+describe('shortSpellingsForFit', () => {
+  const machine = (shrinksProgram: boolean): PortingFacts =>
+    ({
+      id: 'm',
+      abbreviatedEntry: {
+        style: 'dot',
+        symbols: [] as PortingFacts['abbreviatedEntry']['symbols'],
+        shrinksProgram,
+      },
+    }) as PortingFacts;
+
+  const fit = (over: Partial<ProgramFit>): ProgramFit => ({
+    bytes: 100,
+    freeBytes: 100,
+    percent: 100,
+    severity: 'crit',
+    verdict: 'over',
+    lowerBound: false,
+    ...over,
+  });
+
+  it('offers the target’s short spellings on a pressed port', () => {
+    expect(shortSpellingsForFit(machine(true), fit({}))).toEqual({
+      style: 'dot',
+      verdict: 'over',
+    });
+  });
+
+  it('offers nothing where the program has room to spare', () => {
+    expect(
+      shortSpellingsForFit(
+        machine(true),
+        fit({ verdict: 'fits', severity: 'ok', percent: 20 }),
+      ),
+    ).toBeNull();
+  });
+
+  it('never offers it on a machine whose stored program is the same size', () => {
+    // The gate that keeps this a fit measure rather than advice to write
+    // unreadable code: on a tokenizing machine abbreviating saves nothing.
+    expect(shortSpellingsForFit(machine(false), fit({}))).toBeNull();
+  });
+
+  it('offers nothing where there is no fit report', () => {
+    expect(shortSpellingsForFit(machine(true), null)).toBeNull();
   });
 });

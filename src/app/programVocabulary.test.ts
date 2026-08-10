@@ -14,6 +14,7 @@ describe('programVocabulary - keywords', () => {
     expect(programVocabulary('10 FORI=1TO10:PRINTI:NEXT', c64)).toEqual({
       dialectId: 'commodore64',
       keywords: ['FOR', 'NEXT', 'PRINT', 'TO'],
+      spellings: [],
       variables: ['I'],
       divides: false,
       fractionalLiteral: false,
@@ -47,6 +48,55 @@ describe('programVocabulary - keywords', () => {
     // one name the guide can look up.
     expect(programVocabulary('10 A=B^2', c64).keywords).toContain('↑');
     expect(programVocabulary('10 A=B↑2', c64).keywords).toContain('↑');
+  });
+
+  it('resolves a symbol spelling to the command it stands for', () => {
+    // The under-report this fixes: a Commodore program that prints only with
+    // `?` used to reach the comparison with no PRINT in it at all, so every
+    // finding about printing was silently absent.
+    const vocab = programVocabulary('10 ?"HI"', c64);
+    expect(vocab.keywords).toContain('PRINT');
+    expect(vocab.spellings).toEqual([{ spelling: '?', keyword: 'PRINT' }]);
+  });
+
+  it('resolves nothing for a symbol the machine reads as its own operator', () => {
+    // `?` is byte indirection on the Atom, not PRINT. Resolving by the source
+    // machine's own tables is what makes that safe by construction; the write
+    // itself is already collected as a write site.
+    const vocab = programVocabulary('10 ?#8000=1', getDialect('atom'));
+    expect(vocab.keywords).not.toContain('PRINT');
+    expect(vocab.spellings).toEqual([]);
+  });
+
+  it('resolves a dotted BBC program to the keywords it means', () => {
+    const vocab = programVocabulary('10 P."HI"\n20 G.10', bbc);
+    expect(vocab.keywords).toEqual(expect.arrayContaining(['PRINT', 'GOTO']));
+    expect(vocab.spellings).toEqual([
+      { spelling: 'G.', keyword: 'GOTO' },
+      { spelling: 'P.', keyword: 'PRINT' },
+    ]);
+  });
+
+  it('resolves a shifted-letter Commodore program', () => {
+    const vocab = programVocabulary('10 pO53280,0', c64);
+    expect(vocab.keywords).toContain('POKE');
+    expect(vocab.spellings).toEqual([{ spelling: 'pO', keyword: 'POKE' }]);
+  });
+
+  it('leaves a full spelling alone whatever its case', () => {
+    // `pRINT` is PRINT to the tokenizer, not the abbreviation `pR` (PRINT#).
+    const vocab = programVocabulary('10 pRINT"HI"', c64);
+    expect(vocab.keywords).toContain('PRINT');
+    expect(vocab.spellings).toEqual([]);
+  });
+
+  it('does not read a spelling inside a string or a REM', () => {
+    expect(programVocabulary('10 PRINT"P. AND ?"', bbc).spellings).toEqual([]);
+    expect(programVocabulary('10 REM ?"HI"', c64).spellings).toEqual([]);
+  });
+
+  it('reports no spellings on a machine that reads none', () => {
+    expect(programVocabulary('10 PRINT "HI"', zx81).spellings).toEqual([]);
   });
 
   it('says nothing about the operators every machine has', () => {
@@ -399,6 +449,7 @@ describe('programVocabulary - no program', () => {
     expect(programVocabulary('', c64)).toEqual({
       dialectId: 'commodore64',
       keywords: [],
+      spellings: [],
       variables: [],
       divides: false,
       fractionalLiteral: false,

@@ -49,6 +49,75 @@ function matchKeyword(
 }
 
 /**
+ * The variant's keywords in the ROM's reserved-word order, for resolving
+ * abbreviations.
+ *
+ * A Commodore token is the word's index in the ROM's reserved-word table plus
+ * $80, so ascending token value *is* the order the ROM's scan walks the table -
+ * which is what makes `goT` resolve to GOTO and `pO` to POKE rather than POS,
+ * and what leaves PRINT and INPUT unabbreviable behind PRINT# and INPUT#
+ * (hence `?`). Alias spellings (`?`, `^`) and the non-alphabetic entries
+ * (the operators, π) are left out: an abbreviation is a prefix of a spelled
+ * word, and those have no prefix to shorten.
+ *
+ * Cached per keyword table so each variant sorts once.
+ */
+const tokenOrderCache = new WeakMap<C64Keyword[], C64Keyword[]>();
+
+function keywordsInTokenOrder(keywordsByLength: C64Keyword[]): C64Keyword[] {
+  let order = tokenOrderCache.get(keywordsByLength);
+  if (!order) {
+    order = keywordsByLength
+      .filter((kw) => kw.alias !== true && /^[A-Z]/.test(kw.word))
+      .sort((a, b) => a.token - b.token);
+    tokenOrderCache.set(keywordsByLength, order);
+  }
+  return order;
+}
+
+/** `{shift-x}`: the escape spelling of the shifted letter ending an abbreviation. */
+const SHIFT_ESCAPE = /^\{shift-([a-z])\}/i;
+const LOWER = /[a-z]/;
+
+/**
+ * A shifted-letter abbreviation at `pos`, or undefined.
+ *
+ * On the real machines a keyword may be entered as a prefix whose last letter
+ * is *shifted*: the ROM's cruncher compares its reserved-word table character
+ * by character and accepts the word as soon as a shifted letter matches, so
+ * `pO` enters POKE and `gosU` GOSUB. Archive listings are printed in that
+ * notation throughout.
+ *
+ * IDE source is plain text, so the shift is written either as an upper-case
+ * letter following lower-case ones or as the `{shift-x}` escape. Requiring a
+ * lower-case prefix is what keeps a program spelled in capitals from being
+ * re-read as something shorter; the caller then prefers the case-blind full
+ * spelling wherever it reaches at least as far, so a keyword written out in
+ * any mix of case still tokenizes as itself.
+ */
+function matchAbbreviation(
+  source: string,
+  pos: number,
+  keywordsByLength: C64Keyword[],
+): { keyword: C64Keyword; length: number } | undefined {
+  let i = pos;
+  while (i < source.length && LOWER.test(source[i]!)) i++;
+  if (i === pos) return undefined;
+
+  const rest = source.slice(i);
+  const escape = SHIFT_ESCAPE.exec(rest);
+  const shifted = escape ? escape[1]! : /^[A-Z]/.test(rest) ? rest[0]! : '';
+  if (shifted === '') return undefined;
+
+  const prefix = (source.slice(pos, i) + shifted).toUpperCase();
+  const keyword = keywordsInTokenOrder(keywordsByLength).find((kw) =>
+    kw.word.startsWith(prefix),
+  );
+  if (!keyword) return undefined;
+  return { keyword, length: i - pos + (escape ? escape[0].length : 1) };
+}
+
+/**
  * Tokenize one line body (everything after the line number) into program bytes.
  * The C64 ROM tokenizes greedily and position-independently, so we match the
  * longest keyword at each point; quotes, REM and DATA suspend tokenizing.
@@ -172,16 +241,26 @@ function tokenizeBody(
     }
 
     const kw = matchKeyword(body, pos, keywordsByLength);
-    if (kw) {
-      if (stmtStart && kw.kind !== 'command') {
-        flagStatement(pos, pos + kw.word.length, kw.word);
+    const full = kw ? { keyword: kw, length: kw.word.length } : undefined;
+    const short = matchAbbreviation(body, pos, keywordsByLength);
+    // The longer reading wins, and a tie goes to the full spelling: a keyword
+    // written out in full always tokenizes as itself, whatever its case, while
+    // an abbreviation that reaches further still resolves - `goS` is GOSUB
+    // rather than GO followed by a variable, as it is on the machine.
+    const hit = full && (!short || short.length <= full.length) ? full : short;
+    if (hit) {
+      const { keyword, length } = hit;
+      if (stmtStart && keyword.kind !== 'command') {
+        // The source spelling rather than the resolved word, so an abbreviation
+        // is reported as the reader typed it.
+        flagStatement(pos, pos + length, body.slice(pos, pos + length));
       }
-      out.push(kw.token);
-      pos += kw.word.length;
-      stmtStart = kw.word === 'THEN';
+      out.push(keyword.token);
+      pos += length;
+      stmtStart = keyword.word === 'THEN';
       lineNoOk = stmtStart;
-      if (kw.verbatimRest === 'line') remRest = true;
-      else if (kw.verbatimRest === 'statement') dataMode = true;
+      if (keyword.verbatimRest === 'line') remRest = true;
+      else if (keyword.verbatimRest === 'statement') dataMode = true;
       continue;
     }
 
