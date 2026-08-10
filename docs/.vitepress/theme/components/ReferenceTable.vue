@@ -104,6 +104,20 @@ const presentDomains = computed(() => {
   return DOMAIN_ORDER.filter((d) => seen.has(d));
 });
 
+// Whether this page's machines let a keyword be typed short at all. The
+// Sinclair pages never do - a keyword is a keystroke there, not a spelling - so
+// they say nothing about spellings rather than offering to search for something
+// none of their rows carry.
+const hasAbbreviations = computed(() =>
+  props.data.entries.some((e) => (e.abbreviations ?? []).length > 0),
+);
+
+const searchLabel = computed(() =>
+  hasAbbreviations.value
+    ? 'Search keyword names and short spellings'
+    : 'Search keyword names',
+);
+
 const visible = computed(() =>
   sortEntries(
     filterEntries(props.data.entries, query.value, kind.value, domain.value),
@@ -134,8 +148,8 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
         v-model="query"
         type="search"
         class="reftable-search"
-        placeholder="Search keyword names…"
-        aria-label="Search keyword names"
+        :placeholder="searchLabel + '…'"
+        :aria-label="searchLabel"
       />
       <div class="reftable-kinds" role="group" aria-label="Filter by kind">
         <button
@@ -251,6 +265,19 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
               />
             </span>
             <code>{{ e.name }}</code>
+            <!--
+              The short spellings the machine takes for this keyword, beside the
+              name because that is the question a reader arrives with: they have
+              `P.` or `?` in a listing and want to know what it is. Searchable
+              too, so the listing's own spelling finds the row.
+            -->
+            <span
+              v-for="a in e.abbreviations"
+              :key="a"
+              class="reftable-abbr"
+              :title="`Can be typed as ${a}`"
+              >{{ a }}</span
+            >
             <span v-if="e.tag" class="reftable-tag">{{ e.tag }}</span>
             <button
               type="button"
@@ -506,6 +533,20 @@ function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
 .reftable-syntax {
   display: inline-block;
   margin-bottom: 0.25rem;
+}
+/* A short spelling reads as an alternative name, so it sits in the name cell in
+   the same monospace face, dimmed and boxed to keep the canonical spelling the
+   one the eye lands on first. */
+.reftable-abbr {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 4px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.75rem;
 }
 .reftable-tag {
   display: inline-block;

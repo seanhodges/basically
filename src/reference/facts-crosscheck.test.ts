@@ -525,7 +525,7 @@ describe('symbol spellings are the ones the keyword tables declare', () => {
     // program is resolved against and what the guide reports about the target
     // have to be one list, or a spelling would be expanded into a command the
     // comparison never mentions.
-    const derived = keywordSpellingsFor(dialect);
+    const derived = keywordSpellingsFor(id);
     expect(
       facts.abbreviatedEntry.symbols.map(key).sort(),
       `${id}: authored symbols and the keyword tables disagree`,

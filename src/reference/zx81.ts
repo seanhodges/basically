@@ -3,8 +3,9 @@
 // then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
 // the generator skips this file once it exists.
 import type { BasicReferenceTableData } from './types';
+import { withAbbreviations } from './abbreviations';
 
-export const zx81Reference: BasicReferenceTableData = {
+const zx81Table: BasicReferenceTableData = {
   title: 'ZX81 BASIC',
   machines: ['Sinclair ZX81'],
   // Nothing beyond the shared vocabulary.
@@ -578,3 +579,13 @@ export const zx81Reference: BasicReferenceTableData = {
     },
   ],
 };
+
+/**
+ * The page as it renders: each row carries the short spellings its keyword can
+ * be typed as, derived from the machine's own resolution order rather than
+ * authored above. See ./abbreviations.
+ */
+export const zx81Reference: BasicReferenceTableData = withAbbreviations(
+  'zx81',
+  zx81Table,
+);

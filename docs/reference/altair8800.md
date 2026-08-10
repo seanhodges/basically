@@ -15,6 +15,8 @@ interpreter that every later Microsoft BASIC descends from.
 
 ## Notes and caveats
 
+- `?` stands for `PRINT`, and is shown beside it in the table below; the search
+  box finds the keyword by it.
 - Multiple statements per line are allowed with `:`, and `?` is shorthand for
   `PRINT`. There is no `'` shorthand for `REM`.
 - `^` is the power operator — there is no up-arrow spelling — and it folds left

@@ -28,6 +28,17 @@ export interface ReferenceEntry {
   /** Optional badge, e.g. "128K only" or "Master only". */
   tag?: string;
   /**
+   * Short spellings this keyword can be typed as on the machines the row
+   * belongs to, shortest first - `["P."]` on the Acorns, `["?"]` for the
+   * Commodore PRINT, `["pO"]` for its POKE. Absent where the machine has none,
+   * which is every row on the Sinclair pages.
+   *
+   * Derived rather than authored, and never by hand: see ./abbreviations.ts,
+   * which reads each machine's own resolution order and is what a page's
+   * exported data passes through.
+   */
+  abbreviations?: string[];
+  /**
    * Dialect ids this row exists on, when it does not exist on every machine the
    * page covers - e.g. `['cpc6128']` for a Locomotive BASIC 1.1 command. Absent
    * (the common case) means every machine on the page has it.

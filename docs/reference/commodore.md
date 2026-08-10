@@ -16,6 +16,12 @@ Commodore PET.
 
 ## Notes and caveats
 
+- A keyword can be typed as a prefix whose **last letter is shifted** — `pO`
+  for `POKE`, `goS` for `GOSUB` — which the ROM expands to the first keyword in
+  its reserved-word order that the letters begin. `PRINT` cannot be reached that
+  way (the scan finds `PRINT#` first), which is why `?` stands for it. Both
+  forms are shown beside each keyword in the table below, and the search box
+  finds a keyword by either; `LIST` always spells the keyword out in full.
 - BASIC V2 is token-identical across the C64 and VIC-20 — same ROM tokens, same
   `LIST` spellings — so only their hardware (screen size, colours, sound, memory
   map) differs, as described on the [hardware](./commodore/hardware) page.

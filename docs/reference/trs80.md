@@ -14,6 +14,9 @@ Every command, function and operator in TRS-80 Level II BASIC.
 
 ## Notes and caveats
 
+- `?` stands for `PRINT` and `'` opens a comment as `REM` does. Both are shown
+  beside their keyword in the table below, and the search box finds a keyword by
+  either.
 - Multiple statements per line are allowed with `:`; `?` is shorthand for
   `PRINT` and `'` for `REM`.
 - Variable names may be any length but only the first two characters are

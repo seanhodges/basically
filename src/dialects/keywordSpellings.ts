@@ -24,11 +24,25 @@
  * together so the guide and the reader's program cannot disagree about what a
  * spelling means.
  */
-import type { Dialect, KeywordInfo } from './types';
-import { BASIC_II, BASIC_IV } from './bbcmicro/keywords';
-import { c64KeywordAliases } from './commodore64/keywords';
-import { TRS80_ALIASES } from './trs80/keywords';
-import { ALTAIR8800_ALIASES } from './altair8800/keywords';
+import type { KeywordInfo } from './types';
+import { zx80Keywords } from './zx80/keywords';
+import { zx81Keywords } from './zx81/keywords';
+import { spectrumKeywords } from './zxspectrum/keywords';
+import { spectrum128Keywords } from './zxspectrum128/keywords';
+import {
+  BASIC_II,
+  BASIC_IV,
+  bbcKeywords,
+  bbcMasterKeywords,
+} from './bbcmicro/keywords';
+import { c64Keywords, c64KeywordAliases } from './commodore64/keywords';
+import { petKeywords } from './pet/keywords';
+import { vic20Keywords } from './vic20/keywords';
+import { atomKeywords } from './atom/keywords';
+import { trs80Keywords, TRS80_ALIASES } from './trs80/keywords';
+import { cpc464Keywords } from './cpc464/keywords';
+import { cpc6128Keywords } from './cpc6128/keywords';
+import { altair8800Keywords, ALTAIR8800_ALIASES } from './altair8800/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
 export interface SpellingUse {
@@ -53,17 +67,37 @@ export interface KeywordSpellings {
 }
 
 /**
- * The alias entries a machine's keyword table declares beside its canonical
- * words. `Dialect.keywords` carries the canonical table only, so the symbol
- * spellings that exist purely for entry (`?`, `'`) are reached here.
+ * Every machine's keyword table, canonical words plus the alias entries that
+ * exist purely for entry (`?`, `'`) - which `Dialect.keywords` does not carry.
+ *
+ * Keyed by dialect id rather than taking a `Dialect`, so the documentation
+ * bundle can reach this: the reference pages note each keyword's short
+ * spellings beside it, and they render without a registry. Every table here is
+ * a leaf data module importing nothing but a type.
+ *
+ * `keywordSpellings.test.ts` pins this against the registry, so a machine added
+ * without an entry fails rather than quietly reporting that it abbreviates
+ * nothing.
  */
-const ALIASES: Record<string, readonly KeywordInfo[]> = {
-  commodore64: c64KeywordAliases,
-  pet: c64KeywordAliases,
-  vic20: c64KeywordAliases,
-  trs80: TRS80_ALIASES,
-  altair8800: ALTAIR8800_ALIASES,
+const TABLES: Record<string, readonly KeywordInfo[]> = {
+  zx80: zx80Keywords,
+  zx81: zx81Keywords,
+  zxspectrum: spectrumKeywords,
+  zxspectrum128: spectrum128Keywords,
+  bbcmicro: bbcKeywords,
+  bbcmaster: bbcMasterKeywords,
+  commodore64: [...c64Keywords, ...c64KeywordAliases],
+  pet: [...petKeywords, ...c64KeywordAliases],
+  vic20: [...vic20Keywords, ...c64KeywordAliases],
+  atom: atomKeywords,
+  trs80: [...trs80Keywords, ...TRS80_ALIASES],
+  cpc464: cpc464Keywords,
+  cpc6128: cpc6128Keywords,
+  altair8800: [...altair8800Keywords, ...ALTAIR8800_ALIASES],
 };
+
+/** The registered machines this module knows a keyword table for. */
+export const spellingDialectIds: readonly string[] = Object.keys(TABLES);
 
 /**
  * Where each machine's prefix-resolution order comes from.
@@ -81,7 +115,7 @@ const ALIASES: Record<string, readonly KeywordInfo[]> = {
  */
 const ORDERS: Record<
   string,
-  { style: 'dot' | 'shifted'; of(d: Dialect): string[] }
+  { style: 'dot' | 'shifted'; of(table: readonly KeywordInfo[]): string[] }
 > = {
   bbcmicro: {
     style: 'dot',
@@ -93,8 +127,7 @@ const ORDERS: Record<
   },
   atom: {
     style: 'dot',
-    of: (d) =>
-      d.keywords.filter((k) => k.kind === 'command').map((k) => k.word),
+    of: (table) => table.filter((k) => k.kind === 'command').map((k) => k.word),
   },
   commodore64: { style: 'shifted', of: byToken },
   pet: { style: 'shifted', of: byToken },
@@ -112,9 +145,14 @@ const ORDERS: Record<
  */
 const SYMBOL_MEANS: Record<string, string> = { "'": 'REM' };
 
-/** Alphabetic keywords in ascending token order - the Commodore scan order. */
-function byToken(dialect: Dialect): string[] {
-  return [...dialect.keywords]
+/**
+ * Alphabetic keywords in ascending token order - the Commodore scan order.
+ *
+ * The alias spellings drop out with the operators: they are `?` and `^`, and a
+ * prefix is a prefix of a spelled word.
+ */
+function byToken(table: readonly KeywordInfo[]): string[] {
+  return [...table]
     .filter((k) => /^[A-Za-z]/.test(k.word))
     .sort((a, b) => a.token - b.token)
     .map((k) => k.word);
@@ -122,26 +160,24 @@ function byToken(dialect: Dialect): string[] {
 
 const cache = new Map<string, KeywordSpellings>();
 
-/** How `dialect` reads short spellings of its keywords. */
-export function keywordSpellingsFor(dialect: Dialect): KeywordSpellings {
-  const cached = cache.get(dialect.id);
+/** How the machine `dialectId` reads short spellings of its keywords. */
+export function keywordSpellingsFor(dialectId: string): KeywordSpellings {
+  const cached = cache.get(dialectId);
   if (cached) return cached;
 
-  const source = ORDERS[dialect.id];
+  const table = TABLES[dialectId] ?? [];
+  const source = ORDERS[dialectId];
   // Commands only: a symbol standing for an operator (`^` for `↑`) is the
   // operator facts' business, and carrying it here would report one difference
   // twice. A machine where the symbol is an operator in its own right - `?` on
   // the Acorns, which is byte indirection - declares it as one and contributes
   // nothing here, which is what keeps the Atom's `?` from being read as PRINT.
   const words = new Map(
-    dialect.keywords
+    table
       .filter((k) => /^[A-Za-z]/.test(k.word))
-      .map((k) => [k.token, k.word]),
+      .map((k) => [k.token, k.word] as const),
   );
-  const symbols: SpellingUse[] = [
-    ...dialect.keywords,
-    ...(ALIASES[dialect.id] ?? []),
-  ]
+  const symbols: SpellingUse[] = table
     .filter((k) => k.kind === 'command' && !/[A-Za-z]/.test(k.word))
     .map((k) => ({
       spelling: k.word,
@@ -150,10 +186,10 @@ export function keywordSpellingsFor(dialect: Dialect): KeywordSpellings {
 
   const spellings: KeywordSpellings = {
     style: source?.style ?? 'none',
-    order: source?.of(dialect) ?? [],
+    order: source?.of(table) ?? [],
     symbols,
   };
-  cache.set(dialect.id, spellings);
+  cache.set(dialectId, spellings);
   return spellings;
 }
 
@@ -199,4 +235,68 @@ export function spellingAt(
   const keyword = spellings.order.find((w) => w.startsWith(prefix));
   if (keyword === undefined) return null;
   return { spelling: match[0]!, keyword, length: match[0]!.length };
+}
+
+/**
+ * The shortest prefix abbreviation of `word` on this machine, or null where it
+ * has none.
+ *
+ * A prefix takes the *first* word in the machine's scan order it begins, so a
+ * keyword an earlier one is a prefix of cannot be abbreviated at all: PRINT is
+ * always reached as PRINT# on the Commodores, which is exactly why `?` exists.
+ * A prefix that spells a whole keyword is that keyword rather than an
+ * abbreviation, so `gO` is GO and reaching GOTO takes one letter more.
+ */
+function prefixAbbreviation(
+  word: string,
+  spellings: KeywordSpellings,
+): string | null {
+  const { style, order } = spellings;
+  if (style === 'none') return null;
+  const whole = new Set(order);
+  // A dot marks the abbreviation itself, so one letter and a dot is a spelling
+  // (`P.`); a shifted letter has to be preceded by an unshifted one to be
+  // distinguishable from a keyword typed in capitals, so those start at two.
+  for (let n = style === 'dot' ? 1 : 2; n < word.length; n++) {
+    const prefix = word.slice(0, n);
+    // The abbreviating character is a dot or a shifted letter, so a spelling's
+    // own `(`, `#` or `$` can never be the last one typed.
+    if (!/^[A-Z]+$/.test(prefix)) break;
+    if (whole.has(prefix)) continue;
+    if (order.find((w) => w.startsWith(prefix)) !== word) continue;
+    return style === 'dot'
+      ? `${prefix}.`
+      : prefix.slice(0, -1).toLowerCase() + prefix[n - 1];
+  }
+  return null;
+}
+
+/**
+ * Every keyword this machine lets a program spell short, with the spellings -
+ * shortest first - a reader would find in a listing.
+ *
+ * Both notations at once, because a machine can have one without the other and
+ * the Commodores have both: POKE is `pO` and PRINT, which no prefix reaches, is
+ * `?`. Keyed by the keyword's canonical spelling, which is how the reference
+ * pages and the porting comparison name a keyword.
+ */
+export function shortSpellingsFor(dialectId: string): Map<string, string[]> {
+  const spellings = keywordSpellingsFor(dialectId);
+  const out = new Map<string, string[]>();
+  const add = (keyword: string, spelling: string) => {
+    const existing = out.get(keyword);
+    if (existing) existing.push(spelling);
+    else out.set(keyword, [spelling]);
+  };
+
+  for (const word of spellings.order) {
+    const short = prefixAbbreviation(word, spellings);
+    if (short !== null) add(word, short);
+  }
+  for (const { spelling, keyword } of spellings.symbols) add(keyword, spelling);
+
+  for (const list of out.values()) {
+    list.sort((a, b) => a.length - b.length || a.localeCompare(b));
+  }
+  return out;
 }

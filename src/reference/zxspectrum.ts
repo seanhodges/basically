@@ -3,8 +3,9 @@
 // then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
 // the generator skips this file once it exists.
 import type { BasicReferenceTableData } from './types';
+import { withAbbreviations } from './abbreviations';
 
-export const zxspectrumReference: BasicReferenceTableData = {
+const zxspectrumTable: BasicReferenceTableData = {
   title: 'ZX Spectrum BASIC (48K & 128K)',
   machines: ['Sinclair ZX Spectrum 48K', 'Sinclair ZX Spectrum 128K'],
   placeholders: [{ id: 'bits', meaning: 'a binary literal, such as 10011' }],
@@ -803,3 +804,13 @@ export const zxspectrumReference: BasicReferenceTableData = {
     },
   ],
 };
+
+/**
+ * The page as it renders: each row carries the short spellings its keyword can
+ * be typed as, derived from the machine's own resolution order rather than
+ * authored above. See ./abbreviations.
+ */
+export const zxspectrumReference: BasicReferenceTableData = withAbbreviations(
+  'zxspectrum',
+  zxspectrumTable,
+);

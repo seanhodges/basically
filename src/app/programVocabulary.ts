@@ -352,7 +352,7 @@ function keywordsIn(source: string, dialect: Dialect): Set<string> {
  * the machine plainly reads PRINT.
  */
 function shortSpellingsIn(source: string, dialect: Dialect): SpellingUse[] {
-  const spellings = keywordSpellingsFor(dialect);
+  const spellings = keywordSpellingsFor(dialect.id);
   if (spellings.style === 'none' && spellings.symbols.length === 0) return [];
 
   const full = dialect.keywords

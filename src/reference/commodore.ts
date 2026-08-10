@@ -8,8 +8,9 @@
 // commands appended at the end and tagged 'BASIC 4.0'. The PET's keyword table
 // (src/dialects/pet/keywords.ts) is the union checked by keyword-crosscheck.
 import type { BasicReferenceTableData } from './types';
+import { withAbbreviations } from './abbreviations';
 
-export const commodoreReference: BasicReferenceTableData = {
+const commodoreTable: BasicReferenceTableData = {
   title: 'Commodore 64, VIC-20 & PET BASIC',
   machines: ['Commodore 64', 'Commodore VIC-20', 'Commodore PET'],
   placeholders: [
@@ -803,3 +804,13 @@ export const commodoreReference: BasicReferenceTableData = {
     },
   ],
 };
+
+/**
+ * The page as it renders: each row carries the short spellings its keyword can
+ * be typed as, derived from the machine's own resolution order rather than
+ * authored above. See ./abbreviations.
+ */
+export const commodoreReference: BasicReferenceTableData = withAbbreviations(
+  'commodore',
+  commodoreTable,
+);

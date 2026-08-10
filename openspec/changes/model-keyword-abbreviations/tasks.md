@@ -67,6 +67,29 @@
 - [x] 4.4 `src/ai/portReport.ts` + its test: expansions and the warning join
       the hand-over; the accepted-spellings direction is never handed over.
 
+## 6. The language reference tables
+
+- [x] 6.1 `src/dialects/keywordSpellings.ts`: keyed by dialect id rather than by
+      `Dialect`, so the documentation bundle reaches it without a registry;
+      `shortSpellingsFor` derives each keyword's short spellings — the shortest
+      prefix that resolves to it, plus the symbol spellings — from the
+      machine's own resolution order.
+- [x] 6.2 `src/reference/abbreviations.ts` + `src/reference/types.ts`: every
+      BASIC page's rows carry the spellings their machines read, against the
+      machines the *row* exists on, and nothing where a shared row's machines
+      disagree.
+- [x] 6.3 `docs/.vitepress/theme/referenceTable.ts` + its test: the search
+      matches a keyword's short spellings from their start as well as its name.
+- [x] 6.4 `docs/.vitepress/theme/components/ReferenceTable.vue`: the spellings
+      show beside the keyword, and the search says it looks for them — on the
+      pages that have any.
+- [x] 6.5 `src/reference/abbreviations.test.ts` and
+      `src/dialects/keywordSpellings.test.ts`: every spelling shown tokenizes to
+      its keyword on the machine that shows it, every abbreviable keyword has a
+      row, and the id-keyed tables cover the registry.
+- [x] 6.6 `docs/reference/<page>.md`: each page whose machines take a short
+      spelling explains the notation once, in its notes.
+
 ## 5. Quality gates
 
 - [x] 5.1 `npm run typecheck`
