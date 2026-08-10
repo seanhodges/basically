@@ -115,7 +115,32 @@ function describeLanguageRules(facts: PortingFacts): string {
   lines.push(`- Numbers: ${facts.numberHandling}`);
   if (facts.exponentOperator !== undefined) {
     lines.push(`- Raise to a power with ${facts.exponentOperator}.`);
+  } else {
+    lines.push('- There is no power operator; multiply or loop instead.');
   }
+  // Bitwise-vs-value logic and the truth value are the two facts an assistant
+  // writing for the wrong machine gets wrong silently. It generates `IF A AND B`
+  // and `X=X+(A>B)` with Microsoft habits, both of which a Spectrum accepts and
+  // then answers differently.
+  lines.push(
+    facts.logicalOperators === 'bitwise'
+      ? '- AND, OR and NOT combine their operands bit by bit on integers.'
+      : '- AND, OR and NOT are NOT bitwise: A AND B is A when B is non-zero and 0 otherwise; A OR B is 1 when B is non-zero and A otherwise.',
+  );
+  lines.push(
+    `- A true comparison evaluates to ${facts.comparisonTrue}; false is 0.`,
+  );
+  const integer = [
+    facts.integerDivisionOperator &&
+      `integer division is ${facts.integerDivisionOperator}`,
+    facts.remainderOperator && `remainder is ${facts.remainderOperator}`,
+    facts.xorOperator && `exclusive-OR is ${facts.xorOperator}`,
+  ].filter(Boolean);
+  lines.push(
+    integer.length === 0
+      ? '- There is no integer-division, remainder or exclusive-OR operator; use INT(a/b) and a-b*INT(a/b).'
+      : `- Where they exist: ${integer.join(', ')}.`,
+  );
   const notation =
     facts.addressNotation === 'hex'
       ? `hexadecimal${facts.hexPrefix !== undefined ? ` (written ${facts.hexPrefix}nnnn)` : ''}`

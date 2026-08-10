@@ -25,5 +25,11 @@ Commodore PET.
 - The [PETSCII escape codes](./commodore/escapes) sub-page covers all three
   machines, though the colour-control codes have no visible effect on the PET's
   monochrome display.
+- The power operator is `↑`, which is what `LIST` spells back; the caret key is
+  accepted for it when typing. It folds left to right, so `2↑3↑2` is `64`.
+- `AND`, `OR` and `NOT` combine their operands bit by bit — `5 AND 3` is `1` —
+  and a true comparison is `-1`, which is what makes `X=X+(A>B)` a counting
+  idiom here. There is no integer-division, remainder or exclusive-OR operator:
+  use `INT(a/b)` and `a-b*INT(a/b)`.
 
 <ReferenceTable :data="commodoreReference" />

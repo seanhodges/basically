@@ -902,6 +902,26 @@ export interface Dialect {
    */
   fileExtensions: string[];
   keywords: KeywordInfo[];
+  /**
+   * Operator spellings this BASIC has that {@link keywords} does not carry,
+   * because the machine does not store them as a token: the Sinclair `↑`, `+`
+   * and `<` are character codes, every BBC symbolic operator is copied through
+   * verbatim, and Microsoft BASIC writes `<=` as two operator tokens rather than
+   * one. Omitted where the keyword table already holds the lot (the ZX80, the
+   * CPCs).
+   *
+   * Together with the symbolic entries in {@link keywords} this is the machine's
+   * whole operator set, and three things read it as one: the editor colours
+   * exactly these characters, `keyword-crosscheck.test.ts` requires a reference
+   * row for each, and the porting guide's operator facts are checked against it.
+   * Before it existed each of the three had its own idea, which is how the Atom
+   * came to be documented as having no way to raise to a power.
+   *
+   * Not the place for punctuation (`(`, `)`, `,`, `;`) - see the exemption in
+   * that cross-check - nor for alias spellings the tokenizer accepts but the
+   * machine never lists back (`^` for `↑` on the Commodores).
+   */
+  operators?: readonly string[];
   charset: CharsetMapping;
   /** CodeMirror language support: highlighting + languageData (incl. autocomplete). */
   languageSupport(): Extension;

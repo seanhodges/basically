@@ -3,7 +3,7 @@ import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
-import { bbcKeywords } from './keywords';
+import { bbcKeywords, bbcOperators } from './keywords';
 
 export const bbcCompletionSource: CompletionSource = buildCompletionSource(
   bbcKeywords,
@@ -14,6 +14,7 @@ export function bbcLanguageSupport(): Extension {
   // BBC variable names may contain '_' and end in '%' (integer) or '$' (string);
   // '%'/'\' are not block-graphics escapes here.
   return buildBasicLanguage(bbcKeywords, bbcCompletionSource, {
+    operators: bbcOperators,
     nameChars: '_',
     suffixChars: '$%',
     graphicsEscapes: false,

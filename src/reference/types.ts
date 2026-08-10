@@ -423,8 +423,43 @@ export interface PortingFacts {
    * stays the prose the fact rows show.
    */
   numbers: NumberHandling;
-  /** Exponent operator spelling ("**", "^", "↑"), or undefined if the dialect has none. */
+  /**
+   * Exponent operator spelling ("**", "^", "↑"), or undefined if the dialect has
+   * none.
+   *
+   * Pinned by facts-crosscheck.test.ts against the dialect's own operator set.
+   * It was not, and the Atom carried no spelling at all for a machine whose
+   * floating-point ROM raises to a power perfectly well - so the guide told a
+   * porter to rewrite code that ran.
+   */
   exponentOperator?: string;
+  /** Integer-division operator ("DIV", "\\"), or undefined where there is none. */
+  integerDivisionOperator?: string;
+  /** Remainder operator ("MOD", "%"), or undefined where there is none. */
+  remainderOperator?: string;
+  /** Bitwise exclusive-OR operator ("EOR", "XOR", ":"), or undefined. */
+  xorOperator?: string;
+  /**
+   * What AND, OR and NOT do to their operands. 'bitwise' combines them bit by
+   * bit on integers - the Microsoft, Acorn and Locomotive machines, and the ZX80
+   * - so `5 AND 3` is 1. 'value' returns one of the operands: on the ZX81 and
+   * the Spectrum `a AND b` is `a` when `b` is non-zero and 0 otherwise, so the
+   * same expression is 5.
+   *
+   * Required, and read off each running machine by
+   * src/dialects/operatorBattery.test.ts. Nothing else in these facts implies
+   * it, and a condition that reads identically on both machines gives different
+   * answers - the failure a porter finds last, because nothing errors.
+   */
+  logicalOperators: 'bitwise' | 'value';
+  /**
+   * What a true comparison evaluates to: -1 on the Microsoft, BBC and Locomotive
+   * machines and the ZX80, 1 on the ZX81, the Spectrum and the Atom.
+   *
+   * Also measured rather than authored. It is what decides whether the counting
+   * idiom `X=X+(A>B)` adds or subtracts after a port.
+   */
+  comparisonTrue: -1 | 1;
   /**
    * Printable ASCII (0x20-0x7E) this machine's character set has no glyph for,
    * in code-point order - e.g. the ZX81's `!`. Empty where the machine covers

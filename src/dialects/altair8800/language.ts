@@ -6,7 +6,7 @@ import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
-import { altair8800Keywords } from './keywords';
+import { altair8800Keywords, altair8800Operators } from './keywords';
 
 /**
  * 8K BASIC crunches the way every Microsoft BASIC does: it matches a reserved
@@ -35,6 +35,7 @@ export function altair8800LanguageSupport(): Extension {
   // literals (Disk BASIC) and no graphics escapes (the machine has no graphics
   // characters at all), so both stay off.
   return buildBasicLanguage(altair8800Keywords, altair8800CompletionSource, {
+    operators: altair8800Operators,
     suffixChars: '$',
     graphicsEscapes: false,
     crunched: altair8800Crunched,

@@ -1,11 +1,16 @@
-import { describe, expect, it, beforeAll, afterAll, vi } from 'vitest';
-import { createRequire } from 'node:module';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import path from 'node:path';
+import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { existsSync, statSync } from 'node:fs';
 import { dialects } from './registry';
 import { fitRomImage } from '../app/romImage';
-import { configureNodeRomPath } from '../emulator/bbc/bbcMachine';
-import type { Dialect, MachineEmulator } from './types';
+import {
+  bootMachine,
+  installNodeRomLoading,
+  romFor,
+  romPath,
+  runFrames,
+  screenText,
+} from './bootHarness';
+import type { Dialect } from './types';
 
 /**
  * `Dialect.romBytes` says two things at once: that this machine runs the image
@@ -28,53 +33,25 @@ import type { Dialect, MachineEmulator } from './types';
  * the negative case fails and says to declare the field.
  */
 
-const PUBLIC = path.resolve(__dirname, '../../public');
+let restoreRomLoading: () => void;
 
-// Machines that load their own ROMs need those loads to work under node: the
-// jsbeeb-backed pair through jsbeeb's own loader, the Commodore trio through
-// the deployed `roms/` path. Same setup as screenReadable.test.ts.
 beforeAll(() => {
-  const require = createRequire(import.meta.url);
-  const utilsPath = require.resolve('jsbeeb/src/utils.js');
-  configureNodeRomPath(path.dirname(path.dirname(utilsPath)));
-  vi.stubGlobal('fetch', async (url: string) => {
-    const rel = String(url).slice(String(url).indexOf('roms/'));
-    const data = readFileSync(path.join(PUBLIC, rel));
-    return {
-      ok: true,
-      status: 200,
-      arrayBuffer: async () =>
-        data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
-    };
-  });
+  restoreRomLoading = installNodeRomLoading();
 });
 
 afterAll(() => {
-  vi.unstubAllGlobals();
+  restoreRomLoading();
 });
-
-/** The path under public/ behind a dialect's `romUrl`. */
-function romPath(romUrl: string): string {
-  return path.join(PUBLIC, romUrl.slice(romUrl.indexOf('roms/')));
-}
-
-function romFor(romUrl: string | undefined): Uint8Array {
-  if (!romUrl) return new Uint8Array(0);
-  return new Uint8Array(readFileSync(romPath(romUrl)));
-}
 
 /** Boot a machine on the given image and read back what is on its screen. */
 async function screenAfterBoot(
   dialect: Dialect,
   rom: Uint8Array,
 ): Promise<string> {
-  const machine: MachineEmulator = dialect.createEmulator({ rom, ramKb: 16 });
+  const machine = await bootMachine(dialect, { rom });
   try {
-    // The machines that load their own ROMs do it asynchronously.
-    const ready = (machine as { whenReady?: () => Promise<void> }).whenReady;
-    if (typeof ready === 'function') await ready.call(machine);
-    for (let i = 0; i < 200; i++) machine.runFrame();
-    return machine.readScreenText?.()?.lines.join('\n') ?? '';
+    await runFrames(machine, 200);
+    return screenText(machine);
   } finally {
     machine.dispose();
   }

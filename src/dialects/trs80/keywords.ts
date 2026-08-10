@@ -190,6 +190,12 @@ export const TRS80_ALIASES: Trs80Keyword[] = [
 ];
 
 /**
+ * The relational spellings Level II has but does not tokenize: like every
+ * Microsoft BASIC here it stores `<=` as two operator tokens rather than one.
+ */
+export const trs80Operators = ['<=', '>=', '<>'] as const;
+
+/**
  * Keywords (canonical + aliases) sorted longest-spelling first, for greedy
  * left-to-right matching - `DEFSTR` must beat `DEF`, `INPUT` must beat `INP`.
  */

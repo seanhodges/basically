@@ -16,7 +16,11 @@ interpreter that every later Microsoft BASIC descends from.
 ## Notes and caveats
 
 - Multiple statements per line are allowed with `:`, and `?` is shorthand for
-  `PRINT`. There is no `'` shorthand for `REM`; `^` is the power operator.
+  `PRINT`. There is no `'` shorthand for `REM`.
+- `^` is the power operator — there is no up-arrow spelling — and it folds left
+  to right, so `2^3^2` is `64`. `AND`, `OR` and `NOT` combine their operands bit
+  by bit, and a true comparison is `-1`. There is no integer-division, remainder
+  or exclusive-OR operator: use `INT(a/b)` and `a-b*INT(a/b)`.
 - Only the first two characters of a variable name are significant, so `COUNT`
   and `COST` are the same variable. `$` is the only type suffix — `%`, `!` and
   `#` are later additions, and `X%=1` is stored happily and then fails when it

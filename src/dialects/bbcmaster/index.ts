@@ -6,7 +6,11 @@ import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 // (If this sibling-import coupling grows, factor the shared pieces into a
 // src/dialects/bbcShared/ module - see docs/contributing/dialect-roadmap.md.)
 import { bbcCharset } from '../bbcmicro/charset';
-import { bbcMasterKeywords, BASIC_IV } from '../bbcmicro/keywords';
+import {
+  bbcMasterKeywords,
+  bbcOperators,
+  BASIC_IV,
+} from '../bbcmicro/keywords';
 import { tokenizeProgram } from '../bbcmicro/tokenizer';
 import {
   detokenizeProgram,
@@ -56,6 +60,7 @@ export const bbcmaster: Dialect = {
   programRamBytes: SCREEN_MODE7_BASE - PAGE,
   fileExtensions: ['.txt', '.bas'],
   keywords: bbcMasterKeywords,
+  operators: bbcOperators,
   charset: bbcCharset,
   languageSupport: bbcLanguageSupport,
   completionSource: bbcCompletionSource,

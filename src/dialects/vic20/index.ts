@@ -5,6 +5,7 @@ import {
   VIC20_DISPLAY_HEIGHT,
 } from '../../emulator/vic20/vic20Machine';
 import { vic20Keywords } from './keywords';
+import { c64Operators } from '../commodore64/keywords';
 import { vic20Charset } from './charset';
 import { vic20MemoryMap } from './memoryMap';
 import { vic20MemoryBlocks } from './memoryBlocks';
@@ -63,6 +64,7 @@ export const vic20: Dialect = {
   memoryWrites: { forms: ['poke', 'load-device'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: vic20Keywords,
+  operators: c64Operators,
   charset: vic20Charset,
   languageSupport: vic20LanguageSupport,
   completionSource: vic20CompletionSource,

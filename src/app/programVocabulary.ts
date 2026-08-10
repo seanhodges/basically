@@ -25,6 +25,7 @@ import { findDialect } from '../dialects/registry';
 import { isBinaryDirective } from '../dialects/binaryDirective';
 import { scannable } from '../editor/programOutline';
 import { makeCrunchMatcher } from '../editor/crunch';
+import { operatorSpellings } from '../dialects/operators';
 import { forEachVariable } from '../editor/variables';
 import { variableRulesFor } from '../editor/variableLexis';
 import { resolveWriteSites } from './memoryWriteSites';
@@ -234,12 +235,36 @@ function codeLines(source: string): CodeLine[] {
   return bodies;
 }
 
+/**
+ * The symbolic operators worth looking for in a program, in this dialect's
+ * spelling, longest first.
+ *
+ * Not every symbolic operator the machine has. `+ - * / = < >` are on every
+ * machine here, so finding one says nothing and a bare `-` sits inside every
+ * negative number; `%`, `$` and `:` are a variable suffix or a statement
+ * separator somewhere. What is left is the set a port turns on: the exponent
+ * spelling, the relational digraphs the ZX80 lacks, and the CPC's `\`.
+ *
+ * `^` is scanned for as well wherever the machine's own spelling is `↑` or `**`,
+ * because that is what the tokenizer accepts and what a program is likely to
+ * carry; the finding is reported under the spelling the reference page uses.
+ */
+function symbolicOperatorsIn(dialect: Dialect): [string, string][] {
+  const REPORTABLE = ['**', '↑', '^', '\\', '<=', '>=', '<>'];
+  const has = operatorSpellings(dialect);
+  const pairs: [string, string][] = REPORTABLE.filter((op) => has.has(op)).map(
+    (op) => [op, op],
+  );
+  const power = pairs.find(([op]) => op === '↑' || op === '**');
+  if (power && !has.has('^')) pairs.push(['^', power[1]]);
+  return pairs.sort((a, b) => b[0].length - a[0].length);
+}
+
 /** The distinct keyword spellings the program's code (not its text) contains. */
 function keywordsIn(source: string, dialect: Dialect): Set<string> {
-  // Alphabetic spellings only, the set `makeCrunchMatcher` is documented over.
-  // The operator rows (`+`, `<=`, `**`) are left out: the comparison drops them
-  // from its diff anyway, the pages disagree about which of them earn a row at
-  // all, and a bare `-` matches inside every negative number.
+  // Alphabetic spellings through the crunch matcher, which is the set it is
+  // documented over; the symbolic operators are scanned separately below,
+  // because they need no word boundary and most of them earn no finding.
   const spellings = dialect.keywords
     .map((k) => k.word.toUpperCase())
     .filter((w) => /[A-Za-z]/.test(w));
@@ -269,6 +294,21 @@ function keywordsIn(source: string, dialect: Dialect): Set<string> {
       }
       found.add(word);
       i += word.length;
+    }
+  }
+
+  const symbolic = symbolicOperatorsIn(dialect);
+  if (symbolic.length > 0) {
+    for (const { body } of codeLines(source)) {
+      const code = scannable(body);
+      for (let i = 0; i < code.length; i++) {
+        const match = symbolic.find(([spelling]) =>
+          code.startsWith(spelling, i),
+        );
+        if (!match) continue;
+        found.add(match[1]);
+        i += match[0].length - 1;
+      }
     }
   }
   return found;

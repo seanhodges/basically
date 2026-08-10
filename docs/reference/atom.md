@@ -23,7 +23,17 @@ Acorn Atom.
 - **Memory and bit operators.** Real Atom BASIC reaches memory through the
   indirection operators `?` (byte), `!` (4-byte word) and `$` (string) instead
   of `PEEK`/`POKE`, and offers the remainder operator `%` and the bitwise
-  operators `&` (AND), `\` (OR) and `:` (XOR) — all listed in the table below.
-  (Atom BASIC has no `DIV` or `MOD` — those are BBC BASIC.)
+  operators `&` (AND) and `:` (XOR). There is no `DIV` or `MOD` — those are BBC
+  BASIC — and no symbolic spelling of bitwise OR: the `OR` keyword is itself
+  bitwise, as `AND` is, so `5 AND 3` is `1` rather than a yes-or-no answer.
+- **Two arithmetics.** `A`–`Z` are integers, where `/` truncates. The
+  floating-point ROM's `%A`–`%Z` are reals, reached through `FPRINT`, `FIF` and
+  the other `F` statements — and the power operator `^` belongs to that half
+  only: `%A=2^3` works, while `2^3` in an integer expression is rejected. It is
+  computed through logs, so `2^3` prints as `8.00000000` and `2^3^2` as
+  `63.9999998`.
+- **True is 1.** A comparison yields `1`, not the `-1` of the BBC BASIC that
+  followed this machine, so an expression like `X=X+(A>B)` counts the other way
+  after a port.
 
 <ReferenceTable :data="atomReference" />

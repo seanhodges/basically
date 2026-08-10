@@ -932,6 +932,32 @@ export const bbcMasterKeywords: KeywordInfo[] = [
 ].map(editorKeyword);
 
 /** Keywords sorted longest spelling first, for greedy matching. */
+/**
+ * BBC BASIC's symbolic operators. The tokenizer copies them through verbatim -
+ * only the alphabetic operators (AND, DIV, EOR, MOD, OR, NOT) get token bytes -
+ * so none of them can be a keyword-table entry, and the reference page carried no
+ * arithmetic or relational row at all until this list existed.
+ *
+ * `?`, `!` and `$` are the indirection operators, which are how a BBC program
+ * reads and writes memory: they belong with the rest rather than in a footnote.
+ */
+export const bbcOperators = [
+  '^',
+  '+',
+  '-',
+  '*',
+  '/',
+  '=',
+  '<',
+  '>',
+  '<=',
+  '>=',
+  '<>',
+  '?',
+  '!',
+  '$',
+] as const;
+
 export const bbcKeywordsByLength: BbcKeyword[] = [...bbcKeywordTable].sort(
   (a, b) => b.word.length - a.word.length,
 );

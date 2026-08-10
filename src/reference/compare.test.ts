@@ -188,29 +188,36 @@ describe('diffKeywords', () => {
     expect(diff.unchanged).toBe(0);
   });
 
-  // The reference tables disagree about which operators earn a row, so diffing
-  // them reports editorial choices as language differences - "the ZX81 lacks
-  // `(`". They are excluded from every bucket instead.
-  it('never reports an operator as missing, gained or changed', () => {
-    const diff = diffKeywords(
-      refTable([PRINT, PLUS, NOT_OP]),
-      refTable([PRINT]),
-    );
-    expect(diff.mustReplace).toEqual([]);
-    expect(diff.newlyAvailable).toEqual([]);
-    expect(diff.behaviourChanged).toEqual([]);
+  // Every page now carries a row for every operator its machine has, so an
+  // operator the target lacks is a real finding rather than an editorial one.
+  // A `**` that has to become `↑`, or a lost `MOD`, is what a porter came for.
+  it('reports an operator the target lacks', () => {
+    const diff = diffKeywords(refTable([PRINT, NOT_OP]), refTable([PRINT]));
+    expect(diff.mustReplace.map((e) => e.name)).toEqual(['NOT']);
     expect(diff.unchanged).toBe(1);
   });
 
-  it('ignores an operator the target tabulates and the source does not', () => {
-    const diff = diffKeywords(refTable([PRINT]), refTable([PRINT, PLUS]));
-    expect(diff.newlyAvailable).toEqual([]);
+  it('reports an operator the target adds', () => {
+    const diff = diffKeywords(refTable([PRINT]), refTable([PRINT, NOT_OP]));
+    expect(diff.newlyAvailable.map((e) => e.name)).toEqual(['NOT']);
+  });
+
+  // The exception, and the only one: `+ - * / = < >` are on every machine here,
+  // so a diff that carried them would report nothing but unchanged rows.
+  it('says nothing about the operators every machine has', () => {
+    const diff = diffKeywords(refTable([PRINT, PLUS]), refTable([PRINT]));
+    expect(diff.mustReplace).toEqual([]);
+    expect(diff.unchanged).toBe(1);
+
+    const gained = diffKeywords(refTable([PRINT]), refTable([PRINT, PLUS]));
+    expect(gained.newlyAvailable).toEqual([]);
   });
 
   // NOT is an operator row on the BBC page and a function row on the ZX81's.
-  // Filtering each page on its own would report it as newly available on a
-  // machine that has had it all along, so the exclusion spans both pages.
-  it('ignores a keyword either page calls an operator', () => {
+  // Both machines have the word; only the classification differs, so reporting
+  // it as a behaviour change would report an editorial decision. A command that
+  // became a function still reports - see the kind test above.
+  it('ignores a kind disagreement where one side calls it an operator', () => {
     const asFunction: ReferenceEntry = { ...NOT_OP, kind: 'function' };
     const diff = diffKeywords(refTable([NOT_OP]), refTable([asFunction]));
     expect(diff.behaviourChanged).toEqual([]);
@@ -674,6 +681,8 @@ describe('composeGuidance', () => {
       unsupportedCharacters: [],
       numberHandling: 'Floating point.',
       numbers: { fractions: true },
+      logicalOperators: 'bitwise',
+      comparisonTrue: -1,
       screen: 'text',
       freeRamBytes: 1024,
       colour: 'none',

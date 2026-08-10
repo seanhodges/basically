@@ -229,25 +229,55 @@ function escapeChanged(a: EscapeEntry, b: EscapeEntry): boolean {
 }
 
 /**
- * Names to drop from the keyword diff: everything either page calls an
- * operator. The reference tables have no common rule for which operators earn a
- * row - `+ - * /` are tabulated on four of the eight BASIC pages and `( ) , ;`
- * on one - so diffing them compares editorial choices rather than languages,
- * and reports that a dialect "lacks" `+`. Operator differences that matter to a
- * port are carried by `PortingFacts` instead (as `exponentOperator` already is)
- * and shown in the facts table.
+ * Operators every one of these machines has, so a diff that reported them would
+ * only ever report them as unchanged.
  *
- * The union matters: the pages also disagree about *kind*, so `NOT` is an
- * operator row on the BBC and a function row on the ZX81. Filtering each page
- * on its own would drop the BBC's row, keep the ZX81's, and report `NOT` as
- * newly available on a machine that has had it all along.
+ * The tables list them now - each page carries a row for every operator its
+ * machine has, pinned by keyword-crosscheck.test.ts - which is what lets the
+ * rest of the operators into the diff at last. `+` on both sides is not a
+ * finding; a `**` that has to become `↑`, or a `MOD` the target has no
+ * equivalent of, is exactly the finding a porter needed and never got.
  */
-function operatorNames(...tables: ReferenceTableData[]): Set<string> {
-  const names = new Set<string>();
-  for (const table of tables) {
-    for (const entry of table.entries) {
-      if (entry.kind === 'operator') names.add(entry.name);
-    }
+const UNIVERSAL_OPERATORS: ReadonlySet<string> = new Set([
+  '+',
+  '-',
+  '*',
+  '/',
+  '=',
+  '<',
+  '>',
+]);
+
+/**
+ * Names to drop from the keyword diff.
+ *
+ * Two kinds, and neither is "operators" any more. The universal arithmetic and
+ * relational operators above, which every machine here has and which would fill
+ * the diff with unchanged rows. And any name one page calls an operator and the
+ * other calls something else: `NOT` is an operator row on the BBC and a function
+ * row on the ZX81, `THEN` and `TO` an operator row on the Sinclair and Commodore
+ * pages and a command row on the Acorn and Amstrad ones. Both machines have the
+ * word; what differs is which side of a classification the page put it on, and
+ * reporting that as a behaviour change is reporting an editorial decision.
+ *
+ * A command that became a function - a real change in how a program calls it -
+ * still reports, because neither kind is `operator`.
+ *
+ * This used to drop every operator on either page, because the tables had no
+ * common rule for which operators earned a row and diffing them compared
+ * editorial choices rather than languages. They have one now.
+ */
+function incomparableNames(
+  source: ReferenceTableData,
+  target: ReferenceTableData,
+): Set<string> {
+  const names = new Set<string>(UNIVERSAL_OPERATORS);
+  const targetKinds = new Map(target.entries.map((e) => [e.name, e.kind]));
+  for (const entry of source.entries) {
+    const other = targetKinds.get(entry.name);
+    if (other === undefined || other === entry.kind) continue;
+    if (entry.kind === 'operator' || other === 'operator')
+      names.add(entry.name);
   }
   return names;
 }
@@ -262,8 +292,8 @@ export function diffKeywords(
   target: ReferenceTableData,
   context?: DiffContext,
 ): KeywordDiff {
-  const operators = operatorNames(source, target);
-  const comparable = (e: ReferenceEntry) => !operators.has(e.name);
+  const incomparable = incomparableNames(source, target);
+  const comparable = (e: ReferenceEntry) => !incomparable.has(e.name);
   const sourceEntries = source.entries.filter(comparable);
   const targetEntries = target.entries.filter(comparable);
   const sourceByName = new Map(sourceEntries.map((e) => [e.name, e]));
@@ -1527,6 +1557,31 @@ function fmtCharacters(f: PortingFacts): string {
     ? 'All printable ASCII'
     : `No ${f.unsupportedCharacters.join(' ')}`;
 }
+/**
+ * Integer division and remainder as one row: they travel together, and a
+ * machine that has neither needs the arithmetic that replaces both.
+ */
+function fmtIntegerArithmetic(f: PortingFacts): string {
+  const parts = [
+    f.integerDivisionOperator && `${f.integerDivisionOperator} divides`,
+    f.remainderOperator && `${f.remainderOperator} remainders`,
+  ].filter(Boolean);
+  return parts.length === 0
+    ? 'Neither - use INT(a/b) and a-b*INT(a/b)'
+    : parts.join(', ');
+}
+/** Bitwise or Sinclair value logic, with the exclusive-OR spelling folded in. */
+function fmtLogicalOperators(f: PortingFacts): string {
+  if (f.logicalOperators === 'value') {
+    return 'Value logic - A AND B is A or 0, not a bit pattern';
+  }
+  return f.xorOperator
+    ? `Bitwise on integers; ${f.xorOperator} for exclusive-OR`
+    : 'Bitwise on integers; no exclusive-OR operator';
+}
+function fmtComparisonTrue(f: PortingFacts): string {
+  return `${f.comparisonTrue} for true, 0 for false`;
+}
 function fmtAddress(f: PortingFacts): string {
   if (f.addressNotation === 'hex') {
     return f.hexPrefix ? `Hexadecimal (${f.hexPrefix}nn)` : 'Hexadecimal';
@@ -1579,7 +1634,14 @@ const FACT_ROWS: readonly [string, (f: PortingFacts) => string][] = [
   // With the language rules rather than the hardware: a character the machine
   // has no glyph for is rejected when the program is read, not when it draws.
   ['Characters', fmtCharacters],
+  // The operator run. Three rows rather than one, and together rather than
+  // scattered, because they are read for the same reason: an expression that
+  // survives the port unchanged and quietly computes something else. Only the
+  // first of them fails loudly.
   ['Exponent operator', (f) => f.exponentOperator ?? 'None'],
+  ['Integer division and remainder', fmtIntegerArithmetic],
+  ['AND, OR and NOT', fmtLogicalOperators],
+  ['Comparisons yield', fmtComparisonTrue],
   ['Line numbers', (f) => f.lineNumberRange],
   ['Screen', (f) => f.screen],
   ['Colour', (f) => f.colour],

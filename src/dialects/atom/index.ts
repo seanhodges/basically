@@ -1,6 +1,6 @@
 import { hasFatalErrors, type Dialect, type TokenizeResult } from '../types';
 import { atomCharset } from './charset';
-import { atomKeywords } from './keywords';
+import { atomKeywords, atomOperators } from './keywords';
 import { atomVariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
@@ -39,6 +39,7 @@ export const atom: Dialect = {
   programRamBytes: TEXT_TOP - TEXT_START,
   fileExtensions: ['.txt', '.bas'],
   keywords: atomKeywords,
+  operators: atomOperators,
   charset: atomCharset,
   languageSupport: atomLanguageSupport,
   completionSource: atomCompletionSource,

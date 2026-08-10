@@ -20,6 +20,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Dialect } from '../dialects/types';
 import { dialects, getDialect } from '../dialects/registry';
+import { operatorSpellings } from '../dialects/operators';
+import { OPERATOR_PROBES } from '../dialects/operatorProbes';
 import type { PortingFacts } from './types';
 import { portingFacts } from './facts';
 
@@ -424,5 +426,61 @@ describe.each(PAIRS)('facts crosscheck: %s', (_id, facts, dialect) => {
       // The C64 region starts at 0x0800 but BASIC text begins at 0x0801.
       expect([start, start + 1]).toContain(parseAddr(facts.programStart!));
     }
+  });
+});
+
+/**
+ * The operator facts, pinned in both directions.
+ *
+ * Spellings go against the machine's own operator set: a fact naming an operator
+ * the dialect does not have is a spelling a porter would type and be rejected
+ * for, and an absent fact where the machine has one of the candidate spellings
+ * is the Atom bug - the guide said "None" for a machine that raises to a power
+ * perfectly well, which is advice to rewrite code that ran.
+ *
+ * Semantics go against `src/dialects/operatorProbes.ts`, whose expectations
+ * `operatorBattery.test.ts` reads off each booted machine. That closes the loop:
+ * facts ← probes ← the running ROM. `5 AND 3` and `(1=1)` are the two
+ * expressions involved, and both are in the probe programs for exactly this
+ * reason.
+ */
+describe('operator facts match the machine', () => {
+  /** Every spelling a machine might use for each operator fact. */
+  const CANDIDATES: Record<string, readonly string[]> = {
+    exponentOperator: ['^', '↑', '**'],
+    integerDivisionOperator: ['DIV', '\\'],
+    remainderOperator: ['MOD', '%'],
+    xorOperator: ['EOR', 'XOR', ':'],
+  };
+
+  it.each(PAIRS)('%s spells its operators the way it has them', (id, facts) => {
+    const has = operatorSpellings(getDialect(id));
+    for (const [field, candidates] of Object.entries(CANDIDATES)) {
+      const declared = facts[field as keyof PortingFacts] as string | undefined;
+      if (declared !== undefined) {
+        expect(
+          has,
+          `${id}: ${field} names ${declared}, which it lacks`,
+        ).toContain(declared);
+      } else {
+        const available = candidates.filter((c) => has.has(c));
+        expect(
+          available,
+          `${id}: ${field} is absent, but the machine has ${available.join(' ')}`,
+        ).toEqual([]);
+      }
+    }
+  });
+
+  it.each(PAIRS)('%s agrees with its own probe answers', (id, facts) => {
+    const probe = OPERATOR_PROBES.find((p) => p.dialects.includes(id));
+    expect(probe, `no operator probe covers ${id}`).toBeDefined();
+
+    // `5 AND 3`: 1 where AND combines bits, 5 where it picks an operand.
+    expect(facts.logicalOperators, `${id}: ANDV is ${probe!.expect.ANDV}`).toBe(
+      probe!.expect.ANDV === '1' ? 'bitwise' : 'value',
+    );
+
+    expect(String(facts.comparisonTrue), `${id}: TRU`).toBe(probe!.expect.TRU);
   });
 });

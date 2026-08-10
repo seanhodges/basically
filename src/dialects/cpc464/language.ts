@@ -15,6 +15,8 @@ export function cpcLanguageSupport(): Extension {
   // suffixes; hex literals are '&7F00' and binary '&X101'. '%'/'\' are not
   // graphics escapes here.
   return buildBasicLanguage(cpc464Keywords, cpcCompletionSource, {
+    // `↑` alongside the canonical `^`: the tokenizer takes either for 0xF8.
+    operators: ['↑'],
     suffixChars: '$%!',
     graphicsEscapes: false,
     hexPrefix: '&H?',

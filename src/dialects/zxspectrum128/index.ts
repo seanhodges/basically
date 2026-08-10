@@ -14,6 +14,7 @@ import { codeFilesToBlocks } from '../importBlocks';
 // bbcmaster reuses bbcmicro.
 import { spectrum128Charset } from './charset';
 import { spectrum128Keywords } from './keywords';
+import { spectrumOperators } from '../zxspectrum/keywords';
 import { spectrumVariableErrors } from '../../editor/variableLint';
 import { buildTap, parseTap, parseTapAllFiles } from './tapfile';
 import { tokenizeProgram } from './tokenizer';
@@ -64,6 +65,7 @@ export const zxspectrum128: Dialect = {
   memoryWrites: { forms: ['poke', 'load-code'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: spectrum128Keywords,
+  operators: spectrumOperators,
   charset: spectrum128Charset,
   languageSupport: spectrum128LanguageSupport,
   completionSource: spectrum128CompletionSource,

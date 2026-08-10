@@ -18,6 +18,7 @@ export const cpc6128CompletionSource: CompletionSource = buildCompletionSource(
 
 export function cpc6128LanguageSupport(): Extension {
   return buildBasicLanguage(cpc6128Keywords, cpc6128CompletionSource, {
+    operators: ['↑'],
     suffixChars: '$%!',
     graphicsEscapes: false,
     hexPrefix: '&H?',

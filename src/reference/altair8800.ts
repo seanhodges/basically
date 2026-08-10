@@ -556,5 +556,26 @@ export const altair8800Reference: BasicReferenceTableData = {
       description:
         'The substring starting at position n (counted from 1), of the given length or to the end. It is a function only - unlike later Microsoft BASICs it cannot be assigned to.',
     },
+    {
+      name: '<=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <= <number> | <string> <= <string>',
+      description: 'Less than or equal.',
+    },
+    {
+      name: '>=',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> >= <number> | <string> >= <string>',
+      description: 'Greater than or equal.',
+    },
+    {
+      name: '<>',
+      kind: 'operator',
+      domain: 'numeric',
+      syntax: '<number> <> <number> | <string> <> <string>',
+      description: 'Not equal.',
+    },
   ],
 };

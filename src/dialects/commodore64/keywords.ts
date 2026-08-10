@@ -132,6 +132,13 @@ export const c64KeywordAliases: C64Keyword[] = [
 ];
 
 /**
+ * The relational spellings Commodore BASIC has but does not tokenize: the ROM
+ * stores `<=` as the `<` and `=` tokens side by side, so there is no single
+ * entry for it above even though every Commodore accepts it.
+ */
+export const c64Operators = ['<=', '>=', '<>'] as const;
+
+/**
  * Keywords (canonical + aliases) sorted longest-spelling first, for greedy
  * left-to-right matching.
  */

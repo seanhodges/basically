@@ -1,7 +1,7 @@
 import type { Dialect, TokenizeError, TokenizeResult } from '../types';
 import { hasFatalErrors } from '../types';
 import { trs80Charset } from './charset';
-import { trs80Keywords } from './keywords';
+import { trs80Keywords, trs80Operators } from './keywords';
 import { trs80VariableErrors } from '../../editor/variableLint';
 import { tokenizeProgram } from './tokenizer';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
@@ -39,6 +39,7 @@ export const trs80: Dialect = {
   memoryBlocks: trs80MemoryBlocks,
   fileExtensions: ['.txt', '.bas'],
   keywords: trs80Keywords,
+  operators: trs80Operators,
   charset: trs80Charset,
   languageSupport: trs80LanguageSupport,
   completionSource: trs80CompletionSource,

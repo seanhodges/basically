@@ -196,14 +196,14 @@ export const zx81Keywords: KeywordInfo[] = [
     token: 0xd9,
     kind: 'operator',
     signature: 'a OR b',
-    doc: 'Logical or.',
+    doc: 'Value logic, not bitwise: 1 if b is non-zero, else a. 5 OR 3 is 1.',
   },
   {
     word: 'AND',
     token: 0xda,
     kind: 'operator',
     signature: 'a AND b',
-    doc: 'Logical and.',
+    doc: 'Value logic, not bitwise: a if b is non-zero, else 0. 5 AND 3 is 5.',
   },
   {
     word: '<=',
@@ -466,6 +466,14 @@ export const zx81Keywords: KeywordInfo[] = [
 ];
 
 /** Keywords sorted longest-first for greedy tokenizer matching. */
+/**
+ * Operators the ZX81 stores as character codes rather than tokens, so they are
+ * not in the table above (see charset.ts: `+` is 0x15, `<` is 0x13). The machine
+ * has them all the same, and the editor and the reference page both need to know
+ * it - see {@link import('../types').Dialect.operators}.
+ */
+export const zx81Operators = ['+', '-', '*', '/', '=', '<', '>'] as const;
+
 export const keywordsByLength: KeywordInfo[] = [...zx81Keywords].sort(
   (a, b) => b.word.length - a.word.length,
 );

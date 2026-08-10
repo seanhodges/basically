@@ -267,7 +267,19 @@ describe('what the port does not require stays out', () => {
       { from: c64.page, to: spectrum.page, equivalences: keywordEquivalences },
     );
     expect(diff.newlyAvailable.length).toBeGreaterThan(0);
-    const work = findings(report);
+    // Scanned over what the report *offers*, which is not the same as what it
+    // mentions. Two parts of it quote the target's own vocabulary while
+    // answering for a command the program does use: the guidance advice ("AT
+    // positions text by row and column" is what to write instead of a lost
+    // cursor command) and the usage section, which prints the target's argument
+    // shape verbatim - `PRINT [AT <row>, <col>;]…`. Neither offers AT.
+    const work = findings(report)
+      .split('\n\n')
+      .filter((block) => !block.startsWith('COMMANDS WHOSE USAGE DIFFERS'))
+      .join('\n\n')
+      .split('\n')
+      .filter((line) => !line.startsWith('  Instead: '))
+      .join('\n');
     const leaked = diff.newlyAvailable
       .map((e) => e.name)
       .filter((name) => mentions(work, name));

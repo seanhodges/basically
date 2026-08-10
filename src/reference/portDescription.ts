@@ -177,6 +177,22 @@ function describeLanguageRuleChanges(from: PortSide, to: PortSide): string {
         ],
     ],
     ['Exponent operator', (f) => f.exponentOperator ?? 'none'],
+    [
+      'Integer division and remainder',
+      (f) =>
+        [f.integerDivisionOperator, f.remainderOperator]
+          .filter(Boolean)
+          .join(' and ') || 'neither - use INT(a/b) and a-b*INT(a/b)',
+    ],
+    [
+      'AND, OR and NOT',
+      (f) =>
+        f.logicalOperators === 'bitwise'
+          ? 'bitwise on integers'
+          : 'value logic - A AND B is A or 0',
+    ],
+    ['Exclusive-OR', (f) => f.xorOperator ?? 'none'],
+    ['A true comparison', (f) => String(f.comparisonTrue)],
     ['Line numbers', (f) => f.lineNumberRange],
     ['Writing memory', (f) => f.memoryWriteSyntax],
   ];
