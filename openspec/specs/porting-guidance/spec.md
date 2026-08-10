@@ -1070,6 +1070,20 @@ point at which it calls it too large, SHALL be the same points at which the edit
 reports a program as close to or over its budget, so that one proportion of a
 machine's memory means one thing wherever the user meets it.
 
+Where the fit report calls the program close to the limit or over it, the
+comparison MAY additionally report target-side measures that would make room —
+each a fact pinned to the target machine, never an invitation to rewrite the
+program. First among them is conditionally free memory: where the target holds
+memory that hardware claims only for an optional feature, and the program's own
+text proves the feature unused, the comparison SHALL report that memory with its
+size and the condition that frees it, and SHALL pose the decision — place data
+and machine code there, or shorten the program. Where the condition is not met,
+or cannot be decided from the program's text, or the program is comfortably
+inside the budget, nothing SHALL be reported about such memory: a measure the
+program does not qualify for is not a measure, and a program under no pressure
+has no use for one. Doubt SHALL run toward not reporting the memory, as the
+lower-bound rule already runs it.
+
 Where there is no program to size — the comparison read on its own, nothing open,
 or a program that cannot be read — nothing SHALL be reported about fit.
 
@@ -1131,6 +1145,28 @@ or a program that cannot be read — nothing SHALL be reported about fit.
 
 - **WHEN** the target machine could store no part of the program
 - **THEN** nothing is reported about fit
+
+#### Scenario: A pressed program that stays in text mode
+
+- **WHEN** the fit report calls the program close to the target's limit or over
+  it, the target holds memory claimed only by a graphics feature, and every
+  screen mode the program selects leaves that feature unused
+- **THEN** the comparison reports that memory with its size and the condition
+  that frees it, and poses the decision between placing data there and
+  shortening the program
+
+#### Scenario: A pressed program that uses the feature
+
+- **WHEN** the fit report calls the program close to the limit or over it, and
+  the program selects a mode, computes a mode, or writes an address that means
+  the feature's memory cannot be proven free
+- **THEN** nothing is reported about that memory
+
+#### Scenario: A program under no fit pressure
+
+- **WHEN** the program fits the target with room to spare
+- **THEN** nothing is reported about conditionally free memory, however clearly
+  the program would qualify
 
 #### Scenario: Reading the comparison with no program
 
