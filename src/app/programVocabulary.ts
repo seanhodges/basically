@@ -30,6 +30,7 @@ import { makeCrunchMatcher } from '../editor/crunch';
 import { operatorSpellings } from '../dialects/operators';
 import {
   keywordSpellingsFor,
+  shortSpellingsFor,
   spellingAt,
   type SpellingUse,
 } from '../dialects/keywordSpellings';
@@ -153,6 +154,40 @@ export interface ProgramVocabulary {
    * out at runtime, and the guide draws it as an estimate.
    */
   writeSites: ProgramWriteSite[];
+  /**
+   * The screen modes the program selects, or null on a machine with no command
+   * for selecting one.
+   *
+   * The one thing a program's text says about which memory its machine's
+   * hardware actually claims: an Atom program that never leaves text mode
+   * reaches one kilobyte of the six the video RAM holds, and a BBC program that
+   * stays in MODE 7 never touches the twenty kilobytes below the teletext
+   * screen. Both the block linter and the porting guide's fit report decide a
+   * {@link ConditionalFreeRange} from this.
+   */
+  screenModes: ScreenModeUse | null;
+}
+
+/**
+ * What a program's text says about the screen modes it selects.
+ *
+ * `command` rides along because a vocabulary is read as one particular machine
+ * and may be judged against another's regions: a BBC `MODE 0` and an Atom
+ * `CLEAR 0` are both mode 0 and are opposite ends of their machines' graphics.
+ * A reader whose region names a different command cannot decide anything from
+ * these numbers and must say so rather than compare them.
+ */
+export interface ScreenModeUse {
+  /** The mode command, upper case, as the machine read spells it. */
+  command: string;
+  /** Modes selected with a constant argument, ascending and distinct. */
+  modes: number[];
+  /**
+   * True where the program selects a mode with a value its text does not fix -
+   * `MODE M`, `MODE 4+N`, or the keyword with no argument at all. Unknowable is
+   * not free, so a reader treats this exactly as it treats an offending mode.
+   */
+  computed: boolean;
 }
 
 /**
@@ -592,6 +627,91 @@ function lineNumbersIn(
 }
 
 /**
+ * A mode argument the program's text fixes: a decimal constant with nothing
+ * glued to it that would make it the first term of an expression.
+ *
+ * Decimal only. `MODE &07` is legal and vanishingly rare, and reading it would
+ * mean teaching this scan each machine's hex prefix to buy a case no listing
+ * writes; reported as computed, it costs a region left claimed, which is the
+ * direction doubt is meant to run here.
+ */
+const MODE_ARGUMENT = /^\s*(\d+)\s*/;
+
+/** Characters that make a matched constant the first term of an expression. */
+const ARGUMENT_CONTINUES = /[0-9A-Za-z_$%!#.+\-*/^&()<>=]/;
+
+/**
+ * The screen modes the program selects, or null on a machine with no command
+ * for selecting one.
+ *
+ * Over the same `scannable` bodies as everything else here, so a `MODE` inside
+ * a string literal or a REM tail selects nothing. Every selection whose value
+ * the text does not fix sets `computed` instead of contributing a number: a
+ * reader of this decides whether memory is free, and a mode it cannot name is
+ * not a mode it can rule out.
+ *
+ * The machine's own short spellings of the command count as the command. Every
+ * machine that has a mode command at all is an Acorn, which is to say every one
+ * of them takes a dotted prefix - so a listing reading `MO.1` or `C.4` selects
+ * a mode as surely as the spelled-out form, and a scan that only knew the long
+ * spelling would report the program as having stayed in the mode it booted in
+ * and offer memory the program had already claimed.
+ */
+function screenModesIn(source: string, dialect: Dialect): ScreenModeUse | null {
+  const command = dialect.memoryBlocks?.screenModeCommand;
+  if (command === undefined) return null;
+  const keyword = command.keyword.toUpperCase();
+  const spellings = [
+    keyword,
+    ...(shortSpellingsFor(dialect.id).get(keyword) ?? []),
+  ].map((s) => s.toUpperCase());
+  const modes = new Set<number>();
+  let computed = false;
+
+  for (const { body } of codeLines(source)) {
+    const code = scannable(body).toUpperCase();
+    for (const spelling of spellings) {
+      for (
+        let i = code.indexOf(spelling);
+        i !== -1;
+        i = code.indexOf(spelling, i + spelling.length)
+      ) {
+        const before = code[i - 1];
+        const after = code[i + spelling.length];
+        // Both these keywords begin and end with letters, so a match has to sit
+        // at a word boundary or `MODEL%` reports a mode. A digit against the
+        // keyword is the exception rather than a broken boundary: `MODE7` is how
+        // the listings are written. A dotted spelling ends at its own dot, so
+        // only its left edge can be glued to something.
+        const endsInDot = spelling.endsWith('.');
+        if (
+          isIdent(before) ||
+          (!endsInDot && isIdent(after) && !/\d/.test(after ?? ''))
+        ) {
+          continue;
+        }
+        const rest = code.slice(i + spelling.length);
+        const match = MODE_ARGUMENT.exec(rest);
+        const tail = match !== null ? rest[match[0].length] : undefined;
+        if (
+          match !== null &&
+          !(tail !== undefined && ARGUMENT_CONTINUES.test(tail))
+        ) {
+          modes.add(parseInt(match[1]!, 10));
+        } else {
+          computed = true;
+        }
+      }
+    }
+  }
+  return {
+    command: keyword,
+    modes: [...modes].sort((a, b) => a - b),
+    computed,
+  };
+}
+
+/**
  * The addresses the program writes to, as plain data for the wire.
  *
  * `lineNo` is dropped: the guide has no editor to point a line number at, and
@@ -643,6 +763,7 @@ export function programVocabulary(
     extraStatements: layout.extraStatements,
     lineNumbers: lineNumbersIn(source),
     writeSites: writeSitesIn(source, dialect),
+    screenModes: screenModesIn(source, dialect),
   };
 }
 
@@ -704,6 +825,8 @@ export interface ProgramVocabularyReply {
   extraStatements: number;
   lineNumbers: { lowest: number; highest: number; count: number } | null;
   writeSites: ProgramWriteSite[];
+  /** Null on a machine with no command for selecting a screen mode. */
+  screenModes: ScreenModeUse | null;
   /** Null where the request named no target, or named one this build lacks. */
   targetSize: ProgramSize | null;
 }
@@ -760,6 +883,7 @@ export function vocabularyReply(
     extraStatements: vocab.extraStatements,
     lineNumbers: vocab.lineNumbers,
     writeSites: vocab.writeSites,
+    screenModes: vocab.screenModes,
     // Sized even when the program is unreadable as the *source* machine's BASIC:
     // the two are separate questions, and the guide decides for itself what to
     // show for a status it is not narrowing by.

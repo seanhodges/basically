@@ -27,6 +27,7 @@ import {
   falseFriendsForProgram,
   lineNumbersForProgram,
   noticeState,
+  conditionallyFreeForProgram,
   programFitForTarget,
   shortSpellingsForFit,
   spellingExpansionsForProgram,
@@ -505,14 +506,17 @@ const fitText = computed(() => {
 /**
  * The program's spellings this target does not read, as work to do.
  *
- * Narrowed by definition - it is a fact about the open program - so it follows
- * `narrowingBy` rather than the vocabulary directly, and disappears with the
- * rest of the program findings when there is nothing open.
+ * `vocabulary`, not `narrowingBy`, for the reason the fit report and the
+ * conditionally-free regions read the same way: which spellings a listing uses
+ * is a statement about the reader's own program rather than a difference
+ * between two machines, so the "show every difference" control has nothing to
+ * reveal here - and reading it through the narrowing would make a real piece of
+ * work vanish the moment the reader asked to see more.
  */
 const expansions = computed(() => {
   const t = target.value?.facts;
-  const v = narrowingBy.value;
-  if (!t || !v) return [];
+  const v = vocabulary.value;
+  if (!t || !v || notice.value.kind !== 'narrowed') return [];
   return spellingExpansionsForProgram(t, v);
 });
 
@@ -524,6 +528,9 @@ const expansions = computed(() => {
  * stores a token per keyword this is never shown, whatever the fit. Worded as a
  * decision and as something to reach for once the port runs, because a program
  * abbreviated before it works is a program that is harder to fix.
+ *
+ * It sits beside the conditionally-free regions under the same gate and for the
+ * same reason: both are ways to make room, offered only once room is short.
  */
 const fitSpellings = computed(() => {
   const t = target.value?.facts;
@@ -534,11 +541,41 @@ const fitSpellings = computed(() => {
   const example = measure.style === 'dot' ? 'P. for PRINT' : 'pO for POKE';
   return (
     `A ${name} stores a program as it is typed, so its own short spellings ` +
-    `(${example}) are fewer bytes every time they appear. Either abbreviate ` +
+    `(${example}) are fewer bytes every time they appear. Decide: abbreviate ` +
     `once the port runs, or shorten the program another way — whichever ` +
     `leaves it readable.`
   );
 });
+
+/**
+ * Memory the target holds beyond its program area that this program may take.
+ *
+ * Gated inside `conditionallyFreeForProgram` on the fit report already calling
+ * the program close to the limit or over it, which is what squares the finding
+ * with the rule that this page never advertises what the target adds: under
+ * pressure the memory is part of the answer to "does it fit", and with room to
+ * spare it is a feature nobody asked about.
+ */
+const conditionallyFree = computed(() => {
+  const t = target.value?.facts;
+  const v = vocabulary.value;
+  // `vocabulary`, not `narrowingBy`, for the reason the fit report reads the
+  // same way: this is a statement about the reader's own program, so the "show
+  // every difference" control has nothing to reveal here. `programFit` is null
+  // outside the narrowed state, which is what keeps that honest.
+  if (!t || !v) return [];
+  return conditionallyFreeForProgram(t, v, programFit.value);
+});
+
+/** A region's bounds in the target machine's own notation. */
+function regionBounds(region: { start: number; end: number }): string {
+  const facts = target.value?.facts;
+  const fmt = (a: number) =>
+    facts?.addressNotation === 'hex'
+      ? `${facts.hexPrefix ?? '&'}${a.toString(16).toUpperCase().padStart(4, '0')}`
+      : `${a}`;
+  return `${fmt(region.start)}-${fmt(region.end)}`;
+}
 
 /**
  * The caveat under the figure, where there is one to make. Only the lower-bound
@@ -1271,6 +1308,22 @@ function onVocabularyMessage(e: MessageEvent) {
           }
         : null,
     writeSites: Array.isArray(data.writeSites) ? data.writeSites : [],
+    // Null means the machine the program was read as has no command for
+    // selecting a screen mode - so nothing in the program selects one on the
+    // target either, and the target's boot mode decides. Most source machines
+    // are that machine, which is why the absent case is not read as "unknown":
+    // an older app answering without the field would otherwise take the
+    // finding away from every port that most needs it.
+    screenModes:
+      data.screenModes && typeof data.screenModes === 'object'
+        ? {
+            command: String(data.screenModes.command ?? ''),
+            modes: Array.isArray(data.screenModes.modes)
+              ? data.screenModes.modes
+              : [],
+            computed: data.screenModes.computed === true,
+          }
+        : null,
   };
   // Carried beside the vocabulary rather than inside it: it describes the
   // machine being ported *to*, while everything above describes the program in
@@ -2207,11 +2260,40 @@ watch(to, requestVocabulary);
           {{ fitText.detail }}
         </p>
         <p class="cmp-hint" v-if="fitCaveat">{{ fitCaveat }}</p>
-        <p class="cmp-fit" v-if="fitSpellings">{{ fitSpellings }}</p>
         <p class="cmp-hint">
           The program area only — variables, arrays and strings claim their room
           when the program runs.
         </p>
+        <!--
+          Inside the fit block and nowhere else: this memory is reported only
+          because the program is pressed against the target's limit, which is
+          what makes it part of the answer to "does it fit" rather than an
+          advertisement for what the target adds.
+        -->
+        <template v-if="conditionallyFree.length > 0">
+          <p
+            v-for="region in conditionallyFree"
+            :key="region.start"
+            class="cmp-fit"
+          >
+            <strong
+              >{{ region.bytes.toLocaleString('en-GB') }} bytes more</strong
+            >
+            at {{ regionBounds(region) }} — {{ region.note }}, free while
+            {{ region.conditionText }}. This program's text meets that condition
+            as written.
+          </p>
+          <p class="cmp-hint">
+            Decide: put this program's data and machine code there, keeping the
+            condition true, or shorten the program instead.
+          </p>
+        </template>
+        <!--
+          The other way to make room, under the same gate and last of the two:
+          more memory is a better answer than fewer characters, and this one
+          costs the listing some of its readability.
+        -->
+        <p class="cmp-fit" v-if="fitSpellings">{{ fitSpellings }}</p>
       </section>
     </template>
   </div>

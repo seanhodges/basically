@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  ConditionalFreeMemory,
   EscapeTableData,
   FalseFriend,
   KeywordEquivalence,
@@ -17,11 +18,13 @@ import {
   diffEscapes,
   diffForProgram,
   diffKeywords,
+  conditionallyFreeForProgram,
   escapeDiffForProgram,
   escapeSections,
   escapeTableForMachine,
   falseFriendsBetween,
   falseFriendsForProgram,
+  fitIsPressed,
   groupByDomain,
   lineNumbersForProgram,
   noticeState,
@@ -1187,6 +1190,7 @@ function vocab(
     divides?: boolean;
     fractionalLiteral?: boolean;
     spellings?: ProgramVocabulary['spellings'];
+    screenModes?: ProgramVocabulary['screenModes'];
   } = {},
 ): ProgramVocabulary {
   return {
@@ -1202,6 +1206,7 @@ function vocab(
     extraStatements: rest.extraStatements ?? 0,
     lineNumbers: rest.lineNumbers ?? null,
     writeSites,
+    screenModes: rest.screenModes ?? null,
   };
 }
 
@@ -1989,6 +1994,135 @@ describe('programFitForTarget', () => {
   });
 });
 
+describe('conditionallyFreeForProgram', () => {
+  // The Atom's, restated as the facts carry it: five kilobytes of video RAM
+  // above the text screen, free while every CLEAR selects mode 0.
+  const VIDEO_RAM: ConditionalFreeMemory = {
+    start: 0x8400,
+    end: 0x97ff,
+    bytes: 5120,
+    condition: {
+      kind: 'screen-modes',
+      command: 'CLEAR',
+      bootMode: 0,
+      modes: [0],
+    },
+    conditionText: 'the program stays in text mode (CLEAR 0)',
+    note: 'the video RAM the graphics modes CLEAR 1-CLEAR 4 draw into',
+  };
+  const atom = {
+    id: 'atom',
+    freeRamBytes: 4864,
+    conditionallyFree: [VIDEO_RAM],
+  } as PortingFacts;
+  const fit = (bytes: number, clean = true) =>
+    programFitForTarget(atom, { dialectId: 'atom', bytes, clean });
+  const PRESSED = 4500;
+  const COMFORTABLE = 1000;
+
+  const modes = (
+    screenModes: ProgramVocabulary['screenModes'],
+    writeSites: ProgramVocabulary['writeSites'] = [],
+  ) => vocab(['PRINT'], [], 'atom', [], [], writeSites, { screenModes });
+  const textMode = modes({ command: 'CLEAR', modes: [0], computed: false });
+
+  it('reports the memory for a pressed program that stays in text mode', () => {
+    expect(conditionallyFreeForProgram(atom, textMode, fit(PRESSED))).toEqual([
+      VIDEO_RAM,
+    ]);
+  });
+
+  it('reports it for a program already over the budget', () => {
+    expect(conditionallyFreeForProgram(atom, textMode, fit(9000))).toEqual([
+      VIDEO_RAM,
+    ]);
+  });
+
+  // Memory the target can free is a target addition; only fit pressure makes it
+  // part of the answer to "does it fit", which is the only question that makes
+  // it the program's business.
+  it('reports nothing for a program with room to spare', () => {
+    expect(
+      conditionallyFreeForProgram(atom, textMode, fit(COMFORTABLE)),
+    ).toEqual([]);
+  });
+
+  it('reports nothing where there is no fit report at all', () => {
+    expect(conditionallyFreeForProgram(atom, textMode, null)).toEqual([]);
+  });
+
+  it('reports nothing for a lower bound still under the budget', () => {
+    // `at-least` says neither close to the limit nor over it. A lower bound that
+    // *is* over comes through as `over` and is reported above.
+    expect(
+      conditionallyFreeForProgram(atom, textMode, fit(PRESSED, false)),
+    ).toEqual([]);
+  });
+
+  it('reports nothing once the program selects a mode that claims it', () => {
+    const graphics = modes({
+      command: 'CLEAR',
+      modes: [0, 4],
+      computed: false,
+    });
+    expect(conditionallyFreeForProgram(atom, graphics, fit(PRESSED))).toEqual(
+      [],
+    );
+  });
+
+  it('reports nothing for a mode the program computes', () => {
+    const computed = modes({ command: 'CLEAR', modes: [], computed: true });
+    expect(conditionallyFreeForProgram(atom, computed, fit(PRESSED))).toEqual(
+      [],
+    );
+  });
+
+  it('reports nothing when the program writes inside the region', () => {
+    // The loophole the write check closes: a program that names no mode at all
+    // and pokes the video RAM directly.
+    const poking = modes({ command: 'CLEAR', modes: [0], computed: false }, [
+      { address: 0x8500, expr: '#8500', computed: false, approximate: false },
+    ]);
+    expect(conditionallyFreeForProgram(atom, poking, fit(PRESSED))).toEqual([]);
+  });
+
+  it('treats a program that selects no mode as being in the boot mode', () => {
+    const none = modes({ command: 'CLEAR', modes: [], computed: false });
+    expect(conditionallyFreeForProgram(atom, none, fit(PRESSED))).toEqual([
+      VIDEO_RAM,
+    ]);
+  });
+
+  it('treats a source machine with no mode command the same way', () => {
+    expect(
+      conditionallyFreeForProgram(atom, modes(null), fit(PRESSED)),
+    ).toEqual([VIDEO_RAM]);
+  });
+
+  // Mode numbers are not portable: a BBC MODE 0 is the 20K bitmap and an Atom
+  // CLEAR 0 is the text screen. A vocabulary read with another machine's command
+  // cannot decide this condition, so it decides nothing.
+  it('declines to decide from another machine mode command', () => {
+    const bbc = modes({ command: 'MODE', modes: [0], computed: false });
+    expect(conditionallyFreeForProgram(atom, bbc, fit(PRESSED))).toEqual([]);
+  });
+
+  it('reports nothing for a target that declares no such memory', () => {
+    const vic = { id: 'vic20', freeRamBytes: 3583 } as PortingFacts;
+    expect(
+      conditionallyFreeForProgram(
+        vic,
+        textMode,
+        programFitForTarget(vic, {
+          dialectId: 'vic20',
+          bytes: 3400,
+          clean: true,
+        }),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('noticeState', () => {
   const READY = vocab(['PRINT'], [], 'zx81');
   const base = {
@@ -2070,6 +2204,50 @@ describe('noticeState', () => {
         expect(state.offerControl).toBe(false);
       }
     }
+  });
+});
+
+describe('a short spelling counts as the command it stands for', () => {
+  // The seam between the two fit measures: the vocabulary resolves an
+  // abbreviated keyword to the command it means, so a condition asked about
+  // that command answers the same whichever way the program spelled it. A
+  // resolution that stopped happening would show up here as memory offered to a
+  // program that had already claimed it.
+  const REGION: ConditionalFreeMemory = {
+    start: 0x8400,
+    end: 0x97ff,
+    bytes: 5120,
+    condition: { kind: 'without-keywords', keywords: ['PLOT'] },
+    conditionText: 'the program draws nothing',
+    note: 'the video RAM',
+  };
+  const machine = {
+    id: 'm',
+    freeRamBytes: 4864,
+    conditionallyFree: [REGION],
+  } as PortingFacts;
+  const pressed = programFitForTarget(machine, {
+    dialectId: 'm',
+    bytes: 4500,
+    clean: true,
+  });
+
+  it('withholds the memory from a program that plots by abbreviation', () => {
+    // `PL.` is PLOT: the vocabulary resolves it and PLOT joins the keywords, so
+    // the condition is unmet exactly as it is for the spelled-out form.
+    const spelled = vocab(['PLOT'], [], 'bbcmicro');
+    const short = vocab(['PLOT'], [], 'bbcmicro', [], [], [], {
+      spellings: [{ spelling: 'PL.', keyword: 'PLOT' }],
+    });
+    expect(conditionallyFreeForProgram(machine, spelled, pressed)).toEqual([]);
+    expect(conditionallyFreeForProgram(machine, short, pressed)).toEqual([]);
+  });
+
+  it('offers it to a program that plots nowhere', () => {
+    const none = vocab(['PRINT'], [], 'bbcmicro');
+    expect(conditionallyFreeForProgram(machine, none, pressed)).toEqual([
+      REGION,
+    ]);
   });
 });
 
@@ -2176,6 +2354,33 @@ describe('shortSpellingsForFit', () => {
         fit({ verdict: 'fits', severity: 'ok', percent: 20 }),
       ),
     ).toBeNull();
+  });
+
+  it('treats a lower bound as no pressure, as the other measure does', () => {
+    // `at-least` says neither that the program is close to the limit nor that
+    // it is over; a lower bound that *is* over comes back as `over`.
+    expect(
+      shortSpellingsForFit(machine(true), fit({ verdict: 'at-least' })),
+    ).toBeNull();
+  });
+
+  it('appears under exactly the pressure the conditionally-free memory does', () => {
+    // The two are both answers to "it does not fit", so a reader must never be
+    // offered one and not the other. One predicate, pinned across every verdict.
+    const verdicts: ProgramFit['verdict'][] = [
+      'fits',
+      'tight',
+      'over',
+      'at-least',
+    ];
+    for (const verdict of verdicts) {
+      const f = fit({ verdict, severity: verdict === 'fits' ? 'ok' : 'crit' });
+      expect(
+        shortSpellingsForFit(machine(true), f) !== null,
+        `${verdict}: the two fit measures disagree`,
+      ).toBe(fitIsPressed(f));
+    }
+    expect(fitIsPressed(null)).toBe(false);
   });
 
   it('never offers it on a machine whose stored program is the same size', () => {

@@ -21,6 +21,7 @@
 import {
   capabilitySections,
   composeGuidance,
+  conditionallyFreeForProgram,
   diffEscapes,
   diffForProgram,
   diffKeywords,
@@ -29,6 +30,7 @@ import {
   escapeTableForMachine,
   falseFriendsForProgram,
   lineNumbersForProgram,
+  programFitForTarget,
   spellingExpansionsForProgram,
   statementLayoutForProgram,
   tableForMachine,
@@ -43,6 +45,7 @@ import {
   type KeywordRename,
   type LineNumberChange,
   type PairGuidance,
+  type ProgramSize,
   type ProgramVocabulary,
   type SpellingExpansion,
   type StatementLayoutChange,
@@ -61,6 +64,7 @@ import { portingFacts } from './facts';
 import { DOMAIN_TITLES, type MachineIdentity } from './machineDescription';
 import { falseFriends, keywordEquivalences, pairPortingNotes } from './porting';
 import type {
+  ConditionalFreeMemory,
   EscapeTableData,
   PortingFacts,
   ReferenceEntry,
@@ -565,6 +569,46 @@ function describeWriteLandings(
   return `WHERE THIS PROGRAM'S WRITES LAND ON THE ${to.name.toUpperCase()}\n${lines.join('\n')}`;
 }
 
+/** An address in the target machine's own notation: `&3000`, `#8400`, `53280`. */
+function address(value: number, facts: PortingFacts | undefined): string {
+  if (facts?.addressNotation !== 'hex') return `${value}`;
+  return `${facts.hexPrefix ?? '&'}${value.toString(16).toUpperCase().padStart(4, '0')}`;
+}
+
+/**
+ * Memory the target holds that this program's own text proves free, and the
+ * decision it puts to the reader.
+ *
+ * Only reached under fit pressure - {@link conditionallyFreeForProgram} is what
+ * enforces that - so this is never the comparison advertising what the target
+ * adds. It is part of the answer to "will this fit", which is a question about
+ * the program.
+ *
+ * The `Decide:` line is the point of the section. The alternatives are real and
+ * the choice is not this document's to make: memory that only exists while the
+ * program stays out of the graphics modes is worth having or it is not,
+ * depending on what the port is for, and the assistant is asked to settle that
+ * from what the program does rather than to be told which way to go.
+ */
+function describeConditionallyFreeMemory(
+  regions: ConditionalFreeMemory[],
+  facts: PortingFacts | undefined,
+  to: PortSide,
+): string {
+  if (regions.length === 0) return '';
+  const lines = regions.map(
+    (region) =>
+      `- ${address(region.start, facts)}-${address(region.end, facts)}: ` +
+      `${region.bytes.toLocaleString('en-GB')} bytes of ${region.note}, free while ${region.conditionText}. ` +
+      `This program's text meets that condition as written.`,
+  );
+  return [
+    `MEMORY THE ${to.name.toUpperCase()} HOLDS BEYOND THE PROGRAM AREA`,
+    ...lines,
+    `- Decide: put this program's data and machine code there, keeping the condition true, or shorten the program instead.`,
+  ].join('\n');
+}
+
 /**
  * What this port requires, as the assistant is told it.
  *
@@ -583,6 +627,7 @@ export function describePort(
   from: PortSide,
   to: PortSide,
   vocabulary: ProgramVocabulary,
+  size: ProgramSize | null = null,
 ): string {
   const sourceTable = tableForMachine(from.table, from.id);
   const targetTable = tableForMachine(to.table, to.id);
@@ -651,6 +696,16 @@ export function describePort(
     targetFacts !== undefined
       ? spellingExpansionsForProgram(targetFacts, vocabulary)
       : [];
+  // Gated inside `conditionallyFreeForProgram`: no size means no fit report,
+  // which means no pressure, which means nothing to report here.
+  const conditionallyFree =
+    targetFacts !== undefined
+      ? conditionallyFreeForProgram(
+          targetFacts,
+          vocabulary,
+          programFitForTarget(targetFacts, size),
+        )
+      : [];
 
   const header = describeHeader(from, to);
   const findings = [
@@ -686,6 +741,10 @@ export function describePort(
     describeCharactersToReplace(characters, to),
     describeStatementLayout(layout, to),
     describeLineNumbers(lineNumbers, to),
+    // Last: it is the only section that hands back room rather than asking for
+    // work, and it is read against everything above it - the lines the port has
+    // to grow are what put the program under the pressure that reports it.
+    describeConditionallyFreeMemory(conditionallyFree, targetFacts, to),
   ].filter((s) => s !== '');
 
   // An empty comparison is a finding, not an absence: without this line the

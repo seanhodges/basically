@@ -162,7 +162,23 @@ describe('vocabularyReply', () => {
       extraStatements: 1,
       lineNumbers: { lowest: 10, highest: 10, count: 1 },
       writeSites: [],
+      screenModes: null,
       targetSize: null,
+    });
+  });
+
+  it('reports the screen modes a program selects on a machine that has them', () => {
+    // What decides whether the target's conditionally free memory is free. Null
+    // above for a C64, which selects no modes; a BBC program says which it does.
+    const reply = vocabularyReply(
+      '10 MODE 7',
+      getDialect('bbcmicro'),
+      'bbcmicro',
+    );
+    expect(reply.screenModes).toEqual({
+      command: 'MODE',
+      modes: [7],
+      computed: false,
     });
   });
 

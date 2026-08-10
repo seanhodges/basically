@@ -385,6 +385,46 @@ export interface AbbreviatedEntry {
 }
 
 /**
+ * What a program's text has to show for a {@link ConditionalFreeMemory} region
+ * to be free, restated for this side of the boundary.
+ *
+ * The mode command and the boot mode ride inside the condition rather than
+ * beside it because the docs side has no machine to ask: a comparison holds
+ * facts and a vocabulary, and the vocabulary names the command it was read
+ * with. Where the two commands differ the condition is undecidable and the
+ * region stays claimed - a BBC `MODE 0` and an Atom `CLEAR 0` are both mode 0
+ * and are opposite ends of their machines' graphics.
+ */
+export type ConditionalFreeCondition =
+  | { kind: 'screen-modes'; command: string; bootMode: number; modes: number[] }
+  | { kind: 'without-keywords'; keywords: string[] };
+
+/**
+ * Memory a machine's hardware claims only while the program uses an optional
+ * feature, restated from the dialect's own declaration.
+ *
+ * Two sources of truth, deliberately: this side of the app never imports
+ * dialect code, so the figures are written out here and pinned byte for byte -
+ * bounds, size, condition and wording - to `memoryBlocks.conditionallyFree` by
+ * facts-crosscheck.test.ts. The same arrangement `freeRamBytes` already lives
+ * under.
+ */
+export interface ConditionalFreeMemory {
+  /** Inclusive first address of the region. */
+  start: number;
+  /** Inclusive last address of the region. */
+  end: number;
+  /** How much memory it is, which is what the fit report reports. */
+  bytes: number;
+  /** What the program's text must show. */
+  condition: ConditionalFreeCondition;
+  /** The condition in words, phrased to follow "free while". */
+  conditionText: string;
+  /** What claims the region when the condition does not hold. */
+  note: string;
+}
+
+/**
  * The language-rule and hardware facts a porter needs to compare, one entry per
  * dialect reference page. Split into two classes for the crosscheck test
  * (facts-crosscheck.test.ts):
@@ -553,6 +593,18 @@ export interface PortingFacts {
   programStart?: string;
   /** Free RAM for a BASIC program, in bytes (← Dialect.programRamBytes). */
   freeRamBytes: number;
+  /**
+   * Memory this machine claims only for an optional feature, which a program
+   * whose own text proves the feature unused may take (←
+   * memoryBlocks.conditionallyFree). Absent on every machine holding no region
+   * whose condition a program's text can decide - which is most of them, and by
+   * design: a condition the comparison cannot check is one it refuses to make.
+   *
+   * Never part of {@link freeRamBytes}. That figure is the boot state, and it
+   * stays the boot state everywhere it is shown; this is reported separately and
+   * only where the program is under fit pressure.
+   */
+  conditionallyFree?: ConditionalFreeMemory[];
   /** Colour capability summary. */
   colour: string;
   /** Sound capability summary. */

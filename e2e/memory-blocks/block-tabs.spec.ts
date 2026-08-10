@@ -1,6 +1,6 @@
 // Capability: memory-blocks — openspec/specs/memory-blocks/spec.md
 import { test, expect, type Page } from '../fixtures';
-import { addMemoryBlock } from '../helpers';
+import { addMemoryBlock, playAndWaitRunning } from '../helpers';
 
 /**
  * Block creation, settings and deletion from the editor tab strip:
@@ -134,6 +134,50 @@ test('Delete asks to confirm; Delete removes the block, Cancel keeps it', async 
     'aria-selected',
     'true',
   );
+});
+
+/**
+ * Whether the Atom's video RAM is free depends on the program, and only the
+ * running app puts the two together: the Run gate reads the open program's text
+ * and hands it to the block linter. The unit tests pin the linter's verdicts
+ * (`src/app/blockLint.test.ts`) and the declared region
+ * (`src/dialects/atom/memoryBlocks.test.ts`); what no unit test can prove is
+ * that the gate asks at all. Both halves ride one page load - the refusal
+ * never boots a machine, so only the accepted run pays for one.
+ */
+test('a block in the Atom video RAM runs while the program stays in text mode', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('mbide.dialectId', 'atom');
+    localStorage.setItem('mbide.autosave.doc', '10 CLEAR 4');
+    localStorage.setItem('mbide.autosave.name', 'video.bas');
+  });
+  await page.goto('/');
+  await expect(page.locator('.cm-content').first()).toBeVisible();
+
+  await addMemoryBlock(page);
+  await page.getByRole('tab', { name: 'block1' }).click({ button: 'right' });
+  await tabMenu(page).getByRole('menuitem', { name: 'Settings…' }).click();
+  await page.getByLabel('Load address').fill('$8400');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('ORG $8400')).toBeVisible();
+
+  // CLEAR 4 draws into the video RAM, so the placement is refused - and the
+  // refusal says what would make it legal rather than only that it is not.
+  await page.getByRole('button', { name: '▶ Play' }).click();
+  await expect(
+    page.getByText(/free only while the program stays in text mode/),
+  ).toBeVisible();
+
+  // Back to text mode and the same block is accepted: the machine boots and
+  // runs with a block the linter refused a moment ago.
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+  const basic = page.locator('.cm-content').first();
+  await basic.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.insertText('10 CLEAR 0');
+  await playAndWaitRunning(page);
 });
 
 test('the BASIC tab context menu downloads the .bas listing', async ({

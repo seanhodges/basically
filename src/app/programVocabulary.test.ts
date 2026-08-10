@@ -25,6 +25,7 @@ describe('programVocabulary - keywords', () => {
       extraStatements: 2,
       lineNumbers: { lowest: 10, highest: 10, count: 1 },
       writeSites: [],
+      screenModes: null,
     });
   });
 
@@ -444,6 +445,95 @@ describe('programVocabulary - fractional arithmetic', () => {
   });
 });
 
+describe('programVocabulary - screen modes', () => {
+  const atom = getDialect('atom');
+
+  it('collects the modes selected with a constant argument', () => {
+    expect(programVocabulary('10 MODE 7\n20 MODE 1', bbc).screenModes).toEqual({
+      command: 'MODE',
+      modes: [1, 7],
+      computed: false,
+    });
+  });
+
+  // The BBC's own listings write it glued to its argument, which is not a
+  // broken word boundary but the way the machine's editor accepts it.
+  it('reads a mode glued to its keyword', () => {
+    expect(programVocabulary('10 MODE7', bbc).screenModes?.modes).toEqual([7]);
+  });
+
+  // Every machine with a mode command is an Acorn, so every one of them takes
+  // the dotted spelling too. A scan blind to it would report the program as
+  // having stayed in the mode it booted in - and the porting guide would offer
+  // memory this program has already claimed.
+  it('reads a mode selected through the machine’s short spelling', () => {
+    expect(programVocabulary('10 MO.1', bbc).screenModes?.modes).toEqual([1]);
+    expect(programVocabulary('10 C.4', atom).screenModes?.modes).toEqual([4]);
+  });
+
+  it('does not read a short spelling glued to a longer name', () => {
+    expect(programVocabulary('10 XMO.1', bbc).screenModes?.modes).toEqual([]);
+    expect(
+      programVocabulary('10 PRINT "MO.1"', bbc).screenModes?.modes,
+    ).toEqual([]);
+  });
+
+  it('marks a short spelling with a computed argument as computed', () => {
+    expect(programVocabulary('10 MO.X', bbc).screenModes?.computed).toBe(true);
+  });
+
+  it('reads the Atom mode command, which is CLEAR', () => {
+    expect(programVocabulary('10 CLEAR 0', atom).screenModes).toEqual({
+      command: 'CLEAR',
+      modes: [0],
+      computed: false,
+    });
+  });
+
+  it('flags a mode the text does not fix rather than guessing one', () => {
+    // Each of these is a mode this scan cannot name, and a reader of it decides
+    // whether memory is free: an unnamed mode is not a mode that can be ruled
+    // out.
+    expect(programVocabulary('10 MODE M', bbc).screenModes).toEqual({
+      command: 'MODE',
+      modes: [],
+      computed: true,
+    });
+    expect(programVocabulary('10 MODE 4+N', bbc).screenModes?.computed).toBe(
+      true,
+    );
+    expect(programVocabulary('10 MODE &07', bbc).screenModes?.computed).toBe(
+      true,
+    );
+  });
+
+  it('keeps the constants it did read alongside the flag', () => {
+    const modes = programVocabulary('10 MODE 7\n20 MODE M', bbc).screenModes;
+    expect(modes).toEqual({ command: 'MODE', modes: [7], computed: true });
+  });
+
+  it('selects nothing from a string literal or a REM tail', () => {
+    expect(
+      programVocabulary('10 PRINT "MODE 1"\n20 REM MODE 2', bbc).screenModes,
+    ).toEqual({ command: 'MODE', modes: [], computed: false });
+  });
+
+  it('is not fooled by a variable the keyword starts', () => {
+    expect(programVocabulary('10 MODEL%=2', bbc).screenModes).toEqual({
+      command: 'MODE',
+      modes: [],
+      computed: false,
+    });
+  });
+
+  it('reports nothing on a machine with no mode command', () => {
+    expect(programVocabulary('10 POKE 53272,23', c64).screenModes).toBe(null);
+    expect(programVocabulary('10 POKE 23606,0', spectrum).screenModes).toBe(
+      null,
+    );
+  });
+});
+
 describe('programVocabulary - no program', () => {
   it('is empty for an empty program', () => {
     expect(programVocabulary('', c64)).toEqual({
@@ -459,6 +549,7 @@ describe('programVocabulary - no program', () => {
       extraStatements: 0,
       lineNumbers: null,
       writeSites: [],
+      screenModes: null,
     });
   });
 
