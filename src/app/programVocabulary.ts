@@ -87,6 +87,22 @@ export interface ProgramVocabulary {
   divides: boolean;
   fractionalLiteral: boolean;
   /**
+   * Distinct whole-number values in the program's code at or above
+   * {@link LARGE_NUMBER_FLOOR}, ascending.
+   *
+   * What one integer machine holds and a narrower one does not: the porting
+   * guide checks these against the target's own range, so a program moving from
+   * the Atom's 32-bit integers to the ZX80's 16-bit ones is told which of its
+   * own values do not arrive. Magnitudes, because a leading `-` is an operator
+   * rather than part of the literal and every integer range here reaches at
+   * least as far below zero as above it.
+   *
+   * Read from the same scannable text as everything else, so a number inside a
+   * string or a REM contributes nothing; decimal only, and never part of a
+   * fractional literal or a hex one.
+   */
+  largeNumbers: number[];
+  /**
    * Distinct control-code bytes used inside string literals. Bytes rather than
    * spellings: a spelling match would have to reconcile aliases (`{wht}` with
    * the canonical `{white}`), operand-carrying forms (`{INK 2}` with `{INK n}`)
@@ -471,6 +487,46 @@ function fractionalArithmeticIn(source: string): {
   return { divides, fractionalLiteral };
 }
 
+/**
+ * The smallest magnitude any registered integer-only machine cannot hold, and
+ * so the smallest value worth recording in {@link ProgramVocabulary.largeNumbers}.
+ *
+ * The ZX80's ceiling plus one. A value below this fits every integer machine
+ * here, so collecting it would put every loop counter in the program on the
+ * wire for a finding that could never name it. `programVocabulary.test.ts`
+ * fails if a machine registers whose range stops lower, which is the moment
+ * this bound needs rethinking rather than a place for it to be quietly wrong.
+ */
+export const LARGE_NUMBER_FLOOR = 32768;
+
+/**
+ * A decimal whole number, with nothing against it that would make it something
+ * else: no digit or point before or after it, and no hex prefix or identifier
+ * character on its left. `&3000`, `#8400`, `&H8000`, `1.5` and the `8` of `A8`
+ * are all excluded by those edges.
+ */
+const WHOLE_NUMBER = /(?:^|[^0-9A-Za-z_.&#$])(\d+)(?![0-9.])/g;
+
+/**
+ * The distinct whole-number values in the program's code the narrowest integer
+ * machine here could not hold.
+ *
+ * Literals only, never evaluated expressions: what a calculation reaches cannot
+ * be known without running the program, and the range finding poses that as a
+ * decision rather than pretending to have computed it.
+ */
+function largeNumbersIn(source: string): Set<number> {
+  const found = new Set<number>();
+  for (const { body } of codeLines(source)) {
+    const code = scannable(body);
+    for (const match of code.matchAll(WHOLE_NUMBER)) {
+      const value = parseInt(match[1]!, 10);
+      if (value >= LARGE_NUMBER_FLOOR) found.add(value);
+    }
+  }
+  return found;
+}
+
 /** The distinct control-code bytes the program's string literals contain. */
 function escapeCodesIn(source: string, dialect: Dialect): Set<number> {
   const found = new Set<number>();
@@ -757,6 +813,7 @@ export function programVocabulary(
     variables: [...variablesIn(source, dialect)].sort(),
     divides: arithmetic.divides,
     fractionalLiteral: arithmetic.fractionalLiteral,
+    largeNumbers: [...largeNumbersIn(source)].sort((a, b) => a - b),
     escapeCodes: [...escapeCodesIn(source, dialect)].sort((a, b) => a - b),
     characters: [...charactersIn(source, dialect)].sort(),
     multiStatementLines: layout.lines,
@@ -819,6 +876,7 @@ export interface ProgramVocabularyReply {
   variables: string[];
   divides: boolean;
   fractionalLiteral: boolean;
+  largeNumbers: number[];
   escapeCodes: number[];
   characters: string[];
   multiStatementLines: number[];
@@ -877,6 +935,7 @@ export function vocabularyReply(
     variables: vocab.variables,
     divides: vocab.divides,
     fractionalLiteral: vocab.fractionalLiteral,
+    largeNumbers: vocab.largeNumbers,
     escapeCodes: vocab.escapeCodes,
     characters: vocab.characters,
     multiStatementLines: vocab.multiStatementLines,

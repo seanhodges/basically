@@ -111,6 +111,7 @@ function vocabulary(
     variables?: string[];
     divides?: boolean;
     fractionalLiteral?: boolean;
+    largeNumbers?: number[];
     spellings?: ProgramVocabulary['spellings'];
     screenModes?: ProgramVocabulary['screenModes'];
   } = {},
@@ -122,6 +123,7 @@ function vocabulary(
     variables: rest.variables ?? [],
     divides: rest.divides ?? false,
     fractionalLiteral: rest.fractionalLiteral ?? false,
+    largeNumbers: rest.largeNumbers ?? [],
     escapeCodes,
     characters,
     multiStatementLines,
@@ -658,6 +660,118 @@ describe('the arithmetic that truncates', () => {
       fractionalLiteral: true,
     });
     expect(section(describePort(c64, zx81, program), HEADING)).toBe('');
+  });
+
+  it('poses the choice where the target reaches reals another way', () => {
+    // The Atom's floating-point ROM. Whether the fractions are essential is not
+    // in the program's text, so the section states both readings and settles
+    // neither - and drops the instruction to rescale, which would settle it.
+    const atom = side('atom');
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      divides: true,
+    });
+    const s = section(describePort(c64, atom, program), HEADING);
+    expect(s).toContain('Decide:');
+    expect(s).toContain("the floating-point ROM's %A–%Z variables");
+    expect(s).toContain('incidental');
+    expect(s).not.toContain('so rescale that arithmetic');
+  });
+
+  it('advises rescaling where the target has no other way to hold a fraction', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      divides: true,
+    });
+    const s = section(describePort(c64, zx80, program), HEADING);
+    expect(s).toContain('so rescale that arithmetic');
+    expect(s).not.toContain('Decide:');
+  });
+});
+
+describe('the values the target cannot hold', () => {
+  const atom = side('atom');
+  const zx80 = side('zx80');
+  const c64 = side('commodore64');
+  const HEADING = 'VALUES ZX80 CANNOT HOLD';
+
+  it('reports both ranges and the program’s own offending values', () => {
+    const program = vocabulary('atom', ['PRINT'], [], [], [], [], {
+      largeNumbers: [40000, 100000],
+    });
+    const s = section(describePort(atom, zx80, program), HEADING);
+    expect(s).toContain('-2147483648 to 2147483647');
+    expect(s).toContain('-32768 to 32767');
+    expect(s).toContain('40000, 100000');
+    expect(s).toContain('Decide:');
+  });
+
+  it('is present with no offending value, since a result can still overflow', () => {
+    const program = vocabulary('atom', ['PRINT']);
+    const s = section(describePort(atom, zx80, program), HEADING);
+    expect(s).not.toBe('');
+    expect(s).toContain('has to be checked');
+  });
+
+  it('is absent moving to the machine with the wider range', () => {
+    const program = vocabulary('zx80', ['PRINT'], [], [], [], [], {
+      largeNumbers: [100000],
+    });
+    expect(
+      section(describePort(zx80, atom, program), 'VALUES ATOM CANNOT HOLD'),
+    ).toBe('');
+  });
+
+  it('is absent where either machine has fractions', () => {
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [], [], {
+      largeNumbers: [100000],
+    });
+    expect(section(describePort(c64, zx80, program), HEADING)).toBe('');
+  });
+});
+
+describe('the type markers the target does not have', () => {
+  const trs80 = side('trs80');
+  const altair = side('altair8800');
+  const bbc = side('bbcmicro');
+  const c64 = side('commodore64');
+  const HEADING = 'TYPE MARKERS ALTAIR 8800 DOES NOT HAVE';
+
+  it('warns that an integer marker is taken and fails when the line runs', () => {
+    const program = vocabulary('trs80', ['PRINT'], [], [], [], [], {
+      variables: ['COUNT%'],
+    });
+    const s = section(describePort(trs80, altair, program), HEADING);
+    expect(s).toContain('COUNT%');
+    expect(s).toContain('integer');
+    expect(s).toContain('?SN ERROR when the line runs');
+    expect(s).toContain('Decide:');
+  });
+
+  it('says a double-precision name loses its digits silently', () => {
+    const program = vocabulary('trs80', ['PRINT'], [], [], [], [], {
+      variables: ['TOTAL#'],
+    });
+    const s = section(describePort(trs80, altair, program), HEADING);
+    expect(s).toContain('double precision');
+    expect(s).toContain('silently');
+  });
+
+  it('is absent for a marker both machines have', () => {
+    const program = vocabulary('bbcmicro', ['PRINT'], [], [], [], [], {
+      variables: ['COUNT%'],
+    });
+    expect(
+      section(
+        describePort(bbc, c64, program),
+        'TYPE MARKERS C64 DOES NOT HAVE',
+      ),
+    ).toBe('');
+  });
+
+  it('is absent for a program whose names carry no marker the target lacks', () => {
+    const program = vocabulary('trs80', ['PRINT'], [], [], [], [], {
+      variables: ['COUNT', 'NAME$'],
+    });
+    expect(section(describePort(trs80, altair, program), HEADING)).toBe('');
   });
 });
 

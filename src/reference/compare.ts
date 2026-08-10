@@ -803,6 +803,13 @@ export interface ProgramVocabulary {
   /** Whether the program's code divides, and whether it carries a fraction. */
   divides: boolean;
   fractionalLiteral: boolean;
+  /**
+   * Distinct whole-number values in the program's code large enough that some
+   * integer-only machine here cannot hold them, ascending. Checked against the
+   * target's own range to name the values that do not arrive. See the app-side
+   * twin, which owns the floor they are collected from.
+   */
+  largeNumbers: number[];
   escapeCodes: number[];
   /** Printable ASCII the program's text contains. See the app-side twin. */
   characters: string[];
@@ -1073,6 +1080,17 @@ export interface TruncatedArithmetic {
   /** The range the target holds, which every rescaled value has to fit. */
   min: number;
   max: number;
+  /**
+   * The separate number system the target offers reals through, where it has
+   * one - the Atom's floating-point ROM. Absent on a target whose only numbers
+   * are the whole ones above, which is where rescaling is the only answer.
+   *
+   * Carried on the finding rather than looked up beside it because it is what
+   * turns the advice into a decision: fractions the program depends on belong
+   * in that system, fractions incidental to it are rescaled, and which they are
+   * is not decidable from the program's text.
+   */
+  fractionsVia?: string;
 }
 
 /**
@@ -1092,7 +1110,7 @@ export function truncatedArithmeticForProgram(
   targetFacts: PortingFacts,
   vocabulary: ProgramVocabulary,
 ): TruncatedArithmetic | null {
-  const { fractions, range } = targetFacts.numbers;
+  const { fractions, range, fractionsVia } = targetFacts.numbers;
   if (fractions || range === undefined) return null;
   if (!vocabulary.divides && !vocabulary.fractionalLiteral) return null;
   return {
@@ -1100,7 +1118,155 @@ export function truncatedArithmeticForProgram(
     fractionalLiteral: vocabulary.fractionalLiteral,
     min: range.min,
     max: range.max,
+    ...(fractionsVia !== undefined ? { fractionsVia } : {}),
   };
+}
+
+/** What a narrower integer range costs this program. See {@link integerRangeNarrowingForProgram}. */
+export interface IntegerRangeNarrowing {
+  /** The range the source machine holds. */
+  from: { min: number; max: number };
+  /** The range the target holds, which reaches less far. */
+  to: { min: number; max: number };
+  /**
+   * The values in the program's own text the target cannot hold, ascending.
+   *
+   * Often empty, and an empty list is not an all-clear: it says the program
+   * writes no such literal, not that its arithmetic stays inside the range. The
+   * finding is present either way, and the decision it poses is what covers the
+   * half no literal shows.
+   */
+  values: number[];
+}
+
+/**
+ * What the target's narrower integer range costs this program, or null.
+ *
+ * Null in the three ways this is not work: either machine has fractions - a
+ * fractional target holds the source's whole numbers, and a fractional *source*
+ * is the truncation finding's business, not this one - or the target reaches at
+ * least as far as the source in both directions.
+ *
+ * Present whenever a program is at hand for a narrowing pair, literals or not.
+ * A 32-bit program moving to a 16-bit machine can overflow in an expression
+ * whose every literal is small, so absence of large literals must not read as
+ * safety; the literals sharpen the finding rather than triggering it.
+ */
+export function integerRangeNarrowingForProgram(
+  sourceFacts: PortingFacts,
+  targetFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): IntegerRangeNarrowing | null {
+  const from = sourceFacts.numbers;
+  const to = targetFacts.numbers;
+  if (from.fractions || to.fractions) return null;
+  if (from.range === undefined || to.range === undefined) return null;
+  if (to.range.max >= from.range.max && to.range.min <= from.range.min) {
+    return null;
+  }
+  return {
+    from: from.range,
+    to: to.range,
+    // Magnitudes, as the census records them: a leading `-` is an operator
+    // rather than part of the literal, and every integer range here reaches at
+    // least as far below zero as above it, so a magnitude past the ceiling is
+    // out of range whichever sign the program wrote it with.
+    values: vocabulary.largeNumbers.filter((v) => v > to.range!.max),
+  };
+}
+
+/** A type marker the target does not have. See {@link markerLossForProgram}. */
+export interface MarkerLoss {
+  /** The marker character, as the program's own names carry it. */
+  marker: string;
+  /** What it promised on the source machine: "integer", "double precision". */
+  meaning: string;
+  /** The program's names carrying it, sorted. */
+  names: string[];
+  /**
+   * What the target does with the spelling where it takes it and fails when the
+   * line runs, from the target's own authored trap. Absent where the marker is
+   * simply not part of a name there, which is a rename rather than a trap.
+   */
+  trap?: string;
+  /**
+   * True where the marker named more precision than the target's ordinary
+   * numbers hold, so the values keep flowing with digits missing rather than
+   * failing.
+   */
+  precision: boolean;
+}
+
+/**
+ * What each type marker promises, uniform across every registered machine that
+ * declares one.
+ *
+ * `$` is deliberately absent, and absence is what keeps it out of the finding:
+ * every machine here that has markers at all has `$`, so it is never lost, and
+ * the Atom - which has no markers - reads `$` as a prefix operator rather than
+ * as a suffix a name could carry.
+ *
+ * `finer` marks the marker naming more precision than an ordinary BASIC number
+ * on these machines. Every registered machine's ordinary number is single
+ * precision or thereabouts, so a `!` name keeps the precision it had and loses
+ * only its spelling, while a `#` name loses digits on arrival.
+ */
+const MARKER_MEANINGS: Record<string, { meaning: string; finer: boolean }> = {
+  '%': { meaning: 'integer', finer: false },
+  '!': { meaning: 'single precision', finer: false },
+  '#': { meaning: 'double precision', finer: true },
+};
+
+/**
+ * The type markers this program's names carry that the target does not have.
+ *
+ * The same class of silent failure as the collisions above, one question over:
+ * those ask whether two names become one, and this asks what a name's marker
+ * promised. A `%` moving to a machine with no integer type either fails when
+ * the line runs or quietly stops meaning anything, and the program tokenizes
+ * cleanly in both cases.
+ *
+ * Read against the *source's* own marker set as well as the target's, so a
+ * character that is not a marker where the program was written is not treated
+ * as one - the Atom's `$` is a prefix operator, and a machine whose rule never
+ * declared a marker never loses it.
+ *
+ * Empty where there is no program: which markers a program leans on is a fact
+ * about a program, not about a pair of machines.
+ */
+export function markerLossForProgram(
+  sourceFacts: PortingFacts,
+  targetFacts: PortingFacts,
+  vocabulary: ProgramVocabulary,
+): MarkerLoss[] {
+  const source = sourceFacts.variableSignificance.markers;
+  const target = targetFacts.variableSignificance.markers;
+  const carried = new Map<string, Set<string>>();
+  for (const name of vocabulary.variables) {
+    const marker = name[name.length - 1] ?? '';
+    if (!source.includes(marker) || target.includes(marker)) continue;
+    if (MARKER_MEANINGS[marker] === undefined) continue;
+    const names = carried.get(marker);
+    if (names) names.add(name);
+    else carried.set(marker, new Set([name]));
+  }
+
+  return [...carried]
+    .map(([marker, names]) => {
+      const { meaning, finer } = MARKER_MEANINGS[marker]!;
+      const trap = targetFacts.markerTraps?.find((t) => t.marker === marker);
+      return {
+        marker,
+        meaning,
+        names: [...names].sort(),
+        ...(trap !== undefined ? { trap: trap.note } : {}),
+        // An integer-only target holds no precision to lose: what its numbers
+        // do to a fractional value is the truncation finding's to report, and
+        // saying it twice under two names would double one difference.
+        precision: finer && targetFacts.numbers.fractions,
+      };
+    })
+    .sort((a, b) => a.marker.localeCompare(b.marker));
 }
 
 /** What the target's line-number range does to this program. See {@link lineNumbersForProgram}. */

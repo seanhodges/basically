@@ -342,6 +342,43 @@ export interface NumberHandling {
    * against.
    */
   range?: { min: number; max: number };
+  /**
+   * A separate number system this machine offers reals through, where its main
+   * number path is integer-only - the Atom's floating-point ROM. Named as a
+   * noun phrase, so it follows "keep them in".
+   *
+   * This does not make the machine one that has fractions, and {@link fractions}
+   * stays false: a ported expression still lands on the integers, and the
+   * separate system has its own variables to be moved into deliberately. What it
+   * buys is that the truncation finding can pose the choice - fractions the
+   * program depends on belong here, fractions incidental to it are rescaled -
+   * instead of advising rescaling as though there were no alternative.
+   *
+   * Only meaningful on an integer-only machine, which facts-crosscheck.test.ts
+   * enforces: a machine that has fractions offers them through its main path.
+   */
+  fractionsVia?: string;
+}
+
+/**
+ * What a machine does with a type marker its own naming rule does not
+ * recognise.
+ *
+ * Authored only where losing the marker is worse than a spelling change. A
+ * marker the target simply has no notion of is a rename; a marker the target
+ * *accepts* in the program's text and rejects when the line runs is a port that
+ * loads cleanly and fails later, which is the worse of the two failures and the
+ * one a reader cannot see coming.
+ *
+ * The marker must be absent from the machine's own
+ * {@link VariableSignificance.markers} - a trap for a marker the machine has is
+ * a contradiction - which facts-crosscheck.test.ts enforces.
+ */
+export interface MarkerTrap {
+  /** The marker character, e.g. "%". */
+  marker: string;
+  /** What the machine does with it, phrased to follow "X% is". */
+  note: string;
 }
 
 /**
@@ -521,6 +558,16 @@ export interface PortingFacts {
    * stays the prose the fact rows show.
    */
   numbers: NumberHandling;
+  /**
+   * What this machine does with type markers it does not recognise, where that
+   * is worse than a spelling to change. See {@link MarkerTrap}.
+   *
+   * Absent on most machines, and absent is not "nothing happens": it means the
+   * marker is simply not part of a name here, which the marker-loss finding
+   * reports from the naming rules alone. This field is for the machines that
+   * take the spelling and then fail.
+   */
+  markerTraps?: MarkerTrap[];
   /**
    * Exponent operator spelling ("**", "^", "↑"), or undefined if the dialect has
    * none.

@@ -26,7 +26,9 @@ import {
   falseFriendsForProgram,
   fitIsPressed,
   groupByDomain,
+  integerRangeNarrowingForProgram,
   lineNumbersForProgram,
+  markerLossForProgram,
   noticeState,
   programFitForTarget,
   shortSpellingsForFit,
@@ -43,6 +45,11 @@ import {
 // Real maps, for the write-landing verdicts: see that describe block. Type-only
 // for `MemoryMap`, as in the module under test.
 import type { MemoryMap } from '../dialects/types';
+// The two number findings read authored facts about real machines - one
+// machine's range against another's, one machine's markers against another's -
+// so they are tested against the machines themselves. A synthetic pair would
+// only prove the comparison agrees with the numbers the test made up.
+import { portingFacts } from './facts';
 import { c64MemoryMap } from '../dialects/commodore64/memoryMap';
 import { spectrumMemoryMap } from '../dialects/zxspectrum/memoryMap';
 import { zx81MemoryMap } from '../dialects/zx81/memoryMap';
@@ -1189,6 +1196,7 @@ function vocab(
     variables?: string[];
     divides?: boolean;
     fractionalLiteral?: boolean;
+    largeNumbers?: number[];
     spellings?: ProgramVocabulary['spellings'];
     screenModes?: ProgramVocabulary['screenModes'];
   } = {},
@@ -1200,6 +1208,7 @@ function vocab(
     variables: rest.variables ?? [],
     divides: rest.divides ?? false,
     fractionalLiteral: rest.fractionalLiteral ?? false,
+    largeNumbers: rest.largeNumbers ?? [],
     escapeCodes,
     characters,
     multiStatementLines,
@@ -1750,6 +1759,145 @@ describe('truncatedArithmeticForProgram', () => {
     expect(
       truncatedArithmeticForProgram(floating, doing(true, true)),
     ).toBeNull();
+  });
+
+  it('carries the target’s own way of holding reals where it has one', () => {
+    // The Atom's floating-point ROM. The finding still fires - the integer path
+    // is what a ported expression lands on - and this is what lets the report
+    // pose the choice instead of advising rescaling as the only answer.
+    const atom = portingFacts.find((f) => f.id === 'atom')!;
+    expect(
+      truncatedArithmeticForProgram(atom, doing(true, false))?.fractionsVia,
+    ).toBe("the floating-point ROM's %A–%Z variables");
+    // A machine whose only numbers are whole ones names no alternative.
+    const zx80 = portingFacts.find((f) => f.id === 'zx80')!;
+    expect(
+      truncatedArithmeticForProgram(zx80, doing(true, false))?.fractionsVia,
+    ).toBeUndefined();
+  });
+});
+
+describe('integerRangeNarrowingForProgram', () => {
+  const facts = (id: string) => portingFacts.find((f) => f.id === id)!;
+  const atom = facts('atom');
+  const zx80 = facts('zx80');
+  const c64 = facts('commodore64');
+  const withValues = (...largeNumbers: number[]) =>
+    vocab([], [], 'atom', [], [], [], { largeNumbers });
+
+  it('names the program’s values the narrower machine cannot hold', () => {
+    // The pair this finding exists for: 32-bit integers to 16-bit ones, where
+    // nothing divides, nothing is fractional, and 100000 simply does not arrive.
+    expect(
+      integerRangeNarrowingForProgram(atom, zx80, withValues(40000, 100000)),
+    ).toEqual({
+      from: { min: -2147483648, max: 2147483647 },
+      to: { min: -32768, max: 32767 },
+      values: [40000, 100000],
+    });
+  });
+
+  it('fires on the pair even where every value fits', () => {
+    // Absence of a large literal is not safety: an expression can overflow with
+    // no literal anywhere near the ceiling, so the finding stays and the
+    // decision covers what the text cannot show.
+    expect(integerRangeNarrowingForProgram(atom, zx80, withValues())).toEqual({
+      from: { min: -2147483648, max: 2147483647 },
+      to: { min: -32768, max: 32767 },
+      values: [],
+    });
+  });
+
+  it('reports nothing moving to the wider machine', () => {
+    expect(
+      integerRangeNarrowingForProgram(zx80, atom, withValues(100000)),
+    ).toBeNull();
+  });
+
+  it('reports nothing where either machine has fractions', () => {
+    // A fractional target holds the source's whole numbers; a fractional source
+    // is the truncation finding's business, not this one.
+    expect(
+      integerRangeNarrowingForProgram(atom, c64, withValues(100000)),
+    ).toBeNull();
+    expect(
+      integerRangeNarrowingForProgram(c64, zx80, withValues(100000)),
+    ).toBeNull();
+  });
+});
+
+describe('markerLossForProgram', () => {
+  const facts = (id: string) => portingFacts.find((f) => f.id === id)!;
+  const trs80 = facts('trs80');
+  const altair = facts('altair8800');
+  const bbc = facts('bbcmicro');
+  const c64 = facts('commodore64');
+  const using = (...variables: string[]) =>
+    vocab([], [], 'trs80', [], [], [], { variables });
+
+  it('reports the marker the target takes and then fails on', () => {
+    // 8K BASIC has no % at all: the line is stored as typed and the run stops.
+    expect(markerLossForProgram(trs80, altair, using('COUNT%'))).toEqual([
+      {
+        marker: '%',
+        meaning: 'integer',
+        names: ['COUNT%'],
+        trap: 'stored as typed and answers ?SN ERROR when the line runs',
+        precision: false,
+      },
+    ]);
+  });
+
+  it('reports a double-precision name as precision lost silently', () => {
+    // The other failure: nothing stops, and the values arrive with digits gone.
+    expect(markerLossForProgram(trs80, altair, using('TOTAL#'))).toEqual([
+      {
+        marker: '#',
+        meaning: 'double precision',
+        names: ['TOTAL#'],
+        precision: true,
+      },
+    ]);
+  });
+
+  it('groups the names carrying one marker and sorts them', () => {
+    expect(
+      markerLossForProgram(trs80, altair, using('B%', 'A%', 'C#')).map((m) => [
+        m.marker,
+        m.names,
+      ]),
+    ).toEqual([
+      ['#', ['C#']],
+      ['%', ['A%', 'B%']],
+    ]);
+  });
+
+  it('reports nothing for a marker the target has too', () => {
+    // Both machines mark an integer with %, so the name ports unchanged.
+    expect(markerLossForProgram(bbc, c64, using('COUNT%'))).toEqual([]);
+  });
+
+  it('never reports a string marker', () => {
+    // `$` is on every machine that has markers at all, so it is never lost -
+    // and the Atom, which has none, reads it as a prefix operator instead.
+    expect(markerLossForProgram(trs80, altair, using('NAME$'))).toEqual([]);
+    expect(markerLossForProgram(trs80, facts('atom'), using('NAME$'))).toEqual(
+      [],
+    );
+  });
+
+  it('reports nothing for a program with no marked names', () => {
+    expect(markerLossForProgram(trs80, altair, using('COUNT'))).toEqual([]);
+    expect(markerLossForProgram(trs80, altair, using())).toEqual([]);
+  });
+
+  it('does not claim precision an integer-only target never held', () => {
+    // The Atom has no fractions at all, which the truncation finding reports;
+    // saying "these lose precision" here would be one difference under two
+    // names.
+    expect(
+      markerLossForProgram(trs80, facts('atom'), using('TOTAL#'))[0]?.precision,
+    ).toBe(false);
   });
 });
 

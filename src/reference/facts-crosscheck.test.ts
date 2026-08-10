@@ -143,6 +143,50 @@ describe('facts crosscheck', () => {
     }
   });
 
+  // A machine with fractions offers them through its main number path, so an
+  // alternative system to reach them through is a contradiction there. The
+  // field exists for the Atom, whose integer BASIC and floating-point ROM are
+  // two number systems in one machine.
+  it('a fractions alternative is only authored on an integer-only machine', () => {
+    for (const facts of portingFacts) {
+      if (facts.numbers.fractionsVia === undefined) continue;
+      expect(facts.numbers.fractions, facts.id).toBe(false);
+      expect(facts.numbers.fractionsVia, facts.id).not.toBe('');
+    }
+  });
+
+  it('a marker trap names a marker the machine itself does not have', () => {
+    for (const facts of portingFacts) {
+      for (const trap of facts.markerTraps ?? []) {
+        expect(trap.marker, facts.id).toHaveLength(1);
+        // A trap for a marker the machine has would say the machine fails on
+        // its own naming rule.
+        expect(
+          facts.variableSignificance.markers,
+          `${facts.id} authors a trap for ${trap.marker}, which it has`,
+        ).not.toContain(trap.marker);
+        expect(trap.note, `${facts.id} ${trap.marker}`).not.toBe('');
+      }
+    }
+  });
+
+  // The behavioural half of the Altair's trap. Its ROM cannot be redistributed,
+  // so the run itself is not repeatable here - but the console expectation the
+  // tokenizer was written from is: `X%=1` is stored (nothing fatal, so the
+  // program tokenizes and loads) and marked as the statement the interpreter
+  // answers ?SN ERROR to when the line runs. A trap claiming a failure the
+  // machine's own tokenizer does not expect fails here.
+  it('the Altair takes a % name into the program and fails it at run time', () => {
+    const facts = portingFacts.find((f) => f.id === 'altair8800')!;
+    const trap = facts.markerTraps?.find((t) => t.marker === '%');
+    expect(trap?.note).toContain('?SN ERROR');
+
+    const { errors } = getDialect('altair8800').tokenize('10 X%=1\n');
+    expect(errors.some((e) => e.fatal)).toBe(false);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toMatch(/must start with a BASIC command/i);
+  });
+
   // The sweep above is only as good as its two arms, and each has a way of
   // failing that leaves a plausible-looking list behind. These name the machine
   // that catches each, so a rewrite that drops an arm fails here saying which.
