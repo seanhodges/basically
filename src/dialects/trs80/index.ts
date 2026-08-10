@@ -81,6 +81,10 @@ export const trs80: Dialect = {
   addressNotation: 'dec',
   statementSeparator: ':',
 
+  // PEEK reads a byte; USR is absent, because its argument is data passed to
+  // the routine whose address was set up by POKE or DEF USR.
+  memoryReads: { forms: ['peek'] },
+
   // The interpreter introspects its own state, so the step debugger and the
   // variable watcher are available.
   debuggable: true,

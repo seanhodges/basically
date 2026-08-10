@@ -33,6 +33,7 @@
   --mm-program: #4fce6a;
   --mm-reserved: #ff6f7d;
   --mm-load: #1f6feb;
+  --mm-read: #a970ff;
 
   /* The app's typography, not the docs': this is the IDE's map, and VitePress's
      absolute 24px prose line-height would stretch every band label. */

@@ -87,6 +87,9 @@ export const PROGRAM_VOCABULARY_FIELDS = [
   'escapeCodes',
   'characters',
   'writeSites',
+  'readSites',
+  'callSites',
+  'codeBlocks',
   'targetSize',
   'lineNumbers',
   'multiStatementLines',
@@ -236,6 +239,9 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
           state.dialect,
           vocabularyFrom.current,
           vocabularyTo.current,
+          // The document's own blocks: machine code the guide reports as work to
+          // re-achieve rather than as bytes to carry across.
+          state.blocks,
         ),
       },
       window.location.origin,
@@ -248,13 +254,14 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
   // page that does not listen.
   const source = useIdeStore((s) => s.source);
   const dialect = useIdeStore((s) => s.dialect);
+  const blocks = useIdeStore((s) => s.blocks);
   useEffect(() => {
     if (!open || !requested.current) return;
     const t = setTimeout(postVocabulary, VOCABULARY_DEBOUNCE_MS);
     return () => clearTimeout(t);
     // postVocabulary only reads refs and the live store, so it is deliberately
     // not a dependency; the effect re-runs on what it is actually watching.
-  }, [open, source, dialect]);
+  }, [open, source, dialect, blocks]);
 
   // "Convert my program" from the compare page: switch into the target dialect
   // (keeping the current program as the starting point, so applying the result
@@ -289,6 +296,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         to: target,
         toLabel: label,
         source: original,
+        blocks: useIdeStore.getState().blocks,
       }),
       loadSystemPrompt(target),
     ]);

@@ -63,6 +63,7 @@ export const zxspectrum128: Dialect = {
   statementSeparator: ':',
   // POKE writes, plus `LOAD "" CODE [addr]` binary-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-code'] },
+  memoryReads: { forms: ['peek'], calls: ['USR'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: spectrum128Keywords,
   operators: spectrumOperators,

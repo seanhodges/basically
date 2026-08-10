@@ -50,6 +50,7 @@ export const cpc464: Dialect = {
   memoryBlocks: cpc464MemoryBlocks,
   // POKE addr,val with &-hex addresses drives the memory-map viewer's markers.
   memoryWrites: { forms: ['poke'], hexPrefix: '&' },
+  memoryReads: { forms: ['peek'], calls: ['CALL'] },
   // The emulator introspects the current BASIC line (currentLine/debugStep), so
   // the toolbar offers the step debugger.
   debuggable: true,

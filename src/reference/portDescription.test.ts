@@ -114,6 +114,9 @@ function vocabulary(
     largeNumbers?: number[];
     spellings?: ProgramVocabulary['spellings'];
     screenModes?: ProgramVocabulary['screenModes'];
+    readSites?: ProgramVocabulary['readSites'];
+    callSites?: ProgramVocabulary['callSites'];
+    codeBlocks?: ProgramVocabulary['codeBlocks'];
   } = {},
 ): ProgramVocabulary {
   return {
@@ -130,6 +133,9 @@ function vocabulary(
     extraStatements: rest.extraStatements ?? 0,
     lineNumbers: rest.lineNumbers ?? null,
     writeSites,
+    readSites: rest.readSites ?? [],
+    callSites: rest.callSites ?? [],
+    codeBlocks: rest.codeBlocks ?? [],
     screenModes: rest.screenModes ?? null,
   };
 }
@@ -921,6 +927,217 @@ describe('where the program’s writes land', () => {
     expect(
       section(
         describePort(side('commodore64'), side('zx81'), program),
+        HEADING,
+      ),
+    ).toBe('');
+  });
+});
+
+describe('where the program’s reads land', () => {
+  const HEADING = "WHERE THIS PROGRAM'S READS LAND ON THE";
+  const site = (address: number, approximate = false) => ({
+    address,
+    expr: `PEEK ${address}`,
+    computed: false,
+    approximate,
+  });
+  const peeking = (dialectId: string, addresses: number[]) =>
+    vocabulary(dialectId, ['PEEK'], [], [], [], [], {
+      readSites: addresses.map((a) => site(a)),
+    });
+
+  it('names both what a read asked for and what it would reach', () => {
+    // 56320/$DC00 is the C64's keyboard and joystick port; the ZX81 mirrors
+    // its own RAM there, so the read returns program bytes and the program
+    // computes with them.
+    const s = section(
+      describePort(
+        side('commodore64'),
+        side('zx81'),
+        peeking('commodore64', [56320]),
+      ),
+      HEADING,
+    );
+    expect(s).toContain('ON THE ZX81');
+    expect(s).toContain('56320:');
+    expect(s).toContain('CIA 1 on C64');
+    expect(s).toContain('Echo of RAM on ZX81');
+  });
+
+  it('has no read-only verdict, because a read of ROM returns real bytes', () => {
+    // 1024 is the C64's screen and the ZX81's ROM. A write there is reported
+    // as having no effect; a read is reported as returning something else.
+    const s = section(
+      describePort(
+        side('commodore64'),
+        side('zx81'),
+        peeking('commodore64', [1024]),
+      ),
+      HEADING,
+    );
+    expect(s).toContain('returns something else entirely');
+    expect(s).not.toContain('read-only');
+  });
+
+  it('reports an estimated address as an estimate', () => {
+    const program = vocabulary('commodore64', ['PEEK'], [], [], [], [], {
+      readSites: [site(56320, true)],
+    });
+    const s = section(
+      describePort(side('commodore64'), side('zx81'), program),
+      HEADING,
+    );
+    expect(s).toContain('only be estimated');
+  });
+
+  it('reports nothing where a machine has no described layout', () => {
+    const program = peeking('commodore64', [1024]);
+    expect(
+      section(
+        describePort(side('commodore64'), side('trs80'), program),
+        HEADING,
+      ),
+    ).toBe('');
+  });
+
+  it('reports nothing where the program reads nothing', () => {
+    expect(
+      section(
+        describePort(
+          side('commodore64'),
+          side('zx81'),
+          vocabulary('commodore64', ['PRINT']),
+        ),
+        HEADING,
+      ),
+    ).toBe('');
+  });
+
+  it('leaves the write landings byte-for-byte unchanged', () => {
+    // The reads land beside the writes and do not touch them: a program that
+    // only writes reports exactly what it reported before.
+    const writing = vocabulary(
+      'commodore64',
+      ['POKE'],
+      [],
+      [],
+      [],
+      [{ address: 53280, expr: '53280', computed: false, approximate: false }],
+    );
+    const report = describePort(side('commodore64'), side('zx81'), writing);
+    expect(section(report, "WHERE THIS PROGRAM'S WRITES LAND ON THE")).toBe(
+      "WHERE THIS PROGRAM'S WRITES LAND ON THE ZX81\n" +
+        '- 53280: VIC-II registers on C64; Echo of RAM on ZX81 — the write ' +
+        'reaches something else entirely.',
+    );
+    expect(section(report, HEADING)).toBe('');
+  });
+});
+
+describe('the machine code the program reaches', () => {
+  const HEADING = 'MACHINE CODE THIS PROGRAM REACHES';
+  const calling = (
+    dialectId: string,
+    callSites: ProgramVocabulary['callSites'],
+    codeBlocks: ProgramVocabulary['codeBlocks'] = [],
+  ) =>
+    vocabulary(dialectId, ['SYS'], [], [], [], [], { callSites, codeBlocks });
+  const call = (address: number, expr: string) => ({
+    address,
+    expr,
+    computed: false,
+    approximate: false,
+  });
+
+  it('states what the routines are and poses the decision for each', () => {
+    const s = section(
+      describePort(
+        side('commodore64'),
+        side('zx81'),
+        calling('commodore64', [call(49152, 'SYS 49152')]),
+      ),
+      HEADING,
+    );
+    expect(s).toContain('C64 processor code, not BASIC');
+    expect(s).toContain('SYS 49152');
+    expect(s).toContain('Decide: establish what this routine does');
+    expect(s).toContain("the ZX81's own means");
+  });
+
+  it('names a block by name, address and size, and the call into it', () => {
+    const s = section(
+      describePort(
+        side('commodore64'),
+        side('zx81'),
+        calling(
+          'commodore64',
+          [call(49155, 'SYS 49155')],
+          [{ name: 'SCROLL', address: 49152, size: 64, kind: 'code' }],
+        ),
+      ),
+      HEADING,
+    );
+    expect(s).toContain(
+      'inside the attached block "SCROLL" (64 bytes at 49152)',
+    );
+    // One routine, not two: the call and the block it lands in are one thing
+    // to answer for.
+    expect(s.split('\n').filter((l) => l.startsWith('- '))).toHaveLength(1);
+  });
+
+  it('reports a block that no call in the listing reaches', () => {
+    const s = section(
+      describePort(
+        side('commodore64'),
+        side('zx81'),
+        calling(
+          'commodore64',
+          [],
+          [{ name: 'MUSIC', address: 49152, size: 256, kind: 'code' }],
+        ),
+      ),
+      HEADING,
+    );
+    expect(s).toContain('the block "MUSIC"');
+  });
+
+  it('points at the pair’s own carrier guidance rather than restating it', () => {
+    // The Sinclair pairs already say how machine code travels between them -
+    // hidden-REM records against .TAP CODE blocks - and the finding is about
+    // re-achieving the routine, not about carrying it.
+    const s = section(
+      describePort(
+        side('zx81'),
+        side('zxspectrum'),
+        vocabulary('zx81', ['USR'], [], [], [], [], {
+          callSites: [call(32768, 'USR 32768')],
+        }),
+      ),
+      HEADING,
+    );
+    expect(s).toContain('guidance above already says how machine code travels');
+  });
+
+  it('says nothing about carriers for a pair whose guidance does not', () => {
+    const s = section(
+      describePort(
+        side('commodore64'),
+        side('zx81'),
+        calling('commodore64', [call(49152, 'SYS 49152')]),
+      ),
+      HEADING,
+    );
+    expect(s).not.toContain('guidance above');
+  });
+
+  it('reports nothing for a program with no calls and no blocks', () => {
+    expect(
+      section(
+        describePort(
+          side('commodore64'),
+          side('zx81'),
+          vocabulary('commodore64', ['PRINT']),
+        ),
         HEADING,
       ),
     ).toBe('');

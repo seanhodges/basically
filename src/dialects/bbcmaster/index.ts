@@ -102,6 +102,7 @@ export const bbcmaster: Dialect = {
   // BBC BASIC has no POKE: memory writes use `?`/`!` indirection (`?&2000=5`),
   // with `&` hex addresses.
   memoryWrites: { forms: ['indirection', 'star-load'], hexPrefix: '&' },
+  memoryReads: { forms: ['indirection'], calls: ['CALL', 'USR'] },
 
   debuggable: true,
 

@@ -2,8 +2,9 @@
 // Copyright (C) 2026 Sean Hodges
 
 /**
- * Where a program writes into a machine's memory, resolved once for everything
- * that draws it.
+ * Where a program reaches into a machine's memory, resolved once for everything
+ * that draws it: the addresses it writes, the addresses it reads back, and the
+ * addresses it hands to the processor.
  *
  * Two surfaces need the same answer: the IDE's memory-map panel, which marks the
  * addresses on the machine the program is written for, and the porting guide,
@@ -17,9 +18,11 @@
  * this module: it runs in the documentation bundle, which may not reach the
  * dialect registry or an emulator core (see `machinePickerBoundary.test.ts`).
  */
-import type { Dialect } from '../dialects/types';
+import type { Dialect, MemoryMap } from '../dialects/types';
 import {
+  callSites,
   pokeSites,
+  readSites,
   type PokeContext,
   type PokeSite,
 } from '../editor/pokeAddresses';
@@ -115,4 +118,76 @@ export function resolveWriteSites(
   inRange.sort((a, b) => a.address - b.address);
   outOfRange.sort((a, b) => a.address - b.address);
   return { inRange, outOfRange };
+}
+
+/**
+ * How this dialect reads memory and reaches machine code, or null where it
+ * declares neither.
+ *
+ * Unlike {@link writeContextFor} this does not require a memory map: a call into
+ * machine code is a porting fact whether or not the machine's layout is
+ * described, and the map is only what a *landing* is judged against. The hex
+ * prefix and statement separator still come from the write declaration - an
+ * address is spelled the same way whichever direction it is used in.
+ */
+export function readContextFor(dialect: Dialect): PokeContext | null {
+  const reads = dialect.memoryReads;
+  if (!reads) return null;
+  const mw = dialect.memoryWrites;
+  return {
+    udgBase: dialect.memoryMap?.udgBase,
+    reads: reads.forms,
+    calls: reads.calls,
+    hexPrefix: mw?.hexPrefix,
+    statementSep: mw?.statementSep,
+  };
+}
+
+/**
+ * De-duplicate sites by address - preferring an exact resolution over an
+ * approximate one at the same byte - and keep the addresses the machine
+ * actually has.
+ *
+ * No ROM filter, unlike the writes: a write into ROM does nothing, so an
+ * approximate base landing there is a guess worth dropping, while a *read* of
+ * ROM returns real bytes and is exactly the kind of access a port has to answer
+ * for. With no map at all, only exact addresses survive - there is nothing to
+ * judge a guessed base as plausible against.
+ */
+function narrowToMemory(
+  sites: PokeSite[],
+  map: MemoryMap | undefined,
+): PokeSite[] {
+  const seen = new Map<number, PokeSite>();
+  for (const s of sites) {
+    const prev = seen.get(s.address);
+    if (!prev || (prev.approximate && !s.approximate)) seen.set(s.address, s);
+  }
+  const kept: PokeSite[] = [];
+  for (const s of seen.values()) {
+    if (map === undefined) {
+      if (!s.approximate) kept.push(s);
+      continue;
+    }
+    const inSpace = s.address >= 0 && s.address < map.addressSpace;
+    if (!inSpace) continue;
+    // A base that collapses towards zero points at nothing in particular.
+    if (s.approximate && s.address === 0) continue;
+    kept.push(s);
+  }
+  return kept.sort((a, b) => a.address - b.address);
+}
+
+/** The addresses `source` reads back when read as `dialect`, ascending. */
+export function resolveReadSites(source: string, dialect: Dialect): PokeSite[] {
+  const ctx = readContextFor(dialect);
+  if (!ctx) return [];
+  return narrowToMemory(readSites(source, ctx), dialect.memoryMap);
+}
+
+/** The addresses `source` hands to the processor when read as `dialect`. */
+export function resolveCallSites(source: string, dialect: Dialect): PokeSite[] {
+  const ctx = readContextFor(dialect);
+  if (!ctx) return [];
+  return narrowToMemory(callSites(source, ctx), dialect.memoryMap);
 }

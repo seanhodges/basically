@@ -42,6 +42,10 @@ export const zxspectrum: Dialect = {
   statementSeparator: ':',
   // POKE writes, plus `LOAD "" CODE [addr]` binary-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-code'] },
+  // USR calls machine code at the address given. Its string form (`USR "a"`,
+  // a UDG's address) is resolved to that address before the scan, so what is
+  // left here is always a real call.
+  memoryReads: { forms: ['peek'], calls: ['USR'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: spectrumKeywords,
   operators: spectrumOperators,

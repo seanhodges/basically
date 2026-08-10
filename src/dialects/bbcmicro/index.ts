@@ -94,6 +94,9 @@ export const bbcmicro: Dialect = {
   // BBC BASIC has no POKE: memory writes use `?`/`!` indirection (`?&2000=5`),
   // with `&` hex addresses.
   memoryWrites: { forms: ['indirection', 'star-load'], hexPrefix: '&' },
+  // No PEEK: a byte is read back with `?addr`, a word with `!addr`. Both CALL
+  // and USR run code at the address they are given.
+  memoryReads: { forms: ['indirection'], calls: ['CALL', 'USR'] },
 
   debuggable: true,
 

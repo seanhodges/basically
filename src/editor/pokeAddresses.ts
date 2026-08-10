@@ -1,6 +1,7 @@
 /**
- * Extracts the memory addresses a BASIC program writes into, for the memory-map
- * viewer's per-address markers and region highlight.
+ * Extracts the memory addresses a BASIC program reaches - the ones it writes
+ * into, for the memory-map viewer's per-address markers and region highlight,
+ * and the ones it reads or hands to the processor, for the porting guide.
  *
  * A pure, dialect-agnostic editor helper in the mould of {@link ./programOutline}:
  * it walks the source line by line, blanks string literals and REM comments with
@@ -68,6 +69,13 @@
  *
  * Anything that can't be tokenized at all (comparisons, `^`, `&`, a comma inside
  * the expression) is left out entirely.
+ *
+ * {@link readSites} and {@link callSites} point the same machinery at the other
+ * two ways a program addresses a machine - the bytes it reads back, and the
+ * addresses it hands to the processor - under {@link PokeContext.reads} and
+ * {@link PokeContext.calls}. They share the variable tracking, the resolution
+ * and the approximation flag with the writes, and see the same string/REM
+ * blanked statements, so a `PEEK` inside a comment reads nothing.
  */
 import { parseLines } from './lineNumbering';
 import { scannable } from './programOutline';
@@ -153,6 +161,18 @@ export interface PokeContext {
    * statements on `':'`.
    */
   statementSep?: string;
+  /**
+   * Which expression forms read memory, for {@link readSites}: `'peek'`
+   * (`PEEK(addr)`, or the Sinclair `PEEK addr`) and `'indirection'` (a `?`/`!`
+   * sigil inside an expression, as `C=?addr`). Omit on a machine whose reads
+   * are not to be scanned; `readSites` then finds nothing.
+   */
+  reads?: ('peek' | 'indirection')[];
+  /**
+   * The keywords that run machine code at the address they are given - `SYS`,
+   * `CALL`, `LINK`, `USR` - upper case, for {@link callSites}. Omit for none.
+   */
+  calls?: string[];
 }
 
 /** Number of user-defined graphics reachable as `USR "a".."u"` (the 48K set). */
@@ -305,6 +325,80 @@ function statementsOf(body: string, ctx: PokeContext): string[] {
 }
 
 /**
+ * Resolve one access's address expression to a site, or `null` when it can't be
+ * pinned down (unresolvable, or an approximate base collapsing to 0). `label` is
+ * the text kept for the tooltip - the bare expression for POKE, the sigil +
+ * expression for indirection, the keyword + expression for a call. Shared by
+ * every form, which is what makes the three scans agree about what an address
+ * is worth.
+ */
+function siteFor(
+  expr: string,
+  label: string,
+  vars: Map<string, VarVal>,
+  lineNo: number,
+  role?: 'load',
+): PokeSite | null {
+  const value = evalExpr(expr, vars);
+  if (value === undefined) return null;
+  const address = Math.round(value.value);
+  // An approximate address that lands on 0 has no meaningful base - every term
+  // of the expression was unknown - so drop it here.
+  if (value.approx && address === 0) return null;
+  return {
+    address,
+    expr: label,
+    computed: !LITERAL_RE.test(expr),
+    approximate: value.approx,
+    lineNo,
+    ...(role ? { role } : {}),
+    ...rangeEnd(expr, vars, address, value.approx),
+  };
+}
+
+/**
+ * Walk the program's statements in line-number order with the variable tracker
+ * running, so an address expression is evaluated against the values in force
+ * where it is written.
+ *
+ * `visit` returns true where it recognised the statement, which stops the same
+ * statement also being read as an assignment: a `POKE A,1` is not a `LET`, and
+ * letting both run would record a variable the line never set. `visitLine` sees
+ * the raw, unblanked line body, which is what the Acorn star commands need -
+ * they are whole-statement literal text rather than expressions.
+ *
+ * Shared by the write, read and call scans, so all three see one statement
+ * stream and one set of tracked values.
+ */
+function walkProgram(
+  source: string,
+  ctx: PokeContext,
+  visit: (stmt: string, lineNo: number, vars: Map<string, VarVal>) => boolean,
+  visitLine?: (body: string, lineNo: number) => void,
+): void {
+  // Program order, not physical order: the value tracker models execution.
+  const lines = parseLines(source).sort((a, b) => a.lineNo - b.lineNo);
+
+  // Seed program-wide constants first, so an access resolves against a base
+  // defined below the lines that use it (e.g. an init block reached via `GO TO`).
+  const vars = seedConstants(lines, ctx);
+
+  for (const line of lines) {
+    visitLine?.(line.body, line.lineNo);
+    for (const stmt of statementsOf(line.body, ctx)) {
+      const forMatch = FOR_RE.exec(stmt);
+      if (forMatch) {
+        assignFor(vars, forMatch[1]!, forMatch[2]!, forMatch[3]!);
+        continue;
+      }
+      if (visit(stmt, line.lineNo, vars)) continue;
+      const assignMatch = ASSIGN_RE.exec(stmt);
+      if (assignMatch) assign(vars, assignMatch[1]!, assignMatch[2]!);
+    }
+  }
+}
+
+/**
  * Every POKE the program makes with an address we can resolve, in source order.
  * Addresses are not range-checked here (this helper can't see the machine's
  * address space) - callers filter against it. Approximate addresses that
@@ -313,40 +407,6 @@ function statementsOf(body: string, ctx: PokeContext): string[] {
 export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
   const sites: PokeSite[] = [];
   const writes = ctx.writes ?? ['poke'];
-
-  // Program order, not physical order: the value tracker models execution.
-  const lines = parseLines(source).sort((a, b) => a.lineNo - b.lineNo);
-
-  // Seed program-wide constants first, so a base defined below the lines that
-  // use it (e.g. an init block reached via `GO TO`) is already known.
-  const vars = seedConstants(lines, ctx);
-
-  // Resolve one write's address expression to a site, or `null` when it can't be
-  // pinned down (unresolvable, or an approximate base collapsing to 0). `label`
-  // is the text kept for the tooltip - the bare expression for POKE, the sigil +
-  // expression for indirection. Shared by both write forms.
-  const siteFor = (
-    expr: string,
-    label: string,
-    lineNo: number,
-    role?: 'load',
-  ): PokeSite | null => {
-    const value = evalExpr(expr, vars);
-    if (value === undefined) return null;
-    const address = Math.round(value.value);
-    // An approximate address that lands on 0 has no meaningful base - every term
-    // of the expression was unknown - so drop it here.
-    if (value.approx && address === 0) return null;
-    return {
-      address,
-      expr: label,
-      computed: !LITERAL_RE.test(expr),
-      approximate: value.approx,
-      lineNo,
-      ...(role ? { role } : {}),
-      ...rangeEnd(expr, vars, address, value.approx),
-    };
-  };
 
   // A code load whose target isn't in the statement resolves to the machine's
   // approximate free-RAM base (`loadBase`), flagged approximate. Skipped when no
@@ -385,30 +445,18 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
     return null;
   };
 
-  for (const line of lines) {
-    // Star commands are raw, whole-line literal text (hex-default addresses,
-    // possibly-unquoted filename), so they are scanned off the raw body once per
-    // line rather than through the blanked statement stream below.
-    if (writes.includes('star-load')) {
-      const star = starLoadSite(line.body, line.lineNo);
-      if (star) sites.push(star);
-    }
-
-    for (const stmt of statementsOf(line.body, ctx)) {
-      const forMatch = FOR_RE.exec(stmt);
-      if (forMatch) {
-        assignFor(vars, forMatch[1]!, forMatch[2]!, forMatch[3]!);
-        continue;
-      }
-
+  walkProgram(
+    source,
+    ctx,
+    (stmt, lineNo, vars) => {
       const pokeMatch = writes.includes('poke') ? POKE_RE.exec(stmt) : null;
       if (pokeMatch) {
         const rest = stmt.slice(pokeMatch.index + pokeMatch[0].length);
         const comma = rest.indexOf(',');
         const expr = (comma === -1 ? rest : rest.slice(0, comma)).trim();
-        const site = siteFor(expr, expr, line.lineNo);
+        const site = siteFor(expr, expr, vars, lineNo);
         if (site) sites.push(site);
-        continue;
+        return true;
       }
 
       const indMatch = writes.includes('indirection')
@@ -418,9 +466,9 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
         const expr = indMatch[2]!.trim();
         // Tooltip keeps the sigil so a marker reads `?&2000` / `!DE`, not a bare
         // address. Word (`!`) writes mark only their low byte.
-        const site = siteFor(expr, `${indMatch[1]}${expr}`, line.lineNo);
+        const site = siteFor(expr, `${indMatch[1]}${expr}`, vars, lineNo);
         if (site) sites.push(site);
-        continue;
+        return true;
       }
 
       const loadCodeMatch = writes.includes('load-code')
@@ -431,10 +479,10 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
         // With an address, resolve it exactly; a bare `LOAD ""CODE` falls back to
         // the approximate free-RAM base. Tooltip reads `LOAD CODE <addr>`.
         const site = expr
-          ? siteFor(expr, `LOAD CODE ${expr}`, line.lineNo, 'load')
-          : approxLoadSite('LOAD CODE', line.lineNo);
+          ? siteFor(expr, `LOAD CODE ${expr}`, vars, lineNo, 'load')
+          : approxLoadSite('LOAD CODE', lineNo);
         if (site) sites.push(site);
-        continue;
+        return true;
       }
 
       const loadDeviceMatch = writes.includes('load-device')
@@ -445,16 +493,151 @@ export function pokeSites(source: string, ctx: PokeContext = {}): PokeSite[] {
         // target lives in the file, so it resolves to the approximate base.
         const secondary = evalExpr(loadDeviceMatch[1]!.trim(), vars);
         if (secondary !== undefined && Math.round(secondary.value) !== 0) {
-          const site = approxLoadSite('LOAD (binary)', line.lineNo);
+          const site = approxLoadSite('LOAD (binary)', lineNo);
           if (site) sites.push(site);
         }
-        continue;
+        return true;
       }
 
-      const assignMatch = ASSIGN_RE.exec(stmt);
-      if (assignMatch) assign(vars, assignMatch[1]!, assignMatch[2]!);
+      return false;
+    },
+    // Star commands are raw, whole-line literal text (hex-default addresses,
+    // possibly-unquoted filename), so they are scanned off the raw body once per
+    // line rather than through the blanked statement stream.
+    writes.includes('star-load')
+      ? (body, lineNo) => {
+          const star = starLoadSite(body, lineNo);
+          if (star) sites.push(star);
+        }
+      : undefined,
+  );
+
+  return sites;
+}
+
+// A `PEEK`, optionally glued to its argument the way crunched entry allows
+// (`PEEK16396`); the leading \b keeps it out of a longer word.
+const PEEK_RE = /\bPEEK\s*/gi;
+// The argument these forms actually take: a parenthesised group, or a single
+// number or variable. See `argumentAt`.
+const PRIMARY_RE = /^(?:\d+(?:\.\d+)?|[A-Za-z][A-Za-z0-9]*[$%]?)/;
+
+/**
+ * The address expression a keyword or sigil is applied to, starting at `from`,
+ * or null where nothing resolvable follows.
+ *
+ * A *primary* rather than the rest of the statement, because that is what these
+ * forms take: `PEEK 16396+256*PEEK 16397` reads two addresses, and swallowing
+ * the tail would report a third address no line asks for. A parenthesised
+ * argument is taken whole, so `PEEK(BASE+1)` still resolves - and an unbalanced
+ * one (a half-typed line) yields nothing rather than a truncated expression.
+ */
+function argumentAt(text: string, from: number): string | null {
+  let i = from;
+  while (i < text.length && (text[i] === ' ' || text[i] === '\t')) i++;
+  if (text[i] === '(') {
+    let depth = 0;
+    for (let j = i; j < text.length; j++) {
+      if (text[j] === '(') depth++;
+      else if (text[j] === ')' && --depth === 0) return text.slice(i + 1, j);
     }
+    return null;
   }
+  const m = PRIMARY_RE.exec(text.slice(i));
+  return m ? m[0] : null;
+}
+
+/** True for a character that could be the tail of an identifier or a number. */
+function continuesName(ch: string | undefined): boolean {
+  return ch !== undefined && /[A-Za-z0-9$%)]/.test(ch);
+}
+
+/**
+ * Every address the program reads back, in source order, under the forms
+ * {@link PokeContext.reads} names. Same resolution, same approximation flag and
+ * the same "no meaningful base" drop as the writes; range-checked by the caller,
+ * which is the only side that knows the machine's address space.
+ *
+ * The indirection form takes a little care. A statement-leading `?addr=val` is a
+ * *write* and is left to {@link pokeSites}, so the sigil that opens such a
+ * statement is skipped here. The dyadic `base?offset` form - whose address is
+ * the sum, not the number after the sigil - is skipped by ignoring any sigil
+ * with an identifier character or `)` immediately against it; the cost is that a
+ * crunched `PRINT?X` is missed too, which is the same trade the write scan
+ * makes for the same reason.
+ */
+export function readSites(source: string, ctx: PokeContext = {}): PokeSite[] {
+  const sites: PokeSite[] = [];
+  const reads = ctx.reads ?? [];
+  if (reads.length === 0) return sites;
+
+  walkProgram(source, ctx, (stmt, lineNo, vars) => {
+    if (reads.includes('peek')) {
+      PEEK_RE.lastIndex = 0;
+      for (let m = PEEK_RE.exec(stmt); m; m = PEEK_RE.exec(stmt)) {
+        const expr = argumentAt(stmt, m.index + m[0].length);
+        if (expr === null) continue;
+        const site = siteFor(expr.trim(), `PEEK ${expr.trim()}`, vars, lineNo);
+        if (site) sites.push(site);
+      }
+    }
+    if (reads.includes('indirection')) {
+      // The sigil that opens a `?addr=val` write, which is not a read.
+      const writeSigil = INDIRECTION_RE.test(stmt) ? stmt.search(/\S/) : -1;
+      for (let i = 0; i < stmt.length; i++) {
+        const ch = stmt[i]!;
+        if (ch !== '?' && ch !== '!') continue;
+        if (i === writeSigil || continuesName(stmt[i - 1])) continue;
+        const expr = argumentAt(stmt, i + 1);
+        if (expr === null) continue;
+        const site = siteFor(expr.trim(), `${ch}${expr.trim()}`, vars, lineNo);
+        if (site) sites.push(site);
+      }
+    }
+    // Never consumes the statement: a read sits *inside* an expression, so
+    // `LET A=PEEK 16396` is a read and an assignment both, and the tracker has
+    // to see the assignment or every later use of A resolves against nothing.
+    return false;
+  });
+
+  return sites;
+}
+
+/**
+ * Every address the program hands to the processor, in source order, under the
+ * keywords {@link PokeContext.calls} names.
+ *
+ * The label keeps the keyword (`SYS 49152`, `CALL 65507`), because that is what
+ * the reader searches their listing for. Only the forms whose argument is the
+ * address are declared, so nothing here has to know which machines pass data to
+ * a vector instead.
+ */
+export function callSites(source: string, ctx: PokeContext = {}): PokeSite[] {
+  const sites: PokeSite[] = [];
+  const calls = ctx.calls ?? [];
+  if (calls.length === 0) return sites;
+  const patterns = calls.map(
+    (keyword) => [keyword, new RegExp(`\\b${keyword}\\s*`, 'gi')] as const,
+  );
+
+  walkProgram(source, ctx, (stmt, lineNo, vars) => {
+    for (const [keyword, re] of patterns) {
+      re.lastIndex = 0;
+      for (let m = re.exec(stmt); m; m = re.exec(stmt)) {
+        const expr = argumentAt(stmt, m.index + m[0].length);
+        if (expr === null) continue;
+        const site = siteFor(
+          expr.trim(),
+          `${keyword} ${expr.trim()}`,
+          vars,
+          lineNo,
+        );
+        if (site) sites.push(site);
+      }
+    }
+    // Like the reads: `LET X=USR 32768` is a call and an assignment both.
+    return false;
+  });
 
   return sites;
 }

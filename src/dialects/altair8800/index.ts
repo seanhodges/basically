@@ -115,6 +115,10 @@ export const altair8800: Dialect = {
   addressNotation: 'dec',
   statementSeparator: ':',
 
+  // PEEK reads a byte; USR is absent, because its argument is data passed to
+  // whatever the USR vector points at rather than an address to call.
+  memoryReads: { forms: ['peek'] },
+
   memoryMap: altair8800MemoryMap,
 
   /**

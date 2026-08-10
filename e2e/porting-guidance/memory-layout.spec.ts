@@ -200,8 +200,9 @@ test.describe('where there is no room for both', () => {
 
 test.describe('narrowed to the open program', () => {
   /**
-   * A Commodore program whose writes land somewhere quite different on a ZX81:
-   * $0400 is the C64's screen and the ZX81's ROM.
+   * A Commodore program whose accesses land somewhere quite different on a
+   * ZX81: $0400 is the C64's screen and the ZX81's ROM, and $DC00 is the C64's
+   * keyboard port where the ZX81 mirrors its own RAM.
    *
    * The `{clr}{white}` control codes are what make it a program the ZX81 cannot
    * run, so switching machine raises the "keep my code" confirmation - which is
@@ -212,9 +213,12 @@ test.describe('narrowed to the open program', () => {
     '10 PRINT "{clr}{white}HI"',
     '20 POKE 53280,0',
     '30 POKE 1024,81',
+    '40 IF PEEK(56320)=0 THEN GOTO 40',
   ].join('\n');
 
-  test('the program’s writes are marked on both machines', async ({ page }) => {
+  test('the program’s accesses are marked on both machines', async ({
+    page,
+  }) => {
     await openApp(page);
     await selectDialect(page, 'commodore64');
     await setEditorSource(page, PROGRAM);
@@ -242,10 +246,19 @@ test.describe('narrowed to the open program', () => {
     // Read here rather than in a unit test because it is the whole point of
     // the section for a reader meeting the maps one narrow tab at a time -
     // the verdicts have to reach them without the picture.
-    const landings = layout.locator('.cmp-landings');
+    const landings = layout.locator('.cmp-landings').first();
     await expect(landings).toContainText('Where these writes land');
     await expect(landings).toContainText('1024');
     await expect(landings).toContainText('Screen memory on C64');
     await expect(landings).toContainText('read-only');
+
+    // The reads reach the reader by the same route and are marked in their own
+    // colour, so the two are told apart on the picture as well as in the list.
+    const read = frame.locator('.mm-pane:not([hidden]) [class*="readMarker"]');
+    await expect(read.first()).toBeVisible();
+    const reads = layout.locator('.cmp-landings').nth(1);
+    await expect(reads).toContainText('Where these reads land');
+    await expect(reads).toContainText('56320');
+    await expect(reads).toContainText('CIA 1 on C64');
   });
 });

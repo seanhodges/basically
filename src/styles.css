@@ -101,6 +101,11 @@
      than --mm-screen on purpose - the two were the same value, which made a
      LOAD CODE marker vanish into the Spectrum's display-file band. */
   --mm-load: #1f6feb;
+  /* Where a program reads memory back (PEEK / ?addr), drawn by the porting
+     guide only. Violet: it has to stay legible over every band colour here,
+     and the greens and blues are already taken by program area, display and
+     code loads. */
+  --mm-read: #a970ff;
 
   font-family: 'Segoe UI', system-ui, sans-serif;
 }

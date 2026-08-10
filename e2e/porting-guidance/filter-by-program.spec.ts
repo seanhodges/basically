@@ -210,7 +210,7 @@ const WORK_LIST: { klass: string; ids: string[] }[] = [
   { klass: 'mechanical', ids: ['different-form'] },
   {
     klass: 'rewrites',
-    ids: ['capabilities', 'escape-codes', 'memory-layout'],
+    ids: ['capabilities', 'escape-codes', 'memory-layout', 'machine-code'],
   },
   {
     klass: 'changes silently',

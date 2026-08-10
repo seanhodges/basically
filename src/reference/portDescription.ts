@@ -30,9 +30,12 @@ import {
   escapeTableForMachine,
   falseFriendsForProgram,
   integerRangeNarrowingForProgram,
+  carriesMachineCodeGuidance,
   lineNumbersForProgram,
+  machineCodeForProgram,
   markerLossForProgram,
   programFitForTarget,
+  readLandingsForProgram,
   spellingExpansionsForProgram,
   statementLayoutForProgram,
   tableForMachine,
@@ -47,10 +50,12 @@ import {
   type KeywordDiff,
   type KeywordRename,
   type LineNumberChange,
+  type MachineCodeRoutine,
   type MarkerLoss,
   type PairGuidance,
   type ProgramSize,
   type ProgramVocabulary,
+  type ReadLanding,
   type SpellingExpansion,
   type StatementLayoutChange,
   type TruncatedArithmetic,
@@ -647,6 +652,86 @@ function describeWriteLandings(
   return `WHERE THIS PROGRAM'S WRITES LAND ON THE ${to.name.toUpperCase()}\n${lines.join('\n')}`;
 }
 
+/**
+ * Where this program's reads land on the target machine.
+ *
+ * Beside the writes, and for the same reason they exist: the addresses survive
+ * the port untouched and reach whatever the other machine keeps there. The
+ * failure is quieter - the program does not corrupt anything, it computes with
+ * numbers that mean nothing - which is precisely why nothing else reports it.
+ *
+ * Both regions are named on every verdict that has two, because naming what the
+ * program was really asking for is what lets the assistant find the target's own
+ * way of asking it. There is no read-only verdict: a read of ROM returns real
+ * bytes on both machines, and the finding is that they are different bytes.
+ */
+function describeReadLandings(
+  landings: ReadLanding[],
+  from: PortSide,
+  to: PortSide,
+): string {
+  if (landings.length === 0) return '';
+  const lines = landings.map((landing) => {
+    const addresses = landing.addresses.join(', ');
+    const aimed = `${landing.from?.label ?? 'memory'} on ${from.name}`;
+    const reached = landing.to?.label ?? '';
+    const verdict = {
+      'different-kind': `${aimed}; ${reached} on ${to.name} — the read returns something else entirely.`,
+      outside: `${aimed}. ${to.name} has no such address, so there is nothing there to read.`,
+      'same-kind': `${aimed}; ${reached} on ${to.name} — the same kind of memory in a different place, so the address still has to change.`,
+    }[landing.verdict];
+    const estimate = landing.approximate
+      ? ' The address could only be estimated, so this is an estimate: the region is right, the exact byte may not be.'
+      : '';
+    return `- ${addresses}: ${verdict}${estimate}`;
+  });
+  return `WHERE THIS PROGRAM'S READS LAND ON THE ${to.name.toUpperCase()}\n${lines.join('\n')}`;
+}
+
+/**
+ * The machine code this program reaches, and the decision each routine puts to
+ * the reader.
+ *
+ * The one finding here that is categorical rather than comparative: no
+ * substitution, rename or piece of advice ports a Z80 routine to a 6502, and
+ * even between two Z80 machines the ROM calls, the screen layout and the
+ * interrupt timing underneath it are another machine's. So the section does not
+ * offer a translation - it states what the routines are and poses the question
+ * that actually moves the port forward, one per routine: what does this one do?
+ * A sound effect, a scroll or a speed-up is re-achieved with the target's own
+ * means once that is known, and cannot be until it is.
+ *
+ * Where the guidance above already says how machine code travels between these
+ * two machines, this points at it rather than saying it again.
+ */
+function describeMachineCode(
+  routines: MachineCodeRoutine[],
+  crossReference: boolean,
+  from: PortSide,
+  to: PortSide,
+): string {
+  if (routines.length === 0) return '';
+  const lines = routines.map((routine) => {
+    const named = routine.call ?? `the block "${routine.block?.name}"`;
+    const where = routine.block
+      ? `inside the attached block "${routine.block.name}" (${routine.block.size} bytes at ${routine.block.address})`
+      : routine.region
+        ? `in ${routine.region.label}`
+        : `at ${routine.address}`;
+    const estimate = routine.approximate
+      ? ' The address could only be estimated.'
+      : '';
+    return `- ${named}: ${where}.${estimate} Decide: establish what this routine does, then do that with the ${to.name}'s own means.`;
+  });
+  const preamble =
+    `These are ${from.name} processor code, not BASIC: nothing on the ${to.name} ` +
+    `runs them and no substitution carries them across.`;
+  const pointer = crossReference
+    ? '\n- The guidance above already says how machine code travels between these two machines; carrying it is a separate job from re-achieving it.'
+    : '';
+  return `MACHINE CODE THIS PROGRAM REACHES\n${preamble}\n${lines.join('\n')}${pointer}`;
+}
+
 /** An address in the target machine's own notation: `&3000`, `#8400`, `53280`. */
 function address(value: number, facts: PortingFacts | undefined): string {
   if (facts?.addressNotation !== 'hex') return `${value}`;
@@ -825,6 +910,21 @@ export function describePort(
     // which is the condition that leaves that page drawing no maps either.
     describeWriteLandings(
       writeLandingsForProgram(from.memoryMap, to.memoryMap, vocabulary),
+      from,
+      to,
+    ),
+    // Beside the writes: the same addresses read the wrong way round, and the
+    // same condition on both machines' layouts being described.
+    describeReadLandings(
+      readLandingsForProgram(from.memoryMap, to.memoryMap, vocabulary),
+      from,
+      to,
+    ),
+    // After both, and not gated on either layout: a routine is machine code
+    // whether or not the map that would name its address exists.
+    describeMachineCode(
+      machineCodeForProgram(from.memoryMap, vocabulary),
+      carriesMachineCodeGuidance(guidance),
       from,
       to,
     ),
