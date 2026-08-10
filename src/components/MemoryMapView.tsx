@@ -77,9 +77,12 @@ export interface MapWriteSite {
   approximate: boolean;
   /** For a loop that writes a range, the last address it reaches. */
   endAddress?: number;
-  /** Present (as `'load'`) only where a program loads binary code, which draws
-   *  blue rather than amber. Absent on an ordinary write. */
-  role?: 'load';
+  /**
+   * What the program does at this address, where it is not an ordinary write:
+   * `'load'` for a binary code load (blue), `'read'` for a byte the program
+   * reads back (violet). Absent on a write, which draws amber.
+   */
+  role?: 'load' | 'read';
 }
 
 export interface MemoryMapViewProps {
@@ -177,31 +180,40 @@ export function MemoryMapView({
     byIndirection ? `?${addr}` : `PEEK ${addr}`;
 
   /**
-   * How a marker describes its site, for tooltips: a code load carries its own
-   * `LOAD …` label (`expr`); a write reads `POKE 22528` or, for indirection,
-   * the sigil form `?&2000`.
+   * How a marker describes its site, for tooltips: a code load and a read both
+   * carry their own label (`expr` - `LOAD CODE 32768`, `PEEK 16396`, `?&2000`);
+   * a write reads `POKE 22528` or, for indirection, the sigil form `?&2000`.
    */
   const writeDesc = (s: MapWriteSite) =>
-    s.role === 'load' ? s.expr : byIndirection ? s.expr : `POKE ${s.expr}`;
+    s.role !== undefined ? s.expr : byIndirection ? s.expr : `POKE ${s.expr}`;
 
-  /** The marker/fill/label CSS classes for a site: blue for a code load
-   *  (`role: 'load'`), amber for an ordinary write. */
-  const markerCls = (s: MapWriteSite) =>
-    s.role === 'load'
-      ? {
-          marker: styles.loadMarker,
-          markerApprox: styles.loadMarkerApprox,
-          fill: styles.loadFill,
-          fillApprox: styles.loadFillApprox,
-          label: styles.loadLabel,
-        }
-      : {
-          marker: styles.pokeMarker,
-          markerApprox: styles.pokeMarkerApprox,
-          fill: styles.pokeFill,
-          fillApprox: styles.pokeFillApprox,
-          label: styles.pokeLabel,
-        };
+  /** The marker/fill/label CSS classes for a site: blue for a code load, violet
+   *  for a read, amber for an ordinary write. */
+  const markerCls = (s: MapWriteSite) => {
+    if (s.role === 'load')
+      return {
+        marker: styles.loadMarker,
+        markerApprox: styles.loadMarkerApprox,
+        fill: styles.loadFill,
+        fillApprox: styles.loadFillApprox,
+        label: styles.loadLabel,
+      };
+    if (s.role === 'read')
+      return {
+        marker: styles.readMarker,
+        markerApprox: styles.readMarkerApprox,
+        fill: styles.readFill,
+        fillApprox: styles.readFillApprox,
+        label: styles.readLabel,
+      };
+    return {
+      marker: styles.pokeMarker,
+      markerApprox: styles.pokeMarkerApprox,
+      fill: styles.pokeFill,
+      fillApprox: styles.pokeFillApprox,
+      label: styles.pokeLabel,
+    };
+  };
 
   /** A DOM key unique across roles, so a write and a load at one address don't
    *  collide. */

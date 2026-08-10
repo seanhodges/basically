@@ -61,6 +61,9 @@ export const commodore64: Dialect = {
   statementSeparator: ':',
   // POKE writes, plus `LOAD "",dev,1` absolute machine-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-device'] },
+  // SYS jumps to the address given; USR is deliberately absent, because its
+  // argument is data passed to whatever the $0311 vector points at.
+  memoryReads: { forms: ['peek'], calls: ['SYS'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: c64Keywords,
   operators: c64Operators,

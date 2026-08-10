@@ -15,6 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { getDialect } from '../dialects/registry';
+import type { MemoryBlock } from '../dialects/types';
 import type { ProgramVocabulary as AppVocabulary } from '../app/programVocabulary';
 import type { ProgramVocabulary as SharedVocabulary } from '../reference/compare';
 import { buildUserMessage } from './promptBuilder';
@@ -42,12 +43,14 @@ function convert(input: {
   to?: ReturnType<typeof getDialect>;
   toLabel?: string;
   source?: string;
+  blocks?: MemoryBlock[];
 }) {
   return buildConversionMessage({
     from: input.from === undefined ? c64 : input.from,
     to: input.to ?? spectrum,
     toLabel: input.toLabel ?? 'Spectrum',
     source: input.source ?? PROGRAM,
+    blocks: input.blocks ?? [],
   });
 }
 
@@ -177,6 +180,39 @@ describe('the turn a port actually sends', () => {
     expect(result.userContent).toContain('byte indirection');
   });
 
+  it('carries where the program’s reads land on the target', async () => {
+    // 56320 is the C64's keyboard port; the Spectrum has RAM there. Nothing
+    // else in the report can say so - PEEK exists on both machines, so the
+    // line survives the port and quietly returns the wrong number.
+    const result = await convert({ source: '10 IF PEEK(56320)=0 THEN STOP' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).toContain("WHERE THIS PROGRAM'S READS LAND");
+    expect(result.userContent).toContain('56320');
+    expect(result.userContent).toContain('CIA 1 on C64');
+  });
+
+  it('carries the machine code, with the routine question posed', async () => {
+    const result = await convert({
+      source: '10 SYS 49155',
+      blocks: [
+        {
+          id: 'b1',
+          name: 'SCROLL',
+          address: 49152,
+          bytes: new Uint8Array(64),
+          kind: 'code',
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).toContain('MACHINE CODE THIS PROGRAM REACHES');
+    expect(result.userContent).toContain('SYS 49155');
+    expect(result.userContent).toContain('attached block "SCROLL"');
+    expect(result.userContent).toContain('Decide: establish what this routine');
+  });
+
   it('carries the values the target cannot hold, and the decision they force', async () => {
     // Atom to ZX80: 32-bit integers to 16-bit ones. Nothing divides and nothing
     // is fractional, so no other number finding fires and 100000 would simply
@@ -288,12 +324,32 @@ describe('the turn a port actually sends', () => {
           approximate: false,
         }),
       ),
+      // Reads of two more areas, and a routine in each of the two ways a
+      // program reaches one - so both new sections are inside the bound too.
+      readSites: [56320, 56321, 40960].map((address) => ({
+        address,
+        expr: `PEEK ${address}`,
+        computed: false,
+        approximate: false,
+      })),
+      callSites: [
+        {
+          address: 49155,
+          expr: 'SYS 49155',
+          computed: false,
+          approximate: false,
+        },
+      ],
+      codeBlocks: [
+        { name: 'SCROLL', address: 49152, size: 64, kind: 'code' as const },
+        { name: 'MUSIC', address: 32768, size: 512, kind: 'code' as const },
+      ],
     });
     expect(report).not.toBeNull();
-    // Around 3,800 characters today. The bound is loose enough to survive
+    // Around 6,400 characters today. The bound is loose enough to survive
     // ordinary edits to the tables and tight enough to catch a section that
     // started listing what the target adds.
-    expect(report!.length).toBeLessThan(6000);
+    expect(report!.length).toBeLessThan(8000);
   });
 });
 
@@ -315,6 +371,9 @@ describe('memory the target holds beyond the program area', () => {
     extraStatements: 0,
     lineNumbers: { lowest: 10, highest: 10, count: 1 },
     writeSites: [],
+    readSites: [],
+    callSites: [],
+    codeBlocks: [],
     screenModes: null,
   };
 

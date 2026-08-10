@@ -163,6 +163,9 @@ describe('vocabularyReply', () => {
       extraStatements: 1,
       lineNumbers: { lowest: 10, highest: 10, count: 1 },
       writeSites: [],
+      readSites: [],
+      callSites: [],
+      codeBlocks: [],
       screenModes: null,
       targetSize: null,
     });

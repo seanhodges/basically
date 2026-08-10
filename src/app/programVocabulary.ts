@@ -21,7 +21,12 @@
  * and offers the full comparison, so anything still missed is visible rather
  * than silent.
  */
-import { CharsetError, hasFatalErrors, type Dialect } from '../dialects/types';
+import {
+  CharsetError,
+  hasFatalErrors,
+  type Dialect,
+  type MemoryBlock,
+} from '../dialects/types';
 import { probeFor } from '../dialects/charsetProbes';
 import { findDialect } from '../dialects/registry';
 import { isBinaryDirective } from '../dialects/binaryDirective';
@@ -36,7 +41,12 @@ import {
 } from '../dialects/keywordSpellings';
 import { forEachVariable } from '../editor/variables';
 import { variableRulesFor } from '../editor/variableLexis';
-import { resolveWriteSites } from './memoryWriteSites';
+import type { PokeSite } from '../editor/pokeAddresses';
+import {
+  resolveCallSites,
+  resolveReadSites,
+  resolveWriteSites,
+} from './memoryWriteSites';
 
 /** One program's distinct vocabulary, in the language it was read as. */
 export interface ProgramVocabulary {
@@ -171,6 +181,42 @@ export interface ProgramVocabulary {
    */
   writeSites: ProgramWriteSite[];
   /**
+   * The addresses the program reads back, in ascending order, as resolved for
+   * the machine it is read as.
+   *
+   * Beside {@link writeSites} and collected under the same rules, because a read
+   * is exactly as machine-bound as a write: the keyboard matrix, the frame clock
+   * and the system variables all live somewhere particular. A read aimed at one
+   * machine's clock does not fail on another - it returns numbers that mean
+   * nothing, which is quieter than a write's damage and no less a porting fact.
+   *
+   * Empty on a machine that declares no read syntax.
+   */
+  readSites: ProgramReadSite[];
+  /**
+   * The addresses the program hands to the processor - its `SYS`, `CALL`,
+   * `LINK` and address-taking `USR` targets - in ascending order.
+   *
+   * The one part of a program no substitution ports: the routine at that address
+   * is the source machine's processor code. `expr` keeps the keyword the program
+   * reached it with, which is what a reader searches their listing for.
+   *
+   * Empty on a machine that declares no call keywords, which includes the
+   * Microsoft `USR(x)` machines - their argument is data passed to whatever the
+   * USR vector points at, not an address.
+   */
+  callSites: ProgramReadSite[];
+  /**
+   * The machine-code and data blocks the document carries alongside the program,
+   * ascending by address.
+   *
+   * Name, address and size only. A block's bytes are the one thing the porting
+   * story does not need - what the routine *does* is the question, and no scan
+   * of this app's answers it - so the payload stays unread here exactly as it
+   * does everywhere else in this module.
+   */
+  codeBlocks: ProgramCodeBlock[];
+  /**
    * The screen modes the program selects, or null on a machine with no command
    * for selecting one.
    *
@@ -222,6 +268,30 @@ export interface ProgramWriteSite {
   approximate: boolean;
   endAddress?: number;
   role?: 'load';
+}
+
+/**
+ * One address the program reads, or hands to the processor. The write site's
+ * shape less `role`, which only a write can carry - nothing reads code in.
+ */
+export interface ProgramReadSite {
+  address: number;
+  expr: string;
+  computed: boolean;
+  approximate: boolean;
+  endAddress?: number;
+}
+
+/**
+ * One block of machine code or data the document carries beside the program, as
+ * it crosses to the porting guide. `size` rather than the bytes: see
+ * {@link ProgramVocabulary.codeBlocks}.
+ */
+export interface ProgramCodeBlock {
+  name: string;
+  address: number;
+  size: number;
+  kind: 'code' | 'data';
 }
 
 /**
@@ -787,8 +857,44 @@ function writeSitesIn(source: string, dialect: Dialect): ProgramWriteSite[] {
   );
 }
 
+/** The addresses the program reads or calls, as plain data for the wire. */
+function accessSitesIn(sites: PokeSite[]): ProgramReadSite[] {
+  return sites.map(({ address, expr, computed, approximate, endAddress }) => ({
+    address,
+    expr,
+    computed,
+    approximate,
+    ...(endAddress !== undefined ? { endAddress } : {}),
+  }));
+}
+
 /**
- * The distinct commands and control codes `source` contains, read as `dialect`.
+ * The document's blocks as the guide sees them: what each one is called, where
+ * it sits and how much room it takes.
+ *
+ * The payload is deliberately left behind. It is the one field of a block that
+ * would have to be understood rather than reported, and understanding Z80 or
+ * 6502 is the assistant's work on request, not the comparison's.
+ */
+function codeBlocksIn(blocks: readonly MemoryBlock[]): ProgramCodeBlock[] {
+  return [...blocks]
+    .sort((a, b) => a.address - b.address)
+    .map((b) => ({
+      name: b.name,
+      address: b.address,
+      size: b.bytes.length,
+      kind: b.kind,
+    }));
+}
+
+/**
+ * The distinct commands and control codes `source` contains, read as `dialect`,
+ * together with the addresses it reaches and the code blocks the document
+ * carries beside it.
+ *
+ * `blocks` is the document's, not the source text's: a block is attached to the
+ * program rather than written in it, so a caller with none passes none and the
+ * vocabulary reports none.
  *
  * An empty or unreadable program yields an empty vocabulary, which callers are
  * expected to treat as "no program" - narrowing a comparison to nothing would
@@ -797,6 +903,7 @@ function writeSitesIn(source: string, dialect: Dialect): ProgramWriteSite[] {
 export function programVocabulary(
   source: string,
   dialect: Dialect,
+  blocks: readonly MemoryBlock[] = [],
 ): ProgramVocabulary {
   const layout = statementLayoutIn(source, dialect);
   const arithmetic = fractionalArithmeticIn(source);
@@ -820,6 +927,9 @@ export function programVocabulary(
     extraStatements: layout.extraStatements,
     lineNumbers: lineNumbersIn(source),
     writeSites: writeSitesIn(source, dialect),
+    readSites: accessSitesIn(resolveReadSites(source, dialect)),
+    callSites: accessSitesIn(resolveCallSites(source, dialect)),
+    codeBlocks: codeBlocksIn(blocks),
     screenModes: screenModesIn(source, dialect),
   };
 }
@@ -883,6 +993,9 @@ export interface ProgramVocabularyReply {
   extraStatements: number;
   lineNumbers: { lowest: number; highest: number; count: number } | null;
   writeSites: ProgramWriteSite[];
+  readSites: ProgramReadSite[];
+  callSites: ProgramReadSite[];
+  codeBlocks: ProgramCodeBlock[];
   /** Null on a machine with no command for selecting a screen mode. */
   screenModes: ScreenModeUse | null;
   /** Null where the request named no target, or named one this build lacks. */
@@ -916,6 +1029,7 @@ export function vocabularyReply(
   selected: Dialect,
   fromId: string | null,
   toId: string | null = null,
+  blocks: readonly MemoryBlock[] = [],
 ): ProgramVocabularyReply {
   const from = (fromId !== null ? findDialect(fromId) : undefined) ?? selected;
   // No fallback to the selected dialect, unlike `from`: a size for a machine the
@@ -926,7 +1040,7 @@ export function vocabularyReply(
     : hasFatalErrors(from.tokenize(source).errors)
       ? 'unreadable'
       : 'ready';
-  const vocab = programVocabulary(source, from);
+  const vocab = programVocabulary(source, from, blocks);
   return {
     status,
     dialectId: vocab.dialectId,
@@ -942,6 +1056,9 @@ export function vocabularyReply(
     extraStatements: vocab.extraStatements,
     lineNumbers: vocab.lineNumbers,
     writeSites: vocab.writeSites,
+    readSites: vocab.readSites,
+    callSites: vocab.callSites,
+    codeBlocks: vocab.codeBlocks,
     screenModes: vocab.screenModes,
     // Sized even when the program is unreadable as the *source* machine's BASIC:
     // the two are separate questions, and the guide decides for itself what to

@@ -39,6 +39,9 @@ import {
   unsupportedCharactersForProgram,
   variableCollisionsForProgram,
   writeLandingsForProgram,
+  carriesMachineCodeGuidance,
+  machineCodeForProgram,
+  readLandingsForProgram,
   type CapabilitySection,
   type EscapeSection,
   type FactRow,
@@ -207,15 +210,20 @@ const guidance = computed(() =>
  * describe. Both maps span the same address space, which is what lets the two
  * panes share one scale - `src/dialects/memoryMap.test.ts` holds that.
  *
- * The write sites are the *source* machine's, and are marked on both panes: on
+ * The access sites are the *source* machine's, and are marked on both panes: on
  * the source's because that is where the program aimed them, on the target's
  * because that is where they would land. They follow the same narrowing as the
  * rest of the page, so they are absent when there is no program to narrow to.
+ *
+ * Reads are marked beside the writes, in their own colour: an address the
+ * program reads is aimed at one machine's keyboard or clock exactly as surely as
+ * one it writes, and on the other machine it reaches whatever sits there.
  */
 const memoryPair = computed(() => {
   const s = source.value;
   const t = target.value;
   if (!s?.memoryMap || !t?.memoryMap) return null;
+  const v = narrowingBy.value;
   return {
     fromName: s.name,
     toName: t.name,
@@ -223,7 +231,13 @@ const memoryPair = computed(() => {
     toMap: t.memoryMap,
     fromByIndirection: writesByIndirection(s.facts),
     toByIndirection: writesByIndirection(t.facts),
-    sites: narrowingBy.value?.writeSites ?? [],
+    sites: [
+      ...(v?.writeSites ?? []),
+      ...(v?.readSites ?? []).map((site) => ({
+        ...site,
+        role: 'read' as const,
+      })),
+    ],
     notation: s.facts.addressNotation,
   };
 });
@@ -294,6 +308,73 @@ const writeLandingRows = computed(() => {
     };
   });
 });
+
+/**
+ * Where the program's reads land on the target, on exactly the conditions the
+ * write landings appear on.
+ */
+const readLandings = computed(() => {
+  const pair = memoryPair.value;
+  const v = narrowingBy.value;
+  if (!pair || !v) return [];
+  return readLandingsForProgram(pair.fromMap, pair.toMap, v);
+});
+
+/**
+ * The read verdicts as sentences. Both regions are named wherever there are
+ * two: naming what the program was really asking for - the keyboard, the clock,
+ * the system variables - is what lets a reader find the target's own way of
+ * asking it. There is no read-only verdict; see `readLandingsForProgram`.
+ */
+const readLandingRows = computed(() => {
+  const s = source.value;
+  const t = target.value;
+  if (!s || !t) return [];
+  return readLandings.value.map((landing, index) => {
+    const aimed = landing.from?.label ?? 'memory';
+    const reached = landing.to?.label ?? '';
+    const detail = {
+      'different-kind': `${aimed} on ${s.name}; ${reached} on ${t.name}. The read returns something else entirely.`,
+      outside: `${aimed} on ${s.name}. ${t.name} has no such address, so there is nothing there to read.`,
+      'same-kind': `${aimed} on ${s.name}; ${reached} on ${t.name}. The same kind of memory in a different place, so the address still has to change.`,
+    }[landing.verdict];
+    return {
+      key: `${landing.verdict}-${index}`,
+      addresses: addressList(landing.addresses),
+      detail,
+      estimated: landing.approximate,
+    };
+  });
+});
+
+/**
+ * The machine code the program reaches, as rows among the rewrites.
+ *
+ * Not gated on the memory layouts, unlike the two landings: a routine is the
+ * source machine's processor code whether or not either machine's layout is
+ * described, and that is the whole finding.
+ */
+const machineCodeRows = computed(() => {
+  const s = source.value;
+  const v = narrowingBy.value;
+  if (!s || !v) return [];
+  return machineCodeForProgram(s.memoryMap, v).map((routine, index) => ({
+    key: `${routine.address}-${index}`,
+    name: routine.call ?? routine.block?.name ?? `${routine.address}`,
+    where: routine.block
+      ? `inside the attached block "${routine.block.name}" (${routine.block.size} bytes at ${addressList([routine.block.address])})`
+      : routine.region
+        ? `in ${routine.region.label}`
+        : `at ${addressList([routine.address])}`,
+    estimated: routine.approximate,
+  }));
+});
+
+/** Whether the pair's own guidance already says how machine code travels
+ *  between these two machines, so the finding points at it instead. */
+const machineCodeCrossReference = computed(() =>
+  carriesMachineCodeGuidance(guidance.value),
+);
 
 const sourceEscapes = computed(() => {
   const s = source.value;
@@ -695,6 +776,10 @@ const writeLandingList = useTruncatedList(
   () => writeLandingRows.value,
   pairKey,
 );
+// The reads run longer than the writes on a program that polls: they are
+// grouped the same way, and truncated the same way.
+const readLandingList = useTruncatedList(() => readLandingRows.value, pairKey);
+const machineCodeList = useTruncatedList(() => machineCodeRows.value, pairKey);
 // The renames have no truncated list of their own: they are 1-4 commands for
 // every pair here, named in one run like the parenthesis rule below.
 
@@ -1184,6 +1269,11 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
     ],
     [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
     [
+      machineCodeRows.value.length > 0,
+      'machine-code',
+      'Machine code to re-achieve',
+    ],
+    [
       visibleFalseFriends.value.length > 0,
       'false-friends',
       'Same word, different meaning',
@@ -1349,6 +1439,12 @@ function onVocabularyMessage(e: MessageEvent) {
           }
         : null,
     writeSites: Array.isArray(data.writeSites) ? data.writeSites : [],
+    // Absent from an older app's reply, which is read as "this program reads
+    // nothing and calls nothing" - the same reading as a program that really
+    // does neither, and the only one that cannot invent a finding.
+    readSites: Array.isArray(data.readSites) ? data.readSites : [],
+    callSites: Array.isArray(data.callSites) ? data.callSites : [],
+    codeBlocks: Array.isArray(data.codeBlocks) ? data.codeBlocks : [],
     // Null means the machine the program was read as has no command for
     // selecting a screen mode - so nothing in the program selects one on the
     // target either, and the target's boot mode decides. Most source machines
@@ -2172,6 +2268,94 @@ watch(to, requestVocabulary);
             </li>
           </ul>
         </div>
+
+        <!--
+          The same conclusion for the reads, which fail more quietly: nothing
+          is corrupted, the program simply computes with numbers that mean
+          nothing. Naming the region on both sides is what makes the target's
+          own way of asking the same question findable.
+        -->
+        <div v-if="readLandingRows.length" class="cmp-landings">
+          <h3 class="cmp-group-head">
+            Where these reads land ({{ readLandingRows.length }})
+          </h3>
+          <ul class="cmp-list">
+            <li v-for="row in readLandingList.visible" :key="row.key">
+              <code>{{ row.addresses }}</code>
+              <span class="cmp-change-detail">{{ row.detail }}</span>
+              <span v-if="row.estimated" class="cmp-landing-approx">
+                The address could only be estimated, so this is an estimate too
+                — the region is right, the exact byte may not be.
+              </span>
+            </li>
+            <li
+              v-if="readLandingList.hasMore && !readLandingList.expanded"
+              class="cmp-more"
+            >
+              <button
+                type="button"
+                class="cmp-expand"
+                @click="readLandingList.expand()"
+              >
+                Show {{ readLandingList.remaining }} more…
+              </button>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!--
+        The one categorical finding on this page: no substitution, rename or
+        piece of advice ports a machine-code routine, so the section does not
+        offer one. It states what the routines are and asks the question that
+        actually moves the port forward — what does this one do — because that
+        is what gets re-achieved with the target's own means.
+
+        Outside the memory-layout section, because it is not gated on either
+        machine having a described layout.
+      -->
+      <section
+        v-if="machineCodeRows.length"
+        id="machine-code"
+        class="cmp-section"
+      >
+        <h2>Machine code to re-achieve ({{ machineCodeRows.length }})</h2>
+        <p class="cmp-hint">
+          These are {{ source.name }} processor code, not BASIC: nothing on the
+          {{ target.name }} runs them and no substitution carries them across.
+        </p>
+        <ul class="cmp-list">
+          <li v-for="row in machineCodeList.visible" :key="row.key">
+            <code>{{ row.name }}</code>
+            <span class="cmp-change-detail">
+              {{ row.where }}.
+              <template v-if="row.estimated">
+                The address could only be estimated.
+              </template>
+            </span>
+          </li>
+          <li
+            v-if="machineCodeList.hasMore && !machineCodeList.expanded"
+            class="cmp-more"
+          >
+            <button
+              type="button"
+              class="cmp-expand"
+              @click="machineCodeList.expand()"
+            >
+              Show {{ machineCodeList.remaining }} more…
+            </button>
+          </li>
+        </ul>
+        <p class="cmp-hint">
+          Decide, for each: establish what the routine does, then do that with
+          the {{ target.name }}'s own means.
+          <template v-if="machineCodeCrossReference">
+            How machine code travels between these two machines is covered in
+            the guidance above; carrying it is a separate job from re-achieving
+            it.
+          </template>
+        </p>
       </section>
 
       <p v-if="hasSilentWork" class="cmp-stage">

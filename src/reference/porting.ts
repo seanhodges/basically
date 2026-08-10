@@ -65,6 +65,19 @@ export const keywordEquivalences: KeywordEquivalence[] = [
     },
   },
   {
+    // The command that hands an address to the processor. The Sinclairs, the
+    // TRS-80 and the Altair are absent because they have no such *command* -
+    // they reach machine code through the USR function, which is a false friend
+    // rather than a rename (see below).
+    concept: 'run-machine-code',
+    spellings: {
+      atom: 'LINK',
+      bbc: 'CALL',
+      commodore: 'SYS',
+      cpc: 'CALL',
+    },
+  },
+  {
     concept: 'seed-random',
     spellings: {
       cpc: 'RANDOMIZE',
@@ -152,6 +165,27 @@ export const falseFriends: FalseFriend[] = [
     meanings: {
       atom: 'Closes a DO loop.',
       bbc: 'Closes a REPEAT loop.',
+    },
+  },
+  {
+    // The trap is the argument, not the return value: every machine here gives
+    // USR a number and gets one back, and on half of them that number is the
+    // address of the code to run while on the other half it is data handed to
+    // whatever address was poked into a vector. A ported `LET X=USR 32768` runs
+    // whatever the vector happens to hold and passes it 32768.
+    keyword: 'USR',
+    meanings: {
+      altair8800:
+        'The argument is data: it calls the routine whose address is held in the USR vector, and returns that routine’s result.',
+      bbc: 'The argument is the address: it calls machine code there with the registers preset from A%, X%, Y% and the carry flag, and returns them packed into one number.',
+      commodore:
+        'The argument is data: it calls the routine whose address is held in the USR vector at $0311, and returns that routine’s result.',
+      trs80:
+        'The argument is data: it calls the routine whose address was set up by POKE or DEF USR, and returns that routine’s result.',
+      zx80: 'The argument is the address: it calls machine code there and returns the BC register pair.',
+      zx81: 'The argument is the address: it calls machine code there and returns the BC register pair.',
+      zxspectrum:
+        'The argument is the address: it calls machine code there and returns the BC register pair — unless it is a single-letter string, which gives that user-defined graphic’s address instead.',
     },
   },
   {

@@ -60,6 +60,7 @@ export const cpc6128: Dialect = {
   // Same base 64K layout as the 464, so the block linter's figures carry over.
   memoryBlocks: cpc464MemoryBlocks,
   memoryWrites: { forms: ['poke'], hexPrefix: '&' },
+  memoryReads: { forms: ['peek'], calls: ['CALL'] },
   // The machine introspects the current BASIC line, so the step debugger is on.
   debuggable: true,
   // Joystick 0 is matrix line 9, read through the AY like the keyboard; the CPC

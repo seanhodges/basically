@@ -89,6 +89,9 @@ export const atom: Dialect = {
     hexPrefix: '#',
     statementSep: ';',
   },
+  // Reads use the same sigils in an expression (`C=?#DE`); LINK is the Atom's
+  // one way into machine code.
+  memoryReads: { forms: ['indirection'], calls: ['LINK'] },
 
   // opts.rom/ramKb are ignored: jsbeeb manages its own ROMs and memory map.
   // opts.files is the VFS sink for Atom BASIC's FIN/FOUT/BGET/BPUT/SHUT.

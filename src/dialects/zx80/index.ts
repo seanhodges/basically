@@ -44,6 +44,10 @@ export const zx80: Dialect = {
   // Sinclair BASIC POKEs decimal addresses, so the map opens in Int.
   addressNotation: 'dec',
   statementSeparator: null,
+
+  // PEEK takes its address without parentheses, and USR calls machine code at
+  // the address it is given (returning BC) — the `RAND USR addr` idiom.
+  memoryReads: { forms: ['peek'], calls: ['USR'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: zx80Keywords,
   charset: zx80Charset,

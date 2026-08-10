@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { pokeAddresses, pokeSites } from './pokeAddresses';
+import {
+  callSites,
+  pokeAddresses,
+  pokeSites,
+  readSites,
+} from './pokeAddresses';
 
 describe('pokeAddresses', () => {
   it('extracts literal POKE addresses, sorted and de-duplicated', () => {
@@ -604,5 +609,154 @@ describe('pokeSites — Acorn *LOAD star-command binary loads', () => {
     expect(pokeSites('10 *LOAD "F" 2900', atom).map((s) => s.address)).toEqual([
       0x2900,
     ]);
+  });
+});
+
+describe('readSites', () => {
+  // The Sinclair form: PEEK takes its address without parentheses.
+  const sinclair = { reads: ['peek'] as const };
+  // The Acorn form: no PEEK at all, `?`/`!` inside an expression, `&` hex.
+  const bbc = { reads: ['indirection'] as const, hexPrefix: '&' };
+
+  it('collects a bare PEEK with its address', () => {
+    expect(readSites('10 LET A=PEEK 16396', sinclair)).toEqual([
+      {
+        address: 16396,
+        expr: 'PEEK 16396',
+        computed: false,
+        approximate: false,
+        lineNo: 10,
+      },
+    ]);
+  });
+
+  it('collects a parenthesised PEEK', () => {
+    expect(
+      readSites('10 IF PEEK(53280)=0 THEN STOP', sinclair).map(
+        (s) => s.address,
+      ),
+    ).toEqual([53280]);
+  });
+
+  it('reads each PEEK of a two-byte address separately', () => {
+    // `PEEK 16396+256*PEEK 16397` is the display-file idiom. The argument is a
+    // primary, so this is two reads and not one at some third address.
+    expect(
+      readSites('10 LET D=PEEK 16396+256*PEEK 16397', sinclair).map(
+        (s) => s.address,
+      ),
+    ).toEqual([16396, 16397]);
+  });
+
+  it('resolves a variable address, and marks a computed one approximate', () => {
+    const src = ['10 LET B=16384', '20 LET A=PEEK B', '30 LET C=PEEK (X+2)'];
+    const sites = readSites(src.join('\n'), sinclair);
+    expect(sites[0]).toMatchObject({ address: 16384, approximate: false });
+    expect(sites[1]).toMatchObject({ address: 2, approximate: true });
+  });
+
+  it('ignores reads inside strings, comments and #BIN payloads', () => {
+    const src = [
+      '10 PRINT "PEEK 5"',
+      '20 REM PEEK 6 reads nothing',
+      '30 LET A=PEEK 16396',
+    ].join('\n');
+    expect(readSites(src, sinclair).map((s) => s.address)).toEqual([16396]);
+  });
+
+  it('finds nothing on a machine that declares no read forms', () => {
+    expect(readSites('10 LET A=PEEK 16396')).toEqual([]);
+  });
+
+  it('reads an indirection expression, hex included', () => {
+    expect(readSites('10 C=?&FE60', bbc)).toEqual([
+      {
+        address: 0xfe60,
+        // The hex literal is rewritten to decimal before evaluation, so the
+        // address reads back as a plain literal - the same cosmetic trade the
+        // write scan makes for the same reason.
+        expr: '?65120',
+        computed: false,
+        approximate: false,
+        lineNo: 10,
+      },
+    ]);
+  });
+
+  it('leaves the sigil that opens a write to the write scan', () => {
+    // `?&2000=?&3000` writes one address and reads the other; only the second
+    // is a read, or every indirection write would be reported twice.
+    expect(readSites('10 ?&2000=?&3000', bbc).map((s) => s.address)).toEqual([
+      0x3000,
+    ]);
+  });
+
+  it('skips the dyadic base?offset form rather than misreading it', () => {
+    // `A?3` reads A+3, not 3. A sigil glued to a name is left alone.
+    expect(readSites('10 C=A?3', bbc)).toEqual([]);
+  });
+});
+
+describe('callSites', () => {
+  const sinclair = { calls: ['USR'] };
+  const bbc = { calls: ['CALL', 'USR'], hexPrefix: '&' };
+
+  it('collects a call target with the keyword the program used', () => {
+    expect(callSites('10 RAND USR 32768', sinclair)).toEqual([
+      {
+        address: 32768,
+        expr: 'USR 32768',
+        computed: false,
+        approximate: false,
+        lineNo: 10,
+      },
+    ]);
+  });
+
+  it('collects a parenthesised call, and a hex one', () => {
+    expect(
+      callSites('10 CALL &FFE3\n20 A=USR(&2000)', bbc).map((s) => s.address),
+    ).toEqual([0xffe3, 0x2000]);
+  });
+
+  it('resolves a call through a variable set earlier', () => {
+    const src = ['10 LET E=32768', '20 RAND USR E'].join('\n');
+    expect(callSites(src, sinclair)).toEqual([
+      {
+        address: 32768,
+        expr: 'USR E',
+        computed: true,
+        approximate: false,
+        lineNo: 20,
+      },
+    ]);
+  });
+
+  it('forgets a variable a call assigns to, rather than keeping its old value', () => {
+    // `LET X=USR 32768` is a call *and* an assignment. What the routine returns
+    // is not knowable statically, so X stops being known here: a scan that
+    // consumed the statement would leave the stale 30000 in place and report a
+    // second call to an address the program never asks for.
+    const src = ['10 LET X=30000', '20 LET X=USR 32768', '30 RAND USR X'];
+    expect(callSites(src.join('\n'), sinclair).map((s) => s.address)).toEqual([
+      32768,
+    ]);
+  });
+
+  it('ignores calls inside strings and comments', () => {
+    const src = ['10 PRINT "USR 100"', '20 REM USR 200'].join('\n');
+    expect(callSites(src, sinclair)).toEqual([]);
+  });
+
+  it('finds nothing on a machine that declares no call keywords', () => {
+    expect(callSites('10 RAND USR 32768')).toEqual([]);
+  });
+
+  it('does not read a UDG address as a call', () => {
+    // `USR "a"` is resolved to the graphic's address before the scan, so the
+    // Spectrum's UDG idiom never reports a machine-code call.
+    expect(
+      callSites('10 POKE USR "a",255', { calls: ['USR'], udgBase: 0xff58 }),
+    ).toEqual([]);
   });
 });

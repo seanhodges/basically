@@ -39,6 +39,9 @@ import {
   tableForMachine,
   unsupportedCharactersForProgram,
   writeLandingsForProgram,
+  carriesMachineCodeGuidance,
+  machineCodeForProgram,
+  readLandingsForProgram,
   type ProgramFit,
   type ProgramVocabulary,
 } from './compare';
@@ -50,6 +53,7 @@ import type { MemoryMap } from '../dialects/types';
 // so they are tested against the machines themselves. A synthetic pair would
 // only prove the comparison agrees with the numbers the test made up.
 import { portingFacts } from './facts';
+import { pairPortingNotes } from './porting';
 import { c64MemoryMap } from '../dialects/commodore64/memoryMap';
 import { spectrumMemoryMap } from '../dialects/zxspectrum/memoryMap';
 import { zx81MemoryMap } from '../dialects/zx81/memoryMap';
@@ -1199,6 +1203,9 @@ function vocab(
     largeNumbers?: number[];
     spellings?: ProgramVocabulary['spellings'];
     screenModes?: ProgramVocabulary['screenModes'];
+    readSites?: ProgramVocabulary['readSites'];
+    callSites?: ProgramVocabulary['callSites'];
+    codeBlocks?: ProgramVocabulary['codeBlocks'];
   } = {},
 ): ProgramVocabulary {
   return {
@@ -1215,6 +1222,9 @@ function vocab(
     extraStatements: rest.extraStatements ?? 0,
     lineNumbers: rest.lineNumbers ?? null,
     writeSites,
+    readSites: rest.readSites ?? [],
+    callSites: rest.callSites ?? [],
+    codeBlocks: rest.codeBlocks ?? [],
     screenModes: rest.screenModes ?? null,
   };
 }
@@ -2033,6 +2043,189 @@ describe('writeLandingsForProgram', () => {
 
   it('reports nothing when the program writes to nothing', () => {
     expect(landings(c64MemoryMap, zx81MemoryMap, [])).toEqual([]);
+  });
+});
+
+describe('readLandingsForProgram', () => {
+  const site = (address: number, approximate = false) => ({
+    address,
+    expr: `PEEK ${address}`,
+    computed: false,
+    approximate,
+  });
+  const landings = (
+    fromMap: MemoryMap | undefined,
+    toMap: MemoryMap | undefined,
+    sites: ProgramVocabulary['readSites'],
+  ) =>
+    readLandingsForProgram(
+      fromMap,
+      toMap,
+      vocab([], [], 'commodore64', [], [], [], { readSites: sites }),
+    );
+
+  it('reports a read that returns something else, naming both sides', () => {
+    // 56320/$DC00 is the C64's keyboard/joystick port; the ZX81 has the mirror
+    // of its own RAM there, so the read returns program bytes.
+    const found = landings(c64MemoryMap, zx81MemoryMap, [site(0xdc00)]);
+    expect(found).toHaveLength(1);
+    expect(found[0]!.verdict).toBe('different-kind');
+    expect(found[0]!.from?.label).toBe('CIA 1');
+    expect(found[0]!.to?.label).toBe('Echo of RAM');
+  });
+
+  it('has no read-only verdict: a read of ROM returns real bytes', () => {
+    // 1024/$0400 is the C64's screen and the ZX81's ROM. A *write* there does
+    // nothing; a read returns ROM contents, which is a change of region like
+    // any other and is reported as one.
+    const found = landings(c64MemoryMap, zx81MemoryMap, [site(0x0400)]);
+    expect(found).toHaveLength(1);
+    expect(found[0]!.verdict).toBe('different-kind');
+    expect(found[0]!.to?.kind).toBe('rom');
+  });
+
+  it('reports an address the target does not contain', () => {
+    const found = landings(c64MemoryMap, zx81MemoryMap, [site(0x12000)]);
+    expect(found).toHaveLength(1);
+    expect(found[0]!.verdict).toBe('outside');
+    expect(found[0]!.to).toBeUndefined();
+  });
+
+  it('reports a read that reaches the same kind of thing', () => {
+    const found = landings(c64MemoryMap, spectrumMemoryMap, [site(0x6000)]);
+    expect(found).toHaveLength(1);
+    expect(found[0]!.verdict).toBe('same-kind');
+  });
+
+  it('groups a run of reads of one region into one finding', () => {
+    const found = landings(c64MemoryMap, zx81MemoryMap, [
+      site(0xd400),
+      site(0xd401),
+      site(0xd400),
+      site(0xdc00),
+    ]);
+    expect(found).toHaveLength(2);
+    const bySource = new Map(found.map((l) => [l.from?.label, l.addresses]));
+    expect(bySource.get('SID registers')).toEqual([0xd400, 0xd401]);
+  });
+
+  it('carries an approximate address into its verdict', () => {
+    const found = landings(c64MemoryMap, zx81MemoryMap, [site(0xdc00, true)]);
+    expect(found[0]!.approximate).toBe(true);
+  });
+
+  it('reports nothing when either machine has no described layout', () => {
+    const sites = [site(0xdc00)];
+    expect(landings(undefined, zx81MemoryMap, sites)).toEqual([]);
+    expect(landings(c64MemoryMap, undefined, sites)).toEqual([]);
+  });
+
+  it('reports nothing when the program reads nothing', () => {
+    expect(landings(c64MemoryMap, zx81MemoryMap, [])).toEqual([]);
+  });
+});
+
+describe('machineCodeForProgram', () => {
+  const call = (address: number, expr: string, approximate = false) => ({
+    address,
+    expr,
+    computed: false,
+    approximate,
+  });
+  const block = (name: string, address: number, size: number) => ({
+    name,
+    address,
+    size,
+    kind: 'code' as const,
+  });
+  const found = (
+    callSites: ProgramVocabulary['callSites'],
+    codeBlocks: ProgramVocabulary['codeBlocks'],
+  ) =>
+    machineCodeForProgram(
+      c64MemoryMap,
+      vocab([], [], 'commodore64', [], [], [], { callSites, codeBlocks }),
+    );
+
+  it('reports a call into a block as a call into that block', () => {
+    const routines = found(
+      [call(49155, 'SYS 49155')],
+      [block('SCROLL', 49152, 64)],
+    );
+    expect(routines).toHaveLength(1);
+    expect(routines[0]!.call).toBe('SYS 49155');
+    expect(routines[0]!.block?.name).toBe('SCROLL');
+  });
+
+  it('names what the source machine keeps at a call outside any block', () => {
+    const routines = found([call(0xff81, 'SYS 65409')], []);
+    expect(routines).toHaveLength(1);
+    expect(routines[0]!.block).toBeUndefined();
+    expect(routines[0]!.region?.kind).toBe('rom');
+  });
+
+  it('reports a block no call reaches, so its code is still accounted for', () => {
+    const routines = found([], [block('SPRITES', 49152, 128)]);
+    expect(routines).toHaveLength(1);
+    expect(routines[0]!.call).toBeUndefined();
+    expect(routines[0]!.block?.size).toBe(128);
+  });
+
+  it('reports the calls first, ascending, then the blocks nothing reaches', () => {
+    const routines = found(
+      [call(49155, 'SYS 49155'), call(4096, 'SYS 4096')],
+      [block('SCROLL', 49152, 64), block('MUSIC', 32768, 256)],
+    );
+    expect(routines.map((r) => r.address)).toEqual([4096, 49155, 32768]);
+  });
+
+  it('carries an approximate call address', () => {
+    expect(found([call(49152, 'SYS E', true)], [])[0]!.approximate).toBe(true);
+  });
+
+  it('reports routines without a memory map to name them against', () => {
+    // Not gated on either layout, unlike the landings: a routine is the source
+    // machine's processor code whether or not its address can be named.
+    const routines = machineCodeForProgram(
+      undefined,
+      vocab([], [], 'commodore64', [], [], [], {
+        callSites: [call(49152, 'SYS 49152')],
+      }),
+    );
+    expect(routines).toHaveLength(1);
+    expect(routines[0]!.region).toBeUndefined();
+  });
+
+  it('reports nothing for a program with no calls and no blocks', () => {
+    expect(found([], [])).toEqual([]);
+  });
+});
+
+describe('carriesMachineCodeGuidance', () => {
+  const guidanceFor = (from: string, to: string) =>
+    composeGuidance({
+      from,
+      to,
+      pairNotes: pairPortingNotes,
+      falseFriends: [],
+    });
+
+  it('is true for a pair whose notes already say how code travels', () => {
+    // The Sinclair pairs: hidden-REM records on one side, .TAP CODE blocks on
+    // the other. The machine-code finding points at that rather than repeating
+    // it under its own heading.
+    expect(carriesMachineCodeGuidance(guidanceFor('zx81', 'zxspectrum'))).toBe(
+      true,
+    );
+    expect(carriesMachineCodeGuidance(guidanceFor('zxspectrum', 'zx80'))).toBe(
+      true,
+    );
+  });
+
+  it('is false for a pair whose notes say nothing about it', () => {
+    expect(carriesMachineCodeGuidance(guidanceFor('commodore', 'trs80'))).toBe(
+      false,
+    );
   });
 });
 

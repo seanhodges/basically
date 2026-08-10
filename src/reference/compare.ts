@@ -827,6 +827,21 @@ export interface ProgramVocabulary {
    */
   writeSites: ProgramWriteSite[];
   /**
+   * The addresses the program reads back, resolved for the machine it was read
+   * as. Marked and judged on both machines exactly as the writes are: a read
+   * aimed at one machine's frame clock reaches another machine's program text
+   * and returns numbers that mean nothing.
+   */
+  readSites: ProgramReadSite[];
+  /**
+   * The addresses the program hands to the processor - its `SYS`, `CALL`,
+   * `LINK` and address-taking `USR` targets. Not landings but routines: what
+   * lives there is the source machine's processor code.
+   */
+  callSites: ProgramReadSite[];
+  /** The code and data blocks the document carries beside the program. */
+  codeBlocks: ProgramCodeBlock[];
+  /**
    * The screen modes the program selects, or null on a machine with no command
    * for selecting one. What decides whether a target's conditionally free
    * memory is actually free. The app-side twin is `ScreenModeUse`.
@@ -872,6 +887,25 @@ export interface ProgramWriteSite {
   approximate: boolean;
   endAddress?: number;
   role?: 'load';
+}
+
+/** One address the program reads, or calls. The app-side twin is
+ *  `ProgramReadSite` in `src/app/programVocabulary.ts`. */
+export interface ProgramReadSite {
+  address: number;
+  expr: string;
+  computed: boolean;
+  approximate: boolean;
+  endAddress?: number;
+}
+
+/** One block the document carries beside the program. The app-side twin is
+ *  `ProgramCodeBlock` in `src/app/programVocabulary.ts`. */
+export interface ProgramCodeBlock {
+  name: string;
+  address: number;
+  size: number;
+  kind: 'code' | 'data';
 }
 
 /**
@@ -1642,6 +1676,204 @@ export function writeLandingsForProgram(
     (a, b) =>
       VERDICT_ORDER.indexOf(a.verdict) - VERDICT_ORDER.indexOf(b.verdict) ||
       a.addresses[0]! - b.addresses[0]!,
+  );
+}
+
+/**
+ * What one of the program's reads reaches on the target machine.
+ *
+ * The write verdicts less one. `read-only` is a *write* verdict: a write into
+ * ROM does nothing and the line looks skipped, while a read of ROM returns real
+ * bytes on both machines - different bytes, which is the finding, and the same
+ * finding as any other change of region. So a read landing in ROM falls to the
+ * ordinary test, and is reported as reaching something else wherever the source
+ * kept a different kind of thing there.
+ */
+export type ReadLandingVerdict = 'same-kind' | 'different-kind' | 'outside';
+
+/** Where one group of the program's reads lands. See {@link readLandingsForProgram}. */
+export interface ReadLanding {
+  verdict: ReadLandingVerdict;
+  /** The region the source machine keeps at these addresses - what the program
+   *  was really asking for: the keyboard, the clock, the system variables. */
+  from?: MemoryRegion;
+  /** What the target keeps there. Absent exactly for the `outside` verdict. */
+  to?: MemoryRegion;
+  /** The addresses in this group, ascending and distinct. */
+  addresses: number[];
+  /** True where any address in the group was only approximated. */
+  approximate: boolean;
+}
+
+/**
+ * Worst-placed first, as the writes are: a read that quietly returns the wrong
+ * thing, then one with nothing to read at all, then one that only has to move.
+ */
+const READ_VERDICT_ORDER: readonly ReadLandingVerdict[] = [
+  'different-kind',
+  'outside',
+  'same-kind',
+];
+
+/**
+ * Where the program's reads land on the target machine.
+ *
+ * The same shape as {@link writeLandingsForProgram}, and deliberately so: the
+ * two findings sit beside each other and a reader should not have to learn a
+ * second way of reading one. Grouped by verdict *and* by both regions, so a
+ * loop reading eight bytes of one system variable block is one finding.
+ *
+ * Naming the source region is what makes this useful rather than merely true.
+ * A read of the keyboard is reported as a read of the keyboard, on a machine
+ * that says so in its own layout - and that is the whole of the "what should
+ * this become" story, because the alternative is an address-by-address
+ * substitution table this project could never pin.
+ *
+ * Empty where either machine's layout is undescribed - the condition that leaves
+ * the maps themselves undrawn - and empty where the program reads nothing.
+ */
+export function readLandingsForProgram(
+  fromMap: MemoryMap | undefined,
+  toMap: MemoryMap | undefined,
+  vocabulary: ProgramVocabulary,
+): ReadLanding[] {
+  if (fromMap === undefined || toMap === undefined) return [];
+  const groups = new Map<string, ReadLanding>();
+  for (const site of vocabulary.readSites) {
+    const from = regionAt(fromMap, site.address);
+    const to = regionAt(toMap, site.address);
+    const verdict: ReadLandingVerdict =
+      to === undefined
+        ? 'outside'
+        : from !== undefined && from.kind === to.kind
+          ? 'same-kind'
+          : 'different-kind';
+    const key = `${verdict}|${from?.start ?? 'none'}|${to?.start ?? 'none'}`;
+    const found = groups.get(key);
+    if (found === undefined) {
+      groups.set(key, {
+        verdict,
+        from,
+        to,
+        addresses: [site.address],
+        approximate: site.approximate,
+      });
+      continue;
+    }
+    if (!found.addresses.includes(site.address)) {
+      found.addresses.push(site.address);
+    }
+    found.approximate = found.approximate || site.approximate;
+  }
+
+  for (const landing of groups.values()) {
+    landing.addresses.sort((a, b) => a - b);
+  }
+  return [...groups.values()].sort(
+    (a, b) =>
+      READ_VERDICT_ORDER.indexOf(a.verdict) -
+        READ_VERDICT_ORDER.indexOf(b.verdict) ||
+      a.addresses[0]! - b.addresses[0]!,
+  );
+}
+
+/**
+ * One routine the port has to re-achieve rather than translate.
+ *
+ * Either an address the program calls, or a block it carries that no call in its
+ * text reaches - a block loaded and entered from outside the listing, or one the
+ * scan could not resolve a call to. Both are machine code for the source machine
+ * and neither survives the move, which is why they are one finding.
+ */
+export interface MachineCodeRoutine {
+  /** The address, in the source machine's own space. */
+  address: number;
+  /** How the program reaches it - `SYS 49152`, `CALL 65507` - or absent for a
+   *  block no call in the program's text lands in. */
+  call?: string;
+  /** The block this address sits inside, where the document carries one. */
+  block?: ProgramCodeBlock;
+  /** What the source machine's layout keeps at the address, where it describes
+   *  one. Absent for a machine with no described layout. */
+  region?: MemoryRegion;
+  /** True where the call address could only be approximated. */
+  approximate: boolean;
+}
+
+/** The block containing `address`, or undefined. A zero-length block holds no
+ *  bytes and so contains nothing. */
+function blockAt(
+  blocks: ProgramCodeBlock[],
+  address: number,
+): ProgramCodeBlock | undefined {
+  return blocks.find(
+    (b) => b.size > 0 && address >= b.address && address < b.address + b.size,
+  );
+}
+
+/**
+ * The machine code this program reaches, as routines the port must re-achieve.
+ *
+ * Not landings: there is nothing to judge. A routine at 32768 is Z80 or 6502
+ * written for one machine, and on the other it is at best absent - so the
+ * finding is categorical, and the only question that moves the port forward is
+ * what the routine was *for*. This gathers what there is to ask that about.
+ *
+ * A call that lands inside a block the document carries is reported as a call
+ * into that block, which is the reading a person would give it; blocks no call
+ * reaches follow, so a program that loads a routine and enters it from outside
+ * the listing still has its code accounted for.
+ *
+ * Unlike the landings this is not gated on either machine's memory layout: what
+ * the source machine keeps at the address is worth naming where it is known and
+ * is not what makes the finding. Empty where the program calls nothing and the
+ * document carries no blocks.
+ */
+export function machineCodeForProgram(
+  fromMap: MemoryMap | undefined,
+  vocabulary: ProgramVocabulary,
+): MachineCodeRoutine[] {
+  const blocks = vocabulary.codeBlocks;
+  const routines: MachineCodeRoutine[] = [];
+  const reached = new Set<string>();
+  for (const site of vocabulary.callSites) {
+    const block = blockAt(blocks, site.address);
+    if (block) reached.add(block.name);
+    routines.push({
+      address: site.address,
+      call: site.expr,
+      ...(block ? { block } : {}),
+      ...(fromMap ? { region: regionAt(fromMap, site.address) } : {}),
+      approximate: site.approximate,
+    });
+  }
+  routines.sort((a, b) => a.address - b.address);
+
+  for (const block of blocks) {
+    if (reached.has(block.name)) continue;
+    routines.push({
+      address: block.address,
+      block,
+      ...(fromMap ? { region: regionAt(fromMap, block.address) } : {}),
+      approximate: false,
+    });
+  }
+  return routines;
+}
+
+/**
+ * Whether this pair's own guidance already says how machine code travels
+ * between these two machines - the Sinclair notes about hidden-REM records and
+ * `.TAP CODE` blocks are the case this exists for.
+ *
+ * The machine-code finding points at that guidance rather than restating it: the
+ * carrier format is a fact about the pair, it is already written once, and the
+ * reading budget the guidance is authored under does not survive saying it
+ * twice under two headings.
+ */
+export function carriesMachineCodeGuidance(guidance: PairGuidance): boolean {
+  return guidance.pairNotes.some((note) =>
+    /machine code|CODE block/i.test(note),
   );
 }
 

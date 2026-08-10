@@ -915,6 +915,46 @@ export interface MemoryWriteSyntax {
 }
 
 /**
+ * The other two ways a program addresses a machine directly: the addresses it
+ * *reads*, and the addresses it hands to the processor. Declared beside
+ * {@link MemoryWriteSyntax} rather than folded into it, so a machine that
+ * declares nothing here contributes nothing new and every existing write
+ * declaration stays exactly as it was.
+ *
+ * Nothing is inferred from the keyword table. `PEEK` is a function on every
+ * machine that has one and `USR` is a function on machines that mean quite
+ * different things by it, so a scan that guessed from spellings would read a
+ * Commodore `USR(X)` - whose argument is data, not an address - as a call to
+ * whatever number X held.
+ *
+ * The hex prefix and statement separator are not repeated here: an address is
+ * written the same way whichever direction it is used in, so both come from
+ * {@link MemoryWriteSyntax} on the machines that set them.
+ */
+export interface MemoryReadSyntax {
+  /**
+   * The expression forms that read memory:
+   * - `'peek'` - `PEEK(addr)` or, on the Sinclairs, `PEEK addr`.
+   * - `'indirection'` - `?addr` (byte) or `!addr` (word) read inside an
+   *   expression, as `C=?addr` or `IF ?addr=5`. The BBC and Atom form; a
+   *   *statement-leading* `?addr=` is a write and belongs to
+   *   {@link MemoryWriteSyntax} instead.
+   */
+  forms: ('peek' | 'indirection')[];
+  /**
+   * The keywords that run machine code at an address the program gives them -
+   * `SYS`, `CALL`, `LINK`, and the Sinclair/Acorn `USR`. Upper case, in the
+   * machine's own spelling.
+   *
+   * Only the forms whose argument really is the address. The Microsoft `USR(x)`
+   * calls a routine through a vector and passes `x` as data, so the Commodore,
+   * TRS-80 and Altair leave it out; what their programs reach is the vector
+   * they poked, which their writes already record.
+   */
+  calls?: string[];
+}
+
+/**
  * Result of {@link Dialect.audio.decodeSamples} - a recorded cassette decoded
  * back into an editable document. The mandatory `programName`/`source` are the
  * main program; the optional fields mirror {@link DetokenizeResult} so a
@@ -1108,6 +1148,13 @@ export interface Dialect {
    * case list every form the dialect uses (e.g. `['poke', 'load-code']`).
    */
   memoryWrites?: MemoryWriteSyntax;
+  /**
+   * How this dialect reads memory and reaches machine code, for the porting
+   * guide's read landings and its machine-code finding. Absent for a machine
+   * whose reads and calls the app cannot name, which reports neither rather
+   * than guessing from the keyword table.
+   */
+  memoryReads?: MemoryReadSyntax;
   /**
    * Where this dialect's {@link MemoryBlock}s may legally live, and the figures
    * `src/app/blockLint.ts`'s `lintBlocks` needs to gate the Run path on them.

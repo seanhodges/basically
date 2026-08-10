@@ -59,6 +59,7 @@ export const pet: Dialect = {
   statementSeparator: ':',
   // POKE writes, plus `LOAD "",dev,1` absolute machine-code loads for the map.
   memoryWrites: { forms: ['poke', 'load-device'] },
+  memoryReads: { forms: ['peek'], calls: ['SYS'] },
   fileExtensions: ['.txt', '.bas'],
   keywords: petKeywords,
   operators: c64Operators,

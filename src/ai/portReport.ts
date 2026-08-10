@@ -27,7 +27,7 @@
  *   and one keystroke from being fixed - and there is no adequate port to be had
  *   from it. So it stops and says why.
  */
-import type { Dialect } from '../dialects/types';
+import type { Dialect, MemoryBlock } from '../dialects/types';
 import type { ProgramSize, ProgramVocabulary } from '../app/programVocabulary';
 import type { PortSide } from '../reference/portDescription';
 import { vocabularyReply } from '../app/programVocabulary';
@@ -173,6 +173,14 @@ export async function buildConversionMessage(input: {
   /** What the request calls the target, as the guide named it. */
   toLabel: string;
   source: string;
+  /**
+   * The document's machine-code and data blocks, where it carries any. They are
+   * attached to the program rather than written in it, so they cannot be read
+   * out of `source` - and they are the one part of a document that is pure
+   * machine dependence, so a report composed without them is missing the work
+   * the port cannot avoid.
+   */
+  blocks?: readonly MemoryBlock[];
 }): Promise<ConversionMessage> {
   const instruction = instructionFor(input.toLabel);
   const plain = () => buildUserMessage(instruction, input.source, []);
@@ -190,7 +198,13 @@ export async function buildConversionMessage(input: {
   // target as well, which is what the guide's fit report is computed from and
   // what decides whether the target's conditionally free memory is the
   // program's business.
-  const reply = vocabularyReply(input.source, from, from.id, input.to.id);
+  const reply = vocabularyReply(
+    input.source,
+    from,
+    from.id,
+    input.to.id,
+    input.blocks ?? [],
+  );
   if (reply.status === 'unreadable') {
     return { ok: false, problem: 'unreadable', message: cannotRead(from) };
   }
@@ -212,6 +226,9 @@ export async function buildConversionMessage(input: {
       extraStatements: reply.extraStatements,
       lineNumbers: reply.lineNumbers,
       writeSites: reply.writeSites,
+      readSites: reply.readSites,
+      callSites: reply.callSites,
+      codeBlocks: reply.codeBlocks,
       screenModes: reply.screenModes,
     },
     reply.targetSize,

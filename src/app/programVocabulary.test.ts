@@ -27,6 +27,9 @@ describe('programVocabulary - keywords', () => {
       extraStatements: 2,
       lineNumbers: { lowest: 10, highest: 10, count: 1 },
       writeSites: [],
+      readSites: [],
+      callSites: [],
+      codeBlocks: [],
       screenModes: null,
     });
   });
@@ -371,6 +374,96 @@ describe('programVocabulary - write sites', () => {
   });
 });
 
+describe('programVocabulary - read sites', () => {
+  it('collects a PEEK with its address', () => {
+    // The porting guide judges these on both machines exactly as it judges the
+    // writes: 53280 is the C64's border colour, and on another machine it is
+    // whatever that machine keeps there.
+    const { readSites } = programVocabulary(
+      '10 IF PEEK(53280)=0 THEN PRINT PEEK(1024)',
+      c64,
+    );
+
+    expect(readSites.map((s) => s.address)).toEqual([1024, 53280]);
+    expect(readSites.every((s) => s.approximate === false)).toBe(true);
+  });
+
+  it('marks a computed read address approximate', () => {
+    const { readSites } = programVocabulary('10 LET A=PEEK (1024+X)', spectrum);
+
+    expect(readSites).toHaveLength(1);
+    expect(readSites[0]!.approximate).toBe(true);
+  });
+
+  it('reads a BBC program by indirection, since it has no PEEK', () => {
+    const { readSites } = programVocabulary('10 C=?&FE60', bbc);
+
+    expect(readSites.map((s) => s.address)).toEqual([0xfe60]);
+  });
+
+  it('records nothing for a program that reads nothing', () => {
+    expect(programVocabulary('10 PRINT "HI"', c64).readSites).toEqual([]);
+  });
+
+  it('records nothing on a machine that declares no read syntax', () => {
+    // Every registered machine that reads memory declares how; this is the
+    // guard for one that does not, which reports no reads rather than guessing
+    // a spelling from the keyword table.
+    const silent = { ...c64, memoryReads: undefined };
+    expect(
+      programVocabulary('10 IF PEEK(53280)=0 THEN STOP', silent).readSites,
+    ).toEqual([]);
+  });
+});
+
+describe('programVocabulary - machine code', () => {
+  it("collects a call command's target, with the keyword it used", () => {
+    const { callSites } = programVocabulary('10 SYS 49152', c64);
+
+    expect(callSites).toEqual([
+      {
+        address: 49152,
+        expr: 'SYS 49152',
+        computed: false,
+        approximate: false,
+      },
+    ]);
+  });
+
+  it('collects a Sinclair USR call, whose argument is the address', () => {
+    const { callSites } = programVocabulary('10 RAND USR 32768', zx81);
+
+    expect(callSites.map((s) => s.expr)).toEqual(['USR 32768']);
+  });
+
+  it('collects nothing from a USR whose argument is data, not an address', () => {
+    // The Microsoft USR calls through a vector and passes its argument to the
+    // routine, so 5 here is not an address and reporting it as one would name
+    // a routine the program never reaches.
+    expect(programVocabulary('10 A=USR(5)', c64).callSites).toEqual([]);
+  });
+
+  it('carries a block by name, address and size, and nothing from its payload', () => {
+    const { codeBlocks } = programVocabulary('10 SYS 49152', c64, [
+      {
+        id: 'b1',
+        name: 'SCROLL',
+        address: 49152,
+        bytes: new Uint8Array([0xa9, 0x00, 0x60]),
+        kind: 'code',
+      },
+    ]);
+
+    expect(codeBlocks).toEqual([
+      { name: 'SCROLL', address: 49152, size: 3, kind: 'code' },
+    ]);
+  });
+
+  it('records no blocks for a document that carries none', () => {
+    expect(programVocabulary('10 SYS 49152', c64).codeBlocks).toEqual([]);
+  });
+});
+
 describe('programVocabulary - variable names', () => {
   it('reads names in the source machine’s own spelling', () => {
     // `_` is a BBC name character and `%`/`$` end a name there, so all three
@@ -604,6 +697,9 @@ describe('programVocabulary - no program', () => {
       extraStatements: 0,
       lineNumbers: null,
       writeSites: [],
+      readSites: [],
+      callSites: [],
+      codeBlocks: [],
       screenModes: null,
     });
   });
