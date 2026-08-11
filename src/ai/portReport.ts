@@ -223,6 +223,8 @@ export async function buildConversionMessage(input: {
       escapeCodes: reply.escapeCodes,
       characters: reply.characters,
       multiStatementLines: reply.multiStatementLines,
+      positions: reply.positions,
+      emptyLoopLines: reply.emptyLoopLines,
       extraStatements: reply.extraStatements,
       lineNumbers: reply.lineNumbers,
       writeSites: reply.writeSites,

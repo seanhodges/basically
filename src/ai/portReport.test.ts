@@ -344,6 +344,12 @@ describe('the turn a port actually sends', () => {
         { name: 'SCROLL', address: 49152, size: 64, kind: 'code' as const },
         { name: 'MUSIC', address: 32768, size: 512, kind: 'code' as const },
       ],
+      screenModes: null,
+      // A Commodore states no print position - it lays its screen out by
+      // printing and by POKEing - so the only display finding this pair can
+      // raise is the timing one, and the delays are inside the bound.
+      positions: null,
+      emptyLoopLines: [12, 34, 56],
     });
     expect(report).not.toBeNull();
     // Around 6,400 characters today. The bound is loose enough to survive
@@ -375,6 +381,8 @@ describe('memory the target holds beyond the program area', () => {
     callSites: [],
     codeBlocks: [],
     screenModes: null,
+    positions: null,
+    emptyLoopLines: [],
   };
 
   // An Atom has 4,864 bytes free, so the second of these is under pressure and
@@ -416,6 +424,54 @@ describe('memory the target holds beyond the program area', () => {
     expect(short.ok).toBe(true);
     if (!short.ok) return;
     expect(short.userContent).not.toContain(HEADING);
+  });
+});
+
+/**
+ * The whole path for the two findings the scan had to learn to read: the
+ * program's own text, through the app-side vocabulary, into the request. Both
+ * are findings about numbers rather than commands, so a field lost anywhere
+ * along this path would leave the request silently complete-looking.
+ */
+describe('what the program says about display and timing reaches the request', () => {
+  it('carries the delays a program counts out', async () => {
+    const result = await buildConversionMessage({
+      from: getDialect('zx81'),
+      to: getDialect('atom'),
+      toLabel: 'Atom',
+      source: '10 PRINT "HI"\n20 FOR I=1 TO 500\n30 NEXT I',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).toContain('LOOPS THAT ONLY PASS TIME');
+    // Editor line 2 - the FOR - read off the program's own text.
+    expect(result.userContent).toContain('does nothing else: 2.');
+  });
+
+  it('carries a layout the target’s screen cannot hold', async () => {
+    const result = await buildConversionMessage({
+      from: getDialect('zxspectrum'),
+      to: getDialect('vic20'),
+      toLabel: 'VIC-20',
+      source: '10 PRINT AT 5,30;"HELLO"',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).toContain('WHERE THIS PROGRAM PRINTS');
+    expect(result.userContent).toContain('row 5, column 30');
+  });
+
+  it('says nothing about either where the program raises neither', async () => {
+    const result = await buildConversionMessage({
+      from: getDialect('zxspectrum'),
+      to: getDialect('vic20'),
+      toLabel: 'VIC-20',
+      source: '10 PRINT AT 5,3;"HI"',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.userContent).not.toContain('WHERE THIS PROGRAM PRINTS');
+    expect(result.userContent).not.toContain('LOOPS THAT ONLY PASS TIME');
   });
 });
 

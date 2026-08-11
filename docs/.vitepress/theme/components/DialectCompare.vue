@@ -42,6 +42,9 @@ import {
   carriesMachineCodeGuidance,
   machineCodeForProgram,
   readLandingsForProgram,
+  positionsForProgram,
+  delaysForProgram,
+  lostCapabilitiesForProgram,
   type CapabilitySection,
   type EscapeSection,
   type FactRow,
@@ -553,6 +556,68 @@ const integerRangeNarrowing = computed(() => {
   const v = narrowingBy.value;
   if (!s || !t || !v) return null;
   return integerRangeNarrowingForProgram(s, t, v);
+});
+
+/**
+ * Where this program's layout falls on the target's screen, or null.
+ *
+ * Only ever narrowed: it is a finding about the reader's own numbers, and a
+ * comparison of two machines in general has no positions to check. So the
+ * "show every difference" control has nothing to reveal here, exactly as it has
+ * nothing to reveal about the fit.
+ */
+const positionCheck = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return null;
+  return positionsForProgram(s, t, v);
+});
+
+/** The positions the target's screen does not contain, as rows to render. */
+const positionRows = computed(() =>
+  (positionCheck.value?.cells ?? []).map((cell) => ({
+    key: `${cell.row}-${cell.column}`,
+    label: `row ${cell.row}, column ${cell.column}`,
+  })),
+);
+
+/**
+ * What the target's speed does to this program's delays, or null.
+ *
+ * Narrowed for the same reason: the finding is about loops this program
+ * contains, and without a program there are none.
+ */
+const delayLoops = computed(() => {
+  const s = source.value?.facts;
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!s || !t || !v) return null;
+  return delaysForProgram(s, t, v);
+});
+
+/** The ratio as a reader reads it: "3.2× faster" rather than "3.2". */
+const delayFactor = computed(() => {
+  const delays = delayLoops.value;
+  if (!delays) return null;
+  const faster = delays.ratio >= 1;
+  return {
+    factor: (faster ? delays.ratio : 1 / delays.ratio).toFixed(1),
+    direction: faster ? 'faster' : 'slower',
+  };
+});
+
+/**
+ * The capabilities this program uses that the target does not have at all, so
+ * the account for each can ask what the capability was *for*.
+ *
+ * A set rather than a list, because the template asks it once per section.
+ */
+const lostCapabilities = computed(() => {
+  const t = target.value?.facts;
+  const v = narrowingBy.value;
+  if (!t || !v) return new Set<string>();
+  return new Set<string>(lostCapabilitiesForProgram(t, capabilities.value));
 });
 
 /**
@@ -1222,7 +1287,9 @@ const hasSilentWork = computed(
     variableCollisions.value.length > 0 ||
     markerLoss.value.length > 0 ||
     truncatedArithmetic.value !== null ||
-    integerRangeNarrowing.value !== null,
+    integerRangeNarrowing.value !== null ||
+    positionCheck.value !== null ||
+    delayLoops.value !== null,
 );
 
 /**
@@ -1294,6 +1361,8 @@ const pageSections = computed<{ id: string; label: string }[]>(() => {
       'integer-range',
       'Values that do not fit',
     ],
+    [positionCheck.value !== null, 'positions', 'Where this program prints'],
+    [delayLoops.value !== null, 'delays', 'Loops that only pass time'],
     [programFit.value !== null, 'fit', 'Fit'],
   ];
   return entries
@@ -1461,6 +1530,28 @@ function onVocabularyMessage(e: MessageEvent) {
             computed: data.screenModes.computed === true,
           }
         : null,
+    // Null likewise means the machine the program was read as has no command
+    // for stating a print position - it lays its screen out by printing - so
+    // there are no numbers to check and the finding stays away.
+    positions:
+      data.positions && typeof data.positions === 'object'
+        ? {
+            cells: Array.isArray(data.positions.cells)
+              ? data.positions.cells
+              : [],
+            columns: Array.isArray(data.positions.columns)
+              ? data.positions.columns
+              : [],
+            offsets: Array.isArray(data.positions.offsets)
+              ? data.positions.offsets
+              : [],
+            origin: data.positions.origin === 1 ? 1 : 0,
+            computed: data.positions.computed === true,
+          }
+        : null,
+    emptyLoopLines: Array.isArray(data.emptyLoopLines)
+      ? data.emptyLoopLines
+      : [],
   };
   // Carried beside the vocabulary rather than inside it: it describes the
   // machine being ported *to*, while everything above describes the program in
@@ -1984,6 +2075,21 @@ watch(to, requestVocabulary);
               }}</code></pre>
             </div>
           </div>
+          <!--
+            The question the advice above cannot answer, asked only where the
+            target has none of this capability at all. A program uses colour and
+            sound two ways — as decoration, which a port drops, and as
+            information, which it has to re-encode or the program stops working
+            in a way no listing shows — and which one this program was doing is
+            not in its text.
+          -->
+          <p
+            v-if="s.domain && lostCapabilities.has(s.domain)"
+            class="cmp-hint cmp-group-decide"
+          >
+            Decide, for each: where the {{ s.domain }} was decoration, drop it;
+            where it told things apart, re-encode it by the means above.
+          </p>
           <ul v-if="substitutionsIn(s).length" class="cmp-group-instead">
             <li v-for="x in substitutionsIn(s)" :key="x.name">
               <code>{{ x.name }}</code> — {{ x.note }}
@@ -2567,6 +2673,98 @@ watch(to, requestVocabulary);
         <p class="cmp-hint">
           Decide: rescale these values so they fit the range, or restructure the
           arithmetic so its results stay inside it.
+        </p>
+      </section>
+
+      <!--
+        The layout, as numbers rather than commands. `PRINT AT 5,35` ports to a
+        32-column machine unchanged and lands off the edge, so nothing else on
+        this page can report it — and the screens here run from 22 columns to
+        80, which makes this most pairs rather than a corner case.
+      -->
+      <section
+        v-if="positionCheck"
+        id="positions"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Where this program prints</h2>
+        <p class="cmp-hint">
+          {{ source.name }} boots into {{ positionCheck.from.columns }}×{{
+            positionCheck.from.rows
+          }}
+          characters; {{ target.name }} boots into
+          {{ positionCheck.to.columns }}×{{ positionCheck.to.rows }}.
+        </p>
+        <ul v-if="positionRows.length" class="cmp-list">
+          <li v-for="row in positionRows" :key="row.key">
+            <code>{{ row.label }}</code>
+            <span class="cmp-change-detail">
+              <span class="cmp-to">not on the {{ target.name }}'s screen</span>
+            </span>
+          </li>
+        </ul>
+        <p v-if="positionCheck.columns.length" class="cmp-hint">
+          Columns beyond its width:
+          <code>{{ positionCheck.columns.join(', ') }}</code
+          >.
+        </p>
+        <p v-if="positionCheck.offsets.length" class="cmp-hint">
+          Offsets beyond its screen:
+          <code>{{ positionCheck.offsets.join(', ') }}</code
+          >.
+        </p>
+        <p v-if="positionCheck.widthEncoded" class="cmp-hint">
+          This program positions by a single offset from the start of the
+          screen, and an offset encodes the width it was written for —
+          {{ positionCheck.from.columns }} columns here,
+          {{ positionCheck.to.columns }} there. Every one of them has to be
+          recomputed for the target's width, in range or not.
+        </p>
+        <p v-if="positionCheck.otherModes" class="cmp-hint">
+          This program selects screen modes, so the check above describes the
+          screen {{ target.name }} boots into rather than whichever one the
+          program ends up on.
+        </p>
+        <p class="cmp-hint">
+          Decide: reflow the layout for the {{ target.name }}'s screen, or clip
+          what falls outside it.
+        </p>
+      </section>
+
+      <!--
+        The pauses, which are the source machine's speed written into the
+        program. Beside the positions and silent in the same way: the loop
+        tokenizes, runs, and takes a different length of time.
+      -->
+      <section
+        v-if="delayLoops && delayFactor"
+        id="delays"
+        class="cmp-section cmp-traps"
+      >
+        <h2>Loops that only pass time</h2>
+        <p class="cmp-hint">
+          Editor lines opening a loop that counts and does nothing else:
+          <code>{{ delayLoops.lines.join(', ') }}</code
+          >. These are delays, and their counts are the {{ source.name }}'s
+          speed written into the program.
+        </p>
+        <p class="cmp-hint">
+          Measured in this IDE's emulators, {{ target.name }} runs the same
+          empty loop {{ delayFactor.factor }}× {{ delayFactor.direction }} ({{
+            delayLoops.fromSpeed
+          }}
+          against {{ delayLoops.toSpeed }} iterations a second), so every pause
+          changes by that factor. That is the emulators' figure rather than a
+          claim about the original hardware — and it is what this program will
+          do here once converted.
+        </p>
+        <p v-if="delayLoops.hasClock" class="cmp-hint">
+          Decide, for each: retune the count for the new speed, or put the delay
+          on the {{ target.name }}'s own clock — {{ delayLoops.clock }}.
+        </p>
+        <p v-else class="cmp-hint">
+          Retune each count for the new speed. There is no second course here:
+          {{ delayLoops.clock }}.
         </p>
       </section>
 

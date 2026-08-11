@@ -42,6 +42,11 @@ import {
   carriesMachineCodeGuidance,
   machineCodeForProgram,
   readLandingsForProgram,
+  positionsForProgram,
+  delaysForProgram,
+  lostCapabilitiesForProgram,
+  MATERIAL_SPEED_RATIO,
+  type CapabilitySection,
   type ProgramFit,
   type ProgramVocabulary,
 } from './compare';
@@ -702,6 +707,8 @@ describe('composeGuidance', () => {
       logicalOperators: 'bitwise',
       comparisonTrue: -1,
       screen: 'text',
+      textScreen: { columns: 32, rows: 24 },
+      waitIdiom: { text: 'PAUSE n', keywords: ['PAUSE'] },
       freeRamBytes: 1024,
       colour: 'none',
       sound: 'none',
@@ -1206,6 +1213,8 @@ function vocab(
     readSites?: ProgramVocabulary['readSites'];
     callSites?: ProgramVocabulary['callSites'];
     codeBlocks?: ProgramVocabulary['codeBlocks'];
+    positions?: ProgramVocabulary['positions'];
+    emptyLoopLines?: number[];
   } = {},
 ): ProgramVocabulary {
   return {
@@ -1226,6 +1235,8 @@ function vocab(
     callSites: rest.callSites ?? [],
     codeBlocks: rest.codeBlocks ?? [],
     screenModes: rest.screenModes ?? null,
+    positions: rest.positions ?? null,
+    emptyLoopLines: rest.emptyLoopLines ?? [],
   };
 }
 
@@ -2732,5 +2743,284 @@ describe('shortSpellingsForFit', () => {
 
   it('offers nothing where there is no fit report', () => {
     expect(shortSpellingsForFit(machine(true), null)).toBeNull();
+  });
+});
+
+describe('positionsForProgram', () => {
+  const machine = (id: string) => portingFacts.find((f) => f.id === id)!;
+  const spectrum = machine('zxspectrum');
+  const vic20 = machine('vic20');
+  const trs80 = machine('trs80');
+  const bbc = machine('bbcmicro');
+
+  const laidOut = (
+    positions: ProgramVocabulary['positions'],
+    screenModes: ProgramVocabulary['screenModes'] = null,
+  ) => vocab([], [], 'zxspectrum', [], [], [], { positions, screenModes });
+
+  const at = (cells: { row: number; column: number }[]) => ({
+    cells,
+    columns: [],
+    offsets: [],
+    origin: 0 as const,
+    computed: false,
+  });
+
+  it('names the positions the target’s screen does not contain', () => {
+    // 32x22 to 22x23: the column is off the edge and the row is not.
+    const check = positionsForProgram(
+      spectrum,
+      vic20,
+      laidOut(at([{ row: 5, column: 30 }])),
+    );
+    expect(check?.cells).toEqual([{ row: 5, column: 30 }]);
+    expect(check?.to).toEqual({ columns: 22, rows: 23 });
+    expect(check?.from).toEqual({ columns: 32, rows: 22 });
+  });
+
+  it('names a column beyond the target’s width', () => {
+    const check = positionsForProgram(spectrum, vic20, {
+      ...laidOut(at([])),
+      positions: {
+        cells: [],
+        columns: [12, 30],
+        offsets: [],
+        origin: 0,
+        computed: false,
+      },
+    });
+    expect(check?.columns).toEqual([30]);
+  });
+
+  it('reports nothing where every position fits', () => {
+    expect(
+      positionsForProgram(
+        spectrum,
+        vic20,
+        laidOut(at([{ row: 5, column: 3 }])),
+      ),
+    ).toBeNull();
+  });
+
+  // Locomotive counts its first cell as 1, so its bottom-right corner is
+  // 40,25 on a screen a zero-based machine would call 39,24.
+  it('reads a position in the machine’s own origin', () => {
+    const cpc = machine('cpc464');
+    const oneBased = (cells: { row: number; column: number }[]) =>
+      vocab([], [], 'cpc464', [], [], [], {
+        positions: {
+          cells,
+          columns: [],
+          offsets: [],
+          origin: 1,
+          computed: false,
+        },
+      });
+    expect(
+      positionsForProgram(cpc, spectrum, oneBased([{ row: 22, column: 32 }])),
+    ).toBeNull();
+    expect(
+      positionsForProgram(cpc, spectrum, oneBased([{ row: 23, column: 32 }]))
+        ?.cells,
+    ).toEqual([{ row: 23, column: 32 }]);
+  });
+
+  it('does not judge a position the program computes', () => {
+    const check = positionsForProgram(spectrum, vic20, {
+      ...laidOut(at([])),
+      positions: {
+        cells: [],
+        columns: [],
+        offsets: [],
+        origin: 0,
+        computed: true,
+      },
+    });
+    expect(check).toBeNull();
+  });
+
+  it('reports offsets as encoding the source’s width, in bounds or not', () => {
+    // 64 columns to 32: 200 is row 3 column 8 where it was written and row 6
+    // column 8 on the target, which no bounds check would ever mention.
+    const offsets = (values: number[]) =>
+      vocab([], [], 'trs80', [], [], [], {
+        positions: {
+          cells: [],
+          columns: [],
+          offsets: values,
+          origin: 0,
+          computed: false,
+        },
+      });
+    const check = positionsForProgram(trs80, spectrum, offsets([200]));
+    expect(check?.widthEncoded).toBe(true);
+    expect(check?.offsets).toEqual([]);
+  });
+
+  it('names an offset the target’s screen does not contain', () => {
+    const check = positionsForProgram(
+      trs80,
+      spectrum,
+      vocab([], [], 'trs80', [], [], [], {
+        positions: {
+          cells: [],
+          columns: [],
+          offsets: [1000],
+          origin: 0,
+          computed: false,
+        },
+      }),
+    );
+    // 32 x 22 is 704 cells, so 1000 is off the screen entirely.
+    expect(check?.offsets).toEqual([1000]);
+  });
+
+  it('says nothing about offsets between two screens of one width', () => {
+    const master = machine('bbcmaster');
+    expect(
+      positionsForProgram(
+        bbc,
+        master,
+        vocab([], [], 'bbcmicro', [], [], [], {
+          positions: {
+            cells: [],
+            columns: [],
+            offsets: [100],
+            origin: 0,
+            computed: false,
+          },
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it('says its check describes the boot screen where the program leaves it', () => {
+    const inMode = (modes: number[]) => ({
+      command: 'MODE',
+      modes,
+      computed: false,
+    });
+    const beyond = at([{ row: 5, column: 30 }]);
+    expect(
+      positionsForProgram(bbc, vic20, laidOut(beyond, inMode([0])))?.otherModes,
+    ).toBe(true);
+    // MODE 7 is the mode a BBC boots into, so the check describes exactly the
+    // screen this program is on.
+    expect(
+      positionsForProgram(bbc, vic20, laidOut(beyond, inMode([7])))?.otherModes,
+    ).toBe(false);
+  });
+
+  it('reports nothing where the machine states no positions', () => {
+    expect(positionsForProgram(spectrum, vic20, vocab([]))).toBeNull();
+  });
+});
+
+describe('delaysForProgram', () => {
+  const machine = (id: string) => portingFacts.find((f) => f.id === id)!;
+  const zx81 = machine('zx81');
+  const atom = machine('atom');
+  const c64 = machine('commodore64');
+  const pet = machine('pet');
+  const withDelays = (...emptyLoopLines: number[]) =>
+    vocab([], [], 'zx81', [], [], [], { emptyLoopLines });
+
+  it('reports the delays and the ratio when the target is much faster', () => {
+    const delays = delaysForProgram(zx81, atom, withDelays(4, 12));
+    expect(delays?.lines).toEqual([4, 12]);
+    expect(delays?.fromSpeed).toBe(zx81.loopSpeed);
+    expect(delays?.toSpeed).toBe(atom.loopSpeed);
+    expect(delays?.ratio).toBeCloseTo(atom.loopSpeed! / zx81.loopSpeed!, 5);
+  });
+
+  it('names the target’s own way of waiting', () => {
+    const delays = delaysForProgram(zx81, atom, withDelays(4));
+    expect(delays?.clock).toContain('WAIT');
+    expect(delays?.hasClock).toBe(true);
+  });
+
+  // A machine with no timer and no pause has nothing to move a delay onto, and
+  // the report says so rather than posing a choice with one arm missing.
+  it('says a machine with no clock has none, and still says what it has', () => {
+    const trs80 = machine('trs80');
+    const delays = delaysForProgram(zx81, trs80, withDelays(4));
+    expect(delays?.hasClock).toBe(false);
+    expect(delays?.clock).toContain('counting loop');
+  });
+
+  it('reports nothing when the program has no empty loops', () => {
+    expect(delaysForProgram(zx81, atom, withDelays())).toBeNull();
+  });
+
+  it('reports nothing between two machines of similar speed', () => {
+    expect(delaysForProgram(c64, pet, withDelays(4, 12))).toBeNull();
+  });
+
+  it('fires either side of the threshold and not inside it', () => {
+    const speeds = (from: number, to: number): [PortingFacts, PortingFacts] => [
+      { ...zx81, loopSpeed: from },
+      { ...atom, loopSpeed: to },
+    ];
+    const [slowA, fastA] = speeds(100, 100 * MATERIAL_SPEED_RATIO);
+    expect(delaysForProgram(slowA, fastA, withDelays(4))).not.toBeNull();
+    const [slowB, fastB] = speeds(100, 100 * MATERIAL_SPEED_RATIO - 1);
+    expect(delaysForProgram(slowB, fastB, withDelays(4))).toBeNull();
+    // And the same distance the other way about: a target several times slower
+    // stretches every pause by as much as a faster one shortens it.
+    const [fastC, slowC] = speeds(100 * MATERIAL_SPEED_RATIO, 100);
+    expect(delaysForProgram(fastC, slowC, withDelays(4))).not.toBeNull();
+  });
+
+  it('reports nothing where either machine has no measured speed', () => {
+    const altair = machine('altair8800');
+    expect(altair.loopSpeed).toBeUndefined();
+    expect(delaysForProgram(zx81, altair, withDelays(4))).toBeNull();
+    expect(delaysForProgram(altair, zx81, withDelays(4))).toBeNull();
+  });
+});
+
+describe('lostCapabilitiesForProgram', () => {
+  const machine = (id: string) => portingFacts.find((f) => f.id === id)!;
+  const section = (
+    domain: KeywordDomain,
+    names: string[],
+  ): CapabilitySection => ({
+    domain,
+    entries: names.map((name) => ({ ...PRINT, name, domain })),
+    absentFromTarget: true,
+    support: 'none',
+  });
+
+  it('poses the decision where the program uses a capability the target lacks', () => {
+    expect(
+      lostCapabilitiesForProgram(machine('zx81'), [
+        section('colour', ['INK']),
+        section('sound', ['BEEP']),
+      ]),
+    ).toEqual(['colour', 'sound']);
+  });
+
+  it('adds nothing where the target has the capability', () => {
+    // The Commodores have no colour *keywords* and sixteen colours: the
+    // commands are lost and the capability is not.
+    expect(
+      lostCapabilitiesForProgram(machine('commodore64'), [
+        section('colour', ['INK']),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('adds nothing where the program never used the capability', () => {
+    expect(
+      lostCapabilitiesForProgram(machine('zx81'), [
+        section('graphics', ['DRAW']),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('adds nothing for a capability whose account is empty', () => {
+    expect(
+      lostCapabilitiesForProgram(machine('zx81'), [section('colour', [])]),
+    ).toEqual([]);
   });
 });

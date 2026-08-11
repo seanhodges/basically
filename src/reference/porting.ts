@@ -153,11 +153,31 @@ export const falseFriends: FalseFriend[] = [
     },
   },
   {
+    // One spelling, two input models and a file command. The two key reads are
+    // opposite program structures: a BBC `GET` stops the program until someone
+    // presses a key, while a Commodore `GET` takes whatever is waiting and
+    // carries straight on - so a game loop ported one way runs flat out and the
+    // other way freezes, with no error either time. The TRS-80's is not a key
+    // read at all.
     keyword: 'GET',
     meanings: {
       atom: 'Reads a value from a hardware I/O port.',
       bbc: 'Waits for a key press and returns its character code.',
       commodore: 'Reads a pending key without waiting; empty if none.',
+      trs80:
+        'Nothing to do with the keyboard: it reads a record from a random-access file into its buffer (Disk BASIC).',
+    },
+  },
+  {
+    // The timed key read, which one machine can wait on and the other cannot.
+    // Same spelling, same one numeric argument, and the argument means a
+    // different thing: a BBC `INKEY(50)` gives the player half a second to
+    // press anything, while a CPC `INKEY(50)` asks whether key 50 is down this
+    // instant and returns immediately.
+    keyword: 'INKEY',
+    meanings: {
+      bbc: 'The argument is a time: it waits up to that many centiseconds for any key and returns its code, or -1 if none came. A negative argument tests one particular key instead.',
+      cpc: 'The argument is a key number: it reports whether that key is down right now and never waits, returning -1 when it is up.',
     },
   },
   {

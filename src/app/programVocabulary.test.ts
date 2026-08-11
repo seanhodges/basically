@@ -31,6 +31,8 @@ describe('programVocabulary - keywords', () => {
       callSites: [],
       codeBlocks: [],
       screenModes: null,
+      positions: null,
+      emptyLoopLines: [],
     });
   });
 
@@ -681,6 +683,229 @@ describe('programVocabulary - screen modes', () => {
   });
 });
 
+describe('programVocabulary - print positions', () => {
+  const trs80 = getDialect('trs80');
+  const cpc = getDialect('cpc464');
+
+  it('collects a whole position in the machine’s own argument order', () => {
+    // Row first on the Sinclairs, column first on a CPC, and both mean the same
+    // cell - which is the whole reason the order is authored per machine.
+    expect(
+      programVocabulary('10 PRINT AT 5,3;"X"', spectrum).positions,
+    ).toEqual({
+      cells: [{ row: 5, column: 3 }],
+      columns: [],
+      offsets: [],
+      origin: 0,
+      computed: false,
+    });
+    expect(programVocabulary('10 LOCATE 3,5', cpc).positions).toEqual({
+      cells: [{ row: 5, column: 3 }],
+      columns: [],
+      offsets: [],
+      origin: 1,
+      computed: false,
+    });
+  });
+
+  it('collects a bare column apart from a whole position', () => {
+    const v = programVocabulary(
+      '10 PRINT TAB 12;"A"\n20 PRINT AT 2,4;"B"',
+      spectrum,
+    );
+    expect(v.positions?.columns).toEqual([12]);
+    expect(v.positions?.cells).toEqual([{ row: 2, column: 4 }]);
+  });
+
+  it('reads a bracketed argument as a constant, not an expression', () => {
+    // `)` is what ends the argument here, and a scan that read it as an
+    // expression continuing would report every BBC layout as computed.
+    expect(programVocabulary('10 PRINT TAB(35,4);"X"', bbc).positions).toEqual({
+      cells: [{ row: 4, column: 35 }],
+      columns: [],
+      offsets: [],
+      origin: 0,
+      computed: false,
+    });
+  });
+
+  it('reads the BBC’s one-argument TAB as a column', () => {
+    expect(programVocabulary('10 PRINT TAB(35);"X"', bbc).positions).toEqual({
+      cells: [],
+      columns: [35],
+      offsets: [],
+      origin: 0,
+      computed: false,
+    });
+  });
+
+  it('collects a single offset on the machine that has one', () => {
+    expect(programVocabulary('10 PRINT @ 540,"X"', trs80).positions).toEqual({
+      cells: [],
+      columns: [],
+      offsets: [540],
+      origin: 0,
+      computed: false,
+    });
+  });
+
+  it('reads the operands of a position control code', () => {
+    // The escape scan records a code's leading byte and throws these away,
+    // which is right for what it is for and useless for a layout.
+    expect(
+      programVocabulary('10 PRINT "{AT 5,30}HELLO"', spectrum).positions,
+    ).toEqual({
+      cells: [{ row: 5, column: 30 }],
+      columns: [],
+      offsets: [],
+      origin: 0,
+      computed: false,
+    });
+  });
+
+  it('states no position from inside a string or a REM tail', () => {
+    const v = programVocabulary(
+      '10 PRINT "AT 5,3"\n20 REM PRINT AT 9,9',
+      spectrum,
+    );
+    expect(v.positions).toEqual({
+      cells: [],
+      columns: [],
+      offsets: [],
+      origin: 0,
+      computed: false,
+    });
+  });
+
+  it('flags a position the text does not fix rather than guessing one', () => {
+    expect(
+      programVocabulary('10 PRINT AT R,C;"X"', spectrum).positions?.computed,
+    ).toBe(true);
+    expect(
+      programVocabulary('10 PRINT AT 5,C+1;"X"', spectrum).positions?.computed,
+    ).toBe(true);
+    expect(
+      programVocabulary('10 PRINT TAB(N);"X"', bbc).positions?.computed,
+    ).toBe(true);
+  });
+
+  it('keeps the positions it did read alongside the flag', () => {
+    const v = programVocabulary(
+      '10 PRINT AT 2,4;"A"\n20 PRINT AT R,C;"B"',
+      spectrum,
+    );
+    expect(v.positions).toEqual({
+      cells: [{ row: 2, column: 4 }],
+      columns: [],
+      offsets: [],
+      origin: 0,
+      computed: true,
+    });
+  });
+
+  it('is not fooled by a name the keyword starts or ends', () => {
+    expect(
+      programVocabulary('10 LET DATA=1', spectrum).positions?.cells,
+    ).toEqual([]);
+    expect(
+      programVocabulary('10 LET ATOM=1', spectrum).positions?.computed,
+    ).toBe(false);
+  });
+
+  it('reports nothing on a machine that states no positions', () => {
+    expect(programVocabulary('10 PRINT "HI"', c64).positions).toBe(null);
+    expect(
+      programVocabulary('10 PRINT "HI"', getDialect('atom')).positions,
+    ).toBe(null);
+  });
+});
+
+describe('programVocabulary - empty counting loops', () => {
+  const atom = getDialect('atom');
+
+  it('finds a loop with nothing between its FOR and its NEXT', () => {
+    expect(
+      programVocabulary('10 FOR I=1 TO 500\n20 NEXT I', spectrum)
+        .emptyLoopLines,
+    ).toEqual([1]);
+  });
+
+  it('finds one written on a single line', () => {
+    expect(
+      programVocabulary('10 PRINT "A"\n20 FOR I=1 TO 500: NEXT I', spectrum)
+        .emptyLoopLines,
+    ).toEqual([2]);
+  });
+
+  it('does not call a loop with a body a delay', () => {
+    expect(
+      programVocabulary('10 FOR I=1 TO 10\n20 PRINT I\n30 NEXT I', spectrum)
+        .emptyLoopLines,
+    ).toEqual([]);
+    expect(
+      programVocabulary('10 FOR I=1 TO 10: PRINT I: NEXT I', spectrum)
+        .emptyLoopLines,
+    ).toEqual([]);
+  });
+
+  it('reads a stepped loop as the delay it is', () => {
+    expect(
+      programVocabulary('10 FOR I=1 TO 500 STEP 2\n20 NEXT I', spectrum)
+        .emptyLoopLines,
+    ).toEqual([1]);
+  });
+
+  // A nest that does nothing but count is a delay at every level of itself,
+  // and each level is a count someone tuned.
+  it('reads a nest of empty loops as empty throughout', () => {
+    expect(
+      programVocabulary(
+        '10 FOR I=1 TO 10\n20 FOR J=1 TO 10\n30 NEXT J\n40 NEXT I',
+        spectrum,
+      ).emptyLoopLines,
+    ).toEqual([1, 2]);
+  });
+
+  it('reads a NEXT that closes two loops as closing two', () => {
+    expect(
+      programVocabulary(
+        '10 FOR I=1 TO 10\n20 FOR J=1 TO 10\n30 NEXT J,I',
+        spectrum,
+      ).emptyLoopLines,
+    ).toEqual([1, 2]);
+  });
+
+  it('reads a delay written in the machine’s short spelling', () => {
+    expect(
+      programVocabulary('10 F.I=1TO500\n20 N.I', bbc).emptyLoopLines,
+    ).toEqual([1]);
+  });
+
+  it('reads one on a machine that ignores spaces', () => {
+    expect(
+      programVocabulary('10 FORI=1TO500\n20 NEXTI', c64).emptyLoopLines,
+    ).toEqual([1]);
+  });
+
+  it('separates statements the way the machine does', () => {
+    // The Atom separates with ';', so a ':' between these two is not a
+    // statement boundary and the loop is not closed on that line.
+    expect(
+      programVocabulary('10 FOR I=1 TO 500; NEXT I', atom).emptyLoopLines,
+    ).toEqual([1]);
+  });
+
+  it('finds no loop in a string literal or a REM tail', () => {
+    expect(
+      programVocabulary('10 REM FOR I=1 TO 5: NEXT I', spectrum).emptyLoopLines,
+    ).toEqual([]);
+  });
+
+  it('ignores a NEXT with nothing open', () => {
+    expect(programVocabulary('10 NEXT I', spectrum).emptyLoopLines).toEqual([]);
+  });
+});
+
 describe('programVocabulary - no program', () => {
   it('is empty for an empty program', () => {
     expect(programVocabulary('', c64)).toEqual({
@@ -701,6 +926,8 @@ describe('programVocabulary - no program', () => {
       callSites: [],
       codeBlocks: [],
       screenModes: null,
+      positions: null,
+      emptyLoopLines: [],
     });
   });
 
