@@ -159,7 +159,7 @@ describe('vocabularyReply', () => {
       largeNumbers: [],
       escapeCodes: [],
       characters: [...'01:=EFINORTX'],
-      multiStatementLines: [1],
+      multiStatementLines: [10],
       extraStatements: 1,
       lineNumbers: { lowest: 10, highest: 10, count: 1 },
       writeSites: [],
@@ -168,7 +168,7 @@ describe('vocabularyReply', () => {
       codeBlocks: [],
       screenModes: null,
       positions: null,
-      emptyLoopLines: [1],
+      emptyLoopLines: [10],
       targetSize: null,
     });
   });

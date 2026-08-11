@@ -519,10 +519,12 @@ describe('the statement layout', () => {
   const HEADING = 'STATEMENT LAYOUT';
 
   it('names the lines to split for a one-statement-per-line target', () => {
-    const program = vocabulary('commodore64', ['PRINT'], [], [], [3, 7]);
+    // The program's own line numbers, as its listing prints them - the reader
+    // matches these against a listing, not against an editor's line count.
+    const program = vocabulary('commodore64', ['PRINT'], [], [], [30, 70]);
     const s = section(describePort(c64, zx81, program), HEADING);
     expect(s).toContain('takes one statement per line');
-    expect(s).toContain('Editor lines to change: 3, 7');
+    expect(s).toContain('Lines to change: 30, 70');
   });
 
   it('names the separator to swap for a target that has its own', () => {

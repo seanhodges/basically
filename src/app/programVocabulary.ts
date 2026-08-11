@@ -141,11 +141,13 @@ export interface ProgramVocabulary {
    */
   characters: string[];
   /**
-   * 1-based editor lines carrying more than one statement, sorted.
+   * BASIC line numbers carrying more than one statement, sorted.
    *
-   * Editor lines rather than BASIC line numbers, matching `TokenizeError.line`
-   * and the `- editor line N:` list the assistant is already given - a program
-   * is talked about in one coordinate system or the reader has to convert.
+   * The program's own numbers, not editor line indices: this is read beside a
+   * listing, and the number in `30 PRINT:PRINT` is the one printed there. The
+   * two coincide only for a program written from line 1 in steps of one with
+   * no blank lines, so an editor index sends the reader to the wrong line of
+   * their own program - which is what it used to do.
    */
   multiStatementLines: number[];
   /**
@@ -245,13 +247,14 @@ export interface ProgramVocabulary {
    */
   positions: ProgramPositions | null;
   /**
-   * 1-based editor lines opening a loop that counts and does nothing else,
+   * BASIC line numbers opening a loop that counts and does nothing else,
    * sorted.
    *
    * A delay, written as the source machine's speed: the count is however many
    * iterations of *that* interpreter filled the pause its author wanted. The
    * lines rather than a count, because that is what a reader searches their
-   * listing for.
+   * listing for - and a listing is searched by the numbers it prints, which is
+   * why these are the program's own and not editor indices.
    *
    * Only loops with no body at all. A loop that does work is a loop, and
    * deciding whether a game's main loop was tuned for speed is beyond any
@@ -769,14 +772,18 @@ function statementLayoutIn(
 
   const lines: number[] = [];
   let extraStatements = 0;
-  for (const { line, body } of codeLines(source)) {
+  for (const { number, body } of codeLines(source)) {
+    // A line with no number of its own is not reported: it is not a line the
+    // reader can find in a listing, and every machine here refuses a program
+    // carrying one, so the guide never narrows on such a program anyway.
+    if (number === undefined) continue;
     const statements = scannable(body)
       .split(separator)
       // A trailing or doubled separator is an empty statement, which real
       // programs contain and which is not a second statement to split out.
       .filter((s) => s.trim() !== '');
     if (statements.length > 1) {
-      lines.push(line);
+      lines.push(number);
       // Each statement past the first becomes a line of its own on a target
       // that takes one per line, which is how a port can create line numbers.
       extraStatements += statements.length - 1;
@@ -1096,7 +1103,7 @@ function positionsIn(
   };
 }
 
-/** One statement of the program, with the editor line it was written on. */
+/** One statement of the program, with the BASIC line it was written on. */
 interface Statement {
   line: number;
   code: string;
@@ -1113,11 +1120,16 @@ interface Statement {
 function statementsIn(source: string, dialect: Dialect): Statement[] {
   const separator = dialect.statementSeparator;
   const out: Statement[] = [];
-  for (const { line, body } of codeLines(source)) {
+  for (const { number, body } of codeLines(source)) {
+    // Numbered lines only, as {@link statementLayoutIn} reports: a loop the
+    // reader cannot find in their listing is not worth naming. A `FOR` on an
+    // unnumbered line would still open on the stack, so skipping the line
+    // whole keeps the walk from pairing it with a `NEXT` further down.
+    if (number === undefined) continue;
     const code = scannable(body).toUpperCase();
     const parts = separator === null ? [code] : code.split(separator);
     for (const part of parts) {
-      if (part.trim() !== '') out.push({ line, code: part.trim() });
+      if (part.trim() !== '') out.push({ line: number, code: part.trim() });
     }
   }
   return out;

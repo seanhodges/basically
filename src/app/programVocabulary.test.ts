@@ -22,7 +22,7 @@ describe('programVocabulary - keywords', () => {
       largeNumbers: [],
       escapeCodes: [],
       characters: [...'01:=EFINOPRTX'],
-      multiStatementLines: [1],
+      multiStatementLines: [10],
       // FOR / PRINT / NEXT: three statements, so two lines a split would add.
       extraStatements: 2,
       lineNumbers: { lowest: 10, highest: 10, count: 1 },
@@ -222,14 +222,29 @@ describe('programVocabulary - characters', () => {
 describe('programVocabulary - multi-statement lines', () => {
   it('reports a line carrying several statements', () => {
     const vocab = programVocabulary('10 A=1:B=2\n20 C=3', c64);
-    expect(vocab.multiStatementLines).toEqual([1]);
+    expect(vocab.multiStatementLines).toEqual([10]);
   });
 
-  it('reports the editor line, not the BASIC line number', () => {
-    // Blank lines are skipped by the scan, so the position cannot be recovered
-    // by counting the lines it returns.
+  it('reports the BASIC line number, not the editor line', () => {
+    // The number the listing prints, which is what a reader looks for. The two
+    // differ for any program not written from line 1 in steps of one, and this
+    // one differs both ways: leading blanks push the editor line down, and the
+    // program numbers from 100.
     const vocab = programVocabulary('\n\n100 A=1:B=2', c64);
-    expect(vocab.multiStatementLines).toEqual([3]);
+    expect(vocab.multiStatementLines).toEqual([100]);
+  });
+
+  it('names the line as the listing numbers it, not as the editor counts it', () => {
+    // The report this comes from: `30 PRINT:PRINT` sits on the third line of
+    // the editor, and the guide named 3 - a line number the program also has,
+    // pointing the reader at `10 PRINT "A"`. Every line here is off by the
+    // same step, so a reader checking one finding against their listing was
+    // reading the wrong line every time.
+    const vocab = programVocabulary(
+      '10 PRINT "A"\n20 PRINT "B"\n30 PRINT:PRINT',
+      c64,
+    );
+    expect(vocab.multiStatementLines).toEqual([30]);
   });
 
   it('does not count a separator inside a string or after REM', () => {
@@ -240,7 +255,7 @@ describe('programVocabulary - multi-statement lines', () => {
   it('does not count a trailing or doubled separator', () => {
     // Real tape programs carry these; an empty statement is not one to split.
     const vocab = programVocabulary('10 A=1:\n20 B=2::C=3', c64);
-    expect(vocab.multiStatementLines).toEqual([2]);
+    expect(vocab.multiStatementLines).toEqual([20]);
   });
 
   it('reports nothing on a machine with no statement separator', () => {
@@ -254,7 +269,7 @@ describe('programVocabulary - multi-statement lines', () => {
     // The Atom separates with `;`, so a `:` is not a boundary there.
     const atom = getDialect('atom');
     expect(programVocabulary('10 A=1;B=2', atom).multiStatementLines).toEqual([
-      1,
+      10,
     ]);
     expect(programVocabulary('10 A=1:B=2', atom).multiStatementLines).toEqual(
       [],
@@ -267,7 +282,7 @@ describe('programVocabulary - statements a split would add', () => {
     // Two lines affected, but four new lines needed on a target that takes one
     // statement per line - which is what has to be renumbered into.
     const vocab = programVocabulary('10 A=1:B=2:C=3\n20 D=4\n30 E=5:F=6', c64);
-    expect(vocab.multiStatementLines).toEqual([1, 3]);
+    expect(vocab.multiStatementLines).toEqual([10, 30]);
     expect(vocab.extraStatements).toBe(3);
   });
 
@@ -827,14 +842,14 @@ describe('programVocabulary - empty counting loops', () => {
     expect(
       programVocabulary('10 FOR I=1 TO 500\n20 NEXT I', spectrum)
         .emptyLoopLines,
-    ).toEqual([1]);
+    ).toEqual([10]);
   });
 
   it('finds one written on a single line', () => {
     expect(
       programVocabulary('10 PRINT "A"\n20 FOR I=1 TO 500: NEXT I', spectrum)
         .emptyLoopLines,
-    ).toEqual([2]);
+    ).toEqual([20]);
   });
 
   it('does not call a loop with a body a delay', () => {
@@ -852,7 +867,7 @@ describe('programVocabulary - empty counting loops', () => {
     expect(
       programVocabulary('10 FOR I=1 TO 500 STEP 2\n20 NEXT I', spectrum)
         .emptyLoopLines,
-    ).toEqual([1]);
+    ).toEqual([10]);
   });
 
   // A nest that does nothing but count is a delay at every level of itself,
@@ -863,7 +878,7 @@ describe('programVocabulary - empty counting loops', () => {
         '10 FOR I=1 TO 10\n20 FOR J=1 TO 10\n30 NEXT J\n40 NEXT I',
         spectrum,
       ).emptyLoopLines,
-    ).toEqual([1, 2]);
+    ).toEqual([10, 20]);
   });
 
   it('reads a NEXT that closes two loops as closing two', () => {
@@ -872,19 +887,19 @@ describe('programVocabulary - empty counting loops', () => {
         '10 FOR I=1 TO 10\n20 FOR J=1 TO 10\n30 NEXT J,I',
         spectrum,
       ).emptyLoopLines,
-    ).toEqual([1, 2]);
+    ).toEqual([10, 20]);
   });
 
   it('reads a delay written in the machine’s short spelling', () => {
     expect(
       programVocabulary('10 F.I=1TO500\n20 N.I', bbc).emptyLoopLines,
-    ).toEqual([1]);
+    ).toEqual([10]);
   });
 
   it('reads one on a machine that ignores spaces', () => {
     expect(
       programVocabulary('10 FORI=1TO500\n20 NEXTI', c64).emptyLoopLines,
-    ).toEqual([1]);
+    ).toEqual([10]);
   });
 
   it('separates statements the way the machine does', () => {
@@ -892,7 +907,7 @@ describe('programVocabulary - empty counting loops', () => {
     // statement boundary and the loop is not closed on that line.
     expect(
       programVocabulary('10 FOR I=1 TO 500; NEXT I', atom).emptyLoopLines,
-    ).toEqual([1]);
+    ).toEqual([10]);
   });
 
   it('finds no loop in a string literal or a REM tail', () => {

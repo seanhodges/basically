@@ -444,8 +444,9 @@ describe('what the program says about display and timing reaches the request', (
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.userContent).toContain('LOOPS THAT ONLY PASS TIME');
-    // Editor line 2 - the FOR - read off the program's own text.
-    expect(result.userContent).toContain('does nothing else: 2.');
+    // Line 20 - the FOR - named by the number the listing prints, not by the
+    // editor line it happens to sit on.
+    expect(result.userContent).toContain('does nothing else: 20.');
   });
 
   it('carries a layout the target’s screen cannot hold', async () => {

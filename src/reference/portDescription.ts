@@ -75,7 +75,11 @@ import { domainGuidance } from './domain-guidance';
 import { KEYWORD_DOMAINS } from './domains';
 import { escapeGuidance } from './escape-guidance';
 import { portingFacts } from './facts';
-import { DOMAIN_TITLES, type MachineIdentity } from './machineDescription';
+import {
+  DOMAIN_TITLES,
+  formatAddress,
+  type MachineIdentity,
+} from './machineDescription';
 import { falseFriends, keywordEquivalences, pairPortingNotes } from './porting';
 import type {
   ConditionalFreeMemory,
@@ -263,7 +267,7 @@ function describeStatementLayout(
   return [
     'STATEMENT LAYOUT',
     `- ${what}`,
-    `- Editor lines to change: ${lines}`,
+    `- Lines to change: ${lines}`,
     ...(projected
       ? [
           projected.overflows
@@ -496,7 +500,7 @@ function describeDelays(delays: DelayLoops | null, to: PortSide): string {
   const factor = (faster ? delays.ratio : 1 / delays.ratio).toFixed(1);
   return [
     'LOOPS THAT ONLY PASS TIME',
-    `- Editor lines opening a loop that counts and does nothing else: ${delays.lines.join(', ')}. These are delays, and their counts are the source machine's speed written into the program.`,
+    `- Lines opening a loop that counts and does nothing else: ${delays.lines.join(', ')}. These are delays, and their counts are the source machine's speed written into the program.`,
     `- Measured in this IDE's emulators, ${to.name} runs the same empty loop ${factor}× ${faster ? 'faster' : 'slower'} (${delays.fromSpeed} against ${delays.toSpeed} iterations a second). Every pause changes by that factor. This is the emulators' figure, not a claim about the original hardware — and it is what the converted program will do here.`,
     delays.hasClock
       ? `- Decide, for each: retune the count for the new speed, or put the delay on the ${to.name}'s own clock — ${delays.clock}.`
@@ -836,12 +840,6 @@ function describeMachineCode(
   return `MACHINE CODE THIS PROGRAM REACHES\n${preamble}\n${lines.join('\n')}${pointer}`;
 }
 
-/** An address in the target machine's own notation: `&3000`, `#8400`, `53280`. */
-function address(value: number, facts: PortingFacts | undefined): string {
-  if (facts?.addressNotation !== 'hex') return `${value}`;
-  return `${facts.hexPrefix ?? '&'}${value.toString(16).toUpperCase().padStart(4, '0')}`;
-}
-
 /**
  * Memory the target holds that this program's own text proves free, and the
  * decision it puts to the reader.
@@ -865,7 +863,7 @@ function describeConditionallyFreeMemory(
   if (regions.length === 0) return '';
   const lines = regions.map(
     (region) =>
-      `- ${address(region.start, facts)}-${address(region.end, facts)}: ` +
+      `- ${formatAddress(region.start, facts)}-${formatAddress(region.end, facts)}: ` +
       `${region.bytes.toLocaleString('en-GB')} bytes of ${region.note}, free while ${region.conditionText}. ` +
       `This program's text meets that condition as written.`,
   );

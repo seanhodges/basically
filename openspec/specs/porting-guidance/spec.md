@@ -393,14 +393,15 @@ SHALL be absent rather than shown with one side empty.
 - **WHEN** both chosen machines have a described memory layout
 - **THEN** both are reported
 
-### Requirement: The memory layouts are narrowed to the program's own writes
+### Requirement: The memory layouts are narrowed to the program's own writes and reads
 
 Where the comparison is shown inside the IDE, and the user's own program is
 therefore at hand, the memory layouts SHALL mark the addresses that program
-writes to. On the machine being ported **from** these are the program's own
-writes; on the machine being ported **to** they are where those same addresses
-land, which is what tells a reader that a write aimed at one machine's system
-variables reaches another machine's program text.
+writes to and the addresses it reads. On the machine being ported **from**
+these are the program's own writes and reads; on the machine being ported
+**to** they are where those same addresses land, which is what tells a reader
+that an access aimed at one machine's system variables reaches another
+machine's program text.
 
 The addresses SHALL be read from the program as the language being ported
 **from** reads it, as the rest of the narrowing is. An address the comparison
@@ -419,9 +420,17 @@ else about them SHALL be unaffected.
   target's layout names what sits at those addresses on the machine being ported
   to
 
+#### Scenario: A program that reads memory
+
+- **WHEN** a user reads the comparison inside the IDE with a program open that
+  reads memory directly
+- **THEN** both layouts mark the addresses that program reads, alongside any
+  writes, and the target's layout names what sits there on the machine being
+  ported to
+
 #### Scenario: An address that can only be approximated
 
-- **WHEN** the program computes a write address the comparison cannot resolve
+- **WHEN** the program computes an access address the comparison cannot resolve
   exactly
 - **THEN** the address is marked as approximate rather than reported as exact
 
@@ -877,6 +886,54 @@ which the port loses nothing SHALL be reported after the capabilities that lose 
 - **WHEN** the target adds commands in a capability the port loses nothing from
 - **THEN** that capability is reported after the capabilities the port loses commands from
 
+### Requirement: Colour and sound the program leans on are posed as decisions
+
+A program uses colour and sound two ways: as decoration, which a port can
+drop, and as information — the colour that tells the player's piece from the
+wall, the beep that says the key registered — which a port must re-encode or
+the program stops working in a way no listing shows. Which of the two a given
+program is doing is not decidable from its text, and the target's written
+advice for the lost capability is only half an answer until it is decided.
+
+Where the open program uses colour and the target machine has no colour, the
+account that reports the lost colour commands SHALL pose the decision: where
+the colour decorated, drop it; where it told things apart, re-encode it by
+the means the target's own advice names. Sound SHALL be treated the same way
+where the program uses sound and the target has none.
+
+The decision SHALL be posed only where the program actually uses the
+capability, riding the narrowing the accounts already have, and SHALL add
+nothing where the target provides the capability or the program does not use
+it. Where there is no program, the accounts report as they do today and no
+decision is posed.
+
+#### Scenario: A colour-using program moving to a monochrome machine
+
+- **WHEN** the open program uses colour commands and the target machine has
+  no colour
+- **THEN** the lost-colour account poses the decoration-or-information
+  decision, with the re-encoding means the target's advice already names
+
+#### Scenario: A sound-using program moving to a silent machine
+
+- **WHEN** the open program uses sound commands and the target machine has no
+  sound
+- **THEN** the lost-sound account poses the same decision for each effect —
+  drop it, or re-encode the cue
+
+#### Scenario: A program that never uses the capability
+
+- **WHEN** the target machine lacks colour or sound but the open program uses
+  no such command
+- **THEN** no account of that capability is reported, as the narrowing
+  already provides
+
+#### Scenario: Reading the comparison with no program
+
+- **WHEN** a user reads the comparison on its own, or with nothing open
+- **THEN** the lost-capability accounts read as they do today, with no
+  decision posed
+
 ### Requirement: Control codes are grouped by what they do
 
 The comparison SHALL group the control codes a port must replace by what the codes do — colour,
@@ -1235,6 +1292,121 @@ or a program that cannot be read — nothing SHALL be reported about fit.
   open or with a program that cannot be read
 - **THEN** nothing is reported about whether the program fits, and asking to see
   every difference does not produce a fit report
+
+### Requirement: The program's positions are checked against the target's screen
+
+Text screens run from 22 columns to 80 among the machines, and a program's
+layout is written in positions aimed at one of them. A position beyond the
+target's screen ports without an error and lands off the edge or wrapped; a
+position given as a single offset from the screen's start encodes the source
+machine's width itself, so the same number is a different place on the
+target. No command list carries any of this: the commands port, the numbers
+are wrong.
+
+Where the reader's own program is at hand, the comparison SHALL check the
+positions the program states as constants — row-and-column arguments, single
+offsets, and position control codes — against the columns and rows of the
+screen the target machine boots into, and SHALL name the positions the
+target's screen does not contain. Where the program positions by single
+offset and the two screens differ in width, the comparison SHALL say the
+offsets encode the source's width and must be recomputed for the target's,
+whether or not any offset is out of bounds.
+
+The comparison SHALL pose the decision the positions force — reflow the
+layout for the target's screen, or clip what falls outside — once, not per
+position.
+
+A position the program computes SHALL NOT be judged: doubt reports nothing,
+and the posed decision covers what the text does not fix. Where the program
+selects screen modes other than the boot mode, the comparison SHALL say its
+check describes the boot screen rather than judge a geometry it cannot know.
+
+Where every stated position fits and the screens' widths agree, or where
+there is no program, nothing SHALL be reported about positions.
+
+#### Scenario: A position beyond the target's screen
+
+- **WHEN** the open program prints at a constant position that lies beyond
+  the columns or rows of the target machine's boot screen
+- **THEN** the comparison names the position and what the target's screen
+  holds, and poses the reflow-or-clip decision once
+
+#### Scenario: Offsets that encode the width
+
+- **WHEN** the open program positions by single offset and the two machines'
+  boot screens differ in width
+- **THEN** the comparison reports that the offsets encode the source's width
+  and must be recomputed for the target's
+
+#### Scenario: A layout that fits
+
+- **WHEN** every constant position in the open program lies within the target
+  machine's boot screen, and the machines' widths agree
+- **THEN** nothing is reported about positions
+
+#### Scenario: A computed position
+
+- **WHEN** the open program computes a position rather than stating it
+- **THEN** that position is not reported as out of bounds
+
+#### Scenario: Reading the comparison with no program
+
+- **WHEN** a user reads the comparison on its own, or with nothing open
+- **THEN** nothing is reported about positions
+
+### Requirement: Loops that only pass time are reported with the machines' measured speeds
+
+An empty counting loop is a delay tuned to the speed of the machine it was
+written on — the count *is* the source machine's speed, written into the
+program. Ported verbatim to a machine that runs BASIC several times faster or
+slower, every pause changes by that factor and a playable program stops being
+one. Nothing fails, nothing tokenizes differently, and no command changes.
+
+Each machine SHALL carry a speed measured by running the same counting loop
+in this product's own emulators, and the comparison SHALL quote any ratio as
+measured there, never as a fact about the original hardware.
+
+Where the reader's own program contains empty counting loops and the two
+machines' measured speeds differ materially, the comparison SHALL report that
+the program's delays are tuned to the source machine's speed, quote the
+measured ratio, and pose the decision: retune the counts, or move the delays
+onto the target machine's own clock — which the report SHALL name, each
+machine having its own idiom for waiting.
+
+A loop with a body SHALL NOT be called a delay: only loops that do nothing
+but count are reported, and a program with none produces nothing. Where the
+measured speeds are close, nothing SHALL be reported however many delay
+loops the program has. Where there is no program, nothing SHALL be reported
+about delays.
+
+#### Scenario: Delay loops moving to a much faster machine
+
+- **WHEN** the open program contains empty counting loops and the target
+  machine's measured speed is several times the source's
+- **THEN** the comparison reports the delays as tuned to the source, quotes
+  the measured ratio as this product's emulators', names the target's own way
+  of waiting, and poses the retune-or-reclock decision
+
+#### Scenario: A program with no empty loops
+
+- **WHEN** the open program contains no empty counting loops
+- **THEN** nothing is reported about delays, whatever the machines' speeds
+
+#### Scenario: Two machines of similar speed
+
+- **WHEN** the two machines' measured speeds are close
+- **THEN** nothing is reported about delays
+
+#### Scenario: The ratio is the emulators' own
+
+- **WHEN** the comparison quotes a speed ratio
+- **THEN** the ratio is stated as measured in this product's emulators, not
+  as a fact about the original hardware
+
+#### Scenario: Reading the comparison with no program
+
+- **WHEN** a user reads the comparison on its own, or with nothing open
+- **THEN** nothing is reported about delays
 
 ### Requirement: Variable names that collide on the target are reported
 
@@ -1834,6 +2006,126 @@ verdicts SHALL be reported.
 
 - **WHEN** a user reads the comparison on its own, or with nothing open
 - **THEN** no verdicts are reported
+
+### Requirement: Where the program's reads land on the target is reported
+
+A program that reads memory directly carries addresses chosen for one machine
+as surely as a program that writes: the keyboard matrix, the frame clock, the
+system variables all live somewhere particular. On another machine those
+addresses hold something else, and the read does not fail — it returns
+numbers that mean nothing, which is quieter than a write's damage and no less
+a porting fact.
+
+Where the reader's own program is at hand and both machines' memory layouts
+are described, the comparison SHALL report what each address the program reads
+reaches on the target machine. It SHALL distinguish an address that reaches
+the same kind of thing at a different place, one that reaches something else —
+named on both sides, since either alone leaves the reader to guess — and one
+the target's address space does not contain.
+
+Where a read lands on a region the machine's layout names — the keyboard, a
+clock, the system variables — the report SHALL name that region on both
+machines, so that what the program was really asking for is visible and the
+target's own way of asking it can be found.
+
+An address the comparison could only approximate SHALL carry that doubt into
+its verdict, reported as an estimate rather than a conclusion.
+
+Where either machine has no described memory layout, or there is no program,
+no verdicts SHALL be reported.
+
+#### Scenario: A read that reaches something else on the target
+
+- **WHEN** the open program reads an address that holds one kind of thing on
+  the source machine and a different kind on the target
+- **THEN** the comparison reports the read, naming what it asked for and what
+  it would reach on the target
+
+#### Scenario: A read of the keyboard
+
+- **WHEN** the open program reads an address the source machine's layout names
+  as keyboard hardware
+- **THEN** the report names the keyboard on the source side, and names what
+  the same address holds on the target
+
+#### Scenario: A read the target's memory does not contain
+
+- **WHEN** the open program reads an address beyond the target machine's
+  address space
+- **THEN** the comparison reports that the target has no such address
+
+#### Scenario: An address that could only be approximated
+
+- **WHEN** the comparison could not resolve a read address exactly
+- **THEN** its verdict is reported as an estimate
+
+#### Scenario: Reading the comparison with no program
+
+- **WHEN** a user reads the comparison on its own, or with nothing open
+- **THEN** no read verdicts are reported
+
+### Requirement: Machine code the program calls is reported as work to re-achieve
+
+A machine-code routine is the one part of a program no substitution can port:
+it is processor code for the source machine, reached through a call command or
+carried as an attached block, and on the target it is at best absent and at
+worst noise. The commands that call it are not the finding — the routine is,
+and the only question that moves the port forward is what the routine was
+*for*, because a sound effect, a scroll, or a speed-up is re-achieved with the
+target's own means, not translated.
+
+Where the reader's own program calls machine code or carries code blocks, the
+comparison SHALL gather the call targets and the blocks — each block with its
+name, address and size, and a call that lands inside a block reported as a
+call into that block — into one finding among the work that must be
+rewritten. The finding SHALL state that these are the source machine's
+processor code and that no substitution carries them, and SHALL pose the
+decision for each routine: establish what it does, and do that with the
+target's means.
+
+The comparison SHALL NOT report the call commands themselves as commands the
+target lacks where the real difference is the routine: a run-a-routine command
+the target spells differently is a rename, and a call that returns a value on
+one machine while running code on the other is a same-word-different-meaning
+warning.
+
+Where the pair's guidance already says how machine code is carried between
+these two machines, the finding SHALL point to it rather than restate it.
+
+Where the program calls no machine code and carries no blocks, nothing SHALL
+be reported. Where there is no program, nothing SHALL be reported.
+
+#### Scenario: A program that calls a routine in an attached block
+
+- **WHEN** the open program carries a code block and calls an address inside
+  it
+- **THEN** the comparison reports the block by name with its address and size,
+  the call as a call into it, and poses the decision to establish what the
+  routine does and re-achieve it on the target
+
+#### Scenario: A call to an address outside any block
+
+- **WHEN** the open program calls an address it carries no block for
+- **THEN** the call is still reported as machine code the port must
+  re-achieve, with what the source machine's layout says lives at that address
+
+#### Scenario: Call commands that differ only in spelling
+
+- **WHEN** both machines run routines with commands that differ only in
+  spelling, and the open program uses the source's
+- **THEN** the spelling change is reported among the renames, and the
+  machine-code finding carries the routine question — the command is not
+  reported as one the target lacks
+
+#### Scenario: A program with no machine code
+
+- **WHEN** the open program calls no machine code and carries no code blocks
+- **THEN** nothing is reported about machine code
+
+#### Scenario: Reading the comparison with no program
+
+- **WHEN** a user reads the comparison on its own, or with nothing open
+- **THEN** nothing is reported about machine code
 
 ### Requirement: Abbreviated spellings are resolved and reported
 
