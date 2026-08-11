@@ -267,7 +267,7 @@ function describeStatementLayout(
   return [
     'STATEMENT LAYOUT',
     `- ${what}`,
-    `- Editor lines to change: ${lines}`,
+    `- Lines to change: ${lines}`,
     ...(projected
       ? [
           projected.overflows
@@ -500,7 +500,7 @@ function describeDelays(delays: DelayLoops | null, to: PortSide): string {
   const factor = (faster ? delays.ratio : 1 / delays.ratio).toFixed(1);
   return [
     'LOOPS THAT ONLY PASS TIME',
-    `- Editor lines opening a loop that counts and does nothing else: ${delays.lines.join(', ')}. These are delays, and their counts are the source machine's speed written into the program.`,
+    `- Lines opening a loop that counts and does nothing else: ${delays.lines.join(', ')}. These are delays, and their counts are the source machine's speed written into the program.`,
     `- Measured in this IDE's emulators, ${to.name} runs the same empty loop ${factor}× ${faster ? 'faster' : 'slower'} (${delays.fromSpeed} against ${delays.toSpeed} iterations a second). Every pause changes by that factor. This is the emulators' figure, not a claim about the original hardware — and it is what the converted program will do here.`,
     delays.hasClock
       ? `- Decide, for each: retune the count for the new speed, or put the delay on the ${to.name}'s own clock — ${delays.clock}.`

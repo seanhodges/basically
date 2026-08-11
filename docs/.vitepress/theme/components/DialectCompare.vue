@@ -1831,9 +1831,13 @@ watch(to, requestVocabulary);
             {{ target.facts.lineNumberRange }} {{ target.name }} allows.
           </template>
         </p>
+        <!--
+          The program's own line numbers, as its listing prints them - not
+          editor line indices, which are a different number for any program not
+          written from line 1 in steps of one.
+        -->
         <p class="cmp-group-names">
-          Editor
-          {{ statementLayout.lines.length === 1 ? 'line' : 'lines' }}
+          {{ statementLayout.lines.length === 1 ? 'Line' : 'Lines' }}
           <span
             v-for="(n, i) in statementLayout.lines"
             :key="n"
@@ -2743,7 +2747,7 @@ watch(to, requestVocabulary);
       >
         <h2>Loops that only pass time</h2>
         <p class="cmp-hint">
-          Editor lines opening a loop that counts and does nothing else:
+          Lines opening a loop that counts and does nothing else:
           <code>{{ delayLoops.lines.join(', ') }}</code
           >. These are delays, and their counts are the {{ source.name }}'s
           speed written into the program.

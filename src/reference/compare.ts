@@ -814,7 +814,7 @@ export interface ProgramVocabulary {
   escapeCodes: number[];
   /** Printable ASCII the program's text contains. See the app-side twin. */
   characters: string[];
-  /** 1-based editor lines carrying more than one statement. */
+  /** BASIC line numbers carrying more than one statement. */
   multiStatementLines: number[];
   /** How many statements the program carries beyond one per line, in total. */
   extraStatements: number;
@@ -856,7 +856,7 @@ export interface ProgramVocabulary {
    */
   positions: ProgramPositions | null;
   /**
-   * 1-based editor lines opening a loop that counts and does nothing else - the
+   * BASIC line numbers opening a loop that counts and does nothing else - the
    * program's delays, written as the source machine's speed. See the app-side
    * twin.
    */
@@ -1507,7 +1507,7 @@ export interface StatementLayoutChange {
   from: string;
   /** The target's separator, or null where it takes one statement per line. */
   to: string | null;
-  /** The program's 1-based editor lines that carry more than one statement. */
+  /** The program's own BASIC line numbers that carry more than one statement. */
   lines: number[];
   /**
    * How many lines the program becomes once split, and whether the target's
@@ -2048,7 +2048,7 @@ export const MATERIAL_SPEED_RATIO = 1.5;
 /** What this program's delay loops become on the target. See
  *  {@link delaysForProgram}. */
 export interface DelayLoops {
-  /** 1-based editor lines opening a loop that only counts. */
+  /** BASIC line numbers opening a loop that only counts. */
   lines: number[];
   /** Loop iterations a second on each machine, as measured in this IDE. */
   fromSpeed: number;
