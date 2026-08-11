@@ -75,7 +75,11 @@ import { domainGuidance } from './domain-guidance';
 import { KEYWORD_DOMAINS } from './domains';
 import { escapeGuidance } from './escape-guidance';
 import { portingFacts } from './facts';
-import { DOMAIN_TITLES, type MachineIdentity } from './machineDescription';
+import {
+  DOMAIN_TITLES,
+  formatAddress,
+  type MachineIdentity,
+} from './machineDescription';
 import { falseFriends, keywordEquivalences, pairPortingNotes } from './porting';
 import type {
   ConditionalFreeMemory,
@@ -836,12 +840,6 @@ function describeMachineCode(
   return `MACHINE CODE THIS PROGRAM REACHES\n${preamble}\n${lines.join('\n')}${pointer}`;
 }
 
-/** An address in the target machine's own notation: `&3000`, `#8400`, `53280`. */
-function address(value: number, facts: PortingFacts | undefined): string {
-  if (facts?.addressNotation !== 'hex') return `${value}`;
-  return `${facts.hexPrefix ?? '&'}${value.toString(16).toUpperCase().padStart(4, '0')}`;
-}
-
 /**
  * Memory the target holds that this program's own text proves free, and the
  * decision it puts to the reader.
@@ -865,7 +863,7 @@ function describeConditionallyFreeMemory(
   if (regions.length === 0) return '';
   const lines = regions.map(
     (region) =>
-      `- ${address(region.start, facts)}-${address(region.end, facts)}: ` +
+      `- ${formatAddress(region.start, facts)}-${formatAddress(region.end, facts)}: ` +
       `${region.bytes.toLocaleString('en-GB')} bytes of ${region.note}, free while ${region.conditionText}. ` +
       `This program's text meets that condition as written.`,
   );

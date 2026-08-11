@@ -130,6 +130,11 @@ export async function loadMachineReference(dialect: Dialect): Promise<string> {
     },
     table,
     escapes,
+    // Taken from the dialect rather than loaded, exactly as the port report
+    // takes it: the map is static data the dialect declares, and this side of
+    // the app already holds the dialect. A machine without one is described
+    // without a memory section.
+    dialect.memoryMap,
   );
   cache.set(dialect.id, text);
   return text;
