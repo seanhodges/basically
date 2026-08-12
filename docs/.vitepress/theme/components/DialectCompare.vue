@@ -63,6 +63,7 @@ import { escapeGuidance } from '../../../../src/reference/escape-guidance';
 import type { EscapeGuidance } from '../../../../src/reference/escape-guidance';
 import { DOMAIN_META, DOMAIN_ORDER } from '../domainMeta';
 import { useDeepLinkParams } from '../deepLinkParams';
+import { showsSection } from '../sectionVisibility';
 import type { MemoryMap } from '../../../../src/dialects/types';
 
 /**
@@ -1293,81 +1294,136 @@ const hasSilentWork = computed(
 );
 
 /**
+ * What the additions filter is holding back, counted across every section it
+ * governs. Stated once beside the control rather than inside those sections: a
+ * section holding nothing but additions is not rendered, and its own copy of
+ * this sentence would go with it, at the point where nothing else on the page
+ * reports that the content exists.
+ */
+const additionsHeldBack = computed(
+  () => gainingCount.value + escapeAddedCategories.value,
+);
+
+const additionsHeldBackText = computed(() => {
+  const t = target.value;
+  if (!t || !additionsHeldBack.value) return '';
+  const parts: string[] = [];
+  if (gainingCount.value)
+    parts.push(count(gainingCount.value, 'capability area'));
+  if (escapeAddedCategories.value)
+    parts.push(
+      count(
+        escapeAddedCategories.value,
+        'control-code category',
+        'control-code categories',
+      ),
+    );
+  return `${listOf(parts)} ${t.name} only adds to ${
+    additionsHeldBack.value === 1 ? 'is' : 'are'
+  } hidden.`;
+});
+
+/**
+ * Whether each section has anything to render, by id.
+ *
+ * Narrowed, a section with nothing in it for the reader is not rendered at all:
+ * a heading and a count of zero cost a stop to read before they say that
+ * nothing is being asked, and a page of those reads like the comparison that
+ * was never narrowed. What holds a section open is work - findings to act on,
+ * and findings to be told about where the program's own text will not show
+ * them. What the target adds where the port loses nothing does not, until the
+ * reader asks for it.
+ *
+ * One record answers for both the jump nav and the sections themselves. The nav
+ * claims to list exactly what the page renders, and two sets of conditions kept
+ * apart drift: these two had, over the fact rows and the abbreviations.
+ */
+const sectionShown = computed<Record<string, boolean>>(() => {
+  const narrowed = notice.value.kind === 'narrowed';
+  const show = (work: number, reference = 0, referenceShown = false) =>
+    showsSection({ narrowed, work, reference, referenceShown });
+  const g = guidance.value;
+  const diff = keywordDiff.value;
+  const pair = memoryPair.value;
+  const fit = programFit.value;
+  return {
+    // Unchanged rows are reference rather than work, and answer to the filter
+    // sitting with the table they belong to.
+    'language-hardware': show(
+      changedFactCount.value,
+      factRows.value.length - changedFactCount.value,
+      showUnchanged.value,
+    ),
+    guidance: show(g.pairNotes.length + g.targetNotes.length),
+    characters: show(charactersToReplace.value.length),
+    'statement-layout': show(statementLayout.value ? 1 : 0),
+    'line-numbers': show(lineNumbers.value ? 1 : 0),
+    'different-form': show(
+      (diff?.renamed.length ?? 0) +
+        changedCount.value +
+        expansions.value.length,
+    ),
+    capabilities: show(
+      capabilities.value.filter((s) => s.entries.length).length,
+      gainingCount.value,
+      showAdditions.value,
+    ),
+    // The rechecks hold this section open on their own: a code that keeps its
+    // spelling and changes meaning edits nothing, which is why it has to be
+    // said rather than searched for.
+    'escape-codes': show(
+      escReplaceSections.value.length + escapeRechecked.value.length,
+      escapeAdded.value,
+      showAdditions.value,
+    ),
+    // The maps are drawn for the addresses the port has to change, so narrowed
+    // to a program that reaches none they have nothing of that program on them.
+    'memory-layout': show(pair ? pair.sites.length : 0, pair ? 1 : 0),
+    'machine-code': show(machineCodeRows.value.length),
+    'false-friends': show(visibleFalseFriends.value.length),
+    'variable-collisions': show(variableCollisions.value.length),
+    'marker-loss': show(markerLoss.value.length),
+    'truncated-arithmetic': show(truncatedArithmetic.value ? 1 : 0),
+    'integer-range': show(integerRangeNarrowing.value ? 1 : 0),
+    positions: show(positionCheck.value ? 1 : 0),
+    delays: show(delayLoops.value && delayFactor.value ? 1 : 0),
+    // A comfortable fit is the one verdict that asks nothing. "Will not fit",
+    // "tight" and a lower bound all still report.
+    fit: show(fit && fitText.value && fit.verdict !== 'fits' ? 1 : 0),
+  };
+});
+
+/**
  * The sections this pair actually renders, in page order: the "on this page"
- * row, and the ids its links and the headings share. Built from the same
- * conditions the template guards each section with, so a section is listed
- * exactly when it is shown. The headings are rendered by this component rather
- * than by markdown, so VitePress's own outline cannot see them.
+ * row, and the ids its links and the headings share. The headings are rendered
+ * by this component rather than by markdown, so VitePress's own outline cannot
+ * see them.
  */
 const pageSections = computed<{ id: string; label: string }[]>(() => {
   if (sameSelection.value || !keywordDiff.value) return [];
-  const g = guidance.value;
-  const entries: [boolean, string, string][] = [
-    [
-      visibleFactRows.value.length > 0,
-      'language-hardware',
-      'Language & hardware',
-    ],
-    [
-      g.pairNotes.length + g.targetNotes.length > 0,
-      'guidance',
-      'Before you start',
-    ],
-    [
-      charactersToReplace.value.length > 0,
-      'characters',
-      'Characters to replace',
-    ],
-    [statementLayout.value !== null, 'statement-layout', 'Statement layout'],
-    [lineNumbers.value !== null, 'line-numbers', 'Line numbers'],
-    [
-      keywordDiff.value.renamed.length + changedCount.value > 0,
-      'different-form',
-      'Same command, different form',
-    ],
-    [capabilities.value.length > 0, 'capabilities', 'What changes'],
-    [
-      escReplaceSections.value.length +
-        escapeAdded.value +
-        escapeRechecked.value.length >
-        0,
-      'escape-codes',
-      'Control & escape codes',
-    ],
-    [memoryPair.value !== null, 'memory-layout', 'Memory layout'],
-    [
-      machineCodeRows.value.length > 0,
-      'machine-code',
-      'Machine code to re-achieve',
-    ],
-    [
-      visibleFalseFriends.value.length > 0,
-      'false-friends',
-      'Same word, different meaning',
-    ],
-    [
-      variableCollisions.value.length > 0,
-      'variable-collisions',
-      'Names that become one',
-    ],
-    [markerLoss.value.length > 0, 'marker-loss', 'Type markers that go'],
-    [
-      truncatedArithmetic.value !== null,
-      'truncated-arithmetic',
-      'Arithmetic that truncates',
-    ],
-    [
-      integerRangeNarrowing.value !== null,
-      'integer-range',
-      'Values that do not fit',
-    ],
-    [positionCheck.value !== null, 'positions', 'Where this program prints'],
-    [delayLoops.value !== null, 'delays', 'Loops that only pass time'],
-    [programFit.value !== null, 'fit', 'Fit'],
+  const labels: [string, string][] = [
+    ['language-hardware', 'Language & hardware'],
+    ['guidance', 'Before you start'],
+    ['characters', 'Characters to replace'],
+    ['statement-layout', 'Statement layout'],
+    ['line-numbers', 'Line numbers'],
+    ['different-form', 'Same command, different form'],
+    ['capabilities', 'What changes'],
+    ['escape-codes', 'Control & escape codes'],
+    ['memory-layout', 'Memory layout'],
+    ['machine-code', 'Machine code to re-achieve'],
+    ['false-friends', 'Same word, different meaning'],
+    ['variable-collisions', 'Names that become one'],
+    ['marker-loss', 'Type markers that go'],
+    ['truncated-arithmetic', 'Arithmetic that truncates'],
+    ['integer-range', 'Values that do not fit'],
+    ['positions', 'Where this program prints'],
+    ['delays', 'Loops that only pass time'],
+    ['fit', 'Fit'],
   ];
-  return entries
-    .filter(([shown]) => shown)
-    .map(([, id, label]) => ({ id, label }));
+  return labels
+    .filter(([id]) => sectionShown.value[id])
+    .map(([id, label]) => ({ id, label }));
 });
 
 /** Reference sub-pages for a dialect page slug, relative to /reference/compare. */
@@ -1668,6 +1724,19 @@ watch(to, requestVocabulary);
           Show every difference, not just the ones your program uses
         </label>
         <!--
+          The additions filter, stated once for the page. It governs whole
+          sections rather than rows within one, and a section holding nothing
+          else is not rendered - so a copy inside each would go missing at
+          exactly the point where it is the only sign the content is there.
+        -->
+        <label v-if="additionsHeldBack" class="cmp-toggle">
+          <input v-model="showAdditions" type="checkbox" />
+          Show what {{ target.name }} adds that the program has not used
+        </label>
+        <p v-if="!showAdditions && additionsHeldBackText" class="cmp-empty">
+          {{ additionsHeldBackText }}
+        </p>
+        <!--
           The component renders every heading below, so VitePress's own outline
           (built from the markdown) cannot see them and none of them can be
           linked to. This row is the page's contents, listing exactly the
@@ -1699,7 +1768,7 @@ watch(to, requestVocabulary);
         the from/to inputs do.
       -->
       <section
-        v-if="visibleFactRows.length || factRows.length"
+        v-if="sectionShown['language-hardware']"
         id="language-hardware"
         class="cmp-section"
       >
@@ -1741,7 +1810,7 @@ watch(to, requestVocabulary);
         then what to watch for on the target whatever you arrive from.
       -->
       <section
-        v-if="guidance.pairNotes.length || guidance.targetNotes.length"
+        v-if="sectionShown['guidance']"
         id="guidance"
         class="cmp-section cmp-guidance"
       >
@@ -1767,7 +1836,7 @@ watch(to, requestVocabulary);
         is one; the target's whole shortfall where there is not.
       -->
       <section
-        v-if="charactersToReplace.length"
+        v-if="sectionShown['characters']"
         id="characters"
         class="cmp-section"
       >
@@ -1796,7 +1865,11 @@ watch(to, requestVocabulary);
         line" fact row does not already say, and with one it is the only place
         the reader learns which of their own lines the rule falls on.
       -->
-      <section v-if="statementLayout" id="statement-layout" class="cmp-section">
+      <section
+        v-if="sectionShown['statement-layout']"
+        id="statement-layout"
+        class="cmp-section"
+      >
         <h2>
           Statement layout ({{ count(statementLayout.lines.length, 'line') }})
         </h2>
@@ -1856,7 +1929,11 @@ watch(to, requestVocabulary);
         line numbers. The range itself is a fact row whether or not there is a
         program; this is what the reader's own numbers do against it.
       -->
-      <section v-if="lineNumbers" id="line-numbers" class="cmp-section">
+      <section
+        v-if="sectionShown['line-numbers']"
+        id="line-numbers"
+        class="cmp-section"
+      >
         <h2>Line numbers</h2>
         <p class="cmp-fit">
           <strong class="cmp-fit-over">Must be renumbered —</strong>
@@ -1884,7 +1961,7 @@ watch(to, requestVocabulary);
         first of the rewrites in one place, at the seam between the two.
       -->
       <section
-        v-if="keywordDiff.renamed.length || changedCount || expansions.length"
+        v-if="sectionShown['different-form']"
         id="different-form"
         class="cmp-section"
       >
@@ -1982,7 +2059,11 @@ watch(to, requestVocabulary);
         every command a shown capability loses is shown, and the ten the section
         opens with are the ten the ranking put first - worst answered first.
       -->
-      <section v-if="capabilities.length" id="capabilities" class="cmp-section">
+      <section
+        v-if="sectionShown['capabilities']"
+        id="capabilities"
+        class="cmp-section"
+      >
         <h2>What changes</h2>
         <p class="cmp-hint">
           {{ count(keywordDiff.mustReplace.length, 'command') }} to rewrite or
@@ -1990,10 +2071,6 @@ watch(to, requestVocabulary);
           their place. The capabilities {{ target.name }} has no equivalent of
           at all come first.
         </p>
-        <label v-if="gainingCount" class="cmp-toggle">
-          <input v-model="showAdditions" type="checkbox" />
-          Show what {{ target.name }} adds that the program has not used
-        </label>
         <!--
           The colour key, inside the section whose groups are graded by colour
           and immediately above them: one row, so it costs a glance rather than
@@ -2141,12 +2218,6 @@ watch(to, requestVocabulary);
             Show {{ count(capabilityList.remaining, 'more capability area') }}…
           </button>
         </p>
-        <!-- Say what the filter is holding back, so it is discoverable. -->
-        <p v-if="!showAdditions && gainingCount" class="cmp-empty">
-          {{ count(gainingCount, 'capability area') }}
-          {{ target.name }} only adds to
-          {{ gainingCount === 1 ? 'is' : 'are' }} hidden.
-        </p>
       </section>
 
       <!--
@@ -2160,9 +2231,7 @@ watch(to, requestVocabulary);
         port has to do.
       -->
       <section
-        v-if="
-          escReplaceSections.length || escapeAdded || escapeRechecked.length
-        "
+        v-if="sectionShown['escape-codes']"
         id="escape-codes"
         class="cmp-section"
       >
@@ -2179,10 +2248,6 @@ watch(to, requestVocabulary);
           >
           gives every code's meaning.
         </p>
-        <label v-if="escapeAdded" class="cmp-toggle">
-          <input v-model="showAdditions" type="checkbox" />
-          Show what {{ target.name }} adds that the program has not used
-        </label>
         <!--
           The same key as the capabilities section, repeated here rather than
           referred back to: by this point in the page the first one has scrolled
@@ -2332,7 +2397,11 @@ watch(to, requestVocabulary);
         table used to carry a screen base and a program start, which the maps
         supersede - four numbers against a picture drawn to scale.
       -->
-      <section v-if="memoryPair" id="memory-layout" class="cmp-section">
+      <section
+        v-if="sectionShown['memory-layout']"
+        id="memory-layout"
+        class="cmp-section"
+      >
         <h2>Memory layout</h2>
         <MemoryMapPair
           :from-name="memoryPair.fromName"
@@ -2425,7 +2494,7 @@ watch(to, requestVocabulary);
         machine having a described layout.
       -->
       <section
-        v-if="machineCodeRows.length"
+        v-if="sectionShown['machine-code']"
         id="machine-code"
         class="cmp-section"
       >
@@ -2481,7 +2550,7 @@ watch(to, requestVocabulary);
         checking against code that has stopped changing.
       -->
       <section
-        v-if="visibleFalseFriends.length"
+        v-if="sectionShown['false-friends']"
         id="false-friends"
         class="cmp-section cmp-traps"
       >
@@ -2521,7 +2590,7 @@ watch(to, requestVocabulary);
         names collide is a fact about a program, not about a pair of machines.
       -->
       <section
-        v-if="variableCollisions.length"
+        v-if="sectionShown['variable-collisions']"
         id="variable-collisions"
         class="cmp-section cmp-traps"
       >
@@ -2553,7 +2622,7 @@ watch(to, requestVocabulary);
         need opposite reactions, so each name says which it is.
       -->
       <section
-        v-if="markerLoss.length"
+        v-if="sectionShown['marker-loss']"
         id="marker-loss"
         class="cmp-section cmp-traps"
       >
@@ -2598,7 +2667,7 @@ watch(to, requestVocabulary);
         says the target has no fractions; this says what that costs here.
       -->
       <section
-        v-if="truncatedArithmetic"
+        v-if="sectionShown['truncated-arithmetic']"
         id="truncated-arithmetic"
         class="cmp-section cmp-traps"
       >
@@ -2649,7 +2718,7 @@ watch(to, requestVocabulary);
         expression can overflow where no literal does.
       -->
       <section
-        v-if="integerRangeNarrowing"
+        v-if="sectionShown['integer-range']"
         id="integer-range"
         class="cmp-section cmp-traps"
       >
@@ -2687,7 +2756,7 @@ watch(to, requestVocabulary);
         80, which makes this most pairs rather than a corner case.
       -->
       <section
-        v-if="positionCheck"
+        v-if="sectionShown['positions']"
         id="positions"
         class="cmp-section cmp-traps"
       >
@@ -2741,7 +2810,7 @@ watch(to, requestVocabulary);
         tokenizes, runs, and takes a different length of time.
       -->
       <section
-        v-if="delayLoops && delayFactor"
+        v-if="sectionShown['delays']"
         id="delays"
         class="cmp-section cmp-traps"
       >
@@ -2777,7 +2846,7 @@ watch(to, requestVocabulary);
         VIC-20 is the same BASIC in a tenth of the memory - so it is never
         conditioned on anything but having a program to size.
       -->
-      <section v-if="programFit && fitText" id="fit" class="cmp-section">
+      <section v-if="sectionShown['fit']" id="fit" class="cmp-section">
         <h2>Fit on {{ target.name }}</h2>
         <p class="cmp-fit">
           <strong :class="`cmp-fit-${programFit.verdict}`"

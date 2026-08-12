@@ -107,6 +107,33 @@ test('a program too large for the target is reported as not fitting', async ({
   // Both figures, so a reader told it does not fit is told by how much.
   await expect(fit).toContainText(/3,583 bytes/);
 
+  // The same Commodore BASIC V2 at both ends, and a program of nothing but
+  // PRINT: the sections that report work have none to report, and are not on
+  // the page at all rather than there announcing a count of zero. Browser-only
+  // because the narrowing that empties them arrives over postMessage and the
+  // rendered section list is what proves it.
+  await expect(frame.locator('#capabilities')).toHaveCount(0);
+  await expect(frame.locator('#escape-codes')).toHaveCount(0);
+  // No POKE and no PEEK in it either, so the maps have none of this program on
+  // them.
+  await expect(frame.locator('#memory-layout')).toHaveCount(0);
+  await expect(frame.getByText(/to rewrite or remove/)).toHaveCount(0);
+  await expect(frame.getByText(/control code needs replacing/)).toHaveCount(0);
+
+  // The contents row claims to list exactly the sections the page renders.
+  const jump = frame.locator('.cmp-jump');
+  await expect(jump.locator('a[href="#capabilities"]')).toHaveCount(0);
+  await expect(jump.locator('a[href="#escape-codes"]')).toHaveCount(0);
+  await expect(jump.locator('a[href="#fit"]')).toHaveCount(1);
+
+  // Whatever this pair holds back, the control for it is page-level: a copy
+  // inside a section would go with the section.
+  await expect(
+    frame
+      .locator('.cmp-section')
+      .filter({ hasText: /adds that the program has not used/ }),
+  ).toHaveCount(0);
+
   // The same pressed program against a target that holds memory its hardware
   // claims only for the graphics modes. This program selects none of them, so
   // the fit report says the memory is there, what frees it, and poses the
@@ -371,13 +398,17 @@ test('the narrowing states what it recognised and what it holds back', async ({
   await expect(heldBack).toBeVisible();
 
   // Narrowed, the guide reports fewer commands to rewrite than the full
-  // comparison does.
-  const hint = frame.getByText(/to rewrite or remove, grouped by what they do/);
-  const narrowedText = (await hint.textContent()) ?? '';
+  // comparison does - and this program uses none the ZX81 makes it rewrite, so
+  // what it reports is no section at all rather than a count of zero.
+  await expect(frame.locator('#capabilities')).toHaveCount(0);
 
   await frame.getByRole('checkbox', { name: /Show every difference/ }).check();
   await expect(heldBack).toHaveCount(0);
-  await expect(hint).not.toHaveText(narrowedText);
+  // Unnarrowed the reader has asked about the machines, so the pair's whole
+  // count is back.
+  const hint = frame.getByText(/to rewrite or remove, grouped by what they do/);
+  await expect(hint).toBeVisible();
+  await expect(hint).not.toContainText('0 commands to rewrite or remove');
 });
 
 test('a narrow viewport points at the comparison instead of burying the program', async ({
