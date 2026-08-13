@@ -1545,6 +1545,12 @@ it, with what is being left out stated so the control can be found. What the tar
 capability the port *does* lose commands from is the advice for replacing them, and SHALL NOT be
 left out by this control.
 
+The control and the statement of what it is holding back SHALL be offered once for the comparison,
+covering every section they govern, and SHALL be reachable whatever those sections are currently
+reporting. A control offered only from inside the sections it filters is a control that goes away
+with them, at exactly the point where nothing else on the page reports that the filtered content
+exists.
+
 #### Scenario: The default view
 
 - **WHEN** the user opens a comparison
@@ -1561,6 +1567,13 @@ left out by this control.
 - **WHEN** the control is off and the port loses commands from a capability the target also adds to
 - **THEN** what the target offers in that capability is still reported with the commands lost from
   it
+
+#### Scenario: Every section the control governs is holding nothing else
+
+- **WHEN** the control is off and every section it governs has nothing to report but what the
+  target adds
+- **THEN** the control and the statement of what it is holding back are still offered, and turning
+  it on reports the additions
 
 ### Requirement: The comparison narrows to the program the user has open
 
@@ -1621,6 +1634,98 @@ condition of the guidance.
 
 - **WHEN** a user reads the comparison inside the IDE with nothing written in the editor
 - **THEN** every difference is reported, as it is for a reader with no program at all
+
+### Requirement: A section with nothing to port is not shown
+
+Narrowing the comparison to the open program is a promise that what remains is
+the work that program needs. A section that has narrowed down to nothing breaks
+the promise while appearing to keep it: it costs a heading to read and a count
+to interpret before it says that nothing is being asked, and a page of those
+reads like the comparison that was never narrowed at all.
+
+Where the comparison is narrowed to the user's program, a section with nothing
+in it for the reader SHALL NOT be shown — not as a heading, not as a count of
+zero, not as a sentence reporting its own emptiness.
+
+What holds a section open is content the reader must act on or be told about.
+Content that only reports what the target adds where the port loses nothing
+SHALL NOT hold a section open, being news rather than work; the comparison
+already leaves it out by default. Content the reader must be told about SHALL
+hold a section open even where nothing in the program's text changes, because
+a difference that leaves the program looking correct is the one the reader
+cannot find unaided.
+
+Where the comparison is not narrowed to a program it is the whole comparison of
+the two machines, and every section that has anything to report SHALL still be
+shown: the reader has asked about the machines rather than about a program, and
+a section reporting no difference is then an answer.
+
+#### Scenario: A program with no commands to rewrite
+
+- **WHEN** the comparison is narrowed to a program that uses no command the
+  target makes the user rewrite or remove
+- **THEN** the section reporting commands to rewrite is absent, rather than
+  present reporting none
+
+#### Scenario: A program with no control codes to replace
+
+- **WHEN** the comparison is narrowed to a program with no control code the
+  target cannot express, and the target adds control codes the program never
+  used
+- **THEN** the section reporting control codes is absent, rather than present
+  reporting that no code needs replacing
+
+#### Scenario: A difference the program's text does not show
+
+- **WHEN** the comparison is narrowed to a program that has nothing to replace
+  in a section, but uses something that keeps its spelling on the target and
+  means something else
+- **THEN** the section is shown, reporting what changed meaning
+
+#### Scenario: The comparison is not narrowed
+
+- **WHEN** no program is open, or the open program cannot be read as the source
+  machine's BASIC
+- **THEN** every section with something to report is shown, as it is for a
+  comparison of the two machines
+
+#### Scenario: Asking to see what the target adds
+
+- **WHEN** a section holds nothing but what the target adds and the program
+  never used, and the user turns on the control that reports those
+- **THEN** the section is shown, reporting them
+
+### Requirement: The program's lines are named as its listing numbers them
+
+A finding that names a line of the reader's own program is naming it so that
+the reader can find it, and what they have in front of them is a listing —
+whose lines are numbered by the program, not counted by the editor. The two
+numberings agree only for a program written from its lowest line in steps of
+one with nothing blank between; for every other program an editor count names a
+line that exists and is the wrong one, which reads as an answer rather than as
+a mistake.
+
+Wherever the comparison names a line of the program being ported, it SHALL name
+it by the line number the program itself carries, in every place a line is
+named — the narrowed findings and the same findings handed to the assistant
+alike, since one program discussed in two numberings is a program the reader
+has to reconcile.
+
+A line carrying no number of its own SHALL NOT be named: there is nothing in
+the listing to match it against, and the machines refuse such a program in any
+case.
+
+#### Scenario: A program not numbered from one in steps of one
+
+- **WHEN** the comparison reports a finding against a line of a program whose
+  line numbers do not match its position in the editor
+- **THEN** the line is named by the number the program carries, which is the
+  number its listing shows
+
+#### Scenario: The same finding handed to the assistant
+
+- **WHEN** the same finding is carried into a request to convert the program
+- **THEN** it names the line by the same number the comparison named it by
 
 ### Requirement: The program is read as the language being ported from
 
