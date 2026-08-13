@@ -19,9 +19,19 @@ import { systemPalette } from './viciious/tools/palettes.js';
  *
  * Values are derived from Colodore by an HSV boost (saturation ×1.38, value
  * ×1.30 with a brightness floor for the darkest hues), then baked to explicit
- * constants here. Orange (code 8) is additionally hand-tuned to the warm,
- * saturated red-orange a period C64 renders it as, rather than Colodore's earthy
- * brown. Indexed by the 4-bit C64 colour code, aligned 1:1 with the vendored
+ * constants here. Two entries deviate from that formula:
+ *
+ * - Orange (code 8) is hand-tuned to the warm, saturated red-orange a period
+ *   C64 renders it as, rather than Colodore's earthy brown.
+ * - Light blue (code 14) takes the value boost only. Its blue channel already
+ *   sits at 255, so the value boost cannot brighten it further and the
+ *   saturation boost only strips out red and green - the two channels carrying
+ *   ~93% of perceived brightness. Applying both collapses the default
+ *   light-blue-on-blue screen to 1.87:1, below the 2.60:1 of unboosted
+ *   Colodore; the value boost alone holds it at 3.14:1. The same trap waits for
+ *   any other blue-dominated entry whose dominant channel is already clipped.
+ *
+ * Indexed by the 4-bit C64 colour code, aligned 1:1 with the vendored
  * {@link systemPalette}.
  */
 export const CRT_PALETTE: readonly number[] = [
@@ -39,7 +49,7 @@ export const CRT_PALETTE: readonly number[] = [
   0x606060, // 11 dark grey
   0xa0a0a0, // 12 grey
   0x88ff7b, // 13 light green
-  0x4742ff, // 14 light blue
+  0x7a76ff, // 14 light blue
   0xe7e7e7, // 15 light grey
 ];
 
