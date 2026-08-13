@@ -26,6 +26,7 @@ import { SHORTCUTS, matchesShortcut, type ShortcutId } from './shortcuts';
 import { newDocument, openDocument, saveDocument } from './fileCommands';
 import { openingTopicFor } from './docsTopic';
 import { dismissTopSurface } from './useHistorySync';
+import { saveScreenshot } from './screenshot';
 
 /** Surface a rejected file command without crashing the listener. */
 function report(p: Promise<void>): void {
@@ -87,6 +88,12 @@ function dispatch(id: ShortcutId): boolean {
       return true;
     case 'run.mute':
       if (s.emulatorAudio) s.setEmulatorMuted(!s.emulatorMuted);
+      return true;
+    case 'run.screenshot':
+      // Resolves to a result rather than throwing, and the keyboard has no
+      // banner to report a miss on - the toolbar button is where a reason is
+      // shown.
+      void saveScreenshot(s.fileName);
       return true;
     case 'view.ai':
       s.toggleAiPanel();

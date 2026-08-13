@@ -22,6 +22,7 @@ import { MobileTabBar } from './MobileTabBar';
 import { InputOverlayToggle } from './InputOverlayToggle';
 import { MachineTrigger } from './MachineTrigger';
 import { TARGET_MACHINE_ROLE } from './machinePicker';
+import { saveScreenshot } from '../app/screenshot';
 import {
   SparkleIcon,
   GearIcon,
@@ -31,6 +32,7 @@ import {
   DotsIcon,
   FloppyIcon,
   MemoryIcon,
+  CameraIcon,
 } from './icons';
 import styles from './Toolbar.module.css';
 
@@ -175,6 +177,12 @@ export function Toolbar() {
   const openShareLink = guard(() => setShareLinkOpen(true));
   const openVfsInspector = guard(() => setVfsInspectorOpen(true));
   const openMemoryMap = guard(() => setMemoryMapOpen(true));
+  // Reads the document name at click time, so renaming doesn't re-render the
+  // toolbar. A machine that has drawn nothing yet is reported, not thrown.
+  const takeScreenshot = guard(async () => {
+    const result = await saveScreenshot(useIdeStore.getState().fileName);
+    if (!result.saved) setError(result.reason);
+  });
   const toggleMemoryMap = guard(() => setMemoryMapOpen(!memoryMapOpen));
 
   // Shortcut hints for menu items and button tooltips, pulled from the central
@@ -397,6 +405,17 @@ export function Toolbar() {
             <SpeakerIcon />
           )}
         </button>
+        <button
+          className="icon-btn"
+          onClick={takeScreenshot}
+          title={withKeys(
+            "Save the machine's screen as a PNG",
+            'run.screenshot',
+          )}
+          aria-label="Save a screenshot"
+        >
+          <CameraIcon />
+        </button>
         {dialect.memoryMap && (
           <button
             className={`icon-btn ${memoryMapOpen ? 'active' : ''}`}
@@ -534,6 +553,9 @@ export function Toolbar() {
                     ■ Stop
                   </button>
                   <div className={styles.menuSeparator} />
+                  {/* The toolbar's camera is an .icon-btn, which the mobile
+                      rules hide, so the action is surfaced here as well. */}
+                  <button onClick={takeScreenshot}>Save a screenshot</button>
                   <button onClick={openVfsInspector}>
                     Emulator files{hint('view.vfsInspector')}
                   </button>
