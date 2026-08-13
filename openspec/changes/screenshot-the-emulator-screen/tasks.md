@@ -13,24 +13,17 @@
       not add a second registry and do not thread the canvas element out of the
       pane (see design.md). Decode its PNG data URL through an `Image` and
       `decode()` before drawing.
-- [ ] 1.4 CRT treatment, applied only when the store's `crtEffect` is on: one
-      6%-black line every 4 **output** pixels for the scanlines, and the
-      vignette as a circular gradient of radius `(w/2)·√2` in a space squashed
-      by `scale(1, h/w)` — which is exactly CSS's farthest-corner ellipse.
-      Comment both against `.screenShell.crt::after` in
-      `src/components/EmulatorPane.module.css`, including why the scanline
-      period is in output pixels.
-- [ ] 1.5 Filename: the program name as the existing exports derive it
+- [ ] 1.4 Filename: the program name as the existing exports derive it
       (`programNameFromFileName`, `'PROGRAM'` for an untitled document — see
       `src/components/TransferDialog.tsx`), lowercased, plus a timestamp so a
       second screenshot is a second file. Encode as `image/png` via
       `canvas.toBlob`, not `toDataURL`, and hand off to the existing
       `downloadBlob` in `src/storage/files.ts`.
-- [ ] 1.6 The entry point **resolves to a result** — saved, or not-saved with a
+- [ ] 1.5 The entry point **resolves to a result** — saved, or not-saved with a
       reason — rather than throwing: the toolbar's `guard()` is synchronous and
       would not catch a rejected promise. "The machine has not drawn a frame" is
       a reason, not an error.
-- [ ] 1.7 SPDX header (`// SPDX-License-Identifier: GPL-3.0-or-later`) on every
+- [ ] 1.6 SPDX header (`// SPDX-License-Identifier: GPL-3.0-or-later`) on every
       new file, as the rest of the tree carries.
 
 ## 2. Tests for the module
@@ -90,9 +83,11 @@
 - [ ] 6.1 A row in the "Running and debugging" table of
       `docs/guide/keyboard-shortcuts.md` (hand-written, not generated).
 - [ ] 6.2 A short note under "Running a program" in
-      `docs/guide/testing-programs.md`: what the action saves and that the CRT
-      setting is carried into it. End-user prose — no source paths, no internal
-      symbols. **Do not touch the VitePress sidebar.**
+      `docs/guide/testing-programs.md`: what the action saves, and that the file
+      is the machine's own picture — the CRT effect changes the screen but not
+      the saved image. Worth saying precisely because the two differ. End-user
+      prose — no source paths, no internal symbols. **Do not touch the VitePress
+      sidebar.**
 
 ## 7. Quality gates
 

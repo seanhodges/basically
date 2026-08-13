@@ -14,8 +14,8 @@ what it drew, and a hard forget on a dialect or ROM change so one machine's
 screen can never answer for another's. It is module-level and callable from
 anywhere, which is how `AiPanel` reaches it.
 
-What is missing is only the user-facing half: enlargement, the optional CRT
-treatment, a filename, a download, and something to click.
+What is missing is only the user-facing half: enlargement, a filename, a
+download, and something to click.
 
 See `docs/contributing/architecture.md` for the dialect seam and the store's
 conventions; this change alters neither.
@@ -36,7 +36,8 @@ conventions; this change alters neither.
 **Non-Goals:**
 
 - Any new `Dialect` or `MachineEmulator` member. See the seam note below.
-- Compositing the IDE's own rendering (bezel, fitted scale, virtual keyboard).
+- Compositing anything the IDE draws around or over the screen — bezel, fitted
+  scale, CRT overlay, virtual keyboard.
 - The proposal's other non-goals — clipboard, scale picker, recording, native
   screen formats, save-picker — stay closed here.
 
@@ -83,34 +84,33 @@ source. Adding a machine cannot silently produce a bad size.
 Enlargement is `drawImage` with `imageSmoothingEnabled = false` — the canvas
 equivalent of the `image-rendering: pixelated` the screen already uses.
 
-### Redraw the CRT effect rather than trying to capture it
+### The saved image is untreated
 
-The CRT treatment is a CSS pseudo-element over the canvas, so it is not in the
-canvas and cannot be read back. Baking it in means redrawing both of its
-gradients in canvas at the output resolution:
+The CRT effect is a CSS pseudo-element over the canvas: it is not in the canvas
+and cannot be read back, so carrying it into a file means redrawing it.
 
-- The scanlines are a 4px-period repeating gradient peaking at 6% black.
-  Redrawn as one 6%-black line every 4 output pixels. The period stays 4
-  **output** pixels rather than 4 machine pixels, because on screen it is 4 CSS
-  pixels over the fitted canvas and the enlargement factor is close to that fit
-  scale — so this reproduces the density the user is actually looking at. The
-  CSS peak is soft over a pixel either side; at this scale a hard line reads the
-  same.
-- The vignette is `radial-gradient(ellipse at center, …)` with CSS's default
-  farthest-corner sizing. Canvas radial gradients are circular, so the space is
-  squashed instead of the gradient stretched: translate to the centre, scale y
-  by `height/width`, and draw a circular gradient of radius `(width/2)·√2`. In
-  that space the image corner sits exactly on the radius, which is what
-  farthest-corner means — so this is the same ellipse CSS draws, not an
-  approximation of it.
+**Decision: don't. The file is the machine's raw output, at every setting.**
 
-Alternative rejected: rendering the pane through an SVG `foreignObject` to let
-the browser draw its own CSS. It cannot reach stylesheet rules for a pseudo-
-element without inlining them, it taints in some browsers, and it drags the
-bezel in.
+The effect's scanline period is a fixed number of CSS pixels over a canvas
+fitted to the window at a fractional scale, so it has no honest size in machine
+pixels. Redrawing it into an image enlarged by a whole number means picking a
+density, and any choice is right only where the enlargement happens to match the
+window's fit scale — subtly wrong for a user with a small window, and wrong the
+other way for a user with a large one. A screenshot the user cannot trust to be
+what they saw is worse than one that is consistently the machine's own picture,
+which is the thing only this app can produce. Anyone who wants the effect in a
+picture already has an operating-system screenshot tool that captures it
+exactly.
 
-The effect is applied only when the user's CRT setting is on, read from the
-store at capture time.
+Two alternatives rejected with it: redrawing the two gradients in canvas at the
+output resolution (the density problem above is the whole objection — the
+geometry is reproducible, the size is not), and rendering the pane through an
+SVG `foreignObject` to let the browser draw its own CSS (cannot reach stylesheet
+rules for a pseudo-element without inlining them, taints the canvas in some
+browsers, and drags the bezel in).
+
+Consequence: the screenshot path reads no app state at capture time. It takes a
+program name and produces a file.
 
 ### Return a result; do not throw
 
@@ -141,12 +141,10 @@ the pane already renders into, and a new machine needs nothing done to it.
 
 ## Risks / Trade-offs
 
-- **The baked CRT density only matches the screen when the enlargement factor is
-  near the on-screen fit scale.** → Accepted, and it is the honest reading of
-  "the same treatment": a fixed CSS period cannot have one true size in machine
-  pixels. A user in an unusually small or huge window gets slightly denser or
-  sparser scanlines than they see. The untreated image is always available by
-  turning the effect off.
+- **A user with the CRT effect on gets a file that does not look like their
+  screen.** → Accepted deliberately, and the reason is above: the alternative is
+  a file that looks like their screen at one window size and not at any other.
+  The saved image is the machine's picture, which is the thing worth having.
 - **Encode → decode → re-encode is wasteful.** → Sub-millisecond at these sizes,
   and it is what buys the single capture seam. Measured against one registry
   versus two, the cheaper thing was two registries and the wrong one won on

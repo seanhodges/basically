@@ -19,12 +19,12 @@ picture is missing; only a way for the user to ask for it.
   icon button in the toolbar, the same action in the standalone player's top
   bar, and a desktop keyboard shortcut.
 - Invoking it downloads the machine's screen as a **PNG at the machine's own
-  pixels**, with no bezel and no IDE chrome, **enlarged by a whole-number
-  factor** so square pixels stay square and the file is legible at ordinary
-  viewing sizes rather than being a 256x192 thumbnail.
-- With the **CRT effect** setting on, the saved image carries the same scanline
-  and vignette treatment the screen shows, so what is saved matches what is
-  seen. With it off, the image is the machine's raw output.
+  pixels**, **enlarged by a whole-number factor** so square pixels stay square
+  and the file is legible at ordinary viewing sizes rather than being a 256x192
+  thumbnail.
+- The image is the machine's **raw output**: no bezel, no IDE chrome, and no CRT
+  overlay whatever the CRT setting is. What the machine drew is what the file
+  holds.
 - A machine that has **stopped** still yields the last frame it drew. Asking
   before a machine has drawn anything says so, rather than saving a blank
   picture.
@@ -65,6 +65,12 @@ hardware. It carries no program, loads nowhere, and belongs to no build target.
 - **Capturing the IDE's rendering — bezel, CRT geometry, virtual keyboard.** The
   operating system's screenshot tool already does that, and does it better.
   What only this app can produce is the machine's own pixels.
+- **Baking the CRT effect into the saved image.** Considered and rejected. The
+  effect is a fixed pixel size over a screen fitted at a fractional scale, so it
+  has no honest size in machine pixels: any density baked into the file is right
+  only at one window size and subtly wrong at every other. An image that is
+  sometimes not what the user saw is worse than one that is always the machine's
+  own output.
 - **Recording.** No video, no GIF, no animated capture. A still frame is the
   scope; motion is a different feature with different constraints.
 - **Machine-specific image formats.** No SCR, no native screen dumps. PNG,
@@ -89,5 +95,5 @@ hardware. It carries no program, loads nowhere, and belongs to no build target.
   answers "what do you look like" by rendering to the pane's canvas; this reads
   that canvas and needs no new per-machine knowledge, no per-dialect
   configuration, and no work when a machine is added.
-- No new dependencies. The enlargement, the CRT treatment and the PNG encode are
-  all `CanvasRenderingContext2D` and `HTMLCanvasElement.toBlob`.
+- No new dependencies. The enlargement and the PNG encode are
+  `CanvasRenderingContext2D` and `HTMLCanvasElement.toBlob`.

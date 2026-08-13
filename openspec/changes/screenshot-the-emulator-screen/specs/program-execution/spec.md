@@ -6,15 +6,12 @@ Wherever the IDE shows a machine's screen, the user SHALL be able to save what
 that machine has drawn as an image file.
 
 The saved image SHALL be the machine's own picture and nothing else: its own
-pixels, at its own display size, with no interpolation and no surrounding
-chrome — no bezel, no panel, no on-screen input device. It SHALL be enlarged by
-a whole number, so that every machine pixel remains a square block of the same
-size and the file is legible at ordinary viewing sizes rather than arriving as a
-thumbnail.
-
-Where the user has the CRT effect on, the saved image SHALL carry the same
-treatment the screen shows, so the picture saved is the picture seen. Where it
-is off, the image SHALL be the machine's output untreated.
+pixels, at its own display size, with no interpolation, no surrounding chrome —
+no bezel, no panel, no on-screen input device — and no display treatment the IDE
+draws over the screen, whatever the user's display settings. It SHALL be
+enlarged by a whole number, so that every machine pixel remains a square block
+of the same size and the file is legible at ordinary viewing sizes rather than
+arriving as a thumbnail.
 
 The saved image SHALL be named after the program it came from, and SHALL be
 distinguishable from an image saved of the same program a moment earlier.
@@ -29,18 +26,17 @@ is nothing to save, rather than saving an empty picture.
 - **THEN** an image file of the machine's screen is saved, at a whole-number
   enlargement of the machine's own pixels
 
-#### Scenario: The picture matches the screen it came from
+#### Scenario: The picture is the machine's and nothing else
 
 - **WHEN** the user saves a screenshot on any machine
-- **THEN** the image shows what that machine drew and nothing that surrounds it
-  in the IDE
+- **THEN** the image shows what that machine drew, without anything that
+  surrounds the screen in the IDE or is drawn over it
 
-#### Scenario: The CRT effect is carried into the file
+#### Scenario: A display treatment does not reach the file
 
-- **WHEN** the user saves a screenshot with the CRT effect on, and again with it
-  off
-- **THEN** the first image carries the same treatment the screen shows and the
-  second does not
+- **WHEN** the user saves a screenshot while the IDE is drawing a display effect
+  over the screen
+- **THEN** the image is the machine's untreated output
 
 #### Scenario: Saving after the program stops
 
