@@ -1,4 +1,5 @@
 // Capability: program-execution — openspec/specs/program-execution/spec.md
+import { readFileSync } from 'node:fs';
 import {
   test,
   expect,
@@ -116,6 +117,24 @@ for (const machine of MACHINES.filter((m) => REPRESENTATIVES.includes(m.id))) {
     await expect
       .poll(() => canvasPainted(page), { timeout: 30_000 })
       .toBe(true);
+
+    // Staged onto the machine this test already booted: the screenshot path
+    // decodes the captured canvas, redraws it enlarged and encodes a PNG, none
+    // of which exists outside a browser (jsdom has no canvas). The enlargement
+    // arithmetic per machine is pinned in src/app/screenshot.test.ts instead, so
+    // this runs on one machine only. Family-independent, but free here.
+    if (machine.id === REPRESENTATIVES[0]) {
+      const download = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Save a screenshot' }).click();
+      const file = await download;
+      expect(file.suggestedFilename()).toMatch(/\.png$/);
+      const path = await file.path();
+      const head = readFileSync(path).subarray(0, 8);
+      expect([...head]).toEqual([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      ]);
+    }
+
     await stopEmulator(page);
   });
 }

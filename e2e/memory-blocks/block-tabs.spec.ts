@@ -90,16 +90,18 @@ test('the context menu offers the block actions, and Settings edits its metadata
     page.getByRole('heading', { name: 'Block settings' }),
   ).toBeVisible();
 
-  // A bad name is rejected inline...
+  // A bad name is rejected inline. `exact` on every Save below: accessible-name
+  // matching is a substring match by default, and the toolbar behind the dialog
+  // carries a "Save a screenshot" button that would match a bare 'Save' too.
   await page.getByLabel('Name').fill('1bad');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText(/Names start with a letter/)).toBeVisible();
 
   // ...a clean edit renames and moves the block.
   await page.getByLabel('Name').fill('sprites');
   await page.getByLabel('Load address').fill('$9000');
   await page.getByLabel('Comment (optional)').fill('the draw routine');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   await expect(tablist.getByRole('tab')).toHaveText(['BASIC', /sprites/]);
   // The block tab is still active; its origin strip follows the move.
@@ -160,7 +162,7 @@ test('a block in the Atom video RAM runs while the program stays in text mode', 
   await page.getByRole('tab', { name: 'block1' }).click({ button: 'right' });
   await tabMenu(page).getByRole('menuitem', { name: 'Settings…' }).click();
   await page.getByLabel('Load address').fill('$8400');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('ORG $8400')).toBeVisible();
 
   // CLEAR 4 draws into the video RAM, so the placement is refused - and the

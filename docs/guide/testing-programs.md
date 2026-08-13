@@ -27,6 +27,22 @@ The status bar shows the emulator state - **stopped**, **running**, or
 To stop, press **■ Stop**. This is a full power-off, not a pause: the machine is
 shut down and the screen blanks, so the next run starts clean.
 
+## Saving a picture of the screen
+
+The camera button in the toolbar - or **Ctrl/Cmd + Alt + S** - saves what the
+machine has drawn as a PNG, named after your program and stamped with the time,
+so a second screenshot is a second file rather than an overwrite. The standalone
+player has the same button beside its Play control.
+
+The file is the machine's own picture, at its own pixels, enlarged by a whole
+number so every machine pixel stays a square block. Nothing that surrounds the
+screen goes with it: no bezel, no panel, and no **CRT scanline effect** - that
+setting changes the screen you are looking at, but never the saved image. If you
+want the scanlines in a picture, use your operating system's own screenshot tool.
+
+A machine that has been stopped still gives you the last frame it drew. Asking
+before it has drawn anything tells you there is nothing to save.
+
 ## Running on a phone or tablet
 
 On a narrow screen (and in landscape) the workspace splits into tabs along the

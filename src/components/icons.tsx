@@ -132,6 +132,17 @@ export function EyeOffIcon() {
   );
 }
 
+// Camera for the save-a-screenshot action, in the toolbar and the player's top
+// bar - a body with the viewfinder bump and a lens.
+export function CameraIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M3 8h3.5l1.6-2.4h7.8L17.5 8H21v11H3z" />
+      <circle cx="12" cy="13.5" r="3.4" />
+    </svg>
+  );
+}
+
 // Game controller for the input-overlay toggle. Shared so the IDE status bar,
 // the phone-landscape rail and the standalone player all show the same outline
 // icon (matching the keyboard glyph's line-art style).

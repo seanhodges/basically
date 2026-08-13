@@ -42,6 +42,7 @@ export type ShortcutId =
   | 'run.continue'
   | 'run.reset'
   | 'run.mute'
+  | 'run.screenshot'
   | 'view.ai'
   | 'view.settings'
   | 'view.docs'
@@ -226,6 +227,12 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Mute audio',
     category: 'Run',
     keys: [c('KeyM', { mod: true, alt: true })],
+  },
+  {
+    id: 'run.screenshot',
+    label: 'Save a screenshot',
+    category: 'Run',
+    keys: [c('KeyS', { mod: true, alt: true })],
   },
 
   // View / panels
