@@ -7,7 +7,7 @@ import { useDismiss } from '../app/useDismiss';
 import { getDialect } from '../dialects/registry';
 import { useRunnableMachines } from '../app/machineAvailability';
 import { useAiStore } from '../ai/aiStore';
-import { buildUserMessage, loadSystemPrompt } from '../ai/promptBuilder';
+import { buildUserMessage, loadSystemPromptFor } from '../ai/promptBuilder';
 import { aiCredentials, hasAiKey } from '../ai/credentials';
 import {
   AI_UNCONFIGURED_NOTE,
@@ -111,7 +111,7 @@ function NewProjectForm() {
     useIdeStore.getState().showAiPanel();
     void useAiStore.getState().send({
       ...creds,
-      system: await loadSystemPrompt(machine),
+      system: await loadSystemPromptFor(machine, creds.providerId),
       userContent: buildUserMessage(request, '', []),
       displayRequest: request,
       // A description, not an edit: the assistant is shown no program.

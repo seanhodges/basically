@@ -1,6 +1,6 @@
 import type { ControllerRole } from '../keyboard/layoutSchema';
 import type { MachineControl } from '../app/machineControl';
-import type { ToolDefinition } from './providers/types';
+import type { ToolCall, ToolDefinition, ToolResult } from './providers/types';
 
 /**
  * The tools the assistant is given when it drives its own program.
@@ -249,6 +249,33 @@ export function driveToolDefinitions(): ToolDefinition[] {
       },
     },
   ];
+}
+
+/**
+ * What the assistant is told when it acts on the machine on a turn that was not
+ * given one.
+ *
+ * The tools are offered on every turn of a conversation, because a set that
+ * comes and goes invalidates the cached prefix behind it. The machine is not:
+ * it is handed over once a program has been run and observed, which is the only
+ * moment there is anything to drive. So a call can arrive with nothing to run
+ * it, and it is answered rather than dropped - an attempt that vanishes reads
+ * to the model as an attempt that worked, and it will report on a program it
+ * never actually tried.
+ *
+ * Phrased as the protocol it is: the way to be given the machine is to ask in
+ * the reply, which the driving rules in the system prompt already say.
+ */
+export const MACHINE_NOT_GIVEN =
+  'the machine has not been given to you on this turn, so nothing was done. ' +
+  'Ask for it by adding DRIVE to your ```basic-view block, and you will be ' +
+  'given it once your program has been run.';
+
+/** Answers any call on a turn that holds no machine; see {@link MACHINE_NOT_GIVEN}. */
+export async function refuseUngivenMachine(
+  call: ToolCall,
+): Promise<ToolResult> {
+  return { callId: call.id, content: MACHINE_NOT_GIVEN, isError: true };
 }
 
 /** The screen as the assistant is shown it, or a note that it cannot be read. */

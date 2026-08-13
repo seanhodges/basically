@@ -8,7 +8,7 @@ import { useDismiss } from '../app/useDismiss';
 import { vocabularyReply } from '../app/programVocabulary';
 import { convertSource, dialectForMachineId } from './convertMessage';
 import { useAiStore } from '../ai/aiStore';
-import { loadSystemPrompt } from '../ai/promptBuilder';
+import { loadSystemPromptFor } from '../ai/promptBuilder';
 import { buildConversionMessage } from '../ai/portReport';
 import { aiCredentials } from '../ai/credentials';
 import { GearsSpinner } from './GearsSpinner';
@@ -300,7 +300,7 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
         source: original,
         blocks: useIdeStore.getState().blocks,
       }),
-      loadSystemPrompt(target),
+      loadSystemPromptFor(target, creds.providerId),
     ]);
     if (!message.ok) {
       // Before the drawer closes, before the switch and before the panel opens,

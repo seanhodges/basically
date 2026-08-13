@@ -59,6 +59,14 @@ export type PersistedMessage = Omit<ChatMessage, 'image'> & {
    * program, and images belong in neither.
    */
   screenShown?: boolean;
+  /**
+   * What this turn said to the provider, where that differs from `content` -
+   * the program and its errors, which the panel does not show. Kept, unlike the
+   * image, because it is text and it is what a restored thread has to replay:
+   * a turn sent back in a shorter form than it was written in ends the
+   * provider's prefix match at that point.
+   */
+  sentContent?: string;
 };
 
 /**
