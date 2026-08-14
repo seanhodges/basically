@@ -150,6 +150,34 @@ function occurrenceAt(
 }
 
 /**
+ * The variable written at `pos`, or null. Scans only the line `pos` is on, so
+ * the tooltip can ask on every click without walking the program; the full walk
+ * waits until {@link findVariableUsages} is actually asked for the usages.
+ */
+export function variableTokenAt(
+  docText: string,
+  dialectId: string,
+  keywords: EditorKeyword[],
+  pos: number,
+): (UsageRange & { name: string }) | null {
+  const lexis = VARIABLE_LEXIS[dialectId] ?? {};
+  const starts = lineStarts(docText);
+  const occ = occurrenceAt(
+    docText,
+    variableRules(lexis, keywords),
+    starts,
+    pos,
+  );
+  if (!occ) return null;
+  const start = starts[occ.line - 1]!;
+  return {
+    name: occ.name,
+    from: start + occ.column,
+    to: start + occ.endColumn,
+  };
+}
+
+/**
  * The variable at `pos` and everywhere else it is used, or null when `pos` is
  * not on a variable.
  *

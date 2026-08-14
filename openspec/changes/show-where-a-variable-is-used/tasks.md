@@ -68,38 +68,44 @@ wrong.
 
 ## 5. Tooltip, highlights and panel
 
-- [ ] 5.1 Add `src/editor/variableUsagesView.ts` with a colocated
-      `*.module.css`, building DOM by hand as `controlChipWidget.ts` does.
-- [ ] 5.2 Resolve a pointer position to a variable token on `mousedown` and
+- [x] 5.1 Add `src/editor/variableUsagesView.ts`, building DOM by hand as
+      `controlChipWidget.ts` does. Styling goes in an `EditorView.baseTheme`
+      with `cm-` classes, which is what the other editor extensions use - there
+      are no CSS modules under `src/editor/`.
+- [x] 5.2 Resolve a pointer position to a variable token on `mousedown` and
       `touchstart`, returning false so the click still positions the caret;
       ignore a drag-selection, and make repeating the same target a no-op so a
       tap's synthesised mouse event does not re-trigger.
-- [ ] 5.3 Hold the tooltip target in a `StateField` fed to `showTooltip`;
+- [x] 5.3 Hold the tooltip target in a `StateField` fed to `showTooltip`;
       suppress it while a completion is open and clear it on any document
-      change.
-- [ ] 5.4 Render the tooltip as a single button that, when pressed, dispatches
+      change. Suppression tests `completionStatus === 'active'`, not
+      `!== null`: 'pending' is a query in flight that outlives typing and would
+      suppress the offer permanently.
+- [x] 5.4 Render the tooltip as a single button that, when pressed, dispatches
       the resolved ranges.
-- [ ] 5.5 Hold the active usages in a `StateField` painting `Decoration.mark`
+- [x] 5.5 Hold the active usages in a `StateField` painting `Decoration.mark`
       over each range, with a distinct class for the current one.
-- [ ] 5.6 Add the panel via `showPanel`: variable name, usage count, previous /
+- [x] 5.6 Add the panel via `showPanel`: variable name, usage count, previous /
       next, close. Previous and next move the cursor and scroll the usage into
       view, wrapping at the ends.
-- [ ] 5.7 Clear the highlights and close the panel on Escape, on close, on a
+- [x] 5.7 Clear the highlights and close the panel on Escape, on close, on a
       document change, and when a different variable is picked.
-- [ ] 5.8 Style the marks and the panel to read in both themes, alongside the
-      editor's existing decoration styling.
+- [x] 5.8 Style the marks and the panel alongside the editor's existing
+      decoration styling. (The app has a single light theme, so there is no
+      second palette to carry.)
 
 ## 6. Wire into the editor
 
-- [ ] 6.1 Add the extension to the extension list in
+- [x] 6.1 Add the extension to the extension list in
       `src/components/CodeMirrorHost.tsx`, beside the other dialect-gated
       decorations, passing the active dialect's id and keywords.
-- [ ] 6.2 Check the new marks against `highlightSelectionMatches()` in the
-      running app and leave it in place unless the two read as one muddle.
+- [x] 6.2 Check the new marks against `highlightSelectionMatches()` and leave
+      it in place: it paints only on a non-empty selection, so it never fires
+      on the click-to-place-caret path this feature uses.
 
 ## 7. End-to-end coverage
 
-- [ ] 7.1 Extend an existing spec in `e2e/code-editor/` (rather than a cold
+- [x] 7.1 Extend an existing spec in `e2e/code-editor/` (rather than a cold
       `page.goto('/')`) with the browser-only half: a real click lands on the
       token, the tooltip positions, the marks paint, next scrolls and moves the
       cursor, and dismissing clears. Poll for the decorations; no
@@ -107,9 +113,9 @@ wrong.
 
 ## 8. Quality gates
 
-- [ ] 8.1 `npm run typecheck`
-- [ ] 8.2 `npm test`
-- [ ] 8.3 `npm run lint`
-- [ ] 8.4 `npm run format:check` (or `npm run format` to fix)
-- [ ] 8.5 `npm run e2e:chromium -- e2e/code-editor`
-- [ ] 8.6 `npx openspec validate --changes`
+- [x] 8.1 `npm run typecheck`
+- [x] 8.2 `npm test`
+- [x] 8.3 `npm run lint`
+- [x] 8.4 `npm run format:check` (or `npm run format` to fix)
+- [x] 8.5 `npm run e2e:chromium -- e2e/code-editor`
+- [x] 8.6 `npx openspec validate --changes`
