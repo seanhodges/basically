@@ -25,10 +25,12 @@ machine's own ROM would. Nothing surfaces that knowledge to the user.
   one variable; a scalar and an array of the same name stay separate, as they are
   in the machine's own variable tables; and a name that is local to a procedure is
   confined to that procedure.
-- Keywords, string literals, comments and `DATA` items are never counted as
-  usages. Excluding `DATA` is new behaviour on the machines whose ROM does not
-  ignore spaces — the scanner reads its items as variable names today, which also
-  means they are offered as completions and checked by the variable linter.
+- Keywords, string literals and comments are never counted as usages. `DATA`
+  follows the machine: the BBC, the CPC and the Microsoft machines take a `DATA`
+  item literally, so its words are values and not names, while a Sinclair
+  evaluates the item, so a name inside it is a real usage. The editor reads
+  `DATA` words as variables on the BBC and CPC today, which is new behaviour to
+  correct — it also stops them being offered as completions there.
 
 ## Capabilities
 
@@ -40,7 +42,7 @@ None.
 
 - `code-editor`: adds a requirement for finding and navigating a variable's
   usages; amends the existing dialect-aware highlighting and completion
-  requirement so `DATA` items are not treated as variables on any machine.
+  requirement so `DATA` items are read the way each machine reads them.
 
 ## Impact
 

@@ -71,17 +71,31 @@ bodies, their parameters and `LOCAL` declarations.
 Membership tests against a procedure's locals must compare by key, not by raw
 string, or a differently-cased local would escape its scope.
 
-### Skip `DATA` items on the machines that do not crunch
+### Whether a `DATA` item holds a name is a per-machine fact
 
-The crunched scanner already skips `DATA` items to the next statement, because
-the ROM stores them verbatim. The plain scanner does not, so unquoted `DATA`
-words are read as variable names — invisible in a completion menu, but they would
-paint as usages and read as a bug. Mirror the skip, guarded on the dialect
-actually having a `DATA` keyword.
+The crunched scanner skips `DATA` items to the next statement; the plain scanner
+does not. The obvious tidy-up — make the plain scanner skip too — is wrong, and
+the ROMs say so:
 
-This is a behaviour change beyond the feature itself (it also removes those words
-from completions and from the variable linter's view), which is why the spec delta
-amends the highlighting-and-completion requirement rather than only adding one.
+| Machine | `10 a=7:DATA a` → `READ` gives | `DATA` words are |
+| --- | --- | --- |
+| BBC, CPC | the string `"a"` | values |
+| Spectrum | `7` (and `DATA a*2` gives `14`) | expressions, so names |
+
+An undefined word on a Spectrum stops with "Variable not found", which settles
+it: Sinclair `DATA` items are evaluated, and the names in them are ordinary
+usages. Skipping them would hide real usages and silence correct diagnostics.
+
+So the skip is a stated lexis fact, `dataIsVerbatim`, set for the BBC, the CPC
+and the Microsoft family and left unset for Sinclair — and the crunched scanner
+is gated on the same flag rather than assuming it, for the same reason
+significance is not inferred from crunching. A machine with no `DATA` keyword
+never reaches the check, since only its own keywords match.
+
+The behaviour change lands on the BBC and CPC, whose completions currently offer
+`DATA` words as variables; the variable linter covers neither, so no diagnostic
+changes. That is why the spec delta amends the highlighting-and-completion
+requirement rather than only adding one.
 
 ### Click/tap is the trigger, with two suppressions
 
@@ -136,9 +150,11 @@ is added, and no emulator is involved.
   the machine, and the variable linter already warns about the same collision, so
   the two features explain each other. The panel names the variable it matched
   and counts what it found, so the user can see what happened.
-- **Skipping `DATA` items changes completion and lint results, not just this
-  feature.** → It is strictly more accurate on every affected machine, and it is
-  specified rather than incidental. Existing scanner tests pin the change.
+- **Skipping `DATA` items changes completion results, not just this feature.** →
+  It is strictly more accurate on the machines it applies to, it is specified
+  rather than incidental, and it is derived from the ROMs rather than assumed.
+  Tests pin both sides: the skip on a verbatim machine, and the deliberate
+  absence of it on Sinclair.
 - **Each press rescans the whole document.** → BASIC programs here are hundreds
   of lines at most, and the work is split: the tooltip only needs the token on
   the clicked line, and the full scan happens once, on the press.

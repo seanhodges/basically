@@ -20,8 +20,10 @@ spelling:
   procedure, and a global name spelled the same SHALL NOT include that
   procedure's local occurrences.
 
-Keyword spellings, text inside string literals, comment text and `DATA` items
-SHALL NOT be counted as usages of a variable.
+Keyword spellings, text inside string literals and comment text SHALL NOT be
+counted as usages of a variable. A word inside a `DATA` statement SHALL be
+counted only on the machines whose ROM evaluates its items, and SHALL NOT be on
+the machines that take them literally.
 
 Usages SHALL be found in the buffer the editor is showing.
 
@@ -42,6 +44,13 @@ Usages SHALL be found in the buffer the editor is showing.
 - **WHEN** the picked variable's letters also occur inside a keyword, inside a
   string literal, and inside a comment
 - **THEN** none of those are highlighted or counted
+
+#### Scenario: A word inside DATA
+
+- **WHEN** the program uses the picked variable's name inside a `DATA`
+  statement
+- **THEN** it is highlighted only if the machine evaluates its `DATA` items,
+  and not if the machine takes them literally
 
 #### Scenario: Names the machine cannot tell apart
 
@@ -78,9 +87,9 @@ constructs. For dialects whose machines ignore spacing when tokenizing, the
 editor SHALL recognise keywords the same way the machine would (e.g. keywords
 embedded in identifier runs).
 
-The editor SHALL NOT treat the items of a `DATA` statement as variables on any
-dialect, since the machine stores them verbatim rather than reading them as
-names.
+The editor SHALL treat the items of a `DATA` statement the way the dialect's
+machine does: as variables where the machine evaluates them, and as values —
+never names — where it takes them literally.
 
 #### Scenario: Crunched keyword recognised
 
@@ -89,8 +98,16 @@ names.
 - **THEN** the embedded keywords are highlighted as the machine would read
   them
 
-#### Scenario: DATA items are not variables
+#### Scenario: DATA items on a machine that takes them literally
 
-- **WHEN** a program lists unquoted words as the items of a `DATA` statement
+- **WHEN** a program lists unquoted words as the items of a `DATA` statement on
+  a dialect whose machine READs those items literally
 - **THEN** those words are not offered as variable completions and are not
   reported by the editor's variable checks
+
+#### Scenario: DATA items on a machine that evaluates them
+
+- **WHEN** a program names a variable inside a `DATA` statement on a dialect
+  whose machine evaluates those items
+- **THEN** that name is treated as a use of the variable, offered as a
+  completion and checked like any other

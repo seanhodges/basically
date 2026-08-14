@@ -31,58 +31,13 @@
  * enforced ROM-accurately inside its tokenizer.
  */
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
-import { isBinaryDirective } from '../dialects/binaryDirective';
 import type { BasicLanguageOptions } from './basicLanguage';
-import { forEachVariable, type VarNameRules } from './variables';
+import { eachOccurrence, type Occurrence } from './variables';
 import { VARIABLE_LEXIS, variableRules } from './variableLexis';
-import { scannable } from './programOutline';
 
 /** The lexis a machine's names follow; see {@link VARIABLE_LEXIS}. */
 function lexisFor(dialectId: string): BasicLanguageOptions {
   return VARIABLE_LEXIS[dialectId] ?? {};
-}
-
-/** A variable occurrence with its editor-line position. */
-interface Occurrence {
-  name: string;
-  /** 1-based editor line. */
-  line: number;
-  /** 0-based column of the token within the line. */
-  column: number;
-  /** 0-based column just past the token. */
-  endColumn: number;
-  /** Keyword just before the token on the line (e.g. FOR), or null. */
-  prevKeyword: string | null;
-  /** Character immediately after the token (e.g. `(` for an array), or ''. */
-  nextChar: string;
-  /** Reserved word glued mid-name where a variable was expected, if any. */
-  embedsKeyword?: string;
-}
-
-/** Visit every variable occurrence in the program, with line/column info. */
-function eachOccurrence(
-  source: string,
-  rules: VarNameRules,
-  visit: (occ: Occurrence) => void,
-): void {
-  source.split('\n').forEach((raw, row) => {
-    if (isBinaryDirective(raw)) return; // opaque #BIN payload, not code
-    const m = /^\s*\d+\s?/.exec(raw);
-    const prefixLen = m ? m[0].length : 0;
-    const code = scannable(raw.slice(prefixLen));
-    forEachVariable(code, rules, (t) => {
-      const column = prefixLen + t.index;
-      visit({
-        name: t.text,
-        line: row + 1,
-        column,
-        endColumn: column + t.text.length,
-        prevKeyword: t.prevKeyword,
-        nextChar: code[t.index + t.text.length] ?? '',
-        embedsKeyword: t.embedsKeyword,
-      });
-    });
-  });
 }
 
 /** The name without its trailing type-suffix character. */

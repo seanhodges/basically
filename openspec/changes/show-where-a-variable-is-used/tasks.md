@@ -1,35 +1,43 @@
 ## 1. Share the occurrence walk
 
-- [ ] 1.1 Move `eachOccurrence` and its `Occurrence` interface from
+- [x] 1.1 Move `eachOccurrence` and its `Occurrence` interface from
       `src/editor/variableLint.ts` into `src/editor/variables.ts` and export
       them; import them back in the linter. No behaviour change.
-- [ ] 1.2 Export `enclosingRegion` from `src/editor/variables.ts` so scope can
+- [x] 1.2 Export `enclosingRegion` from `src/editor/variables.ts` so scope can
       be resolved for a clicked token.
-- [ ] 1.3 Confirm `variableLint.test.ts` and `variables.test.ts` still pass
+- [x] 1.3 Confirm `variableLint.test.ts` and `variables.test.ts` still pass
       unchanged — this step is a pure move.
 
-## 2. `DATA` items are not variables
+## 2. `DATA` items follow the machine
 
-- [ ] 2.1 In `forEachVariable` (the non-crunched path), skip a `DATA`
-      statement's items to the next `:`, mirroring what
-      `forEachVariableCrunched` already does. Guard on the dialect having a
-      `DATA` keyword, so dialects without one are unaffected.
-- [ ] 2.2 Add cases to `src/editor/variables.test.ts`: unquoted `DATA` words are
-      not variables; a statement after the `:` following a `DATA` is scanned
-      normally; a dialect with no `DATA` keyword is unchanged.
-- [ ] 2.3 Add a case to `src/editor/variableLint.test.ts` covering a `DATA` item
-      that would previously have been diagnosed as a variable.
+Established against the real ROMs: a BBC and a CPC READ `DATA a` as the string
+`"a"`, so their `DATA` words are values; a Spectrum evaluates the item (`DATA a`
+READs 7, `DATA a*2` READs 14, an undefined word stops with "Variable not
+found"), so Sinclair `DATA` words are real usages. A blanket skip would be
+wrong.
+
+- [x] 2.1 Add `dataIsVerbatim` to the lexis and carry it into the scanner's
+      rules; set it for `bbcmicro`, `bbcmaster`, `cpc464`, `cpc6128` and the
+      Microsoft family, and leave it unset for Sinclair.
+- [x] 2.2 Gate the `DATA` skip in `forEachVariable` on the flag, and gate the
+      existing skip in `forEachVariableCrunched` on it too rather than letting
+      it assume crunching implies verbatim items.
+- [x] 2.3 Add cases to `src/editor/variables.test.ts`: items skipped on a
+      verbatim machine; scanning resumes after the `:`; items scanned on
+      Sinclair; a dialect with no `DATA` keyword unchanged.
+- [x] 2.4 Add a case to `src/editor/variableLint.test.ts` pinning that Sinclair
+      `DATA` names are still checked, so the skip is never widened to them.
 
 ## 3. Name significance in the lexis
 
-- [ ] 3.1 Give `VARIABLE_LEXIS` in `src/editor/variableLexis.ts` its own value
+- [x] 3.1 Give `VARIABLE_LEXIS` in `src/editor/variableLexis.ts` its own value
       type extending `BasicLanguageOptions` with `significantChars?: number`,
       rather than widening `BasicLanguageOptions` itself (the highlighter shares
       it).
-- [ ] 3.2 Set `significantChars: 2` for `commodore64`, `pet`, `vic20`, `trs80`
+- [x] 3.2 Set `significantChars: 2` for `commodore64`, `pet`, `vic20`, `trs80`
       and `altair8800`; leave it unset elsewhere. Do not infer it from
       `crunched`.
-- [ ] 3.3 Extend `src/editor/variableLexis.test.ts` so every registered machine
+- [x] 3.3 Extend `src/editor/variableLexis.test.ts` so every registered machine
       states a significance decision, and assert the two-character machines
       against the ROM behaviour the variable linter already encodes.
 
