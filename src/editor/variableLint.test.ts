@@ -138,6 +138,18 @@ describe('spectrumVariableErrors (same single-letter model as ZX81)', () => {
     );
     expect(spectrum('10 DIM A(5)')).toEqual([]);
   });
+
+  // A Sinclair DATA item is an expression, not a value: on the real ROM
+  // `10 LET a=7:DATA a` READs 7, `DATA a*2` READs 14, and an undefined word
+  // stops with "Variable not found". So names inside DATA are real usages and
+  // the single-letter rule applies to them, unlike on a BBC or a CPC where
+  // READ takes the item literally.
+  it('checks the names inside a DATA statement', () => {
+    expect(spectrum('10 DATA AB$')[0]!.message).toMatch(
+      /string variable.*single letter/i,
+    );
+    expect(spectrum('10 DATA a,b*2')).toEqual([]);
+  });
 });
 
 describe('zx80VariableErrors (strict: every name a single letter)', () => {

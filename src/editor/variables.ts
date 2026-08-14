@@ -22,6 +22,7 @@ import type {
   CompletionSource,
 } from '@codemirror/autocomplete';
 import { isInsideString } from './completions';
+import { isBinaryDirective } from '../dialects/binaryDirective';
 import { scannable } from './programOutline';
 import type { OutlineCapabilities } from './programOutline';
 import type { CrunchMatcher } from './crunch';
@@ -50,6 +51,13 @@ export interface VarNameRules {
    * of using the whole-run keyword rule. See {@link ./crunch}.
    */
   crunch?: CrunchMatcher | null;
+  /**
+   * Set when READ takes a DATA item literally rather than evaluating it (BBC,
+   * CPC, the Microsoft family), so the words inside a DATA statement are values
+   * and never variable names. Left unset for Sinclair, where a DATA item is an
+   * expression and its names are ordinary usages. See {@link ./variableLexis}.
+   */
+  dataIsVerbatim?: boolean;
 }
 
 /**
@@ -122,7 +130,9 @@ export interface VarToken {
  * (`basicLanguage.ts` token()): numbers and hex literals are consumed so their
  * letters (`1E5`, `&FF`) aren't read as names, and an identifier run that is a
  * keyword prefix (consuming the whole run, or ending in `$`) or a PROC/FN call
- * is skipped. Dialects with `rules.crunch` set use the ROM-splitting scanner
+ * is skipped. On the machines that keep DATA items verbatim its items are
+ * skipped to the next `:`; on Sinclair they are expressions and are scanned.
+ * Dialects with `rules.crunch` set use the ROM-splitting scanner
  * ({@link forEachVariableCrunched}) instead.
  */
 export function forEachVariable(
@@ -184,6 +194,15 @@ export function forEachVariable(
     }
     if (keywordLen > 0) {
       prevKeyword = upper.slice(0, keywordLen);
+      // Where READ takes items literally they are values, not names, so skip
+      // to the next statement. On Sinclair a DATA item is an expression, so its
+      // names are ordinary usages and the scan continues.
+      if (prevKeyword === 'DATA' && rules.dataIsVerbatim) {
+        const colon = code.indexOf(':', i + keywordLen);
+        if (colon === -1) return;
+        i = colon;
+        continue;
+      }
       i += keywordLen;
       continue;
     }
@@ -288,7 +307,7 @@ function forEachVariableCrunched(
     if (kw) {
       if (kw === 'REM') return; // rest of the line is a comment
       prevKeyword = kw;
-      if (kw === 'DATA') {
+      if (kw === 'DATA' && rules.dataIsVerbatim) {
         // DATA items are verbatim until the next statement.
         const colon = code.indexOf(':', i + kw.length);
         if (colon === -1) return;
@@ -342,8 +361,80 @@ function scanLine(
   forEachVariable(code, rules, (t) => emit(t.text));
 }
 
+/** A variable occurrence with its editor-line position. */
+export interface Occurrence {
+  name: string;
+  /** 1-based editor line. */
+  line: number;
+  /** 0-based column of the token within the line. */
+  column: number;
+  /** 0-based column just past the token. */
+  endColumn: number;
+  /** Keyword just before the token on the line (e.g. FOR), or null. */
+  prevKeyword: string | null;
+  /** Character immediately after the token (e.g. `(` for an array), or ''. */
+  nextChar: string;
+  /**
+   * The next character that is not a space, or ''. Tells an array from a scalar
+   * even where the machine tolerates `A (5)`; {@link nextChar} stays adjacent
+   * because the lint's array rule is written against the ROM's own strictness.
+   */
+  nextNonSpace: string;
+  /** Reserved word glued mid-name where a variable was expected, if any. */
+  embedsKeyword?: string;
+}
+
+/**
+ * Visit the variable occurrences of one editor line, numbered as `line`.
+ * Strips the BASIC line number so columns stay relative to the editor line, and
+ * blanks strings/REM before scanning.
+ */
+export function eachOccurrenceInLine(
+  raw: string,
+  line: number,
+  rules: VarNameRules,
+  visit: (occ: Occurrence) => void,
+): void {
+  if (isBinaryDirective(raw)) return; // opaque #BIN payload, not code
+  const m = /^\s*\d+\s?/.exec(raw);
+  const prefixLen = m ? m[0].length : 0;
+  const code = scannable(raw.slice(prefixLen));
+  forEachVariable(code, rules, (t) => {
+    const column = prefixLen + t.index;
+    const after = code.slice(t.index + t.text.length);
+    visit({
+      name: t.text,
+      line,
+      column,
+      endColumn: column + t.text.length,
+      prevKeyword: t.prevKeyword,
+      nextChar: after[0] ?? '',
+      nextNonSpace: after.replace(/^ +/, '')[0] ?? '',
+      embedsKeyword: t.embedsKeyword,
+    });
+  });
+}
+
+/**
+ * Visit every variable occurrence in a whole program, with line/column info.
+ *
+ * The positioned sibling of {@link forEachVariable}: same recognition rules,
+ * plus the line-number prefix arithmetic that turns a token's index within the
+ * scanned code back into a column of the editor line. Shared by the variable
+ * lint and by usage lookup so both read a program the same way.
+ */
+export function eachOccurrence(
+  source: string,
+  rules: VarNameRules,
+  visit: (occ: Occurrence) => void,
+): void {
+  source
+    .split('\n')
+    .forEach((raw, row) => eachOccurrenceInLine(raw, row + 1, rules, visit));
+}
+
 /** The smallest scope region containing `row`, or null when at top level. */
-function enclosingRegion(
+export function enclosingRegion(
   regions: ProcRegion[],
   row: number,
 ): ProcRegion | null {
