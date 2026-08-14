@@ -61,12 +61,20 @@ machine, so a new machine cannot omit the decision.
 ### Identity is a key, and it is three-part
 
 Two occurrences are the same variable when their key, kind and scope all match:
-the key is the uppercased name truncated to the machine's significant characters
-with its type suffix kept; the kind is scalar or array, because the machine holds
-those in separate tables; the scope is the enclosing procedure when the name is
-one of its parameters or locals, and global otherwise. Scope and the procedure
-regions come from the existing variable model, which already parses `DEF PROC`
-bodies, their parameters and `LOCAL` declarations.
+the key is the name case-folded (where the machine folds case), truncated to the
+machine's significant characters, with its type suffix kept; the kind is scalar
+or array, because the machine holds those in separate tables; the scope is the
+enclosing procedure when the name is one of its parameters or locals, and global
+otherwise. Scope and the procedure regions come from the existing variable model,
+which already parses `DEF PROC` bodies, their parameters and `LOCAL`
+declarations.
+
+Case is a third per-machine fact, and it does not go the way one would guess:
+`10 a=1:A=2:PRINT a;A` prints **1 and 2 on a BBC** — Acorn's BASIC distinguishes
+case — but 2 and 2 on a CPC, and leaves a Spectrum and a C64 each holding a
+single variable `A`. So folding case unconditionally would merge two genuinely
+different BBC variables. Like the other two, it is stated per machine rather
+than assumed.
 
 Membership tests against a procedure's locals must compare by key, not by raw
 string, or a differently-cased local would escape its scope.

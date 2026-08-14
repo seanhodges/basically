@@ -46,6 +46,13 @@ export interface VariableLexis extends BasicLanguageOptions {
    */
   significantChars?: number;
   /**
+   * Whether the ROM tells `A` from `a`. Acorn's BBC BASIC does - `10 a=1:A=2`
+   * prints 1 and 2 there - and it is alone in this: a Spectrum, a CPC and a C64
+   * all fold the two into one variable. (The Atom refuses a lowercase name
+   * outright, with ERROR 94, so nothing is riding on its setting.)
+   */
+  caseSensitive?: boolean;
+  /**
    * Whether READ takes a DATA item literally instead of evaluating it, which
    * decides whether a word inside DATA is a variable at all.
    *
@@ -74,12 +81,14 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
     suffixChars: '$%',
     hexPrefix: '&',
     dataIsVerbatim: true,
+    caseSensitive: true,
   },
   bbcmaster: {
     nameChars: '_',
     suffixChars: '$%',
     hexPrefix: '&',
     dataIsVerbatim: true,
+    caseSensitive: true,
   },
   // No markers at all: `$` is a prefix operator (`$addr`), and `#` opens a hex
   // literal where the other Acorn machine uses `&`.

@@ -18,13 +18,13 @@ machine's own ROM would. Nothing surfaces that knowledge to the user.
 - Choosing it highlights every occurrence of that variable in the buffer being
   edited, and opens a bar naming the variable, counting its usages, and letting
   the user step between them.
-- Which occurrences count follows the machine, not the spelling. Names are
-  matched case-insensitively (every one of these ROMs uppercases); on the
-  machines whose ROM keeps only the first two characters of a name, two
-  differently-spelled names that the machine cannot tell apart are reported as
-  one variable; a scalar and an array of the same name stay separate, as they are
-  in the machine's own variable tables; and a name that is local to a procedure is
-  confined to that procedure.
+- Which occurrences count follows the machine, not the spelling. Letter case is
+  ignored where the ROM folds it and honoured where it does not — Acorn's BBC
+  BASIC is alone in telling `a` from `A`; on the machines whose ROM keeps only
+  the first two characters of a name, two differently-spelled names that the
+  machine cannot tell apart are reported as one variable; a scalar and an array
+  of the same name stay separate, as they are in the machine's own variable
+  tables; and a name that is local to a procedure is confined to that procedure.
 - Keywords, string literals and comments are never counted as usages. `DATA`
   follows the machine: the BBC, the CPC and the Microsoft machines take a `DATA`
   item literally, so its words are values and not names, while a Sinclair

@@ -34,37 +34,54 @@ describe('variable lexis', () => {
 });
 
 /**
- * The two ROM facts about names, stated per machine and independently of the
- * lexis, so a careless edit to one has to disagree with the other to land.
+ * The three ROM facts that decide when two spellings are one variable, stated
+ * per machine and independently of the lexis, so a careless edit to one has to
+ * disagree with the other to land.
  *
  * `significant` is how many of a name's characters the ROM keeps. Microsoft
- * BASIC keeps two - the collision it causes is what `variableLint` already
- * reports - and every other machine keeps the name whole.
+ * BASIC keeps two - `10 MYVAL=11:MYTAG=22` leaves a C64 holding one variable,
+ * `MY`, and the collision is what `variableLint` already reports. Every other
+ * machine keeps the name whole (`score` and `scott` stay apart on a BBC and a
+ * CPC).
  *
- * `dataItems` is what READ does with a DATA item, checked on the machines: a
- * BBC and a CPC hand back the string "a" for `10 a=7:DATA a`, while a Spectrum
- * hands back 7 (and 14 for `DATA a*2`, and stops with "Variable not found" for
- * an undefined word). So the same statement holds names on one family and only
- * values on the other. `none` is for the machines with no DATA keyword at all.
+ * `case` is whether the ROM tells `A` from `a`. Acorn's BBC BASIC does -
+ * `10 a=1:A=2:PRINT a;A` prints 1 and 2 - and it is alone: the same program
+ * prints 2 and 2 on a CPC, and a Spectrum and a C64 are each left holding a
+ * single variable A. The Atom rejects a lowercase name outright (ERROR 94), so
+ * it folds case with the majority and nothing rides on it.
+ *
+ * `dataItems` is what READ does with a DATA item: a BBC and a CPC hand back the
+ * string "a" for `10 a=7:DATA a`, while a Spectrum hands back 7 (and 14 for
+ * `DATA a*2`, and stops with "Variable not found" for an undefined word). So
+ * the same statement holds names on one family and only values on the other.
+ * `none` is for the machines with no DATA keyword at all.
+ *
+ * The Microsoft machines were checked on the C64 and taken to hold for the PET,
+ * VIC-20, TRS-80 and Altair, which run the same BASIC and which the variable
+ * lint already treats as one family.
  */
 const ROM_NAME_FACTS: Record<
   string,
-  { significant: number | 'all'; dataItems: 'verbatim' | 'evaluated' | 'none' }
+  {
+    significant: number | 'all';
+    case: 'sensitive' | 'folded';
+    dataItems: 'verbatim' | 'evaluated' | 'none';
+  }
 > = {
-  zx80: { significant: 'all', dataItems: 'none' },
-  zx81: { significant: 'all', dataItems: 'none' },
-  atom: { significant: 'all', dataItems: 'none' },
-  zxspectrum: { significant: 'all', dataItems: 'evaluated' },
-  zxspectrum128: { significant: 'all', dataItems: 'evaluated' },
-  bbcmicro: { significant: 'all', dataItems: 'verbatim' },
-  bbcmaster: { significant: 'all', dataItems: 'verbatim' },
-  cpc464: { significant: 'all', dataItems: 'verbatim' },
-  cpc6128: { significant: 'all', dataItems: 'verbatim' },
-  commodore64: { significant: 2, dataItems: 'verbatim' },
-  pet: { significant: 2, dataItems: 'verbatim' },
-  vic20: { significant: 2, dataItems: 'verbatim' },
-  trs80: { significant: 2, dataItems: 'verbatim' },
-  altair8800: { significant: 2, dataItems: 'verbatim' },
+  zx80: { significant: 'all', case: 'folded', dataItems: 'none' },
+  zx81: { significant: 'all', case: 'folded', dataItems: 'none' },
+  atom: { significant: 'all', case: 'folded', dataItems: 'none' },
+  zxspectrum: { significant: 'all', case: 'folded', dataItems: 'evaluated' },
+  zxspectrum128: { significant: 'all', case: 'folded', dataItems: 'evaluated' },
+  bbcmicro: { significant: 'all', case: 'sensitive', dataItems: 'verbatim' },
+  bbcmaster: { significant: 'all', case: 'sensitive', dataItems: 'verbatim' },
+  cpc464: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
+  cpc6128: { significant: 'all', case: 'folded', dataItems: 'verbatim' },
+  commodore64: { significant: 2, case: 'folded', dataItems: 'verbatim' },
+  pet: { significant: 2, case: 'folded', dataItems: 'verbatim' },
+  vic20: { significant: 2, case: 'folded', dataItems: 'verbatim' },
+  trs80: { significant: 2, case: 'folded', dataItems: 'verbatim' },
+  altair8800: { significant: 2, case: 'folded', dataItems: 'verbatim' },
 };
 
 describe('name facts are stated per machine', () => {
@@ -85,6 +102,9 @@ describe('name facts are stated per machine', () => {
       );
       expect(lexis.dataIsVerbatim).toBe(
         facts.dataItems === 'verbatim' ? true : undefined,
+      );
+      expect(lexis.caseSensitive).toBe(
+        facts.case === 'sensitive' ? true : undefined,
       );
 
       // Ties the table to the dialect's own keyword data: claiming a machine

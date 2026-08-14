@@ -43,25 +43,27 @@ wrong.
 
 ## 4. Usage resolution
 
-- [ ] 4.1 Add `src/editor/variableUsages.ts`: given document text, a dialect id,
+- [x] 4.1 Add `src/editor/variableUsages.ts`: given document text, a dialect id,
       its keywords and a document offset, resolve the variable token at that
       offset and return its matching occurrences as sorted document offset
       ranges, plus the name to display.
-- [ ] 4.2 Implement the identity key — uppercased name, truncated to the
-      machine's significant characters, type suffix kept.
-- [ ] 4.3 Distinguish scalar from array by the character following the token,
+- [x] 4.2 Implement the identity key — name case-folded where the machine folds
+      case (the BBC does not, uniquely), truncated to the machine's significant
+      characters, type suffix kept. Add `caseSensitive` to the lexis and to the
+      pinned per-machine matrix.
+- [x] 4.3 Distinguish scalar from array by the character following the token,
       skipping spaces first so `A (5)` is the array on a crunched machine.
-- [ ] 4.4 Resolve scope via `collectVariables` and `enclosingRegion`: a name that
+- [x] 4.4 Resolve scope via `collectVariables` and `enclosingRegion`: a name that
       is the enclosing procedure's parameter or local matches only inside that
       procedure; otherwise it matches everywhere except procedures that make the
       name local. Compare locals membership by identity key, not raw string.
-- [ ] 4.5 Add `src/editor/variableUsages.test.ts` covering: case-insensitive
+- [x] 4.5 Add `src/editor/variableUsages.test.ts` covering: case-insensitive
       matching; `A` / `A$` / `A%` distinct; scalar and array distinct; BBC
       parameter and `LOCAL` confined to their procedure; keywords, string
       literals, comments and `DATA` items never counted; on a crunched machine
       `POKEA` counting as a usage of `A` while `TOTAL` does not count as a usage
       of `TOTAL`; and Commodore `SCORE`/`SCOTT` matching as one variable.
-- [ ] 4.6 Drive the per-machine identity expectations from the dialect registry,
+- [x] 4.6 Drive the per-machine identity expectations from the dialect registry,
       so a new machine cannot silently skip the matrix.
 
 ## 5. Tooltip, highlights and panel

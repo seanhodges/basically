@@ -374,8 +374,45 @@ export interface Occurrence {
   prevKeyword: string | null;
   /** Character immediately after the token (e.g. `(` for an array), or ''. */
   nextChar: string;
+  /**
+   * The next character that is not a space, or ''. Tells an array from a scalar
+   * even where the machine tolerates `A (5)`; {@link nextChar} stays adjacent
+   * because the lint's array rule is written against the ROM's own strictness.
+   */
+  nextNonSpace: string;
   /** Reserved word glued mid-name where a variable was expected, if any. */
   embedsKeyword?: string;
+}
+
+/**
+ * Visit the variable occurrences of one editor line, numbered as `line`.
+ * Strips the BASIC line number so columns stay relative to the editor line, and
+ * blanks strings/REM before scanning.
+ */
+export function eachOccurrenceInLine(
+  raw: string,
+  line: number,
+  rules: VarNameRules,
+  visit: (occ: Occurrence) => void,
+): void {
+  if (isBinaryDirective(raw)) return; // opaque #BIN payload, not code
+  const m = /^\s*\d+\s?/.exec(raw);
+  const prefixLen = m ? m[0].length : 0;
+  const code = scannable(raw.slice(prefixLen));
+  forEachVariable(code, rules, (t) => {
+    const column = prefixLen + t.index;
+    const after = code.slice(t.index + t.text.length);
+    visit({
+      name: t.text,
+      line,
+      column,
+      endColumn: column + t.text.length,
+      prevKeyword: t.prevKeyword,
+      nextChar: after[0] ?? '',
+      nextNonSpace: after.replace(/^ +/, '')[0] ?? '',
+      embedsKeyword: t.embedsKeyword,
+    });
+  });
 }
 
 /**
@@ -391,24 +428,9 @@ export function eachOccurrence(
   rules: VarNameRules,
   visit: (occ: Occurrence) => void,
 ): void {
-  source.split('\n').forEach((raw, row) => {
-    if (isBinaryDirective(raw)) return; // opaque #BIN payload, not code
-    const m = /^\s*\d+\s?/.exec(raw);
-    const prefixLen = m ? m[0].length : 0;
-    const code = scannable(raw.slice(prefixLen));
-    forEachVariable(code, rules, (t) => {
-      const column = prefixLen + t.index;
-      visit({
-        name: t.text,
-        line: row + 1,
-        column,
-        endColumn: column + t.text.length,
-        prevKeyword: t.prevKeyword,
-        nextChar: code[t.index + t.text.length] ?? '',
-        embedsKeyword: t.embedsKeyword,
-      });
-    });
-  });
+  source
+    .split('\n')
+    .forEach((raw, row) => eachOccurrenceInLine(raw, row + 1, rules, visit));
 }
 
 /** The smallest scope region containing `row`, or null when at top level. */

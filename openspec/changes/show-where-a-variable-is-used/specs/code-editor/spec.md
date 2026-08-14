@@ -10,8 +10,8 @@ the user SHALL be able to dismiss them.
 Which occurrences count SHALL follow the active machine rather than the
 spelling:
 
-- names SHALL be matched without regard to letter case, since these machines
-  do not distinguish it;
+- names SHALL be matched without regard to letter case on the machines whose
+  ROM folds it, and with regard to it on the machines that distinguish it;
 - on a machine whose ROM keeps only a limited number of a name's characters,
   names the machine cannot tell apart SHALL be reported as one variable;
 - a scalar and an array of the same name SHALL be reported as different
@@ -51,6 +51,12 @@ Usages SHALL be found in the buffer the editor is showing.
   statement
 - **THEN** it is highlighted only if the machine evaluates its `DATA` items,
   and not if the machine takes them literally
+
+#### Scenario: The same name in a different case
+
+- **WHEN** the program spells the picked variable's name in another letter case
+- **THEN** it is highlighted only if the machine treats the two as one
+  variable
 
 #### Scenario: Names the machine cannot tell apart
 
