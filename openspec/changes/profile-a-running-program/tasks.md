@@ -1,14 +1,14 @@
 ## 1. The measurement seam
 
-- [ ] 1.1 Add the profile cost types to `src/dialects/types.ts`: a per-line cost
+- [x] 1.1 Add the profile cost types to `src/dialects/types.ts`: a per-line cost
       entry carrying the line number, the accumulated cost and the unit that
       cost is counted in (cycles, or frames where a machine has no cycles).
-- [ ] 1.2 Add `setProfileRecording?(enabled: boolean)` and `drainProfile?()` to
+- [x] 1.2 Add `setProfileRecording?(enabled: boolean)` and `drainProfile?()` to
       `MachineEmulator`, documenting the same contract
       `setMemoryActivityRecording` / `drainMemoryActivity` carry: off by
       default, a not-taken branch on the hot path when off, drained by whoever
       armed it, null when recording is off.
-- [ ] 1.3 Write the shared accumulator the machines use to hold line costs
+- [x] 1.3 Write the shared accumulator the machines use to hold line costs
       between drains, with colocated tests for accumulation, drain-and-reset,
       and the disabled case costing nothing.
 
@@ -20,23 +20,23 @@ function `runFrame` and `debugStep` both funnel through — never inside
 justifies. Read the executing line through the unwrapped bus where the machine
 wraps its bus for memory-activity recording.
 
-- [ ] 2.1 ZX81 — instrument `stepInstruction()`; colocated test booting the real
+- [x] 2.1 ZX81 — instrument `stepInstruction()`; colocated test booting the real
       ROM asserts a known loop's cycles land on the expected line.
-- [ ] 2.2 ZX80 — same, with its own colocated test.
-- [ ] 2.3 ZX Spectrum and Spectrum 128 — same, with colocated tests.
-- [ ] 2.4 C64 — instrument `tickOnce()`, reusing `DEBUG_SLICE_CYCLES` as the
+- [x] 2.2 ZX80 — same, with its own colocated test.
+- [x] 2.3 ZX Spectrum and Spectrum 128 — same, with colocated tests.
+- [x] 2.4 C64 — instrument `tickOnce()`, reusing `DEBUG_SLICE_CYCLES` as the
       sample cadence and `rawCpuRead` for the line read; colocated test.
-- [ ] 2.5 PET and VIC-20 — same, with colocated tests.
-- [ ] 2.6 BBC — same, with a colocated test.
-- [ ] 2.7 CPC — same, with a colocated test.
-- [ ] 2.8 TRS-80 interpreter — accumulate in frames rather than cycles, since it
+- [x] 2.5 PET and VIC-20 — same, with colocated tests.
+- [x] 2.6 BBC — same, with a colocated test.
+- [x] 2.7 CPC — same, with a colocated test.
+- [x] 2.8 TRS-80 interpreter — accumulate in frames rather than cycles, since it
       executes statements and has no cycle budget; colocated test asserts the
       unit it reports.
-- [ ] 2.9 Registry-driven test pinning which registered machines report per-line
+- [x] 2.9 Registry-driven test pinning which registered machines report per-line
       costs and which report memory figures, constructing every registered
       machine rather than asserting a written-down list (pattern:
       `src/dialects/graphicsPalette.test.ts`).
-- [ ] 2.10 Test that a measured run and an unmeasured run of the same program
+- [x] 2.10 Test that a measured run and an unmeasured run of the same program
       advance the machine identically — same emulated time, same screen.
 
 ## 3. Recording and sampling in the run loop

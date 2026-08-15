@@ -10,12 +10,17 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
   MemoryBlock,
   TapeFile,
 } from '../../types';
 import { VfsTapeDeck } from './tapeDeck';
 import { SpectrumMemory } from './memory';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
 import { readSpectrumVariables } from '../vars';
 import { readSpectrumReport } from '../reports';
 import { readSpectrumScreenText, spectrumFontSignatures } from './screenText';
@@ -96,6 +101,16 @@ export class SpectrumMachine implements MachineEmulator {
   private border = 7;
   /** Kempston joystick port byte (active-high: bit0 right … bit4 fire). */
   private kempston = 0;
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time.
+   */
+  private readonly profile = new LineCostRecorder(
+    'cycles',
+    PROFILE_SLICE_CYCLES,
+  );
+
   /**
    * T-states the previous frame overran its budget by, owed back to this one.
    * An instruction cannot be cut in half at a frame boundary, so a frame always
@@ -187,6 +202,20 @@ export class SpectrumMachine implements MachineEmulator {
    * runFrame and debugStep so they never diverge.
    */
   private stepInstruction(): { t: number; halted: boolean } {
+    const step = this.stepUnmeasured();
+    // Charge the T-states to the BASIC line executing them. Here rather than in
+    // debugStep because a run the IDE performs to check an assistant answer
+    // deliberately opens no debug session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += step.t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+    return step;
+  }
+
+  /** The step itself: the traps, then one instruction (or an idle HALT). */
+  private stepUnmeasured(): { t: number; halted: boolean } {
     const pc = this.cpu.getPC();
     if (this.pending && pc === LD_BYTES) {
       this.serviceLoadTrap();
@@ -269,7 +298,7 @@ export class SpectrumMachine implements MachineEmulator {
    * it isn't a valid program line (e.g. before a program has run).
    */
   currentLine(): number | null {
-    const lineNo = this.memory.readWord(PPC);
+    const lineNo = this.memory.rawReadWord(PPC);
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
@@ -644,6 +673,14 @@ export class SpectrumMachine implements MachineEmulator {
     // Implausible pointers mean the ROM hasn't initialised them yet.
     if (prog < 0x5c00 || used <= 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

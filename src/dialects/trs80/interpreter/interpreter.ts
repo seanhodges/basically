@@ -12,7 +12,29 @@ import type { Ctx } from './builtins';
 import { SequentialFiles, type PrintSink } from './seqfiles';
 import { UsingFormat } from './using';
 import type { MachineFileStore } from '../../types';
+import { LineCostRecorder } from '../../../emulator/lineCostRecorder';
 import { COLS, ROWS } from '../emulator/display';
+
+/**
+ * Statements executed per 50 Hz frame before yielding to render - i.e. the
+ * interpreter's emulated speed. Calibrated to authentic TRS-80 Level II BASIC
+ * throughput rather than raw host speed: ~20 statements/frame ≈ 1000 stmt/s,
+ * matching the Rugg/Feldman BM1 benchmark (`FOR K=1 TO 1000:NEXT` ≈ 1.3 s, so
+ * ~770 simple statements/s) and the Z80 backend's 35500 t-states/frame budget
+ * (1.77 MHz ÷ 50) at ~1–2k t-states per interpreted statement.
+ *
+ * The previous value (4000) ran the interpreter ~200× faster than real
+ * hardware, which made action games unplayable: the breakout ball's whole fall
+ * completed inside a single render frame, so the player only ever saw the final
+ * "GAME OVER" - the in-BASIC `FOR T` delays could never throttle it.
+ */
+export const STATEMENTS_PER_FRAME = 20;
+
+/**
+ * Emulated frames one statement is worth - the unit the profiler charges in on
+ * this backend, since it has no cycles to count.
+ */
+export const FRAMES_PER_STATEMENT = 1 / STATEMENTS_PER_FRAME;
 
 /** Screen cells addressable by `PRINT @` (0 = top-left). */
 const SCREEN_CELLS = COLS * ROWS;
@@ -111,6 +133,14 @@ export class Interpreter implements Ctx {
   /** Disk BASIC sequential files over the IDE's virtual filesystem. */
   private readonly seqFiles = new SequentialFiles();
 
+  /**
+   * Per-BASIC-line cost recorder for the profiler, counting in frames: this
+   * backend executes statements, so it has no cycle budget to charge and one
+   * statement is {@link FRAMES_PER_STATEMENT} of a frame. Off by default; the
+   * run loop arms it for the life of a run.
+   */
+  readonly profile = new LineCostRecorder('frames', FRAMES_PER_STATEMENT);
+
   private seed = 0x2545f4 >>> 0;
 
   get state(): RunStatus {
@@ -172,6 +202,14 @@ export class Interpreter implements Ctx {
 
   /** One statement with error trapping. Returns false on error/non-running. */
   private stepGuarded(): boolean {
+    // Charge the statement to the line it belongs to, read before it runs: a
+    // GOTO has already moved on by the time it returns. Shared by runBudget and
+    // debugSlice, so an ordinary run and a debug slice measure alike.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += p.slice;
+      p.sample(this.currentLine());
+    }
     try {
       this.step();
       return this.status === 'running';

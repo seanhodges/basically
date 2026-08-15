@@ -10,6 +10,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
@@ -28,6 +29,7 @@ import {
   READ_BIT,
   WRITE_BIT,
 } from '../memoryActivityBuffer';
+import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { Vic20Memory, type Vic20Roms, SCREEN_BASE } from './memory';
 import { VicI, VIC20_DISPLAY_WIDTH, VIC20_DISPLAY_HEIGHT } from './vicI';
 import { vic20DomCodeToTokens, vic20TokenToPositions } from './keyboard';
@@ -143,6 +145,15 @@ export class Vic20Machine implements MachineEmulator {
    * closed overlay costs a single not-taken branch per access.
    */
   private readonly memoryActivity = new MemoryActivityBuffer(0x10000);
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link tick} charges the cycle it runs to
+   * the line executing at the time.
+   */
+  private readonly profile = new LineCostRecorder(
+    'cycles',
+    PROFILE_SLICE_CYCLES,
+  );
   private readonly vic = new VicI();
   private readonly vicAudio = new VicAudioRenderer();
   private cpu: StateMachineCpu | null = null;
@@ -293,6 +304,15 @@ export class Vic20Machine implements MachineEmulator {
     this.via1.tick();
     this.via2.tick();
     cpu.setInterrupt(this.via2.irqAsserted());
+    // Charge the cycle to the BASIC line executing it, on the same cadence
+    // debugStep samples at. Here rather than in debugStep because a run the IDE
+    // performs to check an assistant answer deliberately opens no debug
+    // session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += 1;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
   }
 
   private runCycles(count: number): void {
@@ -647,6 +667,14 @@ export class Vic20Machine implements MachineEmulator {
     const free = fretop - strend;
     if (txttab === 0 || memsiz <= txttab || used < 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {
