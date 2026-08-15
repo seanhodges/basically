@@ -119,3 +119,17 @@ wrong.
 - [x] 8.4 `npm run format:check` (or `npm run format` to fix)
 - [x] 8.5 `npm run e2e:chromium -- e2e/code-editor`
 - [x] 8.6 `npx openspec validate --changes`
+
+## 9. Fit the surrounding UI
+
+- [x] 9.1 Open the offer below the name, shaped as a one-row menu with an icon
+      column, so it answers a click where and how the completion popup does.
+- [x] 9.2 Theme the offer and the bar with the app's own variables in
+      `src/styles.css`, sharing the find/replace panel's rules so the two bars
+      read as one control.
+- [x] 9.3 Give the foot of the editor a single occupant: opening find/replace
+      clears the usages, their bar and any pending offer, and showing usages
+      closes find/replace.
+- [x] 9.4 Document the feature in `docs/guide/writing-basic.md` - how the menu
+      is reached, what the bar does, and which occurrences count - with a
+      figure captured by `npm run e2e:docs-screenshots`.

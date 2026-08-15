@@ -62,6 +62,39 @@ While the popup is open you can also accept the top suggestion by typing a
 The dot is the trigger and is not inserted, so typing `PR.` completes to
 `PRINT`, and `P.` completes to whatever `P…` currently tops the list.
 
+### Finding where a variable is used
+
+Click - or tap - a variable name anywhere in your program. A small menu opens
+just under the name, the same place a completion popup would appear; choose
+**Usages**.
+
+![The Usages menu open under a variable name in the editor, with every use of that name highlighted and the usages bar at the foot of the editor](/variable-usages.png)
+
+Every place that variable is used lights up, with the one you clicked marked as
+the current usage, and a bar appears at the foot of the editor naming it and
+counting them - `SCORE · 4 usages (1/4)`. Use **‹** and **›** to step through
+them: the cursor moves to each usage in turn and the editor scrolls to bring it
+into view, so it works just as well on a program longer than the screen. **✕**
+(or **Escape**) clears the highlights, and so does typing - once you edit the
+program the answer may no longer be true, so ask again.
+
+This is not a text search: usages are matched the way the machine you are
+targeting matches them. That is why the program above writes `SCORE` seven times
+and the bar counts four - the mentions in the REM lines and inside the printed
+string are not uses of the variable.
+
+The rest follows the machine too. Whether upper and lower case are the same name
+depends on the ROM: on the BBC machines `score` and `SCORE` are two variables, on
+the others they are one. So does how much of a name the machine keeps - where
+only the first two characters are significant, `HPX` and `HPY` are the same
+variable, and both light up. An array and a plain variable of the same name are
+always separate, and on machines with named procedures a name local to a
+procedure stays inside it. The [porting guide](../reference/compare) sets out
+these naming rules machine by machine.
+
+The usages bar and the **Find/Replace** panel share the foot of the editor, so
+opening one closes the other.
+
 ### Automatic line numbering
 
 With **Automatic line numbering** on, pressing **Enter** at the end of a line

@@ -27,6 +27,9 @@ the machines that take them literally.
 
 Usages SHALL be found in the buffer the editor is showing.
 
+The usages SHALL share the foot of the editor with find/replace rather than
+stand alongside it: opening either SHALL take the other away.
+
 #### Scenario: Seeing where a variable is used
 
 - **WHEN** the user picks a variable that the program uses in several places
@@ -82,6 +85,12 @@ Usages SHALL be found in the buffer the editor is showing.
 
 - **WHEN** the user dismisses the usages, or edits the program
 - **THEN** the highlights are removed
+
+#### Scenario: One bar at the foot of the editor
+
+- **WHEN** the user opens find/replace while a variable's usages are shown
+- **THEN** the usages, their count and any pending offer are taken away, and
+  find/replace takes their place
 
 ## MODIFIED Requirements
 
