@@ -41,6 +41,11 @@ import {
 } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
 import { FrameClock } from '../app/frameClock';
+import {
+  RunProfiler,
+  programLineNumbers,
+  PROFILE_PUBLISH_FRAMES,
+} from '../app/runProfile';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import {
   captureFromCanvas,
@@ -175,6 +180,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
   const setLiveMemory = useIdeStore((s) => s.setLiveMemory);
+  const setRunProfile = useIdeStore((s) => s.setRunProfile);
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
   // `overlayUp` (the bottom band is occupied, so the emulator screen shrinks to
   // the top half) comes from the same shared hook that Workspace uses to render
@@ -210,6 +216,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
    * frame per tick would run every machine at refresh/native speed.
    */
   const clockRef = useRef(new FrameClock());
+  /**
+   * The measurements of the run in progress, or null between runs.
+   *
+   * Built when a run starts and thrown away when the next one does, so figures
+   * never accumulate across runs. Held in a ref rather than the store because it
+   * is folded into every emulated frame - fifty times a second, and more at a
+   * speed multiple - and pushed to the store on the far slower cadence the
+   * editor's gutter actually needs (see {@link PROFILE_PUBLISH_FRAMES}).
+   */
+  const profilerRef = useRef<RunProfiler | null>(null);
   /**
    * The speed setting, read inside the loop rather than through the closure so
    * a change takes effect on the next tick without restarting the loop.
@@ -277,6 +293,19 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // breakpoint or a stop does not replay the gap as fast-forward.
     clockRef.current.reset();
   }, []);
+
+  /**
+   * Publish what the run measured and stop measuring.
+   *
+   * Called wherever a run ends rather than only where a new one starts, so the
+   * frames since the last push are not lost - a user who stops the machine to
+   * look at where its time went is looking at the run they just watched.
+   */
+  const flushProfile = useCallback(() => {
+    const profiler = profilerRef.current;
+    profilerRef.current = null;
+    if (profiler?.measured) setRunProfile(profiler.snapshot());
+  }, [setRunProfile]);
 
   // Blank the preview so a freshly-started emulator never inherits the previous
   // machine's last frame. clearRect exposes the canvas's white CSS background.
@@ -426,6 +455,24 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       const atRealTime = () =>
         !aiCheckActiveRef.current && speedRef.current === 1;
 
+      // Fold one emulated frame into the run's measurements: drain what the
+      // machine charged to each BASIC line, and sample its RAM figures on the
+      // profiler's own cadence. Always called, on the debug path as well as the
+      // ordinary one, so a run measures itself whichever way it is being run -
+      // and so the machine's accumulation never grows between drains.
+      const pumpProfile = () => {
+        const profiler = profilerRef.current;
+        if (!profiler) return;
+        profiler.frame(
+          machine.drainProfile?.() ?? null,
+          () => machine.readMemoryStats?.() ?? null,
+          machine.frameHz,
+        );
+        if (profiler.frameCount % PROFILE_PUBLISH_FRAMES === 0) {
+          setRunProfile(profiler.measured ? profiler.snapshot() : null);
+        }
+      };
+
       // Drain the machine's synthesized audio and feed the speaker. Always
       // called, even when nothing will be played, so the machine's accumulation
       // buffer stays bounded.
@@ -488,6 +535,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             fromLine: debugFromLineRef.current,
           });
           frameHookRef.current?.();
+          pumpProfile();
           pumpAudio();
           if (res.paused) {
             render();
@@ -515,6 +563,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       for (let step = 0; step < steps; step++) {
         machine.runFrame();
         frameHookRef.current?.(); // virtual-keyboard frame-counted releases
+        pumpProfile();
         pumpAudio();
         // The IDE checking an answer the assistant returned: watch the
         // freshly-started program until the check can say how it went, hand that
@@ -622,7 +671,13 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       schedule();
     };
     schedule();
-  }, [stopLoop, registerCapture, registerControl, setEmulatorStatus]);
+  }, [
+    stopLoop,
+    registerCapture,
+    registerControl,
+    setEmulatorStatus,
+    setRunProfile,
+  ]);
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
     if (machineRef.current) return machineRef.current;
@@ -806,6 +861,18 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           image,
           Object.keys(loadOpts).length > 0 ? loadOpts : undefined,
         );
+        // Arm the measurement of this run, and start it from nothing: figures
+        // describe one execution, so a new run replaces the previous run's
+        // rather than adding to them. Armed for every run, not a profiling mode
+        // the user has to have chosen before the run they wanted measured -
+        // which is only afterwards that they know.
+        machine.setProfileRecording?.(true);
+        machine.drainProfile?.(); // discard anything charged during the boot
+        profilerRef.current = new RunProfiler(
+          bufferId,
+          programLineNumbers(runSource),
+        );
+        setRunProfile(null);
         firstFrameRef.current = true; // the next rendered frame hides the overlay
         // Only check the run when the IDE started it to check an answer the
         // assistant returned, and the machine can introspect its error state.
@@ -877,6 +944,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     emulatorVfs.clear(); // stop ends the session that owned the files
     disposeAudio();
     clearCanvas(); // drop the last frame so the screen looks powered off
+    flushProfile();
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
@@ -893,6 +961,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     setEmulatorStatus,
     stashCapture,
     dropControl,
+    flushProfile,
   ]);
 
   // Step request: run the paused debugger to the next BASIC line.
@@ -932,6 +1001,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // the new session can't read the old session's files.
         emulatorVfs.clear(dialect.id);
         machine.reset();
+        // A reboot ends the run that was being measured; the machine has no
+        // program until the next Run loads one.
+        machine.setProfileRecording?.(false);
+        flushProfile();
         firstFrameRef.current = true; // the next rendered frame hides the overlay
         ensureAudio(machine);
         setEmulatorStatus('running');
@@ -961,8 +1034,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       emulatorVfs.clear(); // unmount skips the stop effect; clear here too
       disposeAudio();
       setLiveMemory(null);
+      flushProfile();
     },
-    [stopLoop, disposeAudio, setLiveMemory, stashCapture],
+    [stopLoop, disposeAudio, setLiveMemory, stashCapture, flushProfile],
   );
 
   // While the machine is up, poll its actual RAM figures for the status bar.
@@ -1025,6 +1099,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current = null;
     emulatorVfs.clear(dialect.id); // machine gone: its files go with it
     disposeAudio();
+    // The measurements go with the machine; the store drops the published ones
+    // on the same switch.
+    profilerRef.current = null;
     clearCanvas(); // drop the old machine's last frame; next run starts fresh
     // Forgotten rather than stashed: a question about this machine must never
     // be answered against the screen of the one before it.

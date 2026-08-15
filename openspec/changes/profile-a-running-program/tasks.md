@@ -41,28 +41,28 @@ wraps its bus for memory-activity recording.
 
 ## 3. Recording and sampling in the run loop
 
-- [ ] 3.1 Arm profile recording in `src/components/EmulatorPane.tsx` when a
+- [x] 3.1 Arm profile recording in `src/components/EmulatorPane.tsx` when a
       machine starts, disarm when it goes away; drain per frame on both the
       `runFrame` path and the `debugStep` path.
-- [ ] 3.2 Sample `readMemoryStats()` into a run-anchored series keyed by the
+- [x] 3.2 Sample `readMemoryStats()` into a run-anchored series keyed by the
       run's own emulated time, on a frame cadence, replacing nothing about the
       existing 500 ms status-bar poll.
-- [ ] 3.3 Bound the series so a long run cannot grow it without limit, keeping
+- [x] 3.3 Bound the series so a long run cannot grow it without limit, keeping
       the peak used across the whole run even once the retained record no longer
       covers it, and flagging that the record is partial. Colocated test.
-- [ ] 3.4 Reset both the costs and the memory series when a run starts, so
+- [x] 3.4 Reset both the costs and the memory series when a run starts, so
       figures never accumulate across runs.
 
 ## 4. Store and derived reporting
 
-- [ ] 4.1 Hold the profile in `src/app/store.ts` against the buffer that
+- [x] 4.1 Hold the profile in `src/app/store.ts` against the buffer that
       produced it, following how breakpoints are held per buffer.
-- [ ] 4.2 Discard per-line costs when the program is edited such that its lines
+- [x] 4.2 Discard per-line costs when the program is edited such that its lines
       no longer correspond to the measured ones. Colocated test.
-- [ ] 4.3 Derive each line's share of the run's total as a unit-free proportion,
+- [x] 4.3 Derive each line's share of the run's total as a unit-free proportion,
       so the display is identical whether the machine counted cycles or frames.
       Colocated test covering both units.
-- [ ] 4.4 Roll line costs up over the routines and jump destinations
+- [x] 4.4 Roll line costs up over the routines and jump destinations
       `src/editor/programOutline.ts` already extracts. Colocated test.
 
 ## 5. The editor heat map

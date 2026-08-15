@@ -35,6 +35,7 @@ import {
   type GamepadMode,
 } from '../keyboard/controllerConfig';
 import { materializeSampleBlocks } from './sampleBlocks';
+import { profileStillApplies, type RunProfile } from './runProfile';
 import {
   noScreenViews,
   type Expectation,
@@ -295,6 +296,19 @@ interface IdeState {
    * to the tokenized-size estimate).
    */
   liveMemory: MachineMemoryStats | null;
+  /**
+   * What the most recent run measured, or null when nothing has been measured.
+   *
+   * Held against the buffer that produced it, the way breakpoints are, because
+   * the costs are keyed by BASIC line number: line 20 of a snippet has nothing
+   * to do with line 20 of the program, and one buffer's costs must never be
+   * drawn against another's lines (see {@link selectVisibleProfile}).
+   *
+   * Session-only and single-run: starting a run replaces it, and editing the
+   * program so its lines no longer correspond discards it, so a figure always
+   * describes one execution of one program.
+   */
+  runProfile: RunProfile | null;
   /** Bumped to ask the emulator pane to (re)load + run the current source. */
   runRequest: number;
   /**
@@ -922,6 +936,7 @@ interface IdeState {
   setSplitRatio(n: number): void;
   setEmulatorStatus(status: EmulatorStatus): void;
   setLiveMemory(stats: MachineMemoryStats | null): void;
+  setRunProfile(profile: RunProfile | null): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
   setShareLinkOpen(open: boolean): void;
@@ -1243,6 +1258,26 @@ function compareTopic(fromId: string, toId: string): string {
  * Spread into the three sites that bump `aiResetSeq`, which already enumerate
  * exactly "a different program became active".
  */
+/**
+ * The state delta that drops a held profile once the buffer it was measured on
+ * no longer has the lines it was measured against.
+ *
+ * Per-line costs are keyed by BASIC line number, so they stay meaningful
+ * through an edit that leaves the same lines in place - retyping a statement,
+ * changing a constant - and stop meaning anything the moment a line is added,
+ * removed or renumbered. Shown against the edited program they would point at
+ * lines that no longer correspond, which is worse than showing nothing.
+ */
+function withoutStaleProfile(
+  s: IdeState,
+  bufferId: string | null,
+  text: string,
+): Partial<IdeState> {
+  const profile = s.runProfile;
+  if (!profile || profile.bufferId !== bufferId) return {};
+  return profileStillApplies(profile, text) ? {} : { runProfile: null };
+}
+
 function clearProgramDocs(s: IdeState): Partial<IdeState> {
   const showingIt =
     s.docsProgramTopic !== null &&
@@ -1280,6 +1315,7 @@ function applyDialectSwitch(
     // stopRequest so any in-flight run loop is explicitly halted.
     emulatorStatus: 'stopped',
     liveMemory: null,
+    runProfile: null,
     stopRequest: s.stopRequest + 1,
     // Breakpoints are keyed by line number, which belongs to the old program;
     // start the new target with a clean slate and no paused line.
@@ -1395,6 +1431,7 @@ function romChanged(s: { romChangeRequest: number }) {
     romChangeRequest: s.romChangeRequest + 1,
     emulatorStatus: 'stopped' as const,
     liveMemory: null,
+    runProfile: null,
   };
 }
 
@@ -1418,6 +1455,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   dirty: false,
   emulatorStatus: 'stopped',
   liveMemory: null,
+  runProfile: null,
   runRequest: 0,
   aiRunCheckSeq: 0,
   aiRunSource: '',
@@ -1572,6 +1610,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         dirty: false,
         emulatorStatus: 'stopped',
         liveMemory: null,
+        runProfile: null,
         // Install the shared program's memory blocks so the player's run writes
         // them into RAM; a pure-BASIC share carries none and starts clean.
         blocks: blocks ?? [],
@@ -1717,6 +1756,7 @@ export const useIdeStore = create<IdeState>((set) => ({
         source: text,
         dirty: !emptyDraft,
         ...(clearDisc ? { bootDisc: null } : {}),
+        ...withoutStaleProfile(s, null, text),
       };
     }),
   replaceDocument: (text, fileName, opts) => {
@@ -1737,9 +1777,11 @@ export const useIdeStore = create<IdeState>((set) => ({
       ...(fileName !== undefined
         ? {
             aiResetSeq: s.aiResetSeq + 1,
-            // A different program: a comparison offered for the old one is void.
+            // A different program: a comparison offered for the old one is void,
+            // and so are the measurements taken of it.
             ...clearProgramDocs(s),
             breakpoints: new Set<number>(),
+            runProfile: null,
             blocks: opts?.blocks ?? [],
             listingBlockMeta: opts?.listingBlockMeta ?? {},
             // Scratch buffers survive an Open - only the tab does not, since
@@ -1786,6 +1828,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       aiResetSeq: s.aiResetSeq + 1,
       ...clearProgramDocs(s),
       breakpoints: new Set<number>(),
+      runProfile: null,
       dirty: opts?.dirty ?? false,
       // Always a different program, so blocks reset unless the caller installs
       // its own (a project-bundle-shaped import).
@@ -1936,6 +1979,7 @@ export const useIdeStore = create<IdeState>((set) => ({
       scratchBuffers: s.scratchBuffers.map((b) =>
         b.id === id ? { ...b, text } : b,
       ),
+      ...withoutStaleProfile(s, id, text),
     })),
   closeScratchBuffer: (id) =>
     set((s) => {
@@ -2183,6 +2227,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   setSplitRatio: (n) => set({ splitRatio: n }),
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
   setLiveMemory: (stats) => set({ liveMemory: stats }),
+  setRunProfile: (profile) => set({ runProfile: profile }),
   toggleAiPanel: () =>
     set((s) => ({ aiPanelOpen: !s.aiPanelOpen, memoryMapOpen: false })),
   setTransferOpen: (open) => set({ transferOpen: open }),
@@ -2345,6 +2390,21 @@ export function selectBufferBreakpoints(
 /** The breakpoints of the buffer on screen, for the gutter and the toggles. */
 export function selectActiveBreakpoints(s: IdeState): ReadonlySet<number> {
   return selectBufferBreakpoints(s, editorBufferOf(s.activeTab));
+}
+
+/**
+ * The measurements of the last run, but only while the buffer they were taken
+ * on is the one on screen.
+ *
+ * Costs are keyed by BASIC line number, so a profile shown against another
+ * buffer would mark whichever of its lines happened to share a number - the
+ * same reason breakpoints and the paused line are held per buffer.
+ */
+export function selectVisibleProfile(s: IdeState): RunProfile | null {
+  if (s.runProfile === null) return null;
+  return editorBufferOf(s.activeTab) === s.runProfile.bufferId
+    ? s.runProfile
+    : null;
 }
 
 /**
