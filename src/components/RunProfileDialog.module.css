@@ -1,0 +1,103 @@
+.section {
+  margin-bottom: 12px;
+}
+
+.heading {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--bg-hover, rgb(255 255 255 / 8%));
+  border-color: var(--border);
+}
+
+.lineNo {
+  flex: none;
+  min-width: 3.5em;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The line's share, drawn to the same scale for every row so the rows compare
+   against the run rather than against each other. */
+.bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgb(127 127 127 / 20%);
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, rgb(250 204 21), rgb(190 24 24));
+}
+
+.share {
+  flex: none;
+  min-width: 3em;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.chart {
+  width: 100%;
+  height: 120px;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgb(127 127 127 / 8%);
+}
+
+.chartArea {
+  fill: rgb(96 165 250 / 25%);
+}
+
+.chartLine {
+  fill: none;
+  stroke: rgb(37 99 235);
+  stroke-width: 2;
+  /* The chart is stretched to its box, so the stroke must not stretch with it. */
+  vector-effect: non-scaling-stroke;
+}
+
+.summary {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.empty {
+  color: var(--text-dim);
+  font-size: 13px;
+}

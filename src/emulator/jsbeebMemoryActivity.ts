@@ -25,6 +25,18 @@ import type { Cpu6502 } from 'jsbeeb/src/fake6502.js';
  * jsbeeb `Cpu6502`.
  */
 export class JsbeebMemoryActivity {
+  /**
+   * While true the hooks stay installed but stamp nothing.
+   *
+   * jsbeeb fires `debugRead` from `readmem` itself, so a host reading the
+   * machine to introspect it - which BASIC line is executing, and the profiler
+   * sampling that on the run hot path - would otherwise paint the overlay with
+   * accesses the program never made. The C64 keeps its unwrapped bus function
+   * for exactly this; jsbeeb offers no such accessor, so the recorder is made
+   * blind for the duration of the read instead. Set and cleared around the
+   * read, never left on.
+   */
+  suspended = false;
   private readonly buffer = new MemoryActivityBuffer(0x10000);
   /** Live hook registrations, present only while recording is enabled. */
   private hooks: { remove(): void }[] = [];
@@ -45,10 +57,10 @@ export class JsbeebMemoryActivity {
       // array out, so a captured local would stamp into the drained buffer.
       this.hooks = [
         this.cpu.debugRead.add((addr: number) => {
-          this.buffer.hits[addr & 0xffff]! |= READ_BIT;
+          if (!this.suspended) this.buffer.hits[addr & 0xffff]! |= READ_BIT;
         }),
         this.cpu.debugWrite.add((addr: number) => {
-          this.buffer.hits[addr & 0xffff]! |= WRITE_BIT;
+          if (!this.suspended) this.buffer.hits[addr & 0xffff]! |= WRITE_BIT;
         }),
       ];
     } else {

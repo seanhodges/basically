@@ -10,6 +10,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
   MemoryBlock,
   TapeFile,
@@ -20,6 +21,10 @@ import {
   kempstonByte,
 } from '../../zxspectrum/emulator/joystick';
 import { Spectrum128Memory } from './memory128';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
 import { Ay38912 } from '../../../emulator/ay';
 import { readSpectrumVariables } from '../../zxspectrum/vars';
 import {
@@ -122,6 +127,13 @@ export class Spectrum128Machine implements MachineEmulator {
   /** Kempston joystick port byte (active-high: bit0 right … bit4 fire). */
   private kempston = 0;
   /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time.
+   */
+  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
+
+  /**
    * T-states the previous frame overran its budget by, owed back to this one.
    * An instruction cannot be cut in half at a frame boundary, so a frame always
    * ends a few T-states late; discarding that gains time every frame. Zeroed
@@ -195,6 +207,20 @@ export class Spectrum128Machine implements MachineEmulator {
    * T-states consumed (0 when the trap was serviced or the CPU is halted).
    */
   private stepInstruction(): { t: number; halted: boolean } {
+    const step = this.stepUnmeasured();
+    // Charge the T-states to the BASIC line executing them. Here rather than in
+    // debugStep because a run the IDE performs to check an assistant answer
+    // deliberately opens no debug session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += step.t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+    return step;
+  }
+
+  /** The step itself: the traps, then one instruction (or an idle HALT). */
+  private stepUnmeasured(): { t: number; halted: boolean } {
     // Every tape trap is gated on ROM 1: 0x0556/0x04C2 are the tape routines
     // only in the 48 BASIC ROM, and 128 BASIC pages ROM 1 in for all tape I/O.
     const romBank1 = this.memory.currentRomBank === 1;
@@ -280,7 +306,7 @@ export class Spectrum128Machine implements MachineEmulator {
    * it isn't a valid program line (e.g. before a program has run).
    */
   currentLine(): number | null {
-    const lineNo = this.memory.readWord(PPC);
+    const lineNo = this.memory.rawReadWord(PPC);
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
@@ -735,6 +761,14 @@ export class Spectrum128Machine implements MachineEmulator {
     // Implausible pointers mean the ROM hasn't initialised them yet.
     if (prog < 0x5c00 || used <= 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

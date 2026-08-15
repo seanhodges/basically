@@ -9,6 +9,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
@@ -20,6 +21,7 @@ import {
   READ_BIT,
   WRITE_BIT,
 } from '../memoryActivityBuffer';
+import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { Pia6520 } from '../commodore/pia6520';
 import { Via6522 } from '../commodore/via6522';
 import { CharRenderer } from '../commodore/charRenderer';
@@ -173,6 +175,12 @@ export class PetMachine implements MachineEmulator {
    * overlay costs a single not-taken branch per access.
    */
   private readonly memoryActivity = new MemoryActivityBuffer(0x10000);
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link tick} charges the cycle it runs to
+   * the line executing at the time.
+   */
+  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
 
   private cpu: StateMachineCpu | null = null;
   private readonly pia1: Pia6520;
@@ -366,6 +374,15 @@ export class PetMachine implements MachineEmulator {
         this.pia2.irqAsserted() ||
         this.via.irqAsserted(),
     );
+    // Charge the cycle to the BASIC line executing it, on the same cadence
+    // debugStep samples at. Here rather than in debugStep because a run the IDE
+    // performs to check an assistant answer deliberately opens no debug
+    // session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += 1;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
   }
 
   private runCycles(count: number): void {
@@ -697,6 +714,14 @@ export class PetMachine implements MachineEmulator {
     const free = fretop - strend;
     if (txttab === 0 || memsiz <= txttab || used < 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

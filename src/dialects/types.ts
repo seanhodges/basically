@@ -344,6 +344,23 @@ export interface MachineMemoryStats {
 }
 
 /**
+ * One BASIC line's measured cost over a run, in the CPU cycles the machine
+ * spent executing it.
+ *
+ * Cycles because a profiled machine is one running a real ROM on a real CPU
+ * model, and every one of those counts them because it must. A backend that
+ * interprets BASIC statements has no cycle budget to charge and is not
+ * profiled at all, rather than answering in a second unit everything reading
+ * these figures would have to carry.
+ */
+export interface LineCost {
+  /** The BASIC line number the cost was charged to. */
+  line: number;
+  /** CPU cycles spent executing that line. */
+  cost: number;
+}
+
+/**
  * A running machine's screen, as characters in reading order.
  *
  * Rows are fixed width - every entry in {@link lines} is exactly {@link cols}
@@ -502,6 +519,35 @@ export interface MachineEmulator {
    * recording is off. Paired with {@link setMemoryActivityRecording}.
    */
   drainMemoryActivity?(recycle?: Uint8Array | null): Uint8Array | null;
+  /**
+   * Turn per-line profile recording on or off. Off by default and cheap when
+   * off - a not-taken branch on the step the machine already runs - so a
+   * machine nobody is measuring pays nothing. Armed by the run loop for the
+   * life of a run and drained by whoever armed it, exactly as
+   * {@link setMemoryActivityRecording} / {@link drainMemoryActivity} are.
+   *
+   * Arming or disarming SHALL NOT change what the program does: recording only
+   * reads the cell the machine already exposes as {@link currentLine}, so a
+   * measured run executes the same instructions and takes the same emulated
+   * time as an unmeasured one.
+   *
+   * Optional: a machine that cannot say which BASIC line it is executing omits
+   * this (and {@link drainProfile}) and yields no per-line costs. Detected via
+   * `typeof machine.setProfileRecording === 'function'`.
+   */
+  setProfileRecording?(enabled: boolean): void;
+  /**
+   * Drain the per-line costs accumulated since the previous drain, as a fresh
+   * array (one entry per line touched, in no particular order), and start the
+   * next accumulation empty. Returns null when recording is off, which is how a
+   * caller tells "nothing was measured" from "nothing ran". Paired with
+   * {@link setProfileRecording}.
+   *
+   * Time the machine spent outside a BASIC line - the ROM's own idle loop, the
+   * boot, an INPUT prompt - is charged to nothing and simply does not appear,
+   * so the entries sum to the time the program's lines were executing.
+   */
+  drainProfile?(): LineCost[] | null;
   /**
    * The BASIC line number about to be executed next, or null when none is
    * determinable (e.g. sitting at the ready/K cursor, mid-edit, or the program

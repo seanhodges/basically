@@ -31,6 +31,7 @@ const {
   selectRunTarget,
   selectRunTargetName,
   selectVisibleDebugLine,
+  selectVisibleProfile,
   BASIC_TAB,
 } = await import('./store');
 const { getDialect } = await import('../dialects/registry');
@@ -1755,6 +1756,44 @@ describe('scratch buffers', () => {
       expect(selectVisibleDebugLine(useIdeStore.getState())).toBe(50);
       useIdeStore.getState().setActiveTab(BASIC_TAB);
       expect(selectVisibleDebugLine(useIdeStore.getState())).toBeNull();
+    });
+
+    it('measurements are shown only against the buffer they were taken on', () => {
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore
+        .getState()
+        .setScratchText('scratch-1', '10 PRINT 1\n20 GOTO 10');
+      useIdeStore.getState().setRunProfile({
+        bufferId: 'scratch-1',
+        measuredLines: [10, 20],
+        lines: [{ line: 20, cost: 100 }],
+        memory: null,
+        elapsed: 1,
+      });
+      expect(selectVisibleProfile(useIdeStore.getState())?.bufferId).toBe(
+        'scratch-1',
+      );
+      // The program's lines are not the snippet's, however they are numbered.
+      useIdeStore.getState().setActiveTab(BASIC_TAB);
+      expect(selectVisibleProfile(useIdeStore.getState())).toBeNull();
+    });
+
+    it('measurements do not survive an edit that moves the lines', () => {
+      const measured = {
+        bufferId: null,
+        measuredLines: [10, 20],
+        lines: [{ line: 20, cost: 100 }],
+        memory: null,
+        elapsed: 1,
+      };
+      useIdeStore.getState().setSource('10 PRINT 1\n20 GOTO 10');
+      useIdeStore.getState().setRunProfile(measured);
+      // An edit that leaves the same lines in place keeps them meaningful.
+      useIdeStore.getState().setSource('10 PRINT 2\n20 GOTO 10');
+      expect(useIdeStore.getState().runProfile).not.toBeNull();
+      // Inserting a line means the costs no longer describe this program.
+      useIdeStore.getState().setSource('10 PRINT 2\n15 PRINT 3\n20 GOTO 10');
+      expect(useIdeStore.getState().runProfile).toBeNull();
     });
   });
 

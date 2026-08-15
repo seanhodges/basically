@@ -7,9 +7,14 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
 } from '../../types';
 import { Zx81Memory } from './memory';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
 import { readZx81Variables } from '../vars';
 import { readZx81Report } from '../reports';
 import { Zx81Keyboard } from './keyboard';
@@ -66,6 +71,13 @@ export class Zx81Machine implements MachineEmulator {
   private nmiGeneratorOn = false;
   private nmiCounter = 0;
   private prevRBit6 = true;
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time.
+   */
+  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
+
   /**
    * T-states the previous frame overran its budget by, owed back to this one.
    * An instruction cannot be cut in half at a frame boundary, so a frame always
@@ -177,6 +189,15 @@ export class Zx81Machine implements MachineEmulator {
         this.cpu.interrupt(true, 0);
       }
     }
+
+    // Charge the T-states to the BASIC line executing them. Here rather than in
+    // debugStep because a run the IDE performs to check an assistant answer
+    // deliberately opens no debug session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
     return t;
   }
 
@@ -193,7 +214,7 @@ export class Zx81Machine implements MachineEmulator {
    * during execution, so PPC is the right signal for "where are we".
    */
   currentLine(): number | null {
-    const lineNo = this.memory.readWord(PPC);
+    const lineNo = this.memory.rawReadWord(PPC);
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
@@ -349,6 +370,14 @@ export class Zx81Machine implements MachineEmulator {
     // Implausible pointers mean the ROM hasn't initialised them yet.
     if (ramtop <= SYSVARS_BASE || used <= 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

@@ -60,6 +60,7 @@ export function Toolbar() {
   const openDocs = useIdeStore((s) => s.openDocs);
   const docsDrawerOpen = useIdeStore((s) => s.docsDrawerOpen);
   const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
+  const setRunProfileOpen = useIdeStore((s) => s.setRunProfileOpen);
   const setMemoryMapOpen = useIdeStore((s) => s.setMemoryMapOpen);
   const memoryMapOpen = useIdeStore((s) => s.memoryMapOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
@@ -308,6 +309,12 @@ export function Toolbar() {
               >
                 Outline{hint('edit.outline')}
               </button>
+              <button
+                onClick={guard(() => setRunProfileOpen(true))}
+                title="Where the last run's time and memory went, line by line"
+              >
+                Run profile…
+              </button>
               <div className={styles.menuSeparator} />
               <button
                 onClick={editAction('renumber')}
@@ -503,6 +510,12 @@ export function Toolbar() {
                     title="List procedures, subroutines and jump targets in this program"
                   >
                     Outline
+                  </button>
+                  <button
+                    onClick={guard(() => setRunProfileOpen(true))}
+                    title="Where the last run's time and memory went, line by line"
+                  >
+                    Run profile…
                   </button>
                   <div className={styles.menuSeparator} />
                   <button

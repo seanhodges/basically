@@ -10,6 +10,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
@@ -26,6 +27,7 @@ import {
   AY_CLOCK_CPC,
 } from '../ay';
 import { CpcMemory, type CpcModel } from './memory';
+import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { GateArray } from './gateArray';
 import { Crtc } from './crtc';
 import { Ppi, type PpiHost } from './ppi';
@@ -109,6 +111,12 @@ export class CpcMachine implements MachineEmulator {
    * a few percent above it.
    */
   private debt = 0;
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time.
+   */
+  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
   private disposed = false;
 
   /**
@@ -242,15 +250,26 @@ export class CpcMachine implements MachineEmulator {
   private runScanline(line: number): void {
     this.beginScanline(line);
     let t = this.debt;
-    while (t < TSTATES_PER_LINE) {
-      if (this.cpu.isHalted()) {
-        // Idle until the next interrupt; burn a NOP's worth of time.
-        t += 4;
-        continue;
-      }
-      t += this.cpu.run_instruction();
-    }
+    while (t < TSTATES_PER_LINE) t += this.stepInstruction();
     this.debt = t - TSTATES_PER_LINE;
+  }
+
+  /**
+   * One instruction, or a NOP's worth of idle time while the CPU is halted
+   * waiting for the next interrupt, returning the T-states it took. Shared by
+   * {@link runScanline} and {@link debugStep} so a run and a debug slice charge
+   * the profile identically - and so a run the IDE performs to check an
+   * assistant answer, which deliberately opens no debug session, is measured
+   * like any other.
+   */
+  private stepInstruction(): number {
+    const t = this.cpu.isHalted() ? 4 : this.cpu.run_instruction();
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+    return t;
   }
 
   /**
@@ -498,11 +517,9 @@ export class CpcMachine implements MachineEmulator {
       this.beginScanline(line);
       let t = this.debt;
       while (t < TSTATES_PER_LINE) {
-        if (this.cpu.isHalted()) {
-          t += 4;
-          continue;
-        }
-        t += this.cpu.run_instruction();
+        const idle = this.cpu.isHalted();
+        t += this.stepInstruction();
+        if (idle) continue; // nothing executed: the line cannot have changed
         const cur = this.currentLine();
         if (cur === null) continue;
         if (opts.mode === 'step') {
@@ -524,6 +541,14 @@ export class CpcMachine implements MachineEmulator {
     }
     this.renderFrame();
     return { paused: false, line: this.currentLine() };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

@@ -31,7 +31,8 @@ BBC, the PET, the VIC-20, the C64, the CPC and the TRS-80 interpreter, and is
 absent on the Atom, the Altair and the TRS-80 emulator. `readMemoryStats()` is
 implemented by all of those except both TRS-80 machines. The TRS-80 interpreter
 is a further special case: it executes statements rather than Z80 cycles and
-has no cycle budget at all.
+has no cycle budget at all - it can name the line it is on, but has no clock to
+charge to it.
 
 ## Goals / Non-Goals
 
@@ -53,12 +54,12 @@ has no cycle budget at all.
 
 ## Decisions
 
-### Report emulated time; frames are the unit, cycles are a refinement
+### Report emulated time, counted in the machine's own cycles
 
-Time is reported as time on the emulated machine. Frames are the universal
-unit - every machine has `frameHz`, and `frames / frameHz` is seconds -
-with cycles used where a machine counts them, to resolve costs finer than a
-frame.
+Time is reported as time on the emulated machine. A run's whole duration comes
+from frames (every machine has `frameHz`, and `frames / frameHz` is seconds);
+the per-line costs inside it are CPU cycles, which is the only clock fine
+enough to separate one BASIC line from another.
 
 *Why:* it is the only figure that is a property of the program. It is stable
 across hosts, across display refresh rates, and across the speed multiplier, so
@@ -70,9 +71,13 @@ seconds on a real ZX81".
 thermals, it is not reproducible, and reporting it would contradict the
 invariant `frameClock.ts` exists to hold.
 
-*Consequence:* nothing may require cycles, because the TRS-80 interpreter has
-none. A machine reports its cost in whatever unit it has, and the unit is
-carried with the figure rather than assumed.
+*Consequence:* a machine with no cycles to count is not profiled. That is the
+TRS-80's backend, which interprets BASIC statements rather than executing a CPU
+over a RAM image. It could be given a made-up currency of its own - statements,
+or fractions of a frame - but then every figure in the IDE would have to carry
+which currency it was in, for one machine, in a unit the hardware never had.
+One unit, and a machine that cannot answer in it says so, on exactly the same
+terms as the Atom and the Altair saying they cannot name a line.
 
 ### A new optional seam pair, modelled on memory-activity recording
 
@@ -228,9 +233,11 @@ explicitly, and heat has to be legible without competing with the marker dots.
 - **Sampling can under-count a line that is always short** → The cadence is
   chosen so no line is shorter than a slice, which is the same guarantee the
   debugger relies on to never step over a transition.
-- **Machines answer in different units** (cycles on most, frames on the TRS-80
-  interpreter) → Carry the unit with the figure. Shares of total time are
-  unit-free and are what the gutter shows, so the display is unaffected.
+- **A machine with no cycles cannot be measured at all** (the TRS-80's
+  statement interpreter) → It reports no per-line costs and says so, rather than
+  answering in a second unit every figure downstream would have to carry. Shares
+  of the run's total are what the gutter shows, so no consumer sees a cycle
+  count either way.
 - **The memory series grows without bound on a long run** → Bound it, and be
   explicit about what a bounded series means for a run longer than the bound.
 - **Tool-set churn would undo the prefix-caching work** → The tool joins the
