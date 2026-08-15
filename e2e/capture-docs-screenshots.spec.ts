@@ -503,6 +503,55 @@ test('writing-basic: program outline', async ({ page }) => {
     .screenshot({ path: `${OUT}/program-outline.png` });
 });
 
+test('writing-basic: variable usages', async ({ page }) => {
+  await open(page);
+  await hideKeyboard(page);
+  // A program where one name earns a tally: SCORE is written seven times but
+  // used only four, so the figure shows the bar's count disagreeing with a plain
+  // text search - which is the point of the feature.
+  await setEditorSource(
+    page,
+    [
+      '10 REM ** SCORE KEEPER **',
+      '20 LET SCORE=0',
+      '30 FOR I=1 TO 10',
+      '40 LET SCORE=SCORE+I',
+      '50 NEXT I',
+      '60 PRINT "TOTAL SCORE: ";SCORE',
+      '70 REM SCORE IS NOT COUNTED HERE',
+    ].join('\n'),
+  );
+  // Typed text leaves a completion popup open, and the offer stands aside for
+  // one, so put it away before asking.
+  await page.keyboard.press('Escape');
+  // Click the name itself: the menu anchors to the glyphs, not to an offset.
+  await page
+    .locator('.cm-line')
+    .filter({ hasText: '20 LET SCORE=0' })
+    .getByText('SCORE', { exact: true })
+    .click();
+  const offer = page.getByRole('button', { name: /Show where SCORE is used/ });
+  await offer.waitFor({ state: 'visible' });
+  await offer.click();
+  await page.locator('.cm-variableUsagesPanel').waitFor({ state: 'visible' });
+  // Re-open the menu so the figure carries both halves at once: the menu under
+  // the name, and the marks and bar its press produced.
+  await page
+    .locator('.cm-line')
+    .filter({ hasText: '40 LET SCORE=SCORE+I' })
+    .getByText('SCORE', { exact: true })
+    .first()
+    .click();
+  await offer.waitFor({ state: 'visible' });
+  await page.waitForTimeout(150);
+  // Crop to the editor column, so the shot is code and its bar rather than a
+  // window of chrome.
+  await page
+    .locator('[class*="editorPane"]')
+    .first()
+    .screenshot({ path: `${OUT}/variable-usages.png` });
+});
+
 test('writing-basic: byte budget in the status bar', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 700 });
   await open(page);

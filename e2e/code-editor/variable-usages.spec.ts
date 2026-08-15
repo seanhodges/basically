@@ -7,11 +7,13 @@ import { test, expect, type Page } from '../fixtures';
  * machine's own rules; what only a browser can prove is here, and it is why
  * this test exists at all:
  *
- *  - a real pointer press lands on the name and the tooltip positions itself
- *    over it (posAtCoords against laid-out text);
+ *  - a real pointer press lands on the name and the menu positions itself under
+ *    it (posAtCoords and CodeMirror's placement against laid-out text);
  *  - the marks actually paint over the right glyphs;
  *  - stepping moves the caret and brings the usage into view;
- *  - dismissing takes the marks away again.
+ *  - dismissing takes the marks away again;
+ *  - find/replace and the usages bar compete for one real panel slot at the foot
+ *    of the editor, and only one of them ever holds it.
  *
  * The default machine is the first registered one, so this runs on whatever
  * that is - the program uses a multi-letter numeric name and plain PRINT, which
@@ -59,6 +61,15 @@ test('clicking a variable offers its usages, which highlight and step', async ({
 
   const offer = page.getByRole('button', { name: /Show where SUM is used/ });
   await expect(offer).toBeVisible();
+
+  // The menu opens below the name, where a completion would appear. Only a real
+  // layout can settle this; the 1px slack absorbs sub-pixel line-box rounding.
+  const nameBox = (await firstUse.boundingBox())!;
+  const menuBox = (await page
+    .locator('.cm-variableUsagesTooltip')
+    .boundingBox())!;
+  expect(menuBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
+
   await offer.click();
 
   // Four marks, and the panel agrees - so neither the string nor the comment
@@ -84,6 +95,20 @@ test('clicking a variable offers its usages, which highlight and step', async ({
   await page.getByRole('button', { name: 'Close usages' }).click();
   await expect(marks).toHaveCount(0);
   await expect(panel).toBeHidden();
+
+  // One bar at the foot of the editor: opening find/replace takes the usages
+  // away. Two CodeMirror panels really competing for the one bottom slot is the
+  // browser-only half; Mod-f through searchKeymap is the path users take.
+  await firstUse.click();
+  await offer.click();
+  await expect(marks).toHaveCount(4);
+  const search = page.locator('.cm-search');
+  await page.keyboard.press('ControlOrMeta+f');
+  await expect(search).toBeVisible();
+  await expect(marks).toHaveCount(0);
+  await expect(panel).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeHidden();
 
   // Editing drops a fresh set of marks, since the offsets they hold go stale.
   await firstUse.click();

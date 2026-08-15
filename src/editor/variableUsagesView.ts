@@ -4,17 +4,23 @@
 /**
  * Clicking a variable offers to show where else it is used.
  *
- * Three pieces: a tooltip carrying one button, which appears where a click or
- * tap lands on a variable; a set of marks over every usage once that button is
- * pressed; and a bar at the foot of the editor naming the variable, counting
- * the usages and stepping between them. Which occurrences count is
- * {@link ./variableUsages}' answer, and it is the machine's - see there.
+ * Three pieces: a one-row menu, which opens under the name a click or tap lands
+ * on; a set of marks over every usage once that row is pressed; and a bar at the
+ * foot of the editor naming the variable, counting the usages and stepping
+ * between them. Which occurrences count is {@link ./variableUsages}' answer, and
+ * it is the machine's - see there.
  *
- * A pointer is the only way in, by design. The caret alone would pop the
- * tooltip on every arrow-key press and would fight the completion popup for the
- * same anchor; hovering is not available on the touch devices this editor is
- * used on. For the same reason the offer is withheld while a completion is open
- * and dropped the moment the document changes.
+ * A pointer is the only way in, by design. The caret alone would pop the menu on
+ * every arrow-key press and would fight the completion popup for the same
+ * anchor; hovering is not available on the touch devices this editor is used on.
+ * For the same reason the offer is withheld while a completion is open and
+ * dropped the moment the document changes.
+ *
+ * The menu borrows the completion popup's shape and the bar the find/replace
+ * panel's, so a name answers where a keyword would and the foot of the editor
+ * has one look. Both are chrome, and are themed with the rest of the editor's
+ * CodeMirror furniture in src/styles.css; only the marks, which sit on the
+ * editor's own paper, are themed here.
  */
 import {
   Decoration,
@@ -31,8 +37,10 @@ import {
   StateEffect,
   StateField,
   type Extension,
+  type Transaction,
 } from '@codemirror/state';
 import { completionStatus } from '@codemirror/autocomplete';
+import { closeSearchPanel, searchPanelOpen } from '@codemirror/search';
 import type { EditorKeyword } from '../dialects/types';
 import {
   findVariableUsages,
@@ -56,6 +64,20 @@ const usageMark = Decoration.mark({ class: 'cm-variableUsage' });
 const currentUsageMark = Decoration.mark({
   class: 'cm-variableUsage cm-variableUsage-current',
 });
+
+/**
+ * True of the transaction that opens the find/replace panel.
+ *
+ * Safe to ask from inside a field's own `update`: EditorState fills in
+ * `tr.state` before computing any slot, so this reads the state being built
+ * rather than re-entering the update; and `searchPanelOpen` reads only
+ * @codemirror/search's field, which reads nothing of ours. Asking
+ * `tr.state.facet(showPanel)` instead would throw - that facet is computed from
+ * `usagesField.provide`, so reading it from within `usagesField` is a cycle.
+ */
+function searchJustOpened(tr: Transaction): boolean {
+  return !searchPanelOpen(tr.startState) && searchPanelOpen(tr.state);
+}
 
 function usageDecorations(active: ActiveUsages | null): DecorationSet {
   if (!active) return Decoration.none;
@@ -81,6 +103,8 @@ export function variableUsagesExtension(
       // An edit invalidates the offsets, and the answer they stand for may no
       // longer be true - re-asking is one click away.
       if (tr.docChanged) return null;
+      // The foot of the editor holds one bar: find/replace takes ours away.
+      if (searchJustOpened(tr)) return null;
       for (const effect of tr.effects) {
         if (effect.is(setUsages)) return effect.value;
         if (effect.is(clearUsages)) return null;
@@ -98,6 +122,7 @@ export function variableUsagesExtension(
     create: () => null,
     update(offer, tr) {
       if (tr.docChanged) return null;
+      if (searchJustOpened(tr)) return null;
       for (const effect of tr.effects) {
         if (effect.is(offerUsages)) return effect.value;
         // Taking up the offer retires it; the panel says the rest.
@@ -117,6 +142,9 @@ export function variableUsagesExtension(
       pos,
     );
     if (!found || found.ranges.length === 0) return;
+    // The bar is about to take the slot find/replace would be sitting in. Asked
+    // after the guard above, so a press that finds nothing leaves a search alone.
+    if (searchPanelOpen(view.state)) closeSearchPanel(view);
     const index = Math.max(
       0,
       found.ranges.findIndex((r) => r.from === found.token.from),
@@ -145,15 +173,21 @@ export function variableUsagesExtension(
     view.focus();
   }
 
-  /** A bar button that never steals focus from the editor. */
+  /**
+   * A bar button that never steals focus from the editor. The close button takes
+   * its own class rather than adding one: it and the steppers are styled by
+   * rules of equal specificity, so wearing both would leave the winner to the
+   * order of the stylesheet.
+   */
   function barButton(
     label: string,
     title: string,
     onPress: () => void,
+    className = 'cm-variableUsagesAction',
   ): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'cm-variableUsagesAction';
+    button.className = className;
     button.textContent = label;
     button.title = title;
     button.setAttribute('aria-label', title);
@@ -171,7 +205,14 @@ export function variableUsagesExtension(
     dom.appendChild(label);
     dom.appendChild(barButton('‹', 'Previous usage', () => step(view, -1)));
     dom.appendChild(barButton('›', 'Next usage', () => step(view, 1)));
-    dom.appendChild(barButton('✕', 'Close usages', () => close(view)));
+    dom.appendChild(
+      barButton(
+        '✕',
+        'Close usages',
+        () => close(view),
+        'cm-variableUsagesClose',
+      ),
+    );
 
     const render = (active: ActiveUsages | null) => {
       if (!active) return;
@@ -190,22 +231,45 @@ export function variableUsagesExtension(
     };
   }
 
+  /**
+   * The offer: a one-row menu below the name, shaped like a completion option.
+   *
+   * No `above`, so it opens below the name as a completion does, and CodeMirror
+   * is still free to flip it above on the last visible row. The row is a button
+   * inside the list rather than the list item itself - a one-option listbox that
+   * acts on click reads poorly to a screen reader, and the button carries the
+   * name of what pressing it does.
+   */
   function offerTooltip(pos: number, name: string): Tooltip {
     return {
       pos,
-      above: true,
       create: (view) => {
         const dom = document.createElement('div');
         dom.className = 'cm-variableUsagesTooltip';
+
+        const list = document.createElement('ul');
+        list.className = 'cm-variableUsagesList';
+        const item = document.createElement('li');
+
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'cm-variableUsagesOffer';
-        button.textContent = 'Usages';
         button.title = `Show where ${name} is used`;
         button.setAttribute('aria-label', `Show where ${name} is used`);
         button.addEventListener('mousedown', (event) => event.preventDefault());
         button.addEventListener('click', () => reveal(view, pos));
-        dom.appendChild(button);
+
+        const icon = document.createElement('span');
+        icon.className = 'cm-variableUsagesIcon';
+        icon.setAttribute('aria-hidden', 'true');
+        const label = document.createElement('span');
+        label.className = 'cm-variableUsagesOfferLabel';
+        label.textContent = 'Usages';
+        button.append(icon, label);
+
+        item.appendChild(button);
+        list.appendChild(item);
+        dom.appendChild(list);
         return { dom };
       },
     };
@@ -265,6 +329,12 @@ export function variableUsagesExtension(
   ];
 }
 
+/**
+ * The marks alone. They lie on the editor's own paper, which is light whatever
+ * the app's chrome does, so their colours are fixed here rather than taken from
+ * the theme; the menu and the bar are chrome and are themed in src/styles.css
+ * alongside the completion popup and the find/replace panel they follow.
+ */
 const usagesTheme = EditorView.baseTheme({
   '.cm-variableUsage': {
     backgroundColor: '#cfe0ff',
@@ -273,46 +343,5 @@ const usagesTheme = EditorView.baseTheme({
   '.cm-variableUsage-current': {
     backgroundColor: '#9dc0ff',
     outline: '1px solid #4a7fd4',
-  },
-  '.cm-variableUsagesTooltip': {
-    border: 'none',
-    backgroundColor: 'transparent',
-  },
-  '.cm-variableUsagesOffer': {
-    padding: '0.15em 0.6em',
-    borderRadius: '0.5em',
-    border: '1px solid #4a7fd4',
-    backgroundColor: '#eaf1ff',
-    color: '#20335c',
-    cursor: 'pointer',
-    font: 'inherit',
-    fontSize: '85%',
-  },
-  '.cm-variableUsagesPanel': {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.4em',
-    padding: '0.2em 0.5em',
-    borderTop: '1px solid #b8b8c8',
-    backgroundColor: '#f4f6fb',
-    fontSize: '85%',
-  },
-  '.cm-variableUsagesLabel': {
-    flex: '1 1 auto',
-    color: '#20335c',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  '.cm-variableUsagesAction': {
-    flex: '0 0 auto',
-    minWidth: '2em',
-    padding: '0.1em 0.4em',
-    borderRadius: '0.4em',
-    border: '1px solid #b8b8c8',
-    backgroundColor: '#fff',
-    color: '#20335c',
-    cursor: 'pointer',
-    font: 'inherit',
   },
 });
