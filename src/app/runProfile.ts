@@ -168,6 +168,44 @@ export function routineShares(
 }
 
 /**
+ * Bands of heat the editor draws, 1 for a line incidental to the run up to
+ * {@link HEAT_LEVELS} for one that dominates it.
+ */
+export const HEAT_LEVELS = 5;
+
+/** A line's heat, as the gutter draws it. */
+export interface LineHeat {
+  level: number;
+  share: number;
+}
+
+/**
+ * Each measured line's heat, keyed by BASIC line number.
+ *
+ * Scaled against the hottest line rather than against the whole run, so the
+ * bands always span what this program actually did: a program whose work is
+ * spread over fifty lines has no line above a few percent, and an absolute
+ * scale would draw every one of them the same faint colour and answer nothing.
+ *
+ * Lines that consumed no measured time are absent rather than level zero. The
+ * gutter leaves them unmarked, which is the honest reading - a line that never
+ * ran is not a line that ran cheaply.
+ */
+export function lineHeat(shares: readonly LineShare[]): Map<number, LineHeat> {
+  const out = new Map<number, LineHeat>();
+  const max = shares.reduce((m, s) => Math.max(m, s.share), 0);
+  if (max <= 0) return out;
+  for (const s of shares) {
+    const level = Math.min(
+      HEAT_LEVELS,
+      Math.max(1, Math.ceil((s.share / max) * HEAT_LEVELS)),
+    );
+    out.set(s.line, { level, share: s.share });
+  }
+  return out;
+}
+
+/**
  * Accumulates one run's measurements as it happens.
  *
  * Owned by the run loop, which drains the machine every frame and hands the

@@ -67,24 +67,24 @@ wraps its bus for memory-activity recording.
 
 ## 5. The editor heat map
 
-- [ ] 5.1 Extend the combined gutter in `src/components/CodeMirrorHost.tsx` to
+- [x] 5.1 Extend the combined gutter in `src/components/CodeMirrorHost.tsx` to
       draw each line's share alongside the lint and breakpoint markers, deciding
       and documenting precedence so neither marker is hidden.
-- [ ] 5.2 Reconfigure the gutter from the store when the profile changes, via a
+- [x] 5.2 Reconfigure the gutter from the store when the profile changes, via a
       compartment, the way the breakpoint set already does.
-- [ ] 5.3 Leave lines that consumed no measured time unmarked, distinct from
+- [x] 5.3 Leave lines that consumed no measured time unmarked, distinct from
       lines that ran cheaply. Colocated test.
-- [ ] 5.4 Show the profile of the buffer on screen only, so one buffer's costs
+- [x] 5.4 Show the profile of the buffer on screen only, so one buffer's costs
       are never drawn against another's lines. Colocated test.
-- [ ] 5.5 State in the UI that a line's cost excludes the routines it calls, and
+- [x] 5.5 State in the UI that a line's cost excludes the routines it calls, and
       that durations are the machine's own time rather than elapsed browser
       time.
 
 ## 6. Memory over the run
 
-- [ ] 6.1 Present the memory series against the run's elapsed machine time, with
+- [x] 6.1 Present the memory series against the run's elapsed machine time, with
       the peak used, in a surface that also reports total fitted BASIC RAM.
-- [ ] 6.2 Report an unavailable memory account as unavailable on machines
+- [x] 6.2 Report an unavailable memory account as unavailable on machines
       without `readMemoryStats()`, rather than as zeroes. Colocated test.
 
 ## 7. Assistant access
@@ -96,7 +96,7 @@ wraps its bus for memory-activity recording.
       per conversation, never appearing or disappearing according to whether a
       machine is running (the rule `stabilise-the-cached-prefix` establishes).
       Colocated test that the offered set does not change across a conversation.
-- [ ] 7.3 Record which dialects can produce measurements in
+- [x] 7.3 Record which dialects can produce measurements in
       `src/ai/machineObservability.ts`, alongside
       `DIALECTS_WITHOUT_VARIABLE_READBACK`, with the crosscheck test that
       constructs every registered machine and fails when the table drifts.

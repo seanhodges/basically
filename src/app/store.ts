@@ -557,6 +557,8 @@ interface IdeState {
   romChangeRequest: number;
   /** Program outline dialog (Edit ▸ Outline). */
   procedureListOpen: boolean;
+  /** Run profile dialog (Edit ▸ Run profile) - where the last run's time went. */
+  runProfileOpen: boolean;
   /** Memory-map viewer dialog. */
   memoryMapOpen: boolean;
   /** In-app documentation drawer (replaces opening /docs/ in a new tab). */
@@ -959,6 +961,7 @@ interface IdeState {
   /** Drop a machine's custom ROM so it runs its bundled image again. */
   clearCustomRom(dialectId: string): void;
   setProcedureListOpen(open: boolean): void;
+  setRunProfileOpen(open: boolean): void;
   setMemoryMapOpen(open: boolean): void;
   setWelcomeOpen(open: boolean): void;
   /**
@@ -1517,6 +1520,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   customRoms: typeof localStorage !== 'undefined' ? listCustomRoms() : {},
   romChangeRequest: 0,
   procedureListOpen: false,
+  runProfileOpen: false,
   memoryMapOpen: false,
   welcomeOpen: false,
   newProjectOpen: false,
@@ -2258,6 +2262,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     });
   },
   setProcedureListOpen: (open) => set({ procedureListOpen: open }),
+  setRunProfileOpen: (open) => set({ runProfileOpen: open }),
   // Opening the memory map closes the AI panel: both share the right-hand slot,
   // and the map takes priority, so leaving the AI flag set would make its toolbar
   // toggle appear dead until the map is closed.

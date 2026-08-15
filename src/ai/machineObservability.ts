@@ -91,6 +91,30 @@ export function canCheckByRunning(dialectId: string): boolean {
 }
 
 /**
+ * Dialect ids whose machines produce no measurements of a run.
+ *
+ * Derived from the machines and crosschecked the same way: measuring where a
+ * run's time went means charging it to the BASIC line executing, so a machine
+ * that cannot say which line that is cannot be measured at all. The same two
+ * machines, for the same reasons, that have no step-through debugger.
+ *
+ * Kept here rather than read off a machine because the decision is taken before
+ * any machine exists - the assistant's tool set is settled per conversation from
+ * the dialect alone, and the profile surface says what a machine cannot do
+ * before one has ever been run. `machineObservability.test.ts` constructs every
+ * registered machine and fails when this drifts from what they implement.
+ */
+export const DIALECTS_WITHOUT_PROFILE: ReadonlySet<string> = new Set([
+  'atom',
+  'altair8800',
+]);
+
+/** Whether a run on this dialect's machine can be measured line by line. */
+export function canProfileRun(dialectId: string): boolean {
+  return !DIALECTS_WITHOUT_PROFILE.has(dialectId);
+}
+
+/**
  * What the assistant may state about a finished run on this machine, and the
  * conventions its answers come back in.
  *

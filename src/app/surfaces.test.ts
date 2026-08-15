@@ -52,6 +52,7 @@ function closeEverything() {
     shareLinkOpen: false,
     vfsInspectorOpen: false,
     procedureListOpen: false,
+    runProfileOpen: false,
     memoryMapOpen: false,
     welcomeOpen: false,
     newProjectOpen: false,

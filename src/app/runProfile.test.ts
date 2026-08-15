@@ -3,7 +3,9 @@ import type { LineCost, MachineMemoryStats } from '../dialects/types';
 import {
   MAX_MEMORY_SAMPLES,
   MEMORY_SAMPLE_FRAMES,
+  HEAT_LEVELS,
   RunProfiler,
+  lineHeat,
   lineShares,
   profileStillApplies,
   programLineNumbers,
@@ -101,6 +103,38 @@ describe('routineShares', () => {
 
   it('reports nothing for a program with no routines to roll up', () => {
     expect(routineShares('10 PRINT 1\n20 PRINT 2\n', caps, [])).toEqual([]);
+  });
+});
+
+describe('lineHeat', () => {
+  it('marks the line that dominates the run apart from incidental ones', () => {
+    const heat = lineHeat(
+      lineShares([CYCLES(10, 900), CYCLES(20, 90), CYCLES(30, 10)]),
+    );
+    expect(heat.get(10)!.level).toBe(HEAT_LEVELS);
+    expect(heat.get(20)!.level).toBeLessThan(HEAT_LEVELS);
+    expect(heat.get(30)!.level).toBe(1);
+  });
+
+  it('leaves a line that never ran unmarked, not marked as cheap', () => {
+    const heat = lineHeat(lineShares([CYCLES(10, 100), CYCLES(20, 0)]));
+    expect(heat.has(20)).toBe(false);
+    // ...where a line that ran cheaply is marked, at the coolest band.
+    const cheap = lineHeat(lineShares([CYCLES(10, 1000), CYCLES(20, 1)]));
+    expect(cheap.get(20)!.level).toBe(1);
+  });
+
+  it('spans the bands even when no single line took much of the run', () => {
+    // Fifty lines sharing the work: on an absolute scale none would reach 5%
+    // and every one would draw the same, saying nothing about which is hottest.
+    const spread = Array.from({ length: 50 }, (_, i) => CYCLES(10 + i, i + 1));
+    const heat = lineHeat(lineShares(spread));
+    expect(heat.get(59)!.level).toBe(HEAT_LEVELS);
+    expect(heat.get(10)!.level).toBe(1);
+  });
+
+  it('marks nothing when nothing was measured', () => {
+    expect(lineHeat([]).size).toBe(0);
   });
 });
 

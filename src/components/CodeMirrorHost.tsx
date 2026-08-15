@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Compartment,
   EditorState,
   Prec,
+  Range,
   RangeSet,
   StateEffect,
   StateField,
@@ -69,7 +70,9 @@ import {
   useIdeStore,
   selectActiveBreakpoints,
   selectVisibleDebugLine,
+  selectVisibleProfile,
 } from '../app/store';
+import { lineHeat, lineShares, type LineHeat } from '../app/runProfile';
 import type { EditorCommandName } from '../app/store';
 import { openDroppedFile } from '../app/fileCommands';
 import {
@@ -453,13 +456,24 @@ function gutterExt(show: boolean) {
   return show ? [lineNumbers(), highlightActiveLineGutter()] : [];
 }
 
+/** The heat of the buffer on screen, for the gutter to draw. */
+function visibleHeat(): Map<number, LineHeat> {
+  const profile = selectVisibleProfile(useIdeStore.getState());
+  return lineHeat(lineShares(profile?.lines ?? []));
+}
+
 /** Leading line number of an editor row, or null when the row has none. */
 function rowLineNumber(text: string): number | null {
   const m = /^\s*(\d+)/.exec(text);
   return m ? parseInt(m[1]!, 10) : null;
 }
 
-const breakpointCompartment = new Compartment();
+/**
+ * Carries the combined gutter, which is rebuilt whenever either of the two
+ * things it draws from the store changes: the breakpoint set, and the profile
+ * of the buffer on screen.
+ */
+const gutterMarkersCompartment = new Compartment();
 
 /** A breakpoint marker: same size/style as the lint marker, but blue (see CSS). */
 class BreakpointMarker extends GutterMarker {
@@ -470,6 +484,47 @@ class BreakpointMarker extends GutterMarker {
   }
 }
 const bpMarker = new BreakpointMarker();
+
+/**
+ * A measured line's share of the run, drawn as a coloured bar down the inside
+ * edge of the gutter (see {@link ../app/runProfile.lineHeat} for the banding).
+ *
+ * A bar rather than a third dot, because precedence between the three markings
+ * has to end with none of them hidden: the bar occupies the gutter's edge, where
+ * neither the red lint marker nor the blue breakpoint dot is drawn, so a line
+ * carrying a diagnostic or a breakpoint still shows its cost and still shows the
+ * marker. Between the two dots the existing rule stands - a diagnostic wins,
+ * because a line that will not run is a more urgent thing to say about it than
+ * how long it took last time.
+ *
+ * Carried as `elementClass` rather than as DOM so it composes: CodeMirror
+ * concatenates the classes of every marker on a line onto one gutter element,
+ * so the bar and a dot can be two markers in the same column.
+ */
+class HeatMarker extends GutterMarker {
+  constructor(
+    readonly level: number,
+    readonly share: number,
+  ) {
+    super();
+    this.elementClass = styles[`heat${level}`] ?? '';
+  }
+
+  override eq(other: HeatMarker): boolean {
+    return other.level === this.level && other.share === this.share;
+  }
+
+  toDOM() {
+    const el = document.createElement('div');
+    el.className = styles.heatHit!;
+    // Said on the marking itself, because a share is meaningless without both:
+    // whose time it is, and what it excludes.
+    el.title =
+      `${(this.share * 100).toFixed(1)}% of the run's time on this machine.\n` +
+      'This line only - time inside routines it calls is charged to them.';
+    return el;
+  }
+}
 
 /** Red error marker; DOM matches the default @codemirror/lint error marker. */
 class LintErrorMarker extends GutterMarker {
@@ -513,18 +568,46 @@ const lintGutterMarkerField = StateField.define<RangeSet<GutterMarker>>({
 });
 
 /**
- * The clickable combined gutter. Renders blue breakpoint markers (via lineMarker,
- * reading the live breakpoint set kept by BASIC line number so dots track
- * edits/renumbering) and red lint error markers (via the reactive
- * {@link lintGutterMarkerField}) in a single column. When a line has both, the
- * lint marker takes priority and the breakpoint is hidden. Toggles a breakpoint
- * on a gutter click. Reconfigured via {@link breakpointCompartment} when the set
- * changes.
+ * The clickable combined gutter: three markings in one column.
+ *
+ * Blue breakpoint dots (via lineMarker, reading the live breakpoint set kept by
+ * BASIC line number so dots track edits/renumbering), red lint error markers
+ * (via the reactive {@link lintGutterMarkerField}), and the measured cost of
+ * each line as a coloured bar down the gutter's inside edge ({@link HeatMarker}).
+ *
+ * Precedence, decided so that nothing a user needs is hidden: the cost bar is
+ * drawn on every measured line regardless, because it occupies an edge neither
+ * dot uses. Between the two dots, which share the one centred position, a lint
+ * marker still wins - a line that will not run is more urgent than how long it
+ * took last time, and the breakpoint is still in the set and still shown the
+ * moment the diagnostic is fixed.
+ *
+ * Toggles a breakpoint on a gutter click. Reconfigured via
+ * {@link gutterMarkersCompartment} when the breakpoints or the profile change.
  */
-function combinedGutterExt(breakpoints: ReadonlySet<number>) {
+function combinedGutterExt(
+  breakpoints: ReadonlySet<number>,
+  heat: ReadonlyMap<number, LineHeat>,
+) {
   return gutter({
     class: 'cm-combined-gutter',
-    markers: (view) => view.state.field(lintGutterMarkerField),
+    markers: (view) => {
+      const lint = view.state.field(lintGutterMarkerField);
+      if (heat.size === 0) return lint;
+      const ranges: Range<GutterMarker>[] = [];
+      lint.between(0, view.state.doc.length, (from, _to, marker) => {
+        ranges.push(marker.range(from));
+      });
+      const doc = view.state.doc;
+      for (let row = 1; row <= doc.lines; row++) {
+        const line = doc.line(row);
+        const lineNo = rowLineNumber(line.text);
+        const hot = lineNo === null ? undefined : heat.get(lineNo);
+        if (hot)
+          ranges.push(new HeatMarker(hot.level, hot.share).range(line.from));
+      }
+      return RangeSet.of(ranges, true);
+    },
     lineMarker(view, line) {
       // A lint marker on this line takes priority over the breakpoint dot.
       let hasLint = false;
@@ -684,8 +767,11 @@ export function CodeMirrorHost({
           }),
           fullCompletion.of(useIdeStore.getState().fullCodeCompletion),
         ]),
-        breakpointCompartment.of(
-          combinedGutterExt(selectActiveBreakpoints(useIdeStore.getState())),
+        gutterMarkersCompartment.of(
+          combinedGutterExt(
+            selectActiveBreakpoints(useIdeStore.getState()),
+            visibleHeat(),
+          ),
         ),
         lintGutterMarkerField,
         debugLineField,
@@ -882,16 +968,22 @@ export function CodeMirrorHost({
     });
   }, [autoLineNumbering, lineNumberIncrement, fullCodeCompletion]);
 
-  // Re-render the combined gutter whenever the breakpoint set changes - the set
-  // of the buffer on screen, so the dots always belong to the code they mark.
+  // Re-render the combined gutter whenever either of the things it draws from
+  // the store changes: the breakpoint set and the profile, both of the buffer on
+  // screen, so the markings always belong to the code they mark.
   const breakpoints = useIdeStore(selectActiveBreakpoints);
+  const profile = useIdeStore(selectVisibleProfile);
+  const heat = useMemo(
+    () => lineHeat(lineShares(profile?.lines ?? [])),
+    [profile],
+  );
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: breakpointCompartment.reconfigure(
-        combinedGutterExt(breakpoints),
+      effects: gutterMarkersCompartment.reconfigure(
+        combinedGutterExt(breakpoints, heat),
       ),
     });
-  }, [breakpoints]);
+  }, [breakpoints, heat]);
 
   // Highlight (and scroll to) the line the debugger is paused on. Breakpoints
   // and the paused line are tracked by BASIC line number, so map to an editor
