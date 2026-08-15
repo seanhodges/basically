@@ -89,10 +89,10 @@ wraps its bus for memory-activity recording.
 
 ## 7. Assistant access
 
-- [ ] 7.1 Add the profile tool to the fixed tool set in `src/ai/driveTools.ts`,
+- [x] 7.1 Add the profile tool to the fixed tool set in `src/ai/driveTools.ts`,
       returning the hottest lines, the routine rollup and the memory summary,
       and stating that costs exclude called routines.
-- [ ] 7.2 Offer the tool on the same terms as `drive` and `look` — resolved once
+- [x] 7.2 Offer the tool on the same terms as `drive` and `look` — resolved once
       per conversation, never appearing or disappearing according to whether a
       machine is running (the rule `stabilise-the-cached-prefix` establishes).
       Colocated test that the offered set does not change across a conversation.
@@ -100,7 +100,7 @@ wraps its bus for memory-activity recording.
       `src/ai/machineObservability.ts`, alongside
       `DIALECTS_WITHOUT_VARIABLE_READBACK`, with the crosscheck test that
       constructs every registered machine and fails when the table drifts.
-- [ ] 7.4 Answer the tool with an explicit "nothing measured yet" rather than an
+- [x] 7.4 Answer the tool with an explicit "nothing measured yet" rather than an
       empty result when no run has happened. Colocated test.
 
 ## 8. Documentation

@@ -3,11 +3,17 @@ import type { MachineControl } from '../app/machineControl';
 import {
   DEFAULT_JOY_FRAMES,
   describeDriving,
+  describeProfile,
   driveToolDefinitions,
   parseDriveScript,
   runDriveScript,
+  DRIVE_TOOL,
+  LOOK_TOOL,
+  PROFILE_TOOL,
   type DriveReport,
 } from './driveTools';
+import { outlineCapabilities } from '../editor/programOutline';
+import type { RunProfile } from '../app/runProfile';
 
 /** A control that says yes to everything, recording what it was asked. */
 function stubControl(overrides: Partial<MachineControl> = {}): MachineControl {
@@ -184,6 +190,26 @@ describe('the tool definitions', () => {
     );
   });
 
+  it('are a fixed set, whatever the machine is doing', () => {
+    // The set is a constant with nothing to read: there is no argument to pass
+    // that could make a tool appear or disappear part-way through a
+    // conversation, which is what would cost the prefix behind it.
+    expect(driveToolDefinitions().map((t) => t.name)).toEqual([
+      DRIVE_TOOL,
+      LOOK_TOOL,
+      PROFILE_TOOL,
+    ]);
+    expect(driveToolDefinitions.length).toBe(0);
+  });
+
+  it('tells the assistant what a line’s cost excludes', () => {
+    const profile = driveToolDefinitions().find(
+      (t) => t.name === PROFILE_TOOL,
+    )!;
+    expect(profile.description).toContain('charged to that routine');
+    expect(profile.description).toContain('own time');
+  });
+
   it('carry no machine specifics, so one block serves every dialect', () => {
     // The per-machine part is the key names, and those live in the system
     // prompt, which is already a per-dialect constant.
@@ -191,5 +217,73 @@ describe('the tool definitions', () => {
     for (const machineWord of ['ZX81', 'Spectrum', 'Commodore', 'KeyA']) {
       expect(json).not.toContain(machineWord);
     }
+  });
+});
+
+describe('describeProfile', () => {
+  const caps = outlineCapabilities([
+    { word: 'GOSUB' },
+    { word: 'GOTO' },
+  ] as never);
+  const SOURCE = '10 GOSUB 100\n20 GOTO 10\n100 REM DRAW\n110 RETURN\n';
+  const measured: RunProfile = {
+    bufferId: null,
+    measuredLines: [10, 20, 100, 110],
+    lines: [
+      { line: 100, cost: 800, unit: 'cycles' },
+      { line: 10, cost: 200, unit: 'cycles' },
+    ],
+    memory: {
+      samples: [{ at: 1, used: 900, free: 15_484 }],
+      peakUsed: 1200,
+      totalBytes: 16_384,
+      partial: false,
+    },
+    elapsed: 4.2,
+  };
+
+  it('reports the same accounting the user is shown', () => {
+    const text = describeProfile(measured, SOURCE, caps, true);
+    expect(text).toContain('line 100: 80.0%');
+    expect(text).toContain('line 10: 20.0%');
+    // The rollup, so a routine's total needn't be added up by hand.
+    expect(text).toContain('line 100 (DRAW)');
+    expect(text).toContain('peaked at 1200 bytes of 16384 fitted');
+    // ...and the caveat that makes a cheap-looking call site readable.
+    expect(text).toContain('EXCLUDES the routines it calls');
+    expect(text).toContain("this machine's own time");
+  });
+
+  it('says nothing has been measured rather than answering with nothing', () => {
+    // An empty result would read as "measured, and nothing took any time",
+    // which is exactly the wrong conclusion to hand an assistant asked to make
+    // a program faster.
+    const none = describeProfile(null, SOURCE, caps, true);
+    expect(none).toContain('Nothing has been measured');
+    expect(none).not.toContain('%');
+
+    const measuredNothing = describeProfile(
+      { ...measured, lines: [] },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(measuredNothing).toContain('Nothing has been measured');
+  });
+
+  it('says a machine that cannot be measured cannot be, not that it was slow', () => {
+    const text = describeProfile(null, SOURCE, caps, false);
+    expect(text).toContain('cannot report which BASIC line');
+  });
+
+  it('says an unavailable memory account is unavailable, not zero', () => {
+    const text = describeProfile(
+      { ...measured, memory: null },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(text).toContain('does not report its memory figures');
+    expect(text).not.toContain('0 bytes');
   });
 });

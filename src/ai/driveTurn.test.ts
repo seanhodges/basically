@@ -26,7 +26,7 @@ import {
   type MachineControl,
 } from '../app/machineControl';
 import { armDriving, settleJudgingTurn } from './aiStore';
-import { DRIVE_TOOL, LOOK_TOOL } from './driveTools';
+import { DRIVE_TOOL, LOOK_TOOL, PROFILE_TOOL } from './driveTools';
 import { setAiProvider } from '../storage/settings';
 
 /**
@@ -91,7 +91,11 @@ describe('when driving is armed', () => {
     // Frozen for the turn's duration: a tool round trip is seconds of network,
     // and what the assistant acts on has to be the screen it was last shown.
     expect(machineFrozen()).toBe(true);
-    expect(driving!.tools.map((t) => t.name)).toEqual([DRIVE_TOOL, LOOK_TOOL]);
+    expect(driving!.tools.map((t) => t.name)).toEqual([
+      DRIVE_TOOL,
+      LOOK_TOOL,
+      PROFILE_TOOL,
+    ]);
   });
 
   it('lets the machine go again when the turn ends', () => {
