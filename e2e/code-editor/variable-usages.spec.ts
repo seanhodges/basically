@@ -13,7 +13,9 @@ import { test, expect, type Page } from '../fixtures';
  *  - stepping moves the caret and brings the usage into view;
  *  - dismissing takes the marks away again;
  *  - find/replace and the usages bar compete for one real panel slot at the foot
- *    of the editor, and only one of them ever holds it.
+ *    of the editor, and only one of them ever holds it;
+ *  - the menu offers the row the picked token can answer - Usages on a name,
+ *    Reference on a keyword - which needs a real pointer landing on real glyphs.
  *
  * The default machine is the first registered one, so this runs on whatever
  * that is - the program uses a multi-letter numeric name and plain PRINT, which
@@ -65,9 +67,7 @@ test('clicking a variable offers its usages, which highlight and step', async ({
   // The menu opens below the name, where a completion would appear. Only a real
   // layout can settle this; the 1px slack absorbs sub-pixel line-box rounding.
   const nameBox = (await firstUse.boundingBox())!;
-  const menuBox = (await page
-    .locator('.cm-variableUsagesTooltip')
-    .boundingBox())!;
+  const menuBox = (await page.locator('.cm-clickMenu').boundingBox())!;
   expect(menuBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
 
   await offer.click();
@@ -116,4 +116,27 @@ test('clicking a variable offers its usages, which highlight and step', async ({
   await expect(marks).toHaveCount(4);
   await page.keyboard.type(' ');
   await expect(marks).toHaveCount(0);
+
+  // Which row the menu offers follows what the pointer landed on. Asserted here
+  // rather than in its own spec because the program is already typed and the
+  // editor already warm; opening the documentation from the row is the docs
+  // drawer's spec, which pays for the iframe.
+  //
+  // Line 30, not line 10: the keystroke above landed in line 10 and changed it.
+  const reference = page.getByRole('button', { name: /Look up PRINT/ });
+  const usages = page.getByRole('button', { name: /Show where .* is used/ });
+  const printLine = page.locator('.cm-line').filter({ hasText: 'PRINT SUM' });
+
+  await printLine.getByText('PRINT', { exact: true }).click();
+  await expect(reference).toBeVisible();
+  await expect(usages).toBeHidden();
+
+  await printLine.getByText('SUM', { exact: true }).click();
+  await expect(usages).toBeVisible();
+  await expect(reference).toBeHidden();
+
+  // Escape closes the menu without also dismissing anything behind the editor.
+  await page.keyboard.press('Escape');
+  await expect(usages).toBeHidden();
+  await expect(page.locator('.cm-content')).toBeVisible();
 });

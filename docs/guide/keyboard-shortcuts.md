@@ -54,6 +54,7 @@ debugging, file operations, and toggling the panels.
 | Release the emulator / close a panel | <kbd>Esc</kbd>                             |
 
 When the emulator screen is focused it captures your keystrokes for the running
-program; press <kbd>Esc</kbd> to hand control back to the rest of the IDE. If a
-keyword is selected in the editor then F1 jumps straight to that keyword
-on the current machine's [language reference](/reference/).
+program; press <kbd>Esc</kbd> to hand control back to the rest of the IDE. To
+look up a particular keyword, click it in the editor and choose **Reference**
+rather than pressing F1 — see
+[looking up a keyword](./writing-basic#looking-up-a-keyword).

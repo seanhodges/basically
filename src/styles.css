@@ -277,29 +277,30 @@ code {
 }
 
 /* Keep the highlighted completion readable against the dark surface - and give
-   the usages offer the same highlight, since it is the same gesture answered in
-   the same place. */
+   the click menu's rows the same highlight, since it is the same gesture
+   answered in the same place. */
 .cm-tooltip-autocomplete > ul > li[aria-selected],
-.cm-variableUsagesOffer:hover,
-.cm-variableUsagesOffer:focus-visible {
+.cm-clickMenuRow:hover,
+.cm-clickMenuRow:focus-visible {
   background: var(--accent);
   color: #fff;
 }
 
-/* The variable-usages offer: one row in the completion popup's idiom, so a
-   click on a name is answered where a completion would answer. The surface
-   comes from .cm-tooltip above; only the row itself needs describing. */
-.cm-variableUsagesTooltip {
-  overflow: hidden; /* clip the row's fill to the tooltip's rounded corners */
+/* The click menu: rows in the completion popup's idiom, so a click on a token
+   is answered where a completion would answer. The surface comes from
+   .cm-tooltip above; only the rows themselves need describing. One row is all
+   any token offers today, but the list is laid out for however many it has. */
+.cm-clickMenu {
+  overflow: hidden; /* clip a row's fill to the menu's rounded corners */
 }
 
-.cm-variableUsagesList {
+.cm-clickMenuList {
   list-style: none;
   margin: 0;
   padding: 2px;
 }
 
-.cm-variableUsagesOffer {
+.cm-clickMenuRow {
   display: flex;
   align-items: center;
   width: 100%;
@@ -315,8 +316,8 @@ code {
 }
 
 /* Sized and spaced like CodeMirror's own completion icons, so the glyph column
-   lines up with the completion popup's. */
-.cm-variableUsagesIcon {
+   lines up with the completion popup's. One glyph per row kind. */
+.cm-clickMenuIcon {
   flex: 0 0 auto;
   width: 0.8em;
   padding-right: 0.6em;
@@ -326,8 +327,12 @@ code {
   opacity: 0.7;
 }
 
-.cm-variableUsagesIcon::after {
+.cm-clickMenuIcon-usages::after {
   content: '⌕';
+}
+
+.cm-clickMenuIcon-reference::after {
+  content: '?';
 }
 
 /* The bars themselves. Only one is ever mounted: opening either takes the

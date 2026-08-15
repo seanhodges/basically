@@ -436,6 +436,37 @@ test('a narrow viewport points at the comparison instead of burying the program'
   ).toHaveAttribute('data-target-machine', 'commodore64', { timeout: 15_000 });
 });
 
+test('a keyword lookup names its own topic and the comparison waits', async ({
+  page,
+}) => {
+  // The comparison wins for every opener that does not name a topic. Picking a
+  // keyword names one, so it goes there instead - and the comparison is still
+  // there to be opened afterwards. Only a real drawer can show the topic
+  // actually changing inside the live iframe and then changing back.
+  await beginPort(page);
+  const drawer = drawerOf(page);
+  const frame = drawer.frameLocator('iframe');
+  await expect(
+    frame.getByRole('button', { name: /^Porting from:/ }),
+  ).toHaveAttribute('data-target-machine', 'commodore64', { timeout: 15_000 });
+
+  await page.locator('.cm-content').getByText('PRINT').first().click();
+  await page.getByRole('button', { name: /Look up PRINT/ }).click();
+  await expect(frame.getByLabel('Search keyword names')).toHaveValue('PRINT');
+
+  // Closing and reopening without naming a topic lands back on the comparison.
+  // Closed from the drawer's own handle rather than F1: once the frame has
+  // routed, focus sits on the iframe and F1 reaches the docs document instead
+  // of the app - which is why Escape, not F1, is what dismissal promises there.
+  await page.getByRole('button', { name: 'Close documentation' }).click();
+  await expect(drawer).toBeHidden();
+  await page.keyboard.press('F1');
+  await expect(drawer).toBeVisible();
+  await expect(
+    frame.getByRole('button', { name: /^Porting from:/ }),
+  ).toBeVisible();
+});
+
 test('the indicator goes as soon as the user does anything else', async ({
   page,
 }) => {

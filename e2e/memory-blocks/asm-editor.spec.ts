@@ -139,6 +139,18 @@ test('block tabs appear; the code block opens an editable disassembly', async ({
   await expect(page.locator('.cm-content').first()).toBeVisible();
   await page.getByRole('tab', { name: 'border' }).click();
   await expect(asmContent(page)).toContainText('LD A,$07');
+
+  // The click menu reaches this editor too, which only a browser can show: it
+  // is a second, separately-configured CodeMirror, and the row depends on
+  // posAtCoords landing on the mnemonic's own glyphs. Which tokens qualify is
+  // settled in src/editor/tokenAt.test.ts; that the drawer opens on the right
+  // topic is settled in e2e/shell/docs-drawer.spec.ts, so this stops at the
+  // drawer rather than paying for a second cold docs iframe.
+  await asmContent(page).getByText('RET', { exact: true }).click();
+  await page.getByRole('button', { name: /Look up RET/ }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Documentation' }),
+  ).toBeVisible();
 });
 
 test('a syntax error marks the tab and leaves the bytes untouched', async ({

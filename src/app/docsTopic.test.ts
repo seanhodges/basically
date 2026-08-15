@@ -11,10 +11,9 @@ import {
 import { BASIC_TAB } from './store';
 
 describe('referenceTopic', () => {
-  it('returns null when the selection is empty or whitespace only', () => {
-    const zx81 = getDialect('zx81');
-    expect(referenceTopic(zx81, '')).toBeNull();
-    expect(referenceTopic(zx81, '   \n\t ')).toBeNull();
+  it('returns null when there is no keyword', () => {
+    // The menu row is withheld rather than opening an empty reference table.
+    expect(referenceTopic(getDialect('zx81'), '')).toBeNull();
   });
 
   it('builds a reference path with the keyword query for a self-named page', () => {
@@ -32,12 +31,6 @@ describe('referenceTopic', () => {
     );
     expect(referenceTopic(getDialect('bbcmaster'), 'MODE')).toBe(
       'reference/bbc?q=MODE',
-    );
-  });
-
-  it('uses only the first token of a multi-word selection', () => {
-    expect(referenceTopic(getDialect('zx81'), '  PRINT AT 0,0  ')).toBe(
-      'reference/zx81?q=PRINT',
     );
   });
 
@@ -64,46 +57,44 @@ describe('referenceTopic', () => {
 
 describe('asmReferenceTopic', () => {
   it('builds a per-CPU asm path seeded with the mnemonic', () => {
-    expect(asmReferenceTopic('z80', 'LD A,5')).toBe(
-      'reference/z80-assembly?q=LD',
-    );
+    expect(asmReferenceTopic('z80', 'LD')).toBe('reference/z80-assembly?q=LD');
     expect(asmReferenceTopic('6502', 'lda')).toBe(
       'reference/6502-assembly?q=lda',
     );
   });
 
-  it('opens the CPU page even with no selection (unlike the BASIC topic)', () => {
-    expect(asmReferenceTopic('z80', '')).toBe('reference/z80-assembly');
-    expect(asmReferenceTopic('6502', '  ')).toBe('reference/6502-assembly');
+  it('opens the CPU page bare (unlike the BASIC topic)', () => {
+    expect(asmReferenceTopic('z80')).toBe('reference/z80-assembly');
+    expect(asmReferenceTopic('6502', '')).toBe('reference/6502-assembly');
   });
 });
 
 describe('referenceTopicFor', () => {
+  // Only the tab speaks: a block tab makes its CPU's page the context whatever
+  // the buffer holds, and it is opened bare. Picking out a keyword belongs to
+  // the editor's own menu, not to a button elsewhere on screen.
   it('routes to the CPU asm page when a block tab is active', () => {
     expect(
       referenceTopicFor({
         dialect: getDialect('zxspectrum'),
-        editorSelection: 'PUSH HL',
         activeTab: { kind: 'block', id: 'listing-0' },
       }),
-    ).toBe('reference/z80-assembly?q=PUSH');
+    ).toBe('reference/z80-assembly');
     expect(
       referenceTopicFor({
         dialect: getDialect('commodore64'),
-        editorSelection: 'JSR $FFD2',
         activeTab: { kind: 'block', id: 'block-1' },
       }),
-    ).toBe('reference/6502-assembly?q=JSR');
+    ).toBe('reference/6502-assembly');
   });
 
-  it('routes to the dialect BASIC page when no block tab is active', () => {
+  it('yields nothing on a BASIC tab, so the docs open at their home', () => {
     expect(
       referenceTopicFor({
         dialect: getDialect('commodore64'),
-        editorSelection: 'POKE',
         activeTab: BASIC_TAB,
       }),
-    ).toBe('reference/commodore?q=POKE');
+    ).toBeNull();
   });
 
   // Guards the CPU -> asm-page mapping the same way the BASIC test above does:
@@ -119,7 +110,6 @@ describe('referenceTopicFor', () => {
         id: d.id,
         topic: referenceTopicFor({
           dialect: d,
-          editorSelection: '',
           activeTab: { kind: 'block', id: 'x' },
         }),
       }))
@@ -131,7 +121,6 @@ describe('referenceTopicFor', () => {
 describe('openingTopicFor', () => {
   const base = {
     dialect: getDialect('commodore64'),
-    editorSelection: 'POKE',
     activeTab: BASIC_TAB,
   };
 
@@ -147,27 +136,27 @@ describe('openingTopicFor', () => {
     ).toBe('reference/compare?from=commodore64&to=zx81');
   });
 
-  it('falls back to the usual contextual reference with no comparison', () => {
-    expect(openingTopicFor({ ...base, docsProgramTopic: null })).toBe(
-      'reference/commodore?q=POKE',
-    );
+  it('opens the docs home from a BASIC tab with no comparison', () => {
+    expect(openingTopicFor({ ...base, docsProgramTopic: null })).toBeNull();
   });
 
-  it('falls back to null when there is no context either', () => {
+  // The one piece of the old selection-driven behaviour that survives, and the
+  // easiest to lose by accident: a block tab is context from the tab, not from
+  // anything the user picked, so it still opens its CPU's page.
+  it('opens the CPU page from a block tab with no comparison', () => {
     expect(
       openingTopicFor({
         ...base,
-        editorSelection: '',
+        activeTab: { kind: 'block', id: 'block-1' },
         docsProgramTopic: null,
       }),
-    ).toBeNull();
+    ).toBe('reference/6502-assembly');
   });
 
   it('still prefers the comparison over an active block tab', () => {
     expect(
       openingTopicFor({
         ...base,
-        editorSelection: 'JSR $FFD2',
         activeTab: { kind: 'block', id: 'block-1' },
         docsProgramTopic: 'reference/compare?from=commodore64&to=zx81',
       }),

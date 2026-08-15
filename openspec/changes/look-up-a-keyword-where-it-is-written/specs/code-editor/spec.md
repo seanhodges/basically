@@ -14,8 +14,10 @@ offered; a line number, a number, a variable name, a processor register, text in
 string literal and text inside a comment SHALL NOT be. Punctuation that separates the
 parts of a line SHALL NOT be offered, having nothing to look up.
 
-The reference SHALL open at the picked keyword even where a porting comparison is
-current, since the user has named what they want to read.
+A keyword written in one of the machine's short spellings SHALL NOT be offered, since
+what stands in the text is not a keyword until it is expanded; the reference page's own
+search still finds it. The reference SHALL open at the picked keyword even where a
+porting comparison is current, since the user has named what they want to read.
 
 #### Scenario: Looking up a keyword
 
@@ -34,6 +36,13 @@ current, since the user has named what they want to read.
   machine-code block
 - **THEN** the documentation opens at the reference for that block's processor, showing
   that instruction
+
+#### Scenario: A keyword typed in a short spelling
+
+- **WHEN** the user picks a keyword written in one of the machine's short spellings, as
+  a listing prints it
+- **THEN** no reference offer is made, and the reference page's search still finds that
+  spelling
 
 #### Scenario: Text that is not a keyword
 

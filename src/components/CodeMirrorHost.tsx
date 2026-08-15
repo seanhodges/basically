@@ -62,7 +62,14 @@ import { dialectLinter } from '../editor/lintIntegration';
 import { basicHighlightStyle } from '../editor/basicLanguage';
 import { binaryLineExtension } from '../editor/binaryLineWidget';
 import { controlChipExtension } from '../editor/controlChipWidget';
-import { variableUsagesExtension } from '../editor/variableUsagesView';
+import {
+  variableUsagesFeature,
+  variableUsagesRow,
+} from '../editor/variableUsagesView';
+import { clickMenu } from '../editor/clickMenu';
+import { BASIC_REFERENCE_KINDS, referenceRow } from '../editor/referenceRow';
+import { operatorSpellings } from '../dialects/operators';
+import { referenceTopic } from '../app/docsTopic';
 import { numberingConfig, fullCompletion } from '../editor/completions';
 import { crunchMatcher } from '../editor/crunch';
 import {
@@ -704,9 +711,19 @@ export function CodeMirrorHost({
         syntaxHighlighting(basicHighlightStyle),
         dialect.languageSupport(),
         dialectLinter(dialect),
-        // Click a variable to be offered its usages, matched as the machine
-        // would match them rather than as text.
-        variableUsagesExtension(dialect.id, dialect.keywords),
+        // Click a token to be offered what the editor can say about it: a
+        // variable's usages, matched as the machine would match them rather
+        // than as text, or a keyword's entry in this machine's reference.
+        clickMenu([
+          variableUsagesRow(dialect.id, dialect.keywords),
+          referenceRow({
+            kinds: BASIC_REFERENCE_KINDS,
+            operators: operatorSpellings(dialect),
+            topic: (word) => referenceTopic(dialect, word),
+            open: (topic) => useIdeStore.getState().openDocs(topic),
+          }),
+        ]),
+        variableUsagesFeature,
         // Collapse opaque #BIN machine-code lines into chips, but only for
         // dialects whose tokenizer accepts them - elsewhere the raw text must
         // stay visible so its tokenizer error is.
@@ -733,14 +750,6 @@ export function CodeMirrorHost({
             onChangeRef.current(update.state.doc.toString());
           if (update.focusChanged)
             useIdeStore.getState().setEditorFocused(update.view.hasFocus);
-          if (update.selectionSet || update.docChanged) {
-            const sel = update.state.selection.main;
-            useIdeStore
-              .getState()
-              .setEditorSelection(
-                sel.empty ? '' : update.state.sliceDoc(sel.from, sel.to),
-              );
-          }
           const open = searchPanelOpen(update.state);
           if (open !== searchOpen) {
             searchOpen = open;
