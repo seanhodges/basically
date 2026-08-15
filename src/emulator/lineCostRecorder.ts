@@ -5,9 +5,14 @@ import type { LineCost, ProfileCostUnit } from '../dialects/types';
  *
  * The figure the C64's debugger already justifies (`DEBUG_SLICE_CYCLES`): no
  * BASIC line takes fewer cycles than this to execute, so sampling on it never
- * steps over a line transition, and sampling less often than every instruction
- * is what keeps the per-frame overhead small. Shared here so the machines
- * measure on one cadence rather than each inventing its own.
+ * steps over a line transition. Shared here so the machines measure on one
+ * cadence rather than each inventing its own.
+ *
+ * What it costs, measured per machine at 600 frames of a tight BASIC loop:
+ * around +1.1ms a frame on the slowest core (the C64, 6.9 → 8.0ms) and +0.3ms
+ * on the fastest (the ZX81, 0.36 → 0.65ms). Against a 20ms frame budget that is
+ * affordable on every core, which is what lets recording be armed for a whole
+ * run rather than for a mode the user has to choose.
  */
 export const PROFILE_SLICE_CYCLES = 8;
 

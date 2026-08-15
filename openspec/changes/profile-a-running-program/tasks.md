@@ -105,29 +105,37 @@ wraps its bus for memory-activity recording.
 
 ## 8. Documentation
 
-- [ ] 8.1 Document in `docs/guide/` what the profile measures, that its
+- [x] 8.1 Document in `docs/guide/` what the profile measures, that its
       durations are the emulated machine's own time, and that a line's cost
       excludes the routines it calls. Do not touch the sidebar config.
 
 ## 9. Quality gates
 
-- [ ] 9.1 Add `e2e/profiling/` with at least one browser smoke test — the gutter
+- [x] 9.1 Add `e2e/profiling/` with at least one browser smoke test — the gutter
       actually painting heat after a run, and the memory account rendering — on
       one representative machine, extending an existing journey where possible.
       `src/e2eCapabilityLayout.test.ts` requires the folder to exist for the new
       capability.
-- [ ] 9.2 Measure the always-on recording cost on the slowest core and record
+- [x] 9.2 Measure the always-on recording cost on the slowest core and record
       the result. If it is not negligible, fall back to arming recording per run
       rather than for the machine's whole life.
-- [ ] 9.3 `npm run typecheck`
-- [ ] 9.4 `npm test`
-- [ ] 9.5 `npm run lint`
-- [ ] 9.6 `npm run format:check` (or `npm run format`)
-- [ ] 9.7 `npm run docs:build` (docs/ changed in task 8.1)
-- [ ] 9.8 `npm run e2e:chromium -- e2e/profiling`
-- [ ] 9.9 `npm run e2e:chromium -- e2e/program-execution` and
+      Measured over 600 frames of a tight BASIC loop, per frame: C64 6.87 →
+      8.02ms (+16.7%), BBC Micro 2.56 → 3.05ms, CPC 2.02 → 2.08ms, Spectrum
+      0.78 → 1.15ms, PET 0.69 → 0.99ms, ZX81 0.36 → 0.65ms (+82.8% relative,
+      +0.29ms absolute), TRS-80 interpreter within noise. Against a 20ms frame
+      budget the worst case is +5.7% of the budget, so recording stays armed for
+      the run. It is armed per run already - the run loop arms it after
+      `loadProgram` and disarms on stop, reset and teardown - so an idle machine
+      never records.
+- [x] 9.3 `npm run typecheck`
+- [x] 9.4 `npm test`
+- [x] 9.5 `npm run lint`
+- [x] 9.6 `npm run format:check` (or `npm run format`)
+- [x] 9.7 `npm run docs:build` (docs/ changed in task 8.1)
+- [x] 9.8 `npm run e2e:chromium -- e2e/profiling`
+- [x] 9.9 `npm run e2e:chromium -- e2e/program-execution` and
       `npm run e2e:chromium -- e2e/code-editor` — the run loop and the editor
       gutter both changed. Check off only on a passing run; note what failed
       otherwise.
-- [ ] 9.10 `npm run e2e:chromium -- e2e/ai-assistant` — the tool set changed.
+- [x] 9.10 `npm run e2e:chromium -- e2e/ai-assistant` — the tool set changed.
       Same rule.

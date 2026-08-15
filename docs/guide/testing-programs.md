@@ -142,6 +142,59 @@ The `{x}` toggle lives in the status bar, so on a phone it's on every tab except
 in landscape (where the status bar is hidden); the watcher panel itself appears
 under the screen on the **Run** tab.
 
+## Finding the slow line
+
+Every run measures itself. There's no profiling mode to switch on and no run
+that turns out not to have been measured - by the time you've watched a program
+crawl, the measurements of that run are already there.
+
+The moment a program starts running, coloured bars appear in the gutter beside
+your lines. Each bar is that line's share of the run's time: a pale yellow bar
+for a line that was incidental to the run, deepening through orange to red for
+the line that dominated it. A line that never ran carries no bar at all, which
+is different from a line that ran cheaply. Hover a bar to see the exact
+percentage. The bars sit on the gutter's inside edge, so they never hide an
+error marker or a breakpoint dot.
+
+For the whole picture, open **Edit ▸ Run profile**. It lists:
+
+- **the hottest lines**, as shares of the run - click one to jump to it;
+- **the same shares summed over each routine**, using the procedures,
+  subroutines and jump targets from the
+  [outline](./writing-basic#outline), so you can read what a routine cost
+  without adding its lines up by hand;
+- **BASIC RAM across the run**, drawn against the run's own elapsed time, with
+  the most memory the program ever used.
+
+That memory chart is how you catch the classic Commodore freeze: a program that
+builds strings fills memory steadily and then stalls for the best part of a
+second while BASIC reclaims what it can. On the chart that's a rising line and a
+sudden drop, at the moment your program appeared to hang.
+
+Two things are worth knowing about the numbers.
+
+**They are the machine's own time, not yours.** A duration is what the program
+would take on the real hardware. Running the emulator at four times speed to get
+through a long program faster doesn't change a single figure, and neither does
+the refresh rate of your screen.
+
+**A line's cost is that line alone.** Time spent inside a routine is charged to
+the routine's own lines, never to the line that called it. So a `GOSUB` reads as
+cheap however much work it sets off - which is why the profile also offers the
+per-routine totals. If a call site looks free but your program is slow, look at
+what it calls.
+
+Not every machine can be measured. Measuring means charging time to the BASIC
+line being executed, and a machine that can't report which line that is - the
+same machines that offer no breakpoints - reports no per-line costs and says so
+rather than showing zeroes. A machine that can't report its BASIC memory
+figures likewise says the memory account is unavailable.
+
+Measurements describe one run of one program. Starting a new run replaces them,
+and editing your program so that its lines no longer match - adding, removing or
+renumbering one - discards them rather than marking lines that no longer
+correspond.
+
 ## Inspecting data files
 
 On the machines that can write non-program data files, the IDE captures these and
