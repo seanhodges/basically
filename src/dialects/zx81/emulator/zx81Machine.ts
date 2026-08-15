@@ -76,10 +76,7 @@ export class Zx81Machine implements MachineEmulator {
    * arms it for the life of a run, and {@link stepInstruction} charges the
    * T-states it consumes to the line executing at the time.
    */
-  private readonly profile = new LineCostRecorder(
-    'cycles',
-    PROFILE_SLICE_CYCLES,
-  );
+  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
 
   /**
    * T-states the previous frame overran its budget by, owed back to this one.

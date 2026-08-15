@@ -22,7 +22,7 @@ function costsOf(rec: LineCostRecorder): Record<number, number> | null {
 
 describe('LineCostRecorder', () => {
   it('accumulates each line’s cost across many samples', () => {
-    const rec = new LineCostRecorder('cycles', PROFILE_SLICE_CYCLES);
+    const rec = new LineCostRecorder(PROFILE_SLICE_CYCLES);
     rec.setEnabled(true);
     run(rec, [
       [8, 10],
@@ -33,15 +33,8 @@ describe('LineCostRecorder', () => {
     expect(costsOf(rec)).toEqual({ 10: 32, 20: 8 });
   });
 
-  it('carries the machine’s own unit out with every figure', () => {
-    const frames = new LineCostRecorder('frames', 0.05);
-    frames.setEnabled(true);
-    run(frames, [[0.05, 30]]);
-    expect(frames.drain()).toEqual([{ line: 30, cost: 0.05, unit: 'frames' }]);
-  });
-
   it('drains and resets, so a figure describes one run', () => {
-    const rec = new LineCostRecorder('cycles', PROFILE_SLICE_CYCLES);
+    const rec = new LineCostRecorder(PROFILE_SLICE_CYCLES);
     rec.setEnabled(true);
     run(rec, [[8, 10]]);
     expect(costsOf(rec)).toEqual({ 10: 8 });
@@ -52,7 +45,7 @@ describe('LineCostRecorder', () => {
   });
 
   it('drops time spent outside any BASIC line rather than parking it', () => {
-    const rec = new LineCostRecorder('cycles', PROFILE_SLICE_CYCLES);
+    const rec = new LineCostRecorder(PROFILE_SLICE_CYCLES);
     rec.setEnabled(true);
     run(rec, [
       [8, 10],
@@ -64,7 +57,7 @@ describe('LineCostRecorder', () => {
   });
 
   it('holds a part-slice back until the slice fills', () => {
-    const rec = new LineCostRecorder('cycles', PROFILE_SLICE_CYCLES);
+    const rec = new LineCostRecorder(PROFILE_SLICE_CYCLES);
     rec.setEnabled(true);
     run(rec, [
       [4, 10],
@@ -78,7 +71,7 @@ describe('LineCostRecorder', () => {
   });
 
   it('records nothing while disabled, and says so with null', () => {
-    const rec = new LineCostRecorder('cycles', PROFILE_SLICE_CYCLES);
+    const rec = new LineCostRecorder(PROFILE_SLICE_CYCLES);
     run(rec, [
       [8, 10],
       [8, 20],
@@ -88,13 +81,13 @@ describe('LineCostRecorder', () => {
   });
 
   it('empty rather than null once armed with nothing yet measured', () => {
-    const rec = new LineCostRecorder('cycles', PROFILE_SLICE_CYCLES);
+    const rec = new LineCostRecorder(PROFILE_SLICE_CYCLES);
     rec.setEnabled(true);
     expect(rec.drain()).toEqual([]);
   });
 
   it('drops what it holds when disarmed, so a later run never inherits it', () => {
-    const rec = new LineCostRecorder('cycles', PROFILE_SLICE_CYCLES);
+    const rec = new LineCostRecorder(PROFILE_SLICE_CYCLES);
     rec.setEnabled(true);
     run(rec, [[8, 10]]);
     rec.setEnabled(false);

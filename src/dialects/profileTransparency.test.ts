@@ -27,18 +27,10 @@ import {
 const BOOT_TIMEOUT_MS = 60_000;
 
 /**
- * One dialect per way a machine is wired to its core: the in-tree Z80 machines,
- * the shared 6502, viciious, jsbeeb, the CPC's own Z80 loop, and the statement
- * interpreter.
+ * One dialect per way a profiled machine is wired to its core: the in-tree Z80
+ * machines, the shared 6502, viciious, jsbeeb, and the CPC's own Z80 loop.
  */
-const FAMILIES = [
-  'zxspectrum',
-  'pet',
-  'commodore64',
-  'bbcmicro',
-  'cpc464',
-  'trs80',
-];
+const FAMILIES = ['zxspectrum', 'pet', 'commodore64', 'bbcmicro', 'cpc464'];
 
 /** Prints as it counts, so the screen carries the run's whole history. */
 const PROBE = '10 FOR I=1 TO 40\n20 PRINT I;\n30 NEXT I\n40 GOTO 10\n';

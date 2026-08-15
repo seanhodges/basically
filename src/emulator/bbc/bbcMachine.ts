@@ -245,7 +245,7 @@ export class BbcMachine implements MachineEmulator {
    * arms it for the life of a run, and {@link runCycles} then advances in
    * {@link DEBUG_SLICE_CYCLES} slices so each can be charged to a line.
    */
-  private readonly profile = new LineCostRecorder('cycles', DEBUG_SLICE_CYCLES);
+  private readonly profile = new LineCostRecorder(DEBUG_SLICE_CYCLES);
 
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;

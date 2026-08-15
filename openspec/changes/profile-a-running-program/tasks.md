@@ -1,8 +1,8 @@
 ## 1. The measurement seam
 
 - [x] 1.1 Add the profile cost types to `src/dialects/types.ts`: a per-line cost
-      entry carrying the line number, the accumulated cost and the unit that
-      cost is counted in (cycles, or frames where a machine has no cycles).
+      entry carrying the line number and the CPU cycles charged to it. One unit,
+      because a machine with no cycles to count is not profiled at all.
 - [x] 1.2 Add `setProfileRecording?(enabled: boolean)` and `drainProfile?()` to
       `MachineEmulator`, documenting the same contract
       `setMemoryActivityRecording` / `drainMemoryActivity` carry: off by
@@ -29,9 +29,10 @@ wraps its bus for memory-activity recording.
 - [x] 2.5 PET and VIC-20 — same, with colocated tests.
 - [x] 2.6 BBC — same, with a colocated test.
 - [x] 2.7 CPC — same, with a colocated test.
-- [x] 2.8 TRS-80 interpreter — accumulate in frames rather than cycles, since it
-      executes statements and has no cycle budget; colocated test asserts the
-      unit it reports.
+- [x] 2.8 TRS-80 interpreter — NOT instrumented: it executes statements and has
+      no cycle budget, so there is nothing to charge. Recorded in the tables at
+      2.9 and 7.3 alongside the machines that cannot name a line, so the absence
+      is a stated decision rather than an omission.
 - [x] 2.9 Registry-driven test pinning which registered machines report per-line
       costs and which report memory figures, constructing every registered
       machine rather than asserting a written-down list (pattern:
@@ -59,9 +60,9 @@ wraps its bus for memory-activity recording.
       produced it, following how breakpoints are held per buffer.
 - [x] 4.2 Discard per-line costs when the program is edited such that its lines
       no longer correspond to the measured ones. Colocated test.
-- [x] 4.3 Derive each line's share of the run's total as a unit-free proportion,
-      so the display is identical whether the machine counted cycles or frames.
-      Colocated test covering both units.
+- [x] 4.3 Derive each line's share of the run's total as a proportion, so the
+      display needs no clock rate and machines at different speeds read alike.
+      Colocated test.
 - [x] 4.4 Roll line costs up over the routines and jump destinations
       `src/editor/programOutline.ts` already extracts. Colocated test.
 

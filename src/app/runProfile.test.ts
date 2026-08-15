@@ -13,16 +13,7 @@ import {
 } from './runProfile';
 import { outlineCapabilities } from '../editor/programOutline';
 
-const CYCLES = (line: number, cost: number): LineCost => ({
-  line,
-  cost,
-  unit: 'cycles',
-});
-const FRAMES = (line: number, cost: number): LineCost => ({
-  line,
-  cost,
-  unit: 'frames',
-});
+const CYCLES = (line: number, cost: number): LineCost => ({ line, cost });
 
 /** A machine reporting a steady 1000/9000 split. */
 const steady = (): MachineMemoryStats => ({ used: 1000, free: 9000 });
@@ -38,18 +29,18 @@ function run(
 }
 
 describe('lineShares', () => {
-  it('reads the same whether the machine counted cycles or frames', () => {
-    const inCycles = lineShares([CYCLES(20, 750), CYCLES(30, 250)]);
-    const inFrames = lineShares([FRAMES(20, 0.75), FRAMES(30, 0.25)]);
-    expect(inCycles.map((s) => [s.line, s.share])).toEqual([
+  it('reads a run as proportions, whatever the machine is clocked at', () => {
+    // The same shares whether the cycles were counted at 1MHz or at 4: a share
+    // is what "where did the time go" asks, and it needs no clock rate.
+    const slow = lineShares([CYCLES(20, 750), CYCLES(30, 250)]);
+    const fast = lineShares([CYCLES(20, 3_000_000), CYCLES(30, 1_000_000)]);
+    expect(slow.map((s) => [s.line, s.share])).toEqual([
       [20, 0.75],
       [30, 0.25],
     ]);
-    expect(inFrames.map((s) => [s.line, s.share])).toEqual(
-      inCycles.map((s) => [s.line, s.share]),
+    expect(fast.map((s) => [s.line, s.share])).toEqual(
+      slow.map((s) => [s.line, s.share]),
     );
-    expect(inCycles[0]!.unit).toBe('cycles');
-    expect(inFrames[0]!.unit).toBe('frames');
   });
 
   it('orders by share, so the line dominating a run comes first', () => {
@@ -142,9 +133,7 @@ describe('RunProfiler', () => {
   it('accumulates per-line costs across the frames of a run', () => {
     const p = new RunProfiler(null, [10, 20]);
     run(p, 3, [CYCLES(20, 100)]);
-    expect(p.snapshot().lines).toEqual([
-      { line: 20, cost: 300, unit: 'cycles' },
-    ]);
+    expect(p.snapshot().lines).toEqual([{ line: 20, cost: 300 }]);
   });
 
   it('reports the run in the machine’s own time, not the browser’s', () => {

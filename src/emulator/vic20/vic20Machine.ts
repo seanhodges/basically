@@ -150,10 +150,7 @@ export class Vic20Machine implements MachineEmulator {
    * arms it for the life of a run, and {@link tick} charges the cycle it runs to
    * the line executing at the time.
    */
-  private readonly profile = new LineCostRecorder(
-    'cycles',
-    PROFILE_SLICE_CYCLES,
-  );
+  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
   private readonly vic = new VicI();
   private readonly vicAudio = new VicAudioRenderer();
   private cpu: StateMachineCpu | null = null;

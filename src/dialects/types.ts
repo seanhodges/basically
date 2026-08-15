@@ -344,23 +344,20 @@ export interface MachineMemoryStats {
 }
 
 /**
- * What a machine counts a profiled line's cost in.
+ * One BASIC line's measured cost over a run, in the CPU cycles the machine
+ * spent executing it.
  *
- * Not uniform, and deliberately not made uniform: every machine that executes
- * a CPU counts `cycles`, but the TRS-80's interpreter executes statements and
- * has no cycle budget at all, so it counts the only clock it has - `frames`.
- * The unit travels with the figure rather than being assumed, and a share of
- * the run's total (what the editor draws) is unit-free either way.
+ * Cycles because a profiled machine is one running a real ROM on a real CPU
+ * model, and every one of those counts them because it must. A backend that
+ * interprets BASIC statements has no cycle budget to charge and is not
+ * profiled at all, rather than answering in a second unit everything reading
+ * these figures would have to carry.
  */
-export type ProfileCostUnit = 'cycles' | 'frames';
-
-/** One BASIC line's measured cost over a run, as the machine counted it. */
 export interface LineCost {
   /** The BASIC line number the cost was charged to. */
   line: number;
-  /** How much of {@link unit} was spent executing that line. */
+  /** CPU cycles spent executing that line. */
   cost: number;
-  unit: ProfileCostUnit;
 }
 
 /**

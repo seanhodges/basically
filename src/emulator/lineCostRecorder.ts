@@ -1,4 +1,4 @@
-import type { LineCost, ProfileCostUnit } from '../dialects/types';
+import type { LineCost } from '../dialects/types';
 
 /**
  * Cycles a cycle-counting machine runs between line samples.
@@ -17,7 +17,8 @@ import type { LineCost, ProfileCostUnit } from '../dialects/types';
 export const PROFILE_SLICE_CYCLES = 8;
 
 /**
- * Per-BASIC-line cost accumulated between drains, for the always-on profiler.
+ * Per-BASIC-line cycle cost accumulated between drains, for the always-on
+ * profiler.
  *
  * Shared across dialects: any machine that can say which BASIC line it is
  * executing owns one and charges the step it already runs. The contract is the
@@ -43,13 +44,11 @@ export const PROFILE_SLICE_CYCLES = 8;
 export class LineCostRecorder {
   /** When false, the hot path must not charge. Off by default. */
   enabled = false;
-  /** Cost accrued since the last sample, in {@link unit}. */
+  /** Cycles accrued since the last sample. */
   pending = 0;
   private costs = new Map<number, number>();
 
   constructor(
-    /** What this machine counts in - carried out with every drained figure. */
-    readonly unit: ProfileCostUnit,
     /** {@link pending} at which a sample is due. */
     readonly slice: number,
   ) {}
@@ -82,7 +81,7 @@ export class LineCostRecorder {
     if (!this.enabled) return null;
     const out: LineCost[] = [];
     for (const [line, cost] of this.costs) {
-      out.push({ line, cost, unit: this.unit });
+      out.push({ line, cost });
     }
     this.costs.clear();
     return out;

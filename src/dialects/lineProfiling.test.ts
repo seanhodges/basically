@@ -23,7 +23,7 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
 import { bootMachine, installNodeRomLoading, runFrames } from './bootHarness';
-import type { LineCost, MachineEmulator, ProfileCostUnit } from './types';
+import type { LineCost, MachineEmulator } from './types';
 
 /** Booting the real ROMs dominates every case here (see c64Machine.test.ts). */
 const BOOT_TIMEOUT_MS = 60_000;
@@ -37,14 +37,18 @@ const MEASURED_FRAMES = 200;
 /**
  * Machines that cannot report per-line costs, and why.
  *
- * The same two machines, for the same reason, as `debugCapability.test.ts`
- * records for the step-through debugger: a cost can only be charged to a line
- * the machine can name, and neither of these can name one. Written down so the
- * absence reads as a decision; the crosscheck below is what keeps it honest.
+ * Two of them for the reason `debugCapability.test.ts` records for the
+ * step-through debugger - a cost can only be charged to a line the machine can
+ * name, and neither of these can name one. The third for the other half of the
+ * same question: a cost is charged in CPU cycles, and a backend that interprets
+ * statements rather than executing a CPU has none to charge. Written down so
+ * each absence reads as a decision; the crosscheck below keeps it honest.
  */
 const NO_LINE_COSTS: Record<string, string> = {
   atom: 'no readable "line being executed" cell',
   altair8800: 'the 8K BASIC image does not ship, so nothing can be derived',
+  trs80:
+    'the interpreter executes statements, so there are no cycles to charge',
 };
 
 /**
@@ -57,9 +61,6 @@ const NO_LINE_COSTS: Record<string, string> = {
 const NO_MEMORY_FIGURES: Record<string, string> = {
   trs80: 'the interpreter has no RAM image, so there are no BASIC pointers',
 };
-
-/** What each machine counts in; cycles unless it has no cycles to count. */
-const UNITS: Record<string, ProfileCostUnit> = { trs80: 'frames' };
 
 function costOf(costs: readonly LineCost[], line: number): number {
   return costs.find((c) => c.line === line)?.cost ?? 0;
@@ -130,9 +131,6 @@ describe('every registered machine measures what it can', () => {
             `${dialect.id} measured nothing over ${MEASURED_FRAMES} frames`,
           ).toBeGreaterThan(0);
 
-          const unit = UNITS[dialect.id] ?? 'cycles';
-          expect(new Set(measured.map((c) => c.unit))).toEqual(new Set([unit]));
-
           const work = costOf(measured, 20);
           const jump = costOf(measured, 30);
           expect(
@@ -162,7 +160,6 @@ describe('every registered machine measures what it can', () => {
     for (const id of [
       ...Object.keys(NO_LINE_COSTS),
       ...Object.keys(NO_MEMORY_FIGURES),
-      ...Object.keys(UNITS),
     ]) {
       expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
     }

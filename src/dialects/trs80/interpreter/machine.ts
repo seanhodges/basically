@@ -5,7 +5,6 @@ import type {
   MachineFileStore,
   MachineReport,
   MachineScreenText,
-  LineCost,
   MachineVariable,
   MemoryBlock,
 } from '../../types';
@@ -17,7 +16,22 @@ import {
   DISPLAY_WIDTH,
   DISPLAY_HEIGHT,
 } from '../emulator/display';
-import { Interpreter, STATEMENTS_PER_FRAME } from './interpreter';
+import { Interpreter } from './interpreter';
+
+/**
+ * Statements executed per 50 Hz frame before yielding to render - i.e. the
+ * interpreter's emulated speed. Calibrated to authentic TRS-80 Level II BASIC
+ * throughput rather than raw host speed: ~20 statements/frame ≈ 1000 stmt/s,
+ * matching the Rugg/Feldman BM1 benchmark (`FOR K=1 TO 1000:NEXT` ≈ 1.3 s, so
+ * ~770 simple statements/s) and the Z80 backend's 35500 t-states/frame budget
+ * (1.77 MHz ÷ 50) at ~1–2k t-states per interpreted statement.
+ *
+ * The previous value (4000) ran the interpreter ~200× faster than real
+ * hardware, which made action games unplayable: the breakout ball's whole fall
+ * completed inside a single render frame, so the player only ever saw the final
+ * "GAME OVER" - the in-BASIC `FOR T` delays could never throttle it.
+ */
+const STATEMENTS_PER_FRAME = 20;
 
 /**
  * Frames per second this backend is calibrated against.
@@ -93,14 +107,6 @@ export class Trs80InterpreterMachine implements MachineEmulator {
 
   dispose(): void {
     this.interp.input.releaseAll();
-  }
-
-  setProfileRecording(enabled: boolean): void {
-    this.interp.profile.setEnabled(enabled);
-  }
-
-  drainProfile(): LineCost[] | null {
-    return this.interp.profile.drain();
   }
 
   /** The current BASIC line, for the debugger. */

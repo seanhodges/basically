@@ -93,10 +93,18 @@ export function canCheckByRunning(dialectId: string): boolean {
 /**
  * Dialect ids whose machines produce no measurements of a run.
  *
- * Derived from the machines and crosschecked the same way: measuring where a
- * run's time went means charging it to the BASIC line executing, so a machine
- * that cannot say which line that is cannot be measured at all. The same two
- * machines, for the same reasons, that have no step-through debugger.
+ * Derived from the machines and crosschecked the same way. Two reasons, both of
+ * them about what the machine can actually account for:
+ *
+ * Charging a run's time to a BASIC line needs the machine to say which line it
+ * is executing, and the Atom and the Altair cannot - the same two machines, for
+ * the same reasons, that have no step-through debugger.
+ *
+ * Charging it at all needs a clock to charge in, and the TRS-80's backend has
+ * none: it interprets BASIC statements rather than executing a CPU over a RAM
+ * image, so there are no cycles to attribute. It could be given a made-up
+ * currency of its own, but every figure in the IDE would then have to carry
+ * which currency it was in - for one machine, in a unit the hardware never had.
  *
  * Kept here rather than read off a machine because the decision is taken before
  * any machine exists - the assistant's tool set is settled per conversation from
@@ -107,6 +115,7 @@ export function canCheckByRunning(dialectId: string): boolean {
 export const DIALECTS_WITHOUT_PROFILE: ReadonlySet<string> = new Set([
   'atom',
   'altair8800',
+  'trs80',
 ]);
 
 /** Whether a run on this dialect's machine can be measured line by line. */

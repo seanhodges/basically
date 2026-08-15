@@ -1766,7 +1766,7 @@ describe('scratch buffers', () => {
       useIdeStore.getState().setRunProfile({
         bufferId: 'scratch-1',
         measuredLines: [10, 20],
-        lines: [{ line: 20, cost: 100, unit: 'cycles' }],
+        lines: [{ line: 20, cost: 100 }],
         memory: null,
         elapsed: 1,
       });
@@ -1782,7 +1782,7 @@ describe('scratch buffers', () => {
       const measured = {
         bufferId: null,
         measuredLines: [10, 20],
-        lines: [{ line: 20, cost: 100, unit: 'cycles' as const }],
+        lines: [{ line: 20, cost: 100 }],
         memory: null,
         elapsed: 1,
       };

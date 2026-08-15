@@ -6,16 +6,12 @@
  * the program would have taken on the hardware - frames divided by the machine's
  * frame rate - never elapsed time in the browser, so running at four times speed
  * on a 144Hz display reports exactly what running at real time on a 60Hz one
- * does. The per-line figures the machines produce are in whatever unit each has
- * (see {@link ../dialects/types.LineCost}), which is why the display works in
- * shares of the run's total: a share is unit-free, so a machine counting cycles
- * and one counting frames are read the same way.
+ * does. Per-line costs come back in CPU cycles, and are reported as shares of
+ * the run's total rather than as cycle counts: machines are clocked at wildly
+ * different rates, and the question "where did the time go" is asking for a
+ * proportion.
  */
-import type {
-  LineCost,
-  MachineMemoryStats,
-  ProfileCostUnit,
-} from '../dialects/types';
+import type { LineCost, MachineMemoryStats } from '../dialects/types';
 import {
   buildOutline,
   type OutlineCapabilities,
@@ -87,9 +83,9 @@ export interface RunProfile {
 /** A line's measured cost, and what fraction of the run it accounts for. */
 export interface LineShare {
   line: number;
+  /** CPU cycles charged to the line. */
   cost: number;
-  unit: ProfileCostUnit;
-  /** `cost` over the run's measured total: 0…1, and unit-free by construction. */
+  /** `cost` over the run's measured total, 0…1. */
   share: number;
 }
 
@@ -106,9 +102,9 @@ export interface RoutineShare {
 /**
  * Each line's share of the run, hottest first.
  *
- * Shares rather than durations because the machines do not agree about what
- * they are counting, and because a share is what the question "where did the
- * time go" actually asks. Lines that consumed nothing are absent, not zero: a
+ * Shares rather than cycle counts, because a share is what the question "where
+ * did the time go" actually asks and it does not need the machine's clock rate
+ * to be read. Lines that consumed nothing are absent, not zero: a
  * line that never ran is a different thing from one that ran cheaply, and the
  * editor draws the difference.
  */
@@ -215,7 +211,8 @@ export function lineHeat(shares: readonly LineShare[]): Map<number, LineHeat> {
  */
 export class RunProfiler {
   private readonly lines = new Map<number, number>();
-  private unit: ProfileCostUnit | null = null;
+  /** True once the machine has charged anything, so no costs reads as "none". */
+  private measuredLineCosts = false;
   private samples: MemorySample[] = [];
   private peakUsed = 0;
   private totalBytes = 0;
@@ -252,9 +249,8 @@ export class RunProfiler {
     // frame rate from CRTC registers a program can reprogram mid-run.
     this.elapsed += 1 / frameHz;
     if (costs) {
-      this.unit ??= costs[0]?.unit ?? null;
+      this.measuredLineCosts = true;
       for (const c of costs) {
-        this.unit ??= c.unit;
         this.lines.set(c.line, (this.lines.get(c.line) ?? 0) + c.cost);
       }
     }
@@ -286,14 +282,12 @@ export class RunProfiler {
 
   /** The profile as it stands, for the store and everything reading from it. */
   snapshot(): RunProfile {
-    const unit = this.unit;
     return {
       bufferId: this.bufferId,
       measuredLines: [...this.measuredLines],
-      lines:
-        unit === null
-          ? null
-          : [...this.lines].map(([line, cost]) => ({ line, cost, unit })),
+      lines: this.measuredLineCosts
+        ? [...this.lines].map(([line, cost]) => ({ line, cost }))
+        : null,
       memory: this.measuredMemory
         ? {
             samples: [...this.samples],

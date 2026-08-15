@@ -180,10 +180,7 @@ export class PetMachine implements MachineEmulator {
    * arms it for the life of a run, and {@link tick} charges the cycle it runs to
    * the line executing at the time.
    */
-  private readonly profile = new LineCostRecorder(
-    'cycles',
-    PROFILE_SLICE_CYCLES,
-  );
+  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
 
   private cpu: StateMachineCpu | null = null;
   private readonly pia1: Pia6520;

@@ -116,10 +116,7 @@ export class CpcMachine implements MachineEmulator {
    * arms it for the life of a run, and {@link stepInstruction} charges the
    * T-states it consumes to the line executing at the time.
    */
-  private readonly profile = new LineCostRecorder(
-    'cycles',
-    PROFILE_SLICE_CYCLES,
-  );
+  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
   private disposed = false;
 
   /**

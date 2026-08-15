@@ -285,10 +285,7 @@ export class C64Machine implements MachineEmulator {
    * arms it for the life of a run, and {@link tickOnce} charges the cycles it
    * runs to the line executing at the time.
    */
-  private readonly profile = new LineCostRecorder(
-    'cycles',
-    PROFILE_SLICE_CYCLES,
-  );
+  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
   /**
    * The unwrapped `wires.cpuRead`, captured before the activity-recording
    * wrappers are installed. Host-side introspection ({@link currentLine},

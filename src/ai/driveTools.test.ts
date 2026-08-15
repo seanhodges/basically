@@ -230,8 +230,8 @@ describe('describeProfile', () => {
     bufferId: null,
     measuredLines: [10, 20, 100, 110],
     lines: [
-      { line: 100, cost: 800, unit: 'cycles' },
-      { line: 10, cost: 200, unit: 'cycles' },
+      { line: 100, cost: 800 },
+      { line: 10, cost: 200 },
     ],
     memory: {
       samples: [{ at: 1, used: 900, free: 15_484 }],

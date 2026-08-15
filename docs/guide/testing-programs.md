@@ -184,11 +184,12 @@ cheap however much work it sets off - which is why the profile also offers the
 per-routine totals. If a call site looks free but your program is slow, look at
 what it calls.
 
-Not every machine can be measured. Measuring means charging time to the BASIC
-line being executed, and a machine that can't report which line that is - the
-same machines that offer no breakpoints - reports no per-line costs and says so
-rather than showing zeroes. A machine that can't report its BASIC memory
-figures likewise says the memory account is unavailable.
+Not every machine can be measured. Measuring means charging processor cycles to
+the BASIC line that spent them, so it needs a machine that can say which line
+it's executing and that runs a real processor. A machine missing either reports
+no per-line costs and says so, rather than showing zeroes; a machine that can't
+report its BASIC memory figures likewise says the memory account is
+unavailable. The **Run profile** dialog tells you which case you're in.
 
 Measurements describe one run of one program. Starting a new run replaces them,
 and editing your program so that its lines no longer match - adding, removing or
