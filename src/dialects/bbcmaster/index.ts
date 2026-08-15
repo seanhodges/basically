@@ -23,7 +23,10 @@ import {
   buildCassetteSamples,
   CASSETTE_SAMPLE_RATE,
 } from '../bbcmicro/targets';
-import { bbcLanguageSupport, bbcCompletionSource } from '../bbcmicro/language';
+import {
+  bbcMasterLanguageSupport,
+  bbcMasterCompletionSource,
+} from '../bbcmicro/language';
 import { decodeCassette } from '../bbcmicro/audio/cassetteDecoder';
 import { bbcKeyboardLayout } from '../bbcmicro/keyboardLayout';
 import { BBC_DISPLAY_CONTROLS } from '../bbcmicro/teletextChips';
@@ -62,8 +65,8 @@ export const bbcmaster: Dialect = {
   keywords: bbcMasterKeywords,
   operators: bbcOperators,
   charset: bbcCharset,
-  languageSupport: bbcLanguageSupport,
-  completionSource: bbcCompletionSource,
+  languageSupport: bbcMasterLanguageSupport,
+  completionSource: bbcMasterCompletionSource,
 
   tokenize(source: string): TokenizeResult {
     const { bytes, errors } = tokenizeProgram(source, BASIC_IV);

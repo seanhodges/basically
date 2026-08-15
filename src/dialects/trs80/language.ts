@@ -1,6 +1,7 @@
 import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
+import { keywordSpellingsFor } from '../keywordSpellings';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { trs80Keywords, trs80Operators } from './keywords';
@@ -22,6 +23,7 @@ export function trs80LanguageSupport(): Extension {
   // outside strings/REM ("code crunching": POKEA,10 is valid), so the editor
   // splits glued keywords the same way.
   return buildBasicLanguage(trs80Keywords, trs80CompletionSource, {
+    spellings: keywordSpellingsFor('trs80'),
     // `^` alongside the canonical `↑`, as on the Commodores: an alias the
     // tokenizer takes and LIST never gives back.
     operators: [...trs80Operators, '^'],

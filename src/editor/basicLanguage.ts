@@ -6,6 +6,10 @@ import {
 import { tags } from '@lezer/highlight';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import type { EditorKeyword } from '../dialects/types';
+import {
+  spellingAt,
+  type KeywordSpellings,
+} from '../dialects/keywordSpellings';
 import { outlineCapabilities } from './programOutline';
 import { makeVariableSource, type VarNameRules } from './variables';
 import { crunchMatcher, makeCrunchMatcher } from './crunch';
@@ -51,6 +55,19 @@ export interface BasicLanguageOptions {
    * and the `↑` five machines raise to a power with was in no list at all.
    */
   operators?: readonly string[];
+  /**
+   * How this machine lets a program spell its keywords short, from
+   * {@link ../dialects/keywordSpellings}. Archive listings are written in those
+   * notations, so a pasted program contains them and the tokenizer already
+   * reads them: a BBC `P.` tokenizes to PRINT and a C64 `pO` to POKE. Without
+   * this the highlighter and the variable scanner would disagree with the
+   * tokenizer about the same text, colouring `P.` as a name and a full stop and
+   * reporting `P` as a variable the program does not have.
+   *
+   * Omitted only by a machine that abbreviates nothing; `dialectSpellings.test.ts`
+   * fails a registered machine that has spellings and does not pass them.
+   */
+  spellings?: KeywordSpellings;
 }
 
 /**
@@ -176,6 +193,7 @@ export function buildBasicLanguage(
     : null;
   const { headRe, varRe } = buildIdentifierRegexes(options);
   const crunch = options.crunched ? makeCrunchMatcher(kinds.keys()) : null;
+  const spellings = options.spellings;
   // The symbolic half of the keyword table is what `kinds` above throws away,
   // and it is exactly what the operator matchers want: `**` on a ZX81, `^` on a
   // CPC, the Atom's `?` and `&`. The dialect's own `operators` cover what its
@@ -186,6 +204,21 @@ export function buildBasicLanguage(
       .map((k) => k.word),
     ...(options.operators ?? []),
   ]);
+
+  /**
+   * The tag a keyword wears, by the role its table gives it. REM is the one
+   * that changes what comes after it, so it reports that through `state`.
+   */
+  const tagFor = (keyword: string, state: BasicStreamState): string => {
+    if (keyword === 'REM') {
+      state.afterRem = true;
+      return 'keyword';
+    }
+    const kind = kinds.get(keyword);
+    if (kind === 'function') return 'functionName';
+    if (kind === 'operator') return 'operator';
+    return 'keyword';
+  };
 
   const language = StreamLanguage.define<BasicStreamState>({
     name: 'basic',
@@ -218,6 +251,20 @@ export function buildBasicLanguage(
         return 'string';
       }
 
+      // A keyword spelled short - `P.`, `pO`, `?`, `'`. Tried ahead of the
+      // identifier run so the dot or the shifted letter that marks the spelling
+      // is read as part of it rather than as an operator after a name, and
+      // ahead of the operator class so a symbol standing for a whole command is
+      // that command. Which spellings a machine takes, and what each resolves
+      // to, is its own ROM's scan order - see ../dialects/keywordSpellings.
+      if (spellings) {
+        const short = spellingAt(stream.string, stream.pos, spellings);
+        if (short) {
+          for (let i = 0; i < short.length; i++) stream.next();
+          return tagFor(short.keyword, state);
+        }
+      }
+
       const word = stream.match(headRe, false);
       if (word && crunch) {
         // Crunched (MS-BASIC) mode: longest keyword at this exact position,
@@ -228,14 +275,7 @@ export function buildBasicLanguage(
         const kw = crunch.keywordAt(rest, 0);
         if (kw) {
           for (let i = 0; i < kw.length; i++) stream.next();
-          if (kw === 'REM') {
-            state.afterRem = true;
-            return 'keyword';
-          }
-          const kind = kinds.get(kw);
-          if (kind === 'function') return 'functionName';
-          if (kind === 'operator') return 'operator';
-          return 'keyword';
+          return tagFor(kw, state);
         }
         const run = varRe.exec(rest)?.[0] ?? rest[0]!;
         const j = crunch.firstInteriorKeyword(rest, run.length);
@@ -253,15 +293,9 @@ export function buildBasicLanguage(
           // keyword must consume the whole identifier-run unless it ends in $
           if (len === text.length || candidate.endsWith('$')) {
             for (let i = 0; i < len; i++) stream.next();
-            if (candidate === 'REM') {
-              state.afterRem = true;
-              return 'keyword';
-            }
             // Colour by role: functions orange, operators (AND/OR/TO…) navy,
             // commands purple.
-            if (kind === 'function') return 'functionName';
-            if (kind === 'operator') return 'operator';
-            return 'keyword';
+            return tagFor(candidate, state);
           }
         }
         stream.match(varRe);

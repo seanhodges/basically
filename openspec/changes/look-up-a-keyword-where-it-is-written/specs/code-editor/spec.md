@@ -14,10 +14,11 @@ offered; a line number, a number, a variable name, a processor register, text in
 string literal and text inside a comment SHALL NOT be. Punctuation that separates the
 parts of a line SHALL NOT be offered, having nothing to look up.
 
-A keyword written in one of the machine's short spellings SHALL NOT be offered, since
-what stands in the text is not a keyword until it is expanded; the reference page's own
-search still finds it. The reference SHALL open at the picked keyword even where a
-porting comparison is current, since the user has named what they want to read.
+A keyword written in one of the machine's short spellings — the Acorns' dotted prefix,
+the Commodores' shifted letter, a symbol standing for a whole command — SHALL be offered
+as the keyword it stands for on that machine, and SHALL open the reference at that
+keyword rather than at the spelling. The reference SHALL open at the picked keyword even
+where a porting comparison is current, since the user has named what they want to read.
 
 #### Scenario: Looking up a keyword
 
@@ -41,8 +42,8 @@ porting comparison is current, since the user has named what they want to read.
 
 - **WHEN** the user picks a keyword written in one of the machine's short spellings, as
   a listing prints it
-- **THEN** no reference offer is made, and the reference page's search still finds that
-  spelling
+- **THEN** the documentation opens at the keyword that spelling stands for on this
+  machine
 
 #### Scenario: Text that is not a keyword
 
@@ -55,6 +56,44 @@ porting comparison is current, since the user has named what they want to read.
 - **WHEN** a porting comparison is current for the open program and the user picks a
   keyword and takes up the reference offer
 - **THEN** the documentation opens at that keyword rather than at the comparison
+
+### Requirement: Short spellings are read as the keywords they are
+
+Where a machine lets a program spell a keyword short, the editor SHALL read such a
+spelling as that keyword throughout: it SHALL be coloured as the keyword it stands for
+rather than as a name or as punctuation, and the letters that make it up SHALL NOT be
+reported as a variable.
+
+Which spellings a machine accepts, and which keyword each stands for, SHALL follow that
+machine's own resolution order rather than a shared rule — a prefix takes the first
+keyword its ROM scans that begins with it, and a prefix that spells a whole keyword is
+that keyword rather than an abbreviation.
+
+#### Scenario: A dotted listing
+
+- **WHEN** the user opens a listing on a machine that abbreviates with a trailing dot,
+  and it spells a command short
+- **THEN** that spelling is coloured as the command, and its leading letters are not
+  reported as a variable
+
+#### Scenario: A shifted-letter listing
+
+- **WHEN** the user opens a listing on a machine that abbreviates with a shifted letter,
+  and it spells a command short before its arguments
+- **THEN** the spelling is coloured as the command and what follows it is read as the
+  command's arguments, rather than the whole run being read as one name
+
+#### Scenario: A symbol standing for a whole command
+
+- **WHEN** the program uses a symbol the machine reads as a whole command
+- **THEN** it is coloured as that command, and where the command is a comment marker the
+  rest of the line is coloured as a comment
+
+#### Scenario: A prefix that spells a whole keyword
+
+- **WHEN** a prefix that could abbreviate a longer keyword is itself a whole keyword on
+  this machine
+- **THEN** it is read as the whole keyword it spells, not as the abbreviation
 
 ### Requirement: One menu for what the picked text can answer
 

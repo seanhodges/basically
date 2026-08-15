@@ -23,6 +23,10 @@ import type {
 } from '@codemirror/autocomplete';
 import { isInsideString } from './completions';
 import { isBinaryDirective } from '../dialects/binaryDirective';
+import {
+  spellingAt,
+  type KeywordSpellings,
+} from '../dialects/keywordSpellings';
 import { scannable } from './programOutline';
 import type { OutlineCapabilities } from './programOutline';
 import type { CrunchMatcher } from './crunch';
@@ -58,6 +62,15 @@ export interface VarNameRules {
    * expression and its names are ordinary usages. See {@link ./variableLexis}.
    */
   dataIsVerbatim?: boolean;
+  /**
+   * How this machine lets a program spell a keyword short, where it does. A
+   * spelling is consumed as its keyword, so the letters that make it up are not
+   * read as a name: without this a BBC `P."HI"` reports a variable `P` the
+   * program does not have, and a C64 `pO53280,1` reports one called `pO53280`.
+   * The highlighter reads the same spellings from the same source, so the two
+   * agree about the same text. See {@link ../dialects/keywordSpellings}.
+   */
+  spellings?: KeywordSpellings | null;
 }
 
 /**
@@ -159,6 +172,16 @@ export function forEachVariable(
     if (hex) {
       i += hex[0].length;
       prevKeyword = null;
+      continue;
+    }
+    // A keyword spelled short is that keyword, so its letters are not a name.
+    // Asked before the identifier run for the same reason the highlighter asks
+    // there: the dot or shifted letter marking the spelling is part of it.
+    const short = rules.spellings ? spellingAt(code, i, rules.spellings) : null;
+    if (short) {
+      if (short.keyword === 'REM') return; // rest of the line is a comment
+      prevKeyword = short.keyword;
+      i += short.length;
       continue;
     }
     const head = rules.headRe.exec(rest);
@@ -270,6 +293,28 @@ function forEachVariableCrunched(
       i += hex[0].length;
       prevKeyword = null;
       ctx = 'none';
+      continue;
+    }
+    // A keyword spelled short, ahead of the crunch split: `pO53280,1` is POKE
+    // and a number, not one very long name. The all-capitals runs crunch exists
+    // for cannot match a shifted spelling, so the two never compete.
+    const short = rules.spellings ? spellingAt(code, i, rules.spellings) : null;
+    if (short) {
+      const kw = short.keyword;
+      if (kw === 'REM') return;
+      prevKeyword = kw;
+      if (kw === 'DATA' && rules.dataIsVerbatim) {
+        const colon = code.indexOf(':', i + short.length);
+        if (colon === -1) return;
+        i = colon;
+        continue;
+      }
+      ctx = CRUNCH_STMT_OPENERS.includes(kw)
+        ? 'stmt'
+        : CRUNCH_VAR_EXPECTING.includes(kw)
+          ? 'var'
+          : 'none';
+      i += short.length;
       continue;
     }
     const head = rules.headRe.exec(rest);

@@ -69,6 +69,7 @@ import {
 import { clickMenu } from '../editor/clickMenu';
 import { BASIC_REFERENCE_KINDS, referenceRow } from '../editor/referenceRow';
 import { operatorSpellings } from '../dialects/operators';
+import { keywordSpellingsFor } from '../dialects/keywordSpellings';
 import { referenceTopic } from '../app/docsTopic';
 import { numberingConfig, fullCompletion } from '../editor/completions';
 import { crunchMatcher } from '../editor/crunch';
@@ -719,6 +720,7 @@ export function CodeMirrorHost({
           referenceRow({
             kinds: BASIC_REFERENCE_KINDS,
             operators: operatorSpellings(dialect),
+            spellings: keywordSpellingsFor(dialect.id),
             topic: (word) => referenceTopic(dialect, word),
             open: (topic) => useIdeStore.getState().openDocs(topic),
           }),

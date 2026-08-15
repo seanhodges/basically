@@ -139,6 +139,40 @@
       apply — narrowing that guarantee is the one shipped behaviour this change alters,
       and it had no test.
 
+## 10. Read short spellings as the keywords they are
+
+Added after the first pass shipped: a keyword typed short offered nothing, because
+the highlighter read `P.` as a name and a full stop. The tokenizers have always
+accepted these spellings, so the highlighter and the variable scanner were simply
+behind them — the reference row is one consequence of the fix, not the whole of it.
+
+- [x] 10.1 Give `BasicLanguageOptions` a `spellings` field and teach the highlighter to
+      consume a short spelling ahead of the identifier run and the operator class,
+      colouring it in the role its keyword wears. Route the two existing keyword
+      resolutions through the same helper so REM's line-swallowing is stated once.
+- [x] 10.2 Teach both variable scanners the same, so the letters of a spelling are not
+      reported as a name: `P."HI"` no longer yields a variable `P`, and a crunched
+      `pO53280,1` no longer yields one called `pO53280`. A spelling that resolves to REM
+      ends the line; one that resolves to DATA follows the machine's DATA rule.
+- [x] 10.3 Carry the spellings on the lexis so the scanner and the highlighter take them
+      from one place, filled in from the dialect id by `variableRulesFor`.
+- [x] 10.4 Pass each machine's own spellings from its `languageSupport`.
+- [x] 10.5 Give the BBC Master its own keyword table, completion source and scan order.
+      It was highlighting from the Micro's table, so its BASIC IV keywords drew as
+      variable names — invisible until `ED.` started resolving and `EDIT` did not.
+- [x] 10.6 Resolve a picked spelling to its keyword before looking it up, so `P.` opens
+      PRINT's entry and the row says so.
+- [x] 10.7 Add `src/editor/dialectSpellings.test.ts`: registry-driven over every machine
+      that abbreviates, asserting each spelling wears the same role its keyword does and
+      none is counted as a variable, plus the listing-shaped cases (dotted, shifted,
+      symbol-as-command, comment marker, a prefix that is itself a keyword, and the
+      Atom's `?` which is an operator there and must not become PRINT).
+- [x] 10.8 Extend `e2e/dialect-toolchain/abbreviated-entry.spec.ts`, where a shifted
+      listing is already open on a C64: `pO` is one token that looks up POKE, and the
+      `C` beside it is still a variable.
+- [x] 10.9 Rewrite the reference-row abbreviation tests, and the guide's paragraph that
+      said a short spelling could not be looked up.
+
 ## 9. Quality gates
 
 - [x] 9.1 `npm run typecheck`

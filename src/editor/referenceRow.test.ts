@@ -15,9 +15,14 @@ import { describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { dialects, getDialect } from '../dialects/registry';
 import { operatorSpellings, OPERATOR_PUNCTUATION } from '../dialects/operators';
+import { keywordSpellingsFor } from '../dialects/keywordSpellings';
 import type { Dialect } from '../dialects/types';
 import { referenceTopic } from '../app/docsTopic';
-import { BASIC_REFERENCE_KINDS, referenceTokenAt } from './referenceRow';
+import {
+  BASIC_REFERENCE_KINDS,
+  lookupWord,
+  referenceTokenAt,
+} from './referenceRow';
 
 function stateFor(dialect: Dialect, doc: string): EditorState {
   return EditorState.create({ doc, extensions: [dialect.languageSupport()] });
@@ -74,17 +79,38 @@ describe('a run of adjacent operator characters', () => {
 });
 
 describe('a keyword typed short', () => {
-  // The tokenizer accepts `P.` as PRINT, but the highlighter reads it as the
-  // variable `P` followed by `.`, so there is no keyword token to pick and the
-  // menu stays silent rather than guessing. Pinned because it is a real gap
-  // against the reference page, whose search does match short spellings: a
-  // reader of a dotted listing has to expand it, or search the page directly.
+  // An archive listing spells keywords the way the machine lets it, so a pasted
+  // program is full of these. The token picked is the whole spelling.
   it.each([
     ['bbcmicro', '20 P."HI"', 'P.'],
     ['bbcmicro', '30 G.20', 'G.'],
     ['commodore64', '20 ?"HI"', '?'],
-  ])('%s offers nothing on %s', (dialectId, doc, needle) => {
-    expect(lookup(dialectId, doc, needle)).toBeNull();
+    ['commodore64', '20 pO53280,1', 'pO'],
+    ['atom', '20 P."HI"', 'P.'],
+    ['trs80', '20 ?"HI"', '?'],
+  ])('%s picks %s out of %s', (dialectId, doc, needle) => {
+    expect(lookup(dialectId, doc, needle)).toBe(needle);
+  });
+
+  // ...and what it looks up is the keyword, not the spelling, so the reference
+  // opens on the entry rather than relying on the page's spelling column.
+  it.each([
+    ['bbcmicro', 'P.', 'PRINT'],
+    ['bbcmicro', 'G.', 'GOTO'],
+    ['commodore64', '?', 'PRINT'],
+    ['commodore64', 'pO', 'POKE'],
+  ])('%s looks up %s as %s', (dialectId, form, keyword) => {
+    const dialect = getDialect(dialectId);
+    expect(lookupWord(form, keywordSpellingsFor(dialectId))).toBe(keyword);
+    expect(referenceTopic(dialect, keyword)).toContain(
+      `q=${encodeURIComponent(keyword)}`,
+    );
+  });
+
+  it('leaves a word that is not a spelling alone', () => {
+    expect(lookupWord('PRINT', keywordSpellingsFor('bbcmicro'))).toBe('PRINT');
+    // No spellings at all (the assembly editor, the Sinclairs) is a no-op.
+    expect(lookupWord('P.')).toBe('P.');
   });
 });
 

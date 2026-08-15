@@ -22,6 +22,15 @@ in one place.
 - Clicking or tapping a command, function or operator offers a **Reference** row in the
   editor's existing click-anchored menu, opening the active machine's language reference
   at that keyword.
+- Keywords spelled short — the Acorns' `P.`, the Commodores' `pO`, a symbol standing for
+  a whole command — are read as the keywords they are, throughout: coloured as that
+  keyword rather than as a name and a full stop, no longer counted as variables, and
+  looked up as the keyword rather than the abbreviation. The tokenizers have always
+  accepted these spellings; the highlighter and the variable scanner were behind them,
+  so a pasted archive listing reported variables the program does not have.
+- The BBC Master highlights and completes from its own BASIC IV keyword table and
+  resolves dotted spellings by its own ROM's scan order, rather than borrowing the
+  Micro's.
 - The assembly editor gains the same menu for machine-code instructions and assembler
   directives, opening the reference for the block's processor. It has no menu today.
 - The menu grows from a fixed single row to a list, and the mechanism is lifted out of

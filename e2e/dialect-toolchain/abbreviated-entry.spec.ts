@@ -40,4 +40,25 @@ test('a shifted-letter listing pasted from an archive runs', async ({
   // machine could not read would have left the tokenizer complaining in the
   // status bar.
   await expect(page.getByText('no errors')).toBeVisible();
+
+  // The rest of the editor reads the listing the same way the tokenizer just
+  // did. Asserted on this listing rather than in the code-editor specs because
+  // this is where a shifted-letter program is already open on the machine that
+  // takes one; the per-machine spelling matrix is
+  // `src/editor/dialectSpellings.test.ts`.
+  //
+  // `pO` is one token the pointer can land on, and it looks up POKE rather than
+  // the spelling. `C` beside it is still a variable, which is the half that
+  // would break if the run were swallowed whole - it used to come back as one
+  // name, `pO53280`.
+  const line = page.locator('.cm-line').filter({ hasText: 'pO53280' });
+  await line.getByText('pO', { exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: /Look up POKE/ }),
+  ).toBeVisible();
+
+  await line.getByText('C', { exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: /Show where C is used/ }),
+  ).toBeVisible();
 });

@@ -19,6 +19,10 @@
  * it as one and no reference page carries a row for it, so nothing is offered.
  */
 import type { EditorState } from '@codemirror/state';
+import {
+  spellingAt,
+  type KeywordSpellings,
+} from '../dialects/keywordSpellings';
 import type { MenuRowSource } from './clickMenu';
 import { tokenAt, type EditorToken } from './tokenAt';
 
@@ -82,11 +86,30 @@ export function referenceTokenAt(
   return declaredOperatorAt(token, pos, operators);
 }
 
+/**
+ * The keyword `text` stands for, or `text` itself.
+ *
+ * A listing spells keywords the way the machine lets it, and the reference is
+ * indexed by the canonical name. The page's search does match short spellings,
+ * so either would find the row - but looking the keyword up is the exact
+ * question, and it is what the row can then say it will do.
+ */
+export function lookupWord(text: string, spellings?: KeywordSpellings): string {
+  if (!spellings) return text;
+  const short = spellingAt(text, 0, spellings);
+  return short && short.length === text.length ? short.keyword : text;
+}
+
 export interface ReferenceRowOptions {
   /** Token kinds this editor looks up - BASIC or assembly. */
   kinds: readonly string[];
   /** The machine's operator spellings; empty where `kinds` holds no operators. */
   operators: ReadonlySet<string>;
+  /**
+   * How this machine spells keywords short, so a picked `P.` looks up PRINT.
+   * Omitted by an editor whose language has none, as the assembly one has.
+   */
+  spellings?: KeywordSpellings;
   /** The docs sub-path for `word`, or null when it has nowhere to go. */
   topic: (word: string) => string | null;
   /** Open the documentation at a resolved topic. */
@@ -106,14 +129,17 @@ export function referenceRow(options: ReferenceRowOptions): MenuRowSource {
       options.operators,
     );
     if (!token) return null;
-    const topic = options.topic(token.text);
+    const word = lookupWord(token.text, options.spellings);
+    const topic = options.topic(word);
     if (!topic) return null;
     return {
       from: token.from,
       to: token.to,
       label: 'Reference',
       icon: 'reference',
-      title: `Look up ${token.text} in the reference`,
+      // Names the keyword rather than the spelling, so a listing's `P.` says
+      // what pressing the row will actually show.
+      title: `Look up ${word} in the reference`,
       run: () => options.open(topic),
     };
   };

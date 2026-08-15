@@ -104,9 +104,14 @@ entry on the reference page for the machine you are targeting.
 
 It follows the machine, just as usages do. Only what your machine reads as a
 keyword offers the choice, so the `PRINT` inside a string or a REM comment does
-not, and neither does the punctuation that separates the parts of a line. A
-keyword typed short is still found: searching matches the abbreviations the
-machine accepts as well as the full spelling.
+not, and neither does the punctuation that separates the parts of a line.
+
+Keywords spelled short count too, on the machines that accept them. Pasting a
+listing written the way it was typed at the machine's own keyboard — `P.` on a
+BBC, `pO` or `?` on a Commodore — the editor reads each spelling as the keyword
+it stands for: it is coloured as that keyword rather than as a variable name,
+it is not counted as a variable, and choosing **Reference** opens the entry for
+the keyword itself rather than for the abbreviation.
 
 ### Automatic line numbering
 
