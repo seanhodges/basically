@@ -173,20 +173,29 @@ is different from a line that ran cheaply. Hover a bar to see the exact
 percentage. The bars sit on the gutter's inside edge, so they never hide an
 error marker or a breakpoint dot.
 
-For the whole picture, open **Edit ▸ Run profile**. It lists:
+For the whole picture, open **Edit ▸ Profiler report**. How long the run took
+sits at the top, and the rest is split in two, because a run spends two things.
+
+**Compute** lists:
 
 - **the hottest lines**, as shares of the run - click one to jump to it;
 - **the same shares summed over each routine**, using the procedures,
   subroutines and jump targets from the
   [outline](./writing-basic#outline), so you can read what a routine cost
-  without adding its lines up by hand;
+  without adding its lines up by hand.
+
+**Memory** lists:
+
 - **BASIC RAM across the run**, drawn against the run's own elapsed time, with
-  the most memory the program ever used.
+  the most memory the program ever used;
+- **which lines took that memory**, in bytes, and the same figures summed over
+  each routine - click one to jump to it.
 
 That memory chart is how you catch the classic Commodore freeze: a program that
 builds strings fills memory steadily and then stalls for the best part of a
 second while BASIC reclaims what it can. On the chart that's a rising line and a
-sudden drop, at the moment your program appeared to hang.
+sudden drop, at the moment your program appeared to hang. The lines listed under
+it are the answer to the next question - which line was doing the building.
 
 Two things are worth knowing about the numbers.
 
@@ -199,14 +208,35 @@ the refresh rate of your screen.
 the routine's own lines, never to the line that called it. So a `GOSUB` reads as
 cheap however much work it sets off - which is why the profile also offers the
 per-routine totals. If a call site looks free but your program is slow, look at
-what it calls.
+what it calls. Memory is charged the same way, and with one addition: memory
+your program takes and BASIC later reclaims still counts against the line that
+took it. That churn is what a reclaim pause is made of, so subtracting it would
+hide the very line you are looking for.
+
+Memory is counted in bytes rather than as a share, because a byte is the same
+byte on every machine. And it is counted the way the machine counts it: the
+figures come from BASIC's own pointers, so a line only shows as taking memory in
+the part of RAM the chart above it is drawing. Where a machine's own account
+doesn't move as a program churns strings, the profile says no memory was taken,
+rather than reporting a program that takes none.
+
+Sometimes the profile says the figures are **approximate**, and it's worth
+knowing when. Charging memory to a line means catching the moment the machine
+moves off that line - so a loop written on a single line, like
+`10 A$=A$+"X":GOTO 10`, never gives the profile that moment, and can fill memory
+over a whole run with nothing to charge it to. Rather than show you an empty list
+beside a rising chart, the profile falls back to spreading each rise over the
+lines that were running at the time, by how much of the run's time each was
+taking. It says so above the figures. Read that ranking as a place to start
+looking rather than as a measurement: when several lines were running, the one
+that took the memory needn't be the one that took the time.
 
 Not every machine can be measured. Measuring means charging processor cycles to
 the BASIC line that spent them, so it needs a machine that can say which line
 it's executing and that runs a real processor. A machine missing either reports
 no per-line costs and says so, rather than showing zeroes; a machine that can't
 report its BASIC memory figures likewise says the memory account is
-unavailable. The **Run profile** dialog tells you which case you're in.
+unavailable. The **Profiler report** tells you which case you're in.
 
 On a machine that can see your program finish, measuring stops when it does. The
 seconds the machine spends back at its prompt afterwards aren't your program's,
@@ -223,7 +253,7 @@ Knowing which line is slow doesn't tell you how long your program takes, and
 that's usually the question you asked first: does this finish in under a second,
 is the new version actually faster than the old one.
 
-**Edit ▸ Run profile** opens with the answer. At the top of the dialog is how
+**Edit ▸ Profiler report** opens with the answer. Above both tabs is how
 long the run took, in the machine's own time, and - always beside it - how the
 timing ended:
 

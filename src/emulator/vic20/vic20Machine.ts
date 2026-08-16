@@ -148,9 +148,14 @@ export class Vic20Machine implements MachineEmulator {
   /**
    * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
    * arms it for the life of a run, and {@link tick} charges the cycle it runs to
-   * the line executing at the time.
+   * the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
    */
-  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
   private readonly vic = new VicI();
   private readonly vicAudio = new VicAudioRenderer();
   private cpu: StateMachineCpu | null = null;

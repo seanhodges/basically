@@ -579,7 +579,8 @@ interface IdeState {
   romChangeRequest: number;
   /** Program outline dialog (Edit ▸ Outline). */
   procedureListOpen: boolean;
-  /** Run profile dialog (Edit ▸ Run profile) - where the last run's time went. */
+  /** Profiler report dialog (Edit ▸ Profiler report) - where a run's time and
+   * memory went. */
   runProfileOpen: boolean;
   /** Memory-map viewer dialog. */
   memoryMapOpen: boolean;

@@ -1,7 +1,14 @@
 import type { ControllerRole } from '../keyboard/layoutSchema';
 import type { MachineControl } from '../app/machineControl';
 import type { ToolDefinition } from './providers/types';
-import { lineShares, routineShares, type RunProfile } from '../app/runProfile';
+import {
+  lineAllocations,
+  lineShares,
+  routineAllocations,
+  routineShares,
+  totalAllocated,
+  type RunProfile,
+} from '../app/runProfile';
 import { formatTiming, TIMING_ENDINGS, type RunTiming } from '../app/runTiming';
 import type { OutlineCapabilities } from '../editor/programOutline';
 
@@ -349,7 +356,10 @@ export function describeTiming(
  * A machine that cannot be measured, and a program that has not been run, are
  * said in words rather than answered with an empty list - an empty result reads
  * as "measured, and nothing took any time", which would have the assistant
- * conclude the program is already fast.
+ * conclude the program is already fast. The memory breakdown is said the same
+ * way, and for a sharper version of the same reason: a machine whose figures
+ * cannot see where a program's memory goes would otherwise have the assistant
+ * report the program as taking none.
  */
 export function describeProfile(
   profile: RunProfile | null,
@@ -399,6 +409,52 @@ export function describeProfile(
     );
   } else {
     out.push('BASIC RAM: this machine does not report its memory figures.');
+  }
+
+  const account = profile.allocations;
+  const taken = lineAllocations(account?.lines ?? []);
+  out.push('');
+  if (!account) {
+    out.push('No memory readings were taken over this run.');
+  } else if (taken.length === 0) {
+    // Said rather than left as an empty list, for the reason the doc block
+    // above gives: an empty list would read as a program that takes no memory,
+    // and this one may simply be taking it where the machine's own figure
+    // cannot see it.
+    out.push('No line took memory this machine can account for over the run.');
+  } else {
+    out.push(
+      `Which lines took the memory (${totalAllocated(account.lines)} bytes in ` +
+        'all). Memory BASIC reclaimed afterwards is NOT subtracted - a line ' +
+        'that builds strings and lets them go still reads as having taken them.',
+    );
+    if (account.accuracy === 'measured') {
+      out.push(
+        'A line is charged what it took itself, not what the routines it calls ' +
+          'took.',
+      );
+    } else {
+      // Capitals for the same reason the flat accounting has them, and instead
+      // of it: nothing was charged to a line here, so the sentence about what a
+      // line is charged would contradict this one.
+      out.push(
+        'These figures are APPROXIMATE. The machine never left a line while ' +
+          'memory was moving, so nothing could be charged to the line that ' +
+          'took it; each rise is spread over the lines running at the time in ' +
+          "proportion to their share of the run's time. Treat the ranking as a " +
+          'suggestion of where to look, not as a measurement.',
+      );
+    }
+    for (const a of taken.slice(0, PROFILE_TOOL_LINES)) {
+      out.push(`  line ${a.line}: ${a.bytes} bytes`);
+    }
+    const byRoutine = routineAllocations(source, caps, account.lines);
+    if (byRoutine.length > 0) {
+      out.push('', 'Summed over each routine and jump destination:');
+      for (const r of byRoutine.slice(0, PROFILE_TOOL_LINES)) {
+        out.push(`  line ${r.lineNo} (${r.title}): ${r.bytes} bytes`);
+      }
+    }
   }
   return out.join('\n');
 }

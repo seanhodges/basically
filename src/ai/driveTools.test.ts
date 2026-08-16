@@ -264,6 +264,13 @@ describe('describeProfile', () => {
       totalBytes: 16_384,
       partial: false,
     },
+    allocations: {
+      lines: [
+        { line: 100, bytes: 640 },
+        { line: 10, bytes: 0 },
+      ],
+      accuracy: 'measured' as const,
+    },
     elapsed: 4.2,
   };
 
@@ -277,6 +284,79 @@ describe('describeProfile', () => {
     // ...and the caveat that makes a cheap-looking call site readable.
     expect(text).toContain('EXCLUDES the routines it calls');
     expect(text).toContain("this machine's own time");
+  });
+
+  it('reports which lines took the memory, and how that is counted', () => {
+    const text = describeProfile(measured, SOURCE, caps, true);
+    expect(text).toContain('line 100: 640 bytes');
+    expect(text).toContain('line 100 (DRAW): 640 bytes');
+    // The call site took nothing, and is left out rather than listed as zero.
+    expect(text).not.toContain('line 10: 0 bytes');
+    // Both halves of the accounting, so the assistant cannot read a line's
+    // figure as covering what it calls, nor a reclaimed line as taking nothing.
+    expect(text).toContain('not what the routines it calls took');
+    expect(text).toContain('NOT subtracted');
+    expect(text).not.toContain('APPROXIMATE');
+  });
+
+  it('says no line took memory rather than reporting a program that takes none', () => {
+    // A machine whose own figures cannot see where memory goes must not have
+    // the assistant conclude the program is frugal.
+    const text = describeProfile(
+      { ...measured, allocations: { lines: [], accuracy: 'measured' } },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(text).toContain('No line took memory this machine can account for');
+    expect(text).not.toContain('bytes in all');
+  });
+
+  it('says no readings were taken apart from none being taken', () => {
+    const text = describeProfile(
+      { ...measured, allocations: null },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(text).toContain('No memory readings were taken');
+    expect(text).not.toContain('No line took memory');
+  });
+
+  it('marks a spread breakdown as approximate rather than as a reading', () => {
+    const text = describeProfile(
+      {
+        ...measured,
+        allocations: {
+          lines: [{ line: 100, bytes: 640 }],
+          accuracy: 'approximate',
+        },
+      },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(text).toContain('line 100: 640 bytes');
+    expect(text).toContain('APPROXIMATE');
+    expect(text).toContain('not as a measurement');
+    // Nothing was charged to a line, so the sentence about what a line is
+    // charged must not appear beside figures that were spread.
+    expect(text).not.toContain('not what the routines it calls took');
+    // What still holds of a spread of gross rises: reclaims are not netted off.
+    expect(text).toContain('NOT subtracted');
+  });
+
+  it('offers no memory breakdown from a machine that cannot attribute', () => {
+    const text = describeProfile(
+      { ...measured, allocations: null },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(text).not.toContain('Which lines took the memory');
+    expect(text).not.toContain('No line took memory');
+    // The account across the run is still reported: one half is not the other.
+    expect(text).toContain('peaked at 1200 bytes');
   });
 
   it('says nothing has been measured rather than answering with nothing', () => {
@@ -302,14 +382,16 @@ describe('describeProfile', () => {
   });
 
   it('says an unavailable memory account is unavailable, not zero', () => {
+    // Both halves go together: the per-line bytes are read out of the same
+    // figure the account is, so a machine that has no figure has neither.
     const text = describeProfile(
-      { ...measured, memory: null },
+      { ...measured, memory: null, allocations: null },
       SOURCE,
       caps,
       true,
     );
     expect(text).toContain('does not report its memory figures');
-    expect(text).not.toContain('0 bytes');
+    expect(text).not.toMatch(/\b0 bytes/);
   });
 });
 

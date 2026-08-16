@@ -47,7 +47,7 @@ test('a run paints its cost in the gutter and reports where it went', async ({
   // Nothing has run, so nothing is marked - and the report says so rather than
   // showing an empty table of zeroes.
   await expect(heatBars(page)).toHaveCount(0);
-  await editMenu(page, /^Run profile/);
+  await editMenu(page, /^Profiler report/);
   await expect(page.getByText('Run this program to measure it')).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
 
@@ -87,9 +87,9 @@ test('a run paints its cost in the gutter and reports where it went', async ({
   // The report reads out what the gutter cannot: the timing, the shares and the
   // memory account across the run. Opened while the program is still running,
   // so the chart fills as more of the run is measured.
-  await editMenu(page, /^Run profile/);
+  await editMenu(page, /^Profiler report/);
   await expect(
-    page.getByRole('heading', { name: 'Where the run went' }),
+    page.getByRole('heading', { name: 'Profiler report' }),
   ).toBeVisible();
 
   // The stopwatch reaches the screen with its ending attached: the run loop
@@ -103,14 +103,39 @@ test('a run paints its cost in the gutter and reports where it went', async ({
   await expect(
     page.getByText(/cannot tell whether a BASIC program is still running/),
   ).toBeVisible();
+  // Compute is the tab a report opens on, and the duration sits above both -
+  // the memory chart is drawn against it.
+  await expect(page.getByRole('tab', { name: 'Compute' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   await expect(page.getByText('Hottest lines')).toBeVisible();
+  await expect(page.getByText('Memory use over time')).toHaveCount(0);
+
+  // The two halves are actually separate panels, which only a browser can show:
+  // clicking the tab swaps the content and leaves the timing in place.
+  await page.getByRole('tab', { name: 'Memory' }).click();
+  await expect(page.getByText('Hottest lines')).toHaveCount(0);
   await expect(page.getByText('Memory use over time')).toBeVisible();
+  await expect(
+    page.getByText(/\d+\.\d+s of ZX81 time - the program is still running\./),
+  ).toBeVisible();
   // The chart needs two samples to be a line at all; they arrive on the
   // profiler's own cadence, so this waits for the run rather than sleeping.
   await expect(page.locator('svg[class*="chart"]')).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByText(/Peak: .* \/ .* bytes/)).toBeVisible();
+  // The memory account reaches the screen charged to lines, not only as a
+  // chart. This loop takes no memory the ZX81's own figures can see, which is
+  // the reading that must be said rather than left as a blank panel - and is a
+  // different reading from no figures having been taken at all. Which line took
+  // what is `src/dialects/lineProfiling.test.ts`, over every machine.
+  await expect(page.getByText('Where the memory went')).toBeVisible();
+  await expect(
+    page.getByText('No memory was taken over this run.'),
+  ).toBeVisible();
+  await expect(page.getByText('No memory readings')).toHaveCount(0);
   await page.getByRole('button', { name: 'Close' }).click();
 
   // A breakpoint on the same line: the dot and the cost bar share one gutter
@@ -157,7 +182,7 @@ test('a run that finishes stops the clock and stops measuring', async ({
   await setEditorSource(page, ENDS);
   await playAndWaitRunning(page);
 
-  await editMenu(page, /^Run profile/);
+  await editMenu(page, /^Profiler report/);
   // The machine saw the program return to its prompt, so the duration is the
   // time the program takes - the one ending that may be read that way.
   const finished = page.getByText(/of PET time - the program finished\./);

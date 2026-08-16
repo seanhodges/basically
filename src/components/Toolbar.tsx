@@ -314,7 +314,7 @@ export function Toolbar() {
                 onClick={guard(() => setRunProfileOpen(true))}
                 title="Where the last run's time and memory went, line by line"
               >
-                Run profile…
+                Profiler report…
               </button>
               <div className={styles.menuSeparator} />
               <button
@@ -516,7 +516,7 @@ export function Toolbar() {
                     onClick={guard(() => setRunProfileOpen(true))}
                     title="Where the last run's time and memory went, line by line"
                   >
-                    Run profile…
+                    Profiler report…
                   </button>
                   <div className={styles.menuSeparator} />
                   <button

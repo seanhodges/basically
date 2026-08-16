@@ -69,9 +69,14 @@ export class Zx80Machine implements MachineEmulator {
   /**
    * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
    * arms it for the life of a run, and {@link stepInstruction} charges the
-   * T-states it consumes to the line executing at the time.
+   * T-states it consumes to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
    */
-  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
 
   /**
    * T-states the previous frame overran its budget by, owed back to this one.

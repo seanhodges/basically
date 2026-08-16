@@ -358,6 +358,17 @@ export interface LineCost {
   line: number;
   /** CPU cycles spent executing that line. */
   cost: number;
+  /**
+   * Bytes the machine's own BASIC memory figures rose by while the line was
+   * executing, gross of anything reclaimed afterwards.
+   *
+   * Absent - not zero - on a machine that cannot attribute its memory to a
+   * line, which is a different thing from a line that took none. A machine
+   * reports the figure by reading its in-use total at the moments its executing
+   * line changes; one whose total moves with interpreter workspace rather than
+   * with the program's own allocation reports nothing here instead.
+   */
+  allocated?: number;
 }
 
 /**

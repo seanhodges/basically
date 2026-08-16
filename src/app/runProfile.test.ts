@@ -5,15 +5,23 @@ import {
   MEMORY_SAMPLE_FRAMES,
   HEAT_LEVELS,
   RunProfiler,
+  type LineAllocation,
   lineHeat,
   lineShares,
+  lineAllocations,
   profileStillApplies,
   programLineNumbers,
+  routineAllocations,
   routineShares,
+  totalAllocated,
 } from './runProfile';
 import { outlineCapabilities } from '../editor/programOutline';
 
 const CYCLES = (line: number, cost: number): LineCost => ({ line, cost });
+const BYTES = (line: number, bytes: number): LineAllocation => ({
+  line,
+  bytes,
+});
 
 /** A machine reporting a steady 1000/9000 split. */
 const steady = (): MachineMemoryStats => ({ used: 1000, free: 9000 });
@@ -94,6 +102,86 @@ describe('routineShares', () => {
 
   it('reports nothing for a program with no routines to roll up', () => {
     expect(routineShares('10 PRINT 1\n20 PRINT 2\n', caps, [])).toEqual([]);
+  });
+
+  it('covers the same lines for memory as for time', () => {
+    // One outline, one set of extents. Two lists that disagreed about which
+    // lines a routine owns would leave a user reading them side by side with no
+    // way to tell which was right.
+    const time = routineShares(SOURCE, caps, lineShares([CYCLES(110, 100)]));
+    const memory = routineAllocations(SOURCE, caps, [BYTES(110, 100)]);
+    // Line 110 belongs to the routine that starts at 100, in both readings, and
+    // that routine covers the same lines in both.
+    expect(memory[0]!.lineNo).toBe(100);
+    const spans = (r: { lineNo: number; through: number }) => [
+      r.lineNo,
+      r.through,
+    ];
+    expect(spans(memory[0]!)).toEqual(
+      spans(time.find((r) => r.lineNo === 100)!),
+    );
+  });
+});
+
+describe('lineAllocations', () => {
+  it('ranks the lines that took the memory, greediest first', () => {
+    const ranked = lineAllocations([
+      BYTES(20, 100),
+      BYTES(40, 900),
+      BYTES(30, 0),
+    ]);
+    expect(ranked.map((a) => a.line)).toEqual([40, 20]);
+    expect(ranked.map((a) => a.bytes)).toEqual([900, 100]);
+    expect(ranked[0]!.share).toBeCloseTo(0.9);
+  });
+
+  it('reports bytes, not a share of a machine’s memory', () => {
+    // The same figures whether the machine fitted 16K or 64K: how much memory a
+    // line took is asked and answered in bytes, and needs no total to mean
+    // something. The share exists only to size a bar against the greediest
+    // line.
+    expect(lineAllocations([BYTES(20, 4096)])[0]!.bytes).toBe(4096);
+    expect(totalAllocated([BYTES(20, 100), BYTES(30, 50)])).toBe(150);
+  });
+
+  it('leaves out the lines that took nothing rather than listing zeroes', () => {
+    // Same reading the gutter gives time: a line that took no memory is not a
+    // line that took a little, and listing it would bury the ones that did.
+    expect(lineAllocations([BYTES(20, 0), BYTES(30, 0)])).toEqual([]);
+  });
+});
+
+describe('routineAllocations', () => {
+  const SOURCE = [
+    '10 GOSUB 100',
+    '20 GOTO 10',
+    '100 REM BUILD',
+    '110 RETURN',
+  ].join('\n');
+  const caps = outlineCapabilities([
+    { word: 'GOSUB' },
+    { word: 'GOTO' },
+  ] as never);
+
+  it('charges a subroutine’s memory to the subroutine, not to its caller', () => {
+    const routines = routineAllocations(SOURCE, caps, [
+      BYTES(10, 0),
+      BYTES(100, 900),
+    ]);
+    const byLine = new Map(routines.map((r) => [r.lineNo, r.bytes]));
+    // Line 10 is the call site and takes nothing, however much line 100 takes -
+    // and is left out rather than padding the ranking with a zero, as the time
+    // roll-up would list it.
+    expect(byLine.has(10)).toBe(false);
+    expect(routineShares(SOURCE, caps, []).some((r) => r.lineNo === 10)).toBe(
+      true,
+    );
+    expect(byLine.get(100)).toBe(900);
+    expect(routines[0]!.lineNo).toBe(100);
+  });
+
+  it('reports nothing when no line took anything', () => {
+    expect(routineAllocations(SOURCE, caps, [BYTES(10, 0)])).toEqual([]);
   });
 });
 
@@ -206,6 +294,153 @@ describe('RunProfiler', () => {
     expect(noLines.snapshot().memory).not.toBeNull();
   });
 
+  it('drops a line the program does not have, rather than ranking it', () => {
+    const p = new RunProfiler(null, [10, 20]);
+    // Line 0 is what Commodore BASIC V2 reads as between the typed RUN and the
+    // program's first line: real cycles, but no line of this program.
+    run(p, 2, [CYCLES(0, 1500), CYCLES(20, 500)]);
+    expect(p.snapshot().lines).toEqual([{ line: 20, cost: 1000 }]);
+    // Dropped from the total as well, so the lines that did run are not
+    // deflated by time that belonged to none of them.
+    expect(lineShares(p.snapshot().lines!)[0]!.share).toBe(1);
+  });
+
+  it('keeps a line 0 the program actually has', () => {
+    // CBM BASIC allows one, so dropping the number itself would lose it. The
+    // question is whether the program has the line, not what it is numbered.
+    const p = new RunProfiler(null, [0, 10]);
+    run(p, 1, [CYCLES(0, 100)]);
+    expect(p.snapshot().lines).toEqual([{ line: 0, cost: 100 }]);
+  });
+
+  it('drops the bytes a foreign line was charged along with its time', () => {
+    const p = new RunProfiler(null, [20]);
+    run(p, 1, [
+      { line: 0, cost: 100, allocated: 900 },
+      { line: 20, cost: 100, allocated: 40 },
+    ]);
+    expect(p.snapshot().allocations).toEqual({
+      lines: [{ line: 20, bytes: 40 }],
+      accuracy: 'measured',
+    });
+  });
+
+  it('charges everything when there are no line numbers to check against', () => {
+    // An empty program is not something the IDE will run, so this is the caller
+    // having nothing to check against rather than every line being foreign.
+    const p = new RunProfiler(null, []);
+    run(p, 1, [CYCLES(0, 100)]);
+    expect(p.snapshot().lines).toEqual([{ line: 0, cost: 100 }]);
+  });
+
+  it('accumulates the bytes the machine charged to each line', () => {
+    const p = new RunProfiler(null, [10, 20]);
+    run(p, 3, [
+      { line: 20, cost: 100, allocated: 40 },
+      { line: 30, cost: 10, allocated: 0 },
+    ]);
+    // Line 30 took nothing on any frame and is left out; carrying it as a zero
+    // would put it in a list of the lines that took memory.
+    expect(p.snapshot().allocations).toEqual({
+      lines: [{ line: 20, bytes: 120 }],
+      accuracy: 'measured',
+    });
+  });
+
+  it('offers an empty breakdown when nothing the machine can see was taken', () => {
+    const p = new RunProfiler(null, []);
+    run(p, 3, [{ line: 20, cost: 100, allocated: 0 }]);
+    // Empty, not null: readings were taken, and no line took memory the
+    // machine's own figure could see - the ordinary state on a machine whose
+    // figure spans a range a program's string churn happens outside of.
+    expect(p.snapshot().allocations).toEqual({
+      lines: [],
+      accuracy: 'measured',
+    });
+  });
+
+  it('says no reading was taken at all apart from none being taken', () => {
+    const p = new RunProfiler(null, []);
+    run(p, 3, [CYCLES(20, 100)], () => null);
+    // Null: nothing was ever read, so nothing is known either way. A different
+    // answer from the empty account above, and the per-line costs stand.
+    expect(p.snapshot().allocations).toBeNull();
+    expect(p.snapshot().lines).not.toBeNull();
+  });
+
+  it('spreads a rise over the window’s lines when no line could be priced', () => {
+    const p = new RunProfiler(null, []);
+    let used = 1000;
+    // Two lines running, three quarters of the cycles on line 20. The machine
+    // charges no bytes at all - it never left a line to price one.
+    run(p, MEMORY_SAMPLE_FRAMES * 3, [CYCLES(20, 30), CYCLES(30, 10)], () => {
+      used += 400;
+      return { used, free: 10_000 - used };
+    });
+    const account = p.snapshot().allocations!;
+    expect(account.accuracy).toBe('approximate');
+    const byLine = new Map(account.lines.map((a) => [a.line, a.bytes]));
+    // Three samples: the first is the baseline and charges nobody, and the two
+    // after it rose 400 bytes each, split three-to-one by the cycles.
+    expect(byLine.get(20)).toBe(600);
+    expect(byLine.get(30)).toBe(200);
+  });
+
+  it('prefers what the machine measured over what can be spread', () => {
+    const p = new RunProfiler(null, []);
+    let used = 1000;
+    run(
+      p,
+      MEMORY_SAMPLE_FRAMES * 2,
+      [
+        { line: 20, cost: 30, allocated: 0 },
+        { line: 30, cost: 10, allocated: 5 },
+      ],
+      () => {
+        used += 400;
+        return { used, free: 10_000 - used };
+      },
+    );
+    const account = p.snapshot().allocations!;
+    // The machine priced line 30, so the spread is not offered at all - not
+    // even for line 20, which it priced at nothing. Mixing the two would credit
+    // a line that took nothing for the cycles it happened to burn.
+    expect(account.accuracy).toBe('measured');
+    expect(account.lines.map((a) => a.line)).toEqual([30]);
+  });
+
+  it('spreads nothing across a gap in the machine’s figures', () => {
+    const p = new RunProfiler(null, []);
+    let reading = 0;
+    // A figure, then none for a window, then a figure 5,000 bytes higher. The
+    // gap cannot be priced: charging it would land a boot or an injection on
+    // whichever lines happened to run next.
+    run(p, MEMORY_SAMPLE_FRAMES * 3, [CYCLES(20, 10)], () => {
+      reading++;
+      if (reading === 2) return null;
+      return { used: reading === 1 ? 1000 : 6000, free: 1000 };
+    });
+    expect(p.snapshot().allocations).toEqual({
+      lines: [],
+      accuracy: 'measured',
+    });
+  });
+
+  it('spreads nothing over a window in which no line of the program ran', () => {
+    const p = new RunProfiler(null, []);
+    let used = 1000;
+    // A machine that cannot report its executing line: memory moved, but to no
+    // line this program can be shown against.
+    run(p, MEMORY_SAMPLE_FRAMES * 2, null, () => {
+      used += 400;
+      return { used, free: 10_000 - used };
+    });
+    expect(p.snapshot().allocations).toEqual({
+      lines: [],
+      accuracy: 'measured',
+    });
+  });
+
   it('says nothing has been measured before anything has', () => {
     const p = new RunProfiler(null, []);
     expect(p.measured).toBe(false);
@@ -223,6 +458,7 @@ describe('profileStillApplies', () => {
     measuredLines: programLineNumbers(source),
     lines: null,
     memory: null,
+    allocations: null,
     elapsed: 0,
   });
 

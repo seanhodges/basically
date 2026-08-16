@@ -19,10 +19,19 @@
  * so line 20 must dominate, line 30 must be second, and line 10 must not appear
  * at all - it had already run when the recorder was armed, which is also what
  * proves nothing is charged retrospectively.
+ *
+ * A second probe churns strings, for the other half of what a machine measures:
+ * the bytes charged to the line that took them. See {@link CHURN} below.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
-import { bootMachine, installNodeRomLoading, runFrames } from './bootHarness';
+import {
+  bootMachine,
+  installNodeRomLoading,
+  runFrames,
+  runUntil,
+} from './bootHarness';
+import { MEMORY_SAMPLE_FRAMES, RunProfiler } from '../app/runProfile';
 import type { LineCost, MachineEmulator } from './types';
 
 /** Booting the real ROMs dominates every case here (see c64Machine.test.ts). */
@@ -62,22 +71,81 @@ const NO_MEMORY_FIGURES: Record<string, string> = {
   trs80: 'the interpreter has no RAM image, so there are no BASIC pointers',
 };
 
+/**
+ * The memory probe: a loop that repeatedly extends a string and then drops it.
+ *
+ *     10 LET A$=""
+ *     20 FOR I=1 TO 20     <- the loop's frame
+ *     30 LET A$=A$+"X"     <- the only line that takes memory
+ *     40 NEXT I
+ *     50 LET A$=""         <- gives it back
+ *     60 GOTO 20
+ *
+ * Bounded at twenty characters on purpose. A string left to grow without limit
+ * fills the heap, and a Commodore then spends the whole measured window inside
+ * line 30 reclaiming - the very stall this figure exists to explain, but with no
+ * change of line in it, so nothing can be charged and the probe measures
+ * nothing. Dropping the string each pass keeps the churn without the stall.
+ */
+const CHURN =
+  '10 LET A$=""\n' +
+  '20 FOR I=1 TO 20\n' +
+  '30 LET A$=A$+"X"\n' +
+  '40 NEXT I\n' +
+  '50 LET A$=""\n' +
+  '60 GOTO 20\n';
+
+/** Frames measured for the memory probe; the slowest machine needs the room. */
+const CHURN_FRAMES = 300;
+
+/**
+ * Machines whose reported in-use figure does not move as {@link CHURN} runs, and
+ * why, so no line is charged for it.
+ *
+ * This is the coverage of the figure itself, not of the attribution: bytes are
+ * charged wherever the machine's own account moves, so the per-line reading
+ * covers exactly what the memory chart above it covers and never more. The
+ * Acorns report `VARTOP - PAGE` and the Amstrads `arrEnd - programStart`, and
+ * both were measured flat across the probe - a program's string churn happens
+ * outside the range either figure spans, so neither the chart nor the per-line
+ * reading can see it.
+ *
+ * The ZX80 is here for a different reason: its ROM has no string concatenation,
+ * so the probe stops on an error and there is nothing to charge. That is the
+ * machine, not the measurement.
+ */
+const NO_CHURN_IN_FIGURE: Record<string, string> = {
+  bbcmicro: 'string churn happens outside PAGE..VARTOP, the range it reports',
+  bbcmaster: 'string churn happens outside PAGE..VARTOP, the range it reports',
+  cpc464: 'string churn happens above the ceiling its figure counts up to',
+  cpc6128: 'string churn happens above the ceiling its figure counts up to',
+  zx80: 'the ROM has no string concatenation, so the probe cannot churn',
+};
+
 function costOf(costs: readonly LineCost[], line: number): number {
   return costs.find((c) => c.line === line)?.cost ?? 0;
+}
+
+function bytesOf(costs: readonly LineCost[], line: number): number {
+  return costs.find((c) => c.line === line)?.allocated ?? 0;
 }
 
 /** Boot, run the probe to its loop, then measure it. */
 async function measureProbe(
   machine: MachineEmulator,
   image: Uint8Array,
+  frames = MEASURED_FRAMES,
 ): Promise<LineCost[] | null> {
+  // Disarmed first: a second probe on the same machine must not inherit the
+  // first one's costs, nor the memory baseline it left behind.
+  machine.setProfileRecording?.(false);
   machine.loadProgram(image);
   // The Commodore and Acorn machines queue their boot-and-inject on a
   // microtask; let it land before running frames at them.
   await new Promise((r) => setTimeout(r, 0));
   await runFrames(machine, SETTLE_FRAMES);
   machine.setProfileRecording?.(true);
-  await runFrames(machine, MEASURED_FRAMES);
+  await runFrames(machine, frames);
   return machine.drainProfile?.() ?? null;
 }
 
@@ -144,6 +212,41 @@ describe('every registered machine measures what it can', () => {
           // Line 10 ran before the recorder was armed, so its cost belongs to
           // nobody: a line that did not run while measured carries no cost.
           expect(costOf(measured, 10)).toBe(0);
+
+          // The other half: bytes charged to the line that took them. Measured
+          // on the same booted machine, because booting the ROM is the whole
+          // cost of this file.
+          const churn = dialect.tokenize(CHURN);
+          expect(churn.errors).toEqual([]);
+          const taken = (await measureProbe(
+            machine,
+            churn.image,
+            CHURN_FRAMES,
+          ))!;
+          // Every machine that can report a memory figure attributes with it;
+          // one that cannot must report cycles alone rather than zero bytes,
+          // which would read as "measured, and this line took nothing".
+          expect(
+            taken.every((c) => typeof c.allocated === 'number'),
+            `${dialect.id} ${reportsMemory ? 'reports' : 'does not report'} ` +
+              'memory figures, so its drained costs should ' +
+              `${reportsMemory ? '' : 'not '}carry bytes`,
+          ).toBe(reportsMemory);
+          if (dialect.id in NO_CHURN_IN_FIGURE) return;
+
+          const built = bytesOf(taken, 30);
+          expect(
+            built,
+            'the line that extends the string should carry the bytes',
+          ).toBeGreaterThan(0);
+          // Not the line beside it. This is the whole point of reading the
+          // figure at a change of line rather than spreading a period's growth
+          // over the lines that ran in it: line 40 runs exactly as often as
+          // line 30 and takes nothing.
+          expect(bytesOf(taken, 40)).toBe(0);
+          expect(bytesOf(taken, 60)).toBe(0);
+          // Nor the line that gives the string back: a fall is not a taking.
+          expect(bytesOf(taken, 50)).toBe(0);
         } finally {
           machine.dispose();
         }
@@ -151,6 +254,130 @@ describe('every registered machine measures what it can', () => {
       BOOT_TIMEOUT_MS,
     );
   }
+
+  /**
+   * The case per-line charging cannot cover, and what is offered instead.
+   *
+   * Pricing a line needs the machine to leave it: the figure is read when the
+   * executing line changes, and charged to the line that has just stopped. So a
+   * program whose loop is written on one line - which BASIC invites, and which
+   * is written that way precisely where speed matters - never changes line at
+   * all, and has nothing charged however much memory it takes.
+   *
+   * The C64 because its figure counts the string heap, so the memory this takes
+   * is memory it can see; the same program on a machine whose figure spans a
+   * narrower range would move nothing to spread.
+   */
+  const ONE_LINE = '10 A$=A$+"X":GOTO 10\n';
+
+  it(
+    'spreads a rise no line could be charged over the lines that ran',
+    async () => {
+      const dialect = dialects.find((d) => d.id === 'commodore64')!;
+      const machine = await bootMachine(dialect);
+      try {
+        const { image, errors } = dialect.tokenize(ONE_LINE);
+        expect(errors).toEqual([]);
+        machine.loadProgram(image);
+        await new Promise((r) => setTimeout(r, 0));
+        // Measured from the moment the program starts rather than after the
+        // usual settle: this heap fills in the first few seconds, and a run
+        // armed after that finds memory already at its ceiling and flat.
+        const started = await runUntil(
+          machine,
+          () => machine.currentLine?.() !== null,
+          SETTLE_FRAMES,
+        );
+        expect(started, 'the program never started').toBe(true);
+        machine.setProfileRecording?.(true);
+
+        // Driven exactly as the run loop drives it, because the fallback lives
+        // in the profiler rather than in the machine: the machine reports what
+        // it can, and the profiler prices what is left over.
+        const profiler = new RunProfiler(null, [10]);
+        for (let i = 0; i < MEMORY_SAMPLE_FRAMES * 12; i++) {
+          await runFrames(machine, 1);
+          profiler.frame(
+            machine.drainProfile?.() ?? null,
+            () => machine.readMemoryStats?.() ?? null,
+            machine.frameHz,
+          );
+        }
+
+        const profile = profiler.snapshot();
+        // The premise: memory climbed over the run, and the machine charged
+        // none of it, having never left the line taking it.
+        const memory = profile.memory!;
+        expect(memory.samples.at(-1)!.used).toBeGreaterThan(
+          memory.samples[0]!.used,
+        );
+        const account = profile.allocations!;
+        expect(
+          account.accuracy,
+          'the machine priced a line after all, so this program no longer ' +
+            'reaches the case the fallback exists for',
+        ).toBe('approximate');
+        // One line ran, so the spread lands on it whole - the weighting has
+        // nothing to be coarse about.
+        expect(account.lines.map((a) => a.line)).toEqual([10]);
+        expect(account.lines[0]!.bytes).toBeGreaterThan(0);
+      } finally {
+        machine.dispose();
+      }
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
+  /**
+   * What the ROM names between the typed RUN and the program's first line.
+   *
+   * A machine reads its executing line out of BASIC's own cell, and across that
+   * gap the cell holds whatever it held last: Commodore BASIC V2 reads as line 0
+   * for a few thousand cycles, on both the C64 and the VIC-20. Measuring from
+   * the moment the run loop arms - which is at `loadProgram`, before the ROM has
+   * taken the program - therefore charges real cycles to a line the program does
+   * not have, and a short run ranks it.
+   *
+   * The C64 because it is one of the two machines that does this. What the fix
+   * turns on is not the machine, though: a line the program does not have is
+   * dropped whoever named it, which is `runProfile.test.ts`.
+   */
+  it(
+    'charges nothing to the line a ROM names before the program starts',
+    async () => {
+      const dialect = dialects.find((d) => d.id === 'commodore64')!;
+      const machine = await bootMachine(dialect);
+      try {
+        const { image } = dialect.tokenize(PROBE);
+        machine.loadProgram(image);
+        // Armed exactly where the run loop arms it, which is the whole point:
+        // the existing probes above arm after the program is already looping,
+        // and never see this.
+        machine.setProfileRecording?.(true);
+        machine.drainProfile?.();
+        await new Promise((r) => setTimeout(r, 0));
+
+        const profiler = new RunProfiler(null, [10, 20, 30]);
+        for (let i = 0; i < SETTLE_FRAMES + MEASURED_FRAMES; i++) {
+          await runFrames(machine, 1);
+          profiler.frame(
+            machine.drainProfile?.() ?? null,
+            () => machine.readMemoryStats?.() ?? null,
+            machine.frameHz,
+          );
+        }
+
+        const measured = profiler.snapshot().lines!;
+        expect(
+          measured.map((c) => c.line).sort((a, b) => a - b),
+          'only lines the program has may be charged',
+        ).toEqual([10, 20, 30]);
+      } finally {
+        machine.dispose();
+      }
+    },
+    BOOT_TIMEOUT_MS,
+  );
 
   it('accounts for every registered dialect either way', () => {
     // Guards the shape of the check itself: a table entry left behind by a
@@ -160,6 +387,7 @@ describe('every registered machine measures what it can', () => {
     for (const id of [
       ...Object.keys(NO_LINE_COSTS),
       ...Object.keys(NO_MEMORY_FIGURES),
+      ...Object.keys(NO_CHURN_IN_FIGURE),
     ]) {
       expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
     }
