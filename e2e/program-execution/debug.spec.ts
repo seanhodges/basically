@@ -9,7 +9,9 @@ import { test, expect, type Page } from '../fixtures';
  *     re-pauses on the breakpoint, Stop clears the session.
  *  2. The debug session survives an orientation change (a viewport flip that
  *     crosses the mobile/desktop breakpoint) - nothing is lost and Step still
- *     works afterwards.
+ *     works afterwards. The touch viewport it flips through is also where the
+ *     run control over the editor lives, so the three states it shows are
+ *     checked there, on the machine this test already has booted.
  *
  * Which machines offer the controls at all is not here. That is
  * `Dialect.debuggable`, and `src/dialects/debugCapability.test.ts` crosschecks
@@ -21,8 +23,10 @@ import { test, expect, type Page } from '../fixtures';
  */
 
 /** A tight loop whose "line being executed" cycles 20 → 30 → 20, so a
-    breakpoint on 20 is hit almost immediately after the ROM boots. */
-const LOOP_SRC = '10 FOR I=1 TO 1000\n20 LET A=I\n30 NEXT I';
+    breakpoint on 20 is hit almost immediately after the ROM boots. Endless on
+    purpose: a run that is left going while the tests take a breakpoint out and
+    put it back must still be inside the loop when it goes back in. */
+const LOOP_SRC = '10 FOR I=1 TO 1000\n20 LET A=I\n30 NEXT I\n40 GOTO 10';
 
 /** Accept the "Discard unsaved changes?" confirm so doc swaps go through. */
 async function open(page: Page) {
@@ -121,6 +125,49 @@ test('debug session survives an orientation change', async ({ page }) => {
   // mobile layout active (the editor's block tab-strip is a tablist too, so
   // pick the app-pane bar by name)
   await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
+
+  // The run control over the editor is where a touch user sees the state of the
+  // run, so it is only provable in a browser at a touch viewport. Addressed by
+  // test id, never by role name: accessible-name matching is a substring match
+  // and the overflow menu carries its own Play and Continue.
+  //
+  // The debugger's own pause reads as Continue, without the user having reached
+  // it themselves.
+  const fab = page.getByTestId('fab-run');
+  await expect(fab).toHaveAttribute('data-state', 'continue');
+  await expect(page.getByText('emulator: paused').first()).toBeVisible();
+
+  // Take the breakpoint out so continuing leaves the machine running rather
+  // than landing straight back on line 20, and the user's own pause is the only
+  // thing that can stop it.
+  await toggleBreakpointOnLine(page, 20);
+  await fab.click();
+  await expect(page.getByText('emulator: running').first()).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(fab).toHaveAttribute('data-state', 'pause');
+
+  // The pause this change adds: a running program held still from that control,
+  // on no breakpoint and no BASIC line.
+  await fab.click();
+  await expect(page.getByText('emulator: paused').first()).toBeVisible();
+  await expect(fab).toHaveAttribute('data-state', 'continue');
+  await expect(page.getByText(/paused at line/)).toBeHidden();
+
+  // And the one Continue carries that pause on too, not just a breakpoint's.
+  await fab.click();
+  await expect(page.getByText('emulator: running').first()).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // Put the breakpoint back and let the loop come round to it, so the session
+  // is paused on line 20 again for the assertions after the flip back.
+  await toggleBreakpointOnLine(page, 20);
+  await expect(page.getByText('emulator: paused').first()).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(fab).toHaveAttribute('data-state', 'continue');
+
   // ...then back to a desktop landscape viewport.
   await page.setViewportSize({ width: 1000, height: 700 });
 

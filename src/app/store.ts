@@ -440,6 +440,12 @@ interface IdeState {
   } | null;
   /** Bumped to ask the emulator pane to stop. */
   stopRequest: number;
+  /**
+   * Bumped to ask the emulator pane to hold the running machine still. Paused
+   * runs are carried on with {@link continueRequest}, whichever way they were
+   * paused - there is no separate request for continuing a pause the user took.
+   */
+  pauseRequest: number;
   /** Bumped to ask the emulator pane to reset the machine. */
   resetRequest: number;
   /**
@@ -466,7 +472,10 @@ interface IdeState {
   debugBufferId: string | null;
   /** Bumped to ask the emulator pane to run to the next BASIC line. */
   stepRequest: number;
-  /** Bumped to ask the emulator pane to continue to the next breakpoint. */
+  /**
+   * Bumped to ask the emulator pane to carry a paused run on: to the next
+   * breakpoint where a debug session is armed, freely otherwise.
+   */
   continueRequest: number;
   /** Emulation speed multiplier (0.25, 0.5, 0.75, 1, 2, 4 or 8). */
   emulatorSpeed: number;
@@ -892,6 +901,8 @@ interface IdeState {
    */
   showEmulator(): void;
   requestStop(): void;
+  /** Ask the emulator pane to hold the running machine still. */
+  requestPause(): void;
   requestReset(): void;
   /** Toggle a breakpoint on a BASIC line number, in the buffer on screen. */
   toggleBreakpoint(lineNo: number): void;
@@ -905,7 +916,7 @@ interface IdeState {
   setDebugLine(line: number | null, bufferId?: string | null): void;
   /** Ask the debugger to run to the next BASIC line. */
   requestStep(): void;
-  /** Ask the debugger to continue to the next breakpoint. */
+  /** Ask a paused run to carry on, however it was paused. */
   requestContinue(): void;
   setEmulatorSpeed(n: number): void;
   setCrtEffect(on: boolean): void;
@@ -1487,6 +1498,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   aiRunViews: noScreenViews(),
   runOutcome: null,
   stopRequest: 0,
+  pauseRequest: 0,
   resetRequest: 0,
   breakpoints: new Set<number>(),
   debugLine: null,
@@ -2148,6 +2160,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   showEmulator: () =>
     set({ aiPanelOpen: false, memoryMapOpen: false, mobileTab: 'preview' }),
   requestStop: () => set((s) => ({ stopRequest: s.stopRequest + 1 })),
+  requestPause: () => set((s) => ({ pauseRequest: s.pauseRequest + 1 })),
   requestReset: () => set((s) => ({ resetRequest: s.resetRequest + 1 })),
   toggleBreakpoint: (lineNo) =>
     set((s) =>

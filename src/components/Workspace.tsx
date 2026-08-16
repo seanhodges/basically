@@ -12,6 +12,11 @@ import {
 } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
 import {
+  runControlStateOf,
+  runControlGlyph,
+  runControlLabel,
+} from '../app/runControl';
+import {
   setSplitRatio as persistSplitRatio,
   MIN_SPLIT_RATIO,
   MAX_SPLIT_RATIO,
@@ -49,6 +54,8 @@ export function Workspace() {
   const splitRatio = useIdeStore((s) => s.splitRatio);
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
   const requestRun = useIdeStore((s) => s.requestRun);
+  const requestPause = useIdeStore((s) => s.requestPause);
+  const requestContinue = useIdeStore((s) => s.requestContinue);
   const blocks = useBlocks();
   const activeTab = useIdeStore((s) => s.activeTab);
   const setScratchText = useIdeStore((s) => s.setScratchText);
@@ -164,6 +171,18 @@ export function Workspace() {
       ? asmEngineFor(dialect.memoryBlocks.cpu)
       : null;
 
+  // The run control over the editor drives the run rather than only starting
+  // it: Play stopped, Pause running, Continue paused - whether the pause came
+  // from a breakpoint or from the user pressing this button.
+  const runControlState = runControlStateOf(emulatorStatus);
+  const runControlAction =
+    runControlState === 'pause'
+      ? requestPause
+      : runControlState === 'continue'
+        ? requestContinue
+        : requestRun;
+  const runControlTitle = runControlLabel(runControlState, runTargetName);
+
   // While a program is actively running with the memory map open, move the map
   // into the left column (replacing the editor) so the live emulator can stay
   // visible on the right. Only on the split layout; only while 'running' — when
@@ -270,14 +289,13 @@ export function Workspace() {
           {tabbed && mobileTab === 'editor' && (
             <button
               className={styles.fabRun}
-              onClick={requestRun}
-              title={
-                runTargetName
-                  ? `Build and run ${runTargetName} in the emulator`
-                  : 'Build and run in the emulator'
-              }
+              data-testid="fab-run"
+              data-state={runControlState}
+              onClick={runControlAction}
+              title={runControlTitle}
+              aria-label={runControlTitle}
             >
-              ▶
+              {runControlGlyph(runControlState)}
             </button>
           )}
         </div>

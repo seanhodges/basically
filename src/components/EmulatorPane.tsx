@@ -47,6 +47,7 @@ import {
   PROFILE_PUBLISH_FRAMES,
 } from '../app/runProfile';
 import { RunStopwatch, formatTiming, timingFrame } from '../app/runTiming';
+import { canPauseRun } from '../app/runControl';
 import { canObserveProgramFinish } from '../ai/machineObservability';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import {
@@ -167,6 +168,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const bootDisc = useIdeStore((s) => s.bootDisc);
   const runRequest = useIdeStore((s) => s.runRequest);
   const stopRequest = useIdeStore((s) => s.stopRequest);
+  const pauseRequest = useIdeStore((s) => s.pauseRequest);
   const resetRequest = useIdeStore((s) => s.resetRequest);
   const romChangeRequest = useIdeStore((s) => s.romChangeRequest);
   const stepRequest = useIdeStore((s) => s.stepRequest);
@@ -1025,6 +1027,38 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     flushProfile,
   ]);
 
+  // Pause request: hold the running machine still between frames.
+  //
+  // Deliberately unlike the breakpoint pause above: execution stopped between
+  // frames rather than before a BASIC line, so no line is marked, no pause
+  // interval is published (the profiler's reading only means anything beside a
+  // line), and the mobile tab is left alone - the control that sends this lives
+  // on the editor tab, so the user is already there.
+  useEffect(() => {
+    if (pauseRequest === 0) return;
+    const machine = machineRef.current;
+    if (!machine || useIdeStore.getState().emulatorStatus !== 'running') return;
+    if (
+      !canPauseRun({
+        checking: aiCheckActiveRef.current,
+        driving: machineFrozen(),
+        // The flag is raised while the pane waits for the first frame and
+        // dropped by the render that hides the loading overlay.
+        drawn: !firstFrameRef.current,
+      })
+    )
+      return;
+    stopLoop();
+    machine.releaseAllKeys(); // nothing stays held while paused
+    const stopwatch = stopwatchRef.current;
+    if (stopwatch) {
+      stopwatch.pause(null);
+      useIdeStore.getState().setRunTiming(stopwatch.timing());
+    }
+    setEmulatorStatus('paused');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pauseRequest]);
+
   // Step request: run the paused debugger to the next BASIC line.
   useEffect(() => {
     if (stepRequest === 0 || !debugActiveRef.current) return;
@@ -1037,9 +1071,16 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepRequest]);
 
-  // Continue request: run the paused debugger to the next breakpoint.
+  // Continue request: carry a paused run on, however it was paused.
+  //
+  // Gated on the run being paused rather than on a debug session being armed,
+  // so the one Continue serves both pauses and the machine's own state decides
+  // what it means: with a session armed 'run' mode carries on to the next
+  // breakpoint, without one it just advances frames. Refusing while a run is
+  // already running also keeps a stray continue from re-entering the loop.
   useEffect(() => {
-    if (continueRequest === 0 || !debugActiveRef.current) return;
+    if (continueRequest === 0 || !machineRef.current) return;
+    if (useIdeStore.getState().emulatorStatus !== 'paused') return;
     debugModeRef.current = 'run';
     stopwatchRef.current?.resume();
     useIdeStore.getState().setDebugLine(null);

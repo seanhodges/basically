@@ -78,7 +78,11 @@ function dispatch(id: ShortcutId): boolean {
       }
       return false;
     case 'run.continue':
-      if (s.dialect.debuggable && s.emulatorStatus === 'paused') {
+      // Any paused run, not only a debugged one: a machine with no stepper can
+      // still be paused from the run control over the editor, and that control
+      // is hidden above the touch layout's breakpoint - without this, a pause
+      // taken on a phone could only be escaped by stopping the program.
+      if (s.emulatorStatus === 'paused') {
         s.requestContinue();
         return true;
       }

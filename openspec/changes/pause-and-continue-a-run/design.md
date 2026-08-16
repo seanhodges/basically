@@ -136,10 +136,11 @@ threshold on that blue.
 The control carries a state attribute and a test id. This matters beyond
 convenience: Playwright's accessible-name matching is a case-insensitive
 substring match, and existing specs click buttons named "Play" and "Continue"
-meaning the toolbar's. The control is hidden outside its media query, so it is
-absent from the accessibility tree at the desktop viewports those specs use —
-but the assertions added by this change run at a touch viewport where both are
-present, so they address it by test id and never by role name.
+meaning the toolbar's. The toolbar's run controls and this one are hidden by
+opposite halves of the same breakpoint, so those two never collide — but the
+touch layout's overflow menu carries its own Play, Step and Continue, and while
+it is open they and the control are both in the tree. Addressing the control by
+test id sidesteps that, and survives the labels being reworded.
 
 ### The Continue shortcut is widened
 

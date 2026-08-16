@@ -211,10 +211,11 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     id: 'run.continue',
+    // Not debugOnly: it carries on any paused run, including one the user
+    // paused from the run control on a machine that has no stepper.
     label: 'Continue',
     category: 'Run',
     keys: [c('F8')],
-    debugOnly: true,
   },
   {
     id: 'run.reset',

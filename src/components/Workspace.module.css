@@ -246,6 +246,17 @@
     z-index: 20;
   }
 
+  /* Green means the machine is not running: once it is, Pause and Continue
+     share the accent so the button reads as "this run is under way" at a
+     glance. Dark ink on both, as the green state has - white on the accent only
+     just clears the large-text contrast threshold. */
+  .fabRun[data-state='pause'],
+  .fabRun[data-state='continue'] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #06152e;
+  }
+
   /* Lift the run button above the keyboard overlay (bottom 46%) on the editor
      tab so it isn't hidden behind it. */
   .workspace.kbOpen .fabRun {

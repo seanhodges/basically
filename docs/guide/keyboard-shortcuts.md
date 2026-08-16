@@ -17,7 +17,7 @@ debugging, file operations, and toggling the panels.
 | Save a screenshot of the screen       | <kbd>Mod</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>       |
 | Toggle breakpoint on the current line | <kbd>F9</kbd>                                    |
 | Step to the next BASIC line           | <kbd>F10</kbd>                                   |
-| Continue to the next breakpoint       | <kbd>F8</kbd>                                    |
+| Continue a paused program             | <kbd>F8</kbd>                                    |
 
 ## File
 
