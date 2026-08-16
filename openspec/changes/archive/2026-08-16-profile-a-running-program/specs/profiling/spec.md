@@ -100,9 +100,9 @@ inside a subroutine SHALL therefore be charged to the subroutine's own lines and
 SHALL NOT be charged to the line that called it.
 
 Because this is not the only conceivable accounting, the IDE SHALL state that
-costs are charged this way wherever it reports them, so that a user reading a
-program whose work is done in subroutines is not left to infer the wrong thing
-from a cheap-looking call site.
+costs are charged this way where it presents a line's cost, so that a user
+reading a program whose work is done in subroutines is not left to infer the
+wrong thing from a cheap-looking call site.
 
 Where the IDE can identify a program's named routines and the destinations its
 program jumps to, it SHALL offer the run's cost summed over each of those, so
@@ -117,8 +117,9 @@ that a routine's total cost can be read without adding its lines up by hand.
 
 #### Scenario: The accounting is disclosed
 
-- **WHEN** the user reads the IDE's report of where a run's time went
-- **THEN** the report states that a line's cost excludes the routines it calls
+- **WHEN** the user reads a line's measured cost where the IDE presents it
+- **THEN** that cost carries a statement that it excludes the routines the line
+  calls
 
 #### Scenario: Cost per routine
 
