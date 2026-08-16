@@ -143,28 +143,46 @@ export type AiRunVerdict =
   | { done: true; outcome: AiRunOutcome };
 
 /**
+ * The outcome a single frame settles on its own, or null when this frame says
+ * nothing conclusive.
+ *
+ * The two rules that need no window to decide, kept in one place because more
+ * than one reader of a run needs them and two accounts of "has this program
+ * finished" would eventually disagree in front of the user. An error ends a run
+ * immediately, and so does a machine saying no program is running - a machine
+ * only answers that once it has actually taken the program (see
+ * `MachineEmulator.isProgramRunning`), so it can't be the prompt it hasn't left
+ * yet.
+ *
+ * A machine that can never answer (`undefined`) settles nothing here, which is
+ * why its runs are only ever ended by something outside these rules.
+ */
+export function immediateRunOutcome(frame: AiRunFrame): AiRunOutcome | null {
+  const { report, running } = frame;
+  if (report?.isError) return { kind: 'errored', report };
+  if (running === false) return { kind: 'ended-ok' };
+  return null;
+}
+
+/**
  * Classify one frame of an armed post-run check.
  *
  * Pure on purpose: the caller owns the machine and the animation loop, this
  * owns the rules, and they meet over plain numbers so the rules are testable
  * without a canvas or an emulator.
  *
- * An error ends the check immediately, and so does a machine saying no program
- * is running - a machine only answers that once it has actually taken the
- * program (see `MachineEmulator.isProgramRunning`), so it can't be the prompt
- * it hasn't left yet. Otherwise the windows decide: the running window expiring
- * means the program is still going, which is a success, and the absolute cap
- * with the machine never up means it never started.
+ * What {@link immediateRunOutcome} settles ends the check on the spot.
+ * Otherwise the windows decide: the running window expiring means the program
+ * is still going, which is a success, and the absolute cap with the machine
+ * never up means it never started.
  */
 export function classifyAiRunFrame(
   frame: AiRunFrame,
   counts: AiRunFrameCounts,
 ): AiRunVerdict {
   const { report, running } = frame;
-  if (report?.isError) {
-    return { done: true, outcome: { kind: 'errored', report } };
-  }
-  if (running === false) return { done: true, outcome: { kind: 'ended-ok' } };
+  const settled = immediateRunOutcome(frame);
+  if (settled) return { done: true, outcome: settled };
 
   // The machine is "up" once it says anything about itself: a report, or a
   // definite answer about whether a program is running. A machine that can't

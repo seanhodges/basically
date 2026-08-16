@@ -124,6 +124,35 @@ export function canProfileRun(dialectId: string): boolean {
 }
 
 /**
+ * Dialect ids whose machines cannot tell whether a BASIC program is still
+ * running, and so can never observe one finishing.
+ *
+ * Derived from the machines and crosschecked the same way: `isProgramRunning` is
+ * an optional seam member, and these ROMs leave no reliable trace of the
+ * difference - the Sinclair machines report `0 OK` both while a program runs and
+ * after it ends, and the Atom's interpreter state says as little. See
+ * `MachineEmulator.isProgramRunning` for what each machine can and cannot say.
+ *
+ * What it costs: a timing on these machines never ends in a finish. It ends when
+ * the user stops the run or when execution pauses, and says which - a duration
+ * that really means "until you pressed stop" must never be presented as the time
+ * the program takes. Timing between two pauses is unaffected, so a debuggable
+ * one of these is not left with nothing.
+ *
+ * Kept here rather than read off a machine for the reason the tables above are:
+ * the assistant's tool set is settled per conversation from the dialect alone,
+ * before any machine exists.
+ */
+export const DIALECTS_WITHOUT_FINISH_OBSERVATION: ReadonlySet<string> = new Set(
+  ['zx80', 'zx81', 'zxspectrum', 'zxspectrum128', 'atom'],
+);
+
+/** Whether this dialect's machine can observe a BASIC program finishing. */
+export function canObserveProgramFinish(dialectId: string): boolean {
+  return !DIALECTS_WITHOUT_FINISH_OBSERVATION.has(dialectId);
+}
+
+/**
  * What the assistant may state about a finished run on this machine, and the
  * conventions its answers come back in.
  *

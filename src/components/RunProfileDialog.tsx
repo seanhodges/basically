@@ -3,6 +3,7 @@ import {
   useIdeStore,
   selectActiveSource,
   selectVisibleProfile,
+  selectVisibleTiming,
 } from '../app/store';
 import { outlineCapabilities } from '../editor/programOutline';
 import {
@@ -10,6 +11,7 @@ import {
   routineShares,
   type MemoryProfile,
 } from '../app/runProfile';
+import { formatTiming, TIMING_ENDINGS, type RunTiming } from '../app/runTiming';
 import { canProfileRun } from '../ai/machineObservability';
 import dialog from './Dialog.module.css';
 import styles from './RunProfileDialog.module.css';
@@ -75,12 +77,32 @@ function MemoryChart({ memory }: { memory: MemoryProfile }) {
   );
 }
 
+/**
+ * How long the run took, and how that timing ended.
+ *
+ * The ending is never dropped, however the run went: the same number means a
+ * measurement of the program under one ending and nothing about the program at
+ * all under another, and a duration that really means "until you pressed stop"
+ * read as a completion time is the one mistake a stopwatch must not invite.
+ */
+function Timing({ timing, machine }: { timing: RunTiming; machine: string }) {
+  return (
+    <p className={styles.summary}>
+      {formatTiming(timing.seconds)} of {machine} time -{' '}
+      {TIMING_ENDINGS[timing.ending]}.
+      {!timing.observesFinish &&
+        ` The ${machine} cannot tell whether a BASIC program is still running, so it never reports one finishing: a timing on it ends when you stop the run or when execution pauses.`}
+    </p>
+  );
+}
+
 export function RunProfileDialog() {
   const open = useIdeStore((s) => s.runProfileOpen);
   const setOpen = useIdeStore((s) => s.setRunProfileOpen);
   const dialect = useIdeStore((s) => s.dialect);
   const source = useIdeStore(selectActiveSource);
   const profile = useIdeStore(selectVisibleProfile);
+  const timing = useIdeStore(selectVisibleTiming);
   const requestJumpToLine = useIdeStore((s) => s.requestJumpToLine);
 
   const shares = useMemo(() => lineShares(profile?.lines ?? []), [profile]);
@@ -104,22 +126,25 @@ export function RunProfileDialog() {
       <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
         <h2>Where the run went</h2>
 
+        {/* The stopwatch first, and on every machine: how long a run took is
+            the machine's frame rate and nothing else, so a machine that cannot
+            say which line it is executing can still be timed. */}
+        {timing ? (
+          <Timing timing={timing} machine={dialect.name} />
+        ) : (
+          <p className={styles.empty}>
+            Run this program to measure it. Every run is timed and measured;
+            there is nothing to switch on.
+          </p>
+        )}
+
         {!canProfile ? (
           <p className={styles.empty}>
             The {dialect.name} does not report which BASIC line it is executing,
-            so a run on it cannot be timed line by line.
+            so a run on it cannot be broken down line by line.
           </p>
-        ) : !profile ? (
-          <p className={styles.empty}>
-            Run this program to measure it. Every run is measured; there is
-            nothing to switch on.
-          </p>
-        ) : (
+        ) : !profile ? null : (
           <>
-            <p className={styles.summary}>
-              {profile.elapsed.toFixed(1)}s of {dialect.name} time.
-            </p>
-
             {measured ? (
               <div className={styles.section}>
                 <h3 className={styles.heading}>Hottest lines</h3>

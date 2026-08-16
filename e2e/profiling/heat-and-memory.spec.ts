@@ -83,12 +83,24 @@ test('a run paints its cost in the gutter and reports where it went', async ({
     /run's time on this machine[\s\S]*charged to them/,
   );
 
-  // The report reads out what the gutter cannot: the shares and the memory
-  // account across the run. Opened while the program is still running, so the
-  // chart fills as more of the run is measured.
+  // The report reads out what the gutter cannot: the timing, the shares and the
+  // memory account across the run. Opened while the program is still running,
+  // so the chart fills as more of the run is measured.
   await editMenu(page, /^Run profile/);
   await expect(
     page.getByRole('heading', { name: 'Where the run went' }),
+  ).toBeVisible();
+
+  // The stopwatch reaches the screen with its ending attached: the run loop
+  // marks the clock and publishes a duration, and it is never shown bare. This
+  // program loops forever, so "still running" is the true reading - and the
+  // ZX81 cannot observe a program finishing at all, which the dialog says
+  // rather than leaving a timing that never ends unexplained.
+  await expect(
+    page.getByText(/\d+\.\d+s of ZX81 time - the program is still running\./),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByText(/cannot tell whether a BASIC program is still running/),
   ).toBeVisible();
   await expect(page.getByText('Hottest lines')).toBeVisible();
   await expect(page.getByText('Memory use over time')).toBeVisible();

@@ -196,6 +196,57 @@ and editing your program so that its lines no longer match - adding, removing or
 renumbering one - discards them rather than marking lines that no longer
 correspond.
 
+## Timing a program
+
+Knowing which line is slow doesn't tell you how long your program takes, and
+that's usually the question you asked first: does this finish in under a second,
+is the new version actually faster than the old one.
+
+**Edit ▸ Run profile** opens with the answer. At the top of the dialog is how
+long the run took, in the machine's own time, and - always beside it - how the
+timing ended:
+
+- **the program finished** - the machine saw it return to its prompt, so the
+  duration is the time the program takes;
+- **the program stopped on an error** - the duration is the time up to the
+  failure;
+- **the program is still running** - a live reading of a program that hasn't
+  stopped, which is the normal shape of a game or an animation;
+- **it was still running when the run was stopped** - you pressed Stop, so the
+  duration is how long you let it run and not how long it takes;
+- **execution paused** - the run stopped at a breakpoint or a step.
+
+The ending is never dropped, because the same number means different things
+under each. "1.4 seconds" for a program that ran to completion is a measurement
+of your program; "1.4 seconds" for one you got bored of is a fact about you.
+
+To compare two versions, time them both: run the first, read the duration, make
+your change, run it again. The IDE deliberately doesn't keep a table of past
+timings - a stopwatch measures one run - so write the first number down before
+you change anything.
+
+### Machines that can't tell you it finished
+
+Some machines can't say whether a BASIC program is still running at all. The
+Sinclairs are the well-known case: the ROM reports `0 OK` both while a program
+runs and after it has ended, so there is nothing to read that separates the two.
+On those machines a timing never ends by itself. It ends when you stop the run
+or when execution pauses, it says which, and it never claims a finish nobody
+observed. The dialog tells you when you're on such a machine, so a timing that
+keeps going isn't a mystery.
+
+### Timing part of a program
+
+You don't have to time the whole of it. On the machines with a
+[step debugger](#debugging-with-breakpoints), the paused bar under the screen
+reports the machine time since the previous pause - so a breakpoint at each end
+of the stretch you care about times exactly that stretch, and stepping a line at
+a time gives you the cost of each line as you walk it.
+
+Time spent paused is never counted. Emulated time only advances while frames are
+running, so a breakpoint you leave sitting for a minute while you read your
+program costs it nothing.
+
 ## Inspecting data files
 
 On the machines that can write non-program data files, the IDE captures these and

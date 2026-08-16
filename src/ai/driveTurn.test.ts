@@ -26,7 +26,7 @@ import {
   type MachineControl,
 } from '../app/machineControl';
 import { armDriving, settleJudgingTurn } from './aiStore';
-import { DRIVE_TOOL, LOOK_TOOL, PROFILE_TOOL } from './driveTools';
+import { DRIVE_TOOL, LOOK_TOOL, PROFILE_TOOL, TIME_TOOL } from './driveTools';
 import { setAiProvider } from '../storage/settings';
 
 /**
@@ -95,6 +95,7 @@ describe('when driving is armed', () => {
       DRIVE_TOOL,
       LOOK_TOOL,
       PROFILE_TOOL,
+      TIME_TOOL,
     ]);
   });
 
