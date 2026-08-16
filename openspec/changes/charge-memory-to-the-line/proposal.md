@@ -21,9 +21,14 @@ way to answer it today is to bisect the program by hand.
   rather than as nothing. This is what makes the reclaim stall attributable.
 - The accounting is disclosed where the bytes are shown, as the per-line time
   costs already disclose theirs.
-- A machine that reports its executing line and its memory totals but cannot
-  attribute memory to lines reports no allocation account and says so, rather
-  than showing zeroes.
+- Charging memory to a line means observing the program leave it, which a loop
+  written on one line never does. Where memory rose and none of it could be
+  charged, an approximate breakdown is offered instead - each rise spread over
+  the lines running at the time, by their share of the run's time - and is
+  marked as approximate. It is never mixed with charged figures in one reading.
+- A run in which no memory figure was ever read is distinguished from one in
+  which figures were read and no memory was taken. The first is the absence of a
+  measurement; the second is a measurement.
 - The assistant is given the same reading, so it and the user cannot disagree
   about where the memory went.
 
@@ -41,6 +46,11 @@ way to answer it today is to bisect the program by hand.
   attributed; only where it was taken.
 - **Extending measurement to machines that cannot report their executing
   line.** The Atom, Altair and TRS-80 stay outside the profile entirely.
+- **Reconciling the two accounts.** Where memory was charged to lines but the
+  run's total moved by more than the sum of it, the difference is not made up
+  with approximations. A machine's figure moves for reasons that belong to no
+  line of the program, and pricing that difference would invent attribution
+  rather than report it.
 
 ## Capabilities
 
@@ -52,8 +62,9 @@ None.
 
 - `profiling`: adds a requirement that memory is charged to the line that
   allocated it — per line, summed per routine, gross rather than net, covering
-  exactly what the run's own memory account covers, and disclosed where shown.
-  No existing requirement changes.
+  exactly what the run's own memory account covers, disclosed where shown, and
+  falling back to a marked approximation where nothing could be charged. No
+  existing requirement changes.
 
 ## Impact
 
@@ -66,7 +77,8 @@ None.
   VIC-20, Amstrad, BBC, ZX80, ZX81, Spectrum, Spectrum 128) pass the reader.
   The BBC additionally hides its pointer reads from the memory-activity tap, as
   its line walk already does.
-- `src/app/runProfile.ts` — accumulation and the ranked/rolled-up derivations.
+- `src/app/runProfile.ts` — accumulation, the approximate fallback, and the
+  ranked/rolled-up derivations.
 - `src/components/RunProfileDialog.tsx` — the new section.
 - `src/ai/driveTools.ts` — `describeProfile()`.
 - `docs/guide/testing-programs.md` — the profile's description of what it lists.

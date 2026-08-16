@@ -27,6 +27,19 @@ account accounts for, and no more. Where a machine's reported figure does not
 move as the program runs, no line SHALL be reported as having taken memory, and
 the IDE SHALL say that none did rather than leaving the reading blank.
 
+Charging memory to a line requires observing the program leave that line, which
+a program whose loop occupies a single line never does. Where the run's memory
+figure rose and none of it could be charged to a line, the IDE MAY instead
+report an approximate breakdown, derived from the lines that were executing
+while it rose, and SHALL mark that breakdown as approximate wherever it is
+shown. An approximate breakdown SHALL NOT be combined with charged figures in
+one reading: a reader given a mixture has no way to tell which figures were
+measured, and a line that took nothing would be credited for the time it spent.
+
+The IDE SHALL distinguish a run in which no memory figure was ever read from one
+in which figures were read and no memory was taken. The first is the absence of
+a measurement and the second is a measurement.
+
 Because neither the flat accounting nor the gross figure is the only conceivable
 one, the IDE SHALL state both where it presents the bytes, so that a user is not
 left to infer that a line's figure includes what it calls, or that a line whose
@@ -73,5 +86,24 @@ memory was reclaimed took none.
 
 - **WHEN** a program runs on a machine whose reported memory figure does not
   change over the run
-- **THEN** the IDE states that no line took measurable memory, rather than
-  showing a blank reading or a ranking of zeroes
+- **THEN** the IDE states that no memory was taken, rather than showing a blank
+  reading or a ranking of zeroes
+
+#### Scenario: A loop written on a single line
+
+- **WHEN** a program takes memory in a loop that occupies one line, so the
+  program is never observed leaving the line that takes it
+- **THEN** the IDE reports an approximate breakdown derived from the lines
+  executing while memory rose, and states that it is approximate
+
+#### Scenario: An approximate breakdown is not mixed with charged figures
+
+- **WHEN** the IDE reports an approximate breakdown
+- **THEN** every figure in that reading is approximate, and no line carries a
+  charged figure alongside them
+
+#### Scenario: No memory figure was ever read
+
+- **WHEN** a run is measured but the machine never yields a memory figure
+- **THEN** the IDE says that no readings were taken, distinctly from saying that
+  no memory was taken

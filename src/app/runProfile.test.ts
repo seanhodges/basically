@@ -302,23 +302,104 @@ describe('RunProfiler', () => {
     ]);
     // Line 30 took nothing on any frame and is left out; carrying it as a zero
     // would put it in a list of the lines that took memory.
-    expect(p.snapshot().allocations).toEqual([{ line: 20, bytes: 120 }]);
-  });
-
-  it('offers no memory breakdown from a machine that cannot attribute', () => {
-    const p = new RunProfiler(null, []);
-    run(p, 3, [CYCLES(20, 100)]);
-    // Null, not empty: the machine did not measure that line 20 took nothing.
-    expect(p.snapshot().allocations).toBeNull();
-    expect(p.snapshot().lines).not.toBeNull();
+    expect(p.snapshot().allocations).toEqual({
+      lines: [{ line: 20, bytes: 120 }],
+      accuracy: 'measured',
+    });
   });
 
   it('offers an empty breakdown when nothing the machine can see was taken', () => {
     const p = new RunProfiler(null, []);
     run(p, 3, [{ line: 20, cost: 100, allocated: 0 }]);
-    // Empty, not null: this run was measured, and no line took memory the
-    // machine's own figure could see. A different answer from the one above.
-    expect(p.snapshot().allocations).toEqual([]);
+    // Empty, not null: readings were taken, and no line took memory the
+    // machine's own figure could see - the ordinary state on a machine whose
+    // figure spans a range a program's string churn happens outside of.
+    expect(p.snapshot().allocations).toEqual({
+      lines: [],
+      accuracy: 'measured',
+    });
+  });
+
+  it('says no reading was taken at all apart from none being taken', () => {
+    const p = new RunProfiler(null, []);
+    run(p, 3, [CYCLES(20, 100)], () => null);
+    // Null: nothing was ever read, so nothing is known either way. A different
+    // answer from the empty account above, and the per-line costs stand.
+    expect(p.snapshot().allocations).toBeNull();
+    expect(p.snapshot().lines).not.toBeNull();
+  });
+
+  it('spreads a rise over the window’s lines when no line could be priced', () => {
+    const p = new RunProfiler(null, []);
+    let used = 1000;
+    // Two lines running, three quarters of the cycles on line 20. The machine
+    // charges no bytes at all - it never left a line to price one.
+    run(p, MEMORY_SAMPLE_FRAMES * 3, [CYCLES(20, 30), CYCLES(30, 10)], () => {
+      used += 400;
+      return { used, free: 10_000 - used };
+    });
+    const account = p.snapshot().allocations!;
+    expect(account.accuracy).toBe('approximate');
+    const byLine = new Map(account.lines.map((a) => [a.line, a.bytes]));
+    // Three samples: the first is the baseline and charges nobody, and the two
+    // after it rose 400 bytes each, split three-to-one by the cycles.
+    expect(byLine.get(20)).toBe(600);
+    expect(byLine.get(30)).toBe(200);
+  });
+
+  it('prefers what the machine measured over what can be spread', () => {
+    const p = new RunProfiler(null, []);
+    let used = 1000;
+    run(
+      p,
+      MEMORY_SAMPLE_FRAMES * 2,
+      [
+        { line: 20, cost: 30, allocated: 0 },
+        { line: 30, cost: 10, allocated: 5 },
+      ],
+      () => {
+        used += 400;
+        return { used, free: 10_000 - used };
+      },
+    );
+    const account = p.snapshot().allocations!;
+    // The machine priced line 30, so the spread is not offered at all - not
+    // even for line 20, which it priced at nothing. Mixing the two would credit
+    // a line that took nothing for the cycles it happened to burn.
+    expect(account.accuracy).toBe('measured');
+    expect(account.lines.map((a) => a.line)).toEqual([30]);
+  });
+
+  it('spreads nothing across a gap in the machine’s figures', () => {
+    const p = new RunProfiler(null, []);
+    let reading = 0;
+    // A figure, then none for a window, then a figure 5,000 bytes higher. The
+    // gap cannot be priced: charging it would land a boot or an injection on
+    // whichever lines happened to run next.
+    run(p, MEMORY_SAMPLE_FRAMES * 3, [CYCLES(20, 10)], () => {
+      reading++;
+      if (reading === 2) return null;
+      return { used: reading === 1 ? 1000 : 6000, free: 1000 };
+    });
+    expect(p.snapshot().allocations).toEqual({
+      lines: [],
+      accuracy: 'measured',
+    });
+  });
+
+  it('spreads nothing over a window in which no line of the program ran', () => {
+    const p = new RunProfiler(null, []);
+    let used = 1000;
+    // A machine that cannot report its executing line: memory moved, but to no
+    // line this program can be shown against.
+    run(p, MEMORY_SAMPLE_FRAMES * 2, null, () => {
+      used += 400;
+      return { used, free: 10_000 - used };
+    });
+    expect(p.snapshot().allocations).toEqual({
+      lines: [],
+      accuracy: 'measured',
+    });
   });
 
   it('says nothing has been measured before anything has', () => {

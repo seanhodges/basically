@@ -70,3 +70,26 @@
 - [x] 5.6 `npm run e2e:chromium -- e2e/profiling`, extending the existing
       heat-and-memory journey rather than adding a cold spec. Leave unchecked
       with a note if the run fails.
+
+## 6. Approximate fallback and the empty readings
+
+- [x] 6.1 Track each line's cycles within the current memory-sampling window in
+      `src/app/runProfile.ts`, and spread every rise the run's own account shows
+      over them by cycle share.
+- [x] 6.2 Re-baseline and drop the window across a figure the machine could not
+      give, and where no line of the program ran in it.
+- [x] 6.3 Carry the accuracy with the figures, and publish one of four readings:
+      charged, spread, read-and-nothing-taken, never-read.
+- [x] 6.4 Report the spread only where nothing was charged; never mix the two in
+      one reading.
+- [x] 6.5 Cover 6.1-6.4 in `src/app/runProfile.test.ts`.
+- [x] 6.6 Prove the case on a real ROM in `src/dialects/lineProfiling.test.ts`:
+      a Commodore running a loop written on one line takes memory across the run
+      with nothing charged, and is reported approximately.
+- [x] 6.7 Say the two empty readings apart in the dialog: `No memory readings`
+      where none were taken, `No memory was taken over this run.` where they
+      were. Mark an approximate reading above its figures.
+- [x] 6.8 The same three readings for the assistant in `src/ai/driveTools.ts`,
+      with the approximation stated in capitals as the flat accounting is.
+- [x] 6.9 Update `docs/guide/testing-programs.md` for the approximate reading.
+- [x] 6.10 Re-run the gates and `npm run e2e:chromium -- e2e/profiling`.

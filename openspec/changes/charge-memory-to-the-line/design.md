@@ -46,14 +46,42 @@ So: when the sampled line differs from the last one, read the machine's in-use
 figure, charge the rise since the previous reading to the line that just ended,
 and re-baseline.
 
-**Alternative considered — spread each frame's delta across the lines that ran
-in it, weighted by cycles.** This needs no machine changes at all, since the run
-loop already receives per-frame per-line costs. It was rejected because it is
-wrong in the case the feature exists for: where one line extends a string and
-the next prints it, the print dominates the cycles, so the growth is charged to
-the line that printed. A confident wrong answer is worse than none, and this
-capability's existing rule is to say what it cannot measure rather than
-approximate it.
+**Alternative considered as the primary method — spread each sampling window's
+rise across the lines that ran in it, weighted by cycles.** This needs no
+machine changes at all, since the run loop already receives per-frame per-line
+costs. It was rejected *as the primary* because it is wrong in the case the
+feature exists for: where one line extends a string and the next prints it, the
+print dominates the cycles, so the growth is charged to the line that printed. A
+confident wrong answer is worse than none.
+
+It is kept as a **fallback**, which is a different question — see below.
+
+### The spread is the fallback where nothing could be charged
+
+Charging a line requires observing the program leave it. A loop written on one
+line (`10 A$=A$+"X":GOTO 10`) never does, and BASIC invites exactly that,
+particularly where speed matters. Such a program can fill memory across a whole
+run and have nothing charged for it, leaving an empty breakdown beside a rising
+chart — which reads as a program that takes no memory.
+
+So where the run's figure rose and none of it was charged, spread each window's
+rise over the lines that were running, weighted by their cycles, and mark the
+result approximate. In the case that motivates it the spread is exact anyway,
+because only one line ran.
+
+**All-or-nothing, never mixed.** The exact reading is used whole where it
+charged anything, and the spread whole where it charged nothing. Filling in the
+lines an exact reading priced at zero would credit a line that genuinely took
+nothing for the cycles it happened to burn — which is the answer the exact
+method exists to avoid — and would leave a ranking whose figures cannot be told
+apart.
+
+**Measured, not assumed.** The gap above was found by measurement, and so was a
+case that turned out *not* to need the fallback: a Commodore whose string heap
+has filled does stall inside one line reclaiming, but its reported figure has
+plateaued at the ceiling by then, so there is no rise to spread. The fallback
+covers programs whose structure hides the line change, not machines whose
+memory stalls.
 
 **Alternative considered — read memory on every sample rather than every line
 change.** Sampling happens every few cycles; a reading is several bus reads.
@@ -80,6 +108,15 @@ A fall means BASIC reclaimed, and the reclaim is not the taking. Subtracting it
 would report the string-builder — the line the feature exists to find — as
 having taken nothing. Falls therefore reset the baseline without charging, which
 also stops the bytes being counted twice when they are taken again.
+
+### The account carries its accuracy, and four readings are distinct
+
+Nothing downstream could work out whether a figure was charged or spread, so the
+accuracy travels with the figures. The run publishes one of four answers, and
+they are four different facts: lines were charged; nothing was charged but a
+rise could be spread; a figure was read and no memory was taken; no figure was
+ever read. The last two are the ones most easily conflated, and conflating them
+tells a user their program is frugal when in truth nothing was measured.
 
 ### The field is present only once a real reading has landed
 

@@ -194,8 +194,19 @@ Memory is counted in bytes rather than as a share, because a byte is the same
 byte on every machine. And it is counted the way the machine counts it: the
 figures come from BASIC's own pointers, so a line only shows as taking memory in
 the part of RAM the chart above it is drawing. Where a machine's own account
-doesn't move as a program churns strings, the profile says no line took memory
-it can account for, rather than reporting a program that takes none.
+doesn't move as a program churns strings, the profile says no memory was taken,
+rather than reporting a program that takes none.
+
+Sometimes the profile says the figures are **approximate**, and it's worth
+knowing when. Charging memory to a line means catching the moment the machine
+moves off that line - so a loop written on a single line, like
+`10 A$=A$+"X":GOTO 10`, never gives the profile that moment, and can fill memory
+over a whole run with nothing to charge it to. Rather than show you an empty list
+beside a rising chart, the profile falls back to spreading each rise over the
+lines that were running at the time, by how much of the run's time each was
+taking. It says so above the figures. Read that ranking as a place to start
+looking rather than as a measurement: when several lines were running, the one
+that took the memory needn't be the one that took the time.
 
 Not every machine can be measured. Measuring means charging processor cycles to
 the BASIC line that spent them, so it needs a machine that can say which line

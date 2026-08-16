@@ -264,10 +264,13 @@ describe('describeProfile', () => {
       totalBytes: 16_384,
       partial: false,
     },
-    allocations: [
-      { line: 100, bytes: 640 },
-      { line: 10, bytes: 0 },
-    ],
+    allocations: {
+      lines: [
+        { line: 100, bytes: 640 },
+        { line: 10, bytes: 0 },
+      ],
+      accuracy: 'measured' as const,
+    },
     elapsed: 4.2,
   };
 
@@ -293,19 +296,54 @@ describe('describeProfile', () => {
     // figure as covering what it calls, nor a reclaimed line as taking nothing.
     expect(text).toContain('not what the routines it calls took');
     expect(text).toContain('NOT subtracted');
+    expect(text).not.toContain('APPROXIMATE');
   });
 
   it('says no line took memory rather than reporting a program that takes none', () => {
     // A machine whose own figures cannot see where memory goes must not have
     // the assistant conclude the program is frugal.
     const text = describeProfile(
-      { ...measured, allocations: [] },
+      { ...measured, allocations: { lines: [], accuracy: 'measured' } },
       SOURCE,
       caps,
       true,
     );
     expect(text).toContain('No line took memory this machine can account for');
     expect(text).not.toContain('bytes in all');
+  });
+
+  it('says no readings were taken apart from none being taken', () => {
+    const text = describeProfile(
+      { ...measured, allocations: null },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(text).toContain('No memory readings were taken');
+    expect(text).not.toContain('No line took memory');
+  });
+
+  it('marks a spread breakdown as approximate rather than as a reading', () => {
+    const text = describeProfile(
+      {
+        ...measured,
+        allocations: {
+          lines: [{ line: 100, bytes: 640 }],
+          accuracy: 'approximate',
+        },
+      },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(text).toContain('line 100: 640 bytes');
+    expect(text).toContain('APPROXIMATE');
+    expect(text).toContain('not as a measurement');
+    // Nothing was charged to a line, so the sentence about what a line is
+    // charged must not appear beside figures that were spread.
+    expect(text).not.toContain('not what the routines it calls took');
+    // What still holds of a spread of gross rises: reclaims are not netted off.
+    expect(text).toContain('NOT subtracted');
   });
 
   it('offers no memory breakdown from a machine that cannot attribute', () => {

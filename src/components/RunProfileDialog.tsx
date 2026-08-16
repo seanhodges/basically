@@ -123,13 +123,14 @@ export function RunProfileDialog() {
     () => routineShares(source, caps, shares),
     [source, caps, shares],
   );
+  const memoryAccount = profile?.allocations ?? null;
   const taken = useMemo(
-    () => lineAllocations(profile?.allocations ?? []),
-    [profile],
+    () => lineAllocations(memoryAccount?.lines ?? []),
+    [memoryAccount],
   );
   const takenByRoutine = useMemo(
-    () => routineAllocations(source, caps, profile?.allocations ?? []),
-    [source, caps, profile],
+    () => routineAllocations(source, caps, memoryAccount?.lines ?? []),
+    [source, caps, memoryAccount],
   );
 
   if (!open) return null;
@@ -225,49 +226,67 @@ export function RunProfileDialog() {
               )}
             </div>
 
-            {/* Which line took it, which the chart above cannot say. Rendered
-                only where the machine attributes at all: a null account is a
-                machine that never priced a line, and is already covered by the
-                memory section's own notice. */}
-            {profile.allocations && (
-              <div className={styles.section}>
-                <h3 className={styles.heading}>Where the memory went</h3>
-                {taken.length > 0 ? (
-                  <>
-                    {taken.slice(0, MAX_LINES).map((a) => (
-                      <button
-                        key={a.line}
-                        className={styles.item}
-                        onClick={() => jump(a.line)}
-                      >
-                        <span className={styles.lineNo}>{a.line}</span>
-                        <span className={styles.bar}>
-                          <span
-                            className={`${styles.barFill} ${styles.barFillMemory}`}
-                            style={{ width: `${a.share * 100}%` }}
-                          />
-                        </span>
-                        <span className={styles.bytes}>
-                          {a.bytes.toLocaleString()}
-                        </span>
-                      </button>
-                    ))}
+            {/* Which line took it, which the chart above cannot say. Three
+                readings, and they are three different answers: no figure was
+                ever read, a figure was read and nothing moved, or here is where
+                it went - measured where the machine priced the lines itself,
+                and spread over them where it could not. */}
+            <div className={styles.section}>
+              <h3 className={styles.heading}>Where the memory went</h3>
+              {!memoryAccount ? (
+                <p className={styles.empty}>No memory readings</p>
+              ) : taken.length > 0 ? (
+                <>
+                  {memoryAccount.accuracy === 'approximate' && (
+                    // Above the list, so it is read before the figures are.
                     <p className={styles.summary}>
-                      {bytes(totalAllocated(profile.allocations))} taken in all.
-                      A line is charged what it took itself, never what the
-                      routines it calls took, and memory BASIC reclaimed
-                      afterwards is not subtracted - so a line that builds
-                      strings and lets them go still reads as having taken them.
+                      Approximate. The {dialect.name} never left a line while
+                      memory was moving, so nothing could be charged to the line
+                      that took it; each rise is spread over the lines running
+                      at the time, in proportion to their share of the run’s
+                      time. The line at the top may not be the line that took
+                      the memory.
                     </p>
-                  </>
-                ) : (
-                  <p className={styles.empty}>
-                    No line of this program took memory the {dialect.name} can
-                    account for.
+                  )}
+                  {taken.slice(0, MAX_LINES).map((a) => (
+                    <button
+                      key={a.line}
+                      className={styles.item}
+                      onClick={() => jump(a.line)}
+                    >
+                      <span className={styles.lineNo}>{a.line}</span>
+                      <span className={styles.bar}>
+                        <span
+                          className={`${styles.barFill} ${styles.barFillMemory}`}
+                          style={{ width: `${a.share * 100}%` }}
+                        />
+                      </span>
+                      <span className={styles.bytes}>
+                        {a.bytes.toLocaleString()}
+                      </span>
+                    </button>
+                  ))}
+                  <p className={styles.summary}>
+                    {bytes(totalAllocated(memoryAccount.lines))} taken in all.
+                    {/* The flat accounting describes charging, so it belongs
+                        only to a reading that charged: saying a line is charged
+                        what it took itself, under figures that were spread over
+                        the lines by their time, would contradict the note
+                        above. What holds of both is the gross count. */}
+                    {memoryAccount.accuracy === 'measured'
+                      ? ' A line is charged what it took itself, never what the routines it calls took, and memory'
+                      : ' Memory'}{' '}
+                    BASIC reclaimed afterwards is not subtracted - so a line
+                    that builds strings and lets them go still reads as having
+                    taken them.
                   </p>
-                )}
-              </div>
-            )}
+                </>
+              ) : (
+                <p className={styles.empty}>
+                  No memory was taken over this run.
+                </p>
+              )}
+            </div>
 
             {takenByRoutine.length > 0 && (
               <div className={styles.section}>

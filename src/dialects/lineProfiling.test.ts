@@ -25,7 +25,13 @@
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
-import { bootMachine, installNodeRomLoading, runFrames } from './bootHarness';
+import {
+  bootMachine,
+  installNodeRomLoading,
+  runFrames,
+  runUntil,
+} from './bootHarness';
+import { MEMORY_SAMPLE_FRAMES, RunProfiler } from '../app/runProfile';
 import type { LineCost, MachineEmulator } from './types';
 
 /** Booting the real ROMs dominates every case here (see c64Machine.test.ts). */
@@ -248,6 +254,79 @@ describe('every registered machine measures what it can', () => {
       BOOT_TIMEOUT_MS,
     );
   }
+
+  /**
+   * The case per-line charging cannot cover, and what is offered instead.
+   *
+   * Pricing a line needs the machine to leave it: the figure is read when the
+   * executing line changes, and charged to the line that has just stopped. So a
+   * program whose loop is written on one line - which BASIC invites, and which
+   * is written that way precisely where speed matters - never changes line at
+   * all, and has nothing charged however much memory it takes.
+   *
+   * The C64 because its figure counts the string heap, so the memory this takes
+   * is memory it can see; the same program on a machine whose figure spans a
+   * narrower range would move nothing to spread.
+   */
+  const ONE_LINE = '10 A$=A$+"X":GOTO 10\n';
+
+  it(
+    'spreads a rise no line could be charged over the lines that ran',
+    async () => {
+      const dialect = dialects.find((d) => d.id === 'commodore64')!;
+      const machine = await bootMachine(dialect);
+      try {
+        const { image, errors } = dialect.tokenize(ONE_LINE);
+        expect(errors).toEqual([]);
+        machine.loadProgram(image);
+        await new Promise((r) => setTimeout(r, 0));
+        // Measured from the moment the program starts rather than after the
+        // usual settle: this heap fills in the first few seconds, and a run
+        // armed after that finds memory already at its ceiling and flat.
+        const started = await runUntil(
+          machine,
+          () => machine.currentLine?.() !== null,
+          SETTLE_FRAMES,
+        );
+        expect(started, 'the program never started').toBe(true);
+        machine.setProfileRecording?.(true);
+
+        // Driven exactly as the run loop drives it, because the fallback lives
+        // in the profiler rather than in the machine: the machine reports what
+        // it can, and the profiler prices what is left over.
+        const profiler = new RunProfiler(null, [10]);
+        for (let i = 0; i < MEMORY_SAMPLE_FRAMES * 12; i++) {
+          await runFrames(machine, 1);
+          profiler.frame(
+            machine.drainProfile?.() ?? null,
+            () => machine.readMemoryStats?.() ?? null,
+            machine.frameHz,
+          );
+        }
+
+        const profile = profiler.snapshot();
+        // The premise: memory climbed over the run, and the machine charged
+        // none of it, having never left the line taking it.
+        const memory = profile.memory!;
+        expect(memory.samples.at(-1)!.used).toBeGreaterThan(
+          memory.samples[0]!.used,
+        );
+        const account = profile.allocations!;
+        expect(
+          account.accuracy,
+          'the machine priced a line after all, so this program no longer ' +
+            'reaches the case the fallback exists for',
+        ).toBe('approximate');
+        // One line ran, so the spread lands on it whole - the weighting has
+        // nothing to be coarse about.
+        expect(account.lines.map((a) => a.line)).toEqual([10]);
+        expect(account.lines[0]!.bytes).toBeGreaterThan(0);
+      } finally {
+        machine.dispose();
+      }
+    },
+    BOOT_TIMEOUT_MS,
+  );
 
   it('accounts for every registered dialect either way', () => {
     // Guards the shape of the check itself: a table entry left behind by a
