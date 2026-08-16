@@ -119,14 +119,11 @@ export interface AiRunFrame {
   /** `machine.readReport()` for this frame. */
   report: MachineReport | null;
   /**
-   * `machine.isProgramRunning()` for this frame, or `undefined` when the
-   * machine doesn't implement it. The three defined values differ in ways the
-   * rules below depend on: `false` is a machine that has taken the program and
-   * finished it, `null` is one that could answer but isn't ready to, and
-   * `undefined` is one that can never answer - so its runs never end in
-   * `ended-ok`.
+   * `machine.isProgramRunning()` for this frame. The two the rules below turn
+   * on: `false` is a machine that has taken the program and finished it, `null`
+   * is one that could answer but isn't ready to.
    */
-  running: boolean | null | undefined;
+  running: boolean | null;
 }
 
 /** How many frames of each kind the check has counted so far. */
@@ -153,9 +150,6 @@ export type AiRunVerdict =
  * only answers that once it has actually taken the program (see
  * `MachineEmulator.isProgramRunning`), so it can't be the prompt it hasn't left
  * yet.
- *
- * A machine that can never answer (`undefined`) settles nothing here, which is
- * why its runs are only ever ended by something outside these rules.
  */
 export function immediateRunOutcome(frame: AiRunFrame): AiRunOutcome | null {
   const { report, running } = frame;
@@ -185,9 +179,7 @@ export function classifyAiRunFrame(
   if (settled) return { done: true, outcome: settled };
 
   // The machine is "up" once it says anything about itself: a report, or a
-  // definite answer about whether a program is running. A machine that can't
-  // answer at all (`undefined`) says nothing either way, so only its report
-  // counts - which is the rule the check has always used.
+  // definite answer about whether a program is running.
   const up = report !== null || running === true;
   const readyFrames = counts.readyFrames + (up ? 1 : 0);
   const totalFrames = counts.totalFrames + 1;

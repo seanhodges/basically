@@ -630,7 +630,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           const verdict = classifyAiRunFrame(
             {
               report: machine.readReport(),
-              running: machine.isProgramRunning?.(),
+              running: machine.isProgramRunning(),
             },
             aiCheckCountsRef.current,
           );

@@ -243,6 +243,65 @@ describe('Zx80Machine', () => {
     });
   });
 
+  /**
+   * The run-state latch. The ROM address it fires on is a fact about the
+   * committed image, so these cases reproduce the trace rather than asserting
+   * the constant: each program is run on the real ROM and the machine is asked
+   * what it says about itself.
+   */
+  describe('isProgramRunning', () => {
+    function load(src: string): Zx80Machine {
+      const machine = new Zx80Machine({ rom: ROM, ramKb: 16 });
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildOFile(bytes));
+      return machine;
+    }
+
+    /** Frames until the machine reports the program stopped, or the cap. */
+    function settle(machine: Zx80Machine, frames = 600): boolean | null {
+      for (let i = 0; i < frames; i++) {
+        const running = machine.isProgramRunning();
+        if (running === false) return false;
+        machine.runFrame();
+      }
+      return machine.isProgramRunning();
+    }
+
+    it.each([
+      ['falls off the end', '10 PRINT "HI"\n'],
+      ['STOP', '10 STOP\n'],
+      ['an error', '10 PRINT 1/0\n'],
+      ['GOSUB and RETURN', '10 GOSUB 40\n20 PRINT "BACK"\n30 STOP\n40 RETURN\n'],
+      [
+        'a program that fills the screen',
+        '10 FOR I=1 TO 30\n20 PRINT "ROW";I\n30 NEXT I\n',
+      ],
+    ])('reports no program running after %s', (_name, src) => {
+      expect(settle(load(src))).toBe(false);
+    });
+
+    it.each([
+      ['an idle loop', '10 GOTO 10\n'],
+      // 4K BASIC has no INKEY$ and no PAUSE, so waiting on this machine means
+      // waiting at an INPUT prompt - the case every screen-shaped heuristic
+      // gets wrong, since the prompt cursor is the editor's own.
+      ['an INPUT prompt', '10 INPUT A\n20 GOTO 10\n'],
+    ])('goes on reporting a program running at %s', (_name, src) => {
+      expect(settle(load(src), 200)).toBe(true);
+    });
+
+    it('reports no program running once BREAK stops one', () => {
+      const machine = load('10 GOTO 10\n');
+      for (let i = 0; i < 60; i++) machine.runFrame();
+      expect(machine.isProgramRunning()).toBe(true);
+      machine.setKey('Space', true);
+      for (let i = 0; i < 8; i++) machine.runFrame();
+      machine.setKey('Space', false);
+      expect(settle(machine, 60)).toBe(false);
+    });
+  });
+
   describe('step-through debugging', () => {
     const LOOP_SRC = '10 FOR I=1 TO 1000\n20 LET A=I\n30 NEXT I\n';
 

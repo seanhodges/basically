@@ -377,24 +377,13 @@ describe('what the stopwatch asks the machine for', () => {
     expect(reports).toBe(1);
   });
 
-  it('reads the report every frame on a machine that cannot answer', () => {
-    // That report is the only end signal those machines have, and theirs are
-    // two system variables rather than a screen scan.
-    let reports = 0;
-    const machine = {
-      readReport: () => {
-        reports++;
-        return null;
-      },
-    };
-    timingFrame(machine);
-    timingFrame(machine);
-    expect(reports).toBe(2);
-    expect(timingFrame(machine).running).toBeUndefined();
-  });
-
-  it('answers with nothing for a machine that reports neither', () => {
-    expect(timingFrame({})).toEqual({ report: null, running: undefined });
+  it('answers with no report for a machine that has none', () => {
+    // Every machine answers whether a program is running; an error report is
+    // still optional, and a machine without one simply has nothing to add.
+    expect(timingFrame({ isProgramRunning: () => false })).toEqual({
+      report: null,
+      running: false,
+    });
   });
 });
 

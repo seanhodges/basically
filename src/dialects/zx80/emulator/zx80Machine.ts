@@ -13,6 +13,7 @@ import {
   LineCostRecorder,
   PROFILE_SLICE_CYCLES,
 } from '../../../emulator/lineCostRecorder';
+import { ProgramEndLatch } from '../../../emulator/programEndLatch';
 import { NEWLINE, zx80Charset } from '../charset';
 import { readSinclairScreenText } from '../../sinclairScreenText';
 import { Zx81Keyboard } from '../../zx81/emulator/keyboard';
@@ -25,6 +26,7 @@ import {
   DF_END,
   ROM_LOAD_TRAP,
   ROM_POST_LOAD,
+  ROM_PROGRAM_END,
 } from '../sysvars';
 
 const CPU_HZ = 3_250_000;
@@ -88,6 +90,8 @@ export class Zx80Machine implements MachineEmulator {
   private disposed = false;
   /** `.O` image waiting to be injected when the ROM reaches its LOAD loop. */
   private pendingImage: Uint8Array | null = null;
+  /** Run state, latched when the ROM reaches {@link ROM_PROGRAM_END}. */
+  private readonly runLatch = new ProgramEndLatch();
 
   constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
     this.memory = new Zx80Memory(opts.rom, opts.ramKb);
@@ -117,6 +121,7 @@ export class Zx80Machine implements MachineEmulator {
     this.memory.ram.fill(0);
     this.keyboard.releaseAll();
     this.prevRBit6 = true;
+    this.runLatch.clear();
     this.cpu.reset();
   }
 
@@ -139,6 +144,9 @@ export class Zx80Machine implements MachineEmulator {
       this.keyboard.releaseAll();
       this.cpu.setPC(ROM_POST_LOAD);
     }
+    // The interpreter has given up on the program (see ROM_PROGRAM_END): latch
+    // it, so isProgramRunning() has an answer this ROM records nowhere else.
+    if (this.cpu.getPC() === ROM_PROGRAM_END) this.runLatch.stopped();
     let t: number;
     if (this.cpu.isHalted()) {
       const r = this.cpu.getR();
@@ -180,6 +188,18 @@ export class Zx80Machine implements MachineEmulator {
   currentLine(): number | null {
     const lineNo = this.memory.rawReadWord(PPC);
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
+  }
+
+  /**
+   * Whether BASIC is executing a program, from the latch rather than from a
+   * system variable: no ZX80 system variable separates a running program from a
+   * finished one (see {@link ROM_PROGRAM_END}), but the ROM address at which the
+   * interpreter gives up does. Running is promoted from PPC, so the frames spent
+   * loading and typing RUN are reported as "not answerable yet".
+   */
+  isProgramRunning(): boolean | null {
+    if (this.disposed) return null;
+    return this.runLatch.read(this.currentLine() !== null);
   }
 
   debugStep(opts: DebugStepOptions): DebugStepResult {
@@ -239,6 +259,11 @@ export class Zx80Machine implements MachineEmulator {
   loadProgram(image: Uint8Array): void {
     this.reset();
     this.bootToReady();
+    // Arm the run latch for everything below: neither booting nor the LOAD nor
+    // the RUN keystrokes reach ROM_PROGRAM_END, so the next sighting of it is
+    // the program this load starts ending - which for a one-line program is
+    // inside the frames the RUN's NEW LINE pumps.
+    this.runLatch.arm();
     // Queue the image, then type LOAD + NEW LINE. When the ROM reaches its
     // tape leader-detection loop the trap in runFrame() injects the image -
     // the authentic load path, the same one a real cassette would drive.
@@ -353,5 +378,6 @@ export class Zx80Machine implements MachineEmulator {
     // rather than waiting on GC of the whole machine.
     this.imageData = null;
     this.pendingImage = null;
+    this.runLatch.clear();
   }
 }

@@ -39,3 +39,15 @@ export const DF_EA = 0x4010; // working display pointer (recomputed by the liste
  */
 export const ROM_LOAD_TRAP = 0x020c;
 export const ROM_POST_LOAD = 0x0283;
+
+/**
+ * Where the interpreter gives up on a program: the BREAK-key test at 0x0481
+ * falls through to here, and here is the report printer - `LD A,(ERR_NR)` /
+ * `LD BC,(PPC)` / `INC A` / `CP 9`, byte for byte the ZX81's. Every way a
+ * program ends arrives at it exactly once - falling off the end, STOP, an
+ * error, BREAK - and nothing that is still running does.
+ *
+ * This machine has no `readReport()` either, so before the latch it had no end
+ * signal of any kind.
+ */
+export const ROM_PROGRAM_END = 0x0488;

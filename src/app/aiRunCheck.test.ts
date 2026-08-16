@@ -74,13 +74,6 @@ describe('classifyAiRunFrame', () => {
     expect(frames).toBe(AI_CHECK_MAX_FRAMES);
   });
 
-  it('never says ended-ok for a machine that cannot answer the run state', () => {
-    // The Sinclair case: a non-error report every frame and no run state. It
-    // must read as a program that ran, never as one that finished.
-    const { outcome } = watch({ report: OK, running: undefined });
-    expect(outcome).toEqual({ kind: 'still-running' });
-  });
-
   it('counts only frames where the machine is up toward the running window', () => {
     // A machine that stays down for a while must not have the window eaten by
     // its own boot: the verdict lands the full window *after* it comes up.
@@ -114,7 +107,7 @@ describe('classifyAiRunFrame', () => {
     for (let i = 0; i < AI_CHECK_ABS_MAX_FRAMES; i++) {
       const up = i % 5 === 0;
       const verdict = classifyAiRunFrame(
-        { report: up ? OK : null, running: up ? undefined : null },
+        { report: up ? OK : null, running: up ? true : null },
         counts,
       );
       if (verdict.done) {
