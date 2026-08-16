@@ -132,10 +132,7 @@ export function RunProfileDialog() {
         {timing ? (
           <Timing timing={timing} machine={dialect.name} />
         ) : (
-          <p className={styles.empty}>
-            Run this program to measure it. Every run is timed and measured;
-            there is nothing to switch on.
-          </p>
+          <p className={styles.empty}>Run this program to measure it.</p>
         )}
 
         {!canProfile ? (

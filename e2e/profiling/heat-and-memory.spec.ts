@@ -5,6 +5,7 @@ import {
   editMenu,
   openApp,
   playAndWaitRunning,
+  selectDialect,
   setEditorSource,
 } from '../helpers';
 
@@ -129,4 +130,46 @@ test('a run paints its cost in the gutter and reports where it went', async ({
       .filter({ visible: true }),
   ).toBeVisible();
   expect(await barOnLine(20)).toBe(true);
+});
+
+/**
+ * A program that ends, on a machine that can see it end.
+ *
+ * What only a browser can prove here is the run loop's own behaviour on a real
+ * machine: that the loop reaches a settled timing through the machine's actual
+ * `isProgramRunning` wiring, and that measuring stops with the program rather
+ * than running on while the machine sits at its prompt. No unit test reaches
+ * that - the rules are pure and tested in `src/app/runTiming.test.ts`, but
+ * whether the loop applies them to a booted PET is a question only this can
+ * answer. The ZX81 journey above can never show it: that machine cannot observe
+ * a program finishing at all.
+ *
+ * The PET because it is the quickest-booting machine that answers the question.
+ */
+const ENDS = '10 FOR I=1 TO 300\n20 NEXT I\n30 END';
+
+test('a run that finishes stops the clock and stops measuring', async ({
+  page,
+}) => {
+  test.setTimeout(60_000); // ROM boot, the program's own run, then the hold
+  await openApp(page);
+  await selectDialect(page, 'pet');
+  await setEditorSource(page, ENDS);
+  await playAndWaitRunning(page);
+
+  await editMenu(page, /^Run profile/);
+  // The machine saw the program return to its prompt, so the duration is the
+  // time the program takes - the one ending that may be read that way.
+  const finished = page.getByText(/of PET time - the program finished\./);
+  await expect(finished).toBeVisible({ timeout: 45_000 });
+  const settled = await finished.textContent();
+
+  // The emulator is still running: the machine sits at its READY prompt and
+  // goes on drawing frames. None of that is the program, and the figures must
+  // not grow with it. Slept rather than polled because the assertion is that
+  // nothing changes - there is no observable event to wait for, and the point
+  // is precisely that none arrives.
+  await expect(page.getByText('emulator: running')).toBeVisible();
+  await page.waitForTimeout(3000);
+  expect(await finished.textContent()).toBe(settled);
 });

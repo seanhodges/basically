@@ -211,6 +211,20 @@ export class RunStopwatch {
     if (!FINAL.has(this.ending)) this.ending = 'stopped';
   }
 
+  /**
+   * Whether the run is over, so nothing more about it is worth measuring.
+   *
+   * True once the program has been observed to finish or to fail, which is what
+   * tells the run loop to stop folding frames into this run's figures: the
+   * machine sitting at its prompt afterwards is not the program, and counting it
+   * would grow the elapsed time and the memory record of a run that had ended.
+   *
+   * A pause is not settled - the user continues and the run goes on.
+   */
+  get settled(): boolean {
+    return FINAL.has(this.ending);
+  }
+
   /** The timing as it stands, for the store and everything reading from it. */
   timing(): RunTiming {
     return {

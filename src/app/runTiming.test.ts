@@ -102,6 +102,28 @@ describe('how a timing ends', () => {
     expect(watch.timing().seconds).toBe(settled);
   });
 
+  it('settles when the run is over, so measuring stops with it', () => {
+    // What tells the run loop to stop folding frames into this run's figures.
+    // The machine goes on running afterwards - it sits at its prompt - and
+    // none of that is the program.
+    const watch = new RunStopwatch(null, true);
+    runFrames(watch, 50, RUNNING);
+    expect(watch.settled).toBe(false);
+    watch.pause(20); // a pause is not settled: the user continues
+    expect(watch.settled).toBe(false);
+    watch.resume();
+    watch.frame(1.04, FINISHED);
+    expect(watch.settled).toBe(true);
+  });
+
+  it('does not settle on a machine that cannot observe a finish', () => {
+    // Nothing the machine says can end the run, so measuring runs until the
+    // user stops it.
+    const watch = new RunStopwatch(null, false);
+    runFrames(watch, 500, SILENT);
+    expect(watch.settled).toBe(false);
+  });
+
   it('ends on an error with the time up to it', () => {
     const watch = new RunStopwatch(null, true);
     runFrames(watch, 50, RUNNING);

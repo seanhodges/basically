@@ -191,6 +191,10 @@ no per-line costs and says so, rather than showing zeroes; a machine that can't
 report its BASIC memory figures likewise says the memory account is
 unavailable. The **Run profile** dialog tells you which case you're in.
 
+On a machine that can see your program finish, measuring stops when it does. The
+seconds the machine spends back at its prompt afterwards aren't your program's,
+so they don't stretch the duration or the memory chart.
+
 Measurements describe one run of one program. Starting a new run replaces them,
 and editing your program so that its lines no longer match - adding, removing or
 renumbering one - discards them rather than marking lines that no longer

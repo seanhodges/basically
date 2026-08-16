@@ -495,6 +495,20 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         );
         const stopwatch = stopwatchRef.current;
         stopwatch?.frame(profiler.elapsedSeconds, timingFrame(machine));
+        // The program is over: measuring stops with it. The loop runs on -
+        // the machine sits at its prompt, and the user may still be typing at
+        // it - but none of that is the program, and folding it in would grow
+        // the elapsed time and the memory record of a run that had ended.
+        // Recording is switched off at the machine so it stops charging cycles
+        // to a line nobody is measuring.
+        if (stopwatch?.settled) {
+          machine.setProfileRecording?.(false);
+          profilerRef.current = null;
+          stopwatchRef.current = null;
+          setRunProfile(profiler.measured ? profiler.snapshot() : null);
+          setRunTiming(stopwatch.timing());
+          return;
+        }
         // Published on the profiler's cadence rather than every frame: the
         // duration is worth redrawing about twice a second, and the store is
         // read by the whole app.
