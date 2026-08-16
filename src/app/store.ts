@@ -36,6 +36,7 @@ import {
 } from '../keyboard/controllerConfig';
 import { materializeSampleBlocks } from './sampleBlocks';
 import { profileStillApplies, type RunProfile } from './runProfile';
+import type { PauseInterval, RunTiming } from './runTiming';
 import {
   noScreenViews,
   type Expectation,
@@ -309,6 +310,26 @@ interface IdeState {
    * describes one execution of one program.
    */
   runProfile: RunProfile | null;
+  /**
+   * How long the current run has taken and how that timing ended, or null when
+   * nothing has been timed.
+   *
+   * Held against the buffer that produced it for the same reason the profile is
+   * (see {@link selectVisibleTiming}), and on the same single-run terms: a new
+   * run replaces it, so a duration always describes one execution.
+   *
+   * Unlike the profile this is kept on every machine, including the ones that
+   * report no per-line costs: a run's elapsed time is the machine's frame rate
+   * and nothing else, so a machine that cannot say which line it is executing
+   * can still be timed.
+   */
+  runTiming: RunTiming | null;
+  /**
+   * The stretch of emulated machine time the debugged run took to reach its
+   * latest pause, or null when it has not paused. Replaced at every pause and
+   * discarded when a run starts.
+   */
+  pauseInterval: PauseInterval | null;
   /** Bumped to ask the emulator pane to (re)load + run the current source. */
   runRequest: number;
   /**
@@ -939,6 +960,8 @@ interface IdeState {
   setEmulatorStatus(status: EmulatorStatus): void;
   setLiveMemory(stats: MachineMemoryStats | null): void;
   setRunProfile(profile: RunProfile | null): void;
+  setRunTiming(timing: RunTiming | null): void;
+  setPauseInterval(interval: PauseInterval | null): void;
   toggleAiPanel(): void;
   setTransferOpen(open: boolean): void;
   setShareLinkOpen(open: boolean): void;
@@ -1319,6 +1342,8 @@ function applyDialectSwitch(
     emulatorStatus: 'stopped',
     liveMemory: null,
     runProfile: null,
+    runTiming: null,
+    pauseInterval: null,
     stopRequest: s.stopRequest + 1,
     // Breakpoints are keyed by line number, which belongs to the old program;
     // start the new target with a clean slate and no paused line.
@@ -1435,6 +1460,8 @@ function romChanged(s: { romChangeRequest: number }) {
     emulatorStatus: 'stopped' as const,
     liveMemory: null,
     runProfile: null,
+    runTiming: null,
+    pauseInterval: null,
   };
 }
 
@@ -1459,6 +1486,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   emulatorStatus: 'stopped',
   liveMemory: null,
   runProfile: null,
+  runTiming: null,
+  pauseInterval: null,
   runRequest: 0,
   aiRunCheckSeq: 0,
   aiRunSource: '',
@@ -1615,6 +1644,8 @@ export const useIdeStore = create<IdeState>((set) => ({
         emulatorStatus: 'stopped',
         liveMemory: null,
         runProfile: null,
+        runTiming: null,
+        pauseInterval: null,
         // Install the shared program's memory blocks so the player's run writes
         // them into RAM; a pure-BASIC share carries none and starts clean.
         blocks: blocks ?? [],
@@ -1786,6 +1817,8 @@ export const useIdeStore = create<IdeState>((set) => ({
             ...clearProgramDocs(s),
             breakpoints: new Set<number>(),
             runProfile: null,
+            runTiming: null,
+            pauseInterval: null,
             blocks: opts?.blocks ?? [],
             listingBlockMeta: opts?.listingBlockMeta ?? {},
             // Scratch buffers survive an Open - only the tab does not, since
@@ -1833,6 +1866,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       ...clearProgramDocs(s),
       breakpoints: new Set<number>(),
       runProfile: null,
+      runTiming: null,
+      pauseInterval: null,
       dirty: opts?.dirty ?? false,
       // Always a different program, so blocks reset unless the caller installs
       // its own (a project-bundle-shaped import).
@@ -2232,6 +2267,8 @@ export const useIdeStore = create<IdeState>((set) => ({
   setEmulatorStatus: (status) => set({ emulatorStatus: status }),
   setLiveMemory: (stats) => set({ liveMemory: stats }),
   setRunProfile: (profile) => set({ runProfile: profile }),
+  setRunTiming: (timing) => set({ runTiming: timing }),
+  setPauseInterval: (interval) => set({ pauseInterval: interval }),
   toggleAiPanel: () =>
     set((s) => ({ aiPanelOpen: !s.aiPanelOpen, memoryMapOpen: false })),
   setTransferOpen: (open) => set({ transferOpen: open }),
@@ -2409,6 +2446,21 @@ export function selectVisibleProfile(s: IdeState): RunProfile | null {
   if (s.runProfile === null) return null;
   return editorBufferOf(s.activeTab) === s.runProfile.bufferId
     ? s.runProfile
+    : null;
+}
+
+/**
+ * The timing of the last run, but only while the buffer it was taken on is the
+ * one on screen.
+ *
+ * The same rule the profile follows, for the same reason: how long a snippet
+ * took is not how long the user's program took, and a duration shown against the
+ * wrong program is a measurement of nothing.
+ */
+export function selectVisibleTiming(s: IdeState): RunTiming | null {
+  if (s.runTiming === null) return null;
+  return editorBufferOf(s.activeTab) === s.runTiming.bufferId
+    ? s.runTiming
     : null;
 }
 

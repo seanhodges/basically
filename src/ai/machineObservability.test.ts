@@ -10,6 +10,8 @@ import {
   canReportVariables,
   driveKeyNames,
   canProfileRun,
+  canObserveProgramFinish,
+  DIALECTS_WITHOUT_FINISH_OBSERVATION,
   DIALECTS_WITHOUT_PROFILE,
   DIALECTS_WITHOUT_RUNTIME_REPORT,
   DIALECTS_WITHOUT_VARIABLE_READBACK,
@@ -204,6 +206,35 @@ describe('the profile table matches the machines', () => {
   it('names only registered dialects', () => {
     const ids = new Set(dialects.map((d) => d.id));
     for (const id of DIALECTS_WITHOUT_PROFILE) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
+  });
+});
+
+describe('the finish-observation table matches the machines', () => {
+  // The same bargain again, for whether a timing on this machine can ever end
+  // in the program finishing. Drift here is the costliest of the four: a
+  // duration that really means "until you stopped it" presented as the time a
+  // program takes is a wrong measurement rather than a missing one.
+  for (const dialect of dialects) {
+    it(`${dialect.id} is described as it actually is`, () => {
+      const machine = dialect.createEmulator({
+        rom: romFor(dialect.romUrl),
+        ramKb: 16,
+      });
+      const actual = typeof machine.isProgramRunning === 'function';
+      expect(
+        canObserveProgramFinish(dialect.id),
+        `${dialect.id} ${actual ? 'implements' : 'does not implement'} ` +
+          `isProgramRunning, so the table should ${actual ? 'not ' : ''}list it`,
+      ).toBe(actual);
+      machine.dispose();
+    });
+  }
+
+  it('names only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    for (const id of DIALECTS_WITHOUT_FINISH_OBSERVATION) {
       expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
     }
   });

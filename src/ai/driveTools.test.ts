@@ -4,16 +4,19 @@ import {
   DEFAULT_JOY_FRAMES,
   describeDriving,
   describeProfile,
+  describeTiming,
   driveToolDefinitions,
   parseDriveScript,
   runDriveScript,
   DRIVE_TOOL,
   LOOK_TOOL,
   PROFILE_TOOL,
+  TIME_TOOL,
   type DriveReport,
 } from './driveTools';
 import { outlineCapabilities } from '../editor/programOutline';
 import type { RunProfile } from '../app/runProfile';
+import type { RunTiming } from '../app/runTiming';
 
 /** A control that says yes to everything, recording what it was asked. */
 function stubControl(overrides: Partial<MachineControl> = {}): MachineControl {
@@ -198,8 +201,30 @@ describe('the tool definitions', () => {
       DRIVE_TOOL,
       LOOK_TOOL,
       PROFILE_TOOL,
+      TIME_TOOL,
     ]);
     expect(driveToolDefinitions.length).toBe(0);
+  });
+
+  it('is the same set on every turn of a conversation', () => {
+    // What a conversation is offered must not change according to whether a
+    // machine happens to be running at that moment: a tool set that appears or
+    // disappears part-way through invalidates the cached prefix behind it.
+    // Nothing in this call reads the machine, the store, or the clock, so ten
+    // turns of one conversation are ten identical blocks.
+    const turns = Array.from({ length: 10 }, () =>
+      JSON.stringify(driveToolDefinitions()),
+    );
+    expect(new Set(turns).size).toBe(1);
+  });
+
+  it('tells the assistant that a timing costs a run', () => {
+    const time = driveToolDefinitions().find((t) => t.name === TIME_TOOL)!;
+    expect(time.description).toContain('COSTS A RUN');
+    // The duration and the ending in one answer, so a second call is never
+    // needed to find out whether the number means anything.
+    expect(time.description).toContain('how that timing ended');
+    expect(time.description).toContain('own time');
   });
 
   it('tells the assistant what a line’s cost excludes', () => {
@@ -285,5 +310,55 @@ describe('describeProfile', () => {
     );
     expect(text).toContain('does not report its memory figures');
     expect(text).not.toContain('0 bytes');
+  });
+});
+
+describe('describeTiming', () => {
+  const timing: RunTiming = {
+    bufferId: null,
+    seconds: 1.42,
+    ending: 'finished',
+    observesFinish: true,
+  };
+
+  it('gives the duration and the ending in one answer', () => {
+    const text = describeTiming(timing, true);
+    expect(text).toContain('1.42s');
+    expect(text).toContain('the program finished');
+    expect(text).toContain("this machine's own time");
+  });
+
+  it('never lets a duration travel without what it means', () => {
+    // The same number is a measurement of the program under one ending and a
+    // fact about when somebody got bored under another, so an assistant given
+    // the bare seconds could compare two things that are not comparable.
+    for (const ending of ['running', 'errored', 'stopped', 'paused'] as const) {
+      const text = describeTiming({ ...timing, ending }, true);
+      expect(text).toContain('1.42s');
+      expect(text).not.toContain('the program finished');
+    }
+    expect(describeTiming({ ...timing, ending: 'stopped' }, true)).toContain(
+      'still running when the run was stopped',
+    );
+  });
+
+  it('says outright when the machine cannot observe a finish', () => {
+    // Rather than a bare duration whose ending merely never says "finished" -
+    // which reads as a slow program instead of a machine that cannot tell.
+    const text = describeTiming({ ...timing, ending: 'stopped' }, false);
+    expect(text).toContain(
+      'CANNOT tell whether a BASIC program is still running',
+    );
+    expect(text).toContain('never observes one finishing');
+  });
+
+  it('says nothing has been timed rather than answering with a zero', () => {
+    const text = describeTiming(null, true);
+    expect(text).toContain('Nothing has been timed');
+    expect(text).not.toContain('0.00s');
+  });
+
+  it('states the machine’s limit even before anything has been timed', () => {
+    expect(describeTiming(null, false)).toContain('CANNOT tell whether');
   });
 });

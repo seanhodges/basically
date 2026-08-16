@@ -32,6 +32,7 @@ const {
   selectRunTargetName,
   selectVisibleDebugLine,
   selectVisibleProfile,
+  selectVisibleTiming,
   BASIC_TAB,
 } = await import('./store');
 const { getDialect } = await import('../dialects/registry');
@@ -1776,6 +1777,38 @@ describe('scratch buffers', () => {
       // The program's lines are not the snippet's, however they are numbered.
       useIdeStore.getState().setActiveTab(BASIC_TAB);
       expect(selectVisibleProfile(useIdeStore.getState())).toBeNull();
+    });
+
+    it('a timing is shown only against the buffer it was taken on', () => {
+      // Same rule as the profile: how long a snippet took is not how long the
+      // user's program took.
+      useIdeStore.getState().addScratchBuffer();
+      useIdeStore.getState().setRunTiming({
+        bufferId: 'scratch-1',
+        seconds: 1.4,
+        ending: 'finished',
+        observesFinish: true,
+      });
+      expect(selectVisibleTiming(useIdeStore.getState())?.seconds).toBe(1.4);
+      useIdeStore.getState().setActiveTab(BASIC_TAB);
+      expect(selectVisibleTiming(useIdeStore.getState())).toBeNull();
+    });
+
+    it('a timing and its pause interval go with the program', () => {
+      // A duration measured on one program means nothing about the next one, so
+      // loading a different program discards it rather than carrying it over.
+      useIdeStore.getState().setRunTiming({
+        bufferId: null,
+        seconds: 1.4,
+        ending: 'finished',
+        observesFinish: true,
+      });
+      useIdeStore
+        .getState()
+        .setPauseInterval({ seconds: 0.2, line: 20, fromStart: false });
+      useIdeStore.getState().loadUnsavedDocument('10 PRINT 1');
+      expect(useIdeStore.getState().runTiming).toBeNull();
+      expect(useIdeStore.getState().pauseInterval).toBeNull();
     });
 
     it('measurements do not survive an edit that moves the lines', () => {

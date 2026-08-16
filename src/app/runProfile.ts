@@ -280,6 +280,17 @@ export class RunProfiler {
     return this.frames;
   }
 
+  /**
+   * Emulated seconds the run has lasted, as the run clock stands right now.
+   *
+   * The reading a timing is taken from (see `runTiming.ts`). Offered as its own
+   * getter rather than through {@link snapshot} because a stopwatch reads it
+   * every frame and has no use for the rest of the profile.
+   */
+  get elapsedSeconds(): number {
+    return this.elapsed;
+  }
+
   /** The profile as it stands, for the store and everything reading from it. */
   snapshot(): RunProfile {
     return {
