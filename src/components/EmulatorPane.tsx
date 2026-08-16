@@ -1040,6 +1040,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     if (!machine || useIdeStore.getState().emulatorStatus !== 'running') return;
     if (
       !canPauseRun({
+        debuggable: !!dialect.debuggable,
         checking: aiCheckActiveRef.current,
         driving: machineFrozen(),
         // The flag is raised while the pane waits for the first frame and

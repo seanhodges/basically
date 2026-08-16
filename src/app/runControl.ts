@@ -22,8 +22,22 @@ const CONTROL_STATE: Record<EmulatorStatus, RunControlState> = {
   paused: 'continue',
 };
 
-/** What the run control offers while the machine is in `status`. */
-export function runControlStateOf(status: EmulatorStatus): RunControlState {
+/**
+ * What the run control offers while the machine is in `status`.
+ *
+ * A machine that cannot be paused keeps the plain Play the control has always
+ * been, because pausing is only offered where continuing is: the machines with
+ * a line-level debugger. Without that pairing a run could be held still on a
+ * machine whose toolbar has no Continue to release it.
+ *
+ * `paused` still maps to Continue even when pausing is off, so a run paused
+ * before the machine was switched is never left with no way out.
+ */
+export function runControlStateOf(
+  status: EmulatorStatus,
+  pausable: boolean,
+): RunControlState {
+  if (status === 'running' && !pausable) return 'play';
   return CONTROL_STATE[status];
 }
 
@@ -60,6 +74,8 @@ export function runControlLabel(
 
 /** The state of the run loop that decides whether a pause is safe to take. */
 export interface PauseConditions {
+  /** The machine offers line-level debugging, and so a Continue to match. */
+  debuggable: boolean;
   /** A run the IDE started to check an answer the assistant gave. */
   checking: boolean;
   /** The assistant is advancing the machine itself, outside the frame loop. */
@@ -70,15 +86,17 @@ export interface PauseConditions {
 
 /**
  * Whether a running machine can be paused. Each refusal is a case where a
- * paused frame loop strands something that has no other way out: an assistant
- * check reaches its verdict from inside the loop, a machine the assistant is
- * driving would keep moving while claiming to be paused, and the loading
- * overlay is dismissed by the first rendered frame.
+ * paused frame loop strands something that has no other way out: a machine
+ * with no debugger has no Continue to release the pause, an assistant check
+ * reaches its verdict from inside the loop, a machine the assistant is driving
+ * would keep moving while claiming to be paused, and the loading overlay is
+ * dismissed by the first rendered frame.
  */
 export function canPauseRun({
+  debuggable,
   checking,
   driving,
   drawn,
 }: PauseConditions): boolean {
-  return !checking && !driving && drawn;
+  return debuggable && !checking && !driving && drawn;
 }

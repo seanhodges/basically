@@ -55,18 +55,22 @@ emulator**. Tapping it builds the program and automatically switches you to the
 **Run** tab so you see the result straight away. (The **Run** tab on its own just
 shows the emulator; the floating button is what actually builds and starts it.)
 
-That button follows the run rather than only starting it. Once the program is
-going it turns blue and becomes **❚❚ Pause**, which holds the machine exactly
-where it is - the screen, the memory and everything the program has done stay
-put, and no time is charged to the program while it waits. Tap it again, now
-**▶ Continue**, and the program carries on from where it stopped. Pausing works
-on every machine, whether or not it has the [step
-debugger](#debugging-with-breakpoints).
+On the machines that support [step
+debugging](#debugging-with-breakpoints), that button follows the run rather than
+only starting it. Once the program is going it turns blue and becomes **❚❚
+Pause**, which holds the machine exactly where it is - the screen, the memory and
+everything the program has done stay put, and no time is charged to the program
+while it waits. Tap it again, now **▶ Continue**, and the program carries on from
+where it stopped.
 
 It is the same button when a breakpoint pauses the program for you: it reads
 **▶ Continue** then too, and continuing runs on to the next breakpoint. Pausing
 is unavailable for the brief moment before the machine draws its first frame,
 and while the assistant is running your program to check an answer.
+
+On a machine without the step debugger there is nothing to release a pause, so
+none is offered: the button stays the green **▶** play button throughout, and
+tapping it while a program runs starts it again from the beginning.
 
 ## Giving your program input
 

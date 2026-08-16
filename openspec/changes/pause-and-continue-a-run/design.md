@@ -29,8 +29,8 @@ currently calls the run request unconditionally.
 
 - One control over the editor that shows which of the three run states the
   machine is in and drives the transition out of it.
-- A pause that works on every registered machine, not only those with a
-  line-level debugger.
+- A pause the user can always get out of: offered on exactly the machines that
+  offer a Continue, and nowhere else.
 - One action, with one name, for carrying a paused run on — whether the pause
   came from a breakpoint or from the user.
 - No new obligation on machines: the pause is implemented entirely above the
@@ -50,8 +50,8 @@ currently calls the run request unconditionally.
 No machine gains a method. Pausing is the emulator pane declining to call the
 machine's frame-advance or debug-step function until asked to carry on, so a
 machine cannot be "wrong" about pausing and a new dialect inherits the
-behaviour without writing anything. This is why the pause can be offered on
-machines with no debugger, where nothing else about stepping is available.
+behaviour without writing anything. Which machines offer it is decided by the
+existing `debuggable` flag, not by anything new a machine must declare.
 
 *Alternative considered:* a `pause()`/`resume()` pair on `MachineEmulator`.
 Rejected — it would put identical do-nothing implementations in every machine
@@ -99,10 +99,17 @@ execution stopped between frames, so there is no line to report; the profiler's
 reading is only meaningful alongside one; and the user is already on the editor
 tab, because that is where the control is.
 
-### Pausing is refused in three situations
+### Pausing is refused in four situations
 
 Each would strand something that has no other way out:
 
+- **A machine with no line-level debugger.** Pause and Continue are a pair: the
+  toolbar's Continue and the F8 shortcut are both offered only where a machine
+  can be stepped, so a pause taken anywhere else could only be escaped by
+  stopping the program — and the control that took it disappears above the
+  touch layout's breakpoint. Offering the pause only where the release already
+  exists keeps the pair together, and is why the shortcut's own condition needs
+  no widening.
 - **A run the IDE started to check an assistant's answer.** The verdict is
   reached by the frame loop; a paused loop never reaches it, so the assistant
   would wait forever.
@@ -142,13 +149,13 @@ touch layout's overflow menu carries its own Play, Step and Continue, and while
 it is open they and the control are both in the tree. Addressing the control by
 test id sidesteps that, and survives the labels being reworded.
 
-### The Continue shortcut is widened
+### The keyboard shortcuts are left alone
 
-On machines with no line-level debugger the control is the only way to continue,
-and it disappears above the touch layout's breakpoint — pause on a phone, rotate
-or widen, and only Stop remains. So the Continue shortcut's availability changes
-from "the machine has a debugger" to "the run is paused". The Step shortcut
-keeps its debugger condition.
+An earlier draft widened the Continue shortcut to any paused run, to rescue
+pauses taken on machines with no debugger. Restricting the pause to debuggable
+machines removes the situation it was rescuing: every machine that can now be
+paused already has Continue on its toolbar and on F8. Widening the shortcut as
+well would only make it fire on a state that cannot occur.
 
 ## Risks / Trade-offs
 
@@ -163,6 +170,10 @@ keeps its debugger condition.
 - **A user pauses expecting the program to be safe, then reloads** → a pause is
   not a save-state and is not claimed to be one; a stop or a reload ends the run
   as it does today.
-- **A machine that cannot be stepped is now pausable, so a user can reach a
-  state the toolbar has no button for** → mitigated by widening the Continue
-  shortcut, so the state is escapable without the touch control.
+- **The same button does different things on different machines** → the cost of
+  keeping pause and continue paired. A machine with no debugger keeps the plain
+  Play the control has always been, so nothing a user could reach there has
+  changed; what they gain elsewhere is a button that stops lying about the run.
+- **A run is left paused and the user switches to a machine that cannot pause**
+  → the control still reads Continue for a paused run whatever the machine
+  offers, so a pause is never stranded by a switch.

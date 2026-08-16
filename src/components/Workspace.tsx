@@ -173,8 +173,13 @@ export function Workspace() {
 
   // The run control over the editor drives the run rather than only starting
   // it: Play stopped, Pause running, Continue paused - whether the pause came
-  // from a breakpoint or from the user pressing this button.
-  const runControlState = runControlStateOf(emulatorStatus);
+  // from a breakpoint or from the user pressing this button. Pausing is offered
+  // only where continuing is, so on a machine with no debugger the control
+  // stays the plain Play it has always been.
+  const runControlState = runControlStateOf(
+    emulatorStatus,
+    !!dialect.debuggable,
+  );
   const runControlAction =
     runControlState === 'pause'
       ? requestPause

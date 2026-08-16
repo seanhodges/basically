@@ -12,22 +12,39 @@ const ALL_STATUSES: EmulatorStatus[] = ['stopped', 'running', 'paused'];
 
 describe('runControlStateOf', () => {
   it('offers Play stopped, Pause running, and Continue paused', () => {
-    expect(runControlStateOf('stopped')).toBe('play');
-    expect(runControlStateOf('running')).toBe('pause');
-    expect(runControlStateOf('paused')).toBe('continue');
+    expect(runControlStateOf('stopped', true)).toBe('play');
+    expect(runControlStateOf('running', true)).toBe('pause');
+    expect(runControlStateOf('paused', true)).toBe('continue');
   });
 
   it('gives every run state a position', () => {
     for (const status of ALL_STATUSES) {
-      expect(runControlStateOf(status)).toMatch(/^(play|pause|continue)$/);
+      for (const pausable of [true, false]) {
+        expect(runControlStateOf(status, pausable)).toMatch(
+          /^(play|pause|continue)$/,
+        );
+      }
     }
   });
 
   it('never offers to restart a program that is running or paused', () => {
     // The bug this control replaces: the button was always Play, so a tap
     // mid-run silently restarted the program the user was watching.
-    expect(runControlStateOf('running')).not.toBe('play');
-    expect(runControlStateOf('paused')).not.toBe('play');
+    expect(runControlStateOf('running', true)).not.toBe('play');
+    expect(runControlStateOf('paused', true)).not.toBe('play');
+  });
+
+  it('keeps the plain Play on a machine that cannot be paused', () => {
+    // Pausing is offered only where continuing is. On a machine with no
+    // debugger the control goes on being what it always was.
+    expect(runControlStateOf('stopped', false)).toBe('play');
+    expect(runControlStateOf('running', false)).toBe('play');
+  });
+
+  it('still offers Continue to a run that is somehow paused', () => {
+    // Unreachable while the machine stays put, but a pause must never be left
+    // with no way out - switching machines mid-pause must not strand one.
+    expect(runControlStateOf('paused', false)).toBe('continue');
   });
 });
 
@@ -77,10 +94,21 @@ describe('runControlLabel', () => {
 });
 
 describe('canPauseRun', () => {
-  const ok = { checking: false, driving: false, drawn: true };
+  const ok = {
+    debuggable: true,
+    checking: false,
+    driving: false,
+    drawn: true,
+  };
 
   it('allows a pause once a frame is on screen', () => {
     expect(canPauseRun(ok)).toBe(true);
+  });
+
+  it('refuses on a machine with no line-level debugger', () => {
+    // Nothing would release the pause: the toolbar's Continue and the F8
+    // shortcut are both offered only on machines that can be stepped.
+    expect(canPauseRun({ ...ok, debuggable: false })).toBe(false);
   });
 
   it('refuses while a run is checking an assistant answer', () => {

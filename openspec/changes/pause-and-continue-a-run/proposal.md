@@ -17,20 +17,20 @@ for them, the button over the editor gives no sign that it happened.
 - The run control over the editor reflects the state of the run and drives it:
   green **Play** when stopped, blue **Pause** while running, blue **Continue**
   while paused.
-- A running program can be paused from that control on every machine, not only
-  the ones with a line-level debugger. A pause holds the machine still: its
-  memory, its files, its screen and its measurements are all there when the run
-  carries on.
+- A running program can be paused from that control on the machines that offer
+  line-level debugging — the same machines whose toolbar offers a Continue to
+  release the pause. A pause holds the machine still: its memory, its files, its
+  screen and its measurements are all there when the run carries on.
+- A machine with no debugger offers no pause, and its control stays the plain
+  Play it is today.
 - **Continue** carries a paused run on however it was paused. A run paused at a
   breakpoint continues to the next breakpoint; a run paused from the button
   continues freely. One name, one action — "Continue" is already the IDE's word
   for this, and a pause is a pause whichever way it was reached.
-- Pausing is refused in the cases where it would strand something: while the
-  IDE is running a program to check an assistant's answer, while the assistant
-  is driving the machine itself, and before the first frame has been drawn.
-- The keyboard's Continue shortcut is widened to any paused run, so a machine
-  with no debugger can be continued from the keyboard rather than only from the
-  touch control.
+- Pausing is refused in the cases where it would strand something: on a machine
+  with no debugger to release it, while the IDE is running a program to check an
+  assistant's answer, while the assistant is driving the machine itself, and
+  before the first frame has been drawn.
 
 ## Capabilities
 
@@ -40,11 +40,11 @@ None.
 
 ### Modified Capabilities
 
-- `program-execution`: a run gains a pausable middle state — a running program
-  can be paused and continued without losing what it has done, the breakpoint
-  pause and the user's own pause are continued by the same action, and the
-  primary run control over the editor shows which of the three states the run
-  is in.
+- `program-execution`: a run on a debuggable machine gains a pausable middle
+  state — a running program can be paused and continued without losing what it
+  has done, the breakpoint pause and the user's own pause are continued by the
+  same action, and the primary run control over the editor shows which of the
+  three states the run is in.
 
 ## Impact
 
@@ -55,8 +55,9 @@ None.
   one, so the toolbar, the keyboard and the new control cannot drift apart.
 - **UI**: the run control over the editor, and its styling for the paused and
   running states.
-- **Keyboard shortcuts**: the Continue shortcut's availability condition.
-- **Not affected**: the `Dialect` / `MachineEmulator` seam gains nothing — a
+- **Not affected**: the keyboard shortcuts, whose Continue already covers every
+  machine that can now be paused. And the `Dialect` / `MachineEmulator` seam
+  gains nothing — a
   pause is the pane declining to advance the machine, not a new thing a machine
   must implement. The desktop toolbar, the standalone player, and the Stop,
   Step and Run actions are all unchanged.

@@ -2,8 +2,11 @@
 
 ### Requirement: A run can be paused and continued
 
-The user SHALL be able to pause a running program and continue it, on every
-machine the IDE offers — including machines with no line-level debugger.
+On the machines that support line-level debugging, the user SHALL be able to
+pause a running program and continue it. Pausing SHALL be offered on exactly
+those machines, so that a run can always be released by the same Continue the
+machine already offers; a machine that cannot be stepped SHALL NOT offer a
+pause.
 
 A pause SHALL hold the machine still rather than end it. The program's memory,
 the files it has written, what its screen was showing and the measurements
@@ -13,8 +16,7 @@ stopping a running one does.
 
 Continuing SHALL carry the run on from where it was paused, however the pause
 was reached. A run paused at a breakpoint SHALL continue to the next
-breakpoint; a run the user paused SHALL continue freely, on machines with a
-debugger and without one alike.
+breakpoint; a run the user paused SHALL continue freely.
 
 No emulated time SHALL pass while a run is paused, and none SHALL be repaid as
 a burst of accelerated emulation when it continues, so a pause changes no
@@ -24,6 +26,9 @@ A pause SHALL be refused where it would leave the IDE waiting on a run that can
 no longer proceed: while the IDE is running a program to check an assistant's
 answer, while the assistant is driving the machine itself, and before the
 machine has drawn its first frame.
+
+Where a run is paused, continuing it SHALL remain available regardless of what
+the machine now selected offers, so no pause is left with no way out.
 
 #### Scenario: Pause a running program
 
@@ -43,12 +48,18 @@ machine has drawn its first frame.
 - **THEN** it runs on to the next breakpoint, rather than running freely to the
   end
 
-#### Scenario: Pause on a machine with no debugger
+#### Scenario: A pause the user took is on no line
 
-- **WHEN** the user pauses a program running on a machine that offers no
-  line-level debugging
+- **WHEN** the user pauses a running program away from any breakpoint
 - **THEN** the program pauses and can be continued, and no line is reported as
   the paused line
+
+#### Scenario: A machine with no debugger offers no pause
+
+- **WHEN** a program is running on a machine that offers no line-level
+  debugging
+- **THEN** no pause is offered for it, and the run control goes on offering to
+  run the program
 
 #### Scenario: A pause does not distort the figures
 
@@ -72,6 +83,9 @@ The primary run control over the editor SHALL show which of the three states
 the run is in — stopped, running, or paused — and SHALL act on the state it
 shows: starting the program when stopped, pausing it when running, and
 continuing it when paused.
+
+Where the machine offers no pause, the control SHALL go on offering to run the
+program, as it does when the run is stopped.
 
 The control SHALL show the paused state however the pause was reached, so a run
 stopped at a breakpoint is offered the same continue as one the user paused.
