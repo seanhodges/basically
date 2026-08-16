@@ -76,6 +76,13 @@ test('a run paints its cost in the gutter and reports where it went', async ({
   await expect.poll(() => barOnLine(20), { timeout: 30_000 }).toBe(true);
   expect(await barOnLine(10)).toBe(false);
 
+  // The marking carries the accounting: whose time the share is, and that it
+  // excludes the routines the line calls. Nothing else in the editor says so.
+  await expect(heatBars(page).first()).toHaveAttribute(
+    'title',
+    /run's time on this machine[\s\S]*charged to them/,
+  );
+
   // The report reads out what the gutter cannot: the shares and the memory
   // account across the run. Opened while the program is still running, so the
   // chart fills as more of the run is measured.
