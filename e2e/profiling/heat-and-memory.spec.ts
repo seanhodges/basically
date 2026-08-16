@@ -76,24 +76,21 @@ test('a run paints its cost in the gutter and reports where it went', async ({
   await expect.poll(() => barOnLine(20), { timeout: 30_000 }).toBe(true);
   expect(await barOnLine(10)).toBe(false);
 
-  // The report reads out what the gutter cannot: the shares, the memory account
-  // across the run, and what the figures mean. Opened while the program is
-  // still running, so the chart fills as more of the run is measured.
+  // The report reads out what the gutter cannot: the shares and the memory
+  // account across the run. Opened while the program is still running, so the
+  // chart fills as more of the run is measured.
   await editMenu(page, /^Run profile/);
   await expect(
     page.getByRole('heading', { name: 'Where the run went' }),
   ).toBeVisible();
   await expect(page.getByText('Hottest lines')).toBeVisible();
-  await expect(page.getByText('Memory across the run')).toBeVisible();
+  await expect(page.getByText('Memory use over time')).toBeVisible();
   // The chart needs two samples to be a line at all; they arrive on the
   // profiler's own cadence, so this waits for the run rather than sleeping.
   await expect(page.locator('svg[class*="chart"]')).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByText(/Peak .* bytes of .* fitted/)).toBeVisible();
-  await expect(
-    page.getByText(/time inside a routine it calls is charged/),
-  ).toBeVisible();
+  await expect(page.getByText(/Peak: .* \/ .* bytes/)).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
 
   // A breakpoint on the same line: the dot and the cost bar share one gutter

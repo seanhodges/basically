@@ -19,9 +19,8 @@ import styles from './RunProfileDialog.module.css';
  *
  * The per-line costs are drawn in the editor gutter, which is where a slow line
  * is actually found; this is the reading that a gutter cannot give - the totals
- * rolled up by routine, the memory account across the run, and the statement of
- * what the figures mean. Clicking a line moves the editor to it, exactly as the
- * outline does.
+ * rolled up by routine and the memory account across the run. Clicking a line
+ * moves the editor to it, exactly as the outline does.
  *
  * Reports the buffer on screen, because that is what the gutter is marking; a
  * profile taken on another buffer is not shown against this one's lines.
@@ -165,15 +164,15 @@ export function RunProfileDialog() {
             )}
 
             <div className={styles.section}>
-              <h3 className={styles.heading}>Memory across the run</h3>
+              <h3 className={styles.heading}>Memory use over time</h3>
               {profile.memory ? (
                 <>
                   <MemoryChart memory={profile.memory} />
                   <p className={styles.summary}>
-                    Peak {bytes(profile.memory.peakUsed)} of{' '}
-                    {bytes(profile.memory.totalBytes)} fitted.
+                    Peak: {profile.memory.peakUsed.toLocaleString()} /{' '}
+                    {bytes(profile.memory.totalBytes)}
                     {profile.memory.partial &&
-                      ' The chart covers the end of the run only; the peak is the whole run’s.'}
+                      '. The chart covers the end of the run only; the peak is the whole run’s.'}
                   </p>
                 </>
               ) : (
@@ -182,15 +181,6 @@ export function RunProfileDialog() {
                 </p>
               )}
             </div>
-
-            <p className={dialog.modalNote}>
-              Times are the {dialect.name}’s own — what the program would take
-              on the hardware — not time spent in the browser, so the emulation
-              speed does not change them. A line’s cost is the time spent on
-              that line alone: time inside a routine it calls is charged to that
-              routine’s own lines, so a GOSUB reads as cheap however much work
-              it sets off.
-            </p>
           </>
         )}
 
