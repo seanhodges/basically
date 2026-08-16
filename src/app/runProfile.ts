@@ -395,13 +395,47 @@ export class RunProfiler {
   private sinceSample = MEMORY_SAMPLE_FRAMES;
   /** True once any machine reading has arrived, memory or per-line. */
   private measuredMemory = false;
+  /** {@link measuredLines} as a set, for the check on every drained cost. */
+  private readonly programLines: ReadonlySet<number>;
 
   constructor(
     /** The buffer this run belongs to; a scratch buffer's id, or null. */
     readonly bufferId: string | null,
     /** The BASIC line numbers the measured program had. */
     readonly measuredLines: readonly number[],
-  ) {}
+  ) {
+    this.programLines = new Set(measuredLines);
+  }
+
+  /**
+   * Whether a line the machine named is a line of the program being measured.
+   *
+   * A machine names the line its BASIC is executing by reading the ROM's own
+   * cell, and between the typed RUN and the program's first line that cell has
+   * not been set to anything meaningful yet. Commodore BASIC V2 reads as line 0
+   * across that gap - measured at around 3,000 cycles on both the C64 and the
+   * VIC-20, enough to show up in a short run's ranking as a line the program
+   * does not contain. (BASIC 4 on the PET does not, nor do the Sinclair, Acorn
+   * or Amstrad ROMs.)
+   *
+   * Checked against the program rather than against a list of known transients,
+   * because the question "is this a line of the program" is the one actually
+   * being asked, and it has an answer that needs no per-machine table. It keeps
+   * a legitimate line 0, which CBM BASIC allows and which would be lost by
+   * dropping the number itself.
+   *
+   * Dropped rather than parked on a neighbour, for the reason
+   * {@link ../emulator/lineCostRecorder.LineCostRecorder.sample} drops the time
+   * spent outside any BASIC line: it belongs to no line of this program, and
+   * charging it somewhere would make some line read as costing more than it did.
+   *
+   * A program with no numbered lines is not something the IDE can run, so an
+   * empty set means the caller had nothing to check against rather than that
+   * every line is foreign - and everything is charged, as it was before.
+   */
+  private chargeable(line: number): boolean {
+    return this.programLines.size === 0 || this.programLines.has(line);
+  }
 
   /**
    * Fold in one emulated frame: the costs the machine charged since the last
@@ -423,6 +457,7 @@ export class RunProfiler {
     if (costs) {
       this.measuredLineCosts = true;
       for (const c of costs) {
+        if (!this.chargeable(c.line)) continue;
         this.lines.set(c.line, (this.lines.get(c.line) ?? 0) + c.cost);
         this.windowCycles.set(
           c.line,

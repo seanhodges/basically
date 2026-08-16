@@ -328,6 +328,57 @@ describe('every registered machine measures what it can', () => {
     BOOT_TIMEOUT_MS,
   );
 
+  /**
+   * What the ROM names between the typed RUN and the program's first line.
+   *
+   * A machine reads its executing line out of BASIC's own cell, and across that
+   * gap the cell holds whatever it held last: Commodore BASIC V2 reads as line 0
+   * for a few thousand cycles, on both the C64 and the VIC-20. Measuring from
+   * the moment the run loop arms - which is at `loadProgram`, before the ROM has
+   * taken the program - therefore charges real cycles to a line the program does
+   * not have, and a short run ranks it.
+   *
+   * The C64 because it is one of the two machines that does this. What the fix
+   * turns on is not the machine, though: a line the program does not have is
+   * dropped whoever named it, which is `runProfile.test.ts`.
+   */
+  it(
+    'charges nothing to the line a ROM names before the program starts',
+    async () => {
+      const dialect = dialects.find((d) => d.id === 'commodore64')!;
+      const machine = await bootMachine(dialect);
+      try {
+        const { image } = dialect.tokenize(PROBE);
+        machine.loadProgram(image);
+        // Armed exactly where the run loop arms it, which is the whole point:
+        // the existing probes above arm after the program is already looping,
+        // and never see this.
+        machine.setProfileRecording?.(true);
+        machine.drainProfile?.();
+        await new Promise((r) => setTimeout(r, 0));
+
+        const profiler = new RunProfiler(null, [10, 20, 30]);
+        for (let i = 0; i < SETTLE_FRAMES + MEASURED_FRAMES; i++) {
+          await runFrames(machine, 1);
+          profiler.frame(
+            machine.drainProfile?.() ?? null,
+            () => machine.readMemoryStats?.() ?? null,
+            machine.frameHz,
+          );
+        }
+
+        const measured = profiler.snapshot().lines!;
+        expect(
+          measured.map((c) => c.line).sort((a, b) => a - b),
+          'only lines the program has may be charged',
+        ).toEqual([10, 20, 30]);
+      } finally {
+        machine.dispose();
+      }
+    },
+    BOOT_TIMEOUT_MS,
+  );
+
   it('accounts for every registered dialect either way', () => {
     // Guards the shape of the check itself: a table entry left behind by a
     // removed machine, or an emptied registry, would otherwise pass every case

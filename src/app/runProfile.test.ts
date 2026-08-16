@@ -294,6 +294,45 @@ describe('RunProfiler', () => {
     expect(noLines.snapshot().memory).not.toBeNull();
   });
 
+  it('drops a line the program does not have, rather than ranking it', () => {
+    const p = new RunProfiler(null, [10, 20]);
+    // Line 0 is what Commodore BASIC V2 reads as between the typed RUN and the
+    // program's first line: real cycles, but no line of this program.
+    run(p, 2, [CYCLES(0, 1500), CYCLES(20, 500)]);
+    expect(p.snapshot().lines).toEqual([{ line: 20, cost: 1000 }]);
+    // Dropped from the total as well, so the lines that did run are not
+    // deflated by time that belonged to none of them.
+    expect(lineShares(p.snapshot().lines!)[0]!.share).toBe(1);
+  });
+
+  it('keeps a line 0 the program actually has', () => {
+    // CBM BASIC allows one, so dropping the number itself would lose it. The
+    // question is whether the program has the line, not what it is numbered.
+    const p = new RunProfiler(null, [0, 10]);
+    run(p, 1, [CYCLES(0, 100)]);
+    expect(p.snapshot().lines).toEqual([{ line: 0, cost: 100 }]);
+  });
+
+  it('drops the bytes a foreign line was charged along with its time', () => {
+    const p = new RunProfiler(null, [20]);
+    run(p, 1, [
+      { line: 0, cost: 100, allocated: 900 },
+      { line: 20, cost: 100, allocated: 40 },
+    ]);
+    expect(p.snapshot().allocations).toEqual({
+      lines: [{ line: 20, bytes: 40 }],
+      accuracy: 'measured',
+    });
+  });
+
+  it('charges everything when there are no line numbers to check against', () => {
+    // An empty program is not something the IDE will run, so this is the caller
+    // having nothing to check against rather than every line being foreign.
+    const p = new RunProfiler(null, []);
+    run(p, 1, [CYCLES(0, 100)]);
+    expect(p.snapshot().lines).toEqual([{ line: 0, cost: 100 }]);
+  });
+
   it('accumulates the bytes the machine charged to each line', () => {
     const p = new RunProfiler(null, [10, 20]);
     run(p, 3, [
