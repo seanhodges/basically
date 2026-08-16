@@ -7,11 +7,11 @@ import {
 } from '../app/store';
 import { outlineCapabilities } from '../editor/programOutline';
 import {
+  allocationTotals,
   lineAllocations,
   lineShares,
   routineAllocations,
   routineShares,
-  totalAllocated,
   type MemoryProfile,
 } from '../app/runProfile';
 import { formatTiming, TIMING_ENDINGS, type RunTiming } from '../app/runTiming';
@@ -157,6 +157,10 @@ export function RunProfileDialog() {
     () => routineAllocations(source, caps, memoryAccount?.lines ?? []),
     [source, caps, memoryAccount],
   );
+  const totals = useMemo(
+    () => allocationTotals(memoryAccount?.lines ?? []),
+    [memoryAccount],
+  );
 
   if (!open) return null;
 
@@ -295,7 +299,7 @@ export function RunProfileDialog() {
                           <p className={styles.summary}>
                             Approximate. The {dialect.name} never left a line
                             while memory was moving, so nothing could be charged
-                            to the line that took it; each rise is spread over
+                            to the line that took it; each move is spread over
                             the lines running at the time, in proportion to
                             their share of the run’s time. The line at the top
                             may not be the line that took the memory.
@@ -310,29 +314,30 @@ export function RunProfileDialog() {
                             <span className={styles.lineNo}>{a.line}</span>
                             <span className={styles.bar}>
                               <span
-                                className={`${styles.barFill} ${styles.barFillMemory}`}
+                                className={`${styles.barFill} ${
+                                  a.net < 0
+                                    ? styles.barFillReclaim
+                                    : styles.barFillMemory
+                                }`}
                                 style={{ width: `${a.share * 100}%` }}
                               />
                             </span>
                             <span className={styles.bytes}>
-                              {a.bytes.toLocaleString()}
+                              {a.net.toLocaleString()}
                             </span>
                           </button>
                         ))}
+                        {/* Figures rather than prose: what a line's figure covers
+                        is the guide's to explain, and a paragraph of it under
+                        every reading is read once and then skipped. The taken
+                        and the reclaimed are both said because the net alone
+                        cannot tell a line that did nothing from one that built
+                        strings and let BASIC collect them. */}
                         <p className={styles.summary}>
-                          {bytes(totalAllocated(memoryAccount.lines))} taken in
-                          all.
-                          {/* The flat accounting describes charging, so it belongs
-                        only to a reading that charged: saying a line is charged
-                        what it took itself, under figures that were spread over
-                        the lines by their time, would contradict the note
-                        above. What holds of both is the gross count. */}
-                          {memoryAccount.accuracy === 'measured'
-                            ? ' A line is charged what it took itself, never what the routines it calls took, and memory'
-                            : ' Memory'}{' '}
-                          BASIC reclaimed afterwards is not subtracted - so a
-                          line that builds strings and lets them go still reads
-                          as having taken them.
+                          {bytes(totals.taken)} taken
+                          {totals.reclaimed > 0 &&
+                            `, ${totals.reclaimed.toLocaleString()} reclaimed - ${totals.net.toLocaleString()} net`}
+                          .
                         </p>
                       </>
                     ) : (
@@ -354,7 +359,7 @@ export function RunProfileDialog() {
                           <span className={styles.lineNo}>{r.lineNo}</span>
                           <span className={styles.title}>{r.title}</span>
                           <span className={styles.bytes}>
-                            {r.bytes.toLocaleString()}
+                            {r.net.toLocaleString()}
                           </span>
                         </button>
                       ))}

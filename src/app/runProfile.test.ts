@@ -13,14 +13,15 @@ import {
   programLineNumbers,
   routineAllocations,
   routineShares,
-  totalAllocated,
+  allocationTotals,
 } from './runProfile';
 import { outlineCapabilities } from '../editor/programOutline';
 
 const CYCLES = (line: number, cost: number): LineCost => ({ line, cost });
-const BYTES = (line: number, bytes: number): LineAllocation => ({
+const BYTES = (line: number, bytes: number, reclaimed = 0): LineAllocation => ({
   line,
   bytes,
+  reclaimed,
 });
 
 /** A machine reporting a steady 1000/9000 split. */
@@ -124,29 +125,69 @@ describe('routineShares', () => {
 });
 
 describe('lineAllocations', () => {
-  it('ranks the lines that took the memory, greediest first', () => {
+  it('ranks the lines that moved the memory, biggest mover first', () => {
     const ranked = lineAllocations([
       BYTES(20, 100),
       BYTES(40, 900),
       BYTES(30, 0),
     ]);
     expect(ranked.map((a) => a.line)).toEqual([40, 20]);
-    expect(ranked.map((a) => a.bytes)).toEqual([900, 100]);
-    expect(ranked[0]!.share).toBeCloseTo(0.9);
+    expect(ranked.map((a) => a.net)).toEqual([900, 100]);
+    expect(ranked[0]!.share).toBe(1);
+    expect(ranked[1]!.share).toBeCloseTo(100 / 900);
+  });
+
+  it('subtracts what BASIC reclaimed from what the line took', () => {
+    const [line] = lineAllocations([BYTES(20, 1000, 300)]);
+    expect(line!.bytes).toBe(1000);
+    expect(line!.reclaimed).toBe(300);
+    expect(line!.net).toBe(700);
+    expect(allocationTotals([BYTES(20, 1000, 300)])).toEqual({
+      taken: 1000,
+      reclaimed: 300,
+      net: 700,
+    });
+  });
+
+  it('ranks a line that gave memory back beside one that took as much', () => {
+    // By the size of the move, not its sign. A reclaim is where a program
+    // stalls, so the line responsible for one is the most interesting row on
+    // the panel - ranking it below every line that took anything would push it
+    // off the end of a truncated list.
+    const ranked = lineAllocations([
+      BYTES(20, 0, 8000),
+      BYTES(30, 400),
+      BYTES(40, 8100),
+    ]);
+    expect(ranked.map((a) => a.line)).toEqual([40, 20, 30]);
+    expect(ranked.map((a) => a.net)).toEqual([8100, -8000, 400]);
+    // Sized on the size of the move; the colour is what says which way it went.
+    expect(ranked[1]!.share).toBeCloseTo(8000 / 8100);
+  });
+
+  it('keeps a line that gave back everything it took', () => {
+    // It nets to nothing and it is not a line that did nothing: taking a
+    // thousand bytes and giving the thousand back is what a reclaim pause is
+    // made of, and dropping the row would leave the reading saying so little
+    // happened that no memory was taken at all.
+    const ranked = lineAllocations([BYTES(20, 1000, 1000), BYTES(30, 0)]);
+    expect(ranked.map((a) => a.line)).toEqual([20]);
+    expect(ranked[0]!.net).toBe(0);
+    expect(ranked[0]!.bytes).toBe(1000);
+    expect(ranked[0]!.share).toBe(0);
   });
 
   it('reports bytes, not a share of a machine’s memory', () => {
     // The same figures whether the machine fitted 16K or 64K: how much memory a
     // line took is asked and answered in bytes, and needs no total to mean
-    // something. The share exists only to size a bar against the greediest
-    // line.
-    expect(lineAllocations([BYTES(20, 4096)])[0]!.bytes).toBe(4096);
-    expect(totalAllocated([BYTES(20, 100), BYTES(30, 50)])).toBe(150);
+    // something. The share exists only to size a bar against the biggest mover.
+    expect(lineAllocations([BYTES(20, 4096)])[0]!.net).toBe(4096);
+    expect(allocationTotals([BYTES(20, 100), BYTES(30, 50)]).taken).toBe(150);
   });
 
-  it('leaves out the lines that took nothing rather than listing zeroes', () => {
-    // Same reading the gutter gives time: a line that took no memory is not a
-    // line that took a little, and listing it would bury the ones that did.
+  it('leaves out the lines that moved nothing rather than listing zeroes', () => {
+    // Same reading the gutter gives time: a line that moved no memory is not a
+    // line that moved a little, and listing it would bury the ones that did.
     expect(lineAllocations([BYTES(20, 0), BYTES(30, 0)])).toEqual([]);
   });
 });
@@ -168,7 +209,7 @@ describe('routineAllocations', () => {
       BYTES(10, 0),
       BYTES(100, 900),
     ]);
-    const byLine = new Map(routines.map((r) => [r.lineNo, r.bytes]));
+    const byLine = new Map(routines.map((r) => [r.lineNo, r.net]));
     // Line 10 is the call site and takes nothing, however much line 100 takes -
     // and is left out rather than padding the ranking with a zero, as the time
     // roll-up would list it.
@@ -180,7 +221,20 @@ describe('routineAllocations', () => {
     expect(routines[0]!.lineNo).toBe(100);
   });
 
-  it('reports nothing when no line took anything', () => {
+  it('nets a routine’s reclaims against what its lines took', () => {
+    const routines = routineAllocations(SOURCE, caps, [
+      BYTES(10, 200),
+      BYTES(100, 900, 1500),
+    ]);
+    const build = routines.find((r) => r.lineNo === 100)!;
+    expect(build.bytes).toBe(900);
+    expect(build.reclaimed).toBe(1500);
+    expect(build.net).toBe(-600);
+    // Ranked ahead of the caller's 200 bytes: the bigger move, either way.
+    expect(routines[0]!.lineNo).toBe(100);
+  });
+
+  it('reports nothing when no line moved anything', () => {
     expect(routineAllocations(SOURCE, caps, [BYTES(10, 0)])).toEqual([]);
   });
 });
@@ -320,7 +374,7 @@ describe('RunProfiler', () => {
       { line: 20, cost: 100, allocated: 40 },
     ]);
     expect(p.snapshot().allocations).toEqual({
-      lines: [{ line: 20, bytes: 40 }],
+      lines: [{ line: 20, bytes: 40, reclaimed: 0 }],
       accuracy: 'measured',
     });
   });
@@ -336,21 +390,32 @@ describe('RunProfiler', () => {
   it('accumulates the bytes the machine charged to each line', () => {
     const p = new RunProfiler(null, [10, 20]);
     run(p, 3, [
-      { line: 20, cost: 100, allocated: 40 },
-      { line: 30, cost: 10, allocated: 0 },
+      { line: 20, cost: 100, allocated: 40, reclaimed: 10 },
+      { line: 30, cost: 10, allocated: 0, reclaimed: 0 },
     ]);
-    // Line 30 took nothing on any frame and is left out; carrying it as a zero
-    // would put it in a list of the lines that took memory.
+    // Line 30 moved nothing on any frame and is left out; carrying it as a zero
+    // would put it in a list of the lines that moved memory.
     expect(p.snapshot().allocations).toEqual({
-      lines: [{ line: 20, bytes: 120 }],
+      lines: [{ line: 20, bytes: 120, reclaimed: 30 }],
+      accuracy: 'measured',
+    });
+  });
+
+  it('keeps a run in which BASIC only ever gave memory back', () => {
+    const p = new RunProfiler(null, [20]);
+    run(p, 2, [{ line: 20, cost: 100, allocated: 0, reclaimed: 250 }]);
+    // Measured, not spread: the machine priced the line, and falling through to
+    // the approximate account would report a reading as a guess.
+    expect(p.snapshot().allocations).toEqual({
+      lines: [{ line: 20, bytes: 0, reclaimed: 500 }],
       accuracy: 'measured',
     });
   });
 
   it('offers an empty breakdown when nothing the machine can see was taken', () => {
     const p = new RunProfiler(null, []);
-    run(p, 3, [{ line: 20, cost: 100, allocated: 0 }]);
-    // Empty, not null: readings were taken, and no line took memory the
+    run(p, 3, [{ line: 20, cost: 100, allocated: 0, reclaimed: 0 }]);
+    // Empty, not null: readings were taken, and no line moved memory the
     // machine's own figure could see - the ordinary state on a machine whose
     // figure spans a range a program's string churn happens outside of.
     expect(p.snapshot().allocations).toEqual({
@@ -386,6 +451,24 @@ describe('RunProfiler', () => {
     expect(byLine.get(30)).toBe(200);
   });
 
+  it('spreads a fall the same way it spreads a rise', () => {
+    const p = new RunProfiler(null, []);
+    let used = 5000;
+    run(p, MEMORY_SAMPLE_FRAMES * 3, [CYCLES(20, 30), CYCLES(30, 10)], () => {
+      used -= 400;
+      return { used, free: 10_000 - used };
+    });
+    const account = p.snapshot().allocations!;
+    expect(account.accuracy).toBe('approximate');
+    const byLine = new Map(account.lines.map((a) => [a.line, a.reclaimed]));
+    // The approximate account nets as the measured one does, or a single-line
+    // loop that fills memory and lets BASIC collect it would read as filling it
+    // and never giving any back.
+    expect(byLine.get(20)).toBe(600);
+    expect(byLine.get(30)).toBe(200);
+    expect(lineAllocations(account.lines)[0]!.net).toBe(-600);
+  });
+
   it('prefers what the machine measured over what can be spread', () => {
     const p = new RunProfiler(null, []);
     let used = 1000;
@@ -393,8 +476,8 @@ describe('RunProfiler', () => {
       p,
       MEMORY_SAMPLE_FRAMES * 2,
       [
-        { line: 20, cost: 30, allocated: 0 },
-        { line: 30, cost: 10, allocated: 5 },
+        { line: 20, cost: 30, allocated: 0, reclaimed: 0 },
+        { line: 30, cost: 10, allocated: 5, reclaimed: 0 },
       ],
       () => {
         used += 400;

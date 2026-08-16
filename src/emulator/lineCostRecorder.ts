@@ -54,6 +54,7 @@ export class LineCostRecorder {
   pending = 0;
   private costs = new Map<number, number>();
   private allocated = new Map<number, number>();
+  private reclaimed = new Map<number, number>();
   /** The line the previous sample fell in, so a change of line can be seen. */
   private lastLine: number | null = null;
   /** The in-use figure at the last line boundary, null when there is none. */
@@ -102,11 +103,15 @@ export class LineCostRecorder {
    * previous line's work is finished, and BASIC is between statements rather
    * than part-way through evaluating an expression on its own stacks.
    *
-   * Only rises are charged. A fall is BASIC reclaiming, and reclaiming is not
-   * the taking: subtracting it would report a program that builds strings and
-   * lets BASIC collect them - the case this figure exists to find - as having
-   * taken nothing. A fall re-baselines instead, so the same bytes are not
-   * charged twice when they are taken again.
+   * Rises and falls are charged apart rather than into one signed total. A fall
+   * is BASIC reclaiming, and the two together are what say a line churned: a
+   * program that builds strings and lets BASIC collect them - the case this
+   * figure exists to find - reads as a large taking against a large reclaim,
+   * where a single net figure would read as having done nothing.
+   *
+   * Each reading re-baselines whichever way it moved, so bytes reclaimed and
+   * taken again are charged once each rather than the second taking being
+   * measured from the low point.
    */
   private chargeMemory(from: number | null): void {
     const used = this.readUsed!();
@@ -118,12 +123,15 @@ export class LineCostRecorder {
     this.sawUsed = true;
     const prev = this.prevUsed;
     this.prevUsed = used;
-    // A null `from` is memory taken outside any BASIC line, dropped for the
-    // same reason its cycles are: it belongs to no line of the program.
+    // A null `from` is memory taken or given back outside any BASIC line,
+    // dropped for the same reason its cycles are: it belongs to no line of the
+    // program.
     if (prev === null || from === null) return;
-    const grew = used - prev;
-    if (grew > 0) {
-      this.allocated.set(from, (this.allocated.get(from) ?? 0) + grew);
+    const moved = used - prev;
+    if (moved > 0) {
+      this.allocated.set(from, (this.allocated.get(from) ?? 0) + moved);
+    } else if (moved < 0) {
+      this.reclaimed.set(from, (this.reclaimed.get(from) ?? 0) - moved);
     }
   }
 
@@ -134,10 +142,11 @@ export class LineCostRecorder {
    * Null rather than an empty array while off, because the two mean different
    * things to the caller: nothing to measure with, versus nothing measured yet.
    *
-   * `allocated` appears only once a reading has landed, and then on every entry
-   * including the lines that took nothing - its presence is how the caller
-   * learns the machine can attribute memory at all, so a machine that cannot
-   * must be indistinguishable from one, not one reporting zeroes.
+   * `allocated` and `reclaimed` appear only once a reading has landed, and then
+   * together on every entry including the lines that moved nothing - their
+   * presence is how the caller learns the machine can attribute memory at all,
+   * so a machine that cannot must be indistinguishable from one, not one
+   * reporting zeroes.
    */
   drain(): LineCost[] | null {
     if (!this.enabled) return null;
@@ -146,18 +155,28 @@ export class LineCostRecorder {
     // its cycles did: a line still executing when one drain ends is charged its
     // memory by the first sample of the next.
     const lines = this.sawUsed
-      ? new Set([...this.costs.keys(), ...this.allocated.keys()])
+      ? new Set([
+          ...this.costs.keys(),
+          ...this.allocated.keys(),
+          ...this.reclaimed.keys(),
+        ])
       : this.costs.keys();
     for (const line of lines) {
       const cost = this.costs.get(line) ?? 0;
       out.push(
         this.sawUsed
-          ? { line, cost, allocated: this.allocated.get(line) ?? 0 }
+          ? {
+              line,
+              cost,
+              allocated: this.allocated.get(line) ?? 0,
+              reclaimed: this.reclaimed.get(line) ?? 0,
+            }
           : { line, cost },
       );
     }
     this.costs.clear();
     this.allocated.clear();
+    this.reclaimed.clear();
     return out;
   }
 
@@ -174,6 +193,7 @@ export class LineCostRecorder {
   clear(): void {
     this.costs.clear();
     this.allocated.clear();
+    this.reclaimed.clear();
     this.pending = 0;
     // The baseline goes too: a figure read during the previous run would make
     // everything the machine did between the two runs read as one allocation.

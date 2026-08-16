@@ -6,7 +6,7 @@ import {
   lineShares,
   routineAllocations,
   routineShares,
-  totalAllocated,
+  allocationTotals,
   type RunProfile,
 } from '../app/runProfile';
 import { formatTiming, TIMING_ENDINGS, type RunTiming } from '../app/runTiming';
@@ -423,10 +423,12 @@ export function describeProfile(
     // cannot see it.
     out.push('No line took memory this machine can account for over the run.');
   } else {
+    const totals = allocationTotals(account.lines);
     out.push(
-      `Which lines took the memory (${totalAllocated(account.lines)} bytes in ` +
-        'all). Memory BASIC reclaimed afterwards is NOT subtracted - a line ' +
-        'that builds strings and lets them go still reads as having taken them.',
+      `Which lines the memory went to (${totals.taken} bytes taken over the ` +
+        `run, ${totals.reclaimed} reclaimed by BASIC, ${totals.net} net). ` +
+        'Each line is listed as what it was left holding: taken minus ' +
+        'reclaimed, so a negative figure is a line that gave memory back.',
     );
     if (account.accuracy === 'measured') {
       out.push(
@@ -440,19 +442,26 @@ export function describeProfile(
       out.push(
         'These figures are APPROXIMATE. The machine never left a line while ' +
           'memory was moving, so nothing could be charged to the line that ' +
-          'took it; each rise is spread over the lines running at the time in ' +
+          'took it; each move is spread over the lines running at the time in ' +
           "proportion to their share of the run's time. Treat the ranking as a " +
           'suggestion of where to look, not as a measurement.',
       );
     }
     for (const a of taken.slice(0, PROFILE_TOOL_LINES)) {
-      out.push(`  line ${a.line}: ${a.bytes} bytes`);
+      // The taken and the reclaimed as well as the net, because a line that
+      // churns - takes a great deal and gives nearly all of it back - is what a
+      // reclaim pause is made of, and its net alone reads as having done
+      // nothing.
+      out.push(
+        `  line ${a.line}: ${a.net} bytes net ` +
+          `(${a.bytes} taken, ${a.reclaimed} reclaimed)`,
+      );
     }
     const byRoutine = routineAllocations(source, caps, account.lines);
     if (byRoutine.length > 0) {
       out.push('', 'Summed over each routine and jump destination:');
       for (const r of byRoutine.slice(0, PROFILE_TOOL_LINES)) {
-        out.push(`  line ${r.lineNo} (${r.title}): ${r.bytes} bytes`);
+        out.push(`  line ${r.lineNo} (${r.title}): ${r.net} bytes net`);
       }
     }
   }

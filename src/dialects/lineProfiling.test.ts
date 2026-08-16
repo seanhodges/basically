@@ -130,6 +130,10 @@ function bytesOf(costs: readonly LineCost[], line: number): number {
   return costs.find((c) => c.line === line)?.allocated ?? 0;
 }
 
+function reclaimedOf(costs: readonly LineCost[], line: number): number {
+  return costs.find((c) => c.line === line)?.reclaimed ?? 0;
+}
+
 /** Boot, run the probe to its loop, then measure it. */
 async function measureProbe(
   machine: MachineEmulator,
@@ -227,7 +231,11 @@ describe('every registered machine measures what it can', () => {
           // one that cannot must report cycles alone rather than zero bytes,
           // which would read as "measured, and this line took nothing".
           expect(
-            taken.every((c) => typeof c.allocated === 'number'),
+            taken.every(
+              (c) =>
+                typeof c.allocated === 'number' &&
+                typeof c.reclaimed === 'number',
+            ),
             `${dialect.id} ${reportsMemory ? 'reports' : 'does not report'} ` +
               'memory figures, so its drained costs should ' +
               `${reportsMemory ? '' : 'not '}carry bytes`,
@@ -245,8 +253,30 @@ describe('every registered machine measures what it can', () => {
           // line 30 and takes nothing.
           expect(bytesOf(taken, 40)).toBe(0);
           expect(bytesOf(taken, 60)).toBe(0);
-          // Nor the line that gives the string back: a fall is not a taking.
+          // Nor the line that gives the string back, which takes nothing
+          // whatever it reclaims - a reclaim is charged apart, and whether one
+          // lands here at all is the machine's business: a Sinclair shrinks the
+          // variable in place, and a Commodore leaves garbage its free figure
+          // only recovers from at a collection this bounded probe need not
+          // trigger.
           expect(bytesOf(taken, 50)).toBe(0);
+          // Which line the reclaim lands on is the ROM's business, so nothing
+          // is asserted about it here. Measured across the probe: the Sinclairs
+          // give the bytes back on 40 and 50, as NEXT and the empty assignment
+          // drop the old copies; the PET and VIC-20 collect inside line 30
+          // itself, which then both takes and reclaims; and the C64 reclaims
+          // nothing at all, its heap being large enough that a probe bounded at
+          // twenty characters never triggers a collection. All three readings
+          // are correct, and only the first would survive a per-line
+          // expectation. What must hold everywhere is that a reclaim is charged
+          // apart from a taking, which the per-line arithmetic covers in
+          // `lineCostRecorder.test.ts` against scripted figures.
+          //
+          // What does hold on every one of them: the jump back moves no memory
+          // in either direction. A reclaim charged there would mean the figure
+          // was being read somewhere other than at a change of line.
+          expect(reclaimedOf(taken, 60)).toBe(0);
+          expect(reclaimedOf(taken, 20)).toBe(0);
         } finally {
           machine.dispose();
         }

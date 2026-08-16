@@ -195,14 +195,15 @@ sits at the top, and the rest is split in two, because a run spends two things.
 
 - **BASIC RAM across the run**, drawn against the run's own elapsed time, with
   the most memory the program ever used;
-- **which lines took that memory**, in bytes, and the same figures summed over
-  each routine - click one to jump to it.
+- **where that memory went**, line by line and in bytes, and the same figures
+  summed over each routine - click one to jump to it.
 
 That memory chart is how you catch the classic Commodore freeze: a program that
 builds strings fills memory steadily and then stalls for the best part of a
 second while BASIC reclaims what it can. On the chart that's a rising line and a
 sudden drop, at the moment your program appeared to hang. The lines listed under
-it are the answer to the next question - which line was doing the building.
+it are the answer to the next question - which line was doing the building, and
+which one was left holding it afterwards.
 
 Two things are worth knowing about the numbers.
 
@@ -216,13 +217,19 @@ the routine's own lines, never to the line that called it. So a `GOSUB` reads as
 cheap however much work it sets off - which is why the profile also offers the
 per-routine totals. If a call site looks free but your program is slow, look at
 what it calls. Memory is charged the same way, and with one addition: memory
-your program takes and BASIC later reclaims still counts against the line that
-took it. That churn is what a reclaim pause is made of, so subtracting it would
-hide the very line you are looking for.
+BASIC reclaims is charged to whichever line was running when it went, and
+subtracted, so each line's figure is what it was left holding. A line that gives
+back more than it took reads as a negative, and it is worth finding - on a
+Commodore that is where your program stalled.
+
+Because a net figure alone can't tell a line that did nothing from one that took
+a great deal and gave nearly all of it back - which is exactly what a reclaim
+pause looks like - the total under the list says all three: what the run took,
+what BASIC reclaimed, and the net.
 
 Memory is counted in bytes rather than as a share, because a byte is the same
 byte on every machine. And it is counted the way the machine counts it: the
-figures come from BASIC's own pointers, so a line only shows as taking memory in
+figures come from BASIC's own pointers, so a line only shows as moving memory in
 the part of RAM the chart above it is drawing. Where a machine's own account
 doesn't move as a program churns strings, the profile says no memory was taken,
 rather than reporting a program that takes none.
@@ -232,11 +239,11 @@ knowing when. Charging memory to a line means catching the moment the machine
 moves off that line - so a loop written on a single line, like
 `10 A$=A$+"X":GOTO 10`, never gives the profile that moment, and can fill memory
 over a whole run with nothing to charge it to. Rather than show you an empty list
-beside a rising chart, the profile falls back to spreading each rise over the
-lines that were running at the time, by how much of the run's time each was
-taking. It says so above the figures. Read that ranking as a place to start
-looking rather than as a measurement: when several lines were running, the one
-that took the memory needn't be the one that took the time.
+beside a rising chart, the profile falls back to spreading each move - taken or
+reclaimed alike - over the lines that were running at the time, by how much of
+the run's time each was taking. It says so above the figures. Read that ranking
+as a place to start looking rather than as a measurement: when several lines were
+running, the one that moved the memory needn't be the one that took the time.
 
 Not every machine can be measured. Measuring means charging processor cycles to
 the BASIC line that spent them, so it needs a machine that can say which line

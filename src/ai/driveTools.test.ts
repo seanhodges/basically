@@ -266,8 +266,8 @@ describe('describeProfile', () => {
     },
     allocations: {
       lines: [
-        { line: 100, bytes: 640 },
-        { line: 10, bytes: 0 },
+        { line: 100, bytes: 640, reclaimed: 200 },
+        { line: 10, bytes: 0, reclaimed: 0 },
       ],
       accuracy: 'measured' as const,
     },
@@ -286,16 +286,22 @@ describe('describeProfile', () => {
     expect(text).toContain("this machine's own time");
   });
 
-  it('reports which lines took the memory, and how that is counted', () => {
+  it('reports which lines the memory went to, and how that is counted', () => {
     const text = describeProfile(measured, SOURCE, caps, true);
-    expect(text).toContain('line 100: 640 bytes');
-    expect(text).toContain('line 100 (DRAW): 640 bytes');
-    // The call site took nothing, and is left out rather than listed as zero.
+    // The net, and the pair it came from: a line that takes 640 and gives 200
+    // back is a different thing from one that took 440 and held it, and only
+    // the first is a candidate for a reclaim pause.
+    expect(text).toContain(
+      'line 100: 440 bytes net (640 taken, 200 reclaimed)',
+    );
+    expect(text).toContain('line 100 (DRAW): 440 bytes net');
+    expect(text).toContain('640 bytes taken over the run, 200 reclaimed');
+    // The call site moved nothing, and is left out rather than listed as zero.
     expect(text).not.toContain('line 10: 0 bytes');
-    // Both halves of the accounting, so the assistant cannot read a line's
-    // figure as covering what it calls, nor a reclaimed line as taking nothing.
+    // The caveat that makes a cheap-looking call site readable still rides
+    // along, so the assistant cannot read a line's figure as covering what it
+    // calls.
     expect(text).toContain('not what the routines it calls took');
-    expect(text).toContain('NOT subtracted');
     expect(text).not.toContain('APPROXIMATE');
   });
 
@@ -328,7 +334,7 @@ describe('describeProfile', () => {
       {
         ...measured,
         allocations: {
-          lines: [{ line: 100, bytes: 640 }],
+          lines: [{ line: 100, bytes: 640, reclaimed: 0 }],
           accuracy: 'approximate',
         },
       },
@@ -336,14 +342,12 @@ describe('describeProfile', () => {
       caps,
       true,
     );
-    expect(text).toContain('line 100: 640 bytes');
+    expect(text).toContain('line 100: 640 bytes net');
     expect(text).toContain('APPROXIMATE');
     expect(text).toContain('not as a measurement');
     // Nothing was charged to a line, so the sentence about what a line is
     // charged must not appear beside figures that were spread.
     expect(text).not.toContain('not what the routines it calls took');
-    // What still holds of a spread of gross rises: reclaims are not netted off.
-    expect(text).toContain('NOT subtracted');
   });
 
   it('offers no memory breakdown from a machine that cannot attribute', () => {

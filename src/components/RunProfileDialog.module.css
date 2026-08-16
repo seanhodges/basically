@@ -99,6 +99,13 @@
   background: linear-gradient(90deg, rgb(96 165 250), rgb(29 78 216));
 }
 
+/* A line left holding less than it started with, drawn apart from the blue: the
+   bar is sized on the size of the move and cannot show its direction, so the
+   colour is what separates a line that took 8K from one that gave 8K back. */
+.barFillReclaim {
+  background: linear-gradient(90deg, rgb(94 234 212), rgb(13 148 136));
+}
+
 .share {
   flex: none;
   min-width: 3em;
