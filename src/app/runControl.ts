@@ -22,6 +22,17 @@ const CONTROL_STATE: Record<EmulatorStatus, RunControlState> = {
   paused: 'continue',
 };
 
+/** What the control's position depends on besides the run's state. */
+export interface RunControlConditions {
+  /** The machine offers a pause, because it offers a Continue to release it. */
+  pausable: boolean;
+  /**
+   * The program has ended - it finished, or it stopped on an error - while the
+   * machine goes on running at its prompt.
+   */
+  programEnded: boolean;
+}
+
 /**
  * What the run control offers while the machine is in `status`.
  *
@@ -32,11 +43,24 @@ const CONTROL_STATE: Record<EmulatorStatus, RunControlState> = {
  *
  * `paused` still maps to Continue even when pausing is off, so a run paused
  * before the machine was switched is never left with no way out.
+ *
+ * A program that has ended puts the control back to Play, ahead of everything
+ * else: the machine is still running - it sits at its prompt, and the user may
+ * be typing at it - but Pause and Continue are offered against a program, and
+ * there is no longer one to hold still or to carry on. What the control offers
+ * is then what it offers to a machine that has never run: build the program and
+ * run it again.
+ *
+ * A machine that cannot observe a program finishing never reports one, so its
+ * control goes on offering Pause until the run is stopped. That is the same
+ * limit the run timing carries (`RunTiming.observesFinish`), and for the same
+ * reason: nothing the ROM says separates a finished program from a running one.
  */
 export function runControlStateOf(
   status: EmulatorStatus,
-  pausable: boolean,
+  { pausable, programEnded }: RunControlConditions,
 ): RunControlState {
+  if (programEnded) return 'play';
   if (status === 'running' && !pausable) return 'play';
   return CONTROL_STATE[status];
 }

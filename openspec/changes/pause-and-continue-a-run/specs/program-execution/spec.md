@@ -92,6 +92,13 @@ stopped at a breakpoint is offered the same continue as one the user paused.
 
 Carrying a paused run on SHALL be called the same thing wherever it is offered.
 
+Once the program has ended - it finished, or it stopped on an error - the
+control SHALL offer to run it again, even though the machine goes on running at
+its prompt. Pausing and continuing are offered against a program, and there is
+no longer one to hold still or to carry on. Where the machine cannot observe a
+program finishing, no end is reported and the control SHALL go on offering the
+pause until the run is stopped.
+
 #### Scenario: The control follows a run it started
 
 - **WHEN** the user starts a program from the run control over the editor
@@ -108,3 +115,18 @@ Carrying a paused run on SHALL be called the same thing wherever it is offered.
 - **WHEN** the user uses the run control over the editor while a program is
   running
 - **THEN** the program pauses, rather than restarting from the beginning
+
+#### Scenario: The control follows the program to its end
+
+- **WHEN** a program the user is watching finishes on a machine that can
+  observe it, leaving the emulator at its prompt
+- **THEN** the run control over the editor offers to run the program again,
+  rather than going on offering to pause a program that has ended
+
+#### Scenario: A machine that cannot see a program finish
+
+- **WHEN** a program ends on a machine that cannot tell whether a program is
+  running
+- **THEN** the run control over the editor goes on offering the pause, since
+  nothing observed the end, and stopping the run is what returns it to offering
+  the program again

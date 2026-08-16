@@ -14,6 +14,15 @@
       while an assistant check is armed, while the assistant is driving the
       machine, and before the first frame.
 
+- [x] 1.3 Take the end of the program into the derivation: `runControlStateOf`
+      reads `{ pausable, programEnded }` and returns Play whenever the program
+      has ended, ahead of the status mapping, and `runTiming.ts` exports the
+      `timingSettled(timing)` predicate that reads a published timing the way
+      `RunStopwatch.settled` reads a live one. Cover both in their colocated
+      tests: a running machine whose program has ended offers Play, a pause
+      taken after the end offers Play rather than Continue, an unmeasured run
+      is not an ending, and the exhaustiveness sweep runs over both flags.
+
 ## 2. Store
 
 - [x] 2.1 Add `pauseRequest` and `requestPause()` to `src/app/store.ts`,
@@ -54,6 +63,11 @@
       mirroring the green state's treatment. The existing keyboard-lift rules
       must keep applying.
 
+- [x] 4.3 Subscribe `src/components/Workspace.tsx` to the run timing the loop
+      publishes and pass `programEnded` into the derivation — the whole timing,
+      not the buffer-filtered one the profile dialog shows, since this drives
+      the machine rather than describing what is on screen.
+
 ## 5. Keyboard
 
 - [x] 5.1 No change: `run.continue` keeps its `debuggable` gate. Pausing is
@@ -66,6 +80,10 @@
       `docs/guide/testing-programs.md` — user-facing wording, no source paths,
       one name for continuing a run, and what the control does on a machine
       with no step debugger.
+
+- [x] 6.2 Say in `docs/guide/testing-programs.md` what the control does once the
+      program ends by itself, that the emulator stays on at its prompt, and that
+      the machines which cannot see a program finish go on offering the pause.
 
 ## 7. Browser tests
 
@@ -82,6 +100,14 @@
       layout's overflow menu carries its own Play and Continue. Leave the run
       paused so the test's existing flip-back assertions still hold.
 
+- [x] 7.3 Extend the finishing-run journey in
+      `e2e/profiling/heat-and-memory.spec.ts` — the only place in the suite with
+      a machine watched all the way to a finish, so proving it in
+      `e2e/program-execution/` would mean booting a second Commodore to reach a
+      state this test already sits in: flip to a touch viewport once the run has
+      settled and assert the control reads `play` while the status bar still
+      reads running. Address it by test id, as above.
+
 ## 8. Quality gates
 
 - [x] 8.1 `npm run typecheck`
@@ -89,4 +115,5 @@
 - [x] 8.3 `npm run lint`
 - [x] 8.4 `npm run format:check` (or `npm run format`)
 - [x] 8.5 `npm run docs:build`
-- [x] 8.6 `npm run e2e:chromium -- e2e/program-execution e2e/ai-assistant`
+- [x] 8.6 `npm run e2e:chromium -- e2e/program-execution e2e/ai-assistant
+      e2e/profiling`

@@ -172,4 +172,21 @@ test('a run that finishes stops the clock and stops measuring', async ({
   await expect(page.getByText('emulator: running')).toBeVisible();
   await page.waitForTimeout(3000);
   expect(await finished.textContent()).toBe(settled);
+
+  // The run control over the editor reads the same finish. Asserted here rather
+  // than in `e2e/program-execution/` because this is the only place in the suite
+  // with a machine that has been watched all the way to a finish - proving it
+  // there would mean booting a second Commodore to reach the state this test is
+  // already sitting in. Addressed by test id, never by role name: the touch
+  // layout's overflow menu carries its own Play.
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.setViewportSize({ width: 700, height: 1000 });
+  await expect(page.getByRole('tablist', { name: 'App panes' })).toBeVisible();
+  await expect(page.getByTestId('fab-run')).toHaveAttribute(
+    'data-state',
+    'play',
+  );
+  // Still a live machine underneath it: the control follows the program, not
+  // the emulator, which is why this is not simply the stopped state.
+  await expect(page.getByText('emulator: running').first()).toBeVisible();
 });

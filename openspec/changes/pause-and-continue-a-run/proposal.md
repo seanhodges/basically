@@ -23,6 +23,12 @@ for them, the button over the editor gives no sign that it happened.
   screen and its measurements are all there when the run carries on.
 - A machine with no debugger offers no pause, and its control stays the plain
   Play it is today.
+- When the program ends by itself — it finishes, or it stops on an error — the
+  control goes back to the green **Play**, ready to run it again. The emulator
+  stays on at its prompt; what has ended is the program, and Pause and Continue
+  are offered against a program. On the machines that cannot see a program
+  finish, nothing reports one, so the control goes on offering the pause until
+  the run is stopped.
 - **Continue** carries a paused run on however it was paused. A run paused at a
   breakpoint continues to the next breakpoint; a run paused from the button
   continues freely. One name, one action — "Continue" is already the IDE's word
@@ -44,7 +50,8 @@ None.
   state — a running program can be paused and continued without losing what it
   has done, the breakpoint pause and the user's own pause are continued by the
   same action, and the primary run control over the editor shows which of the
-  three states the run is in.
+  three states the run is in, following the program to its end rather than the
+  machine that outlives it.
 
 ## Impact
 
