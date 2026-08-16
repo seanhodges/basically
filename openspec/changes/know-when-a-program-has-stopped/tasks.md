@@ -84,31 +84,31 @@ reproduces the trace, rather than asserting the constant.
 
 Depends on group 2 completing for every machine, including 2.5.
 
-- [ ] 5.1 Delete `DIALECTS_WITHOUT_FINISH_OBSERVATION` and
+- [x] 5.1 Delete `DIALECTS_WITHOUT_FINISH_OBSERVATION` and
       `canObserveProgramFinish` from `src/ai/machineObservability.ts`, and
       retarget the crosscheck test in `machineObservability.test.ts` at the new
       guarantee: every registered machine implements the member.
-- [ ] 5.2 Remove `RunTiming.observesFinish` and every surface that reads it, so
+- [x] 5.2 Remove `RunTiming.observesFinish` and every surface that reads it, so
       no timing is presented with an explanation of why it might never end.
-- [ ] 5.3 Remove the `programEnded` special case in `src/app/runControl.ts` for
+- [x] 5.3 Remove the `programEnded` special case in `src/app/runControl.ts` for
       machines that never report an end, and its colocated test.
-- [ ] 5.4 Update `docs/contributing/architecture.md`: record run state alongside
+- [x] 5.4 Update `docs/contributing/architecture.md`: record run state alongside
       the other introspection members, and remove the note that the Sinclair
       machines cannot observe a finish.
-- [ ] 5.5 Check the user-facing docs under `docs/guide/` and `docs/reference/`
+- [x] 5.5 Check the user-facing docs under `docs/guide/` and `docs/reference/`
       for any statement that a machine cannot tell a finished program from a
       running one, and remove what is no longer true.
 
 ## 6. Quality gates
 
-- [ ] 6.1 `npm run typecheck`
-- [ ] 6.2 `npm test`
-- [ ] 6.3 `npm run lint`
-- [ ] 6.4 `npm run format:check`
-- [ ] 6.5 `npm run docs:build` (docs change in 5.4/5.5)
-- [ ] 6.6 `npm run e2e:chromium -- e2e/program-execution`
-- [ ] 6.7 `npm run e2e:chromium -- e2e/profiling` — the journey in
+- [x] 6.1 `npm run typecheck`
+- [x] 6.2 `npm test`
+- [x] 6.3 `npm run lint`
+- [x] 6.4 `npm run format:check`
+- [x] 6.5 `npm run docs:build` (docs change in 5.4/5.5)
+- [x] 6.6 `npm run e2e:chromium -- e2e/program-execution`
+- [x] 6.7 `npm run e2e:chromium -- e2e/profiling` — the journey in
       `heat-and-memory.spec.ts` notes that the ZX81 can never show a settled
       timing; that note and the machine it picks should be revisited now the
       ZX81 can.
-- [ ] 6.8 `npm run e2e:chromium -- e2e/ai-assistant`
+- [x] 6.8 `npm run e2e:chromium -- e2e/ai-assistant`

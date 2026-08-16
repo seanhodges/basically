@@ -398,7 +398,11 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
       machine: AtomMachine,
       frames = 600,
     ): Promise<boolean | null> {
-      await runUntil(machine, () => machine.isProgramRunning() === false, frames);
+      await runUntil(
+        machine,
+        () => machine.isProgramRunning() === false,
+        frames,
+      );
       return machine.isProgramRunning();
     }
 

@@ -181,13 +181,22 @@ Two consequences worth knowing:
 `Dialect.createEmulator()` returns a `MachineEmulator`: `loadProgram(image,
 opts)`, `runFrame()` (one display frame of CPU time), `frameHz` (how many of
 those a second of real time is worth), `renderTo(canvas)`, key and joystick
-input, and `dispose()`. Everything beyond that is an
-**optional capability the app feature-detects per machine** - `readAudio()`,
-`readVariables()`, `readReport()` (BASIC runtime errors), `isProgramRunning()`
-(whether a program is executing at all), `readMemoryStats()`, the
-memory-activity tap (`setMemoryActivityRecording()` / `drainMemoryActivity()`)
-behind the memory-map overlay, and `currentLine()` / `debugStep()` for the
-line-level debugger.
+input, `isProgramRunning()` (whether a BASIC program is executing, or `null`
+while the machine is still being handed one), and `dispose()`. Everything beyond
+that is an **optional capability the app feature-detects per machine** -
+`readAudio()`, `readVariables()`, `readReport()` (BASIC runtime errors),
+`readMemoryStats()`, the memory-activity tap (`setMemoryActivityRecording()` /
+`drainMemoryActivity()`) behind the memory-map overlay, and `currentLine()` /
+`debugStep()` for the line-level debugger.
+
+`isProgramRunning()` is required to _answer_, not merely to exist: a machine
+handed a program that terminates must report `true` and then `false` within a
+bounded number of frames. Machines whose ROM keeps a cell for it read that cell;
+those whose ROM does not (the Sinclair machines and the Atom) latch the ROM
+address at which BASIC gives up on a program - `src/emulator/programEndLatch.ts`
+holds the shape, and each machine's own constant names its address.
+`src/dialects/programRunState.test.ts` boots every registered machine and holds
+it to the obligation.
 
 `loadProgram`'s options carry the rest of the document model into the machine:
 memory blocks written straight into RAM, extra tape files mounted on the virtual
@@ -626,9 +635,8 @@ Key details:
   is corrected automatically, up to two attempts per answer, after which it falls
   back to the one-click fix request; a run that didn't fail rides along with the
   next request so the assistant hears about its successes too. Telling "finished"
-  from "still running" needs `isProgramRunning()`, which the Sinclair machines
-  can't answer - their runs read as "ran without failing", which is what the
-  assistant is told.
+  from "still running" needs `isProgramRunning()`, which every machine answers,
+  so the distinction is available on all of them.
 - Three things about the check are easy to get wrong and are pinned by tests:
   - **The staleness guard compares `baseSource`, not `ranSource`.** Whether the
     user has moved on is a question about _their_ program. A checked answer is by

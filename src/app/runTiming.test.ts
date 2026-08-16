@@ -15,7 +15,9 @@ const RUNNING = { report: null, running: true } as const;
 /** A machine that has taken the program and finished it. */
 const FINISHED = { report: null, running: false } as const;
 /** A machine that can never answer whether a program is running. */
-const SILENT = { report: null, running: undefined } as const;
+// A machine that has been handed a program but has not started it yet: still
+// booting, or still being typed at. It says nothing either way.
+const NOT_STARTED = { report: null, running: null } as const;
 
 const ERROR: MachineReport = {
   isError: true,
@@ -44,7 +46,7 @@ function runFrames(
 
 describe('timing a whole run', () => {
   it('is the difference between two readings of the run clock', () => {
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     runFrames(watch, 100, RUNNING); // two seconds at 50Hz
     // The mark is the frame the program was first seen running, which is the
     // first frame here, so the timing is the clock's own advance since.
@@ -57,8 +59,8 @@ describe('timing a whole run', () => {
     // nothing about the speed multiplier or the display reaches it. The two
     // stopwatches below see the same frames; only the wall clock they were fed
     // at would have differed.
-    const realTime = new RunStopwatch(null, true);
-    const fastForward = new RunStopwatch(null, true);
+    const realTime = new RunStopwatch(null);
+    const fastForward = new RunStopwatch(null);
     runFrames(realTime, 250, RUNNING);
     runFrames(fastForward, 250, RUNNING);
     expect(fastForward.timing().seconds).toBeCloseTo(
@@ -72,22 +74,22 @@ describe('timing a whole run', () => {
     // typing a RUN into a Commodore's keyboard buffer takes a good fraction of
     // a second - so the start is marked when it first says a program is
     // running, not at the run clock's zero.
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     const injected = runFrames(watch, 50, { report: null, running: null });
     runFrames(watch, 50, RUNNING, injected);
     expect(watch.timing().seconds).toBeCloseTo(0.98, 5);
   });
 
-  it('runs from the start of the run on a machine that never answers', () => {
-    const watch = new RunStopwatch(null, false);
-    runFrames(watch, 50, SILENT);
+  it('runs from the start of the run until the machine says one is running', () => {
+    const watch = new RunStopwatch(null);
+    runFrames(watch, 50, NOT_STARTED);
     expect(watch.timing().seconds).toBeCloseTo(1, 5);
   });
 });
 
 describe('how a timing ends', () => {
   it('ends in a finish only when the machine observed one', () => {
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     runFrames(watch, 50, RUNNING);
     watch.frame(1.02, FINISHED);
     expect(watch.timing().ending).toBe('finished');
@@ -96,7 +98,7 @@ describe('how a timing ends', () => {
   it('stops counting once the program has finished', () => {
     // The loop runs on - the machine sits at its prompt - and none of that is
     // the program's time.
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     runFrames(watch, 50, RUNNING);
     watch.frame(1.02, FINISHED);
     const settled = watch.timing().seconds;
@@ -108,7 +110,7 @@ describe('how a timing ends', () => {
     // What tells the run loop to stop folding frames into this run's figures.
     // The machine goes on running afterwards - it sits at its prompt - and
     // none of that is the program.
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     runFrames(watch, 50, RUNNING);
     expect(watch.settled).toBe(false);
     watch.pause(20); // a pause is not settled: the user continues
@@ -118,16 +120,16 @@ describe('how a timing ends', () => {
     expect(watch.settled).toBe(true);
   });
 
-  it('does not settle on a machine that cannot observe a finish', () => {
-    // Nothing the machine says can end the run, so measuring runs until the
-    // user stops it.
-    const watch = new RunStopwatch(null, false);
-    runFrames(watch, 500, SILENT);
+  it('does not settle while the machine has not started the program', () => {
+    // "Not answerable yet" is not an ending: nothing has finished, so the run
+    // is still the run.
+    const watch = new RunStopwatch(null);
+    runFrames(watch, 500, NOT_STARTED);
     expect(watch.settled).toBe(false);
   });
 
   it('ends on an error with the time up to it', () => {
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     runFrames(watch, 50, RUNNING);
     // The error is what returned BASIC to its prompt, so both arrive together;
     // the error is what the ending must say, not the finish.
@@ -137,7 +139,7 @@ describe('how a timing ends', () => {
   });
 
   it('never reports a completion time for a run the user stopped', () => {
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     runFrames(watch, 200, RUNNING);
     watch.stop();
     const timing = watch.timing();
@@ -150,7 +152,7 @@ describe('how a timing ends', () => {
     // Stopping a machine that is already sitting at its prompt turns off a
     // finished program; reading that as "still running when stopped" would
     // understate what was measured.
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     runFrames(watch, 50, RUNNING);
     watch.frame(1.02, FINISHED);
     watch.stop();
@@ -161,32 +163,29 @@ describe('how a timing ends', () => {
     // Not "no result yet": a duration with `running` against it is a true
     // reading of a program that has not stopped, and is what the user is shown
     // while it runs.
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     runFrames(watch, 5000, RUNNING);
     expect(watch.timing().ending).toBe('running');
     expect(watch.timing().seconds).toBeGreaterThan(90);
   });
 
-  it('ends only on a stop or a pause where a finish cannot be observed', () => {
-    const stopped = new RunStopwatch(null, false);
-    runFrames(stopped, 200, SILENT);
+  it('a run the machine never started still ends on a stop or a pause', () => {
+    const stopped = new RunStopwatch(null);
+    runFrames(stopped, 200, NOT_STARTED);
     expect(stopped.timing().ending).toBe('running'); // nothing ended it
     stopped.stop();
     expect(stopped.timing().ending).toBe('stopped');
 
-    const paused = new RunStopwatch(null, false);
-    runFrames(paused, 200, SILENT);
+    const paused = new RunStopwatch(null);
+    runFrames(paused, 200, NOT_STARTED);
     paused.pause(20);
     expect(paused.timing().ending).toBe('paused');
-    expect(paused.timing().observesFinish).toBe(false);
   });
 
-  it('still ends on an error where a finish cannot be observed', () => {
-    // The Sinclairs cannot say whether a program is running, but they do report
-    // what stopped it.
-    const watch = new RunStopwatch(null, false);
-    runFrames(watch, 50, SILENT);
-    watch.frame(1.02, { report: ERROR, running: undefined });
+  it('ends on an error even before the machine reports a program running', () => {
+    const watch = new RunStopwatch(null);
+    runFrames(watch, 50, NOT_STARTED);
+    watch.frame(1.02, { report: ERROR, running: null });
     expect(watch.timing().ending).toBe('errored');
   });
 });
@@ -197,13 +196,12 @@ describe('timingSettled', () => {
     bufferId: null,
     seconds: 1,
     ending,
-    observesFinish: true,
   });
 
   it('reads a published timing the way the stopwatch read itself', () => {
     // The stopwatch is thrown away the moment a run settles, so everything
     // downstream asks the timing it left behind and must get the same answer.
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     runFrames(watch, 50, RUNNING);
     expect(timingSettled(watch.timing())).toBe(watch.settled);
     watch.frame(1.02, FINISHED);
@@ -232,7 +230,7 @@ describe('timingSettled', () => {
 
 describe('timing between pauses', () => {
   it('reports the stretch since the previous pause', () => {
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     const at = runFrames(watch, 100, RUNNING);
     const first = watch.pause(20);
     expect(first.fromStart).toBe(true);
@@ -251,7 +249,7 @@ describe('timing between pauses', () => {
     // runs none - so a breakpoint stared at for a minute costs the program
     // nothing. Stated as a test because it is the behaviour a user would
     // otherwise doubt.
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     const at = runFrames(watch, 100, RUNNING);
     watch.pause(20);
     const held = watch.timing().seconds;
@@ -266,7 +264,7 @@ describe('timing between pauses', () => {
     // The user's own pause stops the machine between frames rather than before
     // a BASIC line, so there is no line to name - and it must still hold the
     // run's ending and its elapsed time the way a breakpoint pause does.
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     const at = runFrames(watch, 100, RUNNING);
     const held = watch.timing().seconds;
 
@@ -283,7 +281,7 @@ describe('timing between pauses', () => {
   });
 
   it('reports an interval for every step of a line-by-line walk', () => {
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     let at = 0;
     const steps: PauseInterval[] = [];
     for (let i = 0; i < 4; i++) {
@@ -310,7 +308,7 @@ describe('timing between pauses', () => {
     const TRACE = [20, 20, 20, 30, 30, 10, 20, 20, 20, 30, 10, 20];
     const breakpoints = new Set([20]);
     let armed = true; // nothing resumed from yet
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     const marks: PauseInterval[] = [];
     let onBreakpointedLineWithoutPausing = 0;
     let at = 0;
@@ -342,7 +340,7 @@ describe('timing between pauses', () => {
   it('keeps a pause out of the whole-run timing’s way', () => {
     // A pause is not an ending a run cannot come back from: continuing puts the
     // timing live again, and the run can still be observed to finish.
-    const watch = new RunStopwatch(null, true);
+    const watch = new RunStopwatch(null);
     const at = runFrames(watch, 50, RUNNING);
     watch.pause(20);
     expect(watch.timing().ending).toBe('paused');

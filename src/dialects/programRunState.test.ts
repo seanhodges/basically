@@ -55,7 +55,8 @@ const SETTLED_FRAMES = 30;
 /** Iterations that take this machine a visible stretch of time. */
 function iterationsFor(dialectId: string): number {
   const probe = LOOP_SPEED_PROBES.find((p) => p.dialects.includes(dialectId));
-  if (!probe) throw new Error(`no loop-speed probe covers dialect: ${dialectId}`);
+  if (!probe)
+    throw new Error(`no loop-speed probe covers dialect: ${dialectId}`);
   return probe.iterations;
 }
 

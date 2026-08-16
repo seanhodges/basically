@@ -68,13 +68,6 @@ export interface RunTiming {
   /** Emulated seconds from the program starting to where the timing stands. */
   seconds: number;
   ending: TimingEnding;
-  /**
-   * Whether this machine can tell that a BASIC program has finished. False
-   * means the timing can never end in `finished`, however the program goes -
-   * which has to be said rather than left as a timing that mysteriously never
-   * ends.
-   */
-  observesFinish: boolean;
 }
 
 /**
@@ -147,8 +140,6 @@ export class RunStopwatch {
   constructor(
     /** The buffer this run belongs to; a scratch buffer's id, or null. */
     readonly bufferId: string | null,
-    /** Whether this machine can observe a program finishing. */
-    readonly observesFinish: boolean,
   ) {}
 
   /**
@@ -158,9 +149,7 @@ export class RunStopwatch {
    * The start is marked at the first frame the machine reports a program
    * running rather than at the run clock's zero, so the seconds a machine spends
    * being handed the program - typing a RUN into the Commodore's keyboard buffer
-   * takes a good fraction of a second - are not charged to the program. A
-   * machine that never answers has nothing to mark, and its timing runs from the
-   * start of the run.
+   * takes a good fraction of a second - are not charged to the program.
    */
   frame(elapsed: number, frame: AiRunFrame): void {
     if (FINAL.has(this.ending)) return;
@@ -234,7 +223,6 @@ export class RunStopwatch {
       bufferId: this.bufferId,
       seconds: Math.max(0, this.now - this.startMark),
       ending: this.ending,
-      observesFinish: this.observesFinish,
     };
   }
 }

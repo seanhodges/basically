@@ -400,11 +400,10 @@ describe('describeTiming', () => {
     bufferId: null,
     seconds: 1.42,
     ending: 'finished',
-    observesFinish: true,
   };
 
   it('gives the duration and the ending in one answer', () => {
-    const text = describeTiming(timing, true);
+    const text = describeTiming(timing);
     expect(text).toContain('1.42s');
     expect(text).toContain('the program finished');
     expect(text).toContain("this machine's own time");
@@ -415,32 +414,18 @@ describe('describeTiming', () => {
     // fact about when somebody got bored under another, so an assistant given
     // the bare seconds could compare two things that are not comparable.
     for (const ending of ['running', 'errored', 'stopped', 'paused'] as const) {
-      const text = describeTiming({ ...timing, ending }, true);
+      const text = describeTiming({ ...timing, ending });
       expect(text).toContain('1.42s');
       expect(text).not.toContain('the program finished');
     }
-    expect(describeTiming({ ...timing, ending: 'stopped' }, true)).toContain(
+    expect(describeTiming({ ...timing, ending: 'stopped' })).toContain(
       'still running when the run was stopped',
     );
   });
 
-  it('says outright when the machine cannot observe a finish', () => {
-    // Rather than a bare duration whose ending merely never says "finished" -
-    // which reads as a slow program instead of a machine that cannot tell.
-    const text = describeTiming({ ...timing, ending: 'stopped' }, false);
-    expect(text).toContain(
-      'CANNOT tell whether a BASIC program is still running',
-    );
-    expect(text).toContain('never observes one finishing');
-  });
-
   it('says nothing has been timed rather than answering with a zero', () => {
-    const text = describeTiming(null, true);
+    const text = describeTiming(null);
     expect(text).toContain('Nothing has been timed');
     expect(text).not.toContain('0.00s');
-  });
-
-  it('states the machine’s limit even before anything has been timed', () => {
-    expect(describeTiming(null, false)).toContain('CANNOT tell whether');
   });
 });

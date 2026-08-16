@@ -272,7 +272,10 @@ describe('Zx80Machine', () => {
       ['falls off the end', '10 PRINT "HI"\n'],
       ['STOP', '10 STOP\n'],
       ['an error', '10 PRINT 1/0\n'],
-      ['GOSUB and RETURN', '10 GOSUB 40\n20 PRINT "BACK"\n30 STOP\n40 RETURN\n'],
+      [
+        'GOSUB and RETURN',
+        '10 GOSUB 40\n20 PRINT "BACK"\n30 STOP\n40 RETURN\n',
+      ],
       [
         'a program that fills the screen',
         '10 FOR I=1 TO 30\n20 PRINT "ROW";I\n30 NEXT I\n',
