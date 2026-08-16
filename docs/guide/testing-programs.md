@@ -71,9 +71,8 @@ and while the assistant is running your program to check an answer.
 When your program ends by itself - it runs off the end, hits an `END`, or stops
 on an error - the button goes back to the green **▶** play button, ready to run
 it again. The emulator stays on and sits at its prompt, where you can still type
-at it; there is simply no longer a program to hold still. On the [machines that
-can't tell you a program finished](#machines-that-can-t-tell-you-it-finished),
-the button keeps offering **❚❚ Pause** until you stop the run.
+at it; there is simply no longer a program to hold still. This happens on every
+machine: each of them reports whether a program is still executing.
 
 On a machine without the step debugger there is nothing to release a pause, so
 none is offered: the button stays the green **▶** play button throughout, and
@@ -290,15 +289,8 @@ your change, run it again. The IDE deliberately doesn't keep a table of past
 timings - a stopwatch measures one run - so write the first number down before
 you change anything.
 
-### Machines that can't tell you it finished
-
-Some machines can't say whether a BASIC program is still running at all. The
-Sinclairs are the well-known case: the ROM reports `0 OK` both while a program
-runs and after it has ended, so there is nothing to read that separates the two.
-On those machines a timing never ends by itself. It ends when you stop the run
-or when execution pauses, it says which, and it never claims a finish nobody
-observed. The dialog tells you when you're on such a machine, so a timing that
-keeps going isn't a mystery.
+A timing ends by itself when the program does, on every machine, so you never
+have to stop a run to get a figure out of it.
 
 ### Timing part of a program
 

@@ -602,14 +602,34 @@ export interface MachineEmulator {
    *
    * Distinct from {@link currentLine}, which several machines leave pointing at
    * the last line executed once a program stops - fine for labelling a paused
-   * line, useless for asking whether anything is still running.
+   * line, useless for asking whether anything is still running. Required where
+   * `currentLine` is optional: whether a program is running and which line it is
+   * on are independent questions, and the Atom answers the first without the
+   * second.
    *
-   * Optional: a machine whose ROM leaves no reliable trace of the difference
-   * (the Sinclair machines) simply omits it, and the post-run check falls back
-   * to "no error appeared inside the window". Detected via
-   * `typeof machine.isProgramRunning === 'function'`.
+   * Required to *answer*, not merely to exist. A machine handed a program that
+   * terminates must report `true` and then `false` within a bounded number of
+   * frames; returning `null` forever satisfies the type and leaves every caller
+   * waiting on an end that never comes, which is not an implementation. One
+   * registry-driven test (`src/dialects/programRunState.test.ts`) holds every
+   * registered machine to that.
+   *
+   * Two readings satisfy it, and a machine says which by how it is built:
+   *
+   *  - **The machine's state**, where the ROM keeps a cell for it - the
+   *    Commodore machines' cursor-blink flag, Locomotive's current-line
+   *    pointer. A `RUN` the user types at the emulated keyboard is reported like
+   *    any other.
+   *  - **The run the IDE started**, where it does not - the Sinclair machines
+   *    and the Atom latch the ROM address at which BASIC gives up on a program
+   *    (see `ProgramEndLatch`). Once that run has ended, a `RUN` the user types
+   *    afterwards is not picked up.
+   *
+   * Every caller asks about the run the IDE started - the stopwatch times it,
+   * the assistant's check watches it, the run control offers to start it again -
+   * so the difference is deliberate rather than a gap.
    */
-  isProgramRunning?(): boolean | null;
+  isProgramRunning(): boolean | null;
   /**
    * The characters currently on the screen, in reading order, or null when they
    * can't be determined *right now* - mid-boot before the ROM has set the screen

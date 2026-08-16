@@ -1816,7 +1816,6 @@ describe('scratch buffers', () => {
         bufferId: 'scratch-1',
         seconds: 1.4,
         ending: 'finished',
-        observesFinish: true,
       });
       expect(selectVisibleTiming(useIdeStore.getState())?.seconds).toBe(1.4);
       useIdeStore.getState().setActiveTab(BASIC_TAB);
@@ -1830,7 +1829,6 @@ describe('scratch buffers', () => {
         bufferId: null,
         seconds: 1.4,
         ending: 'finished',
-        observesFinish: true,
       });
       useIdeStore
         .getState()

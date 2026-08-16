@@ -66,6 +66,20 @@ export const ROM_LOAD_TRAP = 0x0347; // inside the LOAD routine
 export const ROM_POST_LOAD = 0x0207; // continue here after injecting a .P
 
 /**
+ * Where the interpreter gives up on a program: the head of the ROM's report
+ * printer, reached from the branch at 0x06AA once NXTLIN has no next line to
+ * run or ERR_NR holds a report. It restores SLOW mode, prints the report code
+ * and PPC, then returns to the editor. The path is taken exactly once per
+ * termination - falling off the end, STOP, an error and BREAK all arrive here -
+ * and by nothing that is still running, which is why the machine latches a
+ * stopped program on it rather than looking for a system variable that says so.
+ * No such variable exists: ERR_NR reads "0 OK" both while a program runs and
+ * after it ends cleanly, PPC keeps the last line executed, and NXTLIN already
+ * points past a single-line program while that line is still running.
+ */
+export const ROM_PROGRAM_END = 0x06ae;
+
+/**
  * The ROM's SAVE routine entry (leader-tone setup). The emulator has no
  * cassette output, so a program that runs SAVE is bounced from here to
  * {@link ROM_SAVE_RESUME} instead of spinning in the tape-output loop.

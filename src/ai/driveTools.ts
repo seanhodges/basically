@@ -320,30 +320,14 @@ export function driveToolDefinitions(): ToolDefinition[] {
  * The duration never travels alone. Its ending is what says whether the number
  * is a fact about the program or about when somebody got bored, and an assistant
  * holding two bare durations would compare two things that are not comparable.
- *
- * Where the machine cannot observe a program finishing, that is stated outright
- * rather than left to be inferred from an ending that never says "finished" -
- * otherwise the natural reading of "still running when the run was stopped" is
- * that the program is slow, when it may have finished long before.
  */
-export function describeTiming(
-  timing: RunTiming | null,
-  /** False on a machine that cannot tell whether a program is still running. */
-  canObserveFinish: boolean,
-): string {
-  const caveat = canObserveFinish
-    ? ''
-    : '\nThis machine CANNOT tell whether a BASIC program is still running, so it ' +
-      'never observes one finishing: a timing on it ends when the run is stopped ' +
-      'or when execution pauses, and never reports a finish however the program ' +
-      'went. Do not read its duration as the time the program takes to complete.';
+export function describeTiming(timing: RunTiming | null): string {
   if (!timing) {
-    return 'Nothing has been timed: this program has not been run.' + caveat;
+    return 'Nothing has been timed: this program has not been run.';
   }
   return (
     `The last run took ${formatTiming(timing.seconds)} of this machine's own ` +
-    `time; ${TIMING_ENDINGS[timing.ending]}.` +
-    caveat
+    `time; ${TIMING_ENDINGS[timing.ending]}.`
   );
 }
 

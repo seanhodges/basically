@@ -385,4 +385,81 @@ describe('AtomMachine (jsbeeb Atom adapter)', () => {
     expect(screenText(machine)).toContain('H=       0');
     machine.dispose();
   }, 60000);
+
+  /**
+   * The run-state latch. The ROM address it fires on is a fact about the
+   * committed image, so these cases reproduce the trace rather than asserting
+   * the constant: each program is run on the real ROM and the machine is asked
+   * what it says about itself.
+   */
+  describe('isProgramRunning', () => {
+    /** Frames until the machine reports the program stopped, or the cap. */
+    async function settle(
+      machine: AtomMachine,
+      frames = 600,
+    ): Promise<boolean | null> {
+      await runUntil(
+        machine,
+        () => machine.isProgramRunning() === false,
+        frames,
+      );
+      return machine.isProgramRunning();
+    }
+
+    it.each([
+      ['falls off the end', '10 P."HI"\n'],
+      ['END', '10 P."HI"\n20 END\n'],
+      ['an error', '10 P.1/0\n'],
+      ['GOSUB and RETURN', '10 G.40\n20 P."BACK"\n30 END\n40 R.\n'],
+      [
+        'a program that fills the screen',
+        '10 F.I=1TO20\n20 P."ROW"I\n30 N.I\n',
+      ],
+    ])(
+      'reports no program running after %s',
+      async (_name, src) => {
+        const machine = new AtomMachine();
+        machine.loadProgram(tokenizeProgram(src).bytes);
+        expect(await settle(machine)).toBe(false);
+        machine.dispose();
+      },
+      60000,
+    );
+
+    it.each([
+      ['an idle loop', '10 G.10\n'],
+      ['an INPUT prompt', '10 I.A\n20 G.10\n'],
+    ])(
+      'goes on reporting a program running at %s',
+      async (_name, src) => {
+        const machine = new AtomMachine();
+        machine.loadProgram(tokenizeProgram(src).bytes);
+        expect(await settle(machine, 200)).toBe(true);
+        machine.dispose();
+      },
+      60000,
+    );
+
+    it.each([
+      ['out of a loop', '10 G.10\n'],
+      // ESCAPE at an INPUT prompt does stop the program here, unlike the
+      // Sinclair machines' BREAK, and the command-loop address is what catches
+      // it: the obvious candidates inside the interpreter are never reached.
+      ['at an INPUT prompt', '10 I.A\n20 G.10\n'],
+    ])(
+      'reports no program running once ESCAPE stops one %s',
+      async (_name, src) => {
+        const machine = new AtomMachine();
+        machine.loadProgram(tokenizeProgram(src).bytes);
+        await runUntil(machine, () => machine.isProgramRunning() === true, 200);
+        expect(machine.isProgramRunning()).toBe(true);
+        machine.setKey('Escape', true);
+        for (let i = 0; i < 6; i++) machine.runFrame();
+        machine.setKey('Escape', false);
+        expect(await settle(machine, 200)).toBe(false);
+        machine.dispose();
+      },
+      60000,
+    );
+  });
 });

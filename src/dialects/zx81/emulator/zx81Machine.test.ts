@@ -217,6 +217,70 @@ describe('Zx81Machine', () => {
     }).not.toThrow();
   });
 
+  /**
+   * The run-state latch. The ROM address it fires on is a fact about the
+   * committed image, so these cases reproduce the trace rather than asserting
+   * the constant: each program is run on the real ROM and the machine is asked
+   * what it says about itself. A different ROM revision fails here rather than
+   * silently misreporting.
+   */
+  describe('isProgramRunning', () => {
+    function load(src: string): Zx81Machine {
+      const machine = new Zx81Machine({ rom, ramKb: 16 });
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildPFile(bytes));
+      return machine;
+    }
+
+    /** Frames until the machine reports the program stopped, or the cap. */
+    function settle(machine: Zx81Machine, frames = 600): boolean | null {
+      for (let i = 0; i < frames; i++) {
+        const running = machine.isProgramRunning();
+        if (running === false) return false;
+        machine.runFrame();
+      }
+      return machine.isProgramRunning();
+    }
+
+    it.each([
+      ['falls off the end', '10 PRINT "HI"\n'],
+      ['STOP', '10 STOP\n'],
+      ['an error', '10 PRINT 1/0\n'],
+      [
+        'GOSUB and RETURN',
+        '10 GOSUB 40\n20 PRINT "BACK"\n30 STOP\n40 RETURN\n',
+      ],
+      [
+        'a program that fills the screen',
+        '10 FOR I=1 TO 30\n20 PRINT "ROW";I\n30 NEXT I\n',
+      ],
+    ])('reports no program running after %s', (_name, src) => {
+      expect(settle(load(src))).toBe(false);
+    });
+
+    it.each([
+      ['an idle loop', '10 GOTO 10\n'],
+      ['an INKEY$ loop', '10 IF INKEY$="" THEN GOTO 10\n'],
+      ['PAUSE', '10 PAUSE 30000\n20 GOTO 10\n'],
+      // The case every screen-shaped or cursor-shaped heuristic gets wrong: the
+      // ZX81 shows the same cursor at an INPUT prompt as it does in the editor.
+      ['an INPUT prompt', '10 INPUT A\n20 GOTO 10\n'],
+    ])('goes on reporting a program running at %s', (_name, src) => {
+      expect(settle(load(src), 200)).toBe(true);
+    });
+
+    it('reports no program running once BREAK stops one', () => {
+      const machine = load('10 GOTO 10\n');
+      for (let i = 0; i < 60; i++) machine.runFrame();
+      expect(machine.isProgramRunning()).toBe(true);
+      machine.setKey('Space', true);
+      for (let i = 0; i < 8; i++) machine.runFrame();
+      machine.setKey('Space', false);
+      expect(settle(machine, 60)).toBe(false);
+    });
+  });
+
   describe('step-through debugging', () => {
     // A tight loop that revisits lines 20 and 30 every iteration, so the
     // "about to execute" line cycles 20 → 30 → 20 predictably.

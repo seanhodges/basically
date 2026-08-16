@@ -5,7 +5,6 @@ import {
   editMenu,
   openApp,
   playAndWaitRunning,
-  selectDialect,
   setEditorSource,
 } from '../helpers';
 
@@ -94,15 +93,10 @@ test('a run paints its cost in the gutter and reports where it went', async ({
 
   // The stopwatch reaches the screen with its ending attached: the run loop
   // marks the clock and publishes a duration, and it is never shown bare. This
-  // program loops forever, so "still running" is the true reading - and the
-  // ZX81 cannot observe a program finishing at all, which the dialog says
-  // rather than leaving a timing that never ends unexplained.
+  // program loops forever, so "still running" is the true reading.
   await expect(
     page.getByText(/\d+\.\d+s of ZX81 time - the program is still running\./),
   ).toBeVisible({ timeout: 30_000 });
-  await expect(
-    page.getByText(/cannot tell whether a BASIC program is still running/),
-  ).toBeVisible();
   // Compute is the tab a report opens on, and the duration sits above both -
   // the memory chart is drawn against it.
   await expect(page.getByRole('tab', { name: 'Compute' })).toHaveAttribute(
@@ -164,34 +158,35 @@ test('a run paints its cost in the gutter and reports where it went', async ({
 });
 
 /**
- * A program that ends, on a machine that can see it end.
+ * A program that ends.
  *
  * What only a browser can prove here is the run loop's own behaviour on a real
  * machine: that the loop reaches a settled timing through the machine's actual
  * `isProgramRunning` wiring, and that measuring stops with the program rather
  * than running on while the machine sits at its prompt. No unit test reaches
  * that - the rules are pure and tested in `src/app/runTiming.test.ts`, but
- * whether the loop applies them to a booted PET is a question only this can
- * answer. The ZX81 journey above can never show it: that machine cannot observe
- * a program finishing at all.
+ * whether the loop applies them to a booted machine is a question only this can
+ * answer.
  *
- * The PET because it is the quickest-booting machine that answers the question.
+ * The ZX81 again, and for the same reason the journey above picks it: it boots
+ * in a fraction of the time the Commodore and Acorn ROMs take. Every machine
+ * reports whether a program is running, so the choice is now only about boot
+ * time.
  */
-const ENDS = '10 FOR I=1 TO 300\n20 NEXT I\n30 END';
+const ENDS = '10 FOR I=1 TO 300\n20 NEXT I\n30 STOP';
 
 test('a run that finishes stops the clock and stops measuring', async ({
   page,
 }) => {
   test.setTimeout(60_000); // ROM boot, the program's own run, then the hold
   await openApp(page);
-  await selectDialect(page, 'pet');
   await setEditorSource(page, ENDS);
   await playAndWaitRunning(page);
 
   await editMenu(page, /^Profiler report/);
   // The machine saw the program return to its prompt, so the duration is the
   // time the program takes - the one ending that may be read that way.
-  const finished = page.getByText(/of PET time - the program finished\./);
+  const finished = page.getByText(/of ZX81 time - the program finished\./);
   await expect(finished).toBeVisible({ timeout: 45_000 });
   const settled = await finished.textContent();
 
@@ -207,7 +202,7 @@ test('a run that finishes stops the clock and stops measuring', async ({
   // The run control over the editor reads the same finish. Asserted here rather
   // than in `e2e/program-execution/` because this is the only place in the suite
   // with a machine that has been watched all the way to a finish - proving it
-  // there would mean booting a second Commodore to reach the state this test is
+  // there would mean booting a second machine to reach the state this test is
   // already sitting in. Addressed by test id, never by role name: the touch
   // layout's overflow menu carries its own Play.
   await page.getByRole('button', { name: 'Close' }).click();

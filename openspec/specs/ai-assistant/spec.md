@@ -478,12 +478,10 @@ A program still running when the check ends SHALL be treated as having run, not
 as having failed, because a program that never returns to the machine's ready
 state is the normal shape of a game or an animation.
 
-Telling a program that has finished from one that is still going requires more
-than the failure report, so where the machine can also say whether a program is
-executing, the outcome SHALL distinguish the two. Where it cannot, a run that
-raises no failure SHALL be reported as having run without failing. Either way no
-correction follows, so which of the two is reported SHALL NOT change what the
-assistant is asked to do.
+A program that has finished SHALL be distinguished from one that is still going,
+on every machine, since every machine reports whether a program is executing.
+Which of the two is reported SHALL NOT change what the assistant is asked to do:
+no correction follows either.
 
 A reported outcome MAY additionally carry the machine's screen, as text or as an
 image or as both. Where it carries an image, that image SHALL be the machine's
@@ -505,16 +503,9 @@ and the rest of the assistant SHALL be unaffected.
 #### Scenario: A program that runs without failing
 
 - **WHEN** a program the assistant returned reaches the machine's ready state with
-  no error, on a machine that can tell a finished program from a running one
+  no error
 - **THEN** the conversation reflects that it ran to completion, rather than
   nothing being reported
-
-#### Scenario: A machine that cannot tell finished from still running
-
-- **WHEN** a program the assistant returned raises no failure, on a machine that
-  cannot say whether a program is executing
-- **THEN** the conversation reflects that it ran without failing, and no
-  correction is attempted
 
 #### Scenario: A program still running when the check ends
 
@@ -1434,3 +1425,44 @@ ask for is settled once for the conversation rather than varying turn by turn.
 - **WHEN** a machine starts or stops during a conversation
 - **THEN** what the assistant is offered stays as it was for the rest of that
   conversation
+
+### Requirement: The assistant can time the program it is working on
+
+The assistant SHALL be able to time a run of the program, so that a claim about
+a program's speed can be a measurement rather than an assertion.
+
+A timing given to the assistant SHALL carry how it ended alongside its duration,
+in one answer, so the assistant never holds a duration without knowing whether
+it describes a program that finished, one that failed, or one that was still
+running. It SHALL be the same accounting the user is shown, so the two are never
+reading different numbers for one run.
+
+The assistant SHALL be told that taking a timing costs a run of the program, so
+it takes one when the answer depends on it rather than by reflex.
+
+#### Scenario: Measuring an optimisation
+
+- **WHEN** the assistant rewrites a program to be faster and times both versions
+- **THEN** it holds a duration and an ending for each, and can report the
+  difference as a measurement
+
+#### Scenario: A timing that did not end in a finish
+
+- **WHEN** the assistant times a program that was still running when the timing
+  ended
+- **THEN** it is told the program was still running, alongside the duration
+
+### Requirement: Being able to time a run is a stated capability
+
+Whether the assistant can time a run SHALL be a stated property of the machine,
+resolved from what that machine can determine, rather than discovered by trying.
+
+What the assistant is offered SHALL NOT change during a conversation according
+to whether a machine happens to be running at that moment, on the same terms as
+every other tool it is given.
+
+#### Scenario: What may be asked for does not change mid-conversation
+
+- **WHEN** a machine starts or stops during a conversation
+- **THEN** whether the assistant is offered timing stays as it was for the rest
+  of that conversation

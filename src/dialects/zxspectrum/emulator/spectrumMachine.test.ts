@@ -608,4 +608,112 @@ describe('SpectrumMachine', () => {
       expect(machine.readReport().isError).toBe(false);
     });
   });
+
+  /**
+   * The run-state latch. The ROM address it fires on is a fact about the
+   * committed image, so these cases reproduce the trace rather than asserting
+   * the constant: each program is run on the real ROM and the machine is asked
+   * what it says about itself.
+   */
+  describe('isProgramRunning', () => {
+    function load(
+      src: string,
+      opts?: { blocks?: MemoryBlock[] },
+    ): SpectrumMachine {
+      const machine = new SpectrumMachine({ rom });
+      const { bytes, errors } = tokenizeProgram(src);
+      expect(errors).toEqual([]);
+      machine.loadProgram(buildTap(bytes), opts);
+      return machine;
+    }
+
+    /** Frames until the machine reports the program stopped, or the cap. */
+    function settle(machine: SpectrumMachine, frames = 400): boolean | null {
+      for (let i = 0; i < frames; i++) {
+        const running = machine.isProgramRunning();
+        if (running === false) return false;
+        machine.runFrame();
+      }
+      return machine.isProgramRunning();
+    }
+
+    it.each([
+      ['falls off the end', '10 PRINT "HI"\n'],
+      ['STOP', '10 STOP\n'],
+      ['an error', '10 PRINT 1/0\n'],
+      [
+        'GO SUB and RETURN',
+        '10 GO SUB 40\n20 PRINT "BACK"\n30 STOP\n40 RETURN\n',
+      ],
+      // Twenty rows rather than more: past the screen's height the ROM stops at
+      // its own "scroll?" prompt, which is a program waiting for a key and is
+      // covered as such below.
+      [
+        'a program that fills the screen',
+        '10 FOR i=1 TO 20\n20 PRINT "ROW";i\n30 NEXT i\n',
+      ],
+    ])('reports no program running after %s', (_name, src) => {
+      expect(settle(load(src))).toBe(false);
+    });
+
+    it.each([
+      ['an idle loop', '10 GO TO 10\n'],
+      ['an INKEY$ loop', '10 IF INKEY$="" THEN GO TO 10\n'],
+      ['PAUSE', '10 PAUSE 0\n'],
+      // The case every screen-shaped or cursor-shaped heuristic gets wrong: the
+      // INPUT prompt's cursor is the editor's own.
+      ['an INPUT prompt', '10 INPUT a\n20 GO TO 10\n'],
+    ])('goes on reporting a program running at %s', (_name, src) => {
+      expect(settle(load(src), 200)).toBe(true);
+    });
+
+    it('latches past the extra CLEAR a block below RAMTOP costs', () => {
+      // A document with a low memory block makes loadProgram type a CLEAR as
+      // well as its LOAD, so the ROM passes the latch address one more time
+      // before RUN. Counting hits would report this program finished before it
+      // started; arming after the last of those command lines does not.
+      const machine = new SpectrumMachine({ rom });
+      machine.reset();
+      machine.bootToReady();
+      const ramtop = machine.mem.readWord(RAMTOP);
+      const looping = load('10 GO TO 10\n', {
+        blocks: [
+          {
+            id: 'b1',
+            name: 'Code',
+            address: ramtop - 60,
+            bytes: new Uint8Array([0xaa, 0xbb]),
+            kind: 'code',
+          },
+        ],
+      });
+      expect(settle(looping, 200)).toBe(true);
+    });
+
+    it('reports no program running once BREAK stops one', () => {
+      const machine = load('10 GO TO 10\n');
+      for (let i = 0; i < 60; i++) machine.runFrame();
+      expect(machine.isProgramRunning()).toBe(true);
+      machine.setKey('CapsShift', true);
+      machine.setKey('Space', true);
+      for (let i = 0; i < 8; i++) machine.runFrame();
+      machine.setKey('CapsShift', false);
+      machine.setKey('Space', false);
+      expect(settle(machine, 60)).toBe(false);
+    });
+
+    it('goes on reporting a program running when BREAK is pressed at an INPUT prompt', () => {
+      // The ROM only tests BREAK between statements, so a program stopped at an
+      // INPUT prompt is not interrupted by it - and must not be reported as
+      // finished either.
+      const machine = load('10 INPUT a\n20 GO TO 10\n');
+      for (let i = 0; i < 60; i++) machine.runFrame();
+      machine.setKey('CapsShift', true);
+      machine.setKey('Space', true);
+      for (let i = 0; i < 8; i++) machine.runFrame();
+      machine.setKey('CapsShift', false);
+      machine.setKey('Space', false);
+      expect(settle(machine, 120)).toBe(true);
+    });
+  });
 });

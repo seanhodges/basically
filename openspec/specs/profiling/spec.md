@@ -8,7 +8,9 @@ and reports each line's share of the time against the line in the editor, the
 totals rolled up by routine, and the BASIC memory the program held across the
 run. Every figure is the emulated machine's own time, so the emulation speed
 never changes it.
+
 ## Requirements
+
 ### Requirement: Every run measures itself
 
 Where the machine can be measured, running a program SHALL record where its time
@@ -167,61 +169,6 @@ whole run rather than presenting a partial record as complete.
 - **THEN** the greatest amount used is still reported, and the account states
   that it does not cover the whole run
 
-### Requirement: A machine offers only the measurements it can make
-
-The IDE SHALL derive what it reports from what the machine can actually
-determine, and SHALL offer no figure a machine cannot produce.
-
-A machine that cannot report the BASIC line it is executing SHALL yield no
-per-line costs. A machine that cannot report its memory figures SHALL yield no
-memory account. A machine able to do one but not the other SHALL yield that one.
-
-Where a measurement is unavailable, the IDE SHALL say that the machine does not
-report it, rather than showing zeroes, blanks, or figures carried over from a
-different machine or an earlier run.
-
-#### Scenario: A machine that cannot report its executing line
-
-- **WHEN** the user runs a program on a machine that cannot report which BASIC
-  line it is executing
-- **THEN** no per-line costs are shown, and the IDE states that this machine
-  does not report them
-
-#### Scenario: A machine that reports lines but not memory
-
-- **WHEN** the user runs a program on a machine that reports its executing line
-  but not its memory figures
-- **THEN** per-line costs are reported and the memory account is stated to be
-  unavailable
-
-#### Scenario: An unavailable figure is not shown as zero
-
-- **WHEN** a machine cannot produce one of the measurements
-- **THEN** that measurement is reported as unavailable rather than as a zero or
-  an empty result
-
-### Requirement: Measurements describe one run of one program
-
-The measurements the IDE holds SHALL describe the most recent run. Starting a
-new run SHALL discard the previous run's measurements rather than accumulating
-across runs, so that a figure always describes a single execution.
-
-Measurements SHALL NOT outlive the program they describe: changing the program
-in a way that changes which lines exist SHALL discard measurements taken against
-the old lines, rather than showing them against lines that no longer correspond.
-
-#### Scenario: A new run replaces the previous measurements
-
-- **WHEN** the user runs a program that has already been measured
-- **THEN** the reported measurements describe the new run alone
-
-#### Scenario: Measurements do not survive an edit that moves the lines
-
-- **WHEN** the user edits the program so that its lines no longer correspond to
-  the measured ones
-- **THEN** the stale per-line costs are discarded rather than shown against the
-  edited program
-
 ### Requirement: Memory is charged to the line that took it, and says so
 
 Where the machine reports its own BASIC memory figures, the IDE SHALL charge the
@@ -330,3 +277,163 @@ memory was reclaimed took none.
 - **THEN** the IDE says that no readings were taken, distinctly from saying that
   no memory was taken
 
+### Requirement: A machine offers only the measurements it can make
+
+The IDE SHALL derive what it reports from what the machine can actually
+determine, and SHALL offer no figure a machine cannot produce.
+
+A machine that cannot report the BASIC line it is executing SHALL yield no
+per-line costs. A machine that cannot report its memory figures SHALL yield no
+memory account. A machine able to do one but not the other SHALL yield that one.
+
+Where a measurement is unavailable, the IDE SHALL say that the machine does not
+report it, rather than showing zeroes, blanks, or figures carried over from a
+different machine or an earlier run.
+
+#### Scenario: A machine that cannot report its executing line
+
+- **WHEN** the user runs a program on a machine that cannot report which BASIC
+  line it is executing
+- **THEN** no per-line costs are shown, and the IDE states that this machine
+  does not report them
+
+#### Scenario: A machine that reports lines but not memory
+
+- **WHEN** the user runs a program on a machine that reports its executing line
+  but not its memory figures
+- **THEN** per-line costs are reported and the memory account is stated to be
+  unavailable
+
+#### Scenario: An unavailable figure is not shown as zero
+
+- **WHEN** a machine cannot produce one of the measurements
+- **THEN** that measurement is reported as unavailable rather than as a zero or
+  an empty result
+
+### Requirement: Measurements describe one run of one program
+
+The measurements the IDE holds SHALL describe the most recent run. Starting a
+new run SHALL discard the previous run's measurements rather than accumulating
+across runs, so that a figure always describes a single execution.
+
+Measurements SHALL NOT outlive the program they describe: changing the program
+in a way that changes which lines exist SHALL discard measurements taken against
+the old lines, rather than showing them against lines that no longer correspond.
+
+#### Scenario: A new run replaces the previous measurements
+
+- **WHEN** the user runs a program that has already been measured
+- **THEN** the reported measurements describe the new run alone
+
+#### Scenario: Measurements do not survive an edit that moves the lines
+
+- **WHEN** the user edits the program so that its lines no longer correspond to
+  the measured ones
+- **THEN** the stale per-line costs are discarded rather than shown against the
+  edited program
+
+### Requirement: A program can be timed from start to finish
+
+The user SHALL be able to time a program's run: the emulated machine time from
+the moment the program starts running to the moment the timing ends.
+
+The duration reported SHALL be the machine's own time on the same terms as every
+other duration the IDE reports, so timing a program at real time and at a
+multiple of real time SHALL give the same answer.
+
+Time SHALL NOT accrue while execution is paused, so a user who leaves a paused
+program to examine it SHALL NOT find that pause counted against the program.
+
+#### Scenario: Timing a program that runs to completion
+
+- **WHEN** the user times a program on a machine that can observe the program
+  finishing
+- **THEN** the duration reported is the emulated machine time the program took
+
+#### Scenario: The speed multiplier does not change the timing
+
+- **WHEN** the user times the same program at real time and at a multiple of
+  real time
+- **THEN** both timings report the same duration
+
+#### Scenario: A pause is not counted
+
+- **WHEN** a timed program pauses and the user leaves it paused before resuming
+- **THEN** the time spent paused is not included in the duration
+
+### Requirement: A timing states how it ended
+
+Every duration the IDE reports for a timed run SHALL be accompanied by how that
+timing ended: the program finished, the program stopped on an error, the program
+was still running when the user stopped it, or execution paused.
+
+A duration SHALL NOT be presented as the time a program took to finish unless
+the program was observed to finish. Where the timing ended some other way, the
+IDE SHALL say so wherever the duration is shown, so a duration that means "until
+the user stopped it" is never read as a completion time.
+
+#### Scenario: A program the user stopped
+
+- **WHEN** the user stops a timed program that was still running
+- **THEN** the duration is reported as time until the user stopped it, and not
+  as the time the program takes
+
+#### Scenario: A program that failed
+
+- **WHEN** a timed program stops on an error
+- **THEN** the timing ends and reports that the program errored, alongside the
+  duration up to that point
+
+#### Scenario: A program that never finishes
+
+- **WHEN** the user times a program that keeps running indefinitely
+- **THEN** the timing reports that the program was still running rather than
+  waiting without result
+
+### Requirement: A timing always reaches an ending
+
+A timing SHALL end by itself when the program ends, on every machine. A user who
+starts a program and lets it finish SHALL be shown the time it took, without
+having to stop the run to obtain a figure.
+
+The IDE SHALL NOT present any machine as unable to observe a program finishing,
+because none is.
+
+#### Scenario: A timing ends without the user intervening
+
+- **WHEN** the user times a program that finishes, on any registered machine
+- **THEN** the timing ends by itself and reports the time the program took
+
+#### Scenario: No machine is described as unable to see a finish
+
+- **WHEN** the user times a program on any registered machine
+- **THEN** nothing in what they are shown says the machine cannot observe the
+  program finishing### Requirement: The interval between pauses can be timed
+
+Where the machine supports line-level debugging, the IDE SHALL report the
+emulated machine time elapsed between one pause of the run and the next, so a
+stretch of a program can be timed without timing the whole of it.
+
+The interval SHALL be measured between the moments execution actually pauses,
+not between the moments breakpointed lines are reached, so that a breakpoint
+which does not pause the run does not mark an interval.
+
+Stepping the program a line at a time SHALL yield the interval for each step.
+
+#### Scenario: Timing between two breakpoints
+
+- **WHEN** a debugged run pauses at one breakpoint, is continued, and pauses at
+  another
+- **THEN** the emulated machine time between the two pauses is reported
+
+#### Scenario: Continuing off a breakpointed line
+
+- **WHEN** the user continues from a pause on a line that is itself
+  breakpointed, and the run continues without pausing again immediately
+- **THEN** no interval is marked at that line until the run actually pauses
+  again
+
+#### Scenario: Stepping a line at a time
+
+- **WHEN** the user steps a debugged program line by line
+- **THEN** each step reports the emulated machine time that step took

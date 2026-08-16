@@ -119,8 +119,6 @@ function Timing({ timing, machine }: { timing: RunTiming; machine: string }) {
     <p className={styles.summary}>
       {formatTiming(timing.seconds)} of {machine} time -{' '}
       {TIMING_ENDINGS[timing.ending]}.
-      {!timing.observesFinish &&
-        ` The ${machine} cannot tell whether a BASIC program is still running, so it never reports one finishing: a timing on it ends when you stop the run or when execution pauses.`}
     </p>
   );
 }
