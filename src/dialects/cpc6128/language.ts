@@ -1,6 +1,7 @@
 import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
+import { keywordSpellingsFor } from '../keywordSpellings';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { cpc6128Keywords } from './keywords';
@@ -18,6 +19,7 @@ export const cpc6128CompletionSource: CompletionSource = buildCompletionSource(
 
 export function cpc6128LanguageSupport(): Extension {
   return buildBasicLanguage(cpc6128Keywords, cpc6128CompletionSource, {
+    spellings: keywordSpellingsFor('cpc6128'),
     operators: ['↑'],
     suffixChars: '$%!',
     graphicsEscapes: false,

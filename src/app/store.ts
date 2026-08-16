@@ -537,14 +537,6 @@ interface IdeState {
   /** Whether the emulator screen currently has focus (drives auto-show). */
   emulatorFocused: boolean;
   /**
-   * Mirror of the editor's current main-selection text ('' when the selection
-   * is empty). CodeMirror is the source of truth; pushed from CodeMirrorHost's
-   * update listener. Read imperatively (not via a selector) so it never causes
-   * re-renders on cursor movement - e.g. the docs button uses it to open
-   * context-aware help for the selected keyword.
-   */
-  editorSelection: string;
-  /**
    * Mirror of the CodeMirror find/replace panel's open state (CodeMirror is the
    * source of truth). Lets other panes dismiss the panel on interaction.
    */
@@ -585,9 +577,9 @@ interface IdeState {
   /** In-app documentation drawer (replaces opening /docs/ in a new tab). */
   docsDrawerOpen: boolean;
   /**
-   * Optional docs sub-path the drawer should open to (e.g. a future
-   * context-aware "help for keyword under cursor" target). `null` opens the
-   * docs home. Detection of the target is not implemented yet.
+   * Optional docs sub-path the drawer should open to - the keyword picked in
+   * the editor, the CPU page a machine-code block tab implies, or a porting
+   * comparison. `null` opens the docs home.
    */
   docsTopic: string | null;
   /**
@@ -953,7 +945,6 @@ interface IdeState {
   setEmulatorMuted(on: boolean): void;
   setEditorFocused(on: boolean): void;
   setEmulatorFocused(on: boolean): void;
-  setEditorSelection(text: string): void;
   setFindReplaceOpen(on: boolean): void;
   setMobileTab(tab: MobileTab): void;
   setSplitRatio(n: number): void;
@@ -1535,7 +1526,6 @@ export const useIdeStore = create<IdeState>((set) => ({
     typeof localStorage !== 'undefined' ? getEmulatorMuted() : false,
   editorFocused: false,
   emulatorFocused: false,
-  editorSelection: '',
   findReplaceOpen: false,
   mobileTab: 'editor',
   splitRatio: typeof localStorage !== 'undefined' ? getSplitRatio() : 0.5,
@@ -2260,7 +2250,6 @@ export const useIdeStore = create<IdeState>((set) => ({
   },
   setEditorFocused: (on) => set({ editorFocused: on }),
   setEmulatorFocused: (on) => set({ emulatorFocused: on }),
-  setEditorSelection: (text) => set({ editorSelection: text }),
   setFindReplaceOpen: (on) => set({ findReplaceOpen: on }),
   setMobileTab: (tab) => set({ mobileTab: tab }),
   setSplitRatio: (n) => set({ splitRatio: n }),

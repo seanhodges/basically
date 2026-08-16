@@ -4,6 +4,7 @@
 import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
+import { keywordSpellingsFor } from '../keywordSpellings';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { altair8800Keywords, altair8800Operators } from './keywords';
@@ -35,6 +36,7 @@ export function altair8800LanguageSupport(): Extension {
   // literals (Disk BASIC) and no graphics escapes (the machine has no graphics
   // characters at all), so both stay off.
   return buildBasicLanguage(altair8800Keywords, altair8800CompletionSource, {
+    spellings: keywordSpellingsFor('altair8800'),
     operators: altair8800Operators,
     suffixChars: '$',
     graphicsEscapes: false,

@@ -157,9 +157,10 @@ function ChevronLeftIcon() {
 
 interface DocsDrawerProps {
   /**
-   * Optional docs sub-path to open to (e.g. `reference/zx81#print`). Falls back
-   * to the store's `docsTopic`, then to the docs home. This prop is the seam for
-   * a future context-aware help feature; no keyword detection happens here yet.
+   * Optional docs sub-path to open to (e.g. `reference/zx81?q=PRINT`). Falls
+   * back to the store's `docsTopic`, then to the docs home. Only tests pass it;
+   * the app routes through the store so the drawer's topic survives dismissal
+   * and restores from the URL.
    */
   topic?: string;
 }
@@ -326,10 +327,10 @@ export function DocsDrawer({ topic }: DocsDrawerProps = {}) {
     });
   };
 
-  // Open to the same context-aware topic as the toolbar book button: the porting
-  // comparison offered for the open program where there is one, else the current
-  // dialect's reference page anchored to the selected keyword. Read the
-  // selection imperatively so this component doesn't re-render as the cursor moves.
+  // Open to the same topic as the toolbar book button: the porting comparison
+  // offered for the open program where there is one, else the CPU's page while
+  // a machine-code block tab is open, else the docs home. Read imperatively so
+  // this component doesn't re-render as the active tab changes.
   const openContextual = () => {
     const topic = openingTopicFor(useIdeStore.getState());
     openDocs(topic ?? undefined);

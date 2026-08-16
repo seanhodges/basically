@@ -43,6 +43,11 @@ travels as part of the BASIC listing. The assembly you type is a convenience for
 editing — the saved program keeps the bytes.
 :::
 
+Click an instruction or an assembler directive and choose **Reference** from the
+menu that opens under it: the documentation opens at that instruction's entry on
+the reference page for the processor this block runs on. Registers and your own
+labels have nothing to look up, so they offer nothing.
+
 ## Bringing in existing machine code
 
 You don't have to type everything. Import a real program file — **File ▸

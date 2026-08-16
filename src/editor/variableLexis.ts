@@ -22,6 +22,7 @@
  * omission that would read a BBC `MY_NAME` as two names fails the build.
  */
 import type { EditorKeyword } from '../dialects/types';
+import { keywordSpellingsFor } from '../dialects/keywordSpellings';
 import {
   buildIdentifierRegexes,
   type BasicLanguageOptions,
@@ -128,7 +129,13 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   cpc6128: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
 };
 
-/** Build the variable scanner's rules from a lexis and the keyword table. */
+/**
+ * Build the variable scanner's rules from a lexis and the keyword table.
+ *
+ * `spellings` rides on the lexis so the scanner and the highlighter take it
+ * from one place; {@link variableRulesFor} fills it in from the dialect id,
+ * which is how every caller inside the app reaches this.
+ */
 export function variableRules(
   options: VariableLexis,
   keywords: EditorKeyword[],
@@ -149,6 +156,7 @@ export function variableRules(
     callPrefixes: ['PROC', 'FN'].filter((w) => set.has(w)),
     crunch: options.crunched ? makeCrunchMatcher(set) : null,
     dataIsVerbatim: options.dataIsVerbatim ?? false,
+    spellings: options.spellings ?? null,
   };
 }
 
@@ -163,5 +171,11 @@ export function variableRulesFor(
   dialectId: string,
   keywords: EditorKeyword[],
 ): VarNameRules {
-  return variableRules(VARIABLE_LEXIS[dialectId] ?? {}, keywords);
+  return variableRules(
+    {
+      ...(VARIABLE_LEXIS[dialectId] ?? {}),
+      spellings: keywordSpellingsFor(dialectId),
+    },
+    keywords,
+  );
 }

@@ -38,7 +38,13 @@ import { formatWord } from '../asm/format';
 import type { AsmEngine, AsmError } from '../asm/types';
 import type { MemoryBlock } from '../dialects/types';
 import { basicHighlightStyle } from '../editor/basicLanguage';
+import { clickMenu } from '../editor/clickMenu';
+import { ASM_REFERENCE_KINDS, referenceRow } from '../editor/referenceRow';
+import { asmReferenceTopic } from '../app/docsTopic';
 import styles from './AsmEditor.module.css';
+
+/** No operator has a row on an assembly page, so no operator run is cut back. */
+const NO_OPERATORS: ReadonlySet<string> = new Set();
 
 /** How long after the last keystroke the source re-assembles. */
 const ASSEMBLE_DEBOUNCE_MS = 500;
@@ -175,18 +181,19 @@ export function AsmEditor({
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         syntaxHighlighting(basicHighlightStyle),
         asmLanguage(engine),
+        // Click an instruction or directive to be offered this processor's
+        // reference. The menu's completion and find/replace guards read those
+        // extensions optionally, so they degrade to "not active" here, where
+        // neither is mounted - don't add them to make the menu work.
+        clickMenu([
+          referenceRow({
+            kinds: ASM_REFERENCE_KINDS,
+            operators: NO_OPERATORS,
+            topic: (word) => asmReferenceTopic(engine.cpu, word),
+            open: (topic) => useIdeStore.getState().openDocs(topic),
+          }),
+        ]),
         EditorView.updateListener.of((update) => {
-          // Mirror the selection into the store so F1 / the Docs button can
-          // open this CPU's assembly reference seeded to the selected mnemonic
-          // (see referenceTopicFor). Matches CodeMirrorHost's BASIC editor.
-          if (update.selectionSet || update.docChanged) {
-            const sel = update.state.selection.main;
-            useIdeStore
-              .getState()
-              .setEditorSelection(
-                sel.empty ? '' : update.state.sliceDoc(sel.from, sel.to),
-              );
-          }
           if (!update.docChanged || reseeding.current) return;
           if (debounceRef.current !== null) {
             window.clearTimeout(debounceRef.current);
