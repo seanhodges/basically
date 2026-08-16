@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   useIdeStore,
   selectActiveSource,
@@ -20,13 +20,20 @@ import dialog from './Dialog.module.css';
 import styles from './RunProfileDialog.module.css';
 
 /**
- * Edit ▸ Run profile - where the last run's time and memory went.
+ * Edit ▸ Profiler report - where the last run's time and memory went.
  *
  * The per-line costs are drawn in the editor gutter, which is where a slow line
  * is actually found; this is the reading that a gutter cannot give - the totals
  * rolled up by routine, the memory account across the run, and which lines took
  * that memory. Clicking a line moves the editor to it, exactly as the outline
  * does.
+ *
+ * Split across a Compute tab and a Memory tab, because they answer two
+ * different questions and a reader has one of them at a time. The duration
+ * stays above both: it is what the memory chart's own axis is drawn against, so
+ * a Memory tab without it would leave the chart spanning an unstated period,
+ * and it is the one figure a machine that cannot be broken down line by line
+ * still reports.
  *
  * Time is reported as shares and memory in bytes. A cycle count means nothing
  * without the machine's clock rate, so "where did the time go" can only be
@@ -39,6 +46,19 @@ import styles from './RunProfileDialog.module.css';
 
 /** Hottest lines listed before the list becomes a wall of incidental ones. */
 const MAX_LINES = 12;
+
+/**
+ * The two resources a run spends, and the order they are asked about.
+ *
+ * Compute first because "why is this slow" is the question a profile is opened
+ * with; a program's memory is usually only in question once its time is.
+ */
+const TABS = [
+  { id: 'compute', label: 'Compute' },
+  { id: 'memory', label: 'Memory' },
+] as const;
+
+type ProfileTab = (typeof TABS)[number]['id'];
 
 /** Width and height the memory chart is drawn in, in its own SVG units. */
 const CHART_W = 560;
@@ -113,6 +133,11 @@ export function RunProfileDialog() {
   const profile = useIdeStore(selectVisibleProfile);
   const timing = useIdeStore(selectVisibleTiming);
   const requestJumpToLine = useIdeStore((s) => s.requestJumpToLine);
+  // Local rather than in the store: which half of the report is on screen is
+  // this dialog's own business, and nothing else in the app reads it. It does
+  // survive a close, because the component stays mounted - so reopening returns
+  // to the tab that was being read.
+  const [tab, setTab] = useState<ProfileTab>('compute');
 
   const shares = useMemo(() => lineShares(profile?.lines ?? []), [profile]);
   const caps = useMemo(
@@ -146,7 +171,7 @@ export function RunProfileDialog() {
   return (
     <div className={dialog.modalBackdrop} onClick={() => setOpen(false)}>
       <div className={dialog.modal} onClick={(e) => e.stopPropagation()}>
-        <h2>Where the run went</h2>
+        <h2>Profiler report</h2>
 
         {/* The stopwatch first, and on every machine: how long a run took is
             the machine's frame rate and nothing else, so a machine that cannot
@@ -164,148 +189,180 @@ export function RunProfileDialog() {
           </p>
         ) : !profile ? null : (
           <>
-            {measured ? (
-              <div className={styles.section}>
-                <h3 className={styles.heading}>Hottest lines</h3>
-                {shares.slice(0, MAX_LINES).map((s) => (
-                  <button
-                    key={s.line}
-                    className={styles.item}
-                    onClick={() => jump(s.line)}
-                  >
-                    <span className={styles.lineNo}>{s.line}</span>
-                    <span className={styles.bar}>
-                      <span
-                        className={styles.barFill}
-                        style={{ width: `${s.share * 100}%` }}
-                      />
-                    </span>
-                    <span className={styles.share}>{percent(s.share)}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className={styles.empty}>
-                No line of this program has spent measurable time yet.
-              </p>
-            )}
-
-            {routines.length > 0 && measured && (
-              <div className={styles.section}>
-                <h3 className={styles.heading}>By routine</h3>
-                {routines.map((r) => (
-                  <button
-                    key={r.lineNo}
-                    className={styles.item}
-                    onClick={() => jump(r.lineNo)}
-                  >
-                    <span className={styles.lineNo}>{r.lineNo}</span>
-                    <span className={styles.title}>{r.title}</span>
-                    <span className={styles.share}>{percent(r.share)}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className={styles.section}>
-              <h3 className={styles.heading}>Memory use over time</h3>
-              {profile.memory ? (
-                <>
-                  <MemoryChart memory={profile.memory} />
-                  <p className={styles.summary}>
-                    Peak: {profile.memory.peakUsed.toLocaleString()} /{' '}
-                    {bytes(profile.memory.totalBytes)}
-                    {profile.memory.partial &&
-                      '. The chart covers the end of the run only; the peak is the whole run’s.'}
-                  </p>
-                </>
-              ) : (
-                <p className={styles.empty}>
-                  The {dialect.name} does not report its BASIC memory figures.
-                </p>
-              )}
+            <div
+              className={styles.tabs}
+              role="tablist"
+              aria-label="Profiler report"
+            >
+              {TABS.map((t) => (
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={tab === t.id}
+                  className={`${styles.tab} ${tab === t.id ? styles.active : ''}`}
+                  onClick={() => setTab(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
 
-            {/* Which line took it, which the chart above cannot say. Three
+            <div role="tabpanel" className={styles.tabPanel}>
+              {tab === 'compute' ? (
+                <>
+                  {measured ? (
+                    <div className={styles.section}>
+                      <h3 className={styles.heading}>Hottest lines</h3>
+                      {shares.slice(0, MAX_LINES).map((s) => (
+                        <button
+                          key={s.line}
+                          className={styles.item}
+                          onClick={() => jump(s.line)}
+                        >
+                          <span className={styles.lineNo}>{s.line}</span>
+                          <span className={styles.bar}>
+                            <span
+                              className={styles.barFill}
+                              style={{ width: `${s.share * 100}%` }}
+                            />
+                          </span>
+                          <span className={styles.share}>
+                            {percent(s.share)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className={styles.empty}>
+                      No line of this program has spent measurable time yet.
+                    </p>
+                  )}
+
+                  {routines.length > 0 && measured && (
+                    <div className={styles.section}>
+                      <h3 className={styles.heading}>By routine</h3>
+                      {routines.map((r) => (
+                        <button
+                          key={r.lineNo}
+                          className={styles.item}
+                          onClick={() => jump(r.lineNo)}
+                        >
+                          <span className={styles.lineNo}>{r.lineNo}</span>
+                          <span className={styles.title}>{r.title}</span>
+                          <span className={styles.share}>
+                            {percent(r.share)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className={styles.section}>
+                    <h3 className={styles.heading}>Memory use over time</h3>
+                    {profile.memory ? (
+                      <>
+                        <MemoryChart memory={profile.memory} />
+                        <p className={styles.summary}>
+                          Peak: {profile.memory.peakUsed.toLocaleString()} /{' '}
+                          {bytes(profile.memory.totalBytes)}
+                          {profile.memory.partial &&
+                            '. The chart covers the end of the run only; the peak is the whole run’s.'}
+                        </p>
+                      </>
+                    ) : (
+                      <p className={styles.empty}>
+                        The {dialect.name} does not report its BASIC memory
+                        figures.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Which line took it, which the chart above cannot say. Three
                 readings, and they are three different answers: no figure was
                 ever read, a figure was read and nothing moved, or here is where
                 it went - measured where the machine priced the lines itself,
                 and spread over them where it could not. */}
-            <div className={styles.section}>
-              <h3 className={styles.heading}>Where the memory went</h3>
-              {!memoryAccount ? (
-                <p className={styles.empty}>No memory readings</p>
-              ) : taken.length > 0 ? (
-                <>
-                  {memoryAccount.accuracy === 'approximate' && (
-                    // Above the list, so it is read before the figures are.
-                    <p className={styles.summary}>
-                      Approximate. The {dialect.name} never left a line while
-                      memory was moving, so nothing could be charged to the line
-                      that took it; each rise is spread over the lines running
-                      at the time, in proportion to their share of the run’s
-                      time. The line at the top may not be the line that took
-                      the memory.
-                    </p>
-                  )}
-                  {taken.slice(0, MAX_LINES).map((a) => (
-                    <button
-                      key={a.line}
-                      className={styles.item}
-                      onClick={() => jump(a.line)}
-                    >
-                      <span className={styles.lineNo}>{a.line}</span>
-                      <span className={styles.bar}>
-                        <span
-                          className={`${styles.barFill} ${styles.barFillMemory}`}
-                          style={{ width: `${a.share * 100}%` }}
-                        />
-                      </span>
-                      <span className={styles.bytes}>
-                        {a.bytes.toLocaleString()}
-                      </span>
-                    </button>
-                  ))}
-                  <p className={styles.summary}>
-                    {bytes(totalAllocated(memoryAccount.lines))} taken in all.
-                    {/* The flat accounting describes charging, so it belongs
+                  <div className={styles.section}>
+                    <h3 className={styles.heading}>Where the memory went</h3>
+                    {!memoryAccount ? (
+                      <p className={styles.empty}>No memory readings</p>
+                    ) : taken.length > 0 ? (
+                      <>
+                        {memoryAccount.accuracy === 'approximate' && (
+                          // Above the list, so it is read before the figures are.
+                          <p className={styles.summary}>
+                            Approximate. The {dialect.name} never left a line
+                            while memory was moving, so nothing could be charged
+                            to the line that took it; each rise is spread over
+                            the lines running at the time, in proportion to
+                            their share of the run’s time. The line at the top
+                            may not be the line that took the memory.
+                          </p>
+                        )}
+                        {taken.slice(0, MAX_LINES).map((a) => (
+                          <button
+                            key={a.line}
+                            className={styles.item}
+                            onClick={() => jump(a.line)}
+                          >
+                            <span className={styles.lineNo}>{a.line}</span>
+                            <span className={styles.bar}>
+                              <span
+                                className={`${styles.barFill} ${styles.barFillMemory}`}
+                                style={{ width: `${a.share * 100}%` }}
+                              />
+                            </span>
+                            <span className={styles.bytes}>
+                              {a.bytes.toLocaleString()}
+                            </span>
+                          </button>
+                        ))}
+                        <p className={styles.summary}>
+                          {bytes(totalAllocated(memoryAccount.lines))} taken in
+                          all.
+                          {/* The flat accounting describes charging, so it belongs
                         only to a reading that charged: saying a line is charged
                         what it took itself, under figures that were spread over
                         the lines by their time, would contradict the note
                         above. What holds of both is the gross count. */}
-                    {memoryAccount.accuracy === 'measured'
-                      ? ' A line is charged what it took itself, never what the routines it calls took, and memory'
-                      : ' Memory'}{' '}
-                    BASIC reclaimed afterwards is not subtracted - so a line
-                    that builds strings and lets them go still reads as having
-                    taken them.
-                  </p>
+                          {memoryAccount.accuracy === 'measured'
+                            ? ' A line is charged what it took itself, never what the routines it calls took, and memory'
+                            : ' Memory'}{' '}
+                          BASIC reclaimed afterwards is not subtracted - so a
+                          line that builds strings and lets them go still reads
+                          as having taken them.
+                        </p>
+                      </>
+                    ) : (
+                      <p className={styles.empty}>
+                        No memory was taken over this run.
+                      </p>
+                    )}
+                  </div>
+
+                  {takenByRoutine.length > 0 && (
+                    <div className={styles.section}>
+                      <h3 className={styles.heading}>Memory by routine</h3>
+                      {takenByRoutine.map((r) => (
+                        <button
+                          key={r.lineNo}
+                          className={styles.item}
+                          onClick={() => jump(r.lineNo)}
+                        >
+                          <span className={styles.lineNo}>{r.lineNo}</span>
+                          <span className={styles.title}>{r.title}</span>
+                          <span className={styles.bytes}>
+                            {r.bytes.toLocaleString()}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </>
-              ) : (
-                <p className={styles.empty}>
-                  No memory was taken over this run.
-                </p>
               )}
             </div>
-
-            {takenByRoutine.length > 0 && (
-              <div className={styles.section}>
-                <h3 className={styles.heading}>Memory by routine</h3>
-                {takenByRoutine.map((r) => (
-                  <button
-                    key={r.lineNo}
-                    className={styles.item}
-                    onClick={() => jump(r.lineNo)}
-                  >
-                    <span className={styles.lineNo}>{r.lineNo}</span>
-                    <span className={styles.title}>{r.title}</span>
-                    <span className={styles.bytes}>
-                      {r.bytes.toLocaleString()}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
           </>
         )}
 

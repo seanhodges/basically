@@ -1,3 +1,34 @@
+/* The same tab strip the settings form uses, so the two read as one control. */
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.tab {
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Holds the panel's height steady across a switch: the two tabs are different
+   lengths, and a dialog that resizes under the pointer moves the tab strip out
+   from under it. */
+.tabPanel {
+  min-height: 260px;
+}
+
 .section {
   margin-bottom: 12px;
 }
