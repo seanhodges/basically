@@ -10,19 +10,24 @@ import {
 /** Every run state the store can hold, so the mapping is checked exhaustively. */
 const ALL_STATUSES: EmulatorStatus[] = ['stopped', 'running', 'paused'];
 
+/** A debuggable machine running the program the user started. */
+const RUNNING = { pausable: true, programEnded: false };
+
 describe('runControlStateOf', () => {
   it('offers Play stopped, Pause running, and Continue paused', () => {
-    expect(runControlStateOf('stopped', true)).toBe('play');
-    expect(runControlStateOf('running', true)).toBe('pause');
-    expect(runControlStateOf('paused', true)).toBe('continue');
+    expect(runControlStateOf('stopped', RUNNING)).toBe('play');
+    expect(runControlStateOf('running', RUNNING)).toBe('pause');
+    expect(runControlStateOf('paused', RUNNING)).toBe('continue');
   });
 
   it('gives every run state a position', () => {
     for (const status of ALL_STATUSES) {
       for (const pausable of [true, false]) {
-        expect(runControlStateOf(status, pausable)).toMatch(
-          /^(play|pause|continue)$/,
-        );
+        for (const programEnded of [true, false]) {
+          expect(runControlStateOf(status, { pausable, programEnded })).toMatch(
+            /^(play|pause|continue)$/,
+          );
+        }
       }
     }
   });
@@ -30,21 +35,53 @@ describe('runControlStateOf', () => {
   it('never offers to restart a program that is running or paused', () => {
     // The bug this control replaces: the button was always Play, so a tap
     // mid-run silently restarted the program the user was watching.
-    expect(runControlStateOf('running', true)).not.toBe('play');
-    expect(runControlStateOf('paused', true)).not.toBe('play');
+    expect(runControlStateOf('running', RUNNING)).not.toBe('play');
+    expect(runControlStateOf('paused', RUNNING)).not.toBe('play');
   });
 
   it('keeps the plain Play on a machine that cannot be paused', () => {
     // Pausing is offered only where continuing is. On a machine with no
     // debugger the control goes on being what it always was.
-    expect(runControlStateOf('stopped', false)).toBe('play');
-    expect(runControlStateOf('running', false)).toBe('play');
+    expect(runControlStateOf('stopped', { ...RUNNING, pausable: false })).toBe(
+      'play',
+    );
+    expect(runControlStateOf('running', { ...RUNNING, pausable: false })).toBe(
+      'play',
+    );
   });
 
   it('still offers Continue to a run that is somehow paused', () => {
     // Unreachable while the machine stays put, but a pause must never be left
     // with no way out - switching machines mid-pause must not strand one.
-    expect(runControlStateOf('paused', false)).toBe('continue');
+    expect(runControlStateOf('paused', { ...RUNNING, pausable: false })).toBe(
+      'continue',
+    );
+  });
+
+  it('goes back to Play when the program ends under a running machine', () => {
+    // The machine is still on - it sits at its prompt - but the program the
+    // Pause was offered against is over, and offering to pause a prompt would
+    // hold a machine still for no reason the user asked for.
+    expect(
+      runControlStateOf('running', { ...RUNNING, programEnded: true }),
+    ).toBe('play');
+  });
+
+  it('offers no Continue for a program that ended before the pause', () => {
+    // A pause taken on the frame a program ended has nothing to carry on; the
+    // control offers the run again rather than a Continue that resumes a
+    // prompt.
+    expect(
+      runControlStateOf('paused', { ...RUNNING, programEnded: true }),
+    ).toBe('play');
+  });
+
+  it('goes on offering Pause where a finish cannot be observed', () => {
+    // Machines that cannot say whether a program is still running never report
+    // one ending, so `programEnded` stays false and the run is pausable until
+    // the user stops it. Nothing here can improve on that - the ROM does not
+    // separate the two states.
+    expect(runControlStateOf('running', RUNNING)).toBe('pause');
   });
 });
 

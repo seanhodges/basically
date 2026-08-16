@@ -68,6 +68,13 @@ It is the same button when a breakpoint pauses the program for you: it reads
 is unavailable for the brief moment before the machine draws its first frame,
 and while the assistant is running your program to check an answer.
 
+When your program ends by itself - it runs off the end, hits an `END`, or stops
+on an error - the button goes back to the green **▶** play button, ready to run
+it again. The emulator stays on and sits at its prompt, where you can still type
+at it; there is simply no longer a program to hold still. On the [machines that
+can't tell you a program finished](#machines-that-can-t-tell-you-it-finished),
+the button keeps offering **❚❚ Pause** until you stop the run.
+
 On a machine without the step debugger there is nothing to release a pause, so
 none is offered: the button stays the green **▶** play button throughout, and
 tapping it while a program runs starts it again from the beginning.

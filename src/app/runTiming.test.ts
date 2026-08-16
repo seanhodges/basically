@@ -5,7 +5,9 @@ import {
   TIMING_ENDINGS,
   formatTiming,
   timingFrame,
+  timingSettled,
   type PauseInterval,
+  type RunTiming,
 } from './runTiming';
 
 /** A machine saying a program is running, and reporting nothing wrong. */
@@ -186,6 +188,45 @@ describe('how a timing ends', () => {
     runFrames(watch, 50, SILENT);
     watch.frame(1.02, { report: ERROR, running: undefined });
     expect(watch.timing().ending).toBe('errored');
+  });
+});
+
+describe('timingSettled', () => {
+  /** The published timing of a run that reached `ending`. */
+  const timing = (ending: RunTiming['ending']): RunTiming => ({
+    bufferId: null,
+    seconds: 1,
+    ending,
+    observesFinish: true,
+  });
+
+  it('reads a published timing the way the stopwatch read itself', () => {
+    // The stopwatch is thrown away the moment a run settles, so everything
+    // downstream asks the timing it left behind and must get the same answer.
+    const watch = new RunStopwatch(null, true);
+    runFrames(watch, 50, RUNNING);
+    expect(timingSettled(watch.timing())).toBe(watch.settled);
+    watch.frame(1.02, FINISHED);
+    expect(timingSettled(watch.timing())).toBe(watch.settled);
+    expect(timingSettled(watch.timing())).toBe(true);
+  });
+
+  it('counts every ending a run does not come back from', () => {
+    expect(timingSettled(timing('finished'))).toBe(true);
+    expect(timingSettled(timing('errored'))).toBe(true);
+    expect(timingSettled(timing('stopped'))).toBe(true);
+  });
+
+  it('leaves a live or paused run unsettled', () => {
+    // A pause is not an ending: the user continues and the run goes on.
+    expect(timingSettled(timing('running'))).toBe(false);
+    expect(timingSettled(timing('paused'))).toBe(false);
+  });
+
+  it('treats an unmeasured run as no ending at all', () => {
+    // Null is what the store holds before the first run and while a fresh one
+    // is being armed - nothing has ended, so nothing may be read as ended.
+    expect(timingSettled(null)).toBe(false);
   });
 });
 

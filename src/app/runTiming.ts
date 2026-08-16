@@ -77,6 +77,18 @@ export interface RunTiming {
   observesFinish: boolean;
 }
 
+/**
+ * Whether a published timing describes a run that is over.
+ *
+ * The reading of `RunStopwatch.settled` that survives the stopwatch: the
+ * stopwatch is thrown away the moment a run settles, so everything downstream of
+ * the store asks the timing it left behind. A null timing is a run that has not
+ * been measured yet, which is not an ending.
+ */
+export function timingSettled(timing: RunTiming | null): boolean {
+  return timing !== null && FINAL.has(timing.ending);
+}
+
 /** The stretch of a debugged run between one pause and the next. */
 export interface PauseInterval {
   /** Emulated seconds since the previous pause, or since the program started. */

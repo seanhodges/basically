@@ -16,6 +16,7 @@ import {
   runControlGlyph,
   runControlLabel,
 } from '../app/runControl';
+import { timingSettled } from '../app/runTiming';
 import {
   setSplitRatio as persistSplitRatio,
   MIN_SPLIT_RATIO,
@@ -63,6 +64,12 @@ export function Workspace() {
   const runTargetName = useIdeStore(selectRunTargetName);
 
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
+  // Whether the run's program has ended, read off the timing the run publishes:
+  // a run in progress carries a live 'running' reading, and the run loop settles
+  // it the moment the machine sees the program finish or fail. Not the
+  // buffer-filtered timing the profile dialog shows - this drives the machine,
+  // so what matters is the run that is on, not which buffer is on screen.
+  const programEnded = useIdeStore((s) => timingSettled(s.runTiming));
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
   const keyboardKeyDisplay = useIdeStore((s) => s.keyboardKeyDisplay);
@@ -175,11 +182,13 @@ export function Workspace() {
   // it: Play stopped, Pause running, Continue paused - whether the pause came
   // from a breakpoint or from the user pressing this button. Pausing is offered
   // only where continuing is, so on a machine with no debugger the control
-  // stays the plain Play it has always been.
-  const runControlState = runControlStateOf(
-    emulatorStatus,
-    !!dialect.debuggable,
-  );
+  // stays the plain Play it has always been. A program that has ended puts it
+  // back to Play even though the machine is still on, since there is no longer
+  // a program to pause or to carry on.
+  const runControlState = runControlStateOf(emulatorStatus, {
+    pausable: !!dialect.debuggable,
+    programEnded,
+  });
   const runControlAction =
     runControlState === 'pause'
       ? requestPause

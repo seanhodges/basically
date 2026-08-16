@@ -149,6 +149,27 @@ touch layout's overflow menu carries its own Play, Step and Continue, and while
 it is open they and the control are both in the tree. Addressing the control by
 test id sidesteps that, and survives the labels being reworded.
 
+### The end of the program is read off the run's timing, not a new signal
+
+The control follows the program, and the program's end is already observed: the
+run loop watches every frame for the machine saying nothing is running or
+reporting the error that stopped it, and settles the run's timing on that frame.
+The control reads that settled timing, so there is one answer to "has the
+program ended" and the duration the user is shown, the assistant's account of
+the run and the button over the editor cannot disagree about it.
+
+*Alternative considered:* a status of its own — a fourth run state between
+running and stopped. Rejected: `emulatorStatus` describes the machine, and the
+machine really is still running (the user can type at its prompt, and Stop must
+still be offered). Splitting it would make every existing reader of that status
+decide which half it meant.
+
+The limit comes with it: a machine that cannot say whether a program is running
+never settles a timing by itself, so its control goes on offering the pause
+until the run is stopped. That is the same limit the timing already declares
+through `observesFinish`, and it is a fact about those ROMs rather than
+something the UI can work around.
+
 ### The keyboard shortcuts are left alone
 
 An earlier draft widened the Continue shortcut to any paused run, to rescue
@@ -177,3 +198,7 @@ well would only make it fire on a state that cannot occur.
 - **A run is left paused and the user switches to a machine that cannot pause**
   → the control still reads Continue for a paused run whatever the machine
   offers, so a pause is never stranded by a switch.
+- **A pause taken on the very frame the program ends** → the control reads Play
+  from then on rather than Continue, and pressing it runs the program again.
+  Continuing would only carry a prompt on, and the machine is released by the
+  fresh run either way.
