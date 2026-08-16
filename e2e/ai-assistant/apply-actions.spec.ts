@@ -166,7 +166,7 @@ test('applying and running an answer starts the machine on a phone', async ({
   // landed on a machine that existed, disposing it out from under the run
   // starting in the same commit. In the app that machine is the one the
   // assistant's own check left running; here the user starts it.
-  await button(page, '▶').click(); // the editor tab's run button
+  await page.getByTestId('fab-run').click(); // the editor tab's run button
   await expect(page.getByText('emulator: running').first()).toBeVisible({
     timeout: 45_000,
   });

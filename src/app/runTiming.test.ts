@@ -221,6 +221,26 @@ describe('timing between pauses', () => {
     expect(next).toBeCloseTo(at + 0.2, 5);
   });
 
+  it('takes a pause that is on no line at all', () => {
+    // The user's own pause stops the machine between frames rather than before
+    // a BASIC line, so there is no line to name - and it must still hold the
+    // run's ending and its elapsed time the way a breakpoint pause does.
+    const watch = new RunStopwatch(null, true);
+    const at = runFrames(watch, 100, RUNNING);
+    const held = watch.timing().seconds;
+
+    const interval = watch.pause(null);
+    expect(interval.line).toBe(null);
+    expect(watch.timing().ending).toBe('paused');
+    expect(watch.settled).toBe(false);
+    expect(watch.timing().seconds).toBe(held);
+
+    watch.resume();
+    expect(watch.timing().ending).toBe('running');
+    runFrames(watch, 50, RUNNING, at);
+    expect(watch.timing().seconds).toBeCloseTo(held + 1, 5);
+  });
+
   it('reports an interval for every step of a line-by-line walk', () => {
     const watch = new RunStopwatch(null, true);
     let at = 0;

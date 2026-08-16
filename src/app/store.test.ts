@@ -1516,6 +1516,34 @@ describe('loading a document on the tab layout', () => {
   });
 });
 
+describe('requestPause', () => {
+  it('bumps the pause request and leaves the rest of the run alone', () => {
+    useIdeStore.setState({
+      pauseRequest: 0,
+      stopRequest: 0,
+      continueRequest: 0,
+      stepRequest: 0,
+      debugLine: 42,
+    });
+    useIdeStore.getState().requestPause();
+    const s = useIdeStore.getState();
+    expect(s.pauseRequest).toBe(1);
+    // A pause asks the pane to hold the machine still; it does not stop the
+    // run, move the debugger, or disturb the line a breakpoint paused on.
+    expect(s.stopRequest).toBe(0);
+    expect(s.continueRequest).toBe(0);
+    expect(s.stepRequest).toBe(0);
+    expect(s.debugLine).toBe(42);
+  });
+
+  it('counts each pause, so repeated presses are distinguishable', () => {
+    useIdeStore.setState({ pauseRequest: 0 });
+    useIdeStore.getState().requestPause();
+    useIdeStore.getState().requestPause();
+    expect(useIdeStore.getState().pauseRequest).toBe(2);
+  });
+});
+
 describe('scratch buffers', () => {
   const DISC = Uint8Array.from([1, 2, 3, 4]);
 
