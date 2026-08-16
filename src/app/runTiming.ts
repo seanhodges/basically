@@ -68,13 +68,6 @@ export interface RunTiming {
   /** Emulated seconds from the program starting to where the timing stands. */
   seconds: number;
   ending: TimingEnding;
-  /**
-   * Whether this machine can tell that a BASIC program has finished. False
-   * means the timing can never end in `finished`, however the program goes -
-   * which has to be said rather than left as a timing that mysteriously never
-   * ends.
-   */
-  observesFinish: boolean;
 }
 
 /**
@@ -105,25 +98,16 @@ type TimedMachine = Pick<MachineEmulator, 'isProgramRunning' | 'readReport'>;
 /**
  * What to ask the machine for when folding a frame into a timing.
  *
- * Whether a program is running is a couple of reads on every machine that
- * answers it. A report is not: the Commodore and Acorn readers recognise an
- * error by scanning the whole screen for the line BASIC printed, which is a
- * thousand memory reads. On those machines the report is only worth having once
- * BASIC is back at its prompt - an error is what put it there - so it is read on
- * the frame the machine says nothing is running and on no other.
- *
- * A machine that cannot answer at all has its report read every frame, because
- * that report is the only end signal it has. Those are the Sinclairs, whose
- * readers are two system variables.
+ * Whether a program is running is a couple of reads on every machine. A report
+ * is not: the Commodore and Acorn readers recognise an error by scanning the
+ * whole screen for the line BASIC printed, which is a thousand memory reads. So
+ * the report is read on the frame the machine says nothing is running - an
+ * error is what put BASIC back at its prompt - and on no other.
  */
 export function timingFrame(machine: TimedMachine): AiRunFrame {
-  const running = machine.isProgramRunning?.();
-  const answersRunning = typeof machine.isProgramRunning === 'function';
+  const running = machine.isProgramRunning();
   return {
-    report:
-      answersRunning && running !== false
-        ? null
-        : (machine.readReport?.() ?? null),
+    report: running === false ? (machine.readReport?.() ?? null) : null,
     running,
   };
 }
@@ -156,8 +140,6 @@ export class RunStopwatch {
   constructor(
     /** The buffer this run belongs to; a scratch buffer's id, or null. */
     readonly bufferId: string | null,
-    /** Whether this machine can observe a program finishing. */
-    readonly observesFinish: boolean,
   ) {}
 
   /**
@@ -167,9 +149,7 @@ export class RunStopwatch {
    * The start is marked at the first frame the machine reports a program
    * running rather than at the run clock's zero, so the seconds a machine spends
    * being handed the program - typing a RUN into the Commodore's keyboard buffer
-   * takes a good fraction of a second - are not charged to the program. A
-   * machine that never answers has nothing to mark, and its timing runs from the
-   * start of the run.
+   * takes a good fraction of a second - are not charged to the program.
    */
   frame(elapsed: number, frame: AiRunFrame): void {
     if (FINAL.has(this.ending)) return;
@@ -243,7 +223,6 @@ export class RunStopwatch {
       bufferId: this.bufferId,
       seconds: Math.max(0, this.now - this.startMark),
       ending: this.ending,
-      observesFinish: this.observesFinish,
     };
   }
 }

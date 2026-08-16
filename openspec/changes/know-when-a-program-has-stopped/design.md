@@ -72,6 +72,7 @@ hook it already registers.
 | ZX81 | `0x06AE` | The branch taken when `NXTLIN` has no next line, or `ERR_NR` holds a report — the ROM's own decision that the program is over. Falls through to printing the report and `JP $04C1` back to the editor. |
 | ZX80 | `0x0488` | The BREAK-key test falling into a byte-identical report printer (`LD A,(ERR_NR)` / `LD BC,(PPC)` / `INC A` / `CP 9`). |
 | ZX Spectrum 48K | `0x1303` | The main loop's `HALT`, reached only when the `CALL $1B8A` (LINE-RUN) above it returns — and for a typed `RUN`, that call returns when the program stops. |
+| ZX Spectrum 128K | `0x032C` in ROM 0 | The editor ROM's own main-loop `HALT`, which the ROM re-enters at `0x0321` by resetting SP to RAMTOP before printing whatever report ERR_NR holds. |
 | Acorn Atom | `0xC2CF` | `LDA #$3E` — the ROM loading `'>'`, its command prompt, at the head of the command loop. |
 
 Every address was derived by booting the committed ROM and tracing it, never
@@ -141,13 +142,15 @@ one test, every machine.
 
 ## Risks / Trade-offs
 
-- **The ZX Spectrum 128K is unverified.** It runs 48 BASIC in ROM 1, so `0x1303`
-  is expected to be the right offset — but the address is only meaningful when
-  ROM 1 is paged in, and a compare that ignores the `0x7FFD` ROM-select bit could
-  match unrelated code in ROM 0. Tasks 2.4 and 2.5 probe and then implement it,
-  and the change is not complete until they do. If the paging check proves
-  impossible the fallback is to keep this one machine's optionality, which would
-  block the deletions in section 5 — so it is probed before the deletions land.
+- **The ZX Spectrum 128K needed its own address.** Tracing it (task 2.4) showed
+  the expectation was wrong in one way and right in another: 128 BASIC runs the
+  interpreter out of ROM 1 but returns to the editor in ROM 0, so `0x1303` is
+  never reached on this machine at all, and the address above is ROM 0's
+  equivalent. The paging concern was real — the same instruction address inside
+  ROM 1 is executed a dozen times over during an ordinary running program, so an
+  ungated compare reports a running program finished within a second or two. The
+  compare is therefore qualified by the paged-in ROM, exactly as the tape traps
+  beside it already are.
 - **A crashed machine reports "running" forever.** If a program jumps into the
   weeds the ROM never returns to its command loop. That is honest — nothing
   finished — and matches today's behaviour; the assistant's run check already

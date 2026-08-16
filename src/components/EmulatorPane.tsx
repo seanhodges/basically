@@ -48,7 +48,6 @@ import {
 } from '../app/runProfile';
 import { RunStopwatch, formatTiming, timingFrame } from '../app/runTiming';
 import { canPauseRun } from '../app/runControl';
-import { canObserveProgramFinish } from '../ai/machineObservability';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import {
   captureFromCanvas,
@@ -630,7 +629,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           const verdict = classifyAiRunFrame(
             {
               report: machine.readReport(),
-              running: machine.isProgramRunning?.(),
+              running: machine.isProgramRunning(),
             },
             aiCheckCountsRef.current,
           );
@@ -929,10 +928,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           bufferId,
           programLineNumbers(runSource),
         );
-        stopwatchRef.current = new RunStopwatch(
-          bufferId,
-          canObserveProgramFinish(dialect.id),
-        );
+        stopwatchRef.current = new RunStopwatch(bufferId);
         setRunProfile(null);
         setRunTiming(null);
         setPauseInterval(null);

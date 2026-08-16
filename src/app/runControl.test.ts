@@ -75,14 +75,6 @@ describe('runControlStateOf', () => {
       runControlStateOf('paused', { ...RUNNING, programEnded: true }),
     ).toBe('play');
   });
-
-  it('goes on offering Pause where a finish cannot be observed', () => {
-    // Machines that cannot say whether a program is still running never report
-    // one ending, so `programEnded` stays false and the run is pausable until
-    // the user stops it. Nothing here can improve on that - the ROM does not
-    // separate the two states.
-    expect(runControlStateOf('running', RUNNING)).toBe('pause');
-  });
 });
 
 describe('runControlGlyph', () => {

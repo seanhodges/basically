@@ -49,12 +49,8 @@ export interface RunControlConditions {
  * be typing at it - but Pause and Continue are offered against a program, and
  * there is no longer one to hold still or to carry on. What the control offers
  * is then what it offers to a machine that has never run: build the program and
- * run it again.
- *
- * A machine that cannot observe a program finishing never reports one, so its
- * control goes on offering Pause until the run is stopped. That is the same
- * limit the run timing carries (`RunTiming.observesFinish`), and for the same
- * reason: nothing the ROM says separates a finished program from a running one.
+ * run it again. This holds on every machine, since every machine reports
+ * whether a program is running (`MachineEmulator.isProgramRunning`).
  */
 export function runControlStateOf(
   status: EmulatorStatus,

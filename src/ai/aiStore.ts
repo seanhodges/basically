@@ -58,11 +58,7 @@ import {
   extractScreenViews,
   isApplicableBlock,
 } from './codeExtractor';
-import {
-  canCheckByRunning,
-  canObserveProgramFinish,
-  canProfileRun,
-} from './machineObservability';
+import { canCheckByRunning, canProfileRun } from './machineObservability';
 import {
   buildEditorFix,
   buildExpectationFix,
@@ -918,10 +914,7 @@ function profileForAssistant(): string {
  */
 function timingForAssistant(): string {
   const s = useIdeStore.getState();
-  return describeTiming(
-    selectVisibleTiming(s),
-    canObserveProgramFinish(s.dialect.id),
-  );
+  return describeTiming(selectVisibleTiming(s));
 }
 
 /**
