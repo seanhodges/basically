@@ -455,12 +455,17 @@ test('a keyword lookup names its own topic and the comparison waits', async ({
   await expect(frame.getByLabel('Search keyword names')).toHaveValue('PRINT');
 
   // Closing and reopening without naming a topic lands back on the comparison.
-  // Closed from the drawer's own handle rather than F1: once the frame has
-  // routed, focus sits on the iframe and F1 reaches the docs document instead
-  // of the app - which is why Escape, not F1, is what dismissal promises there.
+  //
+  // Both gestures are pointer ones on purpose. Once the docs frame has routed,
+  // focus sits on the iframe, so a keyboard opener reaches the docs document
+  // rather than the app - which is why Escape, not F1, is what dismissal
+  // promises in there. Whether the close click happens to bring focus back to
+  // the app decides whether a following F1 arrives, and that is a question
+  // about focus, not about which topic an unnamed opener lands on. F1's own
+  // routing is covered in e2e/shell/docs-drawer.spec.ts.
   await page.getByRole('button', { name: 'Close documentation' }).click();
   await expect(drawer).toBeHidden();
-  await page.keyboard.press('F1');
+  await page.getByRole('button', { name: /^Documentation/ }).click();
   await expect(drawer).toBeVisible();
   await expect(
     frame.getByRole('button', { name: /^Porting from:/ }),
