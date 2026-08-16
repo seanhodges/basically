@@ -1856,8 +1856,10 @@ cancelling, nor switching to a machine that runs the program as it stands and so
 
 Where the documentation would take the whole screen, opening it unbidden would bury the very
 program the user has just chosen to port. The IDE SHALL therefore not open it, and SHALL instead
-show a brief indication of how to open it; opening the documentation by any means while that
-comparison is still current SHALL land on it rather than on the usual topic.
+show a brief indication of how to open it; opening the documentation without naming a topic while
+that comparison is still current SHALL land on it rather than on the usual topic. Where the user
+opens the documentation *on* something — asking to read a particular keyword, instruction or page —
+they have named what they want, and the documentation SHALL show that instead.
 
 Where the documentation would take only part of the screen, and so leaves the program in view, the
 IDE SHALL open it on the comparison straight away and SHALL NOT show any indication.
@@ -1874,8 +1876,15 @@ the user and their program.
 
 #### Scenario: Opening the documentation afterwards
 
-- **WHEN** the user opens the documentation by any means while that comparison is still current
+- **WHEN** the user opens the documentation without naming a topic while that comparison is still
+  current
 - **THEN** it opens on that comparison rather than on the topic it would otherwise show
+
+#### Scenario: Opening the documentation on a named topic
+
+- **WHEN** the user opens the documentation on a particular keyword or instruction while that
+  comparison is still current
+- **THEN** it opens on what they named, and the comparison is still there to be opened afterwards
 
 #### Scenario: Acting on the indication
 
