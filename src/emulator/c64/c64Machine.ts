@@ -283,9 +283,14 @@ export class C64Machine implements MachineEmulator {
   /**
    * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
    * arms it for the life of a run, and {@link tickOnce} charges the cycles it
-   * runs to the line executing at the time.
+   * runs to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
    */
-  private readonly profile = new LineCostRecorder(PROFILE_SLICE_CYCLES);
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
   /**
    * The unwrapped `wires.cpuRead`, captured before the activity-recording
    * wrappers are installed. Host-side introspection ({@link currentLine},

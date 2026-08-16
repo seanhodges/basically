@@ -1769,6 +1769,7 @@ describe('scratch buffers', () => {
         measuredLines: [10, 20],
         lines: [{ line: 20, cost: 100 }],
         memory: null,
+        allocations: null,
         elapsed: 1,
       });
       expect(selectVisibleProfile(useIdeStore.getState())?.bufferId).toBe(
@@ -1817,6 +1818,7 @@ describe('scratch buffers', () => {
         measuredLines: [10, 20],
         lines: [{ line: 20, cost: 100 }],
         memory: null,
+        allocations: null,
         elapsed: 1,
       };
       useIdeStore.getState().setSource('10 PRINT 1\n20 GOTO 10');

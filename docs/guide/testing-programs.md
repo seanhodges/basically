@@ -164,12 +164,15 @@ For the whole picture, open **Edit ▸ Run profile**. It lists:
   [outline](./writing-basic#outline), so you can read what a routine cost
   without adding its lines up by hand;
 - **BASIC RAM across the run**, drawn against the run's own elapsed time, with
-  the most memory the program ever used.
+  the most memory the program ever used;
+- **which lines took that memory**, in bytes, and the same figures summed over
+  each routine - click one to jump to it.
 
 That memory chart is how you catch the classic Commodore freeze: a program that
 builds strings fills memory steadily and then stalls for the best part of a
 second while BASIC reclaims what it can. On the chart that's a rising line and a
-sudden drop, at the moment your program appeared to hang.
+sudden drop, at the moment your program appeared to hang. The lines listed under
+it are the answer to the next question - which line was doing the building.
 
 Two things are worth knowing about the numbers.
 
@@ -182,7 +185,17 @@ the refresh rate of your screen.
 the routine's own lines, never to the line that called it. So a `GOSUB` reads as
 cheap however much work it sets off - which is why the profile also offers the
 per-routine totals. If a call site looks free but your program is slow, look at
-what it calls.
+what it calls. Memory is charged the same way, and with one addition: memory
+your program takes and BASIC later reclaims still counts against the line that
+took it. That churn is what a reclaim pause is made of, so subtracting it would
+hide the very line you are looking for.
+
+Memory is counted in bytes rather than as a share, because a byte is the same
+byte on every machine. And it is counted the way the machine counts it: the
+figures come from BASIC's own pointers, so a line only shows as taking memory in
+the part of RAM the chart above it is drawing. Where a machine's own account
+doesn't move as a program churns strings, the profile says no line took memory
+it can account for, rather than reporting a program that takes none.
 
 Not every machine can be measured. Measuring means charging processor cycles to
 the BASIC line that spent them, so it needs a machine that can say which line

@@ -7,8 +7,11 @@ import {
 } from '../app/store';
 import { outlineCapabilities } from '../editor/programOutline';
 import {
+  lineAllocations,
   lineShares,
+  routineAllocations,
   routineShares,
+  totalAllocated,
   type MemoryProfile,
 } from '../app/runProfile';
 import { formatTiming, TIMING_ENDINGS, type RunTiming } from '../app/runTiming';
@@ -21,8 +24,14 @@ import styles from './RunProfileDialog.module.css';
  *
  * The per-line costs are drawn in the editor gutter, which is where a slow line
  * is actually found; this is the reading that a gutter cannot give - the totals
- * rolled up by routine and the memory account across the run. Clicking a line
- * moves the editor to it, exactly as the outline does.
+ * rolled up by routine, the memory account across the run, and which lines took
+ * that memory. Clicking a line moves the editor to it, exactly as the outline
+ * does.
+ *
+ * Time is reported as shares and memory in bytes. A cycle count means nothing
+ * without the machine's clock rate, so "where did the time go" can only be
+ * answered as a proportion; a byte needs no such conversion, and "how much
+ * memory" is asked in bytes and answered in them.
  *
  * Reports the buffer on screen, because that is what the gutter is marking; a
  * profile taken on another buffer is not shown against this one's lines.
@@ -106,9 +115,21 @@ export function RunProfileDialog() {
   const requestJumpToLine = useIdeStore((s) => s.requestJumpToLine);
 
   const shares = useMemo(() => lineShares(profile?.lines ?? []), [profile]);
+  const caps = useMemo(
+    () => outlineCapabilities(dialect.keywords),
+    [dialect.keywords],
+  );
   const routines = useMemo(
-    () => routineShares(source, outlineCapabilities(dialect.keywords), shares),
-    [source, dialect, shares],
+    () => routineShares(source, caps, shares),
+    [source, caps, shares],
+  );
+  const taken = useMemo(
+    () => lineAllocations(profile?.allocations ?? []),
+    [profile],
+  );
+  const takenByRoutine = useMemo(
+    () => routineAllocations(source, caps, profile?.allocations ?? []),
+    [source, caps, profile],
   );
 
   if (!open) return null;
@@ -203,6 +224,69 @@ export function RunProfileDialog() {
                 </p>
               )}
             </div>
+
+            {/* Which line took it, which the chart above cannot say. Rendered
+                only where the machine attributes at all: a null account is a
+                machine that never priced a line, and is already covered by the
+                memory section's own notice. */}
+            {profile.allocations && (
+              <div className={styles.section}>
+                <h3 className={styles.heading}>Where the memory went</h3>
+                {taken.length > 0 ? (
+                  <>
+                    {taken.slice(0, MAX_LINES).map((a) => (
+                      <button
+                        key={a.line}
+                        className={styles.item}
+                        onClick={() => jump(a.line)}
+                      >
+                        <span className={styles.lineNo}>{a.line}</span>
+                        <span className={styles.bar}>
+                          <span
+                            className={`${styles.barFill} ${styles.barFillMemory}`}
+                            style={{ width: `${a.share * 100}%` }}
+                          />
+                        </span>
+                        <span className={styles.bytes}>
+                          {a.bytes.toLocaleString()}
+                        </span>
+                      </button>
+                    ))}
+                    <p className={styles.summary}>
+                      {bytes(totalAllocated(profile.allocations))} taken in all.
+                      A line is charged what it took itself, never what the
+                      routines it calls took, and memory BASIC reclaimed
+                      afterwards is not subtracted - so a line that builds
+                      strings and lets them go still reads as having taken them.
+                    </p>
+                  </>
+                ) : (
+                  <p className={styles.empty}>
+                    No line of this program took memory the {dialect.name} can
+                    account for.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {takenByRoutine.length > 0 && (
+              <div className={styles.section}>
+                <h3 className={styles.heading}>Memory by routine</h3>
+                {takenByRoutine.map((r) => (
+                  <button
+                    key={r.lineNo}
+                    className={styles.item}
+                    onClick={() => jump(r.lineNo)}
+                  >
+                    <span className={styles.lineNo}>{r.lineNo}</span>
+                    <span className={styles.title}>{r.title}</span>
+                    <span className={styles.bytes}>
+                      {r.bytes.toLocaleString()}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         )}
 

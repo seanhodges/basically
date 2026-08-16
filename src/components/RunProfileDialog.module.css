@@ -62,9 +62,24 @@
   background: linear-gradient(90deg, rgb(250 204 21), rgb(190 24 24));
 }
 
+/* Memory rows carry the chart's blue rather than the heat ramp, so the two
+   rankings cannot be read as one continued list. */
+.barFillMemory {
+  background: linear-gradient(90deg, rgb(96 165 250), rgb(29 78 216));
+}
+
 .share {
   flex: none;
   min-width: 3em;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* Wider than a percentage: these are byte counts with thousands separators. */
+.bytes {
+  flex: none;
+  min-width: 7em;
   text-align: right;
   font-family: var(--mono);
   font-size: 12px;

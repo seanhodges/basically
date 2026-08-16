@@ -19,6 +19,9 @@
  * so line 20 must dominate, line 30 must be second, and line 10 must not appear
  * at all - it had already run when the recorder was armed, which is also what
  * proves nothing is charged retrospectively.
+ *
+ * A second probe churns strings, for the other half of what a machine measures:
+ * the bytes charged to the line that took them. See {@link CHURN} below.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
@@ -62,22 +65,81 @@ const NO_MEMORY_FIGURES: Record<string, string> = {
   trs80: 'the interpreter has no RAM image, so there are no BASIC pointers',
 };
 
+/**
+ * The memory probe: a loop that repeatedly extends a string and then drops it.
+ *
+ *     10 LET A$=""
+ *     20 FOR I=1 TO 20     <- the loop's frame
+ *     30 LET A$=A$+"X"     <- the only line that takes memory
+ *     40 NEXT I
+ *     50 LET A$=""         <- gives it back
+ *     60 GOTO 20
+ *
+ * Bounded at twenty characters on purpose. A string left to grow without limit
+ * fills the heap, and a Commodore then spends the whole measured window inside
+ * line 30 reclaiming - the very stall this figure exists to explain, but with no
+ * change of line in it, so nothing can be charged and the probe measures
+ * nothing. Dropping the string each pass keeps the churn without the stall.
+ */
+const CHURN =
+  '10 LET A$=""\n' +
+  '20 FOR I=1 TO 20\n' +
+  '30 LET A$=A$+"X"\n' +
+  '40 NEXT I\n' +
+  '50 LET A$=""\n' +
+  '60 GOTO 20\n';
+
+/** Frames measured for the memory probe; the slowest machine needs the room. */
+const CHURN_FRAMES = 300;
+
+/**
+ * Machines whose reported in-use figure does not move as {@link CHURN} runs, and
+ * why, so no line is charged for it.
+ *
+ * This is the coverage of the figure itself, not of the attribution: bytes are
+ * charged wherever the machine's own account moves, so the per-line reading
+ * covers exactly what the memory chart above it covers and never more. The
+ * Acorns report `VARTOP - PAGE` and the Amstrads `arrEnd - programStart`, and
+ * both were measured flat across the probe - a program's string churn happens
+ * outside the range either figure spans, so neither the chart nor the per-line
+ * reading can see it.
+ *
+ * The ZX80 is here for a different reason: its ROM has no string concatenation,
+ * so the probe stops on an error and there is nothing to charge. That is the
+ * machine, not the measurement.
+ */
+const NO_CHURN_IN_FIGURE: Record<string, string> = {
+  bbcmicro: 'string churn happens outside PAGE..VARTOP, the range it reports',
+  bbcmaster: 'string churn happens outside PAGE..VARTOP, the range it reports',
+  cpc464: 'string churn happens above the ceiling its figure counts up to',
+  cpc6128: 'string churn happens above the ceiling its figure counts up to',
+  zx80: 'the ROM has no string concatenation, so the probe cannot churn',
+};
+
 function costOf(costs: readonly LineCost[], line: number): number {
   return costs.find((c) => c.line === line)?.cost ?? 0;
+}
+
+function bytesOf(costs: readonly LineCost[], line: number): number {
+  return costs.find((c) => c.line === line)?.allocated ?? 0;
 }
 
 /** Boot, run the probe to its loop, then measure it. */
 async function measureProbe(
   machine: MachineEmulator,
   image: Uint8Array,
+  frames = MEASURED_FRAMES,
 ): Promise<LineCost[] | null> {
+  // Disarmed first: a second probe on the same machine must not inherit the
+  // first one's costs, nor the memory baseline it left behind.
+  machine.setProfileRecording?.(false);
   machine.loadProgram(image);
   // The Commodore and Acorn machines queue their boot-and-inject on a
   // microtask; let it land before running frames at them.
   await new Promise((r) => setTimeout(r, 0));
   await runFrames(machine, SETTLE_FRAMES);
   machine.setProfileRecording?.(true);
-  await runFrames(machine, MEASURED_FRAMES);
+  await runFrames(machine, frames);
   return machine.drainProfile?.() ?? null;
 }
 
@@ -144,6 +206,41 @@ describe('every registered machine measures what it can', () => {
           // Line 10 ran before the recorder was armed, so its cost belongs to
           // nobody: a line that did not run while measured carries no cost.
           expect(costOf(measured, 10)).toBe(0);
+
+          // The other half: bytes charged to the line that took them. Measured
+          // on the same booted machine, because booting the ROM is the whole
+          // cost of this file.
+          const churn = dialect.tokenize(CHURN);
+          expect(churn.errors).toEqual([]);
+          const taken = (await measureProbe(
+            machine,
+            churn.image,
+            CHURN_FRAMES,
+          ))!;
+          // Every machine that can report a memory figure attributes with it;
+          // one that cannot must report cycles alone rather than zero bytes,
+          // which would read as "measured, and this line took nothing".
+          expect(
+            taken.every((c) => typeof c.allocated === 'number'),
+            `${dialect.id} ${reportsMemory ? 'reports' : 'does not report'} ` +
+              'memory figures, so its drained costs should ' +
+              `${reportsMemory ? '' : 'not '}carry bytes`,
+          ).toBe(reportsMemory);
+          if (dialect.id in NO_CHURN_IN_FIGURE) return;
+
+          const built = bytesOf(taken, 30);
+          expect(
+            built,
+            'the line that extends the string should carry the bytes',
+          ).toBeGreaterThan(0);
+          // Not the line beside it. This is the whole point of reading the
+          // figure at a change of line rather than spreading a period's growth
+          // over the lines that ran in it: line 40 runs exactly as often as
+          // line 30 and takes nothing.
+          expect(bytesOf(taken, 40)).toBe(0);
+          expect(bytesOf(taken, 60)).toBe(0);
+          // Nor the line that gives the string back: a fall is not a taking.
+          expect(bytesOf(taken, 50)).toBe(0);
         } finally {
           machine.dispose();
         }
@@ -160,6 +257,7 @@ describe('every registered machine measures what it can', () => {
     for (const id of [
       ...Object.keys(NO_LINE_COSTS),
       ...Object.keys(NO_MEMORY_FIGURES),
+      ...Object.keys(NO_CHURN_IN_FIGURE),
     ]) {
       expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
     }

@@ -5,15 +5,23 @@ import {
   MEMORY_SAMPLE_FRAMES,
   HEAT_LEVELS,
   RunProfiler,
+  type LineAllocation,
   lineHeat,
   lineShares,
+  lineAllocations,
   profileStillApplies,
   programLineNumbers,
+  routineAllocations,
   routineShares,
+  totalAllocated,
 } from './runProfile';
 import { outlineCapabilities } from '../editor/programOutline';
 
 const CYCLES = (line: number, cost: number): LineCost => ({ line, cost });
+const BYTES = (line: number, bytes: number): LineAllocation => ({
+  line,
+  bytes,
+});
 
 /** A machine reporting a steady 1000/9000 split. */
 const steady = (): MachineMemoryStats => ({ used: 1000, free: 9000 });
@@ -94,6 +102,86 @@ describe('routineShares', () => {
 
   it('reports nothing for a program with no routines to roll up', () => {
     expect(routineShares('10 PRINT 1\n20 PRINT 2\n', caps, [])).toEqual([]);
+  });
+
+  it('covers the same lines for memory as for time', () => {
+    // One outline, one set of extents. Two lists that disagreed about which
+    // lines a routine owns would leave a user reading them side by side with no
+    // way to tell which was right.
+    const time = routineShares(SOURCE, caps, lineShares([CYCLES(110, 100)]));
+    const memory = routineAllocations(SOURCE, caps, [BYTES(110, 100)]);
+    // Line 110 belongs to the routine that starts at 100, in both readings, and
+    // that routine covers the same lines in both.
+    expect(memory[0]!.lineNo).toBe(100);
+    const spans = (r: { lineNo: number; through: number }) => [
+      r.lineNo,
+      r.through,
+    ];
+    expect(spans(memory[0]!)).toEqual(
+      spans(time.find((r) => r.lineNo === 100)!),
+    );
+  });
+});
+
+describe('lineAllocations', () => {
+  it('ranks the lines that took the memory, greediest first', () => {
+    const ranked = lineAllocations([
+      BYTES(20, 100),
+      BYTES(40, 900),
+      BYTES(30, 0),
+    ]);
+    expect(ranked.map((a) => a.line)).toEqual([40, 20]);
+    expect(ranked.map((a) => a.bytes)).toEqual([900, 100]);
+    expect(ranked[0]!.share).toBeCloseTo(0.9);
+  });
+
+  it('reports bytes, not a share of a machine’s memory', () => {
+    // The same figures whether the machine fitted 16K or 64K: how much memory a
+    // line took is asked and answered in bytes, and needs no total to mean
+    // something. The share exists only to size a bar against the greediest
+    // line.
+    expect(lineAllocations([BYTES(20, 4096)])[0]!.bytes).toBe(4096);
+    expect(totalAllocated([BYTES(20, 100), BYTES(30, 50)])).toBe(150);
+  });
+
+  it('leaves out the lines that took nothing rather than listing zeroes', () => {
+    // Same reading the gutter gives time: a line that took no memory is not a
+    // line that took a little, and listing it would bury the ones that did.
+    expect(lineAllocations([BYTES(20, 0), BYTES(30, 0)])).toEqual([]);
+  });
+});
+
+describe('routineAllocations', () => {
+  const SOURCE = [
+    '10 GOSUB 100',
+    '20 GOTO 10',
+    '100 REM BUILD',
+    '110 RETURN',
+  ].join('\n');
+  const caps = outlineCapabilities([
+    { word: 'GOSUB' },
+    { word: 'GOTO' },
+  ] as never);
+
+  it('charges a subroutine’s memory to the subroutine, not to its caller', () => {
+    const routines = routineAllocations(SOURCE, caps, [
+      BYTES(10, 0),
+      BYTES(100, 900),
+    ]);
+    const byLine = new Map(routines.map((r) => [r.lineNo, r.bytes]));
+    // Line 10 is the call site and takes nothing, however much line 100 takes -
+    // and is left out rather than padding the ranking with a zero, as the time
+    // roll-up would list it.
+    expect(byLine.has(10)).toBe(false);
+    expect(routineShares(SOURCE, caps, []).some((r) => r.lineNo === 10)).toBe(
+      true,
+    );
+    expect(byLine.get(100)).toBe(900);
+    expect(routines[0]!.lineNo).toBe(100);
+  });
+
+  it('reports nothing when no line took anything', () => {
+    expect(routineAllocations(SOURCE, caps, [BYTES(10, 0)])).toEqual([]);
   });
 });
 
@@ -206,6 +294,33 @@ describe('RunProfiler', () => {
     expect(noLines.snapshot().memory).not.toBeNull();
   });
 
+  it('accumulates the bytes the machine charged to each line', () => {
+    const p = new RunProfiler(null, [10, 20]);
+    run(p, 3, [
+      { line: 20, cost: 100, allocated: 40 },
+      { line: 30, cost: 10, allocated: 0 },
+    ]);
+    // Line 30 took nothing on any frame and is left out; carrying it as a zero
+    // would put it in a list of the lines that took memory.
+    expect(p.snapshot().allocations).toEqual([{ line: 20, bytes: 120 }]);
+  });
+
+  it('offers no memory breakdown from a machine that cannot attribute', () => {
+    const p = new RunProfiler(null, []);
+    run(p, 3, [CYCLES(20, 100)]);
+    // Null, not empty: the machine did not measure that line 20 took nothing.
+    expect(p.snapshot().allocations).toBeNull();
+    expect(p.snapshot().lines).not.toBeNull();
+  });
+
+  it('offers an empty breakdown when nothing the machine can see was taken', () => {
+    const p = new RunProfiler(null, []);
+    run(p, 3, [{ line: 20, cost: 100, allocated: 0 }]);
+    // Empty, not null: this run was measured, and no line took memory the
+    // machine's own figure could see. A different answer from the one above.
+    expect(p.snapshot().allocations).toEqual([]);
+  });
+
   it('says nothing has been measured before anything has', () => {
     const p = new RunProfiler(null, []);
     expect(p.measured).toBe(false);
@@ -223,6 +338,7 @@ describe('profileStillApplies', () => {
     measuredLines: programLineNumbers(source),
     lines: null,
     memory: null,
+    allocations: null,
     elapsed: 0,
   });
 

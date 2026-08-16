@@ -264,6 +264,10 @@ describe('describeProfile', () => {
       totalBytes: 16_384,
       partial: false,
     },
+    allocations: [
+      { line: 100, bytes: 640 },
+      { line: 10, bytes: 0 },
+    ],
     elapsed: 4.2,
   };
 
@@ -277,6 +281,44 @@ describe('describeProfile', () => {
     // ...and the caveat that makes a cheap-looking call site readable.
     expect(text).toContain('EXCLUDES the routines it calls');
     expect(text).toContain("this machine's own time");
+  });
+
+  it('reports which lines took the memory, and how that is counted', () => {
+    const text = describeProfile(measured, SOURCE, caps, true);
+    expect(text).toContain('line 100: 640 bytes');
+    expect(text).toContain('line 100 (DRAW): 640 bytes');
+    // The call site took nothing, and is left out rather than listed as zero.
+    expect(text).not.toContain('line 10: 0 bytes');
+    // Both halves of the accounting, so the assistant cannot read a line's
+    // figure as covering what it calls, nor a reclaimed line as taking nothing.
+    expect(text).toContain('not what the routines it calls took');
+    expect(text).toContain('NOT subtracted');
+  });
+
+  it('says no line took memory rather than reporting a program that takes none', () => {
+    // A machine whose own figures cannot see where memory goes must not have
+    // the assistant conclude the program is frugal.
+    const text = describeProfile(
+      { ...measured, allocations: [] },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(text).toContain('No line took memory this machine can account for');
+    expect(text).not.toContain('bytes in all');
+  });
+
+  it('offers no memory breakdown from a machine that cannot attribute', () => {
+    const text = describeProfile(
+      { ...measured, allocations: null },
+      SOURCE,
+      caps,
+      true,
+    );
+    expect(text).not.toContain('Which lines took the memory');
+    expect(text).not.toContain('No line took memory');
+    // The account across the run is still reported: one half is not the other.
+    expect(text).toContain('peaked at 1200 bytes');
   });
 
   it('says nothing has been measured rather than answering with nothing', () => {
@@ -302,14 +344,16 @@ describe('describeProfile', () => {
   });
 
   it('says an unavailable memory account is unavailable, not zero', () => {
+    // Both halves go together: the per-line bytes are read out of the same
+    // figure the account is, so a machine that has no figure has neither.
     const text = describeProfile(
-      { ...measured, memory: null },
+      { ...measured, memory: null, allocations: null },
       SOURCE,
       caps,
       true,
     );
     expect(text).toContain('does not report its memory figures');
-    expect(text).not.toContain('0 bytes');
+    expect(text).not.toMatch(/\b0 bytes/);
   });
 });
 

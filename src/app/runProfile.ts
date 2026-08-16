@@ -10,6 +10,11 @@
  * the run's total rather than as cycle counts: machines are clocked at wildly
  * different rates, and the question "where did the time go" is asking for a
  * proportion.
+ *
+ * Memory is the exception, and is reported in bytes. The reason shares are used
+ * for time does not apply to it - a byte is the same byte on every machine, and
+ * needs no clock rate to be read - and "how much memory" is asked and answered
+ * in the machine's own bytes.
  */
 import type { LineCost, MachineMemoryStats } from '../dialects/types';
 import {
@@ -66,6 +71,13 @@ export interface MemoryProfile {
   partial: boolean;
 }
 
+/** Bytes of BASIC RAM one line took over a run. */
+export interface LineAllocation {
+  line: number;
+  /** Gross: rises summed, with nothing subtracted for what BASIC reclaimed. */
+  bytes: number;
+}
+
 /** Everything measured about the most recent run. */
 export interface RunProfile {
   /** The buffer that ran: a scratch buffer's id, or null for the program. */
@@ -76,6 +88,12 @@ export interface RunProfile {
   lines: LineCost[] | null;
   /** The memory account, or null when the machine cannot report its figures. */
   memory: MemoryProfile | null;
+  /**
+   * Bytes charged to each line, or null when the machine cannot attribute its
+   * memory to one. An empty array is a different answer: the machine measured,
+   * and no line of this program took anything the machine's figure could see.
+   */
+  allocations: LineAllocation[] | null;
   /** Emulated seconds the run has lasted. */
   elapsed: number;
 }
@@ -96,6 +114,24 @@ export interface RoutineShare {
   lineNo: number;
   /** Lines charged to it: from `lineNo` up to the next entry point. */
   through: number;
+  share: number;
+}
+
+/** A line's measured memory, and what fraction of the run's it accounts for. */
+export interface AllocationShare {
+  line: number;
+  /** Bytes of BASIC RAM charged to the line. */
+  bytes: number;
+  /** `bytes` over the bytes the run charged in total, 0…1. */
+  share: number;
+}
+
+/** A named routine or jump destination, with the run's bytes summed over it. */
+export interface RoutineAllocation {
+  title: string;
+  lineNo: number;
+  through: number;
+  bytes: number;
   share: number;
 }
 
@@ -134,6 +170,37 @@ export function routineShares(
   caps: OutlineCapabilities,
   shares: readonly LineShare[],
 ): RoutineShare[] {
+  const out = routineExtents(source, caps).map((r) => ({
+    title: r.title,
+    lineNo: r.lineNo,
+    through: r.through,
+    share: sumOver(shares, r, (s) => s.share),
+  }));
+  return out.sort((a, b) => b.share - a.share || a.lineNo - b.lineNo);
+}
+
+/** A routine's entry line and the extent of the program charged to it. */
+interface RoutineExtent {
+  title: string;
+  lineNo: number;
+  /** Inclusive last line, for display. */
+  through: number;
+  /** Exclusive: the next entry line, or Infinity for the last routine. */
+  to: number;
+}
+
+/**
+ * Where each routine the outline can identify starts and stops, in line order.
+ *
+ * Shared by the time and memory roll-ups so a routine covers the same lines in
+ * both: two walks of the same outline would be two chances to disagree about
+ * which lines a routine owns, and a user reading the two lists side by side
+ * would have no way to tell which was right.
+ */
+function routineExtents(
+  source: string,
+  caps: OutlineCapabilities,
+): RoutineExtent[] {
   const entries = new Map<number, string>();
   for (const section of buildOutline(source, caps)) {
     for (const item of section.items) {
@@ -142,25 +209,95 @@ export function routineShares(
       if (!entries.has(item.lineNo)) entries.set(item.lineNo, item.title);
     }
   }
-  if (entries.size === 0) return [];
-
   const starts = [...entries.keys()].sort((a, b) => a - b);
-  const out: RoutineShare[] = [];
-  for (let i = 0; i < starts.length; i++) {
-    const from = starts[i]!;
+  return starts.map((from, i) => {
     const to = starts[i + 1] ?? Infinity;
-    let share = 0;
-    for (const s of shares) {
-      if (s.line >= from && s.line < to) share += s.share;
-    }
-    out.push({
+    return {
       title: entries.get(from)!,
       lineNo: from,
       through: Number.isFinite(to) ? to - 1 : from,
-      share,
-    });
+      to,
+    };
+  });
+}
+
+/** Add up one field of every measured line that falls inside a routine. */
+function sumOver<T extends { line: number }>(
+  measured: readonly T[],
+  extent: RoutineExtent,
+  of: (m: T) => number,
+): number {
+  let total = 0;
+  for (const m of measured) {
+    if (m.line >= extent.lineNo && m.line < extent.to) total += of(m);
   }
-  return out.sort((a, b) => b.share - a.share || a.lineNo - b.lineNo);
+  return total;
+}
+
+/** Bytes the run charged to lines in total, the figure shares are taken of. */
+export function totalAllocated(allocations: readonly LineAllocation[]): number {
+  let total = 0;
+  for (const a of allocations) total += a.bytes;
+  return total;
+}
+
+/**
+ * Each line's memory, greediest first.
+ *
+ * Bytes rather than shares, unlike the time side: a share is what "where did
+ * the time go" asks because a cycle count means nothing without the machine's
+ * clock rate, and a byte has no such problem. The share rides along so a bar
+ * can be drawn against the greediest line, not to be read on its own.
+ *
+ * Lines that took nothing are absent, not zero - the same reading the gutter
+ * gives time. A line that took no memory is a fact about the line, and listing
+ * it among the ones that did would bury them.
+ */
+export function lineAllocations(
+  allocations: readonly LineAllocation[],
+): AllocationShare[] {
+  const total = totalAllocated(allocations);
+  if (total <= 0) return [];
+  return allocations
+    .filter((a) => a.bytes > 0)
+    .map((a) => ({ ...a, share: a.bytes / total }))
+    .sort((a, b) => b.bytes - a.bytes || a.line - b.line);
+}
+
+/**
+ * The run's memory summed over each routine and jump destination, greediest
+ * first.
+ *
+ * Flat, exactly as {@link routineShares} is: a routine's figure is what its own
+ * lines took, and the routines it calls are counted against themselves.
+ *
+ * Unlike {@link routineShares}, routines that took nothing are left out rather
+ * than listed at zero. The time roll-up lists every routine because a program's
+ * time is spread over all of them and a 0% routine is a real reading; memory is
+ * usually taken in one or two places, and padding the ranking with the routines
+ * that took none would bury them - the same reason a line that took nothing is
+ * absent from {@link lineAllocations}.
+ */
+export function routineAllocations(
+  source: string,
+  caps: OutlineCapabilities,
+  allocations: readonly LineAllocation[],
+): RoutineAllocation[] {
+  const total = totalAllocated(allocations);
+  if (total <= 0) return [];
+  const out = routineExtents(source, caps)
+    .map((r) => {
+      const bytes = sumOver(allocations, r, (a) => a.bytes);
+      return {
+        title: r.title,
+        lineNo: r.lineNo,
+        through: r.through,
+        bytes,
+        share: bytes / total,
+      };
+    })
+    .filter((r) => r.bytes > 0);
+  return out.sort((a, b) => b.bytes - a.bytes || a.lineNo - b.lineNo);
 }
 
 /**
@@ -211,8 +348,11 @@ export function lineHeat(shares: readonly LineShare[]): Map<number, LineHeat> {
  */
 export class RunProfiler {
   private readonly lines = new Map<number, number>();
+  private readonly allocated = new Map<number, number>();
   /** True once the machine has charged anything, so no costs reads as "none". */
   private measuredLineCosts = false;
+  /** True once the machine has priced a line in bytes, on the same reasoning. */
+  private attributedMemory = false;
   private samples: MemorySample[] = [];
   private peakUsed = 0;
   private totalBytes = 0;
@@ -252,6 +392,17 @@ export class RunProfiler {
       this.measuredLineCosts = true;
       for (const c of costs) {
         this.lines.set(c.line, (this.lines.get(c.line) ?? 0) + c.cost);
+        // Bytes come attached to the costs, and are absent rather than zero on
+        // a machine that cannot attribute its memory - so the first entry
+        // carrying them is what says this run has a memory breakdown at all.
+        if (c.allocated === undefined) continue;
+        this.attributedMemory = true;
+        if (c.allocated > 0) {
+          this.allocated.set(
+            c.line,
+            (this.allocated.get(c.line) ?? 0) + c.allocated,
+          );
+        }
       }
     }
     if (++this.sinceSample < MEMORY_SAMPLE_FRAMES) return;
@@ -306,6 +457,9 @@ export class RunProfiler {
             totalBytes: this.totalBytes,
             partial: this.partial,
           }
+        : null,
+      allocations: this.attributedMemory
+        ? [...this.allocated].map(([line, bytes]) => ({ line, bytes }))
         : null,
       elapsed: this.elapsed,
     };

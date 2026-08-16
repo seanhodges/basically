@@ -243,9 +243,15 @@ export class BbcMachine implements MachineEmulator {
   /**
    * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
    * arms it for the life of a run, and {@link runCycles} then advances in
-   * {@link DEBUG_SLICE_CYCLES} slices so each can be charged to a line.
+   * {@link DEBUG_SLICE_CYCLES} slices so each can be charged to a line. The
+   * reader charges memory the same way: the machine's in-use figure is read at
+   * each change of line, and what it rose by is charged to the line that has
+   * just stopped executing.
    */
-  private readonly profile = new LineCostRecorder(DEBUG_SLICE_CYCLES);
+  private readonly profile = new LineCostRecorder(
+    DEBUG_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
 
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
@@ -871,18 +877,30 @@ export class BbcMachine implements MachineEmulator {
    * variables occupy PAGE..VARTOP, and VARTOP..HIMEM is free (BASIC's own
    * stack grows down from HIMEM inside it, as on real hardware). `readmem` is
    * a side-effect-free main-RAM read.
+   *
+   * Hidden from the memory-activity recorder for the reason {@link currentLine}
+   * is: jsbeeb stamps from `readmem` itself, and every one of these reads is
+   * host polling - twice a second for the status bar, and once per BASIC line
+   * while a run is being measured - so left visible it would paint the overlay
+   * with reads the program never made.
    */
   readMemoryStats(): MachineMemoryStats | null {
     if (!this.initialised || this.injecting || this.disposed) return null;
-    const readWord = (a: number) =>
-      this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8);
-    const page = this.cpu.readmem(PAGE_HI) << 8;
-    const vartop = readWord(VARTOP_PTR);
-    const himem = readWord(HIMEM_PTR);
-    const used = vartop - page;
-    const free = himem - vartop;
-    if (page === 0 || used < 0 || free < 0) return null;
-    return { used, free };
+    const activity = this.memoryActivity;
+    if (activity) activity.suspended = true;
+    try {
+      const readWord = (a: number) =>
+        this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8);
+      const page = this.cpu.readmem(PAGE_HI) << 8;
+      const vartop = readWord(VARTOP_PTR);
+      const himem = readWord(HIMEM_PTR);
+      const used = vartop - page;
+      const free = himem - vartop;
+      if (page === 0 || used < 0 || free < 0) return null;
+      return { used, free };
+    } finally {
+      if (activity) activity.suspended = false;
+    }
   }
 
   /**

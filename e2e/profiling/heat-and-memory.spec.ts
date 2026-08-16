@@ -111,6 +111,14 @@ test('a run paints its cost in the gutter and reports where it went', async ({
     timeout: 30_000,
   });
   await expect(page.getByText(/Peak: .* \/ .* bytes/)).toBeVisible();
+  // The memory account reaches the screen charged to lines, not only as a
+  // chart. This loop takes no memory the ZX81's own figures can see, which is
+  // the reading that must be said rather than left as a blank panel - which
+  // line took what is `src/dialects/lineProfiling.test.ts`, over every machine.
+  await expect(page.getByText('Where the memory went')).toBeVisible();
+  await expect(
+    page.getByText(/No line of this program took memory/),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
 
   // A breakpoint on the same line: the dot and the cost bar share one gutter
