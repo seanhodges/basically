@@ -360,7 +360,7 @@ export interface LineCost {
   cost: number;
   /**
    * Bytes the machine's own BASIC memory figures rose by while the line was
-   * executing, gross of anything reclaimed afterwards.
+   * executing.
    *
    * Absent - not zero - on a machine that cannot attribute its memory to a
    * line, which is a different thing from a line that took none. A machine
@@ -369,6 +369,20 @@ export interface LineCost {
    * with the program's own allocation reports nothing here instead.
    */
   allocated?: number;
+  /**
+   * Bytes those same figures fell by while the line was executing - what BASIC
+   * reclaimed - as a positive number.
+   *
+   * Reported beside {@link allocated} rather than netted into it, because the
+   * two answer different questions: the net says what the line was left
+   * holding, and the pair says whether it churned. A Commodore's reclaim pause
+   * is a line that took a great deal and gave nearly all of it back, which a
+   * net figure alone cannot tell from a line that did nothing.
+   *
+   * Present and absent exactly when {@link allocated} is, so a machine's
+   * ability to attribute memory is one signal rather than two.
+   */
+  reclaimed?: number;
 }
 
 /**

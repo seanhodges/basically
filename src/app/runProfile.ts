@@ -71,21 +71,30 @@ export interface MemoryProfile {
   partial: boolean;
 }
 
-/** Bytes of BASIC RAM one line took over a run. */
+/**
+ * Bytes of BASIC RAM one line took over a run, and gave back.
+ *
+ * Both, rather than the difference alone: the net says what the line was left
+ * holding, and the pair says whether it churned. A line that takes a great deal
+ * and gives nearly all of it back is what a Commodore's reclaim pause is made
+ * of, and against a net figure alone it reads as a line that did nothing.
+ */
 export interface LineAllocation {
   line: number;
-  /** Gross: rises summed, with nothing subtracted for what BASIC reclaimed. */
+  /** Rises summed, over the whole run. */
   bytes: number;
+  /** Falls summed, as a positive number. */
+  reclaimed: number;
 }
 
 /**
  * How a memory breakdown was arrived at.
  *
  * `measured` is the machine's own figure read at each change of BASIC line and
- * charged to the line that had been executing - the line that took the memory,
- * and no other. `approximate` is the fallback: each rise the run's memory
- * account showed, spread over the lines running at the time in proportion to
- * their cycles.
+ * charged to the line that had been executing - the line that took the memory
+ * or gave it back, and no other. `approximate` is the fallback: each move the
+ * run's memory account showed, spread over the lines running at the time in
+ * proportion to their cycles.
  */
 export type AllocationAccuracy = 'measured' | 'approximate';
 
@@ -115,7 +124,7 @@ export interface RunProfile {
   /**
    * Which lines the run's memory went to, or null when no reading was ever
    * taken. An empty `lines` is a different answer: readings were taken, and no
-   * line took anything the machine's own figure could see.
+   * line moved anything the machine's own figure could see.
    */
   allocations: AllocationAccount | null;
   /** Emulated seconds the run has lasted. */
@@ -141,12 +150,16 @@ export interface RoutineShare {
   share: number;
 }
 
-/** A line's measured memory, and what fraction of the run's it accounts for. */
+/** A line's measured memory, and how it sits against the run's greediest. */
 export interface AllocationShare {
   line: number;
-  /** Bytes of BASIC RAM charged to the line. */
+  /** Bytes of BASIC RAM the line took. */
   bytes: number;
-  /** `bytes` over the bytes the run charged in total, 0…1. */
+  /** Bytes BASIC reclaimed while it ran, as a positive number. */
+  reclaimed: number;
+  /** `bytes - reclaimed`: what the line was left holding. Can be negative. */
+  net: number;
+  /** |net| over the greatest |net| in the reading, 0…1 - for sizing a bar. */
   share: number;
 }
 
@@ -156,7 +169,19 @@ export interface RoutineAllocation {
   lineNo: number;
   through: number;
   bytes: number;
+  reclaimed: number;
+  net: number;
   share: number;
+}
+
+/** What a run's memory came to across every line it was charged against. */
+export interface AllocationTotals {
+  /** Every rise the reading charged, summed. */
+  taken: number;
+  /** Every fall, summed, as a positive number. */
+  reclaimed: number;
+  /** `taken - reclaimed`: what the run was left holding. Can be negative. */
+  net: number;
 }
 
 /**
@@ -258,34 +283,57 @@ function sumOver<T extends { line: number }>(
   return total;
 }
 
-/** Bytes the run charged to lines in total, the figure shares are taken of. */
-export function totalAllocated(allocations: readonly LineAllocation[]): number {
-  let total = 0;
-  for (const a of allocations) total += a.bytes;
-  return total;
+/** What the run took, gave back and was left holding, over every line. */
+export function allocationTotals(
+  allocations: readonly LineAllocation[],
+): AllocationTotals {
+  let taken = 0;
+  let reclaimed = 0;
+  for (const a of allocations) {
+    taken += a.bytes;
+    reclaimed += a.reclaimed;
+  }
+  return { taken, reclaimed, net: taken - reclaimed };
 }
 
 /**
- * Each line's memory, greediest first.
+ * Each line's memory, biggest mover first.
  *
  * Bytes rather than shares, unlike the time side: a share is what "where did
  * the time go" asks because a cycle count means nothing without the machine's
  * clock rate, and a byte has no such problem. The share rides along so a bar
- * can be drawn against the greediest line, not to be read on its own.
+ * can be drawn against the biggest mover, not to be read on its own - and is
+ * scaled against that line rather than against the run's total, which nets to
+ * nothing on a program that gives back what it takes.
  *
- * Lines that took nothing are absent, not zero - the same reading the gutter
- * gives time. A line that took no memory is a fact about the line, and listing
- * it among the ones that did would bury them.
+ * Ordered by the size of the move rather than by its sign, so the line that
+ * gave the most back ranks beside the line that took the most. It is usually
+ * the more interesting of the two - a reclaim is where a program stalls - and
+ * ranking it below every line that took anything would push it off the end of
+ * a truncated list. Two lines that were left holding the same amount are
+ * separated by which took more on the way.
+ *
+ * A line is listed if it moved memory at all, in either direction. One that
+ * took a thousand bytes and gave the thousand back nets to zero and is still a
+ * line that moved memory; dropping it would leave the reading saying nothing
+ * happened. Lines that never moved any are absent rather than zero, the same
+ * reading the gutter gives time.
  */
 export function lineAllocations(
   allocations: readonly LineAllocation[],
 ): AllocationShare[] {
-  const total = totalAllocated(allocations);
-  if (total <= 0) return [];
-  return allocations
-    .filter((a) => a.bytes > 0)
-    .map((a) => ({ ...a, share: a.bytes / total }))
-    .sort((a, b) => b.bytes - a.bytes || a.line - b.line);
+  const moved = allocations
+    .filter((a) => a.bytes !== 0 || a.reclaimed !== 0)
+    .map((a) => ({ ...a, net: a.bytes - a.reclaimed }));
+  const largest = moved.reduce((m, a) => Math.max(m, Math.abs(a.net)), 0);
+  return moved
+    .map((a) => ({ ...a, share: largest > 0 ? Math.abs(a.net) / largest : 0 }))
+    .sort(
+      (a, b) =>
+        Math.abs(b.net) - Math.abs(a.net) ||
+        b.bytes - a.bytes ||
+        a.line - b.line,
+    );
 }
 
 /**
@@ -295,33 +343,41 @@ export function lineAllocations(
  * Flat, exactly as {@link routineShares} is: a routine's figure is what its own
  * lines took, and the routines it calls are counted against themselves.
  *
- * Unlike {@link routineShares}, routines that took nothing are left out rather
+ * Unlike {@link routineShares}, routines that moved nothing are left out rather
  * than listed at zero. The time roll-up lists every routine because a program's
  * time is spread over all of them and a 0% routine is a real reading; memory is
  * usually taken in one or two places, and padding the ranking with the routines
- * that took none would bury them - the same reason a line that took nothing is
- * absent from {@link lineAllocations}.
+ * that took none would bury them - the same reason a line that moved nothing is
+ * absent from {@link lineAllocations}, whose ordering and scaling this shares.
  */
 export function routineAllocations(
   source: string,
   caps: OutlineCapabilities,
   allocations: readonly LineAllocation[],
 ): RoutineAllocation[] {
-  const total = totalAllocated(allocations);
-  if (total <= 0) return [];
-  const out = routineExtents(source, caps)
+  const moved = routineExtents(source, caps)
     .map((r) => {
       const bytes = sumOver(allocations, r, (a) => a.bytes);
+      const reclaimed = sumOver(allocations, r, (a) => a.reclaimed);
       return {
         title: r.title,
         lineNo: r.lineNo,
         through: r.through,
         bytes,
-        share: bytes / total,
+        reclaimed,
+        net: bytes - reclaimed,
       };
     })
-    .filter((r) => r.bytes > 0);
-  return out.sort((a, b) => b.bytes - a.bytes || a.lineNo - b.lineNo);
+    .filter((r) => r.bytes !== 0 || r.reclaimed !== 0);
+  const largest = moved.reduce((m, r) => Math.max(m, Math.abs(r.net)), 0);
+  return moved
+    .map((r) => ({ ...r, share: largest > 0 ? Math.abs(r.net) / largest : 0 }))
+    .sort(
+      (a, b) =>
+        Math.abs(b.net) - Math.abs(a.net) ||
+        b.bytes - a.bytes ||
+        a.lineNo - b.lineNo,
+    );
 }
 
 /**
@@ -373,6 +429,7 @@ export function lineHeat(shares: readonly LineShare[]): Map<number, LineHeat> {
 export class RunProfiler {
   private readonly lines = new Map<number, number>();
   private readonly allocated = new Map<number, number>();
+  private readonly reclaimed = new Map<number, number>();
   /** True once the machine has charged anything, so no costs reads as "none". */
   private measuredLineCosts = false;
   /** True once the machine has priced a line in bytes, on the same reasoning. */
@@ -383,6 +440,7 @@ export class RunProfiler {
    */
   private windowCycles = new Map<number, number>();
   private readonly approximated = new Map<number, number>();
+  private readonly approximatedReclaimed = new Map<number, number>();
   /** The in-use figure at the previous sample; null when there is none. */
   private lastUsed: number | null = null;
   private samples: MemorySample[] = [];
@@ -466,12 +524,19 @@ export class RunProfiler {
         // Bytes come attached to the costs, and are absent rather than zero on
         // a machine that cannot attribute its memory - so the first entry
         // carrying them is what says this run has a memory breakdown at all.
+        // The taken and the reclaimed arrive together, so one check covers both.
         if (c.allocated === undefined) continue;
         this.attributedMemory = true;
         if (c.allocated > 0) {
           this.allocated.set(
             c.line,
             (this.allocated.get(c.line) ?? 0) + c.allocated,
+          );
+        }
+        if (c.reclaimed) {
+          this.reclaimed.set(
+            c.line,
+            (this.reclaimed.get(c.line) ?? 0) + c.reclaimed,
           );
         }
       }
@@ -518,7 +583,12 @@ export class RunProfiler {
    * the line that took the memory is not necessarily the line that spent the
    * time, and the reading says so wherever it is shown.
    *
-   * Rises only, and a fall re-baselines, exactly as the exact path does.
+   * Falls are spread the same way rises are, into their own account, so the
+   * approximate reading nets as the exact one does. A window moves one way or
+   * the other, never both, because all it has is the difference between two
+   * readings. In the single-line loop this exists for, a Commodore's reclaim
+   * pause happens on that same one line, so spreading the fall by cycles puts
+   * it exactly where it belongs.
    */
   private spreadOverWindow(used: number): void {
     const from = this.lastUsed;
@@ -526,19 +596,17 @@ export class RunProfiler {
     const cycles = this.windowCycles;
     this.windowCycles = new Map();
     if (from === null) return; // the run's first figure is a baseline
-    const grew = used - from;
-    if (grew <= 0) return;
+    const moved = used - from;
+    if (moved === 0) return;
     let total = 0;
     for (const c of cycles.values()) total += c;
     // No BASIC line ran in this window: on a machine that cannot report its
     // executing line, or across one spent entirely at the ROM's prompt. The
     // memory went somewhere, but to no line of this program.
     if (total <= 0) return;
+    const into = moved > 0 ? this.approximated : this.approximatedReclaimed;
     for (const [line, c] of cycles) {
-      this.approximated.set(
-        line,
-        (this.approximated.get(line) ?? 0) + (grew * c) / total,
-      );
+      into.set(line, (into.get(line) ?? 0) + (Math.abs(moved) * c) / total);
     }
   }
 
@@ -590,10 +658,10 @@ export class RunProfiler {
    * Four readings, and they are four different answers:
    *
    * - the machine priced lines itself, so the figures are the memory those
-   *   lines took;
+   *   lines took and gave back;
    * - it priced none, but the run's own account moved and can be spread over
    *   the lines that were running - approximate, and marked as such;
-   * - a figure was read and nothing moved, so no line took memory this machine
+   * - a figure was read and nothing moved, so no line moved memory this machine
    *   can see. Empty, which is a measurement;
    * - no figure was ever read. Null, which is the absence of one.
    *
@@ -602,17 +670,36 @@ export class RunProfiler {
    * line that genuinely took nothing for the cycles it happened to burn.
    */
   private allocationAccount(): AllocationAccount | null {
-    if (this.allocated.size > 0) {
+    // Either map: a run in which BASIC only ever gave memory back was still
+    // priced by the machine, and falling through to the spread below would
+    // report it as a guess.
+    if (this.allocated.size > 0 || this.reclaimed.size > 0) {
+      const lines = new Set([
+        ...this.allocated.keys(),
+        ...this.reclaimed.keys(),
+      ]);
       return {
-        lines: [...this.allocated].map(([line, bytes]) => ({ line, bytes })),
+        lines: [...lines].map((line) => ({
+          line,
+          bytes: this.allocated.get(line) ?? 0,
+          reclaimed: this.reclaimed.get(line) ?? 0,
+        })),
         accuracy: 'measured',
       };
     }
     // Rounded here rather than as it accumulates, so a line charged a fraction
     // of a byte per window is not rounded away window by window.
-    const spread = [...this.approximated]
-      .map(([line, bytes]) => ({ line, bytes: Math.round(bytes) }))
-      .filter((a) => a.bytes > 0);
+    const spreadLines = new Set([
+      ...this.approximated.keys(),
+      ...this.approximatedReclaimed.keys(),
+    ]);
+    const spread = [...spreadLines]
+      .map((line) => ({
+        line,
+        bytes: Math.round(this.approximated.get(line) ?? 0),
+        reclaimed: Math.round(this.approximatedReclaimed.get(line) ?? 0),
+      }))
+      .filter((a) => a.bytes > 0 || a.reclaimed > 0);
     if (spread.length > 0) return { lines: spread, accuracy: 'approximate' };
     if (this.attributedMemory || this.measuredMemory) {
       return { lines: [], accuracy: 'measured' };

@@ -121,13 +121,19 @@ test('a run paints its cost in the gutter and reports where it went', async ({
   });
   await expect(page.getByText(/Peak: .* \/ .* bytes/)).toBeVisible();
   // The memory account reaches the screen charged to lines, not only as a
-  // chart. This loop takes no memory the ZX81's own figures can see, which is
-  // the reading that must be said rather than left as a blank panel - and is a
-  // different reading from no figures having been taken at all. Which line took
-  // what is `src/dialects/lineProfiling.test.ts`, over every machine.
+  // chart. This loop allocates nothing, so what the panel says is either that
+  // no memory was taken or a few bytes of the ZX81's workspace moving as its
+  // calculator stack breathes - which of the two depends on how far the run got
+  // before the dialog was opened, and this reads a run that is still going. The
+  // reading that must never appear is the third one: figures were taken, so
+  // "no memory readings" would mean the account never reached the panel at all.
+  // Which line moved what is `src/dialects/lineProfiling.test.ts`, over every
+  // machine, and the empty reading is pinned in `src/app/runProfile.test.ts`.
   await expect(page.getByText('Where the memory went')).toBeVisible();
   await expect(
-    page.getByText('No memory was taken over this run.'),
+    page
+      .getByText('No memory was taken over this run.')
+      .or(page.getByText(/\d+ bytes taken/)),
   ).toBeVisible();
   await expect(page.getByText('No memory readings')).toHaveCount(0);
   await page.getByRole('button', { name: 'Close' }).click();

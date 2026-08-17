@@ -30,12 +30,19 @@ function readings(...used: readonly (number | null)[]): () => number | null {
   return () => used[Math.min(i++, used.length - 1)] ?? null;
 }
 
-/** The drained bytes as a plain line → bytes map; null where none are offered. */
-function bytesOf(rec: LineCostRecorder): Record<number, number> | null {
+/**
+ * The drained bytes as a line → [taken, reclaimed] map; null where none are
+ * offered. One drain for both figures, because draining empties the recorder.
+ */
+function memoryOf(
+  rec: LineCostRecorder,
+): Record<number, [taken: number, reclaimed: number]> | null {
   const drained = rec.drain();
   if (!drained) return null;
   if (drained.some((c) => c.allocated === undefined)) return null;
-  return Object.fromEntries(drained.map((c) => [c.line, c.allocated!]));
+  return Object.fromEntries(
+    drained.map((c) => [c.line, [c.allocated!, c.reclaimed!]]),
+  );
 }
 
 describe('LineCostRecorder', () => {
@@ -130,10 +137,10 @@ describe('LineCostRecorder charging memory', () => {
     ]);
     // The first reading is a baseline and charges nobody; line 10's 100 bytes
     // are read at the moment execution left it, not while it was running.
-    expect(bytesOf(rec)).toEqual({ 10: 100, 20: 0, 30: 0 });
+    expect(memoryOf(rec)).toEqual({ 10: [100, 0], 20: [0, 0], 30: [0, 0] });
   });
 
-  it('does not subtract what BASIC reclaims, nor charge it again', () => {
+  it('charges what BASIC reclaimed to the line that gave it back', () => {
     const rec = new LineCostRecorder(
       PROFILE_SLICE_CYCLES,
       readings(1000, 1500, 1200, 1300),
@@ -145,10 +152,17 @@ describe('LineCostRecorder charging memory', () => {
       [8, 30],
       [8, 40],
     ]);
-    // Line 20 gave 300 bytes back and is charged nothing for it rather than
-    // -300; line 30 is charged the 100 it took, not the 400 the figure is up
-    // on the low point, which would be the reclaimed bytes counted twice.
-    expect(bytesOf(rec)).toEqual({ 10: 500, 20: 0, 30: 100, 40: 0 });
+    // Line 20 gave 300 bytes back, charged to it as a reclaim rather than
+    // netted into what it took - the two are reported apart so a line that
+    // churns can be told from one that did nothing. Line 30 is charged the 100
+    // it took, not the 400 the figure is up on the low point, which would be
+    // the reclaimed bytes counted twice.
+    expect(memoryOf(rec)).toEqual({
+      10: [500, 0],
+      20: [0, 300],
+      30: [100, 0],
+      40: [0, 0],
+    });
   });
 
   it('drops memory taken outside any BASIC line, as it drops the time', () => {
@@ -164,7 +178,23 @@ describe('LineCostRecorder charging memory', () => {
     ]);
     // The 3,900 bytes taken while no line was executing belong to no line of
     // the program, so they are dropped rather than parked on line 10 or 20.
-    expect(bytesOf(rec)).toEqual({ 10: 100, 20: 0 });
+    expect(memoryOf(rec)).toEqual({ 10: [100, 0], 20: [0, 0] });
+  });
+
+  it('drops memory given back outside any BASIC line, on the same reasoning', () => {
+    const rec = new LineCostRecorder(
+      PROFILE_SLICE_CYCLES,
+      readings(5000, 4900, 1000),
+    );
+    rec.setEnabled(true);
+    run(rec, [
+      [8, 10],
+      [8, null],
+      [8, 20],
+    ]);
+    // A reclaim outside any line is no more chargeable than a taking: the ROM
+    // clearing its workspace at the prompt is not something line 20 did.
+    expect(memoryOf(rec)).toEqual({ 10: [0, 100], 20: [0, 0] });
   });
 
   it('re-baselines rather than charging across a reading it could not take', () => {
@@ -180,7 +210,7 @@ describe('LineCostRecorder charging memory', () => {
     ]);
     // Mid-injection the machine's pointers say nothing. Charging the gap once
     // they mean something again would land the whole injection on one line.
-    expect(bytesOf(rec)).toEqual({ 10: 0, 20: 0, 30: 0 });
+    expect(memoryOf(rec)).toEqual({ 10: [0, 0], 20: [0, 0], 30: [0, 0] });
   });
 
   it('offers no bytes at all until a reading has actually landed', () => {
@@ -192,8 +222,13 @@ describe('LineCostRecorder charging memory', () => {
     ]);
     const drained = rec.drain()!;
     // Absent, not zero: a machine whose figures never arrived has not measured
-    // that these lines took nothing.
-    expect(drained.every((c) => c.allocated === undefined)).toBe(true);
+    // that these lines took nothing. Both figures go together, so the caller
+    // learns what the machine can attribute from one check rather than two.
+    expect(
+      drained.every(
+        (c) => c.allocated === undefined && c.reclaimed === undefined,
+      ),
+    ).toBe(true);
     expect(drained.map((c) => c.cost)).toEqual([8, 8]);
   });
 
@@ -204,7 +239,11 @@ describe('LineCostRecorder charging memory', () => {
       [8, 10],
       [8, 20],
     ]);
-    expect(rec.drain()!.every((c) => c.allocated === undefined)).toBe(true);
+    expect(
+      rec
+        .drain()!
+        .every((c) => c.allocated === undefined && c.reclaimed === undefined),
+    ).toBe(true);
   });
 
   it('drops the baseline when disarmed, so a run is not charged the gap', () => {
@@ -223,7 +262,7 @@ describe('LineCostRecorder charging memory', () => {
     // Everything the machine did between the two runs - a reset, a boot, the
     // next program injected - would otherwise read as line 20 taking 8,000
     // bytes.
-    expect(bytesOf(rec)).toEqual({ 20: 100, 30: 0 });
+    expect(memoryOf(rec)).toEqual({ 20: [100, 0], 30: [0, 0] });
   });
 
   it('keeps a line’s bytes when its cycles fell in an earlier drain', () => {
@@ -233,10 +272,10 @@ describe('LineCostRecorder charging memory', () => {
     );
     rec.setEnabled(true);
     run(rec, [[8, 10]]);
-    expect(bytesOf(rec)).toEqual({ 10: 0 });
+    expect(memoryOf(rec)).toEqual({ 10: [0, 0] });
     // Line 10 was still executing when that drain happened, so the reading that
     // prices it is taken after it - and must still find its way to line 10.
     run(rec, [[8, 20]]);
-    expect(bytesOf(rec)).toEqual({ 10: 500, 20: 0 });
+    expect(memoryOf(rec)).toEqual({ 10: [500, 0], 20: [0, 0] });
   });
 });
