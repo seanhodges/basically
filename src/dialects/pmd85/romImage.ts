@@ -16,20 +16,22 @@
  * before it ever reaches {@link splitRomImage}.
  */
 
-/** The Monitor occupies 0x8000-0x8FFF on the real machine, and 4K here. */
+/** Monitor 2, which occupies 0x8000-0x8FFF on the real machine. */
 export const MONITOR_SIZE = 0x1000;
 
-/**
- * The whole image: the 4K Monitor followed by the module's 12K window.
- *
- * BASIC-G itself is around 9-10K, so the window has room to spare; the slack is
- * padding, not a second ROM. The module is addressed by offset from its own
- * base, so trailing padding is simply never read.
- */
-export const ROM_IMAGE_SIZE = 0x4000;
+/** BASIC-G V2.0, the 9K ROM Module a PMD 85-2 shipped with. */
+export const ROM_MODULE_SIZE = 0x2400;
 
-/** The ROM Module's share of the image - what is left after the Monitor. */
-export const ROM_MODULE_SIZE = ROM_IMAGE_SIZE - MONITOR_SIZE;
+/**
+ * The whole image, sized to its two parts exactly rather than rounded up to a
+ * power of two: padding a shipped binary out to 16K would put 3K of 0xFF on
+ * disk and overstate what the machine actually carries.
+ *
+ * The 4K + 9K concatenation is not an invention of this project. The Didaktik
+ * Alfa - a licensed PMD 85 clone - shipped its OS and BASIC as exactly this
+ * layout in a single 13K image, which is how `didalfa.rom` is distributed.
+ */
+export const ROM_IMAGE_SIZE = MONITOR_SIZE + ROM_MODULE_SIZE;
 
 /**
  * Split a combined image into the two devices that run it.

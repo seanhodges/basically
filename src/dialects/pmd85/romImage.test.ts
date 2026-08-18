@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   MONITOR_SIZE,
@@ -46,5 +48,40 @@ describe('pmd85 ROM image', () => {
     const short = splitRomImage(new Uint8Array(0x800));
     expect(short.monitor).toHaveLength(0x800);
     expect(short.romModule).toHaveLength(0);
+  });
+
+  /**
+   * The shipped image itself, not just the arithmetic over it. It is two chips
+   * concatenated (see `public/roms/ATTRIBUTION.md`), and nothing else in the
+   * build would notice if the halves were swapped, truncated or padded - the
+   * machine would simply fail to boot much later, with no clue why.
+   */
+  describe('the bundled image', () => {
+    const rom = new Uint8Array(
+      readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
+    );
+
+    it('is exactly the size the dialect declares', () => {
+      expect(rom).toHaveLength(ROM_IMAGE_SIZE);
+    });
+
+    it('opens with Monitor 2 setting its stack pointer', () => {
+      // LXI SP,8000h / JMP 8006h - the PMD 85-2 reset vector, executing from
+      // the ROM mirrored over 0x0000 before the normal memory map is switched in.
+      const { monitor } = splitRomImage(rom);
+      expect([...monitor.subarray(0, 6)]).toEqual([
+        0x31, 0x00, 0x80, 0xc3, 0x06, 0x80,
+      ]);
+    });
+
+    it('carries a ROM module the Monitor will auto-launch', () => {
+      // The -2 launches the module after reset when its first byte is 0xCD,
+      // which is also the 8080 CALL opcode: the module's first instruction is
+      // CALL 8C00h, the Monitor's own TRANSFER routine, which copies BASIC-G
+      // down into RAM. The auto-launch check and the instruction are the same
+      // three bytes doing double duty.
+      const { romModule } = splitRomImage(rom);
+      expect([...romModule.subarray(0, 3)]).toEqual([0xcd, 0x00, 0x8c]);
+    });
   });
 });

@@ -77,14 +77,13 @@ export const pmd85: Dialect = {
   },
 
   /**
-   * The Monitor ROM and the BASIC-G module concatenated into one image - see
-   * `romImage.ts` for the layout. Neither half ships yet, so `romBundled: false`
-   * turns the missing file into a "supply your own image" offer rather than a
-   * 404, and keeps the machine out of the pickers until one is installed.
+   * Monitor 2 and the BASIC-G V2.0 module concatenated into one image - see
+   * `romImage.ts` for the layout, and `public/roms/ATTRIBUTION.md` for where
+   * the two halves come from. `romBytes` is declared so a user may replace the
+   * pair from Settings, the way every other bundled-ROM machine here does.
    */
   romUrl: `${import.meta.env.BASE_URL}roms/pmd85.rom`,
   romBytes: ROM_IMAGE_SIZE,
-  romBundled: false,
 
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
 

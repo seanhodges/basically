@@ -16,8 +16,8 @@
 - **Image / tape format:** `.pmd` (single file with header) and `.ptp` (raw tape
   stream), the two formats the community emulators exchange. Confirm both
   against a primary source in Stage 4 before committing to extensions.
-- **ROM:** **two** images, not one — see _The ROM question_ below. Neither ships
-  today; do not commit a fabricated one.
+- **ROM:** `public/roms/pmd85.rom` — Monitor 2 and BASIC-G V2.0 concatenated,
+  13312 bytes, bundled. See _The ROMs_ below and `public/roms/ATTRIBUTION.md`.
 - **Share verb:** `plot` — provisional. It must be a real BASIC-G keyword and
   unique in `src/player/routes.ts` `SHARE_VERBS`; confirm it against the keyword
   table built in Stage 1 and pick another graphics keyword if BASIC-G spells it
@@ -66,45 +66,38 @@ byte are pixels: 48 × 6 = 288. The top two bits carry the per-6-pixel attribute
 8 pixels per byte, or a 48-byte stride, produces a plausible-looking but wrong
 screen — assert the geometry in the Stage 2 boot test.
 
-### The ROM question
+### The ROMs
 
-This machine needs **two** images and the project ships neither:
+The machine needs two, and both now ship in one file:
 
-| Image              | Size     | Contents                                                       |
-| ------------------ | -------- | -------------------------------------------------------------- |
-| Monitor ROM        | 4 KB     | `8000-8FFF`, mirrored `A000-AFFF`                              |
-| BASIC-G ROM Module | ~9–10 KB | served through the `F8h-FBh` PPI, copied to RAM by the Monitor |
+| Part                | Size   | Where it lives                                                 |
+| ------------------- | ------ | -------------------------------------------------------------- |
+| Monitor 2           | 4096 B | `8000-8FFF`, mirrored `A000-AFFF`                              |
+| BASIC-G V2.0 module | 9216 B | served through the `F8h-FBh` PPI, copied to RAM by the Monitor |
 
-Both are Tesla copyright. Tesla was a Czechoslovak state enterprise that no
-longer exists, and there is **no formal redistribution grant** of the kind
-Amstrad gave for the Sinclair ROMs. The images do circulate with the community
-emulators and with MAME's `pmd85` driver, which is the same de-facto-tolerated
-footing on which this project already ships the Acorn and Commodore ROMs
-(`public/roms/ATTRIBUTION.md` documents both postures).
+They are unmodified copies of `monit2.rom` and `basic2.rmm` from
+[GPMD85Emulator](https://github.com/pmd85/GPMD85Emulator) (GPL-3.0, Roman
+Bórik). Tesla no longer exists and there is no formal grant, so they ship on
+the same de-facto-tolerated basis as the Acorn and Commodore images already
+here — `public/roms/ATTRIBUTION.md` carries the reasoning and the removal offer.
 
-So there are two defensible options and **the choice is the maintainer's, not
-the implementing agent's**:
+Two details are worth keeping in mind while implementing the machine, because
+both are already proven by `romImage.test.ts` against the shipped bytes:
 
-- **Bundle** both images under a new `public/roms/pmd85/` directory with an
-  `ATTRIBUTION.md` block written to match the Acorn/Commodore wording
-  ("no formal blanket permission … distributed with emulators for decades on a
-  de-facto-tolerated basis"). The machine then works out of the box.
-- **User-supplied**, following the Altair exactly: declare `romBytes`, set
-  `romBundled: false`, and let `src/app/machineAvailability.ts` hide the machine
-  from the pickers until an image is installed from Settings ▸ Emulator.
+- **The concatenation is 4K + 9K exactly**, not padded to 16K. `fetchRom`
+  rejects a bundled image whose length is not `romBytes`, so the size is load
+  bearing. The Didaktik Alfa's own `didalfa.rom` uses the identical layout.
+- **The module's first three bytes are `CD 00 8C`** — `CALL 8C00h`. That is
+  simultaneously the `0xCD` byte the PMD 85-2 Monitor tests to decide whether
+  to auto-launch a module, and a call to the Monitor's `TRANSFER` routine,
+  which is what copies BASIC-G down into RAM. The auto-launch flag and the
+  first instruction are the same bytes doing double duty, so do not model them
+  as separate things.
 
-**This plan assumes user-supplied**, because it is the reversible choice: a
-`romBundled: false` dialect can start bundling later by dropping the files in,
-whereas un-shipping an image already released is not something a git history
-forgets. Stage 2 notes what changes if the maintainer decides otherwise. Either
-way, **do not commit a fabricated image** — every ROM in this repo is a real
-dump or a from-scratch disassembly build, and a synthesised one would be neither.
-
-Note that the two-image requirement does not fit `createEmulator`'s single
-`rom: Uint8Array` seam. Stage 2 resolves this by concatenating them into one
-`pmd85.rom` blob (Monitor first, then the module) and splitting inside the
-machine, which is how `zxspectrum128.rom` already carries its two 16K halves —
-follow that precedent rather than widening the interface.
+BASIC-G's **target location in RAM is `0x0000`** (per GPMD85Emulator's
+`rom/README.md`), so it occupies roughly `0000-23FF` and the BASIC program area
+sits above it — a fact Stage 1 needs and should confirm against a running
+machine.
 
 ## Status legend
 
@@ -188,9 +181,8 @@ not a Microsoft port, and the resemblance is unverified.
       reporting the missing image on screen rather than throwing — the Altair
       does exactly this
 - [ ] `displaySize: { width: 288, height: 256 }` on the dialect
-- [ ] `romUrl` + `romBytes` + `romBundled: false`; **no ROM committed**. If the
-      maintainer chose to bundle instead, drop `romBundled` and add the
-      `public/roms/ATTRIBUTION.md` block in the same change
+- [x] `public/roms/pmd85.rom` bundled, with its `public/roms/ATTRIBUTION.md`
+      block; `romUrl` + `romBytes` declared so a user may still replace it
 - [ ] test: boot the Monitor, let the module auto-launch, inject a program,
       assert on video RAM — including the 64-byte stride and 6-bit packing, so a
       geometry regression fails loudly

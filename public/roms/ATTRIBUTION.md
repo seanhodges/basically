@@ -196,3 +196,30 @@ against.
 Without the file the machine still constructs and the test suite still passes:
 the emulator opens with a message explaining what to supply, and the tests that
 need the interpreter skip rather than fail.
+
+# Tesla ROM attribution
+
+`pmd85.rom` is the Tesla PMD 85-2 firmware, copyright © 1985–1986 Tesla
+Piešťany / Tesla Bratislava. It is two chips in one file, because the machine
+needs both and the emulator seam carries one image: the first 4096 bytes are
+Monitor 2, the PMD 85-2 operating system that lives at `0x8000`, and the
+remaining 9216 bytes are BASIC-G V2.0, the ROM Module the machine shipped with.
+That module is not addressable memory — the Monitor reads it a byte at a time
+through an 8255 and copies it into RAM — so it is appended rather than mapped.
+The same 4K + 9K concatenation is how the Didaktik Alfa (a licensed PMD 85
+clone) has always been distributed as a single image.
+
+The two halves are unmodified copies of `monit2.rom` and `basic2.rmm` as
+shipped by [GPMD85Emulator](https://github.com/pmd85/GPMD85Emulator), Roman
+Bórik's GPL-3.0 emulator of the machine, whose `rom/README.md` documents each
+image's size and load address.
+
+Tesla was a Czechoslovak state enterprise and no longer exists. As with the
+Acorn and Commodore ROMs above there is no formal blanket permission from a
+rights holder, but these images have been distributed with PMD 85 emulators —
+GPMD85Emulator, MAME and others — for decades on a de-facto-tolerated basis.
+They are included here, unmodified, solely for use with the bundled emulator.
+
+If you are the rights holder and want this file removed, please open an
+issue — the IDE also supports supplying your own ROM image at runtime, from
+Settings ▸ Emulator.
