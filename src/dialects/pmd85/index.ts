@@ -11,17 +11,22 @@ import { pmd85CompletionSource, pmd85LanguageSupport } from './language';
 import { pmd85MemoryMap } from './memoryMap';
 import { pmd85MemoryBlocks } from './memoryBlocks';
 import { pmd85Samples } from './samples';
-import { detokenizeProgram } from './detokenizer';
+import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
+import { pmd85VariableErrors } from '../../editor/variableLint';
 import { Pmd85Machine } from './emulator/pmd85Machine';
 import { ROM_IMAGE_SIZE, splitRomImage } from './romImage';
+import { PROGRAM_BASE, STACK_TOP } from './addresses';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/display';
 
 /**
  * The Tesla PMD 85-2 (BASIC-G).
  *
- * Scaffolding only: every member below throws, and the dialect is deliberately
- * absent from `src/dialects/registry.ts` until it can actually run a program.
+ * The language layer is real - keywords, charset, tokenizer, detokenizer,
+ * image builder and lint all work against the shipped BASIC-G V2.0 image - but
+ * the emulator, keyboard, samples and file exports are still throwing stubs, so
+ * the dialect is deliberately absent from `src/dialects/registry.ts` until it
+ * can actually run a program.
  *
  * Three things about this machine are worth knowing before touching any of it:
  *
@@ -47,9 +52,15 @@ export const pmd85: Dialect = {
   year: 1986,
   blurb: 'Czechoslovakia’s school computer. Runs BASIC-G.',
 
-  // 48K fitted, of which 16K is video RAM. What BASIC-G actually leaves a
-  // program has to be read off the machine, not derived from those two numbers.
-  programRamBytes: 0,
+  /**
+   * What BASIC-G leaves a program is not derivable from "48K fitted, 16K of it
+   * video RAM": the interpreter is copied into the bottom of RAM and its own
+   * pointers carve up what is left. Program text, variables and arrays share
+   * the run from {@link PROGRAM_BASE} up to the stack the interpreter sets at
+   * {@link STACK_TOP}, which is the figure below. String space is *not* taken
+   * out of it - that has its own region higher up, above the workspace.
+   */
+  programRamBytes: STACK_TOP - PROGRAM_BASE,
 
   fileExtensions: ['.bas'],
   keywords: pmd85Keywords,
@@ -72,8 +83,19 @@ export const pmd85: Dialect = {
     return detokenizeProgram(image);
   },
 
+  detokenizeWithReport: detokenizeProgramWithReport,
+
+  /**
+   * Editor diagnostics: everything `tokenize` reports, plus the two ways a
+   * name can go wrong on a Microsoft BASIC - a name that embeds a reserved
+   * word, and two names the interpreter cannot tell apart because it keeps
+   * only their first two characters.
+   */
   lint(source: string): TokenizeError[] {
-    return tokenizeProgram(source).errors;
+    return [
+      ...tokenizeProgram(source).errors,
+      ...pmd85VariableErrors(source, pmd85Keywords),
+    ];
   },
 
   /**

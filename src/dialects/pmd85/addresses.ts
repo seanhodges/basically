@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Sean Hodges
+
+/**
+ * BASIC-G's fixed addresses, declared once for the whole dialect so a layout
+ * fact has exactly one definition to change.
+ *
+ * Every value here was read out of the interpreter image this project ships -
+ * the second half of `public/roms/pmd85.rom`, BASIC-G V2.0 - rather than
+ * assumed from the family resemblance. The image is not addressable memory: a
+ * 12-byte header (`CALL 8C00h` plus the Monitor TRANSFER routine's source
+ * offset, length and destination) is followed by the interpreter body, which
+ * the Monitor copies to 0x0000. So a body offset and a run-time address are the
+ * same number once {@link IMAGE_BODY_OFFSET} is subtracted, and either can be
+ * checked with a hex editor.
+ *
+ * BASIC-G is a Microsoft 8K BASIC derivative - its RST 1/2/3 vectors are
+ * SYNCHR, CHRGET and the HL:DE compare, its reserved-word table has the
+ * high-bit-on-first-character shape, and its statement dispatch is the familiar
+ * token-0x80 index - so the addresses below have Microsoft names where the
+ * interpreter is doing a Microsoft job.
+ */
+
+/**
+ * Where the ROM module's interpreter body starts, past the transfer header.
+ * The header's own three bytes `CD 00 8C` are simultaneously the `0xCD` the
+ * PMD 85-2 Monitor tests before auto-launching a module and the `CALL 8C00h`
+ * that copies the body down - one thing, not two (see `romImage.ts`).
+ */
+export const IMAGE_BODY_OFFSET = 0x0c;
+
+/** Where the Monitor copies the interpreter to, and where BASIC-G starts. */
+export const BASIC_BASE = 0x0000;
+
+/** Length of the interpreter body once copied down: 0x0000-0x23F3. */
+export const BASIC_BODY_BYTES = 0x23f4;
+
+/**
+ * The reserved-word table (see `keywords.ts`): each entry is its spelling with
+ * bit 7 set on the *first* character, entries run back to back in token order
+ * from 0x80, and a lone 0x80 byte at {@link RESERVED_WORDS_END} terminates the
+ * list. Recorded here because it is where `keywords.ts` came from, and the one
+ * place a future reader can re-derive that table.
+ *
+ * The crunch routine loads this address minus one and pre-increments, which is
+ * also where the token numbering comes from: it starts its counter at 0x7F and
+ * bumps it once per entry, so the first word (END) is 0x80.
+ */
+export const RESERVED_WORDS_BASE = 0x1995;
+/** The 0x80 end marker just past the last reserved word (DEG). */
+export const RESERVED_WORDS_END = 0x1b15;
+
+/**
+ * TXTTAB, at 0x003F: pointer to the first byte of the tokenized program. Unlike
+ * the Sinclair machines there is no load address in a file header - the program
+ * area is plain RAM, and this word is what says where it begins.
+ */
+export const TXTTAB = 0x003f;
+
+/**
+ * Where the tokenized program text starts, and therefore what the absolute
+ * next-line links in a built image are computed against (see `basicImage.ts`).
+ *
+ * It sits directly above the interpreter, which is why the number is not round:
+ * the body ends at 0x23F3, the byte at 0x2400 is the zero the cold start writes
+ * below the program, and the first line record begins at 0x2401.
+ */
+export const PROGRAM_BASE = 0x2401;
+
+/** VARTAB: end of the program text, and start of the simple variables. */
+export const VARTAB = 0x5e7a;
+
+/** ARYTAB: end of the simple variables, and start of the arrays. */
+export const ARYTAB = 0x5e7c;
+
+/** STREND: end of the arrays. */
+export const STREND = 0x5e7e;
+
+/**
+ * Top of the stack BASIC-G sets up for itself (0x003D). Program text,
+ * variables and arrays grow up from {@link PROGRAM_BASE} towards it, so the
+ * two together bound what a program has to live in.
+ */
+export const STACK_TOP = 0x5dff;
+
+/** BASIC-G's own workspace, immediately above the stack: 0x5E00-0x5FFF. */
+export const WORKSPACE_BASE = 0x5e00;
+
+/**
+ * String space, which grows *down* from 0x6F00 (0x0041) to 0x5FFF (0x003B) -
+ * above the workspace and below the ROM-command area, rather than at the top of
+ * memory the way most Microsoft BASICs put it.
+ */
+export const STRING_TOP = 0x6f00;
+export const STRING_LIMIT = 0x5fff;
+
+/** Where the `ROM` statement copies a ROM-module block to, and calls. */
+export const ROM_COMMAND_BASE = 0x7000;
+
+/**
+ * Where the `CODE` statement assembles the hex machine code it is given, and
+ * calls. A short scratch area - the Monitor's own line-edit buffer starts at
+ * 0x7F82 - so anything longer belongs in a memory block of its own.
+ */
+export const USER_CODE_BASE = 0x7f00;
+
+/**
+ * Highest line number BASIC-G accepts. Its line-number scanner rejects a digit
+ * that would take the running value past 32767 with `Syntax err`, which is a
+ * real difference from the 65529 of the Microsoft 8K BASICs it descends from.
+ */
+export const MAX_LINE_NUMBER = 32767;

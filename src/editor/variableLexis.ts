@@ -130,6 +130,21 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
 };
 
 /**
+ * BASIC-G's lexis, which the record above cannot hold yet: it is keyed by
+ * registered dialect id and the PMD 85 is not one until it can run a program.
+ * Named here rather than inside the dialect so it sits with its family - the
+ * Microsoft rules it shares with the Altair, plus this machine's own `'FF` hex
+ * literal, whose digits must not be read as a variable name.
+ */
+export const PMD85_LEXIS: VariableLexis = {
+  suffixChars: '$',
+  hexPrefix: "'",
+  crunched: true,
+  significantChars: 2,
+  dataIsVerbatim: true,
+};
+
+/**
  * Build the variable scanner's rules from a lexis and the keyword table.
  *
  * `spellings` rides on the lexis so the scanner and the highlighter take it
