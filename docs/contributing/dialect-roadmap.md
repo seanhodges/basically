@@ -14,7 +14,13 @@ cuts across: machines that need no new core _or_ new language layer.
 | _(none - clean-room interpreter)_ | n/a          | this project     | `src/dialects/trs80/interpreter/` - a high-level TypeScript Level II BASIC                        | TRS-80                                                                          |
 
 The Z80 row also covers the **Intel 8080**: the Z80 was designed to be binary
-compatible with it.
+compatible with it. That compatibility is not quite total, so 8080 machines
+drive the core through `src/emulator/i8080/`, which restores the two flag
+behaviours the Z80 changed - P, which the 8080 always fills with parity where
+the Z80 fills it with signed overflow, and `DAA`, which the 8080 always applies
+as if for an addition because it has no N flag. Altair 8K BASIC does not reach
+its sign-on banner without the first of those. Any further 8080 machine should
+use that module rather than repeat the tables.
 
 The last row is the odd one out and worth understanding, because it changes what
 is cheap. The TRS-80 has no CPU core at all: the Level II ROM is copyright

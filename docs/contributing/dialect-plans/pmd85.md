@@ -24,8 +24,8 @@
   differently. Unused verbs today: everything except `load`, `goto`, `gosub`,
   `play`, `chain`, `old`, `run`, `dload`, `sys`, `link`, `cload`, `mode`,
   `fill`, `csave`.
-- **Reuse:** `src/emulator/z80/` (never edited), the 8080 flag-compatibility
-  layer currently inside `src/dialects/altair8800/emulator/altairMachine.ts`,
+- **Reuse:** `src/emulator/z80/` (never edited), `src/emulator/i8080/` (the
+  shared 8080 flag-compatibility layer, already wired into this machine),
   `src/keyboard/templateRows.ts`, `src/transfer/{wav,audioRecorder}.ts`,
   `singleLetterVariableErrors` or the Microsoft-family helper in
   `src/editor/variableLint.ts`.
@@ -161,14 +161,10 @@ not a Microsoft port, and the resemblance is unverified.
 
 ## Stage 2 — Emulator core ⬜
 
-- [ ] **Extract the 8080 layer first.** Move the parity-source table, the parity
-      table and the `DAA` N-clear out of
-      `src/dialects/altair8800/emulator/altairMachine.ts` into a shared module
-      (`src/emulator/i8080/`), and have the Altair import it. This is a pure
-      refactor of shipped, tested code: the Altair's existing boot test is the
-      guard, and it must stay green with no changes to its assertions. Do this
-      as its own commit before any PMD 85 emulator code, so a regression here is
-      attributable
+- [x] **The 8080 layer is shared.** `src/emulator/i8080/` holds the
+      parity-source table, the parity table and the `DAA` N-clear; the Altair
+      and this machine both drive their CPU through it, and it is covered by its
+      own tests over a bare Z80 core rather than only through a machine
 - [ ] `emulator/memory.ts` — the two configurations: after reset the ROM is
       mirrored over `0000-0FFF`/`2000-2FFF` with video RAM mirrored at
       `4000-7FFF`; in normal operation `0000-7FFF` is RAM, `8000-8FFF` ROM,
