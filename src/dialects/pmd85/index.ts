@@ -14,6 +14,7 @@ import { pmd85Samples } from './samples';
 import { detokenizeProgram } from './detokenizer';
 import { tokenizeProgram } from './tokenizer';
 import { Pmd85Machine } from './emulator/pmd85Machine';
+import { ROM_IMAGE_SIZE, splitRomImage } from './romImage';
 import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/display';
 
 /**
@@ -76,14 +77,13 @@ export const pmd85: Dialect = {
   },
 
   /**
-   * The Monitor ROM and the BASIC-G module concatenated into one image, the way
-   * `zxspectrum128.rom` carries its two 16K halves. Neither ships: both are
-   * Tesla copyright with no formal redistribution grant, so `romBundled: false`
-   * turns the missing file into a "supply your own image" offer and keeps the
-   * machine out of the pickers until one is installed.
+   * The Monitor ROM and the BASIC-G module concatenated into one image - see
+   * `romImage.ts` for the layout. Neither half ships yet, so `romBundled: false`
+   * turns the missing file into a "supply your own image" offer rather than a
+   * 404, and keeps the machine out of the pickers until one is installed.
    */
   romUrl: `${import.meta.env.BASE_URL}roms/pmd85.rom`,
-  romBytes: 0x4000,
+  romBytes: ROM_IMAGE_SIZE,
   romBundled: false,
 
   displaySize: { width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT },
@@ -95,10 +95,7 @@ export const pmd85: Dialect = {
   memoryBlocks: pmd85MemoryBlocks,
 
   createEmulator(opts) {
-    return new Pmd85Machine({
-      monitor: opts.rom.subarray(0, 0x1000),
-      romModule: opts.rom.subarray(0x1000),
-    });
+    return new Pmd85Machine(splitRomImage(opts.rom));
   },
 
   keyboardLayout: pmd85KeyboardLayout,
