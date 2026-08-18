@@ -153,6 +153,14 @@ to switch; each one is edited exactly like the program.
 good place to test a `RANDOMIZE USR` or `SYS` call. Breakpoints belong to the
 buffer they were set on.
 
+Scratch buffers belong to the program they sit beside. They are kept when you
+save your project and come back when you open it again, and they survive a
+reload the same way your program does - though breakpoints, in a buffer as in
+the program, last only for the session that set them. Starting a new project or
+loading another program clears them along with the program they were written
+for, and you are warned first, so download anything you want to keep -
+right-click the buffer's tab and choose **Download .bas** - before you move on.
+
 ## Keeping an eye on memory as you write
 
 Retro machines have very little RAM, and two of the IDE's tools help you stay

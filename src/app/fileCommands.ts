@@ -8,7 +8,7 @@
  * dialog toggles reachable directly on the store, so they aren't wrapped here.
  */
 
-import { useIdeStore } from './store';
+import { useIdeStore, hydrateScratchBuffers } from './store';
 import {
   openDocumentFile,
   saveProjectZip,
@@ -29,10 +29,20 @@ const textDecoder = new TextDecoder();
  * True when it's safe to replace the current document - nothing unsaved, an
  * empty document, or the user confirms discarding. Mirrors the guard the sample
  * loader uses.
+ *
+ * Scratch buffers are a second trigger of their own: editing one deliberately
+ * never marks the document dirty, yet replacing the document now destroys them,
+ * so without this a snippet would vanish with no warning at all.
  */
 export function confirmDiscard(): boolean {
-  const { dirty, source } = useIdeStore.getState();
-  return !dirty || !source.trim() || window.confirm('Discard unsaved changes?');
+  const { dirty, source, scratchBuffers } = useIdeStore.getState();
+  const unsavedDocument = dirty && source.trim() !== '';
+  if (!unsavedDocument && scratchBuffers.length === 0) return true;
+  return window.confirm(
+    unsavedDocument
+      ? 'Discard unsaved changes?'
+      : 'Discard your scratch buffers?',
+  );
 }
 
 /**
@@ -94,6 +104,8 @@ function installParsedProject(parsed: ParsedProject, fileName: string): void {
       tapeFiles: parsed.tapeFiles,
       bootDisc: parsed.bootDisc,
     });
+    // No buffers here: they hold code in a dialect the active machine does not
+    // speak, the same reasoning that discards them on a machine switch.
     setStatusNotice(unknownDialectNotice(parsed.dialect, dialect.id));
     return;
   }
@@ -107,6 +119,7 @@ function installParsedProject(parsed: ParsedProject, fileName: string): void {
     autoStart: parsed.autoStart,
     tapeFiles: parsed.tapeFiles,
     bootDisc: parsed.bootDisc,
+    scratch: hydrateScratchBuffers(parsed.scratch),
   });
   if (switched) {
     setStatusNotice(`Switched to ${target.name} to match this project.`);
@@ -129,6 +142,7 @@ export async function saveDocument(): Promise<void> {
     autoStart,
     tapeFiles,
     bootDisc,
+    scratchBuffers,
     dialect,
     markSaved,
   } = useIdeStore.getState();
@@ -140,6 +154,7 @@ export async function saveDocument(): Promise<void> {
     tapeFiles,
     listingBlockMeta,
     bootDisc,
+    scratchBuffers,
   );
   const saved = await saveProjectZip(toProjectFileName(fileName), zip);
   if (saved !== null) markSaved(saved);
@@ -160,7 +175,7 @@ function isProjectExtension(ext: string): boolean {
  * Status notice for a project saved under a dialect this build doesn't ship:
  * the document loads under `activeDialectId` instead, and its memory blocks
  * (addressed for the missing machine) may not work. A warning only - the source
- * still loads.
+ * still loads, without the project's scratch buffers.
  */
 function unknownDialectNotice(
   parsedDialect: string,

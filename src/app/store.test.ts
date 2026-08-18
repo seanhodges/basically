@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MemoryBlock } from '../dialects/types';
 
 // The store persists the chosen dialect and autosave (per-tab sessionStorage
@@ -662,6 +662,7 @@ describe('loadUnsavedDocument', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 });
@@ -725,6 +726,7 @@ describe('markSaved', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 });
@@ -782,6 +784,7 @@ describe('persistAutosave', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -1658,38 +1661,66 @@ describe('scratch buffers', () => {
     expect(s.docOverride.text).toBe('10 REM prog');
   });
 
-  it('survives a change of document, and dies with the machine', () => {
+  it('goes with the document it belonged to, and with the machine', () => {
     const seed = () => {
       useIdeStore.setState({ scratchBuffers: [], activeTab: BASIC_TAB });
       useIdeStore.getState().addScratchBuffer();
       useIdeStore.getState().setScratchText('scratch-1', '10 REM snippet');
     };
 
-    // New / Sample / Import.
+    // Sample / Import: a different program, so the buffers go with the old one.
     seed();
     useIdeStore.getState().loadUnsavedDocument('10 REM other');
-    const s = useIdeStore.getState();
-    expect(s.scratchBuffers[0]!.text).toBe('10 REM snippet');
-    // The workbench survives; the tab does not - the editor must show the
-    // program that just arrived.
+    let s = useIdeStore.getState();
+    expect(s.scratchBuffers).toEqual([]);
     expect(s.activeTab).toEqual(BASIC_TAB);
 
-    // Open.
+    // Open of a plain source file.
+    seed();
     useIdeStore.getState().replaceDocument('10 REM opened', 'opened.bas');
-    expect(useIdeStore.getState().scratchBuffers[0]!.text).toBe(
-      '10 REM snippet',
-    );
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+
+    // Open of a project: its own buffers replace whatever was open...
+    seed();
     useIdeStore.getState().openProject({
       dialectId: 'zxspectrum',
       source: '10 REM project',
       fileName: 'p.zip',
+      scratch: [
+        {
+          id: 'scratch-1',
+          name: 'Saved',
+          text: '10 REM saved',
+          breakpoints: new Set<number>(),
+        },
+      ],
     });
-    expect(useIdeStore.getState().scratchBuffers[0]!.text).toBe(
-      '10 REM snippet',
-    );
+    s = useIdeStore.getState();
+    expect(s.scratchBuffers.map((b) => [b.name, b.text])).toEqual([
+      ['Saved', '10 REM saved'],
+    ]);
+
+    // ...and a project saved without any opens without any.
+    useIdeStore.getState().openProject({
+      dialectId: 'zxspectrum',
+      source: '10 REM bare',
+      fileName: 'bare.zip',
+    });
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+
+    // A new project on the active machine: applyDialectSwitch clears nothing
+    // here, so createProject's own clear is what has to do it.
+    seed();
+    useIdeStore.getState().createProject({
+      dialectId: 'zxspectrum',
+      source: '',
+      fileName: 'fresh.zip',
+    });
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
 
     // A target switch: the snippet is written in a BASIC the new machine does
     // not speak, so it goes with the old machine.
+    seed();
     useIdeStore.setState({ source: '' });
     useIdeStore.getState().setDialect('bbcmicro');
     expect(useIdeStore.getState().scratchBuffers).toEqual([]);
@@ -1705,7 +1736,7 @@ describe('scratch buffers', () => {
     expect(useIdeStore.getState().scratchBuffers).toEqual([]);
   });
 
-  it('an in-place AI apply takes the editor back from a scratch tab', () => {
+  it('an in-place AI apply keeps the buffers, but takes the editor back', () => {
     // replaceDocument pushes the program into the one mounted editor whatever
     // tab is showing; leaving a scratch tab selected would show the program
     // under it and type the next keystroke into the snippet.
@@ -1718,8 +1749,8 @@ describe('scratch buffers', () => {
     expect(s.scratchBuffers[0]!.text).toBe('10 REM snippet');
   });
 
-  it('never reaches autosave', () => {
-    useIdeStore.setState({ bootDisc: null });
+  it('reaches autosave, including on a scratch-only edit', () => {
+    useIdeStore.setState({ bootDisc: null, scratchBuffers: [] });
     seedRealAutosave('scratch-autosave');
     useIdeStore.setState({
       dialect: spectrum,
@@ -1727,12 +1758,46 @@ describe('scratch buffers', () => {
       source: '10 REM prog',
     });
     persistAutosave();
-    const withoutScratch = loadAutosave();
+    expect(loadAutosave()?.scratch).toEqual([]);
 
+    // Nothing but the buffer changes here - the document stays clean - so this
+    // also proves the buffers are part of the signature persistAutosave gates
+    // its write on.
     useIdeStore.getState().addScratchBuffer();
     useIdeStore.getState().setScratchText('scratch-1', '10 REM snippet');
     persistAutosave();
-    expect(loadAutosave()).toEqual(withoutScratch);
+    expect(loadAutosave()?.scratch).toEqual([
+      { name: 'Scratch 1', text: '10 REM snippet' },
+    ]);
+    expect(loadAutosave()?.text).toBe('10 REM prog');
+
+    // Closing it takes it back out again.
+    useIdeStore.getState().closeScratchBuffer('scratch-1');
+    persistAutosave();
+    expect(loadAutosave()?.scratch).toEqual([]);
+  });
+
+  // 3.2's rule from the other side: a blank untitled document clears its own
+  // autosave, and the snippets beside it stay.
+  it('outlives the autosave of the pristine document beside it', () => {
+    seedRealAutosave('pristine-with-scratch');
+    useIdeStore.setState({
+      dialect: spectrum,
+      fileName: 'untitled.txt',
+      source: '',
+      scratchBuffers: [],
+      blocks: [],
+      tapeFiles: [],
+      bootDisc: null,
+      listingBlockMeta: {},
+    });
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM kept');
+    persistAutosave();
+    expect(loadAutosave()).toBeNull();
+    expect(
+      JSON.parse(sessionStorage.getItem('mbide.autosave.scratch')!),
+    ).toEqual([{ name: 'Scratch 1', text: '10 REM kept' }]);
   });
 
   describe('breakpoints belong to the buffer they were set on', () => {
@@ -1896,5 +1961,30 @@ describe('scratch buffers', () => {
         bufferId: null,
       });
     });
+  });
+});
+
+describe('boot hydration of scratch buffers', () => {
+  it('restores the autosaved buffers with their names, contents and no breakpoints', async () => {
+    const { saveAutosave, saveAutosaveScratch } =
+      await import('../storage/settings');
+    saveAutosave('restored.bas', '10 REM restored');
+    saveAutosaveScratch([
+      { name: 'Sprites test', text: '10 REM snippet' },
+      { name: 'Sprites test', text: '20 REM same name' },
+    ]);
+
+    // A fresh module instance is the only way to observe boot: the store reads
+    // autosave once, at import.
+    vi.resetModules();
+    const booted = await import('./store');
+    const s = booted.useIdeStore.getState();
+    expect(s.source).toBe('10 REM restored');
+    expect(
+      s.scratchBuffers.map((b) => [b.id, b.name, b.text, b.breakpoints.size]),
+    ).toEqual([
+      ['scratch-1', 'Sprites test', '10 REM snippet', 0],
+      ['scratch-2', 'Sprites test', '20 REM same name', 0],
+    ]);
   });
 });

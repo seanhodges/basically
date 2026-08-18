@@ -41,7 +41,7 @@ export const test = base.extend<{ welcomeSeen: boolean }>({
 });
 
 export { expect } from '@playwright/test';
-export type { Page } from '@playwright/test';
+export type { Download, Page } from '@playwright/test';
 
 /** Open the New-project dialog from File ▸ New and return its locator. */
 export async function openNewProjectDialog(page: Page) {
