@@ -78,6 +78,7 @@ beforeEach(() => {
     dirty: false,
     statusNotice: null,
     blocks: [],
+    scratchBuffers: [],
   });
   stubWindow(() => true);
 });
@@ -291,10 +292,7 @@ describe('openDroppedFile', () => {
 });
 
 describe('saving a project bundle', () => {
-  it('carries no scratch buffers', async () => {
-    // Scratch buffers are session-only: the bundle serializer is one of the two
-    // places (autosave is the other) where a future field could quietly acquire
-    // persistence, so the saved bytes are compared rather than the intent.
+  it('carries the scratch buffers, and reopens with them', async () => {
     useIdeStore.setState({
       dialect: zx81,
       source: '10 REM PROJECT',
@@ -308,10 +306,74 @@ describe('saving a project bundle', () => {
     useIdeStore.getState().addScratchBuffer();
     useIdeStore.getState().setScratchText('scratch-1', '10 REM SNIPPET');
     await saveDocument();
-
     expect(mockSavedBundles).toHaveLength(2);
-    expect(Array.from(mockSavedBundles[1]!)).toEqual(
-      Array.from(mockSavedBundles[0]!),
+
+    // Opening the bundle back gives the buffer its name and contents again.
+    await dropFile('game.zip', new Uint8Array(mockSavedBundles[1]!));
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 REM PROJECT');
+    expect(s.scratchBuffers.map((b) => [b.name, b.text])).toEqual([
+      ['Scratch 1', '10 REM SNIPPET'],
+    ]);
+
+    // The bundle saved before the buffer existed opens with none, so an Open
+    // replaces the buffers rather than adding to them.
+    await dropFile('game.zip', new Uint8Array(mockSavedBundles[0]!));
+    expect(useIdeStore.getState().scratchBuffers).toEqual([]);
+  });
+
+  it('drops the buffers when the saved machine is one this build lacks', async () => {
+    // They hold code in a dialect the active machine does not speak - the same
+    // reasoning that discards them on a machine switch.
+    useIdeStore.getState().addScratchBuffer();
+    const zip = new Uint8Array(
+      serializeProjectZip(
+        'atari-xl',
+        '10 PRINT "PROJ"',
+        [],
+        null,
+        [],
+        {},
+        null,
+        [{ name: 'Scratch 1', text: '10 REM SNIPPET' }],
+      ),
     );
+    await dropFile('game.zip', zip);
+    const s = useIdeStore.getState();
+    expect(s.source).toBe('10 PRINT "PROJ"');
+    expect(s.scratchBuffers).toEqual([]);
+    expect(s.statusNotice).toMatch(/isn't available/);
+  });
+});
+
+describe('the discard guard', () => {
+  it('warns for scratch buffers alone, on a document with nothing unsaved', async () => {
+    // Editing a buffer never marks the document dirty, so without this second
+    // trigger a snippet would be destroyed with no warning at all.
+    useIdeStore.setState({ dirty: false });
+    useIdeStore.getState().addScratchBuffer();
+    useIdeStore.getState().setScratchText('scratch-1', '10 REM SNIPPET');
+
+    const declined = vi.fn(() => false);
+    stubWindow(declined);
+    await dropFile('game.bas', '10 PRINT "NEW"');
+    expect(declined).toHaveBeenCalledOnce();
+    let s = useIdeStore.getState();
+    expect(s.source).toBe('10 REM OLD'); // both the document...
+    expect(s.scratchBuffers[0]!.text).toBe('10 REM SNIPPET'); // ...and the buffer
+
+    stubWindow(() => true);
+    await dropFile('game.bas', '10 PRINT "NEW"');
+    s = useIdeStore.getState();
+    expect(s.source).toBe('10 PRINT "NEW"');
+    expect(s.scratchBuffers).toEqual([]);
+  });
+
+  it('stays silent for a clean document with no buffers', async () => {
+    const confirmSpy = vi.fn(() => true);
+    stubWindow(confirmSpy);
+    await dropFile('game.bas', '10 PRINT "NEW"');
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(useIdeStore.getState().source).toBe('10 PRINT "NEW"');
   });
 });

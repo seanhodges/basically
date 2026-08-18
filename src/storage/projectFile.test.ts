@@ -169,6 +169,47 @@ describe('serializeProjectZip / parseProjectZip round-trip', () => {
     expect('entry' in without.blocks[0]!).toBe(false);
   });
 
+  it('round-trips scratch buffers as their own .bas entries', () => {
+    const buffers = [
+      { name: 'Scratch 1', text: '10 PRINT "A"' },
+      { name: 'Notes', text: '20 REM keep me' },
+    ];
+    const zip = serializeProjectZip(
+      'zx81',
+      '10 REM program',
+      [],
+      null,
+      [],
+      {},
+      null,
+      buffers,
+    );
+    expect(entryNames(zip)).toContain('scratch/0.bas');
+    expect(entryNames(zip)).toContain('scratch/1.bas');
+    const parsed = parseProjectZip(zip);
+    expect(parsed.scratch).toEqual(buffers);
+    expect(parsed.source).toBe('10 REM program');
+  });
+
+  // Scratch names are free-form and non-unique, which is why entries are named
+  // by ordinal rather than by name as block entries are.
+  it('keeps both buffers when two share a name', () => {
+    const buffers = [
+      { name: 'Scratch 1', text: 'first' },
+      { name: 'Scratch 1', text: 'second' },
+    ];
+    const parsed = parseProjectZip(
+      serializeProjectZip('zx81', '', [], null, [], {}, null, buffers),
+    );
+    expect(parsed.scratch).toEqual(buffers);
+  });
+
+  it('parses a bundle with no scratch field to no buffers', () => {
+    const zip = serializeProjectZip('zx81', '10 X', []);
+    expect(entryNames(zip).some((n) => n.startsWith('scratch/'))).toBe(false);
+    expect(parseProjectZip(zip).scratch).toEqual([]);
+  });
+
   it('round-trips the optional asmSource and omits it when absent', () => {
     const source = 'start:\n  LD HL,$8000 ; comment survives verbatim\n  RET';
     const withAsm: MemoryBlock = { ...BLOCK_B, asmSource: source };
@@ -273,6 +314,27 @@ describe('parseProjectZip error handling', () => {
     expect(() =>
       parseProjectZip(zipWithMeta(meta, { 'blocks/1foo.bin': 'x' })),
     ).toThrow();
+  });
+
+  it('throws when "scratch" is not an array', () => {
+    expect(() =>
+      parseProjectZip(zipWithMeta({ ...validMeta, scratch: 'nope' })),
+    ).toThrow(/malformed "scratch"/i);
+  });
+
+  it('throws when a scratch buffer references a missing entry', () => {
+    const meta = {
+      ...validMeta,
+      scratch: [{ name: 'Scratch 1', file: 'scratch/0.bas' }],
+    };
+    expect(() => parseProjectZip(zipWithMeta(meta))).toThrow(/missing entry/i);
+  });
+
+  it('throws when a scratch buffer is missing its name', () => {
+    const meta = { ...validMeta, scratch: [{ file: 'scratch/0.bas' }] };
+    expect(() =>
+      parseProjectZip(zipWithMeta(meta, { 'scratch/0.bas': 'x' })),
+    ).toThrow(/scratch buffer 0 is missing a "name"/i);
   });
 
   it('throws when two blocks share a name', () => {

@@ -55,6 +55,7 @@ import {
 import {
   loadAutosave,
   saveAutosave,
+  saveAutosaveScratch,
   clearAutosave,
   getDialectId,
   setDialectId as persistDialectId,
@@ -108,8 +109,10 @@ import { HAS_TOUCH, isMobileViewport } from './useMediaQuery';
 export type EmulatorStatus = 'stopped' | 'running' | 'paused';
 /**
  * A disposable BASIC buffer held alongside the program: somewhere to write and
- * run a snippet without touching the document. Session-only - never autosaved,
- * never written into a project bundle, never carried by a share link.
+ * run a snippet without touching the document. Part of the document that holds
+ * it - autosaved and written into the project bundle, so it survives a reload
+ * and reopens with the project - but never carried by a share link, which is a
+ * program on its own.
  */
 export interface ScratchBuffer {
   id: string;
@@ -220,14 +223,15 @@ interface IdeState {
   activeTab: ActiveTab;
   /**
    * Disposable BASIC buffers alongside the program (see {@link ScratchBuffer}).
-   * Session-only state: deliberately absent from the autosave signature and the
-   * project serializer, so no future field can quietly acquire persistence
-   * through them.
+   * Owned by the document: autosaved, saved into the project bundle, and
+   * restored from both.
    *
-   * Their lifecycle is *not* the one `blocks` and `breakpoints` follow. A
-   * scratch buffer is a workbench rather than part of any document, so it
-   * survives New/Open/Sample/Import and is cleared only on a target-machine
-   * switch (its BASIC belongs to the machine being left) and on player boot.
+   * Their lifecycle is the one `blocks` and `breakpoints` follow - any
+   * replacement of the document replaces them, so New/Open/Sample/Import clear
+   * them and opening a project installs its own. An in-place assistant apply
+   * edits the program rather than replacing the document, so it leaves them
+   * standing. Also cleared on a target-machine switch (their BASIC belongs to
+   * the machine being left) and on player boot.
    */
   scratchBuffers: readonly ScratchBuffer[];
   /**
@@ -727,6 +731,8 @@ interface IdeState {
     autoStart?: number | null;
     tapeFiles?: readonly TapeFile[];
     bootDisc?: Uint8Array | null;
+    /** The bundle's scratch buffers; omitted or `[]` opens the project with none. */
+    scratch?: readonly ScratchBuffer[];
   }): void;
   /** Resolve a pending target switch: start fresh or keep the current code. */
   confirmDialectSwitch(mode: 'new' | 'keep'): void;
@@ -1205,8 +1211,20 @@ function withListingBlockRemoved(s: IdeState, id: string): Partial<IdeState> {
  * so the first tick doesn't re-write unchanged content.
  */
 let lastAutosaveSig: string | null = autosaved
-  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))} ${JSON.stringify(autosaved.listingBlockMeta)}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))} ${autosaved.bootDisc?.length ?? ''}`
+  ? `${autosaved.name} ${autosaved.text} ${JSON.stringify(serializeBlocks(autosaved.blocks))} ${JSON.stringify(autosaved.listingBlockMeta)}\u0000${autosaved.autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(autosaved.tapeFiles))} ${autosaved.bootDisc?.length ?? ''}\u0000${scratchSignature(autosaved.scratch)}`
   : '';
+
+/**
+ * The scratch buffers' contribution to the autosave signature. Buffers never
+ * mark the document dirty, so a scratch-only edit changes nothing else the
+ * signature covers - without this the 2s poll would skip the write and the
+ * snippet would never reach storage.
+ */
+function scratchSignature(
+  buffers: readonly { name: string; text: string }[],
+): string {
+  return JSON.stringify(buffers.map((b) => [b.name, b.text]));
+}
 
 /**
  * Mirror the current document to autosave, or empty it. Autosave holds only
@@ -1237,6 +1255,7 @@ export function persistAutosave(): void {
     autoStart,
     tapeFiles,
     bootDisc,
+    scratchBuffers,
     dirty,
   } = useIdeStore.getState();
   // A named document the user hasn't touched since creating it: keep it, name
@@ -1251,9 +1270,13 @@ export function persistAutosave(): void {
     tapeFiles.length === 0 &&
     bootDisc === null &&
     (source.trim() === '' || matchingSampleName(dialect, source) !== null);
-  const sig = pristine
+  const docSig = pristine
     ? ''
     : `${fileName}\u0000${source}\u0000${JSON.stringify(serializeBlocks(blocks))} ${JSON.stringify(listingBlockMeta)}\u0000${autoStart ?? ''} ${JSON.stringify(serializeTapeFiles(tapeFiles))} ${bootDisc?.length ?? ''}`;
+  // Scratch buffers join the signature: they never mark the document dirty, so
+  // a scratch-only edit changes nothing else the signature covers and the poll
+  // would otherwise skip the write.
+  const sig = `${docSig}\u0000${scratchSignature(scratchBuffers)}`;
   if (sig === lastAutosaveSig) return;
   lastAutosaveSig = sig;
   if (pristine) clearAutosave();
@@ -1267,6 +1290,13 @@ export function persistAutosave(): void {
       tapeFiles,
       bootDisc,
     );
+  // The buffer key is written after that branch rather than inside it, because
+  // buffers are retained on their own terms: a blank untitled document can
+  // clear its document autosave while the snippets beside it stay. They are
+  // deliberately not folded into `pristine` either - "has buffers" there would
+  // keep a named file the user emptied on purpose, and emptying the editor is
+  // how you make the IDE forget a program.
+  saveAutosaveScratch(scratchBuffers);
 }
 
 /** Docs topic for the porting comparison between two machines. */
@@ -1435,6 +1465,27 @@ const startupDoc = initialDocument(autosaved);
 const startupText = startupDoc.text;
 
 /**
+ * Rebuild scratch buffers from a persisted name/text pair list (autosave or a
+ * project bundle). Ids are re-minted by ordinal rather than stored, matching
+ * how a loaded block's id is synthesised from its name, and matching
+ * `addScratchBuffer`'s first-free-`scratch-<n>` rule so the next new buffer
+ * takes the next free number. Breakpoints are session state and come back
+ * empty.
+ */
+export function hydrateScratchBuffers(
+  saved: readonly { name: string; text: string }[],
+): ScratchBuffer[] {
+  return saved.map((b, i) => ({
+    id: `scratch-${i + 1}`,
+    name: b.name,
+    text: b.text,
+    breakpoints: new Set<number>(),
+  }));
+}
+
+const startupScratch = hydrateScratchBuffers(autosaved?.scratch ?? []);
+
+/**
  * The listing-record layout when this dialect keeps its blocks inside the BASIC
  * listing as `#BIN` records (ZX80/ZX81), else `null`. The gate the block
  * mutation actions and `selectBlocks` branch on.
@@ -1476,7 +1527,7 @@ export const useIdeStore = create<IdeState>((set) => ({
   blocks: startupDoc.blocks,
   listingBlockMeta: startupDoc.listingBlockMeta ?? {},
   activeTab: BASIC_TAB,
-  scratchBuffers: [],
+  scratchBuffers: startupScratch,
   asmErrorBlocks: new Set<string>(),
   pendingDeleteBlockId: null,
   blockSettingsId: null,
@@ -1698,6 +1749,10 @@ export const useIdeStore = create<IdeState>((set) => ({
       // this is a clean-slate load of a different program even when the chosen
       // machine is the active one.
       ...applyDialectSwitch(s, getDialect(dialectId), source),
+      // A clean slate takes the buffers with it. Needed on top of
+      // applyDialectSwitch, which clears them only when the dialect changes -
+      // a new project on the active machine would otherwise inherit them.
+      scratchBuffers: [],
       fileName,
       // Nothing has been typed yet, so there is nothing unsaved to warn about.
       dirty: false,
@@ -1722,6 +1777,7 @@ export const useIdeStore = create<IdeState>((set) => ({
     autoStart,
     tapeFiles,
     bootDisc,
+    scratch,
   }) => {
     set((s) => ({
       // applyDialectSwitch so teardown / AI-reset / breakpoint semantics (and
@@ -1739,6 +1795,9 @@ export const useIdeStore = create<IdeState>((set) => ({
       autoStart: autoStart ?? null,
       tapeFiles: tapeFiles ?? [],
       bootDisc: bootDisc ?? null,
+      // The bundle's buffers replace whatever was open, so a project saved
+      // without any opens without any.
+      scratchBuffers: scratch ?? [],
     }));
     // A saved file is real content: mirror it to autosave so it survives reload.
     persistAutosave();
@@ -1824,8 +1883,9 @@ export const useIdeStore = create<IdeState>((set) => ({
             pauseInterval: null,
             blocks: opts?.blocks ?? [],
             listingBlockMeta: opts?.listingBlockMeta ?? {},
-            // Scratch buffers survive an Open - only the tab does not, since
-            // the incoming program is what the editor must now show.
+            // The buffers belonged to the document being replaced, so they go
+            // with it - an in-place apply, which passes no name, keeps them.
+            scratchBuffers: [],
             activeTab: BASIC_TAB,
             asmErrorBlocks: new Set<string>(),
             pendingDeleteBlockId: null,
@@ -1876,7 +1936,8 @@ export const useIdeStore = create<IdeState>((set) => ({
       // its own (a project-bundle-shaped import).
       blocks: opts?.blocks ?? [],
       listingBlockMeta: opts?.listingBlockMeta ?? {},
-      // As for Open: the workbench survives, the tab returns to the program.
+      // As for Open: the buffers belonged to the document being replaced.
+      scratchBuffers: [],
       activeTab: BASIC_TAB,
       asmErrorBlocks: new Set<string>(),
       pendingDeleteBlockId: null,
