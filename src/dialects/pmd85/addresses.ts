@@ -67,6 +67,23 @@ export const TXTTAB = 0x003f;
  */
 export const PROGRAM_BASE = 0x2401;
 
+/**
+ * CURLIN, at 0x5E04: the number of the line BASIC-G is executing, and
+ * {@link DIRECT_MODE} when it is not executing one at all.
+ *
+ * The Microsoft convention, and the machine's own answer to "is a program
+ * running" - the interpreter writes it as it moves from line to line and puts
+ * the direct-mode marker back on every route to the prompt, whether the program
+ * ran off its end, hit END or STOP, raised an error, or was broken into with
+ * the STOP key. Read off a running machine rather than out of the image: the
+ * word holding 100 while `100 GOTO 100` loops, and 0xFFFF the moment it is
+ * stopped, is what identifies it.
+ */
+export const CURLIN = 0x5e04;
+
+/** The line number CURLIN holds when BASIC-G is at its prompt. */
+export const DIRECT_MODE = 0xffff;
+
 /** VARTAB: end of the program text, and start of the simple variables. */
 export const VARTAB = 0x5e7a;
 

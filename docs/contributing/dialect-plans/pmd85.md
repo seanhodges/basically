@@ -58,10 +58,15 @@ before any BASIC exists.
 **3. The frame buffer is wider than its stride suggests.** Video RAM is
 `C000-FFFF`, addressed as `0xC000 + 0x40 * y` — a 64-byte stride for 256 lines.
 Only 48 bytes of each line are displayed, and only the low **6** bits of each
-byte are pixels: 48 × 6 = 288. The top two bits carry the per-6-pixel attribute
-(black / white / grey / blink; eight colours on the -3). A renderer that assumes
-8 pixels per byte, or a 48-byte stride, produces a plausible-looking but wrong
-screen — assert the geometry in the Stage 2 boot test.
+byte are pixels: 48 × 6 = 288. The top two bits are the per-6-pixel attribute:
+bit 6 blinks the cell and bit 7 halves its brightness (the -3 reuses the pair as
+an RGB colour select and loses the blink). A renderer that assumes 8 pixels per
+byte, or a 48-byte stride, produces a plausible-looking but wrong screen — the
+Stage 2 boot test asserts the geometry.
+
+The 16 bytes of each line the video circuit never fetches are not spare: the
+Monitor copies its whole variable block into the tails of the first eight
+scanlines at boot, so `0xC030` is a system variable and not a pixel.
 
 ### The ROMs
 
@@ -106,7 +111,7 @@ from `6F00`. See `src/dialects/pmd85/addresses.ts`.
 | Stage | Title                                  | Status |
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
-| 2     | Emulator core                          | ⬜     |
+| 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ⬜     |
 | 4     | Transfer & tape I/O                    | ⬜     |
 | 5     | Memory map & runtime introspection     | ⬜     |
@@ -159,40 +164,48 @@ machine are drawn (`PLOT`/`FILL`/`BPLOT`) rather than typed.
 **Depends on:** the `Dialect` contract only.
 **Verify:** `npm test` + `npm run typecheck`.
 
-## Stage 2 — Emulator core ⬜
+## Stage 2 — Emulator core ✅
 
 - [x] **The 8080 layer is shared.** `src/emulator/i8080/` holds the
       parity-source table, the parity table and the `DAA` N-clear; the Altair
       and this machine both drive their CPU through it, and it is covered by its
       own tests over a bare Z80 core rather than only through a machine
-- [ ] `emulator/memory.ts` — the two configurations: after reset the ROM is
-      mirrored over `0000-0FFF`/`2000-2FFF` with video RAM mirrored at
-      `4000-7FFF`; in normal operation `0000-7FFF` is RAM, `8000-8FFF` ROM,
-      `A000-AFFF` its mirror, `C000-FFFF` video RAM. Model the switch, not just
-      the end state — the Monitor boots through the startup map
-- [ ] `emulator/romModule.ts` — the ROM Module served through the MHB8255A at
-      `F8h-FBh` (PA/PB/PC/control), enabled by port C bit 7 low. Read
-      `src/emulator/cpc/ppi.ts` first: it is the project's exemplar for an 8255
-      and for the comment style a chip module is held to
-- [ ] `emulator/display.ts` — `0xC000 + 0x40 * y`, 48 bytes per line, low 6 bits
-      pixels, top 2 bits the 4-level attribute. 288×256
-- [ ] `emulator/keyboard.ts` — the key matrix scanned through the motherboard
-      8255 (keyboard, speaker and LEDs share it). Note the -1's quirk that keys
-      register on _release_; the -2 has autorepeat
-- [ ] `emulator/pmd85Machine.ts` — `MachineEmulator`: `reset` / `loadProgram` /
-      `runFrame` / `renderTo` / `keyEvent` / `setKey` / `releaseAllKeys` /
-      `dispose` / `frameHz` / `displayWidth` / `displayHeight` /
-      `isProgramRunning`
-- [ ] `createEmulator` splits the concatenated `rom` into Monitor + module
-      (zxspectrum128 precedent) and stays constructible on an empty image,
-      reporting the missing image on screen rather than throwing — the Altair
-      does exactly this
-- [ ] `displaySize: { width: 288, height: 256 }` on the dialect
+- [x] `emulator/memory.ts` — both configurations and the switch between them.
+      The switch has no port of its own: the decoder drops the startup mirrors
+      on the CPU's **first I/O write**, which is why the Monitor's first three
+      instructions are `LD SP` / `JP` out of the mirror / `OUT ($F7)`
+- [x] `emulator/romModule.ts` — the ROM Module's MHB8255A at `F8h-FBh`. Port A
+      is the data, ports B and C the address, and port C bit 7 the chip select;
+      the Monitor's `TRANSFER` loop advances the address by **reading ports B
+      and C back**, so the output-latch readback an 8255 in mode 0 gives is
+      load bearing rather than a nicety
+- [x] `emulator/display.ts` — `0xC000 + 0x40 * y`, 48 displayed bytes of six
+      pixels each (bit 0 leftmost), 288×256. The top two bits turn out to be
+      two independent flags rather than a level: bit 6 blinks the cell and
+      bit 7 halves its brightness, which `PRINT INK(n)` writes as `n`
+- [x] `emulator/keyboard.ts` — the key matrix, selected by writing a row
+      _number_ to the motherboard 8255's port A and read back on port B, with
+      SHIFT and STOP wired across every row
+- [x] `emulator/pmd85Machine.ts` — the whole `MachineEmulator`, with
+      `isProgramRunning` read from BASIC-G's own current-line word (`CURLIN`,
+      0x5E04) as it is written, not sampled per frame
+- [x] `createEmulator` splits the concatenated `rom` into Monitor + module and
+      stays constructible on an empty image, saying what is missing on screen
+      in the host's font — there is no character generator without the ROM
+- [x] `displaySize: { width: 288, height: 256 }` on the dialect
 - [x] `public/roms/pmd85.rom` bundled, with its `public/roms/ATTRIBUTION.md`
       block; `romUrl` + `romBytes` declared so a user may still replace it
-- [ ] test: boot the Monitor, let the module auto-launch, inject a program,
-      assert on video RAM — including the 64-byte stride and 6-bit packing, so a
-      geometry regression fails loudly
+- [x] tests: the boot through both memory maps, the module read out byte by
+      byte, the screen geometry, the matrix, and a program injected and run to
+      its output on screen
+
+One hardware fact was missing from the audit and is worth carrying forward: the
+Monitor's keyboard routine checks the expansion board's **8251 RxRDY bit**
+between matrix rows, and reads it set on an unfitted board. A machine that
+leaves the whole expansion board floating therefore scans row 0, decides a
+serial character is already waiting, and never sees a key — which looks exactly
+like a broken key matrix. `pmd85Machine.ts` answers that one register as an idle
+USART; Stage 4 replaces it with a real one.
 
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
 **Verify:** emulator boot test passes.
@@ -262,7 +275,9 @@ machine are drawn (`PLOT`/`FILL`/`BPLOT`) rather than typed.
 - [ ] `reports.ts` → `readReport()`; `vars.ts` → `readVariables()`, both derived
       from BASIC-G's own workspace layout. If that layout cannot be established,
       omit them and say so — the ZX80 and Altair are the precedent for an honest
-      gap over a guessed one
+      gap over a guessed one. Stage 2 established the first cell of it, `CURLIN`
+      at 0x5E04, by running a program and watching the word change; the same
+      method reaches the rest, and `currentLine()` is already a one-line read
 - [ ] `readMemoryStats()` + the memory-activity hooks
 - [ ] tests: memory-map layout, block round-trip
 

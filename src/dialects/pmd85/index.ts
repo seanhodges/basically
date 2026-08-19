@@ -22,11 +22,12 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/display';
 /**
  * The Tesla PMD 85-2 (BASIC-G).
  *
- * The language layer is real - keywords, charset, tokenizer, detokenizer,
- * image builder and lint all work against the shipped BASIC-G V2.0 image - but
- * the emulator, keyboard, samples and file exports are still throwing stubs, so
- * the dialect is deliberately absent from `src/dialects/registry.ts` until it
- * can actually run a program.
+ * The language layer and the machine are both real: the tokenizer works against
+ * the shipped BASIC-G V2.0 image, and `createEmulator` boots that image and runs
+ * what the tokenizer produced. What is still a throwing stub is the wiring
+ * around them - the keyboard layout, the samples and the file exports - so the
+ * dialect is deliberately absent from `src/dialects/registry.ts` until a user
+ * would have something to pick.
  *
  * Three things about this machine are worth knowing before touching any of it:
  *
