@@ -360,7 +360,10 @@ Pulled forward: registering in Stage 3 is what makes these mandatory.
       comments
 - [ ] `joystickModes` + `setJoystick` if the machine's joystick interface is
       worth modelling
-- [ ] debugger hooks (`debuggable`, `currentLine`, `debugStep`)
+- [x] debugger hooks (`debuggable`, `currentLine`, `debugStep`) — shipped
+      with the Stage 5 introspection work rather than left to polish;
+      `src/dialects/debugCapability.test.ts` is the crosscheck that the
+      dialect's flag matches what the machine actually implements
 - [ ] emulator sound (`readAudio` / `audioSampleRate`) — the speaker hangs off
       the motherboard 8255 alongside the keyboard
 - [ ] AI-profile accuracy pass, keyboard theming / function-key strip
