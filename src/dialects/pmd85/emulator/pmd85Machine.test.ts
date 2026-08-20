@@ -16,6 +16,7 @@ import {
 } from '../addresses';
 import { Pmd85Machine } from './pmd85Machine';
 import { DISPLAYED_BYTES_PER_LINE, VIDEO_RAM_STRIDE } from './display';
+import { CPU_HZ } from './clock';
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../../public/roms/pmd85.rom')),
@@ -156,10 +157,12 @@ describe('Pmd85Machine', () => {
   });
 
   it('writes the program to the screen where the video circuit will fetch it', () => {
-    // The geometry assertion the plan asks for, made against a running machine
-    // rather than a synthetic buffer: text lands in the low 48 bytes of a
-    // 64-byte stride, and the 16 bytes above it hold the Monitor's variables
-    // rather than pixels.
+    // The frame buffer's geometry, asserted against a running machine rather
+    // than a synthetic buffer: text lands in the low 48 bytes of a 64-byte
+    // stride, and the 16 bytes above it hold the Monitor's variables rather
+    // than pixels. A renderer that assumed eight pixels to a byte, or a
+    // 48-byte stride, would produce a plausible-looking but wrong screen and
+    // nothing else here would notice.
     const pmd = machine();
     pmd.loadProgram(tokenizeProgram('10 PRINT "XXXXXXXX"\n20 END\n').program);
     for (let frame = 0; frame < 120 && pmd.isProgramRunning(); frame++) {
@@ -226,6 +229,39 @@ describe('Pmd85Machine', () => {
       fillText: (text: string) => drawn.push(text),
     } as unknown as CanvasRenderingContext2D);
     expect(drawn.join(' ')).toContain('NO ROM IMAGE.');
+  });
+
+  it('gives PAUSE about a tenth of a second per unit', () => {
+    // The interpreter's delay loop counts 3400h times per unit, which is ~0.1s
+    // at 2.048MHz and not the millisecond its own source comment claims. The
+    // difference is a factor of a hundred, so it decides whether a PAUSE in a
+    // sample or an assistant's program is a beat or most of a minute - and the
+    // machine is the only place it can be measured.
+    const pmd = machine();
+    const { program, errors } = tokenizeProgram(
+      '10 OUT 134,4\n20 PAUSE 10\n30 OUT 134,0\n40 END\n',
+    );
+    expect(errors).toEqual([]);
+
+    // Bracketed by writes to the speaker port, which is the cheapest marker
+    // this machine offers that a BASIC line can set at a known moment.
+    const marks: number[] = [];
+    const machineAny = pmd as unknown as {
+      writePort(port: number, value: number): void;
+      cycles: number;
+    };
+    const write = machineAny.writePort.bind(machineAny);
+    machineAny.writePort = (port: number, value: number) => {
+      if (port === 0x86) marks.push(machineAny.cycles);
+      write(port, value);
+    };
+    pmd.loadProgram(program);
+    for (let f = 0; f < 300 && pmd.isProgramRunning(); f++) pmd.runFrame();
+
+    expect(marks).toHaveLength(2);
+    const seconds = (marks[1]! - marks[0]!) / CPU_HZ;
+    expect(seconds).toBeGreaterThan(0.8);
+    expect(seconds).toBeLessThan(1.1);
   });
 
   it('starts over on reset', () => {

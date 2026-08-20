@@ -186,9 +186,11 @@ describe('pmd85 keyboard layout', () => {
   });
 
   it('reaches every matrix key from the keyboard or the host', () => {
-    // The union the layout is allowed to rely on: four editing keys have no
-    // keycap and are typed on the host instead. A token reachable by neither
-    // route is a key of the real machine this IDE cannot press.
+    // The union the layout is allowed to rely on. The machine's keyboard is
+    // fifteen columns wide and the template's bands are ten, so the editing
+    // block, STOP and the symbols BASIC-G has no use for are typed on the host
+    // instead of taking a keycap. A token reachable by neither route is a key
+    // of the real machine this IDE cannot press at all.
     const emitted = new Set(driving.flatMap((k) => k.emits));
     const fromHost = new Set(
       HOST_CODES.map((code) => tokenForHostCode(code)).filter(
@@ -203,14 +205,39 @@ describe('pmd85 keyboard layout', () => {
     }
   });
 
-  it('keeps the twelve function keys and their band on the strip', () => {
+  it('keeps the twelve function keys and WRK on the strip, and nothing else', () => {
     // K0-K11 have to be here and nowhere else: nothing on a host keyboard
-    // produces them, so the strip is their only route in.
+    // produces them, so the strip is their only route in. WRK selects their
+    // second bank and belongs with them; C-D and CLR are editing keys, and
+    // every key they were added to the strip cost a share of its width.
     const strip = (layout.functionKeys ?? []).map((k) => k.id);
-    expect(strip.slice(0, 12)).toEqual(
-      Array.from({ length: 12 }, (_, i) => `K${i}`),
-    );
-    expect(strip.slice(12)).toEqual(['WRK', 'ClrDel', 'Clr']);
+    expect(strip).toEqual([
+      ...Array.from({ length: 12 }, (_, i) => `K${i}`),
+      'WRK',
+    ]);
+  });
+
+  it('stays on the template’s grid, in width and in keys to a row', () => {
+    // The whole point of the shared template: a PMD 85 keycap is the same size
+    // as a Spectrum's. This machine's own keyboard is fifteen columns wide, so
+    // the temptation to widen the grid for it is real and was once given in to.
+    expect(layout.gridColumns).toBe(40);
+    for (const row of layout.rows.slice(0, 4)) {
+      expect(row.filter((k) => k.emits.length > 0)).toHaveLength(10);
+    }
+    // …and the strip is measured against the same width, so its keys cannot be
+    // squeezed narrower than the board underneath them by very much.
+    const strip = layout.functionKeys ?? [];
+    const stripSpan = strip.reduce((n, k) => n + k.spanX, 0);
+    expect(stripSpan).toBeLessThanOrEqual(52);
+  });
+
+  it('gives STOP no keycap', () => {
+    // It stops a running program, which is what the toolbar's stop control is
+    // for, and it sat under the space bar at the width of a SHIFT.
+    const ids = new Set(keys.map((k) => k.id));
+    expect(ids.has('Stop')).toBe(false);
+    expect(tokenForHostCode('ControlLeft')).toBe('Stop');
   });
 
   it('prints the legend the Monitor actually sends', () => {
@@ -234,9 +261,9 @@ describe('pmd85 keyboard layout', () => {
         checked++;
       }
     }
-    // Both layers of every printing key: three full bands of twelve, the ten
-    // that share the fourth band with DEL and ENTER, and the space bar.
-    expect(checked).toBe(2 * (12 * 3 + 10 + 1));
+    // Both layers of every printing key: four full bands of ten, the three
+    // symbol keys the bands could not keep, and the space bar.
+    expect(checked).toBe(2 * (10 * 4 + 3 + 1));
   });
 
   it('is QWERTZ, and types capitals unshifted', () => {
