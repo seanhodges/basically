@@ -358,15 +358,35 @@ Pulled forward: registering in Stage 3 is what makes these mandatory.
       and this plan **deleted** in the same change, along with its roadmap
       cross-link and any `Stage N` references left in the dialect's source
       comments
-- [ ] `joystickModes` + `setJoystick` if the machine's joystick interface is
-      worth modelling
+- [x] `joystickModes` + `setJoystick`. It was worth modelling: the 4004/482 is
+      a documented stick on the I/O board's GPIO 8255 (K3 is port A plus port C
+      high, K4 port B plus port C low), five switches active low with one fire
+      line. `emulator/gpio.ts` models the MH8286 direction latch as well as the
+      data port, because a program that has not turned the buffer inward reads
+      a released stick whatever the user is holding - and because that is what
+      keeps the Monitor's own boot-time writes (PC6 and PC2) from reading as
+      input. BASIC-G has no keyword for it, so `OUT`/`INP` are the whole
+      interface and the reference page carries the sequence
 - [x] debugger hooks (`debuggable`, `currentLine`, `debugStep`) — shipped
       with the Stage 5 introspection work rather than left to polish;
       `src/dialects/debugCapability.test.ts` is the crosscheck that the
       dialect's flag matches what the machine actually implements
-- [ ] emulator sound (`readAudio` / `audioSampleRate`) — the speaker hangs off
-      the motherboard 8255 alongside the keyboard
-- [ ] AI-profile accuracy pass, keyboard theming / function-key strip
+- [x] emulator sound (`readAudio` / `audioSampleRate`) — the speaker hangs off
+      the motherboard 8255 alongside the keyboard, on three drive lines rather
+      than the one bit every other machine here uses: PC0 and PC1 gate 1kHz and
+      4kHz tones tapped off the video raster counter, and PC2 drives the cone
+      directly, so a program that holds it high silences the machine. `BEEP` is
+      the 4kHz gate held for the sixteen ticks of the Monitor's one sound table
+      at 0x80F4, and the key click is a bare flip of the same bit
+- [x] AI-profile accuracy pass, keyboard theming / function-key strip. The
+      theming and the K0-K11 strip were already done in Stage 3 and pinned
+      against the Monitor's key table, so the pass was the profile: it gained
+      the speaker port and the joystick sequence, and it lost a wrong `PAUSE`.
+      **`PAUSE n` is tenths of a second, not milliseconds** - the interpreter's
+      delay loop counts 3400h per unit, which is ~0.1s at 2.048MHz, so the unit
+      was out by a factor of a hundred in `keywords.ts`, in `src/reference/`
+      and in the profile, and `hello.bas` was built on it and showed one line
+      every eighteen seconds. `pmd85Machine.test.ts` now measures it
 - [ ] consider the Tier 0 siblings this unlocks: **PMD 85-1** (1985, no
       auto-launch), **PMD 85-2A** / **PMD 85-3** (64K, 8K ROM, Monitor at
       `E000h`, eight colours), and the licensed clones **Didaktik Alfa** and

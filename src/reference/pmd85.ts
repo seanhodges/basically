@@ -657,7 +657,7 @@ const pmd85Table: BasicReferenceTableData = {
       domain: 'control-flow',
       syntax: 'PAUSE [<number>]',
       description:
-        'Waits for roughly the given number of milliseconds, up to 255 - a longer wait is a parameter error, so it takes several PAUSEs. This is the machine’s delay statement; WAIT is not one.',
+        'Waits for roughly the given number of TENTHS of a second - the interpreter’s delay loop is about 0.1s per unit, so PAUSE 10 is a second and PAUSE 200 is over three minutes. The count runs to 255 and a larger one is a parameter error; PAUSE 0, and a bare PAUSE, mean 256 rather than none. Pressing STOP or SPACE cuts the wait short. This is the machine’s delay statement; WAIT is not one.',
     },
     {
       name: 'DISP',
