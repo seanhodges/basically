@@ -1,12 +1,12 @@
 ---
-title: PMD 85 BASIC-G reference
+title: BASIC-G reference
 ---
 
 <script setup>
 import { pmd85Reference } from '../../src/reference/pmd85';
 </script>
 
-# PMD 85 BASIC-G reference
+# BASIC-G reference
 
 Every command, function and operator in BASIC-G — the graphics BASIC Tesla
 shipped in the PMD 85-2's plug-in ROM module.

@@ -1,4 +1,4 @@
-// Reference table data for the PMD 85 BASIC-G page.
+// Reference table data for the BASIC-G page.
 // Seeded from the dialect's keyword table by scripts/gen-reference-scaffold.mts,
 // then hand-enriched (typed <…> syntax + fuller descriptions). Edit by hand;
 // the generator skips this file once it exists.
@@ -22,7 +22,7 @@ import type { BasicReferenceTableData } from './types';
 import { withAbbreviations } from './abbreviations';
 
 const pmd85Table: BasicReferenceTableData = {
-  title: 'PMD 85 BASIC-G',
+  title: 'BASIC-G',
   machines: ['Tesla PMD 85-2'],
   placeholders: [
     { id: 'bit', meaning: 'a bit position, counting from 0' },
