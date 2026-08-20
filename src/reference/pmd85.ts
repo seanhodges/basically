@@ -73,9 +73,9 @@ const pmd85Table: BasicReferenceTableData = {
       name: 'INPUT',
       kind: 'command',
       domain: 'input',
-      syntax: 'INPUT [<prompt>;] <var>[, <var>]…',
+      syntax: 'INPUT <var>[, <var>]…',
       description:
-        'Prints the prompt (or ? when there is none) into the dialogue line and waits for a whole typed line. For a key at a time, use INKEY or the K0-K11 function keys.',
+        'Prints ? into the dialogue line and waits for a whole typed line. Unlike other Microsoft BASICs it takes no prompt string - INPUT "SEED";S is a syntax error, so print the prompt first. For a key at a time, use INKEY or the K0-K11 function keys.',
     },
     {
       name: 'DIM',
@@ -870,7 +870,7 @@ const pmd85Table: BasicReferenceTableData = {
       domain: 'text-screen',
       syntax: 'PRINT AT <row>, <col>',
       description:
-        'Inside a PRINT list, moves the print position to a text cell. The text area is 48 columns by 26 rows.',
+        'Inside a PRINT list, moves the print position to a text cell. The text area is 48 columns by 26 rows. The firmware lands AT one scanline below the row a plain PRINT uses, so text placed this way sits a pixel low against text that scrolled into place.',
     },
     {
       name: 'HEX$',

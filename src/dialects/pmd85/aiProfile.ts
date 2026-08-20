@@ -39,6 +39,7 @@ LANGUAGE TRAPS
 - Names are significant to two characters AND case sensitive, which no other Microsoft BASIC is: ABCD and ABZZ are one variable, A and a are two. Keep them to one or two capitals.
 - Keywords are recognised inside a name, and here that is a hard error rather than a silent mis-run: a variable called MYVAL contains VAL and the line is rejected with Syntax err. Avoid any name containing a reserved word.
 - Line numbers stop at 32767, not the Microsoft 65529.
+- INPUT takes NO prompt string: INPUT "SEED";S is a Syntax err, not a prompt. PRINT the prompt first, then INPUT the variable.
 - USR(addr) calls that address directly, unlike the Microsoft USR that goes through a poked vector.
 - Spaces are ignored outside strings, REM and DATA, so FORI=1TO5 is valid.
 
