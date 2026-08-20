@@ -11,6 +11,7 @@ import type {
 import { KeyboardInputEngine } from './inputEngine';
 import { isRepeatable, resolveEditorAction } from './editorActions';
 import { pickableKeys } from './controllerConfig';
+import { functionStrip } from './templateRows';
 import { GlyphSvg } from './GlyphSvg';
 import { ControlChipSvg } from './ControlChipSvg';
 import './VirtualKeyboard.css';
@@ -331,7 +332,9 @@ export function VirtualKeyboard({
 
   const displayRows = layout.rows;
   const gridCols = layout.gridColumns;
-  const fnCols = functionKeys.reduce((n, k) => n + k.spanX, 0);
+  // The strip shares the key rows' grid, so a function key is one keycap wide
+  // whatever the machine's count; the padding centres a line that falls short.
+  const stripLines = useMemo(() => functionStrip(functionKeys), [functionKeys]);
 
   const secondaryLayers = useMemo(
     () => layout.layers.filter((l) => l !== baseLayer),
@@ -721,7 +724,14 @@ export function VirtualKeyboard({
     <div
       ref={containerRef}
       className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${keyDisplay === 'compact' ? ' vk-single' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}${onPickKey ? ' vk-pickmode' : ''}`}
-      style={{ '--vk-max-len': maxSingleLen } as React.CSSProperties}
+      style={
+        {
+          '--vk-max-len': maxSingleLen,
+          // Tablet portrait reserves the strip's height before sizing the keys,
+          // so it has to know when the function keys take more than one line.
+          ...(showFnKeys ? { '--vk-fn-lines': stripLines.length } : {}),
+        } as React.CSSProperties
+      }
       role="group"
       aria-label={`${layout.name} on-screen keyboard`}
       tabIndex={0}
@@ -789,10 +799,15 @@ export function VirtualKeyboard({
               style={
                 landscape
                   ? undefined
-                  : { gridTemplateColumns: `repeat(${fnCols}, 1fr)` }
+                  : { gridTemplateColumns: `repeat(${gridCols}, 1fr)` }
               }
             >
-              {functionKeys.map((k) => renderKey(k, true))}
+              {/* Landscape stacks the strip two abreast in the left gutter,
+                  where a grid column means nothing and the padding of a short
+                  line would leave holes, so it takes the keys unpadded. */}
+              {(landscape ? functionKeys : stripLines.flat()).map((k) =>
+                renderKey(k, true),
+              )}
             </div>
           )}
         </div>

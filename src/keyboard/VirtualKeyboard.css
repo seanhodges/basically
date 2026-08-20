@@ -745,19 +745,25 @@
   flex: 0 0 auto;
 }
 
-/* Function keys lay out as a 2-column grid so 8–10 (BBC/C64) fit without a tall
-   single stack. The component drops the inline repeat(fnCols) template and the
-   per-key span in landscape, so each fn key occupies one cell here. */
+/* Function keys lay out as a 2-column grid so a machine's whole set fits without
+   a tall single stack. The component drops the inline column template and the
+   per-key span in landscape, so each fn key occupies one cell here.
+
+   The rows share the gutter's height rather than each taking a fixed one: a
+   machine with enough keys to need more rows than fit would otherwise push the
+   whole keyboard up out of its band. Keys keep their size ceiling and centre in
+   the row, so a short strip still reads as keycaps rather than tall slabs. */
 .vk-landscape .vk-fn-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-auto-rows: 40px;
-  align-content: center;
+  grid-auto-rows: minmax(0, 1fr);
   gap: 6px;
 }
 
 .vk-landscape .vk-fn-row .vk-key {
-  height: auto;
+  height: 100%;
+  max-height: 40px;
+  align-self: center;
 }
 
 .vk-landscape .vk-strip-toggle {
@@ -777,8 +783,10 @@
 @media (min-width: 769px) {
   .virtual-keyboard.vk-portrait {
     justify-content: center;
-    /* Height taken by the top strip + gap, reserved by the clamp below. */
-    --vk-strip-reserve: 56px;
+    /* Height taken by the top strip + gap, reserved by the clamp below. A
+       machine with more function keys than fit across wraps onto further
+       strip lines, each costing another key height plus the grid gap. */
+    --vk-strip-reserve: calc(56px + (var(--vk-fn-lines, 1) - 1) * 38px);
   }
 
   .vk-portrait .vk-rows {

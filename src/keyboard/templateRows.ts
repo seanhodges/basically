@@ -108,8 +108,9 @@ export function centerRow(keys: KeyDef[]): KeyDef[] {
  * flank is padded with a {@link spacer} so the space bar stays centred, and the
  * space bar is sized to fill the remaining columns. `space` may omit `spanX`.
  *
- * `gridColumns` defaults to the standard {@link GRID_COLUMNS}; a layout with a
- * wider grid (e.g. the C64, which adds a graphics-key column) passes its own.
+ * `gridColumns` defaults to the standard {@link GRID_COLUMNS}, which is what
+ * every machine's grid is; the parameter is here for a layout that one day
+ * needs a wider one.
  */
 export function bottomRow(
   left: KeyDef[],
@@ -130,4 +131,28 @@ export function bottomRow(
     ...rightPad,
     ...right,
   ];
+}
+
+/**
+ * Lay the top strip's function keys on the same grid as the key rows, so a
+ * function key is exactly a keycap wide however many of them a machine has.
+ * Keys fill a line ten at a time; a machine with more wraps onto another line,
+ * and a short line is centred the way {@link centerRow} centres a short key row.
+ *
+ * The lines are returned separately because the strip's height depends on how
+ * many there are, and because the renderer flattens them onto one grid - which
+ * only lands on the intended breaks while each line sums to the full width.
+ */
+export function functionStrip(keys: KeyDef[]): KeyDef[][] {
+  const lines: KeyDef[][] = [];
+  let line: KeyDef[] = [];
+  for (const key of keys) {
+    if (totalSpan(line) + key.spanX > GRID_COLUMNS) {
+      lines.push(line);
+      line = [];
+    }
+    line.push(key);
+  }
+  if (line.length > 0) lines.push(line);
+  return lines.map(centerRow);
 }

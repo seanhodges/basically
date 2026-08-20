@@ -14,6 +14,11 @@ import {
   tokenForHostCode,
 } from './emulator/keyboard';
 import { resolveEditorAction } from '../../keyboard/editorActions';
+import {
+  GRID_COLUMNS,
+  KEY_SPAN,
+  functionStrip,
+} from '../../keyboard/templateRows';
 import type { KeyDef } from '../../keyboard/layoutSchema';
 
 const layout = pmd85KeyboardLayout;
@@ -225,11 +230,16 @@ describe('pmd85 keyboard layout', () => {
     for (const row of layout.rows.slice(0, 4)) {
       expect(row.filter((k) => k.emits.length > 0)).toHaveLength(10);
     }
-    // …and the strip is measured against the same width, so its keys cannot be
-    // squeezed narrower than the board underneath them by very much.
+    // …and so is the strip. More function keys than a line holds is the one
+    // thing this machine's board has that the template has no room for, and
+    // the strip wraps onto a second line rather than shrinking its keys.
     const strip = layout.functionKeys ?? [];
-    const stripSpan = strip.reduce((n, k) => n + k.spanX, 0);
-    expect(stripSpan).toBeLessThanOrEqual(52);
+    for (const key of strip) expect(key.spanX).toBe(KEY_SPAN);
+    const lines = functionStrip(strip);
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(line.reduce((n, k) => n + k.spanX, 0)).toBe(GRID_COLUMNS);
+    }
   });
 
   it('gives STOP no keycap', () => {

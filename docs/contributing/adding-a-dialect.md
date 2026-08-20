@@ -152,8 +152,10 @@ with five bands:
 
 - **Top strip** - mode tabs (`editorModes`) when the machine has extra typing
   layers, the machine's `functionKeys` when it does not, or both behind an icon
-  toggle. On wide screens the strip relocates into the left gutter beside the
-  centred keyboard.
+  toggle. The function keys sit on the same 40-column grid as the rows below,
+  ten to a line, so a strip key is exactly a keycap wide; a machine with more
+  wraps onto a further line rather than shrinking them. On wide screens the
+  strip relocates into the left gutter beside the centred keyboard.
 - **Number row** - the ten digits.
 - **QWERTY + home rows** - the letters; Enter is the home row's tenth key.
 - **ZXCV row** - the remaining letters and punctuation, centred when short.
@@ -161,9 +163,10 @@ with five bands:
   right, and the shift / machine modifiers either side.
 
 Reuse `src/keyboard/templateRows.ts` (`GRID_COLUMNS`, `KEY_SPAN`, the
-`NUMBER_ROW_TOKENS`/`QWERTY_ROW_TOKENS`/… token orders, `centerRow`, and the
-`bottomRow` factory) so your layout supplies only its legends and modifiers and
-inherits the template's proportions. Prefer icons/abbreviations (`⇧ ⌫ ↵ "`) over
+`NUMBER_ROW_TOKENS`/`QWERTY_ROW_TOKENS`/… token orders, `centerRow`, the
+`bottomRow` factory, and `functionStrip` for the top strip) so your layout
+supplies only its legends and modifiers and inherits the template's
+proportions. Prefer icons/abbreviations (`⇧ ⌫ ↵ "`) over
 wide text; do **not** add arrow keys (the editor handles cursor placement by
 touch). Deviate from the template only where the machine genuinely requires it
 (see the BBC's SYM mode and the C64's SHIFT-layer symbols for examples of
@@ -232,6 +235,11 @@ functionKeys: [
 ],
 ```
 
+`spanX: 4` is a rule here rather than an example: the strip renders on the key
+rows' grid, so any other width draws a function key wider or narrower than a
+keycap. So is `editor: null` - without it a label falls back to inserting its
+own text, and a key marked `f1` types `f1` into the program.
+
 When a layout has **only** `functionKeys` the strip shows them; with **only**
 `editorModes` it shows the mode tabs; with **both** it shows a leading icon
 toggle that flips the strip between the two.
@@ -242,7 +250,10 @@ The template keeps keys evenly proportioned and large enough to thumb-type:
 keys hold a minimum touch size (`--vk-key-min`) and, above that, a consistent
 width:height ratio (`--vk-aspect`). On wide screens the keyboard centres and its
 key width is height-derived so keys never stretch. You don't size anything in
-the layout - just keep to `spanX: 4` for ordinary keys.
+the layout - just keep to `spanX: 4` for ordinary keys, function keys included.
+The renderer lays the strip out through `functionStrip`, which centres a strip
+of fewer than ten keys and wraps one of more, so the count a machine happens to
+have never changes how wide its keys are drawn.
 
 #### 2. Wiring `setKey()` in the emulator
 
