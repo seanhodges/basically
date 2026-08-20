@@ -8,7 +8,7 @@ import {
   type DisplayMessage,
 } from '../ai/aiStore';
 import {
-  loadSystemPrompt,
+  loadSystemPromptFor,
   buildUserMessage,
   buildEditorFix,
 } from '../ai/promptBuilder';
@@ -389,7 +389,7 @@ export function AiPanel() {
       apiKey,
       model: provider.defaultModel,
       ...resolveAiTuning(providerId),
-      system: await loadSystemPrompt(dialect, provider.acceptsImages),
+      system: await loadSystemPromptFor(dialect, providerId),
       userContent: buildUserMessage(request, source, errors, screen !== null),
       displayRequest: request,
       ...(screen ? { image: screen } : {}),
@@ -451,7 +451,7 @@ export function AiPanel() {
       apiKey,
       model: provider.defaultModel,
       ...resolveAiTuning(providerId),
-      system: await loadSystemPrompt(dialect, provider.acceptsImages),
+      system: await loadSystemPromptFor(dialect, providerId),
       userContent: fix.userContent,
       displayRequest: fix.displayRequest,
       baseSource: source,

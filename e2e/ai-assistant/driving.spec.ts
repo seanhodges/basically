@@ -15,6 +15,16 @@ import { stubAssistant } from '../aiStub';
 
 const PROGRAM = ['10 CLS', '20 PRINT "MINE"', '30 GOTO 20'].join('\n');
 
+/**
+ * Every tool the assistant is offered, in the order it is offered them.
+ *
+ * Named here once and asserted from every turn: what these tests are for is
+ * that the set never varies within a conversation, and two copies of the list
+ * could drift apart and still both pass. Which tools exist, and in what order,
+ * is pinned in src/ai/driveTools.test.ts.
+ */
+const EVERY_TOOL = ['drive', 'look', 'profile', 'time'];
+
 /** A program that stops dead until a key is held - the case driving exists for. */
 const WAITS_FOR_A_KEY = [
   '```basic',
@@ -40,7 +50,7 @@ async function ask(page: Page, request = 'write me something'): Promise<void> {
   await box.press('Enter');
 }
 
-test('an answer that asks to drive is offered the tools to do it', async ({
+test('the same tools are offered on every turn of a conversation', async ({
   page,
 }) => {
   const stub = await stubAssistant(page, [
@@ -60,12 +70,12 @@ test('an answer that asks to drive is offered the tools to do it', async ({
     .poll(() => stub.toolsOffered().length, { timeout: 30000 })
     .toBeGreaterThanOrEqual(2);
 
-  const offered = stub.toolsOffered();
-  // The answering turn is offered nothing - the program does not exist yet,
-  // let alone run, so there is nothing to drive.
-  expect(offered[0]).toEqual([]);
-  // The turn that judges the screen is the one that may drive first.
-  expect(offered.some((names) => names.includes('drive'))).toBe(true);
+  // Tool definitions render ahead of the system prompt, so a set that appeared
+  // on the turn that drives and vanished on the rest would invalidate the whole
+  // cached prefix behind it on every turn after a drive.
+  for (const names of stub.toolsOffered()) {
+    expect(names).toEqual(EVERY_TOOL);
+  }
 });
 
 test('a tool call is answered, comes back for more, and is accounted for', async ({
@@ -105,7 +115,7 @@ test('a tool call is answered, comes back for more, and is accounted for', async
   await expect(page.getByText(/pressed KeyA/)).toBeVisible();
 });
 
-test('an answer that does not ask to drive is never offered the tools', async ({
+test('an answer that does not ask to drive never touches the machine', async ({
   page,
 }) => {
   const stub = await stubAssistant(page, [
@@ -119,10 +129,12 @@ test('an answer that does not ask to drive is never offered the tools', async ({
     timeout: 30000,
   });
 
-  // The ordinary case, and it must cost nothing: a request that offers no
-  // tools is byte-identical to what it was before tools existed here, which is
-  // what keeps every stored conversation's cached prefix valid.
-  for (const names of stub.toolsOffered()) expect(names).toEqual([]);
-  // ...and nothing is said to the user about driving that never happened.
+  // Offering a tool is not granting the machine: the set is the same here as on
+  // the turn that drives, and the machine is still handed over only once a
+  // program has been run and the assistant asked for it.
+  for (const names of stub.toolsOffered()) {
+    expect(names).toEqual(EVERY_TOOL);
+  }
+  // ...so nothing is said to the user about driving that never happened.
   await expect(page.getByText(/Tried the program:/)).toHaveCount(0);
 });

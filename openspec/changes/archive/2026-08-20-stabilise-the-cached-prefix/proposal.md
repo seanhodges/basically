@@ -36,8 +36,8 @@ intent the code does not carry out, which is why the defect has been invisible.
 The cost is paid on every turn: the whole prefix is written at the cache's write
 premium and never once read back. Nothing about the assistant's answers is wrong
 today — this is a bill, not a bug in the output — but it is a bill nobody agreed
-to, and it is roughly seven times the correct one by the fifth turn of a
-conversation.
+to. Measured against a live three-turn conversation on a ZX81, it is 2.2 times
+the correct one, and about three times by the fifth turn.
 
 ## What Changes
 

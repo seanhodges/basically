@@ -8,6 +8,8 @@ import {
 } from './expectations';
 import { buildDriveRules, buildExpectationRules } from './machineObservability';
 import { loadMachineReference } from './machineReference';
+import { getProvider } from './providers/registry';
+import type { AiProviderId } from './providers/types';
 
 /**
  * A correction the assistant is offering after an apply/run turned up problems.
@@ -49,8 +51,11 @@ export const RETURNING_CODE_RULES = `RETURNING CODE
 - In a \`\`\`basic-partial block, a line consisting of ONLY a line number deletes that line - exactly as you would delete it at the keyboard. That is the only way to remove a line, and the only reason to write a bare line number.`;
 
 /**
- * The system prompt stays byte-stable per dialect (good for prompt caching);
- * volatile context - current program, lint errors - rides in the user turn.
+ * The system prompt is a constant per (dialect, provider), which is what prefix
+ * caching needs. The current program and its lint errors ride in the user turn,
+ * and stay there: a turn once sent is replayed exactly as it was sent (see
+ * `aiStore`), so the whole prefix - this prompt and the history behind it - is
+ * the same bytes on every turn of a conversation.
  *
  * `machineReference` is the machine's own language definition, composed from the
  * shared reference data - every command it has, its language rules and hardware
@@ -65,14 +70,15 @@ export const RETURNING_CODE_RULES = `RETURNING CODE
 export function buildSystemPrompt(
   dialect: Dialect,
   machineReference: string,
-  canShowScreen = false,
-  canDrive = false,
+  canShowScreen: boolean,
+  canDrive: boolean,
 ): string {
-  // The expectation rules vary by machine (two of them cannot report their
-  // variables) and by whether the chosen backend can be shown the screen - but
-  // only by those, so the composed prompt is still byte-stable per
-  // (dialect, provider), which is what prefix caching needs: neither changes
-  // within a conversation without starting a different request path anyway.
+  // The composed prompt varies by (dialect, canShowScreen, canDrive) and by
+  // nothing else. The two flags describe what the chosen backend can do, so
+  // neither can change without the user changing provider - which starts a
+  // different conversation anyway. Both are required rather than defaulted:
+  // a caller that omitted one would compose a different prompt from its
+  // neighbour and silently rewrite the cached prefix on every turn.
   return `${machineReference}\n\n${dialect.aiProfile.systemPrompt}\n\n${RETURNING_CODE_RULES}\n\n${buildExpectationRules(dialect, canShowScreen)}\n\n${buildDriveRules(dialect, canDrive)}`;
 }
 
@@ -86,14 +92,38 @@ export function buildSystemPrompt(
  */
 export async function loadSystemPrompt(
   dialect: Dialect,
-  canShowScreen = false,
-  canDrive = false,
+  canShowScreen: boolean,
+  canDrive: boolean,
 ): Promise<string> {
   return buildSystemPrompt(
     dialect,
     await loadMachineReference(dialect),
     canShowScreen,
     canDrive,
+  );
+}
+
+/**
+ * The system prompt for this machine on this backend - the form every request
+ * uses.
+ *
+ * The one place the capability flags are resolved. They are properties of the
+ * chosen provider, not of the code path raising the request, so resolving them
+ * here is what makes every turn of a conversation compose the same prompt: the
+ * user's, the continuation, the correction after a failed run, and the
+ * judgement all pass through this. A caller that answered them for itself would
+ * put a different system prompt in the cached prefix and pay to write the whole
+ * thing again.
+ */
+export async function loadSystemPromptFor(
+  dialect: Dialect,
+  providerId: AiProviderId,
+): Promise<string> {
+  const provider = getProvider(providerId);
+  return loadSystemPrompt(
+    dialect,
+    provider.acceptsImages,
+    provider.supportsTools,
   );
 }
 

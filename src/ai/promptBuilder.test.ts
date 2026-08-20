@@ -52,14 +52,14 @@ describe('buildSystemPrompt', () => {
   it('gives every registered dialect the shared rules exactly once', () => {
     expect(dialects.length).toBeGreaterThan(0);
     for (const dialect of dialects) {
-      const prompt = buildSystemPrompt(dialect, REFERENCE);
+      const prompt = buildSystemPrompt(dialect, REFERENCE, false, false);
       expect(prompt.split(RETURNING_CODE_RULES).length - 1).toBe(1);
     }
   });
 
   it('keeps each dialect its own machine-specific rules', () => {
     for (const dialect of dialects) {
-      const prompt = buildSystemPrompt(dialect, REFERENCE);
+      const prompt = buildSystemPrompt(dialect, REFERENCE, false, false);
       expect(prompt).toContain(dialect.aiProfile.systemPrompt);
       expect(prompt).toContain('OUTPUT FORMAT');
     }
@@ -67,7 +67,7 @@ describe('buildSystemPrompt', () => {
 
   it('carries the machine reference, ahead of the dialect prose', () => {
     for (const dialect of dialects) {
-      const prompt = buildSystemPrompt(dialect, REFERENCE);
+      const prompt = buildSystemPrompt(dialect, REFERENCE, false, false);
       expect(prompt).toContain(REFERENCE);
       expect(prompt.indexOf(REFERENCE)).toBeLessThan(
         prompt.indexOf(dialect.aiProfile.systemPrompt),
@@ -77,7 +77,7 @@ describe('buildSystemPrompt', () => {
 
   it('keeps the four blocks in order', () => {
     const dialect = dialects[0]!;
-    const prompt = buildSystemPrompt(dialect, REFERENCE);
+    const prompt = buildSystemPrompt(dialect, REFERENCE, false, false);
     expect(prompt.indexOf(dialect.aiProfile.systemPrompt)).toBeLessThan(
       prompt.indexOf(RETURNING_CODE_RULES),
     );
@@ -88,11 +88,11 @@ describe('buildSystemPrompt', () => {
 
   it('composes the real reference into the prompt it sends', async () => {
     const dialect = dialects.find((d) => d.id === 'zx81')!;
-    const prompt = await loadSystemPrompt(dialect);
+    const prompt = await loadSystemPrompt(dialect, false, false);
     expect(prompt).toContain('EVERY COMMAND, FUNCTION AND OPERATOR');
     expect(prompt).toContain(dialect.aiProfile.systemPrompt);
     expect(prompt).toContain(RETURNING_CODE_RULES);
-    expect(prompt).toBe(await loadSystemPrompt(dialect));
+    expect(prompt).toBe(await loadSystemPrompt(dialect, false, false));
   });
 
   // The old per-dialect bullet forbade fragments outright; leaving a copy
@@ -107,8 +107,8 @@ describe('buildSystemPrompt', () => {
 
   it('is byte-stable for a given dialect, so the cached prefix holds', () => {
     for (const dialect of dialects) {
-      expect(buildSystemPrompt(dialect, REFERENCE)).toBe(
-        buildSystemPrompt(dialect, REFERENCE),
+      expect(buildSystemPrompt(dialect, REFERENCE, false, false)).toBe(
+        buildSystemPrompt(dialect, REFERENCE, false, false),
       );
     }
   });
