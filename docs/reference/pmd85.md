@@ -11,7 +11,7 @@ import { pmd85Reference } from '../../src/reference/pmd85';
 Every command, function and operator in BASIC-G — the graphics BASIC Tesla
 shipped in the PMD 85-2's plug-in ROM module.
 
-**In this reference:** [Hardware](./pmd85/hardware) · [Escape codes](./pmd85/escapes) · [Argument notation](./#argument-notation)
+**In this reference:** [Hardware](./pmd85/hardware) · [Escape codes](./pmd85/escapes) · [File formats](./pmd85/formats) · [Argument notation](./#argument-notation)
 
 ## Notes and caveats
 

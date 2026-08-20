@@ -350,13 +350,11 @@ Pulled forward: registering in Stage 3 is what makes these mandatory.
       and escape guidance, plus `docs/reference/pmd85.md` and its
       `hardware`/`escapes` sub-pages. **No sidebar entry** — the project rule is
       that adding a page does not imply adding one, so ask the user first
-- [ ] `docs/reference/pmd85/formats.md` — `.ptp`, `.pmd` and the cassette
-      encoding are all shipped and documented in `src/dialects/pmd85/tape.ts`
-      and `audio/cassetteEncoder.ts`; the page and its sidebar sub-entry
-      (alongside the Hardware and Escape codes ones already there) are what is
-      missing. **Ask before touching the sidebar.** The `docs/reference/file-formats.md`
-      tables want a PMD 85 row too - note that the Altair is missing from them
-      as well
+- [x] `docs/reference/pmd85/formats.md` — the two tape framings and the cassette
+      encoding, with its sidebar sub-entry (the user asked for it) and rows in
+      the `docs/reference/file-formats.md` tables. Noticed while doing it, and
+      **not** fixed because it belongs to another machine: the Altair is missing
+      from every one of those cross-machine lists
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md` flipped to ✅,
       and this plan **deleted** in the same change, along with its roadmap
       cross-link and any `Stage N` references left in the dialect's source

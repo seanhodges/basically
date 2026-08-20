@@ -116,7 +116,8 @@ describe('pmd85 tape container', () => {
     const { file: program, warnings } = firstProgramFile(parse);
     expect(program!.header.name).toBe('GAME');
     expect(warnings).toEqual([
-      '1 other file on the tape was not opened; only the program was.',
+      '1 other file on the tape was kept with the document; the program is ' +
+        'what opened for editing.',
     ]);
   });
 
@@ -134,7 +135,8 @@ describe('pmd85 tape container', () => {
     expect(Array.from(parse.headerless[0]!)).toEqual([9, 8, 7]);
     expect(parse.files).toHaveLength(1);
     expect(parse.warnings).toEqual([
-      'A 3-byte block with no header was preserved as it is.',
+      'A 3-byte block with no header was not opened — what is in one is the ' +
+        'business of the program that wrote it.',
     ]);
   });
 

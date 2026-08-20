@@ -365,7 +365,8 @@ export function parseTapeImage(bytes: Uint8Array): Pmd85TapeParse {
     if (ptp) {
       headerless.push(block);
       warnings.push(
-        `A ${block.length}-byte block with no header was preserved as it is.`,
+        `A ${block.length}-byte block with no header was not opened — what is ` +
+          'in one is the business of the program that wrote it.',
       );
       continue;
     }
@@ -400,7 +401,8 @@ export function firstProgramFile(parse: Pmd85TapeParse): {
   if (rest > 0) {
     warnings.push(
       `${rest} other file${rest === 1 ? '' : 's'} on the tape ` +
-        `${rest === 1 ? 'was' : 'were'} not opened; only the program was.`,
+        `${rest === 1 ? 'was' : 'were'} kept with the document; the program ` +
+        'is what opened for editing.',
     );
   }
   return { file: parse.files[index]!, warnings };

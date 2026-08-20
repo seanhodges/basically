@@ -91,6 +91,7 @@ reference page:
 | TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks     |
 | Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks       |
 | Amstrad CPC        | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape |
+| Tesla PMD 85       | `.ptp`, `.pmd` | `.ptp`, `.pmd` | header + body tape blocks; `.ptp` puts a length in front of each   |
 
 All of these are built by the IDE when you export; the ones that can also be
 re-imported are marked in the Import column above. The
@@ -108,6 +109,7 @@ full on its own page:
 - [TRS-80 file formats](./trs80/formats) — `.cas`, `.dsk`
 - [Acorn Atom file formats](./atom/formats) — `.atm`, `.dsk`
 - [Amstrad CPC file formats](./cpc/formats) — `.bas`, `.cdt`
+- [PMD 85 file formats](./pmd85/formats) — `.ptp`, `.pmd`
 
 ## Machine code & data blocks
 
@@ -145,6 +147,8 @@ native formats carry blocks on **import** only:
   address records as a block (the entry-point address stays with the block
   that contains it), and machine code trailing a BASIC program on the tape
   imports as a block at the address it followed the program.
+- **PMD 85 `.ptp` / `.pmd`** — bytes found past the end of the tokenized
+  program import as a block at the address they followed the program at.
 
 A block can carry an **entry address** recovered with it (an Atom `.atm`'s
 exec address, a TRS-80 SYSTEM tape's entry record). When a document holds no
@@ -196,3 +200,5 @@ its format page:
   scheme.
 - [Acorn Atom](./atom/formats#cassette-audio) — the Acorn cassette filing system
   over Kansas City Standard FSK at 300 baud.
+- [PMD 85](./pmd85/formats#cassette-audio) — not FSK at all: one 1200 Hz tone
+  whose phase carries the bit, eleven bit periods to a byte.

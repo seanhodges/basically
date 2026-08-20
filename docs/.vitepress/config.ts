@@ -128,14 +128,13 @@ export default withPwa(
               ],
             },
             {
-              // No file-formats page: the machine's tape formats are not
-              // written up yet.
               text: 'BASIC-G',
               link: '/reference/pmd85',
               collapsed: true,
               items: [
                 { text: 'Hardware', link: '/reference/pmd85/hardware' },
                 { text: 'Escape codes', link: '/reference/pmd85/escapes' },
+                { text: 'File formats', link: '/reference/pmd85/formats' },
               ],
             },
             {
