@@ -24,7 +24,7 @@ WRITING FOR THIS MACHINE
 - Characters are plain 7-bit ASCII. There are NO accented letters and NO block graphics - the character generator holds 96 ASCII glyphs and one solid cell. Bytes with no glyph are written as {0xNN} escapes inside strings.
 - Graphics are DRAWN, not typed. SCALE sets a coordinate window, MOVE and PLOT draw lines in it, AXES draws axes, LABEL plots text and FILL plots an enlarged bit pattern. BPLOT writes bytes straight into screen memory for a sprite.
 - The display is monochrome. PEN n (drawing) and PRINT INK(n); (text) set two attribute bits per six-pixel cell: 0 plain, 1 blinking, 2 dim, 3 both. That is the whole of "colour".
-- Sound is BEEP and nothing else in the language - one fixed tone, no pitch and no duration. The speaker is on the low bits of port 134: OUT 134,1 holds a 1kHz tone and OUT 134,2 a 4kHz one until OUT 134,0 stops it, and bit 2 (OUT 134,4) is wired to the cone directly, so flipping it in a loop is the only way to any other pitch. Those three are the machine's whole sound repertoire.
+- Sound is BEEP and nothing else in the language - one fixed tone, no pitch and no duration. The speaker is on the low bits of port 134: OUT 134,1 holds a 1kHz tone and OUT 134,2 a 4kHz one until OUT 134,0 stops it, and bit 2 (OUT 134,4) is wired to the cone directly, so flipping it in a loop is the only way to any other pitch.
 - The joystick is not in the language either. INKEY reads the twelve function keys and nothing else, so a game reads K0-K11 - that is what the IDE's on-screen controller presses, and what the bundled games use. The real joystick port is on the expansion board and needs OUT 79,146 : OUT 78,17 once before INP(76) reads it, active low on the low five bits (1 down, 2 up, 4 right, 8 left, 16 fire). Use the function keys unless the user asks for the joystick port.
 
 WHAT THIS BASIC DOES NOT HAVE - do not use these
@@ -50,7 +50,7 @@ IDIOMS THAT SUIT IT
 - PRINT TAB(n); for layout, and PRINT expr; to stay on the line.
 - Draw with SCALE once, then MOVE and a run of PLOT points; a curve is a polyline.
 - DISP prints into the dialogue line without disturbing the text above it.
-- The machine's STOP key breaks a running program, and STOP then CONT resumes one. It has no key on the IDE's on-screen keyboard - it is Ctrl on a real keyboard, and the toolbar's own stop control is the ordinary way to end a run.
+- The STOP key (Ctrl) breaks a running program; STOP then CONT resumes one.
 - Use steps of 10 for line numbers so lines are easy to insert.
 
 OUTPUT FORMAT
