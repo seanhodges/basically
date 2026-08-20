@@ -15,6 +15,16 @@ import { stubAssistant } from '../aiStub';
 
 const PROGRAM = ['10 CLS', '20 PRINT "MINE"', '30 GOTO 20'].join('\n');
 
+/**
+ * Every tool the assistant is offered, in the order it is offered them.
+ *
+ * Named here once and asserted from every turn: what these tests are for is
+ * that the set never varies within a conversation, and two copies of the list
+ * could drift apart and still both pass. Which tools exist, and in what order,
+ * is pinned in src/ai/driveTools.test.ts.
+ */
+const EVERY_TOOL = ['drive', 'look', 'profile', 'time'];
+
 /** A program that stops dead until a key is held - the case driving exists for. */
 const WAITS_FOR_A_KEY = [
   '```basic',
@@ -64,7 +74,7 @@ test('the same tools are offered on every turn of a conversation', async ({
   // on the turn that drives and vanished on the rest would invalidate the whole
   // cached prefix behind it on every turn after a drive.
   for (const names of stub.toolsOffered()) {
-    expect(names).toEqual(['drive', 'look']);
+    expect(names).toEqual(EVERY_TOOL);
   }
 });
 
@@ -123,7 +133,7 @@ test('an answer that does not ask to drive never touches the machine', async ({
   // the turn that drives, and the machine is still handed over only once a
   // program has been run and the assistant asked for it.
   for (const names of stub.toolsOffered()) {
-    expect(names).toEqual(['drive', 'look']);
+    expect(names).toEqual(EVERY_TOOL);
   }
   // ...so nothing is said to the user about driving that never happened.
   await expect(page.getByText(/Tried the program:/)).toHaveCount(0);
