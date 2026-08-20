@@ -13,6 +13,8 @@ import type { GlyphSignatures } from '../../../emulator/fontMatcher';
 import type {
   DebugStepOptions,
   DebugStepResult,
+  JoystickMode,
+  JoystickState,
   LineCost,
   MachineEmulator,
   MachineMemoryStats,
@@ -48,6 +50,8 @@ import { Pmd85Memory } from './memory';
 import { Pmd85RomModule } from './romModule';
 import { CPU_HZ, CYCLES_PER_FRAME } from './clock';
 import { Pmd85TapeDeck } from './tape';
+import { Speaker, SPEAKER_SAMPLE_RATE } from './speaker';
+import { Pmd85Gpio } from './gpio';
 
 /**
  * The PMD 85's I/O map, which decodes an address rather than comparing it.
@@ -66,6 +70,7 @@ const PORT_HIGH_HALF = 0x80;
 /** Which chip on the expansion board, from bits 4-6: the 8251 is 000111aa. */
 const IO_DEVICE_MASK = 0x70;
 const IO_USART = 0x10;
+const IO_GPIO = 0x40; // 010011aa - the two joystick connectors' 8255
 
 /**
  * What the 8251's status register reads as with nothing on the serial line:
@@ -145,6 +150,7 @@ export class Pmd85Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
   readonly frameHz = CPU_HZ / CYCLES_PER_FRAME;
+  readonly audioSampleRate = SPEAKER_SAMPLE_RATE;
 
   /**
    * `monitor` is the 4K Monitor ROM and `romModule` the BASIC-G module; they
@@ -155,6 +161,10 @@ export class Pmd85Machine implements MachineEmulator {
   private readonly romModule: Pmd85RomModule;
   private readonly keyboard = new Pmd85Keyboard();
   private readonly display = new Pmd85Display();
+  /** The transducer on the motherboard 8255's port C; see `speaker.ts`. */
+  private readonly speaker = new Speaker();
+  /** The I/O board's GPIO 8255, where a joystick plugs in; see `gpio.ts`. */
+  private readonly gpio = new Pmd85Gpio();
   private readonly cpu: Z80Core;
   /** The CPU driven with 8080 rather than Z80 flag semantics. */
   private readonly i8080: Intel8080;
@@ -251,6 +261,8 @@ export class Pmd85Machine implements MachineEmulator {
     this.keyboard.releaseAll();
     this.keyboardRowSelect = 0;
     this.systemPortC = 0;
+    this.speaker.reset();
+    this.gpio.reset();
     this.keyboardScans = 0;
     this.debt = 0;
     this.frames = 0;
@@ -547,6 +559,27 @@ export class Pmd85Machine implements MachineEmulator {
     return readPmd85Report(this.readScreenText());
   }
 
+  /**
+   * Point the IDE's controller at the joystick connector (`gpio.ts`).
+   *
+   * `native` is the only mode: the 4004/482 on the I/O board's GPIO0 is the
+   * machine's own stick, and nothing third-party ever became standard enough
+   * here to be worth a second.
+   */
+  setJoystick(_mode: JoystickMode, state: JoystickState): void {
+    this.gpio.setJoystick(state);
+  }
+
+  /**
+   * Transducer samples for the time run since the previous call (`speaker.ts`).
+   *
+   * Measured in machine cycles rather than frames so that a debugger step, which
+   * ends wherever the BASIC line did, contributes exactly the sound it ran for.
+   */
+  readAudio(): Float32Array {
+    return this.speaker.render(this.cycles);
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -606,9 +639,10 @@ export class Pmd85Machine implements MachineEmulator {
    * decoder holds the peripherals off the bus until the first OUT, which is
    * also the write that drops the memory mirrors, so the two are one event.
    *
-   * Of the expansion board only the 8251 answers: see {@link USART_STATUS_IDLE}
-   * for why the keyboard depends on it and {@link USART_STATUS_DSR} for how the
-   * tape arrives through it. The 8253 timer and the two GPIO 8255s are
+   * Of the expansion board, the 8251 and the GPIO 8255 answer: see
+   * {@link USART_STATUS_IDLE} for why the keyboard depends on the first and
+   * {@link USART_STATUS_DSR} for how the tape arrives through it, and `gpio.ts`
+   * for the joystick on the second. The 8253 timer and the IMS-2 8255 are
    * write-only as far as either ROM is concerned - the Monitor sets the timer's
    * counter 1 to the tape's bit rate and never reads it back - so leaving them
    * off the bus costs nothing.
@@ -617,9 +651,15 @@ export class Pmd85Machine implements MachineEmulator {
     if (this.memory.inStartupMap) return 0xff;
     const board = port & BOARD_MASK;
     if ((port & PORT_HIGH_HALF) === 0) {
-      return board === BOARD_IO && (port & IO_DEVICE_MASK) === IO_USART
-        ? this.readUsart(port & 0x01)
-        : 0xff;
+      if (board !== BOARD_IO) return 0xff;
+      switch (port & IO_DEVICE_MASK) {
+        case IO_USART:
+          return this.readUsart(port & 0x01);
+        case IO_GPIO:
+          return this.gpio.readPort(port & 0x03);
+        default:
+          return 0xff;
+      }
     }
     switch (board) {
       case BOARD_MOTHERBOARD:
@@ -639,14 +679,17 @@ export class Pmd85Machine implements MachineEmulator {
       // The 8251's data register is the tape. Its control register, and the
       // 8253 the Monitor sets to the tape's bit rate beside it, are write-only
       // to both ROMs and change nothing this machine models.
-      if (
-        (port & BOARD_MASK) === BOARD_IO &&
-        (port & IO_DEVICE_MASK) === IO_USART &&
-        (port & 0x01) === 0
-      ) {
-        this.tape.record(value);
+      if ((port & BOARD_MASK) !== BOARD_IO) return;
+      switch (port & IO_DEVICE_MASK) {
+        case IO_USART:
+          if ((port & 0x01) === 0) this.tape.record(value);
+          return;
+        case IO_GPIO:
+          this.gpio.writePort(port & 0x03, value);
+          return;
+        default:
+          return;
       }
-      return;
     }
     switch (port & BOARD_MASK) {
       case BOARD_MOTHERBOARD:
@@ -703,21 +746,32 @@ export class Pmd85Machine implements MachineEmulator {
       case 1:
         return; // port B is an input; the CPU never drives it
       case 2:
-        this.systemPortC = value;
+        this.writePortC(value);
         return;
       default:
         // A mode word clears the latches; the bit set/reset form (bit 7 clear)
         // addresses one port C bit, which is how firmware clicks the speaker.
         if (value & 0x80) {
           this.keyboardRowSelect = 0;
-          this.systemPortC = 0;
+          this.writePortC(0);
         } else {
           const bit = (value >> 1) & 0x07;
-          if (value & 0x01) this.systemPortC |= 1 << bit;
-          else this.systemPortC &= ~(1 << bit) & 0xff;
+          if (value & 0x01) this.writePortC(this.systemPortC | (1 << bit));
+          else this.writePortC(this.systemPortC & (~(1 << bit) & 0xff));
         }
         return;
     }
+  }
+
+  /**
+   * Latch port C and show it to the transducer, which hangs off its low nibble.
+   * Both ways of writing the port land here - the whole-byte write and the bit
+   * set/reset command - because the firmware uses each for a different sound:
+   * `BEEP` writes the byte, the key click flips one bit.
+   */
+  private writePortC(value: number): void {
+    this.systemPortC = value & 0xff;
+    this.speaker.write(this.cycles, this.systemPortC);
   }
 
   private runCycles(budget: number): void {

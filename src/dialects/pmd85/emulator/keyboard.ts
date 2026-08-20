@@ -86,6 +86,9 @@ const HOST_CODES: Readonly<Record<string, string>> = {
   PageUp: 'Clr',
   PageDown: 'Rcl',
   Tab: 'TabRight',
+  // Back-tab has no code of its own - a browser sends `Tab` for shift-Tab
+  // too - so it takes the one key a PC has and this machine does not.
+  Backquote: 'TabLeft',
   Escape: 'K0',
 };
 

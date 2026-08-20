@@ -1025,7 +1025,7 @@ const entries: PortingFactsEntry[] = [
       '48×26 characters of text on a 288×256 monochrome bitmap, with a separate dialogue line below them.',
     textScreen: { columns: 48, rows: 26 },
     waitIdiom: {
-      text: 'PAUSE n, which waits about n milliseconds (n up to 255)',
+      text: 'PAUSE n, which waits about n tenths of a second (n up to 255)',
       keywords: ['PAUSE'],
     },
     loopSpeed: 562,
