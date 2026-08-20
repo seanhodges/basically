@@ -48,6 +48,7 @@ import { Pmd85Memory } from './memory';
 import { Pmd85RomModule } from './romModule';
 import { CPU_HZ, CYCLES_PER_FRAME } from './clock';
 import { Pmd85TapeDeck } from './tape';
+import { Speaker, SPEAKER_SAMPLE_RATE } from './speaker';
 
 /**
  * The PMD 85's I/O map, which decodes an address rather than comparing it.
@@ -145,6 +146,7 @@ export class Pmd85Machine implements MachineEmulator {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
   readonly frameHz = CPU_HZ / CYCLES_PER_FRAME;
+  readonly audioSampleRate = SPEAKER_SAMPLE_RATE;
 
   /**
    * `monitor` is the 4K Monitor ROM and `romModule` the BASIC-G module; they
@@ -155,6 +157,8 @@ export class Pmd85Machine implements MachineEmulator {
   private readonly romModule: Pmd85RomModule;
   private readonly keyboard = new Pmd85Keyboard();
   private readonly display = new Pmd85Display();
+  /** The transducer on the motherboard 8255's port C; see `speaker.ts`. */
+  private readonly speaker = new Speaker();
   private readonly cpu: Z80Core;
   /** The CPU driven with 8080 rather than Z80 flag semantics. */
   private readonly i8080: Intel8080;
@@ -251,6 +255,7 @@ export class Pmd85Machine implements MachineEmulator {
     this.keyboard.releaseAll();
     this.keyboardRowSelect = 0;
     this.systemPortC = 0;
+    this.speaker.reset();
     this.keyboardScans = 0;
     this.debt = 0;
     this.frames = 0;
@@ -547,6 +552,16 @@ export class Pmd85Machine implements MachineEmulator {
     return readPmd85Report(this.readScreenText());
   }
 
+  /**
+   * Transducer samples for the time run since the previous call (`speaker.ts`).
+   *
+   * Measured in machine cycles rather than frames so that a debugger step, which
+   * ends wherever the BASIC line did, contributes exactly the sound it ran for.
+   */
+  readAudio(): Float32Array {
+    return this.speaker.render(this.cycles);
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -703,21 +718,32 @@ export class Pmd85Machine implements MachineEmulator {
       case 1:
         return; // port B is an input; the CPU never drives it
       case 2:
-        this.systemPortC = value;
+        this.writePortC(value);
         return;
       default:
         // A mode word clears the latches; the bit set/reset form (bit 7 clear)
         // addresses one port C bit, which is how firmware clicks the speaker.
         if (value & 0x80) {
           this.keyboardRowSelect = 0;
-          this.systemPortC = 0;
+          this.writePortC(0);
         } else {
           const bit = (value >> 1) & 0x07;
-          if (value & 0x01) this.systemPortC |= 1 << bit;
-          else this.systemPortC &= ~(1 << bit) & 0xff;
+          if (value & 0x01) this.writePortC(this.systemPortC | (1 << bit));
+          else this.writePortC(this.systemPortC & (~(1 << bit) & 0xff));
         }
         return;
     }
+  }
+
+  /**
+   * Latch port C and show it to the transducer, which hangs off its low nibble.
+   * Both ways of writing the port land here - the whole-byte write and the bit
+   * set/reset command - because the firmware uses each for a different sound:
+   * `BEEP` writes the byte, the key click flips one bit.
+   */
+  private writePortC(value: number): void {
+    this.systemPortC = value & 0xff;
+    this.speaker.write(this.cycles, this.systemPortC);
   }
 
   private runCycles(budget: number): void {
