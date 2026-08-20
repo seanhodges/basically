@@ -407,6 +407,56 @@ const ALTAIR: ConstructTemplate[] = [
 ];
 
 /** Locomotive BASIC has real ELSE, WHILE…WEND loops and MERGE/CHAIN. */
+/**
+ * BASIC-G. The Microsoft core the Altair also has, plus this machine's own
+ * drawing statements, which are what a PMD 85 program is mostly made of.
+ * `DISP` and its `_` twin print into the dialogue line rather than the screen,
+ * so they earn their own string templates alongside PRINT.
+ */
+const PMD85: ConstructTemplate[] = [
+  ifThen(),
+  forNext(),
+  gosub('GOSUB'),
+  stringCmd('PRINT', 'print a string'),
+  stringCmd('DISP', 'print into the dialogue line'),
+  stringCmd('LABEL', 'plot a string on the graphics screen'),
+  {
+    label: 'PLOT',
+    lines: ['PLOT ${1:x},${2:y}'],
+    detail: 'draw to a point',
+  },
+  {
+    label: 'MOVE',
+    lines: ['MOVE ${1:x},${2:y}'],
+    detail: 'move without drawing',
+  },
+  {
+    label: 'SCALE',
+    lines: ['SCALE ${1:x1},${2:x2},${3:y1},${4:y2}'],
+    detail: 'set the plotting window',
+  },
+  ...fns([
+    ['ABS', 'n'],
+    ['ASC', 's'],
+    ['CHR$', 'n'],
+    ['FRE', 'n'],
+    ['HEX$', 'n'],
+    ['INP', 'n'],
+    ['INT', 'n'],
+    ['LEFT$', 'sn'],
+    ['LEN', 's'],
+    ['MID$', 'sn'],
+    ['PEEK', 'n'],
+    ['POS', 'n'],
+    ['RIGHT$', 'sn'],
+    ['RND', 'n'],
+    ['SGN', 'n'],
+    ['STR$', 'n'],
+    ['USR', 'n'],
+    ['VAL', 's'],
+  ]),
+];
+
 const CPC: ConstructTemplate[] = [
   ifThen(),
   {
@@ -485,6 +535,7 @@ export const constructsByDialect: Record<string, ConstructTemplate[]> = {
   atom: ATOM,
   trs80: TRS80,
   altair8800: ALTAIR,
+  pmd85: PMD85,
   cpc464: CPC,
   // Locomotive BASIC 1.1 adds keywords, not statement shapes: the 6128's blocks are the 464's.
   cpc6128: CPC,

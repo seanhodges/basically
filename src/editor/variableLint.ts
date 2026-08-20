@@ -33,7 +33,7 @@
 import type { EditorKeyword, TokenizeError } from '../dialects/types';
 import type { BasicLanguageOptions } from './basicLanguage';
 import { eachOccurrence, type Occurrence } from './variables';
-import { VARIABLE_LEXIS, variableRules } from './variableLexis';
+import { PMD85_LEXIS, VARIABLE_LEXIS, variableRules } from './variableLexis';
 
 /** The lexis a machine's names follow; see {@link VARIABLE_LEXIS}. */
 function lexisFor(dialectId: string): BasicLanguageOptions {
@@ -257,5 +257,21 @@ export function altair8800VariableErrors(
   return microsoftVariableErrors(source, keywords, {
     label: 'Altair',
     lexis: lexisFor('altair8800'),
+  });
+}
+
+/**
+ * BASIC-G inherits both rules from the same place the Altair's come from -
+ * two significant characters, and `$` as the only type suffix. Its lexis is
+ * passed in rather than looked up by id, because {@link VARIABLE_LEXIS} names
+ * only the registered machines.
+ */
+export function pmd85VariableErrors(
+  source: string,
+  keywords: EditorKeyword[],
+): TokenizeError[] {
+  return microsoftVariableErrors(source, keywords, {
+    label: 'PMD 85',
+    lexis: PMD85_LEXIS,
   });
 }
