@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
-import type { DetokenizeResult, MemoryBlock } from '../types';
+import type { DetokenizeResult, MemoryBlock, TapeFile } from '../types';
 import { decodeSpan } from './charset';
 import { pmd85WordByToken } from './keywords';
 import { codeFilesToBlocks } from '../importBlocks';
 import { PROGRAM_BASE } from './addresses';
+import {
+  BASIC_FILE_TYPE,
+  buildPtpImage,
+  firstProgramFile,
+  isTapeImage,
+  parseTapeImage,
+  programFromTapeFile,
+  type Pmd85TapeFile,
+} from './tape';
 
 const QUOTE = 0x22;
 const APOSTROPHE = 0x27;
@@ -19,8 +28,9 @@ const HEX_DIGITS = '0123456789ABCDEF';
  * BASIC-G tokenized program bytes -> editor text: the inverse of `tokenizer.ts`,
  * and the half that has to be *total* from the start.
  *
- * The image is the bare program as it sits from {@link PROGRAM_BASE} (the same
- * bytes {@link import('./tokenizer').tokenizeProgram} produces): a chain of
+ * The image is either a `.ptp` / `.pmd` tape, which {@link unwrapTape} takes the
+ * program out of, or the bare program as it sits from {@link PROGRAM_BASE} (the
+ * same bytes {@link import('./tokenizer').tokenizeProgram} produces): a chain of
  * `u16 link` + `u16 line number` + body + 0x00 records, ending with a 0x0000
  * link. We follow the links, decode the line number, expand keyword tokens
  * (0x80-0xE9) to their LIST spelling and map every other byte through the
@@ -35,7 +45,55 @@ const HEX_DIGITS = '0123456789ABCDEF';
  * lossy `?`, so nothing is silently lost.
  */
 export function detokenizeProgram(image: Uint8Array): string {
-  return decodeLinkedProgram(image).source;
+  return decodeLinkedProgram(unwrapTape(image).program).source;
+}
+
+/** What an import was handed: a tape, or the program area on its own. */
+interface UnwrappedImage {
+  /** The tokenized program, from {@link PROGRAM_BASE}. */
+  program: Uint8Array;
+  /** Import-fidelity notes from the container, if there was one. */
+  warnings: string[];
+  /** The other files on the tape, preserved so the deck can serve them. */
+  tapeFiles: TapeFile[];
+}
+
+/**
+ * Take a `.ptp` or `.pmd` tape off the program inside it.
+ *
+ * An image that is not a tape is taken to be the program area itself, which is
+ * what the run and export paths pass around: the two cannot be confused,
+ * because a tape opens with a header block's sixteen `FF` bytes and a program
+ * opens with a link word that points just above {@link PROGRAM_BASE}.
+ */
+function unwrapTape(image: Uint8Array): UnwrappedImage {
+  if (!isTapeImage(image))
+    return { program: image, warnings: [], tapeFiles: [] };
+  const parse = parseTapeImage(image);
+  const { file, warnings } = firstProgramFile(parse);
+  if (!file) {
+    throw new Error(
+      warnings[0] ?? 'The tape holds no BASIC-G program to open.',
+    );
+  }
+  // Everything else on the tape rides along with the document, so a program
+  // that loads its own data or overlay finds it on the emulator's deck.
+  const extras = parse.files.filter((f) => f !== file).map(asTapeFile);
+  return {
+    program: programFromTapeFile(file),
+    warnings: [...parse.warnings, ...warnings],
+    tapeFiles: extras,
+  };
+}
+
+/** One preserved tape file, wrapped as the single-file `.ptp` the deck reads. */
+function asTapeFile(file: Pmd85TapeFile): TapeFile {
+  const { header } = file;
+  return {
+    name: header.name.trim() || `FILE ${header.number}`,
+    kind: header.type === BASIC_FILE_TYPE ? 'program' : 'data',
+    tap: buildPtpImage([file]),
+  };
 }
 
 /** Format a byte address as `0xNNNN` for warning messages. */
@@ -48,29 +106,30 @@ function hex(n: number): string {
  * capture: a truncated link chain, or bytes past the end-of-program marker.
  * The import UI prefers this over the bare `detokenize` when present.
  *
- * There is no container to unwrap. The program area is plain RAM below 0x8000
- * with no header in front of it, so an imported image is taken to be what
- * `tokenizeProgram` emits: program bytes from {@link PROGRAM_BASE}. Anything
- * *after* the end-of-program marker is what would have been sitting straight
- * above the program, so it comes back as a memory block at the address it
- * followed the program at.
+ * A tape is unwrapped first, and anything else on it is preserved (see
+ * {@link unwrapTape}). Whatever container it came in, the program area is plain
+ * RAM with no header of its own, so anything *after* the end-of-program marker
+ * is what would have been sitting straight above the program: it comes back as
+ * a memory block at the address it followed the program at.
  */
 export function detokenizeProgramWithReport(
   image: Uint8Array,
 ): DetokenizeResult {
-  const warnings: string[] = [];
-  const decoded = decodeLinkedProgram(image);
+  const tape = unwrapTape(image);
+  const warnings: string[] = [...tape.warnings];
+  const program = tape.program;
+  const decoded = decodeLinkedProgram(program);
   if (decoded.truncated) {
     warnings.push(
       'The program looks truncated — the data ends before the end-of-program marker.',
     );
   }
-  const trailing = image.length - decoded.end;
+  const trailing = program.length - decoded.end;
   let blocks: MemoryBlock[] | undefined;
   if (!decoded.truncated && trailing > 0) {
     const address = PROGRAM_BASE + decoded.end;
     blocks = codeFilesToBlocks([
-      { name: '', address, bytes: image.slice(decoded.end) },
+      { name: '', address, bytes: program.slice(decoded.end) },
     ]);
     warnings.push(
       `${trailing} byte${trailing === 1 ? '' : 's'} after the end-of-program ` +
@@ -82,6 +141,7 @@ export function detokenizeProgramWithReport(
     source: decoded.source,
     warnings,
     ...(blocks ? { blocks } : {}),
+    ...(tape.tapeFiles.length > 0 ? { tapeFiles: tape.tapeFiles } : {}),
   };
 }
 

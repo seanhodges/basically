@@ -23,6 +23,7 @@ import type {
   TapeFile,
 } from '../../types';
 import { basicImagePointers } from '../basicImage';
+import { parseTapeImage, type Pmd85TapeFile } from '../tape';
 import {
   CURLIN,
   DIRECT_MODE,
@@ -45,12 +46,8 @@ import {
 import { Pmd85Keyboard } from './keyboard';
 import { Pmd85Memory } from './memory';
 import { Pmd85RomModule } from './romModule';
-
-/** The MHB8080A's clock: an 18.432 MHz crystal divided by nine. */
-export const CPU_HZ = 18_432_000 / 9;
-
-/** Cycles of 8080 time per displayed frame. */
-export const CYCLES_PER_FRAME = CPU_HZ / 50;
+import { CPU_HZ, CYCLES_PER_FRAME } from './clock';
+import { Pmd85TapeDeck } from './tape';
 
 /**
  * The PMD 85's I/O map, which decodes an address rather than comparing it.
@@ -71,19 +68,32 @@ const IO_DEVICE_MASK = 0x70;
 const IO_USART = 0x10;
 
 /**
- * What the 8251's status register reads as with the tape stopped: transmitter
- * ready and empty, receiver holding nothing.
+ * What the 8251's status register reads as with nothing on the serial line:
+ * transmitter ready and empty, receiver holding nothing.
  *
- * This is the one register of the expansion board the machine cannot do
- * without, and not for the reason the board exists. The Monitor's keyboard
- * routine checks the USART's RxRDY bit between matrix rows so that a byte
- * arriving on the serial line pre-empts the scan, and takes RxRDY set as "stop
- * scanning, a character is already here". An unfitted board floats every bit
- * high, so a machine modelled without a USART reads a character that never
- * arrives, abandons the scan after row 0 and never sees a key pressed - which
- * looks exactly like a broken keyboard matrix and is not one.
+ * The RxRDY bit is the one the machine cannot get wrong, and not for the reason
+ * the board exists. The Monitor's keyboard routine checks it between matrix
+ * rows so that a byte arriving on the serial line pre-empts the scan, and takes
+ * RxRDY set as "stop scanning, a character is already here". An unfitted board
+ * floats every bit high, so a machine modelled without a USART reads a
+ * character that never arrives, abandons the scan after row 0 and never sees a
+ * key pressed - which looks exactly like a broken keyboard matrix and is not
+ * one. The receiver stays empty here whatever the tape is doing, because on
+ * this machine the tape does not arrive through the receiver at all - see
+ * {@link USART_STATUS_DSR}.
  */
 const USART_STATUS_IDLE = 0x05;
+
+/**
+ * Bit 7 of the 8251's status register: the DSR pin, and on a PMD 85-2 the whole
+ * cassette input.
+ *
+ * The tape interface board clocks the USART's transmitter from the 8253 but
+ * leaves its receive clock unconnected, and wires the read amplifier to DSR
+ * instead. So `LOAD` is a software receiver reading this one bit; see
+ * `tape.ts`, which is what answers it.
+ */
+const USART_STATUS_DSR = 0x80;
 
 /**
  * How long each stage of the boot is given before it is called a failure.
@@ -190,6 +200,15 @@ export class Pmd85Machine implements MachineEmulator {
   private frames = 0;
   private disposed = false;
 
+  /**
+   * The cassette, and the CPU time the deck reads itself against. Counted here
+   * rather than taken from the frame number because a tape bit is 1707 cycles
+   * long and a frame is 40960: sampling the tape once a frame would read every
+   * twenty-fourth bit.
+   */
+  private readonly tape = new Pmd85TapeDeck();
+  private cycles = 0;
+
   constructor(opts: { monitor: Uint8Array; romModule: Uint8Array }) {
     this.firmware = opts.monitor.length > 0 && opts.romModule.length > 0;
     this.memory = new Pmd85Memory(opts.monitor);
@@ -235,6 +254,8 @@ export class Pmd85Machine implements MachineEmulator {
     this.keyboardScans = 0;
     this.debt = 0;
     this.frames = 0;
+    this.cycles = 0;
+    this.tape.eject();
     this.runStarted = false;
     this.runLatch.clear();
     this.cpu.reset();
@@ -294,6 +315,13 @@ export class Pmd85Machine implements MachineEmulator {
       }
     }
 
+    // Extra files off a multi-file tape go on the deck rather than into RAM:
+    // what they are for is the program's own `LOAD n`, and that reads a tape.
+    const tapeFiles = opts?.tapeFiles ?? [];
+    if (tapeFiles.length > 0) {
+      this.playTape(tapeFiles.flatMap((f) => parseTapeImage(f.tap).files));
+    }
+
     // Armed before the keystrokes that start the program rather than after
     // them: a program short enough to finish inside the frames those keystrokes
     // pump would otherwise end before anything was watching for it.
@@ -301,6 +329,23 @@ export class Pmd85Machine implements MachineEmulator {
     this.runLatch.arm();
     const autoStart = opts?.autoStart;
     this.type(typeof autoStart === 'number' ? `RUN ${autoStart}` : 'RUN');
+  }
+
+  /**
+   * Put a tape in the deck and press play.
+   *
+   * The machine has no motor control, so the deck simply runs from here on and
+   * loops when it reaches the end - which is what makes a `LOAD` that happens
+   * some seconds into a program's life find its file rather than the far side
+   * of the tape.
+   */
+  playTape(files: readonly Pmd85TapeFile[]): void {
+    this.tape.play(files, this.cycles);
+  }
+
+  /** What the machine has written to tape since it was reset. */
+  recordedTape(): Uint8Array {
+    return this.tape.recorded;
   }
 
   /**
@@ -561,11 +606,12 @@ export class Pmd85Machine implements MachineEmulator {
    * decoder holds the peripherals off the bus until the first OUT, which is
    * also the write that drops the memory mirrors, so the two are one event.
    *
-   * Of the expansion board only the 8251 answers, and only as an idle one -
-   * see {@link USART_STATUS_IDLE} for why the keyboard depends on it. The 8253
-   * timer and the two GPIO 8255s are write-only as far as either ROM is
-   * concerned, so leaving them off the bus costs nothing until the tape stage
-   * needs them.
+   * Of the expansion board only the 8251 answers: see {@link USART_STATUS_IDLE}
+   * for why the keyboard depends on it and {@link USART_STATUS_DSR} for how the
+   * tape arrives through it. The 8253 timer and the two GPIO 8255s are
+   * write-only as far as either ROM is concerned - the Monitor sets the timer's
+   * counter 1 to the tape's bit rate and never reads it back - so leaving them
+   * off the bus costs nothing.
    */
   private readPort(port: number): number {
     if (this.memory.inStartupMap) return 0xff;
@@ -589,7 +635,19 @@ export class Pmd85Machine implements MachineEmulator {
     // The first I/O write of the machine's life is what drops the startup
     // memory map - there is no bank-select port. See `memory.ts`.
     this.memory.leaveStartupMap();
-    if ((port & PORT_HIGH_HALF) === 0) return;
+    if ((port & PORT_HIGH_HALF) === 0) {
+      // The 8251's data register is the tape. Its control register, and the
+      // 8253 the Monitor sets to the tape's bit rate beside it, are write-only
+      // to both ROMs and change nothing this machine models.
+      if (
+        (port & BOARD_MASK) === BOARD_IO &&
+        (port & IO_DEVICE_MASK) === IO_USART &&
+        (port & 0x01) === 0
+      ) {
+        this.tape.record(value);
+      }
+      return;
+    }
     switch (port & BOARD_MASK) {
       case BOARD_MOTHERBOARD:
         this.writeSystemPpi(port & 0x03, value);
@@ -603,11 +661,17 @@ export class Pmd85Machine implements MachineEmulator {
   }
 
   /**
-   * The 8251 with no tape running: A0 picks the data register or the status
-   * register, and there is never anything in the first.
+   * The 8251: A0 picks the data register or the status register.
+   *
+   * The data register never holds anything, because nothing this machine models
+   * arrives through the USART's receiver - the cassette comes in on the DSR bit
+   * of the status register instead, which is where the deck answers.
    */
   private readUsart(register: number): number {
-    return register === 0 ? 0x00 : USART_STATUS_IDLE;
+    if (register === 0) return 0x00;
+    return (
+      USART_STATUS_IDLE | (this.tape.level(this.cycles) ? USART_STATUS_DSR : 0)
+    );
   }
 
   /**
@@ -668,6 +732,7 @@ export class Pmd85Machine implements MachineEmulator {
       }
       const t = this.i8080.step();
       cycles += t;
+      this.cycles += t;
       // Charge the cycles to the BASIC line executing them. Here rather than in
       // debugStep, because a run the IDE performs to check an assistant's
       // answer opens no debug session and would otherwise go unmeasured.
