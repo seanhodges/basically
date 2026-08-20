@@ -5,7 +5,6 @@ import {
   type ChatMessage,
   type StreamHandle,
   type StreamResult,
-  type ToolDefinition,
   type ToolRunner,
 } from './aiClient';
 import type { AiEffort, AiProviderId, ChatImage } from './providers/types';
@@ -35,6 +34,7 @@ import {
   describeScreen,
   driveToolDefinitions,
   parseDriveScript,
+  refuseUngivenMachine,
   runDriveScript,
   DRIVE_TOOL,
   LOOK_TOOL,
@@ -68,7 +68,7 @@ import {
   buildViewNote,
   unavailableViews,
   FORMAT_RETRY_MESSAGE,
-  loadSystemPrompt,
+  loadSystemPromptFor,
   type PendingFix,
 } from './promptBuilder';
 import { getProvider } from './providers/registry';
@@ -106,6 +106,20 @@ export type CutOffReason = 'stopped' | 'failed' | 'outOfRoom';
  * never reaches storage; see {@link persist} and `screenShown`.
  */
 export interface DisplayMessage extends ChatMessage {
+  /**
+   * What this turn said to the provider, where that is not what the panel
+   * shows. Absent whenever the two are the same, which is every assistant turn.
+   *
+   * A user turn carries far more than the sentence the user typed - the program,
+   * its lint errors, how the last run went - and the panel shows only the
+   * sentence. The wire needs the rest: the provider's cache is a prefix match,
+   * so a turn replayed as anything other than what was sent ends the match at
+   * that point and the whole prompt behind it is written afresh. The cost of
+   * keeping it is one copy of the program per turn of history, read at a
+   * fraction of an input token; the cost of not keeping it is the entire prefix,
+   * rewritten on every turn from the second onward.
+   */
+  sentContent?: string;
   /**
    * A screen was shown with this turn, but its image is gone: set on a turn
    * restored from storage, where the marker was kept and the bytes were not.
@@ -237,13 +251,14 @@ export interface SendParams {
   effort?: AiEffort;
   system: string;
   /**
-   * Tools this request offers, and how to run one. Both or neither: a tool
-   * offered with no way to run it would hang the turn on its first call.
+   * How to run a tool the assistant calls, for the turn that has been given the
+   * machine. Absent on every other turn, which answers a call with a refusal
+   * instead (see {@link refuseUngivenMachine}).
    *
-   * Set only by the turn that drives the machine. Every other request offers
-   * none, and so takes exactly the single-exchange path it always has.
+   * Not paired with a tool list: which tools a request offers is a property of
+   * the conversation's provider and is resolved by {@link AiState.send}, so a
+   * caller cannot make one turn's offering differ from the next's.
    */
-  tools?: ToolDefinition[];
   runTool?: ToolRunner;
   /** Full context (source + lint errors + request) sent to the API. */
   userContent: string;
@@ -391,6 +406,13 @@ let latestFinalScreen: ChatImage | null = null;
  * everything else the IDE keeps, and a handful of upscaled PNGs would evict
  * them. A restored thread can still say a screen was shown; it just cannot show
  * it again.
+ *
+ * What each turn sent is kept, though, and it earns its room. The largest
+ * bundled sample is 3.6 KB and nine in ten are under 2.5 KB, so a dozen turns
+ * carrying one costs some tens of kilobytes against a budget of megabytes -
+ * where dropping it would restore a thread that replays its own history
+ * differently from how it was sent, which is the whole defect this field
+ * exists to prevent, reintroduced by a reload.
  */
 function persist(messages: DisplayMessage[]): void {
   saveAiConversation(
@@ -399,6 +421,7 @@ function persist(messages: DisplayMessage[]): void {
       .map((m) => ({
         role: m.role,
         content: m.content,
+        ...(m.sentContent ? { sentContent: m.sentContent } : {}),
         ...(m.streaming || m.incomplete ? { incomplete: true } : {}),
         // Still streaming as it was written means the page went away with the
         // answer half-arrived - the only way to be sure, and it needs no
@@ -435,7 +458,6 @@ export const useAiStore = create<AiState>((set, get) => ({
     maxTokens,
     effort,
     system,
-    tools,
     runTool,
     userContent,
     displayRequest,
@@ -462,19 +484,23 @@ export const useAiStore = create<AiState>((set, get) => ({
     const baseFingerprint =
       baseFingerprintOverride ?? sourceFingerprint(baseSource);
     const prior = get().messages;
-    // History for the API: prior turns + the new request. A screen shown with
-    // an earlier turn stays on it rather than being rewritten out - the prefix
-    // has to stay byte-stable for the provider's cache to hit, and a cached
-    // image reads for a fraction of what re-writing the prefix would cost.
+    /** What this turn says on the wire, as against what the panel shows. */
+    const sentContent = note ? `${note}\n\n${userContent}` : userContent;
+    // History for the API: prior turns as they were sent + the new request.
+    // Every earlier turn is replayed byte-for-byte - `sentContent` where it has
+    // one, `content` where the two are the same - because the provider's cache
+    // matches from the front and stops at the first difference. A screen shown
+    // with an earlier turn stays on it for the same reason, and reads for a
+    // fraction of what rewriting the prefix would cost.
     const baseHistory: ChatMessage[] = [
-      ...prior.map(({ role, content, image: was }) => ({
+      ...prior.map(({ role, content, sentContent: sent, image: was }) => ({
         role,
-        content,
+        content: sent ?? content,
         ...(was ? { image: was } : {}),
       })),
       {
         role: 'user',
-        content: note ? `${note}\n\n${userContent}` : userContent,
+        content: sentContent,
         ...(shown ? { image: shown } : {}),
       },
     ];
@@ -488,6 +514,7 @@ export const useAiStore = create<AiState>((set, get) => ({
         {
           role: 'user',
           content: displayRequest,
+          ...(sentContent === displayRequest ? {} : { sentContent }),
           ...(shown ? { image: shown } : {}),
         },
         {
@@ -499,6 +526,19 @@ export const useAiStore = create<AiState>((set, get) => ({
         },
       ],
     });
+
+    // The same tools on every turn of the conversation, or none at all on a
+    // backend that cannot be given them. Tool definitions render ahead of the
+    // system prompt, so a set that appeared on the turns that drive and
+    // vanished on the rest would invalidate everything behind it - the prompt
+    // and the whole thread - on every turn following a drive.
+    //
+    // Offering a tool is not granting the machine: `runTool` is supplied only by
+    // the turn that holds one, and every other turn answers a call with a
+    // refusal rather than acting on an emulator nobody handed over.
+    const tools = getProvider(providerId).supportsTools
+      ? driveToolDefinitions()
+      : undefined;
 
     // Stream one attempt into the trailing placeholder, resolving to its final
     // text. Reused verbatim for the empty-reply reformat retry below; the
@@ -531,7 +571,7 @@ export const useAiStore = create<AiState>((set, get) => ({
             persist(get().messages);
           }
         },
-        runTool,
+        runTool ?? refuseUngivenMachine,
       );
       activeHandle = handle;
       return handle.done;
@@ -703,10 +743,7 @@ export const useAiStore = create<AiState>((set, get) => ({
     const context = resolveRequestContext();
     if (context === null) return;
     const { dialect, ...request } = context;
-    void loadSystemPrompt(
-      dialect,
-      getProvider(context.providerId).acceptsImages,
-    ).then((system) =>
+    void loadSystemPromptFor(dialect, context.providerId).then((system) =>
       useAiStore.getState().send({
         ...request,
         system,
@@ -815,15 +852,11 @@ function judgeScreen(
   // cost a cache write on every turn after one of them.
   settleJudgingTurn(
     driving,
-    loadSystemPrompt(
-      dialect,
-      true,
-      getProvider(context.providerId).supportsTools,
-    ).then((system) =>
+    loadSystemPromptFor(dialect, context.providerId).then((system) =>
       ai.send({
         ...request,
         system,
-        ...(driving ? { tools: driving.tools, runTool: driving.runTool } : {}),
+        ...(driving ? { runTool: driving.runTool } : {}),
         userContent: judge.userContent,
         displayRequest: judge.displayRequest,
         ...(screen ? { image: screen } : {}),
@@ -925,12 +958,16 @@ function timingForAssistant(): string {
  * drive. In each case the turn is exactly the judging turn it has always been,
  * which is what makes this safe to reach on every checked answer.
  *
+ * What this arms is the machine, not the tools: those are offered on every turn
+ * (see {@link AiState.send}), and a turn that arms nothing answers a call with a
+ * refusal. This is the one gate that decides whether the assistant may actually
+ * act on the emulator.
+ *
  * Exported for its own tests: the three gates are the whole safety story, and
  * reaching them through a streamed turn would test the mocking rather than the
  * rule.
  */
 export function armDriving(asked: boolean): {
-  tools: ToolDefinition[];
   runTool: ToolRunner;
   finish: () => void;
 } | null {
@@ -943,7 +980,6 @@ export function armDriving(asked: boolean): {
   freezeMachine(true);
 
   return {
-    tools: driveToolDefinitions(),
     runTool: async (call) => {
       // The machine may have moved on since this turn was armed: a run the user
       // started registers a new driver over this one. This turn's reference goes
@@ -1237,11 +1273,7 @@ function reportUnbuildableAnswer(
   autoFixAttempts++;
   state.showAiPanel();
   const { dialect, ...request } = context;
-  void loadSystemPrompt(
-    dialect,
-    getProvider(context.providerId).acceptsImages,
-    getProvider(context.providerId).supportsTools,
-  ).then((system) =>
+  void loadSystemPromptFor(dialect, context.providerId).then((system) =>
     ai.send({
       ...request,
       system,
@@ -1423,11 +1455,6 @@ useIdeStore.subscribe((state) => {
   }
 
   autoFixAttempts++;
-  // Whether the prompt describes driving must not vary within a conversation:
-  // the system prompt sits in the cached prefix, so a correction that described
-  // it differently from the answer it corrects would cost a full cache write on
-  // every turn after. It is a property of the provider, not of this request.
-  const canDrive = getProvider(context.providerId).supportsTools;
   const fix = buildFix(screen !== undefined);
   // A failing run's outcome is the correction request, so an unavailable view
   // rides in front of it - the same words a run that didn't fail would use.
@@ -1439,7 +1466,7 @@ useIdeStore.subscribe((state) => {
   // asynchronously - which costs this path nothing, since it was already firing
   // the request without waiting for it.
   const { dialect, ...request } = context;
-  void loadSystemPrompt(dialect, canShowScreen, canDrive).then((system) =>
+  void loadSystemPromptFor(dialect, context.providerId).then((system) =>
     ai.send({
       ...request,
       system,

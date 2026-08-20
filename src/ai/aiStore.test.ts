@@ -3,7 +3,12 @@ import type {
   StopReason,
   StreamOptions,
   StreamResult,
+  ToolCall,
+  ToolResult,
 } from './providers/types';
+
+/** Mirrors `aiClient`'s runner type, which the mock below stands in for. */
+type ToolRunner = (call: ToolCall) => Promise<ToolResult>;
 
 // Install storage stubs and a shared streaming handle BEFORE the modules under
 // test are imported (aiStore reads the stored conversation at module init).
@@ -32,6 +37,10 @@ const h = vi.hoisted(() => {
     },
     /** The history handed to the most recent attempt. */
     sent: null as null | StreamOptions,
+    /** Every attempt, in order - the tool set has to match across them. */
+    everySent: [] as StreamOptions[],
+    /** How the most recent attempt would run a tool the model called. */
+    runTool: null as null | ToolRunner,
   };
 });
 
@@ -40,8 +49,11 @@ vi.mock('./aiClient', () => ({
     _providerId: string,
     opts: StreamOptions,
     onText: (d: string) => void,
+    runTool?: ToolRunner,
   ) => {
     h.sent = opts;
+    h.everySent.push(opts);
+    h.runTool = runTool ?? null;
     let resolve!: (t: string, stop?: StopReason) => void;
     let reject!: (e: unknown) => void;
     const done = new Promise<StreamResult>((res, rej) => {
@@ -63,6 +75,11 @@ vi.mock('./aiClient', () => ({
 }));
 
 import { unsentScreen, useAiStore, type DisplayMessage } from './aiStore';
+import {
+  driveToolDefinitions,
+  DRIVE_TOOL,
+  MACHINE_NOT_GIVEN,
+} from './driveTools';
 import { loadMachineReference } from './machineReference';
 import { useIdeStore, type AiRunOutcome } from '../app/store';
 import {
@@ -113,6 +130,8 @@ describe('aiStore', () => {
     sessionStorage.clear();
     h.current = null;
     h.sent = null;
+    h.everySent = [];
+    h.runTool = null;
   });
 
   it('send appends the turn, finalizes, and persists', async () => {
@@ -129,7 +148,13 @@ describe('aiStore', () => {
     ]);
     expect(useAiStore.getState().busy).toBe(false);
     expect(loadAiConversation()).toEqual([
-      { role: 'user', content: 'make breakout' },
+      // The panel's short form and the wire's full one, both kept: a restored
+      // thread has to replay what was sent, not what was shown.
+      {
+        role: 'user',
+        content: 'make breakout',
+        sentContent: 'full context',
+      },
       {
         role: 'assistant',
         content: '10 PRINT',
@@ -1166,6 +1191,7 @@ describe('aiStore', () => {
       expect(stored[0]).toEqual({
         role: 'user',
         content: 'make breakout',
+        sentContent: 'full context',
         screenShown: true,
       });
       expect(JSON.stringify(stored)).not.toContain('PNGDATA');
@@ -1633,6 +1659,104 @@ describe('aiStore', () => {
       for (let i = 0; i < 8; i++) await Promise.resolve();
       // No request was made: continuing is offered for the length limit only.
       expect(h.current).toBe(before);
+    });
+  });
+
+  /**
+   * The prefix the provider's cache matches on. Every one of these is silent
+   * when broken - the answers stay right and the bill goes up - which is why
+   * they are pinned here rather than left to the comments that assert them.
+   */
+  describe('the prefix a conversation sends', () => {
+    it('replays an earlier turn as it was sent, not as the panel shows it', async () => {
+      const first = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT');
+      await first;
+
+      const second = useAiStore.getState().send({
+        ...params,
+        userContent: 'more context',
+        displayRequest: 'now',
+      });
+      h.current!.resolve('20 PRINT');
+      await second;
+
+      // Byte-for-byte what turn one said, in front of turn two - the whole
+      // point: a prefix that differs here is a prefix rewritten from here on.
+      expect(h.sent!.messages.map(plain)).toEqual([
+        { role: 'user', content: 'full context' },
+        { role: 'assistant', content: '10 PRINT' },
+        { role: 'user', content: 'more context' },
+      ]);
+      // And the panel still shows what the user actually typed.
+      expect(useAiStore.getState().messages.map(plain)).toEqual([
+        { role: 'user', content: 'make breakout' },
+        { role: 'assistant', content: '10 PRINT' },
+        { role: 'user', content: 'now' },
+        { role: 'assistant', content: '20 PRINT' },
+      ]);
+    });
+
+    it('replays it the same way after a reload', async () => {
+      const first = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT');
+      await first;
+
+      // What a restored thread starts from. Persisting only the shown form
+      // would reproduce the defect the moment the page came back.
+      useAiStore.setState({
+        messages: loadAiConversation() as DisplayMessage[],
+      });
+      const second = useAiStore.getState().send(params);
+      h.current!.resolve('20 PRINT');
+      await second;
+
+      expect(h.sent!.messages[0]!.content).toBe('full context');
+    });
+
+    it('offers the same tools on every turn, including the turns that use none', async () => {
+      const first = useAiStore.getState().send(params);
+      h.current!.resolve('10 PRINT');
+      await first;
+      const second = useAiStore.getState().send(params);
+      h.current!.resolve('20 PRINT');
+      await second;
+
+      // Tools render ahead of the system prompt, so a set that came and went
+      // would invalidate everything behind it on the turn after every drive.
+      const offered = h.everySent.map((o) => JSON.stringify(o.tools));
+      expect(offered).toHaveLength(2);
+      expect(new Set(offered).size).toBe(1);
+      expect(offered[0]).toBe(JSON.stringify(driveToolDefinitions()));
+    });
+
+    it('offers none to a backend that cannot be given them', async () => {
+      const p = useAiStore
+        .getState()
+        .send({ ...params, providerId: 'openai', model: 'gpt-4o' });
+      h.current!.resolve('10 PRINT');
+      await p;
+
+      expect(h.sent!.tools).toBeUndefined();
+    });
+
+    it('refuses a call made on a turn that was given no machine', async () => {
+      const p = useAiStore.getState().send(params);
+      const answered = await h.runTool!({
+        id: 'c1',
+        name: DRIVE_TOOL,
+        input: { script: 'PRESS KeyA' },
+      });
+      h.current!.resolve('10 PRINT');
+      await p;
+
+      // Answered rather than dropped: a call that vanishes reads to the model
+      // as a call that worked, and it reports on a program it never tried.
+      expect(answered).toEqual({
+        callId: 'c1',
+        content: MACHINE_NOT_GIVEN,
+        isError: true,
+      });
     });
   });
 });
