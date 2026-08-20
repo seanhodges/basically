@@ -13,6 +13,8 @@ import type { GlyphSignatures } from '../../../emulator/fontMatcher';
 import type {
   DebugStepOptions,
   DebugStepResult,
+  JoystickMode,
+  JoystickState,
   LineCost,
   MachineEmulator,
   MachineMemoryStats,
@@ -49,6 +51,7 @@ import { Pmd85RomModule } from './romModule';
 import { CPU_HZ, CYCLES_PER_FRAME } from './clock';
 import { Pmd85TapeDeck } from './tape';
 import { Speaker, SPEAKER_SAMPLE_RATE } from './speaker';
+import { Pmd85Gpio } from './gpio';
 
 /**
  * The PMD 85's I/O map, which decodes an address rather than comparing it.
@@ -67,6 +70,7 @@ const PORT_HIGH_HALF = 0x80;
 /** Which chip on the expansion board, from bits 4-6: the 8251 is 000111aa. */
 const IO_DEVICE_MASK = 0x70;
 const IO_USART = 0x10;
+const IO_GPIO = 0x40; // 010011aa - the two joystick connectors' 8255
 
 /**
  * What the 8251's status register reads as with nothing on the serial line:
@@ -159,6 +163,8 @@ export class Pmd85Machine implements MachineEmulator {
   private readonly display = new Pmd85Display();
   /** The transducer on the motherboard 8255's port C; see `speaker.ts`. */
   private readonly speaker = new Speaker();
+  /** The I/O board's GPIO 8255, where a joystick plugs in; see `gpio.ts`. */
+  private readonly gpio = new Pmd85Gpio();
   private readonly cpu: Z80Core;
   /** The CPU driven with 8080 rather than Z80 flag semantics. */
   private readonly i8080: Intel8080;
@@ -256,6 +262,7 @@ export class Pmd85Machine implements MachineEmulator {
     this.keyboardRowSelect = 0;
     this.systemPortC = 0;
     this.speaker.reset();
+    this.gpio.reset();
     this.keyboardScans = 0;
     this.debt = 0;
     this.frames = 0;
@@ -553,6 +560,17 @@ export class Pmd85Machine implements MachineEmulator {
   }
 
   /**
+   * Point the IDE's controller at the joystick connector (`gpio.ts`).
+   *
+   * `native` is the only mode: the 4004/482 on the I/O board's GPIO0 is the
+   * machine's own stick, and nothing third-party ever became standard enough
+   * here to be worth a second.
+   */
+  setJoystick(_mode: JoystickMode, state: JoystickState): void {
+    this.gpio.setJoystick(state);
+  }
+
+  /**
    * Transducer samples for the time run since the previous call (`speaker.ts`).
    *
    * Measured in machine cycles rather than frames so that a debugger step, which
@@ -621,9 +639,10 @@ export class Pmd85Machine implements MachineEmulator {
    * decoder holds the peripherals off the bus until the first OUT, which is
    * also the write that drops the memory mirrors, so the two are one event.
    *
-   * Of the expansion board only the 8251 answers: see {@link USART_STATUS_IDLE}
-   * for why the keyboard depends on it and {@link USART_STATUS_DSR} for how the
-   * tape arrives through it. The 8253 timer and the two GPIO 8255s are
+   * Of the expansion board, the 8251 and the GPIO 8255 answer: see
+   * {@link USART_STATUS_IDLE} for why the keyboard depends on the first and
+   * {@link USART_STATUS_DSR} for how the tape arrives through it, and `gpio.ts`
+   * for the joystick on the second. The 8253 timer and the IMS-2 8255 are
    * write-only as far as either ROM is concerned - the Monitor sets the timer's
    * counter 1 to the tape's bit rate and never reads it back - so leaving them
    * off the bus costs nothing.
@@ -632,9 +651,15 @@ export class Pmd85Machine implements MachineEmulator {
     if (this.memory.inStartupMap) return 0xff;
     const board = port & BOARD_MASK;
     if ((port & PORT_HIGH_HALF) === 0) {
-      return board === BOARD_IO && (port & IO_DEVICE_MASK) === IO_USART
-        ? this.readUsart(port & 0x01)
-        : 0xff;
+      if (board !== BOARD_IO) return 0xff;
+      switch (port & IO_DEVICE_MASK) {
+        case IO_USART:
+          return this.readUsart(port & 0x01);
+        case IO_GPIO:
+          return this.gpio.readPort(port & 0x03);
+        default:
+          return 0xff;
+      }
     }
     switch (board) {
       case BOARD_MOTHERBOARD:
@@ -654,14 +679,17 @@ export class Pmd85Machine implements MachineEmulator {
       // The 8251's data register is the tape. Its control register, and the
       // 8253 the Monitor sets to the tape's bit rate beside it, are write-only
       // to both ROMs and change nothing this machine models.
-      if (
-        (port & BOARD_MASK) === BOARD_IO &&
-        (port & IO_DEVICE_MASK) === IO_USART &&
-        (port & 0x01) === 0
-      ) {
-        this.tape.record(value);
+      if ((port & BOARD_MASK) !== BOARD_IO) return;
+      switch (port & IO_DEVICE_MASK) {
+        case IO_USART:
+          if ((port & 0x01) === 0) this.tape.record(value);
+          return;
+        case IO_GPIO:
+          this.gpio.writePort(port & 0x03, value);
+          return;
+        default:
+          return;
       }
-      return;
     }
     switch (port & BOARD_MASK) {
       case BOARD_MOTHERBOARD:

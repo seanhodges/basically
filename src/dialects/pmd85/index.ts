@@ -136,6 +136,14 @@ export const pmd85: Dialect = {
 
   debuggable: true,
 
+  /**
+   * The 4004/482 on the I/O board's GPIO0 connector - the machine's own stick,
+   * and the only one worth a mode. BASIC-G has no keyword that reads it, so a
+   * program gets at it with `INP` after turning the connector's buffer inward;
+   * `emulator/gpio.ts` has the sequence.
+   */
+  joystickModes: ['native'],
+
   createEmulator(opts) {
     return new Pmd85Machine(splitRomImage(opts.rom));
   },

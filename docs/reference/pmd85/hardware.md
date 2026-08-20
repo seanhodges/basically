@@ -93,6 +93,43 @@ and lights the red LED), and port 246 is the same port under another number.
 `INP(134)` reads the bits back, so a program can flip one without disturbing the
 others.
 
+### Joystick
+
+The official stick is the **4004/482**, and it plugs into the I/O board rather
+than the computer itself — connector K3 (GPIO0), or K4 (GPIO1) for a second
+player. BASIC-G has no keyword that reads it, so a program does the work itself
+with `OUT` and `INP`.
+
+Its five switches arrive on the low five bits of port 76, **active low**: a
+released stick reads 255, and a pressed switch pulls its bit to zero.
+
+| Bit | Value | Switch |
+| --- | ----- | ------ |
+| 0   | 1     | Down   |
+| 1   | 2     | Up     |
+| 2   | 4     | Right  |
+| 3   | 8     | Left   |
+| 4   | 16    | Fire   |
+
+The connector's data lines run through a bidirectional buffer, and it points
+away from the computer until told otherwise — so a program that reads port 76
+without setting it up first sees 255 no matter what the stick is doing. Turn it
+inward once, before the game loop:
+
+```basic
+10 OUT 79,146 : REM the interface's mode
+20 OUT 78,17  : REM point both connectors' buffers inward
+30 J=255-INP(76)
+40 IF J AND 2 THEN PRINT "UP"
+```
+
+Port 77 is the second connector, read exactly the same way.
+
+Choosing **Controller** for the on-screen pad and switching the gamepad to the
+machine's own joystick sends a real stick here. It is left on key presses by
+default, which is what the bundled games read — they take K0–K3 through `INKEY`,
+not the joystick port.
+
 ### Memory
 
 The whole of the machine's address space, region by region. Zoom in to open a
