@@ -352,9 +352,8 @@ Pulled forward: registering in Stage 3 is what makes these mandatory.
       that adding a page does not imply adding one, so ask the user first
 - [x] `docs/reference/pmd85/formats.md` — the two tape framings and the cassette
       encoding, with its sidebar sub-entry (the user asked for it) and rows in
-      the `docs/reference/file-formats.md` tables. Noticed while doing it, and
-      **not** fixed because it belongs to another machine: the Altair is missing
-      from every one of those cross-machine lists
+      the `docs/reference/file-formats.md` tables - where the Altair, noticed
+      while doing it, was missing from every list and has been added too
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md` flipped to ✅,
       and this plan **deleted** in the same change, along with its roadmap
       cross-link and any `Stage N` references left in the dialect's source

@@ -91,6 +91,7 @@ reference page:
 | TRS-80             | `.cas`, `.dsk` | `.cas`, `.dsk` | Model I CSAVE cassette block; `.dsk` JV1 disc adds code blocks     |
 | Acorn Atom         | `.atm`, `.dsk` | `.atm`, `.dsk` | 22-byte header + `#2900` image; `.dsk` disc adds code blocks       |
 | Amstrad CPC        | `.bas`, `.cdt` | `.bas`, `.cdt` | AMSDOS-headered tokenized program from &0170; `.cdt` firmware tape |
+| MITS Altair 8800   | `.bin`         | `.bin`         | `CSAVE` image: three `0xD3` markers, a one-character name, program |
 | Tesla PMD 85       | `.ptp`, `.pmd` | `.ptp`, `.pmd` | header + body tape blocks; `.ptp` puts a length in front of each   |
 
 All of these are built by the IDE when you export; the ones that can also be
@@ -109,6 +110,7 @@ full on its own page:
 - [TRS-80 file formats](./trs80/formats) — `.cas`, `.dsk`
 - [Acorn Atom file formats](./atom/formats) — `.atm`, `.dsk`
 - [Amstrad CPC file formats](./cpc/formats) — `.bas`, `.cdt`
+- [Altair 8800 file formats](./altair8800/formats) — `.bin`, paper tape `.txt`
 - [PMD 85 file formats](./pmd85/formats) — `.ptp`, `.pmd`
 
 ## Machine code & data blocks
@@ -147,6 +149,9 @@ native formats carry blocks on **import** only:
   address records as a block (the entry-point address stays with the block
   that contains it), and machine code trailing a BASIC program on the tape
   imports as a block at the address it followed the program.
+- **Altair `.bin`** — a `CSAVE` image with bytes after its end-of-program
+  marker imports the program plus those bytes, the bytes as a block at the
+  address they followed the program at.
 - **PMD 85 `.ptp` / `.pmd`** — bytes found past the end of the tokenized
   program import as a block at the address they followed the program at.
 
@@ -159,13 +164,15 @@ When you Run, the IDE checks each block against the machine's memory: a block
 that would overlap the BASIC program is refused (Run reports which block), and a
 block over live hardware such as the screen is allowed but flagged.
 
-Every block-capable machine carries its blocks inside a container in **both
-directions**: the BBC in a [`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc (or
+The machines with a container roomy enough for them carry their blocks in
+**both directions**: the BBC in a [`.ssd`](./bbc/formats#bbc-micro-master-ssd) disc (or
 as inline assembly in the `.bbc`), the Commodore in a
 [`.d64`](./commodore/formats#commodore-64-vic-20-pet-d64), the ZX Spectrum in a
 [`.TAP`](./zxspectrum/formats#zx-spectrum-tap), and the Acorn Atom and TRS-80 in a
 [`.dsk`](./atom/formats#acorn-atom-dsk) disc image. The ZX81/ZX80 keep their
-machine code inside the listing as `#BIN` REM records.
+machine code inside the listing as `#BIN` REM records. The rest — the Amstrad
+CPC, the Altair and the PMD 85 — export the BASIC program only, and the Transfer
+dialog says which blocks would be left behind before it writes the file.
 
 ## Cassette audio
 
@@ -200,5 +207,7 @@ its format page:
   scheme.
 - [Acorn Atom](./atom/formats#cassette-audio) — the Acorn cassette filing system
   over Kansas City Standard FSK at 300 baud.
+- [Altair 8800](./altair8800/formats#cassette-audio) — the MITS 88-ACR board's
+  own FSK, 2400 Hz against 1850 Hz at 300 baud rather than Kansas City Standard.
 - [PMD 85](./pmd85/formats#cassette-audio) — not FSK at all: one 1200 Hz tone
   whose phase carries the bit, eleven bit periods to a byte.
