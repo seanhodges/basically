@@ -133,6 +133,11 @@ export const SEMIGRAPHIC_CODES: Record<string, number[] | null> = {
   // it looks like. So "this machine has no block graphics" is an established
   // fact about the hardware, not a range nobody has read off it yet.
   altair8800: [],
+  // Empty for the same reason, established the same way: the Monitor 2
+  // character generator is 96 ASCII glyphs and one solid cell, with no mosaic
+  // set anywhere in it (charset.ts reads it out of the ROM). Graphics on this
+  // machine are drawn - PLOT, FILL, BPLOT - rather than typed.
+  pmd85: [],
 };
 
 /** Classify one byte from its canonical text form. */

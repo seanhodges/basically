@@ -15,10 +15,10 @@ import {
  * One journey, one machine boot, because the browser-only facts all sit on the
  * same run: the live EditorView really swapping its document when the tab
  * changes, the canvas actually painting what the *snippet* printed, and a real
- * reload proving the buffers were never persisted. Everything else about them -
- * the buffer model, the lifecycle rules, per-buffer breakpoints, which text a
- * run resolves to, and the absence of scratch buffers from autosave and the
- * project bundle - is pinned headlessly in `src/app/store.test.ts` and
+ * reload proving the buffer comes back with the document. Everything else about
+ * them - the buffer model, the lifecycle rules, per-buffer breakpoints, which
+ * text a run resolves to, and how buffers ride in autosave and the project
+ * bundle - is pinned headlessly in `src/app/store.test.ts` and
  * `src/app/fileCommands.test.ts`.
  *
  * The snippet's line numbers (70/80) deliberately do not appear in the program,
@@ -52,7 +52,7 @@ async function toggleBreakpointOnLine(page: Page, lineNo: number) {
   );
 }
 
-test('a snippet is written, run and discarded without touching the program', async ({
+test('a snippet is written, run and kept beside the program', async ({
   page,
 }) => {
   await openApp(page);
@@ -97,16 +97,25 @@ test('a snippet is written, run and discarded without touching the program', asy
 
   await stopEmulator(page);
 
-  // Saving still means the program: what autosave holds is the document, with
-  // no trace of the snippet.
-  const saved = await page.evaluate(() =>
+  // The document key still holds the program alone - the snippet rides in its
+  // own key, which is what keeps a buffer out of what the document builds.
+  // Polled, not read once: the buffer reaches storage on the 2s autosave tick.
+  await expect
+    .poll(() =>
+      page.evaluate(() => localStorage.getItem('mbide.autosave.scratch')),
+    )
+    .toContain('SNIPPET');
+  const doc = await page.evaluate(() =>
     localStorage.getItem('mbide.autosave.doc'),
   );
-  expect(saved).toContain('PROGRAM');
-  expect(saved).not.toContain('SNIPPET');
+  expect(doc).toContain('PROGRAM');
+  expect(doc).not.toContain('SNIPPET');
 
-  // A real reload restores the document and nothing else.
+  // A real reload brings back the program and the buffer beside it, the latter
+  // with its snippet but without the breakpoint, which was session state.
   await page.reload();
   await expect(page.locator(EDITOR)).toContainText('10 PRINT "PROGRAM"');
-  await expect(page.getByRole('tab', { name: 'Scratch 1' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Scratch 1' }).click();
+  await expect(page.locator(EDITOR)).toContainText('70 PRINT "SNIPPET"');
+  await expect(breakpointDot(page)).toHaveCount(0);
 });

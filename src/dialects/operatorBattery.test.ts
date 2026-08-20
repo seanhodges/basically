@@ -155,7 +155,7 @@ const AGREEMENTS = [
   {
     family: 'Microsoft BASIC',
     oracle: 'commodore64',
-    held: ['pet', 'vic20', 'trs80', 'altair8800'],
+    held: ['pet', 'vic20', 'trs80', 'altair8800', 'pmd85'],
     labels: ['POWR', 'ASSC', 'UNMI', 'ANDV', 'ORV', 'NOTV', 'TRU'],
   },
   {

@@ -15,6 +15,7 @@ import { SwitchTargetDialog } from './components/SwitchTargetDialog';
 import { DeleteBlockDialog } from './components/DeleteBlockDialog';
 import { BlockSettingsDialog } from './components/BlockSettingsDialog';
 import { ProcedureListDialog } from './components/ProcedureListDialog';
+import { RunProfileDialog } from './components/RunProfileDialog';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { NewProjectDialog } from './components/NewProjectDialog';
 import { DocsDrawer } from './components/DocsDrawer';
@@ -110,6 +111,7 @@ export default function App() {
       <DeleteBlockDialog />
       <BlockSettingsDialog />
       <ProcedureListDialog />
+      <RunProfileDialog />
       <WelcomeDialog />
       <NewProjectDialog />
       <DocsDrawer />

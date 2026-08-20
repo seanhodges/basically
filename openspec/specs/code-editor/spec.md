@@ -17,12 +17,30 @@ constructs. For dialects whose machines ignore spacing when tokenizing, the
 editor SHALL recognise keywords the same way the machine would (e.g. keywords
 embedded in identifier runs).
 
+The editor SHALL treat the items of a `DATA` statement the way the dialect's
+machine does: as variables where the machine evaluates them, and as values —
+never names — where it takes them literally.
+
 #### Scenario: Crunched keyword recognised
 
 - **WHEN** the user types a statement with no spaces on a dialect whose
   machine matches keywords greedily
 - **THEN** the embedded keywords are highlighted as the machine would read
   them
+
+#### Scenario: DATA items on a machine that takes them literally
+
+- **WHEN** a program lists unquoted words as the items of a `DATA` statement on
+  a dialect whose machine READs those items literally
+- **THEN** those words are not offered as variable completions and are not
+  reported by the editor's variable checks
+
+#### Scenario: DATA items on a machine that evaluates them
+
+- **WHEN** a program names a variable inside a `DATA` statement on a dialect
+  whose machine evaluates those items
+- **THEN** that name is treated as a use of the variable, offered as a
+  completion and checked like any other
 
 ### Requirement: Machine graphics characters are legible
 
@@ -232,6 +250,218 @@ user can navigate from.
 
 - **WHEN** the user picks an entry in the program outline
 - **THEN** the editor moves the cursor to that line
+
+### Requirement: Find a variable's usages
+
+The editor SHALL let the user pick a variable in the program — by clicking or
+tapping it where it is written — and from there see every place that variable is
+used. The usages SHALL be highlighted in the text, counted, and navigable, and
+the user SHALL be able to dismiss them.
+
+Which occurrences count SHALL follow the active machine rather than the
+spelling:
+
+- names SHALL be matched without regard to letter case on the machines whose
+  ROM folds it, and with regard to it on the machines that distinguish it;
+- on a machine whose ROM keeps only a limited number of a name's characters,
+  names the machine cannot tell apart SHALL be reported as one variable;
+- a scalar and an array of the same name SHALL be reported as different
+  variables, as the machine holds them separately;
+- a name that is local to a procedure SHALL be reported only within that
+  procedure, and a global name spelled the same SHALL NOT include that
+  procedure's local occurrences.
+
+Keyword spellings, text inside string literals and comment text SHALL NOT be
+counted as usages of a variable. A word inside a `DATA` statement SHALL be
+counted only on the machines whose ROM evaluates its items, and SHALL NOT be on
+the machines that take them literally.
+
+Usages SHALL be found in the buffer the editor is showing.
+
+The usages SHALL share the foot of the editor with find/replace rather than
+stand alongside it: opening either SHALL take the other away.
+
+#### Scenario: Seeing where a variable is used
+
+- **WHEN** the user picks a variable that the program uses in several places
+- **THEN** every one of those places is highlighted and the user is told how
+  many there are
+
+#### Scenario: Stepping between usages
+
+- **WHEN** the user asks for the next usage
+- **THEN** the editor brings that usage into view and moves the cursor to it,
+  continuing from the last usage back to the first
+
+#### Scenario: Letters that are not a variable
+
+- **WHEN** the picked variable's letters also occur inside a keyword, inside a
+  string literal, and inside a comment
+- **THEN** none of those are highlighted or counted
+
+#### Scenario: A word inside DATA
+
+- **WHEN** the program uses the picked variable's name inside a `DATA`
+  statement
+- **THEN** it is highlighted only if the machine evaluates its `DATA` items,
+  and not if the machine takes them literally
+
+#### Scenario: The same name in a different case
+
+- **WHEN** the program spells the picked variable's name in another letter case
+- **THEN** it is highlighted only if the machine treats the two as one
+  variable
+
+#### Scenario: Names the machine cannot tell apart
+
+- **WHEN** the user picks a variable on a machine whose ROM keeps only the
+  first two characters of a name, and the program also uses a differently
+  spelled name that collapses to the same one
+- **THEN** both spellings are highlighted, because the machine holds them as a
+  single variable
+
+#### Scenario: A name that belongs to a procedure
+
+- **WHEN** the user picks a name that is a procedure's parameter or local
+  variable, and the same spelling is also used outside that procedure
+- **THEN** only the occurrences inside that procedure are highlighted
+
+#### Scenario: An array and a scalar of the same name
+
+- **WHEN** the user picks an array element, and the program also uses a plain
+  variable spelled the same
+- **THEN** only the array's occurrences are highlighted
+
+#### Scenario: Dismissing the usages
+
+- **WHEN** the user dismisses the usages, or edits the program
+- **THEN** the highlights are removed
+
+#### Scenario: One bar at the foot of the editor
+
+- **WHEN** the user opens find/replace while a variable's usages are shown
+- **THEN** the usages, their count and any pending offer are taken away, and
+  find/replace takes their place
+
+### Requirement: Look up a keyword in the language reference
+
+The editor SHALL let the user pick a keyword, function name or operator in the program —
+by clicking or tapping it where it is written — and from there open the active machine's
+language reference showing that keyword. While editing a machine-code block, the editor
+SHALL offer the same for an instruction or assembler directive, opening the reference for
+that block's processor.
+
+What the editor offers SHALL follow the active machine's own reading of the program text.
+Only what that machine reads as a keyword, function, operator or instruction SHALL be
+offered; a line number, a number, a variable name, a processor register, text inside a
+string literal and text inside a comment SHALL NOT be. Punctuation that separates the
+parts of a line SHALL NOT be offered, having nothing to look up.
+
+A keyword written in one of the machine's short spellings — the Acorns' dotted prefix,
+the Commodores' shifted letter, a symbol standing for a whole command — SHALL be offered
+as the keyword it stands for on that machine, and SHALL open the reference at that
+keyword rather than at the spelling. The reference SHALL open at the picked keyword even
+where a porting comparison is current, since the user has named what they want to read.
+
+#### Scenario: Looking up a keyword
+
+- **WHEN** the user picks a keyword in their program and takes up the reference offer
+- **THEN** the documentation opens at the active machine's reference, showing that
+  keyword
+
+#### Scenario: Looking up an operator
+
+- **WHEN** the user picks one of the machine's own operators
+- **THEN** the reference offer is made for it, as it is for a keyword
+
+#### Scenario: Looking up a machine-code instruction
+
+- **WHEN** the user picks an instruction or an assembler directive while editing a
+  machine-code block
+- **THEN** the documentation opens at the reference for that block's processor, showing
+  that instruction
+
+#### Scenario: A keyword typed in a short spelling
+
+- **WHEN** the user picks a keyword written in one of the machine's short spellings, as
+  a listing prints it
+- **THEN** the documentation opens at the keyword that spelling stands for on this
+  machine
+
+#### Scenario: Text that is not a keyword
+
+- **WHEN** the user picks a word inside a string literal or a comment, a line number, a
+  variable name, or punctuation separating the parts of a line
+- **THEN** no reference offer is made
+
+#### Scenario: A keyword lookup while a porting comparison is current
+
+- **WHEN** a porting comparison is current for the open program and the user picks a
+  keyword and takes up the reference offer
+- **THEN** the documentation opens at that keyword rather than at the comparison
+
+### Requirement: Short spellings are read as the keywords they are
+
+Where a machine lets a program spell a keyword short, the editor SHALL read such a
+spelling as that keyword throughout: it SHALL be coloured as the keyword it stands for
+rather than as a name or as punctuation, and the letters that make it up SHALL NOT be
+reported as a variable.
+
+Which spellings a machine accepts, and which keyword each stands for, SHALL follow that
+machine's own resolution order rather than a shared rule — a prefix takes the first
+keyword its ROM scans that begins with it, and a prefix that spells a whole keyword is
+that keyword rather than an abbreviation.
+
+#### Scenario: A dotted listing
+
+- **WHEN** the user opens a listing on a machine that abbreviates with a trailing dot,
+  and it spells a command short
+- **THEN** that spelling is coloured as the command, and its leading letters are not
+  reported as a variable
+
+#### Scenario: A shifted-letter listing
+
+- **WHEN** the user opens a listing on a machine that abbreviates with a shifted letter,
+  and it spells a command short before its arguments
+- **THEN** the spelling is coloured as the command and what follows it is read as the
+  command's arguments, rather than the whole run being read as one name
+
+#### Scenario: A symbol standing for a whole command
+
+- **WHEN** the program uses a symbol the machine reads as a whole command
+- **THEN** it is coloured as that command, and where the command is a comment marker the
+  rest of the line is coloured as a comment
+
+#### Scenario: A prefix that spells a whole keyword
+
+- **WHEN** a prefix that could abbreviate a longer keyword is itself a whole keyword on
+  this machine
+- **THEN** it is read as the whole keyword it spells, not as the abbreviation
+
+### Requirement: One menu for what the picked text can answer
+
+Where picking a token in the program can answer more than one question about it, the
+editor SHALL present those offers together in one menu, opened where the token is
+written. A question the picked token cannot answer SHALL NOT be offered.
+
+The menu SHALL be dismissible by Escape while it is open, and that keypress SHALL NOT
+also dismiss whatever surface stands behind the editor.
+
+#### Scenario: The offers a variable can answer
+
+- **WHEN** the user picks a variable
+- **THEN** the menu offers to show where that variable is used, and makes no reference
+  offer
+
+#### Scenario: The offers a keyword can answer
+
+- **WHEN** the user picks a keyword
+- **THEN** the menu offers the language reference, and does not offer to show usages
+
+#### Scenario: Dismissing the menu
+
+- **WHEN** the menu is open and the user presses Escape
+- **THEN** the menu closes, and nothing behind it is dismissed by the same keypress
 
 ### Requirement: Disposable scratch buffers
 

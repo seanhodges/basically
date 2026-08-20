@@ -56,6 +56,13 @@ test('the new-project shortcut then Enter gives a blank program on the same mach
   await createProjectWithSample(page, 'Hello world', 'commodore64');
   await expect(page.locator('.cm-content')).not.toHaveText('');
 
+  // A scratch buffer belongs to this project, so the new one must start
+  // without it (the discard confirm is auto-accepted by `open`).
+  await page.getByRole('button', { name: 'New tab' }).click();
+  await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
+  await expect(page.getByRole('tab', { name: 'Scratch 1' })).toBeVisible();
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+
   // The dialog costs a keyboard user one extra keystroke over the old
   // instant-blank behaviour, because it opens on the current machine + Blank.
   await page.keyboard.press('Control+Alt+n');
@@ -65,6 +72,7 @@ test('the new-project shortcut then Enter gives a blank program on the same mach
   await expect(dialog).toBeHidden();
 
   await expect(page.locator('.cm-content')).toHaveText('');
+  await expect(page.getByRole('tab', { name: 'Scratch 1' })).toHaveCount(0);
   // Still on the machine they were using - the dialog defaults to it.
   await expect(targetMachine(page)).toHaveAttribute(
     'data-target-machine',

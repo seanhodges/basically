@@ -46,6 +46,7 @@ import type { ReferenceTableData } from './types';
 
 import { zx81Reference } from './zx81';
 import { altair8800Reference } from './altair8800';
+import { pmd85Reference } from './pmd85';
 import { zx80Reference } from './zx80';
 import { zxspectrumReference } from './zxspectrum';
 import { bbcReference } from './bbc';
@@ -60,6 +61,7 @@ import { zx80IntegralFunctions } from '../dialects/zx80/keywords';
 
 const PAGES: Record<string, ReferenceTableData> = {
   altair8800: altair8800Reference,
+  pmd85: pmd85Reference,
   atom: atomReference,
   bbc: bbcReference,
   commodore: commodoreReference,

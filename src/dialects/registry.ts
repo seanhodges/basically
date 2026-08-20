@@ -13,6 +13,7 @@ import { trs80 } from './trs80';
 import { cpc464 } from './cpc464';
 import { cpc6128 } from './cpc6128';
 import { altair8800 } from './altair8800';
+import { pmd85 } from './pmd85';
 
 export const dialects: Dialect[] = [
   zx81,
@@ -29,6 +30,7 @@ export const dialects: Dialect[] = [
   cpc464,
   cpc6128,
   altair8800,
+  pmd85,
 ];
 
 export function getDialect(id: string): Dialect {

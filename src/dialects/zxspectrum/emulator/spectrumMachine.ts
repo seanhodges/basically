@@ -10,12 +10,17 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
   MemoryBlock,
   TapeFile,
 } from '../../types';
 import { VfsTapeDeck } from './tapeDeck';
 import { SpectrumMemory } from './memory';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
 import { readSpectrumVariables } from '../vars';
 import { readSpectrumReport } from '../reports';
 import { readSpectrumScreenText, spectrumFontSignatures } from './screenText';
@@ -38,8 +43,10 @@ import {
   ROM_LD_BYTES as LD_BYTES,
   ROM_SA_BYTES as SA_BYTES,
   ROM_REPORT_R as REPORT_R,
+  ROM_PROGRAM_END as PROGRAM_END,
 } from '../sysvars';
 import { injectBlocks, minBlockAddress } from './blockInject';
+import { ProgramEndLatch } from '../../../emulator/programEndLatch';
 
 const CPU_HZ = 3_500_000;
 const TSTATES_PER_FRAME = 69888; // 3.5MHz / ~50.08Hz (48K ULA frame)
@@ -97,6 +104,18 @@ export class SpectrumMachine implements MachineEmulator {
   /** Kempston joystick port byte (active-high: bit0 right … bit4 fire). */
   private kempston = 0;
   /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+
+  /**
    * T-states the previous frame overran its budget by, owed back to this one.
    * An instruction cannot be cut in half at a frame boundary, so a frame always
    * ends a few T-states late; discarding that gains time every frame. Zeroed
@@ -114,6 +133,8 @@ export class SpectrumMachine implements MachineEmulator {
     DISPLAY_WIDTH * DISPLAY_HEIGHT * 4,
   );
   private disposed = false;
+  /** Run state, latched when the ROM reaches {@link PROGRAM_END}. */
+  private readonly runLatch = new ProgramEndLatch();
   /** ROM font index for {@link readScreenText}; built on first use. */
   private fontSigs: GlyphSignatures | null = null;
   /** Header + data blocks waiting to be injected at the next LOAD. */
@@ -154,6 +175,7 @@ export class SpectrumMachine implements MachineEmulator {
     this.frameCount = 0;
     this.frameCycle = 0;
     this.beeper.reset();
+    this.runLatch.clear();
     this.cpu.reset();
   }
 
@@ -187,7 +209,25 @@ export class SpectrumMachine implements MachineEmulator {
    * runFrame and debugStep so they never diverge.
    */
   private stepInstruction(): { t: number; halted: boolean } {
+    const step = this.stepUnmeasured();
+    // Charge the T-states to the BASIC line executing them. Here rather than in
+    // debugStep because a run the IDE performs to check an assistant answer
+    // deliberately opens no debug session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += step.t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+    return step;
+  }
+
+  /** The step itself: the traps, then one instruction (or an idle HALT). */
+  private stepUnmeasured(): { t: number; halted: boolean } {
     const pc = this.cpu.getPC();
+    // The ROM is back in its main loop, so the program it was running has
+    // stopped (see PROGRAM_END): latch it, next to the tape traps below,
+    // since no system variable separates a running program from a finished one.
+    if (pc === PROGRAM_END) this.runLatch.stopped();
     if (this.pending && pc === LD_BYTES) {
       this.serviceLoadTrap();
       return { t: 0, halted: false };
@@ -269,7 +309,7 @@ export class SpectrumMachine implements MachineEmulator {
    * it isn't a valid program line (e.g. before a program has run).
    */
   currentLine(): number | null {
-    const lineNo = this.memory.readWord(PPC);
+    const lineNo = this.memory.rawReadWord(PPC);
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
@@ -549,6 +589,13 @@ export class SpectrumMachine implements MachineEmulator {
     // The ENTER that submits RUN is released quickly so it is no longer held
     // when the program's first statement runs - otherwise an opening INKEY$
     // would read the ENTER key instead of "".
+    //
+    // Arm the run latch here, after every command line this load typed and
+    // before the one that starts the program: the editor waiting for these
+    // keystrokes never reaches PROGRAM_END, so the next sighting of it is
+    // this program ending - which for a short program is inside the frames the
+    // ENTER below pumps.
+    this.runLatch.arm();
     this.tapKeys(['KeyR']);
     const autoStart = opts?.autoStart;
     if (typeof autoStart === 'number') {
@@ -622,12 +669,21 @@ export class SpectrumMachine implements MachineEmulator {
     return readSpectrumScreenText(this.fontSigs, (a) => this.memory.read(a));
   }
 
-  // No isProgramRunning(): the ROM leaves no reliable trace of the difference.
-  // ERR_NR reads "0 OK" both while a program runs and after it ends cleanly
-  // (see sinclairReports.ts) and PPC keeps the last line executed, so
-  // currentLine() cannot answer it either. The only system variable that does
-  // separate the two is ERR_SP, and only by four bytes of machine-stack depth -
-  // too incidental to build on. See MachineEmulator.isProgramRunning.
+  /**
+   * Whether BASIC is executing a program, from the latch rather than from a
+   * system variable. ERR_NR reads "0 OK" both while a program runs and after it
+   * ends cleanly (see sinclairReports.ts) and PPC keeps the last line executed,
+   * so {@link currentLine} cannot answer it either; the only variable that does
+   * separate the two is ERR_SP, and only by four bytes of machine-stack depth -
+   * too incidental to build on. The ROM address the main loop comes back to
+   * (see {@link PROGRAM_END}) is not. Running is promoted from PPC, so the
+   * seconds spent loading the program and typing its RUN are reported as "not
+   * answerable yet" rather than as the program.
+   */
+  isProgramRunning(): boolean | null {
+    if (this.disposed) return null;
+    return this.runLatch.read(this.currentLine() !== null);
+  }
 
   /**
    * Actual RAM figures from the ROM's own pointers: PROG to STKEND (program,
@@ -644,6 +700,14 @@ export class SpectrumMachine implements MachineEmulator {
     // Implausible pointers mean the ROM hasn't initialised them yet.
     if (prog < 0x5c00 || used <= 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {
@@ -683,5 +747,6 @@ export class SpectrumMachine implements MachineEmulator {
     // rather than waiting on GC of the whole machine.
     this.imageData = null;
     this.pending = null;
+    this.runLatch.clear();
   }
 }

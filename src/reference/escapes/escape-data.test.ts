@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EscapeTableData } from '../types';
 import { ESCAPE_CLASSES } from '../escape-classes';
 import { altair8800Escapes } from './altair8800';
+import { pmd85Escapes } from './pmd85';
 import { zx81Escapes } from './zx81';
 import { zx80Escapes } from './zx80';
 import { zxspectrumEscapes } from './zxspectrum';
@@ -21,6 +22,7 @@ const SETS: [string, EscapeTableData][] = [
   ['atom', atomEscapes],
   ['cpc', cpcEscapes],
   ['altair8800', altair8800Escapes],
+  ['pmd85', pmd85Escapes],
 ];
 
 describe.each(SETS)('escape data: %s', (_id, data) => {

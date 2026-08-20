@@ -136,6 +136,16 @@ const POSITION_SYNTAX: Record<string, PositionSyntax> = {
     commands: [{ keyword: '@', kind: 'offset' }],
     escapes: [],
   },
+  // TAB( only. BASIC-G also has an AT keyword, and the interpreter accepts
+  // `PRINT AT <row>, <col>;` as two arguments (one is a syntax error) - but
+  // nothing then appears on screen, not at that position and not anywhere
+  // else, so what AT actually positions is not established. A guessed entry
+  // would have the porting guide rewrite a working layout into that.
+  pmd85: {
+    origin: 0,
+    commands: [{ keyword: 'TAB', kind: 'column' }],
+    escapes: [],
+  },
 };
 
 /** How `dialectId` states print positions, or undefined where it states none. */

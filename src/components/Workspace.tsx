@@ -12,6 +12,12 @@ import {
 } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
 import {
+  runControlStateOf,
+  runControlGlyph,
+  runControlLabel,
+} from '../app/runControl';
+import { timingSettled } from '../app/runTiming';
+import {
   setSplitRatio as persistSplitRatio,
   MIN_SPLIT_RATIO,
   MAX_SPLIT_RATIO,
@@ -49,6 +55,8 @@ export function Workspace() {
   const splitRatio = useIdeStore((s) => s.splitRatio);
   const setSplitRatio = useIdeStore((s) => s.setSplitRatio);
   const requestRun = useIdeStore((s) => s.requestRun);
+  const requestPause = useIdeStore((s) => s.requestPause);
+  const requestContinue = useIdeStore((s) => s.requestContinue);
   const blocks = useBlocks();
   const activeTab = useIdeStore((s) => s.activeTab);
   const setScratchText = useIdeStore((s) => s.setScratchText);
@@ -56,6 +64,12 @@ export function Workspace() {
   const runTargetName = useIdeStore(selectRunTargetName);
 
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
+  // Whether the run's program has ended, read off the timing the run publishes:
+  // a run in progress carries a live 'running' reading, and the run loop settles
+  // it the moment the machine sees the program finish or fail. Not the
+  // buffer-filtered timing the profile dialog shows - this drives the machine,
+  // so what matters is the run that is on, not which buffer is on screen.
+  const programEnded = useIdeStore((s) => timingSettled(s.runTiming));
   const keyboardSound = useIdeStore((s) => s.keyboardSound);
   const keyboardHaptics = useIdeStore((s) => s.keyboardHaptics);
   const keyboardKeyDisplay = useIdeStore((s) => s.keyboardKeyDisplay);
@@ -164,6 +178,25 @@ export function Workspace() {
       ? asmEngineFor(dialect.memoryBlocks.cpu)
       : null;
 
+  // The run control over the editor drives the run rather than only starting
+  // it: Play stopped, Pause running, Continue paused - whether the pause came
+  // from a breakpoint or from the user pressing this button. Pausing is offered
+  // only where continuing is, so on a machine with no debugger the control
+  // stays the plain Play it has always been. A program that has ended puts it
+  // back to Play even though the machine is still on, since there is no longer
+  // a program to pause or to carry on.
+  const runControlState = runControlStateOf(emulatorStatus, {
+    pausable: !!dialect.debuggable,
+    programEnded,
+  });
+  const runControlAction =
+    runControlState === 'pause'
+      ? requestPause
+      : runControlState === 'continue'
+        ? requestContinue
+        : requestRun;
+  const runControlTitle = runControlLabel(runControlState, runTargetName);
+
   // While a program is actively running with the memory map open, move the map
   // into the left column (replacing the editor) so the live emulator can stay
   // visible on the right. Only on the split layout; only while 'running' — when
@@ -270,14 +303,13 @@ export function Workspace() {
           {tabbed && mobileTab === 'editor' && (
             <button
               className={styles.fabRun}
-              onClick={requestRun}
-              title={
-                runTargetName
-                  ? `Build and run ${runTargetName} in the emulator`
-                  : 'Build and run in the emulator'
-              }
+              data-testid="fab-run"
+              data-state={runControlState}
+              onClick={runControlAction}
+              title={runControlTitle}
+              aria-label={runControlTitle}
             >
-              ▶
+              {runControlGlyph(runControlState)}
             </button>
           )}
         </div>

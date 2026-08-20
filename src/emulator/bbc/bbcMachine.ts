@@ -17,6 +17,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
@@ -27,6 +28,7 @@ import { readBbcReport, FAULT_PTR } from './reports';
 import { BbcDiskDrive, type Bus } from './diskDrive';
 import { buildBbcDisc, composeDiscFiles } from './bbcDisc';
 import { JsbeebMemoryActivity } from '../jsbeebMemoryActivity';
+import { LineCostRecorder } from '../lineCostRecorder';
 import {
   acornFontSignatures,
   readAcornScreenText,
@@ -238,6 +240,18 @@ export class BbcMachine implements MachineEmulator {
    * the first time the host arms recording (it taps jsbeeb's read/write hooks).
    */
   private memoryActivity: JsbeebMemoryActivity | null = null;
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link runCycles} then advances in
+   * {@link DEBUG_SLICE_CYCLES} slices so each can be charged to a line. The
+   * reader charges memory the same way: the machine's in-use figure is read at
+   * each change of line, and what it rose by is charged to the line that has
+   * just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    DEBUG_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
 
   private backCanvas: HTMLCanvasElement | null = null;
   private backImageData: ImageData | null = null;
@@ -379,6 +393,24 @@ export class BbcMachine implements MachineEmulator {
    * programs that never touch VFS must not pay for it.
    */
   private runCycles(totalCycles: number): void {
+    // Profiling: run the budget in slices and charge each to the line executing
+    // at its end, which is the only way to attribute time on a core the host
+    // advances in whole budgets rather than a cycle at a time. Sliced exactly as
+    // debugStep already slices, and only while a run is being measured.
+    const p = this.profile;
+    if (p.enabled) {
+      for (let done = 0; done < totalCycles; done += DEBUG_SLICE_CYCLES) {
+        const slice = Math.min(DEBUG_SLICE_CYCLES, totalCycles - done);
+        this.runWholeBudget(slice);
+        p.pending += slice;
+        p.sample(this.currentLine());
+      }
+      return;
+    }
+    this.runWholeBudget(totalCycles);
+  }
+
+  private runWholeBudget(totalCycles: number): void {
     if (!this.drive) {
       this.cpu.execute(totalCycles);
       return;
@@ -443,9 +475,24 @@ export class BbcMachine implements MachineEmulator {
    * header. A pointer outside every line (e.g. in the command-line buffer at the
    * prompt) yields null. The {@link lineCache} short-circuits the common case
    * where the pointer is still inside the previously found line.
+   *
+   * The walk is hidden from the memory-activity recorder: jsbeeb stamps from
+   * `readmem` itself, and this is host polling - every debug slice, and every
+   * profile slice - so left visible it would paint the overlay with reads the
+   * program never made.
    */
   currentLine(): number | null {
     if (!this.initialised || this.disposed) return null;
+    const activity = this.memoryActivity;
+    if (activity) activity.suspended = true;
+    try {
+      return this.walkToCurrentLine();
+    } finally {
+      if (activity) activity.suspended = false;
+    }
+  }
+
+  private walkToCurrentLine(): number | null {
     const ptr =
       this.cpu.readmem(TEXT_PTR) | (this.cpu.readmem(TEXT_PTR + 1) << 8);
     const cache = this.lineCache;
@@ -830,18 +877,30 @@ export class BbcMachine implements MachineEmulator {
    * variables occupy PAGE..VARTOP, and VARTOP..HIMEM is free (BASIC's own
    * stack grows down from HIMEM inside it, as on real hardware). `readmem` is
    * a side-effect-free main-RAM read.
+   *
+   * Hidden from the memory-activity recorder for the reason {@link currentLine}
+   * is: jsbeeb stamps from `readmem` itself, and every one of these reads is
+   * host polling - twice a second for the status bar, and once per BASIC line
+   * while a run is being measured - so left visible it would paint the overlay
+   * with reads the program never made.
    */
   readMemoryStats(): MachineMemoryStats | null {
     if (!this.initialised || this.injecting || this.disposed) return null;
-    const readWord = (a: number) =>
-      this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8);
-    const page = this.cpu.readmem(PAGE_HI) << 8;
-    const vartop = readWord(VARTOP_PTR);
-    const himem = readWord(HIMEM_PTR);
-    const used = vartop - page;
-    const free = himem - vartop;
-    if (page === 0 || used < 0 || free < 0) return null;
-    return { used, free };
+    const activity = this.memoryActivity;
+    if (activity) activity.suspended = true;
+    try {
+      const readWord = (a: number) =>
+        this.cpu.readmem(a) | (this.cpu.readmem(a + 1) << 8);
+      const page = this.cpu.readmem(PAGE_HI) << 8;
+      const vartop = readWord(VARTOP_PTR);
+      const himem = readWord(HIMEM_PTR);
+      const used = vartop - page;
+      const free = himem - vartop;
+      if (page === 0 || used < 0 || free < 0) return null;
+      return { used, free };
+    } finally {
+      if (activity) activity.suspended = false;
+    }
   }
 
   /**
@@ -851,6 +910,14 @@ export class BbcMachine implements MachineEmulator {
    * is on screen. Recording via jsbeeb's `debugRead`/`debugWrite` hooks - see
    * {@link JsbeebMemoryActivity}.
    */
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
+  }
+
   setMemoryActivityRecording(enabled: boolean): void {
     if (!this.memoryActivity) {
       this.memoryActivity = new JsbeebMemoryActivity(this.cpu);

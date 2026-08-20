@@ -25,6 +25,7 @@ const REFERENCE_PAGES: Record<string, () => Promise<ReferenceTableData>> = {
   commodore: () =>
     import('../reference/commodore').then((m) => m.commodoreReference),
   cpc: () => import('../reference/cpc').then((m) => m.cpcReference),
+  pmd85: () => import('../reference/pmd85').then((m) => m.pmd85Reference),
   trs80: () => import('../reference/trs80').then((m) => m.trs80Reference),
   zx80: () => import('../reference/zx80').then((m) => m.zx80Reference),
   zx81: () => import('../reference/zx81').then((m) => m.zx81Reference),
@@ -47,6 +48,7 @@ const ESCAPE_PAGES: Record<string, () => Promise<EscapeTableData>> = {
   commodore: () =>
     import('../reference/escapes/commodore').then((m) => m.commodoreEscapes),
   cpc: () => import('../reference/escapes/cpc').then((m) => m.cpcEscapes),
+  pmd85: () => import('../reference/escapes/pmd85').then((m) => m.pmd85Escapes),
   trs80: () => import('../reference/escapes/trs80').then((m) => m.trs80Escapes),
   zx80: () => import('../reference/escapes/zx80').then((m) => m.zx80Escapes),
   zx81: () => import('../reference/escapes/zx81').then((m) => m.zx81Escapes),

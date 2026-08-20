@@ -19,6 +19,7 @@ import {
 import { plainChar, sextantChar } from '../../dialects/atom/charset';
 import { AtomDiskDrive, type Bus } from './diskDrive';
 import { JsbeebMemoryActivity } from '../jsbeebMemoryActivity';
+import { ProgramEndLatch } from '../programEndLatch';
 // The dialect owns the Atom's address facts. BASIC text runs from TEXT_START up
 // to TEXT_TOP, the ceiling of the 5K of internal RAM a fully expanded Atom
 // holds; VIDEO_TOP is the ceiling of its 6K of video RAM.
@@ -167,6 +168,19 @@ const SENT_FIND = 0xff9a;
 const SENT_BGET = 0xff9e;
 const SENT_BPUT = 0xffa0;
 
+/**
+ * Where BASIC gives up on a program: `LDA #$3E` at the head of the ROM's
+ * command loop, loading `'>'` - the prompt it is about to print. Every way a
+ * program ends comes back through it (falling off the end, END, an error, and
+ * ESCAPE both out of a loop and at an INPUT prompt), and nothing that is still
+ * running does.
+ *
+ * The command loop rather than any address inside the interpreter, because the
+ * Atom's ESCAPE unwinds to here without passing the obvious candidates - and
+ * ESCAPE is how a user stops a program on this machine.
+ */
+const ROM_COMMAND_PROMPT = 0xc2cf;
+
 /** Cap on traps serviced within one {@link AtomMachine.runCycles} call, so a
  *  bug that kept reporting a stop for a non-trap reason couldn't spin forever. */
 const MAX_TRAPS_PER_CALL = 100_000;
@@ -220,6 +234,10 @@ export class AtomMachine implements MachineEmulator {
   private readonly drive: AtomDiskDrive | null;
   /** The debugInstruction hook registration, removed on dispose(). */
   private debugHook: { remove(): void } | null = null;
+  /** Run state, latched when the ROM reaches {@link ROM_COMMAND_PROMPT}. */
+  private readonly runLatch = new ProgramEndLatch();
+  /** The run latch's own debugInstruction hook, removed on dispose(). */
+  private runLatchHook: { remove(): void } | null = null;
   /**
    * Live memory-activity recorder for the memory-map overlay, created lazily
    * the first time the host arms recording (it taps jsbeeb's read/write hooks).
@@ -267,6 +285,12 @@ export class AtomMachine implements MachineEmulator {
     this.audioSampleRate = this.soundChip.soundchipFreq;
     this.cpu = fake6502(model, { video, soundChip: this.soundChip });
     if (!this.cpu.atomppia) throw new Error('Atom CPU has no PPIA');
+    // Registered before the filing trap so it sees every instruction: a handler
+    // that claims one (by returning true) stops the ones after it being called.
+    this.runLatchHook = this.cpu.debugInstruction.add((pc: number) => {
+      if (pc === ROM_COMMAND_PROMPT) this.runLatch.stopped();
+      return false;
+    });
     if (this.drive) this.debugHook = this.installFilingSystemTrap(this.drive);
     // The Atom keyboard hangs off the PPIA, not the SysVia.
     this.hostKeyboard = new AtomHostKeyboard(this.cpu.atomppia);
@@ -469,6 +493,25 @@ export class AtomMachine implements MachineEmulator {
   }
 
   /**
+   * Whether BASIC is executing a program, from the latch rather than from a
+   * cell: Atom BASIC records no such state, but the ROM address at which it
+   * gives up and prints its prompt again is one (see
+   * {@link ROM_COMMAND_PROMPT}).
+   *
+   * This machine has no {@link MachineEmulator.currentLine}, so there is no
+   * BASIC line to promote "running" from and it is reported from the moment the
+   * RUN is submitted. That can call a program running a fraction of a second
+   * early - between the RETURN going down and the interpreter starting - which
+   * is the safe direction: it can never produce a false finish. Whether a
+   * program is running and which line it is on are independent questions, and
+   * this machine answers the first without answering the second.
+   */
+  isProgramRunning(): boolean | null {
+    if (!this.initialised || this.disposed) return null;
+    return this.runLatch.read(true);
+  }
+
+  /**
    * Actual RAM figures from BASIC's own top-of-text pointer (`#0D/#0E`), which
    * the interpreter advances past the program's `0D FF` end marker and again
    * as `DIM` allocates arrays — so TEXT_START..TOP is in use and TOP to
@@ -580,6 +623,7 @@ export class AtomMachine implements MachineEmulator {
         this.injecting = true;
         try {
           this.ppia.clearKeys();
+          this.runLatch.clear();
           this.cpu.reset(true);
           this.unfitExpansionRam();
           // Start each run with no carried-over channels from a previous run.
@@ -609,7 +653,14 @@ export class AtomMachine implements MachineEmulator {
               }
             }
           }
-          this.typeViaMatrix('RUN\r');
+          this.typeViaMatrix('RUN');
+          // Arm the run latch between the command and the RETURN that submits
+          // it. The prompts the boot printed are behind us and the OS waiting
+          // for the RETURN does not reprint one, so the next `>` is this
+          // program ending - which for a short program happens while the
+          // RETURN below is still being held down.
+          this.runLatch.arm();
+          this.typeViaMatrix('\r');
           // Drop samples synthesized while booting/typing so the first
           // readAudio() doesn't replay a boot-time burst.
           this.soundChip.catchUp();
@@ -712,6 +763,8 @@ export class AtomMachine implements MachineEmulator {
     this.drive?.closeAll();
     this.memoryActivity?.dispose();
     this.debugHook?.remove();
+    this.runLatchHook?.remove();
+    this.runLatch.clear();
     this.ppia.clearKeys();
     this.backCanvas = null;
     this.backImageData = null;

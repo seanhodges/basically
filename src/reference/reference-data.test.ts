@@ -11,6 +11,7 @@ import { atomReference } from './atom';
 import { trs80Reference } from './trs80';
 import { cpcReference } from './cpc';
 import { altair8800Reference } from './altair8800';
+import { pmd85Reference } from './pmd85';
 
 const SETS: [string, BasicReferenceTableData][] = [
   ['zx81', zx81Reference],
@@ -22,6 +23,7 @@ const SETS: [string, BasicReferenceTableData][] = [
   ['trs80', trs80Reference],
   ['cpc', cpcReference],
   ['altair8800', altair8800Reference],
+  ['pmd85', pmd85Reference],
 ];
 
 describe.each(SETS)('reference data: %s', (_id, data) => {

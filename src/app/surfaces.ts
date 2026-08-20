@@ -155,6 +155,11 @@ export const SURFACES: readonly Surface[] = [
     write: (s, v) => s.setProcedureListOpen(v === true),
   },
   {
+    key: 'runProfile',
+    read: (s) => s.runProfileOpen,
+    write: (s, v) => s.setRunProfileOpen(v === true),
+  },
+  {
     key: 'memoryMap',
     read: (s) => s.memoryMapOpen,
     write: (s, v) => s.setMemoryMapOpen(v === true),

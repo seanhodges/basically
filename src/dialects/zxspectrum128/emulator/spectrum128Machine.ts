@@ -10,6 +10,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
   MemoryBlock,
   TapeFile,
@@ -20,6 +21,10 @@ import {
   kempstonByte,
 } from '../../zxspectrum/emulator/joystick';
 import { Spectrum128Memory } from './memory128';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
 import { Ay38912 } from '../../../emulator/ay';
 import { readSpectrumVariables } from '../../zxspectrum/vars';
 import {
@@ -53,6 +58,7 @@ import {
   injectBlocks,
   minBlockAddress,
 } from '../../zxspectrum/emulator/blockInject';
+import { ProgramEndLatch } from '../../../emulator/programEndLatch';
 
 const CPU_HZ = 3_546_900;
 const TSTATES_PER_FRAME = 70908; // 3.5469MHz / ~50.02Hz (128K ULA frame)
@@ -68,6 +74,22 @@ const MAX_BOOT_FRAMES = 400; // the 128 menu takes longer than the 48K prompt
 // at 0x3C00 within ROM 1 - i.e. file offset 0x4000 + 0x3C00. Glyph for char code
 // c is at FONT_ORIGIN + c*8.
 const FONT_ORIGIN = 0x4000 + 0x3c00;
+/**
+ * Where 128 BASIC gives up on a program: the `HALT` in the editor ROM's main
+ * loop, which the ROM re-enters at 0x0321 by resetting SP to RAMTOP and then
+ * printing whatever report ERR_NR holds. Every way a program ends comes back
+ * through it exactly once, and nothing that is still running does.
+ *
+ * This is ROM 0's own loop, not the 48K's `$1303`: 128 BASIC runs the
+ * interpreter out of ROM 1 but returns to the editor in ROM 0, so `$1303` is
+ * never reached at all on this machine. The address is therefore only meaningful
+ * while ROM 0 is paged in - the same instruction address inside ROM 1 is
+ * executed a dozen times over during an ordinary running program, so a compare
+ * that ignored the 0x7FFD ROM-select bit would report a running program
+ * finished within a second or two.
+ */
+const PROGRAM_END = 0x032c;
+
 /** The 128K/+2 boot-menu item labels, used to locate and select an entry. */
 const MENU_ITEMS = [
   'TAPE LOADER',
@@ -122,6 +144,18 @@ export class Spectrum128Machine implements MachineEmulator {
   /** Kempston joystick port byte (active-high: bit0 right … bit4 fire). */
   private kempston = 0;
   /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+
+  /**
    * T-states the previous frame overran its budget by, owed back to this one.
    * An instruction cannot be cut in half at a frame boundary, so a frame always
    * ends a few T-states late; discarding that gains time every frame. Zeroed
@@ -139,6 +173,8 @@ export class Spectrum128Machine implements MachineEmulator {
     DISPLAY_WIDTH * DISPLAY_HEIGHT * 4,
   );
   private disposed = false;
+  /** Run state, latched when the ROM reaches {@link PROGRAM_END}. */
+  private readonly runLatch = new ProgramEndLatch();
   /** ROM font index for the screen reader; built on first use. */
   private fontSigs: GlyphSignatures | null = null;
   /** Header + data blocks waiting to be injected at the next LOAD. */
@@ -185,6 +221,7 @@ export class Spectrum128Machine implements MachineEmulator {
     this.kempston = 0;
     this.frameCount = 0;
     this.frameCycle = 0;
+    this.runLatch.clear();
     this.cpu.reset();
   }
 
@@ -195,10 +232,28 @@ export class Spectrum128Machine implements MachineEmulator {
    * T-states consumed (0 when the trap was serviced or the CPU is halted).
    */
   private stepInstruction(): { t: number; halted: boolean } {
+    const step = this.stepUnmeasured();
+    // Charge the T-states to the BASIC line executing them. Here rather than in
+    // debugStep because a run the IDE performs to check an assistant answer
+    // deliberately opens no debug session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += step.t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+    return step;
+  }
+
+  /** The step itself: the traps, then one instruction (or an idle HALT). */
+  private stepUnmeasured(): { t: number; halted: boolean } {
     // Every tape trap is gated on ROM 1: 0x0556/0x04C2 are the tape routines
     // only in the 48 BASIC ROM, and 128 BASIC pages ROM 1 in for all tape I/O.
     const romBank1 = this.memory.currentRomBank === 1;
     const pc = this.cpu.getPC();
+    // The editor ROM is back in its main loop, so the program 128 BASIC was
+    // running has stopped (see PROGRAM_END): latch it, gated on ROM 0 for the
+    // reason the tape traps are gated on ROM 1.
+    if (!romBank1 && pc === PROGRAM_END) this.runLatch.stopped();
     if (this.pending && romBank1 && pc === LD_BYTES) {
       this.serviceLoadTrap();
       return { t: 0, halted: false };
@@ -280,7 +335,7 @@ export class Spectrum128Machine implements MachineEmulator {
    * it isn't a valid program line (e.g. before a program has run).
    */
   currentLine(): number | null {
-    const lineNo = this.memory.readWord(PPC);
+    const lineNo = this.memory.rawReadWord(PPC);
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
@@ -656,6 +711,14 @@ export class Spectrum128Machine implements MachineEmulator {
     // The submitting ENTER is released quickly so it is not still held when
     // the program's first statement runs (an opening INKEY$ would otherwise
     // read ENTER instead of "").
+    //
+    // Arm the run latch here, after every command line this load typed (the
+    // menu, LOAD "", the ENTER that dismisses its report, and the CLEAR a
+    // document with a low memory block needs) and before the one that starts
+    // the program: the editor waiting for these keystrokes never reaches
+    // PROGRAM_END, so the next sighting of it is this program ending - which
+    // for a short program is inside the frames the ENTER below pumps.
+    this.runLatch.arm();
     this.typeLetters('RUN', Spectrum128Machine.EDITOR_KEY_GAP);
     const autoStart = opts?.autoStart;
     if (typeof autoStart === 'number') {
@@ -716,9 +779,19 @@ export class Spectrum128Machine implements MachineEmulator {
     return readSpectrumReport(this.memory);
   }
 
-  // No isProgramRunning(), for the same reason as the 48K machine: the ROM
-  // reports "0 OK" while a program runs as well as after a clean end, and PPC
-  // keeps the last line executed. See MachineEmulator.isProgramRunning.
+  /**
+   * Whether BASIC is executing a program, from the latch rather than from a
+   * system variable, for the same reason as the 48K machine: the ROM reports
+   * "0 OK" while a program runs as well as after a clean end, and PPC keeps the
+   * last line executed. The address the editor ROM comes back to (see
+   * {@link PROGRAM_END}) does separate the two. Running is promoted from PPC, so
+   * the seconds spent booting through the menu, loading and typing RUN are
+   * reported as "not answerable yet" rather than as the program.
+   */
+  isProgramRunning(): boolean | null {
+    if (this.disposed) return null;
+    return this.runLatch.read(this.currentLine() !== null);
+  }
 
   /**
    * Actual RAM figures from the ROM's own pointers - the 128 keeps the 48K
@@ -735,6 +808,14 @@ export class Spectrum128Machine implements MachineEmulator {
     // Implausible pointers mean the ROM hasn't initialised them yet.
     if (prog < 0x5c00 || used <= 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {
@@ -797,5 +878,6 @@ export class Spectrum128Machine implements MachineEmulator {
     this.beeper.reset();
     this.imageData = null;
     this.pending = null;
+    this.runLatch.clear();
   }
 }

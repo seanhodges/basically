@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -23,9 +23,32 @@ function dirNames(path: string): string[] {
   );
 }
 
+/**
+ * Capabilities an in-flight change is adding, which do not reach
+ * `openspec/specs/` until it is archived.
+ *
+ * A new capability's browser coverage is written with the change that
+ * introduces it, so its `e2e/` folder legitimately exists before the baseline
+ * spec does. Read from the change folders rather than exempted by name, so the
+ * allowance disappears on its own when the change is archived - by which point
+ * the capability is in the baseline anyway.
+ */
+function inFlightCapabilities(): string[] {
+  const changes = join(ROOT, 'openspec', 'changes');
+  return dirNames(changes)
+    .filter((change) => change !== 'archive')
+    .flatMap((change) => {
+      const specs = join(changes, change, 'specs');
+      return existsSync(specs) ? dirNames(specs) : [];
+    });
+}
+
 describe('e2e capability layout', () => {
   it('every e2e/ folder is an openspec capability or reserved', () => {
-    const capabilities = dirNames(join(ROOT, 'openspec', 'specs'));
+    const capabilities = [
+      ...dirNames(join(ROOT, 'openspec', 'specs')),
+      ...inFlightCapabilities(),
+    ];
     for (const folder of dirNames(join(ROOT, 'e2e'))) {
       expect(
         [...capabilities, ...RESERVED],

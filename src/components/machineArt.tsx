@@ -63,6 +63,8 @@ const ALTAIR_CASE = '#3c4757'; // VirtualKeyboard.css .vk-theme-altair8800
 const ALTAIR_LED = '#e05a3c';
 const ALTAIR_SWITCH = '#b9bcc2';
 const TRS_SILVER = '#9aa0a6'; // VirtualKeyboard.css .vk-theme-trs80
+const PMD_FN = '#8a5a2c'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-fn
+const PMD_KEYS = '#363a41'; // VirtualKeyboard.css .vk-theme-pmd85 .vk-style-shift
 const CPC_BLUE = '#2f6fb0'; // VirtualKeyboard.css .vk-theme-cpc464
 const CPC_GREY = '#8d9299'; // VirtualKeyboard.css .vk-theme-cpc6128
 
@@ -81,6 +83,7 @@ const VIC_CASE = '#dcd8c8';
 const PET_CASE = '#b3b1a8';
 const TRS_CASE = '#b4b6b1';
 const CPC_CASE = '#1e1e22';
+const PMD_CASE = '#b9b4a6';
 const SCREEN_BLACK = '#0b0d0a';
 
 /** Darken-by-a-notch used for the shadowed base each case sits on. */
@@ -97,6 +100,7 @@ const BASE = {
   trs: '#8e908c',
   cpc: '#0e0e10',
   altair: '#20262f',
+  pmd: '#948f83',
 };
 
 /* ---------------------------------------------------------------------------
@@ -466,6 +470,48 @@ function Altair8800Art({ size }: ArtProps) {
   );
 }
 
+/* ---------------------------------------------------------------------------
+   Tesla */
+
+/**
+ * PMD 85-2: a grey-beige wedge that is almost all keyboard. Its silhouette tell
+ * is the grid - fifteen columns of small square keys, uniform all the way down,
+ * with the K0-K11 function row picked out above them.
+ */
+function Pmd85Art({ size }: ArtProps) {
+  return (
+    <svg {...artProps(size)}>
+      <path d="M3 25h42v4H3z" fill={BASE.pmd} />
+      <path d="M3 9h42v16H3z" fill={PMD_CASE} />
+      <path d="M6 5h39v4H6z" fill="#a8a396" />
+      {/* The function-key row, the one band that is not the key grid. */}
+      {Array.from({ length: 12 }, (_, c) => (
+        <rect
+          key={`fn${c}`}
+          x={5.5 + c * 2.7}
+          y="10.5"
+          width="2"
+          height="2"
+          fill={PMD_FN}
+        />
+      ))}
+      {/* Four rows of fifteen, drawn as a grid because that is what it is. */}
+      {Array.from({ length: 4 }, (_, r) =>
+        Array.from({ length: 15 }, (_, c) => (
+          <rect
+            key={`k${r}-${c}`}
+            x={5.5 + c * 2.7}
+            y={13.8 + r * 2.7}
+            width="2"
+            height="2"
+            fill={PMD_KEYS}
+          />
+        )),
+      )}
+    </svg>
+  );
+}
+
 /**
  * Portraits by registry dialect id. Typed against `MachineArtId`, so the map
  * and `machineArtIds.ts` cannot drift apart.
@@ -485,6 +531,7 @@ const ART: Record<MachineArtId, (p: ArtProps) => JSX.Element> = {
   cpc464: Cpc464Art,
   cpc6128: Cpc6128Art,
   altair8800: Altair8800Art,
+  pmd85: Pmd85Art,
 };
 
 /** A machine's portrait, `size` px tall. */

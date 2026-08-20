@@ -7,9 +7,15 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
 } from '../../types';
 import { Zx81Memory } from './memory';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
+import { ProgramEndLatch } from '../../../emulator/programEndLatch';
 import { readZx81Variables } from '../vars';
 import { readZx81Report } from '../reports';
 import { Zx81Keyboard } from './keyboard';
@@ -24,6 +30,7 @@ import {
   ROM_POST_LOAD,
   ROM_SAVE_TRAP,
   ROM_SAVE_RESUME,
+  ROM_PROGRAM_END,
 } from '../sysvars';
 import { NEWLINE, zx81Charset } from '../charset';
 import { readSinclairScreenText } from '../../sinclairScreenText';
@@ -67,6 +74,18 @@ export class Zx81Machine implements MachineEmulator {
   private nmiCounter = 0;
   private prevRBit6 = true;
   /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link stepInstruction} charges the
+   * T-states it consumes to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+
+  /**
    * T-states the previous frame overran its budget by, owed back to this one.
    * An instruction cannot be cut in half at a frame boundary, so a frame always
    * ends a few T-states late; discarding that gains time every frame.
@@ -76,6 +95,8 @@ export class Zx81Machine implements MachineEmulator {
   private disposed = false;
   /** .P image waiting to be injected when the ROM reaches its LOAD loop. */
   private pendingImage: Uint8Array | null = null;
+  /** Run state, latched when the ROM reaches {@link ROM_PROGRAM_END}. */
+  private readonly runLatch = new ProgramEndLatch();
 
   constructor(opts: { rom: Uint8Array; ramKb: 16 | 32 | 64 }) {
     this.memory = new Zx81Memory(opts.rom, opts.ramKb);
@@ -117,6 +138,7 @@ export class Zx81Machine implements MachineEmulator {
     this.nmiGeneratorOn = false;
     this.nmiCounter = 0;
     this.prevRBit6 = true;
+    this.runLatch.clear();
     this.cpu.reset();
   }
 
@@ -151,6 +173,10 @@ export class Zx81Machine implements MachineEmulator {
     if (this.cpu.getPC() === ROM_SAVE_TRAP) {
       this.cpu.setPC(ROM_SAVE_RESUME);
     }
+    // The interpreter has given up on the program (see ROM_PROGRAM_END): latch
+    // it, so isProgramRunning() has an answer the ROM's own variables don't
+    // give. One integer compare on a path already walked for the tape traps.
+    if (this.cpu.getPC() === ROM_PROGRAM_END) this.runLatch.stopped();
     let t: number;
     if (this.cpu.isHalted()) {
       // A halted Z80 still performs refresh cycles: R keeps incrementing,
@@ -177,6 +203,15 @@ export class Zx81Machine implements MachineEmulator {
         this.cpu.interrupt(true, 0);
       }
     }
+
+    // Charge the T-states to the BASIC line executing them. Here rather than in
+    // debugStep because a run the IDE performs to check an assistant answer
+    // deliberately opens no debug session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
     return t;
   }
 
@@ -193,7 +228,7 @@ export class Zx81Machine implements MachineEmulator {
    * during execution, so PPC is the right signal for "where are we".
    */
   currentLine(): number | null {
-    const lineNo = this.memory.readWord(PPC);
+    const lineNo = this.memory.rawReadWord(PPC);
     return lineNo >= 1 && lineNo <= 9999 ? lineNo : null;
   }
 
@@ -268,6 +303,12 @@ export class Zx81Machine implements MachineEmulator {
     // would from cassette (auto-running if NXTLIN points at line 1). Machine
     // code and data ride inside this image as hidden `#BIN` REM records (see
     // `src/app/listingBlocks.ts`), so there is nothing to inject separately.
+    //
+    // Arm the run latch before any of that runs: this ROM's LOAD auto-runs the
+    // program through NXTLIN and never returns to the editor first, so it
+    // cannot reach ROM_PROGRAM_END until the program it just started ends -
+    // which for a one-line program is inside the frames pumped below.
+    this.runLatch.arm();
     this.pendingImage = image;
     this.tapKeys(['KeyJ']); // LOAD (keyword mode)
     this.tapKeys(['Shift', 'KeyP']); // "
@@ -327,13 +368,18 @@ export class Zx81Machine implements MachineEmulator {
     });
   }
 
-  // No isProgramRunning(): the ZX81 ROM leaves no reliable trace of the
-  // difference. ERR_NR reads "0 OK" both while a program runs and after it ends
-  // cleanly (see reports.ts), PPC keeps the last line executed, and NXTLIN
-  // already points past a single-line program while that line is still running.
-  // Sweeping every system variable across running and finished programs turns
-  // up no cell that separates the two, so the post-run check falls back to "no
-  // error appeared inside the window" - see MachineEmulator.isProgramRunning.
+  /**
+   * Whether BASIC is executing a program, from the latch rather than from a
+   * system variable: no ZX81 system variable separates a running program from a
+   * finished one (see {@link ROM_PROGRAM_END}), but the ROM address at which the
+   * interpreter gives up does. Running is promoted from PPC, so the frames spent
+   * loading the program are reported as "not answerable yet" rather than as the
+   * program.
+   */
+  isProgramRunning(): boolean | null {
+    if (this.disposed) return null;
+    return this.runLatch.read(this.currentLine() !== null);
+  }
 
   /**
    * Actual RAM figures from the ROM's own pointers: everything from the system
@@ -349,6 +395,14 @@ export class Zx81Machine implements MachineEmulator {
     // Implausible pointers mean the ROM hasn't initialised them yet.
     if (ramtop <= SYSVARS_BASE || used <= 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {
@@ -383,5 +437,6 @@ export class Zx81Machine implements MachineEmulator {
     // rather than waiting on GC of the whole machine.
     this.imageData = null;
     this.pendingImage = null;
+    this.runLatch.clear();
   }
 }

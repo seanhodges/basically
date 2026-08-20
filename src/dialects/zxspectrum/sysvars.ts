@@ -36,3 +36,19 @@ export const ROM_LD_BYTES = 0x0556;
 export const ROM_SA_BYTES = 0x04c2;
 /** ROM "R Tape loading error" report entry (RST 8, code 0x1A). */
 export const ROM_REPORT_R = 0x0806;
+
+/**
+ * The main loop's `HALT`, reached only when the `CALL $1B8A` (LINE-RUN) above
+ * it returns - which for a typed `RUN` is when the program stops. Every way a
+ * program ends comes back through it exactly once (falling off the end, STOP,
+ * an error, BREAK), and nothing that is still running does, including a program
+ * waiting at an `INPUT` prompt.
+ *
+ * Not once per frame, despite being where the editor waits: the loop reaches it
+ * once per completed command line and spends the wait elsewhere. That is also
+ * the trap - the command lines a load types (`LOAD ""`, and the `CLEAR` a
+ * document with a low memory block needs) each pass through it - so the run
+ * latch is armed after those, immediately before `RUN` is typed, rather than by
+ * counting hits.
+ */
+export const ROM_PROGRAM_END = 0x1303;

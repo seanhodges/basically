@@ -9,6 +9,8 @@ import {
   canCheckByRunning,
   canReportVariables,
   driveKeyNames,
+  canProfileRun,
+  DIALECTS_WITHOUT_PROFILE,
   DIALECTS_WITHOUT_RUNTIME_REPORT,
   DIALECTS_WITHOUT_VARIABLE_READBACK,
 } from './machineObservability';
@@ -176,6 +178,56 @@ describe('the runtime-report table matches the machines', () => {
       expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
     }
   });
+});
+
+describe('the profile table matches the machines', () => {
+  // The same bargain again, for whether a run on this machine can be measured
+  // at all. Drift here would offer the assistant a tool that always answers
+  // "nothing measured", and would have the profile surface promise a machine
+  // measurements it can never take.
+  for (const dialect of dialects) {
+    it(`${dialect.id} is described as it actually is`, () => {
+      const machine = dialect.createEmulator({
+        rom: romFor(dialect.romUrl),
+        ramKb: 16,
+      });
+      const actual = typeof machine.setProfileRecording === 'function';
+      expect(
+        canProfileRun(dialect.id),
+        `${dialect.id} ${actual ? 'implements' : 'does not implement'} ` +
+          `setProfileRecording, so the table should ${actual ? 'not ' : ''}list it`,
+      ).toBe(actual);
+      machine.dispose();
+    });
+  }
+
+  it('names only registered dialects', () => {
+    const ids = new Set(dialects.map((d) => d.id));
+    for (const id of DIALECTS_WITHOUT_PROFILE) {
+      expect(ids.has(id), `${id} is not a registered dialect`).toBe(true);
+    }
+  });
+});
+
+describe('every registered machine reports whether a program is running', () => {
+  // No table to crosscheck here, and that is the point: this one is not a
+  // capability a dialect may decline, so there is nothing to keep in step with
+  // the machines - only the machines themselves. Whether each actually reaches
+  // a definite answer, rather than merely offering the method, is checked on
+  // the real ROMs by src/dialects/programRunState.test.ts.
+  for (const dialect of dialects) {
+    it(`${dialect.id} implements isProgramRunning`, () => {
+      const machine = dialect.createEmulator({
+        rom: romFor(dialect.romUrl),
+        ramKb: 16,
+      });
+      expect(
+        typeof machine.isProgramRunning,
+        `${dialect.id}'s machine must report whether a program is running`,
+      ).toBe('function');
+      machine.dispose();
+    });
+  }
 });
 
 describe('buildExpectationRules', () => {

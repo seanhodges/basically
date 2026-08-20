@@ -27,6 +27,22 @@ The status bar shows the emulator state - **stopped**, **running**, or
 To stop, press **■ Stop**. This is a full power-off, not a pause: the machine is
 shut down and the screen blanks, so the next run starts clean.
 
+## Saving a picture of the screen
+
+The camera button in the toolbar - or **Ctrl/Cmd + Alt + S** - saves what the
+machine has drawn as a PNG, named after your program and stamped with the time,
+so a second screenshot is a second file rather than an overwrite. The standalone
+player has the same button beside its Play control.
+
+The file is the machine's own picture, at its own pixels, enlarged by a whole
+number so every machine pixel stays a square block. Nothing that surrounds the
+screen goes with it: no bezel, no panel, and no **CRT scanline effect** - that
+setting changes the screen you are looking at, but never the saved image. If you
+want the scanlines in a picture, use your operating system's own screenshot tool.
+
+A machine that has been stopped still gives you the last frame it drew. Asking
+before it has drawn anything tells you there is nothing to save.
+
 ## Running on a phone or tablet
 
 On a narrow screen (and in landscape) the workspace splits into tabs along the
@@ -38,6 +54,29 @@ bottom corner of the editor - its tooltip reads **Build and run in the
 emulator**. Tapping it builds the program and automatically switches you to the
 **Run** tab so you see the result straight away. (The **Run** tab on its own just
 shows the emulator; the floating button is what actually builds and starts it.)
+
+On the machines that support [step
+debugging](#debugging-with-breakpoints), that button follows the run rather than
+only starting it. Once the program is going it turns blue and becomes **❚❚
+Pause**, which holds the machine exactly where it is - the screen, the memory and
+everything the program has done stay put, and no time is charged to the program
+while it waits. Tap it again, now **▶ Continue**, and the program carries on from
+where it stopped.
+
+It is the same button when a breakpoint pauses the program for you: it reads
+**▶ Continue** then too, and continuing runs on to the next breakpoint. Pausing
+is unavailable for the brief moment before the machine draws its first frame,
+and while the assistant is running your program to check an answer.
+
+When your program ends by itself - it runs off the end, hits an `END`, or stops
+on an error - the button goes back to the green **▶** play button, ready to run
+it again. The emulator stays on and sits at its prompt, where you can still type
+at it; there is simply no longer a program to hold still. This happens on every
+machine: each of them reports whether a program is still executing.
+
+On a machine without the step debugger there is nothing to release a pause, so
+none is offered: the button stays the green **▶** play button throughout, and
+tapping it while a program runs starts it again from the beginning.
 
 ## Giving your program input
 
@@ -125,6 +164,145 @@ to see exactly what state a line leaves behind.
 The `{x}` toggle lives in the status bar, so on a phone it's on every tab except
 in landscape (where the status bar is hidden); the watcher panel itself appears
 under the screen on the **Run** tab.
+
+## Finding the slow line
+
+Every run measures itself. There's no profiling mode to switch on and no run
+that turns out not to have been measured - by the time you've watched a program
+crawl, the measurements of that run are already there.
+
+The moment a program starts running, coloured bars appear in the gutter beside
+your lines. Each bar is that line's share of the run's time: a pale yellow bar
+for a line that was incidental to the run, deepening through orange to red for
+the line that dominated it. A line that never ran carries no bar at all, which
+is different from a line that ran cheaply. Hover a bar to see the exact
+percentage. The bars sit on the gutter's inside edge, so they never hide an
+error marker or a breakpoint dot.
+
+For the whole picture, open **Edit ▸ Profiler report**. How long the run took
+sits at the top, and the rest is split in two, because a run spends two things.
+
+**Compute** lists:
+
+- **the hottest lines**, as shares of the run - click one to jump to it;
+- **the same shares summed over each routine**, using the procedures,
+  subroutines and jump targets from the
+  [outline](./writing-basic#outline), so you can read what a routine cost
+  without adding its lines up by hand.
+
+**Memory** lists:
+
+- **BASIC RAM across the run**, drawn against the run's own elapsed time, with
+  the most memory the program ever used;
+- **where that memory went**, line by line and in bytes, and the same figures
+  summed over each routine - click one to jump to it.
+
+That memory chart is how you catch the classic Commodore freeze: a program that
+builds strings fills memory steadily and then stalls for the best part of a
+second while BASIC reclaims what it can. On the chart that's a rising line and a
+sudden drop, at the moment your program appeared to hang. The lines listed under
+it are the answer to the next question - which line was doing the building, and
+which one was left holding it afterwards.
+
+Two things are worth knowing about the numbers.
+
+**They are the machine's own time, not yours.** A duration is what the program
+would take on the real hardware. Running the emulator at four times speed to get
+through a long program faster doesn't change a single figure, and neither does
+the refresh rate of your screen.
+
+**A line's cost is that line alone.** Time spent inside a routine is charged to
+the routine's own lines, never to the line that called it. So a `GOSUB` reads as
+cheap however much work it sets off - which is why the profile also offers the
+per-routine totals. If a call site looks free but your program is slow, look at
+what it calls. Memory is charged the same way, and with one addition: memory
+BASIC reclaims is charged to whichever line was running when it went, and
+subtracted, so each line's figure is what it was left holding. A line that gives
+back more than it took reads as a negative, and it is worth finding - on a
+Commodore that is where your program stalled.
+
+Because a net figure alone can't tell a line that did nothing from one that took
+a great deal and gave nearly all of it back - which is exactly what a reclaim
+pause looks like - the total under the list says all three: what the run took,
+what BASIC reclaimed, and the net.
+
+Memory is counted in bytes rather than as a share, because a byte is the same
+byte on every machine. And it is counted the way the machine counts it: the
+figures come from BASIC's own pointers, so a line only shows as moving memory in
+the part of RAM the chart above it is drawing. Where a machine's own account
+doesn't move as a program churns strings, the profile says no memory was taken,
+rather than reporting a program that takes none.
+
+Sometimes the profile says the figures are **approximate**, and it's worth
+knowing when. Charging memory to a line means catching the moment the machine
+moves off that line - so a loop written on a single line, like
+`10 A$=A$+"X":GOTO 10`, never gives the profile that moment, and can fill memory
+over a whole run with nothing to charge it to. Rather than show you an empty list
+beside a rising chart, the profile falls back to spreading each move - taken or
+reclaimed alike - over the lines that were running at the time, by how much of
+the run's time each was taking. It says so above the figures. Read that ranking
+as a place to start looking rather than as a measurement: when several lines were
+running, the one that moved the memory needn't be the one that took the time.
+
+Not every machine can be measured. Measuring means charging processor cycles to
+the BASIC line that spent them, so it needs a machine that can say which line
+it's executing and that runs a real processor. A machine missing either reports
+no per-line costs and says so, rather than showing zeroes; a machine that can't
+report its BASIC memory figures likewise says the memory account is
+unavailable. The **Profiler report** tells you which case you're in.
+
+On a machine that can see your program finish, measuring stops when it does. The
+seconds the machine spends back at its prompt afterwards aren't your program's,
+so they don't stretch the duration or the memory chart.
+
+Measurements describe one run of one program. Starting a new run replaces them,
+and editing your program so that its lines no longer match - adding, removing or
+renumbering one - discards them rather than marking lines that no longer
+correspond.
+
+## Timing a program
+
+Knowing which line is slow doesn't tell you how long your program takes, and
+that's usually the question you asked first: does this finish in under a second,
+is the new version actually faster than the old one.
+
+**Edit ▸ Profiler report** opens with the answer. Above both tabs is how
+long the run took, in the machine's own time, and - always beside it - how the
+timing ended:
+
+- **the program finished** - the machine saw it return to its prompt, so the
+  duration is the time the program takes;
+- **the program stopped on an error** - the duration is the time up to the
+  failure;
+- **the program is still running** - a live reading of a program that hasn't
+  stopped, which is the normal shape of a game or an animation;
+- **it was still running when the run was stopped** - you pressed Stop, so the
+  duration is how long you let it run and not how long it takes;
+- **execution paused** - the run stopped at a breakpoint or a step.
+
+The ending is never dropped, because the same number means different things
+under each. "1.4 seconds" for a program that ran to completion is a measurement
+of your program; "1.4 seconds" for one you got bored of is a fact about you.
+
+To compare two versions, time them both: run the first, read the duration, make
+your change, run it again. The IDE deliberately doesn't keep a table of past
+timings - a stopwatch measures one run - so write the first number down before
+you change anything.
+
+A timing ends by itself when the program does, on every machine, so you never
+have to stop a run to get a figure out of it.
+
+### Timing part of a program
+
+You don't have to time the whole of it. On the machines with a
+[step debugger](#debugging-with-breakpoints), the paused bar under the screen
+reports the machine time since the previous pause - so a breakpoint at each end
+of the stretch you care about times exactly that stretch, and stepping a line at
+a time gives you the cost of each line as you walk it.
+
+Time spent paused is never counted. Emulated time only advances while frames are
+running, so a breakpoint you leave sitting for a minute while you read your
+program costs it nothing.
 
 ## Inspecting data files
 

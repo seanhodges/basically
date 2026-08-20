@@ -18,6 +18,7 @@ import { shortSpellingsFor } from '../dialects/keywordSpellings';
 import { machinesOnPage } from './abbreviations';
 import type { ReferenceTableData } from './types';
 import { altair8800Reference } from './altair8800';
+import { pmd85Reference } from './pmd85';
 import { atomReference } from './atom';
 import { bbcReference } from './bbc';
 import { commodoreReference } from './commodore';
@@ -29,6 +30,7 @@ import { zxspectrumReference } from './zxspectrum';
 
 const PAGES: Record<string, ReferenceTableData> = {
   altair8800: altair8800Reference,
+  pmd85: pmd85Reference,
   atom: atomReference,
   bbc: bbcReference,
   commodore: commodoreReference,

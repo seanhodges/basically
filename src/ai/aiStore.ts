@@ -15,7 +15,14 @@ import {
   getAiProvider,
   getProviderApiKey,
 } from '../storage/settings';
-import { useIdeStore, type AiRunOutcome } from '../app/store';
+import {
+  useIdeStore,
+  selectActiveSource,
+  selectVisibleProfile,
+  selectVisibleTiming,
+  type AiRunOutcome,
+} from '../app/store';
+import { outlineCapabilities } from '../editor/programOutline';
 import {
   freezeMachine,
   hasMachineControl,
@@ -31,6 +38,10 @@ import {
   runDriveScript,
   DRIVE_TOOL,
   LOOK_TOOL,
+  PROFILE_TOOL,
+  TIME_TOOL,
+  describeProfile,
+  describeTiming,
   type DriveReport,
 } from './driveTools';
 import type { Dialect } from '../dialects/types';
@@ -47,7 +58,7 @@ import {
   extractScreenViews,
   isApplicableBlock,
 } from './codeExtractor';
-import { canCheckByRunning } from './machineObservability';
+import { canCheckByRunning, canProfileRun } from './machineObservability';
 import {
   buildEditorFix,
   buildExpectationFix,
@@ -910,6 +921,36 @@ export function settleJudgingTurn(
 }
 
 /**
+ * The measurements of the last run, read out of the same store the user's own
+ * editor gutter and profile report read.
+ *
+ * Read at call time rather than captured when the turn was armed: the run being
+ * asked about is usually the check that has only just finished, and its final
+ * measurements land as the run ends.
+ */
+function profileForAssistant(): string {
+  const s = useIdeStore.getState();
+  return describeProfile(
+    selectVisibleProfile(s),
+    selectActiveSource(s),
+    outlineCapabilities(s.dialect.keywords),
+    canProfileRun(s.dialect.id),
+  );
+}
+
+/**
+ * The timing of the last run, read out of the same store the user's own profile
+ * report reads - so the two are never holding different numbers for one run.
+ *
+ * Read at call time for the same reason the profile is: the run being asked
+ * about is usually the check that has only just finished.
+ */
+function timingForAssistant(): string {
+  const s = useIdeStore.getState();
+  return describeTiming(selectVisibleTiming(s));
+}
+
+/**
  * Everything the driving turn needs, or null when there is no driving to do.
  *
  * Null whenever any one of the three conditions fails - the assistant did not
@@ -959,6 +1000,12 @@ export function armDriving(asked: boolean): {
       }
       if (call.name === LOOK_TOOL) {
         return { callId: call.id, content: describeScreen(control) };
+      }
+      if (call.name === PROFILE_TOOL) {
+        return { callId: call.id, content: profileForAssistant() };
+      }
+      if (call.name === TIME_TOOL) {
+        return { callId: call.id, content: timingForAssistant() };
       }
       if (call.name !== DRIVE_TOOL) {
         // Reported rather than thrown, so the assistant can pick a tool that

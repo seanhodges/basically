@@ -6,6 +6,7 @@
  * program.bas            the BASIC source (text)
  * blocks/<name>.bin      each {@link MemoryBlock}'s raw bytes
  * blocks/<name>.asm      each code block's assembly source (when it has one)
+ * scratch/<ordinal>.bas  each scratch buffer's text, named by position
  * project.json           the metadata file (see {@link ProjectMetaV2})
  * ```
  *
@@ -39,6 +40,12 @@ const META_PATH = 'project.json';
 const blockBinPath = (name: string): string => `blocks/${name}.bin`;
 /** Zip entry path of a code block's assembly source. */
 const blockAsmPath = (name: string): string => `blocks/${name}.asm`;
+/**
+ * Zip entry path of a scratch buffer's text. Named by position, not by the
+ * buffer's name: scratch names are free-form and explicitly non-unique, so two
+ * buffers sharing one would collide into a single entry and lose work.
+ */
+const scratchPath = (ordinal: number): string => `scratch/${ordinal}.bas`;
 
 /**
  * The only valid shape for {@link MemoryBlock.name}: starts with a letter,
@@ -98,6 +105,18 @@ export interface SerializedTapeFile {
   kind: string;
   /** Base64-encoded {@link TapeFile.tap} (a ready two-block `.TAP` payload). */
   tap: string;
+}
+
+/**
+ * One scratch buffer's metadata in {@link ProjectMetaV2}. The text lives as its
+ * own zip entry ({@link file}), so it unzips as a `.bas` the user can open; the
+ * display name rides here because the entry is named by ordinal.
+ */
+export interface SerializedScratchBuffer {
+  /** The buffer's display name. Free-form, and not unique across buffers. */
+  name: string;
+  /** Zip entry path of this buffer's text (see {@link scratchPath}). */
+  file: string;
 }
 
 /**
@@ -165,6 +184,13 @@ export interface ProjectMetaV2 {
    * here. Optional and additive - files without it load as a plain program.
    */
   bootDisc?: string;
+  /**
+   * The document's scratch buffers, each naming the zip entry holding its text
+   * (see {@link SerializedScratchBuffer}). Optional and additive - files
+   * without it load with no buffers - so no version bump. Entries are named by
+   * ordinal because scratch names are not unique (see {@link scratchPath}).
+   */
+  scratch?: SerializedScratchBuffer[];
 }
 
 function serializeBlock(block: MemoryBlock): SerializedBlock {
@@ -388,6 +414,7 @@ export function serializeProjectZip(
   tapeFiles: readonly TapeFile[] = [],
   listingBlockMeta: SerializedListingBlockMeta = {},
   bootDisc: Uint8Array | null = null,
+  scratchBuffers: readonly { name: string; text: string }[] = [],
 ): Uint8Array {
   const files: Record<string, Uint8Array> = {
     [SOURCE_PATH]: textEncoder.encode(source),
@@ -408,6 +435,10 @@ export function serializeProjectZip(
     }
     return meta;
   });
+  const scratchMeta: SerializedScratchBuffer[] = scratchBuffers.map((b, i) => {
+    files[scratchPath(i)] = textEncoder.encode(b.text);
+    return { name: b.name, file: scratchPath(i) };
+  });
   const meta: ProjectMetaV2 = {
     format: 'basically-project',
     version: 2,
@@ -422,6 +453,7 @@ export function serializeProjectZip(
     ...(bootDisc && bootDisc.length > 0
       ? { bootDisc: bytesToBase64(bootDisc) }
       : {}),
+    ...(scratchMeta.length > 0 ? { scratch: scratchMeta } : {}),
   };
   files[META_PATH] = textEncoder.encode(JSON.stringify(meta, null, 2));
   return zipSync(files);
@@ -510,6 +542,41 @@ function parseBlockMetas(
   return blocks;
 }
 
+/**
+ * Decode one scratch buffer's metadata plus its zip entry back into a name and
+ * its text. Throws `Error` on any structural problem or a missing referenced
+ * entry, naming the offending buffer by index. Like a {@link TapeFile}'s, a
+ * scratch `name` is a free-form label rather than an identifier, so only
+ * presence and type are checked.
+ */
+function parseScratchBuffer(
+  raw: unknown,
+  index: number,
+  files: Record<string, Uint8Array>,
+): { name: string; text: string } {
+  if (raw === null || typeof raw !== 'object') {
+    throw new Error(`Project file scratch buffer ${index} is not an object.`);
+  }
+  const b = raw as Record<string, unknown>;
+  if (typeof b.name !== 'string') {
+    throw new Error(
+      `Project file scratch buffer ${index} is missing a "name".`,
+    );
+  }
+  if (typeof b.file !== 'string') {
+    throw new Error(
+      `Project file scratch buffer ${index} is missing a "file".`,
+    );
+  }
+  const bytes = files[b.file];
+  if (!bytes) {
+    throw new Error(
+      `Project file scratch buffer ${index} references a missing entry "${b.file}".`,
+    );
+  }
+  return { name: b.name, text: textDecoder.decode(bytes) };
+}
+
 export interface ParsedProject {
   dialect: string;
   source: string;
@@ -530,6 +597,11 @@ export interface ParsedProject {
   >;
   /** A verbatim disc image to boot, or `null` when the file carried none. */
   bootDisc: Uint8Array | null;
+  /**
+   * The saved scratch buffers in the order they were written, or `[]` when the
+   * file carried none. Ids are not stored: the store re-mints them on load.
+   */
+  scratch: { name: string; text: string }[];
 }
 
 /**
@@ -608,6 +680,13 @@ export function parseProjectZip(bytes: Uint8Array): ParsedProject {
       throw new Error('Project file has malformed "bootDisc".');
     }
   }
+  let scratch: { name: string; text: string }[] = [];
+  if (obj.scratch !== undefined) {
+    if (!Array.isArray(obj.scratch)) {
+      throw new Error('Project file has malformed "scratch".');
+    }
+    scratch = obj.scratch.map((b, i) => parseScratchBuffer(b, i, files));
+  }
   return {
     dialect: obj.dialect,
     source,
@@ -616,5 +695,6 @@ export function parseProjectZip(bytes: Uint8Array): ParsedProject {
     tapeFiles,
     listingBlockMeta: parseListingBlockMeta(obj.listingBlockMeta),
     bootDisc,
+    scratch,
   };
 }

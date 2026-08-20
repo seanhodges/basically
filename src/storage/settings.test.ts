@@ -6,6 +6,7 @@ import {
   loadAutosave,
   saveAutosave,
   clearAutosave,
+  saveAutosaveScratch,
   getAiProvider,
   setAiProvider,
   getProviderApiKey,
@@ -63,6 +64,7 @@ describe('autosave persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -97,6 +99,7 @@ describe('autosave persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -111,6 +114,7 @@ describe('autosave persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
     // Adopted: the tab's identity is pinned even if the backup changes later.
     expect(sessionStorage.getItem('mbide.autosave.doc')).toBe('10 REM BACKUP');
@@ -150,6 +154,7 @@ describe('autosave block persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -195,6 +200,7 @@ describe('autosave block persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -238,6 +244,7 @@ describe('autosave tape-file persistence', () => {
       autoStart: null,
       tapeFiles: [TAPE],
       bootDisc: null,
+      scratch: [],
     });
   });
 
@@ -282,7 +289,77 @@ describe('autosave tape-file persistence', () => {
       autoStart: null,
       tapeFiles: [],
       bootDisc: null,
+      scratch: [],
     });
+  });
+});
+
+describe('autosave scratch-buffer persistence', () => {
+  beforeEach(() => {
+    installStorages();
+  });
+
+  const BUFFERS = [
+    { name: 'Scratch 1', text: '10 PRINT "A"' },
+    { name: 'Scratch 1', text: '20 REM same name, kept apart' },
+  ];
+
+  it('round-trips scratch buffers alongside the document', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    expect(loadAutosave()?.scratch).toEqual(BUFFERS);
+  });
+
+  it('writes through to both storages', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    const raw = sessionStorage.getItem('mbide.autosave.scratch');
+    expect(raw).not.toBeNull();
+    expect(raw).toBe(localStorage.getItem('mbide.autosave.scratch'));
+  });
+
+  it('removes the scratch key when saving an empty list', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    saveAutosaveScratch([]);
+    expect(sessionStorage.getItem('mbide.autosave.scratch')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.scratch')).toBeNull();
+    expect(loadAutosave()?.scratch).toEqual([]);
+  });
+
+  it('clearAutosave clears the scratch key too', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    clearAutosave();
+    expect(sessionStorage.getItem('mbide.autosave.scratch')).toBeNull();
+    expect(localStorage.getItem('mbide.autosave.scratch')).toBeNull();
+  });
+
+  it('defensively parses corrupt scratch JSON as none, without losing the document', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    saveAutosaveScratch(BUFFERS);
+    sessionStorage.setItem('mbide.autosave.scratch', '{not json');
+    localStorage.setItem('mbide.autosave.scratch', '{not json');
+    expect(loadAutosave()?.text).toBe('10 PRINT "HI"');
+    expect(loadAutosave()?.scratch).toEqual([]);
+  });
+
+  it('drops entries that are not a name/text pair', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    sessionStorage.setItem(
+      'mbide.autosave.scratch',
+      JSON.stringify([{ name: 'Kept', text: 'ok' }, { name: 'No text' }, 7]),
+    );
+    expect(loadAutosave()?.scratch).toEqual([{ name: 'Kept', text: 'ok' }]);
+  });
+
+  it('defensively parses a non-array scratch value as none', () => {
+    saveAutosave('game.bas', '10 PRINT "HI"');
+    sessionStorage.setItem(
+      'mbide.autosave.scratch',
+      JSON.stringify({ oops: true }),
+    );
+    expect(loadAutosave()?.scratch).toEqual([]);
   });
 });
 

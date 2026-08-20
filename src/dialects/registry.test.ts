@@ -33,6 +33,7 @@ describe('dialect registry', () => {
     cpc464: 'hex',
     cpc6128: 'hex',
     altair8800: 'dec',
+    pmd85: 'hex',
   };
 
   it('every dialect declares its memory-map address notation', () => {
@@ -59,6 +60,9 @@ describe('dialect registry', () => {
     // The one machine whose image does not ship at all: supplying it is the
     // only way to start the Altair (see `romBundled` on the dialect).
     'altair8800',
+    // Ships its ROM pair concatenated in one image, and takes a replacement
+    // the same way - Monitor 2 first, then the BASIC-G module.
+    'pmd85',
   ]);
 
   it('every dialect states whether its ROM can be replaced', () => {

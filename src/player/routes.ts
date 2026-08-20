@@ -30,6 +30,7 @@ export const SHARE_VERBS: readonly ShareVerb[] = [
   { verb: 'mode', dialectId: 'cpc464' }, // MODE - the iconic Locomotive BASIC screen-mode command
   { verb: 'fill', dialectId: 'cpc6128' }, // FILL - a BASIC 1.1-only keyword the 464 lacks
   { verb: 'csave', dialectId: 'altair8800' }, // CSAVE - Altair 8K BASIC cassette save
+  { verb: 'plot', dialectId: 'pmd85' }, // PLOT - BASIC-G's draw-to-here command
 ];
 
 // Six characters from an unambiguous lowercase alphabet (no 0/O/1/l/i).

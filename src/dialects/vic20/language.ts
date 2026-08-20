@@ -1,6 +1,7 @@
 import type { Extension } from '@codemirror/state';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { buildBasicLanguage } from '../../editor/basicLanguage';
+import { keywordSpellingsFor } from '../keywordSpellings';
 import { buildCompletionSource } from '../../editor/completions';
 import { constructsByDialect } from '../../editor/constructs';
 import { vic20Keywords } from './keywords';
@@ -23,6 +24,7 @@ export function vic20LanguageSupport(): Extension {
   // strings/REM ("code crunching") — so the editor splits glued keywords the
   // same way.
   return buildBasicLanguage(vic20Keywords, vic20CompletionSource, {
+    spellings: keywordSpellingsFor('vic20'),
     operators: [...c64Operators, '^'],
     suffixChars: '$%',
     graphicsEscapes: false,

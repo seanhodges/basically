@@ -6,6 +6,7 @@ import {
   zx80VariableErrors,
   trs80VariableErrors,
   atomVariableErrors,
+  pmd85VariableErrors,
 } from './variableLint';
 import { zx81Keywords } from '../dialects/zx81/keywords';
 import { c64Keywords } from '../dialects/commodore64/keywords';
@@ -13,6 +14,7 @@ import { spectrumKeywords } from '../dialects/zxspectrum/keywords';
 import { zx80EditorKeywords } from '../dialects/zx80/keywords';
 import { trs80Keywords } from '../dialects/trs80/keywords';
 import { atomKeywords } from '../dialects/atom/keywords';
+import { pmd85Keywords } from '../dialects/pmd85/keywords';
 
 const zx81 = (src: string) => zx81VariableErrors(src, zx81Keywords);
 const c64 = (src: string) => c64VariableErrors(src, c64Keywords);
@@ -20,6 +22,7 @@ const spectrum = (src: string) => spectrumVariableErrors(src, spectrumKeywords);
 const zx80 = (src: string) => zx80VariableErrors(src, zx80EditorKeywords);
 const trs80 = (src: string) => trs80VariableErrors(src, trs80Keywords);
 const atom = (src: string) => atomVariableErrors(src, atomKeywords);
+const pmd85 = (src: string) => pmd85VariableErrors(src, pmd85Keywords);
 
 describe('zx81VariableErrors', () => {
   it('flags a multi-letter string variable at its exact columns', () => {
@@ -138,6 +141,18 @@ describe('spectrumVariableErrors (same single-letter model as ZX81)', () => {
     );
     expect(spectrum('10 DIM A(5)')).toEqual([]);
   });
+
+  // A Sinclair DATA item is an expression, not a value: on the real ROM
+  // `10 LET a=7:DATA a` READs 7, `DATA a*2` READs 14, and an undefined word
+  // stops with "Variable not found". So names inside DATA are real usages and
+  // the single-letter rule applies to them, unlike on a BBC or a CPC where
+  // READ takes the item literally.
+  it('checks the names inside a DATA statement', () => {
+    expect(spectrum('10 DATA AB$')[0]!.message).toMatch(
+      /string variable.*single letter/i,
+    );
+    expect(spectrum('10 DATA a,b*2')).toEqual([]);
+  });
 });
 
 describe('zx80VariableErrors (strict: every name a single letter)', () => {
@@ -211,5 +226,32 @@ describe('trs80VariableErrors (Microsoft model with $%!# suffixes)', () => {
         /'SCORE' embeds the reserved word 'OR'/,
       );
     });
+  });
+});
+
+describe('pmd85VariableErrors (Microsoft model, $ the only suffix)', () => {
+  it('flags a name that embeds a reserved word', () => {
+    expect(pmd85('10 SCORE=1')[0]!.message).toMatch(
+      /PMD 85 variable name 'SCORE' embeds the reserved word 'OR'/,
+    );
+  });
+
+  it('flags two long names colliding on the first two chars', () => {
+    const errors = pmd85('10 PLAYER=1\n20 PLANET=2');
+    expect(errors).toHaveLength(2);
+    for (const e of errors)
+      expect(e.message).toMatch(/only the first two characters \('PL'\)/);
+  });
+
+  it('never flags glued keywords as variables', () => {
+    expect(pmd85('10 POKEA,10')).toEqual([]);
+    expect(pmd85('10 FORI=1TO10\n20 NEXTI')).toEqual([]);
+    expect(pmd85('10 IFP=QTHENGOTO50')).toEqual([]);
+  });
+
+  it('reads the digits of a hex literal as a literal, not a name', () => {
+    // `'FF` is BASIC-G's hexadecimal form; without the prefix in the lexis the
+    // scanner would report an `FF` variable that the program does not have.
+    expect(pmd85("10 A='FF")).toEqual([]);
   });
 });

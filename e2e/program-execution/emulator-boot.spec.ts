@@ -1,4 +1,5 @@
 // Capability: program-execution — openspec/specs/program-execution/spec.md
+import { readFileSync } from 'node:fs';
 import {
   test,
   expect,
@@ -48,6 +49,7 @@ const MACHINES = [
   { id: 'cpc464', label: 'CPC 464' },
   { id: 'cpc6128', label: 'CPC 6128' },
   { id: 'pet', label: 'PET' },
+  { id: 'pmd85', label: 'PMD 85-2' },
   { id: 'zxspectrum', label: 'Spectrum' },
   { id: 'zxspectrum128', label: 'Spectrum 128' },
   { id: 'trs80', label: 'TRS-80' },
@@ -96,11 +98,25 @@ test('guard: automated machine list matches the machine picker', async ({
  *  - `pet` - the shared cpu6502 core in src/emulator/ (vic20, atom).
  *  - `commodore64` - the vendored viciious core.
  *  - `bbcmicro` - the jsbeeb package (bbcmaster).
+ *  - `pmd85` - the vendored Z80 core executing 8080 object code through the
+ *    shared src/emulator/i8080 layer. It earns a boot of its own rather than
+ *    riding on `zxspectrum` because its interpreter is not in the address space
+ *    at all: the firmware reads BASIC-G out of a ROM module through an I/O port
+ *    and copies it down before a program can run, so "the ROM loaded" and "the
+ *    machine can run a program" are two different facts here and only a boot
+ *    proves the second. The Altair is the other 8080 machine and cannot boot -
+ *    its image does not ship.
  *
- * A machine that arrives on a wiring none of these covers wants a fifth entry
- * here; one that reuses an existing core does not.
+ * A machine that arrives on a wiring none of these covers wants an entry here;
+ * one that reuses an existing core does not.
  */
-const REPRESENTATIVES = ['zxspectrum', 'pet', 'commodore64', 'bbcmicro'];
+const REPRESENTATIVES = [
+  'zxspectrum',
+  'pet',
+  'commodore64',
+  'bbcmicro',
+  'pmd85',
+];
 
 for (const machine of MACHINES.filter((m) => REPRESENTATIVES.includes(m.id))) {
   test(`sample boots, runs and paints - ${machine.label}`, async ({ page }) => {
@@ -116,6 +132,24 @@ for (const machine of MACHINES.filter((m) => REPRESENTATIVES.includes(m.id))) {
     await expect
       .poll(() => canvasPainted(page), { timeout: 30_000 })
       .toBe(true);
+
+    // Staged onto the machine this test already booted: the screenshot path
+    // decodes the captured canvas, redraws it enlarged and encodes a PNG, none
+    // of which exists outside a browser (jsdom has no canvas). The enlargement
+    // arithmetic per machine is pinned in src/app/screenshot.test.ts instead, so
+    // this runs on one machine only. Family-independent, but free here.
+    if (machine.id === REPRESENTATIVES[0]) {
+      const download = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Save a screenshot' }).click();
+      const file = await download;
+      expect(file.suggestedFilename()).toMatch(/\.png$/);
+      const path = await file.path();
+      const head = readFileSync(path).subarray(0, 8);
+      expect([...head]).toEqual([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      ]);
+    }
+
     await stopEmulator(page);
   });
 }

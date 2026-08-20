@@ -89,6 +89,7 @@ const KEYS = {
   autosaveAutoStart: 'mbide.autosave.autostart',
   autosaveTapeFiles: 'mbide.autosave.tapefiles',
   autosaveBootDisc: 'mbide.autosave.bootdisc',
+  autosaveScratch: 'mbide.autosave.scratch',
   aiConversation: 'mbide.autosave.ai',
   dialectId: 'mbide.dialectId',
   autoLineNumbering: 'mbide.autoLineNumbering',
@@ -649,6 +650,38 @@ function loadAutosaveBootDisc(): Uint8Array | null {
   }
 }
 
+/**
+ * One scratch buffer as autosave stores it. Ids and breakpoints are session
+ * handles, so only the name and text are kept (the project bundle keeps the
+ * same pair, with the text in its own zip entry).
+ */
+export interface AutosavedScratchBuffer {
+  name: string;
+  text: string;
+}
+
+/**
+ * The autosaved scratch buffers, or `[]` when none are stored or the stored
+ * value is corrupt/unparseable (defensive, like {@link loadAutosaveBlocks}).
+ * Entries that are not a name/text pair are dropped individually.
+ */
+function loadAutosaveScratch(): AutosavedScratchBuffer[] {
+  const raw = readSessionFirst(KEYS.autosaveScratch);
+  if (raw === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((b) => {
+      if (b === null || typeof b !== 'object') return [];
+      const { name, text } = b as Record<string, unknown>;
+      if (typeof name !== 'string' || typeof text !== 'string') return [];
+      return [{ name, text }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function loadAutosave(): {
   name: string;
   text: string;
@@ -657,6 +690,7 @@ export function loadAutosave(): {
   autoStart: number | null;
   tapeFiles: TapeFile[];
   bootDisc: Uint8Array | null;
+  scratch: AutosavedScratchBuffer[];
 } | null {
   // Reading the doc first adopts the pair's storage into the session slot, so
   // the name/blocks reads that follow resolve from the same storage.
@@ -670,7 +704,32 @@ export function loadAutosave(): {
     autoStart: loadAutosaveAutoStart(),
     tapeFiles: loadAutosaveTapeFiles(),
     bootDisc: loadAutosaveBootDisc(),
+    scratch: loadAutosaveScratch(),
   };
+}
+
+/**
+ * Mirror the scratch buffers to autosave, or remove the key when there are
+ * none. Its own entry point rather than a {@link saveAutosave} parameter:
+ * buffers belong to the document but are retained independently of it, so a
+ * document that clears its own autosave can still have buffers standing (see
+ * the store's `persistAutosave`).
+ */
+export function saveAutosaveScratch(
+  buffers: readonly AutosavedScratchBuffer[],
+): void {
+  try {
+    if (buffers.length === 0) {
+      removeBoth(KEYS.autosaveScratch);
+    } else {
+      writeThrough(
+        KEYS.autosaveScratch,
+        JSON.stringify(buffers.map((b) => ({ name: b.name, text: b.text }))),
+      );
+    }
+  } catch {
+    // quota exceeded - autosave is best-effort
+  }
 }
 
 export function saveAutosave(
@@ -729,8 +788,8 @@ export function saveAutosave(
  * localStorage backup: clearing work is a deliberate return to pristine and
  * must survive a browser restart. The backup is last-writer-wins; another live
  * tab's session slot is unaffected (though it won't re-mirror until its
- * content next changes). Also clears any autosaved memory blocks and preserved
- * tape files.
+ * content next changes). Also clears any autosaved memory blocks, preserved
+ * tape files and scratch buffers.
  */
 export function clearAutosave(): void {
   removeBoth(KEYS.autosaveDoc);
@@ -740,6 +799,7 @@ export function clearAutosave(): void {
   removeBoth(KEYS.autosaveAutoStart);
   removeBoth(KEYS.autosaveTapeFiles);
   removeBoth(KEYS.autosaveBootDisc);
+  removeBoth(KEYS.autosaveScratch);
 }
 
 /**

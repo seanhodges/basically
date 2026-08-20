@@ -8,6 +8,7 @@ import type {
   MachineMemoryStats,
   MachineReport,
   MachineScreenText,
+  LineCost,
   MachineVariable,
   MemoryBlock,
 } from '../../dialects/types';
@@ -20,6 +21,7 @@ import {
   READ_BIT,
   WRITE_BIT,
 } from '../memoryActivityBuffer';
+import { LineCostRecorder, PROFILE_SLICE_CYCLES } from '../lineCostRecorder';
 import { SidRenderer, SID_SAMPLES_PER_FRAME } from './sid';
 import { C64DiskDrive, type Bus, type TrapResult } from './diskDrive';
 import {
@@ -279,6 +281,17 @@ export class C64Machine implements MachineEmulator {
    */
   private readonly memoryActivity = new MemoryActivityBuffer(0x10000);
   /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for the life of a run, and {@link tickOnce} charges the cycles it
+   * runs to the line executing at the time. The reader charges memory the same way:
+   * the machine's in-use figure is read at each change of line, and what it
+   * rose by is charged to the line that has just stopped executing.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+  /**
    * The unwrapped `wires.cpuRead`, captured before the activity-recording
    * wrappers are installed. Host-side introspection ({@link currentLine},
    * {@link readVariables}, {@link readReport}, {@link readMemoryStats}) reads
@@ -491,6 +504,15 @@ export class C64Machine implements MachineEmulator {
     c64.cias.tick();
     c64.sid.tick();
     c64.tape.tick();
+    // Charge the cycle to the BASIC line executing it, on the same cadence
+    // debugStep samples at. Here rather than in debugStep because a run the IDE
+    // performs to check an assistant answer deliberately opens no debug
+    // session, and would otherwise go unmeasured.
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += 1;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
   }
 
   /**
@@ -887,6 +909,14 @@ export class C64Machine implements MachineEmulator {
     const free = fretop - strend;
     if (txttab === 0 || memsiz <= txttab || used < 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
   }
 
   setMemoryActivityRecording(enabled: boolean): void {

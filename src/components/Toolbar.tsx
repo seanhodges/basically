@@ -22,6 +22,7 @@ import { MobileTabBar } from './MobileTabBar';
 import { InputOverlayToggle } from './InputOverlayToggle';
 import { MachineTrigger } from './MachineTrigger';
 import { TARGET_MACHINE_ROLE } from './machinePicker';
+import { saveScreenshot } from '../app/screenshot';
 import {
   SparkleIcon,
   GearIcon,
@@ -31,6 +32,7 @@ import {
   DotsIcon,
   FloppyIcon,
   MemoryIcon,
+  CameraIcon,
 } from './icons';
 import styles from './Toolbar.module.css';
 
@@ -58,6 +60,7 @@ export function Toolbar() {
   const openDocs = useIdeStore((s) => s.openDocs);
   const docsDrawerOpen = useIdeStore((s) => s.docsDrawerOpen);
   const setProcedureListOpen = useIdeStore((s) => s.setProcedureListOpen);
+  const setRunProfileOpen = useIdeStore((s) => s.setRunProfileOpen);
   const setMemoryMapOpen = useIdeStore((s) => s.setMemoryMapOpen);
   const memoryMapOpen = useIdeStore((s) => s.memoryMapOpen);
   const requestEditorCommand = useIdeStore((s) => s.requestEditorCommand);
@@ -175,6 +178,12 @@ export function Toolbar() {
   const openShareLink = guard(() => setShareLinkOpen(true));
   const openVfsInspector = guard(() => setVfsInspectorOpen(true));
   const openMemoryMap = guard(() => setMemoryMapOpen(true));
+  // Reads the document name at click time, so renaming doesn't re-render the
+  // toolbar. A machine that has drawn nothing yet is reported, not thrown.
+  const takeScreenshot = guard(async () => {
+    const result = await saveScreenshot(useIdeStore.getState().fileName);
+    if (!result.saved) setError(result.reason);
+  });
   const toggleMemoryMap = guard(() => setMemoryMapOpen(!memoryMapOpen));
 
   // Shortcut hints for menu items and button tooltips, pulled from the central
@@ -197,11 +206,12 @@ export function Toolbar() {
     return s ? `${text} (${formatAllShortcuts(s)})` : text;
   };
 
-  // Shared by the Docs book icon and the "Help" overflow item. With a keyword
-  // selected in the editor, jump straight to that keyword on the current
-  // dialect's reference page; otherwise open the docs home - unless a porting
-  // comparison was offered for the open program, which wins over both. Read the
-  // selection imperatively so the toolbar doesn't re-render as the cursor moves.
+  // Shared by the Docs book icon and the "Help" overflow item. Opens the
+  // porting comparison offered for the open program where there is one, else
+  // the CPU's page while a machine-code block tab is open, else the docs home.
+  // A particular keyword is not this button's job - the editor answers that
+  // where the keyword is written. Read imperatively rather than through a
+  // selector so the toolbar doesn't re-render as the active tab changes.
   const openDocumentation = () => {
     const topic = openingTopicFor(useIdeStore.getState());
     openDocs(topic ?? undefined);
@@ -300,6 +310,12 @@ export function Toolbar() {
               >
                 Outline{hint('edit.outline')}
               </button>
+              <button
+                onClick={guard(() => setRunProfileOpen(true))}
+                title="Where the last run's time and memory went, line by line"
+              >
+                Profiler report…
+              </button>
               <div className={styles.menuSeparator} />
               <button
                 onClick={editAction('renumber')}
@@ -397,6 +413,17 @@ export function Toolbar() {
             <SpeakerIcon />
           )}
         </button>
+        <button
+          className="icon-btn"
+          onClick={takeScreenshot}
+          title={withKeys(
+            "Save the machine's screen as a PNG",
+            'run.screenshot',
+          )}
+          aria-label="Save a screenshot"
+        >
+          <CameraIcon />
+        </button>
         {dialect.memoryMap && (
           <button
             className={`icon-btn ${memoryMapOpen ? 'active' : ''}`}
@@ -485,6 +512,12 @@ export function Toolbar() {
                   >
                     Outline
                   </button>
+                  <button
+                    onClick={guard(() => setRunProfileOpen(true))}
+                    title="Where the last run's time and memory went, line by line"
+                  >
+                    Profiler report…
+                  </button>
                   <div className={styles.menuSeparator} />
                   <button
                     onClick={editAction('renumber')}
@@ -534,6 +567,9 @@ export function Toolbar() {
                     ■ Stop
                   </button>
                   <div className={styles.menuSeparator} />
+                  {/* The toolbar's camera is an .icon-btn, which the mobile
+                      rules hide, so the action is surfaced here as well. */}
+                  <button onClick={takeScreenshot}>Save a screenshot</button>
                   <button onClick={openVfsInspector}>
                     Emulator files{hint('view.vfsInspector')}
                   </button>

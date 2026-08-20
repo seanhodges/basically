@@ -418,57 +418,7 @@ describe('Vic20Machine', () => {
       BOOT_TIMEOUT_MS,
     );
   });
-  describe('run state', () => {
-    /**
-     * Sample isProgramRunning() once per frame from the moment the program is
-     * handed over, so the hand-over itself is observable and not just the
-     * settled state. CURLIN deliberately isn't consulted: the ROM leaves it
-     * holding the last line executed once a program stops.
-     */
-    async function trace(
-      source: string,
-      frames = 500,
-    ): Promise<(boolean | null)[]> {
-      const m = new Vic20Machine({ roms });
-      await m.whenReady();
-      m.loadProgram(image(source));
-      await m.whenReady();
-      const seen: (boolean | null)[] = [];
-      for (let i = 0; i < frames; i++) {
-        m.runFrame();
-        seen.push(m.isProgramRunning());
-      }
-      m.dispose();
-      return seen;
-    }
-
-    it(
-      'reports a looping program as running',
-      async () => {
-        expect((await trace('10 GOTO 10\n')).at(-1)).toBe(true);
-      },
-      BOOT_TIMEOUT_MS,
-    );
-
-    it(
-      'reports a finished program as not running',
-      async () => {
-        expect((await trace('10 PRINT "HI"\n')).at(-1)).toBe(false);
-      },
-      BOOT_TIMEOUT_MS,
-    );
-
-    it(
-      'never reads as finished before the program has started',
-      async () => {
-        // Everything up to the first `true` must be "not answerable yet" - a
-        // `false` there would report a program that has not begun as ended.
-        const seen = await trace('10 GOTO 10\n');
-        const started = seen.indexOf(true);
-        expect(started).toBeGreaterThanOrEqual(0);
-        expect(seen.slice(0, started)).not.toContain(false);
-      },
-      BOOT_TIMEOUT_MS,
-    );
-  });
+  // Whether a program is running - reported while it runs, not before it starts,
+  // and no longer once it has ended - is checked over the whole registry, on
+  // every machine, by src/dialects/programRunState.test.ts.
 });

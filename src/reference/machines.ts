@@ -129,6 +129,14 @@ export const machines: MachineChoice[] = [
     blurb: 'Tandy’s Radio Shack original. Runs Level II BASIC.',
   },
   {
+    id: 'pmd85',
+    page: 'pmd85',
+    name: 'PMD 85-2',
+    manufacturer: 'Tesla',
+    year: 1986,
+    blurb: 'Czechoslovakia’s school computer. Runs BASIC-G.',
+  },
+  {
     id: 'zx80',
     page: 'zx80',
     name: 'ZX80',

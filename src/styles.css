@@ -220,10 +220,11 @@ code {
   display: none;
 }
 
-/* --- Find/Replace (CodeMirror search panel) --------------------------------
-   Theme CodeMirror's built-in search panel to match the rest of the app.
-   These target CodeMirror's own DOM (no component wrapper class), so they stay
-   global. */
+/* --- Editor bottom bars (find/replace, variable usages) --------------------
+   Theme CodeMirror's built-in search panel to match the rest of the app, and
+   dress the variable-usages bar as its twin - they share the one panel slot at
+   the foot of the editor, so they share a look. These target CodeMirror's own
+   DOM (no component wrapper class), so they stay global. */
 .cm-panels,
 .cm-panels.cm-panels-top,
 .cm-panels.cm-panels-bottom {
@@ -275,13 +276,69 @@ code {
   border-left-color: var(--error);
 }
 
-/* Keep the highlighted completion readable against the dark surface. */
-.cm-tooltip-autocomplete > ul > li[aria-selected] {
+/* Keep the highlighted completion readable against the dark surface - and give
+   the click menu's rows the same highlight, since it is the same gesture
+   answered in the same place. */
+.cm-tooltip-autocomplete > ul > li[aria-selected],
+.cm-clickMenuRow:hover,
+.cm-clickMenuRow:focus-visible {
   background: var(--accent);
   color: #fff;
 }
 
-.cm-search {
+/* The click menu: rows in the completion popup's idiom, so a click on a token
+   is answered where a completion would answer. The surface comes from
+   .cm-tooltip above; only the rows themselves need describing. One row is all
+   any token offers today, but the list is laid out for however many it has. */
+.cm-clickMenu {
+  overflow: hidden; /* clip a row's fill to the menu's rounded corners */
+}
+
+.cm-clickMenuList {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+}
+
+.cm-clickMenuRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Sized and spaced like CodeMirror's own completion icons, so the glyph column
+   lines up with the completion popup's. One glyph per row kind. */
+.cm-clickMenuIcon {
+  flex: 0 0 auto;
+  width: 0.8em;
+  padding-right: 0.6em;
+  font-size: 90%;
+  text-align: center;
+  box-sizing: content-box;
+  opacity: 0.7;
+}
+
+.cm-clickMenuIcon-usages::after {
+  content: '⌕';
+}
+
+.cm-clickMenuIcon-reference::after {
+  content: '?';
+}
+
+/* The bars themselves. Only one is ever mounted: opening either takes the
+   other's place (see src/editor/variableUsagesView.ts). */
+.cm-search,
+.cm-variableUsagesPanel {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -291,11 +348,25 @@ code {
   font-size: 13px;
 }
 
-.cm-search label {
+.cm-search label,
+.cm-variableUsagesLabel {
   color: var(--text-dim);
+}
+
+.cm-search label {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+/* min-width is load-bearing: a flex item will not shrink below its content
+   without it, so the ellipsis would never engage on a narrow viewport. */
+.cm-variableUsagesLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cm-search .cm-textfield {
@@ -312,7 +383,8 @@ code {
   border-color: var(--accent);
 }
 
-.cm-search .cm-button {
+.cm-search .cm-button,
+.cm-variableUsagesAction {
   background: var(--bg-raised);
   color: var(--text);
   border: 1px solid var(--border);
@@ -323,12 +395,25 @@ code {
   cursor: pointer;
 }
 
-.cm-search .cm-button:hover {
+.cm-search .cm-button:hover,
+.cm-variableUsagesAction:hover {
   border-color: var(--accent);
 }
 
-/* The manual close button: a clearly visible control, top-right of the panel. */
-.cm-search button[name='close'] {
+/* The steppers carry a glyph rather than a word: square them off and keep the
+   glyph legible at the shared control size. Must follow the rule above - equal
+   specificity, so order decides. */
+.cm-variableUsagesAction {
+  min-width: 32px;
+  padding: 5px 8px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* The manual close button: a clearly visible control, top-right of the panel.
+   Both bars reserve the corner for it through their right-hand padding. */
+.cm-search button[name='close'],
+.cm-variableUsagesClose {
   position: absolute;
   top: 6px;
   right: 8px;
@@ -347,7 +432,8 @@ code {
   cursor: pointer;
 }
 
-.cm-search button[name='close']:hover {
+.cm-search button[name='close']:hover,
+.cm-variableUsagesClose:hover {
   color: var(--accent);
   border-color: var(--accent);
 }

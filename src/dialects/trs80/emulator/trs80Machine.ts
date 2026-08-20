@@ -1,6 +1,6 @@
 import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core } from '../../../emulator/z80/z80core.js';
-import type { MachineEmulator, MemoryBlock } from '../../types';
+import type { MemoryBlock } from '../../types';
 import { Trs80Memory } from './memory';
 import { Trs80Keyboard } from './keyboard';
 import { renderDisplay, DISPLAY_WIDTH, DISPLAY_HEIGHT, COLS } from './display';
@@ -38,8 +38,17 @@ const PTR_STREND = 0x40aa;
  * zx80Machine.ts (boot the ROM to READY, drive the key matrix to type) minus the
  * Sinclair-specific NMI/interrupt/echo path: the base Model I has no interrupt
  * source under Level II BASIC, so frames are a plain run of instructions.
+ *
+ * Not yet a `MachineEmulator`, and nothing constructs it but its own
+ * test: the seam requires a machine to report whether a BASIC program is
+ * executing, and this one has no ROM to derive that from. Level II BASIC is
+ * Microsoft BASIC, so it very likely keeps a current-line cell like the
+ * Commodore machines do - but where is a fact about an image that is not here,
+ * and the pointer block above carries the same caveat for the same reason.
+ * Supply `public/roms/trs80.rom`, confirm the addresses against it, and this
+ * rejoins the seam.
  */
-export class Trs80Machine implements MachineEmulator {
+export class Trs80Machine {
   readonly displayWidth = DISPLAY_WIDTH;
   readonly displayHeight = DISPLAY_HEIGHT;
   readonly frameHz = CPU_HZ / TSTATES_PER_FRAME;

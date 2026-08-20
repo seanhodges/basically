@@ -135,7 +135,7 @@ export const LOOP_SPEED_PROBES: LoopSpeedProbe[] = [
   },
   {
     id: 'microsoft',
-    dialects: ['commodore64', 'pet', 'vic20', 'trs80', 'altair8800'],
+    dialects: ['commodore64', 'pet', 'vic20', 'trs80', 'altair8800', 'pmd85'],
     iterations: 2000,
     ...programs(2000),
   },

@@ -1,6 +1,6 @@
 // Capability: persistence — openspec/specs/persistence/spec.md
 import { readFile } from 'node:fs/promises';
-import { test, expect } from '../fixtures';
+import { test, expect, type Download } from '../fixtures';
 import {
   EDITOR,
   expectMenuStaysOpen,
@@ -20,18 +20,51 @@ import {
  * behaviour) stays a manual check.
  */
 
-test('Save project downloads a .zip with the chosen name and clears the dirty marker', async ({
+test('Save project downloads a .zip carrying the scratch buffers, and Open brings them back', async ({
   page,
 }) => {
   await forceFallbackFilePickers(page);
   const dialogs = await openApp(page);
   await setEditorSource(page, '10 PRINT "SAVE ME"');
   await expect(page.getByText(/untitled\.txt\s*•/)).toBeVisible(); // dirty
+
+  // A scratch buffer beside the program, to ride along in the bundle.
+  await page.getByRole('button', { name: 'New tab' }).click();
+  await page.getByRole('menuitem', { name: 'New scratch buffer' }).click();
+  await setEditorSource(page, '70 PRINT "SNIPPET"');
+  await page.getByRole('tab', { name: 'BASIC' }).click();
+
+  // The helper consumes the download event; a second listener sees it too, so
+  // the saved bytes are available without changing what it returns.
+  let saved: Download | undefined;
+  page.on('download', (d) => {
+    saved = d;
+  });
   const suggested = await saveAsProject(page, dialogs, 'myprog');
   expect(suggested).toBe('myprog.zip');
   // Saved: the new name shows and the dirty dot is gone.
   await expect(page.getByText('myprog.zip')).toBeVisible();
   await expect(page.getByText(/myprog\.zip\s*•/)).toBeHidden();
+
+  // Open the bundle back into a session that has lost the buffer: the program
+  // and the snippet both come back out of the `.zip`.
+  const bytes = await readFile(await saved!.path());
+  await page.getByRole('tab', { name: 'Scratch 1' }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Close' }).click();
+  await expect(page.getByRole('tab', { name: 'Scratch 1' })).toHaveCount(0);
+
+  const chooser = page.waitForEvent('filechooser');
+  await fileMenu(page, /^Open project/);
+  await (
+    await chooser
+  ).setFiles({
+    name: 'myprog.zip',
+    mimeType: 'application/zip',
+    buffer: bytes,
+  });
+  await expect(page.locator(EDITOR)).toContainText('SAVE ME');
+  await page.getByRole('tab', { name: 'Scratch 1' }).click();
+  await expect(page.locator(EDITOR)).toContainText('70 PRINT "SNIPPET"');
 });
 
 test('File menu opens, stays open, and dismisses on outside click / Escape', async ({

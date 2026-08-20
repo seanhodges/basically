@@ -60,8 +60,19 @@ export class Spectrum128Memory {
   }
 
   read = (address: number): number => {
+    if (this.activity.enabled) this.activity.hits[address & 0xffff] |= READ_BIT;
+    return this.peek(address);
+  };
+
+  /**
+   * Read a byte without recording the access. Host-side introspection - the
+   * executing BASIC line, and the profiler sampling it on the run hot path -
+   * reads through this, so the IDE's own polling never paints the memory-map
+   * overlay with activity the program never performed. Banking-aware exactly as
+   * {@link read} is, so the two never disagree about what an address holds.
+   */
+  peek = (address: number): number => {
     const addr = address & 0xffff;
-    if (this.activity.enabled) this.activity.hits[addr] |= READ_BIT;
     if (addr < 0x4000) return this.rom[this.romBank * BANK_SIZE + addr]!;
     if (addr < 0x8000) return this.banks[5]![addr - 0x4000]!;
     if (addr < 0xc000) return this.banks[2]![addr - 0x8000]!;
@@ -86,6 +97,11 @@ export class Spectrum128Memory {
 
   readWord(addr: number): number {
     return this.read(addr) | (this.read(addr + 1) << 8);
+  }
+
+  /** {@link readWord} through {@link peek}: no activity recorded. */
+  rawReadWord(addr: number): number {
+    return this.peek(addr) | (this.peek(addr + 1) << 8);
   }
 
   writeWord(addr: number, value: number): void {

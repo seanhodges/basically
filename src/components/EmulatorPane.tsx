@@ -41,6 +41,13 @@ import {
 } from '../app/useMediaQuery';
 import { useInputOverlays } from '../app/useInputOverlays';
 import { FrameClock } from '../app/frameClock';
+import {
+  RunProfiler,
+  programLineNumbers,
+  PROFILE_PUBLISH_FRAMES,
+} from '../app/runProfile';
+import { RunStopwatch, formatTiming, timingFrame } from '../app/runTiming';
+import { canPauseRun } from '../app/runControl';
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../app/screenScale';
 import {
   captureFromCanvas,
@@ -160,6 +167,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const bootDisc = useIdeStore((s) => s.bootDisc);
   const runRequest = useIdeStore((s) => s.runRequest);
   const stopRequest = useIdeStore((s) => s.stopRequest);
+  const pauseRequest = useIdeStore((s) => s.pauseRequest);
   const resetRequest = useIdeStore((s) => s.resetRequest);
   const romChangeRequest = useIdeStore((s) => s.romChangeRequest);
   const stepRequest = useIdeStore((s) => s.stepRequest);
@@ -175,6 +183,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
   const emulatorStatus = useIdeStore((s) => s.emulatorStatus);
   const setEmulatorStatus = useIdeStore((s) => s.setEmulatorStatus);
   const setLiveMemory = useIdeStore((s) => s.setLiveMemory);
+  const setRunProfile = useIdeStore((s) => s.setRunProfile);
+  const setRunTiming = useIdeStore((s) => s.setRunTiming);
+  const setPauseInterval = useIdeStore((s) => s.setPauseInterval);
+  const pauseInterval = useIdeStore((s) => s.pauseInterval);
   const landscape = useMediaQuery(LANDSCAPE_MOBILE_QUERY);
   // `overlayUp` (the bottom band is occupied, so the emulator screen shrinks to
   // the top half) comes from the same shared hook that Workspace uses to render
@@ -210,6 +222,25 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
    * frame per tick would run every machine at refresh/native speed.
    */
   const clockRef = useRef(new FrameClock());
+  /**
+   * The measurements of the run in progress, or null between runs.
+   *
+   * Built when a run starts and thrown away when the next one does, so figures
+   * never accumulate across runs. Held in a ref rather than the store because it
+   * is folded into every emulated frame - fifty times a second, and more at a
+   * speed multiple - and pushed to the store on the far slower cadence the
+   * editor's gutter actually needs (see {@link PROFILE_PUBLISH_FRAMES}).
+   */
+  const profilerRef = useRef<RunProfiler | null>(null);
+  /**
+   * The stopwatch over the run in progress, or null between runs.
+   *
+   * Held beside the profiler and for the same reasons: it is marked on every
+   * emulated frame, and it is thrown away with the run so a duration always
+   * describes one execution. It reads the profiler's clock rather than keeping
+   * one of its own, so the two can never disagree about how long a run took.
+   */
+  const stopwatchRef = useRef<RunStopwatch | null>(null);
   /**
    * The speed setting, read inside the loop rather than through the closure so
    * a change takes effect on the next tick without restarting the loop.
@@ -277,6 +308,29 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // breakpoint or a stop does not replay the gap as fast-forward.
     clockRef.current.reset();
   }, []);
+
+  /**
+   * Publish what the run measured and stop measuring.
+   *
+   * Called wherever a run ends rather than only where a new one starts, so the
+   * frames since the last push are not lost - a user who stops the machine to
+   * look at where its time went is looking at the run they just watched.
+   */
+  const flushProfile = useCallback(() => {
+    const profiler = profilerRef.current;
+    profilerRef.current = null;
+    if (profiler?.measured) setRunProfile(profiler.snapshot());
+    // Every path through here is the user ending the run - Stop, Reset, a
+    // teardown - so a timing that has not already settled on its own ends as
+    // "still running when the run was stopped", which is the one thing it must
+    // never be mistaken for a completion time.
+    const stopwatch = stopwatchRef.current;
+    stopwatchRef.current = null;
+    if (stopwatch) {
+      stopwatch.stop();
+      setRunTiming(stopwatch.timing());
+    }
+  }, [setRunProfile, setRunTiming]);
 
   // Blank the preview so a freshly-started emulator never inherits the previous
   // machine's last frame. clearRect exposes the canvas's white CSS background.
@@ -426,6 +480,45 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       const atRealTime = () =>
         !aiCheckActiveRef.current && speedRef.current === 1;
 
+      // Fold one emulated frame into the run's measurements: drain what the
+      // machine charged to each BASIC line, sample its RAM figures on the
+      // profiler's own cadence, and advance the stopwatch over the run. Always
+      // called, on the debug path as well as the ordinary one, so a run measures
+      // itself whichever way it is being run - and so the machine's accumulation
+      // never grows between drains.
+      const pumpMeasurements = () => {
+        const profiler = profilerRef.current;
+        if (!profiler) return;
+        profiler.frame(
+          machine.drainProfile?.() ?? null,
+          () => machine.readMemoryStats?.() ?? null,
+          machine.frameHz,
+        );
+        const stopwatch = stopwatchRef.current;
+        stopwatch?.frame(profiler.elapsedSeconds, timingFrame(machine));
+        // The program is over: measuring stops with it. The loop runs on -
+        // the machine sits at its prompt, and the user may still be typing at
+        // it - but none of that is the program, and folding it in would grow
+        // the elapsed time and the memory record of a run that had ended.
+        // Recording is switched off at the machine so it stops charging cycles
+        // to a line nobody is measuring.
+        if (stopwatch?.settled) {
+          machine.setProfileRecording?.(false);
+          profilerRef.current = null;
+          stopwatchRef.current = null;
+          setRunProfile(profiler.measured ? profiler.snapshot() : null);
+          setRunTiming(stopwatch.timing());
+          return;
+        }
+        // Published on the profiler's cadence rather than every frame: the
+        // duration is worth redrawing about twice a second, and the store is
+        // read by the whole app.
+        if (profiler.frameCount % PROFILE_PUBLISH_FRAMES === 0) {
+          setRunProfile(profiler.measured ? profiler.snapshot() : null);
+          if (stopwatch) setRunTiming(stopwatch.timing());
+        }
+      };
+
       // Drain the machine's synthesized audio and feed the speaker. Always
       // called, even when nothing will be played, so the machine's accumulation
       // buffer stays bounded.
@@ -488,6 +581,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             fromLine: debugFromLineRef.current,
           });
           frameHookRef.current?.();
+          pumpMeasurements();
           pumpAudio();
           if (res.paused) {
             render();
@@ -496,6 +590,15 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
             debugFromLineRef.current = res.line;
             const store = useIdeStore.getState();
             store.setDebugLine(res.line, debugBufferRef.current);
+            // Marked here, where execution actually pauses, rather than where a
+            // breakpointed line is reached: continuing off a breakpointed line
+            // deliberately does not re-trigger on it (see `fromLine`), so
+            // marking on the line would mark at moments that are not pauses.
+            const stopwatch = stopwatchRef.current;
+            if (stopwatch) {
+              store.setPauseInterval(stopwatch.pause(res.line));
+              store.setRunTiming(stopwatch.timing());
+            }
             store.setEmulatorStatus('paused');
             // On mobile the Preview tab is showing when a breakpoint trips, so
             // the frozen screen gives no hint why. Jump to the editor so the
@@ -515,6 +618,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       for (let step = 0; step < steps; step++) {
         machine.runFrame();
         frameHookRef.current?.(); // virtual-keyboard frame-counted releases
+        pumpMeasurements();
         pumpAudio();
         // The IDE checking an answer the assistant returned: watch the
         // freshly-started program until the check can say how it went, hand that
@@ -525,7 +629,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           const verdict = classifyAiRunFrame(
             {
               report: machine.readReport(),
-              running: machine.isProgramRunning?.(),
+              running: machine.isProgramRunning(),
             },
             aiCheckCountsRef.current,
           );
@@ -622,7 +726,14 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       schedule();
     };
     schedule();
-  }, [stopLoop, registerCapture, registerControl, setEmulatorStatus]);
+  }, [
+    stopLoop,
+    registerCapture,
+    registerControl,
+    setEmulatorStatus,
+    setRunProfile,
+    setRunTiming,
+  ]);
 
   const ensureMachine = useCallback(async (): Promise<MachineEmulator> => {
     if (machineRef.current) return machineRef.current;
@@ -806,6 +917,21 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
           image,
           Object.keys(loadOpts).length > 0 ? loadOpts : undefined,
         );
+        // Arm the measurement of this run, and start it from nothing: figures
+        // describe one execution, so a new run replaces the previous run's
+        // rather than adding to them. Armed for every run, not a profiling mode
+        // the user has to have chosen before the run they wanted measured -
+        // which is only afterwards that they know.
+        machine.setProfileRecording?.(true);
+        machine.drainProfile?.(); // discard anything charged during the boot
+        profilerRef.current = new RunProfiler(
+          bufferId,
+          programLineNumbers(runSource),
+        );
+        stopwatchRef.current = new RunStopwatch(bufferId);
+        setRunProfile(null);
+        setRunTiming(null);
+        setPauseInterval(null);
         firstFrameRef.current = true; // the next rendered frame hides the overlay
         // Only check the run when the IDE started it to check an answer the
         // assistant returned, and the machine can introspect its error state.
@@ -877,6 +1003,7 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     emulatorVfs.clear(); // stop ends the session that owned the files
     disposeAudio();
     clearCanvas(); // drop the last frame so the screen looks powered off
+    flushProfile();
     aiCheckActiveRef.current = false;
     debugActiveRef.current = false;
     debugFromLineRef.current = null;
@@ -893,12 +1020,47 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     setEmulatorStatus,
     stashCapture,
     dropControl,
+    flushProfile,
   ]);
+
+  // Pause request: hold the running machine still between frames.
+  //
+  // Deliberately unlike the breakpoint pause above: execution stopped between
+  // frames rather than before a BASIC line, so no line is marked, no pause
+  // interval is published (the profiler's reading only means anything beside a
+  // line), and the mobile tab is left alone - the control that sends this lives
+  // on the editor tab, so the user is already there.
+  useEffect(() => {
+    if (pauseRequest === 0) return;
+    const machine = machineRef.current;
+    if (!machine || useIdeStore.getState().emulatorStatus !== 'running') return;
+    if (
+      !canPauseRun({
+        debuggable: !!dialect.debuggable,
+        checking: aiCheckActiveRef.current,
+        driving: machineFrozen(),
+        // The flag is raised while the pane waits for the first frame and
+        // dropped by the render that hides the loading overlay.
+        drawn: !firstFrameRef.current,
+      })
+    )
+      return;
+    stopLoop();
+    machine.releaseAllKeys(); // nothing stays held while paused
+    const stopwatch = stopwatchRef.current;
+    if (stopwatch) {
+      stopwatch.pause(null);
+      useIdeStore.getState().setRunTiming(stopwatch.timing());
+    }
+    setEmulatorStatus('paused');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pauseRequest]);
 
   // Step request: run the paused debugger to the next BASIC line.
   useEffect(() => {
     if (stepRequest === 0 || !debugActiveRef.current) return;
     debugModeRef.current = 'step';
+    stopwatchRef.current?.resume();
     useIdeStore.getState().setDebugLine(null);
     setEmulatorStatus('running');
     startLoop();
@@ -906,10 +1068,18 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepRequest]);
 
-  // Continue request: run the paused debugger to the next breakpoint.
+  // Continue request: carry a paused run on, however it was paused.
+  //
+  // Gated on the run being paused rather than on a debug session being armed,
+  // so the one Continue serves both pauses and the machine's own state decides
+  // what it means: with a session armed 'run' mode carries on to the next
+  // breakpoint, without one it just advances frames. Refusing while a run is
+  // already running also keeps a stray continue from re-entering the loop.
   useEffect(() => {
-    if (continueRequest === 0 || !debugActiveRef.current) return;
+    if (continueRequest === 0 || !machineRef.current) return;
+    if (useIdeStore.getState().emulatorStatus !== 'paused') return;
     debugModeRef.current = 'run';
+    stopwatchRef.current?.resume();
     useIdeStore.getState().setDebugLine(null);
     setEmulatorStatus('running');
     startLoop();
@@ -932,6 +1102,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
         // the new session can't read the old session's files.
         emulatorVfs.clear(dialect.id);
         machine.reset();
+        // A reboot ends the run that was being measured; the machine has no
+        // program until the next Run loads one.
+        machine.setProfileRecording?.(false);
+        flushProfile();
         firstFrameRef.current = true; // the next rendered frame hides the overlay
         ensureAudio(machine);
         setEmulatorStatus('running');
@@ -961,8 +1135,9 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       emulatorVfs.clear(); // unmount skips the stop effect; clear here too
       disposeAudio();
       setLiveMemory(null);
+      flushProfile();
     },
-    [stopLoop, disposeAudio, setLiveMemory, stashCapture],
+    [stopLoop, disposeAudio, setLiveMemory, stashCapture, flushProfile],
   );
 
   // While the machine is up, poll its actual RAM figures for the status bar.
@@ -1025,6 +1200,10 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
     machineRef.current = null;
     emulatorVfs.clear(dialect.id); // machine gone: its files go with it
     disposeAudio();
+    // The measurements go with the machine; the store drops the published ones
+    // on the same switch.
+    profilerRef.current = null;
+    stopwatchRef.current = null;
     clearCanvas(); // drop the old machine's last frame; next run starts fresh
     // Forgotten rather than stashed: a question about this machine must never
     // be answered against the screen of the one before it.
@@ -1253,6 +1432,23 @@ export function EmulatorPane({ apiRef }: EmulatorPaneProps = {}) {
       {emulatorStatus === 'paused' && debugLine !== null && (
         <div className={styles.debugBar}>
           <span className={styles.debugStatus}>paused at line {debugLine}</span>
+          {/* What the stretch just executed cost, which is the reading a
+              breakpoint is otherwise silent about. The machine's own time, like
+              every other duration here, and measured between pauses rather than
+              between breakpointed lines. */}
+          {pauseInterval && (
+            <span
+              className={styles.debugTiming}
+              title={`${dialect.name} time since the ${
+                pauseInterval.fromStart ? 'program started' : 'previous pause'
+              }`}
+            >
+              {formatTiming(pauseInterval.seconds)}{' '}
+              {pauseInterval.fromStart
+                ? 'from the start'
+                : 'since the last pause'}
+            </span>
+          )}
         </div>
       )}
       {/* The status notice only matters when grabbing input from a physical

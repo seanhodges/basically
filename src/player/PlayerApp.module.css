@@ -101,23 +101,26 @@
   align-self: stretch;
 }
 
-/* Landscape rail order (mirrors the IDE rail): Play at the top, then Export and
-   See-the-Code, then the keyboard/gamepad toggles anchored to the bottom.
+/* Landscape rail order (mirrors the IDE rail): Play at the top, then Export,
+   Screenshot and See-the-Code, then the keyboard/gamepad toggles at the bottom.
    `order` repositions without disturbing the portrait DOM order (and the buttons
    keep their existing handlers); `margin-top: auto` on the first toggle pushes
    both toggles to the foot of the column. */
 .player.landscape .exportButton {
   order: 1;
 }
-.player.landscape .seeCode {
+.player.landscape .screenshotButton {
   order: 2;
 }
-.player.landscape .kbToggle {
+.player.landscape .seeCode {
   order: 3;
+}
+.player.landscape .kbToggle {
+  order: 4;
   margin-top: auto;
 }
 .player.landscape .padToggle {
-  order: 4;
+  order: 5;
 }
 
 .toggleActive {

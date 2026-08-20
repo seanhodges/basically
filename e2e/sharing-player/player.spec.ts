@@ -57,6 +57,14 @@ test('boots a shared program, auto-runs, restarts and exports', async ({
   // Closing dismisses it.
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(dialog).toHaveCount(0);
+
+  // The player offers the same screenshot action as the IDE toolbar, on the
+  // same running-phase terms. It is the same handler, whose download round trip
+  // e2e/program-execution/emulator-boot.spec.ts already proves, so being there
+  // is all this needs to check.
+  await expect(
+    page.getByRole('button', { name: 'Save a screenshot' }),
+  ).toBeVisible();
 });
 
 test('boots a shared program that carries a memory block', async ({ page }) => {
