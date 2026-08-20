@@ -157,10 +157,12 @@ describe('Pmd85Machine', () => {
   });
 
   it('writes the program to the screen where the video circuit will fetch it', () => {
-    // The geometry assertion the plan asks for, made against a running machine
-    // rather than a synthetic buffer: text lands in the low 48 bytes of a
-    // 64-byte stride, and the 16 bytes above it hold the Monitor's variables
-    // rather than pixels.
+    // The frame buffer's geometry, asserted against a running machine rather
+    // than a synthetic buffer: text lands in the low 48 bytes of a 64-byte
+    // stride, and the 16 bytes above it hold the Monitor's variables rather
+    // than pixels. A renderer that assumed eight pixels to a byte, or a
+    // 48-byte stride, would produce a plausible-looking but wrong screen and
+    // nothing else here would notice.
     const pmd = machine();
     pmd.loadProgram(tokenizeProgram('10 PRINT "XXXXXXXX"\n20 END\n').program);
     for (let frame = 0; frame < 120 && pmd.isProgramRunning(); frame++) {
