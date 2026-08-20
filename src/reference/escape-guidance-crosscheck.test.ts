@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { diffEscapes } from './compare';
 import { altair8800Escapes } from './escapes/altair8800';
+import { pmd85Escapes } from './escapes/pmd85';
 import { atomEscapes } from './escapes/atom';
 import { bbcEscapes } from './escapes/bbc';
 import { commodoreEscapes } from './escapes/commodore';
@@ -24,6 +25,7 @@ import type { EscapeTableData } from './types';
 
 const PAGES: Record<string, EscapeTableData> = {
   altair8800: altair8800Escapes,
+  pmd85: pmd85Escapes,
   atom: atomEscapes,
   bbc: bbcEscapes,
   commodore: commodoreEscapes,

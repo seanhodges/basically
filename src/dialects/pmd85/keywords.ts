@@ -141,7 +141,7 @@ const TABLE: [string, number, KeywordInfo['kind'], string?, string?][] = [
   ['BEEP', 0xc9, 'command', 'BEEP', 'Sound a short beep.'],
   ['AXES', 0xca, 'command', 'AXES x,y', 'Draw both axes through (x,y).'],
   ['GCLEAR', 0xcb, 'command', 'GCLEAR', 'Clear the screen.'],
-  ['PAUSE', 0xcc, 'command', 'PAUSE [n]', 'Wait about n milliseconds.'],
+  ['PAUSE', 0xcc, 'command', 'PAUSE [n]', 'Wait about n milliseconds (n<256).'],
   [
     'DISP',
     0xcd,

@@ -22,14 +22,8 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/display';
 /**
  * The Tesla PMD 85-2 (BASIC-G).
  *
- * The language layer and the machine are both real: the tokenizer works against
- * the shipped BASIC-G V2.0 image, and `createEmulator` boots that image and runs
- * what the tokenizer produced. What is still a throwing stub is the wiring
- * around them - the keyboard layout, the samples and the file exports - so the
- * dialect is deliberately absent from `src/dialects/registry.ts` until a user
- * would have something to pick.
- *
- * Three things about this machine are worth knowing before touching any of it:
+ * Four things about this machine are worth knowing before touching any of it,
+ * and none is visible from its spec sheet:
  *
  *  - **It is an 8080, not a Z80.** The MHB8080A is a Tesla-made 8080A clone, so
  *    the vendored Z80 core executes its object code directly - as it already
@@ -37,14 +31,17 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/display';
  *    makes necessary.
  *  - **BASIC-G is not in the address space.** It lives in a replaceable ROM
  *    Module read through an 8255 at ports 0xF8-0xFB, which the Monitor copies
- *    into RAM before it runs. The machine therefore needs two ROM images.
+ *    into RAM before it runs. The machine therefore needs two ROM images, and
+ *    the interpreter it ends up running is a writable copy at address 0.
  *  - **The screen packs six pixels to a byte**, 48 displayed bytes into a
- *    64-byte scanline stride, with the top two bits of each byte holding a
- *    four-level attribute.
+ *    64-byte scanline stride, with the top two bits of each byte holding the
+ *    cell's blink and brightness attribute.
+ *  - **Variable names are case sensitive**, which no other Microsoft BASIC here
+ *    is: `A` and `a` are two variables. See `PMD85_LEXIS`.
  *
- * The picker identity fields carry their intended values, but nothing checks
- * them while the dialect is unregistered - `registry.test.ts` only sees machines
- * the registry lists, so the blurb's 72-character budget is unenforced here.
+ * The file exports are the one part still missing - the machine reads and
+ * writes no tape, and `targets.ts` claims no extension until a primary source
+ * backs one.
  */
 export const pmd85: Dialect = {
   id: 'pmd85',
@@ -112,9 +109,22 @@ export const pmd85: Dialect = {
 
   addressNotation: 'hex',
   statementSeparator: ':',
+  /** Spaces outside strings, REM and DATA are eaten, so `FORI=1TO5` is valid. */
+  crunched: true,
 
   memoryMap: pmd85MemoryMap,
   memoryBlocks: pmd85MemoryBlocks,
+
+  /**
+   * `POKE addr,byte` with a hex literal written `'FF` - the apostrophe form
+   * BASIC-G's own scanner reads, and the notation this machine's listings are
+   * written in. Reads and calls are the Microsoft pair, with USR where a later
+   * BASIC would have CALL.
+   */
+  memoryWrites: { forms: ['poke'], hexPrefix: "'" },
+  memoryReads: { forms: ['peek'], calls: ['USR'] },
+
+  debuggable: true,
 
   createEmulator(opts) {
     return new Pmd85Machine(splitRomImage(opts.rom));

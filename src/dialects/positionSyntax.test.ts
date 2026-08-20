@@ -32,8 +32,11 @@ describe('position syntax', () => {
       // A symbol the machine reads as a command has no keyword row to answer
       // to - the TRS-80's `@` is punctuation in its tokenizer, not a word.
       if (!/^[A-Z]/.test(command.keyword)) continue;
+      // Either spelling of a print formatter: some keyword tables carry the
+      // bracket that is part of the token (`TAB(`) where others drop it, and
+      // the position table names the command rather than the token.
       expect(
-        has.has(command.keyword),
+        has.has(command.keyword) || has.has(`${command.keyword}(`),
         `${id}: the position table names "${command.keyword}", which this machine does not have`,
       ).toBe(true);
     }

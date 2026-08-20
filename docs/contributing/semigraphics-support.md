@@ -49,6 +49,7 @@ reported as such rather than guessed at.
 | CPC 464 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
 | CPC 6128 | ✅ | 64 (0x80-0x9F, 0xC0-0xDF) | 63 | 20 | 0 | 1 | 63/64 |
 | Altair 8800 | — | _none_ | — | — | — | — | — |
+| PMD 85-2 | — | _none_ | — | — | — | — | — |
 
 "Typeable" counts graphics bytes reachable by typing on the on-screen
 keyboard, including its graphics palette. "…astral" counts the characters
@@ -189,6 +190,12 @@ This machine has no block graphics at all: it has no video hardware
 and no character generator, so every byte it can display is plain
 ASCII drawn by whatever terminal is attached.
 
+### PMD 85-2
+
+This machine has no block graphics at all: it has no video hardware
+and no character generator, so every byte it can display is plain
+ASCII drawn by whatever terminal is attached.
+
 ## Characters the machines need
 
 225 distinct non-ASCII codepoints, 114 of them astral.
@@ -261,7 +268,7 @@ This is the exact set the bundled character-graphics font is subset to.
 | `U+2582` | ▂ | BMP | commodore64, pet, vic20 |
 | `U+2583` | ▃ | BMP | commodore64, pet, vic20 |
 | `U+2584` | ▄ | BMP | commodore64, cpc464, cpc6128, pet, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
-| `U+2588` | █ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
+| `U+2588` | █ | BMP | atom, bbcmaster, bbcmicro, cpc464, cpc6128, pmd85, trs80, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+258C` | ▌ | BMP | atom, bbcmaster, bbcmicro, commodore64, cpc464, cpc6128, pet, trs80, vic20, zx80, zx81, zxspectrum, zxspectrum128 |
 | `U+258D` | ▍ | BMP | commodore64, pet, vic20 |
 | `U+258E` | ▎ | BMP | commodore64, pet, vic20 |

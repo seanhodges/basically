@@ -61,6 +61,16 @@ export class Pmd85Memory {
     this.monitor = monitor;
   }
 
+  /**
+   * The Monitor image itself, for the character generator inside it. Reading
+   * the font off the bus would work only while the machine is in a
+   * configuration that maps the ROM, and the screen reader has no business
+   * caring which one it is in.
+   */
+  get monitorRom(): Uint8Array {
+    return this.monitor;
+  }
+
   /** Video RAM as a view, for the display to read without going through the bus. */
   get videoRam(): Uint8Array {
     return this.bytes.subarray(

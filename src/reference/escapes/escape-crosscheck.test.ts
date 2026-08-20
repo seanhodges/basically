@@ -39,6 +39,7 @@ import { trs80Escapes } from './trs80';
 import { atomEscapes } from './atom';
 import { cpcEscapes } from './cpc';
 import { altair8800Escapes } from './altair8800';
+import { pmd85Escapes } from './pmd85';
 import { dialects } from '../../dialects/registry';
 
 import {
@@ -116,6 +117,7 @@ const EXTRAS: Record<string, { data: EscapeTableData; float?: FloatProbe }> = {
   atom: { data: atomEscapes },
   cpc: { data: cpcEscapes },
   altair8800: { data: altair8800Escapes },
+  pmd85: { data: pmd85Escapes },
 };
 
 type Adapter = CharsetProbe & { data: EscapeTableData; float?: FloatProbe };

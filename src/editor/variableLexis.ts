@@ -67,6 +67,27 @@ export interface VariableLexis extends BasicLanguageOptions {
 }
 
 /**
+ * BASIC-G's lexis. Named rather than written inline in the record above because
+ * `variableLint.ts` reaches for it directly, and it sits with its family here -
+ * the Microsoft rules it shares with the Altair, plus this machine's own `'FF`
+ * hex literal, whose digits must not be read as a variable name.
+ *
+ * `caseSensitive` is where it leaves the family, and it is the BBC's company it
+ * keeps rather than the Altair's: BASIC-G stores a name as typed and compares
+ * the bytes, so `10 A=1:a=2` really is two variables and prints 1 and 2. Read
+ * off a running machine, because nothing about a Microsoft derivative predicts
+ * it - every other one here folds.
+ */
+export const PMD85_LEXIS: VariableLexis = {
+  suffixChars: '$',
+  hexPrefix: "'",
+  crunched: true,
+  significantChars: 2,
+  caseSensitive: true,
+  dataIsVerbatim: true,
+};
+
+/**
  * Dialect id → its name lexis. `{}` is a statement, not an omission: the
  * Sinclair machines take the defaults (`$` the only marker, no extra name
  * characters, no hex prefix, no crunching, and DATA items that are expressions).
@@ -127,21 +148,7 @@ export const VARIABLE_LEXIS: Record<string, VariableLexis> = {
   },
   cpc464: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
   cpc6128: { suffixChars: '$%!', hexPrefix: '&H?', dataIsVerbatim: true },
-};
-
-/**
- * BASIC-G's lexis, which the record above cannot hold yet: it is keyed by
- * registered dialect id and the PMD 85 is not one until it can run a program.
- * Named here rather than inside the dialect so it sits with its family - the
- * Microsoft rules it shares with the Altair, plus this machine's own `'FF` hex
- * literal, whose digits must not be read as a variable name.
- */
-export const PMD85_LEXIS: VariableLexis = {
-  suffixChars: '$',
-  hexPrefix: "'",
-  crunched: true,
-  significantChars: 2,
-  dataIsVerbatim: true,
+  pmd85: PMD85_LEXIS,
 };
 
 /**

@@ -120,6 +120,7 @@ const NO_CHURN_IN_FIGURE: Record<string, string> = {
   cpc464: 'string churn happens above the ceiling its figure counts up to',
   cpc6128: 'string churn happens above the ceiling its figure counts up to',
   zx80: 'the ROM has no string concatenation, so the probe cannot churn',
+  pmd85: 'string space is a region of its own, above the figure it reports',
 };
 
 function costOf(costs: readonly LineCost[], line: number): number {

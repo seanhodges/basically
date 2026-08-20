@@ -39,9 +39,9 @@ const regionStart = (
 ): number | undefined =>
   d.memoryMap?.regions.find((r) => r.kind === kind)?.start;
 
-/** Parse an authored address string ("$4000", "&C000", "0x1900") to a number. */
+/** Parse an authored address string ("$4000", "&C000", "'2401", "0x1900"). */
 const parseAddr = (s: string): number =>
-  parseInt(s.replace(/^0x/i, '').replace(/^[$&]/, ''), 16);
+  parseInt(s.replace(/^0x/i, '').replace(/^[$&#']/, ''), 16);
 
 /** Printable ASCII, the range `unsupportedCharacters` is defined over. */
 const PRINTABLE = Array.from({ length: 0x7f - 0x20 }, (_, i) =>

@@ -143,6 +143,10 @@ export const ADDRESS_SIGIL: Record<string, string> = {
   // house notation of its own to follow, so it takes the same `$` the other
   // decimal machines here are written in.
   altair8800: '$',
+  // BASIC-G writes a hex literal with a leading apostrophe (`POKE 'C000,1`),
+  // which is the notation this machine's own listings carry; it mirrors
+  // memoryWrites.hexPrefix like the Acorn and Amstrad entries above.
+  pmd85: "'",
 };
 
 /** An address in the machine's own notation, e.g. `&C000`, `$D000`, `#8000`. */
@@ -432,6 +436,42 @@ export const GLYPH_SOURCES: Record<string, GlyphSource[]> = {
     },
   ],
 
+  // Monitor 2's character generator, in two runs with Monitor code between
+  // them: 0x20-0x5F at 0x8600 and 0x60-0x7F at 0x88C0. The screen driver
+  // stitches them back together through a table of per-32-code group bases,
+  // which is what lets the two runs be discontiguous - so they are two sources
+  // here rather than one with a hole in it.
+  pmd85: [
+    {
+      kind: 'rom',
+      file: 'pmd85.rom',
+      base: 0x8600,
+      baseCode: 0x20,
+      fileOffset: 0x0600,
+      stride: 8,
+      cell: { w: 6, h: 8 },
+      codes: range(0x20, 0x5f),
+      indexOf: linear(0x20, 0x5f),
+      note:
+        'The first run of the Monitor 2 font. Only the low six bits of each ' +
+        'byte are pixels - the top two are the cell attribute - so the cell is ' +
+        'six wide, not eight.',
+    },
+    {
+      kind: 'rom',
+      file: 'pmd85.rom',
+      base: 0x88c0,
+      baseCode: 0x60,
+      fileOffset: 0x08c0,
+      stride: 8,
+      cell: { w: 6, h: 8 },
+      codes: range(0x60, 0x7f),
+      indexOf: linear(0x60, 0x7f),
+      note:
+        'The second run: lower case, and the solid cell at 0x7F that is the ' +
+        'only shape in this font outside ASCII.',
+    },
+  ],
   trs80: [
     {
       kind: 'chip',

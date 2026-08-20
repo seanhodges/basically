@@ -4,6 +4,15 @@
 > medium, single-session task for the coding agent. Run them in order; whatever
 > is left unticked under `src/dialects/pmd85/` is a throwing stub. The dialect is
 > **not** registered until Stage 3.
+>
+> **Registering is not a line of code.** Stage 3 registers the dialect, and the
+> registry-driven tests then demand everything a registered machine owes: a
+> memory map and blocks, a screen reader, memory figures, a variable reader and
+> a runtime report, per-machine rows in a dozen tables, a picker portrait, and
+> the reference data and docs pages the AI prompt is composed from. So Stage 3
+> pulled Stage 5 in whole and most of Stage 6 with it; only the file exports
+> (Stage 4) can honestly be left for later, because nothing registry-driven
+> asks for them.
 
 ## Target summary
 
@@ -112,10 +121,10 @@ from `6F00`. See `src/dialects/pmd85/addresses.ts`.
 | ----- | -------------------------------------- | ------ |
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
-| 3     | Wire-up: keyboard + samples + register | ⬜     |
+| 3     | Wire-up: keyboard + samples + register | ✅     |
 | 4     | Transfer & tape I/O                    | ⬜     |
-| 5     | Memory map & runtime introspection     | ⬜     |
-| 6     | Docs & polish                          | ⬜     |
+| 5     | Memory map & runtime introspection     | ✅     |
+| 6     | Docs & polish                          | 🔨     |
 
 ---
 
@@ -210,37 +219,46 @@ USART; Stage 4 replaces it with a real one.
 **Depends on:** Stage 1 (charset for display, image builder for `loadProgram`).
 **Verify:** emulator boot test passes.
 
-## Stage 3 — Wire-up: keyboard + samples + register ⬜
+## Stage 3 — Wire-up: keyboard + samples + register ✅
 
-- [ ] `keyboardLayout.ts` — the PMD 85's own layout including its K0–K11
-      function-key row (`functionKeys` on the layout); tokens match emulator
-      `setKey`
-- [ ] `SEMIGRAPHIC_CODES.pmd85 = []` in `src/dialects/semigraphicsAudit.ts`,
-      with the ASCII-font reasoning above; **not** `IN_SCOPE`
-- [ ] `pmd85` entries in `VARIABLE_LEXIS` (`src/editor/variableLexis.ts`, from
-      the `PMD85_LEXIS` already there) and in `TABLES`
-      (`src/dialects/keywordSpellings.ts`) — both records are keyed by
-      registered dialect and their tests demand exactly one entry per machine
-- [ ] no `palette: 'graphics'` editor mode, no `graphicsPalette` on the layout
-      and no `e2e/paletteMachines.ts` entry: the machine has no graphics
-      characters to put in a palette
-- [ ] `samples/` + `samples.ts` — `hello`, `circles`, `breakout`, `maze`,
-      `kaleido`, in that order, ported to BASIC-G. **Use the
-      `authoring-dialect-samples` sub-skill**; degrade gracefully rather than
-      dropping one, and never point at another machine's `.bas`
-- [ ] finalize `aiProfile.ts`
-- [ ] `index.ts` — assemble the full `Dialect`, with the picker identity written
-      to house style: `name: 'PMD 85-2'`, `manufacturer: 'Tesla'` (a new picker
-      group — no sibling spelling to match yet), `year: 1986`, and a blurb of
-      two short sentences under 72 characters, e.g.
-      `Czechoslovakia’s school computer. Runs BASIC-G.`
-- [ ] **register in `src/dialects/registry.ts` and add the share verb to
-      `SHARE_VERBS` in `src/player/routes.ts` in the same change** —
-      `routes.test.ts` enforces a strict bijection, so either alone fails `npm test`
-- [ ] optional `.virtual-keyboard.vk-theme-pmd85` block in
-      `src/keyboard/VirtualKeyboard.css`
-- [ ] tests: keyboard-layout validation, keyboard matrix (physical + virtual
-      union), samples tokenize cleanly
+- [x] `keyboardLayout.ts` — twelve keys to a row rather than the template's ten,
+      because the machine's alphanumeric block is twelve columns wide and
+      dropping two would cost the `^` and the `_`. Every legend is pinned
+      against the Monitor's own key-code table at 0x82D0, which is where the
+      QWERTZ swap and the SHIFT-gives-lower-case inversion came from
+- [x] `SEMIGRAPHIC_CODES.pmd85 = []`, with the ASCII-font reasoning; **not**
+      `IN_SCOPE`
+- [x] `pmd85` entries in `VARIABLE_LEXIS` and in `TABLES`. The lexis gained
+      `caseSensitive: true`, read off a running machine: `10 A=1:a=2` really is
+      two variables here, which no other Microsoft BASIC in the project does
+- [x] no `palette: 'graphics'` editor mode, no `graphicsPalette` and no
+      `e2e/paletteMachines.ts` entry
+- [x] `samples/` + `samples.ts` — the canonical five, ported to BASIC-G. The
+      two games write the frame buffer with `POKE` (there is no cursor
+      addressing) and read `INKEY`, which sees only K0-K11 — so the layout's
+      `controller` binds the on-screen pad to those keys rather than to WASD
+- [x] `aiProfile.ts`
+- [x] `index.ts` — the full `Dialect`
+- [x] **registered in `src/dialects/registry.ts`, with the `plot` share verb in
+      `SHARE_VERBS`**
+- [x] `.vk-theme-pmd85` block in `src/keyboard/VirtualKeyboard.css`, and the
+      picker portrait in `src/components/machineArt.tsx`
+- [x] tests: the layout against the ROM's key table, the matrix reachable from
+      the keyboard or the host, a tap typing on a booted machine, the samples
+      tokenizing, linting, running and drawing, the maze BFS-solvable, and the
+      kaleidoscope block assembling and painting its mirror
+
+Facts established by running the machine, and worth carrying forward:
+
+- **`PAUSE` takes 0-255.** `PAUSE 400` stops with `Fnc.param.`
+- **`INKEY` returns 0-11** for K0-K11, and 255 for none.
+- **The tape commands take a number, not a name.** `SAVE "A"` answers
+  `Type conv.`; `SAVE 1` runs.
+- **`USR(addr)` calls the address itself**, not a poked vector.
+- **`SCALE` before `MOVE`/`PLOT`.** Without it the drawing statements behave
+  unpredictably; with it the window maps onto screen x 12-267, y 0-242, y up.
+- **`AT` positions nothing that shows.** `PRINT AT 5,5;"X"` is accepted and
+  prints nothing anywhere, so `positionSyntax.ts` lists only `TAB(`
 
 **Depends on:** Stages 1–2.
 **Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke +
@@ -262,35 +280,44 @@ USART; Stage 4 replaces it with a real one.
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
 **Verify:** audio round-trip test + import/export in the app.
 
-## Stage 5 — Memory map & runtime introspection ⬜
+## Stage 5 — Memory map & runtime introspection ✅
 
-- [ ] `memoryMap.ts` — regions for the normal configuration: RAM `0000-7FFF`,
-      Monitor `8000-8FFF`, mirror `A000-AFFF`, video RAM `C000-FFFF`, plus the
-      hole at `9000-9FFF`/`B000-BFFF`. `addressNotation: 'hex'`
-- [ ] `memoryBlocks.ts` — `MemoryBlocksSupport` with `cpu: 'z80'` (8080
-      assembly is a strict subset of Z80 assembly; the Altair's `memoryBlocks.ts`
-      explains why that union member is the right one), valid and reserved
-      ranges, `defaultAddress`, plus machine-side block injection in
-      `loadProgram`
-- [ ] `reports.ts` → `readReport()`; `vars.ts` → `readVariables()`, both derived
-      from BASIC-G's own workspace layout. If that layout cannot be established,
-      omit them and say so — the ZX80 and Altair are the precedent for an honest
-      gap over a guessed one. Stage 2 established the first cell of it, `CURLIN`
-      at 0x5E04, by running a program and watching the word change; the same
-      method reaches the rest, and `currentLine()` is already a one-line read
-- [ ] `readMemoryStats()` + the memory-activity hooks
-- [ ] tests: memory-map layout, block round-trip
+Pulled forward: registering in Stage 3 is what makes these mandatory.
+
+- [x] `memoryMap.ts` — the normal configuration, region by region, including the
+      decoder's two 4K holes. The interpreter is `system` rather than `rom`,
+      because it is a writable copy at address 0
+- [x] `memoryBlocks.ts` — `cpu: 'z80'` for the reason the Altair records. Two
+      valid ranges: the program area, and the free RAM above the string pool
+      from `6F00` to `7EFF`, where new blocks default to `7000`
+- [x] `reports.ts` → `readReport()`, off the dialogue line: the interpreter
+      frames every report as `+ + + <message> at line <n> + + +`, and its
+      message table is 10-character fields in the shipped image
+- [x] `vars.ts` → `readVariables()`. The table is Microsoft 8K's with two
+      surprises, both read off a booted machine: the name bytes are stored
+      **second character first**, and a string descriptor is **four** bytes
+      (length, an unused byte, then the address low byte first)
+- [x] `readMemoryStats()`, `currentLine()`, `debugStep()` and the line-cost
+      recorder. String growth does not move the reported figure — string space
+      is a region of its own above it, which `lineProfiling.test.ts` records
+- [ ] the memory-activity hooks (`setMemoryActivityRecording` /
+      `drainMemoryActivity`); nothing demands them, and the overlay degrades to
+      showing no live activity
+- [x] tests: memory-map layout, block round-trip, float decoding, variable and
+      report readback
 
 **Depends on:** Stages 2–3.
 **Verify:** memory-map + blocks tests; the variable watcher shows live vars.
 
-## Stage 6 — Docs & polish ⬜
+## Stage 6 — Docs & polish 🔨
 
-- [ ] reference docs — run the **`dialect-reference-docs`** sub-skill: table data
-      in `src/reference/pmd85.ts`, `docs/reference/pmd85.md` plus its
-      `hardware`/`escapes`/`formats` sub-pages, the sidebar entry in
-      `docs/.vitepress/config.ts`, and the crosscheck tests. Note the sidebar
-      rule: adding a page does not imply adding a sidebar entry — ask first
+- [x] reference docs — `src/reference/pmd85.ts` (all 106 keywords),
+      `src/reference/escapes/pmd85.ts`, the porting facts, machine list, domain
+      and escape guidance, plus `docs/reference/pmd85.md` and its
+      `hardware`/`escapes` sub-pages. **No sidebar entry** — the project rule is
+      that adding a page does not imply adding one, so ask the user first
+- [ ] `docs/reference/pmd85/formats.md`, once Stage 4 gives it something to
+      describe
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md` flipped to ✅,
       and this plan **deleted** in the same change, along with its roadmap
       cross-link and any `Stage N` references left in the dialect's source

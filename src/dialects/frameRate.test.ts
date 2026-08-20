@@ -73,6 +73,7 @@ const EXPECTED_FRAME_HZ: Record<string, number> = {
   // No video at all - a front panel and a serial terminal. 50 is how often the
   // host is given a chance to redraw the terminal, not a hardware figure.
   altair8800: 50.0,
+  pmd85: 50.0,
 };
 
 describe('machine frame rates', () => {

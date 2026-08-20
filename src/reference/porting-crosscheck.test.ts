@@ -19,6 +19,7 @@ import { bbcReference } from './bbc';
 import { commodoreReference } from './commodore';
 import { cpcReference } from './cpc';
 import { altair8800Reference } from './altair8800';
+import { pmd85Reference } from './pmd85';
 import { trs80Reference } from './trs80';
 import { zx80Reference } from './zx80';
 import { zx81Reference } from './zx81';
@@ -34,6 +35,7 @@ const PAGES: Record<string, ReferenceTableData> = {
   commodore: commodoreReference,
   cpc: cpcReference,
   altair8800: altair8800Reference,
+  pmd85: pmd85Reference,
   trs80: trs80Reference,
   zx80: zx80Reference,
   zx81: zx81Reference,

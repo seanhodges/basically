@@ -25,6 +25,10 @@ import {
   parseChar as altairParseChar,
   decodeSpan as altairDecodeSpan,
 } from './altair8800/charset';
+import {
+  parseChar as pmd85ParseChar,
+  decodeSpan as pmd85DecodeSpan,
+} from './pmd85/charset';
 
 /**
  * How to drive each charset generically: the canonical decode of a byte, a
@@ -243,6 +247,22 @@ export const CHARSET_PROBES: CharsetProbe[] = [
     dialects: ['altair8800'],
     decode: (b) => altairDecodeSpan(Uint8Array.of(b), 0, 1).text,
     ...parseAll(altairParseChar),
+    isEscapeForm: BRACED_ESCAPE_FORM,
+    rawPattern: RAW_HEX_BRACE,
+    rawSpelling: '{0xNN}',
+  },
+  {
+    // A Czechoslovak machine whose character generator holds no accented
+    // letter: Monitor 2's font is 7-bit ASCII plus one solid cell at 0x7F, and
+    // nothing else in the 256 codes has a glyph. So this set has one picture
+    // in it, and everything outside 0x20-0x7F is a raw-byte escape.
+    id: 'pmd85',
+    varName: 'pmd85Escapes',
+    title: 'PMD 85 escape codes',
+    machines: ['Tesla PMD 85-2'],
+    dialects: ['pmd85'],
+    decode: (b) => pmd85DecodeSpan(Uint8Array.of(b), 0, 1).text,
+    ...parseAll(pmd85ParseChar),
     isEscapeForm: BRACED_ESCAPE_FORM,
     rawPattern: RAW_HEX_BRACE,
     rawSpelling: '{0xNN}',

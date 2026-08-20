@@ -1131,3 +1131,29 @@
 .vk-theme-altair8800 .vk-style-shift .vk-label {
   color: #dbe3ee;
 }
+
+/* PMD 85: a grey-beige wedge with a flat grid of small dark keys and an amber
+   function-key row across the top. The SHIFT legend is lower case here, not
+   upper, so it is set in the same weight as the base legend rather than being
+   played down. Activated by the layout's `theme: 'vk-theme-pmd85'`. */
+.vk-theme-pmd85 .vk-style-fn .vk-keycap {
+  background: linear-gradient(#8a5a2c, #6d4622);
+}
+.vk-theme-pmd85 .vk-style-fn .vk-label {
+  color: #f0dcc0;
+}
+.vk-theme-pmd85:not(.vk-compact) .vk-pos-tr {
+  right: 4px;
+  top: 4px;
+  font-size: 10px;
+  color: #9aa3ad;
+}
+.vk-theme-pmd85 .vk-pos-tr.vk-active {
+  color: #e8eef5;
+}
+.vk-theme-pmd85 .vk-style-shift .vk-keycap {
+  background: linear-gradient(#4a4f57, #363a41);
+}
+.vk-theme-pmd85 .vk-style-shift .vk-label {
+  color: #dfe4ea;
+}
