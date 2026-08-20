@@ -5,9 +5,37 @@ import Z80 from '../../../emulator/z80/z80core.js';
 import type { Z80Core } from '../../../emulator/z80/z80core.js';
 import { Intel8080 } from '../../../emulator/i8080';
 import { ProgramEndLatch } from '../../../emulator/programEndLatch';
-import type { MachineEmulator, MemoryBlock, TapeFile } from '../../types';
+import {
+  LineCostRecorder,
+  PROFILE_SLICE_CYCLES,
+} from '../../../emulator/lineCostRecorder';
+import type { GlyphSignatures } from '../../../emulator/fontMatcher';
+import type {
+  DebugStepOptions,
+  DebugStepResult,
+  LineCost,
+  MachineEmulator,
+  MachineMemoryStats,
+  MachineReport,
+  MachineScreenText,
+  MachineVariable,
+  MemoryBlock,
+  TapeFile,
+} from '../../types';
 import { basicImagePointers } from '../basicImage';
-import { CURLIN, DIRECT_MODE, PROGRAM_BASE, VARTAB } from '../addresses';
+import {
+  CURLIN,
+  DIRECT_MODE,
+  MAX_LINE_NUMBER,
+  PROGRAM_BASE,
+  STACK_TOP,
+  STREND,
+  TXTTAB,
+  VARTAB,
+} from '../addresses';
+import { pmd85FontSignatures, readPmd85ScreenText } from './screenText';
+import { readPmd85Variables } from '../vars';
+import { readPmd85Report } from '../reports';
 import {
   BLINK_FRAMES,
   DISPLAY_HEIGHT,
@@ -124,6 +152,18 @@ export class Pmd85Machine implements MachineEmulator {
   private readonly runLatch = new ProgramEndLatch();
   /** Whether the interpreter has been seen executing a line of the loaded program. */
   private runStarted = false;
+  /**
+   * Per-BASIC-line cost recorder for the profiler. Off by default; the run loop
+   * arms it for a whole run, and the CPU step charges the cycles it consumes to
+   * whichever line {@link currentLine} names at the time. Memory is charged the
+   * same way, from the interpreter's own in-use figure at each change of line.
+   */
+  private readonly profile = new LineCostRecorder(
+    PROFILE_SLICE_CYCLES,
+    () => this.readMemoryStats()?.used ?? null,
+  );
+  /** The Monitor's character generator, indexed by glyph shape on first use. */
+  private fontSigs: GlyphSignatures | null = null;
   /** Whether both ROM images arrived; see {@link hasFirmware}. */
   private readonly firmware: boolean;
 
@@ -284,7 +324,7 @@ export class Pmd85Machine implements MachineEmulator {
   bootToReady(): void {
     if (!this.hasFirmware) return;
     this.runUntil(
-      () => this.memory.readWord(VARTAB) !== 0,
+      () => this.memory.rawReadWord(VARTAB) !== 0,
       'never cold-started BASIC-G',
     );
     const scans = this.keyboardScans;
@@ -337,8 +377,129 @@ export class Pmd85Machine implements MachineEmulator {
    * are not mistaken for the program finishing before it began.
    */
   private noteRunState(): void {
-    if (this.memory.readWord(CURLIN) !== DIRECT_MODE) this.runStarted = true;
+    if (this.memory.rawReadWord(CURLIN) !== DIRECT_MODE) this.runStarted = true;
     else if (this.runStarted) this.runLatch.stopped();
+  }
+
+  /**
+   * The BASIC line BASIC-G is executing, or null when it is not executing one.
+   *
+   * {@link CURLIN} is the interpreter's own answer - the Microsoft convention,
+   * written as it moves from line to line - so this is a read rather than a
+   * derivation. Anything outside the line numbers BASIC-G accepts (the direct
+   * mode marker included) means "not in a program".
+   */
+  currentLine(): number | null {
+    if (!this.hasFirmware || this.disposed) return null;
+    const line = this.memory.rawReadWord(CURLIN);
+    return line >= 1 && line <= MAX_LINE_NUMBER ? line : null;
+  }
+
+  /**
+   * Run one debug slice: a frame's worth of cycles, stopping early when the
+   * interpreter reaches a line the caller wants to pause on.
+   *
+   * A frame is the unit rather than an instruction because pausing is defined
+   * in BASIC lines, not 8080 instructions - stepping stops the moment
+   * {@link currentLine} changes, whatever that took.
+   */
+  debugStep(opts: DebugStepOptions): DebugStepResult {
+    if (!this.hasFirmware) return { paused: false, line: null };
+    let cycles = this.debt;
+    // In run mode, ignore breakpoints until execution has left the line we
+    // resumed from, so Continue off a breakpointed line does not re-trigger on
+    // the spot but still re-pauses when the loop comes back around.
+    let armed = opts.fromLine === null;
+    while (cycles < CYCLES_PER_FRAME) {
+      if (this.cpu.isHalted()) {
+        this.debt = 0;
+        return { paused: false, line: this.currentLine() };
+      }
+      cycles += this.i8080.step();
+      const line = this.currentLine();
+      if (line === null) continue;
+      if (opts.mode === 'step') {
+        if (opts.fromLine === null || line !== opts.fromLine) {
+          this.debt = 0; // pausing abandons the rest of the slice
+          return { paused: true, line };
+        }
+      } else {
+        if (!armed && line !== opts.fromLine) armed = true;
+        if (armed && opts.breakpoints.has(line)) {
+          this.debt = 0;
+          return { paused: true, line };
+        }
+      }
+    }
+    this.debt = cycles - CYCLES_PER_FRAME;
+    return { paused: false, line: this.currentLine() };
+  }
+
+  /**
+   * BASIC-G's own memory arithmetic over its own pointers.
+   *
+   * Program text, variables and arrays share one run upwards from
+   * {@link PROGRAM_BASE}, and {@link STREND} is where the last of them ends;
+   * everything from there to {@link STACK_TOP} is free. String data is not in
+   * either figure - unlike most Microsoft BASICs, BASIC-G keeps its string pool
+   * in a region of its own well above the stack, so it neither eats into the
+   * program area nor grows down into it.
+   *
+   * Null until the pointers mean something: they are ordinary workspace RAM and
+   * read as zero from reset until the cold start writes them.
+   */
+  readMemoryStats(): MachineMemoryStats | null {
+    if (!this.hasFirmware || this.disposed) return null;
+    if (this.memory.rawReadWord(TXTTAB) !== PROGRAM_BASE) return null;
+    const strend = this.memory.rawReadWord(STREND);
+    const used = strend - PROGRAM_BASE;
+    const free = STACK_TOP - strend;
+    if (used < 0 || free < 0) return null;
+    return { used, free };
+  }
+
+  setMemoryActivityRecording(enabled: boolean): void {
+    this.memory.activity.enabled = enabled;
+    // Drop anything a previous session accumulated so a reopened overlay starts
+    // clean rather than flashing stale activity.
+    if (!enabled) this.memory.activity.clear();
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    if (!this.memory.activity.enabled) return null;
+    return this.memory.activity.drain(recycle);
+  }
+
+  setProfileRecording(enabled: boolean): void {
+    this.profile.setEnabled(enabled);
+  }
+
+  drainProfile(): LineCost[] | null {
+    return this.profile.drain();
+  }
+
+  /**
+   * The screen as text, matched against the Monitor's character generator -
+   * there are no characters in video RAM to read, only pixels. See
+   * `screenText.ts` for the grid the Monitor draws on.
+   */
+  readScreenText(): MachineScreenText | null {
+    if (!this.hasFirmware || this.disposed) return null;
+    this.fontSigs ??= pmd85FontSignatures(this.memory.monitorRom);
+    const video = this.memory.videoRam;
+    return readPmd85ScreenText(this.fontSigs, (offset) => video[offset] ?? 0);
+  }
+
+  /** The BASIC-G variables, decoded from the interpreter's own table (`../vars.ts`). */
+  readVariables(): MachineVariable[] {
+    if (!this.hasFirmware || this.disposed) return [];
+    if (this.memory.rawReadWord(TXTTAB) !== PROGRAM_BASE) return [];
+    return readPmd85Variables(this.memory);
+  }
+
+  /** The last report BASIC-G printed on its dialogue line (`../reports.ts`). */
+  readReport(): MachineReport | null {
+    return readPmd85Report(this.readScreenText());
   }
 
   dispose(): void {
@@ -505,7 +666,16 @@ export class Pmd85Machine implements MachineEmulator {
         this.debt = 0;
         return;
       }
-      cycles += this.i8080.step();
+      const t = this.i8080.step();
+      cycles += t;
+      // Charge the cycles to the BASIC line executing them. Here rather than in
+      // debugStep, because a run the IDE performs to check an assistant's
+      // answer opens no debug session and would otherwise go unmeasured.
+      const p = this.profile;
+      if (p.enabled) {
+        p.pending += t;
+        if (p.pending >= p.slice) p.sample(this.currentLine());
+      }
     }
     this.debt = cycles - budget;
   }
@@ -522,11 +692,20 @@ export class Pmd85Machine implements MachineEmulator {
   }
 }
 
-/** Keyboard tokens for the characters {@link Pmd85Machine.type} can produce. */
+/**
+ * Keyboard tokens for the characters {@link Pmd85Machine.type} can produce.
+ *
+ * The letter tokens are DOM `KeyboardEvent.code` names, which are positional,
+ * and this keyboard is QWERTZ - so `Y` and `Z` are not where a code name says
+ * they are: the key that types `Z` is `KeyY` and the one that types `Y` is
+ * `KeyZ`. Everything else lines up.
+ */
 const TYPING_KEYS: Readonly<Record<string, readonly string[]>> = {
   ' ': ['Space'],
   ...Object.fromEntries(
     [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((c) => [c, [`Key${c}`]]),
   ),
+  Y: ['KeyZ'],
+  Z: ['KeyY'],
   ...Object.fromEntries([...'0123456789'].map((c) => [c, [`Digit${c}`]])),
 };

@@ -29,7 +29,13 @@ import {
 const ROM_DIR = join(__dirname, '../../public/roms');
 
 /** The bitmap for a dialect's `code`, as one string per row of pixels. */
-function render(dialectId: string, code: number, height: number): string[] {
+function render(
+  dialectId: string,
+  code: number,
+  height: number,
+  width: number,
+  lsbFirst: boolean,
+): string[] {
   const loc = glyphLocation(dialectId, code);
   if (!loc || loc.kind !== 'rom')
     throw new Error(`${dialectId} 0x${code.toString(16)} is not in a ROM`);
@@ -37,15 +43,29 @@ function render(dialectId: string, code: number, height: number): string[] {
   const rows: string[] = [];
   for (let i = 0; i < height; i++) {
     const byte = rom[loc.fileOffset + i] ?? 0;
-    rows.push(
-      byte.toString(2).padStart(8, '0').replace(/0/g, '.').replace(/1/g, '#'),
+    // Which end of the byte is the left of the glyph is the machine's choice,
+    // and the PMD 85 is the one that puts bit 0 there. Rendering every anchor
+    // MSB-first would print its font mirrored, and the mirrored bitmap would
+    // then be pinned as if it were the shape.
+    const bits = Array.from({ length: width }, (_, x) =>
+      (byte >> (lsbFirst ? x : width - 1 - x)) & 1 ? '#' : '.',
     );
+    rows.push(bits.join(''));
   }
   return rows;
 }
 
-/** Anchor per dialect: the code that means "A", and the bitmap it must draw. */
-const ANCHORS: Record<string, { code: number; rows: string[] }> = {
+/**
+ * Anchor per dialect: the code that means "A", and the bitmap it must draw.
+ *
+ * `lsbFirst` is the PMD 85's, whose video circuit shifts each byte out low bit
+ * first and displays only six of the eight; every other machine here puts the
+ * leftmost pixel in bit 7.
+ */
+const ANCHORS: Record<
+  string,
+  { code: number; rows: string[]; width?: number; lsbFirst?: boolean }
+> = {
   // The Sinclair charset is not ASCII: 'A' is 0x26.
   zx80: {
     code: 0x26,
@@ -177,6 +197,23 @@ const ANCHORS: Record<string, { code: number; rows: string[] }> = {
       '........',
     ],
   },
+  // Six pixels wide, low bit leftmost: the two facts about this screen that a
+  // wrong reading makes plausible rather than obvious.
+  pmd85: {
+    code: 0x41,
+    width: 6,
+    lsbFirst: true,
+    rows: [
+      '...#..',
+      '..#.#.',
+      '.#...#',
+      '.#...#',
+      '.#####',
+      '.#...#',
+      '.#...#',
+      '......',
+    ],
+  },
   cpc6128: {
     code: 0x41,
     rows: [
@@ -222,7 +259,15 @@ describe('glyph sources', () => {
     const anchor = ANCHORS[id]!;
 
     it('draws its anchor character at the declared address', () => {
-      expect(render(id, anchor.code, anchor.rows.length)).toEqual(anchor.rows);
+      expect(
+        render(
+          id,
+          anchor.code,
+          anchor.rows.length,
+          anchor.width ?? 8,
+          anchor.lsbFirst ?? false,
+        ),
+      ).toEqual(anchor.rows);
     });
 
     it('resolves the anchor to a machine address inside the image', () => {

@@ -189,6 +189,16 @@ that is an **optional capability the app feature-detects per machine** -
 `drainMemoryActivity()`) behind the memory-map overlay, and `currentLine()` /
 `debugStep()` for the line-level debugger.
 
+Optional on the _type_ is not the same as optional in practice. Several of
+those capabilities are owed by every registered machine, and a registry-driven
+test holds each one to it rather than letting a new dialect degrade quietly:
+`screenReadable.test.ts` for `readScreenText()`, `memoryActivity.test.ts` for
+the activity tap, `programRamBudget.test.ts` for `readMemoryStats()`, and
+`debugCapability.test.ts` for the debugger pair. Each keeps a small table of
+machines excused with the hardware reason - the TRS-80's backend interprets
+statements rather than running a CPU over a RAM image, so it has no bus to tap
+and no pointers to read - so an absence is a decision somebody wrote down.
+
 `isProgramRunning()` is required to _answer_, not merely to exist: a machine
 handed a program that terminates must report `true` and then `false` within a
 bounded number of frames. Machines whose ROM keeps a cell for it read that cell;
@@ -197,6 +207,14 @@ address at which BASIC gives up on a program - `src/emulator/programEndLatch.ts`
 holds the shape, and each machine's own constant names its address.
 `src/dialects/programRunState.test.ts` boots every registered machine and holds
 it to the obligation.
+
+The memory-activity tap carries an obligation of its own, and it is about what
+must _not_ be recorded. The IDE polls the same bus while a program runs - the
+variable watcher, the memory figures, the line the profiler samples - so a
+machine needs a non-recording read alongside its CPU one (`peek` / `rawReadWord`
+next to `read` / `readWord`) and has to do its own introspection through it.
+Without that split the overlay paints addresses the program never touched, and
+it looks like a finding rather than like the IDE watching itself.
 
 `loadProgram`'s options carry the rest of the document model into the machine:
 memory blocks written straight into RAM, extra tape files mounted on the virtual

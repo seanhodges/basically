@@ -108,6 +108,17 @@ for (const [token, bit] of Object.entries(MODIFIER_BITS)) {
 export const PMD85_KEY_TOKENS: readonly string[] = [...KEY_POSITIONS.keys()];
 
 /**
+ * The PMD 85 key a host `KeyboardEvent.code` reaches, or null where the host
+ * key has no equivalent on this machine. Exported because it is the only
+ * statement of which matrix keys are typeable without a keycap, which is what
+ * lets the on-screen layout leave the editing block's overflow off the grid.
+ */
+export function tokenForHostCode(code: string): string | null {
+  const token = HOST_CODES[code] ?? code;
+  return KEY_POSITIONS.has(token) ? token : null;
+}
+
+/**
  * The PMD 85's keyboard as the motherboard 8255 sees it.
  *
  * The 8255 itself carries the speaker and the two front-panel LEDs on the same
@@ -131,8 +142,8 @@ export class Pmd85Keyboard {
    * own handling of it.
    */
   handleEvent(e: KeyboardEvent, down: boolean): boolean {
-    const token = HOST_CODES[e.code] ?? e.code;
-    if (!KEY_POSITIONS.has(token)) return false;
+    const token = tokenForHostCode(e.code);
+    if (token === null) return false;
     if (down) this.physicalDown.add(token);
     else this.physicalDown.delete(token);
     this.apply(token);

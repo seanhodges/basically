@@ -944,4 +944,119 @@ export const escapeGuidance: EscapeGuidance[] = [
     support: 'full',
     instead: RESPELL_HEX,
   },
+
+  // --------------------------------------------------------------- pmd85 --
+  // A bitmap screen with an ASCII font: the display controls exist but the
+  // character set carries no pictures, so the graphics classes are all 'none'.
+  {
+    to: 'pmd85',
+    class: 'colour',
+    support: 'none',
+    instead:
+      'The screen is monochrome. Each six-pixel cell carries only blink and reduced brightness, set by PEN when drawing and INK( when printing - so mark text out with those, or by position.',
+    example: {
+      caption: 'Brightness where colour was',
+      code: ['10 PRINT INK(2);"DIM"'],
+    },
+  },
+  {
+    to: 'pmd85',
+    class: 'cursor',
+    support: 'none',
+    instead:
+      'No cursor codes inside a string. Reach a column with TAB(n) in the PRINT list, and clear the screen with GCLEAR rather than by printing a control character.',
+    example: {
+      caption: 'Reach a column with TAB(',
+      code: ['10 PRINT TAB(10);"SCORE"'],
+    },
+  },
+  {
+    to: 'pmd85',
+    class: 'editing',
+    support: 'partial',
+    instead:
+      'Only {0x08} backspace and {0x1C} clear-screen do anything, and GCLEAR is the readable way to write the second. Anything finer - delete line, insert - has to be re-printed instead.',
+  },
+  {
+    to: 'pmd85',
+    class: 'mode',
+    support: 'none',
+    instead:
+      'One screen mode, always: 288x256 pixels with 48x26 characters of text on it. Drop the mode code, and lay the program out for that size.',
+  },
+  {
+    to: 'pmd85',
+    class: 'screen-effect',
+    support: 'none',
+    instead:
+      'No flash, bright or over-print codes in a string. The blink and dim attributes are the nearest thing, and they are set by PEN and INK( rather than by a character.',
+  },
+  {
+    to: 'pmd85',
+    class: 'function-keys',
+    support: 'none',
+    instead:
+      'The K0-K11 keys send codes the program reads with INKEY; they carry no string a program can redefine. Test INKEY and branch, where the source printed a function-key token.',
+    example: {
+      caption: 'Read the key rather than a token',
+      code: ['10 K=INKEY', '20 IF K=148 THEN 100'],
+    },
+  },
+  {
+    to: 'pmd85',
+    class: 'block-graphics',
+    support: 'partial',
+    instead:
+      'The font holds one picture: the solid cell, written as the block character itself. Anything finer is drawn rather than printed - PLOT a shape, or BPLOT a string of bytes into screen memory.',
+    example: {
+      caption: 'The one graphics character',
+      code: ['10 PRINT "██████"'],
+    },
+  },
+  {
+    to: 'pmd85',
+    class: 'user-defined-graphics',
+    support: 'none',
+    instead:
+      'The character generator is in ROM and cannot be redefined. Draw the shape instead: BPLOT writes bytes straight into video RAM at the BMOVE cursor, six pixels to the byte.',
+  },
+  {
+    to: 'pmd85',
+    class: 'inverse-video',
+    support: 'none',
+    instead:
+      'No inverse characters and no reverse-video code. Use the dim or blinking attribute where inverse marked text out, or bracket it with punctuation.',
+  },
+  {
+    to: 'pmd85',
+    class: 'compression',
+    support: 'none',
+    instead:
+      'No space compression: print the spaces, or skip to the column with TAB(n) or SPC(n).',
+  },
+  {
+    to: 'pmd85',
+    class: 'embedded-number',
+    support: 'none',
+    instead: NO_HIDDEN_NUMBER,
+  },
+  {
+    to: 'pmd85',
+    class: 'literal',
+    support: 'partial',
+    instead: PLAIN_LITERAL,
+  },
+  {
+    to: 'pmd85',
+    class: 'control',
+    support: 'partial',
+    instead:
+      'Four codes reach the screen driver - {0x08} backspace, {0x0D} carriage return, {0x1C} clear screen, and {0x0A} which it ignores. Drop anything else; it prints a placeholder.',
+  },
+  {
+    to: 'pmd85',
+    class: 'raw-byte',
+    support: 'full',
+    instead: RESPELL_HEX,
+  },
 ];

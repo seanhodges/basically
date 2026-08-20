@@ -1457,4 +1457,198 @@ export const domainGuidance: DomainGuidance[] = [
       ],
     },
   },
+
+  // --------------------------------------------------------------- pmd85 --
+  {
+    to: 'pmd85',
+    domain: 'control-flow',
+    support: 'partial',
+    summary:
+      'IF...THEN, FOR...NEXT with STEP, GOSUB/RETURN, ON...GOTO/GOSUB and DEF FNC cover jumps, loops and single-expression functions.',
+    instead:
+      'No ELSE, WHILE or REPEAT: write a second IF, or invert the test and GOTO past the positive case. The function keyword is FNC, and its name is a separate word: FNC A(X).',
+    example: {
+      caption: 'No ELSE: split into two branches',
+      code: [
+        '10 IF X=0 THEN 40',
+        '20 PRINT "NONZERO"',
+        '30 GOTO 50',
+        '40 PRINT "ZERO"',
+      ],
+    },
+    reachFor: ['IF', 'FOR', 'GOSUB', 'ON'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'data',
+    support: 'partial',
+    summary:
+      'DATA/READ/RESTORE for constants, DIM for arrays and LET for assignment, with CLEAR to erase the variables.',
+    instead:
+      'No CLR or DEFINT/DEFSTR, and no type tag but $: every number is single-precision floating point. CLEAR takes no size - string space is a fixed region of its own.',
+    example: {
+      caption: 'CLEAR takes no argument',
+      code: ['10 CLEAR', '20 DIM A(20)', '30 READ A(1)', '40 DATA 42'],
+    },
+    reachFor: ['DATA', 'READ', 'DIM', 'CLEAR'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'numeric',
+    support: 'partial',
+    summary:
+      'Single-precision maths in full: SQR, LOG, EXP, the four trig functions, RND, INT, ABS, SGN, BIT and the ^ operator, with DEG and RAD choosing the angle unit.',
+    instead:
+      'No PI, MOD, DIV, MIN or MAX: write PI out as a constant, and take a remainder with A-INT(A/B)*B. DEG saves converting degrees by hand.',
+    example: {
+      caption: 'PI written out; degrees with DEG',
+      code: ['10 P=3.14159265', '20 DEG', '30 PRINT SIN(45)'],
+    },
+    reachFor: ['SQR', 'RND', 'INT', 'DEG'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'strings',
+    support: 'partial',
+    summary:
+      'LEN, LEFT$, RIGHT$, MID$, ASC, CHR$, STR$, VAL and HEX$, with + joining two strings.',
+    instead:
+      'No INSTR, STRING$, SPACE$ or UPPER$: search with a MID$ loop and build a run of characters by concatenating. MID$ is a function only and cannot be assigned to.',
+    example: {
+      caption: 'Search a string with MID$',
+      code: [
+        '10 FOR I=1 TO LEN(A$)',
+        '20 IF MID$(A$,I,1)="X" THEN 50',
+        '30 NEXT I',
+        '40 PRINT "NOT FOUND"',
+      ],
+    },
+    reachFor: ['MID$', 'LEN', 'CHR$', 'HEX$'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'text-screen',
+    support: 'partial',
+    summary:
+      'PRINT with TAB( and SPC( onto a 48x26 text area, DISP onto the dialogue line at the foot of the screen, and POS to read the column back.',
+    instead:
+      'No CLS or LOCATE: GCLEAR clears the whole screen, and TAB( is the reliable way to reach a column. The AT keyword exists but what it positions is not established here.',
+    example: {
+      caption: 'Clear, then lay out with TAB(',
+      code: ['10 GCLEAR', '20 PRINT TAB(10);"SCORE"'],
+    },
+    reachFor: ['PRINT', 'TAB(', 'DISP', 'POS'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'graphics',
+    support: 'partial',
+    summary:
+      'A real drawing set: SCALE sets a coordinate window, MOVE and PLOT draw lines in it, AXES draws axes, LABEL plots text and FILL an enlarged bit pattern.',
+    instead:
+      'No circle, arc or paint: draw a curve as a run of PLOT points, and fill an area with a loop of lines. BPLOT writes bytes straight into screen memory for a sprite.',
+    example: {
+      caption: 'A line, in a scaled window',
+      code: ['10 SCALE 0,100,0,100', '20 MOVE 0,0', '30 PLOT 100,100'],
+    },
+    reachFor: ['PLOT', 'MOVE', 'SCALE', 'FILL'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'colour',
+    support: 'partial',
+    summary:
+      'The screen is monochrome. PEN and INK( set the two attribute bits each six-pixel cell carries: blink and reduced brightness.',
+    instead:
+      'No palette, ink or paper colours and no border: a program that distinguishes things by colour has to distinguish them by brightness, by blinking, or by position instead.',
+    example: {
+      caption: 'Attributes, not colours',
+      code: ['10 PEN 2', '20 PLOT 50,50', '30 PRINT INK(1);"ALERT"'],
+    },
+    reachFor: ['PEN', 'INK('],
+  },
+  {
+    to: 'pmd85',
+    domain: 'sound',
+    support: 'partial',
+    summary:
+      'BEEP, and nothing else: one fixed tone on the motherboard speaker, with no pitch, length or channel to give it.',
+    instead:
+      'No SOUND, PLAY or ENVELOPE. A tune has to be driven by OUT to the speaker bit of the motherboard 8255, timed by the program itself.',
+    example: {
+      caption: 'The whole sound repertoire',
+      code: ['10 BEEP', '20 PAUSE 200', '30 BEEP'],
+    },
+    reachFor: ['BEEP'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'input',
+    support: 'partial',
+    summary:
+      'INPUT takes a whole typed line; INKEY reports which of the twelve function keys K0-K11 is held, or 255 for none.',
+    instead:
+      'No INKEY$ or GET for the letter keys: a real-time program is driven by the function-key row, and anything else waits for a whole line through INPUT.',
+    example: {
+      caption: 'Poll the function keys',
+      code: ['10 K=INKEY', '20 IF K=255 THEN 10', '30 PRINT "KEY";K'],
+    },
+    reachFor: ['INPUT', 'INKEY', '_'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'storage',
+    support: 'partial',
+    summary:
+      'Cassette only: SAVE and LOAD for programs, DSAVE and DLOAD for an array, and CHECK to verify a recording against memory.',
+    instead:
+      'No named files, no disc and no OPEN/CLOSE: every tape command takes a file NUMBER, so SAVE 1 rather than SAVE "PROG". Sequential data files are DSAVE arrays.',
+    example: {
+      caption: 'A tape file is a number',
+      code: ['10 SAVE 1', '20 CHECK 1'],
+    },
+    reachFor: ['SAVE', 'LOAD', 'DSAVE', 'CHECK'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'memory-hardware',
+    support: 'partial',
+    summary:
+      'PEEK/POKE, APEEK/APOKE for 16-bit words, INP/OUT and WAIT for ports, ADR for a variable address, and USR to call machine code at an address.',
+    instead:
+      'USR takes the address itself rather than a poked vector, so there is no SYS or CALL to replace. No VARPTR: ADR gives a variable’s address, and CODE assembles hex and calls it.',
+    example: {
+      caption: 'USR calls the address directly',
+      code: ["10 A=USR('7000)", "20 PRINT PEEK('7010)"],
+    },
+    reachFor: ['PEEK', 'POKE', 'USR', 'ADR'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'program-editing',
+    support: 'partial',
+    summary:
+      'RUN, LIST, NEW, CONT and REM, with AUTO numbering entered lines and LLIST recalling one into the dialogue line for editing.',
+    instead:
+      'No RENUM, DELETE, TRON or MERGE: renumber by retyping, and trace by adding PRINT lines. LLIST is a line editor here, not a printer command.',
+    example: {
+      caption: 'AUTO numbers as you type',
+      code: ['AUTO 100,10'],
+    },
+    reachFor: ['LIST', 'AUTO', 'REM', 'CONT'],
+  },
+  {
+    to: 'pmd85',
+    domain: 'error-handling',
+    support: 'partial',
+    summary:
+      'ON ERR GOTO traps an error and jumps to a line instead of stopping the program.',
+    instead:
+      'No ERR value, ERL line number or RESUME: the handler cannot ask what went wrong or where, so guard what can fail and use the trap as a last resort.',
+    example: {
+      caption: 'Trap, then guard anyway',
+      code: ['10 ON ERR GOTO 90', '20 IF D=0 THEN 90', '30 PRINT N/D'],
+    },
+    reachFor: ['ERR'],
+  },
 ];

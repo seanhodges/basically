@@ -43,6 +43,7 @@ import { trs80Keywords, TRS80_ALIASES } from './trs80/keywords';
 import { cpc464Keywords } from './cpc464/keywords';
 import { cpc6128Keywords } from './cpc6128/keywords';
 import { altair8800Keywords, ALTAIR8800_ALIASES } from './altair8800/keywords';
+import { pmd85Keywords, PMD85_ALIASES } from './pmd85/keywords';
 
 /** A short spelling found in a program, and the keyword it stands for. */
 export interface SpellingUse {
@@ -94,6 +95,7 @@ const TABLES: Record<string, readonly KeywordInfo[]> = {
   cpc464: cpc464Keywords,
   cpc6128: cpc6128Keywords,
   altair8800: [...altair8800Keywords, ...ALTAIR8800_ALIASES],
+  pmd85: [...pmd85Keywords, ...PMD85_ALIASES],
 };
 
 /** The registered machines this module knows a keyword table for. */
@@ -146,6 +148,17 @@ const ORDERS: Record<
 const SYMBOL_MEANS: Record<string, string> = { "'": 'REM' };
 
 /**
+ * A symbol whose spelling *is* the keyword contributes no short spelling, so it
+ * is dropped rather than reported as an abbreviation of itself. BASIC-G is the
+ * case: its `_` is a spelled keyword in its own right - the statement that
+ * prints into the dialogue line and waits for a key - and `?` is the alias that
+ * reaches it.
+ */
+function isAbbreviation(spelling: string, keyword: string): boolean {
+  return spelling !== keyword;
+}
+
+/**
  * Alphabetic keywords in ascending token order - the Commodore scan order.
  *
  * The alias spellings drop out with the operators: they are `?` and `^`, and a
@@ -177,12 +190,23 @@ export function keywordSpellingsFor(dialectId: string): KeywordSpellings {
       .filter((k) => /^[A-Za-z]/.test(k.word))
       .map((k) => [k.token, k.word] as const),
   );
+  // First entry wins: a machine's own table comes before its aliases, so on a
+  // BASIC-G `?` resolves to `_`, the spelled keyword that shares its token.
+  const canonical = new Map<number, string>();
+  for (const k of table)
+    if (!canonical.has(k.token)) canonical.set(k.token, k.word);
+
   const symbols: SpellingUse[] = table
     .filter((k) => k.kind === 'command' && !/[A-Za-z]/.test(k.word))
     .map((k) => ({
       spelling: k.word,
-      keyword: words.get(k.token) ?? SYMBOL_MEANS[k.word] ?? k.word,
-    }));
+      keyword:
+        words.get(k.token) ??
+        SYMBOL_MEANS[k.word] ??
+        canonical.get(k.token) ??
+        k.word,
+    }))
+    .filter((use) => isAbbreviation(use.spelling, use.keyword));
 
   const spellings: KeywordSpellings = {
     style: source?.style ?? 'none',

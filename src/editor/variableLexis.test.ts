@@ -82,6 +82,11 @@ const ROM_NAME_FACTS: Record<
   vic20: { significant: 2, case: 'folded', dataItems: 'verbatim' },
   trs80: { significant: 2, case: 'folded', dataItems: 'verbatim' },
   altair8800: { significant: 2, case: 'folded', dataItems: 'verbatim' },
+  // Two significant characters like the rest of its family, but case
+  // SENSITIVE like a BBC and unlike every other Microsoft derivative here:
+  // `10 A=1:a=2:PRINT A;a` prints 1 and 2 on a booted PMD 85, because the
+  // crunch stores the name as typed and the lookup compares the bytes.
+  pmd85: { significant: 2, case: 'sensitive', dataItems: 'verbatim' },
 };
 
 describe('name facts are stated per machine', () => {

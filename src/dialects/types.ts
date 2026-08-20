@@ -533,6 +533,13 @@ export interface MachineEmulator {
    * can't tap its memory bus omits this (and {@link drainMemoryActivity}) and
    * the overlay shows no live activity. Detected via
    * `typeof machine.setMemoryActivityRecording === 'function'`.
+   *
+   * Optional on this type, but owed by every machine with a bus to tap:
+   * `src/dialects/memoryActivity.test.ts` walks the registry and excuses only
+   * the machines named there with a reason. What it also pins is the half that
+   * is easy to miss - a machine's own introspection must read through a
+   * *non-recording* path, or the overlay reports the IDE's polling as the
+   * program's own accesses.
    */
   setMemoryActivityRecording?(enabled: boolean): void;
   /**

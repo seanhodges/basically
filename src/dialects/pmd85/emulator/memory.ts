@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Sean Hodges
 
+import {
+  MemoryActivityBuffer,
+  READ_BIT,
+  WRITE_BIT,
+} from '../../../emulator/memoryActivityBuffer';
+import { MONITOR_BASE, MONITOR_MIRROR_BASE } from '../addresses';
 import { VIDEO_RAM_BASE, VIDEO_RAM_BYTES } from './display';
 
-/**
- * Monitor 2's own home, and the mirror the address decoder also answers on.
- * Both windows are one ROM wide - `MONITOR_SIZE` in `romImage.ts`, which is the
- * one place that size is declared.
- */
-export const MONITOR_BASE = 0x8000;
-export const MONITOR_MIRROR_BASE = 0xa000;
+export { MONITOR_BASE, MONITOR_MIRROR_BASE } from '../addresses';
 
 /**
  * What an address with nothing behind it reads as.
@@ -56,9 +56,27 @@ export class Pmd85Memory {
   private readonly bytes = new Uint8Array(0x10000);
   private readonly monitor: Uint8Array;
   private startupMap = true;
+  /**
+   * Live memory-activity recorder for the memory-map overlay. Disabled by
+   * default; the host arms it only while the map is on screen. When enabled,
+   * {@link read} and {@link write} stamp the touched CPU address with a single
+   * indexed `|=` - which is the whole cost of recording being off, a not-taken
+   * branch on the bus's hot path.
+   */
+  readonly activity = new MemoryActivityBuffer(0x10000);
 
   constructor(monitor: Uint8Array) {
     this.monitor = monitor;
+  }
+
+  /**
+   * The Monitor image itself, for the character generator inside it. Reading
+   * the font off the bus would work only while the machine is in a
+   * configuration that maps the ROM, and the screen reader has no business
+   * caring which one it is in.
+   */
+  get monitorRom(): Uint8Array {
+    return this.monitor;
   }
 
   /** Video RAM as a view, for the display to read without going through the bus. */
@@ -78,6 +96,7 @@ export class Pmd85Memory {
   reset(): void {
     this.bytes.fill(0);
     this.startupMap = true;
+    this.activity.clear();
   }
 
   /**
@@ -89,6 +108,20 @@ export class Pmd85Memory {
   }
 
   read = (address: number): number => {
+    if (this.activity.enabled) this.activity.hits[address & 0xffff] |= READ_BIT;
+    return this.peek(address);
+  };
+
+  /**
+   * Read a byte without recording the access.
+   *
+   * Everything the *host* reads goes through here rather than through
+   * {@link read}: the variable watcher, the memory figures, the line the
+   * profiler samples and the run-state latch all poll this bus while the
+   * program runs, and stamping their reads would paint the overlay with
+   * activity the program never performed.
+   */
+  peek = (address: number): number => {
     const a = address & 0xffff;
     if (this.startupMap && a < 0x8000) {
       // 0x0000 and 0x2000 answer as the ROM, 0x4000-0x7FFF as video RAM, and
@@ -108,6 +141,8 @@ export class Pmd85Memory {
   };
 
   write = (address: number, value: number): void => {
+    if (this.activity.enabled)
+      this.activity.hits[address & 0xffff] |= WRITE_BIT;
     const a = address & 0xffff;
     const v = value & 0xff;
     if (this.startupMap && a < 0x8000) {
@@ -123,6 +158,11 @@ export class Pmd85Memory {
   /** Little-endian word, for the interpreter pointers a load has to write. */
   readWord(address: number): number {
     return this.read(address) | (this.read(address + 1) << 8);
+  }
+
+  /** {@link readWord} through {@link peek}: no activity recorded. */
+  rawReadWord(address: number): number {
+    return this.peek(address) | (this.peek(address + 1) << 8);
   }
 
   writeWord(address: number, value: number): void {

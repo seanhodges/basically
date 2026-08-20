@@ -255,6 +255,16 @@ export const OPERATOR_PROBES: OperatorProbe[] = [
     expect: MICROSOFT_EXPECT,
   },
   {
+    id: 'pmd85',
+    machines: ['PMD 85-2'],
+    dialects: ['pmd85'],
+    // BASIC-G spells the power operator `^`, as the Altair does; the up-arrow
+    // is a Commodore keyboard's spelling of the same token and has no glyph in
+    // this machine's ASCII font.
+    program: microsoftProgram('^'),
+    expect: MICROSOFT_EXPECT,
+  },
+  {
     id: 'cpc',
     machines: ['CPC 464', 'CPC 6128'],
     dialects: ['cpc464', 'cpc6128'],

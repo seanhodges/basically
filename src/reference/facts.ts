@@ -935,6 +935,111 @@ const entries: PortingFactsEntry[] = [
     addressNotation: 'dec',
   },
   {
+    id: 'pmd85',
+    basicDialect: 'BASIC-G',
+    portingNotes: [
+      {
+        text: 'The interpreter is copied into RAM at address 0 before it runs, so a wrong POKE can corrupt BASIC-G itself - there is no ROM protecting it.',
+        topics: ['memory'],
+      },
+      {
+        text: 'Only the first two characters of a variable name are significant, and a name containing a reserved word is mis-read rather than rejected.',
+        topics: ['variable-names'],
+      },
+      {
+        text: "Spaces are ignored outside strings, REM and DATA, so FORI=1TO5 is valid, and a hexadecimal literal is written with a leading apostrophe, as 'FF.",
+        topics: ['statement-layout'],
+      },
+      {
+        text: 'The user-defined-function keyword is FNC, not FN: a definition reads DEF FNC A(X)=… and a call FNC A(X).',
+        topics: ['control-flow'],
+      },
+      {
+        text: 'Graphics are drawn, not typed: PLOT, MOVE, FILL and LABEL work in a SCALE window, and the character set holds no block graphics at all.',
+        topics: ['graphics'],
+      },
+      {
+        text: 'INKEY reads only the twelve function keys K0-K11 and returns 255 when none is held; the tape commands take a file NUMBER rather than a name, as SAVE 1.',
+        topics: ['input'],
+      },
+    ],
+    substitutions: [
+      {
+        keyword: 'ELSE',
+        note: 'No ELSE: write a second IF, or invert the test and jump.',
+      },
+      {
+        keyword: 'FN',
+        note: 'The keyword is FNC here, and the name is separate from it: FNC A(X).',
+      },
+      {
+        keyword: 'INKEY$',
+        note: 'INKEY sees only the K0-K11 function keys and returns a number, not a string; anything else needs INPUT.',
+      },
+      {
+        keyword: 'CLS',
+        note: 'GCLEAR clears the screen - text and graphics together, since they are one bitmap.',
+      },
+      {
+        keyword: 'SOUND',
+        note: 'BEEP is the whole sound repertoire: one fixed tone, with no pitch or duration.',
+      },
+      {
+        keyword: 'COLOUR',
+        note: 'The display is monochrome. PEN and INK( set the two attribute bits - blink and reduced brightness - not a colour.',
+      },
+      {
+        keyword: 'LOCATE',
+        note: 'Use TAB( for a column. The machine has an AT keyword, but what it positions is not established here.',
+      },
+    ],
+    lineNumberRange: '0–32767',
+    lineNumbers: { min: 0, max: 32767 },
+    statementSeparator: ':',
+    elseSupported: false,
+    letRequired: 'optional',
+    abbreviatedEntry: {
+      style: 'none',
+      // `?` is not PRINT here: the crunch routine substitutes the token whose
+      // spelling is `_`, so a `?` typed in lists back as `_`.
+      symbols: [{ spelling: '?', keyword: '_' }],
+      shrinksProgram: false,
+    },
+    variableNaming:
+      'Only the first two characters are significant, and case matters: A and a are two variables. $ marks a string, and there is no integer or double type tag.',
+    variableSignificance: {
+      plain: 2,
+      marked: 2,
+      markerDistinguishes: true,
+      markers: '$',
+    },
+    numberHandling: 'Floating point, single precision only.',
+    numbers: { fractions: true },
+    exponentOperator: '^',
+    logicalOperators: 'bitwise',
+    comparisonTrue: -1,
+    // The Monitor 2 character generator is plain ASCII 0x20-0x7E plus one solid
+    // cell, so the machine covers printable ASCII in full.
+    unsupportedCharacters: [],
+    screen:
+      '48×26 characters of text on a 288×256 monochrome bitmap, with a separate dialogue line below them.',
+    textScreen: { columns: 48, rows: 26 },
+    waitIdiom: {
+      text: 'PAUSE n, which waits about n milliseconds (n up to 255)',
+      keywords: ['PAUSE'],
+    },
+    loopSpeed: 562,
+    freeRamBytes: 14846,
+    screenBase: "'C000",
+    programStart: "'2401",
+    colour:
+      'None. Each six-pixel cell carries two attribute bits: blink and reduced brightness, set by PEN when drawing and INK( when printing.',
+    sound: 'BEEP, a single fixed tone on the motherboard speaker.',
+    memoryWriteSyntax: 'POKE <addr>, <byte>',
+    addressNotation: 'hex',
+    hexPrefix: "'",
+  },
+  {
     id: 'zxspectrum128',
     extends: 'zxspectrum',
     basicDialect: '128 Sinclair BASIC',

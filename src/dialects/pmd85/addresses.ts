@@ -19,6 +19,13 @@
  * high-bit-on-first-character shape, and its statement dispatch is the familiar
  * token-0x80 index - so the addresses below have Microsoft names where the
  * interpreter is doing a Microsoft job.
+ *
+ * The two Monitor windows at the foot of this file are the exception to that
+ * description: they are the address decoder's, not BASIC-G's. They live here
+ * because two modules need them and neither may import the other - the decoder
+ * in `emulator/memory.ts` answers on them, and `memoryMap.ts` draws them, and
+ * the memory map is imported by the docs site, which must not reach an emulator
+ * core (`src/components/machinePickerBoundary.test.ts` holds that line).
  */
 
 /**
@@ -127,3 +134,12 @@ export const USER_CODE_BASE = 0x7f00;
  * real difference from the 65529 of the Microsoft 8K BASICs it descends from.
  */
 export const MAX_LINE_NUMBER = 32767;
+
+/**
+ * Where the Monitor answers on the bus, once the machine has left its startup
+ * configuration: its own window at 0x8000 and the mirror at 0xA000. One chip
+ * seen twice - the decoder ignores A13 - and {@link MONITOR_SIZE} in
+ * `romImage.ts` is how wide each window is.
+ */
+export const MONITOR_BASE = 0x8000;
+export const MONITOR_MIRROR_BASE = 0xa000;
