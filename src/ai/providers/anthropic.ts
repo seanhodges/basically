@@ -121,14 +121,23 @@ function streamChat(
     // and the whole thread - which is worse than never caching. What matters is
     // that the set does not vary, not that it is empty.
     //
-    // The top-level form puts the breakpoint at the end of the whole prefix.
-    // The composed system prompt would be worth a breakpoint of its own - the
-    // smallest machine's clears the model's minimum cacheable size several
-    // times over - but that is a second of the four available, and whether an
-    // anchor surviving history churn is worth one is a question for measured
-    // cache figures rather than for reasoning. Default 5-minute TTL: a read
-    // costs about a tenth of an input token against a 1.25x write, so it pays
-    // from the second turn.
+    // The top-level form puts the breakpoint at the end of the whole prefix,
+    // and it is the only one of the four this request spends. A second at the
+    // end of the system prompt would anchor the machine's description against
+    // history that changes rather than only grows - joining a continued answer
+    // onto its partial is the one thing here that does that. Measured on a live
+    // three-turn conversation it would buy nothing else: on a ZX81 the first
+    // turn writes 10,772 tokens and the second reads all 10,772 back, writing
+    // only the 321 that turn adds.
+    //
+    // Five minutes rather than an hour, from the same measurement. An hour
+    // doubles the write premium against 1.25x - some 8,600 tokens' worth on
+    // that conversation, paid whether or not it helps - and buys back about
+    // 12,400 only where a turn arrives after the shorter cache has expired. It
+    // is worth it only if most conversations leave a gap over five minutes, and
+    // the turns the IDE raises itself - the run check, the judgement, the
+    // correction - follow within seconds. A read costs about a tenth of an
+    // input token either way, so the cache pays from the second turn.
     cache_control: { type: 'ephemeral' },
   });
 

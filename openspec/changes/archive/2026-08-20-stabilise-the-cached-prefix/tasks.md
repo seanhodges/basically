@@ -88,34 +88,61 @@
 
 ## 6. Measure, then decide the two open questions
 
-- [ ] 6.1 With a real key, send three turns in one conversation and read the
+- [x] 6.1 With a real key, send three turns in one conversation and read the
       provider's cache figures off each response. Expect no cache read at all
       before this change, and a read of about the prefix from turn two after it.
       Until this is observed, groups 2–4 are unverified — no unit test can stand
       in for it.
-      **Blocked:** no API key is available in this environment, and no unit test
-      can stand in for reading the figures off a live response.
-- [ ] 6.2 Only then: decide whether to hold the cache for an hour rather than five
+      **Measured** on ZX81 against `claude-opus-4-8`, the same three turns sent
+      twice — once shaped as the IDE composed requests before this change, once
+      as it composes them now (tokens: fresh / cache write / cache read):
+
+      | turn | before | after |
+      | ---- | ------ | ----- |
+      | 1 | 2 / 9,485 / 0 | 2 / 10,772 / 0 |
+      | 2 | 2 / 9,649 / 0 | 2 / 321 / 10,772 |
+      | 3 | 2 / 9,903 / 0 | 2 / 414 / 11,093 |
+
+      Exactly the predicted shape: three writes and no read at all before, the
+      whole prefix read back from turn two after. At 1.25x per written token and
+      0.1x per read one that is 36,296 input-token-equivalents against 16,570 —
+      2.2x over three turns, and about 3x by the fifth. The proposal's "roughly
+      seven times" was an over-estimate and is corrected there.
+- [x] 6.2 Only then: decide whether to hold the cache for an hour rather than five
       minutes. It costs 2x on write against 1.25x and pays from the third read, so
       it turns on how long a user actually leaves between turns. Leaving it at
       five minutes is a legitimate outcome; record which and why in the code.
-      **Gated on 6.1.**
-- [ ] 6.3 Only then: decide whether to spend a second of the four available
+      **Five minutes, unchanged.** The extra premium is 0.75x of everything
+      written — some 8,600 tokens on the measured conversation, paid by every
+      conversation — against about 12,400 recovered only where a turn arrives
+      after the shorter cache has expired. It wins only if most conversations
+      leave a gap over five minutes, and the turns the IDE raises itself follow
+      within seconds. Recorded with the figures in `src/ai/providers/anthropic.ts`.
+- [x] 6.3 Only then: decide whether to spend a second of the four available
       breakpoints on the end of the system prompt, giving an anchor that survives
       history churn. Same standard — measure, then record the decision.
-      **Gated on 6.1.**
+      **One breakpoint, unchanged.** Turn two reads back every token turn one
+      wrote, so the single top-level breakpoint already matches the entire
+      previous request and a second could not improve on it. The one thing that
+      changes history rather than growing it is joining a continued answer onto
+      its partial; the comment names it as what would justify revisiting.
 
 ## 7. Quality gates
 
 - [x] 7.1 `npm run typecheck && npm test && npm run lint && npm run format:check`
-- [ ] 7.2 `npm run e2e:chromium -- e2e/ai-assistant`. Only check off when it
+      Typecheck, lint and format are clean, and all 554 tests under `src/ai/`
+      pass. Six of the 6,602 fail on a Windows checkout, identically with this
+      change stashed: `core.autocrlf` is on and nothing pins `*.bas`, so the
+      sample fixtures carry CRLF (the Altair maze reads a row one character
+      wider than it is, the cassette round trip recovers LF where it expects
+      CRLF), and the two docs-generator tests `execFileSync('npx', …)`, which
+      does not resolve without the `.cmd` suffix. Neither cause touches this
+      change; both are worth a fix of their own.
+- [x] 7.2 `npm run e2e:chromium -- e2e/ai-assistant`. Only check off when it
       passes; a failure leaves this unchecked with a note on what failed.
-      **20 of 22 pass.** Every driving and request-shape spec passes. The two
-      that do not are in `ai-panel.spec.ts` and fail in `openApp` — the editor
-      never appears within the 5 s budget after `page.goto('/')`, before any
-      assistant code runs. Which of the two fails varies between runs, and one
-      of them fails the same way with this change stashed, so it is a cold-load
-      flake in this environment rather than anything here.
+      **22 of 22 pass** in 25.2 s. An earlier run had two failing in `openApp`,
+      before any assistant code runs — the cold-load flake that reading of it
+      suggested, not anything here.
 - [x] 7.3 No new e2e specs. Everything here is composition and request shape,
       which is unit-testable, and the one thing a browser could show — that the
       panel still renders the user's own sentence — is already covered by the
