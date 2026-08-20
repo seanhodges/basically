@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { KeyDef, KeyboardLayout } from '../../keyboard/layoutSchema';
-import { bottomRow } from '../../keyboard/templateRows';
+import { GRID_COLUMNS, bottomRow } from '../../keyboard/templateRows';
 
 /**
  * The on-screen PMD 85-2 keyboard, on the project's five-band template.
@@ -21,29 +21,34 @@ import { bottomRow } from '../../keyboard/templateRows';
  *    which is what BASIC-G is written in - and SHIFT reaches the lower case and
  *    the symbol set. Nothing about the layout is upside down; the machine is.
  *
- * The machine's own key grid is fifteen columns wide: twelve of alphanumerics
- * and symbols, then a three-column editing block down the right-hand side. The
- * twelve are exactly the four typing bands here, so those rows are the real
- * keyboard. The editing block is redistributed rather than reproduced, because
- * fifteen keycaps to a row is narrower than a thumb: its top row (WRK, C-D,
- * CLR) joins the function keys in the top strip, the cursor and tab keys go to
- * the bottom band, and DEL and ENTER end the last typing row where a hand
- * expects them.
+ * The real keyboard is a flat 15x5 grid of identical keycaps: twelve columns of
+ * alphanumerics and symbols, then a three-column editing block, with the
+ * function keys along the top. Reproducing that width would put fifteen keys
+ * across a band the template gives ten, which is narrower than a thumb, so this
+ * follows the Altair's arrangement instead - the other machine here whose
+ * keyboard is wider than the template:
  *
- * Four matrix keys therefore have no keycap - INS, RCL, END and the numeric
- * ENTER - and are reached from the host keyboard instead (Delete, PageDown, End
- * and NumpadEnter; see `emulator/keyboard.ts`). The layout test checks that
- * union rather than the layout alone, so a token reachable by neither route
- * fails.
+ *  - Every typing band keeps the template's **ten** keys. The home row ends in
+ *    `;` and the fourth in `, . /`, exactly where a typist expects them.
+ *  - The symbol columns that no longer fit - `_`, `:` and `\\` - move to the
+ *    bottom row beside DEL and ENTER, the way the Altair's `:` and `-` do.
+ *    Between them those three carry `=`, `+`, `*` and `^`, without which no
+ *    BASIC-G program can be typed at all.
+ *  - The function keys have the top strip to themselves, WRK included: it
+ *    selects their second bank, so it belongs with them rather than on a
+ *    typing band.
+ *
+ * What is left over is reached from the host keyboard instead of a keycap: the
+ * editing block (INS, RCL, END, the cursor keys, both tab keys, C-D, CLR and
+ * the numeric ENTER), STOP, and the three symbol keys BASIC-G has no use for
+ * (`@`, `]`, `}`). `emulator/keyboard.ts` maps each to the `KeyboardEvent.code`
+ * a browser sends, and the layout test checks that union rather than the layout
+ * alone, so a key reachable by neither route fails.
+ *
+ * STOP has no keycap for a second reason: it stops a running program, which on
+ * this IDE is what the toolbar's own stop control is for, and a STOP the width
+ * of a SHIFT sitting under the space bar invited being pressed by accident.
  */
-
-/**
- * Twelve keys to a row rather than the template's ten, at the template's own
- * key width - the PMD 85's alphanumeric block is twelve columns wide, and
- * dropping two of them would cost the `^` the power operator needs and the `_`
- * that is a BASIC-G keyword in its own right.
- */
-const GRID_COLUMNS = 48;
 
 /** Base and SHIFT legends for one printing key, index-aligned with `layers`. */
 function key(token: string, main: string, shift: string): KeyDef {
@@ -55,9 +60,9 @@ function key(token: string, main: string, shift: string): KeyDef {
   };
 }
 
-// The two rightmost columns of every typing band are symbol keys, and their
-// pairings are the machine's rather than a PC's: `_`/`=`, `}`/`{`, `@`/`` ` ``,
-// `\`/`^`, `:`/`*`, `]`/`[`.
+// The symbol pairings are the machine's rather than a PC's: `_`/`=`, `:`/`*`,
+// `\`/`^`, `;`/`+`. Note the shifted digits stop at `0`/`-`: `+` and `*` are
+// not up here, which is why the bottom row's symbol keys are not optional.
 const numberRow: KeyDef[] = [
   key('Digit1', '1', '!'),
   key('Digit2', '2', '"'),
@@ -69,8 +74,6 @@ const numberRow: KeyDef[] = [
   key('Digit8', '8', '('),
   key('Digit9', '9', ')'),
   key('Digit0', '0', '-'),
-  key('Underscore', '_', '='),
-  key('BraceLeft', '}', '{'),
 ];
 
 const qwertzRow: KeyDef[] = [
@@ -84,8 +87,6 @@ const qwertzRow: KeyDef[] = [
   key('KeyI', 'I', 'i'),
   key('KeyO', 'O', 'o'),
   key('KeyP', 'P', 'p'),
-  key('At', '@', '`'),
-  key('Backslash', '\\', '^'),
 ];
 
 const homeRow: KeyDef[] = [
@@ -99,8 +100,6 @@ const homeRow: KeyDef[] = [
   key('KeyK', 'K', 'k'),
   key('KeyL', 'L', 'l'),
   key('Semicolon', ';', '+'),
-  key('Colon', ':', '*'),
-  key('BracketLeft', ']', '['),
 ];
 
 /**
@@ -134,8 +133,6 @@ const yxcvRow: KeyDef[] = [
   key('Comma', ',', '<'),
   key('Period', '.', '>'),
   key('Slash', '/', '?'),
-  delKey,
-  enterKey,
 ];
 
 const shiftKey: KeyDef = {
@@ -147,20 +144,6 @@ const shiftKey: KeyDef = {
   labels: [{ text: '⇧' }, null],
 };
 
-/**
- * STOP breaks a running program. It is wired across the whole matrix the way
- * SHIFT is, but it selects no second legend set - the Monitor's code table has
- * shifted and unshifted lines and nothing else - so it is an ordinary key here
- * rather than a modifier.
- */
-const stopKey: KeyDef = {
-  id: 'Stop',
-  spanX: 6,
-  emits: ['Stop'],
-  style: 'shift',
-  labels: [{ text: 'STOP', editor: null }, null],
-};
-
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
@@ -168,54 +151,38 @@ const spaceKey = {
   labels: [{ text: '␣', editor: { insert: ' ' } }, null],
 } satisfies Omit<KeyDef, 'spanX'>;
 
-/** A cursor key: it moves the caret in the editor and the machine's own cursor. */
-function cursorKey(
-  token: string,
-  text: string,
-  action: 'left' | 'right' | 'up',
-): KeyDef {
-  return {
-    id: token,
-    spanX: 4,
-    emits: [token],
-    labels: [{ text, editor: { action } }, null],
-  };
-}
-
-/** The two tab keys, which the editor has no equivalent of. */
-function tabKey(token: string, text: string): KeyDef {
-  return {
-    id: token,
-    spanX: 4,
-    emits: [token],
-    labels: [{ text, editor: null }, null],
-  };
-}
-
+/**
+ * The three symbol columns the typing bands could not keep, either side of the
+ * space bar with DEL and ENTER. They are not decoration: `_` and `:` carry `=`
+ * and `*` on SHIFT, so a board without them cannot assign a variable or
+ * multiply, and `\\` carries `^`.
+ *
+ * `_` and `:` take the two places against the space bar because they are the
+ * pair a program reaches for most, and the split three-and-three keeps the
+ * space bar at twelve columns - narrower than a machine with fewer keys to
+ * place, but wide enough to hit.
+ */
 const rows: KeyDef[][] = [
   numberRow,
   qwertzRow,
   homeRow,
   yxcvRow,
   bottomRow(
-    [shiftKey, stopKey],
+    [shiftKey, key('Backslash', '\\', '^'), key('Underscore', '_', '=')],
     spaceKey,
-    [
-      cursorKey('ArrowLeft', '←', 'left'),
-      cursorKey('ArrowUp', '↑', 'up'),
-      cursorKey('ArrowRight', '→', 'right'),
-      tabKey('TabLeft', '|←'),
-      tabKey('TabRight', '→|'),
-    ],
-    GRID_COLUMNS,
+    [key('Colon', ':', '*'), delKey, enterKey],
   ),
 ];
 
 /**
- * The machine's top row: twelve function keys and the three editing keys that
- * share their band. K0-K11 are real keys with codes of their own rather than
- * macros - BASIC-G's `INKEY` reports which of them is held - and WRK selects
- * their second bank.
+ * The top strip: the twelve function keys and WRK, which selects their second
+ * bank. K0-K11 are real keys with codes of their own rather than macros -
+ * BASIC-G's `INKEY` reports which of them is held - and nothing a host keyboard
+ * sends produces them, so the strip is their only route in.
+ *
+ * The other two keys of the machine's own top row, C-D and CLR, are editing
+ * keys rather than function keys and are typed on the host (Home and PageUp).
+ * Keeping them here would cost every key on the strip a sixth of its width.
  */
 const functionKeys: KeyDef[] = [
   ...Array.from({ length: 12 }, (_, i) => ({
@@ -229,19 +196,8 @@ const functionKeys: KeyDef[] = [
     id: 'WRK',
     spanX: 4,
     emits: ['WRK'],
+    style: 'fn',
     labels: [{ text: 'WRK', editor: null }, null],
-  },
-  {
-    id: 'ClrDel',
-    spanX: 4,
-    emits: ['ClrDel'],
-    labels: [{ text: 'C-D', editor: null }, null],
-  },
-  {
-    id: 'Clr',
-    spanX: 4,
-    emits: ['Clr'],
-    labels: [{ text: 'CLR', editor: null }, null],
   },
 ];
 

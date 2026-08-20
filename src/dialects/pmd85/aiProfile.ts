@@ -50,7 +50,7 @@ IDIOMS THAT SUIT IT
 - PRINT TAB(n); for layout, and PRINT expr; to stay on the line.
 - Draw with SCALE once, then MOVE and a run of PLOT points; a curve is a polyline.
 - DISP prints into the dialogue line without disturbing the text above it.
-- The STOP key breaks a running program; STOP then CONT resumes one.
+- The machine's STOP key breaks a running program, and STOP then CONT resumes one. It has no key on the IDE's on-screen keyboard - it is Ctrl on a real keyboard, and the toolbar's own stop control is the ordinary way to end a run.
 - Use steps of 10 for line numbers so lines are easy to insert.
 
 OUTPUT FORMAT
