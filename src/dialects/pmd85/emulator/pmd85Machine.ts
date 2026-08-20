@@ -324,7 +324,7 @@ export class Pmd85Machine implements MachineEmulator {
   bootToReady(): void {
     if (!this.hasFirmware) return;
     this.runUntil(
-      () => this.memory.readWord(VARTAB) !== 0,
+      () => this.memory.rawReadWord(VARTAB) !== 0,
       'never cold-started BASIC-G',
     );
     const scans = this.keyboardScans;
@@ -377,7 +377,7 @@ export class Pmd85Machine implements MachineEmulator {
    * are not mistaken for the program finishing before it began.
    */
   private noteRunState(): void {
-    if (this.memory.readWord(CURLIN) !== DIRECT_MODE) this.runStarted = true;
+    if (this.memory.rawReadWord(CURLIN) !== DIRECT_MODE) this.runStarted = true;
     else if (this.runStarted) this.runLatch.stopped();
   }
 
@@ -391,7 +391,7 @@ export class Pmd85Machine implements MachineEmulator {
    */
   currentLine(): number | null {
     if (!this.hasFirmware || this.disposed) return null;
-    const line = this.memory.readWord(CURLIN);
+    const line = this.memory.rawReadWord(CURLIN);
     return line >= 1 && line <= MAX_LINE_NUMBER ? line : null;
   }
 
@@ -450,12 +450,24 @@ export class Pmd85Machine implements MachineEmulator {
    */
   readMemoryStats(): MachineMemoryStats | null {
     if (!this.hasFirmware || this.disposed) return null;
-    if (this.memory.readWord(TXTTAB) !== PROGRAM_BASE) return null;
-    const strend = this.memory.readWord(STREND);
+    if (this.memory.rawReadWord(TXTTAB) !== PROGRAM_BASE) return null;
+    const strend = this.memory.rawReadWord(STREND);
     const used = strend - PROGRAM_BASE;
     const free = STACK_TOP - strend;
     if (used < 0 || free < 0) return null;
     return { used, free };
+  }
+
+  setMemoryActivityRecording(enabled: boolean): void {
+    this.memory.activity.enabled = enabled;
+    // Drop anything a previous session accumulated so a reopened overlay starts
+    // clean rather than flashing stale activity.
+    if (!enabled) this.memory.activity.clear();
+  }
+
+  drainMemoryActivity(recycle?: Uint8Array | null): Uint8Array | null {
+    if (!this.memory.activity.enabled) return null;
+    return this.memory.activity.drain(recycle);
   }
 
   setProfileRecording(enabled: boolean): void {
@@ -481,7 +493,7 @@ export class Pmd85Machine implements MachineEmulator {
   /** The BASIC-G variables, decoded from the interpreter's own table (`../vars.ts`). */
   readVariables(): MachineVariable[] {
     if (!this.hasFirmware || this.disposed) return [];
-    if (this.memory.readWord(TXTTAB) !== PROGRAM_BASE) return [];
+    if (this.memory.rawReadWord(TXTTAB) !== PROGRAM_BASE) return [];
     return readPmd85Variables(this.memory);
   }
 

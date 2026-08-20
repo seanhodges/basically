@@ -37,9 +37,16 @@ const MAX_VARS = 500;
 /** Array elements shown inline before truncating with an ellipsis. */
 const MAX_ARRAY_PREVIEW = 8;
 
+/**
+ * The non-recording half of the machine's bus. Named for {@link
+ * import('./emulator/memory').Pmd85Memory}'s own reads rather than for `read` /
+ * `readWord`, and deliberately: the watcher polls this while the program runs,
+ * and reading through the recording path would paint the memory-map overlay
+ * with accesses the program never made.
+ */
 export interface Pmd85MemPort {
-  read(addr: number): number;
-  readWord(addr: number): number;
+  peek(addr: number): number;
+  rawReadWord(addr: number): number;
 }
 
 /**
@@ -65,7 +72,7 @@ function fmtNum(n: number): string {
 
 /** The four value bytes of the entry at `addr`. */
 function valueBytes(mem: Pmd85MemPort, addr: number): number[] {
-  return [0, 1, 2, 3].map((i) => mem.read((addr + i) & 0xffff));
+  return [0, 1, 2, 3].map((i) => mem.peek((addr + i) & 0xffff));
 }
 
 /** A string's characters, through the machine's own charset. */
@@ -74,7 +81,7 @@ function decodeString(mem: Pmd85MemPort, value: number[]): string {
   const addr = value[2]! | (value[3]! << 8);
   let out = '';
   for (let i = 0; i < length; i++) {
-    out += plainChar(mem.read((addr + i) & 0xffff)) ?? '.';
+    out += plainChar(mem.peek((addr + i) & 0xffff)) ?? '.';
   }
   return out;
 }
@@ -94,11 +101,11 @@ function nameOf(second: number, first: number): string | null {
 /** The scalar variables, in the order the interpreter created them. */
 function readScalars(mem: Pmd85MemPort): MachineVariable[] {
   const out: MachineVariable[] = [];
-  const end = mem.readWord(ARYTAB);
-  let addr = mem.readWord(VARTAB);
+  const end = mem.rawReadWord(ARYTAB);
+  let addr = mem.rawReadWord(VARTAB);
   for (let n = 0; addr + SCALAR_ENTRY_BYTES <= end && n < MAX_VARS; n++) {
-    const second = mem.read(addr);
-    const first = mem.read(addr + 1);
+    const second = mem.peek(addr);
+    const first = mem.peek(addr + 1);
     const name = nameOf(second, first);
     const value = valueBytes(mem, addr + 2);
     if (name !== null) {
@@ -123,15 +130,15 @@ function readScalars(mem: Pmd85MemPort): MachineVariable[] {
  */
 function readArrays(mem: Pmd85MemPort): MachineVariable[] {
   const out: MachineVariable[] = [];
-  const end = mem.readWord(STREND);
-  let addr = mem.readWord(ARYTAB);
+  const end = mem.rawReadWord(STREND);
+  let addr = mem.rawReadWord(ARYTAB);
   for (let n = 0; addr + 5 <= end && n < MAX_VARS; n++) {
-    const second = mem.read(addr);
-    const first = mem.read(addr + 1);
-    const size = mem.readWord(addr + 2);
+    const second = mem.peek(addr);
+    const first = mem.peek(addr + 1);
+    const size = mem.rawReadWord(addr + 2);
     if (size <= 0) break;
     const name = nameOf(second, first);
-    const dims = mem.read(addr + 4);
+    const dims = mem.peek(addr + 4);
     const elements = addr + 5 + dims * 2;
     if (name !== null) {
       const isString = (second & STRING_FLAG) !== 0;

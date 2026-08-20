@@ -78,6 +78,47 @@ describe('pmd85 variable readback', () => {
   });
 });
 
+describe('pmd85 memory activity', () => {
+  it('records what the program touches, and only while armed', () => {
+    const pmd = new Pmd85Machine(splitRomImage(rom));
+    pmd.loadProgram(tokenizeProgram("10 POKE '7000,42\n20 GOTO 20\n").program);
+    for (let frame = 0; frame < 60; frame++) pmd.runFrame();
+    expect(pmd.drainMemoryActivity()).toBeNull();
+
+    pmd.setMemoryActivityRecording(true);
+    for (let frame = 0; frame < 60; frame++) pmd.runFrame();
+    const hits = pmd.drainMemoryActivity()!;
+    expect(hits.length).toBe(0x10000);
+    // The interpreter is a copy in RAM at address 0, so a running program
+    // touches the bottom of memory constantly - that is the machine, not an
+    // artefact of the probe.
+    expect(hits.subarray(0, 0x2400).some((byte) => byte !== 0)).toBe(true);
+  });
+
+  it('does not stamp what the IDE itself reads', () => {
+    // The watcher, the memory figures and the profiler's line sampling all poll
+    // this bus while the program runs. Recording their reads would paint the
+    // overlay with accesses the program never made, which is why the machine
+    // reads through `peek` and `rawReadWord` rather than through the CPU path.
+    const pmd = new Pmd85Machine(splitRomImage(rom));
+    pmd.loadProgram(tokenizeProgram('10 A=1\n20 END\n').program);
+    for (let frame = 0; frame < 200 && pmd.isProgramRunning(); frame++) {
+      pmd.runFrame();
+    }
+    pmd.setMemoryActivityRecording(true);
+    pmd.drainMemoryActivity();
+
+    // No frames run: nothing but the IDE's own reading happens here.
+    expect(pmd.readVariables().length).toBeGreaterThan(0);
+    expect(pmd.readMemoryStats()).not.toBeNull();
+    pmd.currentLine();
+    pmd.readScreenText();
+
+    const hits = pmd.drainMemoryActivity()!;
+    expect(hits.some((byte) => byte !== 0)).toBe(false);
+  });
+});
+
 describe('pmd85 runtime report', () => {
   it('reads an error, its message and its line', () => {
     const pmd = run('10 A=1/0\n20 END\n');

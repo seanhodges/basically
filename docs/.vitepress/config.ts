@@ -169,6 +169,17 @@ export default withPwa(
               ],
             },
             {
+              // No file-formats page: the machine reads and writes no tape
+              // yet, so there is no format to describe.
+              text: 'PMD 85 BASIC-G',
+              link: '/reference/pmd85',
+              collapsed: true,
+              items: [
+                { text: 'Hardware', link: '/reference/pmd85/hardware' },
+                { text: 'Escape codes', link: '/reference/pmd85/escapes' },
+              ],
+            },
+            {
               text: 'TRS-80 Level II BASIC',
               link: '/reference/trs80',
               collapsed: true,

@@ -7,6 +7,8 @@ import {
   BASIC_BODY_BYTES,
   PROGRAM_BASE,
   RESERVED_WORDS_BASE,
+  MONITOR_BASE,
+  MONITOR_MIRROR_BASE,
   RESERVED_WORDS_END,
   STACK_TOP,
   STRING_LIMIT,
@@ -14,7 +16,6 @@ import {
   USER_CODE_BASE,
   WORKSPACE_BASE,
 } from './addresses';
-import { MONITOR_BASE, MONITOR_MIRROR_BASE } from './emulator/memory';
 import { VIDEO_RAM_BASE } from './emulator/display';
 import { MONITOR_SIZE } from './romImage';
 

@@ -300,9 +300,13 @@ Pulled forward: registering in Stage 3 is what makes these mandatory.
 - [x] `readMemoryStats()`, `currentLine()`, `debugStep()` and the line-cost
       recorder. String growth does not move the reported figure — string space
       is a region of its own above it, which `lineProfiling.test.ts` records
-- [ ] the memory-activity hooks (`setMemoryActivityRecording` /
-      `drainMemoryActivity`); nothing demands them, and the overlay degrades to
-      showing no live activity
+- [x] the memory-activity hooks (`setMemoryActivityRecording` /
+      `drainMemoryActivity`), over the shared `MemoryActivityBuffer`. The bus
+      gained a `peek`/`rawReadWord` pair alongside `read`/`readWord` so that the
+      IDE's own polling - the watcher, the memory figures, the profiler's line
+      sampling - does not paint the overlay with accesses the program never
+      made. `src/dialects/memoryActivity.test.ts` now demands the hooks of every
+      registered machine
 - [x] tests: memory-map layout, block round-trip, float decoding, variable and
       report readback
 
@@ -317,7 +321,8 @@ Pulled forward: registering in Stage 3 is what makes these mandatory.
       `hardware`/`escapes` sub-pages. **No sidebar entry** — the project rule is
       that adding a page does not imply adding one, so ask the user first
 - [ ] `docs/reference/pmd85/formats.md`, once Stage 4 gives it something to
-      describe
+      describe, and its sidebar sub-entry alongside the Hardware and Escape
+      codes ones already there
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md` flipped to ✅,
       and this plan **deleted** in the same change, along with its roadmap
       cross-link and any `Stage N` references left in the dialect's source
