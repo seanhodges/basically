@@ -156,9 +156,11 @@ own the memory map/blocks, AI profile, metadata and emulator variant"):
 > **Use the `authoring-dialect-samples` sub-skill to write the samples.** It
 > covers the per-sample intent and accuracy gotchas (the Pitteway `E/2` circles
 > recurrence and ring-closure count, solvable mazes, keyword-as-variable
-> collisions), the `samples.ts` / machine-code-block registration shape, and the
-> colocated `samples.test.ts` checks each dialect must ship. The summary below is
-> just the Stage-3 placement.
+> collisions), the `samples.ts` / machine-code-block registration shape, the
+> mandatory step of running each sample on the new machine and fixing what the
+> screen shows, and the colocated `samples.test.ts` checks each dialect must
+> ship. Stage 3 is not done when the files tokenize; it is done when the samples
+> have been seen to work. The summary below is just the Stage-3 placement.
 
 Every dialect ships the same sample set, **in the same order**, ported to the
 machine's own BASIC (match the _behaviour_, not bytes; degrade gracefully rather

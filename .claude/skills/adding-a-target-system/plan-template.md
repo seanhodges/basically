@@ -87,6 +87,8 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 - [ ] `samples/` + `samples.ts` — the canonical set from the audit (currently
       `hello`/`circles`/`breakout`/`maze`/`kaleido`) ported to this BASIC
       (degrade gracefully; `hello` is the starter)
+- [ ] every sample **run on the machine** and fixed until its screen is right
+      (`authoring-dialect-samples`; tokenizing clean proves nothing)
 - [ ] finalize `aiProfile.ts` (system prompt teaching the dialect)
 - [ ] `index.ts` — assemble the full `Dialect`
 - [ ] **register in `src/dialects/registry.ts` and add the `<verb>` entry to

@@ -7,7 +7,8 @@ description: >-
   a new machine, fixing an inaccurate or broken sample, or wiring a sample's
   machine-code block. Covers the per-sample intent, the accuracy gotchas
   (Pitteway circles, keyword-as-variable collisions, solvable mazes), the
-  samples.ts / block registration shape, and the colocated samples.test.ts
+  samples.ts / block registration shape, running each sample on the dialect's
+  own emulator to see what it really does, and the colocated samples.test.ts
   checks each dialect must ship. A sub-skill of adding-a-target-system (its
   Stage 3), usable on its own.
 ---
@@ -172,6 +173,24 @@ readable `samples/kaleido.asm` alongside as the source of truth.
   all differ per dialect — mirror the reference versions rather than importing a
   foreign idiom.
 
+## Run every sample on the machine — not optional
+
+**A sample is not finished until you have watched it run.** Tokenizing clean,
+linting clean and round-tripping say nothing about whether the program does what
+it is for: a statement the ROM rejects, a delay whose unit is not what the
+reference claims, a coordinate window that draws ovals, a game wired to the
+wrong keys and a redraw too slow to see all pass every static check.
+
+Read **[running-samples.md](running-samples.md)** and follow it: boot the dialect
+headless on its real ROM through `src/dialects/bootHarness.ts`, load the sample,
+script its keys from the dialect's own `keyboardLayout.ts` `controller.bindings`,
+read the screen back (`readScreenText()`, or the frame buffer written out as a
+PNG that you actually look at), check the machine's error channel, and time how
+long the picture takes. Fix what is wrong and run it again.
+
+Only then write the colocated test below, and put in it the check that would
+have caught what you just fixed.
+
 ## Ship the colocated `samples.test.ts`
 
 Every dialect has one (`src/dialects/<id>/samples.test.ts`); copy the nearest
@@ -187,15 +206,20 @@ that encode the conventions — keep all that apply:
    test** that runs the routine and asserts the 4-way mirror / a non-blank
    pattern — gate it on the ROM existing (`it`/`it.skip`) so it skips in ROM-less CI.
 6. **No sample uses a reserved keyword as a variable name** (the collision guard).
+7. **Every sample runs on the real ROM** — load it, run frames, and assert the
+   machine's error channel is clean and it is still executing. Then pin what the
+   run pass found: the rings' aspect, the paddle following `controller.bindings`,
+   the bytes one maze move repaints. `src/dialects/pmd85/samples.test.ts` is the
+   worked example. Gate on the ROM existing so a ROM-less checkout skips.
 
 ## Verify
 
 - `npm run typecheck && npm test && npm run lint && npm run format:check` — all green.
 - Run a single sample suite while iterating:
   `npx vitest run src/dialects/<id>/samples.test.ts`.
-- `npm run dev`, select the dialect, and **run each sample** (the app auto-runs):
-  confirm circles are round and closed, the maze is solvable, breakout plays with
-  its menu/sound, hello animates, and kaleido mirrors.
+- The on-machine run above is the real check; `npm run dev` is the last look.
+  Select the dialect and **run each sample** (the app auto-runs) to confirm in
+  the browser what the headless run already showed.
 
 ## Guardrails
 
@@ -206,3 +230,5 @@ that encode the conventions — keep all that apply:
 - **No binary fixtures** — machine code ships as readable `.asm` (assembled on
   load) or a `#BIN` REM, never a checked-in blob.
 - **Don't fabricate ROMs**; the firmware render test skips without one.
+- **Never ship a sample you have not seen run.** "It tokenizes" is not evidence.
+- **Delete the scratch run script**; the colocated `samples.test.ts` is what ships.

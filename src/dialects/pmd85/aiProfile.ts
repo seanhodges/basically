@@ -45,7 +45,7 @@ LANGUAGE TRAPS
 - Spaces are ignored outside strings, REM and DATA, so FORI=1TO5 is valid.
 
 IDIOMS THAT SUIT IT
-- PAUSE n waits about n milliseconds and n may not exceed 255 - a longer wait is several PAUSEs. It is the machine's delay; WAIT is not, it spins on an input port.
+- PAUSE n waits about a tenth of a second per unit, NOT a millisecond: PAUSE 10 is roughly a second and PAUSE 255, the largest it takes, is about twenty-three. n may not exceed 255, so a longer wait is several PAUSEs. It is the machine's delay; WAIT is not, it spins on an input port.
 - PRINT TAB(n); for layout, and PRINT expr; to stay on the line.
 - Draw with SCALE once, then MOVE and a run of PLOT points; a curve is a polyline.
 - DISP prints into the dialogue line without disturbing the text above it.

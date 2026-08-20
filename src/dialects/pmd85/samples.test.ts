@@ -13,6 +13,7 @@ import { splitRomImage } from './romImage';
 import { tokenizeProgram } from './tokenizer';
 import { Pmd85Machine } from './emulator/pmd85Machine';
 import { VIDEO_RAM_STRIDE } from './emulator/display';
+import { pmd85KeyboardLayout } from './keyboardLayout';
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
@@ -70,23 +71,67 @@ describe('pmd85 sample programs', () => {
   });
 });
 
+/** Boot on the shipped ROM with `text` loaded, ready to run. */
+function machineFor(text: string): Pmd85Machine {
+  const pmd = new Pmd85Machine(splitRomImage(rom));
+  pmd.loadProgram(pmd85.tokenize(text).image);
+  return pmd;
+}
+
+function runFrames(pmd: Pmd85Machine, frames: number): void {
+  for (let frame = 0; frame < frames; frame++) pmd.runFrame();
+}
+
+/** Hold a function key long enough for the Monitor's matrix scan to see it. */
+function tap(pmd: Pmd85Machine, key: string, hold = 12, after = 40): void {
+  pmd.setKey(key, true);
+  runFrames(pmd, hold);
+  pmd.setKey(key, false);
+  runFrames(pmd, after);
+}
+
+/** The lit pixel bits of the character cell at (column, scanline). */
+function cell(pmd: Pmd85Machine, col: number, line: number): number {
+  return pmd.mem.videoRam[line * VIDEO_RAM_STRIDE + col]! & 0x3f;
+}
+
+/** Every lit pixel's bounding box, in screen pixels. */
+function inkBounds(pmd: Pmd85Machine) {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (let y = 0; y < 256; y++) {
+    for (let col = 0; col < 48; col++) {
+      const bits = cell(pmd, col, y);
+      if (bits === 0) continue;
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+      for (let bit = 0; bit < 6; bit++) {
+        if (bits & (1 << bit)) {
+          x0 = Math.min(x0, col * 6 + bit);
+          x1 = Math.max(x1, col * 6 + bit);
+        }
+      }
+    }
+  }
+  return { width: x1 - x0 + 1, height: y1 - y0 + 1 };
+}
+
 describe('pmd85 samples on the machine', () => {
   /**
    * Every sample is actually run, because tokenizing clean is not the same as
-   * working: `PAUSE 400` tokenizes perfectly and stops the program with a
-   * parameter error, which is exactly the failure this catches.
+   * working. Two of this machine's statements are spelled like Microsoft's and
+   * are not: `INPUT "SEED";S` and `PAUSE 400` both tokenize perfectly and both
+   * stop the program dead, which is exactly what this catches.
    */
-  it.each(pmd85Samples.slice(0, 4).map((s) => [s.name, s.text] as const))(
+  it.each(pmd85Samples.map((s) => [s.name, s.text] as const))(
     '%s runs without stopping on an error',
     (name, text) => {
-      const pmd = new Pmd85Machine(splitRomImage(rom));
-      pmd.loadProgram(pmd85.tokenize(text).image);
-      for (let frame = 0; frame < 300; frame++) {
-        pmd.runFrame();
-        // The two games wait for a function key before they start.
-        if (frame === 60) pmd.setKey('K1', true);
-        if (frame === 70) pmd.setKey('K1', false);
-      }
+      const pmd = machineFor(text);
+      runFrames(pmd, 60);
+      // The two games wait for a function key before they start.
+      tap(pmd, 'K4', 12, 230);
       const report = pmd.readReport();
       expect(report?.isError ?? false, `${name}: ${report?.message}`).toBe(
         false,
@@ -99,13 +144,9 @@ describe('pmd85 samples on the machine', () => {
 
   it('draws something on every sample that draws', () => {
     for (const s of pmd85Samples.slice(0, 4)) {
-      const pmd = new Pmd85Machine(splitRomImage(rom));
-      pmd.loadProgram(pmd85.tokenize(s.text).image);
-      for (let frame = 0; frame < 300; frame++) {
-        pmd.runFrame();
-        if (frame === 60) pmd.setKey('K1', true);
-        if (frame === 70) pmd.setKey('K1', false);
-      }
+      const pmd = machineFor(s.text);
+      runFrames(pmd, 60);
+      tap(pmd, 'K4', 12, 230);
       const video = pmd.mem.videoRam;
       let lit = 0;
       for (let i = 0; i < video.length; i++) {
@@ -114,6 +155,56 @@ describe('pmd85 samples on the machine', () => {
       expect(lit, `${s.name} put nothing on screen`).toBeGreaterThan(20);
     }
   }, 60_000);
+});
+
+describe('pmd85 circles', () => {
+  it('draws rings that are round, not oval', () => {
+    // SCALE maps its window onto 256x243 pixels, so a window that is square in
+    // its own units draws ovals - the one failure of this sample that no amount
+    // of tokenizing or error-checking can see.
+    const pmd = machineFor(sample('circles.bas').text);
+    runFrames(pmd, 1400);
+    expect(pmd.currentLine(), 'the rings should all be drawn by now').toBe(220);
+    const { width, height } = inkBounds(pmd);
+    expect(width / height).toBeGreaterThan(0.97);
+    expect(width / height).toBeLessThan(1.03);
+  }, 60_000);
+});
+
+describe('pmd85 breakout', () => {
+  /**
+   * Which function key means which direction is not the sample's to choose:
+   * the on-screen controller sends these, so a game that reads any other
+   * arrangement answers the pad's arrows with the wrong move.
+   */
+  const { left, right } = pmd85KeyboardLayout.controller!.bindings;
+
+  /** The columns the paddle occupies, read off its top scanline. */
+  function paddleColumns(pmd: Pmd85Machine): number[] {
+    const cols: number[] = [];
+    for (let col = 0; col < 48; col++) if (cell(pmd, col, 228)) cols.push(col);
+    return cols;
+  }
+
+  it('moves the paddle the way the on-screen controller points', () => {
+    const pmd = machineFor(sample('breakout.bas').text);
+    runFrames(pmd, 60);
+    tap(pmd, 'K4', 10, 60);
+    const start = paddleColumns(pmd)[0];
+    expect(start, 'no paddle on screen').not.toBeUndefined();
+
+    for (let i = 0; i < 6; i++) tap(pmd, right, 12, 12);
+    expect(
+      paddleColumns(pmd)[0],
+      `${right} is the pad's right, so the paddle must go right`,
+    ).toBeGreaterThan(start!);
+
+    for (let i = 0; i < 10; i++) tap(pmd, left, 12, 12);
+    expect(
+      paddleColumns(pmd)[0],
+      `${left} is the pad's left, so the paddle must go left`,
+    ).toBeLessThan(start!);
+  }, 120_000);
 });
 
 describe('pmd85 maze', () => {
@@ -162,6 +253,42 @@ describe('pmd85 maze', () => {
     }
     expect(escaped).toBe(true);
   });
+
+  /**
+   * The map is printed once and a move repaints one cell, so the marker must
+   * land on the cell the map is on: the first PRINT after GCLEAR lands on text
+   * row 1, which puts map row Y at row 3+Y and its top scanline at 28+9*Y. An
+   * off-by-one here still runs, still draws, and still moves - it just draws
+   * the marker into the wrong row.
+   */
+  const markerCell = (pmd: Pmd85Machine, x: number, y: number) =>
+    Array.from({ length: 8 }, (_, j) => cell(pmd, x, 28 + 9 * y + j));
+
+  it('moves the marker one cell and repaints nothing else', () => {
+    const pmd = machineFor(sample('maze.bas').text);
+    runFrames(pmd, 250);
+    expect(markerCell(pmd, 1, 1), 'no marker on the start cell').toEqual(
+      new Array(8).fill(0x3f),
+    );
+
+    const before = Uint8Array.from(pmd.mem.videoRam);
+    tap(pmd, pmd85KeyboardLayout.controller!.bindings.down);
+    expect(markerCell(pmd, 1, 1), 'the cell left behind').toEqual(
+      new Array(8).fill(0),
+    );
+    expect(markerCell(pmd, 1, 2), 'the cell arrived at').toEqual(
+      new Array(8).fill(0x3f),
+    );
+
+    // Sixteen bytes of the displayed 48 columns: eight erased, eight drawn.
+    let repainted = 0;
+    for (let i = 0; i < before.length; i++) {
+      if (i % VIDEO_RAM_STRIDE < 48 && before[i] !== pmd.mem.videoRam[i]) {
+        repainted++;
+      }
+    }
+    expect(repainted, 'a move should not redraw the map').toBe(16);
+  }, 60_000);
 });
 
 describe('pmd85 kaleidoscope', () => {
