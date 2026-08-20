@@ -11,7 +11,7 @@
 > a runtime report, per-machine rows in a dozen tables, a picker portrait, and
 > the reference data and docs pages the AI prompt is composed from. So Stage 3
 > pulled Stage 5 in whole and most of Stage 6 with it; only the file exports
-> (Stage 4) can honestly be left for later, because nothing registry-driven
+> (Stage 4) could honestly be left for later, because nothing registry-driven
 > asks for them.
 
 ## Target summary
@@ -22,9 +22,9 @@
   Tesla-made 8080A clone. Clocked at `18.432 MHz / 9` = **2.048 MHz**.
 - **Display size:** `{ width: 288, height: 256 }` — a monochrome bitmap with a
   4-level per-cell attribute, not the classic 256×192.
-- **Image / tape format:** `.pmd` (single file with header) and `.ptp` (raw tape
-  stream), the two formats the community emulators exchange. Confirm both
-  against a primary source in Stage 4 before committing to extensions.
+- **Image / tape format:** `.pmd` (one file's blocks back to back) and `.ptp`
+  (the same blocks each behind a `u16` length), the two formats the community
+  emulators exchange. Both confirmed and shipped.
 - **ROM:** `public/roms/pmd85.rom` — Monitor 2 and BASIC-G V2.0 concatenated,
   13312 bytes, bundled. See _The ROMs_ below and `public/roms/ATTRIBUTION.md`.
 - **Share verb:** `plot` — confirmed. `PLOT` is a real BASIC-G keyword (token
@@ -122,7 +122,7 @@ from `6F00`. See `src/dialects/pmd85/addresses.ts`.
 | 1     | Language core                          | ✅     |
 | 2     | Emulator core                          | ✅     |
 | 3     | Wire-up: keyboard + samples + register | ✅     |
-| 4     | Transfer & tape I/O                    | ⬜     |
+| 4     | Transfer & tape I/O                    | ✅     |
 | 5     | Memory map & runtime introspection     | ✅     |
 | 6     | Docs & polish                          | 🔨     |
 
@@ -264,21 +264,51 @@ Facts established by running the machine, and worth carrying forward:
 **Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke +
 `npm run e2e:chromium -- e2e/<affected capability>`.
 
-## Stage 4 — Transfer & tape I/O ⬜
+## Stage 4 — Transfer & tape I/O ✅
 
-- [ ] `targets.ts` — `BuildTarget[]` for the native file format(s), extensions
-      confirmed against a primary source
-- [ ] `audio/` — cassette encode/decode. The tape path runs through the 8253
-      timer and the 8251 USART at ports `1Ch-1Fh`; establish the modulation and
-      baud rate from the Monitor's tape routines rather than assuming Kansas
-      City Standard, which is the mistake the Altair's 88-ACR work documents
-- [ ] `audio` on the dialect — `buildSamples` + `decodeSamples`,
-      `loadInstructions` / `saveInstructions` naming BASIC-G's own commands
-- [ ] `binaryImports` — the formats `detokenize()` can read back
-- [ ] tests: cassette encode→decode round-trip
+- [x] `tape.ts` — the container both file formats frame: a 63-byte header block
+      (48 bytes of `FF`/`00`/`55` leader, then number, type, load address,
+      length-minus-one, an 8-character name and a checksum) and a body block
+      with its own checksum. `.pmd` is the two blocks back to back; `.ptp` puts
+      a `u16` length in front of each, which is what lets a multi-file tape and
+      a headerless data block survive
+- [x] `targets.ts` — `.ptp`, `.pmd` and `.wav`. No target carries memory blocks:
+      `SAVE` writes the program area and nothing else
+- [x] `audio/` — cassette encode/decode. **Not Kansas City Standard, and not
+      FSK at all**: one 1200 Hz square wave whose _phase_ is the data, so a bit
+      is one whole cycle and the recorded level is the clock XOR the bit
+- [x] `audio` on the dialect — `buildSamples` + `decodeSamples`, with
+      instructions naming `LOAD 1` / `SAVE 1` rather than a file name
+- [x] `binaryImports` — `.ptp` and `.pmd`, sniffed apart from a bare program
+      area by the leader; anything else on the tape comes back as `tapeFiles`
+- [x] `emulator/tape.ts` — the deck, so the machine reads and writes the same
+      tape the exporter does
+- [x] tests: the container field by field, the audio round trip through noise,
+      inversion and off-speed playback, and both directions against the ROM
+
+Four facts came off the running machine, and none of them is in the community
+documentation in this form:
+
+- **The baud rate is the Monitor's own.** `SAVE` sets the 8253's counter 1 to
+  mode 3 dividing 2.048 MHz by `0x6AB` — 1199.8 Hz — and hands the 8251 the mode
+  byte `0xED`: ×1 baud factor, eight data bits, no parity, **two** stop bits. So
+  a byte is eleven bit periods at 1200 baud.
+- **`LOAD` is a software receiver.** The interface clocks the USART's
+  transmitter from the 8253 but leaves its receive clock unconnected and wires
+  the tape's read amplifier to **DSR** — bit 7 of the status register. The
+  Monitor times the transitions on that one bit itself. A machine that models
+  the 8251 as a real UART and feeds bytes into its receiver gets them read as
+  _typed characters_ instead, because the keyboard routine is watching RxRDY.
+- **A saved program is one byte longer than the program.** BASIC-G writes
+  TXTTAB through VARTAB inclusive, and `LOAD` sets VARTAB from the header's
+  length field — so the field is exactly the program's length and the body is
+  one byte more.
+- **The type letter is `>` and the name is blank.** The tape commands take a
+  number, so `SAVE 1` writes file 1 with eight spaces where a name would go.
 
 **Depends on:** Stage 1 (tokenizer/detokenizer, image builder).
-**Verify:** audio round-trip test + import/export in the app.
+**Verify:** `npm run typecheck` + `npm test` (the registry-driven cassette round
+trip now covers this machine) + import/export in the app.
 
 ## Stage 5 — Memory map & runtime introspection ✅
 
@@ -320,9 +350,13 @@ Pulled forward: registering in Stage 3 is what makes these mandatory.
       and escape guidance, plus `docs/reference/pmd85.md` and its
       `hardware`/`escapes` sub-pages. **No sidebar entry** — the project rule is
       that adding a page does not imply adding one, so ask the user first
-- [ ] `docs/reference/pmd85/formats.md`, once Stage 4 gives it something to
-      describe, and its sidebar sub-entry alongside the Hardware and Escape
-      codes ones already there
+- [ ] `docs/reference/pmd85/formats.md` — `.ptp`, `.pmd` and the cassette
+      encoding are all shipped and documented in `src/dialects/pmd85/tape.ts`
+      and `audio/cassetteEncoder.ts`; the page and its sidebar sub-entry
+      (alongside the Hardware and Escape codes ones already there) are what is
+      missing. **Ask before touching the sidebar.** The `docs/reference/file-formats.md`
+      tables want a PMD 85 row too - note that the Altair is missing from them
+      as well
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md` flipped to ✅,
       and this plan **deleted** in the same change, along with its roadmap
       cross-link and any `Stage N` references left in the dialect's source
@@ -348,9 +382,12 @@ Hardware facts above were taken from, and should be re-checked against, the
 [MAME `pmd85` driver](https://github.com/mamedev/mame/blob/master/src/mame/tesla/pmd85.cpp)
 (memory map, port decoding, CPU clock), the
 [PMD 85 Infoserver](https://pmd85.borik.net/wiki/ROM_Modul&setlang=en) (ROM
-Module PPI ports, BASIC-G size, auto-launch byte, Monitor `TRANSFER`/`JOB`) and
-[Wikipedia's PMD 85 article](https://en.wikipedia.org/wiki/PMD_85) (models,
-years, RAM/ROM sizes, attribute levels). Anything this plan marks as
-unestablished — the BASIC-G token table and line layout, the tape modulation,
-the graphics byte range, the file extensions — is genuinely unestablished and
-must be derived from a dump or the interpreter image, not inferred.
+Module PPI ports, BASIC-G size, auto-launch byte, Monitor `TRANSFER`/`JOB`;
+also its [PTP page](https://pmd85.borik.net/wiki/PTP) for the tape container)
+and [Wikipedia's PMD 85 article](https://en.wikipedia.org/wiki/PMD_85) (models,
+years, RAM/ROM sizes, attribute levels). The tape work also cross-checked
+[GPMD85Emulator](https://github.com/mborik/GPMD85Emulator)'s `IifTape` for the
+1200 Hz bit clock and the eleven-bit frame — but every number that ended up in
+the code was read back off the shipped Monitor rather than copied from there.
+Anything this plan marks as unestablished is genuinely unestablished and must be
+derived from a dump or the interpreter image, not inferred.

@@ -128,8 +128,8 @@ export default withPwa(
               ],
             },
             {
-              // No file-formats page: the machine reads and writes no tape
-              // yet, so there is no format to describe.
+              // No file-formats page: the machine's tape formats are not
+              // written up yet.
               text: 'BASIC-G',
               link: '/reference/pmd85',
               collapsed: true,

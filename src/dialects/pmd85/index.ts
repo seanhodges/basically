@@ -12,6 +12,17 @@ import { pmd85MemoryMap } from './memoryMap';
 import { pmd85MemoryBlocks } from './memoryBlocks';
 import { pmd85Samples } from './samples';
 import { detokenizeProgram, detokenizeProgramWithReport } from './detokenizer';
+import {
+  CASSETTE_SAMPLE_RATE,
+  buildCassetteSamples,
+} from './audio/cassetteEncoder';
+import { decodePmd85Tape } from './audio/cassetteDecoder';
+import {
+  DEFAULT_FILE_NUMBER,
+  firstProgramFile,
+  parseTapeImage,
+  programFromTapeFile,
+} from './tape';
 import { tokenizeProgram } from './tokenizer';
 import { pmd85VariableErrors } from '../../editor/variableLint';
 import { Pmd85Machine } from './emulator/pmd85Machine';
@@ -38,10 +49,9 @@ import { DISPLAY_HEIGHT, DISPLAY_WIDTH } from './emulator/display';
  *    cell's blink and brightness attribute.
  *  - **Variable names are case sensitive**, which no other Microsoft BASIC here
  *    is: `A` and `a` are two variables. See `PMD85_LEXIS`.
- *
- * The file exports are the one part still missing - the machine reads and
- * writes no tape, and `targets.ts` claims no extension until a primary source
- * backs one.
+ *  - **Its tape names nothing.** `SAVE` and `LOAD` take a *number*, not a name,
+ *    so every export goes out as file {@link DEFAULT_FILE_NUMBER} and the eight
+ *    characters of name in the header are a label for a human to read.
  */
 export const pmd85: Dialect = {
   id: 'pmd85',
@@ -133,6 +143,47 @@ export const pmd85: Dialect = {
   keyboardLayout: pmd85KeyboardLayout,
   samples: pmd85Samples,
   buildTargets: pmd85BuildTargets,
+
+  /** The two framings of the same tape - see `tape.ts`. */
+  binaryImports: [
+    { extension: '.ptp', label: 'Import .ptp tape…' },
+    { extension: '.pmd', label: 'Import .pmd file…' },
+  ],
+
+  /**
+   * Cassette audio: 1200 baud, eight data bits and two stop bits, phase encoded
+   * so the receiver can find its own clock - `audio/cassetteEncoder.ts` has the
+   * derivation, which came off the Monitor's own tape routine.
+   *
+   * The instructions name BASIC-G's own commands and spell out what otherwise
+   * catches people out: the tape commands take a *number*, so `SAVE "GAME"`
+   * answers `Type conv.` and there is nothing to type but `LOAD 1`.
+   */
+  audio: {
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, programName, robust) =>
+      buildCassetteSamples(source, programName, robust),
+    loadInstructions:
+      `On the PMD 85 type LOAD ${DEFAULT_FILE_NUMBER} and press EOL (the tape ` +
+      'commands take a file number, not a name), then start playback; the ' +
+      'machine returns to OK when the program has loaded, then type RUN.',
+    decodeSamples: (samples, sampleRate) => {
+      const parse = parseTapeImage(decodePmd85Tape(samples, sampleRate));
+      const { file, warnings } = firstProgramFile(parse);
+      if (!file) {
+        throw new Error(warnings[0] ?? 'The recording holds no BASIC program');
+      }
+      return {
+        programName: file.header.name,
+        source: detokenizeProgram(programFromTapeFile(file)),
+        warnings: [...parse.warnings, ...warnings],
+      };
+    },
+    saveInstructions:
+      `Start the recorder, then on the PMD 85 type SAVE ${DEFAULT_FILE_NUMBER} ` +
+      'and press EOL; the machine plays the program out at 1200 baud. Feed ' +
+      'that into this device, then start listening.',
+  },
 
   aiProfile: pmd85AiProfile,
 };
