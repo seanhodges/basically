@@ -193,8 +193,9 @@ Optional on the _type_ is not the same as optional in practice. Several of
 those capabilities are owed by every registered machine, and a registry-driven
 test holds each one to it rather than letting a new dialect degrade quietly:
 `screenReadable.test.ts` for `readScreenText()`, `memoryActivity.test.ts` for
-the activity tap, `programRamBudget.test.ts` for `readMemoryStats()`, and
-`debugCapability.test.ts` for the debugger pair. Each keeps a small table of
+the activity tap, `programRamBudget.test.ts` for `readMemoryStats()`,
+`debugCapability.test.ts` for the debugger pair, `lineProfiling.test.ts` for the
+profile seam and `debugEquivalence.test.ts` for the obligation below. Each keeps a small table of
 machines excused with the hardware reason - the TRS-80's backend interprets
 statements rather than running a CPU over a RAM image, so it has no bus to tap
 and no pointers to read - so an absence is a decision somebody wrote down.
@@ -207,6 +208,22 @@ address at which BASIC gives up on a program - `src/emulator/programEndLatch.ts`
 holds the shape, and each machine's own constant names its address.
 `src/dialects/programRunState.test.ts` boots every registered machine and holds
 it to the obligation.
+
+The debug path carries an obligation of its own, and it is the one a machine is
+most likely to get wrong: **a debug slice is a frame.** Because a session opens
+on an ordinary press of Play, `debugStep()` is how most machines are usually
+run, so everything `runFrame()` does around its CPU work has to happen in the
+slice too - the profiler's charge, the free-running cycle counter its tape deck
+and speaker read themselves against, its frame counter, the per-frame flush its
+sound chip needs. The way to be sure of that is structural: one step function
+that both paths call, as `stepInstruction()` is on the Z80 machines and
+`tick()`/`tickOnce()` on the Commodores, and anything left over done on every
+one of the slice's exits. A machine that instruments only its frame path
+instruments the way nobody runs it, and the symptoms read as unrelated bugs -
+the profiler reports an empty run, the machine plays no sound, blinking
+characters stop blinking. `src/dialects/debugEquivalence.test.ts` measures a
+window of frames against a window of slices on every machine that can be
+stepped, so a new one is held to this the day it declares a stepper.
 
 The memory-activity tap carries an obligation of its own, and it is about what
 must _not_ be recorded. The IDE polls the same bus while a program runs - the
@@ -496,8 +513,10 @@ Step by step:
    the display's refresh rate, which is nobody's frame rate, so `src/app/
 frameClock.ts` converts elapsed time into whole machine frames at the
    machine's `frameHz` - otherwise emulated speed would be a property of the
-   user's monitor. In debug mode the loop calls `debugStep()` instead,
-   pausing on breakpoints at BASIC-line granularity. A document carrying a boot
+   user's monitor. On every machine that models line
+   debugging the loop calls `debugStep()` instead - not only when the user is
+   debugging, but on any press of Play, since a session is opened for the whole
+   run and simply never pauses when nothing is breakpointed. A document carrying a boot
    disc skips all of this and boots the disc verbatim, exactly as SHIFT+BREAK
    would on real hardware.
 

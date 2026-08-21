@@ -15,7 +15,13 @@ import {
   VARTAB,
 } from '../addresses';
 import { Pmd85Machine } from './pmd85Machine';
-import { DISPLAYED_BYTES_PER_LINE, VIDEO_RAM_STRIDE } from './display';
+import {
+  BLINK,
+  BLINK_FRAMES,
+  DISPLAYED_BYTES_PER_LINE,
+  VIDEO_RAM_BASE,
+  VIDEO_RAM_STRIDE,
+} from './display';
 import { CPU_HZ } from './clock';
 
 const rom = new Uint8Array(
@@ -262,6 +268,60 @@ describe('Pmd85Machine', () => {
     const seconds = (marks[1]! - marks[0]!) / CPU_HZ;
     expect(seconds).toBeGreaterThan(0.8);
     expect(seconds).toBeLessThan(1.1);
+  });
+
+  /**
+   * The blink attribute keeps blinking while the machine is being stepped.
+   *
+   * Here rather than in the registry-wide `debugEquivalence.test.ts`, which
+   * holds every machine's debug slice to a frame's worth of everything it can
+   * see through the seam: this one it cannot see. The blink phase reaches
+   * nothing but the painted picture, and painting needs a canvas the node
+   * environment has not got - so it is checked against the one machine that
+   * has a blink attribute, through the two context methods this display
+   * actually calls.
+   *
+   * The attribute byte is poked immediately before each paint, so what the ROM
+   * does to video RAM in between cannot decide the answer: the only thing that
+   * differs between the two readings is which half of its cycle the blink is
+   * in, which is a fact about the frame counter alone.
+   */
+  it('keeps blinking while it is being stepped', () => {
+    const pmd = machine();
+    pmd.bootToReady();
+
+    // Enough of a canvas for Pmd85Display.renderTo, which creates one image and
+    // puts it back; nothing here draws through the host's 2D context.
+    const ctx = {
+      createImageData: (w: number, h: number) => ({
+        data: new Uint8ClampedArray(w * h * 4),
+      }),
+      putImageData: () => {},
+    } as unknown as CanvasRenderingContext2D;
+    // A row of lit pixels carrying the blink attribute, on a scanline below the
+    // corner the Monitor keeps its own variables in.
+    const cell = VIDEO_RAM_BASE + 100 * VIDEO_RAM_STRIDE;
+    const paint = (): Uint8ClampedArray => {
+      pmd.mem.write(cell, BLINK | 0x3f);
+      pmd.renderTo(ctx);
+      return pmd.screen.frameBuffer.slice();
+    };
+
+    const before = paint();
+    for (let i = 0; i < BLINK_FRAMES; i++) {
+      pmd.debugStep({ breakpoints: new Set(), mode: 'run', fromLine: null });
+    }
+    expect(
+      paint(),
+      'a stepped run holds the blink in whichever half of its cycle the boot ' +
+        'left it, so a blinking character is lit or invisible for good',
+    ).not.toEqual(before);
+
+    // And a plain run does the same, so the reading above is the blink moving
+    // rather than an artefact of how the picture is taken.
+    const plain = paint();
+    for (let i = 0; i < BLINK_FRAMES; i++) pmd.runFrame();
+    expect(paint()).not.toEqual(plain);
   });
 
   it('starts over on reset', () => {

@@ -260,6 +260,37 @@ one on screen, so a pause is never marked against unrelated code.
 - **THEN** the run keeps the breakpoints it started with, and no line of the
   buffer now on screen is marked as the paused line
 
+### Requirement: Debugging a run does not change it
+
+On a machine that supports line-level debugging, a run SHALL advance exactly as
+it would on a machine with no debugger: the same emulated time SHALL pass, the
+same sound SHALL be produced, the same animation SHALL play, and the run SHALL
+measure itself the same way. The only difference a debugger may make is that
+execution stops where the user asked it to.
+
+This holds whether or not the user has set a breakpoint, and whether or not the
+user thinks of themselves as debugging: the guarantee is that the presence of a
+debugger costs a program nothing.
+
+#### Scenario: Running a program that makes sound on a machine with a debugger
+
+- **WHEN** the user runs a program that plays a note, on a machine that
+  supports breakpoints, with none set
+- **THEN** the note is as audible, and lasts as long, as it would on a machine
+  with no debugger
+
+#### Scenario: A run on a debuggable machine is measured
+
+- **WHEN** the user runs a program on a machine that supports breakpoints
+- **THEN** the run is measured as fully as a run on a machine that does not:
+  time is charged to the lines that ran, and memory to the lines that took it
+
+#### Scenario: Animation continues while stepping is available
+
+- **WHEN** a program is running on a machine whose display blinks or flashes
+  part of the picture, and the machine supports breakpoints
+- **THEN** the picture keeps blinking as it would with no debugger present
+
 ### Requirement: Every machine reports whether a program is running
 
 Every machine the IDE runs SHALL report whether a BASIC program is executing.

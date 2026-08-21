@@ -281,9 +281,18 @@ describe('every registered machine measures what it can', () => {
               'memory figures, so its drained costs should ' +
               `${reportsMemory ? '' : 'not '}carry bytes`,
           ).toBe(reportsMemory);
-          if (dialect.id in NO_CHURN_IN_FIGURE) return;
-
           const built = bytesOf(taken, 30);
+          if (dialect.id in NO_CHURN_IN_FIGURE) {
+            // Enforced both ways, as the tables above are: a machine that has
+            // started seeing churn has outlived its excuse, and leaving it
+            // listed would quietly drop it from everything below.
+            expect(
+              built,
+              `${dialect.id} charges bytes for string churn after all, so it ` +
+                'should no longer be listed in NO_CHURN_IN_FIGURE',
+            ).toBe(0);
+            return;
+          }
           expect(
             built,
             'the line that extends the string should carry the bytes',

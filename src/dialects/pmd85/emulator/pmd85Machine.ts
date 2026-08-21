@@ -465,6 +465,11 @@ export class Pmd85Machine implements MachineEmulator {
    */
   debugStep(opts: DebugStepOptions): DebugStepResult {
     if (!this.hasFirmware) return { paused: false, line: null };
+    // A slice is a frame, so it counts as one however it ends: the blink
+    // attribute is driven off this counter, and a run advanced only by slices
+    // would hold every blinking character in whichever half of its cycle the
+    // boot happened to leave it - lit for good, or invisible for good.
+    this.frames++;
     let cycles = this.debt;
     // In run mode, ignore breakpoints until execution has left the line we
     // resumed from, so Continue off a breakpointed line does not re-trigger on

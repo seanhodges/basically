@@ -9,9 +9,11 @@
  * while measuring, and the CPCs' run loop and debug loop were folded onto one
  * stepper to carry the charge. Those are the cases this proves.
  *
- * One machine per emulator wiring family rather than all fourteen: the thing at
- * risk is the *wiring*, and `lineProfiling.test.ts` already boots every machine
- * to check what it measures. Each family runs two machines of the same dialect
+ * One machine per emulator wiring family rather than every registered machine:
+ * the thing at risk is the *wiring*, and `lineProfiling.test.ts` already boots
+ * every machine to check what it measures. The list below is hand-maintained
+ * and deliberately not crosschecked against the registry - a new machine joins
+ * it only when it is wired to its core in a way none of these covers. Each family runs two machines of the same dialect
  * from the same program - one armed, one not - for the same number of frames,
  * and their screens have to agree afterwards.
  */
