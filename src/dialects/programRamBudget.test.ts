@@ -72,6 +72,11 @@ const SHORTFALL_ALLOWANCE_BYTES: Record<string, number> = {
   // rounding down to a flat 40.5K rather than an allowance for anything.
   zxspectrum: 256,
   zxspectrum128: 256,
+  // BASIC-G spends two disjoint pools and reports both, so the reading counts
+  // the 3,840-byte string region as free on top of the program area. No
+  // program text can go there, so the budget is deliberately the program area
+  // alone - PROGRAM_BASE to the stack top - and sits a whole pool below it.
+  pmd85: 4096,
 };
 
 let restoreRomLoading: () => void;
