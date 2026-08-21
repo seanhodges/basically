@@ -267,8 +267,9 @@ export class AtomMachine implements MachineEmulator {
       { isAtom: true },
     );
     // The Atom's 1-bit speaker + sine channel, driven by the PPIA. Each filled
-    // buffer is accumulated and drained by readAudio(); initialise() wires its
-    // scheduler, so runFrame() only has to catchUp() to flush per frame.
+    // buffer is accumulated and drained by readAudio(), which is also what
+    // catches the chip up - see there for why the flush is at the drain rather
+    // than in runFrame. initialise() wires its scheduler.
     this.soundChip = new AtomSoundChip(
       (buffer) => {
         this.audioChunks.push(buffer);
@@ -563,12 +564,23 @@ export class AtomMachine implements MachineEmulator {
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
     this.runCycles(CYCLES_PER_FRAME);
-    // Flush sound generated this frame into the accumulation buffer.
-    this.soundChip.catchUp();
   }
 
-  /** Native-rate mono samples synthesized since the last call (drains). */
+  /**
+   * Native-rate mono samples synthesized since the last call (drains).
+   *
+   * The chip is caught up here rather than at the end of {@link runFrame}
+   * because this is the one point every way of advancing the machine funnels
+   * through: the run loop calls this once per advance, whatever it advanced.
+   * This machine has no stepper to diverge from its frame path yet, and the
+   * flush is here so that it cannot acquire one the day it gains one - which is
+   * how the BBC, whose sound chip and run loop are this one's twin, came to be
+   * silent for the length of every held note under its own debugger.
+   */
   readAudio(): Float32Array {
+    // Turn the cycles run since the last drain into samples. Nothing else
+    // advances the chip on its own.
+    this.soundChip.catchUp();
     if (this.audioSamples === 0) return EMPTY_AUDIO;
     const out = new Float32Array(this.audioSamples);
     let offset = 0;

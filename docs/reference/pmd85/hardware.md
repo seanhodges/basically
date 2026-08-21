@@ -151,8 +151,14 @@ say no.
 string pool above the arrays and let the two grow towards each other. BASIC-G
 gives strings a region of their own above its workspace, which is why the
 program area has a hard ceiling: program text, variables and arrays share the
-run from `'2401` up to the stack at `'5DFF`, and that is the 14846 bytes the
-IDE reports free.
+run from `'2401` up to the stack at `'5DFF`, and that is the 14846 bytes a
+program has to fit in.
+
+The two pools are spent independently, and the RAM readout counts both while a
+program runs — 18686 bytes in all, the program area plus the 3840-byte string
+region from `'6000` to `'6EFF`. That is what makes string churn visible: a
+program that builds and drops strings moves the figure, and the profiler's
+memory report can say which line the bytes went to.
 
 A PMD 85 program can carry fixed-address machine code or data — **memory
 blocks** — that load into RAM alongside the BASIC program before it runs. A

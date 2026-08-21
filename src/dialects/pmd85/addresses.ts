@@ -118,6 +118,25 @@ export const WORKSPACE_BASE = 0x5e00;
 export const STRING_TOP = 0x6f00;
 export const STRING_LIMIT = 0x5fff;
 
+/** The lowest address a string can be placed at: one above {@link STRING_LIMIT}. */
+export const STRING_BASE = STRING_LIMIT + 1;
+
+/**
+ * FRETOP, at 0x5E69: the bottom of the string data currently allocated, and so
+ * the moving half of the string pool's account. It holds {@link STRING_TOP}
+ * when no string exists, walks down as strings are made, and jumps back up
+ * when the interpreter collects.
+ *
+ * Read out of the shipped interpreter rather than assumed from the Microsoft
+ * family, whose FRETOP sits next to STREND and is seeded from a MEMSIZ this
+ * ROM does not have. Two sequences in the module body name it:
+ * `2A 41 00 22 69 5E` - `LD HL,(0041)` then `LD (5E69),HL`, the cold start and
+ * `CLEAR` seeding it from the 0x6F00 bound - and `2A 3B 00 EB 2A 69 5E`,
+ * `LD HL,(003B)` then `LD HL,(5E69)`, the subtraction that measures what is
+ * left against the 0x5FFF bound.
+ */
+export const FRETOP = 0x5e69;
+
 /** Where the `ROM` statement copies a ROM-module block to, and calls. */
 export const ROM_COMMAND_BASE = 0x7000;
 

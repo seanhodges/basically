@@ -9,9 +9,11 @@
  * while measuring, and the CPCs' run loop and debug loop were folded onto one
  * stepper to carry the charge. Those are the cases this proves.
  *
- * One machine per emulator wiring family rather than all fourteen: the thing at
- * risk is the *wiring*, and `lineProfiling.test.ts` already boots every machine
- * to check what it measures. Each family runs two machines of the same dialect
+ * One machine per emulator wiring family rather than every registered machine:
+ * the thing at risk is the *wiring*, and `lineProfiling.test.ts` already boots
+ * every machine to check what it measures. The list below is hand-maintained
+ * and deliberately not crosschecked against the registry - a new machine joins
+ * it only when it is wired to its core in a way none of these covers. Each family runs two machines of the same dialect
  * from the same program - one armed, one not - for the same number of frames,
  * and their screens have to agree afterwards.
  */
@@ -28,9 +30,18 @@ const BOOT_TIMEOUT_MS = 60_000;
 
 /**
  * One dialect per way a profiled machine is wired to its core: the in-tree Z80
- * machines, the shared 6502, viciious, jsbeeb, and the CPC's own Z80 loop.
+ * machines, the shared 6502, viciious, jsbeeb, the CPC's own Z80 loop, and the
+ * PMD 85, whose run loop and debug loop were folded onto one stepper to carry
+ * the charge the way the CPC's were.
  */
-const FAMILIES = ['zxspectrum', 'pet', 'commodore64', 'bbcmicro', 'cpc464'];
+const FAMILIES = [
+  'zxspectrum',
+  'pet',
+  'commodore64',
+  'bbcmicro',
+  'cpc464',
+  'pmd85',
+];
 
 /** Prints as it counts, so the screen carries the run's whole history. */
 const PROBE = '10 FOR I=1 TO 40\n20 PRINT I;\n30 NEXT I\n40 GOTO 10\n';

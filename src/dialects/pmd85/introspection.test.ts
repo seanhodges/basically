@@ -8,6 +8,14 @@ import { splitRomImage } from './romImage';
 import { tokenizeProgram } from './tokenizer';
 import { Pmd85Machine } from './emulator/pmd85Machine';
 import { decodePmd85Float } from './vars';
+import {
+  FRETOP,
+  PROGRAM_BASE,
+  STACK_TOP,
+  STREND,
+  STRING_BASE,
+  STRING_TOP,
+} from './addresses';
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
@@ -116,6 +124,41 @@ describe('pmd85 memory activity', () => {
 
     const hits = pmd.drainMemoryActivity()!;
     expect(hits.some((byte) => byte !== 0)).toBe(false);
+  });
+});
+
+describe('pmd85 memory figures', () => {
+  /** Builds a 30-character string a character at a time, then stops. */
+  const BUILDS_A_STRING =
+    '10 A$=""\n20 FOR I=1 TO 30\n30 A$=A$+"X"\n40 NEXT I\n50 END\n';
+
+  it('counts the string pool as well as the program area', () => {
+    // FRETOP (see addresses.ts) was read out of the shipped interpreter, and a
+    // pointer read out of a ROM is exactly the fact a future ROM swap breaks
+    // silently. What pins it is behaviour: only strings move it, and only a
+    // built string moves it at all - a literal assignment points the descriptor
+    // at the program text and takes no pool at all.
+    const pmd = run(BUILDS_A_STRING);
+    const stats = pmd.readMemoryStats()!;
+    const programArea = pmd.mem.rawReadWord(STREND) - PROGRAM_BASE;
+    expect(stats.used - programArea).toBeGreaterThanOrEqual(30);
+    // The two pools are disjoint and neither can spill into the other, so the
+    // total is the machine's, whatever the program has done with it.
+    expect(stats.used + stats.free).toBe(
+      STACK_TOP - PROGRAM_BASE + (STRING_TOP - STRING_BASE),
+    );
+  });
+
+  it('leaves the program-area figures alone when the pointer is unreadable', () => {
+    // A string pointer outside its own region is not a figure, and adding it
+    // would report a machine with more or less RAM than it has.
+    const pmd = run(BUILDS_A_STRING);
+    const real = pmd.readMemoryStats()!;
+    pmd.mem.writeWord(FRETOP, 0x1234);
+    const fallback = pmd.readMemoryStats()!;
+    expect(fallback.used).toBeLessThan(real.used);
+    expect(fallback.used).toBe(pmd.mem.rawReadWord(STREND) - PROGRAM_BASE);
+    expect(fallback.used + fallback.free).toBe(STACK_TOP - PROGRAM_BASE);
   });
 });
 

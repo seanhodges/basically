@@ -55,7 +55,7 @@ export const BLINK_FRAMES = 16;
  * encoder and loses the blink; a machine for it would replace this table and
  * nothing else.
  */
-const BLINK = 0x40;
+export const BLINK = 0x40;
 const REDUCED_BRIGHTNESS = 0x80;
 
 /**

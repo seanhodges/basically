@@ -22,6 +22,13 @@
  *
  * A second probe churns strings, for the other half of what a machine measures:
  * the bytes charged to the line that took them. See {@link CHURN} below.
+ *
+ * Each probe is then re-measured through `debugStep`, because that is how a
+ * program is usually run: a debug session opens on an ordinary press of Play
+ * for every dialect that models line debugging, so a machine charging only on
+ * its plain frame path measures nothing the user ever asks for. The PMD 85 did
+ * exactly that - its debug loop stepped the CPU itself and never reached the
+ * charge - and nothing here noticed, every case above driving `runFrame`.
  */
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { dialects } from './registry';
@@ -42,6 +49,8 @@ const PROBE = '10 LET A=0\n20 LET A=A+1\n30 GOTO 20\n';
 const SETTLE_FRAMES = 400;
 /** Frames measured. Long enough that a slice's worth of noise cannot matter. */
 const MEASURED_FRAMES = 200;
+/** Debug slices measured. A slice is a frame's cycles, so a handful is plenty. */
+const DEBUG_SLICES = 20;
 
 /**
  * Machines that cannot report per-line costs, and why.
@@ -120,7 +129,6 @@ const NO_CHURN_IN_FIGURE: Record<string, string> = {
   cpc464: 'string churn happens above the ceiling its figure counts up to',
   cpc6128: 'string churn happens above the ceiling its figure counts up to',
   zx80: 'the ROM has no string concatenation, so the probe cannot churn',
-  pmd85: 'string space is a region of its own, above the figure it reports',
 };
 
 function costOf(costs: readonly LineCost[], line: number): number {
@@ -133,6 +141,25 @@ function bytesOf(costs: readonly LineCost[], line: number): number {
 
 function reclaimedOf(costs: readonly LineCost[], line: number): number {
   return costs.find((c) => c.line === line)?.reclaimed ?? 0;
+}
+
+/**
+ * Slices a running program the way the IDE's debug session does: no
+ * breakpoints, so it never pauses and simply advances a frame's worth of
+ * cycles at a time.
+ */
+async function measureDebugSlices(
+  machine: MachineEmulator,
+  slices: number,
+): Promise<LineCost[] | null> {
+  machine.drainProfile?.(); // costs so far belong to the frame-path probe
+  for (let i = 0; i < slices; i++) {
+    machine.debugStep!({ breakpoints: new Set(), mode: 'run', fromLine: null });
+    // Yielded on the same cadence as the harness's frame loop, for the same
+    // reason: the jsbeeb and Commodore cores settle work on timers.
+    if (i % 20 === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  return machine.drainProfile?.() ?? null;
 }
 
 /** Boot, run the probe to its loop, then measure it. */
@@ -218,6 +245,19 @@ describe('every registered machine measures what it can', () => {
           // nobody: a line that did not run while measured carries no cost.
           expect(costOf(measured, 10)).toBe(0);
 
+          // The same loop, advanced by debug slices instead of frames, on the
+          // machine that is already running it - a few slices rather than a
+          // second settle, because all this has to establish is that the charge
+          // is on the shared step rather than on one of the two paths.
+          if (typeof machine.debugStep === 'function') {
+            const sliced = await measureDebugSlices(machine, DEBUG_SLICES);
+            expect(
+              costOf(sliced ?? [], 20),
+              `${dialect.id} charges nothing while being debugged, so an ` +
+                'ordinary run - which opens a debug session - measures nothing',
+            ).toBeGreaterThan(0);
+          }
+
           // The other half: bytes charged to the line that took them. Measured
           // on the same booted machine, because booting the ROM is the whole
           // cost of this file.
@@ -241,9 +281,18 @@ describe('every registered machine measures what it can', () => {
               'memory figures, so its drained costs should ' +
               `${reportsMemory ? '' : 'not '}carry bytes`,
           ).toBe(reportsMemory);
-          if (dialect.id in NO_CHURN_IN_FIGURE) return;
-
           const built = bytesOf(taken, 30);
+          if (dialect.id in NO_CHURN_IN_FIGURE) {
+            // Enforced both ways, as the tables above are: a machine that has
+            // started seeing churn has outlived its excuse, and leaving it
+            // listed would quietly drop it from everything below.
+            expect(
+              built,
+              `${dialect.id} charges bytes for string churn after all, so it ` +
+                'should no longer be listed in NO_CHURN_IN_FIGURE',
+            ).toBe(0);
+            return;
+          }
           expect(
             built,
             'the line that extends the string should carry the bytes',

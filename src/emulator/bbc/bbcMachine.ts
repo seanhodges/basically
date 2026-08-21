@@ -283,8 +283,9 @@ export class BbcMachine implements MachineEmulator {
       this.completeFb8.set(this.fb8);
     });
     // The real SN76489: each filled buffer is appended to the accumulation list
-    // and drained by readAudio(). The VIA pokes it and initialise() wires its
-    // scheduler, so runFrame() only has to catchUp() to flush per frame.
+    // and drained by readAudio(), which is also what catches the chip up - see
+    // there for why the flush is at the drain rather than in runFrame. The VIA
+    // pokes it and initialise() wires its scheduler.
     this.soundChip = new SoundChip((buffer) => {
       this.audioChunks.push(buffer);
       this.audioSamples += buffer.length;
@@ -444,12 +445,24 @@ export class BbcMachine implements MachineEmulator {
   runFrame(): void {
     if (!this.initialised || this.injecting || this.disposed) return;
     this.runCycles(CYCLES_PER_FRAME);
-    // Flush sound generated this frame into the accumulation buffer.
-    this.soundChip.catchUp();
   }
 
-  /** Native-rate mono samples synthesized since the last call (drains). */
+  /**
+   * Native-rate mono samples synthesized since the last call (drains).
+   *
+   * The chip is caught up here rather than at the end of {@link runFrame}
+   * because this is the one point both ways of advancing the machine funnel
+   * through: the run loop calls this once per advance whether it stepped a
+   * frame or a debug slice, and a debug session opens on an ordinary press of
+   * Play. Flushing in the frame path alone left samples uncut for the whole of
+   * a debug slice - and since the chip is only otherwise caught up when the OS
+   * pokes a sound register, a held note came out as silence followed by a burst
+   * of its own backlog.
+   */
   readAudio(): Float32Array {
+    // Turn the cycles run since the last drain into samples. Nothing else
+    // advances the chip on its own.
+    this.soundChip.catchUp();
     if (this.audioSamples === 0) return EMPTY_AUDIO;
     const out = new Float32Array(this.audioSamples);
     let offset = 0;

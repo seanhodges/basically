@@ -29,10 +29,13 @@ import { parseTapeImage, type Pmd85TapeFile } from '../tape';
 import {
   CURLIN,
   DIRECT_MODE,
+  FRETOP,
   MAX_LINE_NUMBER,
   PROGRAM_BASE,
   STACK_TOP,
   STREND,
+  STRING_BASE,
+  STRING_TOP,
   TXTTAB,
   VARTAB,
 } from '../addresses';
@@ -462,6 +465,11 @@ export class Pmd85Machine implements MachineEmulator {
    */
   debugStep(opts: DebugStepOptions): DebugStepResult {
     if (!this.hasFirmware) return { paused: false, line: null };
+    // A slice is a frame, so it counts as one however it ends: the blink
+    // attribute is driven off this counter, and a run advanced only by slices
+    // would hold every blinking character in whichever half of its cycle the
+    // boot happened to leave it - lit for good, or invisible for good.
+    this.frames++;
     let cycles = this.debt;
     // In run mode, ignore breakpoints until execution has left the line we
     // resumed from, so Continue off a breakpointed line does not re-trigger on
@@ -472,7 +480,7 @@ export class Pmd85Machine implements MachineEmulator {
         this.debt = 0;
         return { paused: false, line: this.currentLine() };
       }
-      cycles += this.i8080.step();
+      cycles += this.stepInstruction();
       const line = this.currentLine();
       if (line === null) continue;
       if (opts.mode === 'step') {
@@ -493,25 +501,41 @@ export class Pmd85Machine implements MachineEmulator {
   }
 
   /**
-   * BASIC-G's own memory arithmetic over its own pointers.
+   * BASIC-G's own memory arithmetic over its own pointers, across both of the
+   * pools a program spends.
    *
    * Program text, variables and arrays share one run upwards from
    * {@link PROGRAM_BASE}, and {@link STREND} is where the last of them ends;
-   * everything from there to {@link STACK_TOP} is free. String data is not in
-   * either figure - unlike most Microsoft BASICs, BASIC-G keeps its string pool
-   * in a region of its own well above the stack, so it neither eats into the
-   * program area nor grows down into it.
+   * everything from there to {@link STACK_TOP} is free. Unlike most Microsoft
+   * BASICs, string data is not in that run at all - BASIC-G gives strings a
+   * region of their own well above the stack, filled downwards from
+   * {@link STRING_TOP} as far as {@link FRETOP} has reached.
+   *
+   * Both are counted, because a program that takes memory usually takes it in
+   * strings: a figure spanning the program area alone reads as flat through
+   * exactly the churn the memory chart and the profiler's per-line attribution
+   * exist to explain. The two pools are disjoint and neither can spill into the
+   * other, so `used + free` is a constant - BASIC's whole RAM - while the hard
+   * ceiling the program area itself has stays at {@link STACK_TOP}, which is
+   * what the dialect's `programRamBytes` promises.
    *
    * Null until the pointers mean something: they are ordinary workspace RAM and
-   * read as zero from reset until the cold start writes them.
+   * read as zero from reset until the cold start writes them. A string pointer
+   * outside its own region is not readable either, and leaves the program-area
+   * figures to stand alone rather than adding nonsense to them.
    */
   readMemoryStats(): MachineMemoryStats | null {
     if (!this.hasFirmware || this.disposed) return null;
     if (this.memory.rawReadWord(TXTTAB) !== PROGRAM_BASE) return null;
     const strend = this.memory.rawReadWord(STREND);
-    const used = strend - PROGRAM_BASE;
-    const free = STACK_TOP - strend;
+    let used = strend - PROGRAM_BASE;
+    let free = STACK_TOP - strend;
     if (used < 0 || free < 0) return null;
+    const fretop = this.memory.rawReadWord(FRETOP);
+    if (fretop >= STRING_BASE && fretop <= STRING_TOP) {
+      used += STRING_TOP - fretop;
+      free += fretop - STRING_BASE;
+    }
     return { used, free };
   }
 
@@ -774,6 +798,34 @@ export class Pmd85Machine implements MachineEmulator {
     this.speaker.write(this.cycles, this.systemPortC);
   }
 
+  /**
+   * Execute one instruction, and charge what it took to the BASIC line that
+   * ran it. Returns the cycles consumed.
+   *
+   * Shared by {@link runCycles} and {@link debugStep} so a frame and a debug
+   * slice charge the profile identically. That matters both ways round: a
+   * debug session is opened by an ordinary press of Play on every dialect that
+   * models line debugging, so a charge made only on the plain path would miss
+   * the way programs are usually run - and a run the IDE performs to check an
+   * assistant's answer deliberately opens no session, so a charge made only on
+   * the debug path would miss that one.
+   *
+   * The free-running cycle counter moves here for the same reason. The tape
+   * deck and the speaker read themselves against it, and a debug slice that
+   * advanced the CPU without advancing the counter would stop the tape and
+   * hold every note for as long as the session lasted.
+   */
+  private stepInstruction(): number {
+    const t = this.i8080.step();
+    this.cycles += t;
+    const p = this.profile;
+    if (p.enabled) {
+      p.pending += t;
+      if (p.pending >= p.slice) p.sample(this.currentLine());
+    }
+    return t;
+  }
+
   private runCycles(budget: number): void {
     let cycles = this.debt;
     while (cycles < budget) {
@@ -784,17 +836,7 @@ export class Pmd85Machine implements MachineEmulator {
         this.debt = 0;
         return;
       }
-      const t = this.i8080.step();
-      cycles += t;
-      this.cycles += t;
-      // Charge the cycles to the BASIC line executing them. Here rather than in
-      // debugStep, because a run the IDE performs to check an assistant's
-      // answer opens no debug session and would otherwise go unmeasured.
-      const p = this.profile;
-      if (p.enabled) {
-        p.pending += t;
-        if (p.pending >= p.slice) p.sample(this.currentLine());
-      }
+      cycles += this.stepInstruction();
     }
     this.debt = cycles - budget;
   }

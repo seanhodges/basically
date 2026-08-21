@@ -73,6 +73,10 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
       (note any new npm dependency + its license), **or** in-tree interpreter
 - [ ] `reset` / `loadProgram` / `runFrame` / `renderTo` / `keyEvent` / `setKey` /
       `releaseAllKeys` / `setSpeed` / `dispose` + `displayWidth`/`displayHeight`
+- [ ] `currentLine` / `debugStep` + `debuggable` on the dialect, and the profile
+      charge — `runFrame` and `debugStep` share **one** step function, because a
+      debug session opens on an ordinary press of Play (see the skill's
+      run-measurement rules)
 - [ ] ROM into `public/roms/<id>.rom` **+ attribution block in
       `public/roms/ATTRIBUTION.md`** (skip both for interpreter dialects)
 - [ ] `displaySize` on the dialect if not 256×192
@@ -129,7 +133,8 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
       in the listing)
 - [ ] `sysvars.ts` / `vars.ts` / `reports.ts` (dialect- or machine-side) →
       `readVariables()` / `readReport()` on the emulator
-- [ ] `readMemoryStats()` + memory-activity hooks for the memory-map overlay
+- [ ] `readMemoryStats()` (counting every pool a program spends, not just the
+      program area) + memory-activity hooks for the memory-map overlay
 - [ ] tests: memory-map layout, block round-trip
 
 **Depends on:** Stages 2–3.
@@ -142,7 +147,6 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
       `src/reference/<id>.ts`, sidebar entry in `docs/.vitepress/config.ts`
 - [ ] roadmap status row in `docs/contributing/dialect-roadmap.md`
 - [ ] `joystickModes` + `setJoystick` where the machine had joysticks
-- [ ] debugger hooks (`debuggable`, `currentLine`, `debugStep`)
 - [ ] emulator sound (`readAudio` / `audioSampleRate`)
 - [ ] richer build targets (disc/UEF/etc.), dialect quirks (e.g.
       dot-abbreviation expansion)
