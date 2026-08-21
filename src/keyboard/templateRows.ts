@@ -108,8 +108,9 @@ export function centerRow(keys: KeyDef[]): KeyDef[] {
  * flank is padded with a {@link spacer} so the space bar stays centred, and the
  * space bar is sized to fill the remaining columns. `space` may omit `spanX`.
  *
- * `gridColumns` defaults to the standard {@link GRID_COLUMNS}; a layout with a
- * wider grid (e.g. the C64, which adds a graphics-key column) passes its own.
+ * `gridColumns` defaults to the standard {@link GRID_COLUMNS}, which is what
+ * every machine's grid is; the parameter is here for a layout that one day
+ * needs a wider one.
  */
 export function bottomRow(
   left: KeyDef[],

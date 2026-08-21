@@ -152,8 +152,11 @@ with five bands:
 
 - **Top strip** - mode tabs (`editorModes`) when the machine has extra typing
   layers, the machine's `functionKeys` when it does not, or both behind an icon
-  toggle. On wide screens the strip relocates into the left gutter beside the
-  centred keyboard.
+  toggle. The function keys are always one row, and they take their width from
+  the same 40-column grid as the rows below, so a strip key is exactly a keycap:
+  a board's worth fits across, and a machine with more scrolls the rest into
+  reach rather than shrinking or wrapping them. On wide screens the strip
+  relocates into the left gutter beside the centred keyboard.
 - **Number row** - the ten digits.
 - **QWERTY + home rows** - the letters; Enter is the home row's tenth key.
 - **ZXCV row** - the remaining letters and punctuation, centred when short.
@@ -232,6 +235,11 @@ functionKeys: [
 ],
 ```
 
+`spanX: 4` is a rule here rather than an example: the strip renders on the key
+rows' grid, so any other width draws a function key wider or narrower than a
+keycap. So is `editor: null` - without it a label falls back to inserting its
+own text, and a key marked `f1` types `f1` into the program.
+
 When a layout has **only** `functionKeys` the strip shows them; with **only**
 `editorModes` it shows the mode tabs; with **both** it shows a leading icon
 toggle that flips the strip between the two.
@@ -242,7 +250,18 @@ The template keeps keys evenly proportioned and large enough to thumb-type:
 keys hold a minimum touch size (`--vk-key-min`) and, above that, a consistent
 width:height ratio (`--vk-aspect`). On wide screens the keyboard centres and its
 key width is height-derived so keys never stretch. You don't size anything in
-the layout - just keep to `spanX: 4` for ordinary keys.
+the layout - just keep to `spanX: 4` for ordinary keys, function keys included.
+
+The top strip is one row whatever the machine, and it divides its width by the
+key rows' own grid, so the count a machine happens to have never changes how
+wide its keys are drawn: fewer than a board's worth are centred over the keys,
+and more than that scroll. **Ten is the number to design for.** Nothing stops
+you putting more on the strip - the PMD 85's thirteen do exactly that, because
+nothing a host keyboard sends can reach them - but the eleventh key onwards
+starts off-screen and has to be hunted for, so put the keys a program reaches
+for first and leave the rest to the host keyboard where the machine allows it.
+A strip carrying the mode-tab toggle as well gives up the toggle's share of the
+width, so its keys come out slightly under a keycap.
 
 #### 2. Wiring `setKey()` in the emulator
 

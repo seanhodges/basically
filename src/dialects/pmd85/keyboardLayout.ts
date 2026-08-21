@@ -182,7 +182,9 @@ const rows: KeyDef[][] = [
  *
  * The other two keys of the machine's own top row, C-D and CLR, are editing
  * keys rather than function keys and are typed on the host (Home and PageUp).
- * Keeping them here would cost every key on the strip a sixth of its width.
+ * Thirteen keys already run past the row's worth the board is wide, so the
+ * strip scrolls to reach the last of them - every key here stays a keycap, and
+ * every key added is one more the user has to scroll for.
  */
 const functionKeys: KeyDef[] = [
   ...Array.from({ length: 12 }, (_, i) => ({

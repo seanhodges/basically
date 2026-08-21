@@ -173,15 +173,24 @@ const rows: KeyDef[][] = [
   ]),
 ];
 
+/** A top-strip key: matrix token only, `editor: null` so it types nothing. */
+const fnKey = (id: string, text: string): KeyDef => ({
+  id,
+  spanX: 4,
+  emits: [id],
+  style: 'fn',
+  labels: [{ text, editor: null }, null],
+});
+
 /**
  * The teletype's own function keys, in the top strip. Each sends a fixed control
  * code whatever the modifiers are, and none of them types anything into the
  * editor, which is why they are here rather than on the typing grid.
  */
 const functionKeys: KeyDef[] = [
-  { id: 'LineFeed', spanX: 4, emits: ['LineFeed'], labels: [{ text: 'LF' }] },
-  { id: 'Rubout', spanX: 4, emits: ['Rubout'], labels: [{ text: 'RUB' }] },
-  { id: 'Escape', spanX: 4, emits: ['Escape'], labels: [{ text: 'ALT' }] },
+  fnKey('LineFeed', 'LF'),
+  fnKey('Rubout', 'RUB'),
+  fnKey('Escape', 'ALT'),
 ];
 
 export const altair8800KeyboardLayout: KeyboardLayout = {

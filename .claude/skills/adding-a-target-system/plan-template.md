@@ -83,7 +83,11 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 
 ## Stage 3 — Wire-up: keyboard + samples + register ⬜
 
-- [ ] `keyboardLayout.ts` — `KeyboardLayout` data; key tokens match emulator `setKey`
+- [ ] `keyboardLayout.ts` — `KeyboardLayout` data; key tokens match emulator
+      `setKey`; geometry from `templateRows` (`gridColumns: GRID_COLUMNS`, every
+      key `KEY_SPAN`, `ROW_KEYS` to a band, `centerRow`/`bottomRow`) — never
+      author a width. The function-key strip is one row of keycaps that scrolls
+      past ten, so design for ten
 - [ ] `samples/` + `samples.ts` — the canonical set from the audit (currently
       `hello`/`circles`/`breakout`/`maze`/`kaleido`) ported to this BASIC
       (degrade gracefully; `hello` is the starter)
@@ -95,9 +99,12 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
       `SHARE_VERBS` in `src/player/routes.ts` in the same change** —
       `routes.test.ts` enforces a strict bijection with the registry
 - [ ] optional `.virtual-keyboard.vk-theme-<id>` block in
-      `src/keyboard/VirtualKeyboard.css`
-- [ ] tests: keyboard-layout validation, keyboard matrix (physical+virtual union),
-      samples tokenize cleanly
+      `src/keyboard/VirtualKeyboard.css` (colour and label position only — a
+      theme never overrides a width)
+- [ ] tests: keyboard matrix (every token reachable by keycap or host key),
+      samples tokenize cleanly. The template geometry is pinned against the
+      registry by `src/keyboard/layoutGeometry.test.ts`, which picks the new
+      dialect up on registration — no geometry test of its own
 
 **Depends on:** Stages 1–2.
 **Verify:** `npm run typecheck` + `npm test` + `npm run dev` smoke + `npm run e2e`.

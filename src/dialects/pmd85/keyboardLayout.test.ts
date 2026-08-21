@@ -14,6 +14,7 @@ import {
   tokenForHostCode,
 } from './emulator/keyboard';
 import { resolveEditorAction } from '../../keyboard/editorActions';
+import { KEY_SPAN, ROW_KEYS } from '../../keyboard/templateRows';
 import type { KeyDef } from '../../keyboard/layoutSchema';
 
 const layout = pmd85KeyboardLayout;
@@ -225,11 +226,13 @@ describe('pmd85 keyboard layout', () => {
     for (const row of layout.rows.slice(0, 4)) {
       expect(row.filter((k) => k.emits.length > 0)).toHaveLength(10);
     }
-    // …and the strip is measured against the same width, so its keys cannot be
-    // squeezed narrower than the board underneath them by very much.
+    // …and so is the strip: a K key is a keycap like any other. More function
+    // keys than a board is wide is the one thing this machine has that the
+    // template has no room for, and they are the reason the strip scrolls -
+    // it is the only registered machine that puts that path on screen.
     const strip = layout.functionKeys ?? [];
-    const stripSpan = strip.reduce((n, k) => n + k.spanX, 0);
-    expect(stripSpan).toBeLessThanOrEqual(52);
+    for (const key of strip) expect(key.spanX).toBe(KEY_SPAN);
+    expect(strip.length).toBeGreaterThan(ROW_KEYS);
   });
 
   it('gives STOP no keycap', () => {

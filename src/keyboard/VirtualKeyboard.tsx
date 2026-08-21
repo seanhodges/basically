@@ -227,6 +227,13 @@ export function VirtualKeyboard({
   // ---- hold-to-repeat (editor target only) --------------------------------
 
   const repeatTimers = useRef(new Map<number, RepeatTimer>());
+  /**
+   * Pointers that went down on a function key. The strip scrolls sideways, so
+   * the browser owns a drag there: hit-testing the slide would press the row's
+   * keys into the live matrix during the slop before the pan is recognised.
+   */
+  const stripPointers = useRef(new Set<number>());
+
   /** Key currently under each pointer, to detect slides for repeat resets. */
   const pointerKey = useRef(new Map<number, string | null>());
 
@@ -331,7 +338,6 @@ export function VirtualKeyboard({
 
   const displayRows = layout.rows;
   const gridCols = layout.gridColumns;
-  const fnCols = functionKeys.reduce((n, k) => n + k.spanX, 0);
 
   const secondaryLayers = useMemo(
     () => layout.layers.filter((l) => l !== baseLayer),
@@ -445,6 +451,8 @@ export function VirtualKeyboard({
       return;
     }
     if (!keyId) return;
+    if ((e.target as Element).closest('.vk-fn-row'))
+      stripPointers.current.add(e.pointerId);
     // Capture on the container: pointermove keeps firing here while we
     // hit-test slides with elementFromPoint.
     containerRef.current?.setPointerCapture(e.pointerId);
@@ -468,6 +476,9 @@ export function VirtualKeyboard({
       return;
     }
     if (!enabled || !activePointers.current.has(e.pointerId)) return;
+    // A drag that began on the strip is the row scrolling. The key stays held
+    // until the lift, or until the browser takes the pan and cancels it.
+    if (stripPointers.current.has(e.pointerId)) return;
     const keyId = keyIdAt(e.clientX, e.clientY);
     const prev = pointerKey.current.get(e.pointerId);
     engine.pointerEnter(keyId, e.pointerId);
@@ -491,6 +502,7 @@ export function VirtualKeyboard({
       return;
     }
     if (!activePointers.current.delete(e.pointerId)) return;
+    stripPointers.current.delete(e.pointerId);
     pointerKey.current.delete(e.pointerId);
     stopRepeat(e.pointerId);
     engine.pointerUp(e.pointerId);
@@ -501,6 +513,7 @@ export function VirtualKeyboard({
     if (paletteTap.current?.pointerId === e.pointerId)
       paletteTap.current = null;
     if (!activePointers.current.delete(e.pointerId)) return;
+    stripPointers.current.delete(e.pointerId);
     pointerKey.current.delete(e.pointerId);
     stopRepeat(e.pointerId);
     engine.cancel(e.pointerId);
@@ -580,6 +593,16 @@ export function VirtualKeyboard({
   const pressed = engine.getPressedKeyIds();
   const activeLayer = engine.getActiveLayer();
   const focusKeyId = flatKeys[focusIdx]?.id;
+
+  // Roving focus is a class rather than DOM focus, so the browser will not
+  // bring an arrowed-to key into view - and the strip is the one row that can
+  // have keys past its edge.
+  useEffect(() => {
+    if (focusKeyId === undefined) return;
+    containerRef.current
+      ?.querySelector(`.vk-fn-row [data-keyid="${CSS.escape(focusKeyId)}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [focusKeyId]);
   // A non-base editor mode pins the highlighted layer (honouring its shifted
   // variant); otherwise an engaged modifier decides it.
   const modeLayerId = modePinnedLayerId(mode, baseLayer.id, activeLayer);
@@ -716,12 +739,26 @@ export function VirtualKeyboard({
   };
 
   const hasStrip = showModeTabs || showFnKeys;
+  // Whether the strip has more function keys than the board is wide, which is
+  // a fact about the layout rather than about the rendered box: the strip's
+  // tracks are the key rows' own, so it holds exactly a row's worth of keys.
+  const stripOverflows =
+    showFnKeys &&
+    functionKeys.reduce((n, k) => n + k.spanX, 0) > layout.gridColumns;
 
   return (
     <div
       ref={containerRef}
       className={`virtual-keyboard ${layout.theme}${enabled ? '' : ' vk-disabled'}${compact ? ' vk-compact' : ''}${keyDisplay === 'compact' ? ' vk-single' : ''}${landscape ? ' vk-landscape' : ' vk-portrait'}${onPickKey ? ' vk-pickmode' : ''}`}
-      style={{ '--vk-max-len': maxSingleLen } as React.CSSProperties}
+      style={
+        {
+          '--vk-max-len': maxSingleLen,
+          // The strip sizes its keys off the key rows' grid, and a strip whose
+          // keys run past the edge reserves the height of its scrollbar.
+          '--vk-grid-cols': gridCols,
+          ...(stripOverflows ? { '--vk-strip-bar': '6px' } : {}),
+        } as React.CSSProperties
+      }
       role="group"
       aria-label={`${layout.name} on-screen keyboard`}
       tabIndex={0}
@@ -738,7 +775,7 @@ export function VirtualKeyboard({
       onBlur={() => engine.pointerUp(KEYBOARD_POINTER_ID)}
     >
       {hasStrip && (
-        <div className="vk-strip">
+        <div className={`vk-strip${stripOverflows ? ' vk-fn-overflow' : ''}`}>
           {hasToggle && (
             <button
               className="vk-strip-toggle"
@@ -784,14 +821,7 @@ export function VirtualKeyboard({
             </div>
           )}
           {showFnKeys && (
-            <div
-              className="vk-fn-row"
-              style={
-                landscape
-                  ? undefined
-                  : { gridTemplateColumns: `repeat(${fnCols}, 1fr)` }
-              }
-            >
+            <div className="vk-fn-row">
               {functionKeys.map((k) => renderKey(k, true))}
             </div>
           )}
