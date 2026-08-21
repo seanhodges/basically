@@ -5,11 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { altair8800KeyboardLayout } from './keyboardLayout';
 import { altair8800KeyTokens, tokenToByte } from './emulator/keyboard';
 import { resolveEditorAction } from '../../keyboard/editorActions';
-import {
-  GRID_COLUMNS,
-  KEY_SPAN,
-  functionStrip,
-} from '../../keyboard/templateRows';
+import { GRID_COLUMNS, KEY_SPAN } from '../../keyboard/templateRows';
 import { altair8800Charset } from './charset';
 import type { KeyDef } from '../../keyboard/layoutSchema';
 
@@ -103,8 +99,8 @@ describe('altair8800 keyboard layout', () => {
 
   it('stays on the template’s grid, strip included', () => {
     // A keycap here is the size of a Spectrum's. The teletype's three function
-    // keys are the fewest of any machine, and the strip they sit on is the key
-    // rows' own grid, so they are keycaps centred over the board rather than
+    // keys are the fewest of any machine, and the strip's tracks are the key
+    // rows' own, so they are three keycaps centred over the board rather than
     // three keys stretched across its width.
     expect(layout.gridColumns).toBe(GRID_COLUMNS);
     for (const row of layout.rows) {
@@ -112,9 +108,7 @@ describe('altair8800 keyboard layout', () => {
     }
     const strip = layout.functionKeys ?? [];
     for (const key of strip) expect(key.spanX).toBe(KEY_SPAN);
-    const lines = functionStrip(strip);
-    expect(lines).toHaveLength(1);
-    expect(lines[0]!.reduce((n, k) => n + k.spanX, 0)).toBe(GRID_COLUMNS);
+    expect(strip.reduce((n, k) => n + k.spanX, 0)).toBeLessThan(GRID_COLUMNS);
   });
 
   it('reaches the whole 64-character set the teletype had', () => {

@@ -85,8 +85,9 @@ Text ↔ tokenized program bytes; no emulator, no registry change.
 
 - [ ] `keyboardLayout.ts` — `KeyboardLayout` data; key tokens match emulator
       `setKey`; geometry from `templateRows` (`gridColumns: GRID_COLUMNS`, every
-      key `KEY_SPAN`, `ROW_KEYS` to a band, `centerRow`/`bottomRow`/
-      `functionStrip`) — never author a width
+      key `KEY_SPAN`, `ROW_KEYS` to a band, `centerRow`/`bottomRow`) — never
+      author a width. The function-key strip is one row of keycaps that scrolls
+      past ten, so design for ten
 - [ ] `samples/` + `samples.ts` — the canonical set from the audit (currently
       `hello`/`circles`/`breakout`/`maze`/`kaleido`) ported to this BASIC
       (degrade gracefully; `hello` is the starter)

@@ -132,27 +132,3 @@ export function bottomRow(
     ...right,
   ];
 }
-
-/**
- * Lay the top strip's function keys on the same grid as the key rows, so a
- * function key is exactly a keycap wide however many of them a machine has.
- * Keys fill a line ten at a time; a machine with more wraps onto another line,
- * and a short line is centred the way {@link centerRow} centres a short key row.
- *
- * The lines are returned separately because the strip's height depends on how
- * many there are, and because the renderer flattens them onto one grid - which
- * only lands on the intended breaks while each line sums to the full width.
- */
-export function functionStrip(keys: KeyDef[]): KeyDef[][] {
-  const lines: KeyDef[][] = [];
-  let line: KeyDef[] = [];
-  for (const key of keys) {
-    if (totalSpan(line) + key.spanX > GRID_COLUMNS) {
-      lines.push(line);
-      line = [];
-    }
-    line.push(key);
-  }
-  if (line.length > 0) lines.push(line);
-  return lines.map(centerRow);
-}

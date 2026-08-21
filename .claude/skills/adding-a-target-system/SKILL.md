@@ -92,7 +92,7 @@ does **not** edit them:
 | `src/editor/basicLanguage.ts`                                           | `BasicLanguageOptions`: `nameChars`, `suffixChars`, `graphicsEscapes`, `hexPrefix`, `binaryPrefix`    |
 | `src/editor/completions.ts`                                             | generic keyword autocomplete                                                                          |
 | `src/keyboard/layoutSchema.ts`                                          | keyboard layout types, incl. `GraphicsPalette` / `GraphicEntry`                                       |
-| `src/keyboard/templateRows.ts`                                          | the template's geometry: `GRID_COLUMNS`/`KEY_SPAN`, `centerRow`, `bottomRow`, `functionStrip`         |
+| `src/keyboard/templateRows.ts`                                          | the template's geometry: `GRID_COLUMNS`/`KEY_SPAN`, `centerRow`, `bottomRow`                          |
 | `src/dialects/semigraphicsAudit.ts`                                     | declare the machine's graphics byte range in `SEMIGRAPHIC_CODES`; join `IN_SCOPE` once it round-trips |
 | `src/keyboard/{VirtualKeyboard,inputEngine}.tsx/.ts`                    | data-driven keyboard (no changes needed)                                                              |
 | `src/dialects/sinclairTape.ts`, `sinclairCharset.ts`, `sinclairVars.ts` | shared Sinclair codecs                                                                                |
@@ -190,10 +190,13 @@ machine takes its proportions from `src/keyboard/templateRows.ts`:
   fewer goes through `centerRow` rather than growing its keys to fill the width.
 - The bottom row comes from the `bottomRow` factory, which centres the space bar
   and sizes it from what the flanking modifiers leave.
-- Function keys are `KEY_SPAN` too. The strip renders on the key rows' own grid
-  through `functionStrip`, so a machine with three of them gets three centred
-  keycaps and one with more than a line holds wraps onto another line — neither
-  stretches nor shrinks its keys to the count it happens to have.
+- Function keys are `KEY_SPAN` too. The strip is one row, and it divides its
+  width by the key rows' own grid: a machine with three of them gets three
+  keycaps centred over the board, and one with more than a board's worth scrolls
+  the rest into reach — neither stretches nor shrinks its keys to the count it
+  happens to have. Design for ten. Nothing enforces a ceiling, but the eleventh
+  key onwards starts off-screen, so put only the keys nothing else can reach on
+  the strip and leave the rest to the host keyboard.
 - A strip key carries `style: 'fn'` and `editor: null` on its label. It presses
   the matrix and nothing else; without the explicit `null` a label falls back to
   inserting its own text, and a key marked `f1` types `f1` into the program.

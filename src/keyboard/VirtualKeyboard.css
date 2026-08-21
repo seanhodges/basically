@@ -14,6 +14,10 @@
      ~344px of palette inside the overlay padding). */
   --vk-graphic-min: 64px;
   --vk-aspect: 2.4;
+  /* Gap between the key rows and between the keys in one. The strip divides
+     its width by the same numbers, which is what makes a function key exactly
+     a keycap; changing it here changes both. */
+  --vk-row-gap: 3px;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -54,7 +58,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--vk-row-gap);
   /* Cap width so keys never stretch too wide; centre the leftover space. */
   max-width: calc(var(--vk-aspect) * 46vh);
   margin-inline: auto;
@@ -65,7 +69,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  gap: 3px;
+  gap: var(--vk-row-gap);
 }
 
 /* ---------- Graphics palette ----------
@@ -540,10 +544,7 @@
   .virtual-keyboard {
     gap: 2px;
     padding: 4px 6px 2px;
-  }
-
-  .vk-row {
-    gap: 2px;
+    --vk-row-gap: 2px;
   }
 
   .vk-strip {
@@ -607,7 +608,60 @@
   display: flex;
   gap: 4px;
   align-items: stretch;
-  padding: 0 2px 5px;
+  padding: 0 0 3px;
+}
+
+/* Portrait: the strip takes the key rows' own box - same width, same cap on a
+   wide screen, same centring - so the width it divides among its keys is the
+   width the rows divide among theirs, and a function key comes out a keycap. */
+.vk-portrait .vk-strip {
+  width: 100%;
+  max-width: calc(var(--vk-aspect) * 46vh);
+  margin-inline: auto;
+  position: relative;
+}
+
+/* A machine with more function keys than the board is wide gets a fade over
+   the right edge, because there is nothing else to see: the keys are keycaps,
+   so a row's worth fills the width to the pixel and the next one is hidden at
+   a clean edge with no sliver of it showing. The platform's own scrollbar is
+   an overlay one that fades out, which is the same reason the palette draws
+   its own overflow cues. The strip is not the scroller, so this sits still
+   while the keys move under it. */
+.vk-portrait .vk-fn-overflow::after {
+  content: '';
+  position: absolute;
+  inset: 0 -2px auto auto;
+  width: 16px;
+  height: 34px;
+  background: linear-gradient(to right, rgb(22 22 26 / 0%), #16161a 70%);
+  pointer-events: none;
+}
+
+/* …and it retracts over the last of the scroll, so the key the user has just
+   scrolled to is not left sitting under a cue for keys that are no longer
+   there. A browser without scroll-driven animation keeps the plain cue, which
+   is a small lie at the end of the row rather than a broken one. */
+@supports (animation-timeline: scroll()) {
+  .vk-portrait .vk-fn-overflow {
+    timeline-scope: --vk-fn-scroll;
+  }
+
+  .vk-portrait .vk-fn-overflow .vk-fn-row {
+    scroll-timeline: --vk-fn-scroll inline;
+  }
+
+  .vk-portrait .vk-fn-overflow::after {
+    animation: vk-fn-cue linear both;
+    animation-timeline: --vk-fn-scroll;
+    animation-range: 75% 100%;
+  }
+
+  @keyframes vk-fn-cue {
+    to {
+      opacity: 0;
+    }
+  }
 }
 
 .vk-mode-bar {
@@ -619,7 +673,60 @@
 .vk-fn-row {
   display: grid;
   flex: 1;
-  gap: 4px;
+  gap: var(--vk-row-gap);
+}
+
+/* The function keys are one row, and a key on it is one keycap: the tracks are
+   the key rows' own 40-column grid, so ten keys fill the width exactly and a
+   machine with more scrolls the rest into reach rather than shrinking them or
+   wrapping. `safe center` centres a short strip over the board but falls back
+   to the start edge once the keys overflow - a plain `center` would push the
+   first of them off the left, where no scroll can reach it. */
+.vk-portrait .vk-fn-row {
+  grid-auto-flow: column;
+  grid-auto-columns: calc(
+    (100% - (var(--vk-grid-cols) - 1) * var(--vk-row-gap)) / var(--vk-grid-cols)
+  );
+  justify-content: safe center;
+  /* A flex item's automatic minimum size would size it to the whole row
+     instead of letting it scroll. */
+  min-width: 0;
+  /* `visible` on one axis silently promotes the other to `auto`, so both are
+     spelled out; the 2px the keycap's shadow needs is padding, not overflow. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Room for what hangs outside the keys - the keycap's shadow below, and the
+     first and last key's touch bleed at the ends. Without the inline pair the
+     bleed past the last key counts as scrollable width, and a strip whose keys
+     all fit would still show a scrollbar. The negative margin gives the room
+     back, so the tracks still divide exactly the width the key rows divide. */
+  margin-inline: -2px;
+  padding: 0 2px 2px;
+  /* Opt back in to panning: the keyboard as a whole sets touch-action: none so
+     that a drag across the keys presses them. `contain` keeps a pan at the
+     left edge from being read as a back-navigation swipe. */
+  touch-action: pan-x;
+  overscroll-behavior: contain;
+}
+
+/* The second cue, and the one that says how far along the row you are. It is
+   the edge fade rather than this that has to carry the news that there is more
+   at all, because a horizontal bar is an overlay one that fades out on most
+   platforms whatever these rules ask for. (As on the palette, `scrollbar-width`
+   and `scrollbar-color` are deliberately unset - setting them makes Chromium
+   ignore these rules outright.) */
+.vk-portrait .vk-fn-row::-webkit-scrollbar {
+  height: 6px;
+}
+
+.vk-portrait .vk-fn-row::-webkit-scrollbar-track {
+  background: #101014;
+  border-radius: 3px;
+}
+
+.vk-portrait .vk-fn-row::-webkit-scrollbar-thumb {
+  background: #565d6d;
+  border-radius: 3px;
 }
 
 /* Function keys are compact tappable keys (no function-legend strip). */
@@ -783,10 +890,9 @@
 @media (min-width: 769px) {
   .virtual-keyboard.vk-portrait {
     justify-content: center;
-    /* Height taken by the top strip + gap, reserved by the clamp below. A
-       machine with more function keys than fit across wraps onto further
-       strip lines, each costing another key height plus the grid gap. */
-    --vk-strip-reserve: calc(56px + (var(--vk-fn-lines, 1) - 1) * 38px);
+    /* Height taken by the top strip + gap, reserved by the clamp below, plus
+       the scrollbar a strip with keys past its edge shows under them. */
+    --vk-strip-reserve: calc(56px + var(--vk-strip-bar, 0px));
   }
 
   .vk-portrait .vk-rows {
@@ -798,6 +904,16 @@
     max-width: none;
     margin-inline: auto;
     aspect-ratio: var(--vk-aspect);
+  }
+
+  /* The rows stop filling the width here, so the strip has to stop too or its
+     keys would be drawn wider than the keycaps they sit over. */
+  .vk-portrait .vk-strip {
+    width: min(
+      100cqw,
+      calc((100cqh - var(--vk-strip-reserve, 0px)) * var(--vk-aspect))
+    );
+    max-width: none;
   }
 }
 
