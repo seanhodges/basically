@@ -237,6 +237,124 @@ describe('KeyboardInputEngine', () => {
   });
 });
 
+/**
+ * A layout that asks for a hold ceiling, and has a function key to prove the
+ * exemption with. Five frames rather than a machine's real number: the value is
+ * the layout's to choose, and the engine only ever compares it with its own
+ * frame count.
+ */
+const ceilingLayout: KeyboardLayout = {
+  ...layout,
+  functionKeys: [
+    { id: 'K0', spanX: 1, emits: ['K0'], labels: [{ text: 'K0' }] },
+  ],
+  options: { minHoldFrames: 3, maxHoldFrames: 5 },
+};
+
+describe('KeyboardInputEngine (hold ceiling)', () => {
+  function ceilingSetup() {
+    const machine = new FakeMachine();
+    const engine = new KeyboardInputEngine(ceilingLayout, {
+      kind: 'machine',
+      getMachine: () => machine as unknown as MachineEmulator,
+    });
+    return { machine, engine };
+  }
+
+  it('ends a press that outstays the ceiling, and never presses it again', () => {
+    const { machine, engine } = ceilingSetup();
+    engine.pointerDown('KeyH', 1);
+    frames(engine, 4);
+    expect(machine.down.has('KeyH')).toBe(true);
+    frames(engine, 1); // 5th frame - the ceiling
+    expect(machine.down.has('KeyH')).toBe(false);
+    // The finger is still on the key: nothing may press it again, and the key
+    // stops drawing as pressed so the user can see the press is spent.
+    expect(engine.getPressedKeyIds().has('KeyH')).toBe(false);
+    frames(engine, 50);
+    engine.pointerUp(1); // the eventual lift has nothing left to do
+    frames(engine, 10);
+    expect(machine.log.filter(([, down]) => down)).toEqual([['KeyH', true]]);
+    expect(machine.down.size).toBe(0);
+  });
+
+  it('does not press the key again when the pointer moves over it', () => {
+    // The keyboard hit-tests every pointer move, so a finger that stays put but
+    // trembles reports the same key over and over. Once the press is spent that
+    // has to stay spent, or the ceiling would just move the burst one move
+    // later.
+    const { machine, engine } = ceilingSetup();
+    engine.pointerDown('KeyH', 1);
+    frames(engine, 5);
+    expect(machine.down.has('KeyH')).toBe(false);
+    for (let move = 0; move < 5; move++) {
+      engine.pointerEnter('KeyH', 1);
+      frames(engine, 3);
+    }
+    expect(machine.log.filter(([, down]) => down)).toEqual([['KeyH', true]]);
+    // Sliding onto a different key is still a press of that key.
+    engine.pointerEnter('KeyP', 1);
+    expect(machine.down.has('KeyP')).toBe(true);
+    frames(engine, 5);
+    engine.pointerUp(1);
+    expect(machine.down.size).toBe(0);
+  });
+
+  it('leaves a press that lifts inside the ceiling alone', () => {
+    const { machine, engine } = ceilingSetup();
+    engine.pointerDown('KeyH', 1);
+    frames(engine, 3);
+    engine.pointerUp(1);
+    expect(machine.down.has('KeyH')).toBe(false);
+    expect(machine.log).toEqual([
+      ['KeyH', true],
+      ['KeyH', false],
+    ]);
+  });
+
+  it('holds a function key for as long as the pointer is on it', () => {
+    const { machine, engine } = ceilingSetup();
+    engine.pointerDown('K0', 1);
+    frames(engine, 60);
+    expect(machine.down.has('K0')).toBe(true); // held state a program reads
+    engine.pointerUp(1);
+    expect(machine.down.has('K0')).toBe(false);
+  });
+
+  it('keeps a held modifier down when the key it modifies expires', () => {
+    const { machine, engine } = ceilingSetup();
+    engine.pointerDown('Shift', 1);
+    engine.pointerDown('KeyP', 2);
+    frames(engine, 10);
+    expect(machine.down.has('KeyP')).toBe(false); // expired
+    expect(machine.down.has('Shift')).toBe(true); // finger 1 still on it
+    engine.pointerUp(1);
+    frames(engine, 5);
+    expect(machine.down.has('Shift')).toBe(false);
+  });
+
+  it('releases a sticky modifier the expired press consumed', () => {
+    const { machine, engine } = ceilingSetup();
+    engine.pointerDown('Shift', 1);
+    engine.pointerUp(1); // tap → sticky
+    engine.pointerDown('KeyP', 2);
+    expect(machine.down.has('Shift')).toBe(true);
+    frames(engine, 5);
+    expect(machine.down.has('KeyP')).toBe(false);
+    expect(machine.down.has('Shift')).toBe(false);
+    expect(engine.getModifierState('shift')).toBe('off');
+  });
+
+  it('holds indefinitely where the layout asks for no ceiling', () => {
+    const { machine, engine } = setup();
+    engine.pointerDown('KeyH', 1);
+    frames(engine, 200);
+    expect(machine.down.has('KeyH')).toBe(true);
+    engine.pointerUp(1);
+    expect(machine.down.has('KeyH')).toBe(false);
+  });
+});
+
 describe('KeyboardInputEngine (editor target)', () => {
   function editorSetup() {
     const presses: { keyId: string; layerId: string }[] = [];

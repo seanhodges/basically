@@ -25,6 +25,12 @@ interface ActivePress {
   modifierId?: string;
   /** Modifier state when the pointer went down (drives the tap cycle). */
   modifierStateAtDown?: ModifierState;
+  /**
+   * Set once the press has outstayed the layout's ceiling and been released.
+   * The entry stays until the pointer lifts, so the pointer keeps its place -
+   * a move over the same key finds its press rather than starting another.
+   */
+  expired?: boolean;
 }
 
 interface PendingRelease {
@@ -44,7 +50,10 @@ interface PendingRelease {
  */
 export class KeyboardInputEngine {
   private readonly keyById = new Map<string, KeyDef>();
+  /** Function keys, which the ceiling below leaves held. */
+  private readonly functionKeyIds = new Set<string>();
   private readonly minHoldFrames: number;
+  private readonly maxHoldFrames: number;
   private frame = 0;
   private readonly presses = new Map<number, ActivePress>();
   private readonly pendingReleases: PendingRelease[] = [];
@@ -70,12 +79,19 @@ export class KeyboardInputEngine {
       target.kind === 'editor'
         ? 0
         : (layout.options?.minHoldFrames ?? DEFAULT_MIN_HOLD_FRAMES);
+    // The ceiling is about what the machine's firmware does with a key still
+    // held, so it means nothing to the editor, which acts on the key-down.
+    this.maxHoldFrames =
+      target.kind === 'editor' ? 0 : (layout.options?.maxHoldFrames ?? 0);
     // Index every key in the layout - the standard rows plus any top-strip
     // function keys - so pointer events resolve regardless of which strip view
     // is shown. Keys sharing an id collapse to one entry harmlessly.
     for (const row of layout.rows)
       for (const k of row) this.keyById.set(k.id, k);
-    for (const k of layout.functionKeys ?? []) this.keyById.set(k.id, k);
+    for (const k of layout.functionKeys ?? []) {
+      this.keyById.set(k.id, k);
+      this.functionKeyIds.add(k.id);
+    }
     for (const m of layout.modifiers) this.modifierStates.set(m.id, 'off');
   }
 
@@ -92,6 +108,7 @@ export class KeyboardInputEngine {
     const press = this.presses.get(pointerId);
     if (!press) return;
     this.presses.delete(pointerId);
+    if (press.expired) return; // released at the ceiling; nothing left to do
     if (press.modifierId) this.modifierUp(press);
     else this.scheduleRelease(press);
     this.notify();
@@ -108,7 +125,9 @@ export class KeyboardInputEngine {
     if (current?.keyId === keyId) return;
     if (current) {
       this.presses.delete(pointerId);
-      if (current.modifierId) this.cancelModifierPress(current);
+      if (current.expired) {
+        // Already released; sliding off it is just the pointer moving on.
+      } else if (current.modifierId) this.cancelModifierPress(current);
       else this.scheduleRelease(current);
     }
     const key = keyId === null ? undefined : this.keyById.get(keyId);
@@ -121,6 +140,7 @@ export class KeyboardInputEngine {
     const press = this.presses.get(pointerId);
     if (!press) return;
     this.presses.delete(pointerId);
+    if (press.expired) return;
     if (press.modifierId) this.cancelModifierPress(press);
     else this.scheduleRelease(press);
     this.notify();
@@ -139,11 +159,17 @@ export class KeyboardInputEngine {
     this.notify();
   }
 
-  /** Called once per emulated frame; flushes min-hold-deferred releases. */
+  /**
+   * Called once per emulated frame; ends presses that have outstayed the
+   * layout's ceiling, then flushes min-hold-deferred releases.
+   */
   onFrame(): void {
     this.frame++;
-    if (this.pendingReleases.length === 0) return;
-    let changed = false;
+    let changed = this.expireLongPresses();
+    if (this.pendingReleases.length === 0) {
+      if (changed) this.notify();
+      return;
+    }
     for (let i = this.pendingReleases.length - 1; i >= 0; i--) {
       const pending = this.pendingReleases[i]!;
       if (this.frame >= pending.releaseAtFrame) {
@@ -174,10 +200,15 @@ export class KeyboardInputEngine {
     );
   }
 
-  /** Key ids a pointer currently holds (for visual press feedback). */
+  /**
+   * Key ids a pointer currently holds (for visual press feedback). A press the
+   * ceiling has ended is not one of them: the key pops back up under the
+   * finger, which is the only sign the user gets that it is spent.
+   */
   getPressedKeyIds(): Set<string> {
     const ids = new Set<string>();
-    for (const press of this.presses.values()) ids.add(press.keyId);
+    for (const press of this.presses.values())
+      if (!press.expired) ids.add(press.keyId);
     return ids;
   }
 
@@ -271,6 +302,30 @@ export class KeyboardInputEngine {
       press.pressedAtFrame,
       press.consumesModifiers,
     );
+  }
+
+  /**
+   * End presses that have outstayed the layout's ceiling, and report whether
+   * any did.
+   *
+   * The press ends the way a lift ends it - same minimum hold, same sticky
+   * modifier consumption - and is marked spent, so the key stops drawing as
+   * pressed and neither the lift nor a move over the same key can press it
+   * again. Function keys and modifiers are left alone: programs read function
+   * keys as held state, and a modifier has to outlast the key it modifies.
+   */
+  private expireLongPresses(): boolean {
+    if (this.maxHoldFrames <= 0) return false;
+    let expired = false;
+    for (const press of this.presses.values()) {
+      if (press.expired) continue;
+      if (press.modifierId || this.functionKeyIds.has(press.keyId)) continue;
+      if (this.frame - press.pressedAtFrame < this.maxHoldFrames) continue;
+      press.expired = true;
+      this.scheduleRelease(press);
+      expired = true;
+    }
+    return expired;
   }
 
   /** Release now if the press is mature, else defer until it is (R2). */

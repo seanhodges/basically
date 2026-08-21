@@ -227,9 +227,19 @@ export const pmd85KeyboardLayout: KeyboardLayout = {
   rows,
   functionKeys,
   glyphs: {},
-  // One frame is enough: the Monitor rescans the whole matrix many times over
-  // a 2.048 MHz frame, so a tap that survives a single `runFrame` is seen.
-  options: { minHoldFrames: 1 },
+  /**
+   * One frame is enough to be seen: the Monitor rescans the whole matrix many
+   * times over a 2.048 MHz frame, so a tap that survives a single `runFrame`
+   * lands.
+   *
+   * Twenty frames is as long as one may last. Hold a key on this machine and
+   * the Monitor sends the character again 38 frames later, then one every four
+   * - about thirteen a second - which a finger resting on glass reaches without
+   * meaning to. Ending the press after 20 frames leaves that delay 18 frames
+   * away, and costs the keyboard nothing this machine can read: `INKEY` sees
+   * only K0-K11, and those are function keys, which stay held.
+   */
+  options: { minHoldFrames: 1, maxHoldFrames: 20 },
   /**
    * The on-screen controller drives the function keys, not WASD.
    *

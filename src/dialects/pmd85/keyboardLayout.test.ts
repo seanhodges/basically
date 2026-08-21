@@ -307,6 +307,38 @@ describe('pmd85 keyboard layout', () => {
     expect(dialogueLine(pmd.mem.videoRam)).toBe('PRI');
   });
 
+  it('lets go of a key before the Monitor starts repeating it', () => {
+    // The other half of the same claim: `minHoldFrames` says a press lasts long
+    // enough to be seen, `maxHoldFrames` that it ends before the Monitor sends
+    // the character again. Both are claims about this ROM, so the repeat is
+    // measured off it rather than quoted - hold one key and watch the dialogue
+    // line grow. A ceiling that drifted up to meet the repeat would let a
+    // resting finger type a burst, which is what it exists to stop.
+    const hold = layout.options?.maxHoldFrames ?? 0;
+    expect(hold).toBeGreaterThan(layout.options?.minHoldFrames ?? 1);
+
+    const pmd = new Pmd85Machine(splitRomImage(rom));
+    pmd.bootToReady();
+    pmd.setKey('KeyP', true);
+    let repeatAt = 0;
+    for (let frame = 1; frame <= 120 && repeatAt === 0; frame++) {
+      pmd.runFrame();
+      if (dialogueLine(pmd.mem.videoRam).length > 1) repeatAt = frame;
+    }
+    expect(repeatAt).toBeGreaterThan(0); // the ROM does repeat - not a no-op
+    // Clear of it by a third of the delay, so a slow frame or two cannot cross.
+    expect(repeatAt - hold).toBeGreaterThanOrEqual(Math.round(repeatAt / 3));
+
+    // And a press held to the ceiling itself types exactly one character.
+    const tap = new Pmd85Machine(splitRomImage(rom));
+    tap.bootToReady();
+    tap.setKey('KeyP', true);
+    for (let frame = 0; frame < hold; frame++) tap.runFrame();
+    tap.setKey('KeyP', false);
+    for (let frame = 0; frame < 20; frame++) tap.runFrame();
+    expect(dialogueLine(tap.mem.videoRam)).toBe('P');
+  });
+
   it('fills its grid exactly on every row', () => {
     for (const [i, row] of layout.rows.entries()) {
       const span = row.reduce((n, k) => n + k.spanX, 0);

@@ -58,6 +58,21 @@ export interface KeyboardLayout {
     /** Minimum emulated frames a matrix press is held so the ROM scan sees it. */
     minHoldFrames?: number;
     /**
+     * Most emulated frames one on-screen press drives the matrix, however long
+     * the pointer rests on the key.
+     *
+     * A fingertip has nothing to feel bottoming out, so a press that reads as a
+     * tap easily outlasts the delay a machine's firmware waits before it starts
+     * repeating the held key - and the tap arrives as a burst of characters.
+     * The ceiling ends the press first. Set it from the machine's own measured
+     * repeat delay, below it with room to spare; leave it out and a press lasts
+     * exactly as long as the pointer does.
+     *
+     * Function keys and modifiers ignore it: programs read function keys as
+     * held state, and a modifier has to outlast the key it modifies.
+     */
+    maxHoldFrames?: number;
+    /**
      * Layer shown alongside the base layer when the keyboard is too narrow
      * to render every legend (compact mode). Defaults to the first non-base
      * layer.
