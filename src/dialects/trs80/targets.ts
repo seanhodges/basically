@@ -1,9 +1,13 @@
 import type { BuildTarget, MemoryBlock } from '../types';
-import { fatalErrors } from '../types';
+import {
+  assertNoFatalErrors,
+  buildImageOrThrow,
+  cassetteWavTarget,
+  fileTarget,
+} from '../targetHelpers';
 import { tokenizeProgram } from './tokenizer';
 import { buildCasImage } from './casfile';
 import { buildCmdModule, buildTrsDisk, type Trs80DiskFile } from './trs80Disk';
-import { samplesToWav } from '../../transfer/wav';
 import {
   CASSETTE_SAMPLE_RATE,
   buildCassetteSamples,
@@ -20,12 +24,7 @@ const DISK_BASIC_MARKER = 0xff;
 function programImage(source: string): Uint8Array {
   if (source.trim() === '') return new Uint8Array(0);
   const { program, errors } = tokenizeProgram(source);
-  const fatal = fatalErrors(errors);
-  if (fatal.length > 0) {
-    throw new Error(
-      `Program has ${fatal.length} error(s) - fix them before building`,
-    );
-  }
+  assertNoFatalErrors(errors);
   return program.length > 2 ? program : new Uint8Array(0);
 }
 
@@ -75,70 +74,31 @@ export function buildTrs80DiskImage(
  */
 export function buildCas(source: string, programName: string): Uint8Array {
   const { program, errors } = tokenizeProgram(source);
-  const fatal = fatalErrors(errors);
-  if (fatal.length > 0) {
-    throw new Error(
-      `Program has ${fatal.length} error(s) - fix them before building`,
-    );
-  }
-  if (program.length <= 2) throw new Error('Program is empty');
-  return buildCasImage(program, programName);
+  return buildCasImage(
+    buildImageOrThrow({ bytes: program, errors }, 2),
+    programName,
+  );
 }
 
 export const trs80BuildTargets: BuildTarget[] = [
-  {
-    id: 'trs80-cas',
-    label: 'Export .cas',
-    fileExtension: 'cas',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.cas`,
-          blob: new Blob([buildCas(source, programName) as BlobPart], {
-            type: 'application/octet-stream',
-          }),
-        },
-      ]),
-  },
-  {
-    id: 'trs80-dsk',
-    label: 'Export .dsk disk',
-    fileExtension: 'dsk',
+  fileTarget('trs80-cas', 'Export .cas', 'cas', (source, { programName }) =>
+    buildCas(source, programName),
+  ),
+  fileTarget(
+    'trs80-dsk',
+    'Export .dsk disk',
+    'dsk',
+    (source, { programName, blocks, loader }) =>
+      buildTrs80DiskImage(source, programName, blocks, loader),
     // A JV1 TRSDOS disc carries the BASIC program plus each memory block as its
     // own file; the .cas/.wav targets hold the BASIC program only, so the
     // Transfer dialog warns before dropping blocks to them.
-    supportsBlocks: true,
-    build: (source, { programName, blocks, loader }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.dsk`,
-          blob: new Blob(
-            [
-              buildTrs80DiskImage(
-                source,
-                programName,
-                blocks,
-                loader,
-              ) as BlobPart,
-            ],
-            { type: 'application/octet-stream' },
-          ),
-        },
-      ]),
-  },
-  {
+    { supportsBlocks: true },
+  ),
+  cassetteWavTarget({
     id: 'trs80-wav',
-    label: 'Export cassette .wav',
-    fileExtension: 'wav',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.wav`,
-          blob: samplesToWav(
-            buildCassetteSamples(source, programName),
-            CASSETTE_SAMPLE_RATE,
-          ),
-        },
-      ]),
-  },
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, { programName }) =>
+      buildCassetteSamples(source, programName),
+  }),
 ];

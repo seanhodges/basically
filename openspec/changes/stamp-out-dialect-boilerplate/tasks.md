@@ -9,9 +9,9 @@
 
 ## 2. Target helpers
 
-- [ ] 2.1 Add `src/dialects/targetHelpers.ts`: `buildImageOrThrow`,
+- [x] 2.1 Add `src/dialects/targetHelpers.ts`: `buildImageOrThrow`,
       `fileTarget`, `cassetteWavTarget`, with a colocated test
-- [ ] 2.2 Migrate the twelve `targets.ts` files with the shared guard and
+- [x] 2.2 Migrate the twelve `targets.ts` files with the shared guard and
       the eight with the common WAV target; per-dialect target tests pin
       ids, labels, extensions, and output bytes unchanged
 

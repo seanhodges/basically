@@ -8,7 +8,7 @@ import {
   buildTapeFile,
 } from './audio/cassetteEncoder';
 import { buildPmdImage, buildPtpImage } from './tape';
-import { samplesToWav } from '../../transfer/wav';
+import { cassetteWavTarget, fileTarget } from '../targetHelpers';
 
 /**
  * File exports for the PMD 85.
@@ -37,49 +37,23 @@ import { samplesToWav } from '../../transfer/wav';
  * Transfer dialog already says when a document's blocks would be dropped.
  */
 export const pmd85BuildTargets: BuildTarget[] = [
-  {
-    id: 'pmd85-ptp',
-    label: 'Export .ptp tape image',
-    fileExtension: 'ptp',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.ptp`,
-          blob: new Blob(
-            [buildPtpImage([buildTapeFile(source, programName)]) as BlobPart],
-            { type: 'application/octet-stream' },
-          ),
-        },
-      ]),
-  },
-  {
-    id: 'pmd85-pmd',
-    label: 'Export .pmd file',
-    fileExtension: 'pmd',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.pmd`,
-          blob: new Blob(
-            [buildPmdImage(buildTapeFile(source, programName)) as BlobPart],
-            { type: 'application/octet-stream' },
-          ),
-        },
-      ]),
-  },
-  {
-    id: 'wav',
-    label: 'Export cassette .wav',
-    fileExtension: 'wav',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.wav`,
-          blob: samplesToWav(
-            buildCassetteSamples(source, programName, false),
-            CASSETTE_SAMPLE_RATE,
-          ),
-        },
-      ]),
-  },
+  fileTarget(
+    'pmd85-ptp',
+    'Export .ptp tape image',
+    'ptp',
+    (source, { programName }) =>
+      buildPtpImage([buildTapeFile(source, programName)]),
+  ),
+  fileTarget(
+    'pmd85-pmd',
+    'Export .pmd file',
+    'pmd',
+    (source, { programName }) =>
+      buildPmdImage(buildTapeFile(source, programName)),
+  ),
+  cassetteWavTarget({
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, { programName }) =>
+      buildCassetteSamples(source, programName, false),
+  }),
 ];

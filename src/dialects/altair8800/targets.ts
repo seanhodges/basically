@@ -2,7 +2,11 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { BuildTarget } from '../types';
-import { fatalErrors } from '../types';
+import {
+  assertNoFatalErrors,
+  cassetteWavTarget,
+  fileTarget,
+} from '../targetHelpers';
 import { altair8800Charset } from './charset';
 import {
   CASSETTE_SAMPLE_RATE,
@@ -10,7 +14,6 @@ import {
   buildCsaveImage,
 } from './audio/cassetteEncoder';
 import { tokenizeProgram } from './tokenizer';
-import { samplesToWav } from '../../transfer/wav';
 
 /**
  * File export targets for the Altair.
@@ -42,16 +45,6 @@ import { samplesToWav } from '../../transfer/wav';
  * would be dropped.
  */
 
-/** Fatal tokenizer errors, phrased the way every export path here reports them. */
-function assertBuildable(source: string): void {
-  const fatal = fatalErrors(tokenizeProgram(source).errors);
-  if (fatal.length > 0) {
-    throw new Error(
-      `Program has ${fatal.length} error(s) - fix them before building`,
-    );
-  }
-}
-
 /**
  * The listing as a paper tape: the program's own bytes, CR LF between lines.
  *
@@ -66,7 +59,7 @@ function assertBuildable(source: string): void {
  * and leaving them out keeps the file a plain readable listing.
  */
 export function buildPaperTape(source: string): Uint8Array {
-  assertBuildable(source);
+  assertNoFatalErrors(tokenizeProgram(source).errors);
   const lines = source.split('\n');
   // A trailing newline in the editor is one empty final line, not a blank line
   // to punch.
@@ -81,47 +74,24 @@ export function buildPaperTape(source: string): Uint8Array {
 }
 
 export const altair8800BuildTargets: BuildTarget[] = [
-  {
-    id: 'altair-csave',
-    label: 'Export CSAVE image',
-    fileExtension: 'bin',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.bin`,
-          blob: new Blob([buildCsaveImage(source, programName) as BlobPart], {
-            type: 'application/octet-stream',
-          }),
-        },
-      ]),
-  },
-  {
-    id: 'wav',
-    label: 'Export cassette .wav',
-    fileExtension: 'wav',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.wav`,
-          blob: samplesToWav(
-            buildCassetteSamples(source, programName, false),
-            CASSETTE_SAMPLE_RATE,
-          ),
-        },
-      ]),
-  },
-  {
-    id: 'altair-paper-tape',
-    label: 'Export paper tape (ASCII)',
-    fileExtension: 'txt',
-    build: (source, { programName }) =>
-      Promise.resolve([
-        {
-          fileName: `${programName.toLowerCase()}.txt`,
-          blob: new Blob([buildPaperTape(source) as BlobPart], {
-            type: 'text/plain',
-          }),
-        },
-      ]),
-  },
+  fileTarget(
+    'altair-csave',
+    'Export CSAVE image',
+    'bin',
+    (source, { programName }) => buildCsaveImage(source, programName),
+  ),
+  cassetteWavTarget({
+    sampleRate: CASSETTE_SAMPLE_RATE,
+    buildSamples: (source, { programName }) =>
+      buildCassetteSamples(source, programName, false),
+  }),
+  fileTarget(
+    'altair-paper-tape',
+    'Export paper tape (ASCII)',
+    'txt',
+    (source) =>
+      new Blob([buildPaperTape(source) as BlobPart], {
+        type: 'text/plain',
+      }),
+  ),
 ];
