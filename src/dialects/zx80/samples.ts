@@ -1,4 +1,5 @@
 import type { SampleFile } from '../types';
+import { standardSamples } from '../sampleKit';
 import hello from './samples/hello.bas?raw';
 import circles from './samples/circles.bas?raw';
 import maze from './samples/maze.bas?raw';
@@ -10,9 +11,9 @@ import kaleido from './samples/kaleido.bas?raw';
  * line 1 in kaleido.bas); BASIC POKEs the parameters and USR(16430)s it - see
  * samples/kaleido.asm for the readable source.
  */
-export const zx80Samples: SampleFile[] = [
-  { name: 'hello.bas', title: 'Hello world', text: hello },
-  { name: 'circles.bas', title: 'Circles', text: circles },
-  { name: 'maze.bas', title: 'Maze', text: maze },
-  { name: 'kaleido.bas', title: 'Kaleidoscope', text: kaleido },
-];
+export const zx80Samples: SampleFile[] = standardSamples({
+  hello,
+  circles,
+  maze,
+  kaleido,
+});

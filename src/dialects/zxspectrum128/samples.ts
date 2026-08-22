@@ -1,4 +1,5 @@
 import type { SampleFile } from '../types';
+import { standardSamples } from '../sampleKit';
 import hello from './samples/hello.bas?raw';
 import circles from './samples/circles.bas?raw';
 import breakout from './samples/breakout.bas?raw';
@@ -14,15 +15,7 @@ import { KALEIDO_BLOCK } from '../zxspectrum/samples';
  * this set mirrors the shared canonical samples. Offered when creating a new
  * project.
  */
-export const spectrum128Samples: SampleFile[] = [
-  { name: 'hello.bas', title: 'Hello world', text: hello },
-  { name: 'circles.bas', title: 'Circles', text: circles },
-  { name: 'breakout.bas', title: 'Breakout', text: breakout },
-  { name: 'maze.bas', title: 'Maze', text: maze },
-  {
-    name: 'kaleido.bas',
-    title: 'Kaleidoscope',
-    text: kaleido,
-    blocks: [KALEIDO_BLOCK],
-  },
-];
+export const spectrum128Samples: SampleFile[] = standardSamples(
+  { hello, circles, breakout, maze, kaleido },
+  { kaleidoBlock: KALEIDO_BLOCK },
+);

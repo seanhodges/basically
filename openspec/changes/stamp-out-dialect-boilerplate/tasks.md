@@ -1,9 +1,9 @@
 ## 1. Sample kit
 
-- [ ] 1.1 Add `standardSamples()` (+ colocated test) building the canonical
+- [x] 1.1 Add `standardSamples()` (+ colocated test) building the canonical
       five-sample list from imported sources and an optional kaleido block
       descriptor, with per-sample overrides as the escape hatch
-- [ ] 1.2 Migrate every non-variant dialect's `samples.ts`; colocated
+- [x] 1.2 Migrate every non-variant dialect's `samples.ts`; colocated
       `samples.test.ts` files unchanged and green; update the
       `authoring-dialect-samples` skill's samples.ts shape section
 

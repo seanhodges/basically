@@ -1,4 +1,5 @@
 import type { SampleFile } from '../types';
+import { standardSamples } from '../sampleKit';
 import hello from './samples/hello.bas?raw';
 import circles from './samples/circles.bas?raw';
 import breakout from './samples/breakout.bas?raw';
@@ -26,15 +27,7 @@ export const CPC464_KALEIDO_BLOCK = {
  * routine (assembled from `samples/kaleido.asm` into a block at `&8000`) that
  * fills the Mode 0 screen with a four-way mirror.
  */
-export const cpc464Samples: SampleFile[] = [
-  { name: 'hello.bas', title: 'Hello world', text: hello },
-  { name: 'circles.bas', title: 'Circles', text: circles },
-  { name: 'breakout.bas', title: 'Breakout', text: breakout },
-  { name: 'maze.bas', title: 'Maze', text: maze },
-  {
-    name: 'kaleido.bas',
-    title: 'Kaleidoscope',
-    text: kaleido,
-    blocks: [CPC464_KALEIDO_BLOCK],
-  },
-];
+export const cpc464Samples: SampleFile[] = standardSamples(
+  { hello, circles, breakout, maze, kaleido },
+  { kaleidoBlock: CPC464_KALEIDO_BLOCK },
+);

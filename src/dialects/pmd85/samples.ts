@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Sean Hodges
 
 import type { SampleFile } from '../types';
+import { standardSamples } from '../sampleKit';
 import hello from './samples/hello.bas?raw';
 import circles from './samples/circles.bas?raw';
 import breakout from './samples/breakout.bas?raw';
@@ -53,15 +54,7 @@ export const PMD85_KALEIDO_BLOCK = {
  * each one on the real ROM and checks what it draws, because tokenizing clean
  * and working are different things on this machine.
  */
-export const pmd85Samples: SampleFile[] = [
-  { name: 'hello.bas', title: 'Hello world', text: hello },
-  { name: 'circles.bas', title: 'Circles', text: circles },
-  { name: 'breakout.bas', title: 'Breakout', text: breakout },
-  { name: 'maze.bas', title: 'Maze', text: maze },
-  {
-    name: 'kaleido.bas',
-    title: 'Kaleidoscope',
-    text: kaleido,
-    blocks: [PMD85_KALEIDO_BLOCK],
-  },
-];
+export const pmd85Samples: SampleFile[] = standardSamples(
+  { hello, circles, breakout, maze, kaleido },
+  { kaleidoBlock: PMD85_KALEIDO_BLOCK },
+);

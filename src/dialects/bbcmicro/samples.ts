@@ -1,4 +1,5 @@
 import type { SampleFile } from '../types';
+import { standardSamples } from '../sampleKit';
 import hello from './samples/hello.bas?raw';
 import breakout from './samples/breakout.bas?raw';
 import circles from './samples/circles.bas?raw';
@@ -20,15 +21,7 @@ export const BBC_KALEIDO_BLOCK = {
 } as const;
 
 /** BBC Micro example programs, offered when creating a new project. */
-export const bbcSamples: SampleFile[] = [
-  { name: 'hello.bas', title: 'Hello world', text: hello },
-  { name: 'circles.bas', title: 'Circles', text: circles },
-  { name: 'breakout.bas', title: 'Breakout', text: breakout },
-  { name: 'maze.bas', title: 'Maze', text: maze },
-  {
-    name: 'kaleido.bas',
-    title: 'Kaleidoscope',
-    text: kaleido,
-    blocks: [BBC_KALEIDO_BLOCK],
-  },
-];
+export const bbcSamples: SampleFile[] = standardSamples(
+  { hello, circles, breakout, maze, kaleido },
+  { kaleidoBlock: BBC_KALEIDO_BLOCK },
+);
