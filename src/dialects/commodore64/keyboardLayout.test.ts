@@ -21,10 +21,11 @@ describe('commodore64 keyboard layout', () => {
     });
   });
 
-  it('offers ABC, SYM and GRAPHICS modes, the last showing the palette', () => {
+  it('offers ABC, SYM, CURSOR and GRAPHICS modes, the last showing the palette', () => {
     expect(layout.editorModes?.map((m) => m.id)).toEqual([
       'abc',
       'sym',
+      'cursor',
       'graphics',
     ]);
     const sym = layout.editorModes?.find((m) => m.id === 'sym');
@@ -33,7 +34,12 @@ describe('commodore64 keyboard layout', () => {
     expect(graphics?.palette).toBe('graphics');
     // The graphics sets are the palette's, not a pinned key layer's.
     expect(graphics?.shiftedLayer).toBeUndefined();
-    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift', 'sym']);
+    expect(layout.layers.map((l) => l.id)).toEqual([
+      'base',
+      'shift',
+      'sym',
+      'cursor',
+    ]);
   });
 
   it('carries eight function keys f1..f8 in the top strip', () => {

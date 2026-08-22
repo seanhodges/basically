@@ -136,8 +136,9 @@ export function VirtualKeyboard({
   );
 
   // Top-strip input modes (the ZX81 K/F/G cursor as a selector bar). Each mode
-  // pins a layer. Shown for both targets; for the machine target the mode is
-  // purely cosmetic (it emphasises a legend) - matrix tokens are unaffected.
+  // pins a layer. Shown for both targets: the pinned layer picks the legend,
+  // and a legend may carry its own matrix tokens, which is how CURSOR mode
+  // presses the machine's cursor keys rather than the letters underneath.
   const editorModes = layout.editorModes ?? [];
   // A palette mode produces editor inserts and nothing else, so it has nothing
   // to do while the keyboard drives the machine (there the machine's own
@@ -592,6 +593,12 @@ export function VirtualKeyboard({
 
   const pressed = engine.getPressedKeyIds();
   const activeLayer = engine.getActiveLayer();
+  // The engine resolves a modifier-driven layer itself, but a mode-pinned one
+  // is this component's state, so push it down: it decides both which legend a
+  // key shows and which tokens it presses.
+  useEffect(() => {
+    engine.setPinnedLayer(modePinnedLayerId(mode, baseLayer.id, activeLayer));
+  }, [engine, mode, baseLayer.id, activeLayer]);
   const focusKeyId = flatKeys[focusIdx]?.id;
 
   // Roving focus is a class rather than DOM focus, so the browser will not

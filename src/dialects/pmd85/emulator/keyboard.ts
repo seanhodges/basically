@@ -35,7 +35,10 @@ const ROWS: readonly (readonly (string | null)[])[] = [
   ['K10', 'Underscore', 'At', 'Colon', 'Slash'],
   ['K11', 'BraceLeft', 'Backslash', 'BracketLeft', null],
   // The editing block. WRK selects the function keys' second bank; |<- and ->|
-  // are the two tab keys.
+  // are the two tab keys. There are three cursor keys and no down key: the
+  // Monitor's key-code table at 0x82D0 gives the cell below |<- no code in
+  // either shift state, and the two beside it both return 0x0d - they are the
+  // two halves of the wide ENTER.
   ['WRK', 'Ins', 'ArrowLeft', 'TabLeft', null],
   ['ClrDel', 'Del', 'ArrowUp', 'End', 'Enter'],
   ['Clr', 'Rcl', 'ArrowRight', 'TabRight', 'NumpadEnter'],

@@ -17,7 +17,12 @@ import { TRS80_GRAPHICS } from './graphics';
  */
 
 type Shift = string | { text: string; insert: string };
-type Cursor = { text: string; action: 'up' | 'down' | 'left' | 'right' };
+type Cursor = {
+  text: string;
+  action: 'up' | 'down' | 'left' | 'right';
+  /** The arrow key's own matrix cell, pressed instead of the letter's. */
+  token: string;
+};
 
 function key(
   token: string,
@@ -32,7 +37,11 @@ function key(
         ? { text: shift }
         : { text: shift.text, editor: { insert: shift.insert } as const };
   const cursorLabel = cursor
-    ? { text: cursor.text, editor: { action: cursor.action } as const }
+    ? {
+        text: cursor.text,
+        editor: { action: cursor.action } as const,
+        emits: [cursor.token],
+      }
     : null;
   return {
     id: token,
@@ -58,7 +67,7 @@ const numberRow = [
 
 const qwertyRow = [
   key('KeyQ', 'Q'),
-  key('KeyW', 'W', undefined, { text: '↑', action: 'up' }),
+  key('KeyW', 'W', undefined, { text: '↑', action: 'up', token: 'ArrowUp' }),
   key('KeyE', 'E'),
   key('KeyR', 'R'),
   key('KeyT', 'T'),
@@ -71,9 +80,9 @@ const qwertyRow = [
 
 // SHIFT legends on the home row expose the common operators as editor inserts.
 const homeRow = [
-  key('KeyA', 'A', '+', { text: '←', action: 'left' }),
-  key('KeyS', 'S', '-', { text: '↓', action: 'down' }),
-  key('KeyD', 'D', '*', { text: '→', action: 'right' }),
+  key('KeyA', 'A', '+', { text: '←', action: 'left', token: 'ArrowLeft' }),
+  key('KeyS', 'S', '-', { text: '↓', action: 'down', token: 'ArrowDown' }),
+  key('KeyD', 'D', '*', { text: '→', action: 'right', token: 'ArrowRight' }),
   key('KeyF', 'F', '/'),
   key('KeyG', 'G', '='),
   key('KeyH', 'H', ':'),
@@ -131,11 +140,19 @@ const breakKey: KeyDef = {
   labels: [{ text: 'BRK' }, null, null],
 };
 
-const backspaceKey: KeyDef = {
+/**
+ * The Model I has no backspace and no delete key: `←` is its destructive
+ * backspace, sending 0x08, which the screen driver reads as "backspace and
+ * erase". So the keycap carries the machine's own legend, and the editor action
+ * matches what the machine does with it - move back one and erase. CURSOR mode
+ * reaches the same cell, and the other three arrows besides; this cap is here
+ * for the reach.
+ */
+const leftArrowKey: KeyDef = {
   id: 'Backspace',
   spanX: 4,
-  emits: ['ArrowLeft'], // the Model I backspaces with the left arrow
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null, null],
+  emits: ['ArrowLeft'],
+  labels: [{ text: '←', editor: { action: 'backspace' } }, null, null],
 };
 
 const rows: KeyDef[][] = [
@@ -143,7 +160,7 @@ const rows: KeyDef[][] = [
   qwertyRow,
   homeRow,
   zxcvRow,
-  bottomRow([shiftKey], spaceKey, [quoteKey, breakKey, backspaceKey]),
+  bottomRow([shiftKey], spaceKey, [quoteKey, breakKey, leftArrowKey]),
 ];
 
 export const trs80KeyboardLayout: KeyboardLayout = {

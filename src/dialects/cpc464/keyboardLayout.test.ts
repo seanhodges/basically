@@ -91,7 +91,14 @@ describe('cpc464 keyboard layout', () => {
 describe('cpc464 keyboard matrix coverage', () => {
   const matrixTokens = new Set<string>();
   for (const line of MATRIX) for (const t of line) if (t) matrixTokens.add(t);
-  const virtualTokens = new Set(allKeys.flatMap((k) => k.emits));
+  // A legend may name its own tokens in place of the key's (the CURSOR
+  // arrows over WASD), so the union has to include those too.
+  const virtualTokens = new Set(
+    allKeys.flatMap((k) => [
+      ...k.emits,
+      ...k.labels.flatMap((l) => l?.emits ?? []),
+    ]),
+  );
   const physicalTokens = new Set(Object.values(CODE_TO_TOKEN));
 
   it('only emits tokens that are real matrix cells the emulator decodes', () => {

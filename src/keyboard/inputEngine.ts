@@ -1,4 +1,5 @@
 import type { MachineEmulator } from '../dialects/types';
+import { resolveEmits } from './editorActions';
 import type { KeyDef, KeyboardLayout, LayerDef } from './layoutSchema';
 
 export type ModifierState = 'off' | 'held' | 'sticky' | 'locked';
@@ -59,6 +60,8 @@ export class KeyboardInputEngine {
   private readonly usedWhileHeld = new Set<string>();
   /** Notifies the UI that pressed-key / modifier / layer state changed. */
   onChange: (() => void) | null = null;
+  /** See {@link setPinnedLayer}. */
+  private pinnedLayerId: string | null = null;
 
   constructor(
     private readonly layout: KeyboardLayout,
@@ -161,6 +164,16 @@ export class KeyboardInputEngine {
     return this.modifierStates.get(id) ?? 'off';
   }
 
+  /**
+   * Layer an input mode has pinned, or null when the modifiers alone decide.
+   * Mode state lives in the keyboard, not here, so it is pushed in; a pinned
+   * layer is what lets a CURSOR legend press cursor keys rather than the
+   * letters underneath.
+   */
+  setPinnedLayer(layerId: string | null): void {
+    this.pinnedLayerId = layerId;
+  }
+
   getActiveLayer(): LayerDef {
     const active = [...this.modifierStates.entries()]
       .filter(([, s]) => s !== 'off')
@@ -192,10 +205,18 @@ export class KeyboardInputEngine {
       if (state === 'sticky') consumesModifiers.push(id);
       if (state === 'held') this.usedWhileHeld.add(id);
     }
-    for (const token of key.emits) this.pressToken(token);
+    // Resolved once, here, and carried on the press: the release replays these
+    // rather than re-reading the key, so a layer change mid-press cannot strand
+    // a held token.
+    const tokens = resolveEmits(
+      this.layout,
+      key,
+      this.pinnedLayerId ?? this.getActiveLayer().id,
+    );
+    for (const token of tokens) this.pressToken(token);
     this.presses.set(pointerId, {
       keyId: key.id,
-      tokens: key.emits,
+      tokens,
       pressedAtFrame: this.frame,
       consumesModifiers,
     });

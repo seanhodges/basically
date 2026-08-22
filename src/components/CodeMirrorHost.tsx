@@ -27,6 +27,7 @@ import {
   cursorLineUp,
   defaultKeymap,
   deleteCharBackward,
+  deleteCharForward,
   history,
   historyKeymap,
   insertNewlineAndIndent,
@@ -702,6 +703,11 @@ function applyEditorAction(view: EditorView, action: EditorKeyAction): void {
   switch (action.action) {
     case 'backspace':
       deleteCharBackward(view);
+      break;
+    // The machines with a delete key but no backspace (the PMD 85): the key
+    // takes the character the cursor is on, not the one behind it.
+    case 'delete':
+      deleteCharForward(view);
       break;
     case 'newline':
       if (!autoNumberOnEnter(view)) insertNewlineAndIndent(view);

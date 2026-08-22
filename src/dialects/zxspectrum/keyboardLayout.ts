@@ -23,9 +23,11 @@ import { SPECTRUM_BLOCK_GRAPHICS, SPECTRUM_UDG_GRAPHICS } from './graphics';
  * key - and, for the inverse blocks, the CAPS SHIFT - that types it. They are
  * not key legends because a UDG has no fixed shape to print.
  *
- * Per the template the number-row CAPS edit/cursor functions are dropped (the
- * editor handles cursor placement by touch); CAPS and SYMBOL shift sit on the
- * common bottom row either side of the space bar, with a quote and backspace.
+ * CAPS and SYMBOL shift sit on the common bottom row either side of the space
+ * bar, with a quote and backspace. The number row keeps its CAPS-layer arrow
+ * legends, which is where the machine prints them, and CURSOR mode puts the
+ * same four keys on WASD - the legends there press the CAPS SHIFT + 5/6/7/8
+ * pair the real keyboard sends.
  */
 
 type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
@@ -59,7 +61,7 @@ function key(token: string, legends: Legends): KeyDef {
     id: token,
     spanX: 4,
     emits: [token],
-    labels: legends.map(lbl),
+    labels: [...legends.map(lbl), null],
   };
 }
 
@@ -80,6 +82,26 @@ function letter(
   ]);
 }
 
+/**
+ * A key that also carries a CURSOR-layer arrow. The machine has no arrow keys:
+ * its cursor is CAPS SHIFT over 5/6/7/8, so the legend presses that pair rather
+ * than the letter's own cell, exactly as the real keyboard would.
+ */
+function withCursor(
+  def: KeyDef,
+  arrow: string,
+  action: 'left' | 'right' | 'up' | 'down',
+  digit: string,
+): KeyDef {
+  return {
+    ...def,
+    labels: [
+      ...def.labels.slice(0, 5),
+      { text: arrow, editor: { action }, emits: ['CapsShift', digit] },
+    ],
+  };
+}
+
 const numberRow = [
   key('Digit1', ['1', null, '!', null, null]),
   key('Digit2', ['2', null, '@', null, null]),
@@ -95,7 +117,12 @@ const numberRow = [
 
 const qwertyRow = [
   letter('KeyQ', 'q', '<=', 'PLOT', word('SIN')),
-  letter('KeyW', 'w', '<>', 'DRAW', word('COS')),
+  withCursor(
+    letter('KeyW', 'w', '<>', 'DRAW', word('COS')),
+    '↑',
+    'up',
+    'Digit7',
+  ),
   letter('KeyE', 'e', '>=', 'REM', word('TAN')),
   letter('KeyR', 'r', '<', 'RUN', word('INT')),
   letter('KeyT', 't', '>', 'RANDOMIZE', word('RND')),
@@ -107,9 +134,24 @@ const qwertyRow = [
 ];
 
 const homeRow = [
-  letter('KeyA', 'a', '~', 'NEW', word('READ')),
-  letter('KeyS', 's', '|', 'SAVE', word('RESTORE')),
-  letter('KeyD', 'd', '\\', 'DIM', word('DATA')),
+  withCursor(
+    letter('KeyA', 'a', '~', 'NEW', word('READ')),
+    '←',
+    'left',
+    'Digit5',
+  ),
+  withCursor(
+    letter('KeyS', 's', '|', 'SAVE', word('RESTORE')),
+    '↓',
+    'down',
+    'Digit6',
+  ),
+  withCursor(
+    letter('KeyD', 'd', '\\', 'DIM', word('DATA')),
+    '→',
+    'right',
+    'Digit8',
+  ),
   letter('KeyF', 'f', '{', 'FOR', word('SGN')),
   letter('KeyG', 'g', '}', 'GO TO', word('ABS')),
   letter('KeyH', 'h', ins('↑', '↑'), 'GO SUB', word('SQR')),
@@ -124,7 +166,7 @@ const periodKey: KeyDef = {
   id: 'Period',
   spanX: 4,
   emits: ['SymShift', 'KeyM'],
-  labels: [{ text: '.' }, null, null, null, null],
+  labels: [{ text: '.' }, null, null, null, null, null],
 };
 
 const zxcvRow = centerRow([
@@ -144,7 +186,7 @@ const capsKey: KeyDef = {
   emits: ['CapsShift'],
   modifier: 'caps',
   style: 'shift',
-  labels: [{ text: '⇧ Cap' }, null, null, null, null],
+  labels: [{ text: '⇧ Cap' }, null, null, null, null, null],
 };
 
 const symKey: KeyDef = {
@@ -153,21 +195,28 @@ const symKey: KeyDef = {
   emits: ['SymShift'],
   modifier: 'symbol',
   style: 'symshift',
-  labels: [{ text: '⇧ Sym' }, null, null, null, null],
+  labels: [{ text: '⇧ Sym' }, null, null, null, null, null],
 };
 
 const spaceKey = {
   id: 'Space',
   emits: ['Space'],
   style: 'small-main',
-  labels: [{ text: '␣', editor: { insert: ' ' } }, null, null, null, null],
+  labels: [
+    { text: '␣', editor: { insert: ' ' } },
+    null,
+    null,
+    null,
+    null,
+    null,
+  ],
 } satisfies Omit<KeyDef, 'spanX'>;
 
 const quoteKey: KeyDef = {
   id: 'Quote',
   spanX: 4,
   emits: ['SymShift', 'KeyP'],
-  labels: [{ text: '"' }, null, null, null, null],
+  labels: [{ text: '"' }, null, null, null, null, null],
 };
 
 const backspaceKey: KeyDef = {
@@ -176,6 +225,7 @@ const backspaceKey: KeyDef = {
   emits: ['CapsShift', 'Digit0'],
   labels: [
     { text: '⌫', editor: { action: 'backspace' } },
+    null,
     null,
     null,
     null,
@@ -231,9 +281,16 @@ export const spectrumKeyboardLayout: KeyboardLayout = {
       activeWhen: [],
       editorInsertStyle: 'word',
     },
+    {
+      id: 'cursor',
+      name: 'CURSOR',
+      position: 'br',
+      activeWhen: [],
+    },
   ],
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'main' },
+    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
     { id: 'keyword', name: 'KEYWORD', layer: 'keyword' },
     { id: 'function', name: 'FUNCTION', layer: 'function' },
     { id: 'symbol', name: 'SYMBOL', layer: 'symbol' },

@@ -28,6 +28,8 @@ const layout: KeyboardLayout = {
   layers: [
     { id: 'main', position: 'center', activeWhen: [] },
     { id: 'shift', position: 'tr', activeWhen: ['shift'] },
+    // Pinned by a mode rather than a modifier, like a real CURSOR mode.
+    { id: 'cursor', position: 'br', activeWhen: [] },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows: [
@@ -37,25 +39,35 @@ const layout: KeyboardLayout = {
         spanX: 1,
         emits: ['Shift'],
         modifier: 'shift',
-        labels: [{ text: 'SHIFT' }, null],
+        labels: [{ text: 'SHIFT' }, null, null],
       },
       {
         id: 'KeyP',
         spanX: 1,
         emits: ['KeyP'],
-        labels: [{ text: 'P' }, { text: '"' }],
+        // A cursor legend whose tokens are a chord sharing SHIFT with the
+        // modifier - the Sinclair machines' arrangement.
+        labels: [
+          { text: 'P' },
+          { text: '"' },
+          { text: '←', editor: { action: 'left' }, emits: ['Shift', 'KeyP'] },
+        ],
       },
       {
         id: 'KeyH',
         spanX: 1,
         emits: ['KeyH'],
-        labels: [{ text: 'H' }, { text: '**' }],
+        labels: [
+          { text: 'H' },
+          { text: '**' },
+          { text: '↑', editor: { action: 'up' }, emits: ['ArrowUp'] },
+        ],
       },
       {
         id: 'x-quote',
         spanX: 1,
         emits: ['Shift', 'KeyP'],
-        labels: [{ text: '"' }, null],
+        labels: [{ text: '"' }, null, null],
       },
     ],
   ],
@@ -77,6 +89,55 @@ function frames(engine: KeyboardInputEngine, n: number) {
 }
 
 describe('KeyboardInputEngine', () => {
+  it("presses the pinned layer's own tokens instead of the key's", () => {
+    const { machine, engine } = setup();
+    engine.setPinnedLayer('cursor');
+    engine.pointerDown('KeyH', 1);
+    // The cursor legend's key, not the letter underneath it.
+    expect(machine.down.has('ArrowUp')).toBe(true);
+    expect(machine.down.has('KeyH')).toBe(false);
+    frames(engine, 5);
+    engine.pointerUp(1);
+    expect(machine.down.size).toBe(0);
+  });
+
+  it('leaves a key alone on a layer whose legend names no tokens', () => {
+    const { machine, engine } = setup();
+    engine.setPinnedLayer('cursor');
+    // 'x-quote' has no cursor legend, so it keeps its own tokens.
+    engine.pointerDown('x-quote', 1);
+    expect(machine.down.has('Shift')).toBe(true);
+    expect(machine.down.has('KeyP')).toBe(true);
+  });
+
+  it("releases the tokens it actually pressed, not the key's own", () => {
+    const { machine, engine } = setup();
+    engine.setPinnedLayer('cursor');
+    engine.pointerDown('KeyH', 1);
+    frames(engine, 5);
+    // The mode changes while the key is still held - the release must still
+    // free ArrowUp rather than the letter the key would emit now.
+    engine.setPinnedLayer(null);
+    engine.pointerUp(1);
+    expect(machine.down.has('ArrowUp')).toBe(false);
+    expect(machine.down.has('KeyH')).toBe(false);
+  });
+
+  it('refcounts a cursor chord that shares a token with a held modifier', () => {
+    const { machine, engine } = setup();
+    engine.setPinnedLayer('cursor');
+    engine.pointerDown('Shift', 1); // held, not tapped
+    expect(machine.down.has('Shift')).toBe(true);
+    engine.pointerDown('KeyP', 2); // chord is Shift + KeyP
+    frames(engine, 5);
+    engine.pointerUp(2);
+    // SHIFT is still physically held, so the chord's release must not drop it.
+    expect(machine.down.has('Shift')).toBe(true);
+    expect(machine.down.has('KeyP')).toBe(false);
+    engine.pointerUp(1);
+    expect(machine.down.has('Shift')).toBe(false);
+  });
+
   it('defers release of a too-fast tap until minHoldFrames have elapsed', () => {
     const { machine, engine } = setup();
     engine.pointerDown('KeyH', 1);

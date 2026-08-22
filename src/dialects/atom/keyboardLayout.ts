@@ -36,7 +36,10 @@ import { ATOM_GRAPHICS } from './graphics';
  * the machine printed no graphics on any keycap.
  */
 
-type Legend = string | { text: string; editor: EditorKeyAction | null } | null;
+type Legend =
+  | string
+  | { text: string; editor: EditorKeyAction | null; emits?: string[] }
+  | null;
 type Legends = [Legend, Legend, Legend];
 
 /** Legend bound to an editing action. */
@@ -45,12 +48,27 @@ const act = (
   action: 'backspace' | 'newline' | 'left' | 'right' | 'up' | 'down',
 ): Legend => ({ text, editor: { action } });
 
+/**
+ * A CURSOR-layer legend: it moves the editor caret, and on the machine it
+ * presses the machine's own cursor key instead of the letter the keycap carries
+ * on its base layer.
+ */
+const cursorKey = (
+  text: string,
+  action: 'left' | 'right' | 'up' | 'down',
+  token: string,
+): Legend => ({ text, editor: { action }, emits: [token] });
+
 const lbl = (legend: Legend): KeyLabel | null =>
   legend === null
     ? null
     : typeof legend === 'string'
       ? { text: legend }
-      : { text: legend.text, editor: legend.editor };
+      : {
+          text: legend.text,
+          editor: legend.editor,
+          ...(legend.emits ? { emits: legend.emits } : {}),
+        };
 
 /**
  * A standard key: [base, shifted, sym] legends plus an optional CURSOR-layer
@@ -81,7 +99,7 @@ const numberRow = [
 
 const qwertyRow = [
   key('KeyQ', ['Q', null, null]),
-  key('KeyW', ['W', null, null], act('↑', 'up')),
+  key('KeyW', ['W', null, null], cursorKey('↑', 'up', 'ArrowUp')),
   key('KeyE', ['E', null, null]),
   key('KeyR', ['R', null, null]),
   key('KeyT', ['T', null, null]),
@@ -93,9 +111,9 @@ const qwertyRow = [
 ];
 
 const homeRow = [
-  key('KeyA', ['A', null, null], act('←', 'left')),
-  key('KeyS', ['S', null, null], act('↓', 'down')),
-  key('KeyD', ['D', null, null], act('→', 'right')),
+  key('KeyA', ['A', null, null], cursorKey('←', 'left', 'ArrowLeft')),
+  key('KeyS', ['S', null, null], cursorKey('↓', 'down', 'ArrowDown')),
+  key('KeyD', ['D', null, null], cursorKey('→', 'right', 'ArrowRight')),
   key('KeyF', ['F', null, null]),
   key('KeyG', ['G', null, null]),
   key('KeyH', ['H', null, null]),

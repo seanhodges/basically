@@ -21,6 +21,11 @@ const layout = pmd85KeyboardLayout;
 const keys = [...layout.rows.flat(), ...(layout.functionKeys ?? [])];
 /** Every key that drives the matrix; template spacers emit nothing. */
 const driving = keys.filter((k) => k.emits.length > 0);
+/** A key's own tokens plus any its legends press in place of them. */
+const allTokens = (key: KeyDef): string[] => [
+  ...key.emits,
+  ...key.labels.flatMap((l) => l?.emits ?? []),
+];
 
 const rom = new Uint8Array(
   readFileSync(join(__dirname, '../../../public/roms/pmd85.rom')),
@@ -172,13 +177,40 @@ function insertOn(key: KeyDef, layerId: string): string | null {
 }
 
 describe('pmd85 keyboard layout', () => {
+  it('offers the three cursor keys the machine has, and no fourth', () => {
+    // The Monitor's key-code table gives the cell below |<- no code in either
+    // shift state, so there is no down key to put on S.
+    const cursorIdx = layout.layers.findIndex((l) => l.id === 'cursor');
+    const legends = new Map<string, KeyDef>();
+    for (const key of layout.rows.flat()) {
+      const text = key.labels[cursorIdx]?.text;
+      if (text) legends.set(text, key);
+    }
+    expect([...legends.keys()].sort()).toEqual(['←', '↑', '→']);
+    expect(legends.get('←')!.labels[cursorIdx]!.emits).toEqual(['ArrowLeft']);
+    expect(legends.get('↑')!.labels[cursorIdx]!.emits).toEqual(['ArrowUp']);
+    expect(legends.get('→')!.labels[cursorIdx]!.emits).toEqual(['ArrowRight']);
+  });
+
+  it('labels DEL as the delete key it presses, not as a backspace', () => {
+    // The machine has no backspace at all - the Monitor sends 0x08 from `←`,
+    // which is CURSOR mode's left arrow - so this cap must not borrow a `⌫`.
+    const del = layout.rows.flat().find((k) => k.id === 'Del')!;
+    expect(del.emits).toEqual(['Del']);
+    expect(del.labels[0]?.text).toBe('DEL');
+    expect(resolveEditorAction(layout, del, 'base')).toEqual({
+      action: 'delete',
+    });
+  });
+
   it('emits only tokens the emulator setKey accepts', () => {
     // The layout and `emulator/keyboard.ts` are two halves of one vocabulary: a
     // key emitting a token the matrix does not know presses nothing at all, and
     // the failure is silent.
     const known = new Set(PMD85_KEY_TOKENS);
     for (const key of driving) {
-      for (const token of key.emits) {
+      // Including the CURSOR legends' own tokens, which bypass `emits`.
+      for (const token of allTokens(key)) {
         expect(known.has(token), `${key.id} emits unknown "${token}"`).toBe(
           true,
         );
@@ -192,7 +224,7 @@ describe('pmd85 keyboard layout', () => {
     // block, STOP and the symbols BASIC-G has no use for are typed on the host
     // instead of taking a keycap. A token reachable by neither route is a key
     // of the real machine this IDE cannot press at all.
-    const emitted = new Set(driving.flatMap((k) => k.emits));
+    const emitted = new Set(driving.flatMap(allTokens));
     const fromHost = new Set(
       HOST_CODES.map((code) => tokenForHostCode(code)).filter(
         (t): t is string => t !== null,
@@ -280,12 +312,12 @@ describe('pmd85 keyboard layout', () => {
     expect(legend('KeyQ', 1)).toBe('q');
   });
 
-  it('offers only base and SHIFT layers, and no graphics palette', () => {
+  it('offers base, SHIFT and CURSOR layers, and no graphics palette', () => {
     // The machine has no block graphics at all - see charset.ts - so it must
     // stay out of e2e/paletteMachines.ts, which graphicsPalette.test.ts pins to
     // the dialects that declare a palette.
-    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift']);
-    expect(layout.editorModes).toBeUndefined();
+    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift', 'cursor']);
+    expect(layout.editorModes?.map((m) => m.id)).toEqual(['abc', 'cursor']);
     expect(layout.graphicsPalette).toBeUndefined();
   });
 

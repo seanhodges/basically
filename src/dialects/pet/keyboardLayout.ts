@@ -27,13 +27,15 @@ import { C64_SHIFT_GRAPHICS } from '../commodore64/graphics';
  * Every key `emits` a PET matrix token (see `../../emulator/pet/keyboard.ts`);
  * the punctuation keys use the PET's direct-key tokens (`,` `.` `/` `"`) rather
  * than shifted digits, since the graphics keyboard has dedicated keys for them.
- * RUN/STOP, the cursor keys and the numeric-pad duplicates are dropped from the
- * on-screen keyboard; the ten digit keys stand in for the pad.
+ * RUN/STOP and the numeric-pad duplicates are dropped from the on-screen
+ * keyboard; the ten digit keys stand in for the pad. The two CRSR keys have no
+ * keycaps of their own - there is no room - so they are the CURSOR mode's ↑←↓→
+ * overlay on the WASD keys instead.
  */
 
 /**
  * A key: base label and optional shifted label. Label tuple order matches
- * `layers` below: [base, shift].
+ * `layers` below: [base, shift, cursor].
  */
 function key(
   id: string,
@@ -45,14 +47,38 @@ function key(
   const labels: (KeyLabel | null)[] = [
     { text: base },
     shift ? { text: shift } : null,
+    null, // CURSOR layer: only the four WASD keys populate this.
   ];
   return { id, spanX, emits: [emit], labels };
 }
 
 const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
 
-/** A bottom-row / strip key with only a main label (no shift). */
-const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [main, null];
+/**
+ * A letter key that also carries a CURSOR-layer arrow. The legend moves the
+ * editor caret and, on the machine, presses the CRSR key itself: the PET reads
+ * up and left as SHIFT over the two it has, which the machine folds in behind
+ * these token names.
+ */
+const cursorLetter = (
+  l: string,
+  arrow: string,
+  action: 'left' | 'right' | 'up' | 'down',
+  token: string,
+  shift?: string,
+): KeyDef => {
+  const def = letter(l, shift);
+  return {
+    ...def,
+    labels: [
+      ...def.labels.slice(0, 2),
+      { text: arrow, editor: { action }, emits: [token] },
+    ],
+  };
+};
+
+/** A bottom-row / strip key with only a main label (no shift, no cursor). */
+const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [main, null, null];
 
 // Numeric row: the graphics keyboard's pad digits, with the PET's top-row
 // punctuation offered as SHIFT editor inserts (! " # $ % & ' ( )).
@@ -71,7 +97,7 @@ const numberRow = [
 
 const qwertyRow = [
   letter('Q'),
-  letter('W'),
+  cursorLetter('W', '↑', 'up', 'CursorUp'),
   letter('E'),
   letter('R'),
   letter('T'),
@@ -84,9 +110,9 @@ const qwertyRow = [
 
 // SHIFT legends on the home row expose the common operators as editor inserts.
 const homeRow = [
-  letter('A', '+'),
-  letter('S', '-'),
-  letter('D', '*'),
+  cursorLetter('A', '←', 'left', 'CursorLeft', '+'),
+  cursorLetter('S', '↓', 'down', 'CursorDown', '-'),
+  cursorLetter('D', '→', 'right', 'CursorRight', '*'),
   letter('F', '/'),
   letter('G', '='),
   letter('H', ':'),
@@ -172,9 +198,16 @@ export const petKeyboardLayout: KeyboardLayout = {
       activeWhen: ['shift'],
       editorInsertStyle: 'char',
     },
+    {
+      id: 'cursor',
+      name: 'CURSOR',
+      position: 'br',
+      activeWhen: [],
+    },
   ],
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'base' },
+    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
     // GRAPHICS shows the palette; it pins no layer, so SHIFT keeps its ordinary
     // meaning while the palette is open.
     { id: 'graphics', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },

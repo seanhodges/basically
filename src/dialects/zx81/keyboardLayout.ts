@@ -22,9 +22,11 @@ import { ZX81_GRAPHICS } from './graphics';
  * would be illegible at keycap size, so the GRAPHICS mode shows them as a
  * palette instead (see ./graphics).
  *
- * Per the template, the dedicated cursor/EDIT/RUBOUT keys and the number-row
- * arrow legends are dropped (the editor handles cursor placement by touch); a
- * single quote and backspace key live on the common bottom row instead.
+ * Per the template, the dedicated EDIT/RUBOUT keys are dropped; a single quote
+ * and backspace key live on the common bottom row instead. The number row keeps
+ * its SHIFT-layer arrow legends, which is where the machine prints them, and
+ * CURSOR mode puts the same four keys on WASD - the legends there press the
+ * SHIFT + 5/6/7/8 pair the real keyboard sends.
  */
 
 // Label tuple order matches `layers` below: [main, shift, keyword, function].
@@ -60,7 +62,27 @@ function key(token: string, [main, shift, keyword, fn]: Legends): KeyDef {
     id: token,
     spanX: 4,
     emits: [token],
-    labels: [lbl(main), lbl(shift), lbl(keyword), lbl(fn)],
+    labels: [lbl(main), lbl(shift), lbl(keyword), lbl(fn), null],
+  };
+}
+
+/**
+ * A key that also carries a CURSOR-layer arrow. The machine has no arrow keys:
+ * its cursor is SHIFT over 5/6/7/8, so the legend presses that pair rather
+ * than the letter's own cell, exactly as the real keyboard would.
+ */
+function withCursor(
+  def: KeyDef,
+  arrow: string,
+  action: 'left' | 'right' | 'up' | 'down',
+  digit: string,
+): KeyDef {
+  return {
+    ...def,
+    labels: [
+      ...def.labels.slice(0, 4),
+      { text: arrow, editor: { action }, emits: ['Shift', digit] },
+    ],
   };
 }
 
@@ -79,7 +101,12 @@ const numberRow = [
 
 const qwertyRow = [
   key('KeyQ', ['Q', '""', 'PLOT', 'SIN']),
-  key('KeyW', ['W', word('OR'), 'UNPLOT', 'COS']),
+  withCursor(
+    key('KeyW', ['W', word('OR'), 'UNPLOT', 'COS']),
+    '↑',
+    'up',
+    'Digit7',
+  ),
   key('KeyE', ['E', word('STEP'), 'REM', 'TAN']),
   key('KeyR', ['R', '<=', 'RUN', 'INT']),
   key('KeyT', ['T', '<>', 'RAND', 'RND']),
@@ -91,9 +118,24 @@ const qwertyRow = [
 ];
 
 const homeRow = [
-  key('KeyA', ['A', word('STOP'), 'NEW', 'ARCSIN']),
-  key('KeyS', ['S', word('LPRINT'), 'SAVE', 'ARCCOS']),
-  key('KeyD', ['D', word('SLOW'), 'DIM', 'ARCTAN']),
+  withCursor(
+    key('KeyA', ['A', word('STOP'), 'NEW', 'ARCSIN']),
+    '←',
+    'left',
+    'Digit5',
+  ),
+  withCursor(
+    key('KeyS', ['S', word('LPRINT'), 'SAVE', 'ARCCOS']),
+    '↓',
+    'down',
+    'Digit6',
+  ),
+  withCursor(
+    key('KeyD', ['D', word('SLOW'), 'DIM', 'ARCTAN']),
+    '→',
+    'right',
+    'Digit8',
+  ),
   key('KeyF', ['F', word('FAST'), 'FOR', 'SGN']),
   key('KeyG', ['G', word('LLIST'), 'GOTO', 'ABS']),
   key('KeyH', ['H', '**', 'GOSUB', 'SQR']),
@@ -186,9 +228,16 @@ export const zx81KeyboardLayout: KeyboardLayout = {
       activeWhen: [],
       editorInsertStyle: 'word',
     },
+    {
+      id: 'cursor',
+      name: 'CURSOR',
+      position: 'br',
+      activeWhen: [],
+    },
   ],
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'main' },
+    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
     { id: 'keyword', name: 'KEYWORD', layer: 'keyword' },
     { id: 'function', name: 'FUNCTION', layer: 'function' },
     // The graphics have no key layer of their own; the mode shows the palette

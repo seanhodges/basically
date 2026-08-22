@@ -38,9 +38,12 @@ import { GRID_COLUMNS, bottomRow } from '../../keyboard/templateRows';
  *    selects their second bank, so it belongs with them rather than on a
  *    typing band.
  *
+ * The editing block's three cursor keys are the CURSOR mode's ← ↑ → overlay on
+ * the A/W/D keys; there is no fourth, so S keeps only its letter.
+ *
  * What is left over is reached from the host keyboard instead of a keycap: the
- * editing block (INS, RCL, END, the cursor keys, both tab keys, C-D, CLR and
- * the numeric ENTER), STOP, and the three symbol keys BASIC-G has no use for
+ * rest of the editing block (INS, RCL, END, both tab keys, C-D, CLR and the
+ * numeric ENTER), STOP, and the three symbol keys BASIC-G has no use for
  * (`@`, `]`, `}`). `emulator/keyboard.ts` maps each to the `KeyboardEvent.code`
  * a browser sends, and the layout test checks that union rather than the layout
  * alone, so a key reachable by neither route fails.
@@ -57,6 +60,27 @@ function key(token: string, main: string, shift: string): KeyDef {
     spanX: 4,
     emits: [token],
     labels: [{ text: main }, { text: shift }],
+  };
+}
+
+/**
+ * A key that also carries a CURSOR-layer arrow. The PMD 85's editing block has
+ * three cursor keys and no fourth: the Monitor's key-code table gives the cell
+ * below `|<-` no code at all, and the two beside it are halves of the wide
+ * ENTER. So S carries no arrow, and the overlay is ← ↑ → only.
+ */
+function withCursor(
+  def: KeyDef,
+  arrow: string,
+  action: 'left' | 'right' | 'up',
+  token: string,
+): KeyDef {
+  return {
+    ...def,
+    labels: [
+      ...def.labels,
+      { text: arrow, editor: { action }, emits: [token] },
+    ],
   };
 }
 
@@ -78,7 +102,7 @@ const numberRow: KeyDef[] = [
 
 const qwertzRow: KeyDef[] = [
   key('KeyQ', 'Q', 'q'),
-  key('KeyW', 'W', 'w'),
+  withCursor(key('KeyW', 'W', 'w'), '↑', 'up', 'ArrowUp'),
   key('KeyE', 'E', 'e'),
   key('KeyR', 'R', 'r'),
   key('KeyT', 'T', 't'),
@@ -90,9 +114,9 @@ const qwertzRow: KeyDef[] = [
 ];
 
 const homeRow: KeyDef[] = [
-  key('KeyA', 'A', 'a'),
+  withCursor(key('KeyA', 'A', 'a'), '←', 'left', 'ArrowLeft'),
   key('KeyS', 'S', 's'),
-  key('KeyD', 'D', 'd'),
+  withCursor(key('KeyD', 'D', 'd'), '→', 'right', 'ArrowRight'),
   key('KeyF', 'F', 'f'),
   key('KeyG', 'G', 'g'),
   key('KeyH', 'H', 'h'),
@@ -103,16 +127,16 @@ const homeRow: KeyDef[] = [
 ];
 
 /**
- * DEL is the machine's delete-character key rather than a destructive
- * backspace - the Monitor sends 0x08 for that, from the `←` key - but the
- * editor wants the ordinary thing from a `⌫` legend, so its editor action
- * overrides the layer default.
+ * DEL takes the character the cursor is on. The machine has no backspace key at
+ * all: the Monitor sends 0x08 for that, from the `←` key, which is CURSOR mode's
+ * left arrow. So this keycap carries the machine's own legend and deletes
+ * forwards on both surfaces - move the cursor back, then delete.
  */
 const delKey: KeyDef = {
   id: 'Del',
   spanX: 4,
   emits: ['Del'],
-  labels: [{ text: '⌫', editor: { action: 'backspace' } }, null],
+  labels: [{ text: 'DEL', editor: { action: 'delete' } }, null],
 };
 
 const enterKey: KeyDef = {
@@ -222,6 +246,16 @@ export const pmd85KeyboardLayout: KeyboardLayout = {
       activeWhen: ['shift'],
       editorInsertStyle: 'char',
     },
+    {
+      id: 'cursor',
+      name: 'CURSOR',
+      position: 'br',
+      activeWhen: [],
+    },
+  ],
+  editorModes: [
+    { id: 'abc', name: 'ABC', layer: 'base' },
+    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
   ],
   modifiers: [{ id: 'shift', emits: ['Shift'], sticky: true, lockable: true }],
   rows,

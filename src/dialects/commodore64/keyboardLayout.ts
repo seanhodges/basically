@@ -24,8 +24,11 @@ import { C64_COMMODORE_GRAPHICS, C64_SHIFT_GRAPHICS } from './graphics';
  *
  * The four physical function keys yield eight values (f2/f4/f6/f8 are SHIFT of
  * the odd keys); all eight are shown as separate keys in the top strip, behind
- * the strip's mode/function toggle. RUN/STOP, RESTORE and the cursor keys are
- * dropped. Each key `emits` a VIC-II button name (see c64Machine.ts).
+ * the strip's mode/function toggle. RUN/STOP and RESTORE are dropped.
+ *
+ * The two CRSR keys have no keycaps of their own - the bottom row is full - so
+ * they are the CURSOR mode's ↑←↓→ overlay on the WASD keys instead. Each key
+ * `emits` a VIC-II button name (see c64Machine.ts).
  */
 
 /**
@@ -43,6 +46,7 @@ function key(
     { text: base },
     shift ? { text: shift } : null,
     null, // SYM layer: only the symbol-hosting number keys populate this.
+    null, // CURSOR layer: only the four WASD keys populate this.
   ];
   return { id, spanX, emits: [emit], labels };
 }
@@ -63,14 +67,43 @@ function symbolKey(
     { text: base },
     { text: shift },
     { text: symChar },
+    null,
   ];
   return { id, spanX: 4, emits: [id], labels };
 }
 
 const letter = (l: string, shift?: string): KeyDef => key(l, l, l, shift);
 
+/**
+ * A letter key that also carries a CURSOR-layer arrow. The legend moves the
+ * editor caret and, on the machine, presses the CRSR key itself: the C64 reads
+ * up and left as SHIFT over the two it has, which the machine folds in behind
+ * these token names.
+ */
+const cursorLetter = (
+  l: string,
+  arrow: string,
+  action: 'left' | 'right' | 'up' | 'down',
+  token: string,
+  shift?: string,
+): KeyDef => {
+  const def = letter(l, shift);
+  return {
+    ...def,
+    labels: [
+      ...def.labels.slice(0, 3),
+      { text: arrow, editor: { action }, emits: [token] },
+    ],
+  };
+};
+
 /** A bottom-row / strip key with only a main label (no shift, no SYM). */
-const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [main, null, null];
+const plainLabels = (main: KeyLabel): (KeyLabel | null)[] => [
+  main,
+  null,
+  null,
+  null,
+];
 
 // Keys 1-6 double as the SYM layer's + - £ @ * ↑ (in physical keyboard order);
 // those six keys' block graphics live in the palette, under their own keycaps.
@@ -89,7 +122,7 @@ const numberRow = [
 
 const qwertyRow = [
   letter('Q'),
-  letter('W'),
+  cursorLetter('W', '↑', 'up', 'CursorUp'),
   letter('E'),
   letter('R'),
   letter('T'),
@@ -101,9 +134,9 @@ const qwertyRow = [
 ];
 
 const homeRow = [
-  letter('A', '+'),
-  letter('S', '-'),
-  letter('D', '*'),
+  cursorLetter('A', '←', 'left', 'CursorLeft', '+'),
+  cursorLetter('S', '↓', 'down', 'CursorDown', '-'),
+  cursorLetter('D', '→', 'right', 'CursorRight', '*'),
   letter('F', '/'),
   letter('G', '='),
   letter('H', ':'),
@@ -224,10 +257,18 @@ export const c64KeyboardLayout: KeyboardLayout = {
       activeWhen: [],
       editorInsertStyle: 'char',
     },
+    // Bottom-right: SHIFT and SYM already hold the two top corners.
+    {
+      id: 'cursor',
+      name: 'CURSOR',
+      position: 'br',
+      activeWhen: [],
+    },
   ],
   editorModes: [
     { id: 'abc', name: 'ABC', layer: 'base' },
     { id: 'sym', name: 'SYM', layer: 'sym' },
+    { id: 'cursor', name: 'CURSOR', layer: 'cursor' },
     // GRAPHICS shows the palette; it pins no layer, so SHIFT keeps its ordinary
     // meaning while the palette is open.
     { id: 'graphics', name: 'GRAPHICS', layer: 'base', palette: 'graphics' },

@@ -20,11 +20,15 @@ describe('pet keyboard layout', () => {
     });
   });
 
-  it('offers ABC and GRAPHICS modes and has no Commodore key', () => {
-    expect(layout.editorModes?.map((m) => m.id)).toEqual(['abc', 'graphics']);
+  it('offers ABC, CURSOR and GRAPHICS modes and has no Commodore key', () => {
+    expect(layout.editorModes?.map((m) => m.id)).toEqual([
+      'abc',
+      'cursor',
+      'graphics',
+    ]);
     const graphics = layout.editorModes?.find((m) => m.id === 'graphics');
     expect(graphics?.palette).toBe('graphics');
-    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift']);
+    expect(layout.layers.map((l) => l.id)).toEqual(['base', 'shift', 'cursor']);
     // The graphics keyboard has no Commodore key or modifier - only SHIFT.
     expect(layout.modifiers.map((m) => m.id)).toEqual(['shift']);
     expect(allKeys.some((k) => k.id === 'Commodore')).toBe(false);

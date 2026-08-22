@@ -53,6 +53,20 @@ test('the on-screen keyboard toggles, types, and follows a sliding pointer', asy
   await keyJ.click();
   await expect(page.locator(EDITOR)).toContainText('J');
 
+  // CURSOR mode: the WASD keys stop typing letters and move the caret instead.
+  // The mode bar is a real radiogroup in the strip, so only a browser shows
+  // that selecting it actually re-targets the keycaps.
+  await page
+    .getByRole('radiogroup', { name: 'Input mode' })
+    .getByRole('radio', { name: 'CURSOR' })
+    .click();
+  await page.locator('[data-keyid="KeyA"]').click(); // ← under CURSOR
+  await page.locator('[data-keyid="KeyD"]').click(); // → under CURSOR
+  // Neither typed its own letter, so the text is unchanged - and the caret is
+  // back where it started, so the next key appends rather than inserting.
+  await expect(page.locator(EDITOR)).toContainText('HJ');
+  await expect(page.locator(EDITOR)).not.toContainText('A');
+
   // Advancing to the gamepad state clears the keyboard - and with the editor
   // focused the gamepad can't show either, so the overlay goes away.
   await toggle.click();
@@ -99,6 +113,9 @@ test('the function-key strip is one row of keycaps that scrolls', async ({
   // src/dialects/pmd85/keyboardLayout.test.ts pins that it stays that way.
   await chooseTargetMachine(page, 'pmd85');
   await page.getByTestId('input-overlay-toggle').click();
+  // The PMD 85 now has input modes too (CURSOR), so the strip opens on the mode
+  // tabs and the function keys sit behind its toggle.
+  await page.getByRole('button', { name: 'Show function keys' }).click();
   const strip = page.locator('.vk-fn-row');
   await expect(strip.locator('.vk-key').first()).toBeVisible();
 
@@ -112,12 +129,20 @@ test('the function-key strip is one row of keycaps that scrolls', async ({
   // One row: every key shares a top edge, however many there are.
   expect(new Set(boxes.map((b) => b.top)).size).toBe(1);
 
-  // …and each is a keycap, to the pixel.
+  // …and each is a keycap, give or take the toggle's share of the row. A strip
+  // that also carries the mode/function toggle divides a little less width than
+  // the key rows do, so its keys come out just under a keycap - all of them
+  // equally, which is the part that matters. Compensating would push a board's
+  // worth of keys into scrolling on machines whose keys all fit.
   const keycap = await page
     .locator('.vk-row .vk-key:not(.vk-style-spacer)')
     .first()
     .evaluate((el) => el.getBoundingClientRect().width);
-  for (const b of boxes) expect(Math.abs(b.width - keycap)).toBeLessThan(1);
+  expect(new Set(boxes.map((b) => b.width)).size).toBe(1);
+  for (const b of boxes) {
+    expect(b.width).toBeLessThanOrEqual(keycap + 1);
+    expect(b.width).toBeGreaterThan(keycap * 0.85);
+  }
 
   // The keys past the edge are reachable rather than lost.
   const scroll = await strip.evaluate((el) => ({

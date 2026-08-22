@@ -3,6 +3,7 @@ import { atomKeyboardLayout } from './keyboardLayout';
 import { atomCharset } from './charset';
 import { matrixForToken } from '../../emulator/atom/keyboard';
 import { resolveEditorAction } from '../../keyboard/editorActions';
+import type { KeyDef } from '../../keyboard/layoutSchema';
 
 const layout = atomKeyboardLayout;
 const functionKeys = layout.functionKeys ?? [];
@@ -14,6 +15,16 @@ const realKeys = allKeys.filter((k) => k.emits.length > 0 || k.modifier);
 const editorLayerIds = [
   ...(layout.editorModes ?? []).map((m) => m.layer),
   'shifted',
+];
+
+/**
+ * Every token a key can press: its own, plus any a layer's legend names in
+ * place of them (the CURSOR arrows over WASD). A legend's tokens bypass
+ * `emits`, so a check that walked `emits` alone would not see them.
+ */
+const tokensOf = (key: KeyDef): string[] => [
+  ...key.emits,
+  ...key.labels.flatMap((l) => l?.emits ?? []),
 ];
 
 describe('atom keyboard layout', () => {
@@ -84,7 +95,7 @@ describe('atom keyboard layout', () => {
 
   it('every emitted token maps to the Atom key matrix', () => {
     for (const key of realKeys) {
-      for (const token of key.emits) {
+      for (const token of tokensOf(key)) {
         expect(matrixForToken(token), `${key.id} → ${token}`).toBeDefined();
       }
     }

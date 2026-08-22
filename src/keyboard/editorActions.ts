@@ -52,3 +52,22 @@ function resolveOnLayer(
 export function isRepeatable(action: EditorKeyAction): boolean {
   return 'action' in action && action.action !== 'newline';
 }
+
+/**
+ * The machine tokens a key presses on the given layer: the layer's legend may
+ * carry its own (a cursor legend over a letter key), otherwise the key's own.
+ * Pure data lookup, like {@link resolveEditorAction} - the tokens themselves
+ * are opaque to everything above the machine.
+ *
+ * No base-layer fallback: `key.emits` already is the unmodified meaning, so a
+ * layer that says nothing about tokens leaves them alone.
+ */
+export function resolveEmits(
+  layout: KeyboardLayout,
+  key: KeyDef,
+  layerId: string,
+): string[] {
+  const layerIdx = layout.layers.findIndex((l) => l.id === layerId);
+  const label = layerIdx >= 0 ? key.labels[layerIdx] : undefined;
+  return label?.emits ?? key.emits;
+}
